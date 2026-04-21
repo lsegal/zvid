@@ -1,4 +1,10 @@
-import { buildFallbackWaveform, createMediaId, type MediaItem, type Palette } from '../media'
+import {
+  buildFallbackWaveform,
+  createMediaId,
+  inferMediaKind,
+  type MediaItem,
+  type Palette,
+} from '../media'
 import type { MediaSelection, SaveMethod, SaveTarget, ExportRequest, ExportResult } from './contracts'
 import type { ServerMediaRef } from '../session'
 
@@ -9,6 +15,14 @@ type WebMediaRuntime = {
   FFmpeg: typeof import('@ffmpeg/ffmpeg').FFmpeg
   toBlobURL: typeof import('@ffmpeg/util').toBlobURL
   mediabunny: typeof import('mediabunny')
+}
+
+type MediaAnalysisOptions = {
+  id: string
+  name: string
+  previewUrl: string
+  palette: Palette
+  sourcePath?: string
 }
 
 let runtimePromise: Promise<WebMediaRuntime> | null = null
@@ -239,13 +253,7 @@ async function decodeAudioBufferFromUrl(
 
 async function analyzeInputMedia(
   input: import('mediabunny').Input,
-  options: {
-    id: string
-    name: string
-    previewUrl: string
-    palette: Palette
-    sourcePath?: string
-  },
+  options: MediaAnalysisOptions,
   runtime: WebMediaRuntime,
 ): Promise<MediaItem> {
   const { CanvasSink } = runtime.mediabunny
@@ -303,40 +311,172 @@ async function analyzeInputMedia(
   }
 }
 
+async function loadMediaElementMetadata(
+  url: string,
+  preferredKind: 'video' | 'audio',
+): Promise<{
+  kind: 'video' | 'audio'
+  durationSeconds: number
+  width?: number
+  height?: number
+} | null> {
+  return new Promise((resolve) => {
+    const element =
+      preferredKind === 'video' ? document.createElement('video') : document.createElement('audio')
+    let settled = false
+    let timeoutId = 0
+
+    const settle = (
+      result: {
+        kind: 'video' | 'audio'
+        durationSeconds: number
+        width?: number
+        height?: number
+      } | null,
+    ) => {
+      if (settled) {
+        return
+      }
+
+      settled = true
+      window.clearTimeout(timeoutId)
+      element.removeAttribute('src')
+      element.load()
+      element.removeEventListener('loadedmetadata', handleLoadedMetadata)
+      element.removeEventListener('error', handleFailure)
+      resolve(result)
+    }
+
+    const handleLoadedMetadata = () => {
+      const durationSeconds = Number.isFinite(element.duration) ? Math.max(0, element.duration) : 0
+      if (preferredKind === 'video' && element instanceof HTMLVideoElement) {
+        const hasVisibleVideo = element.videoWidth > 0 && element.videoHeight > 0
+        settle({
+          kind: hasVisibleVideo ? 'video' : 'audio',
+          durationSeconds,
+          width: hasVisibleVideo ? element.videoWidth : undefined,
+          height: hasVisibleVideo ? element.videoHeight : undefined,
+        })
+        return
+      }
+
+      settle({
+        kind: preferredKind,
+        durationSeconds,
+      })
+    }
+
+    const handleFailure = () => {
+      settle(null)
+    }
+
+    timeoutId = window.setTimeout(handleFailure, 5000)
+    element.preload = 'metadata'
+    element.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true })
+    element.addEventListener('error', handleFailure, { once: true })
+    element.src = url
+  })
+}
+
+async function createMetadataFallbackItem(options: MediaAnalysisOptions): Promise<MediaItem> {
+  const guessedKind = inferMediaKind(options.name)
+  const candidates =
+    guessedKind === 'video'
+      ? (['video', 'audio'] as const)
+      : (['audio', 'video'] as const)
+
+  for (const candidate of candidates) {
+    const metadata = await loadMediaElementMetadata(options.previewUrl, candidate)
+    if (!metadata) {
+      continue
+    }
+
+    return {
+      id: options.id,
+      name: options.name,
+      kind: metadata.kind,
+      durationSeconds: metadata.durationSeconds,
+      width: metadata.width,
+      height: metadata.height,
+      hasAudio: metadata.kind === 'audio',
+      hasVideo: metadata.kind === 'video',
+      color: options.palette.color,
+      accent: options.palette.accent,
+      waveform: buildFallbackWaveform(options.name),
+      previewUrl: options.previewUrl,
+      sourcePath: options.sourcePath,
+    }
+  }
+
+  return {
+    id: options.id,
+    name: options.name,
+    kind: guessedKind,
+    durationSeconds: 0,
+    hasAudio: guessedKind === 'audio',
+    hasVideo: guessedKind === 'video',
+    color: options.palette.color,
+    accent: options.palette.accent,
+    waveform: buildFallbackWaveform(options.name),
+    previewUrl: options.previewUrl,
+    sourcePath: options.sourcePath,
+  }
+}
+
 async function analyzeLocalMediaFile(file: File, palette: Palette, runtime: WebMediaRuntime) {
   const previewUrl = URL.createObjectURL(file)
+  const options: MediaAnalysisOptions = {
+    id: createMediaId(file),
+    name: file.name,
+    previewUrl,
+    palette,
+  }
   const { ALL_FORMATS, BlobSource, Input } = runtime.mediabunny
-  return analyzeInputMedia(
-    new Input({
-      formats: ALL_FORMATS,
-      source: new BlobSource(file),
-    }),
-    {
-      id: createMediaId(file),
+
+  try {
+    return await analyzeInputMedia(
+      new Input({
+        formats: ALL_FORMATS,
+        source: new BlobSource(file),
+      }),
+      options,
+      runtime,
+    )
+  } catch (error) {
+    console.warn('[zvid] Falling back to HTML media metadata for local file analysis.', {
       name: file.name,
-      previewUrl,
-      palette,
-    },
-    runtime,
-  )
+      error,
+    })
+    return createMetadataFallbackItem(options)
+  }
 }
 
 async function analyzeServerMediaRef(ref: ServerMediaRef, palette: Palette, runtime: WebMediaRuntime) {
   const { ALL_FORMATS, Input, UrlSource } = runtime.mediabunny
-  return analyzeInputMedia(
-    new Input({
-      formats: ALL_FORMATS,
-      source: new UrlSource(ref.url),
-    }),
-    {
-      id: ref.id,
-      name: ref.name,
-      previewUrl: ref.url,
-      palette,
-      sourcePath: ref.path,
-    },
-    runtime,
-  )
+  const options: MediaAnalysisOptions = {
+    id: ref.id,
+    name: ref.name,
+    previewUrl: ref.url,
+    palette,
+    sourcePath: ref.path,
+  }
+
+  try {
+    return await analyzeInputMedia(
+      new Input({
+        formats: ALL_FORMATS,
+        source: new UrlSource(ref.url),
+      }),
+      options,
+      runtime,
+    )
+  } catch (error) {
+    console.warn('[zvid] Falling back to HTML media metadata for session media analysis.', {
+      path: ref.path,
+      error,
+    })
+    return createMetadataFallbackItem(options)
+  }
 }
 
 export async function analyzeMediaSelection(selection: MediaSelection, palettes: Palette[], startIndex: number) {
