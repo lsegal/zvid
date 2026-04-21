@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useReducer, useRef, useState } from 'react'
 import { CompositionPlayer, type CompositionPlayerHandle } from './CompositionPlayer'
 import { getHarness, type SaveTarget } from './harness'
 import type { MediaItem, MediaKind, Palette } from './media'
@@ -26,8 +26,22 @@ type SourceTrack = {
   recordingPaths: string[]
 }
 
+type SourceSpan = {
+  id: string
+  sourceTrackId: string
+  label: string
+  mediaPath: string
+  mediaId?: string
+  startQ: number
+  durationSeconds: number
+  trimStartSeconds: number
+  tint: string
+  accent: string
+}
+
 type ArrangementClip = {
   id: string
+  sourceSpanId: string
   sourceTrackId: string
   laneId: string
   label: string
@@ -36,6 +50,7 @@ type ArrangementClip = {
   startQ: number
   durationSeconds: number
   trimStartSeconds: number
+  sourceOffsetSeconds: number
   tint: string
   accent: string
   selected?: boolean
@@ -68,11 +83,43 @@ type FxDevice = {
   parameters: FxParameter[]
 }
 
-type DragState = {
-  clipId: string
-  pointerStart: number
-  originQ: number
+type TimelineSelection = {
+  id: string
+  laneId: string
+  startQ: number
+  durationQ: number
 }
+
+type DragState =
+  | {
+      kind: 'move'
+      pointerId: number
+      clipId: string
+      pointerStartX: number
+      originStartQ: number
+    }
+  | {
+      kind: 'resize-start'
+      pointerId: number
+      clipId: string
+      pointerStartX: number
+      originStartQ: number
+      originDurationQ: number
+    }
+  | {
+      kind: 'resize-end'
+      pointerId: number
+      clipId: string
+      pointerStartX: number
+      originStartQ: number
+      originDurationQ: number
+    }
+  | {
+      kind: 'selection'
+      pointerId: number
+      laneId: string
+      anchorQ: number
+    }
 
 type TimelineDragState = {
   pointerId: number
@@ -88,6 +135,58 @@ type ExportState = {
   detail: string
 }
 
+type TimelineViewport = {
+  scrollLeft: number
+  clientWidth: number
+}
+
+type ProjectState = {
+  timelineMode: TimelineMode
+  signatureId: string
+  snapMode: SnapMode
+  bpm: number
+  fps: number
+  canvasWidth: number
+  canvasHeight: number
+  zoom: number
+  sessionName: string | null
+  mediaItems: MediaItem[]
+  lanes: Lane[]
+  sourceTracks: SourceTrack[]
+  sourceSpans: SourceSpan[]
+  clips: ArrangementClip[]
+  effects: SessionEffect[]
+  masterAudioId?: string
+}
+
+type ProjectHistoryEntry = {
+  snapshot: ProjectState
+  label: string
+}
+
+type ProjectHistoryState = {
+  past: ProjectHistoryEntry[]
+  present: ProjectState
+  future: ProjectHistoryEntry[]
+}
+
+type ProjectHistoryAction =
+  | {
+      type: 'commit'
+      label: string
+      updater: (current: ProjectState) => ProjectState
+    }
+  | {
+      type: 'transient'
+      updater: (current: ProjectState) => ProjectState
+    }
+  | {
+      type: 'undo'
+    }
+  | {
+      type: 'redo'
+    }
+
 const LABEL_WIDTH = 240
 const BASE_QUARTER_PX = 28
 const ZOOM_MIN = 0.65
@@ -95,6 +194,8 @@ const ZOOM_MAX = 1.8
 const TIMELINE_DRAG_ZOOM_SPEED = 0.004
 const TIMELINE_DRAG_ZOOM_THRESHOLD_PX = 25
 const TIMELINE_SCRUB_AUDIO_TAIL_MS = 50
+const RANDOM_SELECTION_BAR_INCREMENT = 0.25
+const RANDOM_SELECTION_MAX_BARS = 2
 const SIGNATURES: TimeSignature[] = [
   { id: '4/4', numerator: 4, denominator: 4 },
   { id: '3/4', numerator: 3, denominator: 4 },
@@ -113,6 +214,24 @@ const DEFAULT_LANES: Lane[] = [
   { id: '5', name: 'Layer 2', colorIndex: -1 },
   { id: '6', name: 'Layer 3', colorIndex: -1 },
 ]
+const INITIAL_PROJECT_STATE: ProjectState = {
+  timelineMode: 'musical',
+  signatureId: '4/4',
+  snapMode: 'beat',
+  bpm: 120,
+  fps: 30,
+  canvasWidth: 1080,
+  canvasHeight: 1920,
+  zoom: 1,
+  sessionName: null,
+  mediaItems: [],
+  lanes: DEFAULT_LANES,
+  sourceTracks: [],
+  sourceSpans: [],
+  clips: [],
+  effects: [],
+  masterAudioId: undefined,
+}
 const PALETTE: Palette[] = [
   { color: '#3d4052', accent: '#7ca1ff' },
   { color: '#444351', accent: '#ff6f9d' },
@@ -224,6 +343,87 @@ function getSnapUnit(mode: SnapMode, signature: TimeSignature) {
   }
 }
 
+function getClipDurationQ(clip: Pick<ArrangementClip | SourceSpan, 'durationSeconds'>, bpm: number) {
+  return secondsToQuarters(clip.durationSeconds, bpm)
+}
+
+function getClipEndQ(clip: Pick<ArrangementClip | SourceSpan, 'startQ' | 'durationSeconds'>, bpm: number) {
+  return clip.startQ + getClipDurationQ(clip, bpm)
+}
+
+function withWindowTiming(clip: ArrangementClip, startQ: number, durationQ: number, bpm: number) {
+  return {
+    ...clip,
+    startQ,
+    durationSeconds: quartersToSeconds(durationQ, bpm),
+    trimStartSeconds: quartersToSeconds(startQ, bpm) + clip.sourceOffsetSeconds,
+  }
+}
+
+function resolveClipOverlapPreview(
+  clips: ArrangementClip[],
+  activeClipId: string,
+  startQ: number,
+  durationQ: number,
+  bpm: number,
+) {
+  const epsilon = 0.0001
+  const targetClip = clips.find((clip) => clip.id === activeClipId)
+  if (!targetClip) {
+    return clips
+  }
+
+  const activeClip = withWindowTiming(targetClip, startQ, durationQ, bpm)
+  const activeEndQ = getClipEndQ(activeClip, bpm)
+
+  return clips.flatMap<ArrangementClip>((clip) => {
+    if (clip.id === activeClip.id) {
+      return [activeClip]
+    }
+
+    if (clip.laneId !== activeClip.laneId) {
+      return [clip]
+    }
+
+    const clipEndQ = getClipEndQ(clip, bpm)
+    const overlapStartQ = Math.max(activeClip.startQ, clip.startQ)
+    const overlapEndQ = Math.min(activeEndQ, clipEndQ)
+    if (overlapEndQ - overlapStartQ <= epsilon) {
+      return [clip]
+    }
+
+    const leftDurationQ = Math.max(0, activeClip.startQ - clip.startQ)
+    const rightDurationQ = Math.max(0, clipEndQ - activeEndQ)
+
+    if (leftDurationQ <= epsilon && rightDurationQ <= epsilon) {
+      return []
+    }
+
+    if (leftDurationQ >= rightDurationQ && leftDurationQ > epsilon) {
+      return [withWindowTiming(clip, clip.startQ, leftDurationQ, bpm)]
+    }
+
+    if (rightDurationQ > epsilon) {
+      return [withWindowTiming(clip, activeEndQ, rightDurationQ, bpm)]
+    }
+
+    return []
+  })
+}
+
+function getSelectionEndQ(selection: TimelineSelection) {
+  return selection.startQ + selection.durationQ
+}
+
+function buildSelection(anchorQ: number, currentQ: number, minimumDurationQ: number) {
+  const startQ = Math.max(0, Math.min(anchorQ, currentQ))
+  const endQ = Math.max(anchorQ, currentQ, startQ + minimumDurationQ)
+  return {
+    startQ,
+    durationQ: Math.max(minimumDurationQ, endQ - startQ),
+  }
+}
+
 function buildProjectWaveform(clips: ArrangementClip[], totalQuarters: number, bpm: number, points: number) {
   return Array.from({ length: points }, (_, index) => {
     const quarter = (index / Math.max(1, points - 1)) * totalQuarters
@@ -252,6 +452,20 @@ function basename(path: string) {
   return parts[parts.length - 1] ?? path
 }
 
+function randomFloat() {
+  const values = new Uint32Array(1)
+  crypto.getRandomValues(values)
+  return values[0] / 0x1_0000_0000
+}
+
+function pickRandom<T>(items: readonly T[]) {
+  if (!items.length) {
+    return undefined
+  }
+
+  return items[Math.floor(randomFloat() * items.length)]
+}
+
 function normalizeMediaPath(value: string) {
   return value.replaceAll('/', '\\').toLowerCase()
 }
@@ -266,8 +480,106 @@ function logClient(event: string, payload?: unknown) {
 }
 
 function sanitizeFilenameSegment(value: string) {
-  const sanitized = value.replace(/[<>:"/\\|?*\u0000-\u001f]+/g, '-').trim()
+  const sanitized = Array.from(value, (character) => {
+    const code = character.charCodeAt(0)
+    if (code < 0x20 || '<>:"/\\|?*'.includes(character)) {
+      return '-'
+    }
+
+    return character
+  }).join('').trim()
   return sanitized || 'zvid-session'
+}
+
+function patchProjectState(current: ProjectState, patch: Partial<ProjectState>) {
+  let changed = false
+  const next = { ...current }
+
+  for (const [rawKey, value] of Object.entries(patch) as Array<
+    [keyof ProjectState, ProjectState[keyof ProjectState]]
+  >) {
+    if (Object.is(current[rawKey], value)) {
+      continue
+    }
+
+    changed = true
+    ;(next as ProjectState)[rawKey] = value as never
+  }
+
+  return changed ? next : current
+}
+
+function createProjectHistoryState(initial: ProjectState): ProjectHistoryState {
+  return {
+    past: [],
+    present: initial,
+    future: [],
+  }
+}
+
+function projectHistoryReducer(
+  state: ProjectHistoryState,
+  action: ProjectHistoryAction,
+): ProjectHistoryState {
+  switch (action.type) {
+    case 'commit': {
+      const next = action.updater(state.present)
+      if (next === state.present) {
+        return state
+      }
+
+      return {
+        past: [...state.past, { snapshot: state.present, label: action.label }],
+        present: next,
+        future: [],
+      }
+    }
+
+    case 'transient': {
+      const next = action.updater(state.present)
+      if (next === state.present) {
+        return state
+      }
+
+      return {
+        ...state,
+        present: next,
+      }
+    }
+
+    case 'undo': {
+      const previousEntry = state.past[state.past.length - 1]
+      if (!previousEntry) {
+        return state
+      }
+
+      return {
+        past: state.past.slice(0, -1),
+        present: previousEntry.snapshot,
+        future: [{ snapshot: state.present, label: previousEntry.label }, ...state.future],
+      }
+    }
+
+    case 'redo': {
+      const nextEntry = state.future[0]
+      if (!nextEntry) {
+        return state
+      }
+
+      return {
+        past: [...state.past, { snapshot: state.present, label: nextEntry.label }],
+        present: nextEntry.snapshot,
+        future: state.future.slice(1),
+      }
+    }
+
+    default:
+      return state
+  }
+}
+
+function formatHistoryStatus(prefix: 'Undid' | 'Redid', label: string) {
+  return `${prefix}: ${label}.`
 }
 
 function findClipAtPlayhead(
@@ -322,24 +634,26 @@ function mapEffects(source: LvpSession['effects']) {
   }))
 }
 
-function chooseSessionClip(
-  clips: NonNullable<LvpSession['clips']>,
-  selection: NonNullable<LvpSession['selections']>[number],
+function chooseSourceSpanForWindow(
+  spans: SourceSpan[],
+  sourceTrackId: string,
+  startQ: number,
+  durationQ: number,
+  bpm: number,
 ) {
+  const endQ = startQ + durationQ
+  const sourceTrackSpans = spans.filter((span) => span.sourceTrackId === sourceTrackId)
   return (
-    clips.find((clip) => {
-      const clipEnd = clip.frameStart + Math.max(clip.frameCount, 1)
-      return selection.frameStart >= clip.frameStart && selection.frameStart < clipEnd
+    sourceTrackSpans.find((span) => {
+      const spanEndQ = span.startQ + getClipDurationQ(span, bpm)
+      return startQ >= span.startQ && startQ < spanEndQ
     }) ??
-    clips
-      .filter((clip) => clip.trackId === selection.trackId)
+    sourceTrackSpans
       .sort((left, right) => {
-        const leftEnd = left.frameStart + Math.max(left.frameCount, 1)
-        const rightEnd = right.frameStart + Math.max(right.frameCount, 1)
-        const leftOverlap =
-          Math.min(selection.frameEnd, leftEnd) - Math.max(selection.frameStart, left.frameStart)
-        const rightOverlap =
-          Math.min(selection.frameEnd, rightEnd) - Math.max(selection.frameStart, right.frameStart)
+        const leftEnd = left.startQ + getClipDurationQ(left, bpm)
+        const rightEnd = right.startQ + getClipDurationQ(right, bpm)
+        const leftOverlap = Math.min(endQ, leftEnd) - Math.max(startQ, left.startQ)
+        const rightOverlap = Math.min(endQ, rightEnd) - Math.max(startQ, right.startQ)
         return rightOverlap - leftOverlap
       })[0]
   )
@@ -361,36 +675,61 @@ function sessionToProject(session: LvpSession, mediaItems: MediaItem[]) {
   }))
   const nameByTrack = new Map(sourceTracks.map((track) => [track.id, track.name]))
 
+  const sourceSpans = (session.clips ?? []).map<SourceSpan>((clip) => {
+    const swatch = getSwatch(sourceTracks.find((track) => track.id === clip.trackId)?.colorIndex ?? 0)
+    const media = pickMediaByPath(mediaItems, clip.filePath)
+    return {
+      id: `source-${clip.id}`,
+      sourceTrackId: clip.trackId,
+      label: nameByTrack.get(clip.trackId) ?? clip.name ?? `Track ${clip.trackId}`,
+      mediaPath: clip.filePath,
+      mediaId: media?.id,
+      startQ: secondsToQuarters(clip.frameStart / fps, bpm),
+      durationSeconds: Math.max(1, clip.frameCount) / fps,
+      trimStartSeconds: Math.max(0, (clip.clipStart ?? 0) + (clip.frameOffset ?? 0)) / fps,
+      tint: swatch.color,
+      accent: swatch.accent,
+    }
+  })
+
   const arrangementClips: ArrangementClip[] = []
 
   for (const selection of session.selections ?? []) {
-    const sourceClip = chooseSessionClip(session.clips ?? [], selection)
-    if (!sourceClip) {
+    const selectionStartQ = secondsToQuarters(selection.frameStart / fps, bpm)
+    const selectionDurationQ = secondsToQuarters(
+      Math.max(1, selection.frameEnd - selection.frameStart) / fps,
+      bpm,
+    )
+    const sourceSpan = chooseSourceSpanForWindow(
+      sourceSpans,
+      selection.trackId,
+      selectionStartQ,
+      selectionDurationQ,
+      bpm,
+    )
+    if (!sourceSpan) {
       continue
     }
 
-    const swatch =
-      getSwatch(sourceTracks.find((track) => track.id === selection.trackId)?.colorIndex ?? 0)
-    const media = pickMediaByPath(mediaItems, sourceClip.filePath)
-    const trimStartFrames =
-      (sourceClip.clipStart ?? 0) +
-      (selection.frameStart - sourceClip.frameStart) +
-      (sourceClip.frameOffset ?? 0)
+    const sourceOffsetSeconds =
+      sourceSpan.trimStartSeconds - quartersToSeconds(sourceSpan.startQ, bpm)
     const startSeconds = selection.frameStart / fps
     const durationSeconds = Math.max(1, selection.frameEnd - selection.frameStart) / fps
 
     arrangementClips.push({
       id: `selection-${selection.id}`,
+      sourceSpanId: sourceSpan.id,
       sourceTrackId: selection.trackId,
       laneId: selection.mainTrackId,
-      label: nameByTrack.get(selection.trackId) ?? sourceClip.name ?? `Track ${selection.trackId}`,
-      mediaPath: sourceClip.filePath,
-      mediaId: media?.id,
-      startQ: secondsToQuarters(startSeconds, bpm),
+      label: nameByTrack.get(selection.trackId) ?? sourceSpan.label,
+      mediaPath: sourceSpan.mediaPath,
+      mediaId: sourceSpan.mediaId,
+      startQ: selectionStartQ,
       durationSeconds,
-      trimStartSeconds: Math.max(0, trimStartFrames) / fps,
-      tint: swatch.color,
-      accent: swatch.accent,
+      trimStartSeconds: startSeconds + sourceOffsetSeconds,
+      sourceOffsetSeconds,
+      tint: sourceSpan.tint,
+      accent: sourceSpan.accent,
       selected: selection.selected,
     })
   }
@@ -402,6 +741,7 @@ function sessionToProject(session: LvpSession, mediaItems: MediaItem[]) {
     canvasHeight: Math.max(320, session.timeline?.canvasHeight ?? 1920),
     lanes,
     sourceTracks,
+    sourceSpans,
     arrangementClips,
     effects: mapEffects(session.effects),
     displaySeconds: session.timeline?.displaySeconds ?? false,
@@ -428,23 +768,40 @@ function buildStandaloneProject(mediaItems: MediaItem[]) {
     colorIndex: index,
     recordingPaths: [item.name],
   }))
-  const arrangementClips = mediaItems.map<ArrangementClip>((item, index) => {
+  const sourceSpans = mediaItems.map<SourceSpan>((item, index) => {
     const swatch = getSwatch(index)
     return {
-      id: `import-clip-${item.id}`,
+      id: `source-span-${item.id}`,
       sourceTrackId: sourceTracks[index]?.id ?? `import-track-${index}`,
-      laneId: lanes[index % lanes.length]?.id ?? lanes[0].id,
       label: item.name.replace(/\.[^/.]+$/, ''),
       mediaPath: item.name,
       mediaId: item.id,
-      startQ: index * 4,
+      startQ: 0,
       durationSeconds: Math.max(1, item.durationSeconds),
       trimStartSeconds: 0,
       tint: swatch.color,
       accent: swatch.accent,
     }
   })
-  return { lanes, sourceTracks, arrangementClips, canvasWidth, canvasHeight }
+  const arrangementClips = mediaItems.map<ArrangementClip>((item, index) => {
+    const sourceSpan = sourceSpans[index]
+    return {
+      id: `import-clip-${item.id}`,
+      sourceSpanId: sourceSpan?.id ?? `source-span-${item.id}`,
+      sourceTrackId: sourceSpan?.sourceTrackId ?? sourceTracks[index]?.id ?? `import-track-${index}`,
+      laneId: lanes[index % lanes.length]?.id ?? lanes[0].id,
+      label: item.name.replace(/\.[^/.]+$/, ''),
+      mediaPath: item.name,
+      mediaId: item.id,
+      startQ: index * 4,
+      durationSeconds: Math.max(1, item.durationSeconds),
+      trimStartSeconds: index * quartersToSeconds(4, 120),
+      sourceOffsetSeconds: 0,
+      tint: sourceSpan?.tint ?? getSwatch(index).color,
+      accent: sourceSpan?.accent ?? getSwatch(index).accent,
+    }
+  })
+  return { lanes, sourceTracks, sourceSpans, arrangementClips, canvasWidth, canvasHeight }
 }
 
 function mapSessionEffectsToDevices(
@@ -478,22 +835,37 @@ function mapSessionEffectsToDevices(
 }
 
 function App() {
-  const [timelineMode, setTimelineMode] = useState<TimelineMode>('musical')
-  const [signatureId, setSignatureId] = useState('4/4')
-  const [snapMode, setSnapMode] = useState<SnapMode>('beat')
-  const [bpm, setBpm] = useState(120)
-  const [fps, setFps] = useState(30)
-  const [canvasWidth, setCanvasWidth] = useState(1080)
-  const [canvasHeight, setCanvasHeight] = useState(1920)
-  const [zoom, setZoom] = useState(1)
-  const [sessionName, setSessionName] = useState<string | null>(null)
-  const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
-  const [lanes, setLanes] = useState<Lane[]>(DEFAULT_LANES)
-  const [sourceTracks, setSourceTracks] = useState<SourceTrack[]>([])
-  const [clips, setClips] = useState<ArrangementClip[]>([])
-  const [effects, setEffects] = useState<SessionEffect[]>([])
-  const [masterAudioId, setMasterAudioId] = useState<string | undefined>()
+  const [projectHistory, dispatchProject] = useReducer(
+    projectHistoryReducer,
+    INITIAL_PROJECT_STATE,
+    createProjectHistoryState,
+  )
+  const {
+    timelineMode,
+    signatureId,
+    snapMode,
+    bpm,
+    fps,
+    canvasWidth,
+    canvasHeight,
+    zoom,
+    sessionName,
+    mediaItems,
+    lanes,
+    sourceTracks,
+    sourceSpans,
+    clips,
+    effects,
+    masterAudioId,
+  } = projectHistory.present
+  const canUndo = projectHistory.past.length > 0
+  const canRedo = projectHistory.future.length > 0
+  const undoLabel = projectHistory.past[projectHistory.past.length - 1]?.label
+  const redoLabel = projectHistory.future[0]?.label
+
+  const [dragPreviewClips, setDragPreviewClips] = useState<ArrangementClip[] | null>(null)
   const [selectedClipId, setSelectedClipId] = useState<string>()
+  const [pendingSelection, setPendingSelection] = useState<TimelineSelection | null>(null)
   const [selectedFxId, setSelectedFxId] = useState<string>()
   const [playheadQ, setPlayheadQ] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -502,6 +874,10 @@ function App() {
     phase: 'idle',
     progress: null,
     detail: '',
+  })
+  const [timelineViewport, setTimelineViewport] = useState<TimelineViewport>({
+    scrollLeft: 0,
+    clientWidth: 0,
   })
   const [status, setStatus] = useState(
     'Open a .lvp session file. The active harness will provide available file and media access.',
@@ -515,19 +891,41 @@ function App() {
   const timelineScrollRef = useRef<HTMLDivElement | null>(null)
   const timelineScrubAudioTimeoutRef = useRef<number | null>(null)
 
+  function commitProjectChange(label: string, updater: (current: ProjectState) => ProjectState) {
+    dispatchProject({ type: 'commit', label, updater })
+  }
+
+  function commitProjectPatch(label: string, patch: Partial<ProjectState>) {
+    commitProjectChange(label, (current) => patchProjectState(current, patch))
+  }
+
+  function applyTransientProjectPatch(patch: Partial<ProjectState>) {
+    dispatchProject({
+      type: 'transient',
+      updater: (current) => patchProjectState(current, patch),
+    })
+  }
+
   const signature =
     SIGNATURES.find((candidate) => candidate.id === signatureId) ?? SIGNATURES[0]
   const beatUnit = 4 / signature.denominator
   const barLength = signature.numerator * beatUnit
   const snapUnit = getSnapUnit(snapMode, signature)
   const quarterPx = BASE_QUARTER_PX * zoom
+  const timelineClips = dragPreviewClips ?? clips
 
   let totalQuarters = barLength * 12
-  for (const clip of clips) {
+  for (const clip of timelineClips) {
     totalQuarters = Math.max(
       totalQuarters,
-      clip.startQ + secondsToQuarters(clip.durationSeconds, bpm) + barLength,
+      clip.startQ + getClipDurationQ(clip, bpm) + barLength,
     )
+  }
+  for (const span of sourceSpans) {
+    totalQuarters = Math.max(totalQuarters, span.startQ + getClipDurationQ(span, bpm) + barLength)
+  }
+  if (pendingSelection) {
+    totalQuarters = Math.max(totalQuarters, getSelectionEndQ(pendingSelection) + barLength)
   }
 
   const timelineWidth = totalQuarters * quarterPx
@@ -537,12 +935,12 @@ function App() {
     backgroundSize: `${beatUnit * quarterPx}px 100%, ${barLength * quarterPx}px 100%`,
   }
   const selectedClip =
-    clips.find((clip) => clip.id === selectedClipId) ??
-    clips.find((clip) => clip.selected) ??
-    clips[0]
+    timelineClips.find((clip) => clip.id === selectedClipId) ??
+    timelineClips.find((clip) => clip.selected) ??
+    timelineClips[0]
   const selectedMedia = mediaItems.find((item) => item.id === selectedClip?.mediaId)
   const lanePriority = new Map(lanes.map((lane, index) => [lane.id, index]))
-  const playheadClip = findClipAtPlayhead(clips, playheadQ, bpm, lanePriority)
+  const playheadClip = findClipAtPlayhead(timelineClips, playheadQ, bpm, lanePriority)
   const previewClip = playheadClip ?? selectedClip
   const previewMedia = mediaItems.find((item) => item.id === previewClip?.mediaId)
   const selectedTrack = sourceTracks.find((track) => track.id === selectedClip?.sourceTrackId)
@@ -553,13 +951,22 @@ function App() {
   const projectWaveform =
     masterAudio?.waveform.length
       ? masterAudio.waveform
-      : buildProjectWaveform(clips, totalQuarters, bpm, 264)
+      : buildProjectWaveform(timelineClips, totalQuarters, bpm, 264)
   const barCount = Math.ceil(totalQuarters / barLength)
   const rulerBars = Array.from({ length: barCount }, (_, index) => ({
     index,
     quarter: index * barLength,
   }))
-  const unresolvedCount = clips.filter((clip) => !clip.mediaId).length
+  const unresolvedCount = timelineClips.filter((clip) => !clip.mediaId).length
+  const minimumWindowQ = Math.max(snapUnit, beatUnit / 4)
+  const visibleTimelineStartPx = Math.max(0, timelineViewport.scrollLeft)
+  const visibleTimelineWidthPx = Math.max(0, timelineViewport.clientWidth - LABEL_WIDTH)
+  const visibleTimelineEndPx = visibleTimelineStartPx + visibleTimelineWidthPx
+  const playheadTimelinePx = Math.round(playheadQ * quarterPx)
+  const isPlayheadOffscreenLeft =
+    visibleTimelineWidthPx > 0 && playheadTimelinePx < visibleTimelineStartPx
+  const isPlayheadOffscreenRight =
+    visibleTimelineWidthPx > 0 && playheadTimelinePx > visibleTimelineEndPx
   const exportButtonLabel = isExporting
     ? exportState.progress !== null
       ? `${exportState.progress}%`
@@ -571,6 +978,218 @@ function App() {
             ? 'Audio...'
             : 'Render...'
     : 'Export'
+
+  function getTimelineQuarterAtClientX(clientX: number) {
+    const timelineScroll = timelineScrollRef.current
+    if (!timelineScroll) {
+      return 0
+    }
+
+    const timelineBounds = timelineScroll.getBoundingClientRect()
+    const pointerX = clientX - timelineBounds.left
+    return clamp((timelineScroll.scrollLeft - LABEL_WIDTH + pointerX) / quarterPx, 0, totalQuarters)
+  }
+
+  function syncTimelineViewport() {
+    const timelineScroll = timelineScrollRef.current
+    if (!timelineScroll) {
+      return
+    }
+
+    setTimelineViewport({
+      scrollLeft: timelineScroll.scrollLeft,
+      clientWidth: timelineScroll.clientWidth,
+    })
+  }
+
+  function scrollTimelineToPlayhead() {
+    const timelineScroll = timelineScrollRef.current
+    if (!timelineScroll) {
+      return
+    }
+
+    const playheadPx = LABEL_WIDTH + playheadTimelinePx
+    const targetLeft = clamp(
+      playheadPx - timelineScroll.clientWidth / 2,
+      0,
+      Math.max(0, LABEL_WIDTH + timelineWidth - timelineScroll.clientWidth),
+    )
+
+    timelineScroll.scrollTo({
+      left: targetLeft,
+      behavior: 'smooth',
+    })
+  }
+
+  function createWindowClip(
+    selection: TimelineSelection,
+    sourceTrack: SourceTrack,
+    sourceSpan: SourceSpan,
+  ): ArrangementClip {
+    const sourceOffsetSeconds =
+      sourceSpan.trimStartSeconds - quartersToSeconds(sourceSpan.startQ, bpm)
+    return {
+      id: `window-${crypto.randomUUID()}`,
+      sourceSpanId: sourceSpan.id,
+      sourceTrackId: sourceTrack.id,
+      laneId: selection.laneId,
+      label: sourceTrack.name,
+      mediaPath: sourceSpan.mediaPath,
+      mediaId: sourceSpan.mediaId,
+      startQ: selection.startQ,
+      durationSeconds: quartersToSeconds(selection.durationQ, bpm),
+      trimStartSeconds: quartersToSeconds(selection.startQ, bpm) + sourceOffsetSeconds,
+      sourceOffsetSeconds,
+      tint: sourceSpan.tint,
+      accent: sourceSpan.accent,
+      selected: true,
+    }
+  }
+
+  function commitPendingSelectionToSourceTrack(sourceIndex: number) {
+    if (!pendingSelection) {
+      return
+    }
+
+    const sourceTrack = sourceTracks[sourceIndex]
+    if (!sourceTrack) {
+      setStatus(`Source layer ${sourceIndex + 1} is not available in this session.`)
+      return
+    }
+
+    const sourceSpan = chooseSourceSpanForWindow(
+      sourceSpans,
+      sourceTrack.id,
+      pendingSelection.startQ,
+      pendingSelection.durationQ,
+      bpm,
+    )
+    if (!sourceSpan) {
+      setStatus(`Source layer ${sourceIndex + 1} has no clip near this selection yet.`)
+      return
+    }
+
+    const clip = createWindowClip(pendingSelection, sourceTrack, sourceSpan)
+    commitProjectChange('Create window', (current) =>
+      patchProjectState(current, {
+        clips: [...current.clips, clip],
+      }),
+    )
+    setPendingSelection(null)
+    setSelectedClipId(clip.id)
+    setStatus(`Committed a window on ${sourceTrack.name} with key ${sourceIndex + 1}.`)
+  }
+
+  function getRandomizationTimelineEndQ() {
+    const clipTimelineEndQ = clips.reduce((maximum, clip) => Math.max(maximum, getClipEndQ(clip, bpm)), 0)
+    const sourceTimelineEndQ = sourceSpans.reduce(
+      (maximum, span) => Math.max(maximum, getClipEndQ(span, bpm)),
+      0,
+    )
+    const audioTimelineEndQ = masterAudio ? secondsToQuarters(masterAudio.durationSeconds, bpm) : 0
+
+    return Math.max(
+      barLength,
+      clips.length ? clipTimelineEndQ : 0,
+      sourceTimelineEndQ,
+      audioTimelineEndQ,
+    )
+  }
+
+  function buildRandomizedArrangementClips() {
+    const timelineEndQ = getRandomizationTimelineEndQ()
+    const stepQ = barLength * RANDOM_SELECTION_BAR_INCREMENT
+    const durationSteps = Array.from(
+      { length: Math.round(RANDOM_SELECTION_MAX_BARS / RANDOM_SELECTION_BAR_INCREMENT) },
+      (_, index) => (index + 1) * stepQ,
+    )
+    const nextAvailableByLane = new Map(lanes.map((lane) => [lane.id, 0]))
+    const randomizedClips: ArrangementClip[] = []
+    const epsilon = 0.0001
+    const stepCount = Math.max(1, Math.ceil(timelineEndQ / stepQ))
+
+    for (let stepIndex = 0; stepIndex < stepCount; stepIndex += 1) {
+      const startQ = stepIndex * stepQ
+      if (startQ >= timelineEndQ - epsilon) {
+        break
+      }
+
+      for (const [laneIndex, lane] of lanes.entries()) {
+        const nextAvailableQ = nextAvailableByLane.get(lane.id) ?? 0
+        if (startQ < nextAvailableQ - epsilon) {
+          continue
+        }
+
+        const layerChance = laneIndex === 0 ? 1 : 0.5 ** laneIndex
+        if (randomFloat() > layerChance) {
+          continue
+        }
+
+        const validDurations = durationSteps.filter((durationQ) => startQ + durationQ <= timelineEndQ + epsilon)
+        if (!validDurations.length) {
+          continue
+        }
+
+        const durationQ = pickRandom(validDurations) ?? validDurations[0]
+        const selection: TimelineSelection = {
+          id: `selection-random-${lane.id}-${stepIndex}`,
+          laneId: lane.id,
+          startQ,
+          durationQ,
+        }
+        const candidateSources = sourceTracks
+          .map((sourceTrack) => ({
+            sourceTrack,
+            sourceSpan: chooseSourceSpanForWindow(sourceSpans, sourceTrack.id, startQ, durationQ, bpm),
+          }))
+          .filter(
+            (candidate): candidate is { sourceTrack: SourceTrack; sourceSpan: SourceSpan } =>
+              Boolean(candidate.sourceSpan),
+          )
+
+        if (!candidateSources.length) {
+          continue
+        }
+
+        const pickedSource = pickRandom(candidateSources) ?? candidateSources[0]
+        randomizedClips.push(createWindowClip(selection, pickedSource.sourceTrack, pickedSource.sourceSpan))
+        nextAvailableByLane.set(lane.id, startQ + durationQ)
+      }
+    }
+
+    return randomizedClips.map((clip, index) => ({
+      ...clip,
+      selected: index === 0,
+    }))
+  }
+
+  function handleRandomizeTimeline() {
+    if (!sourceTracks.length || !sourceSpans.length) {
+      setStatus('Open a session or import source media before randomizing the arrangement.')
+      return
+    }
+
+    const randomizedClips = buildRandomizedArrangementClips()
+    if (!randomizedClips.length) {
+      setStatus('No randomized windows could be generated from the current source timeline.')
+      return
+    }
+
+    setIsPlaying(false)
+    setPendingSelection(null)
+    setDragPreviewClips(null)
+    commitProjectChange('Randomize arrangement', (current) =>
+      patchProjectState(current, {
+        clips: randomizedClips,
+      }),
+    )
+    setSelectedClipId(randomizedClips[0]?.id)
+    setPlayheadQ(0)
+    playbackOriginRef.current = 0
+    setStatus(
+      `Rebuilt the arrangement with ${randomizedClips.length} randomized windows on a quarter-bar grid.`,
+    )
+  }
 
   function updateExportState(
     phase: ExportState['phase'],
@@ -606,11 +1225,103 @@ function App() {
     }, TIMELINE_SCRUB_AUDIO_TAIL_MS)
   }
 
-  useEffect(() => {
-    if (!selectedClip && clips.length) {
-      setSelectedClipId(clips[0].id)
+  function handleUndo() {
+    if (!undoLabel || isExporting) {
+      return
     }
-  }, [clips, selectedClip])
+
+    stopTimelineAudibleScrub()
+    setIsPlaying(false)
+    setDragPreviewClips(null)
+    setDragState(null)
+    setPendingSelection(null)
+    setTimelineDragState(null)
+    dispatchProject({ type: 'undo' })
+    setStatus(formatHistoryStatus('Undid', undoLabel))
+  }
+
+  function handleRedo() {
+    if (!redoLabel || isExporting) {
+      return
+    }
+
+    stopTimelineAudibleScrub()
+    setIsPlaying(false)
+    setDragPreviewClips(null)
+    setDragState(null)
+    setPendingSelection(null)
+    setTimelineDragState(null)
+    dispatchProject({ type: 'redo' })
+    setStatus(formatHistoryStatus('Redid', redoLabel))
+  }
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!pendingSelection) {
+        return
+      }
+
+      const target = event.target
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement
+      ) {
+        return
+      }
+
+      if (event.key === 'Escape') {
+        setPendingSelection(null)
+        return
+      }
+
+      const sourceIndex = Number.parseInt(event.key, 10) - 1
+      if (!Number.isInteger(sourceIndex) || sourceIndex < 0) {
+        return
+      }
+
+      event.preventDefault()
+      commitPendingSelectionToSourceTrack(sourceIndex)
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [pendingSelection, sourceSpans, sourceTracks, bpm])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement
+      ) {
+        return
+      }
+
+      if (!event.metaKey && !event.ctrlKey) {
+        return
+      }
+
+      const key = event.key.toLowerCase()
+      const shouldRedo = key === 'y' || (key === 'z' && event.shiftKey)
+      if (shouldRedo) {
+        event.preventDefault()
+        handleRedo()
+        return
+      }
+
+      if (key !== 'z') {
+        return
+      }
+
+      event.preventDefault()
+      handleUndo()
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [handleRedo, handleUndo])
 
   useEffect(
     () => () => {
@@ -620,24 +1331,12 @@ function App() {
   )
 
   useEffect(() => {
-    if (!fxDevices.length) {
-      return
-    }
+    syncTimelineViewport()
 
-    if (!fxDevices.some((device) => device.id === selectedFxId)) {
-      setSelectedFxId(fxDevices[0].id)
-    }
-  }, [fxDevices, selectedFxId])
-
-  useEffect(() => {
-    if (!selectedClip) {
-      return
-    }
-
-    if (!isPlaying) {
-      setPlayheadQ(selectedClip.startQ)
-    }
-  }, [isPlaying, selectedClipId, selectedClip?.startQ])
+    const handleResize = () => syncTimelineViewport()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [timelineWidth])
 
   useEffect(() => {
     if (!dragState) {
@@ -645,41 +1344,126 @@ function App() {
     }
 
     const onPointerMove = (event: PointerEvent) => {
+      if (event.pointerId !== dragState.pointerId) {
+        return
+      }
+
+      if (dragState.kind === 'selection') {
+        const nextQ = Math.round(getTimelineQuarterAtClientX(event.clientX) / snapUnit) * snapUnit
+        setPendingSelection({
+          id: `selection-${dragState.laneId}`,
+          laneId: dragState.laneId,
+          ...buildSelection(dragState.anchorQ, nextQ, minimumWindowQ),
+        })
+        return
+      }
+
       const targetClip = clips.find((clip) => clip.id === dragState.clipId)
       if (!targetClip) {
         return
       }
 
-      const deltaQuarters = (event.clientX - dragState.pointerStart) / quarterPx
-      const snapped = Math.round((dragState.originQ + deltaQuarters) / snapUnit) * snapUnit
-      const maxStart = Math.max(
-        0,
-        totalQuarters - secondsToQuarters(targetClip.durationSeconds, bpm) - beatUnit,
-      )
+      const deltaQuarters = (event.clientX - dragState.pointerStartX) / quarterPx
 
-      setClips((currentClips) =>
-        currentClips.map((clip) =>
-          clip.id === dragState.clipId
-            ? { ...clip, startQ: clamp(snapped, 0, maxStart) }
-            : clip,
-        ),
+      if (dragState.kind === 'move') {
+        const originDurationQ = getClipDurationQ(targetClip, bpm)
+        const snapped = Math.round((dragState.originStartQ + deltaQuarters) / snapUnit) * snapUnit
+        const maxStart = Math.max(0, totalQuarters - originDurationQ - beatUnit)
+        const nextStartQ = clamp(snapped, 0, maxStart)
+
+        setDragPreviewClips(
+          resolveClipOverlapPreview(clips, dragState.clipId, nextStartQ, originDurationQ, bpm),
+        )
+        return
+      }
+
+      if (dragState.kind === 'resize-start') {
+        const fixedEndQ = dragState.originStartQ + dragState.originDurationQ
+        const snappedStart = Math.round((dragState.originStartQ + deltaQuarters) / snapUnit) * snapUnit
+        const nextStartQ = clamp(snappedStart, 0, fixedEndQ - minimumWindowQ)
+        const nextDurationQ = Math.max(minimumWindowQ, fixedEndQ - nextStartQ)
+
+        setDragPreviewClips(
+          resolveClipOverlapPreview(clips, dragState.clipId, nextStartQ, nextDurationQ, bpm),
+        )
+        return
+      }
+
+      const rawEndQ =
+        dragState.originStartQ + dragState.originDurationQ + deltaQuarters
+      const snappedEndQ = Math.round(rawEndQ / snapUnit) * snapUnit
+      const nextDurationQ = Math.max(minimumWindowQ, snappedEndQ - dragState.originStartQ)
+
+      setDragPreviewClips(
+        resolveClipOverlapPreview(clips, dragState.clipId, dragState.originStartQ, nextDurationQ, bpm),
       )
     }
 
-    const onPointerUp = () => setDragState(null)
+    const onPointerUp = (event: PointerEvent) => {
+      if (event.pointerId !== dragState.pointerId) {
+        return
+      }
+
+      if (dragState.kind === 'selection' && !pendingSelection) {
+        setPendingSelection({
+          id: `selection-${dragState.laneId}`,
+          laneId: dragState.laneId,
+          startQ: dragState.anchorQ,
+          durationQ: minimumWindowQ,
+        })
+      }
+
+      if (dragState.kind !== 'selection' && dragPreviewClips) {
+        const historyLabel =
+          dragState.kind === 'move'
+            ? 'Move clip'
+            : dragState.kind === 'resize-start'
+              ? 'Trim clip start'
+              : 'Trim clip end'
+        commitProjectChange(historyLabel, (current) =>
+          patchProjectState(current, {
+            clips: dragPreviewClips,
+          }),
+        )
+      }
+
+      setDragPreviewClips(null)
+      setDragState(null)
+    }
+
+    const onPointerCancel = (event: PointerEvent) => {
+      if (event.pointerId !== dragState.pointerId) {
+        return
+      }
+
+      setDragPreviewClips(null)
+      setDragState(null)
+    }
 
     window.addEventListener('pointermove', onPointerMove)
     window.addEventListener('pointerup', onPointerUp)
+    window.addEventListener('pointercancel', onPointerCancel)
 
     return () => {
       window.removeEventListener('pointermove', onPointerMove)
       window.removeEventListener('pointerup', onPointerUp)
+      window.removeEventListener('pointercancel', onPointerCancel)
     }
-  }, [beatUnit, bpm, clips, dragState, quarterPx, snapUnit, totalQuarters])
+  }, [
+    beatUnit,
+    bpm,
+    clips,
+    dragPreviewClips,
+    dragState,
+    minimumWindowQ,
+    pendingSelection,
+    quarterPx,
+    snapUnit,
+    totalQuarters,
+  ])
 
   useEffect(() => {
     if (!timelineDragState) {
-      stopTimelineAudibleScrub()
       return
     }
 
@@ -724,7 +1508,7 @@ function App() {
         maxScrollLeft,
       )
       pulseTimelineAudibleScrub()
-      setZoom(nextZoom)
+      applyTransientProjectPatch({ zoom: nextZoom })
       setPlayheadQ(nextPlayheadQ)
       playbackOriginRef.current = nextPlayheadQ
     }
@@ -806,20 +1590,27 @@ function App() {
       sourceTracks: project.sourceTracks.length,
     })
 
-    setSessionName(payload.sessionName)
-    setMediaItems(analyzedMedia)
-    setBpm(project.bpm)
-    setFps(project.fps)
-    setCanvasWidth(project.canvasWidth)
-    setCanvasHeight(project.canvasHeight)
-    setTimelineMode(project.displaySeconds ? 'timecode' : 'musical')
-    setSnapMode(project.snapToBeat ? 'beat' : 'quarter')
-    setZoom(project.zoom)
-    setLanes(project.lanes.length ? project.lanes : DEFAULT_LANES)
-    setSourceTracks(project.sourceTracks)
-    setClips(project.arrangementClips)
-    setEffects(project.effects)
-    setMasterAudioId(project.masterAudioMediaId)
+    commitProjectChange('Open session', (current) =>
+      patchProjectState(current, {
+        sessionName: payload.sessionName,
+        mediaItems: analyzedMedia,
+        bpm: project.bpm,
+        fps: project.fps,
+        canvasWidth: project.canvasWidth,
+        canvasHeight: project.canvasHeight,
+        timelineMode: project.displaySeconds ? 'timecode' : 'musical',
+        snapMode: project.snapToBeat ? 'beat' : 'quarter',
+        zoom: project.zoom,
+        lanes: project.lanes.length ? project.lanes : DEFAULT_LANES,
+        sourceTracks: project.sourceTracks,
+        sourceSpans: project.sourceSpans,
+        clips: project.arrangementClips,
+        effects: project.effects,
+        masterAudioId: project.masterAudioMediaId,
+      }),
+    )
+    setDragPreviewClips(null)
+    setPendingSelection(null)
 
     const preferredClip =
       project.arrangementClips.find((clip) => clip.selected) ?? project.arrangementClips[0]
@@ -849,16 +1640,28 @@ function App() {
       const analyzed = await harness.analyzeMedia(selection, PALETTE, nextPaletteIndex)
 
       const nextMedia = [...mediaItems, ...analyzed]
-      setMediaItems(nextMedia)
-
       if (!sessionName) {
         const standalone = buildStandaloneProject(nextMedia)
-        setLanes(standalone.lanes)
-        setSourceTracks(standalone.sourceTracks)
-        setClips(standalone.arrangementClips)
-        setCanvasWidth(standalone.canvasWidth)
-        setCanvasHeight(standalone.canvasHeight)
+        commitProjectChange('Import media', (current) =>
+          patchProjectState(current, {
+            mediaItems: nextMedia,
+            lanes: standalone.lanes,
+            sourceTracks: standalone.sourceTracks,
+            sourceSpans: standalone.sourceSpans,
+            clips: standalone.arrangementClips,
+            canvasWidth: standalone.canvasWidth,
+            canvasHeight: standalone.canvasHeight,
+          }),
+        )
+        setDragPreviewClips(null)
         setSelectedClipId(standalone.arrangementClips[0]?.id)
+        setPendingSelection(null)
+      } else {
+        commitProjectChange('Import media', (current) =>
+          patchProjectState(current, {
+            mediaItems: nextMedia,
+          }),
+        )
       }
 
       setStatus(`Imported ${analyzed.length} media file(s) through ${harness.label}.`)
@@ -1036,6 +1839,10 @@ function App() {
     const match = clips.find((clip) => clip.sourceTrackId === sourceTrackId)
     if (match) {
       setSelectedClipId(match.id)
+      if (!isPlaying) {
+        setPlayheadQ(match.startQ)
+        playbackOriginRef.current = match.startQ
+      }
     }
   }
 
@@ -1065,10 +1872,40 @@ function App() {
           >
             Save
           </button>
+          <div className="history-controls" aria-label="History controls" role="group">
+            <button
+              className="ghost-button history-button"
+              disabled={isExporting || !canUndo}
+              onClick={handleUndo}
+              title={undoLabel ? `Undo ${undoLabel} (Cmd/Ctrl+Z)` : 'Undo (Cmd/Ctrl+Z)'}
+              type="button"
+            >
+              Undo
+            </button>
+            <button
+              className="ghost-button history-button"
+              disabled={isExporting || !canRedo}
+              onClick={handleRedo}
+              title={
+                redoLabel
+                  ? `Redo ${redoLabel} (Shift+Cmd/Ctrl+Z)`
+                  : 'Redo (Shift+Cmd/Ctrl+Z)'
+              }
+              type="button"
+            >
+              Redo
+            </button>
+          </div>
           <div className="tempo-pill">
             <button
               className="tempo-pill__adjust"
-              onClick={() => setBpm((current) => clamp(current - 5, 60, 220))}
+              onClick={() =>
+                commitProjectChange('Adjust BPM', (current) =>
+                  patchProjectState(current, {
+                    bpm: clamp(current.bpm - 5, 60, 220),
+                  }),
+                )
+              }
               type="button"
             >
               -
@@ -1076,7 +1913,13 @@ function App() {
             <span>{bpm.toFixed(0)} BPM</span>
             <button
               className="tempo-pill__adjust"
-              onClick={() => setBpm((current) => clamp(current + 5, 60, 220))}
+              onClick={() =>
+                commitProjectChange('Adjust BPM', (current) =>
+                  patchProjectState(current, {
+                    bpm: clamp(current.bpm + 5, 60, 220),
+                  }),
+                )
+              }
               type="button"
             >
               +
@@ -1129,14 +1972,14 @@ function App() {
                 <div className="segmented-control" role="tablist" aria-label="Timeline scale">
                   <button
                     className={timelineMode === 'musical' ? 'is-active' : ''}
-                    onClick={() => setTimelineMode('musical')}
+                    onClick={() => commitProjectPatch('Change timeline scale', { timelineMode: 'musical' })}
                     type="button"
                   >
                     Tempo
                   </button>
                   <button
                     className={timelineMode === 'timecode' ? 'is-active' : ''}
-                    onClick={() => setTimelineMode('timecode')}
+                    onClick={() => commitProjectPatch('Change timeline scale', { timelineMode: 'timecode' })}
                     type="button"
                   >
                     SMPTE
@@ -1148,7 +1991,7 @@ function App() {
                     <button
                       key={option.id}
                       className={snapMode === option.id ? 'is-active' : ''}
-                      onClick={() => setSnapMode(option.id)}
+                      onClick={() => commitProjectPatch('Change snap grid', { snapMode: option.id })}
                       type="button"
                     >
                       {option.label}
@@ -1158,7 +2001,14 @@ function App() {
 
                 <label className="signature-picker">
                   <span>Time Sig</span>
-                  <select value={signatureId} onChange={(event) => setSignatureId(event.target.value)}>
+                  <select
+                    value={signatureId}
+                    onChange={(event) =>
+                      commitProjectPatch('Change time signature', {
+                        signatureId: event.target.value,
+                      })
+                    }
+                  >
                     {SIGNATURES.map((option) => (
                       <option key={option.id} value={option.id}>
                         {option.id}
@@ -1170,14 +2020,47 @@ function App() {
             </div>
 
             <div className="editor-grid">
-              <div ref={timelineScrollRef} className="timeline-scroll">
+              <div
+                ref={timelineScrollRef}
+                className="timeline-scroll"
+                onScroll={() => syncTimelineViewport()}
+                style={{ ['--label-width' as string]: `${LABEL_WIDTH}px` }}
+              >
+                <div className="timeline-jump-overlay">
+                  {isPlayheadOffscreenLeft ? (
+                    <button
+                      className="playhead-jump playhead-jump--left"
+                      onClick={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        scrollTimelineToPlayhead()
+                      }}
+                      type="button"
+                    >
+                      {'<<'}
+                    </button>
+                  ) : null}
+                  {isPlayheadOffscreenRight ? (
+                    <button
+                      className="playhead-jump playhead-jump--right"
+                      onClick={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        scrollTimelineToPlayhead()
+                      }}
+                      type="button"
+                    >
+                      {'>>'}
+                    </button>
+                  ) : null}
+                </div>
                 <div
                   className="timeline-canvas"
                   style={{ width: LABEL_WIDTH + timelineWidth, ['--label-width' as string]: `${LABEL_WIDTH}px` }}
                 >
                   <div
                     className="timeline-playhead"
-                    style={{ left: LABEL_WIDTH + playheadQ * quarterPx }}
+                    style={{ left: LABEL_WIDTH + playheadTimelinePx }}
                   />
 
                   <section className="ruler-row">
@@ -1223,6 +2106,10 @@ function App() {
                       }}
                       style={gridStyle}
                     >
+                      <div
+                        className="timeline-playhead-marker"
+                        style={{ left: playheadTimelinePx - 1 }}
+                      />
                       {rulerBars.map((bar) => (
                         <div
                           key={bar.index}
@@ -1251,42 +2138,136 @@ function App() {
                           fx
                         </button>
                       </div>
-                      <div className="track-row__content" style={gridStyle}>
-                        {clips
+                      <div
+                        className="track-row__content track-row__content--arrangement"
+                        onPointerDown={(event) => {
+                          if (event.target !== event.currentTarget) {
+                            return
+                          }
+
+                          event.preventDefault()
+                          setSelectedClipId(undefined)
+                          setIsPlaying(false)
+                          setDragPreviewClips(null)
+
+                          const anchorQ =
+                            Math.round(getTimelineQuarterAtClientX(event.clientX) / snapUnit) * snapUnit
+                          setPendingSelection({
+                            id: `selection-${lane.id}`,
+                            laneId: lane.id,
+                            startQ: anchorQ,
+                            durationQ: minimumWindowQ,
+                          })
+                          setDragState({
+                            kind: 'selection',
+                            pointerId: event.pointerId,
+                            laneId: lane.id,
+                            anchorQ,
+                          })
+                        }}
+                        style={gridStyle}
+                      >
+                        {pendingSelection?.laneId === lane.id ? (
+                          <div
+                            className="timeline-selection"
+                            style={{
+                              left: pendingSelection.startQ * quarterPx,
+                              width: pendingSelection.durationQ * quarterPx,
+                            }}
+                          >
+                            <span>Press 1-5 to commit</span>
+                          </div>
+                        ) : null}
+                        {timelineClips
                           .filter((clip) => clip.laneId === lane.id)
                           .map((clip) => {
                             const selected = clip.id === selectedClip?.id
+                            const durationQ = getClipDurationQ(clip, bpm)
                             return (
-                              <button
+                              <div
                                 key={clip.id}
                                 className={`clip-card ${selected ? 'clip-card--selected' : ''}`}
-                                onClick={() => setSelectedClipId(clip.id)}
-                                onPointerDown={(event) => {
-                                  event.preventDefault()
-                                  setSelectedClipId(clip.id)
-                                  setDragState({
-                                    clipId: clip.id,
-                                    pointerStart: event.clientX,
-                                    originQ: clip.startQ,
-                                  })
-                                }}
                                 style={{
                                   left: clip.startQ * quarterPx,
-                                  width: secondsToQuarters(clip.durationSeconds, bpm) * quarterPx,
+                                  width: durationQ * quarterPx,
                                   backgroundColor: clip.tint,
                                   borderColor: clip.accent,
                                   boxShadow: selected ? `0 0 0 2px ${clip.accent}` : undefined,
                                   opacity: clip.mediaId ? 1 : 0.62,
                                 }}
-                                type="button"
                               >
-                                <strong>{clip.label}</strong>
-                                <span>
-                                  {formatMusicalPosition(clip.startQ, signature)} /{' '}
-                                  {formatDuration(clip.durationSeconds)}
-                                  {clip.mediaId ? '' : ' / missing'}
-                                </span>
-                              </button>
+                                <button
+                                  className="clip-card__handle clip-card__handle--start"
+                                  onPointerDown={(event) => {
+                                    event.preventDefault()
+                                    event.stopPropagation()
+                                    setPendingSelection(null)
+                                    setDragPreviewClips(null)
+                                    setSelectedClipId(clip.id)
+                                    setDragState({
+                                      kind: 'resize-start',
+                                      pointerId: event.pointerId,
+                                      clipId: clip.id,
+                                      pointerStartX: event.clientX,
+                                      originStartQ: clip.startQ,
+                                      originDurationQ: durationQ,
+                                    })
+                                  }}
+                                  type="button"
+                                />
+                                <button
+                                  className="clip-card__body"
+                                  onClick={() => {
+                                    setPendingSelection(null)
+                                    setSelectedClipId(clip.id)
+                                    if (!isPlaying) {
+                                      setPlayheadQ(clip.startQ)
+                                      playbackOriginRef.current = clip.startQ
+                                    }
+                                  }}
+                                  onPointerDown={(event) => {
+                                    event.preventDefault()
+                                    event.stopPropagation()
+                                    setPendingSelection(null)
+                                    setDragPreviewClips(null)
+                                    setSelectedClipId(clip.id)
+                                    setDragState({
+                                      kind: 'move',
+                                      pointerId: event.pointerId,
+                                      clipId: clip.id,
+                                      pointerStartX: event.clientX,
+                                      originStartQ: clip.startQ,
+                                    })
+                                  }}
+                                  type="button"
+                                >
+                                  <strong>{clip.label}</strong>
+                                  <span>
+                                    {formatMusicalPosition(clip.startQ, signature)} /{' '}
+                                    {formatDuration(clip.durationSeconds)}
+                                    {clip.mediaId ? '' : ' / missing'}
+                                  </span>
+                                </button>
+                                <button
+                                  className="clip-card__handle clip-card__handle--end"
+                                  onPointerDown={(event) => {
+                                    event.preventDefault()
+                                    event.stopPropagation()
+                                    setPendingSelection(null)
+                                    setDragPreviewClips(null)
+                                    setSelectedClipId(clip.id)
+                                    setDragState({
+                                      kind: 'resize-end',
+                                      pointerId: event.pointerId,
+                                      clipId: clip.id,
+                                      pointerStartX: event.clientX,
+                                      originStartQ: clip.startQ,
+                                      originDurationQ: durationQ,
+                                    })
+                                  }}
+                                  type="button"
+                                />
+                              </div>
                             )
                           })}
                       </div>
@@ -1329,8 +2310,8 @@ function App() {
                     </div>
                   </section>
 
-                  {(sourceTracks.length ? sourceTracks : buildStandaloneProject(mediaItems).sourceTracks).map((track) => {
-                    const sourceClips = clips.filter((clip) => clip.sourceTrackId === track.id)
+                  {sourceTracks.map((track, index) => {
+                    const sourceClips = sourceSpans.filter((clip) => clip.sourceTrackId === track.id)
                     const swatch = getSwatch(track.colorIndex)
 
                     return (
@@ -1348,8 +2329,8 @@ function App() {
                             <span>{track.name}</span>
                             <small>
                               {track.recordingPaths.length
-                                ? `${track.recordingPaths.length} file(s)`
-                                : 'Imported media'}
+                                ? `${track.recordingPaths.length} file(s) / key ${index + 1}`
+                                : `Imported media / key ${index + 1}`}
                             </small>
                           </div>
                         </button>
@@ -1362,7 +2343,7 @@ function App() {
                                 className="source-span"
                                 style={{
                                   left: clip.startQ * quarterPx,
-                                  width: secondsToQuarters(clip.durationSeconds, bpm) * quarterPx,
+                                  width: getClipDurationQ(clip, bpm) * quarterPx,
                                   backgroundColor: clip.tint,
                                   borderColor: clip.accent,
                                   opacity: clip.mediaId ? 1 : 0.56,
@@ -1411,7 +2392,7 @@ function App() {
                     bpm={bpm}
                     canvasHeight={canvasHeight}
                     canvasWidth={canvasWidth}
-                    clips={clips}
+                    clips={timelineClips}
                     effects={effects}
                     isPlaying={isPlaying}
                     isScrubbing={Boolean(timelineDragState)}
@@ -1471,7 +2452,11 @@ function App() {
                 <input
                   max="1.8"
                   min="0.65"
-                  onChange={(event) => setZoom(Number(event.target.value))}
+                  onChange={(event) =>
+                    commitProjectPatch('Adjust zoom', {
+                      zoom: Number(event.target.value),
+                    })
+                  }
                   step="0.01"
                   type="range"
                   value={zoom}
@@ -1498,6 +2483,21 @@ function App() {
                 </button>
                 <button className="transport-button" onClick={() => jumpPlayhead(1)} type="button">
                   {'>'}|
+                </button>
+                <button
+                  aria-label="Randomize arrangement"
+                  className="transport-button transport-button--wand"
+                  disabled={isExporting}
+                  onClick={handleRandomizeTimeline}
+                  title="Replace the arrangement with randomized selections"
+                  type="button"
+                >
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <path
+                      d="M4.75 18.19 2.5 20.44l1.06 1.06 2.25-2.25 1.13 1.13L20.5 6.81l-3.19-3.19L3.63 17.06l1.12 1.13Zm13.62-13.06 1.06 1.06-1.31 1.31-1.06-1.06 1.31-1.31ZM12 3.25l.52 1.98 1.98.52-1.98.52L12 8.25l-.52-1.98-1.98-.52 1.98-.52L12 3.25Zm6.75 6.5.39 1.46 1.46.39-1.46.39-.39 1.46-.39-1.46-1.46-.39 1.46-.39.39-1.46Zm-9 6 .39 1.46 1.46.39-1.46.39-.39 1.46-.39-1.46-1.46-.39 1.46-.39.39-1.46Z"
+                      fill="currentColor"
+                    />
+                  </svg>
                 </button>
               </div>
 

@@ -30,6 +30,7 @@ type ArrangementClip = {
   startQ: number
   durationSeconds: number
   trimStartSeconds: number
+  sourceOffsetSeconds: number
   tint: string
   accent: string
 }
@@ -60,6 +61,7 @@ type ActiveClip = {
   clip: ArrangementClip
   media: MediaItem
   mediaTime: number
+  isInBounds: boolean
   laneRank: number
   visual: VisualState
 }
@@ -214,11 +216,15 @@ function computeActiveClips(
     })
     .map<ActiveClip>((clip) => {
       const media = mediaById.get(clip.mediaId!)!
-      const clipOffsetSeconds = clamp(quartersToSeconds(playheadQ - clip.startQ, bpm), 0, clip.durationSeconds)
+      const mediaTime = quartersToSeconds(playheadQ, bpm) + clip.sourceOffsetSeconds
       return {
         clip,
         media,
-        mediaTime: clip.trimStartSeconds + clipOffsetSeconds,
+        mediaTime,
+        isInBounds:
+          media.durationSeconds > 0
+            ? mediaTime >= 0 && mediaTime < media.durationSeconds - epsilon
+            : mediaTime >= 0,
         laneRank: lanePriority.get(clip.laneId) ?? -1,
         visual: resolveVisualState(effects, clip.laneId),
       }
@@ -415,6 +421,10 @@ function drawComposition(
       : activeClips
 
   for (const [index, entry] of stackedClips.entries()) {
+    if (!entry.isInBounds) {
+      continue
+    }
+
     const mediaElement = mediaRefs.get(entry.media.id)
     if (!(mediaElement instanceof HTMLVideoElement)) {
       continue
@@ -609,6 +619,10 @@ export const CompositionPlayer = forwardRef<CompositionPlayerHandle, Composition
     const pendingSeeks = new Map<string, Promise<void>>()
 
     for (const entry of nextActiveClips) {
+      if (!entry.isInBounds) {
+        continue
+      }
+
       const mediaElement = mediaRefs.current.get(entry.media.id)
       if (!(mediaElement instanceof HTMLVideoElement)) {
         continue
@@ -709,6 +723,13 @@ export const CompositionPlayer = forwardRef<CompositionPlayerHandle, Composition
 
       const activeEntry = activeClips.find((entry) => entry.media.id === item.id)
       if (!activeEntry) {
+        if (!element.paused) {
+          element.pause()
+        }
+        continue
+      }
+
+      if (!activeEntry.isInBounds) {
         if (!element.paused) {
           element.pause()
         }
