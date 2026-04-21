@@ -773,6 +773,7 @@ export const CompositionPlayer = forwardRef<CompositionPlayerHandle, Composition
           item.kind === 'video' ? (
             <video
               key={item.id}
+              crossOrigin="anonymous"
               muted
               playsInline
               preload="auto"
@@ -788,6 +789,7 @@ export const CompositionPlayer = forwardRef<CompositionPlayerHandle, Composition
           ) : item.kind === 'audio' ? (
             <audio
               key={item.id}
+              crossOrigin="anonymous"
               preload="auto"
               ref={(node) => {
                 if (node) {
@@ -800,7 +802,9 @@ export const CompositionPlayer = forwardRef<CompositionPlayerHandle, Composition
             />
           ) : null,
         )}
-        {masterAudio?.previewUrl ? <audio preload="auto" ref={audioRef} src={masterAudio.previewUrl} /> : null}
+        {masterAudio?.previewUrl ? (
+          <audio crossOrigin="anonymous" preload="auto" ref={audioRef} src={masterAudio.previewUrl} />
+        ) : null}
       </div>
     </div>
   )

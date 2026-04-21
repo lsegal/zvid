@@ -1,28 +1,9 @@
-import type { ChangeEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
-import { FFmpeg } from '@ffmpeg/ffmpeg'
-import { toBlobURL } from '@ffmpeg/util'
-import {
-  ALL_FORMATS,
-  AudioBufferSink,
-  BlobSource,
-  BufferTarget,
-  CanvasSource,
-  CanvasSink,
-  Input,
-  Mp4OutputFormat,
-  Output,
-  QUALITY_HIGH,
-  UrlSource,
-  canEncodeVideo,
-} from 'mediabunny'
 import { CompositionPlayer, type CompositionPlayerHandle } from './CompositionPlayer'
+import { getHarness, type SaveTarget } from './harness'
+import type { MediaItem, MediaKind, Palette } from './media'
+import type { LvpSession, SessionOpenResponse } from './session'
 import './App.css'
-
-const FFMPEG_CORE_URL = '/ffmpeg/ffmpeg-core.js'
-const FFMPEG_WASM_URL = '/ffmpeg/ffmpeg-core.wasm'
-
-type MediaKind = 'video' | 'audio'
 type TimelineMode = 'musical' | 'timecode'
 type SnapMode = 'bar' | 'beat' | 'half' | 'quarter'
 
@@ -30,46 +11,6 @@ type TimeSignature = {
   id: string
   numerator: number
   denominator: number
-}
-
-type Palette = {
-  color: string
-  accent: string
-}
-
-type MediaItem = {
-  id: string
-  name: string
-  kind: MediaKind
-  durationSeconds: number
-  width?: number
-  height?: number
-  fps?: number
-  sampleRate?: number
-  channels?: number
-  hasAudio: boolean
-  hasVideo: boolean
-  color: string
-  accent: string
-  waveform: number[]
-  previewUrl: string
-  thumbnailUrl?: string
-  sourcePath?: string
-}
-
-type ServerMediaRef = {
-  id: string
-  path: string
-  name: string
-  url: string
-  exists: boolean
-}
-
-type SessionOpenResponse = {
-  sessionName: string
-  sessionPath?: string
-  session: LvpSession
-  mediaRefs: ServerMediaRef[]
 }
 
 type Lane = {
@@ -145,54 +86,6 @@ type ExportState = {
   phase: 'idle' | 'preparing' | 'decoding-audio' | 'rendering' | 'loading-ffmpeg' | 'muxing'
   progress: number | null
   detail: string
-}
-
-type LvpSession = {
-  mainTracks?: Array<{ id: string; name: string; colorIndex?: number }>
-  tracks?: Array<{
-    id: string
-    name: string
-    colorIndex?: number
-    recordings?: Array<{ filename: string }>
-  }>
-  clips?: Array<{
-    id: string
-    trackId: string
-    name?: string
-    frameStart: number
-    frameCount: number
-    frameOffset?: number
-    clipStart?: number
-    filePath: string
-  }>
-  selections?: Array<{
-    id: number
-    trackId: string
-    mainTrackId: string
-    frameStart: number
-    frameEnd: number
-    selected?: boolean
-  }>
-  effects?: Array<{
-    id: string
-    trackId: string
-    effectName: string
-    parameters?: Record<string, { floatValue?: number; stringValue?: string }>
-  }>
-  timeline?: {
-    canvasWidth?: number
-    canvasHeight?: number
-    zoom?: number
-    bpm?: number
-    displaySeconds?: boolean
-    snapToBeat?: boolean
-    fps?: number
-    projectDuration?: number
-  }
-  audioFilename?: string
-  sessionFile?: string
-  playPosition?: number
-  playStartPosition?: number
 }
 
 const LABEL_WIDTH = 240
@@ -353,21 +246,6 @@ function getSwatch(colorIndex: number) {
   return PALETTE[Math.abs(colorIndex) % PALETTE.length] ?? PALETTE[0]
 }
 
-function buildFallbackWaveform(seed: string, points = 96) {
-  let state = Array.from(seed).reduce(
-    (total, character, index) => total + character.charCodeAt(0) * (index + 17),
-    97,
-  )
-  return Array.from({ length: points }, (_, index) => {
-    state = (state * 48271) % 2147483647
-    const phase = state / 2147483647
-    return Math.max(
-      0.08,
-      Math.min(1, Math.abs(Math.sin(index * 0.31 + phase * 5.2) * 0.72) + phase * 0.18),
-    )
-  })
-}
-
 function basename(path: string) {
   const normalized = path.replaceAll('\\', '/')
   const parts = normalized.split('/')
@@ -376,21 +254,6 @@ function basename(path: string) {
 
 function normalizeMediaPath(value: string) {
   return value.replaceAll('/', '\\').toLowerCase()
-}
-
-function inferMediaKind(name: string): MediaKind {
-  const extension = name.slice(Math.max(0, name.lastIndexOf('.'))).toLowerCase()
-  switch (extension) {
-    case '.wav':
-    case '.mp3':
-    case '.m4a':
-    case '.flac':
-    case '.aif':
-    case '.aiff':
-      return 'audio'
-    default:
-      return 'video'
-  }
 }
 
 function logClient(event: string, payload?: unknown) {
@@ -402,396 +265,9 @@ function logClient(event: string, payload?: unknown) {
   console.info(`[zvid] ${event}`, payload)
 }
 
-function createMediaId(file: File) {
-  return `${file.name}:${file.size}:${file.lastModified}`
-}
-
 function sanitizeFilenameSegment(value: string) {
   const sanitized = value.replace(/[<>:"/\\|?*\u0000-\u001f]+/g, '-').trim()
   return sanitized || 'zvid-session'
-}
-
-type SaveFilePickerHandle = {
-  createWritable(): Promise<{
-    write(data: Blob): Promise<void>
-    close(): Promise<void>
-  }>
-}
-
-type SaveFilePickerWindow = Window & {
-  showSaveFilePicker?: (options?: {
-    suggestedName?: string
-    types?: Array<{
-      description?: string
-      accept: Record<string, string[]>
-    }>
-  }) => Promise<SaveFilePickerHandle>
-}
-
-type SaveTarget =
-  | {
-      kind: 'picker'
-      filename: string
-      handle: SaveFilePickerHandle
-    }
-  | {
-      kind: 'download'
-      filename: string
-    }
-
-async function prepareSaveTarget(filename: string): Promise<SaveTarget> {
-  const pickerWindow = window as SaveFilePickerWindow
-  if (pickerWindow.showSaveFilePicker) {
-    const handle = await pickerWindow.showSaveFilePicker({
-      suggestedName: filename,
-      types: [
-        {
-          description: 'MP4 video',
-          accept: {
-            'video/mp4': ['.mp4'],
-          },
-        },
-      ],
-    })
-    return {
-      kind: 'picker',
-      filename,
-      handle,
-    }
-  }
-
-  return {
-    kind: 'download',
-    filename,
-  }
-}
-
-async function saveBlob(blob: Blob, target: SaveTarget) {
-  if (target.kind === 'picker') {
-    const writable = await target.handle.createWritable()
-    await writable.write(blob)
-    await writable.close()
-    return 'picker'
-  }
-
-  const downloadUrl = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = downloadUrl
-  link.download = target.filename
-  document.body.append(link)
-  link.click()
-  link.remove()
-  window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 0)
-  return 'download'
-}
-
-function blobToUint8Array(blob: Blob) {
-  return blob.arrayBuffer().then((buffer) => new Uint8Array(buffer))
-}
-
-function toArrayBuffer(data: Uint8Array | string) {
-  if (typeof data === 'string') {
-    return new TextEncoder().encode(data).buffer
-  }
-
-  const normalized = new Uint8Array(data.byteLength)
-  normalized.set(data)
-  return normalized.buffer
-}
-
-function yieldToBrowser() {
-  return new Promise<void>((resolve) => {
-    window.setTimeout(resolve, 0)
-  })
-}
-
-async function canvasToObjectUrl(canvas: HTMLCanvasElement | OffscreenCanvas) {
-  if ('convertToBlob' in canvas) {
-    const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.82 })
-    return URL.createObjectURL(blob)
-  }
-
-  const element = canvas as HTMLCanvasElement
-  const blob = await new Promise<Blob>((resolve, reject) => {
-    element.toBlob((result) => {
-      if (!result) {
-        reject(new Error('Failed to create thumbnail blob'))
-        return
-      }
-      resolve(result)
-    }, 'image/jpeg', 0.82)
-  })
-
-  return URL.createObjectURL(blob)
-}
-
-async function sampleWaveform(seed: string, input: Input, points = 96) {
-  const audioTrack = await input.getPrimaryAudioTrack()
-  if (!audioTrack) {
-    return buildFallbackWaveform(seed, points)
-  }
-
-  const duration = Math.max(0.01, await input.computeDuration())
-  const sink = new AudioBufferSink(audioTrack)
-  const timestamps = Array.from({ length: points }, (_, index) =>
-    duration * (index / Math.max(1, points - 1)),
-  )
-  const waveform: number[] = []
-
-  for await (const wrapped of sink.buffersAtTimestamps(timestamps)) {
-    if (!wrapped) {
-      waveform.push(0)
-      continue
-    }
-
-    const channel = wrapped.buffer.getChannelData(0)
-    let peak = 0
-    for (let index = 0; index < channel.length; index += 1) {
-      peak = Math.max(peak, Math.abs(channel[index] ?? 0))
-    }
-
-    waveform.push(Math.min(1, peak))
-  }
-
-  return waveform.some((value) => value > 0.001) ? waveform : buildFallbackWaveform(seed, points)
-}
-
-function concatAudioBuffers(buffers: AudioBuffer[]) {
-  if (!buffers.length) {
-    return null
-  }
-
-  const channelCount = Math.max(...buffers.map((buffer) => buffer.numberOfChannels))
-  const sampleRate = buffers[0].sampleRate
-  const totalLength = buffers.reduce((sum, buffer) => sum + buffer.length, 0)
-  const context = new OfflineAudioContext(channelCount, Math.max(1, totalLength), sampleRate)
-  const combined = context.createBuffer(channelCount, Math.max(1, totalLength), sampleRate)
-  let offset = 0
-
-  for (const buffer of buffers) {
-    for (let channelIndex = 0; channelIndex < channelCount; channelIndex += 1) {
-      const sourceChannel = Math.min(channelIndex, buffer.numberOfChannels - 1)
-      combined.getChannelData(channelIndex).set(buffer.getChannelData(sourceChannel), offset)
-    }
-
-    offset += buffer.length
-  }
-
-  return combined
-}
-
-function encodeAudioBufferAsWav(audioBuffer: AudioBuffer) {
-  const channelCount = audioBuffer.numberOfChannels
-  const sampleRate = audioBuffer.sampleRate
-  const sampleCount = audioBuffer.length
-  const bytesPerSample = 2
-  const blockAlign = channelCount * bytesPerSample
-  const byteRate = sampleRate * blockAlign
-  const dataSize = sampleCount * blockAlign
-  const buffer = new ArrayBuffer(44 + dataSize)
-  const view = new DataView(buffer)
-  let offset = 0
-
-  const writeString = (value: string) => {
-    for (let index = 0; index < value.length; index += 1) {
-      view.setUint8(offset, value.charCodeAt(index))
-      offset += 1
-    }
-  }
-
-  writeString('RIFF')
-  view.setUint32(offset, 36 + dataSize, true)
-  offset += 4
-  writeString('WAVE')
-  writeString('fmt ')
-  view.setUint32(offset, 16, true)
-  offset += 4
-  view.setUint16(offset, 1, true)
-  offset += 2
-  view.setUint16(offset, channelCount, true)
-  offset += 2
-  view.setUint32(offset, sampleRate, true)
-  offset += 4
-  view.setUint32(offset, byteRate, true)
-  offset += 4
-  view.setUint16(offset, blockAlign, true)
-  offset += 2
-  view.setUint16(offset, bytesPerSample * 8, true)
-  offset += 2
-  writeString('data')
-  view.setUint32(offset, dataSize, true)
-  offset += 4
-
-  const channels = Array.from({ length: channelCount }, (_, index) => audioBuffer.getChannelData(index))
-  for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
-    for (let channelIndex = 0; channelIndex < channelCount; channelIndex += 1) {
-      const sample = channels[channelIndex]?.[sampleIndex] ?? 0
-      const clamped = Math.max(-1, Math.min(1, sample))
-      const encoded = clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff
-      view.setInt16(offset, Math.round(encoded), true)
-      offset += 2
-    }
-  }
-
-  return new Uint8Array(buffer)
-}
-
-async function decodeAudioBufferFromUrl(
-  url: string,
-  durationSeconds: number,
-  onProgress?: (progress: number, detail: string) => void,
-) {
-  const input = new Input({
-    formats: ALL_FORMATS,
-    source: new UrlSource(url),
-  })
-
-  try {
-    const audioTrack = await input.getPrimaryAudioTrack()
-    if (!audioTrack) {
-      return null
-    }
-
-    const sink = new AudioBufferSink(audioTrack)
-    const decodedBuffers: AudioBuffer[] = []
-    let decodedChunks = 0
-
-    for await (const wrapped of sink.buffers(0, durationSeconds > 0 ? durationSeconds : undefined)) {
-      decodedBuffers.push(wrapped.buffer)
-      decodedChunks += 1
-
-      if (onProgress) {
-        const completion = Math.max(
-          0,
-          Math.min(
-            100,
-            Math.round((((wrapped.timestamp ?? 0) + (wrapped.duration ?? 0)) / Math.max(0.01, durationSeconds)) * 100),
-          ),
-        )
-        onProgress(completion, `Decoding master audio for export (${completion}%)...`)
-      }
-
-      if (decodedChunks % 8 === 0) {
-        await yieldToBrowser()
-      }
-    }
-
-    return concatAudioBuffers(decodedBuffers)
-  } finally {
-    input.dispose()
-  }
-}
-
-async function analyzeInputMedia(
-  input: Input,
-  options: {
-    id: string
-    name: string
-    previewUrl: string
-    palette: Palette
-    sourcePath?: string
-  },
-): Promise<MediaItem> {
-  try {
-    const durationSeconds = await input.computeDuration()
-    const videoTrack = await input.getPrimaryVideoTrack()
-    const audioTrack = await input.getPrimaryAudioTrack()
-
-    let thumbnailUrl: string | undefined
-    let fps: number | undefined
-
-    if (videoTrack) {
-      const sink = new CanvasSink(videoTrack, {
-        width: 240,
-        height: 420,
-        fit: 'cover',
-        poolSize: 1,
-      })
-      const timestamp = Math.min(
-        Math.max(durationSeconds * 0.18, 0.1),
-        Math.max(durationSeconds - 0.05, 0.1),
-      )
-      const wrappedCanvas = await sink.getCanvas(timestamp)
-      if (wrappedCanvas) {
-        thumbnailUrl = await canvasToObjectUrl(wrappedCanvas.canvas)
-      }
-
-      fps = (await videoTrack.computePacketStats(240)).averagePacketRate
-    }
-
-    const waveform = await sampleWaveform(options.name, input)
-
-    return {
-      id: options.id,
-      name: options.name,
-      kind: videoTrack ? 'video' : 'audio',
-      durationSeconds,
-      width: videoTrack?.displayWidth,
-      height: videoTrack?.displayHeight,
-      fps,
-      sampleRate: audioTrack?.sampleRate,
-      channels: audioTrack?.numberOfChannels,
-      hasAudio: Boolean(audioTrack),
-      hasVideo: Boolean(videoTrack),
-      color: options.palette.color,
-      accent: options.palette.accent,
-      waveform,
-      previewUrl: options.previewUrl,
-      thumbnailUrl,
-      sourcePath: options.sourcePath,
-    }
-  } finally {
-    input.dispose()
-  }
-}
-
-async function analyzeLocalMediaFile(file: File, palette: Palette) {
-  const previewUrl = URL.createObjectURL(file)
-  return analyzeInputMedia(
-    new Input({
-      formats: ALL_FORMATS,
-      source: new BlobSource(file),
-    }),
-    {
-      id: createMediaId(file),
-      name: file.name,
-      previewUrl,
-      palette,
-    },
-  )
-}
-
-async function analyzeServerMediaRef(ref: ServerMediaRef, palette: Palette) {
-  return analyzeInputMedia(
-    new Input({
-      formats: ALL_FORMATS,
-      source: new UrlSource(ref.url),
-    }),
-    {
-      id: ref.id,
-      name: ref.name,
-      previewUrl: ref.url,
-      palette,
-      sourcePath: ref.path,
-    },
-  )
-}
-
-function buildFallbackMediaItem(ref: ServerMediaRef, palette: Palette): MediaItem {
-  const kind = inferMediaKind(ref.name)
-  return {
-    id: ref.id,
-    name: ref.name,
-    kind,
-    durationSeconds: 0,
-    hasAudio: kind === 'audio',
-    hasVideo: kind === 'video',
-    color: palette.color,
-    accent: palette.accent,
-    waveform: buildFallbackWaveform(ref.name),
-    previewUrl: ref.url,
-    sourcePath: ref.path,
-  }
 }
 
 function findClipAtPlayhead(
@@ -1028,7 +504,7 @@ function App() {
     detail: '',
   })
   const [status, setStatus] = useState(
-    'Open a .lvp session file. The Vite dev server will stream its referenced media from disk.',
+    'Open a .lvp session file. The active harness will provide available file and media access.',
   )
   const [dragState, setDragState] = useState<DragState | null>(null)
   const [timelineDragState, setTimelineDragState] = useState<TimelineDragState | null>(null)
@@ -1036,9 +512,6 @@ function App() {
 
   const playbackOriginRef = useRef(0)
   const compositionPlayerRef = useRef<CompositionPlayerHandle | null>(null)
-  const ffmpegRef = useRef<FFmpeg | null>(null)
-  const ffmpegLoadRef = useRef<Promise<void> | null>(null)
-  const ffmpegAssetUrlsRef = useRef<{ coreURL: string; wasmURL: string } | null>(null)
   const timelineScrollRef = useRef<HTMLDivElement | null>(null)
   const timelineScrubAudioTimeoutRef = useRef<number | null>(null)
 
@@ -1133,62 +606,6 @@ function App() {
     }, TIMELINE_SCRUB_AUDIO_TAIL_MS)
   }
 
-  async function ensureFfmpeg() {
-    if (ffmpegRef.current?.loaded) {
-      return ffmpegRef.current
-    }
-
-    if (!ffmpegRef.current) {
-      const ffmpeg = new FFmpeg()
-      ffmpeg.on('log', ({ message }) => {
-        logClient('ffmpeg:log', { message })
-      })
-      ffmpeg.on('progress', ({ progress, time }) => {
-        logClient('ffmpeg:progress', { progress, time })
-        setExportState((current) => {
-          if (current.phase !== 'loading-ffmpeg' && current.phase !== 'muxing') {
-            return current
-          }
-
-          const completion = Math.max(0, Math.min(100, Math.round(progress * 100)))
-          return {
-            phase: 'muxing',
-            progress: completion,
-            detail: `Muxing audio into final MP4 with ffmpeg.wasm (${completion}%)...`,
-          }
-        })
-      })
-      ffmpegRef.current = ffmpeg
-    }
-
-    if (!ffmpegLoadRef.current) {
-      updateExportState('loading-ffmpeg', 'Loading ffmpeg.wasm core...', 0)
-      logClient('export:phase', { phase: 'loading-ffmpeg' })
-      const assetUrlsPromise = ffmpegAssetUrlsRef.current
-        ? Promise.resolve(ffmpegAssetUrlsRef.current)
-        : Promise.all([
-            toBlobURL(FFMPEG_CORE_URL, 'text/javascript', true),
-            toBlobURL(FFMPEG_WASM_URL, 'application/wasm', true),
-          ]).then(([coreURL, wasmURL]) => {
-            const next = { coreURL, wasmURL }
-            ffmpegAssetUrlsRef.current = next
-            return next
-          })
-
-      ffmpegLoadRef.current = ffmpegRef.current
-        .load(
-          await assetUrlsPromise,
-        )
-        .then(() => undefined)
-        .finally(() => {
-          ffmpegLoadRef.current = null
-        })
-    }
-
-    await ffmpegLoadRef.current
-    return ffmpegRef.current
-  }
-
   useEffect(() => {
     if (!selectedClip && clips.length) {
       setSelectedClipId(clips[0].id)
@@ -1198,12 +615,6 @@ function App() {
   useEffect(
     () => () => {
       stopTimelineAudibleScrub()
-      ffmpegRef.current?.terminate()
-      if (ffmpegAssetUrlsRef.current) {
-        URL.revokeObjectURL(ffmpegAssetUrlsRef.current.coreURL)
-        URL.revokeObjectURL(ffmpegAssetUrlsRef.current.wasmURL)
-        ffmpegAssetUrlsRef.current = null
-      }
     },
     [],
   )
@@ -1365,20 +776,77 @@ function App() {
     return () => window.cancelAnimationFrame(animationFrame)
   }, [bpm, isPlaying, totalQuarters])
 
-  async function handleImportSelection(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? [])
-    event.target.value = ''
-    if (!files.length) {
+  async function applyOpenedSessionPayload(payload: SessionOpenResponse) {
+    const existingRefs = payload.mediaRefs.filter((ref) => ref.exists)
+    const missingRefs = payload.mediaRefs.filter((ref) => !ref.exists)
+    logClient('openSession:mediaRefs', {
+      total: payload.mediaRefs.length,
+      existing: existingRefs.length,
+      missing: missingRefs.length,
+    })
+
+    setStatus(`Analyzing ${existingRefs.length} session media file(s) through ${getHarness().label}...`)
+    const analyzedMedia = await getHarness().analyzeMedia(
+      {
+        kind: 'refs',
+        refs: existingRefs,
+      },
+      PALETTE,
+      0,
+    )
+    logClient('openSession:analyzedMedia', {
+      analyzed: analyzedMedia.length,
+      degraded: 0,
+    })
+
+    const project = sessionToProject(payload.session, analyzedMedia)
+    logClient('openSession:project', {
+      clips: project.arrangementClips.length,
+      lanes: project.lanes.length,
+      sourceTracks: project.sourceTracks.length,
+    })
+
+    setSessionName(payload.sessionName)
+    setMediaItems(analyzedMedia)
+    setBpm(project.bpm)
+    setFps(project.fps)
+    setCanvasWidth(project.canvasWidth)
+    setCanvasHeight(project.canvasHeight)
+    setTimelineMode(project.displaySeconds ? 'timecode' : 'musical')
+    setSnapMode(project.snapToBeat ? 'beat' : 'quarter')
+    setZoom(project.zoom)
+    setLanes(project.lanes.length ? project.lanes : DEFAULT_LANES)
+    setSourceTracks(project.sourceTracks)
+    setClips(project.arrangementClips)
+    setEffects(project.effects)
+    setMasterAudioId(project.masterAudioMediaId)
+
+    const preferredClip =
+      project.arrangementClips.find((clip) => clip.selected) ?? project.arrangementClips[0]
+    setSelectedClipId(preferredClip?.id)
+    setPlayheadQ(secondsToQuarters(project.playPositionFrames / project.fps, project.bpm))
+
+    if (missingRefs.length) {
+      setStatus(
+        `Loaded ${payload.sessionName}. ${missingRefs.length} referenced media file(s) are missing on disk.`,
+      )
+    } else {
+      setStatus(`Loaded ${payload.sessionName} with all media streaming from disk.`)
+    }
+  }
+
+  async function handleImport() {
+    const harness = getHarness()
+    const selection = await harness.pickMedia()
+    if (!selection) {
       return
     }
 
     try {
-      setStatus(`Analyzing ${files.length} imported media file(s) with MediaBunny...`)
-      const analyzed = await Promise.all(
-        files.map((file, index) =>
-          analyzeLocalMediaFile(file, PALETTE[(mediaItems.length + index) % PALETTE.length]),
-        ),
-      )
+      const itemCount = selection.kind === 'files' ? selection.files.length : selection.refs.length
+      setStatus(`Analyzing ${itemCount} imported media file(s) through ${harness.label}...`)
+      const nextPaletteIndex = mediaItems.length
+      const analyzed = await harness.analyzeMedia(selection, PALETTE, nextPaletteIndex)
 
       const nextMedia = [...mediaItems, ...analyzed]
       setMediaItems(nextMedia)
@@ -1393,138 +861,31 @@ function App() {
         setSelectedClipId(standalone.arrangementClips[0]?.id)
       }
 
-      setStatus(`Imported ${analyzed.length} media file(s) locally.`)
+      setStatus(`Imported ${analyzed.length} media file(s) through ${harness.label}.`)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setStatus(`Media import failed: ${message}`)
     }
   }
 
-  async function openSessionFile(file: File) {
-    setStatus(`Opening ${file.name} through the Vite dev server...`)
-    logClient('openSessionFile:start', {
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      lastModified: file.lastModified,
-    })
-
+  async function handleOpenSession() {
+    const harness = getHarness()
     try {
-      const sessionContents = await file.text()
-      logClient('openSessionFile:read', {
-        name: file.name,
-        chars: sessionContents.length,
-      })
-
-      const response = await fetch('/api/session/open-file', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sessionName: file.name,
-          sessionContents,
-        }),
-      })
-      logClient('openSessionFile:response', {
-        ok: response.ok,
-        status: response.status,
-      })
-
-      const payload = (await response.json()) as SessionOpenResponse | { error: string }
-      if (!response.ok || 'error' in payload) {
-        throw new Error('error' in payload ? payload.error : `Request failed with ${response.status}`)
+      const selection = await harness.pickSession()
+      if (!selection) {
+        return
       }
-
-      const existingRefs = payload.mediaRefs.filter((ref) => ref.exists)
-      const missingRefs = payload.mediaRefs.filter((ref) => !ref.exists)
-      logClient('openSessionFile:mediaRefs', {
-        total: payload.mediaRefs.length,
-        existing: existingRefs.length,
-        missing: missingRefs.length,
-      })
-
-      setStatus(`Analyzing ${existingRefs.length} session media file(s) with MediaBunny...`)
-      let degradedAnalysisCount = 0
-      const analyzedMedia = await Promise.all(
-        existingRefs.map(async (ref, index) => {
-          const palette = PALETTE[index % PALETTE.length]
-
-          try {
-            return await analyzeServerMediaRef(ref, palette)
-          } catch (error) {
-            degradedAnalysisCount += 1
-            const message = error instanceof Error ? error.message : String(error)
-            logClient('openSessionFile:analyzeFallback', {
-              path: ref.path,
-              message,
-            })
-            return buildFallbackMediaItem(ref, palette)
-          }
-        }),
+      setStatus(
+        `Opening ${
+          selection.kind === 'file' ? selection.file.name : selection.name
+        } through ${harness.label}...`,
       )
-      logClient('openSessionFile:analyzedMedia', {
-        analyzed: analyzedMedia.length,
-        degraded: degradedAnalysisCount,
-      })
-
-      const project = sessionToProject(payload.session, analyzedMedia)
-      logClient('openSessionFile:project', {
-        clips: project.arrangementClips.length,
-        lanes: project.lanes.length,
-        sourceTracks: project.sourceTracks.length,
-      })
-
-      setSessionName(payload.sessionName)
-      setMediaItems(analyzedMedia)
-      setBpm(project.bpm)
-      setFps(project.fps)
-      setCanvasWidth(project.canvasWidth)
-      setCanvasHeight(project.canvasHeight)
-      setTimelineMode(project.displaySeconds ? 'timecode' : 'musical')
-      setSnapMode(project.snapToBeat ? 'beat' : 'quarter')
-      setZoom(project.zoom)
-      setLanes(project.lanes.length ? project.lanes : DEFAULT_LANES)
-      setSourceTracks(project.sourceTracks)
-      setClips(project.arrangementClips)
-      setEffects(project.effects)
-      setMasterAudioId(project.masterAudioMediaId)
-
-      const preferredClip =
-        project.arrangementClips.find((clip) => clip.selected) ?? project.arrangementClips[0]
-      setSelectedClipId(preferredClip?.id)
-      setPlayheadQ(secondsToQuarters(project.playPositionFrames / project.fps, project.bpm))
-
-      if (missingRefs.length) {
-        setStatus(
-          `Loaded ${payload.sessionName}. ${missingRefs.length} referenced media file(s) are missing on disk.`,
-        )
-      } else if (degradedAnalysisCount) {
-        setStatus(
-          `Loaded ${payload.sessionName}. ${degradedAnalysisCount} media file(s) are using browser playback fallback.`,
-        )
-      } else {
-        setStatus(`Loaded ${payload.sessionName} with all media streaming from disk.`)
-      }
+      const payload = await harness.openSession(selection)
+      await applyOpenedSessionPayload(payload)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      logClient('openSessionFile:error', { message })
-      setStatus(`Failed to open session: ${message}`)
+      setStatus(`Open failed: ${message}`)
     }
-  }
-
-  async function handleSessionFileSelection(event: ChangeEvent<HTMLInputElement>) {
-    logClient('handleSessionFileSelection:change', {
-      fileCount: event.target.files?.length ?? 0,
-    })
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (!file) {
-      logClient('handleSessionFileSelection:empty')
-      return
-    }
-
-    await openSessionFile(file)
   }
 
   async function handleExport() {
@@ -1556,7 +917,16 @@ function App() {
 
     let saveTarget: SaveTarget
     try {
-      saveTarget = await prepareSaveTarget(exportName)
+      const nextSaveTarget = await getHarness().prepareSave(exportName, {
+        mimeType: 'video/mp4',
+        extensions: ['.mp4'],
+        description: 'MP4 video',
+      })
+      if (!nextSaveTarget) {
+        setStatus('Export canceled before rendering.')
+        return
+      }
+      saveTarget = nextSaveTarget
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       if (error instanceof DOMException && error.name === 'AbortError') {
@@ -1584,183 +954,39 @@ function App() {
     const previousPlayheadQ = playheadQ
 
     try {
-      updateExportState('preparing', 'Checking H.264 encoder support...', null)
-      logClient('export:phase', { phase: 'encoder-check:start' })
-      const canEncodeAvc = await canEncodeVideo('avc', {
-        width: canvasWidth,
-        height: canvasHeight,
-        bitrate: QUALITY_HIGH,
-      })
-      logClient('export:phase', { phase: 'encoder-check:complete', supported: canEncodeAvc })
-      if (!canEncodeAvc) {
-        throw new Error('This runtime cannot encode H.264 video for MP4 export.')
-      }
-
-      const output = new Output({
-        format: new Mp4OutputFormat(),
-        target: new BufferTarget(),
-      })
-      const videoSource = new CanvasSource(canvas, {
-        codec: 'avc',
-        bitrate: QUALITY_HIGH,
-        keyFrameInterval: 2,
-        sizeChangeBehavior: 'cover',
-      })
-      output.addVideoTrack(videoSource, {
+      const result = await getHarness().exportVideo({
+        filename: exportName,
+        saveTarget,
+        canvas,
+        canvasWidth,
+        canvasHeight,
+        durationSeconds,
         frameRate: outputFrameRate,
-        name: 'Program',
+        frameCount: outputFrameCount,
+        frameDuration: outputFrameDuration,
+        bpm,
+        masterAudio,
+        renderFrameAt: (frameQ, frameSeconds) => compositionPlayer.renderFrameAt(frameQ, frameSeconds),
+        setPlayheadQ,
+        onProgress: (update) => {
+          updateExportState(update.phase, update.detail, update.progress)
+        },
+        onLog: logClient,
       })
 
-      updateExportState('preparing', 'Starting MediaBunny MP4 encoder...', null)
-      logClient('export:phase', { phase: 'output-start:start' })
-      await output.start()
-      logClient('export:phase', { phase: 'output-start:complete' })
-      let intermediateMimeType = 'video/mp4'
-      updateExportState('rendering', `Rendering ${outputFrameCount} frame(s) from the preview canvas...`, null)
-      logClient('export:phase', { phase: 'rendering', frames: outputFrameCount })
-
-      for (let frameIndex = 0; frameIndex < outputFrameCount; frameIndex += 1) {
-        const frameSeconds = Math.min(durationSeconds, frameIndex * outputFrameDuration)
-        const frameQ = secondsToQuarters(frameSeconds, bpm)
-        if (frameIndex === 0) {
-          updateExportState('rendering', `Rendering frame 1/${outputFrameCount}...`, null)
-          logClient('export:first-frame:start', {
-            frame: 1,
-            seconds: frameSeconds,
-            quarters: frameQ,
-          })
-          await yieldToBrowser()
-        }
-        await compositionPlayer.renderFrameAt(frameQ, frameSeconds)
-        await videoSource.add(frameSeconds, outputFrameDuration)
-        if (frameIndex === 0) {
-          logClient('export:first-frame:complete', {
-            frame: 1,
-          })
-        }
-
-        if (
-          frameIndex === 0 ||
-          frameIndex === outputFrameCount - 1 ||
-          frameIndex % Math.max(1, Math.floor(outputFrameRate)) === 0
-        ) {
-          const completion = Math.round(((frameIndex + 1) / outputFrameCount) * 100)
-          setPlayheadQ(frameQ)
-          updateExportState(
-            'rendering',
-            `Rendering ${frameIndex + 1}/${outputFrameCount} frames (${completion}%)...`,
-            completion,
-          )
-          logClient('export:progress', {
-            frame: frameIndex + 1,
-            totalFrames: outputFrameCount,
-            completion,
-          })
-          await yieldToBrowser()
-        }
-      }
-
-      videoSource.close()
-      await output.finalize()
-      intermediateMimeType = await output.getMimeType().catch(() => 'video/mp4')
-
-      const intermediateBuffer = output.target.buffer
-      if (!intermediateBuffer) {
-        throw new Error('MediaBunny did not return an output buffer.')
-      }
-
-      let masterAudioBuffer: AudioBuffer | null = null
-      if (masterAudio?.previewUrl && masterAudio.hasAudio) {
-        updateExportState('decoding-audio', 'Decoding master audio for export...', null)
-        logClient('export:phase', { phase: 'decoding-audio' })
-        masterAudioBuffer = await decodeAudioBufferFromUrl(
-          masterAudio.previewUrl,
-          durationSeconds,
-          (progress, detail) => {
-            updateExportState('decoding-audio', detail, progress)
-            logClient('export:audioDecodeProgress', { progress })
-          },
-        )
-        if (!masterAudioBuffer) {
-          logClient('export:audioSkipped', { reason: 'No decodable primary audio track.' })
-        }
-      }
-
-      if (masterAudioBuffer) {
-        updateExportState('loading-ffmpeg', 'Loading ffmpeg.wasm core...', 0)
-        const ffmpeg = await ensureFfmpeg()
-        updateExportState('muxing', 'Muxing audio into final MP4 with ffmpeg.wasm...', 0)
-        logClient('export:phase', { phase: 'muxing' })
-        const videoFileName = 'render.mp4'
-        const audioFileName = 'master.wav'
-        const outputFileName = 'final.mp4'
-
-        try {
-          await ffmpeg.writeFile(videoFileName, new Uint8Array(intermediateBuffer))
-          await ffmpeg.writeFile(audioFileName, encodeAudioBufferAsWav(masterAudioBuffer))
-
-          const exitCode = await ffmpeg.exec([
-            '-i',
-            videoFileName,
-            '-i',
-            audioFileName,
-            '-c:v',
-            'copy',
-            '-c:a',
-            'aac',
-            '-shortest',
-            outputFileName,
-          ])
-          if (exitCode !== 0) {
-            throw new Error(`ffmpeg.wasm exited with code ${exitCode}.`)
-          }
-
-          const muxedData = await ffmpeg.readFile(outputFileName)
-          const finalBuffer =
-            muxedData instanceof Uint8Array
-              ? toArrayBuffer(muxedData)
-              : toArrayBuffer(await blobToUint8Array(new Blob([muxedData])))
-
-          const saveMethod = await saveBlob(new Blob([finalBuffer], { type: 'video/mp4' }), saveTarget)
-          setStatus(
-            saveMethod === 'picker'
-              ? `Saved ${exportName}.`
-              : `Exported ${exportName} through the browser download flow.`,
-          )
-          setExportState({ phase: 'idle', progress: null, detail: '' })
-          logClient('export:complete', {
-            filename: exportName,
-            bytes: finalBuffer.byteLength,
-            mimeType: 'video/mp4',
-            muxedWith: 'ffmpeg.wasm',
-            saveMethod,
-          })
-        } finally {
-          await Promise.allSettled([
-            ffmpeg.deleteFile(videoFileName),
-            ffmpeg.deleteFile(audioFileName),
-            ffmpeg.deleteFile(outputFileName),
-          ])
-        }
-      } else {
-        const saveMethod = await saveBlob(
-          new Blob([intermediateBuffer], { type: intermediateMimeType }),
-          saveTarget,
-        )
-        setStatus(
-          saveMethod === 'picker'
-            ? `Saved ${exportName}.`
-            : `Exported ${exportName} through the browser download flow.`,
-        )
-        setExportState({ phase: 'idle', progress: null, detail: '' })
-        logClient('export:complete', {
-          filename: exportName,
-          bytes: intermediateBuffer.byteLength,
-          mimeType: intermediateMimeType,
-          muxedWith: 'mediabunny',
-          saveMethod,
-        })
-      }
+      setStatus(
+        result.saveMethod === 'download'
+          ? `Exported ${exportName} through the browser download flow.`
+          : `Saved ${exportName}.`,
+      )
+      setExportState({ phase: 'idle', progress: null, detail: '' })
+      logClient('export:complete', {
+        filename: exportName,
+        bytes: result.bytes,
+        mimeType: result.mimeType,
+        muxedWith: result.muxedWith,
+        saveMethod: result.saveMethod,
+      })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setExportState({ phase: 'idle', progress: null, detail: '' })
@@ -1817,29 +1043,20 @@ function App() {
     <div className="app-shell">
       <header className="topbar">
         <div className="topbar__group">
-          <label
+          <button
             className="file-button ghost-button"
-            onClick={() => logClient('openControl:click')}
+            onClick={handleOpenSession}
+            type="button"
           >
             Open
-            <input
-              accept=".lvp,application/json"
-              className="file-button__input"
-              onClick={() => logClient('openInput:click')}
-              onChange={handleSessionFileSelection}
-              type="file"
-            />
-          </label>
-          <label className="file-button ghost-button ghost-button--accent">
+          </button>
+          <button
+            className="file-button ghost-button ghost-button--accent"
+            onClick={handleImport}
+            type="button"
+          >
             Import
-            <input
-              accept="video/*,audio/*,.mp4,.mov,.mkv,.webm,.avi,.wav,.mp3,.m4a,.flac,.aif,.aiff"
-              className="file-button__input"
-              multiple
-              onChange={handleImportSelection}
-              type="file"
-            />
-          </label>
+          </button>
           <button
             className="ghost-button"
             onClick={() => setStatus('Save/export is not wired yet in the dev-server refactor.')}
@@ -1889,7 +1106,7 @@ function App() {
           <button
             className="ghost-button"
             onClick={() =>
-              setStatus('Use Open to pick a .lvp file. The dev server will stream the referenced files automatically.')
+              setStatus(`Use Open to pick a .lvp file through the ${getHarness().label} harness.`)
             }
             type="button"
           >
@@ -2108,7 +1325,7 @@ function App() {
                       <small>{sourceTracks.length || mediaItems.length} tracks in session</small>
                     </div>
                     <div className="source-header__content">
-                      <span>Vite dev middleware streams session media directly from disk.</span>
+                      <span>{getHarness().label} owns media access for this runtime.</span>
                     </div>
                   </section>
 
@@ -2347,17 +1564,16 @@ function App() {
                   ))}
 
                   <div className="inspector-note">
-                    <strong>Dev Server Media Flow</strong>
+                    <strong>Harness Media Flow</strong>
                     <p>
-                      `Open` uses the browser file picker, posts the `.lvp` contents to a Vite
-                      dev endpoint, and registers the referenced media paths for streaming.
-                      Playback then uses `/api/media/:id` URLs with byte-range streaming so the
-                      browser can seek normally.
+                      `window.harness` owns session open, media analysis, and export. The web
+                      harness routes session access through the local Vite middleware, while Tauri
+                      upgrades the same contract with native dialogs and filesystem-backed URLs.
                     </p>
                     <p>
-                      MediaBunny still runs in the client for metadata, thumbnails, and
-                      waveforms. The dev server is only handling trusted disk access for this
-                      local workflow.
+                      The editor only supplies canvas frames and timeline state. Codec work lives
+                      in the active harness implementation, so desktop runtimes can switch to
+                      native `ffprobe` and `ffmpeg` without changing the UI.
                     </p>
                   </div>
                 </div>
