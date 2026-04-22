@@ -1,6 +1,7 @@
 import { buildFallbackWaveform, type MediaItem } from '../media'
 import type { Harness } from './contracts'
 import type { ServerMediaRef, SessionOpenResponse } from '../session'
+import { generateThumbnailFromUrlAtTime } from './web-media'
 
 function basename(rawPath: string) {
   return rawPath.split(/[/\\]/).filter(Boolean).pop() ?? rawPath
@@ -192,8 +193,34 @@ export async function maybeCreateTauriHarness(base: Harness): Promise<Harness | 
             previewUrl: ref.url,
             thumbnailUrl: analysis?.thumbnailPath ? convertFileSrc(analysis.thumbnailPath) : undefined,
             sourcePath: ref.path,
+            availability: ref.exists ? 'ready' : 'offline',
           }
         })
+      },
+      async readMediaBlob(target) {
+        if (target.sourcePath) {
+          const bytes = await invoke<number[]>('read_file_bytes', {
+            path: target.sourcePath,
+          })
+          return new Blob([new Uint8Array(bytes)])
+        }
+
+        return base.readMediaBlob(target)
+      },
+      async generateThumbnailAtTime(media, timeSeconds) {
+        if (!media.hasVideo) {
+          return undefined
+        }
+
+        if (media.sourcePath) {
+          const thumbnailPath = await invoke<string | null>('generate_thumbnail_at_time', {
+            path: media.sourcePath,
+            timeSeconds,
+          })
+          return thumbnailPath ? convertFileSrc(thumbnailPath) : undefined
+        }
+
+        return generateThumbnailFromUrlAtTime(media.previewUrl, timeSeconds)
       },
       async saveBlob(blob, target) {
         if (target.kind !== 'native-path') {

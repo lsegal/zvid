@@ -56,6 +56,120 @@ async function canvasToObjectUrl(canvas: HTMLCanvasElement | OffscreenCanvas) {
   return URL.createObjectURL(blob)
 }
 
+function drawVideoFrameCover(
+  video: HTMLVideoElement,
+  canvas: HTMLCanvasElement,
+  width: number,
+  height: number,
+) {
+  const context = canvas.getContext('2d')
+  if (!context) {
+    throw new Error('Failed to acquire canvas context for thumbnail rendering')
+  }
+
+  canvas.width = width
+  canvas.height = height
+
+  const sourceWidth = Math.max(1, video.videoWidth || width)
+  const sourceHeight = Math.max(1, video.videoHeight || height)
+  const sourceAspect = sourceWidth / sourceHeight
+  const targetAspect = width / height
+
+  let drawWidth = width
+  let drawHeight = height
+  let drawX = 0
+  let drawY = 0
+
+  if (sourceAspect > targetAspect) {
+    drawHeight = height
+    drawWidth = height * sourceAspect
+    drawX = (width - drawWidth) / 2
+  } else {
+    drawWidth = width
+    drawHeight = width / sourceAspect
+    drawY = (height - drawHeight) / 2
+  }
+
+  context.clearRect(0, 0, width, height)
+  context.drawImage(video, drawX, drawY, drawWidth, drawHeight)
+}
+
+export async function generateThumbnailFromUrlAtTime(
+  url: string,
+  timeSeconds: number,
+  options?: {
+    width?: number
+    height?: number
+  },
+) {
+  const width = options?.width ?? 240
+  const height = options?.height ?? 420
+
+  return new Promise<string | undefined>((resolve) => {
+    const video = document.createElement('video')
+    const canvas = document.createElement('canvas')
+    let settled = false
+    let timeoutId = 0
+
+    const settle = (result?: string) => {
+      if (settled) {
+        return
+      }
+
+      settled = true
+      window.clearTimeout(timeoutId)
+      video.pause()
+      video.removeAttribute('src')
+      video.load()
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata)
+      video.removeEventListener('seeked', handleSeeked)
+      video.removeEventListener('error', handleFailure)
+      resolve(result)
+    }
+
+    const handleFailure = () => {
+      settle(undefined)
+    }
+
+    const handleSeeked = async () => {
+      try {
+        drawVideoFrameCover(video, canvas, width, height)
+        settle(await canvasToObjectUrl(canvas))
+      } catch {
+        settle(undefined)
+      }
+    }
+
+    const handleLoadedMetadata = () => {
+      const duration = Number.isFinite(video.duration) ? Math.max(0, video.duration) : 0
+      const targetTime =
+        duration > 0
+          ? Math.min(Math.max(0, timeSeconds), Math.max(0, duration - 0.05))
+          : Math.max(0, timeSeconds)
+
+      if (Math.abs(targetTime - video.currentTime) <= 0.001) {
+        void handleSeeked()
+        return
+      }
+
+      try {
+        video.currentTime = targetTime
+      } catch {
+        settle(undefined)
+      }
+    }
+
+    timeoutId = window.setTimeout(handleFailure, 8000)
+    video.preload = 'auto'
+    video.muted = true
+    video.playsInline = true
+    video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true })
+    video.addEventListener('seeked', handleSeeked, { once: true })
+    video.addEventListener('error', handleFailure, { once: true })
+    video.src = url
+  })
+}
+
 function toArrayBuffer(data: Uint8Array | string) {
   if (typeof data === 'string') {
     return new TextEncoder().encode(data).buffer
@@ -305,6 +419,7 @@ async function analyzeInputMedia(
       previewUrl: options.previewUrl,
       thumbnailUrl,
       sourcePath: options.sourcePath,
+      availability: 'ready',
     }
   } finally {
     input.dispose()
@@ -405,6 +520,7 @@ async function createMetadataFallbackItem(options: MediaAnalysisOptions): Promis
       waveform: buildFallbackWaveform(options.name),
       previewUrl: options.previewUrl,
       sourcePath: options.sourcePath,
+      availability: 'ready',
     }
   }
 
@@ -420,6 +536,7 @@ async function createMetadataFallbackItem(options: MediaAnalysisOptions): Promis
     waveform: buildFallbackWaveform(options.name),
     previewUrl: options.previewUrl,
     sourcePath: options.sourcePath,
+    availability: 'ready',
   }
 }
 

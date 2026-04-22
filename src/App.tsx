@@ -1,8 +1,21 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import './App.css'
+import {
+  createCollaborationController,
+  type CollaborationConnectionState,
+  type CollaborationController,
+} from './collaboration'
 import { CompositionPlayer, type CompositionPlayerHandle } from './CompositionPlayer'
 import { getHarness, type SaveTarget } from './harness'
-import type { MediaItem, MediaKind, Palette } from './media'
+import { cacheMediaBlob, getCachedMediaBlob } from './media-cache'
+import {
+  buildFallbackMediaItem,
+  toShareableMediaItem,
+  type MediaAvailability,
+  type MediaItem,
+  type MediaKind,
+  type Palette,
+} from './media'
 import type { LvpSession, SessionOpenResponse } from './session'
 type TimelineMode = 'musical' | 'timecode'
 type SnapMode = 'bar' | 'beat' | 'half' | 'quarter'
@@ -166,6 +179,12 @@ type ProjectState = {
   masterAudioId?: string
 }
 
+type LocalMediaOverride = {
+  availability?: MediaAvailability
+  previewUrl?: string
+  thumbnailUrl?: string
+}
+
 type ProjectHistoryEntry = {
   snapshot: ProjectState
   label: string
@@ -193,6 +212,10 @@ type ProjectHistoryAction =
   | {
       type: 'redo'
     }
+  | {
+      type: 'replace'
+      snapshot: ProjectState
+    }
 
 const LABEL_WIDTH = 240
 const BASE_QUARTER_PX = 28
@@ -205,6 +228,8 @@ const TIMELINE_SCRUB_AUDIO_TAIL_MS = 50
 const TIMELINE_DRAG_EPSILON = 0.0001
 const RANDOM_SELECTION_BAR_INCREMENT = 0.25
 const RANDOM_SELECTION_MAX_BARS = 2
+const DEFAULT_SIGNALING_URLS = ['wss://y-webrtc-eu.fly.dev']
+const COLLAB_STORAGE_KEY = 'zvid-collaboration'
 const SIGNATURES: TimeSignature[] = [
   { id: '4/4', numerator: 4, denominator: 4 },
   { id: '3/4', numerator: 3, denominator: 4 },
@@ -249,6 +274,8 @@ const PALETTE: Palette[] = [
   { color: '#474150', accent: '#f6b73c' },
   { color: '#434a58', accent: '#c38fff' },
 ]
+const COLLAB_NAME_PREFIXES = ['Neon', 'Velvet', 'Signal', 'Tempo', 'Quartz', 'Echo', 'Prism', 'Static']
+const COLLAB_NAME_SUFFIXES = ['Fox', 'Tape', 'Wave', 'Frame', 'Orbit', 'Pulse', 'Cut', 'Vector']
 const FALLBACK_VIDEO_FX: FxDevice[] = [
   {
     id: 'layout',
@@ -297,6 +324,64 @@ const FALLBACK_AUDIO_FX: FxDevice[] = [
     ],
   },
 ]
+
+function isLayoutEffectName(effectName: string) {
+  return effectName.trim().toLowerCase().includes('layout')
+}
+
+function resolveLayoutDisplay(effect: SessionEffect | undefined) {
+  const anchorParameter = effect?.parameters.find((parameter) => {
+    const key = parameter.key.trim().toLowerCase()
+    return key.includes('anchor') || key.includes('align') || key === 'position'
+  })
+  const value = anchorParameter?.value?.trim()
+  if (!value) {
+    return 'Center'
+  }
+
+  const normalized = value.toLowerCase()
+  if (normalized.includes('top')) {
+    return 'Top'
+  }
+
+  if (normalized.includes('bottom')) {
+    return 'Bottom'
+  }
+
+  if (normalized.includes('center') || normalized.includes('middle')) {
+    return 'Center'
+  }
+
+  const numeric = anchorParameter?.numericValue
+  if (numeric !== undefined) {
+    if (numeric <= 0.333) {
+      return 'Top'
+    }
+
+    if (numeric >= 0.667) {
+      return 'Bottom'
+    }
+  }
+
+  return 'Center'
+}
+
+function createDefaultLayoutDevice(laneId: string | undefined, effect?: SessionEffect): FxDevice {
+  return {
+    id: effect?.id ?? `layout-default-${laneId ?? 'global'}`,
+    name: effect?.effectName ?? 'Layout',
+    subtitle: laneId ? `Layer ${laneId} / default frame anchor` : 'Default frame anchor',
+    accent: '#f6b73c',
+    parameters: [
+      {
+        label: 'Anchor',
+        value: 0.5,
+        display: resolveLayoutDisplay(effect),
+      },
+    ],
+  }
+}
+
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.max(minimum, Math.min(maximum, value))
 }
@@ -606,6 +691,78 @@ function pickRandom<T>(items: readonly T[]) {
   return items[Math.floor(randomFloat() * items.length)]
 }
 
+function describeMediaAvailability(availability: MediaAvailability | undefined) {
+  switch (availability) {
+    case 'ready':
+      return 'online'
+    case 'hydrating':
+      return 'hydrating'
+    default:
+      return 'offline'
+  }
+}
+
+function mergeMediaItemsById(current: MediaItem[], incoming: MediaItem[]) {
+  const incomingById = new Map(incoming.map((item) => [item.id, item]))
+  return current.map((item) => incomingById.get(item.id) ?? item)
+}
+
+function parseSignalingUrls(value: string) {
+  const urls = value
+    .split(/[,\n]/)
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+
+  return urls.length ? urls : DEFAULT_SIGNALING_URLS
+}
+
+function buildCollaboratorName() {
+  const prefix = pickRandom(COLLAB_NAME_PREFIXES) ?? 'Signal'
+  const suffix = pickRandom(COLLAB_NAME_SUFFIXES) ?? 'Wave'
+  return `${prefix} ${suffix}`
+}
+
+function getInitialCollaborationConfig() {
+  const defaults = {
+    room: '',
+    password: '',
+    signaling: DEFAULT_SIGNALING_URLS.join(', '),
+    name: buildCollaboratorName(),
+    color: pickRandom(PALETTE)?.accent ?? '#7ca1ff',
+    autoConnect: false,
+  }
+
+  if (typeof window === 'undefined') {
+    return defaults
+  }
+
+  let stored: Partial<typeof defaults> = {}
+  try {
+    const raw = window.localStorage.getItem(COLLAB_STORAGE_KEY)
+    if (raw) {
+      stored = JSON.parse(raw) as Partial<typeof defaults>
+    }
+  } catch (error) {
+    logClient('collaboration:storage:read:error', {
+      message: error instanceof Error ? error.message : String(error),
+    })
+  }
+
+  const params = new URLSearchParams(window.location.search)
+  const room = params.get('room')?.trim() || stored.room || defaults.room
+  const password = params.get('password')?.trim() || defaults.password
+  const signaling = params.get('signal')?.trim() || stored.signaling || defaults.signaling
+
+  return {
+    room,
+    password,
+    signaling,
+    name: stored.name || defaults.name,
+    color: stored.color || defaults.color,
+    autoConnect: Boolean(room),
+  }
+}
+
 function normalizeMediaPath(value: string) {
   return value.replaceAll('/', '\\').toLowerCase()
 }
@@ -617,6 +774,18 @@ function logClient(event: string, payload?: unknown) {
   }
 
   console.info(`[zvid] ${event}`, payload)
+}
+
+function revokeObjectUrlIfNeeded(url: string | undefined) {
+  if (url?.startsWith('blob:')) {
+    URL.revokeObjectURL(url)
+  }
+}
+
+function getSourceThumbnailCacheKey(
+  span: Pick<SourceSpan, 'id' | 'mediaId' | 'trimStartSeconds'>,
+) {
+  return `${span.id}:${span.mediaId ?? 'missing'}:${span.trimStartSeconds.toFixed(3)}`
 }
 
 function sanitizeFilenameSegment(value: string) {
@@ -713,6 +882,18 @@ function projectHistoryReducer(
       }
     }
 
+    case 'replace': {
+      if (state.present === action.snapshot) {
+        return state
+      }
+
+      return {
+        past: [],
+        present: action.snapshot,
+        future: [],
+      }
+    }
+
     default:
       return state
   }
@@ -729,20 +910,25 @@ function findClipAtPlayhead(
   lanePriority: Map<string, number>,
 ) {
   const epsilon = 0.0001
-  return clips
-    .filter((clip) => {
-      const clipEndQ = clip.startQ + secondsToQuarters(clip.durationSeconds, bpm)
-      return playheadQ >= clip.startQ - epsilon && playheadQ < clipEndQ - epsilon
-    })
-    .sort((left, right) => {
-      const laneDelta =
-        (lanePriority.get(right.laneId) ?? -1) - (lanePriority.get(left.laneId) ?? -1)
-      if (laneDelta !== 0) {
-        return laneDelta
-      }
+  let match: ArrangementClip | undefined
+  let matchLaneRank = -1
+  let matchStartQ = -1
 
-      return right.startQ - left.startQ
-    })[0]
+  for (const clip of clips) {
+    const clipEndQ = clip.startQ + secondsToQuarters(clip.durationSeconds, bpm)
+    if (playheadQ < clip.startQ - epsilon || playheadQ >= clipEndQ - epsilon) {
+      continue
+    }
+
+    const laneRank = lanePriority.get(clip.laneId) ?? -1
+    if (laneRank > matchLaneRank || (laneRank === matchLaneRank && clip.startQ > matchStartQ)) {
+      match = clip
+      matchLaneRank = laneRank
+      matchStartQ = clip.startQ
+    }
+  }
+
+  return match
 }
 
 function getPlaybackStopQ(clips: ArrangementClip[], mediaItems: MediaItem[], startQ: number, bpm: number) {
@@ -973,12 +1159,22 @@ function mapSessionEffectsToDevices(
   const relevant = effects.filter(
     (effect) => effect.trackId === laneId || effect.trackId === '__group_main',
   )
+  const layerLayoutEffect = relevant.find(
+    (effect) => effect.trackId === laneId && isLayoutEffectName(effect.effectName),
+  )
+  const globalLayoutEffect = relevant.find(
+    (effect) => effect.trackId === '__group_main' && isLayoutEffectName(effect.effectName),
+  )
 
   if (!relevant.length) {
-    return kind === 'audio' ? FALLBACK_AUDIO_FX : FALLBACK_VIDEO_FX
+    if (kind === 'audio') {
+      return FALLBACK_AUDIO_FX
+    }
+
+    return [createDefaultLayoutDevice(laneId), ...FALLBACK_VIDEO_FX.filter((device) => device.id !== 'layout')]
   }
 
-  return relevant.map<FxDevice>((effect, index) => {
+  const mapped = relevant.map<FxDevice>((effect, index) => {
     const swatch = getSwatch(index)
     return {
       id: effect.id,
@@ -993,9 +1189,24 @@ function mapSessionEffectsToDevices(
       })),
     }
   })
+
+  if (kind === 'audio') {
+    return mapped
+  }
+
+  if (layerLayoutEffect) {
+    return mapped
+  }
+
+  if (globalLayoutEffect) {
+    return mapped
+  }
+
+  return [createDefaultLayoutDevice(laneId), ...mapped]
 }
 
 function App() {
+  const [initialCollaborationConfig] = useState(() => getInitialCollaborationConfig())
   const [projectHistory, dispatchProject] = useReducer(
     projectHistoryReducer,
     INITIAL_PROJECT_STATE,
@@ -1012,7 +1223,7 @@ function App() {
     canvasHeight,
     zoom,
     sessionName,
-    mediaItems,
+    mediaItems: projectMediaItems,
     lanes,
     sourceTracks,
     sourceSpans,
@@ -1047,6 +1258,33 @@ function App() {
   const [dragState, setDragState] = useState<DragState | null>(null)
   const [timelineDragState, setTimelineDragState] = useState<TimelineDragState | null>(null)
   const [isTimelineAudibleScrubbing, setIsTimelineAudibleScrubbing] = useState(false)
+  const [zoomDraft, setZoomDraft] = useState<number | null>(null)
+  const [localMediaOverrides, setLocalMediaOverrides] = useState<Record<string, LocalMediaOverride>>(
+    {},
+  )
+  const [sourceThumbnailUrls, setSourceThumbnailUrls] = useState<Record<string, string>>({})
+  const [collaborationRoom, setCollaborationRoom] = useState(initialCollaborationConfig.room)
+  const [collaborationPassword, setCollaborationPassword] = useState(initialCollaborationConfig.password)
+  const [collaborationSignaling, setCollaborationSignaling] = useState(
+    initialCollaborationConfig.signaling,
+  )
+  const [collaborationName, setCollaborationName] = useState(initialCollaborationConfig.name)
+  const [isCollaborationEnabled, setIsCollaborationEnabled] = useState(
+    initialCollaborationConfig.autoConnect,
+  )
+  const [collaborationState, setCollaborationState] = useState<CollaborationConnectionState>({
+    connected: false,
+    peerCount: 0,
+    collaborators: [],
+  })
+  const collaborationColor = initialCollaborationConfig.color
+  const visibleCollaborationState = isCollaborationEnabled
+    ? collaborationState
+    : {
+        connected: false,
+        peerCount: 0,
+        collaborators: [],
+      }
 
   const playbackOriginRef = useRef(0)
   const playbackStopRef = useRef(0)
@@ -1054,82 +1292,234 @@ function App() {
   const timelineScrollRef = useRef<HTMLDivElement | null>(null)
   const timelineScrubAudioTimeoutRef = useRef<number | null>(null)
   const clipClipboardRef = useRef<ArrangementClip | null>(null)
+  const collaborationControllerRef = useRef<CollaborationController<ProjectState> | null>(null)
+  const projectSnapshotRef = useRef(projectHistory.present)
+  const zoomDraftRef = useRef<number | null>(null)
+  const localMediaOverridesRef = useRef<Record<string, LocalMediaOverride>>({})
+  const mediaObjectUrlsRef = useRef(new Map<string, string>())
+  const mediaHydrationInFlightRef = useRef(new Set<string>())
+  const sourceThumbnailUrlsRef = useRef<Record<string, string>>({})
 
-  function commitProjectChange(label: string, updater: (current: ProjectState) => ProjectState) {
-    dispatchProject({ type: 'commit', label, updater })
+  const mediaItems = useMemo(
+    () =>
+      projectMediaItems.map((item) => ({
+        ...item,
+        ...(localMediaOverrides[item.id] ?? {}),
+        availability: localMediaOverrides[item.id]?.availability ?? item.availability,
+      })),
+    [localMediaOverrides, projectMediaItems],
+  )
+  const mediaItemsById = useMemo(
+    () => new Map(mediaItems.map((item) => [item.id, item])),
+    [mediaItems],
+  )
+  const lanePriority = useMemo(
+    () => new Map(lanes.map((lane, index) => [lane.id, index])),
+    [lanes],
+  )
+  const timelineClips = dragPreviewClips ?? clips
+  const resolvedZoom = zoomDraft ?? zoom
+
+  const commitProjectChange = useCallback(
+    (label: string, updater: (current: ProjectState) => ProjectState) => {
+      dispatchProject({ type: 'commit', label, updater })
+    },
+    [],
+  )
+
+  const commitProjectPatch = useCallback(
+    (label: string, patch: Partial<ProjectState>) => {
+      commitProjectChange(label, (current) => patchProjectState(current, patch))
+    },
+    [commitProjectChange],
+  )
+
+  function updateZoomDraft(nextZoom: number | null) {
+    zoomDraftRef.current = nextZoom
+    setZoomDraft(nextZoom)
   }
 
-  function commitProjectPatch(label: string, patch: Partial<ProjectState>) {
-    commitProjectChange(label, (current) => patchProjectState(current, patch))
-  }
+  function setLocalMediaOverride(mediaId: string, patch: LocalMediaOverride) {
+    setLocalMediaOverrides((current) => {
+      const previous = current[mediaId]
+      const nextPreviewUrl = patch.previewUrl ?? previous?.previewUrl
+      const previousPreviewUrl = previous?.previewUrl
 
-  function applyTransientProjectPatch(patch: Partial<ProjectState>) {
-    dispatchProject({
-      type: 'transient',
-      updater: (current) => patchProjectState(current, patch),
+      if (
+        previousPreviewUrl &&
+        previousPreviewUrl !== nextPreviewUrl &&
+        mediaObjectUrlsRef.current.get(mediaId) === previousPreviewUrl
+      ) {
+        URL.revokeObjectURL(previousPreviewUrl)
+        mediaObjectUrlsRef.current.delete(mediaId)
+      }
+
+      const next = {
+        ...previous,
+        ...patch,
+      }
+
+      if (!next.previewUrl && !next.thumbnailUrl && !next.availability) {
+        const rest = { ...current }
+        delete rest[mediaId]
+        return rest
+      }
+
+      return {
+        ...current,
+        [mediaId]: next,
+      }
     })
   }
 
-  const signature =
-    SIGNATURES.find((candidate) => candidate.id === signatureId) ?? SIGNATURES[0]
+  function seedLocalMediaItems(items: MediaItem[]) {
+    for (const item of items) {
+      if (item.previewUrl.startsWith('blob:')) {
+        mediaObjectUrlsRef.current.set(item.id, item.previewUrl)
+      }
+      setLocalMediaOverride(item.id, {
+        availability: item.previewUrl ? 'ready' : item.availability,
+        previewUrl: item.previewUrl || undefined,
+        thumbnailUrl: item.thumbnailUrl,
+      })
+    }
+  }
+
+  async function cacheLocalMediaItems(items: MediaItem[]) {
+    const harness = getHarness()
+    await Promise.allSettled(
+      items
+        .filter((item) => item.previewUrl)
+        .map(async (item) => {
+          const blob = await harness.readMediaBlob(item)
+          await cacheMediaBlob(item.id, blob)
+        }),
+    )
+  }
+
+  const signature = SIGNATURES.find((candidate) => candidate.id === signatureId) ?? SIGNATURES[0]
   const beatUnit = 4 / signature.denominator
   const barLength = signature.numerator * beatUnit
   const snapUnit = getSnapUnit(snapMode, signature)
-  const quarterPx = BASE_QUARTER_PX * zoom
-  const timelineClips = dragPreviewClips ?? clips
+  const quarterPx = BASE_QUARTER_PX * resolvedZoom
+  const totalQuarters = useMemo(() => {
+    let nextTotalQuarters = barLength * 12
+    for (const clip of timelineClips) {
+      nextTotalQuarters = Math.max(
+        nextTotalQuarters,
+        clip.startQ + getClipDurationQ(clip, bpm) + barLength,
+      )
+    }
+    for (const span of sourceSpans) {
+      nextTotalQuarters = Math.max(
+        nextTotalQuarters,
+        span.startQ + getClipDurationQ(span, bpm) + barLength,
+      )
+    }
+    if (pendingSelection) {
+      nextTotalQuarters = Math.max(nextTotalQuarters, getSelectionEndQ(pendingSelection) + barLength)
+    }
 
-  let totalQuarters = barLength * 12
-  for (const clip of timelineClips) {
-    totalQuarters = Math.max(
-      totalQuarters,
-      clip.startQ + getClipDurationQ(clip, bpm) + barLength,
-    )
-  }
-  for (const span of sourceSpans) {
-    totalQuarters = Math.max(totalQuarters, span.startQ + getClipDurationQ(span, bpm) + barLength)
-  }
-  if (pendingSelection) {
-    totalQuarters = Math.max(totalQuarters, getSelectionEndQ(pendingSelection) + barLength)
-  }
-
+    return nextTotalQuarters
+  }, [barLength, bpm, pendingSelection, sourceSpans, timelineClips])
   const timelineWidth = totalQuarters * quarterPx
-  const gridStyle = {
-    backgroundImage:
-      'linear-gradient(to right, rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(to right, rgba(255,255,255,0.16) 1px, transparent 1px)',
-    backgroundSize: `${beatUnit * quarterPx}px 100%, ${barLength * quarterPx}px 100%`,
-  }
-  const selectedClip =
-    timelineClips.find((clip) => clip.id === selectedClipId) ??
-    timelineClips.find((clip) => clip.selected) ??
-    timelineClips[0]
-  const selectedMedia = mediaItems.find((item) => item.id === selectedClip?.mediaId)
-  const lanePriority = new Map(lanes.map((lane, index) => [lane.id, index]))
-  const playheadClip = findClipAtPlayhead(timelineClips, playheadQ, bpm, lanePriority)
-  const previewClip = playheadClip ?? selectedClip
-  const previewMedia = mediaItems.find((item) => item.id === previewClip?.mediaId)
-  const selectedTrack = sourceTracks.find((track) => track.id === selectedClip?.sourceTrackId)
-  const fxDevices = mapSessionEffectsToDevices(effects, selectedClip?.laneId, selectedMedia?.kind)
-  const selectedFx = fxDevices.find((device) => device.id === selectedFxId) ?? fxDevices[0]
-  const playheadSeconds = quartersToSeconds(playheadQ, bpm)
-  const masterAudio = mediaItems.find((item) => item.id === masterAudioId)
-  const canCreateLayer = lanes.length < MAX_LAYERS
-  const projectWaveform =
-    masterAudio?.waveform.length
-      ? masterAudio.waveform
-      : buildProjectWaveform(timelineClips, totalQuarters, bpm, 264)
-  const timelineContentEndQ = getTimelineContentEndQ(
-    timelineClips,
-    sourceSpans,
-    masterAudio?.durationSeconds,
-    bpm,
-    barLength,
+  const gridStyle = useMemo(
+    () => ({
+      backgroundImage:
+        'linear-gradient(to right, rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(to right, rgba(255,255,255,0.16) 1px, transparent 1px)',
+      backgroundSize: `${beatUnit * quarterPx}px 100%, ${barLength * quarterPx}px 100%`,
+    }),
+    [barLength, beatUnit, quarterPx],
   )
-  const barCount = Math.ceil(totalQuarters / barLength)
-  const rulerBars = Array.from({ length: barCount }, (_, index) => ({
-    index,
-    quarter: index * barLength,
-  }))
-  const unresolvedCount = timelineClips.filter((clip) => !clip.mediaId).length
+  const selectedClip = useMemo(
+    () =>
+      timelineClips.find((clip) => clip.id === selectedClipId) ??
+      timelineClips.find((clip) => clip.selected) ??
+      timelineClips[0],
+    [selectedClipId, timelineClips],
+  )
+  const selectedMedia = selectedClip?.mediaId ? mediaItemsById.get(selectedClip.mediaId) : undefined
+  const playheadClip = useMemo(
+    () => findClipAtPlayhead(timelineClips, playheadQ, bpm, lanePriority),
+    [bpm, lanePriority, playheadQ, timelineClips],
+  )
+  const previewClip = playheadClip ?? selectedClip
+  const previewMedia = previewClip?.mediaId ? mediaItemsById.get(previewClip.mediaId) : undefined
+  const previewMediaState = describeMediaAvailability(previewMedia?.availability)
+  const selectedTrack = useMemo(
+    () => sourceTracks.find((track) => track.id === selectedClip?.sourceTrackId),
+    [selectedClip?.sourceTrackId, sourceTracks],
+  )
+  const fxDevices = useMemo(
+    () => mapSessionEffectsToDevices(effects, selectedClip?.laneId, selectedMedia?.kind),
+    [effects, selectedClip?.laneId, selectedMedia?.kind],
+  )
+  const selectedFx = useMemo(
+    () => fxDevices.find((device) => device.id === selectedFxId) ?? fxDevices[0],
+    [fxDevices, selectedFxId],
+  )
+  const playheadSeconds = quartersToSeconds(playheadQ, bpm)
+  const masterAudio = masterAudioId ? mediaItemsById.get(masterAudioId) : undefined
+  const canCreateLayer = lanes.length < MAX_LAYERS
+  const projectWaveform = useMemo(
+    () =>
+      masterAudio?.waveform.length
+        ? masterAudio.waveform
+        : buildProjectWaveform(timelineClips, totalQuarters, bpm, 264),
+    [bpm, masterAudio, timelineClips, totalQuarters],
+  )
+  const timelineContentEndQ = useMemo(
+    () =>
+      getTimelineContentEndQ(
+        timelineClips,
+        sourceSpans,
+        masterAudio?.durationSeconds,
+        bpm,
+        barLength,
+      ),
+    [barLength, bpm, masterAudio?.durationSeconds, sourceSpans, timelineClips],
+  )
+  const rulerBars = useMemo(() => {
+    const barCount = Math.ceil(totalQuarters / barLength)
+    return Array.from({ length: barCount }, (_, index) => ({
+      index,
+      quarter: index * barLength,
+    }))
+  }, [barLength, totalQuarters])
+  const offlineCount = useMemo(
+    () =>
+      timelineClips.filter((clip) => {
+        const media = clip.mediaId ? mediaItemsById.get(clip.mediaId) : undefined
+        return !media || media.availability !== 'ready'
+      }).length,
+    [mediaItemsById, timelineClips],
+  )
+  const clipsByLane = useMemo(() => {
+    const next = new Map<string, ArrangementClip[]>()
+    for (const clip of timelineClips) {
+      const laneClips = next.get(clip.laneId)
+      if (laneClips) {
+        laneClips.push(clip)
+        continue
+      }
+
+      next.set(clip.laneId, [clip])
+    }
+    return next
+  }, [timelineClips])
+  const sourceSpansByTrack = useMemo(() => {
+    const next = new Map<string, SourceSpan[]>()
+    for (const clip of sourceSpans) {
+      const trackClips = next.get(clip.sourceTrackId)
+      if (trackClips) {
+        trackClips.push(clip)
+        continue
+      }
+
+      next.set(clip.sourceTrackId, [clip])
+    }
+    return next
+  }, [sourceSpans])
   const minimumWindowQ = Math.max(snapUnit, beatUnit / 4)
   const visibleTimelineStartPx = Math.max(0, timelineViewport.scrollLeft)
   const visibleTimelineWidthPx = Math.max(0, timelineViewport.clientWidth - LABEL_WIDTH)
@@ -1151,6 +1541,147 @@ function App() {
             : 'Render...'
     : 'Export'
 
+  useEffect(() => {
+    sourceThumbnailUrlsRef.current = sourceThumbnailUrls
+  }, [sourceThumbnailUrls])
+
+  useEffect(() => {
+    const activeSpanIds = new Set(sourceSpans.map((span) => getSourceThumbnailCacheKey(span)))
+
+    setSourceThumbnailUrls((current) => {
+      let changed = false
+      const next: Record<string, string> = {}
+
+      for (const [spanId, url] of Object.entries(current)) {
+        if (activeSpanIds.has(spanId)) {
+          next[spanId] = url
+          continue
+        }
+
+        revokeObjectUrlIfNeeded(url)
+        changed = true
+      }
+
+      if (!changed) {
+        return current
+      }
+
+      sourceThumbnailUrlsRef.current = next
+      return next
+    })
+  }, [sourceSpans])
+
+  useEffect(() => {
+    let cancelled = false
+    const mediaById = new Map(mediaItems.map((item) => [item.id, item]))
+
+    async function populateSourceThumbnails() {
+      const harness = getHarness()
+      const resolved = await Promise.all(
+        sourceSpans.map(async (span) => {
+          const cacheKey = getSourceThumbnailCacheKey(span)
+          if (sourceThumbnailUrlsRef.current[cacheKey]) {
+            return null
+          }
+
+          const media = span.mediaId ? mediaById.get(span.mediaId) : undefined
+          if (!media?.hasVideo) {
+            return null
+          }
+
+          const fallbackUrl = media.thumbnailUrl
+          if (!harness.generateThumbnailAtTime) {
+            return fallbackUrl ? { cacheKey, url: fallbackUrl } : null
+          }
+
+          try {
+            const exactUrl = await harness.generateThumbnailAtTime(media, span.trimStartSeconds)
+            return exactUrl || fallbackUrl
+              ? {
+                  cacheKey,
+                  url: exactUrl ?? fallbackUrl ?? '',
+                }
+              : null
+          } catch (error) {
+            logClient('sourceThumbnail:error', {
+              spanId: span.id,
+              mediaId: media.id,
+              message: error instanceof Error ? error.message : String(error),
+            })
+            return fallbackUrl ? { cacheKey, url: fallbackUrl } : null
+          }
+        }),
+      )
+
+      const nextEntries = resolved.filter(
+        (entry): entry is { cacheKey: string; url: string } => Boolean(entry),
+      )
+      if (cancelled) {
+        const currentUrls = new Set(Object.values(sourceThumbnailUrlsRef.current))
+        for (const entry of nextEntries) {
+          if (!currentUrls.has(entry.url)) {
+            revokeObjectUrlIfNeeded(entry.url)
+          }
+        }
+        return
+      }
+
+      if (!nextEntries.length) {
+        return
+      }
+
+      const activeSpanIds = new Set(sourceSpans.map((span) => getSourceThumbnailCacheKey(span)))
+      setSourceThumbnailUrls((current) => {
+        const next = { ...current }
+        let changed = false
+
+        for (const entry of nextEntries) {
+          if (!activeSpanIds.has(entry.cacheKey)) {
+            revokeObjectUrlIfNeeded(entry.url)
+            continue
+          }
+
+          const previousUrl = next[entry.cacheKey]
+          if (previousUrl === entry.url) {
+            continue
+          }
+
+          revokeObjectUrlIfNeeded(previousUrl)
+          next[entry.cacheKey] = entry.url
+          changed = true
+        }
+
+        if (!changed) {
+          for (const entry of nextEntries) {
+            if (current[entry.cacheKey] !== entry.url) {
+              revokeObjectUrlIfNeeded(entry.url)
+            }
+          }
+          return current
+        }
+
+        sourceThumbnailUrlsRef.current = next
+        return next
+      })
+    }
+
+    if (sourceSpans.length) {
+      void populateSourceThumbnails()
+    }
+
+    return () => {
+      cancelled = true
+    }
+  }, [mediaItems, sourceSpans])
+
+  useEffect(() => {
+    return () => {
+      for (const url of Object.values(sourceThumbnailUrlsRef.current)) {
+        revokeObjectUrlIfNeeded(url)
+      }
+    }
+  }, [])
+
   function syncTimelineViewport() {
     const timelineScroll = timelineScrollRef.current
     if (!timelineScroll) {
@@ -1162,6 +1693,19 @@ function App() {
       clientWidth: timelineScroll.clientWidth,
     })
   }
+
+  const flushZoomDraft = useCallback(
+    (label = 'Adjust zoom') => {
+      const pendingZoom = zoomDraftRef.current
+      updateZoomDraft(null)
+      if (pendingZoom === null || Math.abs(pendingZoom - zoom) <= 0.0001) {
+        return
+      }
+
+      commitProjectPatch(label, { zoom: pendingZoom })
+    },
+    [commitProjectPatch, zoom],
+  )
 
   function handleCreateLayer() {
     if (!canCreateLayer) {
@@ -1205,7 +1749,7 @@ function App() {
 
   const startPlayback = useCallback(() => {
     const epsilon = 0.0001
-    const stopQ = getPlaybackStopQ(timelineClips, mediaItems, playheadQ, bpm)
+    const stopQ = getPlaybackStopQ(timelineClips, projectMediaItems, playheadQ, bpm)
     if (stopQ <= playheadQ + epsilon) {
       setStatus('No more playable source clips after the playhead.')
       return
@@ -1214,7 +1758,7 @@ function App() {
     playbackOriginRef.current = playheadQ
     playbackStopRef.current = stopQ
     setIsPlaying(true)
-  }, [bpm, mediaItems, playheadQ, timelineClips])
+  }, [bpm, playheadQ, projectMediaItems, timelineClips])
 
   const createWindowClip = useCallback(
     (
@@ -1454,6 +1998,215 @@ function App() {
     dispatchProject({ type: 'redo' })
     setStatus(formatHistoryStatus('Redid', redoLabel))
   }, [isExporting, redoLabel, stopTimelineAudibleScrub])
+
+  useEffect(() => {
+    projectSnapshotRef.current = projectHistory.present
+  }, [projectHistory.present])
+
+  useEffect(() => {
+    localMediaOverridesRef.current = localMediaOverrides
+  }, [localMediaOverrides])
+
+  useEffect(
+    () => () => {
+      for (const url of mediaObjectUrlsRef.current.values()) {
+        URL.revokeObjectURL(url)
+      }
+      mediaObjectUrlsRef.current.clear()
+    },
+    [],
+  )
+
+  useEffect(() => {
+    const activeIds = new Set(projectMediaItems.map((item) => item.id))
+    setLocalMediaOverrides((current) => {
+      let changed = false
+      const next: Record<string, LocalMediaOverride> = {}
+      for (const [mediaId, override] of Object.entries(current)) {
+        if (!activeIds.has(mediaId)) {
+          const previewUrl = mediaObjectUrlsRef.current.get(mediaId)
+          if (previewUrl) {
+            URL.revokeObjectURL(previewUrl)
+            mediaObjectUrlsRef.current.delete(mediaId)
+          }
+          changed = true
+          continue
+        }
+
+        next[mediaId] = override
+      }
+
+      return changed ? next : current
+    })
+  }, [projectMediaItems])
+
+  useEffect(() => {
+    let cancelled = false
+
+    for (const item of projectMediaItems) {
+      const override = localMediaOverridesRef.current[item.id]
+      const effectivePreviewUrl = override?.previewUrl ?? item.previewUrl
+      const effectiveAvailability = override?.availability ?? item.availability
+      if (effectivePreviewUrl || effectiveAvailability === 'ready') {
+        continue
+      }
+
+      if (mediaHydrationInFlightRef.current.has(item.id)) {
+        continue
+      }
+
+      mediaHydrationInFlightRef.current.add(item.id)
+      setLocalMediaOverride(item.id, { availability: item.sourcePath ? 'hydrating' : 'offline' })
+
+      void (async () => {
+        try {
+          const cachedBlob = await getCachedMediaBlob(item.id)
+          if (cachedBlob) {
+            if (cancelled) {
+              return
+            }
+
+            const previewUrl = URL.createObjectURL(cachedBlob)
+            mediaObjectUrlsRef.current.set(item.id, previewUrl)
+            setLocalMediaOverride(item.id, {
+              availability: 'ready',
+              previewUrl,
+            })
+            return
+          }
+
+          if (!item.sourcePath && !item.previewUrl) {
+            if (!cancelled) {
+              setLocalMediaOverride(item.id, { availability: 'offline' })
+            }
+            return
+          }
+
+          const blob = await getHarness().readMediaBlob(item)
+          await cacheMediaBlob(item.id, blob)
+          if (cancelled) {
+            return
+          }
+
+          const previewUrl = URL.createObjectURL(blob)
+          mediaObjectUrlsRef.current.set(item.id, previewUrl)
+          setLocalMediaOverride(item.id, {
+            availability: 'ready',
+            previewUrl,
+          })
+        } catch (error) {
+          logClient('media:hydrate:error', {
+            mediaId: item.id,
+            message: error instanceof Error ? error.message : String(error),
+          })
+          if (!cancelled) {
+            setLocalMediaOverride(item.id, { availability: 'offline' })
+          }
+        } finally {
+          mediaHydrationInFlightRef.current.delete(item.id)
+        }
+      })()
+    }
+
+    return () => {
+      cancelled = true
+    }
+  }, [projectMediaItems])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    try {
+      window.localStorage.setItem(
+        COLLAB_STORAGE_KEY,
+        JSON.stringify({
+          room: collaborationRoom,
+          signaling: collaborationSignaling,
+          name: collaborationName,
+          color: collaborationColor,
+        }),
+      )
+    } catch (error) {
+      logClient('collaboration:storage:write:error', {
+        message: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }, [collaborationColor, collaborationName, collaborationRoom, collaborationSignaling])
+
+  const applyRemoteProjectState = useCallback(
+    (snapshot: ProjectState) => {
+      if (JSON.stringify(projectSnapshotRef.current) === JSON.stringify(snapshot)) {
+        return
+      }
+
+      setIsPlaying(false)
+      stopTimelineAudibleScrub()
+      setDragPreviewClips(null)
+      setDragState(null)
+      setPendingSelection(null)
+      setTimelineDragState(null)
+      dispatchProject({ type: 'replace', snapshot })
+    },
+    [stopTimelineAudibleScrub],
+  )
+
+  useEffect(() => {
+    if (!isCollaborationEnabled) {
+      collaborationControllerRef.current?.destroy()
+      collaborationControllerRef.current = null
+      return
+    }
+
+    const roomName = collaborationRoom.trim()
+    if (!roomName) {
+      return
+    }
+
+    const controller = createCollaborationController<ProjectState>({
+      roomName,
+      password: collaborationPassword.trim(),
+      signalingUrls: parseSignalingUrls(collaborationSignaling),
+      initialState: INITIAL_PROJECT_STATE,
+      bootstrapState: projectSnapshotRef.current,
+      user: {
+        name: collaborationName.trim() || initialCollaborationConfig.name,
+        color: collaborationColor,
+      },
+      onRemoteState: applyRemoteProjectState,
+      onConnectionState: setCollaborationState,
+    })
+
+    collaborationControllerRef.current = controller
+
+    return () => {
+      if (collaborationControllerRef.current === controller) {
+        collaborationControllerRef.current = null
+      }
+      controller.destroy()
+    }
+  }, [
+    applyRemoteProjectState,
+    collaborationColor,
+    collaborationName,
+    collaborationPassword,
+    collaborationRoom,
+    collaborationSignaling,
+    initialCollaborationConfig.name,
+    isCollaborationEnabled,
+  ])
+
+  useEffect(() => {
+    collaborationControllerRef.current?.updateUser({
+      name: collaborationName.trim() || initialCollaborationConfig.name,
+      color: collaborationColor,
+    })
+  }, [collaborationColor, collaborationName, initialCollaborationConfig.name])
+
+  useEffect(() => {
+    collaborationControllerRef.current?.pushState(projectHistory.present)
+  }, [projectHistory.present])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1956,6 +2709,7 @@ function App() {
     beatUnit,
     bpm,
     clips,
+    commitProjectChange,
     dragPreviewClips,
     dragState,
     minimumWindowQ,
@@ -2012,7 +2766,7 @@ function App() {
         maxScrollLeft,
       )
       pulseTimelineAudibleScrub()
-      applyTransientProjectPatch({ zoom: nextZoom })
+      updateZoomDraft(nextZoom)
       setPlayheadQ(nextPlayheadQ)
       playbackOriginRef.current = nextPlayheadQ
     }
@@ -2023,6 +2777,7 @@ function App() {
       }
 
       stopTimelineAudibleScrub()
+      flushZoomDraft()
       setTimelineDragState(null)
     }
 
@@ -2035,7 +2790,7 @@ function App() {
       window.removeEventListener('pointerup', onPointerUp)
       window.removeEventListener('pointercancel', onPointerUp)
     }
-  }, [pulseTimelineAudibleScrub, stopTimelineAudibleScrub, timelineDragState, totalQuarters])
+  }, [flushZoomDraft, pulseTimelineAudibleScrub, stopTimelineAudibleScrub, timelineDragState, totalQuarters])
 
   useEffect(() => {
     if (!isPlaying) {
@@ -2069,27 +2824,16 @@ function App() {
   async function applyOpenedSessionPayload(payload: SessionOpenResponse) {
     const existingRefs = payload.mediaRefs.filter((ref) => ref.exists)
     const missingRefs = payload.mediaRefs.filter((ref) => !ref.exists)
+    const placeholderMedia = payload.mediaRefs.map((ref, index) =>
+      buildFallbackMediaItem(ref, PALETTE[index % PALETTE.length] ?? PALETTE[0]),
+    )
     logClient('openSession:mediaRefs', {
       total: payload.mediaRefs.length,
       existing: existingRefs.length,
       missing: missingRefs.length,
     })
 
-    setStatus(`Analyzing ${existingRefs.length} session media file(s) through ${getHarness().label}...`)
-    const analyzedMedia = await getHarness().analyzeMedia(
-      {
-        kind: 'refs',
-        refs: existingRefs,
-      },
-      PALETTE,
-      0,
-    )
-    logClient('openSession:analyzedMedia', {
-      analyzed: analyzedMedia.length,
-      degraded: 0,
-    })
-
-    const project = sessionToProject(payload.session, analyzedMedia)
+    const project = sessionToProject(payload.session, placeholderMedia)
     logClient('openSession:project', {
       clips: project.arrangementClips.length,
       lanes: project.lanes.length,
@@ -2099,7 +2843,7 @@ function App() {
     commitProjectChange('Open session', (current) =>
       patchProjectState(current, {
         sessionName: payload.sessionName,
-        mediaItems: analyzedMedia,
+        mediaItems: placeholderMedia.map((item) => toShareableMediaItem(item)),
         bpm: project.bpm,
         fps: project.fps,
         canvasWidth: project.canvasWidth,
@@ -2123,13 +2867,55 @@ function App() {
       project.arrangementClips.find((clip) => clip.selected) ?? project.arrangementClips[0]
     setSelectedClipId(preferredClip?.id)
     setPlayheadQ(secondsToQuarters(project.playPositionFrames / project.fps, project.bpm))
+    seedLocalMediaItems(
+      existingRefs.map((ref, index) => ({
+        ...buildFallbackMediaItem(ref, PALETTE[index % PALETTE.length] ?? PALETTE[0]),
+        previewUrl: ref.url,
+        availability: 'ready',
+      })),
+    )
 
-    if (missingRefs.length) {
-      setStatus(
-        `Loaded ${payload.sessionName}. ${missingRefs.length} referenced media file(s) are missing on disk.`,
-      )
-    } else {
-      setStatus(`Loaded ${payload.sessionName} with all media streaming from disk.`)
+    setStatus(
+      existingRefs.length
+        ? `Loaded ${payload.sessionName}. Hydrating ${existingRefs.length} media file(s) in the background.`
+        : `Loaded ${payload.sessionName}. All referenced media is currently offline.`,
+    )
+
+    if (existingRefs.length) {
+      void (async () => {
+        try {
+          const analyzedMedia = await getHarness().analyzeMedia(
+            {
+              kind: 'refs',
+              refs: existingRefs,
+            },
+            PALETTE,
+            0,
+          )
+          logClient('openSession:analyzedMedia', {
+            analyzed: analyzedMedia.length,
+            degraded: 0,
+          })
+          seedLocalMediaItems(analyzedMedia)
+          void cacheLocalMediaItems(analyzedMedia)
+          commitProjectChange('Hydrate session media', (current) =>
+            patchProjectState(current, {
+              mediaItems: mergeMediaItemsById(
+                current.mediaItems,
+                analyzedMedia.map((item) => toShareableMediaItem(item)),
+              ),
+            }),
+          )
+          setStatus(
+            missingRefs.length
+              ? `Loaded ${payload.sessionName}. ${missingRefs.length} clip(s) are still offline.`
+              : `Loaded ${payload.sessionName} with local media hydrated from disk.`,
+          )
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          setStatus(`Session media hydration failed: ${message}`)
+        }
+      })()
     }
   }
 
@@ -2145,8 +2931,9 @@ function App() {
       setStatus(`Analyzing ${itemCount} imported media file(s) through ${harness.label}...`)
       const nextPaletteIndex = mediaItems.length
       const analyzed = await harness.analyzeMedia(selection, PALETTE, nextPaletteIndex)
+      const sharedAnalyzed = analyzed.map((item) => toShareableMediaItem(item))
 
-      const nextMedia = [...mediaItems, ...analyzed]
+      const nextMedia = [...projectMediaItems, ...sharedAnalyzed]
       if (!sessionName) {
         const standalone = buildStandaloneProject(nextMedia)
         commitProjectChange('Import media', (current) =>
@@ -2171,6 +2958,8 @@ function App() {
         )
       }
 
+      seedLocalMediaItems(analyzed)
+      void cacheLocalMediaItems(analyzed)
       setStatus(`Imported ${analyzed.length} media file(s) through ${harness.label}.`)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -2352,6 +3141,54 @@ function App() {
     }
   }
 
+  function handleToggleCollaboration() {
+    if (isCollaborationEnabled) {
+      setIsCollaborationEnabled(false)
+      setStatus('Collaboration disconnected.')
+      return
+    }
+
+    if (!collaborationRoom.trim()) {
+      setStatus('Enter a collaboration room name before connecting.')
+      return
+    }
+
+    setIsCollaborationEnabled(true)
+    setStatus(`Connecting to collaboration room "${collaborationRoom.trim()}".`)
+  }
+
+  async function handleCopyCollaborationInvite() {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const roomName = collaborationRoom.trim()
+    if (!roomName) {
+      setStatus('Enter a collaboration room name before copying an invite.')
+      return
+    }
+
+    try {
+      const url = new URL(window.location.href)
+      url.searchParams.set('room', roomName)
+      url.searchParams.set('signal', parseSignalingUrls(collaborationSignaling).join(','))
+      if (collaborationPassword.trim()) {
+        url.searchParams.set('password', collaborationPassword.trim())
+      } else {
+        url.searchParams.delete('password')
+      }
+
+      await navigator.clipboard.writeText(url.toString())
+      setStatus('Copied collaboration invite URL.')
+    } catch (error) {
+      setStatus(
+        `Failed to copy collaboration invite: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      )
+    }
+  }
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -2463,6 +3300,110 @@ function App() {
           </button>
         </div>
       </header>
+
+      <section className="collab-bar">
+        <div className="collab-summary">
+          <span
+            className={`collab-summary__status ${
+              visibleCollaborationState.connected ? 'is-live' : 'is-offline'
+            }`}
+          />
+          <div>
+            <strong>
+              {visibleCollaborationState.connected
+                ? visibleCollaborationState.peerCount
+                  ? `${visibleCollaborationState.peerCount + 1} collaborators live`
+                  : 'Connected to room'
+                : 'Collaboration offline'}
+            </strong>
+            <small>
+              {collaborationRoom.trim()
+                ? `Room ${collaborationRoom.trim()}`
+                : 'Choose a room to start collaborating'}
+            </small>
+          </div>
+        </div>
+
+        <label className="collab-field">
+          <span>Name</span>
+          <input
+            maxLength={32}
+            onChange={(event) => setCollaborationName(event.target.value)}
+            placeholder="Your name"
+            type="text"
+            value={collaborationName}
+          />
+        </label>
+
+        <label className="collab-field">
+          <span>Room</span>
+          <input
+            onChange={(event) => {
+              const nextRoom = event.target.value
+              setCollaborationRoom(nextRoom)
+              if (!nextRoom.trim() && isCollaborationEnabled) {
+                setIsCollaborationEnabled(false)
+              }
+            }}
+            placeholder="session-room"
+            type="text"
+            value={collaborationRoom}
+          />
+        </label>
+
+        <label className="collab-field">
+          <span>Password</span>
+          <input
+            onChange={(event) => setCollaborationPassword(event.target.value)}
+            placeholder="Optional"
+            type="password"
+            value={collaborationPassword}
+          />
+        </label>
+
+        <label className="collab-field collab-field--wide">
+          <span>Signal</span>
+          <input
+            onChange={(event) => setCollaborationSignaling(event.target.value)}
+            placeholder={DEFAULT_SIGNALING_URLS.join(', ')}
+            type="text"
+            value={collaborationSignaling}
+          />
+        </label>
+
+        <div className="collab-actions">
+          <button className="ghost-button" onClick={handleToggleCollaboration} type="button">
+            {isCollaborationEnabled ? 'Disconnect' : 'Connect'}
+          </button>
+          <button
+            className="ghost-button"
+            disabled={!collaborationRoom.trim()}
+            onClick={handleCopyCollaborationInvite}
+            type="button"
+          >
+            Copy Invite
+          </button>
+        </div>
+
+        <div className="collab-presence" aria-label="Connected collaborators">
+          {visibleCollaborationState.collaborators.length ? (
+            visibleCollaborationState.collaborators.map((collaborator) => (
+              <span
+                key={collaborator.clientId}
+                className="collab-presence__chip"
+                style={{
+                  borderColor: collaborator.color,
+                  boxShadow: `inset 0 0 0 1px ${collaborator.color}33`,
+                }}
+              >
+                {collaborator.isLocal ? `${collaborator.name} (You)` : collaborator.name}
+              </span>
+            ))
+          ) : (
+            <span className="collab-presence__empty">No collaborators visible yet.</span>
+          )}
+        </div>
+      </section>
 
       <main className="workspace">
         <div className="workspace__main">
@@ -2603,7 +3544,7 @@ function App() {
                   <section className="ruler-row">
                     <div className="track-label track-label--header">
                       <span>{sessionName ?? 'Session'}</span>
-                      <small>{unresolvedCount ? `${unresolvedCount} unresolved media file(s)` : 'Media linked'}</small>
+                      <small>{offlineCount ? `${offlineCount} offline clip(s)` : 'Media linked'}</small>
                     </div>
                     <div
                       className={`ruler-row__content ruler-row__content--interactive ${
@@ -2638,7 +3579,7 @@ function App() {
                           pointerStartX: event.clientX,
                           pointerStartY: event.clientY,
                           originPlayheadQ: nextPlayheadQ,
-                          originZoom: zoom,
+                          originZoom: resolvedZoom,
                         })
                       }}
                       style={gridStyle}
@@ -2730,11 +3671,11 @@ function App() {
                             <span>Press 1-9 to commit</span>
                           </div>
                         ) : null}
-                        {timelineClips
-                          .filter((clip) => clip.laneId === lane.id)
-                          .map((clip) => {
+                        {(clipsByLane.get(lane.id) ?? []).map((clip) => {
                             const selected = clip.id === selectedClip?.id
                             const durationQ = getClipDurationQ(clip, bpm)
+                            const media = clip.mediaId ? mediaItemsById.get(clip.mediaId) : undefined
+                            const mediaState = describeMediaAvailability(media?.availability)
                             return (
                               <div
                                 key={clip.id}
@@ -2745,7 +3686,7 @@ function App() {
                                   backgroundColor: clip.tint,
                                   borderColor: clip.accent,
                                   boxShadow: selected ? `0 0 0 2px ${clip.accent}` : undefined,
-                                  opacity: clip.mediaId ? 1 : 0.62,
+                                  opacity: mediaState === 'online' ? 1 : 0.62,
                                 }}
                               >
                                 <button
@@ -2805,7 +3746,7 @@ function App() {
                                   <span>
                                     {formatMusicalPosition(clip.startQ, signature)} /{' '}
                                     {formatDuration(clip.durationSeconds)}
-                                    {clip.mediaId ? '' : ' / missing'}
+                                    {mediaState === 'online' ? '' : ` / ${mediaState}`}
                                   </span>
                                 </button>
                                 <button
@@ -2871,7 +3812,7 @@ function App() {
                   </section>
 
                   {sourceTracks.map((track, index) => {
-                    const sourceClips = sourceSpans.filter((clip) => clip.sourceTrackId === track.id)
+                    const sourceClips = sourceSpansByTrack.get(track.id) ?? []
                     const swatch = getSwatch(track.colorIndex)
 
                     return (
@@ -2896,7 +3837,10 @@ function App() {
                         </button>
                         <div className="track-row__content track-row__content--source" style={gridStyle}>
                           {sourceClips.map((clip) => {
-                            const media = mediaItems.find((item) => item.id === clip.mediaId)
+                            const media = clip.mediaId ? mediaItemsById.get(clip.mediaId) : undefined
+                            const mediaState = describeMediaAvailability(media?.availability)
+                            const thumbnailUrl =
+                              sourceThumbnailUrls[getSourceThumbnailCacheKey(clip)] ?? media?.thumbnailUrl
                             return (
                               <div
                                 key={clip.id}
@@ -2906,15 +3850,15 @@ function App() {
                                   width: getClipDurationQ(clip, bpm) * quarterPx,
                                   backgroundColor: clip.tint,
                                   borderColor: clip.accent,
-                                  opacity: clip.mediaId ? 1 : 0.56,
+                                  opacity: mediaState === 'online' ? 1 : 0.56,
                                 }}
                               >
                                 <div
                                   className="source-span__thumb"
                                   style={
-                                    media?.thumbnailUrl
+                                    thumbnailUrl
                                       ? {
-                                          backgroundImage: `url(${media.thumbnailUrl})`,
+                                          backgroundImage: `url(${thumbnailUrl})`,
                                           backgroundSize: 'cover',
                                           backgroundPosition: 'center',
                                         }
@@ -2923,6 +3867,13 @@ function App() {
                                 />
                                 <div className="source-span__body">
                                   <span>{clip.label}</span>
+                                  <small>
+                                    {mediaState === 'online'
+                                      ? 'online'
+                                      : mediaState === 'hydrating'
+                                        ? 'hydrating...'
+                                        : 'offline clip'}
+                                  </small>
                                   <div className="source-span__line" style={{ backgroundColor: clip.accent }} />
                                 </div>
                               </div>
@@ -2963,14 +3914,18 @@ function App() {
                     playheadQ={playheadQ}
                     playheadSeconds={playheadSeconds}
                   />
-                  {!previewClip ? (
+                  {!previewClip || previewMediaState !== 'online' ? (
                     <div className="preview-placeholder">
                       <div className="preview-placeholder__overlay">
-                        <strong>No clip at playhead</strong>
+                        <strong>{!previewClip ? 'No clip at playhead' : 'Offline clip'}</strong>
                         <span>
-                          {isPlaying
-                            ? 'The playhead is currently in a gap between clips.'
-                            : 'Move the playhead onto a clip or start playback to render the session comp.'}
+                          {!previewClip
+                            ? isPlaying
+                              ? 'The playhead is currently in a gap between clips.'
+                              : 'Move the playhead onto a clip or start playback to render the session comp.'
+                            : previewMediaState === 'hydrating'
+                              ? 'Media hydration is still running in the background.'
+                              : 'This clip is in the project, but its media file is not cached locally yet.'}
                         </span>
                       </div>
                     </div>
@@ -3012,14 +3967,13 @@ function App() {
                 <input
                   max="1.8"
                   min="0.65"
-                  onChange={(event) =>
-                    commitProjectPatch('Adjust zoom', {
-                      zoom: Number(event.target.value),
-                    })
-                  }
+                  onBlur={() => flushZoomDraft()}
+                  onChange={(event) => updateZoomDraft(Number(event.target.value))}
+                  onKeyUp={() => flushZoomDraft()}
+                  onPointerUp={() => flushZoomDraft()}
                   step="0.01"
                   type="range"
-                  value={zoom}
+                  value={resolvedZoom}
                 />
               </div>
 

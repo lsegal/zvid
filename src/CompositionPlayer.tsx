@@ -57,6 +57,7 @@ type VisualState = {
   brightness: number
   contrast: number
   saturation: number
+  layoutAnchor: 'top' | 'center' | 'bottom'
 }
 
 type ActiveClip = {
@@ -140,6 +141,37 @@ function normalizeUnitValue(value: number, fallback = 1) {
   return value
 }
 
+function parseLayoutAnchor(rawValue: string | undefined, numericValue?: number) {
+  const value = rawValue?.trim().toLowerCase()
+  if (value) {
+    if (value.includes('top')) {
+      return 'top' as const
+    }
+
+    if (value.includes('bottom')) {
+      return 'bottom' as const
+    }
+
+    if (value.includes('center') || value.includes('middle')) {
+      return 'center' as const
+    }
+  }
+
+  if (numericValue !== undefined && Number.isFinite(numericValue)) {
+    if (numericValue <= 0.333) {
+      return 'top' as const
+    }
+
+    if (numericValue >= 0.667) {
+      return 'bottom' as const
+    }
+
+    return 'center' as const
+  }
+
+  return undefined
+}
+
 function resolveVisualState(effects: SessionEffect[], laneId: string): VisualState {
   const state: VisualState = {
     opacity: 1,
@@ -150,6 +182,7 @@ function resolveVisualState(effects: SessionEffect[], laneId: string): VisualSta
     brightness: 0,
     contrast: 1,
     saturation: 1,
+    layoutAnchor: 'center',
   }
 
   for (const effect of effects) {
@@ -157,9 +190,24 @@ function resolveVisualState(effects: SessionEffect[], laneId: string): VisualSta
       continue
     }
 
+    const isLayoutEffect = effect.effectName.trim().toLowerCase().includes('layout')
+
     for (const parameter of effect.parameters) {
       const key = parameter.key.toLowerCase()
+      const rawValue = parameter.value?.trim()
       const numeric = parameter.numericValue ?? parseNumericValue(parameter.value)
+      if (isLayoutEffect && (key.includes('anchor') || key.includes('align') || key === 'position')) {
+        const anchor = parseLayoutAnchor(rawValue, numeric)
+        if (anchor) {
+          state.layoutAnchor = anchor
+          continue
+        }
+      }
+
+      if (isLayoutEffect) {
+        continue
+      }
+
       if (numeric === undefined) {
         continue
       }
@@ -185,6 +233,45 @@ function resolveVisualState(effects: SessionEffect[], laneId: string): VisualSta
   }
 
   return state
+}
+
+type FrameBounds = {
+  centerX: number
+  centerY: number
+  halfWidth: number
+  halfHeight: number
+  aspect: number
+}
+
+function resolveFrameBounds(index: number, slotCount: number, canvasAspect: number): FrameBounds {
+  const normalizedSlotCount = Math.max(1, slotCount)
+  const slotHeight = 2 / normalizedSlotCount
+  const halfHeight = slotHeight / 2
+
+  return {
+    centerX: 0,
+    centerY: 1 - slotHeight * (index + 0.5),
+    halfWidth: 1,
+    halfHeight,
+    aspect: canvasAspect * normalizedSlotCount,
+  }
+}
+
+function applyFrameScissor(gl: WebGLRenderingContext, canvas: HTMLCanvasElement, frame: FrameBounds) {
+  const minX = clamp(Math.floor(((frame.centerX - frame.halfWidth + 1) * canvas.width) / 2), 0, canvas.width)
+  const maxX = clamp(Math.ceil(((frame.centerX + frame.halfWidth + 1) * canvas.width) / 2), 0, canvas.width)
+  const minY = clamp(
+    Math.floor(((frame.centerY - frame.halfHeight + 1) * canvas.height) / 2),
+    0,
+    canvas.height,
+  )
+  const maxY = clamp(
+    Math.ceil(((frame.centerY + frame.halfHeight + 1) * canvas.height) / 2),
+    0,
+    canvas.height,
+  )
+
+  gl.scissor(minX, minY, Math.max(1, maxX - minX), Math.max(1, maxY - minY))
 }
 
 function computeActiveClips(
@@ -428,24 +515,20 @@ function drawComposition(
   gl.viewport(0, 0, canvas.width, canvas.height)
   gl.clearColor(0.07, 0.08, 0.11, 1)
   gl.clear(gl.COLOR_BUFFER_BIT)
+  gl.enable(gl.SCISSOR_TEST)
 
   const canvasAspect = canvas.width / Math.max(1, canvas.height)
-  const stackedClips =
-    activeClips.length > 1
-      ? [...activeClips].sort((left, right) => {
-          if (right.laneRank !== left.laneRank) {
-            return right.laneRank - left.laneRank
-          }
+  const stackedClips = [...activeClips]
+    .filter((entry) => entry.isInBounds && mediaRefs.get(entry.media.id) instanceof HTMLVideoElement)
+    .sort((left, right) => {
+      if (right.laneRank !== left.laneRank) {
+        return right.laneRank - left.laneRank
+      }
 
-          return left.clip.startQ - right.clip.startQ
-        })
-      : activeClips
+      return left.clip.startQ - right.clip.startQ
+    })
 
   for (const [index, entry] of stackedClips.entries()) {
-    if (!entry.isInBounds) {
-      continue
-    }
-
     const mediaElement = mediaRefs.get(entry.media.id)
     if (!(mediaElement instanceof HTMLVideoElement)) {
       continue
@@ -473,29 +556,37 @@ function drawComposition(
     const videoWidth = mediaElement.videoWidth || entry.media.width || canvas.width
     const videoHeight = mediaElement.videoHeight || entry.media.height || canvas.height
     const videoAspect = videoWidth / Math.max(1, videoHeight)
-    const slotCount = Math.max(1, stackedClips.length)
-    const slotHeight = 2 / slotCount
-    const slotCenterY = 1 - slotHeight * (index + 0.5)
-    const slotAspect = canvasAspect / slotCount
-    const coverScale =
-      videoAspect > slotAspect
-        ? [videoAspect / Math.max(slotAspect, 0.0001), 1]
-        : [1, slotAspect / Math.max(videoAspect, 0.0001)]
-    const stackedScale =
-      slotCount > 1
-        ? [coverScale[0], coverScale[1] / slotCount]
-        : videoAspect > canvasAspect
-          ? [canvasAspect / Math.max(videoAspect, 0.0001), 1]
-          : [1, videoAspect / Math.max(canvasAspect, 0.0001)]
+    const frame = resolveFrameBounds(index, stackedClips.length, canvasAspect)
+    const coverHalfExtents =
+      videoAspect > frame.aspect
+        ? {
+            x: (frame.halfHeight * videoAspect) / Math.max(canvasAspect, 0.0001),
+            y: frame.halfHeight,
+          }
+        : {
+            x: frame.halfWidth,
+            y: (frame.halfWidth * canvasAspect) / Math.max(videoAspect, 0.0001),
+          }
+    const layoutScale = Math.max(1, entry.visual.scale)
+    const scaledHalfExtents = {
+      x: coverHalfExtents.x * layoutScale,
+      y: coverHalfExtents.y * layoutScale,
+    }
+    const anchorOffsetY =
+      entry.visual.layoutAnchor === 'top'
+        ? frame.halfHeight - scaledHalfExtents.y
+        : entry.visual.layoutAnchor === 'bottom'
+          ? scaledHalfExtents.y - frame.halfHeight
+          : 0
+    const translateX = frame.centerX + entry.visual.translateX * frame.halfWidth
+    const translateY =
+      frame.centerY + anchorOffsetY + entry.visual.translateY * frame.halfHeight
 
+    applyFrameScissor(gl, canvas, frame)
     gl.uniform1i(uniforms.texture, 0)
-    gl.uniform2f(uniforms.coverScale, stackedScale[0], stackedScale[1])
-    gl.uniform1f(uniforms.userScale, entry.visual.scale)
-    gl.uniform2f(
-      uniforms.translate,
-      entry.visual.translateX,
-      slotCount > 1 ? slotCenterY + entry.visual.translateY * (1 / slotCount) : entry.visual.translateY,
-    )
+    gl.uniform2f(uniforms.coverScale, scaledHalfExtents.x, scaledHalfExtents.y)
+    gl.uniform1f(uniforms.userScale, 1)
+    gl.uniform2f(uniforms.translate, translateX, translateY)
     gl.uniform1f(uniforms.rotation, (entry.visual.rotationDeg * Math.PI) / 180)
     gl.uniform1f(uniforms.opacity, entry.visual.opacity)
     gl.uniform1f(uniforms.brightness, entry.visual.brightness)
@@ -503,6 +594,8 @@ function drawComposition(
     gl.uniform1f(uniforms.saturation, entry.visual.saturation)
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
   }
+
+  gl.disable(gl.SCISSOR_TEST)
 }
 
 function syncCanvasSurface(
@@ -588,6 +681,10 @@ export const CompositionPlayer = forwardRef<CompositionPlayerHandle, Composition
     () => computeActiveClips(clips, mediaById, playheadQ, bpm, lanePriority, effects),
     [clips, mediaById, playheadQ, bpm, lanePriority, effects],
   )
+  const activeClipByMediaId = useMemo(
+    () => new Map(activeClips.map((entry) => [entry.media.id, entry])),
+    [activeClips],
+  )
   activeClipsRef.current = activeClips
 
   const drawCurrentFrame = useCallback(
@@ -639,11 +736,6 @@ export const CompositionPlayer = forwardRef<CompositionPlayerHandle, Composition
         lanePriority,
         effects,
       )
-      console.info('[zvid] composition:renderFrameAt', {
-        playheadQ: nextPlayheadQ,
-        playheadSeconds: nextPlayheadSeconds,
-        activeClips: nextActiveClips.length,
-      })
       const pendingSeeks = new Map<string, Promise<void>>()
 
       for (const entry of nextActiveClips) {
@@ -656,20 +748,11 @@ export const CompositionPlayer = forwardRef<CompositionPlayerHandle, Composition
           continue
         }
 
-        console.info('[zvid] composition:seekMedia', {
-          mediaId: entry.media.id,
-          mediaTime: entry.mediaTime,
-          readyState: mediaElement.readyState,
-          currentTime: mediaElement.currentTime,
-        })
         pendingSeeks.set(entry.media.id, seekMediaElement(mediaElement, entry.mediaTime))
       }
 
       if (pendingSeeks.size) {
         await Promise.all(pendingSeeks.values())
-        console.info('[zvid] composition:seekMedia:complete', {
-          pendingSeeks: pendingSeeks.size,
-        })
       }
 
       if (audioRef.current && masterAudio?.previewUrl) {
@@ -715,6 +798,14 @@ export const CompositionPlayer = forwardRef<CompositionPlayerHandle, Composition
   }, [])
 
   useEffect(() => {
+    if (isPlaying) {
+      return
+    }
+
+    scheduleDraw()
+  }, [activeClips, isPlaying, scheduleDraw])
+
+  useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas || !resourcesRef.current) {
       return
@@ -740,7 +831,7 @@ export const CompositionPlayer = forwardRef<CompositionPlayerHandle, Composition
         window.cancelAnimationFrame(playbackFrameRef.current)
       }
     }
-  }, [activeClips, drawCurrentFrame, isPlaying])
+  }, [drawCurrentFrame, isPlaying])
 
   useEffect(() => {
     const removeListeners: Array<() => void> = []
@@ -748,21 +839,6 @@ export const CompositionPlayer = forwardRef<CompositionPlayerHandle, Composition
     for (const item of mediaItems) {
       const element = mediaRefs.current.get(item.id)
       if (!element) {
-        continue
-      }
-
-      const activeEntry = activeClips.find((entry) => entry.media.id === item.id)
-      if (!activeEntry) {
-        if (!element.paused) {
-          element.pause()
-        }
-        continue
-      }
-
-      if (!activeEntry.isInBounds) {
-        if (!element.paused) {
-          element.pause()
-        }
         continue
       }
 
@@ -774,6 +850,29 @@ export const CompositionPlayer = forwardRef<CompositionPlayerHandle, Composition
           element.removeEventListener('seeked', handleFrameReady)
           element.removeEventListener('loadeddata', handleFrameReady)
         })
+      }
+    }
+
+    return () => {
+      for (const removeListener of removeListeners) {
+        removeListener()
+      }
+    }
+  }, [mediaItems, scheduleDraw])
+
+  useEffect(() => {
+    for (const item of mediaItems) {
+      const element = mediaRefs.current.get(item.id)
+      if (!element) {
+        continue
+      }
+
+      const activeEntry = activeClipByMediaId.get(item.id)
+      if (!activeEntry || !activeEntry.isInBounds) {
+        if (!element.paused) {
+          element.pause()
+        }
+        continue
       }
 
       const drift = Math.abs(element.currentTime - activeEntry.mediaTime)
@@ -788,13 +887,7 @@ export const CompositionPlayer = forwardRef<CompositionPlayerHandle, Composition
         element.pause()
       }
     }
-
-    return () => {
-      for (const removeListener of removeListeners) {
-        removeListener()
-      }
-    }
-  }, [activeClips, isAudibleScrubbing, isPlaying, isScrubbing, mediaItems, scheduleDraw])
+  }, [activeClipByMediaId, isAudibleScrubbing, isPlaying, isScrubbing, mediaItems])
 
   useEffect(() => {
     const audio = audioRef.current

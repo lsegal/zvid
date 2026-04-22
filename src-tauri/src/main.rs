@@ -177,9 +177,10 @@ fn parse_frame_rate(value: Option<&str>) -> Option<f64> {
   raw.parse::<f64>().ok()
 }
 
-fn generate_thumbnail(path: &str, duration_seconds: f64) -> Option<String> {
+fn generate_thumbnail_at_timestamp(path: &str, timestamp_seconds: f64) -> Option<String> {
   let mut hasher = Sha1::new();
   hasher.update(path.as_bytes());
+  hasher.update(format!(":{timestamp_seconds:.3}").as_bytes());
   let thumb_name = format!("{:x}.jpg", hasher.finalize());
   let thumb_dir = std::env::temp_dir().join("zvid").join("thumbs");
   if fs::create_dir_all(&thumb_dir).is_err() {
@@ -187,7 +188,7 @@ fn generate_thumbnail(path: &str, duration_seconds: f64) -> Option<String> {
   }
 
   let output_path = thumb_dir.join(thumb_name);
-  let timestamp = f64::min(f64::max(duration_seconds * 0.18, 0.1), f64::max(duration_seconds - 0.05, 0.1));
+  let timestamp = f64::max(timestamp_seconds, 0.0);
   let timestamp_string = format!("{timestamp:.3}");
   let filter = "scale=240:420:force_original_aspect_ratio=increase,crop=240:420";
 
@@ -209,6 +210,14 @@ fn generate_thumbnail(path: &str, duration_seconds: f64) -> Option<String> {
   } else {
     None
   }
+}
+
+fn generate_thumbnail_for_media(path: &str, duration_seconds: f64) -> Option<String> {
+  let timestamp = f64::min(
+    f64::max(duration_seconds * 0.18, 0.1),
+    f64::max(duration_seconds - 0.05, 0.1),
+  );
+  generate_thumbnail_at_timestamp(path, timestamp)
 }
 
 fn analyze_one_media(path: &str) -> Result<MediaAnalysis, String> {
@@ -254,7 +263,7 @@ fn analyze_one_media(path: &str) -> Result<MediaAnalysis, String> {
     has_audio: audio_stream.is_some(),
     has_video: video_stream.is_some(),
     thumbnail_path: if video_stream.is_some() {
-      generate_thumbnail(path, duration_seconds)
+      generate_thumbnail_for_media(path, duration_seconds)
     } else {
       None
     },
@@ -289,6 +298,24 @@ fn analyze_media(paths: Vec<String>) -> Result<Vec<MediaAnalysis>, String> {
     .iter()
     .map(|path| analyze_one_media(path))
     .collect::<Result<Vec<_>, _>>()
+}
+
+#[tauri::command]
+fn generate_thumbnail_at_time(path: String, time_seconds: f64) -> Result<Option<String>, String> {
+  if path.trim().is_empty() {
+    return Ok(None);
+  }
+
+  if !Path::new(&path).exists() {
+    return Err(format!("Media path does not exist: {path}"));
+  }
+
+  Ok(generate_thumbnail_at_timestamp(&path, time_seconds))
+}
+
+#[tauri::command]
+fn read_file_bytes(path: String) -> Result<Vec<u8>, String> {
+  fs::read(&path).map_err(|error| format!("Failed to read file bytes: {error}"))
 }
 
 #[tauri::command]
@@ -416,6 +443,8 @@ fn main() {
     .invoke_handler(tauri::generate_handler![
       open_session,
       analyze_media,
+      generate_thumbnail_at_time,
+      read_file_bytes,
       start_render_session,
       write_render_frame,
       finish_render_session,

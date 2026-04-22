@@ -177,16 +177,22 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-write-file-bytes`\n- `allow-analyze-media`\n- `allow-render-session`",
+          "description": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-write-file-bytes`\n- `allow-analyze-media`\n- `allow-generate-thumbnail-at-time`\n- `allow-render-session`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-write-file-bytes`\n- `allow-analyze-media`\n- `allow-render-session`"
+          "markdownDescription": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-write-file-bytes`\n- `allow-analyze-media`\n- `allow-generate-thumbnail-at-time`\n- `allow-render-session`"
         },
         {
           "description": "Enables the analyze_media command.",
           "type": "string",
           "const": "allow-analyze-media",
           "markdownDescription": "Enables the analyze_media command."
+        },
+        {
+          "description": "Enables the generate_thumbnail_at_time command.",
+          "type": "string",
+          "const": "allow-generate-thumbnail-at-time",
+          "markdownDescription": "Enables the generate_thumbnail_at_time command."
         },
         {
           "description": "Enables the open_session command.",

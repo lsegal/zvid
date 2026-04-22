@@ -100,6 +100,8 @@ export type Harness = {
   pickMedia(): Promise<MediaSelection | null>
   openSession(selection: SessionSelection): Promise<SessionOpenResponse>
   analyzeMedia(selection: MediaSelection, palettes: Palette[], startIndex: number): Promise<MediaItem[]>
+  readMediaBlob(target: Pick<MediaItem, 'id' | 'name' | 'previewUrl' | 'sourcePath'>): Promise<Blob>
+  generateThumbnailAtTime?(media: MediaItem, timeSeconds: number): Promise<string | undefined>
   prepareSave(filename: string, options?: SaveOptions): Promise<SaveTarget | null>
   saveBlob(blob: Blob, target: SaveTarget): Promise<SaveMethod>
   exportVideo(request: ExportRequest): Promise<ExportResult>

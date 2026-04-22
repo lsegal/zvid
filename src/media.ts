@@ -7,6 +7,8 @@ export type Palette = {
   accent: string
 }
 
+export type MediaAvailability = 'offline' | 'hydrating' | 'ready'
+
 export type MediaItem = {
   id: string
   name: string
@@ -25,6 +27,7 @@ export type MediaItem = {
   previewUrl: string
   thumbnailUrl?: string
   sourcePath?: string
+  availability: MediaAvailability
 }
 
 export function createMediaId(file: File) {
@@ -61,6 +64,23 @@ export function inferMediaKind(name: string): MediaKind {
   }
 }
 
+function isShareableMediaUrl(url: string | undefined) {
+  if (!url) {
+    return false
+  }
+
+  return url.startsWith('/') || url.startsWith('http://') || url.startsWith('https://')
+}
+
+export function toShareableMediaItem(item: MediaItem): MediaItem {
+  return {
+    ...item,
+    previewUrl: isShareableMediaUrl(item.previewUrl) ? item.previewUrl : '',
+    thumbnailUrl: isShareableMediaUrl(item.thumbnailUrl) ? item.thumbnailUrl : undefined,
+    availability: item.previewUrl ? 'ready' : 'offline',
+  }
+}
+
 export function buildFallbackMediaItem(ref: ServerMediaRef, palette: Palette): MediaItem {
   const kind = inferMediaKind(ref.name)
   return {
@@ -73,7 +93,8 @@ export function buildFallbackMediaItem(ref: ServerMediaRef, palette: Palette): M
     color: palette.color,
     accent: palette.accent,
     waveform: buildFallbackWaveform(ref.name),
-    previewUrl: ref.url,
+    previewUrl: isShareableMediaUrl(ref.url) ? ref.url : '',
     sourcePath: ref.path,
+    availability: ref.exists && ref.url ? 'hydrating' : 'offline',
   }
 }

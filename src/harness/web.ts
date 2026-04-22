@@ -5,7 +5,7 @@ import type {
   SaveTarget,
   SessionSelection,
 } from './contracts'
-import { analyzeMediaSelection, exportVideo } from './web-media'
+import { analyzeMediaSelection, exportVideo, generateThumbnailFromUrlAtTime } from './web-media'
 import type { SessionOpenResponse } from '../session'
 
 type SaveFilePickerWindow = Window & {
@@ -92,6 +92,19 @@ async function saveBlob(blob: Blob, target: SaveTarget) {
   return 'download' as const
 }
 
+async function readMediaBlob(target: { name: string; previewUrl: string }) {
+  if (!target.previewUrl) {
+    throw new Error(`No browser-readable media URL is available for ${target.name}.`)
+  }
+
+  const response = await fetch(target.previewUrl)
+  if (!response.ok) {
+    throw new Error(`Failed to read ${target.name}: ${response.status}`)
+  }
+
+  return response.blob()
+}
+
 export function createWebHarness(): Harness {
   return {
     id: 'web',
@@ -151,6 +164,14 @@ export function createWebHarness(): Harness {
       return payload
     },
     analyzeMedia: analyzeMediaSelection,
+    readMediaBlob,
+    generateThumbnailAtTime(media, timeSeconds) {
+      if (!media.hasVideo) {
+        return Promise.resolve(undefined)
+      }
+
+      return generateThumbnailFromUrlAtTime(media.previewUrl, timeSeconds)
+    },
     prepareSave,
     saveBlob,
     exportVideo(request) {
