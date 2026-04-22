@@ -5,9 +5,25 @@ import {
   type CollaborationConnectionState,
   type CollaborationController,
 } from './collaboration'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from './components/ui/dropdown-menu'
 import { CompositionPlayer, type CompositionPlayerHandle } from './CompositionPlayer'
 import { getHarness, type SaveTarget } from './harness'
-import { cacheMediaBlob, getCachedMediaBlob } from './media-cache'
 import {
   buildFallbackMediaItem,
   toShareableMediaItem,
@@ -16,6 +32,7 @@ import {
   type MediaKind,
   type Palette,
 } from './media'
+import { cacheMediaBlob, getCachedMediaBlob } from './media-cache'
 import type { LvpSession, SessionOpenResponse } from './session'
 type TimelineMode = 'musical' | 'timecode'
 type SnapMode = 'bar' | 'beat' | 'half' | 'quarter'
@@ -159,6 +176,18 @@ type TimelineViewport = {
   clientWidth: number
 }
 
+type CollaborationMode = 'idle' | 'sharing' | 'connected'
+
+type CollaborationTone = 'idle' | 'pending' | 'waiting' | 'live'
+
+type CollaborationRemoteCursor = {
+  clientId: number
+  name: string
+  color: string
+  x: number
+  y: number
+}
+
 type ProjectState = {
   timelineMode: TimelineMode
   signatureId: string
@@ -228,8 +257,9 @@ const TIMELINE_SCRUB_AUDIO_TAIL_MS = 50
 const TIMELINE_DRAG_EPSILON = 0.0001
 const RANDOM_SELECTION_BAR_INCREMENT = 0.25
 const RANDOM_SELECTION_MAX_BARS = 2
-const DEFAULT_SIGNALING_URLS = ['wss://y-webrtc-eu.fly.dev']
 const COLLAB_STORAGE_KEY = 'zvid-collaboration'
+const DEFAULT_SIGNALING_URLS = ['wss://zvid-signaling.lsegal.workers.dev']
+const LEGACY_DEFAULT_SIGNALING_URLS = ['wss://y-webrtc-eu.fly.dev']
 const SIGNATURES: TimeSignature[] = [
   { id: '4/4', numerator: 4, denominator: 4 },
   { id: '3/4', numerator: 3, denominator: 4 },
@@ -285,17 +315,15 @@ const FALLBACK_VIDEO_FX: FxDevice[] = [
     parameters: [
       { label: 'Position', value: 0.52, display: 'Center' },
       { label: 'Scale', value: 0.68, display: '68%' },
-      { label: 'Parallax', value: 0.18, display: '18%' },
     ],
   },
   {
     id: 'beat-warp',
     name: 'Beat Warp',
     subtitle: 'Tempo-synced stretch markers',
-    accent: '#ff6f9d',
+    accent: '#7ca1ff',
     parameters: [
-      { label: 'Grid', value: 0.5, display: '1/8' },
-      { label: 'Swing', value: 0.21, display: '21%' },
+      { label: 'Sync', value: 0.88, display: '1/8' },
       { label: 'Tension', value: 0.37, display: '37%' },
     ],
   },
@@ -716,6 +744,16 @@ function parseSignalingUrls(value: string) {
   return urls.length ? urls : DEFAULT_SIGNALING_URLS
 }
 
+function migrateLegacyStoredSignaling(value: string | undefined, fallback: string) {
+  if (!value) {
+    return fallback
+  }
+
+  const normalized = parseSignalingUrls(value).join(', ')
+  const legacy = LEGACY_DEFAULT_SIGNALING_URLS.join(', ')
+  return normalized === legacy ? fallback : normalized
+}
+
 function buildCollaboratorName() {
   const prefix = pickRandom(COLLAB_NAME_PREFIXES) ?? 'Signal'
   const suffix = pickRandom(COLLAB_NAME_SUFFIXES) ?? 'Wave'
@@ -749,9 +787,13 @@ function getInitialCollaborationConfig() {
   }
 
   const params = new URLSearchParams(window.location.search)
-  const room = params.get('room')?.trim() || stored.room || defaults.room
+  const paramRoom = params.get('room')?.trim() || ''
+  const room = paramRoom || defaults.room
   const password = params.get('password')?.trim() || defaults.password
-  const signaling = params.get('signal')?.trim() || stored.signaling || defaults.signaling
+  const signalingParam = params.get('signal')?.trim()
+  const signaling = signalingParam
+    ? parseSignalingUrls(signalingParam).join(', ')
+    : migrateLegacyStoredSignaling(stored.signaling, defaults.signaling)
 
   return {
     room,
@@ -759,8 +801,245 @@ function getInitialCollaborationConfig() {
     signaling,
     name: stored.name || defaults.name,
     color: stored.color || defaults.color,
-    autoConnect: Boolean(room),
+    autoConnect: Boolean(paramRoom),
   }
+}
+
+function buildShareRoomName() {
+  return crypto.randomUUID().replaceAll('-', '').slice(0, 8)
+}
+
+function isPrivateIpv4Address(address: string) {
+  return (
+    address === '127.0.0.1' ||
+    address === '0.0.0.0' ||
+    address.startsWith('10.') ||
+    address.startsWith('192.168.') ||
+    /^172\.(1[6-9]|2\d|3[0-1])\./.test(address)
+  )
+}
+
+function extractPublicIpFromCandidate(candidate: string) {
+  const matches = candidate.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g) ?? []
+  return matches.find((address) => !isPrivateIpv4Address(address)) ?? null
+}
+
+async function detectPublicIpAddress(timeoutMs = 4000) {
+  if (typeof window === 'undefined' || typeof RTCPeerConnection === 'undefined') {
+    return null
+  }
+
+  try {
+    const peerConnection = new RTCPeerConnection({
+      iceServers: [{ urls: ['stun:stun.l.google.com:19302'] }],
+    })
+    peerConnection.createDataChannel('zvid-share-probe')
+    const offer = await peerConnection.createOffer()
+    await peerConnection.setLocalDescription(offer)
+
+    return await new Promise<string | null>((resolve) => {
+      let settled = false
+      const finish = (value: string | null) => {
+        if (settled) {
+          return
+        }
+
+        settled = true
+        window.clearTimeout(timeoutId)
+        if (peerConnection) {
+          peerConnection.onicecandidate = null
+          peerConnection.close()
+        }
+        resolve(value)
+      }
+
+      const timeoutId = window.setTimeout(() => finish(null), timeoutMs)
+      peerConnection.onicecandidate = (event) => {
+        const candidate = event.candidate?.candidate
+        if (!candidate) {
+          finish(null)
+          return
+        }
+
+        const publicIp = extractPublicIpFromCandidate(candidate)
+        if (publicIp) {
+          finish(publicIp)
+        }
+      }
+    })
+  } catch {
+    return null
+  }
+}
+
+function buildPublicShareUrl(
+  roomName: string,
+  signaling: string,
+  password: string,
+  publicIpAddress: string | null,
+) {
+  const currentUrl = new URL(window.location.href)
+  const origin = publicIpAddress
+    ? `${currentUrl.protocol}//${publicIpAddress}${currentUrl.port ? `:${currentUrl.port}` : ''}`
+    : currentUrl.origin
+  const shareUrl = new URL(currentUrl.pathname, origin)
+
+  shareUrl.searchParams.set('room', roomName)
+  shareUrl.searchParams.set('signal', parseSignalingUrls(signaling).join(','))
+
+  if (password.trim()) {
+    shareUrl.searchParams.set('password', password.trim())
+  }
+
+  return shareUrl.toString()
+}
+
+function parseCollaborationInvite(value: string) {
+  const rawValue = value.trim()
+  if (!rawValue) {
+    throw new Error('Paste the share URL first.')
+  }
+
+  let params: URLSearchParams
+  try {
+    params = new URL(rawValue).searchParams
+  } catch {
+    const fallback = rawValue.startsWith('?') ? rawValue.slice(1) : rawValue
+    params = new URLSearchParams(fallback)
+  }
+
+  const room = params.get('room')?.trim() ?? ''
+  if (!room) {
+    throw new Error('That invite is missing a room name.')
+  }
+
+  return {
+    room,
+    signaling: params.get('signal')?.trim() || DEFAULT_SIGNALING_URLS.join(', '),
+    password: params.get('password')?.trim() || '',
+  }
+}
+
+function getShortcutLabels() {
+  if (typeof window === 'undefined') {
+    return {
+      undo: 'Ctrl+Z',
+      redo: 'Ctrl+Shift+Z',
+    }
+  }
+
+  const navigatorWithPlatform = window.navigator as Navigator & {
+    userAgentData?: {
+      platform?: string
+    }
+  }
+  const platform = navigatorWithPlatform.userAgentData?.platform ?? window.navigator.platform ?? ''
+  const isMac = /mac/i.test(platform)
+  return {
+    undo: isMac ? 'Cmd+Z' : 'Ctrl+Z',
+    redo: isMac ? 'Shift+Cmd+Z' : 'Ctrl+Shift+Z',
+  }
+}
+
+function formatCollaborationStateLabel(
+  mode: CollaborationMode,
+  state: CollaborationConnectionState,
+  isStartingShare: boolean,
+  isStartingConnect: boolean,
+) {
+  if (isStartingShare) {
+    return 'Starting share...'
+  }
+
+  if (isStartingConnect) {
+    return 'Connecting...'
+  }
+
+  if (state.peerCount > 0) {
+    return state.peerCount === 1 ? '1 peer connected' : `${state.peerCount} peers connected`
+  }
+
+  if (mode === 'sharing') {
+    return state.connected ? 'Sharing, waiting for peer' : 'Opening share...'
+  }
+
+  if (mode === 'connected') {
+    return state.connected ? 'Connected, waiting for host' : 'Connecting to share...'
+  }
+
+  return 'Not connected'
+}
+
+function getCollaborationStateTone(
+  mode: CollaborationMode,
+  state: CollaborationConnectionState,
+  isStartingShare: boolean,
+  isStartingConnect: boolean,
+): CollaborationTone {
+  if (isStartingShare || isStartingConnect) {
+    return 'pending'
+  }
+
+  if (state.peerCount > 0) {
+    return 'live'
+  }
+
+  if (mode === 'sharing' || mode === 'connected') {
+    return state.connected ? 'waiting' : 'pending'
+  }
+
+  return 'idle'
+}
+
+function buildCollaborationViewModel(
+  mode: CollaborationMode,
+  state: CollaborationConnectionState,
+  isStartingShare: boolean,
+  isStartingConnect: boolean,
+  activeShareRoom: string,
+  collaborationSignaling: string,
+) {
+  const remoteCollaborators = state.collaborators.filter((collaborator) => !collaborator.isLocal)
+  const remoteCursors: CollaborationRemoteCursor[] = remoteCollaborators.flatMap((collaborator) =>
+    collaborator.cursor
+      ? [
+          {
+            clientId: collaborator.clientId,
+            name: collaborator.name,
+            color: collaborator.color,
+            x: collaborator.cursor.x,
+            y: collaborator.cursor.y,
+          },
+        ]
+      : [],
+  )
+
+  return {
+    pendingShareRoom: activeShareRoom || buildShareRoomName(),
+    signalingLabel: parseSignalingUrls(collaborationSignaling).join(', '),
+    stateLabel: formatCollaborationStateLabel(mode, state, isStartingShare, isStartingConnect),
+    stateTone: getCollaborationStateTone(mode, state, isStartingShare, isStartingConnect),
+    remoteCollaboratorNames: remoteCollaborators.map((collaborator) => collaborator.name).join(', '),
+    remoteCursors,
+  }
+}
+
+function CollaborationDetailCard({
+  label,
+  value,
+  meta,
+}: {
+  label: string
+  value: string
+  meta?: string
+}) {
+  return (
+    <div className="share-dialog__card">
+      <span className="share-dialog__label">{label}</span>
+      <strong>{value}</strong>
+      {meta ? <span className="share-dialog__meta">{meta}</span> : null}
+    </div>
+  )
 }
 
 function normalizeMediaPath(value: string) {
@@ -1268,37 +1547,40 @@ function App() {
   const [collaborationSignaling, setCollaborationSignaling] = useState(
     initialCollaborationConfig.signaling,
   )
-  const [collaborationName, setCollaborationName] = useState(initialCollaborationConfig.name)
-  const [isCollaborationEnabled, setIsCollaborationEnabled] = useState(
-    initialCollaborationConfig.autoConnect,
+  const [collaborationName] = useState(initialCollaborationConfig.name)
+  const [collaborationMode, setCollaborationMode] = useState<CollaborationMode>(
+    initialCollaborationConfig.autoConnect ? 'connected' : 'idle',
   )
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false)
+  const [isStartingShare, setIsStartingShare] = useState(false)
+  const [isConnectDialogOpen, setIsConnectDialogOpen] = useState(false)
+  const [connectInviteValue, setConnectInviteValue] = useState('')
+  const [isStartingConnect, setIsStartingConnect] = useState(false)
+  const [hasCopiedShareInvite, setHasCopiedShareInvite] = useState(false)
+  const [lastCopiedShareUrl, setLastCopiedShareUrl] = useState('')
   const [collaborationState, setCollaborationState] = useState<CollaborationConnectionState>({
     connected: false,
     peerCount: 0,
     collaborators: [],
   })
   const collaborationColor = initialCollaborationConfig.color
-  const visibleCollaborationState = isCollaborationEnabled
-    ? collaborationState
-    : {
-        connected: false,
-        peerCount: 0,
-        collaborators: [],
-      }
 
   const playbackOriginRef = useRef(0)
   const playbackStopRef = useRef(0)
   const compositionPlayerRef = useRef<CompositionPlayerHandle | null>(null)
+  const appShellRef = useRef<HTMLDivElement | null>(null)
   const timelineScrollRef = useRef<HTMLDivElement | null>(null)
   const timelineScrubAudioTimeoutRef = useRef<number | null>(null)
   const clipClipboardRef = useRef<ArrangementClip | null>(null)
   const collaborationControllerRef = useRef<CollaborationController<ProjectState> | null>(null)
+  const shareCopyResetTimeoutRef = useRef<number | null>(null)
   const projectSnapshotRef = useRef(projectHistory.present)
   const zoomDraftRef = useRef<number | null>(null)
   const localMediaOverridesRef = useRef<Record<string, LocalMediaOverride>>({})
   const mediaObjectUrlsRef = useRef(new Map<string, string>())
   const mediaHydrationInFlightRef = useRef(new Set<string>())
   const sourceThumbnailUrlsRef = useRef<Record<string, string>>({})
+  const lastCollaborationCursorRef = useRef('')
 
   const mediaItems = useMemo(
     () =>
@@ -1541,9 +1823,42 @@ function App() {
             : 'Render...'
     : 'Export'
 
+  const activeShareRoom = collaborationRoom.trim()
+  const isSharing = collaborationMode === 'sharing'
+  const isConnectedClient = collaborationMode === 'connected'
+  const collaborationView = useMemo(
+    () =>
+      buildCollaborationViewModel(
+        collaborationMode,
+        collaborationState,
+        isStartingShare,
+        isStartingConnect,
+        activeShareRoom,
+        collaborationSignaling,
+      ),
+    [
+      activeShareRoom,
+      collaborationMode,
+      collaborationSignaling,
+      collaborationState,
+      isStartingConnect,
+      isStartingShare,
+    ],
+  )
+  const shortcutLabels = useMemo(() => getShortcutLabels(), [])
+
   useEffect(() => {
     sourceThumbnailUrlsRef.current = sourceThumbnailUrls
   }, [sourceThumbnailUrls])
+
+  useEffect(
+    () => () => {
+      if (shareCopyResetTimeoutRef.current !== null) {
+        window.clearTimeout(shareCopyResetTimeoutRef.current)
+      }
+    },
+    [],
+  )
 
   useEffect(() => {
     const activeSpanIds = new Set(sourceSpans.map((span) => getSourceThumbnailCacheKey(span)))
@@ -2122,7 +2437,6 @@ function App() {
       window.localStorage.setItem(
         COLLAB_STORAGE_KEY,
         JSON.stringify({
-          room: collaborationRoom,
           signaling: collaborationSignaling,
           name: collaborationName,
           color: collaborationColor,
@@ -2153,7 +2467,7 @@ function App() {
   )
 
   useEffect(() => {
-    if (!isCollaborationEnabled) {
+    if (collaborationMode === 'idle') {
       collaborationControllerRef.current?.destroy()
       collaborationControllerRef.current = null
       return
@@ -2161,6 +2475,8 @@ function App() {
 
     const roomName = collaborationRoom.trim()
     if (!roomName) {
+      collaborationControllerRef.current?.destroy()
+      collaborationControllerRef.current = null
       return
     }
 
@@ -2194,7 +2510,7 @@ function App() {
     collaborationRoom,
     collaborationSignaling,
     initialCollaborationConfig.name,
-    isCollaborationEnabled,
+    collaborationMode,
   ])
 
   useEffect(() => {
@@ -2203,6 +2519,69 @@ function App() {
       color: collaborationColor,
     })
   }, [collaborationColor, collaborationName, initialCollaborationConfig.name])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const pushCursor = (cursor: { x: number; y: number } | null) => {
+      const nextKey = cursor ? `${cursor.x.toFixed(3)}:${cursor.y.toFixed(3)}` : ''
+      if (lastCollaborationCursorRef.current === nextKey) {
+        return
+      }
+
+      lastCollaborationCursorRef.current = nextKey
+      collaborationControllerRef.current?.updateCursor(cursor)
+    }
+
+    if (collaborationMode === 'idle') {
+      pushCursor(null)
+      return
+    }
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const appShell = appShellRef.current
+      if (!appShell) {
+        return
+      }
+
+      const bounds = appShell.getBoundingClientRect()
+      if (bounds.width <= 0 || bounds.height <= 0) {
+        pushCursor(null)
+        return
+      }
+
+      const insideBounds =
+        event.clientX >= bounds.left &&
+        event.clientX <= bounds.right &&
+        event.clientY >= bounds.top &&
+        event.clientY <= bounds.bottom
+
+      if (!insideBounds) {
+        pushCursor(null)
+        return
+      }
+
+      pushCursor({
+        x: (event.clientX - bounds.left) / bounds.width,
+        y: (event.clientY - bounds.top) / bounds.height,
+      })
+    }
+
+    const clearCursor = () => {
+      pushCursor(null)
+    }
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('blur', clearCursor)
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('blur', clearCursor)
+      clearCursor()
+    }
+  }, [collaborationMode])
 
   useEffect(() => {
     collaborationControllerRef.current?.pushState(projectHistory.present)
@@ -3141,104 +3520,197 @@ function App() {
     }
   }
 
-  function handleToggleCollaboration() {
-    if (isCollaborationEnabled) {
-      setIsCollaborationEnabled(false)
-      setStatus('Collaboration disconnected.')
+  async function handleStartShare() {
+    if (typeof window === 'undefined' || isStartingShare) {
       return
     }
 
-    if (!collaborationRoom.trim()) {
-      setStatus('Enter a collaboration room name before connecting.')
-      return
-    }
-
-    setIsCollaborationEnabled(true)
-    setStatus(`Connecting to collaboration room "${collaborationRoom.trim()}".`)
-  }
-
-  async function handleCopyCollaborationInvite() {
-    if (typeof window === 'undefined') {
-      return
-    }
-
-    const roomName = collaborationRoom.trim()
-    if (!roomName) {
-      setStatus('Enter a collaboration room name before copying an invite.')
-      return
-    }
+    const roomName = collaborationView.pendingShareRoom
+    setIsStartingShare(true)
+    setHasCopiedShareInvite(false)
 
     try {
-      const url = new URL(window.location.href)
-      url.searchParams.set('room', roomName)
-      url.searchParams.set('signal', parseSignalingUrls(collaborationSignaling).join(','))
-      if (collaborationPassword.trim()) {
-        url.searchParams.set('password', collaborationPassword.trim())
-      } else {
-        url.searchParams.delete('password')
+      setCollaborationRoom(roomName)
+      setCollaborationMode('sharing')
+
+      const publicIpAddress = await detectPublicIpAddress()
+      const shareUrl = buildPublicShareUrl(
+        roomName,
+        collaborationSignaling,
+        collaborationPassword,
+        publicIpAddress,
+      )
+
+      try {
+        await navigator.clipboard.writeText(shareUrl)
+        setLastCopiedShareUrl(shareUrl)
+        setHasCopiedShareInvite(true)
+        if (shareCopyResetTimeoutRef.current !== null) {
+          window.clearTimeout(shareCopyResetTimeoutRef.current)
+        }
+        shareCopyResetTimeoutRef.current = window.setTimeout(() => {
+          setHasCopiedShareInvite(false)
+        }, 4500)
+        setStatus(
+          `Public sharing is live. Invite copied${publicIpAddress ? ` via ${publicIpAddress}` : ''}. Click Stop Share to disconnect.`,
+        )
+      } catch (error) {
+        setStatus(
+          `Public sharing is live, but copying the invite failed: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        )
       }
 
-      await navigator.clipboard.writeText(url.toString())
-      setStatus('Copied collaboration invite URL.')
+      setIsShareDialogOpen(false)
+    } finally {
+      setIsStartingShare(false)
+    }
+  }
+
+  function handleStopShare() {
+    collaborationControllerRef.current?.destroy()
+    collaborationControllerRef.current = null
+    setCollaborationState({
+      connected: false,
+      peerCount: 0,
+      collaborators: [],
+    })
+    setCollaborationMode('idle')
+    setStatus('Public sharing stopped. Signaling socket disconnected.')
+  }
+
+  function handleDisconnectConnection() {
+    collaborationControllerRef.current?.destroy()
+    collaborationControllerRef.current = null
+    setCollaborationState({
+      connected: false,
+      peerCount: 0,
+      collaborators: [],
+    })
+    setCollaborationMode('idle')
+    setStatus('Disconnected from the shared collaboration session.')
+  }
+
+  async function handleConnectToShare() {
+    if (isStartingConnect) {
+      return
+    }
+
+    setIsStartingConnect(true)
+    try {
+      const invite = parseCollaborationInvite(connectInviteValue)
+      setCollaborationRoom(invite.room)
+      setCollaborationSignaling(invite.signaling)
+      setCollaborationPassword(invite.password)
+      setCollaborationMode('connected')
+      setIsConnectDialogOpen(false)
+      setConnectInviteValue('')
+      setStatus(`Connecting to collaboration room "${invite.room}".`)
     } catch (error) {
       setStatus(
-        `Failed to copy collaboration invite: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        `Unable to connect with that invite: ${error instanceof Error ? error.message : String(error)}`,
       )
+    } finally {
+      setIsStartingConnect(false)
     }
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" ref={appShellRef}>
+      {collaborationView.remoteCursors.length ? (
+        <div className="collaboration-cursor-layer" aria-hidden="true">
+          {collaborationView.remoteCursors.map((cursor) => (
+            <div
+              key={cursor.clientId}
+              className="collaboration-cursor"
+              style={{
+                left: `${cursor.x * 100}%`,
+                top: `${cursor.y * 100}%`,
+                color: cursor.color,
+              }}
+            >
+              <svg viewBox="0 0 20 20" role="presentation">
+                <path
+                  d="M3 2.5v12.7c0 .6.72.9 1.14.48l3.2-3.12l2.32 4.34a.9.9 0 0 0 1.22.37l1.56-.8a.9.9 0 0 0 .37-1.22L10.5 11l4.45-.56c.6-.08.84-.81.39-1.22L3.97 1.88A.67.67 0 0 0 3 2.5Z"
+                  fill="currentColor"
+                />
+              </svg>
+              <span
+                className="collaboration-cursor__label"
+                style={{ backgroundColor: cursor.color }}
+              >
+                {cursor.name}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
       <header className="topbar">
         <div className="topbar__group">
-          <button
-            className="file-button ghost-button"
-            onClick={handleOpenSession}
-            type="button"
-          >
-            Open
-          </button>
-          <button
-            className="file-button ghost-button ghost-button--accent"
-            onClick={handleImport}
-            type="button"
-          >
-            Import
-          </button>
-          <button
-            className="ghost-button"
-            onClick={() => setStatus('Save/export is not wired yet in the dev-server refactor.')}
-            disabled={isExporting}
-            type="button"
-          >
-            Save
-          </button>
-          <div className="history-controls" aria-label="History controls" role="group">
-            <button
-              className="ghost-button history-button"
-              disabled={isExporting || !canUndo}
-              onClick={handleUndo}
-              title={undoLabel ? `Undo ${undoLabel} (Cmd/Ctrl+Z)` : 'Undo (Cmd/Ctrl+Z)'}
-              type="button"
-            >
-              Undo
-            </button>
-            <button
-              className="ghost-button history-button"
-              disabled={isExporting || !canRedo}
-              onClick={handleRedo}
-              title={
-                redoLabel
-                  ? `Redo ${redoLabel} (Shift+Cmd/Ctrl+Z)`
-                  : 'Redo (Shift+Cmd/Ctrl+Z)'
-              }
-              type="button"
-            >
-              Redo
-            </button>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="ghost-button file-menu-button" type="button">
+                <span>File</span>
+                <span className="file-menu-button__chevron" aria-hidden="true">
+                  <svg viewBox="0 0 16 16" role="presentation">
+                    <path d="M4.47 6.22a.75.75 0 0 1 1.06.03L8 8.84l2.47-2.59a.75.75 0 1 1 1.08 1.04l-3.01 3.16a.75.75 0 0 1-1.08 0L4.44 7.29a.75.75 0 0 1 .03-1.07Z" fill="currentColor" />
+                  </svg>
+                </span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onSelect={() => void handleOpenSession()}>Open Session</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void handleImport()}>Import Media</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={() => {
+                  if (isConnectedClient) {
+                    handleDisconnectConnection()
+                    return
+                  }
+
+                  setIsConnectDialogOpen(true)
+                }}
+              >
+                {isConnectedClient ? 'Disconnect from Share' : 'Connect to Share'}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={() => setStatus('Save/export is not wired yet in the dev-server refactor.')}
+              >
+                Save
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="ghost-button file-menu-button" type="button">
+                <span>Edit</span>
+                <span className="file-menu-button__chevron" aria-hidden="true">
+                  <svg viewBox="0 0 16 16" role="presentation">
+                    <path d="M4.47 6.22a.75.75 0 0 1 1.06.03L8 8.84l2.47-2.59a.75.75 0 1 1 1.08 1.04l-3.01 3.16a.75.75 0 0 1-1.08 0L4.44 7.29a.75.75 0 0 1 .03-1.07Z" fill="currentColor" />
+                  </svg>
+                </span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem
+                disabled={isExporting || !canUndo}
+                onSelect={() => handleUndo()}
+              >
+                <span>{undoLabel ? `Undo ${undoLabel}` : 'Undo'}</span>
+                <DropdownMenuShortcut>{shortcutLabels.undo}</DropdownMenuShortcut>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={isExporting || !canRedo}
+                onSelect={() => handleRedo()}
+              >
+                <span>{redoLabel ? `Redo ${redoLabel}` : 'Redo'}</span>
+                <DropdownMenuShortcut>{shortcutLabels.redo}</DropdownMenuShortcut>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <div className="tempo-pill">
             <button
               className="tempo-pill__adjust"
@@ -3289,6 +3761,43 @@ function App() {
           >
             {exportButtonLabel}
           </button>
+          <span
+            className={`collaboration-badge collaboration-badge--${collaborationView.stateTone}`}
+            aria-live="polite"
+          >
+            {collaborationView.stateLabel}
+          </span>
+          <button
+            className={`ghost-button share-button ${isSharing ? 'is-sharing' : ''}`}
+            disabled={isExporting || isStartingShare || isConnectedClient}
+            onClick={() => {
+              if (isSharing) {
+                handleStopShare()
+                return
+              }
+
+              setIsShareDialogOpen(true)
+            }}
+            type="button"
+          >
+            <span className="share-button__icon" aria-hidden="true">
+              <svg viewBox="0 0 16 16" role="presentation">
+                <path
+                  d="M8 1.5a6.5 6.5 0 1 0 0 13a6.5 6.5 0 0 0 0-13Zm4.82 5.75H10.9a12 12 0 0 0-.62-3.11a5.03 5.03 0 0 1 2.54 3.11ZM8 2.47c.36 0 1.14 1.02 1.45 3.28h-2.9C6.86 3.49 7.64 2.47 8 2.47ZM5.72 4.14a12 12 0 0 0-.62 3.11H3.18a5.03 5.03 0 0 1 2.54-3.11Zm-2.54 4.61H5.1c.08 1.13.29 2.19.62 3.11a5.03 5.03 0 0 1-2.54-3.11ZM8 13.53c-.36 0-1.14-1.02-1.45-3.28h2.9C9.14 12.51 8.36 13.53 8 13.53Zm1.62-4.78H6.38a10.7 10.7 0 0 1 0-1.5h3.24c.06.5.06 1 0 1.5Zm.66 3.11c.33-.92.54-1.98.62-3.11h1.92a5.03 5.03 0 0 1-2.54 3.11Z"
+                  fill="currentColor"
+                />
+              </svg>
+            </span>
+            <span>{isSharing ? 'Stop Share' : isStartingShare ? 'Sharing...' : 'Share'}</span>
+          </button>
+          {hasCopiedShareInvite ? (
+            <span className="share-copy-badge" aria-live="polite" title={lastCopiedShareUrl}>
+              <svg viewBox="0 0 20 20" role="presentation" aria-hidden="true">
+                <path d="M10 1.5a8.5 8.5 0 1 0 0 17a8.5 8.5 0 0 0 0-17Zm3.57 6.2l-4.2 5.1a.75.75 0 0 1-1.12.06l-1.82-1.82a.75.75 0 1 1 1.06-1.06l1.24 1.24l3.62-4.4a.75.75 0 0 1 1.22.88Z" fill="currentColor" />
+              </svg>
+              <span>Copied</span>
+            </span>
+          ) : null}
           <button
             className="ghost-button"
             onClick={() =>
@@ -3301,109 +3810,96 @@ function App() {
         </div>
       </header>
 
-      <section className="collab-bar">
-        <div className="collab-summary">
-          <span
-            className={`collab-summary__status ${
-              visibleCollaborationState.connected ? 'is-live' : 'is-offline'
-            }`}
-          />
-          <div>
-            <strong>
-              {visibleCollaborationState.connected
-                ? visibleCollaborationState.peerCount
-                  ? `${visibleCollaborationState.peerCount + 1} collaborators live`
-                  : 'Connected to room'
-                : 'Collaboration offline'}
-            </strong>
-            <small>
-              {collaborationRoom.trim()
-                ? `Room ${collaborationRoom.trim()}`
-                : 'Choose a room to start collaborating'}
-            </small>
+      <Dialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Share this session publicly?</DialogTitle>
+            <DialogDescription>
+              This will start the collaboration websocket, generate a public room, and copy a shareable
+              address to your clipboard. Click Stop Share any time to disconnect immediately.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="share-dialog__body">
+            <CollaborationDetailCard label="Room" value={collaborationView.pendingShareRoom} />
+            <CollaborationDetailCard label="Signal" value={collaborationView.signalingLabel} />
+            <CollaborationDetailCard
+              label="Connection"
+              value={collaborationView.stateLabel}
+              meta={collaborationView.remoteCollaboratorNames || undefined}
+            />
+            <p className="share-dialog__note">
+              Your invite uses a Google STUN probe to detect a public IP when one is available, then it
+              copies the connection URL automatically.
+            </p>
           </div>
-        </div>
 
-        <label className="collab-field">
-          <span>Name</span>
-          <input
-            maxLength={32}
-            onChange={(event) => setCollaborationName(event.target.value)}
-            placeholder="Your name"
-            type="text"
-            value={collaborationName}
-          />
-        </label>
+          <DialogFooter>
+            <DialogClose asChild>
+              <button className="ghost-button" disabled={isStartingShare} type="button">
+                Cancel
+              </button>
+            </DialogClose>
+            <button
+              className="ghost-button ghost-button--accent"
+              disabled={isStartingShare}
+              onClick={handleStartShare}
+              type="button"
+            >
+              {isStartingShare ? 'Starting...' : 'Start Sharing'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-        <label className="collab-field">
-          <span>Room</span>
-          <input
-            onChange={(event) => {
-              const nextRoom = event.target.value
-              setCollaborationRoom(nextRoom)
-              if (!nextRoom.trim() && isCollaborationEnabled) {
-                setIsCollaborationEnabled(false)
-              }
-            }}
-            placeholder="session-room"
-            type="text"
-            value={collaborationRoom}
-          />
-        </label>
+      <Dialog open={isConnectDialogOpen} onOpenChange={setIsConnectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Connect to a shared session</DialogTitle>
+            <DialogDescription>
+              Paste the invite copied from Share. The room, signaling server, and optional password will
+              be pulled from that URL and the collaboration websocket will connect immediately.
+            </DialogDescription>
+          </DialogHeader>
 
-        <label className="collab-field">
-          <span>Password</span>
-          <input
-            onChange={(event) => setCollaborationPassword(event.target.value)}
-            placeholder="Optional"
-            type="password"
-            value={collaborationPassword}
-          />
-        </label>
+          <div className="share-dialog__body">
+            <label className="connect-dialog__field">
+              <span className="share-dialog__label">Shared invite</span>
+              <textarea
+                className="connect-dialog__input"
+                onChange={(event) => setConnectInviteValue(event.target.value)}
+                placeholder="http://public-ip:1420/?room=...&signal=wss://zvid-signaling.lsegal.workers.dev"
+                rows={4}
+                value={connectInviteValue}
+              />
+            </label>
+            <CollaborationDetailCard
+              label="Connection"
+              value={collaborationView.stateLabel}
+              meta={collaborationView.remoteCollaboratorNames || undefined}
+            />
+            <p className="share-dialog__note">
+              If the host shared from this app, just paste the copied invite URL here and press Connect.
+            </p>
+          </div>
 
-        <label className="collab-field collab-field--wide">
-          <span>Signal</span>
-          <input
-            onChange={(event) => setCollaborationSignaling(event.target.value)}
-            placeholder={DEFAULT_SIGNALING_URLS.join(', ')}
-            type="text"
-            value={collaborationSignaling}
-          />
-        </label>
-
-        <div className="collab-actions">
-          <button className="ghost-button" onClick={handleToggleCollaboration} type="button">
-            {isCollaborationEnabled ? 'Disconnect' : 'Connect'}
-          </button>
-          <button
-            className="ghost-button"
-            disabled={!collaborationRoom.trim()}
-            onClick={handleCopyCollaborationInvite}
-            type="button"
-          >
-            Copy Invite
-          </button>
-        </div>
-
-        <div className="collab-presence" aria-label="Connected collaborators">
-          {visibleCollaborationState.collaborators.length ? (
-            visibleCollaborationState.collaborators.map((collaborator) => (
-              <span
-                key={collaborator.clientId}
-                className="collab-presence__chip"
-                style={{
-                  borderColor: collaborator.color,
-                  boxShadow: `inset 0 0 0 1px ${collaborator.color}33`,
-                }}
-              >
-                {collaborator.isLocal ? `${collaborator.name} (You)` : collaborator.name}
-              </span>
-            ))
-          ) : (
-            <span className="collab-presence__empty">No collaborators visible yet.</span>
-          )}
-        </div>
-      </section>
+          <DialogFooter>
+            <DialogClose asChild>
+              <button className="ghost-button" disabled={isStartingConnect} type="button">
+                Cancel
+              </button>
+            </DialogClose>
+            <button
+              className="ghost-button ghost-button--accent"
+              disabled={isStartingConnect}
+              onClick={handleConnectToShare}
+              type="button"
+            >
+              {isStartingConnect ? 'Connecting...' : 'Connect'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <main className="workspace">
         <div className="workspace__main">

@@ -8,6 +8,10 @@ export type CollaboratorPresence = {
   clientId: number
   name: string
   color: string
+  cursor?: {
+    x: number
+    y: number
+  }
   isLocal: boolean
 }
 
@@ -20,6 +24,16 @@ export type CollaborationConnectionState = {
 type CollaborationUser = {
   name: string
   color: string
+}
+
+type CollaborationCursor = {
+  x: number
+  y: number
+}
+
+type CollaborationAwarenessState = {
+  user?: Partial<CollaborationUser>
+  cursor?: Partial<CollaborationCursor> | null
 }
 
 type CollaborationControllerOptions<T extends Record<string, unknown>> = {
@@ -36,7 +50,27 @@ type CollaborationControllerOptions<T extends Record<string, unknown>> = {
 export type CollaborationController<T extends Record<string, unknown>> = {
   pushState(state: T): void
   updateUser(user: CollaborationUser): void
+  updateCursor(cursor: CollaborationCursor | null): void
   destroy(): void
+}
+
+function normalizeCursor(cursor: Partial<CollaborationCursor> | null | undefined) {
+  if (!cursor || typeof cursor !== 'object') {
+    return undefined
+  }
+
+  if (typeof cursor.x !== 'number' || typeof cursor.y !== 'number') {
+    return undefined
+  }
+
+  if (!Number.isFinite(cursor.x) || !Number.isFinite(cursor.y)) {
+    return undefined
+  }
+
+  return {
+    x: Math.min(1, Math.max(0, cursor.x)),
+    y: Math.min(1, Math.max(0, cursor.y)),
+  }
 }
 
 function cloneJson<T>(value: T): T {
@@ -111,11 +145,13 @@ function applyStateToRoot<T extends Record<string, unknown>>(root: Y.Map<unknown
 function mapCollaborators(provider: WebrtcProvider): CollaboratorPresence[] {
   return Array.from(provider.awareness.getStates().entries())
     .map(([clientId, state]) => {
-      const user = state.user as Partial<CollaborationUser> | undefined
+      const awarenessState = state as CollaborationAwarenessState
+      const user = awarenessState.user
       return {
         clientId,
         name: typeof user?.name === 'string' && user.name.trim() ? user.name : `Guest ${clientId}`,
         color: typeof user?.color === 'string' && user.color.trim() ? user.color : '#7ca1ff',
+        cursor: normalizeCursor(awarenessState.cursor),
         isLocal: clientId === provider.doc.clientID,
       }
     })
@@ -220,6 +256,14 @@ export function createCollaborationController<T extends Record<string, unknown>>
 
       provider.awareness.setLocalStateField('user', user)
       emitConnectionState()
+    },
+
+    updateCursor(cursor) {
+      if (destroyed) {
+        return
+      }
+
+      provider.awareness.setLocalStateField('cursor', cursor)
     },
 
     destroy() {
