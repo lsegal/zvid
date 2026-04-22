@@ -1,5 +1,5 @@
-import * as Y from 'yjs'
 import { WebrtcProvider } from 'y-webrtc'
+import * as Y from 'yjs'
 
 type JsonPrimitive = boolean | number | string | null
 type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue }
