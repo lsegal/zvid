@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
 
 type MediaKind = 'video' | 'audio'
 
@@ -31,6 +31,8 @@ type ArrangementClip = {
   durationSeconds: number
   trimStartSeconds: number
   sourceOffsetSeconds: number
+  sourceWindowStartSeconds: number
+  sourceWindowEndSeconds: number
   tint: string
   accent: string
 }
@@ -194,15 +196,32 @@ function computeActiveClips(
   effects: SessionEffect[],
 ) {
   const epsilon = 0.0001
-  return clips
+  const activeTimelineClips = clips.filter((clip) => {
+    const clipEndQ = clip.startQ + (clip.durationSeconds * bpm) / 60
+    return playheadQ >= clip.startQ - epsilon && playheadQ < clipEndQ - epsilon
+  })
+  const highestBlockingLaneRank = activeTimelineClips.reduce((maximum, clip) => {
+    const media = clip.mediaId ? mediaById.get(clip.mediaId) : undefined
+    if (media?.previewUrl) {
+      return maximum
+    }
+
+    return Math.max(maximum, lanePriority.get(clip.laneId) ?? -1)
+  }, -1)
+
+  return activeTimelineClips
     .filter((clip) => {
       const media = clip.mediaId ? mediaById.get(clip.mediaId) : undefined
       if (!media?.previewUrl) {
         return false
       }
 
-      const clipEndQ = clip.startQ + (clip.durationSeconds * bpm) / 60
-      return playheadQ >= clip.startQ - epsilon && playheadQ < clipEndQ - epsilon
+      const laneRank = lanePriority.get(clip.laneId) ?? -1
+      if (laneRank <= highestBlockingLaneRank) {
+        return false
+      }
+
+      return true
     })
     .sort((left, right) => {
       const laneDelta =
@@ -222,9 +241,11 @@ function computeActiveClips(
         media,
         mediaTime,
         isInBounds:
-          media.durationSeconds > 0
+          mediaTime >= clip.sourceWindowStartSeconds &&
+          mediaTime < clip.sourceWindowEndSeconds - epsilon &&
+          (media.durationSeconds > 0
             ? mediaTime >= 0 && mediaTime < media.durationSeconds - epsilon
-            : mediaTime >= 0,
+            : mediaTime >= 0),
         laneRank: lanePriority.get(clip.laneId) ?? -1,
         visual: resolveVisualState(effects, clip.laneId),
       }
@@ -569,88 +590,97 @@ export const CompositionPlayer = forwardRef<CompositionPlayerHandle, Composition
   )
   activeClipsRef.current = activeClips
 
-  function drawCurrentFrame(pixelRatio: number) {
-    const canvas = canvasRef.current
-    const resources = resourcesRef.current
-    if (!canvas || !resources) {
-      return
-    }
-
-    syncCanvasSurface(canvas, canvasWidth, canvasHeight, pixelRatio)
-    drawComposition(resources, canvas, activeClipsRef.current, mediaRefs.current)
-  }
-
-  function scheduleDraw(pixelRatio = window.devicePixelRatio || 1) {
-    if (renderRequestRef.current) {
-      window.cancelAnimationFrame(renderRequestRef.current)
-    }
-
-    renderRequestRef.current = window.requestAnimationFrame(() => {
-      renderRequestRef.current = 0
-      drawCurrentFrame(pixelRatio)
-    })
-  }
-
-  const renderFrameAt = async (nextPlayheadQ: number, nextPlayheadSeconds: number, pixelRatio: number) => {
-    const canvas = canvasRef.current
-    if (!canvas) {
-      return
-    }
-
-    if (!resourcesRef.current) {
-      resourcesRef.current = ensureWebGlResources(canvas)
-    }
-
-    syncCanvasSurface(canvas, canvasWidth, canvasHeight, pixelRatio)
-
-    const nextActiveClips = computeActiveClips(
-      clips,
-      mediaById,
-      nextPlayheadQ,
-      bpm,
-      lanePriority,
-      effects,
-    )
-    console.info('[zvid] composition:renderFrameAt', {
-      playheadQ: nextPlayheadQ,
-      playheadSeconds: nextPlayheadSeconds,
-      activeClips: nextActiveClips.length,
-    })
-    const pendingSeeks = new Map<string, Promise<void>>()
-
-    for (const entry of nextActiveClips) {
-      if (!entry.isInBounds) {
-        continue
+  const drawCurrentFrame = useCallback(
+    (pixelRatio: number) => {
+      const canvas = canvasRef.current
+      const resources = resourcesRef.current
+      if (!canvas || !resources) {
+        return
       }
 
-      const mediaElement = mediaRefs.current.get(entry.media.id)
-      if (!(mediaElement instanceof HTMLVideoElement)) {
-        continue
+      syncCanvasSurface(canvas, canvasWidth, canvasHeight, pixelRatio)
+      drawComposition(resources, canvas, activeClipsRef.current, mediaRefs.current)
+    },
+    [canvasHeight, canvasWidth],
+  )
+
+  const scheduleDraw = useCallback(
+    (pixelRatio = window.devicePixelRatio || 1) => {
+      if (renderRequestRef.current) {
+        window.cancelAnimationFrame(renderRequestRef.current)
       }
 
-      console.info('[zvid] composition:seekMedia', {
-        mediaId: entry.media.id,
-        mediaTime: entry.mediaTime,
-        readyState: mediaElement.readyState,
-        currentTime: mediaElement.currentTime,
+      renderRequestRef.current = window.requestAnimationFrame(() => {
+        renderRequestRef.current = 0
+        drawCurrentFrame(pixelRatio)
       })
-      pendingSeeks.set(entry.media.id, seekMediaElement(mediaElement, entry.mediaTime))
-    }
+    },
+    [drawCurrentFrame],
+  )
 
-    if (pendingSeeks.size) {
-      await Promise.all(pendingSeeks.values())
-      console.info('[zvid] composition:seekMedia:complete', {
-        pendingSeeks: pendingSeeks.size,
+  const renderFrameAt = useCallback(
+    async (nextPlayheadQ: number, nextPlayheadSeconds: number, pixelRatio: number) => {
+      const canvas = canvasRef.current
+      if (!canvas) {
+        return
+      }
+
+      if (!resourcesRef.current) {
+        resourcesRef.current = ensureWebGlResources(canvas)
+      }
+
+      syncCanvasSurface(canvas, canvasWidth, canvasHeight, pixelRatio)
+
+      const nextActiveClips = computeActiveClips(
+        clips,
+        mediaById,
+        nextPlayheadQ,
+        bpm,
+        lanePriority,
+        effects,
+      )
+      console.info('[zvid] composition:renderFrameAt', {
+        playheadQ: nextPlayheadQ,
+        playheadSeconds: nextPlayheadSeconds,
+        activeClips: nextActiveClips.length,
       })
-    }
+      const pendingSeeks = new Map<string, Promise<void>>()
 
-    if (audioRef.current && masterAudio?.previewUrl) {
-      audioRef.current.pause()
-      audioRef.current.currentTime = nextPlayheadSeconds
-    }
+      for (const entry of nextActiveClips) {
+        if (!entry.isInBounds) {
+          continue
+        }
 
-    drawComposition(resourcesRef.current, canvas, nextActiveClips, mediaRefs.current)
-  }
+        const mediaElement = mediaRefs.current.get(entry.media.id)
+        if (!(mediaElement instanceof HTMLVideoElement)) {
+          continue
+        }
+
+        console.info('[zvid] composition:seekMedia', {
+          mediaId: entry.media.id,
+          mediaTime: entry.mediaTime,
+          readyState: mediaElement.readyState,
+          currentTime: mediaElement.currentTime,
+        })
+        pendingSeeks.set(entry.media.id, seekMediaElement(mediaElement, entry.mediaTime))
+      }
+
+      if (pendingSeeks.size) {
+        await Promise.all(pendingSeeks.values())
+        console.info('[zvid] composition:seekMedia:complete', {
+          pendingSeeks: pendingSeeks.size,
+        })
+      }
+
+      if (audioRef.current && masterAudio?.previewUrl) {
+        audioRef.current.pause()
+        audioRef.current.currentTime = nextPlayheadSeconds
+      }
+
+      drawComposition(resourcesRef.current, canvas, nextActiveClips, mediaRefs.current)
+    },
+    [bpm, canvasHeight, canvasWidth, clips, effects, lanePriority, masterAudio?.previewUrl, mediaById],
+  )
 
   useImperativeHandle(
     ref,
@@ -661,7 +691,7 @@ export const CompositionPlayer = forwardRef<CompositionPlayerHandle, Composition
       restorePreviewSurface: (nextPlayheadQ, nextPlayheadSeconds) =>
         renderFrameAt(nextPlayheadQ, nextPlayheadSeconds, window.devicePixelRatio || 1),
     }),
-    [bpm, canvasHeight, canvasWidth, clips, effects, lanePriority, masterAudio?.previewUrl, mediaById],
+    [renderFrameAt],
   )
 
   useEffect(() => {
@@ -710,7 +740,7 @@ export const CompositionPlayer = forwardRef<CompositionPlayerHandle, Composition
         window.cancelAnimationFrame(playbackFrameRef.current)
       }
     }
-  }, [activeClips, canvasHeight, canvasWidth, isPlaying])
+  }, [activeClips, drawCurrentFrame, isPlaying])
 
   useEffect(() => {
     const removeListeners: Array<() => void> = []
@@ -764,7 +794,7 @@ export const CompositionPlayer = forwardRef<CompositionPlayerHandle, Composition
         removeListener()
       }
     }
-  }, [activeClips, isAudibleScrubbing, isPlaying, isScrubbing, mediaItems])
+  }, [activeClips, isAudibleScrubbing, isPlaying, isScrubbing, mediaItems, scheduleDraw])
 
   useEffect(() => {
     const audio = audioRef.current
