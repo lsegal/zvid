@@ -1,4 +1,5 @@
 import {
+  type DragEvent as ReactDragEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -193,6 +194,27 @@ type TimelineViewport = {
   clientWidth: number;
 };
 
+type SourceTrackDropTarget =
+  | {
+      kind: "track";
+      trackId: string;
+    }
+  | {
+      kind: "new-track";
+    };
+
+type SourceTrackDragPreview = {
+  dragKey: string;
+  fileCount: number;
+  names: string[];
+  label: string;
+  status: "loading" | "ready" | "error";
+  kind?: MediaKind;
+  durationSeconds?: number;
+  thumbnailUrl?: string;
+  error?: string;
+};
+
 type CollaborationMode = "idle" | "sharing" | "connected";
 
 type CollaborationTone = "idle" | "pending" | "waiting" | "live";
@@ -274,9 +296,12 @@ const TIMELINE_SCRUB_AUDIO_TAIL_MS = 50;
 const TIMELINE_DRAG_EPSILON = 0.0001;
 const RANDOM_SELECTION_BAR_INCREMENT = 0.25;
 const RANDOM_SELECTION_MAX_BARS = 2;
+const SOURCE_TRACK_DRAG_CLEAR_DELAY_MS = 80;
 const COLLAB_STORAGE_KEY = "zvid-collaboration";
 const DEFAULT_SIGNALING_URLS = ["wss://zvid-signaling.lsegal.workers.dev"];
 const LEGACY_DEFAULT_SIGNALING_URLS = ["wss://y-webrtc-eu.fly.dev"];
+const MEDIA_DROP_EXTENSION_PATTERN =
+  /\.(mp4|mov|mkv|webm|avi|wav|mp3|m4a|flac|aif|aiff)$/i;
 const SIGNATURES: TimeSignature[] = [
   { id: "4/4", numerator: 4, denominator: 4 },
   { id: "3/4", numerator: 3, denominator: 4 },
@@ -769,6 +794,46 @@ function basename(path: string) {
   return parts[parts.length - 1] ?? path;
 }
 
+function stripFilenameExtension(value: string) {
+  return value.replace(/\.[^/.]+$/, "") || value;
+}
+
+function getDraggedMediaFiles(dataTransfer: DataTransfer | null) {
+  const directFiles = Array.from(dataTransfer?.files ?? []);
+  const itemFiles =
+    directFiles.length > 0
+      ? directFiles
+      : Array.from(dataTransfer?.items ?? [])
+          .filter((item) => item.kind === "file")
+          .map((item) => item.getAsFile())
+          .filter((file): file is File => Boolean(file));
+
+  return itemFiles.filter(
+    (file) =>
+      file.type.startsWith("video/") ||
+      file.type.startsWith("audio/") ||
+      MEDIA_DROP_EXTENSION_PATTERN.test(file.name),
+  );
+}
+
+function hasDraggedFileData(dataTransfer: DataTransfer | null) {
+  if (!dataTransfer) {
+    return false;
+  }
+
+  if (Array.from(dataTransfer.types).includes("Files")) {
+    return true;
+  }
+
+  return Array.from(dataTransfer.items ?? []).some((item) => item.kind === "file");
+}
+
+function buildDraggedMediaKey(files: readonly File[]) {
+  return files
+    .map((file) => `${file.name}:${file.size}:${file.lastModified}`)
+    .join("|");
+}
+
 function getNextLaneNumber(lanes: Lane[]) {
   return lanes.length + 1;
 }
@@ -1177,6 +1242,20 @@ function getSourceThumbnailCacheKey(
   span: Pick<SourceSpan, "id" | "mediaId" | "trimStartSeconds">,
 ) {
   return `${span.id}:${span.mediaId ?? "missing"}:${span.trimStartSeconds.toFixed(3)}`;
+}
+
+function getSourceTrackEndQ(
+  sourceSpans: SourceSpan[],
+  sourceTrackId: string,
+  bpm: number,
+) {
+  return sourceSpans.reduce((maximum, span) => {
+    if (span.sourceTrackId !== sourceTrackId) {
+      return maximum;
+    }
+
+    return Math.max(maximum, getClipEndQ(span, bpm));
+  }, 0);
 }
 
 function sanitizeFilenameSegment(value: string) {
@@ -1706,6 +1785,10 @@ function App() {
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [timelineDragState, setTimelineDragState] =
     useState<TimelineDragState | null>(null);
+  const [sourceTrackDragTarget, setSourceTrackDragTarget] =
+    useState<SourceTrackDropTarget | null>(null);
+  const [sourceTrackDragPreview, setSourceTrackDragPreview] =
+    useState<SourceTrackDragPreview | null>(null);
   const [isTimelineAudibleScrubbing, setIsTimelineAudibleScrubbing] =
     useState(false);
   const [zoomDraft, setZoomDraft] = useState<number | null>(null);
@@ -1760,6 +1843,10 @@ function App() {
   const mediaHydrationInFlightRef = useRef(new Set<string>());
   const sourceThumbnailUrlsRef = useRef<Record<string, string>>({});
   const lastCollaborationCursorRef = useRef("");
+  const sourceTrackDragPreviewRef = useRef<SourceTrackDragPreview | null>(null);
+  const sourceTrackDragHideTimeoutRef = useRef<number | null>(null);
+  const sourceTrackDragPreviewKeyRef = useRef<string>("");
+  const sourceTrackDragPreviewRequestRef = useRef(0);
 
   const mediaItems = useMemo(
     () =>
@@ -2017,6 +2104,7 @@ function App() {
     }
     return next;
   }, [sourceSpans]);
+  const isSourceTrackFileDragActive = Boolean(sourceTrackDragTarget);
   const minimumWindowQ = Math.max(snapUnit, beatUnit / 4);
   const visibleTimelineStartPx = Math.max(0, timelineViewport.scrollLeft);
   const visibleTimelineWidthPx = Math.max(
@@ -2040,6 +2128,294 @@ function App() {
             ? "Audio..."
             : "Render..."
     : "Export";
+  const sourceTrackDragPreviewDetail = sourceTrackDragPreview
+    ? sourceTrackDragPreview.status === "loading"
+      ? "Loading clip preview..."
+      : sourceTrackDragPreview.status === "error"
+        ? sourceTrackDragPreview.fileCount > 1
+          ? `${sourceTrackDragPreview.fileCount} file(s) ready to import`
+          : "Drop to import without a preview"
+        : sourceTrackDragPreview.durationSeconds !== undefined
+          ? `${sourceTrackDragPreview.kind === "audio" ? "Audio" : "Video"} · ${formatDuration(
+              sourceTrackDragPreview.durationSeconds,
+            )}`
+          : sourceTrackDragPreview.kind === "audio"
+            ? "Audio clip"
+            : "Media clip"
+    : "";
+  const sourceTrackDragPreviewOverflow =
+    sourceTrackDragPreview && sourceTrackDragPreview.fileCount > 1
+      ? `+${sourceTrackDragPreview.fileCount - 1} more`
+      : null;
+  const isNewSourceTrackDropTarget =
+    sourceTrackDragTarget?.kind === "new-track";
+
+  const clearSourceTrackDragState = useCallback(() => {
+    if (sourceTrackDragHideTimeoutRef.current !== null) {
+      window.clearTimeout(sourceTrackDragHideTimeoutRef.current);
+      sourceTrackDragHideTimeoutRef.current = null;
+    }
+
+    sourceTrackDragPreviewKeyRef.current = "";
+    sourceTrackDragPreviewRequestRef.current += 1;
+    setSourceTrackDragTarget(null);
+    setSourceTrackDragPreview((current) => {
+      revokeObjectUrlIfNeeded(current?.thumbnailUrl);
+      return null;
+    });
+  }, []);
+
+  const scheduleSourceTrackDragClear = useCallback(() => {
+    if (sourceTrackDragHideTimeoutRef.current !== null) {
+      window.clearTimeout(sourceTrackDragHideTimeoutRef.current);
+    }
+
+    sourceTrackDragHideTimeoutRef.current = window.setTimeout(() => {
+      sourceTrackDragHideTimeoutRef.current = null;
+      clearSourceTrackDragState();
+    }, SOURCE_TRACK_DRAG_CLEAR_DELAY_MS);
+  }, [clearSourceTrackDragState]);
+
+  const ensureSourceTrackDragPreview = useCallback(
+    (files: File[]) => {
+      const dragKey = buildDraggedMediaKey(files);
+      const nextLabel = stripFilenameExtension(files[0]?.name ?? "Media clip");
+
+      setSourceTrackDragPreview((current) => {
+        if (current?.dragKey === dragKey) {
+          return current;
+        }
+
+        revokeObjectUrlIfNeeded(current?.thumbnailUrl);
+        return {
+          dragKey,
+          fileCount: files.length,
+          names: files.map((file) => file.name),
+          label: nextLabel,
+          status: "loading",
+        };
+      });
+
+      if (sourceTrackDragPreviewKeyRef.current === dragKey) {
+        return;
+      }
+
+      sourceTrackDragPreviewKeyRef.current = dragKey;
+      const requestId = ++sourceTrackDragPreviewRequestRef.current;
+
+      void (async () => {
+        try {
+          const [previewItem] = await getHarness().analyzeMedia(
+            {
+              kind: "files",
+              files: [files[0]],
+            },
+            PALETTE,
+            mediaItems.length,
+          );
+          const thumbnailUrl = previewItem?.thumbnailUrl;
+
+          if (requestId !== sourceTrackDragPreviewRequestRef.current) {
+            revokeObjectUrlIfNeeded(thumbnailUrl);
+            return;
+          }
+
+          setSourceTrackDragPreview((current) => {
+            if (!current || current.dragKey !== dragKey) {
+              revokeObjectUrlIfNeeded(thumbnailUrl);
+              return current;
+            }
+
+            if (current.thumbnailUrl !== thumbnailUrl) {
+              revokeObjectUrlIfNeeded(current.thumbnailUrl);
+            }
+
+            return {
+              ...current,
+              label: stripFilenameExtension(previewItem.name),
+              status: "ready",
+              kind: previewItem.kind,
+              durationSeconds: previewItem.durationSeconds,
+              thumbnailUrl,
+            };
+          });
+        } catch (error) {
+          if (requestId !== sourceTrackDragPreviewRequestRef.current) {
+            return;
+          }
+
+          const message = error instanceof Error ? error.message : String(error);
+          setSourceTrackDragPreview((current) =>
+            current?.dragKey === dragKey
+              ? {
+                  ...current,
+                  status: "error",
+                  error: message,
+                }
+              : current,
+          );
+        }
+      })();
+    },
+    [mediaItems.length],
+  );
+
+  const handleSourceTrackDragEvent = useCallback(
+    (
+      event: ReactDragEvent<HTMLElement>,
+      target: SourceTrackDropTarget,
+    ) => {
+      const files = getDraggedMediaFiles(event.dataTransfer);
+      if (!files.length) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.dataTransfer.dropEffect = "copy";
+
+      if (sourceTrackDragHideTimeoutRef.current !== null) {
+        window.clearTimeout(sourceTrackDragHideTimeoutRef.current);
+        sourceTrackDragHideTimeoutRef.current = null;
+      }
+
+      setSourceTrackDragTarget(target);
+      ensureSourceTrackDragPreview(files);
+    },
+    [ensureSourceTrackDragPreview],
+  );
+
+  const resolveSourceTrackDropTargetAtPoint = useCallback(
+    (clientX: number, clientY: number): SourceTrackDropTarget | null => {
+      const element = document.elementFromPoint(clientX, clientY);
+      const target = element?.closest<HTMLElement>("[data-source-track-drop-target]");
+      const targetKind = target?.dataset.sourceTrackDropTarget;
+      if (targetKind === "track" && target?.dataset.sourceTrackId) {
+        return {
+          kind: "track",
+          trackId: target.dataset.sourceTrackId,
+        };
+      }
+
+      if (targetKind === "new-track") {
+        return { kind: "new-track" };
+      }
+
+      return sourceTracks.length ? { kind: "new-track" } : null;
+    },
+    [sourceTracks.length],
+  );
+
+  async function importMediaIntoSourceTrack(
+    files: File[],
+    target: SourceTrackDropTarget,
+  ) {
+    const harness = getHarness();
+
+    try {
+      setStatus(
+        `Analyzing ${files.length} dropped media file(s) through ${harness.label}...`,
+      );
+      const analyzed = await harness.analyzeMedia(
+        {
+          kind: "files",
+          files,
+        },
+        PALETTE,
+        projectMediaItems.length,
+      );
+      const sharedAnalyzed = analyzed.map((item) => toShareableMediaItem(item));
+
+      commitProjectChange("Drop media into source tracks", (current) => {
+        const nextMediaItems = [...current.mediaItems, ...sharedAnalyzed];
+        let nextSourceTracks = current.sourceTracks;
+        let nextSourceSpans = current.sourceSpans;
+
+        let targetTrack =
+          target.kind === "track"
+            ? current.sourceTracks.find((track) => track.id === target.trackId)
+            : undefined;
+
+        if (!targetTrack) {
+          targetTrack = {
+            id: `source-track-${crypto.randomUUID()}`,
+            name: stripFilenameExtension(analyzed[0]?.name ?? "Source Track"),
+            colorIndex: current.sourceTracks.length,
+            recordingPaths: [],
+          };
+          nextSourceTracks = [...current.sourceTracks, targetTrack];
+        }
+
+        const mediaPaths = analyzed.map((item) => item.sourcePath ?? item.name);
+        nextSourceTracks = nextSourceTracks.map((track) =>
+          track.id === targetTrack.id
+            ? {
+                ...track,
+                recordingPaths: [...track.recordingPaths, ...mediaPaths],
+              }
+            : track,
+        );
+
+        const swatch = getSwatch(targetTrack.colorIndex);
+        let insertQ = getSourceTrackEndQ(
+          current.sourceSpans,
+          targetTrack.id,
+          current.bpm,
+        );
+        const appendedSpans = analyzed.map<SourceSpan>((item) => {
+          const span: SourceSpan = {
+            id: `source-span-${crypto.randomUUID()}`,
+            sourceTrackId: targetTrack.id,
+            label: stripFilenameExtension(item.name),
+            mediaPath: item.sourcePath ?? item.name,
+            mediaId: item.id,
+            startQ: insertQ,
+            durationSeconds: Math.max(1, item.durationSeconds),
+            trimStartSeconds: 0,
+            tint: swatch.color,
+            accent: swatch.accent,
+          };
+          insertQ += getClipDurationQ(span, current.bpm);
+          return span;
+        });
+        nextSourceSpans = [...current.sourceSpans, ...appendedSpans];
+
+        const patch: Partial<ProjectState> = {
+          mediaItems: nextMediaItems,
+          sourceTracks: nextSourceTracks,
+          sourceSpans: nextSourceSpans,
+        };
+        if (
+          !current.sessionName &&
+          !current.mediaItems.length &&
+          !current.sourceTracks.length &&
+          !current.sourceSpans.length &&
+          !current.clips.length
+        ) {
+          const sizedMedia = analyzed.find((item) => item.width && item.height);
+          if (sizedMedia?.width && sizedMedia.height) {
+            patch.canvasWidth = Math.max(320, sizedMedia.width);
+            patch.canvasHeight = Math.max(320, sizedMedia.height);
+          }
+        }
+
+        return patchProjectState(current, patch);
+      });
+
+      seedLocalMediaItems(analyzed);
+      void cacheLocalMediaItems(analyzed);
+      setStatus(
+        `Dropped ${analyzed.length} media file(s) into ${
+          target.kind === "track"
+            ? "the selected source track"
+            : "a new source track"
+        }.`,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus(`Dropped media import failed: ${message}`);
+    }
+  }
 
   const activeShareRoom = collaborationRoom.trim();
   const isSharing = collaborationMode === "sharing";
@@ -2069,11 +2445,124 @@ function App() {
     sourceThumbnailUrlsRef.current = sourceThumbnailUrls;
   }, [sourceThumbnailUrls]);
 
+  useEffect(() => {
+    sourceTrackDragPreviewRef.current = sourceTrackDragPreview;
+  }, [sourceTrackDragPreview]);
+
+  useEffect(() => {
+    const appShell = appShellRef.current;
+    if (!appShell) {
+      return;
+    }
+
+    const isWithinAppShell = (clientX: number, clientY: number) => {
+      const bounds = appShell.getBoundingClientRect();
+      return (
+        clientX >= bounds.left &&
+        clientX <= bounds.right &&
+        clientY >= bounds.top &&
+        clientY <= bounds.bottom
+      );
+    };
+
+    const handleWindowDrag = (event: DragEvent) => {
+      if (!hasDraggedFileData(event.dataTransfer)) {
+        return;
+      }
+
+      if (!isWithinAppShell(event.clientX, event.clientY)) {
+        scheduleSourceTrackDragClear();
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      const target = resolveSourceTrackDropTargetAtPoint(
+        event.clientX,
+        event.clientY,
+      );
+      if (target) {
+        setSourceTrackDragTarget(target);
+      }
+
+      const files = getDraggedMediaFiles(event.dataTransfer);
+      if (files.length) {
+        ensureSourceTrackDragPreview(files);
+      }
+    };
+
+    const handleWindowDrop = (event: DragEvent) => {
+      if (!hasDraggedFileData(event.dataTransfer)) {
+        return;
+      }
+
+      if (!isWithinAppShell(event.clientX, event.clientY)) {
+        clearSourceTrackDragState();
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      const files = getDraggedMediaFiles(event.dataTransfer);
+      if (!files.length) {
+        clearSourceTrackDragState();
+        return;
+      }
+
+      const target =
+        resolveSourceTrackDropTargetAtPoint(event.clientX, event.clientY) ?? {
+          kind: "new-track" as const,
+        };
+      clearSourceTrackDragState();
+      void importMediaIntoSourceTrack(files, target);
+    };
+
+    const handleWindowDragLeave = (event: DragEvent) => {
+      if (!hasDraggedFileData(event.dataTransfer)) {
+        return;
+      }
+
+      const leavingWindow =
+        event.clientX <= 0 ||
+        event.clientY <= 0 ||
+        event.clientX >= window.innerWidth ||
+        event.clientY >= window.innerHeight;
+      if (leavingWindow) {
+        event.stopPropagation();
+        scheduleSourceTrackDragClear();
+      }
+    };
+
+    window.addEventListener("dragenter", handleWindowDrag, true);
+    window.addEventListener("dragover", handleWindowDrag, true);
+    window.addEventListener("dragleave", handleWindowDragLeave, true);
+    window.addEventListener("drop", handleWindowDrop, true);
+
+    return () => {
+      window.removeEventListener("dragenter", handleWindowDrag, true);
+      window.removeEventListener("dragover", handleWindowDrag, true);
+      window.removeEventListener("dragleave", handleWindowDragLeave, true);
+      window.removeEventListener("drop", handleWindowDrop, true);
+    };
+  }, [
+    clearSourceTrackDragState,
+    ensureSourceTrackDragPreview,
+    importMediaIntoSourceTrack,
+    resolveSourceTrackDropTargetAtPoint,
+    scheduleSourceTrackDragClear,
+  ]);
+
   useEffect(
     () => () => {
       if (shareCopyResetTimeoutRef.current !== null) {
         window.clearTimeout(shareCopyResetTimeoutRef.current);
       }
+
+      if (sourceTrackDragHideTimeoutRef.current !== null) {
+        window.clearTimeout(sourceTrackDragHideTimeoutRef.current);
+      }
+
+      revokeObjectUrlIfNeeded(sourceTrackDragPreviewRef.current?.thumbnailUrl);
     },
     [],
   );
@@ -4823,7 +5312,48 @@ function App() {
                     </div>
                   </section>
 
-                  <section className="source-header">
+                  <section
+                    className="source-header"
+                    data-source-track-drop-target={
+                      sourceTracks.length ? undefined : "new-track"
+                    }
+                    onDragEnter={(event) => {
+                      if (!sourceTracks.length) {
+                        handleSourceTrackDragEvent(event, {
+                          kind: "new-track",
+                        });
+                      }
+                    }}
+                    onDragLeave={() => {
+                      if (!sourceTracks.length) {
+                        scheduleSourceTrackDragClear();
+                      }
+                    }}
+                    onDragOver={(event) => {
+                      if (!sourceTracks.length) {
+                        handleSourceTrackDragEvent(event, {
+                          kind: "new-track",
+                        });
+                      }
+                    }}
+                    onDrop={(event) => {
+                      if (sourceTracks.length) {
+                        return;
+                      }
+
+                      const files = getDraggedMediaFiles(event.dataTransfer);
+                      if (!files.length) {
+                        return;
+                      }
+
+                      event.preventDefault();
+                      event.stopPropagation();
+                      clearSourceTrackDragState();
+                      void importMediaIntoSourceTrack(files, {
+                        kind: "new-track",
+                      });
+                    }}
+                  >
                     <div className="track-label track-label--header">
                       <span>Source Tracks</span>
                       <small>
@@ -4841,6 +5371,9 @@ function App() {
                   {sourceTracks.map((track, index) => {
                     const sourceClips = sourceSpansByTrack.get(track.id) ?? [];
                     const swatch = getSwatch(track.colorIndex);
+                    const isDropTarget =
+                      sourceTrackDragTarget?.kind === "track" &&
+                      sourceTrackDragTarget.trackId === track.id;
 
                     return (
                       <section
@@ -4866,7 +5399,40 @@ function App() {
                           </div>
                         </button>
                         <div
-                          className="track-row__content track-row__content--source"
+                          className={`track-row__content track-row__content--source ${isDropTarget ? "is-drop-target" : ""}`}
+                          data-source-track-drop-target="track"
+                          data-source-track-id={track.id}
+                          onDragEnter={(event) =>
+                            handleSourceTrackDragEvent(event, {
+                              kind: "track",
+                              trackId: track.id,
+                            })
+                          }
+                          onDragLeave={() => {
+                            scheduleSourceTrackDragClear();
+                          }}
+                          onDragOver={(event) =>
+                            handleSourceTrackDragEvent(event, {
+                              kind: "track",
+                              trackId: track.id,
+                            })
+                          }
+                          onDrop={(event) => {
+                            const files = getDraggedMediaFiles(
+                              event.dataTransfer,
+                            );
+                            if (!files.length) {
+                              return;
+                            }
+
+                            event.preventDefault();
+                            event.stopPropagation();
+                            clearSourceTrackDragState();
+                            void importMediaIntoSourceTrack(files, {
+                              kind: "track",
+                              trackId: track.id,
+                            });
+                          }}
                           style={gridStyle}
                         >
                           {sourceClips.map((clip) => {
@@ -4922,10 +5488,111 @@ function App() {
                               </div>
                             );
                           })}
+                          {isDropTarget && sourceTrackDragPreview ? (
+                            <div className="source-drop-preview">
+                              <div
+                                className={`source-drop-preview__thumb ${
+                                  sourceTrackDragPreview.thumbnailUrl
+                                    ? "has-image"
+                                    : ""
+                                }`}
+                                style={
+                                  sourceTrackDragPreview.thumbnailUrl
+                                    ? {
+                                        backgroundImage: `url(${sourceTrackDragPreview.thumbnailUrl})`,
+                                      }
+                                    : undefined
+                                }
+                              />
+                              <div className="source-drop-preview__body">
+                                <strong>{sourceTrackDragPreview.label}</strong>
+                                <span>{sourceTrackDragPreviewDetail}</span>
+                              </div>
+                              {sourceTrackDragPreviewOverflow ? (
+                                <div className="source-drop-preview__count">
+                                  {sourceTrackDragPreviewOverflow}
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
                         </div>
                       </section>
                     );
                   })}
+                  {isSourceTrackFileDragActive ? (
+                    <section className="track-row track-row--source track-row--source-drop">
+                      <div className="track-label track-label--source track-label--source-drop">
+                        <span className="track-label__stripe" />
+                        <div>
+                          <span>New Source Track</span>
+                          <small>
+                            Drop here to create a new source track
+                          </small>
+                        </div>
+                      </div>
+                      <div
+                        className={`track-row__content track-row__content--source track-row__content--source-drop ${isNewSourceTrackDropTarget ? "is-drop-target" : ""}`}
+                        data-source-track-drop-target="new-track"
+                        onDragEnter={(event) =>
+                          handleSourceTrackDragEvent(event, {
+                            kind: "new-track",
+                          })
+                        }
+                        onDragLeave={() => {
+                          scheduleSourceTrackDragClear();
+                        }}
+                        onDragOver={(event) =>
+                          handleSourceTrackDragEvent(event, {
+                            kind: "new-track",
+                          })
+                        }
+                        onDrop={(event) => {
+                          const files = getDraggedMediaFiles(
+                            event.dataTransfer,
+                          );
+                          if (!files.length) {
+                            return;
+                          }
+
+                          event.preventDefault();
+                          event.stopPropagation();
+                          clearSourceTrackDragState();
+                          void importMediaIntoSourceTrack(files, {
+                            kind: "new-track",
+                          });
+                        }}
+                        style={gridStyle}
+                      >
+                        {sourceTrackDragPreview ? (
+                          <div className="source-drop-preview source-drop-preview--new-track">
+                            <div
+                              className={`source-drop-preview__thumb ${
+                                sourceTrackDragPreview.thumbnailUrl
+                                  ? "has-image"
+                                  : ""
+                              }`}
+                              style={
+                                sourceTrackDragPreview.thumbnailUrl
+                                  ? {
+                                      backgroundImage: `url(${sourceTrackDragPreview.thumbnailUrl})`,
+                                    }
+                                  : undefined
+                              }
+                            />
+                            <div className="source-drop-preview__body">
+                              <strong>{sourceTrackDragPreview.label}</strong>
+                              <span>{sourceTrackDragPreviewDetail}</span>
+                            </div>
+                            {sourceTrackDragPreviewOverflow ? (
+                              <div className="source-drop-preview__count">
+                                {sourceTrackDragPreviewOverflow}
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    </section>
+                  ) : null}
                 </div>
               </div>
 
