@@ -1,21 +1,23 @@
-import * as React from 'react'
-import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
+import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
+import * as React from "react";
 
 function cn(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(' ')
+  return classes.filter(Boolean).join(" ");
 }
 
-const DropdownMenu = DropdownMenuPrimitive.Root
-const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger
-const DropdownMenuPortal = DropdownMenuPrimitive.Portal
-const DropdownMenuItem = DropdownMenuPrimitive.Item
-const DropdownMenuSeparator = DropdownMenuPrimitive.Separator
+const DropdownMenu = DropdownMenuPrimitive.Root;
+const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
+const DropdownMenuPortal = DropdownMenuPrimitive.Portal;
+const DropdownMenuItem = DropdownMenuPrimitive.Item;
+const DropdownMenuSeparator = DropdownMenuPrimitive.Separator;
 
 function DropdownMenuShortcut({
   className,
   ...props
 }: React.HTMLAttributes<HTMLSpanElement>) {
-  return <span className={cn('dropdown-menu-shortcut', className)} {...props} />
+  return (
+    <span className={cn("dropdown-menu-shortcut", className)} {...props} />
+  );
 }
 
 const DropdownMenuContent = React.forwardRef<
@@ -26,12 +28,12 @@ const DropdownMenuContent = React.forwardRef<
     <DropdownMenuPrimitive.Content
       ref={ref}
       sideOffset={sideOffset}
-      className={cn('dropdown-menu-content', className)}
+      className={cn("dropdown-menu-content", className)}
       {...props}
     />
   </DropdownMenuPortal>
-))
-DropdownMenuContent.displayName = DropdownMenuPrimitive.Content.displayName
+));
+DropdownMenuContent.displayName = DropdownMenuPrimitive.Content.displayName;
 
 export {
   DropdownMenu,
@@ -40,4 +42,4 @@ export {
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
-}
+};

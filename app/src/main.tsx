@@ -1,17 +1,22 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './index.css'
-import App from './App.tsx'
-import { installHarness } from './harness'
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import "./index.css";
+import App from "./App.tsx";
+import { installHarness } from "./harness";
 
 async function bootstrap() {
-  await installHarness()
+  await installHarness();
 
-  createRoot(document.getElementById('root')!).render(
+  const rootElement = document.getElementById("root");
+  if (!rootElement) {
+    throw new Error('Missing root element with id "root".');
+  }
+
+  createRoot(rootElement).render(
     <StrictMode>
       <App />
     </StrictMode>,
-  )
+  );
 }
 
-void bootstrap()
+void bootstrap();

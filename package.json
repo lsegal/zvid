@@ -1,0 +1,19 @@
+{
+  "name": "zvid",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "deploy": "pnpm -r run deploy",
+    "dev": "pnpm -C app dev",
+    "dev:native": "pnpm -C app tauri:dev",
+    "lint": "tsc && biome check",
+    "lint:fix": "biome check --unsafe --write"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.12",
+    "typescript": "^6.0.0"
+  }
+}

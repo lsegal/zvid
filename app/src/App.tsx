@@ -1,10 +1,21 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import './App.css'
 import {
-  createCollaborationController,
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
+import "./App.css";
+import {
+  CompositionPlayer,
+  type CompositionPlayerHandle,
+} from "./CompositionPlayer";
+import {
   type CollaborationConnectionState,
   type CollaborationController,
-} from './collaboration'
+  createCollaborationController,
+} from "./collaboration";
 import {
   Dialog,
   DialogClose,
@@ -13,7 +24,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from './components/ui/dialog'
+} from "./components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,267 +32,273 @@ import {
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
-} from './components/ui/dropdown-menu'
-import { CompositionPlayer, type CompositionPlayerHandle } from './CompositionPlayer'
-import { getHarness, type SaveTarget } from './harness'
+} from "./components/ui/dropdown-menu";
+import { getHarness, type SaveTarget } from "./harness";
 import {
   buildFallbackMediaItem,
-  toShareableMediaItem,
   type MediaAvailability,
   type MediaItem,
   type MediaKind,
   type Palette,
-} from './media'
-import { cacheMediaBlob, getCachedMediaBlob } from './media-cache'
-import type { LvpSession, SessionOpenResponse } from './session'
-type TimelineMode = 'musical' | 'timecode'
-type SnapMode = 'bar' | 'beat' | 'half' | 'quarter'
+  toShareableMediaItem,
+} from "./media";
+import { cacheMediaBlob, getCachedMediaBlob } from "./media-cache";
+import type { LvpSession, SessionOpenResponse } from "./session";
+
+type TimelineMode = "musical" | "timecode";
+type SnapMode = "bar" | "beat" | "half" | "quarter";
 
 type TimeSignature = {
-  id: string
-  numerator: number
-  denominator: number
-}
+  id: string;
+  numerator: number;
+  denominator: number;
+};
 
 type Lane = {
-  id: string
-  name: string
-  colorIndex: number
-}
+  id: string;
+  name: string;
+  colorIndex: number;
+};
 
 type SourceTrack = {
-  id: string
-  name: string
-  colorIndex: number
-  recordingPaths: string[]
-}
+  id: string;
+  name: string;
+  colorIndex: number;
+  recordingPaths: string[];
+};
 
 type SourceSpan = {
-  id: string
-  sourceTrackId: string
-  label: string
-  mediaPath: string
-  mediaId?: string
-  startQ: number
-  durationSeconds: number
-  trimStartSeconds: number
-  tint: string
-  accent: string
-}
+  id: string;
+  sourceTrackId: string;
+  label: string;
+  mediaPath: string;
+  mediaId?: string;
+  startQ: number;
+  durationSeconds: number;
+  trimStartSeconds: number;
+  tint: string;
+  accent: string;
+};
 
 type ArrangementClip = {
-  id: string
-  sourceSpanId: string
-  sourceTrackId: string
-  laneId: string
-  label: string
-  mediaPath: string
-  mediaId?: string
-  startQ: number
-  durationSeconds: number
-  trimStartSeconds: number
-  sourceOffsetSeconds: number
-  sourceWindowStartSeconds: number
-  sourceWindowEndSeconds: number
-  tint: string
-  accent: string
-  selected?: boolean
-}
+  id: string;
+  sourceSpanId: string;
+  sourceTrackId: string;
+  laneId: string;
+  label: string;
+  mediaPath: string;
+  mediaId?: string;
+  startQ: number;
+  durationSeconds: number;
+  trimStartSeconds: number;
+  sourceOffsetSeconds: number;
+  sourceWindowStartSeconds: number;
+  sourceWindowEndSeconds: number;
+  tint: string;
+  accent: string;
+  selected?: boolean;
+};
 
 type EffectParameter = {
-  key: string
-  value: string
-  numericValue?: number
-}
+  key: string;
+  value: string;
+  numericValue?: number;
+};
 
 type SessionEffect = {
-  id: string
-  trackId: string
-  effectName: string
-  parameters: EffectParameter[]
-}
+  id: string;
+  trackId: string;
+  effectName: string;
+  parameters: EffectParameter[];
+};
 
 type FxParameter = {
-  label: string
-  value: number
-  display: string
-}
+  label: string;
+  value: number;
+  display: string;
+};
 
 type FxDevice = {
-  id: string
-  name: string
-  subtitle: string
-  accent: string
-  parameters: FxParameter[]
-}
+  id: string;
+  name: string;
+  subtitle: string;
+  accent: string;
+  parameters: FxParameter[];
+};
 
 type TimelineSelection = {
-  id: string
-  laneId: string
-  startQ: number
-  durationQ: number
-}
+  id: string;
+  laneId: string;
+  startQ: number;
+  durationQ: number;
+};
 
 type DragState =
   | {
-      kind: 'move'
-      pointerId: number
-      clipId: string
-      sourceClipId: string
-      pointerStartX: number
-      originStartQ: number
-      originDurationQ: number
-      originLaneId: string
-      duplicateOnDrag: boolean
+      kind: "move";
+      pointerId: number;
+      clipId: string;
+      sourceClipId: string;
+      pointerStartX: number;
+      originStartQ: number;
+      originDurationQ: number;
+      originLaneId: string;
+      duplicateOnDrag: boolean;
     }
   | {
-      kind: 'resize-start'
-      pointerId: number
-      clipId: string
-      pointerStartX: number
-      originStartQ: number
-      originDurationQ: number
+      kind: "resize-start";
+      pointerId: number;
+      clipId: string;
+      pointerStartX: number;
+      originStartQ: number;
+      originDurationQ: number;
     }
   | {
-      kind: 'resize-end'
-      pointerId: number
-      clipId: string
-      pointerStartX: number
-      originStartQ: number
-      originDurationQ: number
+      kind: "resize-end";
+      pointerId: number;
+      clipId: string;
+      pointerStartX: number;
+      originStartQ: number;
+      originDurationQ: number;
     }
   | {
-      kind: 'selection'
-      pointerId: number
-      laneId: string
-      anchorQ: number
-    }
+      kind: "selection";
+      pointerId: number;
+      laneId: string;
+      anchorQ: number;
+    };
 
 type TimelineDragState = {
-  pointerId: number
-  pointerStartX: number
-  pointerStartY: number
-  originPlayheadQ: number
-  originZoom: number
-}
+  pointerId: number;
+  pointerStartX: number;
+  pointerStartY: number;
+  originPlayheadQ: number;
+  originZoom: number;
+};
 
 type ExportState = {
-  phase: 'idle' | 'preparing' | 'decoding-audio' | 'rendering' | 'loading-ffmpeg' | 'muxing'
-  progress: number | null
-  detail: string
-}
+  phase:
+    | "idle"
+    | "preparing"
+    | "decoding-audio"
+    | "rendering"
+    | "loading-ffmpeg"
+    | "muxing";
+  progress: number | null;
+  detail: string;
+};
 
 type TimelineViewport = {
-  scrollLeft: number
-  clientWidth: number
-}
+  scrollLeft: number;
+  clientWidth: number;
+};
 
-type CollaborationMode = 'idle' | 'sharing' | 'connected'
+type CollaborationMode = "idle" | "sharing" | "connected";
 
-type CollaborationTone = 'idle' | 'pending' | 'waiting' | 'live'
+type CollaborationTone = "idle" | "pending" | "waiting" | "live";
 
 type CollaborationRemoteCursor = {
-  clientId: number
-  name: string
-  color: string
-  x: number
-  y: number
-}
+  clientId: number;
+  name: string;
+  color: string;
+  x: number;
+  y: number;
+};
 
 type ProjectState = {
-  timelineMode: TimelineMode
-  signatureId: string
-  snapMode: SnapMode
-  snapEnabled: boolean
-  bpm: number
-  fps: number
-  canvasWidth: number
-  canvasHeight: number
-  zoom: number
-  sessionName: string | null
-  mediaItems: MediaItem[]
-  lanes: Lane[]
-  sourceTracks: SourceTrack[]
-  sourceSpans: SourceSpan[]
-  clips: ArrangementClip[]
-  effects: SessionEffect[]
-  masterAudioId?: string
-}
+  timelineMode: TimelineMode;
+  signatureId: string;
+  snapMode: SnapMode;
+  snapEnabled: boolean;
+  bpm: number;
+  fps: number;
+  canvasWidth: number;
+  canvasHeight: number;
+  zoom: number;
+  sessionName: string | null;
+  mediaItems: MediaItem[];
+  lanes: Lane[];
+  sourceTracks: SourceTrack[];
+  sourceSpans: SourceSpan[];
+  clips: ArrangementClip[];
+  effects: SessionEffect[];
+  masterAudioId?: string;
+};
 
 type LocalMediaOverride = {
-  availability?: MediaAvailability
-  previewUrl?: string
-  thumbnailUrl?: string
-}
+  availability?: MediaAvailability;
+  previewUrl?: string;
+  thumbnailUrl?: string;
+};
 
 type ProjectHistoryEntry = {
-  snapshot: ProjectState
-  label: string
-}
+  snapshot: ProjectState;
+  label: string;
+};
 
 type ProjectHistoryState = {
-  past: ProjectHistoryEntry[]
-  present: ProjectState
-  future: ProjectHistoryEntry[]
-}
+  past: ProjectHistoryEntry[];
+  present: ProjectState;
+  future: ProjectHistoryEntry[];
+};
 
 type ProjectHistoryAction =
   | {
-      type: 'commit'
-      label: string
-      updater: (current: ProjectState) => ProjectState
+      type: "commit";
+      label: string;
+      updater: (current: ProjectState) => ProjectState;
     }
   | {
-      type: 'transient'
-      updater: (current: ProjectState) => ProjectState
+      type: "transient";
+      updater: (current: ProjectState) => ProjectState;
     }
   | {
-      type: 'undo'
+      type: "undo";
     }
   | {
-      type: 'redo'
+      type: "redo";
     }
   | {
-      type: 'replace'
-      snapshot: ProjectState
-    }
+      type: "replace";
+      snapshot: ProjectState;
+    };
 
-const LABEL_WIDTH = 240
-const BASE_QUARTER_PX = 28
-const ZOOM_MIN = 0.65
-const ZOOM_MAX = 1.8
-const MAX_LAYERS = 9
-const TIMELINE_DRAG_ZOOM_SPEED = 0.004
-const TIMELINE_DRAG_ZOOM_THRESHOLD_PX = 25
-const TIMELINE_SCRUB_AUDIO_TAIL_MS = 50
-const TIMELINE_DRAG_EPSILON = 0.0001
-const RANDOM_SELECTION_BAR_INCREMENT = 0.25
-const RANDOM_SELECTION_MAX_BARS = 2
-const COLLAB_STORAGE_KEY = 'zvid-collaboration'
-const DEFAULT_SIGNALING_URLS = ['wss://zvid-signaling.lsegal.workers.dev']
-const LEGACY_DEFAULT_SIGNALING_URLS = ['wss://y-webrtc-eu.fly.dev']
+const LABEL_WIDTH = 240;
+const BASE_QUARTER_PX = 28;
+const ZOOM_MIN = 0.65;
+const ZOOM_MAX = 1.8;
+const MAX_LAYERS = 9;
+const TIMELINE_DRAG_ZOOM_SPEED = 0.004;
+const TIMELINE_DRAG_ZOOM_THRESHOLD_PX = 25;
+const TIMELINE_SCRUB_AUDIO_TAIL_MS = 50;
+const TIMELINE_DRAG_EPSILON = 0.0001;
+const RANDOM_SELECTION_BAR_INCREMENT = 0.25;
+const RANDOM_SELECTION_MAX_BARS = 2;
+const COLLAB_STORAGE_KEY = "zvid-collaboration";
+const DEFAULT_SIGNALING_URLS = ["wss://zvid-signaling.lsegal.workers.dev"];
+const LEGACY_DEFAULT_SIGNALING_URLS = ["wss://y-webrtc-eu.fly.dev"];
 const SIGNATURES: TimeSignature[] = [
-  { id: '4/4', numerator: 4, denominator: 4 },
-  { id: '3/4', numerator: 3, denominator: 4 },
-  { id: '5/4', numerator: 5, denominator: 4 },
-  { id: '6/8', numerator: 6, denominator: 8 },
-  { id: '7/8', numerator: 7, denominator: 8 },
-]
+  { id: "4/4", numerator: 4, denominator: 4 },
+  { id: "3/4", numerator: 3, denominator: 4 },
+  { id: "5/4", numerator: 5, denominator: 4 },
+  { id: "6/8", numerator: 6, denominator: 8 },
+  { id: "7/8", numerator: 7, denominator: 8 },
+];
 const SNAP_OPTIONS: { id: SnapMode; label: string }[] = [
-  { id: 'bar', label: 'Bar' },
-  { id: 'beat', label: 'Beat' },
-  { id: 'half', label: '1/2' },
-  { id: 'quarter', label: '1/4' },
-]
+  { id: "bar", label: "Bar" },
+  { id: "beat", label: "Beat" },
+  { id: "half", label: "1/2" },
+  { id: "quarter", label: "1/4" },
+];
 const DEFAULT_LANES: Lane[] = [
-  { id: '1', name: 'Layer 1', colorIndex: -1 },
-  { id: '5', name: 'Layer 2', colorIndex: -1 },
-  { id: '6', name: 'Layer 3', colorIndex: -1 },
-]
+  { id: "1", name: "Layer 1", colorIndex: -1 },
+  { id: "5", name: "Layer 2", colorIndex: -1 },
+  { id: "6", name: "Layer 3", colorIndex: -1 },
+];
 const INITIAL_PROJECT_STATE: ProjectState = {
-  timelineMode: 'musical',
-  signatureId: '4/4',
-  snapMode: 'beat',
+  timelineMode: "musical",
+  signatureId: "4/4",
+  snapMode: "beat",
   snapEnabled: true,
   bpm: 120,
   fps: 30,
@@ -296,122 +313,147 @@ const INITIAL_PROJECT_STATE: ProjectState = {
   clips: [],
   effects: [],
   masterAudioId: undefined,
-}
+};
 const PALETTE: Palette[] = [
-  { color: '#3d4052', accent: '#7ca1ff' },
-  { color: '#444351', accent: '#ff6f9d' },
-  { color: '#393d4d', accent: '#7ee0a4' },
-  { color: '#474150', accent: '#f6b73c' },
-  { color: '#434a58', accent: '#c38fff' },
-]
-const COLLAB_NAME_PREFIXES = ['Neon', 'Velvet', 'Signal', 'Tempo', 'Quartz', 'Echo', 'Prism', 'Static']
-const COLLAB_NAME_SUFFIXES = ['Fox', 'Tape', 'Wave', 'Frame', 'Orbit', 'Pulse', 'Cut', 'Vector']
+  { color: "#3d4052", accent: "#7ca1ff" },
+  { color: "#444351", accent: "#ff6f9d" },
+  { color: "#393d4d", accent: "#7ee0a4" },
+  { color: "#474150", accent: "#f6b73c" },
+  { color: "#434a58", accent: "#c38fff" },
+];
+const COLLAB_NAME_PREFIXES = [
+  "Neon",
+  "Velvet",
+  "Signal",
+  "Tempo",
+  "Quartz",
+  "Echo",
+  "Prism",
+  "Static",
+];
+const COLLAB_NAME_SUFFIXES = [
+  "Fox",
+  "Tape",
+  "Wave",
+  "Frame",
+  "Orbit",
+  "Pulse",
+  "Cut",
+  "Vector",
+];
 const FALLBACK_VIDEO_FX: FxDevice[] = [
   {
-    id: 'layout',
-    name: 'FX: Layout',
-    subtitle: 'Center / anchor / crop',
-    accent: '#f6b73c',
+    id: "layout",
+    name: "FX: Layout",
+    subtitle: "Center / anchor / crop",
+    accent: "#f6b73c",
     parameters: [
-      { label: 'Position', value: 0.52, display: 'Center' },
-      { label: 'Scale', value: 0.68, display: '68%' },
+      { label: "Position", value: 0.52, display: "Center" },
+      { label: "Scale", value: 0.68, display: "68%" },
     ],
   },
   {
-    id: 'beat-warp',
-    name: 'Beat Warp',
-    subtitle: 'Tempo-synced stretch markers',
-    accent: '#7ca1ff',
+    id: "beat-warp",
+    name: "Beat Warp",
+    subtitle: "Tempo-synced stretch markers",
+    accent: "#7ca1ff",
     parameters: [
-      { label: 'Sync', value: 0.88, display: '1/8' },
-      { label: 'Tension', value: 0.37, display: '37%' },
+      { label: "Sync", value: 0.88, display: "1/8" },
+      { label: "Tension", value: 0.37, display: "37%" },
     ],
   },
-]
+];
 const FALLBACK_AUDIO_FX: FxDevice[] = [
   {
-    id: 'transient',
-    name: 'Transient Focus',
-    subtitle: 'Clip attack / sustain shaping',
-    accent: '#f6b73c',
+    id: "transient",
+    name: "Transient Focus",
+    subtitle: "Clip attack / sustain shaping",
+    accent: "#f6b73c",
     parameters: [
-      { label: 'Attack', value: 0.73, display: '+7.3 dB' },
-      { label: 'Sustain', value: 0.28, display: '-2.8 dB' },
-      { label: 'Mix', value: 0.84, display: '84%' },
+      { label: "Attack", value: 0.73, display: "+7.3 dB" },
+      { label: "Sustain", value: 0.28, display: "-2.8 dB" },
+      { label: "Mix", value: 0.84, display: "84%" },
     ],
   },
   {
-    id: 'duck',
-    name: 'Duck Compressor',
-    subtitle: 'Sidechain against master pulse',
-    accent: '#7ca1ff',
+    id: "duck",
+    name: "Duck Compressor",
+    subtitle: "Sidechain against master pulse",
+    accent: "#7ca1ff",
     parameters: [
-      { label: 'Depth', value: 0.58, display: '58%' },
-      { label: 'Release', value: 0.42, display: '240 ms' },
-      { label: 'Lookahead', value: 0.14, display: '14 ms' },
+      { label: "Depth", value: 0.58, display: "58%" },
+      { label: "Release", value: 0.42, display: "240 ms" },
+      { label: "Lookahead", value: 0.14, display: "14 ms" },
     ],
   },
-]
+];
 
 function isLayoutEffectName(effectName: string) {
-  return effectName.trim().toLowerCase().includes('layout')
+  return effectName.trim().toLowerCase().includes("layout");
 }
 
 function resolveLayoutDisplay(effect: SessionEffect | undefined) {
   const anchorParameter = effect?.parameters.find((parameter) => {
-    const key = parameter.key.trim().toLowerCase()
-    return key.includes('anchor') || key.includes('align') || key === 'position'
-  })
-  const value = anchorParameter?.value?.trim()
+    const key = parameter.key.trim().toLowerCase();
+    return (
+      key.includes("anchor") || key.includes("align") || key === "position"
+    );
+  });
+  const value = anchorParameter?.value?.trim();
   if (!value) {
-    return 'Center'
+    return "Center";
   }
 
-  const normalized = value.toLowerCase()
-  if (normalized.includes('top')) {
-    return 'Top'
+  const normalized = value.toLowerCase();
+  if (normalized.includes("top")) {
+    return "Top";
   }
 
-  if (normalized.includes('bottom')) {
-    return 'Bottom'
+  if (normalized.includes("bottom")) {
+    return "Bottom";
   }
 
-  if (normalized.includes('center') || normalized.includes('middle')) {
-    return 'Center'
+  if (normalized.includes("center") || normalized.includes("middle")) {
+    return "Center";
   }
 
-  const numeric = anchorParameter?.numericValue
+  const numeric = anchorParameter?.numericValue;
   if (numeric !== undefined) {
     if (numeric <= 0.333) {
-      return 'Top'
+      return "Top";
     }
 
     if (numeric >= 0.667) {
-      return 'Bottom'
+      return "Bottom";
     }
   }
 
-  return 'Center'
+  return "Center";
 }
 
-function createDefaultLayoutDevice(laneId: string | undefined, effect?: SessionEffect): FxDevice {
+function createDefaultLayoutDevice(
+  laneId: string | undefined,
+  effect?: SessionEffect,
+): FxDevice {
   return {
-    id: effect?.id ?? `layout-default-${laneId ?? 'global'}`,
-    name: effect?.effectName ?? 'Layout',
-    subtitle: laneId ? `Layer ${laneId} / default frame anchor` : 'Default frame anchor',
-    accent: '#f6b73c',
+    id: effect?.id ?? `layout-default-${laneId ?? "global"}`,
+    name: effect?.effectName ?? "Layout",
+    subtitle: laneId
+      ? `Layer ${laneId} / default frame anchor`
+      : "Default frame anchor",
+    accent: "#f6b73c",
     parameters: [
       {
-        label: 'Anchor',
+        label: "Anchor",
         value: 0.5,
         display: resolveLayoutDisplay(effect),
       },
     ],
-  }
+  };
 }
 
 function clamp(value: number, minimum: number, maximum: number) {
-  return Math.max(minimum, Math.min(maximum, value))
+  return Math.max(minimum, Math.min(maximum, value));
 }
 
 function isEditableEventTarget(target: EventTarget | null) {
@@ -420,75 +462,83 @@ function isEditableEventTarget(target: EventTarget | null) {
     target instanceof HTMLTextAreaElement ||
     target instanceof HTMLSelectElement ||
     (target instanceof HTMLElement && target.isContentEditable)
-  )
+  );
 }
 
 function quartersToSeconds(quarters: number, bpm: number) {
-  return (quarters * 60) / bpm
+  return (quarters * 60) / bpm;
 }
 
 function secondsToQuarters(seconds: number, bpm: number) {
-  return (seconds * bpm) / 60
+  return (seconds * bpm) / 60;
 }
 
 function formatDuration(seconds: number) {
-  const minutes = Math.floor(seconds / 60)
-  const remainderSeconds = Math.floor(seconds % 60)
-  const tenths = Math.floor((seconds % 1) * 10)
-  return `${minutes}:${remainderSeconds.toString().padStart(2, '0')}.${tenths}`
+  const minutes = Math.floor(seconds / 60);
+  const remainderSeconds = Math.floor(seconds % 60);
+  const tenths = Math.floor((seconds % 1) * 10);
+  return `${minutes}:${remainderSeconds.toString().padStart(2, "0")}.${tenths}`;
 }
 
 function formatTimecode(seconds: number, fps = 30) {
-  const minutes = Math.floor(seconds / 60)
-  const remainderSeconds = Math.floor(seconds % 60)
-  const frames = Math.floor(((seconds % 1) + Number.EPSILON) * fps)
-  return `${minutes.toString().padStart(2, '0')}:${remainderSeconds
+  const minutes = Math.floor(seconds / 60);
+  const remainderSeconds = Math.floor(seconds % 60);
+  const frames = Math.floor(((seconds % 1) + Number.EPSILON) * fps);
+  return `${minutes.toString().padStart(2, "0")}:${remainderSeconds
     .toString()
-    .padStart(2, '0')}:${frames.toString().padStart(2, '0')}`
+    .padStart(2, "0")}:${frames.toString().padStart(2, "0")}`;
 }
 
 function formatMusicalPosition(quarters: number, signature: TimeSignature) {
-  const beatUnit = 4 / signature.denominator
-  const barLength = signature.numerator * beatUnit
-  const safeQuarter = Math.max(0, quarters)
-  const bar = Math.floor(safeQuarter / barLength)
-  const barOffset = safeQuarter - bar * barLength
-  const beat = Math.floor(barOffset / beatUnit)
-  const subdivision = Math.floor((barOffset - beat * beatUnit) / (beatUnit / 4))
-  return `${bar + 1}.${beat + 1}.${subdivision + 1}`
+  const beatUnit = 4 / signature.denominator;
+  const barLength = signature.numerator * beatUnit;
+  const safeQuarter = Math.max(0, quarters);
+  const bar = Math.floor(safeQuarter / barLength);
+  const barOffset = safeQuarter - bar * barLength;
+  const beat = Math.floor(barOffset / beatUnit);
+  const subdivision = Math.floor(
+    (barOffset - beat * beatUnit) / (beatUnit / 4),
+  );
+  return `${bar + 1}.${beat + 1}.${subdivision + 1}`;
 }
 
 function getSnapUnit(mode: SnapMode, signature: TimeSignature) {
-  const beatUnit = 4 / signature.denominator
-  const barLength = signature.numerator * beatUnit
+  const beatUnit = 4 / signature.denominator;
+  const barLength = signature.numerator * beatUnit;
   switch (mode) {
-    case 'bar':
-      return barLength
-    case 'beat':
-      return beatUnit
-    case 'half':
-      return beatUnit / 2
-    case 'quarter':
-      return beatUnit / 4
+    case "bar":
+      return barLength;
+    case "beat":
+      return beatUnit;
+    case "half":
+      return beatUnit / 2;
+    case "quarter":
+      return beatUnit / 4;
     default:
-      return beatUnit
+      return beatUnit;
   }
 }
 
 function snapQuarterValue(valueQ: number, snapUnit: number, enabled: boolean) {
   if (!enabled) {
-    return valueQ
+    return valueQ;
   }
 
-  return Math.round(valueQ / snapUnit) * snapUnit
+  return Math.round(valueQ / snapUnit) * snapUnit;
 }
 
-function getClipDurationQ(clip: Pick<ArrangementClip | SourceSpan, 'durationSeconds'>, bpm: number) {
-  return secondsToQuarters(clip.durationSeconds, bpm)
+function getClipDurationQ(
+  clip: Pick<ArrangementClip | SourceSpan, "durationSeconds">,
+  bpm: number,
+) {
+  return secondsToQuarters(clip.durationSeconds, bpm);
 }
 
-function getClipEndQ(clip: Pick<ArrangementClip | SourceSpan, 'startQ' | 'durationSeconds'>, bpm: number) {
-  return clip.startQ + getClipDurationQ(clip, bpm)
+function getClipEndQ(
+  clip: Pick<ArrangementClip | SourceSpan, "startQ" | "durationSeconds">,
+  bpm: number,
+) {
+  return clip.startQ + getClipDurationQ(clip, bpm);
 }
 
 function withWindowTiming(
@@ -504,7 +554,7 @@ function withWindowTiming(
     startQ,
     durationSeconds: quartersToSeconds(durationQ, bpm),
     trimStartSeconds: quartersToSeconds(startQ, bpm) + clip.sourceOffsetSeconds,
-  }
+  };
 }
 
 function resolveClipOverlapPreview(
@@ -515,13 +565,19 @@ function resolveClipOverlapPreview(
   bpm: number,
   laneId?: string,
 ) {
-  const targetClip = clips.find((clip) => clip.id === activeClipId)
+  const targetClip = clips.find((clip) => clip.id === activeClipId);
   if (!targetClip) {
-    return clips
+    return clips;
   }
 
-  const activeClip = withWindowTiming(targetClip, startQ, durationQ, bpm, laneId)
-  return resolveClipOverlaps(clips, activeClip, bpm)
+  const activeClip = withWindowTiming(
+    targetClip,
+    startQ,
+    durationQ,
+    bpm,
+    laneId,
+  );
+  return resolveClipOverlaps(clips, activeClip, bpm);
 }
 
 function findClosestTimelineLaneId(
@@ -530,82 +586,86 @@ function findClosestTimelineLaneId(
   fallbackLaneId: string,
 ) {
   const laneElements = Array.from(
-    timelineScroll.querySelectorAll<HTMLElement>('[data-timeline-lane-id]'),
-  )
+    timelineScroll.querySelectorAll<HTMLElement>("[data-timeline-lane-id]"),
+  );
 
   if (!laneElements.length) {
-    return fallbackLaneId
+    return fallbackLaneId;
   }
 
   for (const laneElement of laneElements) {
-    const laneId = laneElement.dataset.timelineLaneId
+    const laneId = laneElement.dataset.timelineLaneId;
     if (!laneId) {
-      continue
+      continue;
     }
 
-    const bounds = laneElement.getBoundingClientRect()
+    const bounds = laneElement.getBoundingClientRect();
     if (clientY >= bounds.top && clientY <= bounds.bottom) {
-      return laneId
+      return laneId;
     }
   }
 
-  let closestLaneId = fallbackLaneId
-  let closestDistance = Number.POSITIVE_INFINITY
+  let closestLaneId = fallbackLaneId;
+  let closestDistance = Number.POSITIVE_INFINITY;
 
   for (const laneElement of laneElements) {
-    const laneId = laneElement.dataset.timelineLaneId
+    const laneId = laneElement.dataset.timelineLaneId;
     if (!laneId) {
-      continue
+      continue;
     }
 
-    const bounds = laneElement.getBoundingClientRect()
-    const distance = Math.abs(clientY - (bounds.top + bounds.bottom) / 2)
+    const bounds = laneElement.getBoundingClientRect();
+    const distance = Math.abs(clientY - (bounds.top + bounds.bottom) / 2);
     if (distance < closestDistance) {
-      closestDistance = distance
-      closestLaneId = laneId
+      closestDistance = distance;
+      closestLaneId = laneId;
     }
   }
 
-  return closestLaneId
+  return closestLaneId;
 }
 
-function resolveClipOverlaps(clips: ArrangementClip[], activeClip: ArrangementClip, bpm: number) {
-  const epsilon = 0.0001
-  const activeEndQ = getClipEndQ(activeClip, bpm)
+function resolveClipOverlaps(
+  clips: ArrangementClip[],
+  activeClip: ArrangementClip,
+  bpm: number,
+) {
+  const epsilon = 0.0001;
+  const activeEndQ = getClipEndQ(activeClip, bpm);
 
   return clips.flatMap<ArrangementClip>((clip) => {
     if (clip.id === activeClip.id) {
-      return [activeClip]
+      return [activeClip];
     }
 
     if (clip.laneId !== activeClip.laneId) {
-      return [clip]
+      return [clip];
     }
 
-    const clipEndQ = getClipEndQ(clip, bpm)
-    const overlapStartQ = Math.max(activeClip.startQ, clip.startQ)
-    const overlapEndQ = Math.min(activeEndQ, clipEndQ)
+    const clipEndQ = getClipEndQ(clip, bpm);
+    const overlapStartQ = Math.max(activeClip.startQ, clip.startQ);
+    const overlapEndQ = Math.min(activeEndQ, clipEndQ);
     if (overlapEndQ - overlapStartQ <= epsilon) {
-      return [clip]
+      return [clip];
     }
 
-    const leftDurationQ = Math.max(0, activeClip.startQ - clip.startQ)
-    const rightDurationQ = Math.max(0, clipEndQ - activeEndQ)
+    const leftDurationQ = Math.max(0, activeClip.startQ - clip.startQ);
+    const rightDurationQ = Math.max(0, clipEndQ - activeEndQ);
 
     if (leftDurationQ <= epsilon && rightDurationQ <= epsilon) {
-      return []
+      return [];
     }
 
     if (leftDurationQ >= rightDurationQ && leftDurationQ > epsilon) {
-      return [withWindowTiming(clip, clip.startQ, leftDurationQ, bpm)]
+      return [withWindowTiming(clip, clip.startQ, leftDurationQ, bpm)];
     }
 
     if (rightDurationQ > epsilon) {
-      return [withWindowTiming(clip, activeEndQ, rightDurationQ, bpm)]
+      return [withWindowTiming(clip, activeEndQ, rightDurationQ, bpm)];
     }
 
-    return []
-  })
+    return [];
+  });
 }
 
 function cloneClipAtStartQ(
@@ -621,42 +681,55 @@ function cloneClipAtStartQ(
     trimStartSeconds: clip.trimStartSeconds,
     sourceOffsetSeconds: clip.trimStartSeconds - quartersToSeconds(startQ, bpm),
     selected: true,
-  }
+  };
 }
 
-function duplicateClip(clip: ArrangementClip, bpm: number, id = `window-${crypto.randomUUID()}`) {
-  return cloneClipAtStartQ(clip, bpm, getClipEndQ(clip, bpm), id)
+function duplicateClip(
+  clip: ArrangementClip,
+  bpm: number,
+  id = `window-${crypto.randomUUID()}`,
+) {
+  return cloneClipAtStartQ(clip, bpm, getClipEndQ(clip, bpm), id);
 }
 
 function getSelectionEndQ(selection: TimelineSelection) {
-  return selection.startQ + selection.durationQ
+  return selection.startQ + selection.durationQ;
 }
 
-function buildSelection(anchorQ: number, currentQ: number, minimumDurationQ: number) {
-  const startQ = Math.max(0, Math.min(anchorQ, currentQ))
-  const endQ = Math.max(anchorQ, currentQ, startQ + minimumDurationQ)
+function buildSelection(
+  anchorQ: number,
+  currentQ: number,
+  minimumDurationQ: number,
+) {
+  const startQ = Math.max(0, Math.min(anchorQ, currentQ));
+  const endQ = Math.max(anchorQ, currentQ, startQ + minimumDurationQ);
   return {
     startQ,
     durationQ: Math.max(minimumDurationQ, endQ - startQ),
-  }
+  };
 }
 
-function buildProjectWaveform(clips: ArrangementClip[], totalQuarters: number, bpm: number, points: number) {
+function buildProjectWaveform(
+  clips: ArrangementClip[],
+  totalQuarters: number,
+  bpm: number,
+  points: number,
+) {
   return Array.from({ length: points }, (_, index) => {
-    const quarter = (index / Math.max(1, points - 1)) * totalQuarters
+    const quarter = (index / Math.max(1, points - 1)) * totalQuarters;
     const amplitude = clips.reduce((sum, clip) => {
-      const start = clip.startQ
-      const end = start + secondsToQuarters(clip.durationSeconds, bpm)
+      const start = clip.startQ;
+      const end = start + secondsToQuarters(clip.durationSeconds, bpm);
       if (quarter < start || quarter > end) {
-        return sum
+        return sum;
       }
 
-      const phase = (quarter - start) / Math.max(end - start, 0.25)
-      return sum + Math.abs(Math.sin(phase * Math.PI * 4)) * 0.35
-    }, 0)
+      const phase = (quarter - start) / Math.max(end - start, 0.25);
+      return sum + Math.abs(Math.sin(phase * Math.PI * 4)) * 0.35;
+    }, 0);
 
-    return Math.min(1, 0.08 + amplitude)
-  })
+    return Math.min(1, 0.08 + amplitude);
+  });
 }
 
 function getTimelineContentEndQ(
@@ -666,134 +739,147 @@ function getTimelineContentEndQ(
   bpm: number,
   barLength: number,
 ) {
-  const clipTimelineEndQ = clips.reduce((maximum, clip) => Math.max(maximum, getClipEndQ(clip, bpm)), 0)
+  const clipTimelineEndQ = clips.reduce(
+    (maximum, clip) => Math.max(maximum, getClipEndQ(clip, bpm)),
+    0,
+  );
   const sourceTimelineEndQ = sourceSpans.reduce(
     (maximum, span) => Math.max(maximum, getClipEndQ(span, bpm)),
     0,
-  )
+  );
   const audioTimelineEndQ = masterAudioDurationSeconds
     ? secondsToQuarters(masterAudioDurationSeconds, bpm)
-    : 0
+    : 0;
 
-  return Math.max(barLength, clipTimelineEndQ, sourceTimelineEndQ, audioTimelineEndQ)
+  return Math.max(
+    barLength,
+    clipTimelineEndQ,
+    sourceTimelineEndQ,
+    audioTimelineEndQ,
+  );
 }
 
 function getSwatch(colorIndex: number) {
-  return PALETTE[Math.abs(colorIndex) % PALETTE.length] ?? PALETTE[0]
+  return PALETTE[Math.abs(colorIndex) % PALETTE.length] ?? PALETTE[0];
 }
 
 function basename(path: string) {
-  const normalized = path.replaceAll('\\', '/')
-  const parts = normalized.split('/')
-  return parts[parts.length - 1] ?? path
+  const normalized = path.replaceAll("\\", "/");
+  const parts = normalized.split("/");
+  return parts[parts.length - 1] ?? path;
 }
 
 function getNextLaneNumber(lanes: Lane[]) {
-  return lanes.length + 1
+  return lanes.length + 1;
 }
 
 function createLaneId(lanes: Lane[]) {
   const numericIds = lanes
     .map((lane) => Number.parseInt(lane.id, 10))
-    .filter((value) => Number.isInteger(value))
-  let nextId = Math.max(0, ...numericIds) + 1
+    .filter((value) => Number.isInteger(value));
+  let nextId = Math.max(0, ...numericIds) + 1;
 
   while (lanes.some((lane) => lane.id === `${nextId}`)) {
-    nextId += 1
+    nextId += 1;
   }
 
-  return `${nextId}`
+  return `${nextId}`;
 }
 
 function randomFloat() {
-  const values = new Uint32Array(1)
-  crypto.getRandomValues(values)
-  return values[0] / 0x1_0000_0000
+  const values = new Uint32Array(1);
+  crypto.getRandomValues(values);
+  return values[0] / 0x1_0000_0000;
 }
 
 function pickRandom<T>(items: readonly T[]) {
   if (!items.length) {
-    return undefined
+    return undefined;
   }
 
-  return items[Math.floor(randomFloat() * items.length)]
+  return items[Math.floor(randomFloat() * items.length)];
 }
 
-function describeMediaAvailability(availability: MediaAvailability | undefined) {
+function describeMediaAvailability(
+  availability: MediaAvailability | undefined,
+) {
   switch (availability) {
-    case 'ready':
-      return 'online'
-    case 'hydrating':
-      return 'hydrating'
+    case "ready":
+      return "online";
+    case "hydrating":
+      return "hydrating";
     default:
-      return 'offline'
+      return "offline";
   }
 }
 
 function mergeMediaItemsById(current: MediaItem[], incoming: MediaItem[]) {
-  const incomingById = new Map(incoming.map((item) => [item.id, item]))
-  return current.map((item) => incomingById.get(item.id) ?? item)
+  const incomingById = new Map(incoming.map((item) => [item.id, item]));
+  return current.map((item) => incomingById.get(item.id) ?? item);
 }
 
 function parseSignalingUrls(value: string) {
   const urls = value
     .split(/[,\n]/)
     .map((entry) => entry.trim())
-    .filter(Boolean)
+    .filter(Boolean);
 
-  return urls.length ? urls : DEFAULT_SIGNALING_URLS
+  return urls.length ? urls : DEFAULT_SIGNALING_URLS;
 }
 
-function migrateLegacyStoredSignaling(value: string | undefined, fallback: string) {
+function migrateLegacyStoredSignaling(
+  value: string | undefined,
+  fallback: string,
+) {
   if (!value) {
-    return fallback
+    return fallback;
   }
 
-  const normalized = parseSignalingUrls(value).join(', ')
-  const legacy = LEGACY_DEFAULT_SIGNALING_URLS.join(', ')
-  return normalized === legacy ? fallback : normalized
+  const normalized = parseSignalingUrls(value).join(", ");
+  const legacy = LEGACY_DEFAULT_SIGNALING_URLS.join(", ");
+  return normalized === legacy ? fallback : normalized;
 }
 
 function buildCollaboratorName() {
-  const prefix = pickRandom(COLLAB_NAME_PREFIXES) ?? 'Signal'
-  const suffix = pickRandom(COLLAB_NAME_SUFFIXES) ?? 'Wave'
-  return `${prefix} ${suffix}`
+  const prefix = pickRandom(COLLAB_NAME_PREFIXES) ?? "Signal";
+  const suffix = pickRandom(COLLAB_NAME_SUFFIXES) ?? "Wave";
+  return `${prefix} ${suffix}`;
 }
 
 function getInitialCollaborationConfig() {
   const defaults = {
-    room: '',
-    password: '',
-    signaling: DEFAULT_SIGNALING_URLS.join(', '),
+    room: "",
+    password: "",
+    signaling: DEFAULT_SIGNALING_URLS.join(", "),
     name: buildCollaboratorName(),
-    color: pickRandom(PALETTE)?.accent ?? '#7ca1ff',
+    color: pickRandom(PALETTE)?.accent ?? "#7ca1ff",
     autoConnect: false,
+  };
+
+  if (typeof window === "undefined") {
+    return defaults;
   }
 
-  if (typeof window === 'undefined') {
-    return defaults
-  }
-
-  let stored: Partial<typeof defaults> = {}
+  let stored: Partial<typeof defaults> = {};
   try {
-    const raw = window.localStorage.getItem(COLLAB_STORAGE_KEY)
+    const raw = window.localStorage.getItem(COLLAB_STORAGE_KEY);
     if (raw) {
-      stored = JSON.parse(raw) as Partial<typeof defaults>
+      stored = JSON.parse(raw) as Partial<typeof defaults>;
     }
   } catch (error) {
-    logClient('collaboration:storage:read:error', {
+    logClient("collaboration:storage:read:error", {
       message: error instanceof Error ? error.message : String(error),
-    })
+    });
   }
 
-  const params = new URLSearchParams(window.location.search)
-  const paramRoom = params.get('room')?.trim() || ''
-  const room = paramRoom || defaults.room
-  const password = params.get('password')?.trim() || defaults.password
-  const signalingParam = params.get('signal')?.trim()
+  const params = new URLSearchParams(window.location.search);
+  const paramRoom = params.get("room")?.trim() || "";
+  const room = paramRoom || defaults.room;
+  const password = params.get("password")?.trim() || defaults.password;
+  const signalingParam = params.get("signal")?.trim();
   const signaling = signalingParam
-    ? parseSignalingUrls(signalingParam).join(', ')
-    : migrateLegacyStoredSignaling(stored.signaling, defaults.signaling)
+    ? parseSignalingUrls(signalingParam).join(", ")
+    : migrateLegacyStoredSignaling(stored.signaling, defaults.signaling);
 
   return {
     room,
@@ -802,73 +888,76 @@ function getInitialCollaborationConfig() {
     name: stored.name || defaults.name,
     color: stored.color || defaults.color,
     autoConnect: Boolean(paramRoom),
-  }
+  };
 }
 
 function buildShareRoomName() {
-  return crypto.randomUUID().replaceAll('-', '').slice(0, 8)
+  return crypto.randomUUID().replaceAll("-", "").slice(0, 8);
 }
 
 function isPrivateIpv4Address(address: string) {
   return (
-    address === '127.0.0.1' ||
-    address === '0.0.0.0' ||
-    address.startsWith('10.') ||
-    address.startsWith('192.168.') ||
+    address === "127.0.0.1" ||
+    address === "0.0.0.0" ||
+    address.startsWith("10.") ||
+    address.startsWith("192.168.") ||
     /^172\.(1[6-9]|2\d|3[0-1])\./.test(address)
-  )
+  );
 }
 
 function extractPublicIpFromCandidate(candidate: string) {
-  const matches = candidate.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g) ?? []
-  return matches.find((address) => !isPrivateIpv4Address(address)) ?? null
+  const matches = candidate.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g) ?? [];
+  return matches.find((address) => !isPrivateIpv4Address(address)) ?? null;
 }
 
 async function detectPublicIpAddress(timeoutMs = 4000) {
-  if (typeof window === 'undefined' || typeof RTCPeerConnection === 'undefined') {
-    return null
+  if (
+    typeof window === "undefined" ||
+    typeof RTCPeerConnection === "undefined"
+  ) {
+    return null;
   }
 
   try {
     const peerConnection = new RTCPeerConnection({
-      iceServers: [{ urls: ['stun:stun.l.google.com:19302'] }],
-    })
-    peerConnection.createDataChannel('zvid-share-probe')
-    const offer = await peerConnection.createOffer()
-    await peerConnection.setLocalDescription(offer)
+      iceServers: [{ urls: ["stun:stun.l.google.com:19302"] }],
+    });
+    peerConnection.createDataChannel("zvid-share-probe");
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
 
     return await new Promise<string | null>((resolve) => {
-      let settled = false
+      let settled = false;
       const finish = (value: string | null) => {
         if (settled) {
-          return
+          return;
         }
 
-        settled = true
-        window.clearTimeout(timeoutId)
+        settled = true;
+        window.clearTimeout(timeoutId);
         if (peerConnection) {
-          peerConnection.onicecandidate = null
-          peerConnection.close()
+          peerConnection.onicecandidate = null;
+          peerConnection.close();
         }
-        resolve(value)
-      }
+        resolve(value);
+      };
 
-      const timeoutId = window.setTimeout(() => finish(null), timeoutMs)
+      const timeoutId = window.setTimeout(() => finish(null), timeoutMs);
       peerConnection.onicecandidate = (event) => {
-        const candidate = event.candidate?.candidate
+        const candidate = event.candidate?.candidate;
         if (!candidate) {
-          finish(null)
-          return
+          finish(null);
+          return;
         }
 
-        const publicIp = extractPublicIpFromCandidate(candidate)
+        const publicIp = extractPublicIpFromCandidate(candidate);
         if (publicIp) {
-          finish(publicIp)
+          finish(publicIp);
         }
-      }
-    })
+      };
+    });
   } catch {
-    return null
+    return null;
   }
 }
 
@@ -878,67 +967,71 @@ function buildPublicShareUrl(
   password: string,
   publicIpAddress: string | null,
 ) {
-  const currentUrl = new URL(window.location.href)
+  const currentUrl = new URL(window.location.href);
   const origin = publicIpAddress
-    ? `${currentUrl.protocol}//${publicIpAddress}${currentUrl.port ? `:${currentUrl.port}` : ''}`
-    : currentUrl.origin
-  const shareUrl = new URL(currentUrl.pathname, origin)
+    ? `${currentUrl.protocol}//${publicIpAddress}${currentUrl.port ? `:${currentUrl.port}` : ""}`
+    : currentUrl.origin;
+  const shareUrl = new URL(currentUrl.pathname, origin);
 
-  shareUrl.searchParams.set('room', roomName)
-  shareUrl.searchParams.set('signal', parseSignalingUrls(signaling).join(','))
+  shareUrl.searchParams.set("room", roomName);
+  shareUrl.searchParams.set("signal", parseSignalingUrls(signaling).join(","));
 
   if (password.trim()) {
-    shareUrl.searchParams.set('password', password.trim())
+    shareUrl.searchParams.set("password", password.trim());
   }
 
-  return shareUrl.toString()
+  return shareUrl.toString();
 }
 
 function parseCollaborationInvite(value: string) {
-  const rawValue = value.trim()
+  const rawValue = value.trim();
   if (!rawValue) {
-    throw new Error('Paste the share URL first.')
+    throw new Error("Paste the share URL first.");
   }
 
-  let params: URLSearchParams
+  let params: URLSearchParams;
   try {
-    params = new URL(rawValue).searchParams
+    params = new URL(rawValue).searchParams;
   } catch {
-    const fallback = rawValue.startsWith('?') ? rawValue.slice(1) : rawValue
-    params = new URLSearchParams(fallback)
+    const fallback = rawValue.startsWith("?") ? rawValue.slice(1) : rawValue;
+    params = new URLSearchParams(fallback);
   }
 
-  const room = params.get('room')?.trim() ?? ''
+  const room = params.get("room")?.trim() ?? "";
   if (!room) {
-    throw new Error('That invite is missing a room name.')
+    throw new Error("That invite is missing a room name.");
   }
 
   return {
     room,
-    signaling: params.get('signal')?.trim() || DEFAULT_SIGNALING_URLS.join(', '),
-    password: params.get('password')?.trim() || '',
-  }
+    signaling:
+      params.get("signal")?.trim() || DEFAULT_SIGNALING_URLS.join(", "),
+    password: params.get("password")?.trim() || "",
+  };
 }
 
 function getShortcutLabels() {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     return {
-      undo: 'Ctrl+Z',
-      redo: 'Ctrl+Shift+Z',
-    }
+      undo: "Ctrl+Z",
+      redo: "Ctrl+Shift+Z",
+    };
   }
 
   const navigatorWithPlatform = window.navigator as Navigator & {
     userAgentData?: {
-      platform?: string
-    }
-  }
-  const platform = navigatorWithPlatform.userAgentData?.platform ?? window.navigator.platform ?? ''
-  const isMac = /mac/i.test(platform)
+      platform?: string;
+    };
+  };
+  const platform =
+    navigatorWithPlatform.userAgentData?.platform ??
+    window.navigator.platform ??
+    "";
+  const isMac = /mac/i.test(platform);
   return {
-    undo: isMac ? 'Cmd+Z' : 'Ctrl+Z',
-    redo: isMac ? 'Shift+Cmd+Z' : 'Ctrl+Shift+Z',
-  }
+    undo: isMac ? "Cmd+Z" : "Ctrl+Z",
+    redo: isMac ? "Shift+Cmd+Z" : "Ctrl+Shift+Z",
+  };
 }
 
 function formatCollaborationStateLabel(
@@ -948,26 +1041,30 @@ function formatCollaborationStateLabel(
   isStartingConnect: boolean,
 ) {
   if (isStartingShare) {
-    return 'Starting share...'
+    return "Starting share...";
   }
 
   if (isStartingConnect) {
-    return 'Connecting...'
+    return "Connecting...";
   }
 
   if (state.peerCount > 0) {
-    return state.peerCount === 1 ? '1 peer connected' : `${state.peerCount} peers connected`
+    return state.peerCount === 1
+      ? "1 peer connected"
+      : `${state.peerCount} peers connected`;
   }
 
-  if (mode === 'sharing') {
-    return state.connected ? 'Sharing, waiting for peer' : 'Opening share...'
+  if (mode === "sharing") {
+    return state.connected ? "Sharing, waiting for peer" : "Opening share...";
   }
 
-  if (mode === 'connected') {
-    return state.connected ? 'Connected, waiting for host' : 'Connecting to share...'
+  if (mode === "connected") {
+    return state.connected
+      ? "Connected, waiting for host"
+      : "Connecting to share...";
   }
 
-  return 'Not connected'
+  return "Not connected";
 }
 
 function getCollaborationStateTone(
@@ -977,18 +1074,18 @@ function getCollaborationStateTone(
   isStartingConnect: boolean,
 ): CollaborationTone {
   if (isStartingShare || isStartingConnect) {
-    return 'pending'
+    return "pending";
   }
 
   if (state.peerCount > 0) {
-    return 'live'
+    return "live";
   }
 
-  if (mode === 'sharing' || mode === 'connected') {
-    return state.connected ? 'waiting' : 'pending'
+  if (mode === "sharing" || mode === "connected") {
+    return state.connected ? "waiting" : "pending";
   }
 
-  return 'idle'
+  return "idle";
 }
 
 function buildCollaborationViewModel(
@@ -999,29 +1096,44 @@ function buildCollaborationViewModel(
   activeShareRoom: string,
   collaborationSignaling: string,
 ) {
-  const remoteCollaborators = state.collaborators.filter((collaborator) => !collaborator.isLocal)
-  const remoteCursors: CollaborationRemoteCursor[] = remoteCollaborators.flatMap((collaborator) =>
-    collaborator.cursor
-      ? [
-          {
-            clientId: collaborator.clientId,
-            name: collaborator.name,
-            color: collaborator.color,
-            x: collaborator.cursor.x,
-            y: collaborator.cursor.y,
-          },
-        ]
-      : [],
-  )
+  const remoteCollaborators = state.collaborators.filter(
+    (collaborator) => !collaborator.isLocal,
+  );
+  const remoteCursors: CollaborationRemoteCursor[] =
+    remoteCollaborators.flatMap((collaborator) =>
+      collaborator.cursor
+        ? [
+            {
+              clientId: collaborator.clientId,
+              name: collaborator.name,
+              color: collaborator.color,
+              x: collaborator.cursor.x,
+              y: collaborator.cursor.y,
+            },
+          ]
+        : [],
+    );
 
   return {
     pendingShareRoom: activeShareRoom || buildShareRoomName(),
-    signalingLabel: parseSignalingUrls(collaborationSignaling).join(', '),
-    stateLabel: formatCollaborationStateLabel(mode, state, isStartingShare, isStartingConnect),
-    stateTone: getCollaborationStateTone(mode, state, isStartingShare, isStartingConnect),
-    remoteCollaboratorNames: remoteCollaborators.map((collaborator) => collaborator.name).join(', '),
+    signalingLabel: parseSignalingUrls(collaborationSignaling).join(", "),
+    stateLabel: formatCollaborationStateLabel(
+      mode,
+      state,
+      isStartingShare,
+      isStartingConnect,
+    ),
+    stateTone: getCollaborationStateTone(
+      mode,
+      state,
+      isStartingShare,
+      isStartingConnect,
+    ),
+    remoteCollaboratorNames: remoteCollaborators
+      .map((collaborator) => collaborator.name)
+      .join(", "),
     remoteCursors,
-  }
+  };
 }
 
 function CollaborationDetailCard({
@@ -1029,9 +1141,9 @@ function CollaborationDetailCard({
   value,
   meta,
 }: {
-  label: string
-  value: string
-  meta?: string
+  label: string;
+  value: string;
+  meta?: string;
 }) {
   return (
     <div className="share-dialog__card">
@@ -1039,62 +1151,67 @@ function CollaborationDetailCard({
       <strong>{value}</strong>
       {meta ? <span className="share-dialog__meta">{meta}</span> : null}
     </div>
-  )
+  );
 }
 
 function normalizeMediaPath(value: string) {
-  return value.replaceAll('/', '\\').toLowerCase()
+  return value.replaceAll("/", "\\").toLowerCase();
 }
 
 function logClient(event: string, payload?: unknown) {
   if (payload === undefined) {
-    console.info(`[zvid] ${event}`)
-    return
+    console.info(`[zvid] ${event}`);
+    return;
   }
 
-  console.info(`[zvid] ${event}`, payload)
+  console.info(`[zvid] ${event}`, payload);
 }
 
 function revokeObjectUrlIfNeeded(url: string | undefined) {
-  if (url?.startsWith('blob:')) {
-    URL.revokeObjectURL(url)
+  if (url?.startsWith("blob:")) {
+    URL.revokeObjectURL(url);
   }
 }
 
 function getSourceThumbnailCacheKey(
-  span: Pick<SourceSpan, 'id' | 'mediaId' | 'trimStartSeconds'>,
+  span: Pick<SourceSpan, "id" | "mediaId" | "trimStartSeconds">,
 ) {
-  return `${span.id}:${span.mediaId ?? 'missing'}:${span.trimStartSeconds.toFixed(3)}`
+  return `${span.id}:${span.mediaId ?? "missing"}:${span.trimStartSeconds.toFixed(3)}`;
 }
 
 function sanitizeFilenameSegment(value: string) {
   const sanitized = Array.from(value, (character) => {
-    const code = character.charCodeAt(0)
+    const code = character.charCodeAt(0);
     if (code < 0x20 || '<>:"/\\|?*'.includes(character)) {
-      return '-'
+      return "-";
     }
 
-    return character
-  }).join('').trim()
-  return sanitized || 'zvid-session'
+    return character;
+  })
+    .join("")
+    .trim();
+  return sanitized || "zvid-session";
 }
 
-function patchProjectState(current: ProjectState, patch: Partial<ProjectState>) {
-  let changed = false
-  const next = { ...current }
+function patchProjectState(
+  current: ProjectState,
+  patch: Partial<ProjectState>,
+) {
+  let changed = false;
+  const next = { ...current };
 
   for (const [rawKey, value] of Object.entries(patch) as Array<
     [keyof ProjectState, ProjectState[keyof ProjectState]]
   >) {
     if (Object.is(current[rawKey], value)) {
-      continue
+      continue;
     }
 
-    changed = true
-    ;(next as ProjectState)[rawKey] = value as never
+    changed = true;
+    (next as ProjectState)[rawKey] = value as never;
   }
 
-  return changed ? next : current
+  return changed ? next : current;
 }
 
 function createProjectHistoryState(initial: ProjectState): ProjectHistoryState {
@@ -1102,7 +1219,7 @@ function createProjectHistoryState(initial: ProjectState): ProjectHistoryState {
     past: [],
     present: initial,
     future: [],
-  }
+  };
 }
 
 function projectHistoryReducer(
@@ -1110,76 +1227,82 @@ function projectHistoryReducer(
   action: ProjectHistoryAction,
 ): ProjectHistoryState {
   switch (action.type) {
-    case 'commit': {
-      const next = action.updater(state.present)
+    case "commit": {
+      const next = action.updater(state.present);
       if (next === state.present) {
-        return state
+        return state;
       }
 
       return {
         past: [...state.past, { snapshot: state.present, label: action.label }],
         present: next,
         future: [],
-      }
+      };
     }
 
-    case 'transient': {
-      const next = action.updater(state.present)
+    case "transient": {
+      const next = action.updater(state.present);
       if (next === state.present) {
-        return state
+        return state;
       }
 
       return {
         ...state,
         present: next,
-      }
+      };
     }
 
-    case 'undo': {
-      const previousEntry = state.past[state.past.length - 1]
+    case "undo": {
+      const previousEntry = state.past[state.past.length - 1];
       if (!previousEntry) {
-        return state
+        return state;
       }
 
       return {
         past: state.past.slice(0, -1),
         present: previousEntry.snapshot,
-        future: [{ snapshot: state.present, label: previousEntry.label }, ...state.future],
-      }
+        future: [
+          { snapshot: state.present, label: previousEntry.label },
+          ...state.future,
+        ],
+      };
     }
 
-    case 'redo': {
-      const nextEntry = state.future[0]
+    case "redo": {
+      const nextEntry = state.future[0];
       if (!nextEntry) {
-        return state
+        return state;
       }
 
       return {
-        past: [...state.past, { snapshot: state.present, label: nextEntry.label }],
+        past: [
+          ...state.past,
+          { snapshot: state.present, label: nextEntry.label },
+        ],
         present: nextEntry.snapshot,
         future: state.future.slice(1),
-      }
+      };
     }
 
-    case 'replace': {
+    case "replace": {
       if (state.present === action.snapshot) {
-        return state
+        return state;
       }
 
       return {
         past: [],
         present: action.snapshot,
         future: [],
-      }
+      };
     }
 
     default:
-      return state
+      return state;
   }
 }
 
-function formatHistoryStatus(prefix: 'Undid' | 'Redid', label: string) {
-  return `${prefix}: ${label}.`
+function formatHistoryStatus(prefix: "Undid" | "Redid", label: string) {
+  return `${prefix}: ${label}.`;
 }
 
 function findClipAtPlayhead(
@@ -1188,59 +1311,69 @@ function findClipAtPlayhead(
   bpm: number,
   lanePriority: Map<string, number>,
 ) {
-  const epsilon = 0.0001
-  let match: ArrangementClip | undefined
-  let matchLaneRank = -1
-  let matchStartQ = -1
+  const epsilon = 0.0001;
+  let match: ArrangementClip | undefined;
+  let matchLaneRank = -1;
+  let matchStartQ = -1;
 
   for (const clip of clips) {
-    const clipEndQ = clip.startQ + secondsToQuarters(clip.durationSeconds, bpm)
+    const clipEndQ = clip.startQ + secondsToQuarters(clip.durationSeconds, bpm);
     if (playheadQ < clip.startQ - epsilon || playheadQ >= clipEndQ - epsilon) {
-      continue
+      continue;
     }
 
-    const laneRank = lanePriority.get(clip.laneId) ?? -1
-    if (laneRank > matchLaneRank || (laneRank === matchLaneRank && clip.startQ > matchStartQ)) {
-      match = clip
-      matchLaneRank = laneRank
-      matchStartQ = clip.startQ
+    const laneRank = lanePriority.get(clip.laneId) ?? -1;
+    if (
+      laneRank > matchLaneRank ||
+      (laneRank === matchLaneRank && clip.startQ > matchStartQ)
+    ) {
+      match = clip;
+      matchLaneRank = laneRank;
+      matchStartQ = clip.startQ;
     }
   }
 
-  return match
+  return match;
 }
 
-function getPlaybackStopQ(clips: ArrangementClip[], mediaItems: MediaItem[], startQ: number, bpm: number) {
-  const playableMediaIds = new Set(mediaItems.map((item) => item.id))
+function getPlaybackStopQ(
+  clips: ArrangementClip[],
+  mediaItems: MediaItem[],
+  startQ: number,
+  bpm: number,
+) {
+  const playableMediaIds = new Set(mediaItems.map((item) => item.id));
 
   return clips.reduce((maximum, clip) => {
     if (!clip.mediaId || !playableMediaIds.has(clip.mediaId)) {
-      return maximum
+      return maximum;
     }
 
-    const clipEndQ = getClipEndQ(clip, bpm)
+    const clipEndQ = getClipEndQ(clip, bpm);
     if (clipEndQ <= startQ) {
-      return maximum
+      return maximum;
     }
 
-    return Math.max(maximum, clipEndQ)
-  }, startQ)
+    return Math.max(maximum, clipEndQ);
+  }, startQ);
 }
 
 function pickMediaByPath(items: MediaItem[], rawPath: string) {
-  const normalizedTarget = normalizeMediaPath(rawPath)
+  const normalizedTarget = normalizeMediaPath(rawPath);
   const exactMatch = items.find(
-    (item) => item.sourcePath && normalizeMediaPath(item.sourcePath) === normalizedTarget,
-  )
+    (item) =>
+      item.sourcePath &&
+      normalizeMediaPath(item.sourcePath) === normalizedTarget,
+  );
   if (exactMatch) {
-    return exactMatch
+    return exactMatch;
   }
 
-  const targetBase = basename(rawPath).toLowerCase()
-  return items.find((item) => item.name.toLowerCase() === targetBase)
+  const targetBase = basename(rawPath).toLowerCase();
+  return items.find((item) => item.name.toLowerCase() === targetBase);
 }
 
-function mapEffects(source: LvpSession['effects']) {
+function mapEffects(source: LvpSession["effects"]) {
   return (source ?? []).map<SessionEffect>((effect) => ({
     id: effect.id,
     trackId: effect.trackId,
@@ -1248,12 +1381,12 @@ function mapEffects(source: LvpSession['effects']) {
     parameters: Object.entries(effect.parameters ?? {}).map(([key, value]) => ({
       key,
       value:
-        typeof value.stringValue === 'string'
+        typeof value.stringValue === "string"
           ? value.stringValue
           : `${(value.floatValue ?? 0).toFixed(3)}`,
       numericValue: value.floatValue,
     })),
-  }))
+  }));
 }
 
 function chooseSourceSpanForWindow(
@@ -1263,80 +1396,92 @@ function chooseSourceSpanForWindow(
   durationQ: number,
   bpm: number,
 ) {
-  const endQ = startQ + durationQ
-  const sourceTrackSpans = spans.filter((span) => span.sourceTrackId === sourceTrackId)
+  const endQ = startQ + durationQ;
+  const sourceTrackSpans = spans.filter(
+    (span) => span.sourceTrackId === sourceTrackId,
+  );
   return (
     sourceTrackSpans.find((span) => {
-      const spanEndQ = span.startQ + getClipDurationQ(span, bpm)
-      return startQ >= span.startQ && startQ < spanEndQ
+      const spanEndQ = span.startQ + getClipDurationQ(span, bpm);
+      return startQ >= span.startQ && startQ < spanEndQ;
     }) ??
-    sourceTrackSpans
-      .sort((left, right) => {
-        const leftEnd = left.startQ + getClipDurationQ(left, bpm)
-        const rightEnd = right.startQ + getClipDurationQ(right, bpm)
-        const leftOverlap = Math.min(endQ, leftEnd) - Math.max(startQ, left.startQ)
-        const rightOverlap = Math.min(endQ, rightEnd) - Math.max(startQ, right.startQ)
-        return rightOverlap - leftOverlap
-      })[0]
-  )
+    sourceTrackSpans.sort((left, right) => {
+      const leftEnd = left.startQ + getClipDurationQ(left, bpm);
+      const rightEnd = right.startQ + getClipDurationQ(right, bpm);
+      const leftOverlap =
+        Math.min(endQ, leftEnd) - Math.max(startQ, left.startQ);
+      const rightOverlap =
+        Math.min(endQ, rightEnd) - Math.max(startQ, right.startQ);
+      return rightOverlap - leftOverlap;
+    })[0]
+  );
 }
 
 function sessionToProject(session: LvpSession, mediaItems: MediaItem[]) {
-  const bpm = session.timeline?.bpm ?? 120
-  const fps = session.timeline?.fps ?? 30
+  const bpm = session.timeline?.bpm ?? 120;
+  const fps = session.timeline?.fps ?? 30;
   const lanes = (session.mainTracks ?? DEFAULT_LANES).map<Lane>((track) => ({
     id: track.id,
     name: track.name,
     colorIndex: track.colorIndex ?? -1,
-  }))
+  }));
   const sourceTracks = (session.tracks ?? []).map<SourceTrack>((track) => ({
     id: track.id,
     name: track.name,
     colorIndex: track.colorIndex ?? -1,
-    recordingPaths: (track.recordings ?? []).map((recording) => recording.filename),
-  }))
-  const nameByTrack = new Map(sourceTracks.map((track) => [track.id, track.name]))
+    recordingPaths: (track.recordings ?? []).map(
+      (recording) => recording.filename,
+    ),
+  }));
+  const nameByTrack = new Map(
+    sourceTracks.map((track) => [track.id, track.name]),
+  );
 
   const sourceSpans = (session.clips ?? []).map<SourceSpan>((clip) => {
-    const swatch = getSwatch(sourceTracks.find((track) => track.id === clip.trackId)?.colorIndex ?? 0)
-    const media = pickMediaByPath(mediaItems, clip.filePath)
+    const swatch = getSwatch(
+      sourceTracks.find((track) => track.id === clip.trackId)?.colorIndex ?? 0,
+    );
+    const media = pickMediaByPath(mediaItems, clip.filePath);
     return {
       id: `source-${clip.id}`,
       sourceTrackId: clip.trackId,
-      label: nameByTrack.get(clip.trackId) ?? clip.name ?? `Track ${clip.trackId}`,
+      label:
+        nameByTrack.get(clip.trackId) ?? clip.name ?? `Track ${clip.trackId}`,
       mediaPath: clip.filePath,
       mediaId: media?.id,
       startQ: secondsToQuarters(clip.frameStart / fps, bpm),
       durationSeconds: Math.max(1, clip.frameCount) / fps,
-      trimStartSeconds: Math.max(0, (clip.clipStart ?? 0) + (clip.frameOffset ?? 0)) / fps,
+      trimStartSeconds:
+        Math.max(0, (clip.clipStart ?? 0) + (clip.frameOffset ?? 0)) / fps,
       tint: swatch.color,
       accent: swatch.accent,
-    }
-  })
+    };
+  });
 
-  const arrangementClips: ArrangementClip[] = []
+  const arrangementClips: ArrangementClip[] = [];
 
   for (const selection of session.selections ?? []) {
-    const selectionStartQ = secondsToQuarters(selection.frameStart / fps, bpm)
+    const selectionStartQ = secondsToQuarters(selection.frameStart / fps, bpm);
     const selectionDurationQ = secondsToQuarters(
       Math.max(1, selection.frameEnd - selection.frameStart) / fps,
       bpm,
-    )
+    );
     const sourceSpan = chooseSourceSpanForWindow(
       sourceSpans,
       selection.trackId,
       selectionStartQ,
       selectionDurationQ,
       bpm,
-    )
+    );
     if (!sourceSpan) {
-      continue
+      continue;
     }
 
     const sourceOffsetSeconds =
-      sourceSpan.trimStartSeconds - quartersToSeconds(sourceSpan.startQ, bpm)
-    const startSeconds = selection.frameStart / fps
-    const durationSeconds = Math.max(1, selection.frameEnd - selection.frameStart) / fps
+      sourceSpan.trimStartSeconds - quartersToSeconds(sourceSpan.startQ, bpm);
+    const startSeconds = selection.frameStart / fps;
+    const durationSeconds =
+      Math.max(1, selection.frameEnd - selection.frameStart) / fps;
 
     arrangementClips.push({
       id: `selection-${selection.id}`,
@@ -1351,11 +1496,12 @@ function sessionToProject(session: LvpSession, mediaItems: MediaItem[]) {
       trimStartSeconds: startSeconds + sourceOffsetSeconds,
       sourceOffsetSeconds,
       sourceWindowStartSeconds: sourceSpan.trimStartSeconds,
-      sourceWindowEndSeconds: sourceSpan.trimStartSeconds + sourceSpan.durationSeconds,
+      sourceWindowEndSeconds:
+        sourceSpan.trimStartSeconds + sourceSpan.durationSeconds,
       tint: sourceSpan.tint,
       accent: sourceSpan.accent,
       selected: selection.selected,
-    })
+    });
   }
 
   return {
@@ -1379,25 +1525,25 @@ function sessionToProject(session: LvpSession, mediaItems: MediaItem[]) {
     unresolvedPaths: arrangementClips
       .filter((clip) => !clip.mediaId)
       .map((clip) => basename(clip.mediaPath)),
-  }
+  };
 }
 
 function buildStandaloneProject(mediaItems: MediaItem[]) {
-  const lanes = DEFAULT_LANES
-  const canvasWidth = mediaItems.find((item) => item.width)?.width ?? 1080
-  const canvasHeight = mediaItems.find((item) => item.height)?.height ?? 1920
+  const lanes = DEFAULT_LANES;
+  const canvasWidth = mediaItems.find((item) => item.width)?.width ?? 1080;
+  const canvasHeight = mediaItems.find((item) => item.height)?.height ?? 1920;
   const sourceTracks = mediaItems.map<SourceTrack>((item, index) => ({
     id: `import-track-${index}`,
-    name: item.name.replace(/\.[^/.]+$/, ''),
+    name: item.name.replace(/\.[^/.]+$/, ""),
     colorIndex: index,
     recordingPaths: [item.name],
-  }))
+  }));
   const sourceSpans = mediaItems.map<SourceSpan>((item, index) => {
-    const swatch = getSwatch(index)
+    const swatch = getSwatch(index);
     return {
       id: `source-span-${item.id}`,
       sourceTrackId: sourceTracks[index]?.id ?? `import-track-${index}`,
-      label: item.name.replace(/\.[^/.]+$/, ''),
+      label: item.name.replace(/\.[^/.]+$/, ""),
       mediaPath: item.name,
       mediaId: item.id,
       startQ: 0,
@@ -1405,16 +1551,19 @@ function buildStandaloneProject(mediaItems: MediaItem[]) {
       trimStartSeconds: 0,
       tint: swatch.color,
       accent: swatch.accent,
-    }
-  })
+    };
+  });
   const arrangementClips = mediaItems.map<ArrangementClip>((item, index) => {
-    const sourceSpan = sourceSpans[index]
+    const sourceSpan = sourceSpans[index];
     return {
       id: `import-clip-${item.id}`,
       sourceSpanId: sourceSpan?.id ?? `source-span-${item.id}`,
-      sourceTrackId: sourceSpan?.sourceTrackId ?? sourceTracks[index]?.id ?? `import-track-${index}`,
+      sourceTrackId:
+        sourceSpan?.sourceTrackId ??
+        sourceTracks[index]?.id ??
+        `import-track-${index}`,
       laneId: lanes[index % lanes.length]?.id ?? lanes[0].id,
-      label: item.name.replace(/\.[^/.]+$/, ''),
+      label: item.name.replace(/\.[^/.]+$/, ""),
       mediaPath: item.name,
       mediaId: item.id,
       startQ: index * 4,
@@ -1425,9 +1574,16 @@ function buildStandaloneProject(mediaItems: MediaItem[]) {
       sourceWindowEndSeconds: Math.max(0, item.durationSeconds),
       tint: sourceSpan?.tint ?? getSwatch(index).color,
       accent: sourceSpan?.accent ?? getSwatch(index).accent,
-    }
-  })
-  return { lanes, sourceTracks, sourceSpans, arrangementClips, canvasWidth, canvasHeight }
+    };
+  });
+  return {
+    lanes,
+    sourceTracks,
+    sourceSpans,
+    arrangementClips,
+    canvasWidth,
+    canvasHeight,
+  };
 }
 
 function mapSessionEffectsToDevices(
@@ -1436,61 +1592,71 @@ function mapSessionEffectsToDevices(
   kind: MediaKind | undefined,
 ) {
   const relevant = effects.filter(
-    (effect) => effect.trackId === laneId || effect.trackId === '__group_main',
-  )
+    (effect) => effect.trackId === laneId || effect.trackId === "__group_main",
+  );
   const layerLayoutEffect = relevant.find(
-    (effect) => effect.trackId === laneId && isLayoutEffectName(effect.effectName),
-  )
+    (effect) =>
+      effect.trackId === laneId && isLayoutEffectName(effect.effectName),
+  );
   const globalLayoutEffect = relevant.find(
-    (effect) => effect.trackId === '__group_main' && isLayoutEffectName(effect.effectName),
-  )
+    (effect) =>
+      effect.trackId === "__group_main" &&
+      isLayoutEffectName(effect.effectName),
+  );
 
   if (!relevant.length) {
-    if (kind === 'audio') {
-      return FALLBACK_AUDIO_FX
+    if (kind === "audio") {
+      return FALLBACK_AUDIO_FX;
     }
 
-    return [createDefaultLayoutDevice(laneId), ...FALLBACK_VIDEO_FX.filter((device) => device.id !== 'layout')]
+    return [
+      createDefaultLayoutDevice(laneId),
+      ...FALLBACK_VIDEO_FX.filter((device) => device.id !== "layout"),
+    ];
   }
 
   const mapped = relevant.map<FxDevice>((effect, index) => {
-    const swatch = getSwatch(index)
+    const swatch = getSwatch(index);
     return {
       id: effect.id,
       name: effect.effectName,
       subtitle:
-        effect.trackId === '__group_main' ? 'Global stack' : `Layer ${effect.trackId}`,
+        effect.trackId === "__group_main"
+          ? "Global stack"
+          : `Layer ${effect.trackId}`,
       accent: swatch.accent,
       parameters: effect.parameters.map((parameter) => ({
         label: parameter.key,
         value: clamp(parameter.numericValue ?? 0.5, 0, 1),
         display: parameter.value,
       })),
-    }
-  })
+    };
+  });
 
-  if (kind === 'audio') {
-    return mapped
+  if (kind === "audio") {
+    return mapped;
   }
 
   if (layerLayoutEffect) {
-    return mapped
+    return mapped;
   }
 
   if (globalLayoutEffect) {
-    return mapped
+    return mapped;
   }
 
-  return [createDefaultLayoutDevice(laneId), ...mapped]
+  return [createDefaultLayoutDevice(laneId), ...mapped];
 }
 
 function App() {
-  const [initialCollaborationConfig] = useState(() => getInitialCollaborationConfig())
+  const [initialCollaborationConfig] = useState(() =>
+    getInitialCollaborationConfig(),
+  );
   const [projectHistory, dispatchProject] = useReducer(
     projectHistoryReducer,
     INITIAL_PROJECT_STATE,
     createProjectHistoryState,
-  )
+  );
   const {
     timelineMode,
     signatureId,
@@ -1509,247 +1675,294 @@ function App() {
     clips,
     effects,
     masterAudioId,
-  } = projectHistory.present
-  const canUndo = projectHistory.past.length > 0
-  const canRedo = projectHistory.future.length > 0
-  const undoLabel = projectHistory.past[projectHistory.past.length - 1]?.label
-  const redoLabel = projectHistory.future[0]?.label
+  } = projectHistory.present;
+  const canUndo = projectHistory.past.length > 0;
+  const canRedo = projectHistory.future.length > 0;
+  const undoLabel = projectHistory.past[projectHistory.past.length - 1]?.label;
+  const redoLabel = projectHistory.future[0]?.label;
 
-  const [dragPreviewClips, setDragPreviewClips] = useState<ArrangementClip[] | null>(null)
-  const [selectedClipId, setSelectedClipId] = useState<string>()
-  const [pendingSelection, setPendingSelection] = useState<TimelineSelection | null>(null)
-  const [selectedFxId, setSelectedFxId] = useState<string>()
-  const [playheadQ, setPlayheadQ] = useState(0)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [isExporting, setIsExporting] = useState(false)
+  const [dragPreviewClips, setDragPreviewClips] = useState<
+    ArrangementClip[] | null
+  >(null);
+  const [selectedClipId, setSelectedClipId] = useState<string>();
+  const [pendingSelection, setPendingSelection] =
+    useState<TimelineSelection | null>(null);
+  const [selectedFxId, setSelectedFxId] = useState<string>();
+  const [playheadQ, setPlayheadQ] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [exportState, setExportState] = useState<ExportState>({
-    phase: 'idle',
+    phase: "idle",
     progress: null,
-    detail: '',
-  })
+    detail: "",
+  });
   const [timelineViewport, setTimelineViewport] = useState<TimelineViewport>({
     scrollLeft: 0,
     clientWidth: 0,
-  })
+  });
   const [status, setStatus] = useState(
-    'Open a .lvp session file. The active harness will provide available file and media access.',
-  )
-  const [dragState, setDragState] = useState<DragState | null>(null)
-  const [timelineDragState, setTimelineDragState] = useState<TimelineDragState | null>(null)
-  const [isTimelineAudibleScrubbing, setIsTimelineAudibleScrubbing] = useState(false)
-  const [zoomDraft, setZoomDraft] = useState<number | null>(null)
-  const [localMediaOverrides, setLocalMediaOverrides] = useState<Record<string, LocalMediaOverride>>(
-    {},
-  )
-  const [sourceThumbnailUrls, setSourceThumbnailUrls] = useState<Record<string, string>>({})
-  const [collaborationRoom, setCollaborationRoom] = useState(initialCollaborationConfig.room)
-  const [collaborationPassword, setCollaborationPassword] = useState(initialCollaborationConfig.password)
+    "Open a .lvp session file. The active harness will provide available file and media access.",
+  );
+  const [dragState, setDragState] = useState<DragState | null>(null);
+  const [timelineDragState, setTimelineDragState] =
+    useState<TimelineDragState | null>(null);
+  const [isTimelineAudibleScrubbing, setIsTimelineAudibleScrubbing] =
+    useState(false);
+  const [zoomDraft, setZoomDraft] = useState<number | null>(null);
+  const [localMediaOverrides, setLocalMediaOverrides] = useState<
+    Record<string, LocalMediaOverride>
+  >({});
+  const [sourceThumbnailUrls, setSourceThumbnailUrls] = useState<
+    Record<string, string>
+  >({});
+  const [collaborationRoom, setCollaborationRoom] = useState(
+    initialCollaborationConfig.room,
+  );
+  const [collaborationPassword, setCollaborationPassword] = useState(
+    initialCollaborationConfig.password,
+  );
   const [collaborationSignaling, setCollaborationSignaling] = useState(
     initialCollaborationConfig.signaling,
-  )
-  const [collaborationName] = useState(initialCollaborationConfig.name)
+  );
+  const [collaborationName] = useState(initialCollaborationConfig.name);
   const [collaborationMode, setCollaborationMode] = useState<CollaborationMode>(
-    initialCollaborationConfig.autoConnect ? 'connected' : 'idle',
-  )
-  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false)
-  const [isStartingShare, setIsStartingShare] = useState(false)
-  const [isConnectDialogOpen, setIsConnectDialogOpen] = useState(false)
-  const [connectInviteValue, setConnectInviteValue] = useState('')
-  const [isStartingConnect, setIsStartingConnect] = useState(false)
-  const [hasCopiedShareInvite, setHasCopiedShareInvite] = useState(false)
-  const [lastCopiedShareUrl, setLastCopiedShareUrl] = useState('')
-  const [collaborationState, setCollaborationState] = useState<CollaborationConnectionState>({
-    connected: false,
-    peerCount: 0,
-    collaborators: [],
-  })
-  const collaborationColor = initialCollaborationConfig.color
+    initialCollaborationConfig.autoConnect ? "connected" : "idle",
+  );
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [isStartingShare, setIsStartingShare] = useState(false);
+  const [isConnectDialogOpen, setIsConnectDialogOpen] = useState(false);
+  const [connectInviteValue, setConnectInviteValue] = useState("");
+  const [isStartingConnect, setIsStartingConnect] = useState(false);
+  const [hasCopiedShareInvite, setHasCopiedShareInvite] = useState(false);
+  const [lastCopiedShareUrl, setLastCopiedShareUrl] = useState("");
+  const [collaborationState, setCollaborationState] =
+    useState<CollaborationConnectionState>({
+      connected: false,
+      peerCount: 0,
+      collaborators: [],
+    });
+  const collaborationColor = initialCollaborationConfig.color;
 
-  const playbackOriginRef = useRef(0)
-  const playbackStopRef = useRef(0)
-  const compositionPlayerRef = useRef<CompositionPlayerHandle | null>(null)
-  const appShellRef = useRef<HTMLDivElement | null>(null)
-  const timelineScrollRef = useRef<HTMLDivElement | null>(null)
-  const timelineScrubAudioTimeoutRef = useRef<number | null>(null)
-  const clipClipboardRef = useRef<ArrangementClip | null>(null)
-  const collaborationControllerRef = useRef<CollaborationController<ProjectState> | null>(null)
-  const shareCopyResetTimeoutRef = useRef<number | null>(null)
-  const projectSnapshotRef = useRef(projectHistory.present)
-  const zoomDraftRef = useRef<number | null>(null)
-  const localMediaOverridesRef = useRef<Record<string, LocalMediaOverride>>({})
-  const mediaObjectUrlsRef = useRef(new Map<string, string>())
-  const mediaHydrationInFlightRef = useRef(new Set<string>())
-  const sourceThumbnailUrlsRef = useRef<Record<string, string>>({})
-  const lastCollaborationCursorRef = useRef('')
+  const playbackOriginRef = useRef(0);
+  const playbackStopRef = useRef(0);
+  const compositionPlayerRef = useRef<CompositionPlayerHandle | null>(null);
+  const appShellRef = useRef<HTMLDivElement | null>(null);
+  const timelineScrollRef = useRef<HTMLDivElement | null>(null);
+  const timelineScrubAudioTimeoutRef = useRef<number | null>(null);
+  const clipClipboardRef = useRef<ArrangementClip | null>(null);
+  const collaborationControllerRef =
+    useRef<CollaborationController<ProjectState> | null>(null);
+  const shareCopyResetTimeoutRef = useRef<number | null>(null);
+  const projectSnapshotRef = useRef(projectHistory.present);
+  const zoomDraftRef = useRef<number | null>(null);
+  const localMediaOverridesRef = useRef<Record<string, LocalMediaOverride>>({});
+  const mediaObjectUrlsRef = useRef(new Map<string, string>());
+  const mediaHydrationInFlightRef = useRef(new Set<string>());
+  const sourceThumbnailUrlsRef = useRef<Record<string, string>>({});
+  const lastCollaborationCursorRef = useRef("");
 
   const mediaItems = useMemo(
     () =>
       projectMediaItems.map((item) => ({
         ...item,
         ...(localMediaOverrides[item.id] ?? {}),
-        availability: localMediaOverrides[item.id]?.availability ?? item.availability,
+        availability:
+          localMediaOverrides[item.id]?.availability ?? item.availability,
       })),
     [localMediaOverrides, projectMediaItems],
-  )
+  );
   const mediaItemsById = useMemo(
     () => new Map(mediaItems.map((item) => [item.id, item])),
     [mediaItems],
-  )
+  );
   const lanePriority = useMemo(
     () => new Map(lanes.map((lane, index) => [lane.id, index])),
     [lanes],
-  )
-  const timelineClips = dragPreviewClips ?? clips
-  const resolvedZoom = zoomDraft ?? zoom
+  );
+  const timelineClips = dragPreviewClips ?? clips;
+  const resolvedZoom = zoomDraft ?? zoom;
 
   const commitProjectChange = useCallback(
     (label: string, updater: (current: ProjectState) => ProjectState) => {
-      dispatchProject({ type: 'commit', label, updater })
+      dispatchProject({ type: "commit", label, updater });
     },
     [],
-  )
+  );
 
   const commitProjectPatch = useCallback(
     (label: string, patch: Partial<ProjectState>) => {
-      commitProjectChange(label, (current) => patchProjectState(current, patch))
+      commitProjectChange(label, (current) =>
+        patchProjectState(current, patch),
+      );
     },
     [commitProjectChange],
-  )
+  );
 
-  function updateZoomDraft(nextZoom: number | null) {
-    zoomDraftRef.current = nextZoom
-    setZoomDraft(nextZoom)
-  }
+  const updateZoomDraft = useCallback((nextZoom: number | null) => {
+    zoomDraftRef.current = nextZoom;
+    setZoomDraft(nextZoom);
+  }, []);
 
-  function setLocalMediaOverride(mediaId: string, patch: LocalMediaOverride) {
-    setLocalMediaOverrides((current) => {
-      const previous = current[mediaId]
-      const nextPreviewUrl = patch.previewUrl ?? previous?.previewUrl
-      const previousPreviewUrl = previous?.previewUrl
+  const setLocalMediaOverride = useCallback(
+    (mediaId: string, patch: LocalMediaOverride) => {
+      setLocalMediaOverrides((current) => {
+        const previous = current[mediaId];
+        const nextPreviewUrl = patch.previewUrl ?? previous?.previewUrl;
+        const previousPreviewUrl = previous?.previewUrl;
 
-      if (
-        previousPreviewUrl &&
-        previousPreviewUrl !== nextPreviewUrl &&
-        mediaObjectUrlsRef.current.get(mediaId) === previousPreviewUrl
-      ) {
-        URL.revokeObjectURL(previousPreviewUrl)
-        mediaObjectUrlsRef.current.delete(mediaId)
-      }
+        if (
+          previousPreviewUrl &&
+          previousPreviewUrl !== nextPreviewUrl &&
+          mediaObjectUrlsRef.current.get(mediaId) === previousPreviewUrl
+        ) {
+          URL.revokeObjectURL(previousPreviewUrl);
+          mediaObjectUrlsRef.current.delete(mediaId);
+        }
 
-      const next = {
-        ...previous,
-        ...patch,
-      }
+        const next = {
+          ...previous,
+          ...patch,
+        };
 
-      if (!next.previewUrl && !next.thumbnailUrl && !next.availability) {
-        const rest = { ...current }
-        delete rest[mediaId]
-        return rest
-      }
+        if (!next.previewUrl && !next.thumbnailUrl && !next.availability) {
+          const rest = { ...current };
+          delete rest[mediaId];
+          return rest;
+        }
 
-      return {
-        ...current,
-        [mediaId]: next,
-      }
-    })
-  }
+        return {
+          ...current,
+          [mediaId]: next,
+        };
+      });
+    },
+    [],
+  );
 
   function seedLocalMediaItems(items: MediaItem[]) {
     for (const item of items) {
-      if (item.previewUrl.startsWith('blob:')) {
-        mediaObjectUrlsRef.current.set(item.id, item.previewUrl)
+      if (item.previewUrl.startsWith("blob:")) {
+        mediaObjectUrlsRef.current.set(item.id, item.previewUrl);
       }
       setLocalMediaOverride(item.id, {
-        availability: item.previewUrl ? 'ready' : item.availability,
+        availability: item.previewUrl ? "ready" : item.availability,
         previewUrl: item.previewUrl || undefined,
         thumbnailUrl: item.thumbnailUrl,
-      })
+      });
     }
   }
 
   async function cacheLocalMediaItems(items: MediaItem[]) {
-    const harness = getHarness()
+    const harness = getHarness();
     await Promise.allSettled(
       items
         .filter((item) => item.previewUrl)
         .map(async (item) => {
-          const blob = await harness.readMediaBlob(item)
-          await cacheMediaBlob(item.id, blob)
+          const blob = await harness.readMediaBlob(item);
+          await cacheMediaBlob(item.id, blob);
         }),
-    )
+    );
   }
 
-  const signature = SIGNATURES.find((candidate) => candidate.id === signatureId) ?? SIGNATURES[0]
-  const beatUnit = 4 / signature.denominator
-  const barLength = signature.numerator * beatUnit
-  const snapUnit = getSnapUnit(snapMode, signature)
-  const quarterPx = BASE_QUARTER_PX * resolvedZoom
+  const signature =
+    SIGNATURES.find((candidate) => candidate.id === signatureId) ??
+    SIGNATURES[0];
+  const beatUnit = 4 / signature.denominator;
+  const barLength = signature.numerator * beatUnit;
+  const snapUnit = getSnapUnit(snapMode, signature);
+  const quarterPx = BASE_QUARTER_PX * resolvedZoom;
   const totalQuarters = useMemo(() => {
-    let nextTotalQuarters = barLength * 12
+    let nextTotalQuarters = barLength * 12;
     for (const clip of timelineClips) {
       nextTotalQuarters = Math.max(
         nextTotalQuarters,
         clip.startQ + getClipDurationQ(clip, bpm) + barLength,
-      )
+      );
     }
     for (const span of sourceSpans) {
       nextTotalQuarters = Math.max(
         nextTotalQuarters,
         span.startQ + getClipDurationQ(span, bpm) + barLength,
-      )
+      );
     }
     if (pendingSelection) {
-      nextTotalQuarters = Math.max(nextTotalQuarters, getSelectionEndQ(pendingSelection) + barLength)
+      nextTotalQuarters = Math.max(
+        nextTotalQuarters,
+        getSelectionEndQ(pendingSelection) + barLength,
+      );
     }
 
-    return nextTotalQuarters
-  }, [barLength, bpm, pendingSelection, sourceSpans, timelineClips])
-  const timelineWidth = totalQuarters * quarterPx
+    return nextTotalQuarters;
+  }, [barLength, bpm, pendingSelection, sourceSpans, timelineClips]);
+  const timelineWidth = totalQuarters * quarterPx;
   const gridStyle = useMemo(
     () => ({
       backgroundImage:
-        'linear-gradient(to right, rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(to right, rgba(255,255,255,0.16) 1px, transparent 1px)',
+        "linear-gradient(to right, rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(to right, rgba(255,255,255,0.16) 1px, transparent 1px)",
       backgroundSize: `${beatUnit * quarterPx}px 100%, ${barLength * quarterPx}px 100%`,
     }),
     [barLength, beatUnit, quarterPx],
-  )
+  );
   const selectedClip = useMemo(
     () =>
       timelineClips.find((clip) => clip.id === selectedClipId) ??
       timelineClips.find((clip) => clip.selected) ??
       timelineClips[0],
     [selectedClipId, timelineClips],
-  )
-  const selectedMedia = selectedClip?.mediaId ? mediaItemsById.get(selectedClip.mediaId) : undefined
+  );
+  const selectedMedia = selectedClip?.mediaId
+    ? mediaItemsById.get(selectedClip.mediaId)
+    : undefined;
   const playheadClip = useMemo(
     () => findClipAtPlayhead(timelineClips, playheadQ, bpm, lanePriority),
     [bpm, lanePriority, playheadQ, timelineClips],
-  )
-  const previewClip = playheadClip ?? selectedClip
-  const previewMedia = previewClip?.mediaId ? mediaItemsById.get(previewClip.mediaId) : undefined
-  const previewMediaState = describeMediaAvailability(previewMedia?.availability)
+  );
+  const previewClip = playheadClip ?? selectedClip;
+  const previewMedia = previewClip?.mediaId
+    ? mediaItemsById.get(previewClip.mediaId)
+    : undefined;
+  const previewMediaState = describeMediaAvailability(
+    previewMedia?.availability,
+  );
   const selectedTrack = useMemo(
-    () => sourceTracks.find((track) => track.id === selectedClip?.sourceTrackId),
+    () =>
+      sourceTracks.find((track) => track.id === selectedClip?.sourceTrackId),
     [selectedClip?.sourceTrackId, sourceTracks],
-  )
+  );
   const fxDevices = useMemo(
-    () => mapSessionEffectsToDevices(effects, selectedClip?.laneId, selectedMedia?.kind),
+    () =>
+      mapSessionEffectsToDevices(
+        effects,
+        selectedClip?.laneId,
+        selectedMedia?.kind,
+      ),
     [effects, selectedClip?.laneId, selectedMedia?.kind],
-  )
+  );
   const selectedFx = useMemo(
-    () => fxDevices.find((device) => device.id === selectedFxId) ?? fxDevices[0],
+    () =>
+      fxDevices.find((device) => device.id === selectedFxId) ?? fxDevices[0],
     [fxDevices, selectedFxId],
-  )
-  const playheadSeconds = quartersToSeconds(playheadQ, bpm)
-  const masterAudio = masterAudioId ? mediaItemsById.get(masterAudioId) : undefined
-  const canCreateLayer = lanes.length < MAX_LAYERS
+  );
+  const playheadSeconds = quartersToSeconds(playheadQ, bpm);
+  const masterAudio = masterAudioId
+    ? mediaItemsById.get(masterAudioId)
+    : undefined;
+  const canCreateLayer = lanes.length < MAX_LAYERS;
   const projectWaveform = useMemo(
     () =>
       masterAudio?.waveform.length
         ? masterAudio.waveform
         : buildProjectWaveform(timelineClips, totalQuarters, bpm, 264),
     [bpm, masterAudio, timelineClips, totalQuarters],
-  )
+  );
+  const projectWaveformBars = useMemo(() => {
+    const lastIndex = Math.max(1, projectWaveform.length - 1);
+    return projectWaveform.map((value, index) => ({
+      id: `wave-${((index / lastIndex) * 100).toFixed(4)}-${value.toFixed(4)}`,
+      leftPercent: (index / lastIndex) * 100,
+      heightPx: 16 + value * 42,
+    }));
+  }, [projectWaveform]);
   const timelineContentEndQ = useMemo(
     () =>
       getTimelineContentEndQ(
@@ -1760,72 +1973,77 @@ function App() {
         barLength,
       ),
     [barLength, bpm, masterAudio?.durationSeconds, sourceSpans, timelineClips],
-  )
+  );
   const rulerBars = useMemo(() => {
-    const barCount = Math.ceil(totalQuarters / barLength)
+    const barCount = Math.ceil(totalQuarters / barLength);
     return Array.from({ length: barCount }, (_, index) => ({
       index,
       quarter: index * barLength,
-    }))
-  }, [barLength, totalQuarters])
+    }));
+  }, [barLength, totalQuarters]);
   const offlineCount = useMemo(
     () =>
       timelineClips.filter((clip) => {
-        const media = clip.mediaId ? mediaItemsById.get(clip.mediaId) : undefined
-        return !media || media.availability !== 'ready'
+        const media = clip.mediaId
+          ? mediaItemsById.get(clip.mediaId)
+          : undefined;
+        return !media || media.availability !== "ready";
       }).length,
     [mediaItemsById, timelineClips],
-  )
+  );
   const clipsByLane = useMemo(() => {
-    const next = new Map<string, ArrangementClip[]>()
+    const next = new Map<string, ArrangementClip[]>();
     for (const clip of timelineClips) {
-      const laneClips = next.get(clip.laneId)
+      const laneClips = next.get(clip.laneId);
       if (laneClips) {
-        laneClips.push(clip)
-        continue
+        laneClips.push(clip);
+        continue;
       }
 
-      next.set(clip.laneId, [clip])
+      next.set(clip.laneId, [clip]);
     }
-    return next
-  }, [timelineClips])
+    return next;
+  }, [timelineClips]);
   const sourceSpansByTrack = useMemo(() => {
-    const next = new Map<string, SourceSpan[]>()
+    const next = new Map<string, SourceSpan[]>();
     for (const clip of sourceSpans) {
-      const trackClips = next.get(clip.sourceTrackId)
+      const trackClips = next.get(clip.sourceTrackId);
       if (trackClips) {
-        trackClips.push(clip)
-        continue
+        trackClips.push(clip);
+        continue;
       }
 
-      next.set(clip.sourceTrackId, [clip])
+      next.set(clip.sourceTrackId, [clip]);
     }
-    return next
-  }, [sourceSpans])
-  const minimumWindowQ = Math.max(snapUnit, beatUnit / 4)
-  const visibleTimelineStartPx = Math.max(0, timelineViewport.scrollLeft)
-  const visibleTimelineWidthPx = Math.max(0, timelineViewport.clientWidth - LABEL_WIDTH)
-  const visibleTimelineEndPx = visibleTimelineStartPx + visibleTimelineWidthPx
-  const playheadTimelinePx = Math.round(playheadQ * quarterPx)
+    return next;
+  }, [sourceSpans]);
+  const minimumWindowQ = Math.max(snapUnit, beatUnit / 4);
+  const visibleTimelineStartPx = Math.max(0, timelineViewport.scrollLeft);
+  const visibleTimelineWidthPx = Math.max(
+    0,
+    timelineViewport.clientWidth - LABEL_WIDTH,
+  );
+  const visibleTimelineEndPx = visibleTimelineStartPx + visibleTimelineWidthPx;
+  const playheadTimelinePx = Math.round(playheadQ * quarterPx);
   const isPlayheadOffscreenLeft =
-    visibleTimelineWidthPx > 0 && playheadTimelinePx < visibleTimelineStartPx
+    visibleTimelineWidthPx > 0 && playheadTimelinePx < visibleTimelineStartPx;
   const isPlayheadOffscreenRight =
-    visibleTimelineWidthPx > 0 && playheadTimelinePx > visibleTimelineEndPx
+    visibleTimelineWidthPx > 0 && playheadTimelinePx > visibleTimelineEndPx;
   const exportButtonLabel = isExporting
     ? exportState.progress !== null
       ? `${exportState.progress}%`
-      : exportState.phase === 'loading-ffmpeg'
-        ? 'Loading...'
-        : exportState.phase === 'muxing'
-          ? 'Muxing...'
-          : exportState.phase === 'decoding-audio'
-            ? 'Audio...'
-            : 'Render...'
-    : 'Export'
+      : exportState.phase === "loading-ffmpeg"
+        ? "Loading..."
+        : exportState.phase === "muxing"
+          ? "Muxing..."
+          : exportState.phase === "decoding-audio"
+            ? "Audio..."
+            : "Render..."
+    : "Export";
 
-  const activeShareRoom = collaborationRoom.trim()
-  const isSharing = collaborationMode === 'sharing'
-  const isConnectedClient = collaborationMode === 'connected'
+  const activeShareRoom = collaborationRoom.trim();
+  const isSharing = collaborationMode === "sharing";
+  const isConnectedClient = collaborationMode === "connected";
   const collaborationView = useMemo(
     () =>
       buildCollaborationViewModel(
@@ -1844,236 +2062,250 @@ function App() {
       isStartingConnect,
       isStartingShare,
     ],
-  )
-  const shortcutLabels = useMemo(() => getShortcutLabels(), [])
+  );
+  const shortcutLabels = useMemo(() => getShortcutLabels(), []);
 
   useEffect(() => {
-    sourceThumbnailUrlsRef.current = sourceThumbnailUrls
-  }, [sourceThumbnailUrls])
+    sourceThumbnailUrlsRef.current = sourceThumbnailUrls;
+  }, [sourceThumbnailUrls]);
 
   useEffect(
     () => () => {
       if (shareCopyResetTimeoutRef.current !== null) {
-        window.clearTimeout(shareCopyResetTimeoutRef.current)
+        window.clearTimeout(shareCopyResetTimeoutRef.current);
       }
     },
     [],
-  )
+  );
 
   useEffect(() => {
-    const activeSpanIds = new Set(sourceSpans.map((span) => getSourceThumbnailCacheKey(span)))
+    const activeSpanIds = new Set(
+      sourceSpans.map((span) => getSourceThumbnailCacheKey(span)),
+    );
 
     setSourceThumbnailUrls((current) => {
-      let changed = false
-      const next: Record<string, string> = {}
+      let changed = false;
+      const next: Record<string, string> = {};
 
       for (const [spanId, url] of Object.entries(current)) {
         if (activeSpanIds.has(spanId)) {
-          next[spanId] = url
-          continue
+          next[spanId] = url;
+          continue;
         }
 
-        revokeObjectUrlIfNeeded(url)
-        changed = true
+        revokeObjectUrlIfNeeded(url);
+        changed = true;
       }
 
       if (!changed) {
-        return current
+        return current;
       }
 
-      sourceThumbnailUrlsRef.current = next
-      return next
-    })
-  }, [sourceSpans])
+      sourceThumbnailUrlsRef.current = next;
+      return next;
+    });
+  }, [sourceSpans]);
 
   useEffect(() => {
-    let cancelled = false
-    const mediaById = new Map(mediaItems.map((item) => [item.id, item]))
+    let cancelled = false;
+    const mediaById = new Map(mediaItems.map((item) => [item.id, item]));
 
     async function populateSourceThumbnails() {
-      const harness = getHarness()
+      const harness = getHarness();
       const resolved = await Promise.all(
         sourceSpans.map(async (span) => {
-          const cacheKey = getSourceThumbnailCacheKey(span)
+          const cacheKey = getSourceThumbnailCacheKey(span);
           if (sourceThumbnailUrlsRef.current[cacheKey]) {
-            return null
+            return null;
           }
 
-          const media = span.mediaId ? mediaById.get(span.mediaId) : undefined
+          const media = span.mediaId ? mediaById.get(span.mediaId) : undefined;
           if (!media?.hasVideo) {
-            return null
+            return null;
           }
 
-          const fallbackUrl = media.thumbnailUrl
+          const fallbackUrl = media.thumbnailUrl;
           if (!harness.generateThumbnailAtTime) {
-            return fallbackUrl ? { cacheKey, url: fallbackUrl } : null
+            return fallbackUrl ? { cacheKey, url: fallbackUrl } : null;
           }
 
           try {
-            const exactUrl = await harness.generateThumbnailAtTime(media, span.trimStartSeconds)
+            const exactUrl = await harness.generateThumbnailAtTime(
+              media,
+              span.trimStartSeconds,
+            );
             return exactUrl || fallbackUrl
               ? {
                   cacheKey,
-                  url: exactUrl ?? fallbackUrl ?? '',
+                  url: exactUrl ?? fallbackUrl ?? "",
                 }
-              : null
+              : null;
           } catch (error) {
-            logClient('sourceThumbnail:error', {
+            logClient("sourceThumbnail:error", {
               spanId: span.id,
               mediaId: media.id,
               message: error instanceof Error ? error.message : String(error),
-            })
-            return fallbackUrl ? { cacheKey, url: fallbackUrl } : null
+            });
+            return fallbackUrl ? { cacheKey, url: fallbackUrl } : null;
           }
         }),
-      )
+      );
 
       const nextEntries = resolved.filter(
         (entry): entry is { cacheKey: string; url: string } => Boolean(entry),
-      )
+      );
       if (cancelled) {
-        const currentUrls = new Set(Object.values(sourceThumbnailUrlsRef.current))
+        const currentUrls = new Set(
+          Object.values(sourceThumbnailUrlsRef.current),
+        );
         for (const entry of nextEntries) {
           if (!currentUrls.has(entry.url)) {
-            revokeObjectUrlIfNeeded(entry.url)
+            revokeObjectUrlIfNeeded(entry.url);
           }
         }
-        return
+        return;
       }
 
       if (!nextEntries.length) {
-        return
+        return;
       }
 
-      const activeSpanIds = new Set(sourceSpans.map((span) => getSourceThumbnailCacheKey(span)))
+      const activeSpanIds = new Set(
+        sourceSpans.map((span) => getSourceThumbnailCacheKey(span)),
+      );
       setSourceThumbnailUrls((current) => {
-        const next = { ...current }
-        let changed = false
+        const next = { ...current };
+        let changed = false;
 
         for (const entry of nextEntries) {
           if (!activeSpanIds.has(entry.cacheKey)) {
-            revokeObjectUrlIfNeeded(entry.url)
-            continue
+            revokeObjectUrlIfNeeded(entry.url);
+            continue;
           }
 
-          const previousUrl = next[entry.cacheKey]
+          const previousUrl = next[entry.cacheKey];
           if (previousUrl === entry.url) {
-            continue
+            continue;
           }
 
-          revokeObjectUrlIfNeeded(previousUrl)
-          next[entry.cacheKey] = entry.url
-          changed = true
+          revokeObjectUrlIfNeeded(previousUrl);
+          next[entry.cacheKey] = entry.url;
+          changed = true;
         }
 
         if (!changed) {
           for (const entry of nextEntries) {
             if (current[entry.cacheKey] !== entry.url) {
-              revokeObjectUrlIfNeeded(entry.url)
+              revokeObjectUrlIfNeeded(entry.url);
             }
           }
-          return current
+          return current;
         }
 
-        sourceThumbnailUrlsRef.current = next
-        return next
-      })
+        sourceThumbnailUrlsRef.current = next;
+        return next;
+      });
     }
 
     if (sourceSpans.length) {
-      void populateSourceThumbnails()
+      void populateSourceThumbnails();
     }
 
     return () => {
-      cancelled = true
-    }
-  }, [mediaItems, sourceSpans])
+      cancelled = true;
+    };
+  }, [mediaItems, sourceSpans]);
 
   useEffect(() => {
     return () => {
       for (const url of Object.values(sourceThumbnailUrlsRef.current)) {
-        revokeObjectUrlIfNeeded(url)
+        revokeObjectUrlIfNeeded(url);
       }
-    }
-  }, [])
+    };
+  }, []);
 
-  function syncTimelineViewport() {
-    const timelineScroll = timelineScrollRef.current
+  const syncTimelineViewport = useCallback(() => {
+    const timelineScroll = timelineScrollRef.current;
     if (!timelineScroll) {
-      return
+      return;
     }
 
     setTimelineViewport({
       scrollLeft: timelineScroll.scrollLeft,
       clientWidth: timelineScroll.clientWidth,
-    })
-  }
+    });
+  }, []);
 
   const flushZoomDraft = useCallback(
-    (label = 'Adjust zoom') => {
-      const pendingZoom = zoomDraftRef.current
-      updateZoomDraft(null)
+    (label = "Adjust zoom") => {
+      const pendingZoom = zoomDraftRef.current;
+      updateZoomDraft(null);
       if (pendingZoom === null || Math.abs(pendingZoom - zoom) <= 0.0001) {
-        return
+        return;
       }
 
-      commitProjectPatch(label, { zoom: pendingZoom })
+      commitProjectPatch(label, { zoom: pendingZoom });
     },
-    [commitProjectPatch, zoom],
-  )
+    [commitProjectPatch, zoom, updateZoomDraft],
+  );
 
   function handleCreateLayer() {
     if (!canCreateLayer) {
-      setStatus(`You already have the maximum of ${MAX_LAYERS} layers.`)
-      return
+      setStatus(`You already have the maximum of ${MAX_LAYERS} layers.`);
+      return;
     }
 
-    const nextLayerNumber = getNextLaneNumber(lanes)
+    const nextLayerNumber = getNextLaneNumber(lanes);
     const nextLane: Lane = {
       id: createLaneId(lanes),
       name: `Layer ${nextLayerNumber}`,
       colorIndex: -1,
-    }
+    };
 
-    commitProjectChange('Create layer', (current) =>
+    commitProjectChange("Create layer", (current) =>
       patchProjectState(current, {
         lanes: [...current.lanes, nextLane],
       }),
-    )
-    setStatus(`Created ${nextLane.name}.`)
+    );
+    setStatus(`Created ${nextLane.name}.`);
   }
 
   function scrollTimelineToPlayhead() {
-    const timelineScroll = timelineScrollRef.current
+    const timelineScroll = timelineScrollRef.current;
     if (!timelineScroll) {
-      return
+      return;
     }
 
-    const playheadPx = LABEL_WIDTH + playheadTimelinePx
+    const playheadPx = LABEL_WIDTH + playheadTimelinePx;
     const targetLeft = clamp(
       playheadPx - timelineScroll.clientWidth / 2,
       0,
       Math.max(0, LABEL_WIDTH + timelineWidth - timelineScroll.clientWidth),
-    )
+    );
 
     timelineScroll.scrollTo({
       left: targetLeft,
-      behavior: 'smooth',
-    })
+      behavior: "smooth",
+    });
   }
 
   const startPlayback = useCallback(() => {
-    const epsilon = 0.0001
-    const stopQ = getPlaybackStopQ(timelineClips, projectMediaItems, playheadQ, bpm)
+    const epsilon = 0.0001;
+    const stopQ = getPlaybackStopQ(
+      timelineClips,
+      projectMediaItems,
+      playheadQ,
+      bpm,
+    );
     if (stopQ <= playheadQ + epsilon) {
-      setStatus('No more playable source clips after the playhead.')
-      return
+      setStatus("No more playable source clips after the playhead.");
+      return;
     }
 
-    playbackOriginRef.current = playheadQ
-    playbackStopRef.current = stopQ
-    setIsPlaying(true)
-  }, [bpm, playheadQ, projectMediaItems, timelineClips])
+    playbackOriginRef.current = playheadQ;
+    playbackStopRef.current = stopQ;
+    setIsPlaying(true);
+  }, [bpm, playheadQ, projectMediaItems, timelineClips]);
 
   const createWindowClip = useCallback(
     (
@@ -2082,7 +2314,7 @@ function App() {
       sourceSpan: SourceSpan,
     ): ArrangementClip => {
       const sourceOffsetSeconds =
-        sourceSpan.trimStartSeconds - quartersToSeconds(sourceSpan.startQ, bpm)
+        sourceSpan.trimStartSeconds - quartersToSeconds(sourceSpan.startQ, bpm);
       return {
         id: `window-${crypto.randomUUID()}`,
         sourceSpanId: sourceSpan.id,
@@ -2093,28 +2325,32 @@ function App() {
         mediaId: sourceSpan.mediaId,
         startQ: selection.startQ,
         durationSeconds: quartersToSeconds(selection.durationQ, bpm),
-        trimStartSeconds: quartersToSeconds(selection.startQ, bpm) + sourceOffsetSeconds,
+        trimStartSeconds:
+          quartersToSeconds(selection.startQ, bpm) + sourceOffsetSeconds,
         sourceOffsetSeconds,
         sourceWindowStartSeconds: sourceSpan.trimStartSeconds,
-        sourceWindowEndSeconds: sourceSpan.trimStartSeconds + sourceSpan.durationSeconds,
+        sourceWindowEndSeconds:
+          sourceSpan.trimStartSeconds + sourceSpan.durationSeconds,
         tint: sourceSpan.tint,
         accent: sourceSpan.accent,
         selected: true,
-      }
+      };
     },
     [bpm],
-  )
+  );
 
   const commitPendingSelectionToSourceTrack = useCallback(
     (sourceIndex: number) => {
       if (!pendingSelection) {
-        return
+        return;
       }
 
-      const sourceTrack = sourceTracks[sourceIndex]
+      const sourceTrack = sourceTracks[sourceIndex];
       if (!sourceTrack) {
-        setStatus(`Source layer ${sourceIndex + 1} is not available in this session.`)
-        return
+        setStatus(
+          `Source layer ${sourceIndex + 1} is not available in this session.`,
+        );
+        return;
       }
 
       const sourceSpan = chooseSourceSpanForWindow(
@@ -2123,27 +2359,31 @@ function App() {
         pendingSelection.startQ,
         pendingSelection.durationQ,
         bpm,
-      )
+      );
       if (!sourceSpan) {
-        setStatus(`Source layer ${sourceIndex + 1} has no clip near this selection yet.`)
-        return
+        setStatus(
+          `Source layer ${sourceIndex + 1} has no clip near this selection yet.`,
+        );
+        return;
       }
 
-      const clip = createWindowClip(pendingSelection, sourceTrack, sourceSpan)
+      const clip = createWindowClip(pendingSelection, sourceTrack, sourceSpan);
       dispatchProject({
-        type: 'commit',
-        label: 'Create window',
+        type: "commit",
+        label: "Create window",
         updater: (current) =>
           patchProjectState(current, {
             clips: [...current.clips, clip],
           }),
-      })
-      setPendingSelection(null)
-      setSelectedClipId(clip.id)
-      setStatus(`Committed a window on ${sourceTrack.name} with key ${sourceIndex + 1}.`)
+      });
+      setPendingSelection(null);
+      setSelectedClipId(clip.id);
+      setStatus(
+        `Committed a window on ${sourceTrack.name} with key ${sourceIndex + 1}.`,
+      );
     },
     [bpm, createWindowClip, pendingSelection, sourceSpans, sourceTracks],
-  )
+  );
 
   function getRandomizationTimelineEndQ() {
     return getTimelineContentEndQ(
@@ -2152,106 +2392,133 @@ function App() {
       masterAudio?.durationSeconds,
       bpm,
       barLength,
-    )
+    );
   }
 
   function buildRandomizedArrangementClips() {
-    const timelineEndQ = getRandomizationTimelineEndQ()
-    const stepQ = barLength * RANDOM_SELECTION_BAR_INCREMENT
+    const timelineEndQ = getRandomizationTimelineEndQ();
+    const stepQ = barLength * RANDOM_SELECTION_BAR_INCREMENT;
     const durationSteps = Array.from(
-      { length: Math.round(RANDOM_SELECTION_MAX_BARS / RANDOM_SELECTION_BAR_INCREMENT) },
+      {
+        length: Math.round(
+          RANDOM_SELECTION_MAX_BARS / RANDOM_SELECTION_BAR_INCREMENT,
+        ),
+      },
       (_, index) => (index + 1) * stepQ,
-    )
-    const nextAvailableByLane = new Map(lanes.map((lane) => [lane.id, 0]))
-    const randomizedClips: ArrangementClip[] = []
-    const epsilon = 0.0001
-    const stepCount = Math.max(1, Math.ceil(timelineEndQ / stepQ))
+    );
+    const nextAvailableByLane = new Map(lanes.map((lane) => [lane.id, 0]));
+    const randomizedClips: ArrangementClip[] = [];
+    const epsilon = 0.0001;
+    const stepCount = Math.max(1, Math.ceil(timelineEndQ / stepQ));
 
     for (let stepIndex = 0; stepIndex < stepCount; stepIndex += 1) {
-      const startQ = stepIndex * stepQ
+      const startQ = stepIndex * stepQ;
       if (startQ >= timelineEndQ - epsilon) {
-        break
+        break;
       }
 
       for (const [laneIndex, lane] of lanes.entries()) {
-        const nextAvailableQ = nextAvailableByLane.get(lane.id) ?? 0
+        const nextAvailableQ = nextAvailableByLane.get(lane.id) ?? 0;
         if (startQ < nextAvailableQ - epsilon) {
-          continue
+          continue;
         }
 
-        const layerChance = laneIndex === 0 ? 1 : 0.5 ** laneIndex
+        const layerChance = laneIndex === 0 ? 1 : 0.5 ** laneIndex;
         if (randomFloat() > layerChance) {
-          continue
+          continue;
         }
 
-        const validDurations = durationSteps.filter((durationQ) => startQ + durationQ <= timelineEndQ + epsilon)
+        const validDurations = durationSteps.filter(
+          (durationQ) => startQ + durationQ <= timelineEndQ + epsilon,
+        );
         if (!validDurations.length) {
-          continue
+          continue;
         }
 
-        const durationQ = pickRandom(validDurations) ?? validDurations[0]
+        const durationQ = pickRandom(validDurations) ?? validDurations[0];
         const selection: TimelineSelection = {
           id: `selection-random-${lane.id}-${stepIndex}`,
           laneId: lane.id,
           startQ,
           durationQ,
-        }
+        };
         const candidateSources = sourceTracks
           .map((sourceTrack) => ({
             sourceTrack,
-            sourceSpan: chooseSourceSpanForWindow(sourceSpans, sourceTrack.id, startQ, durationQ, bpm),
+            sourceSpan: chooseSourceSpanForWindow(
+              sourceSpans,
+              sourceTrack.id,
+              startQ,
+              durationQ,
+              bpm,
+            ),
           }))
           .filter(
-            (candidate): candidate is { sourceTrack: SourceTrack; sourceSpan: SourceSpan } =>
-              Boolean(candidate.sourceSpan),
-          )
+            (
+              candidate,
+            ): candidate is {
+              sourceTrack: SourceTrack;
+              sourceSpan: SourceSpan;
+            } => Boolean(candidate.sourceSpan),
+          );
 
         if (!candidateSources.length) {
-          continue
+          continue;
         }
 
-        const pickedSource = pickRandom(candidateSources) ?? candidateSources[0]
-        randomizedClips.push(createWindowClip(selection, pickedSource.sourceTrack, pickedSource.sourceSpan))
-        nextAvailableByLane.set(lane.id, startQ + durationQ)
+        const pickedSource =
+          pickRandom(candidateSources) ?? candidateSources[0];
+        randomizedClips.push(
+          createWindowClip(
+            selection,
+            pickedSource.sourceTrack,
+            pickedSource.sourceSpan,
+          ),
+        );
+        nextAvailableByLane.set(lane.id, startQ + durationQ);
       }
     }
 
     return randomizedClips.map((clip, index) => ({
       ...clip,
       selected: index === 0,
-    }))
+    }));
   }
 
   function handleRandomizeTimeline() {
     if (!sourceTracks.length || !sourceSpans.length) {
-      setStatus('Open a session or import source media before randomizing the arrangement.')
-      return
+      setStatus(
+        "Open a session or import source media before randomizing the arrangement.",
+      );
+      return;
     }
 
-    const randomizedClips = buildRandomizedArrangementClips()
+    const randomizedClips = buildRandomizedArrangementClips();
     if (!randomizedClips.length) {
-      setStatus('No randomized windows could be generated from the current source timeline.')
-      return
+      setStatus(
+        "No randomized windows could be generated from the current source timeline.",
+      );
+      return;
     }
 
-    setIsPlaying(false)
-    setPendingSelection(null)
-    setDragPreviewClips(null)
-    commitProjectChange('Randomize arrangement', (current) =>
+    setIsPlaying(false);
+    setPendingSelection(null);
+    setDragPreviewClips(null);
+    commitProjectChange("Randomize arrangement", (current) =>
       patchProjectState(current, {
         clips: randomizedClips,
       }),
-    )
-    setSelectedClipId(randomizedClips[0]?.id)
-    setPlayheadQ(0)
-    playbackOriginRef.current = 0
+    );
+    setSelectedClipId(randomizedClips[0]?.id);
+    setPlayheadQ(0);
+    playbackOriginRef.current = 0;
     setStatus(
       `Rebuilt the arrangement with ${randomizedClips.length} randomized windows on a quarter-bar grid.`,
-    )
+    );
   }
 
   function updateExportState(
-    phase: ExportState['phase'],
+    phase: ExportState["phase"],
     detail: string,
     progress: number | null = null,
   ) {
@@ -2259,178 +2526,180 @@ function App() {
       phase,
       detail,
       progress,
-    })
-    setStatus(detail)
+    });
+    setStatus(detail);
   }
 
   const stopTimelineAudibleScrub = useCallback(() => {
     if (timelineScrubAudioTimeoutRef.current !== null) {
-      window.clearTimeout(timelineScrubAudioTimeoutRef.current)
-      timelineScrubAudioTimeoutRef.current = null
+      window.clearTimeout(timelineScrubAudioTimeoutRef.current);
+      timelineScrubAudioTimeoutRef.current = null;
     }
 
-    setIsTimelineAudibleScrubbing(false)
-  }, [])
+    setIsTimelineAudibleScrubbing(false);
+  }, []);
 
   const pulseTimelineAudibleScrub = useCallback(() => {
     if (timelineScrubAudioTimeoutRef.current !== null) {
-      window.clearTimeout(timelineScrubAudioTimeoutRef.current)
+      window.clearTimeout(timelineScrubAudioTimeoutRef.current);
     }
 
-    setIsTimelineAudibleScrubbing(true)
+    setIsTimelineAudibleScrubbing(true);
     timelineScrubAudioTimeoutRef.current = window.setTimeout(() => {
-      timelineScrubAudioTimeoutRef.current = null
-      setIsTimelineAudibleScrubbing(false)
-    }, TIMELINE_SCRUB_AUDIO_TAIL_MS)
-  }, [])
+      timelineScrubAudioTimeoutRef.current = null;
+      setIsTimelineAudibleScrubbing(false);
+    }, TIMELINE_SCRUB_AUDIO_TAIL_MS);
+  }, []);
 
   const handleUndo = useCallback(() => {
     if (!undoLabel || isExporting) {
-      return
+      return;
     }
 
-    stopTimelineAudibleScrub()
-    setIsPlaying(false)
-    setDragPreviewClips(null)
-    setDragState(null)
-    setPendingSelection(null)
-    setTimelineDragState(null)
-    dispatchProject({ type: 'undo' })
-    setStatus(formatHistoryStatus('Undid', undoLabel))
-  }, [isExporting, stopTimelineAudibleScrub, undoLabel])
+    stopTimelineAudibleScrub();
+    setIsPlaying(false);
+    setDragPreviewClips(null);
+    setDragState(null);
+    setPendingSelection(null);
+    setTimelineDragState(null);
+    dispatchProject({ type: "undo" });
+    setStatus(formatHistoryStatus("Undid", undoLabel));
+  }, [isExporting, stopTimelineAudibleScrub, undoLabel]);
 
   const handleRedo = useCallback(() => {
     if (!redoLabel || isExporting) {
-      return
+      return;
     }
 
-    stopTimelineAudibleScrub()
-    setIsPlaying(false)
-    setDragPreviewClips(null)
-    setDragState(null)
-    setPendingSelection(null)
-    setTimelineDragState(null)
-    dispatchProject({ type: 'redo' })
-    setStatus(formatHistoryStatus('Redid', redoLabel))
-  }, [isExporting, redoLabel, stopTimelineAudibleScrub])
+    stopTimelineAudibleScrub();
+    setIsPlaying(false);
+    setDragPreviewClips(null);
+    setDragState(null);
+    setPendingSelection(null);
+    setTimelineDragState(null);
+    dispatchProject({ type: "redo" });
+    setStatus(formatHistoryStatus("Redid", redoLabel));
+  }, [isExporting, redoLabel, stopTimelineAudibleScrub]);
 
   useEffect(() => {
-    projectSnapshotRef.current = projectHistory.present
-  }, [projectHistory.present])
+    projectSnapshotRef.current = projectHistory.present;
+  }, [projectHistory.present]);
 
   useEffect(() => {
-    localMediaOverridesRef.current = localMediaOverrides
-  }, [localMediaOverrides])
+    localMediaOverridesRef.current = localMediaOverrides;
+  }, [localMediaOverrides]);
 
   useEffect(
     () => () => {
       for (const url of mediaObjectUrlsRef.current.values()) {
-        URL.revokeObjectURL(url)
+        URL.revokeObjectURL(url);
       }
-      mediaObjectUrlsRef.current.clear()
+      mediaObjectUrlsRef.current.clear();
     },
     [],
-  )
+  );
 
   useEffect(() => {
-    const activeIds = new Set(projectMediaItems.map((item) => item.id))
+    const activeIds = new Set(projectMediaItems.map((item) => item.id));
     setLocalMediaOverrides((current) => {
-      let changed = false
-      const next: Record<string, LocalMediaOverride> = {}
+      let changed = false;
+      const next: Record<string, LocalMediaOverride> = {};
       for (const [mediaId, override] of Object.entries(current)) {
         if (!activeIds.has(mediaId)) {
-          const previewUrl = mediaObjectUrlsRef.current.get(mediaId)
+          const previewUrl = mediaObjectUrlsRef.current.get(mediaId);
           if (previewUrl) {
-            URL.revokeObjectURL(previewUrl)
-            mediaObjectUrlsRef.current.delete(mediaId)
+            URL.revokeObjectURL(previewUrl);
+            mediaObjectUrlsRef.current.delete(mediaId);
           }
-          changed = true
-          continue
+          changed = true;
+          continue;
         }
 
-        next[mediaId] = override
+        next[mediaId] = override;
       }
 
-      return changed ? next : current
-    })
-  }, [projectMediaItems])
+      return changed ? next : current;
+    });
+  }, [projectMediaItems]);
 
   useEffect(() => {
-    let cancelled = false
+    let cancelled = false;
 
     for (const item of projectMediaItems) {
-      const override = localMediaOverridesRef.current[item.id]
-      const effectivePreviewUrl = override?.previewUrl ?? item.previewUrl
-      const effectiveAvailability = override?.availability ?? item.availability
-      if (effectivePreviewUrl || effectiveAvailability === 'ready') {
-        continue
+      const override = localMediaOverridesRef.current[item.id];
+      const effectivePreviewUrl = override?.previewUrl ?? item.previewUrl;
+      const effectiveAvailability = override?.availability ?? item.availability;
+      if (effectivePreviewUrl || effectiveAvailability === "ready") {
+        continue;
       }
 
       if (mediaHydrationInFlightRef.current.has(item.id)) {
-        continue
+        continue;
       }
 
-      mediaHydrationInFlightRef.current.add(item.id)
-      setLocalMediaOverride(item.id, { availability: item.sourcePath ? 'hydrating' : 'offline' })
+      mediaHydrationInFlightRef.current.add(item.id);
+      setLocalMediaOverride(item.id, {
+        availability: item.sourcePath ? "hydrating" : "offline",
+      });
 
       void (async () => {
         try {
-          const cachedBlob = await getCachedMediaBlob(item.id)
+          const cachedBlob = await getCachedMediaBlob(item.id);
           if (cachedBlob) {
             if (cancelled) {
-              return
+              return;
             }
 
-            const previewUrl = URL.createObjectURL(cachedBlob)
-            mediaObjectUrlsRef.current.set(item.id, previewUrl)
+            const previewUrl = URL.createObjectURL(cachedBlob);
+            mediaObjectUrlsRef.current.set(item.id, previewUrl);
             setLocalMediaOverride(item.id, {
-              availability: 'ready',
+              availability: "ready",
               previewUrl,
-            })
-            return
+            });
+            return;
           }
 
           if (!item.sourcePath && !item.previewUrl) {
             if (!cancelled) {
-              setLocalMediaOverride(item.id, { availability: 'offline' })
+              setLocalMediaOverride(item.id, { availability: "offline" });
             }
-            return
+            return;
           }
 
-          const blob = await getHarness().readMediaBlob(item)
-          await cacheMediaBlob(item.id, blob)
+          const blob = await getHarness().readMediaBlob(item);
+          await cacheMediaBlob(item.id, blob);
           if (cancelled) {
-            return
+            return;
           }
 
-          const previewUrl = URL.createObjectURL(blob)
-          mediaObjectUrlsRef.current.set(item.id, previewUrl)
+          const previewUrl = URL.createObjectURL(blob);
+          mediaObjectUrlsRef.current.set(item.id, previewUrl);
           setLocalMediaOverride(item.id, {
-            availability: 'ready',
+            availability: "ready",
             previewUrl,
-          })
+          });
         } catch (error) {
-          logClient('media:hydrate:error', {
+          logClient("media:hydrate:error", {
             mediaId: item.id,
             message: error instanceof Error ? error.message : String(error),
-          })
+          });
           if (!cancelled) {
-            setLocalMediaOverride(item.id, { availability: 'offline' })
+            setLocalMediaOverride(item.id, { availability: "offline" });
           }
         } finally {
-          mediaHydrationInFlightRef.current.delete(item.id)
+          mediaHydrationInFlightRef.current.delete(item.id);
         }
-      })()
+      })();
     }
 
     return () => {
-      cancelled = true
-    }
-  }, [projectMediaItems])
+      cancelled = true;
+    };
+  }, [projectMediaItems, setLocalMediaOverride]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      return
+    if (typeof window === "undefined") {
+      return;
     }
 
     try {
@@ -2441,43 +2710,45 @@ function App() {
           name: collaborationName,
           color: collaborationColor,
         }),
-      )
+      );
     } catch (error) {
-      logClient('collaboration:storage:write:error', {
+      logClient("collaboration:storage:write:error", {
         message: error instanceof Error ? error.message : String(error),
-      })
+      });
     }
-  }, [collaborationColor, collaborationName, collaborationRoom, collaborationSignaling])
+  }, [collaborationColor, collaborationName, collaborationSignaling]);
 
   const applyRemoteProjectState = useCallback(
     (snapshot: ProjectState) => {
-      if (JSON.stringify(projectSnapshotRef.current) === JSON.stringify(snapshot)) {
-        return
+      if (
+        JSON.stringify(projectSnapshotRef.current) === JSON.stringify(snapshot)
+      ) {
+        return;
       }
 
-      setIsPlaying(false)
-      stopTimelineAudibleScrub()
-      setDragPreviewClips(null)
-      setDragState(null)
-      setPendingSelection(null)
-      setTimelineDragState(null)
-      dispatchProject({ type: 'replace', snapshot })
+      setIsPlaying(false);
+      stopTimelineAudibleScrub();
+      setDragPreviewClips(null);
+      setDragState(null);
+      setPendingSelection(null);
+      setTimelineDragState(null);
+      dispatchProject({ type: "replace", snapshot });
     },
     [stopTimelineAudibleScrub],
-  )
+  );
 
   useEffect(() => {
-    if (collaborationMode === 'idle') {
-      collaborationControllerRef.current?.destroy()
-      collaborationControllerRef.current = null
-      return
+    if (collaborationMode === "idle") {
+      collaborationControllerRef.current?.destroy();
+      collaborationControllerRef.current = null;
+      return;
     }
 
-    const roomName = collaborationRoom.trim()
+    const roomName = collaborationRoom.trim();
     if (!roomName) {
-      collaborationControllerRef.current?.destroy()
-      collaborationControllerRef.current = null
-      return
+      collaborationControllerRef.current?.destroy();
+      collaborationControllerRef.current = null;
+      return;
     }
 
     const controller = createCollaborationController<ProjectState>({
@@ -2492,16 +2763,16 @@ function App() {
       },
       onRemoteState: applyRemoteProjectState,
       onConnectionState: setCollaborationState,
-    })
+    });
 
-    collaborationControllerRef.current = controller
+    collaborationControllerRef.current = controller;
 
     return () => {
       if (collaborationControllerRef.current === controller) {
-        collaborationControllerRef.current = null
+        collaborationControllerRef.current = null;
       }
-      controller.destroy()
-    }
+      controller.destroy();
+    };
   }, [
     applyRemoteProjectState,
     collaborationColor,
@@ -2511,237 +2782,265 @@ function App() {
     collaborationSignaling,
     initialCollaborationConfig.name,
     collaborationMode,
-  ])
+  ]);
 
   useEffect(() => {
     collaborationControllerRef.current?.updateUser({
       name: collaborationName.trim() || initialCollaborationConfig.name,
       color: collaborationColor,
-    })
-  }, [collaborationColor, collaborationName, initialCollaborationConfig.name])
+    });
+  }, [collaborationColor, collaborationName, initialCollaborationConfig.name]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      return
+    if (typeof window === "undefined") {
+      return;
     }
 
     const pushCursor = (cursor: { x: number; y: number } | null) => {
-      const nextKey = cursor ? `${cursor.x.toFixed(3)}:${cursor.y.toFixed(3)}` : ''
+      const nextKey = cursor
+        ? `${cursor.x.toFixed(3)}:${cursor.y.toFixed(3)}`
+        : "";
       if (lastCollaborationCursorRef.current === nextKey) {
-        return
+        return;
       }
 
-      lastCollaborationCursorRef.current = nextKey
-      collaborationControllerRef.current?.updateCursor(cursor)
-    }
+      lastCollaborationCursorRef.current = nextKey;
+      collaborationControllerRef.current?.updateCursor(cursor);
+    };
 
-    if (collaborationMode === 'idle') {
-      pushCursor(null)
-      return
+    if (collaborationMode === "idle") {
+      pushCursor(null);
+      return;
     }
 
     const handlePointerMove = (event: PointerEvent) => {
-      const appShell = appShellRef.current
+      const appShell = appShellRef.current;
       if (!appShell) {
-        return
+        return;
       }
 
-      const bounds = appShell.getBoundingClientRect()
+      const bounds = appShell.getBoundingClientRect();
       if (bounds.width <= 0 || bounds.height <= 0) {
-        pushCursor(null)
-        return
+        pushCursor(null);
+        return;
       }
 
       const insideBounds =
         event.clientX >= bounds.left &&
         event.clientX <= bounds.right &&
         event.clientY >= bounds.top &&
-        event.clientY <= bounds.bottom
+        event.clientY <= bounds.bottom;
 
       if (!insideBounds) {
-        pushCursor(null)
-        return
+        pushCursor(null);
+        return;
       }
 
       pushCursor({
         x: (event.clientX - bounds.left) / bounds.width,
         y: (event.clientY - bounds.top) / bounds.height,
-      })
-    }
+      });
+    };
 
     const clearCursor = () => {
-      pushCursor(null)
-    }
+      pushCursor(null);
+    };
 
-    window.addEventListener('pointermove', handlePointerMove)
-    window.addEventListener('blur', clearCursor)
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("blur", clearCursor);
 
     return () => {
-      window.removeEventListener('pointermove', handlePointerMove)
-      window.removeEventListener('blur', clearCursor)
-      clearCursor()
-    }
-  }, [collaborationMode])
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("blur", clearCursor);
+      clearCursor();
+    };
+  }, [collaborationMode]);
 
   useEffect(() => {
-    collaborationControllerRef.current?.pushState(projectHistory.present)
-  }, [projectHistory.present])
+    collaborationControllerRef.current?.pushState(projectHistory.present);
+  }, [projectHistory.present]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!pendingSelection) {
-        return
+        return;
       }
 
       if (isEditableEventTarget(event.target)) {
-        return
+        return;
       }
 
-      if (event.key === 'Escape') {
-        setPendingSelection(null)
-        return
+      if (event.key === "Escape") {
+        setPendingSelection(null);
+        return;
       }
 
-      const sourceIndex = Number.parseInt(event.key, 10) - 1
+      const sourceIndex = Number.parseInt(event.key, 10) - 1;
       if (!Number.isInteger(sourceIndex) || sourceIndex < 0) {
-        return
+        return;
       }
 
-      event.preventDefault()
-      commitPendingSelectionToSourceTrack(sourceIndex)
-    }
+      event.preventDefault();
+      commitPendingSelectionToSourceTrack(sourceIndex);
+    };
 
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [commitPendingSelectionToSourceTrack, pendingSelection])
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [commitPendingSelectionToSourceTrack, pendingSelection]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (isEditableEventTarget(event.target)) {
-        return
+        return;
       }
 
       if (!event.metaKey && !event.ctrlKey) {
-        return
+        return;
       }
 
-      const key = event.key.toLowerCase()
-      const shouldRedo = key === 'y' || (key === 'z' && event.shiftKey)
+      const key = event.key.toLowerCase();
+      const shouldRedo = key === "y" || (key === "z" && event.shiftKey);
       if (shouldRedo) {
-        event.preventDefault()
-        handleRedo()
-        return
+        event.preventDefault();
+        handleRedo();
+        return;
       }
 
-      if (key !== 'z') {
-        return
+      if (key !== "z") {
+        return;
       }
 
-      event.preventDefault()
-      handleUndo()
-    }
+      event.preventDefault();
+      handleUndo();
+    };
 
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [handleRedo, handleUndo])
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [handleRedo, handleUndo]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (isEditableEventTarget(event.target) || dragState || timelineDragState) {
-        return
+      if (
+        isEditableEventTarget(event.target) ||
+        dragState ||
+        timelineDragState
+      ) {
+        return;
       }
 
-      const hasPrimaryModifier = event.metaKey || event.ctrlKey
-      const hasSystemModifier = hasPrimaryModifier || event.altKey
-      const key = event.key.toLowerCase()
-      if (hasPrimaryModifier && key === 'c') {
+      const hasPrimaryModifier = event.metaKey || event.ctrlKey;
+      const hasSystemModifier = hasPrimaryModifier || event.altKey;
+      const key = event.key.toLowerCase();
+      if (hasPrimaryModifier && key === "c") {
         if (!selectedClip || isExporting) {
-          return
+          return;
         }
 
-        event.preventDefault()
-        clipClipboardRef.current = { ...selectedClip }
-        setStatus(`Copied ${selectedClip.label}.`)
-        return
+        event.preventDefault();
+        clipClipboardRef.current = { ...selectedClip };
+        setStatus(`Copied ${selectedClip.label}.`);
+        return;
       }
 
-      if (hasPrimaryModifier && key === 'x') {
+      if (hasPrimaryModifier && key === "x") {
         if (!selectedClip || isExporting) {
-          return
+          return;
         }
 
-        event.preventDefault()
-        clipClipboardRef.current = { ...selectedClip }
+        event.preventDefault();
+        clipClipboardRef.current = { ...selectedClip };
         const nextSelectedClipId =
-          timelineClips.find((clip) => clip.id !== selectedClip.id && clip.laneId === selectedClip.laneId)?.id ??
-          timelineClips.find((clip) => clip.id !== selectedClip.id)?.id
+          timelineClips.find(
+            (clip) =>
+              clip.id !== selectedClip.id &&
+              clip.laneId === selectedClip.laneId,
+          )?.id ??
+          timelineClips.find((clip) => clip.id !== selectedClip.id)?.id;
 
         dispatchProject({
-          type: 'commit',
-          label: 'Cut clip',
+          type: "commit",
+          label: "Cut clip",
           updater: (current) =>
             patchProjectState(current, {
-              clips: current.clips.filter((clip) => clip.id !== selectedClip.id),
+              clips: current.clips.filter(
+                (clip) => clip.id !== selectedClip.id,
+              ),
             }),
-        })
-        setSelectedClipId(nextSelectedClipId)
-        setPendingSelection(null)
-        setStatus(`Cut ${selectedClip.label}.`)
-        return
+        });
+        setSelectedClipId(nextSelectedClipId);
+        setPendingSelection(null);
+        setStatus(`Cut ${selectedClip.label}.`);
+        return;
       }
 
-      if (hasPrimaryModifier && key === 'v') {
-        const clipboardClip = clipClipboardRef.current
+      if (hasPrimaryModifier && key === "v") {
+        const clipboardClip = clipClipboardRef.current;
         if (!clipboardClip || isExporting) {
-          return
+          return;
         }
 
-        event.preventDefault()
-        const pastedClipId = `window-${crypto.randomUUID()}`
+        event.preventDefault();
+        const pastedClipId = `window-${crypto.randomUUID()}`;
         dispatchProject({
-          type: 'commit',
-          label: 'Paste clip',
+          type: "commit",
+          label: "Paste clip",
           updater: (current) => {
-            const pastedClip = cloneClipAtStartQ(clipboardClip, current.bpm, playheadQ, pastedClipId)
+            const pastedClip = cloneClipAtStartQ(
+              clipboardClip,
+              current.bpm,
+              playheadQ,
+              pastedClipId,
+            );
             return patchProjectState(current, {
-              clips: resolveClipOverlaps([...current.clips, pastedClip], pastedClip, current.bpm),
-            })
+              clips: resolveClipOverlaps(
+                [...current.clips, pastedClip],
+                pastedClip,
+                current.bpm,
+              ),
+            });
           },
-        })
-        setSelectedClipId(pastedClipId)
-        setPendingSelection(null)
-        setStatus(`Pasted ${clipboardClip.label}.`)
-        return
+        });
+        setSelectedClipId(pastedClipId);
+        setPendingSelection(null);
+        setStatus(`Pasted ${clipboardClip.label}.`);
+        return;
       }
 
-      if (hasPrimaryModifier && key === 'e') {
+      if (hasPrimaryModifier && key === "e") {
         if (!selectedClip || isExporting) {
-          return
+          return;
         }
 
-        event.preventDefault()
-        const clipEndQ = getClipEndQ(selectedClip, bpm)
-        const epsilon = 0.0001
-        if (playheadQ <= selectedClip.startQ + epsilon || playheadQ >= clipEndQ - epsilon) {
-          setStatus(`Move the playhead inside ${selectedClip.label} to split it.`)
-          return
+        event.preventDefault();
+        const clipEndQ = getClipEndQ(selectedClip, bpm);
+        const epsilon = 0.0001;
+        if (
+          playheadQ <= selectedClip.startQ + epsilon ||
+          playheadQ >= clipEndQ - epsilon
+        ) {
+          setStatus(
+            `Move the playhead inside ${selectedClip.label} to split it.`,
+          );
+          return;
         }
 
-        const splitClipId = `window-${crypto.randomUUID()}`
+        const splitClipId = `window-${crypto.randomUUID()}`;
         dispatchProject({
-          type: 'commit',
-          label: 'Split clip',
+          type: "commit",
+          label: "Split clip",
           updater: (current) => {
-            const sourceClip = current.clips.find((clip) => clip.id === selectedClip.id)
+            const sourceClip = current.clips.find(
+              (clip) => clip.id === selectedClip.id,
+            );
             if (!sourceClip) {
-              return current
+              return current;
             }
 
-            const sourceClipEndQ = getClipEndQ(sourceClip, current.bpm)
-            const leftDurationQ = playheadQ - sourceClip.startQ
-            const rightDurationQ = sourceClipEndQ - playheadQ
+            const sourceClipEndQ = getClipEndQ(sourceClip, current.bpm);
+            const leftDurationQ = playheadQ - sourceClip.startQ;
+            const rightDurationQ = sourceClipEndQ - playheadQ;
             if (leftDurationQ <= epsilon || rightDurationQ <= epsilon) {
-              return current
+              return current;
             }
 
             const leftClip = withWindowTiming(
@@ -2752,7 +3051,7 @@ function App() {
               sourceClip.startQ,
               leftDurationQ,
               current.bpm,
-            )
+            );
             const rightClip = withWindowTiming(
               {
                 ...sourceClip,
@@ -2762,129 +3061,150 @@ function App() {
               playheadQ,
               rightDurationQ,
               current.bpm,
-            )
+            );
 
             return patchProjectState(current, {
               clips: current.clips.flatMap((clip) =>
                 clip.id === sourceClip.id ? [leftClip, rightClip] : [clip],
               ),
-            })
+            });
           },
-        })
-        setSelectedClipId(splitClipId)
-        setPendingSelection(null)
-        setStatus(`Split ${selectedClip.label} at the playhead.`)
-        return
+        });
+        setSelectedClipId(splitClipId);
+        setPendingSelection(null);
+        setStatus(`Split ${selectedClip.label} at the playhead.`);
+        return;
       }
 
-      if (hasPrimaryModifier && key === 'd') {
+      if (hasPrimaryModifier && key === "d") {
         if (!selectedClip || isExporting) {
-          return
+          return;
         }
 
-        event.preventDefault()
-        const duplicatedClipId = `window-${crypto.randomUUID()}`
+        event.preventDefault();
+        const duplicatedClipId = `window-${crypto.randomUUID()}`;
         dispatchProject({
-          type: 'commit',
-          label: 'Duplicate clip',
+          type: "commit",
+          label: "Duplicate clip",
           updater: (current) => {
-            const sourceClip = current.clips.find((clip) => clip.id === selectedClip.id)
+            const sourceClip = current.clips.find(
+              (clip) => clip.id === selectedClip.id,
+            );
             if (!sourceClip) {
-              return current
+              return current;
             }
 
-            const duplicatedClip = duplicateClip(sourceClip, current.bpm, duplicatedClipId)
+            const duplicatedClip = duplicateClip(
+              sourceClip,
+              current.bpm,
+              duplicatedClipId,
+            );
             return patchProjectState(current, {
-              clips: resolveClipOverlaps([...current.clips, duplicatedClip], duplicatedClip, current.bpm),
-            })
+              clips: resolveClipOverlaps(
+                [...current.clips, duplicatedClip],
+                duplicatedClip,
+                current.bpm,
+              ),
+            });
           },
-        })
-        setSelectedClipId(duplicatedClipId)
-        setPendingSelection(null)
-        setStatus(`Duplicated ${selectedClip.label}.`)
-        return
+        });
+        setSelectedClipId(duplicatedClipId);
+        setPendingSelection(null);
+        setStatus(`Duplicated ${selectedClip.label}.`);
+        return;
       }
 
       if (hasSystemModifier) {
-        return
+        return;
       }
 
-      if (event.code === 'Space') {
+      if (event.code === "Space") {
         if (event.repeat) {
-          return
+          return;
         }
 
-        event.preventDefault()
+        event.preventDefault();
         if (!clips.length || isExporting) {
-          return
+          return;
         }
 
         if (isPlaying) {
-          setIsPlaying(false)
-          return
+          setIsPlaying(false);
+          return;
         }
 
-        startPlayback()
-        return
+        startPlayback();
+        return;
       }
 
-      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
         if (isExporting) {
-          return
+          return;
         }
 
-        event.preventDefault()
-        const direction = event.key === 'ArrowLeft' ? -1 : 1
-        const deltaQ = secondsToQuarters((direction * (event.shiftKey ? 5 : 1)) / fps, bpm)
-        const nextPlayheadQ = clamp(playheadQ + deltaQ, 0, totalQuarters)
-        setPlayheadQ(nextPlayheadQ)
-        playbackOriginRef.current = nextPlayheadQ
-        return
+        event.preventDefault();
+        const direction = event.key === "ArrowLeft" ? -1 : 1;
+        const deltaQ = secondsToQuarters(
+          (direction * (event.shiftKey ? 5 : 1)) / fps,
+          bpm,
+        );
+        const nextPlayheadQ = clamp(playheadQ + deltaQ, 0, totalQuarters);
+        setPlayheadQ(nextPlayheadQ);
+        playbackOriginRef.current = nextPlayheadQ;
+        return;
       }
 
-      if (event.key === 'Home' || event.key === 'End') {
+      if (event.key === "Home" || event.key === "End") {
         if (isExporting) {
-          return
+          return;
         }
 
-        event.preventDefault()
-        const lastFrameQ = Math.max(0, timelineContentEndQ - secondsToQuarters(1 / fps, bpm))
-        const nextPlayheadQ = event.key === 'Home' ? 0 : lastFrameQ
-        setPlayheadQ(nextPlayheadQ)
-        playbackOriginRef.current = nextPlayheadQ
-        return
+        event.preventDefault();
+        const lastFrameQ = Math.max(
+          0,
+          timelineContentEndQ - secondsToQuarters(1 / fps, bpm),
+        );
+        const nextPlayheadQ = event.key === "Home" ? 0 : lastFrameQ;
+        setPlayheadQ(nextPlayheadQ);
+        playbackOriginRef.current = nextPlayheadQ;
+        return;
       }
 
-      if (event.key === 'Delete' || event.key === 'Backspace') {
+      if (event.key === "Delete" || event.key === "Backspace") {
         if (!selectedClip || isExporting) {
-          return
+          return;
         }
 
-        event.preventDefault()
+        event.preventDefault();
         const nextSelectedClipId =
-          timelineClips.find((clip) => clip.id !== selectedClip.id && clip.laneId === selectedClip.laneId)?.id ??
-          timelineClips.find((clip) => clip.id !== selectedClip.id)?.id
+          timelineClips.find(
+            (clip) =>
+              clip.id !== selectedClip.id &&
+              clip.laneId === selectedClip.laneId,
+          )?.id ??
+          timelineClips.find((clip) => clip.id !== selectedClip.id)?.id;
 
         dispatchProject({
-          type: 'commit',
-          label: 'Delete clip',
+          type: "commit",
+          label: "Delete clip",
           updater: (current) =>
             patchProjectState(current, {
-              clips: current.clips.filter((clip) => clip.id !== selectedClip.id),
+              clips: current.clips.filter(
+                (clip) => clip.id !== selectedClip.id,
+              ),
             }),
-        })
-        setSelectedClipId(nextSelectedClipId)
-        setPendingSelection(null)
-        setStatus(`Deleted ${selectedClip.label}.`)
+        });
+        setSelectedClipId(nextSelectedClipId);
+        setPendingSelection(null);
+        setStatus(`Deleted ${selectedClip.label}.`);
       }
-    }
+    };
 
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [
     bpm,
     clips.length,
-    dispatchProject,
     dragState,
     fps,
     isExporting,
@@ -2896,94 +3216,118 @@ function App() {
     timelineContentEndQ,
     timelineDragState,
     totalQuarters,
-  ])
+  ]);
 
   useEffect(
     () => () => {
-      stopTimelineAudibleScrub()
+      stopTimelineAudibleScrub();
     },
     [stopTimelineAudibleScrub],
-  )
+  );
 
   useEffect(() => {
-    syncTimelineViewport()
+    syncTimelineViewport();
 
-    const handleResize = () => syncTimelineViewport()
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [timelineWidth])
+    const handleResize = () => syncTimelineViewport();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [syncTimelineViewport]);
 
   useEffect(() => {
     if (!dragState) {
-      return
+      return;
     }
 
     const onPointerMove = (event: PointerEvent) => {
       if (event.pointerId !== dragState.pointerId) {
-        return
+        return;
       }
 
-      const shouldSnap = snapEnabled && !event.shiftKey
+      const shouldSnap = snapEnabled && !event.shiftKey;
 
-      if (dragState.kind === 'selection') {
-        const timelineScroll = timelineScrollRef.current
+      if (dragState.kind === "selection") {
+        const timelineScroll = timelineScrollRef.current;
         if (!timelineScroll) {
-          return
+          return;
         }
 
-        const timelineBounds = timelineScroll.getBoundingClientRect()
-        const pointerX = event.clientX - timelineBounds.left
+        const timelineBounds = timelineScroll.getBoundingClientRect();
+        const pointerX = event.clientX - timelineBounds.left;
         const nextQ = snapQuarterValue(
-          clamp((timelineScroll.scrollLeft - LABEL_WIDTH + pointerX) / quarterPx, 0, totalQuarters),
+          clamp(
+            (timelineScroll.scrollLeft - LABEL_WIDTH + pointerX) / quarterPx,
+            0,
+            totalQuarters,
+          ),
           snapUnit,
           shouldSnap,
-        )
+        );
         setPendingSelection({
           id: `selection-${dragState.laneId}`,
           laneId: dragState.laneId,
           ...buildSelection(dragState.anchorQ, nextQ, minimumWindowQ),
-        })
-        return
+        });
+        return;
       }
 
-      const deltaQuarters = (event.clientX - dragState.pointerStartX) / quarterPx
+      const deltaQuarters =
+        (event.clientX - dragState.pointerStartX) / quarterPx;
 
-      if (dragState.kind === 'move') {
+      if (dragState.kind === "move") {
         const nextStartQ = clamp(
-          snapQuarterValue(dragState.originStartQ + deltaQuarters, snapUnit, shouldSnap),
+          snapQuarterValue(
+            dragState.originStartQ + deltaQuarters,
+            snapUnit,
+            shouldSnap,
+          ),
           0,
           Math.max(0, totalQuarters - dragState.originDurationQ - beatUnit),
-        )
-        const timelineScroll = timelineScrollRef.current
+        );
+        const timelineScroll = timelineScrollRef.current;
         const nextLaneId = timelineScroll
-          ? findClosestTimelineLaneId(timelineScroll, event.clientY, dragState.originLaneId)
-          : dragState.originLaneId
+          ? findClosestTimelineLaneId(
+              timelineScroll,
+              event.clientY,
+              dragState.originLaneId,
+            )
+          : dragState.originLaneId;
 
         if (dragState.duplicateOnDrag) {
           if (
             nextLaneId === dragState.originLaneId &&
-            Math.abs(nextStartQ - dragState.originStartQ) <= TIMELINE_DRAG_EPSILON
+            Math.abs(nextStartQ - dragState.originStartQ) <=
+              TIMELINE_DRAG_EPSILON
           ) {
-            setDragPreviewClips(null)
-            return
+            setDragPreviewClips(null);
+            return;
           }
 
-          const sourceClip = clips.find((clip) => clip.id === dragState.sourceClipId)
+          const sourceClip = clips.find(
+            (clip) => clip.id === dragState.sourceClipId,
+          );
           if (!sourceClip) {
-            return
+            return;
           }
 
           setDragPreviewClips(
             resolveClipOverlapPreview(
-              [...clips, cloneClipAtStartQ(sourceClip, bpm, dragState.originStartQ, dragState.clipId)],
+              [
+                ...clips,
+                cloneClipAtStartQ(
+                  sourceClip,
+                  bpm,
+                  dragState.originStartQ,
+                  dragState.clipId,
+                ),
+              ],
               dragState.clipId,
               nextStartQ,
               dragState.originDurationQ,
               bpm,
               nextLaneId,
             ),
-          )
-          return
+          );
+          return;
         }
 
         setDragPreviewClips(
@@ -2995,95 +3339,122 @@ function App() {
             bpm,
             nextLaneId,
           ),
-        )
-        return
+        );
+        return;
       }
 
-      if (dragState.kind === 'resize-start') {
-        const fixedEndQ = dragState.originStartQ + dragState.originDurationQ
+      if (dragState.kind === "resize-start") {
+        const fixedEndQ = dragState.originStartQ + dragState.originDurationQ;
         const nextStartQ = clamp(
-          snapQuarterValue(dragState.originStartQ + deltaQuarters, snapUnit, shouldSnap),
+          snapQuarterValue(
+            dragState.originStartQ + deltaQuarters,
+            snapUnit,
+            shouldSnap,
+          ),
           0,
           fixedEndQ - minimumWindowQ,
-        )
-        const nextDurationQ = Math.max(minimumWindowQ, fixedEndQ - nextStartQ)
+        );
+        const nextDurationQ = Math.max(minimumWindowQ, fixedEndQ - nextStartQ);
 
         setDragPreviewClips(
-          resolveClipOverlapPreview(clips, dragState.clipId, nextStartQ, nextDurationQ, bpm),
-        )
-        return
+          resolveClipOverlapPreview(
+            clips,
+            dragState.clipId,
+            nextStartQ,
+            nextDurationQ,
+            bpm,
+          ),
+        );
+        return;
       }
 
       const rawEndQ =
-        dragState.originStartQ + dragState.originDurationQ + deltaQuarters
-      const nextEndQ = snapQuarterValue(rawEndQ, snapUnit, shouldSnap)
-      const nextDurationQ = Math.max(minimumWindowQ, nextEndQ - dragState.originStartQ)
+        dragState.originStartQ + dragState.originDurationQ + deltaQuarters;
+      const nextEndQ = snapQuarterValue(rawEndQ, snapUnit, shouldSnap);
+      const nextDurationQ = Math.max(
+        minimumWindowQ,
+        nextEndQ - dragState.originStartQ,
+      );
 
       setDragPreviewClips(
-        resolveClipOverlapPreview(clips, dragState.clipId, dragState.originStartQ, nextDurationQ, bpm),
-      )
-    }
+        resolveClipOverlapPreview(
+          clips,
+          dragState.clipId,
+          dragState.originStartQ,
+          nextDurationQ,
+          bpm,
+        ),
+      );
+    };
 
     const onPointerUp = (event: PointerEvent) => {
       if (event.pointerId !== dragState.pointerId) {
-        return
+        return;
       }
 
-      if (dragState.kind === 'selection' && !pendingSelection) {
+      if (dragState.kind === "selection" && !pendingSelection) {
         setPendingSelection({
           id: `selection-${dragState.laneId}`,
           laneId: dragState.laneId,
           startQ: dragState.anchorQ,
           durationQ: minimumWindowQ,
-        })
+        });
       }
 
-      if (dragState.kind !== 'selection' && dragPreviewClips) {
+      if (dragState.kind !== "selection" && dragPreviewClips) {
         const historyLabel =
-          dragState.kind === 'move'
+          dragState.kind === "move"
             ? dragState.duplicateOnDrag
-              ? 'Duplicate clip'
-              : 'Move clip'
-            : dragState.kind === 'resize-start'
-              ? 'Trim clip start'
-              : 'Trim clip end'
+              ? "Duplicate clip"
+              : "Move clip"
+            : dragState.kind === "resize-start"
+              ? "Trim clip start"
+              : "Trim clip end";
         commitProjectChange(historyLabel, (current) =>
           patchProjectState(current, {
             clips: dragPreviewClips,
           }),
-        )
+        );
       }
 
-      if (dragState.kind === 'move' && dragState.duplicateOnDrag && !dragPreviewClips) {
-        setSelectedClipId(dragState.sourceClipId)
+      if (
+        dragState.kind === "move" &&
+        dragState.duplicateOnDrag &&
+        !dragPreviewClips
+      ) {
+        setSelectedClipId(dragState.sourceClipId);
       }
 
-      setDragPreviewClips(null)
-      setDragState(null)
-    }
+      setDragPreviewClips(null);
+      setDragState(null);
+    };
 
     const onPointerCancel = (event: PointerEvent) => {
       if (event.pointerId !== dragState.pointerId) {
-        return
+        return;
       }
 
-      if (dragState.kind === 'move' && dragState.duplicateOnDrag && !dragPreviewClips) {
-        setSelectedClipId(dragState.sourceClipId)
+      if (
+        dragState.kind === "move" &&
+        dragState.duplicateOnDrag &&
+        !dragPreviewClips
+      ) {
+        setSelectedClipId(dragState.sourceClipId);
       }
 
-      setDragPreviewClips(null)
-      setDragState(null)
-    }
+      setDragPreviewClips(null);
+      setDragState(null);
+    };
 
-    window.addEventListener('pointermove', onPointerMove)
-    window.addEventListener('pointerup', onPointerUp)
-    window.addEventListener('pointercancel', onPointerCancel)
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerCancel);
 
     return () => {
-      window.removeEventListener('pointermove', onPointerMove)
-      window.removeEventListener('pointerup', onPointerUp)
-      window.removeEventListener('pointercancel', onPointerCancel)
-    }
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerCancel);
+    };
   }, [
     beatUnit,
     bpm,
@@ -3097,129 +3468,145 @@ function App() {
     quarterPx,
     snapUnit,
     totalQuarters,
-  ])
+  ]);
 
   useEffect(() => {
     if (!timelineDragState) {
-      return
+      return;
     }
 
     const onPointerMove = (event: PointerEvent) => {
       if (event.pointerId !== timelineDragState.pointerId) {
-        return
+        return;
       }
 
-      const timelineScroll = timelineScrollRef.current
+      const timelineScroll = timelineScrollRef.current;
       if (!timelineScroll) {
-        return
+        return;
       }
 
-      const rawVerticalDelta = timelineDragState.pointerStartY - event.clientY
+      const rawVerticalDelta = timelineDragState.pointerStartY - event.clientY;
       const zoomDelta =
         Math.abs(rawVerticalDelta) <= TIMELINE_DRAG_ZOOM_THRESHOLD_PX
           ? 0
           : Math.sign(rawVerticalDelta) *
-            (Math.abs(rawVerticalDelta) - TIMELINE_DRAG_ZOOM_THRESHOLD_PX)
+            (Math.abs(rawVerticalDelta) - TIMELINE_DRAG_ZOOM_THRESHOLD_PX);
       const nextZoom = clamp(
         timelineDragState.originZoom + zoomDelta * TIMELINE_DRAG_ZOOM_SPEED,
         ZOOM_MIN,
         ZOOM_MAX,
-      )
-      const nextQuarterPx = BASE_QUARTER_PX * nextZoom
-      const deltaX = event.clientX - timelineDragState.pointerStartX
+      );
+      const nextQuarterPx = BASE_QUARTER_PX * nextZoom;
+      const deltaX = event.clientX - timelineDragState.pointerStartX;
       const nextPlayheadQ = clamp(
         timelineDragState.originPlayheadQ + deltaX / nextQuarterPx,
         0,
         totalQuarters,
-      )
-      const timelineBounds = timelineScroll.getBoundingClientRect()
-      const pointerX = clamp(event.clientX - timelineBounds.left, 0, timelineScroll.clientWidth)
+      );
+      const timelineBounds = timelineScroll.getBoundingClientRect();
+      const pointerX = clamp(
+        event.clientX - timelineBounds.left,
+        0,
+        timelineScroll.clientWidth,
+      );
       const maxScrollLeft = Math.max(
         0,
-        LABEL_WIDTH + totalQuarters * nextQuarterPx - timelineScroll.clientWidth,
-      )
+        LABEL_WIDTH +
+          totalQuarters * nextQuarterPx -
+          timelineScroll.clientWidth,
+      );
 
       timelineScroll.scrollLeft = clamp(
         LABEL_WIDTH + nextPlayheadQ * nextQuarterPx - pointerX,
         0,
         maxScrollLeft,
-      )
-      pulseTimelineAudibleScrub()
-      updateZoomDraft(nextZoom)
-      setPlayheadQ(nextPlayheadQ)
-      playbackOriginRef.current = nextPlayheadQ
-    }
+      );
+      pulseTimelineAudibleScrub();
+      updateZoomDraft(nextZoom);
+      setPlayheadQ(nextPlayheadQ);
+      playbackOriginRef.current = nextPlayheadQ;
+    };
 
     const onPointerUp = (event: PointerEvent) => {
       if (event.pointerId !== timelineDragState.pointerId) {
-        return
+        return;
       }
 
-      stopTimelineAudibleScrub()
-      flushZoomDraft()
-      setTimelineDragState(null)
-    }
+      stopTimelineAudibleScrub();
+      flushZoomDraft();
+      setTimelineDragState(null);
+    };
 
-    window.addEventListener('pointermove', onPointerMove)
-    window.addEventListener('pointerup', onPointerUp)
-    window.addEventListener('pointercancel', onPointerUp)
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerUp);
 
     return () => {
-      window.removeEventListener('pointermove', onPointerMove)
-      window.removeEventListener('pointerup', onPointerUp)
-      window.removeEventListener('pointercancel', onPointerUp)
-    }
-  }, [flushZoomDraft, pulseTimelineAudibleScrub, stopTimelineAudibleScrub, timelineDragState, totalQuarters])
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
+    };
+  }, [
+    flushZoomDraft,
+    pulseTimelineAudibleScrub,
+    stopTimelineAudibleScrub,
+    timelineDragState,
+    totalQuarters,
+    updateZoomDraft,
+  ]);
 
   useEffect(() => {
     if (!isPlaying) {
-      return
+      return;
     }
 
-    let animationFrame = 0
-    const startedAt = performance.now()
-    const originQ = playbackOriginRef.current
-    const stopQ = playbackStopRef.current || totalQuarters
+    let animationFrame = 0;
+    const startedAt = performance.now();
+    const originQ = playbackOriginRef.current;
+    const stopQ = playbackStopRef.current || totalQuarters;
 
     const step = (timestamp: number) => {
-      const elapsed = (timestamp - startedAt) / 1000
-      const nextQ = originQ + secondsToQuarters(elapsed, bpm)
+      const elapsed = (timestamp - startedAt) / 1000;
+      const nextQ = originQ + secondsToQuarters(elapsed, bpm);
 
       if (nextQ >= stopQ) {
-        setPlayheadQ(stopQ)
-        playbackOriginRef.current = stopQ
-        setIsPlaying(false)
-        return
+        setPlayheadQ(stopQ);
+        playbackOriginRef.current = stopQ;
+        setIsPlaying(false);
+        return;
       }
 
-      setPlayheadQ(nextQ)
-      animationFrame = window.requestAnimationFrame(step)
-    }
+      setPlayheadQ(nextQ);
+      animationFrame = window.requestAnimationFrame(step);
+    };
 
-    animationFrame = window.requestAnimationFrame(step)
-    return () => window.cancelAnimationFrame(animationFrame)
-  }, [bpm, isPlaying, totalQuarters])
+    animationFrame = window.requestAnimationFrame(step);
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [bpm, isPlaying, totalQuarters]);
 
   async function applyOpenedSessionPayload(payload: SessionOpenResponse) {
-    const existingRefs = payload.mediaRefs.filter((ref) => ref.exists)
-    const missingRefs = payload.mediaRefs.filter((ref) => !ref.exists)
+    const existingRefs = payload.mediaRefs.filter((ref) => ref.exists);
+    const missingRefs = payload.mediaRefs.filter((ref) => !ref.exists);
     const placeholderMedia = payload.mediaRefs.map((ref, index) =>
-      buildFallbackMediaItem(ref, PALETTE[index % PALETTE.length] ?? PALETTE[0]),
-    )
-    logClient('openSession:mediaRefs', {
+      buildFallbackMediaItem(
+        ref,
+        PALETTE[index % PALETTE.length] ?? PALETTE[0],
+      ),
+    );
+    logClient("openSession:mediaRefs", {
       total: payload.mediaRefs.length,
       existing: existingRefs.length,
       missing: missingRefs.length,
-    })
+    });
 
-    const project = sessionToProject(payload.session, placeholderMedia)
-    logClient('openSession:project', {
+    const project = sessionToProject(payload.session, placeholderMedia);
+    logClient("openSession:project", {
       clips: project.arrangementClips.length,
       lanes: project.lanes.length,
       sourceTracks: project.sourceTracks.length,
-    })
+    });
 
-    commitProjectChange('Open session', (current) =>
+    commitProjectChange("Open session", (current) =>
       patchProjectState(current, {
         sessionName: payload.sessionName,
         mediaItems: placeholderMedia.map((item) => toShareableMediaItem(item)),
@@ -3227,8 +3614,8 @@ function App() {
         fps: project.fps,
         canvasWidth: project.canvasWidth,
         canvasHeight: project.canvasHeight,
-        timelineMode: project.displaySeconds ? 'timecode' : 'musical',
-        snapMode: project.snapToBeat ? 'beat' : 'quarter',
+        timelineMode: project.displaySeconds ? "timecode" : "musical",
+        snapMode: project.snapToBeat ? "beat" : "quarter",
         snapEnabled: project.snapToBeat,
         zoom: project.zoom,
         lanes: project.lanes.length ? project.lanes : DEFAULT_LANES,
@@ -3238,84 +3625,100 @@ function App() {
         effects: project.effects,
         masterAudioId: project.masterAudioMediaId,
       }),
-    )
-    setDragPreviewClips(null)
-    setPendingSelection(null)
+    );
+    setDragPreviewClips(null);
+    setPendingSelection(null);
 
     const preferredClip =
-      project.arrangementClips.find((clip) => clip.selected) ?? project.arrangementClips[0]
-    setSelectedClipId(preferredClip?.id)
-    setPlayheadQ(secondsToQuarters(project.playPositionFrames / project.fps, project.bpm))
+      project.arrangementClips.find((clip) => clip.selected) ??
+      project.arrangementClips[0];
+    setSelectedClipId(preferredClip?.id);
+    setPlayheadQ(
+      secondsToQuarters(project.playPositionFrames / project.fps, project.bpm),
+    );
     seedLocalMediaItems(
       existingRefs.map((ref, index) => ({
-        ...buildFallbackMediaItem(ref, PALETTE[index % PALETTE.length] ?? PALETTE[0]),
+        ...buildFallbackMediaItem(
+          ref,
+          PALETTE[index % PALETTE.length] ?? PALETTE[0],
+        ),
         previewUrl: ref.url,
-        availability: 'ready',
+        availability: "ready",
       })),
-    )
+    );
 
     setStatus(
       existingRefs.length
         ? `Loaded ${payload.sessionName}. Hydrating ${existingRefs.length} media file(s) in the background.`
         : `Loaded ${payload.sessionName}. All referenced media is currently offline.`,
-    )
+    );
 
     if (existingRefs.length) {
       void (async () => {
         try {
           const analyzedMedia = await getHarness().analyzeMedia(
             {
-              kind: 'refs',
+              kind: "refs",
               refs: existingRefs,
             },
             PALETTE,
             0,
-          )
-          logClient('openSession:analyzedMedia', {
+          );
+          logClient("openSession:analyzedMedia", {
             analyzed: analyzedMedia.length,
             degraded: 0,
-          })
-          seedLocalMediaItems(analyzedMedia)
-          void cacheLocalMediaItems(analyzedMedia)
-          commitProjectChange('Hydrate session media', (current) =>
+          });
+          seedLocalMediaItems(analyzedMedia);
+          void cacheLocalMediaItems(analyzedMedia);
+          commitProjectChange("Hydrate session media", (current) =>
             patchProjectState(current, {
               mediaItems: mergeMediaItemsById(
                 current.mediaItems,
                 analyzedMedia.map((item) => toShareableMediaItem(item)),
               ),
             }),
-          )
+          );
           setStatus(
             missingRefs.length
               ? `Loaded ${payload.sessionName}. ${missingRefs.length} clip(s) are still offline.`
               : `Loaded ${payload.sessionName} with local media hydrated from disk.`,
-          )
+          );
         } catch (error) {
-          const message = error instanceof Error ? error.message : String(error)
-          setStatus(`Session media hydration failed: ${message}`)
+          const message =
+            error instanceof Error ? error.message : String(error);
+          setStatus(`Session media hydration failed: ${message}`);
         }
-      })()
+      })();
     }
   }
 
   async function handleImport() {
-    const harness = getHarness()
-    const selection = await harness.pickMedia()
+    const harness = getHarness();
+    const selection = await harness.pickMedia();
     if (!selection) {
-      return
+      return;
     }
 
     try {
-      const itemCount = selection.kind === 'files' ? selection.files.length : selection.refs.length
-      setStatus(`Analyzing ${itemCount} imported media file(s) through ${harness.label}...`)
-      const nextPaletteIndex = mediaItems.length
-      const analyzed = await harness.analyzeMedia(selection, PALETTE, nextPaletteIndex)
-      const sharedAnalyzed = analyzed.map((item) => toShareableMediaItem(item))
+      const itemCount =
+        selection.kind === "files"
+          ? selection.files.length
+          : selection.refs.length;
+      setStatus(
+        `Analyzing ${itemCount} imported media file(s) through ${harness.label}...`,
+      );
+      const nextPaletteIndex = mediaItems.length;
+      const analyzed = await harness.analyzeMedia(
+        selection,
+        PALETTE,
+        nextPaletteIndex,
+      );
+      const sharedAnalyzed = analyzed.map((item) => toShareableMediaItem(item));
 
-      const nextMedia = [...projectMediaItems, ...sharedAnalyzed]
+      const nextMedia = [...projectMediaItems, ...sharedAnalyzed];
       if (!sessionName) {
-        const standalone = buildStandaloneProject(nextMedia)
-        commitProjectChange('Import media', (current) =>
+        const standalone = buildStandaloneProject(nextMedia);
+        commitProjectChange("Import media", (current) =>
           patchProjectState(current, {
             mediaItems: nextMedia,
             lanes: standalone.lanes,
@@ -3325,111 +3728,122 @@ function App() {
             canvasWidth: standalone.canvasWidth,
             canvasHeight: standalone.canvasHeight,
           }),
-        )
-        setDragPreviewClips(null)
-        setSelectedClipId(standalone.arrangementClips[0]?.id)
-        setPendingSelection(null)
+        );
+        setDragPreviewClips(null);
+        setSelectedClipId(standalone.arrangementClips[0]?.id);
+        setPendingSelection(null);
       } else {
-        commitProjectChange('Import media', (current) =>
+        commitProjectChange("Import media", (current) =>
           patchProjectState(current, {
             mediaItems: nextMedia,
           }),
-        )
+        );
       }
 
-      seedLocalMediaItems(analyzed)
-      void cacheLocalMediaItems(analyzed)
-      setStatus(`Imported ${analyzed.length} media file(s) through ${harness.label}.`)
+      seedLocalMediaItems(analyzed);
+      void cacheLocalMediaItems(analyzed);
+      setStatus(
+        `Imported ${analyzed.length} media file(s) through ${harness.label}.`,
+      );
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      setStatus(`Media import failed: ${message}`)
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus(`Media import failed: ${message}`);
     }
   }
 
   async function handleOpenSession() {
-    const harness = getHarness()
+    const harness = getHarness();
     try {
-      const selection = await harness.pickSession()
+      const selection = await harness.pickSession();
       if (!selection) {
-        return
+        return;
       }
       setStatus(
         `Opening ${
-          selection.kind === 'file' ? selection.file.name : selection.name
+          selection.kind === "file" ? selection.file.name : selection.name
         } through ${harness.label}...`,
-      )
-      const payload = await harness.openSession(selection)
-      await applyOpenedSessionPayload(payload)
+      );
+      const payload = await harness.openSession(selection);
+      await applyOpenedSessionPayload(payload);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      setStatus(`Open failed: ${message}`)
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus(`Open failed: ${message}`);
     }
   }
 
   async function handleExport() {
     if (isExporting) {
-      return
+      return;
     }
 
     if (!clips.length) {
-      setStatus('Open a session or import media before exporting.')
-      return
+      setStatus("Open a session or import media before exporting.");
+      return;
     }
 
-    const compositionPlayer = compositionPlayerRef.current
-    const canvas = compositionPlayer?.getCanvas()
+    const compositionPlayer = compositionPlayerRef.current;
+    const canvas = compositionPlayer?.getCanvas();
     if (!compositionPlayer || !canvas) {
-      setStatus('The composition preview is not ready for export yet.')
-      return
+      setStatus("The composition preview is not ready for export yet.");
+      return;
     }
 
     const durationSeconds = Math.max(
       0.01,
       masterAudio?.durationSeconds ?? 0,
-      ...clips.map((clip) => quartersToSeconds(clip.startQ, bpm) + clip.durationSeconds),
-    )
-    const outputFrameRate = Math.max(1, fps)
-    const outputFrameDuration = 1 / outputFrameRate
-    const outputFrameCount = Math.max(1, Math.ceil(durationSeconds * outputFrameRate))
-    const exportName = `${sanitizeFilenameSegment(sessionName ?? 'zvid-session')}.mp4`
+      ...clips.map(
+        (clip) => quartersToSeconds(clip.startQ, bpm) + clip.durationSeconds,
+      ),
+    );
+    const outputFrameRate = Math.max(1, fps);
+    const outputFrameDuration = 1 / outputFrameRate;
+    const outputFrameCount = Math.max(
+      1,
+      Math.ceil(durationSeconds * outputFrameRate),
+    );
+    const exportName = `${sanitizeFilenameSegment(sessionName ?? "zvid-session")}.mp4`;
 
-    let saveTarget: SaveTarget
+    let saveTarget: SaveTarget;
     try {
       const nextSaveTarget = await getHarness().prepareSave(exportName, {
-        mimeType: 'video/mp4',
-        extensions: ['.mp4'],
-        description: 'MP4 video',
-      })
+        mimeType: "video/mp4",
+        extensions: [".mp4"],
+        description: "MP4 video",
+      });
       if (!nextSaveTarget) {
-        setStatus('Export canceled before rendering.')
-        return
+        setStatus("Export canceled before rendering.");
+        return;
       }
-      saveTarget = nextSaveTarget
+      saveTarget = nextSaveTarget;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        setStatus('Export canceled before rendering.')
-        return
+      const message = error instanceof Error ? error.message : String(error);
+      if (error instanceof DOMException && error.name === "AbortError") {
+        setStatus("Export canceled before rendering.");
+        return;
       }
 
-      setStatus(`Failed to prepare export destination: ${message}`)
-      return
+      setStatus(`Failed to prepare export destination: ${message}`);
+      return;
     }
 
-    setIsPlaying(false)
-    setIsExporting(true)
-    updateExportState('preparing', `Preparing export (${outputFrameCount} frame(s))...`, null)
-    logClient('export:start', {
+    setIsPlaying(false);
+    setIsExporting(true);
+    updateExportState(
+      "preparing",
+      `Preparing export (${outputFrameCount} frame(s))...`,
+      null,
+    );
+    logClient("export:start", {
       durationSeconds,
       frameRate: outputFrameRate,
       frames: outputFrameCount,
       canvasWidth,
       canvasHeight,
       masterAudio: masterAudio?.name,
-    })
-    logClient('export:phase', { phase: 'preparing', frames: outputFrameCount })
+    });
+    logClient("export:phase", { phase: "preparing", frames: outputFrameCount });
 
-    const previousPlayheadQ = playheadQ
+    const previousPlayheadQ = playheadQ;
 
     try {
       const result = await getHarness().exportVideo({
@@ -3444,175 +3858,176 @@ function App() {
         frameDuration: outputFrameDuration,
         bpm,
         masterAudio,
-        renderFrameAt: (frameQ, frameSeconds) => compositionPlayer.renderFrameAt(frameQ, frameSeconds),
+        renderFrameAt: (frameQ, frameSeconds) =>
+          compositionPlayer.renderFrameAt(frameQ, frameSeconds),
         setPlayheadQ,
         onProgress: (update) => {
-          updateExportState(update.phase, update.detail, update.progress)
+          updateExportState(update.phase, update.detail, update.progress);
         },
         onLog: logClient,
-      })
+      });
 
       setStatus(
-        result.saveMethod === 'download'
+        result.saveMethod === "download"
           ? `Exported ${exportName} through the browser download flow.`
           : `Saved ${exportName}.`,
-      )
-      setExportState({ phase: 'idle', progress: null, detail: '' })
-      logClient('export:complete', {
+      );
+      setExportState({ phase: "idle", progress: null, detail: "" });
+      logClient("export:complete", {
         filename: exportName,
         bytes: result.bytes,
         mimeType: result.mimeType,
         muxedWith: result.muxedWith,
         saveMethod: result.saveMethod,
-      })
+      });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      setExportState({ phase: 'idle', progress: null, detail: '' })
-      setStatus(`Export failed: ${message}`)
-      logClient('export:error', { message })
+      const message = error instanceof Error ? error.message : String(error);
+      setExportState({ phase: "idle", progress: null, detail: "" });
+      setStatus(`Export failed: ${message}`);
+      logClient("export:error", { message });
     } finally {
-      setIsExporting(false)
-      setExportState({ phase: 'idle', progress: null, detail: '' })
-      setPlayheadQ(previousPlayheadQ)
+      setIsExporting(false);
+      setExportState({ phase: "idle", progress: null, detail: "" });
+      setPlayheadQ(previousPlayheadQ);
       try {
         await compositionPlayer.restorePreviewSurface(
           previousPlayheadQ,
           quartersToSeconds(previousPlayheadQ, bpm),
-        )
+        );
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
-        logClient('export:restorePreviewSurface:error', { message })
+        const message = error instanceof Error ? error.message : String(error);
+        logClient("export:restorePreviewSurface:error", { message });
       }
     }
   }
 
   async function handleTransportToggle() {
     if (!clips.length || isExporting) {
-      return
+      return;
     }
 
     if (isPlaying) {
-      setIsPlaying(false)
-      return
+      setIsPlaying(false);
+      return;
     }
 
-    startPlayback()
+    startPlayback();
   }
 
   function jumpPlayhead(deltaBars: number) {
     if (isExporting) {
-      return
+      return;
     }
 
-    const next = clamp(playheadQ + deltaBars * barLength, 0, totalQuarters)
-    setPlayheadQ(next)
-    playbackOriginRef.current = next
+    const next = clamp(playheadQ + deltaBars * barLength, 0, totalQuarters);
+    setPlayheadQ(next);
+    playbackOriginRef.current = next;
   }
 
   function selectSource(sourceTrackId: string) {
-    const match = clips.find((clip) => clip.sourceTrackId === sourceTrackId)
+    const match = clips.find((clip) => clip.sourceTrackId === sourceTrackId);
     if (match) {
-      setSelectedClipId(match.id)
+      setSelectedClipId(match.id);
       if (!isPlaying) {
-        setPlayheadQ(match.startQ)
-        playbackOriginRef.current = match.startQ
+        setPlayheadQ(match.startQ);
+        playbackOriginRef.current = match.startQ;
       }
     }
   }
 
   async function handleStartShare() {
-    if (typeof window === 'undefined' || isStartingShare) {
-      return
+    if (typeof window === "undefined" || isStartingShare) {
+      return;
     }
 
-    const roomName = collaborationView.pendingShareRoom
-    setIsStartingShare(true)
-    setHasCopiedShareInvite(false)
+    const roomName = collaborationView.pendingShareRoom;
+    setIsStartingShare(true);
+    setHasCopiedShareInvite(false);
 
     try {
-      setCollaborationRoom(roomName)
-      setCollaborationMode('sharing')
+      setCollaborationRoom(roomName);
+      setCollaborationMode("sharing");
 
-      const publicIpAddress = await detectPublicIpAddress()
+      const publicIpAddress = await detectPublicIpAddress();
       const shareUrl = buildPublicShareUrl(
         roomName,
         collaborationSignaling,
         collaborationPassword,
         publicIpAddress,
-      )
+      );
 
       try {
-        await navigator.clipboard.writeText(shareUrl)
-        setLastCopiedShareUrl(shareUrl)
-        setHasCopiedShareInvite(true)
+        await navigator.clipboard.writeText(shareUrl);
+        setLastCopiedShareUrl(shareUrl);
+        setHasCopiedShareInvite(true);
         if (shareCopyResetTimeoutRef.current !== null) {
-          window.clearTimeout(shareCopyResetTimeoutRef.current)
+          window.clearTimeout(shareCopyResetTimeoutRef.current);
         }
         shareCopyResetTimeoutRef.current = window.setTimeout(() => {
-          setHasCopiedShareInvite(false)
-        }, 4500)
+          setHasCopiedShareInvite(false);
+        }, 4500);
         setStatus(
-          `Public sharing is live. Invite copied${publicIpAddress ? ` via ${publicIpAddress}` : ''}. Click Stop Share to disconnect.`,
-        )
+          `Public sharing is live. Invite copied${publicIpAddress ? ` via ${publicIpAddress}` : ""}. Click Stop Share to disconnect.`,
+        );
       } catch (error) {
         setStatus(
           `Public sharing is live, but copying the invite failed: ${
             error instanceof Error ? error.message : String(error)
           }`,
-        )
+        );
       }
 
-      setIsShareDialogOpen(false)
+      setIsShareDialogOpen(false);
     } finally {
-      setIsStartingShare(false)
+      setIsStartingShare(false);
     }
   }
 
   function handleStopShare() {
-    collaborationControllerRef.current?.destroy()
-    collaborationControllerRef.current = null
+    collaborationControllerRef.current?.destroy();
+    collaborationControllerRef.current = null;
     setCollaborationState({
       connected: false,
       peerCount: 0,
       collaborators: [],
-    })
-    setCollaborationMode('idle')
-    setStatus('Public sharing stopped. Signaling socket disconnected.')
+    });
+    setCollaborationMode("idle");
+    setStatus("Public sharing stopped. Signaling socket disconnected.");
   }
 
   function handleDisconnectConnection() {
-    collaborationControllerRef.current?.destroy()
-    collaborationControllerRef.current = null
+    collaborationControllerRef.current?.destroy();
+    collaborationControllerRef.current = null;
     setCollaborationState({
       connected: false,
       peerCount: 0,
       collaborators: [],
-    })
-    setCollaborationMode('idle')
-    setStatus('Disconnected from the shared collaboration session.')
+    });
+    setCollaborationMode("idle");
+    setStatus("Disconnected from the shared collaboration session.");
   }
 
   async function handleConnectToShare() {
     if (isStartingConnect) {
-      return
+      return;
     }
 
-    setIsStartingConnect(true)
+    setIsStartingConnect(true);
     try {
-      const invite = parseCollaborationInvite(connectInviteValue)
-      setCollaborationRoom(invite.room)
-      setCollaborationSignaling(invite.signaling)
-      setCollaborationPassword(invite.password)
-      setCollaborationMode('connected')
-      setIsConnectDialogOpen(false)
-      setConnectInviteValue('')
-      setStatus(`Connecting to collaboration room "${invite.room}".`)
+      const invite = parseCollaborationInvite(connectInviteValue);
+      setCollaborationRoom(invite.room);
+      setCollaborationSignaling(invite.signaling);
+      setCollaborationPassword(invite.password);
+      setCollaborationMode("connected");
+      setIsConnectDialogOpen(false);
+      setConnectInviteValue("");
+      setStatus(`Connecting to collaboration room "${invite.room}".`);
     } catch (error) {
       setStatus(
         `Unable to connect with that invite: ${error instanceof Error ? error.message : String(error)}`,
-      )
+      );
     } finally {
-      setIsStartingConnect(false)
+      setIsStartingConnect(false);
     }
   }
 
@@ -3654,30 +4069,43 @@ function App() {
                 <span>File</span>
                 <span className="file-menu-button__chevron" aria-hidden="true">
                   <svg viewBox="0 0 16 16" role="presentation">
-                    <path d="M4.47 6.22a.75.75 0 0 1 1.06.03L8 8.84l2.47-2.59a.75.75 0 1 1 1.08 1.04l-3.01 3.16a.75.75 0 0 1-1.08 0L4.44 7.29a.75.75 0 0 1 .03-1.07Z" fill="currentColor" />
+                    <path
+                      d="M4.47 6.22a.75.75 0 0 1 1.06.03L8 8.84l2.47-2.59a.75.75 0 1 1 1.08 1.04l-3.01 3.16a.75.75 0 0 1-1.08 0L4.44 7.29a.75.75 0 0 1 .03-1.07Z"
+                      fill="currentColor"
+                    />
                   </svg>
                 </span>
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
-              <DropdownMenuItem onSelect={() => void handleOpenSession()}>Open Session</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void handleImport()}>Import Media</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void handleOpenSession()}>
+                Open Session
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void handleImport()}>
+                Import Media
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onSelect={() => {
                   if (isConnectedClient) {
-                    handleDisconnectConnection()
-                    return
+                    handleDisconnectConnection();
+                    return;
                   }
 
-                  setIsConnectDialogOpen(true)
+                  setIsConnectDialogOpen(true);
                 }}
               >
-                {isConnectedClient ? 'Disconnect from Share' : 'Connect to Share'}
+                {isConnectedClient
+                  ? "Disconnect from Share"
+                  : "Connect to Share"}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onSelect={() => setStatus('Save/export is not wired yet in the dev-server refactor.')}
+                onSelect={() =>
+                  setStatus(
+                    "Save/export is not wired yet in the dev-server refactor.",
+                  )
+                }
               >
                 Save
               </DropdownMenuItem>
@@ -3689,7 +4117,10 @@ function App() {
                 <span>Edit</span>
                 <span className="file-menu-button__chevron" aria-hidden="true">
                   <svg viewBox="0 0 16 16" role="presentation">
-                    <path d="M4.47 6.22a.75.75 0 0 1 1.06.03L8 8.84l2.47-2.59a.75.75 0 1 1 1.08 1.04l-3.01 3.16a.75.75 0 0 1-1.08 0L4.44 7.29a.75.75 0 0 1 .03-1.07Z" fill="currentColor" />
+                    <path
+                      d="M4.47 6.22a.75.75 0 0 1 1.06.03L8 8.84l2.47-2.59a.75.75 0 1 1 1.08 1.04l-3.01 3.16a.75.75 0 0 1-1.08 0L4.44 7.29a.75.75 0 0 1 .03-1.07Z"
+                      fill="currentColor"
+                    />
                   </svg>
                 </span>
               </button>
@@ -3699,15 +4130,19 @@ function App() {
                 disabled={isExporting || !canUndo}
                 onSelect={() => handleUndo()}
               >
-                <span>{undoLabel ? `Undo ${undoLabel}` : 'Undo'}</span>
-                <DropdownMenuShortcut>{shortcutLabels.undo}</DropdownMenuShortcut>
+                <span>{undoLabel ? `Undo ${undoLabel}` : "Undo"}</span>
+                <DropdownMenuShortcut>
+                  {shortcutLabels.undo}
+                </DropdownMenuShortcut>
               </DropdownMenuItem>
               <DropdownMenuItem
                 disabled={isExporting || !canRedo}
                 onSelect={() => handleRedo()}
               >
-                <span>{redoLabel ? `Redo ${redoLabel}` : 'Redo'}</span>
-                <DropdownMenuShortcut>{shortcutLabels.redo}</DropdownMenuShortcut>
+                <span>{redoLabel ? `Redo ${redoLabel}` : "Redo"}</span>
+                <DropdownMenuShortcut>
+                  {shortcutLabels.redo}
+                </DropdownMenuShortcut>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -3715,7 +4150,7 @@ function App() {
             <button
               className="tempo-pill__adjust"
               onClick={() =>
-                commitProjectChange('Adjust BPM', (current) =>
+                commitProjectChange("Adjust BPM", (current) =>
                   patchProjectState(current, {
                     bpm: clamp(current.bpm - 5, 60, 220),
                   }),
@@ -3729,7 +4164,7 @@ function App() {
             <button
               className="tempo-pill__adjust"
               onClick={() =>
-                commitProjectChange('Adjust BPM', (current) =>
+                commitProjectChange("Adjust BPM", (current) =>
                   patchProjectState(current, {
                     bpm: clamp(current.bpm + 5, 60, 220),
                   }),
@@ -3742,7 +4177,7 @@ function App() {
           </div>
         </div>
 
-        <div className="brand-mark" aria-label="Zvid logo">
+        <div className="brand-mark" aria-hidden="true">
           <svg viewBox="0 0 120 24" role="img" aria-hidden="true">
             <circle cx="14" cy="12" r="8" />
             <circle cx="36" cy="12" r="8" />
@@ -3768,15 +4203,15 @@ function App() {
             {collaborationView.stateLabel}
           </span>
           <button
-            className={`ghost-button share-button ${isSharing ? 'is-sharing' : ''}`}
+            className={`ghost-button share-button ${isSharing ? "is-sharing" : ""}`}
             disabled={isExporting || isStartingShare || isConnectedClient}
             onClick={() => {
               if (isSharing) {
-                handleStopShare()
-                return
+                handleStopShare();
+                return;
               }
 
-              setIsShareDialogOpen(true)
+              setIsShareDialogOpen(true);
             }}
             type="button"
           >
@@ -3788,12 +4223,25 @@ function App() {
                 />
               </svg>
             </span>
-            <span>{isSharing ? 'Stop Share' : isStartingShare ? 'Sharing...' : 'Share'}</span>
+            <span>
+              {isSharing
+                ? "Stop Share"
+                : isStartingShare
+                  ? "Sharing..."
+                  : "Share"}
+            </span>
           </button>
           {hasCopiedShareInvite ? (
-            <span className="share-copy-badge" aria-live="polite" title={lastCopiedShareUrl}>
+            <span
+              className="share-copy-badge"
+              aria-live="polite"
+              title={lastCopiedShareUrl}
+            >
               <svg viewBox="0 0 20 20" role="presentation" aria-hidden="true">
-                <path d="M10 1.5a8.5 8.5 0 1 0 0 17a8.5 8.5 0 0 0 0-17Zm3.57 6.2l-4.2 5.1a.75.75 0 0 1-1.12.06l-1.82-1.82a.75.75 0 1 1 1.06-1.06l1.24 1.24l3.62-4.4a.75.75 0 0 1 1.22.88Z" fill="currentColor" />
+                <path
+                  d="M10 1.5a8.5 8.5 0 1 0 0 17a8.5 8.5 0 0 0 0-17Zm3.57 6.2l-4.2 5.1a.75.75 0 0 1-1.12.06l-1.82-1.82a.75.75 0 1 1 1.06-1.06l1.24 1.24l3.62-4.4a.75.75 0 0 1 1.22.88Z"
+                  fill="currentColor"
+                />
               </svg>
               <span>Copied</span>
             </span>
@@ -3801,7 +4249,9 @@ function App() {
           <button
             className="ghost-button"
             onClick={() =>
-              setStatus(`Use Open to pick a .lvp file through the ${getHarness().label} harness.`)
+              setStatus(
+                `Use Open to pick a .lvp file through the ${getHarness().label} harness.`,
+              )
             }
             type="button"
           >
@@ -3815,28 +4265,39 @@ function App() {
           <DialogHeader>
             <DialogTitle>Share this session publicly?</DialogTitle>
             <DialogDescription>
-              This will start the collaboration websocket, generate a public room, and copy a shareable
-              address to your clipboard. Click Stop Share any time to disconnect immediately.
+              This will start the collaboration websocket, generate a public
+              room, and copy a shareable address to your clipboard. Click Stop
+              Share any time to disconnect immediately.
             </DialogDescription>
           </DialogHeader>
 
           <div className="share-dialog__body">
-            <CollaborationDetailCard label="Room" value={collaborationView.pendingShareRoom} />
-            <CollaborationDetailCard label="Signal" value={collaborationView.signalingLabel} />
+            <CollaborationDetailCard
+              label="Room"
+              value={collaborationView.pendingShareRoom}
+            />
+            <CollaborationDetailCard
+              label="Signal"
+              value={collaborationView.signalingLabel}
+            />
             <CollaborationDetailCard
               label="Connection"
               value={collaborationView.stateLabel}
               meta={collaborationView.remoteCollaboratorNames || undefined}
             />
             <p className="share-dialog__note">
-              Your invite uses a Google STUN probe to detect a public IP when one is available, then it
-              copies the connection URL automatically.
+              Your invite uses a Google STUN probe to detect a public IP when
+              one is available, then it copies the connection URL automatically.
             </p>
           </div>
 
           <DialogFooter>
             <DialogClose asChild>
-              <button className="ghost-button" disabled={isStartingShare} type="button">
+              <button
+                className="ghost-button"
+                disabled={isStartingShare}
+                type="button"
+              >
                 Cancel
               </button>
             </DialogClose>
@@ -3846,7 +4307,7 @@ function App() {
               onClick={handleStartShare}
               type="button"
             >
-              {isStartingShare ? 'Starting...' : 'Start Sharing'}
+              {isStartingShare ? "Starting..." : "Start Sharing"}
             </button>
           </DialogFooter>
         </DialogContent>
@@ -3857,8 +4318,9 @@ function App() {
           <DialogHeader>
             <DialogTitle>Connect to a shared session</DialogTitle>
             <DialogDescription>
-              Paste the invite copied from Share. The room, signaling server, and optional password will
-              be pulled from that URL and the collaboration websocket will connect immediately.
+              Paste the invite copied from Share. The room, signaling server,
+              and optional password will be pulled from that URL and the
+              collaboration websocket will connect immediately.
             </DialogDescription>
           </DialogHeader>
 
@@ -3879,13 +4341,18 @@ function App() {
               meta={collaborationView.remoteCollaboratorNames || undefined}
             />
             <p className="share-dialog__note">
-              If the host shared from this app, just paste the copied invite URL here and press Connect.
+              If the host shared from this app, just paste the copied invite URL
+              here and press Connect.
             </p>
           </div>
 
           <DialogFooter>
             <DialogClose asChild>
-              <button className="ghost-button" disabled={isStartingConnect} type="button">
+              <button
+                className="ghost-button"
+                disabled={isStartingConnect}
+                type="button"
+              >
                 Cancel
               </button>
             </DialogClose>
@@ -3895,7 +4362,7 @@ function App() {
               onClick={handleConnectToShare}
               type="button"
             >
-              {isStartingConnect ? 'Connecting...' : 'Connect'}
+              {isStartingConnect ? "Connecting..." : "Connect"}
             </button>
           </DialogFooter>
         </DialogContent>
@@ -3912,29 +4379,49 @@ function App() {
               </div>
 
               <div className="timeline-toolbar__controls">
-                <div className="segmented-control" role="tablist" aria-label="Timeline scale">
+                <div
+                  className="segmented-control"
+                  role="tablist"
+                  aria-label="Timeline scale"
+                >
                   <button
-                    className={timelineMode === 'musical' ? 'is-active' : ''}
-                    onClick={() => commitProjectPatch('Change timeline scale', { timelineMode: 'musical' })}
+                    className={timelineMode === "musical" ? "is-active" : ""}
+                    onClick={() =>
+                      commitProjectPatch("Change timeline scale", {
+                        timelineMode: "musical",
+                      })
+                    }
                     type="button"
                   >
                     Tempo
                   </button>
                   <button
-                    className={timelineMode === 'timecode' ? 'is-active' : ''}
-                    onClick={() => commitProjectPatch('Change timeline scale', { timelineMode: 'timecode' })}
+                    className={timelineMode === "timecode" ? "is-active" : ""}
+                    onClick={() =>
+                      commitProjectPatch("Change timeline scale", {
+                        timelineMode: "timecode",
+                      })
+                    }
                     type="button"
                   >
                     SMPTE
                   </button>
                 </div>
 
-                <div className="segmented-control" role="tablist" aria-label="Snap grid">
+                <div
+                  className="segmented-control"
+                  role="tablist"
+                  aria-label="Snap grid"
+                >
                   {SNAP_OPTIONS.map((option) => (
                     <button
                       key={option.id}
-                      className={snapMode === option.id ? 'is-active' : ''}
-                      onClick={() => commitProjectPatch('Change snap grid', { snapMode: option.id })}
+                      className={snapMode === option.id ? "is-active" : ""}
+                      onClick={() =>
+                        commitProjectPatch("Change snap grid", {
+                          snapMode: option.id,
+                        })
+                      }
                       type="button"
                     >
                       {option.label}
@@ -3942,20 +4429,22 @@ function App() {
                   ))}
                 </div>
 
-                <div className="segmented-control" role="group" aria-label="Beat snapping">
+                <div className="segmented-control">
                   <button
                     aria-pressed={snapEnabled}
-                    className={snapEnabled ? 'is-active' : ''}
+                    className={snapEnabled ? "is-active" : ""}
                     onClick={() =>
                       commitProjectPatch(
-                        snapEnabled ? 'Disable beat snapping' : 'Enable beat snapping',
+                        snapEnabled
+                          ? "Disable beat snapping"
+                          : "Enable beat snapping",
                         { snapEnabled: !snapEnabled },
                       )
                     }
                     title="Shift while dragging a clip or trim handle to temporarily disable snapping."
                     type="button"
                   >
-                    {snapEnabled ? 'Snap On' : 'Snap Off'}
+                    {snapEnabled ? "Snap On" : "Snap Off"}
                   </button>
                 </div>
 
@@ -3964,7 +4453,7 @@ function App() {
                   <select
                     value={signatureId}
                     onChange={(event) =>
-                      commitProjectPatch('Change time signature', {
+                      commitProjectPatch("Change time signature", {
                         signatureId: event.target.value,
                       })
                     }
@@ -3987,7 +4476,9 @@ function App() {
                     onClick={handleCreateLayer}
                     type="button"
                   >
-                    {canCreateLayer ? `Create Layer ${getNextLaneNumber(lanes)}` : 'Max Layers'}
+                    {canCreateLayer
+                      ? `Create Layer ${getNextLaneNumber(lanes)}`
+                      : "Max Layers"}
                   </button>
                 </div>
               </div>
@@ -3998,39 +4489,42 @@ function App() {
                 ref={timelineScrollRef}
                 className="timeline-scroll"
                 onScroll={() => syncTimelineViewport()}
-                style={{ ['--label-width' as string]: `${LABEL_WIDTH}px` }}
+                style={{ ["--label-width" as string]: `${LABEL_WIDTH}px` }}
               >
                 <div className="timeline-jump-overlay">
                   {isPlayheadOffscreenLeft ? (
                     <button
                       className="playhead-jump playhead-jump--left"
                       onClick={(event) => {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        scrollTimelineToPlayhead()
+                        event.preventDefault();
+                        event.stopPropagation();
+                        scrollTimelineToPlayhead();
                       }}
                       type="button"
                     >
-                      {'<<'}
+                      {"<<"}
                     </button>
                   ) : null}
                   {isPlayheadOffscreenRight ? (
                     <button
                       className="playhead-jump playhead-jump--right"
                       onClick={(event) => {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        scrollTimelineToPlayhead()
+                        event.preventDefault();
+                        event.stopPropagation();
+                        scrollTimelineToPlayhead();
                       }}
                       type="button"
                     >
-                      {'>>'}
+                      {">>"}
                     </button>
                   ) : null}
                 </div>
                 <div
                   className="timeline-canvas"
-                  style={{ width: LABEL_WIDTH + timelineWidth, ['--label-width' as string]: `${LABEL_WIDTH}px` }}
+                  style={{
+                    width: LABEL_WIDTH + timelineWidth,
+                    ["--label-width" as string]: `${LABEL_WIDTH}px`,
+                  }}
                 >
                   <div
                     className="timeline-playhead"
@@ -4039,44 +4533,50 @@ function App() {
 
                   <section className="ruler-row">
                     <div className="track-label track-label--header">
-                      <span>{sessionName ?? 'Session'}</span>
-                      <small>{offlineCount ? `${offlineCount} offline clip(s)` : 'Media linked'}</small>
+                      <span>{sessionName ?? "Session"}</span>
+                      <small>
+                        {offlineCount
+                          ? `${offlineCount} offline clip(s)`
+                          : "Media linked"}
+                      </small>
                     </div>
                     <div
                       className={`ruler-row__content ruler-row__content--interactive ${
-                        timelineDragState ? 'is-dragging' : ''
+                        timelineDragState ? "is-dragging" : ""
                       }`}
                       onPointerDown={(event) => {
                         if (isExporting) {
-                          return
+                          return;
                         }
 
-                        const timelineScroll = timelineScrollRef.current
+                        const timelineScroll = timelineScrollRef.current;
                         if (!timelineScroll) {
-                          return
+                          return;
                         }
 
-                        event.preventDefault()
-                        stopTimelineAudibleScrub()
-                        setIsPlaying(false)
+                        event.preventDefault();
+                        stopTimelineAudibleScrub();
+                        setIsPlaying(false);
 
-                        const timelineBounds = timelineScroll.getBoundingClientRect()
-                        const pointerX = event.clientX - timelineBounds.left
+                        const timelineBounds =
+                          timelineScroll.getBoundingClientRect();
+                        const pointerX = event.clientX - timelineBounds.left;
                         const nextPlayheadQ = clamp(
-                          (timelineScroll.scrollLeft - LABEL_WIDTH + pointerX) / quarterPx,
+                          (timelineScroll.scrollLeft - LABEL_WIDTH + pointerX) /
+                            quarterPx,
                           0,
                           totalQuarters,
-                        )
+                        );
 
-                        setPlayheadQ(nextPlayheadQ)
-                        playbackOriginRef.current = nextPlayheadQ
+                        setPlayheadQ(nextPlayheadQ);
+                        playbackOriginRef.current = nextPlayheadQ;
                         setTimelineDragState({
                           pointerId: event.pointerId,
                           pointerStartX: event.clientX,
                           pointerStartY: event.clientY,
                           originPlayheadQ: nextPlayheadQ,
                           originZoom: resolvedZoom,
-                        })
+                        });
                       }}
                       style={gridStyle}
                     >
@@ -4091,9 +4591,12 @@ function App() {
                           style={{ left: bar.quarter * quarterPx }}
                         >
                           <span>
-                            {timelineMode === 'musical'
+                            {timelineMode === "musical"
                               ? `${bar.index + 1}`
-                              : formatTimecode(quartersToSeconds(bar.quarter, bpm), fps)}
+                              : formatTimecode(
+                                  quartersToSeconds(bar.quarter, bpm),
+                                  fps,
+                                )}
                           </span>
                         </div>
                       ))}
@@ -4103,7 +4606,9 @@ function App() {
                   {lanes.map((lane) => (
                     <section key={lane.id} className="track-row">
                       <div className="track-label">
-                        <div className="track-label__index">{lane.name.replace('Layer ', '')}</div>
+                        <div className="track-label__index">
+                          {lane.name.replace("Layer ", "")}
+                        </div>
                         <div>
                           <span>{lane.name}</span>
                           <small>FX rack armed</small>
@@ -4117,42 +4622,46 @@ function App() {
                         data-timeline-lane-id={lane.id}
                         onPointerDown={(event) => {
                           if (event.target !== event.currentTarget) {
-                            return
+                            return;
                           }
 
-                          event.preventDefault()
-                          setSelectedClipId(undefined)
-                          setIsPlaying(false)
-                          setDragPreviewClips(null)
+                          event.preventDefault();
+                          setSelectedClipId(undefined);
+                          setIsPlaying(false);
+                          setDragPreviewClips(null);
 
-                          const timelineScroll = timelineScrollRef.current
+                          const timelineScroll = timelineScrollRef.current;
                           if (!timelineScroll) {
-                            return
+                            return;
                           }
 
-                          const timelineBounds = timelineScroll.getBoundingClientRect()
-                          const pointerX = event.clientX - timelineBounds.left
+                          const timelineBounds =
+                            timelineScroll.getBoundingClientRect();
+                          const pointerX = event.clientX - timelineBounds.left;
                           const anchorQ = snapQuarterValue(
                             clamp(
-                              (timelineScroll.scrollLeft - LABEL_WIDTH + pointerX) / quarterPx,
+                              (timelineScroll.scrollLeft -
+                                LABEL_WIDTH +
+                                pointerX) /
+                                quarterPx,
                               0,
                               totalQuarters,
                             ),
                             snapUnit,
                             snapEnabled && !event.shiftKey,
-                          )
+                          );
                           setPendingSelection({
                             id: `selection-${lane.id}`,
                             laneId: lane.id,
                             startQ: anchorQ,
                             durationQ: minimumWindowQ,
-                          })
+                          });
                           setDragState({
-                            kind: 'selection',
+                            kind: "selection",
                             pointerId: event.pointerId,
                             laneId: lane.id,
                             anchorQ,
-                          })
+                          });
                         }}
                         style={gridStyle}
                       >
@@ -4168,105 +4677,117 @@ function App() {
                           </div>
                         ) : null}
                         {(clipsByLane.get(lane.id) ?? []).map((clip) => {
-                            const selected = clip.id === selectedClip?.id
-                            const durationQ = getClipDurationQ(clip, bpm)
-                            const media = clip.mediaId ? mediaItemsById.get(clip.mediaId) : undefined
-                            const mediaState = describeMediaAvailability(media?.availability)
-                            return (
-                              <div
-                                key={clip.id}
-                                className={`clip-card ${selected ? 'clip-card--selected' : ''}`}
-                                style={{
-                                  left: clip.startQ * quarterPx,
-                                  width: durationQ * quarterPx,
-                                  backgroundColor: clip.tint,
-                                  borderColor: clip.accent,
-                                  boxShadow: selected ? `0 0 0 2px ${clip.accent}` : undefined,
-                                  opacity: mediaState === 'online' ? 1 : 0.62,
+                          const selected = clip.id === selectedClip?.id;
+                          const durationQ = getClipDurationQ(clip, bpm);
+                          const media = clip.mediaId
+                            ? mediaItemsById.get(clip.mediaId)
+                            : undefined;
+                          const mediaState = describeMediaAvailability(
+                            media?.availability,
+                          );
+                          return (
+                            <div
+                              key={clip.id}
+                              className={`clip-card ${selected ? "clip-card--selected" : ""}`}
+                              style={{
+                                left: clip.startQ * quarterPx,
+                                width: durationQ * quarterPx,
+                                backgroundColor: clip.tint,
+                                borderColor: clip.accent,
+                                boxShadow: selected
+                                  ? `0 0 0 2px ${clip.accent}`
+                                  : undefined,
+                                opacity: mediaState === "online" ? 1 : 0.62,
+                              }}
+                            >
+                              <button
+                                className="clip-card__handle clip-card__handle--start"
+                                onPointerDown={(event) => {
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  setPendingSelection(null);
+                                  setDragPreviewClips(null);
+                                  setSelectedClipId(clip.id);
+                                  setDragState({
+                                    kind: "resize-start",
+                                    pointerId: event.pointerId,
+                                    clipId: clip.id,
+                                    pointerStartX: event.clientX,
+                                    originStartQ: clip.startQ,
+                                    originDurationQ: durationQ,
+                                  });
                                 }}
+                                type="button"
+                              />
+                              <button
+                                className="clip-card__body"
+                                onClick={() => {
+                                  setPendingSelection(null);
+                                  setSelectedClipId(clip.id);
+                                  if (!isPlaying) {
+                                    setPlayheadQ(clip.startQ);
+                                    playbackOriginRef.current = clip.startQ;
+                                  }
+                                }}
+                                onPointerDown={(event) => {
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  setPendingSelection(null);
+                                  setDragPreviewClips(null);
+                                  const duplicateOnDrag =
+                                    event.ctrlKey || event.metaKey;
+                                  const dragClipId = duplicateOnDrag
+                                    ? `window-${crypto.randomUUID()}`
+                                    : clip.id;
+                                  setSelectedClipId(dragClipId);
+                                  setDragState({
+                                    kind: "move",
+                                    pointerId: event.pointerId,
+                                    clipId: dragClipId,
+                                    sourceClipId: clip.id,
+                                    pointerStartX: event.clientX,
+                                    originStartQ: clip.startQ,
+                                    originDurationQ: durationQ,
+                                    originLaneId: clip.laneId,
+                                    duplicateOnDrag,
+                                  });
+                                }}
+                                type="button"
                               >
-                                <button
-                                  className="clip-card__handle clip-card__handle--start"
-                                  onPointerDown={(event) => {
-                                    event.preventDefault()
-                                    event.stopPropagation()
-                                    setPendingSelection(null)
-                                    setDragPreviewClips(null)
-                                    setSelectedClipId(clip.id)
-                                    setDragState({
-                                      kind: 'resize-start',
-                                      pointerId: event.pointerId,
-                                      clipId: clip.id,
-                                      pointerStartX: event.clientX,
-                                      originStartQ: clip.startQ,
-                                      originDurationQ: durationQ,
-                                    })
-                                  }}
-                                  type="button"
-                                />
-                                <button
-                                  className="clip-card__body"
-                                  onClick={() => {
-                                    setPendingSelection(null)
-                                    setSelectedClipId(clip.id)
-                                    if (!isPlaying) {
-                                      setPlayheadQ(clip.startQ)
-                                      playbackOriginRef.current = clip.startQ
-                                    }
-                                  }}
-                                  onPointerDown={(event) => {
-                                    event.preventDefault()
-                                    event.stopPropagation()
-                                    setPendingSelection(null)
-                                    setDragPreviewClips(null)
-                                    const duplicateOnDrag = event.ctrlKey || event.metaKey
-                                    const dragClipId = duplicateOnDrag
-                                      ? `window-${crypto.randomUUID()}`
-                                      : clip.id
-                                    setSelectedClipId(dragClipId)
-                                    setDragState({
-                                      kind: 'move',
-                                      pointerId: event.pointerId,
-                                      clipId: dragClipId,
-                                      sourceClipId: clip.id,
-                                      pointerStartX: event.clientX,
-                                      originStartQ: clip.startQ,
-                                      originDurationQ: durationQ,
-                                      originLaneId: clip.laneId,
-                                      duplicateOnDrag,
-                                    })
-                                  }}
-                                  type="button"
-                                >
-                                  <strong>{clip.label}</strong>
-                                  <span>
-                                    {formatMusicalPosition(clip.startQ, signature)} /{' '}
-                                    {formatDuration(clip.durationSeconds)}
-                                    {mediaState === 'online' ? '' : ` / ${mediaState}`}
-                                  </span>
-                                </button>
-                                <button
-                                  className="clip-card__handle clip-card__handle--end"
-                                  onPointerDown={(event) => {
-                                    event.preventDefault()
-                                    event.stopPropagation()
-                                    setPendingSelection(null)
-                                    setDragPreviewClips(null)
-                                    setSelectedClipId(clip.id)
-                                    setDragState({
-                                      kind: 'resize-end',
-                                      pointerId: event.pointerId,
-                                      clipId: clip.id,
-                                      pointerStartX: event.clientX,
-                                      originStartQ: clip.startQ,
-                                      originDurationQ: durationQ,
-                                    })
-                                  }}
-                                  type="button"
-                                />
-                              </div>
-                            )
-                          })}
+                                <strong>{clip.label}</strong>
+                                <span>
+                                  {formatMusicalPosition(
+                                    clip.startQ,
+                                    signature,
+                                  )}{" "}
+                                  / {formatDuration(clip.durationSeconds)}
+                                  {mediaState === "online"
+                                    ? ""
+                                    : ` / ${mediaState}`}
+                                </span>
+                              </button>
+                              <button
+                                className="clip-card__handle clip-card__handle--end"
+                                onPointerDown={(event) => {
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  setPendingSelection(null);
+                                  setDragPreviewClips(null);
+                                  setSelectedClipId(clip.id);
+                                  setDragState({
+                                    kind: "resize-end",
+                                    pointerId: event.pointerId,
+                                    clipId: clip.id,
+                                    pointerStartX: event.clientX,
+                                    originStartQ: clip.startQ,
+                                    originDurationQ: durationQ,
+                                  });
+                                }}
+                                type="button"
+                              />
+                            </div>
+                          );
+                        })}
                       </div>
                     </section>
                   ))}
@@ -4277,19 +4798,24 @@ function App() {
                       <div>
                         <span>Audio</span>
                         <small>
-                          {masterAudio ? masterAudio.name : 'Master bus / session waveform'}
+                          {masterAudio
+                            ? masterAudio.name
+                            : "Master bus / session waveform"}
                         </small>
                       </div>
                     </div>
-                    <div className="track-row__content track-row__content--waveform" style={gridStyle}>
+                    <div
+                      className="track-row__content track-row__content--waveform"
+                      style={gridStyle}
+                    >
                       <div className="waveform">
-                        {projectWaveform.map((value, index) => (
+                        {projectWaveformBars.map((bar) => (
                           <span
-                            key={`${index}-${value}`}
+                            key={bar.id}
                             className="waveform__bar"
                             style={{
-                              left: `${(index / Math.max(1, projectWaveform.length - 1)) * 100}%`,
-                              height: `${16 + value * 42}px`,
+                              left: `${bar.leftPercent}%`,
+                              height: `${bar.heightPx}px`,
                             }}
                           />
                         ))}
@@ -4300,19 +4826,27 @@ function App() {
                   <section className="source-header">
                     <div className="track-label track-label--header">
                       <span>Source Tracks</span>
-                      <small>{sourceTracks.length || mediaItems.length} tracks in session</small>
+                      <small>
+                        {sourceTracks.length || mediaItems.length} tracks in
+                        session
+                      </small>
                     </div>
                     <div className="source-header__content">
-                      <span>{getHarness().label} owns media access for this runtime.</span>
+                      <span>
+                        {getHarness().label} owns media access for this runtime.
+                      </span>
                     </div>
                   </section>
 
                   {sourceTracks.map((track, index) => {
-                    const sourceClips = sourceSpansByTrack.get(track.id) ?? []
-                    const swatch = getSwatch(track.colorIndex)
+                    const sourceClips = sourceSpansByTrack.get(track.id) ?? [];
+                    const swatch = getSwatch(track.colorIndex);
 
                     return (
-                      <section key={track.id} className="track-row track-row--source">
+                      <section
+                        key={track.id}
+                        className="track-row track-row--source"
+                      >
                         <button
                           className="track-label track-label--source"
                           onClick={() => selectSource(track.id)}
@@ -4331,22 +4865,32 @@ function App() {
                             </small>
                           </div>
                         </button>
-                        <div className="track-row__content track-row__content--source" style={gridStyle}>
+                        <div
+                          className="track-row__content track-row__content--source"
+                          style={gridStyle}
+                        >
                           {sourceClips.map((clip) => {
-                            const media = clip.mediaId ? mediaItemsById.get(clip.mediaId) : undefined
-                            const mediaState = describeMediaAvailability(media?.availability)
+                            const media = clip.mediaId
+                              ? mediaItemsById.get(clip.mediaId)
+                              : undefined;
+                            const mediaState = describeMediaAvailability(
+                              media?.availability,
+                            );
                             const thumbnailUrl =
-                              sourceThumbnailUrls[getSourceThumbnailCacheKey(clip)] ?? media?.thumbnailUrl
+                              sourceThumbnailUrls[
+                                getSourceThumbnailCacheKey(clip)
+                              ] ?? media?.thumbnailUrl;
                             return (
                               <div
                                 key={clip.id}
                                 className="source-span"
                                 style={{
                                   left: clip.startQ * quarterPx,
-                                  width: getClipDurationQ(clip, bpm) * quarterPx,
+                                  width:
+                                    getClipDurationQ(clip, bpm) * quarterPx,
                                   backgroundColor: clip.tint,
                                   borderColor: clip.accent,
-                                  opacity: mediaState === 'online' ? 1 : 0.56,
+                                  opacity: mediaState === "online" ? 1 : 0.56,
                                 }}
                               >
                                 <div
@@ -4355,8 +4899,8 @@ function App() {
                                     thumbnailUrl
                                       ? {
                                           backgroundImage: `url(${thumbnailUrl})`,
-                                          backgroundSize: 'cover',
-                                          backgroundPosition: 'center',
+                                          backgroundSize: "cover",
+                                          backgroundPosition: "center",
                                         }
                                       : undefined
                                   }
@@ -4364,20 +4908,23 @@ function App() {
                                 <div className="source-span__body">
                                   <span>{clip.label}</span>
                                   <small>
-                                    {mediaState === 'online'
-                                      ? 'online'
-                                      : mediaState === 'hydrating'
-                                        ? 'hydrating...'
-                                        : 'offline clip'}
+                                    {mediaState === "online"
+                                      ? "online"
+                                      : mediaState === "hydrating"
+                                        ? "hydrating..."
+                                        : "offline clip"}
                                   </small>
-                                  <div className="source-span__line" style={{ backgroundColor: clip.accent }} />
+                                  <div
+                                    className="source-span__line"
+                                    style={{ backgroundColor: clip.accent }}
+                                  />
                                 </div>
                               </div>
-                            )
+                            );
                           })}
                         </div>
                       </section>
-                    )
+                    );
                   })}
                 </div>
               </div>
@@ -4386,10 +4933,12 @@ function App() {
                 <div className="preview-panel__header">
                   <div>
                     <strong>Program</strong>
-                    <span>{previewClip ? previewClip.label : 'No clip at playhead'}</span>
+                    <span>
+                      {previewClip ? previewClip.label : "No clip at playhead"}
+                    </span>
                   </div>
                   <span className="preview-panel__mode">
-                    {previewMedia?.kind === 'audio' ? 'Audio' : 'Video'}
+                    {previewMedia?.kind === "audio" ? "Audio" : "Video"}
                   </span>
                 </div>
 
@@ -4410,18 +4959,22 @@ function App() {
                     playheadQ={playheadQ}
                     playheadSeconds={playheadSeconds}
                   />
-                  {!previewClip || previewMediaState !== 'online' ? (
+                  {!previewClip || previewMediaState !== "online" ? (
                     <div className="preview-placeholder">
                       <div className="preview-placeholder__overlay">
-                        <strong>{!previewClip ? 'No clip at playhead' : 'Offline clip'}</strong>
+                        <strong>
+                          {!previewClip
+                            ? "No clip at playhead"
+                            : "Offline clip"}
+                        </strong>
                         <span>
                           {!previewClip
                             ? isPlaying
-                              ? 'The playhead is currently in a gap between clips.'
-                              : 'Move the playhead onto a clip or start playback to render the session comp.'
-                            : previewMediaState === 'hydrating'
-                              ? 'Media hydration is still running in the background.'
-                              : 'This clip is in the project, but its media file is not cached locally yet.'}
+                              ? "The playhead is currently in a gap between clips."
+                              : "Move the playhead onto a clip or start playback to render the session comp."
+                            : previewMediaState === "hydrating"
+                              ? "Media hydration is still running in the background."
+                              : "This clip is in the project, but its media file is not cached locally yet."}
                         </span>
                       </div>
                     </div>
@@ -4431,11 +4984,15 @@ function App() {
                 <div className="preview-meta">
                   <div className="preview-meta__row">
                     <span>Session</span>
-                    <strong>{sessionName ?? 'Untitled session'}</strong>
+                    <strong>{sessionName ?? "Untitled session"}</strong>
                   </div>
                   <div className="preview-meta__row">
                     <span>Timeline</span>
-                    <strong>{timelineMode === 'musical' ? 'Tempo ruler' : 'SMPTE ruler'}</strong>
+                    <strong>
+                      {timelineMode === "musical"
+                        ? "Tempo ruler"
+                        : "SMPTE ruler"}
+                    </strong>
                   </div>
                   <div className="preview-meta__row">
                     <span>Resolution</span>
@@ -4449,8 +5006,8 @@ function App() {
                       {previewMedia?.sampleRate
                         ? `${previewMedia.sampleRate} Hz / ${previewMedia.channels ?? 2} ch`
                         : previewMedia?.hasAudio
-                          ? 'Embedded'
-                          : 'None'}
+                          ? "Embedded"
+                          : "None"}
                     </strong>
                   </div>
                 </div>
@@ -4464,7 +5021,9 @@ function App() {
                   max="1.8"
                   min="0.65"
                   onBlur={() => flushZoomDraft()}
-                  onChange={(event) => updateZoomDraft(Number(event.target.value))}
+                  onChange={(event) =>
+                    updateZoomDraft(Number(event.target.value))
+                  }
                   onKeyUp={() => flushZoomDraft()}
                   onPointerUp={() => flushZoomDraft()}
                   step="0.01"
@@ -4474,11 +5033,19 @@ function App() {
               </div>
 
               <div className="transport-cluster">
-                <button className="transport-button" onClick={() => jumpPlayhead(-1)} type="button">
-                  |{'<'}
+                <button
+                  className="transport-button"
+                  onClick={() => jumpPlayhead(-1)}
+                  type="button"
+                >
+                  |{"<"}
                 </button>
-                <button className="transport-button" onClick={() => jumpPlayhead(-0.5)} type="button">
-                  {'<<'}
+                <button
+                  className="transport-button"
+                  onClick={() => jumpPlayhead(-0.5)}
+                  type="button"
+                >
+                  {"<<"}
                 </button>
                 <button
                   className="transport-button transport-button--primary"
@@ -4486,13 +5053,21 @@ function App() {
                   onClick={handleTransportToggle}
                   type="button"
                 >
-                  {isPlaying ? 'Pause' : 'Play'}
+                  {isPlaying ? "Pause" : "Play"}
                 </button>
-                <button className="transport-button" onClick={() => jumpPlayhead(0.5)} type="button">
-                  {'>>'}
+                <button
+                  className="transport-button"
+                  onClick={() => jumpPlayhead(0.5)}
+                  type="button"
+                >
+                  {">>"}
                 </button>
-                <button className="transport-button" onClick={() => jumpPlayhead(1)} type="button">
-                  {'>'}|
+                <button
+                  className="transport-button"
+                  onClick={() => jumpPlayhead(1)}
+                  type="button"
+                >
+                  {">"}|
                 </button>
                 <button
                   aria-label="Randomize arrangement"
@@ -4512,7 +5087,11 @@ function App() {
               </div>
 
               <div className="transport-summary">
-                <span>{isExporting && exportState.detail ? exportState.detail : status}</span>
+                <span>
+                  {isExporting && exportState.detail
+                    ? exportState.detail
+                    : status}
+                </span>
               </div>
             </div>
           </section>
@@ -4523,8 +5102,8 @@ function App() {
                 <strong>FX Layer Stack</strong>
                 <span>
                   {effects.length
-                    ? 'Imported from the .lvp session'
-                    : 'Fallback rack until session effects are available'}
+                    ? "Imported from the .lvp session"
+                    : "Fallback rack until session effects are available"}
                 </span>
               </div>
 
@@ -4532,7 +5111,7 @@ function App() {
                 {fxDevices.map((device) => (
                   <button
                     key={device.id}
-                    className={`fx-device ${selectedFx?.id === device.id ? 'fx-device--active' : ''}`}
+                    className={`fx-device ${selectedFx?.id === device.id ? "fx-device--active" : ""}`}
                     onClick={() => setSelectedFxId(device.id)}
                     type="button"
                   >
@@ -4551,8 +5130,12 @@ function App() {
 
             <div className="fx-inspector">
               <div className="fx-inspector__header">
-                <strong>{selectedFx?.name ?? 'No device selected'}</strong>
-                <span>{selectedTrack?.name ?? selectedClip?.label ?? 'No clip selected'}</span>
+                <strong>{selectedFx?.name ?? "No device selected"}</strong>
+                <span>
+                  {selectedTrack?.name ??
+                    selectedClip?.label ??
+                    "No clip selected"}
+                </span>
               </div>
 
               {selectedFx ? (
@@ -4576,21 +5159,26 @@ function App() {
                   <div className="inspector-note">
                     <strong>Harness Media Flow</strong>
                     <p>
-                      `window.harness` owns session open, media analysis, and export. The web
-                      harness routes session access through the local Vite middleware, while Tauri
-                      upgrades the same contract with native dialogs and filesystem-backed URLs.
+                      `window.harness` owns session open, media analysis, and
+                      export. The web harness routes session access through the
+                      local Vite middleware, while Tauri upgrades the same
+                      contract with native dialogs and filesystem-backed URLs.
                     </p>
                     <p>
-                      The editor only supplies canvas frames and timeline state. Codec work lives
-                      in the active harness implementation, so desktop runtimes can switch to
-                      native `ffprobe` and `ffmpeg` without changing the UI.
+                      The editor only supplies canvas frames and timeline state.
+                      Codec work lives in the active harness implementation, so
+                      desktop runtimes can switch to native `ffprobe` and
+                      `ffmpeg` without changing the UI.
                     </p>
                   </div>
                 </div>
               ) : (
                 <div className="inspector-note">
                   <strong>No clip selected</strong>
-                  <p>Open a session or import media to populate the rack and inspector.</p>
+                  <p>
+                    Open a session or import media to populate the rack and
+                    inspector.
+                  </p>
                 </div>
               )}
             </div>
@@ -4598,7 +5186,7 @@ function App() {
         </div>
       </main>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

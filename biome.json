@@ -1,0 +1,16 @@
+{
+  "files": {
+    "includes": [
+      "**/*.js",
+      "**/*.mjs",
+      "**/*.ts",
+      "**/*.tsx",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/ffmpeg-core.js"
+    ]
+  },
+  "formatter": {
+    "indentStyle": "space"
+  }
+}
