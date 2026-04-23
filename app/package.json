@@ -8,6 +8,10 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "cf:prepare": "pnpm run build && node ./scripts/prepare-cloudflare-assets.mjs",
+    "cf:dev": "pnpm run cf:prepare && wrangler dev",
+    "deploy:dry-run": "pnpm run cf:prepare && wrangler deploy --dry-run",
+    "deploy": "pnpm run cf:prepare && wrangler deploy",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build"
@@ -27,6 +31,7 @@
     "yjs": "^13.6.30"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260423.1",
     "@eslint/js": "^9.39.4",
     "@tauri-apps/cli": "^2.10.1",
     "@types/node": "^24.12.2",
@@ -39,6 +44,7 @@
     "globals": "^17.4.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.0",
-    "vite": "^8.0.4"
+    "vite": "^8.0.4",
+    "wrangler": "^4.84.1"
   }
 }

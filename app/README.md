@@ -71,3 +71,17 @@ export default defineConfig([
   },
 ])
 ```
+
+## Cloudflare Worker deploy
+
+This app can also deploy to Cloudflare Workers as a static asset app served by a small Worker.
+
+```sh
+pnpm install
+pnpm run deploy:dry-run
+pnpm run deploy
+```
+
+Wrangler uses [wrangler.jsonc](d:\github\lsegal\zvid\app\wrangler.jsonc) and serves the built Vite output from `dist/` with SPA fallback enabled.
+
+Cloudflare Workers assets have a 25 MiB file limit, so the deploy flow strips the local `ffmpeg-core.wasm` file from the deploy bundle and the Worker serves that one path from jsDelivr instead.
