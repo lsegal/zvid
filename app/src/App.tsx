@@ -7,6 +7,12 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  BackwardIcon,
+  ForwardIcon,
+  PauseIcon,
+  PlayIcon,
+} from "@heroicons/react/24/solid";
 import "./App.css";
 import {
   CompositionPlayer,
@@ -825,7 +831,9 @@ function hasDraggedFileData(dataTransfer: DataTransfer | null) {
     return true;
   }
 
-  return Array.from(dataTransfer.items ?? []).some((item) => item.kind === "file");
+  return Array.from(dataTransfer.items ?? []).some(
+    (item) => item.kind === "file",
+  );
 }
 
 function buildDraggedMediaKey(files: readonly File[]) {
@@ -1926,20 +1934,23 @@ function App() {
     [],
   );
 
-  function seedLocalMediaItems(items: MediaItem[]) {
-    for (const item of items) {
-      if (item.previewUrl.startsWith("blob:")) {
-        mediaObjectUrlsRef.current.set(item.id, item.previewUrl);
+  const seedLocalMediaItems = useCallback(
+    (items: MediaItem[]) => {
+      for (const item of items) {
+        if (item.previewUrl.startsWith("blob:")) {
+          mediaObjectUrlsRef.current.set(item.id, item.previewUrl);
+        }
+        setLocalMediaOverride(item.id, {
+          availability: item.previewUrl ? "ready" : item.availability,
+          previewUrl: item.previewUrl || undefined,
+          thumbnailUrl: item.thumbnailUrl,
+        });
       }
-      setLocalMediaOverride(item.id, {
-        availability: item.previewUrl ? "ready" : item.availability,
-        previewUrl: item.previewUrl || undefined,
-        thumbnailUrl: item.thumbnailUrl,
-      });
-    }
-  }
+    },
+    [setLocalMediaOverride],
+  );
 
-  async function cacheLocalMediaItems(items: MediaItem[]) {
+  const cacheLocalMediaItems = useCallback(async (items: MediaItem[]) => {
     const harness = getHarness();
     await Promise.allSettled(
       items
@@ -1949,7 +1960,7 @@ function App() {
           await cacheMediaBlob(item.id, blob);
         }),
     );
-  }
+  }, []);
 
   const signature =
     SIGNATURES.find((candidate) => candidate.id === signatureId) ??
@@ -2244,7 +2255,8 @@ function App() {
             return;
           }
 
-          const message = error instanceof Error ? error.message : String(error);
+          const message =
+            error instanceof Error ? error.message : String(error);
           setSourceTrackDragPreview((current) =>
             current?.dragKey === dragKey
               ? {
@@ -2261,10 +2273,7 @@ function App() {
   );
 
   const handleSourceTrackDragEvent = useCallback(
-    (
-      event: ReactDragEvent<HTMLElement>,
-      target: SourceTrackDropTarget,
-    ) => {
+    (event: ReactDragEvent<HTMLElement>, target: SourceTrackDropTarget) => {
       const files = getDraggedMediaFiles(event.dataTransfer);
       if (!files.length) {
         return;
@@ -2288,7 +2297,9 @@ function App() {
   const resolveSourceTrackDropTargetAtPoint = useCallback(
     (clientX: number, clientY: number): SourceTrackDropTarget | null => {
       const element = document.elementFromPoint(clientX, clientY);
-      const target = element?.closest<HTMLElement>("[data-source-track-drop-target]");
+      const target = element?.closest<HTMLElement>(
+        "[data-source-track-drop-target]",
+      );
       const targetKind = target?.dataset.sourceTrackDropTarget;
       if (targetKind === "track" && target?.dataset.sourceTrackId) {
         return {
@@ -2306,116 +2317,129 @@ function App() {
     [sourceTracks.length],
   );
 
-  async function importMediaIntoSourceTrack(
-    files: File[],
-    target: SourceTrackDropTarget,
-  ) {
-    const harness = getHarness();
+  const importMediaIntoSourceTrack = useCallback(
+    async (files: File[], target: SourceTrackDropTarget) => {
+      const harness = getHarness();
 
-    try {
-      setStatus(
-        `Analyzing ${files.length} dropped media file(s) through ${harness.label}...`,
-      );
-      const analyzed = await harness.analyzeMedia(
-        {
-          kind: "files",
-          files,
-        },
-        PALETTE,
-        projectMediaItems.length,
-      );
-      const sharedAnalyzed = analyzed.map((item) => toShareableMediaItem(item));
-
-      commitProjectChange("Drop media into source tracks", (current) => {
-        const nextMediaItems = [...current.mediaItems, ...sharedAnalyzed];
-        let nextSourceTracks = current.sourceTracks;
-        let nextSourceSpans = current.sourceSpans;
-
-        let targetTrack =
-          target.kind === "track"
-            ? current.sourceTracks.find((track) => track.id === target.trackId)
-            : undefined;
-
-        if (!targetTrack) {
-          targetTrack = {
-            id: `source-track-${crypto.randomUUID()}`,
-            name: stripFilenameExtension(analyzed[0]?.name ?? "Source Track"),
-            colorIndex: current.sourceTracks.length,
-            recordingPaths: [],
-          };
-          nextSourceTracks = [...current.sourceTracks, targetTrack];
-        }
-
-        const mediaPaths = analyzed.map((item) => item.sourcePath ?? item.name);
-        nextSourceTracks = nextSourceTracks.map((track) =>
-          track.id === targetTrack.id
-            ? {
-                ...track,
-                recordingPaths: [...track.recordingPaths, ...mediaPaths],
-              }
-            : track,
+      try {
+        setStatus(
+          `Analyzing ${files.length} dropped media file(s) through ${harness.label}...`,
+        );
+        const analyzed = await harness.analyzeMedia(
+          {
+            kind: "files",
+            files,
+          },
+          PALETTE,
+          projectMediaItems.length,
+        );
+        const sharedAnalyzed = analyzed.map((item) =>
+          toShareableMediaItem(item),
         );
 
-        const swatch = getSwatch(targetTrack.colorIndex);
-        let insertQ = getSourceTrackEndQ(
-          current.sourceSpans,
-          targetTrack.id,
-          current.bpm,
-        );
-        const appendedSpans = analyzed.map<SourceSpan>((item) => {
-          const span: SourceSpan = {
-            id: `source-span-${crypto.randomUUID()}`,
-            sourceTrackId: targetTrack.id,
-            label: stripFilenameExtension(item.name),
-            mediaPath: item.sourcePath ?? item.name,
-            mediaId: item.id,
-            startQ: insertQ,
-            durationSeconds: Math.max(1, item.durationSeconds),
-            trimStartSeconds: 0,
-            tint: swatch.color,
-            accent: swatch.accent,
-          };
-          insertQ += getClipDurationQ(span, current.bpm);
-          return span;
-        });
-        nextSourceSpans = [...current.sourceSpans, ...appendedSpans];
+        commitProjectChange("Drop media into source tracks", (current) => {
+          const nextMediaItems = [...current.mediaItems, ...sharedAnalyzed];
+          let nextSourceTracks = current.sourceTracks;
+          let nextSourceSpans = current.sourceSpans;
 
-        const patch: Partial<ProjectState> = {
-          mediaItems: nextMediaItems,
-          sourceTracks: nextSourceTracks,
-          sourceSpans: nextSourceSpans,
-        };
-        if (
-          !current.sessionName &&
-          !current.mediaItems.length &&
-          !current.sourceTracks.length &&
-          !current.sourceSpans.length &&
-          !current.clips.length
-        ) {
-          const sizedMedia = analyzed.find((item) => item.width && item.height);
-          if (sizedMedia?.width && sizedMedia.height) {
-            patch.canvasWidth = Math.max(320, sizedMedia.width);
-            patch.canvasHeight = Math.max(320, sizedMedia.height);
+          let targetTrack =
+            target.kind === "track"
+              ? current.sourceTracks.find(
+                  (track) => track.id === target.trackId,
+                )
+              : undefined;
+
+          if (!targetTrack) {
+            targetTrack = {
+              id: `source-track-${crypto.randomUUID()}`,
+              name: stripFilenameExtension(analyzed[0]?.name ?? "Source Track"),
+              colorIndex: current.sourceTracks.length,
+              recordingPaths: [],
+            };
+            nextSourceTracks = [...current.sourceTracks, targetTrack];
           }
-        }
 
-        return patchProjectState(current, patch);
-      });
+          const mediaPaths = analyzed.map(
+            (item) => item.sourcePath ?? item.name,
+          );
+          nextSourceTracks = nextSourceTracks.map((track) =>
+            track.id === targetTrack.id
+              ? {
+                  ...track,
+                  recordingPaths: [...track.recordingPaths, ...mediaPaths],
+                }
+              : track,
+          );
 
-      seedLocalMediaItems(analyzed);
-      void cacheLocalMediaItems(analyzed);
-      setStatus(
-        `Dropped ${analyzed.length} media file(s) into ${
-          target.kind === "track"
-            ? "the selected source track"
-            : "a new source track"
-        }.`,
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setStatus(`Dropped media import failed: ${message}`);
-    }
-  }
+          const swatch = getSwatch(targetTrack.colorIndex);
+          let insertQ = getSourceTrackEndQ(
+            current.sourceSpans,
+            targetTrack.id,
+            current.bpm,
+          );
+          const appendedSpans = analyzed.map<SourceSpan>((item) => {
+            const span: SourceSpan = {
+              id: `source-span-${crypto.randomUUID()}`,
+              sourceTrackId: targetTrack.id,
+              label: stripFilenameExtension(item.name),
+              mediaPath: item.sourcePath ?? item.name,
+              mediaId: item.id,
+              startQ: insertQ,
+              durationSeconds: Math.max(1, item.durationSeconds),
+              trimStartSeconds: 0,
+              tint: swatch.color,
+              accent: swatch.accent,
+            };
+            insertQ += getClipDurationQ(span, current.bpm);
+            return span;
+          });
+          nextSourceSpans = [...current.sourceSpans, ...appendedSpans];
+
+          const patch: Partial<ProjectState> = {
+            mediaItems: nextMediaItems,
+            sourceTracks: nextSourceTracks,
+            sourceSpans: nextSourceSpans,
+          };
+          if (
+            !current.sessionName &&
+            !current.mediaItems.length &&
+            !current.sourceTracks.length &&
+            !current.sourceSpans.length &&
+            !current.clips.length
+          ) {
+            const sizedMedia = analyzed.find(
+              (item) => item.width && item.height,
+            );
+            if (sizedMedia?.width && sizedMedia.height) {
+              patch.canvasWidth = Math.max(320, sizedMedia.width);
+              patch.canvasHeight = Math.max(320, sizedMedia.height);
+            }
+          }
+
+          return patchProjectState(current, patch);
+        });
+
+        seedLocalMediaItems(analyzed);
+        void cacheLocalMediaItems(analyzed);
+        setStatus(
+          `Dropped ${analyzed.length} media file(s) into ${
+            target.kind === "track"
+              ? "the selected source track"
+              : "a new source track"
+          }.`,
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setStatus(`Dropped media import failed: ${message}`);
+      }
+    },
+    [
+      cacheLocalMediaItems,
+      commitProjectChange,
+      projectMediaItems.length,
+      seedLocalMediaItems,
+    ],
+  );
 
   const activeShareRoom = collaborationRoom.trim();
   const isSharing = collaborationMode === "sharing";
@@ -2509,10 +2533,12 @@ function App() {
         return;
       }
 
-      const target =
-        resolveSourceTrackDropTargetAtPoint(event.clientX, event.clientY) ?? {
-          kind: "new-track" as const,
-        };
+      const target = resolveSourceTrackDropTargetAtPoint(
+        event.clientX,
+        event.clientY,
+      ) ?? {
+        kind: "new-track" as const,
+      };
       clearSourceTrackDragState();
       void importMediaIntoSourceTrack(files, target);
     };
@@ -4247,16 +4273,48 @@ function App() {
       if (!selection) {
         return;
       }
-      setStatus(
-        `Opening ${
-          selection.kind === "file" ? selection.file.name : selection.name
-        } through ${harness.label}...`,
-      );
+      const selectionName =
+        selection.kind === "file"
+          ? selection.file.name
+          : selection.kind === "workspace"
+            ? selection.sessionFile.name
+            : selection.name;
+      setStatus(`Opening ${selectionName} through ${harness.label}...`);
       const payload = await harness.openSession(selection);
       await applyOpenedSessionPayload(payload);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setStatus(`Open failed: ${message}`);
+    }
+  }
+
+  async function handleOpenWorkspace() {
+    const harness = getHarness();
+    if (!harness.pickWorkspace) {
+      setStatus(`${harness.label} does not support opening a workspace.`);
+      return;
+    }
+
+    try {
+      const selection = await harness.pickWorkspace();
+      if (!selection) {
+        return;
+      }
+
+      const selectionName =
+        selection.kind === "workspace"
+          ? selection.sessionFile.name
+          : selection.kind === "file"
+            ? selection.file.name
+            : selection.name;
+      setStatus(
+        `Opening workspace ${selectionName} through ${harness.label}...`,
+      );
+      const payload = await harness.openSession(selection);
+      await applyOpenedSessionPayload(payload);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus(`Open workspace failed: ${message}`);
     }
   }
 
@@ -4570,6 +4628,9 @@ function App() {
               <DropdownMenuItem onSelect={() => void handleOpenSession()}>
                 Open Session
               </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void handleOpenWorkspace()}>
+                Open Workspace
+              </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => void handleImport()}>
                 Import Media
               </DropdownMenuItem>
@@ -4600,6 +4661,13 @@ function App() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <button
+            className="ghost-button"
+            onClick={() => void handleOpenWorkspace()}
+            type="button"
+          >
+            Open Workspace
+          </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="ghost-button file-menu-button" type="button">
@@ -5313,6 +5381,7 @@ function App() {
                   </section>
 
                   <section
+                    aria-label="Source track drop area"
                     className="source-header"
                     data-source-track-drop-target={
                       sourceTracks.length ? undefined : "new-track"
@@ -5398,7 +5467,8 @@ function App() {
                             </small>
                           </div>
                         </button>
-                        <div
+                        <section
+                          aria-label={`Drop media into ${track.name}`}
                           className={`track-row__content track-row__content--source ${isDropTarget ? "is-drop-target" : ""}`}
                           data-source-track-drop-target="track"
                           data-source-track-id={track.id}
@@ -5515,7 +5585,7 @@ function App() {
                               ) : null}
                             </div>
                           ) : null}
-                        </div>
+                        </section>
                       </section>
                     );
                   })}
@@ -5525,12 +5595,11 @@ function App() {
                         <span className="track-label__stripe" />
                         <div>
                           <span>New Source Track</span>
-                          <small>
-                            Drop here to create a new source track
-                          </small>
+                          <small>Drop here to create a new source track</small>
                         </div>
                       </div>
-                      <div
+                      <section
+                        aria-label="Drop media into a new source track"
                         className={`track-row__content track-row__content--source track-row__content--source-drop ${isNewSourceTrackDropTarget ? "is-drop-target" : ""}`}
                         data-source-track-drop-target="new-track"
                         onDragEnter={(event) =>
@@ -5590,7 +5659,7 @@ function App() {
                             ) : null}
                           </div>
                         ) : null}
-                      </div>
+                      </section>
                     </section>
                   ) : null}
                 </div>
@@ -5701,40 +5770,54 @@ function App() {
 
               <div className="transport-cluster">
                 <button
-                  className="transport-button"
+                  aria-label="Jump back one bar"
+                  className="transport-button transport-button--skip-start"
                   onClick={() => jumpPlayhead(-1)}
+                  title="Jump back one bar"
                   type="button"
                 >
-                  |{"<"}
+                  <BackwardIcon aria-hidden="true" />
                 </button>
                 <button
+                  aria-label="Jump back half a bar"
                   className="transport-button"
                   onClick={() => jumpPlayhead(-0.5)}
+                  title="Jump back half a bar"
                   type="button"
                 >
-                  {"<<"}
+                  <BackwardIcon aria-hidden="true" />
                 </button>
                 <button
+                  aria-label={isPlaying ? "Pause playback" : "Play timeline"}
                   className="transport-button transport-button--primary"
                   disabled={isExporting}
                   onClick={handleTransportToggle}
+                  title={isPlaying ? "Pause playback" : "Play timeline"}
                   type="button"
                 >
-                  {isPlaying ? "Pause" : "Play"}
+                  {isPlaying ? (
+                    <PauseIcon aria-hidden="true" />
+                  ) : (
+                    <PlayIcon aria-hidden="true" />
+                  )}
                 </button>
                 <button
+                  aria-label="Jump forward half a bar"
                   className="transport-button"
                   onClick={() => jumpPlayhead(0.5)}
+                  title="Jump forward half a bar"
                   type="button"
                 >
-                  {">>"}
+                  <ForwardIcon aria-hidden="true" />
                 </button>
                 <button
-                  className="transport-button"
+                  aria-label="Jump forward one bar"
+                  className="transport-button transport-button--skip-end"
                   onClick={() => jumpPlayhead(1)}
+                  title="Jump forward one bar"
                   type="button"
                 >
-                  {">"}|
+                  <ForwardIcon aria-hidden="true" />
                 </button>
                 <button
                   aria-label="Randomize arrangement"

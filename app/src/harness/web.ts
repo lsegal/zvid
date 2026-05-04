@@ -1,10 +1,15 @@
-import type { SessionOpenResponse } from "../session";
+import type {
+  LvpSession,
+  ServerMediaRef,
+  SessionOpenResponse,
+} from "../session";
 import type {
   Harness,
   SaveFilePickerHandle,
   SaveOptions,
   SaveTarget,
   SessionSelection,
+  WorkspaceFileRef,
 } from "./contracts";
 import {
   analyzeMediaSelection,
@@ -20,6 +25,11 @@ type SaveFilePickerWindow = Window & {
       accept: Record<string, string[]>;
     }>;
   }) => Promise<SaveFilePickerHandle>;
+};
+
+type DirectoryInput = HTMLInputElement & {
+  webkitdirectory: boolean;
+  directory: boolean;
 };
 
 function buildPickerAccept(options?: SaveOptions) {
@@ -52,6 +62,197 @@ function pickFiles(options: { accept: string; multiple: boolean }) {
     document.body.append(input);
     input.click();
   });
+}
+
+function pickDirectoryFiles() {
+  return new Promise<WorkspaceFileRef[] | null>((resolve) => {
+    const input = document.createElement("input") as DirectoryInput;
+    input.type = "file";
+    input.multiple = true;
+    input.webkitdirectory = true;
+    input.directory = true;
+    input.setAttribute("webkitdirectory", "");
+    input.setAttribute("directory", "");
+    input.style.position = "fixed";
+    input.style.left = "-9999px";
+    input.style.top = "-9999px";
+    input.addEventListener(
+      "change",
+      () => {
+        const files = Array.from(input.files ?? []);
+        input.remove();
+
+        if (!files.length) {
+          resolve(null);
+          return;
+        }
+
+        resolve(
+          files.map((file) => ({
+            path:
+              file.webkitRelativePath.split("/").slice(1).join("/") ||
+              file.name,
+            file,
+          })),
+        );
+      },
+      { once: true },
+    );
+    document.body.append(input);
+    input.click();
+  });
+}
+
+function basename(rawPath: string) {
+  return rawPath.split(/[/\\]/).filter(Boolean).pop() ?? rawPath;
+}
+
+function normalizeWorkspacePath(rawPath: string) {
+  return rawPath
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^[a-z]:\//i, "")
+    .replace(/^\/+/, "")
+    .replace(/\/+/g, "/")
+    .toLowerCase();
+}
+
+function createPathId(rawPath: string) {
+  let hash = 0;
+  for (let index = 0; index < rawPath.length; index += 1) {
+    hash = (hash * 31 + rawPath.charCodeAt(index)) >>> 0;
+  }
+  return `${hash.toString(16)}-${basename(rawPath)}`;
+}
+
+function collectSessionMediaPaths(session: LvpSession) {
+  const mediaPaths = new Set<string>();
+
+  for (const clip of session.clips ?? []) {
+    if (clip.filePath?.trim()) {
+      mediaPaths.add(clip.filePath.trim());
+    }
+  }
+
+  if (session.audioFilename?.trim()) {
+    mediaPaths.add(session.audioFilename.trim());
+  }
+
+  return Array.from(mediaPaths);
+}
+
+async function pickWorkspaceSession(): Promise<SessionSelection | null> {
+  const files = await pickDirectoryFiles();
+  if (!files) {
+    return null;
+  }
+
+  const firstRelativePath = files[0]?.file.webkitRelativePath;
+  const rootName = firstRelativePath?.split("/")[0] || "Workspace";
+  const sessionEntry = chooseWorkspaceSession(files);
+  if (!sessionEntry) {
+    return null;
+  }
+
+  return {
+    kind: "workspace",
+    rootName,
+    sessionPath: sessionEntry.path,
+    sessionFile: sessionEntry.file,
+    files,
+  };
+}
+
+function chooseWorkspaceSession(files: WorkspaceFileRef[]) {
+  const candidates = files.filter((entry) => {
+    const path = entry.path.toLowerCase();
+    return path.endsWith(".lvp") || path.endsWith(".json");
+  });
+  const lvpCandidates = candidates.filter((entry) =>
+    entry.path.toLowerCase().endsWith(".lvp"),
+  );
+  const sessionCandidates = lvpCandidates.length ? lvpCandidates : candidates;
+
+  if (!sessionCandidates.length) {
+    throw new Error(
+      "No .lvp session file was found in the selected workspace.",
+    );
+  }
+
+  if (sessionCandidates.length === 1) {
+    return sessionCandidates[0];
+  }
+
+  const choices = sessionCandidates
+    .slice(0, 20)
+    .map((entry, index) => `${index + 1}. ${entry.path}`)
+    .join("\n");
+  const rawChoice = window.prompt(
+    `Choose a session file to open:\n${choices}`,
+    "1",
+  );
+  if (!rawChoice) {
+    return null;
+  }
+
+  const index = Number.parseInt(rawChoice, 10) - 1;
+  return sessionCandidates[index] ?? null;
+}
+
+function createWorkspaceResolver(rootName: string, files: WorkspaceFileRef[]) {
+  const byPath = new Map<string, WorkspaceFileRef>();
+  const byBasename = new Map<string, WorkspaceFileRef | null>();
+
+  for (const entry of files) {
+    byPath.set(normalizeWorkspacePath(entry.path), entry);
+    const name = basename(entry.path).toLowerCase();
+    byBasename.set(name, byBasename.has(name) ? null : entry);
+  }
+
+  return (rawPath: string) => {
+    const normalized = normalizeWorkspacePath(rawPath);
+    const rootIndex = normalized.lastIndexOf(`/${rootName.toLowerCase()}/`);
+    const rootedPath =
+      rootIndex >= 0
+        ? normalized.slice(rootIndex + rootName.length + 2)
+        : normalized;
+
+    return (
+      byPath.get(normalized) ??
+      byPath.get(rootedPath) ??
+      byBasename.get(basename(rawPath).toLowerCase()) ??
+      null
+    );
+  };
+}
+
+function buildWorkspaceOpenPayload(
+  session: LvpSession,
+  selection: Extract<SessionSelection, { kind: "workspace" }>,
+): SessionOpenResponse {
+  const resolveFile = createWorkspaceResolver(
+    selection.rootName,
+    selection.files,
+  );
+  const mediaRefs = collectSessionMediaPaths(session).map<ServerMediaRef>(
+    (rawPath) => {
+      const entry = resolveFile(rawPath);
+      return {
+        id: createPathId(rawPath),
+        path: rawPath,
+        name: basename(rawPath),
+        url: entry ? URL.createObjectURL(entry.file) : "",
+        exists: Boolean(entry),
+      };
+    },
+  );
+
+  return {
+    session,
+    sessionName: selection.sessionFile.name,
+    sessionPath: `${selection.rootName}/${selection.sessionPath}`,
+    mediaRefs,
+  };
 }
 
 async function prepareSave(
@@ -129,8 +330,13 @@ export function createWebHarness(): Harness {
         multiple: false,
       });
       const file = files[0];
-      return file ? { kind: "file", file } : null;
+      if (!file) {
+        return null;
+      }
+
+      return { kind: "file", file };
     },
+    pickWorkspace: pickWorkspaceSession,
     async pickMedia() {
       const files = await pickFiles({
         accept:
@@ -140,6 +346,13 @@ export function createWebHarness(): Harness {
       return files.length ? { kind: "files", files } : null;
     },
     async openSession(selection): Promise<SessionOpenResponse> {
+      if (selection.kind === "workspace") {
+        const session = JSON.parse(
+          await selection.sessionFile.text(),
+        ) as LvpSession;
+        return buildWorkspaceOpenPayload(session, selection);
+      }
+
       if (selection.kind === "path") {
         const response = await fetch("/api/session/open", {
           method: "POST",

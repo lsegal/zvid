@@ -167,7 +167,7 @@ export async function maybeCreateTauriHarness(
         };
       },
       openSession(selection) {
-        if (selection.kind === "file") {
+        if (selection.kind !== "path") {
           return base.openSession(selection);
         }
 

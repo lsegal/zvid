@@ -1288,14 +1288,40 @@
 }
 
 .transport-button {
-  min-width: 62px;
-  padding: 12px 14px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  height: 44px;
+  padding: 12px;
   border-radius: 14px;
   border: 1px solid var(--line);
   background: rgba(10, 12, 20, 0.36);
   color: var(--ink);
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+.transport-button > svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+  flex: 0 0 auto;
+}
+
+.transport-button--skip-start::before,
+.transport-button--skip-end::after {
+  width: 2px;
+  height: 18px;
+  border-radius: 999px;
+  background: currentColor;
+  content: "";
+}
+
+.transport-button--skip-start,
+.transport-button--skip-end {
+  gap: 3px;
 }
 
 .transport-button--primary {
