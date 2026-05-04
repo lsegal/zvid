@@ -17,6 +17,7 @@ import "./App.css";
 import {
   CompositionPlayer,
   type CompositionPlayerHandle,
+  CompositionRenderer,
 } from "./CompositionPlayer";
 import {
   type CollaborationConnectionState,
@@ -4328,13 +4329,6 @@ function App() {
       return;
     }
 
-    const compositionPlayer = compositionPlayerRef.current;
-    const canvas = compositionPlayer?.getCanvas();
-    if (!compositionPlayer || !canvas) {
-      setStatus("The composition preview is not ready for export yet.");
-      return;
-    }
-
     const durationSeconds = Math.max(
       0.01,
       masterAudio?.durationSeconds ?? 0,
@@ -4391,12 +4385,22 @@ function App() {
     logClient("export:phase", { phase: "preparing", frames: outputFrameCount });
 
     const previousPlayheadQ = playheadQ;
+    const exportRenderer = new CompositionRenderer({
+      mediaItems,
+      clips: timelineClips,
+      lanes,
+      effects,
+      bpm,
+      canvasWidth,
+      canvasHeight,
+      masterAudio,
+    });
 
     try {
       const result = await getHarness().exportVideo({
         filename: exportName,
         saveTarget,
-        canvas,
+        canvas: exportRenderer.canvas,
         canvasWidth,
         canvasHeight,
         durationSeconds,
@@ -4406,8 +4410,8 @@ function App() {
         bpm,
         masterAudio,
         renderFrameAt: (frameQ, frameSeconds) =>
-          compositionPlayer.renderFrameAt(frameQ, frameSeconds),
-        setPlayheadQ,
+          exportRenderer.renderFrameAt(frameQ, frameSeconds),
+        setPlayheadQ: () => {},
         onProgress: (update) => {
           updateExportState(update.phase, update.detail, update.progress);
         },
@@ -4436,8 +4440,9 @@ function App() {
       setIsExporting(false);
       setExportState({ phase: "idle", progress: null, detail: "" });
       setPlayheadQ(previousPlayheadQ);
+      exportRenderer.destroy();
       try {
-        await compositionPlayer.restorePreviewSurface(
+        await compositionPlayerRef.current?.restorePreviewSurface(
           previousPlayheadQ,
           quartersToSeconds(previousPlayheadQ, bpm),
         );

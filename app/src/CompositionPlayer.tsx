@@ -92,6 +92,25 @@ type CompositionPlayerProps = {
   masterAudio?: MediaItem;
 };
 
+export type CompositionRendererState = {
+  mediaItems: MediaItem[];
+  clips: ArrangementClip[];
+  lanes: Lane[];
+  effects: SessionEffect[];
+  bpm: number;
+  canvasWidth: number;
+  canvasHeight: number;
+  masterAudio?: MediaItem;
+};
+
+type CompositionPlaybackState = {
+  playheadQ: number;
+  playheadSeconds: number;
+  isPlaying: boolean;
+  isScrubbing: boolean;
+  isAudibleScrubbing: boolean;
+};
+
 export type CompositionPlayerHandle = {
   getCanvas(): HTMLCanvasElement | null;
   renderFrameAt(playheadQ: number, playheadSeconds: number): Promise<void>;
@@ -748,6 +767,276 @@ function seekMediaElement(element: HTMLMediaElement, targetSeconds: number) {
   });
 }
 
+export class CompositionRenderer {
+  readonly canvas: HTMLCanvasElement;
+
+  private resources: WebGlResources | null = null;
+  private mediaRefs = new Map<string, HTMLMediaElement>();
+  private masterAudioElement: HTMLAudioElement | null = null;
+  private state: CompositionRendererState;
+  private activeClips: ActiveClip[] = [];
+
+  constructor(
+    state: CompositionRendererState,
+    options: { canvas?: HTMLCanvasElement } = {},
+  ) {
+    this.canvas = options.canvas ?? document.createElement("canvas");
+    this.state = state;
+    this.update(state);
+  }
+
+  update(state: CompositionRendererState) {
+    this.state = state;
+    this.syncMediaElements();
+  }
+
+  destroy() {
+    for (const element of this.mediaRefs.values()) {
+      element.pause();
+      element.removeAttribute("src");
+      element.load();
+    }
+    this.mediaRefs.clear();
+
+    if (this.masterAudioElement) {
+      this.masterAudioElement.pause();
+      this.masterAudioElement.removeAttribute("src");
+      this.masterAudioElement.load();
+      this.masterAudioElement = null;
+    }
+  }
+
+  renderPreviewFrame(playheadQ: number, pixelRatio: number) {
+    this.ensureResources();
+    this.activeClips = this.computeActiveClips(playheadQ);
+    this.draw(this.activeClips, pixelRatio);
+  }
+
+  async renderFrameAt(
+    playheadQ: number,
+    playheadSeconds: number,
+    pixelRatio = 1,
+  ) {
+    this.ensureResources();
+    syncCanvasSurface(
+      this.canvas,
+      this.state.canvasWidth,
+      this.state.canvasHeight,
+      pixelRatio,
+    );
+
+    const nextActiveClips = this.computeActiveClips(playheadQ);
+    const pendingSeeks = new Map<string, Promise<void>>();
+
+    for (const entry of nextActiveClips) {
+      if (!entry.isInBounds) {
+        continue;
+      }
+
+      const mediaElement = this.mediaRefs.get(entry.media.id);
+      if (!(mediaElement instanceof HTMLVideoElement)) {
+        continue;
+      }
+
+      pendingSeeks.set(
+        entry.media.id,
+        seekMediaElement(mediaElement, entry.mediaTime),
+      );
+    }
+
+    if (pendingSeeks.size) {
+      await Promise.all(pendingSeeks.values());
+    }
+
+    if (this.masterAudioElement && this.state.masterAudio?.previewUrl) {
+      this.masterAudioElement.pause();
+      this.masterAudioElement.currentTime = playheadSeconds;
+    }
+
+    this.activeClips = nextActiveClips;
+    this.draw(nextActiveClips, pixelRatio);
+  }
+
+  syncPlayback(playback: CompositionPlaybackState) {
+    const activeClipByMediaId = new Map(
+      this.computeActiveClips(playback.playheadQ).map((entry) => [
+        entry.media.id,
+        entry,
+      ]),
+    );
+
+    for (const item of this.state.mediaItems) {
+      const element = this.mediaRefs.get(item.id);
+      if (!element) {
+        continue;
+      }
+
+      const activeEntry = activeClipByMediaId.get(item.id);
+      if (!activeEntry?.isInBounds) {
+        if (!element.paused) {
+          element.pause();
+        }
+        continue;
+      }
+
+      const drift = Math.abs(element.currentTime - activeEntry.mediaTime);
+      if (
+        !playback.isPlaying ||
+        playback.isScrubbing ||
+        drift > MAX_DRIFT_SECONDS
+      ) {
+        element.currentTime = activeEntry.mediaTime;
+      }
+
+      const shouldPlay =
+        item.kind === "video"
+          ? playback.isPlaying
+          : playback.isPlaying || playback.isAudibleScrubbing;
+      if (shouldPlay) {
+        element.play().catch(() => {});
+      } else if (!element.paused) {
+        element.pause();
+      }
+    }
+
+    const audio = this.masterAudioElement;
+    if (!audio || !this.state.masterAudio?.previewUrl) {
+      return;
+    }
+
+    const shouldPlay = playback.isPlaying || playback.isAudibleScrubbing;
+    const driftTolerance = playback.isAudibleScrubbing
+      ? SCRUB_AUDIO_DRIFT_SECONDS
+      : MAX_DRIFT_SECONDS;
+    const drift = Math.abs(audio.currentTime - playback.playheadSeconds);
+    if (!shouldPlay || drift > driftTolerance) {
+      audio.currentTime = playback.playheadSeconds;
+    }
+
+    if (shouldPlay) {
+      audio.play().catch(() => {});
+    } else if (!audio.paused) {
+      audio.pause();
+    }
+  }
+
+  addVideoFrameReadyListeners(scheduleDraw: () => void) {
+    const removeListeners: Array<() => void> = [];
+
+    for (const element of this.mediaRefs.values()) {
+      if (!(element instanceof HTMLVideoElement)) {
+        continue;
+      }
+
+      const handleFrameReady = () => scheduleDraw();
+      element.addEventListener("seeked", handleFrameReady);
+      element.addEventListener("loadeddata", handleFrameReady);
+      removeListeners.push(() => {
+        element.removeEventListener("seeked", handleFrameReady);
+        element.removeEventListener("loadeddata", handleFrameReady);
+      });
+    }
+
+    return () => {
+      for (const removeListener of removeListeners) {
+        removeListener();
+      }
+    };
+  }
+
+  private ensureResources() {
+    if (!this.resources) {
+      this.resources = ensureWebGlResources(this.canvas);
+    }
+  }
+
+  private computeActiveClips(playheadQ: number) {
+    const mediaById = new Map(
+      this.state.mediaItems.map((item) => [item.id, item]),
+    );
+    const lanePriority = new Map(
+      this.state.lanes.map((lane, index) => [lane.id, index]),
+    );
+
+    return computeActiveClips(
+      this.state.clips,
+      mediaById,
+      playheadQ,
+      this.state.bpm,
+      lanePriority,
+      this.state.effects,
+    );
+  }
+
+  private draw(activeClips: ActiveClip[], pixelRatio: number) {
+    this.ensureResources();
+    syncCanvasSurface(
+      this.canvas,
+      this.state.canvasWidth,
+      this.state.canvasHeight,
+      pixelRatio,
+    );
+    drawComposition(
+      this.resources as WebGlResources,
+      this.canvas,
+      activeClips,
+      this.mediaRefs,
+    );
+  }
+
+  private syncMediaElements() {
+    const activeIds = new Set(this.state.mediaItems.map((item) => item.id));
+    for (const [id, element] of this.mediaRefs) {
+      if (!activeIds.has(id)) {
+        element.pause();
+        element.removeAttribute("src");
+        element.load();
+        this.mediaRefs.delete(id);
+      }
+    }
+
+    for (const item of this.state.mediaItems) {
+      let element = this.mediaRefs.get(item.id);
+      if (!element) {
+        element =
+          item.kind === "video"
+            ? document.createElement("video")
+            : document.createElement("audio");
+        element.crossOrigin = "anonymous";
+        element.preload = "auto";
+        if (element instanceof HTMLVideoElement) {
+          element.muted = true;
+          element.playsInline = true;
+        }
+        this.mediaRefs.set(item.id, element);
+      }
+
+      if (element.getAttribute("src") !== item.previewUrl) {
+        element.src = item.previewUrl;
+      }
+    }
+
+    if (this.state.masterAudio?.previewUrl) {
+      if (!this.masterAudioElement) {
+        this.masterAudioElement = document.createElement("audio");
+        this.masterAudioElement.crossOrigin = "anonymous";
+        this.masterAudioElement.preload = "auto";
+      }
+      if (
+        this.masterAudioElement.getAttribute("src") !==
+        this.state.masterAudio.previewUrl
+      ) {
+        this.masterAudioElement.src = this.state.masterAudio.previewUrl;
+      }
+    } else if (this.masterAudioElement) {
+      this.masterAudioElement.pause();
+      this.masterAudioElement.removeAttribute("src");
+      this.masterAudioElement.load();
+      this.masterAudioElement = null;
+    }
+  }
+}
+
 export const CompositionPlayer = forwardRef<
   CompositionPlayerHandle,
   CompositionPlayerProps
@@ -770,56 +1059,42 @@ export const CompositionPlayer = forwardRef<
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const mediaRefs = useRef(new Map<string, HTMLMediaElement>());
-  const resourcesRef = useRef<WebGlResources | null>(null);
+  const rendererRef = useRef<CompositionRenderer | null>(null);
   const playbackFrameRef = useRef<number>(0);
   const renderRequestRef = useRef<number>(0);
-  const activeClipsRef = useRef<ActiveClip[]>([]);
-
-  const mediaById = useMemo(
-    () => new Map(mediaItems.map((item) => [item.id, item])),
-    [mediaItems],
+  const rendererState = useMemo(
+    () => ({
+      mediaItems,
+      clips,
+      lanes,
+      effects,
+      bpm,
+      canvasWidth,
+      canvasHeight,
+      masterAudio,
+    }),
+    [
+      bpm,
+      canvasHeight,
+      canvasWidth,
+      clips,
+      effects,
+      lanes,
+      masterAudio,
+      mediaItems,
+    ],
   );
-  const lanePriority = useMemo(
-    () => new Map(lanes.map((lane, index) => [lane.id, index])),
-    [lanes],
-  );
-  const activeClips = useMemo(
-    () =>
-      computeActiveClips(
-        clips,
-        mediaById,
-        playheadQ,
-        bpm,
-        lanePriority,
-        effects,
-      ),
-    [clips, mediaById, playheadQ, bpm, lanePriority, effects],
-  );
-  const activeClipByMediaId = useMemo(
-    () => new Map(activeClips.map((entry) => [entry.media.id, entry])),
-    [activeClips],
-  );
-  activeClipsRef.current = activeClips;
 
   const drawCurrentFrame = useCallback(
     (pixelRatio: number) => {
-      const canvas = canvasRef.current;
-      const resources = resourcesRef.current;
-      if (!canvas || !resources) {
+      const renderer = rendererRef.current;
+      if (!renderer) {
         return;
       }
 
-      syncCanvasSurface(canvas, canvasWidth, canvasHeight, pixelRatio);
-      drawComposition(
-        resources,
-        canvas,
-        activeClipsRef.current,
-        mediaRefs.current,
-      );
+      renderer.renderPreviewFrame(playheadQ, pixelRatio);
     },
-    [canvasHeight, canvasWidth],
+    [playheadQ],
   );
 
   const scheduleDraw = useCallback(
@@ -843,68 +1118,18 @@ export const CompositionPlayer = forwardRef<
       pixelRatio: number,
     ) => {
       const canvas = canvasRef.current;
-      if (!canvas) {
+      const renderer = rendererRef.current;
+      if (!canvas || !renderer) {
         return;
       }
 
-      if (!resourcesRef.current) {
-        resourcesRef.current = ensureWebGlResources(canvas);
-      }
-
-      syncCanvasSurface(canvas, canvasWidth, canvasHeight, pixelRatio);
-
-      const nextActiveClips = computeActiveClips(
-        clips,
-        mediaById,
+      await renderer.renderFrameAt(
         nextPlayheadQ,
-        bpm,
-        lanePriority,
-        effects,
-      );
-      const pendingSeeks = new Map<string, Promise<void>>();
-
-      for (const entry of nextActiveClips) {
-        if (!entry.isInBounds) {
-          continue;
-        }
-
-        const mediaElement = mediaRefs.current.get(entry.media.id);
-        if (!(mediaElement instanceof HTMLVideoElement)) {
-          continue;
-        }
-
-        pendingSeeks.set(
-          entry.media.id,
-          seekMediaElement(mediaElement, entry.mediaTime),
-        );
-      }
-
-      if (pendingSeeks.size) {
-        await Promise.all(pendingSeeks.values());
-      }
-
-      if (audioRef.current && masterAudio?.previewUrl) {
-        audioRef.current.pause();
-        audioRef.current.currentTime = nextPlayheadSeconds;
-      }
-
-      drawComposition(
-        resourcesRef.current,
-        canvas,
-        nextActiveClips,
-        mediaRefs.current,
+        nextPlayheadSeconds,
+        pixelRatio,
       );
     },
-    [
-      bpm,
-      canvasHeight,
-      canvasWidth,
-      clips,
-      effects,
-      lanePriority,
-      masterAudio?.previewUrl,
-      mediaById,
-    ],
+    [],
   );
 
   useImperativeHandle(
@@ -929,9 +1154,7 @@ export const CompositionPlayer = forwardRef<
       return;
     }
 
-    if (!resourcesRef.current) {
-      resourcesRef.current = ensureWebGlResources(canvas);
-    }
+    rendererRef.current = new CompositionRenderer(rendererState, { canvas });
 
     return () => {
       if (playbackFrameRef.current) {
@@ -940,8 +1163,14 @@ export const CompositionPlayer = forwardRef<
       if (renderRequestRef.current) {
         window.cancelAnimationFrame(renderRequestRef.current);
       }
+      rendererRef.current?.destroy();
+      rendererRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    rendererRef.current?.update(rendererState);
+  }, [rendererState]);
 
   useEffect(() => {
     if (isPlaying) {
@@ -953,14 +1182,14 @@ export const CompositionPlayer = forwardRef<
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !resourcesRef.current) {
+    if (!canvas || !rendererRef.current) {
       return;
     }
 
     const pixelRatio = window.devicePixelRatio || 1;
 
     const render = () => {
-      if (!canvasRef.current || !resourcesRef.current) {
+      if (!canvasRef.current || !rendererRef.current) {
         return;
       }
 
@@ -980,138 +1209,22 @@ export const CompositionPlayer = forwardRef<
   }, [drawCurrentFrame, isPlaying]);
 
   useEffect(() => {
-    const removeListeners: Array<() => void> = [];
-
-    for (const item of mediaItems) {
-      const element = mediaRefs.current.get(item.id);
-      if (!element) {
-        continue;
-      }
-
-      if (element instanceof HTMLVideoElement) {
-        const handleFrameReady = () => scheduleDraw();
-        element.addEventListener("seeked", handleFrameReady);
-        element.addEventListener("loadeddata", handleFrameReady);
-        removeListeners.push(() => {
-          element.removeEventListener("seeked", handleFrameReady);
-          element.removeEventListener("loadeddata", handleFrameReady);
-        });
-      }
-    }
-
-    return () => {
-      for (const removeListener of removeListeners) {
-        removeListener();
-      }
-    };
+    return rendererRef.current?.addVideoFrameReadyListeners(scheduleDraw);
   }, [mediaItems, scheduleDraw]);
 
   useEffect(() => {
-    for (const item of mediaItems) {
-      const element = mediaRefs.current.get(item.id);
-      if (!element) {
-        continue;
-      }
-
-      const activeEntry = activeClipByMediaId.get(item.id);
-      if (!activeEntry?.isInBounds) {
-        if (!element.paused) {
-          element.pause();
-        }
-        continue;
-      }
-
-      const drift = Math.abs(element.currentTime - activeEntry.mediaTime);
-      if (!isPlaying || isScrubbing || drift > MAX_DRIFT_SECONDS) {
-        element.currentTime = activeEntry.mediaTime;
-      }
-
-      const shouldPlay =
-        item.kind === "video" ? isPlaying : isPlaying || isAudibleScrubbing;
-      if (shouldPlay) {
-        element.play().catch(() => {});
-      } else if (!element.paused) {
-        element.pause();
-      }
-    }
-  }, [
-    activeClipByMediaId,
-    isAudibleScrubbing,
-    isPlaying,
-    isScrubbing,
-    mediaItems,
-  ]);
-
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio || !masterAudio?.previewUrl) {
-      return;
-    }
-
-    const shouldPlay = isPlaying || isAudibleScrubbing;
-    const driftTolerance = isAudibleScrubbing
-      ? SCRUB_AUDIO_DRIFT_SECONDS
-      : MAX_DRIFT_SECONDS;
-    const drift = Math.abs(audio.currentTime - playheadSeconds);
-    if (!shouldPlay || drift > driftTolerance) {
-      audio.currentTime = playheadSeconds;
-    }
-
-    if (shouldPlay) {
-      audio.play().catch(() => {});
-    } else if (!audio.paused) {
-      audio.pause();
-    }
-  }, [isAudibleScrubbing, isPlaying, masterAudio?.previewUrl, playheadSeconds]);
+    rendererRef.current?.syncPlayback({
+      playheadQ,
+      playheadSeconds,
+      isPlaying,
+      isScrubbing,
+      isAudibleScrubbing,
+    });
+  }, [isAudibleScrubbing, isPlaying, isScrubbing, playheadQ, playheadSeconds]);
 
   return (
     <div className="composition-player">
       <canvas className="composition-player__canvas" ref={canvasRef} />
-      <div className="composition-player__media-bin" aria-hidden="true">
-        {mediaItems.map((item) =>
-          item.kind === "video" ? (
-            <video
-              key={item.id}
-              crossOrigin="anonymous"
-              muted
-              playsInline
-              preload="auto"
-              ref={(node) => {
-                if (node) {
-                  mediaRefs.current.set(item.id, node);
-                } else {
-                  mediaRefs.current.delete(item.id);
-                }
-              }}
-              src={item.previewUrl}
-            />
-          ) : item.kind === "audio" ? (
-            /* biome-ignore lint/a11y/useMediaCaption: This hidden audio element is used only for internal playback syncing. */
-            <audio
-              key={item.id}
-              crossOrigin="anonymous"
-              preload="auto"
-              ref={(node) => {
-                if (node) {
-                  mediaRefs.current.set(item.id, node);
-                } else {
-                  mediaRefs.current.delete(item.id);
-                }
-              }}
-              src={item.previewUrl}
-            />
-          ) : null,
-        )}
-        {masterAudio?.previewUrl ? (
-          /* biome-ignore lint/a11y/useMediaCaption: This hidden master bus element is used only for internal playback syncing. */
-          <audio
-            crossOrigin="anonymous"
-            preload="auto"
-            ref={audioRef}
-            src={masterAudio.previewUrl}
-          />
-        ) : null}
-      </div>
     </div>
   );
 });

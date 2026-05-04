@@ -806,7 +806,7 @@ export async function exportVideo(
   request.onProgress({
     phase: "rendering",
     progress: null,
-    detail: `Rendering ${request.frameCount} frame(s) from the preview canvas...`,
+    detail: `Rendering ${request.frameCount} frame(s) from the render surface...`,
   });
   request.onLog?.("export:phase", {
     phase: "rendering",
