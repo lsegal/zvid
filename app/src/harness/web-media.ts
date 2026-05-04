@@ -838,6 +838,7 @@ export async function exportVideo(
     if (frameIndex === 0) {
       request.onLog?.("export:first-frame:complete", { frame: 1 });
     }
+    await yieldToBrowser();
 
     if (
       frameIndex === 0 ||

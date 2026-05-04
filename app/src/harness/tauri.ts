@@ -56,6 +56,12 @@ async function canvasToJpegBlob(canvas: HTMLCanvasElement) {
   });
 }
 
+function yieldToBrowser() {
+  return new Promise<void>((resolve) => {
+    window.setTimeout(resolve, 0);
+  });
+}
+
 export async function maybeCreateTauriHarness(
   base: Harness,
 ): Promise<Harness | null> {
@@ -322,6 +328,8 @@ export async function maybeCreateTauriHarness(
                 detail: `Rendering ${frameIndex + 1}/${request.frameCount} native frames (${completion}%)...`,
               });
             }
+
+            await yieldToBrowser();
           }
 
           request.onProgress({

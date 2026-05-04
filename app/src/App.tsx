@@ -1836,6 +1836,7 @@ function App() {
   const collaborationColor = initialCollaborationConfig.color;
 
   const playbackOriginRef = useRef(0);
+  const playheadQRef = useRef(0);
   const playbackStopRef = useRef(0);
   const compositionPlayerRef = useRef<CompositionPlayerHandle | null>(null);
   const appShellRef = useRef<HTMLDivElement | null>(null);
@@ -3102,6 +3103,10 @@ function App() {
   }, [projectHistory.present]);
 
   useEffect(() => {
+    playheadQRef.current = playheadQ;
+  }, [playheadQ]);
+
+  useEffect(() => {
     localMediaOverridesRef.current = localMediaOverrides;
   }, [localMediaOverrides]);
 
@@ -3640,7 +3645,7 @@ function App() {
         }
 
         event.preventDefault();
-        if (!clips.length || isExporting) {
+        if (!clips.length) {
           return;
         }
 
@@ -3654,10 +3659,6 @@ function App() {
       }
 
       if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-        if (isExporting) {
-          return;
-        }
-
         event.preventDefault();
         const direction = event.key === "ArrowLeft" ? -1 : 1;
         const deltaQ = secondsToQuarters(
@@ -3671,10 +3672,6 @@ function App() {
       }
 
       if (event.key === "Home" || event.key === "End") {
-        if (isExporting) {
-          return;
-        }
-
         event.preventDefault();
         const lastFrameQ = Math.max(
           0,
@@ -4384,7 +4381,6 @@ function App() {
     });
     logClient("export:phase", { phase: "preparing", frames: outputFrameCount });
 
-    const previousPlayheadQ = playheadQ;
     const exportRenderer = new CompositionRenderer({
       mediaItems,
       clips: timelineClips,
@@ -4439,12 +4435,12 @@ function App() {
     } finally {
       setIsExporting(false);
       setExportState({ phase: "idle", progress: null, detail: "" });
-      setPlayheadQ(previousPlayheadQ);
       exportRenderer.destroy();
+      const previewPlayheadQ = playheadQRef.current;
       try {
         await compositionPlayerRef.current?.restorePreviewSurface(
-          previousPlayheadQ,
-          quartersToSeconds(previousPlayheadQ, bpm),
+          previewPlayheadQ,
+          quartersToSeconds(previewPlayheadQ, bpm),
         );
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -4454,7 +4450,7 @@ function App() {
   }
 
   async function handleTransportToggle() {
-    if (!clips.length || isExporting) {
+    if (!clips.length) {
       return;
     }
 
@@ -4467,10 +4463,6 @@ function App() {
   }
 
   function jumpPlayhead(deltaBars: number) {
-    if (isExporting) {
-      return;
-    }
-
     const next = clamp(playheadQ + deltaBars * barLength, 0, totalQuarters);
     setPlayheadQ(next);
     playbackOriginRef.current = next;
@@ -5107,10 +5099,6 @@ function App() {
                         timelineDragState ? "is-dragging" : ""
                       }`}
                       onPointerDown={(event) => {
-                        if (isExporting) {
-                          return;
-                        }
-
                         const timelineScroll = timelineScrollRef.current;
                         if (!timelineScroll) {
                           return;
@@ -5795,7 +5783,6 @@ function App() {
                 <button
                   aria-label={isPlaying ? "Pause playback" : "Play timeline"}
                   className="transport-button transport-button--primary"
-                  disabled={isExporting}
                   onClick={handleTransportToggle}
                   title={isPlaying ? "Pause playback" : "Play timeline"}
                   type="button"
