@@ -773,6 +773,8 @@ export class CompositionRenderer {
   private resources: WebGlResources | null = null;
   private mediaRefs = new Map<string, HTMLMediaElement>();
   private masterAudioElement: HTMLAudioElement | null = null;
+  private removeVideoFrameReadyListeners: Array<() => void> = [];
+  private videoFrameReadyListener: (() => void) | null = null;
   private state: CompositionRendererState;
   private activeClips: ActiveClip[] = [];
 
@@ -791,6 +793,8 @@ export class CompositionRenderer {
   }
 
   destroy() {
+    this.clearVideoFrameReadyListeners();
+
     for (const element of this.mediaRefs.values()) {
       element.pause();
       element.removeAttribute("src");
@@ -921,25 +925,13 @@ export class CompositionRenderer {
   }
 
   addVideoFrameReadyListeners(scheduleDraw: () => void) {
-    const removeListeners: Array<() => void> = [];
-
-    for (const element of this.mediaRefs.values()) {
-      if (!(element instanceof HTMLVideoElement)) {
-        continue;
-      }
-
-      const handleFrameReady = () => scheduleDraw();
-      element.addEventListener("seeked", handleFrameReady);
-      element.addEventListener("loadeddata", handleFrameReady);
-      removeListeners.push(() => {
-        element.removeEventListener("seeked", handleFrameReady);
-        element.removeEventListener("loadeddata", handleFrameReady);
-      });
-    }
+    this.videoFrameReadyListener = scheduleDraw;
+    this.refreshVideoFrameReadyListeners();
 
     return () => {
-      for (const removeListener of removeListeners) {
-        removeListener();
+      if (this.videoFrameReadyListener === scheduleDraw) {
+        this.videoFrameReadyListener = null;
+        this.clearVideoFrameReadyListeners();
       }
     };
   }
@@ -1034,6 +1026,37 @@ export class CompositionRenderer {
       this.masterAudioElement.load();
       this.masterAudioElement = null;
     }
+
+    this.refreshVideoFrameReadyListeners();
+  }
+
+  private refreshVideoFrameReadyListeners() {
+    const scheduleDraw = this.videoFrameReadyListener;
+    this.clearVideoFrameReadyListeners();
+    if (!scheduleDraw) {
+      return;
+    }
+
+    for (const element of this.mediaRefs.values()) {
+      if (!(element instanceof HTMLVideoElement)) {
+        continue;
+      }
+
+      const handleFrameReady = () => scheduleDraw();
+      element.addEventListener("seeked", handleFrameReady);
+      element.addEventListener("loadeddata", handleFrameReady);
+      this.removeVideoFrameReadyListeners.push(() => {
+        element.removeEventListener("seeked", handleFrameReady);
+        element.removeEventListener("loadeddata", handleFrameReady);
+      });
+    }
+  }
+
+  private clearVideoFrameReadyListeners() {
+    for (const removeListener of this.removeVideoFrameReadyListeners) {
+      removeListener();
+    }
+    this.removeVideoFrameReadyListeners = [];
   }
 }
 
@@ -1084,6 +1107,8 @@ export const CompositionPlayer = forwardRef<
       mediaItems,
     ],
   );
+  const rendererStateRef = useRef(rendererState);
+  rendererStateRef.current = rendererState;
 
   const drawCurrentFrame = useCallback(
     (pixelRatio: number) => {
@@ -1154,7 +1179,9 @@ export const CompositionPlayer = forwardRef<
       return;
     }
 
-    rendererRef.current = new CompositionRenderer(rendererState, { canvas });
+    rendererRef.current = new CompositionRenderer(rendererStateRef.current, {
+      canvas,
+    });
 
     return () => {
       if (playbackFrameRef.current) {
@@ -1210,7 +1237,7 @@ export const CompositionPlayer = forwardRef<
 
   useEffect(() => {
     return rendererRef.current?.addVideoFrameReadyListeners(scheduleDraw);
-  }, [mediaItems, scheduleDraw]);
+  }, [scheduleDraw]);
 
   useEffect(() => {
     rendererRef.current?.syncPlayback({

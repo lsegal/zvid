@@ -1,4 +1,10 @@
 import {
+  BackwardIcon,
+  ForwardIcon,
+  PauseIcon,
+  PlayIcon,
+} from "@heroicons/react/24/solid";
+import {
   type DragEvent as ReactDragEvent,
   useCallback,
   useEffect,
@@ -7,12 +13,6 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  BackwardIcon,
-  ForwardIcon,
-  PauseIcon,
-  PlayIcon,
-} from "@heroicons/react/24/solid";
 import "./App.css";
 import {
   CompositionPlayer,

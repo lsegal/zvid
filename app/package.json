@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 1420 --strictPort",
     "build": "tsc -b && vite build",
-    "lint": "eslint .",
+    "lint": "tsc -b && pnpm --dir .. exec biome check app/src app/worker app/scripts app/vite.config.ts",
+    "test": "pnpm run build",
     "preview": "vite preview",
     "cf:prepare": "pnpm run build && node ./scripts/prepare-cloudflare-assets.mjs",
     "cf:dev": "pnpm run cf:prepare && wrangler dev",

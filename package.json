@@ -6,8 +6,9 @@
     "deploy": "pnpm -r run deploy",
     "dev": "pnpm -C app dev",
     "dev:native": "pnpm -C app tauri:dev",
-    "lint": "tsc && biome check",
-    "lint:fix": "biome check --unsafe --write"
+    "lint": "pnpm --dir app exec tsc -b && biome check",
+    "lint:fix": "biome check --unsafe --write",
+    "test": "pnpm --dir app run test"
   },
   "keywords": [],
   "author": "",
