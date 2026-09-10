@@ -2,6 +2,7 @@ import { buildFallbackWaveform, type MediaItem } from "../media";
 import type { ServerMediaRef, SessionOpenResponse } from "../session";
 import type { Harness } from "./contracts";
 import { generateThumbnailFromUrlAtTime } from "./web-media";
+import { exportVideo } from "./export";
 
 function basename(rawPath: string) {
   return rawPath.split(/[/\\]/).filter(Boolean).pop() ?? rawPath;
@@ -32,35 +33,6 @@ type NativeMediaAnalysis = {
   thumbnailPath?: string;
 };
 
-type RenderSession = {
-  sessionId: string;
-};
-
-type RenderCompletion = {
-  bytes: number;
-};
-
-async function canvasToJpegBlob(canvas: HTMLCanvasElement) {
-  return new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (result) => {
-        if (!result) {
-          reject(new Error("Failed to encode canvas frame"));
-          return;
-        }
-        resolve(result);
-      },
-      "image/jpeg",
-      0.92,
-    );
-  });
-}
-
-function yieldToBrowser() {
-  return new Promise<void>((resolve) => {
-    window.setTimeout(resolve, 0);
-  });
-}
 
 export async function maybeCreateTauriHarness(
   base: Harness,
@@ -269,94 +241,14 @@ export async function maybeCreateTauriHarness(
         return "native-path" as const;
       },
       async exportVideo(request) {
-        if (request.saveTarget.kind !== "native-path") {
-          return base.exportVideo(request);
-        }
-
-        request.onProgress({
-          phase: "preparing",
-          progress: null,
-          detail: "Starting native ffmpeg render session...",
+        return exportVideo(request, async (blob, target) => {
+          if (target.kind !== "native-path") return base.saveBlob(blob, target);
+          await invoke("write_file_bytes", { path: target.path, bytes: Array.from(new Uint8Array(await blob.arrayBuffer())) });
+          return "native-path";
+        }, async (video, audio) => {
+          const pcm = audio ? Array.from({ length: audio.numberOfChannels }, (_, channel) => Array.from(audio.getChannelData(channel))) : null;
+          return new Uint8Array(await invoke<number[]>("mux_export", { video: Array.from(video), pcm, sampleRate: audio?.sampleRate ?? 48000 }));
         });
-        const renderSession = await invoke<RenderSession>(
-          "start_render_session",
-          {
-            frameRate: request.frameRate,
-            audioPath: request.masterAudio?.sourcePath ?? null,
-          },
-        );
-
-        try {
-          request.onProgress({
-            phase: "rendering",
-            progress: null,
-            detail: `Rendering ${request.frameCount} frame(s) for native ffmpeg...`,
-          });
-          for (
-            let frameIndex = 0;
-            frameIndex < request.frameCount;
-            frameIndex += 1
-          ) {
-            const frameSeconds = Math.min(
-              request.durationSeconds,
-              frameIndex * request.frameDuration,
-            );
-            const frameQ = (frameSeconds * request.bpm) / 60;
-            await request.renderFrameAt(frameQ, frameSeconds);
-            const frameBlob = await canvasToJpegBlob(request.canvas);
-            const bytes = Array.from(
-              new Uint8Array(await frameBlob.arrayBuffer()),
-            );
-            await invoke("write_render_frame", {
-              sessionId: renderSession.sessionId,
-              frameIndex,
-              bytes,
-            });
-
-            if (
-              frameIndex === 0 ||
-              frameIndex === request.frameCount - 1 ||
-              frameIndex % Math.max(1, Math.floor(request.frameRate)) === 0
-            ) {
-              const completion = Math.round(
-                ((frameIndex + 1) / request.frameCount) * 100,
-              );
-              request.setPlayheadQ(frameQ);
-              request.onProgress({
-                phase: "rendering",
-                progress: completion,
-                detail: `Rendering ${frameIndex + 1}/${request.frameCount} native frames (${completion}%)...`,
-              });
-            }
-
-            await yieldToBrowser();
-          }
-
-          request.onProgress({
-            phase: "muxing",
-            progress: null,
-            detail: "Encoding final MP4 with native ffmpeg...",
-          });
-          const completion = await invoke<RenderCompletion>(
-            "finish_render_session",
-            {
-              sessionId: renderSession.sessionId,
-              outputPath: request.saveTarget.path,
-            },
-          );
-
-          return {
-            bytes: completion.bytes,
-            mimeType: "video/mp4",
-            muxedWith: "ffmpeg",
-            saveMethod: "native-path" as const,
-          };
-        } catch (error) {
-          await invoke("cleanup_render_session", {
-            sessionId: renderSession.sessionId,
-          }).catch(() => undefined);
-          throw error;
-        }
       },
     };
   } catch {

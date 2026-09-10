@@ -14,3 +14,5 @@ serde_json = "1"
 sha1 = "0.10"
 tauri = { version = "=2.9.3", features = ["protocol-asset"] }
 tauri-plugin-dialog = "=2.6.0"
+zvid-export-bridge = { path = "../export-bridge" }
+tempfile = "3"

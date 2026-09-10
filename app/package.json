@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 1420 --strictPort",
-    "build": "tsc -b && vite build",
+    "build": "wasm-pack build export-bridge --target web --out-dir pkg && tsc -b && vite build",
     "lint": "tsc -b && pnpm --dir .. exec biome check app/src app/worker app/scripts app/vite.config.ts",
     "test": "pnpm run build",
     "preview": "vite preview",

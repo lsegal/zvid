@@ -13,9 +13,9 @@ import type {
 } from "./contracts";
 import {
   analyzeMediaSelection,
-  exportVideo,
   generateThumbnailFromUrlAtTime,
 } from "./web-media";
+import { exportVideo } from "./export";
 
 type SaveFilePickerWindow = Window & {
   showSaveFilePicker?: (options?: {

@@ -1,0 +1,17 @@
+[package]
+name = "zvid-export-bridge"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+zvidlib = { git = "https://github.com/lsegal/zvidlib", rev = "ad9fb16c6323a7e5266ecf27f091157d4dc1bca2" }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2.127"
+wasm-bindgen-futures = "0.4.77"
+
+[dev-dependencies]
+futures = "0.3"
