@@ -11,11 +11,11 @@ import type {
   SessionSelection,
   WorkspaceFileRef,
 } from "./contracts";
+import { exportVideo } from "./export";
 import {
   analyzeMediaSelection,
   generateThumbnailFromUrlAtTime,
 } from "./web-media";
-import { exportVideo } from "./export";
 
 type SaveFilePickerWindow = Window & {
   showSaveFilePicker?: (options?: {

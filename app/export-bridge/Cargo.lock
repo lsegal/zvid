@@ -1236,7 +1236,7 @@ dependencies = [
 [[package]]
 name = "zvidlib"
 version = "0.0.0"
-source = "git+https://github.com/lsegal/zvidlib?rev=ad9fb16c6323a7e5266ecf27f091157d4dc1bca2#ad9fb16c6323a7e5266ecf27f091157d4dc1bca2"
+source = "git+https://github.com/lsegal/zvidlib?rev=873d0deb975a72dde1408d6e8f6922849d15847d#873d0deb975a72dde1408d6e8f6922849d15847d"
 dependencies = [
  "apple-cf",
  "cpal",

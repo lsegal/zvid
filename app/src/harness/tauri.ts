@@ -1,8 +1,8 @@
 import { buildFallbackWaveform, type MediaItem } from "../media";
 import type { ServerMediaRef, SessionOpenResponse } from "../session";
 import type { Harness } from "./contracts";
-import { generateThumbnailFromUrlAtTime } from "./web-media";
 import { exportVideo } from "./export";
+import { generateThumbnailFromUrlAtTime } from "./web-media";
 
 function basename(rawPath: string) {
   return rawPath.split(/[/\\]/).filter(Boolean).pop() ?? rawPath;
@@ -32,7 +32,6 @@ type NativeMediaAnalysis = {
   hasVideo: boolean;
   thumbnailPath?: string;
 };
-
 
 export async function maybeCreateTauriHarness(
   base: Harness,
@@ -241,14 +240,32 @@ export async function maybeCreateTauriHarness(
         return "native-path" as const;
       },
       async exportVideo(request) {
-        return exportVideo(request, async (blob, target) => {
-          if (target.kind !== "native-path") return base.saveBlob(blob, target);
-          await invoke("write_file_bytes", { path: target.path, bytes: Array.from(new Uint8Array(await blob.arrayBuffer())) });
-          return "native-path";
-        }, async (video, audio) => {
-          const pcm = audio ? Array.from({ length: audio.numberOfChannels }, (_, channel) => Array.from(audio.getChannelData(channel))) : null;
-          return new Uint8Array(await invoke<number[]>("mux_export", { video: Array.from(video), pcm, sampleRate: audio?.sampleRate ?? 48000 }));
-        });
+        return exportVideo(
+          request,
+          async (blob, target) => {
+            if (target.kind !== "native-path")
+              return base.saveBlob(blob, target);
+            await invoke("write_file_bytes", {
+              path: target.path,
+              bytes: Array.from(new Uint8Array(await blob.arrayBuffer())),
+            });
+            return "native-path";
+          },
+          async (video, audio) => {
+            const pcm = audio
+              ? Array.from({ length: audio.numberOfChannels }, (_, channel) =>
+                  Array.from(audio.getChannelData(channel)),
+                )
+              : null;
+            return new Uint8Array(
+              await invoke<number[]>("mux_export", {
+                video: Array.from(video),
+                pcm,
+                sampleRate: audio?.sampleRate ?? 48000,
+              }),
+            );
+          },
+        );
       },
     };
   } catch {
