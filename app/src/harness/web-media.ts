@@ -14,12 +14,7 @@ import type {
   SaveTarget,
 } from "./contracts";
 
-const FFMPEG_CORE_URL = "/ffmpeg/ffmpeg-core.js";
-const FFMPEG_WASM_URL = "/ffmpeg/ffmpeg-core.wasm";
-
 type WebMediaRuntime = {
-  FFmpeg: typeof import("@ffmpeg/ffmpeg").FFmpeg;
-  toBlobURL: typeof import("@ffmpeg/util").toBlobURL;
   mediabunny: typeof import("mediabunny");
 };
 
@@ -32,14 +27,38 @@ type MediaAnalysisOptions = {
 };
 
 let runtimePromise: Promise<WebMediaRuntime> | null = null;
-let ffmpegRef: import("@ffmpeg/ffmpeg").FFmpeg | null = null;
-let ffmpegLoadRef: Promise<void> | null = null;
-let ffmpegAssetUrlsRef: { coreURL: string; wasmURL: string } | null = null;
 
 function yieldToBrowser() {
   return new Promise<void>((resolve) => {
     window.setTimeout(resolve, 0);
   });
+}
+
+function concatAudioBuffers(buffers: AudioBuffer[]) {
+  if (!buffers.length) return null;
+  const channels = Math.max(
+    ...buffers.map((buffer) => buffer.numberOfChannels),
+  );
+  const sampleRate = buffers[0].sampleRate;
+  const length = buffers.reduce((total, buffer) => total + buffer.length, 0);
+  const combined = new AudioContext().createBuffer(
+    channels,
+    Math.max(1, length),
+    sampleRate,
+  );
+  let offset = 0;
+  for (const buffer of buffers) {
+    for (let channel = 0; channel < channels; channel++) {
+      combined
+        .getChannelData(channel)
+        .set(
+          buffer.getChannelData(Math.min(channel, buffer.numberOfChannels - 1)),
+          offset,
+        );
+    }
+    offset += buffer.length;
+  }
+  return combined;
 }
 
 async function canvasToObjectUrl(canvas: HTMLCanvasElement | OffscreenCanvas) {
@@ -187,123 +206,9 @@ export async function generateThumbnailFromUrlAtTime(
   });
 }
 
-function toArrayBuffer(data: Uint8Array | string) {
-  if (typeof data === "string") {
-    return new TextEncoder().encode(data).buffer;
-  }
-
-  const normalized = new Uint8Array(data.byteLength);
-  normalized.set(data);
-  return normalized.buffer;
-}
-
-function blobToUint8Array(blob: Blob) {
-  return blob.arrayBuffer().then((buffer) => new Uint8Array(buffer));
-}
-
-function concatAudioBuffers(buffers: AudioBuffer[]) {
-  if (!buffers.length) {
-    return null;
-  }
-
-  const channelCount = Math.max(
-    ...buffers.map((buffer) => buffer.numberOfChannels),
-  );
-  const sampleRate = buffers[0].sampleRate;
-  const totalLength = buffers.reduce((sum, buffer) => sum + buffer.length, 0);
-  const context = new OfflineAudioContext(
-    channelCount,
-    Math.max(1, totalLength),
-    sampleRate,
-  );
-  const combined = context.createBuffer(
-    channelCount,
-    Math.max(1, totalLength),
-    sampleRate,
-  );
-  let offset = 0;
-
-  for (const buffer of buffers) {
-    for (let channelIndex = 0; channelIndex < channelCount; channelIndex += 1) {
-      const sourceChannel = Math.min(channelIndex, buffer.numberOfChannels - 1);
-      combined
-        .getChannelData(channelIndex)
-        .set(buffer.getChannelData(sourceChannel), offset);
-    }
-
-    offset += buffer.length;
-  }
-
-  return combined;
-}
-
-function encodeAudioBufferAsWav(audioBuffer: AudioBuffer) {
-  const channelCount = audioBuffer.numberOfChannels;
-  const sampleRate = audioBuffer.sampleRate;
-  const sampleCount = audioBuffer.length;
-  const bytesPerSample = 2;
-  const blockAlign = channelCount * bytesPerSample;
-  const byteRate = sampleRate * blockAlign;
-  const dataSize = sampleCount * blockAlign;
-  const buffer = new ArrayBuffer(44 + dataSize);
-  const view = new DataView(buffer);
-  let offset = 0;
-
-  const writeString = (value: string) => {
-    for (let index = 0; index < value.length; index += 1) {
-      view.setUint8(offset, value.charCodeAt(index));
-      offset += 1;
-    }
-  };
-
-  writeString("RIFF");
-  view.setUint32(offset, 36 + dataSize, true);
-  offset += 4;
-  writeString("WAVE");
-  writeString("fmt ");
-  view.setUint32(offset, 16, true);
-  offset += 4;
-  view.setUint16(offset, 1, true);
-  offset += 2;
-  view.setUint16(offset, channelCount, true);
-  offset += 2;
-  view.setUint32(offset, sampleRate, true);
-  offset += 4;
-  view.setUint32(offset, byteRate, true);
-  offset += 4;
-  view.setUint16(offset, blockAlign, true);
-  offset += 2;
-  view.setUint16(offset, bytesPerSample * 8, true);
-  offset += 2;
-  writeString("data");
-  view.setUint32(offset, dataSize, true);
-  offset += 4;
-
-  const channels = Array.from({ length: channelCount }, (_, index) =>
-    audioBuffer.getChannelData(index),
-  );
-  for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
-    for (let channelIndex = 0; channelIndex < channelCount; channelIndex += 1) {
-      const sample = channels[channelIndex]?.[sampleIndex] ?? 0;
-      const clamped = Math.max(-1, Math.min(1, sample));
-      const encoded = clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff;
-      view.setInt16(offset, Math.round(encoded), true);
-      offset += 2;
-    }
-  }
-
-  return new Uint8Array(buffer);
-}
-
 async function loadRuntime() {
   if (!runtimePromise) {
-    runtimePromise = Promise.all([
-      import("@ffmpeg/ffmpeg"),
-      import("@ffmpeg/util"),
-      import("mediabunny"),
-    ]).then(([ffmpeg, ffmpegUtil, mediabunny]) => ({
-      FFmpeg: ffmpeg.FFmpeg,
-      toBlobURL: ffmpegUtil.toBlobURL,
+    runtimePromise = import("mediabunny").then((mediabunny) => ({
       mediabunny,
     }));
   }
@@ -694,58 +599,6 @@ export async function analyzeMediaSelection(
       );
 }
 
-async function ensureFfmpeg(request: ExportRequest, runtime: WebMediaRuntime) {
-  if (ffmpegRef?.loaded) {
-    return ffmpegRef;
-  }
-
-  if (!ffmpegRef) {
-    const ffmpeg = new runtime.FFmpeg();
-    ffmpeg.on("log", ({ message }) => {
-      request.onLog?.("ffmpeg:log", { message });
-    });
-    ffmpeg.on("progress", ({ progress, time }) => {
-      request.onLog?.("ffmpeg:progress", { progress, time });
-      const completion = Math.max(0, Math.min(100, Math.round(progress * 100)));
-      request.onProgress({
-        phase: "muxing",
-        progress: completion,
-        detail: `Muxing audio into final MP4 with ffmpeg.wasm (${completion}%)...`,
-      });
-    });
-    ffmpegRef = ffmpeg;
-  }
-
-  if (!ffmpegLoadRef) {
-    request.onProgress({
-      phase: "loading-ffmpeg",
-      progress: 0,
-      detail: "Loading ffmpeg.wasm core...",
-    });
-    request.onLog?.("export:phase", { phase: "loading-ffmpeg" });
-    const assetUrlsPromise = ffmpegAssetUrlsRef
-      ? Promise.resolve(ffmpegAssetUrlsRef)
-      : Promise.all([
-          runtime.toBlobURL(FFMPEG_CORE_URL, "text/javascript", true),
-          runtime.toBlobURL(FFMPEG_WASM_URL, "application/wasm", true),
-        ]).then(([coreURL, wasmURL]) => {
-          const next = { coreURL, wasmURL };
-          ffmpegAssetUrlsRef = next;
-          return next;
-        });
-
-    ffmpegLoadRef = ffmpegRef
-      .load(await assetUrlsPromise)
-      .then(() => undefined)
-      .finally(() => {
-        ffmpegLoadRef = null;
-      });
-  }
-
-  await ffmpegLoadRef;
-  return ffmpegRef;
-}
-
 export async function exportVideo(
   request: ExportRequest,
   saveBlob: (blob: Blob, target: SaveTarget) => Promise<SaveMethod>,
@@ -901,6 +754,8 @@ export async function exportVideo(
   }
 
   if (masterAudioBuffer) {
+    throw new Error("The legacy FFmpeg export path is no longer available.");
+    /*
     const ffmpeg = await ensureFfmpeg(request, runtime);
     request.onProgress({
       phase: "muxing",
@@ -959,6 +814,8 @@ export async function exportVideo(
       ]);
     }
   }
+  */
+  }
 
   const saveMethod = await saveBlob(
     new Blob([intermediateBuffer], { type: intermediateMimeType }),
@@ -973,12 +830,5 @@ export async function exportVideo(
 }
 
 export async function destroyWebMediaRuntime() {
-  ffmpegRef?.terminate();
-  if (ffmpegAssetUrlsRef) {
-    URL.revokeObjectURL(ffmpegAssetUrlsRef.coreURL);
-    URL.revokeObjectURL(ffmpegAssetUrlsRef.wasmURL);
-    ffmpegAssetUrlsRef = null;
-  }
-  ffmpegRef = null;
-  ffmpegLoadRef = null;
+  runtimePromise = null;
 }

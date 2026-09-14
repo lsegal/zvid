@@ -1,0 +1,24 @@
+[package]
+name = "zvid-export-bridge"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+# This crate is intentionally standalone: the application root is not a Rust
+# workspace. Declaring an empty workspace also prevents Cargo from treating an
+# unrelated parent checkout as this package's workspace when the project is
+# built from a temporary directory.
+[workspace]
+
+[dependencies]
+# Includes zvidlib's WebCodecs and macOS AudioToolbox export adapters.
+zvidlib = { git = "https://github.com/lsegal/zvidlib", rev = "873d0deb975a72dde1408d6e8f6922849d15847d" }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2.127"
+wasm-bindgen-futures = "0.4.77"
+
+[dev-dependencies]
+futures = "0.3"
