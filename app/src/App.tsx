@@ -185,13 +185,7 @@ type TimelineDragState = {
 };
 
 type ExportState = {
-  phase:
-    | "idle"
-    | "preparing"
-    | "decoding-audio"
-    | "rendering"
-    | "loading-ffmpeg"
-    | "muxing";
+  phase: "idle" | "preparing" | "decoding-audio" | "rendering" | "muxing";
   progress: number | null;
   detail: string;
 };
@@ -2133,13 +2127,11 @@ function App() {
   const exportButtonLabel = isExporting
     ? exportState.progress !== null
       ? `${exportState.progress}%`
-      : exportState.phase === "loading-ffmpeg"
-        ? "Loading..."
-        : exportState.phase === "muxing"
-          ? "Muxing..."
-          : exportState.phase === "decoding-audio"
-            ? "Audio..."
-            : "Render..."
+      : exportState.phase === "muxing"
+        ? "Muxing..."
+        : exportState.phase === "decoding-audio"
+          ? "Audio..."
+          : "Render..."
     : "Export";
   const sourceTrackDragPreviewDetail = sourceTrackDragPreview
     ? sourceTrackDragPreview.status === "loading"
@@ -5908,9 +5900,9 @@ function App() {
                     </p>
                     <p>
                       The editor only supplies canvas frames and timeline state.
-                      Codec work lives in the active harness implementation, so
-                      desktop runtimes can switch to native `ffprobe` and
-                      `ffmpeg` without changing the UI.
+                      Media analysis uses the shared reader, while export
+                      encodes platform-supported tracks and writes the final MP4
+                      through zvidlib.
                     </p>
                   </div>
                 </div>

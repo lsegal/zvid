@@ -148,10 +148,16 @@ export async function maybeCreateTauriHarness(
         if (selection.kind === "files") {
           return base.analyzeMedia(selection, palettes, startIndex);
         }
-        const analyzed = await base.analyzeMedia(selection, palettes, startIndex);
+        const analyzed = await base.analyzeMedia(
+          selection,
+          palettes,
+          startIndex,
+        );
         return analyzed.map((item, index) => ({
           ...item,
-          availability: selection.refs[index].exists ? "ready" as const : "offline" as const,
+          availability: selection.refs[index].exists
+            ? ("ready" as const)
+            : ("offline" as const),
         }));
       },
       async readMediaBlob(target) {
