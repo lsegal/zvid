@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="UTF-8" /><title>zvid MP4 export smoke test</title></head>
+  <body>
+    <h1>MP4 export smoke test</h1>
+    <p>Exports a two-second moving canvas and a 440 Hz tone through the real export harness.</p>
+    <button id="video">Export video only</button>
+    <button id="audio">Export with audio</button>
+    <button id="native-aac" hidden>Test native AAC fallback</button>
+    <pre id="status">Ready</pre>
+    <script type="module" src="/src/export-smoke.ts"></script>
+  </body>
+</html>

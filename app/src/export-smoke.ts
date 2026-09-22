@@ -1,0 +1,122 @@
+import { invoke, isTauri } from "@tauri-apps/api/core";
+import { save as nativeSave } from "@tauri-apps/plugin-dialog";
+import { exportVideo } from "./harness/export";
+import type { SaveTarget } from "./harness/contracts";
+import type { MediaItem } from "./media";
+
+const canvas = document.createElement("canvas");
+canvas.width = 320;
+canvas.height = 180;
+const status = document.querySelector<HTMLElement>("#status")!;
+const native = isTauri();
+let videoOnlyBytes: Uint8Array | null = null;
+
+function tone() {
+  const sampleRate = 48_000;
+  const frames = sampleRate * 2;
+  const wav = new ArrayBuffer(44 + frames * 2);
+  const view = new DataView(wav);
+  const ascii = (offset: number, value: string) => {
+    for (let index = 0; index < value.length; index++)
+      view.setUint8(offset + index, value.charCodeAt(index));
+  };
+  ascii(0, "RIFF");
+  view.setUint32(4, wav.byteLength - 8, true);
+  ascii(8, "WAVEfmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  ascii(36, "data");
+  view.setUint32(40, frames * 2, true);
+  for (let index = 0; index < frames; index++)
+    view.setInt16(44 + index * 2, Math.round(Math.sin(2 * Math.PI * 440 * index / sampleRate) * 12_000), true);
+  return URL.createObjectURL(new Blob([wav], { type: "audio/wav" }));
+}
+
+async function destination(filename: string): Promise<SaveTarget | null> {
+  if (!native) return { kind: "download", filename };
+  const path = await nativeSave({ defaultPath: filename, filters: [{ name: "MP4", extensions: ["mp4"] }] });
+  return path ? { kind: "native-path", filename, path } : null;
+}
+
+async function write(blob: Blob, target: SaveTarget) {
+  if (target.kind === "native-path") {
+    await invoke("write_file_bytes", { path: target.path, bytes: Array.from(new Uint8Array(await blob.arrayBuffer())) });
+    return "native-path" as const;
+  }
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = target.filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 10_000);
+  return "download" as const;
+}
+
+async function run(audible: boolean) {
+  const filename = audible ? "smoke-audible.mp4" : "smoke-video-only.mp4";
+  const saveTarget = await destination(filename);
+  if (!saveTarget) return;
+  const toneUrl = audible ? tone() : null;
+  status.textContent = `Exporting ${filename}...`;
+  try {
+    const result = await exportVideo({
+      filename, saveTarget, canvas, canvasWidth: 320, canvasHeight: 180,
+      durationSeconds: 2, frameRate: 24, frameCount: 48, frameDuration: 1 / 24, bpm: 120,
+      masterAudio: toneUrl ? { hasAudio: true, previewUrl: toneUrl } as MediaItem : undefined,
+      renderFrameAt: async (_quarters, seconds) => {
+        const context = canvas.getContext("2d")!;
+        context.fillStyle = "#245078";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.fillStyle = "white";
+        context.font = "24px sans-serif";
+        context.fillText(`Frame ${Math.floor(seconds * 24)}`, 20, 90);
+      },
+      setPlayheadQ: () => {},
+      onProgress: (update) => { status.textContent = update.detail; },
+    }, async (blob, target) => {
+      if (!audible) videoOnlyBytes = new Uint8Array(await blob.arrayBuffer());
+      return write(blob, target);
+    }, native ? async (video, audio) => new Uint8Array(await invoke<number[]>("mux_export", {
+      video: Array.from(video),
+      pcm: audio ? Array.from({ length: audio.numberOfChannels }, (_, channel) => Array.from(audio.getChannelData(channel))) : null,
+      sampleRate: audio?.sampleRate ?? 48_000,
+    })) : undefined);
+    status.textContent = `Saved ${filename}: ${result.bytes} bytes`;
+  } catch (error) {
+    status.textContent = `Error: ${error}`;
+  } finally {
+    if (toneUrl) URL.revokeObjectURL(toneUrl);
+  }
+}
+
+async function testNativeAac() {
+  if (!videoOnlyBytes) {
+    status.textContent = "Export video only first.";
+    return;
+  }
+  const filename = "smoke-native-aac.mp4";
+  const saveTarget = await destination(filename);
+  if (!saveTarget) return;
+  status.textContent = "Encoding AAC through the native fallback...";
+  try {
+    const pcm = Array.from({ length: 96_000 }, (_, index) => Math.sin(2 * Math.PI * 440 * index / 48_000) * 0.36);
+    const bytes = await invoke<number[]>("mux_export", {
+      video: Array.from(videoOnlyBytes), pcm: [pcm], sampleRate: 48_000,
+    });
+    await write(new Blob([new Uint8Array(bytes)], { type: "video/mp4" }), saveTarget);
+    status.textContent = `Saved ${filename}: ${bytes.length} bytes`;
+  } catch (error) {
+    status.textContent = `Error: ${error}`;
+  }
+}
+
+document.querySelector("#video")!.addEventListener("click", () => { void run(false); });
+document.querySelector("#audio")!.addEventListener("click", () => { void run(true); });
+if (native) {
+  document.querySelector<HTMLButtonElement>("#native-aac")!.hidden = false;
+  document.querySelector("#native-aac")!.addEventListener("click", () => { void testNativeAac(); });
+}
