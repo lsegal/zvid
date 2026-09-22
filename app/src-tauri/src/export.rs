@@ -53,18 +53,50 @@ fn encode_aac(pcm: Vec<Vec<f32>>, sample_rate: u32) -> Result<Vec<u8>, String> {
     std::fs::write(&input, wav).map_err(|e| e.to_string())?;
     let result = std::process::Command::new("/usr/bin/afconvert")
         .args(["-f", "m4af", "-d", "aac", "-b", "192000"])
-        .arg("-c")
-        .arg(pcm.len().to_string())
         .arg(input).arg(&output).output().map_err(|e| e.to_string())?;
     if !result.status.success() {
         return Err(format!("AAC encoding failed: {}", String::from_utf8_lossy(&result.stderr)));
     }
-    std::fs::read(output).map_err(|e| e.to_string())
+    let mut m4a = std::fs::read(output).map_err(|e| e.to_string())?;
+    // afconvert writes 2 in mp4a for mono AAC even though its AudioSpecificConfig
+    // declares one channel. Align the sample entry so zvidlib can validate it.
+    if pcm.len() == 1 {
+        let moov = find_box(&m4a, 0, m4a.len(), b"moov")?;
+        let trak = find_box(&m4a, moov.0, moov.1, b"trak")?;
+        let mdia = find_box(&m4a, trak.0, trak.1, b"mdia")?;
+        let minf = find_box(&m4a, mdia.0, mdia.1, b"minf")?;
+        let stbl = find_box(&m4a, minf.0, minf.1, b"stbl")?;
+        let stsd = find_box(&m4a, stbl.0, stbl.1, b"stsd")?;
+        let entries = stsd.0.checked_add(8).filter(|start| *start <= stsd.1)
+            .ok_or("Invalid AudioToolbox stsd box")?;
+        let mp4a = find_box(&m4a, entries, stsd.1, b"mp4a")?;
+        let offset = mp4a.0.checked_add(16).filter(|start| start + 2 <= mp4a.1)
+            .ok_or("Invalid AudioToolbox mp4a box")?;
+        match u16::from_be_bytes([m4a[offset], m4a[offset + 1]]) {
+            1 => {}
+            2 => m4a[offset..offset + 2].copy_from_slice(&1u16.to_be_bytes()),
+            _ => return Err("Unexpected AudioToolbox mp4a channel count".into()),
+        }
+    }
+    Ok(m4a)
+}
+
+fn find_box(data: &[u8], mut start: usize, end: usize, kind: &[u8; 4]) -> Result<(usize, usize), String> {
+    while start.checked_add(8).is_some_and(|next| next <= end) {
+        let size = u32::from_be_bytes(data[start..start + 4].try_into().unwrap()) as usize;
+        let next = start.checked_add(size).filter(|next| size >= 8 && *next <= end)
+            .ok_or("Invalid AudioToolbox MP4 box size")?;
+        if &data[start + 4..start + 8] == kind {
+            return Ok((start + 8, next));
+        }
+        start = next;
+    }
+    Err(format!("Missing AudioToolbox {} box", String::from_utf8_lossy(kind)))
 }
 
 #[cfg(all(test, target_os = "macos"))]
 mod tests {
-    use super::{encode_aac, mux_export};
+    use super::mux_export;
     use std::process::Command;
 
     #[test]
@@ -82,17 +114,6 @@ mod tests {
         let pcm: Vec<f32> = (0..96_000)
             .map(|index| ((2.0 * std::f32::consts::PI * 440.0 * index as f32) / 48_000.0).sin() * 0.36)
             .collect();
-        let m4a = encode_aac(vec![pcm.clone()], 48_000).unwrap();
-        let mp4a = m4a.windows(4).position(|bytes| bytes == b"mp4a").unwrap();
-        eprintln!("AudioToolbox mp4a channels: {}", u16::from_be_bytes([m4a[mp4a + 20], m4a[mp4a + 21]]));
-        let m4a_path = directory.path().join("audio.m4a");
-        std::fs::write(&m4a_path, m4a).unwrap();
-        let probe = Command::new("ffprobe")
-            .args(["-v", "error", "-show_entries", "stream=channels,channel_layout,extradata", "-show_data", "-of", "json"])
-            .arg(&m4a_path)
-            .output()
-            .unwrap();
-        eprintln!("AudioToolbox M4A: {}", String::from_utf8_lossy(&probe.stdout));
         let output = mux_export(std::fs::read(&video_path).unwrap(), Some(vec![pcm]), 48_000)
             .await
             .expect("macOS AudioToolbox fallback must mux AAC with video");
