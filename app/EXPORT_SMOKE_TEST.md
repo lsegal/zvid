@@ -79,20 +79,25 @@ workspace directories, `video-only` and `with-audio`, each with a 320 x 320,
 workspace also has a two-second, 48 kHz, 440 Hz WAV master source. Session
 media paths are absolute, so rerun the generator if the workspace moves.
 
-In the browser editor at `http://localhost:1420/`, click **Open Workspace**
-and choose the `video-only` directory. Wait for `Loaded video-only.lvp with
-local media hydrated from disk.` Confirm the timeline has one selected clip and
-the Program panel shows `320 x 320`. Click **Export** and save the MP4. Repeat
-with the `with-audio` directory; confirm the Program panel lists
-`master-tone.wav` before export. The browser's save picker may appear instead
-of a download, depending on browser support.
+In the browser editor at `http://localhost:1420/`, choose **File → Import
+Media** and select `video-only/moving-video.mp4`. Wait for `Imported 1 media
+file(s) through Web.` Confirm that the editor created a two-second arrangement
+clip and the Program panel shows `320 x 320`. Click **Export** and save the
+video-only MP4. Then click **Open Workspace** and choose the `with-audio`
+directory. Wait for `Loaded with-audio.lvp with local media hydrated from
+disk.` Confirm the same arrangement clip and `MASTER-TONE.WAV` on the Audio
+lane. Click **Export** again. The `.lvp` supplies the master-audio selection;
+importing a loose audio file does not assign it to the master bus. The
+browser's save picker may appear instead of a download.
 
 In Windows Tauri, run the normal `tauri dev` application with the editor page.
-Use **File → Open** to select `video-only/video-only.lvp` and then
-`with-audio/with-audio.lvp` in separate runs. Wait for local media hydration,
-confirm the same clip and Program panel state, click **Export**, and choose an
-MP4 destination in the native save dialog. This uses the real native session
-loader and save path. On another supported Tauri platform, use the same steps.
+Use **File → Import Media** to select `video-only/moving-video.mp4` in a blank
+editor, then export the arranged video-only session. Reload the editor and use
+**File → Open Session** to select `with-audio/with-audio.lvp`. Wait for local
+media hydration, confirm the arrangement clip and `MASTER-TONE.WAV` on the
+Audio lane, then export through the native save dialog. On another supported
+Tauri platform, use the same steps. To check session-file hydration without
+loose import, open `video-only/video-only.lvp` as well.
 
 Run `node app/scripts/verify-export.mjs <video-only-output.mp4>
 <audible-output.mp4>` against each runtime's pair. Also open all four outputs
