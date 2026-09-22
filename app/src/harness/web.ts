@@ -11,9 +11,9 @@ import type {
   SessionSelection,
   WorkspaceFileRef,
 } from "./contracts";
+import { exportVideo } from "./export";
 import {
   analyzeMediaSelection,
-  exportVideo,
   generateThumbnailFromUrlAtTime,
 } from "./web-media";
 
