@@ -130,8 +130,13 @@ async function run(audible: boolean) {
         return write(blob, target);
       },
       native
-        ? async (video, audio) =>
-            new Uint8Array(
+        ? async (video, audio) => {
+            if (automationOutputDir)
+              await invoke("write_file_bytes", {
+                path: `${automationOutputDir}/encoder-video.mp4`,
+                bytes: Array.from(video),
+              });
+            return new Uint8Array(
               await invoke<number[]>("mux_export", {
                 video: Array.from(video),
                 pcm: audio
@@ -142,7 +147,8 @@ async function run(audible: boolean) {
                   : null,
                 sampleRate: audio?.sampleRate ?? 48_000,
               }),
-            )
+            );
+          }
         : undefined,
     );
     status.textContent = `Saved ${filename}: ${result.bytes} bytes`;

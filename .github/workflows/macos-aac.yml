@@ -44,6 +44,10 @@ jobs:
             fi
             if test -f smoke-results/smoke-error.txt; then
               cat smoke-results/smoke-error.txt
+              if test -f smoke-results/encoder-video.mp4; then
+                ffprobe -v error -show_entries format=duration:stream=codec_name,duration -of json smoke-results/encoder-video.mp4
+                ffprobe -v error -show_packets -select_streams v:0 -show_entries packet=dts,pts,duration -of compact smoke-results/encoder-video.mp4 | head -60
+              fi
               cat smoke-tauri.log
               exit 1
             fi
@@ -55,3 +59,9 @@ jobs:
           done
           cat smoke-tauri.log
           exit 1
+      - name: Upload smoke diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-smoke-diagnostics
+          path: app/smoke-results/
