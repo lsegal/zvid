@@ -6,11 +6,13 @@ pub async fn mux_export(
     pcm: Option<Vec<Vec<f32>>>,
     sample_rate: u32,
 ) -> Result<Vec<u8>, String> {
-    let audio = if let Some(pcm) = pcm {
-        Some(tauri::async_runtime::spawn_blocking(move || encode_aac(pcm, sample_rate))
-            .await.map_err(|e| e.to_string())??)
-    } else { None };
-    zvid_export_bridge::mux(video, audio).await.map_err(|e| e.to_string())
+    tauri::async_runtime::spawn_blocking(move || {
+        let audio = pcm.map(|samples| encode_aac(samples, sample_rate)).transpose()?;
+        tauri::async_runtime::block_on(zvid_export_bridge::mux(video, audio))
+            .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 fn encode_aac(pcm: Vec<Vec<f32>>, sample_rate: u32) -> Result<Vec<u8>, String> {

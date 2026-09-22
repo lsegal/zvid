@@ -177,34 +177,16 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-write-file-bytes`\n- `allow-analyze-media`\n- `allow-generate-thumbnail-at-time`\n- `allow-render-session`",
+          "description": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-write-file-bytes`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-write-file-bytes`\n- `allow-analyze-media`\n- `allow-generate-thumbnail-at-time`\n- `allow-render-session`"
-        },
-        {
-          "description": "Enables the analyze_media command.",
-          "type": "string",
-          "const": "allow-analyze-media",
-          "markdownDescription": "Enables the analyze_media command."
-        },
-        {
-          "description": "Enables the generate_thumbnail_at_time command.",
-          "type": "string",
-          "const": "allow-generate-thumbnail-at-time",
-          "markdownDescription": "Enables the generate_thumbnail_at_time command."
+          "markdownDescription": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-write-file-bytes`"
         },
         {
           "description": "Enables the open_session command.",
           "type": "string",
           "const": "allow-open-session",
           "markdownDescription": "Enables the open_session command."
-        },
-        {
-          "description": "Enables the native render session commands.",
-          "type": "string",
-          "const": "allow-render-session",
-          "markdownDescription": "Enables the native render session commands."
         },
         {
           "description": "Enables the write_file_bytes command.",
