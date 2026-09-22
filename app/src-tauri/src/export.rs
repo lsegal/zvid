@@ -62,7 +62,7 @@ fn encode_aac(pcm: Vec<Vec<f32>>, sample_rate: u32) -> Result<Vec<u8>, String> {
 
 #[cfg(all(test, target_os = "macos"))]
 mod tests {
-    use super::mux_export;
+    use super::{encode_aac, mux_export};
     use std::process::Command;
 
     #[test]
@@ -80,6 +80,15 @@ mod tests {
         let pcm = (0..96_000)
             .map(|index| ((2.0 * std::f32::consts::PI * 440.0 * index as f32) / 48_000.0).sin() * 0.36)
             .collect();
+        let m4a = encode_aac(vec![pcm.clone()], 48_000).unwrap();
+        let m4a_path = directory.path().join("audio.m4a");
+        std::fs::write(&m4a_path, m4a).unwrap();
+        let probe = Command::new("ffprobe")
+            .args(["-v", "error", "-show_entries", "stream=channels,channel_layout,extradata", "-show_data", "-of", "json"])
+            .arg(&m4a_path)
+            .output()
+            .unwrap();
+        eprintln!("AudioToolbox M4A: {}", String::from_utf8_lossy(&probe.stdout));
         let output = mux_export(std::fs::read(&video_path).unwrap(), Some(vec![pcm]), 48_000)
             .await
             .expect("macOS AudioToolbox fallback must mux AAC with video");
