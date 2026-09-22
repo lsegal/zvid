@@ -53,6 +53,8 @@ fn encode_aac(pcm: Vec<Vec<f32>>, sample_rate: u32) -> Result<Vec<u8>, String> {
     std::fs::write(&input, wav).map_err(|e| e.to_string())?;
     let result = std::process::Command::new("/usr/bin/afconvert")
         .args(["-f", "m4af", "-d", "aac", "-b", "192000"])
+        .arg("-c")
+        .arg(pcm.len().to_string())
         .arg(input).arg(&output).output().map_err(|e| e.to_string())?;
     if !result.status.success() {
         return Err(format!("AAC encoding failed: {}", String::from_utf8_lossy(&result.stderr)));
@@ -81,6 +83,8 @@ mod tests {
             .map(|index| ((2.0 * std::f32::consts::PI * 440.0 * index as f32) / 48_000.0).sin() * 0.36)
             .collect();
         let m4a = encode_aac(vec![pcm.clone()], 48_000).unwrap();
+        let mp4a = m4a.windows(4).position(|bytes| bytes == b"mp4a").unwrap();
+        eprintln!("AudioToolbox mp4a channels: {}", u16::from_be_bytes([m4a[mp4a + 20], m4a[mp4a + 21]]));
         let m4a_path = directory.path().join("audio.m4a");
         std::fs::write(&m4a_path, m4a).unwrap();
         let probe = Command::new("ffprobe")
