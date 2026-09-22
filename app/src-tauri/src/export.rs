@@ -59,3 +59,40 @@ fn encode_aac(pcm: Vec<Vec<f32>>, sample_rate: u32) -> Result<Vec<u8>, String> {
     }
     std::fs::read(output).map_err(|e| e.to_string())
 }
+
+#[cfg(all(test, target_os = "macos"))]
+mod tests {
+    use super::mux_export;
+    use std::process::Command;
+
+    #[test]
+    fn native_aac_fallback_produces_playable_mp4() {
+        tauri::async_runtime::block_on(async {
+        let directory = tempfile::tempdir().unwrap();
+        let video_path = directory.path().join("smoke-video-only.mp4");
+        let status = Command::new("ffmpeg")
+            .args(["-v", "error", "-f", "lavfi", "-i", "testsrc=size=320x180:rate=24:duration=2", "-c:v", "libx265", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-tag:v", "hvc1", "-y"])
+            .arg(&video_path)
+            .status()
+            .expect("ffmpeg must be installed for the macOS smoke test");
+        assert!(status.success(), "failed to create the HEVC video fixture");
+
+        let pcm = (0..96_000)
+            .map(|index| ((2.0 * std::f32::consts::PI * 440.0 * index as f32) / 48_000.0).sin() * 0.36)
+            .collect();
+        let output = mux_export(std::fs::read(&video_path).unwrap(), Some(vec![pcm]), 48_000)
+            .await
+            .expect("macOS AudioToolbox fallback must mux AAC with video");
+        let output_path = directory.path().join("smoke-native-aac.mp4");
+        std::fs::write(&output_path, output).unwrap();
+
+        let status = Command::new("node")
+            .arg("../scripts/verify-export.mjs")
+            .arg(&video_path)
+            .arg(&output_path)
+            .status()
+            .expect("node must be installed for the macOS smoke test");
+        assert!(status.success(), "native AAC export failed media validation");
+        });
+    }
+}

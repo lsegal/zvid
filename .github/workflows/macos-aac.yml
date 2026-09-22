@@ -1,0 +1,21 @@
+name: macOS AAC fallback
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/macos-aac.yml
+      - app/src-tauri/**
+      - app/export-bridge/**
+      - app/scripts/verify-export.mjs
+  workflow_dispatch:
+
+jobs:
+  native-aac:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install FFmpeg
+        run: brew install ffmpeg
+      - name: Run the native AAC export smoke test
+        working-directory: app/src-tauri
+        run: cargo test --locked native_aac_fallback_produces_playable_mp4 -- --nocapture
