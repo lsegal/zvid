@@ -4,13 +4,25 @@ description = "Enables the open_session command."
 commands.allow = ["open_session"]
 
 [[permission]]
+identifier = "allow-read-file-bytes"
+description = "Enables the read_file_bytes command."
+commands.allow = ["read_file_bytes"]
+
+[[permission]]
 identifier = "allow-write-file-bytes"
 description = "Enables the write_file_bytes command."
 commands.allow = ["write_file_bytes"]
+
+[[permission]]
+identifier = "allow-mux-export"
+description = "Enables the mux_export command."
+commands.allow = ["mux_export"]
 
 [default]
 description = "Default application permissions."
 permissions = [
   "allow-open-session",
+  "allow-read-file-bytes",
   "allow-write-file-bytes",
+  "allow-mux-export",
 ]
