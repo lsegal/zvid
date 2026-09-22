@@ -313,5 +313,8 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 1420,
     strictPort: true,
+    watch: {
+      ignored: ["**/src-tauri/target/**", "**/export-bridge/target/**"],
+    },
   },
 });

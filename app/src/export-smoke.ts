@@ -1,13 +1,19 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { save as nativeSave } from "@tauri-apps/plugin-dialog";
-import { exportVideo } from "./harness/export";
 import type { SaveTarget } from "./harness/contracts";
+import { exportVideo } from "./harness/export";
 import type { MediaItem } from "./media";
 
 const canvas = document.createElement("canvas");
 canvas.width = 320;
 canvas.height = 180;
-const status = document.querySelector<HTMLElement>("#status")!;
+function required<T extends Element>(selector: string): T {
+  const element = document.querySelector<T>(selector);
+  if (!element) throw new Error(`Missing smoke test element: ${selector}`);
+  return element;
+}
+
+const status = required<HTMLElement>("#status");
 const native = isTauri();
 let videoOnlyBytes: Uint8Array | null = null;
 
@@ -33,19 +39,29 @@ function tone() {
   ascii(36, "data");
   view.setUint32(40, frames * 2, true);
   for (let index = 0; index < frames; index++)
-    view.setInt16(44 + index * 2, Math.round(Math.sin(2 * Math.PI * 440 * index / sampleRate) * 12_000), true);
+    view.setInt16(
+      44 + index * 2,
+      Math.round(Math.sin((2 * Math.PI * 440 * index) / sampleRate) * 12_000),
+      true,
+    );
   return URL.createObjectURL(new Blob([wav], { type: "audio/wav" }));
 }
 
 async function destination(filename: string): Promise<SaveTarget | null> {
   if (!native) return { kind: "download", filename };
-  const path = await nativeSave({ defaultPath: filename, filters: [{ name: "MP4", extensions: ["mp4"] }] });
+  const path = await nativeSave({
+    defaultPath: filename,
+    filters: [{ name: "MP4", extensions: ["mp4"] }],
+  });
   return path ? { kind: "native-path", filename, path } : null;
 }
 
 async function write(blob: Blob, target: SaveTarget) {
   if (target.kind === "native-path") {
-    await invoke("write_file_bytes", { path: target.path, bytes: Array.from(new Uint8Array(await blob.arrayBuffer())) });
+    await invoke("write_file_bytes", {
+      path: target.path,
+      bytes: Array.from(new Uint8Array(await blob.arrayBuffer())),
+    });
     return "native-path" as const;
   }
   const link = document.createElement("a");
@@ -63,28 +79,55 @@ async function run(audible: boolean) {
   const toneUrl = audible ? tone() : null;
   status.textContent = `Exporting ${filename}...`;
   try {
-    const result = await exportVideo({
-      filename, saveTarget, canvas, canvasWidth: 320, canvasHeight: 180,
-      durationSeconds: 2, frameRate: 24, frameCount: 48, frameDuration: 1 / 24, bpm: 120,
-      masterAudio: toneUrl ? { hasAudio: true, previewUrl: toneUrl } as MediaItem : undefined,
-      renderFrameAt: async (_quarters, seconds) => {
-        const context = canvas.getContext("2d")!;
-        context.fillStyle = "#245078";
-        context.fillRect(0, 0, canvas.width, canvas.height);
-        context.fillStyle = "white";
-        context.font = "24px sans-serif";
-        context.fillText(`Frame ${Math.floor(seconds * 24)}`, 20, 90);
+    const result = await exportVideo(
+      {
+        filename,
+        saveTarget,
+        canvas,
+        canvasWidth: 320,
+        canvasHeight: 180,
+        durationSeconds: 2,
+        frameRate: 24,
+        frameCount: 48,
+        frameDuration: 1 / 24,
+        bpm: 120,
+        masterAudio: toneUrl
+          ? ({ hasAudio: true, previewUrl: toneUrl } as MediaItem)
+          : undefined,
+        renderFrameAt: async (_quarters, seconds) => {
+          const context = canvas.getContext("2d");
+          if (!context) throw new Error("Canvas 2D context is unavailable.");
+          context.fillStyle = "#245078";
+          context.fillRect(0, 0, canvas.width, canvas.height);
+          context.fillStyle = "white";
+          context.font = "24px sans-serif";
+          context.fillText(`Frame ${Math.floor(seconds * 24)}`, 20, 90);
+        },
+        setPlayheadQ: () => {},
+        onProgress: (update) => {
+          status.textContent = update.detail;
+        },
       },
-      setPlayheadQ: () => {},
-      onProgress: (update) => { status.textContent = update.detail; },
-    }, async (blob, target) => {
-      if (!audible) videoOnlyBytes = new Uint8Array(await blob.arrayBuffer());
-      return write(blob, target);
-    }, native ? async (video, audio) => new Uint8Array(await invoke<number[]>("mux_export", {
-      video: Array.from(video),
-      pcm: audio ? Array.from({ length: audio.numberOfChannels }, (_, channel) => Array.from(audio.getChannelData(channel))) : null,
-      sampleRate: audio?.sampleRate ?? 48_000,
-    })) : undefined);
+      async (blob, target) => {
+        if (!audible) videoOnlyBytes = new Uint8Array(await blob.arrayBuffer());
+        return write(blob, target);
+      },
+      native
+        ? async (video, audio) =>
+            new Uint8Array(
+              await invoke<number[]>("mux_export", {
+                video: Array.from(video),
+                pcm: audio
+                  ? Array.from(
+                      { length: audio.numberOfChannels },
+                      (_, channel) => Array.from(audio.getChannelData(channel)),
+                    )
+                  : null,
+                sampleRate: audio?.sampleRate ?? 48_000,
+              }),
+            )
+        : undefined,
+    );
     status.textContent = `Saved ${filename}: ${result.bytes} bytes`;
   } catch (error) {
     status.textContent = `Error: ${error}`;
@@ -103,20 +146,35 @@ async function testNativeAac() {
   if (!saveTarget) return;
   status.textContent = "Encoding AAC through the native fallback...";
   try {
-    const pcm = Array.from({ length: 96_000 }, (_, index) => Math.sin(2 * Math.PI * 440 * index / 48_000) * 0.36);
+    const pcm = Array.from(
+      { length: 96_000 },
+      (_, index) => Math.sin((2 * Math.PI * 440 * index) / 48_000) * 0.36,
+    );
     const bytes = await invoke<number[]>("mux_export", {
-      video: Array.from(videoOnlyBytes), pcm: [pcm], sampleRate: 48_000,
+      video: Array.from(videoOnlyBytes),
+      pcm: [pcm],
+      sampleRate: 48_000,
     });
-    await write(new Blob([new Uint8Array(bytes)], { type: "video/mp4" }), saveTarget);
+    await write(
+      new Blob([new Uint8Array(bytes)], { type: "video/mp4" }),
+      saveTarget,
+    );
     status.textContent = `Saved ${filename}: ${bytes.length} bytes`;
   } catch (error) {
     status.textContent = `Error: ${error}`;
   }
 }
 
-document.querySelector("#video")!.addEventListener("click", () => { void run(false); });
-document.querySelector("#audio")!.addEventListener("click", () => { void run(true); });
+required<HTMLButtonElement>("#video").addEventListener("click", () => {
+  void run(false);
+});
+required<HTMLButtonElement>("#audio").addEventListener("click", () => {
+  void run(true);
+});
 if (native) {
-  document.querySelector<HTMLButtonElement>("#native-aac")!.hidden = false;
-  document.querySelector("#native-aac")!.addEventListener("click", () => { void testNativeAac(); });
+  const nativeButton = required<HTMLButtonElement>("#native-aac");
+  nativeButton.hidden = false;
+  nativeButton.addEventListener("click", () => {
+    void testNativeAac();
+  });
 }

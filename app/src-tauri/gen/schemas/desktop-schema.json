@@ -177,16 +177,28 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-write-file-bytes`",
+          "description": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-read-file-bytes`\n- `allow-write-file-bytes`\n- `allow-mux-export`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-write-file-bytes`"
+          "markdownDescription": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-read-file-bytes`\n- `allow-write-file-bytes`\n- `allow-mux-export`"
+        },
+        {
+          "description": "Enables the mux_export command.",
+          "type": "string",
+          "const": "allow-mux-export",
+          "markdownDescription": "Enables the mux_export command."
         },
         {
           "description": "Enables the open_session command.",
           "type": "string",
           "const": "allow-open-session",
           "markdownDescription": "Enables the open_session command."
+        },
+        {
+          "description": "Enables the read_file_bytes command.",
+          "type": "string",
+          "const": "allow-read-file-bytes",
+          "markdownDescription": "Enables the read_file_bytes command."
         },
         {
           "description": "Enables the write_file_bytes command.",
