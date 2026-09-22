@@ -15,7 +15,18 @@ function required<T extends Element>(selector: string): T {
 
 const status = required<HTMLElement>("#status");
 const native = isTauri();
+const automationOutputDir = native
+  ? new URLSearchParams(location.search).get("automationOutputDir")
+  : null;
 let videoOnlyBytes: Uint8Array | null = null;
+
+async function reportAutomationError(error: unknown) {
+  if (!automationOutputDir) return;
+  await invoke("write_file_bytes", {
+    path: `${automationOutputDir}/smoke-error.txt`,
+    bytes: Array.from(new TextEncoder().encode(String(error))),
+  });
+}
 
 function tone() {
   const sampleRate = 48_000;
@@ -49,6 +60,12 @@ function tone() {
 
 async function destination(filename: string): Promise<SaveTarget | null> {
   if (!native) return { kind: "download", filename };
+  if (automationOutputDir)
+    return {
+      kind: "native-path",
+      filename,
+      path: `${automationOutputDir}/${filename}`,
+    };
   const path = await nativeSave({
     defaultPath: filename,
     filters: [{ name: "MP4", extensions: ["mp4"] }],
@@ -131,6 +148,7 @@ async function run(audible: boolean) {
     status.textContent = `Saved ${filename}: ${result.bytes} bytes`;
   } catch (error) {
     status.textContent = `Error: ${error}`;
+    await reportAutomationError(error);
   } finally {
     if (toneUrl) URL.revokeObjectURL(toneUrl);
   }
@@ -162,6 +180,7 @@ async function testNativeAac() {
     status.textContent = `Saved ${filename}: ${bytes.length} bytes`;
   } catch (error) {
     status.textContent = `Error: ${error}`;
+    await reportAutomationError(error);
   }
 }
 
@@ -177,4 +196,7 @@ if (native) {
   nativeButton.addEventListener("click", () => {
     void testNativeAac();
   });
+  if (automationOutputDir) {
+    void run(false).then(() => nativeButton.click());
+  }
 }
