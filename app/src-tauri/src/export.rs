@@ -77,7 +77,7 @@ mod tests {
             .expect("ffmpeg must be installed for the macOS smoke test");
         assert!(status.success(), "failed to create the HEVC video fixture");
 
-        let pcm = (0..96_000)
+        let pcm: Vec<f32> = (0..96_000)
             .map(|index| ((2.0 * std::f32::consts::PI * 440.0 * index as f32) / 48_000.0).sin() * 0.36)
             .collect();
         let m4a = encode_aac(vec![pcm.clone()], 48_000).unwrap();
