@@ -69,3 +69,35 @@ For a full editor check, import a short clip and optional master audio into a
 session, export from the editor in each runtime, and run `ffprobe` plus a
 playback check on those files too. The synthetic page isolates the export
 bridge; the editor check also covers media import and composition rendering.
+
+## Full editor session check
+
+Run `node app/scripts/create-editor-fixture.mjs <absolute-output-directory>`
+from the repository root. This requires `ffmpeg` on `PATH`. It creates two
+workspace directories, `video-only` and `with-audio`, each with a 320 x 320,
+24 fps, two-second moving H.264 source and a `.lvp` session. The audible
+workspace also has a two-second, 48 kHz, 440 Hz WAV master source. Session
+media paths are absolute, so rerun the generator if the workspace moves.
+
+In the browser editor at `http://localhost:1420/`, click **Open Workspace**
+and choose the `video-only` directory. Wait for `Loaded video-only.lvp with
+local media hydrated from disk.` Confirm the timeline has one selected clip and
+the Program panel shows `320 x 320`. Click **Export** and save the MP4. Repeat
+with the `with-audio` directory; confirm the Program panel lists
+`master-tone.wav` before export. The browser's save picker may appear instead
+of a download, depending on browser support.
+
+In Windows Tauri, run the normal `tauri dev` application with the editor page.
+Use **File → Open** to select `video-only/video-only.lvp` and then
+`with-audio/with-audio.lvp` in separate runs. Wait for local media hydration,
+confirm the same clip and Program panel state, click **Export**, and choose an
+MP4 destination in the native save dialog. This uses the real native session
+loader and save path. On another supported Tauri platform, use the same steps.
+
+Run `node app/scripts/verify-export.mjs <video-only-output.mp4>
+<audible-output.mp4>` against each runtime's pair. Also open all four outputs
+in a player: the numbered test pattern must move, and both audible exports
+must play a continuous tone. Record the runtime and version, codec and track
+summary, start times, duration, playback result, and any unsupported-codec
+message. A file that merely saves without visible motion or audible sound does
+not pass this check.
