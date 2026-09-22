@@ -71,7 +71,7 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let video_path = directory.path().join("smoke-video-only.mp4");
         let status = Command::new("ffmpeg")
-            .args(["-v", "error", "-f", "lavfi", "-i", "testsrc=size=320x180:rate=24:duration=2", "-c:v", "libx265", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-tag:v", "hvc1", "-y"])
+            .args(["-v", "error", "-f", "lavfi", "-i", "testsrc=size=320x180:rate=24:duration=2", "-c:v", "libx265", "-preset", "ultrafast", "-bf", "0", "-pix_fmt", "yuv420p", "-tag:v", "hvc1", "-use_editlist", "0", "-y"])
             .arg(&video_path)
             .status()
             .expect("ffmpeg must be installed for the macOS smoke test");
