@@ -7,12 +7,48 @@ pub async fn mux_export(
     sample_rate: u32,
 ) -> Result<Vec<u8>, String> {
     tauri::async_runtime::spawn_blocking(move || {
+        let mut video = video;
+        normalize_video_tail_duration(&mut video)?;
         let audio = pcm.map(|samples| encode_aac(samples, sample_rate)).transpose()?;
         tauri::async_runtime::block_on(zvid_export_bridge::mux(video, audio))
             .map_err(|error| error.to_string())
     })
     .await
     .map_err(|error| error.to_string())?
+}
+
+fn normalize_video_tail_duration(video: &mut [u8]) -> Result<(), String> {
+    let moov = find_box(video, 0, video.len(), b"moov")?;
+    let trak = find_box(video, moov.0, moov.1, b"trak")?;
+    let mdia = find_box(video, trak.0, trak.1, b"mdia")?;
+    let minf = find_box(video, mdia.0, mdia.1, b"minf")?;
+    let stbl = find_box(video, minf.0, minf.1, b"stbl")?;
+    let stts = find_box(video, stbl.0, stbl.1, b"stts")?;
+    if stts.1 - stts.0 < 8 {
+        return Err("Invalid video stts box".into());
+    }
+    let count = u32::from_be_bytes(video[stts.0 + 4..stts.0 + 8].try_into().unwrap()) as usize;
+    let expected_end = count.checked_mul(8).and_then(|size| stts.0.checked_add(8 + size))
+        .ok_or("Invalid video stts entry count")?;
+    if count == 0 || expected_end != stts.1 {
+        return Err("Invalid video stts entries".into());
+    }
+    if count < 2 {
+        return Ok(());
+    }
+    let last = stts.1 - 8;
+    let last_count = u32::from_be_bytes(video[last..last + 4].try_into().unwrap());
+    let last_duration = u32::from_be_bytes(video[last + 4..last + 8].try_into().unwrap());
+    if last_count == 1 && last_duration == 0 {
+        let previous_duration = u32::from_be_bytes(video[last - 4..last].try_into().unwrap());
+        if previous_duration == 0 {
+            return Err("Video has no positive final sample duration".into());
+        }
+        // macOS WebView's HEVC encoder writes a zero-duration final sample.
+        // Use the previous sample's duration for the final frame.
+        video[last + 4..last + 8].copy_from_slice(&previous_duration.to_be_bytes());
+    }
+    Ok(())
 }
 
 fn encode_aac(pcm: Vec<Vec<f32>>, sample_rate: u32) -> Result<Vec<u8>, String> {
