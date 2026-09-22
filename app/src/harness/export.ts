@@ -73,16 +73,17 @@ export async function exportVideo(
     } finally {
       await context.close();
     }
-    if (
-      !nativeMux &&
-      !(await canEncodeAudio("aac", {
+  }
+  const browserAac = audio
+    ? await canEncodeAudio("aac", {
         sampleRate: audio.sampleRate,
         numberOfChannels: audio.numberOfChannels,
-      }))
-    )
-      throw new Error(
-        "This browser does not provide an AAC encoder for audible MP4 export.",
-      );
+      })
+    : false;
+  if (audio && !browserAac && !nativeMux) {
+    throw new Error(
+      "This browser does not provide an AAC encoder for audible MP4 export.",
+    );
   }
   const target = new BufferTarget();
   const output = new Output({ format: new Mp4OutputFormat(), target });
@@ -94,7 +95,7 @@ export async function exportVideo(
   });
   output.addVideoTrack(video, { frameRate: request.frameRate });
   const audioSource =
-    audio && !nativeMux
+    audio && browserAac
       ? new AudioBufferSource({ codec: "aac", bitrate: 192_000 })
       : null;
   if (audioSource) output.addAudioTrack(audioSource);
@@ -127,7 +128,10 @@ export async function exportVideo(
     });
     let bytes: Uint8Array;
     if (nativeMux) {
-      bytes = await nativeMux(new Uint8Array(target.buffer), audio);
+      bytes = await nativeMux(
+        new Uint8Array(target.buffer),
+        audioSource ? null : audio,
+      );
     } else {
       const bridge = await import(
         "../../export-bridge/pkg/zvid_export_bridge.js"

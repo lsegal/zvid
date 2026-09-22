@@ -74,13 +74,7 @@ export type SaveOptions = {
 };
 
 export type ExportProgress = {
-  phase:
-    | "idle"
-    | "preparing"
-    | "decoding-audio"
-    | "rendering"
-    | "loading-ffmpeg"
-    | "muxing";
+  phase: "idle" | "preparing" | "decoding-audio" | "rendering" | "muxing";
   progress: number | null;
   detail: string;
 };

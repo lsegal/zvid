@@ -8,32 +8,9 @@ identifier = "allow-write-file-bytes"
 description = "Enables the write_file_bytes command."
 commands.allow = ["write_file_bytes"]
 
-[[permission]]
-identifier = "allow-analyze-media"
-description = "Enables the analyze_media command."
-commands.allow = ["analyze_media"]
-
-[[permission]]
-identifier = "allow-generate-thumbnail-at-time"
-description = "Enables the generate_thumbnail_at_time command."
-commands.allow = ["generate_thumbnail_at_time"]
-
-[[permission]]
-identifier = "allow-render-session"
-description = "Enables the native render session commands."
-commands.allow = [
-  "start_render_session",
-  "write_render_frame",
-  "finish_render_session",
-  "cleanup_render_session",
-]
-
 [default]
 description = "Default application permissions."
 permissions = [
   "allow-open-session",
   "allow-write-file-bytes",
-  "allow-analyze-media",
-  "allow-generate-thumbnail-at-time",
-  "allow-render-session",
 ]

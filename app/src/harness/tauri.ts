@@ -1,4 +1,3 @@
-import { buildFallbackWaveform, type MediaItem } from "../media";
 import type { ServerMediaRef, SessionOpenResponse } from "../session";
 import type { Harness } from "./contracts";
 import { exportVideo } from "./export";
@@ -18,19 +17,6 @@ function createMediaId(rawPath: string) {
 
 type SessionOpenPayload = Omit<SessionOpenResponse, "mediaRefs"> & {
   mediaRefs: Array<Omit<ServerMediaRef, "url">>;
-};
-
-type NativeMediaAnalysis = {
-  path: string;
-  durationSeconds: number;
-  width?: number;
-  height?: number;
-  fps?: number;
-  sampleRate?: number;
-  channels?: number;
-  hasAudio: boolean;
-  hasVideo: boolean;
-  thumbnailPath?: string;
 };
 
 export async function maybeCreateTauriHarness(
@@ -162,42 +148,17 @@ export async function maybeCreateTauriHarness(
         if (selection.kind === "files") {
           return base.analyzeMedia(selection, palettes, startIndex);
         }
-
-        const analyses = await invoke<NativeMediaAnalysis[]>("analyze_media", {
-          paths: selection.refs.map((ref) => ref.path),
-        });
-        const analysisByPath = new Map(
-          analyses.map((analysis) => [analysis.path, analysis]),
+        const analyzed = await base.analyzeMedia(
+          selection,
+          palettes,
+          startIndex,
         );
-
-        return selection.refs.map<MediaItem>((ref, index) => {
-          const palette =
-            palettes[(startIndex + index) % palettes.length] ?? palettes[0];
-          const analysis = analysisByPath.get(ref.path);
-          const hasVideo = Boolean(analysis?.hasVideo);
-          return {
-            id: ref.id,
-            name: ref.name,
-            kind: hasVideo ? "video" : "audio",
-            durationSeconds: analysis?.durationSeconds ?? 0,
-            width: analysis?.width,
-            height: analysis?.height,
-            fps: analysis?.fps,
-            sampleRate: analysis?.sampleRate,
-            channels: analysis?.channels,
-            hasAudio: Boolean(analysis?.hasAudio),
-            hasVideo,
-            color: palette.color,
-            accent: palette.accent,
-            waveform: buildFallbackWaveform(ref.name),
-            previewUrl: ref.url,
-            thumbnailUrl: analysis?.thumbnailPath
-              ? convertFileSrc(analysis.thumbnailPath)
-              : undefined,
-            sourcePath: ref.path,
-            availability: ref.exists ? "ready" : "offline",
-          };
-        });
+        return analyzed.map((item, index) => ({
+          ...item,
+          availability: selection.refs[index].exists
+            ? ("ready" as const)
+            : ("offline" as const),
+        }));
       },
       async readMediaBlob(target) {
         if (target.sourcePath) {
@@ -212,17 +173,6 @@ export async function maybeCreateTauriHarness(
       async generateThumbnailAtTime(media, timeSeconds) {
         if (!media.hasVideo) {
           return undefined;
-        }
-
-        if (media.sourcePath) {
-          const thumbnailPath = await invoke<string | null>(
-            "generate_thumbnail_at_time",
-            {
-              path: media.sourcePath,
-              timeSeconds,
-            },
-          );
-          return thumbnailPath ? convertFileSrc(thumbnailPath) : undefined;
         }
 
         return generateThumbnailFromUrlAtTime(media.previewUrl, timeSeconds);

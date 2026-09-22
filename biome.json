@@ -8,8 +8,7 @@
       "!**/node_modules",
       "!**/dist",
       "!**/.wrangler",
-      "!**/target",
-      "!**/ffmpeg-core.js"
+      "!**/target"
     ]
   },
   "formatter": {
