@@ -1959,6 +1959,83 @@ function App() {
     [setLocalMediaOverride],
   );
 
+  const adoptMediaBlob = useCallback(
+    async (
+      mediaId: string,
+      blob: Blob,
+      options?: { analyze?: boolean },
+    ): Promise<string> => {
+      try {
+        await cacheMediaBlob(mediaId, blob);
+      } catch (error) {
+        logClient("media:adopt:cache:error", {
+          mediaId,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+
+      const previousPreviewUrl = mediaObjectUrlsRef.current.get(mediaId);
+      const previewUrl = URL.createObjectURL(blob);
+      mediaObjectUrlsRef.current.set(mediaId, previewUrl);
+      setLocalMediaOverride(mediaId, { availability: "ready", previewUrl });
+      if (previousPreviewUrl && previousPreviewUrl !== previewUrl) {
+        URL.revokeObjectURL(previousPreviewUrl);
+      }
+
+      const existing = projectSnapshotRef.current.mediaItems.find(
+        (item) => item.id === mediaId,
+      );
+      if (!existing || !(options?.analyze || existing.durationSeconds === 0)) {
+        return previewUrl;
+      }
+
+      try {
+        const [result] = await getHarness().analyzeMedia(
+          {
+            kind: "files",
+            files: [new File([blob], existing.name, { type: blob.type })],
+          },
+          PALETTE,
+          0,
+        );
+        if (!result) {
+          return previewUrl;
+        }
+
+        if (
+          result.previewUrl.startsWith("blob:") &&
+          result.previewUrl !== previewUrl
+        ) {
+          URL.revokeObjectURL(result.previewUrl);
+        }
+        const analyzed: MediaItem = {
+          ...result,
+          id: mediaId,
+          color: existing.color,
+          accent: existing.accent,
+          sourcePath: existing.sourcePath ?? result.sourcePath,
+          previewUrl,
+        };
+        seedLocalMediaItems([analyzed]);
+        commitProjectChange("Hydrate media", (current) =>
+          patchProjectState(current, {
+            mediaItems: mergeMediaItemsById(current.mediaItems, [
+              toShareableMediaItem(analyzed),
+            ]),
+          }),
+        );
+      } catch (error) {
+        logClient("media:adopt:analyze:error", {
+          mediaId,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+
+      return previewUrl;
+    },
+    [commitProjectChange, seedLocalMediaItems, setLocalMediaOverride],
+  );
+
   const cacheLocalMediaItems = useCallback(async (items: MediaItem[]) => {
     const harness = getHarness();
     await Promise.allSettled(
@@ -3176,12 +3253,7 @@ function App() {
               return;
             }
 
-            const previewUrl = URL.createObjectURL(cachedBlob);
-            mediaObjectUrlsRef.current.set(item.id, previewUrl);
-            setLocalMediaOverride(item.id, {
-              availability: "ready",
-              previewUrl,
-            });
+            await adoptMediaBlob(item.id, cachedBlob);
             return;
           }
 
@@ -3193,17 +3265,13 @@ function App() {
           }
 
           const blob = await getHarness().readMediaBlob(item);
-          await cacheMediaBlob(item.id, blob);
           if (cancelled) {
+            // Keep the bytes so the next hydration pass is a cache hit.
+            await cacheMediaBlob(item.id, blob);
             return;
           }
 
-          const previewUrl = URL.createObjectURL(blob);
-          mediaObjectUrlsRef.current.set(item.id, previewUrl);
-          setLocalMediaOverride(item.id, {
-            availability: "ready",
-            previewUrl,
-          });
+          await adoptMediaBlob(item.id, blob);
         } catch (error) {
           logClient("media:hydrate:error", {
             mediaId: item.id,
@@ -3221,7 +3289,7 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [projectMediaItems, setLocalMediaOverride]);
+  }, [adoptMediaBlob, projectMediaItems, setLocalMediaOverride]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
