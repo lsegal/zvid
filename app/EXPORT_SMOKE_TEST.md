@@ -49,6 +49,12 @@ audible export can still succeed through WebCodecs AAC.
 
 The temporary Tauri config is only for this test. Remove it afterwards.
 
+The `macOS AAC fallback` GitHub Actions workflow also runs this smoke page in
+Tauri on a macOS runner. It selects the video-only and native AAC paths, saves
+both MP4s without a dialog, and runs the media validator. The automation uses
+the `automationOutputDir` query parameter in the temporary Tauri `devUrl`; the
+normal page still uses native save dialogs.
+
 ## Inspect and play the saved files
 
 Run from the repository root with FFmpeg's `ffprobe` and `ffmpeg` on `PATH`:

@@ -119,15 +119,49 @@ fn encode_aac(pcm: Vec<Vec<f32>>, sample_rate: u32) -> Result<Vec<u8>, String> {
 
 fn find_box(data: &[u8], mut start: usize, end: usize, kind: &[u8; 4]) -> Result<(usize, usize), String> {
     while start.checked_add(8).is_some_and(|next| next <= end) {
-        let size = u32::from_be_bytes(data[start..start + 4].try_into().unwrap()) as usize;
-        let next = start.checked_add(size).filter(|next| size >= 8 && *next <= end)
+        let size32 = u32::from_be_bytes(data[start..start + 4].try_into().unwrap());
+        let (size, header_size) = match size32 {
+            0 => (end - start, 8), // box extends to the end of its parent
+            1 => {
+                let header_end = start.checked_add(16).filter(|header_end| *header_end <= end)
+                    .ok_or("Invalid AudioToolbox extended MP4 box header")?;
+                let size64 = u64::from_be_bytes(data[start + 8..header_end].try_into().unwrap());
+                (usize::try_from(size64).map_err(|_| "AudioToolbox MP4 box exceeds addressable size")?, 16)
+            }
+            size => (size as usize, 8),
+        };
+        let next = start.checked_add(size).filter(|next| size >= header_size && *next <= end)
             .ok_or("Invalid AudioToolbox MP4 box size")?;
         if &data[start + 4..start + 8] == kind {
-            return Ok((start + 8, next));
+            return Ok((start + header_size, next));
         }
         start = next;
     }
     Err(format!("Missing AudioToolbox {} box", String::from_utf8_lossy(kind)))
+}
+
+#[cfg(test)]
+mod box_tests {
+    use super::find_box;
+
+    #[test]
+    fn finds_regular_extended_and_parent_sized_boxes() {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&12u32.to_be_bytes());
+        bytes.extend_from_slice(b"free");
+        bytes.extend_from_slice(&[1, 2, 3, 4]);
+        bytes.extend_from_slice(&1u32.to_be_bytes());
+        bytes.extend_from_slice(b"wide");
+        bytes.extend_from_slice(&20u64.to_be_bytes());
+        bytes.extend_from_slice(&[5, 6, 7, 8]);
+        bytes.extend_from_slice(&0u32.to_be_bytes());
+        bytes.extend_from_slice(b"tail");
+        bytes.extend_from_slice(&[9, 10, 11, 12]);
+
+        assert_eq!(find_box(&bytes, 0, bytes.len(), b"free").unwrap(), (8, 12));
+        assert_eq!(find_box(&bytes, 12, bytes.len(), b"wide").unwrap(), (28, 32));
+        assert_eq!(find_box(&bytes, 32, bytes.len(), b"tail").unwrap(), (40, 44));
+    }
 }
 
 #[cfg(all(test, target_os = "macos"))]
