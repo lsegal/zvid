@@ -255,6 +255,24 @@ function buildWorkspaceOpenPayload(
   };
 }
 
+function buildFileOpenPayload(
+  session: LvpSession,
+  sessionName: string,
+): SessionOpenResponse {
+  // A lone session file carries no media, so every reference opens as missing.
+  const mediaRefs = collectSessionMediaPaths(session).map<ServerMediaRef>(
+    (rawPath) => ({
+      id: createPathId(rawPath),
+      path: rawPath,
+      name: basename(rawPath),
+      url: "",
+      exists: false,
+    }),
+  );
+
+  return { session, sessionName, mediaRefs };
+}
+
 async function prepareSave(
   filename: string,
   options?: SaveOptions,
@@ -375,6 +393,13 @@ export function createWebHarness(): Harness {
         }
 
         return payload;
+      }
+
+      // The deployed Worker has no session endpoints, so only the dev server
+      // can resolve the session's on-disk media paths.
+      if (!import.meta.env.DEV) {
+        const session = JSON.parse(await selection.file.text()) as LvpSession;
+        return buildFileOpenPayload(session, selection.file.name);
       }
 
       const response = await fetch("/api/session/open-file", {
