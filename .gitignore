@@ -26,3 +26,4 @@ dist-ssr
 target
 tmp
 app/export-bridge/pkg
+.glorp.json

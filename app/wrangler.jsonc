@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "zvid-app",
+  "name": "zvid",
   "main": "worker/index.ts",
   "compatibility_date": "2026-04-22",
   "assets": {
