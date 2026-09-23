@@ -128,6 +128,7 @@ export function createMediaTransport(
       return false;
     }
     try {
+      // RTCDataChannel.send is overloaded per payload type.
       if (typeof data === "string") {
         channel.send(data);
       } else {
@@ -257,7 +258,12 @@ export function createMediaTransport(
       return;
     }
     if (
-      !sendControl(mediaPeer, { t: "meta", req, size: blob.size, type: blob.type })
+      !sendControl(mediaPeer, {
+        t: "meta",
+        req,
+        size: blob.size,
+        type: blob.type,
+      })
     ) {
       return;
     }
