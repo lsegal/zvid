@@ -84,6 +84,14 @@ pnpm run deploy
 
 Wrangler uses [wrangler.jsonc](d:\github\lsegal\zvid\app\wrangler.jsonc) and serves the built Vite output from `dist/` with SPA fallback enabled.
 
+After deploying, set `WORKER_URL` to the deployed Worker's base URL, then check `/api/health`. A healthy deployment returns HTTP 200 with `{"ok":true,"service":"zvid-app"}`. For example:
+
+```sh
+curl --fail --silent --show-error "$WORKER_URL/api/health"
+```
+
+The health endpoint does not require authentication and is intended as a quick deployment smoke check.
+
 MP4 export uses the zvidlib bridge built during the app build. The runtime needs a HEVC or AV1 video encoder. Audible exports use a browser AAC encoder when available; the native macOS app can also use AudioToolbox.
 
 To check playable browser and Tauri exports, follow [the MP4 export smoke test](EXPORT_SMOKE_TEST.md).
