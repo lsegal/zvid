@@ -82,13 +82,18 @@ function isShareableMediaUrl(url: string | undefined) {
 }
 
 export function toShareableMediaItem(item: MediaItem): MediaItem {
+  const previewUrl = isShareableMediaUrl(item.previewUrl)
+    ? item.previewUrl
+    : "";
   return {
     ...item,
-    previewUrl: isShareableMediaUrl(item.previewUrl) ? item.previewUrl : "",
+    previewUrl,
     thumbnailUrl: isShareableMediaUrl(item.thumbnailUrl)
       ? item.thumbnailUrl
       : undefined,
-    availability: item.previewUrl ? "ready" : "offline",
+    // Peers only see the shareable URL, so a stripped blob: URL means the
+    // bytes are not available to them yet.
+    availability: previewUrl ? "ready" : "offline",
   };
 }
 
@@ -107,7 +112,7 @@ export function buildFallbackMediaItem(
     color: palette.color,
     accent: palette.accent,
     waveform: buildFallbackWaveform(ref.name),
-    previewUrl: isShareableMediaUrl(ref.url) ? ref.url : "",
+    previewUrl: ref.exists && isShareableMediaUrl(ref.url) ? ref.url : "",
     sourcePath: ref.path,
     availability: ref.exists && ref.url ? "hydrating" : "offline",
   };
