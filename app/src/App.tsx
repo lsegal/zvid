@@ -487,6 +487,10 @@ function clamp(value: number, minimum: number, maximum: number) {
   return Math.max(minimum, Math.min(maximum, value));
 }
 
+function pluralize(count: number, singular: string, plural = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
 function isEditableEventTarget(target: EventTarget | null) {
   return (
     target instanceof HTMLInputElement ||
@@ -2146,7 +2150,7 @@ function App() {
       ? "Loading clip preview..."
       : sourceTrackDragPreview.status === "error"
         ? sourceTrackDragPreview.fileCount > 1
-          ? `${sourceTrackDragPreview.fileCount} file(s) ready to import`
+          ? `${pluralize(sourceTrackDragPreview.fileCount, "file")} ready to import`
           : "Drop to import without a preview"
         : sourceTrackDragPreview.durationSeconds !== undefined
           ? `${sourceTrackDragPreview.kind === "audio" ? "Audio" : "Video"} · ${formatDuration(
@@ -2325,7 +2329,7 @@ function App() {
 
       try {
         setStatus(
-          `Analyzing ${files.length} dropped media file(s) through ${harness.label}...`,
+          `Analyzing ${pluralize(files.length, "dropped media file")} through ${harness.label}...`,
         );
         const analyzed = await harness.analyzeMedia(
           {
@@ -2424,7 +2428,7 @@ function App() {
         seedLocalMediaItems(analyzed);
         void cacheLocalMediaItems(analyzed);
         setStatus(
-          `Dropped ${analyzed.length} media file(s) into ${
+          `Dropped ${pluralize(analyzed.length, "media file")} into ${
             target.kind === "track"
               ? "the selected source track"
               : "a new source track"
@@ -4162,7 +4166,7 @@ function App() {
 
     setStatus(
       existingRefs.length
-        ? `Loaded ${payload.sessionName}. Hydrating ${existingRefs.length} media file(s) in the background.`
+        ? `Loaded ${payload.sessionName}. Hydrating ${pluralize(existingRefs.length, "media file")} in the background.`
         : `Loaded ${payload.sessionName}. All referenced media is currently offline.`,
     );
 
@@ -4193,7 +4197,7 @@ function App() {
           );
           setStatus(
             missingRefs.length
-              ? `Loaded ${payload.sessionName}. ${missingRefs.length} clip(s) are still offline.`
+              ? `Loaded ${payload.sessionName}. ${missingRefs.length === 1 ? "1 clip is" : `${missingRefs.length} clips are`} still offline.`
               : `Loaded ${payload.sessionName} with local media hydrated from disk.`,
           );
         } catch (error) {
@@ -4218,7 +4222,7 @@ function App() {
           ? selection.files.length
           : selection.refs.length;
       setStatus(
-        `Analyzing ${itemCount} imported media file(s) through ${harness.label}...`,
+        `Analyzing ${pluralize(itemCount, "imported media file")} through ${harness.label}...`,
       );
       const nextPaletteIndex = mediaItems.length;
       const analyzed = await harness.analyzeMedia(
@@ -4256,7 +4260,7 @@ function App() {
       seedLocalMediaItems(analyzed);
       void cacheLocalMediaItems(analyzed);
       setStatus(
-        `Imported ${analyzed.length} media file(s) through ${harness.label}.`,
+        `Imported ${pluralize(analyzed.length, "media file")} through ${harness.label}.`,
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -4368,7 +4372,7 @@ function App() {
     setIsExporting(true);
     updateExportState(
       "preparing",
-      `Preparing export (${outputFrameCount} frame(s))...`,
+      `Preparing export (${pluralize(outputFrameCount, "frame")})...`,
       null,
     );
     logClient("export:start", {
@@ -4702,6 +4706,7 @@ function App() {
           </DropdownMenu>
           <div className="tempo-pill">
             <button
+              aria-label="Decrease tempo"
               className="tempo-pill__adjust"
               onClick={() =>
                 commitProjectChange("Adjust BPM", (current) =>
@@ -4712,10 +4717,11 @@ function App() {
               }
               type="button"
             >
-              -
+              −
             </button>
             <span>{bpm.toFixed(0)} BPM</span>
             <button
+              aria-label="Increase tempo"
               className="tempo-pill__adjust"
               onClick={() =>
                 commitProjectChange("Adjust BPM", (current) =>
@@ -5087,12 +5093,14 @@ function App() {
 
                   <section className="ruler-row">
                     <div className="track-label track-label--header">
-                      <span>{sessionName ?? "Session"}</span>
-                      <small>
-                        {offlineCount
-                          ? `${offlineCount} offline clip(s)`
-                          : "Media linked"}
-                      </small>
+                      <div>
+                        <span>{sessionName ?? "Session"}</span>
+                        <small>
+                          {offlineCount
+                            ? pluralize(offlineCount, "offline clip")
+                            : "Media linked"}
+                        </small>
+                      </div>
                     </div>
                     <div
                       className={`ruler-row__content ruler-row__content--interactive ${
@@ -5417,11 +5425,16 @@ function App() {
                     }}
                   >
                     <div className="track-label track-label--header">
-                      <span>Source Tracks</span>
-                      <small>
-                        {sourceTracks.length || mediaItems.length} tracks in
-                        session
-                      </small>
+                      <div>
+                        <span>Source Tracks</span>
+                        <small>
+                          {pluralize(
+                            sourceTracks.length || mediaItems.length,
+                            "track",
+                          )}{" "}
+                          in session
+                        </small>
+                      </div>
                     </div>
                     <div className="source-header__content">
                       <span>
@@ -5455,7 +5468,7 @@ function App() {
                             <span>{track.name}</span>
                             <small>
                               {track.recordingPaths.length
-                                ? `${track.recordingPaths.length} file(s) / key ${index + 1}`
+                                ? `${pluralize(track.recordingPaths.length, "file")} / key ${index + 1}`
                                 : `Imported media / key ${index + 1}`}
                             </small>
                           </div>
@@ -5901,7 +5914,7 @@ function App() {
                   <div className="inspector-note">
                     <strong>Harness Media Flow</strong>
                     <p>
-                      `window.harness` owns session open, media analysis, and
+                      <code>window.harness</code> owns session open, media analysis, and
                       export. The web harness routes session access through the
                       local Vite middleware, while Tauri upgrades the same
                       contract with native dialogs and filesystem-backed URLs.
