@@ -5358,7 +5358,7 @@ function App() {
                         <small>
                           {masterAudio
                             ? masterAudio.name
-                            : "Master bus / session waveform"}
+                            : "Master bus waveform"}
                         </small>
                       </div>
                     </div>
@@ -5914,10 +5914,11 @@ function App() {
                   <div className="inspector-note">
                     <strong>Harness Media Flow</strong>
                     <p>
-                      <code>window.harness</code> owns session open, media analysis, and
-                      export. The web harness routes session access through the
-                      local Vite middleware, while Tauri upgrades the same
-                      contract with native dialogs and filesystem-backed URLs.
+                      <code>window.harness</code> owns session open, media
+                      analysis, and export. The web harness routes session
+                      access through the local Vite middleware, while Tauri
+                      upgrades the same contract with native dialogs and
+                      filesystem-backed URLs.
                     </p>
                     <p>
                       The editor only supplies canvas frames and timeline state.
