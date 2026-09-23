@@ -13,17 +13,17 @@ This worker only handles peer discovery and signal fanout. It does not carry doc
 ## Local development
 
 ```sh
-cd cloudflare-signaling
-npm install
-npm run dev
+cd signaling
+pnpm install
+pnpm run dev
 ```
 
-Wrangler will print a local WebSocket URL you can use as the signaling endpoint.
+Wrangler will print a local WebSocket URL you can use as the signaling endpoint (set it as `VITE_SIGNALING_URL` in `../app/.env.local`).
 
 ## Deploy
 
 ```sh
-cd cloudflare-signaling
+cd signaling
 pnpm install
 pnpm run deploy
 ```
@@ -31,16 +31,18 @@ pnpm run deploy
 After deploy, Cloudflare will give you a Worker URL such as:
 
 ```txt
-wss://zvid-signaling.lsegal.workers.dev
+wss://zvid-signaling.<your-account>.workers.dev
 ```
 
-Use that URL as the collaboration signaling server.
+Use that URL as `VITE_SIGNALING_URL` when building the app.
 
-## Wire zvid to it
+## Do you need to self-host this?
 
-You have two options:
+No. By default zvid connects to the public `wss://y-webrtc-eu.fly.dev` relay, so collaboration works out of the box without deploying anything.
 
-1. Paste the deployed WebSocket URL into the collaboration signaling field in the app before sharing.
-2. Change the default in the app from the Fly host to your Worker URL.
+This worker (or the public relay) only helps browsers find each other; it never sees project content. If you'd rather not depend on a third-party relay, deploy your own copy with the steps above and either:
 
-The share invite format already supports a `signal` query parameter, so existing collaboration links can carry the custom signaling endpoint without changing the collaboration protocol.
+1. Build the app with `VITE_SIGNALING_URL` pointing at it, or
+2. Paste the deployed WebSocket URL into the collaboration signaling field in the app before sharing.
+
+The share invite format supports a `signal` query parameter, so collaboration links carry the signaling endpoint they were created with.

@@ -299,8 +299,13 @@ const RANDOM_SELECTION_BAR_INCREMENT = 0.25;
 const RANDOM_SELECTION_MAX_BARS = 2;
 const SOURCE_TRACK_DRAG_CLEAR_DELAY_MS = 80;
 const COLLAB_STORAGE_KEY = "zvid-collaboration";
-const DEFAULT_SIGNALING_URLS = ["wss://zvid-signaling.lsegal.workers.dev"];
-const LEGACY_DEFAULT_SIGNALING_URLS = ["wss://y-webrtc-eu.fly.dev"];
+const PUBLIC_SIGNALING_URL = "wss://y-webrtc-eu.fly.dev";
+const DEFAULT_SIGNALING_URLS = splitSignalingUrls(
+  import.meta.env.VITE_SIGNALING_URL || PUBLIC_SIGNALING_URL,
+);
+const LEGACY_DEFAULT_SIGNALING_URLS = [
+  "wss://zvid-signaling.lsegal.workers.dev",
+];
 const MEDIA_DROP_EXTENSION_PATTERN =
   /\.(mp4|mov|mkv|webm|avi|wav|mp3|m4a|flac|aif|aiff)$/i;
 const SIGNATURES: TimeSignature[] = [
@@ -886,12 +891,15 @@ function mergeMediaItemsById(current: MediaItem[], incoming: MediaItem[]) {
   return current.map((item) => incomingById.get(item.id) ?? item);
 }
 
-function parseSignalingUrls(value: string) {
-  const urls = value
+function splitSignalingUrls(value: string) {
+  return value
     .split(/[,\n]/)
     .map((entry) => entry.trim())
     .filter(Boolean);
+}
 
+function parseSignalingUrls(value: string) {
+  const urls = splitSignalingUrls(value);
   return urls.length ? urls : DEFAULT_SIGNALING_URLS;
 }
 
@@ -4876,7 +4884,7 @@ function App() {
               <textarea
                 className="connect-dialog__input"
                 onChange={(event) => setConnectInviteValue(event.target.value)}
-                placeholder="http://public-ip:1420/?room=...&signal=wss://zvid-signaling.lsegal.workers.dev"
+                placeholder="http://public-ip:1420/?room=...&signal=wss://y-webrtc-eu.fly.dev"
                 rows={4}
                 value={connectInviteValue}
               />

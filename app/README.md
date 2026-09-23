@@ -87,3 +87,7 @@ Wrangler uses [wrangler.jsonc](d:\github\lsegal\zvid\app\wrangler.jsonc) and ser
 MP4 export uses the zvidlib bridge built during the app build. The runtime needs a HEVC or AV1 video encoder. Audible exports use a browser AAC encoder when available; the native macOS app can also use AudioToolbox.
 
 To check playable browser and Tauri exports, follow [the MP4 export smoke test](EXPORT_SMOKE_TEST.md).
+
+## Collaboration signaling
+
+Collaboration uses the public `wss://y-webrtc-eu.fly.dev` y-webrtc relay by default, so no signaling deploy is needed. To use a different server, copy `.env.example` to `.env.local` and set `VITE_SIGNALING_URL` before building, or deploy the optional [signaling worker](../signaling/README.md).
