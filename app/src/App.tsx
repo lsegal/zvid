@@ -1837,6 +1837,7 @@ function App() {
     useState<CollaborationConnectionState>({
       connected: false,
       peerCount: 0,
+      mediaPeerCount: 0,
       collaborators: [],
     });
   const collaborationColor = initialCollaborationConfig.color;
@@ -4537,6 +4538,7 @@ function App() {
     setCollaborationState({
       connected: false,
       peerCount: 0,
+      mediaPeerCount: 0,
       collaborators: [],
     });
     setCollaborationMode("idle");
@@ -4549,6 +4551,7 @@ function App() {
     setCollaborationState({
       connected: false,
       peerCount: 0,
+      mediaPeerCount: 0,
       collaborators: [],
     });
     setCollaborationMode("idle");

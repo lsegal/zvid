@@ -1,5 +1,10 @@
 import { WebrtcProvider } from "y-webrtc";
 import * as Y from "yjs";
+import {
+  createMediaTransport,
+  type MediaRequestOptions,
+  type MediaResolver,
+} from "./collaboration-media";
 
 type JsonPrimitive = boolean | number | string | null;
 type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
@@ -18,6 +23,7 @@ export type CollaboratorPresence = {
 export type CollaborationConnectionState = {
   connected: boolean;
   peerCount: number;
+  mediaPeerCount: number;
   collaborators: CollaboratorPresence[];
 };
 
@@ -45,12 +51,17 @@ type CollaborationControllerOptions<T extends Record<string, unknown>> = {
   user: CollaborationUser;
   onRemoteState(state: T): void;
   onConnectionState(state: CollaborationConnectionState): void;
+  resolveMedia?: MediaResolver;
 };
 
 export type CollaborationController<T extends Record<string, unknown>> = {
   pushState(state: T): void;
   updateUser(user: CollaborationUser): void;
   updateCursor(cursor: CollaborationCursor | null): void;
+  requestMedia(
+    mediaId: string,
+    options?: MediaRequestOptions,
+  ): Promise<Blob | null>;
   destroy(): void;
 };
 
@@ -197,6 +208,12 @@ export function createCollaborationController<
         : undefined,
   });
 
+  const media = createMediaTransport({
+    provider,
+    resolveMedia: options.resolveMedia,
+    onChange: () => emitConnectionState(),
+  });
+
   const emitConnectionState = () => {
     if (destroyed) {
       return;
@@ -207,6 +224,7 @@ export function createCollaborationController<
       connected: provider.connected,
       peerCount: collaborators.filter((collaborator) => !collaborator.isLocal)
         .length,
+      mediaPeerCount: media.mediaPeerCount,
       collaborators,
     });
   };
@@ -291,6 +309,10 @@ export function createCollaborationController<
       provider.awareness.setLocalStateField("cursor", cursor);
     },
 
+    requestMedia(mediaId, requestOptions) {
+      return media.requestMedia(mediaId, requestOptions);
+    },
+
     destroy() {
       if (destroyed) {
         return;
@@ -298,6 +320,7 @@ export function createCollaborationController<
 
       destroyed = true;
       window.clearTimeout(bootstrapTimer);
+      media.destroy();
       provider.awareness.setLocalState(null);
       doc.destroy();
     },
