@@ -27,14 +27,14 @@ jobs:
           brew install wasm-pack
           rustup target add wasm32-unknown-unknown
           cd app
-          npx -y pnpm@8 install --frozen-lockfile
-          npx -y pnpm@8 run build
+          npx -y pnpm@10 install --frozen-lockfile
+          npx -y pnpm@10 run build
       - name: Run the Tauri export smoke page
         working-directory: app
         run: |
           mkdir -p smoke-results
           printf '{"build":{"devUrl":"http://127.0.0.1:1420/export-smoke.html?automationOutputDir=%s"}}' "$PWD/smoke-results" > smoke-tauri.json
-          npx -y pnpm@8 exec tauri dev --config smoke-tauri.json --no-watch > smoke-tauri.log 2>&1 &
+          npx -y pnpm@10 exec tauri dev --config smoke-tauri.json --no-watch > smoke-tauri.log 2>&1 &
           app_pid=$!
           trap 'kill "$app_pid" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 120); do
