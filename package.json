@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "build": "pnpm dlx pnpm@8 --dir app install --frozen-lockfile && pnpm dlx pnpm@8 --dir app run build",
+    "build": "pnpm install --frozen-lockfile && pnpm dlx pnpm@8 --dir app install --frozen-lockfile && pnpm dlx pnpm@8 --dir app run build",
     "deploy": "pnpm run build && wrangler deploy",
     "deploy:dry-run": "pnpm run build && wrangler deploy --dry-run",
     "dev": "pnpm -C app dev",
