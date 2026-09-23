@@ -82,7 +82,9 @@ pnpm run deploy:dry-run
 pnpm run deploy
 ```
 
-Wrangler uses [wrangler.jsonc](d:\github\lsegal\zvid\app\wrangler.jsonc) and serves the built Vite output from `dist/` with SPA fallback enabled.
+Wrangler uses [wrangler.jsonc](wrangler.jsonc) and serves the built Vite output from `dist/` with SPA fallback enabled.
+
+For Cloudflare Workers Builds connected to the repository root, use `npm run build` as the build command and `npx wrangler deploy` as the production deploy command. The root `wrangler.jsonc` points to `app/dist` and the app Worker. Do not pass `app` or `.` as a positional argument to `wrangler deploy`: that selects the source directory as static assets instead of the built output.
 
 MP4 export uses the zvidlib bridge built during the app build. The runtime needs a HEVC or AV1 video encoder. Audible exports use a browser AAC encoder when available; the native macOS app can also use AudioToolbox.
 

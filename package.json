@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
+    "build": "npx --yes pnpm@8 --dir app install --frozen-lockfile && npx --yes pnpm@8 --dir app run build",
     "deploy": "pnpm -r run deploy",
     "dev": "pnpm -C app dev",
     "dev:native": "pnpm -C app tauri:dev",

@@ -1,10 +1,10 @@
 {
-  "$schema": "./node_modules/wrangler/config-schema.json",
+  "$schema": "./app/node_modules/wrangler/config-schema.json",
   "name": "zvid-app",
-  "main": "worker/index.ts",
+  "main": "./app/worker/index.ts",
   "compatibility_date": "2026-04-22",
   "assets": {
-    "directory": "./dist",
+    "directory": "./app/dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*"]
