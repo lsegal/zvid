@@ -124,8 +124,11 @@ export function FxChain({
   const endDragRef = useRef<(() => void) | null>(null);
   const suppressClickRef = useRef(false);
   // Title bar (or add button) to focus once the next render lands, so
-  // keyboard focus follows a moved, added or removed device.
+  // keyboard focus follows a moved, added or removed device. Menus close
+  // after that render and would return focus to their trigger, so they read
+  // the same target from menuFocusRef when they finish closing.
   const pendingFocusRef = useRef<string | null>(null);
+  const menuFocusRef = useRef<string | null>(null);
   const menuDeviceIdRef = useRef<string | null>(null);
   const [collapsed, setCollapsed] = useState(() =>
     readCollapsedDevices(getStorage()),
@@ -194,6 +197,25 @@ export function FxChain({
       ?.focus();
   }
 
+  function requestFocus(target: string) {
+    pendingFocusRef.current = target;
+    menuFocusRef.current = target;
+  }
+
+  // Moves focus to the requested device once a menu has closed. Returns
+  // false when no action asked for focus.
+  function focusAfterMenu() {
+    const target = menuFocusRef.current;
+    menuFocusRef.current = null;
+    pendingFocusRef.current = null;
+    if (!target) {
+      return false;
+    }
+
+    focusTitle(target);
+    return true;
+  }
+
   function toggleCollapsed(deviceId: string) {
     setCollapsed((current) => {
       const next = toggleCollapsedDevice(current, deviceId);
@@ -212,7 +234,7 @@ export function FxChain({
       return;
     }
 
-    pendingFocusRef.current = device.id;
+    requestFocus(device.id);
     onMove(device, toIndex);
     setAnnouncement(describeDeviceMove(device, toIndex, stackSize));
   }
@@ -221,14 +243,14 @@ export function FxChain({
     const stack = groups[device.group];
     const index = stack.findIndex((candidate) => candidate.id === device.id);
     const neighbour = stack[index + 1] ?? stack[index - 1];
-    pendingFocusRef.current = neighbour?.id ?? `add-${device.group}`;
+    requestFocus(neighbour?.id ?? `add-${device.group}`);
     onRemove(device);
     setAnnouncement(`Removed ${device.name}`);
   }
 
   function duplicateDevice(device: FxDevice) {
     const id = crypto.randomUUID();
-    pendingFocusRef.current = id;
+    requestFocus(id);
     onDuplicate(device, id);
     setAnnouncement(`Duplicated ${device.name}`);
   }
@@ -243,7 +265,7 @@ export function FxChain({
     }
 
     const id = crypto.randomUUID();
-    pendingFocusRef.current = id;
+    requestFocus(id);
     onAdd(trackId, effectName, id);
     setAnnouncement(`Added ${definition.displayName}`);
   }
@@ -491,6 +513,7 @@ export function FxChain({
       y = rect.bottom;
     }
     menuDeviceIdRef.current = device.id;
+    menuFocusRef.current = null;
     setMenu({ device, index, stackSize, x, y });
   }
 
@@ -532,9 +555,12 @@ export function FxChain({
         label={label}
         onAdd={(effectName) => addDevice(group, effectName)}
         onCloseAutoFocus={(event) => {
-          if (pendingFocusRef.current) {
+          if (focusAfterMenu()) {
             event.preventDefault();
           }
+        }}
+        onOpen={() => {
+          menuFocusRef.current = null;
         }}
         withLabel={withLabel}
       />
@@ -602,7 +628,7 @@ export function FxChain({
           aria-label={menuDevice ? `${menuDevice.name} actions` : undefined}
           onCloseAutoFocus={(event) => {
             event.preventDefault();
-            if (!pendingFocusRef.current && menuDeviceIdRef.current) {
+            if (!focusAfterMenu() && menuDeviceIdRef.current) {
               focusTitle(menuDeviceIdRef.current);
             }
           }}
@@ -610,12 +636,7 @@ export function FxChain({
         >
           {menu && menuDevice ? (
             <>
-              <DropdownMenuItem
-                onSelect={() => {
-                  pendingFocusRef.current = menuDevice.id;
-                  toggleCollapsed(menuDevice.id);
-                }}
-              >
+              <DropdownMenuItem onSelect={() => toggleCollapsed(menuDevice.id)}>
                 {collapsed.has(menuDevice.id) ? "Expand" : "Collapse"}
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -674,15 +695,23 @@ function AddDeviceMenu({
   withLabel,
   onAdd,
   onCloseAutoFocus,
+  onOpen,
 }: {
   focusKey: string;
   label: string;
   withLabel: boolean;
   onAdd: (effectName: string) => void;
   onCloseAutoFocus: (event: Event) => void;
+  onOpen: () => void;
 }) {
   return (
-    <DropdownMenu>
+    <DropdownMenu
+      onOpenChange={(open) => {
+        if (open) {
+          onOpen();
+        }
+      }}
+    >
       <DropdownMenuTrigger asChild>
         <button
           aria-label={label}

@@ -1379,8 +1379,18 @@ export const CompositionPlayer = forwardRef<
     };
   }, []);
 
+  const isPlayingRef = useRef(isPlaying);
+  isPlayingRef.current = isPlaying;
+  const scheduleDrawRef = useRef(scheduleDraw);
+  scheduleDrawRef.current = scheduleDraw;
+
   useEffect(() => {
     rendererRef.current?.update(rendererState);
+    // A paused preview only redraws on request, so edits such as
+    // reordering or bypassing effects need a fresh frame to show up.
+    if (!isPlayingRef.current) {
+      scheduleDrawRef.current();
+    }
   }, [rendererState]);
 
   useEffect(() => {
