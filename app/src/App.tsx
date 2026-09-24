@@ -52,6 +52,10 @@ import {
   mapEffects,
   mapSessionEffectsToDevices,
   type SessionEffect,
+  addEffect,
+  duplicateEffect,
+  moveEffect,
+  removeEffect,
   setEffectEnabled,
   setEffectParameter,
 } from "./fx-stack";
@@ -1779,6 +1783,38 @@ function App() {
         effectHistoryLabels.parameter(device.effectName, key),
         (current) => setEffectParameter(current, device.id, key, value),
         mode,
+      ),
+    [editEffects],
+  );
+
+  const moveFxDevice = useCallback(
+    (device: FxDevice, toIndex: number) =>
+      editEffects(effectHistoryLabels.move(device.effectName), (current) =>
+        moveEffect(current, device.id, toIndex),
+      ),
+    [editEffects],
+  );
+
+  const addFxDevice = useCallback(
+    (trackId: string, effectName: string, id: string) =>
+      editEffects(effectHistoryLabels.add(effectName), (current) =>
+        addEffect(current, trackId, effectName, undefined, id),
+      ),
+    [editEffects],
+  );
+
+  const removeFxDevice = useCallback(
+    (device: FxDevice) =>
+      editEffects(effectHistoryLabels.remove(device.effectName), (current) =>
+        removeEffect(current, device.id),
+      ),
+    [editEffects],
+  );
+
+  const duplicateFxDevice = useCallback(
+    (device: FxDevice, id: string) =>
+      editEffects(effectHistoryLabels.duplicate(device.effectName), (current) =>
+        duplicateEffect(current, device.id, id),
       ),
     [editEffects],
   );
@@ -6533,6 +6569,11 @@ function App() {
                 devices={fxDevices}
                 hasClip={Boolean(selectedClip)}
                 kind={selectedMedia?.kind}
+                layerTrackId={selectedClip?.laneId}
+                onAdd={addFxDevice}
+                onDuplicate={duplicateFxDevice}
+                onMove={moveFxDevice}
+                onRemove={removeFxDevice}
                 onSetEnabled={setFxDeviceEnabled}
                 onSetParameter={setFxDeviceParameter}
               />
