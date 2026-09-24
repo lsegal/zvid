@@ -121,7 +121,7 @@ describe("parseAls with dogfood3.als", () => {
     assert.equal(clip.warpMode, 0);
     assert.deepEqual(clip.warpMarkers, [
       { secTime: 0, beatTime: 0 },
-      { secTime: 0.0148333332327383535, beatTime: 0.03125 },
+      { secTime: 0.014833333232738354, beatTime: 0.03125 },
     ]);
     assert.deepEqual(clip.sample, {
       path: "C:/Users/Loren/Documents/Layers/dogfood3 Project/Samples/Recorded/2-Audio 0001 [2023-12-13 121346].wav",
