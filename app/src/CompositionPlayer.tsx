@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
 } from "react";
+import { getGroupClipProgress } from "./composition-progress.ts";
 import {
   type AudioBands,
   LiveAudioBands,
@@ -97,6 +98,7 @@ type ActiveClip = {
 type FrameContext = {
   time: number;
   audio: AudioBands;
+  groupClipProgress: number;
 };
 
 type CompositionPlayerProps = {
@@ -798,7 +800,7 @@ function drawComposition(
       groupSteps,
       {
         time: frameContext.time,
-        clipProgress: 0,
+        clipProgress: frameContext.groupClipProgress,
         resolution: [canvas.width, canvas.height],
         audioLow: frameContext.audio.low,
         audioHigh: frameContext.audio.high,
@@ -936,6 +938,7 @@ export class CompositionRenderer {
       time: quartersToSeconds(playheadQ, this.state.bpm),
       audio:
         this.liveAudioBands?.sample(performance.now()) ?? SILENT_AUDIO_BANDS,
+      groupClipProgress: this.groupClipProgressAt(playheadQ),
     });
   }
 
@@ -983,7 +986,11 @@ export class CompositionRenderer {
     }
 
     this.activeClips = nextActiveClips;
-    this.draw(nextActiveClips, pixelRatio, { time: playheadSeconds, audio });
+    this.draw(nextActiveClips, pixelRatio, {
+      time: playheadSeconds,
+      audio,
+      groupClipProgress: this.groupClipProgressAt(playheadQ),
+    });
   }
 
   syncPlayback(playback: CompositionPlaybackState) {
@@ -1092,6 +1099,10 @@ export class CompositionRenderer {
       lanePriority,
       this.renderedEffects(),
     );
+  }
+
+  private groupClipProgressAt(playheadQ: number) {
+    return getGroupClipProgress(this.state.clips, playheadQ, this.state.bpm);
   }
 
   // Effects on layers whose FX switch is off are left out, apart from their
