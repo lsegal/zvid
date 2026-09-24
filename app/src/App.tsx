@@ -5063,6 +5063,18 @@ function App() {
       ) : null}
       <header className="topbar">
         <div className="topbar__group">
+          <div className="brand-mark" role="img" aria-label="zvid">
+            <svg viewBox="0 0 120 24" aria-hidden="true">
+              <circle cx="14" cy="12" r="8" />
+              <circle cx="36" cy="12" r="8" />
+              <circle cx="60" cy="12" r="10" />
+              <circle cx="84" cy="12" r="8" />
+              <circle cx="106" cy="12" r="8" />
+            </svg>
+            <span className="brand-mark__name" aria-hidden="true">
+              zvid
+            </span>
+          </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="ghost-button file-menu-button" type="button">
@@ -5124,13 +5136,6 @@ function App() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <button
-            className="ghost-button"
-            onClick={() => void handleOpenWorkspace()}
-            type="button"
-          >
-            Open Workspace
-          </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="ghost-button file-menu-button" type="button">
@@ -5199,16 +5204,6 @@ function App() {
           </div>
         </div>
 
-        <div className="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 120 24" role="img" aria-hidden="true">
-            <circle cx="14" cy="12" r="8" />
-            <circle cx="36" cy="12" r="8" />
-            <circle cx="60" cy="12" r="10" />
-            <circle cx="84" cy="12" r="8" />
-            <circle cx="106" cy="12" r="8" />
-          </svg>
-        </div>
-
         <div className="topbar__group topbar__group--right">
           <button
             className="ghost-button"
@@ -5219,9 +5214,10 @@ function App() {
             {exportButtonLabel}
           </button>
           <span
-            className={`collaboration-badge collaboration-badge--${collaborationView.stateTone}`}
+            className={`collaboration-status collaboration-status--${collaborationView.stateTone}`}
             aria-live="polite"
           >
+            <span className="collaboration-status__dot" aria-hidden="true" />
             {collaborationView.stateLabel}
           </span>
           <button
