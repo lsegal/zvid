@@ -187,7 +187,7 @@ export function setEffectEnabled(
   enabled: boolean,
 ) {
   return updateEffect(effects, effectId, (effect) =>
-    effect.enabled === enabled ? effect : { ...effect, enabled },
+    (effect.enabled !== false) === enabled ? effect : { ...effect, enabled },
   );
 }
 
@@ -389,7 +389,7 @@ function toDevice(effect: SessionEffect): FxDevice {
     subtitle: group === "global" ? "Global stack" : `Layer ${effect.trackId}`,
     accent: definition.accent,
     group,
-    enabled: effect.enabled,
+    enabled: effect.enabled !== false,
     parameters: parameterDefinitions
       .filter((parameter) => !parameter.hidden)
       .map((parameter) =>

@@ -179,6 +179,16 @@ describe("mapSessionEffectsToDevices", () => {
     const colorize = mapSessionEffectsToDevices(effects, "6", "video")[1];
     assert.equal(colorize.enabled, false);
   });
+
+  it("treats a missing bypass flag as enabled", () => {
+    const effects = load().map((effect) => ({
+      ...effect,
+      enabled: undefined as unknown as boolean,
+    }));
+    const devices = mapSessionEffectsToDevices(effects, "6", "video");
+    assert.ok(devices.every((device) => device.enabled));
+    assert.equal(setEffectEnabled(effects, "colorize", true), effects);
+  });
 });
 
 describe("setEffectParameter", () => {
