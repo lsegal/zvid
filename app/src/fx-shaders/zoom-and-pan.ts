@@ -5,15 +5,18 @@ import {
   readEffectNumber,
 } from "./types.ts";
 
-// (zoom, x, y) framing for one end of the move, each clamped to 0..1.
+// (zoom, x, y) framing for one end of the move, each clamped to 0..1. The .lvp
+// Y runs top-down; `bottomUp` flips it to match a bottom-up texture.
 export function readZoomFraming(
   params: EffectParameter[],
   prefix: "_Start" | "_End",
+  bottomUp = false,
 ): [number, number, number] {
+  const y = clampUnit(readEffectNumber(params, `${prefix}_Y`, 0.5));
   return [
     clampUnit(readEffectNumber(params, `${prefix}_Zoom`, 0)),
     clampUnit(readEffectNumber(params, `${prefix}_X`, 0.5)),
-    clampUnit(readEffectNumber(params, `${prefix}_Y`, 0.5)),
+    bottomUp ? 1 - y : y,
   ];
 }
 
@@ -21,7 +24,8 @@ export function readZoomFraming(
 // maps to 1x..4x; X and Y 0..1 place the window inside the frame, with 0 the
 // left/top edge and 1 the right/bottom edge, so it never samples outside the
 // texture. Layer textures are uploaded top row first (UNPACK_FLIP_Y off), so
-// vUv.y already runs top-down and the .lvp Y is used without flipping.
+// vUv.y already runs top-down and the .lvp Y is used without flipping; the
+// group stack's offscreen scene is bottom-up, so its Y is flipped instead.
 export const zoomAndPanPass: EffectPass = {
   effectName: "ZoomAndPan",
   fragmentSource: `
@@ -40,7 +44,10 @@ export const zoomAndPanPass: EffectPass = {
   uniforms: ["uProgress", "uStart", "uEnd"],
   setUniforms(gl, loc, params, ctx) {
     gl.uniform1f(loc.uProgress, clampUnit(ctx.clipProgress));
-    gl.uniform3f(loc.uStart, ...readZoomFraming(params, "_Start"));
-    gl.uniform3f(loc.uEnd, ...readZoomFraming(params, "_End"));
+    gl.uniform3f(
+      loc.uStart,
+      ...readZoomFraming(params, "_Start", ctx.bottomUp),
+    );
+    gl.uniform3f(loc.uEnd, ...readZoomFraming(params, "_End", ctx.bottomUp));
   },
 };

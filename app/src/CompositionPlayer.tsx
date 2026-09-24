@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
 } from "react";
+import { getGroupClipProgress } from "./composition-progress.ts";
 import {
   type AudioBands,
   LiveAudioBands,
@@ -19,6 +20,7 @@ import {
   isChainEffectName,
   resolveEffectChain,
 } from "./fx-shaders/registry.ts";
+import { getRenderedEffects } from "./fx-stack.ts";
 
 type MediaKind = "video" | "audio";
 
@@ -38,6 +40,7 @@ type Lane = {
   id: string;
   name: string;
   colorIndex: number;
+  fxEnabled?: boolean;
 };
 
 type ArrangementClip = {
@@ -95,6 +98,7 @@ type ActiveClip = {
 type FrameContext = {
   time: number;
   audio: AudioBands;
+  groupClipProgress: number;
 };
 
 type CompositionPlayerProps = {
@@ -759,6 +763,7 @@ function drawComposition(
           resolution: [surface.width, surface.height],
           audioLow: frameContext.audio.low,
           audioHigh: frameContext.audio.high,
+          bottomUp: false,
         }) ?? texture;
       bindCompositeState(resources, canvas, compositeFramebuffer);
       gl.enable(gl.SCISSOR_TEST);
@@ -795,10 +800,12 @@ function drawComposition(
       groupSteps,
       {
         time: frameContext.time,
-        clipProgress: 0,
+        clipProgress: frameContext.groupClipProgress,
         resolution: [canvas.width, canvas.height],
         audioLow: frameContext.audio.low,
         audioHigh: frameContext.audio.high,
+        // The scene framebuffer is rendered normally, so it is bottom-up.
+        bottomUp: true,
       },
       "screen",
     );
@@ -931,6 +938,7 @@ export class CompositionRenderer {
       time: quartersToSeconds(playheadQ, this.state.bpm),
       audio:
         this.liveAudioBands?.sample(performance.now()) ?? SILENT_AUDIO_BANDS,
+      groupClipProgress: this.groupClipProgressAt(playheadQ),
     });
   }
 
@@ -978,7 +986,11 @@ export class CompositionRenderer {
     }
 
     this.activeClips = nextActiveClips;
-    this.draw(nextActiveClips, pixelRatio, { time: playheadSeconds, audio });
+    this.draw(nextActiveClips, pixelRatio, {
+      time: playheadSeconds,
+      audio,
+      groupClipProgress: this.groupClipProgressAt(playheadQ),
+    });
   }
 
   syncPlayback(playback: CompositionPlaybackState) {
@@ -1085,12 +1097,22 @@ export class CompositionRenderer {
       playheadQ,
       this.state.bpm,
       lanePriority,
-      this.state.effects,
+      this.renderedEffects(),
     );
   }
 
+  private groupClipProgressAt(playheadQ: number) {
+    return getGroupClipProgress(this.state.clips, playheadQ, this.state.bpm);
+  }
+
+  // Effects on layers whose FX switch is off are left out, apart from their
+  // Layout anchoring.
+  private renderedEffects() {
+    return getRenderedEffects(this.state.effects, this.state.lanes);
+  }
+
   private usesAudioBands() {
-    return this.state.effects.some(
+    return this.renderedEffects().some(
       (effect) =>
         effect.enabled !== false && isChainEffectName(effect.effectName),
     );
@@ -1319,6 +1341,10 @@ export const CompositionPlayer = forwardRef<
     },
     [drawCurrentFrame],
   );
+  const scheduleDrawRef = useRef(scheduleDraw);
+  scheduleDrawRef.current = scheduleDraw;
+  const isPlayingRef = useRef(isPlaying);
+  isPlayingRef.current = isPlaying;
 
   const renderFrameAt = useCallback(
     async (
@@ -1379,15 +1405,10 @@ export const CompositionPlayer = forwardRef<
     };
   }, []);
 
-  const isPlayingRef = useRef(isPlaying);
-  isPlayingRef.current = isPlaying;
-  const scheduleDrawRef = useRef(scheduleDraw);
-  scheduleDrawRef.current = scheduleDraw;
-
   useEffect(() => {
     rendererRef.current?.update(rendererState);
-    // A paused preview only redraws on request, so edits such as
-    // reordering or bypassing effects need a fresh frame to show up.
+    // A paused preview only redraws on request, so edits such as effect or
+    // layer FX bypasses would otherwise not show until the playhead moves.
     if (!isPlayingRef.current) {
       scheduleDrawRef.current();
     }

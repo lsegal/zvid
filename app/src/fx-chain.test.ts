@@ -5,12 +5,14 @@ import {
   dropSlotToStackIndex,
   FX_COLLAPSED_STORAGE_KEY,
   getAutoScrollDelta,
+  getDefaultLaneId,
   getDropSlot,
   getParameterFormat,
   groupChainDevices,
   isNoopDropSlot,
   knobColumnCount,
   readCollapsedDevices,
+  resolveSelectedLaneId,
   toggleCollapsedDevice,
   writeCollapsedDevices,
 } from "./fx-chain.ts";
@@ -86,7 +88,7 @@ describe("groupChainDevices", () => {
 describe("getParameterFormat", () => {
   it("uses the registry format for known parameters", () => {
     assert.equal(getParameterFormat("Colorize", "_HueOffset")(0.5), "+180°");
-    assert.equal(getParameterFormat("Pixelate", "_NumPixels")(0.83), "83%");
+    assert.equal(getParameterFormat("Pixelate", "_NumPixels")(0.5), "50%");
   });
 
   it("falls back to raw numbers for unknown parameters", () => {
@@ -232,5 +234,58 @@ describe("drag reordering", () => {
       describeDeviceMove(layout, 0, 1),
       "Moved Layout to position 1 of 1 in Global",
     );
+  });
+});
+
+describe("resolveSelectedLaneId", () => {
+  const lanes = [{ id: "1" }, { id: "2" }, { id: "3" }];
+  const effects = [
+    effect("fx-1", "3", "Pixelate"),
+    effect("fx-global", GLOBAL_EFFECT_TRACK_ID, "Layout"),
+  ];
+
+  it("follows the selected clip's layer", () => {
+    assert.equal(
+      resolveSelectedLaneId(lanes, effects, "3", { id: "c", laneId: "1" }),
+      "1",
+    );
+  });
+
+  it("keeps the selected layer when no clip is selected", () => {
+    assert.equal(resolveSelectedLaneId(lanes, effects, "2", undefined), "2");
+  });
+
+  it("falls back to the default when the selected layer was removed", () => {
+    assert.equal(resolveSelectedLaneId(lanes, effects, "9", undefined), "3");
+    assert.equal(
+      resolveSelectedLaneId(lanes, effects, undefined, {
+        id: "c",
+        laneId: "9",
+      }),
+      "3",
+    );
+  });
+
+  it("returns undefined when there are no layers", () => {
+    assert.equal(resolveSelectedLaneId([], effects, "1", undefined), undefined);
+  });
+});
+
+describe("getDefaultLaneId", () => {
+  it("prefers the first layer with effects", () => {
+    assert.equal(
+      getDefaultLaneId(
+        [{ id: "1" }, { id: "2" }, { id: "3" }],
+        [
+          effect("fx-global", GLOBAL_EFFECT_TRACK_ID, "Layout"),
+          effect("fx-2", "2", "Colorize"),
+        ],
+      ),
+      "2",
+    );
+  });
+
+  it("falls back to the first layer", () => {
+    assert.equal(getDefaultLaneId([{ id: "1" }, { id: "2" }], []), "1");
   });
 });

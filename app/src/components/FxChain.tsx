@@ -48,10 +48,14 @@ export type FxEditMode = "commit" | "transient";
 
 type FxChainProps = {
   devices: FxDevice[];
-  hasClip: boolean;
   kind: string | undefined;
-  // Track id of the selected clip's layer stack; undefined without a clip.
+  // Track id of the selected layer's stack; undefined when none is.
   layerTrackId: string | undefined;
+  // Name of the selected layer, such as "Layer 3"; undefined when none is.
+  layerName: string | undefined;
+  // False when the selected layer's FX badge bypasses its whole stack.
+  layerFxEnabled?: boolean;
+  onSetLayerFxEnabled?: (enabled: boolean) => void;
   onSetEnabled: (device: FxDevice, enabled: boolean) => void;
   onSetParameter: (
     device: FxDevice,
@@ -109,9 +113,11 @@ function getTrackId(group: FxDeviceGroup, layerTrackId: string | undefined) {
 
 export function FxChain({
   devices,
-  hasClip,
   kind,
   layerTrackId,
+  layerName,
+  layerFxEnabled = true,
+  onSetLayerFxEnabled,
   onSetEnabled,
   onSetParameter,
   onMove,
@@ -137,7 +143,7 @@ export function FxChain({
   const [menu, setMenu] = useState<ContextMenuState | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const groups = groupChainDevices(devices, kind);
-  const canEdit = hasClip && kind !== "audio" && layerTrackId !== undefined;
+  const canEdit = kind !== "audio" && layerTrackId !== undefined;
 
   // A vertical wheel scrolls the chain sideways. React registers wheel
   // listeners as passive, so preventDefault needs a native listener. Knobs
@@ -529,6 +535,7 @@ export function FxChain({
           openContextMenu(event, device, index, stack.length)
         }
         onRemove={() => removeDevice(device)}
+        layerBypassed={device.group === "layer" && !layerFxEnabled}
         onSetEnabled={onSetEnabled}
         onSetParameter={onSetParameter}
         onStripClick={() => {
@@ -568,10 +575,10 @@ export function FxChain({
   }
 
   const layerEmpty = !groups.layer.length;
-  const emptyMessage = !hasClip
-    ? "Select a clip to see its effects"
+  const emptyMessage = !layerName
+    ? "Select a layer to see its effects"
     : layerEmpty
-      ? "No effects on this layer"
+      ? `No effects on ${layerName}`
       : null;
   const showGlobal = groups.global.length > 0 || canEdit;
   const menuDevice = menu?.device;
@@ -585,6 +592,14 @@ export function FxChain({
         <div className="fx-chain__empty">
           <p>{emptyMessage}</p>
           {canEdit && layerEmpty ? renderAddMenu("layer", true) : null}
+        </div>
+      ) : null}
+      {!layerEmpty && !layerFxEnabled ? (
+        <div className="fx-chain__layer-off">
+          <span>Layer FX off</span>
+          <button onClick={() => onSetLayerFxEnabled?.(true)} type="button">
+            On
+          </button>
         </div>
       ) : null}
       {renderStack("layer")}
@@ -755,6 +770,8 @@ type FxDevicePanelProps = {
   device: FxDevice;
   collapsed: boolean;
   dragging: boolean;
+  // Dims the device while its layer's FX are off; its own bypass is kept.
+  layerBypassed?: boolean;
   onToggleCollapsed: () => void;
   onStripClick: () => void;
   onRemove: () => void;
@@ -771,6 +788,7 @@ export function FxDevicePanel({
   device,
   collapsed,
   dragging,
+  layerBypassed = false,
   onToggleCollapsed,
   onStripClick,
   onRemove,
@@ -786,6 +804,7 @@ export function FxDevicePanel({
     "fx-device-panel",
     collapsed ? "fx-device-panel--collapsed" : "",
     device.enabled ? "" : "fx-device-panel--bypassed",
+    layerBypassed ? "fx-device-panel--layer-off" : "",
     dragging ? "fx-device-panel--dragging" : "",
   ]
     .filter(Boolean)

@@ -1133,6 +1133,21 @@
   font-size: 0.72rem;
 }
 
+.track-label__fx:not(:disabled) {
+  cursor: pointer;
+}
+
+.track-label__fx:focus-visible {
+  outline: 1px solid var(--amber);
+  outline-offset: 1px;
+  border-radius: 3px;
+}
+
+.track-label__fx--off {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
 .track-label__fx--inactive {
   color: var(--muted);
   opacity: 0.45;
@@ -1751,6 +1766,36 @@
 
 .fx-panel__body[hidden] {
   display: none;
+}
+
+@media (max-width: 560px) {
+  /* size the empty-state call to action to the visible viewport, not the timeline canvas */
+  .timeline-scroll {
+    container-type: inline-size;
+  }
+
+  .source-header--empty {
+    grid-template-columns: 1fr;
+  }
+
+  .source-header--empty .track-label {
+    width: 100cqw;
+  }
+
+  .source-header--empty .source-header__content {
+    /* opaque and above the playhead line, below the sticky track labels */
+    z-index: 5;
+    border-left: none;
+    padding-block: 10px;
+    background: #202230;
+  }
+
+  .source-header--empty .source-empty-state {
+    position: sticky;
+    left: 16px;
+    width: calc(100cqw - 32px);
+    flex-wrap: wrap;
+  }
 }
 
 @media (max-width: 1240px) {

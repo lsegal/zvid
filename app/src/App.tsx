@@ -46,11 +46,13 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
+import { getDefaultLaneId, resolveSelectedLaneId } from "./fx-chain";
 import {
   addEffect,
   duplicateEffect,
   effectHistoryLabels,
   type FxDevice,
+  isLayerFxEnabled,
   mapEffects,
   mapSessionEffectsToDevices,
   moveEffect,
@@ -58,6 +60,7 @@ import {
   type SessionEffect,
   setEffectEnabled,
   setEffectParameter,
+  setLaneFxEnabled,
 } from "./fx-stack";
 import { getHarness, type SaveTarget } from "./harness";
 import { hasMediaExtension } from "./harness/media-extensions";
@@ -97,6 +100,8 @@ type Lane = {
   id: string;
   name: string;
   colorIndex: number;
+  // Layer-wide FX bypass; a missing flag means on.
+  fxEnabled?: boolean;
 };
 
 type SourceTrack = {
@@ -1582,6 +1587,9 @@ function App() {
     ArrangementClip[] | null
   >(null);
   const [selectedClipId, setSelectedClipId] = useState<string>();
+  // The layer the FX chain edits. Selecting a clip selects its layer, and
+  // clearing the clip selection keeps the layer.
+  const [selectedLaneId, setSelectedLaneId] = useState<string>();
   const [pendingSelection, setPendingSelection] =
     useState<TimelineSelection | null>(null);
   const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(
@@ -1766,6 +1774,22 @@ function App() {
       );
     },
     [],
+  );
+
+  const setLayerFxEnabled = useCallback(
+    (laneId: string, enabled: boolean) => {
+      commitProjectChange(
+        effectHistoryLabels.layerFx(
+          lanes.find((lane) => lane.id === laneId)?.name ?? `Layer ${laneId}`,
+          enabled,
+        ),
+        (current) =>
+          patchProjectState(current, {
+            lanes: setLaneFxEnabled(current.lanes, laneId, enabled),
+          }),
+      );
+    },
+    [commitProjectChange, lanes],
   );
 
   const setFxDeviceEnabled = useCallback(
@@ -2046,9 +2070,6 @@ function App() {
       timelineClips[0],
     [selectedClipId, timelineClips],
   );
-  const selectedMedia = selectedClip?.mediaId
-    ? mediaItemsById.get(selectedClip.mediaId)
-    : undefined;
   const playheadClip = useMemo(
     () => findClipAtPlayhead(timelineClips, playheadQ, bpm, lanePriority),
     [bpm, lanePriority, playheadQ, timelineClips],
@@ -2060,17 +2081,33 @@ function App() {
   const previewMediaState = describeMediaAvailability(
     previewMedia?.availability,
   );
+  // Unlike `selectedClip`, this does not fall back to the first clip.
+  const explicitClip = useMemo(
+    () => timelineClips.find((clip) => clip.id === selectedClipId),
+    [selectedClipId, timelineClips],
+  );
+  const explicitClipLaneId = explicitClip?.laneId;
+  useEffect(() => {
+    if (explicitClipLaneId !== undefined) {
+      setSelectedLaneId(explicitClipLaneId);
+    }
+  }, [explicitClipLaneId]);
+  const fxLaneId = useMemo(
+    () => resolveSelectedLaneId(lanes, effects, selectedLaneId, explicitClip),
+    [effects, explicitClip, lanes, selectedLaneId],
+  );
+  const fxLane = lanes.find((lane) => lane.id === fxLaneId);
+  // Audio clips have no visual effects; that only applies while one is
+  // selected, not to the layer on its own.
+  const fxKind = explicitClip?.mediaId
+    ? mediaItemsById.get(explicitClip.mediaId)?.kind
+    : undefined;
   const fxDevices = useMemo(
     () =>
-      selectedClip
-        ? mapSessionEffectsToDevices(
-            effects,
-            selectedClip.laneId,
-            selectedMedia?.kind,
-            lanes.find((lane) => lane.id === selectedClip.laneId)?.name,
-          )
+      fxLaneId
+        ? mapSessionEffectsToDevices(effects, fxLaneId, fxKind, fxLane?.name)
         : [],
-    [effects, lanes, selectedClip, selectedMedia?.kind],
+    [effects, fxKind, fxLane?.name, fxLaneId],
   );
   const playheadSeconds = quartersToSeconds(playheadQ, bpm);
   const masterAudio = masterAudioId
@@ -2200,19 +2237,46 @@ function App() {
     return next;
   }, [timelineClips]);
   const laneStatusById = useMemo(() => {
-    const next = new Map<string, { effectCount: number; summary: string }>();
+    const next = new Map<
+      string,
+      {
+        effectCount: number;
+        fxToggle?: boolean;
+        fxClassName: string;
+        fxTitle?: string;
+        summary: string;
+      }
+    >();
     for (const lane of lanes) {
       const clipCount = clipsByLane.get(lane.id)?.length ?? 0;
       const effectCount = effects.filter(
         (effect) => effect.trackId === lane.id,
       ).length;
+      const fxEnabled = isLayerFxEnabled(lane);
       const summary = [
         clipCount ? pluralize(clipCount, "clip") : "",
-        effectCount ? pluralize(effectCount, "effect") : "",
+        !fxEnabled
+          ? "FX off"
+          : effectCount
+            ? pluralize(effectCount, "effect")
+            : "",
       ]
         .filter(Boolean)
         .join(" · ");
-      next.set(lane.id, { effectCount, summary: summary || "Empty" });
+      next.set(lane.id, {
+        effectCount,
+        // Without effects the badge stays inactive and cannot be toggled.
+        fxToggle: effectCount ? fxEnabled : undefined,
+        fxClassName: !effectCount
+          ? "track-label__fx--inactive"
+          : fxEnabled
+            ? ""
+            : "track-label__fx--off",
+        fxTitle: effectCount
+          ? `Turn ${lane.name} FX ${fxEnabled ? "off" : "on"}`
+          : undefined,
+        summary: summary || "Empty",
+      });
     }
     return next;
   }, [clipsByLane, effects, lanes]);
@@ -3957,6 +4021,15 @@ function App() {
       }
 
       if (event.code === "Space") {
+        // Toggle buttons such as a layer's FX badge keep their native Space
+        // activation instead of starting playback.
+        if (
+          event.target instanceof Element &&
+          event.target.closest("[data-space-activates]")
+        ) {
+          return;
+        }
+
         if (event.repeat) {
           return;
         }
@@ -4475,6 +4548,13 @@ function App() {
       project.arrangementClips.find((clip) => clip.selected) ??
       project.arrangementClips[0];
     setSelectedClipId(preferredClip?.id);
+    setSelectedLaneId(
+      preferredClip?.laneId ??
+        getDefaultLaneId(
+          project.lanes.length ? project.lanes : DEFAULT_LANES,
+          project.effects,
+        ),
+    );
     setPlayheadQ(
       secondsToQuarters(project.playPositionFrames / project.fps, project.bpm),
     );
@@ -5824,7 +5904,16 @@ function App() {
                           <small>{laneStatusById.get(lane.id)?.summary}</small>
                         </div>
                         <button
-                          className={`track-label__fx ${laneStatusById.get(lane.id)?.effectCount ? "" : "track-label__fx--inactive"}`}
+                          aria-label={`${lane.name} effects`}
+                          aria-pressed={laneStatusById.get(lane.id)?.fxToggle}
+                          className={`track-label__fx ${laneStatusById.get(lane.id)?.fxClassName ?? ""}`}
+                          data-space-activates
+                          disabled={!laneStatusById.get(lane.id)?.effectCount}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setLayerFxEnabled(lane.id, !isLayerFxEnabled(lane));
+                          }}
+                          title={laneStatusById.get(lane.id)?.fxTitle}
                           type="button"
                         >
                           fx
@@ -5840,6 +5929,7 @@ function App() {
 
                           event.preventDefault();
                           setSelectedClipId(undefined);
+                          setSelectedLaneId(lane.id);
                           setIsPlaying(false);
                           setDragPreviewClips(null);
 
@@ -6042,7 +6132,7 @@ function App() {
 
                   <section
                     aria-label="Source track drop area"
-                    className="source-header"
+                    className={`source-header ${sourceTracks.length ? "" : "source-header--empty"}`}
                     data-source-track-drop-target={
                       sourceTracks.length ? undefined : "new-track"
                     }
@@ -6556,7 +6646,7 @@ function App() {
               onClick={toggleInspectorCollapsed}
               type="button"
             >
-              <span>Effects</span>
+              <span>{fxLane ? `${fxLane.name} effects` : "Effects"}</span>
               <ChevronDownIcon aria-hidden="true" />
             </button>
 
@@ -6567,13 +6657,19 @@ function App() {
             >
               <FxChain
                 devices={fxDevices}
-                hasClip={Boolean(selectedClip)}
-                kind={selectedMedia?.kind}
-                layerTrackId={selectedClip?.laneId}
+                kind={fxKind}
+                layerFxEnabled={isLayerFxEnabled(fxLane)}
+                layerName={fxLane?.name}
+                layerTrackId={fxLaneId}
                 onAdd={addFxDevice}
                 onDuplicate={duplicateFxDevice}
                 onMove={moveFxDevice}
                 onRemove={removeFxDevice}
+                onSetLayerFxEnabled={(enabled) => {
+                  if (fxLaneId) {
+                    setLayerFxEnabled(fxLaneId, enabled);
+                  }
+                }}
                 onSetEnabled={setFxDeviceEnabled}
                 onSetParameter={setFxDeviceParameter}
               />
