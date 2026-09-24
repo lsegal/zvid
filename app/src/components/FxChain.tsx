@@ -198,6 +198,7 @@ export function FxDevicePanel({
       className={`fx-device-panel ${device.enabled ? "" : "fx-device-panel--bypassed"}`}
       style={style}
     >
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: double-click is a mouse shortcut; the collapse button is the keyboard equivalent */}
       <header
         className="fx-device-panel__title"
         onDoubleClick={handleTitleDoubleClick}

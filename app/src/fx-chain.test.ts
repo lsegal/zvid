@@ -106,10 +106,10 @@ describe("collapsed device storage", () => {
       storage.values.get(FX_COLLAPSED_STORAGE_KEY),
       '["fx-1","fx-2"]',
     );
-    assert.deepEqual(
-      Array.from(readCollapsedDevices(storage)).sort(),
-      ["fx-1", "fx-2"],
-    );
+    assert.deepEqual(Array.from(readCollapsedDevices(storage)).sort(), [
+      "fx-1",
+      "fx-2",
+    ]);
   });
 
   it("ignores missing, malformed and non-string entries", () => {

@@ -6,7 +6,6 @@ import {
   PlayIcon,
 } from "@heroicons/react/24/solid";
 import {
-  Fragment,
   type DragEvent as ReactDragEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
@@ -28,8 +27,8 @@ import {
   type CollaborationController,
   createCollaborationController,
 } from "./collaboration";
+import { FxChain, type FxEditMode } from "./components/FxChain";
 import { OfflineMediaDialog } from "./components/OfflineMediaDialog";
-import { type FxEditMode, FxChain } from "./components/FxChain";
 import {
   Dialog,
   DialogClose,
@@ -1775,12 +1774,7 @@ function App() {
   );
 
   const setFxDeviceParameter = useCallback(
-    (
-      device: FxDevice,
-      key: string,
-      value: number | string,
-      mode: FxEditMode,
-    ) =>
+    (device: FxDevice, key: string, value: number | string, mode: FxEditMode) =>
       editEffects(
         effectHistoryLabels.parameter(device.effectName, key),
         (current) => setEffectParameter(current, device.id, key, value),
