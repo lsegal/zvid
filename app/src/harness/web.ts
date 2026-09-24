@@ -376,8 +376,11 @@ export function createWebHarness(): Harness {
     pickWorkspace: pickWorkspaceSession,
     async pickMedia() {
       const files = await pickFiles({
-        accept:
-          ["video/*", "audio/*", ...MEDIA_EXTENSIONS.map((ext) => `.${ext}`)].join(","),
+        accept: [
+          "video/*",
+          "audio/*",
+          ...MEDIA_EXTENSIONS.map((ext) => `.${ext}`),
+        ].join(","),
         multiple: true,
       });
       return files.length ? { kind: "files", files } : null;
