@@ -1123,6 +1123,7 @@
   border: 1px solid var(--line-strong);
   display: grid;
   grid-template-columns: 10px minmax(0, 1fr) 10px;
+  grid-template-rows: minmax(0, 1fr);
   color: var(--ink);
   text-align: left;
   overflow: hidden;
@@ -1138,7 +1139,6 @@
 
 .clip-card__handle {
   position: relative;
-  height: 100%;
   background: var(--clip-accent, var(--line-strong));
   cursor: ew-resize;
 }
