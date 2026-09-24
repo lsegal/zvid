@@ -1820,6 +1820,20 @@
   border-color: rgba(255, 255, 255, 0.18);
 }
 
+.fx-device--bypassed {
+  opacity: 0.55;
+}
+
+.fx-rack__group {
+  margin: 6px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .fx-device__badge {
   width: 10px;
   height: 46px;
@@ -1841,6 +1855,32 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+
+.fx-inspector__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.fx-inspector__power {
+  flex: none;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.fx-inspector__power--on {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.fx-inspector__grid--bypassed {
+  opacity: 0.55;
 }
 
 .fx-inspector__grid {
@@ -1875,17 +1915,19 @@
   font-size: 1.1rem;
 }
 
-.parameter-card__meter {
-  margin-top: 18px;
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  overflow: hidden;
+.parameter-card__slider,
+.parameter-card__select {
+  display: block;
+  width: 100%;
+  margin-top: 14px;
 }
 
-.parameter-card__fill {
-  height: 100%;
-  border-radius: 999px;
+.parameter-card__select {
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(11, 13, 19, 0.4);
+  color: var(--ink);
 }
 
 .inspector-note {

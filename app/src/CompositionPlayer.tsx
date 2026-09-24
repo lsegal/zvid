@@ -53,6 +53,7 @@ type SessionEffect = {
     value: string;
     numericValue?: number;
   }>;
+  enabled?: boolean;
 };
 
 type VisualState = {
@@ -226,7 +227,10 @@ function resolveVisualState(
   };
 
   for (const effect of effects) {
-    if (effect.trackId !== laneId && effect.trackId !== "__group_main") {
+    if (
+      effect.enabled === false ||
+      (effect.trackId !== laneId && effect.trackId !== "__group_main")
+    ) {
       continue;
     }
 

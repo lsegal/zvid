@@ -6,6 +6,7 @@ import {
   PlayIcon,
 } from "@heroicons/react/24/solid";
 import {
+  Fragment,
   type DragEvent as ReactDragEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
@@ -45,6 +46,14 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
+import {
+  effectHistoryLabels,
+  mapEffects,
+  mapSessionEffectsToDevices,
+  type SessionEffect,
+  setEffectEnabled,
+  setEffectParameter,
+} from "./fx-stack";
 import { getHarness, type SaveTarget } from "./harness";
 import { hasMediaExtension } from "./harness/media-extensions";
 import { MasterWaveform } from "./MasterWaveform";
@@ -61,6 +70,10 @@ import {
 } from "./media";
 import { cacheMediaBlob, getCachedMediaBlob } from "./media-cache";
 import { createMediaRelinker, type MediaRelinkCandidate } from "./media-relink";
+import {
+  createProjectHistoryState,
+  projectHistoryReducer,
+} from "./project-history";
 import { listOfflineMedia, matchOfflineMedia } from "./relink";
 import type { LvpSession, SessionOpenResponse } from "./session";
 import { loadWaveformPeaks } from "./waveform-loader";
@@ -118,33 +131,6 @@ type ArrangementClip = {
   tint: string;
   accent: string;
   selected?: boolean;
-};
-
-type EffectParameter = {
-  key: string;
-  value: string;
-  numericValue?: number;
-};
-
-type SessionEffect = {
-  id: string;
-  trackId: string;
-  effectName: string;
-  parameters: EffectParameter[];
-};
-
-type FxParameter = {
-  label: string;
-  value: number;
-  display: string;
-};
-
-type FxDevice = {
-  id: string;
-  name: string;
-  subtitle: string;
-  accent: string;
-  parameters: FxParameter[];
 };
 
 type TimelineSelection = {
@@ -289,38 +275,6 @@ type SessionMediaCheck = {
   hydratedFromDisk: boolean;
 };
 
-type ProjectHistoryEntry = {
-  snapshot: ProjectState;
-  label: string;
-};
-
-type ProjectHistoryState = {
-  past: ProjectHistoryEntry[];
-  present: ProjectState;
-  future: ProjectHistoryEntry[];
-};
-
-type ProjectHistoryAction =
-  | {
-      type: "commit";
-      label: string;
-      updater: (current: ProjectState) => ProjectState;
-    }
-  | {
-      type: "transient";
-      updater: (current: ProjectState) => ProjectState;
-    }
-  | {
-      type: "undo";
-    }
-  | {
-      type: "redo";
-    }
-  | {
-      type: "replace";
-      snapshot: ProjectState;
-    };
-
 const LABEL_WIDTH_DEFAULT = 240;
 const LABEL_WIDTH_MIN = 120;
 const LABEL_WIDTH_MAX = 300;
@@ -425,70 +379,6 @@ const COLLAB_NAME_SUFFIXES = [
   "Cut",
   "Vector",
 ];
-function isLayoutEffectName(effectName: string) {
-  return effectName.trim().toLowerCase().includes("layout");
-}
-
-function resolveLayoutDisplay(effect: SessionEffect | undefined) {
-  const anchorParameter = effect?.parameters.find((parameter) => {
-    const key = parameter.key.trim().toLowerCase();
-    return (
-      key.includes("anchor") || key.includes("align") || key === "position"
-    );
-  });
-  const value = anchorParameter?.value?.trim();
-  if (!value) {
-    return "Center";
-  }
-
-  const normalized = value.toLowerCase();
-  if (normalized.includes("top")) {
-    return "Top";
-  }
-
-  if (normalized.includes("bottom")) {
-    return "Bottom";
-  }
-
-  if (normalized.includes("center") || normalized.includes("middle")) {
-    return "Center";
-  }
-
-  const numeric = anchorParameter?.numericValue;
-  if (numeric !== undefined) {
-    if (numeric <= 0.333) {
-      return "Top";
-    }
-
-    if (numeric >= 0.667) {
-      return "Bottom";
-    }
-  }
-
-  return "Center";
-}
-
-function createDefaultLayoutDevice(
-  laneId: string | undefined,
-  effect?: SessionEffect,
-): FxDevice {
-  return {
-    id: effect?.id ?? `layout-default-${laneId ?? "global"}`,
-    name: effect?.effectName ?? "Layout",
-    subtitle: laneId
-      ? `Layer ${laneId} / default frame anchor`
-      : "Default frame anchor",
-    accent: "#f6b73c",
-    parameters: [
-      {
-        label: "Anchor",
-        value: 0.5,
-        display: resolveLayoutDisplay(effect),
-      },
-    ],
-  };
-}
-
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.max(minimum, Math.min(maximum, value));
 }
@@ -1381,93 +1271,6 @@ function patchProjectState(
   return changed ? next : current;
 }
 
-function createProjectHistoryState(initial: ProjectState): ProjectHistoryState {
-  return {
-    past: [],
-    present: initial,
-    future: [],
-  };
-}
-
-function projectHistoryReducer(
-  state: ProjectHistoryState,
-  action: ProjectHistoryAction,
-): ProjectHistoryState {
-  switch (action.type) {
-    case "commit": {
-      const next = action.updater(state.present);
-      if (next === state.present) {
-        return state;
-      }
-
-      return {
-        past: [...state.past, { snapshot: state.present, label: action.label }],
-        present: next,
-        future: [],
-      };
-    }
-
-    case "transient": {
-      const next = action.updater(state.present);
-      if (next === state.present) {
-        return state;
-      }
-
-      return {
-        ...state,
-        present: next,
-      };
-    }
-
-    case "undo": {
-      const previousEntry = state.past[state.past.length - 1];
-      if (!previousEntry) {
-        return state;
-      }
-
-      return {
-        past: state.past.slice(0, -1),
-        present: previousEntry.snapshot,
-        future: [
-          { snapshot: state.present, label: previousEntry.label },
-          ...state.future,
-        ],
-      };
-    }
-
-    case "redo": {
-      const nextEntry = state.future[0];
-      if (!nextEntry) {
-        return state;
-      }
-
-      return {
-        past: [
-          ...state.past,
-          { snapshot: state.present, label: nextEntry.label },
-        ],
-        present: nextEntry.snapshot,
-        future: state.future.slice(1),
-      };
-    }
-
-    case "replace": {
-      if (state.present === action.snapshot) {
-        return state;
-      }
-
-      return {
-        past: [],
-        present: action.snapshot,
-        future: [],
-      };
-    }
-
-    default:
-      return state;
-  }
-}
-
 function formatHistoryStatus(prefix: "Undid" | "Redid", label: string) {
   return `${prefix}: ${label}.`;
 }
@@ -1538,22 +1341,6 @@ function pickMediaByPath(items: MediaItem[], rawPath: string) {
 
   const targetBase = basename(rawPath).toLowerCase();
   return items.find((item) => item.name.toLowerCase() === targetBase);
-}
-
-function mapEffects(source: LvpSession["effects"]) {
-  return (source ?? []).map<SessionEffect>((effect) => ({
-    id: effect.id,
-    trackId: effect.trackId,
-    effectName: effect.effectName,
-    parameters: Object.entries(effect.parameters ?? {}).map(([key, value]) => ({
-      key,
-      value:
-        typeof value.stringValue === "string"
-          ? value.stringValue
-          : `${(value.floatValue ?? 0).toFixed(3)}`,
-      numericValue: value.floatValue,
-    })),
-  }));
 }
 
 function chooseSourceSpanForWindow(
@@ -1753,69 +1540,14 @@ function buildStandaloneProject(mediaItems: MediaItem[]) {
   };
 }
 
-function mapSessionEffectsToDevices(
-  effects: SessionEffect[],
-  laneId: string | undefined,
-  kind: MediaKind | undefined,
-) {
-  const relevant = effects.filter(
-    (effect) => effect.trackId === laneId || effect.trackId === "__group_main",
-  );
-  const layerLayoutEffect = relevant.find(
-    (effect) =>
-      effect.trackId === laneId && isLayoutEffectName(effect.effectName),
-  );
-  const globalLayoutEffect = relevant.find(
-    (effect) =>
-      effect.trackId === "__group_main" &&
-      isLayoutEffectName(effect.effectName),
-  );
-
-  if (!relevant.length) {
-    return kind === "audio" ? [] : [createDefaultLayoutDevice(laneId)];
-  }
-
-  const mapped = relevant.map<FxDevice>((effect, index) => {
-    const swatch = getSwatch(index);
-    return {
-      id: effect.id,
-      name: effect.effectName,
-      subtitle:
-        effect.trackId === "__group_main"
-          ? "Global stack"
-          : `Layer ${effect.trackId}`,
-      accent: swatch.accent,
-      parameters: effect.parameters.map((parameter) => ({
-        label: parameter.key,
-        value: clamp(parameter.numericValue ?? 0.5, 0, 1),
-        display: parameter.value,
-      })),
-    };
-  });
-
-  if (kind === "audio") {
-    return mapped;
-  }
-
-  if (layerLayoutEffect) {
-    return mapped;
-  }
-
-  if (globalLayoutEffect) {
-    return mapped;
-  }
-
-  return [createDefaultLayoutDevice(laneId), ...mapped];
-}
-
 function App() {
   const [initialCollaborationConfig] = useState(() =>
     getInitialCollaborationConfig(),
   );
   const [projectHistory, dispatchProject] = useReducer(
-    projectHistoryReducer,
+    projectHistoryReducer<ProjectState>,
     INITIAL_PROJECT_STATE,
-    createProjectHistoryState,
+    createProjectHistoryState<ProjectState>,
   );
   const {
     timelineMode,
@@ -2010,6 +1742,26 @@ function App() {
       );
     },
     [commitProjectChange],
+  );
+
+  // Applies an effect-stack edit. Live gestures such as slider drags send
+  // `transient` updates, and the `commit` that ends the gesture records the
+  // whole gesture as one history entry.
+  const editEffects = useCallback(
+    (
+      label: string,
+      updater: (effects: SessionEffect[]) => SessionEffect[],
+      mode: "commit" | "transient" = "commit",
+    ) => {
+      const projectUpdater = (current: ProjectState) =>
+        patchProjectState(current, { effects: updater(current.effects) });
+      dispatchProject(
+        mode === "transient"
+          ? { type: "transient", updater: projectUpdater }
+          : { type: "commit", label, updater: projectUpdater },
+      );
+    },
+    [],
   );
 
   const updateZoomDraft = useCallback((nextZoom: number | null) => {
@@ -2265,9 +2017,10 @@ function App() {
             effects,
             selectedClip.laneId,
             selectedMedia?.kind,
+            lanes.find((lane) => lane.id === selectedClip.laneId)?.name,
           )
         : [],
-    [effects, selectedClip, selectedMedia?.kind],
+    [effects, lanes, selectedClip, selectedMedia?.kind],
   );
   const selectedClipHasEffects = useMemo(
     () =>
@@ -6790,55 +6543,156 @@ function App() {
                   {selectedClip && !fxDevices.length ? (
                     <p className="fx-rack__empty">No effects on this clip</p>
                   ) : null}
-                  {fxDevices.map((device) => (
-                    <button
-                      key={device.id}
-                      className={`fx-device ${selectedFx?.id === device.id ? "fx-device--active" : ""}`}
-                      onClick={() => setSelectedFxId(device.id)}
-                      type="button"
-                    >
-                      <div
-                        className="fx-device__badge"
-                        style={{ backgroundColor: device.accent }}
-                      />
-                      <div>
-                        <strong>{device.name}</strong>
-                        <span>{device.subtitle}</span>
-                      </div>
-                    </button>
+                  {fxDevices.map((device, index) => (
+                    <Fragment key={device.id}>
+                      {device.group === "global" &&
+                      fxDevices[index - 1]?.group !== "global" ? (
+                        <p className="fx-rack__group">Global</p>
+                      ) : null}
+                      <button
+                        className={`fx-device ${selectedFx?.id === device.id ? "fx-device--active" : ""} ${device.enabled ? "" : "fx-device--bypassed"}`}
+                        onClick={() => setSelectedFxId(device.id)}
+                        title={device.description}
+                        type="button"
+                      >
+                        <div
+                          className="fx-device__badge"
+                          style={{ backgroundColor: device.accent }}
+                        />
+                        <div>
+                          <strong>{device.name}</strong>
+                          <span>
+                            {device.enabled
+                              ? device.subtitle
+                              : `${device.subtitle} · Bypassed`}
+                          </span>
+                        </div>
+                      </button>
+                    </Fragment>
                   ))}
                 </div>
               </div>
 
               <div className="fx-inspector">
                 <div className="fx-inspector__header">
-                  <strong>
-                    {selectedClip
-                      ? (selectedFx?.name ?? "No effects")
-                      : "No clip selected"}
-                  </strong>
-                  {selectedClip ? (
-                    <span>{selectedTrack?.name ?? selectedClip.label}</span>
+                  <div>
+                    <strong>
+                      {selectedClip
+                        ? (selectedFx?.name ?? "No effects")
+                        : "No clip selected"}
+                    </strong>
+                    {selectedClip ? (
+                      <span>{selectedTrack?.name ?? selectedClip.label}</span>
+                    ) : null}
+                  </div>
+                  {selectedClip && selectedFx && !selectedFx.placeholder ? (
+                    <button
+                      aria-pressed={selectedFx.enabled}
+                      className={`fx-inspector__power ${selectedFx.enabled ? "fx-inspector__power--on" : ""}`}
+                      onClick={() =>
+                        editEffects(
+                          effectHistoryLabels.enabled(
+                            selectedFx.effectName,
+                            !selectedFx.enabled,
+                          ),
+                          (current) =>
+                            setEffectEnabled(
+                              current,
+                              selectedFx.id,
+                              !selectedFx.enabled,
+                            ),
+                        )
+                      }
+                      style={
+                        selectedFx.enabled
+                          ? { borderColor: selectedFx.accent }
+                          : undefined
+                      }
+                      type="button"
+                    >
+                      {selectedFx.enabled ? "On" : "Bypassed"}
+                    </button>
                   ) : null}
                 </div>
 
                 {selectedFx ? (
-                  <div className="fx-inspector__grid">
-                    {selectedFx.parameters.map((parameter) => (
-                      <div key={parameter.label} className="parameter-card">
-                        <span>{parameter.label}</span>
-                        <strong>{parameter.display}</strong>
-                        <div className="parameter-card__meter">
-                          <div
-                            className="parameter-card__fill"
-                            style={{
-                              width: `${parameter.value * 100}%`,
-                              backgroundColor: selectedFx.accent,
-                            }}
-                          />
+                  <div
+                    className={`fx-inspector__grid ${selectedFx.enabled ? "" : "fx-inspector__grid--bypassed"}`}
+                  >
+                    {selectedFx.parameters.map((parameter) => {
+                      const commitParameter = (value: number | string) =>
+                        editEffects(
+                          effectHistoryLabels.parameter(
+                            selectedFx.effectName,
+                            parameter.key,
+                          ),
+                          (current) =>
+                            setEffectParameter(
+                              current,
+                              selectedFx.id,
+                              parameter.key,
+                              value,
+                            ),
+                        );
+                      // Ends a slider gesture; a no-op unless it changed.
+                      const commitSlider = (event: {
+                        currentTarget: HTMLInputElement;
+                      }) => commitParameter(event.currentTarget.valueAsNumber);
+
+                      return (
+                        <div key={parameter.key} className="parameter-card">
+                          <span>{parameter.label}</span>
+                          <strong>{parameter.display}</strong>
+                          {parameter.kind === "enum" ? (
+                            <select
+                              aria-label={parameter.label}
+                              className="parameter-card__select"
+                              disabled={selectedFx.placeholder}
+                              onChange={(event) =>
+                                commitParameter(event.currentTarget.value)
+                              }
+                              value={parameter.stringValue}
+                            >
+                              {parameter.options?.map((option) => (
+                                <option key={option} value={option}>
+                                  {option}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              aria-label={parameter.label}
+                              aria-valuetext={parameter.display}
+                              className="parameter-card__slider"
+                              disabled={selectedFx.placeholder}
+                              max={parameter.max}
+                              min={parameter.min}
+                              onChange={(event) => {
+                                const value = event.currentTarget.valueAsNumber;
+                                editEffects(
+                                  "",
+                                  (current) =>
+                                    setEffectParameter(
+                                      current,
+                                      selectedFx.id,
+                                      parameter.key,
+                                      value,
+                                    ),
+                                  "transient",
+                                );
+                              }}
+                              onBlur={commitSlider}
+                              onKeyUp={commitSlider}
+                              onPointerUp={commitSlider}
+                              step={parameter.step ?? "any"}
+                              style={{ accentColor: selectedFx.accent }}
+                              type="range"
+                              value={parameter.numericValue}
+                            />
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="inspector-note">
