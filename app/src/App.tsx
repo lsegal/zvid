@@ -313,6 +313,8 @@ const TIMELINE_DRAG_ZOOM_THRESHOLD_PX = 25;
 const TIMELINE_SCRUB_AUDIO_TAIL_MS = 50;
 const TIMELINE_DRAG_EPSILON = 0.0001;
 const RANDOM_SELECTION_BAR_INCREMENT = 0.25;
+const MAX_PEER_MEDIA_TRANSFERS = 2;
+const PEER_MEDIA_STATUS_INTERVAL_MS = 250;
 const RANDOM_SELECTION_MAX_BARS = 2;
 const SOURCE_TRACK_DRAG_CLEAR_DELAY_MS = 80;
 const COLLAB_STORAGE_KEY = "zvid-collaboration";
@@ -1881,6 +1883,7 @@ function App() {
       mediaPeerCount: 0,
       collaborators: [],
     });
+  const [mediaHydrationTick, setMediaHydrationTick] = useState(0);
   const collaborationColor = initialCollaborationConfig.color;
 
   const playbackOriginRef = useRef(0);
@@ -1899,6 +1902,13 @@ function App() {
   const localMediaOverridesRef = useRef<Record<string, LocalMediaOverride>>({});
   const mediaObjectUrlsRef = useRef(new Map<string, string>());
   const mediaHydrationInFlightRef = useRef(new Set<string>());
+  const peerMediaTransfersRef = useRef(new Map<string, AbortController>());
+  const peerMediaMissesRef = useRef<{
+    controller: CollaborationController<ProjectState> | null;
+    mediaPeerCount: number;
+    ids: Set<string>;
+  }>({ controller: null, mediaPeerCount: 0, ids: new Set() });
+  const peerMediaStatusAtRef = useRef(0);
   const sessionMediaCheckRef = useRef<SessionMediaCheck | null>(null);
   const sourceThumbnailUrlsRef = useRef<Record<string, string>>({});
   const lastCollaborationCursorRef = useRef("");
@@ -1921,6 +1931,19 @@ function App() {
     () => new Map(mediaItems.map((item) => [item.id, item])),
     [mediaItems],
   );
+  // Serialized so the peer fetch effect only reruns when the set changes.
+  const offlineClipMediaIdsKey = useMemo(() => {
+    const ids = new Set<string>();
+    for (const clip of clips) {
+      if (
+        clip.mediaId &&
+        mediaItemsById.get(clip.mediaId)?.availability === "offline"
+      ) {
+        ids.add(clip.mediaId);
+      }
+    }
+    return JSON.stringify(Array.from(ids).sort());
+  }, [clips, mediaItemsById]);
   const lanePriority = useMemo(
     () => new Map(lanes.map((lane, index) => [lane.id, index])),
     [lanes],
@@ -3357,6 +3380,7 @@ function App() {
           }
         } finally {
           mediaHydrationInFlightRef.current.delete(item.id);
+          setMediaHydrationTick((tick) => tick + 1);
           settleSessionMediaCheck(item.id, restored ? "restored" : "offline");
         }
       })();
@@ -3412,8 +3436,44 @@ function App() {
     [stopTimelineAudibleScrub],
   );
 
+  const resolvePeerMedia = useCallback(async (mediaId: string) => {
+    try {
+      const cachedBlob = await getCachedMediaBlob(mediaId);
+      if (cachedBlob) {
+        return cachedBlob;
+      }
+    } catch (error) {
+      logClient("media:peer:serve:cache:error", {
+        mediaId,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    const previewUrl = localMediaOverridesRef.current[mediaId]?.previewUrl;
+    if (!previewUrl) {
+      return null;
+    }
+
+    const item = projectSnapshotRef.current.mediaItems.find(
+      (candidate) => candidate.id === mediaId,
+    );
+    return getHarness().readMediaBlob({
+      id: mediaId,
+      name: item?.name ?? mediaId,
+      previewUrl,
+      sourcePath: item?.sourcePath,
+    });
+  }, []);
+
+  const abortPeerMediaTransfers = useCallback(() => {
+    for (const transfer of peerMediaTransfersRef.current.values()) {
+      transfer.abort();
+    }
+  }, []);
+
   useEffect(() => {
     if (collaborationMode === "idle") {
+      abortPeerMediaTransfers();
       collaborationControllerRef.current?.destroy();
       collaborationControllerRef.current = null;
       return;
@@ -3421,6 +3481,7 @@ function App() {
 
     const roomName = collaborationRoom.trim();
     if (!roomName) {
+      abortPeerMediaTransfers();
       collaborationControllerRef.current?.destroy();
       collaborationControllerRef.current = null;
       return;
@@ -3438,6 +3499,7 @@ function App() {
       },
       onRemoteState: applyRemoteProjectState,
       onConnectionState: setCollaborationState,
+      resolveMedia: resolvePeerMedia,
     });
 
     collaborationControllerRef.current = controller;
@@ -3446,9 +3508,11 @@ function App() {
       if (collaborationControllerRef.current === controller) {
         collaborationControllerRef.current = null;
       }
+      abortPeerMediaTransfers();
       controller.destroy();
     };
   }, [
+    abortPeerMediaTransfers,
     applyRemoteProjectState,
     collaborationColor,
     collaborationName,
@@ -3457,6 +3521,115 @@ function App() {
     collaborationSignaling,
     initialCollaborationConfig.name,
     collaborationMode,
+    resolvePeerMedia,
+  ]);
+
+  const { mediaPeerCount } = collaborationState;
+  useEffect(() => {
+    // mediaHydrationTick reruns this whenever a local or peer hydration
+    // settles, so media skipped while it was in flight is picked up.
+    void mediaHydrationTick;
+    const controller = collaborationControllerRef.current;
+    if (collaborationMode === "idle" || !controller || mediaPeerCount === 0) {
+      return;
+    }
+
+    const misses = peerMediaMissesRef.current;
+    if (
+      misses.controller !== controller ||
+      misses.mediaPeerCount !== mediaPeerCount
+    ) {
+      // A peer joined or left, so previously missing media may now be found.
+      misses.controller = controller;
+      misses.mediaPeerCount = mediaPeerCount;
+      misses.ids.clear();
+    }
+
+    const transfers = peerMediaTransfersRef.current;
+    const offlineIds = JSON.parse(offlineClipMediaIdsKey) as string[];
+    for (const mediaId of offlineIds) {
+      if (transfers.size >= MAX_PEER_MEDIA_TRANSFERS) {
+        break;
+      }
+      if (
+        misses.ids.has(mediaId) ||
+        mediaHydrationInFlightRef.current.has(mediaId)
+      ) {
+        continue;
+      }
+
+      const name =
+        projectSnapshotRef.current.mediaItems.find(
+          (item) => item.id === mediaId,
+        )?.name ?? mediaId;
+      const abortController = new AbortController();
+      const recordMiss = () => {
+        // Only remember the miss if the peer set is unchanged since the request.
+        if (
+          misses.controller === controller &&
+          misses.mediaPeerCount === mediaPeerCount
+        ) {
+          misses.ids.add(mediaId);
+        }
+      };
+      transfers.set(mediaId, abortController);
+      mediaHydrationInFlightRef.current.add(mediaId);
+      setLocalMediaOverride(mediaId, { availability: "hydrating" });
+
+      void (async () => {
+        let receiving = false;
+        try {
+          const blob = await controller.requestMedia(mediaId, {
+            signal: abortController.signal,
+            onProgress(received, total) {
+              receiving = true;
+              const now = performance.now();
+              if (
+                now - peerMediaStatusAtRef.current <
+                PEER_MEDIA_STATUS_INTERVAL_MS
+              ) {
+                return;
+              }
+              peerMediaStatusAtRef.current = now;
+              const percent =
+                total > 0 ? Math.floor((received / total) * 100) : 0;
+              setStatus(`Receiving ${name} from peer... ${percent}%`);
+            },
+          });
+          if (!blob) {
+            recordMiss();
+            setLocalMediaOverride(mediaId, { availability: "offline" });
+            if (receiving && !abortController.signal.aborted) {
+              setStatus(`Receiving ${name} from peer was interrupted.`);
+            }
+            return;
+          }
+
+          await adoptMediaBlob(mediaId, blob);
+          setStatus(`Received ${name} from peer.`);
+        } catch (error) {
+          if (!abortController.signal.aborted) {
+            const message =
+              error instanceof Error ? error.message : String(error);
+            logClient("media:peer:request:error", { mediaId, message });
+            setStatus(`Failed to receive ${name} from peer: ${message}`);
+            recordMiss();
+          }
+          setLocalMediaOverride(mediaId, { availability: "offline" });
+        } finally {
+          transfers.delete(mediaId);
+          mediaHydrationInFlightRef.current.delete(mediaId);
+          setMediaHydrationTick((tick) => tick + 1);
+        }
+      })();
+    }
+  }, [
+    adoptMediaBlob,
+    collaborationMode,
+    mediaPeerCount,
+    offlineClipMediaIdsKey,
+    mediaHydrationTick,
+    setLocalMediaOverride,
   ]);
 
   useEffect(() => {
