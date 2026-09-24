@@ -103,6 +103,36 @@ function pickDirectoryFiles() {
   });
 }
 
+const MEDIA_EXTENSIONS = [
+  ".mp4",
+  ".mov",
+  ".mkv",
+  ".webm",
+  ".avi",
+  ".wav",
+  ".mp3",
+  ".m4a",
+  ".flac",
+  ".aif",
+  ".aiff",
+];
+
+async function pickMediaFolder() {
+  const files = await pickDirectoryFiles();
+  if (!files) {
+    return null;
+  }
+
+  return files.filter(
+    ({ file }) =>
+      file.type.startsWith("video/") ||
+      file.type.startsWith("audio/") ||
+      MEDIA_EXTENSIONS.some((extension) =>
+        file.name.toLowerCase().endsWith(extension),
+      ),
+  );
+}
+
 function basename(rawPath: string) {
   return rawPath.split(/[/\\]/).filter(Boolean).pop() ?? rawPath;
 }
@@ -363,6 +393,7 @@ export function createWebHarness(): Harness {
       });
       return files.length ? { kind: "files", files } : null;
     },
+    pickMediaFolder,
     async openSession(selection): Promise<SessionOpenResponse> {
       if (selection.kind === "workspace") {
         const session = JSON.parse(

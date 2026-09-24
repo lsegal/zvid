@@ -45,6 +45,8 @@ export async function maybeCreateTauriHarness(
         "asset-urls": true,
         "native-blob-write": true,
       },
+      // Folder relinking relies on the browser directory input.
+      pickMediaFolder: undefined,
       async pickSession() {
         const selected = await open({
           multiple: false,
