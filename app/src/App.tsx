@@ -6006,7 +6006,7 @@ function App() {
 
                   <section
                     aria-label="Source track drop area"
-                    className="source-header"
+                    className={`source-header ${sourceTracks.length ? "" : "source-header--empty"}`}
                     data-source-track-drop-target={
                       sourceTracks.length ? undefined : "new-track"
                     }
