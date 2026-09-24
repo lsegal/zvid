@@ -1,4 +1,4 @@
-import { clampUnit, type EffectPass, readEffectNumber } from "./types";
+import { clampUnit, type EffectPass, readEffectNumber } from "./types.ts";
 
 // Rotates hue in YIQ space. `_HueOffset` (-1..1) maps to +/-360 degrees and
 // `_Reactivity` adds a hue swing driven by the master audio bands.

@@ -1,4 +1,4 @@
-import { clampUnit, type EffectPass, readEffectNumber } from "./types";
+import { clampUnit, type EffectPass, readEffectNumber } from "./types.ts";
 
 // Inverts the image by luminance range: `_LowIntensity` drives the dark half
 // and `_HighIntensity` the bright half, with a soft split at luma 0.5. The

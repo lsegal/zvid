@@ -1,10 +1,10 @@
-import { colorizePass } from "./colorize";
-import { negativeSplitPass } from "./negative-split";
+import { colorizePass } from "./colorize.ts";
+import { negativeSplitPass } from "./negative-split.ts";
 import {
   type EffectParameter,
   type EffectPass,
   normalizeEffectKey,
-} from "./types";
+} from "./types.ts";
 
 export type ChainEffect = {
   trackId: string;

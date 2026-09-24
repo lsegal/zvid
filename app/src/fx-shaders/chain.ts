@@ -2,14 +2,14 @@ import {
   FULLSCREEN_VERTEX_SOURCE,
   linkProgram,
   POSITION_ATTRIBUTE_LOCATION,
-} from "./gl";
-import type { EffectChainStep } from "./registry";
+} from "./gl.ts";
+import type { EffectChainStep } from "./registry.ts";
 import type {
   EffectContext,
   EffectParameter,
   EffectPass,
   EffectUniformLocations,
-} from "./types";
+} from "./types.ts";
 
 const FRAGMENT_HEADER = "precision mediump float;\n";
 

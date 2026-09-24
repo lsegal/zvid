@@ -11,14 +11,14 @@ import {
   LiveAudioBands,
   OfflineAudioBands,
   SILENT_AUDIO_BANDS,
-} from "./fx-shaders/audio-bands";
-import { EffectChainRenderer } from "./fx-shaders/chain";
-import { linkProgram } from "./fx-shaders/gl";
+} from "./fx-shaders/audio-bands.ts";
+import { EffectChainRenderer } from "./fx-shaders/chain.ts";
+import { linkProgram } from "./fx-shaders/gl.ts";
 import {
   type EffectChainStep,
   isChainEffectName,
   resolveEffectChain,
-} from "./fx-shaders/registry";
+} from "./fx-shaders/registry.ts";
 
 type MediaKind = "video" | "audio";
 
