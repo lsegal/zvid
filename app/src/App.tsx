@@ -34,6 +34,7 @@ import {
 } from "./components/BrandMark";
 import { FxChain, type FxEditMode } from "./components/FxChain";
 import { OfflineMediaDialog } from "./components/OfflineMediaDialog";
+import { StatusBar, type StatusItem } from "./components/StatusBar";
 import {
   Dialog,
   DialogClose,
@@ -282,6 +283,9 @@ type AdoptMediaResult = {
 // Media whose probed duration differs from the recorded one by more than
 // this is probably a different file that happens to share its name.
 const RELINK_DURATION_TOLERANCE_SECONDS = 0.5;
+
+// Placeholder content until the status bar items are populated.
+const STATUS_BAR_ITEMS: StatusItem[] = [{ id: "app", value: "zvid" }];
 
 // Tracks the offline refs of a just-opened session until cache hydration
 // settles, so the status bar can report the real outcome.
@@ -6783,6 +6787,8 @@ function App() {
           </section>
         </div>
       </main>
+
+      <StatusBar items={STATUS_BAR_ITEMS} />
     </div>
   );
 }

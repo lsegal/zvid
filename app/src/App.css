@@ -658,6 +658,66 @@
   gap: 14px;
 }
 
+.status-bar {
+  flex: none;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 12px;
+  overflow: hidden;
+  white-space: nowrap;
+  background: rgba(7, 8, 14, 0.24);
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.status-bar__group {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.status-bar__group--end {
+  justify-content: flex-end;
+}
+
+.status-bar__item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  padding: 0 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-bar__item + .status-bar__item {
+  border-left: 1px solid var(--line);
+}
+
+.status-bar__group:first-child .status-bar__item:first-child {
+  padding-left: 0;
+}
+
+.status-bar__group--end .status-bar__item:last-child {
+  padding-right: 0;
+}
+
+.status-bar__value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ink);
+  font-family: 'IBM Plex Mono', monospace;
+}
+
 .editor-panel,
 .fx-panel {
   background: rgba(7, 8, 14, 0.16);
