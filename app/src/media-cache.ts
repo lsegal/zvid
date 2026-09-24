@@ -1,10 +1,19 @@
+import type { WaveformPeaks } from "./waveform-peaks";
+
 const DB_NAME = "zvid-media-cache";
 const STORE_NAME = "media";
-const DB_VERSION = 1;
+const PEAKS_STORE_NAME = "waveform-peaks";
+const DB_VERSION = 2;
 
 type CachedMediaEntry = {
   id: string;
   blob: Blob;
+  updatedAt: number;
+};
+
+type CachedPeaksEntry = {
+  id: string;
+  peaks: WaveformPeaks;
   updatedAt: number;
 };
 
@@ -21,6 +30,9 @@ function openDatabase() {
         if (!database.objectStoreNames.contains(STORE_NAME)) {
           database.createObjectStore(STORE_NAME, { keyPath: "id" });
         }
+        if (!database.objectStoreNames.contains(PEAKS_STORE_NAME)) {
+          database.createObjectStore(PEAKS_STORE_NAME, { keyPath: "id" });
+        }
       };
       request.onsuccess = () => resolve(request.result);
     });
@@ -36,12 +48,13 @@ function runStoreRequest<T>(
     resolve: (value: T) => void,
     reject: (reason?: unknown) => void,
   ) => void,
+  storeName = STORE_NAME,
 ) {
   return openDatabase().then(
     (database) =>
       new Promise<T>((resolve, reject) => {
-        const transaction = database.transaction(STORE_NAME, mode);
-        const store = transaction.objectStore(STORE_NAME);
+        const transaction = database.transaction(storeName, mode);
+        const store = transaction.objectStore(storeName);
         operation(store, resolve, reject);
         transaction.onerror = () =>
           reject(
@@ -75,4 +88,37 @@ export function cacheMediaBlob(id: string, blob: Blob) {
       reject(request.error ?? new Error(`Failed to cache media ${id}`));
     request.onsuccess = () => resolve();
   });
+}
+
+export function getCachedWaveformPeaks(id: string) {
+  return runStoreRequest<WaveformPeaks | null>(
+    "readonly",
+    (store, resolve, reject) => {
+      const request = store.get(id);
+      request.onerror = () =>
+        reject(request.error ?? new Error(`Failed to read peaks for ${id}`));
+      request.onsuccess = () => {
+        const entry = request.result as CachedPeaksEntry | undefined;
+        resolve(entry?.peaks ?? null);
+      };
+    },
+    PEAKS_STORE_NAME,
+  );
+}
+
+export function cacheWaveformPeaks(id: string, peaks: WaveformPeaks) {
+  return runStoreRequest<void>(
+    "readwrite",
+    (store, resolve, reject) => {
+      const request = store.put({
+        id,
+        peaks,
+        updatedAt: Date.now(),
+      } satisfies CachedPeaksEntry);
+      request.onerror = () =>
+        reject(request.error ?? new Error(`Failed to cache peaks for ${id}`));
+      request.onsuccess = () => resolve();
+    },
+    PEAKS_STORE_NAME,
+  );
 }
