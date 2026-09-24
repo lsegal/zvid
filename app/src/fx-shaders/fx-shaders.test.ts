@@ -27,6 +27,7 @@ const CONTEXT: EffectContext = {
   resolution: [1080, 1920],
   audioLow: 0.4,
   audioHigh: 0.6,
+  bottomUp: false,
 };
 
 function params(values: Record<string, number>): EffectParameter[] {
@@ -195,6 +196,32 @@ describe("effect passes", () => {
     assert.deepEqual(values.uStart, [0, 0.25, 0.25]);
     assert.deepEqual(values.uEnd, [1, 0, 0.75]);
     assert.deepEqual(values.uProgress, [1]);
+  });
+
+  it("flips Zoom & Pan Y on a bottom-up texture", () => {
+    const parameters = params({ _Start_Y: 0, _End_Y: 0.25 });
+    const topDown = uniformValues(zoomAndPanPass, parameters);
+    const bottomUp = uniformValues(zoomAndPanPass, parameters, {
+      ...CONTEXT,
+      bottomUp: true,
+    });
+
+    assert.deepEqual(topDown.uStart, [0, 0.5, 0]);
+    assert.deepEqual(topDown.uEnd, [0, 0.5, 0.25]);
+    assert.deepEqual(bottomUp.uStart, [0, 0.5, 1]);
+    assert.deepEqual(bottomUp.uEnd, [0, 0.5, 0.75]);
+  });
+
+  it("reverses the Analog Glitch roll on a bottom-up texture", () => {
+    const parameters = params({ _LowMod: 0.2 });
+    assert.deepEqual(uniformValues(analogGlitchPass, parameters).uDown, [1]);
+    assert.deepEqual(
+      uniformValues(analogGlitchPass, parameters, {
+        ...CONTEXT,
+        bottomUp: true,
+      }).uDown,
+      [-1],
+    );
   });
 
   it("centers a Zoom & Pan framing with missing parameters", () => {

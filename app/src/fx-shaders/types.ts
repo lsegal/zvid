@@ -14,6 +14,10 @@ export type EffectContext = {
   // Smoothed master-audio band energy, 0..1.
   audioLow: number;
   audioHigh: number;
+  // True when the source texture is bottom row first (vUv.y = 0 is the bottom
+  // of the image), as for offscreen framebuffers. Layer textures are uploaded
+  // top row first, so this is false for layer stacks.
+  bottomUp: boolean;
 };
 
 export type EffectUniformLocations = Record<

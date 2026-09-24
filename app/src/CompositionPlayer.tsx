@@ -759,6 +759,7 @@ function drawComposition(
           resolution: [surface.width, surface.height],
           audioLow: frameContext.audio.low,
           audioHigh: frameContext.audio.high,
+          bottomUp: false,
         }) ?? texture;
       bindCompositeState(resources, canvas, compositeFramebuffer);
       gl.enable(gl.SCISSOR_TEST);
@@ -799,6 +800,8 @@ function drawComposition(
         resolution: [canvas.width, canvas.height],
         audioLow: frameContext.audio.low,
         audioHigh: frameContext.audio.high,
+        // The scene framebuffer is rendered normally, so it is bottom-up.
+        bottomUp: true,
       },
       "screen",
     );
