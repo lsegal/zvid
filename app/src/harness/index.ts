@@ -24,7 +24,7 @@ export async function installHarness() {
 
 export function getHarness() {
   if (!window.harness) {
-    throw new Error("window.harness is not installed yet.");
+    throw new Error("The editor is still starting up. Try again in a moment.");
   }
 
   return window.harness;

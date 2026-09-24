@@ -789,29 +789,6 @@ function buildSelection(
   };
 }
 
-function buildProjectWaveform(
-  clips: ArrangementClip[],
-  totalQuarters: number,
-  bpm: number,
-  points: number,
-) {
-  return Array.from({ length: points }, (_, index) => {
-    const quarter = (index / Math.max(1, points - 1)) * totalQuarters;
-    const amplitude = clips.reduce((sum, clip) => {
-      const start = clip.startQ;
-      const end = start + secondsToQuarters(clip.durationSeconds, bpm);
-      if (quarter < start || quarter > end) {
-        return sum;
-      }
-
-      const phase = (quarter - start) / Math.max(end - start, 0.25);
-      return sum + Math.abs(Math.sin(phase * Math.PI * 4)) * 0.35;
-    }, 0);
-
-    return Math.min(1, 0.08 + amplitude);
-  });
-}
-
 function getTimelineContentEndQ(
   clips: ArrangementClip[],
   sourceSpans: SourceSpan[],
@@ -1857,7 +1834,7 @@ function App() {
     clientWidth: 0,
   });
   const [status, setStatus] = useState(
-    "Open a .lvp session file. The active harness will provide available file and media access.",
+    "Open a session or import media to get started.",
   );
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [timelineDragState, setTimelineDragState] =
@@ -2199,12 +2176,14 @@ function App() {
   );
   const fxDevices = useMemo(
     () =>
-      mapSessionEffectsToDevices(
-        effects,
-        selectedClip?.laneId,
-        selectedMedia?.kind,
-      ),
-    [effects, selectedClip?.laneId, selectedMedia?.kind],
+      selectedClip
+        ? mapSessionEffectsToDevices(
+            effects,
+            selectedClip.laneId,
+            selectedMedia?.kind,
+          )
+        : [],
+    [effects, selectedClip, selectedMedia?.kind],
   );
   const selectedFx = useMemo(
     () =>
@@ -2216,21 +2195,16 @@ function App() {
     ? mediaItemsById.get(masterAudioId)
     : undefined;
   const canCreateLayer = lanes.length < MAX_LAYERS;
-  const projectWaveform = useMemo(
-    () =>
-      masterAudio?.waveform.length
-        ? masterAudio.waveform
-        : buildProjectWaveform(timelineClips, totalQuarters, bpm, 264),
-    [bpm, masterAudio, timelineClips, totalQuarters],
-  );
+  // Only real master audio analysis is drawn; an empty lane is shown otherwise.
   const projectWaveformBars = useMemo(() => {
-    const lastIndex = Math.max(1, projectWaveform.length - 1);
-    return projectWaveform.map((value, index) => ({
+    const waveform = masterAudio?.waveform ?? [];
+    const lastIndex = Math.max(1, waveform.length - 1);
+    return waveform.map((value, index) => ({
       id: `wave-${((index / lastIndex) * 100).toFixed(4)}-${value.toFixed(4)}`,
       leftPercent: (index / lastIndex) * 100,
       heightPx: 16 + value * 42,
     }));
-  }, [projectWaveform]);
+  }, [masterAudio]);
   const timelineContentEndQ = useMemo(
     () =>
       getTimelineContentEndQ(
@@ -2262,6 +2236,18 @@ function App() {
     }
     return offlineKeys.size;
   }, [mediaItemsById, sourceSpans, timelineClips]);
+  const sessionMediaStatus = useMemo(() => {
+    if (!mediaItems.length) {
+      return "No media";
+    }
+
+    const pendingCount = mediaItems.filter(
+      (item) => item.availability !== "ready",
+    ).length;
+    return pendingCount
+      ? `${pluralize(pendingCount, "media file")} not ready`
+      : "Media linked";
+  }, [mediaItems]);
   const clipsByLane = useMemo(() => {
     const next = new Map<string, ArrangementClip[]>();
     for (const clip of timelineClips) {
@@ -2275,6 +2261,23 @@ function App() {
     }
     return next;
   }, [timelineClips]);
+  const laneStatusById = useMemo(() => {
+    const next = new Map<string, { effectCount: number; summary: string }>();
+    for (const lane of lanes) {
+      const clipCount = clipsByLane.get(lane.id)?.length ?? 0;
+      const effectCount = effects.filter(
+        (effect) => effect.trackId === lane.id,
+      ).length;
+      const summary = [
+        clipCount ? pluralize(clipCount, "clip") : "",
+        effectCount ? pluralize(effectCount, "effect") : "",
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      next.set(lane.id, { effectCount, summary: summary || "Empty" });
+    }
+    return next;
+  }, [clipsByLane, effects, lanes]);
   const sourceSpansByTrack = useMemo(() => {
     const next = new Map<string, SourceSpan[]>();
     for (const clip of sourceSpans) {
@@ -2494,7 +2497,7 @@ function App() {
 
       try {
         setStatus(
-          `Analyzing ${pluralize(files.length, "dropped media file")} through ${harness.label}...`,
+          `Analyzing ${pluralize(files.length, "dropped media file")}...`,
         );
         const analyzed = await harness.analyzeMedia(
           {
@@ -4584,9 +4587,7 @@ function App() {
         selection.kind === "files"
           ? selection.files.length
           : selection.refs.length;
-      setStatus(
-        `Analyzing ${pluralize(itemCount, "imported media file")} through ${harness.label}...`,
-      );
+      setStatus(`Analyzing ${pluralize(itemCount, "imported media file")}...`);
       const nextPaletteIndex = mediaItems.length;
       const analyzed = await harness.analyzeMedia(
         selection,
@@ -4622,9 +4623,7 @@ function App() {
 
       seedLocalMediaItems(analyzed);
       void cacheLocalMediaItems(analyzed);
-      setStatus(
-        `Imported ${pluralize(analyzed.length, "media file")} through ${harness.label}.`,
-      );
+      setStatus(`Imported ${pluralize(analyzed.length, "media file")}.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setStatus(`Media import failed: ${message}`);
@@ -4750,7 +4749,7 @@ function App() {
           : selection.kind === "workspace"
             ? selection.sessionFile.name
             : selection.name;
-      setStatus(`Opening ${selectionName} through ${harness.label}...`);
+      setStatus(`Opening ${selectionName}...`);
       const payload = await harness.openSession(selection);
       await applyOpenedSessionPayload(payload);
     } catch (error) {
@@ -4762,7 +4761,9 @@ function App() {
   async function handleOpenWorkspace() {
     const harness = getHarness();
     if (!harness.pickWorkspace) {
-      setStatus(`${harness.label} does not support opening a workspace.`);
+      setStatus(
+        "Opening a workspace is not supported in this version of zvid.",
+      );
       return;
     }
 
@@ -4778,9 +4779,7 @@ function App() {
           : selection.kind === "file"
             ? selection.file.name
             : selection.name;
-      setStatus(
-        `Opening workspace ${selectionName} through ${harness.label}...`,
-      );
+      setStatus(`Opening workspace ${selectionName}...`);
       const payload = await harness.openSession(selection);
       await applyOpenedSessionPayload(payload);
     } catch (error) {
@@ -5095,6 +5094,18 @@ function App() {
       ) : null}
       <header className="topbar">
         <div className="topbar__group">
+          <div className="brand-mark" role="img" aria-label="zvid">
+            <svg viewBox="0 0 120 24" aria-hidden="true">
+              <circle cx="14" cy="12" r="8" />
+              <circle cx="36" cy="12" r="8" />
+              <circle cx="60" cy="12" r="10" />
+              <circle cx="84" cy="12" r="8" />
+              <circle cx="106" cy="12" r="8" />
+            </svg>
+            <span className="brand-mark__name" aria-hidden="true">
+              zvid
+            </span>
+          </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="ghost-button file-menu-button" type="button">
@@ -5156,13 +5167,6 @@ function App() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <button
-            className="ghost-button"
-            onClick={() => void handleOpenWorkspace()}
-            type="button"
-          >
-            Open Workspace
-          </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="ghost-button file-menu-button" type="button">
@@ -5231,16 +5235,6 @@ function App() {
           </div>
         </div>
 
-        <div className="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 120 24" role="img" aria-hidden="true">
-            <circle cx="14" cy="12" r="8" />
-            <circle cx="36" cy="12" r="8" />
-            <circle cx="60" cy="12" r="10" />
-            <circle cx="84" cy="12" r="8" />
-            <circle cx="106" cy="12" r="8" />
-          </svg>
-        </div>
-
         <div className="topbar__group topbar__group--right">
           <button
             className="ghost-button"
@@ -5251,9 +5245,10 @@ function App() {
             {exportButtonLabel}
           </button>
           <span
-            className={`collaboration-badge collaboration-badge--${collaborationView.stateTone}`}
+            className={`collaboration-status collaboration-status--${collaborationView.stateTone}`}
             aria-live="polite"
           >
+            <span className="collaboration-status__dot" aria-hidden="true" />
             {collaborationView.stateLabel}
           </span>
           <button
@@ -5304,7 +5299,7 @@ function App() {
             className="ghost-button"
             onClick={() =>
               setStatus(
-                `Use Open to pick a .lvp file through the ${getHarness().label} harness.`,
+                "Use File → Open Session to open a .lvp session, or File → Import Media to add clips.",
               )
             }
             type="button"
@@ -5599,7 +5594,7 @@ function App() {
                             {pluralize(offlineCount, "offline media file")}
                           </button>
                         ) : (
-                          <small>Media linked</small>
+                          <small>{sessionMediaStatus}</small>
                         )}
                       </div>
                     </div>
@@ -5670,9 +5665,12 @@ function App() {
                         </div>
                         <div>
                           <span>{lane.name}</span>
-                          <small>FX rack armed</small>
+                          <small>{laneStatusById.get(lane.id)?.summary}</small>
                         </div>
-                        <button className="track-label__fx" type="button">
+                        <button
+                          className={`track-label__fx ${laneStatusById.get(lane.id)?.effectCount ? "" : "track-label__fx--inactive"}`}
+                          type="button"
+                        >
                           fx
                         </button>
                       </div>
@@ -5857,9 +5855,7 @@ function App() {
                       <div>
                         <span>Audio</span>
                         <small>
-                          {masterAudio
-                            ? masterAudio.name
-                            : "Master bus waveform"}
+                          {masterAudio ? masterAudio.name : "No master audio"}
                         </small>
                       </div>
                     </div>
@@ -5867,6 +5863,11 @@ function App() {
                       className="track-row__content track-row__content--waveform"
                       style={gridStyle}
                     >
+                      {masterAudio ? null : (
+                        <div className="waveform__empty">
+                          No master audio track in this session
+                        </div>
+                      )}
                       <div className="waveform">
                         {projectWaveformBars.map((bar) => (
                           <span
@@ -5938,9 +5939,25 @@ function App() {
                       </div>
                     </div>
                     <div className="source-header__content">
-                      <span>
-                        {getHarness().label} owns media access for this runtime.
-                      </span>
+                      {sourceTracks.length ? null : (
+                        <div className="source-empty-state">
+                          <span>No source media yet</span>
+                          <button
+                            className="ghost-button ghost-button--accent"
+                            onClick={() => void handleImport()}
+                            type="button"
+                          >
+                            Import Media
+                          </button>
+                          <button
+                            className="ghost-button"
+                            onClick={() => void handleOpenSession()}
+                            type="button"
+                          >
+                            Open Session
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </section>
 
@@ -6375,9 +6392,11 @@ function App() {
                 <div className="fx-rack__header">
                   <strong>FX Layer Stack</strong>
                   <span>
-                    {effects.length
-                      ? "Imported from the .lvp session"
-                      : "Fallback rack until session effects are available"}
+                    {!selectedClip
+                      ? "Select a clip to see its effects"
+                      : effects.length
+                        ? "Imported from the .lvp session"
+                        : "Fallback rack until session effects are available"}
                   </span>
                 </div>
 
@@ -6404,12 +6423,14 @@ function App() {
 
               <div className="fx-inspector">
                 <div className="fx-inspector__header">
-                  <strong>{selectedFx?.name ?? "No device selected"}</strong>
-                  <span>
-                    {selectedTrack?.name ??
-                      selectedClip?.label ??
-                      "No clip selected"}
-                  </span>
+                  <strong>
+                    {selectedClip
+                      ? (selectedFx?.name ?? "No device selected")
+                      : "No clip selected"}
+                  </strong>
+                  {selectedClip ? (
+                    <span>{selectedTrack?.name ?? selectedClip.label}</span>
+                  ) : null}
                 </div>
 
                 {selectedFx ? (
@@ -6429,31 +6450,10 @@ function App() {
                         </div>
                       </div>
                     ))}
-
-                    <div className="inspector-note">
-                      <strong>Harness Media Flow</strong>
-                      <p>
-                        <code>window.harness</code> owns session open, media
-                        analysis, and export. The web harness routes session
-                        access through the local Vite middleware, while Tauri
-                        upgrades the same contract with native dialogs and
-                        filesystem-backed URLs.
-                      </p>
-                      <p>
-                        The editor only supplies canvas frames and timeline
-                        state. Media analysis uses the shared reader, while
-                        export encodes platform-supported tracks and writes the
-                        final MP4 through zvidlib.
-                      </p>
-                    </div>
                   </div>
                 ) : (
                   <div className="inspector-note">
-                    <strong>No clip selected</strong>
-                    <p>
-                      Open a session or import media to populate the rack and
-                      inspector.
-                    </p>
+                    <strong>Select a clip to edit its layout</strong>
                   </div>
                 )}
               </div>
