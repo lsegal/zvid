@@ -949,6 +949,56 @@
   min-width: 0;
 }
 
+.track-label > div > span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.timeline-canvas--narrow-labels .track-label {
+  gap: 8px;
+  padding-inline: 10px;
+}
+
+.label-resize-rail {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  pointer-events: none;
+}
+
+.label-resize-handle {
+  position: sticky;
+  left: calc(var(--label-width) - 4px);
+  width: 8px;
+  height: 100%;
+  margin-left: calc(var(--label-width) - 4px);
+  cursor: col-resize;
+  touch-action: none;
+  pointer-events: auto;
+}
+
+.label-resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+  background: transparent;
+  transition: background 120ms ease;
+}
+
+.label-resize-handle:hover::after,
+.label-resize-handle.is-resizing::after,
+.label-resize-handle:focus-visible::after {
+  background: var(--blue);
+}
+
+.label-resize-handle:focus-visible {
+  outline: none;
+}
+
 .track-label span,
 .track-label strong {
   display: block;
@@ -1023,6 +1073,7 @@
 }
 
 .track-label__index {
+  flex-shrink: 0;
   width: 28px;
   height: 28px;
   display: grid;
@@ -1035,7 +1086,9 @@
 }
 
 .track-label__fx {
+  flex-shrink: 0;
   margin-left: auto;
+  padding-inline: 4px;
   border: none;
   background: transparent;
   color: var(--amber);
@@ -1226,6 +1279,7 @@
 }
 
 .track-label__stripe {
+  flex-shrink: 0;
   width: 4px;
   align-self: stretch;
   border-radius: 999px;

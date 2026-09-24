@@ -319,7 +319,12 @@ type ProjectHistoryAction =
       snapshot: ProjectState;
     };
 
-const LABEL_WIDTH = 240;
+const LABEL_WIDTH_DEFAULT = 240;
+const LABEL_WIDTH_MIN = 120;
+const LABEL_WIDTH_MAX = 300;
+const LABEL_WIDTH_KEYBOARD_STEP = 10;
+// Below this width the label rows tighten their padding and gaps.
+const LABEL_WIDTH_NARROW = 170;
 const BASE_QUARTER_PX = 28;
 const ZOOM_MIN = 0.65;
 const ZOOM_MAX = 1.8;
@@ -338,6 +343,7 @@ const RANDOM_SELECTION_MAX_BARS = 2;
 const SOURCE_TRACK_DRAG_CLEAR_DELAY_MS = 80;
 const COLLAB_STORAGE_KEY = "zvid-collaboration";
 const INSPECTOR_COLLAPSED_STORAGE_KEY = "zvid-inspector-collapsed";
+const LABEL_WIDTH_STORAGE_KEY = "zvid-label-width";
 const PUBLIC_SIGNALING_URL = "wss://y-webrtc-eu.fly.dev";
 const DEFAULT_SIGNALING_URLS = splitSignalingUrls(
   import.meta.env.VITE_SIGNALING_URL || PUBLIC_SIGNALING_URL,
@@ -917,6 +923,27 @@ function buildCollaboratorName() {
   const prefix = pickRandom(COLLAB_NAME_PREFIXES) ?? "Signal";
   const suffix = pickRandom(COLLAB_NAME_SUFFIXES) ?? "Wave";
   return `${prefix} ${suffix}`;
+}
+
+function clampLabelWidth(width: number) {
+  return Math.round(clamp(width, LABEL_WIDTH_MIN, LABEL_WIDTH_MAX));
+}
+
+function readLabelWidth() {
+  if (typeof window === "undefined") {
+    return LABEL_WIDTH_DEFAULT;
+  }
+
+  try {
+    const stored = Number(
+      window.localStorage.getItem(LABEL_WIDTH_STORAGE_KEY) ?? Number.NaN,
+    );
+    return Number.isFinite(stored)
+      ? clampLabelWidth(stored)
+      : LABEL_WIDTH_DEFAULT;
+  } catch {
+    return LABEL_WIDTH_DEFAULT;
+  }
 }
 
 function readInspectorCollapsed() {
@@ -1785,6 +1812,12 @@ function App() {
   const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(
     readInspectorCollapsed,
   );
+  const [labelWidth, setLabelWidth] = useState(readLabelWidth);
+  const [labelResizeState, setLabelResizeState] = useState<{
+    pointerId: number;
+    pointerStartX: number;
+    originWidth: number;
+  } | null>(null);
   const [playheadQ, setPlayheadQ] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -2366,7 +2399,7 @@ function App() {
   const visibleTimelineStartPx = Math.max(0, timelineViewport.scrollLeft);
   const visibleTimelineWidthPx = Math.max(
     0,
-    timelineViewport.clientWidth - LABEL_WIDTH,
+    timelineViewport.clientWidth - labelWidth,
   );
   const visibleTimelineEndPx = visibleTimelineStartPx + visibleTimelineWidthPx;
   const playheadTimelinePx = Math.round(playheadQ * quarterPx);
@@ -3035,11 +3068,11 @@ function App() {
       return;
     }
 
-    const playheadPx = LABEL_WIDTH + playheadTimelinePx;
+    const playheadPx = labelWidth + playheadTimelinePx;
     const targetLeft = clamp(
       playheadPx - timelineScroll.clientWidth / 2,
       0,
-      Math.max(0, LABEL_WIDTH + timelineWidth - timelineScroll.clientWidth),
+      Math.max(0, labelWidth + timelineWidth - timelineScroll.clientWidth),
     );
 
     timelineScroll.scrollTo({
@@ -4203,7 +4236,7 @@ function App() {
         const pointerX = event.clientX - timelineBounds.left;
         const nextQ = snapQuarterValue(
           clamp(
-            (timelineScroll.scrollLeft - LABEL_WIDTH + pointerX) / quarterPx,
+            (timelineScroll.scrollLeft - labelWidth + pointerX) / quarterPx,
             0,
             totalQuarters,
           ),
@@ -4413,6 +4446,7 @@ function App() {
     minimumWindowQ,
     pendingSelection,
     snapEnabled,
+    labelWidth,
     quarterPx,
     snapUnit,
     totalQuarters,
@@ -4459,13 +4493,13 @@ function App() {
       );
       const maxScrollLeft = Math.max(
         0,
-        LABEL_WIDTH +
+        labelWidth +
           totalQuarters * nextQuarterPx -
           timelineScroll.clientWidth,
       );
 
       timelineScroll.scrollLeft = clamp(
-        LABEL_WIDTH + nextPlayheadQ * nextQuarterPx - pointerX,
+        labelWidth + nextPlayheadQ * nextQuarterPx - pointerX,
         0,
         maxScrollLeft,
       );
@@ -4505,6 +4539,7 @@ function App() {
     };
   }, [
     flushZoomDraft,
+    labelWidth,
     pulseTimelineAudibleScrub,
     startPlayback,
     stopTimelineAudibleScrub,
@@ -5100,6 +5135,16 @@ function App() {
     }
   }
 
+  function commitLabelWidth(width: number) {
+    const nextWidth = clampLabelWidth(width);
+    setLabelWidth(nextWidth);
+    try {
+      window.localStorage.setItem(LABEL_WIDTH_STORAGE_KEY, String(nextWidth));
+    } catch {
+      // Storage can be unavailable (private mode, quota); resizing still works.
+    }
+  }
+
   function toggleInspectorCollapsed() {
     const nextCollapsed = !isInspectorCollapsed;
     setIsInspectorCollapsed(nextCollapsed);
@@ -5598,7 +5643,7 @@ function App() {
                 ref={timelineScrollRef}
                 className="timeline-scroll"
                 onScroll={() => syncTimelineViewport()}
-                style={{ ["--label-width" as string]: `${LABEL_WIDTH}px` }}
+                style={{ ["--label-width" as string]: `${labelWidth}px` }}
               >
                 <div className="timeline-jump-overlay">
                   {isPlayheadOffscreenLeft ? (
@@ -5629,15 +5674,96 @@ function App() {
                   ) : null}
                 </div>
                 <div
-                  className="timeline-canvas"
+                  className={`timeline-canvas ${labelWidth < LABEL_WIDTH_NARROW ? "timeline-canvas--narrow-labels" : ""}`}
                   style={{
-                    width: LABEL_WIDTH + timelineWidth,
-                    ["--label-width" as string]: `${LABEL_WIDTH}px`,
+                    width: labelWidth + timelineWidth,
+                    ["--label-width" as string]: `${labelWidth}px`,
                   }}
                 >
+                  <div className="label-resize-rail">
+                    <div
+                      aria-label="Resize track labels"
+                      aria-orientation="vertical"
+                      aria-valuemax={LABEL_WIDTH_MAX}
+                      aria-valuemin={LABEL_WIDTH_MIN}
+                      aria-valuenow={labelWidth}
+                      className={`label-resize-handle ${labelResizeState ? "is-resizing" : ""}`}
+                      onDoubleClick={() => commitLabelWidth(LABEL_WIDTH_DEFAULT)}
+                      onKeyDown={(event) => {
+                        const nextWidth =
+                          event.key === "ArrowLeft"
+                            ? labelWidth - LABEL_WIDTH_KEYBOARD_STEP
+                            : event.key === "ArrowRight"
+                              ? labelWidth + LABEL_WIDTH_KEYBOARD_STEP
+                              : event.key === "Home"
+                                ? LABEL_WIDTH_MIN
+                                : event.key === "End"
+                                  ? LABEL_WIDTH_MAX
+                                  : null;
+                        if (nextWidth === null) {
+                          return;
+                        }
+
+                        event.preventDefault();
+                        commitLabelWidth(nextWidth);
+                      }}
+                      onPointerCancel={(event) => {
+                        if (labelResizeState?.pointerId !== event.pointerId) {
+                          return;
+                        }
+
+                        setLabelResizeState(null);
+                        commitLabelWidth(labelWidth);
+                      }}
+                      onPointerDown={(event) => {
+                        if (event.button !== 0) {
+                          return;
+                        }
+
+                        event.preventDefault();
+                        event.stopPropagation();
+                        event.currentTarget.setPointerCapture(event.pointerId);
+                        setLabelResizeState({
+                          pointerId: event.pointerId,
+                          pointerStartX: event.clientX,
+                          originWidth: labelWidth,
+                        });
+                      }}
+                      onPointerMove={(event) => {
+                        const resize = labelResizeState;
+                        if (resize?.pointerId !== event.pointerId) {
+                          return;
+                        }
+
+                        setLabelWidth(
+                          clampLabelWidth(
+                            resize.originWidth +
+                              event.clientX -
+                              resize.pointerStartX,
+                          ),
+                        );
+                      }}
+                      onPointerUp={(event) => {
+                        const resize = labelResizeState;
+                        if (resize?.pointerId !== event.pointerId) {
+                          return;
+                        }
+
+                        setLabelResizeState(null);
+                        commitLabelWidth(
+                          resize.originWidth +
+                            event.clientX -
+                            resize.pointerStartX,
+                        );
+                      }}
+                      role="separator"
+                      tabIndex={0}
+                      title="Drag to resize track labels (double-click to reset)"
+                    />
+                  </div>
                   <div
                     className="timeline-playhead"
-                    style={{ left: LABEL_WIDTH + playheadTimelinePx }}
+                    style={{ left: labelWidth + playheadTimelinePx }}
                   />
 
                   <section className="ruler-row">
@@ -5695,7 +5821,7 @@ function App() {
                           timelineScroll.getBoundingClientRect();
                         const pointerX = event.clientX - timelineBounds.left;
                         const nextPlayheadQ = clamp(
-                          (timelineScroll.scrollLeft - LABEL_WIDTH + pointerX) /
+                          (timelineScroll.scrollLeft - labelWidth + pointerX) /
                             quarterPx,
                           0,
                           totalQuarters,
@@ -5778,7 +5904,7 @@ function App() {
                           const anchorQ = snapQuarterValue(
                             clamp(
                               (timelineScroll.scrollLeft -
-                                LABEL_WIDTH +
+                                labelWidth +
                                 pointerX) /
                                 quarterPx,
                               0,
