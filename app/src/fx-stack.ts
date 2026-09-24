@@ -191,6 +191,52 @@ export function setEffectEnabled(
   );
 }
 
+// A layer's FX switch bypasses its whole stack at once. It lives on the
+// layer rather than on each effect, so turning it back on restores every
+// device's own bypass state. A missing flag means on.
+export type FxLayer = {
+  id: string;
+  fxEnabled?: boolean;
+};
+
+export function isLayerFxEnabled(layer: FxLayer | undefined) {
+  return layer?.fxEnabled !== false;
+}
+
+export function setLaneFxEnabled<T extends FxLayer>(
+  layers: T[],
+  laneId: string,
+  enabled: boolean,
+) {
+  const index = layers.findIndex((layer) => layer.id === laneId);
+  if (index < 0 || isLayerFxEnabled(layers[index]) === enabled) {
+    return layers;
+  }
+
+  const result = layers.slice();
+  result[index] = { ...layers[index], fxEnabled: enabled };
+  return result;
+}
+
+// The effects the renderer applies: a layer whose FX are off contributes
+// nothing but its Layout anchoring. Returns `effects` itself when no layer
+// is bypassed.
+export function getRenderedEffects<
+  T extends { trackId: string; effectName: string },
+>(effects: T[], layers: FxLayer[]) {
+  const bypassed = new Set(
+    layers.filter((layer) => !isLayerFxEnabled(layer)).map((layer) => layer.id),
+  );
+  if (!bypassed.size) {
+    return effects;
+  }
+
+  return effects.filter(
+    (effect) =>
+      !bypassed.has(effect.trackId) || isLayoutEffectName(effect.effectName),
+  );
+}
+
 // Moves an effect to `toIndex` within its own stack. `toIndex` counts only
 // effects with the same `trackId` and is clamped to the stack. Passing a
 // different `toTrackId` is a cross-stack move, which is rejected.
@@ -299,6 +345,8 @@ export const effectHistoryLabels = {
   remove: (effectName: string) => `Remove ${getEffectDisplayName(effectName)}`,
   enabled: (effectName: string, enabled: boolean) =>
     `${enabled ? "Enable" : "Bypass"} ${getEffectDisplayName(effectName)}`,
+  layerFx: (layerName: string, enabled: boolean) =>
+    `Turn FX ${enabled ? "On" : "Off"} for ${layerName}`,
 };
 
 export function isLayoutEffectName(effectName: string) {
