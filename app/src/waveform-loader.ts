@@ -1,4 +1,5 @@
 import { cacheWaveformPeaks, getCachedWaveformPeaks } from "./media-cache";
+import { fingerprintMediaBlob } from "./media-fingerprint";
 import {
   decodeWaveformPeaks,
   type WaveformPeaksResult,
@@ -82,20 +83,24 @@ function decodeInWorker(blob: Blob) {
 }
 
 async function computeWaveformPeaks(mediaId: string, url: string) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to load audio (${response.status})`);
+  }
+  const blob = await response.blob();
+
+  // Media ids can outlive their content (a replaced file at the same path, or
+  // a relink), so cached peaks are only reused for identical content.
+  let fingerprint: string | null = null;
   try {
-    const cached = await getCachedWaveformPeaks(mediaId);
+    fingerprint = await fingerprintMediaBlob(blob);
+    const cached = await getCachedWaveformPeaks(mediaId, fingerprint);
     if (cached) {
       return { status: "ready", peaks: cached } satisfies WaveformPeaksResult;
     }
   } catch {
     // The cache is an optimization; decode from the media when it is missing.
   }
-
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to load audio (${response.status})`);
-  }
-  const blob = await response.blob();
 
   let result: WaveformPeaksResult;
   try {
@@ -111,25 +116,30 @@ async function computeWaveformPeaks(mediaId: string, url: string) {
     result = await decodeWaveformPeaks(blob, { yieldEvery: 8 });
   }
 
-  if (result.status === "ready") {
-    void cacheWaveformPeaks(mediaId, result.peaks).catch(() => undefined);
+  if (result.status === "ready" && fingerprint) {
+    void cacheWaveformPeaks(mediaId, fingerprint, result.peaks).catch(
+      () => undefined,
+    );
   }
   return result;
 }
 
-// Loads real peaks for a media item, decoding at most once per media id per
-// page load and reusing peaks cached in IndexedDB across reloads.
+// Loads real peaks for a media item, decoding at most once per media id and
+// URL per page load and reusing peaks cached in IndexedDB across reloads while
+// the media content is unchanged. Relinking produces a new URL, so it misses
+// the in-memory cache and is validated against the stored fingerprint.
 export function loadWaveformPeaks(mediaId: string, url: string) {
-  const existing = memoryCache.get(mediaId);
+  const key = `${mediaId}\n${url}`;
+  const existing = memoryCache.get(key);
   if (existing) {
     return existing;
   }
 
   const pending = computeWaveformPeaks(mediaId, url);
-  memoryCache.set(mediaId, pending);
+  memoryCache.set(key, pending);
   pending.catch(() => {
-    if (memoryCache.get(mediaId) === pending) {
-      memoryCache.delete(mediaId);
+    if (memoryCache.get(key) === pending) {
+      memoryCache.delete(key);
     }
   });
   return pending;
