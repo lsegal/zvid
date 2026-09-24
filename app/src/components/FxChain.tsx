@@ -174,6 +174,7 @@ export function FxDevicePanel({
         {power}
         <button
           aria-expanded={false}
+          aria-label={`Expand ${device.name}`}
           className="fx-device-panel__strip"
           onClick={onToggleCollapsed}
           title={`Expand ${device.name}`}

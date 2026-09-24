@@ -127,8 +127,6 @@
 
 .fx-device-panel__body {
   display: grid;
-  grid-template-rows: repeat(2, auto);
-  grid-auto-flow: column;
   align-content: start;
   justify-content: start;
   gap: 8px 4px;
