@@ -1998,7 +1998,8 @@ function App() {
 
       let warning: string | undefined;
       if (options?.verify) {
-        const kind = existing?.kind ??
+        const kind =
+          existing?.kind ??
           inferMediaKind(blob instanceof File ? blob.name : "");
         let probed: MediaProbeResult;
         try {
