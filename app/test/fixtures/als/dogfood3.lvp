@@ -1,0 +1,412 @@
+{
+  "mainTracks": [
+    {
+      "id": "1",
+      "name": "Layer 1",
+      "colorIndex": -1,
+      "recordings": []
+    },
+    {
+      "id": "5",
+      "name": "Layer 2",
+      "colorIndex": -1,
+      "recordings": []
+    },
+    {
+      "id": "6",
+      "name": "Layer 3",
+      "colorIndex": -1,
+      "recordings": []
+    },
+    {
+      "id": "7",
+      "name": "Layer 4",
+      "colorIndex": -1,
+      "recordings": []
+    },
+    {
+      "id": "8",
+      "name": "Layer 5",
+      "colorIndex": -1,
+      "recordings": []
+    }
+  ],
+  "tracks": [
+    {
+      "id": "12",
+      "name": "1-Akustichord Kit",
+      "colorIndex": 4,
+      "recordings": [
+        {
+          "filename": "video-12-13-23-21-6-51-0.mp4",
+          "frameStart": 0,
+          "numFrames": 360,
+          "frameRate": 29.97003,
+          "imported": false
+        }
+      ]
+    },
+    {
+      "id": "8",
+      "name": "2-Audio",
+      "colorIndex": 0,
+      "recordings": [
+        {
+          "filename": "video-12-13-23-20-13-46-0.mp4",
+          "frameStart": 0,
+          "numFrames": 1392,
+          "frameRate": 29.97003,
+          "imported": false
+        },
+        {
+          "filename": "video-12-13-23-20-15-14-1.mp4",
+          "frameStart": 57,
+          "numFrames": 740,
+          "frameRate": 29.916666,
+          "imported": false
+        }
+      ]
+    },
+    {
+      "id": "16",
+      "name": "3-Audio",
+      "colorIndex": 1,
+      "recordings": [
+        {
+          "filename": "video-12-13-23-20-13-46-0.mp4",
+          "frameStart": 0,
+          "numFrames": 1392,
+          "frameRate": 29.97003,
+          "imported": false
+        },
+        {
+          "filename": "video-12-13-23-20-15-14-1.mp4",
+          "frameStart": 57,
+          "numFrames": 740,
+          "frameRate": 29.916666,
+          "imported": false
+        },
+        {
+          "filename": "video-12-13-23-20-19-23-2.mp4",
+          "frameStart": 107,
+          "numFrames": 845,
+          "frameRate": 29.916666,
+          "imported": false
+        }
+      ]
+    }
+  ],
+  "clips": [
+    {
+      "id": "12-4",
+      "trackId": "12",
+      "name": "",
+      "frameStart": 0,
+      "frameCount": 317,
+      "frameOffset": 0,
+      "clipStart": 42,
+      "filePath": "C:\\Users\\Loren\\Documents\\Layers\\Recorded\\video-12-13-23-21-6-51-0.mp4",
+      "warpMarkers": [],
+      "frameHiddenLoopEnd": 2043,
+      "captureOffset": 0,
+      "audioFileDuration": "NaN"
+    },
+    {
+      "id": "8-6",
+      "trackId": "8",
+      "name": "",
+      "frameStart": 0,
+      "frameCount": 317,
+      "frameOffset": 0,
+      "clipStart": 316,
+      "filePath": "C:\\Users\\Loren\\Documents\\Layers\\Recorded\\video-12-13-23-20-15-14-1.mp4",
+      "warpMarkers": [
+        {
+          "id": "0",
+          "clipId": "8-6",
+          "secTime": 0.0,
+          "beatTime": 0.0
+        },
+        {
+          "id": "1",
+          "clipId": "8-6",
+          "secTime": 0.014833333,
+          "beatTime": 0.03125
+        }
+      ],
+      "frameHiddenLoopEnd": 627,
+      "captureOffset": 57,
+      "audioFileDuration": 22.848
+    },
+    {
+      "id": "16-3",
+      "trackId": "16",
+      "name": "",
+      "frameStart": 0,
+      "frameCount": 220,
+      "frameOffset": 0,
+      "clipStart": 2,
+      "filePath": "C:\\Users\\Loren\\Documents\\Layers\\Recorded\\video-12-13-23-20-19-23-2.mp4",
+      "warpMarkers": [
+        {
+          "id": "0",
+          "clipId": "16-3",
+          "secTime": 0.0,
+          "beatTime": 0.0
+        },
+        {
+          "id": "1",
+          "clipId": "16-3",
+          "secTime": 0.014833333,
+          "beatTime": 0.03125
+        }
+      ],
+      "frameHiddenLoopEnd": 741,
+      "captureOffset": 107,
+      "audioFileDuration": 24.6986675
+    },
+    {
+      "id": "16-2",
+      "trackId": "16",
+      "name": "",
+      "frameStart": 0,
+      "frameCount": 316,
+      "frameOffset": 0,
+      "clipStart": 314,
+      "filePath": "video-12-13-23-20-19-23-2.mp4",
+      "warpMarkers": [
+        {
+          "id": "0",
+          "clipId": "16-2",
+          "secTime": 0.0,
+          "beatTime": 0.0
+        },
+        {
+          "id": "1",
+          "clipId": "16-2",
+          "secTime": 0.014833333,
+          "beatTime": 0.03125
+        }
+      ],
+      "frameHiddenLoopEnd": 627,
+      "captureOffset": 106,
+      "audioFileDuration": 24.6986675
+    }
+  ],
+  "selections": [
+    {
+      "id": 5,
+      "trackId": "12",
+      "mainTrackId": "1",
+      "frameStart": 128,
+      "frameEnd": 157,
+      "selected": false
+    },
+    {
+      "id": 29,
+      "trackId": "12",
+      "mainTrackId": "6",
+      "frameStart": 256,
+      "frameEnd": 313,
+      "selected": true
+    },
+    {
+      "id": 14,
+      "trackId": "8",
+      "mainTrackId": "1",
+      "frameStart": 0,
+      "frameEnd": 128,
+      "selected": false
+    },
+    {
+      "id": 25,
+      "trackId": "8",
+      "mainTrackId": "1",
+      "frameStart": 185,
+      "frameEnd": 313,
+      "selected": false
+    },
+    {
+      "id": 16,
+      "trackId": "16",
+      "mainTrackId": "5",
+      "frameStart": 57,
+      "frameEnd": 114,
+      "selected": false
+    },
+    {
+      "id": 23,
+      "trackId": "16",
+      "mainTrackId": "5",
+      "frameStart": 157,
+      "frameEnd": 185,
+      "selected": false
+    }
+  ],
+  "effects": [
+    {
+      "id": "8546dc84-cdcf-4d5e-aca9-64134e3cb1f3",
+      "trackId": "1",
+      "effectName": "ZoomAndPan",
+      "parameters": {
+        "_Start_Zoom": {
+          "floatValue": 0.0
+        },
+        "_Start_X": {
+          "floatValue": 0.25
+        },
+        "_Start_Y": {
+          "floatValue": 0.25
+        },
+        "_End_Zoom": {
+          "floatValue": 0.229999945
+        },
+        "_End_X": {
+          "floatValue": 0.75
+        },
+        "_End_Y": {
+          "floatValue": 0.75
+        },
+        "_LAYERS_SelFrac": {
+          "floatValue": 0.6171875
+        }
+      }
+    },
+    {
+      "id": "17e05199-33fe-4339-abbe-22885612a8ba",
+      "trackId": "1",
+      "effectName": "Colorize",
+      "parameters": {
+        "_HueOffset": {
+          "floatValue": -0.119999982
+        },
+        "_Reactivity": {
+          "floatValue": 0.199999958
+        }
+      }
+    },
+    {
+      "id": "1f9fb3b4-af23-4fed-b29e-f5e1b2849aa6",
+      "trackId": "5",
+      "effectName": "ZoomAndPan",
+      "parameters": {
+        "_Start_Zoom": {
+          "floatValue": 0.03
+        },
+        "_Start_X": {
+          "floatValue": 0.0
+        },
+        "_Start_Y": {
+          "floatValue": 1.0
+        },
+        "_End_Zoom": {
+          "floatValue": 0.239999965
+        },
+        "_End_X": {
+          "floatValue": 0.0
+        },
+        "_End_Y": {
+          "floatValue": 1.0
+        },
+        "_LAYERS_SelFrac": {
+          "floatValue": 0.3859649
+        }
+      }
+    },
+    {
+      "id": "9e6a1638-bcf6-4581-8398-f6074cc2e0b3",
+      "trackId": "5",
+      "effectName": "Colorize",
+      "parameters": {
+        "_HueOffset": {
+          "floatValue": 0.279999971
+        },
+        "_Reactivity": {
+          "floatValue": 0.5
+        }
+      }
+    },
+    {
+      "id": "5e0b616d-aa14-4be7-979c-4dd6112f33ff",
+      "trackId": "6",
+      "effectName": "Pixelate",
+      "parameters": {
+        "_NumPixels": {
+          "floatValue": 0.830000043
+        },
+        "_LowIntensity": {
+          "floatValue": 1.0
+        },
+        "_HighIntensity": {
+          "floatValue": 0.79
+        }
+      }
+    },
+    {
+      "id": "031e9f8d-9d85-490f-be7d-d627310b8552",
+      "trackId": "6",
+      "effectName": "Colorize",
+      "parameters": {
+        "_HueOffset": {
+          "floatValue": 0.0
+        },
+        "_Reactivity": {
+          "floatValue": 0.5
+        }
+      }
+    },
+    {
+      "id": "53a0f2da-161f-49fe-ba3d-7cc9ca1ea7ca",
+      "trackId": "6",
+      "effectName": "NegativeSplit",
+      "parameters": {
+        "_LowIntensity": {
+          "floatValue": 0.990000069
+        },
+        "_HighIntensity": {
+          "floatValue": 0.2
+        }
+      }
+    },
+    {
+      "id": "3b374a82-2ad1-4650-af42-6f5f4aef29e3",
+      "trackId": "6",
+      "effectName": "AnalogGlitch",
+      "parameters": {
+        "_LowMod": {
+          "floatValue": 0.2
+        },
+        "_HighMod": {
+          "floatValue": 0.2
+        }
+      }
+    },
+    {
+      "id": "b351bfdb-9c06-4cd6-b918-1acabb0ba176",
+      "trackId": "__group_main",
+      "effectName": "Layout",
+      "parameters": {
+        "Position": {
+          "stringValue": "Center"
+        }
+      }
+    }
+  ],
+  "timeline": {
+    "canvasWidth": 1080,
+    "canvasHeight": 1920,
+    "zoom": 0.8720461,
+    "bpm": 126.404495,
+    "pixelsPerBeat": 60.0,
+    "minPixelDivision": 60.0,
+    "baseDivisions": 4,
+    "displaySeconds": false,
+    "snapToBeat": true,
+    "fps": 30.0,
+    "projectDuration": 317
+  },
+  "audioFilename": "C:\\Users\\Loren\\Documents\\Layers\\dogfood3 Project\\dogfood3.wav",
+  "sessionFile": "C:\\Users\\Loren\\Documents\\Layers\\dogfood3 Project\\dogfood3.als",
+  "playPosition": 79,
+  "playStartPosition": 79
+}
