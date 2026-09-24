@@ -234,6 +234,63 @@ describe("importAls", () => {
       ],
     );
   });
+
+  it("resolves dogfood3.als from Windows paths the way the Tauri harness does", async () => {
+    const alsPath = "C:\\Music\\dogfood3 Project\\dogfood3.als";
+    const imported = await importAls(
+      new Uint8Array(
+        readFileSync(
+          new URL("../test/fixtures/als/dogfood3.als", import.meta.url),
+        ),
+      ),
+      alsPath,
+    );
+    const dirs = alsMediaSearchDirs(alsPath, "C:\\Users\\me\\Documents");
+    // Tauri checks every candidate in one `files_exist` call, then locates
+    // each recording from that batch's answers.
+    const candidates = alsMediaCandidatePaths(imported, dirs);
+    const onDisk = new Set([
+      "C:\\Music\\Recorded\\video-12-13-23-20-13-46-0.mp4",
+      "C:\\Music\\Recorded\\video-12-13-23-20-15-14-1.mp4",
+      "C:\\Music\\Recorded\\video-12-13-23-20-19-23-2.mp4",
+      "C:\\Users\\me\\Documents\\Layers\\Recorded\\video-12-13-23-20-19-23-2.mp4",
+      "C:\\Users\\me\\Documents\\Layers\\Recorded\\video-12-13-23-21-6-51-0.mp4",
+    ]);
+    const found = new Set(candidates.filter((path) => onDisk.has(path)));
+    const { session, recordingPaths, summary } = resolveAlsMedia(
+      imported,
+      createAlsMediaLocator(dirs, (path) => found.has(path)),
+    );
+
+    assert.equal(
+      alsSavePath(alsPath),
+      "C:\\Music\\dogfood3 Project\\dogfood3.lvp",
+    );
+    assert.deepEqual(summary, {
+      tracks: 3,
+      clips: 3,
+      skippedTracks: [
+        "4-Audio (no Layers Record)",
+        "Audio 11 on 3-Audio (shorter than a frame)",
+      ],
+      missingMedia: [],
+    });
+    assert.deepEqual(
+      session.clips?.map((clip) => clip.filePath),
+      [
+        "C:\\Users\\me\\Documents\\Layers\\Recorded\\video-12-13-23-21-6-51-0.mp4",
+        "C:\\Music\\Recorded\\video-12-13-23-20-15-14-1.mp4",
+        "C:\\Music\\Recorded\\video-12-13-23-20-19-23-2.mp4",
+      ],
+    );
+    // The set's sibling Recorded folder wins over Documents.
+    assert.deepEqual(recordingPaths.sort(), [
+      "C:\\Music\\Recorded\\video-12-13-23-20-13-46-0.mp4",
+      "C:\\Music\\Recorded\\video-12-13-23-20-15-14-1.mp4",
+      "C:\\Music\\Recorded\\video-12-13-23-20-19-23-2.mp4",
+      "C:\\Users\\me\\Documents\\Layers\\Recorded\\video-12-13-23-21-6-51-0.mp4",
+    ]);
+  });
 });
 
 describe("Live set media resolution", () => {
