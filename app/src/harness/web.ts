@@ -5,6 +5,7 @@ import type {
 } from "../session";
 import type {
   Harness,
+  MediaSelection,
   SaveFilePickerHandle,
   SaveOptions,
   SaveTarget,
@@ -12,6 +13,7 @@ import type {
   WorkspaceFileRef,
 } from "./contracts";
 import { exportVideo } from "./export";
+import { hasMediaExtension, MEDIA_EXTENSIONS } from "./media-extensions";
 import {
   analyzeMediaSelection,
   generateThumbnailFromUrlAtTime,
@@ -103,34 +105,21 @@ function pickDirectoryFiles() {
   });
 }
 
-const MEDIA_EXTENSIONS = [
-  ".mp4",
-  ".mov",
-  ".mkv",
-  ".webm",
-  ".avi",
-  ".wav",
-  ".mp3",
-  ".m4a",
-  ".flac",
-  ".aif",
-  ".aiff",
-];
-
-async function pickMediaFolder() {
-  const files = await pickDirectoryFiles();
-  if (!files) {
+async function pickMediaFolder(): Promise<MediaSelection | null> {
+  const entries = await pickDirectoryFiles();
+  if (!entries) {
     return null;
   }
 
-  return files.filter(
-    ({ file }) =>
-      file.type.startsWith("video/") ||
-      file.type.startsWith("audio/") ||
-      MEDIA_EXTENSIONS.some((extension) =>
-        file.name.toLowerCase().endsWith(extension),
-      ),
-  );
+  const files = entries
+    .map(({ file }) => file)
+    .filter(
+      (file) =>
+        file.type.startsWith("video/") ||
+        file.type.startsWith("audio/") ||
+        hasMediaExtension(file.name),
+    );
+  return { kind: "files", files };
 }
 
 function basename(rawPath: string) {
@@ -388,7 +377,7 @@ export function createWebHarness(): Harness {
     async pickMedia() {
       const files = await pickFiles({
         accept:
-          "video/*,audio/*,.mp4,.mov,.mkv,.webm,.avi,.wav,.mp3,.m4a,.flac,.aif,.aiff",
+          ["video/*", "audio/*", ...MEDIA_EXTENSIONS.map((ext) => `.${ext}`)].join(","),
         multiple: true,
       });
       return files.length ? { kind: "files", files } : null;
