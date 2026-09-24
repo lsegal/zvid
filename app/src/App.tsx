@@ -4493,9 +4493,7 @@ function App() {
       );
       const maxScrollLeft = Math.max(
         0,
-        labelWidth +
-          totalQuarters * nextQuarterPx -
-          timelineScroll.clientWidth,
+        labelWidth + totalQuarters * nextQuarterPx - timelineScroll.clientWidth,
       );
 
       timelineScroll.scrollLeft = clamp(
@@ -5681,6 +5679,7 @@ function App() {
                   }}
                 >
                   <div className="label-resize-rail">
+                    {/* biome-ignore lint/a11y/useSemanticElements: a focusable, draggable window splitter needs role="separator"; <hr> is not interactive. */}
                     <div
                       aria-label="Resize track labels"
                       aria-orientation="vertical"
@@ -5688,7 +5687,9 @@ function App() {
                       aria-valuemin={LABEL_WIDTH_MIN}
                       aria-valuenow={labelWidth}
                       className={`label-resize-handle ${labelResizeState ? "is-resizing" : ""}`}
-                      onDoubleClick={() => commitLabelWidth(LABEL_WIDTH_DEFAULT)}
+                      onDoubleClick={() =>
+                        commitLabelWidth(LABEL_WIDTH_DEFAULT)
+                      }
                       onKeyDown={(event) => {
                         const nextWidth =
                           event.key === "ArrowLeft"
