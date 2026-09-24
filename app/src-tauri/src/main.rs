@@ -98,15 +98,124 @@ fn write_file_bytes(path: String, bytes: Vec<u8>) -> Result<(), String> {
   fs::write(&path, bytes).map_err(|error| format!("Failed to write file: {error}"))
 }
 
+const MAX_LISTED_MEDIA_FILES: usize = 10_000;
+
+fn is_hidden(path: &Path) -> bool {
+  path
+    .file_name()
+    .and_then(|name| name.to_str())
+    .is_some_and(|name| name.starts_with('.'))
+}
+
+fn collect_media_files(root: &Path, extensions: &[String], limit: usize) -> Vec<String> {
+  let mut found = Vec::new();
+  let mut pending = vec![root.to_path_buf()];
+  while let Some(dir) = pending.pop() {
+    let Ok(entries) = fs::read_dir(&dir) else {
+      continue;
+    };
+    // Symlinked folders are not followed so link cycles can't loop the walk.
+    let mut entries: Vec<(PathBuf, bool)> = entries
+      .flatten()
+      .map(|entry| {
+        let is_dir = entry.file_type().is_ok_and(|kind| kind.is_dir());
+        (entry.path(), is_dir)
+      })
+      .collect();
+    entries.sort();
+    for (path, is_dir) in entries {
+      if is_hidden(&path) {
+        continue;
+      }
+      if is_dir {
+        pending.push(path);
+        continue;
+      }
+      let matches = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| {
+          extensions
+            .iter()
+            .any(|candidate| candidate.eq_ignore_ascii_case(extension))
+        });
+      if matches {
+        found.push(path.to_string_lossy().into_owned());
+        if found.len() >= limit {
+          return found;
+        }
+      }
+    }
+  }
+  found
+}
+
+#[tauri::command]
+fn list_media_files(root: String, extensions: Vec<String>) -> Result<Vec<String>, String> {
+  let root = PathBuf::from(root);
+  if !root.is_dir() {
+    return Err(format!("Not a folder: {}", root.display()));
+  }
+  Ok(collect_media_files(&root, &extensions, MAX_LISTED_MEDIA_FILES))
+}
+
 fn main() {
   tauri::Builder::default()
     .plugin(tauri_plugin_dialog::init())
     .invoke_handler(tauri::generate_handler![
       open_session,
+      list_media_files,
       read_file_bytes,
       write_file_bytes,
       export::mux_export
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn touch(path: &Path) {
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(path, b"").unwrap();
+  }
+
+  fn names(paths: &[String]) -> Vec<String> {
+    let mut names: Vec<String> = paths
+      .iter()
+      .map(|path| Path::new(path).file_name().unwrap().to_string_lossy().into_owned())
+      .collect();
+    names.sort();
+    names
+  }
+
+  #[test]
+  fn lists_nested_media_and_skips_hidden_folders() {
+    let root = tempfile::tempdir().unwrap();
+    touch(&root.path().join("a.mp4"));
+    touch(&root.path().join("notes.txt"));
+    touch(&root.path().join("day1/cam/b.MOV"));
+    touch(&root.path().join("day1/audio/c.wav"));
+    touch(&root.path().join(".cache/hidden.mp4"));
+    let extensions = vec!["mp4".to_string(), "mov".to_string(), "wav".to_string()];
+
+    let found = collect_media_files(root.path(), &extensions, 100);
+
+    assert_eq!(names(&found), vec!["a.mp4", "b.MOV", "c.wav"]);
+    assert!(found.iter().all(|path| Path::new(path).is_absolute()));
+  }
+
+  #[test]
+  fn caps_listed_media_files() {
+    let root = tempfile::tempdir().unwrap();
+    for index in 0..5 {
+      touch(&root.path().join(format!("clip{index}.mp4")));
+    }
+
+    let found = collect_media_files(root.path(), &["mp4".to_string()], 3);
+
+    assert_eq!(found.len(), 3);
+  }
 }

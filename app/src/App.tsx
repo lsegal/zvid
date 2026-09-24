@@ -43,23 +43,23 @@ import {
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
 import { getHarness, type SaveTarget } from "./harness";
+import { hasMediaExtension } from "./harness/media-extensions";
 import { MasterWaveform } from "./MasterWaveform";
 import {
   buildFallbackMediaItem,
-  createMediaId,
+  inferMediaKind,
   type MediaAvailability,
   type MediaItem,
   type MediaKind,
+  type MediaProbeResult,
   type Palette,
+  probeMediaBlob,
   toShareableMediaItem,
 } from "./media";
 import { cacheMediaBlob, getCachedMediaBlob } from "./media-cache";
-import { matchOfflineMedia, type RelinkCandidate } from "./relink";
-import type {
-  LvpSession,
-  ServerMediaRef,
-  SessionOpenResponse,
-} from "./session";
+import { createMediaRelinker, pickRelinkCandidates } from "./media-relink";
+import { listOfflineMedia } from "./relink";
+import type { LvpSession, SessionOpenResponse } from "./session";
 import { loadWaveformPeaks } from "./waveform-loader";
 import type { WaveformPeaks } from "./waveform-peaks";
 
@@ -263,7 +263,17 @@ type LocalMediaOverride = {
   availability?: MediaAvailability;
   previewUrl?: string;
   thumbnailUrl?: string;
+  lastError?: string;
 };
+
+type AdoptMediaResult = {
+  previewUrl: string;
+  warning?: string;
+};
+
+// Media whose probed duration differs from the recorded one by more than
+// this is probably a different file that happens to share its name.
+const RELINK_DURATION_TOLERANCE_SECONDS = 0.5;
 
 // Tracks the offline refs of a just-opened session until cache hydration
 // settles, so the status bar can report the real outcome.
@@ -334,8 +344,6 @@ const DEFAULT_SIGNALING_URLS = splitSignalingUrls(
 const LEGACY_DEFAULT_SIGNALING_URLS = [
   "wss://zvid-signaling.lsegal.workers.dev",
 ];
-const MEDIA_DROP_EXTENSION_PATTERN =
-  /\.(mp4|mov|mkv|webm|avi|wav|mp3|m4a|flac|aif|aiff)$/i;
 const SIGNATURES: TimeSignature[] = [
   { id: "4/4", numerator: 4, denominator: 4 },
   { id: "3/4", numerator: 3, denominator: 4 },
@@ -804,7 +812,7 @@ function getDraggedMediaFiles(dataTransfer: DataTransfer | null) {
     (file) =>
       file.type.startsWith("video/") ||
       file.type.startsWith("audio/") ||
-      MEDIA_DROP_EXTENSION_PATTERN.test(file.name),
+      hasMediaExtension(file.name),
   );
 }
 
@@ -1941,6 +1949,9 @@ function App() {
           ...previous,
           ...patch,
         };
+        if (next.availability === "ready") {
+          delete next.lastError;
+        }
 
         if (!next.previewUrl && !next.thumbnailUrl && !next.availability) {
           const rest = { ...current };
@@ -1977,8 +1988,43 @@ function App() {
     async (
       mediaId: string,
       blob: Blob,
-      options?: { analyze?: boolean },
-    ): Promise<string> => {
+      options?: { analyze?: boolean; verify?: boolean },
+    ): Promise<AdoptMediaResult> => {
+      const existing = projectSnapshotRef.current.mediaItems.find(
+        (item) => item.id === mediaId,
+      );
+
+      let warning: string | undefined;
+      if (options?.verify) {
+        const kind =
+          existing?.kind ??
+          inferMediaKind(blob instanceof File ? blob.name : "");
+        let probed: MediaProbeResult;
+        try {
+          probed = await probeMediaBlob(blob, kind);
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          setLocalMediaOverride(mediaId, {
+            availability: "offline",
+            lastError: message,
+          });
+          logClient("media:adopt:verify:error", { mediaId, message });
+          throw error;
+        }
+
+        if (
+          existing &&
+          existing.durationSeconds > 0 &&
+          probed.durationSeconds > 0 &&
+          Math.abs(probed.durationSeconds - existing.durationSeconds) >
+            RELINK_DURATION_TOLERANCE_SECONDS
+        ) {
+          warning = `Duration differs from the original (${probed.durationSeconds.toFixed(1)}s vs ${existing.durationSeconds.toFixed(1)}s)`;
+          logClient("media:adopt:verify:warning", { mediaId, warning });
+        }
+      }
+
       try {
         await cacheMediaBlob(mediaId, blob);
       } catch (error) {
@@ -1996,11 +2042,8 @@ function App() {
         URL.revokeObjectURL(previousPreviewUrl);
       }
 
-      const existing = projectSnapshotRef.current.mediaItems.find(
-        (item) => item.id === mediaId,
-      );
       if (!existing || !(options?.analyze || existing.durationSeconds === 0)) {
-        return previewUrl;
+        return { previewUrl, warning };
       }
 
       try {
@@ -2013,7 +2056,7 @@ function App() {
           0,
         );
         if (!result) {
-          return previewUrl;
+          return { previewUrl, warning };
         }
 
         if (
@@ -2045,7 +2088,7 @@ function App() {
         });
       }
 
-      return previewUrl;
+      return { previewUrl, warning };
     },
     [commitProjectChange, seedLocalMediaItems, setLocalMediaOverride],
   );
@@ -2237,19 +2280,24 @@ function App() {
       quarter: index * barLength,
     }));
   }, [barLength, totalQuarters]);
-  // Counts distinct offline media referenced by arrangement or source-track
-  // clips, so sessions whose media is only used on source tracks still
-  // surface the Locate Media shortcut.
+  // Arrangement and source-track clips both count, so sessions whose media
+  // is only used on source tracks still surface the Locate Media shortcut.
+  const offlineMedia = useMemo(
+    () => listOfflineMedia(mediaItems, [...timelineClips, ...sourceSpans]),
+    [mediaItems, sourceSpans, timelineClips],
+  );
   const offlineCount = useMemo(() => {
-    const offlineKeys = new Set<string>();
+    const missingKeys = new Set<string>();
     for (const clip of [...timelineClips, ...sourceSpans]) {
-      const media = clip.mediaId ? mediaItemsById.get(clip.mediaId) : undefined;
-      if (!media || media.availability !== "ready") {
-        offlineKeys.add(clip.mediaId ?? `clip:${clip.id}`);
+      if (!clip.mediaId || !mediaItemsById.has(clip.mediaId)) {
+        missingKeys.add(clip.mediaId ?? `clip:${clip.id}`);
       }
     }
-    return offlineKeys.size;
-  }, [mediaItemsById, sourceSpans, timelineClips]);
+    return (
+      offlineMedia.filter((entry) => entry.state === "offline").length +
+      missingKeys.size
+    );
+  }, [mediaItemsById, offlineMedia, sourceSpans, timelineClips]);
   const sessionMediaStatus = useMemo(() => {
     if (!mediaItems.length) {
       return "No media";
@@ -4671,108 +4719,56 @@ function App() {
   }
 
   async function handleLocateMedia(mode: "files" | "folder" = "files") {
-    const offlineItems = mediaItems.filter(
-      (item) => item.availability !== "ready",
-    );
-    if (!offlineItems.length) {
+    if (!offlineMedia.length) {
       setStatus("All media is linked.");
       return;
     }
 
-    const harness = getHarness();
-    type LocateSource =
-      | { kind: "file"; file: File }
-      | { kind: "ref"; ref: ServerMediaRef };
-    let candidates: RelinkCandidate<LocateSource>[];
-    if (mode === "folder" && harness.pickMediaFolder) {
-      const entries = await harness.pickMediaFolder();
-      if (!entries) {
-        return;
-      }
-
-      candidates = entries.map(({ file, path }) => ({
-        name: file.name,
-        path: file.webkitRelativePath || path,
-        id: createMediaId(file),
-        source: { kind: "file", file },
-      }));
-    } else {
-      const selection = await harness.pickMedia();
-      if (!selection) {
-        return;
-      }
-
-      candidates =
-        selection.kind === "files"
-          ? selection.files.map((file) => ({
-              name: file.name,
-              path: file.webkitRelativePath || file.name,
-              id: createMediaId(file),
-              source: { kind: "file", file },
-            }))
-          : selection.refs.map((ref) => ({
-              name: ref.name,
-              path: ref.path,
-              source: { kind: "ref", ref },
-            }));
+    const candidates = await pickRelinkCandidates(mode);
+    if (!candidates) {
+      return;
     }
 
-    const { matches, unmatched, ambiguous } = matchOfflineMedia(
-      offlineItems,
-      candidates,
-    );
-    if (unmatched.length) {
-      logClient("media:locate:unmatched", {
-        files: unmatched.map((candidate) => candidate.path ?? candidate.name),
-      });
-    }
-    if (ambiguous.length) {
-      logClient(
-        "media:locate:ambiguous",
-        ambiguous.map(({ candidate, items }) => ({
-          file: candidate.path ?? candidate.name,
-          media: items.map((item) => item.sourcePath ?? item.name),
-        })),
-      );
-    }
-
-    if (!matches.length) {
+    setStatus("Relinking offline media...");
+    const { relinkMedia } = createMediaRelinker({
+      offlineMedia,
+      mediaItemsById,
+      adoptMediaBlob,
+      log: logClient,
+    });
+    const { outcomes, remainingOffline } = await relinkMedia(candidates);
+    const relinked = outcomes.filter(
+      (outcome) => outcome.status === "linked",
+    ).length;
+    const attempted = outcomes.filter(
+      (outcome) => outcome.status === "linked" || outcome.status === "failed",
+    ).length;
+    if (!attempted) {
       setStatus(
-        `No selected files matched offline media. ${pluralize(offlineItems.length, "media file")} still offline.`,
+        `No selected files matched offline media. ${pluralize(remainingOffline, "media file")} still offline.`,
       );
       return;
     }
 
-    setStatus(
-      `Relinking ${pluralize(matches.length, "offline media file")}...`,
-    );
-    let relinked = 0;
-    for (const { item, candidate } of matches) {
-      try {
-        const blob =
-          candidate.source.kind === "file"
-            ? candidate.source.file
-            : await harness.readMediaBlob({
-                id: item.id,
-                name: candidate.source.ref.name,
-                previewUrl: candidate.source.ref.url,
-                sourcePath: candidate.source.ref.path,
-              });
-        await adoptMediaBlob(item.id, blob);
-        relinked += 1;
-      } catch (error) {
-        logClient("media:locate:error", {
-          mediaId: item.id,
-          message: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
-
-    const ambiguousNote = ambiguous.length
-      ? ` ${pluralize(ambiguous.length, "file")} matched several clips and ${ambiguous.length === 1 ? "was" : "were"} skipped.`
+    const ambiguousCount = outcomes.filter(
+      (outcome) => outcome.status === "ambiguous",
+    ).length;
+    const ambiguousNote = ambiguousCount
+      ? ` ${pluralize(ambiguousCount, "file")} matched several clips and ${ambiguousCount === 1 ? "was" : "were"} skipped.`
       : "";
+    const problems = outcomes.flatMap((outcome) => {
+      if (outcome.status === "failed") {
+        return [`${outcome.item.name}: ${outcome.reason}.`];
+      }
+      return outcome.status === "linked" && outcome.warning
+        ? [`${outcome.item.name}: ${outcome.warning}.`]
+        : [];
+    });
     setStatus(
-      `Relinked ${relinked} of ${pluralize(offlineItems.length, "offline media file")}. ${offlineItems.length - relinked} still offline.${ambiguousNote}`,
+      [
+        `Relinked ${relinked} of ${pluralize(offlineMedia.length, "offline media file")}. ${remainingOffline} still offline.${ambiguousNote}`,
+        ...problems,
+      ].join(" "),
     );
   }
 
