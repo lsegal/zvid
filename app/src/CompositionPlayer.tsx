@@ -7,13 +7,6 @@ import {
   useRef,
 } from "react";
 import {
-  disposeWebGlResources,
-  drawComposition,
-  ensureWebGlResources,
-  type FrameContext,
-  type WebGlResources,
-} from "./composition-draw.ts";
-import {
   type ActiveClip,
   type ArrangementClip,
   computeActiveClips,
@@ -23,6 +16,13 @@ import {
   quartersToSeconds,
   type SessionEffect,
 } from "./composition-active-clips.ts";
+import {
+  disposeWebGlResources,
+  drawComposition,
+  ensureWebGlResources,
+  type FrameContext,
+  type WebGlResources,
+} from "./composition-draw.ts";
 import { getGroupClipProgress } from "./composition-progress.ts";
 import {
   LiveAudioBands,

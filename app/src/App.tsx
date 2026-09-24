@@ -6584,8 +6584,7 @@ function App() {
                     playheadSeconds={playheadSeconds}
                   />
                   {!previewClip ||
-                  (previewMediaState !== "online" &&
-                    !hasOnlinePlayheadClip) ? (
+                  (previewMediaState !== "online" && !hasOnlinePlayheadClip) ? (
                     <div className="preview-placeholder">
                       <div className="preview-placeholder__overlay">
                         <strong>

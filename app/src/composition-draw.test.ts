@@ -191,11 +191,16 @@ function colorize(trackId: string): ChainEffect {
   };
 }
 
-function layers(count: number, effects: ChainEffect[]) {
+function layers(count: number, effects: ChainEffect[], sharedMedia = false) {
   return Array.from({ length: count }, (_, lane) => {
     const layer: CompositeLayer = {
       clip: { startQ: 0 },
-      media: { id: `media-${lane}`, width: 1080, height: 1920 },
+      media: {
+        id: sharedMedia ? "media" : `media-${lane}`,
+        width: 1080,
+        height: 1920,
+      },
+      sourceKey: `media-${lane}`,
       isInBounds: true,
       laneRank: lane,
       clipProgress: 0.5,
@@ -220,6 +225,7 @@ function render(
   count: number,
   effects: ChainEffect[],
   before?: (resources: WebGlResources) => void,
+  sharedMedia = false,
 ) {
   const recording = createRecordingGl();
   const resources = createWebGlResources(recording.gl);
@@ -234,7 +240,7 @@ function render(
   drawComposition(
     resources,
     { width: WIDTH, height: HEIGHT },
-    layers(count, effects),
+    layers(count, effects, sharedMedia),
     mediaRefs,
     resolveEffectChain(effects, "__group_main"),
     { time: 1, audio: { low: 0, high: 0 }, groupClipProgress: 0 },
@@ -288,10 +294,7 @@ function assertCompositeState(
 describe("drawComposition GL state", () => {
   const cases: Array<[string, (count: number) => ChainEffect[]]> = [
     ["no effects", () => []],
-    [
-      "an effect chain on the first layer drawn",
-      (count) => [colorize(`lane-${count - 1}`)],
-    ],
+    ["an effect chain on the first layer drawn", () => [colorize("lane-0")]],
     [
       "effect chains on every layer",
       (count) =>
@@ -320,6 +323,22 @@ describe("drawComposition GL state", () => {
         }
       });
     }
+  }
+
+  for (const sharedMedia of [false, true]) {
+    it(`draws 2 active layers into 2 bands, first lane on top${sharedMedia ? ", from one shared media" : ""}`, () => {
+      const { composites, resources } = render(2, [], undefined, sharedMedia);
+      assert.equal(composites.length, 2, "both layers are drawn");
+      for (const [band, draw] of composites.entries()) {
+        assertCompositeState(draw, resources, band, 2, null);
+        assert.equal(
+          draw.texture,
+          resources.textureMap.get(`media-${band}`) as unknown as Handle,
+          `band ${band} shows lane ${band}`,
+        );
+      }
+      assert.notEqual(composites[0].texture, composites[1].texture);
+    });
   }
 
   it("runs a layer's effects at the size of its band", () => {
