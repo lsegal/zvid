@@ -6,6 +6,19 @@ import {
   useMemo,
   useRef,
 } from "react";
+import {
+  type AudioBands,
+  LiveAudioBands,
+  OfflineAudioBands,
+  SILENT_AUDIO_BANDS,
+} from "./fx-shaders/audio-bands.ts";
+import { EffectChainRenderer } from "./fx-shaders/chain.ts";
+import { linkProgram } from "./fx-shaders/gl.ts";
+import {
+  type EffectChainStep,
+  isChainEffectName,
+  resolveEffectChain,
+} from "./fx-shaders/registry.ts";
 
 type MediaKind = "video" | "audio";
 
@@ -74,7 +87,14 @@ type ActiveClip = {
   mediaTime: number;
   isInBounds: boolean;
   laneRank: number;
+  clipProgress: number;
   visual: VisualState;
+  effectChain: EffectChainStep[];
+};
+
+type FrameContext = {
+  time: number;
+  audio: AudioBands;
 };
 
 type CompositionPlayerProps = {
@@ -129,6 +149,8 @@ type WebGlResources = {
   positionBuffer: WebGLBuffer;
   textureMap: Map<string, WebGLTexture>;
   readyTextureIds: Set<string>;
+  effectChain: EffectChainRenderer;
+  maxTextureSize: number;
   uniforms: {
     position: number;
     texture: WebGLUniformLocation | null;
@@ -150,6 +172,7 @@ const SCRUB_AUDIO_DRIFT_SECONDS = 0.035;
 // Audio keeps playing through a scrub started during playback, so it only
 // re-syncs once it falls this far behind or ahead of the playhead.
 const CONTINUOUS_SCRUB_AUDIO_DRIFT_SECONDS = 0.1;
+const GROUP_TRACK_ID = "__group_main";
 
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.max(minimum, Math.min(maximum, value));
@@ -227,10 +250,13 @@ function resolveVisualState(
   };
 
   for (const effect of effects) {
-    if (
-      effect.enabled === false ||
-      (effect.trackId !== laneId && effect.trackId !== "__group_main")
-    ) {
+    if (effect.trackId !== laneId && effect.trackId !== GROUP_TRACK_ID) {
+      continue;
+    }
+
+    // Shader-chain effects render their own passes, and a bypassed effect
+    // contributes nothing.
+    if (effect.enabled === false || isChainEffectName(effect.effectName)) {
       continue;
     }
 
@@ -412,6 +438,10 @@ function computeActiveClips(
     .map<ActiveClip>(({ clip, media }) => {
       const mediaTime =
         quartersToSeconds(playheadQ, bpm) + clip.sourceOffsetSeconds;
+      const clipElapsedSeconds = quartersToSeconds(
+        playheadQ - clip.startQ,
+        bpm,
+      );
       return {
         clip,
         media,
@@ -423,104 +453,56 @@ function computeActiveClips(
             ? mediaTime >= 0 && mediaTime < media.durationSeconds - epsilon
             : mediaTime >= 0),
         laneRank: lanePriority.get(clip.laneId) ?? -1,
+        clipProgress:
+          clip.durationSeconds > 0
+            ? clamp(clipElapsedSeconds / clip.durationSeconds, 0, 1)
+            : 0,
         visual: resolveVisualState(effects, clip.laneId),
+        effectChain: resolveEffectChain(effects, clip.laneId),
       };
     });
 }
 
-function compileShader(
-  gl: WebGLRenderingContext,
-  type: number,
-  source: string,
-) {
-  const shader = gl.createShader(type);
-  if (!shader) {
-    throw new Error("Failed to allocate WebGL shader.");
+const COMPOSITE_FRAGMENT_SOURCE = `
+  precision mediump float;
+
+  varying vec2 vUv;
+  uniform sampler2D uTexture;
+  uniform float uOpacity;
+  uniform float uBrightness;
+  uniform float uContrast;
+  uniform float uSaturation;
+
+  void main() {
+    vec4 color = texture2D(uTexture, vec2(vUv.x, 1.0 - vUv.y));
+    color.rgb += uBrightness;
+    color.rgb = (color.rgb - 0.5) * uContrast + 0.5;
+    float luma = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
+    color.rgb = mix(vec3(luma), color.rgb, uSaturation);
+    color.a *= uOpacity;
+    gl_FragColor = color;
   }
+`;
 
-  gl.shaderSource(shader, source);
-  gl.compileShader(shader);
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    const message =
-      gl.getShaderInfoLog(shader) ?? "Unknown WebGL shader compile error.";
-    gl.deleteShader(shader);
-    throw new Error(message);
+const COMPOSITE_VERTEX_SOURCE = `
+  attribute vec2 aPosition;
+  varying vec2 vUv;
+
+  uniform vec2 uCoverScale;
+  uniform float uUserScale;
+  uniform vec2 uTranslate;
+  uniform float uRotation;
+
+  void main() {
+    vec2 position = aPosition * uCoverScale * uUserScale;
+    float s = sin(uRotation);
+    float c = cos(uRotation);
+    position = mat2(c, -s, s, c) * position;
+    position += uTranslate;
+    gl_Position = vec4(position, 0.0, 1.0);
+    vUv = aPosition * 0.5 + 0.5;
   }
-
-  return shader;
-}
-
-function createProgram(gl: WebGLRenderingContext) {
-  const vertexShader = compileShader(
-    gl,
-    gl.VERTEX_SHADER,
-    `
-      attribute vec2 aPosition;
-      varying vec2 vUv;
-
-      uniform vec2 uCoverScale;
-      uniform float uUserScale;
-      uniform vec2 uTranslate;
-      uniform float uRotation;
-
-      void main() {
-        vec2 position = aPosition * uCoverScale * uUserScale;
-        float s = sin(uRotation);
-        float c = cos(uRotation);
-        position = mat2(c, -s, s, c) * position;
-        position += uTranslate;
-        gl_Position = vec4(position, 0.0, 1.0);
-        vUv = aPosition * 0.5 + 0.5;
-      }
-    `,
-  );
-
-  const fragmentShader = compileShader(
-    gl,
-    gl.FRAGMENT_SHADER,
-    `
-      precision mediump float;
-
-      varying vec2 vUv;
-      uniform sampler2D uTexture;
-      uniform float uOpacity;
-      uniform float uBrightness;
-      uniform float uContrast;
-      uniform float uSaturation;
-
-      void main() {
-        vec4 color = texture2D(uTexture, vec2(vUv.x, 1.0 - vUv.y));
-        color.rgb += uBrightness;
-        color.rgb = (color.rgb - 0.5) * uContrast + 0.5;
-        float luma = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
-        color.rgb = mix(vec3(luma), color.rgb, uSaturation);
-        color.a *= uOpacity;
-        gl_FragColor = color;
-      }
-    `,
-  );
-
-  const program = gl.createProgram();
-  if (!program) {
-    throw new Error("Failed to allocate WebGL program.");
-  }
-
-  gl.attachShader(program, vertexShader);
-  gl.attachShader(program, fragmentShader);
-  gl.linkProgram(program);
-
-  gl.deleteShader(vertexShader);
-  gl.deleteShader(fragmentShader);
-
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    const message =
-      gl.getProgramInfoLog(program) ?? "Unknown WebGL link error.";
-    gl.deleteProgram(program);
-    throw new Error(message);
-  }
-
-  return program;
-}
+`;
 
 function ensureWebGlResources(canvas: HTMLCanvasElement) {
   const gl = canvas.getContext("webgl", {
@@ -532,7 +514,11 @@ function ensureWebGlResources(canvas: HTMLCanvasElement) {
     throw new Error("WebGL is unavailable on this device.");
   }
 
-  const program = createProgram(gl);
+  const program = linkProgram(
+    gl,
+    COMPOSITE_VERTEX_SOURCE,
+    COMPOSITE_FRAGMENT_SOURCE,
+  );
   const positionBuffer = gl.createBuffer();
   if (!positionBuffer) {
     throw new Error("Failed to allocate WebGL position buffer.");
@@ -572,6 +558,8 @@ function ensureWebGlResources(canvas: HTMLCanvasElement) {
     positionBuffer,
     textureMap: new Map<string, WebGLTexture>(),
     readyTextureIds: new Set<string>(),
+    effectChain: new EffectChainRenderer(gl, positionBuffer),
+    maxTextureSize: gl.getParameter(gl.MAX_TEXTURE_SIZE) as number,
     uniforms,
   } satisfies WebGlResources;
 }
@@ -612,14 +600,71 @@ function getOrCreateTexture(resources: WebGlResources, id: string) {
   return texture;
 }
 
+function disposeWebGlResources(resources: WebGlResources) {
+  const { gl } = resources;
+  resources.effectChain.dispose();
+  for (const texture of resources.textureMap.values()) {
+    gl.deleteTexture(texture);
+  }
+  resources.textureMap.clear();
+  resources.readyTextureIds.clear();
+  gl.deleteBuffer(resources.positionBuffer);
+  gl.deleteProgram(resources.program);
+}
+
+function bindCompositeState(
+  resources: WebGlResources,
+  canvas: HTMLCanvasElement,
+  framebuffer: WebGLFramebuffer | null,
+) {
+  const { gl } = resources;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+  gl.viewport(0, 0, canvas.width, canvas.height);
+  // biome-ignore lint/correctness/useHookAtTopLevel: WebGLRenderingContext.useProgram is not a React hook.
+  gl.useProgram(resources.program);
+  gl.enable(gl.BLEND);
+}
+
+// Effects run at the layer's native size, reduced to what covering the whole
+// canvas needs, so large sources don't pay for pixels that are never shown.
+function resolveEffectSurface(
+  resources: WebGlResources,
+  canvas: HTMLCanvasElement,
+  sourceWidth: number,
+  sourceHeight: number,
+) {
+  const coverScale = Math.min(
+    1,
+    Math.max(canvas.width / sourceWidth, canvas.height / sourceHeight),
+  );
+  const width = Math.round(sourceWidth * coverScale);
+  const height = Math.round(sourceHeight * coverScale);
+  const fit = Math.min(
+    1,
+    resources.maxTextureSize / Math.max(width, height, 1),
+  );
+  return {
+    width: Math.max(1, Math.floor(width * fit)),
+    height: Math.max(1, Math.floor(height * fit)),
+  };
+}
+
 function drawComposition(
   resources: WebGlResources,
   canvas: HTMLCanvasElement,
   activeClips: ActiveClip[],
   mediaRefs: Map<string, HTMLMediaElement>,
+  groupChain: EffectChainStep[],
+  frameContext: FrameContext,
 ) {
-  const { gl, uniforms } = resources;
-  gl.viewport(0, 0, canvas.width, canvas.height);
+  const { gl, uniforms, effectChain } = resources;
+  effectChain.syncSurface(canvas.width, canvas.height);
+  const groupSteps = effectChain.prepare(groupChain);
+  const scene = groupSteps.length
+    ? effectChain.getSceneTarget(canvas.width, canvas.height)
+    : null;
+  const compositeFramebuffer = scene?.framebuffer ?? null;
+  bindCompositeState(resources, canvas, compositeFramebuffer);
   gl.clearColor(0.07, 0.08, 0.11, 1);
   gl.clear(gl.COLOR_BUFFER_BIT);
   gl.enable(gl.SCISSOR_TEST);
@@ -645,7 +690,7 @@ function drawComposition(
       continue;
     }
 
-    const texture = getOrCreateTexture(resources, entry.media.id);
+    let texture = getOrCreateTexture(resources, entry.media.id);
     const hasDecodedFrame =
       mediaElement.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
       (mediaElement.videoWidth > 0 || Boolean(entry.media.width)) &&
@@ -699,6 +744,28 @@ function drawComposition(
         : entry.visual.layoutAnchor === "bottom"
           ? scaledHalfExtents.y - frame.halfHeight
           : 0;
+    const layerSteps = effectChain.prepare(entry.effectChain);
+    if (layerSteps.length) {
+      const surface = resolveEffectSurface(
+        resources,
+        canvas,
+        videoWidth,
+        videoHeight,
+      );
+      texture =
+        effectChain.run(texture, surface.width, surface.height, layerSteps, {
+          time: frameContext.time,
+          clipProgress: entry.clipProgress,
+          resolution: [surface.width, surface.height],
+          audioLow: frameContext.audio.low,
+          audioHigh: frameContext.audio.high,
+        }) ?? texture;
+      bindCompositeState(resources, canvas, compositeFramebuffer);
+      gl.enable(gl.SCISSOR_TEST);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+    }
+
     const translateX =
       frame.centerX + entry.visual.translateX * frame.halfWidth;
     const translateY =
@@ -720,6 +787,23 @@ function drawComposition(
   }
 
   gl.disable(gl.SCISSOR_TEST);
+  if (scene) {
+    effectChain.run(
+      scene.texture,
+      canvas.width,
+      canvas.height,
+      groupSteps,
+      {
+        time: frameContext.time,
+        clipProgress: 0,
+        resolution: [canvas.width, canvas.height],
+        audioLow: frameContext.audio.low,
+        audioHigh: frameContext.audio.high,
+      },
+      "screen",
+    );
+    bindCompositeState(resources, canvas, null);
+  }
 }
 
 function syncCanvasSurface(
@@ -776,6 +860,10 @@ function seekMediaElement(element: HTMLMediaElement, targetSeconds: number) {
   });
 }
 
+// "live" reads the master audio element as it plays (preview). "offline"
+// decodes the master audio and measures it at each rendered frame (export).
+export type AudioAnalysisMode = "live" | "offline";
+
 export class CompositionRenderer {
   readonly canvas: HTMLCanvasElement;
 
@@ -786,12 +874,22 @@ export class CompositionRenderer {
   private videoFrameReadyListener: (() => void) | null = null;
   private state: CompositionRendererState;
   private activeClips: ActiveClip[] = [];
+  private readonly audioAnalysis: AudioAnalysisMode;
+  private liveAudioBands: LiveAudioBands | null = null;
+  private offlineAudioBands: {
+    url: string;
+    bands: Promise<OfflineAudioBands | null>;
+  } | null = null;
 
   constructor(
     state: CompositionRendererState,
-    options: { canvas?: HTMLCanvasElement } = {},
+    options: {
+      canvas?: HTMLCanvasElement;
+      audioAnalysis?: AudioAnalysisMode;
+    } = {},
   ) {
     this.canvas = options.canvas ?? document.createElement("canvas");
+    this.audioAnalysis = options.audioAnalysis ?? "live";
     this.state = state;
     this.update(state);
   }
@@ -803,6 +901,13 @@ export class CompositionRenderer {
 
   destroy() {
     this.clearVideoFrameReadyListeners();
+    this.liveAudioBands?.dispose();
+    this.liveAudioBands = null;
+    this.offlineAudioBands = null;
+    if (this.resources) {
+      disposeWebGlResources(this.resources);
+      this.resources = null;
+    }
 
     for (const element of this.mediaRefs.values()) {
       element.pause();
@@ -822,7 +927,11 @@ export class CompositionRenderer {
   renderPreviewFrame(playheadQ: number, pixelRatio: number) {
     this.ensureResources();
     this.activeClips = this.computeActiveClips(playheadQ);
-    this.draw(this.activeClips, pixelRatio);
+    this.draw(this.activeClips, pixelRatio, {
+      time: quartersToSeconds(playheadQ, this.state.bpm),
+      audio:
+        this.liveAudioBands?.sample(performance.now()) ?? SILENT_AUDIO_BANDS,
+    });
   }
 
   async renderFrameAt(
@@ -861,13 +970,15 @@ export class CompositionRenderer {
       await Promise.all(pendingSeeks.values());
     }
 
+    const audio = await this.sampleAudioBandsAt(playheadSeconds);
+
     if (this.masterAudioElement && this.state.masterAudio?.previewUrl) {
       this.masterAudioElement.pause();
       this.masterAudioElement.currentTime = playheadSeconds;
     }
 
     this.activeClips = nextActiveClips;
-    this.draw(nextActiveClips, pixelRatio);
+    this.draw(nextActiveClips, pixelRatio, { time: playheadSeconds, audio });
   }
 
   syncPlayback(playback: CompositionPlaybackState) {
@@ -922,6 +1033,9 @@ export class CompositionRenderer {
     }
 
     const shouldPlay = playback.isPlaying || playback.isAudibleScrubbing;
+    if (shouldPlay) {
+      this.liveAudioBands?.resume();
+    }
     const driftTolerance = isContinuousScrubAudio
       ? CONTINUOUS_SCRUB_AUDIO_DRIFT_SECONDS
       : playback.isAudibleScrubbing
@@ -975,7 +1089,58 @@ export class CompositionRenderer {
     );
   }
 
-  private draw(activeClips: ActiveClip[], pixelRatio: number) {
+  private usesAudioBands() {
+    return this.state.effects.some(
+      (effect) =>
+        effect.enabled !== false && isChainEffectName(effect.effectName),
+    );
+  }
+
+  private async sampleAudioBandsAt(playheadSeconds: number) {
+    if (this.audioAnalysis === "live") {
+      return (
+        this.liveAudioBands?.sample(performance.now()) ?? SILENT_AUDIO_BANDS
+      );
+    }
+
+    const url = this.state.masterAudio?.previewUrl;
+    if (!url || !this.usesAudioBands()) {
+      return SILENT_AUDIO_BANDS;
+    }
+
+    if (this.offlineAudioBands?.url !== url) {
+      this.offlineAudioBands = {
+        url,
+        bands: OfflineAudioBands.decode(url).catch((error) => {
+          console.warn("Export renders effects without audio bands.", error);
+          return null;
+        }),
+      };
+    }
+
+    const bands = await this.offlineAudioBands.bands;
+    return bands?.at(playheadSeconds) ?? SILENT_AUDIO_BANDS;
+  }
+
+  private syncLiveAudioBands() {
+    if (this.audioAnalysis !== "live") {
+      return;
+    }
+
+    if (this.masterAudioElement && this.usesAudioBands()) {
+      this.liveAudioBands ??= new LiveAudioBands();
+    }
+    // Once routed through Web Audio the element must stay attached, or it
+    // would go silent, so the analyser follows the element even after the
+    // effects that needed it are removed.
+    this.liveAudioBands?.attach(this.masterAudioElement);
+  }
+
+  private draw(
+    activeClips: ActiveClip[],
+    pixelRatio: number,
+    frameContext: FrameContext,
+  ) {
     this.ensureResources();
     syncCanvasSurface(
       this.canvas,
@@ -988,6 +1153,8 @@ export class CompositionRenderer {
       this.canvas,
       activeClips,
       this.mediaRefs,
+      resolveEffectChain(this.state.effects, GROUP_TRACK_ID),
+      frameContext,
     );
   }
 
@@ -1042,6 +1209,7 @@ export class CompositionRenderer {
       this.masterAudioElement = null;
     }
 
+    this.syncLiveAudioBands();
     this.refreshVideoFrameReadyListeners();
   }
 
