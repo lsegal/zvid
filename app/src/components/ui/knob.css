@@ -116,6 +116,10 @@
   user-select: text;
 }
 
+.knob__input:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--knob-accent) 35%, transparent);
+}
+
 .knob--disabled {
   opacity: 0.45;
 }

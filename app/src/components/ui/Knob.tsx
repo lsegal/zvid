@@ -54,7 +54,8 @@ function stepDecimals(step: number) {
 function quantize(value: number, min: number, max: number, step?: number) {
   const clamped = clamp(value, min, max);
   if (!step || step <= 0) {
-    return clamped;
+    // Trim floating-point noise from accumulated drag deltas.
+    return Number(clamped.toPrecision(12));
   }
   const snapped = min + Math.round((clamped - min) / step) * step;
   return clamp(Number(snapped.toFixed(stepDecimals(step))), min, max);
@@ -98,6 +99,9 @@ export function Knob({
   const range = max - min;
   const coarseStep = step ?? range / 100;
   const fineStep = step ?? range / 1000;
+  const pageStep = step
+    ? Math.max(step, Math.round(range / 10 / step) * step)
+    : range / 10;
 
   // The live value used by gestures, so rapid events do not wait for the
   // parent to re-render with the new `value` prop.
@@ -111,6 +115,8 @@ export function Knob({
   } | null>(null);
   const [dragging, setDragging] = useState(false);
   const [editing, setEditing] = useState(false);
+  // Guards against the input's blur re-applying a value after Enter/Escape.
+  const editingRef = useRef(false);
   const [draft, setDraft] = useState("");
 
   if (!dragRef.current && !pendingCommitRef.current) {
@@ -251,10 +257,10 @@ export function Knob({
         next = currentRef.current - increment;
         break;
       case "PageUp":
-        next = currentRef.current + coarseStep * 10;
+        next = currentRef.current + pageStep;
         break;
       case "PageDown":
-        next = currentRef.current - coarseStep * 10;
+        next = currentRef.current - pageStep;
         break;
       case "Home":
         next = min;
@@ -275,13 +281,15 @@ export function Knob({
     }
     flushCommit();
     setDraft(String(currentRef.current));
+    editingRef.current = true;
     setEditing(true);
   };
 
   const closeEditor = (apply: boolean) => {
-    if (!editing) {
+    if (!editingRef.current) {
       return;
     }
+    editingRef.current = false;
     setEditing(false);
     const parsed = Number.parseFloat(draft);
     if (apply && Number.isFinite(parsed)) {
