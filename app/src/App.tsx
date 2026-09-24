@@ -787,29 +787,6 @@ function buildSelection(
   };
 }
 
-function buildProjectWaveform(
-  clips: ArrangementClip[],
-  totalQuarters: number,
-  bpm: number,
-  points: number,
-) {
-  return Array.from({ length: points }, (_, index) => {
-    const quarter = (index / Math.max(1, points - 1)) * totalQuarters;
-    const amplitude = clips.reduce((sum, clip) => {
-      const start = clip.startQ;
-      const end = start + secondsToQuarters(clip.durationSeconds, bpm);
-      if (quarter < start || quarter > end) {
-        return sum;
-      }
-
-      const phase = (quarter - start) / Math.max(end - start, 0.25);
-      return sum + Math.abs(Math.sin(phase * Math.PI * 4)) * 0.35;
-    }, 0);
-
-    return Math.min(1, 0.08 + amplitude);
-  });
-}
-
 function getTimelineContentEndQ(
   clips: ArrangementClip[],
   sourceSpans: SourceSpan[],
@@ -2180,12 +2157,14 @@ function App() {
   );
   const fxDevices = useMemo(
     () =>
-      mapSessionEffectsToDevices(
-        effects,
-        selectedClip?.laneId,
-        selectedMedia?.kind,
-      ),
-    [effects, selectedClip?.laneId, selectedMedia?.kind],
+      selectedClip
+        ? mapSessionEffectsToDevices(
+            effects,
+            selectedClip.laneId,
+            selectedMedia?.kind,
+          )
+        : [],
+    [effects, selectedClip, selectedMedia?.kind],
   );
   const selectedFx = useMemo(
     () =>
@@ -2197,21 +2176,16 @@ function App() {
     ? mediaItemsById.get(masterAudioId)
     : undefined;
   const canCreateLayer = lanes.length < MAX_LAYERS;
-  const projectWaveform = useMemo(
-    () =>
-      masterAudio?.waveform.length
-        ? masterAudio.waveform
-        : buildProjectWaveform(timelineClips, totalQuarters, bpm, 264),
-    [bpm, masterAudio, timelineClips, totalQuarters],
-  );
+  // Only real master audio analysis is drawn; an empty lane is shown otherwise.
   const projectWaveformBars = useMemo(() => {
-    const lastIndex = Math.max(1, projectWaveform.length - 1);
-    return projectWaveform.map((value, index) => ({
+    const waveform = masterAudio?.waveform ?? [];
+    const lastIndex = Math.max(1, waveform.length - 1);
+    return waveform.map((value, index) => ({
       id: `wave-${((index / lastIndex) * 100).toFixed(4)}-${value.toFixed(4)}`,
       leftPercent: (index / lastIndex) * 100,
       heightPx: 16 + value * 42,
     }));
-  }, [projectWaveform]);
+  }, [masterAudio]);
   const timelineContentEndQ = useMemo(
     () =>
       getTimelineContentEndQ(
@@ -2243,6 +2217,18 @@ function App() {
     }
     return offlineKeys.size;
   }, [mediaItemsById, sourceSpans, timelineClips]);
+  const sessionMediaStatus = useMemo(() => {
+    if (!mediaItems.length) {
+      return "No media";
+    }
+
+    const pendingCount = mediaItems.filter(
+      (item) => item.availability !== "ready",
+    ).length;
+    return pendingCount
+      ? `${pluralize(pendingCount, "media file")} not ready`
+      : "Media linked";
+  }, [mediaItems]);
   const clipsByLane = useMemo(() => {
     const next = new Map<string, ArrangementClip[]>();
     for (const clip of timelineClips) {
@@ -2256,6 +2242,23 @@ function App() {
     }
     return next;
   }, [timelineClips]);
+  const laneStatusById = useMemo(() => {
+    const next = new Map<string, { effectCount: number; summary: string }>();
+    for (const lane of lanes) {
+      const clipCount = clipsByLane.get(lane.id)?.length ?? 0;
+      const effectCount = effects.filter(
+        (effect) => effect.trackId === lane.id,
+      ).length;
+      const summary = [
+        clipCount ? pluralize(clipCount, "clip") : "",
+        effectCount ? pluralize(effectCount, "effect") : "",
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      next.set(lane.id, { effectCount, summary: summary || "Empty" });
+    }
+    return next;
+  }, [clipsByLane, effects, lanes]);
   const sourceSpansByTrack = useMemo(() => {
     const next = new Map<string, SourceSpan[]>();
     for (const clip of sourceSpans) {
@@ -5567,7 +5570,7 @@ function App() {
                             {pluralize(offlineCount, "offline media file")}
                           </button>
                         ) : (
-                          <small>Media linked</small>
+                          <small>{sessionMediaStatus}</small>
                         )}
                       </div>
                     </div>
@@ -5638,9 +5641,12 @@ function App() {
                         </div>
                         <div>
                           <span>{lane.name}</span>
-                          <small>FX rack armed</small>
+                          <small>{laneStatusById.get(lane.id)?.summary}</small>
                         </div>
-                        <button className="track-label__fx" type="button">
+                        <button
+                          className={`track-label__fx ${laneStatusById.get(lane.id)?.effectCount ? "" : "track-label__fx--inactive"}`}
+                          type="button"
+                        >
                           fx
                         </button>
                       </div>
@@ -5825,9 +5831,7 @@ function App() {
                       <div>
                         <span>Audio</span>
                         <small>
-                          {masterAudio
-                            ? masterAudio.name
-                            : "Master bus waveform"}
+                          {masterAudio ? masterAudio.name : "No master audio"}
                         </small>
                       </div>
                     </div>
@@ -5835,6 +5839,11 @@ function App() {
                       className="track-row__content track-row__content--waveform"
                       style={gridStyle}
                     >
+                      {masterAudio ? null : (
+                        <div className="waveform__empty">
+                          No master audio track in this session
+                        </div>
+                      )}
                       <div className="waveform">
                         {projectWaveformBars.map((bar) => (
                           <span
@@ -6325,9 +6334,11 @@ function App() {
               <div className="fx-rack__header">
                 <strong>FX Layer Stack</strong>
                 <span>
-                  {effects.length
-                    ? "Imported from the .lvp session"
-                    : "Fallback rack until session effects are available"}
+                  {!selectedClip
+                    ? "Select a clip to see its effects"
+                    : effects.length
+                      ? "Imported from the .lvp session"
+                      : "Fallback rack until session effects are available"}
                 </span>
               </div>
 
@@ -6354,12 +6365,14 @@ function App() {
 
             <div className="fx-inspector">
               <div className="fx-inspector__header">
-                <strong>{selectedFx?.name ?? "No device selected"}</strong>
-                <span>
-                  {selectedTrack?.name ??
-                    selectedClip?.label ??
-                    "No clip selected"}
-                </span>
+                <strong>
+                  {selectedClip
+                    ? (selectedFx?.name ?? "No device selected")
+                    : "No clip selected"}
+                </strong>
+                {selectedClip ? (
+                  <span>{selectedTrack?.name ?? selectedClip.label}</span>
+                ) : null}
               </div>
 
               {selectedFx ? (
@@ -6399,11 +6412,7 @@ function App() {
                 </div>
               ) : (
                 <div className="inspector-note">
-                  <strong>No clip selected</strong>
-                  <p>
-                    Open a session or import media to populate the rack and
-                    inspector.
-                  </p>
+                  <strong>Select a clip to edit its layout</strong>
                 </div>
               )}
             </div>

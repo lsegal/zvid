@@ -835,6 +835,11 @@
   font-size: 0.72rem;
 }
 
+.track-label__fx--inactive {
+  color: var(--muted);
+  opacity: 0.45;
+}
+
 .track-row__content {
   min-height: 72px;
   border-bottom: 1px solid var(--line);
@@ -886,6 +891,17 @@
 .waveform {
   position: absolute;
   inset: 0;
+}
+
+.waveform__empty {
+  position: absolute;
+  top: 50%;
+  left: 16px;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: 0.78rem;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 .waveform__bar {
