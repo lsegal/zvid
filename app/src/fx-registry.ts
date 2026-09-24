@@ -47,19 +47,15 @@ export function formatPercent(value: number) {
   return `${Math.round(value * 100)}%`;
 }
 
-export function formatSignedPercent(value: number) {
-  const percent = Math.round(value * 100);
-  return `${percent > 0 ? "+" : ""}${percent}%`;
-}
-
 // Hue offsets are stored as -1..1 and map onto a -360°..360° rotation.
 export function formatHueDegrees(value: number) {
   const degrees = Math.round(value * 360);
   return `${degrees > 0 ? "+" : ""}${degrees}°`;
 }
 
-export function formatInteger(value: number) {
-  return `${Math.round(value)}`;
+// Zoom & Pan zoom is stored as 0..1 and maps onto a 1x..4x magnification.
+export function formatZoom(value: number) {
+  return `${(1 + 3 * value).toFixed(2)}×`;
 }
 
 export function formatRawNumber(value: number) {
@@ -87,32 +83,7 @@ function zoomParameter(
   key: string,
   label: string,
 ): FxNumberParameterDefinition {
-  return {
-    kind: "number",
-    key,
-    label,
-    min: 0.1,
-    max: 4,
-    defaultValue: 1,
-    step: 0.01,
-    format: formatPercent,
-  };
-}
-
-function offsetParameter(
-  key: string,
-  label: string,
-): FxNumberParameterDefinition {
-  return {
-    kind: "number",
-    key,
-    label,
-    min: -1,
-    max: 1,
-    defaultValue: 0,
-    step: 0.01,
-    format: formatSignedPercent,
-  };
+  return { ...unitParameter(key, label, 0), format: formatZoom };
 }
 
 const DEFINITIONS: FxEffectDefinition[] = [
@@ -124,11 +95,11 @@ const DEFINITIONS: FxEffectDefinition[] = [
     known: true,
     parameters: [
       zoomParameter("_Start_Zoom", "Start Zoom"),
-      offsetParameter("_Start_X", "Start X"),
-      offsetParameter("_Start_Y", "Start Y"),
+      unitParameter("_Start_X", "Start X", 0.5),
+      unitParameter("_Start_Y", "Start Y", 0.5),
       zoomParameter("_End_Zoom", "End Zoom"),
-      offsetParameter("_End_X", "End X"),
-      offsetParameter("_End_Y", "End Y"),
+      unitParameter("_End_X", "End X", 0.5),
+      unitParameter("_End_Y", "End Y", 0.5),
       {
         ...unitParameter("_LAYERS_SelFrac", "Selection Fraction", 0),
         hidden: true,
@@ -162,16 +133,7 @@ const DEFINITIONS: FxEffectDefinition[] = [
     accent: "#7ee0a4",
     known: true,
     parameters: [
-      {
-        kind: "number",
-        key: "_NumPixels",
-        label: "Pixel Size",
-        min: 1,
-        max: 256,
-        defaultValue: 32,
-        step: 1,
-        format: formatInteger,
-      },
+      unitParameter("_NumPixels", "Pixel Size", 0.5),
       unitParameter("_LowIntensity", "Low", 0),
       unitParameter("_HighIntensity", "High", 1),
     ],
