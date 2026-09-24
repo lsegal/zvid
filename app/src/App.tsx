@@ -93,10 +93,7 @@ import {
 } from "./project-history";
 import { listOfflineMedia, matchOfflineMedia } from "./relink";
 import type { LvpSession, SessionOpenResponse } from "./session";
-import {
-  formatMusicalPosition,
-  formatTimecode,
-} from "./timeline-format.ts";
+import { formatMusicalPosition, formatTimecode } from "./timeline-format.ts";
 import { loadWaveformPeaks } from "./waveform-loader";
 import type { WaveformPeaks } from "./waveform-peaks";
 
