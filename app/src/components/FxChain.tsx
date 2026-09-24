@@ -270,7 +270,7 @@ export function FxChain({
     setAnnouncement(`Added ${definition.displayName}`);
   }
 
-  // Midpoints of the panels in one stack, in stack order.
+  // Panels of one stack, in stack order.
   function getStackPanels(group: FxDeviceGroup) {
     return Array.from(
       scrollRef.current?.querySelectorAll<HTMLElement>(
