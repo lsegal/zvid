@@ -75,9 +75,9 @@ export async function maybeCreateTauriHarness(
           name: basename(selected),
         };
       },
-      async pickMedia() {
+      async pickMedia(options) {
         const selected = await open({
-          multiple: true,
+          multiple: options?.multiple ?? true,
           directory: false,
           filters: [
             {
