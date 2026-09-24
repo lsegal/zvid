@@ -9,13 +9,13 @@ import {
   CompositionRenderer,
   type CompositionRendererState,
 } from "./CompositionPlayer";
-import { type LayoutAnchor, resolveFrameBounds } from "./composition-layout";
+import { type LayoutAnchor, resolveFrameBounds } from "./composition-layout.ts";
 
 type MediaItem = CompositionRendererState["mediaItems"][number];
 type SessionEffect = CompositionRendererState["effects"][number];
 type Rgb = [number, number, number];
 type Orientation = "portrait" | "landscape";
-type EffectMode = "none" | "first-layer" | "all-layers" | "global";
+type EffectMode = "none" | "first-layer" | "all-layers" | "global" | "zoom";
 
 // Each source is split into horizontal thirds so the sampled third shows
 // which part of the source the Layout anchor put in the band. The primary
@@ -42,11 +42,19 @@ const CANVAS_WIDTH = 360;
 const CANVAS_HEIGHT = 640;
 const BPM = 120;
 const TOLERANCE = 48;
+// Zoom & Pan used by the "zoom" cases: 2.5x, pinned to the bottom edge.
+const ZOOM = 0.5;
+const ZOOM_SCALE = 1 / (1 + 3 * ZOOM);
+const ZOOM_Y = 1;
 
-const status = document.querySelector<HTMLElement>("#status");
-const runButton = document.querySelector<HTMLButtonElement>("#run");
-if (!status || !runButton) throw new Error("Missing smoke test elements.");
-const statusElement = status;
+function required<T extends Element>(selector: string): T {
+  const element = document.querySelector<T>(selector);
+  if (!element) throw new Error(`Missing smoke test element: ${selector}`);
+  return element;
+}
+
+const statusElement = required<HTMLElement>("#status");
+const runButton = required<HTMLButtonElement>("#run");
 
 async function createSourceVideo(layer: number, orientation: Orientation) {
   const canvas = document.createElement("canvas");
@@ -93,6 +101,26 @@ function chainEffect(trackId: string): SessionEffect {
       { key: "_HueOffset", value: "0", numericValue: 0 },
       { key: "_Reactivity", value: "0", numericValue: 0 },
     ],
+  };
+}
+
+function zoomEffect(trackId: string): SessionEffect {
+  const parameters = ["_Start", "_End"].flatMap((prefix) =>
+    [
+      ["Zoom", ZOOM],
+      ["X", 0.5],
+      ["Y", ZOOM_Y],
+    ].map(([key, value]) => ({
+      key: `${prefix}_${key}`,
+      value: String(value),
+      numericValue: value as number,
+    })),
+  );
+  return {
+    id: `zoom-${trackId}`,
+    trackId,
+    effectName: "ZoomAndPan",
+    parameters,
   };
 }
 
@@ -149,6 +177,8 @@ function buildState(
     effects.push(...lanes.map((lane) => chainEffect(lane.id)));
   } else if (effectMode === "global") {
     effects.push(chainEffect("__group_main"));
+  } else if (effectMode === "zoom") {
+    effects.push(...lanes.map((lane) => zoomEffect(lane.id)));
   }
 
   return {
@@ -162,16 +192,27 @@ function buildState(
   };
 }
 
+// Which third of the source shows at the centre of a band. The source covers
+// its band, so a source relatively taller than the band shows only a slice,
+// placed by the anchor. Layer effects work on that slice: Zoom & Pan picks
+// its window inside what the band shows, not inside the whole source.
 function expectedThird(
   anchor: LayoutAnchor,
-  orientation: Orientation,
+  source: { width: number; height: number },
   layerCount: number,
+  effectMode: EffectMode,
 ) {
-  // A portrait source fills a portrait canvas exactly, and a landscape
-  // source is at least as wide as any band, so only portrait sources in
-  // shared bands overflow vertically and follow the anchor.
-  if (orientation === "landscape" || layerCount === 1) return 1;
-  return anchor === "top" ? 0 : anchor === "bottom" ? 2 : 1;
+  const bandAspect = (CANVAS_WIDTH / CANVAS_HEIGHT) * layerCount;
+  const visible = Math.min(1, source.width / source.height / bandAspect);
+  const start =
+    anchor === "top"
+      ? 0
+      : anchor === "bottom"
+        ? 1 - visible
+        : (1 - visible) / 2;
+  const withinBand =
+    effectMode === "zoom" ? ZOOM_Y * (1 - ZOOM_SCALE) + ZOOM_SCALE / 2 : 0.5;
+  return Math.min(2, Math.floor((start + visible * withinBand) * 3));
 }
 
 function readPixel(gl: WebGLRenderingContext, x: number, yFromTop: number) {
@@ -202,12 +243,13 @@ function bandsHaveContent(gl: WebGLRenderingContext, count: number) {
 }
 
 function matches(actual: Rgb, expected: Rgb) {
-  return actual.every((value, index) => Math.abs(value - expected[index]) <= TOLERANCE);
+  return actual.every(
+    (value, index) => Math.abs(value - expected[index]) <= TOLERANCE,
+  );
 }
 
 async function runCase(
   sources: Array<{ url: string; width: number; height: number }>,
-  orientation: Orientation,
   anchor: LayoutAnchor,
   effectMode: EffectMode,
 ) {
@@ -227,13 +269,15 @@ async function runCase(
       if (bandsHaveContent(gl, sources.length)) break;
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
-    const third = expectedThird(anchor, orientation, sources.length);
+    const third = expectedThird(anchor, sources[0], sources.length, effectMode);
     for (let band = 0; band < sources.length; band++) {
       // Band 0 is the top band and holds the highest lane.
       const layer = sources.length - 1 - band;
       const bounds = resolveFrameBounds(band, sources.length, 1);
-      const top = ((1 - (bounds.centerY + bounds.halfHeight)) / 2) * CANVAS_HEIGHT;
-      const bottom = ((1 - (bounds.centerY - bounds.halfHeight)) / 2) * CANVAS_HEIGHT;
+      const top =
+        ((1 - (bounds.centerY + bounds.halfHeight)) / 2) * CANVAS_HEIGHT;
+      const bottom =
+        ((1 - (bounds.centerY - bounds.halfHeight)) / 2) * CANVAS_HEIGHT;
       const center = readPixel(gl, CANVAS_WIDTH / 2, (top + bottom) / 2);
       if (!matches(center, LAYER_COLORS[layer][third])) {
         failures.push(
@@ -247,7 +291,8 @@ async function runCase(
         const pixel = readPixel(gl, CANVAS_WIDTH / 2, y);
         const primary = LAYER_COLORS[layer][0];
         const isLayer = primary.every(
-          (value, index) => value === 0 || Math.abs(pixel[index] - value) <= TOLERANCE,
+          (value, index) =>
+            value === 0 || Math.abs(pixel[index] - value) <= TOLERANCE,
         );
         if (!isLayer) {
           failures.push(
@@ -283,19 +328,22 @@ async function run() {
             "first-layer",
             "all-layers",
             "global",
+            "zoom",
           ] as const) {
             total++;
             const name = `${count} layer(s), ${orientation}, ${anchor}, effects: ${effectMode}`;
             statusElement.textContent = `Rendering ${name}...`;
             const failures = await runCase(
               sources.slice(0, count),
-              orientation,
               anchor,
               effectMode,
             );
             if (failures.length) {
               failed++;
-              lines.push(`FAIL ${name}`, ...failures.map((line) => `  ${line}`));
+              lines.push(
+                `FAIL ${name}`,
+                ...failures.map((line) => `  ${line}`),
+              );
             } else {
               lines.push(`ok   ${name}`);
             }
@@ -305,7 +353,9 @@ async function run() {
       for (const source of sources) URL.revokeObjectURL(source.url);
     }
     lines.unshift(
-      failed ? `FAILED ${failed}/${total} cases` : `PASSED ${total}/${total} cases`,
+      failed
+        ? `FAILED ${failed}/${total} cases`
+        : `PASSED ${total}/${total} cases`,
     );
   } catch (error) {
     lines.unshift(`Error: ${error}`);
