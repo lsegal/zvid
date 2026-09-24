@@ -42,10 +42,9 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
-import { getHarness, type MediaSelection, type SaveTarget } from "./harness";
+import { getHarness, type SaveTarget } from "./harness";
 import {
   buildFallbackMediaItem,
-  createMediaId,
   type MediaAvailability,
   type MediaItem,
   type MediaKind,
@@ -53,20 +52,9 @@ import {
   toShareableMediaItem,
 } from "./media";
 import { cacheMediaBlob, getCachedMediaBlob } from "./media-cache";
-import {
-  forcedRelinkWarning,
-  listOfflineMedia,
-  matchOfflineMedia,
-  type RelinkCandidate,
-  type RelinkOutcome,
-  type RelinkReport,
-  relinkCandidateFile,
-} from "./relink";
-import type {
-  LvpSession,
-  ServerMediaRef,
-  SessionOpenResponse,
-} from "./session";
+import { createMediaRelinker, pickRelinkCandidates } from "./media-relink";
+import { listOfflineMedia } from "./relink";
+import type { LvpSession, SessionOpenResponse } from "./session";
 
 type TimelineMode = "musical" | "timecode";
 type SnapMode = "bar" | "beat" | "half" | "quarter";
@@ -875,50 +863,6 @@ function describeMediaAvailability(
     default:
       return "offline";
   }
-}
-
-type RelinkSource =
-  | { kind: "file"; file: File }
-  | { kind: "ref"; ref: ServerMediaRef };
-
-function fileRelinkCandidate(
-  file: File,
-  path = file.webkitRelativePath || file.name,
-): RelinkCandidate<RelinkSource> {
-  return {
-    name: file.name,
-    path,
-    id: createMediaId(file),
-    source: { kind: "file", file },
-  };
-}
-
-function refRelinkCandidate(
-  ref: ServerMediaRef,
-): RelinkCandidate<RelinkSource> {
-  return { name: ref.name, path: ref.path, source: { kind: "ref", ref } };
-}
-
-function relinkCandidatesFromSelection(selection: MediaSelection) {
-  return selection.kind === "files"
-    ? selection.files.map((file) => fileRelinkCandidate(file))
-    : selection.refs.map(refRelinkCandidate);
-}
-
-/** Asks the user for replacement media; null when the picker is cancelled. */
-async function pickRelinkCandidates(mode: "files" | "folder") {
-  const harness = getHarness();
-  if (mode === "folder" && harness.pickMediaFolder) {
-    const entries = await harness.pickMediaFolder();
-    return entries
-      ? entries.map(({ file, path }) =>
-          fileRelinkCandidate(file, file.webkitRelativePath || path),
-        )
-      : null;
-  }
-
-  const selection = await harness.pickMedia();
-  return selection ? relinkCandidatesFromSelection(selection) : null;
 }
 
 function mergeMediaItemsById(current: MediaItem[], incoming: MediaItem[]) {
@@ -4673,121 +4617,6 @@ function App() {
     }
   }
 
-  async function linkRelinkCandidate(
-    item: MediaItem,
-    candidate: RelinkCandidate<RelinkSource>,
-  ): Promise<RelinkOutcome> {
-    const file = relinkCandidateFile(candidate);
-    try {
-      const blob =
-        candidate.source.kind === "file"
-          ? candidate.source.file
-          : await getHarness().readMediaBlob({
-              id: item.id,
-              name: candidate.source.ref.name,
-              previewUrl: candidate.source.ref.url,
-              sourcePath: candidate.source.ref.path,
-            });
-      await adoptMediaBlob(item.id, blob);
-      return { status: "linked", item, file };
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-      logClient("media:locate:error", { mediaId: item.id, message: reason });
-      return { status: "failed", item, file, reason };
-    }
-  }
-
-  /**
-   * Matches picked files against offline media (optionally only `targets`)
-   * and links every match, reporting one outcome per picked file.
-   */
-  async function relinkMedia(
-    candidates: RelinkCandidate<RelinkSource>[],
-    { targets }: { targets?: string[] } = {},
-  ): Promise<RelinkReport> {
-    const targetIds = targets ? new Set(targets) : undefined;
-    const offlineItems = offlineMedia
-      .map((entry) => entry.item)
-      .filter((item) => !targetIds || targetIds.has(item.id));
-    const { matches, unmatched, ambiguous } = matchOfflineMedia(
-      offlineItems,
-      candidates,
-    );
-    if (unmatched.length) {
-      logClient("media:locate:unmatched", {
-        files: unmatched.map(relinkCandidateFile),
-      });
-    }
-    if (ambiguous.length) {
-      logClient(
-        "media:locate:ambiguous",
-        ambiguous.map(({ candidate, items }) => ({
-          file: relinkCandidateFile(candidate),
-          media: items.map((item) => item.sourcePath ?? item.name),
-        })),
-      );
-    }
-
-    const outcomes = new Map<RelinkCandidate<RelinkSource>, RelinkOutcome>();
-    for (const candidate of unmatched) {
-      outcomes.set(candidate, {
-        status: "unmatched",
-        file: relinkCandidateFile(candidate),
-      });
-    }
-    for (const { candidate, items } of ambiguous) {
-      outcomes.set(candidate, {
-        status: "ambiguous",
-        file: relinkCandidateFile(candidate),
-        items,
-      });
-    }
-    for (const { item, candidate } of matches) {
-      outcomes.set(candidate, await linkRelinkCandidate(item, candidate));
-    }
-
-    const ordered = candidates.flatMap((candidate) => {
-      const outcome = outcomes.get(candidate);
-      return outcome ? [outcome] : [];
-    });
-    const linked = ordered.filter(
-      (outcome) => outcome.status === "linked",
-    ).length;
-    return {
-      outcomes: ordered,
-      remainingOffline: offlineItems.length - linked,
-    };
-  }
-
-  /** Links one picked file to one media item without matching by name. */
-  async function relinkMediaItem(
-    itemId: string,
-    candidate: RelinkCandidate<RelinkSource>,
-  ): Promise<RelinkReport> {
-    const item = mediaItemsById.get(itemId);
-    if (!item) {
-      return {
-        outcomes: [
-          { status: "unmatched", file: relinkCandidateFile(candidate) },
-        ],
-        remainingOffline: offlineMedia.length,
-      };
-    }
-
-    const outcome = await linkRelinkCandidate(item, candidate);
-    const warning =
-      outcome.status === "linked"
-        ? forcedRelinkWarning(item, candidate)
-        : undefined;
-    const wasOffline = offlineMedia.some((entry) => entry.item.id === itemId);
-    return {
-      outcomes: [warning ? { ...outcome, warning } : outcome],
-      remainingOffline:
-        offlineMedia.length -
-        (wasOffline && outcome.status === "linked" ? 1 : 0),
-    };
-  }
-
   async function handleLocateMedia(mode: "files" | "folder" = "files") {
     if (!offlineMedia.length) {
       setStatus("All media is linked.");
@@ -4800,6 +4629,12 @@ function App() {
     }
 
     setStatus("Relinking offline media...");
+    const { relinkMedia } = createMediaRelinker({
+      offlineMedia,
+      mediaItemsById,
+      adoptMediaBlob,
+      log: logClient,
+    });
     const { outcomes, remainingOffline } = await relinkMedia(candidates);
     const relinked = outcomes.filter(
       (outcome) => outcome.status === "linked",

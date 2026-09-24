@@ -51,6 +51,12 @@ function displayBasename(rawPath: string) {
   return rawPath.split(/[/\\]/).filter(Boolean).pop() ?? rawPath;
 }
 
+export function mediaDisplayName(item: MediaItem) {
+  return (
+    item.name || (item.sourcePath ? displayBasename(item.sourcePath) : item.id)
+  );
+}
+
 export function relinkCandidateFile<T>(candidate: RelinkCandidate<T>) {
   return candidate.path ?? candidate.name;
 }
@@ -75,9 +81,7 @@ export function listOfflineMedia(
     .filter((item) => item.availability !== "ready")
     .map((item) => ({
       item,
-      displayName:
-        item.name ||
-        (item.sourcePath ? displayBasename(item.sourcePath) : item.id),
+      displayName: mediaDisplayName(item),
       sourcePath: item.sourcePath,
       clipCount: clipCounts.get(item.id) ?? 0,
       state: item.availability === "hydrating" ? "hydrating" : "offline",
@@ -95,7 +99,7 @@ export function forcedRelinkWarning<T>(
   const name = basename(candidate.name);
   return matchesName(item, name)
     ? undefined
-    : `${displayBasename(candidate.name)} does not match the original file name ${item.name}.`;
+    : `${displayBasename(candidate.name)} does not match the original file name ${mediaDisplayName(item)}.`;
 }
 
 function matchingSuffixLength(left: string, right: string) {
