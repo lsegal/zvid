@@ -260,6 +260,17 @@ type LocalMediaOverride = {
   thumbnailUrl?: string;
 };
 
+// Tracks the offline refs of a just-opened session until cache hydration
+// settles, so the status bar can report the real outcome.
+type SessionMediaCheck = {
+  sessionName: string;
+  pendingIds: Set<string>;
+  restored: number;
+  offline: number;
+  analyzingFromDisk: boolean;
+  hydratedFromDisk: boolean;
+};
+
 type ProjectHistoryEntry = {
   snapshot: ProjectState;
   label: string;
@@ -495,6 +506,30 @@ function clamp(value: number, minimum: number, maximum: number) {
 
 function pluralize(count: number, singular: string, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function formatSessionMediaCheckStatus(check: SessionMediaCheck) {
+  const { sessionName, restored, offline, hydratedFromDisk } = check;
+  if (!restored && !offline) {
+    return hydratedFromDisk
+      ? `Loaded ${sessionName} with local media hydrated from disk.`
+      : `Loaded ${sessionName}.`;
+  }
+
+  if (!restored && !hydratedFromDisk) {
+    return `Loaded ${sessionName}. All referenced media is currently offline.`;
+  }
+
+  const details: string[] = [];
+  if (restored) {
+    details.push(`Restored ${pluralize(restored, "media file")} from cache.`);
+  }
+  if (offline) {
+    details.push(
+      `${offline === 1 ? "1 clip is" : `${offline} clips are`} still offline.`,
+    );
+  }
+  return `Loaded ${sessionName}. ${details.join(" ")}`;
 }
 
 function isEditableEventTarget(target: EventTarget | null) {
@@ -1864,6 +1899,7 @@ function App() {
   const localMediaOverridesRef = useRef<Record<string, LocalMediaOverride>>({});
   const mediaObjectUrlsRef = useRef(new Map<string, string>());
   const mediaHydrationInFlightRef = useRef(new Set<string>());
+  const sessionMediaCheckRef = useRef<SessionMediaCheck | null>(null);
   const sourceThumbnailUrlsRef = useRef<Record<string, string>>({});
   const lastCollaborationCursorRef = useRef("");
   const sourceTrackDragPreviewRef = useRef<SourceTrackDragPreview | null>(null);
@@ -3231,6 +3267,33 @@ function App() {
     });
   }, [projectMediaItems]);
 
+  const reportSessionMediaCheck = useCallback(() => {
+    const check = sessionMediaCheckRef.current;
+    if (!check || check.pendingIds.size || check.analyzingFromDisk) {
+      return;
+    }
+
+    sessionMediaCheckRef.current = null;
+    setStatus(formatSessionMediaCheckStatus(check));
+  }, []);
+
+  const settleSessionMediaCheck = useCallback(
+    (mediaId: string, outcome: "restored" | "offline") => {
+      const check = sessionMediaCheckRef.current;
+      if (!check?.pendingIds.delete(mediaId)) {
+        return;
+      }
+
+      if (outcome === "restored") {
+        check.restored += 1;
+      } else {
+        check.offline += 1;
+      }
+      reportSessionMediaCheck();
+    },
+    [reportSessionMediaCheck],
+  );
+
   useEffect(() => {
     let cancelled = false;
 
@@ -3252,6 +3315,7 @@ function App() {
       });
 
       void (async () => {
+        let restored = false;
         try {
           const cachedBlob = await getCachedMediaBlob(item.id);
           if (cachedBlob) {
@@ -3260,6 +3324,7 @@ function App() {
             }
 
             await adoptMediaBlob(item.id, cachedBlob);
+            restored = true;
             return;
           }
 
@@ -3278,6 +3343,7 @@ function App() {
           }
 
           await adoptMediaBlob(item.id, blob);
+          restored = true;
         } catch (error) {
           logClient("media:hydrate:error", {
             mediaId: item.id,
@@ -3288,6 +3354,7 @@ function App() {
           }
         } finally {
           mediaHydrationInFlightRef.current.delete(item.id);
+          settleSessionMediaCheck(item.id, restored ? "restored" : "offline");
         }
       })();
     }
@@ -3295,7 +3362,12 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [adoptMediaBlob, projectMediaItems, setLocalMediaOverride]);
+  }, [
+    adoptMediaBlob,
+    projectMediaItems,
+    setLocalMediaOverride,
+    settleSessionMediaCheck,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -4239,11 +4311,32 @@ function App() {
       })),
     );
 
-    setStatus(
-      existingRefs.length
-        ? `Loaded ${payload.sessionName}. Hydrating ${pluralize(existingRefs.length, "media file")} in the background.`
-        : `Loaded ${payload.sessionName}. All referenced media is currently offline.`,
-    );
+    // Offline refs may still be restored from the media cache by the
+    // hydration effect; report the outcome once every ref has settled.
+    const pendingOfflineIds = missingRefs
+      .map((ref) => ref.id)
+      .filter((id) => !localMediaOverridesRef.current[id]?.previewUrl);
+    const mediaCheck: SessionMediaCheck = {
+      sessionName: payload.sessionName,
+      pendingIds: new Set(pendingOfflineIds),
+      restored: 0,
+      offline: 0,
+      analyzingFromDisk: existingRefs.length > 0,
+      hydratedFromDisk: existingRefs.length > 0,
+    };
+    sessionMediaCheckRef.current = mediaCheck;
+
+    if (existingRefs.length) {
+      setStatus(
+        `Loaded ${payload.sessionName}. Hydrating ${pluralize(existingRefs.length, "media file")} in the background.`,
+      );
+    } else if (pendingOfflineIds.length) {
+      setStatus(
+        `Loaded ${payload.sessionName}. Checking the media cache for ${pluralize(pendingOfflineIds.length, "offline media file")}...`,
+      );
+    } else {
+      reportSessionMediaCheck();
+    }
 
     if (existingRefs.length) {
       void (async () => {
@@ -4270,14 +4363,14 @@ function App() {
               ),
             }),
           );
-          setStatus(
-            missingRefs.length
-              ? `Loaded ${payload.sessionName}. ${missingRefs.length === 1 ? "1 clip is" : `${missingRefs.length} clips are`} still offline.`
-              : `Loaded ${payload.sessionName} with local media hydrated from disk.`,
-          );
+          mediaCheck.analyzingFromDisk = false;
+          reportSessionMediaCheck();
         } catch (error) {
           const message =
             error instanceof Error ? error.message : String(error);
+          if (sessionMediaCheckRef.current === mediaCheck) {
+            sessionMediaCheckRef.current = null;
+          }
           setStatus(`Session media hydration failed: ${message}`);
         }
       })();
