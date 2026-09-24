@@ -1,0 +1,52 @@
+name: Set up app toolchain
+description: Install pnpm, Node 22, Rust wasm32 and wasm-pack, then install app dependencies.
+
+inputs:
+  install-root:
+    description: Also install the repo root dependencies (Biome, TypeScript).
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v4
+      with:
+        version: 10
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: pnpm
+        cache-dependency-path: |
+          pnpm-lock.yaml
+          app/pnpm-lock.yaml
+
+    - name: Add wasm32 target
+      shell: bash
+      run: rustup target add wasm32-unknown-unknown
+
+    - uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: app/export-bridge -> target
+
+    - name: Cache wasm-pack binary
+      id: wasm-pack-cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/bin/wasm-pack
+        key: wasm-pack-bin-v1-${{ runner.os }}
+
+    - name: Install wasm-pack
+      if: steps.wasm-pack-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+    - name: Install root dependencies
+      if: inputs.install-root == 'true'
+      shell: bash
+      run: pnpm install --frozen-lockfile
+
+    - name: Install app dependencies
+      shell: bash
+      working-directory: app
+      run: pnpm install --frozen-lockfile
