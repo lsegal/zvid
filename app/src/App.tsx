@@ -44,6 +44,7 @@ import {
 import { getHarness, type SaveTarget } from "./harness";
 import {
   buildFallbackMediaItem,
+  createMediaId,
   type MediaAvailability,
   type MediaItem,
   type MediaKind,
@@ -51,7 +52,12 @@ import {
   toShareableMediaItem,
 } from "./media";
 import { cacheMediaBlob, getCachedMediaBlob } from "./media-cache";
-import type { LvpSession, SessionOpenResponse } from "./session";
+import { matchOfflineMedia, type RelinkCandidate } from "./relink";
+import type {
+  LvpSession,
+  ServerMediaRef,
+  SessionOpenResponse,
+} from "./session";
 
 type TimelineMode = "musical" | "timecode";
 type SnapMode = "bar" | "beat" | "half" | "quarter";
@@ -4337,6 +4343,112 @@ function App() {
     }
   }
 
+  async function handleLocateMedia(mode: "files" | "folder" = "files") {
+    const offlineItems = mediaItems.filter(
+      (item) => item.availability !== "ready",
+    );
+    if (!offlineItems.length) {
+      setStatus("All media is linked.");
+      return;
+    }
+
+    const harness = getHarness();
+    type LocateSource =
+      | { kind: "file"; file: File }
+      | { kind: "ref"; ref: ServerMediaRef };
+    let candidates: RelinkCandidate<LocateSource>[];
+    if (mode === "folder" && harness.pickMediaFolder) {
+      const entries = await harness.pickMediaFolder();
+      if (!entries) {
+        return;
+      }
+
+      candidates = entries.map(({ file, path }) => ({
+        name: file.name,
+        path: file.webkitRelativePath || path,
+        id: createMediaId(file),
+        source: { kind: "file", file },
+      }));
+    } else {
+      const selection = await harness.pickMedia();
+      if (!selection) {
+        return;
+      }
+
+      candidates =
+        selection.kind === "files"
+          ? selection.files.map((file) => ({
+              name: file.name,
+              path: file.webkitRelativePath || file.name,
+              id: createMediaId(file),
+              source: { kind: "file", file },
+            }))
+          : selection.refs.map((ref) => ({
+              name: ref.name,
+              path: ref.path,
+              source: { kind: "ref", ref },
+            }));
+    }
+
+    const { matches, unmatched, ambiguous } = matchOfflineMedia(
+      offlineItems,
+      candidates,
+    );
+    if (unmatched.length) {
+      logClient("media:locate:unmatched", {
+        files: unmatched.map((candidate) => candidate.path ?? candidate.name),
+      });
+    }
+    if (ambiguous.length) {
+      logClient(
+        "media:locate:ambiguous",
+        ambiguous.map(({ candidate, items }) => ({
+          file: candidate.path ?? candidate.name,
+          media: items.map((item) => item.sourcePath ?? item.name),
+        })),
+      );
+    }
+
+    if (!matches.length) {
+      setStatus(
+        `No selected files matched offline media. ${pluralize(offlineItems.length, "media file")} still offline.`,
+      );
+      return;
+    }
+
+    setStatus(
+      `Relinking ${pluralize(matches.length, "offline media file")}...`,
+    );
+    let relinked = 0;
+    for (const { item, candidate } of matches) {
+      try {
+        const blob =
+          candidate.source.kind === "file"
+            ? candidate.source.file
+            : await harness.readMediaBlob({
+                id: item.id,
+                name: candidate.source.ref.name,
+                previewUrl: candidate.source.ref.url,
+                sourcePath: candidate.source.ref.path,
+              });
+        await adoptMediaBlob(item.id, blob);
+        relinked += 1;
+      } catch (error) {
+        logClient("media:locate:error", {
+          mediaId: item.id,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    const ambiguousNote = ambiguous.length
+      ? ` ${pluralize(ambiguous.length, "file")} matched several clips and ${ambiguous.length === 1 ? "was" : "were"} skipped.`
+      : "";
+    setStatus(
+      `Relinked ${relinked} of ${pluralize(offlineItems.length, "offline media file")}. ${offlineItems.length - relinked} still offline.${ambiguousNote}`,
+    );
+  }
+
   async function handleOpenSession() {
     const harness = getHarness();
     try {
@@ -4706,6 +4818,16 @@ function App() {
               <DropdownMenuItem onSelect={() => void handleImport()}>
                 Import Media
               </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void handleLocateMedia()}>
+                Locate Media…
+              </DropdownMenuItem>
+              {getHarness().pickMediaFolder ? (
+                <DropdownMenuItem
+                  onSelect={() => void handleLocateMedia("folder")}
+                >
+                  Locate Media Folder…
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onSelect={() => {
@@ -5166,11 +5288,18 @@ function App() {
                     <div className="track-label track-label--header">
                       <div>
                         <span>{sessionName ?? "Session"}</span>
-                        <small>
-                          {offlineCount
-                            ? pluralize(offlineCount, "offline clip")
-                            : "Media linked"}
-                        </small>
+                        {offlineCount ? (
+                          <button
+                            className="track-label__offline"
+                            onClick={() => void handleLocateMedia()}
+                            title="Locate offline media"
+                            type="button"
+                          >
+                            {pluralize(offlineCount, "offline clip")}
+                          </button>
+                        ) : (
+                          <small>Media linked</small>
+                        )}
                       </div>
                     </div>
                     <div
