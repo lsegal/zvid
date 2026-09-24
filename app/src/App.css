@@ -226,7 +226,7 @@
 .share-button__icon {
   display: inline-flex;
   width: 16px;
-  height: 18px;
+  height: 16px;
   color: rgba(255, 255, 255, 0.78);
   transition:
     color 160ms ease,
@@ -236,7 +236,7 @@
 
 .share-button__icon svg {
   width: 16px;
-  height: 18px;
+  height: 16px;
 }
 
 .share-button.is-sharing {
@@ -268,7 +268,7 @@
 
 .share-copy-badge svg {
   width: 16px;
-  height: 18px;
+  height: 16px;
 }
 
 .dialog-overlay {
@@ -1646,7 +1646,7 @@
 
 .fx-panel__toggle svg {
   width: 16px;
-  height: 18px;
+  height: 16px;
   transition: transform 160ms ease;
 }
 
