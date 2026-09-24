@@ -121,8 +121,7 @@ export class EffectChainRenderer {
     let input = source;
     for (const [index, step] of steps.entries()) {
       const isLast = index === steps.length - 1;
-      const target =
-        isLast && output === "screen" ? null : targets[index % 2];
+      const target = isLast && output === "screen" ? null : targets[index % 2];
       gl.bindFramebuffer(gl.FRAMEBUFFER, target?.framebuffer ?? null);
       gl.viewport(0, 0, width, height);
       // biome-ignore lint/correctness/useHookAtTopLevel: WebGLRenderingContext.useProgram is not a React hook.

@@ -173,7 +173,8 @@ export class OfflineAudioBands {
     this.sampleRate = sampleRate;
     for (let index = 0; index < FFT_SIZE; index++) {
       const phase = (2 * Math.PI * index) / FFT_SIZE;
-      this.window[index] = 0.42 - 0.5 * Math.cos(phase) + 0.08 * Math.cos(2 * phase);
+      this.window[index] =
+        0.42 - 0.5 * Math.cos(phase) + 0.08 * Math.cos(2 * phase);
     }
   }
 

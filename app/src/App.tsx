@@ -4999,16 +4999,19 @@ function App() {
     });
     logClient("export:phase", { phase: "preparing", frames: outputFrameCount });
 
-    const exportRenderer = new CompositionRenderer({
-      mediaItems,
-      clips: timelineClips,
-      lanes,
-      effects,
-      bpm,
-      canvasWidth,
-      canvasHeight,
-      masterAudio,
-    });
+    const exportRenderer = new CompositionRenderer(
+      {
+        mediaItems,
+        clips: timelineClips,
+        lanes,
+        effects,
+        bpm,
+        canvasWidth,
+        canvasHeight,
+        masterAudio,
+      },
+      { audioAnalysis: "offline" },
+    );
 
     try {
       const result = await getHarness().exportVideo({
