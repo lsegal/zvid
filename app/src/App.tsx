@@ -1,5 +1,6 @@
 import {
   BackwardIcon,
+  ChevronDownIcon,
   ForwardIcon,
   PauseIcon,
   PlayIcon,
@@ -318,6 +319,7 @@ const PEER_MEDIA_STATUS_INTERVAL_MS = 250;
 const RANDOM_SELECTION_MAX_BARS = 2;
 const SOURCE_TRACK_DRAG_CLEAR_DELAY_MS = 80;
 const COLLAB_STORAGE_KEY = "zvid-collaboration";
+const INSPECTOR_COLLAPSED_STORAGE_KEY = "zvid-inspector-collapsed";
 const PUBLIC_SIGNALING_URL = "wss://y-webrtc-eu.fly.dev";
 const DEFAULT_SIGNALING_URLS = splitSignalingUrls(
   import.meta.env.VITE_SIGNALING_URL || PUBLIC_SIGNALING_URL,
@@ -967,6 +969,20 @@ function buildCollaboratorName() {
   const prefix = pickRandom(COLLAB_NAME_PREFIXES) ?? "Signal";
   const suffix = pickRandom(COLLAB_NAME_SUFFIXES) ?? "Wave";
   return `${prefix} ${suffix}`;
+}
+
+function readInspectorCollapsed() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  try {
+    return (
+      window.localStorage.getItem(INSPECTOR_COLLAPSED_STORAGE_KEY) === "true"
+    );
+  } catch {
+    return false;
+  }
 }
 
 function getInitialCollaborationConfig() {
@@ -1825,6 +1841,9 @@ function App() {
   const [pendingSelection, setPendingSelection] =
     useState<TimelineSelection | null>(null);
   const [selectedFxId, setSelectedFxId] = useState<string>();
+  const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(
+    readInspectorCollapsed,
+  );
   const [playheadQ, setPlayheadQ] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -5031,6 +5050,19 @@ function App() {
     }
   }
 
+  function toggleInspectorCollapsed() {
+    const nextCollapsed = !isInspectorCollapsed;
+    setIsInspectorCollapsed(nextCollapsed);
+    try {
+      window.localStorage.setItem(
+        INSPECTOR_COLLAPSED_STORAGE_KEY,
+        String(nextCollapsed),
+      );
+    } catch {
+      // Storage can be unavailable (private mode, quota); the toggle still works.
+    }
+  }
+
   return (
     <div className="app-shell" ref={appShellRef}>
       {collaborationView.remoteCursors.length ? (
@@ -6320,92 +6352,111 @@ function App() {
             </div>
           </section>
 
-          <section className="fx-panel">
-            <div className="fx-rack">
-              <div className="fx-rack__header">
-                <strong>FX Layer Stack</strong>
-                <span>
-                  {effects.length
-                    ? "Imported from the .lvp session"
-                    : "Fallback rack until session effects are available"}
-                </span>
-              </div>
+          <section
+            className={`fx-panel ${isInspectorCollapsed ? "fx-panel--collapsed" : ""}`}
+          >
+            <button
+              aria-controls="fx-panel-body"
+              aria-expanded={!isInspectorCollapsed}
+              className="fx-panel__toggle"
+              onClick={toggleInspectorCollapsed}
+              type="button"
+            >
+              <span>FX Layer Stack &amp; Inspector</span>
+              <ChevronDownIcon aria-hidden="true" />
+            </button>
 
-              <div className="fx-rack__devices">
-                {fxDevices.map((device) => (
-                  <button
-                    key={device.id}
-                    className={`fx-device ${selectedFx?.id === device.id ? "fx-device--active" : ""}`}
-                    onClick={() => setSelectedFxId(device.id)}
-                    type="button"
-                  >
-                    <div
-                      className="fx-device__badge"
-                      style={{ backgroundColor: device.accent }}
-                    />
-                    <div>
-                      <strong>{device.name}</strong>
-                      <span>{device.subtitle}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
+            <div
+              className="fx-panel__body"
+              hidden={isInspectorCollapsed}
+              id="fx-panel-body"
+            >
+              <div className="fx-rack">
+                <div className="fx-rack__header">
+                  <strong>FX Layer Stack</strong>
+                  <span>
+                    {effects.length
+                      ? "Imported from the .lvp session"
+                      : "Fallback rack until session effects are available"}
+                  </span>
+                </div>
 
-            <div className="fx-inspector">
-              <div className="fx-inspector__header">
-                <strong>{selectedFx?.name ?? "No device selected"}</strong>
-                <span>
-                  {selectedTrack?.name ??
-                    selectedClip?.label ??
-                    "No clip selected"}
-                </span>
-              </div>
-
-              {selectedFx ? (
-                <div className="fx-inspector__grid">
-                  {selectedFx.parameters.map((parameter) => (
-                    <div key={parameter.label} className="parameter-card">
-                      <span>{parameter.label}</span>
-                      <strong>{parameter.display}</strong>
-                      <div className="parameter-card__meter">
-                        <div
-                          className="parameter-card__fill"
-                          style={{
-                            width: `${parameter.value * 100}%`,
-                            backgroundColor: selectedFx.accent,
-                          }}
-                        />
+                <div className="fx-rack__devices">
+                  {fxDevices.map((device) => (
+                    <button
+                      key={device.id}
+                      className={`fx-device ${selectedFx?.id === device.id ? "fx-device--active" : ""}`}
+                      onClick={() => setSelectedFxId(device.id)}
+                      type="button"
+                    >
+                      <div
+                        className="fx-device__badge"
+                        style={{ backgroundColor: device.accent }}
+                      />
+                      <div>
+                        <strong>{device.name}</strong>
+                        <span>{device.subtitle}</span>
                       </div>
-                    </div>
+                    </button>
                   ))}
+                </div>
+              </div>
 
+              <div className="fx-inspector">
+                <div className="fx-inspector__header">
+                  <strong>{selectedFx?.name ?? "No device selected"}</strong>
+                  <span>
+                    {selectedTrack?.name ??
+                      selectedClip?.label ??
+                      "No clip selected"}
+                  </span>
+                </div>
+
+                {selectedFx ? (
+                  <div className="fx-inspector__grid">
+                    {selectedFx.parameters.map((parameter) => (
+                      <div key={parameter.label} className="parameter-card">
+                        <span>{parameter.label}</span>
+                        <strong>{parameter.display}</strong>
+                        <div className="parameter-card__meter">
+                          <div
+                            className="parameter-card__fill"
+                            style={{
+                              width: `${parameter.value * 100}%`,
+                              backgroundColor: selectedFx.accent,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+
+                    <div className="inspector-note">
+                      <strong>Harness Media Flow</strong>
+                      <p>
+                        <code>window.harness</code> owns session open, media
+                        analysis, and export. The web harness routes session
+                        access through the local Vite middleware, while Tauri
+                        upgrades the same contract with native dialogs and
+                        filesystem-backed URLs.
+                      </p>
+                      <p>
+                        The editor only supplies canvas frames and timeline
+                        state. Media analysis uses the shared reader, while
+                        export encodes platform-supported tracks and writes the
+                        final MP4 through zvidlib.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
                   <div className="inspector-note">
-                    <strong>Harness Media Flow</strong>
+                    <strong>No clip selected</strong>
                     <p>
-                      <code>window.harness</code> owns session open, media
-                      analysis, and export. The web harness routes session
-                      access through the local Vite middleware, while Tauri
-                      upgrades the same contract with native dialogs and
-                      filesystem-backed URLs.
-                    </p>
-                    <p>
-                      The editor only supplies canvas frames and timeline state.
-                      Media analysis uses the shared reader, while export
-                      encodes platform-supported tracks and writes the final MP4
-                      through zvidlib.
+                      Open a session or import media to populate the rack and
+                      inspector.
                     </p>
                   </div>
-                </div>
-              ) : (
-                <div className="inspector-note">
-                  <strong>No clip selected</strong>
-                  <p>
-                    Open a session or import media to populate the rack and
-                    inspector.
-                  </p>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </section>
         </div>
