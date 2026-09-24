@@ -1,3 +1,9 @@
+// Pixel check for the compositor's multi-layer layout in a real WebGL
+// context. Start the dev server (`pnpm dev`), open
+// http://localhost:1420/composition-smoke.html and click "Run layout checks",
+// or append `?autorun` to run on load. The first status line reads
+// "PASSED n/n cases" or lists every failing band. Needs a browser with WebGL
+// and a VP9 encoder to build the test sources.
 import {
   BufferTarget,
   CanvasSource,
