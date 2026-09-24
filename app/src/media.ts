@@ -28,7 +28,101 @@ export type MediaItem = {
   thumbnailUrl?: string;
   sourcePath?: string;
   availability: MediaAvailability;
+  // Local-only reason the last attempt to link this media failed.
+  lastError?: string;
 };
+
+export type MediaProbeResult = {
+  durationSeconds: number;
+  width?: number;
+  height?: number;
+};
+
+const MEDIA_PROBE_TIMEOUT_MS = 10_000;
+
+function describeMediaError(error: MediaError | null) {
+  switch (error?.code) {
+    case MediaError.MEDIA_ERR_DECODE:
+      return "File is corrupt or could not be decoded";
+    case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+      return "Not a media file or unsupported codec";
+    case MediaError.MEDIA_ERR_NETWORK:
+      return "File could not be read";
+    case MediaError.MEDIA_ERR_ABORTED:
+      return "Loading was aborted";
+    default:
+      return "File could not be loaded";
+  }
+}
+
+// Loads a blob into a detached media element to confirm the browser can
+// decode it, resolving with its metadata or rejecting with a readable reason.
+export function probeMediaBlob(
+  blob: Blob,
+  kind: MediaKind,
+): Promise<MediaProbeResult> {
+  if (blob.size === 0) {
+    return Promise.reject(new Error("File is empty"));
+  }
+
+  return new Promise((resolve, reject) => {
+    const element = document.createElement(kind);
+    const url = URL.createObjectURL(blob);
+    let settled = false;
+
+    const cleanup = () => {
+      settled = true;
+      window.clearTimeout(timeoutId);
+      element.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      element.removeEventListener("error", handleError);
+      element.removeAttribute("src");
+      element.load();
+      URL.revokeObjectURL(url);
+    };
+
+    const handleLoadedMetadata = () => {
+      if (settled) {
+        return;
+      }
+      const durationSeconds = Number.isFinite(element.duration)
+        ? Math.max(0, element.duration)
+        : 0;
+      const hasVideo =
+        element instanceof HTMLVideoElement &&
+        element.videoWidth > 0 &&
+        element.videoHeight > 0;
+      const result: MediaProbeResult = {
+        durationSeconds,
+        width: hasVideo ? element.videoWidth : undefined,
+        height: hasVideo ? element.videoHeight : undefined,
+      };
+      cleanup();
+      resolve(result);
+    };
+
+    const handleError = () => {
+      if (settled) {
+        return;
+      }
+      const reason = describeMediaError(element.error);
+      cleanup();
+      reject(new Error(reason));
+    };
+
+    const timeoutId = window.setTimeout(() => {
+      if (settled) {
+        return;
+      }
+      cleanup();
+      reject(new Error("Timed out loading media"));
+    }, MEDIA_PROBE_TIMEOUT_MS);
+
+    element.preload = "metadata";
+    element.addEventListener("loadedmetadata", handleLoadedMetadata);
+    element.addEventListener("error", handleError);
+    element.src = url;
+  });
+}
 
 export function createMediaId(file: File) {
   return `${file.name}:${file.size}:${file.lastModified}`;
@@ -85,8 +179,9 @@ export function toShareableMediaItem(item: MediaItem): MediaItem {
   const previewUrl = isShareableMediaUrl(item.previewUrl)
     ? item.previewUrl
     : "";
+  const { lastError: _lastError, ...shared } = item;
   return {
-    ...item,
+    ...shared,
     previewUrl,
     thumbnailUrl: isShareableMediaUrl(item.thumbnailUrl)
       ? item.thumbnailUrl
