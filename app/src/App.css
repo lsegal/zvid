@@ -1768,8 +1768,11 @@
   }
 
   .source-header--empty .source-header__content {
+    /* opaque and above the playhead line, below the sticky track labels */
+    z-index: 5;
     border-left: none;
     padding-block: 10px;
+    background: #202230;
   }
 
   .source-header--empty .source-empty-state {
