@@ -85,6 +85,7 @@ export function listOfflineMedia(
       sourcePath: item.sourcePath,
       clipCount: clipCounts.get(item.id) ?? 0,
       state: item.availability === "hydrating" ? "hydrating" : "offline",
+      lastError: item.lastError,
     }));
 }
 
@@ -99,7 +100,7 @@ export function forcedRelinkWarning<T>(
   const name = basename(candidate.name);
   return matchesName(item, name)
     ? undefined
-    : `${displayBasename(candidate.name)} does not match the original file name ${mediaDisplayName(item)}.`;
+    : `${displayBasename(candidate.name)} does not match the original file name ${mediaDisplayName(item)}`;
 }
 
 function matchingSuffixLength(left: string, right: string) {

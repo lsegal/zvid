@@ -45,10 +45,13 @@ import {
 import { getHarness, type SaveTarget } from "./harness";
 import {
   buildFallbackMediaItem,
+  inferMediaKind,
   type MediaAvailability,
   type MediaItem,
   type MediaKind,
+  type MediaProbeResult,
   type Palette,
+  probeMediaBlob,
   toShareableMediaItem,
 } from "./media";
 import { cacheMediaBlob, getCachedMediaBlob } from "./media-cache";
@@ -256,7 +259,17 @@ type LocalMediaOverride = {
   availability?: MediaAvailability;
   previewUrl?: string;
   thumbnailUrl?: string;
+  lastError?: string;
 };
+
+type AdoptMediaResult = {
+  previewUrl: string;
+  warning?: string;
+};
+
+// Media whose probed duration differs from the recorded one by more than
+// this is probably a different file that happens to share its name.
+const RELINK_DURATION_TOLERANCE_SECONDS = 0.5;
 
 // Tracks the offline refs of a just-opened session until cache hydration
 // settles, so the status bar can report the real outcome.
@@ -1934,6 +1947,9 @@ function App() {
           ...previous,
           ...patch,
         };
+        if (next.availability === "ready") {
+          delete next.lastError;
+        }
 
         if (!next.previewUrl && !next.thumbnailUrl && !next.availability) {
           const rest = { ...current };
@@ -1970,8 +1986,43 @@ function App() {
     async (
       mediaId: string,
       blob: Blob,
-      options?: { analyze?: boolean },
-    ): Promise<string> => {
+      options?: { analyze?: boolean; verify?: boolean },
+    ): Promise<AdoptMediaResult> => {
+      const existing = projectSnapshotRef.current.mediaItems.find(
+        (item) => item.id === mediaId,
+      );
+
+      let warning: string | undefined;
+      if (options?.verify) {
+        const kind =
+          existing?.kind ??
+          inferMediaKind(blob instanceof File ? blob.name : "");
+        let probed: MediaProbeResult;
+        try {
+          probed = await probeMediaBlob(blob, kind);
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          setLocalMediaOverride(mediaId, {
+            availability: "offline",
+            lastError: message,
+          });
+          logClient("media:adopt:verify:error", { mediaId, message });
+          throw error;
+        }
+
+        if (
+          existing &&
+          existing.durationSeconds > 0 &&
+          probed.durationSeconds > 0 &&
+          Math.abs(probed.durationSeconds - existing.durationSeconds) >
+            RELINK_DURATION_TOLERANCE_SECONDS
+        ) {
+          warning = `Duration differs from the original (${probed.durationSeconds.toFixed(1)}s vs ${existing.durationSeconds.toFixed(1)}s)`;
+          logClient("media:adopt:verify:warning", { mediaId, warning });
+        }
+      }
+
       try {
         await cacheMediaBlob(mediaId, blob);
       } catch (error) {
@@ -1989,11 +2040,8 @@ function App() {
         URL.revokeObjectURL(previousPreviewUrl);
       }
 
-      const existing = projectSnapshotRef.current.mediaItems.find(
-        (item) => item.id === mediaId,
-      );
       if (!existing || !(options?.analyze || existing.durationSeconds === 0)) {
-        return previewUrl;
+        return { previewUrl, warning };
       }
 
       try {
@@ -2006,7 +2054,7 @@ function App() {
           0,
         );
         if (!result) {
-          return previewUrl;
+          return { previewUrl, warning };
         }
 
         if (
@@ -2038,7 +2086,7 @@ function App() {
         });
       }
 
-      return previewUrl;
+      return { previewUrl, warning };
     },
     [commitProjectChange, seedLocalMediaItems, setLocalMediaOverride],
   );
@@ -4655,8 +4703,19 @@ function App() {
     const ambiguousNote = ambiguousCount
       ? ` ${pluralize(ambiguousCount, "file")} matched several clips and ${ambiguousCount === 1 ? "was" : "were"} skipped.`
       : "";
+    const problems = outcomes.flatMap((outcome) => {
+      if (outcome.status === "failed") {
+        return [`${outcome.item.name}: ${outcome.reason}.`];
+      }
+      return outcome.status === "linked" && outcome.warning
+        ? [`${outcome.item.name}: ${outcome.warning}.`]
+        : [];
+    });
     setStatus(
-      `Relinked ${relinked} of ${pluralize(offlineMedia.length, "offline media file")}. ${remainingOffline} still offline.${ambiguousNote}`,
+      [
+        `Relinked ${relinked} of ${pluralize(offlineMedia.length, "offline media file")}. ${remainingOffline} still offline.${ambiguousNote}`,
+        ...problems,
+      ].join(" "),
     );
   }
 

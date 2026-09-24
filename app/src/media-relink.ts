@@ -58,7 +58,11 @@ export async function pickRelinkCandidates(mode: "files" | "folder") {
 type MediaRelinkerOptions = {
   offlineMedia: OfflineMediaEntry[];
   mediaItemsById: Map<string, MediaItem>;
-  adoptMediaBlob: (mediaId: string, blob: Blob) => Promise<unknown>;
+  adoptMediaBlob: (
+    mediaId: string,
+    blob: Blob,
+    options: { verify: boolean },
+  ) => Promise<{ warning?: string }>;
   log: (event: string, payload?: unknown) => void;
 };
 
@@ -83,8 +87,12 @@ export function createMediaRelinker({
               previewUrl: candidate.source.ref.url,
               sourcePath: candidate.source.ref.path,
             });
-      await adoptMediaBlob(item.id, blob);
-      return { status: "linked", item, file };
+      const { warning } = await adoptMediaBlob(item.id, blob, {
+        verify: true,
+      });
+      return warning
+        ? { status: "linked", item, file, warning }
+        : { status: "linked", item, file };
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       log("media:locate:error", { mediaId: item.id, message: reason });
@@ -171,7 +179,9 @@ export function createMediaRelinker({
 
     let outcome = await linkCandidate(item, candidate);
     if (outcome.status === "linked") {
-      const warning = forcedRelinkWarning(item, candidate);
+      const warning = [forcedRelinkWarning(item, candidate), outcome.warning]
+        .filter(Boolean)
+        .join("; ");
       if (warning) {
         outcome = { ...outcome, warning };
       }
