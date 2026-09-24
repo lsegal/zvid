@@ -219,6 +219,25 @@ describe("parseAlsXml", () => {
   });
 });
 
+describe("parseAls time signatures saved by Live 12", () => {
+  // Live leaves the master's `Manual` at 201 (4/4) in all of these; the
+  // signature is only in the TimeSignature envelope's initial event.
+  for (const [name, numerator, denominator] of [
+    ["time-signature-3-4.als", 3, 4],
+    ["time-signature-6-8.als", 6, 8],
+    ["time-signature-7-8.als", 7, 8],
+  ] as const) {
+    it(`reads ${numerator}/${denominator} from ${name}`, async () => {
+      const bytes = readFileSync(
+        new URL(`../../../test/fixtures/als/${name}`, import.meta.url),
+      );
+      const doc = await parseAls(new Uint8Array(bytes));
+      assert.equal(doc.creator, "Ableton Live 12.0.25");
+      assert.deepEqual(doc.timeSignature, { numerator, denominator });
+    });
+  }
+});
+
 describe("parseAls input handling", () => {
   it("accepts uncompressed XML", async () => {
     const xml = `<Ableton><LiveSet><Tracks /><MasterTrack /></LiveSet></Ableton>`;

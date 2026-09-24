@@ -174,7 +174,11 @@ export function parseAlsXml(xml: string): AlsDocument {
   if (!master) throw new Error("Ableton Live set has no master track");
   const mixer = at(master, "DeviceChain/Mixer");
   const tempo = child(mixer, "Tempo");
+  const timeSignature = child(mixer, "TimeSignature");
   const transport = child(liveSet, "Transport");
+  // Live keeps the song's signature in the envelope's initial event and can
+  // leave `Manual` stale (e.g. still 4/4 after switching to 7/8).
+  const [initialTimeSignature] = envelopeEvents(master, timeSignature);
 
   return {
     creator: ableton.attributes.Creator ?? "",
@@ -186,7 +190,9 @@ export function parseAlsXml(xml: string): AlsDocument {
       bpm: Number(event.attributes.Value),
     })),
     timeSignature: decodeTimeSignature(
-      num(child(mixer, "TimeSignature"), "Manual"),
+      initialTimeSignature
+        ? Number(initialTimeSignature.attributes.Value)
+        : num(timeSignature, "Manual"),
     ),
     transport: {
       currentTime: num(transport, "CurrentTime"),
