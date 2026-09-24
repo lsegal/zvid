@@ -1,6 +1,7 @@
 import type { ServerMediaRef, SessionOpenResponse } from "../session";
 import type { Harness } from "./contracts";
 import { exportVideo } from "./export";
+import { MEDIA_EXTENSIONS } from "./media-extensions";
 import { generateThumbnailFromUrlAtTime } from "./web-media";
 
 function basename(rawPath: string) {
@@ -34,6 +35,14 @@ export async function maybeCreateTauriHarness(
 
     const { open, save } = dialog;
 
+    const toMediaRef = (path: string): ServerMediaRef => ({
+      id: createMediaId(path),
+      path,
+      name: basename(path),
+      url: convertFileSrc(path),
+      exists: true,
+    });
+
     return {
       ...base,
       id: "tauri",
@@ -45,8 +54,6 @@ export async function maybeCreateTauriHarness(
         "asset-urls": true,
         "native-blob-write": true,
       },
-      // Folder relinking relies on the browser directory input.
-      pickMediaFolder: undefined,
       async pickSession() {
         const selected = await open({
           multiple: false,
@@ -75,19 +82,7 @@ export async function maybeCreateTauriHarness(
           filters: [
             {
               name: "Media",
-              extensions: [
-                "mp4",
-                "mov",
-                "mkv",
-                "webm",
-                "avi",
-                "wav",
-                "mp3",
-                "m4a",
-                "flac",
-                "aif",
-                "aiff",
-              ],
+              extensions: MEDIA_EXTENSIONS,
             },
           ],
         });
@@ -98,14 +93,20 @@ export async function maybeCreateTauriHarness(
         const paths = Array.isArray(selected) ? selected : [selected];
         return {
           kind: "refs" as const,
-          refs: paths.map<ServerMediaRef>((path) => ({
-            id: createMediaId(path),
-            path,
-            name: basename(path),
-            url: convertFileSrc(path),
-            exists: true,
-          })),
+          refs: paths.map(toMediaRef),
         };
+      },
+      async pickMediaFolder() {
+        const selected = await open({ multiple: false, directory: true });
+        if (!selected || Array.isArray(selected)) {
+          return null;
+        }
+
+        const paths = await invoke<string[]>("list_media_files", {
+          root: selected,
+          extensions: MEDIA_EXTENSIONS,
+        });
+        return { kind: "refs" as const, refs: paths.map(toMediaRef) };
       },
       async prepareSave(filename, options) {
         const selected = await save({

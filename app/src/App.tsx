@@ -43,6 +43,7 @@ import {
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
 import { getHarness, type SaveTarget } from "./harness";
+import { hasMediaExtension } from "./harness/media-extensions";
 import {
   buildFallbackMediaItem,
   createMediaId,
@@ -344,8 +345,6 @@ const DEFAULT_SIGNALING_URLS = splitSignalingUrls(
 const LEGACY_DEFAULT_SIGNALING_URLS = [
   "wss://zvid-signaling.lsegal.workers.dev",
 ];
-const MEDIA_DROP_EXTENSION_PATTERN =
-  /\.(mp4|mov|mkv|webm|avi|wav|mp3|m4a|flac|aif|aiff)$/i;
 const SIGNATURES: TimeSignature[] = [
   { id: "4/4", numerator: 4, denominator: 4 },
   { id: "3/4", numerator: 3, denominator: 4 },
@@ -814,7 +813,7 @@ function getDraggedMediaFiles(dataTransfer: DataTransfer | null) {
     (file) =>
       file.type.startsWith("video/") ||
       file.type.startsWith("audio/") ||
-      MEDIA_DROP_EXTENSION_PATTERN.test(file.name),
+      hasMediaExtension(file.name),
   );
 }
 
@@ -4677,39 +4676,27 @@ function App() {
     type LocateSource =
       | { kind: "file"; file: File }
       | { kind: "ref"; ref: ServerMediaRef };
-    let candidates: RelinkCandidate<LocateSource>[];
-    if (mode === "folder" && harness.pickMediaFolder) {
-      const entries = await harness.pickMediaFolder();
-      if (!entries) {
-        return;
-      }
-
-      candidates = entries.map(({ file, path }) => ({
-        name: file.name,
-        path: file.webkitRelativePath || path,
-        id: createMediaId(file),
-        source: { kind: "file", file },
-      }));
-    } else {
-      const selection = await harness.pickMedia();
-      if (!selection) {
-        return;
-      }
-
-      candidates =
-        selection.kind === "files"
-          ? selection.files.map((file) => ({
-              name: file.name,
-              path: file.webkitRelativePath || file.name,
-              id: createMediaId(file),
-              source: { kind: "file", file },
-            }))
-          : selection.refs.map((ref) => ({
-              name: ref.name,
-              path: ref.path,
-              source: { kind: "ref", ref },
-            }));
+    const selection =
+      mode === "folder" && harness.pickMediaFolder
+        ? await harness.pickMediaFolder()
+        : await harness.pickMedia();
+    if (!selection) {
+      return;
     }
+
+    const candidates: RelinkCandidate<LocateSource>[] =
+      selection.kind === "files"
+        ? selection.files.map((file) => ({
+            name: file.name,
+            path: file.webkitRelativePath || file.name,
+            id: createMediaId(file),
+            source: { kind: "file", file },
+          }))
+        : selection.refs.map((ref) => ({
+            name: ref.name,
+            path: ref.path,
+            source: { kind: "ref", ref },
+          }));
 
     const { matches, unmatched, ambiguous } = matchOfflineMedia(
       offlineItems,
