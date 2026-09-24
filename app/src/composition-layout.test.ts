@@ -49,7 +49,7 @@ function assertClose(actual: number, expected: number, message: string) {
 }
 
 describe("orderStackedLayers", () => {
-  it("stacks the highest lane first, then earlier clips first", () => {
+  it("stacks the first lane first, then earlier clips first", () => {
     const layers = [
       { id: "a", laneRank: 0, clip: { startQ: 0 } },
       { id: "b", laneRank: 2, clip: { startQ: 8 } },
@@ -59,7 +59,7 @@ describe("orderStackedLayers", () => {
 
     assert.deepEqual(
       orderStackedLayers(layers).map((layer) => layer.id),
-      ["d", "b", "c", "a"],
+      ["a", "c", "d", "b"],
     );
     assert.deepEqual(
       layers.map((layer) => layer.id),

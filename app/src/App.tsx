@@ -1289,20 +1289,28 @@ function formatHistoryStatus(prefix: "Undid" | "Redid", label: string) {
   return `${prefix}: ${label}.`;
 }
 
+function isClipAtPlayhead(
+  clip: ArrangementClip,
+  playheadQ: number,
+  bpm: number,
+) {
+  const epsilon = 0.0001;
+  const clipEndQ = clip.startQ + secondsToQuarters(clip.durationSeconds, bpm);
+  return playheadQ >= clip.startQ - epsilon && playheadQ < clipEndQ - epsilon;
+}
+
 function findClipAtPlayhead(
   clips: ArrangementClip[],
   playheadQ: number,
   bpm: number,
   lanePriority: Map<string, number>,
 ) {
-  const epsilon = 0.0001;
   let match: ArrangementClip | undefined;
   let matchLaneRank = -1;
   let matchStartQ = -1;
 
   for (const clip of clips) {
-    const clipEndQ = clip.startQ + secondsToQuarters(clip.durationSeconds, bpm);
-    if (playheadQ < clip.startQ - epsilon || playheadQ >= clipEndQ - epsilon) {
+    if (!isClipAtPlayhead(clip, playheadQ, bpm)) {
       continue;
     }
 
@@ -2084,6 +2092,21 @@ function App() {
     : undefined;
   const previewMediaState = describeMediaAvailability(
     previewMedia?.availability,
+  );
+  // The compositor draws every online layer at the playhead, so an offline
+  // clip on one layer only covers the preview when no layer can be drawn.
+  const hasOnlinePlayheadClip = useMemo(
+    () =>
+      timelineClips.some(
+        (clip) =>
+          isClipAtPlayhead(clip, playheadQ, bpm) &&
+          describeMediaAvailability(
+            clip.mediaId
+              ? mediaItemsById.get(clip.mediaId)?.availability
+              : undefined,
+          ) === "online",
+      ),
+    [bpm, mediaItemsById, playheadQ, timelineClips],
   );
   // Unlike `selectedClip`, this does not fall back to the first clip.
   const explicitClip = useMemo(
@@ -6560,7 +6583,8 @@ function App() {
                     playheadQ={playheadQ}
                     playheadSeconds={playheadSeconds}
                   />
-                  {!previewClip || previewMediaState !== "online" ? (
+                  {!previewClip ||
+                  (previewMediaState !== "online" && !hasOnlinePlayheadClip) ? (
                     <div className="preview-placeholder">
                       <div className="preview-placeholder__overlay">
                         <strong>

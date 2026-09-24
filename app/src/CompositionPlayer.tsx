@@ -7,6 +7,16 @@ import {
   useRef,
 } from "react";
 import {
+  type ActiveClip,
+  type ArrangementClip,
+  computeActiveClips,
+  GROUP_TRACK_ID,
+  type Lane,
+  type MediaItem,
+  quartersToSeconds,
+  type SessionEffect,
+} from "./composition-active-clips.ts";
+import {
   disposeWebGlResources,
   drawComposition,
   ensureWebGlResources,
@@ -20,84 +30,10 @@ import {
   SILENT_AUDIO_BANDS,
 } from "./fx-shaders/audio-bands.ts";
 import {
-  type EffectChainStep,
   isChainEffectName,
   resolveEffectChain,
 } from "./fx-shaders/registry.ts";
 import { getRenderedEffects } from "./fx-stack.ts";
-
-type MediaKind = "video" | "audio";
-
-type MediaItem = {
-  id: string;
-  name: string;
-  kind: MediaKind;
-  durationSeconds: number;
-  width?: number;
-  height?: number;
-  hasAudio: boolean;
-  hasVideo: boolean;
-  previewUrl: string;
-};
-
-type Lane = {
-  id: string;
-  name: string;
-  colorIndex: number;
-  fxEnabled?: boolean;
-};
-
-type ArrangementClip = {
-  id: string;
-  sourceTrackId: string;
-  laneId: string;
-  label: string;
-  mediaPath: string;
-  mediaId?: string;
-  startQ: number;
-  durationSeconds: number;
-  trimStartSeconds: number;
-  sourceOffsetSeconds: number;
-  sourceWindowStartSeconds: number;
-  sourceWindowEndSeconds: number;
-  tint: string;
-  accent: string;
-};
-
-type SessionEffect = {
-  id: string;
-  trackId: string;
-  effectName: string;
-  parameters: Array<{
-    key: string;
-    value: string;
-    numericValue?: number;
-  }>;
-  enabled?: boolean;
-};
-
-type VisualState = {
-  opacity: number;
-  scale: number;
-  translateX: number;
-  translateY: number;
-  rotationDeg: number;
-  brightness: number;
-  contrast: number;
-  saturation: number;
-  layoutAnchor: "top" | "center" | "bottom";
-};
-
-type ActiveClip = {
-  clip: ArrangementClip;
-  media: MediaItem;
-  mediaTime: number;
-  isInBounds: boolean;
-  laneRank: number;
-  clipProgress: number;
-  visual: VisualState;
-  effectChain: EffectChainStep[];
-};
 
 type CompositionPlayerProps = {
   mediaItems: MediaItem[];
@@ -152,241 +88,6 @@ const SCRUB_AUDIO_DRIFT_SECONDS = 0.035;
 // Audio keeps playing through a scrub started during playback, so it only
 // re-syncs once it falls this far behind or ahead of the playhead.
 const CONTINUOUS_SCRUB_AUDIO_DRIFT_SECONDS = 0.1;
-const GROUP_TRACK_ID = "__group_main";
-
-function clamp(value: number, minimum: number, maximum: number) {
-  return Math.max(minimum, Math.min(maximum, value));
-}
-
-function quartersToSeconds(quarters: number, bpm: number) {
-  return (quarters * 60) / bpm;
-}
-
-function parseNumericValue(value: string) {
-  const parsed = Number.parseFloat(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
-}
-
-function normalizeUnitValue(value: number, fallback = 1) {
-  if (!Number.isFinite(value)) {
-    return fallback;
-  }
-
-  if (Math.abs(value) > 1.5 && Math.abs(value) <= 100) {
-    return value / 100;
-  }
-
-  return value;
-}
-
-function parseLayoutAnchor(
-  rawValue: string | undefined,
-  numericValue?: number,
-) {
-  const value = rawValue?.trim().toLowerCase();
-  if (value) {
-    if (value.includes("top")) {
-      return "top" as const;
-    }
-
-    if (value.includes("bottom")) {
-      return "bottom" as const;
-    }
-
-    if (value.includes("center") || value.includes("middle")) {
-      return "center" as const;
-    }
-  }
-
-  if (numericValue !== undefined && Number.isFinite(numericValue)) {
-    if (numericValue <= 0.333) {
-      return "top" as const;
-    }
-
-    if (numericValue >= 0.667) {
-      return "bottom" as const;
-    }
-
-    return "center" as const;
-  }
-
-  return undefined;
-}
-
-function resolveVisualState(
-  effects: SessionEffect[],
-  laneId: string,
-): VisualState {
-  const state: VisualState = {
-    opacity: 1,
-    scale: 1,
-    translateX: 0,
-    translateY: 0,
-    rotationDeg: 0,
-    brightness: 0,
-    contrast: 1,
-    saturation: 1,
-    layoutAnchor: "center",
-  };
-
-  for (const effect of effects) {
-    if (effect.trackId !== laneId && effect.trackId !== GROUP_TRACK_ID) {
-      continue;
-    }
-
-    // Shader-chain effects render their own passes, and a bypassed effect
-    // contributes nothing.
-    if (effect.enabled === false || isChainEffectName(effect.effectName)) {
-      continue;
-    }
-
-    const isLayoutEffect = effect.effectName
-      .trim()
-      .toLowerCase()
-      .includes("layout");
-
-    for (const parameter of effect.parameters) {
-      const key = parameter.key.toLowerCase();
-      const rawValue = parameter.value?.trim();
-      const numeric =
-        parameter.numericValue ?? parseNumericValue(parameter.value);
-      if (
-        isLayoutEffect &&
-        (key.includes("anchor") || key.includes("align") || key === "position")
-      ) {
-        const anchor = parseLayoutAnchor(rawValue, numeric);
-        if (anchor) {
-          state.layoutAnchor = anchor;
-          continue;
-        }
-      }
-
-      if (isLayoutEffect) {
-        continue;
-      }
-
-      if (numeric === undefined) {
-        continue;
-      }
-
-      if (key.includes("opacity") || key.includes("alpha") || key === "mix") {
-        state.opacity = clamp(normalizeUnitValue(numeric), 0, 1);
-      } else if (key.includes("scale") || key.includes("zoom")) {
-        state.scale = clamp(numeric > 4 ? numeric / 100 : numeric, 0.1, 8);
-      } else if (
-        key === "x" ||
-        key.includes("positionx") ||
-        key.includes("translatex")
-      ) {
-        state.translateX = clamp(
-          numeric > 1 || numeric < -1 ? numeric / 100 : numeric,
-          -2,
-          2,
-        );
-      } else if (
-        key === "y" ||
-        key.includes("positiony") ||
-        key.includes("translatey")
-      ) {
-        state.translateY = clamp(
-          numeric > 1 || numeric < -1 ? numeric / 100 : numeric,
-          -2,
-          2,
-        );
-      } else if (key.includes("rotation") || key.includes("rotate")) {
-        state.rotationDeg = numeric;
-      } else if (key.includes("brightness") || key.includes("exposure")) {
-        state.brightness = clamp(normalizeUnitValue(numeric, 0), -1, 1);
-      } else if (key.includes("contrast")) {
-        state.contrast = clamp(numeric > 4 ? numeric / 100 : numeric, 0, 4);
-      } else if (key.includes("saturation") || key.includes("sat")) {
-        state.saturation = clamp(numeric > 4 ? numeric / 100 : numeric, 0, 4);
-      }
-    }
-  }
-
-  return state;
-}
-
-function computeActiveClips(
-  clips: ArrangementClip[],
-  mediaById: Map<string, MediaItem>,
-  playheadQ: number,
-  bpm: number,
-  lanePriority: Map<string, number>,
-  effects: SessionEffect[],
-) {
-  const epsilon = 0.0001;
-  const activeTimelineClips = clips.filter((clip) => {
-    const clipEndQ = clip.startQ + (clip.durationSeconds * bpm) / 60;
-    return playheadQ >= clip.startQ - epsilon && playheadQ < clipEndQ - epsilon;
-  });
-  const highestBlockingLaneRank = activeTimelineClips.reduce(
-    (maximum, clip) => {
-      const media = clip.mediaId ? mediaById.get(clip.mediaId) : undefined;
-      if (media?.previewUrl) {
-        return maximum;
-      }
-
-      return Math.max(maximum, lanePriority.get(clip.laneId) ?? -1);
-    },
-    -1,
-  );
-
-  return activeTimelineClips
-    .map((clip) => ({
-      clip,
-      media: clip.mediaId ? mediaById.get(clip.mediaId) : undefined,
-    }))
-    .filter((entry): entry is { clip: ArrangementClip; media: MediaItem } => {
-      if (!entry.media?.previewUrl) {
-        return false;
-      }
-
-      const laneRank = lanePriority.get(entry.clip.laneId) ?? -1;
-      if (laneRank <= highestBlockingLaneRank) {
-        return false;
-      }
-
-      return true;
-    })
-    .sort((left, right) => {
-      const laneDelta =
-        (lanePriority.get(left.clip.laneId) ?? Number.MAX_SAFE_INTEGER) -
-        (lanePriority.get(right.clip.laneId) ?? Number.MAX_SAFE_INTEGER);
-      if (laneDelta !== 0) {
-        return laneDelta;
-      }
-
-      return left.clip.startQ - right.clip.startQ;
-    })
-    .map<ActiveClip>(({ clip, media }) => {
-      const mediaTime =
-        quartersToSeconds(playheadQ, bpm) + clip.sourceOffsetSeconds;
-      const clipElapsedSeconds = quartersToSeconds(
-        playheadQ - clip.startQ,
-        bpm,
-      );
-      return {
-        clip,
-        media,
-        mediaTime,
-        isInBounds:
-          mediaTime >= clip.sourceWindowStartSeconds &&
-          mediaTime < clip.sourceWindowEndSeconds - epsilon &&
-          (media.durationSeconds > 0
-            ? mediaTime >= 0 && mediaTime < media.durationSeconds - epsilon
-            : mediaTime >= 0),
-        laneRank: lanePriority.get(clip.laneId) ?? -1,
-        clipProgress:
-          clip.durationSeconds > 0
-            ? clamp(clipElapsedSeconds / clip.durationSeconds, 0, 1)
-            : 0,
-        visual: resolveVisualState(effects, clip.laneId),
-        effectChain: resolveEffectChain(effects, clip.laneId),
-      };
-    });
-}
 
 function syncCanvasSurface(
   canvas: HTMLCanvasElement,
@@ -450,7 +151,10 @@ export class CompositionRenderer {
   readonly canvas: HTMLCanvasElement;
 
   private resources: WebGlResources | null = null;
+  // Media elements by source key (see ActiveClip.sourceKey), and the media
+  // each one plays.
   private mediaRefs = new Map<string, HTMLMediaElement>();
+  private mediaIdBySourceKey = new Map<string, string>();
   private masterAudioElement: HTMLAudioElement | null = null;
   private removeVideoFrameReadyListeners: Array<() => void> = [];
   private videoFrameReadyListener: (() => void) | null = null;
@@ -497,6 +201,7 @@ export class CompositionRenderer {
       element.load();
     }
     this.mediaRefs.clear();
+    this.mediaIdBySourceKey.clear();
 
     if (this.masterAudioElement) {
       this.masterAudioElement.pause();
@@ -538,13 +243,13 @@ export class CompositionRenderer {
         continue;
       }
 
-      const mediaElement = this.mediaRefs.get(entry.media.id);
+      const mediaElement = this.mediaRefs.get(entry.sourceKey);
       if (!(mediaElement instanceof HTMLVideoElement)) {
         continue;
       }
 
       pendingSeeks.set(
-        entry.media.id,
+        entry.sourceKey,
         seekMediaElement(mediaElement, entry.mediaTime),
       );
     }
@@ -571,20 +276,23 @@ export class CompositionRenderer {
   syncPlayback(playback: CompositionPlaybackState) {
     const isContinuousScrubAudio =
       playback.isAudibleScrubbing && playback.isContinuousScrubbing;
-    const activeClipByMediaId = new Map(
+    const activeClipBySourceKey = new Map(
       this.computeActiveClips(playback.playheadQ).map((entry) => [
-        entry.media.id,
+        entry.sourceKey,
         entry,
       ]),
     );
+    const mediaById = new Map(
+      this.state.mediaItems.map((item) => [item.id, item]),
+    );
 
-    for (const item of this.state.mediaItems) {
-      const element = this.mediaRefs.get(item.id);
-      if (!element) {
+    for (const [sourceKey, element] of this.mediaRefs) {
+      const item = mediaById.get(this.mediaIdBySourceKey.get(sourceKey) ?? "");
+      if (!item) {
         continue;
       }
 
-      const activeEntry = activeClipByMediaId.get(item.id);
+      const activeEntry = activeClipBySourceKey.get(sourceKey);
       if (!activeEntry?.isInBounds) {
         if (!element.paused) {
           element.pause();
@@ -666,7 +374,7 @@ export class CompositionRenderer {
       this.state.lanes.map((lane, index) => [lane.id, index]),
     );
 
-    return computeActiveClips(
+    const activeClips = computeActiveClips(
       this.state.clips,
       mediaById,
       playheadQ,
@@ -674,6 +382,21 @@ export class CompositionRenderer {
       lanePriority,
       this.renderedEffects(),
     );
+
+    // Clips sharing a media at this playhead draw from extra elements, made
+    // the first time they are needed.
+    let addedElement = false;
+    for (const entry of activeClips) {
+      if (!this.mediaRefs.has(entry.sourceKey)) {
+        this.ensureMediaElement(entry.sourceKey, entry.media);
+        addedElement = true;
+      }
+    }
+    if (addedElement) {
+      this.refreshVideoFrameReadyListeners();
+    }
+
+    return activeClips;
   }
 
   private groupClipProgressAt(playheadQ: number) {
@@ -755,36 +478,48 @@ export class CompositionRenderer {
     );
   }
 
-  private syncMediaElements() {
-    const activeIds = new Set(this.state.mediaItems.map((item) => item.id));
-    for (const [id, element] of this.mediaRefs) {
-      if (!activeIds.has(id)) {
-        element.pause();
-        element.removeAttribute("src");
-        element.load();
-        this.mediaRefs.delete(id);
+  private ensureMediaElement(sourceKey: string, item: MediaItem) {
+    let element = this.mediaRefs.get(sourceKey);
+    if (!element) {
+      element =
+        item.kind === "video"
+          ? document.createElement("video")
+          : document.createElement("audio");
+      element.crossOrigin = "anonymous";
+      element.preload = "auto";
+      if (element instanceof HTMLVideoElement) {
+        element.muted = true;
+        element.playsInline = true;
       }
+      this.mediaRefs.set(sourceKey, element);
+      this.mediaIdBySourceKey.set(sourceKey, item.id);
+    }
+
+    if (element.getAttribute("src") !== item.previewUrl) {
+      element.src = item.previewUrl;
+    }
+  }
+
+  private syncMediaElements() {
+    const mediaById = new Map(
+      this.state.mediaItems.map((item) => [item.id, item]),
+    );
+    for (const [sourceKey, element] of this.mediaRefs) {
+      const item = mediaById.get(this.mediaIdBySourceKey.get(sourceKey) ?? "");
+      if (item) {
+        this.ensureMediaElement(sourceKey, item);
+        continue;
+      }
+
+      element.pause();
+      element.removeAttribute("src");
+      element.load();
+      this.mediaRefs.delete(sourceKey);
+      this.mediaIdBySourceKey.delete(sourceKey);
     }
 
     for (const item of this.state.mediaItems) {
-      let element = this.mediaRefs.get(item.id);
-      if (!element) {
-        element =
-          item.kind === "video"
-            ? document.createElement("video")
-            : document.createElement("audio");
-        element.crossOrigin = "anonymous";
-        element.preload = "auto";
-        if (element instanceof HTMLVideoElement) {
-          element.muted = true;
-          element.playsInline = true;
-        }
-        this.mediaRefs.set(item.id, element);
-      }
-
-      if (element.getAttribute("src") !== item.previewUrl) {
-        element.src = item.previewUrl;
-      }
+      this.ensureMediaElement(item.id, item);
     }
 
     if (this.state.masterAudio?.previewUrl) {

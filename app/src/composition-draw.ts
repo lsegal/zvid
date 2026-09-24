@@ -20,6 +20,8 @@ export type CompositeVisual = LayerVisual & {
 export type CompositeLayer = {
   clip: { startQ: number };
   media: { id: string; width?: number; height?: number };
+  // Key of the media element in `mediaRefs` this layer draws from.
+  sourceKey: string;
   isInBounds: boolean;
   laneRank: number;
   clipProgress: number;
@@ -313,25 +315,25 @@ export function drawComposition(
     activeClips.filter(
       (entry) =>
         entry.isInBounds &&
-        mediaRefs.get(entry.media.id) instanceof HTMLVideoElement,
+        mediaRefs.get(entry.sourceKey) instanceof HTMLVideoElement,
     ),
   );
 
   for (const [index, entry] of stackedClips.entries()) {
-    const mediaElement = mediaRefs.get(entry.media.id);
+    const mediaElement = mediaRefs.get(entry.sourceKey);
     if (!(mediaElement instanceof HTMLVideoElement)) {
       continue;
     }
 
-    let texture = getOrCreateTexture(resources, entry.media.id);
+    let texture = getOrCreateTexture(resources, entry.sourceKey);
     const hasDecodedFrame =
       mediaElement.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
       (mediaElement.videoWidth > 0 || Boolean(entry.media.width)) &&
       (mediaElement.videoHeight > 0 || Boolean(entry.media.height));
 
     if (hasDecodedFrame) {
-      resources.readyTextureIds.add(entry.media.id);
-    } else if (!resources.readyTextureIds.has(entry.media.id)) {
+      resources.readyTextureIds.add(entry.sourceKey);
+    } else if (!resources.readyTextureIds.has(entry.sourceKey)) {
       continue;
     }
 

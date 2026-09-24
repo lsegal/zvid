@@ -175,10 +175,10 @@ function buildState(
       parameters: [{ key: "Position", value: anchor }],
     },
   ];
-  // The last lane is drawn first (top band), so "first-layer" puts the chain
+  // The first lane is drawn first (top band), so "first-layer" puts the chain
   // on the layer every other layer is drawn after.
   if (effectMode === "first-layer") {
-    effects.push(chainEffect(lanes[lanes.length - 1].id));
+    effects.push(chainEffect(lanes[0].id));
   } else if (effectMode === "all-layers") {
     effects.push(...lanes.map((lane) => chainEffect(lane.id)));
   } else if (effectMode === "global") {
@@ -277,8 +277,8 @@ async function runCase(
     }
     const third = expectedThird(anchor, sources[0], sources.length, effectMode);
     for (let band = 0; band < sources.length; band++) {
-      // Band 0 is the top band and holds the highest lane.
-      const layer = sources.length - 1 - band;
+      // Band 0 is the top band and holds the first lane.
+      const layer = band;
       const bounds = resolveFrameBounds(band, sources.length, 1);
       const top =
         ((1 - (bounds.centerY + bounds.halfHeight)) / 2) * CANVAS_HEIGHT;

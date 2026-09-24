@@ -43,12 +43,12 @@ type StackedLayer = {
   clip: { startQ: number };
 };
 
-// Draw order, which is also band order from the top: the highest lane first,
-// then earlier clips first within a lane.
+// Draw order, which is also band order from the top: lanes in timeline order
+// (Layer 1 on top), then earlier clips first within a lane.
 export function orderStackedLayers<T extends StackedLayer>(layers: T[]) {
   return [...layers].sort((left, right) => {
-    if (right.laneRank !== left.laneRank) {
-      return right.laneRank - left.laneRank;
+    if (left.laneRank !== right.laneRank) {
+      return left.laneRank - right.laneRank;
     }
 
     return left.clip.startQ - right.clip.startQ;
