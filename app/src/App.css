@@ -1715,8 +1715,38 @@
     align-items: stretch;
   }
 
+  .editor-panel {
+    /* keep the implicit auto column from growing to the widest unwrapped row */
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .timeline-toolbar__controls {
     justify-content: space-between;
+  }
+
+  .zoom-control {
+    min-width: 0;
+  }
+
+  .zoom-control input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .transport-cluster {
+    gap: 6px;
+  }
+
+  .transport-button,
+  .transport-button--wand,
+  .transport-button--wand:hover {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 12px 0;
+  }
+
+  .transport-summary span {
+    white-space: normal;
   }
 
   .fx-inspector__grid {
