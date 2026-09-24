@@ -61,12 +61,12 @@ type SessionEffect = {
   id: string;
   trackId: string;
   effectName: string;
-  enabled?: boolean;
   parameters: Array<{
     key: string;
     value: string;
     numericValue?: number;
   }>;
+  enabled?: boolean;
 };
 
 type VisualState = {
