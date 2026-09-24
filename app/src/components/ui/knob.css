@@ -1,0 +1,126 @@
+/*
+ * Rotary knob for FX device parameters. Colors come from the app theme
+ * variables (with dark fallbacks) so a theme only needs to redefine them.
+ */
+.knob {
+  --knob-ink: var(--ink, #eef2ff);
+  --knob-muted: var(--muted, #a4a9bf);
+  --knob-body: var(--bg-soft, #383b50);
+  --knob-track: color-mix(in srgb, var(--knob-ink) 14%, transparent);
+  --knob-edge: var(--line-strong, rgba(255, 255, 255, 0.14));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 72px;
+  min-width: 0;
+  user-select: none;
+}
+
+.knob__label {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--knob-muted);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.knob__dial {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  outline: none;
+  cursor: ns-resize;
+  touch-action: none;
+  transition: box-shadow 120ms ease;
+}
+
+.knob__dial:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--knob-accent) 60%, transparent);
+}
+
+.knob__svg {
+  display: block;
+  overflow: visible;
+}
+
+.knob__track,
+.knob__value {
+  fill: none;
+  stroke-linecap: round;
+  stroke-width: 3.5;
+}
+
+.knob__track {
+  stroke: var(--knob-track);
+}
+
+.knob__value {
+  stroke: var(--knob-accent);
+}
+
+.knob__body {
+  fill: var(--knob-body);
+  stroke: var(--knob-edge);
+  stroke-width: 1;
+  transition: fill 120ms ease;
+}
+
+.knob__dial:hover .knob__body,
+.knob--dragging .knob__body {
+  fill: color-mix(in srgb, var(--knob-body) 88%, var(--knob-ink));
+}
+
+.knob__pointer {
+  stroke: var(--knob-ink);
+  stroke-linecap: round;
+  stroke-width: 2;
+}
+
+.knob__value-text,
+.knob__input {
+  width: 64px;
+  height: 20px;
+  padding: 0 4px;
+  border-radius: 6px;
+  color: var(--knob-ink);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  line-height: 20px;
+  text-align: center;
+}
+
+.knob__value-text {
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  cursor: text;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.knob__value-text:hover {
+  background: var(--knob-track);
+}
+
+.knob__input {
+  border: 1px solid var(--knob-accent);
+  background: var(--knob-body);
+  user-select: text;
+}
+
+.knob--disabled {
+  opacity: 0.45;
+}
+
+.knob--disabled .knob__dial,
+.knob--disabled .knob__value-text {
+  cursor: not-allowed;
+}
