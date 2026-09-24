@@ -111,7 +111,7 @@ export type Harness = {
   pickSession(): Promise<SessionSelection | null>;
   pickWorkspace?(): Promise<SessionSelection | null>;
   pickMedia(): Promise<MediaSelection | null>;
-  pickMediaFolder?(): Promise<WorkspaceFileRef[] | null>;
+  pickMediaFolder?(): Promise<MediaSelection | null>;
   openSession(selection: SessionSelection): Promise<SessionOpenResponse>;
   analyzeMedia(
     selection: MediaSelection,

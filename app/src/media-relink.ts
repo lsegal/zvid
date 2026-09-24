@@ -42,16 +42,10 @@ export function relinkCandidatesFromSelection(selection: MediaSelection) {
 /** Asks the user for replacement media; null when the picker is cancelled. */
 export async function pickRelinkCandidates(mode: "files" | "folder") {
   const harness = getHarness();
-  if (mode === "folder" && harness.pickMediaFolder) {
-    const entries = await harness.pickMediaFolder();
-    return entries
-      ? entries.map(({ file, path }) =>
-          fileRelinkCandidate(file, file.webkitRelativePath || path),
-        )
-      : null;
-  }
-
-  const selection = await harness.pickMedia();
+  const selection =
+    mode === "folder" && harness.pickMediaFolder
+      ? await harness.pickMediaFolder()
+      : await harness.pickMedia();
   return selection ? relinkCandidatesFromSelection(selection) : null;
 }
 

@@ -43,6 +43,7 @@ import {
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
 import { getHarness, type SaveTarget } from "./harness";
+import { hasMediaExtension } from "./harness/media-extensions";
 import {
   buildFallbackMediaItem,
   inferMediaKind,
@@ -340,8 +341,6 @@ const DEFAULT_SIGNALING_URLS = splitSignalingUrls(
 const LEGACY_DEFAULT_SIGNALING_URLS = [
   "wss://zvid-signaling.lsegal.workers.dev",
 ];
-const MEDIA_DROP_EXTENSION_PATTERN =
-  /\.(mp4|mov|mkv|webm|avi|wav|mp3|m4a|flac|aif|aiff)$/i;
 const SIGNATURES: TimeSignature[] = [
   { id: "4/4", numerator: 4, denominator: 4 },
   { id: "3/4", numerator: 3, denominator: 4 },
@@ -810,7 +809,7 @@ function getDraggedMediaFiles(dataTransfer: DataTransfer | null) {
     (file) =>
       file.type.startsWith("video/") ||
       file.type.startsWith("audio/") ||
-      MEDIA_DROP_EXTENSION_PATTERN.test(file.name),
+      hasMediaExtension(file.name),
   );
 }
 
