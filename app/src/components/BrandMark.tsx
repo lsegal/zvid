@@ -1,9 +1,5 @@
 import type { MouseEvent } from "react";
-import {
-  formatBuildLabel,
-  getCommitUrl,
-  shortCommit,
-} from "../build-info";
+import { formatBuildLabel, getCommitUrl, shortCommit } from "../build-info";
 import "./brand-mark.css";
 
 export const APP_COMMIT = __APP_COMMIT__;
@@ -64,7 +60,11 @@ export function BrandMark({ onStatus }: BrandMarkProps) {
       <span className="brand-mark__name" aria-hidden="true">
         zvid
       </span>
-      <span className="brand-mark__tooltip" id="brand-mark-tooltip" role="tooltip">
+      <span
+        className="brand-mark__tooltip"
+        id="brand-mark-tooltip"
+        role="tooltip"
+      >
         <span className="brand-mark__tooltip-line">{APP_BUILD_LABEL}</span>
         <span className="brand-mark__tooltip-hint">
           Click to copy SHA

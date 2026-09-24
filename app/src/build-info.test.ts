@@ -48,12 +48,18 @@ describe("resolveAppCommit", () => {
   });
 
   it("ignores blank variables", () => {
-    const git = fakeGit({ "rev-parse HEAD": `${SHA}\n`, "status --porcelain": "" });
+    const git = fakeGit({
+      "rev-parse HEAD": `${SHA}\n`,
+      "status --porcelain": "",
+    });
     assert.equal(resolveAppCommit({ GITHUB_SHA: "  " }, git), SHA);
   });
 
   it("uses the local HEAD for a clean checkout", () => {
-    const git = fakeGit({ "rev-parse HEAD": `${SHA}\n`, "status --porcelain": "" });
+    const git = fakeGit({
+      "rev-parse HEAD": `${SHA}\n`,
+      "status --porcelain": "",
+    });
     assert.equal(resolveAppCommit({}, git), SHA);
   });
 
