@@ -13,6 +13,9 @@ type CachedMediaEntry = {
 
 type CachedPeaksEntry = {
   id: string;
+  // Fingerprint of the media content the peaks were decoded from; entries
+  // without one predate content validation and are treated as stale.
+  fingerprint?: string;
   peaks: WaveformPeaks;
   updatedAt: number;
 };
@@ -90,7 +93,10 @@ export function cacheMediaBlob(id: string, blob: Blob) {
   });
 }
 
-export function getCachedWaveformPeaks(id: string) {
+// Returns cached peaks only when they were decoded from media with the given
+// fingerprint, so replaced or relinked content under the same id is decoded
+// again instead of showing the old waveform.
+export function getCachedWaveformPeaks(id: string, fingerprint: string) {
   return runStoreRequest<WaveformPeaks | null>(
     "readonly",
     (store, resolve, reject) => {
@@ -99,19 +105,24 @@ export function getCachedWaveformPeaks(id: string) {
         reject(request.error ?? new Error(`Failed to read peaks for ${id}`));
       request.onsuccess = () => {
         const entry = request.result as CachedPeaksEntry | undefined;
-        resolve(entry?.peaks ?? null);
+        resolve(entry?.fingerprint === fingerprint ? entry.peaks : null);
       };
     },
     PEAKS_STORE_NAME,
   );
 }
 
-export function cacheWaveformPeaks(id: string, peaks: WaveformPeaks) {
+export function cacheWaveformPeaks(
+  id: string,
+  fingerprint: string,
+  peaks: WaveformPeaks,
+) {
   return runStoreRequest<void>(
     "readwrite",
     (store, resolve, reject) => {
       const request = store.put({
         id,
+        fingerprint,
         peaks,
         updatedAt: Date.now(),
       } satisfies CachedPeaksEntry);
