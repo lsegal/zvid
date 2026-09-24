@@ -127,8 +127,13 @@ describe("rankWorkspaceSessions", () => {
 
 describe("importAls", () => {
   async function importError(bytes: Uint8Array, path = "Song.als") {
-    await assert.rejects(importAls(bytes, path), AlsImportError);
-    return importAls(bytes, path).catch((error: Error) => error.message);
+    try {
+      await importAls(bytes, path);
+    } catch (error) {
+      assert.ok(error instanceof AlsImportError);
+      return error.message;
+    }
+    assert.fail("expected the import to fail");
   }
 
   it("rejects a file that is not gzip-compressed", async () => {
