@@ -43,10 +43,6 @@ type StackedLayer = {
   clip: { startQ: number };
 };
 
-function clamp(value: number, minimum: number, maximum: number) {
-  return Math.max(minimum, Math.min(maximum, value));
-}
-
 // Draw order, which is also band order from the top: the highest lane first,
 // then earlier clips first within a lane.
 export function orderStackedLayers<T extends StackedLayer>(layers: T[]) {
@@ -115,37 +111,24 @@ export function resolveAnchorOffsetY(
   return 0;
 }
 
-export function resolveFrameScissor(
-  frame: FrameBounds,
+// Band `index` of `count` in whole framebuffer pixels (origin bottom-left).
+// Edges are rounded from the same row positions for neighbouring bands, so
+// the boxes tile the surface with no gap or overlap at any size.
+export function resolveBandScissor(
+  index: number,
+  count: number,
   width: number,
   height: number,
 ): ScissorBox {
-  const minX = clamp(
-    Math.floor(((frame.centerX - frame.halfWidth + 1) * width) / 2),
-    0,
-    width,
-  );
-  const maxX = clamp(
-    Math.ceil(((frame.centerX + frame.halfWidth + 1) * width) / 2),
-    0,
-    width,
-  );
-  const minY = clamp(
-    Math.floor(((frame.centerY - frame.halfHeight + 1) * height) / 2),
-    0,
-    height,
-  );
-  const maxY = clamp(
-    Math.ceil(((frame.centerY + frame.halfHeight + 1) * height) / 2),
-    0,
-    height,
-  );
+  const normalizedCount = Math.max(1, count);
+  const topRow = Math.round((index * height) / normalizedCount);
+  const bottomRow = Math.round(((index + 1) * height) / normalizedCount);
 
   return {
-    x: minX,
-    y: minY,
-    width: Math.max(1, maxX - minX),
-    height: Math.max(1, maxY - minY),
+    x: 0,
+    y: height - bottomRow,
+    width: Math.max(1, width),
+    height: Math.max(1, bottomRow - topRow),
   };
 }
 
@@ -178,6 +161,6 @@ export function resolveLayerPlacement(options: {
       x: frame.centerX + visual.translateX * frame.halfWidth,
       y: frame.centerY + anchorOffsetY + visual.translateY * frame.halfHeight,
     },
-    scissor: resolveFrameScissor(frame, canvasWidth, canvasHeight),
+    scissor: resolveBandScissor(index, count, canvasWidth, canvasHeight),
   };
 }
