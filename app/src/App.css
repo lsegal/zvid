@@ -1541,41 +1541,54 @@
 .preview-panel {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 6px;
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
 }
 
+/* A slim single-line strip so the monitor below keeps nearly all the height. */
 .preview-panel__header {
   display: flex;
+  flex: none;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 16px;
+  gap: 8px;
+  min-width: 0;
+  height: 26px;
+  padding: 0 4px 0 10px;
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 10px;
   background: rgba(17, 19, 28, 0.4);
+  font-size: 0.72rem;
+  line-height: 1;
 }
 
-.preview-panel__header strong,
-.preview-panel__header span {
-  display: block;
+.preview-panel__header strong {
+  flex: none;
 }
 
-.preview-panel__header span {
+.preview-panel__clip {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
   color: var(--muted);
-  font-size: 0.76rem;
-  text-transform: uppercase;
+  font-size: 0.66rem;
   letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .preview-panel__mode {
-  padding: 6px 10px;
+  flex: none;
+  padding: 3px 8px;
   border-radius: 999px;
   border: 1px solid rgba(124, 161, 255, 0.4);
   background: rgba(124, 161, 255, 0.12);
   color: #b9cbff;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .preview-monitor {
@@ -1640,26 +1653,6 @@
   color: rgba(255, 255, 255, 0.72);
   font-size: 0.84rem;
   line-height: 1.45;
-}
-
-.preview-meta {
-  display: grid;
-  gap: 10px;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  background: rgba(17, 19, 28, 0.4);
-}
-
-.preview-meta__row {
-  display: flex;
-  justify-content: space-between;
-  gap: 14px;
-  font-size: 0.82rem;
-}
-
-.preview-meta__row span {
-  color: var(--muted);
 }
 
 .zoom-control {

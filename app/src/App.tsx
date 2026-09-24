@@ -6560,12 +6560,10 @@ function App() {
 
               <aside className="preview-panel">
                 <div className="preview-panel__header">
-                  <div>
-                    <strong>Program</strong>
-                    <span>
-                      {previewClip ? previewClip.label : "No clip at playhead"}
-                    </span>
-                  </div>
+                  <strong>Program</strong>
+                  <span className="preview-panel__clip">
+                    {previewClip ? previewClip.label : "No clip at playhead"}
+                  </span>
                   <span className="preview-panel__mode">
                     {previewMedia?.kind === "audio" ? "Audio" : "Video"}
                   </span>
@@ -6612,37 +6610,6 @@ function App() {
                       </div>
                     </div>
                   ) : null}
-                </div>
-
-                <div className="preview-meta">
-                  <div className="preview-meta__row">
-                    <span>Session</span>
-                    <strong>{sessionName ?? "Untitled session"}</strong>
-                  </div>
-                  <div className="preview-meta__row">
-                    <span>Timeline</span>
-                    <strong>
-                      {timelineMode === "musical"
-                        ? "Tempo ruler"
-                        : "SMPTE ruler"}
-                    </strong>
-                  </div>
-                  <div className="preview-meta__row">
-                    <span>Resolution</span>
-                    <strong>
-                      {canvasWidth} x {canvasHeight}
-                    </strong>
-                  </div>
-                  <div className="preview-meta__row">
-                    <span>Audio</span>
-                    <strong>
-                      {previewMedia?.sampleRate
-                        ? `${previewMedia.sampleRate} Hz / ${previewMedia.channels ?? 2} ch`
-                        : previewMedia?.hasAudio
-                          ? "Embedded"
-                          : "None"}
-                    </strong>
-                  </div>
                 </div>
               </aside>
             </div>
