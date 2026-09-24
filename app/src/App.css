@@ -226,7 +226,7 @@
 .share-button__icon {
   display: inline-flex;
   width: 16px;
-  height: 16px;
+  height: 18px;
   color: rgba(255, 255, 255, 0.78);
   transition:
     color 160ms ease,
@@ -236,7 +236,7 @@
 
 .share-button__icon svg {
   width: 16px;
-  height: 16px;
+  height: 18px;
 }
 
 .share-button.is-sharing {
@@ -268,7 +268,7 @@
 
 .share-copy-badge svg {
   width: 16px;
-  height: 16px;
+  height: 18px;
 }
 
 .dialog-overlay {
@@ -1128,15 +1128,6 @@
   overflow: hidden;
 }
 
-.clip-card::after {
-  content: '';
-  position: absolute;
-  inset: auto 0 0 0;
-  height: 4px;
-  background: currentColor;
-  opacity: 0.72;
-}
-
 .clip-card__body,
 .clip-card__handle {
   border: none;
@@ -1147,7 +1138,17 @@
 
 .clip-card__handle {
   position: relative;
+  height: 100%;
+  background: var(--clip-accent, var(--line-strong));
   cursor: ew-resize;
+}
+
+.clip-card__handle--start {
+  border-radius: 8px 0 0 8px;
+}
+
+.clip-card__handle--end {
+  border-radius: 0 8px 8px 0;
 }
 
 .clip-card__body {
@@ -1164,17 +1165,20 @@
   cursor: grabbing;
 }
 
-
 .clip-card__handle::before {
   content: '';
   position: absolute;
-  top: 8px;
-  bottom: 8px;
+  top: 50%;
   left: 50%;
-  width: 2px;
-  transform: translateX(-50%);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.55);
+  width: 4px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+      circle at center,
+      rgba(0, 0, 0, 0.55) 1.5px,
+      transparent 2px
+    )
+    center top / 4px 6px repeat-y;
 }
 
 .clip-card strong {
@@ -1642,7 +1646,7 @@
 
 .fx-panel__toggle svg {
   width: 16px;
-  height: 16px;
+  height: 18px;
   transition: transform 160ms ease;
 }
 

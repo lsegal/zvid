@@ -5829,6 +5829,7 @@ function App() {
                               style={{
                                 left: clip.startQ * quarterPx,
                                 width: durationQ * quarterPx,
+                                ["--clip-accent" as string]: clip.accent,
                                 backgroundColor: clip.tint,
                                 borderColor: clip.accent,
                                 boxShadow: selected
