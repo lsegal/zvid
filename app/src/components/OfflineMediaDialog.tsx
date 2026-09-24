@@ -24,7 +24,13 @@ import {
 
 type ItemOutcome = Extract<RelinkOutcome, { item: MediaItem }>;
 
-type RowTone = "offline" | "loading" | "linking" | "linked" | "warning" | "failed";
+type RowTone =
+  | "offline"
+  | "loading"
+  | "linking"
+  | "linked"
+  | "warning"
+  | "failed";
 
 type PendingForcedLink = {
   itemId: string;
@@ -66,7 +72,11 @@ function rowState(
   const availability = live?.availability ?? entry.item.availability;
   if (availability === "ready") {
     return outcome?.status === "linked" && outcome.warning
-      ? { tone: "warning", label: "Linked with warning", detail: outcome.warning }
+      ? {
+          tone: "warning",
+          label: "Linked with warning",
+          detail: outcome.warning,
+        }
       : { tone: "linked", label: "Linked ✓" };
   }
   if (availability === "hydrating") {
@@ -210,7 +220,7 @@ function OfflineMediaDialogBody({
         <DialogDescription>
           {missingCount
             ? `${pluralize(missingCount, "file")} can't be found. Locate them to restore playback.`
-            : "Every media file in this session is linked."}
+            : "Linked files stay listed until you close this dialog."}
         </DialogDescription>
       </DialogHeader>
 
@@ -248,7 +258,10 @@ function OfflineMediaDialogBody({
                   {entry.displayName}
                 </strong>
                 {entry.sourcePath ? (
-                  <small className="offline-media__path" title={entry.sourcePath}>
+                  <small
+                    className="offline-media__path"
+                    title={entry.sourcePath}
+                  >
                     {entry.sourcePath}
                   </small>
                 ) : null}
@@ -257,11 +270,18 @@ function OfflineMediaDialogBody({
                     ? `Used by ${pluralize(entry.clipCount, "clip")}`
                     : "Not used by any clips"}
                 </small>
+                {state.tone === "warning" ? (
+                  <small className="offline-media__detail">
+                    {state.detail}
+                  </small>
+                ) : null}
                 {pending ? (
                   <div className="offline-media__confirm">
                     <span>
                       Link{" "}
-                      <code>{fileBasename(relinkCandidateFile(pending.candidate))}</code>{" "}
+                      <code>
+                        {fileBasename(relinkCandidateFile(pending.candidate))}
+                      </code>{" "}
                       in place of <code>{mediaDisplayName(entry.item)}</code>?
                     </span>
                     <button
@@ -389,11 +409,11 @@ function OfflineMediaReport({
       </p>
       {expanded ? (
         <ul className="offline-media__unresolved">
-          {unresolved.map((outcome, index) => (
-            <li key={`${outcome.file}:${index}`}>
+          {unresolved.map((outcome) => (
+            <li key={outcome.file}>
               <code title={outcome.file}>{fileBasename(outcome.file)}</code>
               {outcome.status === "ambiguous"
-                ? ` could be ${outcome.items.map(mediaDisplayName).join(" or ")}. Use Locate… on the right row.`
+                ? ` could be ${outcome.items.map((item) => item.sourcePath ?? mediaDisplayName(item)).join(" or ")}. Use Locate… on the right row.`
                 : " didn't match any offline media."}
             </li>
           ))}

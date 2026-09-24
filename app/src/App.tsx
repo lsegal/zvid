@@ -25,6 +25,7 @@ import {
   type CollaborationController,
   createCollaborationController,
 } from "./collaboration";
+import { OfflineMediaDialog } from "./components/OfflineMediaDialog";
 import {
   Dialog,
   DialogClose,
@@ -34,7 +35,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./components/ui/dialog";
-import { OfflineMediaDialog } from "./components/OfflineMediaDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -478,8 +478,7 @@ function pluralize(count: number, singular: string, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
-const LOCATE_OFFLINE_MEDIA_HINT =
-  "Use File → Locate Offline Media… to find them.";
+const LOCATE_OFFLINE_MEDIA_HINT = "Relink from File → Locate Offline Media…";
 
 function formatSessionMediaCheckStatus(check: SessionMediaCheck) {
   const { sessionName, restored, offline, hydratedFromDisk } = check;
@@ -5132,7 +5131,9 @@ function App() {
                 disabled={!offlineMedia.length}
                 onSelect={() => setIsOfflineMediaDialogOpen(true)}
               >
-                {offlineMedia.length ? "Locate Offline Media…" : "All Media Linked"}
+                {offlineMedia.length
+                  ? "Locate Offline Media…"
+                  : "All Media Linked"}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
