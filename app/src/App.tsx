@@ -44,6 +44,7 @@ import {
 import { getHarness, type SaveTarget } from "./harness";
 import {
   buildFallbackMediaItem,
+  createMediaId,
   type MediaAvailability,
   type MediaItem,
   type MediaKind,
@@ -51,7 +52,12 @@ import {
   toShareableMediaItem,
 } from "./media";
 import { cacheMediaBlob, getCachedMediaBlob } from "./media-cache";
-import type { LvpSession, SessionOpenResponse } from "./session";
+import { matchOfflineMedia, type RelinkCandidate } from "./relink";
+import type {
+  LvpSession,
+  ServerMediaRef,
+  SessionOpenResponse,
+} from "./session";
 
 type TimelineMode = "musical" | "timecode";
 type SnapMode = "bar" | "beat" | "half" | "quarter";
@@ -252,6 +258,17 @@ type LocalMediaOverride = {
   availability?: MediaAvailability;
   previewUrl?: string;
   thumbnailUrl?: string;
+};
+
+// Tracks the offline refs of a just-opened session until cache hydration
+// settles, so the status bar can report the real outcome.
+type SessionMediaCheck = {
+  sessionName: string;
+  pendingIds: Set<string>;
+  restored: number;
+  offline: number;
+  analyzingFromDisk: boolean;
+  hydratedFromDisk: boolean;
 };
 
 type ProjectHistoryEntry = {
@@ -491,6 +508,30 @@ function clamp(value: number, minimum: number, maximum: number) {
 
 function pluralize(count: number, singular: string, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function formatSessionMediaCheckStatus(check: SessionMediaCheck) {
+  const { sessionName, restored, offline, hydratedFromDisk } = check;
+  if (!restored && !offline) {
+    return hydratedFromDisk
+      ? `Loaded ${sessionName} with local media hydrated from disk.`
+      : `Loaded ${sessionName}.`;
+  }
+
+  if (!restored && !hydratedFromDisk) {
+    return `Loaded ${sessionName}. All referenced media is currently offline.`;
+  }
+
+  const details: string[] = [];
+  if (restored) {
+    details.push(`Restored ${pluralize(restored, "media file")} from cache.`);
+  }
+  if (offline) {
+    details.push(
+      `${offline === 1 ? "1 clip is" : `${offline} clips are`} still offline.`,
+    );
+  }
+  return `Loaded ${sessionName}. ${details.join(" ")}`;
 }
 
 function isEditableEventTarget(target: EventTarget | null) {
@@ -1868,6 +1909,7 @@ function App() {
     ids: Set<string>;
   }>({ controller: null, mediaPeerCount: 0, ids: new Set() });
   const peerMediaStatusAtRef = useRef(0);
+  const sessionMediaCheckRef = useRef<SessionMediaCheck | null>(null);
   const sourceThumbnailUrlsRef = useRef<Record<string, string>>({});
   const lastCollaborationCursorRef = useRef("");
   const sourceTrackDragPreviewRef = useRef<SourceTrackDragPreview | null>(null);
@@ -2188,16 +2230,19 @@ function App() {
       quarter: index * barLength,
     }));
   }, [barLength, totalQuarters]);
-  const offlineCount = useMemo(
-    () =>
-      timelineClips.filter((clip) => {
-        const media = clip.mediaId
-          ? mediaItemsById.get(clip.mediaId)
-          : undefined;
-        return !media || media.availability !== "ready";
-      }).length,
-    [mediaItemsById, timelineClips],
-  );
+  // Counts distinct offline media referenced by arrangement or source-track
+  // clips, so sessions whose media is only used on source tracks still
+  // surface the Locate Media shortcut.
+  const offlineCount = useMemo(() => {
+    const offlineKeys = new Set<string>();
+    for (const clip of [...timelineClips, ...sourceSpans]) {
+      const media = clip.mediaId ? mediaItemsById.get(clip.mediaId) : undefined;
+      if (!media || media.availability !== "ready") {
+        offlineKeys.add(clip.mediaId ?? `clip:${clip.id}`);
+      }
+    }
+    return offlineKeys.size;
+  }, [mediaItemsById, sourceSpans, timelineClips]);
   const clipsByLane = useMemo(() => {
     const next = new Map<string, ArrangementClip[]>();
     for (const clip of timelineClips) {
@@ -3248,6 +3293,33 @@ function App() {
     });
   }, [projectMediaItems]);
 
+  const reportSessionMediaCheck = useCallback(() => {
+    const check = sessionMediaCheckRef.current;
+    if (!check || check.pendingIds.size || check.analyzingFromDisk) {
+      return;
+    }
+
+    sessionMediaCheckRef.current = null;
+    setStatus(formatSessionMediaCheckStatus(check));
+  }, []);
+
+  const settleSessionMediaCheck = useCallback(
+    (mediaId: string, outcome: "restored" | "offline") => {
+      const check = sessionMediaCheckRef.current;
+      if (!check?.pendingIds.delete(mediaId)) {
+        return;
+      }
+
+      if (outcome === "restored") {
+        check.restored += 1;
+      } else {
+        check.offline += 1;
+      }
+      reportSessionMediaCheck();
+    },
+    [reportSessionMediaCheck],
+  );
+
   useEffect(() => {
     let cancelled = false;
 
@@ -3269,6 +3341,7 @@ function App() {
       });
 
       void (async () => {
+        let restored = false;
         try {
           const cachedBlob = await getCachedMediaBlob(item.id);
           if (cachedBlob) {
@@ -3277,6 +3350,7 @@ function App() {
             }
 
             await adoptMediaBlob(item.id, cachedBlob);
+            restored = true;
             return;
           }
 
@@ -3295,6 +3369,7 @@ function App() {
           }
 
           await adoptMediaBlob(item.id, blob);
+          restored = true;
         } catch (error) {
           logClient("media:hydrate:error", {
             mediaId: item.id,
@@ -3306,6 +3381,7 @@ function App() {
         } finally {
           mediaHydrationInFlightRef.current.delete(item.id);
           setMediaHydrationTick((tick) => tick + 1);
+          settleSessionMediaCheck(item.id, restored ? "restored" : "offline");
         }
       })();
     }
@@ -3313,7 +3389,12 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [adoptMediaBlob, projectMediaItems, setLocalMediaOverride]);
+  }, [
+    adoptMediaBlob,
+    projectMediaItems,
+    setLocalMediaOverride,
+    settleSessionMediaCheck,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -4406,11 +4487,32 @@ function App() {
       })),
     );
 
-    setStatus(
-      existingRefs.length
-        ? `Loaded ${payload.sessionName}. Hydrating ${pluralize(existingRefs.length, "media file")} in the background.`
-        : `Loaded ${payload.sessionName}. All referenced media is currently offline.`,
-    );
+    // Offline refs may still be restored from the media cache by the
+    // hydration effect; report the outcome once every ref has settled.
+    const pendingOfflineIds = missingRefs
+      .map((ref) => ref.id)
+      .filter((id) => !localMediaOverridesRef.current[id]?.previewUrl);
+    const mediaCheck: SessionMediaCheck = {
+      sessionName: payload.sessionName,
+      pendingIds: new Set(pendingOfflineIds),
+      restored: 0,
+      offline: 0,
+      analyzingFromDisk: existingRefs.length > 0,
+      hydratedFromDisk: existingRefs.length > 0,
+    };
+    sessionMediaCheckRef.current = mediaCheck;
+
+    if (existingRefs.length) {
+      setStatus(
+        `Loaded ${payload.sessionName}. Hydrating ${pluralize(existingRefs.length, "media file")} in the background.`,
+      );
+    } else if (pendingOfflineIds.length) {
+      setStatus(
+        `Loaded ${payload.sessionName}. Checking the media cache for ${pluralize(pendingOfflineIds.length, "offline media file")}...`,
+      );
+    } else {
+      reportSessionMediaCheck();
+    }
 
     if (existingRefs.length) {
       void (async () => {
@@ -4437,14 +4539,14 @@ function App() {
               ),
             }),
           );
-          setStatus(
-            missingRefs.length
-              ? `Loaded ${payload.sessionName}. ${missingRefs.length === 1 ? "1 clip is" : `${missingRefs.length} clips are`} still offline.`
-              : `Loaded ${payload.sessionName} with local media hydrated from disk.`,
-          );
+          mediaCheck.analyzingFromDisk = false;
+          reportSessionMediaCheck();
         } catch (error) {
           const message =
             error instanceof Error ? error.message : String(error);
+          if (sessionMediaCheckRef.current === mediaCheck) {
+            sessionMediaCheckRef.current = null;
+          }
           setStatus(`Session media hydration failed: ${message}`);
         }
       })();
@@ -4508,6 +4610,112 @@ function App() {
       const message = error instanceof Error ? error.message : String(error);
       setStatus(`Media import failed: ${message}`);
     }
+  }
+
+  async function handleLocateMedia(mode: "files" | "folder" = "files") {
+    const offlineItems = mediaItems.filter(
+      (item) => item.availability !== "ready",
+    );
+    if (!offlineItems.length) {
+      setStatus("All media is linked.");
+      return;
+    }
+
+    const harness = getHarness();
+    type LocateSource =
+      | { kind: "file"; file: File }
+      | { kind: "ref"; ref: ServerMediaRef };
+    let candidates: RelinkCandidate<LocateSource>[];
+    if (mode === "folder" && harness.pickMediaFolder) {
+      const entries = await harness.pickMediaFolder();
+      if (!entries) {
+        return;
+      }
+
+      candidates = entries.map(({ file, path }) => ({
+        name: file.name,
+        path: file.webkitRelativePath || path,
+        id: createMediaId(file),
+        source: { kind: "file", file },
+      }));
+    } else {
+      const selection = await harness.pickMedia();
+      if (!selection) {
+        return;
+      }
+
+      candidates =
+        selection.kind === "files"
+          ? selection.files.map((file) => ({
+              name: file.name,
+              path: file.webkitRelativePath || file.name,
+              id: createMediaId(file),
+              source: { kind: "file", file },
+            }))
+          : selection.refs.map((ref) => ({
+              name: ref.name,
+              path: ref.path,
+              source: { kind: "ref", ref },
+            }));
+    }
+
+    const { matches, unmatched, ambiguous } = matchOfflineMedia(
+      offlineItems,
+      candidates,
+    );
+    if (unmatched.length) {
+      logClient("media:locate:unmatched", {
+        files: unmatched.map((candidate) => candidate.path ?? candidate.name),
+      });
+    }
+    if (ambiguous.length) {
+      logClient(
+        "media:locate:ambiguous",
+        ambiguous.map(({ candidate, items }) => ({
+          file: candidate.path ?? candidate.name,
+          media: items.map((item) => item.sourcePath ?? item.name),
+        })),
+      );
+    }
+
+    if (!matches.length) {
+      setStatus(
+        `No selected files matched offline media. ${pluralize(offlineItems.length, "media file")} still offline.`,
+      );
+      return;
+    }
+
+    setStatus(
+      `Relinking ${pluralize(matches.length, "offline media file")}...`,
+    );
+    let relinked = 0;
+    for (const { item, candidate } of matches) {
+      try {
+        const blob =
+          candidate.source.kind === "file"
+            ? candidate.source.file
+            : await harness.readMediaBlob({
+                id: item.id,
+                name: candidate.source.ref.name,
+                previewUrl: candidate.source.ref.url,
+                sourcePath: candidate.source.ref.path,
+              });
+        await adoptMediaBlob(item.id, blob);
+        relinked += 1;
+      } catch (error) {
+        logClient("media:locate:error", {
+          mediaId: item.id,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    const ambiguousNote = ambiguous.length
+      ? ` ${pluralize(ambiguous.length, "file")} matched several clips and ${ambiguous.length === 1 ? "was" : "were"} skipped.`
+      : "";
+    setStatus(
+      `Relinked ${relinked} of ${pluralize(offlineItems.length, "offline media file")}. ${offlineItems.length - relinked} still offline.${ambiguousNote}`,
+    );
   }
 
   async function handleOpenSession() {
@@ -4879,6 +5087,16 @@ function App() {
               <DropdownMenuItem onSelect={() => void handleImport()}>
                 Import Media
               </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void handleLocateMedia()}>
+                Locate Media…
+              </DropdownMenuItem>
+              {getHarness().pickMediaFolder ? (
+                <DropdownMenuItem
+                  onSelect={() => void handleLocateMedia("folder")}
+                >
+                  Locate Media Folder…
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onSelect={() => {
@@ -5339,11 +5557,18 @@ function App() {
                     <div className="track-label track-label--header">
                       <div>
                         <span>{sessionName ?? "Session"}</span>
-                        <small>
-                          {offlineCount
-                            ? pluralize(offlineCount, "offline clip")
-                            : "Media linked"}
-                        </small>
+                        {offlineCount ? (
+                          <button
+                            className="track-label__offline"
+                            onClick={() => void handleLocateMedia()}
+                            title="Locate offline media"
+                            type="button"
+                          >
+                            {pluralize(offlineCount, "offline media file")}
+                          </button>
+                        ) : (
+                          <small>Media linked</small>
+                        )}
                       </div>
                     </div>
                     <div
