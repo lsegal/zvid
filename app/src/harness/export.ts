@@ -40,7 +40,7 @@ export async function exportVideo(
       : null;
   if (!codec)
     throw new Error(
-      "MP4 export requires a HEVC or AV1 encoder in this runtime.",
+      "MP4 export requires a HEVC or AV1 encoder on this device.",
     );
   let audio: AudioBuffer | null = null;
   if (request.masterAudio?.hasAudio) {

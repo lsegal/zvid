@@ -1838,7 +1838,7 @@ function App() {
     clientWidth: 0,
   });
   const [status, setStatus] = useState(
-    "Open a .lvp session file. The active harness will provide available file and media access.",
+    "Open a session or import media to get started.",
   );
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [timelineDragState, setTimelineDragState] =
@@ -2475,7 +2475,7 @@ function App() {
 
       try {
         setStatus(
-          `Analyzing ${pluralize(files.length, "dropped media file")} through ${harness.label}...`,
+          `Analyzing ${pluralize(files.length, "dropped media file")}...`,
         );
         const analyzed = await harness.analyzeMedia(
           {
@@ -4566,7 +4566,7 @@ function App() {
           ? selection.files.length
           : selection.refs.length;
       setStatus(
-        `Analyzing ${pluralize(itemCount, "imported media file")} through ${harness.label}...`,
+        `Analyzing ${pluralize(itemCount, "imported media file")}...`,
       );
       const nextPaletteIndex = mediaItems.length;
       const analyzed = await harness.analyzeMedia(
@@ -4604,7 +4604,7 @@ function App() {
       seedLocalMediaItems(analyzed);
       void cacheLocalMediaItems(analyzed);
       setStatus(
-        `Imported ${pluralize(analyzed.length, "media file")} through ${harness.label}.`,
+        `Imported ${pluralize(analyzed.length, "media file")}.`,
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -4731,7 +4731,7 @@ function App() {
           : selection.kind === "workspace"
             ? selection.sessionFile.name
             : selection.name;
-      setStatus(`Opening ${selectionName} through ${harness.label}...`);
+      setStatus(`Opening ${selectionName}...`);
       const payload = await harness.openSession(selection);
       await applyOpenedSessionPayload(payload);
     } catch (error) {
@@ -4743,7 +4743,7 @@ function App() {
   async function handleOpenWorkspace() {
     const harness = getHarness();
     if (!harness.pickWorkspace) {
-      setStatus(`${harness.label} does not support opening a workspace.`);
+      setStatus("Opening a workspace is not supported in this version of zvid.");
       return;
     }
 
@@ -4760,7 +4760,7 @@ function App() {
             ? selection.file.name
             : selection.name;
       setStatus(
-        `Opening workspace ${selectionName} through ${harness.label}...`,
+        `Opening workspace ${selectionName}...`,
       );
       const payload = await harness.openSession(selection);
       await applyOpenedSessionPayload(payload);
@@ -5272,7 +5272,7 @@ function App() {
             className="ghost-button"
             onClick={() =>
               setStatus(
-                `Use Open to pick a .lvp file through the ${getHarness().label} harness.`,
+                "Use File → Open Session to open a .lvp session, or File → Import Media to add clips.",
               )
             }
             type="button"
@@ -5906,9 +5906,25 @@ function App() {
                       </div>
                     </div>
                     <div className="source-header__content">
-                      <span>
-                        {getHarness().label} owns media access for this runtime.
-                      </span>
+                      {sourceTracks.length ? null : (
+                        <div className="source-empty-state">
+                          <span>No source media yet</span>
+                          <button
+                            className="ghost-button ghost-button--accent"
+                            onClick={() => void handleImport()}
+                            type="button"
+                          >
+                            Import Media
+                          </button>
+                          <button
+                            className="ghost-button"
+                            onClick={() => void handleOpenSession()}
+                            type="button"
+                          >
+                            Open Session
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </section>
 
@@ -6379,23 +6395,6 @@ function App() {
                       </div>
                     </div>
                   ))}
-
-                  <div className="inspector-note">
-                    <strong>Harness Media Flow</strong>
-                    <p>
-                      <code>window.harness</code> owns session open, media
-                      analysis, and export. The web harness routes session
-                      access through the local Vite middleware, while Tauri
-                      upgrades the same contract with native dialogs and
-                      filesystem-backed URLs.
-                    </p>
-                    <p>
-                      The editor only supplies canvas frames and timeline state.
-                      Media analysis uses the shared reader, while export
-                      encodes platform-supported tracks and writes the final MP4
-                      through zvidlib.
-                    </p>
-                  </div>
                 </div>
               ) : (
                 <div className="inspector-note">

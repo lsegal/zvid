@@ -88,6 +88,12 @@ MP4 export uses the zvidlib bridge built during the app build. The runtime needs
 
 To check playable browser and Tauri exports, follow [the MP4 export smoke test](EXPORT_SMOKE_TEST.md).
 
+## Media harness
+
+`window.harness` owns session open, media analysis, and export. The web harness routes session access through the local Vite middleware, while Tauri upgrades the same contract with native dialogs and filesystem-backed URLs.
+
+The editor only supplies canvas frames and timeline state. Media analysis uses the shared reader, while export encodes platform-supported tracks and writes the final MP4 through zvidlib.
+
 ## Collaboration signaling
 
 Collaboration uses the public `wss://y-webrtc-eu.fly.dev` y-webrtc relay by default, so no signaling deploy is needed. To use a different server, copy `.env.example` to `.env.local` and set `VITE_SIGNALING_URL` before building, or deploy the optional [signaling worker](../signaling/README.md).
