@@ -80,7 +80,7 @@ describe("groupChainDevices", () => {
 describe("getParameterFormat", () => {
   it("uses the registry format for known parameters", () => {
     assert.equal(getParameterFormat("Colorize", "_HueOffset")(0.5), "+180°");
-    assert.equal(getParameterFormat("Pixelate", "_NumPixels")(12.4), "12");
+    assert.equal(getParameterFormat("Pixelate", "_NumPixels")(0.83), "83%");
   });
 
   it("falls back to raw numbers for unknown parameters", () => {
