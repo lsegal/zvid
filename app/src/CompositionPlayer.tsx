@@ -1327,6 +1327,10 @@ export const CompositionPlayer = forwardRef<
     },
     [drawCurrentFrame],
   );
+  const scheduleDrawRef = useRef(scheduleDraw);
+  scheduleDrawRef.current = scheduleDraw;
+  const isPlayingRef = useRef(isPlaying);
+  isPlayingRef.current = isPlaying;
 
   const renderFrameAt = useCallback(
     async (
@@ -1389,6 +1393,11 @@ export const CompositionPlayer = forwardRef<
 
   useEffect(() => {
     rendererRef.current?.update(rendererState);
+    // A paused preview only redraws on request, so edits such as effect or
+    // layer FX bypasses would otherwise not show until the playhead moves.
+    if (!isPlayingRef.current) {
+      scheduleDrawRef.current();
+    }
   }, [rendererState]);
 
   useEffect(() => {

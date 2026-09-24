@@ -5,6 +5,7 @@ import { resolveEffectChain } from "./fx-shaders/registry.ts";
 import {
   addEffect,
   effectHistoryLabels,
+  type FxLayer,
   GLOBAL_EFFECT_TRACK_ID,
   getRenderedEffects,
   isLayerFxEnabled,
@@ -458,11 +459,7 @@ describe("effect history", () => {
 });
 
 describe("layer FX bypass", () => {
-  const LANES = [
-    { id: "1", name: "Layer 1" },
-    { id: "5", name: "Layer 2" },
-    { id: "6", name: "Layer 3" },
-  ];
+  const LANES: FxLayer[] = [{ id: "1" }, { id: "5" }, { id: "6" }];
 
   it("defaults layers to on", () => {
     assert.ok(LANES.every((lane) => isLayerFxEnabled(lane)));

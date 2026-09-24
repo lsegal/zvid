@@ -3969,6 +3969,15 @@ function App() {
       }
 
       if (event.code === "Space") {
+        // Toggle buttons such as a layer's FX badge keep their native Space
+        // activation instead of starting playback.
+        if (
+          event.target instanceof Element &&
+          event.target.closest("[data-space-activates]")
+        ) {
+          return;
+        }
+
         if (event.repeat) {
           return;
         }
@@ -5839,6 +5848,7 @@ function App() {
                           aria-label={`${lane.name} effects`}
                           aria-pressed={laneStatusById.get(lane.id)?.fxToggle}
                           className={`track-label__fx ${laneStatusById.get(lane.id)?.fxClassName ?? ""}`}
+                          data-space-activates
                           disabled={!laneStatusById.get(lane.id)?.effectCount}
                           onClick={(event) => {
                             event.stopPropagation();
