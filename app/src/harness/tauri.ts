@@ -8,6 +8,7 @@ import {
   probeAlsRecordings,
   resolveAlsMedia,
 } from "../als-import";
+import { siblingAudioFilename } from "../import/als/convert";
 import {
   collectSessionMediaPaths,
   type ServerMediaRef,
@@ -62,13 +63,19 @@ export async function maybeCreateTauriHarness(
       exists: true,
     });
 
-    // Imports a Live set and locates its recordings beside it, in the
-    // project's sibling `Recorded` folder, then in Documents/Layers/Recorded.
+    // Imports a Live set with its sibling `.wav` mixdown, if any, and locates
+    // its recordings beside it, in the project's sibling `Recorded` folder,
+    // then in Documents/Layers/Recorded.
     const openAlsSession = async (
       bytes: Uint8Array,
       sessionPath: string,
     ): Promise<SessionOpenResponse> => {
-      const imported = await importAls(bytes, sessionPath);
+      const audioPath = siblingAudioFilename(sessionPath);
+      const [audioExists] = await invoke<boolean[]>("files_exist", {
+        paths: [audioPath],
+      });
+      const audioFilename = audioExists ? audioPath : undefined;
+      const imported = await importAls(bytes, sessionPath, { audioFilename });
       const dirs = alsMediaSearchDirs(
         sessionPath,
         await documentDir().catch(() => undefined),
@@ -78,6 +85,9 @@ export async function maybeCreateTauriHarness(
         paths: candidates,
       });
       const found = new Set(candidates.filter((_, index) => exists[index]));
+      if (audioFilename) {
+        found.add(audioFilename);
+      }
       const { session, recordingPaths, summary } = resolveAlsMedia(
         imported,
         createAlsMediaLocator(dirs, (path) => found.has(path)),

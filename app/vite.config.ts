@@ -8,6 +8,7 @@ import { defineConfig, type Plugin } from "vite";
 import {
   AlsImportError,
   type AlsImportSummary,
+  alsMasterAudioPath,
   alsMediaSearchDirs,
   alsSavePath,
   createAlsMediaLocator,
@@ -136,6 +137,7 @@ async function buildAlsOpenPayload(
   const imported = await importAls(
     bytes,
     options.sessionPath ?? options.sessionName,
+    { audioFilename: alsMasterAudioPath(options.sessionPath, isFile) },
   );
   const dirs = alsMediaSearchDirs(
     options.sessionPath,
