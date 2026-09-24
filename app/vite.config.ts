@@ -1,8 +1,10 @@
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
+import { resolveAppCommit } from "./src/build-info.ts";
 
 type LvpSession = {
   clips?: Array<{ filePath: string }>;
@@ -306,8 +308,42 @@ function diskMediaPlugin(): Plugin {
   };
 }
 
+const appCommit = resolveAppCommit(process.env, (args) =>
+  execFileSync("git", args, {
+    cwd: import.meta.dirname,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+  }),
+);
+const appBuildTime = new Date().toISOString();
+
+// Publishes the build's commit at /version.json so `curl` can tell which
+// commit is deployed.
+function versionFilePlugin(): Plugin {
+  return {
+    name: "zvid-version-file",
+    apply: "build",
+    generateBundle() {
+      this.emitFile({
+        type: "asset",
+        fileName: "version.json",
+        source: `${JSON.stringify(
+          { commit: appCommit, buildTime: appBuildTime },
+          null,
+          2,
+        )}
+`,
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), diskMediaPlugin()],
+  plugins: [react(), diskMediaPlugin(), versionFilePlugin()],
+  define: {
+    __APP_COMMIT__: JSON.stringify(appCommit),
+    __APP_BUILD_TIME__: JSON.stringify(appBuildTime),
+  },
   clearScreen: false,
   worker: {
     // The waveform peaks worker lazy-loads mediabunny, which needs chunking.
