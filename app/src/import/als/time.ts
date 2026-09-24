@@ -132,7 +132,11 @@ export function createTempoMap(
       const region = regions[index];
       return (
         region.anchorBeat +
-        beatsAcross(region.anchorBpm, region.rate, seconds - region.anchorSeconds)
+        beatsAcross(
+          region.anchorBpm,
+          region.rate,
+          seconds - region.anchorSeconds,
+        )
       );
     },
   };
@@ -176,9 +180,15 @@ export function createWarpMap(
   // Drop markers that share a beat with the previous one; they would make a
   // zero-length segment with an infinite slope.
   const sorted = markers
-    .filter((marker) => Number.isFinite(marker.beatTime) && Number.isFinite(marker.secTime))
+    .filter(
+      (marker) =>
+        Number.isFinite(marker.beatTime) && Number.isFinite(marker.secTime),
+    )
     .toSorted((a, b) => a.beatTime - b.beatTime)
-    .filter((marker, index, all) => index === 0 || marker.beatTime > all[index - 1].beatTime);
+    .filter(
+      (marker, index, all) =>
+        index === 0 || marker.beatTime > all[index - 1].beatTime,
+    );
   if (sorted.length < 2) {
     throw new RangeError("A warped clip needs at least two warp markers");
   }
@@ -303,8 +313,10 @@ export function unrollClipLoop(
         passEnd = contentLength;
       }
       segments.push({
-        arrStartBeat: segments.length === 0 ? clip.currentStart : arrBeatAt(elapsed),
-        arrEndBeat: passEnd === contentLength ? clip.currentEnd : arrBeatAt(passEnd),
+        arrStartBeat:
+          segments.length === 0 ? clip.currentStart : arrBeatAt(elapsed),
+        arrEndBeat:
+          passEnd === contentLength ? clip.currentEnd : arrBeatAt(passEnd),
         contentStartBeat: position,
       });
       elapsed = passEnd;
