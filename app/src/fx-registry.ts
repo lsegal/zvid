@@ -52,9 +52,9 @@ export function formatSignedPercent(value: number) {
   return `${percent > 0 ? "+" : ""}${percent}%`;
 }
 
-// Hue offsets are stored as -1..1 and map onto a -180°..180° rotation.
+// Hue offsets are stored as -1..1 and map onto a -360°..360° rotation.
 export function formatHueDegrees(value: number) {
-  const degrees = Math.round(value * 180);
+  const degrees = Math.round(value * 360);
   return `${degrees > 0 ? "+" : ""}${degrees}°`;
 }
 
