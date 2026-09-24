@@ -86,6 +86,7 @@ type CompositionPlayerProps = {
   isPlaying: boolean;
   isScrubbing: boolean;
   isAudibleScrubbing: boolean;
+  isContinuousScrubbing: boolean;
   canvasWidth: number;
   canvasHeight: number;
   playheadSeconds: number;
@@ -109,6 +110,7 @@ type CompositionPlaybackState = {
   isPlaying: boolean;
   isScrubbing: boolean;
   isAudibleScrubbing: boolean;
+  isContinuousScrubbing: boolean;
 };
 
 export type CompositionPlayerHandle = {
@@ -144,6 +146,9 @@ const MAX_DRIFT_SECONDS = 0.18;
 const MEDIA_SEEK_TOLERANCE_SECONDS = 0.001;
 const MEDIA_SEEK_TIMEOUT_MS = 4000;
 const SCRUB_AUDIO_DRIFT_SECONDS = 0.035;
+// Audio keeps playing through a scrub started during playback, so it only
+// re-syncs once it falls this far behind or ahead of the playhead.
+const CONTINUOUS_SCRUB_AUDIO_DRIFT_SECONDS = 0.1;
 
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.max(minimum, Math.min(maximum, value));
@@ -862,6 +867,8 @@ export class CompositionRenderer {
   }
 
   syncPlayback(playback: CompositionPlaybackState) {
+    const isContinuousScrubAudio =
+      playback.isAudibleScrubbing && playback.isContinuousScrubbing;
     const activeClipByMediaId = new Map(
       this.computeActiveClips(playback.playheadQ).map((entry) => [
         entry.media.id,
@@ -884,11 +891,13 @@ export class CompositionRenderer {
       }
 
       const drift = Math.abs(element.currentTime - activeEntry.mediaTime);
-      if (
-        !playback.isPlaying ||
-        playback.isScrubbing ||
-        drift > MAX_DRIFT_SECONDS
-      ) {
+      const needsSeek =
+        isContinuousScrubAudio && item.kind !== "video"
+          ? drift > CONTINUOUS_SCRUB_AUDIO_DRIFT_SECONDS
+          : !playback.isPlaying ||
+            playback.isScrubbing ||
+            drift > MAX_DRIFT_SECONDS;
+      if (needsSeek) {
         element.currentTime = activeEntry.mediaTime;
       }
 
@@ -909,9 +918,11 @@ export class CompositionRenderer {
     }
 
     const shouldPlay = playback.isPlaying || playback.isAudibleScrubbing;
-    const driftTolerance = playback.isAudibleScrubbing
-      ? SCRUB_AUDIO_DRIFT_SECONDS
-      : MAX_DRIFT_SECONDS;
+    const driftTolerance = isContinuousScrubAudio
+      ? CONTINUOUS_SCRUB_AUDIO_DRIFT_SECONDS
+      : playback.isAudibleScrubbing
+        ? SCRUB_AUDIO_DRIFT_SECONDS
+        : MAX_DRIFT_SECONDS;
     const drift = Math.abs(audio.currentTime - playback.playheadSeconds);
     if (!shouldPlay || drift > driftTolerance) {
       audio.currentTime = playback.playheadSeconds;
@@ -1074,6 +1085,7 @@ export const CompositionPlayer = forwardRef<
     isPlaying,
     isScrubbing,
     isAudibleScrubbing,
+    isContinuousScrubbing,
     canvasWidth,
     canvasHeight,
     playheadSeconds,
@@ -1246,8 +1258,16 @@ export const CompositionPlayer = forwardRef<
       isPlaying,
       isScrubbing,
       isAudibleScrubbing,
+      isContinuousScrubbing,
     });
-  }, [isAudibleScrubbing, isPlaying, isScrubbing, playheadQ, playheadSeconds]);
+  }, [
+    isAudibleScrubbing,
+    isContinuousScrubbing,
+    isPlaying,
+    isScrubbing,
+    playheadQ,
+    playheadSeconds,
+  ]);
 
   return (
     <div className="composition-player">

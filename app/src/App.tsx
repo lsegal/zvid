@@ -313,6 +313,9 @@ const MAX_LAYERS = 9;
 const TIMELINE_DRAG_ZOOM_SPEED = 0.004;
 const TIMELINE_DRAG_ZOOM_THRESHOLD_PX = 25;
 const TIMELINE_SCRUB_AUDIO_TAIL_MS = 50;
+// A scrub started during playback keeps audio running between pointer moves
+// and only pauses it once the pointer has been held still this long.
+const TIMELINE_PLAYBACK_SCRUB_AUDIO_IDLE_MS = 150;
 const TIMELINE_DRAG_EPSILON = 0.0001;
 const RANDOM_SELECTION_BAR_INCREMENT = 0.25;
 const MAX_PEER_MEDIA_TRANSFERS = 2;
@@ -3196,17 +3199,20 @@ function App() {
     setIsTimelineAudibleScrubbing(false);
   }, []);
 
-  const pulseTimelineAudibleScrub = useCallback(() => {
-    if (timelineScrubAudioTimeoutRef.current !== null) {
-      window.clearTimeout(timelineScrubAudioTimeoutRef.current);
-    }
+  const pulseTimelineAudibleScrub = useCallback(
+    (durationMs: number = TIMELINE_SCRUB_AUDIO_TAIL_MS) => {
+      if (timelineScrubAudioTimeoutRef.current !== null) {
+        window.clearTimeout(timelineScrubAudioTimeoutRef.current);
+      }
 
-    setIsTimelineAudibleScrubbing(true);
-    timelineScrubAudioTimeoutRef.current = window.setTimeout(() => {
-      timelineScrubAudioTimeoutRef.current = null;
-      setIsTimelineAudibleScrubbing(false);
-    }, TIMELINE_SCRUB_AUDIO_TAIL_MS);
-  }, []);
+      setIsTimelineAudibleScrubbing(true);
+      timelineScrubAudioTimeoutRef.current = window.setTimeout(() => {
+        timelineScrubAudioTimeoutRef.current = null;
+        setIsTimelineAudibleScrubbing(false);
+      }, durationMs);
+    },
+    [],
+  );
 
   const handleUndo = useCallback(() => {
     if (!undoLabel || isExporting) {
@@ -4353,7 +4359,11 @@ function App() {
         0,
         maxScrollLeft,
       );
-      pulseTimelineAudibleScrub();
+      pulseTimelineAudibleScrub(
+        timelineDragState.wasPlaying
+          ? TIMELINE_PLAYBACK_SCRUB_AUDIO_IDLE_MS
+          : TIMELINE_SCRUB_AUDIO_TAIL_MS,
+      );
       updateZoomDraft(nextZoom);
       setPlayheadQ(nextPlayheadQ);
       playbackOriginRef.current = nextPlayheadQ;
@@ -5586,7 +5596,15 @@ function App() {
                         }
 
                         event.preventDefault();
-                        stopTimelineAudibleScrub();
+                        if (isPlaying) {
+                          // Batched with setIsPlaying so the audio keeps
+                          // running from the clicked position.
+                          pulseTimelineAudibleScrub(
+                            TIMELINE_PLAYBACK_SCRUB_AUDIO_IDLE_MS,
+                          );
+                        } else {
+                          stopTimelineAudibleScrub();
+                        }
                         setIsPlaying(false);
 
                         const timelineBounds =
@@ -6191,6 +6209,9 @@ function App() {
                     isPlaying={isPlaying}
                     isScrubbing={Boolean(timelineDragState)}
                     isAudibleScrubbing={isTimelineAudibleScrubbing}
+                    isContinuousScrubbing={Boolean(
+                      timelineDragState?.wasPlaying,
+                    )}
                     lanes={lanes}
                     masterAudio={masterAudio}
                     mediaItems={mediaItems}
