@@ -393,53 +393,6 @@ const COLLAB_NAME_SUFFIXES = [
   "Cut",
   "Vector",
 ];
-const FALLBACK_VIDEO_FX: FxDevice[] = [
-  {
-    id: "layout",
-    name: "FX: Layout",
-    subtitle: "Center / anchor / crop",
-    accent: "#f6b73c",
-    parameters: [
-      { label: "Position", value: 0.52, display: "Center" },
-      { label: "Scale", value: 0.68, display: "68%" },
-    ],
-  },
-  {
-    id: "beat-warp",
-    name: "Beat Warp",
-    subtitle: "Tempo-synced stretch markers",
-    accent: "#7ca1ff",
-    parameters: [
-      { label: "Sync", value: 0.88, display: "1/8" },
-      { label: "Tension", value: 0.37, display: "37%" },
-    ],
-  },
-];
-const FALLBACK_AUDIO_FX: FxDevice[] = [
-  {
-    id: "transient",
-    name: "Transient Focus",
-    subtitle: "Clip attack / sustain shaping",
-    accent: "#f6b73c",
-    parameters: [
-      { label: "Attack", value: 0.73, display: "+7.3 dB" },
-      { label: "Sustain", value: 0.28, display: "-2.8 dB" },
-      { label: "Mix", value: 0.84, display: "84%" },
-    ],
-  },
-  {
-    id: "duck",
-    name: "Duck Compressor",
-    subtitle: "Sidechain against master pulse",
-    accent: "#7ca1ff",
-    parameters: [
-      { label: "Depth", value: 0.58, display: "58%" },
-      { label: "Release", value: 0.42, display: "240 ms" },
-      { label: "Lookahead", value: 0.14, display: "14 ms" },
-    ],
-  },
-];
-
 function isLayoutEffectName(effectName: string) {
   return effectName.trim().toLowerCase().includes("layout");
 }
@@ -1735,14 +1688,7 @@ function mapSessionEffectsToDevices(
   );
 
   if (!relevant.length) {
-    if (kind === "audio") {
-      return FALLBACK_AUDIO_FX;
-    }
-
-    return [
-      createDefaultLayoutDevice(laneId),
-      ...FALLBACK_VIDEO_FX.filter((device) => device.id !== "layout"),
-    ];
+    return kind === "audio" ? [] : [createDefaultLayoutDevice(laneId)];
   }
 
   const mapped = relevant.map<FxDevice>((effect, index) => {
@@ -2184,6 +2130,16 @@ function App() {
           )
         : [],
     [effects, selectedClip, selectedMedia?.kind],
+  );
+  const selectedClipHasEffects = useMemo(
+    () =>
+      Boolean(selectedClip) &&
+      effects.some(
+        (effect) =>
+          effect.trackId === selectedClip?.laneId ||
+          effect.trackId === "__group_main",
+      ),
+    [effects, selectedClip],
   );
   const selectedFx = useMemo(
     () =>
@@ -6394,13 +6350,16 @@ function App() {
                   <span>
                     {!selectedClip
                       ? "Select a clip to see its effects"
-                      : effects.length
+                      : selectedClipHasEffects
                         ? "Imported from the .lvp session"
-                        : "Fallback rack until session effects are available"}
+                        : "No session effects"}
                   </span>
                 </div>
 
                 <div className="fx-rack__devices">
+                  {selectedClip && !fxDevices.length ? (
+                    <p className="fx-rack__empty">No effects on this clip</p>
+                  ) : null}
                   {fxDevices.map((device) => (
                     <button
                       key={device.id}
@@ -6425,7 +6384,7 @@ function App() {
                 <div className="fx-inspector__header">
                   <strong>
                     {selectedClip
-                      ? (selectedFx?.name ?? "No device selected")
+                      ? (selectedFx?.name ?? "No effects")
                       : "No clip selected"}
                   </strong>
                   {selectedClip ? (
@@ -6453,7 +6412,11 @@ function App() {
                   </div>
                 ) : (
                   <div className="inspector-note">
-                    <strong>Select a clip to edit its layout</strong>
+                    <strong>
+                      {selectedClip
+                        ? "No effects on this clip"
+                        : "Select a clip to edit its layout"}
+                    </strong>
                   </div>
                 )}
               </div>
