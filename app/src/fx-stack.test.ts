@@ -27,9 +27,9 @@ const DOGFOOD_EFFECTS: LvpSession["effects"] = [
     trackId: "1",
     effectName: "ZoomAndPan",
     parameters: {
-      _Start_Zoom: { floatValue: 1 },
-      _End_Zoom: { floatValue: 1.4 },
-      _LAYERS_SelFrac: { floatValue: 0.5 },
+      _Start_Zoom: { floatValue: 0 },
+      _End_Zoom: { floatValue: 0.23 },
+      _LAYERS_SelFrac: { floatValue: 0.62 },
     },
   },
   {
@@ -37,7 +37,7 @@ const DOGFOOD_EFFECTS: LvpSession["effects"] = [
     trackId: "6",
     effectName: "Pixelate",
     parameters: {
-      _NumPixels: { floatValue: 48 },
+      _NumPixels: { floatValue: 0.83 },
       _LowIntensity: { floatValue: 0.1 },
       _HighIntensity: { floatValue: 0.9 },
     },
@@ -126,7 +126,8 @@ describe("mapSessionEffectsToDevices", () => {
       "End X",
       "End Y",
     ]);
-    assert.equal(zoom.parameters[3].display, "140%");
+    assert.equal(zoom.parameters[3].display, "1.69×");
+    assert.equal(zoom.parameters[4].display, "50%");
 
     const colorize = mapSessionEffectsToDevices(load(), "6", "video")[1];
     assert.deepEqual(

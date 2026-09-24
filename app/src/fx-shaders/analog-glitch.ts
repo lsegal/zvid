@@ -33,7 +33,10 @@ export const analogGlitchPass: EffectPass = {
   uniforms: ["uTime", "uLowMod", "uHighMod", "uAudioLow", "uAudioHigh"],
   setUniforms(gl, loc, params, ctx) {
     gl.uniform1f(loc.uTime, ctx.time);
-    gl.uniform1f(loc.uLowMod, clampUnit(readEffectNumber(params, "_LowMod", 0)));
+    gl.uniform1f(
+      loc.uLowMod,
+      clampUnit(readEffectNumber(params, "_LowMod", 0)),
+    );
     gl.uniform1f(
       loc.uHighMod,
       clampUnit(readEffectNumber(params, "_HighMod", 0)),

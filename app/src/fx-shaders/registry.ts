@@ -28,10 +28,7 @@ const effectPasses = new Map<string, EffectPass>(
     pixelatePass,
     analogGlitchPass,
     zoomAndPanPass,
-  ].map((pass) => [
-    normalizeEffectKey(pass.effectName),
-    pass,
-  ]),
+  ].map((pass) => [normalizeEffectKey(pass.effectName), pass]),
 );
 
 // Matches `.lvp` names case- and space-insensitively, so "NegativeSplit" and

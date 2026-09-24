@@ -23,7 +23,10 @@ export const pixelatePass: EffectPass = {
   uniforms: ["uRes", "uNum", "uLow", "uHigh", "uAudioLow", "uAudioHigh"],
   setUniforms(gl, loc, params, ctx) {
     gl.uniform2f(loc.uRes, ctx.resolution[0], ctx.resolution[1]);
-    gl.uniform1f(loc.uNum, clampUnit(readEffectNumber(params, "_NumPixels", 0)));
+    gl.uniform1f(
+      loc.uNum,
+      clampUnit(readEffectNumber(params, "_NumPixels", 0)),
+    );
     gl.uniform1f(
       loc.uLow,
       clampUnit(readEffectNumber(params, "_LowIntensity", 0)),
