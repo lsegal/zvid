@@ -1,10 +1,21 @@
+import {
+  type AlsSkippedClip,
+  type AlsSkipReason,
+  convertAls,
+} from "./import/als/convert.ts";
+import {
+  type AlsDocument,
+  LAYERS_RECORD_PLUGIN_NAME,
+  parseAlsXml,
+} from "./import/als/parse.ts";
 import type { LvpSession, ServerMediaRef } from "./session.ts";
 
 // Opening an Ableton Live set (.als) as a zvid session. The set only names the
 // Layers recordings it uses, so the harnesses locate those files on disk and
 // probe them before the session reaches the editor.
 
-// What the converter reports alongside the session it produced.
+// What the converter reports alongside the session it produced. The skipped
+// entries name tracks without Layers video and clips that were dropped.
 export type AlsImportReport = {
   skippedTracks?: string[];
 };
@@ -26,7 +37,7 @@ export type RecordingProbe = {
 };
 
 // The name of the Layers plugin on every track that carries Layers video.
-const LAYERS_PLUGIN_NAME = "Layers Record";
+const LAYERS_PLUGIN_NAME = LAYERS_RECORD_PLUGIN_NAME;
 
 export class AlsImportError extends Error {
   name = "AlsImportError";
@@ -103,16 +114,62 @@ export async function readAlsXml(bytes: Uint8Array, name = "This file") {
   return xml;
 }
 
-// Stand-in for the Live set → LVP converter (#130). Until it lands, a valid
-// Layers set is recognised but cannot be converted yet.
-async function convertAlsXml(
-  _xml: string,
-  name: string,
-  _path?: string,
-): Promise<ImportedAlsSession> {
-  throw new AlsImportError(
-    `${name} is a Layers Live set, but converting Live sets is not available in this version of zvid yet.`,
+function noLayersError(name: string) {
+  return new AlsImportError(
+    `${name} has no tracks with the ${LAYERS_PLUGIN_NAME} plugin, so there is no Layers video to import.`,
   );
+}
+
+const SKIP_REASONS: Record<AlsSkipReason, string> = {
+  disabled: "disabled",
+  "no-layers": `no ${LAYERS_PLUGIN_NAME}`,
+  "no-recording": "no Layers recording",
+  "shorter-than-frame": "shorter than a frame",
+};
+
+// What the import summary lists as skipped: each audio or MIDI track without
+// Layers video once, then each clip dropped from a Layers track and why.
+function describeSkipped(doc: AlsDocument, skipped: AlsSkippedClip[]) {
+  const described = doc.tracks
+    .filter(
+      (track) =>
+        !track.isVideoTrack &&
+        (track.kind === "audio" || track.kind === "midi"),
+    )
+    .map((track) => `${track.name} (${SKIP_REASONS["no-layers"]})`);
+  for (const clip of skipped) {
+    if (clip.reason !== "no-layers") {
+      described.push(
+        `${clip.clipName || clip.clipId} on ${clip.trackName} (${SKIP_REASONS[clip.reason]})`,
+      );
+    }
+  }
+
+  return described;
+}
+
+async function convertAlsXml(
+  xml: string,
+  name: string,
+  path?: string,
+): Promise<ImportedAlsSession> {
+  let doc: AlsDocument;
+  try {
+    doc = parseAlsXml(xml);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new AlsImportError(`${name} could not be read: ${reason}.`);
+  }
+
+  if (!doc.tracks.some((track) => track.isVideoTrack)) {
+    throw noLayersError(name);
+  }
+
+  const { session, summary } = convertAls(doc, { sessionFile: path });
+  return {
+    ...session,
+    importReport: { skippedTracks: describeSkipped(doc, summary.skipped) },
+  };
 }
 
 export async function importAls(
@@ -122,9 +179,7 @@ export async function importAls(
   const name = path ? basename(path) : "This file";
   const xml = await readAlsXml(bytes, name);
   if (!xml.includes(LAYERS_PLUGIN_NAME)) {
-    throw new AlsImportError(
-      `${name} has no tracks with the ${LAYERS_PLUGIN_NAME} plugin, so there is no Layers video to import.`,
-    );
+    throw noLayersError(name);
   }
 
   return convertAlsXml(xml, name, path);
@@ -310,7 +365,7 @@ export function formatAlsImportSummary(summary: AlsImportSummary) {
   ];
   if (summary.skippedTracks.length) {
     lines.push(
-      `Skipped ${pluralize(summary.skippedTracks.length, "track")} without Layers video: ${summary.skippedTracks.join(", ")}.`,
+      `Skipped ${pluralize(summary.skippedTracks.length, "track or clip", "tracks and clips")}: ${summary.skippedTracks.join(", ")}.`,
     );
   }
   if (summary.missingMedia.length) {

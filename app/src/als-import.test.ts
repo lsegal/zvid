@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { gzipSync } from "node:zlib";
 import {
@@ -160,9 +161,78 @@ describe("importAls", () => {
     assert.match(message, /Plain\.als has no tracks with the Layers Record/);
   });
 
-  it("recognises a Layers set until the converter lands", async () => {
+  it("rejects a set whose structure cannot be read", async () => {
     const message = await importError(gzip(LAYERS_SET));
-    assert.match(message, /Song\.als is a Layers Live set/);
+    assert.match(message, /Song\.als could not be read: .*master track/);
+  });
+
+  it("rejects a set that only mentions Layers outside its tracks", async () => {
+    const message = await importError(
+      gzip(`<?xml version="1.0"?>
+<Ableton><LiveSet>
+  <Tracks />
+  <MainTrack><DeviceChain><Mixer><Tempo><Manual Value="120" /></Tempo></Mixer></DeviceChain></MainTrack>
+  <Annotation Value="Layers Record" />
+</LiveSet></Ableton>`),
+    );
+    assert.match(message, /Song\.als has no tracks with the Layers Record/);
+  });
+
+  it("converts dogfood3.als into the timeline of dogfood3.lvp", async () => {
+    const fixture = (name: string) =>
+      readFileSync(new URL(`../test/fixtures/als/${name}`, import.meta.url));
+    const golden = JSON.parse(fixture("dogfood3.lvp").toString("utf8"));
+    const alsPath = "/sets/dogfood3 Project/dogfood3.als";
+    const imported = await importAls(
+      new Uint8Array(fixture("dogfood3.als")),
+      alsPath,
+    );
+
+    assert.equal(imported.sessionFile, alsPath);
+    assert.deepEqual(
+      imported.tracks?.map((track) => track.name),
+      golden.tracks.map((track: { name: string }) => track.name),
+    );
+    assert.equal(imported.timeline?.fps, golden.timeline.fps);
+    assert.equal(
+      imported.timeline?.projectDuration,
+      golden.timeline.projectDuration,
+    );
+    // Layers stored bare filenames for the harnesses to resolve.
+    for (const clip of imported.clips ?? []) {
+      assert.equal(clip.filePath, clip.filePath.split(/[/\\]/).at(-1));
+    }
+    assert.deepEqual(imported.importReport, {
+      skippedTracks: [
+        "4-Audio (no Layers Record)",
+        "Audio 11 on 3-Audio (shorter than a frame)",
+      ],
+    });
+
+    // Every recording but one sits in the project's sibling Recorded folder.
+    const missing = "video-12-13-23-20-19-23-2.mp4";
+    const { session, summary } = resolveAlsMedia(
+      imported,
+      createAlsMediaLocator(
+        alsMediaSearchDirs(alsPath, "/docs"),
+        (path) => path.startsWith("/sets/Recorded/") && !path.endsWith(missing),
+      ),
+    );
+    assert.deepEqual(summary, {
+      tracks: 3,
+      // dogfood3.lvp's fourth clip, 16-3, is shorter than a frame.
+      clips: golden.clips.length - 1,
+      skippedTracks: imported.importReport?.skippedTracks,
+      missingMedia: [missing],
+    });
+    assert.deepEqual(
+      session.clips?.map((clip) => clip.filePath),
+      [
+        "/sets/Recorded/video-12-13-23-21-6-51-0.mp4",
+        "/sets/Recorded/video-12-13-23-20-15-14-1.mp4",
+        missing,
+      ],
+    );
   });
 });
 
@@ -291,12 +361,12 @@ describe("formatAlsImportSummary", () => {
       formatAlsImportSummary({
         tracks: 3,
         clips: 1,
-        skippedTracks: ["Drums"],
+        skippedTracks: ["Drums (no Layers Record)"],
         missingMedia: ["a.mp4", "b.mp4"],
       }),
       [
         "Imported 3 tracks and 1 clip.",
-        "Skipped 1 track without Layers video: Drums.",
+        "Skipped 1 track or clip: Drums (no Layers Record).",
         "2 media files could not be found and will open offline: a.mp4, b.mp4.",
       ],
     );
