@@ -189,6 +189,7 @@ type TimelineDragState = {
   pointerStartY: number;
   originPlayheadQ: number;
   originZoom: number;
+  wasPlaying: boolean;
 };
 
 type ExportState = {
@@ -2934,23 +2935,34 @@ function App() {
     });
   }
 
-  const startPlayback = useCallback(() => {
-    const epsilon = 0.0001;
-    const stopQ = getPlaybackStopQ(
-      timelineClips,
-      projectMediaItems,
-      playheadQ,
-      bpm,
-    );
-    if (stopQ <= playheadQ + epsilon) {
-      setStatus("No more playable source clips after the playhead.");
-      return;
-    }
+  const startPlayback = useCallback(
+    (fromQ: number = playheadQ) => {
+      const epsilon = 0.0001;
+      const stopQ = getPlaybackStopQ(
+        timelineClips,
+        projectMediaItems,
+        fromQ,
+        bpm,
+      );
+      if (stopQ <= fromQ + epsilon) {
+        setStatus("No more playable source clips after the playhead.");
+        return;
+      }
 
-    playbackOriginRef.current = playheadQ;
-    playbackStopRef.current = stopQ;
-    setIsPlaying(true);
-  }, [bpm, playheadQ, projectMediaItems, timelineClips]);
+      playbackOriginRef.current = fromQ;
+      playbackStopRef.current = stopQ;
+      setIsPlaying(true);
+    },
+    [bpm, playheadQ, projectMediaItems, timelineClips],
+  );
+
+  // An explicit transport action during a ruler scrub decides the state after
+  // release, so drop the pending resume.
+  const cancelScrubPlaybackResume = useCallback(() => {
+    setTimelineDragState((current) =>
+      current?.wasPlaying ? { ...current, wasPlaying: false } : current,
+    );
+  }, []);
 
   const createWindowClip = useCallback(
     (
@@ -3954,6 +3966,7 @@ function App() {
           return;
         }
 
+        cancelScrubPlaybackResume();
         if (isPlaying) {
           setIsPlaying(false);
           return;
@@ -4022,6 +4035,7 @@ function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [
     bpm,
+    cancelScrubPlaybackResume,
     clips.length,
     dragState,
     fps,
@@ -4353,6 +4367,11 @@ function App() {
       stopTimelineAudibleScrub();
       flushZoomDraft();
       setTimelineDragState(null);
+      if (event.type === "pointerup" && timelineDragState.wasPlaying) {
+        // Batched with stopTimelineAudibleScrub so the player hands the audible
+        // scrub straight over to playback without pausing the media.
+        startPlayback(playbackOriginRef.current);
+      }
     };
 
     window.addEventListener("pointermove", onPointerMove);
@@ -4367,6 +4386,7 @@ function App() {
   }, [
     flushZoomDraft,
     pulseTimelineAudibleScrub,
+    startPlayback,
     stopTimelineAudibleScrub,
     timelineDragState,
     totalQuarters,
@@ -4882,6 +4902,7 @@ function App() {
       return;
     }
 
+    cancelScrubPlaybackResume();
     if (isPlaying) {
       setIsPlaying(false);
       return;
@@ -5586,6 +5607,7 @@ function App() {
                           pointerStartY: event.clientY,
                           originPlayheadQ: nextPlayheadQ,
                           originZoom: resolvedZoom,
+                          wasPlaying: isPlaying,
                         });
                       }}
                       style={gridStyle}
