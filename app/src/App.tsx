@@ -7,6 +7,8 @@ import {
 } from "@heroicons/react/24/solid";
 import {
   type DragEvent as ReactDragEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -338,6 +340,14 @@ const RANDOM_SELECTION_MAX_BARS = 2;
 const SOURCE_TRACK_DRAG_CLEAR_DELAY_MS = 80;
 const COLLAB_STORAGE_KEY = "zvid-collaboration";
 const INSPECTOR_COLLAPSED_STORAGE_KEY = "zvid-inspector-collapsed";
+const PREVIEW_WIDTH_STORAGE_KEY = "zvid-preview-width";
+const PREVIEW_DEFAULT_WIDTH = 280;
+const PREVIEW_MIN_WIDTH = 240;
+const PREVIEW_MAX_WIDTH = 560;
+const PREVIEW_RESIZE_KEY_STEP = 16;
+// Horizontal space the preview panel may never take from the timeline: the
+// grid's side padding, the resize handle's column, and a usable timeline.
+const PREVIEW_RESERVED_WIDTH = 32 + 16 + 360;
 const PUBLIC_SIGNALING_URL = "wss://y-webrtc-eu.fly.dev";
 const DEFAULT_SIGNALING_URLS = splitSignalingUrls(
   import.meta.env.VITE_SIGNALING_URL || PUBLIC_SIGNALING_URL,
@@ -931,6 +941,35 @@ function readInspectorCollapsed() {
   } catch {
     return false;
   }
+}
+
+function readPreviewWidth() {
+  if (typeof window === "undefined") {
+    return PREVIEW_DEFAULT_WIDTH;
+  }
+
+  try {
+    const stored = Number(
+      window.localStorage.getItem(PREVIEW_WIDTH_STORAGE_KEY),
+    );
+    return stored
+      ? clamp(Math.round(stored), PREVIEW_MIN_WIDTH, PREVIEW_MAX_WIDTH)
+      : PREVIEW_DEFAULT_WIDTH;
+  } catch {
+    return PREVIEW_DEFAULT_WIDTH;
+  }
+}
+
+function getPreviewMaxWidth(editorGridWidth: number) {
+  if (!editorGridWidth) {
+    return PREVIEW_MAX_WIDTH;
+  }
+
+  return clamp(
+    editorGridWidth - PREVIEW_RESERVED_WIDTH,
+    PREVIEW_MIN_WIDTH,
+    PREVIEW_MAX_WIDTH,
+  );
 }
 
 function getInitialCollaborationConfig() {
@@ -1785,6 +1824,8 @@ function App() {
   const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(
     readInspectorCollapsed,
   );
+  const [previewWidth, setPreviewWidth] = useState(readPreviewWidth);
+  const [editorGridWidth, setEditorGridWidth] = useState(0);
   const [playheadQ, setPlayheadQ] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -1857,6 +1898,12 @@ function App() {
   const compositionPlayerRef = useRef<CompositionPlayerHandle | null>(null);
   const appShellRef = useRef<HTMLDivElement | null>(null);
   const timelineScrollRef = useRef<HTMLDivElement | null>(null);
+  const editorGridRef = useRef<HTMLDivElement | null>(null);
+  const previewResizeRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startWidth: number;
+  } | null>(null);
   const timelineScrubAudioTimeoutRef = useRef<number | null>(null);
   const clipClipboardRef = useRef<ArrangementClip | null>(null);
   const collaborationControllerRef =
@@ -2708,6 +2755,8 @@ function App() {
     ],
   );
   const shortcutLabels = useMemo(() => getShortcutLabels(), []);
+  const previewMaxWidth = getPreviewMaxWidth(editorGridWidth);
+  const effectivePreviewWidth = Math.min(previewWidth, previewMaxWidth);
 
   useEffect(() => {
     sourceThumbnailUrlsRef.current = sourceThumbnailUrls;
@@ -2716,6 +2765,20 @@ function App() {
   useEffect(() => {
     sourceTrackDragPreviewRef.current = sourceTrackDragPreview;
   }, [sourceTrackDragPreview]);
+
+  useEffect(() => {
+    const editorGrid = editorGridRef.current;
+    if (!editorGrid) {
+      return;
+    }
+
+    setEditorGridWidth(editorGrid.clientWidth);
+    const observer = new ResizeObserver(() => {
+      setEditorGridWidth(editorGrid.clientWidth);
+    });
+    observer.observe(editorGrid);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const appShell = appShellRef.current;
@@ -5113,6 +5176,87 @@ function App() {
     }
   }
 
+  function commitPreviewWidth(nextWidth: number) {
+    const width = clamp(
+      Math.round(nextWidth),
+      PREVIEW_MIN_WIDTH,
+      previewMaxWidth,
+    );
+    setPreviewWidth(width);
+    try {
+      window.localStorage.setItem(PREVIEW_WIDTH_STORAGE_KEY, String(width));
+    } catch {
+      // Storage can be unavailable (private mode, quota); resizing still works.
+    }
+  }
+
+  function handlePreviewResizePointerDown(
+    event: ReactPointerEvent<HTMLHRElement>,
+  ) {
+    if (event.button !== 0) {
+      return;
+    }
+
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    previewResizeRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startWidth: effectivePreviewWidth,
+    };
+  }
+
+  function handlePreviewResizePointerMove(
+    event: ReactPointerEvent<HTMLHRElement>,
+  ) {
+    const resize = previewResizeRef.current;
+    if (!resize || resize.pointerId !== event.pointerId) {
+      return;
+    }
+
+    // The panel sits to the right of the handle, so dragging left widens it.
+    commitPreviewWidth(resize.startWidth + resize.startX - event.clientX);
+  }
+
+  function handlePreviewResizePointerEnd(
+    event: ReactPointerEvent<HTMLHRElement>,
+  ) {
+    if (previewResizeRef.current?.pointerId !== event.pointerId) {
+      return;
+    }
+
+    previewResizeRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }
+
+  function handlePreviewResizeKeyDown(
+    event: ReactKeyboardEvent<HTMLHRElement>,
+  ) {
+    let nextWidth: number;
+    switch (event.key) {
+      case "ArrowLeft":
+        nextWidth = effectivePreviewWidth + PREVIEW_RESIZE_KEY_STEP;
+        break;
+      case "ArrowRight":
+        nextWidth = effectivePreviewWidth - PREVIEW_RESIZE_KEY_STEP;
+        break;
+      case "Home":
+        nextWidth = PREVIEW_MIN_WIDTH;
+        break;
+      case "End":
+        nextWidth = previewMaxWidth;
+        break;
+      default:
+        return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    commitPreviewWidth(nextWidth);
+  }
+
   return (
     <div className="app-shell" ref={appShellRef}>
       {collaborationView.remoteCursors.length ? (
@@ -5593,7 +5737,13 @@ function App() {
               </div>
             </div>
 
-            <div className="editor-grid">
+            <div
+              ref={editorGridRef}
+              className="editor-grid"
+              style={{
+                ["--preview-width" as string]: `${effectivePreviewWidth}px`,
+              }}
+            >
               <div
                 ref={timelineScrollRef}
                 className="timeline-scroll"
@@ -6269,6 +6419,23 @@ function App() {
                   ) : null}
                 </div>
               </div>
+
+              <hr
+                className="preview-resize-handle"
+                aria-orientation="vertical"
+                aria-label="Resize preview panel"
+                aria-valuenow={effectivePreviewWidth}
+                aria-valuemin={PREVIEW_MIN_WIDTH}
+                aria-valuemax={previewMaxWidth}
+                tabIndex={0}
+                title="Drag to resize. Double-click to reset."
+                onPointerDown={handlePreviewResizePointerDown}
+                onPointerMove={handlePreviewResizePointerMove}
+                onPointerUp={handlePreviewResizePointerEnd}
+                onPointerCancel={handlePreviewResizePointerEnd}
+                onDoubleClick={() => commitPreviewWidth(PREVIEW_DEFAULT_WIDTH)}
+                onKeyDown={handlePreviewResizeKeyDown}
+              />
 
               <aside className="preview-panel">
                 <div className="preview-panel__header">
