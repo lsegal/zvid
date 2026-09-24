@@ -108,6 +108,12 @@ describe("mapSessionEffectsToDevices", () => {
     );
   });
 
+  it("names the layer in subtitles", () => {
+    const devices = mapSessionEffectsToDevices(load(), "6", "video", "Layer 3");
+    assert.equal(devices[0].subtitle, "Layer 3");
+    assert.equal(devices[4].subtitle, "Global stack");
+  });
+
   it("uses friendly labels and hides internal parameters", () => {
     const [zoom] = mapSessionEffectsToDevices(load(), "1", "video");
     assert.equal(zoom.name, "Zoom & Pan");

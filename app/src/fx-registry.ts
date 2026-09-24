@@ -202,7 +202,7 @@ const DEFINITIONS: FxEffectDefinition[] = [
     effectName: "Layout",
     displayName: "Layout",
     description: "Anchors the frame inside the canvas.",
-    accent: "#f6b73c",
+    accent: "#5fd3e6",
     known: true,
     parameters: [
       {

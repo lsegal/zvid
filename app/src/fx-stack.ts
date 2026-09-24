@@ -359,7 +359,7 @@ function toDeviceParameter(
   };
 }
 
-function toDevice(effect: SessionEffect): FxDevice {
+function toDevice(effect: SessionEffect, layerName: string): FxDevice {
   const definition = getEffectDefinition(effect.effectName);
   const group: FxDeviceGroup =
     effect.trackId === GLOBAL_EFFECT_TRACK_ID ? "global" : "layer";
@@ -386,7 +386,7 @@ function toDevice(effect: SessionEffect): FxDevice {
     effectName: effect.effectName,
     name: definition.displayName,
     description: definition.description,
-    subtitle: group === "global" ? "Global stack" : `Layer ${effect.trackId}`,
+    subtitle: group === "global" ? "Global stack" : layerName,
     accent: definition.accent,
     group,
     enabled: effect.enabled !== false,
@@ -401,7 +401,10 @@ function toDevice(effect: SessionEffect): FxDevice {
   };
 }
 
-function createPlaceholderLayoutDevice(laneId: string | undefined): FxDevice {
+function createPlaceholderLayoutDevice(
+  laneId: string | undefined,
+  layerName: string,
+): FxDevice {
   const definition = getEffectDefinition("Layout");
   return {
     id: `layout-default-${laneId ?? "global"}`,
@@ -409,7 +412,7 @@ function createPlaceholderLayoutDevice(laneId: string | undefined): FxDevice {
     name: definition.displayName,
     description: definition.description,
     subtitle: laneId
-      ? `Layer ${laneId} / default frame anchor`
+      ? `${layerName} / default frame anchor`
       : "Default frame anchor",
     accent: definition.accent,
     group: "layer",
@@ -428,13 +431,15 @@ export function mapSessionEffectsToDevices(
   effects: SessionEffect[],
   laneId: string | undefined,
   kind: string | undefined,
+  // Display name of the layer, such as "Layer 3"; defaults to its id.
+  layerName = `Layer ${laneId}`,
 ) {
   const layerDevices = effects
     .filter((effect) => laneId !== undefined && effect.trackId === laneId)
-    .map(toDevice);
+    .map((effect) => toDevice(effect, layerName));
   const globalDevices = effects
     .filter((effect) => effect.trackId === GLOBAL_EFFECT_TRACK_ID)
-    .map(toDevice);
+    .map((effect) => toDevice(effect, layerName));
   const devices = [...layerDevices, ...globalDevices];
 
   if (
@@ -444,5 +449,5 @@ export function mapSessionEffectsToDevices(
     return devices;
   }
 
-  return [createPlaceholderLayoutDevice(laneId), ...devices];
+  return [createPlaceholderLayoutDevice(laneId, layerName), ...devices];
 }

@@ -2017,9 +2017,10 @@ function App() {
             effects,
             selectedClip.laneId,
             selectedMedia?.kind,
+            lanes.find((lane) => lane.id === selectedClip.laneId)?.name,
           )
         : [],
-    [effects, selectedClip, selectedMedia?.kind],
+    [effects, lanes, selectedClip, selectedMedia?.kind],
   );
   const selectedClipHasEffects = useMemo(
     () =>
