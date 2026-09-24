@@ -67,8 +67,9 @@ button.brand-mark:focus-visible {
   font-size: 0.7rem;
 }
 
-.dropdown-menu-content .help-menu__build {
-  color: var(--muted);
+/* Menus portal outside .app-shell, so its color variables are unavailable. */
+.dropdown-menu-content [data-radix-collection-item].help-menu__build {
+  color: #a4a9bf;
   font-size: 0.76rem;
   font-variant-numeric: tabular-nums;
 }
