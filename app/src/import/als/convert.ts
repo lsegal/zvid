@@ -135,11 +135,7 @@ export function convertAls(
   const { transport } = doc;
   const projectDuration =
     transport.loopOn && transport.loopLength > 0
-      ? beatsToFrames(
-          transport.loopStart + transport.loopLength,
-          tempoMap,
-          fps,
-        )
+      ? beatsToFrames(transport.loopStart + transport.loopLength, tempoMap, fps)
       : Math.max(0, ...clips.map((clip) => clip.frameStart + clip.frameCount));
   const playPosition = Number.isFinite(transport.currentTime)
     ? beatsToFrames(transport.currentTime, tempoMap, fps)
@@ -205,7 +201,11 @@ function convertClip(
 ): LvpClip[] {
   const isAudio = clip.kind === "audio";
   const unrolled = unrollClipLoop(
-    { ...clip.loop, currentStart: clip.currentStart, currentEnd: clip.currentEnd },
+    {
+      ...clip.loop,
+      currentStart: clip.currentStart,
+      currentEnd: clip.currentEnd,
+    },
     { isWarped: !isAudio || clip.isWarped, tempoMap },
   );
   const warpMap = isAudio ? tryWarpMap(clip) : null;
