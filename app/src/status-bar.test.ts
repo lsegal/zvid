@@ -93,7 +93,10 @@ describe("status bar message", () => {
   it("renders in the status bar instead of the transport bar", () => {
     assert.equal(appTsx.includes("transport-summary"), false);
     assert.equal(appCss.includes(".transport-summary"), false);
-    assert.match(appTsx, /<StatusBar items=\{[^}]+\} message=\{statusMessage\} \/>/);
+    assert.match(
+      appTsx,
+      /<StatusBar items=\{[^}]+\} message=\{statusMessage\} \/>/,
+    );
   });
 
   it("truncates with an ellipsis and colors errors", () => {
