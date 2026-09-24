@@ -13,6 +13,7 @@ import {
   knobColumnCount,
   readCollapsedDevices,
   resolveSelectedLaneId,
+  stepSelectedLaneId,
   toggleCollapsedDevice,
   writeCollapsedDevices,
 } from "./fx-chain.ts";
@@ -268,6 +269,29 @@ describe("resolveSelectedLaneId", () => {
 
   it("returns undefined when there are no layers", () => {
     assert.equal(resolveSelectedLaneId([], effects, "1", undefined), undefined);
+  });
+});
+
+describe("stepSelectedLaneId", () => {
+  const lanes = [{ id: "1" }, { id: "2" }, { id: "3" }];
+
+  it("moves to the neighbouring layer", () => {
+    assert.equal(stepSelectedLaneId(lanes, "2", -1), "1");
+    assert.equal(stepSelectedLaneId(lanes, "2", 1), "3");
+  });
+
+  it("stops at the first and last layer", () => {
+    assert.equal(stepSelectedLaneId(lanes, "1", -1), "1");
+    assert.equal(stepSelectedLaneId(lanes, "3", 1), "3");
+  });
+
+  it("starts from an end when no layer is selected", () => {
+    assert.equal(stepSelectedLaneId(lanes, undefined, 1), "1");
+    assert.equal(stepSelectedLaneId(lanes, "9", -1), "3");
+  });
+
+  it("returns undefined when there are no layers", () => {
+    assert.equal(stepSelectedLaneId([], "1", 1), undefined);
   });
 });
 

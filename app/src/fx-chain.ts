@@ -157,6 +157,20 @@ export function getDefaultLaneId(
   );
 }
 
+// The layer one step above (-1) or below (1) the current one, stopping at
+// the first and last layer.
+export function stepSelectedLaneId(
+  lanes: readonly SelectableLane[],
+  currentLaneId: string | undefined,
+  direction: -1 | 1,
+) {
+  const index = lanes.findIndex((lane) => lane.id === currentLaneId);
+  if (index === -1) {
+    return (direction === 1 ? lanes[0] : lanes[lanes.length - 1])?.id;
+  }
+  return lanes[Math.min(Math.max(index + direction, 0), lanes.length - 1)].id;
+}
+
 // The layer whose effects the FX chain shows. A selected clip selects its
 // own layer; otherwise the selected layer is kept while it still exists
 // (undo can remove it), falling back to the session default.

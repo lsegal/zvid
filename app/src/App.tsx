@@ -46,7 +46,11 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
-import { getDefaultLaneId, resolveSelectedLaneId } from "./fx-chain";
+import {
+  getDefaultLaneId,
+  resolveSelectedLaneId,
+  stepSelectedLaneId,
+} from "./fx-chain";
 import {
   addEffect,
   duplicateEffect,
@@ -2097,6 +2101,10 @@ function App() {
     [effects, explicitClip, lanes, selectedLaneId],
   );
   const fxLane = lanes.find((lane) => lane.id === fxLaneId);
+  const selectLaneFromLabel = (laneId: string) => {
+    setSelectedClipId(undefined);
+    setSelectedLaneId(laneId);
+  };
   // Audio clips have no visual effects; that only applies while one is
   // selected, not to the layer on its own.
   const fxKind = explicitClip?.mediaId
@@ -4074,6 +4082,44 @@ function App() {
         return;
       }
 
+      if (
+        (event.key === "ArrowUp" || event.key === "ArrowDown") &&
+        !hasSystemModifier
+      ) {
+        // Only while the timeline (or nothing) has focus and no clip is
+        // selected, so other panels keep their own arrow keys.
+        const timelineScroll = timelineScrollRef.current;
+        const activeElement = document.activeElement;
+        if (
+          explicitClip ||
+          (activeElement &&
+            activeElement !== document.body &&
+            !timelineScroll?.contains(activeElement))
+        ) {
+          return;
+        }
+
+        const nextLaneId = stepSelectedLaneId(
+          lanes,
+          fxLaneId,
+          event.key === "ArrowUp" ? -1 : 1,
+        );
+        if (!nextLaneId) {
+          return;
+        }
+
+        event.preventDefault();
+        setSelectedLaneId(nextLaneId);
+        if (activeElement?.hasAttribute("data-lane-label-id")) {
+          timelineScroll
+            ?.querySelector<HTMLElement>(
+              `[data-lane-label-id="${CSS.escape(nextLaneId)}"]`,
+            )
+            ?.focus();
+        }
+        return;
+      }
+
       if (event.key === "Delete" || event.key === "Backspace") {
         if (!selectedClip || isExporting) {
           return;
@@ -4111,9 +4157,12 @@ function App() {
     cancelScrubPlaybackResume,
     clips.length,
     dragState,
+    explicitClip,
     fps,
+    fxLaneId,
     isExporting,
     isPlaying,
+    lanes,
     playheadQ,
     selectedClip,
     startPlayback,
@@ -5894,15 +5943,40 @@ function App() {
                   </section>
 
                   {lanes.map((lane) => (
-                    <section key={lane.id} className="track-row">
-                      <div className="track-label">
+                    <section
+                      key={lane.id}
+                      className={`track-row ${lane.id === fxLaneId ? "track-row--selected" : ""}`}
+                    >
+                      {/* biome-ignore lint/a11y/noStaticElementInteractions: clicking anywhere on the label is a mouse shortcut; the layer name button is the keyboard equivalent */}
+                      {/* biome-ignore lint/a11y/useKeyWithClickEvents: the layer name button handles the keyboard */}
+                      <div
+                        className="track-label track-label--lane"
+                        onClick={(event) => {
+                          if (
+                            event.target instanceof Element &&
+                            event.target.closest(".track-label__fx")
+                          ) {
+                            return;
+                          }
+                          selectLaneFromLabel(lane.id);
+                        }}
+                      >
                         <div className="track-label__index">
                           {lane.name.replace("Layer ", "")}
                         </div>
-                        <div>
+                        <button
+                          aria-current={
+                            lane.id === fxLaneId ? "true" : undefined
+                          }
+                          className="track-label__select"
+                          data-lane-label-id={lane.id}
+                          data-space-activates
+                          tabIndex={lane.id === fxLaneId ? 0 : -1}
+                          type="button"
+                        >
                           <span>{lane.name}</span>
                           <small>{laneStatusById.get(lane.id)?.summary}</small>
-                        </div>
+                        </button>
                         <button
                           aria-label={`${lane.name} effects`}
                           aria-pressed={laneStatusById.get(lane.id)?.fxToggle}

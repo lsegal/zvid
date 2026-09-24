@@ -42,6 +42,7 @@ export class EffectChainRenderer {
   private programs = new Map<EffectPass, CompiledPass | null>();
   private pingPongTargets = new Map<string, [RenderTarget, RenderTarget]>();
   private sceneTarget: RenderTarget | null = null;
+  private layerTargets = new Map<string, RenderTarget>();
   private surfaceKey = "";
 
   constructor(gl: WebGLRenderingContext, positionBuffer: WebGLBuffer) {
@@ -84,6 +85,19 @@ export class EffectChainRenderer {
     }
 
     return this.sceneTarget;
+  }
+
+  // Surface a layer is framed into before its own effects run. It is kept
+  // apart from the ping-pong targets so the chain can read it while writing.
+  getLayerTarget(width: number, height: number) {
+    const key = `${width}x${height}`;
+    let target = this.layerTargets.get(key);
+    if (!target) {
+      target = this.createTarget(width, height);
+      this.layerTargets.set(key, target);
+    }
+
+    return target;
   }
 
   // Applies `steps` to `source` in order. Returns the texture holding the
@@ -254,6 +268,10 @@ export class EffectChainRenderer {
       }
     }
     this.pingPongTargets.clear();
+    for (const target of this.layerTargets.values()) {
+      this.deleteTarget(target);
+    }
+    this.layerTargets.clear();
     if (this.sceneTarget) {
       this.deleteTarget(this.sceneTarget);
       this.sceneTarget = null;
