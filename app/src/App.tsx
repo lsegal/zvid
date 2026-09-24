@@ -27,6 +27,11 @@ import {
   type CollaborationController,
   createCollaborationController,
 } from "./collaboration";
+import {
+  APP_BUILD_LABEL,
+  BrandMark,
+  openBuildCommit,
+} from "./components/BrandMark";
 import { FxChain, type FxEditMode } from "./components/FxChain";
 import { OfflineMediaDialog } from "./components/OfflineMediaDialog";
 import {
@@ -5347,18 +5352,7 @@ function App() {
       ) : null}
       <header className="topbar">
         <div className="topbar__group">
-          <div className="brand-mark" role="img" aria-label="zvid">
-            <svg viewBox="0 0 120 24" aria-hidden="true">
-              <circle cx="14" cy="12" r="8" />
-              <circle cx="36" cy="12" r="8" />
-              <circle cx="60" cy="12" r="10" />
-              <circle cx="84" cy="12" r="8" />
-              <circle cx="106" cy="12" r="8" />
-            </svg>
-            <span className="brand-mark__name" aria-hidden="true">
-              zvid
-            </span>
-          </div>
+          <BrandMark onStatus={setStatus} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="ghost-button file-menu-button" type="button">
@@ -5546,17 +5540,31 @@ function App() {
               <span>Copied</span>
             </span>
           ) : null}
-          <button
-            className="ghost-button"
-            onClick={() =>
-              setStatus(
-                "Use File → Open Session to open a .lvp session, or File → Import Media to add clips.",
-              )
-            }
-            type="button"
-          >
-            Help
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="ghost-button" type="button">
+                Help
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onSelect={() =>
+                  setStatus(
+                    "Use File → Open Session to open a .lvp session, or File → Import Media to add clips.",
+                  )
+                }
+              >
+                Getting Started
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="help-menu__build"
+                onSelect={() => void openBuildCommit().then(setStatus)}
+              >
+                {APP_BUILD_LABEL}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 

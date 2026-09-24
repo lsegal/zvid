@@ -1,0 +1,75 @@
+button.brand-mark {
+  position: relative;
+  padding: 4px 6px;
+  margin-left: -6px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+button.brand-mark:focus-visible {
+  outline: 2px solid rgba(124, 161, 255, 0.7);
+  outline-offset: 2px;
+}
+
+.brand-mark__tooltip {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: linear-gradient(
+    180deg,
+    rgba(39, 42, 59, 0.98),
+    rgba(26, 29, 40, 0.98)
+  );
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.38);
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease,
+    visibility 120ms;
+  pointer-events: none;
+}
+
+.brand-mark:hover .brand-mark__tooltip,
+.brand-mark:focus-visible .brand-mark__tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transition-delay: 250ms;
+}
+
+.brand-mark:focus-visible .brand-mark__tooltip {
+  transition-delay: 0ms;
+}
+
+.brand-mark__tooltip-line {
+  font-variant-numeric: tabular-nums;
+}
+
+.brand-mark__tooltip-hint {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+/* Menus portal outside .app-shell, so its color variables are unavailable. */
+.dropdown-menu-content [data-radix-collection-item].help-menu__build {
+  color: #a4a9bf;
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
+}
