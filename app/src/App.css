@@ -1,4 +1,5 @@
-.app-shell {
+/* Defined on :root so portaled content (dropdown menus, dialogs) shares the palette. */
+:root {
   --bg: #262839;
   --bg-elevated: #2d3044;
   --bg-panel: #313447;
@@ -14,6 +15,9 @@
   --lane-selected-accent: var(--amber);
   --lane-selected-label: #3a3d53;
   --lane-selected-tint: rgba(246, 183, 60, 0.05);
+}
+
+.app-shell {
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
@@ -209,7 +213,7 @@
   cursor: not-allowed;
 }
 
-.dropdown-menu-content [data-radix-dropdown-menu-separator] {
+.dropdown-menu-content [role='separator'] {
   height: 1px;
   margin: 8px 4px;
   background: var(--line);
