@@ -19,6 +19,7 @@ import {
   isChainEffectName,
   resolveEffectChain,
 } from "./fx-shaders/registry.ts";
+import { getRenderedEffects } from "./fx-stack.ts";
 
 type MediaKind = "video" | "audio";
 
@@ -38,6 +39,7 @@ type Lane = {
   id: string;
   name: string;
   colorIndex: number;
+  fxEnabled?: boolean;
 };
 
 type ArrangementClip = {
@@ -1085,12 +1087,18 @@ export class CompositionRenderer {
       playheadQ,
       this.state.bpm,
       lanePriority,
-      this.state.effects,
+      this.renderedEffects(),
     );
   }
 
+  // Effects on layers whose FX switch is off are left out, apart from their
+  // Layout anchoring.
+  private renderedEffects() {
+    return getRenderedEffects(this.state.effects, this.state.lanes);
+  }
+
   private usesAudioBands() {
-    return this.state.effects.some(
+    return this.renderedEffects().some(
       (effect) =>
         effect.enabled !== false && isChainEffectName(effect.effectName),
     );
@@ -1319,6 +1327,10 @@ export const CompositionPlayer = forwardRef<
     },
     [drawCurrentFrame],
   );
+  const scheduleDrawRef = useRef(scheduleDraw);
+  scheduleDrawRef.current = scheduleDraw;
+  const isPlayingRef = useRef(isPlaying);
+  isPlayingRef.current = isPlaying;
 
   const renderFrameAt = useCallback(
     async (
@@ -1381,6 +1393,11 @@ export const CompositionPlayer = forwardRef<
 
   useEffect(() => {
     rendererRef.current?.update(rendererState);
+    // A paused preview only redraws on request, so edits such as effect or
+    // layer FX bypasses would otherwise not show until the playhead moves.
+    if (!isPlayingRef.current) {
+      scheduleDrawRef.current();
+    }
   }, [rendererState]);
 
   useEffect(() => {

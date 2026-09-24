@@ -1133,6 +1133,21 @@
   font-size: 0.72rem;
 }
 
+.track-label__fx:not(:disabled) {
+  cursor: pointer;
+}
+
+.track-label__fx:focus-visible {
+  outline: 1px solid var(--amber);
+  outline-offset: 1px;
+  border-radius: 3px;
+}
+
+.track-label__fx--off {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
 .track-label__fx--inactive {
   color: var(--muted);
   opacity: 0.45;
