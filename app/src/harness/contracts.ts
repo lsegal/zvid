@@ -110,7 +110,7 @@ export type Harness = {
   capabilities: Partial<Record<HarnessCapability, boolean>>;
   pickSession(): Promise<SessionSelection | null>;
   pickWorkspace?(): Promise<SessionSelection | null>;
-  pickMedia(): Promise<MediaSelection | null>;
+  pickMedia(options?: { multiple?: boolean }): Promise<MediaSelection | null>;
   pickMediaFolder?(): Promise<MediaSelection | null>;
   openSession(selection: SessionSelection): Promise<SessionOpenResponse>;
   analyzeMedia(

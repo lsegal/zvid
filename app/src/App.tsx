@@ -25,6 +25,7 @@ import {
   type CollaborationController,
   createCollaborationController,
 } from "./collaboration";
+import { OfflineMediaDialog } from "./components/OfflineMediaDialog";
 import {
   Dialog,
   DialogClose,
@@ -57,8 +58,8 @@ import {
   toShareableMediaItem,
 } from "./media";
 import { cacheMediaBlob, getCachedMediaBlob } from "./media-cache";
-import { createMediaRelinker, pickRelinkCandidates } from "./media-relink";
-import { listOfflineMedia } from "./relink";
+import { createMediaRelinker, type MediaRelinkCandidate } from "./media-relink";
+import { listOfflineMedia, matchOfflineMedia } from "./relink";
 import type { LvpSession, SessionOpenResponse } from "./session";
 import { loadWaveformPeaks } from "./waveform-loader";
 import type { WaveformPeaks } from "./waveform-peaks";
@@ -480,6 +481,8 @@ function pluralize(count: number, singular: string, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
+const LOCATE_OFFLINE_MEDIA_HINT = "Relink from File → Locate Offline Media…";
+
 function formatSessionMediaCheckStatus(check: SessionMediaCheck) {
   const { sessionName, restored, offline, hydratedFromDisk } = check;
   if (!restored && !offline) {
@@ -489,7 +492,7 @@ function formatSessionMediaCheckStatus(check: SessionMediaCheck) {
   }
 
   if (!restored && !hydratedFromDisk) {
-    return `Loaded ${sessionName}. All referenced media is currently offline.`;
+    return `Loaded ${sessionName}. All referenced media is currently offline. ${LOCATE_OFFLINE_MEDIA_HINT}`;
   }
 
   const details: string[] = [];
@@ -498,7 +501,7 @@ function formatSessionMediaCheckStatus(check: SessionMediaCheck) {
   }
   if (offline) {
     details.push(
-      `${offline === 1 ? "1 clip is" : `${offline} clips are`} still offline.`,
+      `${offline === 1 ? "1 clip is" : `${offline} clips are`} still offline. ${LOCATE_OFFLINE_MEDIA_HINT}`,
     );
   }
   return `Loaded ${sessionName}. ${details.join(" ")}`;
@@ -1829,6 +1832,11 @@ function App() {
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isStartingShare, setIsStartingShare] = useState(false);
   const [isConnectDialogOpen, setIsConnectDialogOpen] = useState(false);
+  const [isOfflineMediaDialogOpen, setIsOfflineMediaDialogOpen] =
+    useState(false);
+  const [relinkingMediaIds, setRelinkingMediaIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
   const [connectInviteValue, setConnectInviteValue] = useState("");
   const [isStartingConnect, setIsStartingConnect] = useState(false);
   const [hasCopiedShareInvite, setHasCopiedShareInvite] = useState(false);
@@ -4718,58 +4726,64 @@ function App() {
     }
   }
 
-  async function handleLocateMedia(mode: "files" | "folder" = "files") {
-    if (!offlineMedia.length) {
-      setStatus("All media is linked.");
-      return;
-    }
-
-    const candidates = await pickRelinkCandidates(mode);
-    if (!candidates) {
-      return;
-    }
-
-    setStatus("Relinking offline media...");
-    const { relinkMedia } = createMediaRelinker({
+  // Rows show a spinner from the moment a batch starts until their own file
+  // has been verified and adopted, so progress is visible item by item.
+  function createOfflineMediaRelinker() {
+    return createMediaRelinker({
       offlineMedia,
       mediaItemsById,
-      adoptMediaBlob,
+      adoptMediaBlob: async (mediaId, blob, options) => {
+        try {
+          return await adoptMediaBlob(mediaId, blob, options);
+        } finally {
+          updateRelinkingMediaIds([mediaId], false);
+        }
+      },
       log: logClient,
     });
-    const { outcomes, remainingOffline } = await relinkMedia(candidates);
-    const relinked = outcomes.filter(
-      (outcome) => outcome.status === "linked",
-    ).length;
-    const attempted = outcomes.filter(
-      (outcome) => outcome.status === "linked" || outcome.status === "failed",
-    ).length;
-    if (!attempted) {
-      setStatus(
-        `No selected files matched offline media. ${pluralize(remainingOffline, "media file")} still offline.`,
-      );
-      return;
-    }
+  }
 
-    const ambiguousCount = outcomes.filter(
-      (outcome) => outcome.status === "ambiguous",
-    ).length;
-    const ambiguousNote = ambiguousCount
-      ? ` ${pluralize(ambiguousCount, "file")} matched several clips and ${ambiguousCount === 1 ? "was" : "were"} skipped.`
-      : "";
-    const problems = outcomes.flatMap((outcome) => {
-      if (outcome.status === "failed") {
-        return [`${outcome.item.name}: ${outcome.reason}.`];
+  function updateRelinkingMediaIds(ids: string[], relinking: boolean) {
+    setRelinkingMediaIds((current) => {
+      const next = new Set(current);
+      for (const id of ids) {
+        if (relinking) {
+          next.add(id);
+        } else {
+          next.delete(id);
+        }
       }
-      return outcome.status === "linked" && outcome.warning
-        ? [`${outcome.item.name}: ${outcome.warning}.`]
-        : [];
+      return next;
     });
-    setStatus(
-      [
-        `Relinked ${relinked} of ${pluralize(offlineMedia.length, "offline media file")}. ${remainingOffline} still offline.${ambiguousNote}`,
-        ...problems,
-      ].join(" "),
+  }
+
+  async function relinkOfflineMedia(candidates: MediaRelinkCandidate[]) {
+    const { matches } = matchOfflineMedia(
+      offlineMedia.map((entry) => entry.item),
+      candidates,
     );
+    const ids = matches.map(({ item }) => item.id);
+    updateRelinkingMediaIds(ids, true);
+    try {
+      return await createOfflineMediaRelinker().relinkMedia(candidates);
+    } finally {
+      updateRelinkingMediaIds(ids, false);
+    }
+  }
+
+  async function relinkOfflineMediaItem(
+    itemId: string,
+    candidate: MediaRelinkCandidate,
+  ) {
+    updateRelinkingMediaIds([itemId], true);
+    try {
+      return await createOfflineMediaRelinker().relinkMediaItem(
+        itemId,
+        candidate,
+      );
+    } finally {
+      updateRelinkingMediaIds([itemId], false);
+    }
   }
 
   async function handleOpenSession() {
@@ -5167,16 +5181,14 @@ function App() {
               <DropdownMenuItem onSelect={() => void handleImport()}>
                 Import Media
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void handleLocateMedia()}>
-                Locate Media…
+              <DropdownMenuItem
+                disabled={!offlineMedia.length}
+                onSelect={() => setIsOfflineMediaDialogOpen(true)}
+              >
+                {offlineMedia.length
+                  ? "Locate Offline Media…"
+                  : "All Media Linked"}
               </DropdownMenuItem>
-              {getHarness().pickMediaFolder ? (
-                <DropdownMenuItem
-                  onSelect={() => void handleLocateMedia("folder")}
-                >
-                  Locate Media Folder…
-                </DropdownMenuItem>
-              ) : null}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onSelect={() => {
@@ -5398,6 +5410,17 @@ function App() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <OfflineMediaDialog
+        canLocateFolder={Boolean(getHarness().pickMediaFolder)}
+        mediaItemsById={mediaItemsById}
+        offlineMedia={offlineMedia}
+        onOpenChange={setIsOfflineMediaDialogOpen}
+        open={isOfflineMediaDialogOpen}
+        relinkMedia={relinkOfflineMedia}
+        relinkMediaItem={relinkOfflineMediaItem}
+        relinkingIds={relinkingMediaIds}
+      />
 
       <Dialog open={isConnectDialogOpen} onOpenChange={setIsConnectDialogOpen}>
         <DialogContent>
@@ -5624,11 +5647,22 @@ function App() {
                         {offlineCount ? (
                           <button
                             className="track-label__offline"
-                            onClick={() => void handleLocateMedia()}
-                            title="Locate offline media"
+                            onClick={() => setIsOfflineMediaDialogOpen(true)}
+                            title="Review and locate offline media"
                             type="button"
                           >
-                            {pluralize(offlineCount, "offline media file")}
+                            {relinkingMediaIds.size ? (
+                              <>
+                                <span
+                                  aria-hidden="true"
+                                  className="offline-media__spinner"
+                                />
+                                Linking{" "}
+                                {pluralize(relinkingMediaIds.size, "file")}…
+                              </>
+                            ) : (
+                              pluralize(offlineCount, "offline media file")
+                            )}
                           </button>
                         ) : (
                           <small>{sessionMediaStatus}</small>
