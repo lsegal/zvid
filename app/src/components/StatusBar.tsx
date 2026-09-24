@@ -17,7 +17,7 @@ function StatusBarItem({ item }: { item: StatusItem }) {
 export function StatusBar({ items }: { items: readonly StatusItem[] }) {
   const { start, end } = partitionStatusItems(items);
   return (
-    <footer aria-label="Status" className="status-bar">
+    <footer className="status-bar">
       <div className="status-bar__group">
         {start.map((item) => (
           <StatusBarItem item={item} key={item.id} />
