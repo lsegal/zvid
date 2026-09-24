@@ -1,0 +1,46 @@
+import {
+  clampUnit,
+  type EffectParameter,
+  type EffectPass,
+  readEffectNumber,
+} from "./types.ts";
+
+// (zoom, x, y) framing for one end of the move, each clamped to 0..1.
+export function readZoomFraming(
+  params: EffectParameter[],
+  prefix: "_Start" | "_End",
+): [number, number, number] {
+  return [
+    clampUnit(readEffectNumber(params, `${prefix}_Zoom`, 0)),
+    clampUnit(readEffectNumber(params, `${prefix}_X`, 0.5)),
+    clampUnit(readEffectNumber(params, `${prefix}_Y`, 0.5)),
+  ];
+}
+
+// Eases from the start framing to the end framing across the clip. Zoom 0..1
+// maps to 1x..4x; X and Y 0..1 place the window inside the frame, with 0 the
+// left/top edge and 1 the right/bottom edge, so it never samples outside the
+// texture. Layer textures are uploaded top row first (UNPACK_FLIP_Y off), so
+// vUv.y already runs top-down and the .lvp Y is used without flipping.
+export const zoomAndPanPass: EffectPass = {
+  effectName: "ZoomAndPan",
+  fragmentSource: `
+    uniform sampler2D uTex;
+    uniform float uProgress;
+    uniform vec3 uStart, uEnd;
+    varying vec2 vUv;
+
+    void main() {
+      vec3 k = mix(uStart, uEnd, smoothstep(0.0, 1.0, uProgress));
+      float scale = 1.0 / mix(1.0, 4.0, k.x);
+      vec2 origin = k.yz * (1.0 - scale);
+      gl_FragColor = texture2D(uTex, origin + vUv * scale);
+    }
+  `,
+  uniforms: ["uProgress", "uStart", "uEnd"],
+  setUniforms(gl, loc, params, ctx) {
+    gl.uniform1f(loc.uProgress, clampUnit(ctx.clipProgress));
+    gl.uniform3f(loc.uStart, ...readZoomFraming(params, "_Start"));
+    gl.uniform3f(loc.uEnd, ...readZoomFraming(params, "_End"));
+  },
+};
