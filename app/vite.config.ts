@@ -309,6 +309,10 @@ function diskMediaPlugin(): Plugin {
 export default defineConfig({
   plugins: [react(), diskMediaPlugin()],
   clearScreen: false,
+  worker: {
+    // The waveform peaks worker lazy-loads mediabunny, which needs chunking.
+    format: "es",
+  },
   server: {
     host: "0.0.0.0",
     port: 1420,

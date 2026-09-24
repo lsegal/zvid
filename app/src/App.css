@@ -899,9 +899,11 @@
   overflow: hidden;
 }
 
-.waveform {
+.waveform__canvas {
   position: absolute;
-  inset: 0;
+  top: 0;
+  height: 100%;
+  pointer-events: none;
 }
 
 .waveform__empty {
@@ -913,15 +915,6 @@
   font-size: 0.78rem;
   white-space: nowrap;
   pointer-events: none;
-}
-
-.waveform__bar {
-  position: absolute;
-  bottom: 50%;
-  width: 4px;
-  transform: translate(-50%, 50%);
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(233, 247, 255, 0.92), rgba(175, 212, 225, 0.56));
 }
 
 .clip-card {

@@ -43,6 +43,7 @@ import {
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
 import { getHarness, type SaveTarget } from "./harness";
+import { MasterWaveform } from "./MasterWaveform";
 import {
   buildFallbackMediaItem,
   createMediaId,
@@ -59,6 +60,8 @@ import type {
   ServerMediaRef,
   SessionOpenResponse,
 } from "./session";
+import { loadWaveformPeaks } from "./waveform-loader";
+import type { WaveformPeaks } from "./waveform-peaks";
 
 type TimelineMode = "musical" | "timecode";
 type SnapMode = "bar" | "beat" | "half" | "quarter";
@@ -2155,16 +2158,67 @@ function App() {
     ? mediaItemsById.get(masterAudioId)
     : undefined;
   const canCreateLayer = lanes.length < MAX_LAYERS;
-  // Only real master audio analysis is drawn; an empty lane is shown otherwise.
-  const projectWaveformBars = useMemo(() => {
-    const waveform = masterAudio?.waveform ?? [];
-    const lastIndex = Math.max(1, waveform.length - 1);
-    return waveform.map((value, index) => ({
-      id: `wave-${((index / lastIndex) * 100).toFixed(4)}-${value.toFixed(4)}`,
-      leftPercent: (index / lastIndex) * 100,
-      heightPx: 16 + value * 42,
-    }));
-  }, [masterAudio]);
+  // Only peaks decoded from the master audio are drawn; until they exist the
+  // lane shows why there is no waveform instead of a placeholder.
+  const masterAudioUrl =
+    masterAudio?.availability === "ready" ? masterAudio.previewUrl : "";
+  const masterWaveformKey =
+    masterAudioId && masterAudioUrl
+      ? `${masterAudioId}\n${masterAudioUrl}`
+      : "";
+  const [masterWaveform, setMasterWaveform] = useState<{
+    key: string;
+    status: "ready" | "no-audio" | "error";
+    peaks?: WaveformPeaks;
+  } | null>(null);
+  useEffect(() => {
+    if (!masterAudioId || !masterAudioUrl) {
+      return;
+    }
+
+    const key = `${masterAudioId}\n${masterAudioUrl}`;
+    let cancelled = false;
+    loadWaveformPeaks(masterAudioId, masterAudioUrl).then(
+      (result) => {
+        if (!cancelled) {
+          setMasterWaveform(
+            result.status === "ready"
+              ? { key, status: "ready", peaks: result.peaks }
+              : { key, status: "no-audio" },
+          );
+        }
+      },
+      (error: unknown) => {
+        logClient("waveform:decode:error", {
+          mediaId: masterAudioId,
+          message: error instanceof Error ? error.message : String(error),
+        });
+        if (!cancelled) {
+          setMasterWaveform({ key, status: "error" });
+        }
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [masterAudioId, masterAudioUrl]);
+  const currentMasterWaveform =
+    masterWaveform && masterWaveform.key === masterWaveformKey
+      ? masterWaveform
+      : null;
+  const masterWaveformMessage = !masterAudio
+    ? "No master audio track in this session"
+    : masterAudio.availability === "offline"
+      ? "Master audio is offline"
+      : masterAudio.availability === "hydrating"
+        ? "Waiting for master audio…"
+        : !currentMasterWaveform
+          ? "Analyzing master audio…"
+          : currentMasterWaveform.status === "no-audio"
+            ? "No audio found in master audio file"
+            : currentMasterWaveform.status === "error"
+              ? "Could not decode master audio"
+              : null;
   const timelineContentEndQ = useMemo(
     () =>
       getTimelineContentEndQ(
@@ -5859,23 +5913,23 @@ function App() {
                       className="track-row__content track-row__content--waveform"
                       style={gridStyle}
                     >
-                      {masterAudio ? null : (
-                        <div className="waveform__empty">
-                          No master audio track in this session
+                      {masterWaveformMessage ? (
+                        <div
+                          className="waveform__empty"
+                          style={{ left: visibleTimelineStartPx + 16 }}
+                        >
+                          {masterWaveformMessage}
                         </div>
-                      )}
-                      <div className="waveform">
-                        {projectWaveformBars.map((bar) => (
-                          <span
-                            key={bar.id}
-                            className="waveform__bar"
-                            style={{
-                              left: `${bar.leftPercent}%`,
-                              height: `${bar.heightPx}px`,
-                            }}
-                          />
-                        ))}
-                      </div>
+                      ) : null}
+                      {currentMasterWaveform?.peaks ? (
+                        <MasterWaveform
+                          bpm={bpm}
+                          peaks={currentMasterWaveform.peaks}
+                          quarterPx={quarterPx}
+                          visibleStartPx={visibleTimelineStartPx}
+                          visibleWidthPx={visibleTimelineWidthPx}
+                        />
+                      ) : null}
                     </div>
                   </section>
 

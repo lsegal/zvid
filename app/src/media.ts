@@ -23,7 +23,6 @@ export type MediaItem = {
   hasVideo: boolean;
   color: string;
   accent: string;
-  waveform: number[];
   previewUrl: string;
   thumbnailUrl?: string;
   sourcePath?: string;
@@ -32,24 +31,6 @@ export type MediaItem = {
 
 export function createMediaId(file: File) {
   return `${file.name}:${file.size}:${file.lastModified}`;
-}
-
-export function buildFallbackWaveform(seed: string, points = 96) {
-  let state = Array.from(seed).reduce(
-    (total, character, index) => total + character.charCodeAt(0) * (index + 17),
-    97,
-  );
-  return Array.from({ length: points }, (_, index) => {
-    state = (state * 48271) % 2147483647;
-    const phase = state / 2147483647;
-    return Math.max(
-      0.08,
-      Math.min(
-        1,
-        Math.abs(Math.sin(index * 0.31 + phase * 5.2) * 0.72) + phase * 0.18,
-      ),
-    );
-  });
 }
 
 export function inferMediaKind(name: string): MediaKind {
@@ -111,7 +92,6 @@ export function buildFallbackMediaItem(
     hasVideo: kind === "video",
     color: palette.color,
     accent: palette.accent,
-    waveform: buildFallbackWaveform(ref.name),
     previewUrl: ref.exists && isShareableMediaUrl(ref.url) ? ref.url : "",
     sourcePath: ref.path,
     availability: ref.exists && ref.url ? "hydrating" : "offline",

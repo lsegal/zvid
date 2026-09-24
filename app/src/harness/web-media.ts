@@ -1,5 +1,4 @@
 import {
-  buildFallbackWaveform,
   createMediaId,
   inferMediaKind,
   type MediaItem,
@@ -177,46 +176,6 @@ async function loadRuntime() {
   return runtimePromise;
 }
 
-async function sampleWaveform(
-  seed: string,
-  input: import("mediabunny").Input,
-  runtime: WebMediaRuntime,
-  points = 96,
-) {
-  const { AudioBufferSink } = runtime.mediabunny;
-  const audioTrack = await input.getPrimaryAudioTrack();
-  if (!audioTrack) {
-    return buildFallbackWaveform(seed, points);
-  }
-
-  const duration = Math.max(0.01, await input.computeDuration());
-  const sink = new AudioBufferSink(audioTrack);
-  const timestamps = Array.from(
-    { length: points },
-    (_, index) => duration * (index / Math.max(1, points - 1)),
-  );
-  const waveform: number[] = [];
-
-  for await (const wrapped of sink.buffersAtTimestamps(timestamps)) {
-    if (!wrapped) {
-      waveform.push(0);
-      continue;
-    }
-
-    const channel = wrapped.buffer.getChannelData(0);
-    let peak = 0;
-    for (let index = 0; index < channel.length; index += 1) {
-      peak = Math.max(peak, Math.abs(channel[index] ?? 0));
-    }
-
-    waveform.push(Math.min(1, peak));
-  }
-
-  return waveform.some((value) => value > 0.001)
-    ? waveform
-    : buildFallbackWaveform(seed, points);
-}
-
 async function analyzeInputMedia(
   input: import("mediabunny").Input,
   options: MediaAnalysisOptions,
@@ -251,8 +210,6 @@ async function analyzeInputMedia(
       fps = (await videoTrack.computePacketStats(240)).averagePacketRate;
     }
 
-    const waveform = await sampleWaveform(options.name, input, runtime);
-
     return {
       id: options.id,
       name: options.name,
@@ -267,7 +224,6 @@ async function analyzeInputMedia(
       hasVideo: Boolean(videoTrack),
       color: options.palette.color,
       accent: options.palette.accent,
-      waveform,
       previewUrl: options.previewUrl,
       thumbnailUrl,
       sourcePath: options.sourcePath,
@@ -381,7 +337,6 @@ async function createMetadataFallbackItem(
       hasVideo: metadata.kind === "video",
       color: options.palette.color,
       accent: options.palette.accent,
-      waveform: buildFallbackWaveform(options.name),
       previewUrl: options.previewUrl,
       sourcePath: options.sourcePath,
       availability: "ready",
@@ -397,7 +352,6 @@ async function createMetadataFallbackItem(
     hasVideo: guessedKind === "video",
     color: options.palette.color,
     accent: options.palette.accent,
-    waveform: buildFallbackWaveform(options.name),
     previewUrl: options.previewUrl,
     sourcePath: options.sourcePath,
     availability: "ready",
