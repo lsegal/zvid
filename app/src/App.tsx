@@ -2171,16 +2171,21 @@ function App() {
       quarter: index * barLength,
     }));
   }, [barLength, totalQuarters]);
-  const offlineCount = useMemo(
-    () =>
-      timelineClips.filter((clip) => {
-        const media = clip.mediaId
-          ? mediaItemsById.get(clip.mediaId)
-          : undefined;
-        return !media || media.availability !== "ready";
-      }).length,
-    [mediaItemsById, timelineClips],
-  );
+  // Counts distinct offline media referenced by arrangement or source-track
+  // clips, so sessions whose media is only used on source tracks still
+  // surface the Locate Media shortcut.
+  const offlineCount = useMemo(() => {
+    const offlineKeys = new Set<string>();
+    for (const clip of [...timelineClips, ...sourceSpans]) {
+      const media = clip.mediaId
+        ? mediaItemsById.get(clip.mediaId)
+        : undefined;
+      if (!media || media.availability !== "ready") {
+        offlineKeys.add(clip.mediaId ?? `clip:${clip.id}`);
+      }
+    }
+    return offlineKeys.size;
+  }, [mediaItemsById, sourceSpans, timelineClips]);
   const clipsByLane = useMemo(() => {
     const next = new Map<string, ArrangementClip[]>();
     for (const clip of timelineClips) {
@@ -5295,7 +5300,7 @@ function App() {
                             title="Locate offline media"
                             type="button"
                           >
-                            {pluralize(offlineCount, "offline clip")}
+                            {pluralize(offlineCount, "offline media file")}
                           </button>
                         ) : (
                           <small>Media linked</small>
