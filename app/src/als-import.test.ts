@@ -29,6 +29,46 @@ const LAYERS_SET = `<?xml version="1.0" encoding="UTF-8"?>
   <LiveSet><Tracks><AudioTrack Id="8"><PluginDesc Name="Layers Record" /></AudioTrack></Tracks></LiveSet>
 </Ableton>`;
 
+// A Live 12 set shaped like dogfood7.als: MIDI tracks without any plugins at
+// 120 BPM in 4/4, whose clips loop a 4-beat pattern.
+function midiOnlySet(
+  tracks: Array<{ name: string; start: number; end: number }>,
+) {
+  const clip = (start: number, end: number) => `
+    <MidiClip Id="0" Time="${start}">
+      <CurrentStart Value="${start}" /><CurrentEnd Value="${end}" />
+      <Loop>
+        <LoopStart Value="0" /><LoopEnd Value="4" /><StartRelative Value="0" />
+        <LoopOn Value="true" />
+        <HiddenLoopStart Value="0" /><HiddenLoopEnd Value="4" />
+      </Loop>
+      <Name Value="" /><Disabled Value="false" />
+    </MidiClip>`;
+  const midiTracks = tracks.map(
+    (track, index) => `
+    <MidiTrack Id="${index + 10}">
+      <Name><EffectiveName Value="${track.name}" /></Name>
+      <DeviceChain><MainSequencer><ClipTimeable><ArrangerAutomation><Events>
+        ${clip(track.start, track.end)}
+      </Events></ArrangerAutomation></ClipTimeable></MainSequencer></DeviceChain>
+    </MidiTrack>`,
+  );
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<Ableton MajorVersion="5" MinorVersion="12.0_12049" Creator="Ableton Live 12.0b29">
+  <LiveSet>
+    <Tracks>${midiTracks.join("")}</Tracks>
+    <MainTrack><DeviceChain><Mixer>
+      <Tempo><Manual Value="120" /></Tempo>
+      <TimeSignature><Manual Value="201" /></TimeSignature>
+    </Mixer></DeviceChain></MainTrack>
+    <Transport>
+      <CurrentTime Value="0" /><LoopOn Value="false" />
+      <LoopStart Value="0" /><LoopLength Value="16" />
+    </Transport>
+  </LiveSet>
+</Ableton>`;
+}
+
 function importedSession(): ImportedAlsSession {
   return {
     tracks: [
@@ -154,29 +194,60 @@ describe("importAls", () => {
     assert.match(message, /is not an Ableton Live set/);
   });
 
-  it("rejects a Live set without Layers tracks", async () => {
-    const message = await importError(
-      gzip('<?xml version="1.0"?><Ableton><LiveSet /></Ableton>'),
-      "/sets/Plain.als",
-    );
-    assert.match(message, /Plain\.als has no tracks with the Layers Record/);
-  });
-
   it("rejects a set whose structure cannot be read", async () => {
     const message = await importError(gzip(LAYERS_SET));
     assert.match(message, /Song\.als could not be read: .*master track/);
   });
 
-  it("rejects a set that only mentions Layers outside its tracks", async () => {
-    const message = await importError(
-      gzip(`<?xml version="1.0"?>
-<Ableton><LiveSet>
-  <Tracks />
-  <MainTrack><DeviceChain><Mixer><Tempo><Manual Value="120" /></Tempo></Mixer></DeviceChain></MainTrack>
-  <Annotation Value="Layers Record" />
-</LiveSet></Ableton>`),
+  it("imports a set without Layers tracks as placeholder clips", async () => {
+    const imported = await importAls(
+      gzip(
+        midiOnlySet([
+          { name: "1-Kit", start: 0, end: 16 },
+          { name: "2-Bass", start: 0, end: 16 },
+          { name: "3-Keys", start: 0, end: 16 },
+          { name: "4-Pad", start: 0, end: 16 },
+          { name: "5-808 Pure", start: 8, end: 12 },
+          { name: "6-Lead", start: 0, end: 16 },
+        ]),
+      ),
+      "/sets/dogfood3 Project/dogfood7.als",
     );
-    assert.match(message, /Song\.als has no tracks with the Layers Record/);
+
+    assert.equal(imported.tracks?.length, 6);
+    assert.deepEqual(imported.importReport, {
+      skippedTracks: [],
+      hasLayersVideo: false,
+    });
+    assert.equal(imported.timeline?.bpm, 120);
+    // 120 BPM at the default 30 fps: one beat is 15 frames.
+    const segments = (trackName: string) => {
+      const track = imported.tracks?.find((entry) => entry.name === trackName);
+      return imported.clips
+        ?.filter((clip) => clip.trackId === track?.id)
+        .map((clip) => [clip.frameStart / 15, clip.frameCount / 15]);
+    };
+    assert.deepEqual(segments("1-Kit"), [
+      [0, 4],
+      [4, 4],
+      [8, 4],
+      [12, 4],
+    ]);
+    assert.deepEqual(segments("5-808 Pure"), [[8, 4]]);
+    assert.ok(imported.clips?.every((clip) => clip.filePath === ""));
+    assert.equal(imported.selections?.length, imported.clips?.length);
+
+    const { summary } = resolveAlsMedia(imported, () => null);
+    assert.deepEqual(summary, {
+      tracks: 6,
+      clips: 21,
+      skippedTracks: [],
+      missingMedia: [],
+      noLayersVideo: true,
+    });
+    assert.deepEqual(formatAlsImportSummary(summary, "dogfood7.als"), [
+      "No Layers video in dogfood7.als. Imported 6 tracks and 21 clips as placeholders.",
+    ]);
   });
 
   it("converts dogfood3.als into the timeline of dogfood3.lvp", async () => {
@@ -192,37 +263,48 @@ describe("importAls", () => {
     assert.equal(imported.sessionFile, alsPath);
     assert.deepEqual(
       imported.tracks?.map((track) => track.name),
-      golden.tracks.map((track: { name: string }) => track.name),
+      [
+        ...golden.tracks.map((track: { name: string }) => track.name),
+        "4-Audio",
+      ],
     );
     assert.equal(imported.timeline?.fps, golden.timeline.fps);
     assert.equal(
       imported.timeline?.projectDuration,
       golden.timeline.projectDuration,
     );
-    // Layers stored bare filenames for the harnesses to resolve.
+    // Layers stored bare filenames for the harnesses to resolve; 4-Audio's
+    // clips keep the absolute sample path Live saved.
     for (const clip of imported.clips ?? []) {
-      assert.equal(clip.filePath, clip.filePath.split(/[/\\]/).at(-1));
+      if (clip.trackId !== "17") {
+        assert.equal(clip.filePath, clip.filePath.split(/[/\\]/).at(-1));
+      }
     }
     assert.deepEqual(imported.importReport, {
-      skippedTracks: [
-        "4-Audio (no Layers Record)",
-        "Audio 11 on 3-Audio (shorter than a frame)",
-      ],
+      skippedTracks: ["Audio 11 on 3-Audio (shorter than a frame)"],
+      hasLayersVideo: true,
     });
 
-    // Every recording but one sits in the project's sibling Recorded folder.
+    // Every recording but one sits in the project's sibling Recorded folder,
+    // and 4-Audio's sample in the project's own Samples/Recorded folder.
     const missing = "video-12-13-23-20-19-23-2.mp4";
+    const sample = "4-Audio 0002 [2023-12-13 122224].wav";
+    const samplePath = `/sets/dogfood3 Project/Samples/Recorded/${sample}`;
     const { session, summary } = resolveAlsMedia(
       imported,
       createAlsMediaLocator(
         alsMediaSearchDirs(alsPath, "/docs"),
-        (path) => path.startsWith("/sets/Recorded/") && !path.endsWith(missing),
+        (path) =>
+          (path.startsWith("/sets/Recorded/video-") &&
+            !path.endsWith(missing)) ||
+          path === samplePath,
       ),
     );
     assert.deepEqual(summary, {
-      tracks: 3,
-      // dogfood3.lvp's fourth clip, 16-3, is shorter than a frame.
-      clips: golden.clips.length - 1,
+      tracks: 4,
+      // dogfood3.lvp's fourth clip, 16-3, is shorter than a frame, and
+      // 4-Audio adds two.
+      clips: golden.clips.length + 1,
       skippedTracks: imported.importReport?.skippedTracks,
       missingMedia: [missing],
     });
@@ -232,6 +314,8 @@ describe("importAls", () => {
         "/sets/Recorded/video-12-13-23-21-6-51-0.mp4",
         "/sets/Recorded/video-12-13-23-20-15-14-1.mp4",
         missing,
+        samplePath,
+        samplePath,
       ],
     );
     assert.equal(imported.audioFilename, undefined);
@@ -319,14 +403,14 @@ describe("alsMasterAudioPath", () => {
       alsSavePath(alsPath),
       "C:\\Music\\dogfood3 Project\\dogfood3.lvp",
     );
+    // 4-Audio's sample was recorded on another machine and is not here.
+    const sample =
+      "C:/Users/Loren/Documents/Layers/dogfood3 Project/Samples/Recorded/4-Audio 0002 [2023-12-13 122224].wav";
     assert.deepEqual(summary, {
-      tracks: 3,
-      clips: 3,
-      skippedTracks: [
-        "4-Audio (no Layers Record)",
-        "Audio 11 on 3-Audio (shorter than a frame)",
-      ],
-      missingMedia: [],
+      tracks: 4,
+      clips: 5,
+      skippedTracks: ["Audio 11 on 3-Audio (shorter than a frame)"],
+      missingMedia: ["4-Audio 0002 [2023-12-13 122224].wav"],
     });
     assert.deepEqual(
       session.clips?.map((clip) => clip.filePath),
@@ -334,6 +418,8 @@ describe("alsMasterAudioPath", () => {
         "C:\\Users\\me\\Documents\\Layers\\Recorded\\video-12-13-23-21-6-51-0.mp4",
         "C:\\Music\\Recorded\\video-12-13-23-20-15-14-1.mp4",
         "C:\\Music\\Recorded\\video-12-13-23-20-19-23-2.mp4",
+        sample,
+        sample,
       ],
     );
     // The set's sibling Recorded folder wins over Documents.
@@ -347,7 +433,7 @@ describe("alsMasterAudioPath", () => {
 });
 
 describe("Live set media resolution", () => {
-  it("searches the set folder, the sibling Recorded folder, then Documents", () => {
+  it("searches the set folder, the sibling Recorded folder, Documents, then the project's samples", () => {
     assert.deepEqual(
       alsMediaSearchDirs(
         "/Users/me/Music/Song Project/Song.als",
@@ -357,6 +443,8 @@ describe("Live set media resolution", () => {
         "/Users/me/Music/Song Project",
         "/Users/me/Music/Recorded",
         "/Users/me/Documents/Layers/Recorded",
+        "/Users/me/Music/Song Project/Samples/Recorded",
+        "/Users/me/Music/Song Project/Samples/Imported",
       ],
     );
     assert.deepEqual(
@@ -368,6 +456,8 @@ describe("Live set media resolution", () => {
         "C:\\Music\\Song Project",
         "C:\\Music\\Recorded",
         "C:\\Users\\me\\Documents\\Layers\\Recorded",
+        "C:\\Music\\Song Project\\Samples\\Recorded",
+        "C:\\Music\\Song Project\\Samples\\Imported",
       ],
     );
     assert.deepEqual(alsMediaSearchDirs(undefined, "/home/me/Documents"), [
@@ -387,6 +477,40 @@ describe("Live set media resolution", () => {
     assert.equal(locate("video-1.mp4"), "/set/video-1.mp4");
     assert.equal(locate("video-2.mp4"), "/docs/Layers/Recorded/video-2.mp4");
     assert.equal(locate("video-3.mp4"), null);
+  });
+
+  it("finds a sample at its saved absolute path first", () => {
+    const existing = new Set(["/old/Samples/kick.wav", "/set/kick.wav"]);
+    const locate = createAlsMediaLocator(["/set"], (path) =>
+      existing.has(path),
+    );
+
+    assert.equal(locate("/old/Samples/kick.wav"), "/old/Samples/kick.wav");
+    assert.equal(locate("/moved/Samples/kick.wav"), "/set/kick.wav");
+    assert.deepEqual(
+      alsMediaCandidatePaths(
+        {
+          clips: [
+            {
+              id: "1-1",
+              trackId: "1",
+              frameStart: 0,
+              frameCount: 1,
+              filePath: "C:\\Samples\\kick.wav",
+            },
+            {
+              id: "2-1",
+              trackId: "2",
+              frameStart: 0,
+              frameCount: 1,
+              filePath: "",
+            },
+          ],
+        },
+        ["/set"],
+      ),
+      ["C:\\Samples\\kick.wav", "/set/kick.wav"],
+    );
   });
 
   it("lists every candidate path for a batch existence check", () => {
@@ -478,6 +602,24 @@ describe("formatAlsImportSummary", () => {
         "Imported 3 tracks and 1 clip.",
         "Skipped 1 track or clip: Drums (no Layers Record).",
         "2 media files could not be found and will open offline: a.mp4, b.mp4.",
+      ],
+    );
+  });
+
+  it("warns when the set had no Layers video", () => {
+    assert.deepEqual(
+      formatAlsImportSummary(
+        {
+          tracks: 6,
+          clips: 6,
+          skippedTracks: [],
+          missingMedia: [],
+          noLayersVideo: true,
+        },
+        "dogfood7.als",
+      ),
+      [
+        "No Layers video in dogfood7.als. Imported 6 tracks and 6 clips as placeholders.",
       ],
     );
   });

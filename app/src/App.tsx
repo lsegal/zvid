@@ -2238,6 +2238,12 @@ function App() {
   const offlineCount = useMemo(() => {
     const missingKeys = new Set<string>();
     for (const clip of [...timelineClips, ...sourceSpans]) {
+      // Placeholder clips, such as MIDI imported from a Live set, never had
+      // media, so there is no file to report as offline.
+      if (!clip.mediaId && !clip.mediaPath?.trim()) {
+        continue;
+      }
+
       if (!clip.mediaId || !mediaItemsById.has(clip.mediaId)) {
         missingKeys.add(clip.mediaId ?? `clip:${clip.id}`);
       }
@@ -4623,9 +4629,12 @@ function App() {
     setImportNotice(
       payload.alsImport
         ? {
-            tone: "summary",
+            tone: payload.alsImport.noLayersVideo ? "warning" : "summary",
             title: `Imported ${payload.sessionName}`,
-            lines: formatAlsImportSummary(payload.alsImport),
+            lines: formatAlsImportSummary(
+              payload.alsImport,
+              payload.sessionName,
+            ),
           }
         : null,
     );

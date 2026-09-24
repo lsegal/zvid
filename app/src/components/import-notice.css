@@ -20,6 +20,10 @@
   color: var(--ink);
 }
 
+.import-notice--warning {
+  border-left-color: var(--amber);
+}
+
 .import-notice--error {
   border-left-color: var(--pink);
 }
