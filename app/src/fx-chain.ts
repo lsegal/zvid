@@ -86,6 +86,61 @@ export function toggleCollapsedDevice(
   return next;
 }
 
+// Where a dragged device would land: the number of panels in its stack whose
+// horizontal midpoint is left of the pointer, so 0 is before the first panel
+// and `midpoints.length` is after the last.
+export function getDropSlot(midpoints: readonly number[], pointerX: number) {
+  return midpoints.filter((midpoint) => midpoint < pointerX).length;
+}
+
+// Turns a drop slot into the stack index `moveEffect` expects. Slots on
+// either side of the dragged device leave it where it is.
+export function dropSlotToStackIndex(fromIndex: number, slot: number) {
+  return slot > fromIndex ? slot - 1 : slot;
+}
+
+export function isNoopDropSlot(fromIndex: number, slot: number) {
+  return slot === fromIndex || slot === fromIndex + 1;
+}
+
+// How far to scroll the chain while a drag hovers near one of its edges:
+// up to `maxStep` pixels per frame, faster the closer the pointer gets.
+export function getAutoScrollDelta(
+  pointerX: number,
+  left: number,
+  right: number,
+  edge = 48,
+  maxStep = 18,
+) {
+  const width = right - left;
+  const zone = Math.min(edge, width / 3);
+  if (zone <= 0) {
+    return 0;
+  }
+
+  if (pointerX < left + zone) {
+    return -Math.round(maxStep * Math.min(1, (left + zone - pointerX) / zone));
+  }
+
+  if (pointerX > right - zone) {
+    return Math.round(
+      maxStep * Math.min(1, (pointerX - (right - zone)) / zone),
+    );
+  }
+
+  return 0;
+}
+
+// Screen reader text for a device that moved within its stack.
+export function describeDeviceMove(
+  device: Pick<FxDevice, "name" | "group" | "subtitle">,
+  toIndex: number,
+  stackSize: number,
+) {
+  const stack = device.group === "global" ? "Global" : device.subtitle;
+  return `Moved ${device.name} to position ${toIndex + 1} of ${stackSize} in ${stack}`;
+}
+
 type SelectableLane = { id: string };
 type SelectableClip = { id: string; laneId: string };
 type LaneEffect = { trackId: string };

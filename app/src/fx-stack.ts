@@ -326,6 +326,27 @@ export function removeEffect(effects: SessionEffect[], effectId: string) {
   return [...effects.slice(0, index), ...effects.slice(index + 1)];
 }
 
+// Inserts a copy of an effect, with its parameters and bypass state, right
+// after the original in the same stack.
+export function duplicateEffect(
+  effects: SessionEffect[],
+  effectId: string,
+  id: string = crypto.randomUUID(),
+) {
+  const index = effects.findIndex((effect) => effect.id === effectId);
+  if (index < 0) {
+    return effects;
+  }
+
+  const source = effects[index];
+  const copy: SessionEffect = {
+    ...source,
+    id,
+    parameters: source.parameters.map((parameter) => ({ ...parameter })),
+  };
+  return [...effects.slice(0, index + 1), copy, ...effects.slice(index + 1)];
+}
+
 export function getEffectDisplayName(effectName: string) {
   return getEffectDefinition(effectName).displayName;
 }
@@ -343,6 +364,8 @@ export const effectHistoryLabels = {
   move: (effectName: string) => `Move ${getEffectDisplayName(effectName)}`,
   add: (effectName: string) => `Add ${getEffectDisplayName(effectName)}`,
   remove: (effectName: string) => `Remove ${getEffectDisplayName(effectName)}`,
+  duplicate: (effectName: string) =>
+    `Duplicate ${getEffectDisplayName(effectName)}`,
   enabled: (effectName: string, enabled: boolean) =>
     `${enabled ? "Enable" : "Bypass"} ${getEffectDisplayName(effectName)}`,
   layerFx: (layerName: string, enabled: boolean) =>

@@ -4,6 +4,7 @@ import { getEffectDefinition } from "./fx-registry.ts";
 import { resolveEffectChain } from "./fx-shaders/registry.ts";
 import {
   addEffect,
+  duplicateEffect,
   effectHistoryLabels,
   type FxLayer,
   GLOBAL_EFFECT_TRACK_ID,
@@ -351,6 +352,35 @@ describe("removeEffect and setEffectEnabled", () => {
   });
 });
 
+describe("duplicateEffect", () => {
+  it("inserts a copy right after the original", () => {
+    const effects = setEffectEnabled(
+      setEffectParameter(load(), "colorize", "_HueOffset", 0.25),
+      "colorize",
+      false,
+    );
+    const next = duplicateEffect(effects, "colorize", "copy");
+    assert.deepEqual(ids(next, "6"), [
+      "pixelate",
+      "colorize",
+      "copy",
+      "negative",
+      "glitch",
+    ]);
+    const original = next.find((effect) => effect.id === "colorize");
+    const copy = next.find((effect) => effect.id === "copy");
+    assert.equal(copy?.trackId, "6");
+    assert.equal(copy?.enabled, false);
+    assert.deepEqual(copy?.parameters, original?.parameters);
+    assert.notEqual(copy?.parameters[0], original?.parameters[0]);
+  });
+
+  it("returns the same array for unknown ids", () => {
+    const effects = load();
+    assert.equal(duplicateEffect(effects, "missing"), effects);
+  });
+});
+
 describe("effect history", () => {
   type State = { effects: SessionEffect[] };
   const edit =
@@ -367,6 +397,10 @@ describe("effect history", () => {
     );
     assert.equal(effectHistoryLabels.move("Colorize"), "Move Colorize");
     assert.equal(effectHistoryLabels.add("Pixelate"), "Add Pixelate");
+    assert.equal(
+      effectHistoryLabels.duplicate("NegativeSplit"),
+      "Duplicate Negative Split",
+    );
     assert.equal(
       effectHistoryLabels.remove("AnalogGlitch"),
       "Remove Analog Glitch",
@@ -419,6 +453,10 @@ describe("effect history", () => {
         (effects) => addEffect(effects, "6", "Pixelate", undefined, "new"),
       ],
       ["Remove Analog Glitch", (effects) => removeEffect(effects, "glitch")],
+      [
+        "Duplicate Pixelate",
+        (effects) => duplicateEffect(effects, "pixelate", "copy"),
+      ],
       [
         "Bypass Negative Split",
         (effects) => setEffectEnabled(effects, "negative", false),
