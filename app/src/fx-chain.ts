@@ -123,7 +123,9 @@ export function getAutoScrollDelta(
   }
 
   if (pointerX > right - zone) {
-    return Math.round(maxStep * Math.min(1, (pointerX - (right - zone)) / zone));
+    return Math.round(
+      maxStep * Math.min(1, (pointerX - (right - zone)) / zone),
+    );
   }
 
   return 0;

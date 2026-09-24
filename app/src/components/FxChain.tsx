@@ -296,9 +296,7 @@ export function FxChain({
     const scrollerRect = scroller.getBoundingClientRect();
     const gap = Number.parseFloat(getComputedStyle(scroller).columnGap) || 0;
     const edgeX =
-      slot === 0
-        ? panels[0].left - gap / 2
-        : panels[slot - 1].right + gap / 2;
+      slot === 0 ? panels[0].left - gap / 2 : panels[slot - 1].right + gap / 2;
     setDrag({
       deviceId: session.device.id,
       markerX: edgeX - scrollerRect.left + scroller.scrollLeft,
@@ -621,9 +619,7 @@ export function FxChain({
                 {collapsed.has(menuDevice.id) ? "Expand" : "Collapse"}
               </DropdownMenuItem>
               <DropdownMenuItem
-                onSelect={() =>
-                  onSetEnabled(menuDevice, !menuDevice.enabled)
-                }
+                onSelect={() => onSetEnabled(menuDevice, !menuDevice.enabled)}
               >
                 {menuDevice.enabled ? "Bypass" : "Enable"}
               </DropdownMenuItem>
@@ -781,7 +777,6 @@ export function FxDevicePanel({
 
   if (collapsed) {
     return (
-      // biome-ignore lint/a11y/noStaticElementInteractions: dragging is a pointer shortcut; the strip button has the keyboard equivalents
       <section
         aria-label={device.name}
         className={className}

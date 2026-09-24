@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  describeDeviceMove,
+  dropSlotToStackIndex,
   FX_COLLAPSED_STORAGE_KEY,
+  getAutoScrollDelta,
+  getDropSlot,
   getParameterFormat,
   groupChainDevices,
+  isNoopDropSlot,
   knobColumnCount,
   readCollapsedDevices,
   toggleCollapsedDevice,
@@ -12,6 +17,7 @@ import {
 import {
   GLOBAL_EFFECT_TRACK_ID,
   mapSessionEffectsToDevices,
+  moveEffect,
   type SessionEffect,
 } from "./fx-stack.ts";
 
@@ -80,7 +86,7 @@ describe("groupChainDevices", () => {
 describe("getParameterFormat", () => {
   it("uses the registry format for known parameters", () => {
     assert.equal(getParameterFormat("Colorize", "_HueOffset")(0.5), "+180°");
-    assert.equal(getParameterFormat("Pixelate", "_NumPixels")(12.4), "12");
+    assert.equal(getParameterFormat("Pixelate", "_NumPixels")(0.83), "83%");
   });
 
   it("falls back to raw numbers for unknown parameters", () => {
@@ -152,5 +158,79 @@ describe("collapsed device storage", () => {
     );
     assert.deepEqual(Array.from(toggleCollapsedDevice(collapsed, "fx-1")), []);
     assert.deepEqual(Array.from(collapsed), ["fx-1"]);
+  });
+});
+
+describe("drag reordering", () => {
+  // Midpoints of four 100px panels starting at x = 0 with a 10px gap.
+  const midpoints = [50, 160, 270, 380];
+
+  it("finds the slot between panels under the pointer", () => {
+    assert.equal(getDropSlot(midpoints, 10), 0);
+    assert.equal(getDropSlot(midpoints, 100), 1);
+    assert.equal(getDropSlot(midpoints, 300), 3);
+    assert.equal(getDropSlot(midpoints, 900), 4);
+    assert.equal(getDropSlot([], 900), 0);
+  });
+
+  it("maps slots to moveEffect indices and skips no-op drops", () => {
+    // Dragging the second device (index 1).
+    assert.equal(dropSlotToStackIndex(1, 0), 0);
+    assert.equal(dropSlotToStackIndex(1, 3), 2);
+    assert.equal(dropSlotToStackIndex(1, 4), 3);
+    assert.ok(isNoopDropSlot(1, 1));
+    assert.ok(isNoopDropSlot(1, 2));
+    assert.ok(!isNoopDropSlot(1, 0));
+    assert.ok(!isNoopDropSlot(1, 3));
+  });
+
+  it("drops Colorize before Pixelate on Layer 3", () => {
+    // Colorize is at index 1; the pointer lands left of Pixelate's midpoint.
+    const next = moveEffect(
+      DOGFOOD_EFFECTS,
+      "fx-2",
+      dropSlotToStackIndex(1, getDropSlot(midpoints, 20)),
+    );
+    const layer = groupChainDevices(
+      mapSessionEffectsToDevices(next, "3", "video", "Layer 3"),
+      "video",
+    ).layer;
+    assert.deepEqual(
+      layer.map((device) => device.name),
+      ["Colorize", "Pixelate", "Negative Split", "Analog Glitch"],
+    );
+  });
+
+  it("auto-scrolls faster the closer the pointer is to an edge", () => {
+    assert.equal(getAutoScrollDelta(300, 0, 600), 0);
+    assert.equal(getAutoScrollDelta(0, 0, 600), -18);
+    assert.equal(getAutoScrollDelta(600, 0, 600), 18);
+    const near = getAutoScrollDelta(590, 0, 600);
+    const far = getAutoScrollDelta(560, 0, 600);
+    assert.ok(near > far && far > 0);
+    assert.equal(getAutoScrollDelta(-50, 0, 600), -18);
+    assert.equal(getAutoScrollDelta(10, 0, 0), 0);
+  });
+
+  it("announces moves with the position in the stack", () => {
+    const [colorize] = mapSessionEffectsToDevices(
+      [DOGFOOD_EFFECTS[1]],
+      "3",
+      "video",
+      "Layer 3",
+    ).filter((device) => device.name === "Colorize");
+    assert.equal(
+      describeDeviceMove(colorize, 0, 4),
+      "Moved Colorize to position 1 of 4 in Layer 3",
+    );
+    const [layout] = mapSessionEffectsToDevices(
+      [DOGFOOD_EFFECTS[2]],
+      "3",
+      "video",
+    );
+    assert.equal(
+      describeDeviceMove(layout, 0, 1),
+      "Moved Layout to position 1 of 1 in Global",
+    );
   });
 });

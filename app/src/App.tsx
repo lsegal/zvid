@@ -47,15 +47,15 @@ import {
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
 import {
+  addEffect,
+  duplicateEffect,
   effectHistoryLabels,
   type FxDevice,
   mapEffects,
   mapSessionEffectsToDevices,
-  type SessionEffect,
-  addEffect,
-  duplicateEffect,
   moveEffect,
   removeEffect,
+  type SessionEffect,
   setEffectEnabled,
   setEffectParameter,
 } from "./fx-stack";
