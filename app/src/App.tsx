@@ -4618,9 +4618,12 @@ function App() {
     setImportNotice(
       payload.alsImport
         ? {
-            tone: "summary",
+            tone: payload.alsImport.noLayersVideo ? "warning" : "summary",
             title: `Imported ${payload.sessionName}`,
-            lines: formatAlsImportSummary(payload.alsImport),
+            lines: formatAlsImportSummary(
+              payload.alsImport,
+              payload.sessionName,
+            ),
           }
         : null,
     );

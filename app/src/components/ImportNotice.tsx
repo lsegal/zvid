@@ -1,13 +1,13 @@
 import "./import-notice.css";
 
 export type ImportNoticeContent = {
-  tone: "summary" | "error";
+  tone: "summary" | "warning" | "error";
   title: string;
   lines: string[];
 };
 
-// Non-blocking card that reports what a Live set import brought in, or why it
-// failed. Editing continues underneath until it is dismissed.
+// Non-blocking card that reports what a Live set import brought in, what it
+// could not, or why it failed. Editing continues underneath until it is dismissed.
 export function ImportNotice({
   notice,
   onDismiss,

@@ -49,19 +49,22 @@ describe("convertAls with dogfood3.als against dogfood3.lvp", () => {
   const goldenClip = (id: string): LvpClip =>
     golden.clips.find((candidate: LvpClip) => candidate.id === id);
 
-  it("keeps only Layers tracks, with their recordings", () => {
-    assert.deepEqual(
-      session.tracks,
-      golden.tracks.map((track: NonNullable<LvpSession["tracks"]>[number]) => ({
-        id: track.id,
-        name: track.name,
-        // `numFrames`/`frameRate` come from media probing, not the .als.
-        recordings: track.recordings?.map(({ filename, frameStart }) => ({
-          filename,
-          frameStart,
-        })),
-      })),
-    );
+  it("keeps every audio and MIDI track, with Layers recordings", () => {
+    assert.deepEqual(session.tracks, [
+      ...golden.tracks.map(
+        (track: NonNullable<LvpSession["tracks"]>[number]) => ({
+          id: track.id,
+          name: track.name,
+          // `numFrames`/`frameRate` come from media probing, not the .als.
+          recordings: track.recordings?.map(({ filename, frameStart }) => ({
+            filename,
+            frameStart,
+          })),
+        }),
+      ),
+      // The Layers app dropped 4-Audio, which has no Layers Record device.
+      { id: "17", name: "4-Audio", recordings: [] },
+    ]);
   });
 
   it("maps the timeline, session file and audio", () => {
@@ -78,10 +81,10 @@ describe("convertAls with dogfood3.als against dogfood3.lvp", () => {
     assert.equal(session.audioFilename, golden.audioFilename);
   });
 
-  it("produces the golden clips in order, minus the dropped sub-frame clip", () => {
+  it("produces the golden clips in order, minus the dropped sub-frame clip, plus 4-Audio's", () => {
     assert.deepEqual(
       session.clips?.map((candidate) => candidate.id),
-      ["12-4", "8-6", "16-2"],
+      ["12-4", "8-6", "16-2", "17-6", "17-10"],
     );
   });
 
@@ -182,16 +185,40 @@ describe("convertAls with dogfood3.als against dogfood3.lvp", () => {
     });
   });
 
-  it("reports clips on tracks without Layers", () => {
+  it("imports 4-Audio's clips as audio from their samples", () => {
+    const sample =
+      "C:/Users/Loren/Documents/Layers/dogfood3 Project/Samples/Recorded/4-Audio 0002 [2023-12-13 122224].wav";
     assert.deepEqual(
-      result.summary.skipped
-        .filter((entry) => entry.reason === "no-layers")
-        .map((entry) => entry.clipId),
-      ["17-6", "17-10"],
+      session.clips
+        ?.filter((candidate) => candidate.trackId === "17")
+        .map(({ id, frameStart, frameCount, filePath, captureOffset }) => ({
+          id,
+          frameStart,
+          frameCount,
+          filePath,
+          captureOffset,
+        })),
+      [
+        {
+          id: "17-6",
+          frameStart: 0,
+          frameCount: 159,
+          filePath: sample,
+          captureOffset: 0,
+        },
+        {
+          id: "17-10",
+          frameStart: 159,
+          frameCount: 158,
+          filePath: sample,
+          captureOffset: 0,
+        },
+      ],
     );
+    assert.equal(result.summary.hasLayersVideo, true);
   });
 
-  it("generates one main track and one selection per clip", () => {
+  it("generates one main track and one selection per Layers clip", () => {
     assert.deepEqual(session.mainTracks, [{ id: "1", name: "Layer 1" }]);
     assert.deepEqual(session.selections, [
       {
@@ -337,6 +364,118 @@ describe("convertAls with synthetic sets", () => {
         [105, 150],
       ],
     );
+  });
+
+  it("plays a non-Layers audio clip from its sample", () => {
+    const { session, summary } = convertAls(
+      doc([
+        videoTrack(),
+        videoTrack({
+          id: 6,
+          name: "Drums",
+          clips: [audioClip({ id: 2, currentStart: 4, currentEnd: 8 })],
+          layers: null,
+          isVideoTrack: false,
+        }),
+      ]),
+    );
+    const drums = session.clips?.find((clip) => clip.trackId === "6");
+    assert.deepEqual(
+      drums && {
+        id: drums.id,
+        frameStart: drums.frameStart,
+        frameCount: drums.frameCount,
+        filePath: drums.filePath,
+        captureOffset: drums.captureOffset,
+        audioFileDuration: drums.audioFileDuration,
+      },
+      {
+        id: "6-2",
+        frameStart: 60,
+        frameCount: 60,
+        filePath: "a.wav",
+        captureOffset: 0,
+        audioFileDuration: 10,
+      },
+    );
+    assert.deepEqual(summary, { skipped: [], hasLayersVideo: true });
+    // The arrangement keeps showing the Layers video.
+    assert.deepEqual(
+      session.selections?.map((selection) => selection.trackId),
+      ["5"],
+    );
+  });
+
+  it("imports a set without Layers video as placeholder clips", () => {
+    const midi = audioClip({
+      kind: "midi",
+      currentStart: 8,
+      currentEnd: 16,
+      loop: {
+        loopStart: 0,
+        loopEnd: 4,
+        startRelative: 0,
+        loopOn: true,
+        hiddenLoopStart: 0,
+        hiddenLoopEnd: 4,
+      },
+      warpMarkers: [],
+      sample: null,
+    });
+    const { session, summary } = convertAls(
+      doc([
+        videoTrack({
+          kind: "midi",
+          name: "Keys",
+          clips: [midi],
+          layers: null,
+          isVideoTrack: false,
+        }),
+      ]),
+    );
+    assert.deepEqual(session.tracks, [
+      { id: "5", name: "Keys", recordings: [] },
+    ]);
+    assert.deepEqual(
+      session.clips?.map(
+        ({ id, frameStart, frameCount, clipStart, filePath }) => ({
+          id,
+          frameStart,
+          frameCount,
+          clipStart,
+          filePath,
+        }),
+      ),
+      [
+        {
+          id: "5-1",
+          frameStart: 120,
+          frameCount: 60,
+          clipStart: 120,
+          filePath: "",
+        },
+        {
+          id: "5-1~1",
+          frameStart: 180,
+          frameCount: 60,
+          clipStart: 180,
+          filePath: "",
+        },
+      ],
+    );
+    assert.deepEqual(summary, { skipped: [], hasLayersVideo: false });
+    assert.deepEqual(
+      session.selections?.map(({ frameStart, frameEnd }) => [
+        frameStart,
+        frameEnd,
+      ]),
+      [
+        [120, 180],
+        [180, 240],
+      ],
+    );
+    assert.equal(session.timeline?.fps, 30);
+    assert.equal(session.timeline?.canvasWidth, undefined);
   });
 
   it("uses the track's last recording for every clip", () => {

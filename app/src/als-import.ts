@@ -4,21 +4,19 @@ import {
   convertAls,
   siblingAudioFilename,
 } from "./import/als/convert.ts";
-import {
-  type AlsDocument,
-  LAYERS_RECORD_PLUGIN_NAME,
-  parseAlsXml,
-} from "./import/als/parse.ts";
+import { type AlsDocument, parseAlsXml } from "./import/als/parse.ts";
 import type { LvpSession, ServerMediaRef } from "./session.ts";
 
 // Opening an Ableton Live set (.als) as a zvid session. The set only names the
-// Layers recordings it uses, so the harnesses locate those files on disk and
-// probe them before the session reaches the editor.
+// Layers recordings and audio samples it uses, so the harnesses locate those
+// files on disk and probe them before the session reaches the editor.
 
 // What the converter reports alongside the session it produced. The skipped
-// entries name tracks without Layers video and clips that were dropped.
+// entries name clips that were dropped.
 export type AlsImportReport = {
   skippedTracks?: string[];
+  /** False when no imported clip plays a Layers recording. */
+  hasLayersVideo?: boolean;
 };
 
 export type ImportedAlsSession = LvpSession & {
@@ -30,15 +28,14 @@ export type AlsImportSummary = {
   clips: number;
   skippedTracks: string[];
   missingMedia: string[];
+  /** Set when the set had no Layers video, so every clip is a placeholder. */
+  noLayersVideo?: boolean;
 };
 
 export type RecordingProbe = {
   numFrames: number;
   frameRate: number;
 };
-
-// The name of the Layers plugin on every track that carries Layers video.
-const LAYERS_PLUGIN_NAME = LAYERS_RECORD_PLUGIN_NAME;
 
 export class AlsImportError extends Error {
   name = "AlsImportError";
@@ -115,38 +112,18 @@ export async function readAlsXml(bytes: Uint8Array, name = "This file") {
   return xml;
 }
 
-function noLayersError(name: string) {
-  return new AlsImportError(
-    `${name} has no tracks with the ${LAYERS_PLUGIN_NAME} plugin, so there is no Layers video to import.`,
-  );
-}
-
 const SKIP_REASONS: Record<AlsSkipReason, string> = {
   disabled: "disabled",
-  "no-layers": `no ${LAYERS_PLUGIN_NAME}`,
   "no-recording": "no Layers recording",
   "shorter-than-frame": "shorter than a frame",
 };
 
-// What the import summary lists as skipped: each audio or MIDI track without
-// Layers video once, then each clip dropped from a Layers track and why.
-function describeSkipped(doc: AlsDocument, skipped: AlsSkippedClip[]) {
-  const described = doc.tracks
-    .filter(
-      (track) =>
-        !track.isVideoTrack &&
-        (track.kind === "audio" || track.kind === "midi"),
-    )
-    .map((track) => `${track.name} (${SKIP_REASONS["no-layers"]})`);
-  for (const clip of skipped) {
-    if (clip.reason !== "no-layers") {
-      described.push(
-        `${clip.clipName || clip.clipId} on ${clip.trackName} (${SKIP_REASONS[clip.reason]})`,
-      );
-    }
-  }
-
-  return described;
+// What the import summary lists as skipped: each dropped clip and why.
+function describeSkipped(skipped: AlsSkippedClip[]) {
+  return skipped.map(
+    (clip) =>
+      `${clip.clipName || clip.clipId} on ${clip.trackName} (${SKIP_REASONS[clip.reason]})`,
+  );
 }
 
 // The Layers app kept a set's mixdown as `<name>.wav` beside the set. When
@@ -182,17 +159,16 @@ async function convertAlsXml(
     throw new AlsImportError(`${name} could not be read: ${reason}.`);
   }
 
-  if (!doc.tracks.some((track) => track.isVideoTrack)) {
-    throw noLayersError(name);
-  }
-
   const { session, summary } = convertAls(doc, {
     sessionFile: path,
     audioFilename: options.audioFilename,
   });
   return {
     ...session,
-    importReport: { skippedTracks: describeSkipped(doc, summary.skipped) },
+    importReport: {
+      skippedTracks: describeSkipped(summary.skipped),
+      hasLayersVideo: summary.hasLayersVideo,
+    },
   };
 }
 
@@ -203,10 +179,6 @@ export async function importAls(
 ): Promise<ImportedAlsSession> {
   const name = path ? basename(path) : "This file";
   const xml = await readAlsXml(bytes, name);
-  if (!xml.includes(LAYERS_PLUGIN_NAME)) {
-    throw noLayersError(name);
-  }
-
   return convertAlsXml(xml, name, path, options);
 }
 
@@ -226,9 +198,9 @@ export function joinPath(dir: string, ...parts: string[]) {
   return [base, ...parts].join(separator);
 }
 
-// Where a set's recordings may live, in search order: the set's own folder,
-// the `Recorded` folder beside the Ableton project, then the old Layers app's
-// default recording folder.
+// Where a set's media may live, in search order: the set's own folder, the
+// `Recorded` folder beside the Ableton project, the old Layers app's default
+// recording folder, then the project's recorded and imported samples.
 export function alsMediaSearchDirs(
   alsPath: string | undefined,
   documentsDir: string | undefined,
@@ -247,22 +219,41 @@ export function alsMediaSearchDirs(
     dirs.push(joinPath(documentsDir, "Layers", "Recorded"));
   }
 
+  if (projectDir) {
+    dirs.push(
+      joinPath(projectDir, "Samples", "Recorded"),
+      joinPath(projectDir, "Samples", "Imported"),
+    );
+  }
+
   return Array.from(new Set(dirs));
 }
 
-// Every file a set's recordings could be at, for harnesses that check
-// existence in one batch.
-export function alsMediaCandidatePaths(session: LvpSession, dirs: string[]) {
-  return collectAlsMediaNames(session).flatMap((name) =>
-    dirs.map((dir) => joinPath(dir, basename(name))),
-  );
+// Live saves sample paths as absolute paths; Layers recordings are bare names.
+function isAbsolutePath(rawPath: string) {
+  return /^(?:[/\\]|[A-Za-z]:[/\\])/.test(rawPath);
 }
 
+// Every file a set's media could be at, for harnesses that check existence in
+// one batch.
+export function alsMediaCandidatePaths(session: LvpSession, dirs: string[]) {
+  return collectAlsMediaNames(session).flatMap((name) => [
+    ...(isAbsolutePath(name) ? [name] : []),
+    ...dirs.map((dir) => joinPath(dir, basename(name))),
+  ]);
+}
+
+// Finds a media file at its saved absolute path, or by name in the first
+// search folder that has it.
 export function createAlsMediaLocator(
   dirs: string[],
   exists: (path: string) => boolean,
 ) {
   return (name: string) => {
+    if (isAbsolutePath(name) && exists(name)) {
+      return name;
+    }
+
     for (const dir of dirs) {
       const candidate = joinPath(dir, basename(name));
       if (exists(candidate)) {
@@ -294,7 +285,8 @@ function collectAlsMediaNames(session: LvpSession) {
 }
 
 // Points every recording and clip at the file `locate` found for it. Files
-// that were not found keep their name and open as offline media.
+// that were not found keep their name and open as offline media. Placeholder
+// clips have no media and are left as they are.
 export function resolveAlsMedia(
   imported: ImportedAlsSession,
   locate: (name: string) => string | null,
@@ -335,6 +327,7 @@ export function resolveAlsMedia(
       clips: session.clips?.length ?? 0,
       skippedTracks: importReport?.skippedTracks ?? [],
       missingMedia: Array.from(missing),
+      ...(importReport?.hasLayersVideo === false && { noLayersVideo: true }),
     } satisfies AlsImportSummary,
   };
 }
@@ -384,9 +377,15 @@ function pluralize(count: number, singular: string, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
-export function formatAlsImportSummary(summary: AlsImportSummary) {
+export function formatAlsImportSummary(
+  summary: AlsImportSummary,
+  name = "this set",
+) {
+  const imported = `${pluralize(summary.tracks, "track")} and ${pluralize(summary.clips, "clip")}`;
   const lines = [
-    `Imported ${pluralize(summary.tracks, "track")} and ${pluralize(summary.clips, "clip")}.`,
+    summary.noLayersVideo
+      ? `No Layers video in ${name}. Imported ${imported} as placeholders.`
+      : `Imported ${imported}.`,
   ];
   if (summary.skippedTracks.length) {
     lines.push(
