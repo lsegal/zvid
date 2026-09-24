@@ -19,6 +19,7 @@ import {
   isChainEffectName,
   resolveEffectChain,
 } from "./fx-shaders/registry.ts";
+import { getRenderedEffects } from "./fx-stack.ts";
 
 type MediaKind = "video" | "audio";
 
@@ -38,6 +39,7 @@ type Lane = {
   id: string;
   name: string;
   colorIndex: number;
+  fxEnabled?: boolean;
 };
 
 type ArrangementClip = {
@@ -1085,12 +1087,18 @@ export class CompositionRenderer {
       playheadQ,
       this.state.bpm,
       lanePriority,
-      this.state.effects,
+      this.renderedEffects(),
     );
   }
 
+  // Effects on layers whose FX switch is off are left out, apart from their
+  // Layout anchoring.
+  private renderedEffects() {
+    return getRenderedEffects(this.state.effects, this.state.lanes);
+  }
+
   private usesAudioBands() {
-    return this.state.effects.some(
+    return this.renderedEffects().some(
       (effect) =>
         effect.enabled !== false && isChainEffectName(effect.effectName),
     );
