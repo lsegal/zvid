@@ -316,9 +316,16 @@ const appCommit = resolveAppCommit(process.env, (args) =>
   }),
 );
 const appBuildTime = new Date().toISOString();
+// app/package.json is the source of truth for the zvid version; Tauri reads it
+// directly and Cargo.toml is kept in step by a unit test.
+const appVersion = (
+  JSON.parse(
+    readFileSync(path.join(import.meta.dirname, "package.json"), "utf8"),
+  ) as { version: string }
+).version;
 
-// Publishes the build's commit at /version.json so `curl` can tell which
-// commit is deployed.
+// Publishes the build's version and commit at /version.json so `curl` can
+// tell which build is deployed.
 function versionFilePlugin(): Plugin {
   return {
     name: "zvid-version-file",
@@ -328,7 +335,7 @@ function versionFilePlugin(): Plugin {
         type: "asset",
         fileName: "version.json",
         source: `${JSON.stringify(
-          { commit: appCommit, buildTime: appBuildTime },
+          { version: appVersion, commit: appCommit, buildTime: appBuildTime },
           null,
           2,
         )}
@@ -341,6 +348,7 @@ function versionFilePlugin(): Plugin {
 export default defineConfig({
   plugins: [react(), diskMediaPlugin(), versionFilePlugin()],
   define: {
+    __APP_VERSION__: JSON.stringify(appVersion),
     __APP_COMMIT__: JSON.stringify(appCommit),
     __APP_BUILD_TIME__: JSON.stringify(appBuildTime),
   },

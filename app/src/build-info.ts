@@ -1,7 +1,7 @@
-// Build identification: which commit a zvid build was made from and when.
-// `resolveAppCommit` runs in vite.config.ts at build time; the formatting
-// helpers run in the app against the injected __APP_COMMIT__ and
-// __APP_BUILD_TIME__ globals.
+// Build identification: which version and commit a zvid build was made from
+// and when. `resolveAppCommit` runs in vite.config.ts at build time; the
+// formatting helpers run in the app against the injected __APP_VERSION__,
+// __APP_COMMIT__ and __APP_BUILD_TIME__ globals.
 
 export const REPOSITORY_URL = "https://github.com/lsegal/zvid";
 
@@ -60,6 +60,14 @@ export function shortCommit(commit: string) {
   }
   const short = sha.slice(0, 7);
   return sha === commit ? short : `${short}${DIRTY_SUFFIX}`;
+}
+
+// `0.0.0` + `c94f40e9151d…` -> `0.0.0+c94f40e`, keeping any `-dirty` marker.
+// Builds without a real commit get the bare version.
+export function formatAppVersion(version: string, commit: string) {
+  return COMMIT_PATTERN.test(stripDirty(commit))
+    ? `${version}+${shortCommit(commit)}`
+    : version;
 }
 
 // The GitHub commit page, or null when the build has no real commit.
