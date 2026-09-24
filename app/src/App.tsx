@@ -2177,9 +2177,7 @@ function App() {
   const offlineCount = useMemo(() => {
     const offlineKeys = new Set<string>();
     for (const clip of [...timelineClips, ...sourceSpans]) {
-      const media = clip.mediaId
-        ? mediaItemsById.get(clip.mediaId)
-        : undefined;
+      const media = clip.mediaId ? mediaItemsById.get(clip.mediaId) : undefined;
       if (!media || media.availability !== "ready") {
         offlineKeys.add(clip.mediaId ?? `clip:${clip.id}`);
       }
