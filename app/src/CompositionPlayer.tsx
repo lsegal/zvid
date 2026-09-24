@@ -6,15 +6,19 @@ import {
   useMemo,
   useRef,
 } from "react";
+import {
+  disposeWebGlResources,
+  drawComposition,
+  ensureWebGlResources,
+  type FrameContext,
+  type WebGlResources,
+} from "./composition-draw.ts";
 import { getGroupClipProgress } from "./composition-progress.ts";
 import {
-  type AudioBands,
   LiveAudioBands,
   OfflineAudioBands,
   SILENT_AUDIO_BANDS,
 } from "./fx-shaders/audio-bands.ts";
-import { EffectChainRenderer } from "./fx-shaders/chain.ts";
-import { linkProgram } from "./fx-shaders/gl.ts";
 import {
   type EffectChainStep,
   isChainEffectName,
@@ -95,12 +99,6 @@ type ActiveClip = {
   effectChain: EffectChainStep[];
 };
 
-type FrameContext = {
-  time: number;
-  audio: AudioBands;
-  groupClipProgress: number;
-};
-
 type CompositionPlayerProps = {
   mediaItems: MediaItem[];
   clips: ArrangementClip[];
@@ -145,28 +143,6 @@ export type CompositionPlayerHandle = {
     playheadQ: number,
     playheadSeconds: number,
   ): Promise<void>;
-};
-
-type WebGlResources = {
-  gl: WebGLRenderingContext;
-  program: WebGLProgram;
-  positionBuffer: WebGLBuffer;
-  textureMap: Map<string, WebGLTexture>;
-  readyTextureIds: Set<string>;
-  effectChain: EffectChainRenderer;
-  maxTextureSize: number;
-  uniforms: {
-    position: number;
-    texture: WebGLUniformLocation | null;
-    coverScale: WebGLUniformLocation | null;
-    userScale: WebGLUniformLocation | null;
-    translate: WebGLUniformLocation | null;
-    rotation: WebGLUniformLocation | null;
-    opacity: WebGLUniformLocation | null;
-    brightness: WebGLUniformLocation | null;
-    contrast: WebGLUniformLocation | null;
-    saturation: WebGLUniformLocation | null;
-  };
 };
 
 const MAX_DRIFT_SECONDS = 0.18;
@@ -332,61 +308,6 @@ function resolveVisualState(
   return state;
 }
 
-type FrameBounds = {
-  centerX: number;
-  centerY: number;
-  halfWidth: number;
-  halfHeight: number;
-  aspect: number;
-};
-
-function resolveFrameBounds(
-  index: number,
-  slotCount: number,
-  canvasAspect: number,
-): FrameBounds {
-  const normalizedSlotCount = Math.max(1, slotCount);
-  const slotHeight = 2 / normalizedSlotCount;
-  const halfHeight = slotHeight / 2;
-
-  return {
-    centerX: 0,
-    centerY: 1 - slotHeight * (index + 0.5),
-    halfWidth: 1,
-    halfHeight,
-    aspect: canvasAspect * normalizedSlotCount,
-  };
-}
-
-function applyFrameScissor(
-  gl: WebGLRenderingContext,
-  canvas: HTMLCanvasElement,
-  frame: FrameBounds,
-) {
-  const minX = clamp(
-    Math.floor(((frame.centerX - frame.halfWidth + 1) * canvas.width) / 2),
-    0,
-    canvas.width,
-  );
-  const maxX = clamp(
-    Math.ceil(((frame.centerX + frame.halfWidth + 1) * canvas.width) / 2),
-    0,
-    canvas.width,
-  );
-  const minY = clamp(
-    Math.floor(((frame.centerY - frame.halfHeight + 1) * canvas.height) / 2),
-    0,
-    canvas.height,
-  );
-  const maxY = clamp(
-    Math.ceil(((frame.centerY + frame.halfHeight + 1) * canvas.height) / 2),
-    0,
-    canvas.height,
-  );
-
-  gl.scissor(minX, minY, Math.max(1, maxX - minX), Math.max(1, maxY - minY));
-}
-
 function computeActiveClips(
   clips: ArrangementClip[],
   mediaById: Map<string, MediaItem>,
@@ -465,352 +386,6 @@ function computeActiveClips(
         effectChain: resolveEffectChain(effects, clip.laneId),
       };
     });
-}
-
-const COMPOSITE_FRAGMENT_SOURCE = `
-  precision mediump float;
-
-  varying vec2 vUv;
-  uniform sampler2D uTexture;
-  uniform float uOpacity;
-  uniform float uBrightness;
-  uniform float uContrast;
-  uniform float uSaturation;
-
-  void main() {
-    vec4 color = texture2D(uTexture, vec2(vUv.x, 1.0 - vUv.y));
-    color.rgb += uBrightness;
-    color.rgb = (color.rgb - 0.5) * uContrast + 0.5;
-    float luma = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
-    color.rgb = mix(vec3(luma), color.rgb, uSaturation);
-    color.a *= uOpacity;
-    gl_FragColor = color;
-  }
-`;
-
-const COMPOSITE_VERTEX_SOURCE = `
-  attribute vec2 aPosition;
-  varying vec2 vUv;
-
-  uniform vec2 uCoverScale;
-  uniform float uUserScale;
-  uniform vec2 uTranslate;
-  uniform float uRotation;
-
-  void main() {
-    vec2 position = aPosition * uCoverScale * uUserScale;
-    float s = sin(uRotation);
-    float c = cos(uRotation);
-    position = mat2(c, -s, s, c) * position;
-    position += uTranslate;
-    gl_Position = vec4(position, 0.0, 1.0);
-    vUv = aPosition * 0.5 + 0.5;
-  }
-`;
-
-function ensureWebGlResources(canvas: HTMLCanvasElement) {
-  const gl = canvas.getContext("webgl", {
-    alpha: true,
-    antialias: true,
-    premultipliedAlpha: false,
-  });
-  if (!gl) {
-    throw new Error("WebGL is unavailable on this device.");
-  }
-
-  const program = linkProgram(
-    gl,
-    COMPOSITE_VERTEX_SOURCE,
-    COMPOSITE_FRAGMENT_SOURCE,
-  );
-  const positionBuffer = gl.createBuffer();
-  if (!positionBuffer) {
-    throw new Error("Failed to allocate WebGL position buffer.");
-  }
-
-  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-  gl.bufferData(
-    gl.ARRAY_BUFFER,
-    new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]),
-    gl.STATIC_DRAW,
-  );
-
-  const position = gl.getAttribLocation(program, "aPosition");
-  const uniforms = {
-    position,
-    texture: gl.getUniformLocation(program, "uTexture"),
-    coverScale: gl.getUniformLocation(program, "uCoverScale"),
-    userScale: gl.getUniformLocation(program, "uUserScale"),
-    translate: gl.getUniformLocation(program, "uTranslate"),
-    rotation: gl.getUniformLocation(program, "uRotation"),
-    opacity: gl.getUniformLocation(program, "uOpacity"),
-    brightness: gl.getUniformLocation(program, "uBrightness"),
-    contrast: gl.getUniformLocation(program, "uContrast"),
-    saturation: gl.getUniformLocation(program, "uSaturation"),
-  };
-
-  // biome-ignore lint/correctness/useHookAtTopLevel: WebGLRenderingContext.useProgram is not a React hook.
-  gl.useProgram(program);
-  gl.enableVertexAttribArray(position);
-  gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
-  gl.enable(gl.BLEND);
-  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
-  return {
-    gl,
-    program,
-    positionBuffer,
-    textureMap: new Map<string, WebGLTexture>(),
-    readyTextureIds: new Set<string>(),
-    effectChain: new EffectChainRenderer(gl, positionBuffer),
-    maxTextureSize: gl.getParameter(gl.MAX_TEXTURE_SIZE) as number,
-    uniforms,
-  } satisfies WebGlResources;
-}
-
-function getOrCreateTexture(resources: WebGlResources, id: string) {
-  const existing = resources.textureMap.get(id);
-  if (existing) {
-    return existing;
-  }
-
-  const texture = resources.gl.createTexture();
-  if (!texture) {
-    throw new Error("Failed to allocate WebGL texture.");
-  }
-
-  resources.gl.bindTexture(resources.gl.TEXTURE_2D, texture);
-  resources.gl.texParameteri(
-    resources.gl.TEXTURE_2D,
-    resources.gl.TEXTURE_WRAP_S,
-    resources.gl.CLAMP_TO_EDGE,
-  );
-  resources.gl.texParameteri(
-    resources.gl.TEXTURE_2D,
-    resources.gl.TEXTURE_WRAP_T,
-    resources.gl.CLAMP_TO_EDGE,
-  );
-  resources.gl.texParameteri(
-    resources.gl.TEXTURE_2D,
-    resources.gl.TEXTURE_MIN_FILTER,
-    resources.gl.LINEAR,
-  );
-  resources.gl.texParameteri(
-    resources.gl.TEXTURE_2D,
-    resources.gl.TEXTURE_MAG_FILTER,
-    resources.gl.LINEAR,
-  );
-  resources.textureMap.set(id, texture);
-  return texture;
-}
-
-function disposeWebGlResources(resources: WebGlResources) {
-  const { gl } = resources;
-  resources.effectChain.dispose();
-  for (const texture of resources.textureMap.values()) {
-    gl.deleteTexture(texture);
-  }
-  resources.textureMap.clear();
-  resources.readyTextureIds.clear();
-  gl.deleteBuffer(resources.positionBuffer);
-  gl.deleteProgram(resources.program);
-}
-
-function bindCompositeState(
-  resources: WebGlResources,
-  canvas: HTMLCanvasElement,
-  framebuffer: WebGLFramebuffer | null,
-) {
-  const { gl } = resources;
-  gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-  gl.viewport(0, 0, canvas.width, canvas.height);
-  // biome-ignore lint/correctness/useHookAtTopLevel: WebGLRenderingContext.useProgram is not a React hook.
-  gl.useProgram(resources.program);
-  gl.enable(gl.BLEND);
-}
-
-// Effects run at the layer's native size, reduced to what covering the whole
-// canvas needs, so large sources don't pay for pixels that are never shown.
-function resolveEffectSurface(
-  resources: WebGlResources,
-  canvas: HTMLCanvasElement,
-  sourceWidth: number,
-  sourceHeight: number,
-) {
-  const coverScale = Math.min(
-    1,
-    Math.max(canvas.width / sourceWidth, canvas.height / sourceHeight),
-  );
-  const width = Math.round(sourceWidth * coverScale);
-  const height = Math.round(sourceHeight * coverScale);
-  const fit = Math.min(
-    1,
-    resources.maxTextureSize / Math.max(width, height, 1),
-  );
-  return {
-    width: Math.max(1, Math.floor(width * fit)),
-    height: Math.max(1, Math.floor(height * fit)),
-  };
-}
-
-function drawComposition(
-  resources: WebGlResources,
-  canvas: HTMLCanvasElement,
-  activeClips: ActiveClip[],
-  mediaRefs: Map<string, HTMLMediaElement>,
-  groupChain: EffectChainStep[],
-  frameContext: FrameContext,
-) {
-  const { gl, uniforms, effectChain } = resources;
-  effectChain.syncSurface(canvas.width, canvas.height);
-  const groupSteps = effectChain.prepare(groupChain);
-  const scene = groupSteps.length
-    ? effectChain.getSceneTarget(canvas.width, canvas.height)
-    : null;
-  const compositeFramebuffer = scene?.framebuffer ?? null;
-  bindCompositeState(resources, canvas, compositeFramebuffer);
-  gl.clearColor(0.07, 0.08, 0.11, 1);
-  gl.clear(gl.COLOR_BUFFER_BIT);
-  gl.enable(gl.SCISSOR_TEST);
-
-  const canvasAspect = canvas.width / Math.max(1, canvas.height);
-  const stackedClips = [...activeClips]
-    .filter(
-      (entry) =>
-        entry.isInBounds &&
-        mediaRefs.get(entry.media.id) instanceof HTMLVideoElement,
-    )
-    .sort((left, right) => {
-      if (right.laneRank !== left.laneRank) {
-        return right.laneRank - left.laneRank;
-      }
-
-      return left.clip.startQ - right.clip.startQ;
-    });
-
-  for (const [index, entry] of stackedClips.entries()) {
-    const mediaElement = mediaRefs.get(entry.media.id);
-    if (!(mediaElement instanceof HTMLVideoElement)) {
-      continue;
-    }
-
-    let texture = getOrCreateTexture(resources, entry.media.id);
-    const hasDecodedFrame =
-      mediaElement.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
-      (mediaElement.videoWidth > 0 || Boolean(entry.media.width)) &&
-      (mediaElement.videoHeight > 0 || Boolean(entry.media.height));
-
-    if (hasDecodedFrame) {
-      resources.readyTextureIds.add(entry.media.id);
-    } else if (!resources.readyTextureIds.has(entry.media.id)) {
-      continue;
-    }
-
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    if (hasDecodedFrame) {
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
-      gl.texImage2D(
-        gl.TEXTURE_2D,
-        0,
-        gl.RGBA,
-        gl.RGBA,
-        gl.UNSIGNED_BYTE,
-        mediaElement,
-      );
-    }
-
-    const videoWidth =
-      mediaElement.videoWidth || entry.media.width || canvas.width;
-    const videoHeight =
-      mediaElement.videoHeight || entry.media.height || canvas.height;
-    const videoAspect = videoWidth / Math.max(1, videoHeight);
-    const frame = resolveFrameBounds(index, stackedClips.length, canvasAspect);
-    const coverHalfExtents =
-      videoAspect > frame.aspect
-        ? {
-            x:
-              (frame.halfHeight * videoAspect) / Math.max(canvasAspect, 0.0001),
-            y: frame.halfHeight,
-          }
-        : {
-            x: frame.halfWidth,
-            y: (frame.halfWidth * canvasAspect) / Math.max(videoAspect, 0.0001),
-          };
-    const layoutScale = Math.max(1, entry.visual.scale);
-    const scaledHalfExtents = {
-      x: coverHalfExtents.x * layoutScale,
-      y: coverHalfExtents.y * layoutScale,
-    };
-    const anchorOffsetY =
-      entry.visual.layoutAnchor === "top"
-        ? frame.halfHeight - scaledHalfExtents.y
-        : entry.visual.layoutAnchor === "bottom"
-          ? scaledHalfExtents.y - frame.halfHeight
-          : 0;
-    const layerSteps = effectChain.prepare(entry.effectChain);
-    if (layerSteps.length) {
-      const surface = resolveEffectSurface(
-        resources,
-        canvas,
-        videoWidth,
-        videoHeight,
-      );
-      texture =
-        effectChain.run(texture, surface.width, surface.height, layerSteps, {
-          time: frameContext.time,
-          clipProgress: entry.clipProgress,
-          resolution: [surface.width, surface.height],
-          audioLow: frameContext.audio.low,
-          audioHigh: frameContext.audio.high,
-          bottomUp: false,
-        }) ?? texture;
-      bindCompositeState(resources, canvas, compositeFramebuffer);
-      gl.enable(gl.SCISSOR_TEST);
-      gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, texture);
-    }
-
-    const translateX =
-      frame.centerX + entry.visual.translateX * frame.halfWidth;
-    const translateY =
-      frame.centerY +
-      anchorOffsetY +
-      entry.visual.translateY * frame.halfHeight;
-
-    applyFrameScissor(gl, canvas, frame);
-    gl.uniform1i(uniforms.texture, 0);
-    gl.uniform2f(uniforms.coverScale, scaledHalfExtents.x, scaledHalfExtents.y);
-    gl.uniform1f(uniforms.userScale, 1);
-    gl.uniform2f(uniforms.translate, translateX, translateY);
-    gl.uniform1f(uniforms.rotation, (entry.visual.rotationDeg * Math.PI) / 180);
-    gl.uniform1f(uniforms.opacity, entry.visual.opacity);
-    gl.uniform1f(uniforms.brightness, entry.visual.brightness);
-    gl.uniform1f(uniforms.contrast, entry.visual.contrast);
-    gl.uniform1f(uniforms.saturation, entry.visual.saturation);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-  }
-
-  gl.disable(gl.SCISSOR_TEST);
-  if (scene) {
-    effectChain.run(
-      scene.texture,
-      canvas.width,
-      canvas.height,
-      groupSteps,
-      {
-        time: frameContext.time,
-        clipProgress: frameContext.groupClipProgress,
-        resolution: [canvas.width, canvas.height],
-        audioLow: frameContext.audio.low,
-        audioHigh: frameContext.audio.high,
-        // The scene framebuffer is rendered normally, so it is bottom-up.
-        bottomUp: true,
-      },
-      "screen",
-    );
-    bindCompositeState(resources, canvas, null);
-  }
 }
 
 function syncCanvasSurface(
