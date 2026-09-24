@@ -97,3 +97,9 @@ The editor only supplies canvas frames and timeline state. Media analysis uses t
 ## Collaboration signaling
 
 Collaboration uses the public `wss://y-webrtc-eu.fly.dev` y-webrtc relay by default, so no signaling deploy is needed. To use a different server, copy `.env.example` to `.env.local` and set `VITE_SIGNALING_URL` before building, or deploy the optional [signaling worker](../signaling/README.md).
+
+## Versioning
+
+`app/package.json` is the source of truth for the zvid version. Tauri reads it directly (`"version": "../package.json"` in `src-tauri/tauri.conf.json`), and a unit test fails if the version in `src-tauri/Cargo.toml` drifts, so bump both together.
+
+Vite injects the version and the build's commit at build time. The frontend reads them as `ZVID_VERSION` from `src/version.ts`, e.g. `0.0.0+c94f40e`, or the bare `0.0.0` when the commit is unknown (e.g. building from a tarball without git). The deployed `/version.json` also includes the version.

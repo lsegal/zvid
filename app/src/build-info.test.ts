@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  formatAppVersion,
   formatBuildLabel,
   formatBuildTime,
   type GitRunner,
@@ -92,6 +93,23 @@ describe("shortCommit", () => {
 
   it("leaves non-SHA values alone", () => {
     assert.equal(shortCommit("dev"), "dev");
+  });
+});
+
+describe("formatAppVersion", () => {
+  it("appends the short SHA as build metadata", () => {
+    assert.equal(formatAppVersion("0.0.0", SHA), "0.0.0+c94f40e");
+  });
+
+  it("keeps the dirty marker", () => {
+    assert.equal(
+      formatAppVersion("1.2.3", `${SHA}-dirty`),
+      "1.2.3+c94f40e-dirty",
+    );
+  });
+
+  it("is the bare version without a commit", () => {
+    assert.equal(formatAppVersion("0.0.0", "dev"), "0.0.0");
   });
 });
 
