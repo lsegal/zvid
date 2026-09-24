@@ -1,4 +1,4 @@
-import type { MediaItem } from "./media";
+import type { MediaAvailability, MediaItem } from "./media";
 
 export type RelinkCandidate<T> = {
   name: string;
@@ -18,12 +18,89 @@ export type RelinkResult<T> = {
   ambiguous: Array<{ candidate: RelinkCandidate<T>; items: MediaItem[] }>;
 };
 
+/** One outcome per selected file, in the order the files were picked. */
+export type RelinkOutcome =
+  | { status: "linked"; item: MediaItem; file: string; warning?: string }
+  | { status: "failed"; item: MediaItem; file: string; reason: string }
+  | { status: "ambiguous"; file: string; items: MediaItem[] }
+  | { status: "unmatched"; file: string };
+
+export type RelinkReport = {
+  outcomes: RelinkOutcome[];
+  remainingOffline: number;
+};
+
+export type OfflineMediaEntry = {
+  item: MediaItem;
+  displayName: string;
+  sourcePath?: string;
+  clipCount: number;
+  state: Exclude<MediaAvailability, "ready">;
+  lastError?: string;
+};
+
 function pathSegments(rawPath: string) {
   return rawPath.toLowerCase().split(/[/\\]/).filter(Boolean);
 }
 
 function basename(rawPath: string) {
   return pathSegments(rawPath).pop() ?? rawPath.toLowerCase();
+}
+
+function displayBasename(rawPath: string) {
+  return rawPath.split(/[/\\]/).filter(Boolean).pop() ?? rawPath;
+}
+
+export function mediaDisplayName(item: MediaItem) {
+  return (
+    item.name || (item.sourcePath ? displayBasename(item.sourcePath) : item.id)
+  );
+}
+
+export function relinkCandidateFile<T>(candidate: RelinkCandidate<T>) {
+  return candidate.path ?? candidate.name;
+}
+
+/**
+ * Lists every media item that is not ready, with the number of arrangement
+ * and source-track clips that reference it, so the header count, Locate
+ * Media, and the Offline Media dialog all work from the same list.
+ */
+export function listOfflineMedia(
+  mediaItems: MediaItem[],
+  clips: Array<{ mediaId?: string }>,
+): OfflineMediaEntry[] {
+  const clipCounts = new Map<string, number>();
+  for (const clip of clips) {
+    if (clip.mediaId) {
+      clipCounts.set(clip.mediaId, (clipCounts.get(clip.mediaId) ?? 0) + 1);
+    }
+  }
+
+  return mediaItems
+    .filter((item) => item.availability !== "ready")
+    .map((item) => ({
+      item,
+      displayName: mediaDisplayName(item),
+      sourcePath: item.sourcePath,
+      clipCount: clipCounts.get(item.id) ?? 0,
+      state: item.availability === "hydrating" ? "hydrating" : "offline",
+      lastError: item.lastError,
+    }));
+}
+
+/**
+ * Warns when a file picked for a specific item has a different name than the
+ * media it replaces, since a forced link skips name matching.
+ */
+export function forcedRelinkWarning<T>(
+  item: MediaItem,
+  candidate: RelinkCandidate<T>,
+) {
+  const name = basename(candidate.name);
+  return matchesName(item, name)
+    ? undefined
+    : `${displayBasename(candidate.name)} does not match the original file name ${mediaDisplayName(item)}`;
 }
 
 function matchingSuffixLength(left: string, right: string) {
