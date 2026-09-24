@@ -1842,7 +1842,7 @@ function App() {
       mediaPeerCount: 0,
       collaborators: [],
     });
-  const [peerMediaTransferTick, setPeerMediaTransferTick] = useState(0);
+  const [mediaHydrationTick, setMediaHydrationTick] = useState(0);
   const collaborationColor = initialCollaborationConfig.color;
 
   const playbackOriginRef = useRef(0);
@@ -3305,6 +3305,7 @@ function App() {
           }
         } finally {
           mediaHydrationInFlightRef.current.delete(item.id);
+          setMediaHydrationTick((tick) => tick + 1);
         }
       })();
     }
@@ -3444,9 +3445,9 @@ function App() {
 
   const { mediaPeerCount } = collaborationState;
   useEffect(() => {
-    // peerMediaTransferTick reruns this after a transfer settles so the next
-    // queued item can start.
-    void peerMediaTransferTick;
+    // mediaHydrationTick reruns this whenever a local or peer hydration
+    // settles, so media skipped while it was in flight is picked up.
+    void mediaHydrationTick;
     const controller = collaborationControllerRef.current;
     if (collaborationMode === "idle" || !controller || mediaPeerCount === 0) {
       return;
@@ -3495,10 +3496,12 @@ function App() {
       setLocalMediaOverride(mediaId, { availability: "hydrating" });
 
       void (async () => {
+        let receiving = false;
         try {
           const blob = await controller.requestMedia(mediaId, {
             signal: abortController.signal,
             onProgress(received, total) {
+              receiving = true;
               const now = performance.now();
               if (
                 now - peerMediaStatusAtRef.current <
@@ -3515,6 +3518,9 @@ function App() {
           if (!blob) {
             recordMiss();
             setLocalMediaOverride(mediaId, { availability: "offline" });
+            if (receiving && !abortController.signal.aborted) {
+              setStatus(`Receiving ${name} from peer was interrupted.`);
+            }
             return;
           }
 
@@ -3522,17 +3528,17 @@ function App() {
           setStatus(`Received ${name} from peer.`);
         } catch (error) {
           if (!abortController.signal.aborted) {
-            logClient("media:peer:request:error", {
-              mediaId,
-              message: error instanceof Error ? error.message : String(error),
-            });
+            const message =
+              error instanceof Error ? error.message : String(error);
+            logClient("media:peer:request:error", { mediaId, message });
+            setStatus(`Failed to receive ${name} from peer: ${message}`);
             recordMiss();
           }
           setLocalMediaOverride(mediaId, { availability: "offline" });
         } finally {
           transfers.delete(mediaId);
           mediaHydrationInFlightRef.current.delete(mediaId);
-          setPeerMediaTransferTick((tick) => tick + 1);
+          setMediaHydrationTick((tick) => tick + 1);
         }
       })();
     }
@@ -3541,7 +3547,7 @@ function App() {
     collaborationMode,
     mediaPeerCount,
     offlineClipMediaIdsKey,
-    peerMediaTransferTick,
+    mediaHydrationTick,
     setLocalMediaOverride,
   ]);
 
