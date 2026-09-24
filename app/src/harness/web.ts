@@ -1,4 +1,5 @@
 import {
+  alsMasterAudioPath,
   alsSavePath,
   importAls,
   isAlsSession,
@@ -266,7 +267,15 @@ async function openWorkspaceAls(
   bytes: Uint8Array,
   selection: Extract<SessionSelection, { kind: "workspace" }>,
 ): Promise<SessionOpenResponse> {
-  const imported = await importAls(bytes, selection.sessionFile.name);
+  const workspacePaths = new Set(
+    selection.files.map((entry) => normalizeWorkspacePath(entry.path)),
+  );
+  const audioFilename = alsMasterAudioPath(selection.sessionPath, (path) =>
+    workspacePaths.has(normalizeWorkspacePath(path)),
+  );
+  const imported = await importAls(bytes, selection.sessionFile.name, {
+    audioFilename,
+  });
   const { session, recordingPaths, summary } = resolveAlsMedia(
     imported,
     createWorkspaceAlsLocator(selection),

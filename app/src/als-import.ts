@@ -2,6 +2,7 @@ import {
   type AlsSkippedClip,
   type AlsSkipReason,
   convertAls,
+  siblingAudioFilename,
 } from "./import/als/convert.ts";
 import {
   type AlsDocument,
@@ -148,10 +149,30 @@ function describeSkipped(doc: AlsDocument, skipped: AlsSkippedClip[]) {
   return described;
 }
 
+// The Layers app kept a set's mixdown as `<name>.wav` beside the set. When
+// that file exists it opens as the imported session's master audio.
+export function alsMasterAudioPath(
+  alsPath: string | undefined,
+  exists: (path: string) => boolean,
+) {
+  if (!alsPath) {
+    return undefined;
+  }
+
+  const audioPath = siblingAudioFilename(alsPath);
+  return exists(audioPath) ? audioPath : undefined;
+}
+
+type ImportAlsOptions = {
+  /** Mixdown audio for the set, usually from `alsMasterAudioPath`. */
+  audioFilename?: string;
+};
+
 async function convertAlsXml(
   xml: string,
   name: string,
-  path?: string,
+  path: string | undefined,
+  options: ImportAlsOptions,
 ): Promise<ImportedAlsSession> {
   let doc: AlsDocument;
   try {
@@ -165,7 +186,10 @@ async function convertAlsXml(
     throw noLayersError(name);
   }
 
-  const { session, summary } = convertAls(doc, { sessionFile: path });
+  const { session, summary } = convertAls(doc, {
+    sessionFile: path,
+    audioFilename: options.audioFilename,
+  });
   return {
     ...session,
     importReport: { skippedTracks: describeSkipped(doc, summary.skipped) },
@@ -175,6 +199,7 @@ async function convertAlsXml(
 export async function importAls(
   bytes: Uint8Array,
   path?: string,
+  options: ImportAlsOptions = {},
 ): Promise<ImportedAlsSession> {
   const name = path ? basename(path) : "This file";
   const xml = await readAlsXml(bytes, name);
@@ -182,7 +207,7 @@ export async function importAls(
     throw noLayersError(name);
   }
 
-  return convertAlsXml(xml, name, path);
+  return convertAlsXml(xml, name, path, options);
 }
 
 function parentPath(rawPath: string) {

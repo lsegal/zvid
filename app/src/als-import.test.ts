@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import { gzipSync } from "node:zlib";
 import {
   AlsImportError,
+  alsMasterAudioPath,
   alsMediaCandidatePaths,
   alsMediaSearchDirs,
   alsSavePath,
@@ -232,6 +233,58 @@ describe("importAls", () => {
         "/sets/Recorded/video-12-13-23-20-15-14-1.mp4",
         missing,
       ],
+    );
+    assert.equal(imported.audioFilename, undefined);
+  });
+
+  it("opens dogfood3.wav beside dogfood3.als as master audio", async () => {
+    const golden = JSON.parse(
+      readFileSync(
+        new URL("../test/fixtures/als/dogfood3.lvp", import.meta.url),
+      ).toString("utf8"),
+    );
+    const alsPath = golden.audioFilename.replace(/\.wav$/, ".als");
+    const audioFilename = alsMasterAudioPath(alsPath, () => true);
+    assert.equal(audioFilename, golden.audioFilename);
+
+    const imported = await importAls(
+      new Uint8Array(
+        readFileSync(
+          new URL("../test/fixtures/als/dogfood3.als", import.meta.url),
+        ),
+      ),
+      alsPath,
+      { audioFilename },
+    );
+    assert.equal(imported.audioFilename, golden.audioFilename);
+
+    const { session } = resolveAlsMedia(imported, () => null);
+    assert.equal(session.audioFilename, golden.audioFilename);
+  });
+});
+
+describe("alsMasterAudioPath", () => {
+  it("finds the .wav mixdown beside the set", () => {
+    const checked: string[] = [];
+    const found = alsMasterAudioPath("/sets/Song Project/Song.als", (path) => {
+      checked.push(path);
+      return true;
+    });
+    assert.equal(found, "/sets/Song Project/Song.wav");
+    assert.deepEqual(checked, ["/sets/Song Project/Song.wav"]);
+  });
+
+  it("opens without master audio when there is no mixdown", () => {
+    assert.equal(
+      alsMasterAudioPath("/sets/Song Project/Song.als", () => false),
+      undefined,
+    );
+  });
+
+  it("opens without master audio when the set has no known path", () => {
+    assert.equal(
+      alsMasterAudioPath(undefined, () => true),
+      undefined,
     );
   });
 });
