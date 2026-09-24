@@ -4,7 +4,12 @@ export type LvpSession = {
     id: string;
     name: string;
     colorIndex?: number;
-    recordings?: Array<{ filename: string }>;
+    recordings?: Array<{
+      filename: string;
+      frameStart?: number;
+      numFrames?: number;
+      frameRate?: number;
+    }>;
   }>;
   clips?: Array<{
     id: string;
@@ -15,6 +20,16 @@ export type LvpSession = {
     frameOffset?: number;
     clipStart?: number;
     filePath: string;
+    warpMarkers?: Array<{
+      id: string;
+      clipId: string;
+      secTime: number;
+      beatTime: number;
+    }>;
+    frameHiddenLoopEnd?: number;
+    captureOffset?: number;
+    /** Seconds; the Layers app writes `"NaN"` for MIDI clips. */
+    audioFileDuration?: number | "NaN";
   }>;
   selections?: Array<{
     id: number;
@@ -38,10 +53,12 @@ export type LvpSession = {
     displaySeconds?: boolean;
     snapToBeat?: boolean;
     zoom?: number;
+    projectDuration?: number;
   };
   playPosition?: number;
   playStartPosition?: number;
   audioFilename?: string;
+  sessionFile?: string;
 };
 
 export type ServerMediaRef = {
