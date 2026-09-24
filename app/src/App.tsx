@@ -43,7 +43,11 @@ import {
   type ImportNoticeContent,
 } from "./components/ImportNotice";
 import { OfflineMediaDialog } from "./components/OfflineMediaDialog";
-import { StatusBar, type StatusItem } from "./components/StatusBar";
+import {
+  StatusBar,
+  type StatusItem,
+  type StatusMessage,
+} from "./components/StatusBar";
 import {
   Dialog,
   DialogClose,
@@ -103,6 +107,7 @@ import {
 } from "./project-history";
 import { listOfflineMedia, matchOfflineMedia } from "./relink";
 import type { LvpSession, SessionOpenResponse } from "./session";
+import { statusMessageTone } from "./status-bar";
 import { formatMusicalPosition, formatTimecode } from "./timeline-format.ts";
 import { loadWaveformPeaks } from "./waveform-loader";
 import type { WaveformPeaks } from "./waveform-peaks";
@@ -5345,6 +5350,16 @@ function App() {
     commitPreviewWidth(nextWidth);
   }
 
+  // Export progress stays visible for the whole export.
+  const statusMessage: StatusMessage =
+    isExporting && exportState.detail
+      ? {
+          text: exportState.detail,
+          tone: statusMessageTone(exportState.detail),
+          sticky: true,
+        }
+      : { text: status, tone: statusMessageTone(status) };
+
   return (
     <div className="app-shell" ref={appShellRef}>
       {collaborationView.remoteCursors.length ? (
@@ -6724,14 +6739,6 @@ function App() {
                   </svg>
                 </button>
               </div>
-
-              <div className="transport-summary">
-                <span>
-                  {isExporting && exportState.detail
-                    ? exportState.detail
-                    : status}
-                </span>
-              </div>
             </div>
           </section>
 
@@ -6783,7 +6790,7 @@ function App() {
           onDismiss={() => setImportNotice(null)}
         />
       ) : null}
-      <StatusBar items={STATUS_BAR_ITEMS} />
+      <StatusBar items={STATUS_BAR_ITEMS} message={statusMessage} />
     </div>
   );
 }

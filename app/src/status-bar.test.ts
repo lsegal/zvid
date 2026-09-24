@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
-import { partitionStatusItems } from "./status-bar.ts";
+import {
+  partitionStatusItems,
+  STATUS_MESSAGE_TIMEOUT_MS,
+  statusMessageClears,
+  statusMessageTone,
+} from "./status-bar.ts";
 
 const appCss = readFileSync(new URL("./App.css", import.meta.url), "utf8");
 const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
@@ -39,6 +44,69 @@ describe("status bar items", () => {
     assert.deepEqual(
       end.map((item) => item.id),
       ["a", "c"],
+    );
+  });
+});
+
+describe("status bar message", () => {
+  it("marks failure reports as errors", () => {
+    for (const text of [
+      "Open failed: bad header",
+      "Export failed: disk full",
+      "Dropped media import failed: nope",
+      "Public sharing is live, but copying the invite failed: denied",
+      "Unable to connect with that invite: expired",
+      "Receiving clip.mp4 from peer was interrupted.",
+    ]) {
+      assert.equal(statusMessageTone(text), "error", text);
+    }
+  });
+
+  it("treats ordinary progress and confirmations as info", () => {
+    for (const text of [
+      "Created Layer 3.",
+      "Rendering frame 12 of 480...",
+      "Open a session or import media to get started.",
+      "Saved clip.mp4.",
+    ]) {
+      assert.equal(statusMessageTone(text), "info", text);
+    }
+  });
+
+  it("clears info after about eight seconds but keeps errors and sticky messages", () => {
+    assert.equal(STATUS_MESSAGE_TIMEOUT_MS, 8000);
+    assert.equal(statusMessageClears({ text: "Saved.", tone: "info" }), true);
+    assert.equal(
+      statusMessageClears({ text: "Export failed: x", tone: "error" }),
+      false,
+    );
+    assert.equal(
+      statusMessageClears({
+        text: "Encoding video...",
+        tone: "info",
+        sticky: true,
+      }),
+      false,
+    );
+  });
+
+  it("renders in the status bar instead of the transport bar", () => {
+    assert.equal(appTsx.includes("transport-summary"), false);
+    assert.equal(appCss.includes(".transport-summary"), false);
+    assert.match(
+      appTsx,
+      /<StatusBar items=\{[^}]+\} message=\{statusMessage\} \/>/,
+    );
+  });
+
+  it("truncates with an ellipsis and colors errors", () => {
+    const message = ruleBody(appCss, ".status-bar__message");
+    assert.match(message, /text-overflow: ellipsis;/);
+    assert.match(message, /white-space: nowrap;/);
+    assert.match(message, /flex: 1;/);
+    assert.match(
+      ruleBody(appCss, ".status-bar__message--error"),
+      /color: var\(--pink\);/,
     );
   });
 });
