@@ -58,6 +58,24 @@ export function isAlsBackupPath(rawPath: string) {
   );
 }
 
+// Session files a workspace can open, best first: `.lvp` sessions, then Live
+// sets (ignoring Ableton's backups), then bare JSON.
+export function rankWorkspaceSessions<T extends { path: string }>(
+  files: T[],
+) {
+  const byExtension = (extension: string) =>
+    files.filter((entry) => entry.path.toLowerCase().endsWith(extension));
+  const lvp = byExtension(".lvp");
+  if (lvp.length) {
+    return lvp;
+  }
+
+  const als = byExtension(".als").filter(
+    (entry) => !isAlsBackupPath(entry.path),
+  );
+  return als.length ? als : byExtension(".json");
+}
+
 // An imported set is never written back: saves target the sibling `.lvp`.
 export function alsSavePath(alsPath: string) {
   return alsPath.replace(/\.als$/i, ".lvp");

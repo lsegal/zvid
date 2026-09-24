@@ -1,10 +1,17 @@
+import type { AlsImportSummary } from "./als-import.ts";
+
 export type LvpSession = {
   mainTracks?: Array<{ id: string; name: string; colorIndex?: number }>;
   tracks?: Array<{
     id: string;
     name: string;
     colorIndex?: number;
-    recordings?: Array<{ filename: string }>;
+    recordings?: Array<{
+      filename: string;
+      frameStart?: number;
+      numFrames?: number;
+      frameRate?: number;
+    }>;
   }>;
   clips?: Array<{
     id: string;
@@ -57,4 +64,25 @@ export type SessionOpenResponse = {
   sessionPath?: string;
   session: LvpSession;
   mediaRefs: ServerMediaRef[];
+  // Present when the session was imported from an Ableton Live set.
+  alsImport?: AlsImportSummary;
+  // Located recordings of an imported Live set, for probing frame metadata.
+  recordingRefs?: ServerMediaRef[];
 };
+
+// Every media file the session references: its clips and master audio.
+export function collectSessionMediaPaths(session: LvpSession) {
+  const mediaPaths = new Set<string>();
+
+  for (const clip of session.clips ?? []) {
+    if (clip.filePath?.trim()) {
+      mediaPaths.add(clip.filePath.trim());
+    }
+  }
+
+  if (session.audioFilename?.trim()) {
+    mediaPaths.add(session.audioFilename.trim());
+  }
+
+  return Array.from(mediaPaths);
+}

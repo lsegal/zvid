@@ -9,6 +9,16 @@ description = "Enables the read_file_bytes command."
 commands.allow = ["read_file_bytes"]
 
 [[permission]]
+identifier = "allow-read-file-prefix"
+description = "Enables the read_file_prefix command."
+commands.allow = ["read_file_prefix"]
+
+[[permission]]
+identifier = "allow-files-exist"
+description = "Enables the files_exist command."
+commands.allow = ["files_exist"]
+
+[[permission]]
 identifier = "allow-write-file-bytes"
 description = "Enables the write_file_bytes command."
 commands.allow = ["write_file_bytes"]
@@ -23,6 +33,8 @@ description = "Default application permissions."
 permissions = [
   "allow-open-session",
   "allow-read-file-bytes",
+  "allow-read-file-prefix",
+  "allow-files-exist",
   "allow-write-file-bytes",
   "allow-mux-export",
 ]

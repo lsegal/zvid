@@ -1,9 +1,20 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
+import { homedir } from "node:os";
 import path from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
+import {
+  AlsImportError,
+  type AlsImportSummary,
+  alsMediaSearchDirs,
+  alsSavePath,
+  createAlsMediaLocator,
+  importAls,
+  isAlsSession,
+  resolveAlsMedia,
+} from "./src/als-import.ts";
 import { resolveAppCommit } from "./src/build-info.ts";
 
 type LvpSession = {
@@ -24,6 +35,8 @@ type SessionOpenPayload = {
   sessionName: string;
   mediaRefs: RegisteredMedia[];
   sessionPath?: string;
+  alsImport?: AlsImportSummary;
+  recordingRefs?: RegisteredMedia[];
 };
 
 const mediaRegistry = new Map<string, RegisteredMedia>();
@@ -84,23 +97,72 @@ function collectSessionMedia(session: LvpSession) {
     hasAudioFilename: Boolean(session.audioFilename?.trim()),
   });
 
-  return Array.from(mediaPaths).map<RegisteredMedia>((filePath) => {
-    const id = createMediaId(filePath);
-    const entry = {
-      id,
-      path: filePath,
-      name: path.basename(filePath),
-      url: `/api/media/${id}`,
-      exists: existsSync(filePath),
-    };
+  return Array.from(mediaPaths).map(registerMedia);
+}
 
-    console.info("[zvid] registerMedia", {
-      id,
-      path: filePath,
-      exists: entry.exists,
-    });
-    mediaRegistry.set(id, entry);
-    return entry;
+function registerMedia(filePath: string) {
+  const id = createMediaId(filePath);
+  const entry = {
+    id,
+    path: filePath,
+    name: path.basename(filePath),
+    url: `/api/media/${id}`,
+    exists: existsSync(filePath),
+  };
+
+  console.info("[zvid] registerMedia", {
+    id,
+    path: filePath,
+    exists: entry.exists,
+  });
+  mediaRegistry.set(id, entry);
+  return entry;
+}
+
+function isFile(filePath: string) {
+  try {
+    return statSync(filePath).isFile();
+  } catch {
+    return false;
+  }
+}
+
+// Imports a Live set and locates its recordings on disk. An imported set is
+// never written back, so the payload's session path is the sibling `.lvp`.
+async function buildAlsOpenPayload(
+  bytes: Uint8Array,
+  options: { sessionName: string; sessionPath?: string },
+): Promise<SessionOpenPayload> {
+  const imported = await importAls(
+    bytes,
+    options.sessionPath ?? options.sessionName,
+  );
+  const dirs = alsMediaSearchDirs(
+    options.sessionPath,
+    path.join(homedir(), "Documents"),
+  );
+  const { session, recordingPaths, summary } = resolveAlsMedia(
+    imported,
+    createAlsMediaLocator(dirs, isFile),
+  );
+  const payload = buildSessionOpenPayload(session, {
+    sessionName: options.sessionName,
+    sessionPath: options.sessionPath && alsSavePath(options.sessionPath),
+  });
+  return {
+    ...payload,
+    alsImport: summary,
+    recordingRefs: recordingPaths.map(registerMedia),
+  };
+}
+
+function writeError(
+  response: Parameters<typeof writeJson>[0],
+  error: unknown,
+) {
+  const message = error instanceof Error ? error.message : String(error);
+  writeJson(response, error instanceof AlsImportError ? 422 : 500, {
+    error: message,
   });
 }
 
@@ -179,20 +241,30 @@ function diskMediaPlugin(): Plugin {
               return;
             }
 
-            const raw = readFileSync(sessionPath, "utf8");
-            const session = JSON.parse(raw) as LvpSession;
+            const bytes = new Uint8Array(readFileSync(sessionPath));
+            const options = {
+              sessionName: path.basename(sessionPath),
+              sessionPath,
+            };
+            if (isAlsSession(bytes, sessionPath)) {
+              writeJson(
+                response,
+                200,
+                await buildAlsOpenPayload(bytes, options),
+              );
+              return;
+            }
+
+            const session = JSON.parse(
+              new TextDecoder().decode(bytes),
+            ) as LvpSession;
             writeJson(
               response,
               200,
-              buildSessionOpenPayload(session, {
-                sessionName: path.basename(sessionPath),
-                sessionPath,
-              }),
+              buildSessionOpenPayload(session, options),
             );
           } catch (error) {
-            const message =
-              error instanceof Error ? error.message : String(error);
-            writeJson(response, 500, { error: message });
+            writeError(response, error);
           }
           return;
         }
@@ -205,13 +277,28 @@ function diskMediaPlugin(): Plugin {
             const body = (await readJsonBody(request)) as {
               sessionName?: string;
               sessionContents?: string;
+              sessionBase64?: string;
             };
             const sessionContents = body.sessionContents?.trim();
             console.info("[zvid] /api/session/open-file", {
               sessionName: body.sessionName?.trim() || "Session.lvp",
-              hasContents: Boolean(sessionContents),
-              contentLength: sessionContents?.length ?? 0,
+              hasContents: Boolean(sessionContents || body.sessionBase64),
+              contentLength:
+                sessionContents?.length ?? body.sessionBase64?.length ?? 0,
             });
+
+            // Live sets are binary, so they arrive base64-encoded.
+            if (body.sessionBase64) {
+              writeJson(
+                response,
+                200,
+                await buildAlsOpenPayload(
+                  new Uint8Array(Buffer.from(body.sessionBase64, "base64")),
+                  { sessionName: body.sessionName?.trim() || "Session.als" },
+                ),
+              );
+              return;
+            }
 
             if (!sessionContents) {
               writeJson(response, 400, {
@@ -229,9 +316,7 @@ function diskMediaPlugin(): Plugin {
               }),
             );
           } catch (error) {
-            const message =
-              error instanceof Error ? error.message : String(error);
-            writeJson(response, 500, { error: message });
+            writeError(response, error);
           }
           return;
         }

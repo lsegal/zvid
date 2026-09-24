@@ -1,7 +1,16 @@
-import type {
-  LvpSession,
-  ServerMediaRef,
-  SessionOpenResponse,
+import {
+  alsSavePath,
+  importAls,
+  isAlsSession,
+  probeAlsRecordings,
+  rankWorkspaceSessions,
+  resolveAlsMedia,
+} from "../als-import";
+import {
+  collectSessionMediaPaths,
+  type LvpSession,
+  type ServerMediaRef,
+  type SessionOpenResponse,
 } from "../session";
 import type {
   Harness,
@@ -17,6 +26,7 @@ import { hasMediaExtension, MEDIA_EXTENSIONS } from "./media-extensions";
 import {
   analyzeMediaSelection,
   generateThumbnailFromUrlAtTime,
+  probeRecordingFrames,
 } from "./web-media";
 
 type SaveFilePickerWindow = Window & {
@@ -144,22 +154,6 @@ function createPathId(rawPath: string) {
   return `${hash.toString(16)}-${basename(rawPath)}`;
 }
 
-function collectSessionMediaPaths(session: LvpSession) {
-  const mediaPaths = new Set<string>();
-
-  for (const clip of session.clips ?? []) {
-    if (clip.filePath?.trim()) {
-      mediaPaths.add(clip.filePath.trim());
-    }
-  }
-
-  if (session.audioFilename?.trim()) {
-    mediaPaths.add(session.audioFilename.trim());
-  }
-
-  return Array.from(mediaPaths);
-}
-
 async function pickWorkspaceSession(): Promise<SessionSelection | null> {
   const files = await pickDirectoryFiles();
   if (!files) {
@@ -183,18 +177,11 @@ async function pickWorkspaceSession(): Promise<SessionSelection | null> {
 }
 
 function chooseWorkspaceSession(files: WorkspaceFileRef[]) {
-  const candidates = files.filter((entry) => {
-    const path = entry.path.toLowerCase();
-    return path.endsWith(".lvp") || path.endsWith(".json");
-  });
-  const lvpCandidates = candidates.filter((entry) =>
-    entry.path.toLowerCase().endsWith(".lvp"),
-  );
-  const sessionCandidates = lvpCandidates.length ? lvpCandidates : candidates;
+  const sessionCandidates = rankWorkspaceSessions(files);
 
   if (!sessionCandidates.length) {
     throw new Error(
-      "No .lvp session file was found in the selected workspace.",
+      "No .lvp session or Ableton .als set was found in the selected workspace.",
     );
   }
 
@@ -243,6 +230,135 @@ function createWorkspaceResolver(rootName: string, files: WorkspaceFileRef[]) {
       null
     );
   };
+}
+
+function workspaceDir(rawPath: string) {
+  const segments = normalizeWorkspacePath(rawPath).split("/");
+  return segments.slice(0, -1);
+}
+
+// Finds a Live set's recording in the workspace: beside the set, in the
+// `Recorded` folder beside its project, then anywhere by name.
+function createWorkspaceAlsLocator(
+  selection: Extract<SessionSelection, { kind: "workspace" }>,
+) {
+  const byPath = new Map(
+    selection.files.map((entry) => [normalizeWorkspacePath(entry.path), entry]),
+  );
+  const resolveFile = createWorkspaceResolver(
+    selection.rootName,
+    selection.files,
+  );
+  const setDir = workspaceDir(selection.sessionPath);
+  const recordedDir = [...setDir.slice(0, -1), "recorded"];
+
+  return (name: string) => {
+    const filename = basename(name).toLowerCase();
+    const entry =
+      byPath.get([...setDir, filename].join("/")) ??
+      byPath.get([...recordedDir, filename].join("/")) ??
+      resolveFile(filename);
+    return entry?.path ?? null;
+  };
+}
+
+async function openWorkspaceAls(
+  bytes: Uint8Array,
+  selection: Extract<SessionSelection, { kind: "workspace" }>,
+): Promise<SessionOpenResponse> {
+  const imported = await importAls(bytes, selection.sessionFile.name);
+  const { session, recordingPaths, summary } = resolveAlsMedia(
+    imported,
+    createWorkspaceAlsLocator(selection),
+  );
+  const byPath = new Map(
+    selection.files.map((entry) => [entry.path, entry.file]),
+  );
+  const recordingRefs = recordingPaths.flatMap<ServerMediaRef>((path) => {
+    const file = byPath.get(path);
+    return file
+      ? [
+          {
+            id: createPathId(path),
+            path,
+            name: basename(path),
+            url: URL.createObjectURL(file),
+            exists: true,
+          },
+        ]
+      : [];
+  });
+  try {
+    const probed = await probeAlsRecordings(
+      session,
+      recordingRefs,
+      probeRecordingFrames,
+    );
+    return {
+      ...buildWorkspaceOpenPayload(probed, selection),
+      sessionPath: alsSavePath(
+        `${selection.rootName}/${selection.sessionPath}`,
+      ),
+      alsImport: summary,
+    };
+  } finally {
+    for (const ref of recordingRefs) {
+      URL.revokeObjectURL(ref.url);
+    }
+  }
+}
+
+// Fills an imported Live set's recording metadata from the refs the server
+// located, then drops those refs so only the session's media is hydrated.
+async function finishAlsOpen(
+  payload: SessionOpenResponse,
+): Promise<SessionOpenResponse> {
+  const { recordingRefs, ...rest } = payload;
+  if (!recordingRefs?.length) {
+    return rest;
+  }
+
+  return {
+    ...rest,
+    session: await probeAlsRecordings(
+      rest.session,
+      recordingRefs,
+      probeRecordingFrames,
+    ),
+  };
+}
+
+function bytesToBase64(bytes: Uint8Array) {
+  let binary = "";
+  for (let index = 0; index < bytes.length; index += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  }
+  return btoa(binary);
+}
+
+async function postSessionOpen(
+  endpoint: string,
+  body: Record<string, string>,
+): Promise<SessionOpenResponse> {
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  const payload = (await response.json()) as
+    | SessionOpenResponse
+    | { error: string };
+  if (!response.ok || "error" in payload) {
+    throw new Error(
+      "error" in payload
+        ? payload.error
+        : `Request failed with ${response.status}`,
+    );
+  }
+
+  return finishAlsOpen(payload);
 }
 
 function buildWorkspaceOpenPayload(
@@ -363,7 +479,7 @@ export function createWebHarness(): Harness {
     },
     async pickSession(): Promise<SessionSelection | null> {
       const files = await pickFiles({
-        accept: ".lvp,application/json",
+        accept: ".lvp,.als,application/json",
         multiple: false,
       });
       const file = files[0];
@@ -388,65 +504,56 @@ export function createWebHarness(): Harness {
     pickMediaFolder,
     async openSession(selection): Promise<SessionOpenResponse> {
       if (selection.kind === "workspace") {
+        const bytes = new Uint8Array(await selection.sessionFile.arrayBuffer());
+        if (isAlsSession(bytes, selection.sessionFile.name)) {
+          return openWorkspaceAls(bytes, selection);
+        }
+
         const session = JSON.parse(
-          await selection.sessionFile.text(),
+          new TextDecoder().decode(bytes),
         ) as LvpSession;
         return buildWorkspaceOpenPayload(session, selection);
       }
 
       if (selection.kind === "path") {
-        const response = await fetch("/api/session/open", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            sessionPath: selection.path,
-          }),
+        return postSessionOpen("/api/session/open", {
+          sessionPath: selection.path,
         });
-        const payload = (await response.json()) as
-          | SessionOpenResponse
-          | { error: string };
-        if (!response.ok || "error" in payload) {
-          throw new Error(
-            "error" in payload
-              ? payload.error
-              : `Request failed with ${response.status}`,
-          );
-        }
-
-        return payload;
       }
+
+      const bytes = new Uint8Array(await selection.file.arrayBuffer());
+      const isAls = isAlsSession(bytes, selection.file.name);
 
       // The deployed Worker has no session endpoints, so only the dev server
       // can resolve the session's on-disk media paths.
       if (!import.meta.env.DEV) {
-        const session = JSON.parse(await selection.file.text()) as LvpSession;
+        if (isAls) {
+          const imported = await importAls(bytes, selection.file.name);
+          const { session, summary } = resolveAlsMedia(imported, () => null);
+          return {
+            ...buildFileOpenPayload(session, selection.file.name),
+            alsImport: summary,
+          };
+        }
+
+        const session = JSON.parse(
+          new TextDecoder().decode(bytes),
+        ) as LvpSession;
         return buildFileOpenPayload(session, selection.file.name);
       }
 
-      const response = await fetch("/api/session/open-file", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          sessionName: selection.file.name,
-          sessionContents: await selection.file.text(),
-        }),
-      });
-      const payload = (await response.json()) as
-        | SessionOpenResponse
-        | { error: string };
-      if (!response.ok || "error" in payload) {
-        throw new Error(
-          "error" in payload
-            ? payload.error
-            : `Request failed with ${response.status}`,
-        );
-      }
-
-      return payload;
+      return postSessionOpen(
+        "/api/session/open-file",
+        isAls
+          ? {
+              sessionName: selection.file.name,
+              sessionBase64: bytesToBase64(bytes),
+            }
+          : {
+              sessionName: selection.file.name,
+              sessionContents: new TextDecoder().decode(bytes),
+            },
+      );
     },
     analyzeMedia: analyzeMediaSelection,
     readMediaBlob,
