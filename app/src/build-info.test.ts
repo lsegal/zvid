@@ -102,7 +102,10 @@ describe("formatAppVersion", () => {
   });
 
   it("keeps the dirty marker", () => {
-    assert.equal(formatAppVersion("1.2.3", `${SHA}-dirty`), "1.2.3+c94f40e-dirty");
+    assert.equal(
+      formatAppVersion("1.2.3", `${SHA}-dirty`),
+      "1.2.3+c94f40e-dirty",
+    );
   });
 
   it("is the bare version without a commit", () => {

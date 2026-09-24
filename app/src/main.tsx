@@ -6,7 +6,9 @@ import { installHarness } from "./harness";
 import { ZVID_VERSION } from "./version";
 
 async function bootstrap() {
-  console.info(`zvid ${ZVID_VERSION} ${__APP_COMMIT__} (${__APP_BUILD_TIME__})`);
+  console.info(
+    `zvid ${ZVID_VERSION} ${__APP_COMMIT__} (${__APP_BUILD_TIME__})`,
+  );
   await installHarness();
 
   const rootElement = document.getElementById("root");
