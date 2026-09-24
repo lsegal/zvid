@@ -85,3 +85,37 @@ export function toggleCollapsedDevice(
   }
   return next;
 }
+
+type SelectableLane = { id: string };
+type SelectableClip = { id: string; laneId: string };
+type LaneEffect = { trackId: string };
+
+// The layer selected when a session opens: the first one with effects, or
+// else the first layer.
+export function getDefaultLaneId(
+  lanes: readonly SelectableLane[],
+  effects: readonly LaneEffect[],
+) {
+  return (
+    lanes.find((lane) => effects.some((effect) => effect.trackId === lane.id))
+      ?.id ?? lanes[0]?.id
+  );
+}
+
+// The layer whose effects the FX chain shows. A selected clip selects its
+// own layer; otherwise the selected layer is kept while it still exists
+// (undo can remove it), falling back to the session default.
+export function resolveSelectedLaneId(
+  lanes: readonly SelectableLane[],
+  effects: readonly LaneEffect[],
+  selectedLaneId: string | undefined,
+  selectedClip: SelectableClip | undefined,
+) {
+  if (selectedClip && lanes.some((lane) => lane.id === selectedClip.laneId)) {
+    return selectedClip.laneId;
+  }
+  if (selectedLaneId && lanes.some((lane) => lane.id === selectedLaneId)) {
+    return selectedLaneId;
+  }
+  return getDefaultLaneId(lanes, effects);
+}

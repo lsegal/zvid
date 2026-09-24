@@ -46,6 +46,7 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
+import { getDefaultLaneId, resolveSelectedLaneId } from "./fx-chain";
 import {
   effectHistoryLabels,
   type FxDevice,
@@ -1582,6 +1583,9 @@ function App() {
     ArrangementClip[] | null
   >(null);
   const [selectedClipId, setSelectedClipId] = useState<string>();
+  // The layer the FX chain edits. Selecting a clip selects its layer, and
+  // clearing the clip selection keeps the layer.
+  const [selectedLaneId, setSelectedLaneId] = useState<string>();
   const [pendingSelection, setPendingSelection] =
     useState<TimelineSelection | null>(null);
   const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(
@@ -2030,9 +2034,6 @@ function App() {
       timelineClips[0],
     [selectedClipId, timelineClips],
   );
-  const selectedMedia = selectedClip?.mediaId
-    ? mediaItemsById.get(selectedClip.mediaId)
-    : undefined;
   const playheadClip = useMemo(
     () => findClipAtPlayhead(timelineClips, playheadQ, bpm, lanePriority),
     [bpm, lanePriority, playheadQ, timelineClips],
@@ -2044,17 +2045,33 @@ function App() {
   const previewMediaState = describeMediaAvailability(
     previewMedia?.availability,
   );
+  // Unlike `selectedClip`, this does not fall back to the first clip.
+  const explicitClip = useMemo(
+    () => timelineClips.find((clip) => clip.id === selectedClipId),
+    [selectedClipId, timelineClips],
+  );
+  const explicitClipLaneId = explicitClip?.laneId;
+  useEffect(() => {
+    if (explicitClipLaneId !== undefined) {
+      setSelectedLaneId(explicitClipLaneId);
+    }
+  }, [explicitClipLaneId]);
+  const fxLaneId = useMemo(
+    () => resolveSelectedLaneId(lanes, effects, selectedLaneId, explicitClip),
+    [effects, explicitClip, lanes, selectedLaneId],
+  );
+  const fxLane = lanes.find((lane) => lane.id === fxLaneId);
+  // Audio clips have no visual effects; that only applies while one is
+  // selected, not to the layer on its own.
+  const fxKind = explicitClip?.mediaId
+    ? mediaItemsById.get(explicitClip.mediaId)?.kind
+    : undefined;
   const fxDevices = useMemo(
     () =>
-      selectedClip
-        ? mapSessionEffectsToDevices(
-            effects,
-            selectedClip.laneId,
-            selectedMedia?.kind,
-            lanes.find((lane) => lane.id === selectedClip.laneId)?.name,
-          )
+      fxLaneId
+        ? mapSessionEffectsToDevices(effects, fxLaneId, fxKind, fxLane?.name)
         : [],
-    [effects, lanes, selectedClip, selectedMedia?.kind],
+    [effects, fxKind, fxLane?.name, fxLaneId],
   );
   const playheadSeconds = quartersToSeconds(playheadQ, bpm);
   const masterAudio = masterAudioId
@@ -4495,6 +4512,13 @@ function App() {
       project.arrangementClips.find((clip) => clip.selected) ??
       project.arrangementClips[0];
     setSelectedClipId(preferredClip?.id);
+    setSelectedLaneId(
+      preferredClip?.laneId ??
+        getDefaultLaneId(
+          project.lanes.length ? project.lanes : DEFAULT_LANES,
+          project.effects,
+        ),
+    );
     setPlayheadQ(
       secondsToQuarters(project.playPositionFrames / project.fps, project.bpm),
     );
@@ -5869,6 +5893,7 @@ function App() {
 
                           event.preventDefault();
                           setSelectedClipId(undefined);
+                          setSelectedLaneId(lane.id);
                           setIsPlaying(false);
                           setDragPreviewClips(null);
 
@@ -6585,7 +6610,7 @@ function App() {
               onClick={toggleInspectorCollapsed}
               type="button"
             >
-              <span>Effects</span>
+              <span>{fxLane ? `${fxLane.name} effects` : "Effects"}</span>
               <ChevronDownIcon aria-hidden="true" />
             </button>
 
@@ -6596,14 +6621,12 @@ function App() {
             >
               <FxChain
                 devices={fxDevices}
-                hasClip={Boolean(selectedClip)}
-                kind={selectedMedia?.kind}
-                layerFxEnabled={isLayerFxEnabled(
-                  lanes.find((lane) => lane.id === selectedClip?.laneId),
-                )}
+                kind={fxKind}
+                layerFxEnabled={isLayerFxEnabled(fxLane)}
+                layerName={fxLane?.name}
                 onSetLayerFxEnabled={(enabled) => {
-                  if (selectedClip) {
-                    setLayerFxEnabled(selectedClip.laneId, enabled);
+                  if (fxLaneId) {
+                    setLayerFxEnabled(fxLaneId, enabled);
                   }
                 }}
                 onSetEnabled={setFxDeviceEnabled}
