@@ -4565,9 +4565,7 @@ function App() {
         selection.kind === "files"
           ? selection.files.length
           : selection.refs.length;
-      setStatus(
-        `Analyzing ${pluralize(itemCount, "imported media file")}...`,
-      );
+      setStatus(`Analyzing ${pluralize(itemCount, "imported media file")}...`);
       const nextPaletteIndex = mediaItems.length;
       const analyzed = await harness.analyzeMedia(
         selection,
@@ -4603,9 +4601,7 @@ function App() {
 
       seedLocalMediaItems(analyzed);
       void cacheLocalMediaItems(analyzed);
-      setStatus(
-        `Imported ${pluralize(analyzed.length, "media file")}.`,
-      );
+      setStatus(`Imported ${pluralize(analyzed.length, "media file")}.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setStatus(`Media import failed: ${message}`);
@@ -4743,7 +4739,9 @@ function App() {
   async function handleOpenWorkspace() {
     const harness = getHarness();
     if (!harness.pickWorkspace) {
-      setStatus("Opening a workspace is not supported in this version of zvid.");
+      setStatus(
+        "Opening a workspace is not supported in this version of zvid.",
+      );
       return;
     }
 
@@ -4759,9 +4757,7 @@ function App() {
           : selection.kind === "file"
             ? selection.file.name
             : selection.name;
-      setStatus(
-        `Opening workspace ${selectionName}...`,
-      );
+      setStatus(`Opening workspace ${selectionName}...`);
       const payload = await harness.openSession(selection);
       await applyOpenedSessionPayload(payload);
     } catch (error) {
