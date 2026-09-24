@@ -42,7 +42,6 @@ import {
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
 import { getHarness, type SaveTarget } from "./harness";
-import type { ServerMediaRef } from "./session";
 import {
   buildFallbackMediaItem,
   createMediaId,
@@ -54,7 +53,11 @@ import {
 } from "./media";
 import { cacheMediaBlob, getCachedMediaBlob } from "./media-cache";
 import { matchOfflineMedia, type RelinkCandidate } from "./relink";
-import type { LvpSession, SessionOpenResponse } from "./session";
+import type {
+  LvpSession,
+  ServerMediaRef,
+  SessionOpenResponse,
+} from "./session";
 
 type TimelineMode = "musical" | "timecode";
 type SnapMode = "bar" | "beat" | "half" | "quarter";
