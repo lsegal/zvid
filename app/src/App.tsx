@@ -28,6 +28,13 @@ import {
   CompositionRenderer,
 } from "./CompositionPlayer";
 import {
+  describeClipMediaState,
+  describeMediaAvailability,
+  describePreviewMediaState,
+  formatClipMediaState,
+  isPlaceholderClip,
+} from "./clip-media-state";
+import {
   type CollaborationConnectionState,
   type CollaborationController,
   createCollaborationController,
@@ -790,19 +797,6 @@ function pickRandom<T>(items: readonly T[]) {
   }
 
   return items[Math.floor(randomFloat() * items.length)];
-}
-
-function describeMediaAvailability(
-  availability: MediaAvailability | undefined,
-) {
-  switch (availability) {
-    case "ready":
-      return "online";
-    case "hydrating":
-      return "hydrating";
-    default:
-      return "offline";
-  }
 }
 
 function mergeMediaItemsById(current: MediaItem[], incoming: MediaItem[]) {
@@ -2095,9 +2089,9 @@ function App() {
   const previewMedia = previewClip?.mediaId
     ? mediaItemsById.get(previewClip.mediaId)
     : undefined;
-  const previewMediaState = describeMediaAvailability(
-    previewMedia?.availability,
-  );
+  const previewMediaState = previewClip
+    ? describeClipMediaState(previewClip, previewMedia?.availability)
+    : "offline";
   // The compositor draws every online layer at the playhead, so an offline
   // clip on one layer only covers the preview when no layer can be drawn.
   const hasOnlinePlayheadClip = useMemo(
@@ -2240,7 +2234,7 @@ function App() {
     for (const clip of [...timelineClips, ...sourceSpans]) {
       // Placeholder clips, such as MIDI imported from a Live set, never had
       // media, so there is no file to report as offline.
-      if (!clip.mediaId && !clip.mediaPath?.trim()) {
+      if (isPlaceholderClip(clip)) {
         continue;
       }
 
@@ -6139,7 +6133,8 @@ function App() {
                           const media = clip.mediaId
                             ? mediaItemsById.get(clip.mediaId)
                             : undefined;
-                          const mediaState = describeMediaAvailability(
+                          const mediaState = describeClipMediaState(
+                            clip,
                             media?.availability,
                           );
                           return (
@@ -6221,7 +6216,7 @@ function App() {
                                   / {formatDuration(clip.durationSeconds)}
                                   {mediaState === "online"
                                     ? ""
-                                    : ` / ${mediaState}`}
+                                    : ` / ${formatClipMediaState(mediaState)}`}
                                 </span>
                               </button>
                               <button
@@ -6435,7 +6430,8 @@ function App() {
                             const media = clip.mediaId
                               ? mediaItemsById.get(clip.mediaId)
                               : undefined;
-                            const mediaState = describeMediaAvailability(
+                            const mediaState = describeClipMediaState(
+                              clip,
                               media?.availability,
                             );
                             const thumbnailUrl =
@@ -6470,11 +6466,7 @@ function App() {
                                 <div className="source-span__body">
                                   <span>{clip.label}</span>
                                   <small>
-                                    {mediaState === "online"
-                                      ? "online"
-                                      : mediaState === "hydrating"
-                                        ? "hydrating..."
-                                        : "offline clip"}
+                                    {formatClipMediaState(mediaState)}
                                   </small>
                                   <div
                                     className="source-span__line"
@@ -6644,18 +6636,18 @@ function App() {
                     <div className="preview-placeholder">
                       <div className="preview-placeholder__overlay">
                         <strong>
-                          {!previewClip
+                          {!previewClip || previewMediaState === "online"
                             ? "No clip at playhead"
-                            : "Offline clip"}
+                            : describePreviewMediaState(previewMediaState)
+                                .title}
                         </strong>
                         <span>
-                          {!previewClip
+                          {!previewClip || previewMediaState === "online"
                             ? isPlaying
                               ? "The playhead is currently in a gap between clips."
                               : "Move the playhead onto a clip or start playback to render the session comp."
-                            : previewMediaState === "hydrating"
-                              ? "Media hydration is still running in the background."
-                              : "This clip is in the project, but its media file is not cached locally yet."}
+                            : describePreviewMediaState(previewMediaState)
+                                .detail}
                         </span>
                       </div>
                     </div>
