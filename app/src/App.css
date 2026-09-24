@@ -1455,6 +1455,12 @@
   margin-top: 18px;
 }
 
+.fx-rack__empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 .fx-device {
   display: grid;
   grid-template-columns: 10px 1fr;
