@@ -6,7 +6,6 @@ import {
   PlayIcon,
 } from "@heroicons/react/24/solid";
 import {
-  Fragment,
   type DragEvent as ReactDragEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
@@ -28,6 +27,7 @@ import {
   type CollaborationController,
   createCollaborationController,
 } from "./collaboration";
+import { FxChain, type FxEditMode } from "./components/FxChain";
 import { OfflineMediaDialog } from "./components/OfflineMediaDialog";
 import {
   Dialog,
@@ -48,6 +48,7 @@ import {
 } from "./components/ui/dropdown-menu";
 import {
   effectHistoryLabels,
+  type FxDevice,
   mapEffects,
   mapSessionEffectsToDevices,
   type SessionEffect,
@@ -1579,7 +1580,6 @@ function App() {
   const [selectedClipId, setSelectedClipId] = useState<string>();
   const [pendingSelection, setPendingSelection] =
     useState<TimelineSelection | null>(null);
-  const [selectedFxId, setSelectedFxId] = useState<string>();
   const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(
     readInspectorCollapsed,
   );
@@ -1762,6 +1762,25 @@ function App() {
       );
     },
     [],
+  );
+
+  const setFxDeviceEnabled = useCallback(
+    (device: FxDevice, enabled: boolean) =>
+      editEffects(
+        effectHistoryLabels.enabled(device.effectName, enabled),
+        (current) => setEffectEnabled(current, device.id, enabled),
+      ),
+    [editEffects],
+  );
+
+  const setFxDeviceParameter = useCallback(
+    (device: FxDevice, key: string, value: number | string, mode: FxEditMode) =>
+      editEffects(
+        effectHistoryLabels.parameter(device.effectName, key),
+        (current) => setEffectParameter(current, device.id, key, value),
+        mode,
+      ),
+    [editEffects],
   );
 
   const updateZoomDraft = useCallback((nextZoom: number | null) => {
@@ -2005,11 +2024,6 @@ function App() {
   const previewMediaState = describeMediaAvailability(
     previewMedia?.availability,
   );
-  const selectedTrack = useMemo(
-    () =>
-      sourceTracks.find((track) => track.id === selectedClip?.sourceTrackId),
-    [selectedClip?.sourceTrackId, sourceTracks],
-  );
   const fxDevices = useMemo(
     () =>
       selectedClip
@@ -2021,21 +2035,6 @@ function App() {
           )
         : [],
     [effects, lanes, selectedClip, selectedMedia?.kind],
-  );
-  const selectedClipHasEffects = useMemo(
-    () =>
-      Boolean(selectedClip) &&
-      effects.some(
-        (effect) =>
-          effect.trackId === selectedClip?.laneId ||
-          effect.trackId === "__group_main",
-      ),
-    [effects, selectedClip],
-  );
-  const selectedFx = useMemo(
-    () =>
-      fxDevices.find((device) => device.id === selectedFxId) ?? fxDevices[0],
-    [fxDevices, selectedFxId],
   );
   const playheadSeconds = quartersToSeconds(playheadQ, bpm);
   const masterAudio = masterAudioId
@@ -6521,7 +6520,7 @@ function App() {
               onClick={toggleInspectorCollapsed}
               type="button"
             >
-              <span>FX Layer Stack &amp; Inspector</span>
+              <span>Effects</span>
               <ChevronDownIcon aria-hidden="true" />
             </button>
 
@@ -6530,183 +6529,13 @@ function App() {
               hidden={isInspectorCollapsed}
               id="fx-panel-body"
             >
-              <div className="fx-rack">
-                <div className="fx-rack__header">
-                  <strong>FX Layer Stack</strong>
-                  <span>
-                    {!selectedClip
-                      ? "Select a clip to see its effects"
-                      : selectedClipHasEffects
-                        ? "Imported from the .lvp session"
-                        : "No session effects"}
-                  </span>
-                </div>
-
-                <div className="fx-rack__devices">
-                  {selectedClip && !fxDevices.length ? (
-                    <p className="fx-rack__empty">No effects on this clip</p>
-                  ) : null}
-                  {fxDevices.map((device, index) => (
-                    <Fragment key={device.id}>
-                      {device.group === "global" &&
-                      fxDevices[index - 1]?.group !== "global" ? (
-                        <p className="fx-rack__group">Global</p>
-                      ) : null}
-                      <button
-                        className={`fx-device ${selectedFx?.id === device.id ? "fx-device--active" : ""} ${device.enabled ? "" : "fx-device--bypassed"}`}
-                        onClick={() => setSelectedFxId(device.id)}
-                        title={device.description}
-                        type="button"
-                      >
-                        <div
-                          className="fx-device__badge"
-                          style={{ backgroundColor: device.accent }}
-                        />
-                        <div>
-                          <strong>{device.name}</strong>
-                          <span>
-                            {device.enabled
-                              ? device.subtitle
-                              : `${device.subtitle} · Bypassed`}
-                          </span>
-                        </div>
-                      </button>
-                    </Fragment>
-                  ))}
-                </div>
-              </div>
-
-              <div className="fx-inspector">
-                <div className="fx-inspector__header">
-                  <div>
-                    <strong>
-                      {selectedClip
-                        ? (selectedFx?.name ?? "No effects")
-                        : "No clip selected"}
-                    </strong>
-                    {selectedClip ? (
-                      <span>{selectedTrack?.name ?? selectedClip.label}</span>
-                    ) : null}
-                  </div>
-                  {selectedClip && selectedFx && !selectedFx.placeholder ? (
-                    <button
-                      aria-pressed={selectedFx.enabled}
-                      className={`fx-inspector__power ${selectedFx.enabled ? "fx-inspector__power--on" : ""}`}
-                      onClick={() =>
-                        editEffects(
-                          effectHistoryLabels.enabled(
-                            selectedFx.effectName,
-                            !selectedFx.enabled,
-                          ),
-                          (current) =>
-                            setEffectEnabled(
-                              current,
-                              selectedFx.id,
-                              !selectedFx.enabled,
-                            ),
-                        )
-                      }
-                      style={
-                        selectedFx.enabled
-                          ? { borderColor: selectedFx.accent }
-                          : undefined
-                      }
-                      type="button"
-                    >
-                      {selectedFx.enabled ? "On" : "Bypassed"}
-                    </button>
-                  ) : null}
-                </div>
-
-                {selectedFx ? (
-                  <div
-                    className={`fx-inspector__grid ${selectedFx.enabled ? "" : "fx-inspector__grid--bypassed"}`}
-                  >
-                    {selectedFx.parameters.map((parameter) => {
-                      const commitParameter = (value: number | string) =>
-                        editEffects(
-                          effectHistoryLabels.parameter(
-                            selectedFx.effectName,
-                            parameter.key,
-                          ),
-                          (current) =>
-                            setEffectParameter(
-                              current,
-                              selectedFx.id,
-                              parameter.key,
-                              value,
-                            ),
-                        );
-                      // Ends a slider gesture; a no-op unless it changed.
-                      const commitSlider = (event: {
-                        currentTarget: HTMLInputElement;
-                      }) => commitParameter(event.currentTarget.valueAsNumber);
-
-                      return (
-                        <div key={parameter.key} className="parameter-card">
-                          <span>{parameter.label}</span>
-                          <strong>{parameter.display}</strong>
-                          {parameter.kind === "enum" ? (
-                            <select
-                              aria-label={parameter.label}
-                              className="parameter-card__select"
-                              disabled={selectedFx.placeholder}
-                              onChange={(event) =>
-                                commitParameter(event.currentTarget.value)
-                              }
-                              value={parameter.stringValue}
-                            >
-                              {parameter.options?.map((option) => (
-                                <option key={option} value={option}>
-                                  {option}
-                                </option>
-                              ))}
-                            </select>
-                          ) : (
-                            <input
-                              aria-label={parameter.label}
-                              aria-valuetext={parameter.display}
-                              className="parameter-card__slider"
-                              disabled={selectedFx.placeholder}
-                              max={parameter.max}
-                              min={parameter.min}
-                              onChange={(event) => {
-                                const value = event.currentTarget.valueAsNumber;
-                                editEffects(
-                                  "",
-                                  (current) =>
-                                    setEffectParameter(
-                                      current,
-                                      selectedFx.id,
-                                      parameter.key,
-                                      value,
-                                    ),
-                                  "transient",
-                                );
-                              }}
-                              onBlur={commitSlider}
-                              onKeyUp={commitSlider}
-                              onPointerUp={commitSlider}
-                              step={parameter.step ?? "any"}
-                              style={{ accentColor: selectedFx.accent }}
-                              type="range"
-                              value={parameter.numericValue}
-                            />
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="inspector-note">
-                    <strong>
-                      {selectedClip
-                        ? "No effects on this clip"
-                        : "Select a clip to edit its layout"}
-                    </strong>
-                  </div>
-                )}
-              </div>
+              <FxChain
+                devices={fxDevices}
+                hasClip={Boolean(selectedClip)}
+                kind={selectedMedia?.kind}
+                onSetEnabled={setFxDeviceEnabled}
+                onSetParameter={setFxDeviceParameter}
+              />
             </div>
           </section>
         </div>
