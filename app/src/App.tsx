@@ -2034,9 +2034,6 @@ function App() {
       timelineClips[0],
     [selectedClipId, timelineClips],
   );
-  const selectedMedia = selectedClip?.mediaId
-    ? mediaItemsById.get(selectedClip.mediaId)
-    : undefined;
   const playheadClip = useMemo(
     () => findClipAtPlayhead(timelineClips, playheadQ, bpm, lanePriority),
     [bpm, lanePriority, playheadQ, timelineClips],
