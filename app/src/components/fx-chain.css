@@ -1,0 +1,264 @@
+/*
+ * Horizontal FX device chain. Each device is a rounded panel tinted with its
+ * registry accent (--fx-accent); panels keep their content width and the row
+ * scrolls sideways.
+ */
+.fx-chain {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px 16px 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.fx-chain__empty {
+  flex: none;
+  align-self: center;
+  margin: 0;
+  padding: 18px 20px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 16px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.fx-chain__divider {
+  flex: none;
+  display: flex;
+  align-items: center;
+  padding: 0 4px;
+  border-left: 1px solid var(--line-strong);
+}
+
+.fx-chain__divider span {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  padding-left: 10px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fx-device-panel {
+  --fx-accent: var(--muted);
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+  border: 1px solid color-mix(in srgb, var(--fx-accent) 34%, var(--line));
+  border-radius: 16px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--fx-accent) 10%, transparent),
+      transparent 60%
+    ),
+    rgba(11, 13, 19, 0.32);
+  transition:
+    opacity 160ms ease,
+    border-color 160ms ease;
+}
+
+.fx-device-panel--bypassed {
+  border-color: var(--line);
+  opacity: 0.5;
+}
+
+.fx-device-panel--layer-off {
+  border-color: var(--line);
+  opacity: 0.35;
+}
+
+.fx-chain__layer-off {
+  flex: none;
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.fx-chain__layer-off button {
+  padding: 4px 12px;
+  border: 1px solid var(--amber);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--amber);
+  font: inherit;
+  cursor: pointer;
+}
+
+.fx-device-panel__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px 7px 7px;
+  border-bottom: 1px solid var(--line);
+  cursor: default;
+  user-select: none;
+}
+
+.fx-device-panel__title strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fx-device-panel__power,
+.fx-device-panel__collapse {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.fx-device-panel__power svg,
+.fx-device-panel__collapse svg {
+  width: 13px;
+  height: 13px;
+}
+
+.fx-device-panel__power[aria-pressed="true"] {
+  border-color: var(--fx-accent);
+  background: color-mix(in srgb, var(--fx-accent) 22%, transparent);
+  color: var(--fx-accent);
+}
+
+.fx-device-panel__collapse {
+  border-color: transparent;
+}
+
+.fx-device-panel__power:hover,
+.fx-device-panel__collapse:hover {
+  color: var(--ink);
+}
+
+.fx-device-panel__body {
+  display: grid;
+  align-content: start;
+  justify-content: start;
+  gap: 8px 4px;
+  padding: 10px 8px 12px;
+}
+
+.fx-device-panel__empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+/* Folded devices shrink to a strip with a vertical name, like Ableton. */
+.fx-device-panel--collapsed {
+  width: 28px;
+  min-width: 28px;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0 6px;
+  overflow: hidden;
+}
+
+.fx-device-panel--collapsed .fx-device-panel__power {
+  width: 22px;
+  height: 22px;
+}
+
+.fx-device-panel__strip {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  min-height: 0;
+  padding: 4px 0;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.fx-device-panel__strip span {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  overflow: hidden;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fx-device-panel__strip:hover span {
+  color: var(--fx-accent);
+}
+
+.fx-segmented {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.fx-segmented legend {
+  float: left;
+  width: 100%;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.fx-segmented__options {
+  display: flex;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(11, 13, 19, 0.4);
+}
+
+.fx-segmented__options button {
+  padding: 4px 10px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.fx-segmented__options button:hover {
+  color: var(--ink);
+}
+
+.fx-segmented__options button[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--fx-accent) 26%, transparent);
+  color: var(--ink);
+}

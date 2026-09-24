@@ -2,15 +2,66 @@
 /// <reference lib="dom" />
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { analogGlitchPass } from "./analog-glitch.ts";
 import { OfflineAudioBands } from "./audio-bands.ts";
+import { pixelatePass } from "./pixelate.ts";
 import {
   type ChainEffect,
   isChainEffectName,
   resolveEffectChain,
 } from "./registry.ts";
+import type {
+  EffectContext,
+  EffectParameter,
+  EffectPass,
+  EffectUniformLocations,
+} from "./types.ts";
 import { readEffectNumber } from "./types.ts";
+import { zoomAndPanPass } from "./zoom-and-pan.ts";
 
 const SAMPLE_RATE = 48000;
+
+const CONTEXT: EffectContext = {
+  time: 2.5,
+  clipProgress: 0.25,
+  resolution: [1080, 1920],
+  audioLow: 0.4,
+  audioHigh: 0.6,
+};
+
+function params(values: Record<string, number>): EffectParameter[] {
+  return Object.entries(values).map(([key, value]) => ({
+    key,
+    value: String(value),
+    numericValue: value,
+  }));
+}
+
+// Runs a pass's setUniforms against a stand-in context and returns the values
+// it sent, keyed by uniform name.
+function uniformValues(
+  pass: EffectPass,
+  parameters: EffectParameter[],
+  ctx = CONTEXT,
+) {
+  const values: Record<string, number[]> = {};
+  const locations: EffectUniformLocations = {};
+  for (const name of pass.uniforms) {
+    locations[name] = { name } as unknown as WebGLUniformLocation;
+  }
+  const record =
+    () =>
+    (location: WebGLUniformLocation | null, ...args: number[]) => {
+      values[(location as unknown as { name: string }).name] = args;
+    };
+  const gl = {
+    uniform1f: record(),
+    uniform2f: record(),
+    uniform3f: record(),
+  } as unknown as WebGLRenderingContext;
+  pass.setUniforms(gl, locations, parameters, ctx);
+  return values;
+}
 
 function effect(
   trackId: string,
@@ -70,7 +121,7 @@ describe("resolveEffectChain", () => {
     const chain = resolveEffectChain(
       [
         effect("6", "Colorize", false),
-        effect("6", "AnalogGlitch"),
+        effect("6", "EdgeTrailPulse"),
         effect("6", "Negative Split"),
       ],
       "6",
@@ -84,8 +135,72 @@ describe("resolveEffectChain", () => {
 
   it("recognizes only effects that have a shader", () => {
     assert.equal(isChainEffectName("colorize"), true);
+    assert.equal(isChainEffectName("Zoom And Pan"), true);
+    assert.equal(isChainEffectName("Pixelate"), true);
+    assert.equal(isChainEffectName("AnalogGlitch"), true);
     assert.equal(isChainEffectName("Layout"), false);
-    assert.equal(isChainEffectName("ZoomAndPan"), false);
+    assert.equal(isChainEffectName("EdgeTrailPulse"), false);
+  });
+});
+
+describe("effect passes", () => {
+  it("sets every uniform each pass declares", () => {
+    for (const pass of [pixelatePass, analogGlitchPass, zoomAndPanPass]) {
+      assert.deepEqual(
+        Object.keys(uniformValues(pass, [])).sort(),
+        [...pass.uniforms].sort(),
+        pass.effectName,
+      );
+    }
+  });
+
+  it("feeds Pixelate its amount, intensities, surface size and audio", () => {
+    const values = uniformValues(
+      pixelatePass,
+      params({ _NumPixels: 0.83, _LowIntensity: 1, _HighIntensity: 1.5 }),
+    );
+
+    assert.deepEqual(values.uRes, [1080, 1920]);
+    assert.ok(Math.abs(values.uNum[0] - 0.83) < 1e-9);
+    assert.deepEqual(values.uLow, [1]);
+    assert.deepEqual(values.uHigh, [1]);
+    assert.deepEqual(values.uAudioLow, [0.4]);
+    assert.deepEqual(values.uAudioHigh, [0.6]);
+  });
+
+  it("seeds Analog Glitch from the playhead time only", () => {
+    const parameters = params({ _LowMod: 0.2, _HighMod: 0.2 });
+    const first = uniformValues(analogGlitchPass, parameters);
+    const again = uniformValues(analogGlitchPass, parameters);
+
+    assert.deepEqual(first, again);
+    assert.deepEqual(first.uTime, [2.5]);
+    assert.doesNotMatch(analogGlitchPass.fragmentSource, /random/i);
+  });
+
+  it("clamps Zoom & Pan framings and the clip progress to 0..1", () => {
+    const values = uniformValues(
+      zoomAndPanPass,
+      params({
+        _Start_Zoom: 0,
+        _Start_X: 0.25,
+        _Start_Y: 0.25,
+        _End_Zoom: 1.4,
+        _End_X: -0.5,
+        _End_Y: 0.75,
+      }),
+      { ...CONTEXT, clipProgress: 1.2 },
+    );
+
+    assert.deepEqual(values.uStart, [0, 0.25, 0.25]);
+    assert.deepEqual(values.uEnd, [1, 0, 0.75]);
+    assert.deepEqual(values.uProgress, [1]);
+  });
+
+  it("centers a Zoom & Pan framing with missing parameters", () => {
+    const values = uniformValues(zoomAndPanPass, []);
+    assert.deepEqual(values.uStart, [0, 0.5, 0.5]);
+    assert.deepEqual(values.uEnd, [0, 0.5, 0.5]);
   });
 });
 
