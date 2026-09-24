@@ -1,10 +1,10 @@
+import type { RecordingProbe } from "../als-import";
 import {
   createMediaId,
   inferMediaKind,
   type MediaItem,
   type Palette,
 } from "../media";
-import type { RecordingProbe } from "../als-import";
 import type { ServerMediaRef } from "../session";
 import type { MediaSelection } from "./contracts";
 

@@ -18,6 +18,11 @@ import {
 } from "react";
 import "./App.css";
 import {
+  AlsImportError,
+  formatAlsImportSummary,
+  isAlsFilename,
+} from "./als-import";
+import {
   CompositionPlayer,
   type CompositionPlayerHandle,
   CompositionRenderer,
@@ -33,6 +38,10 @@ import {
   openBuildCommit,
 } from "./components/BrandMark";
 import { FxChain, type FxEditMode } from "./components/FxChain";
+import {
+  ImportNotice,
+  type ImportNoticeContent,
+} from "./components/ImportNotice";
 import { OfflineMediaDialog } from "./components/OfflineMediaDialog";
 import { StatusBar, type StatusItem } from "./components/StatusBar";
 import {
@@ -1617,6 +1626,9 @@ function App() {
   });
   const [status, setStatus] = useState(
     "Open a session or import media to get started.",
+  );
+  const [importNotice, setImportNotice] = useState<ImportNoticeContent | null>(
+    null,
   );
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [timelineDragState, setTimelineDragState] =
@@ -4603,6 +4615,15 @@ function App() {
     );
     setDragPreviewClips(null);
     setPendingSelection(null);
+    setImportNotice(
+      payload.alsImport
+        ? {
+            tone: "summary",
+            title: `Imported ${payload.sessionName}`,
+            lines: formatAlsImportSummary(payload.alsImport),
+          }
+        : null,
+    );
 
     const preferredClip =
       project.arrangementClips.find((clip) => clip.selected) ??
@@ -4810,14 +4831,36 @@ function App() {
     }
   }
 
+  // A failed Live set import is reported in the import notice, since the
+  // status line alone is easy to miss.
+  function reportOpenFailure(
+    prefix: string,
+    selectionName: string | undefined,
+    error: unknown,
+  ) {
+    const message = error instanceof Error ? error.message : String(error);
+    setStatus(`${prefix}: ${message}`);
+    if (
+      error instanceof AlsImportError ||
+      (selectionName && isAlsFilename(selectionName))
+    ) {
+      setImportNotice({
+        tone: "error",
+        title: `Could not open ${selectionName ?? "the Live set"}`,
+        lines: [message],
+      });
+    }
+  }
+
   async function handleOpenSession() {
     const harness = getHarness();
+    let selectionName: string | undefined;
     try {
       const selection = await harness.pickSession();
       if (!selection) {
         return;
       }
-      const selectionName =
+      selectionName =
         selection.kind === "file"
           ? selection.file.name
           : selection.kind === "workspace"
@@ -4827,8 +4870,7 @@ function App() {
       const payload = await harness.openSession(selection);
       await applyOpenedSessionPayload(payload);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setStatus(`Open failed: ${message}`);
+      reportOpenFailure("Open failed", selectionName, error);
     }
   }
 
@@ -4841,13 +4883,14 @@ function App() {
       return;
     }
 
+    let selectionName: string | undefined;
     try {
       const selection = await harness.pickWorkspace();
       if (!selection) {
         return;
       }
 
-      const selectionName =
+      selectionName =
         selection.kind === "workspace"
           ? selection.sessionFile.name
           : selection.kind === "file"
@@ -4857,8 +4900,7 @@ function App() {
       const payload = await harness.openSession(selection);
       await applyOpenedSessionPayload(payload);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setStatus(`Open workspace failed: ${message}`);
+      reportOpenFailure("Open workspace failed", selectionName, error);
     }
   }
 
@@ -5533,7 +5575,7 @@ function App() {
               <DropdownMenuItem
                 onSelect={() =>
                   setStatus(
-                    "Use File → Open Session to open a .lvp session, or File → Import Media to add clips.",
+                    "Use File → Open Session to open a .lvp session or an Ableton .als set, or File → Import Media to add clips.",
                   )
                 }
               >
@@ -6287,6 +6329,7 @@ function App() {
                           <button
                             className="ghost-button"
                             onClick={() => void handleOpenSession()}
+                            title="Open a .lvp session or an Ableton .als set"
                             type="button"
                           >
                             Open Session
@@ -6734,6 +6777,12 @@ function App() {
         </div>
       </main>
 
+      {importNotice ? (
+        <ImportNotice
+          notice={importNotice}
+          onDismiss={() => setImportNotice(null)}
+        />
+      ) : null}
       <StatusBar items={STATUS_BAR_ITEMS} />
     </div>
   );

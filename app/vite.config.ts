@@ -156,10 +156,7 @@ async function buildAlsOpenPayload(
   };
 }
 
-function writeError(
-  response: Parameters<typeof writeJson>[0],
-  error: unknown,
-) {
+function writeError(response: Parameters<typeof writeJson>[0], error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   writeJson(response, error instanceof AlsImportError ? 422 : 500, {
     error: message,
@@ -258,11 +255,7 @@ function diskMediaPlugin(): Plugin {
             const session = JSON.parse(
               new TextDecoder().decode(bytes),
             ) as LvpSession;
-            writeJson(
-              response,
-              200,
-              buildSessionOpenPayload(session, options),
-            );
+            writeJson(response, 200, buildSessionOpenPayload(session, options));
           } catch (error) {
             writeError(response, error);
           }
