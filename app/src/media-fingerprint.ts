@@ -25,7 +25,7 @@ function sampleOffsets(size: number) {
 function hashBytes(state: [number, number], bytes: Uint8Array) {
   let [high, low] = state;
   for (const byte of bytes) {
-    low ^= byte;
+    low = (low ^ byte) >>> 0;
     const lowProduct = low * 0x1b3;
     const carry = Math.floor(lowProduct / 0x100000000);
     high = (Math.imul(high, 0x1b3) + Math.imul(low, 0x100) + carry) >>> 0;
