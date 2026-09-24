@@ -177,10 +177,16 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-read-file-bytes`\n- `allow-write-file-bytes`\n- `allow-mux-export`",
+          "description": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-read-file-bytes`\n- `allow-read-file-prefix`\n- `allow-files-exist`\n- `allow-write-file-bytes`\n- `allow-mux-export`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-read-file-bytes`\n- `allow-write-file-bytes`\n- `allow-mux-export`"
+          "markdownDescription": "Default application permissions.\n#### This default permission set includes:\n\n- `allow-open-session`\n- `allow-read-file-bytes`\n- `allow-read-file-prefix`\n- `allow-files-exist`\n- `allow-write-file-bytes`\n- `allow-mux-export`"
+        },
+        {
+          "description": "Enables the files_exist command.",
+          "type": "string",
+          "const": "allow-files-exist",
+          "markdownDescription": "Enables the files_exist command."
         },
         {
           "description": "Enables the mux_export command.",
@@ -199,6 +205,12 @@
           "type": "string",
           "const": "allow-read-file-bytes",
           "markdownDescription": "Enables the read_file_bytes command."
+        },
+        {
+          "description": "Enables the read_file_prefix command.",
+          "type": "string",
+          "const": "allow-read-file-prefix",
+          "markdownDescription": "Enables the read_file_prefix command."
         },
         {
           "description": "Enables the write_file_bytes command.",

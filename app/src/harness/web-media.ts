@@ -1,3 +1,4 @@
+import type { RecordingProbe } from "../als-import";
 import {
   createMediaId,
   inferMediaKind,
@@ -425,6 +426,29 @@ async function analyzeServerMediaRef(
       },
     );
     return createMetadataFallbackItem(options);
+  }
+}
+
+// Frame count and rate of a recording, read from its container metadata.
+export async function probeRecordingFrames(
+  url: string,
+): Promise<RecordingProbe | null> {
+  const runtime = await loadRuntime();
+  const { ALL_FORMATS, Input, UrlSource } = runtime.mediabunny;
+  const input = new Input({ formats: ALL_FORMATS, source: new UrlSource(url) });
+  try {
+    const videoTrack = await input.getPrimaryVideoTrack();
+    if (!videoTrack) {
+      return null;
+    }
+
+    const stats = await videoTrack.computePacketStats();
+    return {
+      numFrames: stats.packetCount,
+      frameRate: stats.averagePacketRate,
+    };
+  } finally {
+    input.dispose();
   }
 }
 

@@ -1,8 +1,25 @@
-import type { ServerMediaRef, SessionOpenResponse } from "../session";
+import {
+  alsMediaCandidatePaths,
+  alsMediaSearchDirs,
+  alsSavePath,
+  createAlsMediaLocator,
+  importAls,
+  isAlsSession,
+  probeAlsRecordings,
+  resolveAlsMedia,
+} from "../als-import";
+import {
+  collectSessionMediaPaths,
+  type ServerMediaRef,
+  type SessionOpenResponse,
+} from "../session";
 import type { Harness } from "./contracts";
 import { exportVideo } from "./export";
 import { MEDIA_EXTENSIONS } from "./media-extensions";
-import { generateThumbnailFromUrlAtTime } from "./web-media";
+import {
+  generateThumbnailFromUrlAtTime,
+  probeRecordingFrames,
+} from "./web-media";
 
 function basename(rawPath: string) {
   return rawPath.split(/[/\\]/).filter(Boolean).pop() ?? rawPath;
@@ -24,10 +41,12 @@ export async function maybeCreateTauriHarness(
   base: Harness,
 ): Promise<Harness | null> {
   try {
-    const [{ convertFileSrc, invoke, isTauri }, dialog] = await Promise.all([
-      import("@tauri-apps/api/core"),
-      import("@tauri-apps/plugin-dialog"),
-    ]);
+    const [{ convertFileSrc, invoke, isTauri }, { documentDir }, dialog] =
+      await Promise.all([
+        import("@tauri-apps/api/core"),
+        import("@tauri-apps/api/path"),
+        import("@tauri-apps/plugin-dialog"),
+      ]);
 
     if (!isTauri()) {
       return null;
@@ -42,6 +61,44 @@ export async function maybeCreateTauriHarness(
       url: convertFileSrc(path),
       exists: true,
     });
+
+    // Imports a Live set and locates its recordings beside it, in the
+    // project's sibling `Recorded` folder, then in Documents/Layers/Recorded.
+    const openAlsSession = async (
+      bytes: Uint8Array,
+      sessionPath: string,
+    ): Promise<SessionOpenResponse> => {
+      const imported = await importAls(bytes, sessionPath);
+      const dirs = alsMediaSearchDirs(
+        sessionPath,
+        await documentDir().catch(() => undefined),
+      );
+      const candidates = alsMediaCandidatePaths(imported, dirs);
+      const exists = await invoke<boolean[]>("files_exist", {
+        paths: candidates,
+      });
+      const found = new Set(candidates.filter((_, index) => exists[index]));
+      const { session, recordingPaths, summary } = resolveAlsMedia(
+        imported,
+        createAlsMediaLocator(dirs, (path) => found.has(path)),
+      );
+      const probed = await probeAlsRecordings(
+        session,
+        recordingPaths.map(toMediaRef),
+        probeRecordingFrames,
+      );
+      return {
+        sessionName: basename(sessionPath),
+        sessionPath: alsSavePath(sessionPath),
+        session: probed,
+        mediaRefs: collectSessionMediaPaths(probed).map((path) =>
+          found.has(path)
+            ? toMediaRef(path)
+            : { ...toMediaRef(path), url: "", exists: false },
+        ),
+        alsImport: summary,
+      };
+    };
 
     return {
       ...base,
@@ -60,8 +117,8 @@ export async function maybeCreateTauriHarness(
           directory: false,
           filters: [
             {
-              name: "Zvid Session",
-              extensions: ["lvp", "json"],
+              name: "Session or Ableton Live Set",
+              extensions: ["lvp", "als", "json"],
             },
           ],
         });
@@ -132,20 +189,34 @@ export async function maybeCreateTauriHarness(
           path: selected,
         };
       },
-      openSession(selection) {
+      async openSession(selection) {
         if (selection.kind !== "path") {
           return base.openSession(selection);
         }
 
-        return invoke<SessionOpenPayload>("open_session", {
+        const prefix = new Uint8Array(
+          await invoke<number[]>("read_file_prefix", {
+            path: selection.path,
+            length: 2,
+          }),
+        );
+        if (isAlsSession(prefix, selection.path)) {
+          const bytes = await invoke<number[]>("read_file_bytes", {
+            path: selection.path,
+          });
+          return openAlsSession(new Uint8Array(bytes), selection.path);
+        }
+
+        const payload = await invoke<SessionOpenPayload>("open_session", {
           sessionPath: selection.path,
-        }).then((payload) => ({
+        });
+        return {
           ...payload,
           mediaRefs: payload.mediaRefs.map((ref) => ({
             ...ref,
             url: ref.exists ? convertFileSrc(ref.path) : "",
           })),
-        }));
+        };
       },
       async analyzeMedia(selection, palettes, startIndex) {
         if (selection.kind === "files") {

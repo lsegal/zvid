@@ -93,6 +93,25 @@ fn read_file_bytes(path: String) -> Result<Vec<u8>, String> {
   fs::read(&path).map_err(|error| format!("Failed to read file bytes: {error}"))
 }
 
+// Enough of a file to sniff its format without reading all of it.
+#[tauri::command]
+fn read_file_prefix(path: String, length: usize) -> Result<Vec<u8>, String> {
+  use std::io::Read;
+
+  let file = fs::File::open(&path).map_err(|error| format!("Failed to read file: {error}"))?;
+  let mut prefix = Vec::with_capacity(length);
+  file
+    .take(length as u64)
+    .read_to_end(&mut prefix)
+    .map_err(|error| format!("Failed to read file: {error}"))?;
+  Ok(prefix)
+}
+
+#[tauri::command]
+fn files_exist(paths: Vec<String>) -> Vec<bool> {
+  paths.iter().map(|path| Path::new(path).is_file()).collect()
+}
+
 #[tauri::command]
 fn write_file_bytes(path: String, bytes: Vec<u8>) -> Result<(), String> {
   fs::write(&path, bytes).map_err(|error| format!("Failed to write file: {error}"))
@@ -166,6 +185,8 @@ fn main() {
       open_session,
       list_media_files,
       read_file_bytes,
+      read_file_prefix,
+      files_exist,
       write_file_bytes,
       export::mux_export
     ])
@@ -205,6 +226,25 @@ mod tests {
 
     assert_eq!(names(&found), vec!["a.mp4", "b.MOV", "c.wav"]);
     assert!(found.iter().all(|path| Path::new(path).is_absolute()));
+  }
+
+  #[test]
+  fn reads_file_prefix_and_checks_files() {
+    let root = tempfile::tempdir().unwrap();
+    let set = root.path().join("set.als");
+    fs::write(&set, [0x1f, 0x8b, 0x08, 0x00]).unwrap();
+    let set_path = set.to_string_lossy().into_owned();
+
+    assert_eq!(read_file_prefix(set_path.clone(), 2).unwrap(), vec![0x1f, 0x8b]);
+    assert_eq!(read_file_prefix(set_path.clone(), 16).unwrap().len(), 4);
+    assert_eq!(
+      files_exist(vec![
+        set_path,
+        root.path().join("missing.mp4").to_string_lossy().into_owned(),
+        root.path().to_string_lossy().into_owned(),
+      ]),
+      vec![true, false, false]
+    );
   }
 
   #[test]
