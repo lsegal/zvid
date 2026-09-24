@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   FX_COLLAPSED_STORAGE_KEY,
+  getDefaultLaneId,
   getParameterFormat,
   groupChainDevices,
   knobColumnCount,
   readCollapsedDevices,
+  resolveSelectedLaneId,
   toggleCollapsedDevice,
   writeCollapsedDevices,
 } from "./fx-chain.ts";
@@ -152,5 +154,58 @@ describe("collapsed device storage", () => {
     );
     assert.deepEqual(Array.from(toggleCollapsedDevice(collapsed, "fx-1")), []);
     assert.deepEqual(Array.from(collapsed), ["fx-1"]);
+  });
+});
+
+describe("resolveSelectedLaneId", () => {
+  const lanes = [{ id: "1" }, { id: "2" }, { id: "3" }];
+  const effects = [
+    effect("fx-1", "3", "Pixelate"),
+    effect("fx-global", GLOBAL_EFFECT_TRACK_ID, "Layout"),
+  ];
+
+  it("follows the selected clip's layer", () => {
+    assert.equal(
+      resolveSelectedLaneId(lanes, effects, "3", { id: "c", laneId: "1" }),
+      "1",
+    );
+  });
+
+  it("keeps the selected layer when no clip is selected", () => {
+    assert.equal(resolveSelectedLaneId(lanes, effects, "2", undefined), "2");
+  });
+
+  it("falls back to the default when the selected layer was removed", () => {
+    assert.equal(resolveSelectedLaneId(lanes, effects, "9", undefined), "3");
+    assert.equal(
+      resolveSelectedLaneId(lanes, effects, undefined, {
+        id: "c",
+        laneId: "9",
+      }),
+      "3",
+    );
+  });
+
+  it("returns undefined when there are no layers", () => {
+    assert.equal(resolveSelectedLaneId([], effects, "1", undefined), undefined);
+  });
+});
+
+describe("getDefaultLaneId", () => {
+  it("prefers the first layer with effects", () => {
+    assert.equal(
+      getDefaultLaneId(
+        [{ id: "1" }, { id: "2" }, { id: "3" }],
+        [
+          effect("fx-global", GLOBAL_EFFECT_TRACK_ID, "Layout"),
+          effect("fx-2", "2", "Colorize"),
+        ],
+      ),
+      "2",
+    );
+  });
+
+  it("falls back to the first layer", () => {
+    assert.equal(getDefaultLaneId([{ id: "1" }, { id: "2" }], []), "1");
   });
 });

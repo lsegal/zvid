@@ -22,8 +22,9 @@ export type FxEditMode = "commit" | "transient";
 
 type FxChainProps = {
   devices: FxDevice[];
-  hasClip: boolean;
   kind: string | undefined;
+  // Name of the selected layer, such as "Layer 3"; undefined when none is.
+  layerName: string | undefined;
   // False when the selected layer's FX badge bypasses its whole stack.
   layerFxEnabled?: boolean;
   onSetLayerFxEnabled?: (enabled: boolean) => void;
@@ -46,8 +47,8 @@ function getStorage() {
 
 export function FxChain({
   devices,
-  hasClip,
   kind,
+  layerName,
   layerFxEnabled = true,
   onSetLayerFxEnabled,
   onSetEnabled,
@@ -118,11 +119,11 @@ export function FxChain({
     );
   }
 
-  const emptyMessage = !hasClip
-    ? "Select a clip to see its effects"
+  const emptyMessage = !layerName
+    ? "Select a layer to see its effects"
     : groups.layer.length
       ? null
-      : "No effects on this layer";
+      : `No effects on ${layerName}`;
 
   return (
     <div className="fx-chain" ref={scrollRef}>
