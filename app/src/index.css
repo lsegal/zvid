@@ -1,6 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap');
 
 :root {
+  --scrollbar-thumb: rgba(255, 255, 255, 0.22);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.34);
+  color-scheme: dark;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
   color: #eef2ff;
   background: #232535;
   font-family: 'Space Grotesk', sans-serif;
@@ -48,6 +52,26 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible {
   box-shadow: 0 0 0 2px rgba(246, 183, 60, 0.45);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--scrollbar-thumb) padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover) padding-box;
 }
 
 ::selection {
