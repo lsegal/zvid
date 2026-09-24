@@ -1014,6 +1014,12 @@
   border-bottom: 1px solid var(--line);
 }
 
+.source-empty-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .track-label--source {
   width: 100%;
   border: none;

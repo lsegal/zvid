@@ -520,7 +520,7 @@ function ensureWebGlResources(canvas: HTMLCanvasElement) {
     premultipliedAlpha: false,
   });
   if (!gl) {
-    throw new Error("WebGL is unavailable in this runtime.");
+    throw new Error("WebGL is unavailable on this device.");
   }
 
   const program = createProgram(gl);
