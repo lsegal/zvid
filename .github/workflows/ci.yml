@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+        with:
+          install-root: "true"
+
+      # `tsc -b` in lint type-checks the dynamic import of the wasm bridge,
+      # so the package must exist before linting.
+      - name: Build export bridge
+        working-directory: app
+        run: wasm-pack build export-bridge --target web --out-dir pkg
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Unit tests and build
+        if: ${{ !cancelled() }}
+        run: pnpm --dir app run test

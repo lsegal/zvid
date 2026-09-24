@@ -237,7 +237,7 @@ function render(
     layers(count, effects),
     mediaRefs,
     resolveEffectChain(effects, "__group_main"),
-    { time: 1, audio: { low: 0, high: 0 } },
+    { time: 1, audio: { low: 0, high: 0 }, groupClipProgress: 0 },
   );
   return {
     draws: recording.draws,

@@ -24,6 +24,9 @@ type FxChainProps = {
   devices: FxDevice[];
   hasClip: boolean;
   kind: string | undefined;
+  // False when the selected layer's FX badge bypasses its whole stack.
+  layerFxEnabled?: boolean;
+  onSetLayerFxEnabled?: (enabled: boolean) => void;
   onSetEnabled: (device: FxDevice, enabled: boolean) => void;
   onSetParameter: (
     device: FxDevice,
@@ -45,6 +48,8 @@ export function FxChain({
   devices,
   hasClip,
   kind,
+  layerFxEnabled = true,
+  onSetLayerFxEnabled,
   onSetEnabled,
   onSetParameter,
 }: FxChainProps) {
@@ -105,6 +110,7 @@ export function FxChain({
         key={device.id}
         collapsed={collapsed.has(device.id)}
         device={device}
+        layerBypassed={device.group === "layer" && !layerFxEnabled}
         onSetEnabled={onSetEnabled}
         onSetParameter={onSetParameter}
         onToggleCollapsed={() => toggleCollapsed(device.id)}
@@ -121,6 +127,14 @@ export function FxChain({
   return (
     <div className="fx-chain" ref={scrollRef}>
       {emptyMessage ? <p className="fx-chain__empty">{emptyMessage}</p> : null}
+      {groups.layer.length && !layerFxEnabled ? (
+        <div className="fx-chain__layer-off">
+          <span>Layer FX off</span>
+          <button onClick={() => onSetLayerFxEnabled?.(true)} type="button">
+            On
+          </button>
+        </div>
+      ) : null}
       {groups.layer.map(renderPanel)}
       {groups.global.length ? (
         <>
@@ -137,6 +151,8 @@ export function FxChain({
 type FxDevicePanelProps = {
   device: FxDevice;
   collapsed: boolean;
+  // Dims the device while its layer's FX are off; its own bypass is kept.
+  layerBypassed?: boolean;
   onToggleCollapsed: () => void;
   onSetEnabled: FxChainProps["onSetEnabled"];
   onSetParameter: FxChainProps["onSetParameter"];
@@ -145,10 +161,15 @@ type FxDevicePanelProps = {
 export function FxDevicePanel({
   device,
   collapsed,
+  layerBypassed = false,
   onToggleCollapsed,
   onSetEnabled,
   onSetParameter,
 }: FxDevicePanelProps) {
+  const bypassClassName = [
+    device.enabled ? "" : "fx-device-panel--bypassed",
+    layerBypassed ? "fx-device-panel--layer-off" : "",
+  ].join(" ");
   const style = { "--fx-accent": device.accent } as CSSProperties;
   const powerLabel = `${device.enabled ? "Bypass" : "Enable"} ${device.name}`;
   const power = (
@@ -168,7 +189,7 @@ export function FxDevicePanel({
     return (
       <section
         aria-label={device.name}
-        className={`fx-device-panel fx-device-panel--collapsed ${device.enabled ? "" : "fx-device-panel--bypassed"}`}
+        className={`fx-device-panel fx-device-panel--collapsed ${bypassClassName}`}
         style={style}
       >
         {power}
@@ -196,7 +217,7 @@ export function FxDevicePanel({
   return (
     <section
       aria-label={device.name}
-      className={`fx-device-panel ${device.enabled ? "" : "fx-device-panel--bypassed"}`}
+      className={`fx-device-panel ${bypassClassName}`}
       style={style}
     >
       {/* biome-ignore lint/a11y/noStaticElementInteractions: double-click is a mouse shortcut; the collapse button is the keyboard equivalent */}

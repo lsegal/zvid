@@ -30,6 +30,7 @@ export type CompositeLayer = {
 export type FrameContext = {
   time: number;
   audio: AudioBands;
+  groupClipProgress: number;
 };
 
 export type CompositeSurface = { width: number; height: number };
@@ -380,6 +381,8 @@ export function drawComposition(
           resolution: [scissor.width, scissor.height],
           audioLow: frameContext.audio.low,
           audioHigh: frameContext.audio.high,
+          // The framed layer is written top row first, like a layer texture.
+          bottomUp: false,
         }) ?? framed;
       // The framed result already holds the layer's placement, so it fills
       // its band exactly.
@@ -406,10 +409,12 @@ export function drawComposition(
       groupSteps,
       {
         time: frameContext.time,
-        clipProgress: 0,
+        clipProgress: frameContext.groupClipProgress,
         resolution: [width, height],
         audioLow: frameContext.audio.low,
         audioHigh: frameContext.audio.high,
+        // The scene framebuffer is rendered normally, so it is bottom-up.
+        bottomUp: true,
       },
       "screen",
     );
