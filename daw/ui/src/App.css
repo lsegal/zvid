@@ -515,6 +515,7 @@ button {
 }
 
 .take-list {
+  container: takes / inline-size;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -525,6 +526,18 @@ button {
   list-style: none;
   scrollbar-width: thin;
   scrollbar-color: var(--bg-soft) transparent;
+}
+
+/* Near the minimum window width, shrink the thumbnail so dates still fit. */
+@container takes (max-width: 300px) {
+  .take-card {
+    grid-template-columns: 64px minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+
+  .take-media {
+    width: 64px;
+  }
 }
 
 .take-card {

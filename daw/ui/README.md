@@ -5,7 +5,9 @@ repo's Biome config like `/app`. The build (`dist/`) is embedded into the
 plugin by `zvid-daw-ui` and served from `zvid://app/`; nothing is loaded
 from the network at runtime, fonts included.
 
-The design follows #191 (wireframes and states) and reuses `/app`'s tokens.
+The screen, states, components and copy follow [`daw/DESIGN.md`](../DESIGN.md).
+The palette and the bundled Space Grotesk / IBM Plex Mono fonts come from
+[`@zvid/tokens`](../../packages/tokens), shared with `/app`.
 
 ## Dev loop
 
