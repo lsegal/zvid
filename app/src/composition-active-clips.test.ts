@@ -162,6 +162,76 @@ describe("computeActiveClips", () => {
     assert.equal(keyAt(70), keyAt(100));
   });
 
+  it("draws only the latest-starting clip where a lane's clips overlap", () => {
+    const clips = [
+      ...DOGFOOD3_CLIPS,
+      selection(94, "12", "1", 60, 120),
+      selection(95, "16", "1", 70, 120),
+    ];
+    const active = activeAt(clips);
+
+    assert.deepEqual(
+      active.map((entry) => [entry.clip.id, entry.clip.laneId]),
+      [
+        ["selection-95", "1"],
+        ["selection-16", "5"],
+      ],
+      "three overlapping clips on Layer 1 collapse to one",
+    );
+    const [layer1] = active;
+    assert.equal(layer1.sourceKey, "audio-3", "the kept clip claims a source");
+    assert.ok(layer1.isInBounds);
+  });
+
+  it("keeps the later clip in the arrangement when starts tie", () => {
+    const clips = [
+      selection(96, "8", "1", 60, 120),
+      selection(97, "16", "1", 60, 120),
+    ];
+
+    assert.deepEqual(
+      activeAt(clips).map((entry) => entry.clip.id),
+      ["selection-97"],
+    );
+  });
+
+  it("lets an online clip draw under an offline one on the same lane", () => {
+    const clips = [
+      selection(98, "8", "1", 60, 120),
+      selection(99, "16", "1", 70, 120, "audio-3-relative"),
+    ];
+
+    assert.deepEqual(
+      activeAt(clips).map((entry) => entry.clip.id),
+      ["selection-98"],
+    );
+  });
+
+  it("gives a single overlapping layer one full-frame band", () => {
+    const clips = [
+      selection(100, "8", "1", 0, 128),
+      selection(101, "16", "1", 57, 114),
+    ];
+    const stacked = orderStackedLayers(activeAt(clips));
+
+    assert.equal(stacked.length, 1);
+    const placement = resolveLayerPlacement({
+      index: 0,
+      count: stacked.length,
+      canvasWidth: 1080,
+      canvasHeight: 1920,
+      sourceWidth: 1080,
+      sourceHeight: 1920,
+      visual: stacked[0].visual,
+    });
+    assert.deepEqual(placement.scissor, {
+      x: 0,
+      y: 0,
+      width: 1080,
+      height: 1920,
+    });
+  });
+
   it("puts Layer 1 in the top band and Layer 2 below it", () => {
     const stacked = orderStackedLayers(activeAt(DOGFOOD3_CLIPS));
 
