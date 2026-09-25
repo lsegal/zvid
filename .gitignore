@@ -24,6 +24,7 @@ dist-ssr
 *.sw?
 
 target
+__pycache__
 tmp
 app/export-bridge/pkg
 .glorp.json

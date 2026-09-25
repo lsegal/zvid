@@ -52,13 +52,15 @@ should treat it as the shared reference. The overall effort is tracked in
    never absolute paths, so a set and its footage can move between machines.
 7. **Set-relative storage.** When the Live set's directory can be detected,
    captures go to `<set dir>/Recorded/ZVID`. Otherwise they go to
-   `<Documents>/ZVID/Recorded`. Detection options are evaluated in
-   [#200](https://github.com/lsegal/zvid/issues/200).
+   `<Documents>/ZVID/Recorded`. The set directory comes from the optional
+   Live companion script (see
+   [Live integration](#live-integration-record-state-and-set-directory)).
 8. **Why arming exists.** Live does not reliably report `kRecording` in the
    transport data, so capture can't be tied to Live's record button. The user
-   arms capture explicitly and takes follow play/stop. If #200 finds a
-   reliable record-state signal (for example a Live Remote Script observing
-   `Song.record_mode`), the plugin's Record button can go away.
+   arms capture explicitly and takes follow play/stop. When the optional Live
+   companion script is running, Live's own record buttons arm capture instead
+   and the plugin's Record button can go away (see
+   [Live integration](#live-integration-record-state-and-set-directory)).
 9. **UI.** The UI follows the Tauri approach used in `/app`: a web frontend
    (Vite + React + TypeScript, sharing `/app`'s design tokens) hosted by Rust
    in a system webview. Its screens, tokens and components are defined in
@@ -114,12 +116,13 @@ The workspace lives in `/daw` (scaffolded in
 
 | Path | Role |
 |---|---|
-| `daw/crates/zvid-daw-core` | State schema, take tracker state machine, capture file naming and record-root resolution. Pure (no cameras, hosts, UI or I/O beyond locating Documents) and unit-tested. |
+| `daw/crates/zvid-daw-core` | State schema, take tracker state machine, capture file naming, record-root resolution, and the protocol and client for the Live companion script. Pure (no cameras, hosts or UI; the only I/O is locating Documents and the companion's localhost UDP socket) and unit-tested. |
 | `daw/crates/zvid-capture` | Device enumeration, capture sessions, frame timestamps, preview frames, and encoding through zvidlib. AVFoundation on macOS, Media Foundation on Windows. |
 | `daw/crates/zvid-daw-ui` | `wry` child-webview host, the IPC bridge to the control thread, and the custom `zvid://` protocol that serves embedded assets and preview frames. The frontend source lives in `daw/ui`. |
 | `daw/crates/zvid-vst3` | Hand-written subset of the VST3 COM ABI: the interfaces, IIDs and structs the plugin needs, rebuilt from public documentation. |
 | `daw/crates/zvid-au` | AUv2 plugin: the `AudioComponentFactoryFunction` entry point, property and render callbacks, and the Cocoa view factory. |
 | `daw/plugin` | The `cdylib` that ties everything together and exports the VST3 and AU entry points. Holds the plugin identity constants. |
+| `daw/live-remote-script` | The optional Live companion: a Python MIDI Remote Script (`ZVID_Capture`) that reports Live's record state and set path to plugin instances. Not part of the plugin binary. |
 | `daw/xtask` | `cargo xtask`: bundles the `cdylib` into `.vst3` and `.component`, and runs `check` (Rust-only rule, zvidlib rev matches `app/export-bridge`). |
 
 Dependencies point inward: `plugin` depends on everything; `zvid-vst3`,
@@ -265,6 +268,74 @@ Layers Record support. The contract:
    existing relink flow.
 6. **Source tracks.** Each take becomes its own source-track recording entry.
 
+## Live integration: record state and set directory
+
+VST3 and AU give a plugin neither a reliable record state (Live doesn't
+reliably report `kRecording` in the `ProcessContext`) nor the path of the
+host's project. [#200](https://github.com/lsegal/zvid/issues/200) evaluated
+ways to get both from Live.
+
+### Findings
+
+The Live Object Model's Python bindings were read directly from the Live
+executables (their docstrings are compiled in), for Live 11.3.10, 11.3.42 and
+12.0.25 on Windows:
+
+- `Song.record_mode` ("Get/Set the state of the global recording flag"),
+  `Song.session_record`, `Song.session_record_status` and `Song.is_playing`
+  are present in all three. Remote Scripts can observe them with
+  `add_<name>_listener`.
+- `Song.file_path` ("Get the current Live Set's path on disk") and
+  `Song.name` ("Get the current Live Set's name") are present in 11.3.42 and
+  12.0.25 and absent from 11.3.10. They reach Remote Scripts, and Max for Live
+  through the same bindings.
+- `Application` exposes the version (`get_version_string`) but no document
+  path.
+
+| # | Approach | Record state | Set dir | Verdict |
+|---|---|---|---|---|
+| 1 | Live MIDI Remote Script observing `Song`, reporting over localhost UDP | ✅ LOM listeners on `record_mode`, `session_record`, `is_playing` | ✅ `Song.file_path` (Live 11.3.42+, 12) | **Chosen.** Works in every Live edition, runs inside Live, and needs no extra permissions. A one-time Control Surface setup, and Python rather than Rust, but outside the plugin binary. |
+| 2 | Max for Live device with `live.observer` | ✅ | ✅ same property | Rejected. Needs Suite or the Max for Live add-on, and a second device on the track. |
+| 3 | `kRecording` plus track-arm heuristics | ❌ | — | Rejected. The baseline #193 measures; not reliable. |
+| 4 | macOS Accessibility (`AXDocument` of Live's window) | — | ✅ likely | Rejected. macOS only and needs an Accessibility permission prompt; `Song.file_path` makes it unnecessary. |
+| 5 | Windows: Live's window title plus recent files in `Preferences.cfg` | — | ⚠️ | Rejected. The title shows the set name, not its path, and the preferences format is binary and changes between versions. |
+| 6 | Autosave, undo or crash-recovery files | — | ⚠️ | Rejected. Indirect, version-dependent, and racy around saves. |
+
+### The companion script
+
+```mermaid
+sequenceDiagram
+  participant Live as Live (Song)
+  participant Script as ZVID_Capture Remote Script
+  participant Plugin as Plugin control thread (LiveLink)
+  Plugin->>Script: hello (every 1 s, UDP 127.0.0.1:47731)
+  Script->>Plugin: status (answer to each hello)
+  Live-->>Script: record_mode / session_record / is_playing listener
+  Script->>Plugin: status (pushed on every change)
+  Note over Script: file_path and name are compared<br/>on each update_display (~100 ms)
+  Note over Plugin: no status for 3 s: companion absent,<br/>fall back to the Record button and Documents
+```
+
+- **Protocol.** JSON datagrams with a version `v`, documented and implemented
+  in `zvid-daw-core::live`. The script binds `127.0.0.1:47731`; each plugin
+  instance binds its own ephemeral localhost port, so any number of instances
+  can listen. The script forgets instances it hasn't heard from in 5 s.
+- **Threads.** The script runs on Live's main thread: listeners send
+  immediately and `update_display` polls the socket, never blocking. The
+  plugin polls its non-blocking socket from the control thread, never from
+  the audio thread.
+- **Arming.** Capture is armed while either record button is on
+  (`recordMode || sessionRecord`). Takes still follow play/stop from the
+  plugin transport as described in [Clock sync](#clock-sync); the companion
+  only replaces the Record button, not the timing source, since its messages
+  arrive up to one UI tick late.
+- **Set directory.** `setPath`'s parent is passed to `RecordRoot::resolve`.
+  `null` (unsaved set, or Live older than 11.3.42) falls back to
+  `<Documents>/ZVID/Recorded`.
+- **Status.** The prototype in #200 logs what the companion reports (set
+  `ZVID_DAW_LOG`). Auto-arming, removing the Record button and resolving the
+  record root from the set path are separate follow-ups.
+
 ## Platform matrix
 
 | | macOS | Windows |
@@ -317,3 +388,4 @@ Revise a decision only with a stated rationale, recorded here.
 | Capture with no playback | Stored as an *unanchored* entry (`transportStartSec: null`). Listed in the UI, skipped by the importer. | Footage isn't lost, and nothing is placed on the timeline incorrectly. |
 | Filename | `video-{NN}-{M}-{D}-{HH}-{mm}-{ss}-{n}.mp4`. `NN` is a 2-digit per-instance capture counter, the date and time are local time at arm, and `n` is a collision counter starting at 0. | Matches the requested example `video-01-6-24-18-47-30-0.mp4`. |
 | Record root | `<set dir>/Recorded/ZVID` when detected, else `<Documents>/ZVID/Recorded`. The root kind is saved as `recordRoot`. | Portable, and the importer knows where to look. |
+| Record state and set path source | An optional Live MIDI Remote Script (`daw/live-remote-script`) reporting `Song.record_mode`, `session_record`, `is_playing` and `file_path` over localhost UDP. Without it, the plugin keeps its Record button and the Documents root. | VST3/AU report neither reliably; the LOM does, in every Live edition, without extra permissions. Max for Live needs Suite; Accessibility and window-title parsing are single-platform and fragile (#200). |
