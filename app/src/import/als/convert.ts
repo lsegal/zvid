@@ -2,7 +2,8 @@
 // the Layers app saved as `.lvp`. Every audio and MIDI track becomes an LVP
 // track, and its arrangement clips are unrolled into one LVP clip per played
 // segment and placed on the video frame grid. Clips on a track with a Layers
-// Record device play its recording; other audio clips play their sample, and
+// Record or ZVID Capture device play one of its recordings (see
+// `TAKE_MATCHERS`); other audio clips play their sample, and
 // other MIDI clips are media-less placeholders that video can be linked to.
 //
 // Everything is derived from the `.als` alone. `mainTracks` and `selections`
@@ -22,7 +23,11 @@ import type {
   AlsClip,
   AlsDocument,
   AlsTrack,
+  CaptureDeviceKind,
   LayersRecording,
+  RecordRoot,
+  ZvidCaptureState,
+  ZvidCaptureTake,
 } from "./parse.ts";
 import {
   beatsToFrames,
@@ -38,8 +43,10 @@ type LvpClip = NonNullable<LvpSession["clips"]>[number];
 export type AlsSkipReason =
   /** The clip is deactivated in Live. */
   | "disabled"
-  /** The track has a Layers Record device but no recordings. */
+  /** The track has a capture device but no recordings. */
   | "no-recording"
+  /** No ZVID Capture take overlaps the clip. */
+  | "no-take"
   /** The clip, or one unrolled segment of it, rounds to zero frames. */
   | "shorter-than-frame"
   /** Every layer was taken and a later clip covers this one entirely. */
@@ -62,6 +69,8 @@ export interface AlsImportSummary {
   trimmed: AlsTrimmedClip[];
   /** True when at least one imported clip plays a Layers recording. */
   hasLayersVideo: boolean;
+  /** Where each ZVID Capture recording was saved, by filename. */
+  recordRoots?: Record<string, RecordRoot>;
 }
 
 export interface AlsImportOptions {
@@ -101,9 +110,15 @@ export function convertAls(
     (track) =>
       track.isVideoTrack || track.kind === "audio" || track.kind === "midi",
   );
-  const recordings = videoTracks.flatMap(
-    (track) => track.layers?.recordings ?? [],
-  );
+  const recordings = videoTracks.flatMap(trackRecordings);
+  const recordRoots: Record<string, RecordRoot> = {};
+  for (const track of videoTracks) {
+    const root = zvidState(track)?.recordRoot;
+    if (!root) continue;
+    for (const { filename } of trackRecordings(track)) {
+      recordRoots[filename] = root;
+    }
+  }
   const fpsFraction = mostCommon(
     recordings
       .map((recording) => recording.fps)
@@ -120,10 +135,12 @@ export function convertAls(
   const clips: LvpClip[] = [];
   const videoClips: LvpClip[] = [];
   for (const track of importedTracks) {
-    const recording = track.isVideoTrack
-      ? track.layers?.recordings.at(-1)
-      : undefined;
+    const trackTakes = track.isVideoTrack ? trackRecordings(track) : [];
+    const matchTake = TAKE_MATCHERS[captureDevice(track)];
     for (const clip of track.clips) {
+      const recording = trackTakes.length
+        ? matchTake(trackTakes, clip, tempoMap)
+        : undefined;
       const skip = (reason: AlsSkipReason, clipId = lvpClipId(track, clip)) =>
         skipped.push({
           trackId: String(track.id),
@@ -133,7 +150,8 @@ export function convertAls(
           reason,
         });
       if (clip.disabled) skip("disabled");
-      else if (track.isVideoTrack && !recording) skip("no-recording");
+      else if (track.isVideoTrack && !trackTakes.length) skip("no-recording");
+      else if (track.isVideoTrack && !recording) skip("no-take");
       else {
         for (const converted of convertClip(
           track,
@@ -197,7 +215,7 @@ export function convertAls(
     tracks: importedTracks.map((track) => ({
       id: String(track.id),
       name: track.name,
-      recordings: (track.layers?.recordings ?? []).map(
+      recordings: trackRecordings(track).map(
         ({ filename, frameStart }) => ({ filename, frameStart }),
       ),
     })),
@@ -227,6 +245,7 @@ export function convertAls(
       skipped,
       trimmed: overlaps.trimmed.map(describe),
       hasLayersVideo: videoClips.length > 0,
+      ...(Object.keys(recordRoots).length > 0 && { recordRoots }),
     },
   };
 }
@@ -258,6 +277,88 @@ function assignLayers(
     ]),
   );
   return { mainTracks, idOf };
+}
+
+type TakeMatcher = (
+  recordings: readonly LayersRecording[],
+  clip: AlsClip,
+  tempoMap: TempoMap,
+) => LayersRecording | undefined;
+
+/** How each capture device picks the recording an arranged clip plays. */
+const TAKE_MATCHERS: Record<CaptureDeviceKind, TakeMatcher> = {
+  // Layers Record kept one recording per track that mattered: the last.
+  "layers-record": (recordings) => recordings.at(-1),
+  "zvid-capture": (recordings, clip, tempoMap) =>
+    matchZvidTake(
+      recordings as readonly ZvidCaptureTake[],
+      tempoMap.beatsToSeconds(clip.currentStart),
+      tempoMap.beatsToSeconds(clip.currentEnd),
+    ),
+};
+
+function captureDevice(track: AlsTrack): CaptureDeviceKind {
+  return track.captureDevice ?? "layers-record";
+}
+
+function zvidState(track: AlsTrack): ZvidCaptureState | null {
+  return captureDevice(track) === "zvid-capture"
+    ? (track.layers as ZvidCaptureState | null)
+    : null;
+}
+
+function isAnchored(take: ZvidCaptureTake) {
+  return (
+    take.transportStartSec !== null && Number.isFinite(take.transportStartSec)
+  );
+}
+
+/**
+ * The recordings a track can place on the timeline, one source-track entry
+ * each. Unanchored ZVID Capture takes have no song position, so they are left
+ * out.
+ */
+function trackRecordings(track: AlsTrack): LayersRecording[] {
+  const zvid = zvidState(track);
+  return zvid
+    ? zvid.recordings.filter(isAnchored)
+    : (track.layers?.recordings ?? []);
+}
+
+/**
+ * The anchored take whose `[transportStartSec, transportStartSec +
+ * durationSec)` span overlaps the song-time span `[startSec, endSec)` the
+ * most, preferring the latest `createdAt` on a tie. `undefined` when no
+ * take overlaps it.
+ */
+export function matchZvidTake<T extends ZvidCaptureTake>(
+  takes: readonly T[],
+  startSec: number,
+  endSec: number,
+): T | undefined {
+  let best: { take: T; overlap: number; createdAt: number } | undefined;
+  for (const take of takes) {
+    if (!isAnchored(take)) continue;
+    const takeStart = take.transportStartSec as number;
+    const takeEnd = takeStart + Math.max(0, take.durationSec || 0);
+    const overlap = Math.min(endSec, takeEnd) - Math.max(startSec, takeStart);
+    if (!(overlap > 0)) continue;
+    const createdAt = Date.parse(take.createdAt);
+    const candidate = {
+      take,
+      overlap,
+      createdAt: Number.isNaN(createdAt) ? -Infinity : createdAt,
+    };
+    if (
+      !best ||
+      candidate.overlap > best.overlap ||
+      (candidate.overlap === best.overlap &&
+        candidate.createdAt > best.createdAt)
+    ) {
+      best = candidate;
+    }
+  }
+  return best?.take;
 }
 
 function lvpClipId(track: AlsTrack, clip: AlsClip) {
