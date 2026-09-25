@@ -299,9 +299,12 @@ impl Component {
         let audio = unsafe { &mut *self.audio.get() };
         audio.block += 1;
         if let Some(context) = unsafe { data.process_context.as_ref() } {
-            audio
-                .transport
-                .push(snapshot(context, audio.block, data.num_samples, clock::now_sec()));
+            audio.transport.push(snapshot(
+                context,
+                audio.block,
+                data.num_samples,
+                clock::now_sec(),
+            ));
         }
         if data.symbolic_sample_size != SAMPLE_32 {
             return NOT_IMPLEMENTED;

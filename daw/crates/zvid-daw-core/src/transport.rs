@@ -192,7 +192,9 @@ impl TransportFollower {
             for change in self.watch.observe(snapshot) {
                 log(&describe(change, &snapshot));
             }
-            let events = self.takes.transport(snapshot.to_tracker(), &mut lock(state));
+            let events = self
+                .takes
+                .transport(snapshot.to_tracker(), &mut lock(state));
             for event in &events {
                 log(&format!("{event:?}"));
             }

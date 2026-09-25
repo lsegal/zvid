@@ -810,10 +810,7 @@ fn play_spans_while_armed_become_saved_takes() {
         ..ProcessContext::default()
     };
     unsafe {
-        assert_eq!(
-            (component.initialize)(host.component, ptr::null_mut()),
-            OK
-        );
+        assert_eq!((component.initialize)(host.component, ptr::null_mut()), OK);
         (host.controller().set_component_handler)(host.controller, handler_ptr);
     }
     let commands = host.object().commands();
@@ -851,7 +848,11 @@ fn play_spans_while_armed_become_saved_takes() {
         }
         block(false, &mut context);
     }
-    commands.send(Command::Disarm { at: clock::now_sec() }).unwrap();
+    commands
+        .send(Command::Disarm {
+            at: clock::now_sec(),
+        })
+        .unwrap();
     wait_for(|| {
         let state = host.object().state();
         state.recordings.len() == 2 && state.recordings.iter().all(|take| take.duration_sec > 0.0)

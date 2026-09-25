@@ -168,7 +168,11 @@ impl TakeLog {
 
     fn open_recording<'a>(&self, state: &'a mut State) -> Option<&'a mut Recording> {
         let id = self.open.as_ref()?;
-        state.recordings.iter_mut().rev().find(|recording| recording.id == *id)
+        state
+            .recordings
+            .iter_mut()
+            .rev()
+            .find(|recording| recording.id == *id)
     }
 }
 

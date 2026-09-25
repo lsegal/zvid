@@ -362,7 +362,8 @@ pub struct IComponentHandlerVtbl {
 pub struct IComponentHandler2Vtbl {
     pub unknown: FUnknownVtbl,
     pub set_dirty: unsafe extern "system" fn(this: *mut c_void, state: TBool) -> TResult,
-    pub request_open_editor: unsafe extern "system" fn(this: *mut c_void, name: FIDString) -> TResult,
+    pub request_open_editor:
+        unsafe extern "system" fn(this: *mut c_void, name: FIDString) -> TResult,
     pub start_group_edit: unsafe extern "system" fn(this: *mut c_void) -> TResult,
     pub finish_group_edit: unsafe extern "system" fn(this: *mut c_void) -> TResult,
 }

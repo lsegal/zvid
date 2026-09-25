@@ -40,7 +40,10 @@ fn play(log: &mut TakeLog, state: &mut State, song_sec: f64, from: f64, seconds:
         let elapsed = f64::from(step) / 100.0;
         log.transport(snap(true, song_sec + elapsed, from + elapsed), state);
     }
-    log.transport(snap(false, song_sec + seconds, from + seconds + 0.01), state);
+    log.transport(
+        snap(false, song_sec + seconds, from + seconds + 0.01),
+        state,
+    );
 }
 
 fn close(a: f64, b: f64) -> bool {
