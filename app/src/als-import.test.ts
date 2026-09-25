@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import { gzipSync } from "node:zlib";
 import {
   AlsImportError,
-  alsMasterAudioPath,
+  alsMainAudioPath,
   alsMediaCandidatePaths,
   alsMediaSearchDirs,
   alsSavePath,
@@ -196,7 +196,7 @@ describe("importAls", () => {
 
   it("rejects a set whose structure cannot be read", async () => {
     const message = await importError(gzip(LAYERS_SET));
-    assert.match(message, /Song\.als could not be read: .*master track/);
+    assert.match(message, /Song\.als could not be read: .*main track/);
   });
 
   it("imports a set without Layers tracks as placeholder clips", async () => {
@@ -321,14 +321,14 @@ describe("importAls", () => {
     assert.equal(imported.audioFilename, undefined);
   });
 
-  it("opens dogfood3.wav beside dogfood3.als as master audio", async () => {
+  it("opens dogfood3.wav beside dogfood3.als as main audio", async () => {
     const golden = JSON.parse(
       readFileSync(
         new URL("../test/fixtures/als/dogfood3.lvp", import.meta.url),
       ).toString("utf8"),
     );
     const alsPath = golden.audioFilename.replace(/\.wav$/, ".als");
-    const audioFilename = alsMasterAudioPath(alsPath, () => true);
+    const audioFilename = alsMainAudioPath(alsPath, () => true);
     assert.equal(audioFilename, golden.audioFilename);
 
     const imported = await importAls(
@@ -347,10 +347,10 @@ describe("importAls", () => {
   });
 });
 
-describe("alsMasterAudioPath", () => {
+describe("alsMainAudioPath", () => {
   it("finds the .wav mixdown beside the set", () => {
     const checked: string[] = [];
-    const found = alsMasterAudioPath("/sets/Song Project/Song.als", (path) => {
+    const found = alsMainAudioPath("/sets/Song Project/Song.als", (path) => {
       checked.push(path);
       return true;
     });
@@ -358,16 +358,16 @@ describe("alsMasterAudioPath", () => {
     assert.deepEqual(checked, ["/sets/Song Project/Song.wav"]);
   });
 
-  it("opens without master audio when there is no mixdown", () => {
+  it("opens without main audio when there is no mixdown", () => {
     assert.equal(
-      alsMasterAudioPath("/sets/Song Project/Song.als", () => false),
+      alsMainAudioPath("/sets/Song Project/Song.als", () => false),
       undefined,
     );
   });
 
-  it("opens without master audio when the set has no known path", () => {
+  it("opens without main audio when the set has no known path", () => {
     assert.equal(
-      alsMasterAudioPath(undefined, () => true),
+      alsMainAudioPath(undefined, () => true),
       undefined,
     );
   });

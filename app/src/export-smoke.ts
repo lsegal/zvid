@@ -108,7 +108,7 @@ async function run(audible: boolean) {
         frameCount: 48,
         frameDuration: 1 / 24,
         bpm: 120,
-        masterAudio: toneUrl
+        mainAudio: toneUrl
           ? ({ hasAudio: true, previewUrl: toneUrl } as MediaItem)
           : undefined,
         renderFrameAt: async (_quarters, seconds) => {

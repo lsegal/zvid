@@ -79,7 +79,7 @@ function follow(current: number, target: number, frames: number) {
   return current + (target - current) * blend;
 }
 
-// Measures the master audio element as it plays through an AnalyserNode.
+// Measures the main audio element as it plays through an AnalyserNode.
 // Routing an element through Web Audio is permanent, so the graph is only
 // built once effects actually need the bands.
 export class LiveAudioBands {

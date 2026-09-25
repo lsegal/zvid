@@ -90,7 +90,7 @@ export type ExportRequest = {
   frameCount: number;
   frameDuration: number;
   bpm: number;
-  masterAudio?: MediaItem;
+  mainAudio?: MediaItem;
   renderFrameAt(playheadQ: number, playheadSeconds: number): Promise<void>;
   setPlayheadQ(playheadQ: number): void;
   onProgress(update: ExportProgress): void;

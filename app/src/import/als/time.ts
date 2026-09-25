@@ -2,7 +2,7 @@
 // functions over plain objects, so they don't depend on the ALS parser:
 //
 // - a tempo map turns arrangement beats into seconds (and back), following
-//   the master tempo automation,
+//   the main track tempo automation,
 // - a warp map turns clip-content beats into sample seconds (and back),
 // - loop unrolling turns one arrangement clip into the contiguous segments
 //   it plays,
@@ -20,7 +20,7 @@ export type TempoMap = {
 };
 
 /**
- * Builds an arrangement beats ↔ seconds map from master tempo automation.
+ * Builds an arrangement beats ↔ seconds map from main track tempo automation.
  *
  * Between two points Live ramps linearly in BPM over beats, so the time spent
  * is the integral of 60/bpm(b) db: a log for a ramp, a linear term when the

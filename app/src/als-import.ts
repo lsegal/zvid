@@ -127,8 +127,8 @@ function describeSkipped(skipped: AlsSkippedClip[]) {
 }
 
 // The Layers app kept a set's mixdown as `<name>.wav` beside the set. When
-// that file exists it opens as the imported session's master audio.
-export function alsMasterAudioPath(
+// that file exists it opens as the imported session's main audio.
+export function alsMainAudioPath(
   alsPath: string | undefined,
   exists: (path: string) => boolean,
 ) {
@@ -141,7 +141,7 @@ export function alsMasterAudioPath(
 }
 
 type ImportAlsOptions = {
-  /** Mixdown audio for the set, usually from `alsMasterAudioPath`. */
+  /** Mixdown audio for the set, usually from `alsMainAudioPath`. */
   audioFilename?: string;
 };
 

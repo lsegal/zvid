@@ -1,4 +1,4 @@
-// Real audio peaks for the master audio lane. Every decoded sample of every
+// Real audio peaks for the main audio lane. Every decoded sample of every
 // channel is folded into fixed-duration min/max buckets so the lane can draw
 // the actual signal at any zoom level.
 
