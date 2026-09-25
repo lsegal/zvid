@@ -37,7 +37,7 @@ use std::thread::JoinHandle;
 
 use zvid_daw_core::{LocalTime, RecordRoot, next_capture_filename};
 use zvidlib::mp4::{Mp4TrackConfig, Mp4TrackFormat};
-use zvidlib::{Codec, EncodedSample, Limits, SampleDependency, VideoDimensions};
+use zvidlib::{AudioGapless, Codec, EncodedSample, Limits, SampleDependency, VideoDimensions};
 
 use crate::clock::HostTime;
 use crate::format::Rational;
@@ -824,13 +824,22 @@ impl Worker {
         if let (Some(audio), Some(_)) = (&mut audio, &video) {
             match audio.encoder.finish() {
                 Ok((packets, value)) => {
-                    gapless = Some(value);
                     for data in packets {
                         if let Err(error) = self.write_audio(audio, data, &mut output) {
                             self.shared.stats().error = Some(error);
                             break;
                         }
                     }
+                    // Padding is whatever the packets hold beyond the delay
+                    // and the audio actually recorded. Encoders don't all
+                    // report it consistently with what they emit.
+                    let encoded = audio.packets * u64::from(AAC_FRAME);
+                    let padding =
+                        encoded.saturating_sub(u64::from(value.priming) + audio.clock.written());
+                    gapless = Some(AudioGapless {
+                        priming: value.priming,
+                        padding: u32::try_from(padding).unwrap_or(u32::MAX),
+                    });
                 }
                 Err(error) => self
                     .shared
