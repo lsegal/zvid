@@ -4,6 +4,7 @@ import {
   formatAppVersion,
   formatBuildLabel,
   formatBuildTime,
+  formatBuildTitle,
   type GitRunner,
   getCommitUrl,
   resolveAppCommit,
@@ -151,6 +152,40 @@ describe("formatBuildLabel", () => {
     assert.equal(
       formatBuildLabel(SHA, "2026-09-24T14:45:12.345Z"),
       "zvid · c94f40e · built 2026-09-24 14:45 UTC",
+    );
+  });
+});
+
+describe("formatBuildTitle", () => {
+  const BUILD_TIME = "2026-09-24T14:45:12.345Z";
+
+  it("lists the full version, commit and build time", () => {
+    assert.equal(
+      formatBuildTitle({ version: "0.0.0", commit: SHA, buildTime: BUILD_TIME }),
+      `zvid 0.0.0+c94f40e
+Commit ${SHA}
+Built 2026-09-24 14:45 UTC`,
+    );
+  });
+
+  it("keeps the dirty marker on the commit", () => {
+    assert.equal(
+      formatBuildTitle({
+        version: "0.0.0",
+        commit: `${SHA}-dirty`,
+        buildTime: BUILD_TIME,
+      }),
+      `zvid 0.0.0+c94f40e-dirty
+Commit ${SHA}-dirty
+Built 2026-09-24 14:45 UTC`,
+    );
+  });
+
+  it("leaves the commit out without one", () => {
+    assert.equal(
+      formatBuildTitle({ version: "0.0.0", commit: "dev", buildTime: BUILD_TIME }),
+      "zvid 0.0.0
+Built 2026-09-24 14:45 UTC",
     );
   });
 });

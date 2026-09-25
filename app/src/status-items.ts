@@ -3,6 +3,11 @@
 // bar fits on one line; `title` carries the full text for hover.
 
 import {
+  type AppBuild,
+  formatAppVersion,
+  formatBuildTitle,
+} from "./build-info.ts";
+import {
   formatMusicalPosition,
   formatTimecode,
   type MeterSignature,
@@ -49,8 +54,8 @@ export type StatusCollaborationInfo = {
 };
 
 export type StatusItemsState = StatusPlayheadState & {
-  // zvid version, or null to leave the version item out.
-  version: string | null;
+  // The running zvid build, or null to leave the version item out.
+  version: AppBuild | null;
   sessionName: string | null;
   canvasWidth: number;
   canvasHeight: number;
@@ -144,8 +149,8 @@ export function buildStatusItems(state: StatusItemsState): StatusItem[] {
     items.push({
       id: "version",
       label: "zvid",
-      value: state.version,
-      title: `zvid ${state.version}`,
+      value: formatAppVersion(state.version.version, state.version.commit),
+      title: formatBuildTitle(state.version),
     });
   }
 

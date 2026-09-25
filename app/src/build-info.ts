@@ -85,6 +85,26 @@ export function formatBuildTime(buildTime: string) {
   return `${date.toISOString().slice(0, 16).replace("T", " ")} UTC`;
 }
 
+// The version, commit and build time a zvid build was made from.
+export type AppBuild = {
+  version: string;
+  commit: string;
+  buildTime: string;
+};
+
+// Hover text with the full version, commit and build time, one per line:
+// `zvid 0.0.0+c94f40e`, `Commit c94f40e9151d…`, `Built 2026-09-24 14:45 UTC`.
+// Builds without a real commit leave the commit line out.
+export function formatBuildTitle(build: AppBuild) {
+  const lines = [`zvid ${formatAppVersion(build.version, build.commit)}`];
+  if (COMMIT_PATTERN.test(stripDirty(build.commit))) {
+    lines.push(`Commit ${build.commit}`);
+  }
+  lines.push(`Built ${formatBuildTime(build.buildTime)}`);
+  return lines.join("
+");
+}
+
 // `zvid · c94f40e · built 2026-09-24 14:45 UTC`
 export function formatBuildLabel(commit: string, buildTime: string) {
   return `zvid · ${shortCommit(commit)} · built ${formatBuildTime(buildTime)}`;

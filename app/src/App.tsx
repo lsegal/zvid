@@ -119,7 +119,7 @@ import type { LvpSession, SessionOpenResponse } from "./session";
 import { statusMessageTone } from "./status-bar";
 import { buildStatusItems } from "./status-items";
 import { formatMusicalPosition, formatTimecode } from "./timeline-format.ts";
-import { ZVID_VERSION } from "./version";
+import { ZVID_BUILD } from "./version";
 import { loadWaveformPeaks } from "./waveform-loader";
 import type { WaveformPeaks } from "./waveform-peaks";
 
@@ -5376,7 +5376,7 @@ function App() {
   const statusBarItems = useMemo<StatusItem[]>(
     () =>
       buildStatusItems({
-        version: ZVID_VERSION,
+        version: ZVID_BUILD,
         sessionName,
         timelineMode,
         // Unused: the playhead item is swapped for the live readout below.

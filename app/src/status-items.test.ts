@@ -9,9 +9,15 @@ import {
 import { formatMusicalPosition, formatTimecode } from "./timeline-format.ts";
 
 const FOUR_FOUR = { numerator: 4, denominator: 4 };
+const SHA = "c94f40e9151d40b4dd87bd2072993522791ff2d4";
+const BUILD = {
+  version: "1.2.3",
+  commit: SHA,
+  buildTime: "2026-09-24T14:45:12.345Z",
+};
 
 const BASE: StatusItemsState = {
-  version: "1.2.3",
+  version: BUILD,
   sessionName: "Demo reel",
   timelineMode: "musical",
   // At 120 BPM one quarter is half a second.
@@ -111,8 +117,10 @@ describe("buildStatusItems", () => {
       {
         id: "version",
         label: "zvid",
-        value: "1.2.3",
-        title: "zvid 1.2.3",
+        value: "1.2.3+c94f40e",
+        title: `zvid 1.2.3+c94f40e
+Commit ${SHA}
+Built 2026-09-24 14:45 UTC`,
       },
       {
         id: "session",
@@ -158,6 +166,16 @@ describe("buildStatusItems", () => {
       itemsById({ ...BASE, sessionName: null }).get("session")?.value,
       "Untitled session",
     );
+  });
+
+  it("shows the bare version when the build has no commit", () => {
+    const version = itemsById({
+      ...BASE,
+      version: { ...BUILD, commit: "dev" },
+    }).get("version");
+    assert.equal(version?.value, "1.2.3");
+    assert.equal(version?.title, "zvid 1.2.3
+Built 2026-09-24 14:45 UTC");
   });
 
   it("leaves the version out until one is known", () => {
