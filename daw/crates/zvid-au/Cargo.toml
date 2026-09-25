@@ -7,3 +7,11 @@ publish.workspace = true
 
 [dependencies]
 zvid-daw-core.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = "0.3"
+objc2-app-kit = "0.3"
+objc2-audio-toolbox = "0.3"
+objc2-core-audio-types = "0.3"
+objc2-core-foundation = "0.3"
