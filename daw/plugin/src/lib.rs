@@ -1,8 +1,9 @@
 //! The ZVID Capture plugin binary. It ties the capture, UI and plugin-format
 //! crates together and is bundled into `.vst3` and `.component` by `xtask`.
 //!
-//! This crate exports the VST3 module entry points: `GetPluginFactory` on
-//! every platform, plus the platform's load/unload hooks.
+//! This crate exports the VST3 module entry points (`GetPluginFactory` on
+//! every platform, plus the platform's load/unload hooks) and, on macOS, the
+//! AUv2 factory function.
 
 use std::ffi::c_void;
 
@@ -54,6 +55,20 @@ pub extern "C" fn ModuleEntry(_handle: *mut c_void) -> bool {
 #[unsafe(no_mangle)]
 pub extern "C" fn ModuleExit() -> bool {
     true
+}
+
+/// The AUv2 `AudioComponentFactoryFunction`, exported under the name the
+/// `.component` bundle's `Info.plist` gives as `factoryFunction`.
+///
+/// # Safety
+///
+/// Only the AudioComponent loader may call this.
+#[cfg(target_os = "macos")]
+#[allow(non_snake_case)]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn ZVIDCaptureAUFactory(description: *const c_void) -> *mut c_void {
+    // SAFETY: forwarded from the loader.
+    unsafe { zvid_au::factory(description) }
 }
 
 #[cfg(test)]
