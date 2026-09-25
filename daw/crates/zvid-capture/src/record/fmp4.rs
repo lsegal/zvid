@@ -578,9 +578,11 @@ pub(crate) mod tests {
         let path = dir.join("take.mp4");
         let written = write(&path);
         assert_eq!(written.sample_count(0), 15);
+        // zvidlib's edit list is in 1/1000 s, so pick a padding that leaves
+        // a whole number of milliseconds (393 ms) to read back exactly.
         let gapless = AudioGapless {
             priming: 2112,
-            padding: 500,
+            padding: 528,
         };
         finalize(&path, &written, &[(1, gapless)]).unwrap();
         assert!(!finalizing_path(&path).exists());
@@ -589,7 +591,7 @@ pub(crate) mod tests {
         let (movie, source) = demux(bytes);
         check(&movie, &source, 15, 21);
         let timing = movie.tracks[1].audio_timing(movie.movie_timescale).unwrap();
-        assert_eq!((timing.priming, timing.padding), (2112, 500));
+        assert_eq!((timing.priming, timing.padding), (2112, 528));
     }
 
     /// A fresh directory under the system temp directory.

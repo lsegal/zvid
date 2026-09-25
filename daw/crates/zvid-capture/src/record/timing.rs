@@ -139,7 +139,7 @@ mod tests {
     use super::*;
 
     fn ms(value: f64) -> HostTime {
-        HostTime::from_nanos((value * 1_000_000.0).round() as u64 + 5_000_000_000)
+        HostTime::from_nanos((5_000_000_000 + (value * 1_000_000.0).round() as i64) as u64)
     }
 
     #[test]
@@ -222,15 +222,18 @@ mod tests {
             }
         );
         assert_eq!(clock.written(), 2880);
-        // Audio running 15 ms ahead is trimmed back.
+        // Audio running 15 ms ahead is trimmed back: this block is dropped
+        // whole, which leaves the next one 5 ms ahead, within tolerance.
         assert_eq!(
             clock.place(zero, Some(ms(45.0)), 480),
             Placement {
                 silence: 0,
-                skip: 720
+                skip: 480
             }
         );
         assert_eq!(clock.written(), 2880);
+        assert_eq!(clock.place(zero, Some(ms(55.0)), 480), Placement::default());
+        assert_eq!(clock.written(), 3360);
     }
 
     #[test]

@@ -57,7 +57,7 @@ fn classify(context: &'static str, error: windows::core::Error, id: &DeviceId) -
 }
 
 /// Initializes COM (MTA) on this thread and Media Foundation once per process.
-fn ensure_mf() -> Result<(), CaptureError> {
+pub(crate) fn ensure_mf() -> Result<(), CaptureError> {
     thread_local! {
         static COM: () = {
             // S_FALSE and RPC_E_CHANGED_MODE both leave COM usable here.

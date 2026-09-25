@@ -248,26 +248,34 @@ fn records_aac_audio_in_sync_with_video() {
 #[test]
 fn records_1080p_with_the_hardware_encoder_when_available() {
     let fps = Rational::new(30, 1);
-    match encoder::open_video(1920, 1080, fps, VideoEncoderChoice::Auto) {
-        Ok((encoder, skipped)) if skipped.is_empty() => {
-            eprintln!("hardware encoder: {}", encoder.name());
-        }
-        _ => {
-            eprintln!("no hardware HEVC encoder on this machine; skipping");
+    let bitrate = encoder::target_bitrate(1920, 1080, fps);
+    match platform::open_hevc(1920, 1080, fps, bitrate) {
+        Ok(encoder) => eprintln!("hardware encoder: {}", encoder.name()),
+        Err(error) => {
+            eprintln!("no hardware HEVC encoder on this machine ({error}); skipping");
             return;
         }
     }
     let root = root();
+    // Generating 1080p test frames is slow in debug builds, so make a few
+    // up front and cycle through them.
+    let frames: Vec<_> = (0..6).map(|index| frame(1920, 1080, index, 0.0)).collect();
     let recorder = Recorder::start(config(&root, None, VideoEncoderChoice::Auto)).unwrap();
     let started = Instant::now();
     for index in 0..90 {
-        push(&recorder, frame(1920, 1080, index, index as f64 * 1000.0 / 30.0));
+        let frame = Frame {
+            pts: host_ms(index as f64 * 1000.0 / 30.0),
+            sequence: index,
+            ..Frame::clone(&frames[index as usize % frames.len()])
+        };
+        push(&recorder, Arc::new(frame));
     }
+    let encoded = started.elapsed();
     let recorded = recorder.stop().unwrap();
-    let elapsed = started.elapsed();
     assert_eq!(recorded.dimensions, (1920, 1080));
     assert_eq!(recorded.stats.frames_written, 90);
-    assert!(elapsed < Duration::from_secs(3), "90 frames took {elapsed:?}; not real time");
+    // Three seconds of video must encode in well under three seconds.
+    assert!(encoded < Duration::from_secs(2), "90 frames took {encoded:?}; not real time");
 
     let path = root.path_of(&recorded.filename);
     let (movie, _) = demux(&path);

@@ -376,13 +376,35 @@ mod tests {
         for nal in split_annex_b(&stream) {
             sets.collect(nal);
         }
-        assert_eq!(sets.hvcc().unwrap(), expected);
+        let built = sets.hvcc().unwrap();
+        assert_eq!(hvcc_units(&built), units);
+        // Profile, compatibility flags, level, chroma format and bit depths
+        // match. zvidlib leaves the SPS constraint flags and temporal layer
+        // fields zero where this copies them from the SPS.
+        assert_eq!(built[..14], expected[..14]);
+        assert_eq!(built[20..27], expected[20..27]);
+        assert_eq!(built[29] & 3, 3, "four-byte NAL lengths");
 
         let sps = &units.iter().find(|(kind, _)| *kind == NAL_SPS).unwrap().1;
         let info = parse_sps(sps).unwrap();
         assert_eq!((info.width, info.height), (64, 48));
         assert_eq!(info.profile_byte & 0x1f, 1, "Main profile");
         assert_eq!(info.chroma_format_idc, 1);
+        assert_eq!(built[14..20], info.constraint_flags.to_be_bytes()[2..]);
+
+        // zvidlib's decoder accepts the rebuilt configuration.
+        use zvidlib::*;
+        let limits = Limits::default();
+        let config = VideoDecoderConfig {
+            codec: Codec::Hevc,
+            profile: CodecProfile::HevcMain,
+            coded_dimensions: VideoDimensions::new(64, 48, &limits).unwrap(),
+            output_format: PixelFormat::Rgba8,
+            color_range: ColorRange::Limited,
+            hardware: HardwarePreference::Avoid,
+            configuration: built,
+        };
+        native_hevc_video_decoder_factory().create(&config, &limits).unwrap();
     }
 
     #[test]
