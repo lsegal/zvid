@@ -153,8 +153,16 @@ describe("createThumbnailCache", () => {
     const tile = { width: 150, height: 84 };
     cache.setWanted([
       request("clip:a", 3),
-      { ...request("clip:a:tile:0", 3), key: getThumbnailCacheKey("m1", 3, tile), size: tile },
-      { ...request("clip:b:tile:0", 3), key: getThumbnailCacheKey("m1", 3, tile), size: tile },
+      {
+        ...request("clip:a:tile:0", 3),
+        key: getThumbnailCacheKey("m1", 3, tile),
+        size: tile,
+      },
+      {
+        ...request("clip:b:tile:0", 3),
+        key: getThumbnailCacheKey("m1", 3, tile),
+        size: tile,
+      },
     ]);
 
     assert.equal(decodes.length, 2);
@@ -166,7 +174,10 @@ describe("createThumbnailCache", () => {
 
     const snapshot = cache.getSnapshot();
     assert.equal(snapshot.get(getThumbnailCacheKey("m1", 3)), "blob:portrait");
-    assert.equal(snapshot.get(getThumbnailCacheKey("m1", 3, tile)), "blob:tile");
+    assert.equal(
+      snapshot.get(getThumbnailCacheKey("m1", 3, tile)),
+      "blob:tile",
+    );
   });
 
   it("does not decode a cached frame again", async () => {
