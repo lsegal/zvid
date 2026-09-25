@@ -57,6 +57,20 @@ pub extern "C" fn ModuleExit() -> bool {
     true
 }
 
+/// The AUv2 `AudioComponentFactoryFunction`, exported under the name the
+/// `.component` bundle's `Info.plist` gives as `factoryFunction`.
+///
+/// # Safety
+///
+/// Only the AudioComponent loader may call this.
+#[cfg(target_os = "macos")]
+#[allow(non_snake_case)]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn ZVIDCaptureAUFactory(description: *const c_void) -> *mut c_void {
+    // SAFETY: forwarded from the loader.
+    unsafe { zvid_au::factory(description) }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -74,18 +88,4 @@ mod tests {
         );
         assert_eq!(out, factory);
     }
-}
-
-/// The AUv2 `AudioComponentFactoryFunction`, exported under the name the
-/// `.component` bundle's `Info.plist` gives as `factoryFunction`.
-///
-/// # Safety
-///
-/// Only the AudioComponent loader may call this.
-#[cfg(target_os = "macos")]
-#[allow(non_snake_case)]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn ZVIDCaptureAUFactory(description: *const c_void) -> *mut c_void {
-    // SAFETY: forwarded from the loader.
-    unsafe { zvid_au::factory(description) }
 }
