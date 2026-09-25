@@ -35,7 +35,10 @@ describe("getFilmstripRange", () => {
   });
 
   it("does not change for small scrolls", () => {
-    assert.deepEqual(getFilmstripRange(1030, 800), getFilmstripRange(1100, 800));
+    assert.deepEqual(
+      getFilmstripRange(1030, 800),
+      getFilmstripRange(1100, 800),
+    );
   });
 
   it("is empty before the timeline has a width", () => {
