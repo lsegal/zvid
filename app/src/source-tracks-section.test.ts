@@ -57,6 +57,16 @@ describe("source tracks section", () => {
     assert.equal(formatSourceTracksSummary(3), "3 tracks");
   });
 
+  it("counts source tracks, not media items, in the header", () => {
+    const counts = [
+      ...appTsx.matchAll(/\{pluralize\(([^,]+), "track"\)\}\s*in\s+session/g),
+    ].map((match) => match[1]);
+    assert.equal(counts.length, 2, "expected both header branches");
+    for (const count of counts) {
+      assert.equal(count, "sourceTracks.length");
+    }
+  });
+
   it("exposes the toggle state to assistive tech", () => {
     const start = appTsx.indexOf('className="source-header__toggle"');
     assert.notEqual(start, -1, "missing source tracks toggle");
