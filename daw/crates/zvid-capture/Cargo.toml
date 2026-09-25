@@ -1,0 +1,32 @@
+[package]
+name = "zvid-capture"
+version = "0.1.0"
+description = "Camera discovery and capture for ZVID Capture"
+edition = "2021"
+publish = false
+
+# Standalone until the /daw workspace from #192 lands; drop this table then.
+[workspace]
+
+[dependencies]
+jpeg-encoder = "0.7"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+block2 = "0.6"
+dispatch2 = "0.3"
+objc2 = "0.6"
+objc2-av-foundation = "0.3"
+objc2-core-media = "0.3"
+objc2-core-video = "0.3"
+objc2-foundation = "0.3"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = [
+    "Devices_Enumeration",
+    "Foundation",
+    "Win32_Foundation",
+    "Win32_Media_MediaFoundation",
+    "Win32_System_Com",
+    "Win32_System_Performance",
+] }
+windows-core = "0.62"
