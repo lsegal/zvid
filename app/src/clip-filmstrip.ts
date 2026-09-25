@@ -2,7 +2,10 @@
 // each showing the source frame under its left edge. Only tiles inside the
 // visible timeline range are laid out, and sample times are snapped to a
 // zoom-dependent grid so small zoom changes reuse frames already decoded.
-import { getClipThumbnailTimeSeconds } from "./thumbnail-cache.ts";
+import {
+  getClipThumbnailTimeSeconds,
+  type ThumbnailSize,
+} from "./thumbnail-cache.ts";
 
 export type FilmstripTile = {
   index: number;
@@ -59,6 +62,25 @@ export function getFilmstripTileWidthPx(
     MAX_TILE_WIDTH_PX,
     Math.max(MIN_TILE_WIDTH_PX, Math.round(heightPx * aspect)),
   );
+}
+
+// Tiles cover-fit their frame, so decoding it at the tile's own shape shows the
+// whole frame instead of a crop of the default portrait thumbnail. Frames are
+// decoded at the device pixel ratio, capped to bound memory, to stay sharp.
+const MAX_DECODE_PIXEL_RATIO = 3;
+
+export function getFilmstripDecodeSize(
+  tileWidthPx: number,
+  heightPx: number,
+  pixelRatio: number,
+): ThumbnailSize {
+  const ratio = Number.isFinite(pixelRatio)
+    ? Math.min(MAX_DECODE_PIXEL_RATIO, Math.max(1, pixelRatio))
+    : 1;
+  return {
+    width: Math.max(1, Math.ceil(tileWidthPx * ratio)),
+    height: Math.max(1, Math.ceil(heightPx * ratio)),
+  };
 }
 
 // A source span plays its media from its start for its whole duration, so

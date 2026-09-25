@@ -124,6 +124,7 @@ export type Harness = {
   generateThumbnailAtTime?(
     media: MediaItem,
     timeSeconds: number,
+    size?: { width: number; height: number },
   ): Promise<string | undefined>;
   prepareSave(
     filename: string,

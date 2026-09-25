@@ -566,12 +566,16 @@ export function createWebHarness(): Harness {
     },
     analyzeMedia: analyzeMediaSelection,
     readMediaBlob,
-    generateThumbnailAtTime(media, timeSeconds) {
+    generateThumbnailAtTime(media, timeSeconds, size) {
       if (!media.hasVideo) {
         return Promise.resolve(undefined);
       }
 
-      return generateThumbnailFromUrlAtTime(media.previewUrl, timeSeconds);
+      return generateThumbnailFromUrlAtTime(
+        media.previewUrl,
+        timeSeconds,
+        size,
+      );
     },
     prepareSave,
     saveBlob,

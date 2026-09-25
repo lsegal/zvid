@@ -8,6 +8,9 @@
 // so trimming a clip does not flash an empty thumbnail. Object URLs are revoked
 // as soon as nothing wants or shows them.
 
+// The pixel size a thumbnail is decoded at. The frame is scaled to cover it.
+export type ThumbnailSize = { width: number; height: number };
+
 export type ThumbnailRequest<M> = {
   key: string;
   owner: string;
@@ -16,6 +19,9 @@ export type ThumbnailRequest<M> = {
   // this changes, e.g. after the media is relinked.
   sourceUrl: string;
   timeSeconds: number;
+  // Decodes at the harness's default size when omitted. The key must name the
+  // size, see `getThumbnailCacheKey`.
+  size?: ThumbnailSize;
 };
 
 export type ThumbnailSnapshot = {
@@ -37,7 +43,11 @@ type ThumbnailEntry = {
 };
 
 export type ThumbnailCacheOptions<M> = {
-  generate: (media: M, timeSeconds: number) => Promise<string | undefined>;
+  generate: (
+    media: M,
+    timeSeconds: number,
+    size?: ThumbnailSize,
+  ) => Promise<string | undefined>;
   revoke: (url: string) => void;
   // Decodes are expensive, so only this many run at once.
   concurrency?: number;
@@ -49,8 +59,15 @@ export type ThumbnailCacheOptions<M> = {
 
 export const DEFAULT_THUMBNAIL_CONCURRENCY = 4;
 
-export function getThumbnailCacheKey(mediaId: string, timeSeconds: number) {
-  return `${mediaId}:${timeSeconds.toFixed(3)}`;
+// A frame decoded at one size cannot stand in for another, so each size gets
+// its own key.
+export function getThumbnailCacheKey(
+  mediaId: string,
+  timeSeconds: number,
+  size?: ThumbnailSize,
+) {
+  const key = `${mediaId}:${timeSeconds.toFixed(3)}`;
+  return size ? `${key}@${size.width}x${size.height}` : key;
 }
 
 type ClipThumbnailTiming = {
@@ -181,7 +198,7 @@ export function createThumbnailCache<M>({
     let url: string | undefined;
     let failed = false;
     try {
-      url = await generate(request.media, request.timeSeconds);
+      url = await generate(request.media, request.timeSeconds, request.size);
     } catch (error) {
       failed = true;
       onError?.(request, error);

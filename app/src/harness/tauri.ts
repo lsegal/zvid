@@ -254,12 +254,16 @@ export async function maybeCreateTauriHarness(
 
         return base.readMediaBlob(target);
       },
-      async generateThumbnailAtTime(media, timeSeconds) {
+      async generateThumbnailAtTime(media, timeSeconds, size) {
         if (!media.hasVideo) {
           return undefined;
         }
 
-        return generateThumbnailFromUrlAtTime(media.previewUrl, timeSeconds);
+        return generateThumbnailFromUrlAtTime(
+          media.previewUrl,
+          timeSeconds,
+          size,
+        );
       },
       async saveBlob(blob, target) {
         if (target.kind !== "native-path") {

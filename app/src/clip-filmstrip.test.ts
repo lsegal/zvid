@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   type FilmstripLayout,
   getClipFilmstripTiles,
+  getFilmstripDecodeSize,
   getFilmstripRange,
   getFilmstripSampleStepSeconds,
   getFilmstripTileWidthPx,
@@ -23,6 +24,45 @@ describe("getFilmstripTileWidthPx", () => {
   it("keeps tiles within sensible widths", () => {
     assert.equal(getFilmstripTileWidthPx(42, 1080, 1920), 24);
     assert.equal(getFilmstripTileWidthPx(42, 4000, 1000), 96);
+  });
+});
+
+describe("getFilmstripDecodeSize", () => {
+  it("decodes frames at the tile's own landscape shape", () => {
+    assert.deepEqual(getFilmstripDecodeSize(75, 42, 1), {
+      width: 75,
+      height: 42,
+    });
+    assert.deepEqual(getFilmstripDecodeSize(96, 54, 1), {
+      width: 96,
+      height: 54,
+    });
+  });
+
+  it("scales by the device pixel ratio to stay sharp", () => {
+    assert.deepEqual(getFilmstripDecodeSize(75, 42, 2), {
+      width: 150,
+      height: 84,
+    });
+    assert.deepEqual(getFilmstripDecodeSize(75, 42, 1.5), {
+      width: 113,
+      height: 63,
+    });
+  });
+
+  it("keeps the pixel ratio within bounds", () => {
+    assert.deepEqual(getFilmstripDecodeSize(75, 42, 0.5), {
+      width: 75,
+      height: 42,
+    });
+    assert.deepEqual(getFilmstripDecodeSize(75, 42, 8), {
+      width: 225,
+      height: 126,
+    });
+    assert.deepEqual(getFilmstripDecodeSize(75, 42, Number.NaN), {
+      width: 75,
+      height: 42,
+    });
   });
 });
 
