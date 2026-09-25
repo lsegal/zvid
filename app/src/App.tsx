@@ -139,6 +139,11 @@ import { migrateLegacyMainAudio } from "./project-state-compat.ts";
 import { listOfflineMedia, matchOfflineMedia } from "./relink";
 import type { LvpSession, SessionOpenResponse } from "./session";
 import {
+  formatOverlapNote,
+  MAX_LAYERS,
+  resolveSessionOverlaps,
+} from "./selection-overlaps";
+import {
   formatSourceTracksSummary,
   isSourceTracksSectionCollapsed,
   readSourceTracksCollapsed,
@@ -356,6 +361,8 @@ type SessionMediaCheck = {
   offline: number;
   analyzingFromDisk: boolean;
   hydratedFromDisk: boolean;
+  /** Set when loading resolved overlapping clips. */
+  overlapNote: string;
 };
 
 const LABEL_WIDTH_DEFAULT = 240;
@@ -365,7 +372,6 @@ const LABEL_WIDTH_KEYBOARD_STEP = 10;
 // Below this width the label rows tighten their padding and gaps.
 const LABEL_WIDTH_NARROW = 170;
 const BASE_QUARTER_PX = 28;
-const MAX_LAYERS = 9;
 const TIMELINE_DRAG_ZOOM_SPEED = 0.004;
 const TIMELINE_DRAG_ZOOM_THRESHOLD_PX = 25;
 const TIMELINE_SCRUB_AUDIO_TAIL_MS = 50;
@@ -474,6 +480,12 @@ function pluralize(count: number, singular: string, plural = `${singular}s`) {
 const LOCATE_OFFLINE_MEDIA_HINT = "Relink from File → Locate Offline Media…";
 
 function formatSessionMediaCheckStatus(check: SessionMediaCheck) {
+  return [formatSessionMediaStatus(check), check.overlapNote]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function formatSessionMediaStatus(check: SessionMediaCheck) {
   const { sessionName, restored, offline, hydratedFromDisk } = check;
   if (!restored && !offline) {
     return hydratedFromDisk
@@ -1428,7 +1440,12 @@ function chooseSourceSpanForWindow(
   );
 }
 
-function sessionToProject(session: LvpSession, mediaItems: MediaItem[]) {
+function sessionToProject(
+  loadedSession: LvpSession,
+  mediaItems: MediaItem[],
+) {
+  // Stacked clips on one layer would hide all but the top one.
+  const { session, ...overlaps } = resolveSessionOverlaps(loadedSession);
   const bpm = session.timeline?.bpm ?? 120;
   const fps = session.timeline?.fps ?? 30;
   const lanes = (session.mainTracks ?? DEFAULT_LANES).map<Lane>((track) => ({
@@ -1541,6 +1558,7 @@ function sessionToProject(session: LvpSession, mediaItems: MediaItem[]) {
     unresolvedPaths: arrangementClips
       .filter((clip) => !clip.mediaId)
       .map((clip) => basename(clip.mediaPath)),
+    overlapNote: formatOverlapNote(overlaps),
   };
 }
 
@@ -4940,16 +4958,17 @@ function App() {
       offline: 0,
       analyzingFromDisk: existingRefs.length > 0,
       hydratedFromDisk: existingRefs.length > 0,
+      overlapNote: project.overlapNote,
     };
     sessionMediaCheckRef.current = mediaCheck;
 
     if (existingRefs.length) {
       setStatus(
-        `Loaded ${payload.sessionName}. Hydrating ${pluralize(existingRefs.length, "media file")} in the background.`,
+        `Loaded ${payload.sessionName}. Hydrating ${pluralize(existingRefs.length, "media file")} in the background. ${project.overlapNote}`.trim(),
       );
     } else if (pendingOfflineIds.length) {
       setStatus(
-        `Loaded ${payload.sessionName}. Checking the media cache for ${pluralize(pendingOfflineIds.length, "offline media file")}...`,
+        `Loaded ${payload.sessionName}. Checking the media cache for ${pluralize(pendingOfflineIds.length, "offline media file")}... ${project.overlapNote}`.trim(),
       );
     } else {
       reportSessionMediaCheck();
