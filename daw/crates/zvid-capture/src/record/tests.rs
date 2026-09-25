@@ -66,7 +66,7 @@ fn frame(width: u32, height: u32, index: u64, pts_ms: f64) -> Arc<Frame> {
 }
 
 fn host_ms(ms: f64) -> HostTime {
-    HostTime::from_nanos(10_000_000_000 + (ms * 1e6).round() as u64)
+    HostTime::from_nanos((10_000_000_000 + (ms * 1e6).round() as i64) as u64)
 }
 
 fn config(root: &RecordRoot, audio: Option<AudioFormat>, choice: VideoEncoderChoice) -> RecordConfig {
@@ -202,47 +202,60 @@ fn records_aac_audio_in_sync_with_video() {
         sample_rate: 48_000,
         channels: 2,
     };
-    let recorder = Recorder::start(config(&root, Some(format), VideoEncoderChoice::Software)).unwrap();
-    if recorder.stats().audio_encoder.is_none() {
-        // Give the worker a moment to open the encoder.
-        std::thread::sleep(Duration::from_millis(200));
-    }
-    let Some(_) = recorder.stats().audio_encoder else {
+    if encoder::open_audio(format.sample_rate, format.channels).is_err() {
         eprintln!("no AAC encoder on this machine; skipping");
         return;
-    };
-    // Audio starts 100 ms before the first frame; that part is dropped.
+    }
+    let recorder = Recorder::start(config(&root, Some(format), VideoEncoderChoice::Software)).unwrap();
+    // 10 ms blocks from 100 ms before the first frame to 2.1 s after it,
+    // silent except for a click heard exactly 1 s after the first frame.
     let block = 480;
     for index in 0..220 {
         let start_ms = index as f64 * 10.0 - 100.0;
-        let samples = (0..block * 2)
-            .map(|i| ((index * block + i / 2) as f32 * 0.05).sin() * 0.25)
-            .collect();
+        let mut samples = vec![0.0; block * 2];
+        if index == 110 {
+            samples[..96].fill(0.8);
+        }
         if index == 10 {
             for frame_index in 0..60 {
                 push(&recorder, frame(64, 48, frame_index, frame_index as f64 * 1000.0 / 30.0));
             }
         }
-        assert!(recorder.push_audio(AudioBlock {
+        // This feeds audio faster than real time, so wait for room.
+        let block = AudioBlock {
             host_time: Some(host_ms(start_ms)),
             samples,
-        }));
+        };
+        while !recorder.push_audio(block.clone()) {
+            std::thread::sleep(Duration::from_millis(1));
+        }
     }
     let recorded = recorder.stop().unwrap();
     assert!(recorded.has_audio);
-    assert_eq!(recorded.stats.audio_blocks_dropped, 0);
+    assert_eq!(recorded.stats.audio_frames_inserted, 0);
+    // The 100 ms before the first frame is cut.
+    assert_eq!(recorded.stats.audio_frames_skipped, 4800);
 
-    let (movie, _) = demux(&root.path_of(&recorded.filename));
+    let (movie, source) = demux(&root.path_of(&recorded.filename));
     assert_eq!(movie.tracks.len(), 2);
-    let audio = &movie.tracks[1];
-    assert_eq!(audio.kind, TrackKind::Audio);
-    assert_eq!(audio.sample_rate, Some(48_000));
-    let timing = audio.audio_timing(movie.movie_timescale).unwrap();
-    assert!(timing.priming > 0, "encoder delay is hidden by an edit list");
-    // 2.1 s of audio from file time zero (220 blocks of 10 ms, minus the
-    // 100 ms before zero), to within one AAC packet.
-    let presented = audio.samples.len() as i64 * 1024 - i64::from(timing.priming) - i64::from(timing.padding);
-    assert!((presented - 100_800).abs() < 1024, "{presented}");
+    let track = &movie.tracks[1];
+    assert_eq!(track.kind, TrackKind::Audio);
+    assert_eq!(track.sample_rate, Some(48_000));
+    let limits = zvidlib::Limits::default();
+    let timing = track.audio_timing(movie.movie_timescale).unwrap();
+    let packets = block_on(track.to_encoded_audio_samples(&source, &limits)).unwrap();
+    let decoder = zvidlib::NativeAacDecoder::new(&track.aac_config().unwrap(), limits).unwrap();
+    let mut reader = zvidlib::AacSampleReader::new(decoder, packets, 48_000, 2, timing, 2, limits).unwrap();
+    // 2.1 s of audio from file time zero; the edit list rounds to 1 ms.
+    let length = reader.presentation_length();
+    assert!(length.abs_diff(100_800) <= 48, "{length} frames");
+    let pcm = reader
+        .get_range(zvidlib::SampleRange::new(0, length).unwrap(), &zvidlib::CancellationToken::new())
+        .unwrap()
+        .samples;
+    // The click lands at file time 1 s, give or take the codec's ringing.
+    let click = pcm.chunks(2).position(|frame| frame[0].abs() > 0.3).unwrap();
+    assert!(click.abs_diff(48_000) <= 16, "click at frame {click}");
 }
 
 #[test]
