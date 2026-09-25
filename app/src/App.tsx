@@ -1,4 +1,6 @@
 import {
+  ArrowPathRoundedSquareIcon,
+  ArrowUpTrayIcon,
   BackwardIcon,
   ChevronDownIcon,
   ForwardIcon,
@@ -98,6 +100,7 @@ import {
 import { getHarness, type SaveTarget } from "./harness";
 import { hasMediaExtension } from "./harness/media-extensions";
 import { MainWaveform } from "./MainWaveform";
+import { withMainAudio } from "./main-audio";
 import {
   getDroppedAudioFile,
   getMainAudioDragState,
@@ -2691,6 +2694,8 @@ function App() {
     ],
   );
 
+  // Imports an audio file through the media pipeline and makes it the
+  // session's main audio. Shared by the Audio lane button and drag and drop.
   const replaceMainAudioFromFile = useCallback(
     async (file: File) => {
       const harness = getHarness();
@@ -2712,11 +2717,13 @@ function App() {
           throw new Error(`${file.name} is not an audio file.`);
         }
 
-        commitProjectChange("Set main audio", (current) =>
-          patchProjectState(current, {
-            mediaItems: [...current.mediaItems, toShareableMediaItem(analyzed)],
-            mainAudioId: analyzed.id,
-          }),
+        commitProjectChange(
+          mainAudioId ? "Replace main audio" : "Add main audio",
+          (current) =>
+            patchProjectState(
+              current,
+              withMainAudio(current, toShareableMediaItem(analyzed)),
+            ),
         );
 
         seedLocalMediaItems([analyzed]);
@@ -2730,10 +2737,13 @@ function App() {
     [
       cacheLocalMediaItems,
       commitProjectChange,
+      mainAudioId,
       projectMediaItems.length,
       seedLocalMediaItems,
     ],
   );
+
+  const mainAudioInputRef = useRef<HTMLInputElement>(null);
 
   const handleMainAudioDragEvent = useCallback(
     (event: ReactDragEvent<HTMLElement>) => {
@@ -6484,6 +6494,37 @@ function App() {
                           {mainAudio ? mainAudio.name : "No main audio"}
                         </small>
                       </div>
+                      <button
+                        aria-label={
+                          mainAudio ? "Replace main audio" : "Add main audio"
+                        }
+                        className="track-label__fx track-label__audio"
+                        disabled={isExporting}
+                        onClick={() => mainAudioInputRef.current?.click()}
+                        title={
+                          mainAudio ? "Replace main audio" : "Add main audio"
+                        }
+                        type="button"
+                      >
+                        {mainAudio ? (
+                          <ArrowPathRoundedSquareIcon aria-hidden="true" />
+                        ) : (
+                          <ArrowUpTrayIcon aria-hidden="true" />
+                        )}
+                      </button>
+                      <input
+                        accept="audio/*"
+                        hidden
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          event.target.value = "";
+                          if (file) {
+                            void replaceMainAudioFromFile(file);
+                          }
+                        }}
+                        ref={mainAudioInputRef}
+                        type="file"
+                      />
                     </div>
                     <div
                       className="track-row__content track-row__content--waveform"

@@ -1320,6 +1320,21 @@
   opacity: 0.45;
 }
 
+.track-label__audio {
+  display: grid;
+  place-items: center;
+  padding: 2px;
+}
+
+.track-label__audio svg {
+  width: 16px;
+  height: 16px;
+}
+
+.track-label__audio:disabled {
+  opacity: 0.45;
+}
+
 .track-row__content {
   min-height: 72px;
   border-bottom: 1px solid var(--line);
