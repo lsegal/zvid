@@ -5,7 +5,11 @@ import {
   convertAls,
   siblingAudioFilename,
 } from "./import/als/convert.ts";
-import { type AlsDocument, parseAlsXml } from "./import/als/parse.ts";
+import {
+  type AlsDocument,
+  parseAlsXml,
+  type RecordRoot,
+} from "./import/als/parse.ts";
 import { MAX_LAYERS } from "./selection-overlaps.ts";
 import type { LvpSession, ServerMediaRef } from "./session.ts";
 
@@ -21,6 +25,8 @@ export type AlsImportReport = {
   trimmedClips?: string[];
   /** False when no imported clip plays a Layers recording. */
   hasLayersVideo?: boolean;
+  /** Where each ZVID Capture recording was saved, by filename. */
+  recordRoots?: Record<string, RecordRoot>;
 };
 
 export type ImportedAlsSession = LvpSession & {
@@ -121,6 +127,7 @@ export async function readAlsXml(bytes: Uint8Array, name = "This file") {
 const SKIP_REASONS: Record<AlsSkipReason, string> = {
   disabled: "disabled",
   "no-recording": "no Layers recording",
+  "no-take": "no ZVID take at its position",
   "shorter-than-frame": "shorter than a frame",
   overlapped: "covered by a later clip",
 };
@@ -181,6 +188,7 @@ async function convertAlsXml(
         trimmedClips: summary.trimmed.map(describeClip),
       }),
       hasLayersVideo: summary.hasLayersVideo,
+      ...(summary.recordRoots && { recordRoots: summary.recordRoots }),
     },
   };
 }
@@ -242,6 +250,48 @@ export function alsMediaSearchDirs(
   return Array.from(new Set(dirs));
 }
 
+// The folder ZVID Capture recorded into: `Recorded/ZVID` in the set's own
+// folder, or `ZVID/Recorded` in Documents.
+export function alsRecordRootDir(
+  root: RecordRoot,
+  alsPath: string | undefined,
+  documentsDir: string | undefined,
+) {
+  if (root === "documents") {
+    return documentsDir ? joinPath(documentsDir, "ZVID", "Recorded") : null;
+  }
+
+  const projectDir = alsPath ? parentPath(alsPath) : null;
+  return projectDir ? joinPath(projectDir, "Recorded", "ZVID") : null;
+}
+
+// The record root folder of each ZVID Capture recording in an imported set,
+// by name. Other media has none.
+export function alsRecordDirLocator(
+  imported: ImportedAlsSession,
+  alsPath: string | undefined,
+  documentsDir: string | undefined,
+) {
+  const roots = imported.importReport?.recordRoots ?? {};
+  return (name: string) => {
+    const root = roots[name.trim()];
+    return root
+      ? (alsRecordRootDir(root, alsPath, documentsDir) ?? undefined)
+      : undefined;
+  };
+}
+
+// ZVID Capture saves filenames relative to its record root folder.
+function recordRootCandidate(
+  name: string,
+  recordDirOf: ((name: string) => string | undefined) | undefined,
+) {
+  const dir = recordDirOf?.(name);
+  return dir
+    ? joinPath(dir, ...name.trim().split(/[/\\]/).filter(Boolean))
+    : null;
+}
+
 // Live saves sample paths as absolute paths; Layers recordings are bare names.
 function isAbsolutePath(rawPath: string) {
   return /^(?:[/\\]|[A-Za-z]:[/\\])/.test(rawPath);
@@ -249,22 +299,35 @@ function isAbsolutePath(rawPath: string) {
 
 // Every file a set's media could be at, for harnesses that check existence in
 // one batch.
-export function alsMediaCandidatePaths(session: LvpSession, dirs: string[]) {
+export function alsMediaCandidatePaths(
+  session: LvpSession,
+  dirs: string[],
+  recordDirOf?: (name: string) => string | undefined,
+) {
   return collectAlsMediaNames(session).flatMap((name) => [
     ...(isAbsolutePath(name) ? [name] : []),
+    ...[recordRootCandidate(name, recordDirOf)].filter(
+      (path): path is string => path !== null,
+    ),
     ...dirs.map((dir) => joinPath(dir, basename(name))),
   ]);
 }
 
-// Finds a media file at its saved absolute path, or by name in the first
-// search folder that has it.
+// Finds a media file at its saved absolute path, in its ZVID Capture record
+// root folder, or by name in the first search folder that has it.
 export function createAlsMediaLocator(
   dirs: string[],
   exists: (path: string) => boolean,
+  recordDirOf?: (name: string) => string | undefined,
 ) {
   return (name: string) => {
     if (isAbsolutePath(name) && exists(name)) {
       return name;
+    }
+
+    const recorded = recordRootCandidate(name, recordDirOf);
+    if (recorded && exists(recorded)) {
+      return recorded;
     }
 
     for (const dir of dirs) {

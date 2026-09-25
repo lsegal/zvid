@@ -5,8 +5,10 @@ import {
   type AlsDocument,
   decodeLayersState,
   decodeTimeSignature,
+  decodeZvidCaptureAuBuffer,
   parseAls,
   parseAlsXml,
+  type ZvidCaptureState,
 } from "./parse.ts";
 import { parseXml } from "./xml.ts";
 
@@ -337,5 +339,184 @@ describe("parseXml", () => {
   it("rejects mismatched tags", () => {
     assert.throws(() => parseXml("<A><B></A>"), /Unexpected <\/A>/);
     assert.throws(() => parseXml("<A>"), /Unclosed <A>/);
+  });
+});
+
+describe("parseAls with ZVID Capture fixtures", () => {
+  const load = (name: string) =>
+    parseAls(
+      new Uint8Array(
+        readFileSync(
+          new URL(`../../../test/fixtures/als/${name}`, import.meta.url),
+        ),
+      ),
+    );
+
+  it("reads every VST3 take, including unanchored ones", async () => {
+    const [track] = (await load("zvid-capture-vst3.xml")).tracks;
+    assert.equal(track.isVideoTrack, true);
+    assert.equal(track.captureDevice, "zvid-capture");
+    const state = track.layers as ZvidCaptureState;
+    assert.equal(state.version, "1");
+    assert.equal(state.recordRoot, "project");
+    assert.deepEqual(state.recordings[1], {
+      filename: "video-01-9-25-20-36-12-0.mp4",
+      dimensions: [1920, 1080],
+      fps: [30, 1],
+      frameStart: -120,
+      fileOffsetSec: 20,
+      transportStartSec: 16,
+      transportStartBeats: 32,
+      durationSec: 8,
+      createdAt: "2026-09-25T20:36:30Z",
+    });
+    assert.equal(state.recordings[2].transportStartSec, null);
+    assert.equal(state.recordings[2].transportStartBeats, null);
+  });
+
+  it("reads AU state from the zvid-state key of the Buffer plist", async () => {
+    const [track] = (await load("zvid-capture-au.xml")).tracks;
+    assert.equal(track.captureDevice, "zvid-capture");
+    const state = track.layers as ZvidCaptureState;
+    assert.equal(state.recordRoot, "documents");
+    assert.deepEqual(
+      state.recordings.map(({ filename, transportStartSec, createdAt }) => [
+        filename,
+        transportStartSec,
+        createdAt,
+      ]),
+      [
+        ["video-01-9-25-21-00-00-0.mp4", 0, "2026-09-25T21:00:00Z"],
+        ["video-02-9-25-21-05-00-0.mp4", 2, "2026-09-25T21:05:00Z"],
+        ["video-03-9-25-21-09-00-0.mp4", null, "2026-09-25T21:09:00Z"],
+      ],
+    );
+  });
+
+  it("reads Layers Record and ZVID Capture tracks in the same set", async () => {
+    const doc = await load("layers-and-zvid-capture.xml");
+    assert.deepEqual(
+      doc.tracks.map(({ id, captureDevice, isVideoTrack }) => [
+        id,
+        captureDevice,
+        isVideoTrack,
+      ]),
+      [
+        [8, "layers-record", true],
+        [20, "zvid-capture", true],
+      ],
+    );
+    assert.deepEqual(doc.tracks[0].layers, {
+      version: "1",
+      recordings: [
+        {
+          filename: "video-12-13-23-20-13-46-0.mp4",
+          dimensions: [1080, 1920],
+          fps: [30, 1],
+          frameStart: 0,
+        },
+        {
+          filename: "video-12-13-23-20-15-14-1.mp4",
+          dimensions: [1080, 1920],
+          fps: [30, 1],
+          frameStart: 57,
+        },
+      ],
+    });
+  });
+
+  it("marks tracks without a capture device", async () => {
+    const doc = parseAlsXml(`<Ableton><LiveSet><Tracks>
+      <AudioTrack Id="1"><DeviceChain><DeviceChain><Devices>
+        <PluginDevice Id="0"><PluginDesc><Vst3PluginInfo Id="0">
+          <Name Value="Some Reverb" />
+        </Vst3PluginInfo></PluginDesc></PluginDevice>
+        <AuPluginDevice Id="1"><PluginDesc><AuPluginInfo Id="0">
+          <Name Value="Layers Record" />
+        </AuPluginInfo></PluginDesc></AuPluginDevice>
+      </Devices></DeviceChain></DeviceChain></AudioTrack>
+    </Tracks><MainTrack /></LiveSet></Ableton>`);
+    const [track] = doc.tracks;
+    assert.equal(track.isVideoTrack, false);
+    assert.equal(track.captureDevice, null);
+    assert.equal(track.layers, null);
+  });
+});
+
+describe("decodeZvidCaptureAuBuffer", () => {
+  const json = JSON.stringify({
+    version: "1",
+    recordRoot: "project",
+    recordings: [
+      {
+        filename: "video-01-9-25-20-36-12-0.mp4",
+        dimensions: [1920, 1080],
+        fps: [30, 1],
+        frameStart: -45,
+        fileOffsetSec: 1.5,
+        transportStartSec: 0,
+        transportStartBeats: 0,
+        durationSec: 8,
+        createdAt: "2026-09-25T20:36:12Z",
+      },
+    ],
+  });
+
+  // A minimal `bplist00` encoder: one dict of ASCII keys to string or data.
+  function binaryPlist(entries: Array<[string, string | Uint8Array]>) {
+    const objects: Uint8Array[] = [];
+    const marker = (type: number, length: number) =>
+      length < 15
+        ? [(type << 4) | length]
+        : [(type << 4) | 15, 0x11, length >> 8, length & 0xff];
+    const add = (bytes: number[] | Uint8Array) =>
+      objects.push(Uint8Array.from(bytes)) - 1;
+    const ascii = (value: string) =>
+      add([...marker(5, value.length), ...Buffer.from(value, "latin1")]);
+    const keys = entries.map(([key]) => ascii(key));
+    const values = entries.map(([, value]) =>
+      typeof value === "string"
+        ? ascii(value)
+        : add([...marker(4, value.length), ...value]),
+    );
+    const top = add([...marker(13, entries.length), ...keys, ...values]);
+    const header = Buffer.from("bplist00", "latin1");
+    const offsets: number[] = [];
+    let length = header.length;
+    for (const object of objects) {
+      offsets.push(length);
+      length += object.length;
+    }
+    const trailer = new Uint8Array(32);
+    const view = new DataView(trailer.buffer);
+    trailer[6] = 2;
+    trailer[7] = 1;
+    view.setBigUint64(8, BigInt(objects.length));
+    view.setBigUint64(16, BigInt(top));
+    view.setBigUint64(24, BigInt(length));
+    const table = new Uint8Array(offsets.length * 2);
+    offsets.forEach((offset, index) => {
+      new DataView(table.buffer).setUint16(index * 2, offset);
+    });
+    return Buffer.concat([header, ...objects, table, trailer]);
+  }
+
+  it("reads the zvid-state data of a binary plist", () => {
+    const plist = binaryPlist([
+      ["name", "Untitled"],
+      ["zvid-state", Buffer.from(json, "utf8")],
+    ]);
+    const state = decodeZvidCaptureAuBuffer(plist.toString("hex"));
+    assert.equal(state.recordRoot, "project");
+    assert.equal(state.recordings[0].frameStart, -45);
+    assert.equal(state.recordings[0].fileOffsetSec, 1.5);
+  });
+
+  it("rejects a plist without zvid-state", () => {
+    const plist = `<?xml version="1.0"?><plist version="1.0"><dict><key>name</key><string>x</string></dict></plist>`;
+    assert.throws(
+      () => decodeZvidCaptureAuBuffer(hex(plist)),
+      /no "zvid-state" key/,
+    );
   });
 });

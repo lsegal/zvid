@@ -7,6 +7,8 @@ import {
   alsMainAudioPath,
   alsMediaCandidatePaths,
   alsMediaSearchDirs,
+  alsRecordDirLocator,
+  alsRecordRootDir,
   alsSavePath,
   createAlsMediaLocator,
   formatAlsImportSummary,
@@ -651,5 +653,122 @@ describe("formatAlsImportSummary", () => {
       }),
       ["Imported 1 track and 4 clips."],
     );
+  });
+});
+
+describe("ZVID Capture media resolution", () => {
+  const importFixture = (name: string, path: string) =>
+    importAls(
+      gzip(
+        readFileSync(
+          new URL(`../test/fixtures/als/${name}`, import.meta.url),
+          "utf8",
+        ),
+      ),
+      path,
+    );
+
+  it("places each record root beside the set or in Documents", () => {
+    assert.equal(
+      alsRecordRootDir("project", "/Music/Song Project/Song.als", "/Docs"),
+      "/Music/Song Project/Recorded/ZVID",
+    );
+    assert.equal(
+      alsRecordRootDir("documents", "/Music/Song Project/Song.als", "/Docs"),
+      "/Docs/ZVID/Recorded",
+    );
+    assert.equal(
+      alsRecordRootDir(
+        "project",
+        "C:\\Music\\Song Project\\Song.als",
+        "C:\\Docs",
+      ),
+      "C:\\Music\\Song Project\\Recorded\\ZVID",
+    );
+    assert.equal(alsRecordRootDir("documents", "/Song.als", undefined), null);
+    assert.equal(alsRecordRootDir("project", undefined, "/Docs"), null);
+  });
+
+  it("finds project-rooted takes in the set's Recorded/ZVID folder", async () => {
+    const alsPath = "/Music/Song Project/Song.als";
+    const imported = await importFixture("zvid-capture-vst3.xml", alsPath);
+    assert.deepEqual(imported.importReport?.recordRoots, {
+      "video-01-9-25-20-36-12-0.mp4": "project",
+    });
+    const dirs = alsMediaSearchDirs(alsPath, "/Docs");
+    const recordDirOf = alsRecordDirLocator(imported, alsPath, "/Docs");
+    const recorded =
+      "/Music/Song Project/Recorded/ZVID/video-01-9-25-20-36-12-0.mp4";
+    assert.ok(
+      alsMediaCandidatePaths(imported, dirs, recordDirOf).includes(recorded),
+    );
+
+    // A same-named file beside the set loses to the record root folder.
+    const onDisk = new Set([
+      recorded,
+      "/Music/Song Project/video-01-9-25-20-36-12-0.mp4",
+    ]);
+    const { session, summary } = resolveAlsMedia(
+      imported,
+      createAlsMediaLocator(dirs, (path) => onDisk.has(path), recordDirOf),
+    );
+    assert.deepEqual(
+      session.tracks?.[0].recordings?.map((recording) => recording.filename),
+      [recorded, recorded],
+    );
+    assert.deepEqual(
+      session.clips?.map((clip) => clip.filePath),
+      [recorded, recorded],
+    );
+    assert.deepEqual(summary.missingMedia, []);
+  });
+
+  it("finds documents-rooted takes in Documents/ZVID/Recorded", async () => {
+    const alsPath = "C:\\Music\\Song Project\\Song.als";
+    const documentsDir = "C:\\Users\\me\\Documents";
+    const imported = await importFixture("zvid-capture-au.xml", alsPath);
+    const recordDirOf = alsRecordDirLocator(imported, alsPath, documentsDir);
+    const found =
+      "C:\\Users\\me\\Documents\\ZVID\\Recorded\\video-02-9-25-21-05-00-0.mp4";
+    const { session, summary } = resolveAlsMedia(
+      imported,
+      createAlsMediaLocator(
+        alsMediaSearchDirs(alsPath, documentsDir),
+        (path) => path === found,
+        recordDirOf,
+      ),
+    );
+    assert.deepEqual(
+      session.clips?.map((clip) => clip.filePath),
+      ["video-01-9-25-21-00-00-0.mp4", found],
+    );
+    // Missing takes keep their name and fall through to relinking.
+    assert.deepEqual(summary.missingMedia, ["video-01-9-25-21-00-00-0.mp4"]);
+  });
+
+  it("falls back to the usual search folders when the record root lacks a take", async () => {
+    const alsPath = "/Music/Song Project/Song.als";
+    const imported = await importFixture(
+      "layers-and-zvid-capture.xml",
+      alsPath,
+    );
+    const beside = "/Music/Song Project/video-01-9-25-20-36-12-0.mp4";
+    const layers = "/Docs/Layers/Recorded/video-12-13-23-20-15-14-1.mp4";
+    const { session, summary } = resolveAlsMedia(
+      imported,
+      createAlsMediaLocator(
+        alsMediaSearchDirs(alsPath, "/Docs"),
+        (path) => path === beside || path === layers,
+        alsRecordDirLocator(imported, alsPath, "/Docs"),
+      ),
+    );
+    assert.deepEqual(
+      session.clips?.map((clip) => clip.filePath),
+      [layers, beside, beside],
+    );
+    assert.deepEqual(summary.missingMedia, ["video-12-13-23-20-13-46-0.mp4"]);
+    assert.deepEqual(summary.skippedTracks, [
+      "Outro on Cam A (no ZVID take at its position)",
+    ]);
   });
 });
