@@ -55,7 +55,7 @@ describe("shared design tokens", () => {
   it("imports the tokens package instead of redefining shared tokens", () => {
     assert.match(indexCss, /@import '@zvid\/tokens\/tokens\.css';/);
     for (const name of sharedTokens) {
-      assert.doesNotMatch(appCss, new RegExp(`^\s*${name}:`, "m"), name);
+      assert.doesNotMatch(appCss, new RegExp(`^s*${name}:`, "m"), name);
     }
     assert.match(ruleBody(appCss, ":root"), /--lane-selected-accent:/);
   });
@@ -87,7 +87,10 @@ describe("shared design tokens", () => {
   });
 
   it("loads no stylesheets or fonts from the network", () => {
-    for (const css of [tokensCss, ...appStylesheets(new URL("./", import.meta.url))]) {
+    for (const css of [
+      tokensCss,
+      ...appStylesheets(new URL("./", import.meta.url)),
+    ]) {
       assert.doesNotMatch(css, /url\(\s*['"]?(https?:)?\/\//);
       assert.doesNotMatch(css, /@import\s+url\(/);
     }
