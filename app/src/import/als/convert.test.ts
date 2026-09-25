@@ -218,7 +218,7 @@ describe("convertAls with dogfood3.als against dogfood3.lvp", () => {
     assert.equal(result.summary.hasLayersVideo, true);
   });
 
-  it("puts each concurrent Layers track on its own layer", () => {
+  it("gives each Layers track its own layer", () => {
     assert.deepEqual(session.mainTracks, [
       { id: "1", name: "Layer 1" },
       { id: "2", name: "Layer 2" },
@@ -522,7 +522,7 @@ describe("convertAls with synthetic sets", () => {
     );
   });
 
-  it("spreads concurrent tracks across layers and shares a layer otherwise", () => {
+  it("gives every track its own layer, even when clips never overlap", () => {
     // Drums and Bass play together; Keys only plays after both end.
     const { session, summary } = convertAls(
       doc([
@@ -531,14 +531,18 @@ describe("convertAls with synthetic sets", () => {
         videoTrack({
           id: 7,
           name: "Keys",
-          clips: [audioClip({ currentStart: 4, currentEnd: 8 })],
+          clips: [
+            audioClip({ currentStart: 4, currentEnd: 8 }),
+            audioClip({ id: 2, currentStart: 8, currentEnd: 12 }),
+          ],
         }),
       ]),
     );
-    assert.deepEqual(
-      session.mainTracks?.map((track) => track.name),
-      ["Layer 1", "Layer 2"],
-    );
+    assert.deepEqual(session.mainTracks, [
+      { id: "1", name: "Layer 1" },
+      { id: "2", name: "Layer 2" },
+      { id: "3", name: "Layer 3" },
+    ]);
     assert.deepEqual(
       session.selections?.map(
         ({ trackId, mainTrackId, frameStart, frameEnd }) => [
@@ -551,16 +555,17 @@ describe("convertAls with synthetic sets", () => {
       [
         ["5", "1", 0, 60],
         ["6", "2", 0, 60],
-        ["7", "1", 60, 120],
+        ["7", "3", 60, 120],
+        ["7", "3", 120, 180],
       ],
     );
     assert.deepEqual(summary.skipped, []);
     assert.deepEqual(summary.trimmed, []);
   });
 
-  it("resolves overlaps once every layer is taken, the later clip winning", () => {
+  it("puts tracks past nine on the last layer, the later clip winning", () => {
     // Nine tracks fill the layers from 0 to 4 beats. A tenth covers the
-    // first track entirely, and an eleventh overlaps the second's tail.
+    // ninth entirely on the last layer, and an eleventh overlaps its tail.
     const tracks = Array.from({ length: 9 }, (_, index) =>
       videoTrack({ id: 10 + index, name: `Cam ${index + 1}` }),
     );
@@ -575,7 +580,10 @@ describe("convertAls with synthetic sets", () => {
         }),
       ]),
     );
-    assert.equal(session.mainTracks?.length, 9);
+    assert.deepEqual(
+      session.mainTracks?.map((track) => track.name),
+      tracks.map((_, index) => `Layer ${index + 1}`),
+    );
     assert.deepEqual(
       session.selections?.map(
         ({ trackId, mainTrackId, frameStart, frameEnd }) => [
@@ -586,35 +594,26 @@ describe("convertAls with synthetic sets", () => {
         ],
       ),
       [
-        ["11", "2", 0, 45],
         ...tracks
-          .slice(2)
-          .map((_, index) => [String(12 + index), String(3 + index), 0, 60]),
-        ["30", "1", 0, 60],
-        ["31", "2", 45, 90],
+          .slice(0, 8)
+          .map((_, index) => [String(10 + index), String(1 + index), 0, 60]),
+        ["30", "9", 0, 45],
+        ["31", "9", 45, 90],
       ],
     );
-    for (const lane of session.mainTracks ?? []) {
-      const onLane = (session.selections ?? [])
-        .filter((selection) => selection.mainTrackId === lane.id)
-        .sort((a, b) => a.frameStart - b.frameStart);
-      for (let index = 1; index < onLane.length; index++) {
-        assert.ok(onLane[index].frameStart >= onLane[index - 1].frameEnd);
-      }
-    }
     assert.deepEqual(
       summary.skipped.map(({ clipId, trackName, reason }) => [
         clipId,
         trackName,
         reason,
       ]),
-      [["10-1", "Cam 1", "overlapped"]],
+      [["18-1", "Cam 9", "overlapped"]],
     );
     assert.deepEqual(summary.trimmed, [
       {
-        trackId: "11",
-        trackName: "Cam 2",
-        clipId: "11-1",
+        trackId: "30",
+        trackName: "Cover",
+        clipId: "30-1",
         clipName: "Clip",
       },
     ]);

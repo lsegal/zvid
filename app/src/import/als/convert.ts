@@ -7,9 +7,9 @@
 //
 // Everything is derived from the `.als` alone. `mainTracks` and `selections`
 // are Layers-app data with no counterpart in Live, so they are generated:
-// tracks that play at the same time go on separate layers, up to
-// `MAX_LAYERS`, and any overlap left past that is resolved. Effects are out
-// of scope. Media probing (`numFrames`, `frameRate`) and resolving recording
+// each arranged track gets its own layer, in track order, up to `MAX_LAYERS`.
+// Tracks past that share the last layer, where overlaps are resolved. Effects
+// are out of scope. Media probing (`numFrames`, `frameRate`) and resolving recording
 // files on disk happen elsewhere.
 
 import {
@@ -165,19 +165,19 @@ export function convertAls(
   // Layers video is what the arrangement shows. A set without any gets its
   // other clips there instead, so its structure is visible.
   const arrangedClips = videoClips.length ? videoClips : clips;
+  const trackNames = new Map(
+    importedTracks.map((track) => [String(track.id), track.name]),
+  );
   const layers = assignLayers(arrangedClips);
   const overlaps = resolveSelectionOverlaps(
     arrangedClips.map((clip, index) => ({
       id: index + 1,
       trackId: clip.trackId,
-      mainTrackId: layers.layerOf.get(clip) ?? "1",
+      mainTrackId: layers.idOf.get(clip.trackId) ?? "1",
       frameStart: clip.frameStart,
       frameEnd: clip.frameStart + clip.frameCount,
       selected: false,
     })),
-  );
-  const trackNames = new Map(
-    importedTracks.map((track) => [String(track.id), track.name]),
   );
   const describe = (selection: LvpSelection): AlsTrimmedClip => {
     const clip = arrangedClips[selection.id - 1];
@@ -193,10 +193,7 @@ export function convertAls(
   }
 
   const session: LvpSession = {
-    mainTracks: Array.from({ length: layers.count }, (_, index) => ({
-      id: String(index + 1),
-      name: `Layer ${index + 1}`,
-    })),
+    mainTracks: layers.mainTracks,
     tracks: importedTracks.map((track) => ({
       id: String(track.id),
       name: track.name,
@@ -235,43 +232,24 @@ export function convertAls(
 }
 
 /**
- * Puts each track's clips on one layer, in track order: the first layer
- * where they overlap nothing already placed, or a new layer while there are
- * fewer than `MAX_LAYERS`. Past that, a track shares the layer it overlaps
- * least, and the caller resolves what still overlaps. At least one layer is
- * always counted.
+ * One layer per track with arranged clips, in track order. Layers keep the
+ * editor's `Layer N` names, which its lane badges are built from. Tracks past
+ * `MAX_LAYERS` share the last layer, and the caller resolves their overlaps.
+ * A set with nothing arranged still gets a layer.
  */
 function assignLayers(clips: readonly LvpClip[]) {
-  const byTrack = new Map<string, LvpClip[]>();
-  for (const clip of clips) {
-    byTrack.set(clip.trackId, [...(byTrack.get(clip.trackId) ?? []), clip]);
-  }
-
-  const layers: LvpClip[][] = [];
-  const layerOf = new Map<LvpClip, string>();
-  for (const trackClips of byTrack.values()) {
-    const overlaps = layers.map((layer) =>
-      trackClips.reduce(
-        (sum, clip) =>
-          sum + layer.reduce((inner, other) => inner + overlap(clip, other), 0),
-        0,
-      ),
-    );
-    let index = overlaps.indexOf(0);
-    if (index < 0 && layers.length < MAX_LAYERS) index = layers.length;
-    if (index < 0) index = overlaps.indexOf(Math.min(...overlaps));
-    layers[index] = [...(layers[index] ?? []), ...trackClips];
-    for (const clip of trackClips) layerOf.set(clip, String(index + 1));
-  }
-  return { count: Math.max(1, layers.length), layerOf };
-}
-
-function overlap(a: LvpClip, b: LvpClip) {
-  return Math.max(
-    0,
-    Math.min(a.frameStart + a.frameCount, b.frameStart + b.frameCount) -
-      Math.max(a.frameStart, b.frameStart),
+  const trackIds = Array.from(new Set(clips.map((clip) => clip.trackId)));
+  const mainTracks = Array.from(
+    { length: Math.max(1, Math.min(trackIds.length, MAX_LAYERS)) },
+    (_, index) => ({ id: String(index + 1), name: `Layer ${index + 1}` }),
   );
+  const idOf = new Map(
+    trackIds.map((trackId, index) => [
+      trackId,
+      String(Math.min(index, MAX_LAYERS - 1) + 1),
+    ]),
+  );
+  return { mainTracks, idOf };
 }
 
 function lvpClipId(track: AlsTrack, clip: AlsClip) {
