@@ -1,7 +1,7 @@
 //! Turns what an AU host reports through its `HostCallbacks` into the core
-//! [`TransportSnapshot`].
+//! [`ProcessSnapshot`] the control thread watches.
 
-use zvid_daw_core::TransportSnapshot;
+use zvid_daw_core::ProcessSnapshot;
 
 /// Tempo assumed when the host reports none.
 pub const DEFAULT_TEMPO: f64 = 120.0;
@@ -14,6 +14,10 @@ pub const DEFAULT_TIME_SIGNATURE: [u32; 2] = [4, 4];
 pub struct HostReading {
     /// From `transportStateProc2` (or `transportStateProc`).
     pub playing: Option<bool>,
+    /// From `transportStateProc2`; older hosts don't report it.
+    pub recording: Option<bool>,
+    /// Whether the host's loop is on, from the transport state callback.
+    pub cycling: Option<bool>,
     /// Transport position in samples, from the transport state callback.
     pub sample_in_timeline: Option<f64>,
     /// Current beat, from `beatAndTempoProc`.
@@ -24,13 +28,15 @@ pub struct HostReading {
     pub time_signature: Option<[u32; 2]>,
 }
 
-/// A snapshot for the take tracker, or `None` when the host reported no
-/// transport at all.
+/// A snapshot of render call number `block`, which rendered `frames`
+/// frames, or `None` when the host reported no transport at all.
 pub fn snapshot(
     reading: HostReading,
+    block: u64,
+    frames: u32,
     sample_rate: f64,
     host_time: f64,
-) -> Option<TransportSnapshot> {
+) -> Option<ProcessSnapshot> {
     if reading.playing.is_none() && reading.beat.is_none() && reading.sample_in_timeline.is_none() {
         return None;
     }
@@ -40,21 +46,28 @@ pub fn snapshot(
         .unwrap_or(DEFAULT_TEMPO);
     // The sample position is exact across tempo changes; beats are only a
     // fallback for hosts that report no position.
-    let song_sec = match reading.sample_in_timeline {
-        Some(samples) if sample_rate > 0.0 => samples / sample_rate,
-        _ => reading.beat.unwrap_or(0.0) * 60.0 / tempo,
+    let samples = match reading.sample_in_timeline {
+        Some(samples) if samples.is_finite() => samples,
+        _ => reading.beat.unwrap_or(0.0) * 60.0 / tempo * sample_rate,
     };
+    let song_sec = samples / sample_rate.max(1.0);
     let beats = reading.beat.unwrap_or(song_sec * tempo / 60.0);
     let time_signature = reading
         .time_signature
         .filter(|[numerator, denominator]| *numerator > 0 && *denominator > 0)
         .unwrap_or(DEFAULT_TIME_SIGNATURE);
-    Some(TransportSnapshot {
+    Some(ProcessSnapshot {
+        block,
+        num_samples: frames,
         playing: reading.playing.unwrap_or(false),
-        beats,
-        song_sec,
+        recording: reading.recording.unwrap_or(false),
+        cycle_active: reading.cycling.unwrap_or(false),
+        sample_rate,
+        project_time_samples: samples.round() as i64,
+        project_time_music: beats,
         tempo,
         time_signature,
+        system_time_ns: None,
         host_time,
     })
 }
@@ -68,31 +81,44 @@ pub fn host_ticks_to_sec(ticks: u64, numer: u32, denom: u32) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use zvid_daw_core::{Change, TransportSnapshot, TransportWatch};
 
     #[test]
     fn nothing_reported_gives_no_snapshot() {
-        assert_eq!(snapshot(HostReading::default(), 48_000.0, 1.0), None);
+        assert_eq!(
+            snapshot(HostReading::default(), 1, 512, 48_000.0, 1.0),
+            None
+        );
     }
 
     #[test]
     fn uses_sample_position_for_song_time() {
         let reading = HostReading {
             playing: Some(true),
+            recording: Some(true),
+            cycling: Some(true),
             sample_in_timeline: Some(96_000.0),
             beat: Some(4.0),
             tempo: Some(120.0),
             time_signature: Some([3, 4]),
         };
+        let snapshot = snapshot(reading, 7, 256, 48_000.0, 7.5).unwrap();
+        assert_eq!(snapshot.block, 7);
+        assert_eq!(snapshot.num_samples, 256);
+        assert!(snapshot.recording);
+        assert!(snapshot.cycle_active);
+        assert_eq!(snapshot.project_time_samples, 96_000);
+        assert_eq!(snapshot.system_time_ns, None);
         assert_eq!(
-            snapshot(reading, 48_000.0, 7.5),
-            Some(TransportSnapshot {
+            snapshot.to_tracker(),
+            TransportSnapshot {
                 playing: true,
                 beats: 4.0,
                 song_sec: 2.0,
                 tempo: 120.0,
                 time_signature: [3, 4],
                 host_time: 7.5,
-            })
+            }
         );
     }
 
@@ -104,11 +130,14 @@ mod tests {
             time_signature: Some([0, 4]),
             ..HostReading::default()
         };
-        let snapshot = snapshot(reading, 44_100.0, 0.0).unwrap();
+        let snapshot = snapshot(reading, 1, 512, 44_100.0, 0.0).unwrap();
         assert!(!snapshot.playing);
+        assert!(!snapshot.recording);
+        assert!(!snapshot.cycle_active);
         assert_eq!(snapshot.tempo, DEFAULT_TEMPO);
-        assert_eq!(snapshot.song_sec, 4.0);
-        assert_eq!(snapshot.beats, 8.0);
+        assert_eq!(snapshot.song_sec(), 4.0);
+        assert_eq!(snapshot.project_time_samples, 176_400);
+        assert_eq!(snapshot.project_time_music, 8.0);
         assert_eq!(snapshot.time_signature, DEFAULT_TIME_SIGNATURE);
     }
 
@@ -120,9 +149,27 @@ mod tests {
             tempo: Some(90.0),
             ..HostReading::default()
         };
-        let snapshot = snapshot(reading, 44_100.0, 0.0).unwrap();
-        assert_eq!(snapshot.song_sec, 1.0);
-        assert_eq!(snapshot.beats, 1.5);
+        let snapshot = snapshot(reading, 1, 512, 44_100.0, 0.0).unwrap();
+        assert_eq!(snapshot.song_sec(), 1.0);
+        assert_eq!(snapshot.project_time_music, 1.5);
+    }
+
+    #[test]
+    fn consecutive_renders_play_without_a_locate() {
+        let mut watch = TransportWatch::default();
+        let render = |block: u64, playing: bool, position: f64| {
+            let reading = HostReading {
+                playing: Some(playing),
+                sample_in_timeline: Some(position),
+                ..HostReading::default()
+            };
+            snapshot(reading, block, 512, 48_000.0, 0.0).unwrap()
+        };
+        assert_eq!(watch.observe(render(1, false, 0.0)), []);
+        assert_eq!(watch.observe(render(2, true, 0.0)), [Change::Play]);
+        assert_eq!(watch.observe(render(3, true, 512.0)), []);
+        assert_eq!(watch.observe(render(4, true, 96_000.0)), [Change::Locate]);
+        assert_eq!(watch.observe(render(5, false, 96_512.0)), [Change::Stop]);
     }
 
     #[test]

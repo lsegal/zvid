@@ -23,13 +23,15 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
-use zvid_daw_core::{Consumer, Input, LiveLink, Producer, State, TakeTracker, ring};
+use zvid_daw_core::{
+    Consumer, LiveLink, ProcessSnapshot, Producer, State, TransportFollower, ring,
+};
 
 use crate::CLASS_ID;
 use crate::abi::result::{FALSE, INVALID_ARGUMENT, NO_INTERFACE, NOT_IMPLEMENTED, OK};
 use crate::abi::*;
 use crate::log::log;
-use crate::transport::{ProcessSnapshot, TransportWatch, describe, now_sec};
+use crate::transport::{now_sec, snapshot};
 use crate::view::View;
 
 /// Snapshots the transport ring holds: about ten seconds of 512-sample
@@ -284,12 +286,9 @@ impl Component {
         let audio = unsafe { &mut *self.audio.get() };
         audio.block += 1;
         if let Some(context) = unsafe { data.process_context.as_ref() } {
-            audio.transport.push(ProcessSnapshot::new(
-                context,
-                audio.block,
-                data.num_samples,
-                now_sec(),
-            ));
+            audio
+                .transport
+                .push(snapshot(context, audio.block, data.num_samples, now_sec()));
         }
         if data.symbolic_sample_size != SAMPLE_32 {
             return NOT_IMPLEMENTED;
@@ -343,15 +342,13 @@ fn start_control(mut transport: Consumer<ProcessSnapshot>) -> Option<Control> {
     let spawned = thread::Builder::new()
         .name("zvid-vst3-control".to_string())
         .spawn(move || {
-            let mut watch = TransportWatch::default();
-            let mut tracker = TakeTracker::new();
-            let mut dropped = 0;
+            let mut follower = TransportFollower::default();
             let mut live = LiveLink::connect()
                 .inspect_err(|error| log(&format!("could not open the Live link: {error}")))
                 .ok();
             loop {
                 let stopping = stopping.load(Ordering::Acquire);
-                drain_transport(&mut transport, &mut watch, &mut tracker, &mut dropped);
+                follower.drain(&mut transport, log);
                 if let Some(live) = &mut live {
                     poll_live(live);
                 }
@@ -379,28 +376,6 @@ fn stop_control(lifecycle: &mut Lifecycle) {
     match control.thread.join() {
         Ok(transport) => lifecycle.transport = Some(transport),
         Err(_) => log("the control thread panicked"),
-    }
-}
-
-/// Feeds queued snapshots to the tracker and logs transport changes.
-fn drain_transport(
-    transport: &mut Consumer<ProcessSnapshot>,
-    watch: &mut TransportWatch,
-    tracker: &mut TakeTracker,
-    dropped: &mut u64,
-) {
-    while let Some(snapshot) = transport.pop() {
-        for change in watch.observe(snapshot) {
-            log(&describe(change, &snapshot));
-        }
-        for event in tracker.handle(Input::Transport(snapshot.to_tracker())) {
-            log(&format!("{event:?}"));
-        }
-    }
-    let total = transport.dropped();
-    if total != *dropped {
-        log(&format!("dropped {} transport snapshots", total - *dropped));
-        *dropped = total;
     }
 }
 
