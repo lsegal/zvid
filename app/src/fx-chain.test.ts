@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  ADDABLE_EFFECT_DEFINITIONS,
   describeDeviceMove,
   dropSlotToStackIndex,
   FX_COLLAPSED_STORAGE_KEY,
@@ -32,11 +33,12 @@ function effect(
   return { id, trackId, effectName, parameters: [], enabled: true };
 }
 
-// Layer 3 of dogfood3.lvp, plus its Global Layout.
+// Layer 3 of dogfood3.lvp with its own Layout, plus a Global effect.
 const DOGFOOD_EFFECTS = [
+  effect("fx-layout", "3", "Layout"),
   effect("fx-1", "3", "Pixelate"),
   effect("fx-2", "3", "Colorize"),
-  effect("fx-global", GLOBAL_EFFECT_TRACK_ID, "Layout"),
+  effect("fx-global", GLOBAL_EFFECT_TRACK_ID, "Colorize"),
   effect("fx-3", "3", "NegativeSplit"),
   effect("fx-4", "3", "AnalogGlitch"),
   effect("fx-other", "1", "ZoomAndPan"),
@@ -56,22 +58,22 @@ function memoryStorage(initial: Record<string, string> = {}) {
 describe("groupChainDevices", () => {
   it("lists the layer stack in order, then the Global stack", () => {
     const groups = groupChainDevices(
-      mapSessionEffectsToDevices(DOGFOOD_EFFECTS, "3", "video", "Layer 3"),
+      mapSessionEffectsToDevices(DOGFOOD_EFFECTS, "3", "Layer 3"),
       "video",
     );
     assert.deepEqual(
       groups.layer.map((device) => device.name),
-      ["Pixelate", "Colorize", "Negative Split", "Analog Glitch"],
+      ["Layout", "Pixelate", "Colorize", "Negative Split", "Analog Glitch"],
     );
     assert.deepEqual(
       groups.global.map((device) => device.name),
-      ["Layout"],
+      ["Colorize"],
     );
   });
 
-  it("drops the placeholder Layout device", () => {
+  it("shows nothing for a stack with no effects", () => {
     const groups = groupChainDevices(
-      mapSessionEffectsToDevices([], "2", "video", "Layer 2"),
+      mapSessionEffectsToDevices([], "2", "Layer 2"),
       "video",
     );
     assert.deepEqual(groups, { layer: [], global: [] });
@@ -79,10 +81,20 @@ describe("groupChainDevices", () => {
 
   it("shows no devices for audio clips", () => {
     const groups = groupChainDevices(
-      mapSessionEffectsToDevices(DOGFOOD_EFFECTS, "3", "audio", "Layer 3"),
+      mapSessionEffectsToDevices(DOGFOOD_EFFECTS, "3", "Layer 3"),
       "audio",
     );
     assert.deepEqual(groups, { layer: [], global: [] });
+  });
+});
+
+describe("ADDABLE_EFFECT_DEFINITIONS", () => {
+  it("leaves Layout out, since every layer already has one", () => {
+    const names = ADDABLE_EFFECT_DEFINITIONS.map(
+      (definition) => definition.effectName,
+    );
+    assert.ok(names.includes("Colorize"));
+    assert.ok(!names.includes("Layout"));
   });
 });
 
@@ -188,19 +200,19 @@ describe("drag reordering", () => {
   });
 
   it("drops Colorize before Pixelate on Layer 3", () => {
-    // Colorize is at index 1; the pointer lands left of Pixelate's midpoint.
+    // Colorize is at index 2; the pointer lands left of Pixelate's midpoint.
     const next = moveEffect(
       DOGFOOD_EFFECTS,
       "fx-2",
-      dropSlotToStackIndex(1, getDropSlot(midpoints, 20)),
+      dropSlotToStackIndex(2, getDropSlot(midpoints, 100)),
     );
     const layer = groupChainDevices(
-      mapSessionEffectsToDevices(next, "3", "video", "Layer 3"),
+      mapSessionEffectsToDevices(next, "3", "Layer 3"),
       "video",
     ).layer;
     assert.deepEqual(
       layer.map((device) => device.name),
-      ["Colorize", "Pixelate", "Negative Split", "Analog Glitch"],
+      ["Layout", "Colorize", "Pixelate", "Negative Split", "Analog Glitch"],
     );
   });
 
@@ -217,23 +229,18 @@ describe("drag reordering", () => {
 
   it("announces moves with the position in the stack", () => {
     const [colorize] = mapSessionEffectsToDevices(
-      [DOGFOOD_EFFECTS[1]],
+      [DOGFOOD_EFFECTS[2]],
       "3",
-      "video",
       "Layer 3",
     ).filter((device) => device.name === "Colorize");
     assert.equal(
       describeDeviceMove(colorize, 0, 4),
       "Moved Colorize to position 1 of 4 in Layer 3",
     );
-    const [layout] = mapSessionEffectsToDevices(
-      [DOGFOOD_EFFECTS[2]],
-      "3",
-      "video",
-    );
+    const [global] = mapSessionEffectsToDevices([DOGFOOD_EFFECTS[3]], "3");
     assert.equal(
-      describeDeviceMove(layout, 0, 1),
-      "Moved Layout to position 1 of 1 in Global",
+      describeDeviceMove(global, 0, 1),
+      "Moved Colorize to position 1 of 1 in Global",
     );
   });
 });
@@ -241,8 +248,8 @@ describe("drag reordering", () => {
 describe("resolveSelectedLaneId", () => {
   const lanes = [{ id: "1" }, { id: "2" }, { id: "3" }];
   const effects = [
+    effect("layout-1", "1", "Layout"),
     effect("fx-1", "3", "Pixelate"),
-    effect("fx-global", GLOBAL_EFFECT_TRACK_ID, "Layout"),
   ];
 
   it("follows the selected clip's layer", () => {
@@ -296,12 +303,14 @@ describe("stepSelectedLaneId", () => {
 });
 
 describe("getDefaultLaneId", () => {
-  it("prefers the first layer with effects", () => {
+  it("prefers the first layer with effects besides its Layout", () => {
     assert.equal(
       getDefaultLaneId(
         [{ id: "1" }, { id: "2" }, { id: "3" }],
         [
-          effect("fx-global", GLOBAL_EFFECT_TRACK_ID, "Layout"),
+          effect("layout-1", "1", "Layout"),
+          effect("fx-global", GLOBAL_EFFECT_TRACK_ID, "Colorize"),
+          effect("layout-2", "2", "Layout"),
           effect("fx-2", "2", "Colorize"),
         ],
       ),

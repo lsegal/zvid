@@ -3,7 +3,9 @@ import { describe, it } from "node:test";
 import {
   type ArrangementClip,
   computeActiveClips,
+  GROUP_TRACK_ID,
   type MediaItem,
+  resolveVisualState,
 } from "./composition-active-clips.ts";
 import {
   orderStackedLayers,
@@ -181,5 +183,33 @@ describe("computeActiveClips", () => {
     assert.ok(top.frame.centerY > bottom.frame.centerY);
     assert.equal(top.scissor.y, 960, "Layer 1 fills the top half");
     assert.equal(bottom.scissor.y, 0, "Layer 2 fills the bottom half");
+  });
+});
+
+describe("resolveVisualState", () => {
+  function layout(id: string, trackId: string, position: string) {
+    return {
+      id,
+      trackId,
+      effectName: "Layout",
+      parameters: [{ key: "Position", value: position }],
+      enabled: true,
+    };
+  }
+
+  it("takes the layout anchor only from the layer's own stack", () => {
+    const effects = [
+      layout("layout-1", "1", "Top"),
+      layout("layout-5", "5", "Bottom"),
+      layout("global", GROUP_TRACK_ID, "Center"),
+    ];
+    assert.equal(resolveVisualState(effects, "1").layoutAnchor, "top");
+    assert.equal(resolveVisualState(effects, "5").layoutAnchor, "bottom");
+    assert.equal(resolveVisualState(effects, "6").layoutAnchor, "center");
+  });
+
+  it("ignores a global Layout", () => {
+    const effects = [layout("global", GROUP_TRACK_ID, "Bottom")];
+    assert.equal(resolveVisualState(effects, "1").layoutAnchor, "center");
   });
 });

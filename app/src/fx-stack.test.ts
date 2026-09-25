@@ -6,6 +6,7 @@ import {
   addEffect,
   duplicateEffect,
   effectHistoryLabels,
+  ensureLayerLayouts,
   type FxLayer,
   GLOBAL_EFFECT_TRACK_ID,
   getRenderedEffects,
@@ -14,6 +15,7 @@ import {
   mapSessionEffectsToDevices,
   moveEffect,
   removeEffect,
+  resetEffect,
   type SessionEffect,
   setEffectEnabled,
   setEffectParameter,
@@ -26,7 +28,8 @@ import {
 import type { LvpSession } from "./session.ts";
 
 // The effect stacks of the dogfood3.lvp session: Layer 3 ("6") has four
-// devices, and Layout sits on the global stack.
+// devices, and Layout sits on the global stack, as sessions from before
+// Layout was per layer did.
 const DOGFOOD_EFFECTS: LvpSession["effects"] = [
   {
     id: "zoom",
@@ -101,7 +104,7 @@ describe("mapEffects", () => {
 
 describe("mapSessionEffectsToDevices", () => {
   it("lists the layer stack in order, then the global stack", () => {
-    const devices = mapSessionEffectsToDevices(load(), "6", "video");
+    const devices = mapSessionEffectsToDevices(load(), "6");
     assert.deepEqual(
       devices.map((device) => [device.name, device.group]),
       [
@@ -115,13 +118,13 @@ describe("mapSessionEffectsToDevices", () => {
   });
 
   it("names the layer in subtitles", () => {
-    const devices = mapSessionEffectsToDevices(load(), "6", "video", "Layer 3");
+    const devices = mapSessionEffectsToDevices(load(), "6", "Layer 3");
     assert.equal(devices[0].subtitle, "Layer 3");
     assert.equal(devices[4].subtitle, "Global stack");
   });
 
   it("uses friendly labels and hides internal parameters", () => {
-    const [zoom] = mapSessionEffectsToDevices(load(), "1", "video");
+    const [zoom] = mapSessionEffectsToDevices(load(), "1");
     assert.equal(zoom.name, "Zoom & Pan");
     const labels = zoom.parameters.map((parameter) => parameter.label);
     assert.deepEqual(labels, [
@@ -135,7 +138,7 @@ describe("mapSessionEffectsToDevices", () => {
     assert.equal(zoom.parameters[3].display, "1.69×");
     assert.equal(zoom.parameters[4].display, "50%");
 
-    const colorize = mapSessionEffectsToDevices(load(), "6", "video")[1];
+    const colorize = mapSessionEffectsToDevices(load(), "6")[1];
     assert.deepEqual(
       colorize.parameters.map((parameter) => [
         parameter.label,
@@ -149,7 +152,7 @@ describe("mapSessionEffectsToDevices", () => {
   });
 
   it("shows the Layout position as an enum", () => {
-    const layout = mapSessionEffectsToDevices(load(), "6", "video")[4];
+    const layout = mapSessionEffectsToDevices(load(), "6")[4];
     assert.equal(layout.parameters[0].kind, "enum");
     assert.equal(layout.parameters[0].stringValue, "Center");
     assert.deepEqual(layout.parameters[0].options, ["Center", "Top", "Bottom"]);
@@ -165,7 +168,7 @@ describe("mapSessionEffectsToDevices", () => {
         enabled: true,
       },
     ];
-    const devices = mapSessionEffectsToDevices(effects, "1", "video");
+    const devices = mapSessionEffectsToDevices(effects, "1");
     const mystery = devices.find((device) => device.id === "mystery");
     assert.equal(mystery?.name, "Mystery");
     assert.deepEqual(
@@ -177,19 +180,31 @@ describe("mapSessionEffectsToDevices", () => {
     );
   });
 
-  it("adds a placeholder Layout device only for visual layers without one", () => {
+  it("lists only real effects, with no placeholder Layout", () => {
     const layerOnly = load().filter(
       (effect) => effect.trackId !== GLOBAL_EFFECT_TRACK_ID,
     );
-    const devices = mapSessionEffectsToDevices(layerOnly, "6", "video");
-    assert.equal(devices[0].placeholder, true);
-    assert.equal(devices[0].name, "Layout");
-    assert.deepEqual(mapSessionEffectsToDevices([], "6", "audio"), []);
+    const devices = mapSessionEffectsToDevices(layerOnly, "6");
+    assert.ok(devices.every((device) => device.name !== "Layout"));
+    assert.deepEqual(mapSessionEffectsToDevices([], "6"), []);
+  });
+
+  it("marks only a layer's own Layout as its default device", () => {
+    const effects = ensureLayerLayouts(load(), ["6"]);
+    const [layout, pixelate] = mapSessionEffectsToDevices(effects, "6");
+    assert.equal(layout.name, "Layout");
+    assert.equal(layout.group, "layer");
+    assert.equal(layout.layerDefault, true);
+    assert.equal(pixelate.layerDefault, undefined);
+    assert.equal(
+      mapSessionEffectsToDevices(load(), "6")[4].layerDefault,
+      undefined,
+    );
   });
 
   it("reports bypassed devices", () => {
     const effects = setEffectEnabled(load(), "colorize", false);
-    const colorize = mapSessionEffectsToDevices(effects, "6", "video")[1];
+    const colorize = mapSessionEffectsToDevices(effects, "6")[1];
     assert.equal(colorize.enabled, false);
   });
 
@@ -198,7 +213,7 @@ describe("mapSessionEffectsToDevices", () => {
       ...effect,
       enabled: undefined as unknown as boolean,
     }));
-    const devices = mapSessionEffectsToDevices(effects, "6", "video");
+    const devices = mapSessionEffectsToDevices(effects, "6");
     assert.ok(devices.every((device) => device.enabled));
     assert.equal(setEffectEnabled(effects, "colorize", true), effects);
   });
@@ -327,6 +342,13 @@ describe("addEffect", () => {
     ]);
   });
 
+  it("adds at most one Layout per layer and none to the Global stack", () => {
+    const effects = addEffect(load(), "6", "Layout", 0, "layer-layout");
+    assert.equal(ids(effects, "6")[0], "layer-layout");
+    assert.equal(addEffect(effects, "6", "Layout"), effects);
+    assert.equal(addEffect(effects, GLOBAL_EFFECT_TRACK_ID, "Layout"), effects);
+  });
+
   it("starts a new stack and generates ids", () => {
     const next = addEffect(load(), "5", "Layout");
     const added = next.at(-1);
@@ -342,6 +364,15 @@ describe("removeEffect and setEffectEnabled", () => {
     assert.deepEqual(ids(next, "6"), ["pixelate", "colorize", "glitch"]);
     const effects = load();
     assert.equal(removeEffect(effects, "missing"), effects);
+  });
+
+  it("keeps a layer's own Layout but removes a legacy global one", () => {
+    const effects = ensureLayerLayouts(load(), ["6"]);
+    assert.equal(removeEffect(effects, "layout-6"), effects);
+    assert.deepEqual(
+      ids(removeEffect(load(), "layout"), GLOBAL_EFFECT_TRACK_ID),
+      [],
+    );
   });
 
   it("toggles the bypass flag", () => {
@@ -379,6 +410,129 @@ describe("duplicateEffect", () => {
     const effects = load();
     assert.equal(duplicateEffect(effects, "missing"), effects);
   });
+
+  it("never duplicates a layer's own Layout", () => {
+    const effects = ensureLayerLayouts(load(), ["6"]);
+    assert.equal(duplicateEffect(effects, "layout-6", "copy"), effects);
+  });
+});
+
+describe("resetEffect", () => {
+  it("restores registry defaults and turns the effect back on", () => {
+    const edited = setEffectEnabled(
+      setEffectParameter(
+        ensureLayerLayouts(load(), ["6"]),
+        "layout-6",
+        "Position",
+        "Top",
+      ),
+      "layout-6",
+      false,
+    );
+    const next = resetEffect(edited, "layout-6");
+    const layout = next.find((effect) => effect.id === "layout-6");
+    assert.deepEqual(layout?.parameters, [
+      { key: "Position", value: "Center" },
+    ]);
+    assert.equal(layout?.enabled, true);
+  });
+
+  it("returns the same array when already at defaults", () => {
+    const effects = ensureLayerLayouts([], ["6"]);
+    assert.equal(resetEffect(effects, "layout-6"), effects);
+    assert.equal(resetEffect(effects, "missing"), effects);
+  });
+});
+
+describe("ensureLayerLayouts", () => {
+  it("gives every layer a default Layout at the start of its stack", () => {
+    const next = ensureLayerLayouts([], ["1", "5"]);
+    assert.deepEqual(
+      next.map((effect) => [effect.id, effect.trackId, effect.effectName]),
+      [
+        ["layout-1", "1", "Layout"],
+        ["layout-5", "5", "Layout"],
+      ],
+    );
+    assert.deepEqual(next[0].parameters, [
+      { key: "Position", value: "Center" },
+    ]);
+  });
+
+  it("moves a global Layout's position onto each layer", () => {
+    const effects = setEffectParameter(load(), "layout", "Position", "Bottom");
+    const next = ensureLayerLayouts(effects, ["1", "5", "6"]);
+    assert.deepEqual(ids(next, GLOBAL_EFFECT_TRACK_ID), []);
+    for (const laneId of ["1", "5", "6"]) {
+      const [first] = next.filter((effect) => effect.trackId === laneId);
+      assert.equal(first.id, `layout-${laneId}`);
+      assert.deepEqual(first.parameters, [
+        { key: "Position", value: "Bottom" },
+      ]);
+    }
+    assert.deepEqual(ids(next, "6"), [
+      "layout-6",
+      "pixelate",
+      "colorize",
+      "negative",
+      "glitch",
+    ]);
+  });
+
+  it("ignores a bypassed global Layout, which anchored nothing", () => {
+    const effects = setEffectEnabled(
+      setEffectParameter(load(), "layout", "Position", "Top"),
+      "layout",
+      false,
+    );
+    const [layout] = ensureLayerLayouts(effects, ["1"]);
+    assert.deepEqual(layout.parameters, [{ key: "Position", value: "Center" }]);
+  });
+
+  it("keeps a layer's own Layout", () => {
+    const effects = ensureLayerLayouts(
+      setEffectParameter(
+        addEffect(load(), "6", "Layout", 2, "own"),
+        "own",
+        "Position",
+        "Top",
+      ),
+      ["6"],
+    );
+    assert.deepEqual(ids(effects, "6"), [
+      "pixelate",
+      "colorize",
+      "own",
+      "negative",
+      "glitch",
+    ]);
+    assert.deepEqual(
+      effects.find((effect) => effect.id === "own")?.parameters,
+      [{ key: "Position", value: "Top" }],
+    );
+  });
+
+  it("returns the same array when every layer already has a Layout", () => {
+    const effects = ensureLayerLayouts(load(), ["1", "6"]);
+    assert.equal(ensureLayerLayouts(effects, ["1", "6"]), effects);
+  });
+
+  it("generates an id when the stable one is taken", () => {
+    const effects = ensureLayerLayouts(
+      [
+        {
+          id: "layout-2",
+          trackId: "9",
+          effectName: "Pixelate",
+          parameters: [],
+          enabled: true,
+        },
+      ],
+      ["2"],
+    );
+    const [layout] = effects.filter((effect) => effect.trackId === "2");
+    assert.match(layout.id, /^[0-9a-f-]{36}$/);
+  });
 });
 
 describe("effect history", () => {
@@ -405,6 +559,7 @@ describe("effect history", () => {
       effectHistoryLabels.remove("AnalogGlitch"),
       "Remove Analog Glitch",
     );
+    assert.equal(effectHistoryLabels.reset("Layout"), "Reset Layout");
   });
 
   it("records a drag as one entry and undoes it to the original value", () => {

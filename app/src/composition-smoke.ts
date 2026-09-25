@@ -167,14 +167,13 @@ function buildState(
     tint: "#000",
     accent: "#fff",
   }));
-  const effects: SessionEffect[] = [
-    {
-      id: "layout",
-      trackId: "__group_main",
-      effectName: "Layout",
-      parameters: [{ key: "Position", value: anchor }],
-    },
-  ];
+  // Layout is per layer, so every layer carries its own.
+  const effects: SessionEffect[] = lanes.map((lane) => ({
+    id: `layout-${lane.id}`,
+    trackId: lane.id,
+    effectName: "Layout",
+    parameters: [{ key: "Position", value: anchor }],
+  }));
   // The first lane is drawn first (top band), so "first-layer" puts the chain
   // on the layer every other layer is drawn after.
   if (effectMode === "first-layer") {
