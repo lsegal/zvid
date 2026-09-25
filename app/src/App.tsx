@@ -133,6 +133,7 @@ import {
   readSourceTracksCollapsed,
   writeSourceTracksCollapsed,
 } from "./source-tracks-section.ts";
+import { classifySpaceTarget } from "./space-shortcut";
 import { statusMessageTone } from "./status-bar";
 import { buildStatusItems } from "./status-items";
 import { formatMusicalPosition, formatTimecode } from "./timeline-format.ts";
@@ -4023,6 +4024,69 @@ function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [handleRedo, handleUndo]);
 
+  // Space toggles playback from anywhere except text entry and open menus or
+  // dialogs. It runs in the capture phase so a focused button, menu trigger
+  // or slider never sees the key and cannot also activate.
+  useEffect(() => {
+    let spaceKeyDownHandled = false;
+
+    const onSpaceKeyDown = (event: KeyboardEvent) => {
+      if (event.code !== "Space") {
+        return;
+      }
+
+      spaceKeyDownHandled = false;
+      if (
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        classifySpaceTarget(event.target, document) !== "playback"
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      spaceKeyDownHandled = true;
+      if (event.repeat || dragState || timelineDragState || !clips.length) {
+        return;
+      }
+
+      cancelScrubPlaybackResume();
+      if (isPlaying) {
+        setIsPlaying(false);
+        return;
+      }
+
+      startPlayback();
+    };
+
+    // Native buttons activate on Space keyup, so swallow the matching keyup.
+    const onSpaceKeyUp = (event: KeyboardEvent) => {
+      if (event.code !== "Space" || !spaceKeyDownHandled) {
+        return;
+      }
+
+      spaceKeyDownHandled = false;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+
+    window.addEventListener("keydown", onSpaceKeyDown, true);
+    window.addEventListener("keyup", onSpaceKeyUp, true);
+    return () => {
+      window.removeEventListener("keydown", onSpaceKeyDown, true);
+      window.removeEventListener("keyup", onSpaceKeyUp, true);
+    };
+  }, [
+    cancelScrubPlaybackResume,
+    clips.length,
+    dragState,
+    isPlaying,
+    startPlayback,
+    timelineDragState,
+  ]);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (
@@ -4223,35 +4287,6 @@ function App() {
         return;
       }
 
-      if (event.code === "Space") {
-        // Toggle buttons such as a layer's FX badge keep their native Space
-        // activation instead of starting playback.
-        if (
-          event.target instanceof Element &&
-          event.target.closest("[data-space-activates]")
-        ) {
-          return;
-        }
-
-        if (event.repeat) {
-          return;
-        }
-
-        event.preventDefault();
-        if (!clips.length) {
-          return;
-        }
-
-        cancelScrubPlaybackResume();
-        if (isPlaying) {
-          setIsPlaying(false);
-          return;
-        }
-
-        startPlayback();
-        return;
-      }
-
       if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
         event.preventDefault();
         const direction = event.key === "ArrowLeft" ? -1 : 1;
@@ -4349,18 +4384,14 @@ function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [
     bpm,
-    cancelScrubPlaybackResume,
-    clips.length,
     dragState,
     explicitClip,
     fps,
     fxLaneId,
     isExporting,
-    isPlaying,
     lanes,
     playheadQ,
     selectedClip,
-    startPlayback,
     timelineClips,
     timelineContentEndQ,
     timelineDragState,
@@ -6276,7 +6307,6 @@ function App() {
                           }
                           className="track-label__select"
                           data-lane-label-id={lane.id}
-                          data-space-activates
                           tabIndex={lane.id === fxLaneId ? 0 : -1}
                           type="button"
                         >
@@ -6287,7 +6317,6 @@ function App() {
                           aria-label={`${lane.name} effects`}
                           aria-pressed={laneStatusById.get(lane.id)?.fxToggle}
                           className={`track-label__fx ${laneStatusById.get(lane.id)?.fxClassName ?? ""}`}
-                          data-space-activates
                           disabled={!laneStatusById.get(lane.id)?.effectCount}
                           onClick={(event) => {
                             event.stopPropagation();
