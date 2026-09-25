@@ -1832,10 +1832,11 @@ function App() {
       media: MediaItem | undefined,
       timeSeconds: (media: MediaItem) => number,
     ) => {
-      if (!media?.hasVideo || !media.previewUrl) {
-        return;
-      }
-      if (media.availability !== "ready") {
+      if (
+        !media?.hasVideo ||
+        !media.previewUrl ||
+        media.availability !== "ready"
+      ) {
         return;
       }
 
