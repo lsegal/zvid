@@ -53,16 +53,16 @@ import {
   ImportNotice,
   type ImportNoticeContent,
 } from "./components/ImportNotice";
+import {
+  PlayheadLine,
+  TransportPlayheadReadout,
+} from "./components/LivePlayhead";
 import { OfflineMediaDialog } from "./components/OfflineMediaDialog";
 import {
   StatusBar,
   type StatusItem,
   type StatusMessage,
 } from "./components/StatusBar";
-import {
-  PlayheadLine,
-  TransportPlayheadReadout,
-} from "./components/LivePlayhead";
 import { StatusPlayhead } from "./components/StatusPlayhead";
 import {
   Dialog,
@@ -4412,8 +4412,8 @@ function App() {
     fxLaneId,
     isExporting,
     lanes,
-    playheadQ,
     selectedClip,
+    setPlayheadQ,
     timelineClips,
     timelineContentEndQ,
     timelineDragState,
@@ -4760,6 +4760,7 @@ function App() {
     flushZoomDraft,
     labelWidth,
     pulseTimelineAudibleScrub,
+    setPlayheadQ,
     startPlayback,
     stopTimelineAudibleScrub,
     timelineDragState,

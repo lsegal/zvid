@@ -25,7 +25,10 @@ describe("playback rendering", () => {
   });
 
   it("draws per-frame readouts from the playhead signal", () => {
-    assert.match(appTsx, /<TransportPlayheadReadout\s+signal=\{playheadSignal\}/);
+    assert.match(
+      appTsx,
+      /<TransportPlayheadReadout\s+signal=\{playheadSignal\}/,
+    );
     assert.match(
       appTsx,
       /<PlayheadLine\s+className="timeline-playhead"\s+signal=\{playheadSignal\}/,

@@ -1,9 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import {
-  createPlayheadSignal,
-  findNextClipEdgeQ,
-} from "./playhead-signal.ts";
+import { createPlayheadSignal, findNextClipEdgeQ } from "./playhead-signal.ts";
 
 describe("playhead signal", () => {
   it("notifies subscribers when the playhead moves", () => {
