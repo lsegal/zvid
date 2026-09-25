@@ -32,6 +32,12 @@ import {
   CompositionRenderer,
 } from "./CompositionPlayer";
 import {
+  type FilmstripTile,
+  getClipFilmstripTiles,
+  getFilmstripRange,
+  getFilmstripTileWidthPx,
+} from "./clip-filmstrip.ts";
+import {
   describeClipMediaState,
   describeMediaAvailability,
   describePreviewMediaState,
@@ -581,6 +587,13 @@ function getClipEndQ(
   bpm: number,
 ) {
   return clip.startQ + getClipDurationQ(clip, bpm);
+}
+
+// The inner height of a clip card, which filmstrip tiles fill.
+const CLIP_FILMSTRIP_HEIGHT_PX = 42;
+
+function getFilmstripTileOwner(clipId: string, index: number) {
+  return `clip:${clipId}:tile:${index}`;
 }
 
 function withWindowTiming(
@@ -1837,61 +1850,6 @@ function App() {
   const timelineClips = dragPreviewClips ?? clips;
   const timelineClipsRef = useRef(timelineClips);
   timelineClipsRef.current = timelineClips;
-  // Source spans and layer clips share one thumbnail cache, so a frame both
-  // show is decoded once. Spans show the frame at their start and clips the
-  // first frame the compositor shows for them.
-  const thumbnailRequests = useMemo(() => {
-    const requests: ThumbnailRequest<MediaItem>[] = [];
-    const addRequest = (
-      owner: string,
-      media: MediaItem | undefined,
-      timeSeconds: (media: MediaItem) => number,
-    ) => {
-      if (
-        !media?.hasVideo ||
-        !media.previewUrl ||
-        media.availability !== "ready"
-      ) {
-        return;
-      }
-
-      const time = timeSeconds(media);
-      requests.push({
-        key: getThumbnailCacheKey(media.id, time),
-        owner,
-        media,
-        sourceUrl: media.previewUrl,
-        timeSeconds: time,
-      });
-    };
-
-    for (const span of sourceSpans) {
-      addRequest(
-        `span:${span.id}`,
-        span.mediaId ? mediaItemsById.get(span.mediaId) : undefined,
-        () => span.trimStartSeconds,
-      );
-    }
-    for (const clip of timelineClips) {
-      if (isPlaceholderClip(clip)) {
-        continue;
-      }
-
-      addRequest(
-        `clip:${clip.id}`,
-        clip.mediaId ? mediaItemsById.get(clip.mediaId) : undefined,
-        (media) => getClipThumbnailTimeSeconds(clip, media.durationSeconds),
-      );
-    }
-    return requests;
-  }, [mediaItemsById, sourceSpans, timelineClips]);
-  const thumbnails = useThumbnailCache(thumbnailRequests, (request, error) => {
-    logClient("thumbnail:error", {
-      owner: request.owner,
-      mediaId: request.media.id,
-      message: error instanceof Error ? error.message : String(error),
-    });
-  });
   const resolvedZoom = zoomDraft ?? zoom;
 
   const commitProjectChange = useCallback(
@@ -2491,6 +2449,121 @@ function App() {
     timelineViewport.clientWidth - labelWidth,
   );
   const visibleTimelineEndPx = visibleTimelineStartPx + visibleTimelineWidthPx;
+  const filmstripRange = getFilmstripRange(
+    visibleTimelineStartPx,
+    visibleTimelineWidthPx,
+  );
+  const filmstripRangeStartPx = filmstripRange.startPx;
+  const filmstripRangeEndPx = filmstripRange.endPx;
+  // The filmstrip tiles of each online video clip near the visible range.
+  const clipFilmstrips = useMemo(() => {
+    const filmstrips = new Map<
+      string,
+      { media: MediaItem; tiles: FilmstripTile[] }
+    >();
+    const secondsPerPx = quartersToSeconds(1, bpm) / quarterPx;
+    for (const clip of timelineClips) {
+      const media = clip.mediaId ? mediaItemsById.get(clip.mediaId) : undefined;
+      if (
+        isPlaceholderClip(clip) ||
+        !media?.hasVideo ||
+        !media.previewUrl ||
+        media.availability !== "ready"
+      ) {
+        continue;
+      }
+
+      filmstrips.set(clip.id, {
+        media,
+        tiles: getClipFilmstripTiles({
+          clip,
+          mediaDurationSeconds: media.durationSeconds,
+          clipLeftPx: clip.startQ * quarterPx,
+          clipWidthPx: getClipDurationQ(clip, bpm) * quarterPx,
+          tileWidthPx: getFilmstripTileWidthPx(
+            CLIP_FILMSTRIP_HEIGHT_PX,
+            media.width,
+            media.height,
+          ),
+          secondsPerPx,
+          range: { startPx: filmstripRangeStartPx, endPx: filmstripRangeEndPx },
+        }),
+      });
+    }
+    return filmstrips;
+  }, [
+    bpm,
+    filmstripRangeEndPx,
+    filmstripRangeStartPx,
+    mediaItemsById,
+    quarterPx,
+    timelineClips,
+  ]);
+  // Source spans and layer clips share one thumbnail cache, so a frame both
+  // show is decoded once. Spans show the frame at their start and clips the
+  // first frame the compositor shows for them, until their filmstrip tiles
+  // are ready.
+  const thumbnailRequests = useMemo(() => {
+    const requests: ThumbnailRequest<MediaItem>[] = [];
+    const addRequest = (
+      owner: string,
+      media: MediaItem | undefined,
+      timeSeconds: (media: MediaItem) => number,
+    ) => {
+      if (
+        !media?.hasVideo ||
+        !media.previewUrl ||
+        media.availability !== "ready"
+      ) {
+        return;
+      }
+
+      const time = timeSeconds(media);
+      requests.push({
+        key: getThumbnailCacheKey(media.id, time),
+        owner,
+        media,
+        sourceUrl: media.previewUrl,
+        timeSeconds: time,
+      });
+    };
+
+    for (const span of sourceSpans) {
+      addRequest(
+        `span:${span.id}`,
+        span.mediaId ? mediaItemsById.get(span.mediaId) : undefined,
+        () => span.trimStartSeconds,
+      );
+    }
+    for (const clip of timelineClips) {
+      if (isPlaceholderClip(clip)) {
+        continue;
+      }
+
+      addRequest(
+        `clip:${clip.id}`,
+        clip.mediaId ? mediaItemsById.get(clip.mediaId) : undefined,
+        (media) => getClipThumbnailTimeSeconds(clip, media.durationSeconds),
+      );
+    }
+    for (const [clipId, { media, tiles }] of clipFilmstrips) {
+      for (const tile of tiles) {
+        addRequest(
+          getFilmstripTileOwner(clipId, tile.index),
+          media,
+          () => tile.timeSeconds,
+        );
+      }
+    }
+    return requests;
+  }, [clipFilmstrips, mediaItemsById, sourceSpans, timelineClips]);
+  const thumbnails = useThumbnailCache(thumbnailRequests, (request, error) => {
+    logClient("thumbnail:error", {
+      owner: request.owner,
+      mediaId: request.media.id,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  });
   const playheadTimelinePx = Math.round(playheadQ * quarterPx);
   const isPlayheadOffscreenLeft =
     visibleTimelineWidthPx > 0 && playheadTimelinePx < visibleTimelineStartPx;
@@ -6454,10 +6527,14 @@ function App() {
                                   `clip:${clip.id}`,
                                 ) ?? media.thumbnailUrl)
                               : undefined;
+                          const filmstrip =
+                            media?.hasVideo && mediaState === "online"
+                              ? clipFilmstrips.get(clip.id)
+                              : undefined;
                           return (
                             <div
                               key={clip.id}
-                              className={`clip-card ${selected ? "clip-card--selected" : ""}`}
+                              className={`clip-card ${selected ? "clip-card--selected" : ""} ${filmstrip ? "clip-card--filmstrip" : ""}`}
                               style={{
                                 left: clip.startQ * quarterPx,
                                 width: durationQ * quarterPx,
@@ -6470,6 +6547,41 @@ function App() {
                                 opacity: mediaState === "online" ? 1 : 0.62,
                               }}
                             >
+                              {filmstrip ? (
+                                <span
+                                  aria-hidden="true"
+                                  className="clip-card__filmstrip"
+                                >
+                                  {filmstrip.tiles.map((tile) => {
+                                    // A tile shows the clip's first frame
+                                    // until its own frame is decoded.
+                                    const tileUrl =
+                                      thumbnails.get(
+                                        getThumbnailCacheKey(
+                                          filmstrip.media.id,
+                                          tile.timeSeconds,
+                                        ),
+                                        getFilmstripTileOwner(
+                                          clip.id,
+                                          tile.index,
+                                        ),
+                                      ) ?? thumbnailUrl;
+                                    return (
+                                      <span
+                                        key={tile.index}
+                                        className="clip-card__tile"
+                                        style={{
+                                          left: tile.leftPx,
+                                          width: tile.widthPx,
+                                          backgroundImage: tileUrl
+                                            ? `url(${tileUrl})`
+                                            : undefined,
+                                        }}
+                                      />
+                                    );
+                                  })}
+                                </span>
+                              ) : null}
                               <button
                                 className="clip-card__handle clip-card__handle--start"
                                 onPointerDown={(event) => {
@@ -6524,7 +6636,7 @@ function App() {
                                 }}
                                 type="button"
                               >
-                                {thumbnailUrl ? (
+                                {thumbnailUrl && !filmstrip ? (
                                   <span
                                     aria-hidden="true"
                                     className="clip-card__thumb"
