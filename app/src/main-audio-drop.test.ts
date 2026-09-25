@@ -42,7 +42,10 @@ describe("getDroppedAudioFile", () => {
   });
 
   it("returns undefined when nothing is audio", () => {
-    assert.equal(getDroppedAudioFile([file("clip.mp4", "video/mp4")]), undefined);
+    assert.equal(
+      getDroppedAudioFile([file("clip.mp4", "video/mp4")]),
+      undefined,
+    );
     assert.equal(getDroppedAudioFile(null), undefined);
   });
 });
@@ -120,7 +123,10 @@ describe("Audio lane wiring", () => {
   it("marks the Audio lane as a main-audio drop target", () => {
     const lane = appTsx.slice(
       appTsx.indexOf('aria-label="Main audio drop area"'),
-      appTsx.indexOf('<div className="track-label">', appTsx.indexOf('aria-label="Main audio drop area"')),
+      appTsx.indexOf(
+        '<div className="track-label">',
+        appTsx.indexOf('aria-label="Main audio drop area"'),
+      ),
     );
     assert.match(lane, /track-row--bus/);
     assert.match(lane, new RegExp(`${MAIN_AUDIO_DROP_TARGET_ATTRIBUTE}=`));

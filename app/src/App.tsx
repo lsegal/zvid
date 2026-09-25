@@ -94,12 +94,12 @@ import {
 } from "./fx-stack";
 import { getHarness, type SaveTarget } from "./harness";
 import { hasMediaExtension } from "./harness/media-extensions";
+import { MasterWaveform } from "./MasterWaveform";
 import {
   getDroppedAudioFile,
   getMainAudioDragState,
   isWithinMainAudioDropTarget,
 } from "./main-audio-drop";
-import { MasterWaveform } from "./MasterWaveform";
 import {
   buildFallbackMediaItem,
   inferMediaKind,
