@@ -20,6 +20,7 @@ runs:
         cache-dependency-path: |
           pnpm-lock.yaml
           app/pnpm-lock.yaml
+          daw/ui/pnpm-lock.yaml
 
     - name: Add wasm32 target
       shell: bash

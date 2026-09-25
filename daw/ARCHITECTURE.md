@@ -116,7 +116,7 @@ The workspace lives in `/daw` (scaffolded in
 
 | Path | Role |
 |---|---|
-| `daw/crates/zvid-daw-core` | State schema, take tracker state machine, capture file naming, record-root resolution, and the protocol and client for the Live companion script. Pure (no cameras, hosts or UI; the only I/O is locating Documents and the companion's localhost UDP socket) and unit-tested. |
+| `daw/crates/zvid-daw-core` | State schema, take tracker state machine, the transport-change watch the format layers share, capture file naming, record-root resolution, and the protocol and client for the Live companion script. Pure (no cameras, hosts or UI; the only I/O is locating Documents and the companion's localhost UDP socket) and unit-tested. |
 | `daw/crates/zvid-capture` | Device enumeration, capture sessions, frame timestamps, preview frames, and recording (`record`): hardware HEVC and AAC encoding, crash-safe MP4 writing and poster frames, with zvidlib doing the muxing. AVFoundation, VideoToolbox and AudioToolbox on macOS; Media Foundation on Windows. |
 | `daw/crates/zvid-daw-ui` | `wry` child-webview host, the IPC bridge to the control thread, and the custom `zvid://` protocol that serves embedded assets and preview frames. The frontend source lives in `daw/ui`. |
 | `daw/crates/zvid-vst3` | Hand-written subset of the VST3 COM ABI: the interfaces, IIDs and structs the plugin needs, rebuilt from public documentation. |

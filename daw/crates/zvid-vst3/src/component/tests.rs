@@ -4,7 +4,6 @@ use std::ffi::CString;
 
 use super::*;
 use crate::plugin_factory;
-use crate::transport::ProcessSnapshot;
 
 const FIXTURE_JSON: &str = include_str!("../../../../fixtures/state/zvid-capture-v1.json");
 const FIXTURE_HEX: &str = include_str!("../../../../fixtures/state/zvid-capture-v1.hex");
@@ -528,7 +527,7 @@ fn pushes_a_transport_snapshot_per_block() {
     assert_eq!(snapshots.len(), 2);
     assert_eq!(snapshots[0].block, 1);
     assert_eq!(snapshots[1].block, 3);
-    assert!(snapshots[0].playing() && snapshots[0].recording());
+    assert!(snapshots[0].playing && snapshots[0].recording);
     assert_eq!(snapshots[0].song_sec(), 0.1);
     assert_eq!(snapshots[1].project_time_samples, 4_808);
     assert_eq!(snapshots[1].tempo, 128.0);

@@ -2,7 +2,9 @@
 //! selector handlers, and the Cocoa view factory.
 
 mod class_info;
+mod control;
 mod instance;
+mod log;
 mod view;
 
 use std::ffi::c_void;

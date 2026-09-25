@@ -29,12 +29,22 @@ jobs:
         working-directory: app
         run: wasm-pack build export-bridge --target web --out-dir pkg
 
+      # `pnpm lint` type-checks daw/ui too.
+      - name: Install plugin UI dependencies
+        run: pnpm --dir daw/ui install --frozen-lockfile
+
       - name: Lint
         run: pnpm lint
 
       - name: Unit tests and build
         if: ${{ !cancelled() }}
         run: pnpm --dir app run test
+
+      - name: Plugin UI unit tests and build
+        if: ${{ !cancelled() }}
+        run: |
+          pnpm --dir daw/ui run test
+          pnpm --dir daw/ui run build
 
   daw:
     name: daw (${{ matrix.os }})
@@ -61,6 +71,23 @@ jobs:
             echo "::error::/daw is Rust only; remove: $forbidden"
             exit 1
           fi
+
+      # zvid-daw-ui embeds daw/ui/dist, so build the frontend first; without
+      # it the plugin embeds a placeholder page.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: daw/ui/pnpm-lock.yaml
+
+      - name: Build plugin UI
+        run: |
+          pnpm --dir ui install --frozen-lockfile
+          pnpm --dir ui build
 
       # rustup installs the toolchain and components pinned in
       # daw/rust-toolchain.toml on first use.
