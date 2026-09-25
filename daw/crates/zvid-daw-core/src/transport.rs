@@ -2,8 +2,13 @@
 //! and the changes the control thread reads from them. Shared by the VST3
 //! and AU format layers so both report the transport the same way.
 
+use std::sync::mpsc::Receiver;
+use std::sync::{Mutex, MutexGuard};
+
 use crate::ring::Consumer;
-use crate::tracker::{Input, TakeTracker, TransportSnapshot};
+use crate::state::State;
+use crate::takes::{Command, TakeLog};
+use crate::tracker::TransportSnapshot;
 
 /// The host transport as seen by one process or render call. Small and
 /// `Copy` so it fits the SPSC ring.
@@ -151,21 +156,42 @@ pub fn describe(change: Change, snapshot: &ProcessSnapshot) -> String {
 #[derive(Clone, Debug, Default)]
 pub struct TransportFollower {
     watch: TransportWatch,
-    tracker: TakeTracker,
+    takes: TakeLog,
     dropped: u64,
 }
 
 impl TransportFollower {
-    /// Feeds queued snapshots to the take tracker and passes a log line for
-    /// every transport change, take event and newly dropped batch to `log`.
-    pub fn drain(&mut self, transport: &mut Consumer<ProcessSnapshot>, mut log: impl FnMut(&str)) {
+    /// Feeds queued snapshots, then queued capture commands, to the take
+    /// log, which keeps the recordings in `state` in step with the takes.
+    /// Passes a log line for every transport change, take event and newly
+    /// dropped batch to `log`.
+    ///
+    /// Returns `true` when a take opened or closed, so the caller can tell
+    /// the host that the state changed.
+    pub fn drain(
+        &mut self,
+        transport: &mut Consumer<ProcessSnapshot>,
+        commands: &Receiver<Command>,
+        state: &Mutex<State>,
+        mut log: impl FnMut(&str),
+    ) -> bool {
+        let mut changed = false;
         while let Some(snapshot) = transport.pop() {
             for change in self.watch.observe(snapshot) {
                 log(&describe(change, &snapshot));
             }
-            for event in self.tracker.handle(Input::Transport(snapshot.to_tracker())) {
+            let events = self.takes.transport(snapshot.to_tracker(), &mut lock(state));
+            for event in &events {
                 log(&format!("{event:?}"));
             }
+            changed |= !events.is_empty();
+        }
+        while let Ok(command) = commands.try_recv() {
+            let events = self.takes.command(command, &mut lock(state));
+            for event in &events {
+                log(&format!("{event:?}"));
+            }
+            changed |= !events.is_empty();
         }
         let total = transport.dropped();
         if total != self.dropped {
@@ -175,13 +201,23 @@ impl TransportFollower {
             ));
             self.dropped = total;
         }
+        changed
     }
+}
+
+fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 #[cfg(test)]
 mod tests {
+    use std::sync::mpsc;
+
     use super::*;
     use crate::ring::ring;
+    use crate::takes::Capture;
 
     const BLOCK: u32 = 512;
     const PLAY: u8 = 1;
@@ -282,16 +318,24 @@ mod tests {
     #[test]
     fn follower_logs_changes_takes_and_drops() {
         let (mut producer, mut consumer) = ring(2);
+        let (_sender, commands) = mpsc::channel();
+        let state = Mutex::new(State::default());
         let mut follower = TransportFollower::default();
         let mut lines = Vec::new();
-        follower.drain(&mut consumer, |line| lines.push(line.to_string()));
+        follower.drain(&mut consumer, &commands, &state, |line| {
+            lines.push(line.to_string())
+        });
         assert!(lines.is_empty());
 
         producer.push(snapshot(1, 0, 0));
         producer.push(snapshot(2, PLAY, 0));
         // The ring is full: this one is dropped.
         producer.push(snapshot(3, PLAY, 512));
-        follower.drain(&mut consumer, |line| lines.push(line.to_string()));
+        let changed = follower.drain(&mut consumer, &commands, &state, |line| {
+            lines.push(line.to_string())
+        });
+        // Not armed, so no take.
+        assert!(!changed);
         assert_eq!(lines.len(), 2);
         assert!(lines[0].starts_with("play at 0.000000 s"));
         assert_eq!(lines[1], "dropped 1 transport snapshots");
@@ -300,8 +344,51 @@ mod tests {
         // Drops are reported once.
         lines.clear();
         producer.push(snapshot(4, 0, 1_024));
-        follower.drain(&mut consumer, |line| lines.push(line.to_string()));
+        follower.drain(&mut consumer, &commands, &state, |line| {
+            lines.push(line.to_string())
+        });
         assert_eq!(lines.len(), 1);
         assert!(lines[0].starts_with("stop at "));
+    }
+
+    #[test]
+    fn follower_records_takes_into_the_state() {
+        let (mut producer, mut consumer) = ring(16);
+        let (sender, commands) = mpsc::channel();
+        let state = Mutex::new(State::default());
+        let mut follower = TransportFollower::default();
+        let drain = |follower: &mut TransportFollower, consumer: &mut Consumer<_>| {
+            follower.drain(consumer, &commands, &state, |_| {})
+        };
+
+        sender
+            .send(Command::Arm {
+                capture: Capture {
+                    filename: "video-01-9-25-20-36-12-0.mp4".to_string(),
+                    dimensions: [1280, 720],
+                    fps: [30, 1],
+                    camera: "Cam".to_string(),
+                    created_at: "2026-09-25T20:36:12Z".to_string(),
+                },
+                at: 0.0,
+            })
+            .unwrap();
+        assert!(!drain(&mut follower, &mut consumer));
+        // Snapshot `n` is at host time `n / 100` s.
+        producer.push(snapshot(10, PLAY, 96_000));
+        assert!(drain(&mut follower, &mut consumer));
+        producer.push(snapshot(11, PLAY, 96_512));
+        assert!(!drain(&mut follower, &mut consumer));
+        producer.push(snapshot(12, 0, 97_024));
+        assert!(drain(&mut follower, &mut consumer));
+        sender.send(Command::Disarm { at: 0.2 }).unwrap();
+        assert!(!drain(&mut follower, &mut consumer));
+
+        let state = state.lock().unwrap();
+        assert_eq!(state.recordings.len(), 1);
+        let take = &state.recordings[0];
+        assert_eq!(take.transport_start_sec, Some(2.0));
+        assert!((take.file_offset_sec - 0.1).abs() < 1e-9);
+        assert!((take.duration_sec - 0.02).abs() < 1e-9);
     }
 }
