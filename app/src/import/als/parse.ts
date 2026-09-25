@@ -345,7 +345,9 @@ function binaryPlistDataValue(
   if (dict.type !== 0xd) return null;
   for (let i = 0; i < dict.length; i++) {
     if (string(uint(dict.start + i * refSize, refSize)) !== key) continue;
-    const value = object(uint(dict.start + (dict.length + i) * refSize, refSize));
+    const value = object(
+      uint(dict.start + (dict.length + i) * refSize, refSize),
+    );
     return value.type === 0x4
       ? bytes.slice(value.start, value.start + value.length)
       : null;

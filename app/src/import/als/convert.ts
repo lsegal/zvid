@@ -215,9 +215,10 @@ export function convertAls(
     tracks: importedTracks.map((track) => ({
       id: String(track.id),
       name: track.name,
-      recordings: trackRecordings(track).map(
-        ({ filename, frameStart }) => ({ filename, frameStart }),
-      ),
+      recordings: trackRecordings(track).map(({ filename, frameStart }) => ({
+        filename,
+        frameStart,
+      })),
     })),
     clips,
     selections: overlaps.selections,

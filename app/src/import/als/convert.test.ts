@@ -5,9 +5,16 @@ import type { LvpSession } from "../../session.ts";
 import {
   type AlsImportResult,
   convertAls,
+  matchZvidTake,
   siblingAudioFilename,
 } from "./convert.ts";
-import type { AlsClip, AlsDocument, AlsTrack } from "./parse.ts";
+import type {
+  AlsClip,
+  AlsDocument,
+  AlsTrack,
+  ZvidCaptureState,
+  ZvidCaptureTake,
+} from "./parse.ts";
 import { parseAls } from "./parse.ts";
 
 const fixture = (name: string) =>
@@ -731,5 +738,150 @@ describe("siblingAudioFilename", () => {
       "C:\\Sets\\dogfood3 Project\\dogfood3.wav",
     );
     assert.equal(siblingAudioFilename("/sets/Song.ALS"), "/sets/Song.wav");
+  });
+});
+
+describe("matchZvidTake", () => {
+  const take = (
+    overrides: Partial<ZvidCaptureTake> & { filename: string },
+  ): ZvidCaptureTake => ({
+    dimensions: [1920, 1080],
+    fps: [30, 1],
+    frameStart: 0,
+    fileOffsetSec: 0,
+    transportStartSec: 0,
+    transportStartBeats: 0,
+    durationSec: 10,
+    createdAt: "2026-09-25T20:00:00Z",
+    ...overrides,
+  });
+
+  it("picks the take that overlaps the clip the most", () => {
+    const takes = [
+      take({ filename: "a", transportStartSec: 0, durationSec: 4 }),
+      take({ filename: "b", transportStartSec: 3, durationSec: 10 }),
+      take({ filename: "c", transportStartSec: 20, durationSec: 10 }),
+    ];
+    assert.equal(matchZvidTake(takes, 2, 8)?.filename, "b");
+    assert.equal(matchZvidTake(takes, 0, 3.5)?.filename, "a");
+    assert.equal(matchZvidTake(takes, 19, 40)?.filename, "c");
+  });
+
+  it("prefers the latest createdAt on a tie", () => {
+    const takes = [
+      take({ filename: "late", createdAt: "2026-09-25T21:00:00Z" }),
+      take({ filename: "early", createdAt: "2026-09-25T20:00:00Z" }),
+      take({ filename: "undated", createdAt: "" }),
+    ];
+    assert.equal(matchZvidTake(takes, 1, 5)?.filename, "late");
+  });
+
+  it("ignores unanchored takes and takes that do not overlap", () => {
+    const takes = [
+      take({ filename: "loose", transportStartSec: null, durationSec: 100 }),
+      take({ filename: "before", transportStartSec: 0, durationSec: 2 }),
+    ];
+    assert.equal(matchZvidTake(takes, 2, 6), undefined);
+    assert.equal(matchZvidTake([], 0, 1), undefined);
+  });
+});
+
+describe("convertAls with ZVID Capture fixtures", () => {
+  const load = async (name: string) =>
+    convertAls(await parseAls(new Uint8Array(fixture(name))));
+  const placed = (result: AlsImportResult) =>
+    result.session.clips?.map(({ id, filePath, frameStart, captureOffset }) => [
+      id,
+      filePath,
+      frameStart,
+      captureOffset,
+    ]);
+
+  it("maps each VST3 clip to the take it overlaps, one entry per take", async () => {
+    const result = await load("zvid-capture-vst3.xml");
+    assert.deepEqual(placed(result), [
+      ["20-1", "video-01-9-25-20-36-12-0.mp4", 0, -45],
+      ["20-2", "video-01-9-25-20-36-12-0.mp4", 480, -120],
+    ]);
+    // The unanchored take is not a source-track entry.
+    assert.deepEqual(result.session.tracks, [
+      {
+        id: "20",
+        name: "Cam A",
+        recordings: [
+          { filename: "video-01-9-25-20-36-12-0.mp4", frameStart: -45 },
+          { filename: "video-01-9-25-20-36-12-0.mp4", frameStart: -120 },
+        ],
+      },
+    ]);
+    assert.deepEqual(result.summary.skipped, [
+      {
+        trackId: "20",
+        trackName: "Cam A",
+        clipId: "20-3",
+        clipName: "Outro",
+        reason: "no-take",
+      },
+    ]);
+    assert.deepEqual(result.summary.recordRoots, {
+      "video-01-9-25-20-36-12-0.mp4": "project",
+    });
+    assert.equal(result.summary.hasLayersVideo, true);
+  });
+
+  it("breaks AU overlap ties by the latest take", async () => {
+    const result = await load("zvid-capture-au.xml");
+    assert.deepEqual(placed(result), [
+      ["21-1", "video-01-9-25-21-00-00-0.mp4", 0, -15],
+      ["21-2", "video-02-9-25-21-05-00-0.mp4", 60, 30],
+    ]);
+    assert.equal(result.session.timeline?.canvasWidth, 1280);
+    assert.deepEqual(result.summary.recordRoots, {
+      "video-01-9-25-21-00-00-0.mp4": "documents",
+      "video-02-9-25-21-05-00-0.mp4": "documents",
+    });
+  });
+
+  it("imports a Layers Record track and a ZVID Capture track together", async () => {
+    const result = await load("layers-and-zvid-capture.xml");
+    assert.deepEqual(placed(result), [
+      // Layers Record keeps playing its last recording.
+      ["8-1", "video-12-13-23-20-15-14-1.mp4", 0, 57],
+      ["20-1", "video-01-9-25-20-36-12-0.mp4", 0, -45],
+      ["20-2", "video-01-9-25-20-36-12-0.mp4", 480, -120],
+    ]);
+    assert.deepEqual(
+      result.session.tracks?.map((track) => track.recordings?.length),
+      [2, 2],
+    );
+    assert.deepEqual(
+      result.session.mainTracks?.map((track) => track.name),
+      ["Layers", "Cam A"],
+    );
+    assert.deepEqual(result.summary.recordRoots, {
+      "video-01-9-25-20-36-12-0.mp4": "project",
+    });
+  });
+
+  it("skips a ZVID Capture track whose takes are all unanchored", async () => {
+    const doc = await parseAls(
+      new Uint8Array(fixture("zvid-capture-vst3.xml")),
+    );
+    const [track] = doc.tracks;
+    const state = track.layers as ZvidCaptureState;
+    track.layers = {
+      ...state,
+      recordings: state.recordings.filter(
+        (recording) => recording.transportStartSec === null,
+      ),
+    } as ZvidCaptureState;
+    const { session, summary } = convertAls(doc);
+    assert.deepEqual(session.clips, []);
+    assert.deepEqual(session.tracks?.[0].recordings, []);
+    assert.deepEqual(
+      summary.skipped.map((clip) => clip.reason),
+      ["no-recording", "no-recording", "no-recording"],
+    );
+    assert.equal(summary.recordRoots, undefined);
   });
 });
