@@ -1800,12 +1800,6 @@
   cursor: default;
 }
 
-.zoom-control__button:focus-visible,
-.zoom-control__readout:focus-visible {
-  outline: 2px solid var(--amber);
-  outline-offset: 2px;
-}
-
 .zoom-control__slider {
   --zoom-track: rgba(255, 255, 255, 0.1);
   width: 140px;
@@ -1816,8 +1810,11 @@
   appearance: none;
 }
 
-.zoom-control__slider:focus {
+/* The thumb carries the focus ring, so drop the global input focus shadow. */
+.zoom-control__slider:focus,
+.zoom-control__slider:focus-visible {
   outline: none;
+  box-shadow: none;
 }
 
 .zoom-control__slider::-webkit-slider-runnable-track {
