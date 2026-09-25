@@ -188,7 +188,7 @@ fn device_formats(
 pub(crate) fn supported_formats(id: &DeviceId) -> Result<Vec<Format>, CaptureError> {
     let device = find_device(id)?;
     let mut formats: Vec<Format> = device_formats(&device).into_iter().map(|f| f.0).collect();
-    formats.sort_by(|a, b| (b.width * b.height, b.fps).cmp(&(a.width * a.height, a.fps)));
+    formats.sort_by_key(|f| std::cmp::Reverse((f.width * f.height, f.fps)));
     formats.dedup();
     Ok(formats)
 }

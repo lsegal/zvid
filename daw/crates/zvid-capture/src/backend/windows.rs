@@ -279,7 +279,7 @@ pub(crate) fn supported_formats(id: &DeviceId) -> Result<Vec<Format>, CaptureErr
         .into_iter()
         .map(|t| t.format)
         .collect();
-    formats.sort_by(|a, b| (b.width * b.height, b.fps).cmp(&(a.width * a.height, a.fps)));
+    formats.sort_by_key(|f| std::cmp::Reverse((f.width * f.height, f.fps)));
     formats.dedup();
     drop(reader);
     // SAFETY: the reader is released; shutting down frees the device.
@@ -363,7 +363,6 @@ fn configure(id: &DeviceId, pref: &FormatPreference) -> Result<Configured, Captu
         .enumerate()
         .filter(|(_, t)| t.format == selection.format)
         .min_by_key(|(_, t)| subtype_rank(&t.subtype))
-        .map(|(index, t)| (index, t))
         .expect("selected format exists");
     selection.index = native.0;
     let native = native.1;

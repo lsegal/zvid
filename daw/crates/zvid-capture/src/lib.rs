@@ -9,6 +9,9 @@
 //! Backends: AVFoundation on macOS, Media Foundation on Windows. Other
 //! platforms build but report [`CaptureError::Unsupported`].
 
+// The shared pipeline is only driven by the macOS and Windows backends.
+#![cfg_attr(not(any(target_os = "macos", windows)), allow(dead_code))]
+
 mod backend;
 mod clock;
 mod error;

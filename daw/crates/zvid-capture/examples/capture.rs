@@ -140,7 +140,7 @@ fn capture(args: &[String]) -> Result<(), CaptureError> {
         .on_frame(move |frame| {
             let mut stamps = frame_stamps.lock().unwrap();
             let lag = HostTime::now() - frame.pts;
-            if stamps.len() < 5 || stamps.len() % 30 == 0 {
+            if stamps.len() < 5 || stamps.len().is_multiple_of(30) {
                 println!(
                     "frame {:5}  pts {}  {}x{} {:?} rot {}°  delivery latency {:.2} ms",
                     frame.sequence,
