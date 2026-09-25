@@ -14,8 +14,8 @@ use std::process::ExitCode;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use zvid_capture::{
-    list_devices, permission, supported_formats, CaptureConfig, CaptureError, CaptureSession,
-    Device, DeviceEvent, DeviceWatcher, HostTime, JitterStats, PreviewConfig,
+    CaptureConfig, CaptureError, CaptureSession, Device, DeviceEvent, DeviceWatcher, HostTime,
+    JitterStats, PreviewConfig, list_devices, permission, supported_formats,
 };
 
 fn main() -> ExitCode {

@@ -78,17 +78,17 @@ impl Dispatcher {
     /// Stamps `frame` with its sequence number and a strictly increasing
     /// timestamp, then delivers it.
     pub(crate) fn deliver(&mut self, mut frame: Frame) {
-        if let Some(limit) = &mut self.rate_limit {
-            if !limit.accept(frame.pts) {
-                return;
-            }
+        if let Some(limit) = &mut self.rate_limit
+            && !limit.accept(frame.pts)
+        {
+            return;
         }
         let mut corrected = false;
-        if let Some(last) = self.last_pts {
-            if frame.pts <= last {
-                frame.pts = HostTime::from_nanos(last.as_nanos() + 1_000);
-                corrected = true;
-            }
+        if let Some(last) = self.last_pts
+            && frame.pts <= last
+        {
+            frame.pts = HostTime::from_nanos(last.as_nanos() + 1_000);
+            corrected = true;
         }
         self.last_pts = Some(frame.pts);
         frame.sequence = self.sequence;
@@ -138,26 +138,28 @@ impl PreviewPipe {
         let worker_stats = stats.clone();
         let worker = std::thread::Builder::new()
             .name("zvid-capture-preview".into())
-            .spawn(move || loop {
-                let frame = {
-                    let (mailbox, ready) = &*worker_shared;
-                    let mut mailbox = lock(mailbox);
-                    loop {
-                        if let Some(frame) = mailbox.frame.take() {
-                            break frame;
+            .spawn(move || {
+                loop {
+                    let frame = {
+                        let (mailbox, ready) = &*worker_shared;
+                        let mut mailbox = lock(mailbox);
+                        loop {
+                            if let Some(frame) = mailbox.frame.take() {
+                                break frame;
+                            }
+                            if mailbox.closed {
+                                return;
+                            }
+                            mailbox = ready.wait(mailbox).unwrap_or_else(|e| e.into_inner());
                         }
-                        if mailbox.closed {
-                            return;
+                    };
+                    match preview::render(&frame, &config) {
+                        Ok(preview) => {
+                            lock(&worker_stats).previews += 1;
+                            callback(preview);
                         }
-                        mailbox = ready.wait(mailbox).unwrap_or_else(|e| e.into_inner());
+                        Err(_) => lock(&worker_stats).preview_errors += 1,
                     }
-                };
-                match preview::render(&frame, &config) {
-                    Ok(preview) => {
-                        lock(&worker_stats).previews += 1;
-                        callback(preview);
-                    }
-                    Err(_) => lock(&worker_stats).preview_errors += 1,
                 }
             })
             .expect("spawn preview thread");
@@ -276,8 +278,10 @@ mod tests {
         let stats = *lock(&stats);
         assert_eq!(previews.len() as u64 + stats.previews_skipped, 5);
         assert!(!previews.is_empty());
-        assert!(previews
-            .iter()
-            .all(|p| p.width == 32 && p.height == 18 && p.sequence % 2 == 0));
+        assert!(
+            previews
+                .iter()
+                .all(|p| p.width == 32 && p.height == 18 && p.sequence % 2 == 0)
+        );
     }
 }

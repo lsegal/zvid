@@ -1,0 +1,17 @@
+[package]
+name = "zvid-daw-plugin"
+description = "ZVID Capture plugin binary tying the DAW crates together."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+name = "zvid_capture_plugin"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+zvid-daw-core.workspace = true
+zvid-capture.workspace = true
+zvid-daw-ui.workspace = true
+zvid-vst3.workspace = true
+zvid-au.workspace = true

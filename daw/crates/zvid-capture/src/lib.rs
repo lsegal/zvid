@@ -28,11 +28,11 @@ use std::sync::{Arc, Mutex};
 pub use clock::HostTime;
 pub use error::{CaptureError, Permission};
 pub use fanout::{FrameCallback, PreviewCallback, SessionStats};
-pub use format::{select_format, Format, FormatPreference, Rational, Selection};
-pub use frame::{pack_nv12, ColorInfo, Frame, PixelFormat, Rotation};
+pub use format::{Format, FormatPreference, Rational, Selection, select_format};
+pub use frame::{ColorInfo, Frame, PixelFormat, Rotation, pack_nv12};
 pub use jitter::JitterStats;
 pub use preview::{PreviewConfig, PreviewFrame};
-pub use watch::{diff as diff_devices, DeviceEvent, DeviceWatcher};
+pub use watch::{DeviceEvent, DeviceWatcher, diff as diff_devices};
 
 /// A stable, unique device identifier: the AVFoundation `uniqueID` on macOS
 /// and the Media Foundation symbolic link on Windows. Safe to persist.

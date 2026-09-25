@@ -1,33 +1,24 @@
 [package]
 name = "zvid-capture"
-version = "0.1.0"
-description = "Camera discovery and capture for ZVID Capture"
-edition = "2021"
-publish = false
-
-# Standalone until the /daw workspace from #192 lands; drop this table then.
-[workspace]
+description = "Camera enumeration, capture sessions and encoding through zvidlib."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
 
 [dependencies]
-jpeg-encoder = "0.7"
+jpeg-encoder.workspace = true
+zvid-daw-core.workspace = true
+zvidlib.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
-block2 = "0.6"
-dispatch2 = "0.3"
-objc2 = "0.6"
-objc2-av-foundation = { version = "0.3", features = ["objc2-core-foundation", "objc2-core-media"] }
-objc2-core-foundation = "0.3"
-objc2-core-media = "0.3"
-objc2-core-video = "0.3"
-objc2-foundation = "0.3"
+block2.workspace = true
+dispatch2.workspace = true
+objc2.workspace = true
+objc2-av-foundation.workspace = true
+objc2-core-foundation.workspace = true
+objc2-core-media.workspace = true
+objc2-core-video.workspace = true
+objc2-foundation.workspace = true
 
 [target.'cfg(windows)'.dependencies]
-windows = { version = "0.62", features = [
-    "Devices_Enumeration",
-    "Foundation",
-    "Win32_Foundation",
-    "Win32_Media_MediaFoundation",
-    "Win32_System_Com",
-    "Win32_System_Performance",
-    "Win32_System_Registry",
-] }
+windows.workspace = true

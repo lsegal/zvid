@@ -1,0 +1,11 @@
+[package]
+name = "zvid-daw-core"
+description = "Pure ZVID Capture logic: state schema, take tracker, naming and paths."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+dirs.workspace = true
+serde.workspace = true
+serde_json.workspace = true

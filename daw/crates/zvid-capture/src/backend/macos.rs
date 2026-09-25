@@ -7,17 +7,17 @@
 //! queue.
 
 use crate::clock::HostTime;
-use crate::fanout::{lock, Dispatcher};
-use crate::frame::{pack_nv12, ColorInfo, Frame, PixelFormat, Rotation};
+use crate::fanout::{Dispatcher, lock};
+use crate::frame::{ColorInfo, Frame, PixelFormat, Rotation, pack_nv12};
 use crate::{
-    select_format, CaptureError, Device, DeviceId, Format, FormatPreference, Permission, Rational,
-    Selection, Transport,
+    CaptureError, Device, DeviceId, Format, FormatPreference, Permission, Rational, Selection,
+    Transport, select_format,
 };
 use block2::RcBlock;
 use dispatch2::{DispatchQueue, DispatchRetained};
 use objc2::rc::Retained;
 use objc2::runtime::{AnyClass, AnyObject, Bool, ClassBuilder, ProtocolObject, Sel};
-use objc2::{msg_send, sel, AnyThread, ClassType, Message, ProtocolType};
+use objc2::{AnyThread, ClassType, Message, ProtocolType, msg_send, sel};
 #[allow(deprecated)]
 use objc2_av_foundation::AVCaptureDeviceTypeExternalUnknown;
 use objc2_av_foundation::{
@@ -28,25 +28,25 @@ use objc2_av_foundation::{
     AVCaptureSession, AVCaptureVideoDataOutput, AVCaptureVideoDataOutputSampleBufferDelegate,
     AVMediaTypeVideo,
 };
-use objc2_core_foundation::{kCFRunLoopDefaultMode, CFRunLoop};
+use objc2_core_foundation::{CFRunLoop, kCFRunLoopDefaultMode};
 use objc2_core_media::{
     CMClock, CMSampleBuffer, CMSyncConvertTime, CMTime, CMTimeFlags,
     CMVideoFormatDescriptionGetDimensions,
 };
 use objc2_core_video::{
+    CVPixelBufferGetBaseAddressOfPlane, CVPixelBufferGetBytesPerRowOfPlane, CVPixelBufferGetHeight,
+    CVPixelBufferGetHeightOfPlane, CVPixelBufferGetPixelFormatType, CVPixelBufferGetWidth,
+    CVPixelBufferLockBaseAddress, CVPixelBufferLockFlags, CVPixelBufferUnlockBaseAddress,
     kCVPixelBufferPixelFormatTypeKey, kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
-    kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange, CVPixelBufferGetBaseAddressOfPlane,
-    CVPixelBufferGetBytesPerRowOfPlane, CVPixelBufferGetHeight, CVPixelBufferGetHeightOfPlane,
-    CVPixelBufferGetPixelFormatType, CVPixelBufferGetWidth, CVPixelBufferLockBaseAddress,
-    CVPixelBufferLockFlags, CVPixelBufferUnlockBaseAddress,
+    kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
 };
 use objc2_foundation::{
     NSArray, NSDictionary, NSError, NSNotification, NSNotificationCenter, NSNumber, NSObject,
     NSObjectProtocol, NSOperatingSystemVersion, NSProcessInfo, NSString,
 };
-use std::ffi::{c_void, CStr, CString};
+use std::ffi::{CStr, CString, c_void};
 use std::ptr::NonNull;
-use std::sync::{mpsc, Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock, mpsc};
 use std::time::Duration;
 
 // AVError codes (AVError.h).
@@ -323,10 +323,10 @@ unsafe extern "C-unwind" fn did_output(
     let (Some(this), Some(sample)) = (unsafe { this.as_ref() }, unsafe { sample.as_ref() }) else {
         return;
     };
-    if let Some(state) = unsafe { delegate_state(this) } {
-        if let Some(frame) = state.frame_from(sample) {
-            lock(&state.dispatcher).deliver(frame);
-        }
+    if let Some(state) = unsafe { delegate_state(this) }
+        && let Some(frame) = state.frame_from(sample)
+    {
+        lock(&state.dispatcher).deliver(frame);
     }
 }
 

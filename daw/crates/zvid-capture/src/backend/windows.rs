@@ -7,10 +7,10 @@
 
 use crate::clock::HostTime;
 use crate::fanout::Dispatcher;
-use crate::frame::{pack_nv12, ColorInfo, Frame, PixelFormat, Rotation};
+use crate::frame::{ColorInfo, Frame, PixelFormat, Rotation, pack_nv12};
 use crate::{
-    select_format, CaptureError, Device, DeviceId, Format, FormatPreference, Permission, Rational,
-    Selection, Transport,
+    CaptureError, Device, DeviceId, Format, FormatPreference, Permission, Rational, Selection,
+    Transport, select_format,
 };
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -18,17 +18,17 @@ use std::sync::mpsc;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::thread::JoinHandle;
 use std::time::Duration;
-use windows::core::{Interface, HRESULT, HSTRING, PCWSTR, PWSTR};
 use windows::Devices::Enumeration::{
     DeviceClass, DeviceInformation, DeviceInformationUpdate, DeviceWatcher, Panel,
 };
 use windows::Foundation::TypedEventHandler;
-use windows::Win32::Foundation::{ERROR_SHARING_VIOLATION, E_ACCESSDENIED};
+use windows::Win32::Foundation::{E_ACCESSDENIED, ERROR_SHARING_VIOLATION};
 use windows::Win32::Media::MediaFoundation::*;
-use windows::Win32::System::Com::{CoInitializeEx, CoTaskMemFree, COINIT_MULTITHREADED};
+use windows::Win32::System::Com::{COINIT_MULTITHREADED, CoInitializeEx, CoTaskMemFree};
 use windows::Win32::System::Registry::{
-    RegGetValueW, HKEY, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, RRF_RT_REG_SZ,
+    HKEY, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, RRF_RT_REG_SZ, RegGetValueW,
 };
+use windows::core::{HRESULT, HSTRING, Interface, PCWSTR, PWSTR};
 
 const VIDEO_STREAM: u32 = MF_SOURCE_READER_FIRST_VIDEO_STREAM.0 as u32;
 
@@ -619,10 +619,10 @@ impl Drop for Session {
         // keeps it blocked, detach instead of hanging the host.
         let finished = self.done.recv_timeout(Duration::from_secs(2)).is_ok()
             || matches!(self.done.try_recv(), Err(mpsc::TryRecvError::Disconnected));
-        if let Some(thread) = self.thread.take() {
-            if finished {
-                let _ = thread.join();
-            }
+        if let Some(thread) = self.thread.take()
+            && finished
+        {
+            let _ = thread.join();
         }
     }
 }
