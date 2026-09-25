@@ -83,5 +83,14 @@ jobs:
       - name: Test
         run: cargo test --workspace --locked
 
+      # Live 12 runs Remote Scripts on Python 3.11.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Live companion tests
+        working-directory: daw/live-remote-script
+        run: python -m unittest discover tests
+
       - name: Repository checks
         run: cargo xtask check
