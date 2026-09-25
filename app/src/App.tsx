@@ -5357,18 +5357,18 @@ function App() {
   }
 
   // Export progress stays visible for the whole export.
-  const statusText =
+  const exportStatusText =
     isExporting && exportState.detail ? exportState.detail : "";
   const statusMessage = useMemo<StatusMessage>(
     () =>
-      statusText
+      exportStatusText
         ? {
-            text: statusText,
-            tone: statusMessageTone(statusText),
+            text: exportStatusText,
+            tone: statusMessageTone(exportStatusText),
             sticky: true,
           }
         : { text: status, tone: statusMessageTone(status) },
-    [status, statusText],
+    [exportStatusText, status],
   );
 
   // Everything but the playhead is memoized off the playhead, and the playhead
@@ -5379,6 +5379,7 @@ function App() {
         version: ZVID_VERSION,
         sessionName,
         timelineMode,
+        // Unused: the playhead item is swapped for the live readout below.
         playheadQ: 0,
         bpm,
         signature,
