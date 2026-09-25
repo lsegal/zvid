@@ -90,7 +90,8 @@ pub fn list_devices() -> Result<Vec<Device>, CaptureError> {
     backend::list_devices()
 }
 
-/// Lists the capture formats a camera offers.
+/// Lists the capture formats a camera offers. On Windows this briefly opens
+/// the device, which can turn its activity light on.
 pub fn supported_formats(id: &DeviceId) -> Result<Vec<Format>, CaptureError> {
     backend::supported_formats(id)
 }
@@ -159,7 +160,8 @@ pub struct CaptureSession {
 
 impl CaptureSession {
     /// Opens `device` in the best format allowed by `config.format` and
-    /// starts delivering frames. Requests camera permission if needed.
+    /// starts delivering frames. Requests camera permission if needed, which
+    /// blocks while the macOS prompt is shown, so don't call it on the UI thread.
     pub fn start(device: &DeviceId, config: CaptureConfig) -> Result<Self, CaptureError> {
         if let Some(error) = request_permission().as_error() {
             return Err(error);
