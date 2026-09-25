@@ -4920,10 +4920,7 @@ function App() {
                 : "summary",
             title: `Imported ${payload.sessionName}`,
             lines: [
-              ...formatAlsImportSummary(
-                payload.alsImport,
-                payload.sessionName,
-              ),
+              ...formatAlsImportSummary(payload.alsImport, payload.sessionName),
               ...clipsWithoutFileLines,
             ],
           }

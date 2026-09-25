@@ -118,7 +118,9 @@ export function normalizeLvpSession(session: LvpSession) {
     return { ...clip, filePath: "" };
   });
   const tracks = session.tracks?.map((track) =>
-    track.recordings?.some((recording) => typeof recording.filename !== "string")
+    track.recordings?.some(
+      (recording) => typeof recording.filename !== "string",
+    )
       ? {
           ...track,
           recordings: track.recordings.map((recording) =>
