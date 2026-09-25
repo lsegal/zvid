@@ -97,6 +97,11 @@ import { getHarness, type SaveTarget } from "./harness";
 import { hasMediaExtension } from "./harness/media-extensions";
 import { MasterWaveform } from "./MasterWaveform";
 import {
+  getDroppedAudioFile,
+  getMainAudioDragState,
+  isWithinMainAudioDropTarget,
+} from "./main-audio-drop";
+import {
   buildFallbackMediaItem,
   inferMediaKind,
   type MediaAvailability,
@@ -1637,6 +1642,7 @@ function App() {
     useState<SourceTrackDropTarget | null>(null);
   const [sourceTrackDragPreview, setSourceTrackDragPreview] =
     useState<SourceTrackDragPreview | null>(null);
+  const [isMainAudioDropTarget, setIsMainAudioDropTarget] = useState(false);
   const [isTimelineAudibleScrubbing, setIsTimelineAudibleScrubbing] =
     useState(false);
   const [zoomDraft, setZoomDraft] = useState<number | null>(null);
@@ -2384,6 +2390,7 @@ function App() {
     sourceTrackDragPreviewKeyRef.current = "";
     sourceTrackDragPreviewRequestRef.current += 1;
     setSourceTrackDragTarget(null);
+    setIsMainAudioDropTarget(false);
     setSourceTrackDragPreview((current) => {
       revokeObjectUrlIfNeeded(current?.thumbnailUrl);
       return null;
@@ -2655,6 +2662,105 @@ function App() {
     ],
   );
 
+  const replaceMainAudioFromFile = useCallback(
+    async (file: File) => {
+      const harness = getHarness();
+
+      try {
+        setStatus(`Analyzing ${file.name}...`);
+        const [analyzed] = await harness.analyzeMedia(
+          {
+            kind: "files",
+            files: [file],
+          },
+          PALETTE,
+          projectMediaItems.length,
+        );
+        if (!analyzed) {
+          throw new Error(`Could not read ${file.name}.`);
+        }
+        if (analyzed.kind !== "audio") {
+          throw new Error(`${file.name} is not an audio file.`);
+        }
+
+        commitProjectChange("Set main audio", (current) =>
+          patchProjectState(current, {
+            mediaItems: [...current.mediaItems, toShareableMediaItem(analyzed)],
+            masterAudioId: analyzed.id,
+          }),
+        );
+
+        seedLocalMediaItems([analyzed]);
+        void cacheLocalMediaItems([analyzed]);
+        setStatus(`Set main audio to ${analyzed.name}.`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setStatus(`Main audio import failed: ${message}`);
+      }
+    },
+    [
+      cacheLocalMediaItems,
+      commitProjectChange,
+      projectMediaItems.length,
+      seedLocalMediaItems,
+    ],
+  );
+
+  const handleMainAudioDragEvent = useCallback(
+    (event: ReactDragEvent<HTMLElement>) => {
+      if (!hasDraggedFileData(event.dataTransfer)) {
+        return;
+      }
+
+      // The Audio lane never hosts source tracks, so a drag over it cancels any
+      // pending source track drop.
+      if (sourceTrackDragTarget) {
+        clearSourceTrackDragState();
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      const accepted = getMainAudioDragState(event.dataTransfer) === "accept";
+      event.dataTransfer.dropEffect = accepted ? "copy" : "none";
+      setIsMainAudioDropTarget(accepted);
+    },
+    [clearSourceTrackDragState, sourceTrackDragTarget],
+  );
+
+  const handleMainAudioDragLeave = useCallback(
+    (event: ReactDragEvent<HTMLElement>) => {
+      if (
+        event.relatedTarget instanceof Node &&
+        event.currentTarget.contains(event.relatedTarget)
+      ) {
+        return;
+      }
+
+      setIsMainAudioDropTarget(false);
+    },
+    [],
+  );
+
+  const handleMainAudioDrop = useCallback(
+    (event: ReactDragEvent<HTMLElement>) => {
+      if (!hasDraggedFileData(event.dataTransfer)) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      clearSourceTrackDragState();
+      const file = getDroppedAudioFile(event.dataTransfer.files);
+      if (!file) {
+        setStatus("Only audio files can be dropped on the Audio lane.");
+        return;
+      }
+
+      void replaceMainAudioFromFile(file);
+    },
+    [clearSourceTrackDragState, replaceMainAudioFromFile],
+  );
+
   const activeShareRoom = collaborationRoom.trim();
   const isSharing = collaborationMode === "sharing";
   const isConnectedClient = collaborationMode === "connected";
@@ -2720,7 +2826,10 @@ function App() {
     };
 
     const handleWindowDrag = (event: DragEvent) => {
-      if (!hasDraggedFileData(event.dataTransfer)) {
+      if (
+        !hasDraggedFileData(event.dataTransfer) ||
+        isWithinMainAudioDropTarget(event.target)
+      ) {
         return;
       }
 
@@ -2746,7 +2855,10 @@ function App() {
     };
 
     const handleWindowDrop = (event: DragEvent) => {
-      if (!hasDraggedFileData(event.dataTransfer)) {
+      if (
+        !hasDraggedFileData(event.dataTransfer) ||
+        isWithinMainAudioDropTarget(event.target)
+      ) {
         return;
       }
 
@@ -6313,7 +6425,15 @@ function App() {
                     </section>
                   ))}
 
-                  <section className="track-row track-row--bus">
+                  <section
+                    aria-label="Main audio drop area"
+                    className={`track-row track-row--bus ${isMainAudioDropTarget ? "is-drop-target" : ""}`}
+                    data-main-audio-drop-target=""
+                    onDragEnter={handleMainAudioDragEvent}
+                    onDragLeave={handleMainAudioDragLeave}
+                    onDragOver={handleMainAudioDragEvent}
+                    onDrop={handleMainAudioDrop}
+                  >
                     <div className="track-label">
                       <div className="track-label__index">A</div>
                       <div>
