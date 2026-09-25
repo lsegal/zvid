@@ -6421,7 +6421,7 @@ function App() {
                     </div>
                   </section>
 
-                  {lanes.map((lane) => (
+                  {lanes.map((lane, laneIndex) => (
                     <section
                       key={lane.id}
                       className={`track-row ${lane.id === fxLaneId ? "track-row--selected" : ""}`}
@@ -6441,7 +6441,7 @@ function App() {
                         }}
                       >
                         <div className="track-label__index">
-                          {lane.name.replace("Layer ", "")}
+                          {laneIndex + 1}
                         </div>
                         <button
                           aria-current={

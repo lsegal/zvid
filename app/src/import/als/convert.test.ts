@@ -218,11 +218,11 @@ describe("convertAls with dogfood3.als against dogfood3.lvp", () => {
     assert.equal(result.summary.hasLayersVideo, true);
   });
 
-  it("gives each Layers track its own layer", () => {
+  it("gives each Layers track its own layer, named after the track", () => {
     assert.deepEqual(session.mainTracks, [
-      { id: "1", name: "Layer 1" },
-      { id: "2", name: "Layer 2" },
-      { id: "3", name: "Layer 3" },
+      { id: "1", name: "1-Akustichord Kit" },
+      { id: "2", name: "2-Audio" },
+      { id: "3", name: "3-Audio" },
     ]);
     assert.deepEqual(session.selections, [
       {
@@ -539,9 +539,9 @@ describe("convertAls with synthetic sets", () => {
       ]),
     );
     assert.deepEqual(session.mainTracks, [
-      { id: "1", name: "Layer 1" },
-      { id: "2", name: "Layer 2" },
-      { id: "3", name: "Layer 3" },
+      { id: "1", name: "Drums" },
+      { id: "2", name: "Bass" },
+      { id: "3", name: "Keys" },
     ]);
     assert.deepEqual(
       session.selections?.map(
@@ -563,6 +563,30 @@ describe("convertAls with synthetic sets", () => {
     assert.deepEqual(summary.trimmed, []);
   });
 
+  it("names a layer whose track has no name Layer N", () => {
+    const { session } = convertAls(
+      doc([
+        videoTrack({ id: 5, name: "Drums" }),
+        videoTrack({ id: 6, name: " " }),
+      ]),
+    );
+    assert.deepEqual(session.mainTracks, [
+      { id: "1", name: "Drums" },
+      { id: "2", name: "Layer 2" },
+    ]);
+  });
+
+  it("names nine layers after their nine tracks", () => {
+    const tracks = Array.from({ length: 9 }, (_, index) =>
+      videoTrack({ id: 10 + index, name: `Cam ${index + 1}` }),
+    );
+    const { session } = convertAls(doc(tracks));
+    assert.deepEqual(
+      session.mainTracks?.map((track) => track.name),
+      tracks.map((track) => track.name),
+    );
+  });
+
   it("puts tracks past nine on the last layer, the later clip winning", () => {
     // Nine tracks fill the layers from 0 to 4 beats. A tenth covers the
     // ninth entirely on the last layer, and an eleventh overlaps its tail.
@@ -582,7 +606,8 @@ describe("convertAls with synthetic sets", () => {
     );
     assert.deepEqual(
       session.mainTracks?.map((track) => track.name),
-      tracks.map((_, index) => `Layer ${index + 1}`),
+      // The shared last layer is named after none of its tracks.
+      [...tracks.slice(0, 8).map((track) => track.name), "Layer 9"],
     );
     assert.deepEqual(
       session.selections?.map(

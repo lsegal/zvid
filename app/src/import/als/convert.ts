@@ -168,7 +168,7 @@ export function convertAls(
   const trackNames = new Map(
     importedTracks.map((track) => [String(track.id), track.name]),
   );
-  const layers = assignLayers(arrangedClips);
+  const layers = assignLayers(arrangedClips, trackNames);
   const overlaps = resolveSelectionOverlaps(
     arrangedClips.map((clip, index) => ({
       id: index + 1,
@@ -232,16 +232,24 @@ export function convertAls(
 }
 
 /**
- * One layer per track with arranged clips, in track order. Layers keep the
- * editor's `Layer N` names, which its lane badges are built from. Tracks past
- * `MAX_LAYERS` share the last layer, and the caller resolves their overlaps.
- * A set with nothing arranged still gets a layer.
+ * One layer per track with arranged clips, in track order, named after its
+ * track. Tracks past `MAX_LAYERS` share the last layer, and the caller
+ * resolves their overlaps. That shared layer, a layer whose track has no
+ * name, and the layer a set with nothing arranged still gets are named
+ * `Layer N`.
  */
-function assignLayers(clips: readonly LvpClip[]) {
+function assignLayers(
+  clips: readonly LvpClip[],
+  trackNames: ReadonlyMap<string, string>,
+) {
   const trackIds = Array.from(new Set(clips.map((clip) => clip.trackId)));
   const mainTracks = Array.from(
     { length: Math.max(1, Math.min(trackIds.length, MAX_LAYERS)) },
-    (_, index) => ({ id: String(index + 1), name: `Layer ${index + 1}` }),
+    (_, index) => {
+      const shared = index === MAX_LAYERS - 1 && trackIds.length > MAX_LAYERS;
+      const trackName = shared ? "" : trackNames.get(trackIds[index])?.trim();
+      return { id: String(index + 1), name: trackName || `Layer ${index + 1}` };
+    },
   );
   const idOf = new Map(
     trackIds.map((trackId, index) => [
