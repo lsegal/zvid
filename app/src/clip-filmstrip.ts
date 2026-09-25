@@ -1,4 +1,4 @@
-// Lays out the filmstrip drawn across a layer clip: a row of thumbnail tiles,
+// Lays out the filmstrip drawn across a layer clip or source span: a row of thumbnail tiles,
 // each showing the source frame under its left edge. Only tiles inside the
 // visible timeline range are laid out, and sample times are snapped to a
 // zoom-dependent grid so small zoom changes reuse frames already decoded.
@@ -15,7 +15,7 @@ export type FilmstripTile = {
 
 export type FilmstripRange = { startPx: number; endPx: number };
 
-type FilmstripClip = {
+export type FilmstripClip = {
   trimStartSeconds: number;
   sourceWindowStartSeconds: number;
   sourceWindowEndSeconds: number;
@@ -59,6 +59,20 @@ export function getFilmstripTileWidthPx(
     MAX_TILE_WIDTH_PX,
     Math.max(MIN_TILE_WIDTH_PX, Math.round(heightPx * aspect)),
   );
+}
+
+// A source span plays its media from its start for its whole duration, so
+// its tiles sample that stretch of the source.
+export function getSourceSpanFilmstripClip(span: {
+  trimStartSeconds: number;
+  durationSeconds: number;
+}): FilmstripClip {
+  return {
+    trimStartSeconds: span.trimStartSeconds,
+    sourceWindowStartSeconds: span.trimStartSeconds,
+    sourceWindowEndSeconds:
+      span.trimStartSeconds + Math.max(0, span.durationSeconds),
+  };
 }
 
 // The visible timeline range plus a block either side, snapped to blocks.
