@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import {
   partitionStatusItems,
   STATUS_MESSAGE_TIMEOUT_MS,
@@ -56,8 +56,9 @@ function StatusBarMessage({ message }: { message: StatusMessage }) {
   );
 }
 
-// Compact single-line bar docked at the bottom of the app shell.
-export function StatusBar({
+// Compact single-line bar docked at the bottom of the app shell. Memoized so
+// app re-renders during playback skip it unless its items or message change.
+export const StatusBar = memo(function StatusBar({
   items,
   message,
 }: {
@@ -80,4 +81,4 @@ export function StatusBar({
       </div>
     </footer>
   );
-}
+});
