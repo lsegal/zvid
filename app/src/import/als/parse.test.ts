@@ -286,6 +286,33 @@ describe("decodeLayersState", () => {
     });
   });
 
+  it("decodes ZVID Capture state from the shared /daw fixture", () => {
+    const fixtureHex = readFileSync(
+      new URL(
+        "../../../../daw/fixtures/state/zvid-capture-v1.hex",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    assert.deepEqual(decodeLayersState(fixtureHex), {
+      version: "1",
+      recordings: [
+        {
+          filename: "video-01-9-25-20-36-12-0.mp4",
+          dimensions: [1920, 1080],
+          fps: [30, 1],
+          frameStart: 915,
+        },
+        {
+          filename: "video-02-9-25-20-41-03-0.mp4",
+          dimensions: [1280, 720],
+          fps: [30000, 1001],
+          frameStart: 0,
+        },
+      ],
+    });
+  });
+
   it("rejects malformed hex", () => {
     assert.throws(() => decodeLayersState("ABC"), /not valid hex/);
     assert.throws(() => decodeLayersState("ZZ"), /not valid hex/);
