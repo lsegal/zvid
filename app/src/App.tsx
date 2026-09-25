@@ -152,7 +152,13 @@ import {
 import { classifySpaceTarget } from "./space-shortcut";
 import { statusMessageTone } from "./status-bar";
 import { buildStatusItems } from "./status-items";
+import {
+  getClipThumbnailTimeSeconds,
+  getThumbnailCacheKey,
+  type ThumbnailRequest,
+} from "./thumbnail-cache.ts";
 import { formatMusicalPosition, formatTimecode } from "./timeline-format.ts";
+import { useThumbnailCache } from "./use-thumbnail-cache";
 import { ZVID_BUILD } from "./version";
 import { loadWaveformPeaks } from "./waveform-loader";
 import type { WaveformPeaks } from "./waveform-peaks";
@@ -1274,12 +1280,6 @@ function revokeObjectUrlIfNeeded(url: string | undefined) {
   }
 }
 
-function getSourceThumbnailCacheKey(
-  span: Pick<SourceSpan, "id" | "mediaId" | "trimStartSeconds">,
-) {
-  return `${span.id}:${span.mediaId ?? "missing"}:${span.trimStartSeconds.toFixed(3)}`;
-}
-
 function getSourceTrackEndQ(
   sourceSpans: SourceSpan[],
   sourceTrackId: string,
@@ -1706,9 +1706,6 @@ function App() {
   const [localMediaOverrides, setLocalMediaOverrides] = useState<
     Record<string, LocalMediaOverride>
   >({});
-  const [sourceThumbnailUrls, setSourceThumbnailUrls] = useState<
-    Record<string, string>
-  >({});
   const [collaborationRoom, setCollaborationRoom] = useState(
     initialCollaborationConfig.room,
   );
@@ -1785,7 +1782,6 @@ function App() {
   }>({ controller: null, mediaPeerCount: 0, ids: new Set() });
   const peerMediaStatusAtRef = useRef(0);
   const sessionMediaCheckRef = useRef<SessionMediaCheck | null>(null);
-  const sourceThumbnailUrlsRef = useRef<Record<string, string>>({});
   const lastCollaborationCursorRef = useRef("");
   const sourceTrackDragPreviewRef = useRef<SourceTrackDragPreview | null>(null);
   const sourceTrackDragHideTimeoutRef = useRef<number | null>(null);
@@ -1826,6 +1822,60 @@ function App() {
   const timelineClips = dragPreviewClips ?? clips;
   const timelineClipsRef = useRef(timelineClips);
   timelineClipsRef.current = timelineClips;
+  // Source spans and layer clips share one thumbnail cache, so a frame both
+  // show is decoded once. Spans show the frame at their start and clips the
+  // first frame the compositor shows for them.
+  const thumbnailRequests = useMemo(() => {
+    const requests: ThumbnailRequest<MediaItem>[] = [];
+    const addRequest = (
+      owner: string,
+      media: MediaItem | undefined,
+      timeSeconds: (media: MediaItem) => number,
+    ) => {
+      if (!media?.hasVideo || !media.previewUrl) {
+        return;
+      }
+      if (media.availability !== "ready") {
+        return;
+      }
+
+      const time = timeSeconds(media);
+      requests.push({
+        key: getThumbnailCacheKey(media.id, time),
+        owner,
+        media,
+        sourceUrl: media.previewUrl,
+        timeSeconds: time,
+      });
+    };
+
+    for (const span of sourceSpans) {
+      addRequest(
+        `span:${span.id}`,
+        span.mediaId ? mediaItemsById.get(span.mediaId) : undefined,
+        () => span.trimStartSeconds,
+      );
+    }
+    for (const clip of timelineClips) {
+      if (isPlaceholderClip(clip)) {
+        continue;
+      }
+
+      addRequest(
+        `clip:${clip.id}`,
+        clip.mediaId ? mediaItemsById.get(clip.mediaId) : undefined,
+        (media) => getClipThumbnailTimeSeconds(clip, media.durationSeconds),
+      );
+    }
+    return requests;
+  }, [mediaItemsById, sourceSpans, timelineClips]);
+  const thumbnails = useThumbnailCache(thumbnailRequests, (request, error) => {
+    logClient("thumbnail:error", {
+      owner: request.owner,
+      mediaId: request.media.id,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  });
   const resolvedZoom = zoomDraft ?? zoom;
 
   const commitProjectChange = useCallback(
@@ -2883,10 +2933,6 @@ function App() {
   const effectivePreviewWidth = Math.min(previewWidth, previewMaxWidth);
 
   useEffect(() => {
-    sourceThumbnailUrlsRef.current = sourceThumbnailUrls;
-  }, [sourceThumbnailUrls]);
-
-  useEffect(() => {
     sourceTrackDragPreviewRef.current = sourceTrackDragPreview;
   }, [sourceTrackDragPreview]);
 
@@ -3029,152 +3075,6 @@ function App() {
     },
     [],
   );
-
-  useEffect(() => {
-    const activeSpanIds = new Set(
-      sourceSpans.map((span) => getSourceThumbnailCacheKey(span)),
-    );
-
-    setSourceThumbnailUrls((current) => {
-      let changed = false;
-      const next: Record<string, string> = {};
-
-      for (const [spanId, url] of Object.entries(current)) {
-        if (activeSpanIds.has(spanId)) {
-          next[spanId] = url;
-          continue;
-        }
-
-        revokeObjectUrlIfNeeded(url);
-        changed = true;
-      }
-
-      if (!changed) {
-        return current;
-      }
-
-      sourceThumbnailUrlsRef.current = next;
-      return next;
-    });
-  }, [sourceSpans]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const mediaById = new Map(mediaItems.map((item) => [item.id, item]));
-
-    async function populateSourceThumbnails() {
-      const harness = getHarness();
-      const resolved = await Promise.all(
-        sourceSpans.map(async (span) => {
-          const cacheKey = getSourceThumbnailCacheKey(span);
-          if (sourceThumbnailUrlsRef.current[cacheKey]) {
-            return null;
-          }
-
-          const media = span.mediaId ? mediaById.get(span.mediaId) : undefined;
-          if (!media?.hasVideo) {
-            return null;
-          }
-
-          const fallbackUrl = media.thumbnailUrl;
-          if (!harness.generateThumbnailAtTime) {
-            return fallbackUrl ? { cacheKey, url: fallbackUrl } : null;
-          }
-
-          try {
-            const exactUrl = await harness.generateThumbnailAtTime(
-              media,
-              span.trimStartSeconds,
-            );
-            return exactUrl || fallbackUrl
-              ? {
-                  cacheKey,
-                  url: exactUrl ?? fallbackUrl ?? "",
-                }
-              : null;
-          } catch (error) {
-            logClient("sourceThumbnail:error", {
-              spanId: span.id,
-              mediaId: media.id,
-              message: error instanceof Error ? error.message : String(error),
-            });
-            return fallbackUrl ? { cacheKey, url: fallbackUrl } : null;
-          }
-        }),
-      );
-
-      const nextEntries = resolved.filter(
-        (entry): entry is { cacheKey: string; url: string } => Boolean(entry),
-      );
-      if (cancelled) {
-        const currentUrls = new Set(
-          Object.values(sourceThumbnailUrlsRef.current),
-        );
-        for (const entry of nextEntries) {
-          if (!currentUrls.has(entry.url)) {
-            revokeObjectUrlIfNeeded(entry.url);
-          }
-        }
-        return;
-      }
-
-      if (!nextEntries.length) {
-        return;
-      }
-
-      const activeSpanIds = new Set(
-        sourceSpans.map((span) => getSourceThumbnailCacheKey(span)),
-      );
-      setSourceThumbnailUrls((current) => {
-        const next = { ...current };
-        let changed = false;
-
-        for (const entry of nextEntries) {
-          if (!activeSpanIds.has(entry.cacheKey)) {
-            revokeObjectUrlIfNeeded(entry.url);
-            continue;
-          }
-
-          const previousUrl = next[entry.cacheKey];
-          if (previousUrl === entry.url) {
-            continue;
-          }
-
-          revokeObjectUrlIfNeeded(previousUrl);
-          next[entry.cacheKey] = entry.url;
-          changed = true;
-        }
-
-        if (!changed) {
-          for (const entry of nextEntries) {
-            if (current[entry.cacheKey] !== entry.url) {
-              revokeObjectUrlIfNeeded(entry.url);
-            }
-          }
-          return current;
-        }
-
-        sourceThumbnailUrlsRef.current = next;
-        return next;
-      });
-    }
-
-    if (sourceSpans.length) {
-      void populateSourceThumbnails();
-    }
-
-    return () => {
-      cancelled = true;
-    };
-  }, [mediaItems, sourceSpans]);
-
-  useEffect(() => {
-    return () => {
-      for (const url of Object.values(sourceThumbnailUrlsRef.current)) {
-        revokeObjectUrlIfNeeded(url);
-      }
-    };
-  }, []);
 
   const syncTimelineViewport = useCallback(() => {
     const timelineScroll = timelineScrollRef.current;
@@ -6524,6 +6424,19 @@ function App() {
                             clip,
                             media?.availability,
                           );
+                          const thumbnailUrl =
+                            media?.hasVideo && mediaState === "online"
+                              ? (thumbnails.get(
+                                  getThumbnailCacheKey(
+                                    media.id,
+                                    getClipThumbnailTimeSeconds(
+                                      clip,
+                                      media.durationSeconds,
+                                    ),
+                                  ),
+                                  `clip:${clip.id}`,
+                                ) ?? media.thumbnailUrl)
+                              : undefined;
                           return (
                             <div
                               key={clip.id}
@@ -6594,16 +6507,27 @@ function App() {
                                 }}
                                 type="button"
                               >
-                                <strong>{clip.label}</strong>
-                                <span>
-                                  {formatMusicalPosition(
-                                    clip.startQ,
-                                    signature,
-                                  )}{" "}
-                                  / {formatDuration(clip.durationSeconds)}
-                                  {mediaState === "online"
-                                    ? ""
-                                    : ` / ${formatClipMediaState(mediaState)}`}
+                                {thumbnailUrl ? (
+                                  <span
+                                    aria-hidden="true"
+                                    className="clip-card__thumb"
+                                    style={{
+                                      backgroundImage: `url(${thumbnailUrl})`,
+                                    }}
+                                  />
+                                ) : null}
+                                <span className="clip-card__text">
+                                  <strong>{clip.label}</strong>
+                                  <span className="clip-card__meta">
+                                    {formatMusicalPosition(
+                                      clip.startQ,
+                                      signature,
+                                    )}{" "}
+                                    / {formatDuration(clip.durationSeconds)}
+                                    {mediaState === "online"
+                                      ? ""
+                                      : ` / ${formatClipMediaState(mediaState)}`}
+                                  </span>
                                 </span>
                               </button>
                               <button
@@ -6891,9 +6815,15 @@ function App() {
                                   media?.availability,
                                 );
                                 const thumbnailUrl =
-                                  sourceThumbnailUrls[
-                                    getSourceThumbnailCacheKey(clip)
-                                  ] ?? media?.thumbnailUrl;
+                                  (media &&
+                                    thumbnails.get(
+                                      getThumbnailCacheKey(
+                                        media.id,
+                                        clip.trimStartSeconds,
+                                      ),
+                                      `span:${clip.id}`,
+                                    )) ??
+                                  media?.thumbnailUrl;
                                 return (
                                   <div
                                     key={clip.id}

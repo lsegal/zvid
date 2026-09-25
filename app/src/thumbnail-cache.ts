@@ -242,7 +242,9 @@ export function createThumbnailCache<M>({
       updateShownKeys();
       if (
         previousShown.size !== shownKeyByOwner.size ||
-        [...shownKeyByOwner].some(([owner, key]) => previousShown.get(owner) !== key)
+        [...shownKeyByOwner].some(
+          ([owner, key]) => previousShown.get(owner) !== key,
+        )
       ) {
         changed = true;
       }
