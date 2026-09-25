@@ -5,8 +5,9 @@
 //! either a render callback or a connection to another unit, is copied to the
 //! output unchanged, and, once the audio tap is taken, copied into the tap
 //! ring for recording. Every render also reads the host transport and pushes a
-//! snapshot into the transport ring the take tracker drains. Both rings match
-//! the VST3 component's.
+//! snapshot into the transport ring. Both rings match the VST3 component's,
+//! and, as there, a control thread started by `Initialize` drains the
+//! transport ring into the take tracker and logs transport changes.
 //!
 //! The render path is real-time safe: it takes no locks and allocates
 //! nothing. Values the host sets while the unit runs (input source, host
@@ -60,8 +61,9 @@ use objc2_core_audio_types::{
 };
 use objc2_foundation::NSString;
 use zvid_daw_core::swap::Swap;
-use zvid_daw_core::{Consumer, Producer, State, TransportSnapshot, ring};
+use zvid_daw_core::{Consumer, ProcessSnapshot, Producer, State, ring};
 
+use super::control::Control;
 use super::{class_info, view};
 use crate::transport::{HostReading, host_ticks_to_sec, snapshot};
 
@@ -186,7 +188,10 @@ struct Scratch {
     /// Backing store for an `AudioBufferList` with one buffer per channel,
     /// as `u64`s so it is aligned for the list's pointers.
     list: Vec<u64>,
-    transport: Producer<TransportSnapshot>,
+    /// Counts render calls, so the control thread can tell adjacent
+    /// snapshots from gaps.
+    block: u64,
+    transport: Producer<ProcessSnapshot>,
     tap: Producer<[f32; 2]>,
 }
 
@@ -207,7 +212,10 @@ pub struct AudioUnitInstance {
     state: Mutex<State>,
     preset: Mutex<Preset>,
     listeners: Mutex<Vec<Listener>>,
-    transport: Mutex<Option<Consumer<TransportSnapshot>>>,
+    /// Reading end of the transport ring while no control thread owns it.
+    transport: Mutex<Option<Consumer<ProcessSnapshot>>>,
+    /// Runs while the unit is initialized.
+    control: Mutex<Option<Control>>,
     tap_enabled: AtomicBool,
     audio_tap: Mutex<Option<Consumer<[f32; 2]>>>,
     last_render_error: AtomicI32,
@@ -249,6 +257,7 @@ impl AudioUnitInstance {
                 sample_rate: DEFAULT_SAMPLE_RATE,
                 samples: Vec::new(),
                 list: Vec::new(),
+                block: 0,
                 transport,
                 tap,
             }),
@@ -259,6 +268,7 @@ impl AudioUnitInstance {
             }),
             listeners: Mutex::new(Vec::new()),
             transport: Mutex::new(Some(transport_reader)),
+            control: Mutex::new(None),
             tap_enabled: AtomicBool::new(false),
             audio_tap: Mutex::new(Some(tap_reader)),
             last_render_error: AtomicI32::new(0),
@@ -270,12 +280,6 @@ impl AudioUnitInstance {
     /// The persisted plugin state, saved and restored through ClassInfo.
     pub fn state(&self) -> MutexGuard<'_, State> {
         lock(&self.state)
-    }
-
-    /// Takes the consuming end of the transport ring the render thread fills.
-    /// Returns `None` once taken.
-    pub fn take_transport_consumer(&self) -> Option<Consumer<TransportSnapshot>> {
-        lock(&self.transport).take()
     }
 
     /// Takes the reading end of the input-audio tap: stereo frames from the
@@ -320,13 +324,24 @@ impl AudioUnitInstance {
         let list_bytes = size_of::<AudioBufferList>() + (channels - 1) * size_of::<AudioBuffer>();
         scratch.list = vec![0; list_bytes.div_ceil(size_of::<u64>())];
         self.initialized.store(true, Ordering::Release);
+        if let Some(transport) = lock(&self.transport).take() {
+            *lock(&self.control) = Control::start(transport);
+        }
         0
     }
 
     fn uninitialize(&self) -> i32 {
         let _config = lock(&self.config);
         self.initialized.store(false, Ordering::Release);
+        self.stop_control();
         0
+    }
+
+    /// Stops the control thread, taking back the transport ring.
+    fn stop_control(&self) {
+        if let Some(control) = lock(&self.control).take() {
+            *lock(&self.transport) = control.stop();
+        }
     }
 
     /// The size and writability of a property, or why it is unavailable.
@@ -681,6 +696,7 @@ impl AudioUnitInstance {
         // SAFETY: hosts never render a unit concurrently with itself or with
         // `Initialize`, the only writer.
         let scratch = unsafe { &mut *self.scratch.get() };
+        scratch.block += 1;
         if bus != 0 {
             return kAudioUnitErr_InvalidElement;
         }
@@ -793,7 +809,9 @@ impl AudioUnitInstance {
             let reading = unsafe { read_host(host) };
             let now = host_time
                 .unwrap_or_else(|| host_ticks_to_sec(host_now(), self.timebase.0, self.timebase.1));
-            if let Some(snapshot) = snapshot(reading, scratch.sample_rate, now) {
+            if let Some(snapshot) =
+                snapshot(reading, scratch.block, frames, scratch.sample_rate, now)
+            {
                 // A full ring means nobody is draining it; dropping keeps the
                 // audio thread wait-free.
                 let _ = scratch.transport.push(snapshot);
@@ -845,6 +863,13 @@ impl AudioUnitInstance {
                 );
             }
         }
+    }
+}
+
+impl Drop for AudioUnitInstance {
+    fn drop(&mut self) {
+        // `Close` may come without `Uninitialize`.
+        self.stop_control();
     }
 }
 
@@ -1030,6 +1055,9 @@ unsafe fn read_host(host: &HostCallbackInfo) -> HostReading {
     };
     if transport == Some(0) {
         reading.playing = Some(playing != 0);
+        // Only `transportStateProc2` reports recording.
+        reading.recording = host.transportStateProc2.map(|_| recording != 0);
+        reading.cycling = Some(cycling != 0);
         reading.sample_in_timeline = Some(sample);
     }
     if let Some(proc_) = host.beatAndTempoProc {
@@ -1406,4 +1434,46 @@ fn render_proc(
     // SAFETY: `NonNull<T>` and `*mut T`/`*const T` share an ABI; hosts may
     // register a null user-data pointer.
     unsafe { mem::transmute(proc_) }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn has_control(instance: &AudioUnitInstance) -> bool {
+        lock(&instance.control).is_some()
+    }
+
+    #[test]
+    fn control_thread_follows_initialize_and_uninitialize() {
+        // SAFETY: `create` returns a fresh box, freed at the end as `Close`
+        // would.
+        let instance = unsafe { Box::from_raw(AudioUnitInstance::create()) };
+        assert!(!has_control(&instance));
+        assert_eq!(instance.initialize(), 0);
+        assert!(has_control(&instance));
+        assert!(lock(&instance.transport).is_none());
+        // A second Initialize doesn't start a second thread.
+        assert_eq!(instance.initialize(), 0);
+        assert!(has_control(&instance));
+
+        // SAFETY: nothing renders in this test.
+        let scratch = unsafe { &mut *instance.scratch.get() };
+        assert!(scratch.transport.push(ProcessSnapshot {
+            block: 1,
+            playing: true,
+            ..ProcessSnapshot::default()
+        }));
+
+        assert_eq!(instance.uninitialize(), 0);
+        assert!(!has_control(&instance));
+        // The control thread drained the ring before handing it back.
+        assert_eq!(lock(&instance.transport).as_mut().unwrap().pop(), None);
+        // Extra Uninitializes are harmless, and the thread restarts.
+        assert_eq!(instance.uninitialize(), 0);
+        assert_eq!(instance.initialize(), 0);
+        assert!(has_control(&instance));
+        // Closing without Uninitialize stops the thread too.
+        drop(instance);
+    }
 }
