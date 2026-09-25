@@ -606,6 +606,23 @@ describe("formatAlsImportSummary", () => {
     );
   });
 
+  it("lists clips trimmed to fit the layers", () => {
+    assert.deepEqual(
+      formatAlsImportSummary({
+        tracks: 11,
+        clips: 11,
+        skippedTracks: ["Clip on Cam 1 (covered by a later clip)"],
+        trimmedClips: ["Clip on Cam 2"],
+        missingMedia: [],
+      }),
+      [
+        "Imported 11 tracks and 11 clips.",
+        "Skipped 1 track or clip: Clip on Cam 1 (covered by a later clip).",
+        "Trimmed 1 clip that overlapped once all 9 layers were in use: Clip on Cam 2.",
+      ],
+    );
+  });
+
   it("warns when the set had no Layers video", () => {
     assert.deepEqual(
       formatAlsImportSummary(

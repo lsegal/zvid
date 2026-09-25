@@ -6,10 +6,17 @@
 // other MIDI clips are media-less placeholders that video can be linked to.
 //
 // Everything is derived from the `.als` alone. `mainTracks` and `selections`
-// are Layers-app data with no counterpart in Live, so a minimal default is
-// generated; effects are out of scope. Media probing (`numFrames`,
-// `frameRate`) and resolving recording files on disk happen elsewhere.
+// are Layers-app data with no counterpart in Live, so they are generated:
+// each arranged track gets its own layer, in track order, up to `MAX_LAYERS`.
+// Tracks past that share the last layer, where overlaps are resolved. Effects
+// are out of scope. Media probing (`numFrames`, `frameRate`) and resolving recording
+// files on disk happen elsewhere.
 
+import {
+  type LvpSelection,
+  MAX_LAYERS,
+  resolveSelectionOverlaps,
+} from "../../selection-overlaps.ts";
 import type { LvpSession } from "../../session.ts";
 import type {
   AlsClip,
@@ -34,7 +41,9 @@ export type AlsSkipReason =
   /** The track has a Layers Record device but no recordings. */
   | "no-recording"
   /** The clip, or one unrolled segment of it, rounds to zero frames. */
-  | "shorter-than-frame";
+  | "shorter-than-frame"
+  /** Every layer was taken and a later clip covers this one entirely. */
+  | "overlapped";
 
 export interface AlsSkippedClip {
   trackId: string;
@@ -45,8 +54,12 @@ export interface AlsSkippedClip {
   reason: AlsSkipReason;
 }
 
+export type AlsTrimmedClip = Omit<AlsSkippedClip, "reason">;
+
 export interface AlsImportSummary {
   skipped: AlsSkippedClip[];
+  /** Clips shortened because every layer was taken and a later one overlaps. */
+  trimmed: AlsTrimmedClip[];
   /** True when at least one imported clip plays a Layers recording. */
   hasLayersVideo: boolean;
 }
@@ -64,7 +77,6 @@ export interface AlsImportResult {
 }
 
 const DEFAULT_FPS = 30;
-const DEFAULT_MAIN_TRACK = { id: "1", name: "Layer 1" };
 
 /**
  * The `<name>.wav` mixdown next to a `.als` file. The caller checks whether it
@@ -153,9 +165,35 @@ export function convertAls(
   // Layers video is what the arrangement shows. A set without any gets its
   // other clips there instead, so its structure is visible.
   const arrangedClips = videoClips.length ? videoClips : clips;
+  const trackNames = new Map(
+    importedTracks.map((track) => [String(track.id), track.name]),
+  );
+  const layers = assignLayers(arrangedClips);
+  const overlaps = resolveSelectionOverlaps(
+    arrangedClips.map((clip, index) => ({
+      id: index + 1,
+      trackId: clip.trackId,
+      mainTrackId: layers.idOf.get(clip.trackId) ?? "1",
+      frameStart: clip.frameStart,
+      frameEnd: clip.frameStart + clip.frameCount,
+      selected: false,
+    })),
+  );
+  const describe = (selection: LvpSelection): AlsTrimmedClip => {
+    const clip = arrangedClips[selection.id - 1];
+    return {
+      trackId: clip.trackId,
+      trackName: trackNames.get(clip.trackId) ?? clip.trackId,
+      clipId: clip.id,
+      clipName: clip.name ?? "",
+    };
+  };
+  for (const selection of overlaps.dropped) {
+    skipped.push({ ...describe(selection), reason: "overlapped" });
+  }
 
   const session: LvpSession = {
-    mainTracks: [{ ...DEFAULT_MAIN_TRACK }],
+    mainTracks: layers.mainTracks,
     tracks: importedTracks.map((track) => ({
       id: String(track.id),
       name: track.name,
@@ -164,14 +202,7 @@ export function convertAls(
       ),
     })),
     clips,
-    selections: arrangedClips.map((clip, index) => ({
-      id: index + 1,
-      trackId: clip.trackId,
-      mainTrackId: DEFAULT_MAIN_TRACK.id,
-      frameStart: clip.frameStart,
-      frameEnd: clip.frameStart + clip.frameCount,
-      selected: false,
-    })),
+    selections: overlaps.selections,
     timeline: {
       bpm: doc.tempo,
       fps,
@@ -192,8 +223,33 @@ export function convertAls(
   };
   return {
     session,
-    summary: { skipped, hasLayersVideo: videoClips.length > 0 },
+    summary: {
+      skipped,
+      trimmed: overlaps.trimmed.map(describe),
+      hasLayersVideo: videoClips.length > 0,
+    },
   };
+}
+
+/**
+ * One layer per track with arranged clips, in track order. Layers keep the
+ * editor's `Layer N` names, which its lane badges are built from. Tracks past
+ * `MAX_LAYERS` share the last layer, and the caller resolves their overlaps.
+ * A set with nothing arranged still gets a layer.
+ */
+function assignLayers(clips: readonly LvpClip[]) {
+  const trackIds = Array.from(new Set(clips.map((clip) => clip.trackId)));
+  const mainTracks = Array.from(
+    { length: Math.max(1, Math.min(trackIds.length, MAX_LAYERS)) },
+    (_, index) => ({ id: String(index + 1), name: `Layer ${index + 1}` }),
+  );
+  const idOf = new Map(
+    trackIds.map((trackId, index) => [
+      trackId,
+      String(Math.min(index, MAX_LAYERS - 1) + 1),
+    ]),
+  );
+  return { mainTracks, idOf };
 }
 
 function lvpClipId(track: AlsTrack, clip: AlsClip) {
