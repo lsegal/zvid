@@ -10,6 +10,14 @@ import {
 
 const appCss = readFileSync(new URL("./App.css", import.meta.url), "utf8");
 const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const statusBarTsx = readFileSync(
+  new URL("./components/StatusBar.tsx", import.meta.url),
+  "utf8",
+);
+const statusPlayheadTsx = readFileSync(
+  new URL("./components/StatusPlayhead.tsx", import.meta.url),
+  "utf8",
+);
 
 function ruleBody(css: string, selector: string): string {
   const start = css.indexOf(`${selector} {`);
@@ -45,6 +53,30 @@ describe("status bar items", () => {
       end.map((item) => item.id),
       ["a", "c"],
     );
+  });
+});
+
+describe("status bar wiring", () => {
+  it("renders the items built from app state", () => {
+    assert.match(appTsx, /buildStatusItems\(\{\s*version: ZVID_VERSION,/);
+    assert.match(appTsx, /<StatusBar items=\{statusBarItems\}/);
+    assert.doesNotMatch(appTsx, /preview-meta/);
+  });
+
+  it("keeps the playhead out of the memoized items", () => {
+    const start = appTsx.indexOf("const statusBarItems = useMemo");
+    assert.notEqual(start, -1, "missing memoized status bar items");
+    const block = appTsx.slice(start, appTsx.indexOf("\n  );", start));
+    const deps = block.slice(block.lastIndexOf("\n    ["));
+    assert.match(block, /<StatusPlayhead/);
+    assert.match(deps, /timelineMode,/);
+    assert.doesNotMatch(deps, /playheadQ/);
+  });
+
+  it("refreshes only the playhead cell during playback", () => {
+    assert.match(statusBarTsx, /export const StatusBar = memo\(/);
+    assert.match(statusPlayheadTsx, /useSyncExternalStore\(signal\.subscribe/);
+    assert.match(appTsx, /playheadSignal\.set\(playheadQ\)/);
   });
 });
 

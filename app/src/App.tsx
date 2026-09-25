@@ -55,6 +55,7 @@ import {
   type StatusItem,
   type StatusMessage,
 } from "./components/StatusBar";
+import { StatusPlayhead } from "./components/StatusPlayhead";
 import {
   Dialog,
   DialogClose,
@@ -108,6 +109,7 @@ import {
 } from "./media";
 import { cacheMediaBlob, getCachedMediaBlob } from "./media-cache";
 import { createMediaRelinker, type MediaRelinkCandidate } from "./media-relink";
+import { createPlayheadSignal } from "./playhead-signal";
 import {
   createProjectHistoryState,
   projectHistoryReducer,
@@ -115,7 +117,9 @@ import {
 import { listOfflineMedia, matchOfflineMedia } from "./relink";
 import type { LvpSession, SessionOpenResponse } from "./session";
 import { statusMessageTone } from "./status-bar";
+import { buildStatusItems } from "./status-items";
 import { formatMusicalPosition, formatTimecode } from "./timeline-format.ts";
+import { ZVID_VERSION } from "./version";
 import { loadWaveformPeaks } from "./waveform-loader";
 import type { WaveformPeaks } from "./waveform-peaks";
 
@@ -305,9 +309,6 @@ type AdoptMediaResult = {
 // Media whose probed duration differs from the recorded one by more than
 // this is probably a different file that happens to share its name.
 const RELINK_DURATION_TOLERANCE_SECONDS = 0.5;
-
-// Placeholder content until the status bar items are populated.
-const STATUS_BAR_ITEMS: StatusItem[] = [{ id: "app", value: "zvid" }];
 
 // Tracks the offline refs of a just-opened session until cache hydration
 // settles, so the status bar can report the real outcome.
@@ -1682,6 +1683,7 @@ function App() {
 
   const playbackOriginRef = useRef(0);
   const playheadQRef = useRef(0);
+  const [playheadSignal] = useState(() => createPlayheadSignal());
   const playbackStopRef = useRef(0);
   const compositionPlayerRef = useRef<CompositionPlayerHandle | null>(null);
   const appShellRef = useRef<HTMLDivElement | null>(null);
@@ -3344,7 +3346,8 @@ function App() {
 
   useEffect(() => {
     playheadQRef.current = playheadQ;
-  }, [playheadQ]);
+    playheadSignal.set(playheadQ);
+  }, [playheadQ, playheadSignal]);
 
   useEffect(() => {
     localMediaOverridesRef.current = localMediaOverrides;
@@ -5354,14 +5357,79 @@ function App() {
   }
 
   // Export progress stays visible for the whole export.
-  const statusMessage: StatusMessage =
-    isExporting && exportState.detail
-      ? {
-          text: exportState.detail,
-          tone: statusMessageTone(exportState.detail),
-          sticky: true,
-        }
-      : { text: status, tone: statusMessageTone(status) };
+  const exportStatusText =
+    isExporting && exportState.detail ? exportState.detail : "";
+  const statusMessage = useMemo<StatusMessage>(
+    () =>
+      exportStatusText
+        ? {
+            text: exportStatusText,
+            tone: statusMessageTone(exportStatusText),
+            sticky: true,
+          }
+        : { text: status, tone: statusMessageTone(status) },
+    [exportStatusText, status],
+  );
+
+  // Everything but the playhead is memoized off the playhead, and the playhead
+  // cell subscribes to it on its own, so playback does not re-render the bar.
+  const statusBarItems = useMemo<StatusItem[]>(
+    () =>
+      buildStatusItems({
+        version: ZVID_VERSION,
+        sessionName,
+        timelineMode,
+        // Unused: the playhead item is swapped for the live readout below.
+        playheadQ: 0,
+        bpm,
+        signature,
+        fps,
+        canvasWidth,
+        canvasHeight,
+        audio: previewMedia ?? null,
+        collaboration: {
+          mode: collaborationMode,
+          connected: collaborationState.connected,
+          peerCount: collaborationState.peerCount,
+        },
+        clipCount: timelineClips.length,
+        trackCount: lanes.length,
+        offlineCount,
+      }).map((item) =>
+        item.id === "playhead"
+          ? {
+              id: item.id,
+              label: item.label,
+              value: (
+                <StatusPlayhead
+                  bpm={bpm}
+                  fps={fps}
+                  signal={playheadSignal}
+                  signature={signature}
+                  timelineMode={timelineMode}
+                />
+              ),
+            }
+          : item,
+      ),
+    [
+      bpm,
+      canvasHeight,
+      canvasWidth,
+      collaborationMode,
+      collaborationState.connected,
+      collaborationState.peerCount,
+      fps,
+      lanes.length,
+      offlineCount,
+      playheadSignal,
+      previewMedia,
+      sessionName,
+      signature,
+      timelineClips.length,
+      timelineMode,
+    ],
+  );
 
   return (
     <div className="app-shell" ref={appShellRef}>
@@ -6791,7 +6859,7 @@ function App() {
           onDismiss={() => setImportNotice(null)}
         />
       ) : null}
-      <StatusBar items={STATUS_BAR_ITEMS} message={statusMessage} />
+      <StatusBar items={statusBarItems} message={statusMessage} />
     </div>
   );
 }
