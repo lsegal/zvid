@@ -2,6 +2,8 @@ import {
   BackwardIcon,
   ChevronDownIcon,
   ForwardIcon,
+  MagnifyingGlassMinusIcon,
+  MagnifyingGlassPlusIcon,
   PauseIcon,
   PlayIcon,
 } from "@heroicons/react/24/solid";
@@ -134,6 +136,14 @@ import { formatMusicalPosition, formatTimecode } from "./timeline-format.ts";
 import { ZVID_VERSION } from "./version";
 import { loadWaveformPeaks } from "./waveform-loader";
 import type { WaveformPeaks } from "./waveform-peaks";
+import {
+  formatZoomFactor,
+  stepZoom,
+  ZOOM_DEFAULT,
+  ZOOM_MAX,
+  ZOOM_MIN,
+  zoomFillFraction,
+} from "./zoom";
 
 type TimelineMode = "musical" | "timecode";
 type SnapMode = "bar" | "beat" | "half" | "quarter";
@@ -340,8 +350,6 @@ const LABEL_WIDTH_KEYBOARD_STEP = 10;
 // Below this width the label rows tighten their padding and gaps.
 const LABEL_WIDTH_NARROW = 170;
 const BASE_QUARTER_PX = 28;
-const ZOOM_MIN = 0.65;
-const ZOOM_MAX = 1.8;
 const MAX_LAYERS = 9;
 const TIMELINE_DRAG_ZOOM_SPEED = 0.004;
 const TIMELINE_DRAG_ZOOM_THRESHOLD_PX = 25;
@@ -3123,6 +3131,18 @@ function App() {
       }
 
       commitProjectPatch(label, { zoom: pendingZoom });
+    },
+    [commitProjectPatch, zoom, updateZoomDraft],
+  );
+
+  const setZoomValue = useCallback(
+    (label: string, nextZoom: number) => {
+      updateZoomDraft(null);
+      if (Math.abs(nextZoom - zoom) <= 0.0001) {
+        return;
+      }
+
+      commitProjectPatch(label, { zoom: nextZoom });
     },
     [commitProjectPatch, zoom, updateZoomDraft],
   );
@@ -6901,10 +6921,25 @@ function App() {
 
             <div className="transport-bar">
               <div className="zoom-control">
-                <span>Zoom</span>
+                <span className="zoom-control__label">Zoom</span>
+                <button
+                  aria-label="Zoom out"
+                  className="zoom-control__button"
+                  disabled={resolvedZoom <= ZOOM_MIN}
+                  onClick={() =>
+                    setZoomValue("Zoom out", stepZoom(resolvedZoom, -1))
+                  }
+                  title="Zoom out"
+                  type="button"
+                >
+                  <MagnifyingGlassMinusIcon aria-hidden="true" />
+                </button>
                 <input
-                  max="1.8"
-                  min="0.65"
+                  aria-label="Timeline zoom"
+                  aria-valuetext={formatZoomFactor(resolvedZoom)}
+                  className="zoom-control__slider"
+                  max={ZOOM_MAX}
+                  min={ZOOM_MIN}
                   onBlur={() => flushZoomDraft()}
                   onChange={(event) =>
                     updateZoomDraft(Number(event.target.value))
@@ -6912,9 +6947,33 @@ function App() {
                   onKeyUp={() => flushZoomDraft()}
                   onPointerUp={() => flushZoomDraft()}
                   step="0.01"
+                  style={{
+                    ["--zoom-fill" as string]: `${zoomFillFraction(resolvedZoom) * 100}%`,
+                  }}
                   type="range"
                   value={resolvedZoom}
                 />
+                <button
+                  aria-label="Zoom in"
+                  className="zoom-control__button"
+                  disabled={resolvedZoom >= ZOOM_MAX}
+                  onClick={() =>
+                    setZoomValue("Zoom in", stepZoom(resolvedZoom, 1))
+                  }
+                  title="Zoom in"
+                  type="button"
+                >
+                  <MagnifyingGlassPlusIcon aria-hidden="true" />
+                </button>
+                <button
+                  aria-label={`Zoom ${formatZoomFactor(resolvedZoom)}, reset to ${formatZoomFactor(ZOOM_DEFAULT)}`}
+                  className="zoom-control__readout"
+                  onClick={() => setZoomValue("Reset zoom", ZOOM_DEFAULT)}
+                  title="Reset zoom to 100%"
+                  type="button"
+                >
+                  {formatZoomFactor(resolvedZoom)}
+                </button>
               </div>
 
               <div className="transport-cluster">
