@@ -2,8 +2,12 @@
 // which group, how knob values are formatted, and the per-device collapse
 // state that is kept in localStorage.
 
-import { formatRawNumber, getEffectDefinition } from "./fx-registry.ts";
-import type { FxDevice } from "./fx-stack.ts";
+import {
+  FX_EFFECT_DEFINITIONS,
+  formatRawNumber,
+  getEffectDefinition,
+} from "./fx-registry.ts";
+import { type FxDevice, isLayoutEffectName } from "./fx-stack.ts";
 
 export const FX_COLLAPSED_STORAGE_KEY = "zvid-fx-collapsed-devices";
 
@@ -15,8 +19,7 @@ export type FxChainGroups = {
 };
 
 // Splits the devices for the selected clip into the layer's own stack and
-// the Global stack. Audio layers show no devices, and the read-only
-// placeholder Layout device is left out, since it is not a real effect.
+// the Global stack. Audio layers show no devices.
 export function groupChainDevices(
   devices: FxDevice[],
   kind: string | undefined,
@@ -25,12 +28,17 @@ export function groupChainDevices(
     return { layer: [], global: [] };
   }
 
-  const editable = devices.filter((device) => !device.placeholder);
   return {
-    layer: editable.filter((device) => device.group === "layer"),
-    global: editable.filter((device) => device.group === "global"),
+    layer: devices.filter((device) => device.group === "layer"),
+    global: devices.filter((device) => device.group === "global"),
   };
 }
+
+// Effects the add menu offers. Layout is left out: every visual layer
+// already has its own, and it cannot go on the Global stack.
+export const ADDABLE_EFFECT_DEFINITIONS = FX_EFFECT_DEFINITIONS.filter(
+  (definition) => !isLayoutEffectName(definition.effectName),
+);
 
 export function getParameterFormat(effectName: string, key: string) {
   const definition = getEffectDefinition(effectName).parameters.find(
@@ -143,17 +151,21 @@ export function describeDeviceMove(
 
 type SelectableLane = { id: string };
 type SelectableClip = { id: string; laneId: string };
-type LaneEffect = { trackId: string };
+type LaneEffect = { trackId: string; effectName: string };
 
-// The layer selected when a session opens: the first one with effects, or
-// else the first layer.
+// The layer selected when a session opens: the first one with effects
+// besides the Layout every layer has, or else the first layer.
 export function getDefaultLaneId(
   lanes: readonly SelectableLane[],
   effects: readonly LaneEffect[],
 ) {
   return (
-    lanes.find((lane) => effects.some((effect) => effect.trackId === lane.id))
-      ?.id ?? lanes[0]?.id
+    lanes.find((lane) =>
+      effects.some(
+        (effect) =>
+          effect.trackId === lane.id && !isLayoutEffectName(effect.effectName),
+      ),
+    )?.id ?? lanes[0]?.id
   );
 }
 

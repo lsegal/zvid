@@ -86,12 +86,15 @@ import {
   addEffect,
   duplicateEffect,
   effectHistoryLabels,
+  ensureLayerLayouts,
   type FxDevice,
   isLayerFxEnabled,
+  isLayoutEffectName,
   mapEffects,
   mapSessionEffectsToDevices,
   moveEffect,
   removeEffect,
+  resetEffect,
   type SessionEffect,
   setEffectEnabled,
   setEffectParameter,
@@ -419,7 +422,10 @@ const INITIAL_PROJECT_STATE: ProjectState = {
   sourceTracks: [],
   sourceSpans: [],
   clips: [],
-  effects: [],
+  effects: ensureLayerLayouts(
+    [],
+    DEFAULT_LANES.map((lane) => lane.id),
+  ),
   mainAudioId: undefined,
 };
 const PALETTE: Palette[] = [
@@ -1510,7 +1516,12 @@ function sessionToProject(session: LvpSession, mediaItems: MediaItem[]) {
     sourceTracks,
     sourceSpans,
     arrangementClips,
-    effects: mapEffects(session.effects),
+    // Every layer gets its own Layout, taking over any global one, as part
+    // of the load so it is not a separate undo step.
+    effects: ensureLayerLayouts(
+      mapEffects(session.effects),
+      (lanes.length ? lanes : DEFAULT_LANES).map((lane) => lane.id),
+    ),
     displaySeconds: session.timeline?.displaySeconds ?? false,
     snapToBeat: session.timeline?.snapToBeat ?? true,
     zoom: clamp(session.timeline?.zoom ?? 1, ZOOM_MIN, ZOOM_MAX),
@@ -1879,6 +1890,14 @@ function App() {
     [editEffects],
   );
 
+  const resetFxDevice = useCallback(
+    (device: FxDevice) =>
+      editEffects(effectHistoryLabels.reset(device.effectName), (current) =>
+        resetEffect(current, device.id),
+      ),
+    [editEffects],
+  );
+
   const duplicateFxDevice = useCallback(
     (device: FxDevice, id: string) =>
       editEffects(effectHistoryLabels.duplicate(device.effectName), (current) =>
@@ -2168,9 +2187,9 @@ function App() {
   const fxDevices = useMemo(
     () =>
       fxLaneId
-        ? mapSessionEffectsToDevices(effects, fxLaneId, fxKind, fxLane?.name)
+        ? mapSessionEffectsToDevices(effects, fxLaneId, fxLane?.name)
         : [],
-    [effects, fxKind, fxLane?.name, fxLaneId],
+    [effects, fxLane?.name, fxLaneId],
   );
   const playheadSeconds = quartersToSeconds(playheadQ, bpm);
   const mainAudio = mainAudioId ? mediaItemsById.get(mainAudioId) : undefined;
@@ -2312,8 +2331,11 @@ function App() {
     >();
     for (const lane of lanes) {
       const clipCount = clipsByLane.get(lane.id)?.length ?? 0;
+      // The Layout every layer has is not counted, and layer FX bypass
+      // leaves it on anyway.
       const effectCount = effects.filter(
-        (effect) => effect.trackId === lane.id,
+        (effect) =>
+          effect.trackId === lane.id && !isLayoutEffectName(effect.effectName),
       ).length;
       const fxEnabled = isLayerFxEnabled(lane);
       const summary = [
@@ -3174,6 +3196,7 @@ function App() {
     commitProjectChange("Create layer", (current) =>
       patchProjectState(current, {
         lanes: [...current.lanes, nextLane],
+        effects: ensureLayerLayouts(current.effects, [nextLane.id]),
       }),
     );
     setStatus(`Created ${nextLane.name}.`);
@@ -4950,6 +4973,10 @@ function App() {
           patchProjectState(current, {
             mediaItems: nextMedia,
             lanes: standalone.lanes,
+            effects: ensureLayerLayouts(
+              current.effects,
+              standalone.lanes.map((lane) => lane.id),
+            ),
             sourceTracks: standalone.sourceTracks,
             sourceSpans: standalone.sourceSpans,
             clips: standalone.arrangementClips,
@@ -7144,6 +7171,7 @@ function App() {
                 onDuplicate={duplicateFxDevice}
                 onMove={moveFxDevice}
                 onRemove={removeFxDevice}
+                onReset={resetFxDevice}
                 onSetLayerFxEnabled={(enabled) => {
                   if (fxLaneId) {
                     setLayerFxEnabled(fxLaneId, enabled);

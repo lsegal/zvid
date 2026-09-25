@@ -57,9 +57,9 @@ export type FxDevice = {
   accent: string;
   group: FxDeviceGroup;
   enabled: boolean;
-  // True for the placeholder Layout device shown when a session has none;
-  // it does not exist in `effects` and cannot be edited.
-  placeholder?: boolean;
+  // True for a layer's own Layout device. Every visual layer has exactly
+  // one, so it can be reset to its defaults but not removed or duplicated.
+  layerDefault?: boolean;
   parameters: FxDeviceParameter[];
 };
 
@@ -298,8 +298,17 @@ export function addEffect(
   atIndex?: number,
   id?: string,
 ) {
-  const effect = createEffect(trackId, effectName, id);
   const stack = getStack(effects, trackId);
+  // Layout is per layer: never on the Global stack, and one per layer.
+  if (
+    isLayoutEffectName(effectName) &&
+    (trackId === GLOBAL_EFFECT_TRACK_ID ||
+      stack.some((effect) => isLayoutEffectName(effect.effectName)))
+  ) {
+    return effects;
+  }
+
+  const effect = createEffect(trackId, effectName, id);
   const stackIndex =
     atIndex === undefined || !Number.isFinite(atIndex)
       ? stack.length
@@ -319,7 +328,7 @@ export function addEffect(
 
 export function removeEffect(effects: SessionEffect[], effectId: string) {
   const index = effects.findIndex((effect) => effect.id === effectId);
-  if (index < 0) {
+  if (index < 0 || isLayerLayoutEffect(effects[index])) {
     return effects;
   }
 
@@ -334,7 +343,7 @@ export function duplicateEffect(
   id: string = crypto.randomUUID(),
 ) {
   const index = effects.findIndex((effect) => effect.id === effectId);
-  if (index < 0) {
+  if (index < 0 || isLayerLayoutEffect(effects[index])) {
     return effects;
   }
 
@@ -345,6 +354,104 @@ export function duplicateEffect(
     parameters: source.parameters.map((parameter) => ({ ...parameter })),
   };
   return [...effects.slice(0, index + 1), copy, ...effects.slice(index + 1)];
+}
+
+// Puts an effect's parameters back to the registry defaults and turns it
+// back on. Unrecognized parameters are kept, since they have no default.
+export function resetEffect(effects: SessionEffect[], effectId: string) {
+  return updateEffect(effects, effectId, (effect) => {
+    const defaults = createEffect(effect.trackId, effect.effectName, effect.id);
+    const knownKeys = new Set(
+      defaults.parameters.map((parameter) => parameter.key),
+    );
+    const parameters = [
+      ...defaults.parameters,
+      ...effect.parameters.filter((parameter) => !knownKeys.has(parameter.key)),
+    ];
+    const unchanged =
+      effect.enabled !== false &&
+      parameters.length === effect.parameters.length &&
+      parameters.every((parameter) => {
+        const current = effect.parameters.find(
+          (candidate) => candidate.key === parameter.key,
+        );
+        return (
+          current?.value === parameter.value &&
+          current.numericValue === parameter.numericValue
+        );
+      });
+    return unchanged ? effect : { ...effect, parameters, enabled: true };
+  });
+}
+
+export const LAYOUT_EFFECT_NAME = "Layout";
+
+// A Layout effect on a layer's own stack, as opposed to a legacy one on the
+// Global stack.
+function isLayerLayoutEffect(effect: SessionEffect) {
+  return (
+    effect.trackId !== GLOBAL_EFFECT_TRACK_ID &&
+    isLayoutEffectName(effect.effectName)
+  );
+}
+
+// Gives each of `laneIds` its own Layout effect at the start of its stack
+// and removes Layout from the Global stack. Sessions from before Layout was
+// per layer could hold one global Layout for every layer, so layers without
+// their own copy its parameters (the last enabled one, as it used to win),
+// or else get the defaults. Returns `effects` itself when nothing changed.
+export function ensureLayerLayouts(
+  effects: SessionEffect[],
+  laneIds: readonly string[],
+) {
+  const globalLayouts = effects.filter(
+    (effect) =>
+      effect.trackId === GLOBAL_EFFECT_TRACK_ID &&
+      isLayoutEffectName(effect.effectName),
+  );
+  const inherited = globalLayouts.findLast(
+    (effect) => effect.enabled !== false,
+  );
+  let result = globalLayouts.length
+    ? effects.filter((effect) => !globalLayouts.includes(effect))
+    : effects;
+
+  for (const laneId of laneIds) {
+    if (
+      result.some(
+        (effect) =>
+          effect.trackId === laneId && isLayoutEffectName(effect.effectName),
+      )
+    ) {
+      continue;
+    }
+
+    // A stable id keeps collaborating peers that migrate the same session
+    // in agreement.
+    const stableId = `layout-${laneId}`;
+    const id = result.some((effect) => effect.id === stableId)
+      ? crypto.randomUUID()
+      : stableId;
+    result = addEffect(result, laneId, LAYOUT_EFFECT_NAME, 0, id);
+    if (inherited) {
+      const index = result.findIndex((effect) => effect.id === id);
+      const layout = result[index];
+      const knownKeys = new Set(
+        inherited.parameters.map((parameter) => parameter.key),
+      );
+      result[index] = {
+        ...layout,
+        parameters: [
+          ...inherited.parameters.map((parameter) => ({ ...parameter })),
+          ...layout.parameters.filter(
+            (parameter) => !knownKeys.has(parameter.key),
+          ),
+        ],
+      };
+    }
+  }
+
+  return result;
 }
 
 export function getEffectDisplayName(effectName: string) {
@@ -364,6 +471,7 @@ export const effectHistoryLabels = {
   move: (effectName: string) => `Move ${getEffectDisplayName(effectName)}`,
   add: (effectName: string) => `Add ${getEffectDisplayName(effectName)}`,
   remove: (effectName: string) => `Remove ${getEffectDisplayName(effectName)}`,
+  reset: (effectName: string) => `Reset ${getEffectDisplayName(effectName)}`,
   duplicate: (effectName: string) =>
     `Duplicate ${getEffectDisplayName(effectName)}`,
   enabled: (effectName: string, enabled: boolean) =>
@@ -461,6 +569,7 @@ function toDevice(effect: SessionEffect, layerName: string): FxDevice {
     accent: definition.accent,
     group,
     enabled: effect.enabled !== false,
+    layerDefault: isLayerLayoutEffect(effect) || undefined,
     parameters: parameterDefinitions
       .filter((parameter) => !parameter.hidden)
       .map((parameter) =>
@@ -472,36 +581,11 @@ function toDevice(effect: SessionEffect, layerName: string): FxDevice {
   };
 }
 
-function createPlaceholderLayoutDevice(
-  laneId: string | undefined,
-  layerName: string,
-): FxDevice {
-  const definition = getEffectDefinition("Layout");
-  return {
-    id: `layout-default-${laneId ?? "global"}`,
-    effectName: definition.effectName,
-    name: definition.displayName,
-    description: definition.description,
-    subtitle: laneId
-      ? `${layerName} / default frame anchor`
-      : "Default frame anchor",
-    accent: definition.accent,
-    group: "layer",
-    enabled: true,
-    placeholder: true,
-    parameters: definition.parameters.map((parameter) =>
-      toDeviceParameter(parameter, undefined),
-    ),
-  };
-}
-
 // Devices for a layer in processing order: the layer's own stack first,
-// then the Global stack. Visual layers without any Layout effect get a
-// placeholder Layout device showing the default anchor.
+// then the Global stack.
 export function mapSessionEffectsToDevices(
   effects: SessionEffect[],
   laneId: string | undefined,
-  kind: string | undefined,
   // Display name of the layer, such as "Layer 3"; defaults to its id.
   layerName = `Layer ${laneId}`,
 ) {
@@ -511,14 +595,5 @@ export function mapSessionEffectsToDevices(
   const globalDevices = effects
     .filter((effect) => effect.trackId === GLOBAL_EFFECT_TRACK_ID)
     .map((effect) => toDevice(effect, layerName));
-  const devices = [...layerDevices, ...globalDevices];
-
-  if (
-    kind === "audio" ||
-    devices.some((device) => isLayoutEffectName(device.effectName))
-  ) {
-    return devices;
-  }
-
-  return [createPlaceholderLayoutDevice(laneId, layerName), ...devices];
+  return [...layerDevices, ...globalDevices];
 }
