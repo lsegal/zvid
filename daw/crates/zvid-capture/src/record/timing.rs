@@ -2,8 +2,9 @@
 //!
 //! Both clocks count from the file's zero: the host time of the first video
 //! frame written. Video is constant frame rate: each frame lands on the
-//! nearest slot of the camera's frame grid, a frame that lands on a slot
-//! already taken is dropped, and a missed slot lengthens the frame before it.
+//! nearest free slot of the camera's frame grid no more than a frame after it
+//! was captured (or is dropped), and a missed slot lengthens the frame before
+//! it.
 //! Audio is sample-accurate: blocks are written back to back, and silence is
 //! inserted or samples skipped only when a block's host time drifts more
 //! than [`AUDIO_TOLERANCE_SEC`] from where the running sample count puts it.
@@ -43,17 +44,30 @@ impl VideoClock {
         self.zero
     }
 
-    /// The grid slot for a frame captured at `pts`, or `None` when the frame
-    /// lands on a slot already written (or before zero) and must be dropped.
-    /// The first frame defines zero and takes slot 0.
+    /// The grid slot for a frame captured at `pts`, or `None` when it must
+    /// be dropped. The first frame defines zero and takes slot 0. A frame
+    /// whose nearest slot is taken moves to the next slot if that is less
+    /// than one frame after it was captured (cameras that deliver in uneven
+    /// pairs), and is dropped otherwise, as is a frame from before zero.
     pub fn place(&mut self, pts: HostTime) -> Option<u64> {
         let zero = *self.zero.get_or_insert(pts);
         if pts < zero {
             return None;
         }
-        let slot = self.slot_at(pts.as_nanos() - zero.as_nanos());
-        if self.last_slot.is_some_and(|last| slot <= last) {
-            return None;
+        let elapsed = pts.as_nanos() - zero.as_nanos();
+        let mut slot = self.slot_at(elapsed);
+        if let Some(last) = self.last_slot
+            && slot <= last
+        {
+            // Slot `last + 1` starts (last + 1) * den / num seconds in; take
+            // it if the frame was captured less than one frame before that.
+            let next = u128::from(last + 1) * u128::from(self.fps.den) * 1_000_000_000;
+            let captured = u128::from(elapsed) * u128::from(self.fps.num);
+            let frame = u128::from(self.fps.den) * 1_000_000_000;
+            if next.saturating_sub(captured) >= frame {
+                return None;
+            }
+            slot = last + 1;
         }
         self.last_slot = Some(slot);
         Some(slot)
@@ -153,12 +167,30 @@ mod tests {
         assert_eq!(clock.place(ms(64.0)), Some(2));
         // A late camera skips a slot; the gap is the previous frame's.
         assert_eq!(clock.place(ms(133.3)), Some(4));
-        // Two frames for one slot: the second is dropped.
-        assert_eq!(clock.place(ms(140.0)), None);
-        assert_eq!(clock.place(ms(166.7)), Some(5));
+        // A second frame for slot 4 moves to slot 5, 0.8 frames late...
+        assert_eq!(clock.place(ms(140.0)), Some(5));
+        // ...which pushes the next frame to slot 6, just under a frame late,
+        // until one would be a whole frame late: that one is dropped.
+        assert_eq!(clock.place(ms(166.7)), Some(6));
+        assert_eq!(clock.place(ms(200.0)), None);
+        assert_eq!(clock.place(ms(233.4)), Some(7));
         // Frames before zero are dropped.
         assert_eq!(clock.place(ms(-10.0)), None);
         assert!((clock.slot_sec(5) - 5.0 / 30.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn keeps_frames_delivered_in_uneven_pairs() {
+        // A 30 fps camera timestamping on a 60 fps grid, two frames at a time.
+        let mut clock = VideoClock::new(Rational::new(30, 1));
+        let slots: Vec<_> = (0..300)
+            .map(|index| {
+                let pair = (index / 2) as f64 * 1000.0 / 15.0;
+                let offset = if index % 2 == 0 { 0.0 } else { 1000.0 / 60.0 };
+                clock.place(ms(pair + offset))
+            })
+            .collect();
+        assert_eq!(slots, (0..300).map(Some).collect::<Vec<_>>());
     }
 
     #[test]

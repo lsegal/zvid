@@ -53,6 +53,10 @@ use fmp4::{FragmentedWriter, Track};
 /// Frames the queue holds before new ones are dropped: a few frames of
 /// slack for encoder jitter, not a backlog.
 const FRAME_QUEUE: usize = 8;
+/// While the first frame opens the encoder (which takes a moment for
+/// hardware encoders), the queue holds up to this many frames and bytes.
+const WARM_UP_FRAMES: usize = 60;
+const WARM_UP_BYTES: usize = 128 << 20;
 /// Audio the queue holds before blocks are dropped, in seconds.
 const AUDIO_QUEUE_SEC: f64 = 2.0;
 /// Audio held while waiting for the first frame (file time zero).
@@ -191,7 +195,10 @@ enum Item {
 struct QueueState {
     items: VecDeque<Item>,
     frames: usize,
+    frame_bytes: usize,
     audio_frames: usize,
+    /// Set once the encoder is open and the start-up backlog has drained.
+    warm: bool,
     stopping: bool,
 }
 
@@ -210,9 +217,15 @@ impl Shared {
 
     fn push_frame(&self, frame: Arc<Frame>) -> bool {
         let mut queue = lock(&self.queue);
-        let accepted = !queue.stopping && queue.frames < FRAME_QUEUE;
+        let room = if queue.warm {
+            queue.frames < FRAME_QUEUE
+        } else {
+            queue.frames < WARM_UP_FRAMES && queue.frame_bytes + frame.data.len() <= WARM_UP_BYTES
+        };
+        let accepted = !queue.stopping && room;
         if accepted {
             queue.frames += 1;
+            queue.frame_bytes += frame.data.len();
             queue.items.push_back(Item::Frame(frame));
         }
         drop(queue);
@@ -249,7 +262,10 @@ impl Shared {
         loop {
             if let Some(item) = queue.items.pop_front() {
                 match &item {
-                    Item::Frame(_) => queue.frames -= 1,
+                    Item::Frame(frame) => {
+                        queue.frames -= 1;
+                        queue.frame_bytes -= frame.data.len();
+                    }
                     Item::Audio(block) => {
                         queue.audio_frames -= block.samples.len() / self.channels.max(1)
                     }
@@ -559,6 +575,10 @@ impl Worker {
         let zero = video.clock.zero().expect("set by the first frame");
         video.in_flight.push_back(slot);
         let encoded = video.encoder.encode(frame)?;
+        let mut queue = lock(&self.shared.queue);
+        // Keep the start-up allowance until its backlog has drained.
+        queue.warm |= queue.frames < FRAME_QUEUE;
+        drop(queue);
         self.shared.stats().frame_clock = Some(FrameClock {
             host_time: frame.pts,
             file_sec: video.clock.slot_sec(slot),
@@ -709,6 +729,14 @@ impl Worker {
                 }
                 let Some(video) = video else { return Ok(()) };
                 let Some(config) = video.encoder.decoder_config() else {
+                    if early_video.len() as u64
+                        > 2 * FRAGMENT_SEC * u64::from(self.fps.num.div_ceil(self.fps.den))
+                    {
+                        return Err(format!(
+                            "{} never reported its codec configuration",
+                            video.encoder.name()
+                        ));
+                    }
                     return Ok(());
                 };
                 let Output::Waiting {
@@ -739,7 +767,10 @@ impl Worker {
                     return Ok(());
                 }
                 writer.push(track, sample).map_err(|e| e.to_string())?;
-                if writer.queued_ticks(0) >= FRAGMENT_SEC * u64::from(self.fps.num) {
+                // A fragment a second of either track, so audio still
+                // reaches the disk if the camera goes away.
+                let timescale = writer.tracks()[track].config.encoder.timescale;
+                if writer.queued_ticks(track) >= FRAGMENT_SEC * u64::from(timescale) {
                     writer.flush_fragment().map_err(|e| e.to_string())?;
                 }
                 Ok(())
