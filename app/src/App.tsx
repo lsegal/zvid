@@ -112,6 +112,7 @@ import {
   createProjectHistoryState,
   projectHistoryReducer,
 } from "./project-history";
+import { migrateLegacyMainAudio } from "./project-state-compat.ts";
 import { listOfflineMedia, matchOfflineMedia } from "./relink";
 import type { LvpSession, SessionOpenResponse } from "./session";
 import { statusMessageTone } from "./status-bar";
@@ -2140,18 +2141,14 @@ function App() {
     [effects, fxKind, fxLane?.name, fxLaneId],
   );
   const playheadSeconds = quartersToSeconds(playheadQ, bpm);
-  const mainAudio = mainAudioId
-    ? mediaItemsById.get(mainAudioId)
-    : undefined;
+  const mainAudio = mainAudioId ? mediaItemsById.get(mainAudioId) : undefined;
   const canCreateLayer = lanes.length < MAX_LAYERS;
   // Only peaks decoded from the main audio are drawn; until they exist the
   // lane shows why there is no waveform instead of a placeholder.
   const mainAudioUrl =
     mainAudio?.availability === "ready" ? mainAudio.previewUrl : "";
   const mainWaveformKey =
-    mainAudioId && mainAudioUrl
-      ? `${mainAudioId}\n${mainAudioUrl}`
-      : "";
+    mainAudioId && mainAudioUrl ? `${mainAudioId}\n${mainAudioUrl}` : "";
   const [mainWaveform, setMainWaveform] = useState<{
     key: string;
     status: "ready" | "no-audio" | "error";
@@ -2189,9 +2186,7 @@ function App() {
     };
   }, [mainAudioId, mainAudioUrl]);
   const currentMainWaveform =
-    mainWaveform && mainWaveform.key === mainWaveformKey
-      ? mainWaveform
-      : null;
+    mainWaveform && mainWaveform.key === mainWaveformKey ? mainWaveform : null;
   const mainWaveformMessage = !mainAudio
     ? "No main audio track in this session"
     : mainAudio.availability === "offline"
@@ -3508,7 +3503,8 @@ function App() {
   }, [collaborationColor, collaborationName, collaborationSignaling]);
 
   const applyRemoteProjectState = useCallback(
-    (snapshot: ProjectState) => {
+    (remoteSnapshot: ProjectState) => {
+      const snapshot = migrateLegacyMainAudio(remoteSnapshot);
       if (
         JSON.stringify(projectSnapshotRef.current) === JSON.stringify(snapshot)
       ) {

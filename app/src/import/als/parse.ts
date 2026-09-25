@@ -169,8 +169,9 @@ export function parseAlsXml(xml: string): AlsDocument {
   const liveSet = child(ableton, "LiveSet");
   if (!liveSet) throw new Error("Not an Ableton Live set: missing <LiveSet>");
 
-  // Live 12 renamed MasterTrack to MainTrack; older sets still use MasterTrack.
-  const mainTrack = child(liveSet, "MasterTrack") ?? child(liveSet, "MainTrack");
+  // Live 12 renamed MasterTrack to MainTrack. Older sets still use MasterTrack.
+  const mainTrack =
+    child(liveSet, "MasterTrack") ?? child(liveSet, "MainTrack");
   if (!mainTrack) throw new Error("Ableton Live set has no main track");
   const mixer = at(mainTrack, "DeviceChain/Mixer");
   const tempo = child(mixer, "Tempo");
