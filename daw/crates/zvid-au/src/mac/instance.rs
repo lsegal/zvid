@@ -14,7 +14,7 @@ use std::ffi::{c_uint, c_void};
 use std::mem::{self, size_of};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::ptr::{self, NonNull};
-use std::sync::atomic::{AtomicI32, AtomicPtr, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicPtr, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use objc2::rc::Retained;
@@ -31,18 +31,19 @@ use objc2_audio_toolbox::{
     kAudioUnitErr_InvalidPropertyValue, kAudioUnitErr_InvalidScope, kAudioUnitErr_NoConnection,
     kAudioUnitErr_PropertyNotWritable, kAudioUnitErr_TooManyFramesToProcess,
     kAudioUnitErr_Uninitialized, kAudioUnitGetParameterSelect, kAudioUnitGetPropertyInfoSelect,
-    kAudioUnitGetPropertySelect, kAudioUnitInitializeSelect, kAudioUnitProperty_ClassInfo,
-    kAudioUnitProperty_CocoaUI, kAudioUnitProperty_ElementCount, kAudioUnitProperty_HostCallbacks,
-    kAudioUnitProperty_LastRenderError, kAudioUnitProperty_Latency,
-    kAudioUnitProperty_MakeConnection, kAudioUnitProperty_MaximumFramesPerSlice,
-    kAudioUnitProperty_ParameterList, kAudioUnitProperty_PresentPreset,
-    kAudioUnitProperty_SampleRate, kAudioUnitProperty_SetRenderCallback,
-    kAudioUnitProperty_StreamFormat, kAudioUnitProperty_SupportedNumChannels,
-    kAudioUnitProperty_TailTime, kAudioUnitRemovePropertyListenerSelect,
-    kAudioUnitRemovePropertyListenerWithUserDataSelect, kAudioUnitRemoveRenderNotifySelect,
-    kAudioUnitRenderSelect, kAudioUnitResetSelect, kAudioUnitScheduleParametersSelect,
-    kAudioUnitScope_Global, kAudioUnitScope_Input, kAudioUnitScope_Output,
-    kAudioUnitSetParameterSelect, kAudioUnitSetPropertySelect, kAudioUnitUninitializeSelect,
+    kAudioUnitGetPropertySelect, kAudioUnitInitializeSelect, kAudioUnitProperty_BypassEffect,
+    kAudioUnitProperty_ClassInfo, kAudioUnitProperty_CocoaUI, kAudioUnitProperty_ElementCount,
+    kAudioUnitProperty_HostCallbacks, kAudioUnitProperty_LastRenderError,
+    kAudioUnitProperty_Latency, kAudioUnitProperty_MakeConnection,
+    kAudioUnitProperty_MaximumFramesPerSlice, kAudioUnitProperty_ParameterList,
+    kAudioUnitProperty_PresentPreset, kAudioUnitProperty_SampleRate,
+    kAudioUnitProperty_SetRenderCallback, kAudioUnitProperty_StreamFormat,
+    kAudioUnitProperty_SupportedNumChannels, kAudioUnitProperty_TailTime,
+    kAudioUnitRemovePropertyListenerSelect, kAudioUnitRemovePropertyListenerWithUserDataSelect,
+    kAudioUnitRemoveRenderNotifySelect, kAudioUnitRenderSelect, kAudioUnitResetSelect,
+    kAudioUnitScheduleParametersSelect, kAudioUnitScope_Global, kAudioUnitScope_Input,
+    kAudioUnitScope_Output, kAudioUnitSetParameterSelect, kAudioUnitSetPropertySelect,
+    kAudioUnitUninitializeSelect,
 };
 use objc2_core_audio_types::{
     AudioBuffer, AudioBufferList, AudioStreamBasicDescription, AudioTimeStamp, AudioTimeStampFlags,
@@ -191,6 +192,9 @@ pub struct AudioUnitInstance {
     transport: Mutex<Option<Consumer<TransportSnapshot>>>,
     input_tap: Mutex<Option<Arc<dyn InputTap>>>,
     last_render_error: AtomicI32,
+    /// `BypassEffect`. The audio passes through either way; bypass only
+    /// tells the host the effect is off, and recording continues.
+    bypass: AtomicBool,
     /// `mach_timebase_info` ratio for converting host time to seconds.
     timebase: (u32, u32),
 }
@@ -233,6 +237,7 @@ impl AudioUnitInstance {
             transport: Mutex::new(Some(consumer)),
             input_tap: Mutex::new(None),
             last_render_error: AtomicI32::new(0),
+            bypass: AtomicBool::new(false),
             timebase: timebase(),
         }))
     }
@@ -325,6 +330,7 @@ impl AudioUnitInstance {
                 global(scope, element, size_of::<u32>(), true)
             }
             kAudioUnitProperty_LastRenderError => global(scope, element, size_of::<i32>(), false),
+            kAudioUnitProperty_BypassEffect => global(scope, element, size_of::<u32>(), true),
             kAudioUnitProperty_HostCallbacks => {
                 global(scope, element, size_of::<HostCallbackInfo>(), true)
             }
@@ -393,6 +399,9 @@ impl AudioUnitInstance {
                 kAudioUnitProperty_LastRenderError => {
                     // Reading the error clears it.
                     write(data, self.last_render_error.swap(0, Ordering::AcqRel));
+                }
+                kAudioUnitProperty_BypassEffect => {
+                    write(data, u32::from(self.bypass.load(Ordering::Acquire)));
                 }
                 kAudioUnitProperty_HostCallbacks => write(
                     data,
@@ -508,6 +517,10 @@ impl AudioUnitInstance {
                         config.max_frames = frames;
                         0
                     }
+                }
+                kAudioUnitProperty_BypassEffect => {
+                    self.bypass.store(read::<u32>(data) != 0, Ordering::Release);
+                    0
                 }
                 kAudioUnitProperty_HostCallbacks => {
                     let mut info = HostCallbackInfo {
