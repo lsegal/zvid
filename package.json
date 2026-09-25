@@ -6,7 +6,7 @@
     "deploy": "pnpm -r run deploy",
     "dev": "pnpm -C app dev",
     "dev:native": "pnpm -C app tauri:dev",
-    "lint": "pnpm --dir app exec tsc -b && biome check",
+    "lint": "pnpm --dir app exec tsc -b && pnpm --dir daw/ui exec tsc -b && biome check",
     "lint:fix": "biome check --unsafe --write",
     "test": "pnpm --dir app run test"
   },
