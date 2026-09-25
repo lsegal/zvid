@@ -58,14 +58,8 @@ describe("space shortcut target classification", () => {
       );
       assert.equal(isTextEntryTarget(element("INPUT", { type })), false);
     }
-    assert.equal(
-      classifySpaceTarget(element("BUTTON"), noOverlay),
-      "playback",
-    );
-    assert.equal(
-      classifySpaceTarget(element("SELECT"), noOverlay),
-      "playback",
-    );
+    assert.equal(classifySpaceTarget(element("BUTTON"), noOverlay), "playback");
+    assert.equal(classifySpaceTarget(element("SELECT"), noOverlay), "playback");
     assert.equal(classifySpaceTarget(element("BODY"), noOverlay), "playback");
     assert.equal(classifySpaceTarget(null, noOverlay), "playback");
     assert.equal(classifySpaceTarget(element("BUTTON")), "playback");
@@ -108,6 +102,9 @@ describe("space shortcut target classification", () => {
       appTsx,
       /window\.addEventListener\("keydown", onSpaceKeyDown, true\)/,
     );
-    assert.match(appTsx, /window\.addEventListener\("keyup", onSpaceKeyUp, true\)/);
+    assert.match(
+      appTsx,
+      /window\.addEventListener\("keyup", onSpaceKeyUp, true\)/,
+    );
   });
 });

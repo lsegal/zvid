@@ -130,8 +130,8 @@ import {
   readSourceTracksCollapsed,
   writeSourceTracksCollapsed,
 } from "./source-tracks-section.ts";
-import { statusMessageTone } from "./status-bar";
 import { classifySpaceTarget } from "./space-shortcut";
+import { statusMessageTone } from "./status-bar";
 import { buildStatusItems } from "./status-items";
 import { formatMusicalPosition, formatTimecode } from "./timeline-format.ts";
 import { ZVID_VERSION } from "./version";
