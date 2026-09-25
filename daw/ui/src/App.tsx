@@ -150,7 +150,7 @@ export function App({ client }: { client: Client }) {
         elapsedMs={captureElapsed(state, now)}
         cameras={state.cameras}
         cameraId={status.cameraId}
-        selectDisabled={capturing || state.busy !== null}
+        selectDisabled={capturing}
         onSelect={(id) =>
           void run("select", () => client.invoke("selectCamera", { id }))
         }

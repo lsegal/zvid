@@ -504,6 +504,8 @@ button {
 }
 
 .take-list {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg-soft) transparent;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -516,6 +518,7 @@ button {
 
 .take-card {
   position: relative;
+  flex: none;
   display: grid;
   grid-template-columns: 96px minmax(0, 1fr);
   gap: 12px;
@@ -588,8 +591,15 @@ button {
   flex-direction: column;
   align-items: flex-start;
   gap: 2px;
-  padding-right: 36px;
+  min-width: 0;
   font-size: 13px;
+}
+
+.take-details p {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .take-details .mono {

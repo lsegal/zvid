@@ -17,19 +17,22 @@
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use tao::dpi::{LogicalSize, PhysicalSize};
 use tao::event::{Event, WindowEvent};
-use tao::event_loop::{ControlFlow, EventLoop};
+use tao::event_loop::{ControlFlow, EventLoopBuilder};
 use tao::window::{Window, WindowBuilder, WindowId};
 use zvid_daw_core::{RecordRoot, State};
-use zvid_daw_ui::mock::MockBackend;
+use zvid_daw_ui::mock::{MockBackend, rfc3339_utc};
 use zvid_daw_ui::{DEFAULT_SIZE, Editor, EditorOptions, MIN_SIZE, ParentWindow};
 
+/// Sent by the timer behind `--reopen-every`.
+struct Reopen;
+
 const DEFAULT_DEV_URL: &str = "http://localhost:5174/";
-const DEMO_CLIP: &str = "demo-take.mp4";
+const DEMO_CLIP: &str = "demo-take-v2.mp4";
 
 struct Options {
     dev_url: Option<String>,
@@ -83,17 +86,18 @@ fn demo_root() -> (RecordRoot, State) {
     let clip = root.path_of(DEMO_CLIP);
     if !clip.is_file() {
         eprintln!("writing {} ...", clip.display());
-        zvid_daw_ui::poster::write_test_clip(&clip, 320, 180, 60, 30)
+        zvid_daw_ui::poster::write_test_clip(&clip, 320, 180, 200, 10)
             .expect("the demo clip encodes");
     }
-    let take = |id: &str, file: &str, created: &str, duration: f64, beats: Option<f64>| {
+    let ago = |minutes: u64| rfc3339_utc(SystemTime::now() - Duration::from_secs(minutes * 60));
+    let take = |id: &str, file: &str, created: String, duration: f64, beats: Option<f64>| {
         serde_json::json!({
             "id": id,
             "filename": file,
             "dimensions": [1920, 1080],
             "fps": [30, 1],
             "frameStart": 0,
-            "fileOffsetSec": 0.5,
+            "fileOffsetSec": duration / 6.0,
             "transportStartSec": beats.map(|beats| beats / 2.0),
             "transportStartBeats": beats,
             "durationSec": duration,
@@ -108,9 +112,9 @@ fn demo_root() -> (RecordRoot, State) {
         "plugin": "zvid-capture",
         "recordRoot": "project",
         "recordings": [
-            take("demo-3", "moved-away.mp4", "2026-09-24T18:02:00Z", 12.0, None),
-            take("demo-2", DEMO_CLIP, "2026-09-25T20:31:00Z", 72.0, Some(0.0)),
-            take("demo-1", DEMO_CLIP, "2026-09-25T20:36:00Z", 36.0, Some(64.0)),
+            take("demo-3", "moved-away.mp4", ago(26 * 60), 12.0, None),
+            take("demo-2", DEMO_CLIP, ago(10), 72.0, Some(0.0)),
+            take("demo-1", DEMO_CLIP, ago(5), 36.0, Some(64.0)),
         ],
     });
     let state = serde_json::from_value(state).expect("the demo state parses");
@@ -176,7 +180,7 @@ impl Drop for Instance {
 
 fn main() {
     let options = parse_args();
-    let event_loop = EventLoop::new();
+    let event_loop = EventLoopBuilder::<Reopen>::with_user_event().build();
     let (root, state) = demo_root();
     let running = Arc::new(AtomicBool::new(true));
 
@@ -204,14 +208,21 @@ fn main() {
         })
         .collect();
 
+    if let Some(every) = options.reopen_every {
+        let proxy = event_loop.create_proxy();
+        std::thread::spawn(move || {
+            loop {
+                std::thread::sleep(every);
+                if proxy.send_event(Reopen).is_err() {
+                    return;
+                }
+            }
+        });
+    }
+
     let dev_url = options.dev_url.clone();
-    let reopen_every = options.reopen_every;
-    let mut next_reopen = reopen_every.map(|every| Instant::now() + every);
     event_loop.run(move |event, _, control_flow| {
-        *control_flow = match next_reopen {
-            Some(at) => ControlFlow::WaitUntil(at),
-            None => ControlFlow::Wait,
-        };
+        *control_flow = ControlFlow::Wait;
         match event {
             Event::WindowEvent {
                 window_id, event, ..
@@ -240,13 +251,12 @@ fn main() {
                     _ => {}
                 }
             }
-            Event::NewEvents(_) if next_reopen.is_some_and(|at| Instant::now() >= at) => {
+            Event::UserEvent(Reopen) => {
                 for instance in &mut instances {
                     instance.editor = None;
                     instance.attach(dev_url.clone());
                 }
                 eprintln!("reopened {} editor(s)", instances.len());
-                next_reopen = reopen_every.map(|every| Instant::now() + every);
             }
             _ => {}
         }
