@@ -23,6 +23,9 @@ importers:
       '@tauri-apps/plugin-dialog':
         specifier: ^2.7.0
         version: 2.7.3
+      '@zvid/tokens':
+        specifier: link:../packages/tokens
+        version: link:../packages/tokens
       mediabunny:
         specifier: ^1.40.1
         version: 1.59.0

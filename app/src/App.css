@@ -1,17 +1,6 @@
-/* Defined on :root so portaled content (dropdown menus, dialogs) shares the palette. */
+/* Shared tokens (--bg, --ink, accents, ...) come from @zvid/tokens via index.css.
+   App-only variables live here on :root so portaled content shares them too. */
 :root {
-  --bg: #262839;
-  --bg-elevated: #2d3044;
-  --bg-panel: #313447;
-  --bg-soft: #383b50;
-  --ink: #eef2ff;
-  --muted: #a4a9bf;
-  --line: rgba(255, 255, 255, 0.08);
-  --line-strong: rgba(255, 255, 255, 0.14);
-  --amber: #f6b73c;
-  --pink: #ff6f9d;
-  --blue: #7ca1ff;
-  --mint: #7ee0a4;
   --lane-selected-accent: var(--amber);
   --lane-selected-label: #3a3d53;
   --lane-selected-tint: rgba(246, 183, 60, 0.05);
@@ -58,7 +47,7 @@
   padding: 4px 9px;
   border-radius: 999px;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
-  color: #0f1220;
+  color: var(--ink-on-accent);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.04em;
