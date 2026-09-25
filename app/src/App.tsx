@@ -2715,7 +2715,7 @@ function App() {
         commitProjectChange("Set main audio", (current) =>
           patchProjectState(current, {
             mediaItems: [...current.mediaItems, toShareableMediaItem(analyzed)],
-            masterAudioId: analyzed.id,
+            mainAudioId: analyzed.id,
           }),
         );
 
