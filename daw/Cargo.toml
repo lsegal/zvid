@@ -27,3 +27,23 @@ zvidlib = { git = "https://github.com/lsegal/zvidlib", rev = "873d0deb975a72dde1
 dirs = "6"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+jpeg-encoder = "0.7"
+# macOS camera capture (zvid-capture).
+block2 = "0.6"
+dispatch2 = "0.3"
+objc2 = "0.6"
+objc2-av-foundation = { version = "0.3", features = ["objc2-core-foundation", "objc2-core-media"] }
+objc2-core-foundation = "0.3"
+objc2-core-media = "0.3"
+objc2-core-video = "0.3"
+objc2-foundation = "0.3"
+# Windows camera capture (zvid-capture).
+windows = { version = "0.62", features = [
+    "Devices_Enumeration",
+    "Foundation",
+    "Win32_Foundation",
+    "Win32_Media_MediaFoundation",
+    "Win32_System_Com",
+    "Win32_System_Performance",
+    "Win32_System_Registry",
+] }
