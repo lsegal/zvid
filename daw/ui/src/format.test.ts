@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   deviceSummary,
+  droppedSummary,
   fileManagerName,
   formatBarPosition,
   formatDuration,
@@ -57,6 +58,15 @@ test("summarizes the device", () => {
     "FaceTime HD Camera · 1920×1080 · 30 fps",
   );
   assert.equal(formatFps([30000, 1001]), "29.97 fps");
+  assert.equal(droppedSummary(null), null);
+  assert.equal(
+    droppedSummary({ elapsedMs: 0, takes: 0, droppedFrames: 0 }),
+    null,
+  );
+  assert.equal(
+    droppedSummary({ elapsedMs: 0, takes: 0, droppedFrames: 3 }),
+    "3 dropped",
+  );
 });
 
 test("labels transports, phases and file managers", () => {

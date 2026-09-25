@@ -25,7 +25,7 @@ const capturing: Status = {
   phase: "capturing",
   cameraId: "cam",
   format: { width: 1920, height: 1080, fps: [30, 1] },
-  capture: { elapsedMs: 5000, takes: 1 },
+  capture: { elapsedMs: 5000, takes: 1, droppedFrames: 0 },
   error: null,
 };
 

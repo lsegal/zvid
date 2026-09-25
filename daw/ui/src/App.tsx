@@ -4,7 +4,7 @@ import { Header } from "./components/Header.tsx";
 import { Preview } from "./components/Preview.tsx";
 import { TakesList } from "./components/TakesList.tsx";
 import { Toast } from "./components/Toast.tsx";
-import { deviceSummary } from "./format.ts";
+import { deviceSummary, droppedSummary } from "./format.ts";
 import { type Client, CommandError } from "./ipc/client.ts";
 import type { UiError, UiEvent } from "./ipc/types.ts";
 import {
@@ -196,7 +196,15 @@ export function App({ client }: { client: Client }) {
         </div>
       </main>
       <footer className="footer">
-        <span>{deviceSummary(camera, status.format)}</span>
+        <span>
+          {deviceSummary(camera, status.format)}
+          {droppedSummary(status.capture) && (
+            <span className="footer-dropped">
+              {" · "}
+              {droppedSummary(status.capture)}
+            </span>
+          )}
+        </span>
         <span className="mono">v{client.config.version} · ZVID</span>
       </footer>
       <Toast toast={state.toast} onDismiss={dismiss} />

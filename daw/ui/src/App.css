@@ -649,6 +649,10 @@ button {
   white-space: nowrap;
 }
 
+.footer-dropped {
+  color: var(--amber);
+}
+
 /* Toast */
 
 .toast-region {

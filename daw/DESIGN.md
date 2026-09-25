@@ -130,7 +130,9 @@ Take variants:
 
 - Left: active device · resolution · fps, for example
   `FaceTime HD Camera · 1920×1080 · 30 fps`. Shows *No camera* when none is
-  active.
+  active. While recording, frames the encoder couldn't keep up with are
+  appended as `· 3 dropped` in `--amber` once the count is above zero
+  (`RecordStats::frames_dropped` in `zvid-capture`).
 - Right: plugin version, in IBM Plex Mono, `--muted`.
 
 ### State summary

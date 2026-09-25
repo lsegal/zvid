@@ -28,6 +28,8 @@ export type CaptureInfo = {
   elapsedMs: number;
   /** Takes opened so far in this capture. */
   takes: number;
+  /** Frames dropped because the encoder fell behind, shown in the footer. */
+  droppedFrames: number;
 };
 
 export type ErrorCode =

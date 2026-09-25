@@ -117,7 +117,7 @@ The workspace lives in `/daw` (scaffolded in
 | Path | Role |
 |---|---|
 | `daw/crates/zvid-daw-core` | State schema, take tracker state machine, the transport-change watch the format layers share, capture file naming, record-root resolution, and the protocol and client for the Live companion script. Pure (no cameras, hosts or UI; the only I/O is locating Documents and the companion's localhost UDP socket) and unit-tested. |
-| `daw/crates/zvid-capture` | Device enumeration, capture sessions, frame timestamps, preview frames, and encoding through zvidlib. AVFoundation on macOS, Media Foundation on Windows. |
+| `daw/crates/zvid-capture` | Device enumeration, capture sessions, frame timestamps, preview frames, and recording (`record`): hardware HEVC and AAC encoding, crash-safe MP4 writing and poster frames, with zvidlib doing the muxing. AVFoundation, VideoToolbox and AudioToolbox on macOS; Media Foundation on Windows. |
 | `daw/crates/zvid-daw-ui` | `wry` child-webview host, the IPC bridge to the control thread, and the custom `zvid://` protocol that serves embedded assets and preview frames. The frontend source lives in `daw/ui`. |
 | `daw/crates/zvid-vst3` | Hand-written subset of the VST3 COM ABI: the interfaces, IIDs and structs the plugin needs, rebuilt from public documentation. |
 | `daw/crates/zvid-au` | AUv2 plugin: the `AudioComponentFactoryFunction` entry point, property and render callbacks, and the Cocoa view factory. |
@@ -172,6 +172,15 @@ Takes are only useful if they line up with the arrangement. The target is
    `file_sec` in the MP4. The tracker maps any host time to file time using
    the latest pair. Before the first frame arrives it counts from the arm
    time.
+
+   In the recorder (`zvid_capture::record`), file time zero is the first
+   frame's host time. Video is constant frame rate at the camera's rate:
+   each frame takes the nearest free slot of the frame grid no more than one
+   frame after it was captured, or is dropped, and a missed slot lengthens
+   the frame before it. Audio blocks carry the host time of their first
+   sample, are written back to back, and get silence inserted or samples
+   skipped only when they drift more than 10 ms from the capture clock, so
+   A/V stays within one frame however far the audio device's clock wanders.
 4. **Take bounds.** A take's `fileOffsetSec` is the file time at the play
    edge, and `durationSec` is the file time at the stop edge minus that
    offset. Its anchor is the transport position at the play edge
@@ -345,8 +354,8 @@ sequenceDiagram
 | Formats | VST3 (`.vst3`) and AUv2 (`.component`) | VST3 (`.vst3`) |
 | Capture API | AVFoundation (`objc2-av-foundation`) | Media Foundation (`windows`) |
 | Webview | WKWebView | WebView2 |
-| Video encode | zvidlib HEVC (VideoToolbox where zvidlib supports it), AV1 fallback | zvidlib HEVC (Media Foundation where zvidlib supports it), AV1 fallback |
-| Audio encode | AudioToolbox AAC-LC | Media Foundation AAC encoder |
+| Video encode | VideoToolbox HEVC; zvidlib HEVC, then AV1, as software fallbacks | Media Foundation HEVC (GPU vendor MFT, else Microsoft's HEVC Video Extensions); zvidlib HEVC, then AV1, as software fallbacks |
+| Audio encode | AudioToolbox AAC-LC (zvidlib's adapter) | Media Foundation AAC encoder |
 | Monotonic clock | `mach_absolute_time` | QPC |
 
 ### Camera permission
@@ -381,7 +390,8 @@ Revise a decision only with a stated rationale, recorded here.
 | UI host | `wry` (Tauri's webview layer) attached as a child of the host view (`NSView` / `HWND`). Not the full Tauri runtime. | Tauri wants to own the process and event loop, which a plugin can't do inside a host. `wry` gives us the same webview and IPC model. |
 | Frontend assets | Embedded in the binary and served over `zvid://`. | A single-file bundle, with no loose files beside the plugin. |
 | Live preview transport | Native capture is the single source. The UI gets downscaled JPEG frames (≤30 fps) over `zvid://preview`. | Avoids opening the camera twice (getUserMedia plus native), and works the same in WKWebView and WebView2. |
-| Video codec | **HEVC** by default (zvidlib native encoder, VideoToolbox / Media Foundation hardware where zvidlib supports it). **AV1** fallback. | HEVC plays natively in QuickTime, WKWebView and `/app`. |
+| Video codec | **HEVC Main** from the platform's hardware encoder (VideoToolbox; a Media Foundation HEVC MFT), implemented in `zvid-capture` behind the same encoder seam. zvidlib's native HEVC, then AV1, encoders are the fallback. No B-frames, a keyframe each second. | HEVC plays natively in QuickTime, WKWebView and `/app`. Revised in [#197](https://github.com/lsegal/zvid/issues/197): zvidlib offers hardware *decoding* only, and its software encoders take about 2.5 s per 1080p HEVC frame (and 80 ms at 320×240), far from real time. Its AV1 encoder also takes greyscale input only. |
+| Crash safety | Record to a **fragmented MP4** (one synced `moof`+`mdat` per second), then remux with zvidlib's `Mp4Muxer` into an ordinary MP4 on disarm. | Killing the host mid-capture leaves every complete fragment playable; the finished file has ordinary sample tables and exact gapless AAC metadata. |
 | Audio | AAC-LC of the plugin's input bus (the track audio), via AudioToolbox (macOS) or the Media Foundation AAC encoder (Windows). Video-only if neither is available. | zvidlib ships no AAC encoder, and `/app` export already uses AudioToolbox. The track audio doubles as a sync reference. |
 | Capture file vs takes | **One MP4 per arm** (Record → Stop capturing). Each transport play→stop span is a **separate take entry** that references the file plus `fileOffsetSec`. | Never loses footage between spans, and takes stay individually addressable. |
 | Loop / relocate while playing | A backwards transport jump or a locate ends the current take and starts a new one. | Keeps each take linear on the timeline. |
