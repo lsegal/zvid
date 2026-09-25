@@ -6677,7 +6677,7 @@ function App() {
                         <div>
                           <span>Source Tracks</span>
                           <small>
-                            {pluralize(mediaItems.length, "track")} in session
+                            {pluralize(sourceTracks.length, "track")} in session
                           </small>
                         </div>
                       )}
