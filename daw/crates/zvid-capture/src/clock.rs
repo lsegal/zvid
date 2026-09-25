@@ -164,6 +164,15 @@ mod tests {
     }
 
     #[test]
+    fn matches_the_transport_clock() {
+        // Transport snapshots use the core clock; frames use this one.
+        let before = zvid_daw_core::clock::now_sec();
+        let host = HostTime::now().as_nanos() as f64 / 1e9;
+        let after = zvid_daw_core::clock::now_sec();
+        assert!(before - 1e-6 <= host && host <= after + 1e-6);
+    }
+
+    #[test]
     fn scale_does_not_overflow() {
         assert_eq!(
             scale(u64::MAX / 2, 1_000_000_000, 1_000_000_000),
