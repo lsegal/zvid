@@ -1,5 +1,6 @@
+import { useId } from "react";
 import type { Status } from "../ipc/types.ts";
-import { Warning } from "./icons.tsx";
+import { Spinner, VisuallyHidden } from "./Status.tsx";
 
 type Props = {
   status: Status;
@@ -9,39 +10,43 @@ type Props = {
 };
 
 export function CaptureCard({ status, busy, onRecord, onStop }: Props) {
+  const reason = useId();
   const capturing = status.phase === "capturing";
-  const canRecord = status.phase === "ready";
+  // Disabled buttons stay focusable so their explanation is reachable.
+  const disabled = !capturing && status.phase !== "ready";
+  const activate = () => {
+    if (busy || disabled) return;
+    if (capturing) onStop();
+    else onRecord();
+  };
   return (
     <section className="card capture-card" aria-label="Capture">
-      {capturing ? (
-        <button
-          type="button"
-          className="button primary is-capturing"
-          onClick={onStop}
-          disabled={busy}
-          aria-busy={busy}
-        >
-          <span className="stop-square" aria-hidden />
-          Stop capturing
-        </button>
-      ) : (
-        <button
-          type="button"
-          className="button primary"
-          onClick={onRecord}
-          disabled={busy || !canRecord}
-          aria-busy={busy}
-        >
-          <span className="record-dot" aria-hidden />
-          Record
-        </button>
+      <button
+        type="button"
+        className="button primary"
+        onClick={activate}
+        aria-disabled={disabled || undefined}
+        aria-busy={busy || undefined}
+        aria-describedby={disabled ? reason : undefined}
+      >
+        {busy ? (
+          <Spinner />
+        ) : (
+          <span
+            className={capturing ? "stop-glyph" : "record-glyph"}
+            aria-hidden="true"
+          />
+        )}
+        {capturing ? "Stop capturing" : "Record"}
+      </button>
+      {disabled && (
+        <VisuallyHidden id={reason}>Choose a camera to record</VisuallyHidden>
       )}
       <p className="helper">
-        <Warning className="helper-icon" />
         Arm capture before you start playback or recording in Live.
       </p>
       {capturing && (
-        <p className="take-counter" aria-live="polite">
+        <p className="take-counter">
           Takes follow transport: {status.capture?.takes ?? 0}
         </p>
       )}

@@ -1,0 +1,11 @@
+{
+  "name": "@zvid/tokens",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Shared design tokens and bundled fonts for /app and daw/ui.",
+  "license": "ISC",
+  "exports": {
+    "./tokens.css": "./tokens.css"
+  },
+  "files": ["tokens.css", "fonts"]
+}

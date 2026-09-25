@@ -1,6 +1,7 @@
-import { formatTimer, statusLabel } from "../format.ts";
+import { statusLabel } from "../format.ts";
 import type { Camera, Phase } from "../ipc/types.ts";
 import { CameraSelect } from "./CameraSelect.tsx";
+import { StatusDot, TimerPill, VisuallyHidden } from "./Status.tsx";
 
 type Props = {
   phase: Phase;
@@ -8,6 +9,7 @@ type Props = {
   cameras: Camera[];
   cameraId: string | null;
   selectDisabled: boolean;
+  selectBusy: boolean;
   onSelect: (id: string) => void;
 };
 
@@ -17,30 +19,31 @@ export function Header({
   cameras,
   cameraId,
   selectDisabled,
+  selectBusy,
   onSelect,
 }: Props) {
+  const capturing = phase === "capturing";
   return (
     <header className="header">
-      {phase === "capturing" ? (
-        <output className="timer-pill" aria-label="Capture time">
-          {formatTimer(elapsedMs)}
-        </output>
-      ) : (
-        <h1 className="status-label">{statusLabel(phase)}</h1>
-      )}
-      <div className="header-controls">
-        <span
-          className={`status-dot is-${phase}`}
-          role="img"
-          aria-label={statusLabel(phase)}
-        />
-        <CameraSelect
-          cameras={cameras}
-          selectedId={cameraId}
-          disabled={selectDisabled}
-          onSelect={onSelect}
-        />
+      <div className="status">
+        <StatusDot tone={phase} />
+        {/* Announces state changes once; the timer stays out of it. */}
+        <h1 className="status-label" role="status">
+          {capturing ? (
+            <VisuallyHidden>{statusLabel(phase)}</VisuallyHidden>
+          ) : (
+            statusLabel(phase)
+          )}
+        </h1>
+        {capturing && <TimerPill ms={elapsedMs} />}
       </div>
+      <CameraSelect
+        cameras={cameras}
+        selectedId={cameraId}
+        disabled={selectDisabled}
+        busy={selectBusy}
+        onSelect={onSelect}
+      />
     </header>
   );
 }

@@ -65,5 +65,5 @@ test("labels transports, phases and file managers", () => {
   assert.equal(statusLabel("ready"), "Ready to capture");
   assert.equal(statusLabel("noCamera"), "No camera");
   assert.equal(fileManagerName("macos"), "Finder");
-  assert.equal(fileManagerName("windows"), "Explorer");
+  assert.equal(fileManagerName("windows"), "File Explorer");
 });

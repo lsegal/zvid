@@ -5,6 +5,10 @@ import { describe, it } from "node:test";
 // Dropdown menus render through a Radix portal outside `.app-shell`, so the
 // palette and menu rules must not depend on being inside it.
 const appCss = readFileSync(new URL("./App.css", import.meta.url), "utf8");
+const tokensCss = readFileSync(
+  new URL("../../packages/tokens/tokens.css", import.meta.url),
+  "utf8",
+);
 const brandMarkCss = readFileSync(
   new URL("./components/brand-mark.css", import.meta.url),
   "utf8",
@@ -18,7 +22,7 @@ function ruleBody(css: string, selector: string): string {
 
 describe("dropdown menu theme", () => {
   it("defines the palette on :root so portaled menus inherit it", () => {
-    const root = ruleBody(appCss, ":root");
+    const root = ruleBody(tokensCss, ":root");
     for (const name of ["--ink", "--muted", "--line"]) {
       assert.match(root, new RegExp(`${name}:`));
     }

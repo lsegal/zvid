@@ -1,5 +1,6 @@
 import type { Status } from "../ipc/types.ts";
-import { CameraOff, Refresh, Warning } from "./icons.tsx";
+import { Refresh } from "./icons.tsx";
+import { Spinner, StatusDot } from "./Status.tsx";
 
 type Props = {
   status: Status;
@@ -23,10 +24,7 @@ export function Preview({
       <section className="preview is-empty" aria-label="Camera preview">
         <div className="empty-state">
           <h2>No camera selected</h2>
-          <p>
-            Choose a webcam, Continuity Camera or phone webcam from the menu
-            above.
-          </p>
+          <p>Connect a camera or choose one from the menu above.</p>
           <RefreshButton refreshing={refreshing} onRefresh={onRefresh} />
         </div>
       </section>
@@ -34,36 +32,39 @@ export function Preview({
   }
 
   if (status.phase === "error") {
-    const denied = status.error?.code === "permissionDenied";
-    const busy = status.error?.code === "deviceBusy";
+    const code = status.error?.code;
     return (
-      <section className="preview is-error" aria-label="Camera preview">
+      <section className="preview is-empty" aria-label="Camera preview">
         <div className="empty-state" role="alert">
-          {denied ? (
-            <CameraOff className="state-icon" />
+          <StatusDot tone="warning" />
+          {code === "permissionDenied" ? (
+            <>
+              <p className="message">Camera access is off for Ableton Live.</p>
+              {platform === "macos" ? (
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={onOpenPrivacySettings}
+                >
+                  Open Privacy Settings
+                </button>
+              ) : (
+                <p>Turn it on in Settings › Privacy &amp; security › Camera.</p>
+              )}
+            </>
+          ) : code === "deviceBusy" ? (
+            <>
+              <p className="message">This camera is in use by another app.</p>
+              <RefreshButton refreshing={refreshing} onRefresh={onRefresh} />
+            </>
           ) : (
-            <Warning className="state-icon" />
+            <>
+              <p className="message">
+                {status.error?.message ?? "The camera stopped working."}
+              </p>
+              <RefreshButton refreshing={refreshing} onRefresh={onRefresh} />
+            </>
           )}
-          <h2>
-            {denied
-              ? "Camera access is off"
-              : busy
-                ? "Camera is in use"
-                : "Camera unavailable"}
-          </h2>
-          <p>{status.error?.message}</p>
-          {denied && (
-            <button
-              type="button"
-              className="link-button"
-              onClick={onOpenPrivacySettings}
-            >
-              {platform === "macos"
-                ? "Open Privacy Settings"
-                : "Open camera privacy settings"}
-            </button>
-          )}
-          <RefreshButton refreshing={refreshing} onRefresh={onRefresh} />
         </div>
       </section>
     );
@@ -78,7 +79,10 @@ export function Preview({
           alt="Live camera preview"
         />
       ) : (
-        <p className="preview-waiting">Waiting for camera…</p>
+        <p className="preview-starting">
+          <Spinner />
+          Starting camera…
+        </p>
       )}
     </section>
   );
@@ -95,11 +99,12 @@ function RefreshButton({
     <button
       type="button"
       className="button secondary"
-      onClick={onRefresh}
-      disabled={refreshing}
+      onClick={() => {
+        if (!refreshing) onRefresh();
+      }}
       aria-busy={refreshing}
     >
-      <Refresh className={refreshing ? "spin" : undefined} />
+      {refreshing ? <Spinner /> : <Refresh />}
       Refresh devices
     </button>
   );

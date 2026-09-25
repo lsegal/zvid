@@ -110,5 +110,32 @@ jobs:
       - name: Test
         run: cargo test --workspace --locked
 
+      # Runners have no cameras; this exercises the platform enumeration path.
+      - name: List cameras
+        run: cargo run --locked -p zvid-capture --example capture -- list
+
+      # Live 12 runs Remote Scripts on Python 3.11.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Live companion tests
+        working-directory: daw/live-remote-script
+        run: python -m unittest discover tests
+
       - name: Repository checks
         run: cargo xtask check
+
+      # Installs the ad-hoc signed .component for the runner user and runs
+      # Apple's AU validation against it.
+      - name: Validate Audio Unit (auval)
+        if: runner.os == 'macOS'
+        run: |
+          cargo xtask bundle
+          components="$HOME/Library/Audio/Plug-Ins/Components"
+          mkdir -p "$components"
+          rm -rf "$components/ZVID Capture.component"
+          cp -R "target/bundle/ZVID Capture.component" "$components/"
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          auval -a | grep ZVcp
+          auval -v aufx ZVcp ZVID

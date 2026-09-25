@@ -8,12 +8,9 @@ importers:
 
   .:
     dependencies:
-      '@fontsource/ibm-plex-mono':
-        specifier: ^5.2.7
-        version: 5.3.0
-      '@fontsource/space-grotesk':
-        specifier: ^5.2.10
-        version: 5.3.0
+      '@zvid/tokens':
+        specifier: link:../../packages/tokens
+        version: link:../../packages/tokens
       react:
         specifier: ^19.2.4
         version: 19.3.0
@@ -41,12 +38,6 @@ importers:
         version: 8.3.1(@types/node@24.13.6)
 
 packages:
-
-  '@fontsource/ibm-plex-mono@5.3.0':
-    resolution: {integrity: sha512-eTgnZjZEGk1QtD3ZstF+Vclo2HLAni8YMy34/DxllwZvyz1lR/1RF/xTiAquOBO7MvqBx8D2Ig2WCPMVfdZu7Q==}
-
-  '@fontsource/space-grotesk@5.3.0':
-    resolution: {integrity: sha512-ksnGizDPXIDuvqcTYTSrmZ+evx9sDlS8rp7+42BQ7wU+spt3twEoXfbJz672C+5CLg6VeUQwRy5RXshWb67LcQ==}
 
   '@oxc-project/types@0.151.0':
     resolution: {integrity: sha512-J1yXrIlNDZVzE3ada310xeAw7nH8yCAyLPuUIsjKatFPmfn5bS1oW+cM+QsGOtVWd5nhSpbwZWx/rue+r5Z+PA==}
@@ -365,10 +356,6 @@ packages:
         optional: true
 
 snapshots:
-
-  '@fontsource/ibm-plex-mono@5.3.0': {}
-
-  '@fontsource/space-grotesk@5.3.0': {}
 
   '@oxc-project/types@0.151.0': {}
 

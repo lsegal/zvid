@@ -11,7 +11,8 @@ export type AppState = {
   takes: TakeInfo[];
   /** The command in flight, which disables the controls it drives. */
   busy: "select" | "arm" | "disarm" | "refresh" | null;
-  toasts: Toast[];
+  /** At most one toast shows; a newer one replaces it. */
+  toast: Toast | null;
 };
 
 export type Action =
@@ -29,9 +30,6 @@ export type Action =
   | { type: "error"; error: UiError | Error; id: number }
   | { type: "dismiss"; id: number };
 
-/** Most toasts shown at once; older ones drop off. */
-const MAX_TOASTS = 3;
-
 export const initialState: AppState = {
   loaded: false,
   status: {
@@ -45,7 +43,7 @@ export const initialState: AppState = {
   cameras: [],
   takes: [],
   busy: null,
-  toasts: [],
+  toast: null,
 };
 
 export function reducer(state: AppState, action: Action): AppState {
@@ -76,16 +74,10 @@ export function reducer(state: AppState, action: Action): AppState {
     case "error":
       return {
         ...state,
-        toasts: [
-          ...state.toasts,
-          { id: action.id, message: action.error.message },
-        ].slice(-MAX_TOASTS),
+        toast: { id: action.id, message: action.error.message },
       };
     case "dismiss":
-      return {
-        ...state,
-        toasts: state.toasts.filter((toast) => toast.id !== action.id),
-      };
+      return state.toast?.id === action.id ? { ...state, toast: null } : state;
   }
 }
 

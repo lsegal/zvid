@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Hand-written fixture for the /app ALS importer (#199), not saved by Live. ZVID Capture AU with overlapping takes. -->
+<Ableton MajorVersion="5" MinorVersion="12.0_12117" Creator="Ableton Live 12.1.5">
+  <LiveSet>
+    <Tracks>
+    <AudioTrack Id="21">
+      <Name><EffectiveName Value="Cam B" /></Name>
+      <Color Value="21" />
+      <TrackGroupId Value="-1" />
+      <DeviceChain>
+        <MainSequencer>
+          <Sample>
+            <ArrangerAutomation>
+              <Events>
+              <AudioClip Id="1" Time="0">
+                <CurrentStart Value="0" />
+                <CurrentEnd Value="4" />
+                <Loop>
+                  <LoopStart Value="0" />
+                  <LoopEnd Value="4" />
+                  <StartRelative Value="0" />
+                  <LoopOn Value="false" />
+                  <HiddenLoopStart Value="0" />
+                  <HiddenLoopEnd Value="4" />
+                </Loop>
+                <Name Value="Intro" />
+                <Disabled Value="false" />
+                <IsWarped Value="true" />
+                <WarpMode Value="0" />
+                <WarpMarkers>
+                  <WarpMarker Id="0" SecTime="0" BeatTime="0" />
+                  <WarpMarker Id="1" SecTime="0.5" BeatTime="1" />
+                </WarpMarkers>
+                <SampleRef>
+                  <FileRef>
+                    <RelativePath Value="Samples/Recorded/Intro.wav" />
+                    <Path Value="/Users/example/Music/Fixture Project/Samples/Recorded/Intro.wav" />
+                  </FileRef>
+                  <DefaultDuration Value="2880000" />
+                  <DefaultSampleRate Value="48000" />
+                </SampleRef>
+              </AudioClip>
+              <AudioClip Id="2" Time="4">
+                <CurrentStart Value="4" />
+                <CurrentEnd Value="20" />
+                <Loop>
+                  <LoopStart Value="4" />
+                  <LoopEnd Value="20" />
+                  <StartRelative Value="0" />
+                  <LoopOn Value="false" />
+                  <HiddenLoopStart Value="4" />
+                  <HiddenLoopEnd Value="20" />
+                </Loop>
+                <Name Value="Tie" />
+                <Disabled Value="false" />
+                <IsWarped Value="true" />
+                <WarpMode Value="0" />
+                <WarpMarkers>
+                  <WarpMarker Id="0" SecTime="0" BeatTime="0" />
+                  <WarpMarker Id="1" SecTime="0.5" BeatTime="1" />
+                </WarpMarkers>
+                <SampleRef>
+                  <FileRef>
+                    <RelativePath Value="Samples/Recorded/Tie.wav" />
+                    <Path Value="/Users/example/Music/Fixture Project/Samples/Recorded/Tie.wav" />
+                  </FileRef>
+                  <DefaultDuration Value="2880000" />
+                  <DefaultSampleRate Value="48000" />
+                </SampleRef>
+              </AudioClip>
+              </Events>
+            </ArrangerAutomation>
+          </Sample>
+        </MainSequencer>
+        <DeviceChain>
+          <Devices>
+            <AuPluginDevice Id="0">
+              <On><Manual Value="true" /></On>
+              <PluginDesc>
+                <AuPluginInfo Id="0">
+                  <Preset>
+                    <AuPreset Id="1">
+                      <Buffer>
+                        3C3F786D6C2076657273696F6E3D22312E302220656E636F64696E673D225554462D38223F3E0A3C
+                        21444F435459504520706C697374205055424C494320222D2F2F4170706C652F2F44544420504C49
+                        535420312E302F2F454E222022687474703A2F2F7777772E6170706C652E636F6D2F445444732F50
+                        726F70657274794C6973742D312E302E647464223E0A3C706C6973742076657273696F6E3D22312E
+                        30223E0A3C646963743E0A093C6B65793E6D616E7566616374757265723C2F6B65793E0A093C696E
+                        74656765723E313531353630303139363C2F696E74656765723E0A093C6B65793E6E616D653C2F6B
+                        65793E0A093C737472696E673E556E7469746C65643C2F737472696E673E0A093C6B65793E737562
+                        747970653C2F6B65793E0A093C696E74656765723E313531353631313234383C2F696E7465676572
+                        3E0A093C6B65793E747970653C2F6B65793E0A093C696E74656765723E313633353038333839363C
+                        2F696E74656765723E0A093C6B65793E76657273696F6E3C2F6B65793E0A093C696E74656765723E
+                        303C2F696E74656765723E0A093C6B65793E7A7669642D73746174653C2F6B65793E0A093C646174
+                        613E0A0965794A325A584A7A61573975496A6F694D534973496E42736457647062694936496E7032
+                        6157517459324677644856795A534973496E4A6C593239795A464A76623351690A094F694A6B6232
+                        4E316257567564484D694C434A795A574E76636D5270626D647A496A706265794A705A434936496D
+                        4978496977695A6D6C735A573568625755694F694A320A096157526C627930774D5330354C544931
+                        4C5449784C5441774C5441774C54417562584130496977695A476C745A57357A6157397563794936
+                        577A45794F4441734E7A49770A09585377695A6E427A496A70624D7A41734D563073496D5A795957
+                        316C55335268636E51694F6930784E5377695A6D6C735A55396D5A6E4E6C64464E6C597949364D43
+                        34310A094C434A30636D467563334276636E52546447467964464E6C597949364D43776964484A68
+                        626E4E7762334A3055335268636E52435A574630637949364D4377695A4856790A09595852706232
+                        35545A574D694F6A45774C434A305A573177627949364D5449774C434A306157316C55326C6E626D
+                        463064584A6C496A70624E43773058537769593246740A095A584A68496A6F69526D466A5A565270
+                        6257556753455167513246745A584A684969776959334A6C5958526C5A454630496A6F694D6A4179
+                        4E6930774F5330794E5651790A094D546F774D446F774D466F6966537837496D6C6B496A6F69596A
+                        49694C434A6D6157786C626D46745A534936496E5A705A4756764C5441794C546B744D6A55744D6A
+                        45740A094D4455744D4441744D433574634451694C434A6B6157316C626E4E706232357A496A7062
+                        4D5449344D4377334D6A42644C434A6D63484D694F6C737A4D437778585377690A095A6E4A686257
+                        565464474679644349364D7A4173496D5A70624756505A6D5A7A5A5852545A574D694F6A4573496E
+                        52795957357A6347397964464E3059584A305532566A0A09496A6F794C434A30636D467563334276
+                        636E52546447467964454A6C5958527A496A6F304C434A6B64584A6864476C76626C4E6C59794936
+                        4D544173496E526C625842760A09496A6F784D6A4173496E5270625756546157647559585231636D
+                        55694F6C73304C4452644C434A6A5957316C636D45694F694A4759574E6C56476C745A5342495243
+                        42440A095957316C636D45694C434A6A636D56686447566B515851694F6949794D4449324C544135
+                        4C544931564449784F6A41314F6A417757694A394C487369615751694F694A690A094D794973496D
+                        5A70624756755957316C496A6F69646D6C6B5A5738744D444D744F5330794E5330794D5330774F53
+                        30774D4330774C6D31774E434973496D5270625756750A0963326C76626E4D694F6C73784D6A6777
+                        4C4463794D463073496D5A7763794936577A4D774C4446644C434A6D636D46745A564E3059584A30
+                        496A6F774C434A6D6157786C0A0954325A6D633256305532566A496A6F774C434A30636D46756333
+                        4276636E52546447467964464E6C59794936626E56736243776964484A68626E4E7762334A305533
+                        52680A09636E52435A57463063794936626E5673624377695A48567959585270623235545A574D69
+                        4F6A5173496E526C62584276496A7075645778734C434A306157316C55326C6E0A09626D46306458
+                        4A6C496A7075645778734C434A6A5957316C636D45694F694A4759574E6C56476C745A5342495243
+                        42445957316C636D45694C434A6A636D56686447566B0A09515851694F6949794D4449324C544135
+                        4C544931564449784F6A41354F6A417757694A395858303D0A093C2F646174613E0A3C2F64696374
+                        3E0A3C2F706C6973743E0A
+                      </Buffer>
+                      <Name Value="" />
+                    </AuPreset>
+                  </Preset>
+                  <Name Value="ZVID Capture" />
+                  <Manufacturer Value="ZVID" />
+                  <ComponentType Value="1635083896" />
+                  <ComponentSubType Value="1515611248" />
+                  <ComponentManufacturer Value="1515600196" />
+                </AuPluginInfo>
+              </PluginDesc>
+            </AuPluginDevice>
+          </Devices>
+        </DeviceChain>
+      </DeviceChain>
+    </AudioTrack>
+    </Tracks>
+    <MainTrack>
+      <DeviceChain>
+        <Mixer>
+          <Tempo><Manual Value="120" /></Tempo>
+          <TimeSignature><Manual Value="201" /></TimeSignature>
+        </Mixer>
+      </DeviceChain>
+    </MainTrack>
+    <Transport>
+      <CurrentTime Value="0" />
+      <LoopOn Value="false" />
+      <LoopStart Value="0" />
+      <LoopLength Value="16" />
+    </Transport>
+  </LiveSet>
+</Ableton>

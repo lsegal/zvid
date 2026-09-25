@@ -68,24 +68,21 @@ test("puts closed takes first without duplicates", () => {
   );
 });
 
-test("keeps the newest toasts", () => {
+test("shows one toast, newest first", () => {
   let state = initialState;
-  for (let id = 1; id <= 5; id++) {
+  for (let id = 1; id <= 3; id++) {
     state = reducer(state, {
       type: "error",
       error: { code: "internal", message: `oops ${id}` },
       id,
     });
   }
-  assert.deepEqual(
-    state.toasts.map((toast) => toast.id),
-    [3, 4, 5],
-  );
-  state = reducer(state, { type: "dismiss", id: 4 });
-  assert.deepEqual(
-    state.toasts.map((toast) => toast.message),
-    ["oops 3", "oops 5"],
-  );
+  assert.deepEqual(state.toast, { id: 3, message: "oops 3" });
+  // Dismissing a toast that was already replaced keeps the newer one.
+  state = reducer(state, { type: "dismiss", id: 2 });
+  assert.equal(state.toast?.id, 3);
+  state = reducer(state, { type: "dismiss", id: 3 });
+  assert.equal(state.toast, null);
 });
 
 test("tracks the command in flight", () => {

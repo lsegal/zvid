@@ -238,8 +238,9 @@ function workspaceDir(rawPath: string) {
   return segments.slice(0, -1);
 }
 
-// Finds a Live set's recording in the workspace: beside the set, in the
-// `Recorded` folder beside its project, then anywhere by name.
+// Finds a Live set's recording in the workspace: in the set's ZVID Capture
+// `Recorded/ZVID` folder, beside the set, in the `Recorded` folder beside its
+// project, then anywhere by name.
 function createWorkspaceAlsLocator(
   selection: Extract<SessionSelection, { kind: "workspace" }>,
 ) {
@@ -252,10 +253,12 @@ function createWorkspaceAlsLocator(
   );
   const setDir = workspaceDir(selection.sessionPath);
   const recordedDir = [...setDir.slice(0, -1), "recorded"];
+  const zvidRecordedDir = [...setDir, "recorded", "zvid"];
 
   return (name: string) => {
     const filename = basename(name).toLowerCase();
     const entry =
+      byPath.get([...zvidRecordedDir, filename].join("/")) ??
       byPath.get([...setDir, filename].join("/")) ??
       byPath.get([...recordedDir, filename].join("/")) ??
       resolveFile(filename);

@@ -2,13 +2,21 @@ import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import { transportLabel } from "../format.ts";
 import type { Camera } from "../ipc/types.ts";
 import { Check, ChevronDown } from "./icons.tsx";
+import { Spinner } from "./Status.tsx";
+import { typeAheadMatch } from "./type-ahead.ts";
 
 type Props = {
   cameras: Camera[];
   selectedId: string | null;
+  /** While capturing; the trigger stays focusable. */
   disabled: boolean;
+  /** While devices are being enumerated. */
+  busy: boolean;
   onSelect: (id: string) => void;
 };
+
+/** How long typed characters accumulate into one type-ahead search. */
+const TYPE_AHEAD_MS = 600;
 
 /**
  * The camera dropdown. A native <select> can't show the transport line
@@ -18,6 +26,7 @@ export function CameraSelect({
   cameras,
   selectedId,
   disabled,
+  busy,
   onSelect,
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -25,7 +34,9 @@ export function CameraSelect({
   const listId = useId();
   const button = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLDivElement>(null);
+  const typed = useRef({ text: "", at: 0 });
   const selected = cameras.find((camera) => camera.id === selectedId);
+  const unavailable = disabled || busy || cameras.length === 0;
 
   useEffect(() => {
     if (!open) return;
@@ -44,21 +55,44 @@ export function CameraSelect({
   }, [open]);
 
   useEffect(() => {
-    if (disabled) setOpen(false);
-  }, [disabled]);
+    if (unavailable) setOpen(false);
+  }, [unavailable]);
+
+  useEffect(() => {
+    if (open) {
+      document
+        .getElementById(`${listId}-${active}`)
+        ?.scrollIntoView({ block: "nearest" });
+    }
+  }, [open, active, listId]);
 
   const show = () => {
-    if (disabled || cameras.length === 0) return;
+    if (unavailable) return;
     const index = cameras.findIndex((camera) => camera.id === selectedId);
     setActive(Math.max(0, index));
     setOpen(true);
   };
 
-  const choose = (index: number) => {
-    const camera = cameras[index];
+  const close = () => {
     setOpen(false);
     button.current?.focus();
+  };
+
+  const choose = (index: number) => {
+    const camera = cameras[index];
+    close();
     if (camera && camera.id !== selectedId) onSelect(camera.id);
+  };
+
+  const typeAhead = (key: string) => {
+    const now = performance.now();
+    const text =
+      now - typed.current.at < TYPE_AHEAD_MS ? typed.current.text + key : key;
+    typed.current = { text, at: now };
+    // A repeated first letter cycles; a longer query refines in place.
+    const from = text.length > 1 ? active : active + 1;
+    const match = typeAheadMatch(cameras, text, from);
+    if (match >= 0) setActive(match);
   };
 
   const onListKey = (event: KeyboardEvent) => {
@@ -75,10 +109,13 @@ export function CameraSelect({
     } else if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       choose(active);
-    } else if (event.key === "Escape" || event.key === "Tab") {
+    } else if (event.key === "Escape") {
       event.preventDefault();
+      close();
+    } else if (event.key === "Tab") {
       setOpen(false);
-      button.current?.focus();
+    } else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
+      typeAhead(event.key);
     }
   };
 
@@ -99,15 +136,16 @@ export function CameraSelect({
         aria-expanded={open}
         aria-controls={open ? listId : undefined}
         aria-label={selected ? `Camera: ${selected.name}` : "Select a camera"}
-        disabled={disabled || cameras.length === 0}
-        onClick={() => (open ? setOpen(false) : show())}
+        aria-disabled={unavailable || undefined}
+        aria-busy={busy || undefined}
+        onClick={() => (open ? close() : show())}
         onKeyDown={onButtonKey}
       >
         <span className={selected ? "select-value" : "select-placeholder"}>
           {selected?.name ??
             (cameras.length === 0 ? "No cameras found" : "Select a camera…")}
         </span>
-        <ChevronDown className="select-chevron" />
+        {busy ? <Spinner /> : <ChevronDown className="select-chevron" />}
       </button>
       {open && (
         <div

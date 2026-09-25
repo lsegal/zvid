@@ -6,3 +6,6 @@ edition.workspace = true
 publish.workspace = true
 
 [dependencies]
+zvid-daw-core.workspace = true
+zvid-vst3.workspace = true
+zvid-au.workspace = true

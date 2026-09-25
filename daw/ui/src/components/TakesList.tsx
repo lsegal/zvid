@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import {
   fileManagerName,
   formatBarPosition,
@@ -6,7 +6,7 @@ import {
   formatTakeDate,
 } from "../format.ts";
 import type { TakeInfo } from "../ipc/types.ts";
-import { Folder, Play } from "./icons.tsx";
+import { Folder, Play, Stop } from "./icons.tsx";
 
 type Props = {
   takes: TakeInfo[];
@@ -27,7 +27,7 @@ export function TakesList({
   return (
     <section className="takes" aria-labelledby="takes-heading">
       <h2 id="takes-heading" className="divider">
-        {takes.length > 0 ? <span>Takes ({takes.length})</span> : null}
+        <span>Takes ({takes.length})</span>
       </h2>
       {takes.length === 0 ? (
         <p className="takes-empty">Your takes will show up here</p>
@@ -38,7 +38,7 @@ export function TakesList({
               key={take.id}
               take={take}
               playing={playing === take.id}
-              revealLabel={`Show in ${fileManagerName(platform)}`}
+              fileManager={fileManagerName(platform)}
               src={takeUrl(take.id)}
               thumb={thumbUrl(take.id)}
               onPlay={() => setPlaying(take.id)}
@@ -57,7 +57,7 @@ export function TakesList({
 type CardProps = {
   take: TakeInfo;
   playing: boolean;
-  revealLabel: string;
+  fileManager: string;
   src: string;
   thumb: string;
   onPlay: () => void;
@@ -68,19 +68,36 @@ type CardProps = {
 function TakeCard({
   take,
   playing,
-  revealLabel,
+  fileManager,
   src,
   thumb,
   onPlay,
   onStop,
   onReveal,
 }: CardProps) {
-  const [thumbFailed, setThumbFailed] = useState(false);
+  const missingId = useId();
+  const [poster, setPoster] = useState<"loading" | "ready" | "failed">(
+    "loading",
+  );
   const start = take.fileOffsetSec;
   const end = start + take.durationSec;
   const date = formatTakeDate(take.createdAt);
+  const placed =
+    !take.unanchored &&
+    take.transportStartBeats !== null &&
+    take.timeSignature !== null;
+  // Disabled buttons stay focusable; the badge explains them.
+  const disabledProps = take.missing
+    ? { "aria-disabled": true, "aria-describedby": missingId }
+    : {};
   return (
-    <li className={`card take-card${take.missing ? " is-missing" : ""}`}>
+    <li
+      className={`card take-card${take.missing ? " is-missing" : ""}`}
+      // One tab stop per card; its buttons are reachable inside it.
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: DESIGN.md makes each take card a tab stop
+      tabIndex={0}
+      aria-label={`Take from ${date}`}
+    >
       <div className="take-media">
         {playing ? (
           // biome-ignore lint/a11y/useMediaCaption: takes are silent camera video
@@ -88,7 +105,6 @@ function TakeCard({
             className="take-video"
             src={`${src}#t=${start},${end}`}
             autoPlay
-            controls
             onTimeUpdate={(event) => {
               if (event.currentTarget.currentTime >= end) {
                 event.currentTarget.pause();
@@ -98,54 +114,68 @@ function TakeCard({
             onEnded={onStop}
             onError={onStop}
           />
+        ) : take.missing || poster === "failed" ? (
+          <span className="take-thumb is-blank" />
         ) : (
-          <>
-            {!take.missing && !thumbFailed ? (
-              <img
-                className="take-thumb"
-                src={thumb}
-                alt=""
-                onError={() => setThumbFailed(true)}
-              />
-            ) : (
-              <span className="take-thumb is-blank" />
-            )}
-            <button
-              type="button"
-              className="play-button"
-              aria-label={`Preview take from ${date}`}
-              disabled={take.missing}
-              onClick={onPlay}
-            >
-              <Play />
-            </button>
-          </>
+          <img
+            className={`take-thumb${poster === "loading" ? " is-loading" : ""}`}
+            src={thumb}
+            alt=""
+            onLoad={() => setPoster("ready")}
+            onError={() => setPoster("failed")}
+          />
         )}
       </div>
       <div className="take-details">
         <p className="take-date">{date}</p>
         <p className="mono">{formatDuration(take.durationSec)}</p>
-        {take.unanchored ||
-        take.transportStartBeats === null ||
-        take.timeSignature === null ? (
-          <span className="badge">Not placed</span>
-        ) : (
+        {placed ? (
           <p className="mono">
-            {formatBarPosition(take.transportStartBeats, take.timeSignature)}
+            {formatBarPosition(
+              take.transportStartBeats ?? 0,
+              take.timeSignature ?? [4, 4],
+            )}
           </p>
+        ) : (
+          <span className="badge">Not placed</span>
         )}
-        {take.missing && <span className="badge is-warning">File missing</span>}
+        {take.missing && (
+          <span id={missingId} className="badge is-warning">
+            File missing
+          </span>
+        )}
       </div>
-      <button
-        type="button"
-        className="icon-button take-reveal"
-        aria-label={revealLabel}
-        title={revealLabel}
-        disabled={take.missing}
-        onClick={onReveal}
-      >
-        <Folder />
-      </button>
+      <div className="take-actions">
+        <button
+          type="button"
+          className="icon-button"
+          aria-label={
+            playing
+              ? `Stop preview of take from ${date}`
+              : `Preview take from ${date}`
+          }
+          {...disabledProps}
+          onClick={() => {
+            if (take.missing) return;
+            if (playing) onStop();
+            else onPlay();
+          }}
+        >
+          {playing ? <Stop /> : <Play />}
+        </button>
+        <button
+          type="button"
+          className="icon-button"
+          aria-label={`Show take from ${date} in ${fileManager}`}
+          title={`Show in ${fileManager}`}
+          {...disabledProps}
+          onClick={() => {
+            if (!take.missing) onReveal();
+          }}
+        >
+          <Folder />
+        </button>
+      </div>
     </li>
   );
 }

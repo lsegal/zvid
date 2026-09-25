@@ -3,7 +3,7 @@ import { CaptureCard } from "./components/CaptureCard.tsx";
 import { Header } from "./components/Header.tsx";
 import { Preview } from "./components/Preview.tsx";
 import { TakesList } from "./components/TakesList.tsx";
-import { Toasts } from "./components/Toasts.tsx";
+import { Toast } from "./components/Toast.tsx";
 import { deviceSummary } from "./format.ts";
 import { type Client, CommandError } from "./ipc/client.ts";
 import type { UiError, UiEvent } from "./ipc/types.ts";
@@ -66,6 +66,11 @@ export function App({ client }: { client: Client }) {
         : new Error(String(error));
     dispatch({ type: "error", error: shown, id: toastId.current++ });
   }, []);
+
+  const dismiss = useCallback(
+    (id: number) => dispatch({ type: "dismiss", id }),
+    [],
+  );
 
   const reload = useCallback(async () => {
     const [status, cameras, takes] = await Promise.all([
@@ -151,6 +156,7 @@ export function App({ client }: { client: Client }) {
         cameras={state.cameras}
         cameraId={status.cameraId}
         selectDisabled={capturing}
+        selectBusy={state.busy === "refresh"}
         onSelect={(id) =>
           void run("select", () => client.invoke("selectCamera", { id }))
         }
@@ -193,10 +199,7 @@ export function App({ client }: { client: Client }) {
         <span>{deviceSummary(camera, status.format)}</span>
         <span className="mono">v{client.config.version} · ZVID</span>
       </footer>
-      <Toasts
-        toasts={state.toasts}
-        onDismiss={(id) => dispatch({ type: "dismiss", id })}
-      />
+      <Toast toast={state.toast} onDismiss={dismiss} />
     </div>
   );
 }

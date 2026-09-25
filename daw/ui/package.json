@@ -10,8 +10,7 @@
     "test": "node --test \"src/**/*.test.ts\""
   },
   "dependencies": {
-    "@fontsource/ibm-plex-mono": "^5.2.7",
-    "@fontsource/space-grotesk": "^5.2.10",
+    "@zvid/tokens": "link:../../packages/tokens",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },

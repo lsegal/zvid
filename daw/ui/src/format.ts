@@ -111,5 +111,5 @@ export function statusLabel(phase: Phase): string {
 
 /** File-manager name for the reveal button. */
 export function fileManagerName(platform: string | undefined): string {
-  return platform === "macos" ? "Finder" : "Explorer";
+  return platform === "macos" ? "Finder" : "File Explorer";
 }

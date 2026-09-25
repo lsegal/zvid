@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Hand-written fixture for the /app ALS importer (#199), not saved by Live. ZVID Capture VST3 with several takes on one track. -->
+<Ableton MajorVersion="5" MinorVersion="12.0_12117" Creator="Ableton Live 12.1.5">
+  <LiveSet>
+    <Tracks>
+    <AudioTrack Id="20">
+      <Name><EffectiveName Value="Cam A" /></Name>
+      <Color Value="20" />
+      <TrackGroupId Value="-1" />
+      <DeviceChain>
+        <MainSequencer>
+          <Sample>
+            <ArrangerAutomation>
+              <Events>
+              <AudioClip Id="1" Time="0">
+                <CurrentStart Value="0" />
+                <CurrentEnd Value="16" />
+                <Loop>
+                  <LoopStart Value="0" />
+                  <LoopEnd Value="16" />
+                  <StartRelative Value="0" />
+                  <LoopOn Value="false" />
+                  <HiddenLoopStart Value="0" />
+                  <HiddenLoopEnd Value="16" />
+                </Loop>
+                <Name Value="Verse" />
+                <Disabled Value="false" />
+                <IsWarped Value="true" />
+                <WarpMode Value="0" />
+                <WarpMarkers>
+                  <WarpMarker Id="0" SecTime="0" BeatTime="0" />
+                  <WarpMarker Id="1" SecTime="0.5" BeatTime="1" />
+                </WarpMarkers>
+                <SampleRef>
+                  <FileRef>
+                    <RelativePath Value="Samples/Recorded/Verse.wav" />
+                    <Path Value="/Users/example/Music/Fixture Project/Samples/Recorded/Verse.wav" />
+                  </FileRef>
+                  <DefaultDuration Value="2880000" />
+                  <DefaultSampleRate Value="48000" />
+                </SampleRef>
+              </AudioClip>
+              <AudioClip Id="2" Time="32">
+                <CurrentStart Value="32" />
+                <CurrentEnd Value="44" />
+                <Loop>
+                  <LoopStart Value="32" />
+                  <LoopEnd Value="44" />
+                  <StartRelative Value="0" />
+                  <LoopOn Value="false" />
+                  <HiddenLoopStart Value="32" />
+                  <HiddenLoopEnd Value="44" />
+                </Loop>
+                <Name Value="Chorus" />
+                <Disabled Value="false" />
+                <IsWarped Value="true" />
+                <WarpMode Value="0" />
+                <WarpMarkers>
+                  <WarpMarker Id="0" SecTime="0" BeatTime="0" />
+                  <WarpMarker Id="1" SecTime="0.5" BeatTime="1" />
+                </WarpMarkers>
+                <SampleRef>
+                  <FileRef>
+                    <RelativePath Value="Samples/Recorded/Chorus.wav" />
+                    <Path Value="/Users/example/Music/Fixture Project/Samples/Recorded/Chorus.wav" />
+                  </FileRef>
+                  <DefaultDuration Value="2880000" />
+                  <DefaultSampleRate Value="48000" />
+                </SampleRef>
+              </AudioClip>
+              <AudioClip Id="3" Time="60">
+                <CurrentStart Value="60" />
+                <CurrentEnd Value="64" />
+                <Loop>
+                  <LoopStart Value="60" />
+                  <LoopEnd Value="64" />
+                  <StartRelative Value="0" />
+                  <LoopOn Value="false" />
+                  <HiddenLoopStart Value="60" />
+                  <HiddenLoopEnd Value="64" />
+                </Loop>
+                <Name Value="Outro" />
+                <Disabled Value="false" />
+                <IsWarped Value="true" />
+                <WarpMode Value="0" />
+                <WarpMarkers>
+                  <WarpMarker Id="0" SecTime="0" BeatTime="0" />
+                  <WarpMarker Id="1" SecTime="0.5" BeatTime="1" />
+                </WarpMarkers>
+                <SampleRef>
+                  <FileRef>
+                    <RelativePath Value="Samples/Recorded/Outro.wav" />
+                    <Path Value="/Users/example/Music/Fixture Project/Samples/Recorded/Outro.wav" />
+                  </FileRef>
+                  <DefaultDuration Value="2880000" />
+                  <DefaultSampleRate Value="48000" />
+                </SampleRef>
+              </AudioClip>
+              </Events>
+            </ArrangerAutomation>
+          </Sample>
+        </MainSequencer>
+        <DeviceChain>
+          <Devices>
+            <PluginDevice Id="0">
+              <On><Manual Value="true" /></On>
+              <PluginDesc>
+                <Vst3PluginInfo Id="0">
+                  <Preset>
+                    <Vst3Preset Id="1">
+                      <ProcessorState>
+                        7B2276657273696F6E223A2231222C22706C7567696E223A227A7669642D63617074757265222C22
+                        7265636F7264526F6F74223A2270726F6A656374222C227265636F7264696E6773223A5B7B226964
+                        223A226131222C2266696C656E616D65223A22766964656F2D30312D392D32352D32302D33362D31
+                        322D302E6D7034222C2264696D656E73696F6E73223A5B313932302C313038305D2C22667073223A
+                        5B33302C315D2C226672616D655374617274223A2D34352C2266696C654F6666736574536563223A
+                        312E352C227472616E73706F72745374617274536563223A302C227472616E73706F727453746172
+                        744265617473223A302C226475726174696F6E536563223A382C2274656D706F223A3132302C2274
+                        696D655369676E6174757265223A5B342C345D2C2263616D657261223A224661636554696D652048
+                        442043616D657261222C22637265617465644174223A22323032362D30392D32355432303A33363A
+                        31325A227D2C7B226964223A226132222C2266696C656E616D65223A22766964656F2D30312D392D
+                        32352D32302D33362D31322D302E6D7034222C2264696D656E73696F6E73223A5B313932302C3130
+                        38305D2C22667073223A5B33302C315D2C226672616D655374617274223A2D3132302C2266696C65
+                        4F6666736574536563223A32302C227472616E73706F72745374617274536563223A31362C227472
+                        616E73706F727453746172744265617473223A33322C226475726174696F6E536563223A382C2274
+                        656D706F223A3132302C2274696D655369676E6174757265223A5B342C345D2C2263616D65726122
+                        3A224661636554696D652048442043616D657261222C22637265617465644174223A22323032362D
+                        30392D32355432303A33363A33305A227D2C7B226964223A226133222C2266696C656E616D65223A
+                        22766964656F2D30322D392D32352D32302D34312D30332D302E6D7034222C2264696D656E73696F
+                        6E73223A5B313932302C313038305D2C22667073223A5B33302C315D2C226672616D655374617274
+                        223A302C2266696C654F6666736574536563223A302C227472616E73706F72745374617274536563
+                        223A6E756C6C2C227472616E73706F727453746172744265617473223A6E756C6C2C226475726174
+                        696F6E536563223A31322E352C2274656D706F223A6E756C6C2C2274696D655369676E6174757265
+                        223A6E756C6C2C2263616D657261223A224661636554696D652048442043616D657261222C226372
+                        65617465644174223A22323032362D30392D32355432303A34313A30335A227D5D7D
+                      </ProcessorState>
+                      <ControllerState />
+                      <Name Value="" />
+                    </Vst3Preset>
+                  </Preset>
+                  <Name Value="ZVID Capture" />
+                  <DeviceType Value="1" />
+                </Vst3PluginInfo>
+              </PluginDesc>
+            </PluginDevice>
+          </Devices>
+        </DeviceChain>
+      </DeviceChain>
+    </AudioTrack>
+    </Tracks>
+    <MainTrack>
+      <DeviceChain>
+        <Mixer>
+          <Tempo><Manual Value="120" /></Tempo>
+          <TimeSignature><Manual Value="201" /></TimeSignature>
+        </Mixer>
+      </DeviceChain>
+    </MainTrack>
+    <Transport>
+      <CurrentTime Value="0" />
+      <LoopOn Value="false" />
+      <LoopStart Value="0" />
+      <LoopLength Value="16" />
+    </Transport>
+  </LiveSet>
+</Ableton>
