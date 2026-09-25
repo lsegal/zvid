@@ -6,6 +6,7 @@ import {
   getFilmstripRange,
   getFilmstripSampleStepSeconds,
   getFilmstripTileWidthPx,
+  getSourceSpanFilmstripClip,
 } from "./clip-filmstrip.ts";
 
 describe("getFilmstripTileWidthPx", () => {
@@ -158,6 +159,57 @@ describe("getClipFilmstripTiles", () => {
     assert.deepEqual(
       zoomedOut.map((tile) => tile.timeSeconds),
       before.map((tile) => tile.timeSeconds),
+    );
+  });
+});
+
+describe("getSourceSpanFilmstripClip", () => {
+  const layout: Omit<FilmstripLayout, "clip"> = {
+    mediaDurationSeconds: 1000,
+    clipLeftPx: 0,
+    clipWidthPx: 400,
+    tileWidthPx: 80,
+    secondsPerPx: 0.1,
+    range: { startPx: 0, endPx: 10_000 },
+  };
+
+  it("samples the span from its start towards its end", () => {
+    const tiles = getClipFilmstripTiles({
+      ...layout,
+      clip: getSourceSpanFilmstripClip({
+        trimStartSeconds: 100,
+        durationSeconds: 40,
+      }),
+    });
+    assert.deepEqual(
+      tiles.map((tile) => tile.timeSeconds),
+      [100, 104, 112, 120, 128],
+    );
+  });
+
+  it("keeps samples inside the span and the media", () => {
+    const spanEnd = getClipFilmstripTiles({
+      ...layout,
+      clip: getSourceSpanFilmstripClip({
+        trimStartSeconds: 0,
+        durationSeconds: 20,
+      }),
+    });
+    assert.deepEqual(
+      spanEnd.map((tile) => tile.timeSeconds),
+      [0, 8, 16, 20, 20],
+    );
+    const mediaEnd = getClipFilmstripTiles({
+      ...layout,
+      mediaDurationSeconds: 18,
+      clip: getSourceSpanFilmstripClip({
+        trimStartSeconds: 0,
+        durationSeconds: 40,
+      }),
+    });
+    assert.deepEqual(
+      mediaEnd.map((tile) => tile.timeSeconds),
+      [0, 8, 16, 18, 18],
     );
   });
 });

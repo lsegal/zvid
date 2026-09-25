@@ -36,6 +36,7 @@ import {
   getClipFilmstripTiles,
   getFilmstripRange,
   getFilmstripTileWidthPx,
+  getSourceSpanFilmstripClip,
 } from "./clip-filmstrip.ts";
 import {
   describeClipMediaState,
@@ -589,11 +590,19 @@ function getClipEndQ(
   return clip.startQ + getClipDurationQ(clip, bpm);
 }
 
-// The inner height of a clip card, which filmstrip tiles fill.
+// The inner heights of a clip card and a source span, which filmstrip tiles
+// fill.
 const CLIP_FILMSTRIP_HEIGHT_PX = 42;
+const SOURCE_SPAN_FILMSTRIP_HEIGHT_PX = 54;
 
-function getFilmstripTileOwner(clipId: string, index: number) {
-  return `clip:${clipId}:tile:${index}`;
+type Filmstrip = { media: MediaItem; tiles: FilmstripTile[] };
+
+function getFilmstripTileOwner(
+  kind: "clip" | "span",
+  id: string,
+  index: number,
+) {
+  return `${kind}:${id}:tile:${index}`;
 }
 
 function withWindowTiming(
@@ -2457,10 +2466,7 @@ function App() {
   const filmstripRangeEndPx = filmstripRange.endPx;
   // The filmstrip tiles of each online video clip near the visible range.
   const clipFilmstrips = useMemo(() => {
-    const filmstrips = new Map<
-      string,
-      { media: MediaItem; tiles: FilmstripTile[] }
-    >();
+    const filmstrips = new Map<string, Filmstrip>();
     const secondsPerPx = quartersToSeconds(1, bpm) / quarterPx;
     for (const clip of timelineClips) {
       const media = clip.mediaId ? mediaItemsById.get(clip.mediaId) : undefined;
@@ -2499,10 +2505,51 @@ function App() {
     quarterPx,
     timelineClips,
   ]);
+  // The filmstrip tiles of each online video source span near the visible
+  // range.
+  const spanFilmstrips = useMemo(() => {
+    const filmstrips = new Map<string, Filmstrip>();
+    const secondsPerPx = quartersToSeconds(1, bpm) / quarterPx;
+    for (const span of sourceSpans) {
+      const media = span.mediaId ? mediaItemsById.get(span.mediaId) : undefined;
+      if (
+        !media?.hasVideo ||
+        !media.previewUrl ||
+        media.availability !== "ready"
+      ) {
+        continue;
+      }
+
+      filmstrips.set(span.id, {
+        media,
+        tiles: getClipFilmstripTiles({
+          clip: getSourceSpanFilmstripClip(span),
+          mediaDurationSeconds: media.durationSeconds,
+          clipLeftPx: span.startQ * quarterPx,
+          clipWidthPx: getClipDurationQ(span, bpm) * quarterPx,
+          tileWidthPx: getFilmstripTileWidthPx(
+            SOURCE_SPAN_FILMSTRIP_HEIGHT_PX,
+            media.width,
+            media.height,
+          ),
+          secondsPerPx,
+          range: { startPx: filmstripRangeStartPx, endPx: filmstripRangeEndPx },
+        }),
+      });
+    }
+    return filmstrips;
+  }, [
+    bpm,
+    filmstripRangeEndPx,
+    filmstripRangeStartPx,
+    mediaItemsById,
+    quarterPx,
+    sourceSpans,
+  ]);
   // Source spans and layer clips share one thumbnail cache, so a frame both
   // show is decoded once. Spans show the frame at their start and clips the
-  // first frame the compositor shows for them, until their filmstrip tiles
-  // are ready.
+  // first frame the compositor shows for them, until their own filmstrip
+  // tiles are ready.
   const thumbnailRequests = useMemo(() => {
     const requests: ThumbnailRequest<MediaItem>[] = [];
     const addRequest = (
@@ -2546,17 +2593,28 @@ function App() {
         (media) => getClipThumbnailTimeSeconds(clip, media.durationSeconds),
       );
     }
-    for (const [clipId, { media, tiles }] of clipFilmstrips) {
-      for (const tile of tiles) {
-        addRequest(
-          getFilmstripTileOwner(clipId, tile.index),
-          media,
-          () => tile.timeSeconds,
-        );
+    for (const [kind, filmstrips] of [
+      ["clip", clipFilmstrips],
+      ["span", spanFilmstrips],
+    ] as const) {
+      for (const [id, { media, tiles }] of filmstrips) {
+        for (const tile of tiles) {
+          addRequest(
+            getFilmstripTileOwner(kind, id, tile.index),
+            media,
+            () => tile.timeSeconds,
+          );
+        }
       }
     }
     return requests;
-  }, [clipFilmstrips, mediaItemsById, sourceSpans, timelineClips]);
+  }, [
+    clipFilmstrips,
+    mediaItemsById,
+    sourceSpans,
+    spanFilmstrips,
+    timelineClips,
+  ]);
   const thumbnails = useThumbnailCache(thumbnailRequests, (request, error) => {
     logClient("thumbnail:error", {
       owner: request.owner,
@@ -6562,6 +6620,7 @@ function App() {
                                           tile.timeSeconds,
                                         ),
                                         getFilmstripTileOwner(
+                                          "clip",
                                           clip.id,
                                           tile.index,
                                         ),
@@ -6953,10 +7012,14 @@ function App() {
                                       `span:${clip.id}`,
                                     )) ??
                                   media?.thumbnailUrl;
+                                const filmstrip =
+                                  media?.hasVideo && mediaState === "online"
+                                    ? spanFilmstrips.get(clip.id)
+                                    : undefined;
                                 return (
                                   <div
                                     key={clip.id}
-                                    className="source-span"
+                                    className={`source-span ${filmstrip ? "source-span--filmstrip" : ""}`}
                                     style={{
                                       left: clip.startQ * quarterPx,
                                       width:
@@ -6967,18 +7030,56 @@ function App() {
                                         mediaState === "online" ? 1 : 0.56,
                                     }}
                                   >
-                                    <div
-                                      className="source-span__thumb"
-                                      style={
-                                        thumbnailUrl
-                                          ? {
-                                              backgroundImage: `url(${thumbnailUrl})`,
-                                              backgroundSize: "cover",
-                                              backgroundPosition: "center",
-                                            }
-                                          : undefined
-                                      }
-                                    />
+                                    {filmstrip ? (
+                                      <span
+                                        aria-hidden="true"
+                                        className="source-span__filmstrip"
+                                      >
+                                        {filmstrip.tiles.map((tile) => {
+                                          // A tile shows the span's start
+                                          // frame until its own frame is
+                                          // decoded.
+                                          const tileUrl =
+                                            thumbnails.get(
+                                              getThumbnailCacheKey(
+                                                filmstrip.media.id,
+                                                tile.timeSeconds,
+                                              ),
+                                              getFilmstripTileOwner(
+                                                "span",
+                                                clip.id,
+                                                tile.index,
+                                              ),
+                                            ) ?? thumbnailUrl;
+                                          return (
+                                            <span
+                                              key={tile.index}
+                                              className="source-span__tile"
+                                              style={{
+                                                left: tile.leftPx,
+                                                width: tile.widthPx,
+                                                backgroundImage: tileUrl
+                                                  ? `url(${tileUrl})`
+                                                  : undefined,
+                                              }}
+                                            />
+                                          );
+                                        })}
+                                      </span>
+                                    ) : (
+                                      <div
+                                        className="source-span__thumb"
+                                        style={
+                                          thumbnailUrl
+                                            ? {
+                                                backgroundImage: `url(${thumbnailUrl})`,
+                                                backgroundSize: "cover",
+                                                backgroundPosition: "center",
+                                              }
+                                            : undefined
+                                        }
+                                      />
+                                    )}
                                     <div className="source-span__body">
                                       <span>{clip.label}</span>
                                       <small>
