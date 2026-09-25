@@ -283,46 +283,39 @@ export function computeActiveClips(
     }
   }
 
-  return (
-    [...topClipByLane.values()]
-      .sort((left, right) => {
-        const laneDelta =
-          (lanePriority.get(left.clip.laneId) ?? Number.MAX_SAFE_INTEGER) -
-          (lanePriority.get(right.clip.laneId) ?? Number.MAX_SAFE_INTEGER);
-        if (laneDelta !== 0) {
-          return laneDelta;
-        }
-
-        return left.clip.startQ - right.clip.startQ;
-      })
-      .map<ActiveClip>(({ clip, media }) => {
-        const mediaTime =
-          quartersToSeconds(playheadQ, bpm) + clip.sourceOffsetSeconds;
-        const clipElapsedSeconds = quartersToSeconds(
-          playheadQ - clip.startQ,
-          bpm,
-        );
-        return {
-          clip,
-          media,
-          sourceKey: claimSourceKey(usedSourceKeys, media.id, clip),
-          mediaTime,
-          isInBounds:
-            mediaTime >= clip.sourceWindowStartSeconds &&
-            mediaTime < clip.sourceWindowEndSeconds - epsilon &&
-            (media.durationSeconds > 0
-              ? mediaTime >= 0 && mediaTime < media.durationSeconds - epsilon
-              : mediaTime >= 0),
-          laneRank: lanePriority.get(clip.laneId) ?? -1,
-          clipProgress:
-            clip.durationSeconds > 0
-              ? clamp(clipElapsedSeconds / clip.durationSeconds, 0, 1)
-              : 0,
-          visual: resolveVisualState(effects, clip.laneId),
-          effectChain: resolveEffectChain(effects, clip.laneId),
-        };
-      })
-  );
+  return [...topClipByLane.values()]
+    .sort(
+      (left, right) =>
+        (lanePriority.get(left.clip.laneId) ?? Number.MAX_SAFE_INTEGER) -
+        (lanePriority.get(right.clip.laneId) ?? Number.MAX_SAFE_INTEGER),
+    )
+    .map<ActiveClip>(({ clip, media }) => {
+      const mediaTime =
+        quartersToSeconds(playheadQ, bpm) + clip.sourceOffsetSeconds;
+      const clipElapsedSeconds = quartersToSeconds(
+        playheadQ - clip.startQ,
+        bpm,
+      );
+      return {
+        clip,
+        media,
+        sourceKey: claimSourceKey(usedSourceKeys, media.id, clip),
+        mediaTime,
+        isInBounds:
+          mediaTime >= clip.sourceWindowStartSeconds &&
+          mediaTime < clip.sourceWindowEndSeconds - epsilon &&
+          (media.durationSeconds > 0
+            ? mediaTime >= 0 && mediaTime < media.durationSeconds - epsilon
+            : mediaTime >= 0),
+        laneRank: lanePriority.get(clip.laneId) ?? -1,
+        clipProgress:
+          clip.durationSeconds > 0
+            ? clamp(clipElapsedSeconds / clip.durationSeconds, 0, 1)
+            : 0,
+        visual: resolveVisualState(effects, clip.laneId),
+        effectChain: resolveEffectChain(effects, clip.laneId),
+      };
+    });
 }
 
 // The first clip using a media draws from the media's own element. Further
