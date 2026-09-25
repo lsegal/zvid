@@ -11,7 +11,7 @@ export type EffectContext = {
   clipProgress: number;
   // Size in pixels of the surface the pass renders to.
   resolution: [number, number];
-  // Smoothed master-audio band energy, 0..1.
+  // Smoothed main-audio band energy, 0..1.
   audioLow: number;
   audioHigh: number;
   // True when the source texture is bottom row first (vUv.y = 0 is the bottom

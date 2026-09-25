@@ -19,7 +19,7 @@ function ffmpeg(args) {
 }
 
 const videoPath = resolve(directory, "moving-video.mp4");
-const audioPath = resolve(directory, "master-tone.wav");
+const audioPath = resolve(directory, "main-tone.wav");
 ffmpeg([
   "-f",
   "lavfi",
@@ -86,7 +86,7 @@ for (const [name, withAudio] of [
   mkdirSync(workspace, { recursive: true });
   const video = resolve(workspace, "moving-video.mp4");
   copyFileSync(videoPath, video);
-  const audio = withAudio ? resolve(workspace, "master-tone.wav") : undefined;
+  const audio = withAudio ? resolve(workspace, "main-tone.wav") : undefined;
   if (audio) copyFileSync(audioPath, audio);
   writeFileSync(
     resolve(workspace, `${name}.lvp`),

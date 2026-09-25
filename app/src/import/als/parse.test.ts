@@ -142,15 +142,15 @@ describe("parseAls with dogfood3.als", () => {
 });
 
 describe("parseAlsXml", () => {
-  const liveSet = (master: string, tracks = "") => `<?xml version="1.0"?>
+  const liveSet = (mainTrack: string, tracks = "") => `<?xml version="1.0"?>
 <Ableton MajorVersion="5" MinorVersion="12.0_12049" Creator="Ableton Live 12.0.5">
   <LiveSet>
     <Tracks>${tracks}</Tracks>
-    ${master}
+    ${mainTrack}
     <Transport><LoopOn Value="false" /><LoopStart Value="8" /><LoopLength Value="16" /><CurrentTime Value="4" /></Transport>
   </LiveSet>
 </Ableton>`;
-  const master = (name: string) => `<${name}>
+  const mainTrack = (name: string) => `<${name}>
     <AutomationEnvelopes><Envelopes>
       <AutomationEnvelope Id="0">
         <EnvelopeTarget><PointeeId Value="8" /></EnvelopeTarget>
@@ -167,7 +167,7 @@ describe("parseAlsXml", () => {
   </${name}>`;
 
   it("accepts Live 12's MainTrack and reads tempo automation", () => {
-    const doc = parseAlsXml(liveSet(master("MainTrack")));
+    const doc = parseAlsXml(liveSet(mainTrack("MainTrack")));
     assert.equal(doc.tempo, 120);
     assert.deepEqual(doc.tempoAutomation, [
       { time: -63072000, bpm: 120 },
@@ -179,7 +179,7 @@ describe("parseAlsXml", () => {
   it("reads group membership and group tracks", () => {
     const doc = parseAlsXml(
       liveSet(
-        master("MasterTrack"),
+        mainTrack("MasterTrack"),
         `<GroupTrack Id="4"><Name><EffectiveName Value="Group" /></Name><TrackGroupId Value="-1" /></GroupTrack>
          <AudioTrack Id="5"><Name><EffectiveName Value="In &amp; Out" /></Name><TrackGroupId Value="4" /></AudioTrack>`,
       ),
@@ -220,7 +220,7 @@ describe("parseAlsXml", () => {
 });
 
 describe("parseAls time signatures saved by Live 12", () => {
-  // Live leaves the master's `Manual` at 201 (4/4) in all of these; the
+  // Live leaves the main track's `Manual` at 201 (4/4) in all of these; the
   // signature is only in the TimeSignature envelope's initial event.
   for (const [name, numerator, denominator] of [
     ["time-signature-3-4.als", 3, 4],

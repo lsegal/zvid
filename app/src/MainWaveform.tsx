@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef } from "react";
 import { getPeakRange, type WaveformPeaks } from "./waveform-peaks";
 
-type MasterWaveformProps = {
+type MainWaveformProps = {
   peaks: WaveformPeaks;
   bpm: number;
   quarterPx: number;
@@ -11,13 +11,13 @@ type MasterWaveformProps = {
 
 // Draws only the visible slice of the lane so the canvas stays small at any
 // zoom level; x positions use the same quarter scale as the clip lanes.
-export function MasterWaveform({
+export function MainWaveform({
   peaks,
   bpm,
   quarterPx,
   visibleStartPx,
   visibleWidthPx,
-}: MasterWaveformProps) {
+}: MainWaveformProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useLayoutEffect(() => {

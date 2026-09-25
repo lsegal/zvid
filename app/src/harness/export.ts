@@ -43,13 +43,13 @@ export async function exportVideo(
       "MP4 export requires a HEVC or AV1 encoder on this device.",
     );
   let audio: AudioBuffer | null = null;
-  if (request.masterAudio?.hasAudio) {
+  if (request.mainAudio?.hasAudio) {
     request.onProgress({
       phase: "decoding-audio",
       progress: null,
       detail: "Preparing export audio...",
     });
-    const response = await fetch(request.masterAudio.previewUrl);
+    const response = await fetch(request.mainAudio.previewUrl);
     if (!response.ok)
       throw new Error(`Cannot read export audio (${response.status}).`);
     const context = new AudioContext();

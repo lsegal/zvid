@@ -49,7 +49,7 @@ type CompositionPlayerProps = {
   canvasWidth: number;
   canvasHeight: number;
   playheadSeconds: number;
-  masterAudio?: MediaItem;
+  mainAudio?: MediaItem;
 };
 
 export type CompositionRendererState = {
@@ -60,7 +60,7 @@ export type CompositionRendererState = {
   bpm: number;
   canvasWidth: number;
   canvasHeight: number;
-  masterAudio?: MediaItem;
+  mainAudio?: MediaItem;
 };
 
 type CompositionPlaybackState = {
@@ -143,8 +143,8 @@ function seekMediaElement(element: HTMLMediaElement, targetSeconds: number) {
   });
 }
 
-// "live" reads the master audio element as it plays (preview). "offline"
-// decodes the master audio and measures it at each rendered frame (export).
+// "live" reads the main audio element as it plays (preview). "offline"
+// decodes the main audio and measures it at each rendered frame (export).
 export type AudioAnalysisMode = "live" | "offline";
 
 export class CompositionRenderer {
@@ -155,7 +155,7 @@ export class CompositionRenderer {
   // each one plays.
   private mediaRefs = new Map<string, HTMLMediaElement>();
   private mediaIdBySourceKey = new Map<string, string>();
-  private masterAudioElement: HTMLAudioElement | null = null;
+  private mainAudioElement: HTMLAudioElement | null = null;
   private removeVideoFrameReadyListeners: Array<() => void> = [];
   private videoFrameReadyListener: (() => void) | null = null;
   private state: CompositionRendererState;
@@ -203,11 +203,11 @@ export class CompositionRenderer {
     this.mediaRefs.clear();
     this.mediaIdBySourceKey.clear();
 
-    if (this.masterAudioElement) {
-      this.masterAudioElement.pause();
-      this.masterAudioElement.removeAttribute("src");
-      this.masterAudioElement.load();
-      this.masterAudioElement = null;
+    if (this.mainAudioElement) {
+      this.mainAudioElement.pause();
+      this.mainAudioElement.removeAttribute("src");
+      this.mainAudioElement.load();
+      this.mainAudioElement = null;
     }
   }
 
@@ -260,9 +260,9 @@ export class CompositionRenderer {
 
     const audio = await this.sampleAudioBandsAt(playheadSeconds);
 
-    if (this.masterAudioElement && this.state.masterAudio?.previewUrl) {
-      this.masterAudioElement.pause();
-      this.masterAudioElement.currentTime = playheadSeconds;
+    if (this.mainAudioElement && this.state.mainAudio?.previewUrl) {
+      this.mainAudioElement.pause();
+      this.mainAudioElement.currentTime = playheadSeconds;
     }
 
     this.activeClips = nextActiveClips;
@@ -322,8 +322,8 @@ export class CompositionRenderer {
       }
     }
 
-    const audio = this.masterAudioElement;
-    if (!audio || !this.state.masterAudio?.previewUrl) {
+    const audio = this.mainAudioElement;
+    if (!audio || !this.state.mainAudio?.previewUrl) {
       return;
     }
 
@@ -423,7 +423,7 @@ export class CompositionRenderer {
       );
     }
 
-    const url = this.state.masterAudio?.previewUrl;
+    const url = this.state.mainAudio?.previewUrl;
     if (!url || !this.usesAudioBands()) {
       return SILENT_AUDIO_BANDS;
     }
@@ -447,13 +447,13 @@ export class CompositionRenderer {
       return;
     }
 
-    if (this.masterAudioElement && this.usesAudioBands()) {
+    if (this.mainAudioElement && this.usesAudioBands()) {
       this.liveAudioBands ??= new LiveAudioBands();
     }
     // Once routed through Web Audio the element must stay attached, or it
     // would go silent, so the analyser follows the element even after the
     // effects that needed it are removed.
-    this.liveAudioBands?.attach(this.masterAudioElement);
+    this.liveAudioBands?.attach(this.mainAudioElement);
   }
 
   private draw(
@@ -522,23 +522,23 @@ export class CompositionRenderer {
       this.ensureMediaElement(item.id, item);
     }
 
-    if (this.state.masterAudio?.previewUrl) {
-      if (!this.masterAudioElement) {
-        this.masterAudioElement = document.createElement("audio");
-        this.masterAudioElement.crossOrigin = "anonymous";
-        this.masterAudioElement.preload = "auto";
+    if (this.state.mainAudio?.previewUrl) {
+      if (!this.mainAudioElement) {
+        this.mainAudioElement = document.createElement("audio");
+        this.mainAudioElement.crossOrigin = "anonymous";
+        this.mainAudioElement.preload = "auto";
       }
       if (
-        this.masterAudioElement.getAttribute("src") !==
-        this.state.masterAudio.previewUrl
+        this.mainAudioElement.getAttribute("src") !==
+        this.state.mainAudio.previewUrl
       ) {
-        this.masterAudioElement.src = this.state.masterAudio.previewUrl;
+        this.mainAudioElement.src = this.state.mainAudio.previewUrl;
       }
-    } else if (this.masterAudioElement) {
-      this.masterAudioElement.pause();
-      this.masterAudioElement.removeAttribute("src");
-      this.masterAudioElement.load();
-      this.masterAudioElement = null;
+    } else if (this.mainAudioElement) {
+      this.mainAudioElement.pause();
+      this.mainAudioElement.removeAttribute("src");
+      this.mainAudioElement.load();
+      this.mainAudioElement = null;
     }
 
     this.syncLiveAudioBands();
@@ -593,7 +593,7 @@ export const CompositionPlayer = forwardRef<
     canvasWidth,
     canvasHeight,
     playheadSeconds,
-    masterAudio,
+    mainAudio,
   },
   ref,
 ) {
@@ -610,7 +610,7 @@ export const CompositionPlayer = forwardRef<
       bpm,
       canvasWidth,
       canvasHeight,
-      masterAudio,
+      mainAudio,
     }),
     [
       bpm,
@@ -619,7 +619,7 @@ export const CompositionPlayer = forwardRef<
       clips,
       effects,
       lanes,
-      masterAudio,
+      mainAudio,
       mediaItems,
     ],
   );

@@ -94,7 +94,7 @@ import {
 } from "./fx-stack";
 import { getHarness, type SaveTarget } from "./harness";
 import { hasMediaExtension } from "./harness/media-extensions";
-import { MasterWaveform } from "./MasterWaveform";
+import { MainWaveform } from "./MainWaveform";
 import {
   buildFallbackMediaItem,
   inferMediaKind,
@@ -287,7 +287,7 @@ type ProjectState = {
   sourceSpans: SourceSpan[];
   clips: ArrangementClip[];
   effects: SessionEffect[];
-  masterAudioId?: string;
+  mainAudioId?: string;
 };
 
 type LocalMediaOverride = {
@@ -395,7 +395,7 @@ const INITIAL_PROJECT_STATE: ProjectState = {
   sourceSpans: [],
   clips: [],
   effects: [],
-  masterAudioId: undefined,
+  mainAudioId: undefined,
 };
 const PALETTE: Palette[] = [
   { color: "#3d4052", accent: "#7ca1ff" },
@@ -692,7 +692,7 @@ function buildSelection(
 function getTimelineContentEndQ(
   clips: ArrangementClip[],
   sourceSpans: SourceSpan[],
-  masterAudioDurationSeconds: number | undefined,
+  mainAudioDurationSeconds: number | undefined,
   bpm: number,
   barLength: number,
 ) {
@@ -704,8 +704,8 @@ function getTimelineContentEndQ(
     (maximum, span) => Math.max(maximum, getClipEndQ(span, bpm)),
     0,
   );
-  const audioTimelineEndQ = masterAudioDurationSeconds
-    ? secondsToQuarters(masterAudioDurationSeconds, bpm)
+  const audioTimelineEndQ = mainAudioDurationSeconds
+    ? secondsToQuarters(mainAudioDurationSeconds, bpm)
     : 0;
 
   return Math.max(
@@ -1491,7 +1491,7 @@ function sessionToProject(session: LvpSession, mediaItems: MediaItem[]) {
     zoom: clamp(session.timeline?.zoom ?? 1, ZOOM_MIN, ZOOM_MAX),
     playPositionFrames: session.playPosition ?? 0,
     playStartPositionFrames: session.playStartPosition ?? 0,
-    masterAudioMediaId: session.audioFilename
+    mainAudioMediaId: session.audioFilename
       ? pickMediaByPath(mediaItems, session.audioFilename)?.id
       : undefined,
     unresolvedPaths: arrangementClips
@@ -1584,7 +1584,7 @@ function App() {
     sourceSpans,
     clips,
     effects,
-    masterAudioId,
+    mainAudioId,
   } = projectHistory.present;
   const canUndo = projectHistory.past.length > 0;
   const canRedo = projectHistory.future.length > 0;
@@ -2140,34 +2140,34 @@ function App() {
     [effects, fxKind, fxLane?.name, fxLaneId],
   );
   const playheadSeconds = quartersToSeconds(playheadQ, bpm);
-  const masterAudio = masterAudioId
-    ? mediaItemsById.get(masterAudioId)
+  const mainAudio = mainAudioId
+    ? mediaItemsById.get(mainAudioId)
     : undefined;
   const canCreateLayer = lanes.length < MAX_LAYERS;
-  // Only peaks decoded from the master audio are drawn; until they exist the
+  // Only peaks decoded from the main audio are drawn; until they exist the
   // lane shows why there is no waveform instead of a placeholder.
-  const masterAudioUrl =
-    masterAudio?.availability === "ready" ? masterAudio.previewUrl : "";
-  const masterWaveformKey =
-    masterAudioId && masterAudioUrl
-      ? `${masterAudioId}\n${masterAudioUrl}`
+  const mainAudioUrl =
+    mainAudio?.availability === "ready" ? mainAudio.previewUrl : "";
+  const mainWaveformKey =
+    mainAudioId && mainAudioUrl
+      ? `${mainAudioId}\n${mainAudioUrl}`
       : "";
-  const [masterWaveform, setMasterWaveform] = useState<{
+  const [mainWaveform, setMainWaveform] = useState<{
     key: string;
     status: "ready" | "no-audio" | "error";
     peaks?: WaveformPeaks;
   } | null>(null);
   useEffect(() => {
-    if (!masterAudioId || !masterAudioUrl) {
+    if (!mainAudioId || !mainAudioUrl) {
       return;
     }
 
-    const key = `${masterAudioId}\n${masterAudioUrl}`;
+    const key = `${mainAudioId}\n${mainAudioUrl}`;
     let cancelled = false;
-    loadWaveformPeaks(masterAudioId, masterAudioUrl).then(
+    loadWaveformPeaks(mainAudioId, mainAudioUrl).then(
       (result) => {
         if (!cancelled) {
-          setMasterWaveform(
+          setMainWaveform(
             result.status === "ready"
               ? { key, status: "ready", peaks: result.peaks }
               : { key, status: "no-audio" },
@@ -2176,45 +2176,45 @@ function App() {
       },
       (error: unknown) => {
         logClient("waveform:decode:error", {
-          mediaId: masterAudioId,
+          mediaId: mainAudioId,
           message: error instanceof Error ? error.message : String(error),
         });
         if (!cancelled) {
-          setMasterWaveform({ key, status: "error" });
+          setMainWaveform({ key, status: "error" });
         }
       },
     );
     return () => {
       cancelled = true;
     };
-  }, [masterAudioId, masterAudioUrl]);
-  const currentMasterWaveform =
-    masterWaveform && masterWaveform.key === masterWaveformKey
-      ? masterWaveform
+  }, [mainAudioId, mainAudioUrl]);
+  const currentMainWaveform =
+    mainWaveform && mainWaveform.key === mainWaveformKey
+      ? mainWaveform
       : null;
-  const masterWaveformMessage = !masterAudio
-    ? "No master audio track in this session"
-    : masterAudio.availability === "offline"
-      ? "Master audio is offline"
-      : masterAudio.availability === "hydrating"
-        ? "Waiting for master audio…"
-        : !currentMasterWaveform
-          ? "Analyzing master audio…"
-          : currentMasterWaveform.status === "no-audio"
-            ? "No audio found in master audio file"
-            : currentMasterWaveform.status === "error"
-              ? "Could not decode master audio"
+  const mainWaveformMessage = !mainAudio
+    ? "No main audio track in this session"
+    : mainAudio.availability === "offline"
+      ? "Main audio is offline"
+      : mainAudio.availability === "hydrating"
+        ? "Waiting for main audio…"
+        : !currentMainWaveform
+          ? "Analyzing main audio…"
+          : currentMainWaveform.status === "no-audio"
+            ? "No audio found in main audio file"
+            : currentMainWaveform.status === "error"
+              ? "Could not decode main audio"
               : null;
   const timelineContentEndQ = useMemo(
     () =>
       getTimelineContentEndQ(
         timelineClips,
         sourceSpans,
-        masterAudio?.durationSeconds,
+        mainAudio?.durationSeconds,
         bpm,
         barLength,
       ),
-    [barLength, bpm, masterAudio?.durationSeconds, sourceSpans, timelineClips],
+    [barLength, bpm, mainAudio?.durationSeconds, sourceSpans, timelineClips],
   );
   const rulerBars = useMemo(() => {
     const barCount = Math.ceil(totalQuarters / barLength);
@@ -3143,7 +3143,7 @@ function App() {
     return getTimelineContentEndQ(
       clips,
       sourceSpans,
-      masterAudio?.durationSeconds,
+      mainAudio?.durationSeconds,
       bpm,
       barLength,
     );
@@ -4615,7 +4615,7 @@ function App() {
         sourceSpans: project.sourceSpans,
         clips: project.arrangementClips,
         effects: project.effects,
-        masterAudioId: project.masterAudioMediaId,
+        mainAudioId: project.mainAudioMediaId,
       }),
     );
     setDragPreviewClips(null);
@@ -4924,7 +4924,7 @@ function App() {
 
     const durationSeconds = Math.max(
       0.01,
-      masterAudio?.durationSeconds ?? 0,
+      mainAudio?.durationSeconds ?? 0,
       ...clips.map(
         (clip) => quartersToSeconds(clip.startQ, bpm) + clip.durationSeconds,
       ),
@@ -4973,7 +4973,7 @@ function App() {
       frames: outputFrameCount,
       canvasWidth,
       canvasHeight,
-      masterAudio: masterAudio?.name,
+      mainAudio: mainAudio?.name,
     });
     logClient("export:phase", { phase: "preparing", frames: outputFrameCount });
 
@@ -4986,7 +4986,7 @@ function App() {
         bpm,
         canvasWidth,
         canvasHeight,
-        masterAudio,
+        mainAudio,
       },
       { audioAnalysis: "offline" },
     );
@@ -5003,7 +5003,7 @@ function App() {
         frameCount: outputFrameCount,
         frameDuration: outputFrameDuration,
         bpm,
-        masterAudio,
+        mainAudio,
         renderFrameAt: (frameQ, frameSeconds) =>
           exportRenderer.renderFrameAt(frameQ, frameSeconds),
         setPlayheadQ: () => {},
@@ -6251,7 +6251,7 @@ function App() {
                       <div>
                         <span>Audio</span>
                         <small>
-                          {masterAudio ? masterAudio.name : "No master audio"}
+                          {mainAudio ? mainAudio.name : "No main audio"}
                         </small>
                       </div>
                     </div>
@@ -6259,18 +6259,18 @@ function App() {
                       className="track-row__content track-row__content--waveform"
                       style={gridStyle}
                     >
-                      {masterWaveformMessage ? (
+                      {mainWaveformMessage ? (
                         <div
                           className="waveform__empty"
                           style={{ left: visibleTimelineStartPx + 16 }}
                         >
-                          {masterWaveformMessage}
+                          {mainWaveformMessage}
                         </div>
                       ) : null}
-                      {currentMasterWaveform?.peaks ? (
-                        <MasterWaveform
+                      {currentMainWaveform?.peaks ? (
+                        <MainWaveform
                           bpm={bpm}
-                          peaks={currentMasterWaveform.peaks}
+                          peaks={currentMainWaveform.peaks}
                           quarterPx={quarterPx}
                           visibleStartPx={visibleTimelineStartPx}
                           visibleWidthPx={visibleTimelineWidthPx}
@@ -6626,7 +6626,7 @@ function App() {
                       timelineDragState?.wasPlaying,
                     )}
                     lanes={lanes}
-                    masterAudio={masterAudio}
+                    mainAudio={mainAudio}
                     mediaItems={mediaItems}
                     playheadQ={playheadQ}
                     playheadSeconds={playheadSeconds}
