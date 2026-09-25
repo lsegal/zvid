@@ -136,7 +136,7 @@ import {
 import { statusMessageTone } from "./status-bar";
 import { buildStatusItems } from "./status-items";
 import { formatMusicalPosition, formatTimecode } from "./timeline-format.ts";
-import { ZVID_VERSION } from "./version";
+import { ZVID_BUILD } from "./version";
 import { loadWaveformPeaks } from "./waveform-loader";
 import type { WaveformPeaks } from "./waveform-peaks";
 import {
@@ -2737,7 +2737,7 @@ function App() {
         commitProjectChange("Set main audio", (current) =>
           patchProjectState(current, {
             mediaItems: [...current.mediaItems, toShareableMediaItem(analyzed)],
-            masterAudioId: analyzed.id,
+            mainAudioId: analyzed.id,
           }),
         );
 
@@ -5557,7 +5557,7 @@ function App() {
   const statusBarItems = useMemo<StatusItem[]>(
     () =>
       buildStatusItems({
-        version: ZVID_VERSION,
+        version: ZVID_BUILD,
         sessionName,
         timelineMode,
         // Unused: the playhead item is swapped for the live readout below.

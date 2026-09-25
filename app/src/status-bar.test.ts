@@ -58,7 +58,7 @@ describe("status bar items", () => {
 
 describe("status bar wiring", () => {
   it("renders the items built from app state", () => {
-    assert.match(appTsx, /buildStatusItems\(\{\s*version: ZVID_VERSION,/);
+    assert.match(appTsx, /buildStatusItems\(\{\s*version: ZVID_BUILD,/);
     assert.match(appTsx, /<StatusBar items=\{statusBarItems\}/);
     assert.doesNotMatch(appTsx, /preview-meta/);
   });
