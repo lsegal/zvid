@@ -28,5 +28,7 @@ windows = { version = "0.62", features = [
     "Win32_Media_MediaFoundation",
     "Win32_System_Com",
     "Win32_System_Performance",
+    "Win32_System_Registry",
 ] }
 windows-core = "0.62"
+windows-future = "0.3"

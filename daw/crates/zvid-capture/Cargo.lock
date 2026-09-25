@@ -403,4 +403,5 @@ dependencies = [
  "objc2-foundation",
  "windows",
  "windows-core",
+ "windows-future",
 ]
