@@ -163,6 +163,61 @@ fn records_a_playable_mp4_named_by_the_core_generator() {
 }
 
 #[test]
+fn records_rotated_captures_upright() {
+    let root = root();
+    let recorder = Recorder::start(config(&root, None, VideoEncoderChoice::Software)).unwrap();
+    // A landscape 64x48 sensor frame, dark on the left and bright on the
+    // right, from a camera held in portrait.
+    let (width, height) = (64u32, 48u32);
+    let mut data = vec![128; Frame::nv12_len(width, height)];
+    for row in data[..(width * height) as usize].chunks_mut(width as usize) {
+        row[..32].fill(16);
+        row[32..].fill(235);
+    }
+    for index in 0..10 {
+        push(
+            &recorder,
+            Arc::new(Frame {
+                width,
+                height,
+                format: PixelFormat::Nv12,
+                color: ColorInfo::for_height(height),
+                rotation: Rotation::Cw90,
+                pts: host_ms(index as f64 * 1000.0 / 30.0),
+                sequence: index,
+                data: data.clone(),
+            }),
+        );
+    }
+    let recorded = recorder.stop().unwrap();
+    assert_eq!(recorded.dimensions, (48, 64));
+
+    let path = root.path_of(&recorded.filename);
+    let (movie, _) = demux(&path);
+    assert_eq!(
+        movie.tracks[0].dimensions.map(|d| (d.width, d.height)),
+        Some((48, 64))
+    );
+    // Turned clockwise, the bright right half is now the bottom half.
+    let (w, h, rgb) = poster::poster_rgb(&path, 0.1, 64).unwrap();
+    assert_eq!((w, h), (48, 64));
+    let luma = |x: u32, y: u32| rgb[((y * w + x) * 3) as usize];
+    for x in [4, 24, 44] {
+        assert!(luma(x, 8) < 40, "top at x={x} is {}", luma(x, 8));
+        assert!(luma(x, 56) > 215, "bottom at x={x} is {}", luma(x, 56));
+    }
+    let jpeg = poster_jpeg(&path, 0.1, 64).unwrap();
+    assert_eq!(jpeg_size(&jpeg), Some((48, 64)));
+}
+
+/// Width and height from a baseline JPEG's frame header.
+fn jpeg_size(jpeg: &[u8]) -> Option<(u16, u16)> {
+    let at = jpeg.windows(2).position(|pair| pair == [0xff, 0xc0])?;
+    let field = |offset: usize| u16::from_be_bytes([jpeg[at + offset], jpeg[at + offset + 1]]);
+    Some((field(7), field(5)))
+}
+
+#[test]
 fn counts_collisions_and_never_overwrites() {
     let root = root();
     std::fs::create_dir_all(&root.dir).unwrap();

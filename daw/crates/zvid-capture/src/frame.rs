@@ -45,6 +45,17 @@ impl Rotation {
     pub fn swaps_axes(self) -> bool {
         matches!(self, Self::Cw90 | Self::Cw270)
     }
+
+    /// Maps a coordinate in the upright image back to the `sw` x `sh`
+    /// source image it was rotated from.
+    pub(crate) fn source_coord(self, dx: usize, dy: usize, sw: usize, sh: usize) -> (usize, usize) {
+        match self {
+            Self::None => (dx, dy),
+            Self::Cw90 => (dy, sh - 1 - dx),
+            Self::Cw180 => (sw - 1 - dx, sh - 1 - dy),
+            Self::Cw270 => (sw - 1 - dy, dx),
+        }
+    }
 }
 
 /// YCbCr matrix and range of the frame's samples.
@@ -98,6 +109,49 @@ impl Frame {
         }
     }
 
+    /// A copy of the frame with [`Frame::rotation`] applied to its pixels,
+    /// so encoders that know nothing of rotation record it upright.
+    pub fn upright(&self) -> Frame {
+        let PixelFormat::Nv12 = self.format;
+        let (sw, sh) = (self.width as usize, self.height as usize);
+        let (dw, dh) = self.display_size();
+        let (dw, dh) = (dw as usize, dh as usize);
+        let rotation = self.rotation;
+        let mut data = vec![128; Frame::nv12_len(dw as u32, dh as u32)];
+        let (luma, chroma) = data.split_at_mut(dw * dh);
+        let (src_luma, src_chroma) = (self.luma(), self.chroma());
+        for dy in 0..dh {
+            for dx in 0..dw {
+                let (sx, sy) = rotation.source_coord(dx, dy, sw, sh);
+                luma[dy * dw + dx] = src_luma[sy * sw + sx];
+            }
+        }
+        // Rotate the interleaved Cb/Cr pairs as units on the half-size grid.
+        let (cw, ch) = (sw / 2, sh / 2);
+        let (dcw, dch) = if rotation.swaps_axes() {
+            (ch, cw)
+        } else {
+            (cw, ch)
+        };
+        for dy in 0..dch {
+            for dx in 0..dcw {
+                let (sx, sy) = rotation.source_coord(dx, dy, cw, ch);
+                let (s, d) = (sy * sw + sx * 2, dy * dw + dx * 2);
+                chroma[d..d + 2].copy_from_slice(&src_chroma[s..s + 2]);
+            }
+        }
+        Frame {
+            width: dw as u32,
+            height: dh as u32,
+            format: self.format,
+            color: self.color,
+            rotation: Rotation::None,
+            pts: self.pts,
+            sequence: self.sequence,
+            data,
+        }
+    }
+
     pub(crate) fn luma(&self) -> &[u8] {
         &self.data[..self.width as usize * self.height as usize]
     }
@@ -143,6 +197,42 @@ pub fn pack_nv12(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn upright_rotates_both_planes() {
+        // 4x2 frame; luma counts 0..8 row-major, chroma pairs (10,11), (12,13).
+        let frame = |rotation| Frame {
+            width: 4,
+            height: 2,
+            format: PixelFormat::Nv12,
+            color: ColorInfo::for_height(2),
+            rotation,
+            pts: HostTime::default(),
+            sequence: 7,
+            data: vec![0, 1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13],
+        };
+        let upright = frame(Rotation::Cw90).upright();
+        assert_eq!((upright.width, upright.height), (2, 4));
+        assert_eq!(upright.rotation, Rotation::None);
+        assert_eq!(upright.sequence, 7);
+        // Clockwise: the bottom-left source pixel lands top-left.
+        assert_eq!(&upright.data[..8], &[4, 0, 5, 1, 6, 2, 7, 3]);
+        assert_eq!(&upright.data[8..], &[10, 11, 12, 13]);
+
+        let upright = frame(Rotation::Cw270).upright();
+        assert_eq!(&upright.data[..8], &[3, 7, 2, 6, 1, 5, 0, 4]);
+        assert_eq!(&upright.data[8..], &[12, 13, 10, 11]);
+
+        let upright = frame(Rotation::Cw180).upright();
+        assert_eq!((upright.width, upright.height), (4, 2));
+        assert_eq!(&upright.data[..8], &[7, 6, 5, 4, 3, 2, 1, 0]);
+        assert_eq!(&upright.data[8..], &[12, 13, 10, 11]);
+
+        assert_eq!(
+            frame(Rotation::None).upright().data,
+            frame(Rotation::None).data
+        );
+    }
 
     #[test]
     fn rotation_from_degrees() {

@@ -8,7 +8,8 @@
 //!   back to zvidlib's native HEVC and then AV1 encoders (see
 //!   [`encoder`]). Frames are placed on a constant-frame-rate grid at the
 //!   camera's rate, timed from their capture timestamps relative to the
-//!   first frame (file time zero).
+//!   first frame (file time zero). Frames are rotated upright
+//!   ([`Frame::upright`]) before encoding.
 //! - **Audio** is AAC-LC of the plugin's input bus, aligned to the same
 //!   clock. Without an AAC encoder the file is video only.
 //! - **Muxing** writes a fragmented MP4 while recording, one synced
@@ -41,7 +42,7 @@ use zvidlib::{AudioGapless, Codec, EncodedSample, Limits, SampleDependency, Vide
 
 use crate::clock::HostTime;
 use crate::format::Rational;
-use crate::frame::Frame;
+use crate::frame::{Frame, Rotation};
 
 pub use encoder::VideoEncoderChoice;
 pub use poster::poster_jpeg;
@@ -538,6 +539,16 @@ impl Worker {
         audio: &mut Option<Audio>,
         output: &mut Output,
     ) -> Result<(), String> {
+        // Encoders take pixels as they are, so turn portrait captures
+        // upright here: the file then plays upright everywhere and its
+        // dimensions are the displayed ones.
+        let upright;
+        let frame = if frame.rotation == Rotation::None {
+            frame
+        } else {
+            upright = frame.upright();
+            &upright
+        };
         if video.is_none() {
             let (encoder, skipped) =
                 encoder::open_video(frame.width, frame.height, self.fps, self.choice)

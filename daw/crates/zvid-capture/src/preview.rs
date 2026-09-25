@@ -2,7 +2,7 @@
 
 use crate::clock::HostTime;
 use crate::format::Rational;
-use crate::frame::{Frame, PixelFormat, Rotation};
+use crate::frame::{Frame, PixelFormat};
 use jpeg_encoder::{ColorType, Encoder};
 
 /// Preview limits. The defaults are ≤640 px on the long edge at ≤30 fps.
@@ -74,7 +74,9 @@ pub fn to_rgb(frame: &Frame, max_edge: u32) -> (u32, u32, Vec<u8>) {
                 for tx in 0..taps_x {
                     let dx = ((ox * taps_x + tx) * 2 + 1) * dw / (2 * ow * taps_x);
                     let (sx, sy) =
-                        source_coord(frame.rotation, dx.min(dw - 1), dy.min(dh - 1), sw, sh);
+                        frame
+                            .rotation
+                            .source_coord(dx.min(dw - 1), dy.min(dh - 1), sw, sh);
                     y_sum += u32::from(luma[sy * sw + sx]);
                     let c = (sy / 2) * sw + (sx & !1);
                     u_sum += u32::from(chroma[c]);
@@ -90,16 +92,6 @@ pub fn to_rgb(frame: &Frame, max_edge: u32) -> (u32, u32, Vec<u8>) {
         }
     }
     (ow as u32, oh as u32, rgb)
-}
-
-/// Maps a display coordinate back to the source frame for a clockwise rotation.
-fn source_coord(rotation: Rotation, dx: usize, dy: usize, sw: usize, sh: usize) -> (usize, usize) {
-    match rotation {
-        Rotation::None => (dx, dy),
-        Rotation::Cw90 => (dy, sh - 1 - dx),
-        Rotation::Cw180 => (sw - 1 - dx, sh - 1 - dy),
-        Rotation::Cw270 => (sw - 1 - dy, dx),
-    }
 }
 
 pub(crate) struct Converter {
@@ -202,7 +194,7 @@ impl Throttle {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::frame::ColorInfo;
+    use crate::frame::{ColorInfo, Rotation};
 
     fn solid(width: u32, height: u32, y: u8, u: u8, v: u8) -> Frame {
         let luma = (width * height) as usize;
