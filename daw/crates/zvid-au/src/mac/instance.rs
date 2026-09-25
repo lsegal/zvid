@@ -6,10 +6,17 @@
 //! output unchanged, and is handed to the input tap for recording. Every
 //! render also reads the host transport and pushes a snapshot into the SPSC
 //! ring the take tracker drains.
+//!
+//! The render path is real-time safe: it takes no locks and allocates
+//! nothing. Values the host sets while the unit runs (input source, host
+//! callbacks, render notifications, the input tap) are published through
+//! [`Swap`], and the render scratch is only rebuilt by `Initialize`, which
+//! hosts never call while rendering.
 
 // Apple's constant names are used as match patterns.
 #![allow(non_upper_case_globals)]
 
+use std::cell::UnsafeCell;
 use std::ffi::{c_uint, c_void};
 use std::mem::{self, size_of};
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -52,6 +59,7 @@ use objc2_core_audio_types::{
 };
 use objc2_foundation::NSString;
 use zvid_daw_core::ring::{Consumer, Producer, transport_ring};
+use zvid_daw_core::swap::Swap;
 use zvid_daw_core::{InputTap, State, TransportSnapshot};
 
 use super::{class_info, view};
@@ -118,15 +126,12 @@ enum Input {
     Connection(AudioUnitConnection),
 }
 
-/// Settings the host changes through properties.
+/// Settings that may only change while the unit is uninitialized.
 #[derive(Clone, Copy)]
 struct Config {
-    initialized: bool,
     input_format: Format,
     output_format: Format,
     max_frames: u32,
-    input: Input,
-    host_callbacks: Option<HostCallbackInfo>,
 }
 
 struct Preset {
@@ -166,8 +171,11 @@ struct RenderNotify {
     user_data: *mut c_void,
 }
 
-/// Buffers only the render thread touches.
+/// What render works with, set up by `Initialize`.
 struct Scratch {
+    channels: usize,
+    max_frames: u32,
+    sample_rate: f64,
     /// `channels * max_frames` samples the input is pulled into.
     samples: Vec<f32>,
     /// Backing store for an `AudioBufferList` with one buffer per channel,
@@ -183,14 +191,18 @@ pub struct AudioUnitInstance {
     /// pointer to this interface.
     interface: AudioComponentPlugInInterface,
     unit: AtomicPtr<OpaqueAudioComponentInstance>,
+    initialized: AtomicBool,
     config: Mutex<Config>,
+    input: Swap<Input>,
+    host_callbacks: Swap<Option<HostCallbackInfo>>,
+    render_notifies: Swap<Vec<RenderNotify>>,
+    input_tap: Swap<Option<Arc<dyn InputTap>>>,
+    /// Only `initialize` writes it, and only render reads it.
+    scratch: UnsafeCell<Scratch>,
     state: Mutex<State>,
     preset: Mutex<Preset>,
     listeners: Mutex<Vec<Listener>>,
-    render_notifies: Mutex<Vec<RenderNotify>>,
-    scratch: Mutex<Scratch>,
     transport: Mutex<Option<Consumer<TransportSnapshot>>>,
-    input_tap: Mutex<Option<Arc<dyn InputTap>>>,
     last_render_error: AtomicI32,
     /// `BypassEffect`. The audio passes through either way; bypass only
     /// tells the host the effect is off, and recording continues.
@@ -214,13 +226,23 @@ impl AudioUnitInstance {
                 reserved: ptr::null_mut(),
             },
             unit: AtomicPtr::new(ptr::null_mut()),
+            initialized: AtomicBool::new(false),
             config: Mutex::new(Config {
-                initialized: false,
                 input_format: format,
                 output_format: format,
                 max_frames: DEFAULT_MAX_FRAMES,
-                input: Input::None,
-                host_callbacks: None,
+            }),
+            input: Swap::new(Input::None),
+            host_callbacks: Swap::new(None),
+            render_notifies: Swap::new(Vec::new()),
+            input_tap: Swap::new(None),
+            scratch: UnsafeCell::new(Scratch {
+                channels: 0,
+                max_frames: 0,
+                sample_rate: DEFAULT_SAMPLE_RATE,
+                samples: Vec::new(),
+                list: Vec::new(),
+                transport: producer,
             }),
             state: Mutex::new(State::default()),
             preset: Mutex::new(Preset {
@@ -228,14 +250,7 @@ impl AudioUnitInstance {
                 name: NSString::from_str(DEFAULT_PRESET_NAME),
             }),
             listeners: Mutex::new(Vec::new()),
-            render_notifies: Mutex::new(Vec::new()),
-            scratch: Mutex::new(Scratch {
-                samples: Vec::new(),
-                list: Vec::new(),
-                transport: producer,
-            }),
             transport: Mutex::new(Some(consumer)),
-            input_tap: Mutex::new(None),
             last_render_error: AtomicI32::new(0),
             bypass: AtomicBool::new(false),
             timebase: timebase(),
@@ -255,7 +270,7 @@ impl AudioUnitInstance {
 
     /// Sets the tap that receives the input audio every render.
     pub fn set_input_tap(&self, tap: Option<Arc<dyn InputTap>>) {
-        *lock(&self.input_tap) = tap;
+        self.input_tap.store(tap);
     }
 
     fn config(&self) -> Config {
@@ -266,25 +281,35 @@ impl AudioUnitInstance {
         self.unit.load(Ordering::Acquire)
     }
 
+    fn is_initialized(&self) -> bool {
+        self.initialized.load(Ordering::Acquire)
+    }
+
     fn initialize(&self) -> i32 {
-        let mut config = lock(&self.config);
-        if config.initialized {
+        let config = lock(&self.config);
+        if self.is_initialized() {
             return 0;
         }
         if config.input_format != config.output_format {
             return kAudioUnitErr_FormatNotSupported;
         }
+        // SAFETY: the unit is uninitialized, so render is not running, and
+        // the config lock keeps other `initialize` calls out.
+        let scratch = unsafe { &mut *self.scratch.get() };
         let channels = config.output_format.channels as usize;
-        let mut scratch = lock(&self.scratch);
+        scratch.channels = channels;
+        scratch.max_frames = config.max_frames;
+        scratch.sample_rate = config.output_format.sample_rate;
         scratch.samples = vec![0.0; channels * config.max_frames as usize];
         let list_bytes = size_of::<AudioBufferList>() + (channels - 1) * size_of::<AudioBuffer>();
         scratch.list = vec![0; list_bytes.div_ceil(size_of::<u64>())];
-        config.initialized = true;
+        self.initialized.store(true, Ordering::Release);
         0
     }
 
     fn uninitialize(&self) -> i32 {
-        lock(&self.config).initialized = false;
+        let _config = lock(&self.config);
+        self.initialized.store(false, Ordering::Release);
         0
     }
 
@@ -405,7 +430,7 @@ impl AudioUnitInstance {
                 }
                 kAudioUnitProperty_HostCallbacks => write(
                     data,
-                    config.host_callbacks.unwrap_or(HostCallbackInfo {
+                    self.host_callbacks.load().unwrap_or(HostCallbackInfo {
                         hostUserData: ptr::null_mut(),
                         beatAndTempoProc: None,
                         musicalTimeLocationProc: None,
@@ -470,22 +495,22 @@ impl AudioUnitInstance {
                 kAudioUnitProperty_ClassInfo => self.restore(read::<*const AnyObject>(data)),
                 kAudioUnitProperty_MakeConnection => {
                     let connection = read::<AudioUnitConnection>(data);
-                    lock(&self.config).input = if connection.sourceAudioUnit.is_null() {
+                    self.input.store(if connection.sourceAudioUnit.is_null() {
                         Input::None
                     } else {
                         Input::Connection(connection)
-                    };
+                    });
                     0
                 }
                 kAudioUnitProperty_SetRenderCallback => {
                     let callback = read::<AURenderCallbackStruct>(data);
-                    lock(&self.config).input = match callback.inputProc {
+                    self.input.store(match callback.inputProc {
                         None => Input::None,
                         Some(proc_) => Input::Callback {
                             proc_: render_proc(proc_),
                             user_data: callback.inputProcRefCon,
                         },
-                    };
+                    });
                     0
                 }
                 kAudioUnitProperty_SampleRate => {
@@ -511,7 +536,7 @@ impl AudioUnitInstance {
                         kAudioUnitErr_InvalidPropertyValue
                     } else if frames == config.max_frames {
                         0
-                    } else if config.initialized {
+                    } else if self.is_initialized() {
                         kAudioUnitErr_Initialized
                     } else {
                         config.max_frames = frames;
@@ -536,7 +561,7 @@ impl AudioUnitInstance {
                         ptr::from_mut(&mut info).cast::<u8>(),
                         bytes,
                     );
-                    lock(&self.config).host_callbacks = Some(info);
+                    self.host_callbacks.store(Some(info));
                     0
                 }
                 kAudioUnitProperty_PresentPreset => {
@@ -569,7 +594,7 @@ impl AudioUnitInstance {
 
     fn set_format(&self, scope: AudioUnitScope, change: impl FnOnce(Format) -> Format) -> i32 {
         let mut config = lock(&self.config);
-        let initialized = config.initialized;
+        let initialized = self.is_initialized();
         let format = if scope == kAudioUnitScope_Input {
             &mut config.input_format
         } else {
@@ -634,14 +659,16 @@ impl AudioUnitInstance {
         frames: u32,
         io_data: *mut AudioBufferList,
     ) -> i32 {
-        let config = self.config();
-        if !config.initialized {
+        if !self.is_initialized() {
             return kAudioUnitErr_Uninitialized;
         }
+        // SAFETY: hosts never render a unit concurrently with itself or with
+        // `Initialize`, the only writer.
+        let scratch = unsafe { &mut *self.scratch.get() };
         if bus != 0 {
             return kAudioUnitErr_InvalidElement;
         }
-        if frames > config.max_frames {
+        if frames > scratch.max_frames {
             return kAudioUnitErr_TooManyFramesToProcess;
         }
         let (Some(time_stamp), Some(io_data)) =
@@ -649,7 +676,7 @@ impl AudioUnitInstance {
         else {
             return kAudio_ParamError;
         };
-        let channels = config.output_format.channels as usize;
+        let channels = scratch.channels;
         // SAFETY: the host passes a valid buffer list and time stamp.
         let time_stamp = unsafe { time_stamp.as_ref() };
         if unsafe { io_data.as_ref() }.mNumberBuffers as usize != channels {
@@ -673,13 +700,10 @@ impl AudioUnitInstance {
         // SAFETY: the host passes a valid buffer list, and nothing else
         // touches it until the post-render notification.
         let io_buffers = unsafe { buffers_mut(io_data) };
-        let mut scratch = lock(&self.scratch);
-        let scratch = &mut *scratch;
-        // SAFETY: `initialize` sized the scratch list for `channels` buffers
-        // and the samples for `channels * max_frames`.
-        let input = unsafe { scratch_list(scratch, channels, frames, config.max_frames) };
+        // SAFETY: `frames <= max_frames`, checked above.
+        let input = unsafe { scratch_list(scratch, frames) };
         let mut input_flags = AudioUnitRenderActionFlags(0);
-        let status = match config.input {
+        let status = match *self.input.load() {
             Input::None => kAudioUnitErr_NoConnection,
             // SAFETY: the host registered this callback to provide input.
             Input::Callback { proc_, user_data } => unsafe {
@@ -747,20 +771,20 @@ impl AudioUnitInstance {
             .mFlags
             .contains(AudioTimeStampFlags::HostTimeValid)
             .then(|| host_ticks_to_sec(time_stamp.mHostTime, self.timebase.0, self.timebase.1));
-        if let Some(host) = &config.host_callbacks {
+        if let Some(host) = self.host_callbacks.load() {
             // SAFETY: host callbacks are only valid inside render, which is
             // where this runs.
             let reading = unsafe { read_host(host) };
             let now = host_time
                 .unwrap_or_else(|| host_ticks_to_sec(host_now(), self.timebase.0, self.timebase.1));
-            if let Some(snapshot) = snapshot(reading, config.output_format.sample_rate, now) {
+            if let Some(snapshot) = snapshot(reading, scratch.sample_rate, now) {
                 // A full ring means nobody is draining it; dropping keeps the
                 // audio thread wait-free.
                 let _ = scratch.transport.push(snapshot);
             }
         }
 
-        if let Some(tap) = lock(&self.input_tap).as_ref() {
+        if let Some(tap) = self.input_tap.load() {
             let mut slices: [&[f32]; MAX_CHANNELS] = [&[]; MAX_CHANNELS];
             for (slice, buffer) in slices.iter_mut().zip(io_buffers.iter()) {
                 // SAFETY: every output buffer now holds `frames` samples.
@@ -768,11 +792,7 @@ impl AudioUnitInstance {
                     std::slice::from_raw_parts(buffer.mData.cast::<f32>(), frames as usize)
                 };
             }
-            tap.process(
-                &slices[..channels],
-                config.output_format.sample_rate,
-                host_time,
-            );
+            tap.process(&slices[..channels], scratch.sample_rate, host_time);
         }
 
         self.call_render_notifies(
@@ -793,7 +813,7 @@ impl AudioUnitInstance {
         frames: u32,
         io_data: NonNull<AudioBufferList>,
     ) {
-        for notify in lock(&self.render_notifies).iter() {
+        for notify in self.render_notifies.load() {
             // SAFETY: the host registered this callback for this unit.
             unsafe {
                 (notify.proc_)(
@@ -930,14 +950,10 @@ unsafe fn buffers_mut<'a>(list: NonNull<AudioBufferList>) -> &'a mut [AudioBuffe
 ///
 /// # Safety
 ///
-/// `scratch` must have been sized by `initialize` for `channels` channels and
-/// `max_frames` frames, and `frames <= max_frames`.
-unsafe fn scratch_list(
-    scratch: &mut Scratch,
-    channels: usize,
-    frames: u32,
-    max_frames: u32,
-) -> NonNull<AudioBufferList> {
+/// `scratch` must have been set up by `initialize`, and
+/// `frames <= scratch.max_frames`.
+unsafe fn scratch_list(scratch: &mut Scratch, frames: u32) -> NonNull<AudioBufferList> {
+    let (channels, max_frames) = (scratch.channels, scratch.max_frames);
     let list = NonNull::new(scratch.list.as_mut_ptr().cast::<AudioBufferList>())
         .expect("vec pointers are non-null");
     unsafe {
@@ -1240,10 +1256,13 @@ unsafe extern "C-unwind" fn add_render_notify(
             let Some(proc_) = proc_ else {
                 return kAudio_ParamError;
             };
-            lock(&instance.render_notifies).push(RenderNotify {
+            let notify = RenderNotify {
                 proc_: render_proc(proc_),
                 user_data,
-            });
+            };
+            instance
+                .render_notifies
+                .update(|notifies| [notifies.as_slice(), &[notify]].concat());
             0
         })
     }
@@ -1257,8 +1276,14 @@ unsafe extern "C-unwind" fn remove_render_notify(
     unsafe {
         with(this, |instance| {
             let proc_ = proc_.map(render_proc);
-            lock(&instance.render_notifies).retain(|notify| {
-                !(same_fn(Some(notify.proc_), proc_) && notify.user_data == user_data)
+            instance.render_notifies.update(|notifies| {
+                notifies
+                    .iter()
+                    .filter(|notify| {
+                        !(same_fn(Some(notify.proc_), proc_) && notify.user_data == user_data)
+                    })
+                    .copied()
+                    .collect()
             });
             0
         })

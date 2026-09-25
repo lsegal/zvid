@@ -9,6 +9,7 @@ pub mod naming;
 pub mod paths;
 pub mod ring;
 pub mod state;
+pub mod swap;
 pub mod tracker;
 
 pub use audio::InputTap;
