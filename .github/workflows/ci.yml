@@ -83,6 +83,10 @@ jobs:
       - name: Test
         run: cargo test --workspace --locked
 
+      # Runners have no cameras; this exercises the platform enumeration path.
+      - name: List cameras
+        run: cargo run --locked -p zvid-capture --example capture -- list
+
       - name: Repository checks
         run: cargo xtask check
 
