@@ -8,8 +8,10 @@
 use crate::clock::HostTime;
 use crate::fanout::Dispatcher;
 use crate::frame::{pack_nv12, ColorInfo, Frame, PixelFormat, Rotation};
-use crate::preview::Throttle;
-use crate::{select_format, CaptureError, Device, DeviceId, Format, FormatPreference, Permission, Rational, Selection, Transport};
+use crate::{
+    select_format, CaptureError, Device, DeviceId, Format, FormatPreference, Permission, Rational,
+    Selection, Transport,
+};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
@@ -17,17 +19,24 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::thread::JoinHandle;
 use std::time::Duration;
 use windows::core::{Interface, HRESULT, HSTRING, PCWSTR, PWSTR};
-use windows::Devices::Enumeration::{DeviceClass, DeviceInformation, DeviceInformationUpdate, DeviceWatcher, Panel};
+use windows::Devices::Enumeration::{
+    DeviceClass, DeviceInformation, DeviceInformationUpdate, DeviceWatcher, Panel,
+};
 use windows::Foundation::TypedEventHandler;
-use windows::Win32::Foundation::{E_ACCESSDENIED, ERROR_SHARING_VIOLATION};
+use windows::Win32::Foundation::{ERROR_SHARING_VIOLATION, E_ACCESSDENIED};
 use windows::Win32::Media::MediaFoundation::*;
 use windows::Win32::System::Com::{CoInitializeEx, CoTaskMemFree, COINIT_MULTITHREADED};
-use windows::Win32::System::Registry::{RegGetValueW, HKEY, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, RRF_RT_REG_SZ};
+use windows::Win32::System::Registry::{
+    RegGetValueW, HKEY, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, RRF_RT_REG_SZ,
+};
 
 const VIDEO_STREAM: u32 = MF_SOURCE_READER_FIRST_VIDEO_STREAM.0 as u32;
 
 fn platform_error(context: &'static str, error: windows::core::Error) -> CaptureError {
-    CaptureError::platform(context, format!("{} ({:#010x})", error.message(), error.code().0))
+    CaptureError::platform(
+        context,
+        format!("{} ({:#010x})", error.message(), error.code().0),
+    )
 }
 
 /// Maps capture HRESULTs to typed errors.
@@ -62,7 +71,10 @@ fn ensure_mf() -> Result<(), CaptureError> {
     STARTUP
         // SAFETY: no preconditions. Never shut down: MF is ref-counted and
         // the host may use it too.
-        .get_or_init(|| unsafe { MFStartup(MF_VERSION, MFSTARTUP_FULL) }.map_err(|e| platform_error("MFStartup", e)))
+        .get_or_init(|| {
+            unsafe { MFStartup(MF_VERSION, MFSTARTUP_FULL) }
+                .map_err(|e| platform_error("MFStartup", e))
+        })
         .clone()
 }
 
@@ -71,7 +83,9 @@ fn attr_string(attributes: &IMFAttributes, key: &windows::core::GUID) -> Option<
     let mut len = 0;
     // SAFETY: out pointers are valid; the string is freed below.
     unsafe {
-        attributes.GetAllocatedString(key, &mut value, &mut len).ok()?;
+        attributes
+            .GetAllocatedString(key, &mut value, &mut len)
+            .ok()?;
         let text = value.to_string().ok();
         CoTaskMemFree(Some(value.0 as *const _));
         text
@@ -83,31 +97,48 @@ fn enum_sources() -> Result<Vec<IMFActivate>, CaptureError> {
     // SAFETY: standard MF enumeration; the returned array is freed below.
     unsafe {
         let mut attributes = None;
-        MFCreateAttributes(&mut attributes, 1).map_err(|e| platform_error("MFCreateAttributes", e))?;
-        let attributes = attributes.ok_or_else(|| CaptureError::platform("MFCreateAttributes", "no attributes"))?;
+        MFCreateAttributes(&mut attributes, 1)
+            .map_err(|e| platform_error("MFCreateAttributes", e))?;
+        let attributes = attributes
+            .ok_or_else(|| CaptureError::platform("MFCreateAttributes", "no attributes"))?;
         attributes
-            .SetGUID(&MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE, &MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_GUID)
+            .SetGUID(
+                &MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE,
+                &MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_GUID,
+            )
             .map_err(|e| platform_error("SetGUID", e))?;
         let mut array: *mut Option<IMFActivate> = std::ptr::null_mut();
         let mut count = 0u32;
-        MFEnumDeviceSources(&attributes, &mut array, &mut count).map_err(|e| platform_error("MFEnumDeviceSources", e))?;
+        MFEnumDeviceSources(&attributes, &mut array, &mut count)
+            .map_err(|e| platform_error("MFEnumDeviceSources", e))?;
         if array.is_null() {
             return Ok(Vec::new());
         }
-        let sources = std::slice::from_raw_parts_mut(array, count as usize).iter_mut().filter_map(Option::take).collect();
+        let sources = std::slice::from_raw_parts_mut(array, count as usize)
+            .iter_mut()
+            .filter_map(Option::take)
+            .collect();
         CoTaskMemFree(Some(array as *const _));
         Ok(sources)
     }
 }
 
 fn source_id(activate: &IMFActivate) -> Option<DeviceId> {
-    attr_string(activate, &MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_SYMBOLIC_LINK).map(DeviceId)
+    attr_string(
+        activate,
+        &MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_SYMBOLIC_LINK,
+    )
+    .map(DeviceId)
 }
 
 /// Classifies a capture device from its symbolic link.
 pub(crate) fn transport_from_link(link: &str) -> Transport {
     let link = link.to_ascii_lowercase();
-    let bus = link.trim_start_matches(r"\\?\").split('#').next().unwrap_or_default();
+    let bus = link
+        .trim_start_matches(r"\\?\")
+        .split('#')
+        .next()
+        .unwrap_or_default();
     match bus {
         "usb" => Transport::Usb,
         // Software devices: Windows virtual cameras (including Phone Link
@@ -147,9 +178,14 @@ pub(crate) fn list_devices() -> Result<Vec<Device>, CaptureError> {
         .iter()
         .filter_map(|activate| {
             let id = source_id(activate)?;
-            let name = attr_string(activate, &MF_DEVSOURCE_ATTRIBUTE_FRIENDLY_NAME).unwrap_or_else(|| id.0.clone());
+            let name = attr_string(activate, &MF_DEVSOURCE_ATTRIBUTE_FRIENDLY_NAME)
+                .unwrap_or_else(|| id.0.clone());
             let transport = transport(&id.0);
-            Some(Device { id, name, transport })
+            Some(Device {
+                id,
+                name,
+                transport,
+            })
         })
         .collect())
 }
@@ -218,10 +254,14 @@ fn open_reader(id: &DeviceId) -> Result<(IMFMediaSource, IMFSourceReader), Captu
     let activate = find_source(id)?;
     // SAFETY: standard MF activation and reader creation.
     unsafe {
-        let source: IMFMediaSource = activate.ActivateObject().map_err(|e| classify("ActivateObject", e, id))?;
+        let source: IMFMediaSource = activate
+            .ActivateObject()
+            .map_err(|e| classify("ActivateObject", e, id))?;
         let mut attributes = None;
-        MFCreateAttributes(&mut attributes, 2).map_err(|e| platform_error("MFCreateAttributes", e))?;
-        let attributes = attributes.ok_or_else(|| CaptureError::platform("MFCreateAttributes", "no attributes"))?;
+        MFCreateAttributes(&mut attributes, 2)
+            .map_err(|e| platform_error("MFCreateAttributes", e))?;
+        let attributes = attributes
+            .ok_or_else(|| CaptureError::platform("MFCreateAttributes", "no attributes"))?;
         attributes
             .SetUINT32(&MF_SOURCE_READER_ENABLE_ADVANCED_VIDEO_PROCESSING, 1)
             .map_err(|e| platform_error("SetUINT32", e))?;
@@ -235,7 +275,10 @@ fn open_reader(id: &DeviceId) -> Result<(IMFMediaSource, IMFSourceReader), Captu
 
 pub(crate) fn supported_formats(id: &DeviceId) -> Result<Vec<Format>, CaptureError> {
     let (source, reader) = open_reader(id)?;
-    let mut formats: Vec<Format> = native_types(&reader).into_iter().map(|t| t.format).collect();
+    let mut formats: Vec<Format> = native_types(&reader)
+        .into_iter()
+        .map(|t| t.format)
+        .collect();
     formats.sort_by(|a, b| (b.width * b.height, b.fps).cmp(&(a.width * a.height, a.fps)));
     formats.dedup();
     drop(reader);
@@ -271,11 +314,16 @@ fn read_registry_string(root: HKEY, path: &str, value: &str) -> Option<String> {
 /// Reads the Settings > Privacy > Camera switches. Desktop apps can't be
 /// prompted: access is either on or off.
 pub(crate) fn permission() -> Permission {
-    const STORE: &str = r"Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\webcam";
-    let denied = |root, path: &str| read_registry_string(root, path, "Value").is_some_and(|v| v.eq_ignore_ascii_case("Deny"));
+    const STORE: &str =
+        r"Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\webcam";
+    let denied = |root, path: &str| {
+        read_registry_string(root, path, "Value").is_some_and(|v| v.eq_ignore_ascii_case("Deny"))
+    };
     if denied(HKEY_LOCAL_MACHINE, STORE) {
         Permission::Restricted
-    } else if denied(HKEY_CURRENT_USER, STORE) || denied(HKEY_CURRENT_USER, &format!(r"{STORE}\NonPackaged")) {
+    } else if denied(HKEY_CURRENT_USER, STORE)
+        || denied(HKEY_CURRENT_USER, &format!(r"{STORE}\NonPackaged"))
+    {
         Permission::Denied
     } else {
         Permission::Authorized
@@ -325,7 +373,8 @@ fn configure(id: &DeviceId, pref: &FormatPreference) -> Result<Configured, Captu
         reader
             .SetCurrentMediaType(VIDEO_STREAM, None, &native.media_type)
             .map_err(|e| fail(classify("SetCurrentMediaType(native)", e, id)))?;
-        let output = MFCreateMediaType().map_err(|e| fail(platform_error("MFCreateMediaType", e)))?;
+        let output =
+            MFCreateMediaType().map_err(|e| fail(platform_error("MFCreateMediaType", e)))?;
         let size = (u64::from(selection.format.width) << 32) | u64::from(selection.format.height);
         output
             .SetGUID(&MF_MT_MAJOR_TYPE, &MFMediaType_Video)
@@ -340,7 +389,9 @@ fn configure(id: &DeviceId, pref: &FormatPreference) -> Result<Configured, Captu
         let rotation = native
             .media_type
             .GetUINT32(&MF_MT_VIDEO_ROTATION)
-            .map_or(Rotation::None, |degrees| Rotation::from_degrees(f64::from(degrees)));
+            .map_or(Rotation::None, |degrees| {
+                Rotation::from_degrees(f64::from(degrees))
+            });
         let mut color = ColorInfo::for_height(selection.format.height);
         if let Ok(range) = native.media_type.GetUINT32(&MF_MT_VIDEO_NOMINAL_RANGE) {
             color.full_range = range == MFNominalRange_0_255.0 as u32;
@@ -377,9 +428,19 @@ impl Reader {
         let mut timestamp = 0i64;
         let mut sample = None;
         // SAFETY: out pointers are valid for the call.
-        unsafe { reader.ReadSample(VIDEO_STREAM, 0, None, Some(&mut flags), Some(&mut timestamp), Some(&mut sample)) }
-            .map_err(|e| classify("ReadSample", e, id))?;
-        if flags & (MF_SOURCE_READERF_ENDOFSTREAM.0 as u32 | MF_SOURCE_READERF_ERROR.0 as u32) != 0 {
+        unsafe {
+            reader.ReadSample(
+                VIDEO_STREAM,
+                0,
+                None,
+                Some(&mut flags),
+                Some(&mut timestamp),
+                Some(&mut sample),
+            )
+        }
+        .map_err(|e| classify("ReadSample", e, id))?;
+        if flags & (MF_SOURCE_READERF_ENDOFSTREAM.0 as u32 | MF_SOURCE_READERF_ERROR.0 as u32) != 0
+        {
             return Ok(Read::End);
         }
         let Some(sample) = sample else {
@@ -391,7 +452,9 @@ impl Reader {
             Ok(device) => device as i64,
             Err(_) => {
                 // SAFETY: no preconditions.
-                let offset = *self.offset_100ns.get_or_insert_with(|| unsafe { MFGetSystemTime() } - timestamp);
+                let offset = *self
+                    .offset_100ns
+                    .get_or_insert_with(|| unsafe { MFGetSystemTime() } - timestamp);
                 timestamp + offset
             }
         };
@@ -414,7 +477,10 @@ impl Reader {
 }
 
 fn copy_nv12(sample: &IMFSample, configured: &Configured) -> Option<Vec<u8>> {
-    let (width, height) = (configured.selection.format.width, configured.selection.format.height);
+    let (width, height) = (
+        configured.selection.format.width,
+        configured.selection.format.height,
+    );
     let (w, h) = (width as usize, height as usize);
     // SAFETY: buffers are locked for the duration of the copy.
     unsafe {
@@ -427,7 +493,8 @@ fn copy_nv12(sample: &IMFSample, configured: &Configured) -> Option<Vec<u8>> {
                     let pitch = pitch as usize;
                     // The chroma plane follows `height` luma rows at the same pitch.
                     let y = std::slice::from_raw_parts(scanline, pitch * h);
-                    let uv = std::slice::from_raw_parts(scanline.add(pitch * h), pitch * h.div_ceil(2));
+                    let uv =
+                        std::slice::from_raw_parts(scanline.add(pitch * h), pitch * h.div_ceil(2));
                     pack_nv12(width, height, y, pitch, uv, pitch)
                 });
                 buffer_2d.Unlock2D().ok();
@@ -456,7 +523,11 @@ pub(crate) struct Session {
 }
 
 impl Session {
-    pub(crate) fn start(id: &DeviceId, pref: &FormatPreference, mut dispatcher: Dispatcher) -> Result<(Self, Selection), CaptureError> {
+    pub(crate) fn start(
+        id: &DeviceId,
+        pref: &FormatPreference,
+        mut dispatcher: Dispatcher,
+    ) -> Result<(Self, Selection), CaptureError> {
         let stop = Arc::new(AtomicBool::new(false));
         let (ready_tx, ready_rx) = mpsc::channel();
         let (done_tx, done_rx) = mpsc::channel();
@@ -494,12 +565,13 @@ impl Session {
                 let selection = reader.configured.selection;
                 let _ = ready_tx.send(Ok(selection));
 
-                let mut decimate = (selection.fps < selection.format.fps).then(|| Throttle::new(selection.fps));
+                // Media Foundation can't lower a native mode's frame rate.
+                if selection.fps < selection.format.fps {
+                    dispatcher.limit_rate(selection.fps);
+                }
                 let mut handle = |read: Read| match read {
                     Read::Frame(frame) => {
-                        if decimate.as_mut().is_none_or(|t| t.accept(frame.pts)) {
-                            dispatcher.deliver(frame);
-                        }
+                        dispatcher.deliver(frame);
                         true
                     }
                     Read::Skip => true,
@@ -517,9 +589,12 @@ impl Session {
             })
             .map_err(|e| CaptureError::platform("spawn capture thread", e))?;
 
-        let selection = ready_rx
-            .recv()
-            .unwrap_or_else(|_| Err(CaptureError::platform("capture thread", "exited during setup")));
+        let selection = ready_rx.recv().unwrap_or_else(|_| {
+            Err(CaptureError::platform(
+                "capture thread",
+                "exited during setup",
+            ))
+        });
         let session = Self {
             stop,
             done: done_rx,
@@ -564,25 +639,32 @@ impl Notifier {
     pub(crate) fn register(nudge: Arc<dyn Fn() + Send + Sync>) -> Result<Self, CaptureError> {
         ensure_mf()?;
         let error = |e| platform_error("DeviceWatcher", e);
-        let watcher = DeviceInformation::CreateWatcherDeviceClass(DeviceClass::VideoCapture).map_err(error)?;
+        let watcher = DeviceInformation::CreateWatcherDeviceClass(DeviceClass::VideoCapture)
+            .map_err(error)?;
         let (a, r, u) = (nudge.clone(), nudge.clone(), nudge);
         let added = watcher
-            .Added(&TypedEventHandler::<DeviceWatcher, DeviceInformation>::new(move |_, _| {
-                a();
-                Ok(())
-            }))
+            .Added(&TypedEventHandler::<DeviceWatcher, DeviceInformation>::new(
+                move |_, _| {
+                    a();
+                    Ok(())
+                },
+            ))
             .map_err(error)?;
         let removed = watcher
-            .Removed(&TypedEventHandler::<DeviceWatcher, DeviceInformationUpdate>::new(move |_, _| {
-                r();
-                Ok(())
-            }))
+            .Removed(
+                &TypedEventHandler::<DeviceWatcher, DeviceInformationUpdate>::new(move |_, _| {
+                    r();
+                    Ok(())
+                }),
+            )
             .map_err(error)?;
         let updated = watcher
-            .Updated(&TypedEventHandler::<DeviceWatcher, DeviceInformationUpdate>::new(move |_, _| {
-                u();
-                Ok(())
-            }))
+            .Updated(
+                &TypedEventHandler::<DeviceWatcher, DeviceInformationUpdate>::new(move |_, _| {
+                    u();
+                    Ok(())
+                }),
+            )
             .map_err(error)?;
         watcher.Start().map_err(error)?;
         Ok(Self {
@@ -609,15 +691,25 @@ mod tests {
     #[test]
     fn classifies_symbolic_links() {
         assert_eq!(
-            transport_from_link(r"\\?\usb#vid_046d&pid_085e&mi_00#7&1a2b3c&0&0000#{e5323777-f976-4f5b-9b55-b94699c46e44}\global"),
+            transport_from_link(
+                r"\\?\usb#vid_046d&pid_085e&mi_00#7&1a2b3c&0&0000#{e5323777-f976-4f5b-9b55-b94699c46e44}\global"
+            ),
             Transport::Usb
         );
         assert_eq!(
-            transport_from_link(r"\\?\SWD#VCAMDEVAPI#{6ac4c1d4-2f4b-4c8e-9c3e-1d6f2b0a7e10}#{e5323777-f976-4f5b-9b55-b94699c46e44}"),
+            transport_from_link(
+                r"\\?\SWD#VCAMDEVAPI#{6ac4c1d4-2f4b-4c8e-9c3e-1d6f2b0a7e10}#{e5323777-f976-4f5b-9b55-b94699c46e44}"
+            ),
             Transport::Virtual
         );
-        assert_eq!(transport_from_link(r"\\?\ROOT#CAMERA#0000#{65e8773d-8f56-11d0-a3b9-00a0c9223196}"), Transport::Virtual);
-        assert_eq!(transport_from_link(r"\\?\display#int3470#4&1835d135&0&uid13424#{e5323777}"), Transport::Unknown);
+        assert_eq!(
+            transport_from_link(r"\\?\ROOT#CAMERA#0000#{65e8773d-8f56-11d0-a3b9-00a0c9223196}"),
+            Transport::Virtual
+        );
+        assert_eq!(
+            transport_from_link(r"\\?\display#int3470#4&1835d135&0&uid13424#{e5323777}"),
+            Transport::Unknown
+        );
     }
 
     #[test]

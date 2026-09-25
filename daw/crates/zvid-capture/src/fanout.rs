@@ -6,6 +6,7 @@
 //! stalling capture.
 
 use crate::clock::HostTime;
+use crate::format::Rational;
 use crate::frame::Frame;
 use crate::preview::{self, PreviewConfig, PreviewFrame, Throttle};
 use std::sync::{Arc, Condvar, Mutex};
@@ -35,18 +36,24 @@ pub struct SessionStats {
 pub(crate) struct Dispatcher {
     on_frame: Option<FrameCallback>,
     preview: Option<PreviewPipe>,
+    rate_limit: Option<Throttle>,
     last_pts: Option<HostTime>,
     sequence: u64,
     stats: Arc<Mutex<SessionStats>>,
 }
 
 impl Dispatcher {
-    pub(crate) fn new(on_frame: Option<FrameCallback>, preview: Option<(PreviewConfig, PreviewCallback)>) -> Self {
+    pub(crate) fn new(
+        on_frame: Option<FrameCallback>,
+        preview: Option<(PreviewConfig, PreviewCallback)>,
+    ) -> Self {
         let stats = Arc::new(Mutex::new(SessionStats::default()));
-        let preview = preview.map(|(config, callback)| PreviewPipe::spawn(config, callback, stats.clone()));
+        let preview =
+            preview.map(|(config, callback)| PreviewPipe::spawn(config, callback, stats.clone()));
         Self {
             on_frame,
             preview,
+            rate_limit: None,
             last_pts: None,
             sequence: 0,
             stats,
@@ -57,13 +64,25 @@ impl Dispatcher {
         self.stats.clone()
     }
 
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     pub(crate) fn record_dropped(&self, count: u64) {
         lock(&self.stats).dropped += count;
+    }
+
+    /// Drops frames so delivery stays at or below `fps`, for devices that
+    /// can't be set to the selected rate.
+    pub(crate) fn limit_rate(&mut self, fps: Rational) {
+        self.rate_limit = Some(Throttle::new(fps));
     }
 
     /// Stamps `frame` with its sequence number and a strictly increasing
     /// timestamp, then delivers it.
     pub(crate) fn deliver(&mut self, mut frame: Frame) {
+        if let Some(limit) = &mut self.rate_limit {
+            if !limit.accept(frame.pts) {
+                return;
+            }
+        }
         let mut corrected = false;
         if let Some(last) = self.last_pts {
             if frame.pts <= last {
@@ -103,7 +122,11 @@ struct PreviewPipe {
 }
 
 impl PreviewPipe {
-    fn spawn(config: PreviewConfig, mut callback: PreviewCallback, stats: Arc<Mutex<SessionStats>>) -> Self {
+    fn spawn(
+        config: PreviewConfig,
+        mut callback: PreviewCallback,
+        stats: Arc<Mutex<SessionStats>>,
+    ) -> Self {
         let shared = Arc::new((
             Mutex::new(Mailbox {
                 frame: None,
@@ -176,7 +199,6 @@ pub(crate) fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::format::Rational;
     use crate::frame::{ColorInfo, PixelFormat, Rotation};
     use std::sync::mpsc;
     use std::time::Duration;
@@ -197,15 +219,38 @@ mod tests {
     #[test]
     fn delivers_every_frame_with_monotonic_timestamps() {
         let (tx, rx) = mpsc::channel();
-        let mut dispatcher = Dispatcher::new(Some(Box::new(move |f: &Arc<Frame>| tx.send((f.sequence, f.pts)).unwrap())), None);
+        let mut dispatcher = Dispatcher::new(
+            Some(Box::new(move |f: &Arc<Frame>| {
+                tx.send((f.sequence, f.pts)).unwrap()
+            })),
+            None,
+        );
         for pts in [1_000_000, 2_000_000, 2_000_000, 1_500_000, 3_000_000] {
             dispatcher.deliver(frame(pts));
         }
         let got: Vec<_> = rx.try_iter().collect();
-        assert_eq!(got.iter().map(|g| g.0).collect::<Vec<_>>(), vec![0, 1, 2, 3, 4]);
+        assert_eq!(
+            got.iter().map(|g| g.0).collect::<Vec<_>>(),
+            vec![0, 1, 2, 3, 4]
+        );
         assert!(got.windows(2).all(|w| w[1].1 > w[0].1));
         let stats = *lock(&dispatcher.stats());
         assert_eq!((stats.frames, stats.timestamp_corrections), (5, 2));
+    }
+
+    #[test]
+    fn rate_limit_decimates_faster_sources() {
+        let (tx, rx) = mpsc::channel();
+        let mut dispatcher = Dispatcher::new(
+            Some(Box::new(move |f: &Arc<Frame>| tx.send(f.sequence).unwrap())),
+            None,
+        );
+        dispatcher.limit_rate(Rational::new(30, 1));
+        for i in 0..60u64 {
+            dispatcher.deliver(frame(i * 16_666_667));
+        }
+        let got: Vec<_> = rx.try_iter().collect();
+        assert_eq!(got, (0..30).collect::<Vec<_>>());
     }
 
     #[test]
@@ -216,7 +261,10 @@ mod tests {
             max_fps: Rational::new(15, 1),
             jpeg_quality: 50,
         };
-        let mut dispatcher = Dispatcher::new(None, Some((config, Box::new(move |p: PreviewFrame| tx.send(p).unwrap()))));
+        let mut dispatcher = Dispatcher::new(
+            None,
+            Some((config, Box::new(move |p: PreviewFrame| tx.send(p).unwrap()))),
+        );
         // 30 fps in, 15 fps preview: every other frame is a candidate.
         for i in 0..10u64 {
             dispatcher.deliver(frame(i * 33_333_333));
@@ -228,6 +276,8 @@ mod tests {
         let stats = *lock(&stats);
         assert_eq!(previews.len() as u64 + stats.previews_skipped, 5);
         assert!(!previews.is_empty());
-        assert!(previews.iter().all(|p| p.width == 32 && p.height == 18 && p.sequence % 2 == 0));
+        assert!(previews
+            .iter()
+            .all(|p| p.width == 32 && p.height == 18 && p.sequence % 2 == 0));
     }
 }

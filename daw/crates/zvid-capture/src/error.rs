@@ -38,7 +38,10 @@ pub enum CaptureError {
     /// Camera capture isn't implemented on this platform.
     Unsupported,
     /// A platform API failed.
-    Platform { context: &'static str, message: String },
+    Platform {
+        context: &'static str,
+        message: String,
+    },
 }
 
 impl CaptureError {
@@ -54,7 +57,9 @@ impl fmt::Display for CaptureError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::PermissionDenied => f.write_str("camera access was denied"),
-            Self::PermissionRestricted => f.write_str("camera access is restricted by system policy"),
+            Self::PermissionRestricted => {
+                f.write_str("camera access is restricted by system policy")
+            }
             Self::DeviceBusy => f.write_str("the camera is in use by another application"),
             Self::DeviceNotFound(id) => write!(f, "no camera with id {id:?} is connected"),
             Self::NoSupportedFormat => f.write_str("the camera offers no supported capture format"),

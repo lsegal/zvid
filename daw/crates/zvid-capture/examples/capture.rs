@@ -14,8 +14,8 @@ use std::process::ExitCode;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use zvid_capture::{
-    list_devices, permission, supported_formats, CaptureConfig, CaptureError, CaptureSession, Device, DeviceEvent, DeviceWatcher, HostTime,
-    JitterStats, PreviewConfig,
+    list_devices, permission, supported_formats, CaptureConfig, CaptureError, CaptureSession,
+    Device, DeviceEvent, DeviceWatcher, HostTime, JitterStats, PreviewConfig,
 };
 
 fn main() -> ExitCode {
@@ -43,7 +43,10 @@ fn seconds(arg: Option<&String>, default: u64) -> Duration {
 }
 
 fn print_device(index: usize, device: &Device) {
-    println!("[{index}] {} ({})\n    id: {}", device.name, device.transport, device.id);
+    println!(
+        "[{index}] {} ({})\n    id: {}",
+        device.name, device.transport, device.id
+    );
 }
 
 fn list() -> Result<(), CaptureError> {
@@ -71,15 +74,25 @@ fn watch(duration: Duration) -> Result<(), CaptureError> {
     let watcher = DeviceWatcher::start(move |event| {
         let elapsed = started.elapsed().as_secs_f64();
         match event {
-            DeviceEvent::Added(d) => println!("{elapsed:7.3}s  + {} ({}) {}", d.name, d.transport, d.id),
-            DeviceEvent::Removed(d) => println!("{elapsed:7.3}s  - {} ({}) {}", d.name, d.transport, d.id),
-            DeviceEvent::Changed(d) => println!("{elapsed:7.3}s  ~ {} ({}) {}", d.name, d.transport, d.id),
+            DeviceEvent::Added(d) => {
+                println!("{elapsed:7.3}s  + {} ({}) {}", d.name, d.transport, d.id)
+            }
+            DeviceEvent::Removed(d) => {
+                println!("{elapsed:7.3}s  - {} ({}) {}", d.name, d.transport, d.id)
+            }
+            DeviceEvent::Changed(d) => {
+                println!("{elapsed:7.3}s  ~ {} ({}) {}", d.name, d.transport, d.id)
+            }
         }
     })?;
     println!(
         "watching for {}s (platform notifications: {}); connect or disconnect a camera",
         duration.as_secs(),
-        if watcher.has_notifications() { "on" } else { "off, polling" }
+        if watcher.has_notifications() {
+            "on"
+        } else {
+            "off, polling"
+        }
     );
     for (index, device) in watcher.devices().iter().enumerate() {
         print_device(index, device);
@@ -107,7 +120,9 @@ fn capture(args: &[String]) -> Result<(), CaptureError> {
             .and_then(|index| devices.get(index))
             .or_else(|| devices.iter().find(|d| d.id.0 == *choice))
             .ok_or_else(|| CaptureError::DeviceNotFound(choice.clone()))?,
-        None => devices.first().ok_or_else(|| CaptureError::DeviceNotFound("(no cameras connected)".into()))?,
+        None => devices
+            .first()
+            .ok_or_else(|| CaptureError::DeviceNotFound("(no cameras connected)".into()))?,
     };
     let duration = seconds(positional.get(1), 5);
     if let Some(dir) = &preview_dir {
@@ -142,14 +157,25 @@ fn capture(args: &[String]) -> Result<(), CaptureError> {
         .on_preview(PreviewConfig::default(), move |preview| {
             *preview_total.lock().unwrap() += preview.jpeg.len();
             if let Some(dir) = &preview_dir {
-                let _ = std::fs::write(dir.join(format!("preview-{:05}.jpg", preview.sequence)), &preview.jpeg);
+                let _ = std::fs::write(
+                    dir.join(format!("preview-{:05}.jpg", preview.sequence)),
+                    &preview.jpeg,
+                );
             }
         });
 
-    println!("capturing {} ({}) for {}s", device.name, device.transport, duration.as_secs());
+    println!(
+        "capturing {} ({}) for {}s",
+        device.name,
+        device.transport,
+        duration.as_secs()
+    );
     let session = CaptureSession::start(&device.id, config)?;
     let selection = session.selection();
-    println!("format: {} (requested {} fps)", selection.format, selection.fps);
+    println!(
+        "format: {} (requested {} fps)",
+        selection.format, selection.fps
+    );
     zvid_capture::run_main_loop_for(duration);
     let stats = session.stop();
 

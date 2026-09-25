@@ -122,7 +122,11 @@ pub fn pack_nv12(
     let (w, h) = (width as usize, height as usize);
     let chroma_rows = h.div_ceil(2);
     let row_len = |rows: usize, stride: usize| rows.checked_sub(1).map_or(0, |r| r * stride + w);
-    if y_stride < w || uv_stride < w || y_plane.len() < row_len(h, y_stride) || uv_plane.len() < row_len(chroma_rows, uv_stride) {
+    if y_stride < w
+        || uv_stride < w
+        || y_plane.len() < row_len(h, y_stride)
+        || uv_plane.len() < row_len(chroma_rows, uv_stride)
+    {
         return None;
     }
     let mut out = Vec::with_capacity(Frame::nv12_len(width, height));

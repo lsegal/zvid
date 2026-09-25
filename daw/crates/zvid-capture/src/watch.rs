@@ -34,7 +34,9 @@ pub fn diff(old: &[Device], new: &[Device]) -> Vec<DeviceEvent> {
     for device in new {
         match old.iter().find(|o| o.id == device.id) {
             None => events.push(DeviceEvent::Added(device.clone())),
-            Some(previous) if previous != device => events.push(DeviceEvent::Changed(device.clone())),
+            Some(previous) if previous != device => {
+                events.push(DeviceEvent::Changed(device.clone()))
+            }
             Some(_) => {}
         }
     }
@@ -58,7 +60,9 @@ pub struct DeviceWatcher {
 impl DeviceWatcher {
     /// Starts watching. `on_event` runs on the watcher thread for each change
     /// after the initial list, which [`DeviceWatcher::devices`] returns.
-    pub fn start(mut on_event: impl FnMut(DeviceEvent) + Send + 'static) -> Result<Self, CaptureError> {
+    pub fn start(
+        mut on_event: impl FnMut(DeviceEvent) + Send + 'static,
+    ) -> Result<Self, CaptureError> {
         let initial = backend::list_devices()?;
         let shared = Arc::new((
             Mutex::new(State {
@@ -87,7 +91,10 @@ impl DeviceWatcher {
                     {
                         let mut guard = lock(state);
                         if !guard.rescan && !guard.stopped {
-                            guard = wake.wait_timeout(guard, POLL_INTERVAL).unwrap_or_else(|e| e.into_inner()).0;
+                            guard = wake
+                                .wait_timeout(guard, POLL_INTERVAL)
+                                .unwrap_or_else(|e| e.into_inner())
+                                .0;
                         }
                         if guard.stopped {
                             return;

@@ -46,7 +46,12 @@ impl Sub for HostTime {
 
 impl fmt::Display for HostTime {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}.{:09}", self.0 / 1_000_000_000, self.0 % 1_000_000_000)
+        write!(
+            f,
+            "{}.{:09}",
+            self.0 / 1_000_000_000,
+            self.0 % 1_000_000_000
+        )
     }
 }
 
@@ -160,13 +165,19 @@ mod tests {
 
     #[test]
     fn scale_does_not_overflow() {
-        assert_eq!(scale(u64::MAX / 2, 1_000_000_000, 1_000_000_000), u64::MAX / 2);
+        assert_eq!(
+            scale(u64::MAX / 2, 1_000_000_000, 1_000_000_000),
+            u64::MAX / 2
+        );
         assert_eq!(scale(10_000_000, 1_000_000_000, 10_000_000), 1_000_000_000);
         assert_eq!(scale(5, 1, 0), 0);
     }
 
     #[test]
     fn display_is_seconds() {
-        assert_eq!(HostTime::from_nanos(1_500_000_000).to_string(), "1.500000000");
+        assert_eq!(
+            HostTime::from_nanos(1_500_000_000).to_string(),
+            "1.500000000"
+        );
     }
 }

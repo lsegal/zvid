@@ -46,9 +46,13 @@ impl JitterStats {
         stats.non_monotonic = intervals.iter().filter(|&&i| i <= 0.0).count();
         if nominal_ms > 0.0 {
             stats.gaps = intervals.iter().filter(|&&i| i > nominal_ms * 1.5).count();
-            stats.max_deviation_ms = intervals.iter().map(|i| (i - nominal_ms).abs()).fold(0.0, f64::max);
+            stats.max_deviation_ms = intervals
+                .iter()
+                .map(|i| (i - nominal_ms).abs())
+                .fold(0.0, f64::max);
         }
-        let span = timestamps[timestamps.len() - 1].as_nanos() as f64 - timestamps[0].as_nanos() as f64;
+        let span =
+            timestamps[timestamps.len() - 1].as_nanos() as f64 - timestamps[0].as_nanos() as f64;
         if span > 0.0 {
             stats.measured_fps = n * 1e9 / span;
         }
@@ -94,7 +98,10 @@ mod tests {
 
     #[test]
     fn counts_gaps_and_backwards_steps() {
-        let stats = JitterStats::from_timestamps(&ts(&[0, 33_000_000, 100_000_000, 90_000_000]), Rational::new(30, 1));
+        let stats = JitterStats::from_timestamps(
+            &ts(&[0, 33_000_000, 100_000_000, 90_000_000]),
+            Rational::new(30, 1),
+        );
         assert_eq!(stats.gaps, 1);
         assert_eq!(stats.non_monotonic, 1);
         assert!(stats.max_deviation_ms > 40.0);
@@ -102,7 +109,13 @@ mod tests {
 
     #[test]
     fn handles_short_runs() {
-        assert_eq!(JitterStats::from_timestamps(&[], Rational::new(30, 1)).frames, 0);
-        assert_eq!(JitterStats::from_timestamps(&ts(&[5]), Rational::new(30, 1)).measured_fps, 0.0);
+        assert_eq!(
+            JitterStats::from_timestamps(&[], Rational::new(30, 1)).frames,
+            0
+        );
+        assert_eq!(
+            JitterStats::from_timestamps(&ts(&[5]), Rational::new(30, 1)).measured_fps,
+            0.0
+        );
     }
 }

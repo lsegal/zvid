@@ -163,14 +163,21 @@ pub struct Selection {
 /// format fits, the smallest one is used so capture still works.
 pub fn select_format(formats: &[Format], pref: &FormatPreference) -> Option<Selection> {
     let capped = |f: &Format| f.fps.min(pref.max_fps);
-    let usable = || formats.iter().enumerate().filter(|(_, f)| f.fps.num > 0 && f.fps.den > 0);
-    let best_fitting = usable().filter(|(_, f)| pref.fits_size(f)).max_by(|(_, a), (_, b)| {
-        a.pixels()
-            .cmp(&b.pixels())
-            .then_with(|| capped(a).cmp(&capped(b)))
-            // Prefer the mode that needs the least frame-rate reduction.
-            .then_with(|| b.fps.cmp(&a.fps))
-    });
+    let usable = || {
+        formats
+            .iter()
+            .enumerate()
+            .filter(|(_, f)| f.fps.num > 0 && f.fps.den > 0)
+    };
+    let best_fitting = usable()
+        .filter(|(_, f)| pref.fits_size(f))
+        .max_by(|(_, a), (_, b)| {
+            a.pixels()
+                .cmp(&b.pixels())
+                .then_with(|| capped(a).cmp(&capped(b)))
+                // Prefer the mode that needs the least frame-rate reduction.
+                .then_with(|| b.fps.cmp(&a.fps))
+        });
     let (index, format) =
         best_fitting.or_else(|| usable().min_by_key(|(_, f)| (f.pixels(), Reverse(capped(f)))))?;
     Some(Selection {
@@ -226,7 +233,11 @@ mod tests {
 
     #[test]
     fn treats_portrait_sources_like_landscape() {
-        let formats = [fmt(1280, 720, 30, 1), fmt(1080, 1920, 30, 1), fmt(1440, 1920, 30, 1)];
+        let formats = [
+            fmt(1280, 720, 30, 1),
+            fmt(1080, 1920, 30, 1),
+            fmt(1440, 1920, 30, 1),
+        ];
         let sel = select_format(&formats, &FormatPreference::default()).unwrap();
         assert_eq!(sel.index, 1);
         assert!(sel.format.is_portrait());
@@ -249,8 +260,14 @@ mod tests {
 
     #[test]
     fn rational_from_frame_duration() {
-        assert_eq!(Rational::from_frame_duration(1001, 30000), Some(Rational::new(30000, 1001)));
-        assert_eq!(Rational::from_frame_duration(20, 600), Some(Rational::new(30, 1)));
+        assert_eq!(
+            Rational::from_frame_duration(1001, 30000),
+            Some(Rational::new(30000, 1001))
+        );
+        assert_eq!(
+            Rational::from_frame_duration(20, 600),
+            Some(Rational::new(30, 1))
+        );
         assert_eq!(Rational::from_frame_duration(0, 600), None);
         assert_eq!(Rational::new(30, 1).frame_duration_nanos(), 33_333_333);
         assert!(Rational::new(30000, 1001) < Rational::new(30, 1));

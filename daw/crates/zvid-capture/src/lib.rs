@@ -136,7 +136,11 @@ impl CaptureConfig {
     }
 
     /// Receives throttled, downscaled JPEG previews on a worker thread (the UI).
-    pub fn on_preview(mut self, config: PreviewConfig, callback: impl FnMut(PreviewFrame) + Send + 'static) -> Self {
+    pub fn on_preview(
+        mut self,
+        config: PreviewConfig,
+        callback: impl FnMut(PreviewFrame) + Send + 'static,
+    ) -> Self {
         self.preview = Some((config, Box::new(callback)));
         self
     }

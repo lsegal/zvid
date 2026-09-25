@@ -40,7 +40,10 @@ pub fn scaled_size(width: u32, height: u32, max_edge: u32) -> (u32, u32) {
     if long <= max_edge || long == 0 {
         return (width.max(1), height.max(1));
     }
-    let scale = |edge: u32| ((u64::from(edge) * u64::from(max_edge) + u64::from(long) / 2) / u64::from(long)).max(1) as u32;
+    let scale = |edge: u32| {
+        ((u64::from(edge) * u64::from(max_edge) + u64::from(long) / 2) / u64::from(long)).max(1)
+            as u32
+    };
     (scale(width), scale(height))
 }
 
@@ -70,7 +73,8 @@ pub fn to_rgb(frame: &Frame, max_edge: u32) -> (u32, u32, Vec<u8>) {
                 let dy = ((oy * taps_y + ty) * 2 + 1) * dh / (2 * oh * taps_y);
                 for tx in 0..taps_x {
                     let dx = ((ox * taps_x + tx) * 2 + 1) * dw / (2 * ow * taps_x);
-                    let (sx, sy) = source_coord(frame.rotation, dx.min(dw - 1), dy.min(dh - 1), sw, sh);
+                    let (sx, sy) =
+                        source_coord(frame.rotation, dx.min(dw - 1), dy.min(dh - 1), sw, sh);
                     y_sum += u32::from(luma[sy * sw + sx]);
                     let c = (sy / 2) * sw + (sx & !1);
                     u_sum += u32::from(chroma[c]);
@@ -145,7 +149,10 @@ impl Converter {
 }
 
 /// Renders `frame` as a preview JPEG.
-pub fn render(frame: &Frame, config: &PreviewConfig) -> Result<PreviewFrame, jpeg_encoder::EncodingError> {
+pub fn render(
+    frame: &Frame,
+    config: &PreviewConfig,
+) -> Result<PreviewFrame, jpeg_encoder::EncodingError> {
     let (width, height, rgb) = to_rgb(frame, config.max_edge);
     let mut jpeg = Vec::with_capacity(rgb.len() / 8);
     let encoder = Encoder::new(&mut jpeg, config.jpeg_quality.clamp(1, 100));
@@ -268,7 +275,9 @@ mod tests {
     }
 
     fn accepted(throttle: &mut Throttle, period_ns: u64, frames: u64) -> u64 {
-        (0..frames).filter(|i| throttle.accept(HostTime::from_nanos(i * period_ns))).count() as u64
+        (0..frames)
+            .filter(|i| throttle.accept(HostTime::from_nanos(i * period_ns)))
+            .count() as u64
     }
 
     #[test]
@@ -292,7 +301,8 @@ mod tests {
         let jitter = [0i64, 4_000_000, -4_000_000, 3_000_000, -2_000_000];
         let count = (0..90u64)
             .filter(|i| {
-                let pts = (*i as i64 * 33_333_333 + jitter[*i as usize % jitter.len()]).max(0) as u64;
+                let pts =
+                    (*i as i64 * 33_333_333 + jitter[*i as usize % jitter.len()]).max(0) as u64;
                 t.accept(HostTime::from_nanos(pts))
             })
             .count();
