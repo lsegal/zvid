@@ -53,6 +53,10 @@ import {
   ImportNotice,
   type ImportNoticeContent,
 } from "./components/ImportNotice";
+import {
+  PlayheadLine,
+  TransportPlayheadReadout,
+} from "./components/LivePlayhead";
 import { OfflineMediaDialog } from "./components/OfflineMediaDialog";
 import {
   StatusBar,
@@ -122,7 +126,11 @@ import {
 } from "./media";
 import { cacheMediaBlob, getCachedMediaBlob } from "./media-cache";
 import { createMediaRelinker, type MediaRelinkCandidate } from "./media-relink";
-import { createPlayheadSignal } from "./playhead-signal";
+import {
+  createPlayheadSignal,
+  findNextClipEdgeQ,
+  PLAYBACK_COMMIT_INTERVAL_MS,
+} from "./playhead-signal";
 import {
   createProjectHistoryState,
   projectHistoryReducer,
@@ -1653,7 +1661,7 @@ function App() {
   } | null>(null);
   const [previewWidth, setPreviewWidth] = useState(readPreviewWidth);
   const [editorGridWidth, setEditorGridWidth] = useState(0);
-  const [playheadQ, setPlayheadQ] = useState(0);
+  const [playheadQ, setPlayheadQState] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportState, setExportState] = useState<ExportState>({
@@ -1726,6 +1734,16 @@ function App() {
   const playbackOriginRef = useRef(0);
   const playheadQRef = useRef(0);
   const [playheadSignal] = useState(() => createPlayheadSignal());
+  // Seeks move the live playhead and state together. Playback advances only
+  // the live playhead each frame and commits it to state now and then.
+  const setPlayheadQ = useCallback(
+    (nextQ: number) => {
+      playheadQRef.current = nextQ;
+      playheadSignal.set(nextQ);
+      setPlayheadQState(nextQ);
+    },
+    [playheadSignal],
+  );
   const playbackStopRef = useRef(0);
   const compositionPlayerRef = useRef<CompositionPlayerHandle | null>(null);
   const appShellRef = useRef<HTMLDivElement | null>(null);
@@ -1793,6 +1811,8 @@ function App() {
     [lanes],
   );
   const timelineClips = dragPreviewClips ?? clips;
+  const timelineClipsRef = useRef(timelineClips);
+  timelineClipsRef.current = timelineClips;
   const resolvedZoom = zoomDraft ?? zoom;
 
   const commitProjectChange = useCallback(
@@ -3208,7 +3228,8 @@ function App() {
       return;
     }
 
-    const playheadPx = labelWidth + playheadTimelinePx;
+    const playheadPx =
+      labelWidth + Math.round(playheadQRef.current * quarterPx);
     const targetLeft = clamp(
       playheadPx - timelineScroll.clientWidth / 2,
       0,
@@ -3222,7 +3243,7 @@ function App() {
   }
 
   const startPlayback = useCallback(
-    (fromQ: number = playheadQ) => {
+    (fromQ: number = playheadQRef.current) => {
       const epsilon = 0.0001;
       const stopQ = getPlaybackStopQ(
         timelineClips,
@@ -3239,7 +3260,7 @@ function App() {
       playbackStopRef.current = stopQ;
       setIsPlaying(true);
     },
-    [bpm, playheadQ, projectMediaItems, timelineClips],
+    [bpm, projectMediaItems, timelineClips],
   );
 
   // An explicit transport action during a ruler scrub decides the state after
@@ -3530,11 +3551,6 @@ function App() {
   useEffect(() => {
     projectSnapshotRef.current = projectHistory.present;
   }, [projectHistory.present]);
-
-  useEffect(() => {
-    playheadQRef.current = playheadQ;
-    playheadSignal.set(playheadQ);
-  }, [playheadQ, playheadSignal]);
 
   useEffect(() => {
     localMediaOverridesRef.current = localMediaOverrides;
@@ -4173,6 +4189,7 @@ function App() {
 
         event.preventDefault();
         const pastedClipId = `window-${crypto.randomUUID()}`;
+        const pasteQ = playheadQRef.current;
         dispatchProject({
           type: "commit",
           label: "Paste clip",
@@ -4180,7 +4197,7 @@ function App() {
             const pastedClip = cloneClipAtStartQ(
               clipboardClip,
               current.bpm,
-              playheadQ,
+              pasteQ,
               pastedClipId,
             );
             return patchProjectState(current, {
@@ -4206,9 +4223,10 @@ function App() {
         event.preventDefault();
         const clipEndQ = getClipEndQ(selectedClip, bpm);
         const epsilon = 0.0001;
+        const splitQ = playheadQRef.current;
         if (
-          playheadQ <= selectedClip.startQ + epsilon ||
-          playheadQ >= clipEndQ - epsilon
+          splitQ <= selectedClip.startQ + epsilon ||
+          splitQ >= clipEndQ - epsilon
         ) {
           setStatus(
             `Move the playhead inside ${selectedClip.label} to split it.`,
@@ -4229,8 +4247,8 @@ function App() {
             }
 
             const sourceClipEndQ = getClipEndQ(sourceClip, current.bpm);
-            const leftDurationQ = playheadQ - sourceClip.startQ;
-            const rightDurationQ = sourceClipEndQ - playheadQ;
+            const leftDurationQ = splitQ - sourceClip.startQ;
+            const rightDurationQ = sourceClipEndQ - splitQ;
             if (leftDurationQ <= epsilon || rightDurationQ <= epsilon) {
               return current;
             }
@@ -4250,7 +4268,7 @@ function App() {
                 id: splitClipId,
                 selected: true,
               },
-              playheadQ,
+              splitQ,
               rightDurationQ,
               current.bpm,
             );
@@ -4317,7 +4335,11 @@ function App() {
           (direction * (event.shiftKey ? 5 : 1)) / fps,
           bpm,
         );
-        const nextPlayheadQ = clamp(playheadQ + deltaQ, 0, totalQuarters);
+        const nextPlayheadQ = clamp(
+          playheadQRef.current + deltaQ,
+          0,
+          totalQuarters,
+        );
         setPlayheadQ(nextPlayheadQ);
         playbackOriginRef.current = nextPlayheadQ;
         return;
@@ -4413,8 +4435,8 @@ function App() {
     fxLaneId,
     isExporting,
     lanes,
-    playheadQ,
     selectedClip,
+    setPlayheadQ,
     timelineClips,
     timelineContentEndQ,
     timelineDragState,
@@ -4761,6 +4783,7 @@ function App() {
     flushZoomDraft,
     labelWidth,
     pulseTimelineAudibleScrub,
+    setPlayheadQ,
     startPlayback,
     stopTimelineAudibleScrub,
     timelineDragState,
@@ -4777,6 +4800,16 @@ function App() {
     const startedAt = performance.now();
     const originQ = playbackOriginRef.current;
     const stopQ = playbackStopRef.current || totalQuarters;
+    const findNextEdgeQ = (fromQ: number) =>
+      findNextClipEdgeQ(
+        timelineClipsRef.current.map((clip) => ({
+          startQ: clip.startQ,
+          endQ: getClipEndQ(clip, bpm),
+        })),
+        fromQ,
+      );
+    let committedAt = startedAt;
+    let nextEdgeQ = findNextEdgeQ(originQ);
 
     const step = (timestamp: number) => {
       const elapsed = (timestamp - startedAt) / 1000;
@@ -4789,13 +4822,29 @@ function App() {
         return;
       }
 
-      setPlayheadQ(nextQ);
+      // Everything drawn per frame follows the signal; state only has to
+      // keep up with the clip under the playhead and other coarse readouts.
+      playheadQRef.current = nextQ;
+      playheadSignal.set(nextQ);
+      if (
+        nextQ >= nextEdgeQ ||
+        timestamp - committedAt >= PLAYBACK_COMMIT_INTERVAL_MS
+      ) {
+        setPlayheadQState(nextQ);
+        committedAt = timestamp;
+        nextEdgeQ = findNextEdgeQ(nextQ);
+      }
       animationFrame = window.requestAnimationFrame(step);
     };
 
     animationFrame = window.requestAnimationFrame(step);
-    return () => window.cancelAnimationFrame(animationFrame);
-  }, [bpm, isPlaying, totalQuarters]);
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      // Leave state where playback stopped, or where a seek batched with the
+      // pause moved the live playhead.
+      setPlayheadQState(playheadQRef.current);
+    };
+  }, [bpm, isPlaying, playheadSignal, setPlayheadQ, totalQuarters]);
 
   async function applyOpenedSessionPayload(payload: SessionOpenResponse) {
     const existingRefs = payload.mediaRefs.filter((ref) => ref.exists);
@@ -5288,7 +5337,11 @@ function App() {
   }
 
   function jumpPlayhead(deltaBars: number) {
-    const next = clamp(playheadQ + deltaBars * barLength, 0, totalQuarters);
+    const next = clamp(
+      playheadQRef.current + deltaBars * barLength,
+      0,
+      totalQuarters,
+    );
     setPlayheadQ(next);
     playbackOriginRef.current = next;
   }
@@ -6026,8 +6079,12 @@ function App() {
             <div className="timeline-toolbar">
               <div className="timeline-toolbar__display">
                 <span className="status-light" />
-                <span>{formatTimecode(playheadSeconds, fps)}</span>
-                <strong>{formatMusicalPosition(playheadQ, signature)}</strong>
+                <TransportPlayheadReadout
+                  signal={playheadSignal}
+                  bpm={bpm}
+                  fps={fps}
+                  signature={signature}
+                />
               </div>
 
               <div className="timeline-toolbar__controls">
@@ -6204,9 +6261,11 @@ function App() {
                       onKeyDown={handleLabelResizeKeyDown}
                     />
                   </div>
-                  <div
+                  <PlayheadLine
                     className="timeline-playhead"
-                    style={{ left: labelWidth + playheadTimelinePx }}
+                    signal={playheadSignal}
+                    quarterPx={quarterPx}
+                    offsetPx={labelWidth}
                   />
 
                   <section className="ruler-row">
@@ -6283,9 +6342,11 @@ function App() {
                       }}
                       style={gridStyle}
                     >
-                      <div
+                      <PlayheadLine
                         className="timeline-playhead-marker"
-                        style={{ left: playheadTimelinePx - 1 }}
+                        signal={playheadSignal}
+                        quarterPx={quarterPx}
+                        offsetPx={-1}
                       />
                       {rulerBars.map((bar) => (
                         <div
@@ -6990,6 +7051,7 @@ function App() {
                     mediaItems={mediaItems}
                     playheadQ={playheadQ}
                     playheadSeconds={playheadSeconds}
+                    playheadSignal={playheadSignal}
                   />
                   {!previewClip ||
                   (previewMediaState !== "online" && !hasOnlinePlayheadClip) ? (
