@@ -142,7 +142,12 @@ import {
   MAX_LAYERS,
   resolveSessionOverlaps,
 } from "./selection-overlaps";
-import type { LvpSession, SessionOpenResponse } from "./session";
+import {
+  formatClipsWithoutFile,
+  type LvpSession,
+  normalizeLvpSession,
+  type SessionOpenResponse,
+} from "./session";
 import {
   formatSourceTracksSummary,
   isSourceTracksSectionCollapsed,
@@ -771,7 +776,11 @@ function getSwatch(colorIndex: number) {
   return PALETTE[Math.abs(colorIndex) % PALETTE.length] ?? PALETTE[0];
 }
 
-function basename(path: string) {
+function basename(path: string | undefined) {
+  if (!path) {
+    return "";
+  }
+
   const normalized = path.replaceAll("\\", "/");
   const parts = normalized.split("/");
   return parts[parts.length - 1] ?? path;
@@ -1258,8 +1267,8 @@ function CollaborationDetailCard({
   );
 }
 
-function normalizeMediaPath(value: string) {
-  return value.replaceAll("/", "\\").toLowerCase();
+function normalizeMediaPath(value: string | undefined) {
+  return (value ?? "").replaceAll("/", "\\").toLowerCase();
 }
 
 function logClient(event: string, payload?: unknown) {
@@ -1397,7 +1406,11 @@ function getPlaybackStopQ(
   }, startQ);
 }
 
-function pickMediaByPath(items: MediaItem[], rawPath: string) {
+function pickMediaByPath(items: MediaItem[], rawPath: string | undefined) {
+  if (!rawPath?.trim()) {
+    return undefined;
+  }
+
   const normalizedTarget = normalizeMediaPath(rawPath);
   const exactMatch = items.find(
     (item) =>
@@ -4876,7 +4889,12 @@ function App() {
       missing: missingRefs.length,
     });
 
-    const project = sessionToProject(payload.session, placeholderMedia);
+    const { session, clipsWithoutFile } = normalizeLvpSession(payload.session);
+    if (clipsWithoutFile.length) {
+      logClient("openSession:clipsWithoutFile", { clips: clipsWithoutFile });
+    }
+
+    const project = sessionToProject(session, placeholderMedia);
     logClient("openSession:project", {
       clips: project.arrangementClips.length,
       lanes: project.lanes.length,
@@ -4905,17 +4923,29 @@ function App() {
     );
     setDragPreviewClips(null);
     setPendingSelection(null);
+    const clipsWithoutFileLines = clipsWithoutFile.length
+      ? [formatClipsWithoutFile(clipsWithoutFile)]
+      : [];
     setImportNotice(
       payload.alsImport
         ? {
-            tone: payload.alsImport.noLayersVideo ? "warning" : "summary",
+            tone:
+              payload.alsImport.noLayersVideo || clipsWithoutFile.length
+                ? "warning"
+                : "summary",
             title: `Imported ${payload.sessionName}`,
-            lines: formatAlsImportSummary(
-              payload.alsImport,
-              payload.sessionName,
-            ),
+            lines: [
+              ...formatAlsImportSummary(payload.alsImport, payload.sessionName),
+              ...clipsWithoutFileLines,
+            ],
           }
-        : null,
+        : clipsWithoutFile.length
+          ? {
+              tone: "warning",
+              title: `Opened ${payload.sessionName}`,
+              lines: clipsWithoutFileLines,
+            }
+          : null,
     );
 
     const preferredClip =
@@ -5137,6 +5167,14 @@ function App() {
     error: unknown,
   ) {
     const message = error instanceof Error ? error.message : String(error);
+    // The status line only has room for the message, so log the stack to
+    // keep the failing call site visible.
+    logClient("openSession:error", {
+      prefix,
+      selectionName,
+      message,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     setStatus(`${prefix}: ${message}`);
     if (
       error instanceof AlsImportError ||

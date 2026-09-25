@@ -82,19 +82,69 @@ export type SessionOpenResponse = {
   recordingRefs?: ServerMediaRef[];
 };
 
+function isFilePath(value: unknown): value is string {
+  return typeof value === "string" && value.trim() !== "";
+}
+
 // Every media file the session references: its clips and main audio.
 export function collectSessionMediaPaths(session: LvpSession) {
   const mediaPaths = new Set<string>();
 
   for (const clip of session.clips ?? []) {
-    if (clip.filePath?.trim()) {
+    if (isFilePath(clip.filePath)) {
       mediaPaths.add(clip.filePath.trim());
     }
   }
 
-  if (session.audioFilename?.trim()) {
+  if (isFilePath(session.audioFilename)) {
     mediaPaths.add(session.audioFilename.trim());
   }
 
   return Array.from(mediaPaths);
+}
+
+// Session files are parsed JSON that the types are never checked against, so
+// a clip can arrive without a `filePath`. Such a clip opens as a placeholder
+// with no media, like an imported clip whose path is `""`, and is named in
+// `clipsWithoutFile` so the open can report it instead of failing.
+export function normalizeLvpSession(session: LvpSession) {
+  const clipsWithoutFile: string[] = [];
+  const clips = session.clips?.map((clip) => {
+    if (typeof clip.filePath === "string") {
+      return clip;
+    }
+
+    clipsWithoutFile.push(clip.name?.trim() || String(clip.id));
+    return { ...clip, filePath: "" };
+  });
+  const tracks = session.tracks?.map((track) =>
+    track.recordings?.some(
+      (recording) => typeof recording.filename !== "string",
+    )
+      ? {
+          ...track,
+          recordings: track.recordings.map((recording) =>
+            typeof recording.filename === "string"
+              ? recording
+              : { ...recording, filename: "" },
+          ),
+        }
+      : track,
+  );
+  const normalized: LvpSession = { ...session, clips, tracks };
+  if (clips === undefined) delete normalized.clips;
+  if (tracks === undefined) delete normalized.tracks;
+  if (
+    session.audioFilename !== undefined &&
+    typeof session.audioFilename !== "string"
+  ) {
+    delete normalized.audioFilename;
+  }
+
+  return { session: normalized, clipsWithoutFile };
+}
+
+export function formatClipsWithoutFile(clipNames: string[]) {
+  const count = clipNames.length;
+  return `${count} ${count === 1 ? "clip has" : "clips have"} no media file and opened as ${count === 1 ? "a placeholder" : "placeholders"}: ${clipNames.join(", ")}.`;
 }
