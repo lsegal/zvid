@@ -28,8 +28,8 @@ export function useThumbnailCache(
   onErrorRef.current = onError;
   const [cache] = useState(() =>
     createThumbnailCache<MediaItem>({
-      generate: async (media, timeSeconds) =>
-        getHarness().generateThumbnailAtTime?.(media, timeSeconds),
+      generate: async (media, timeSeconds, size) =>
+        getHarness().generateThumbnailAtTime?.(media, timeSeconds, size),
       revoke: revokeObjectUrl,
       onError: (request, error) => onErrorRef.current?.(request, error),
     }),

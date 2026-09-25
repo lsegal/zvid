@@ -5,6 +5,7 @@ import {
   getClipThumbnailTimeSeconds,
   getThumbnailCacheKey,
   type ThumbnailRequest,
+  type ThumbnailSize,
 } from "./thumbnail-cache.ts";
 
 type Media = { id: string; url: string };
@@ -12,6 +13,7 @@ type Media = { id: string; url: string };
 type PendingDecode = {
   media: Media;
   timeSeconds: number;
+  size?: ThumbnailSize;
   resolve: (url: string | undefined) => void;
   reject: (error: Error) => void;
 };
@@ -21,9 +23,9 @@ function setup(concurrency?: number) {
   const revoked: string[] = [];
   let notifications = 0;
   const cache = createThumbnailCache<Media>({
-    generate: (media, timeSeconds) =>
+    generate: (media, timeSeconds, size) =>
       new Promise((resolve, reject) => {
-        decodes.push({ media, timeSeconds, resolve, reject });
+        decodes.push({ media, timeSeconds, size, resolve, reject });
       }),
     revoke: (url) => revoked.push(url),
     concurrency,
@@ -71,6 +73,19 @@ describe("getThumbnailCacheKey", () => {
     assert.notEqual(
       getThumbnailCacheKey("m1", 2),
       getThumbnailCacheKey("m2", 2),
+    );
+  });
+
+  it("keys each decoded size separately", () => {
+    const tile = { width: 150, height: 84 };
+    assert.equal(getThumbnailCacheKey("m1", 2, tile), "m1:2.000@150x84");
+    assert.notEqual(
+      getThumbnailCacheKey("m1", 2, tile),
+      getThumbnailCacheKey("m1", 2),
+    );
+    assert.notEqual(
+      getThumbnailCacheKey("m1", 2, tile),
+      getThumbnailCacheKey("m1", 2, { width: 192, height: 108 }),
     );
   });
 });
@@ -131,6 +146,38 @@ describe("createThumbnailCache", () => {
 
     const snapshot = cache.getSnapshot();
     assert.equal(snapshot.get(getThumbnailCacheKey("m1", 3)), "blob:thumb-3");
+  });
+
+  it("decodes a frame once per requested size", async () => {
+    const { cache, decodes } = setup();
+    const tile = { width: 150, height: 84 };
+    cache.setWanted([
+      request("clip:a", 3),
+      {
+        ...request("clip:a:tile:0", 3),
+        key: getThumbnailCacheKey("m1", 3, tile),
+        size: tile,
+      },
+      {
+        ...request("clip:b:tile:0", 3),
+        key: getThumbnailCacheKey("m1", 3, tile),
+        size: tile,
+      },
+    ]);
+
+    assert.equal(decodes.length, 2);
+    assert.equal(decodes[0].size, undefined);
+    assert.deepEqual(decodes[1].size, tile);
+    decodes[0].resolve("blob:portrait");
+    decodes[1].resolve("blob:tile");
+    await flush();
+
+    const snapshot = cache.getSnapshot();
+    assert.equal(snapshot.get(getThumbnailCacheKey("m1", 3)), "blob:portrait");
+    assert.equal(
+      snapshot.get(getThumbnailCacheKey("m1", 3, tile)),
+      "blob:tile",
+    );
   });
 
   it("does not decode a cached frame again", async () => {

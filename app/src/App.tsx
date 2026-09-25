@@ -34,6 +34,7 @@ import {
 import {
   type FilmstripTile,
   getClipFilmstripTiles,
+  getFilmstripDecodeSize,
   getFilmstripRange,
   getFilmstripTileWidthPx,
   getSourceSpanFilmstripClip,
@@ -168,6 +169,7 @@ import {
   getClipThumbnailTimeSeconds,
   getThumbnailCacheKey,
   type ThumbnailRequest,
+  type ThumbnailSize,
 } from "./thumbnail-cache.ts";
 import { formatMusicalPosition, formatTimecode } from "./timeline-format.ts";
 import { useThumbnailCache } from "./use-thumbnail-cache";
@@ -595,7 +597,12 @@ function getClipEndQ(
 const CLIP_FILMSTRIP_HEIGHT_PX = 42;
 const SOURCE_SPAN_FILMSTRIP_HEIGHT_PX = 54;
 
-type Filmstrip = { media: MediaItem; tiles: FilmstripTile[] };
+// `size` is the pixel size every frame of the filmstrip is decoded at.
+type Filmstrip = {
+  media: MediaItem;
+  size: ThumbnailSize;
+  tiles: FilmstripTile[];
+};
 
 function getFilmstripTileOwner(
   kind: "clip" | "span",
@@ -2464,6 +2471,7 @@ function App() {
   );
   const filmstripRangeStartPx = filmstripRange.startPx;
   const filmstripRangeEndPx = filmstripRange.endPx;
+  const pixelRatio = window.devicePixelRatio || 1;
   // The filmstrip tiles of each online video clip near the visible range.
   const clipFilmstrips = useMemo(() => {
     const filmstrips = new Map<string, Filmstrip>();
@@ -2479,18 +2487,24 @@ function App() {
         continue;
       }
 
+      const tileWidthPx = getFilmstripTileWidthPx(
+        CLIP_FILMSTRIP_HEIGHT_PX,
+        media.width,
+        media.height,
+      );
       filmstrips.set(clip.id, {
         media,
+        size: getFilmstripDecodeSize(
+          tileWidthPx,
+          CLIP_FILMSTRIP_HEIGHT_PX,
+          pixelRatio,
+        ),
         tiles: getClipFilmstripTiles({
           clip,
           mediaDurationSeconds: media.durationSeconds,
           clipLeftPx: clip.startQ * quarterPx,
           clipWidthPx: getClipDurationQ(clip, bpm) * quarterPx,
-          tileWidthPx: getFilmstripTileWidthPx(
-            CLIP_FILMSTRIP_HEIGHT_PX,
-            media.width,
-            media.height,
-          ),
+          tileWidthPx,
           secondsPerPx,
           range: { startPx: filmstripRangeStartPx, endPx: filmstripRangeEndPx },
         }),
@@ -2502,6 +2516,7 @@ function App() {
     filmstripRangeEndPx,
     filmstripRangeStartPx,
     mediaItemsById,
+    pixelRatio,
     quarterPx,
     timelineClips,
   ]);
@@ -2520,18 +2535,24 @@ function App() {
         continue;
       }
 
+      const tileWidthPx = getFilmstripTileWidthPx(
+        SOURCE_SPAN_FILMSTRIP_HEIGHT_PX,
+        media.width,
+        media.height,
+      );
       filmstrips.set(span.id, {
         media,
+        size: getFilmstripDecodeSize(
+          tileWidthPx,
+          SOURCE_SPAN_FILMSTRIP_HEIGHT_PX,
+          pixelRatio,
+        ),
         tiles: getClipFilmstripTiles({
           clip: getSourceSpanFilmstripClip(span),
           mediaDurationSeconds: media.durationSeconds,
           clipLeftPx: span.startQ * quarterPx,
           clipWidthPx: getClipDurationQ(span, bpm) * quarterPx,
-          tileWidthPx: getFilmstripTileWidthPx(
-            SOURCE_SPAN_FILMSTRIP_HEIGHT_PX,
-            media.width,
-            media.height,
-          ),
+          tileWidthPx,
           secondsPerPx,
           range: { startPx: filmstripRangeStartPx, endPx: filmstripRangeEndPx },
         }),
@@ -2543,18 +2564,21 @@ function App() {
     filmstripRangeEndPx,
     filmstripRangeStartPx,
     mediaItemsById,
+    pixelRatio,
     quarterPx,
     sourceSpans,
   ]);
   // Source spans and layer clips share one thumbnail cache, so a frame both
   // show is decoded once. Spans show the frame at their start and clips the
   // first frame the compositor shows for them, until their own filmstrip
-  // tiles are ready.
+  // tiles are ready. That frame is decoded at the filmstrip's tile size, so it
+  // is the same cache entry as the first tile.
   const thumbnailRequests = useMemo(() => {
     const requests: ThumbnailRequest<MediaItem>[] = [];
     const addRequest = (
       owner: string,
       media: MediaItem | undefined,
+      size: ThumbnailSize | undefined,
       timeSeconds: (media: MediaItem) => number,
     ) => {
       if (
@@ -2567,11 +2591,12 @@ function App() {
 
       const time = timeSeconds(media);
       requests.push({
-        key: getThumbnailCacheKey(media.id, time),
+        key: getThumbnailCacheKey(media.id, time, size),
         owner,
         media,
         sourceUrl: media.previewUrl,
         timeSeconds: time,
+        size,
       });
     };
 
@@ -2579,6 +2604,7 @@ function App() {
       addRequest(
         `span:${span.id}`,
         span.mediaId ? mediaItemsById.get(span.mediaId) : undefined,
+        spanFilmstrips.get(span.id)?.size,
         () => span.trimStartSeconds,
       );
     }
@@ -2590,6 +2616,7 @@ function App() {
       addRequest(
         `clip:${clip.id}`,
         clip.mediaId ? mediaItemsById.get(clip.mediaId) : undefined,
+        clipFilmstrips.get(clip.id)?.size,
         (media) => getClipThumbnailTimeSeconds(clip, media.durationSeconds),
       );
     }
@@ -2597,11 +2624,12 @@ function App() {
       ["clip", clipFilmstrips],
       ["span", spanFilmstrips],
     ] as const) {
-      for (const [id, { media, tiles }] of filmstrips) {
+      for (const [id, { media, size, tiles }] of filmstrips) {
         for (const tile of tiles) {
           addRequest(
             getFilmstripTileOwner(kind, id, tile.index),
             media,
+            size,
             () => tile.timeSeconds,
           );
         }
@@ -6581,6 +6609,7 @@ function App() {
                                       clip,
                                       media.durationSeconds,
                                     ),
+                                    clipFilmstrips.get(clip.id)?.size,
                                   ),
                                   `clip:${clip.id}`,
                                 ) ?? media.thumbnailUrl)
@@ -6618,6 +6647,7 @@ function App() {
                                         getThumbnailCacheKey(
                                           filmstrip.media.id,
                                           tile.timeSeconds,
+                                          filmstrip.size,
                                         ),
                                         getFilmstripTileOwner(
                                           "clip",
@@ -7008,6 +7038,7 @@ function App() {
                                       getThumbnailCacheKey(
                                         media.id,
                                         clip.trimStartSeconds,
+                                        spanFilmstrips.get(clip.id)?.size,
                                       ),
                                       `span:${clip.id}`,
                                     )) ??
@@ -7044,6 +7075,7 @@ function App() {
                                               getThumbnailCacheKey(
                                                 filmstrip.media.id,
                                                 tile.timeSeconds,
+                                                filmstrip.size,
                                               ),
                                               getFilmstripTileOwner(
                                                 "span",
