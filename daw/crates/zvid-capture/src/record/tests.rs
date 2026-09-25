@@ -348,4 +348,21 @@ fn records_1080p_with_the_platform_encoder_when_available() {
     );
     let jpeg = poster_jpeg(&path, 2.0, 320).unwrap();
     assert_eq!(&jpeg[..2], &[0xff, 0xd8]);
+
+    // AVFoundation (what QuickTime plays with) must decode the file too:
+    // Quick Look renders a thumbnail from a decoded frame.
+    #[cfg(target_os = "macos")]
+    {
+        let out = tempdir();
+        let status = std::process::Command::new("qlmanage")
+            .args(["-t", "-s", "320", "-o"])
+            .arg(&out)
+            .arg(&path)
+            .stdout(std::process::Stdio::null())
+            .status()
+            .unwrap();
+        assert!(status.success());
+        let thumbnails = std::fs::read_dir(&out).unwrap().count();
+        assert_eq!(thumbnails, 1, "Quick Look could not render the recording");
+    }
 }
