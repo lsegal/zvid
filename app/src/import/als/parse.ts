@@ -169,23 +169,24 @@ export function parseAlsXml(xml: string): AlsDocument {
   const liveSet = child(ableton, "LiveSet");
   if (!liveSet) throw new Error("Not an Ableton Live set: missing <LiveSet>");
 
-  // Live 12 renamed MasterTrack to MainTrack.
-  const master = child(liveSet, "MasterTrack") ?? child(liveSet, "MainTrack");
-  if (!master) throw new Error("Ableton Live set has no master track");
-  const mixer = at(master, "DeviceChain/Mixer");
+  // Live 12 renamed MasterTrack to MainTrack. Older sets still use MasterTrack.
+  const mainTrack =
+    child(liveSet, "MasterTrack") ?? child(liveSet, "MainTrack");
+  if (!mainTrack) throw new Error("Ableton Live set has no main track");
+  const mixer = at(mainTrack, "DeviceChain/Mixer");
   const tempo = child(mixer, "Tempo");
   const timeSignature = child(mixer, "TimeSignature");
   const transport = child(liveSet, "Transport");
   // Live keeps the song's signature in the envelope's initial event and can
   // leave `Manual` stale (e.g. still 4/4 after switching to 7/8).
-  const [initialTimeSignature] = envelopeEvents(master, timeSignature);
+  const [initialTimeSignature] = envelopeEvents(mainTrack, timeSignature);
 
   return {
     creator: ableton.attributes.Creator ?? "",
     majorVersion: ableton.attributes.MajorVersion ?? "",
     minorVersion: ableton.attributes.MinorVersion ?? "",
     tempo: num(tempo, "Manual"),
-    tempoAutomation: envelopeEvents(master, tempo).map((event) => ({
+    tempoAutomation: envelopeEvents(mainTrack, tempo).map((event) => ({
       time: Number(event.attributes.Time),
       bpm: Number(event.attributes.Value),
     })),

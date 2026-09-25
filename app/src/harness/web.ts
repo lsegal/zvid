@@ -1,5 +1,5 @@
 import {
-  alsMasterAudioPath,
+  alsMainAudioPath,
   alsSavePath,
   importAls,
   isAlsSession,
@@ -270,7 +270,7 @@ async function openWorkspaceAls(
   const workspacePaths = new Set(
     selection.files.map((entry) => normalizeWorkspacePath(entry.path)),
   );
-  const audioFilename = alsMasterAudioPath(selection.sessionPath, (path) =>
+  const audioFilename = alsMainAudioPath(selection.sessionPath, (path) =>
     workspacePaths.has(normalizeWorkspacePath(path)),
   );
   const imported = await importAls(bytes, selection.sessionFile.name, {

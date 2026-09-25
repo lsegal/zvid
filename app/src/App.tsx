@@ -2,6 +2,8 @@ import {
   BackwardIcon,
   ChevronDownIcon,
   ForwardIcon,
+  MagnifyingGlassMinusIcon,
+  MagnifyingGlassPlusIcon,
   PauseIcon,
   PlayIcon,
 } from "@heroicons/react/24/solid";
@@ -95,7 +97,12 @@ import {
 } from "./fx-stack";
 import { getHarness, type SaveTarget } from "./harness";
 import { hasMediaExtension } from "./harness/media-extensions";
-import { MasterWaveform } from "./MasterWaveform";
+import { MainWaveform } from "./MainWaveform";
+import {
+  getDroppedAudioFile,
+  getMainAudioDragState,
+  isWithinMainAudioDropTarget,
+} from "./main-audio-drop";
 import {
   buildFallbackMediaItem,
   inferMediaKind,
@@ -114,14 +121,29 @@ import {
   createProjectHistoryState,
   projectHistoryReducer,
 } from "./project-history";
+import { migrateLegacyMainAudio } from "./project-state-compat.ts";
 import { listOfflineMedia, matchOfflineMedia } from "./relink";
 import type { LvpSession, SessionOpenResponse } from "./session";
+import {
+  formatSourceTracksSummary,
+  isSourceTracksSectionCollapsed,
+  readSourceTracksCollapsed,
+  writeSourceTracksCollapsed,
+} from "./source-tracks-section.ts";
 import { statusMessageTone } from "./status-bar";
 import { buildStatusItems } from "./status-items";
 import { formatMusicalPosition, formatTimecode } from "./timeline-format.ts";
 import { ZVID_BUILD } from "./version";
 import { loadWaveformPeaks } from "./waveform-loader";
 import type { WaveformPeaks } from "./waveform-peaks";
+import {
+  formatZoomFactor,
+  stepZoom,
+  ZOOM_DEFAULT,
+  ZOOM_MAX,
+  ZOOM_MIN,
+  zoomFillFraction,
+} from "./zoom";
 
 type TimelineMode = "musical" | "timecode";
 type SnapMode = "bar" | "beat" | "half" | "quarter";
@@ -291,7 +313,7 @@ type ProjectState = {
   sourceSpans: SourceSpan[];
   clips: ArrangementClip[];
   effects: SessionEffect[];
-  masterAudioId?: string;
+  mainAudioId?: string;
 };
 
 type LocalMediaOverride = {
@@ -328,8 +350,6 @@ const LABEL_WIDTH_KEYBOARD_STEP = 10;
 // Below this width the label rows tighten their padding and gaps.
 const LABEL_WIDTH_NARROW = 170;
 const BASE_QUARTER_PX = 28;
-const ZOOM_MIN = 0.65;
-const ZOOM_MAX = 1.8;
 const MAX_LAYERS = 9;
 const TIMELINE_DRAG_ZOOM_SPEED = 0.004;
 const TIMELINE_DRAG_ZOOM_THRESHOLD_PX = 25;
@@ -396,7 +416,7 @@ const INITIAL_PROJECT_STATE: ProjectState = {
   sourceSpans: [],
   clips: [],
   effects: [],
-  masterAudioId: undefined,
+  mainAudioId: undefined,
 };
 const PALETTE: Palette[] = [
   { color: "#3d4052", accent: "#7ca1ff" },
@@ -693,7 +713,7 @@ function buildSelection(
 function getTimelineContentEndQ(
   clips: ArrangementClip[],
   sourceSpans: SourceSpan[],
-  masterAudioDurationSeconds: number | undefined,
+  mainAudioDurationSeconds: number | undefined,
   bpm: number,
   barLength: number,
 ) {
@@ -705,8 +725,8 @@ function getTimelineContentEndQ(
     (maximum, span) => Math.max(maximum, getClipEndQ(span, bpm)),
     0,
   );
-  const audioTimelineEndQ = masterAudioDurationSeconds
-    ? secondsToQuarters(masterAudioDurationSeconds, bpm)
+  const audioTimelineEndQ = mainAudioDurationSeconds
+    ? secondsToQuarters(mainAudioDurationSeconds, bpm)
     : 0;
 
   return Math.max(
@@ -1492,7 +1512,7 @@ function sessionToProject(session: LvpSession, mediaItems: MediaItem[]) {
     zoom: clamp(session.timeline?.zoom ?? 1, ZOOM_MIN, ZOOM_MAX),
     playPositionFrames: session.playPosition ?? 0,
     playStartPositionFrames: session.playStartPosition ?? 0,
-    masterAudioMediaId: session.audioFilename
+    mainAudioMediaId: session.audioFilename
       ? pickMediaByPath(mediaItems, session.audioFilename)?.id
       : undefined,
     unresolvedPaths: arrangementClips
@@ -1585,7 +1605,7 @@ function App() {
     sourceSpans,
     clips,
     effects,
-    masterAudioId,
+    mainAudioId,
   } = projectHistory.present;
   const canUndo = projectHistory.past.length > 0;
   const canRedo = projectHistory.future.length > 0;
@@ -1603,6 +1623,12 @@ function App() {
     useState<TimelineSelection | null>(null);
   const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(
     readInspectorCollapsed,
+  );
+  const [sourceTracksCollapsedPref, setSourceTracksCollapsedPref] = useState(
+    () =>
+      readSourceTracksCollapsed(
+        typeof window === "undefined" ? undefined : window.localStorage,
+      ),
   );
   const [labelWidth, setLabelWidth] = useState(readLabelWidth);
   const labelResizeRef = useRef<{
@@ -1637,6 +1663,7 @@ function App() {
     useState<SourceTrackDropTarget | null>(null);
   const [sourceTrackDragPreview, setSourceTrackDragPreview] =
     useState<SourceTrackDragPreview | null>(null);
+  const [isMainAudioDropTarget, setIsMainAudioDropTarget] = useState(false);
   const [isTimelineAudibleScrubbing, setIsTimelineAudibleScrubbing] =
     useState(false);
   const [zoomDraft, setZoomDraft] = useState<number | null>(null);
@@ -2142,34 +2169,30 @@ function App() {
     [effects, fxKind, fxLane?.name, fxLaneId],
   );
   const playheadSeconds = quartersToSeconds(playheadQ, bpm);
-  const masterAudio = masterAudioId
-    ? mediaItemsById.get(masterAudioId)
-    : undefined;
+  const mainAudio = mainAudioId ? mediaItemsById.get(mainAudioId) : undefined;
   const canCreateLayer = lanes.length < MAX_LAYERS;
-  // Only peaks decoded from the master audio are drawn; until they exist the
+  // Only peaks decoded from the main audio are drawn; until they exist the
   // lane shows why there is no waveform instead of a placeholder.
-  const masterAudioUrl =
-    masterAudio?.availability === "ready" ? masterAudio.previewUrl : "";
-  const masterWaveformKey =
-    masterAudioId && masterAudioUrl
-      ? `${masterAudioId}\n${masterAudioUrl}`
-      : "";
-  const [masterWaveform, setMasterWaveform] = useState<{
+  const mainAudioUrl =
+    mainAudio?.availability === "ready" ? mainAudio.previewUrl : "";
+  const mainWaveformKey =
+    mainAudioId && mainAudioUrl ? `${mainAudioId}\n${mainAudioUrl}` : "";
+  const [mainWaveform, setMainWaveform] = useState<{
     key: string;
     status: "ready" | "no-audio" | "error";
     peaks?: WaveformPeaks;
   } | null>(null);
   useEffect(() => {
-    if (!masterAudioId || !masterAudioUrl) {
+    if (!mainAudioId || !mainAudioUrl) {
       return;
     }
 
-    const key = `${masterAudioId}\n${masterAudioUrl}`;
+    const key = `${mainAudioId}\n${mainAudioUrl}`;
     let cancelled = false;
-    loadWaveformPeaks(masterAudioId, masterAudioUrl).then(
+    loadWaveformPeaks(mainAudioId, mainAudioUrl).then(
       (result) => {
         if (!cancelled) {
-          setMasterWaveform(
+          setMainWaveform(
             result.status === "ready"
               ? { key, status: "ready", peaks: result.peaks }
               : { key, status: "no-audio" },
@@ -2178,45 +2201,43 @@ function App() {
       },
       (error: unknown) => {
         logClient("waveform:decode:error", {
-          mediaId: masterAudioId,
+          mediaId: mainAudioId,
           message: error instanceof Error ? error.message : String(error),
         });
         if (!cancelled) {
-          setMasterWaveform({ key, status: "error" });
+          setMainWaveform({ key, status: "error" });
         }
       },
     );
     return () => {
       cancelled = true;
     };
-  }, [masterAudioId, masterAudioUrl]);
-  const currentMasterWaveform =
-    masterWaveform && masterWaveform.key === masterWaveformKey
-      ? masterWaveform
-      : null;
-  const masterWaveformMessage = !masterAudio
-    ? "No master audio track in this session"
-    : masterAudio.availability === "offline"
-      ? "Master audio is offline"
-      : masterAudio.availability === "hydrating"
-        ? "Waiting for master audio…"
-        : !currentMasterWaveform
-          ? "Analyzing master audio…"
-          : currentMasterWaveform.status === "no-audio"
-            ? "No audio found in master audio file"
-            : currentMasterWaveform.status === "error"
-              ? "Could not decode master audio"
+  }, [mainAudioId, mainAudioUrl]);
+  const currentMainWaveform =
+    mainWaveform && mainWaveform.key === mainWaveformKey ? mainWaveform : null;
+  const mainWaveformMessage = !mainAudio
+    ? "No main audio track in this session"
+    : mainAudio.availability === "offline"
+      ? "Main audio is offline"
+      : mainAudio.availability === "hydrating"
+        ? "Waiting for main audio…"
+        : !currentMainWaveform
+          ? "Analyzing main audio…"
+          : currentMainWaveform.status === "no-audio"
+            ? "No audio found in main audio file"
+            : currentMainWaveform.status === "error"
+              ? "Could not decode main audio"
               : null;
   const timelineContentEndQ = useMemo(
     () =>
       getTimelineContentEndQ(
         timelineClips,
         sourceSpans,
-        masterAudio?.durationSeconds,
+        mainAudio?.durationSeconds,
         bpm,
         barLength,
       ),
-    [barLength, bpm, masterAudio?.durationSeconds, sourceSpans, timelineClips],
+    [barLength, bpm, mainAudio?.durationSeconds, sourceSpans, timelineClips],
   );
   const rulerBars = useMemo(() => {
     const barCount = Math.ceil(totalQuarters / barLength);
@@ -2332,6 +2353,12 @@ function App() {
     return next;
   }, [sourceSpans]);
   const isSourceTrackFileDragActive = Boolean(sourceTrackDragTarget);
+  const isSourceTracksCollapsed = isSourceTracksSectionCollapsed(
+    sourceTracksCollapsedPref,
+    sourceTracks.length,
+  );
+  const isSourceHeaderDropTarget =
+    !sourceTracks.length || isSourceTracksCollapsed;
   const minimumWindowQ = Math.max(snapUnit, beatUnit / 4);
   const visibleTimelineStartPx = Math.max(0, timelineViewport.scrollLeft);
   const visibleTimelineWidthPx = Math.max(
@@ -2384,6 +2411,7 @@ function App() {
     sourceTrackDragPreviewKeyRef.current = "";
     sourceTrackDragPreviewRequestRef.current += 1;
     setSourceTrackDragTarget(null);
+    setIsMainAudioDropTarget(false);
     setSourceTrackDragPreview((current) => {
       revokeObjectUrlIfNeeded(current?.thumbnailUrl);
       return null;
@@ -2531,6 +2559,11 @@ function App() {
     [sourceTracks.length],
   );
 
+  const setSourceTracksCollapsed = useCallback((collapsed: boolean) => {
+    setSourceTracksCollapsedPref(collapsed);
+    writeSourceTracksCollapsed(window.localStorage, collapsed);
+  }, []);
+
   const importMediaIntoSourceTrack = useCallback(
     async (files: File[], target: SourceTrackDropTarget) => {
       const harness = getHarness();
@@ -2635,6 +2668,8 @@ function App() {
 
         seedLocalMediaItems(analyzed);
         void cacheLocalMediaItems(analyzed);
+        // Reveal the dropped media, even when it landed on a collapsed header.
+        setSourceTracksCollapsed(false);
         setStatus(
           `Dropped ${pluralize(analyzed.length, "media file")} into ${
             target.kind === "track"
@@ -2652,7 +2687,107 @@ function App() {
       commitProjectChange,
       projectMediaItems.length,
       seedLocalMediaItems,
+      setSourceTracksCollapsed,
     ],
+  );
+
+  const replaceMainAudioFromFile = useCallback(
+    async (file: File) => {
+      const harness = getHarness();
+
+      try {
+        setStatus(`Analyzing ${file.name}...`);
+        const [analyzed] = await harness.analyzeMedia(
+          {
+            kind: "files",
+            files: [file],
+          },
+          PALETTE,
+          projectMediaItems.length,
+        );
+        if (!analyzed) {
+          throw new Error(`Could not read ${file.name}.`);
+        }
+        if (analyzed.kind !== "audio") {
+          throw new Error(`${file.name} is not an audio file.`);
+        }
+
+        commitProjectChange("Set main audio", (current) =>
+          patchProjectState(current, {
+            mediaItems: [...current.mediaItems, toShareableMediaItem(analyzed)],
+            masterAudioId: analyzed.id,
+          }),
+        );
+
+        seedLocalMediaItems([analyzed]);
+        void cacheLocalMediaItems([analyzed]);
+        setStatus(`Set main audio to ${analyzed.name}.`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setStatus(`Main audio import failed: ${message}`);
+      }
+    },
+    [
+      cacheLocalMediaItems,
+      commitProjectChange,
+      projectMediaItems.length,
+      seedLocalMediaItems,
+    ],
+  );
+
+  const handleMainAudioDragEvent = useCallback(
+    (event: ReactDragEvent<HTMLElement>) => {
+      if (!hasDraggedFileData(event.dataTransfer)) {
+        return;
+      }
+
+      // The Audio lane never hosts source tracks, so a drag over it cancels any
+      // pending source track drop.
+      if (sourceTrackDragTarget) {
+        clearSourceTrackDragState();
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      const accepted = getMainAudioDragState(event.dataTransfer) === "accept";
+      event.dataTransfer.dropEffect = accepted ? "copy" : "none";
+      setIsMainAudioDropTarget(accepted);
+    },
+    [clearSourceTrackDragState, sourceTrackDragTarget],
+  );
+
+  const handleMainAudioDragLeave = useCallback(
+    (event: ReactDragEvent<HTMLElement>) => {
+      if (
+        event.relatedTarget instanceof Node &&
+        event.currentTarget.contains(event.relatedTarget)
+      ) {
+        return;
+      }
+
+      setIsMainAudioDropTarget(false);
+    },
+    [],
+  );
+
+  const handleMainAudioDrop = useCallback(
+    (event: ReactDragEvent<HTMLElement>) => {
+      if (!hasDraggedFileData(event.dataTransfer)) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      clearSourceTrackDragState();
+      const file = getDroppedAudioFile(event.dataTransfer.files);
+      if (!file) {
+        setStatus("Only audio files can be dropped on the Audio lane.");
+        return;
+      }
+
+      void replaceMainAudioFromFile(file);
+    },
+    [clearSourceTrackDragState, replaceMainAudioFromFile],
   );
 
   const activeShareRoom = collaborationRoom.trim();
@@ -2720,7 +2855,10 @@ function App() {
     };
 
     const handleWindowDrag = (event: DragEvent) => {
-      if (!hasDraggedFileData(event.dataTransfer)) {
+      if (
+        !hasDraggedFileData(event.dataTransfer) ||
+        isWithinMainAudioDropTarget(event.target)
+      ) {
         return;
       }
 
@@ -2746,7 +2884,10 @@ function App() {
     };
 
     const handleWindowDrop = (event: DragEvent) => {
-      if (!hasDraggedFileData(event.dataTransfer)) {
+      if (
+        !hasDraggedFileData(event.dataTransfer) ||
+        isWithinMainAudioDropTarget(event.target)
+      ) {
         return;
       }
 
@@ -2994,6 +3135,18 @@ function App() {
     [commitProjectPatch, zoom, updateZoomDraft],
   );
 
+  const setZoomValue = useCallback(
+    (label: string, nextZoom: number) => {
+      updateZoomDraft(null);
+      if (Math.abs(nextZoom - zoom) <= 0.0001) {
+        return;
+      }
+
+      commitProjectPatch(label, { zoom: nextZoom });
+    },
+    [commitProjectPatch, zoom, updateZoomDraft],
+  );
+
   function handleCreateLayer() {
     if (!canCreateLayer) {
       setStatus(`You already have the maximum of ${MAX_LAYERS} layers.`);
@@ -3145,7 +3298,7 @@ function App() {
     return getTimelineContentEndQ(
       clips,
       sourceSpans,
-      masterAudio?.durationSeconds,
+      mainAudio?.durationSeconds,
       bpm,
       barLength,
     );
@@ -3511,7 +3664,8 @@ function App() {
   }, [collaborationColor, collaborationName, collaborationSignaling]);
 
   const applyRemoteProjectState = useCallback(
-    (snapshot: ProjectState) => {
+    (remoteSnapshot: ProjectState) => {
+      const snapshot = migrateLegacyMainAudio(remoteSnapshot);
       if (
         JSON.stringify(projectSnapshotRef.current) === JSON.stringify(snapshot)
       ) {
@@ -4618,7 +4772,7 @@ function App() {
         sourceSpans: project.sourceSpans,
         clips: project.arrangementClips,
         effects: project.effects,
-        masterAudioId: project.masterAudioMediaId,
+        mainAudioId: project.mainAudioMediaId,
       }),
     );
     setDragPreviewClips(null);
@@ -4927,7 +5081,7 @@ function App() {
 
     const durationSeconds = Math.max(
       0.01,
-      masterAudio?.durationSeconds ?? 0,
+      mainAudio?.durationSeconds ?? 0,
       ...clips.map(
         (clip) => quartersToSeconds(clip.startQ, bpm) + clip.durationSeconds,
       ),
@@ -4976,7 +5130,7 @@ function App() {
       frames: outputFrameCount,
       canvasWidth,
       canvasHeight,
-      masterAudio: masterAudio?.name,
+      mainAudio: mainAudio?.name,
     });
     logClient("export:phase", { phase: "preparing", frames: outputFrameCount });
 
@@ -4989,7 +5143,7 @@ function App() {
         bpm,
         canvasWidth,
         canvasHeight,
-        masterAudio,
+        mainAudio,
       },
       { audioAnalysis: "offline" },
     );
@@ -5006,7 +5160,7 @@ function App() {
         frameCount: outputFrameCount,
         frameDuration: outputFrameDuration,
         bpm,
-        masterAudio,
+        mainAudio,
         renderFrameAt: (frameQ, frameSeconds) =>
           exportRenderer.renderFrameAt(frameQ, frameSeconds),
         setPlayheadQ: () => {},
@@ -6313,13 +6467,21 @@ function App() {
                     </section>
                   ))}
 
-                  <section className="track-row track-row--bus">
+                  <section
+                    aria-label="Main audio drop area"
+                    className={`track-row track-row--bus ${isMainAudioDropTarget ? "is-drop-target" : ""}`}
+                    data-main-audio-drop-target=""
+                    onDragEnter={handleMainAudioDragEvent}
+                    onDragLeave={handleMainAudioDragLeave}
+                    onDragOver={handleMainAudioDragEvent}
+                    onDrop={handleMainAudioDrop}
+                  >
                     <div className="track-label">
                       <div className="track-label__index">A</div>
                       <div>
                         <span>Audio</span>
                         <small>
-                          {masterAudio ? masterAudio.name : "No master audio"}
+                          {mainAudio ? mainAudio.name : "No main audio"}
                         </small>
                       </div>
                     </div>
@@ -6327,18 +6489,18 @@ function App() {
                       className="track-row__content track-row__content--waveform"
                       style={gridStyle}
                     >
-                      {masterWaveformMessage ? (
+                      {mainWaveformMessage ? (
                         <div
                           className="waveform__empty"
                           style={{ left: visibleTimelineStartPx + 16 }}
                         >
-                          {masterWaveformMessage}
+                          {mainWaveformMessage}
                         </div>
                       ) : null}
-                      {currentMasterWaveform?.peaks ? (
-                        <MasterWaveform
+                      {currentMainWaveform?.peaks ? (
+                        <MainWaveform
                           bpm={bpm}
-                          peaks={currentMasterWaveform.peaks}
+                          peaks={currentMainWaveform.peaks}
                           quarterPx={quarterPx}
                           visibleStartPx={visibleTimelineStartPx}
                           visibleWidthPx={visibleTimelineWidthPx}
@@ -6349,31 +6511,31 @@ function App() {
 
                   <section
                     aria-label="Source track drop area"
-                    className={`source-header ${sourceTracks.length ? "" : "source-header--empty"}`}
+                    className={`source-header ${sourceTracks.length ? "" : "source-header--empty"} ${isSourceTracksCollapsed ? "source-header--collapsed" : ""} ${isSourceTracksCollapsed && isNewSourceTrackDropTarget ? "is-drop-target" : ""}`}
                     data-source-track-drop-target={
-                      sourceTracks.length ? undefined : "new-track"
+                      isSourceHeaderDropTarget ? "new-track" : undefined
                     }
                     onDragEnter={(event) => {
-                      if (!sourceTracks.length) {
+                      if (isSourceHeaderDropTarget) {
                         handleSourceTrackDragEvent(event, {
                           kind: "new-track",
                         });
                       }
                     }}
                     onDragLeave={() => {
-                      if (!sourceTracks.length) {
+                      if (isSourceHeaderDropTarget) {
                         scheduleSourceTrackDragClear();
                       }
                     }}
                     onDragOver={(event) => {
-                      if (!sourceTracks.length) {
+                      if (isSourceHeaderDropTarget) {
                         handleSourceTrackDragEvent(event, {
                           kind: "new-track",
                         });
                       }
                     }}
                     onDrop={(event) => {
-                      if (sourceTracks.length) {
+                      if (!isSourceHeaderDropTarget) {
                         return;
                       }
 
@@ -6391,18 +6553,45 @@ function App() {
                     }}
                   >
                     <div className="track-label track-label--header">
-                      <div>
-                        <span>Source Tracks</span>
-                        <small>
-                          {pluralize(
-                            sourceTracks.length || mediaItems.length,
-                            "track",
-                          )}{" "}
-                          in session
-                        </small>
-                      </div>
+                      {sourceTracks.length ? (
+                        <button
+                          aria-expanded={!isSourceTracksCollapsed}
+                          className="source-header__toggle"
+                          onClick={() =>
+                            setSourceTracksCollapsed(!isSourceTracksCollapsed)
+                          }
+                          title={
+                            isSourceTracksCollapsed
+                              ? "Show source tracks"
+                              : "Hide source tracks"
+                          }
+                          type="button"
+                        >
+                          <ChevronDownIcon aria-hidden="true" />
+                          <span className="source-header__title">
+                            <span>Source Tracks</span>
+                            <small>
+                              {pluralize(sourceTracks.length, "track")} in
+                              session
+                            </small>
+                          </span>
+                        </button>
+                      ) : (
+                        <div>
+                          <span>Source Tracks</span>
+                          <small>
+                            {pluralize(mediaItems.length, "track")} in session
+                          </small>
+                        </div>
+                      )}
                     </div>
                     <div className="source-header__content">
+                      {isSourceTracksCollapsed ? (
+                        <span className="source-header__summary">
+                          {formatSourceTracksSummary(sourceTracks.length)}{" "}
+                          hidden
+                        </span>
+                      ) : null}
                       {sourceTracks.length ? null : (
                         <div className="source-empty-state">
                           <span>No source media yet</span>
@@ -6426,156 +6615,162 @@ function App() {
                     </div>
                   </section>
 
-                  {sourceTracks.map((track, index) => {
-                    const sourceClips = sourceSpansByTrack.get(track.id) ?? [];
-                    const swatch = getSwatch(track.colorIndex);
-                    const isDropTarget =
-                      sourceTrackDragTarget?.kind === "track" &&
-                      sourceTrackDragTarget.trackId === track.id;
+                  {isSourceTracksCollapsed
+                    ? null
+                    : sourceTracks.map((track, index) => {
+                        const sourceClips =
+                          sourceSpansByTrack.get(track.id) ?? [];
+                        const swatch = getSwatch(track.colorIndex);
+                        const isDropTarget =
+                          sourceTrackDragTarget?.kind === "track" &&
+                          sourceTrackDragTarget.trackId === track.id;
 
-                    return (
-                      <section
-                        key={track.id}
-                        className="track-row track-row--source"
-                      >
-                        <button
-                          className="track-label track-label--source"
-                          onClick={() => selectSource(track.id)}
-                          type="button"
-                        >
-                          <span
-                            className="track-label__stripe"
-                            style={{ backgroundColor: swatch.accent }}
-                          />
-                          <div>
-                            <span>{track.name}</span>
-                            <small>
-                              {track.recordingPaths.length
-                                ? `${pluralize(track.recordingPaths.length, "file")} / key ${index + 1}`
-                                : `Imported media / key ${index + 1}`}
-                            </small>
-                          </div>
-                        </button>
-                        <section
-                          aria-label={`Drop media into ${track.name}`}
-                          className={`track-row__content track-row__content--source ${isDropTarget ? "is-drop-target" : ""}`}
-                          data-source-track-drop-target="track"
-                          data-source-track-id={track.id}
-                          onDragEnter={(event) =>
-                            handleSourceTrackDragEvent(event, {
-                              kind: "track",
-                              trackId: track.id,
-                            })
-                          }
-                          onDragLeave={() => {
-                            scheduleSourceTrackDragClear();
-                          }}
-                          onDragOver={(event) =>
-                            handleSourceTrackDragEvent(event, {
-                              kind: "track",
-                              trackId: track.id,
-                            })
-                          }
-                          onDrop={(event) => {
-                            const files = getDraggedMediaFiles(
-                              event.dataTransfer,
-                            );
-                            if (!files.length) {
-                              return;
-                            }
-
-                            event.preventDefault();
-                            event.stopPropagation();
-                            clearSourceTrackDragState();
-                            void importMediaIntoSourceTrack(files, {
-                              kind: "track",
-                              trackId: track.id,
-                            });
-                          }}
-                          style={gridStyle}
-                        >
-                          {sourceClips.map((clip) => {
-                            const media = clip.mediaId
-                              ? mediaItemsById.get(clip.mediaId)
-                              : undefined;
-                            const mediaState = describeClipMediaState(
-                              clip,
-                              media?.availability,
-                            );
-                            const thumbnailUrl =
-                              sourceThumbnailUrls[
-                                getSourceThumbnailCacheKey(clip)
-                              ] ?? media?.thumbnailUrl;
-                            return (
-                              <div
-                                key={clip.id}
-                                className="source-span"
-                                style={{
-                                  left: clip.startQ * quarterPx,
-                                  width:
-                                    getClipDurationQ(clip, bpm) * quarterPx,
-                                  backgroundColor: clip.tint,
-                                  borderColor: clip.accent,
-                                  opacity: mediaState === "online" ? 1 : 0.56,
-                                }}
-                              >
-                                <div
-                                  className="source-span__thumb"
-                                  style={
-                                    thumbnailUrl
-                                      ? {
-                                          backgroundImage: `url(${thumbnailUrl})`,
-                                          backgroundSize: "cover",
-                                          backgroundPosition: "center",
-                                        }
-                                      : undefined
-                                  }
-                                />
-                                <div className="source-span__body">
-                                  <span>{clip.label}</span>
-                                  <small>
-                                    {formatClipMediaState(mediaState)}
-                                  </small>
-                                  <div
-                                    className="source-span__line"
-                                    style={{ backgroundColor: clip.accent }}
-                                  />
-                                </div>
-                              </div>
-                            );
-                          })}
-                          {isDropTarget && sourceTrackDragPreview ? (
-                            <div className="source-drop-preview">
-                              <div
-                                className={`source-drop-preview__thumb ${
-                                  sourceTrackDragPreview.thumbnailUrl
-                                    ? "has-image"
-                                    : ""
-                                }`}
-                                style={
-                                  sourceTrackDragPreview.thumbnailUrl
-                                    ? {
-                                        backgroundImage: `url(${sourceTrackDragPreview.thumbnailUrl})`,
-                                      }
-                                    : undefined
-                                }
+                        return (
+                          <section
+                            key={track.id}
+                            className="track-row track-row--source"
+                          >
+                            <button
+                              className="track-label track-label--source"
+                              onClick={() => selectSource(track.id)}
+                              type="button"
+                            >
+                              <span
+                                className="track-label__stripe"
+                                style={{ backgroundColor: swatch.accent }}
                               />
-                              <div className="source-drop-preview__body">
-                                <strong>{sourceTrackDragPreview.label}</strong>
-                                <span>{sourceTrackDragPreviewDetail}</span>
+                              <div>
+                                <span>{track.name}</span>
+                                <small>
+                                  {track.recordingPaths.length
+                                    ? `${pluralize(track.recordingPaths.length, "file")} / key ${index + 1}`
+                                    : `Imported media / key ${index + 1}`}
+                                </small>
                               </div>
-                              {sourceTrackDragPreviewOverflow ? (
-                                <div className="source-drop-preview__count">
-                                  {sourceTrackDragPreviewOverflow}
+                            </button>
+                            <section
+                              aria-label={`Drop media into ${track.name}`}
+                              className={`track-row__content track-row__content--source ${isDropTarget ? "is-drop-target" : ""}`}
+                              data-source-track-drop-target="track"
+                              data-source-track-id={track.id}
+                              onDragEnter={(event) =>
+                                handleSourceTrackDragEvent(event, {
+                                  kind: "track",
+                                  trackId: track.id,
+                                })
+                              }
+                              onDragLeave={() => {
+                                scheduleSourceTrackDragClear();
+                              }}
+                              onDragOver={(event) =>
+                                handleSourceTrackDragEvent(event, {
+                                  kind: "track",
+                                  trackId: track.id,
+                                })
+                              }
+                              onDrop={(event) => {
+                                const files = getDraggedMediaFiles(
+                                  event.dataTransfer,
+                                );
+                                if (!files.length) {
+                                  return;
+                                }
+
+                                event.preventDefault();
+                                event.stopPropagation();
+                                clearSourceTrackDragState();
+                                void importMediaIntoSourceTrack(files, {
+                                  kind: "track",
+                                  trackId: track.id,
+                                });
+                              }}
+                              style={gridStyle}
+                            >
+                              {sourceClips.map((clip) => {
+                                const media = clip.mediaId
+                                  ? mediaItemsById.get(clip.mediaId)
+                                  : undefined;
+                                const mediaState = describeClipMediaState(
+                                  clip,
+                                  media?.availability,
+                                );
+                                const thumbnailUrl =
+                                  sourceThumbnailUrls[
+                                    getSourceThumbnailCacheKey(clip)
+                                  ] ?? media?.thumbnailUrl;
+                                return (
+                                  <div
+                                    key={clip.id}
+                                    className="source-span"
+                                    style={{
+                                      left: clip.startQ * quarterPx,
+                                      width:
+                                        getClipDurationQ(clip, bpm) * quarterPx,
+                                      backgroundColor: clip.tint,
+                                      borderColor: clip.accent,
+                                      opacity:
+                                        mediaState === "online" ? 1 : 0.56,
+                                    }}
+                                  >
+                                    <div
+                                      className="source-span__thumb"
+                                      style={
+                                        thumbnailUrl
+                                          ? {
+                                              backgroundImage: `url(${thumbnailUrl})`,
+                                              backgroundSize: "cover",
+                                              backgroundPosition: "center",
+                                            }
+                                          : undefined
+                                      }
+                                    />
+                                    <div className="source-span__body">
+                                      <span>{clip.label}</span>
+                                      <small>
+                                        {formatClipMediaState(mediaState)}
+                                      </small>
+                                      <div
+                                        className="source-span__line"
+                                        style={{ backgroundColor: clip.accent }}
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              {isDropTarget && sourceTrackDragPreview ? (
+                                <div className="source-drop-preview">
+                                  <div
+                                    className={`source-drop-preview__thumb ${
+                                      sourceTrackDragPreview.thumbnailUrl
+                                        ? "has-image"
+                                        : ""
+                                    }`}
+                                    style={
+                                      sourceTrackDragPreview.thumbnailUrl
+                                        ? {
+                                            backgroundImage: `url(${sourceTrackDragPreview.thumbnailUrl})`,
+                                          }
+                                        : undefined
+                                    }
+                                  />
+                                  <div className="source-drop-preview__body">
+                                    <strong>
+                                      {sourceTrackDragPreview.label}
+                                    </strong>
+                                    <span>{sourceTrackDragPreviewDetail}</span>
+                                  </div>
+                                  {sourceTrackDragPreviewOverflow ? (
+                                    <div className="source-drop-preview__count">
+                                      {sourceTrackDragPreviewOverflow}
+                                    </div>
+                                  ) : null}
                                 </div>
                               ) : null}
-                            </div>
-                          ) : null}
-                        </section>
-                      </section>
-                    );
-                  })}
-                  {isSourceTrackFileDragActive ? (
+                            </section>
+                          </section>
+                        );
+                      })}
+                  {isSourceTrackFileDragActive && !isSourceTracksCollapsed ? (
                     <section className="track-row track-row--source track-row--source-drop">
                       <div className="track-label track-label--source track-label--source-drop">
                         <span className="track-label__stripe" />
@@ -6694,7 +6889,7 @@ function App() {
                       timelineDragState?.wasPlaying,
                     )}
                     lanes={lanes}
-                    masterAudio={masterAudio}
+                    mainAudio={mainAudio}
                     mediaItems={mediaItems}
                     playheadQ={playheadQ}
                     playheadSeconds={playheadSeconds}
@@ -6726,10 +6921,25 @@ function App() {
 
             <div className="transport-bar">
               <div className="zoom-control">
-                <span>Zoom</span>
+                <span className="zoom-control__label">Zoom</span>
+                <button
+                  aria-label="Zoom out"
+                  className="zoom-control__button"
+                  disabled={resolvedZoom <= ZOOM_MIN}
+                  onClick={() =>
+                    setZoomValue("Zoom out", stepZoom(resolvedZoom, -1))
+                  }
+                  title="Zoom out"
+                  type="button"
+                >
+                  <MagnifyingGlassMinusIcon aria-hidden="true" />
+                </button>
                 <input
-                  max="1.8"
-                  min="0.65"
+                  aria-label="Timeline zoom"
+                  aria-valuetext={formatZoomFactor(resolvedZoom)}
+                  className="zoom-control__slider"
+                  max={ZOOM_MAX}
+                  min={ZOOM_MIN}
                   onBlur={() => flushZoomDraft()}
                   onChange={(event) =>
                     updateZoomDraft(Number(event.target.value))
@@ -6737,9 +6947,33 @@ function App() {
                   onKeyUp={() => flushZoomDraft()}
                   onPointerUp={() => flushZoomDraft()}
                   step="0.01"
+                  style={{
+                    ["--zoom-fill" as string]: `${zoomFillFraction(resolvedZoom) * 100}%`,
+                  }}
                   type="range"
                   value={resolvedZoom}
                 />
+                <button
+                  aria-label="Zoom in"
+                  className="zoom-control__button"
+                  disabled={resolvedZoom >= ZOOM_MAX}
+                  onClick={() =>
+                    setZoomValue("Zoom in", stepZoom(resolvedZoom, 1))
+                  }
+                  title="Zoom in"
+                  type="button"
+                >
+                  <MagnifyingGlassPlusIcon aria-hidden="true" />
+                </button>
+                <button
+                  aria-label={`Zoom ${formatZoomFactor(resolvedZoom)}, reset to ${formatZoomFactor(ZOOM_DEFAULT)}`}
+                  className="zoom-control__readout"
+                  onClick={() => setZoomValue("Reset zoom", ZOOM_DEFAULT)}
+                  title="Reset zoom to 100%"
+                  type="button"
+                >
+                  {formatZoomFactor(resolvedZoom)}
+                </button>
               </div>
 
               <div className="transport-cluster">

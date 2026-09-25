@@ -82,7 +82,7 @@ export type SessionOpenResponse = {
   recordingRefs?: ServerMediaRef[];
 };
 
-// Every media file the session references: its clips and master audio.
+// Every media file the session references: its clips and main audio.
 export function collectSessionMediaPaths(session: LvpSession) {
   const mediaPaths = new Set<string>();
 
