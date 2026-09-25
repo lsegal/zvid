@@ -22,7 +22,8 @@ use wry::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 use wry::{Rect, WebContext, WebView, WebViewBuilder};
 
 use crate::backend::Backend;
-use crate::protocol::{PosterCache, Protocol, Reveal, SCHEME, origin};
+use crate::desktop::SystemDesktop;
+use crate::protocol::{PosterCache, Protocol, SCHEME, origin};
 
 /// Default editor size in points, from the design spec.
 pub const DEFAULT_SIZE: LogicalSize<f64> = LogicalSize::new(680.0, 760.0);
@@ -178,34 +179,12 @@ impl Editor {
         backend: Arc<dyn Backend>,
         options: EditorOptions,
     ) -> wry::Result<Self> {
-        // SAFETY: forwarded from this function's own contract.
-        unsafe {
-            Self::attach_with_reveal(
-                parent,
-                size,
-                scale,
-                backend,
-                options,
-                Arc::new(crate::reveal::reveal),
-            )
-        }
-    }
-
-    /// [`Editor::attach`] with a custom reveal action.
-    ///
-    /// # Safety
-    ///
-    /// As for [`Editor::attach`].
-    pub unsafe fn attach_with_reveal(
-        parent: ParentWindow,
-        size: LogicalSize<f64>,
-        scale: f64,
-        backend: Arc<dyn Backend>,
-        options: EditorOptions,
-        reveal: Reveal,
-    ) -> wry::Result<Self> {
         let shared = Shared::acquire();
-        let protocol = Arc::new(Protocol::new(backend, shared.posters.clone(), reveal));
+        let protocol = Arc::new(Protocol::new(
+            backend,
+            shared.posters.clone(),
+            Arc::new(SystemDesktop),
+        ));
         let size = constrain(size);
         let scale = if scale.is_finite() && scale > 0.0 {
             scale

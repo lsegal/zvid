@@ -12,6 +12,7 @@
 pub mod assets;
 pub mod backend;
 pub mod channels;
+pub mod desktop;
 pub mod editor;
 pub mod image;
 pub mod mock;
@@ -19,10 +20,13 @@ pub mod model;
 pub mod poster;
 pub mod protocol;
 pub mod range;
-pub mod reveal;
+
+/// Size and position types used by [`Editor`].
+pub use wry::dpi;
 
 pub use backend::Backend;
 pub use channels::{Channels, EventLog, PreviewSlot};
+pub use desktop::{Desktop, SystemDesktop};
 pub use editor::{DEFAULT_SIZE, Editor, EditorOptions, MIN_SIZE, ParentWindow};
 pub use model::{
     Camera, CaptureInfo, ErrorCode, Phase, Status, TakeFile, TakeInfo, Transport, UiError, UiEvent,

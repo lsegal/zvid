@@ -32,6 +32,7 @@ use serde_json::Value;
 use crate::assets;
 use crate::backend::Backend;
 use crate::channels::Cancel;
+use crate::desktop::Desktop;
 use crate::model::{ErrorCode, UiError};
 use crate::poster::{POSTER_EDGE, poster_jpeg};
 use crate::range::{self, ByteRange, RangeRequest};
@@ -54,8 +55,6 @@ pub fn origin(host: &str) -> String {
 
 /// Sends the response for one request; may be called from any thread.
 pub type Responder = Box<dyn FnOnce(Response<Vec<u8>>) + Send>;
-/// Reveals a file in Finder or Explorer.
-pub type Reveal = Arc<dyn Fn(&Path) -> std::io::Result<()> + Send + Sync>;
 
 /// Poster JPEGs by file, offset and modification time, shared by every
 /// editor in the process.
@@ -111,17 +110,21 @@ struct InFlight {
 pub struct Protocol {
     backend: Arc<dyn Backend>,
     posters: Arc<PosterCache>,
-    reveal: Reveal,
+    desktop: Arc<dyn Desktop>,
     cancel: Cancel,
     in_flight: Arc<InFlight>,
 }
 
 impl Protocol {
-    pub fn new(backend: Arc<dyn Backend>, posters: Arc<PosterCache>, reveal: Reveal) -> Self {
+    pub fn new(
+        backend: Arc<dyn Backend>,
+        posters: Arc<PosterCache>,
+        desktop: Arc<dyn Desktop>,
+    ) -> Self {
         Self {
             backend,
             posters,
-            reveal,
+            desktop,
             cancel: Arc::new(AtomicBool::new(false)),
             in_flight: Arc::default(),
         }
@@ -241,12 +244,23 @@ impl Protocol {
                         "the take's file is missing",
                     ));
                 }
-                (self.reveal)(&file.path).map_err(|error| {
+                self.desktop.reveal(&file.path).map_err(|error| {
                     UiError::new(
                         ErrorCode::Internal,
                         format!("couldn't reveal the file: {error}"),
                     )
                 })?;
+                Ok(Value::Null)
+            }
+            "openPrivacySettings" => {
+                self.desktop
+                    .open_camera_privacy_settings()
+                    .map_err(|error| {
+                        UiError::new(
+                            ErrorCode::Internal,
+                            format!("couldn't open the privacy settings: {error}"),
+                        )
+                    })?;
                 Ok(Value::Null)
             }
             _ => Err(UiError::new(

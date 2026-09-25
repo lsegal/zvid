@@ -11,6 +11,25 @@ struct Fixture {
     backend: Arc<MockBackend>,
     protocol: Arc<Protocol>,
     revealed: Arc<Mutex<Vec<PathBuf>>>,
+    desktop: Arc<RecordingDesktop>,
+}
+
+#[derive(Default)]
+struct RecordingDesktop {
+    revealed: Arc<Mutex<Vec<PathBuf>>>,
+    settings_opened: AtomicBool,
+}
+
+impl Desktop for RecordingDesktop {
+    fn reveal(&self, path: &Path) -> std::io::Result<()> {
+        self.revealed.lock().unwrap().push(path.to_path_buf());
+        Ok(())
+    }
+
+    fn open_camera_privacy_settings(&self) -> std::io::Result<()> {
+        self.settings_opened.store(true, Ordering::Release);
+        Ok(())
+    }
 }
 
 impl Fixture {
@@ -26,22 +45,19 @@ impl Fixture {
             State::default(),
             Some("clip.mp4".into()),
         ));
-        let revealed = Arc::new(Mutex::new(Vec::new()));
-        let seen = revealed.clone();
-        let reveal: Reveal = Arc::new(move |path: &Path| {
-            seen.lock().unwrap().push(path.to_path_buf());
-            Ok(())
-        });
+        let desktop = Arc::new(RecordingDesktop::default());
+        let revealed = desktop.revealed.clone();
         let protocol = Arc::new(Protocol::new(
             backend.clone(),
             Arc::new(PosterCache::default()),
-            reveal,
+            desktop.clone(),
         ));
         Self {
             dir,
             backend,
             protocol,
             revealed,
+            desktop,
         }
     }
 
@@ -209,6 +225,10 @@ fn reveals_takes() {
     let revealed = fixture.revealed.lock().unwrap().clone();
     assert_eq!(revealed.len(), 1);
     assert!(revealed[0].ends_with("clip.mp4"));
+
+    let response = fixture.invoke("openPrivacySettings", Value::Null);
+    assert_eq!(response.status(), StatusCode::OK);
+    assert!(fixture.desktop.settings_opened.load(Ordering::Acquire));
 }
 
 #[test]
