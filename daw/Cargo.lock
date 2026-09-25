@@ -1267,6 +1267,10 @@ dependencies = [
 [[package]]
 name = "xtask"
 version = "0.1.0"
+dependencies = [
+ "zvid-daw-core",
+ "zvid-vst3",
+]
 
 [[package]]
 name = "zmij"
@@ -1320,6 +1324,7 @@ dependencies = [
 name = "zvid-vst3"
 version = "0.1.0"
 dependencies = [
+ "serde_json",
  "zvid-daw-core",
 ]
 
