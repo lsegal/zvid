@@ -9,8 +9,8 @@
 // are Layers-app data with no counterpart in Live, so they are generated:
 // tracks that play at the same time go on separate layers, up to
 // `MAX_LAYERS`, and any overlap left past that is resolved. Effects are out
-// of scope. Media probing (`numFrames`,
-// `frameRate`) and resolving recording files on disk happen elsewhere.
+// of scope. Media probing (`numFrames`, `frameRate`) and resolving recording
+// files on disk happen elsewhere.
 
 import {
   type LvpSelection,

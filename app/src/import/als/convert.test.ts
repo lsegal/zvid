@@ -540,12 +540,14 @@ describe("convertAls with synthetic sets", () => {
       ["Layer 1", "Layer 2"],
     );
     assert.deepEqual(
-      session.selections?.map(({ trackId, mainTrackId, frameStart, frameEnd }) => [
-        trackId,
-        mainTrackId,
-        frameStart,
-        frameEnd,
-      ]),
+      session.selections?.map(
+        ({ trackId, mainTrackId, frameStart, frameEnd }) => [
+          trackId,
+          mainTrackId,
+          frameStart,
+          frameEnd,
+        ],
+      ),
       [
         ["5", "1", 0, 60],
         ["6", "2", 0, 60],
@@ -575,12 +577,14 @@ describe("convertAls with synthetic sets", () => {
     );
     assert.equal(session.mainTracks?.length, 9);
     assert.deepEqual(
-      session.selections?.map(({ trackId, mainTrackId, frameStart, frameEnd }) => [
-        trackId,
-        mainTrackId,
-        frameStart,
-        frameEnd,
-      ]),
+      session.selections?.map(
+        ({ trackId, mainTrackId, frameStart, frameEnd }) => [
+          trackId,
+          mainTrackId,
+          frameStart,
+          frameEnd,
+        ],
+      ),
       [
         ["11", "2", 0, 45],
         ...tracks

@@ -79,7 +79,11 @@ describe("resolveSessionOverlaps", () => {
   it("resolves a loaded .lvp's stacked selections", () => {
     const session = {
       mainTracks: [{ id: "1", name: "Layer 1" }],
-      selections: [selection(1, 0, 317), selection(2, 0, 317), selection(3, 100, 316)],
+      selections: [
+        selection(1, 0, 317),
+        selection(2, 0, 317),
+        selection(3, 100, 316),
+      ],
     };
     const result = resolveSessionOverlaps(session);
     assert.deepEqual(spans(result.session.selections ?? []), [

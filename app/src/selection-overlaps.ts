@@ -27,9 +27,7 @@ export function resolveSelectionOverlaps(
 ): SelectionOverlapResult {
   let resolved: LvpSelection[] = [];
   for (const active of selections) {
-    resolved = resolved.flatMap((selection) =>
-      trimAround(selection, active),
-    );
+    resolved = resolved.flatMap((selection) => trimAround(selection, active));
     resolved.push(active);
   }
 

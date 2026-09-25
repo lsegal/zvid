@@ -137,12 +137,12 @@ import {
 } from "./project-history";
 import { migrateLegacyMainAudio } from "./project-state-compat.ts";
 import { listOfflineMedia, matchOfflineMedia } from "./relink";
-import type { LvpSession, SessionOpenResponse } from "./session";
 import {
   formatOverlapNote,
   MAX_LAYERS,
   resolveSessionOverlaps,
 } from "./selection-overlaps";
+import type { LvpSession, SessionOpenResponse } from "./session";
 import {
   formatSourceTracksSummary,
   isSourceTracksSectionCollapsed,
@@ -1440,10 +1440,7 @@ function chooseSourceSpanForWindow(
   );
 }
 
-function sessionToProject(
-  loadedSession: LvpSession,
-  mediaItems: MediaItem[],
-) {
+function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
   // Stacked clips on one layer would hide all but the top one.
   const { session, ...overlaps } = resolveSessionOverlaps(loadedSession);
   const bpm = session.timeline?.bpm ?? 120;
