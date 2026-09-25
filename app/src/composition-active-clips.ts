@@ -176,6 +176,10 @@ export function resolveVisualState(
       .trim()
       .toLowerCase()
       .includes("layout");
+    // Layout is per layer: the anchor comes only from the layer's own stack.
+    if (isLayoutEffect && effect.trackId !== laneId) {
+      continue;
+    }
 
     for (const parameter of effect.parameters) {
       const key = parameter.key.toLowerCase();

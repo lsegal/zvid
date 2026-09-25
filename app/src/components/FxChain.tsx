@@ -14,6 +14,7 @@ import {
   useState,
 } from "react";
 import {
+  ADDABLE_EFFECT_DEFINITIONS,
   describeDeviceMove,
   dropSlotToStackIndex,
   getAutoScrollDelta,
@@ -26,7 +27,6 @@ import {
   toggleCollapsedDevice,
   writeCollapsedDevices,
 } from "../fx-chain";
-import { FX_EFFECT_DEFINITIONS } from "../fx-registry";
 import {
   type FxDevice,
   type FxDeviceGroup,
@@ -67,6 +67,7 @@ type FxChainProps = {
   onAdd: (trackId: string, effectName: string, id: string) => void;
   onRemove: (device: FxDevice) => void;
   onDuplicate: (device: FxDevice, id: string) => void;
+  onReset: (device: FxDevice) => void;
 };
 
 // Pixels the pointer travels before a press on a title bar becomes a drag.
@@ -124,6 +125,7 @@ export function FxChain({
   onAdd,
   onRemove,
   onDuplicate,
+  onReset,
 }: FxChainProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragSession | null>(null);
@@ -246,12 +248,22 @@ export function FxChain({
   }
 
   function removeDevice(device: FxDevice) {
+    // A layer's own Layout can only be reset, not removed.
+    if (device.layerDefault) {
+      return;
+    }
+
     const stack = groups[device.group];
     const index = stack.findIndex((candidate) => candidate.id === device.id);
     const neighbour = stack[index + 1] ?? stack[index - 1];
     requestFocus(neighbour?.id ?? `add-${device.group}`);
     onRemove(device);
     setAnnouncement(`Removed ${device.name}`);
+  }
+
+  function resetDevice(device: FxDevice) {
+    onReset(device);
+    setAnnouncement(`Reset ${device.name}`);
   }
 
   function duplicateDevice(device: FxDevice) {
@@ -263,7 +275,7 @@ export function FxChain({
 
   function addDevice(group: FxDeviceGroup, effectName: string) {
     const trackId = getTrackId(group, layerTrackId);
-    const definition = FX_EFFECT_DEFINITIONS.find(
+    const definition = ADDABLE_EFFECT_DEFINITIONS.find(
       (candidate) => candidate.effectName === effectName,
     );
     if (!trackId || !definition) {
@@ -689,13 +701,23 @@ export function FxChain({
                 <DropdownMenuShortcut>Alt+→</DropdownMenuShortcut>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => duplicateDevice(menuDevice)}>
-                Duplicate
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => removeDevice(menuDevice)}>
-                Delete
-                <DropdownMenuShortcut>Del</DropdownMenuShortcut>
-              </DropdownMenuItem>
+              {menuDevice.layerDefault ? (
+                <DropdownMenuItem onSelect={() => resetDevice(menuDevice)}>
+                  Reset to Default
+                </DropdownMenuItem>
+              ) : (
+                <>
+                  <DropdownMenuItem
+                    onSelect={() => duplicateDevice(menuDevice)}
+                  >
+                    Duplicate
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => removeDevice(menuDevice)}>
+                    Delete
+                    <DropdownMenuShortcut>Del</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                </>
+              )}
             </>
           ) : null}
         </DropdownMenuContent>
@@ -745,7 +767,7 @@ function AddDeviceMenu({
         onCloseAutoFocus={onCloseAutoFocus}
         sideOffset={6}
       >
-        {FX_EFFECT_DEFINITIONS.map((definition) => (
+        {ADDABLE_EFFECT_DEFINITIONS.map((definition) => (
           <DropdownMenuItem
             key={definition.effectName}
             onSelect={() => onAdd(definition.effectName)}
@@ -782,7 +804,11 @@ type FxDevicePanelProps = {
   onSetParameter: FxChainProps["onSetParameter"];
 };
 
-const TITLE_SHORTCUTS = "Alt+ArrowLeft Alt+ArrowRight Delete";
+function getTitleShortcuts(device: FxDevice) {
+  return device.layerDefault
+    ? "Alt+ArrowLeft Alt+ArrowRight"
+    : "Alt+ArrowLeft Alt+ArrowRight Delete";
+}
 
 export function FxDevicePanel({
   device,
@@ -836,7 +862,7 @@ export function FxDevicePanel({
         {power}
         <button
           aria-expanded={false}
-          aria-keyshortcuts={TITLE_SHORTCUTS}
+          aria-keyshortcuts={getTitleShortcuts(device)}
           aria-label={`Expand ${device.name}`}
           className="fx-device-panel__strip"
           data-fx-focus={device.id}
@@ -875,7 +901,7 @@ export function FxDevicePanel({
       >
         {power}
         <button
-          aria-keyshortcuts={TITLE_SHORTCUTS}
+          aria-keyshortcuts={getTitleShortcuts(device)}
           aria-label={`${device.name}, drag or press Alt+Left or Alt+Right to move`}
           className="fx-device-panel__name"
           data-fx-focus={device.id}
@@ -884,16 +910,18 @@ export function FxDevicePanel({
         >
           {device.name}
         </button>
-        <button
-          aria-label={`Remove ${device.name}`}
-          className="fx-device-panel__remove"
-          data-fx-no-drag
-          onClick={onRemove}
-          title={`Remove ${device.name}`}
-          type="button"
-        >
-          <XMarkIcon aria-hidden="true" />
-        </button>
+        {device.layerDefault ? null : (
+          <button
+            aria-label={`Remove ${device.name}`}
+            className="fx-device-panel__remove"
+            data-fx-no-drag
+            onClick={onRemove}
+            title={`Remove ${device.name}`}
+            type="button"
+          >
+            <XMarkIcon aria-hidden="true" />
+          </button>
+        )}
         <button
           aria-expanded
           aria-label={`Collapse ${device.name}`}
