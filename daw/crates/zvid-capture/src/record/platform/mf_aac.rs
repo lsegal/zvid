@@ -1,7 +1,8 @@
 //! Media Foundation AAC-LC encoder (Microsoft's AAC encoder MFT).
 //!
 //! It takes 16-bit PCM at 44.1 or 48 kHz, mono or stereo, and returns one
-//! raw AAC frame (1024 PCM frames) per output sample.
+//! raw AAC frame (1024 PCM frames) per output sample. Other rates are
+//! resampled to one it takes.
 
 use std::mem::ManuallyDrop;
 
@@ -12,6 +13,7 @@ use zvidlib::AudioGapless;
 use crate::backend::ensure_mf;
 use crate::record::bitstream::{aac_lc_config, esds_box};
 use crate::record::encoder::{AAC_FRAME, PcmEncoder};
+use crate::record::resample::Resampled;
 
 /// Output bitrate: 192 kb/s, the highest the MFT offers.
 const BYTES_PER_SECOND: u32 = 24_000;
@@ -21,14 +23,30 @@ const PRIMING: u32 = 0;
 
 pub fn open(sample_rate: u32, channels: u16) -> Result<Box<dyn PcmEncoder>, String> {
     ensure_mf().map_err(|error| error.to_string())?;
-    if !matches!(sample_rate, 44_100 | 48_000) || !matches!(channels, 1 | 2) {
+    if !matches!(channels, 1 | 2) {
         return Err(format!(
-            "the Media Foundation AAC encoder takes mono or stereo at 44.1 or 48 kHz, not {channels} channels at {sample_rate} Hz"
+            "the Media Foundation AAC encoder takes mono or stereo, not {channels} channels"
         ));
     }
     let transform = find()?;
-    MfAac::create(transform, sample_rate, channels)
-        .map(|encoder| Box::new(encoder) as Box<dyn PcmEncoder>)
+    let rate = encoder_rate(sample_rate);
+    let encoder = Box::new(MfAac::create(transform, rate, channels)?);
+    Ok(if rate == sample_rate {
+        encoder
+    } else {
+        Box::new(Resampled::new(encoder, sample_rate, channels))
+    })
+}
+
+/// The rate to encode `sample_rate` input at: itself when the encoder takes
+/// it, 44.1 kHz for the 44.1 kHz family (88.2, 176.4 kHz, ...), and 48 kHz
+/// for everything else, so common session rates resample by a whole factor.
+fn encoder_rate(sample_rate: u32) -> u32 {
+    match sample_rate {
+        44_100 | 48_000 => sample_rate,
+        rate if rate % 11_025 == 0 => 44_100,
+        _ => 48_000,
+    }
 }
 
 fn find() -> Result<IMFTransform, String> {
@@ -272,6 +290,10 @@ fn read_audio_specific_config(transform: &IMFTransform) -> Option<Vec<u8>> {
 impl PcmEncoder for MfAac {
     fn name(&self) -> &'static str {
         "Media Foundation AAC-LC"
+    }
+
+    fn sample_rate(&self) -> u32 {
+        self.sample_rate
     }
 
     fn decoder_config(&self) -> Vec<u8> {

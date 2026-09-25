@@ -221,25 +221,53 @@ fn leaves_a_playable_file_if_the_host_dies_mid_capture() {
 
 #[test]
 fn records_aac_audio_in_sync_with_video() {
+    records_a_click_in_sync(48_000);
+}
+
+#[test]
+fn records_aac_audio_in_sync_with_video_at_96_khz() {
+    records_a_click_in_sync(96_000);
+}
+
+#[test]
+fn records_aac_audio_in_sync_with_video_at_88_2_khz() {
+    records_a_click_in_sync(88_200);
+}
+
+/// Records a click heard 1 s after the first frame from `sample_rate` input
+/// and checks it plays back 1 s into the file.
+fn records_a_click_in_sync(sample_rate: u32) {
     let root = root();
     let format = AudioFormat {
-        sample_rate: 48_000,
+        sample_rate,
         channels: 2,
     };
-    if encoder::open_audio(format.sample_rate, format.channels).is_err() {
-        eprintln!("no AAC encoder on this machine; skipping");
-        return;
-    }
+    // The rate the encoder writes, which may differ from the input's.
+    let rate = match encoder::open_audio(format.sample_rate, format.channels) {
+        Ok(encoder) => encoder.sample_rate(),
+        Err(error) => {
+            // Windows resamples for its encoder, so every rate works where
+            // 48 kHz does.
+            assert!(
+                !cfg!(windows) || encoder::open_audio(48_000, 2).is_err(),
+                "no AAC encoder for {sample_rate} Hz: {error}"
+            );
+            eprintln!("no AAC encoder for {sample_rate} Hz on this machine ({error}); skipping");
+            return;
+        }
+    };
+    #[cfg(windows)]
+    assert!(matches!(rate, 44_100 | 48_000), "encodes at {rate} Hz");
     let recorder =
         Recorder::start(config(&root, Some(format), VideoEncoderChoice::Software)).unwrap();
     // 10 ms blocks from 100 ms before the first frame to 2.1 s after it,
-    // silent except for a click heard exactly 1 s after the first frame.
-    let block = 480;
+    // silent except for a 2 ms click heard exactly 1 s after the first frame.
+    let block = sample_rate as usize / 100;
     for index in 0..220 {
         let start_ms = index as f64 * 10.0 - 100.0;
         let mut samples = vec![0.0; block * 2];
         if index == 110 {
-            samples[..96].fill(0.8);
+            samples[..block / 5 * 2].fill(0.8);
         }
         if index == 10 {
             for frame_index in 0..60 {
@@ -262,22 +290,29 @@ fn records_aac_audio_in_sync_with_video() {
     assert!(recorded.has_audio);
     assert_eq!(recorded.stats.audio_frames_inserted, 0);
     // The 100 ms before the first frame is cut.
-    assert_eq!(recorded.stats.audio_frames_skipped, 4800);
+    assert_eq!(
+        recorded.stats.audio_frames_skipped,
+        u64::from(sample_rate / 10)
+    );
 
     let (movie, source) = demux(&root.path_of(&recorded.filename));
     assert_eq!(movie.tracks.len(), 2);
     let track = &movie.tracks[1];
     assert_eq!(track.kind, TrackKind::Audio);
-    assert_eq!(track.sample_rate, Some(48_000));
+    assert_eq!(track.sample_rate, Some(rate));
     let limits = zvidlib::Limits::default();
     let timing = track.audio_timing(movie.movie_timescale).unwrap();
     let packets = block_on(track.to_encoded_audio_samples(&source, &limits)).unwrap();
     let decoder = zvidlib::NativeAacDecoder::new(&track.aac_config().unwrap(), limits).unwrap();
     let mut reader =
-        zvidlib::AacSampleReader::new(decoder, packets, 48_000, 2, timing, 2, limits).unwrap();
+        zvidlib::AacSampleReader::new(decoder, packets, rate, 2, timing, 2, limits).unwrap();
     // 2.1 s of audio from file time zero; the edit list rounds to 1 ms.
     let length = reader.presentation_length();
-    assert!(length.abs_diff(100_800) <= 48, "{length} frames");
+    let expected = u64::from(rate) * 21 / 10;
+    assert!(
+        length.abs_diff(expected) <= u64::from(rate / 1000),
+        "{length} frames"
+    );
     let pcm = reader
         .get_range(
             zvidlib::SampleRange::new(0, length).unwrap(),
@@ -290,7 +325,10 @@ fn records_aac_audio_in_sync_with_video() {
         .chunks(2)
         .position(|frame| frame[0].abs() > 0.3)
         .unwrap();
-    assert!(click.abs_diff(48_000) <= 16, "click at frame {click}");
+    assert!(
+        click.abs_diff(rate as usize) <= 16,
+        "click at frame {click}"
+    );
 }
 
 #[test]

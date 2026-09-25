@@ -7,7 +7,7 @@
 //! they are a last resort; the recorder drops what they can't keep up with.
 //!
 //! Audio: AAC-LC through zvidlib's AudioToolbox encoder on macOS, or the
-//! Media Foundation AAC encoder on Windows.
+//! Media Foundation AAC encoder on Windows, resampled to a rate it takes.
 
 use zvidlib::{
     AudioBuffer, AudioEncoder, AudioEncoderConfig, AudioEncoderFactory, AudioGapless, Codec,
@@ -286,6 +286,8 @@ fn to_frame(sample: zvidlib::EncodedSample) -> EncodedFrame {
 /// Encodes interleaved `f32` PCM to AAC-LC packets of 1024 frames each.
 pub trait PcmEncoder {
     fn name(&self) -> &'static str;
+    /// The rate of the encoded audio, which is the track's timescale.
+    fn sample_rate(&self) -> u32;
     /// The `esds` codec configuration box.
     fn decoder_config(&self) -> Vec<u8>;
     /// Encoder delay, in frames, to hide with an edit list while recording.
@@ -357,6 +359,10 @@ impl ZvidlibAac {
 impl PcmEncoder for ZvidlibAac {
     fn name(&self) -> &'static str {
         "AudioToolbox AAC-LC"
+    }
+
+    fn sample_rate(&self) -> u32 {
+        self.sample_rate
     }
 
     fn decoder_config(&self) -> Vec<u8> {

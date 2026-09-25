@@ -23,6 +23,7 @@ mod encoder;
 mod fmp4;
 mod platform;
 mod poster;
+mod resample;
 mod timing;
 
 use std::collections::VecDeque;
@@ -469,7 +470,7 @@ impl Worker {
             config: Mp4TrackConfig {
                 encoder: encoder::encoder_config(
                     Codec::Aac,
-                    audio.format.sample_rate,
+                    audio.encoder.sample_rate(),
                     audio.encoder.decoder_config(),
                 ),
                 format: Mp4TrackFormat::Audio {
@@ -834,8 +835,12 @@ impl Worker {
                     // and the audio actually recorded. Encoders don't all
                     // report it consistently with what they emit.
                     let encoded = audio.packets * u64::from(AAC_FRAME);
-                    let padding =
-                        encoded.saturating_sub(u64::from(value.priming) + audio.clock.written());
+                    let recorded = resample::output_frames(
+                        audio.clock.written(),
+                        audio.format.sample_rate,
+                        audio.encoder.sample_rate(),
+                    );
+                    let padding = encoded.saturating_sub(u64::from(value.priming) + recorded);
                     gapless = Some(AudioGapless {
                         priming: value.priming,
                         padding: u32::try_from(padding).unwrap_or(u32::MAX),
