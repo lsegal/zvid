@@ -34,6 +34,7 @@ import {
   resolveEffectChain,
 } from "./fx-shaders/registry.ts";
 import { getRenderedEffects } from "./fx-stack.ts";
+import type { PlayheadSignal } from "./playhead-signal";
 
 type CompositionPlayerProps = {
   mediaItems: MediaItem[];
@@ -49,6 +50,8 @@ type CompositionPlayerProps = {
   canvasWidth: number;
   canvasHeight: number;
   playheadSeconds: number;
+  // Playback advances this every frame without re-rendering the player.
+  playheadSignal: PlayheadSignal;
   mainAudio?: MediaItem;
 };
 
@@ -593,6 +596,7 @@ export const CompositionPlayer = forwardRef<
     canvasWidth,
     canvasHeight,
     playheadSeconds,
+    playheadSignal,
     mainAudio,
   },
   ref,
@@ -626,6 +630,9 @@ export const CompositionPlayer = forwardRef<
   const rendererStateRef = useRef(rendererState);
   rendererStateRef.current = rendererState;
 
+  const isPlayingRef = useRef(isPlaying);
+  isPlayingRef.current = isPlaying;
+
   const drawCurrentFrame = useCallback(
     (pixelRatio: number) => {
       const renderer = rendererRef.current;
@@ -633,9 +640,13 @@ export const CompositionPlayer = forwardRef<
         return;
       }
 
-      renderer.renderPreviewFrame(playheadQ, pixelRatio);
+      // Video frames can land mid-playback, when the prop lags the playhead.
+      renderer.renderPreviewFrame(
+        isPlayingRef.current ? playheadSignal.get() : playheadQ,
+        pixelRatio,
+      );
     },
-    [playheadQ],
+    [playheadQ, playheadSignal],
   );
 
   const scheduleDraw = useCallback(
@@ -653,8 +664,16 @@ export const CompositionPlayer = forwardRef<
   );
   const scheduleDrawRef = useRef(scheduleDraw);
   scheduleDrawRef.current = scheduleDraw;
-  const isPlayingRef = useRef(isPlaying);
-  isPlayingRef.current = isPlaying;
+  const scrubStateRef = useRef({
+    isScrubbing,
+    isAudibleScrubbing,
+    isContinuousScrubbing,
+  });
+  scrubStateRef.current = {
+    isScrubbing,
+    isAudibleScrubbing,
+    isContinuousScrubbing,
+  };
 
   const renderFrameAt = useCallback(
     async (
@@ -741,14 +760,30 @@ export const CompositionPlayer = forwardRef<
     const pixelRatio = window.devicePixelRatio || 1;
 
     const render = () => {
-      if (!canvasRef.current || !rendererRef.current) {
+      const renderer = rendererRef.current;
+      if (!canvasRef.current || !renderer) {
         return;
       }
 
-      drawCurrentFrame(pixelRatio);
-      if (isPlaying) {
-        playbackFrameRef.current = window.requestAnimationFrame(render);
+      if (!isPlaying) {
+        drawCurrentFrame(pixelRatio);
+        return;
       }
+
+      // The playhead prop only catches up now and then during playback, so
+      // follow the live playhead and keep the media in sync with it here.
+      const livePlayheadQ = playheadSignal.get();
+      renderer.syncPlayback({
+        ...scrubStateRef.current,
+        playheadQ: livePlayheadQ,
+        playheadSeconds: quartersToSeconds(
+          livePlayheadQ,
+          rendererStateRef.current.bpm,
+        ),
+        isPlaying,
+      });
+      renderer.renderPreviewFrame(livePlayheadQ, pixelRatio);
+      playbackFrameRef.current = window.requestAnimationFrame(render);
     };
 
     render();
@@ -758,7 +793,7 @@ export const CompositionPlayer = forwardRef<
         window.cancelAnimationFrame(playbackFrameRef.current);
       }
     };
-  }, [drawCurrentFrame, isPlaying]);
+  }, [drawCurrentFrame, isPlaying, playheadSignal]);
 
   useEffect(() => {
     return rendererRef.current?.addVideoFrameReadyListeners(scheduleDraw);

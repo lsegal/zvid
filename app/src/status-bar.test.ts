@@ -76,7 +76,7 @@ describe("status bar wiring", () => {
   it("refreshes only the playhead cell during playback", () => {
     assert.match(statusBarTsx, /export const StatusBar = memo\(/);
     assert.match(statusPlayheadTsx, /useSyncExternalStore\(signal\.subscribe/);
-    assert.match(appTsx, /playheadSignal\.set\(playheadQ\)/);
+    assert.match(appTsx, /playheadSignal\.set\(nextQ\)/);
   });
 });
 
