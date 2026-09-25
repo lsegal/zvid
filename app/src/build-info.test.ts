@@ -161,10 +161,12 @@ describe("formatBuildTitle", () => {
 
   it("lists the full version, commit and build time", () => {
     assert.equal(
-      formatBuildTitle({ version: "0.0.0", commit: SHA, buildTime: BUILD_TIME }),
-      `zvid 0.0.0+c94f40e
-Commit ${SHA}
-Built 2026-09-24 14:45 UTC`,
+      formatBuildTitle({
+        version: "0.0.0",
+        commit: SHA,
+        buildTime: BUILD_TIME,
+      }),
+      `zvid 0.0.0+c94f40e\nCommit ${SHA}\nBuilt 2026-09-24 14:45 UTC`,
     );
   });
 
@@ -175,17 +177,18 @@ Built 2026-09-24 14:45 UTC`,
         commit: `${SHA}-dirty`,
         buildTime: BUILD_TIME,
       }),
-      `zvid 0.0.0+c94f40e-dirty
-Commit ${SHA}-dirty
-Built 2026-09-24 14:45 UTC`,
+      `zvid 0.0.0+c94f40e-dirty\nCommit ${SHA}-dirty\nBuilt 2026-09-24 14:45 UTC`,
     );
   });
 
   it("leaves the commit out without one", () => {
     assert.equal(
-      formatBuildTitle({ version: "0.0.0", commit: "dev", buildTime: BUILD_TIME }),
-      "zvid 0.0.0
-Built 2026-09-24 14:45 UTC",
+      formatBuildTitle({
+        version: "0.0.0",
+        commit: "dev",
+        buildTime: BUILD_TIME,
+      }),
+      "zvid 0.0.0\nBuilt 2026-09-24 14:45 UTC",
     );
   });
 });

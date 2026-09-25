@@ -101,8 +101,7 @@ export function formatBuildTitle(build: AppBuild) {
     lines.push(`Commit ${build.commit}`);
   }
   lines.push(`Built ${formatBuildTime(build.buildTime)}`);
-  return lines.join("
-");
+  return lines.join("\n");
 }
 
 // `zvid · c94f40e · built 2026-09-24 14:45 UTC`

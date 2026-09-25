@@ -118,9 +118,7 @@ describe("buildStatusItems", () => {
         id: "version",
         label: "zvid",
         value: "1.2.3+c94f40e",
-        title: `zvid 1.2.3+c94f40e
-Commit ${SHA}
-Built 2026-09-24 14:45 UTC`,
+        title: `zvid 1.2.3+c94f40e\nCommit ${SHA}\nBuilt 2026-09-24 14:45 UTC`,
       },
       {
         id: "session",
@@ -174,8 +172,7 @@ Built 2026-09-24 14:45 UTC`,
       version: { ...BUILD, commit: "dev" },
     }).get("version");
     assert.equal(version?.value, "1.2.3");
-    assert.equal(version?.title, "zvid 1.2.3
-Built 2026-09-24 14:45 UTC");
+    assert.equal(version?.title, "zvid 1.2.3\nBuilt 2026-09-24 14:45 UTC");
   });
 
   it("leaves the version out until one is known", () => {
