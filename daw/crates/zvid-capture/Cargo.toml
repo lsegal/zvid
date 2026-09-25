@@ -1,0 +1,10 @@
+[package]
+name = "zvid-capture"
+description = "Camera enumeration, capture sessions and encoding through zvidlib."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+zvid-daw-core.workspace = true
+zvidlib.workspace = true
