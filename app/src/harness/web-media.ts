@@ -143,7 +143,15 @@ export async function generateThumbnailFromUrlAtTime(
           : Math.max(0, timeSeconds);
 
       if (Math.abs(targetTime - video.currentTime) <= 0.001) {
-        void handleSeeked();
+        // No seek fires here, and at metadata time no frame is decoded yet,
+        // so wait for the first frame before drawing it.
+        if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+          void handleSeeked();
+        } else {
+          video.addEventListener("loadeddata", () => void handleSeeked(), {
+            once: true,
+          });
+        }
         return;
       }
 
