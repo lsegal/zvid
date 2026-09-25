@@ -10,28 +10,31 @@
 //! `process()` is real-time safe: it copies audio, pushes a transport
 //! snapshot and, once the tap is taken, input audio into lock-free rings, and
 //! never allocates, locks, does I/O or logs. A control thread started by
-//! `initialize` drains the transport ring into the take tracker and logs
-//! transport changes, and logs what the optional Live companion script
-//! reports about Live's record state and set path.
+//! `initialize` drains the transport ring and the capture layer's
+//! [`Command`]s into the take log, which appends every take to the plugin
+//! state as it opens, and tells the host the state changed. It also logs
+//! transport changes and what the optional Live companion script reports
+//! about Live's record state and set path.
 
 use std::cell::UnsafeCell;
 use std::ffi::c_void;
 use std::mem::offset_of;
 use std::ptr;
-use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, Ordering, fence};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering, fence};
+use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use zvid_daw_core::{
-    Consumer, LiveLink, ProcessSnapshot, Producer, State, TransportFollower, ring,
+    Command, Consumer, LiveLink, ProcessSnapshot, Producer, State, TransportFollower, clock, ring,
 };
 
 use crate::CLASS_ID;
 use crate::abi::result::{FALSE, INVALID_ARGUMENT, NO_INTERFACE, NOT_IMPLEMENTED, OK};
 use crate::abi::*;
 use crate::log::log;
-use crate::transport::{now_sec, snapshot};
+use crate::transport::snapshot;
 use crate::view::View;
 
 /// Snapshots the transport ring holds: about ten seconds of 512-sample
@@ -59,9 +62,15 @@ struct AudioThread {
     tap: Producer<[f32; 2]>,
 }
 
+/// What the control thread reads from.
+struct ControlInputs {
+    transport: Consumer<ProcessSnapshot>,
+    commands: Receiver<Command>,
+}
+
 struct Control {
     stop: Arc<AtomicBool>,
-    thread: JoinHandle<Consumer<ProcessSnapshot>>,
+    thread: JoinHandle<ControlInputs>,
 }
 
 #[derive(Default)]
@@ -70,8 +79,8 @@ struct Lifecycle {
     /// and controller sides separately, even though they are one object.
     initialized: u32,
     control: Option<Control>,
-    /// Reading end of the transport ring while no control thread owns it.
-    transport: Option<Consumer<ProcessSnapshot>>,
+    /// The control thread's inputs while no control thread owns them.
+    inputs: Option<ControlInputs>,
 }
 
 #[repr(C)]
@@ -82,9 +91,9 @@ pub struct Component {
     requirements_vtbl: &'static IProcessContextRequirementsVtbl,
     refs: AtomicU32,
     lifecycle: Mutex<Lifecycle>,
-    state: Mutex<State>,
-    /// Host `IComponentHandler`, holding a reference.
-    handler: AtomicPtr<c_void>,
+    state: Arc<Mutex<State>>,
+    handler: Arc<HostHandler>,
+    commands: Sender<Command>,
     tap_enabled: AtomicBool,
     audio_tap: Mutex<Option<Consumer<[f32; 2]>>>,
     audio: UnsafeCell<AudioThread>,
@@ -93,8 +102,8 @@ pub struct Component {
 impl Component {
     /// Allocates a component holding one reference.
     pub fn create() -> *mut Component {
-        now_sec();
         let (transport, transport_reader) = ring(TRANSPORT_CAPACITY);
+        let (commands, command_reader) = mpsc::channel();
         let (tap, tap_reader) = ring(AUDIO_TAP_FRAMES);
         Box::into_raw(Box::new(Component {
             component_vtbl: &COMPONENT_VTBL,
@@ -103,11 +112,15 @@ impl Component {
             requirements_vtbl: &REQUIREMENTS_VTBL,
             refs: AtomicU32::new(1),
             lifecycle: Mutex::new(Lifecycle {
-                transport: Some(transport_reader),
+                inputs: Some(ControlInputs {
+                    transport: transport_reader,
+                    commands: command_reader,
+                }),
                 ..Lifecycle::default()
             }),
-            state: Mutex::new(State::default()),
-            handler: AtomicPtr::new(ptr::null_mut()),
+            state: Arc::new(Mutex::new(State::default())),
+            handler: Arc::new(HostHandler::default()),
+            commands,
             tap_enabled: AtomicBool::new(false),
             audio_tap: Mutex::new(Some(tap_reader)),
             audio: UnsafeCell::new(AudioThread {
@@ -136,6 +149,13 @@ impl Component {
     /// The persisted state.
     pub fn state(&self) -> MutexGuard<'_, State> {
         lock(&self.state)
+    }
+
+    /// Where the capture layer sends [`Command::Arm`], [`Command::Disarm`]
+    /// and [`Command::FrameClock`]. Commands wait while the component is
+    /// not initialized and are applied once the control thread runs.
+    pub fn commands(&self) -> Sender<Command> {
+        self.commands.clone()
     }
 
     /// Takes the reading end of the input-audio tap: stereo frames from the
@@ -187,9 +207,10 @@ impl Component {
         let mut lifecycle = lock(&self.lifecycle);
         lifecycle.initialized += 1;
         if lifecycle.initialized == 1
-            && let Some(transport) = lifecycle.transport.take()
+            && let Some(inputs) = lifecycle.inputs.take()
         {
-            lifecycle.control = start_control(transport);
+            lifecycle.control =
+                start_control(inputs, Arc::clone(&self.state), Arc::clone(&self.handler));
         }
         OK
     }
@@ -263,15 +284,7 @@ impl Component {
     }
 
     unsafe fn set_component_handler(&self, handler: *mut c_void) -> TResult {
-        unsafe {
-            if !handler.is_null() {
-                (vtbl::<FUnknownVtbl>(handler).add_ref)(handler);
-            }
-            let old = self.handler.swap(handler, Ordering::AcqRel);
-            if !old.is_null() {
-                (vtbl::<FUnknownVtbl>(old).release)(old);
-            }
-        }
+        unsafe { self.handler.set(handler) };
         OK
     }
 
@@ -288,7 +301,7 @@ impl Component {
         if let Some(context) = unsafe { data.process_context.as_ref() } {
             audio
                 .transport
-                .push(snapshot(context, audio.block, data.num_samples, now_sec()));
+                .push(snapshot(context, audio.block, data.num_samples, clock::now_sec()));
         }
         if data.symbolic_sample_size != SAMPLE_32 {
             return NOT_IMPLEMENTED;
@@ -330,13 +343,98 @@ impl Drop for Component {
     }
 }
 
+/// The host's `IComponentHandler`, shared with the control thread so it can
+/// tell the host when a take changes the state.
+#[derive(Default)]
+struct HostHandler(Mutex<HandlerPtr>);
+
+struct HandlerPtr(*mut c_void);
+
+impl Default for HandlerPtr {
+    fn default() -> Self {
+        Self(ptr::null_mut())
+    }
+}
+
+// SAFETY: the pointer is a reference-counted host object, and this crate
+// only calls it under `HostHandler`'s lock or through its own reference.
+unsafe impl Send for HandlerPtr {}
+
+impl HostHandler {
+    /// Holds a reference to `handler`, or to nothing when it is null, in
+    /// place of the current one.
+    ///
+    /// # Safety
+    /// `handler` must be null or a live `IComponentHandler`.
+    unsafe fn set(&self, handler: *mut c_void) {
+        let old = {
+            let mut current = lock(&self.0);
+            if !handler.is_null() {
+                unsafe { (vtbl::<FUnknownVtbl>(handler).add_ref)(handler) };
+            }
+            std::mem::replace(&mut current.0, handler)
+        };
+        if !old.is_null() {
+            unsafe { (vtbl::<FUnknownVtbl>(old).release)(old) };
+        }
+    }
+
+    /// Tells the host the state changed so it marks the project as
+    /// modified: `IComponentHandler2::setDirty` when the host has it,
+    /// otherwise `restartComponent(kParamValuesChanged)`.
+    fn state_changed(&self) {
+        // Query under the lock, which takes a reference, and call the host
+        // without it.
+        let (dirty, restart) = {
+            let current = lock(&self.0);
+            if current.0.is_null() {
+                return;
+            }
+            unsafe {
+                match query_host(current.0, &ICOMPONENT_HANDLER2_IID) {
+                    Some(handler) => (Some(handler), None),
+                    None => (None, query_host(current.0, &ICOMPONENT_HANDLER_IID)),
+                }
+            }
+        };
+        unsafe {
+            if let Some(handler) = dirty {
+                (vtbl::<IComponentHandler2Vtbl>(handler).set_dirty)(handler, 1);
+                (vtbl::<FUnknownVtbl>(handler).release)(handler);
+            } else if let Some(handler) = restart {
+                (vtbl::<IComponentHandlerVtbl>(handler).restart_component)(
+                    handler,
+                    restart::PARAM_VALUES_CHANGED,
+                );
+                (vtbl::<FUnknownVtbl>(handler).release)(handler);
+            } else {
+                log("the host's component handler can't be told the state changed");
+            }
+        }
+    }
+}
+
+/// `object`'s `iid` interface, holding a reference, if it has one.
+///
+/// # Safety
+/// `object` must be a live COM object.
+unsafe fn query_host(object: *mut c_void, iid: &Tuid) -> Option<*mut c_void> {
+    let mut out = ptr::null_mut();
+    let result = unsafe { (vtbl::<FUnknownVtbl>(object).query_interface)(object, iid, &mut out) };
+    (result == OK && !out.is_null()).then_some(out)
+}
+
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
-fn start_control(mut transport: Consumer<ProcessSnapshot>) -> Option<Control> {
+fn start_control(
+    mut inputs: ControlInputs,
+    state: Arc<Mutex<State>>,
+    handler: Arc<HostHandler>,
+) -> Option<Control> {
     let stop = Arc::new(AtomicBool::new(false));
     let stopping = Arc::clone(&stop);
     let spawned = thread::Builder::new()
@@ -348,12 +446,14 @@ fn start_control(mut transport: Consumer<ProcessSnapshot>) -> Option<Control> {
                 .ok();
             loop {
                 let stopping = stopping.load(Ordering::Acquire);
-                follower.drain(&mut transport, log);
+                if follower.drain(&mut inputs.transport, &inputs.commands, &state, log) {
+                    handler.state_changed();
+                }
                 if let Some(live) = &mut live {
                     poll_live(live);
                 }
                 if stopping {
-                    return transport;
+                    return inputs;
                 }
                 thread::park_timeout(CONTROL_INTERVAL);
             }
@@ -374,7 +474,7 @@ fn stop_control(lifecycle: &mut Lifecycle) {
     control.stop.store(true, Ordering::Release);
     control.thread.thread().unpark();
     match control.thread.join() {
-        Ok(transport) => lifecycle.transport = Some(transport),
+        Ok(inputs) => lifecycle.inputs = Some(inputs),
         Err(_) => log("the control thread panicked"),
     }
 }

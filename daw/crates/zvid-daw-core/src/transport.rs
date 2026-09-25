@@ -2,6 +2,7 @@
 //! and the changes the control thread reads from them. Shared by the VST3
 //! and AU format layers so both report the transport the same way.
 
+use std::collections::VecDeque;
 use std::sync::mpsc::Receiver;
 use std::sync::{Mutex, MutexGuard};
 
@@ -161,10 +162,10 @@ pub struct TransportFollower {
 }
 
 impl TransportFollower {
-    /// Feeds queued snapshots, then queued capture commands, to the take
-    /// log, which keeps the recordings in `state` in step with the takes.
-    /// Passes a log line for every transport change, take event and newly
-    /// dropped batch to `log`.
+    /// Feeds queued snapshots and capture commands to the take log in host
+    /// time order, so the log keeps the recordings in `state` in step with
+    /// the takes. Passes a log line for every transport change, take event
+    /// and newly dropped batch to `log`.
     ///
     /// Returns `true` when a take opened or closed, so the caller can tell
     /// the host that the state changed.
@@ -175,8 +176,19 @@ impl TransportFollower {
         state: &Mutex<State>,
         mut log: impl FnMut(&str),
     ) -> bool {
+        let mut pending: VecDeque<Command> = commands.try_iter().collect();
         let mut changed = false;
+        let command = |takes: &mut TakeLog, command: Command, log: &mut dyn FnMut(&str)| {
+            let events = takes.command(command, &mut lock(state));
+            for event in &events {
+                log(&format!("{event:?}"));
+            }
+            !events.is_empty()
+        };
         while let Some(snapshot) = transport.pop() {
+            while let Some(next) = pending.pop_front_if(|next| next.at() <= snapshot.host_time) {
+                changed |= command(&mut self.takes, next, &mut log);
+            }
             for change in self.watch.observe(snapshot) {
                 log(&describe(change, &snapshot));
             }
@@ -186,12 +198,8 @@ impl TransportFollower {
             }
             changed |= !events.is_empty();
         }
-        while let Ok(command) = commands.try_recv() {
-            let events = self.takes.command(command, &mut lock(state));
-            for event in &events {
-                log(&format!("{event:?}"));
-            }
-            changed |= !events.is_empty();
+        for next in pending {
+            changed |= command(&mut self.takes, next, &mut log);
         }
         let total = transport.dropped();
         if total != self.dropped {
@@ -390,5 +398,33 @@ mod tests {
         assert_eq!(take.transport_start_sec, Some(2.0));
         assert!((take.file_offset_sec - 0.1).abs() < 1e-9);
         assert!((take.duration_sec - 0.02).abs() < 1e-9);
+    }
+
+    #[test]
+    fn follower_applies_commands_and_snapshots_in_host_time_order() {
+        let (mut producer, mut consumer) = ring(16);
+        let (sender, commands) = mpsc::channel();
+        let state = Mutex::new(State::default());
+        let mut follower = TransportFollower::default();
+        // Play starts at host time 0.1 s; the arm at 0.05 s reaches the
+        // control thread after the snapshot is queued.
+        producer.push(snapshot(10, PLAY, 96_000));
+        sender
+            .send(Command::Arm {
+                capture: Capture {
+                    filename: "video-01-9-25-20-36-12-0.mp4".to_string(),
+                    dimensions: [1280, 720],
+                    fps: [30, 1],
+                    camera: "Cam".to_string(),
+                    created_at: "2026-09-25T20:36:12Z".to_string(),
+                },
+                at: 0.05,
+            })
+            .unwrap();
+        assert!(follower.drain(&mut consumer, &commands, &state, |_| {}));
+        let state = state.lock().unwrap();
+        // The take opens at the play edge, not at arm.
+        assert_eq!(state.recordings[0].transport_start_sec, Some(2.0));
+        assert!((state.recordings[0].file_offset_sec - 0.05).abs() < 1e-9);
     }
 }

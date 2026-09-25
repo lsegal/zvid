@@ -38,6 +38,16 @@ pub enum Command {
     FrameClock { host_time: f64, file_sec: f64 },
 }
 
+impl Command {
+    /// The host time the command applies at.
+    pub fn at(&self) -> f64 {
+        match *self {
+            Self::Arm { at, .. } | Self::Disarm { at } => at,
+            Self::FrameClock { host_time, .. } => host_time,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct TakeLog {
     tracker: TakeTracker,
