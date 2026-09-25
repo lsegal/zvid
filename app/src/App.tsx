@@ -122,6 +122,12 @@ import {
 import { migrateLegacyMainAudio } from "./project-state-compat.ts";
 import { listOfflineMedia, matchOfflineMedia } from "./relink";
 import type { LvpSession, SessionOpenResponse } from "./session";
+import {
+  formatSourceTracksSummary,
+  isSourceTracksSectionCollapsed,
+  readSourceTracksCollapsed,
+  writeSourceTracksCollapsed,
+} from "./source-tracks-section.ts";
 import { statusMessageTone } from "./status-bar";
 import { buildStatusItems } from "./status-items";
 import { formatMusicalPosition, formatTimecode } from "./timeline-format.ts";
@@ -1610,6 +1616,12 @@ function App() {
   const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(
     readInspectorCollapsed,
   );
+  const [sourceTracksCollapsedPref, setSourceTracksCollapsedPref] = useState(
+    () =>
+      readSourceTracksCollapsed(
+        typeof window === "undefined" ? undefined : window.localStorage,
+      ),
+  );
   const [labelWidth, setLabelWidth] = useState(readLabelWidth);
   const labelResizeRef = useRef<{
     pointerId: number;
@@ -2333,6 +2345,12 @@ function App() {
     return next;
   }, [sourceSpans]);
   const isSourceTrackFileDragActive = Boolean(sourceTrackDragTarget);
+  const isSourceTracksCollapsed = isSourceTracksSectionCollapsed(
+    sourceTracksCollapsedPref,
+    sourceTracks.length,
+  );
+  const isSourceHeaderDropTarget =
+    !sourceTracks.length || isSourceTracksCollapsed;
   const minimumWindowQ = Math.max(snapUnit, beatUnit / 4);
   const visibleTimelineStartPx = Math.max(0, timelineViewport.scrollLeft);
   const visibleTimelineWidthPx = Math.max(
@@ -2533,6 +2551,11 @@ function App() {
     [sourceTracks.length],
   );
 
+  const setSourceTracksCollapsed = useCallback((collapsed: boolean) => {
+    setSourceTracksCollapsedPref(collapsed);
+    writeSourceTracksCollapsed(window.localStorage, collapsed);
+  }, []);
+
   const importMediaIntoSourceTrack = useCallback(
     async (files: File[], target: SourceTrackDropTarget) => {
       const harness = getHarness();
@@ -2637,6 +2660,8 @@ function App() {
 
         seedLocalMediaItems(analyzed);
         void cacheLocalMediaItems(analyzed);
+        // Reveal the dropped media, even when it landed on a collapsed header.
+        setSourceTracksCollapsed(false);
         setStatus(
           `Dropped ${pluralize(analyzed.length, "media file")} into ${
             target.kind === "track"
@@ -2654,6 +2679,7 @@ function App() {
       commitProjectChange,
       projectMediaItems.length,
       seedLocalMediaItems,
+      setSourceTracksCollapsed,
     ],
   );
 
@@ -6465,31 +6491,31 @@ function App() {
 
                   <section
                     aria-label="Source track drop area"
-                    className={`source-header ${sourceTracks.length ? "" : "source-header--empty"}`}
+                    className={`source-header ${sourceTracks.length ? "" : "source-header--empty"} ${isSourceTracksCollapsed ? "source-header--collapsed" : ""} ${isSourceTracksCollapsed && isNewSourceTrackDropTarget ? "is-drop-target" : ""}`}
                     data-source-track-drop-target={
-                      sourceTracks.length ? undefined : "new-track"
+                      isSourceHeaderDropTarget ? "new-track" : undefined
                     }
                     onDragEnter={(event) => {
-                      if (!sourceTracks.length) {
+                      if (isSourceHeaderDropTarget) {
                         handleSourceTrackDragEvent(event, {
                           kind: "new-track",
                         });
                       }
                     }}
                     onDragLeave={() => {
-                      if (!sourceTracks.length) {
+                      if (isSourceHeaderDropTarget) {
                         scheduleSourceTrackDragClear();
                       }
                     }}
                     onDragOver={(event) => {
-                      if (!sourceTracks.length) {
+                      if (isSourceHeaderDropTarget) {
                         handleSourceTrackDragEvent(event, {
                           kind: "new-track",
                         });
                       }
                     }}
                     onDrop={(event) => {
-                      if (sourceTracks.length) {
+                      if (!isSourceHeaderDropTarget) {
                         return;
                       }
 
@@ -6507,18 +6533,45 @@ function App() {
                     }}
                   >
                     <div className="track-label track-label--header">
-                      <div>
-                        <span>Source Tracks</span>
-                        <small>
-                          {pluralize(
-                            sourceTracks.length || mediaItems.length,
-                            "track",
-                          )}{" "}
-                          in session
-                        </small>
-                      </div>
+                      {sourceTracks.length ? (
+                        <button
+                          aria-expanded={!isSourceTracksCollapsed}
+                          className="source-header__toggle"
+                          onClick={() =>
+                            setSourceTracksCollapsed(!isSourceTracksCollapsed)
+                          }
+                          title={
+                            isSourceTracksCollapsed
+                              ? "Show source tracks"
+                              : "Hide source tracks"
+                          }
+                          type="button"
+                        >
+                          <ChevronDownIcon aria-hidden="true" />
+                          <span className="source-header__title">
+                            <span>Source Tracks</span>
+                            <small>
+                              {pluralize(sourceTracks.length, "track")} in
+                              session
+                            </small>
+                          </span>
+                        </button>
+                      ) : (
+                        <div>
+                          <span>Source Tracks</span>
+                          <small>
+                            {pluralize(mediaItems.length, "track")} in session
+                          </small>
+                        </div>
+                      )}
                     </div>
                     <div className="source-header__content">
+                      {isSourceTracksCollapsed ? (
+                        <span className="source-header__summary">
+                          {formatSourceTracksSummary(sourceTracks.length)}{" "}
+                          hidden
+                        </span>
+                      ) : null}
                       {sourceTracks.length ? null : (
                         <div className="source-empty-state">
                           <span>No source media yet</span>
@@ -6542,156 +6595,162 @@ function App() {
                     </div>
                   </section>
 
-                  {sourceTracks.map((track, index) => {
-                    const sourceClips = sourceSpansByTrack.get(track.id) ?? [];
-                    const swatch = getSwatch(track.colorIndex);
-                    const isDropTarget =
-                      sourceTrackDragTarget?.kind === "track" &&
-                      sourceTrackDragTarget.trackId === track.id;
+                  {isSourceTracksCollapsed
+                    ? null
+                    : sourceTracks.map((track, index) => {
+                        const sourceClips =
+                          sourceSpansByTrack.get(track.id) ?? [];
+                        const swatch = getSwatch(track.colorIndex);
+                        const isDropTarget =
+                          sourceTrackDragTarget?.kind === "track" &&
+                          sourceTrackDragTarget.trackId === track.id;
 
-                    return (
-                      <section
-                        key={track.id}
-                        className="track-row track-row--source"
-                      >
-                        <button
-                          className="track-label track-label--source"
-                          onClick={() => selectSource(track.id)}
-                          type="button"
-                        >
-                          <span
-                            className="track-label__stripe"
-                            style={{ backgroundColor: swatch.accent }}
-                          />
-                          <div>
-                            <span>{track.name}</span>
-                            <small>
-                              {track.recordingPaths.length
-                                ? `${pluralize(track.recordingPaths.length, "file")} / key ${index + 1}`
-                                : `Imported media / key ${index + 1}`}
-                            </small>
-                          </div>
-                        </button>
-                        <section
-                          aria-label={`Drop media into ${track.name}`}
-                          className={`track-row__content track-row__content--source ${isDropTarget ? "is-drop-target" : ""}`}
-                          data-source-track-drop-target="track"
-                          data-source-track-id={track.id}
-                          onDragEnter={(event) =>
-                            handleSourceTrackDragEvent(event, {
-                              kind: "track",
-                              trackId: track.id,
-                            })
-                          }
-                          onDragLeave={() => {
-                            scheduleSourceTrackDragClear();
-                          }}
-                          onDragOver={(event) =>
-                            handleSourceTrackDragEvent(event, {
-                              kind: "track",
-                              trackId: track.id,
-                            })
-                          }
-                          onDrop={(event) => {
-                            const files = getDraggedMediaFiles(
-                              event.dataTransfer,
-                            );
-                            if (!files.length) {
-                              return;
-                            }
-
-                            event.preventDefault();
-                            event.stopPropagation();
-                            clearSourceTrackDragState();
-                            void importMediaIntoSourceTrack(files, {
-                              kind: "track",
-                              trackId: track.id,
-                            });
-                          }}
-                          style={gridStyle}
-                        >
-                          {sourceClips.map((clip) => {
-                            const media = clip.mediaId
-                              ? mediaItemsById.get(clip.mediaId)
-                              : undefined;
-                            const mediaState = describeClipMediaState(
-                              clip,
-                              media?.availability,
-                            );
-                            const thumbnailUrl =
-                              sourceThumbnailUrls[
-                                getSourceThumbnailCacheKey(clip)
-                              ] ?? media?.thumbnailUrl;
-                            return (
-                              <div
-                                key={clip.id}
-                                className="source-span"
-                                style={{
-                                  left: clip.startQ * quarterPx,
-                                  width:
-                                    getClipDurationQ(clip, bpm) * quarterPx,
-                                  backgroundColor: clip.tint,
-                                  borderColor: clip.accent,
-                                  opacity: mediaState === "online" ? 1 : 0.56,
-                                }}
-                              >
-                                <div
-                                  className="source-span__thumb"
-                                  style={
-                                    thumbnailUrl
-                                      ? {
-                                          backgroundImage: `url(${thumbnailUrl})`,
-                                          backgroundSize: "cover",
-                                          backgroundPosition: "center",
-                                        }
-                                      : undefined
-                                  }
-                                />
-                                <div className="source-span__body">
-                                  <span>{clip.label}</span>
-                                  <small>
-                                    {formatClipMediaState(mediaState)}
-                                  </small>
-                                  <div
-                                    className="source-span__line"
-                                    style={{ backgroundColor: clip.accent }}
-                                  />
-                                </div>
-                              </div>
-                            );
-                          })}
-                          {isDropTarget && sourceTrackDragPreview ? (
-                            <div className="source-drop-preview">
-                              <div
-                                className={`source-drop-preview__thumb ${
-                                  sourceTrackDragPreview.thumbnailUrl
-                                    ? "has-image"
-                                    : ""
-                                }`}
-                                style={
-                                  sourceTrackDragPreview.thumbnailUrl
-                                    ? {
-                                        backgroundImage: `url(${sourceTrackDragPreview.thumbnailUrl})`,
-                                      }
-                                    : undefined
-                                }
+                        return (
+                          <section
+                            key={track.id}
+                            className="track-row track-row--source"
+                          >
+                            <button
+                              className="track-label track-label--source"
+                              onClick={() => selectSource(track.id)}
+                              type="button"
+                            >
+                              <span
+                                className="track-label__stripe"
+                                style={{ backgroundColor: swatch.accent }}
                               />
-                              <div className="source-drop-preview__body">
-                                <strong>{sourceTrackDragPreview.label}</strong>
-                                <span>{sourceTrackDragPreviewDetail}</span>
+                              <div>
+                                <span>{track.name}</span>
+                                <small>
+                                  {track.recordingPaths.length
+                                    ? `${pluralize(track.recordingPaths.length, "file")} / key ${index + 1}`
+                                    : `Imported media / key ${index + 1}`}
+                                </small>
                               </div>
-                              {sourceTrackDragPreviewOverflow ? (
-                                <div className="source-drop-preview__count">
-                                  {sourceTrackDragPreviewOverflow}
+                            </button>
+                            <section
+                              aria-label={`Drop media into ${track.name}`}
+                              className={`track-row__content track-row__content--source ${isDropTarget ? "is-drop-target" : ""}`}
+                              data-source-track-drop-target="track"
+                              data-source-track-id={track.id}
+                              onDragEnter={(event) =>
+                                handleSourceTrackDragEvent(event, {
+                                  kind: "track",
+                                  trackId: track.id,
+                                })
+                              }
+                              onDragLeave={() => {
+                                scheduleSourceTrackDragClear();
+                              }}
+                              onDragOver={(event) =>
+                                handleSourceTrackDragEvent(event, {
+                                  kind: "track",
+                                  trackId: track.id,
+                                })
+                              }
+                              onDrop={(event) => {
+                                const files = getDraggedMediaFiles(
+                                  event.dataTransfer,
+                                );
+                                if (!files.length) {
+                                  return;
+                                }
+
+                                event.preventDefault();
+                                event.stopPropagation();
+                                clearSourceTrackDragState();
+                                void importMediaIntoSourceTrack(files, {
+                                  kind: "track",
+                                  trackId: track.id,
+                                });
+                              }}
+                              style={gridStyle}
+                            >
+                              {sourceClips.map((clip) => {
+                                const media = clip.mediaId
+                                  ? mediaItemsById.get(clip.mediaId)
+                                  : undefined;
+                                const mediaState = describeClipMediaState(
+                                  clip,
+                                  media?.availability,
+                                );
+                                const thumbnailUrl =
+                                  sourceThumbnailUrls[
+                                    getSourceThumbnailCacheKey(clip)
+                                  ] ?? media?.thumbnailUrl;
+                                return (
+                                  <div
+                                    key={clip.id}
+                                    className="source-span"
+                                    style={{
+                                      left: clip.startQ * quarterPx,
+                                      width:
+                                        getClipDurationQ(clip, bpm) * quarterPx,
+                                      backgroundColor: clip.tint,
+                                      borderColor: clip.accent,
+                                      opacity:
+                                        mediaState === "online" ? 1 : 0.56,
+                                    }}
+                                  >
+                                    <div
+                                      className="source-span__thumb"
+                                      style={
+                                        thumbnailUrl
+                                          ? {
+                                              backgroundImage: `url(${thumbnailUrl})`,
+                                              backgroundSize: "cover",
+                                              backgroundPosition: "center",
+                                            }
+                                          : undefined
+                                      }
+                                    />
+                                    <div className="source-span__body">
+                                      <span>{clip.label}</span>
+                                      <small>
+                                        {formatClipMediaState(mediaState)}
+                                      </small>
+                                      <div
+                                        className="source-span__line"
+                                        style={{ backgroundColor: clip.accent }}
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              {isDropTarget && sourceTrackDragPreview ? (
+                                <div className="source-drop-preview">
+                                  <div
+                                    className={`source-drop-preview__thumb ${
+                                      sourceTrackDragPreview.thumbnailUrl
+                                        ? "has-image"
+                                        : ""
+                                    }`}
+                                    style={
+                                      sourceTrackDragPreview.thumbnailUrl
+                                        ? {
+                                            backgroundImage: `url(${sourceTrackDragPreview.thumbnailUrl})`,
+                                          }
+                                        : undefined
+                                    }
+                                  />
+                                  <div className="source-drop-preview__body">
+                                    <strong>
+                                      {sourceTrackDragPreview.label}
+                                    </strong>
+                                    <span>{sourceTrackDragPreviewDetail}</span>
+                                  </div>
+                                  {sourceTrackDragPreviewOverflow ? (
+                                    <div className="source-drop-preview__count">
+                                      {sourceTrackDragPreviewOverflow}
+                                    </div>
+                                  ) : null}
                                 </div>
                               ) : null}
-                            </div>
-                          ) : null}
-                        </section>
-                      </section>
-                    );
-                  })}
-                  {isSourceTrackFileDragActive ? (
+                            </section>
+                          </section>
+                        );
+                      })}
+                  {isSourceTrackFileDragActive && !isSourceTracksCollapsed ? (
                     <section className="track-row track-row--source track-row--source-drop">
                       <div className="track-label track-label--source track-label--source-drop">
                         <span className="track-label__stripe" />
