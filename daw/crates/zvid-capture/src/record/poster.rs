@@ -9,9 +9,9 @@ use std::sync::Mutex;
 use jpeg_encoder::{ColorType, Encoder};
 use zvidlib::io::{ByteSource, IoFuture};
 use zvidlib::{
-    CancellationToken, Codec, CodecProfile, ColorRange, EncodedVideoSample, FrameIndex, HardwarePreference,
-    Limits, Mp4Demuxer, Mp4DemuxerOptions, PixelFormat, TrackKind, VideoDecoderConfig,
-    VideoDecoderFactory,
+    CancellationToken, Codec, CodecProfile, ColorRange, EncodedVideoSample, FrameIndex,
+    HardwarePreference, Limits, Mp4Demuxer, Mp4DemuxerOptions, PixelFormat, TrackKind,
+    VideoDecoderConfig, VideoDecoderFactory,
 };
 
 use super::{RecordError, block_on};
@@ -22,7 +22,8 @@ use crate::preview::scaled_size;
 /// finished files and on the fragmented file of a recording in progress.
 pub fn poster_jpeg(path: &Path, file_sec: f64, max_edge: u32) -> Result<Vec<u8>, RecordError> {
     let source = FileSource::open(path)?;
-    let movie = block_on(Mp4Demuxer::open(&source, Mp4DemuxerOptions::default())).map_err(decode_error)?;
+    let movie =
+        block_on(Mp4Demuxer::open(&source, Mp4DemuxerOptions::default())).map_err(decode_error)?;
     let track = movie
         .tracks
         .iter()
@@ -50,8 +51,14 @@ pub fn poster_jpeg(path: &Path, file_sec: f64, max_edge: u32) -> Result<Vec<u8>,
         .unwrap_or(0);
 
     let (factory, profile): (Box<dyn VideoDecoderFactory>, _) = match track.codec {
-        Codec::Hevc => (Box::new(zvidlib::native_hevc_video_decoder_factory()), CodecProfile::HevcMain),
-        Codec::Av1 => (Box::new(zvidlib::native_av1_video_decoder_factory()), CodecProfile::Av1Main),
+        Codec::Hevc => (
+            Box::new(zvidlib::native_hevc_video_decoder_factory()),
+            CodecProfile::HevcMain,
+        ),
+        Codec::Av1 => (
+            Box::new(zvidlib::native_av1_video_decoder_factory()),
+            CodecProfile::Av1Main,
+        ),
         other => return Err(RecordError::Decode(format!("unsupported codec {other:?}"))),
     };
     let limits = Limits::default();
@@ -90,10 +97,12 @@ pub fn poster_jpeg(path: &Path, file_sec: f64, max_edge: u32) -> Result<Vec<u8>,
             }
         }
     }
-    let frame = found.ok_or_else(|| RecordError::Decode("the decoder returned no frame".to_string()))?;
+    let frame =
+        found.ok_or_else(|| RecordError::Decode("the decoder returned no frame".to_string()))?;
     let plane = &frame.planes[0];
     let (width, height) = (frame.dimensions.width, frame.dimensions.height);
-    let (rgb_width, rgb_height, rgb) = downscale_rgba(&plane.data, plane.stride, width, height, max_edge);
+    let (rgb_width, rgb_height, rgb) =
+        downscale_rgba(&plane.data, plane.stride, width, height, max_edge);
     let mut jpeg = Vec::new();
     Encoder::new(&mut jpeg, 80)
         .encode(&rgb, rgb_width as u16, rgb_height as u16, ColorType::Rgb)
@@ -102,9 +111,20 @@ pub fn poster_jpeg(path: &Path, file_sec: f64, max_edge: u32) -> Result<Vec<u8>,
 }
 
 /// Box-filters RGBA to RGB no larger than `max_edge` on its longer side.
-fn downscale_rgba(rgba: &[u8], stride: usize, width: u32, height: u32, max_edge: u32) -> (u32, u32, Vec<u8>) {
+fn downscale_rgba(
+    rgba: &[u8],
+    stride: usize,
+    width: u32,
+    height: u32,
+    max_edge: u32,
+) -> (u32, u32, Vec<u8>) {
     let (out_w, out_h) = scaled_size(width, height, max_edge.max(1));
-    let (w, h, ow, oh) = (width as usize, height as usize, out_w as usize, out_h as usize);
+    let (w, h, ow, oh) = (
+        width as usize,
+        height as usize,
+        out_w as usize,
+        out_h as usize,
+    );
     let mut rgb = Vec::with_capacity(ow * oh * 3);
     for oy in 0..oh {
         let (y0, y1) = (oy * h / oh, ((oy + 1) * h / oh).max(oy * h / oh + 1));
@@ -165,7 +185,9 @@ impl ByteSource for FileSource {
             }
             Ok(read)
         })()
-        .map_err(|error: std::io::Error| zvidlib::Error::new(zvidlib::ErrorKind::Io, error.to_string()));
+        .map_err(|error: std::io::Error| {
+            zvidlib::Error::new(zvidlib::ErrorKind::Io, error.to_string())
+        });
         Box::pin(std::future::ready(result))
     }
 }

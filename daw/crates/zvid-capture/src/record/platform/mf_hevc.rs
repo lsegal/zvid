@@ -21,10 +21,17 @@ use crate::frame::Frame;
 use crate::record::bitstream::{self, ParameterSets};
 use crate::record::encoder::{EncodedFrame, FrameEncoder};
 
-pub fn open(width: u32, height: u32, fps: Rational, bitrate: u32) -> Result<Box<dyn FrameEncoder>, String> {
+pub fn open(
+    width: u32,
+    height: u32,
+    fps: Rational,
+    bitrate: u32,
+) -> Result<Box<dyn FrameEncoder>, String> {
     ensure_mf().map_err(|error| error.to_string())?;
-    if width % 2 != 0 || height % 2 != 0 {
-        return Err(format!("{width}x{height} is not a whole number of 4:2:0 chroma samples"));
+    if !width.is_multiple_of(2) || !height.is_multiple_of(2) {
+        return Err(format!(
+            "{width}x{height} is not a whole number of 4:2:0 chroma samples"
+        ));
     }
     let mut reasons = Vec::new();
     for hardware in [true, false] {
@@ -62,9 +69,18 @@ fn candidates(hardware: bool) -> Result<Vec<IMFActivate>, String> {
     let mut count = 0u32;
     // SAFETY: out pointers are valid; the array is freed below.
     unsafe {
-        MFTEnumEx(MFT_CATEGORY_VIDEO_ENCODER, flags, Some(&input), Some(&output), &mut list, &mut count)
-            .map_err(|error| format!("MFTEnumEx: {error}"))?;
-        let found = (0..count as usize).filter_map(|index| (*list.add(index)).take()).collect();
+        MFTEnumEx(
+            MFT_CATEGORY_VIDEO_ENCODER,
+            flags,
+            Some(&input),
+            Some(&output),
+            &mut list,
+            &mut count,
+        )
+        .map_err(|error| format!("MFTEnumEx: {error}"))?;
+        let found = (0..count as usize)
+            .filter_map(|index| (*list.add(index)).take())
+            .collect();
         CoTaskMemFree(Some(list as *const _));
         Ok(found)
     }
@@ -105,10 +121,19 @@ struct MfHevc {
 }
 
 impl MfHevc {
-    fn create(activate: &IMFActivate, hardware: bool, width: u32, height: u32, fps: Rational, bitrate: u32) -> Result<Self, String> {
+    fn create(
+        activate: &IMFActivate,
+        hardware: bool,
+        width: u32,
+        height: u32,
+        fps: Rational,
+        bitrate: u32,
+    ) -> Result<Self, String> {
         // SAFETY: plain Media Foundation calls on objects this thread owns.
         unsafe {
-            let transform: IMFTransform = activate.ActivateObject().map_err(|e| format!("activate: {e}"))?;
+            let transform: IMFTransform = activate
+                .ActivateObject()
+                .map_err(|e| format!("activate: {e}"))?;
             let attributes = transform.GetAttributes().ok();
             let is_async = attributes
                 .as_ref()
@@ -120,7 +145,11 @@ impl MfHevc {
                 attributes
                     .SetUINT32(&MF_TRANSFORM_ASYNC_UNLOCK, 1)
                     .map_err(|e| format!("unlock async MFT: {e}"))?;
-                Some(transform.cast::<IMFMediaEventGenerator>().map_err(|e| e.to_string())?)
+                Some(
+                    transform
+                        .cast::<IMFMediaEventGenerator>()
+                        .map_err(|e| e.to_string())?,
+                )
             } else {
                 None
             };
@@ -132,30 +161,56 @@ impl MfHevc {
             let frame_rate = (u64::from(fps.num) << 32) | u64::from(fps.den);
 
             let output = MFCreateMediaType().map_err(|e| e.to_string())?;
-            output.SetGUID(&MF_MT_MAJOR_TYPE, &MFMediaType_Video).map_err(|e| e.to_string())?;
-            output.SetGUID(&MF_MT_SUBTYPE, &MFVideoFormat_HEVC).map_err(|e| e.to_string())?;
-            output.SetUINT32(&MF_MT_AVG_BITRATE, bitrate).map_err(|e| e.to_string())?;
-            output.SetUINT64(&MF_MT_FRAME_SIZE, frame_size).map_err(|e| e.to_string())?;
-            output.SetUINT64(&MF_MT_FRAME_RATE, frame_rate).map_err(|e| e.to_string())?;
-            output.SetUINT64(&MF_MT_PIXEL_ASPECT_RATIO, (1 << 32) | 1).map_err(|e| e.to_string())?;
+            output
+                .SetGUID(&MF_MT_MAJOR_TYPE, &MFMediaType_Video)
+                .map_err(|e| e.to_string())?;
+            output
+                .SetGUID(&MF_MT_SUBTYPE, &MFVideoFormat_HEVC)
+                .map_err(|e| e.to_string())?;
+            output
+                .SetUINT32(&MF_MT_AVG_BITRATE, bitrate)
+                .map_err(|e| e.to_string())?;
+            output
+                .SetUINT64(&MF_MT_FRAME_SIZE, frame_size)
+                .map_err(|e| e.to_string())?;
+            output
+                .SetUINT64(&MF_MT_FRAME_RATE, frame_rate)
+                .map_err(|e| e.to_string())?;
+            output
+                .SetUINT64(&MF_MT_PIXEL_ASPECT_RATIO, (1 << 32) | 1)
+                .map_err(|e| e.to_string())?;
             output
                 .SetUINT32(&MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive.0 as u32)
                 .map_err(|e| e.to_string())?;
             output
                 .SetUINT32(&MF_MT_MPEG2_PROFILE, eAVEncH265VProfile_Main_420_8.0 as u32)
                 .map_err(|e| e.to_string())?;
-            transform.SetOutputType(0, &output, 0).map_err(|e| format!("output type: {e}"))?;
+            transform
+                .SetOutputType(0, &output, 0)
+                .map_err(|e| format!("output type: {e}"))?;
 
             let input = MFCreateMediaType().map_err(|e| e.to_string())?;
-            input.SetGUID(&MF_MT_MAJOR_TYPE, &MFMediaType_Video).map_err(|e| e.to_string())?;
-            input.SetGUID(&MF_MT_SUBTYPE, &MFVideoFormat_NV12).map_err(|e| e.to_string())?;
-            input.SetUINT64(&MF_MT_FRAME_SIZE, frame_size).map_err(|e| e.to_string())?;
-            input.SetUINT64(&MF_MT_FRAME_RATE, frame_rate).map_err(|e| e.to_string())?;
-            input.SetUINT64(&MF_MT_PIXEL_ASPECT_RATIO, (1 << 32) | 1).map_err(|e| e.to_string())?;
+            input
+                .SetGUID(&MF_MT_MAJOR_TYPE, &MFMediaType_Video)
+                .map_err(|e| e.to_string())?;
+            input
+                .SetGUID(&MF_MT_SUBTYPE, &MFVideoFormat_NV12)
+                .map_err(|e| e.to_string())?;
+            input
+                .SetUINT64(&MF_MT_FRAME_SIZE, frame_size)
+                .map_err(|e| e.to_string())?;
+            input
+                .SetUINT64(&MF_MT_FRAME_RATE, frame_rate)
+                .map_err(|e| e.to_string())?;
+            input
+                .SetUINT64(&MF_MT_PIXEL_ASPECT_RATIO, (1 << 32) | 1)
+                .map_err(|e| e.to_string())?;
             input
                 .SetUINT32(&MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive.0 as u32)
                 .map_err(|e| e.to_string())?;
-            transform.SetInputType(0, &input, 0).map_err(|e| format!("input type: {e}"))?;
+            transform
+                .SetInputType(0, &input, 0)
+                .map_err(|e| format!("input type: {e}"))?;
 
             // Settings the encoder may not support are best effort, except
             // B-frames: output must stay in input order.
@@ -168,13 +223,20 @@ impl MfHevc {
                     &VARIANT::from(eAVEncCommonRateControlMode_PeakConstrainedVBR.0 as u32),
                 );
                 let _ = codec.SetValue(&CODECAPI_AVEncCommonMeanBitRate, &VARIANT::from(bitrate));
-                let _ = codec.SetValue(&CODECAPI_AVEncCommonMaxBitRate, &VARIANT::from(bitrate.saturating_mul(2)));
-                let _ = codec.SetValue(&CODECAPI_AVEncMPVDefaultBPictureCount, &VARIANT::from(0u32));
+                let _ = codec.SetValue(
+                    &CODECAPI_AVEncCommonMaxBitRate,
+                    &VARIANT::from(bitrate.saturating_mul(2)),
+                );
+                let _ =
+                    codec.SetValue(&CODECAPI_AVEncMPVDefaultBPictureCount, &VARIANT::from(0u32));
             }
 
-            let info = transform.GetOutputStreamInfo(0).map_err(|e| e.to_string())?;
+            let info = transform
+                .GetOutputStreamInfo(0)
+                .map_err(|e| e.to_string())?;
             let provides_samples = info.dwFlags
-                & (MFT_OUTPUT_STREAM_PROVIDES_SAMPLES.0 as u32 | MFT_OUTPUT_STREAM_CAN_PROVIDE_SAMPLES.0 as u32)
+                & (MFT_OUTPUT_STREAM_PROVIDES_SAMPLES.0 as u32
+                    | MFT_OUTPUT_STREAM_CAN_PROVIDE_SAMPLES.0 as u32)
                 != 0;
             transform
                 .ProcessMessage(MFT_MESSAGE_NOTIFY_BEGIN_STREAMING, 0)
@@ -211,7 +273,10 @@ impl MfHevc {
             };
             let mut data = std::ptr::null_mut();
             let mut len = 0;
-            if kind.GetAllocatedBlob(&MF_MT_MPEG_SEQUENCE_HEADER, &mut data, &mut len).is_ok() {
+            if kind
+                .GetAllocatedBlob(&MF_MT_MPEG_SEQUENCE_HEADER, &mut data, &mut len)
+                .is_ok()
+            {
                 let header = std::slice::from_raw_parts(data, len as usize).to_vec();
                 CoTaskMemFree(Some(data as *const _));
                 for nal in bitstream::split_annex_b(&header) {
@@ -234,16 +299,22 @@ impl MfHevc {
         unsafe {
             let buffer = MFCreateMemoryBuffer(len as u32).map_err(|e| e.to_string())?;
             let mut data = std::ptr::null_mut();
-            buffer.Lock(&mut data, None, None).map_err(|e| e.to_string())?;
+            buffer
+                .Lock(&mut data, None, None)
+                .map_err(|e| e.to_string())?;
             std::ptr::copy_nonoverlapping(frame.data.as_ptr(), data, len);
             buffer.Unlock().map_err(|e| e.to_string())?;
-            buffer.SetCurrentLength(len as u32).map_err(|e| e.to_string())?;
+            buffer
+                .SetCurrentLength(len as u32)
+                .map_err(|e| e.to_string())?;
             let sample = MFCreateSample().map_err(|e| e.to_string())?;
             sample.AddBuffer(&buffer).map_err(|e| e.to_string())?;
             sample
                 .SetSampleTime(self.submitted * self.frame_100ns)
                 .map_err(|e| e.to_string())?;
-            sample.SetSampleDuration(self.frame_100ns).map_err(|e| e.to_string())?;
+            sample
+                .SetSampleDuration(self.frame_100ns)
+                .map_err(|e| e.to_string())?;
             self.submitted += 1;
             Ok(sample)
         }
@@ -286,9 +357,17 @@ impl MfHevc {
                 Ok(()) => {}
                 Err(error) if error.code() == MF_E_TRANSFORM_NEED_MORE_INPUT => return Ok(None),
                 Err(error) if error.code() == MF_E_TRANSFORM_STREAM_CHANGE => {
-                    let kind = self.transform.GetOutputAvailableType(0, 0).map_err(|e| e.to_string())?;
-                    self.transform.SetOutputType(0, &kind, 0).map_err(|e| e.to_string())?;
-                    let info = self.transform.GetOutputStreamInfo(0).map_err(|e| e.to_string())?;
+                    let kind = self
+                        .transform
+                        .GetOutputAvailableType(0, 0)
+                        .map_err(|e| e.to_string())?;
+                    self.transform
+                        .SetOutputType(0, &kind, 0)
+                        .map_err(|e| e.to_string())?;
+                    let info = self
+                        .transform
+                        .GetOutputStreamInfo(0)
+                        .map_err(|e| e.to_string())?;
                     self.output_size = info.cbSize.max(self.output_size);
                     return Ok(Some(None));
                 }
@@ -297,19 +376,23 @@ impl MfHevc {
             let Some(sample) = sample else {
                 return Ok(Some(None));
             };
-            let buffer = sample.ConvertToContiguousBuffer().map_err(|e| e.to_string())?;
+            let buffer = sample
+                .ConvertToContiguousBuffer()
+                .map_err(|e| e.to_string())?;
             let mut data = std::ptr::null_mut();
             let mut len = 0;
-            buffer.Lock(&mut data, None, Some(&mut len)).map_err(|e| e.to_string())?;
+            buffer
+                .Lock(&mut data, None, Some(&mut len))
+                .map_err(|e| e.to_string())?;
             let stream = std::slice::from_raw_parts(data, len as usize).to_vec();
             buffer.Unlock().map_err(|e| e.to_string())?;
             let clean_point = sample.GetUINT32(&MFSampleExtension_CleanPoint).unwrap_or(0) != 0;
-            Ok(Some(self.to_frame(&stream, clean_point)))
+            Ok(Some(self.access_unit(&stream, clean_point)))
         }
     }
 
     /// Converts an Annex B access unit, keeping parameter sets for `hvcC`.
-    fn to_frame(&mut self, stream: &[u8], clean_point: bool) -> Option<EncodedFrame> {
+    fn access_unit(&mut self, stream: &[u8], clean_point: bool) -> Option<EncodedFrame> {
         let units = bitstream::split_annex_b(stream);
         let mut is_sync = clean_point;
         let mut picture = Vec::new();
@@ -332,20 +415,28 @@ impl MfHevc {
     }
 
     /// Handles one event from an asynchronous MFT.
-    fn on_event(&mut self, event: &IMFMediaEvent, out: &mut Vec<EncodedFrame>) -> Result<Option<u32>, String> {
+    fn on_event(
+        &mut self,
+        event: &IMFMediaEvent,
+        out: &mut Vec<EncodedFrame>,
+    ) -> Result<Option<u32>, String> {
         // SAFETY: plain COM calls.
         let kind = unsafe { event.GetType() }.map_err(|e| e.to_string())?;
         if kind == METransformNeedInput.0 as u32 {
             self.need_input += 1;
-        } else if kind == METransformHaveOutput.0 as u32 {
-            if let Some(frame) = self.process_output()? {
-                out.extend(frame);
-            }
+        } else if kind == METransformHaveOutput.0 as u32
+            && let Some(frame) = self.process_output()?
+        {
+            out.extend(frame);
         }
         Ok(Some(kind))
     }
 
-    fn next_event(&mut self, wait: bool, out: &mut Vec<EncodedFrame>) -> Result<Option<u32>, String> {
+    fn next_event(
+        &mut self,
+        wait: bool,
+        out: &mut Vec<EncodedFrame>,
+    ) -> Result<Option<u32>, String> {
         let events = self.events.clone().expect("async MFT");
         let flags = if wait {
             MEDIA_EVENT_GENERATOR_GET_EVENT_FLAGS(0)
@@ -390,7 +481,8 @@ impl FrameEncoder for MfHevc {
                 self.next_event(true, &mut out)?;
             }
             // SAFETY: plain COM call.
-            unsafe { self.transform.ProcessInput(0, &sample, 0) }.map_err(|e| format!("ProcessInput: {e}"))?;
+            unsafe { self.transform.ProcessInput(0, &sample, 0) }
+                .map_err(|e| format!("ProcessInput: {e}"))?;
             self.need_input -= 1;
             while self.next_event(false, &mut out)?.is_some() {}
         } else {
@@ -414,7 +506,9 @@ impl FrameEncoder for MfHevc {
         let mut out = Vec::new();
         // SAFETY: plain COM calls.
         unsafe {
-            let _ = self.transform.ProcessMessage(MFT_MESSAGE_NOTIFY_END_OF_STREAM, 0);
+            let _ = self
+                .transform
+                .ProcessMessage(MFT_MESSAGE_NOTIFY_END_OF_STREAM, 0);
             self.transform
                 .ProcessMessage(MFT_MESSAGE_COMMAND_DRAIN, 0)
                 .map_err(|e| format!("drain: {e}"))?;
@@ -432,7 +526,9 @@ impl Drop for MfHevc {
     fn drop(&mut self) {
         // SAFETY: plain COM calls; the MFT is released afterwards.
         unsafe {
-            let _ = self.transform.ProcessMessage(MFT_MESSAGE_NOTIFY_END_STREAMING, 0);
+            let _ = self
+                .transform
+                .ProcessMessage(MFT_MESSAGE_NOTIFY_END_STREAMING, 0);
             if let Some(events) = self.events.take()
                 && let Ok(shutdown) = events.cast::<IMFShutdown>()
             {
@@ -441,4 +537,3 @@ impl Drop for MfHevc {
         }
     }
 }
-

@@ -80,7 +80,9 @@ impl FragmentedWriter {
     pub fn push(&mut self, track: usize, sample: EncodedSample) -> io::Result<()> {
         let expected = self.next_dts[track];
         if sample.dts != expected || sample.duration == 0 || sample.data.is_empty() {
-            return Err(invalid("samples must be non-empty with contiguous timestamps"));
+            return Err(invalid(
+                "samples must be non-empty with contiguous timestamps",
+            ));
         }
         self.next_dts[track] += i64::from(sample.duration);
         self.queued[track].push(sample);
@@ -170,6 +172,7 @@ pub struct Written {
 
 impl Written {
     /// Samples written to `track`.
+    #[cfg(test)]
     pub fn sample_count(&self, track: usize) -> usize {
         self.index[track].len()
     }
@@ -179,7 +182,11 @@ impl Written {
 /// zvidlib's muxer, then replaces `path` with it. `gapless` gives the audio
 /// track's final encoder delay and padding. Until the rename, `path` still
 /// holds the playable fragmented file.
-pub fn finalize(path: &Path, written: &Written, gapless: &[(usize, AudioGapless)]) -> io::Result<()> {
+pub fn finalize(
+    path: &Path,
+    written: &Written,
+    gapless: &[(usize, AudioGapless)],
+) -> io::Result<()> {
     let temp = finalizing_path(path);
     let result = remux(path, &temp, written, gapless);
     if let Err(error) = result {
@@ -196,7 +203,12 @@ pub fn finalizing_path(path: &Path) -> PathBuf {
     path.with_file_name(name)
 }
 
-fn remux(source: &Path, target: &Path, written: &Written, gapless: &[(usize, AudioGapless)]) -> io::Result<()> {
+fn remux(
+    source: &Path,
+    target: &Path,
+    written: &Written,
+    gapless: &[(usize, AudioGapless)],
+) -> io::Result<()> {
     let mut input = File::open(source)?;
     let sink = FileSink::new(File::create(target)?);
     let configs = written.tracks.iter().map(|t| t.config.clone()).collect();
@@ -350,8 +362,16 @@ fn trak(id: u32, track: &Track) -> Vec<u8> {
     mdhd.extend_from_slice(&[0; 2]);
     let mut mdia = full_box(b"mdhd", 0, 0, &mdhd);
     let (handler, name, media_header) = match track.config.format {
-        Mp4TrackFormat::Video(_) => (b"vide", &b"ZVID video\0"[..], full_box(b"vmhd", 0, 1, &[0; 8])),
-        Mp4TrackFormat::Audio { .. } => (b"soun", &b"ZVID audio\0"[..], full_box(b"smhd", 0, 0, &[0; 4])),
+        Mp4TrackFormat::Video(_) => (
+            b"vide",
+            &b"ZVID video\0"[..],
+            full_box(b"vmhd", 0, 1, &[0; 8]),
+        ),
+        Mp4TrackFormat::Audio { .. } => (
+            b"soun",
+            &b"ZVID audio\0"[..],
+            full_box(b"smhd", 0, 0, &[0; 4]),
+        ),
     };
     let mut hdlr = vec![0; 4];
     hdlr.extend_from_slice(handler);
@@ -392,7 +412,11 @@ fn sample_entry(config: &Mp4TrackConfig) -> Vec<u8> {
             body.extend_from_slice(&0x0018u16.to_be_bytes());
             body.extend_from_slice(&0xffffu16.to_be_bytes());
             body.extend_from_slice(&config.encoder.decoder_config);
-            let kind = if config.encoder.codec == Codec::Av1 { b"av01" } else { b"hvc1" };
+            let kind = if config.encoder.codec == Codec::Av1 {
+                b"av01"
+            } else {
+                b"hvc1"
+            };
             mp4_box(kind, &body)
         }
         Mp4TrackFormat::Audio { channels } => {
@@ -410,7 +434,12 @@ fn sample_entry(config: &Mp4TrackConfig) -> Vec<u8> {
 fn traf(id: u32, samples: &[EncodedSample], data_offset: u64) -> Vec<u8> {
     // default-base-is-moof: data offsets count from the moof's first byte.
     let mut body = full_box(b"tfhd", 0, 0x02_0000, &id.to_be_bytes());
-    body.extend_from_slice(&full_box(b"tfdt", 1, 0, &(samples[0].dts as u64).to_be_bytes()));
+    body.extend_from_slice(&full_box(
+        b"tfdt",
+        1,
+        0,
+        &(samples[0].dts as u64).to_be_bytes(),
+    ));
     let reorders = samples.iter().any(|sample| sample.pts != sample.dts);
     // data offset, and per-sample duration, size, flags (and composition
     // offset when samples are reordered).
@@ -449,7 +478,9 @@ fn matrix(out: &mut Vec<u8>) {
 pub(crate) mod tests {
     use super::*;
     use zvidlib::io::MemorySource;
-    use zvidlib::{EncoderConfig, Limits, Mp4Demuxer, Mp4DemuxerOptions, TrackKind, VideoDimensions};
+    use zvidlib::{
+        EncoderConfig, Limits, Mp4Demuxer, Mp4DemuxerOptions, TrackKind, VideoDimensions,
+    };
 
     use crate::record::bitstream::{aac_lc_config, esds_box};
 
@@ -459,7 +490,9 @@ pub(crate) mod tests {
             Track {
                 config: Mp4TrackConfig {
                     encoder: video,
-                    format: Mp4TrackFormat::Video(VideoDimensions::new(64, 48, &Limits::default()).unwrap()),
+                    format: Mp4TrackFormat::Video(
+                        VideoDimensions::new(64, 48, &Limits::default()).unwrap(),
+                    ),
                 },
                 priming: 0,
             },
@@ -498,17 +531,24 @@ pub(crate) mod tests {
         for fragment in 0..3 {
             for frame in 0..5 {
                 let index = fragment * 5 + frame;
-                writer.push(0, sample(index, 1, frame == 0, index as u8)).unwrap();
+                writer
+                    .push(0, sample(index, 1, frame == 0, index as u8))
+                    .unwrap();
             }
             for packet in 0..7 {
                 let index = fragment * 7 + packet;
-                writer.push(1, sample(index * 1024, 1024, true, 100 + index as u8)).unwrap();
+                writer
+                    .push(1, sample(index * 1024, 1024, true, 100 + index as u8))
+                    .unwrap();
             }
             assert_eq!(writer.queued_ticks(0), 5);
             writer.flush_fragment().unwrap();
             assert_eq!(writer.queued_ticks(0), 0);
         }
-        assert!(writer.push(0, sample(99, 1, true, 1)).is_err(), "gap in timestamps");
+        assert!(
+            writer.push(0, sample(99, 1, true, 1)).is_err(),
+            "gap in timestamps"
+        );
         writer.finish().unwrap()
     }
 

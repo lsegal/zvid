@@ -50,7 +50,10 @@ fn frame(width: u32, height: u32, index: u64, pts_ms: f64) -> Arc<Frame> {
     }
     for y in 0..h / 2 {
         for x in 0..w / 2 {
-            data.extend_from_slice(&[(100 + (x + index as usize) % 50) as u8, (120 + y % 40) as u8]);
+            data.extend_from_slice(&[
+                (100 + (x + index as usize) % 50) as u8,
+                (120 + y % 40) as u8,
+            ]);
         }
     }
     Arc::new(Frame {
@@ -69,7 +72,11 @@ fn host_ms(ms: f64) -> HostTime {
     HostTime::from_nanos((10_000_000_000 + (ms * 1e6).round() as i64) as u64)
 }
 
-fn config(root: &RecordRoot, audio: Option<AudioFormat>, choice: VideoEncoderChoice) -> RecordConfig {
+fn config(
+    root: &RecordRoot,
+    audio: Option<AudioFormat>,
+    choice: VideoEncoderChoice,
+) -> RecordConfig {
     RecordConfig {
         root: root.clone(),
         counter: 1,
@@ -105,7 +112,10 @@ fn records_a_playable_mp4_named_by_the_core_generator() {
     let root = root();
     let recorder = Recorder::start(config(&root, None, VideoEncoderChoice::Software)).unwrap();
     assert_eq!(recorder.filename(), "video-01-6-24-18-47-30-0.mp4");
-    assert!(recorder.path().starts_with(&root.dir), "directories are created");
+    assert!(
+        recorder.path().starts_with(&root.dir),
+        "directories are created"
+    );
     let frame_ms = 1000.0 / 30.0;
     let mut times: Vec<f64> = (0..40).map(|index| index as f64 * frame_ms + 2.0).collect();
     // A late frame, a duplicate for one slot, and a skipped slot.
@@ -125,7 +135,10 @@ fn records_a_playable_mp4_named_by_the_core_generator() {
     assert_eq!(recorded.zero, host_ms(2.0));
     assert_eq!(recorded.stats.frames_written, 39);
     assert_eq!(recorded.stats.frames_skipped, 1);
-    assert_eq!(recorded.stats.video_encoder, Some("zvidlib HEVC (software)"));
+    assert_eq!(
+        recorded.stats.video_encoder,
+        Some("zvidlib HEVC (software)")
+    );
     assert!((recorded.duration_sec - 40.0 / 30.0).abs() < 1e-9);
     let clock = recorded.stats.frame_clock.unwrap();
     assert_eq!(clock.host_time, host_ms(times[times.len() - 1]));
@@ -158,7 +171,10 @@ fn counts_collisions_and_never_overwrites() {
     let second = Recorder::start(config(&root, None, VideoEncoderChoice::Software)).unwrap();
     assert_eq!(first.filename(), "video-01-6-24-18-47-30-1.mp4");
     assert_eq!(second.filename(), "video-01-6-24-18-47-30-2.mp4");
-    assert_eq!(std::fs::read(root.path_of("video-01-6-24-18-47-30-0.mp4")).unwrap(), b"keep");
+    assert_eq!(
+        std::fs::read(root.path_of("video-01-6-24-18-47-30-0.mp4")).unwrap(),
+        b"keep"
+    );
 }
 
 #[test]
@@ -177,7 +193,10 @@ fn leaves_a_playable_file_if_the_host_dies_mid_capture() {
     let recorder = Recorder::start(config(&root, None, VideoEncoderChoice::Software)).unwrap();
     let path = recorder.path().to_path_buf();
     for index in 0..75 {
-        push(&recorder, frame(64, 48, index, index as f64 * 1000.0 / 30.0));
+        push(
+            &recorder,
+            frame(64, 48, index, index as f64 * 1000.0 / 30.0),
+        );
     }
     let deadline = Instant::now() + Duration::from_secs(60);
     while recorder.stats().frames_written < 74 {
@@ -192,7 +211,12 @@ fn leaves_a_playable_file_if_the_host_dies_mid_capture() {
     assert_eq!(video.samples.len(), 60);
     let mut data = vec![0; video.samples[59].size as usize];
     block_on(video.read_sample_into(&source, 59, &mut data)).unwrap();
-    assert_eq!(poster_jpeg(&path, 1.9, 16).map(|jpeg| jpeg[..2].to_vec()).unwrap(), [0xff, 0xd8]);
+    assert_eq!(
+        poster_jpeg(&path, 1.9, 16)
+            .map(|jpeg| jpeg[..2].to_vec())
+            .unwrap(),
+        [0xff, 0xd8]
+    );
 }
 
 #[test]
@@ -206,7 +230,8 @@ fn records_aac_audio_in_sync_with_video() {
         eprintln!("no AAC encoder on this machine; skipping");
         return;
     }
-    let recorder = Recorder::start(config(&root, Some(format), VideoEncoderChoice::Software)).unwrap();
+    let recorder =
+        Recorder::start(config(&root, Some(format), VideoEncoderChoice::Software)).unwrap();
     // 10 ms blocks from 100 ms before the first frame to 2.1 s after it,
     // silent except for a click heard exactly 1 s after the first frame.
     let block = 480;
@@ -218,7 +243,10 @@ fn records_aac_audio_in_sync_with_video() {
         }
         if index == 10 {
             for frame_index in 0..60 {
-                push(&recorder, frame(64, 48, frame_index, frame_index as f64 * 1000.0 / 30.0));
+                push(
+                    &recorder,
+                    frame(64, 48, frame_index, frame_index as f64 * 1000.0 / 30.0),
+                );
             }
         }
         // This feeds audio faster than real time, so wait for room.
@@ -245,30 +273,42 @@ fn records_aac_audio_in_sync_with_video() {
     let timing = track.audio_timing(movie.movie_timescale).unwrap();
     let packets = block_on(track.to_encoded_audio_samples(&source, &limits)).unwrap();
     let decoder = zvidlib::NativeAacDecoder::new(&track.aac_config().unwrap(), limits).unwrap();
-    let mut reader = zvidlib::AacSampleReader::new(decoder, packets, 48_000, 2, timing, 2, limits).unwrap();
+    let mut reader =
+        zvidlib::AacSampleReader::new(decoder, packets, 48_000, 2, timing, 2, limits).unwrap();
     // 2.1 s of audio from file time zero; the edit list rounds to 1 ms.
     let length = reader.presentation_length();
     assert!(length.abs_diff(100_800) <= 48, "{length} frames");
     let pcm = reader
-        .get_range(zvidlib::SampleRange::new(0, length).unwrap(), &zvidlib::CancellationToken::new())
+        .get_range(
+            zvidlib::SampleRange::new(0, length).unwrap(),
+            &zvidlib::CancellationToken::new(),
+        )
         .unwrap()
         .samples;
     // The click lands at file time 1 s, give or take the codec's ringing.
-    let click = pcm.chunks(2).position(|frame| frame[0].abs() > 0.3).unwrap();
+    let click = pcm
+        .chunks(2)
+        .position(|frame| frame[0].abs() > 0.3)
+        .unwrap();
     assert!(click.abs_diff(48_000) <= 16, "click at frame {click}");
 }
 
 #[test]
-fn records_1080p_with_the_hardware_encoder_when_available() {
+fn records_1080p_with_the_platform_encoder_when_available() {
     let fps = Rational::new(30, 1);
     let bitrate = encoder::target_bitrate(1920, 1080, fps);
-    match platform::open_hevc(1920, 1080, fps, bitrate) {
-        Ok(encoder) => eprintln!("hardware encoder: {}", encoder.name()),
+    // CI machines may only have the platform's software HEVC encoder, which
+    // still exercises this path but can't be held to real time.
+    let hardware = match platform::open_hevc(1920, 1080, fps, bitrate) {
+        Ok(encoder) => {
+            eprintln!("platform encoder: {}", encoder.name());
+            encoder.name().contains("hardware")
+        }
         Err(error) => {
-            eprintln!("no hardware HEVC encoder on this machine ({error}); skipping");
+            eprintln!("no platform HEVC encoder on this machine ({error}); skipping");
             return;
         }
-    }
+    };
     let root = root();
     // Generating 1080p test frames is slow in debug builds, so make a few
     // up front and cycle through them.
@@ -288,15 +328,24 @@ fn records_1080p_with_the_hardware_encoder_when_available() {
     assert_eq!(recorded.dimensions, (1920, 1080));
     assert_eq!(recorded.stats.frames_written, 90);
     // Three seconds of video must encode in well under three seconds.
-    assert!(encoded < Duration::from_secs(2), "90 frames took {encoded:?}; not real time");
+    assert!(
+        !hardware || encoded < Duration::from_secs(2),
+        "90 frames took {encoded:?}; not real time"
+    );
 
     let path = root.path_of(&recorded.filename);
     let (movie, _) = demux(&path);
     let video = &movie.tracks[0];
-    assert_eq!(video.dimensions.map(|d| (d.width, d.height)), Some((1920, 1080)));
+    assert_eq!(
+        video.dimensions.map(|d| (d.width, d.height)),
+        Some((1920, 1080))
+    );
     assert_eq!(video.samples.len(), 90);
     assert!(video.samples[0].is_sync);
-    assert!(video.samples.iter().filter(|s| s.is_sync).count() >= 3, "a keyframe each second");
+    assert!(
+        video.samples.iter().filter(|s| s.is_sync).count() >= 3,
+        "a keyframe each second"
+    );
     let jpeg = poster_jpeg(&path, 2.0, 320).unwrap();
     assert_eq!(&jpeg[..2], &[0xff, 0xd8]);
 }

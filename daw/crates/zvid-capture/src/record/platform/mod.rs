@@ -13,7 +13,12 @@ mod mf_hevc;
 mod videotoolbox;
 
 /// Opens the platform's hardware HEVC Main encoder.
-pub fn open_hevc(width: u32, height: u32, fps: Rational, bitrate: u32) -> Result<Box<dyn FrameEncoder>, String> {
+pub fn open_hevc(
+    width: u32,
+    height: u32,
+    fps: Rational,
+    bitrate: u32,
+) -> Result<Box<dyn FrameEncoder>, String> {
     #[cfg(windows)]
     {
         mf_hevc::open(width, height, fps, bitrate)

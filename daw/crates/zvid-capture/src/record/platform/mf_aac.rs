@@ -27,7 +27,8 @@ pub fn open(sample_rate: u32, channels: u16) -> Result<Box<dyn PcmEncoder>, Stri
         ));
     }
     let transform = find()?;
-    MfAac::create(transform, sample_rate, channels).map(|encoder| Box::new(encoder) as Box<dyn PcmEncoder>)
+    MfAac::create(transform, sample_rate, channels)
+        .map(|encoder| Box::new(encoder) as Box<dyn PcmEncoder>)
 }
 
 fn find() -> Result<IMFTransform, String> {
@@ -52,10 +53,16 @@ fn find() -> Result<IMFTransform, String> {
             &mut count,
         )
         .map_err(|error| format!("MFTEnumEx: {error}"))?;
-        let found: Vec<IMFActivate> = (0..count as usize).filter_map(|index| (*list.add(index)).take()).collect();
+        let found: Vec<IMFActivate> = (0..count as usize)
+            .filter_map(|index| (*list.add(index)).take())
+            .collect();
         CoTaskMemFree(Some(list as *const _));
-        let activate = found.first().ok_or("no Media Foundation AAC encoder is installed")?;
-        activate.ActivateObject().map_err(|error| format!("activate: {error}"))
+        let activate = found
+            .first()
+            .ok_or("no Media Foundation AAC encoder is installed")?;
+        activate
+            .ActivateObject()
+            .map_err(|error| format!("activate: {error}"))
     }
 }
 
@@ -78,34 +85,64 @@ impl MfAac {
         unsafe {
             let block_align = u32::from(channels) * 2;
             let input = MFCreateMediaType().map_err(|e| e.to_string())?;
-            input.SetGUID(&MF_MT_MAJOR_TYPE, &MFMediaType_Audio).map_err(|e| e.to_string())?;
-            input.SetGUID(&MF_MT_SUBTYPE, &MFAudioFormat_PCM).map_err(|e| e.to_string())?;
-            input.SetUINT32(&MF_MT_AUDIO_BITS_PER_SAMPLE, 16).map_err(|e| e.to_string())?;
-            input.SetUINT32(&MF_MT_AUDIO_SAMPLES_PER_SECOND, sample_rate).map_err(|e| e.to_string())?;
-            input.SetUINT32(&MF_MT_AUDIO_NUM_CHANNELS, u32::from(channels)).map_err(|e| e.to_string())?;
-            input.SetUINT32(&MF_MT_AUDIO_BLOCK_ALIGNMENT, block_align).map_err(|e| e.to_string())?;
+            input
+                .SetGUID(&MF_MT_MAJOR_TYPE, &MFMediaType_Audio)
+                .map_err(|e| e.to_string())?;
+            input
+                .SetGUID(&MF_MT_SUBTYPE, &MFAudioFormat_PCM)
+                .map_err(|e| e.to_string())?;
+            input
+                .SetUINT32(&MF_MT_AUDIO_BITS_PER_SAMPLE, 16)
+                .map_err(|e| e.to_string())?;
+            input
+                .SetUINT32(&MF_MT_AUDIO_SAMPLES_PER_SECOND, sample_rate)
+                .map_err(|e| e.to_string())?;
+            input
+                .SetUINT32(&MF_MT_AUDIO_NUM_CHANNELS, u32::from(channels))
+                .map_err(|e| e.to_string())?;
+            input
+                .SetUINT32(&MF_MT_AUDIO_BLOCK_ALIGNMENT, block_align)
+                .map_err(|e| e.to_string())?;
             input
                 .SetUINT32(&MF_MT_AUDIO_AVG_BYTES_PER_SECOND, sample_rate * block_align)
                 .map_err(|e| e.to_string())?;
 
             let output = MFCreateMediaType().map_err(|e| e.to_string())?;
-            output.SetGUID(&MF_MT_MAJOR_TYPE, &MFMediaType_Audio).map_err(|e| e.to_string())?;
-            output.SetGUID(&MF_MT_SUBTYPE, &MFAudioFormat_AAC).map_err(|e| e.to_string())?;
-            output.SetUINT32(&MF_MT_AUDIO_BITS_PER_SAMPLE, 16).map_err(|e| e.to_string())?;
-            output.SetUINT32(&MF_MT_AUDIO_SAMPLES_PER_SECOND, sample_rate).map_err(|e| e.to_string())?;
-            output.SetUINT32(&MF_MT_AUDIO_NUM_CHANNELS, u32::from(channels)).map_err(|e| e.to_string())?;
+            output
+                .SetGUID(&MF_MT_MAJOR_TYPE, &MFMediaType_Audio)
+                .map_err(|e| e.to_string())?;
+            output
+                .SetGUID(&MF_MT_SUBTYPE, &MFAudioFormat_AAC)
+                .map_err(|e| e.to_string())?;
+            output
+                .SetUINT32(&MF_MT_AUDIO_BITS_PER_SAMPLE, 16)
+                .map_err(|e| e.to_string())?;
+            output
+                .SetUINT32(&MF_MT_AUDIO_SAMPLES_PER_SECOND, sample_rate)
+                .map_err(|e| e.to_string())?;
+            output
+                .SetUINT32(&MF_MT_AUDIO_NUM_CHANNELS, u32::from(channels))
+                .map_err(|e| e.to_string())?;
             output
                 .SetUINT32(&MF_MT_AUDIO_AVG_BYTES_PER_SECOND, BYTES_PER_SECOND)
                 .map_err(|e| e.to_string())?;
-            output.SetUINT32(&MF_MT_AAC_PAYLOAD_TYPE, 0).map_err(|e| e.to_string())?;
+            output
+                .SetUINT32(&MF_MT_AAC_PAYLOAD_TYPE, 0)
+                .map_err(|e| e.to_string())?;
 
-            transform.SetInputType(0, &input, 0).map_err(|e| format!("input type: {e}"))?;
-            transform.SetOutputType(0, &output, 0).map_err(|e| format!("output type: {e}"))?;
+            transform
+                .SetInputType(0, &input, 0)
+                .map_err(|e| format!("input type: {e}"))?;
+            transform
+                .SetOutputType(0, &output, 0)
+                .map_err(|e| format!("output type: {e}"))?;
 
             let audio_specific_config = read_audio_specific_config(&transform)
                 .or_else(|| aac_lc_config(sample_rate, channels).map(|config| config.to_vec()))
                 .ok_or("no AudioSpecificConfig")?;
-            let info = transform.GetOutputStreamInfo(0).map_err(|e| e.to_string())?;
+            let info = transform
+                .GetOutputStreamInfo(0)
+                .map_err(|e| e.to_string())?;
             transform
                 .ProcessMessage(MFT_MESSAGE_NOTIFY_BEGIN_STREAMING, 0)
                 .map_err(|e| e.to_string())?;
@@ -149,10 +186,14 @@ impl MfAac {
                     Err(error) => return Err(format!("ProcessOutput: {error}")),
                 }
                 let Some(sample) = sample else { continue };
-                let buffer = sample.ConvertToContiguousBuffer().map_err(|e| e.to_string())?;
+                let buffer = sample
+                    .ConvertToContiguousBuffer()
+                    .map_err(|e| e.to_string())?;
                 let mut data = std::ptr::null_mut();
                 let mut len = 0;
-                buffer.Lock(&mut data, None, Some(&mut len)).map_err(|e| e.to_string())?;
+                buffer
+                    .Lock(&mut data, None, Some(&mut len))
+                    .map_err(|e| e.to_string())?;
                 let packet = std::slice::from_raw_parts(data, len as usize).to_vec();
                 buffer.Unlock().map_err(|e| e.to_string())?;
                 if !packet.is_empty() {
@@ -173,10 +214,14 @@ impl MfAac {
         let sample = unsafe {
             let buffer = MFCreateMemoryBuffer(bytes as u32).map_err(|e| e.to_string())?;
             let mut data = std::ptr::null_mut();
-            buffer.Lock(&mut data, None, None).map_err(|e| e.to_string())?;
+            buffer
+                .Lock(&mut data, None, None)
+                .map_err(|e| e.to_string())?;
             std::ptr::copy_nonoverlapping(pcm.as_ptr().cast::<u8>(), data, bytes);
             buffer.Unlock().map_err(|e| e.to_string())?;
-            buffer.SetCurrentLength(bytes as u32).map_err(|e| e.to_string())?;
+            buffer
+                .SetCurrentLength(bytes as u32)
+                .map_err(|e| e.to_string())?;
             let sample = MFCreateSample().map_err(|e| e.to_string())?;
             sample.AddBuffer(&buffer).map_err(|e| e.to_string())?;
             let frames = (pcm.len() / usize::from(self.channels)) as i64;
@@ -196,7 +241,8 @@ impl MfAac {
             Err(error) if error.code() == MF_E_NOTACCEPTING => {
                 self.drain_output(&mut out)?;
                 // SAFETY: plain COM call.
-                unsafe { self.transform.ProcessInput(0, &sample, 0) }.map_err(|e| format!("ProcessInput: {e}"))?;
+                unsafe { self.transform.ProcessInput(0, &sample, 0) }
+                    .map_err(|e| format!("ProcessInput: {e}"))?;
             }
             Err(error) => return Err(format!("ProcessInput: {error}")),
         }
@@ -213,10 +259,13 @@ fn read_audio_specific_config(transform: &IMFTransform) -> Option<Vec<u8>> {
         let kind = transform.GetOutputCurrentType(0).ok()?;
         let mut data = std::ptr::null_mut();
         let mut len = 0;
-        kind.GetAllocatedBlob(&MF_MT_USER_DATA, &mut data, &mut len).ok()?;
+        kind.GetAllocatedBlob(&MF_MT_USER_DATA, &mut data, &mut len)
+            .ok()?;
         let blob = std::slice::from_raw_parts(data, len as usize).to_vec();
         CoTaskMemFree(Some(data as *const _));
-        blob.get(12..).filter(|config| config.len() >= 2).map(<[u8]>::to_vec)
+        blob.get(12..)
+            .filter(|config| config.len() >= 2)
+            .map(<[u8]>::to_vec)
     }
 }
 
@@ -250,12 +299,18 @@ impl PcmEncoder for MfAac {
         // delay), then drain.
         let frame = u64::from(AAC_FRAME);
         let partial = (self.input_frames % frame) as usize;
-        let fill = if partial == 0 { 0 } else { AAC_FRAME as usize - partial };
+        let fill = if partial == 0 {
+            0
+        } else {
+            AAC_FRAME as usize - partial
+        };
         let silence = (fill + PRIMING as usize) * usize::from(self.channels);
         let mut out = self.submit(&vec![0; silence])?;
         // SAFETY: plain COM calls.
         unsafe {
-            let _ = self.transform.ProcessMessage(MFT_MESSAGE_NOTIFY_END_OF_STREAM, 0);
+            let _ = self
+                .transform
+                .ProcessMessage(MFT_MESSAGE_NOTIFY_END_OF_STREAM, 0);
             self.transform
                 .ProcessMessage(MFT_MESSAGE_COMMAND_DRAIN, 0)
                 .map_err(|e| format!("drain: {e}"))?;
@@ -278,7 +333,9 @@ impl Drop for MfAac {
     fn drop(&mut self) {
         // SAFETY: plain COM call.
         unsafe {
-            let _ = self.transform.ProcessMessage(MFT_MESSAGE_NOTIFY_END_STREAMING, 0);
+            let _ = self
+                .transform
+                .ProcessMessage(MFT_MESSAGE_NOTIFY_END_STREAMING, 0);
         }
     }
 }

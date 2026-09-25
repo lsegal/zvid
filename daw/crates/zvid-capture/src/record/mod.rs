@@ -250,7 +250,9 @@ impl Shared {
             if let Some(item) = queue.items.pop_front() {
                 match &item {
                     Item::Frame(_) => queue.frames -= 1,
-                    Item::Audio(block) => queue.audio_frames -= block.samples.len() / self.channels.max(1),
+                    Item::Audio(block) => {
+                        queue.audio_frames -= block.samples.len() / self.channels.max(1)
+                    }
                 }
                 return Some(item);
             }
@@ -287,9 +289,9 @@ impl Recorder {
             Rational::new(30, 1)
         };
         let channels = config.audio.map_or(1, |audio| usize::from(audio.channels));
-        let audio_capacity = config
-            .audio
-            .map_or(0, |audio| (f64::from(audio.sample_rate) * AUDIO_QUEUE_SEC) as usize);
+        let audio_capacity = config.audio.map_or(0, |audio| {
+            (f64::from(audio.sample_rate) * AUDIO_QUEUE_SEC) as usize
+        });
         let shared = Arc::new(Shared {
             queue: Mutex::new(QueueState::default()),
             ready: Condvar::new(),
@@ -382,7 +384,11 @@ impl Drop for Recorder {
 }
 
 /// Opens the first unused capture file name for exclusive writing.
-fn create_capture_file(root: &RecordRoot, counter: u32, at: LocalTime) -> Result<(File, PathBuf), RecordError> {
+fn create_capture_file(
+    root: &RecordRoot,
+    counter: u32,
+    at: LocalTime,
+) -> Result<(File, PathBuf), RecordError> {
     loop {
         let name = next_capture_filename(counter, at, |name| {
             let path = root.path_of(name);
@@ -445,7 +451,11 @@ impl Worker {
         let mut audio = self.audio.and_then(|format| self.open_audio(format));
         let audio_track = audio.as_ref().map(|audio| Track {
             config: Mp4TrackConfig {
-                encoder: encoder::encoder_config(Codec::Aac, audio.format.sample_rate, audio.encoder.decoder_config()),
+                encoder: encoder::encoder_config(
+                    Codec::Aac,
+                    audio.format.sample_rate,
+                    audio.encoder.decoder_config(),
+                ),
                 format: Mp4TrackFormat::Audio {
                     channels: audio.format.channels,
                 },
@@ -513,13 +523,16 @@ impl Worker {
         output: &mut Output,
     ) -> Result<(), String> {
         if video.is_none() {
-            let (encoder, skipped) = encoder::open_video(frame.width, frame.height, self.fps, self.choice)
-                .map_err(|reasons| RecordError::NoEncoder(reasons.join("; ")).to_string())?;
+            let (encoder, skipped) =
+                encoder::open_video(frame.width, frame.height, self.fps, self.choice)
+                    .map_err(|reasons| RecordError::NoEncoder(reasons.join("; ")).to_string())?;
             let mut stats = self.shared.stats();
             stats.video_encoder = Some(encoder.name());
             for reason in skipped {
                 log(&format!("skipped video encoder: {reason}"));
-                stats.warnings.push(format!("skipped video encoder: {reason}"));
+                stats
+                    .warnings
+                    .push(format!("skipped video encoder: {reason}"));
             }
             drop(stats);
             log(&format!(
@@ -563,12 +576,27 @@ impl Worker {
 
     /// Turns encoder output into timed samples. The last frame is held
     /// until the next one gives its duration, or `last` ends the stream.
-    fn on_encoded(&self, video: &mut Video, frames: Vec<EncodedFrame>, last: bool, output: &mut Output) -> Result<(), String> {
+    fn on_encoded(
+        &self,
+        video: &mut Video,
+        frames: Vec<EncodedFrame>,
+        last: bool,
+        output: &mut Output,
+    ) -> Result<(), String> {
         for frame in frames {
-            let slot = video
+            let mut slot = video
                 .in_flight
                 .pop_front()
                 .ok_or("the video encoder returned more frames than it was given")?;
+            if frame.data.is_empty() {
+                // Dropped by the encoder: the frame before covers its slot.
+                self.shared.stats().frames_dropped += 1;
+                continue;
+            }
+            if video.pending.is_none() && video.written_slots == 0 {
+                // The file starts at the first frame the encoder kept.
+                slot = 0;
+            }
             if let Some((previous, data)) = video.pending.replace((slot, frame)) {
                 self.write_video(video, previous, slot, data, output)?;
             }
@@ -579,7 +607,14 @@ impl Worker {
         Ok(())
     }
 
-    fn write_video(&self, video: &mut Video, slot: u64, next: u64, frame: EncodedFrame, output: &mut Output) -> Result<(), String> {
+    fn write_video(
+        &self,
+        video: &mut Video,
+        slot: u64,
+        next: u64,
+        frame: EncodedFrame,
+        output: &mut Output,
+    ) -> Result<(), String> {
         let den = u64::from(self.fps.den);
         let sample = EncodedSample {
             data: frame.data,
@@ -598,12 +633,24 @@ impl Worker {
         self.write(0, sample, Some(video), output)
     }
 
-    fn on_audio(&self, block: AudioBlock, video: &Video, audio: &mut Audio, output: &mut Output) -> Result<(), String> {
+    fn on_audio(
+        &self,
+        block: AudioBlock,
+        video: &Video,
+        audio: &mut Audio,
+        output: &mut Output,
+    ) -> Result<(), String> {
         let zero = video.clock.zero().expect("set by the first frame");
         self.encode_audio(block, zero, audio, output)
     }
 
-    fn encode_audio(&self, block: AudioBlock, zero: HostTime, audio: &mut Audio, output: &mut Output) -> Result<(), String> {
+    fn encode_audio(
+        &self,
+        block: AudioBlock,
+        zero: HostTime,
+        audio: &mut Audio,
+        output: &mut Output,
+    ) -> Result<(), String> {
         let channels = usize::from(audio.format.channels);
         let frames = block.samples.len() / channels;
         let placement = audio.clock.place(zero, block.host_time, frames);
@@ -621,7 +668,12 @@ impl Worker {
         Ok(())
     }
 
-    fn write_audio(&self, audio: &mut Audio, data: Vec<u8>, output: &mut Output) -> Result<(), String> {
+    fn write_audio(
+        &self,
+        audio: &mut Audio,
+        data: Vec<u8>,
+        output: &mut Output,
+    ) -> Result<(), String> {
         let dts = (audio.packets * u64::from(AAC_FRAME)) as i64;
         audio.packets += 1;
         let sample = EncodedSample {
@@ -637,9 +689,19 @@ impl Worker {
 
     /// Writes a sample, creating the file header once the video encoder's
     /// configuration is known, and flushing a fragment each second.
-    fn write(&self, track: usize, sample: EncodedSample, video: Option<&Video>, output: &mut Output) -> Result<(), String> {
+    fn write(
+        &self,
+        track: usize,
+        sample: EncodedSample,
+        video: Option<&Video>,
+        output: &mut Output,
+    ) -> Result<(), String> {
         match output {
-            Output::Waiting { video: early_video, audio: early_audio, .. } => {
+            Output::Waiting {
+                video: early_video,
+                audio: early_audio,
+                ..
+            } => {
                 if track == 0 {
                     early_video.push(sample);
                 } else {
@@ -659,7 +721,8 @@ impl Worker {
                     unreachable!()
                 };
                 let tracks = self.tracks(video, config, audio_track)?;
-                let mut writer = FragmentedWriter::create(file, tracks).map_err(|e| e.to_string())?;
+                let mut writer =
+                    FragmentedWriter::create(file, tracks).map_err(|e| e.to_string())?;
                 for sample in early_video {
                     writer.push(0, sample).map_err(|e| e.to_string())?;
                 }
@@ -685,12 +748,22 @@ impl Worker {
         }
     }
 
-    fn tracks(&self, video: &Video, decoder_config: Vec<u8>, audio: Option<Track>) -> Result<Vec<Track>, String> {
+    fn tracks(
+        &self,
+        video: &Video,
+        decoder_config: Vec<u8>,
+        audio: Option<Track>,
+    ) -> Result<Vec<Track>, String> {
         let (width, height) = video.encoder.dimensions();
-        let dimensions = VideoDimensions::new(width, height, &Limits::default()).map_err(|e| e.to_string())?;
+        let dimensions =
+            VideoDimensions::new(width, height, &Limits::default()).map_err(|e| e.to_string())?;
         let video = Track {
             config: Mp4TrackConfig {
-                encoder: encoder::encoder_config(video.encoder.codec(), self.fps.num, decoder_config),
+                encoder: encoder::encoder_config(
+                    video.encoder.codec(),
+                    self.fps.num,
+                    decoder_config,
+                ),
                 format: Mp4TrackFormat::Video(dimensions),
             },
             priming: 0,
@@ -698,7 +771,12 @@ impl Worker {
         Ok(std::iter::once(video).chain(audio).collect())
     }
 
-    fn finish(self, mut video: Option<Video>, mut audio: Option<Audio>, mut output: Output) -> Result<Recorded, RecordError> {
+    fn finish(
+        self,
+        mut video: Option<Video>,
+        mut audio: Option<Audio>,
+        mut output: Output,
+    ) -> Result<Recorded, RecordError> {
         let mut gapless = None;
         let error = self.shared.stats().error.clone();
         if error.is_none()
@@ -723,14 +801,20 @@ impl Worker {
                         }
                     }
                 }
-                Err(error) => self.shared.stats().warnings.push(format!("AAC flush failed: {error}")),
+                Err(error) => self
+                    .shared
+                    .stats()
+                    .warnings
+                    .push(format!("AAC flush failed: {error}")),
             }
         }
         let stats = self.shared.stats().clone();
         let Some(video) = video else {
             drop(output);
             let _ = std::fs::remove_file(&self.path);
-            return Err(stats.error.map_or(RecordError::NoFrames, RecordError::NoEncoder));
+            return Err(stats
+                .error
+                .map_or(RecordError::NoFrames, RecordError::NoEncoder));
         };
         let Output::Writing(writer) = output else {
             drop(output);
@@ -739,7 +823,11 @@ impl Worker {
         };
         let has_audio = writer.tracks().len() > 1;
         let written = writer.finish()?;
-        let gapless: Vec<_> = gapless.filter(|_| has_audio).map(|g| (1, g)).into_iter().collect();
+        let gapless: Vec<_> = gapless
+            .filter(|_| has_audio)
+            .map(|g| (1, g))
+            .into_iter()
+            .collect();
         if let Err(error) = fmp4::finalize(&self.path, &written, &gapless) {
             // The fragmented file is still complete and playable.
             let warning = format!("kept the fragmented file: finalizing failed: {error}");
@@ -772,7 +860,9 @@ impl Audio {
         self.pre_roll.push_back(block);
         let limit = (f64::from(self.format.sample_rate) * PRE_ROLL_SEC) as usize;
         while self.pre_roll_frames > limit {
-            let Some(old) = self.pre_roll.pop_front() else { break };
+            let Some(old) = self.pre_roll.pop_front() else {
+                break;
+            };
             self.pre_roll_frames -= old.samples.len() / channels;
         }
     }
@@ -792,7 +882,9 @@ pub(crate) fn block_on<T>(future: impl Future<Output = T>) -> T {
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-    mutex.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    mutex
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 /// Logs to stderr and, when `ZVID_DAW_LOG` names a file, appends there too,

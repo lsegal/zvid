@@ -13,11 +13,13 @@ pub fn nal_type(nal: &[u8]) -> u8 {
 }
 
 /// Whether `nal` is a random access point (BLA, IDR or CRA picture).
+#[cfg_attr(not(windows), allow(dead_code))]
 pub fn is_irap(nal: &[u8]) -> bool {
     (16..=23).contains(&nal_type(nal))
 }
 
 /// Splits an Annex B byte stream into NAL units without start codes.
+#[cfg_attr(not(windows), allow(dead_code))]
 pub fn split_annex_b(stream: &[u8]) -> Vec<&[u8]> {
     let mut starts = Vec::new();
     let mut index = 0;
@@ -46,6 +48,7 @@ pub fn split_annex_b(stream: &[u8]) -> Vec<&[u8]> {
 }
 
 /// Splits four-byte length-prefixed NAL units.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub fn split_length_prefixed(data: &[u8]) -> Option<Vec<&[u8]>> {
     let mut units = Vec::new();
     let mut rest = data;
@@ -218,9 +221,7 @@ pub fn hvcc_box(vps: &[&[u8]], sps: &[&[u8]], pps: &[&[u8]]) -> Option<Vec<u8>> 
     body.extend_from_slice(&0u16.to_be_bytes()); // avgFrameRate unspecified
     // constantFrameRate 0, numTemporalLayers, temporalIdNested,
     // lengthSizeMinusOne 3.
-    body.push(
-        ((info.max_sub_layers & 7) << 3) | (u8::from(info.temporal_id_nesting) << 2) | 0b11,
-    );
+    body.push(((info.max_sub_layers & 7) << 3) | (u8::from(info.temporal_id_nesting) << 2) | 0b11);
     body.push(3);
     for (kind, units) in [(NAL_VPS, vps), (NAL_SPS, sps), (NAL_PPS, pps)] {
         body.push(0x80 | kind); // array_completeness 1
@@ -264,6 +265,7 @@ impl ParameterSets {
 }
 
 /// Builds an `esds` box (with header) for AAC from its `AudioSpecificConfig`.
+#[cfg_attr(not(windows), allow(dead_code))]
 pub fn esds_box(audio_specific_config: &[u8], avg_bitrate: u32) -> Vec<u8> {
     let mut decoder_config = vec![0x40, 0x15, 0, 0, 0];
     decoder_config.extend_from_slice(&avg_bitrate.to_be_bytes()); // maxBitrate
@@ -278,13 +280,14 @@ pub fn esds_box(audio_specific_config: &[u8], avg_bitrate: u32) -> Vec<u8> {
 }
 
 /// The two-byte AAC-LC `AudioSpecificConfig` for a standard sample rate.
+#[cfg_attr(not(windows), allow(dead_code))]
 pub fn aac_lc_config(sample_rate: u32, channels: u16) -> Option<[u8; 2]> {
     const RATES: [u32; 13] = [
         96_000, 88_200, 64_000, 48_000, 44_100, 32_000, 24_000, 22_050, 16_000, 12_000, 11_025,
         8_000, 7_350,
     ];
     let index = RATES.iter().position(|&rate| rate == sample_rate)? as u16;
-    let channels = u16::try_from(channels).ok().filter(|c| (1..=7).contains(c))?;
+    let channels = Some(channels).filter(|c| (1..=7).contains(c))?;
     let value = (2 << 11) | (index << 7) | (channels << 3);
     Some(value.to_be_bytes())
 }
@@ -364,7 +367,11 @@ mod tests {
         // three- and four-byte start codes and an access unit delimiter.
         let mut stream = vec![0, 0, 0, 1, NAL_AUD << 1, 1, 0x50];
         for (index, (_, unit)) in units.iter().enumerate() {
-            let start: &[u8] = if index % 2 == 0 { &[0, 0, 1] } else { &[0, 0, 0, 1] };
+            let start: &[u8] = if index % 2 == 0 {
+                &[0, 0, 1]
+            } else {
+                &[0, 0, 0, 1]
+            };
             stream.extend_from_slice(start);
             stream.extend_from_slice(unit);
         }
@@ -404,7 +411,9 @@ mod tests {
             hardware: HardwarePreference::Avoid,
             configuration: built,
         };
-        native_hevc_video_decoder_factory().create(&config, &limits).unwrap();
+        native_hevc_video_decoder_factory()
+            .create(&config, &limits)
+            .unwrap();
     }
 
     #[test]
@@ -433,7 +442,10 @@ mod tests {
         assert_eq!(aac_lc_config(44_000, 2), None);
         let esds = esds_box(&[0x11, 0x90], 192_000);
         assert_eq!(&esds[4..8], b"esds");
-        assert_eq!(u32::from_be_bytes(esds[..4].try_into().unwrap()) as usize, esds.len());
+        assert_eq!(
+            u32::from_be_bytes(esds[..4].try_into().unwrap()) as usize,
+            esds.len()
+        );
         assert_eq!(&esds[esds.len() - 8..esds.len() - 6], &[0x11, 0x90]);
     }
 }

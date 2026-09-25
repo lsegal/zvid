@@ -129,7 +129,8 @@ impl AudioClock {
     fn frame_at(&self, zero: HostTime, at: HostTime) -> i64 {
         let sign = if at >= zero { 1 } else { -1 };
         let nanos = at.as_nanos().abs_diff(zero.as_nanos());
-        let frames = (u128::from(nanos) * u128::from(self.sample_rate) + 500_000_000) / 1_000_000_000;
+        let frames =
+            (u128::from(nanos) * u128::from(self.sample_rate) + 500_000_000) / 1_000_000_000;
         sign * frames as i64
     }
 }
@@ -252,6 +253,9 @@ mod tests {
             let heard = start + placement.skip as f64 / 48.0;
             worst = worst.max((head - heard).abs());
         }
-        assert!(worst <= AUDIO_TOLERANCE_SEC * 1000.0 + 0.05, "drift {worst} ms");
+        assert!(
+            worst <= AUDIO_TOLERANCE_SEC * 1000.0 + 0.05,
+            "drift {worst} ms"
+        );
     }
 }

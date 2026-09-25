@@ -24,13 +24,23 @@ use crate::preview::Converter;
 /// One encoded video frame, in the order frames were submitted.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EncodedFrame {
-    /// Four-byte length-prefixed NAL units (HEVC) or OBUs (AV1).
+    /// Four-byte length-prefixed NAL units (HEVC) or OBUs (AV1). Empty when
+    /// the encoder dropped the frame.
     pub data: Vec<u8>,
     pub is_sync: bool,
 }
 
+impl EncodedFrame {
+    /// Stands in for a frame the encoder dropped.
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    pub const DROPPED: Self = Self {
+        data: Vec::new(),
+        is_sync: false,
+    };
+}
+
 /// Encodes NV12 frames. Implementations must not reorder frames, so output
-/// `n` is input `n`.
+/// `n` is input `n` (or [`EncodedFrame::DROPPED`]).
 pub trait FrameEncoder {
     /// Short description for logs and stats, like `"VideoToolbox HEVC"`.
     fn name(&self) -> &'static str;
@@ -64,6 +74,9 @@ pub fn target_bitrate(width: u32, height: u32, fps: Rational) -> u32 {
     bits.clamp(500_000.0, 60_000_000.0) as u32
 }
 
+/// An opened video encoder and why earlier candidates were skipped.
+pub type Opened = (Box<dyn FrameEncoder>, Vec<String>);
+
 /// Opens the first video encoder in `choice` that accepts this format.
 /// Returns the encoder and the reasons earlier candidates were skipped.
 pub fn open_video(
@@ -71,7 +84,7 @@ pub fn open_video(
     height: u32,
     fps: Rational,
     choice: VideoEncoderChoice,
-) -> Result<(Box<dyn FrameEncoder>, Vec<String>), Vec<String>> {
+) -> Result<Opened, Vec<String>> {
     let mut skipped = Vec::new();
     let bitrate = target_bitrate(width, height, fps);
     if choice == VideoEncoderChoice::Auto {
@@ -108,7 +121,13 @@ struct ZvidlibVideo {
 }
 
 impl ZvidlibVideo {
-    fn open(codec: Codec, width: u32, height: u32, fps: Rational, bitrate: u32) -> Result<Self, String> {
+    fn open(
+        codec: Codec,
+        width: u32,
+        height: u32,
+        fps: Rational,
+        bitrate: u32,
+    ) -> Result<Self, String> {
         let limits = Limits::default();
         let (width, height, profile, input_format, configuration, factory): (
             _,
@@ -148,7 +167,9 @@ impl ZvidlibVideo {
             frame_duration: fps.den,
             configuration,
         };
-        let encoder = factory.create(&config, &limits).map_err(|e| e.to_string())?;
+        let encoder = factory
+            .create(&config, &limits)
+            .map_err(|e| e.to_string())?;
         Ok(Self {
             encoder,
             codec,
@@ -168,7 +189,8 @@ impl ZvidlibVideo {
         // Even offsets keep chroma sited on the same samples.
         let (x0, y0) = (((sw - w) / 2) & !1, ((sh - h) / 2) & !1);
         let luma = frame.luma();
-        let dimensions = VideoDimensions::new(self.width, self.height, &self.limits).map_err(|e| e.to_string())?;
+        let dimensions = VideoDimensions::new(self.width, self.height, &self.limits)
+            .map_err(|e| e.to_string())?;
         let (format, plane) = if self.codec == Codec::Hevc {
             let convert = Converter::new(frame.color.bt709, frame.color.full_range);
             let chroma = frame.chroma();
@@ -184,16 +206,34 @@ impl ZvidlibVideo {
                     rgba.extend_from_slice(&[r, g, b, 255]);
                 }
             }
-            (ZPixelFormat::Rgba8, Plane { data: rgba, stride: w * 4 })
+            (
+                ZPixelFormat::Rgba8,
+                Plane {
+                    data: rgba,
+                    stride: w * 4,
+                },
+            )
         } else {
             let mut grey = Vec::with_capacity(w * h);
             for y in y0..y0 + h {
                 grey.extend_from_slice(&luma[y * sw + x0..y * sw + x0 + w]);
             }
-            (ZPixelFormat::Gray8, Plane { data: grey, stride: w })
+            (
+                ZPixelFormat::Gray8,
+                Plane {
+                    data: grey,
+                    stride: w,
+                },
+            )
         };
-        VideoFrame::new(dimensions, format, ColorRange::Limited, vec![plane], &self.limits)
-            .map_err(|e| e.to_string())
+        VideoFrame::new(
+            dimensions,
+            format,
+            ColorRange::Limited,
+            vec![plane],
+            &self.limits,
+        )
+        .map_err(|e| e.to_string())
     }
 }
 
@@ -301,7 +341,9 @@ impl ZvidlibAac {
         if !support.is_supported() {
             return Err(format!("{support:?}"));
         }
-        let encoder = factory.create(&config, &limits).map_err(|e| e.to_string())?;
+        let encoder = factory
+            .create(&config, &limits)
+            .map_err(|e| e.to_string())?;
         Ok(Self {
             encoder,
             sample_rate,
@@ -331,17 +373,28 @@ impl PcmEncoder for ZvidlibAac {
         if frames == 0 {
             return Ok(Vec::new());
         }
-        let range = SampleRange::new(self.position, self.position + frames).map_err(|e| e.to_string())?;
+        let range =
+            SampleRange::new(self.position, self.position + frames).map_err(|e| e.to_string())?;
         self.position += frames;
-        let buffer = AudioBuffer::new(range, self.sample_rate, self.channels, interleaved.to_vec(), &self.limits)
-            .map_err(|e| e.to_string())?;
-        let samples = block_on(self.encoder.encode(FrameIndex(0), buffer)).map_err(|e| e.to_string())?;
+        let buffer = AudioBuffer::new(
+            range,
+            self.sample_rate,
+            self.channels,
+            interleaved.to_vec(),
+            &self.limits,
+        )
+        .map_err(|e| e.to_string())?;
+        let samples =
+            block_on(self.encoder.encode(FrameIndex(0), buffer)).map_err(|e| e.to_string())?;
         Ok(samples.into_iter().map(|sample| sample.data).collect())
     }
 
     fn finish(&mut self) -> Result<(Vec<Vec<u8>>, AudioGapless), String> {
         let drain = block_on(self.encoder.finish()).map_err(|e| e.to_string())?;
-        Ok((drain.samples.into_iter().map(|s| s.data).collect(), drain.gapless))
+        Ok((
+            drain.samples.into_iter().map(|s| s.data).collect(),
+            drain.gapless,
+        ))
     }
 }
 
