@@ -148,8 +148,9 @@ explains what happened.
 
 ## Design tokens
 
-The plugin reuses the tokens already defined on `:root` in
-[`app/src/App.css`](../app/src/App.css). Values here must match that file.
+The plugin reuses the tokens defined on `:root` in
+[`packages/tokens/tokens.css`](../packages/tokens/tokens.css). Values here must
+match that file.
 
 ### Surfaces
 
@@ -193,13 +194,11 @@ also has a text label so colour is never the only signal.
 
 ### Where the tokens live
 
-Today the tokens are defined only in `app/src/App.css`. So `/app` and
-`daw/ui` cannot drift, the proposal is a small shared CSS package in the pnpm
-workspace (for example `packages/tokens`, exporting `tokens.css` with the
-`:root` block and the `@font-face` rules). `/app` and `daw/ui` both import it,
-and `App.css` keeps only app-specific variables such as the lane-selection
-colours. Until that package exists, `daw/ui` copies the `:root` block verbatim
-and any change must be made in both places.
+So `/app` and `daw/ui` cannot drift, the shared tokens live in a small CSS
+package, [`packages/tokens`](../packages/tokens) (`@zvid/tokens`), whose
+`tokens.css` holds the `:root` block and the `@font-face` rules. `/app` and
+`daw/ui` both import it, and `app/src/App.css` keeps only app-specific
+variables such as the lane-selection colours.
 
 ## Typography
 
@@ -209,8 +208,8 @@ and any change must be made in both places.
 | **IBM Plex Mono** (400, 500, 600) | Timecodes, TimerPill, durations, bar positions, resolution/fps, version |
 
 - Fonts are **bundled** with the frontend and served from `zvid://`; they are
-  never loaded from the network. (`/app` currently loads them from Google
-  Fonts; the shared token package should bundle them for both.)
+  never loaded from the network. `@zvid/tokens` bundles them for both
+  products.
 - Mono text uses tabular figures so timers don't jitter.
 - Scale (pt): 11 footer and badges, 12 helper and secondary text, 13 body and
   card text, 14 buttons and status label, 16 empty-state titles. Line height
