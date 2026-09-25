@@ -20,6 +20,7 @@ mod format;
 mod frame;
 mod jitter;
 mod preview;
+pub mod record;
 mod watch;
 
 use std::fmt;

@@ -102,7 +102,7 @@ fn source_coord(rotation: Rotation, dx: usize, dy: usize, sw: usize, sh: usize) 
     }
 }
 
-struct Converter {
+pub(crate) struct Converter {
     y_offset: f32,
     y_scale: f32,
     c_scale: f32,
@@ -113,7 +113,7 @@ struct Converter {
 }
 
 impl Converter {
-    fn new(bt709: bool, full_range: bool) -> Self {
+    pub(crate) fn new(bt709: bool, full_range: bool) -> Self {
         let (kr, kgu, kgv, kb) = if bt709 {
             (1.5748, 0.187_324, 0.468_124, 1.8556)
         } else {
@@ -135,7 +135,7 @@ impl Converter {
         }
     }
 
-    fn rgb(&self, y: u32, u: u32, v: u32) -> [u8; 3] {
+    pub(crate) fn rgb(&self, y: u32, u: u32, v: u32) -> [u8; 3] {
         let y = (y as f32 - self.y_offset) * self.y_scale;
         let u = (u as f32 - 128.0) * self.c_scale;
         let v = (v as f32 - 128.0) * self.c_scale;
