@@ -60,6 +60,8 @@ pub struct CaptureInfo {
     pub elapsed_ms: u64,
     /// Takes opened so far in this capture.
     pub takes: u32,
+    /// Frames dropped because the encoder fell behind, shown in the footer.
+    pub dropped_frames: u64,
 }
 
 /// Everything the header, preview and capture card render from.
@@ -262,6 +264,7 @@ mod tests {
             capture: Some(CaptureInfo {
                 elapsed_ms: 5000,
                 takes: 1,
+                dropped_frames: 3,
             }),
             error: None,
         }))
@@ -270,6 +273,7 @@ mod tests {
         assert_eq!(json["payload"]["phase"], "capturing");
         assert_eq!(json["payload"]["cameraId"], "cam");
         assert_eq!(json["payload"]["capture"]["elapsedMs"], 5000);
+        assert_eq!(json["payload"]["capture"]["droppedFrames"], 3);
         let json = serde_json::to_value(UiEvent::CamerasChanged(vec![Camera {
             id: "1".into(),
             name: "iPhone".into(),

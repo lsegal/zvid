@@ -1,4 +1,10 @@
-import type { Camera, Phase, Transport, VideoFormat } from "./ipc/types.ts";
+import type {
+  Camera,
+  CaptureInfo,
+  Phase,
+  Transport,
+  VideoFormat,
+} from "./ipc/types.ts";
 
 const pad = (value: number) => String(value).padStart(2, "0");
 
@@ -94,6 +100,12 @@ export function deviceSummary(
     parts.push(`${format.width}×${format.height}`, formatFps(format.fps));
   }
   return parts.join(" · ");
+}
+
+/** Footer, while recording: `3 dropped` once the encoder has fallen behind. */
+export function droppedSummary(capture: CaptureInfo | null): string | null {
+  if (!capture || capture.droppedFrames <= 0) return null;
+  return `${capture.droppedFrames} dropped`;
 }
 
 export function statusLabel(phase: Phase): string {

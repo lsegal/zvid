@@ -313,6 +313,9 @@ impl Backend for MockBackend {
             capture: inner.capture.as_ref().map(|capture| CaptureInfo {
                 elapsed_ms: capture.armed_at.elapsed().as_millis() as u64,
                 takes: capture.takes,
+                // Simulated: one dropped frame every 10 s, so the footer
+                // counter shows in the harness.
+                dropped_frames: capture.armed_at.elapsed().as_secs() / 10,
             }),
             error: inner.error.clone(),
         }
