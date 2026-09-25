@@ -11,7 +11,8 @@
 //! snapshot and, once the tap is taken, input audio into lock-free rings, and
 //! never allocates, locks, does I/O or logs. A control thread started by
 //! `initialize` drains the transport ring into the take tracker and logs
-//! transport changes.
+//! transport changes, and logs what the optional Live companion script
+//! reports about Live's record state and set path.
 
 use std::cell::UnsafeCell;
 use std::ffi::c_void;
@@ -20,9 +21,9 @@ use std::ptr;
 use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, Ordering, fence};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread::{self, JoinHandle};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-use zvid_daw_core::{Consumer, Input, Producer, State, TakeTracker, ring};
+use zvid_daw_core::{Consumer, Input, LiveLink, Producer, State, TakeTracker, ring};
 
 use crate::CLASS_ID;
 use crate::abi::result::{FALSE, INVALID_ARGUMENT, NO_INTERFACE, NOT_IMPLEMENTED, OK};
@@ -345,9 +346,15 @@ fn start_control(mut transport: Consumer<ProcessSnapshot>) -> Option<Control> {
             let mut watch = TransportWatch::default();
             let mut tracker = TakeTracker::new();
             let mut dropped = 0;
+            let mut live = LiveLink::connect()
+                .inspect_err(|error| log(&format!("could not open the Live link: {error}")))
+                .ok();
             loop {
                 let stopping = stopping.load(Ordering::Acquire);
                 drain_transport(&mut transport, &mut watch, &mut tracker, &mut dropped);
+                if let Some(live) = &mut live {
+                    poll_live(live);
+                }
                 if stopping {
                     return transport;
                 }
@@ -394,6 +401,18 @@ fn drain_transport(
     if total != *dropped {
         log(&format!("dropped {} transport snapshots", total - *dropped));
         *dropped = total;
+    }
+}
+
+/// Logs changes to what the Live companion reports. Prototype for #200:
+/// arming capture from Live's record buttons and using the set directory
+/// come later.
+fn poll_live(live: &mut LiveLink) {
+    if live.poll(Instant::now()) {
+        match live.status() {
+            Some(status) => log(&format!("live companion: {status}")),
+            None => log("live companion: gone"),
+        }
     }
 }
 
