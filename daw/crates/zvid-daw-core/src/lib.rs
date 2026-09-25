@@ -1,15 +1,16 @@
 //! Pure, host-independent logic for the ZVID Capture plugin: the persisted
 //! state schema, the transport-following take tracker, capture file naming,
-//! record-root resolution, the audio-to-control-thread ring, and the link to
-//! the optional Live companion script. Nothing here touches cameras, hosts or
-//! UI; the only I/O is locating Documents and the companion's localhost UDP
-//! socket.
+//! record-root resolution, the audio-to-control-thread ring and swap cell,
+//! and the link to the optional Live companion script. Nothing here touches
+//! cameras, hosts or UI; the only I/O is locating Documents and the
+//! companion's localhost UDP socket.
 
 pub mod live;
 pub mod naming;
 pub mod paths;
 pub mod ring;
 pub mod state;
+pub mod swap;
 pub mod tracker;
 
 pub use live::{LiveLink, LiveStatus};
