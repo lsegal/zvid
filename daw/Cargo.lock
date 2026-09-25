@@ -1351,6 +1351,8 @@ name = "xtask"
 version = "0.1.0"
 dependencies = [
  "zvid-au",
+ "zvid-daw-core",
+ "zvid-vst3",
 ]
 
 [[package]]
@@ -1411,6 +1413,7 @@ dependencies = [
 name = "zvid-vst3"
 version = "0.1.0"
 dependencies = [
+ "serde_json",
  "zvid-daw-core",
 ]
 

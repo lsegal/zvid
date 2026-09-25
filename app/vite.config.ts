@@ -4,7 +4,7 @@ import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import react from "@vitejs/plugin-react";
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, type Plugin, searchForWorkspaceRoot } from "vite";
 import {
   AlsImportError,
   type AlsImportSummary,
@@ -441,6 +441,14 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 1420,
     strictPort: true,
+    fs: {
+      // @zvid/tokens is linked from ../packages/tokens; its fonts are served
+      // from there in dev.
+      allow: [
+        searchForWorkspaceRoot(process.cwd()),
+        path.resolve(import.meta.dirname, "../packages/tokens"),
+      ],
+    },
     watch: {
       ignored: ["**/src-tauri/target/**", "**/export-bridge/target/**"],
     },

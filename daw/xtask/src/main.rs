@@ -2,15 +2,21 @@
 //!
 //! - `check`: fails when C/C++/Objective-C++ sources appear under `/daw`, or
 //!   when the zvidlib rev drifts from `app/export-bridge`.
-//! - `bundle [--release]`: on macOS, builds the plugin and wraps it in
-//!   `target/bundle/ZVID Capture.component`, ad-hoc signed, for `auval` and
-//!   local testing.
+//! - `bundle [--release]`: builds the plugin and lays it out as
+//!   `target/bundle/ZVID Capture.vst3`, plus, on macOS, an ad-hoc signed
+//!   `target/bundle/ZVID Capture.component` for `auval` and local hosts.
+//!   Release signing comes later (#201).
 
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
 use zvid_au::component;
+use zvid_daw_core::PLUGIN_NAME;
+
+/// Name of the plugin cdylib, without platform prefix or suffix.
+const LIBRARY: &str = "zvid_capture_plugin";
+const BUNDLE_IDENTIFIER: &str = "com.lsegal.zvid.capture.vst3";
 
 /// Extensions of sources the "Rust only" rule forbids under `/daw`.
 const FORBIDDEN_EXTENSIONS: &[&str] = &["cpp", "cc", "mm"];
@@ -31,8 +37,13 @@ fn main() -> ExitCode {
         },
         Some("bundle") => {
             let release = std::env::args().skip(2).any(|arg| arg == "--release");
-            match bundle(&daw_root(), release) {
-                Ok(()) => ExitCode::SUCCESS,
+            match bundle(release) {
+                Ok(paths) => {
+                    for path in paths {
+                        println!("{}", path.display());
+                    }
+                    ExitCode::SUCCESS
+                }
                 Err(problem) => {
                     eprintln!("error: {problem}");
                     ExitCode::FAILURE
@@ -74,70 +85,160 @@ fn check(daw: &Path) -> Result<(), Vec<String>> {
     }
 }
 
-/// Builds the plugin and lays out the `.component` bundle.
-fn bundle(daw: &Path, release: bool) -> Result<(), String> {
-    if !cfg!(target_os = "macos") {
-        println!("bundle: the .component bundle is macOS only; nothing to do here");
-        return Ok(());
-    }
-    let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
+/// Builds the plugin library and writes its `.vst3` bundle and, on macOS,
+/// its `.component` bundle.
+fn bundle(release: bool) -> Result<Vec<PathBuf>, String> {
+    let daw = daw_root();
+    let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
     let mut build = Command::new(cargo);
     build
-        .current_dir(daw)
-        .args(["build", "--package", "zvid-daw-plugin"]);
+        .current_dir(&daw)
+        .args(["build", "--package", "zvid-daw-plugin", "--lib"]);
     if release {
         build.arg("--release");
     }
-    run(&mut build)?;
-
-    let profile = if release { "release" } else { "debug" };
-    let target = daw.join("target");
-    let dylib = target.join(profile).join("libzvid_capture_plugin.dylib");
-    let bundle = target
-        .join("bundle")
-        .join(format!("{}.component", component::EXECUTABLE));
-    write_component(&bundle, &dylib, env!("CARGO_PKG_VERSION"))?;
-
-    // Apple silicon refuses to load unsigned code; an ad-hoc signature is
-    // enough for local hosts and `auval`.
-    run(Command::new("codesign")
-        .args(["--force", "--sign", "-"])
-        .arg(&bundle))?;
-    println!("{}", bundle.display());
-    Ok(())
+    let status = build
+        .status()
+        .map_err(|error| format!("could not run cargo: {error}"))?;
+    if !status.success() {
+        return Err(format!("building the plugin failed ({status})"));
+    }
+    let target = std::env::var_os("CARGO_TARGET_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| daw.join("target"));
+    let library = target
+        .join(if release { "release" } else { "debug" })
+        .join(format!(
+            "{}{LIBRARY}{}",
+            std::env::consts::DLL_PREFIX,
+            std::env::consts::DLL_SUFFIX
+        ));
+    let bundle = target.join("bundle").join(format!("{PLUGIN_NAME}.vst3"));
+    write_bundle(
+        &library,
+        &bundle,
+        std::env::consts::OS,
+        std::env::consts::ARCH,
+    )?;
+    let mut bundles = vec![bundle];
+    if cfg!(target_os = "macos") {
+        let component = target
+            .join("bundle")
+            .join(format!("{PLUGIN_NAME}.component"));
+        write_component(&library, &component, env!("CARGO_PKG_VERSION"))?;
+        // Apple silicon refuses to load code whose signature does not cover
+        // the bundle; an ad-hoc signature is enough for `auval`.
+        let status = Command::new("codesign")
+            .args(["--force", "--sign", "-"])
+            .arg(&component)
+            .status()
+            .map_err(|error| format!("could not run codesign: {error}"))?;
+        if !status.success() {
+            return Err(format!("signing the component failed ({status})"));
+        }
+        bundles.push(component);
+    }
+    Ok(bundles)
 }
 
-/// Writes `Contents/{Info.plist,PkgInfo,MacOS/<executable>}` under `bundle`,
-/// replacing any previous bundle.
-fn write_component(bundle: &Path, dylib: &Path, version: &str) -> Result<(), String> {
-    let error = |what: &str, path: &Path, error: std::io::Error| {
-        format!("{what} {}: {error}", path.display())
-    };
+/// Lays out an AUv2 bundle around `library`, replacing any existing bundle:
+///
+/// ```text
+/// ZVID Capture.component/Contents/
+///   MacOS/ZVID Capture, Info.plist, PkgInfo
+/// ```
+fn write_component(library: &Path, bundle: &Path, version: &str) -> Result<(), String> {
+    let io = |path: &Path, error: std::io::Error| format!("{}: {error}", path.display());
     if bundle.exists() {
-        fs::remove_dir_all(bundle).map_err(|e| error("cannot remove", bundle, e))?;
+        fs::remove_dir_all(bundle).map_err(|error| io(bundle, error))?;
     }
     let contents = bundle.join("Contents");
-    let macos = contents.join("MacOS");
-    fs::create_dir_all(&macos).map_err(|e| error("cannot create", &macos, e))?;
-    let executable = macos.join(component::EXECUTABLE);
-    fs::copy(dylib, &executable).map_err(|e| error("cannot copy", dylib, e))?;
+    let binary_dir = contents.join("MacOS");
+    fs::create_dir_all(&binary_dir).map_err(|error| io(&binary_dir, error))?;
+    fs::copy(library, binary_dir.join(component::EXECUTABLE))
+        .map_err(|error| io(library, error))?;
     let plist = contents.join("Info.plist");
-    fs::write(&plist, component::info_plist(version))
-        .map_err(|e| error("cannot write", &plist, e))?;
+    fs::write(&plist, component::info_plist(version)).map_err(|error| io(&plist, error))?;
     let pkg_info = contents.join("PkgInfo");
-    fs::write(&pkg_info, "BNDL????").map_err(|e| error("cannot write", &pkg_info, e))?;
+    fs::write(&pkg_info, "BNDL????").map_err(|error| io(&pkg_info, error))?;
     Ok(())
 }
 
-fn run(command: &mut Command) -> Result<(), String> {
-    let status = command
-        .status()
-        .map_err(|error| format!("cannot run {command:?}: {error}"))?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(format!("{command:?} failed: {status}"))
+/// Lays out a VST3 bundle around `library`, replacing any existing bundle:
+///
+/// ```text
+/// ZVID Capture.vst3/Contents/
+///   MacOS/ZVID Capture, Info.plist, PkgInfo   (macOS)
+///   x86_64-win/ZVID Capture.vst3              (Windows)
+///   x86_64-linux/ZVID Capture.so              (Linux)
+///   Resources/moduleinfo.json
+/// ```
+fn write_bundle(library: &Path, bundle: &Path, os: &str, arch: &str) -> Result<(), String> {
+    let contents = bundle.join("Contents");
+    let arch = match arch {
+        "aarch64" => "arm64",
+        other => other,
+    };
+    let binary = match os {
+        "macos" => contents.join("MacOS").join(PLUGIN_NAME),
+        "windows" => contents
+            .join(format!("{arch}-win"))
+            .join(format!("{PLUGIN_NAME}.vst3")),
+        "linux" => contents
+            .join(format!("{arch}-linux"))
+            .join(format!("{PLUGIN_NAME}.so")),
+        other => return Err(format!("VST3 bundles are not supported on {other}")),
+    };
+    let io = |path: &Path, error: std::io::Error| format!("{}: {error}", path.display());
+    if bundle.exists() {
+        fs::remove_dir_all(bundle).map_err(|error| io(bundle, error))?;
     }
+    let binary_dir = binary.parent().expect("binary has a parent");
+    fs::create_dir_all(binary_dir).map_err(|error| io(binary_dir, error))?;
+    fs::copy(library, &binary).map_err(|error| io(library, error))?;
+    let resources = contents.join("Resources");
+    fs::create_dir_all(&resources).map_err(|error| io(&resources, error))?;
+    let module_info = resources.join("moduleinfo.json");
+    fs::write(&module_info, zvid_vst3::moduleinfo::module_info())
+        .map_err(|error| io(&module_info, error))?;
+    if os == "macos" {
+        let plist = contents.join("Info.plist");
+        fs::write(&plist, info_plist()).map_err(|error| io(&plist, error))?;
+        let pkg_info = contents.join("PkgInfo");
+        fs::write(&pkg_info, "BNDL????").map_err(|error| io(&pkg_info, error))?;
+    }
+    Ok(())
+}
+
+fn info_plist() -> String {
+    let version = zvid_vst3::VERSION;
+    format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>{PLUGIN_NAME}</string>
+	<key>CFBundleIdentifier</key>
+	<string>{BUNDLE_IDENTIFIER}</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>{PLUGIN_NAME}</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>{version}</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>{version}</string>
+</dict>
+</plist>
+"#
+    )
 }
 
 /// Every forbidden source file under `dir`, skipping build output.
@@ -223,17 +324,59 @@ mod tests {
     }
 
     #[test]
-    fn writes_component_bundle_layout() {
+    fn lays_out_vst3_bundles() {
         let dir = scratch("bundle");
-        let dylib = dir.join("libplugin.dylib");
-        fs::write(&dylib, "binary").unwrap();
+        let library = dir.join("plugin.bin");
+        fs::write(&library, "binary").unwrap();
+        let bundle = |os: &str| dir.join(os).join("ZVID Capture.vst3");
+
+        write_bundle(&library, &bundle("windows"), "windows", "x86_64").unwrap();
+        let windows = bundle("windows").join("Contents");
+        assert_eq!(
+            fs::read_to_string(windows.join("x86_64-win/ZVID Capture.vst3")).unwrap(),
+            "binary"
+        );
+        assert!(!windows.join("Info.plist").exists());
+
+        write_bundle(&library, &bundle("windows"), "windows", "aarch64").unwrap();
+        assert!(windows.join("arm64-win/ZVID Capture.vst3").exists());
+        assert!(
+            !windows.join("x86_64-win").exists(),
+            "rebundling replaces the old bundle"
+        );
+
+        write_bundle(&library, &bundle("macos"), "macos", "aarch64").unwrap();
+        let macos = bundle("macos").join("Contents");
+        assert!(macos.join("MacOS/ZVID Capture").exists());
+        assert_eq!(
+            fs::read_to_string(macos.join("PkgInfo")).unwrap(),
+            "BNDL????"
+        );
+        let plist = fs::read_to_string(macos.join("Info.plist")).unwrap();
+        assert!(plist.contains("<string>ZVID Capture</string>"));
+        assert!(plist.contains(BUNDLE_IDENTIFIER));
+        let module_info = fs::read_to_string(macos.join("Resources/moduleinfo.json")).unwrap();
+        assert_eq!(module_info, zvid_vst3::moduleinfo::module_info());
+
+        assert!(write_bundle(&library, &bundle("haiku"), "haiku", "x86_64").is_err());
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn lays_out_component_bundles() {
+        let dir = scratch("component");
+        let library = dir.join("plugin.bin");
+        fs::write(&library, "binary").unwrap();
         let bundle = dir.join("ZVID Capture.component");
         fs::create_dir_all(bundle.join("Contents/Stale")).unwrap();
 
-        write_component(&bundle, &dylib, "1.2.3").unwrap();
+        write_component(&library, &bundle, "1.2.3").unwrap();
 
         let contents = bundle.join("Contents");
-        assert!(!contents.join("Stale").exists());
+        assert!(
+            !contents.join("Stale").exists(),
+            "rebundling replaces the old bundle"
+        );
         assert_eq!(
             fs::read_to_string(contents.join("MacOS/ZVID Capture")).unwrap(),
             "binary"
@@ -243,6 +386,7 @@ mod tests {
             "BNDL????"
         );
         let plist = fs::read_to_string(contents.join("Info.plist")).unwrap();
+        assert!(plist.contains("<string>ZVIDCaptureAUFactory</string>"));
         assert!(plist.contains("<string>1.2.3</string>"));
         assert!(plist.contains("<integer>66051</integer>"));
         fs::remove_dir_all(dir).unwrap();

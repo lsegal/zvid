@@ -3,13 +3,14 @@
 //!
 //! ZVID Capture is a pass-through effect with no parameters. Input comes from
 //! either a render callback or a connection to another unit, is copied to the
-//! output unchanged, and is handed to the input tap for recording. Every
-//! render also reads the host transport and pushes a snapshot into the SPSC
-//! ring the take tracker drains.
+//! output unchanged, and, once the audio tap is taken, copied into the tap
+//! ring for recording. Every render also reads the host transport and pushes a
+//! snapshot into the transport ring the take tracker drains. Both rings match
+//! the VST3 component's.
 //!
 //! The render path is real-time safe: it takes no locks and allocates
 //! nothing. Values the host sets while the unit runs (input source, host
-//! callbacks, render notifications, the input tap) are published through
+//! callbacks, render notifications) are published through
 //! [`Swap`], and the render scratch is only rebuilt by `Initialize`, which
 //! hosts never call while rendering.
 
@@ -22,7 +23,7 @@ use std::mem::{self, size_of};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::ptr::{self, NonNull};
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicPtr, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Mutex, MutexGuard};
 
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
@@ -58,9 +59,8 @@ use objc2_core_audio_types::{
     kAudioFormatLinearPCM,
 };
 use objc2_foundation::NSString;
-use zvid_daw_core::ring::{Consumer, Producer, transport_ring};
 use zvid_daw_core::swap::Swap;
-use zvid_daw_core::{InputTap, State, TransportSnapshot};
+use zvid_daw_core::{Consumer, Producer, State, TransportSnapshot, ring};
 
 use super::{class_info, view};
 use crate::transport::{HostReading, host_ticks_to_sec, snapshot};
@@ -78,6 +78,11 @@ const DEFAULT_MAX_FRAMES: u32 = 1156;
 const DEFAULT_PRESET_NAME: &str = "Untitled";
 /// Returned when a handler panics, so the panic never unwinds into the host.
 const PANIC_STATUS: i32 = kAudioUnitErr_CannotDoInCurrentContext;
+/// Snapshots the transport ring holds, as in the VST3 component.
+const TRANSPORT_CAPACITY: usize = 1024;
+/// Stereo frames the audio tap holds: about 5 s at 48 kHz, as in the VST3
+/// component.
+const AUDIO_TAP_FRAMES: usize = 1 << 18;
 
 /// The format of one bus. Always packed, native-endian, non-interleaved
 /// 32-bit float linear PCM.
@@ -182,6 +187,7 @@ struct Scratch {
     /// as `u64`s so it is aligned for the list's pointers.
     list: Vec<u64>,
     transport: Producer<TransportSnapshot>,
+    tap: Producer<[f32; 2]>,
 }
 
 /// One instance of ZVID Capture. Created by the factory and freed by `Close`.
@@ -196,13 +202,14 @@ pub struct AudioUnitInstance {
     input: Swap<Input>,
     host_callbacks: Swap<Option<HostCallbackInfo>>,
     render_notifies: Swap<Vec<RenderNotify>>,
-    input_tap: Swap<Option<Arc<dyn InputTap>>>,
     /// Only `initialize` writes it, and only render reads it.
     scratch: UnsafeCell<Scratch>,
     state: Mutex<State>,
     preset: Mutex<Preset>,
     listeners: Mutex<Vec<Listener>>,
     transport: Mutex<Option<Consumer<TransportSnapshot>>>,
+    tap_enabled: AtomicBool,
+    audio_tap: Mutex<Option<Consumer<[f32; 2]>>>,
     last_render_error: AtomicI32,
     /// `BypassEffect`. The audio passes through either way; bypass only
     /// tells the host the effect is off, and recording continues.
@@ -213,7 +220,8 @@ pub struct AudioUnitInstance {
 
 impl AudioUnitInstance {
     pub(super) fn create() -> *mut Self {
-        let (producer, consumer) = transport_ring();
+        let (transport, transport_reader) = ring(TRANSPORT_CAPACITY);
+        let (tap, tap_reader) = ring(AUDIO_TAP_FRAMES);
         let format = Format {
             sample_rate: DEFAULT_SAMPLE_RATE,
             channels: DEFAULT_CHANNELS,
@@ -235,14 +243,14 @@ impl AudioUnitInstance {
             input: Swap::new(Input::None),
             host_callbacks: Swap::new(None),
             render_notifies: Swap::new(Vec::new()),
-            input_tap: Swap::new(None),
             scratch: UnsafeCell::new(Scratch {
                 channels: 0,
                 max_frames: 0,
                 sample_rate: DEFAULT_SAMPLE_RATE,
                 samples: Vec::new(),
                 list: Vec::new(),
-                transport: producer,
+                transport,
+                tap,
             }),
             state: Mutex::new(State::default()),
             preset: Mutex::new(Preset {
@@ -250,7 +258,9 @@ impl AudioUnitInstance {
                 name: NSString::from_str(DEFAULT_PRESET_NAME),
             }),
             listeners: Mutex::new(Vec::new()),
-            transport: Mutex::new(Some(consumer)),
+            transport: Mutex::new(Some(transport_reader)),
+            tap_enabled: AtomicBool::new(false),
+            audio_tap: Mutex::new(Some(tap_reader)),
             last_render_error: AtomicI32::new(0),
             bypass: AtomicBool::new(false),
             timebase: timebase(),
@@ -268,9 +278,15 @@ impl AudioUnitInstance {
         lock(&self.transport).take()
     }
 
-    /// Sets the tap that receives the input audio every render.
-    pub fn set_input_tap(&self, tap: Option<Arc<dyn InputTap>>) {
-        self.input_tap.store(tap);
+    /// Takes the reading end of the input-audio tap: stereo frames from the
+    /// input bus (mono input is duplicated). Render only feeds the tap once
+    /// it has been taken; later calls return `None`.
+    pub fn take_audio_tap(&self) -> Option<Consumer<[f32; 2]>> {
+        let tap = lock(&self.audio_tap).take();
+        if tap.is_some() {
+            self.tap_enabled.store(true, Ordering::Release);
+        }
+        tap
     }
 
     fn config(&self) -> Config {
@@ -784,15 +800,18 @@ impl AudioUnitInstance {
             }
         }
 
-        if let Some(tap) = self.input_tap.load() {
-            let mut slices: [&[f32]; MAX_CHANNELS] = [&[]; MAX_CHANNELS];
-            for (slice, buffer) in slices.iter_mut().zip(io_buffers.iter()) {
-                // SAFETY: every output buffer now holds `frames` samples.
-                *slice = unsafe {
-                    std::slice::from_raw_parts(buffer.mData.cast::<f32>(), frames as usize)
-                };
+        if self.tap_enabled.load(Ordering::Acquire)
+            && let Some(left) = io_buffers.first()
+        {
+            let right = io_buffers.get(1).unwrap_or(left);
+            let (left, right) = (left.mData.cast::<f32>(), right.mData.cast::<f32>());
+            for frame in 0..frames as usize {
+                // SAFETY: every output buffer now holds `frames` samples. A
+                // full ring drops frames and counts them.
+                let _ = scratch
+                    .tap
+                    .push(unsafe { [*left.add(frame), *right.add(frame)] });
             }
-            tap.process(&slices[..channels], scratch.sample_rate, host_time);
         }
 
         self.call_render_notifies(
