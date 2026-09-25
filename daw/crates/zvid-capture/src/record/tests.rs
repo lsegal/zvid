@@ -304,6 +304,8 @@ fn records_1080p_with_the_platform_encoder_when_available() {
             eprintln!("platform encoder: {}", encoder.name());
             encoder.name().contains("hardware")
         }
+        // VideoToolbox is always there on macOS, so only Windows may skip.
+        Err(error) if cfg!(target_os = "macos") => panic!("VideoToolbox failed: {error}"),
         Err(error) => {
             eprintln!("no platform HEVC encoder on this machine ({error}); skipping");
             return;
