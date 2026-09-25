@@ -1,4 +1,6 @@
 import {
+  ArrowPathRoundedSquareIcon,
+  ArrowUpTrayIcon,
   BackwardIcon,
   ChevronDownIcon,
   ForwardIcon,
@@ -102,6 +104,7 @@ import {
 import { getHarness, type SaveTarget } from "./harness";
 import { hasMediaExtension } from "./harness/media-extensions";
 import { MainWaveform } from "./MainWaveform";
+import { withMainAudio } from "./main-audio";
 import {
   getDroppedAudioFile,
   getMainAudioDragState,
@@ -138,10 +141,11 @@ import {
   readSourceTracksCollapsed,
   writeSourceTracksCollapsed,
 } from "./source-tracks-section.ts";
+import { classifySpaceTarget } from "./space-shortcut";
 import { statusMessageTone } from "./status-bar";
 import { buildStatusItems } from "./status-items";
 import { formatMusicalPosition, formatTimecode } from "./timeline-format.ts";
-import { ZVID_VERSION } from "./version";
+import { ZVID_BUILD } from "./version";
 import { loadWaveformPeaks } from "./waveform-loader";
 import type { WaveformPeaks } from "./waveform-peaks";
 import {
@@ -2711,6 +2715,8 @@ function App() {
     ],
   );
 
+  // Imports an audio file through the media pipeline and makes it the
+  // session's main audio. Shared by the Audio lane button and drag and drop.
   const replaceMainAudioFromFile = useCallback(
     async (file: File) => {
       const harness = getHarness();
@@ -2732,11 +2738,13 @@ function App() {
           throw new Error(`${file.name} is not an audio file.`);
         }
 
-        commitProjectChange("Set main audio", (current) =>
-          patchProjectState(current, {
-            mediaItems: [...current.mediaItems, toShareableMediaItem(analyzed)],
-            masterAudioId: analyzed.id,
-          }),
+        commitProjectChange(
+          mainAudioId ? "Replace main audio" : "Add main audio",
+          (current) =>
+            patchProjectState(
+              current,
+              withMainAudio(current, toShareableMediaItem(analyzed)),
+            ),
         );
 
         seedLocalMediaItems([analyzed]);
@@ -2750,10 +2758,13 @@ function App() {
     [
       cacheLocalMediaItems,
       commitProjectChange,
+      mainAudioId,
       projectMediaItems.length,
       seedLocalMediaItems,
     ],
   );
+
+  const mainAudioInputRef = useRef<HTMLInputElement>(null);
 
   const handleMainAudioDragEvent = useCallback(
     (event: ReactDragEvent<HTMLElement>) => {
@@ -4029,6 +4040,69 @@ function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [handleRedo, handleUndo]);
 
+  // Space toggles playback from anywhere except text entry and open menus or
+  // dialogs. It runs in the capture phase so a focused button, menu trigger
+  // or slider never sees the key and cannot also activate.
+  useEffect(() => {
+    let spaceKeyDownHandled = false;
+
+    const onSpaceKeyDown = (event: KeyboardEvent) => {
+      if (event.code !== "Space") {
+        return;
+      }
+
+      spaceKeyDownHandled = false;
+      if (
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        classifySpaceTarget(event.target, document) !== "playback"
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      spaceKeyDownHandled = true;
+      if (event.repeat || dragState || timelineDragState || !clips.length) {
+        return;
+      }
+
+      cancelScrubPlaybackResume();
+      if (isPlaying) {
+        setIsPlaying(false);
+        return;
+      }
+
+      startPlayback();
+    };
+
+    // Native buttons activate on Space keyup, so swallow the matching keyup.
+    const onSpaceKeyUp = (event: KeyboardEvent) => {
+      if (event.code !== "Space" || !spaceKeyDownHandled) {
+        return;
+      }
+
+      spaceKeyDownHandled = false;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+
+    window.addEventListener("keydown", onSpaceKeyDown, true);
+    window.addEventListener("keyup", onSpaceKeyUp, true);
+    return () => {
+      window.removeEventListener("keydown", onSpaceKeyDown, true);
+      window.removeEventListener("keyup", onSpaceKeyUp, true);
+    };
+  }, [
+    cancelScrubPlaybackResume,
+    clips.length,
+    dragState,
+    isPlaying,
+    startPlayback,
+    timelineDragState,
+  ]);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (
@@ -4231,35 +4305,6 @@ function App() {
         return;
       }
 
-      if (event.code === "Space") {
-        // Toggle buttons such as a layer's FX badge keep their native Space
-        // activation instead of starting playback.
-        if (
-          event.target instanceof Element &&
-          event.target.closest("[data-space-activates]")
-        ) {
-          return;
-        }
-
-        if (event.repeat) {
-          return;
-        }
-
-        event.preventDefault();
-        if (!clips.length) {
-          return;
-        }
-
-        cancelScrubPlaybackResume();
-        if (isPlaying) {
-          setIsPlaying(false);
-          return;
-        }
-
-        startPlayback();
-        return;
-      }
-
       if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
         event.preventDefault();
         const direction = event.key === "ArrowLeft" ? -1 : 1;
@@ -4361,18 +4406,14 @@ function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [
     bpm,
-    cancelScrubPlaybackResume,
-    clips.length,
     dragState,
     explicitClip,
     fps,
     fxLaneId,
     isExporting,
-    isPlaying,
     lanes,
     playheadQ,
     selectedClip,
-    startPlayback,
     timelineClips,
     timelineContentEndQ,
     timelineDragState,
@@ -5582,7 +5623,7 @@ function App() {
   const statusBarItems = useMemo<StatusItem[]>(
     () =>
       buildStatusItems({
-        version: ZVID_VERSION,
+        version: ZVID_BUILD,
         sessionName,
         timelineMode,
         // Unused: the playhead item is swapped for the live readout below.
@@ -6326,7 +6367,6 @@ function App() {
                           }
                           className="track-label__select"
                           data-lane-label-id={lane.id}
-                          data-space-activates
                           tabIndex={lane.id === fxLaneId ? 0 : -1}
                           type="button"
                         >
@@ -6337,7 +6377,6 @@ function App() {
                           aria-label={`${lane.name} effects`}
                           aria-pressed={laneStatusById.get(lane.id)?.fxToggle}
                           className={`track-label__fx ${laneStatusById.get(lane.id)?.fxClassName ?? ""}`}
-                          data-space-activates
                           disabled={!laneStatusById.get(lane.id)?.effectCount}
                           onClick={(event) => {
                             event.stopPropagation();
@@ -6544,6 +6583,37 @@ function App() {
                           {mainAudio ? mainAudio.name : "No main audio"}
                         </small>
                       </div>
+                      <button
+                        aria-label={
+                          mainAudio ? "Replace main audio" : "Add main audio"
+                        }
+                        className="track-label__fx track-label__audio"
+                        disabled={isExporting}
+                        onClick={() => mainAudioInputRef.current?.click()}
+                        title={
+                          mainAudio ? "Replace main audio" : "Add main audio"
+                        }
+                        type="button"
+                      >
+                        {mainAudio ? (
+                          <ArrowPathRoundedSquareIcon aria-hidden="true" />
+                        ) : (
+                          <ArrowUpTrayIcon aria-hidden="true" />
+                        )}
+                      </button>
+                      <input
+                        accept="audio/*"
+                        hidden
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          event.target.value = "";
+                          if (file) {
+                            void replaceMainAudioFromFile(file);
+                          }
+                        }}
+                        ref={mainAudioInputRef}
+                        type="file"
+                      />
                     </div>
                     <div
                       className="track-row__content track-row__content--waveform"
