@@ -10,8 +10,36 @@ zvid-daw-core.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
-objc2-foundation = "0.3"
-objc2-app-kit = "0.3"
-objc2-audio-toolbox = "0.3"
-objc2-core-audio-types = "0.3"
-objc2-core-foundation = "0.3"
+objc2-app-kit = { version = "0.3", default-features = false, features = [
+    "std",
+    "NSResponder",
+    "NSView",
+    "objc2-core-foundation",
+] }
+objc2-audio-toolbox = { version = "0.3", default-features = false, features = [
+    "std",
+    "AUCocoaUIView",
+    "AUComponent",
+    "AudioComponent",
+    "AudioUnitProperties",
+    "objc2-core-audio-types",
+    "objc2-core-foundation",
+] }
+objc2-core-audio-types = { version = "0.3", default-features = false, features = [
+    "std",
+    "CoreAudioBaseTypes",
+] }
+objc2-foundation = { version = "0.3", default-features = false, features = [
+    "std",
+    "NSBundle",
+    "NSData",
+    "NSDictionary",
+    "NSGeometry",
+    "NSObject",
+    "NSString",
+    "NSURL",
+    "NSValue",
+] }
+
+[target.'cfg(target_os = "macos")'.dev-dependencies]
+serde_json.workspace = true

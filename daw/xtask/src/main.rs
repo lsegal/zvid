@@ -2,10 +2,15 @@
 //!
 //! - `check`: fails when C/C++/Objective-C++ sources appear under `/daw`, or
 //!   when the zvidlib rev drifts from `app/export-bridge`.
+//! - `bundle [--release]`: on macOS, builds the plugin and wraps it in
+//!   `target/bundle/ZVID Capture.component`, ad-hoc signed, for `auval` and
+//!   local testing.
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::ExitCode;
+use std::process::{Command, ExitCode};
+
+use zvid_au::component;
 
 /// Extensions of sources the "Rust only" rule forbids under `/daw`.
 const FORBIDDEN_EXTENSIONS: &[&str] = &["cpp", "cc", "mm"];
@@ -24,8 +29,18 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        Some("bundle") => {
+            let release = std::env::args().skip(2).any(|arg| arg == "--release");
+            match bundle(&daw_root(), release) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(problem) => {
+                    eprintln!("error: {problem}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
         _ => {
-            eprintln!("usage: cargo xtask check");
+            eprintln!("usage: cargo xtask check | cargo xtask bundle [--release]");
             ExitCode::FAILURE
         }
     }
@@ -56,6 +71,72 @@ fn check(daw: &Path) -> Result<(), Vec<String>> {
         Ok(())
     } else {
         Err(problems)
+    }
+}
+
+/// Builds the plugin and lays out the `.component` bundle.
+fn bundle(daw: &Path, release: bool) -> Result<(), String> {
+    if !cfg!(target_os = "macos") {
+        println!("bundle: the .component bundle is macOS only; nothing to do here");
+        return Ok(());
+    }
+    let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
+    let mut build = Command::new(cargo);
+    build
+        .current_dir(daw)
+        .args(["build", "--package", "zvid-daw-plugin"]);
+    if release {
+        build.arg("--release");
+    }
+    run(&mut build)?;
+
+    let profile = if release { "release" } else { "debug" };
+    let target = daw.join("target");
+    let dylib = target.join(profile).join("libzvid_capture_plugin.dylib");
+    let bundle = target
+        .join("bundle")
+        .join(format!("{}.component", component::EXECUTABLE));
+    write_component(&bundle, &dylib, env!("CARGO_PKG_VERSION"))?;
+
+    // Apple silicon refuses to load unsigned code; an ad-hoc signature is
+    // enough for local hosts and `auval`.
+    run(Command::new("codesign")
+        .args(["--force", "--sign", "-"])
+        .arg(&bundle))?;
+    println!("{}", bundle.display());
+    Ok(())
+}
+
+/// Writes `Contents/{Info.plist,PkgInfo,MacOS/<executable>}` under `bundle`,
+/// replacing any previous bundle.
+fn write_component(bundle: &Path, dylib: &Path, version: &str) -> Result<(), String> {
+    let error = |what: &str, path: &Path, error: std::io::Error| {
+        format!("{what} {}: {error}", path.display())
+    };
+    if bundle.exists() {
+        fs::remove_dir_all(bundle).map_err(|e| error("cannot remove", bundle, e))?;
+    }
+    let contents = bundle.join("Contents");
+    let macos = contents.join("MacOS");
+    fs::create_dir_all(&macos).map_err(|e| error("cannot create", &macos, e))?;
+    let executable = macos.join(component::EXECUTABLE);
+    fs::copy(dylib, &executable).map_err(|e| error("cannot copy", dylib, e))?;
+    let plist = contents.join("Info.plist");
+    fs::write(&plist, component::info_plist(version))
+        .map_err(|e| error("cannot write", &plist, e))?;
+    let pkg_info = contents.join("PkgInfo");
+    fs::write(&pkg_info, "BNDL????").map_err(|e| error("cannot write", &pkg_info, e))?;
+    Ok(())
+}
+
+fn run(command: &mut Command) -> Result<(), String> {
+    let status = command
+        .status()
+        .map_err(|error| format!("cannot run {command:?}: {error}"))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("{command:?} failed: {status}"))
     }
 }
 
@@ -138,6 +219,32 @@ mod tests {
         )
         .unwrap();
         assert_eq!(zvidlib_rev(&manifest).as_deref(), Some("abc123"));
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn writes_component_bundle_layout() {
+        let dir = scratch("bundle");
+        let dylib = dir.join("libplugin.dylib");
+        fs::write(&dylib, "binary").unwrap();
+        let bundle = dir.join("ZVID Capture.component");
+        fs::create_dir_all(bundle.join("Contents/Stale")).unwrap();
+
+        write_component(&bundle, &dylib, "1.2.3").unwrap();
+
+        let contents = bundle.join("Contents");
+        assert!(!contents.join("Stale").exists());
+        assert_eq!(
+            fs::read_to_string(contents.join("MacOS/ZVID Capture")).unwrap(),
+            "binary"
+        );
+        assert_eq!(
+            fs::read_to_string(contents.join("PkgInfo")).unwrap(),
+            "BNDL????"
+        );
+        let plist = fs::read_to_string(contents.join("Info.plist")).unwrap();
+        assert!(plist.contains("<string>1.2.3</string>"));
+        assert!(plist.contains("<integer>66051</integer>"));
         fs::remove_dir_all(dir).unwrap();
     }
 
