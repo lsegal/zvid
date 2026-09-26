@@ -100,30 +100,36 @@ pub fn open_video(
     let bitrate = target_bitrate(width, height, fps);
     let mut candidates = Vec::new();
     if choice == VideoEncoderChoice::Auto {
-        // Hardware encoders take any even size.
+        // Platform encoders take BGRA as is, at any even size.
         candidates.push((
-            Codec::Hevc,
             HardwarePreference::Prefer,
+            ZPixelFormat::Bgra8,
             width & !1,
             height & !1,
         ));
     }
     if choice != VideoEncoderChoice::Av1 {
         candidates.push((
-            Codec::Hevc,
             HardwarePreference::Avoid,
+            ZPixelFormat::Rgba8,
             width & !15,
             height & !15,
         ));
     }
     candidates.push((
-        Codec::Av1,
         HardwarePreference::Avoid,
+        ZPixelFormat::Gray8,
         width & !7,
         height & !7,
     ));
-    for (codec, hardware, width, height) in candidates {
-        match VideoStream::open(codec, hardware, width, height, fps, bitrate) {
+    for (hardware, input_format, width, height) in candidates {
+        let codec = if input_format == ZPixelFormat::Gray8 {
+            Codec::Av1
+        } else {
+            Codec::Hevc
+        };
+        let opened = VideoStream::open(codec, hardware, input_format, width, height, fps, bitrate);
+        match opened {
             Ok(encoder) => return Ok((encoder, skipped)),
             Err(error) => skipped.push(format!(
                 "{hardware:?} {codec:?} at {width}x{height}: {error}"
@@ -133,12 +139,13 @@ pub fn open_video(
     Err(skipped)
 }
 
-/// A zvidlib video encoder fed from camera frames. HEVC takes RGBA and AV1
-/// takes 8-bit grey, so frames are centre-cropped to the encoder's size and
-/// converted.
+/// A zvidlib video encoder fed from camera frames. HEVC takes BGRA or RGBA
+/// and AV1 takes 8-bit grey, so frames are centre-cropped to the encoder's
+/// size and converted.
 pub struct VideoStream {
     encoder: Box<dyn VideoEncoder>,
     codec: Codec,
+    input_format: ZPixelFormat,
     width: u32,
     height: u32,
     frame_duration: u32,
@@ -150,27 +157,21 @@ impl VideoStream {
     fn open(
         codec: Codec,
         hardware: HardwarePreference,
+        input_format: ZPixelFormat,
         width: u32,
         height: u32,
         fps: Rational,
         bitrate: u32,
     ) -> Result<Self, String> {
         let limits = Limits::default();
-        let (profile, input_format, configuration, factory): (
-            _,
-            _,
-            _,
-            Box<dyn VideoEncoderFactory>,
-        ) = match codec {
+        let (profile, configuration, factory): (_, _, Box<dyn VideoEncoderFactory>) = match codec {
             Codec::Hevc => (
                 CodecProfile::HevcMain,
-                ZPixelFormat::Rgba8,
                 bitrate.to_be_bytes().to_vec(),
                 Box::new(zvidlib::native_hevc_video_encoder_factory()),
             ),
             _ => (
                 CodecProfile::Av1Main,
-                ZPixelFormat::Gray8,
                 // base_q_idx: lossy at moderate quality.
                 vec![120],
                 Box::new(zvidlib::native_av1_video_encoder_factory()),
@@ -194,6 +195,7 @@ impl VideoStream {
         Ok(Self {
             encoder,
             codec,
+            input_format,
             width,
             height,
             frame_duration: fps.den,
@@ -280,10 +282,11 @@ impl VideoStream {
         let dimensions = VideoDimensions::new(self.width, self.height, &self.limits)
             .map_err(|e| e.to_string())?;
         let (format, plane) = if self.codec == Codec::Hevc {
+            let bgra = self.input_format == ZPixelFormat::Bgra8;
             (
-                ZPixelFormat::Rgba8,
+                self.input_format,
                 Plane {
-                    data: to_rgba(frame, x0, y0, w, h),
+                    data: to_rgb32(frame, x0, y0, w, h, bgra),
                     stride: w * 4,
                 },
             )
@@ -311,28 +314,79 @@ impl VideoStream {
     }
 }
 
-/// Converts the `w`×`h` NV12 region at (`x0`, `y0`) to RGBA. `x0` and `w`
-/// are even, so each pair of pixels shares one chroma sample.
-pub(super) fn to_rgba(frame: &Frame, x0: usize, y0: usize, w: usize, h: usize) -> Vec<u8> {
-    let convert = Converter::new(frame.color.bt709, frame.color.full_range);
+/// Converts the `w`×`h` NV12 region at (`x0`, `y0`) to RGBA, or BGRA when
+/// `bgra` is set. `x0` and `w` are even, so each pair of pixels shares one
+/// chroma sample. This runs for every frame, so it works in fixed point.
+pub(super) fn to_rgb32(
+    frame: &Frame,
+    x0: usize,
+    y0: usize,
+    w: usize,
+    h: usize,
+    bgra: bool,
+) -> Vec<u8> {
+    let tables = Tables::new(&Converter::new(frame.color.bt709, frame.color.full_range));
+    let (r, b) = if bgra { (2, 0) } else { (0, 2) };
     let sw = frame.width as usize;
     let (luma, chroma) = (frame.luma(), frame.chroma());
-    let mut rgba = vec![255; w * h * 4];
-    for (row, out) in rgba.chunks_exact_mut(w * 4).enumerate() {
+    let mut out = vec![255; w * h * 4];
+    for (row, pixels) in out.chunks_exact_mut(w * 4).enumerate() {
         let y = y0 + row;
         let luma = &luma[y * sw + x0..][..w];
         let chroma = &chroma[(y / 2) * sw + x0..][..w];
-        for ((out, luma), chroma) in out
+        for ((pair, luma), chroma) in pixels
             .chunks_exact_mut(8)
             .zip(luma.chunks_exact(2))
             .zip(chroma.chunks_exact(2))
         {
-            let offsets = convert.chroma(u32::from(chroma[0]), u32::from(chroma[1]));
-            out[..3].copy_from_slice(&convert.with_chroma(u32::from(luma[0]), offsets));
-            out[4..7].copy_from_slice(&convert.with_chroma(u32::from(luma[1]), offsets));
+            let (u, v) = (usize::from(chroma[0]), usize::from(chroma[1]));
+            let (dr, dg, db) = (tables.rv[v], tables.gu[u] + tables.gv[v], tables.bu[u]);
+            for (pixel, &l) in pair.chunks_exact_mut(4).zip(luma) {
+                let l = tables.y[usize::from(l)];
+                pixel[r] = clamp_fixed(l + dr);
+                pixel[1] = clamp_fixed(l + dg);
+                pixel[b] = clamp_fixed(l + db);
+            }
         }
     }
-    rgba
+    out
+}
+
+/// [`Converter`]'s conversion as lookup tables with 16 fractional bits.
+struct Tables {
+    /// Luma, with the rounding offset folded in.
+    y: [i32; 256],
+    rv: [i32; 256],
+    gu: [i32; 256],
+    gv: [i32; 256],
+    bu: [i32; 256],
+}
+
+impl Tables {
+    fn new(convert: &Converter) -> Self {
+        let fixed = |x: f32| (x * 65536.0).round() as i32;
+        let mut tables = Self {
+            y: [0; 256],
+            rv: [0; 256],
+            gu: [0; 256],
+            gv: [0; 256],
+            bu: [0; 256],
+        };
+        for i in 0..256 {
+            let [_, gu, bu] = convert.chroma(i as u32, 128);
+            let [rv, gv, _] = convert.chroma(128, i as u32);
+            tables.y[i] = fixed(convert.luma(i as u32)) + (1 << 15);
+            tables.rv[i] = fixed(rv);
+            tables.gu[i] = fixed(gu);
+            tables.gv[i] = fixed(gv);
+            tables.bu[i] = fixed(bu);
+        }
+        tables
+    }
+}
+
+fn clamp_fixed(value: i32) -> u8 {
+    (value >> 16).clamp(0, 255) as u8
 }
 
 /// Frames per AAC packet.

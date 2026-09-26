@@ -391,10 +391,11 @@ fn maps_encoder_output_to_grid_slots_and_counts_drops() {
 }
 
 #[test]
-fn converts_nv12_to_rgba_with_the_frames_colour() {
+fn converts_nv12_to_rgba_and_bgra_with_the_frames_colour() {
     let source = frame(64, 48, 0, 0.0);
     let convert = Converter::new(source.color.bt709, source.color.full_range);
-    let rgba = encoder::to_rgba(&source, 2, 4, 60, 40);
+    let rgba = encoder::to_rgb32(&source, 2, 4, 60, 40, false);
+    let bgra = encoder::to_rgb32(&source, 2, 4, 60, 40, true);
     assert_eq!(rgba.len(), 60 * 40 * 4);
     for (x, y) in [(0, 0), (1, 0), (59, 39), (30, 17)] {
         let (sx, sy) = (x + 2, y + 4);
@@ -405,7 +406,15 @@ fn converts_nv12_to_rgba_with_the_frames_colour() {
             u32::from(source.chroma()[c + 1]),
         );
         let at = (y * 60 + x) * 4;
-        assert_eq!(rgba[at..at + 3], expected, "pixel {x},{y}");
-        assert_eq!(rgba[at + 3], 255);
+        // Fixed point rounds to within one of the float conversion.
+        for channel in 0..3 {
+            let (value, want) = (rgba[at + channel], expected[channel]);
+            assert!(
+                value.abs_diff(want) <= 1,
+                "pixel {x},{y}: {value} vs {want}"
+            );
+            assert_eq!(bgra[at + 2 - channel], value);
+        }
+        assert_eq!((rgba[at + 3], bgra[at + 3]), (255, 255));
     }
 }

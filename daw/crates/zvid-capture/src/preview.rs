@@ -147,8 +147,13 @@ impl Converter {
         [self.kr * v, -self.kgu * u - self.kgv * v, self.kb * u]
     }
 
+    /// Luma on the 0-255 scale.
+    pub(crate) fn luma(&self, y: u32) -> f32 {
+        (y as f32 - self.y_offset) * self.y_scale
+    }
+
     pub(crate) fn with_chroma(&self, y: u32, [r, g, b]: [f32; 3]) -> [u8; 3] {
-        let y = (y as f32 - self.y_offset) * self.y_scale;
+        let y = self.luma(y);
         let clamp = |x: f32| x.round().clamp(0.0, 255.0) as u8;
         [clamp(y + r), clamp(y + g), clamp(y + b)]
     }

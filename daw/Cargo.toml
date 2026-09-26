@@ -49,3 +49,9 @@ windows = { version = "0.62", features = [
     "Win32_System_Registry",
     "Win32_System_Variant",
 ] }
+
+# Recording converts every camera frame to BGRA for the encoder on the CPU,
+# which unoptimized takes about 250 ms a 1080p frame. Optimize the crate so
+# debug builds and `cargo test` still record 1080p30 in real time.
+[profile.dev.package.zvid-capture]
+opt-level = 3
