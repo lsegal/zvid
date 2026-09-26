@@ -8,7 +8,7 @@ use zvid_capture::{
     CaptureError, ColorInfo, DeviceId, Format, Frame, HostTime, PixelFormat, Rotation, Selection,
     SessionStats, Transport,
 };
-use zvid_daw_core::{LocalTime, Recording, TapWriter, audio_tap};
+use zvid_daw_core::{LiveStatus, LocalTime, Recording, TapWriter, audio_tap};
 use zvid_daw_ui::Phase;
 
 use super::*;
@@ -265,6 +265,8 @@ struct Rig {
     state: Arc<Mutex<State>>,
     commands: Receiver<Command>,
     takes: Sender<TakeChange>,
+    /// The control thread's side of the Live companion's status.
+    live: LiveSlot,
     dirty: Arc<AtomicU32>,
     root: RecordRoot,
     /// The format layer's side of the audio tap.
@@ -290,6 +292,7 @@ impl Rig {
         let state = Arc::new(Mutex::new(state));
         let (commands, command_reader) = mpsc::channel();
         let (takes, take_reader) = mpsc::channel();
+        let live = LiveSlot::default();
         let dirty = Arc::new(AtomicU32::new(0));
         let counter = Arc::clone(&dirty);
         let root = RecordRoot::resolve_with(None, Some(std::path::Path::new("/nowhere"))).unwrap();
@@ -306,6 +309,7 @@ impl Rig {
                 state: Arc::clone(&state),
                 commands,
                 takes: take_reader,
+                live: live.clone(),
                 state_changed: Box::new(move || {
                     counter.fetch_add(1, Ordering::Relaxed);
                 }),
@@ -320,6 +324,7 @@ impl Rig {
             state,
             commands: command_reader,
             takes,
+            live,
             dirty,
             root,
             tap,
@@ -393,6 +398,46 @@ fn recording(id: &str, filename: &str) -> Recording {
         "createdAt": "2026-09-25T20:36:12Z",
     }))
     .unwrap()
+}
+
+#[test]
+fn follows_the_live_companion() {
+    let rig = Rig::new(State::default());
+    assert_eq!(rig.backend.status().live, None);
+    let before = rig.named("status").len();
+    let status = |record_mode, session_record| LiveStatus {
+        record_mode,
+        session_record,
+        ..LiveStatus::default()
+    };
+
+    rig.live.set(Some(status(false, false)));
+    let statuses = rig.wait_for_event("status", before + 1);
+    assert_eq!(
+        statuses[before]["payload"]["live"],
+        serde_json::json!({ "recordArmed": false })
+    );
+
+    rig.live.set(Some(status(false, true)));
+    let statuses = rig.wait_for_event("status", before + 2);
+    assert_eq!(statuses[before + 1]["payload"]["live"]["recordArmed"], true);
+    assert_eq!(
+        rig.backend.status().live,
+        Some(LiveInfo { record_armed: true })
+    );
+
+    // Changes the editor doesn't show send nothing.
+    rig.live.set(Some(LiveStatus {
+        is_playing: true,
+        ..status(true, false)
+    }));
+    rig.settle();
+    assert_eq!(rig.named("status").len(), before + 2);
+
+    rig.live.set(None);
+    let statuses = rig.wait_for_event("status", before + 3);
+    assert_eq!(statuses[before + 2]["payload"]["live"], Value::Null);
+    assert_eq!(rig.backend.status().live, None);
 }
 
 #[test]

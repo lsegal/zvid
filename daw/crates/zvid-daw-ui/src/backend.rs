@@ -3,7 +3,7 @@
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex, OnceLock};
 
-use zvid_daw_core::{AudioTap, Command, RecordRoot, State, TakeChange};
+use zvid_daw_core::{AudioTap, Command, LiveSlot, RecordRoot, State, TakeChange};
 
 use crate::channels::Channels;
 use crate::mock::MockBackend;
@@ -50,6 +50,8 @@ pub struct HostLink {
     pub commands: Sender<Command>,
     /// Takes the control thread opens and closes (`take_changes()`).
     pub takes: Receiver<TakeChange>,
+    /// What the Live companion reports, updated by the control thread.
+    pub live: LiveSlot,
     /// Tells the host the state changed, so it marks the set as modified.
     pub state_changed: Box<dyn Fn() + Send + Sync>,
     /// Where capture files are written.

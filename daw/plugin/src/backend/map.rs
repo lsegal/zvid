@@ -7,8 +7,8 @@ use zvid_capture::record::{AudioBlock, AudioFormat};
 use zvid_capture::{CaptureError, Device, HostTime, Selection};
 use zvid_daw_core::{CameraChoice, RecordRoot, TakeChange, TapBlock};
 use zvid_daw_ui::{
-    Camera, CaptureInfo, ErrorCode, Phase, Status, TakeInfo, Transport, UiError, UiEvent,
-    VideoFormat,
+    Camera, CaptureInfo, ErrorCode, LiveInfo, Phase, Status, TakeInfo, Transport, UiError,
+    UiEvent, VideoFormat,
 };
 
 /// The camera menu's transport label for a capture-layer transport.
@@ -155,6 +155,8 @@ pub struct StatusInputs<'a> {
     pub format: Option<VideoFormat>,
     pub capture: Option<CaptureInfo>,
     pub error: Option<&'a UiError>,
+    /// The Live companion, while it is connected.
+    pub live: Option<LiveInfo>,
 }
 
 /// The editor's status: an error wins, then a running capture, then a
@@ -172,6 +174,9 @@ pub fn status(inputs: StatusInputs<'_>) -> Status {
         format: inputs.error.is_none().then_some(inputs.format).flatten(),
         capture: inputs.error.is_none().then_some(inputs.capture).flatten(),
         error: inputs.error.cloned(),
+        // Live's record buttons don't depend on the camera, so an error
+        // doesn't hide them.
+        live: inputs.live,
     }
 }
 
@@ -373,20 +378,24 @@ mod tests {
             format: Some(format),
             capture: Some(capture),
             error: None,
+            live: None,
         });
         assert_eq!(capturing.phase, Phase::Capturing);
         assert_eq!(capturing.capture, Some(capture));
+        assert_eq!(capturing.live, None);
 
         let failed = status_of(StatusInputs {
             camera_id: Some("cam"),
             format: Some(format),
             capture: Some(capture),
             error: Some(&busy),
+            live: Some(LiveInfo { record_armed: true }),
         });
         assert_eq!(failed.phase, Phase::Error);
         assert_eq!(failed.camera_id.as_deref(), Some("cam"));
         assert_eq!((failed.format, failed.capture), (None, None));
         assert_eq!(failed.error, Some(busy));
+        assert_eq!(failed.live, Some(LiveInfo { record_armed: true }));
     }
 
     #[test]

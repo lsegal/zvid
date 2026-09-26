@@ -5,7 +5,7 @@ use std::fmt;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
-use zvid_daw_core::{RecordRoot, Recording, State};
+use zvid_daw_core::{LiveStatus, RecordRoot, Recording, State};
 
 /// How a camera is attached, shown as the secondary line in the camera menu.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -64,6 +64,24 @@ pub struct CaptureInfo {
     pub dropped_frames: u64,
 }
 
+/// What the Live companion script reports while it is connected. The
+/// capture card then follows Live's record buttons instead of offering its
+/// own Record button.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveInfo {
+    /// Either of Live's record buttons is on.
+    pub record_armed: bool,
+}
+
+impl LiveInfo {
+    pub fn from_status(status: &LiveStatus) -> Self {
+        Self {
+            record_armed: status.record_armed(),
+        }
+    }
+}
+
 /// Everything the header, preview and capture card render from.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -73,6 +91,8 @@ pub struct Status {
     pub format: Option<VideoFormat>,
     pub capture: Option<CaptureInfo>,
     pub error: Option<UiError>,
+    /// The Live companion, or `None` while it isn't connected.
+    pub live: Option<LiveInfo>,
 }
 
 /// One card in the takes list.
@@ -267,10 +287,14 @@ mod tests {
                 dropped_frames: 3,
             }),
             error: None,
+            live: Some(LiveInfo { record_armed: true }),
         }))
         .unwrap();
         assert_eq!(json["event"], "status");
         assert_eq!(json["payload"]["phase"], "capturing");
+        assert_eq!(json["payload"]["live"]["recordArmed"], true);
+        let json = serde_json::to_value(Status::default()).unwrap();
+        assert_eq!(json["live"], serde_json::Value::Null);
         assert_eq!(json["payload"]["cameraId"], "cam");
         assert_eq!(json["payload"]["capture"]["elapsedMs"], 5000);
         assert_eq!(json["payload"]["capture"]["droppedFrames"], 3);

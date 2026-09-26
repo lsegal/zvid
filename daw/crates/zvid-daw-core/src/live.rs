@@ -24,6 +24,7 @@ use std::fmt;
 use std::io::{self, ErrorKind};
 use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
 use serde::Deserialize;
@@ -191,6 +192,30 @@ impl LiveLink {
     }
 }
 
+/// The latest [`LiveStatus`], shared between the control thread that polls
+/// the [`LiveLink`] and the editor backend that shows it. Clones share the
+/// slot. `None` while the companion is absent or nothing polls it.
+#[derive(Clone, Debug, Default)]
+pub struct LiveSlot {
+    status: Arc<Mutex<Option<LiveStatus>>>,
+}
+
+impl LiveSlot {
+    pub fn get(&self) -> Option<LiveStatus> {
+        self.lock().clone()
+    }
+
+    pub fn set(&self, status: Option<LiveStatus>) {
+        *self.lock() = status;
+    }
+
+    fn lock(&self) -> MutexGuard<'_, Option<LiveStatus>> {
+        self.status
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -250,6 +275,18 @@ mod tests {
             status.to_string(),
             "record=on session-record=off playing=on set=/music/Song Project/Song.als live=12.0.25"
         );
+    }
+
+    #[test]
+    fn clones_share_the_slot() {
+        let slot = LiveSlot::default();
+        let reader = slot.clone();
+        assert_eq!(reader.get(), None);
+        let status = LiveStatus::parse(STATUS.as_bytes());
+        slot.set(status.clone());
+        assert_eq!(reader.get(), status);
+        slot.set(None);
+        assert_eq!(reader.get(), None);
     }
 
     /// Reads datagrams on `socket` until one arrives or a second passes.

@@ -4,7 +4,7 @@
 //! layer's [`Command`]s into the take log, which appends every take to the
 //! plugin state as it opens, and tells the host the state changed. It also
 //! logs transport changes and what the optional Live companion script
-//! reports.
+//! reports, and shares the latter with the editor.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
@@ -13,7 +13,7 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use zvid_daw_core::{
-    Command, Consumer, LiveLink, ProcessSnapshot, State, TakeFeed, TransportFollower,
+    Command, Consumer, LiveLink, LiveSlot, ProcessSnapshot, State, TakeFeed, TransportFollower,
 };
 
 use super::log::log;
@@ -35,11 +35,13 @@ pub struct Control {
 impl Control {
     /// Starts a thread that owns `inputs` until [`Control::stop`]. It calls
     /// `state_changed` after a take opens or closes in `state`, and
-    /// publishes the take to `takes`.
+    /// publishes the take to `takes`. What the Live companion reports goes
+    /// to `live_slot`, which is cleared when the thread stops.
     pub fn start(
         mut inputs: Inputs,
         state: Arc<Mutex<State>>,
         takes: TakeFeed,
+        live_slot: LiveSlot,
         state_changed: impl Fn() + Send + 'static,
     ) -> Option<Self> {
         let stop = Arc::new(AtomicBool::new(false));
@@ -57,9 +59,10 @@ impl Control {
                         state_changed();
                     }
                     if let Some(live) = &mut live {
-                        poll_live(live);
+                        poll_live(live, &live_slot);
                     }
                     if stopping {
+                        live_slot.set(None);
                         return inputs;
                     }
                     thread::park_timeout(CONTROL_INTERVAL);
@@ -85,9 +88,11 @@ impl Control {
     }
 }
 
-/// Logs changes to what the Live companion reports.
-fn poll_live(live: &mut LiveLink) {
+/// Logs changes to what the Live companion reports and shares them with
+/// the editor.
+fn poll_live(live: &mut LiveLink, slot: &LiveSlot) {
     if live.poll(Instant::now()) {
+        slot.set(live.status().cloned());
         match live.status() {
             Some(status) => log(&format!("live companion: {status}")),
             None => log("live companion: gone"),

@@ -29,6 +29,6 @@ pub use channels::{Channels, EventLog, PreviewSlot};
 pub use desktop::{Desktop, SystemDesktop};
 pub use editor::{DEFAULT_SIZE, Editor, EditorOptions, MIN_SIZE, ParentWindow};
 pub use model::{
-    Camera, CaptureInfo, ErrorCode, Phase, Status, TakeFile, TakeInfo, Transport, UiError, UiEvent,
-    VideoFormat, takes_from_state,
+    Camera, CaptureInfo, ErrorCode, LiveInfo, Phase, Status, TakeFile, TakeInfo, Transport, UiError,
+    UiEvent, VideoFormat, takes_from_state,
 };
