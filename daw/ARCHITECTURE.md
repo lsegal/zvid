@@ -123,7 +123,7 @@ The workspace lives in `/daw` (scaffolded in
 | `daw/crates/zvid-au` | AUv2 plugin: the `AudioComponentFactoryFunction` entry point, property and render callbacks, and the Cocoa view factory. |
 | `daw/plugin` | The `cdylib` that ties everything together and exports the VST3 and AU entry points. Holds the plugin identity constants. |
 | `daw/live-remote-script` | The optional Live companion: a Python MIDI Remote Script (`ZVID_Capture`) that reports Live's record state and set path to plugin instances. Not part of the plugin binary. |
-| `daw/xtask` | `cargo xtask`: bundles the `cdylib` into `.vst3` and `.component`, and runs `check` (Rust-only rule, zvidlib rev matches `app/export-bridge`). |
+| `daw/xtask` | `cargo xtask`: bundles the `cdylib` into `.vst3` and `.component` (release bundles are universal on macOS and commit-stamped; see [CI builds](#ci-builds)), and runs `check` (Rust-only rule, zvidlib rev matches `app/export-bridge`). |
 
 Dependencies point inward: `plugin` depends on everything; `zvid-vst3`,
 `zvid-au`, `zvid-capture` and `zvid-daw-ui` depend on `zvid-daw-core` where
@@ -377,6 +377,47 @@ sequenceDiagram
   device. Some phone-webcam apps register DirectShow-only virtual cameras that
   Media Foundation does not enumerate; [#196](https://github.com/lsegal/zvid/issues/196)
   confirms each supported app and records any that aren't visible.
+
+## CI builds
+
+Every push to `main` runs the **DAW bundles** workflow
+(`.github/workflows/daw-bundle.yml`), which uploads two artifacts to the
+workflow run:
+
+- `zvid-capture-<version>-<sha>-macos-universal`: `ZVID Capture.vst3` and
+  `ZVID Capture.component`, arm64 + x86_64. CI checks both architectures with
+  `lipo -archs` and runs `auval` against the `.component`.
+- `zvid-capture-<version>-<sha>-windows-x64`: `ZVID Capture.vst3`.
+
+Each is built by `cargo xtask bundle --release` (plus `--universal` on
+macOS), which fails when `daw/ui/dist` is missing rather than embedding the
+placeholder UI, and stamps the bundle version (`Info.plist`,
+`moduleinfo.json` and the version reported to hosts) as `<version>+<sha>`.
+The same command builds identical bundles locally once `pnpm --dir daw/ui
+build` has run; `--universal` needs `rustup target add aarch64-apple-darwin
+x86_64-apple-darwin`.
+
+To install one, open the run from the repository's **Actions › DAW bundles**
+page (or run the workflow manually for any branch), download the artifact,
+and unzip it; the artifact holds one more zip, which keeps the bundles'
+symlinks and signatures intact, so unzip that too.
+
+- **macOS.** Copy `ZVID Capture.vst3` to `~/Library/Audio/Plug-Ins/VST3` and
+  `ZVID Capture.component` to `~/Library/Audio/Plug-Ins/Components`. CI builds
+  are ad-hoc signed and not notarized, so clear the quarantine flag the
+  browser adds before a host loads them:
+
+  ```sh
+  xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/"ZVID Capture.vst3" \
+    ~/Library/Audio/Plug-Ins/Components/"ZVID Capture.component"
+  ```
+
+  Then rescan plugins in the host (in Live, *Settings › Plug-Ins › Rescan*).
+- **Windows.** Copy the `ZVID Capture.vst3` folder to
+  `C:\Program Files\Common Files\VST3` and rescan plugins in the host.
+
+Developer ID signing, notarization and installers are tracked in
+[#201](https://github.com/lsegal/zvid/issues/201).
 
 ## Decisions
 

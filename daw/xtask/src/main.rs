@@ -21,9 +21,10 @@ const LIBRARY: &str = "zvid_capture_plugin";
 const BUNDLE_IDENTIFIER: &str = "com.lsegal.zvid.capture.vst3";
 /// Targets a universal macOS build combines.
 const UNIVERSAL_TARGETS: &[&str] = &["aarch64-apple-darwin", "x86_64-apple-darwin"];
-/// Marker on the placeholder page `zvid-daw-ui` embeds when `daw/ui/dist` is
-/// missing.
-const PLACEHOLDER_MARKER: &[u8] = b"data-zvid-placeholder";
+/// Text only the placeholder page `zvid-daw-ui` embeds when `daw/ui/dist` is
+/// missing. Not its `data-zvid-placeholder` marker: `is_placeholder` looks
+/// for that, so every build contains it.
+const PLACEHOLDER_MARKER: &[u8] = b"The ZVID Capture UI was not built";
 
 /// Extensions of sources the "Rust only" rule forbids under `/daw`.
 const FORBIDDEN_EXTENSIONS: &[&str] = &["cpp", "cc", "mm"];
@@ -281,7 +282,9 @@ fn stamped_version(version: &str, commit: &str) -> String {
 }
 
 fn contains(haystack: &[u8], needle: &[u8]) -> bool {
-    haystack.windows(needle.len()).any(|window| window == needle)
+    haystack
+        .windows(needle.len())
+        .any(|window| window == needle)
 }
 
 /// Lays out an AUv2 bundle around `library`, replacing any existing bundle:
@@ -511,9 +514,11 @@ mod tests {
         assert!(plist.contains("<string>ZVID Capture</string>"));
         assert!(plist.contains(BUNDLE_IDENTIFIER));
         assert!(plist.contains("<key>CFBundleVersion</key>\n\t<string>0.1.0+c94f40e</string>"));
-        assert!(plist.contains(
-            "<key>CFBundleShortVersionString</key>\n\t<string>0.1.0+c94f40e</string>"
-        ));
+        assert!(
+            plist.contains(
+                "<key>CFBundleShortVersionString</key>\n\t<string>0.1.0+c94f40e</string>"
+            )
+        );
         let module_info = fs::read_to_string(macos.join("Resources/moduleinfo.json")).unwrap();
         assert_eq!(
             module_info,
@@ -570,11 +575,12 @@ mod tests {
 
     #[test]
     fn detects_the_placeholder_ui() {
-        assert!(contains(
-            b"<body style=\"\" data-zvid-placeholder>",
-            PLACEHOLDER_MARKER
-        ));
-        assert!(!contains(b"<body><div id=\"app\">", PLACEHOLDER_MARKER));
+        // Only the page build.rs falls back to carries the marker, not the
+        // runtime code that ends up in every binary.
+        let build_script = include_bytes!("../../crates/zvid-daw-ui/build.rs");
+        assert!(contains(build_script, PLACEHOLDER_MARKER));
+        let assets = include_bytes!("../../crates/zvid-daw-ui/src/assets.rs");
+        assert!(!contains(assets, PLACEHOLDER_MARKER));
     }
 
     #[test]

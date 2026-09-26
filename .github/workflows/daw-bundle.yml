@@ -1,0 +1,144 @@
+name: DAW bundles
+
+# Release ZVID Capture bundles for every merge to main, uploaded as workflow
+# artifacts. PR CI only runs the debug `daw` job in ci.yml, so this stays off
+# pull requests. Signing, notarization and installers come later (#201).
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      - .github/workflows/daw-bundle.yml
+  workflow_dispatch:
+
+concurrency:
+  group: daw-bundle-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  bundle:
+    name: bundle (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: macos-universal
+          - os: windows-latest
+            platform: windows-x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+        working-directory: daw
+    steps:
+      - uses: actions/checkout@v4
+
+      # zvid-daw-ui embeds daw/ui/dist; `cargo xtask bundle --release` fails
+      # without it rather than shipping the placeholder page.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: daw/ui/pnpm-lock.yaml
+
+      - name: Build plugin UI
+        run: |
+          pnpm --dir ui install --frozen-lockfile
+          pnpm --dir ui build
+
+      # rustup installs the toolchain and components pinned in
+      # daw/rust-toolchain.toml on first use.
+      - name: Install toolchain
+        run: |
+          rustup toolchain install
+          if [ "$RUNNER_OS" = macOS ]; then
+            rustup target add aarch64-apple-darwin x86_64-apple-darwin
+          fi
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: daw -> target
+
+      - name: Bundle
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then
+            cargo xtask bundle --release --universal
+          else
+            cargo xtask bundle --release
+          fi
+
+      - name: Name the artifact
+        id: name
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)
+          sha=${GITHUB_SHA::7}
+          stamped=$(grep -m 1 '"Version"' "target/bundle/ZVID Capture.vst3/Contents/Resources/moduleinfo.json")
+          case "$stamped" in
+            *"\"$version+$sha\""*) ;;
+            *) echo "::error::bundle is not stamped $version+$sha: $stamped"; exit 1 ;;
+          esac
+          echo "name=zvid-capture-$version-$sha-${{ matrix.platform }}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify universal binaries
+        if: runner.os == 'macOS'
+        run: |
+          for binary in "target/bundle/ZVID Capture.vst3/Contents/MacOS/ZVID Capture" \
+                        "target/bundle/ZVID Capture.component/Contents/MacOS/ZVID Capture"; do
+            archs=$(lipo -archs "$binary")
+            echo "$binary: $archs"
+            for arch in x86_64 arm64; do
+              case " $archs " in
+                *" $arch "*) ;;
+                *) echo "::error::$binary lacks $arch"; exit 1 ;;
+              esac
+            done
+          done
+
+      # Installs the release .component for the runner user and runs Apple's
+      # AU validation against it.
+      - name: Validate Audio Unit (auval)
+        if: runner.os == 'macOS'
+        run: |
+          components="$HOME/Library/Audio/Plug-Ins/Components"
+          mkdir -p "$components"
+          rm -rf "$components/ZVID Capture.component"
+          cp -R "target/bundle/ZVID Capture.component" "$components/"
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          auval -a | grep ZVcp
+          auval -v aufx ZVcp ZVID
+
+      # ditto keeps the bundles' symlinks, permissions and signatures, which
+      # the artifact upload's own zip would not. It archives one source, so
+      # both bundles go into a folder that becomes the zip's top level.
+      - name: Zip (macOS)
+        if: runner.os == 'macOS'
+        working-directory: daw/target
+        run: |
+          name="${{ steps.name.outputs.name }}"
+          rm -rf dist && mkdir -p "dist/$name"
+          ditto "bundle/ZVID Capture.vst3" "dist/$name/ZVID Capture.vst3"
+          ditto "bundle/ZVID Capture.component" "dist/$name/ZVID Capture.component"
+          ditto -c -k --keepParent "dist/$name" "dist/$name.zip"
+          unzip -l "dist/$name.zip"
+
+      - name: Zip (Windows)
+        if: runner.os == 'Windows'
+        working-directory: daw/target
+        run: |
+          rm -rf dist && mkdir -p dist
+          cd bundle
+          7z a -tzip "../dist/${{ steps.name.outputs.name }}.zip" "ZVID Capture.vst3"
+          7z l "../dist/${{ steps.name.outputs.name }}.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.name.outputs.name }}
+          path: daw/target/dist/${{ steps.name.outputs.name }}.zip
+          if-no-files-found: error
