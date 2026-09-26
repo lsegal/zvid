@@ -572,7 +572,7 @@ fn iscc_args(version: &str, bundle_dir: &Path, output: &Path, name: &str) -> Vec
     // VERSIONINFO only takes numbers, so the build metadata is dropped there.
     let numeric = version.split(['+', '-']).next().unwrap_or(version);
     vec![
-        "/Qp".into(),
+        "/Q".into(),
         format!("/DAppVersion={version}"),
         format!("/DNumericVersion={numeric}"),
         format!("/DSourceDir={}", bundle_dir.display()),
