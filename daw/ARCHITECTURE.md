@@ -74,7 +74,7 @@ flowchart LR
     cam["Camera<br/>(built-in, USB, Continuity,<br/>phone webcam)"]
     cap["Capture session<br/>zvid-capture"]
     enc["Encoder + muxer<br/>zvidlib (HEVC / AV1)"]
-    aac["AAC encoder<br/>AudioToolbox / MF"]
+    aac["AAC encoder<br/>zvidlib"]
     file[("MP4 in record root<br/>video-NN-M-D-HH-mm-ss-n.mp4")]
     cam -- "frames + PTS" --> cap
     cap -- "frames" --> enc
@@ -117,13 +117,13 @@ The workspace lives in `/daw` (scaffolded in
 | Path | Role |
 |---|---|
 | `daw/crates/zvid-daw-core` | State schema, take tracker state machine, the transport-change watch the format layers share, capture file naming, record-root resolution, and the protocol and client for the Live companion script. Pure (no cameras, hosts or UI; the only I/O is locating Documents and the companion's localhost UDP socket) and unit-tested. |
-| `daw/crates/zvid-capture` | Device enumeration, capture sessions, frame timestamps, preview frames, and recording (`record`): hardware HEVC and AAC encoding, crash-safe MP4 writing and poster frames, with zvidlib doing the muxing. AVFoundation, VideoToolbox and AudioToolbox on macOS; Media Foundation on Windows. |
+| `daw/crates/zvid-capture` | Device enumeration, capture sessions, frame timestamps, preview frames, and recording (`record`): frame timing, crash-safe MP4 writing and poster frames, with zvidlib doing all encoding and muxing. AVFoundation on macOS; Media Foundation on Windows. |
 | `daw/crates/zvid-daw-ui` | `wry` child-webview host, the IPC bridge to the control thread, and the custom `zvid://` protocol that serves embedded assets and preview frames. The frontend source lives in `daw/ui`. |
 | `daw/crates/zvid-vst3` | Hand-written subset of the VST3 COM ABI: the interfaces, IIDs and structs the plugin needs, rebuilt from public documentation. |
 | `daw/crates/zvid-au` | AUv2 plugin: the `AudioComponentFactoryFunction` entry point, property and render callbacks, and the Cocoa view factory. |
 | `daw/plugin` | The `cdylib` that ties everything together and exports the VST3 and AU entry points. Holds the plugin identity constants. |
 | `daw/live-remote-script` | The optional Live companion: a Python MIDI Remote Script (`ZVID_Capture`) that reports Live's record state and set path to plugin instances. Not part of the plugin binary. |
-| `daw/xtask` | `cargo xtask`: bundles the `cdylib` into `.vst3` and `.component`, and runs `check` (Rust-only rule, zvidlib rev matches `app/export-bridge`). |
+| `daw/xtask` | `cargo xtask`: bundles the `cdylib` into `.vst3` and `.component` (release bundles are universal on macOS and commit-stamped; see [CI builds](#ci-builds)), and runs `check` (Rust-only rule, zvidlib rev matches `app/export-bridge`). |
 
 Dependencies point inward: `plugin` depends on everything; `zvid-vst3`,
 `zvid-au`, `zvid-capture` and `zvid-daw-ui` depend on `zvid-daw-core` where
@@ -157,18 +157,23 @@ Takes are only useful if they line up with the arrangement. The target is
    monotonic host clock: `mach_absolute_time` on macOS and
    `QueryPerformanceCounter` (QPC) on Windows. Capture presentation timestamps
    already use it (AVFoundation's host time clock; Media Foundation sample
-   times on QPC), or are converted to it.
+   times on QPC), or are converted to it. `zvid_daw_core::clock::now_sec`
+   and `zvid_capture::HostTime` read it the same way.
 2. **Transport time.** For each process block the audio thread records when
    the block's song position applies:
-   - VST3: `ProcessContext::systemTime` when `kSystemTimeValid` is set;
-     otherwise the clock read at the start of the process callback.
+   - VST3: the clock read at the start of the process callback.
+     `ProcessContext::systemTime` is logged but not used, because VST3 does
+     not say which clock it is on.
    - AU: the render `AudioTimeStamp`'s `mHostTime` when valid; otherwise the
      clock read at the start of the render callback.
 
-   That time is corrected for reported latency: the plugin's own reported
-   latency and, where the host exposes it, the audio device's output latency,
-   so the snapshot describes when the audio at that song position is actually
-   heard.
+   No latency correction is applied yet. The plugin reports zero latency in
+   both formats, so it has no latency of its own to correct for, and neither
+   format tells it the audio device's output latency. What's left is the
+   time between processing a block and hearing it: about one buffer, 10 ms
+   at 512 samples and 48 kHz, well under one frame at 30 fps. The clap test
+   in [#201](https://github.com/lsegal/zvid/issues/201) confirms this or
+   adds a stated correction term here.
 3. **File time.** The capture thread reports `FrameClock { host_time,
    file_sec }` pairs: a frame captured at `host_time` was written at
    `file_sec` in the MP4. The tracker maps any host time to file time using
@@ -237,6 +242,22 @@ It is implemented by `State` and `Recording` in `zvid-daw-core`.
   to `null`, `fileOffsetSec: 0`, and a `durationSec` covering the whole file.
   `frameStart` is `0` and meaningless for them.
 - **`createdAt`** is an RFC 3339 UTC timestamp.
+- **Written as the take happens.** The control thread's `TakeLog`
+  (`zvid-daw-core`) appends a take to `recordings` when it opens and keeps
+  its `durationSec` running with each transport snapshot until it closes. A
+  set saved mid-take therefore still lists the take. Each time a take opens
+  or closes, the plugin tells the host its state changed: VST3 through
+  `IComponentHandler2::setDirty` (or `restartComponent(kParamValuesChanged)`
+  when the host lacks it), AU through a `kAudioUnitProperty_ClassInfo`
+  property-change notification.
+- **Take IDs** are the capture file's name without `.mp4`, plus
+  `-take-N`, where `N` counts that capture's takes from 1.
+- **Capture layer commands.** The capture layer (#223) drives the take log
+  through the format layer's `commands()` channel. It sends `Arm` with the
+  capture file's name, size, frame rate, camera and `createdAt` when
+  recording starts, `FrameClock` as frames are written, and `Disarm` when
+  it stops. The control thread applies these commands and the transport
+  snapshots in host-time order.
 - **Forward compatibility.** Unknown keys, at the top level and per recording,
   are kept and written back unchanged, so an older plugin doesn't drop data a
   newer one saved. Additive changes keep `"version": "1"`; a change to the
@@ -356,8 +377,8 @@ sequenceDiagram
 | Formats | VST3 (`.vst3`) and AUv2 (`.component`) | VST3 (`.vst3`) |
 | Capture API | AVFoundation (`objc2-av-foundation`) | Media Foundation (`windows`) |
 | Webview | WKWebView | WebView2 |
-| Video encode | VideoToolbox HEVC; zvidlib HEVC, then AV1, as software fallbacks | Media Foundation HEVC (GPU vendor MFT, else Microsoft's HEVC Video Extensions); zvidlib HEVC, then AV1, as software fallbacks |
-| Audio encode | AudioToolbox AAC-LC (zvidlib's adapter) | Media Foundation AAC encoder |
+| Video encode | zvidlib: VideoToolbox hardware HEVC, else zvidlib's native HEVC, then AV1 | zvidlib: GPU vendor HEVC (NVENC, Quick Sync, AMF) through Media Foundation, else Microsoft's software HEVC MFT, else zvidlib's native HEVC, then AV1 |
+| Audio encode | zvidlib: AudioToolbox AAC-LC | zvidlib: Media Foundation AAC-LC |
 | Monotonic clock | `mach_absolute_time` | QPC |
 
 ### Camera permission
@@ -380,6 +401,47 @@ sequenceDiagram
   Media Foundation does not enumerate; [#196](https://github.com/lsegal/zvid/issues/196)
   confirms each supported app and records any that aren't visible.
 
+## CI builds
+
+Every push to `main` runs the **DAW bundles** workflow
+(`.github/workflows/daw-bundle.yml`), which uploads two artifacts to the
+workflow run:
+
+- `zvid-capture-<version>-<sha>-macos-universal`: `ZVID Capture.vst3` and
+  `ZVID Capture.component`, arm64 + x86_64. CI checks both architectures with
+  `lipo -archs` and runs `auval` against the `.component`.
+- `zvid-capture-<version>-<sha>-windows-x64`: `ZVID Capture.vst3`.
+
+Each is built by `cargo xtask bundle --release` (plus `--universal` on
+macOS), which fails when `daw/ui/dist` is missing rather than embedding the
+placeholder UI, and stamps the bundle version (`Info.plist`,
+`moduleinfo.json` and the version reported to hosts) as `<version>+<sha>`.
+The same command builds identical bundles locally once `pnpm --dir daw/ui
+build` has run; `--universal` needs `rustup target add aarch64-apple-darwin
+x86_64-apple-darwin`.
+
+To install one, open the run from the repository's **Actions › DAW bundles**
+page (or run the workflow manually for any branch), download the artifact,
+and unzip it; the artifact holds one more zip, which keeps the bundles'
+symlinks and signatures intact, so unzip that too.
+
+- **macOS.** Copy `ZVID Capture.vst3` to `~/Library/Audio/Plug-Ins/VST3` and
+  `ZVID Capture.component` to `~/Library/Audio/Plug-Ins/Components`. CI builds
+  are ad-hoc signed and not notarized, so clear the quarantine flag the
+  browser adds before a host loads them:
+
+  ```sh
+  xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/"ZVID Capture.vst3" \
+    ~/Library/Audio/Plug-Ins/Components/"ZVID Capture.component"
+  ```
+
+  Then rescan plugins in the host (in Live, *Settings › Plug-Ins › Rescan*).
+- **Windows.** Copy the `ZVID Capture.vst3` folder to
+  `C:\Program Files\Common Files\VST3` and rescan plugins in the host.
+
+Developer ID signing, notarization and installers are tracked in
+[#201](https://github.com/lsegal/zvid/issues/201).
+
 ## Decisions
 
 Revise a decision only with a stated rationale, recorded here.
@@ -392,9 +454,9 @@ Revise a decision only with a stated rationale, recorded here.
 | UI host | `wry` (Tauri's webview layer) attached as a child of the host view (`NSView` / `HWND`). Not the full Tauri runtime. | Tauri wants to own the process and event loop, which a plugin can't do inside a host. `wry` gives us the same webview and IPC model. |
 | Frontend assets | Embedded in the binary and served over `zvid://`. | A single-file bundle, with no loose files beside the plugin. |
 | Live preview transport | Native capture is the single source. The UI gets downscaled JPEG frames (≤30 fps) over `zvid://preview`. | Avoids opening the camera twice (getUserMedia plus native), and works the same in WKWebView and WebView2. |
-| Video codec | **HEVC Main** from the platform's hardware encoder (VideoToolbox; a Media Foundation HEVC MFT), implemented in `zvid-capture` behind the same encoder seam. zvidlib's native HEVC, then AV1, encoders are the fallback. No B-frames, a keyframe each second. | HEVC plays natively in QuickTime, WKWebView and `/app`. Revised in [#197](https://github.com/lsegal/zvid/issues/197): zvidlib offers hardware *decoding* only, and its software encoders take about 2.5 s per 1080p HEVC frame (and 80 ms at 320×240), far from real time. Its AV1 encoder also takes greyscale input only. |
+| Video codec | **HEVC Main**, encoded by zvidlib: `native_hevc_video_encoder_factory()` with `HardwarePreference::Prefer` picks the platform's hardware encoder and falls back to software itself. `zvid-capture` contains no encoder code; it converts camera frames to BGRA and times the samples zvidlib returns. zvidlib's native HEVC encoder, then its AV1 encoder, are the last resort when nothing takes the camera's size. No B-frames, a keyframe each second. `RecordStats` and the log name the encoder zvidlib chose and whether it is hardware. | HEVC plays natively in QuickTime, WKWebView and `/app`. [#197](https://github.com/lsegal/zvid/issues/197) requires encoding through zvidlib. zvidlib 0.2.0 added hardware HEVC encoding on macOS and Windows, so the in-tree VideoToolbox and Media Foundation encoders that briefly stood in for it were removed in [#228](https://github.com/lsegal/zvid/issues/228). zvidlib's native encoders take about 2.5 s per 1080p HEVC frame, and its AV1 encoder takes greyscale only, so they are not a real-time path. |
 | Crash safety | Record to a **fragmented MP4** (one synced `moof`+`mdat` per second), then remux with zvidlib's `Mp4Muxer` into an ordinary MP4 on disarm. | Killing the host mid-capture leaves every complete fragment playable; the finished file has ordinary sample tables and exact gapless AAC metadata. |
-| Audio | AAC-LC of the plugin's input bus (the track audio), via AudioToolbox (macOS) or the Media Foundation AAC encoder (Windows). Video-only if neither is available. | zvidlib ships no AAC encoder, and `/app` export already uses AudioToolbox. The track audio doubles as a sync reference. |
+| Audio | AAC-LC of the plugin's input bus (the track audio), via zvidlib's `native_aac_audio_encoder_factory()` (AudioToolbox on macOS, Media Foundation on Windows). zvidlib reports the exact priming and padding. Video-only if no encoder is available. | zvidlib wraps the platform AAC encoders rather than shipping its own, and `/app` export uses the same encoder. The track audio doubles as a sync reference. |
 | Capture file vs takes | **One MP4 per arm** (Record → Stop capturing). Each transport play→stop span is a **separate take entry** that references the file plus `fileOffsetSec`. | Never loses footage between spans, and takes stay individually addressable. |
 | Loop / relocate while playing | A backwards transport jump or a locate ends the current take and starts a new one. | Keeps each take linear on the timeline. |
 | Capture with no playback | Stored as an *unanchored* entry (`transportStartSec: null`). Listed in the UI, skipped by the importer. | Footage isn't lost, and nothing is placed on the timeline incorrectly. |

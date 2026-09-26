@@ -24,6 +24,7 @@ use std::mem::{self, size_of};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::ptr::{self, NonNull};
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicPtr, Ordering};
+use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 
 use objc2::rc::Retained;
@@ -61,11 +62,11 @@ use objc2_core_audio_types::{
 };
 use objc2_foundation::NSString;
 use zvid_daw_core::swap::Swap;
-use zvid_daw_core::{Consumer, ProcessSnapshot, Producer, State, ring};
+use zvid_daw_core::{Command, Consumer, ProcessSnapshot, Producer, State, ring};
 use zvid_daw_ui::Backend;
 use zvid_daw_ui::mock::MockBackend;
 
-use super::control::Control;
+use super::control::{Control, Inputs};
 use super::{class_info, view};
 use crate::transport::{HostReading, host_ticks_to_sec, snapshot};
 
@@ -211,11 +212,12 @@ pub struct AudioUnitInstance {
     render_notifies: Swap<Vec<RenderNotify>>,
     /// Only `initialize` writes it, and only render reads it.
     scratch: UnsafeCell<Scratch>,
-    state: Mutex<State>,
+    state: Arc<Mutex<State>>,
     preset: Mutex<Preset>,
     listeners: Mutex<Vec<Listener>>,
-    /// Reading end of the transport ring while no control thread owns it.
-    transport: Mutex<Option<Consumer<ProcessSnapshot>>>,
+    commands: Sender<Command>,
+    /// The control thread's inputs while no control thread owns them.
+    inputs: Mutex<Option<Inputs>>,
     /// Runs while the unit is initialized.
     control: Mutex<Option<Control>>,
     tap_enabled: AtomicBool,
@@ -235,6 +237,7 @@ impl AudioUnitInstance {
     pub(super) fn create() -> *mut Self {
         let (transport, transport_reader) = ring(TRANSPORT_CAPACITY);
         let (tap, tap_reader) = ring(AUDIO_TAP_FRAMES);
+        let (commands, command_reader) = mpsc::channel();
         let format = Format {
             sample_rate: DEFAULT_SAMPLE_RATE,
             channels: DEFAULT_CHANNELS,
@@ -266,13 +269,17 @@ impl AudioUnitInstance {
                 transport,
                 tap,
             }),
-            state: Mutex::new(State::default()),
+            state: Arc::new(Mutex::new(State::default())),
             preset: Mutex::new(Preset {
                 number: -1,
                 name: NSString::from_str(DEFAULT_PRESET_NAME),
             }),
             listeners: Mutex::new(Vec::new()),
-            transport: Mutex::new(Some(transport_reader)),
+            commands,
+            inputs: Mutex::new(Some(Inputs {
+                transport: transport_reader,
+                commands: command_reader,
+            })),
             control: Mutex::new(None),
             tap_enabled: AtomicBool::new(false),
             audio_tap: Mutex::new(Some(tap_reader)),
@@ -294,6 +301,13 @@ impl AudioUnitInstance {
         self.backend
             .get_or_init(|| Arc::new(MockBackend::for_plugin(self.state().clone())))
             .clone()
+    }
+
+    /// Where the capture layer sends [`Command::Arm`], [`Command::Disarm`]
+    /// and [`Command::FrameClock`]. Commands wait while the unit is not
+    /// initialized and are applied once the control thread runs.
+    pub fn commands(&self) -> Sender<Command> {
+        self.commands.clone()
     }
 
     /// Takes the reading end of the input-audio tap: stereo frames from the
@@ -338,8 +352,15 @@ impl AudioUnitInstance {
         let list_bytes = size_of::<AudioBufferList>() + (channels - 1) * size_of::<AudioBuffer>();
         scratch.list = vec![0; list_bytes.div_ceil(size_of::<u64>())];
         self.initialized.store(true, Ordering::Release);
-        if let Some(transport) = lock(&self.transport).take() {
-            *lock(&self.control) = Control::start(transport);
+        if let Some(inputs) = lock(&self.inputs).take() {
+            let instance = ptr::from_ref(self) as usize;
+            *lock(&self.control) = Control::start(inputs, Arc::clone(&self.state), move || {
+                // SAFETY: the instance stops and joins the control thread
+                // before it is freed, so it outlives this call.
+                let instance = unsafe { &*(instance as *const Self) };
+                // Hosts save ClassInfo, so this tells them the set changed.
+                instance.notify(kAudioUnitProperty_ClassInfo, kAudioUnitScope_Global, 0);
+            });
         }
         0
     }
@@ -351,10 +372,10 @@ impl AudioUnitInstance {
         0
     }
 
-    /// Stops the control thread, taking back the transport ring.
+    /// Stops the control thread, taking back its inputs.
     fn stop_control(&self) {
         if let Some(control) = lock(&self.control).take() {
-            *lock(&self.transport) = control.stop();
+            *lock(&self.inputs) = control.stop();
         }
     }
 
@@ -1466,7 +1487,7 @@ mod tests {
         assert!(!has_control(&instance));
         assert_eq!(instance.initialize(), 0);
         assert!(has_control(&instance));
-        assert!(lock(&instance.transport).is_none());
+        assert!(lock(&instance.inputs).is_none());
         // A second Initialize doesn't start a second thread.
         assert_eq!(instance.initialize(), 0);
         assert!(has_control(&instance));
@@ -1482,12 +1503,95 @@ mod tests {
         assert_eq!(instance.uninitialize(), 0);
         assert!(!has_control(&instance));
         // The control thread drained the ring before handing it back.
-        assert_eq!(lock(&instance.transport).as_mut().unwrap().pop(), None);
+        assert_eq!(
+            lock(&instance.inputs).as_mut().unwrap().transport.pop(),
+            None
+        );
         // Extra Uninitializes are harmless, and the thread restarts.
         assert_eq!(instance.uninitialize(), 0);
         assert_eq!(instance.initialize(), 0);
         assert!(has_control(&instance));
         // Closing without Uninitialize stops the thread too.
         drop(instance);
+    }
+
+    static CLASS_INFO_CHANGES: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+    unsafe extern "C-unwind" fn count_class_info(
+        _user_data: *mut c_void,
+        _unit: AudioUnit,
+        id: AudioUnitPropertyID,
+        _scope: AudioUnitScope,
+        _element: AudioUnitElement,
+    ) {
+        assert_eq!(id, kAudioUnitProperty_ClassInfo);
+        CLASS_INFO_CHANGES.fetch_add(1, Ordering::Relaxed);
+    }
+
+    #[test]
+    fn takes_land_in_the_state_and_notify_class_info_listeners() {
+        // SAFETY: as above.
+        let instance = unsafe { Box::from_raw(AudioUnitInstance::create()) };
+        lock(&instance.listeners).push(Listener {
+            property: kAudioUnitProperty_ClassInfo,
+            proc_: count_class_info,
+            user_data: ptr::null_mut(),
+        });
+        instance
+            .commands()
+            .send(Command::Arm {
+                capture: zvid_daw_core::Capture {
+                    filename: "video-01-9-25-20-36-12-0.mp4".to_string(),
+                    dimensions: [1280, 720],
+                    fps: [30, 1],
+                    camera: "Cam".to_string(),
+                    created_at: "2026-09-25T20:36:12Z".to_string(),
+                },
+                at: 1.0,
+            })
+            .unwrap();
+        assert_eq!(instance.initialize(), 0);
+
+        // SAFETY: nothing renders in this test.
+        let scratch = unsafe { &mut *instance.scratch.get() };
+        let reading = |playing, seconds: f64| HostReading {
+            playing: Some(playing),
+            sample_in_timeline: Some(seconds * 48_000.0),
+            tempo: Some(120.0),
+            time_signature: Some([4, 4]),
+            ..HostReading::default()
+        };
+        // Play from 8 s for 1 s of host time, then stop.
+        for (block, (playing, song, host)) in [
+            (true, 8.0, 3.0),
+            (true, 8.5, 3.5),
+            (true, 9.0, 4.0),
+            (false, 9.0, 4.01),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let snapshot = snapshot(reading(playing, song), block as u64, 512, 48_000.0, host);
+            assert!(scratch.transport.push(snapshot.unwrap()));
+        }
+        instance
+            .commands()
+            .send(Command::Disarm { at: 5.0 })
+            .unwrap();
+
+        // Uninitialize drains everything before it returns.
+        assert_eq!(instance.uninitialize(), 0);
+        let state = instance.state().clone();
+        assert_eq!(state.recordings.len(), 1);
+        let take = &state.recordings[0];
+        assert_eq!(take.transport_start_sec, Some(8.0));
+        assert_eq!(take.file_offset_sec, 2.0);
+        assert!((take.duration_sec - 1.01).abs() < 1e-9);
+        assert_eq!(take.frame_start, 240 - 60);
+        assert!(CLASS_INFO_CHANGES.load(Ordering::Relaxed) >= 1);
+        // The saved ClassInfo carries the take.
+        let saved = class_info::save(&instance.state(), &NSString::from_str("Default"));
+        let restored = class_info::restore(&saved).unwrap();
+        assert_eq!(restored.state.unwrap(), state);
     }
 }

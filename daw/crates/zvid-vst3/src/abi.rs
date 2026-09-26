@@ -75,6 +75,8 @@ pub const IPLUG_FRAME_IID: Tuid = uid(0x367FAF01, 0xAFA94693, 0x8D4DA2A0, 0xED08
 pub const IPLUG_VIEW_CONTENT_SCALE_SUPPORT_IID: Tuid =
     uid(0x65ED9690, 0x8AC44525, 0x8AADEF7A, 0x72EA703F);
 pub const ICONNECTION_POINT_IID: Tuid = uid(0x70A4156F, 0x6E6E4026, 0x989148BF, 0xAA60D8D1);
+pub const ICOMPONENT_HANDLER_IID: Tuid = uid(0x93A0BEA3, 0x0BD045DB, 0x8E890B0C, 0xC1E46AC6);
+pub const ICOMPONENT_HANDLER2_IID: Tuid = uid(0xF040B4B3, 0xA36045EC, 0xABCDC045, 0xB4D5A2CC);
 
 /// `PFactoryInfo::kUnicode`: strings in unicode class info are UTF-16.
 pub const FACTORY_FLAG_UNICODE: i32 = 1 << 4;
@@ -101,6 +103,12 @@ pub mod context {
     pub const PROJECT_TIME_MUSIC_VALID: u32 = 1 << 9;
     pub const TEMPO_VALID: u32 = 1 << 10;
     pub const TIME_SIG_VALID: u32 = 1 << 13;
+}
+
+/// `IComponentHandler::restartComponent` flags.
+pub mod restart {
+    /// `kParamValuesChanged`.
+    pub const PARAM_VALUES_CHANGED: i32 = 1 << 2;
 }
 
 /// `IProcessContextRequirements` flags.
@@ -342,6 +350,25 @@ pub struct IAudioProcessorVtbl {
 pub struct IProcessContextRequirementsVtbl {
     pub unknown: FUnknownVtbl,
     pub get_process_context_requirements: unsafe extern "system" fn(this: *mut c_void) -> u32,
+}
+
+#[repr(C)]
+pub struct IComponentHandlerVtbl {
+    pub unknown: FUnknownVtbl,
+    pub begin_edit: unsafe extern "system" fn(this: *mut c_void, id: u32) -> TResult,
+    pub perform_edit: unsafe extern "system" fn(this: *mut c_void, id: u32, value: f64) -> TResult,
+    pub end_edit: unsafe extern "system" fn(this: *mut c_void, id: u32) -> TResult,
+    pub restart_component: unsafe extern "system" fn(this: *mut c_void, flags: i32) -> TResult,
+}
+
+#[repr(C)]
+pub struct IComponentHandler2Vtbl {
+    pub unknown: FUnknownVtbl,
+    pub set_dirty: unsafe extern "system" fn(this: *mut c_void, state: TBool) -> TResult,
+    pub request_open_editor:
+        unsafe extern "system" fn(this: *mut c_void, name: FIDString) -> TResult,
+    pub start_group_edit: unsafe extern "system" fn(this: *mut c_void) -> TResult,
+    pub finish_group_edit: unsafe extern "system" fn(this: *mut c_void) -> TResult,
 }
 
 #[repr(C)]
