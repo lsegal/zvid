@@ -293,11 +293,11 @@ mod tests {
         assert_eq!(json["event"], "status");
         assert_eq!(json["payload"]["phase"], "capturing");
         assert_eq!(json["payload"]["live"]["recordArmed"], true);
-        let json = serde_json::to_value(Status::default()).unwrap();
-        assert_eq!(json["live"], serde_json::Value::Null);
         assert_eq!(json["payload"]["cameraId"], "cam");
         assert_eq!(json["payload"]["capture"]["elapsedMs"], 5000);
         assert_eq!(json["payload"]["capture"]["droppedFrames"], 3);
+        let json = serde_json::to_value(Status::default()).unwrap();
+        assert_eq!(json["live"], serde_json::Value::Null);
         let json = serde_json::to_value(UiEvent::CamerasChanged(vec![Camera {
             id: "1".into(),
             name: "iPhone".into(),
