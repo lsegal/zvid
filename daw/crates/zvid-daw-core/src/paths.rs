@@ -115,6 +115,40 @@ mod tests {
     }
 
     #[test]
+    fn chooses_the_capture_root_from_the_live_status() {
+        use crate::LiveStatus;
+
+        let documents = RecordRoot::resolve_with(None, Some(Path::new("/docs"))).unwrap();
+        let choose = |status: Option<LiveStatus>| {
+            RecordRoot::for_capture(
+                status.and_then(|status| status.set_dir()).as_deref(),
+                &documents,
+            )
+        };
+        let set = |path: Option<&str>| {
+            Some(LiveStatus {
+                set_path: path.map(str::to_string),
+                ..LiveStatus::default()
+            })
+        };
+
+        // A saved set, reported by the companion.
+        let root = choose(set(Some("/music/Song Project/Song.als")));
+        assert_eq!(root.kind, RecordRootKind::Project);
+        assert_eq!(
+            root.dir,
+            Path::new("/music/Song Project")
+                .join("Recorded")
+                .join("ZVID")
+        );
+        // An unsaved set, a Live version without `Song.file_path`, or no
+        // companion at all.
+        assert_eq!(choose(set(None)), documents);
+        assert_eq!(choose(set(Some(""))), documents);
+        assert_eq!(choose(None), documents);
+    }
+
+    #[test]
     fn falls_back_to_documents() {
         let root = RecordRoot::resolve_with(None, Some(Path::new("/home/me/Documents"))).unwrap();
         assert_eq!(root.kind, RecordRootKind::Documents);
