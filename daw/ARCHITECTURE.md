@@ -435,9 +435,11 @@ Every push to `main` runs the **DAW bundles** workflow
 workflow run:
 
 - `zvid-capture-<version>-<sha>-macos-universal`: `ZVID Capture.vst3` and
-  `ZVID Capture.component`, arm64 + x86_64. CI checks both architectures with
-  `lipo -archs` and runs `auval` against the `.component`.
-- `zvid-capture-<version>-<sha>-windows-x64`: `ZVID Capture.vst3`.
+  `ZVID Capture.component`, arm64 + x86_64, plus the Live companion Remote
+  Script in `live-remote-script/ZVID_Capture`. CI checks both architectures
+  with `lipo -archs` and runs `auval` against the `.component`.
+- `zvid-capture-<version>-<sha>-windows-x64`: `ZVID Capture.vst3` and
+  `live-remote-script/ZVID_Capture`.
 
 Each is built by `cargo xtask bundle --release` (plus `--universal` on
 macOS), which fails when `daw/ui/dist` is missing rather than embedding the
@@ -465,6 +467,9 @@ symlinks and signatures intact, so unzip that too.
   Then rescan plugins in the host (in Live, *Settings › Plug-Ins › Rescan*).
 - **Windows.** Copy the `ZVID Capture.vst3` folder to
   `C:\Program Files\Common Files\VST3` and rescan plugins in the host.
+
+For Ableton Live, optionally install `live-remote-script/ZVID_Capture` too;
+see [`live-remote-script/README.md`](live-remote-script/README.md#install).
 
 Developer ID signing, notarization and installers are tracked in
 [#201](https://github.com/lsegal/zvid/issues/201).

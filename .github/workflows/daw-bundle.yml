@@ -113,7 +113,8 @@ jobs:
 
       # ditto keeps the bundles' symlinks, permissions and signatures, which
       # the artifact upload's own zip would not. It archives one source, so
-      # both bundles go into a folder that becomes the zip's top level.
+      # both bundles and the Live Remote Script go into a folder that becomes
+      # the zip's top level.
       - name: Zip (macOS)
         if: runner.os == 'macOS'
         working-directory: daw/target
@@ -122,6 +123,7 @@ jobs:
           rm -rf dist && mkdir -p "dist/$name"
           ditto "bundle/ZVID Capture.vst3" "dist/$name/ZVID Capture.vst3"
           ditto "bundle/ZVID Capture.component" "dist/$name/ZVID Capture.component"
+          ditto "bundle/live-remote-script" "dist/$name/live-remote-script"
           ditto -c -k --keepParent "dist/$name" "dist/$name.zip"
           unzip -l "dist/$name.zip"
 
@@ -131,7 +133,7 @@ jobs:
         run: |
           rm -rf dist && mkdir -p dist
           cd bundle
-          7z a -tzip "../dist/${{ steps.name.outputs.name }}.zip" "ZVID Capture.vst3"
+          7z a -tzip "../dist/${{ steps.name.outputs.name }}.zip" "ZVID Capture.vst3" live-remote-script
           7z l "../dist/${{ steps.name.outputs.name }}.zip"
 
       - uses: actions/upload-artifact@v4

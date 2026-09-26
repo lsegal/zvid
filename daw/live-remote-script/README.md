@@ -19,9 +19,23 @@ for why, and `crates/zvid-daw-core/src/live.rs` for the protocol.
 ## Install
 
 1. Copy the `ZVID_Capture` folder into the `Remote Scripts` folder of your
-   Live User Library, creating it if needed:
+   Live User Library, replacing any older copy. From a checkout, run this in
+   `daw`:
+
+   ```sh
+   cargo xtask install-live-script
+   ```
+
+   It installs into Live's default User Library:
    - macOS: `~/Music/Ableton/User Library/Remote Scripts/ZVID_Capture`
    - Windows: `%USERPROFILE%\Documents\Ableton\User Library\Remote Scripts\ZVID_Capture`
+
+   If you moved the User Library (*Settings › Library › Location of User
+   Library* in Live), pass it with `--user-library <path>`. Without a
+   checkout, copy `live-remote-script/ZVID_Capture` from a ZVID Capture
+   bundle (`cargo xtask bundle` writes it to
+   `target/bundle/live-remote-script/ZVID_Capture`) into the same place by
+   hand.
 2. Restart Live.
 3. In *Settings › Link, Tempo & MIDI*, pick **ZVID Capture** in an empty
    Control Surface slot. Leave its Input and Output set to *None*.
