@@ -21,6 +21,20 @@ use crate::preview::scaled_size;
 /// returns it as a JPEG whose longer edge is at most `max_edge`. Works on
 /// finished files and on the fragmented file of a recording in progress.
 pub fn poster_jpeg(path: &Path, file_sec: f64, max_edge: u32) -> Result<Vec<u8>, RecordError> {
+    let (width, height, rgb) = poster_rgb(path, file_sec, max_edge)?;
+    let mut jpeg = Vec::new();
+    Encoder::new(&mut jpeg, 80)
+        .encode(&rgb, width as u16, height as u16, ColorType::Rgb)
+        .map_err(|error| RecordError::Decode(error.to_string()))?;
+    Ok(jpeg)
+}
+
+/// The poster frame of [`poster_jpeg`] as packed RGB with its size.
+pub(crate) fn poster_rgb(
+    path: &Path,
+    file_sec: f64,
+    max_edge: u32,
+) -> Result<(u32, u32, Vec<u8>), RecordError> {
     let source = FileSource::open(path)?;
     let movie =
         block_on(Mp4Demuxer::open(&source, Mp4DemuxerOptions::default())).map_err(decode_error)?;
@@ -101,13 +115,13 @@ pub fn poster_jpeg(path: &Path, file_sec: f64, max_edge: u32) -> Result<Vec<u8>,
         found.ok_or_else(|| RecordError::Decode("the decoder returned no frame".to_string()))?;
     let plane = &frame.planes[0];
     let (width, height) = (frame.dimensions.width, frame.dimensions.height);
-    let (rgb_width, rgb_height, rgb) =
-        downscale_rgba(&plane.data, plane.stride, width, height, max_edge);
-    let mut jpeg = Vec::new();
-    Encoder::new(&mut jpeg, 80)
-        .encode(&rgb, rgb_width as u16, rgb_height as u16, ColorType::Rgb)
-        .map_err(|error| RecordError::Decode(error.to_string()))?;
-    Ok(jpeg)
+    Ok(downscale_rgba(
+        &plane.data,
+        plane.stride,
+        width,
+        height,
+        max_edge,
+    ))
 }
 
 /// Box-filters RGBA to RGB no larger than `max_edge` on its longer side.
