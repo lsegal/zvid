@@ -3,12 +3,12 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 
 use serde_json::Value;
-use zvid_capture::record::{RecordError, RecordStats, Recorded};
+use zvid_capture::record::{AudioBlock, RecordError, RecordStats, Recorded};
 use zvid_capture::{
     CaptureError, ColorInfo, DeviceId, Format, Frame, HostTime, PixelFormat, Rotation, Selection,
     SessionStats, Transport,
 };
-use zvid_daw_core::{LocalTime, Recording};
+use zvid_daw_core::{LocalTime, Recording, TapWriter, audio_tap};
 use zvid_daw_ui::Phase;
 
 use super::*;
@@ -77,6 +77,7 @@ impl CameraSession for FakeSession {
 struct FileState {
     filename: String,
     stats: Mutex<RecordStats>,
+    audio: Mutex<Vec<AudioBlock>>,
     stopped: AtomicBool,
 }
 
@@ -96,6 +97,14 @@ impl CaptureFile for FakeFile {
             host_time: frame.pts,
             file_sec,
         });
+    }
+
+    fn push_audio(&self, block: AudioBlock) {
+        assert!(
+            !self.0.stopped.load(Ordering::Acquire),
+            "audio after the file finished"
+        );
+        lock(&self.0.audio).push(block);
     }
 
     fn stats(&self) -> RecordStats {
@@ -258,6 +267,8 @@ struct Rig {
     takes: Sender<TakeChange>,
     dirty: Arc<AtomicU32>,
     root: RecordRoot,
+    /// The format layer's side of the audio tap.
+    tap: Option<Mutex<TapWriter>>,
 }
 
 impl Rig {
@@ -266,6 +277,15 @@ impl Rig {
     }
 
     fn with_stall(state: State, stall: Duration) -> Self {
+        Self::build(state, stall, true)
+    }
+
+    /// A rig whose format layer has no audio tap to give.
+    fn without_tap() -> Self {
+        Self::build(State::default(), Duration::from_secs(60), false)
+    }
+
+    fn build(state: State, stall: Duration, tapped: bool) -> Self {
         let fake = Fake::new(cameras());
         let state = Arc::new(Mutex::new(state));
         let (commands, command_reader) = mpsc::channel();
@@ -274,6 +294,12 @@ impl Rig {
         let counter = Arc::clone(&dirty);
         let root = RecordRoot::resolve_with(None, Some(std::path::Path::new("/nowhere"))).unwrap();
         let platform: Arc<dyn Platform> = fake.clone();
+        let (tap, audio) = if tapped {
+            let (writer, reader) = audio_tap(1 << 12);
+            (Some(Mutex::new(writer)), Some(reader))
+        } else {
+            (None, None)
+        };
         let backend = CaptureBackend::start_with(
             platform,
             HostLink {
@@ -284,6 +310,7 @@ impl Rig {
                     counter.fetch_add(1, Ordering::Relaxed);
                 }),
                 record_root: root.clone(),
+                audio,
             },
             stall,
         );
@@ -295,6 +322,7 @@ impl Rig {
             takes,
             dirty,
             root,
+            tap,
         };
         wait_for("the camera list", || rig.backend.cameras().len() == 3);
         wait_for("the watcher", || lock(&rig.fake.hotplug).is_some());
@@ -327,6 +355,25 @@ impl Rig {
     fn next_command(&self) -> Command {
         self.commands.recv_timeout(WAIT).expect("a command")
     }
+
+    /// Plays a block of `frames` stereo frames through the tap, as the
+    /// audio thread does, with sample values counting up from `start`.
+    fn play(&self, host_time: f64, sample_rate: f64, frames: usize, start: f32) {
+        let mut tap = lock(self.tap.as_ref().expect("a tap"));
+        assert!(tap.push(host_time, sample_rate, frames, |frame| {
+            let value = start + frame as f32;
+            [value, -value]
+        }));
+    }
+
+    /// Lets the monitor thread drain the tap a few times.
+    fn settle(&self) {
+        thread::sleep(TICK * 4);
+    }
+}
+
+fn audio(file: &FileState) -> Vec<AudioBlock> {
+    lock(&file.audio).clone()
 }
 
 fn recording(id: &str, filename: &str) -> Recording {
@@ -427,6 +474,7 @@ fn walks_through_ready_capturing_and_ready() {
     let config = lock(&rig.fake.configs)[0].clone();
     assert_eq!((config.counter, config.fps), (1, Rational::new(30, 1)));
     assert_eq!(config.root, rig.root);
+    // The host hasn't processed any audio, so there is no format to record.
     assert_eq!(config.audio, None);
     let status = rig.backend.status();
     assert_eq!(status.phase, Phase::Capturing);
@@ -519,6 +567,97 @@ fn walks_through_ready_capturing_and_ready() {
         .collect();
     assert!(phases.contains(&Value::from("capturing")));
     assert_eq!(phases.last(), Some(&Value::from("ready")));
+}
+
+#[test]
+fn records_timed_input_audio_while_armed() {
+    let rig = Rig::new(State::default());
+    rig.backend.select_camera("usb-1").unwrap();
+    // Audio before arm isn't recorded, but sets the capture's format.
+    rig.play(9.0, 48_000.0, 2, 0.0);
+    rig.settle();
+    rig.backend.arm().unwrap();
+    assert_eq!(
+        lock(&rig.fake.configs)[0].audio,
+        Some(AudioFormat {
+            sample_rate: 48_000,
+            channels: 2,
+        })
+    );
+    let file = rig.fake.file(0);
+
+    // Blocks reach the file with their host time, in order.
+    rig.play(10.0, 48_000.0, 2, 1.0);
+    rig.play(10.25, 48_000.0, 1, 5.0);
+    wait_for("the audio", || audio(&file).len() == 2);
+    assert_eq!(
+        audio(&file),
+        [
+            AudioBlock {
+                host_time: Some(HostTime::from_nanos(10_000_000_000)),
+                samples: vec![1.0, -1.0, 2.0, -2.0],
+            },
+            AudioBlock {
+                host_time: Some(HostTime::from_nanos(10_250_000_000)),
+                samples: vec![5.0, -5.0],
+            },
+        ]
+    );
+
+    // A block at another rate can't go in this file.
+    rig.play(10.5, 44_100.0, 1, 7.0);
+    rig.settle();
+    assert_eq!(audio(&file).len(), 2);
+
+    // What was tapped before disarm is recorded, even if the monitor
+    // thread hasn't drained it yet.
+    rig.play(10.75, 48_000.0, 1, 8.0);
+    rig.backend.disarm().unwrap();
+    wait_for("the file to finish", || {
+        file.stopped.load(Ordering::Acquire)
+    });
+    assert_eq!(audio(&file).len(), 3);
+    assert_eq!(audio(&file)[2].samples, [8.0, -8.0]);
+    // Audio after disarm isn't.
+    rig.play(11.0, 48_000.0, 1, 9.0);
+    rig.settle();
+    assert_eq!(audio(&file).len(), 3);
+
+    // The next capture records at the bus's new rate.
+    rig.play(12.0, 44_100.0, 1, 0.0);
+    rig.backend.arm().unwrap();
+    assert_eq!(
+        lock(&rig.fake.configs)[1].audio,
+        Some(AudioFormat {
+            sample_rate: 44_100,
+            channels: 2,
+        })
+    );
+    rig.play(12.5, 44_100.0, 1, 3.0);
+    let second = rig.fake.file(1);
+    wait_for("the audio", || audio(&second).len() == 1);
+    assert_eq!(
+        audio(&second)[0].host_time,
+        Some(HostTime::from_nanos(12_500_000_000))
+    );
+    rig.backend.disarm().unwrap();
+}
+
+#[test]
+fn records_video_only_without_a_tap() {
+    let rig = Rig::without_tap();
+    rig.backend.select_camera("usb-1").unwrap();
+    rig.backend.arm().unwrap();
+    assert_eq!(lock(&rig.fake.configs)[0].audio, None);
+    rig.fake.deliver(0);
+    rig.settle();
+    rig.backend.disarm().unwrap();
+    let file = rig.fake.file(0);
+    wait_for("the file to finish", || {
+        file.stopped.load(Ordering::Acquire)
+    });
+    assert_eq!(lock(&file.stats).frames_written, 1);
+    assert!(audio(&file).is_empty());
 }
 
 #[test]

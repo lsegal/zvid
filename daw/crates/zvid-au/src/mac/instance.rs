@@ -4,10 +4,11 @@
 //! ZVID Capture is a pass-through effect with no parameters. Input comes from
 //! either a render callback or a connection to another unit, is copied to the
 //! output unchanged, and, once the audio tap is taken, copied into the tap
-//! ring for recording. Every render also reads the host transport and pushes a
-//! snapshot into the transport ring. Both rings match the VST3 component's,
-//! and, as there, a control thread started by `Initialize` drains the
-//! transport ring into the take tracker and logs transport changes.
+//! for recording, timed by the render's `mHostTime`. Every render also reads
+//! the host transport and pushes a snapshot into the transport ring. Both
+//! match the VST3 component's, and, as there, a control thread started by
+//! `Initialize` drains the transport ring into the take tracker and logs
+//! transport changes.
 //!
 //! The render path is real-time safe: it takes no locks and allocates
 //! nothing. Values the host sets while the unit runs (input source, host
@@ -63,7 +64,8 @@ use objc2_core_audio_types::{
 use objc2_foundation::NSString;
 use zvid_daw_core::swap::Swap;
 use zvid_daw_core::{
-    Command, Consumer, ProcessSnapshot, Producer, RecordRoot, State, TakeChange, TakeFeed, ring,
+    AudioTap, Command, ProcessSnapshot, Producer, RecordRoot, State, TakeChange, TakeFeed,
+    TapWriter, audio_tap, ring,
 };
 use zvid_daw_ui::{Backend, HostLink, instance_backend};
 
@@ -196,7 +198,7 @@ struct Scratch {
     /// snapshots from gaps.
     block: u64,
     transport: Producer<ProcessSnapshot>,
-    tap: Producer<[f32; 2]>,
+    tap: TapWriter,
 }
 
 /// One instance of ZVID Capture. Created by the factory and freed by `Close`.
@@ -224,7 +226,7 @@ pub struct AudioUnitInstance {
     /// Runs while the unit is initialized.
     control: Mutex<Option<Control>>,
     tap_enabled: AtomicBool,
-    audio_tap: Mutex<Option<Consumer<[f32; 2]>>>,
+    audio_tap: Mutex<Option<AudioTap>>,
     last_render_error: AtomicI32,
     /// `BypassEffect`. The audio passes through either way; bypass only
     /// tells the host the effect is off, and recording continues.
@@ -243,7 +245,7 @@ pub struct AudioUnitInstance {
 impl AudioUnitInstance {
     pub(super) fn create() -> *mut Self {
         let (transport, transport_reader) = ring(TRANSPORT_CAPACITY);
-        let (tap, tap_reader) = ring(AUDIO_TAP_FRAMES);
+        let (tap, tap_reader) = audio_tap(AUDIO_TAP_FRAMES);
         let (commands, command_reader) = mpsc::channel();
         let format = Format {
             sample_rate: DEFAULT_SAMPLE_RATE,
@@ -308,11 +310,11 @@ impl AudioUnitInstance {
     /// registered (see [`zvid_daw_ui::register_backend`]), started when the
     /// first editor opens and shut down when the unit is closed.
     ///
-    /// Starting it takes the [`AudioUnitInstance::take_changes`] receiver,
-    /// which only happens once. An editor may open before `Initialize`: it
-    /// lists and opens cameras right away, while its capture commands wait
-    /// in [`AudioUnitInstance::commands`] and takes appear once the control
-    /// thread runs.
+    /// Starting it takes the [`AudioUnitInstance::take_changes`] receiver and
+    /// the audio tap, which only happens once. An editor may open before
+    /// `Initialize`: it lists and opens cameras right away, while its capture
+    /// commands wait in [`AudioUnitInstance::commands`] and takes appear once
+    /// the control thread runs.
     pub fn backend(&self) -> Arc<dyn Backend> {
         self.backend
             .get_or_init(|| {
@@ -339,6 +341,7 @@ impl AudioUnitInstance {
                     }),
                     // The Live set's directory isn't known to the plugin yet.
                     record_root: RecordRoot::resolve_or_temp(None),
+                    audio: self.take_audio_tap(),
                 })
             })
             .clone()
@@ -362,10 +365,12 @@ impl AudioUnitInstance {
         self.takes.subscribe()
     }
 
-    /// Takes the reading end of the input-audio tap: stereo frames from the
-    /// input bus (mono input is duplicated). Render only feeds the tap once
-    /// it has been taken; later calls return `None`.
-    pub fn take_audio_tap(&self) -> Option<Consumer<[f32; 2]>> {
+    /// Takes the reading end of the input-audio tap: blocks of stereo frames
+    /// from the input bus (mono input is duplicated), each with the host
+    /// time of its first frame (the render's `mHostTime`, as for transport
+    /// snapshots) and the sample rate. Render only feeds the tap once it has
+    /// been taken; later calls return `None`.
+    pub fn take_audio_tap(&self) -> Option<AudioTap> {
         let tap = lock(&self.audio_tap).take();
         if tap.is_some() {
             self.tap_enabled.store(true, Ordering::Release);
@@ -891,16 +896,18 @@ impl AudioUnitInstance {
             unsafe { *flags = action_flags };
         }
 
-        let host_time = time_stamp
+        let now = if time_stamp
             .mFlags
             .contains(AudioTimeStampFlags::HostTimeValid)
-            .then(|| host_ticks_to_sec(time_stamp.mHostTime, self.timebase.0, self.timebase.1));
+        {
+            host_ticks_to_sec(time_stamp.mHostTime, self.timebase.0, self.timebase.1)
+        } else {
+            host_ticks_to_sec(host_now(), self.timebase.0, self.timebase.1)
+        };
         if let Some(host) = self.host_callbacks.load() {
             // SAFETY: host callbacks are only valid inside render, which is
             // where this runs.
             let reading = unsafe { read_host(host) };
-            let now = host_time
-                .unwrap_or_else(|| host_ticks_to_sec(host_now(), self.timebase.0, self.timebase.1));
             if let Some(snapshot) =
                 snapshot(reading, scratch.block, frames, scratch.sample_rate, now)
             {
@@ -915,13 +922,13 @@ impl AudioUnitInstance {
         {
             let right = io_buffers.get(1).unwrap_or(left);
             let (left, right) = (left.mData.cast::<f32>(), right.mData.cast::<f32>());
-            for frame in 0..frames as usize {
-                // SAFETY: every output buffer now holds `frames` samples. A
-                // full ring drops frames and counts them.
-                let _ = scratch
-                    .tap
-                    .push(unsafe { [*left.add(frame), *right.add(frame)] });
-            }
+            // A full tap drops the whole block and counts it.
+            let _ = scratch
+                .tap
+                .push(now, scratch.sample_rate, frames as usize, |frame| {
+                    // SAFETY: every output buffer now holds `frames` samples.
+                    unsafe { [*left.add(frame), *right.add(frame)] }
+                });
         }
 
         self.call_render_notifies(

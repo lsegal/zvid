@@ -138,7 +138,7 @@ owns mutable plugin state.
 
 | Thread | Owned by | Does | Must not |
 |---|---|---|---|
-| **Audio** | Host (`IAudioProcessor::process` / AU render) | Copies a transport snapshot and the input-bus samples into preallocated lock-free SPSC rings (e.g. `rtrb`). Passes audio through unchanged. | Allocate, lock, block, log or do I/O. If a ring is full, drop the data and count the drop. |
+| **Audio** | Host (`IAudioProcessor::process` / AU render) | Copies a transport snapshot and the input-bus samples into preallocated lock-free SPSC rings (e.g. `rtrb`). Each block of samples carries its host time and sample rate. Passes audio through unchanged. | Allocate, lock, block, log or do I/O. If a ring is full, drop the data and count the drop. |
 | **Control** | Plugin (one per instance) | Drains the rings, runs the `TakeTracker`, turns take events into `Recording` entries, arms/disarms capture, and publishes state snapshots. | Block on capture, encode or UI work. |
 | **Capture / encode** | Plugin and platform (AVFoundation dispatch queue, Media Foundation source reader) | Receives frames, stamps them, feeds zvidlib and the AAC encoder, writes the MP4, and produces downscaled preview JPEGs. Reports the frame clock to the control thread. | Touch plugin state directly. |
 | **UI / host main** | Host | Hosts the webview, answers IPC, and serves `zvid://`. Also where hosts call get/set state. | Talk to anything but the control thread. |
@@ -166,6 +166,10 @@ Takes are only useful if they line up with the arrangement. The target is
      not say which clock it is on.
    - AU: the render `AudioTimeStamp`'s `mHostTime` when valid; otherwise the
      clock read at the start of the render callback.
+
+   The input-audio tap (`zvid_daw_core::tap`) stamps each block's first
+   frame with that same time, alongside the block's sample rate, so recorded
+   audio is on the clock the takes are.
 
    No latency correction is applied yet. The plugin reports zero latency in
    both formats, so it has no latency of its own to correct for, and neither
@@ -262,6 +266,12 @@ It is implemented by `State` and `Recording` in `zvid-daw-core`.
   host-time order, and publishes each take that opens or closes to the
   format layer's `take_changes()` receiver, which the backend turns into
   `takeOpened` and `takeClosed` events.
+- **Capture audio.** The backend takes the format layer's input-audio tap
+  (`take_audio_tap()`) when it starts. Each capture records AAC at the bus's
+  sample rate at arm time, and gets the blocks tapped while it is armed, with
+  their host times. A block at another sample rate is dropped until the next
+  capture. Without a tap, or before the host has processed any audio, a
+  capture is video only.
 - **One backend per instance.** The format crates can't name the backend,
   so the plugin binary registers it with `zvid_daw_ui::register_backend`
   from `GetPluginFactory` and the AU factory. The VST3 `Component` and AU

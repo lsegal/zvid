@@ -3,7 +3,7 @@
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex, OnceLock};
 
-use zvid_daw_core::{Command, RecordRoot, State, TakeChange};
+use zvid_daw_core::{AudioTap, Command, RecordRoot, State, TakeChange};
 
 use crate::channels::Channels;
 use crate::mock::MockBackend;
@@ -54,6 +54,9 @@ pub struct HostLink {
     pub state_changed: Box<dyn Fn() + Send + Sync>,
     /// Where capture files are written.
     pub record_root: RecordRoot,
+    /// The input-bus tap (`take_audio_tap()`), or `None` to record video
+    /// only.
+    pub audio: Option<AudioTap>,
 }
 
 /// Builds a plugin instance's backend from its [`HostLink`].
