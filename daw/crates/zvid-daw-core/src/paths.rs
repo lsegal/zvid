@@ -32,6 +32,15 @@ impl RecordRoot {
         Self::resolve_with(set_dir, documents.as_deref())
     }
 
+    /// [`RecordRoot::resolve`], falling back to `<temp>/ZVID/Recorded` when
+    /// the OS has no Documents directory.
+    pub fn resolve_or_temp(set_dir: Option<&Path>) -> Self {
+        Self::resolve(set_dir).unwrap_or_else(|| Self {
+            kind: RecordRootKind::Documents,
+            dir: std::env::temp_dir().join("ZVID").join("Recorded"),
+        })
+    }
+
     /// [`RecordRoot::resolve`] with an explicit Documents directory.
     pub fn resolve_with(set_dir: Option<&Path>, documents: Option<&Path>) -> Option<Self> {
         match (set_dir, documents) {

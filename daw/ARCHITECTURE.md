@@ -272,6 +272,14 @@ It is implemented by `State` and `Recording` in `zvid-daw-core`.
   their host times. A block at another sample rate is dropped until the next
   capture. Without a tap, or before the host has processed any audio, a
   capture is video only.
+- **One backend per instance.** The format crates can't name the backend,
+  so the plugin binary registers it with `zvid_daw_ui::register_backend`
+  from `GetPluginFactory` and the AU factory. The VST3 `Component` and AU
+  `AudioUnitInstance` start it from a `HostLink` (state, `commands()`,
+  `take_changes()`, the host dirty notification and the record root) when
+  their first editor opens, share it across their editors, and shut it
+  down when the instance is destroyed. Without a registration, as in the
+  format crates' own tests, editors get a `MockBackend`.
 - **`camera`** is the camera last chosen in the editor: the capture layer's
   unique device ID and the device name. The backend restores it by ID
   first, then by name, when it starts and whenever the host loads a state

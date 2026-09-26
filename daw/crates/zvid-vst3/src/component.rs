@@ -28,12 +28,11 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use zvid_daw_core::{
-    AudioTap, Command, Consumer, LiveLink, ProcessSnapshot, Producer, State, TakeChange, TakeFeed,
-    TapWriter, TransportFollower, audio_tap, clock, ring,
+    AudioTap, Command, Consumer, LiveLink, ProcessSnapshot, Producer, RecordRoot, State,
+    TakeChange, TakeFeed, TapWriter, TransportFollower, audio_tap, clock, ring,
 };
 
-use zvid_daw_ui::Backend;
-use zvid_daw_ui::mock::MockBackend;
+use zvid_daw_ui::{Backend, HostLink, instance_backend};
 
 use crate::CLASS_ID;
 use crate::abi::result::{FALSE, INVALID_ARGUMENT, NO_INTERFACE, NOT_IMPLEMENTED, OK};
@@ -198,11 +197,28 @@ impl Component {
         tap
     }
 
-    /// The backend this instance's editors share. It is the mock backend
-    /// until the real one (#223) lands.
+    /// The backend this instance's editors share: the one the plugin binary
+    /// registered (see [`zvid_daw_ui::register_backend`]), started when the
+    /// first editor opens and shut down with the instance.
+    ///
+    /// Starting it takes the [`Component::take_changes`] receiver and the audio
+    /// tap, which only happens once. An editor may open before `initialize`: it
+    /// lists and opens cameras right away, while its capture commands wait in
+    /// [`Component::commands`] and takes appear once the control thread runs.
     pub fn backend(&self) -> Arc<dyn Backend> {
         self.backend
-            .get_or_init(|| Arc::new(MockBackend::for_plugin(self.state().clone())))
+            .get_or_init(|| {
+                let handler = Arc::clone(&self.handler);
+                instance_backend(HostLink {
+                    state: self.shared_state(),
+                    commands: self.commands(),
+                    takes: self.take_changes(),
+                    state_changed: Box::new(move || handler.state_changed()),
+                    // The Live set's directory isn't known to the plugin yet.
+                    record_root: RecordRoot::resolve_or_temp(None),
+                    audio: self.take_audio_tap(),
+                })
+            })
             .clone()
     }
 
@@ -388,6 +404,10 @@ impl Component {
 
 impl Drop for Component {
     fn drop(&mut self) {
+        // Editors may outlive the instance; the capture must not.
+        if let Some(backend) = self.backend.get() {
+            backend.shutdown();
+        }
         stop_control(self.lifecycle.get_mut().unwrap_or_else(|e| e.into_inner()));
         unsafe { self.set_component_handler(ptr::null_mut()) };
     }

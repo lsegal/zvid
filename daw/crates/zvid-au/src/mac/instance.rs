@@ -64,11 +64,10 @@ use objc2_core_audio_types::{
 use objc2_foundation::NSString;
 use zvid_daw_core::swap::Swap;
 use zvid_daw_core::{
-    AudioTap, Command, ProcessSnapshot, Producer, State, TakeChange, TakeFeed, TapWriter,
-    audio_tap, ring,
+    AudioTap, Command, ProcessSnapshot, Producer, RecordRoot, State, TakeChange, TakeFeed,
+    TapWriter, audio_tap, ring,
 };
-use zvid_daw_ui::Backend;
-use zvid_daw_ui::mock::MockBackend;
+use zvid_daw_ui::{Backend, HostLink, instance_backend};
 
 use super::control::{Control, Inputs};
 use super::{class_info, view};
@@ -237,6 +236,10 @@ pub struct AudioUnitInstance {
     /// What every editor this unit opens talks to, created with the first
     /// one.
     backend: OnceLock<Arc<dyn Backend>>,
+    /// The instance's address while it is alive, for the backend to tell
+    /// the host the state changed. Cleared, under the lock, before the
+    /// instance is freed.
+    alive: Arc<Mutex<usize>>,
 }
 
 impl AudioUnitInstance {
@@ -294,6 +297,7 @@ impl AudioUnitInstance {
             bypass: AtomicBool::new(false),
             timebase: timebase(),
             backend: OnceLock::new(),
+            alive: Arc::new(Mutex::new(0)),
         }))
     }
 
@@ -302,11 +306,44 @@ impl AudioUnitInstance {
         lock(&self.state)
     }
 
-    /// The backend this unit's editors share. It is the mock backend until
-    /// the real one (#223) lands.
+    /// The backend this unit's editors share: the one the plugin binary
+    /// registered (see [`zvid_daw_ui::register_backend`]), started when the
+    /// first editor opens and shut down when the unit is closed.
+    ///
+    /// Starting it takes the [`AudioUnitInstance::take_changes`] receiver and
+    /// the audio tap, which only happens once. An editor may open before
+    /// `Initialize`: it lists and opens cameras right away, while its capture
+    /// commands wait in [`AudioUnitInstance::commands`] and takes appear once
+    /// the control thread runs.
     pub fn backend(&self) -> Arc<dyn Backend> {
         self.backend
-            .get_or_init(|| Arc::new(MockBackend::for_plugin(self.state().clone())))
+            .get_or_init(|| {
+                *lock(&self.alive) = ptr::from_ref(self) as usize;
+                let alive = Arc::clone(&self.alive);
+                instance_backend(HostLink {
+                    state: self.shared_state(),
+                    commands: self.commands(),
+                    takes: self.take_changes(),
+                    state_changed: Box::new(move || {
+                        let instance = lock(&alive);
+                        if *instance != 0 {
+                            // SAFETY: `Drop` clears the address under this
+                            // lock before the instance is freed.
+                            let instance = unsafe { &*(*instance as *const Self) };
+                            // Hosts save ClassInfo, so this tells them the
+                            // set changed.
+                            instance.notify(
+                                kAudioUnitProperty_ClassInfo,
+                                kAudioUnitScope_Global,
+                                0,
+                            );
+                        }
+                    }),
+                    // The Live set's directory isn't known to the plugin yet.
+                    record_root: RecordRoot::resolve_or_temp(None),
+                    audio: self.take_audio_tap(),
+                })
+            })
             .clone()
     }
 
@@ -930,6 +967,11 @@ impl AudioUnitInstance {
 
 impl Drop for AudioUnitInstance {
     fn drop(&mut self) {
+        // Editors may outlive the unit; the capture must not.
+        if let Some(backend) = self.backend.get() {
+            backend.shutdown();
+        }
+        *lock(&self.alive) = 0;
         // `Close` may come without `Uninitialize`.
         self.stop_control();
     }

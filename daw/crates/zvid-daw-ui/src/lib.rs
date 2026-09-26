@@ -24,7 +24,7 @@ pub mod range;
 /// Size and position types used by [`Editor`].
 pub use wry::dpi;
 
-pub use backend::Backend;
+pub use backend::{Backend, BackendFactory, HostLink, instance_backend, register_backend};
 pub use channels::{Channels, EventLog, PreviewSlot};
 pub use desktop::{Desktop, SystemDesktop};
 pub use editor::{DEFAULT_SIZE, Editor, EditorOptions, MIN_SIZE, ParentWindow};

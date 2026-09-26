@@ -33,6 +33,7 @@ mod local_time;
 pub mod map;
 mod platform;
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex, MutexGuard, Weak};
 use std::thread;
@@ -41,6 +42,7 @@ use std::time::{Duration, Instant, SystemTime};
 use zvid_capture::record::{AudioFormat, FrameClock, RecordConfig, VideoEncoderChoice};
 use zvid_capture::{Device, DeviceEvent, Rational};
 use zvid_daw_core::{AudioTap, CameraChoice, Capture, Command, RecordRoot, State, TakeChange};
+pub use zvid_daw_ui::HostLink;
 use zvid_daw_ui::mock::rfc3339_utc;
 use zvid_daw_ui::{
     Backend, Camera, CaptureInfo, Channels, ErrorCode, Status, TakeFile, TakeInfo, UiError,
@@ -59,24 +61,6 @@ const TICK: Duration = Duration::from_millis(50);
 /// An open camera that delivers no frame for this long has failed.
 const STALL: Duration = Duration::from_secs(5);
 
-/// The format layer's side of the backend: what VST3's `Component` and
-/// AU's `AudioUnitInstance` expose for the editor.
-pub struct HostLink {
-    /// The persisted plugin state (`shared_state()`).
-    pub state: Arc<Mutex<State>>,
-    /// Where capture commands go (`commands()`).
-    pub commands: Sender<Command>,
-    /// Takes the control thread opens and closes (`take_changes()`).
-    pub takes: Receiver<TakeChange>,
-    /// Tells the host the state changed, so it marks the set as modified.
-    pub state_changed: Box<dyn Fn() + Send + Sync>,
-    /// Where capture files are written.
-    pub record_root: RecordRoot,
-    /// The input-bus tap (`take_audio_tap()`), or `None` to record video
-    /// only.
-    pub audio: Option<AudioTap>,
-}
-
 pub struct CaptureBackend {
     platform: Arc<dyn Platform>,
     channels: Arc<Channels>,
@@ -85,6 +69,9 @@ pub struct CaptureBackend {
     state_changed: Box<dyn Fn() + Send + Sync>,
     root: RecordRoot,
     stall: Duration,
+    /// Set by [`Backend::shutdown`]: the camera stays closed and commands
+    /// fail.
+    closed: AtomicBool,
     inner: Mutex<Inner>,
     /// The file frames are recorded to while armed. The capture thread
     /// reads it for every frame, so it has its own lock.
@@ -161,6 +148,7 @@ impl CaptureBackend {
             state_changed,
             root: record_root,
             stall,
+            closed: AtomicBool::new(false),
             inner: Mutex::new(Inner::default()),
             recorder: Arc::new(Mutex::new(None)),
             audio: Mutex::new(AudioIn {
@@ -193,6 +181,21 @@ impl CaptureBackend {
     fn send(&self, command: Command) {
         if self.commands.send(command).is_err() {
             log("the plugin's control thread is gone; the command was dropped");
+        }
+    }
+
+    fn is_closed(&self) -> bool {
+        self.closed.load(Ordering::Acquire)
+    }
+
+    fn check_open(&self) -> Result<(), UiError> {
+        if self.is_closed() {
+            Err(UiError::new(
+                ErrorCode::InvalidRequest,
+                "The plugin instance was removed.",
+            ))
+        } else {
+            Ok(())
         }
     }
 
@@ -237,6 +240,7 @@ impl CaptureBackend {
     fn open_camera(&self, device: Device) -> Result<(), UiError> {
         let (previous, generation) = {
             let mut inner = self.lock();
+            self.check_open()?;
             if inner.capture.is_some() {
                 return Err(UiError::new(
                     ErrorCode::InvalidRequest,
@@ -263,8 +267,9 @@ impl CaptureBackend {
         let opened = self.platform.open(&device.id, frames, preview);
 
         let mut inner = self.lock();
-        if inner.generation != generation {
-            // Another camera was chosen meanwhile; that one wins.
+        if inner.generation != generation || self.is_closed() {
+            // Another camera was chosen meanwhile, and that one wins, or the
+            // backend shut down.
             drop(inner);
             drop(opened);
             return Ok(());
@@ -525,6 +530,7 @@ impl Backend for CaptureBackend {
     }
 
     fn select_camera(&self, id: &str) -> Result<(), UiError> {
+        self.check_open()?;
         let (device, reopen) = {
             let inner = self.lock();
             if inner.capture.is_some() {
@@ -584,6 +590,7 @@ impl Backend for CaptureBackend {
     }
 
     fn refresh_devices(&self) -> Result<Vec<Camera>, UiError> {
+        self.check_open()?;
         let devices = self
             .platform
             .devices()
@@ -602,6 +609,7 @@ impl Backend for CaptureBackend {
 
     fn arm(&self) -> Result<(), UiError> {
         let mut inner = self.lock();
+        self.check_open()?;
         if inner.capture.is_some() {
             return Ok(());
         }
@@ -709,15 +717,20 @@ impl Backend for CaptureBackend {
     fn channels(&self) -> &Channels {
         &self.channels
     }
-}
 
-impl Drop for CaptureBackend {
-    fn drop(&mut self) {
+    fn shutdown(&self) {
+        self.closed.store(true, Ordering::Release);
         let mut inner = std::mem::take(&mut *self.lock());
         // Finish the file before the plugin can be unloaded.
         self.stop_capture(&mut inner, true);
         drop(inner);
         self.channels.preview.clear();
+    }
+}
+
+impl Drop for CaptureBackend {
+    fn drop(&mut self) {
+        self.shutdown();
     }
 }
 
@@ -741,7 +754,7 @@ fn monitor(backend: Weak<CaptureBackend>, takes: Receiver<TakeChange>) {
             .ok()
     };
     loop {
-        let Some(backend) = backend.upgrade() else {
+        let Some(backend) = backend.upgrade().filter(|backend| !backend.is_closed()) else {
             return;
         };
         for change in takes.try_iter() {
@@ -786,4 +799,4 @@ fn log(line: &str) {
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
