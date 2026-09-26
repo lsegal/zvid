@@ -814,6 +814,7 @@ fn play_spans_while_armed_become_saved_takes() {
         (host.controller().set_component_handler)(host.controller, handler_ptr);
     }
     let commands = host.object().commands();
+    let takes = host.object().take_changes();
     commands
         .send(Command::Arm {
             capture: zvid_daw_core::Capture {
@@ -875,7 +876,11 @@ fn play_spans_while_armed_become_saved_takes() {
         assert!(take.duration_sec > 0.0);
     }
     assert!(state.recordings[1].file_offset_sec > state.recordings[0].file_offset_sec);
-    // The host heard about the takes.
+    // The host heard about the takes, and so did the editor.
     assert!(handler.dirty.load(Ordering::Relaxed) >= 1);
+    let changes: Vec<TakeChange> = takes.try_iter().collect();
+    assert_eq!(changes.len(), 4);
+    assert!(matches!(changes[0], TakeChange::Opened { index: 0, .. }));
+    assert!(matches!(&changes[3], TakeChange::Closed(take) if take.id == state.recordings[1].id));
     unsafe { (component.terminate)(host.component) };
 }

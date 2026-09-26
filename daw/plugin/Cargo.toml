@@ -15,3 +15,12 @@ zvid-capture.workspace = true
 zvid-daw-ui.workspace = true
 zvid-vst3.workspace = true
 zvid-au.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows = { workspace = true, features = ["Win32_System_SystemInformation"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+serde_json.workspace = true
