@@ -30,7 +30,7 @@ use std::future::Future;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
-use std::task::{Context, Poll, Waker};
+use std::task::{Context, Poll, Wake, Waker};
 use std::thread::JoinHandle;
 
 use zvid_daw_core::{LocalTime, RecordRoot, next_capture_filename};
@@ -908,16 +908,25 @@ fn take_slot(in_flight: &mut VecDeque<(u64, u64)>, index: u64) -> Result<(u64, u
     ))
 }
 
-/// Drives a zvidlib future to completion. zvidlib's native codecs and our
-/// file sink finish their futures without waiting on anything.
+/// Drives a zvidlib future to completion on this thread. Most finish
+/// without waiting; zvidlib's Media Foundation encoders wait on a worker
+/// thread and wake this one, so it sleeps rather than spinning meanwhile.
 pub(crate) fn block_on<T>(future: impl Future<Output = T>) -> T {
-    let mut context = Context::from_waker(Waker::noop());
+    struct Unpark(std::thread::Thread);
+    impl Wake for Unpark {
+        fn wake(self: Arc<Self>) {
+            self.0.unpark();
+        }
+    }
+    let waker = Waker::from(Arc::new(Unpark(std::thread::current())));
+    let mut context = Context::from_waker(&waker);
     let mut future = std::pin::pin!(future);
     loop {
         if let Poll::Ready(value) = future.as_mut().poll(&mut context) {
             return value;
         }
-        std::thread::yield_now();
+        // The timeout covers a future that returns pending without waking.
+        std::thread::park_timeout(std::time::Duration::from_millis(1));
     }
 }
 
