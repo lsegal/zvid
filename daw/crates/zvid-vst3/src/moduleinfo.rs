@@ -5,7 +5,7 @@ use serde_json::json;
 use zvid_daw_core::{PLUGIN_NAME, VENDOR};
 
 use crate::abi::{AUDIO_EFFECT_CLASS, MANY_INSTANCES};
-use crate::{CLASS_ID_WORDS, SDK_VERSION, SUB_CATEGORIES, URL, VERSION};
+use crate::{CLASS_ID_WORDS, SDK_VERSION, SUB_CATEGORIES, URL};
 
 /// The class ID as `moduleinfo.json` writes it: the four documented words
 /// in uppercase hex, the same on every platform.
@@ -16,10 +16,12 @@ pub fn class_id_string() -> String {
         .collect()
 }
 
-pub fn module_info() -> String {
+/// The module info for a bundle stamped with `version`, which the release
+/// bundle stamps with the commit.
+pub fn module_info(version: &str) -> String {
     let info = json!({
         "Name": PLUGIN_NAME,
-        "Version": VERSION,
+        "Version": version,
         "Factory Info": {
             "Vendor": VENDOR,
             "URL": URL,
@@ -36,7 +38,7 @@ pub fn module_info() -> String {
             "Category": AUDIO_EFFECT_CLASS,
             "Name": PLUGIN_NAME,
             "Vendor": VENDOR,
-            "Version": VERSION,
+            "Version": version,
             "SDKVersion": SDK_VERSION,
             "Sub Categories": SUB_CATEGORIES.split('|').collect::<Vec<_>>(),
             "Class Flags": 0,
@@ -54,7 +56,7 @@ mod tests {
 
     #[test]
     fn describes_the_class() {
-        let info: Value = serde_json::from_str(&module_info()).unwrap();
+        let info: Value = serde_json::from_str(&module_info("0.1.0+c94f40e")).unwrap();
         assert_eq!(info["Name"], "ZVID Capture");
         assert_eq!(info["Factory Info"]["Vendor"], "ZVID");
         assert_eq!(info["Factory Info"]["Flags"]["Unicode"], true);
@@ -63,6 +65,7 @@ mod tests {
         assert_eq!(class["Category"], "Audio Module Class");
         assert_eq!(class["Sub Categories"], serde_json::json!(["Fx", "Tools"]));
         assert_eq!(class["Cardinality"], 0x7FFF_FFFF);
-        assert_eq!(class["Version"], VERSION);
+        assert_eq!(info["Version"], "0.1.0+c94f40e");
+        assert_eq!(class["Version"], "0.1.0+c94f40e");
     }
 }

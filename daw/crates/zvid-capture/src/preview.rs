@@ -136,15 +136,26 @@ impl Converter {
     }
 
     pub(crate) fn rgb(&self, y: u32, u: u32, v: u32) -> [u8; 3] {
-        let y = (y as f32 - self.y_offset) * self.y_scale;
+        self.with_chroma(y, self.chroma(u, v))
+    }
+
+    /// What a chroma sample adds to R, G and B, shared by the pixels it
+    /// covers.
+    pub(crate) fn chroma(&self, u: u32, v: u32) -> [f32; 3] {
         let u = (u as f32 - 128.0) * self.c_scale;
         let v = (v as f32 - 128.0) * self.c_scale;
+        [self.kr * v, -self.kgu * u - self.kgv * v, self.kb * u]
+    }
+
+    /// Luma on the 0-255 scale.
+    pub(crate) fn luma(&self, y: u32) -> f32 {
+        (y as f32 - self.y_offset) * self.y_scale
+    }
+
+    pub(crate) fn with_chroma(&self, y: u32, [r, g, b]: [f32; 3]) -> [u8; 3] {
+        let y = self.luma(y);
         let clamp = |x: f32| x.round().clamp(0.0, 255.0) as u8;
-        [
-            clamp(y + self.kr * v),
-            clamp(y - self.kgu * u - self.kgv * v),
-            clamp(y + self.kb * u),
-        ]
+        [clamp(y + r), clamp(y + g), clamp(y + b)]
     }
 }
 

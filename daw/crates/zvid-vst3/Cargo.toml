@@ -7,4 +7,5 @@ publish.workspace = true
 
 [dependencies]
 zvid-daw-core.workspace = true
+zvid-daw-ui.workspace = true
 serde_json.workspace = true

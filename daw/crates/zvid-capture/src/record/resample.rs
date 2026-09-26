@@ -6,10 +6,6 @@
 //! rate. [`AudioClock`](super::AudioClock) keeps counting input frames, and
 //! frame `n` of it lands at output frame `n * to / from`.
 
-use zvidlib::AudioGapless;
-
-use super::encoder::PcmEncoder;
-
 /// Filter taps either side of the output position, in input frames, when
 /// not decimating. Decimating widens the filter by the ratio.
 const HALF_TAPS: f64 = 16.0;
@@ -132,52 +128,6 @@ impl Resampler {
         let consumed = (first - self.base).clamp(0, available - self.base) as usize;
         self.history.drain(..consumed * channels);
         self.base += consumed as i64;
-    }
-}
-
-/// An encoder fed through a [`Resampler`], for input at a rate it doesn't
-/// take.
-pub struct Resampled {
-    encoder: Box<dyn PcmEncoder>,
-    resampler: Resampler,
-}
-
-impl Resampled {
-    /// Feeds `encoder`, opened at its own rate, from `from` Hz input.
-    pub fn new(encoder: Box<dyn PcmEncoder>, from: u32, channels: u16) -> Self {
-        let resampler = Resampler::new(from, encoder.sample_rate(), channels);
-        Self { encoder, resampler }
-    }
-}
-
-impl PcmEncoder for Resampled {
-    fn name(&self) -> &'static str {
-        self.encoder.name()
-    }
-
-    fn sample_rate(&self) -> u32 {
-        self.encoder.sample_rate()
-    }
-
-    fn decoder_config(&self) -> Vec<u8> {
-        self.encoder.decoder_config()
-    }
-
-    fn priming(&self) -> u32 {
-        self.encoder.priming()
-    }
-
-    fn encode(&mut self, interleaved: &[f32]) -> Result<Vec<Vec<u8>>, String> {
-        let pcm = self.resampler.process(interleaved);
-        self.encoder.encode(&pcm)
-    }
-
-    fn finish(&mut self) -> Result<(Vec<Vec<u8>>, AudioGapless), String> {
-        let tail = self.resampler.finish();
-        let mut packets = self.encoder.encode(&tail)?;
-        let (rest, gapless) = self.encoder.finish()?;
-        packets.extend(rest);
-        Ok((packets, gapless))
     }
 }
 

@@ -15,7 +15,6 @@ use zvidlib::io::{ByteSink, IoFuture};
 use zvidlib::mp4::{Mp4Muxer, Mp4TrackConfig, Mp4TrackFormat};
 use zvidlib::{AudioGapless, Codec, EncodedSample, SampleDependency};
 
-use super::bitstream::mp4_box;
 use super::block_on;
 
 const MOVIE_TIMESCALE: u32 = 1000;
@@ -290,6 +289,15 @@ fn invalid(message: &str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidInput, message)
 }
 
+/// A plain MP4 box: 32-bit size, fourcc, body.
+fn mp4_box(kind: &[u8; 4], body: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(body.len() + 8);
+    out.extend_from_slice(&((body.len() + 8) as u32).to_be_bytes());
+    out.extend_from_slice(kind);
+    out.extend_from_slice(body);
+    out
+}
+
 fn full_box(kind: &[u8; 4], version: u8, flags: u32, body: &[u8]) -> Vec<u8> {
     let mut payload = Vec::with_capacity(body.len() + 4);
     payload.push(version);
@@ -482,7 +490,13 @@ pub(crate) mod tests {
         EncoderConfig, Limits, Mp4Demuxer, Mp4DemuxerOptions, TrackKind, VideoDimensions,
     };
 
-    use crate::record::bitstream::{aac_lc_config, esds_box};
+    /// The `esds` of 48 kHz stereo AAC-LC at 128 kb/s.
+    const ESDS: [u8; 51] = [
+        0x00, 0x00, 0x00, 0x33, b'e', b's', b'd', b's', 0x00, 0x00, 0x00, 0x00, 0x03, 0x80, 0x80,
+        0x80, 0x22, 0x00, 0x00, 0x00, 0x04, 0x80, 0x80, 0x80, 0x14, 0x40, 0x15, 0x00, 0x00, 0x00,
+        0x00, 0x01, 0xf4, 0x00, 0x00, 0x01, 0xf4, 0x00, 0x05, 0x80, 0x80, 0x80, 0x02, 0x11, 0x90,
+        0x06, 0x80, 0x80, 0x80, 0x01, 0x02,
+    ];
 
     fn tracks() -> Vec<Track> {
         let video = super::super::tests::hevc_config(64, 48, 30);
@@ -501,7 +515,7 @@ pub(crate) mod tests {
                     encoder: EncoderConfig {
                         codec: Codec::Aac,
                         timescale: 48_000,
-                        decoder_config: esds_box(&aac_lc_config(48_000, 2).unwrap(), 128_000),
+                        decoder_config: ESDS.to_vec(),
                     },
                     format: Mp4TrackFormat::Audio { channels: 2 },
                 },

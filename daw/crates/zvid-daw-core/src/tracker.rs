@@ -103,6 +103,14 @@ impl TakeTracker {
         self.open.as_ref()
     }
 
+    /// The open take with its duration running up to host time `at`.
+    pub fn open_take_until(&self, at: f64) -> Option<Take> {
+        self.open.map(|take| Take {
+            duration_sec: (self.file_time(at) - take.file_offset_sec).max(0.0),
+            ..take
+        })
+    }
+
     pub fn handle(&mut self, input: Input) -> Vec<Event> {
         let mut events = Vec::new();
         match input {
