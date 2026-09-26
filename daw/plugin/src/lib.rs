@@ -3,9 +3,12 @@
 //!
 //! This crate exports the VST3 module entry points (`GetPluginFactory` on
 //! every platform, plus the platform's load/unload hooks) and, on macOS, the
-//! AUv2 factory function.
+//! AUv2 factory function. [`backend`] implements the editor's backend over
+//! the capture layer and the format layers' take log.
 
 use std::ffi::c_void;
+
+pub mod backend;
 
 pub use zvid_daw_core::{PLUGIN_NAME, VENDOR};
 

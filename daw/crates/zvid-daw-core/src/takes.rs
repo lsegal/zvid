@@ -5,6 +5,13 @@
 //! disarms and writes frames. Every take becomes a [`Recording`] in the
 //! state as soon as it opens, so a set saved mid-take still lists it, and
 //! the recording's duration keeps running until the take closes.
+//!
+//! The log also records each take that opens or closes as a
+//! [`TakeChange`], which the control thread forwards to the editor through
+//! a [`TakeFeed`].
+
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use crate::state::{Recording, RecordingMeta, State};
 use crate::tracker::{Event, Input, Take, TakeTracker, TransportSnapshot};
@@ -48,6 +55,49 @@ impl Command {
     }
 }
 
+/// A take that opened or closed, after the log updated the state.
+#[derive(Clone, Debug, PartialEq)]
+pub enum TakeChange {
+    /// A take opened and its entry was appended to the state. `index`
+    /// counts the capture's takes from 0.
+    Opened { index: u32, id: String },
+    /// A take closed; this is its final entry in the state.
+    Closed(Recording),
+}
+
+/// Carries [`TakeChange`]s from the control thread to one listener, the
+/// editor backend. Clones share the listener.
+#[derive(Clone, Debug, Default)]
+pub struct TakeFeed {
+    listener: Arc<Mutex<Option<Sender<TakeChange>>>>,
+}
+
+impl TakeFeed {
+    /// Starts receiving changes, replacing any earlier listener.
+    pub fn subscribe(&self) -> Receiver<TakeChange> {
+        let (sender, receiver) = mpsc::channel();
+        *self.lock() = Some(sender);
+        receiver
+    }
+
+    /// Sends `change` to the listener, if one is still receiving. Never
+    /// blocks.
+    pub fn publish(&self, change: TakeChange) {
+        let mut listener = self.lock();
+        if let Some(sender) = listener.as_ref()
+            && sender.send(change).is_err()
+        {
+            *listener = None;
+        }
+    }
+
+    fn lock(&self) -> MutexGuard<'_, Option<Sender<TakeChange>>> {
+        self.listener
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct TakeLog {
     tracker: TakeTracker,
@@ -56,11 +106,18 @@ pub struct TakeLog {
     takes: u32,
     /// State entry of the open take.
     open: Option<String>,
+    /// Changes not yet taken by [`TakeLog::take_changes`].
+    changes: Vec<TakeChange>,
 }
 
 impl TakeLog {
     pub fn is_armed(&self) -> bool {
         self.tracker.is_armed()
+    }
+
+    /// The takes that opened or closed since the last call, oldest first.
+    pub fn take_changes(&mut self) -> Vec<TakeChange> {
+        std::mem::take(&mut self.changes)
     }
 
     /// Applies a capture-layer command. Returns the take events it caused;
@@ -113,13 +170,17 @@ impl TakeLog {
                         continue;
                     };
                     self.open = Some(recording.id.clone());
+                    self.changes.push(TakeChange::Opened {
+                        index: self.takes - 1,
+                        id: recording.id.clone(),
+                    });
                     state.recordings.push(recording);
                 }
                 Event::TakeClosed(take) => {
                     let Some(finished) = self.recording(take) else {
                         continue;
                     };
-                    match self.open_recording(state) {
+                    let closed = match self.open_recording(state) {
                         // Keep the ID and any keys another version added.
                         Some(recording) => {
                             *recording = Recording {
@@ -127,11 +188,16 @@ impl TakeLog {
                                 extra: std::mem::take(&mut recording.extra),
                                 ..finished
                             };
+                            recording.clone()
                         }
                         // The state was replaced mid-take (a preset or undo
                         // load); the take still belongs in it.
-                        None => state.recordings.push(finished),
-                    }
+                        None => {
+                            state.recordings.push(finished.clone());
+                            finished
+                        }
+                    };
+                    self.changes.push(TakeChange::Closed(closed));
                     self.open = None;
                 }
             }

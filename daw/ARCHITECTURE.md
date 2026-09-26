@@ -224,7 +224,8 @@ It is implemented by `State` and `Recording` in `zvid-daw-core`.
     "tempo": 120, "timeSignature": [4, 4],
     "camera": "FaceTime HD Camera",
     "createdAt": "2026-09-25T20:36:12Z"
-  }]
+  }],
+  "camera": { "id": "0x1420000046d0893", "name": "Logitech BRIO" } // omitted until chosen
 }
 ```
 
@@ -250,12 +251,20 @@ It is implemented by `State` and `Recording` in `zvid-daw-core`.
   property-change notification.
 - **Take IDs** are the capture file's name without `.mp4`, plus
   `-take-N`, where `N` counts that capture's takes from 1.
-- **Capture layer commands.** The capture layer (#223) drives the take log
-  through the format layer's `commands()` channel. It sends `Arm` with the
-  capture file's name, size, frame rate, camera and `createdAt` when
-  recording starts, `FrameClock` as frames are written, and `Disarm` when
-  it stops. The control thread applies these commands and the transport
-  snapshots in host-time order.
+- **Capture layer commands.** The editor backend
+  (`zvid_capture_plugin::backend`, #223) drives the take log through the
+  format layer's `commands()` channel. It sends `Arm` with the capture
+  file's name, size, frame rate, camera and `createdAt` when recording
+  starts, `FrameClock` as frames are written, and `Disarm` when it stops.
+  The control thread applies these commands and the transport snapshots in
+  host-time order, and publishes each take that opens or closes to the
+  format layer's `take_changes()` receiver, which the backend turns into
+  `takeOpened` and `takeClosed` events.
+- **`camera`** is the camera last chosen in the editor: the capture layer's
+  unique device ID and the device name. The backend restores it by ID
+  first, then by name, when it starts and whenever the host loads a state
+  with a different choice. A camera that isn't connected opens when it is
+  plugged in.
 - **Forward compatibility.** Unknown keys, at the top level and per recording,
   are kept and written back unchanged, so an older plugin doesn't drop data a
   newer one saved. Additive changes keep `"version": "1"`; a change to the

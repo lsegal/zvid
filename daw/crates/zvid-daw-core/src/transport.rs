@@ -8,7 +8,7 @@ use std::sync::{Mutex, MutexGuard};
 
 use crate::ring::Consumer;
 use crate::state::State;
-use crate::takes::{Command, TakeLog};
+use crate::takes::{Command, TakeFeed, TakeLog};
 use crate::tracker::TransportSnapshot;
 
 /// The host transport as seen by one process or render call. Small and
@@ -158,10 +158,19 @@ pub fn describe(change: Change, snapshot: &ProcessSnapshot) -> String {
 pub struct TransportFollower {
     watch: TransportWatch,
     takes: TakeLog,
+    feed: TakeFeed,
     dropped: u64,
 }
 
 impl TransportFollower {
+    /// A follower that publishes every take that opens or closes to `feed`.
+    pub fn with_feed(feed: TakeFeed) -> Self {
+        Self {
+            feed,
+            ..Self::default()
+        }
+    }
+
     /// Feeds queued snapshots and capture commands to the take log in host
     /// time order, so the log keeps the recordings in `state` in step with
     /// the takes. Passes a log line for every transport change, take event
@@ -203,6 +212,9 @@ impl TransportFollower {
         for next in pending {
             changed |= command(&mut self.takes, next, &mut log);
         }
+        for change in self.takes.take_changes() {
+            self.feed.publish(change);
+        }
         let total = transport.dropped();
         if total != self.dropped {
             log(&format!(
@@ -227,7 +239,7 @@ mod tests {
 
     use super::*;
     use crate::ring::ring;
-    use crate::takes::Capture;
+    use crate::takes::{Capture, TakeChange};
 
     const BLOCK: u32 = 512;
     const PLAY: u8 = 1;
@@ -366,7 +378,9 @@ mod tests {
         let (mut producer, mut consumer) = ring(16);
         let (sender, commands) = mpsc::channel();
         let state = Mutex::new(State::default());
-        let mut follower = TransportFollower::default();
+        let feed = TakeFeed::default();
+        let changes = feed.subscribe();
+        let mut follower = TransportFollower::with_feed(feed);
         let drain = |follower: &mut TransportFollower, consumer: &mut Consumer<_>| {
             follower.drain(consumer, &commands, &state, |_| {})
         };
@@ -387,6 +401,13 @@ mod tests {
         // Snapshot `n` is at host time `n / 100` s.
         producer.push(snapshot(10, PLAY, 96_000));
         assert!(drain(&mut follower, &mut consumer));
+        assert_eq!(
+            changes.try_recv(),
+            Ok(TakeChange::Opened {
+                index: 0,
+                id: "video-01-9-25-20-36-12-0-take-1".to_string(),
+            })
+        );
         producer.push(snapshot(11, PLAY, 96_512));
         assert!(!drain(&mut follower, &mut consumer));
         producer.push(snapshot(12, 0, 97_024));
@@ -397,6 +418,8 @@ mod tests {
         let state = state.lock().unwrap();
         assert_eq!(state.recordings.len(), 1);
         let take = &state.recordings[0];
+        assert_eq!(changes.try_recv(), Ok(TakeChange::Closed(take.clone())));
+        assert!(changes.try_recv().is_err());
         assert_eq!(take.transport_start_sec, Some(2.0));
         assert!((take.file_offset_sec - 0.1).abs() < 1e-9);
         assert!((take.duration_sec - 0.02).abs() < 1e-9);

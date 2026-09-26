@@ -28,6 +28,9 @@ pub struct State {
     pub record_root: RecordRootKind,
     #[serde(default)]
     pub recordings: Vec<Recording>,
+    /// The camera last chosen in the editor. Omitted until one is chosen.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub camera: Option<CameraChoice>,
     /// Keys this version does not know, kept for round-tripping.
     #[serde(flatten)]
     pub extra: Map<String, Value>,
@@ -40,9 +43,20 @@ impl Default for State {
             plugin: PLUGIN_ID.to_string(),
             record_root: RecordRootKind::default(),
             recordings: Vec::new(),
+            camera: None,
             extra: Map::new(),
         }
     }
+}
+
+/// A camera choice as persisted: restored by `id` (the capture layer's
+/// unique device ID) first, then by `name`, since IDs can change between
+/// machines and reconnections.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CameraChoice {
+    pub id: String,
+    pub name: String,
 }
 
 /// One take entry.
@@ -294,6 +308,26 @@ mod tests {
                 "transportStartSec",
             ]
         );
+    }
+
+    #[test]
+    fn keeps_the_camera_choice() {
+        let json: Value = serde_json::from_str(&State::default().to_json()).unwrap();
+        assert!(json.get("camera").is_none());
+        let state = State {
+            camera: Some(CameraChoice {
+                id: "0x1420000046d0893".to_string(),
+                name: "Logitech BRIO".to_string(),
+            }),
+            ..State::default()
+        };
+        let json: Value = serde_json::from_str(&state.to_json()).unwrap();
+        assert_eq!(
+            json["camera"],
+            serde_json::json!({ "id": "0x1420000046d0893", "name": "Logitech BRIO" })
+        );
+        assert!(!state.extra.contains_key("camera"));
+        assert_eq!(State::from_json(&state.to_json()).unwrap(), state);
     }
 
     #[test]

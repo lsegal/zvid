@@ -12,7 +12,9 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
-use zvid_daw_core::{Command, Consumer, LiveLink, ProcessSnapshot, State, TransportFollower};
+use zvid_daw_core::{
+    Command, Consumer, LiveLink, ProcessSnapshot, State, TakeFeed, TransportFollower,
+};
 
 use super::log::log;
 
@@ -32,10 +34,12 @@ pub struct Control {
 
 impl Control {
     /// Starts a thread that owns `inputs` until [`Control::stop`]. It calls
-    /// `state_changed` after a take opens or closes in `state`.
+    /// `state_changed` after a take opens or closes in `state`, and
+    /// publishes the take to `takes`.
     pub fn start(
         mut inputs: Inputs,
         state: Arc<Mutex<State>>,
+        takes: TakeFeed,
         state_changed: impl Fn() + Send + 'static,
     ) -> Option<Self> {
         let stop = Arc::new(AtomicBool::new(false));
@@ -43,7 +47,7 @@ impl Control {
         let spawned = thread::Builder::new()
             .name("zvid-au-control".to_string())
             .spawn(move || {
-                let mut follower = TransportFollower::default();
+                let mut follower = TransportFollower::with_feed(takes);
                 let mut live = LiveLink::connect()
                     .inspect_err(|error| log(&format!("could not open the Live link: {error}")))
                     .ok();
