@@ -465,6 +465,16 @@ fn passes_audio_through_unchanged() {
 #[test]
 fn taps_input_audio_once_taken() {
     let host = Host::new();
+    let mut setup = ProcessSetup {
+        process_mode: 0,
+        symbolic_sample_size: SAMPLE_32,
+        max_samples_per_block: 512,
+        sample_rate: 48_000.0,
+    };
+    assert_eq!(
+        unsafe { (host.processor().setup_processing)(host.processor, &mut setup) },
+        OK
+    );
     let mut input_samples = vec![vec![0.1f32, 0.2, 0.3]];
     let mut output_samples = vec![vec![0.0f32; 3], vec![0.0; 3]];
     let mut input = Bus::new(&mut input_samples);
@@ -483,6 +493,7 @@ fn taps_input_audio_once_taken() {
     assert!(host.object().take_audio_tap().is_none());
     assert_eq!(tap.pop(), None, "nothing is tapped before the tap is taken");
 
+    let before = clock::now_sec();
     process(
         &host,
         Some(&mut input_buffers),
@@ -490,11 +501,38 @@ fn taps_input_audio_once_taken() {
         3,
         None,
     );
+    let after = clock::now_sec();
+    let block = tap.pop().unwrap();
     // Mono input is duplicated to both sides.
-    assert_eq!(
-        tap.drain().collect::<Vec<_>>(),
-        [[0.1, 0.1], [0.2, 0.2], [0.3, 0.3]]
+    assert_eq!(block.samples, [0.1, 0.1, 0.2, 0.2, 0.3, 0.3]);
+    // Without a process context, the rate comes from `setupProcessing`.
+    assert_eq!(block.sample_rate, 48_000.0);
+    assert!((before..=after).contains(&block.host_time));
+
+    // With one, the block has the context's rate and the snapshot's time.
+    let mut context = ProcessContext {
+        sample_rate: 44_100.0,
+        ..ProcessContext::default()
+    };
+    process(
+        &host,
+        Some(&mut input_buffers),
+        &mut output_buffers,
+        3,
+        Some(&mut context),
     );
+    let block = tap.pop().unwrap();
+    assert_eq!(block.sample_rate, 44_100.0);
+    assert_eq!(tap.sample_rate(), Some(44_100.0));
+    let snapshot = lock(&host.object().lifecycle)
+        .inputs
+        .as_mut()
+        .unwrap()
+        .transport
+        .pop()
+        .unwrap();
+    assert_eq!(block.host_time, snapshot.host_time);
+    assert_eq!(tap.pop(), None);
     // The missing right input channel is silenced on output.
     assert_eq!(output_samples[1], [0.0; 3]);
     assert_eq!(output_buffers.silence_flags, 0b10);

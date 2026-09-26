@@ -1,9 +1,11 @@
 //! Pure translations from the capture layer and the take log to the
 //! editor's model: devices to menu entries, capture errors to [`UiError`]s,
-//! take changes to [`UiEvent`]s, and the backend's state to [`Status`].
+//! take changes to [`UiEvent`]s, and the backend's state to [`Status`]. Also
+//! from the format layer's audio tap to the recorder's audio blocks.
 
-use zvid_capture::{CaptureError, Device, Selection};
-use zvid_daw_core::{CameraChoice, RecordRoot, TakeChange};
+use zvid_capture::record::{AudioBlock, AudioFormat};
+use zvid_capture::{CaptureError, Device, HostTime, Selection};
+use zvid_daw_core::{CameraChoice, RecordRoot, TakeChange, TapBlock};
 use zvid_daw_ui::{
     Camera, CaptureInfo, ErrorCode, Phase, Status, TakeInfo, Transport, UiError, UiEvent,
     VideoFormat,
@@ -122,6 +124,25 @@ pub fn take_event(change: &TakeChange, root: &RecordRoot) -> UiEvent {
         TakeChange::Closed(recording) => {
             UiEvent::TakeClosed(TakeInfo::from_recording(recording, root))
         }
+    }
+}
+
+/// The recorder's format for tapped audio at `sample_rate`: the tap is
+/// always stereo, with mono input duplicated.
+pub fn audio_format(sample_rate: f64) -> AudioFormat {
+    AudioFormat {
+        sample_rate: sample_rate.round() as u32,
+        channels: 2,
+    }
+}
+
+/// A tapped block as the recorder takes it, timed on the host clock.
+pub fn audio_block(block: TapBlock) -> AudioBlock {
+    AudioBlock {
+        host_time: Some(HostTime::from_nanos(
+            (block.host_time * 1e9).round().max(0.0) as u64,
+        )),
+        samples: block.samples,
     }
 }
 
@@ -366,5 +387,24 @@ mod tests {
         assert_eq!(failed.camera_id.as_deref(), Some("cam"));
         assert_eq!((failed.format, failed.capture), (None, None));
         assert_eq!(failed.error, Some(busy));
+    }
+
+    #[test]
+    fn maps_tapped_audio_to_recorder_blocks() {
+        assert_eq!(
+            audio_format(44_100.0),
+            AudioFormat {
+                sample_rate: 44_100,
+                channels: 2,
+            }
+        );
+        assert_eq!(audio_format(47_999.6).sample_rate, 48_000);
+        let block = audio_block(TapBlock {
+            host_time: 12.5,
+            sample_rate: 48_000.0,
+            samples: vec![0.25, -0.25],
+        });
+        assert_eq!(block.host_time, Some(HostTime::from_nanos(12_500_000_000)));
+        assert_eq!(block.samples, [0.25, -0.25]);
     }
 }

@@ -76,6 +76,15 @@ impl<T: Copy> Producer<T> {
         shared.head.store(head.wrapping_add(1), Ordering::Release);
         true
     }
+
+    /// Values that can be pushed before the ring is full. Only the consumer
+    /// frees slots, so at least this many pushes will succeed.
+    pub fn free(&self) -> usize {
+        let shared = &*self.shared;
+        let head = shared.head.load(Ordering::Relaxed);
+        let tail = shared.tail.load(Ordering::Acquire);
+        shared.slots.len() - head.wrapping_sub(tail)
+    }
 }
 
 impl<T: Copy> Consumer<T> {
@@ -113,9 +122,12 @@ mod tests {
     fn pops_in_push_order_and_drops_when_full() {
         let (mut producer, mut consumer) = ring(3);
         assert_eq!(consumer.pop(), None);
+        assert_eq!(producer.free(), 3);
         assert!(producer.push(1));
         assert!(producer.push(2));
+        assert_eq!(producer.free(), 1);
         assert!(producer.push(3));
+        assert_eq!(producer.free(), 0);
         assert!(!producer.push(4));
         assert_eq!(consumer.dropped(), 1);
         assert_eq!(consumer.pop(), Some(1));
