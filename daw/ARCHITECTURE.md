@@ -405,7 +405,7 @@ sequenceDiagram
 | Capture API | AVFoundation (`objc2-av-foundation`) | Media Foundation (`windows`) |
 | Webview | WKWebView | WebView2 |
 | Video encode | zvidlib: VideoToolbox hardware HEVC, else zvidlib's native HEVC, then AV1 | zvidlib: GPU vendor HEVC (NVENC, Quick Sync, AMF) through Media Foundation, else Microsoft's software HEVC MFT, else zvidlib's native HEVC, then AV1 |
-| Audio encode | zvidlib: AudioToolbox AAC-LC | zvidlib: Media Foundation AAC-LC |
+| Audio encode | zvidlib: AudioToolbox AAC-LC | zvidlib: Media Foundation AAC-LC; input other than 44.1 or 48 kHz is resampled to one of them |
 | Monotonic clock | `mach_absolute_time` | QPC |
 
 ### Camera permission

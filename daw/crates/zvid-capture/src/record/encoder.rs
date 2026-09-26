@@ -9,7 +9,8 @@
 //! camera resolutions, so the recorder drops what they can't keep up with.
 //!
 //! Audio: AAC-LC through zvidlib's platform AAC encoder (AudioToolbox on
-//! macOS, Media Foundation on Windows).
+//! macOS, Media Foundation on Windows). Input at a rate the encoder doesn't
+//! take, like 88.2 or 96 kHz on Windows, is resampled to one it does.
 
 use std::fmt;
 
@@ -22,6 +23,7 @@ use zvidlib::{
 };
 
 use super::block_on;
+use super::resample::Resampler;
 use crate::format::Rational;
 use crate::frame::Frame;
 use crate::preview::Converter;
@@ -395,16 +397,38 @@ pub const AAC_FRAME: u32 = 1024;
 /// zvidlib's AAC-LC encoder, fed interleaved `f32` PCM.
 pub struct AudioStream {
     encoder: Box<dyn AudioEncoder>,
+    /// The encoded rate, which is the track's timescale.
     sample_rate: u32,
     channels: u16,
     position: u64,
     priming: u32,
     limits: Limits,
+    /// Converts input to `sample_rate` when the encoder doesn't take the
+    /// input's own rate.
+    resampler: Option<Resampler>,
 }
 
 impl AudioStream {
-    /// Opens an AAC-LC encoder, or explains why none is available.
+    /// Opens an AAC-LC encoder for `sample_rate` input, resampling to
+    /// [`fallback_rate`] when the encoder doesn't take `sample_rate`, or
+    /// explains why none is available.
     pub fn open(sample_rate: u32, channels: u16) -> Result<Self, String> {
+        let error = match Self::open_at(sample_rate, channels) {
+            Ok(stream) => return Ok(stream),
+            Err(error) => error,
+        };
+        let rate = fallback_rate(sample_rate);
+        if rate == sample_rate {
+            return Err(error);
+        }
+        let mut stream = Self::open_at(rate, channels)
+            .map_err(|fallback| format!("{error}; at {rate} Hz: {fallback}"))?;
+        stream.resampler = Some(Resampler::new(sample_rate, rate, channels));
+        Ok(stream)
+    }
+
+    /// Opens an encoder that takes `sample_rate` input as is.
+    fn open_at(sample_rate: u32, channels: u16) -> Result<Self, String> {
         let config = AudioEncoderConfig {
             codec: Codec::Aac,
             profile: CodecProfile::AacLowComplexity,
@@ -429,6 +453,7 @@ impl AudioStream {
                 position: 0,
                 priming: 0,
                 limits,
+                resampler: None,
             })
         };
         // zvidlib reports the encoder delay when a stream finishes, but the
@@ -447,6 +472,11 @@ impl AudioStream {
         "zvidlib AAC-LC"
     }
 
+    /// The rate of the encoded audio, which may differ from the input's.
+    pub fn sample_rate(&self) -> u32 {
+        self.sample_rate
+    }
+
     /// The `esds` codec configuration box.
     pub fn decoder_config(&self) -> Vec<u8> {
         self.encoder.config().decoder_config.clone()
@@ -459,6 +489,17 @@ impl AudioStream {
 
     /// Encodes interleaved samples to AAC packets of [`AAC_FRAME`] frames.
     pub fn encode(&mut self, interleaved: &[f32]) -> Result<Vec<Vec<u8>>, String> {
+        match &mut self.resampler {
+            Some(resampler) => {
+                let pcm = resampler.process(interleaved);
+                self.encode_pcm(&pcm)
+            }
+            None => self.encode_pcm(interleaved),
+        }
+    }
+
+    /// Encodes interleaved samples already at the encoder's rate.
+    fn encode_pcm(&mut self, interleaved: &[f32]) -> Result<Vec<Vec<u8>>, String> {
         let frames = (interleaved.len() / usize::from(self.channels)) as u64;
         if frames == 0 {
             return Ok(Vec::new());
@@ -482,11 +523,25 @@ impl AudioStream {
     /// Flushes the encoder, returning the last packets and zvidlib's exact
     /// delay and padding.
     pub fn finish(&mut self) -> Result<(Vec<Vec<u8>>, AudioGapless), String> {
+        // The resampler's tail completes the input it has been given.
+        let mut packets = match self.resampler.as_mut().map(Resampler::finish) {
+            Some(tail) => self.encode_pcm(&tail)?,
+            None => Vec::new(),
+        };
         let drain = block_on(self.encoder.finish()).map_err(|e| e.to_string())?;
-        Ok((
-            drain.samples.into_iter().map(|s| s.data).collect(),
-            drain.gapless,
-        ))
+        packets.extend(drain.samples.into_iter().map(|s| s.data));
+        Ok((packets, drain.gapless))
+    }
+}
+
+/// The rate to encode `sample_rate` input at when the encoder doesn't take
+/// it: 44.1 kHz for the 44.1 kHz family (88.2, 176.4 kHz, ...) and 48 kHz
+/// for everything else, so common session rates resample by a whole factor.
+pub fn fallback_rate(sample_rate: u32) -> u32 {
+    if sample_rate.is_multiple_of(11_025) {
+        44_100
+    } else {
+        48_000
     }
 }
 

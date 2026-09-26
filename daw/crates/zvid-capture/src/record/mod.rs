@@ -21,6 +21,7 @@
 mod encoder;
 mod fmp4;
 mod poster;
+mod resample;
 mod timing;
 
 use std::collections::VecDeque;
@@ -470,7 +471,7 @@ impl Worker {
             config: Mp4TrackConfig {
                 encoder: encoder::encoder_config(
                     Codec::Aac,
-                    audio.format.sample_rate,
+                    audio.encoder.sample_rate(),
                     audio.encoder.decoder_config(),
                 ),
                 format: Mp4TrackFormat::Audio {
