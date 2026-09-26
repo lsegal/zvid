@@ -74,7 +74,7 @@ flowchart LR
     cam["Camera<br/>(built-in, USB, Continuity,<br/>phone webcam)"]
     cap["Capture session<br/>zvid-capture"]
     enc["Encoder + muxer<br/>zvidlib (HEVC / AV1)"]
-    aac["AAC encoder<br/>AudioToolbox / MF"]
+    aac["AAC encoder<br/>zvidlib"]
     file[("MP4 in record root<br/>video-NN-M-D-HH-mm-ss-n.mp4")]
     cam -- "frames + PTS" --> cap
     cap -- "frames" --> enc
@@ -117,7 +117,7 @@ The workspace lives in `/daw` (scaffolded in
 | Path | Role |
 |---|---|
 | `daw/crates/zvid-daw-core` | State schema, take tracker state machine, the transport-change watch the format layers share, capture file naming, record-root resolution, and the protocol and client for the Live companion script. Pure (no cameras, hosts or UI; the only I/O is locating Documents and the companion's localhost UDP socket) and unit-tested. |
-| `daw/crates/zvid-capture` | Device enumeration, capture sessions, frame timestamps, preview frames, and recording (`record`): hardware HEVC and AAC encoding, crash-safe MP4 writing and poster frames, with zvidlib doing the muxing. AVFoundation, VideoToolbox and AudioToolbox on macOS; Media Foundation on Windows. |
+| `daw/crates/zvid-capture` | Device enumeration, capture sessions, frame timestamps, preview frames, and recording (`record`): frame timing, crash-safe MP4 writing and poster frames, with zvidlib doing all encoding and muxing. AVFoundation on macOS; Media Foundation on Windows. |
 | `daw/crates/zvid-daw-ui` | `wry` child-webview host, the IPC bridge to the control thread, and the custom `zvid://` protocol that serves embedded assets and preview frames. The frontend source lives in `daw/ui`. |
 | `daw/crates/zvid-vst3` | Hand-written subset of the VST3 COM ABI: the interfaces, IIDs and structs the plugin needs, rebuilt from public documentation. |
 | `daw/crates/zvid-au` | AUv2 plugin: the `AudioComponentFactoryFunction` entry point, property and render callbacks, and the Cocoa view factory. |
@@ -354,8 +354,8 @@ sequenceDiagram
 | Formats | VST3 (`.vst3`) and AUv2 (`.component`) | VST3 (`.vst3`) |
 | Capture API | AVFoundation (`objc2-av-foundation`) | Media Foundation (`windows`) |
 | Webview | WKWebView | WebView2 |
-| Video encode | VideoToolbox HEVC; zvidlib HEVC, then AV1, as software fallbacks | Media Foundation HEVC (GPU vendor MFT, else Microsoft's HEVC Video Extensions); zvidlib HEVC, then AV1, as software fallbacks |
-| Audio encode | AudioToolbox AAC-LC (zvidlib's adapter) | Media Foundation AAC encoder |
+| Video encode | zvidlib: VideoToolbox hardware HEVC, else zvidlib's native HEVC, then AV1 | zvidlib: GPU vendor HEVC (NVENC, Quick Sync, AMF) through Media Foundation, else Microsoft's software HEVC MFT, else zvidlib's native HEVC, then AV1 |
+| Audio encode | zvidlib: AudioToolbox AAC-LC | zvidlib: Media Foundation AAC-LC |
 | Monotonic clock | `mach_absolute_time` | QPC |
 
 ### Camera permission
@@ -431,9 +431,9 @@ Revise a decision only with a stated rationale, recorded here.
 | UI host | `wry` (Tauri's webview layer) attached as a child of the host view (`NSView` / `HWND`). Not the full Tauri runtime. | Tauri wants to own the process and event loop, which a plugin can't do inside a host. `wry` gives us the same webview and IPC model. |
 | Frontend assets | Embedded in the binary and served over `zvid://`. | A single-file bundle, with no loose files beside the plugin. |
 | Live preview transport | Native capture is the single source. The UI gets downscaled JPEG frames (≤30 fps) over `zvid://preview`. | Avoids opening the camera twice (getUserMedia plus native), and works the same in WKWebView and WebView2. |
-| Video codec | **HEVC Main** from the platform's hardware encoder (VideoToolbox; a Media Foundation HEVC MFT), implemented in `zvid-capture` behind the same encoder seam. zvidlib's native HEVC, then AV1, encoders are the fallback. No B-frames, a keyframe each second. | HEVC plays natively in QuickTime, WKWebView and `/app`. Revised in [#197](https://github.com/lsegal/zvid/issues/197): zvidlib offers hardware *decoding* only, and its software encoders take about 2.5 s per 1080p HEVC frame (and 80 ms at 320×240), far from real time. Its AV1 encoder also takes greyscale input only. |
+| Video codec | **HEVC Main**, encoded by zvidlib: `native_hevc_video_encoder_factory()` with `HardwarePreference::Prefer` picks the platform's hardware encoder and falls back to software itself. `zvid-capture` contains no encoder code; it converts camera frames to BGRA and times the samples zvidlib returns. zvidlib's native HEVC encoder, then its AV1 encoder, are the last resort when nothing takes the camera's size. No B-frames, a keyframe each second. `RecordStats` and the log name the encoder zvidlib chose and whether it is hardware. | HEVC plays natively in QuickTime, WKWebView and `/app`. [#197](https://github.com/lsegal/zvid/issues/197) requires encoding through zvidlib. zvidlib 0.2.0 added hardware HEVC encoding on macOS and Windows, so the in-tree VideoToolbox and Media Foundation encoders that briefly stood in for it were removed in [#228](https://github.com/lsegal/zvid/issues/228). zvidlib's native encoders take about 2.5 s per 1080p HEVC frame, and its AV1 encoder takes greyscale only, so they are not a real-time path. |
 | Crash safety | Record to a **fragmented MP4** (one synced `moof`+`mdat` per second), then remux with zvidlib's `Mp4Muxer` into an ordinary MP4 on disarm. | Killing the host mid-capture leaves every complete fragment playable; the finished file has ordinary sample tables and exact gapless AAC metadata. |
-| Audio | AAC-LC of the plugin's input bus (the track audio), via AudioToolbox (macOS) or the Media Foundation AAC encoder (Windows). Video-only if neither is available. | zvidlib ships no AAC encoder, and `/app` export already uses AudioToolbox. The track audio doubles as a sync reference. |
+| Audio | AAC-LC of the plugin's input bus (the track audio), via zvidlib's `native_aac_audio_encoder_factory()` (AudioToolbox on macOS, Media Foundation on Windows). zvidlib reports the exact priming and padding. Video-only if no encoder is available. | zvidlib wraps the platform AAC encoders rather than shipping its own, and `/app` export uses the same encoder. The track audio doubles as a sync reference. |
 | Capture file vs takes | **One MP4 per arm** (Record → Stop capturing). Each transport play→stop span is a **separate take entry** that references the file plus `fileOffsetSec`. | Never loses footage between spans, and takes stay individually addressable. |
 | Loop / relocate while playing | A backwards transport jump or a locate ends the current take and starts a new one. | Keeps each take linear on the timeline. |
 | Capture with no playback | Stored as an *unanchored* entry (`transportStartSec: null`). Listed in the UI, skipped by the importer. | Footage isn't lost, and nothing is placed on the timeline incorrectly. |
