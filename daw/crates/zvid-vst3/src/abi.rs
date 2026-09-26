@@ -71,6 +71,9 @@ pub const IPROCESS_CONTEXT_REQUIREMENTS_IID: Tuid =
     uid(0x2A654303, 0xEF764E3D, 0x95B5FE83, 0x730EF6D0);
 pub const IEDIT_CONTROLLER_IID: Tuid = uid(0xDCD7BBE3, 0x7742448D, 0xA874AACC, 0x979C759E);
 pub const IPLUG_VIEW_IID: Tuid = uid(0x5BC32507, 0xD06049EA, 0xA6151B52, 0x2B755B29);
+pub const IPLUG_FRAME_IID: Tuid = uid(0x367FAF01, 0xAFA94693, 0x8D4DA2A0, 0xED0882A3);
+pub const IPLUG_VIEW_CONTENT_SCALE_SUPPORT_IID: Tuid =
+    uid(0x65ED9690, 0x8AC44525, 0x8AADEF7A, 0x72EA703F);
 pub const ICONNECTION_POINT_IID: Tuid = uid(0x70A4156F, 0x6E6E4026, 0x989148BF, 0xAA60D8D1);
 pub const ICOMPONENT_HANDLER_IID: Tuid = uid(0x93A0BEA3, 0x0BD045DB, 0x8E890B0C, 0xC1E46AC6);
 pub const ICOMPONENT_HANDLER2_IID: Tuid = uid(0xF040B4B3, 0xA36045EC, 0xABCDC045, 0xB4D5A2CC);
@@ -435,6 +438,26 @@ pub struct IPlugViewVtbl {
     pub can_resize: unsafe extern "system" fn(this: *mut c_void) -> TResult,
     pub check_size_constraint:
         unsafe extern "system" fn(this: *mut c_void, rect: *mut ViewRect) -> TResult,
+}
+
+/// Host-implemented frame around a plugin view.
+#[repr(C)]
+pub struct IPlugFrameVtbl {
+    pub unknown: FUnknownVtbl,
+    pub resize_view: unsafe extern "system" fn(
+        this: *mut c_void,
+        view: *mut c_void,
+        new_size: *mut ViewRect,
+    ) -> TResult,
+}
+
+/// Tells a view its display scale factor on platforms (Windows) where the
+/// view can't find it out itself.
+#[repr(C)]
+pub struct IPlugViewContentScaleSupportVtbl {
+    pub unknown: FUnknownVtbl,
+    pub set_content_scale_factor:
+        unsafe extern "system" fn(this: *mut c_void, factor: f32) -> TResult,
 }
 
 /// Host-implemented byte stream used for state.
