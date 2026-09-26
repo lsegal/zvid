@@ -3,8 +3,9 @@
 //! `terminate`. It drains the transport ring render fills and the capture
 //! layer's [`Command`]s into the take log, which appends every take to the
 //! plugin state as it opens, and tells the host the state changed. It also
-//! logs transport changes and what the optional Live companion script
-//! reports.
+//! logs transport changes, and arms and disarms the capture as Live's record
+//! buttons turn on and off when the optional Live companion script is
+//! running.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
@@ -12,9 +13,8 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
-use zvid_daw_core::{
-    Command, Consumer, LiveLink, ProcessSnapshot, State, TakeFeed, TransportFollower,
-};
+use zvid_daw_core::{Command, Consumer, ProcessSnapshot, State, TakeFeed, TransportFollower};
+use zvid_daw_ui::{Backend, LiveControl};
 
 use super::log::log;
 
@@ -35,12 +35,15 @@ pub struct Control {
 impl Control {
     /// Starts a thread that owns `inputs` until [`Control::stop`]. It calls
     /// `state_changed` after a take opens or closes in `state`, and
-    /// publishes the take to `takes`.
+    /// publishes the take to `takes`. Live's record buttons arm and disarm
+    /// the capture of `backend`, the instance's backend, which it starts
+    /// once the companion is present.
     pub fn start(
         mut inputs: Inputs,
         state: Arc<Mutex<State>>,
         takes: TakeFeed,
         state_changed: impl Fn() + Send + 'static,
+        backend: impl Fn() -> Arc<dyn Backend> + Send + 'static,
     ) -> Option<Self> {
         let stop = Arc::new(AtomicBool::new(false));
         let stopping = Arc::clone(&stop);
@@ -48,7 +51,7 @@ impl Control {
             .name("zvid-au-control".to_string())
             .spawn(move || {
                 let mut follower = TransportFollower::with_feed(takes);
-                let mut live = LiveLink::connect()
+                let mut live = LiveControl::connect()
                     .inspect_err(|error| log(&format!("could not open the Live link: {error}")))
                     .ok();
                 loop {
@@ -57,7 +60,7 @@ impl Control {
                         state_changed();
                     }
                     if let Some(live) = &mut live {
-                        poll_live(live);
+                        live.poll(Instant::now(), &backend, log);
                     }
                     if stopping {
                         return inputs;
@@ -82,15 +85,5 @@ impl Control {
             .join()
             .inspect_err(|_| log("the control thread panicked"))
             .ok()
-    }
-}
-
-/// Logs changes to what the Live companion reports.
-fn poll_live(live: &mut LiveLink) {
-    if live.poll(Instant::now()) {
-        match live.status() {
-            Some(status) => log(&format!("live companion: {status}")),
-            None => log("live companion: gone"),
-        }
     }
 }
