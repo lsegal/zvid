@@ -7,9 +7,6 @@ on:
   push:
     branches:
       - main
-  pull_request:
-    paths:
-      - .github/workflows/daw-bundle.yml
   workflow_dispatch:
 
 concurrency:
