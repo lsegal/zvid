@@ -15,8 +15,8 @@ use crate::backend::Backend;
 use crate::channels::Channels;
 use crate::image::encode_rgb;
 use crate::model::{
-    Camera, CaptureInfo, ErrorCode, LiveInfo, Phase, Status, TakeFile, TakeInfo, Transport, UiError,
-    UiEvent, VideoFormat, takes_from_state,
+    Camera, CaptureInfo, ErrorCode, LiveInfo, Phase, Status, TakeFile, TakeInfo, Transport,
+    UiError, UiEvent, VideoFormat, takes_from_state,
 };
 
 pub const DENIED_CAMERA: &str = "mock-denied";

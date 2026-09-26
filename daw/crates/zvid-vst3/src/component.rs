@@ -28,8 +28,8 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use zvid_daw_core::{
-    AudioTap, Command, Consumer, LiveLink, LiveSlot, ProcessSnapshot, Producer, RecordRoot,
-    State, TakeChange, TakeFeed, TapWriter, TransportFollower, audio_tap, clock, ring,
+    AudioTap, Command, Consumer, LiveLink, LiveSlot, ProcessSnapshot, Producer, RecordRoot, State,
+    TakeChange, TakeFeed, TapWriter, TransportFollower, audio_tap, clock, ring,
 };
 
 use zvid_daw_ui::{Backend, HostLink, instance_backend};

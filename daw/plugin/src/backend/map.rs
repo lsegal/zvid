@@ -7,8 +7,8 @@ use zvid_capture::record::{AudioBlock, AudioFormat};
 use zvid_capture::{CaptureError, Device, HostTime, Selection};
 use zvid_daw_core::{CameraChoice, RecordRoot, TakeChange, TapBlock};
 use zvid_daw_ui::{
-    Camera, CaptureInfo, ErrorCode, LiveInfo, Phase, Status, TakeInfo, Transport, UiError,
-    UiEvent, VideoFormat,
+    Camera, CaptureInfo, ErrorCode, LiveInfo, Phase, Status, TakeInfo, Transport, UiError, UiEvent,
+    VideoFormat,
 };
 
 /// The camera menu's transport label for a capture-layer transport.

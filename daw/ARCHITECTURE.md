@@ -392,8 +392,12 @@ sequenceDiagram
   `null` (unsaved set, or Live older than 11.3.42) falls back to
   `<Documents>/ZVID/Recorded`.
 - **Status.** The prototype in #200 logs what the companion reports (set
-  `ZVID_DAW_LOG`). Auto-arming, removing the Record button and resolving the
-  record root from the set path are separate follow-ups.
+  `ZVID_DAW_LOG`). The control thread also shares the latest status with
+  the editor backend through a `LiveSlot`, and while the companion is
+  connected the editor replaces its Record button with a read-only
+  indicator of Live's record state (see `DESIGN.md`, Capture card).
+  Auto-arming and resolving the record root from the set path are separate
+  follow-ups.
 
 ## Platform matrix
 

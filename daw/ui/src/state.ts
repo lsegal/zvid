@@ -38,6 +38,7 @@ export const initialState: AppState = {
     format: null,
     capture: null,
     error: null,
+    live: null,
   },
   statusAt: 0,
   cameras: [],
