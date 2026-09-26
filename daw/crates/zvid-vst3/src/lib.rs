@@ -33,6 +33,6 @@ pub const CLASS_ID: abi::Tuid = abi::uid(
 pub const SUB_CATEGORIES: &str = "Fx|Tools";
 pub const URL: &str = "https://github.com/lsegal/zvid";
 /// Plugin version reported to hosts.
-pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const VERSION: &str = zvid_daw_core::VERSION;
 /// VST3 interface version the ABI subset follows.
 pub const SDK_VERSION: &str = "VST 3.7";
