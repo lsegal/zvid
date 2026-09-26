@@ -41,13 +41,30 @@ impl RecordRoot {
         })
     }
 
+    /// The root a capture armed now records into: `<set dir>/Recorded/ZVID`
+    /// when the Live set's directory is known (see
+    /// [`crate::LiveStatus::set_dir`]), else `documents`, the instance's
+    /// Documents root. It is chosen once per capture, so a set saved or
+    /// moved mid-capture doesn't move the file.
+    pub fn for_capture(set_dir: Option<&Path>, documents: &RecordRoot) -> Self {
+        match set_dir {
+            Some(set_dir) => Self::project(set_dir),
+            None => documents.clone(),
+        }
+    }
+
+    /// `<set dir>/Recorded/ZVID`.
+    pub fn project(set_dir: &Path) -> Self {
+        Self {
+            kind: RecordRootKind::Project,
+            dir: set_dir.join("Recorded").join("ZVID"),
+        }
+    }
+
     /// [`RecordRoot::resolve`] with an explicit Documents directory.
     pub fn resolve_with(set_dir: Option<&Path>, documents: Option<&Path>) -> Option<Self> {
         match (set_dir, documents) {
-            (Some(set_dir), _) => Some(Self {
-                kind: RecordRootKind::Project,
-                dir: set_dir.join("Recorded").join("ZVID"),
-            }),
+            (Some(set_dir), _) => Some(Self::project(set_dir)),
             (None, Some(documents)) => Some(Self {
                 kind: RecordRootKind::Documents,
                 dir: documents.join("ZVID").join("Recorded"),

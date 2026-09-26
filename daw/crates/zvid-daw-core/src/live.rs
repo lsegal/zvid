@@ -24,6 +24,7 @@ use std::fmt;
 use std::io::{self, ErrorKind};
 use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
 use serde::Deserialize;
@@ -106,6 +107,37 @@ impl fmt::Display for LiveStatus {
             write!(f, " live={version}")?;
         }
         Ok(())
+    }
+}
+
+/// The latest [`LiveStatus`] of one plugin instance, shared between the
+/// control thread that polls its [`LiveLink`] and the editor backend, which
+/// reads the set directory when capture arms. Clones share the status.
+#[derive(Clone, Debug, Default)]
+pub struct SharedLiveStatus {
+    status: Arc<Mutex<Option<LiveStatus>>>,
+}
+
+impl SharedLiveStatus {
+    /// Replaces the status; `None` while the companion is absent.
+    pub fn set(&self, status: Option<LiveStatus>) {
+        *self.lock() = status;
+    }
+
+    pub fn get(&self) -> Option<LiveStatus> {
+        self.lock().clone()
+    }
+
+    /// The open set's directory, or `None` while the set is unsaved, the
+    /// Live version doesn't report it, or the companion is absent.
+    pub fn set_dir(&self) -> Option<PathBuf> {
+        self.lock().as_ref().and_then(LiveStatus::set_dir)
+    }
+
+    fn lock(&self) -> MutexGuard<'_, Option<LiveStatus>> {
+        self.status
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 }
 
@@ -229,6 +261,18 @@ mod tests {
         assert_eq!(status(None).set_dir(), None);
         assert_eq!(status(Some("")).set_dir(), None);
         assert_eq!(status(Some("Song.als")).set_dir(), None);
+    }
+
+    #[test]
+    fn shares_the_latest_status() {
+        let shared = SharedLiveStatus::default();
+        let reader = shared.clone();
+        assert_eq!(reader.get(), None);
+        assert_eq!(reader.set_dir(), None);
+        shared.set(LiveStatus::parse(STATUS.as_bytes()));
+        assert_eq!(reader.set_dir(), Some(PathBuf::from("/music/Song Project")));
+        shared.set(None);
+        assert_eq!(reader.get(), None);
     }
 
     #[test]

@@ -13,7 +13,8 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use zvid_daw_core::{
-    Command, Consumer, LiveLink, ProcessSnapshot, State, TakeFeed, TransportFollower,
+    Command, Consumer, LiveLink, ProcessSnapshot, SharedLiveStatus, State, TakeFeed,
+    TransportFollower,
 };
 
 use super::log::log;
@@ -34,12 +35,14 @@ pub struct Control {
 
 impl Control {
     /// Starts a thread that owns `inputs` until [`Control::stop`]. It calls
-    /// `state_changed` after a take opens or closes in `state`, and
-    /// publishes the take to `takes`.
+    /// `state_changed` after a take opens or closes in `state`, publishes
+    /// the take to `takes`, and keeps `shared` current with the Live
+    /// companion's status.
     pub fn start(
         mut inputs: Inputs,
         state: Arc<Mutex<State>>,
         takes: TakeFeed,
+        shared: SharedLiveStatus,
         state_changed: impl Fn() + Send + 'static,
     ) -> Option<Self> {
         let stop = Arc::new(AtomicBool::new(false));
@@ -57,7 +60,7 @@ impl Control {
                         state_changed();
                     }
                     if let Some(live) = &mut live {
-                        poll_live(live);
+                        poll_live(live, &shared);
                     }
                     if stopping {
                         return inputs;
@@ -85,9 +88,11 @@ impl Control {
     }
 }
 
-/// Logs changes to what the Live companion reports.
-fn poll_live(live: &mut LiveLink) {
+/// Logs changes to what the Live companion reports and shares the status,
+/// whose set directory picks the record root when capture arms.
+fn poll_live(live: &mut LiveLink, shared: &SharedLiveStatus) {
     if live.poll(Instant::now()) {
+        shared.set(live.status().cloned());
         match live.status() {
             Some(status) => log(&format!("live companion: {status}")),
             None => log("live companion: gone"),

@@ -28,8 +28,8 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use zvid_daw_core::{
-    AudioTap, Command, Consumer, LiveLink, ProcessSnapshot, Producer, RecordRoot, State,
-    TakeChange, TakeFeed, TapWriter, TransportFollower, audio_tap, clock, ring,
+    AudioTap, Command, Consumer, LiveLink, ProcessSnapshot, Producer, RecordRoot, SharedLiveStatus,
+    State, TakeChange, TakeFeed, TapWriter, TransportFollower, audio_tap, clock, ring,
 };
 
 use zvid_daw_ui::{Backend, HostLink, instance_backend};
@@ -100,6 +100,9 @@ pub struct Component {
     commands: Sender<Command>,
     /// Takes the control thread opens and closes, for the editor.
     takes: TakeFeed,
+    /// What the Live companion last reported, kept current by the control
+    /// thread, for the editor's record root.
+    live: SharedLiveStatus,
     tap_enabled: AtomicBool,
     audio_tap: Mutex<Option<AudioTap>>,
     /// The sample rate from `setupProcessing` as `f64` bits, for blocks
@@ -134,6 +137,7 @@ impl Component {
             handler: Arc::new(HostHandler::default()),
             commands,
             takes: TakeFeed::default(),
+            live: SharedLiveStatus::default(),
             tap_enabled: AtomicBool::new(false),
             audio_tap: Mutex::new(Some(tap_reader)),
             sample_rate: AtomicU64::new(0),
@@ -214,8 +218,8 @@ impl Component {
                     commands: self.commands(),
                     takes: self.take_changes(),
                     state_changed: Box::new(move || handler.state_changed()),
-                    // The Live set's directory isn't known to the plugin yet.
-                    record_root: RecordRoot::resolve_or_temp(None),
+                    documents_root: RecordRoot::resolve_or_temp(None),
+                    live: self.live.clone(),
                     audio: self.take_audio_tap(),
                 })
             })
@@ -266,6 +270,7 @@ impl Component {
                 inputs,
                 Arc::clone(&self.state),
                 self.takes.clone(),
+                self.live.clone(),
                 Arc::clone(&self.handler),
             );
         }
@@ -504,6 +509,7 @@ fn start_control(
     mut inputs: ControlInputs,
     state: Arc<Mutex<State>>,
     takes: TakeFeed,
+    shared: SharedLiveStatus,
     handler: Arc<HostHandler>,
 ) -> Option<Control> {
     let stop = Arc::new(AtomicBool::new(false));
@@ -521,7 +527,7 @@ fn start_control(
                     handler.state_changed();
                 }
                 if let Some(live) = &mut live {
-                    poll_live(live);
+                    poll_live(live, &shared);
                 }
                 if stopping {
                     return inputs;
@@ -550,11 +556,12 @@ fn stop_control(lifecycle: &mut Lifecycle) {
     }
 }
 
-/// Logs changes to what the Live companion reports. Prototype for #200:
-/// arming capture from Live's record buttons and using the set directory
-/// come later.
-fn poll_live(live: &mut LiveLink) {
+/// Logs changes to what the Live companion reports and shares the status,
+/// whose set directory picks the record root when capture arms. Arming
+/// capture from Live's record buttons comes later (#200).
+fn poll_live(live: &mut LiveLink, shared: &SharedLiveStatus) {
     if live.poll(Instant::now()) {
+        shared.set(live.status().cloned());
         match live.status() {
             Some(status) => log(&format!("live companion: {status}")),
             None => log("live companion: gone"),
