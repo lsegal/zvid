@@ -8,7 +8,8 @@
 //! each method subtracts the field's offset to find the object.
 //!
 //! `process()` is real-time safe: it copies audio, pushes a transport
-//! snapshot and, once the tap is taken, input audio into lock-free rings, and
+//! snapshot and, once the tap is taken, timed input audio into lock-free
+//! rings, and
 //! never allocates, locks, does I/O or logs. A control thread started by
 //! `initialize` drains the transport ring and the capture layer's
 //! [`Command`]s into the take log, which appends every take to the plugin
@@ -20,15 +21,15 @@ use std::cell::UnsafeCell;
 use std::ffi::c_void;
 use std::mem::offset_of;
 use std::ptr;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering, fence};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering, fence};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use zvid_daw_core::{
-    Command, Consumer, LiveLink, ProcessSnapshot, Producer, State, TakeChange, TakeFeed,
-    TransportFollower, clock, ring,
+    AudioTap, Command, Consumer, LiveLink, ProcessSnapshot, Producer, State, TakeChange, TakeFeed,
+    TapWriter, TransportFollower, audio_tap, clock, ring,
 };
 
 use crate::CLASS_ID;
@@ -60,7 +61,7 @@ const REQUIREMENTS: usize = offset_of!(Component, requirements_vtbl);
 struct AudioThread {
     block: u64,
     transport: Producer<ProcessSnapshot>,
-    tap: Producer<[f32; 2]>,
+    tap: TapWriter,
 }
 
 /// What the control thread reads from.
@@ -98,7 +99,10 @@ pub struct Component {
     /// Takes the control thread opens and closes, for the editor.
     takes: TakeFeed,
     tap_enabled: AtomicBool,
-    audio_tap: Mutex<Option<Consumer<[f32; 2]>>>,
+    audio_tap: Mutex<Option<AudioTap>>,
+    /// The sample rate from `setupProcessing` as `f64` bits, for blocks
+    /// without a process context.
+    sample_rate: AtomicU64,
     audio: UnsafeCell<AudioThread>,
 }
 
@@ -107,7 +111,7 @@ impl Component {
     pub fn create() -> *mut Component {
         let (transport, transport_reader) = ring(TRANSPORT_CAPACITY);
         let (commands, command_reader) = mpsc::channel();
-        let (tap, tap_reader) = ring(AUDIO_TAP_FRAMES);
+        let (tap, tap_reader) = audio_tap(AUDIO_TAP_FRAMES);
         Box::into_raw(Box::new(Component {
             component_vtbl: &COMPONENT_VTBL,
             processor_vtbl: &PROCESSOR_VTBL,
@@ -127,6 +131,7 @@ impl Component {
             takes: TakeFeed::default(),
             tap_enabled: AtomicBool::new(false),
             audio_tap: Mutex::new(Some(tap_reader)),
+            sample_rate: AtomicU64::new(0),
             audio: UnsafeCell::new(AudioThread {
                 block: 0,
                 transport,
@@ -173,10 +178,12 @@ impl Component {
         self.takes.subscribe()
     }
 
-    /// Takes the reading end of the input-audio tap: stereo frames from the
-    /// main input bus (mono input is duplicated). `process()` only feeds the
-    /// tap once it has been taken; later calls return `None`.
-    pub fn take_audio_tap(&self) -> Option<Consumer<[f32; 2]>> {
+    /// Takes the reading end of the input-audio tap: blocks of stereo frames
+    /// from the main input bus (mono input is duplicated), each with the
+    /// host time of its first frame, taken at the start of `process()` as
+    /// for transport snapshots, and the sample rate. `process()` only feeds
+    /// the tap once it has been taken; later calls return `None`.
+    pub fn take_audio_tap(&self) -> Option<AudioTap> {
         let tap = lock(&self.audio_tap).take();
         if tap.is_some() {
             self.tap_enabled.store(true, Ordering::Release);
@@ -317,13 +324,12 @@ impl Component {
         // SAFETY: `process()` is never called concurrently.
         let audio = unsafe { &mut *self.audio.get() };
         audio.block += 1;
-        if let Some(context) = unsafe { data.process_context.as_ref() } {
-            audio.transport.push(snapshot(
-                context,
-                audio.block,
-                data.num_samples,
-                clock::now_sec(),
-            ));
+        let now = clock::now_sec();
+        let context = unsafe { data.process_context.as_ref() };
+        if let Some(context) = context {
+            audio
+                .transport
+                .push(snapshot(context, audio.block, data.num_samples, now));
         }
         if data.symbolic_sample_size != SAMPLE_32 {
             return NOT_IMPLEMENTED;
@@ -346,8 +352,15 @@ impl Component {
                 && let Some(left) = input.and_then(|bus| channel(bus, 0))
             {
                 let right = input.and_then(|bus| channel(bus, 1)).unwrap_or(left);
-                for frame in 0..frames {
-                    audio.tap.push([*left.add(frame), *right.add(frame)]);
+                let sample_rate = context
+                    .map(|context| context.sample_rate)
+                    .filter(|rate| *rate > 0.0)
+                    .unwrap_or_else(|| f64::from_bits(self.sample_rate.load(Ordering::Relaxed)));
+                // A full tap drops the whole block and counts it.
+                if sample_rate > 0.0 {
+                    audio.tap.push(now, sample_rate, frames, |frame| {
+                        [*left.add(frame), *right.add(frame)]
+                    });
                 }
             }
             if let Some(output) = output {
@@ -736,11 +749,17 @@ unsafe extern "system" fn processor_zero_samples(_this: *mut c_void) -> u32 {
 }
 
 unsafe extern "system" fn processor_setup_processing(
-    _this: *mut c_void,
+    this_: *mut c_void,
     setup: *mut ProcessSetup,
 ) -> TResult {
     match unsafe { setup.as_ref() } {
-        Some(setup) if setup.symbolic_sample_size == SAMPLE_32 => OK,
+        Some(setup) if setup.symbolic_sample_size == SAMPLE_32 => {
+            let component = unsafe { this::<PROCESSOR>(this_) };
+            component
+                .sample_rate
+                .store(setup.sample_rate.to_bits(), Ordering::Relaxed);
+            OK
+        }
         Some(_) => FALSE,
         None => INVALID_ARGUMENT,
     }

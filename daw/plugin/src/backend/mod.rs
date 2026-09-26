@@ -13,6 +13,11 @@
 //!   file's frame clock is forwarded as [`Command::FrameClock`].
 //!   [`Backend::disarm`] sends [`Command::Disarm`] and finalizes the file
 //!   on a worker thread.
+//! - **Audio**: the format layer's input-bus tap delivers blocks timed on
+//!   the host clock. While armed they go to the file, whose audio format is
+//!   the bus's sample rate at arm; otherwise they are discarded. Without a
+//!   tap, or before the host has processed any audio, captures are video
+//!   only.
 //! - **Takes** the control thread opens and closes arrive as
 //!   [`TakeChange`]s and become `takeOpened` and `takeClosed` events.
 //! - **Failures**: when the camera is unplugged, stops sending video, or
@@ -20,7 +25,8 @@
 //!   the editor gets an error status and an `error` event.
 //!
 //! Commands run on the editor's worker threads. A monitor thread owned by
-//! the backend applies take changes, hot-plug events and recorder progress.
+//! the backend applies take changes, hot-plug events and recorder progress,
+//! and moves tapped audio into the file.
 //! None of this touches the audio thread.
 
 mod local_time;
@@ -32,9 +38,9 @@ use std::sync::{Arc, Mutex, MutexGuard, Weak};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 
-use zvid_capture::record::{FrameClock, RecordConfig, VideoEncoderChoice};
+use zvid_capture::record::{AudioFormat, FrameClock, RecordConfig, VideoEncoderChoice};
 use zvid_capture::{Device, DeviceEvent, Rational};
-use zvid_daw_core::{CameraChoice, Capture, Command, RecordRoot, State, TakeChange};
+use zvid_daw_core::{AudioTap, CameraChoice, Capture, Command, RecordRoot, State, TakeChange};
 use zvid_daw_ui::mock::rfc3339_utc;
 use zvid_daw_ui::{
     Backend, Camera, CaptureInfo, Channels, ErrorCode, Status, TakeFile, TakeInfo, UiError,
@@ -48,7 +54,7 @@ pub use platform::{
 use map::StatusInputs;
 
 /// How often the monitor thread applies take changes, hot-plug events and
-/// recorder progress.
+/// recorder progress, and drains the audio tap.
 const TICK: Duration = Duration::from_millis(50);
 /// An open camera that delivers no frame for this long has failed.
 const STALL: Duration = Duration::from_secs(5);
@@ -66,6 +72,9 @@ pub struct HostLink {
     pub state_changed: Box<dyn Fn() + Send + Sync>,
     /// Where capture files are written.
     pub record_root: RecordRoot,
+    /// The input-bus tap (`take_audio_tap()`), or `None` to record video
+    /// only.
+    pub audio: Option<AudioTap>,
 }
 
 pub struct CaptureBackend {
@@ -80,6 +89,18 @@ pub struct CaptureBackend {
     /// The file frames are recorded to while armed. The capture thread
     /// reads it for every frame, so it has its own lock.
     recorder: Arc<Mutex<Option<Box<dyn CaptureFile>>>>,
+    /// Locked before `recorder` when both are held.
+    audio: Mutex<AudioIn>,
+}
+
+/// The input bus, as it feeds the capture file.
+#[derive(Default)]
+struct AudioIn {
+    tap: Option<AudioTap>,
+    /// The capture file's audio format, while armed with audio.
+    format: Option<AudioFormat>,
+    /// A block at another sample rate was dropped during this capture.
+    mismatched: bool,
 }
 
 #[derive(Default)]
@@ -130,6 +151,7 @@ impl CaptureBackend {
             takes,
             state_changed,
             record_root,
+            audio,
         } = link;
         let backend = Arc::new(Self {
             platform,
@@ -141,6 +163,10 @@ impl CaptureBackend {
             stall,
             inner: Mutex::new(Inner::default()),
             recorder: Arc::new(Mutex::new(None)),
+            audio: Mutex::new(AudioIn {
+                tap: audio,
+                ..AudioIn::default()
+            }),
         });
         let weak = Arc::downgrade(&backend);
         let spawned = thread::Builder::new()
@@ -305,6 +331,8 @@ impl CaptureBackend {
         if inner.capture.take().is_none() {
             return;
         }
+        // The audio tapped up to now belongs to this file.
+        self.pump_audio(true);
         let file = lock(&self.recorder).take();
         if let Some(clock) = file.as_ref().and_then(|file| file.stats().frame_clock) {
             // Place the take's end with the latest frame written.
@@ -399,9 +427,55 @@ impl CaptureBackend {
         }
     }
 
+    /// Moves tapped audio into the capture file, or discards it while not
+    /// armed. With `stop`, this is the capture's last audio.
+    fn pump_audio(&self, stop: bool) {
+        let mut audio = lock(&self.audio);
+        let AudioIn {
+            tap: Some(tap),
+            format,
+            mismatched,
+        } = &mut *audio
+        else {
+            return;
+        };
+        let recorder = lock(&self.recorder);
+        for block in tap.drain() {
+            let (Some(format), Some(file)) = (*format, recorder.as_ref()) else {
+                continue;
+            };
+            if map::audio_format(block.sample_rate) != format {
+                if !*mismatched {
+                    *mismatched = true;
+                    log(&format!(
+                        "the input bus changed to {} Hz mid-capture; its audio is dropped \
+                         until the next capture",
+                        block.sample_rate
+                    ));
+                }
+                continue;
+            }
+            file.push_audio(map::audio_block(block));
+        }
+        if stop {
+            *format = None;
+        }
+    }
+
+    /// The audio format for a capture starting now: the bus's current
+    /// sample rate, or `None` without a tap or before any audio. Audio
+    /// tapped before now is discarded.
+    fn arm_audio(&self) -> Option<AudioFormat> {
+        let mut audio = lock(&self.audio);
+        let tap = audio.tap.as_mut()?;
+        tap.drain().for_each(drop);
+        tap.sample_rate().map(map::audio_format)
+    }
+
     /// Forwards recorder progress, and fails a capture whose recorder or
     /// camera stopped.
     fn tick(&self) {
+        self.pump_audio(false);
         self.restore();
         let mut inner = self.lock();
         let mut changed = false;
@@ -539,6 +613,7 @@ impl Backend for CaptureBackend {
             ));
         };
         let counter = inner.captures + 1;
+        let audio = self.arm_audio();
         let file = self
             .platform
             .record(RecordConfig {
@@ -546,9 +621,7 @@ impl Backend for CaptureBackend {
                 counter,
                 armed_at: self.platform.local_time(),
                 fps: camera.fps,
-                // The input-bus tap isn't timed on the host clock yet, so
-                // captures are video only.
-                audio: None,
+                audio,
                 video_encoder: VideoEncoderChoice::Auto,
             })
             .map_err(|error| {
@@ -565,9 +638,24 @@ impl Backend for CaptureBackend {
             camera: device.name.clone(),
             created_at: rfc3339_utc(SystemTime::now()),
         };
-        log(&format!("recording to {}", capture.filename));
+        match audio {
+            Some(audio) => log(&format!(
+                "recording to {} with {} Hz input audio",
+                capture.filename, audio.sample_rate
+            )),
+            None => log(&format!(
+                "recording to {} without audio: no input audio yet",
+                capture.filename
+            )),
+        }
         let at = self.platform.now_sec();
-        *lock(&self.recorder) = Some(file);
+        {
+            // Both at once, so no tapped audio is discarded in between.
+            let mut tapped = lock(&self.audio);
+            tapped.format = audio;
+            tapped.mismatched = false;
+            *lock(&self.recorder) = Some(file);
+        }
         self.send(Command::Arm { capture, at });
         inner.captures = counter;
         inner.capture = Some(Active {

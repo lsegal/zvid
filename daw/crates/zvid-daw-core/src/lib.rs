@@ -2,10 +2,10 @@
 //! state schema, the transport-following take tracker and the take log that
 //! turns its takes into state entries, the transport-change watch both
 //! format layers share, the host clock, capture file naming, record-root
-//! resolution, the audio-to-control-thread ring and swap cell, and the link
-//! to the optional Live companion script. Nothing here touches cameras, hosts
-//! or UI; the only I/O is locating Documents and the companion's localhost
-//! UDP socket.
+//! resolution, the audio-to-control-thread ring and swap cell, the timed
+//! input-audio tap, and the link to the optional Live companion script.
+//! Nothing here touches cameras, hosts or UI; the only I/O is locating
+//! Documents and the companion's localhost UDP socket.
 
 pub mod clock;
 pub mod live;
@@ -15,6 +15,7 @@ pub mod ring;
 pub mod state;
 pub mod swap;
 pub mod takes;
+pub mod tap;
 pub mod tracker;
 pub mod transport;
 
@@ -24,6 +25,7 @@ pub use paths::{RecordRoot, RecordRootKind};
 pub use ring::{Consumer, Producer, ring};
 pub use state::{CameraChoice, Recording, RecordingMeta, State, StateError, frame_start};
 pub use takes::{Capture, Command, TakeChange, TakeFeed, TakeLog};
+pub use tap::{AudioTap, TapBlock, TapWriter, audio_tap};
 pub use tracker::{Anchor, Event, Input, Take, TakeTracker, TransportSnapshot};
 pub use transport::{Change, ProcessSnapshot, TransportFollower, TransportWatch, describe};
 

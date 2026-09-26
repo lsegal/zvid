@@ -5,7 +5,9 @@
 use std::any::Any;
 use std::sync::Arc;
 
-use zvid_capture::record::{RecordConfig, RecordError, RecordStats, Recorded, Recorder};
+use zvid_capture::record::{
+    AudioBlock, RecordConfig, RecordError, RecordStats, Recorded, Recorder,
+};
 use zvid_capture::{
     CaptureConfig, CaptureError, CaptureSession, Device, DeviceEvent, DeviceId, DeviceWatcher,
     Frame, PreviewConfig, Selection, SessionStats,
@@ -52,6 +54,8 @@ pub trait CaptureFile: Send {
     fn filename(&self) -> &str;
     /// Queues a frame without blocking.
     fn push_frame(&self, frame: Arc<Frame>);
+    /// Queues input-bus audio without blocking.
+    fn push_audio(&self, block: AudioBlock);
     fn stats(&self) -> RecordStats;
     /// Finishes the file. Blocks while it is finalized.
     fn stop(self: Box<Self>) -> Result<Recorded, RecordError>;
@@ -111,6 +115,10 @@ impl CaptureFile for Recorder {
 
     fn push_frame(&self, frame: Arc<Frame>) {
         Recorder::push_frame(self, frame);
+    }
+
+    fn push_audio(&self, block: AudioBlock) {
+        Recorder::push_audio(self, block);
     }
 
     fn stats(&self) -> RecordStats {
