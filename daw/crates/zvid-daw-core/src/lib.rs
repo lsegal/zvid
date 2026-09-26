@@ -22,8 +22,8 @@ pub use live::{LiveLink, LiveStatus};
 pub use naming::{LocalTime, capture_filename, next_capture_filename};
 pub use paths::{RecordRoot, RecordRootKind};
 pub use ring::{Consumer, Producer, ring};
-pub use state::{Recording, RecordingMeta, State, StateError, frame_start};
-pub use takes::{Capture, Command, TakeLog};
+pub use state::{CameraChoice, Recording, RecordingMeta, State, StateError, frame_start};
+pub use takes::{Capture, Command, TakeChange, TakeFeed, TakeLog};
 pub use tracker::{Anchor, Event, Input, Take, TakeTracker, TransportSnapshot};
 pub use transport::{Change, ProcessSnapshot, TransportFollower, TransportWatch, describe};
 
