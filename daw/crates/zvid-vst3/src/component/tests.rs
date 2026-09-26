@@ -878,8 +878,11 @@ fn play_spans_while_armed_become_saved_takes() {
     assert!(state.recordings[1].file_offset_sec > state.recordings[0].file_offset_sec);
     // The host heard about the takes, and so did the editor.
     assert!(handler.dirty.load(Ordering::Relaxed) >= 1);
-    let changes: Vec<TakeChange> = takes.try_iter().collect();
-    assert_eq!(changes.len(), 4);
+    let mut changes: Vec<TakeChange> = Vec::new();
+    wait_for(|| {
+        changes.extend(takes.try_iter());
+        changes.len() == 4
+    });
     assert!(matches!(changes[0], TakeChange::Opened { index: 0, .. }));
     assert!(matches!(&changes[3], TakeChange::Closed(take) if take.id == state.recordings[1].id));
     unsafe { (component.terminate)(host.component) };
