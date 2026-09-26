@@ -155,18 +155,23 @@ Takes are only useful if they line up with the arrangement. The target is
    monotonic host clock: `mach_absolute_time` on macOS and
    `QueryPerformanceCounter` (QPC) on Windows. Capture presentation timestamps
    already use it (AVFoundation's host time clock; Media Foundation sample
-   times on QPC), or are converted to it.
+   times on QPC), or are converted to it. `zvid_daw_core::clock::now_sec`
+   and `zvid_capture::HostTime` read it the same way.
 2. **Transport time.** For each process block the audio thread records when
    the block's song position applies:
-   - VST3: `ProcessContext::systemTime` when `kSystemTimeValid` is set;
-     otherwise the clock read at the start of the process callback.
+   - VST3: the clock read at the start of the process callback.
+     `ProcessContext::systemTime` is logged but not used, because VST3 does
+     not say which clock it is on.
    - AU: the render `AudioTimeStamp`'s `mHostTime` when valid; otherwise the
      clock read at the start of the render callback.
 
-   That time is corrected for reported latency: the plugin's own reported
-   latency and, where the host exposes it, the audio device's output latency,
-   so the snapshot describes when the audio at that song position is actually
-   heard.
+   No latency correction is applied yet. The plugin reports zero latency in
+   both formats, so it has no latency of its own to correct for, and neither
+   format tells it the audio device's output latency. What's left is the
+   time between processing a block and hearing it: about one buffer, 10 ms
+   at 512 samples and 48 kHz, well under one frame at 30 fps. The clap test
+   in [#201](https://github.com/lsegal/zvid/issues/201) confirms this or
+   adds a stated correction term here.
 3. **File time.** The capture thread reports `FrameClock { host_time,
    file_sec }` pairs: a frame captured at `host_time` was written at
    `file_sec` in the MP4. The tracker maps any host time to file time using
@@ -235,6 +240,22 @@ It is implemented by `State` and `Recording` in `zvid-daw-core`.
   to `null`, `fileOffsetSec: 0`, and a `durationSec` covering the whole file.
   `frameStart` is `0` and meaningless for them.
 - **`createdAt`** is an RFC 3339 UTC timestamp.
+- **Written as the take happens.** The control thread's `TakeLog`
+  (`zvid-daw-core`) appends a take to `recordings` when it opens and keeps
+  its `durationSec` running with each transport snapshot until it closes. A
+  set saved mid-take therefore still lists the take. Each time a take opens
+  or closes, the plugin tells the host its state changed: VST3 through
+  `IComponentHandler2::setDirty` (or `restartComponent(kParamValuesChanged)`
+  when the host lacks it), AU through a `kAudioUnitProperty_ClassInfo`
+  property-change notification.
+- **Take IDs** are the capture file's name without `.mp4`, plus
+  `-take-N`, where `N` counts that capture's takes from 1.
+- **Capture layer commands.** The capture layer (#223) drives the take log
+  through the format layer's `commands()` channel. It sends `Arm` with the
+  capture file's name, size, frame rate, camera and `createdAt` when
+  recording starts, `FrameClock` as frames are written, and `Disarm` when
+  it stops. The control thread applies these commands and the transport
+  snapshots in host-time order.
 - **Forward compatibility.** Unknown keys, at the top level and per recording,
   are kept and written back unchanged, so an older plugin doesn't drop data a
   newer one saved. Additive changes keep `"version": "1"`; a change to the

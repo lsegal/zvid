@@ -519,9 +519,10 @@ fn pushes_a_transport_snapshot_per_block() {
     process(&host, None, &mut output_buffers, 8, Some(&mut context));
 
     let snapshots: Vec<ProcessSnapshot> = lock(&host.object().lifecycle)
-        .transport
+        .inputs
         .as_mut()
         .unwrap()
+        .transport
         .drain()
         .collect();
     assert_eq!(snapshots.len(), 2);
@@ -565,7 +566,7 @@ fn control_thread_follows_initialize_and_terminate() {
         let mut lifecycle = lock(&host.object().lifecycle);
         assert!(lifecycle.control.is_none());
         // The control thread drained the ring before handing it back.
-        let transport = lifecycle.transport.as_mut().unwrap();
+        let transport = &mut lifecycle.inputs.as_mut().unwrap().transport;
         assert_eq!(transport.pop(), None);
         drop(lifecycle);
         // Extra terminates are harmless, and the thread restarts.
@@ -726,4 +727,155 @@ fn holds_a_reference_to_the_component_handler() {
     }
     // Destroying the component releases the handler too.
     assert_eq!(first.refs.load(Ordering::Relaxed), 1);
+}
+
+/// A host `IComponentHandler2` that counts `setDirty` calls.
+#[repr(C)]
+struct DirtyHandler {
+    vtbl: &'static IComponentHandler2Vtbl,
+    dirty: AtomicU32,
+}
+
+static DIRTY_HANDLER_VTBL: IComponentHandler2Vtbl = IComponentHandler2Vtbl {
+    unknown: FUnknownVtbl {
+        query_interface: dirty_handler_query_interface,
+        add_ref: stream_ref,
+        release: stream_ref,
+    },
+    set_dirty: dirty_handler_set_dirty,
+    request_open_editor: dirty_handler_request_open_editor,
+    start_group_edit: dirty_handler_group_edit,
+    finish_group_edit: dirty_handler_group_edit,
+};
+
+unsafe extern "system" fn dirty_handler_query_interface(
+    this_: *mut c_void,
+    iid: *const Tuid,
+    obj: *mut *mut c_void,
+) -> TResult {
+    if unsafe { *iid } == ICOMPONENT_HANDLER2_IID {
+        unsafe { *obj = this_ };
+        OK
+    } else {
+        NO_INTERFACE
+    }
+}
+
+unsafe extern "system" fn dirty_handler_set_dirty(this_: *mut c_void, state: TBool) -> TResult {
+    assert_eq!(state, 1);
+    unsafe { &*this_.cast::<DirtyHandler>() }
+        .dirty
+        .fetch_add(1, Ordering::Relaxed);
+    OK
+}
+
+unsafe extern "system" fn dirty_handler_request_open_editor(
+    _this: *mut c_void,
+    _name: FIDString,
+) -> TResult {
+    NOT_IMPLEMENTED
+}
+
+unsafe extern "system" fn dirty_handler_group_edit(_this: *mut c_void) -> TResult {
+    NOT_IMPLEMENTED
+}
+
+/// Waits for the control thread to catch up with `done`.
+fn wait_for(mut done: impl FnMut() -> bool) {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !done() {
+        assert!(Instant::now() < deadline, "timed out");
+        thread::sleep(Duration::from_millis(5));
+    }
+}
+
+#[test]
+fn play_spans_while_armed_become_saved_takes() {
+    let mut handler = DirtyHandler {
+        vtbl: &DIRTY_HANDLER_VTBL,
+        dirty: AtomicU32::new(0),
+    };
+    let handler_ptr = ptr::from_mut(&mut handler).cast::<c_void>();
+    let host = Host::new();
+    let component = host.component();
+    let mut output_samples = vec![vec![0.0f32; 480]; 2];
+    let mut output = Bus::new(&mut output_samples);
+    let mut output_buffers = output.buffers(0);
+    let mut context = ProcessContext {
+        state: context::TEMPO_VALID | context::TIME_SIG_VALID,
+        sample_rate: 48_000.0,
+        tempo: 120.0,
+        time_sig_numerator: 4,
+        time_sig_denominator: 4,
+        ..ProcessContext::default()
+    };
+    unsafe {
+        assert_eq!((component.initialize)(host.component, ptr::null_mut()), OK);
+        (host.controller().set_component_handler)(host.controller, handler_ptr);
+    }
+    let commands = host.object().commands();
+    commands
+        .send(Command::Arm {
+            capture: zvid_daw_core::Capture {
+                filename: "video-01-9-25-20-36-12-0.mp4".to_string(),
+                dimensions: [1280, 720],
+                fps: [30, 1],
+                camera: "Cam".to_string(),
+                created_at: "2026-09-25T20:36:12Z".to_string(),
+            },
+            at: clock::now_sec(),
+        })
+        .unwrap();
+    wait_for(|| lock(&host.object().lifecycle).control.is_some());
+
+    let mut block = |playing: bool, context: &mut ProcessContext| {
+        context.state = if playing {
+            context.state | context::PLAYING
+        } else {
+            context.state & !context::PLAYING
+        };
+        process(&host, None, &mut output_buffers, 480, Some(context));
+        if playing {
+            context.project_time_samples += 480;
+        }
+    };
+    // Two play spans starting at bar 3 and bar 9 (4 s and 16 s at 120 BPM).
+    for start in [192_000, 768_000] {
+        context.project_time_samples = start;
+        for _ in 0..5 {
+            block(true, &mut context);
+            thread::sleep(Duration::from_millis(2));
+        }
+        block(false, &mut context);
+    }
+    commands
+        .send(Command::Disarm {
+            at: clock::now_sec(),
+        })
+        .unwrap();
+    wait_for(|| {
+        let state = host.object().state();
+        state.recordings.len() == 2 && state.recordings.iter().all(|take| take.duration_sec > 0.0)
+    });
+
+    let mut saved = MemoryStream::new(&[], 7);
+    assert_eq!(
+        unsafe { (component.get_state)(host.component, saved.as_ptr()) },
+        OK
+    );
+    let state = State::from_json(std::str::from_utf8(&saved.data).unwrap()).unwrap();
+    assert_eq!(state.recordings.len(), 2);
+    for (take, start_sec) in state.recordings.iter().zip([4.0, 16.0]) {
+        assert_eq!(take.filename, "video-01-9-25-20-36-12-0.mp4");
+        assert_eq!(take.transport_start_sec, Some(start_sec));
+        assert_eq!(take.transport_start_beats, Some(start_sec * 2.0));
+        assert_eq!(take.tempo, Some(120.0));
+        assert_eq!(take.time_signature, Some([4, 4]));
+        assert!(take.file_offset_sec >= 0.0);
+        assert!(take.duration_sec > 0.0);
+    }
+    assert!(state.recordings[1].file_offset_sec > state.recordings[0].file_offset_sec);
+    // The host heard about the takes.
+    assert!(handler.dirty.load(Ordering::Relaxed) >= 1);
+    unsafe { (component.terminate)(host.component) };
 }
