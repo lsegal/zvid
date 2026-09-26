@@ -299,42 +299,35 @@ fn records_aac_audio_in_sync_with_video() {
 }
 
 #[test]
-fn records_1080p_with_the_platform_encoder_when_available() {
+fn records_with_the_platform_encoder_when_available() {
+    // A small 3 s clip keeps this fast when a machine only has a software
+    // encoder (CI runners have no GPU); the size is 16-aligned so every
+    // encoder takes it as is.
+    let (width, height) = (576, 320);
     let fps = Rational::new(30, 1);
-    // CI machines may only have the platform's software HEVC encoder, which
-    // still exercises this path but can't be held to real time.
     let (encoder, skipped) =
-        encoder::open_video(1920, 1080, fps, VideoEncoderChoice::Auto).unwrap();
+        encoder::open_video(width, height, fps, VideoEncoderChoice::Auto).unwrap();
     let info = encoder.info();
     eprintln!("zvidlib chose {info}");
-    // VideoToolbox is always there on macOS, so only Windows may skip.
+    // VideoToolbox is always there on macOS.
     assert!(
         !cfg!(target_os = "macos") || info.hardware,
         "VideoToolbox failed: {skipped:?}"
     );
-    if encoder.dimensions() != (1920, 1080) {
-        eprintln!("no platform HEVC encoder on this machine ({skipped:?}); skipping");
-        return;
-    }
     let hardware = info.hardware;
     drop(encoder);
     let root = root();
-    // Generating 1080p test frames is slow in debug builds, so make a few
-    // up front and cycle through them.
-    let frames: Vec<_> = (0..6).map(|index| frame(1920, 1080, index, 0.0)).collect();
     let recorder = Recorder::start(config(&root, None, VideoEncoderChoice::Auto)).unwrap();
     let started = Instant::now();
     for index in 0..90 {
-        let frame = Frame {
-            pts: host_ms(index as f64 * 1000.0 / 30.0),
-            sequence: index,
-            ..Frame::clone(&frames[index as usize % frames.len()])
-        };
-        push(&recorder, Arc::new(frame));
+        push(
+            &recorder,
+            frame(width, height, index, index as f64 * 1000.0 / 30.0),
+        );
     }
     let encoded = started.elapsed();
     let recorded = recorder.stop().unwrap();
-    assert_eq!(recorded.dimensions, (1920, 1080));
+    assert_eq!(recorded.dimensions, (width, height));
     assert_eq!(recorded.stats.video_encoder, Some(info));
     assert_eq!(recorded.stats.frames_written, 90);
     // Three seconds of video must encode in well under three seconds.
@@ -348,7 +341,7 @@ fn records_1080p_with_the_platform_encoder_when_available() {
     let video = &movie.tracks[0];
     assert_eq!(
         video.dimensions.map(|d| (d.width, d.height)),
-        Some((1920, 1080))
+        Some((width, height))
     );
     assert_eq!(video.samples.len(), 90);
     assert!(video.samples[0].is_sync);
