@@ -48,8 +48,13 @@ windows = { version = "0.62", features = [
     "Win32_System_Registry",
 ] }
 
-# Recording converts every camera frame to BGRA for the encoder on the CPU,
-# which unoptimized takes about 250 ms a 1080p frame. Optimize the crate so
-# debug builds and `cargo test` still record 1080p30 in real time.
+# Recording converts every camera frame on the CPU and, without a hardware
+# encoder (CI runners have no GPU), encodes it in zvidlib's software HEVC/AV1
+# encoders. Unoptimized, that is seconds a frame. Optimize zvid-capture and
+# every dependency so debug builds and `cargo test` still record in real time;
+# workspace crates stay unoptimized for fast rebuilds and debugging.
 [profile.dev.package.zvid-capture]
+opt-level = 3
+
+[profile.dev.package."*"]
 opt-level = 3
