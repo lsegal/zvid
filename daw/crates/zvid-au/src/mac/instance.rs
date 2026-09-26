@@ -24,7 +24,7 @@ use std::mem::{self, size_of};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::ptr::{self, NonNull};
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicPtr, Ordering};
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
@@ -62,6 +62,8 @@ use objc2_core_audio_types::{
 use objc2_foundation::NSString;
 use zvid_daw_core::swap::Swap;
 use zvid_daw_core::{Consumer, ProcessSnapshot, Producer, State, ring};
+use zvid_daw_ui::Backend;
+use zvid_daw_ui::mock::MockBackend;
 
 use super::control::Control;
 use super::{class_info, view};
@@ -224,6 +226,9 @@ pub struct AudioUnitInstance {
     bypass: AtomicBool,
     /// `mach_timebase_info` ratio for converting host time to seconds.
     timebase: (u32, u32),
+    /// What every editor this unit opens talks to, created with the first
+    /// one.
+    backend: OnceLock<Arc<dyn Backend>>,
 }
 
 impl AudioUnitInstance {
@@ -274,12 +279,21 @@ impl AudioUnitInstance {
             last_render_error: AtomicI32::new(0),
             bypass: AtomicBool::new(false),
             timebase: timebase(),
+            backend: OnceLock::new(),
         }))
     }
 
     /// The persisted plugin state, saved and restored through ClassInfo.
     pub fn state(&self) -> MutexGuard<'_, State> {
         lock(&self.state)
+    }
+
+    /// The backend this unit's editors share. It is the mock backend until
+    /// the real one (#223) lands.
+    pub fn backend(&self) -> Arc<dyn Backend> {
+        self.backend
+            .get_or_init(|| Arc::new(MockBackend::for_plugin(self.state().clone())))
+            .clone()
     }
 
     /// Takes the reading end of the input-audio tap: stereo frames from the

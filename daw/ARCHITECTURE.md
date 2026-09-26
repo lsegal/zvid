@@ -127,7 +127,9 @@ The workspace lives in `/daw` (scaffolded in
 
 Dependencies point inward: `plugin` depends on everything; `zvid-vst3`,
 `zvid-au`, `zvid-capture` and `zvid-daw-ui` depend on `zvid-daw-core` where
-they need shared types; `zvid-daw-core` depends on nothing plugin-specific.
+they need shared types; `zvid-vst3` and `zvid-au` also depend on
+`zvid-daw-ui` to host the editor in their views; `zvid-daw-core` depends on
+nothing plugin-specific.
 
 ## Threading model
 

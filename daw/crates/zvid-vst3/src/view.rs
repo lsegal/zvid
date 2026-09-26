@@ -501,8 +501,9 @@ mod tests {
                 view: ptr::null_mut(),
                 resized: None,
             };
-            let frame_ptr = ptr::from_mut(&mut frame).cast::<c_void>();
-            assert_eq!((v.set_frame)(this_, frame_ptr), OK);
+            // The view writes to the frame through this pointer.
+            let frame = ptr::from_mut(&mut frame);
+            assert_eq!((v.set_frame)(this_, frame.cast()), OK);
 
             let mut scale = ptr::null_mut();
             assert_eq!(
@@ -517,17 +518,20 @@ mod tests {
             assert_ne!(scale, this_);
             let s = vtbl::<IPlugViewContentScaleSupportVtbl>(scale);
             assert_eq!((s.set_content_scale_factor)(scale, 0.0), INVALID_ARGUMENT);
-            assert_eq!((s.set_content_scale_factor)(scale, f32::NAN), INVALID_ARGUMENT);
+            assert_eq!(
+                (s.set_content_scale_factor)(scale, f32::NAN),
+                INVALID_ARGUMENT
+            );
             assert_eq!((s.set_content_scale_factor)(scale, 1.5), OK);
 
             let expected = to_rect(DEFAULT_SIZE, 1.5);
             if cfg!(windows) {
                 assert_eq!((expected.width(), expected.height()), (1020, 1140));
-                assert_eq!(frame.resized, Some(expected));
-                assert_eq!(frame.view, this_);
+                assert_eq!((*frame).resized, Some(expected));
+                assert_eq!((*frame).view, this_);
             } else {
                 // macOS hosts size views in points, so nothing changes.
-                assert_eq!(frame.resized, None);
+                assert_eq!((*frame).resized, None);
             }
             let mut rect = ViewRect::default();
             assert_eq!((v.get_size)(this_, &mut rect), OK);
@@ -539,10 +543,12 @@ mod tests {
             assert_eq!(small, to_rect(MIN_SIZE, 1.5));
 
             // Going back to 1x keeps the size in points.
-            frame.resized = None;
+            (*frame).resized = None;
             assert_eq!((s.set_content_scale_factor)(scale, 1.0), OK);
             assert_eq!((v.get_size)(this_, &mut rect), OK);
             assert_eq!(rect, to_rect(DEFAULT_SIZE, 1.0));
+            let resized = cfg!(windows).then_some(rect);
+            assert_eq!((*frame).resized, resized);
 
             assert_eq!((s.unknown.release)(scale), 1);
             assert_eq!((v.unknown.release)(this_), 0);
