@@ -23,7 +23,7 @@ zvid-vst3 = { path = "crates/zvid-vst3" }
 zvid-au = { path = "crates/zvid-au" }
 # Keep this rev identical to app/export-bridge/Cargo.toml; `cargo xtask check`
 # fails when the two drift apart.
-zvidlib = { git = "https://github.com/lsegal/zvidlib", rev = "873d0deb975a72dde1408d6e8f6922849d15847d" }
+zvidlib = { git = "https://github.com/lsegal/zvidlib", rev = "0863b7e7d28a9b356711ee7333ea8ee2c9cafc47" }
 dirs = "6"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -44,8 +44,12 @@ windows = { version = "0.62", features = [
     "Win32_Foundation",
     "Win32_Media_MediaFoundation",
     "Win32_System_Com",
-    "Win32_System_Ole",
     "Win32_System_Performance",
     "Win32_System_Registry",
-    "Win32_System_Variant",
 ] }
+
+# Recording converts every camera frame to BGRA for the encoder on the CPU,
+# which unoptimized takes about 250 ms a 1080p frame. Optimize the crate so
+# debug builds and `cargo test` still record 1080p30 in real time.
+[profile.dev.package.zvid-capture]
+opt-level = 3
