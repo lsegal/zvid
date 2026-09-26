@@ -19,13 +19,16 @@ use std::ffi::c_void;
 use std::mem::offset_of;
 use std::ptr;
 use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, Ordering, fence};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use zvid_daw_core::{
     Consumer, LiveLink, ProcessSnapshot, Producer, State, TransportFollower, ring,
 };
+
+use zvid_daw_ui::Backend;
+use zvid_daw_ui::mock::MockBackend;
 
 use crate::CLASS_ID;
 use crate::abi::result::{FALSE, INVALID_ARGUMENT, NO_INTERFACE, NOT_IMPLEMENTED, OK};
@@ -88,6 +91,9 @@ pub struct Component {
     tap_enabled: AtomicBool,
     audio_tap: Mutex<Option<Consumer<[f32; 2]>>>,
     audio: UnsafeCell<AudioThread>,
+    /// What every editor this instance opens talks to, created with the
+    /// first one.
+    backend: OnceLock<Arc<dyn Backend>>,
 }
 
 impl Component {
@@ -115,6 +121,7 @@ impl Component {
                 transport,
                 tap,
             }),
+            backend: OnceLock::new(),
         }))
     }
 
@@ -147,6 +154,14 @@ impl Component {
             self.tap_enabled.store(true, Ordering::Release);
         }
         tap
+    }
+
+    /// The backend this instance's editors share. It is the mock backend
+    /// until the real one (#223) lands.
+    pub fn backend(&self) -> Arc<dyn Backend> {
+        self.backend
+            .get_or_init(|| Arc::new(MockBackend::for_plugin(self.state().clone())))
+            .clone()
     }
 
     unsafe fn query_interface(&self, iid: *const Tuid, obj: *mut *mut c_void) -> TResult {
@@ -730,11 +745,11 @@ unsafe extern "system" fn controller_set_component_handler(
 }
 
 unsafe extern "system" fn controller_create_view(
-    _this: *mut c_void,
+    this_: *mut c_void,
     name: FIDString,
 ) -> *mut c_void {
     if unsafe { fid_eq(name, VIEW_EDITOR) } {
-        View::create().cast()
+        View::create(unsafe { this::<CONTROLLER>(this_) }.backend()).cast()
     } else {
         ptr::null_mut()
     }

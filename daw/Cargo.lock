@@ -3763,6 +3763,7 @@ version = "0.1.0"
 dependencies = [
  "serde_json",
  "zvid-daw-core",
+ "zvid-daw-ui",
 ]
 
 [[package]]
