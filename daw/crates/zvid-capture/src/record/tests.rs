@@ -8,6 +8,7 @@ use zvidlib::{EncoderConfig, Mp4Demuxer, Mp4DemuxerOptions, TrackKind};
 use super::fmp4::tests::tempdir;
 use super::*;
 use crate::frame::{ColorInfo, PixelFormat, Rotation};
+use crate::preview::Converter;
 
 const AT: LocalTime = LocalTime {
     month: 6,
@@ -137,7 +138,11 @@ fn records_a_playable_mp4_named_by_the_core_generator() {
     assert_eq!(recorded.stats.frames_skipped, 1);
     assert_eq!(
         recorded.stats.video_encoder,
-        Some("zvidlib HEVC (software)")
+        Some(EncoderInfo {
+            codec: "hevc",
+            backend: "zvidlib".to_string(),
+            hardware: false,
+        })
     );
     assert!((recorded.duration_sec - 40.0 / 30.0).abs() < 1e-9);
     let clock = recorded.stats.frame_clock.unwrap();
@@ -226,7 +231,7 @@ fn records_aac_audio_in_sync_with_video() {
         sample_rate: 48_000,
         channels: 2,
     };
-    if encoder::open_audio(format.sample_rate, format.channels).is_err() {
+    if AudioStream::open(format.sample_rate, format.channels).is_err() {
         eprintln!("no AAC encoder on this machine; skipping");
         return;
     }
@@ -296,21 +301,23 @@ fn records_aac_audio_in_sync_with_video() {
 #[test]
 fn records_1080p_with_the_platform_encoder_when_available() {
     let fps = Rational::new(30, 1);
-    let bitrate = encoder::target_bitrate(1920, 1080, fps);
     // CI machines may only have the platform's software HEVC encoder, which
     // still exercises this path but can't be held to real time.
-    let hardware = match platform::open_hevc(1920, 1080, fps, bitrate) {
-        Ok(encoder) => {
-            eprintln!("platform encoder: {}", encoder.name());
-            encoder.name().contains("hardware")
-        }
-        // VideoToolbox is always there on macOS, so only Windows may skip.
-        Err(error) if cfg!(target_os = "macos") => panic!("VideoToolbox failed: {error}"),
-        Err(error) => {
-            eprintln!("no platform HEVC encoder on this machine ({error}); skipping");
-            return;
-        }
-    };
+    let (encoder, skipped) =
+        encoder::open_video(1920, 1080, fps, VideoEncoderChoice::Auto).unwrap();
+    let info = encoder.info();
+    eprintln!("zvidlib chose {info}");
+    // VideoToolbox is always there on macOS, so only Windows may skip.
+    assert!(
+        !cfg!(target_os = "macos") || info.hardware,
+        "VideoToolbox failed: {skipped:?}"
+    );
+    if encoder.dimensions() != (1920, 1080) {
+        eprintln!("no platform HEVC encoder on this machine ({skipped:?}); skipping");
+        return;
+    }
+    let hardware = info.hardware;
+    drop(encoder);
     let root = root();
     // Generating 1080p test frames is slow in debug builds, so make a few
     // up front and cycle through them.
@@ -328,6 +335,7 @@ fn records_1080p_with_the_platform_encoder_when_available() {
     let encoded = started.elapsed();
     let recorded = recorder.stop().unwrap();
     assert_eq!(recorded.dimensions, (1920, 1080));
+    assert_eq!(recorded.stats.video_encoder, Some(info));
     assert_eq!(recorded.stats.frames_written, 90);
     // Three seconds of video must encode in well under three seconds.
     assert!(
@@ -366,5 +374,38 @@ fn records_1080p_with_the_platform_encoder_when_available() {
         assert!(status.success());
         let thumbnails = std::fs::read_dir(&out).unwrap().count();
         assert_eq!(thumbnails, 1, "Quick Look could not render the recording");
+    }
+}
+
+#[test]
+fn maps_encoder_output_to_grid_slots_and_counts_drops() {
+    // Frames 0-3 were submitted for slots 0, 1, 3 and 4.
+    let mut in_flight: VecDeque<_> = [(0, 0), (1, 1), (2, 3), (3, 4)].into();
+    assert_eq!(take_slot(&mut in_flight, 0), Ok((0, 0)));
+    // The encoder dropped frame 1.
+    assert_eq!(take_slot(&mut in_flight, 2), Ok((3, 1)));
+    assert!(take_slot(&mut in_flight, 2).is_err(), "already returned");
+    assert_eq!(in_flight, [(3, 4)]);
+    assert_eq!(take_slot(&mut in_flight, 3), Ok((4, 0)));
+    assert!(in_flight.is_empty());
+}
+
+#[test]
+fn converts_nv12_to_rgba_with_the_frames_colour() {
+    let source = frame(64, 48, 0, 0.0);
+    let convert = Converter::new(source.color.bt709, source.color.full_range);
+    let rgba = encoder::to_rgba(&source, 2, 4, 60, 40);
+    assert_eq!(rgba.len(), 60 * 40 * 4);
+    for (x, y) in [(0, 0), (1, 0), (59, 39), (30, 17)] {
+        let (sx, sy) = (x + 2, y + 4);
+        let c = (sy / 2) * 64 + (sx & !1);
+        let expected = convert.rgb(
+            u32::from(source.luma()[sy * 64 + sx]),
+            u32::from(source.chroma()[c]),
+            u32::from(source.chroma()[c + 1]),
+        );
+        let at = (y * 60 + x) * 4;
+        assert_eq!(rgba[at..at + 3], expected, "pixel {x},{y}");
+        assert_eq!(rgba[at + 3], 255);
     }
 }
