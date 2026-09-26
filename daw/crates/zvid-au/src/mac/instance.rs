@@ -24,7 +24,7 @@ use std::mem::{self, size_of};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::ptr::{self, NonNull};
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicPtr, Ordering};
-use std::sync::mpsc::{self, Sender};
+use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 
 use objc2::rc::Retained;
@@ -62,7 +62,9 @@ use objc2_core_audio_types::{
 };
 use objc2_foundation::NSString;
 use zvid_daw_core::swap::Swap;
-use zvid_daw_core::{Command, Consumer, ProcessSnapshot, Producer, State, ring};
+use zvid_daw_core::{
+    Command, Consumer, ProcessSnapshot, Producer, State, TakeChange, TakeFeed, ring,
+};
 use zvid_daw_ui::Backend;
 use zvid_daw_ui::mock::MockBackend;
 
@@ -216,6 +218,8 @@ pub struct AudioUnitInstance {
     preset: Mutex<Preset>,
     listeners: Mutex<Vec<Listener>>,
     commands: Sender<Command>,
+    /// Takes the control thread opens and closes, for the editor.
+    takes: TakeFeed,
     /// The control thread's inputs while no control thread owns them.
     inputs: Mutex<Option<Inputs>>,
     /// Runs while the unit is initialized.
@@ -276,6 +280,7 @@ impl AudioUnitInstance {
             }),
             listeners: Mutex::new(Vec::new()),
             commands,
+            takes: TakeFeed::default(),
             inputs: Mutex::new(Some(Inputs {
                 transport: transport_reader,
                 commands: command_reader,
@@ -308,6 +313,17 @@ impl AudioUnitInstance {
     /// initialized and are applied once the control thread runs.
     pub fn commands(&self) -> Sender<Command> {
         self.commands.clone()
+    }
+
+    /// The persisted plugin state, shared with the editor backend.
+    pub fn shared_state(&self) -> Arc<Mutex<State>> {
+        Arc::clone(&self.state)
+    }
+
+    /// Receives each take the control thread opens or closes, replacing
+    /// any earlier receiver.
+    pub fn take_changes(&self) -> Receiver<TakeChange> {
+        self.takes.subscribe()
     }
 
     /// Takes the reading end of the input-audio tap: stereo frames from the
@@ -354,13 +370,18 @@ impl AudioUnitInstance {
         self.initialized.store(true, Ordering::Release);
         if let Some(inputs) = lock(&self.inputs).take() {
             let instance = ptr::from_ref(self) as usize;
-            *lock(&self.control) = Control::start(inputs, Arc::clone(&self.state), move || {
-                // SAFETY: the instance stops and joins the control thread
-                // before it is freed, so it outlives this call.
-                let instance = unsafe { &*(instance as *const Self) };
-                // Hosts save ClassInfo, so this tells them the set changed.
-                instance.notify(kAudioUnitProperty_ClassInfo, kAudioUnitScope_Global, 0);
-            });
+            *lock(&self.control) = Control::start(
+                inputs,
+                Arc::clone(&self.state),
+                self.takes.clone(),
+                move || {
+                    // SAFETY: the instance stops and joins the control thread
+                    // before it is freed, so it outlives this call.
+                    let instance = unsafe { &*(instance as *const Self) };
+                    // Hosts save ClassInfo, so this tells them the set changed.
+                    instance.notify(kAudioUnitProperty_ClassInfo, kAudioUnitScope_Global, 0);
+                },
+            );
         }
         0
     }

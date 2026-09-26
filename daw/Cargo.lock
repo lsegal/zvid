@@ -3682,6 +3682,9 @@ dependencies = [
 name = "zvid-daw-plugin"
 version = "0.1.0"
 dependencies = [
+ "libc",
+ "serde_json",
+ "windows 0.62.2",
  "zvid-au",
  "zvid-capture",
  "zvid-daw-core",

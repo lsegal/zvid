@@ -264,3 +264,69 @@ fn separate_captures_get_their_own_take_ids() {
         ]
     );
 }
+
+#[test]
+fn reports_takes_as_they_open_and_close() {
+    let mut log = TakeLog::default();
+    let mut state = State::default();
+    log.command(arm(100.0), &mut state);
+    log.transport(snap(true, 8.0, 101.0), &mut state);
+    assert_eq!(
+        log.take_changes(),
+        [TakeChange::Opened {
+            index: 0,
+            id: "video-01-9-25-20-36-12-0-take-1".to_string(),
+        }]
+    );
+    assert!(log.take_changes().is_empty());
+    log.transport(snap(true, 9.0, 102.0), &mut state);
+    log.transport(snap(false, 9.0, 102.01), &mut state);
+    play(&mut log, &mut state, 16.0, 105.0, 1.0);
+    log.command(Command::Disarm { at: 110.0 }, &mut state);
+
+    let changes = log.take_changes();
+    assert_eq!(changes.len(), 3);
+    assert_eq!(changes[0], TakeChange::Closed(state.recordings[0].clone()));
+    assert_eq!(
+        changes[1],
+        TakeChange::Opened {
+            index: 1,
+            id: "video-01-9-25-20-36-12-0-take-2".to_string(),
+        }
+    );
+    assert_eq!(changes[2], TakeChange::Closed(state.recordings[1].clone()));
+    assert!(close(state.recordings[0].duration_sec, 1.01));
+}
+
+#[test]
+fn an_unanchored_capture_opens_and_closes_at_disarm() {
+    let mut log = TakeLog::default();
+    let mut state = State::default();
+    log.command(arm(0.0), &mut state);
+    assert!(log.take_changes().is_empty());
+    log.command(Command::Disarm { at: 4.0 }, &mut state);
+    let changes = log.take_changes();
+    assert!(matches!(changes[0], TakeChange::Opened { index: 0, .. }));
+    assert_eq!(changes[1], TakeChange::Closed(state.recordings[0].clone()));
+    assert!(state.recordings[0].is_unanchored());
+}
+
+#[test]
+fn the_feed_reaches_its_latest_listener() {
+    let feed = TakeFeed::default();
+    let change = TakeChange::Opened {
+        index: 0,
+        id: "a".to_string(),
+    };
+    // No listener: dropped.
+    feed.publish(change.clone());
+    let first = feed.subscribe();
+    feed.clone().publish(change.clone());
+    assert_eq!(first.try_recv(), Ok(change.clone()));
+    let second = feed.subscribe();
+    feed.publish(change.clone());
+    assert!(first.try_recv().is_err());
+    assert_eq!(second.try_recv(), Ok(change.clone()));
+    drop(second);
+    feed.publish(change);
+}

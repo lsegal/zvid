@@ -27,7 +27,8 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use zvid_daw_core::{
-    Command, Consumer, LiveLink, ProcessSnapshot, Producer, State, TransportFollower, clock, ring,
+    Command, Consumer, LiveLink, ProcessSnapshot, Producer, State, TakeChange, TakeFeed,
+    TransportFollower, clock, ring,
 };
 
 use zvid_daw_ui::Backend;
@@ -97,6 +98,8 @@ pub struct Component {
     state: Arc<Mutex<State>>,
     handler: Arc<HostHandler>,
     commands: Sender<Command>,
+    /// Takes the control thread opens and closes, for the editor.
+    takes: TakeFeed,
     tap_enabled: AtomicBool,
     audio_tap: Mutex<Option<Consumer<[f32; 2]>>>,
     audio: UnsafeCell<AudioThread>,
@@ -127,6 +130,7 @@ impl Component {
             state: Arc::new(Mutex::new(State::default())),
             handler: Arc::new(HostHandler::default()),
             commands,
+            takes: TakeFeed::default(),
             tap_enabled: AtomicBool::new(false),
             audio_tap: Mutex::new(Some(tap_reader)),
             audio: UnsafeCell::new(AudioThread {
@@ -163,6 +167,17 @@ impl Component {
     /// not initialized and are applied once the control thread runs.
     pub fn commands(&self) -> Sender<Command> {
         self.commands.clone()
+    }
+
+    /// The persisted state, shared with the editor backend.
+    pub fn shared_state(&self) -> Arc<Mutex<State>> {
+        Arc::clone(&self.state)
+    }
+
+    /// Receives each take the control thread opens or closes, replacing
+    /// any earlier receiver.
+    pub fn take_changes(&self) -> Receiver<TakeChange> {
+        self.takes.subscribe()
     }
 
     /// Takes the reading end of the input-audio tap: stereo frames from the
@@ -224,8 +239,12 @@ impl Component {
         if lifecycle.initialized == 1
             && let Some(inputs) = lifecycle.inputs.take()
         {
-            lifecycle.control =
-                start_control(inputs, Arc::clone(&self.state), Arc::clone(&self.handler));
+            lifecycle.control = start_control(
+                inputs,
+                Arc::clone(&self.state),
+                self.takes.clone(),
+                Arc::clone(&self.handler),
+            );
         }
         OK
     }
@@ -451,6 +470,7 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 fn start_control(
     mut inputs: ControlInputs,
     state: Arc<Mutex<State>>,
+    takes: TakeFeed,
     handler: Arc<HostHandler>,
 ) -> Option<Control> {
     let stop = Arc::new(AtomicBool::new(false));
@@ -458,7 +478,7 @@ fn start_control(
     let spawned = thread::Builder::new()
         .name("zvid-vst3-control".to_string())
         .spawn(move || {
-            let mut follower = TransportFollower::default();
+            let mut follower = TransportFollower::with_feed(takes);
             let mut live = LiveLink::connect()
                 .inspect_err(|error| log(&format!("could not open the Live link: {error}")))
                 .ok();
