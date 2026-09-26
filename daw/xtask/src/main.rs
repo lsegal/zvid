@@ -7,7 +7,13 @@
 //!   `target/bundle/ZVID Capture.component` for `auval` and local hosts.
 //!   `--release` stamps the version with the commit and refuses to embed the
 //!   placeholder UI; `--universal` (macOS) builds arm64 and x86_64 and
-//!   `lipo`s them into one binary. Release signing comes later (#201).
+//!   `lipo`s them into one binary. Release signing comes later (#201). The
+//!   Live companion Remote Script goes to
+//!   `target/bundle/live-remote-script/ZVID_Capture`.
+//! - `install-live-script [--user-library <path>]`: copies the Live companion
+//!   Remote Script into `<User Library>/Remote Scripts/ZVID_Capture`,
+//!   replacing any older copy. The User Library defaults to Live's own
+//!   default location for the OS.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -30,6 +36,12 @@ const PLACEHOLDER_MARKER: &[u8] = b"The ZVID Capture UI was not built";
 const FORBIDDEN_EXTENSIONS: &[&str] = &["cpp", "cc", "mm"];
 /// Directories that hold build output or third-party packages, not sources.
 const SKIPPED_DIRS: &[&str] = &["target", "node_modules", ".git"];
+
+/// Folder name of the Live companion Remote Script, which Live shows as the
+/// Control Surface name.
+const LIVE_SCRIPT: &str = "ZVID_Capture";
+/// Entries of the Remote Script folder that Live does not need.
+const LIVE_SCRIPT_SKIPPED: &[&str] = &["tests", "__pycache__"];
 
 fn main() -> ExitCode {
     let task = std::env::args().nth(1);
@@ -60,8 +72,24 @@ fn main() -> ExitCode {
                 }
             }
         }
+        Some("install-live-script") => {
+            let flags: Vec<String> = std::env::args().skip(2).collect();
+            match install_live_script(&flags) {
+                Ok(path) => {
+                    println!("{}", path.display());
+                    ExitCode::SUCCESS
+                }
+                Err(problem) => {
+                    eprintln!("error: {problem}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
         _ => {
-            eprintln!("usage: cargo xtask check | cargo xtask bundle [--release] [--universal]");
+            eprintln!(
+                "usage: cargo xtask check | cargo xtask bundle [--release] [--universal] \
+                 | cargo xtask install-live-script [--user-library <path>]"
+            );
             ExitCode::FAILURE
         }
     }
@@ -173,7 +201,94 @@ fn bundle(release: bool, universal: bool) -> Result<Vec<PathBuf>, String> {
         }
         bundles.push(component);
     }
+    let script = target
+        .join("bundle")
+        .join("live-remote-script")
+        .join(LIVE_SCRIPT);
+    copy_live_script(&live_script_source(&daw), &script)?;
+    bundles.push(script);
     Ok(bundles)
+}
+
+/// Installs the Live companion Remote Script into the User Library named by
+/// `--user-library`, or Live's default one, and returns where it went.
+fn install_live_script(flags: &[String]) -> Result<PathBuf, String> {
+    let user_library = match flags {
+        [] => default_user_library(std::env::consts::OS, |name| std::env::var_os(name))?,
+        [flag, path] if flag == "--user-library" => PathBuf::from(path),
+        _ => return Err("usage: cargo xtask install-live-script [--user-library <path>]".into()),
+    };
+    if !user_library.is_dir() {
+        return Err(format!(
+            "{} is not a directory; pass the Live User Library with --user-library <path>",
+            user_library.display()
+        ));
+    }
+    let destination = user_library.join("Remote Scripts").join(LIVE_SCRIPT);
+    copy_live_script(&live_script_source(&daw_root()), &destination)?;
+    Ok(destination)
+}
+
+fn live_script_source(daw: &Path) -> PathBuf {
+    daw.join("live-remote-script").join(LIVE_SCRIPT)
+}
+
+/// Live's default User Library for `os`, with the home directory looked up
+/// through `var`.
+fn default_user_library(
+    os: &str,
+    var: impl Fn(&str) -> Option<std::ffi::OsString>,
+) -> Result<PathBuf, String> {
+    let (home, rest): (&str, &[&str]) = match os {
+        "macos" => ("HOME", &["Music", "Ableton", "User Library"]),
+        "windows" => ("USERPROFILE", &["Documents", "Ableton", "User Library"]),
+        other => {
+            return Err(format!(
+                "Live does not run on {other}; pass the User Library with --user-library <path>"
+            ));
+        }
+    };
+    let mut path = var(home)
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+        .ok_or_else(|| {
+            format!("{home} is not set; pass the User Library with --user-library <path>")
+        })?;
+    path.extend(rest);
+    Ok(path)
+}
+
+/// Copies the Remote Script folder `source` to `destination`, replacing any
+/// existing copy and leaving out tests and Python caches.
+fn copy_live_script(source: &Path, destination: &Path) -> Result<(), String> {
+    let io = |path: &Path, error: std::io::Error| format!("{}: {error}", path.display());
+    if destination.exists() {
+        fs::remove_dir_all(destination).map_err(|error| io(destination, error))?;
+    }
+    copy_tree(source, destination).map_err(|(path, error)| io(&path, error))
+}
+
+fn copy_tree(source: &Path, destination: &Path) -> Result<(), (PathBuf, std::io::Error)> {
+    fs::create_dir_all(destination).map_err(|error| (destination.to_path_buf(), error))?;
+    let entries = fs::read_dir(source).map_err(|error| (source.to_path_buf(), error))?;
+    for entry in entries {
+        let entry = entry.map_err(|error| (source.to_path_buf(), error))?;
+        let path = entry.path();
+        let name = entry.file_name();
+        let skipped = name
+            .to_str()
+            .is_some_and(|name| LIVE_SCRIPT_SKIPPED.contains(&name) || name.ends_with(".pyc"));
+        if skipped {
+            continue;
+        }
+        let target = destination.join(&name);
+        if path.is_dir() {
+            copy_tree(&path, &target)?;
+        } else {
+            fs::copy(&path, &target).map_err(|error| (path.clone(), error))?;
+        }
+    }
+    Ok(())
 }
 
 /// Builds the plugin cdylib, for `triple` when given, and returns its path.
@@ -581,6 +696,76 @@ mod tests {
         assert!(contains(build_script, PLACEHOLDER_MARKER));
         let assets = include_bytes!("../../crates/zvid-daw-ui/src/assets.rs");
         assert!(!contains(assets, PLACEHOLDER_MARKER));
+    }
+
+    #[test]
+    fn installs_the_live_script() {
+        let dir = scratch("live-script");
+        let source = dir.join("source");
+        fs::create_dir_all(source.join("tests")).unwrap();
+        fs::create_dir_all(source.join("__pycache__")).unwrap();
+        fs::write(source.join("__init__.py"), "init").unwrap();
+        fs::write(source.join("companion.py"), "new").unwrap();
+        fs::write(source.join("stray.pyc"), "").unwrap();
+        fs::write(source.join("tests/test_companion.py"), "").unwrap();
+        fs::write(source.join("__pycache__/companion.cpython-311.pyc"), "").unwrap();
+        let installed = dir.join("User Library/Remote Scripts/ZVID_Capture");
+        fs::create_dir_all(&installed).unwrap();
+        fs::write(installed.join("companion.py"), "old").unwrap();
+        fs::write(installed.join("removed.py"), "old").unwrap();
+
+        copy_live_script(&source, &installed).unwrap();
+
+        assert_eq!(
+            fs::read_to_string(installed.join("__init__.py")).unwrap(),
+            "init"
+        );
+        assert_eq!(
+            fs::read_to_string(installed.join("companion.py")).unwrap(),
+            "new",
+            "reinstalling replaces the old copy"
+        );
+        let mut names: Vec<String> = fs::read_dir(&installed)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        assert_eq!(names, ["__init__.py", "companion.py"]);
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn installs_the_repository_live_script_into_a_user_library() {
+        let dir = scratch("user-library");
+        let flags = ["--user-library".to_string(), dir.display().to_string()];
+
+        let installed = install_live_script(&flags).unwrap();
+
+        assert_eq!(installed, dir.join("Remote Scripts").join(LIVE_SCRIPT));
+        assert!(installed.join("__init__.py").is_file());
+        assert!(installed.join("companion.py").is_file());
+        assert!(install_live_script(&["--user-library".into()]).is_err());
+        let missing = [
+            "--user-library".to_string(),
+            dir.join("missing").display().to_string(),
+        ];
+        assert!(install_live_script(&missing).is_err());
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn defaults_the_user_library_per_os() {
+        let env = |name: &str| (name == "HOME" || name == "USERPROFILE").then(|| "/home/me".into());
+        assert_eq!(
+            default_user_library("macos", env).unwrap(),
+            Path::new("/home/me/Music/Ableton/User Library")
+        );
+        assert_eq!(
+            default_user_library("windows", env).unwrap(),
+            Path::new("/home/me/Documents/Ableton/User Library")
+        );
+        assert!(default_user_library("linux", env).is_err());
+        assert!(default_user_library("macos", |_| None).is_err());
     }
 
     #[test]
