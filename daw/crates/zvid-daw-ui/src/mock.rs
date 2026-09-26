@@ -8,7 +8,7 @@
 use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use zvid_daw_core::{RecordRoot, RecordRootKind, Recording, State};
+use zvid_daw_core::{RecordRoot, Recording, State};
 
 use crate::backend::Backend;
 use crate::channels::Channels;
@@ -77,15 +77,11 @@ impl MockBackend {
         }
     }
 
-    /// The backend a plugin instance gives its editor until the real one
-    /// (#223) lands: takes start from `state`, and new ones go under the
-    /// Documents record root, or the temp directory without one.
+    /// A backend for a plugin editor in the format crates' own tests: takes
+    /// start from `state`, and new ones go under the Documents record root,
+    /// or the temp directory without one.
     pub fn for_plugin(state: State) -> Self {
-        let root = RecordRoot::resolve(None).unwrap_or_else(|| RecordRoot {
-            kind: RecordRootKind::Documents,
-            dir: std::env::temp_dir().join("ZVID").join("Recorded"),
-        });
-        Self::new(root, state, None)
+        Self::new(RecordRoot::resolve_or_temp(None), state, None)
     }
 
     fn inner(&self) -> MutexGuard<'_, Inner> {

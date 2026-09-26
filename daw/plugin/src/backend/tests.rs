@@ -236,6 +236,20 @@ impl Platform for Fake {
     }
 }
 
+fn cameras() -> Vec<Device> {
+    vec![
+        device("builtin", "FaceTime HD Camera", Transport::BuiltIn),
+        device("usb-1", "Logitech BRIO", Transport::Usb),
+        device("iphone", "iPhone Camera", Transport::Continuity),
+    ]
+}
+
+/// The platform the plugin's own tests start the backend on: a fake with
+/// [`Rig`]'s cameras, so no test touches real hardware.
+pub(crate) fn platform() -> Arc<dyn Platform> {
+    Fake::new(cameras())
+}
+
 struct Rig {
     fake: Arc<Fake>,
     backend: Arc<CaptureBackend>,
@@ -252,11 +266,7 @@ impl Rig {
     }
 
     fn with_stall(state: State, stall: Duration) -> Self {
-        let fake = Fake::new(vec![
-            device("builtin", "FaceTime HD Camera", Transport::BuiltIn),
-            device("usb-1", "Logitech BRIO", Transport::Usb),
-            device("iphone", "iPhone Camera", Transport::Continuity),
-        ]);
+        let fake = Fake::new(cameras());
         let state = Arc::new(Mutex::new(state));
         let (commands, command_reader) = mpsc::channel();
         let (takes, take_reader) = mpsc::channel();
