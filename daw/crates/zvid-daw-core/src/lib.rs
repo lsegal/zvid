@@ -31,6 +31,17 @@ pub use transport::{Change, ProcessSnapshot, TransportFollower, TransportWatch, 
 /// diagnostic log to, since hosts such as Live don't show a plugin's stderr.
 pub const LOG_ENV: &str = "ZVID_DAW_LOG";
 
+/// Environment variable `cargo xtask bundle --release` sets while building
+/// the plugin to stamp [`VERSION`] with the commit, e.g. `0.1.0+c94f40e`.
+pub const BUILD_VERSION_ENV: &str = "ZVID_DAW_BUILD_VERSION";
+
+/// Plugin version reported to hosts and shown in the editor: the workspace
+/// version, or the commit-stamped version release bundles are built with.
+pub const VERSION: &str = match option_env!("ZVID_DAW_BUILD_VERSION") {
+    Some(version) => version,
+    None => env!("CARGO_PKG_VERSION"),
+};
+
 /// Display name the `/app` importer keys on.
 pub const PLUGIN_NAME: &str = "ZVID Capture";
 /// Vendor name reported to hosts.

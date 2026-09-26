@@ -4,13 +4,13 @@
 //! and audio blocks from the control thread are queued without blocking and
 //! encoded on the recorder's own thread:
 //!
-//! - **Video** is HEVC Main from the platform's hardware encoder, falling
-//!   back to zvidlib's native HEVC and then AV1 encoders (see
+//! - **Video** is HEVC Main from zvidlib, which uses the platform's
+//!   hardware encoder where there is one and falls back to software (see
 //!   [`encoder`]). Frames are placed on a constant-frame-rate grid at the
 //!   camera's rate, timed from their capture timestamps relative to the
 //!   first frame (file time zero).
-//! - **Audio** is AAC-LC of the plugin's input bus, aligned to the same
-//!   clock. Without an AAC encoder the file is video only.
+//! - **Audio** is AAC-LC of the plugin's input bus from zvidlib, aligned to
+//!   the same clock. Without an AAC encoder the file is video only.
 //! - **Muxing** writes a fragmented MP4 while recording, one synced
 //!   fragment a second, so a crash leaves a playable file. [`Recorder::stop`]
 //!   remuxes it with zvidlib's `Mp4Muxer` into an ordinary MP4.
@@ -18,10 +18,8 @@
 //! When the encoder falls behind, frames are dropped at the queue and
 //! counted in [`RecordStats::frames_dropped`].
 
-mod bitstream;
 mod encoder;
 mod fmp4;
-mod platform;
 mod poster;
 mod timing;
 
@@ -32,22 +30,22 @@ use std::future::Future;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
-use std::task::{Context, Poll, Waker};
+use std::task::{Context, Poll, Wake, Waker};
 use std::thread::JoinHandle;
 
 use zvid_daw_core::{LocalTime, RecordRoot, next_capture_filename};
 use zvidlib::mp4::{Mp4TrackConfig, Mp4TrackFormat};
-use zvidlib::{AudioGapless, Codec, EncodedSample, Limits, SampleDependency, VideoDimensions};
+use zvidlib::{Codec, EncodedSample, Limits, SampleDependency, VideoDimensions};
 
 use crate::clock::HostTime;
 use crate::format::Rational;
 use crate::frame::Frame;
 
-pub use encoder::VideoEncoderChoice;
+pub use encoder::{EncoderInfo, VideoEncoderChoice};
 pub use poster::poster_jpeg;
 pub use timing::{AUDIO_TOLERANCE_SEC, AudioClock, Placement, VideoClock};
 
-use encoder::{AAC_FRAME, EncodedFrame, FrameEncoder, PcmEncoder};
+use encoder::{AAC_FRAME, AudioStream, EncodedFrame, VideoStream};
 use fmp4::{FragmentedWriter, Track};
 
 /// Frames the queue holds before new ones are dropped: a few frames of
@@ -124,8 +122,8 @@ pub struct RecordStats {
     pub audio_frames_skipped: u64,
     /// The latest frame written; `None` before the first.
     pub frame_clock: Option<FrameClock>,
-    /// Video encoder in use, once the first frame arrives.
-    pub video_encoder: Option<&'static str>,
+    /// The video encoder zvidlib chose, once the first frame arrives.
+    pub video_encoder: Option<EncoderInfo>,
     pub audio_encoder: Option<&'static str>,
     /// Problems that didn't stop the recording, such as a missing AAC
     /// encoder or skipped encoder candidates.
@@ -431,17 +429,20 @@ struct Worker {
 
 /// The video stream once the first frame has opened an encoder.
 struct Video {
-    encoder: Box<dyn FrameEncoder>,
+    encoder: VideoStream,
     clock: VideoClock,
-    /// Grid slots of frames submitted to the encoder and not yet returned.
-    in_flight: VecDeque<u64>,
+    /// Encoder indexes and grid slots of frames submitted to the encoder
+    /// and not yet returned.
+    in_flight: VecDeque<(u64, u64)>,
+    /// The encoder index of the next frame submitted.
+    next_index: u64,
     /// The last encoded frame, held until the next one gives its duration.
     pending: Option<(u64, EncodedFrame)>,
     written_slots: u64,
 }
 
 struct Audio {
-    encoder: Box<dyn PcmEncoder>,
+    encoder: AudioStream,
     format: AudioFormat,
     clock: AudioClock,
     packets: u64,
@@ -510,7 +511,7 @@ impl Worker {
     }
 
     fn open_audio(&self, format: AudioFormat) -> Option<Audio> {
-        match encoder::open_audio(format.sample_rate, format.channels) {
+        match AudioStream::open(format.sample_rate, format.channels) {
             Ok(encoder) => {
                 self.shared.stats().audio_encoder = Some(encoder.name());
                 Some(Audio {
@@ -542,8 +543,9 @@ impl Worker {
             let (encoder, skipped) =
                 encoder::open_video(frame.width, frame.height, self.fps, self.choice)
                     .map_err(|reasons| RecordError::NoEncoder(reasons.join("; ")).to_string())?;
+            let info = encoder.info();
             let mut stats = self.shared.stats();
-            stats.video_encoder = Some(encoder.name());
+            stats.video_encoder = Some(info.clone());
             for reason in skipped {
                 log(&format!("skipped video encoder: {reason}"));
                 stats
@@ -557,12 +559,13 @@ impl Worker {
                 encoder.dimensions().0,
                 encoder.dimensions().1,
                 self.fps,
-                encoder.name()
+                info
             ));
             *video = Some(Video {
                 encoder,
                 clock: VideoClock::new(self.fps),
                 in_flight: VecDeque::new(),
+                next_index: 0,
                 pending: None,
                 written_slots: 0,
             });
@@ -573,7 +576,8 @@ impl Worker {
             return Ok(());
         };
         let zero = video.clock.zero().expect("set by the first frame");
-        video.in_flight.push_back(slot);
+        video.in_flight.push_back((video.next_index, slot));
+        video.next_index += 1;
         let encoded = video.encoder.encode(frame)?;
         let mut queue = lock(&self.shared.queue);
         // Keep the start-up allowance until its backlog has drained.
@@ -604,15 +608,9 @@ impl Worker {
         output: &mut Output,
     ) -> Result<(), String> {
         for frame in frames {
-            let mut slot = video
-                .in_flight
-                .pop_front()
-                .ok_or("the video encoder returned more frames than it was given")?;
-            if frame.data.is_empty() {
-                // Dropped by the encoder: the frame before covers its slot.
-                self.shared.stats().frames_dropped += 1;
-                continue;
-            }
+            let (mut slot, dropped) = take_slot(&mut video.in_flight, frame.index)?;
+            // Frames the encoder dropped: the frame before covers their slots.
+            self.shared.stats().frames_dropped += dropped;
             if video.pending.is_none() && video.written_slots == 0 {
                 // The file starts at the first frame the encoder kept.
                 slot = 0;
@@ -620,6 +618,11 @@ impl Worker {
             if let Some((previous, data)) = video.pending.replace((slot, frame)) {
                 self.write_video(video, previous, slot, data, output)?;
             }
+        }
+        if last {
+            // Frames the encoder never returned.
+            self.shared.stats().frames_dropped += video.in_flight.len() as u64;
+            video.in_flight.clear();
         }
         if last && let Some((slot, data)) = video.pending.take() {
             self.write_video(video, slot, slot + 1, data, output)?;
@@ -707,8 +710,8 @@ impl Worker {
         self.write(1, sample, None, output)
     }
 
-    /// Writes a sample, creating the file header once the video encoder's
-    /// configuration is known, and flushing a fragment each second.
+    /// Writes a sample, creating the file header with the first video
+    /// sample, and flushing a fragment each second.
     fn write(
         &self,
         track: usize,
@@ -728,17 +731,7 @@ impl Worker {
                     early_audio.push(sample);
                 }
                 let Some(video) = video else { return Ok(()) };
-                let Some(config) = video.encoder.decoder_config() else {
-                    if early_video.len() as u64
-                        > 2 * FRAGMENT_SEC * u64::from(self.fps.num.div_ceil(self.fps.den))
-                    {
-                        return Err(format!(
-                            "{} never reported its codec configuration",
-                            video.encoder.name()
-                        ));
-                    }
-                    return Ok(());
-                };
+                let config = video.encoder.decoder_config();
                 let Output::Waiting {
                     file,
                     audio_track,
@@ -830,16 +823,7 @@ impl Worker {
                             break;
                         }
                     }
-                    // Padding is whatever the packets hold beyond the delay
-                    // and the audio actually recorded. Encoders don't all
-                    // report it consistently with what they emit.
-                    let encoded = audio.packets * u64::from(AAC_FRAME);
-                    let padding =
-                        encoded.saturating_sub(u64::from(value.priming) + audio.clock.written());
-                    gapless = Some(AudioGapless {
-                        priming: value.priming,
-                        padding: u32::try_from(padding).unwrap_or(u32::MAX),
-                    });
+                    gapless = Some(value);
                 }
                 Err(error) => self
                     .shared
@@ -880,10 +864,7 @@ impl Worker {
             dimensions: (width, height),
             fps: self.fps,
             duration_sec: video.clock.slot_sec(video.written_slots),
-            codec: match video.encoder.codec() {
-                Codec::Av1 => "av1",
-                _ => "hevc",
-            },
+            codec: video.encoder.codec_name(),
             has_audio,
             zero: video.clock.zero().unwrap_or_default(),
             stats: self.shared.stats().clone(),
@@ -908,16 +889,44 @@ impl Audio {
     }
 }
 
-/// Drives a zvidlib future to completion. zvidlib's native codecs and our
-/// file sink finish their futures without waiting on anything.
+/// Takes the grid slot of the frame submitted to the encoder as `index`,
+/// and counts the frames before it that the encoder dropped.
+fn take_slot(in_flight: &mut VecDeque<(u64, u64)>, index: u64) -> Result<(u64, u64), String> {
+    let mut dropped = 0;
+    while let Some(&(submitted, slot)) = in_flight.front() {
+        if submitted > index {
+            break;
+        }
+        in_flight.pop_front();
+        if submitted == index {
+            return Ok((slot, dropped));
+        }
+        dropped += 1;
+    }
+    Err(format!(
+        "the video encoder returned frame {index}, which isn't in flight"
+    ))
+}
+
+/// Drives a zvidlib future to completion on this thread. Most finish
+/// without waiting; zvidlib's Media Foundation encoders wait on a worker
+/// thread and wake this one, so it sleeps rather than spinning meanwhile.
 pub(crate) fn block_on<T>(future: impl Future<Output = T>) -> T {
-    let mut context = Context::from_waker(Waker::noop());
+    struct Unpark(std::thread::Thread);
+    impl Wake for Unpark {
+        fn wake(self: Arc<Self>) {
+            self.0.unpark();
+        }
+    }
+    let waker = Waker::from(Arc::new(Unpark(std::thread::current())));
+    let mut context = Context::from_waker(&waker);
     let mut future = std::pin::pin!(future);
     loop {
         if let Poll::Ready(value) = future.as_mut().poll(&mut context) {
             return value;
         }
-        std::thread::yield_now();
+        // The timeout covers a future that returns pending without waking.
+        std::thread::park_timeout(std::time::Duration::from_millis(1));
     }
 }
 
