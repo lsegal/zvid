@@ -1,9 +1,6 @@
 //! Transport snapshots taken in `process()`. The control thread reads
 //! changes from them with [`zvid_daw_core::TransportWatch`].
 
-use std::sync::OnceLock;
-use std::time::Instant;
-
 use zvid_daw_core::ProcessSnapshot;
 
 use crate::abi::{ProcessContext, context};
@@ -11,13 +8,6 @@ use crate::abi::{ProcessContext, context};
 /// Tempo and meter assumed when the host leaves them unset.
 const DEFAULT_TEMPO: f64 = 120.0;
 const DEFAULT_TIME_SIGNATURE: [u32; 2] = [4, 4];
-
-/// Seconds on the plugin's monotonic clock. Reading it never allocates or
-/// blocks, so `process()` may call it.
-pub fn now_sec() -> f64 {
-    static EPOCH: OnceLock<Instant> = OnceLock::new();
-    EPOCH.get_or_init(Instant::now).elapsed().as_secs_f64()
-}
 
 /// The `ProcessContext` fields ZVID Capture reads, copied out of one
 /// `process()` call.
@@ -129,11 +119,5 @@ mod tests {
         assert_eq!(snap.project_time_music, 8.5);
         assert_eq!(snap.system_time_ns, Some(42));
         assert_eq!(snap.num_samples, 0);
-    }
-
-    #[test]
-    fn clock_is_monotonic() {
-        let first = now_sec();
-        assert!(now_sec() >= first);
     }
 }

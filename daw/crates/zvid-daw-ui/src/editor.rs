@@ -77,7 +77,7 @@ impl Default for EditorOptions {
         Self {
             dev_url: None,
             devtools: cfg!(debug_assertions),
-            version: env!("CARGO_PKG_VERSION").to_string(),
+            version: zvid_daw_core::VERSION.to_string(),
         }
     }
 }
