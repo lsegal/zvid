@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type KeyboardEvent,
+  type PointerEvent,
+  useCallback,
+  useEffect,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import { CaptureCard } from "./components/CaptureCard.tsx";
 import { Header } from "./components/Header.tsx";
 import { Preview } from "./components/Preview.tsx";
@@ -7,6 +16,15 @@ import { Toast } from "./components/Toast.tsx";
 import { deviceSummary, droppedSummary } from "./format.ts";
 import { type Client, CommandError } from "./ipc/client.ts";
 import type { UiError, UiEvent } from "./ipc/types.ts";
+import {
+  dragSideFraction,
+  keySideFraction,
+  loadSideFraction,
+  SIDE_DEFAULT_FRACTION,
+  SIDE_MAX_FRACTION,
+  SIDE_MIN_FRACTION,
+  saveSideFraction,
+} from "./split.ts";
 import {
   type AppState,
   captureElapsed,
@@ -54,11 +72,88 @@ function usePreview(client: Client): string | null {
   return url;
 }
 
+function storage(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+/** The preview / side column split and the handlers for its resize handle. */
+function useSplit() {
+  const [side, setSide] = useState(() => loadSideFraction(storage()));
+  const drag = useRef<{
+    pointerId: number;
+    startX: number;
+    startSide: number;
+    width: number;
+  } | null>(null);
+
+  const commit = useCallback((next: number) => {
+    setSide(next);
+    saveSideFraction(storage(), next);
+  }, []);
+
+  const handle = {
+    onPointerDown(event: PointerEvent<HTMLHRElement>) {
+      const body = event.currentTarget.parentElement;
+      if (event.button !== 0 || !body) return;
+      event.preventDefault();
+      event.currentTarget.setPointerCapture(event.pointerId);
+      const style = getComputedStyle(body);
+      drag.current = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startSide: side,
+        // The width the two columns share: the body less its padding and
+        // the handle's own column.
+        width:
+          body.clientWidth -
+          Number.parseFloat(style.paddingLeft) -
+          Number.parseFloat(style.paddingRight) -
+          event.currentTarget.offsetWidth,
+      };
+    },
+    onPointerMove(event: PointerEvent<HTMLHRElement>) {
+      const current = drag.current;
+      if (current?.pointerId !== event.pointerId) return;
+      commit(
+        dragSideFraction(
+          current.startSide,
+          event.clientX - current.startX,
+          current.width,
+        ),
+      );
+    },
+    onPointerUp(event: PointerEvent<HTMLHRElement>) {
+      if (drag.current?.pointerId !== event.pointerId) return;
+      drag.current = null;
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+    },
+    onKeyDown(event: KeyboardEvent<HTMLHRElement>) {
+      const next = keySideFraction(side, event.key);
+      if (next === null) return;
+      event.preventDefault();
+      event.stopPropagation();
+      commit(next);
+    },
+    onDoubleClick() {
+      commit(SIDE_DEFAULT_FRACTION);
+    },
+  };
+
+  return { side, handle };
+}
+
 export function App({ client }: { client: Client }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const toastId = useRef(1);
   const frameUrl = usePreview(client);
   const now = useNow(state.status.phase === "capturing");
+  const split = useSplit();
 
   const report = useCallback((error: unknown) => {
     const shown =
@@ -162,7 +257,10 @@ export function App({ client }: { client: Client }) {
           void run("select", () => client.invoke("selectCamera", { id }))
         }
       />
-      <main className="body">
+      <main
+        className="body"
+        style={{ "--side-fraction": split.side } as CSSProperties}
+      >
         <Preview
           status={status}
           frameUrl={frameUrl}
@@ -177,6 +275,23 @@ export function App({ client }: { client: Client }) {
           onOpenPrivacySettings={() =>
             void client.invoke("openPrivacySettings").catch(report)
           }
+        />
+        <hr
+          className="split-handle"
+          aria-orientation="vertical"
+          aria-label="Resize side column"
+          aria-valuenow={Math.round(split.side * 100)}
+          aria-valuemin={SIDE_MIN_FRACTION * 100}
+          aria-valuemax={SIDE_MAX_FRACTION * 100}
+          aria-valuetext={`${Math.round(split.side * 100)}% side column`}
+          tabIndex={0}
+          title="Drag to resize. Double-click to reset."
+          onPointerDown={split.handle.onPointerDown}
+          onPointerMove={split.handle.onPointerMove}
+          onPointerUp={split.handle.onPointerUp}
+          onPointerCancel={split.handle.onPointerUp}
+          onDoubleClick={split.handle.onDoubleClick}
+          onKeyDown={split.handle.onKeyDown}
         />
         <div className="side">
           <CaptureCard
