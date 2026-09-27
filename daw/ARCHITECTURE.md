@@ -400,9 +400,18 @@ sequenceDiagram
   `setPath`'s parent picks the record root (see [Record root](#record-root)).
   `null` (unsaved set, or Live older than 11.3.42) or no companion falls back
   to `<Documents>/ZVID/Recorded`.
-- **Status.** The control thread logs what the companion reports (set
-  `ZVID_DAW_LOG`). Auto-arming and removing the Record button are separate
-  follow-ups.
+- **Auto-arming.** Both format layers' control threads poll the link through
+  `zvid-daw-ui::LiveControl`, which follows `zvid-daw-core::LiveArming`: a
+  record button turning on arms the capture through the instance's backend,
+  as the Record button does, and both turning off disarms a capture Live
+  armed. A capture armed by hand is left alone while Live's record is off.
+  The backend starts as soon as the companion is present, so the camera is
+  already previewing and arming only starts the encoder; a failed arm (no
+  camera yet) is retried every second while record stays on. When the
+  companion goes away, a capture it armed keeps running until the user stops
+  it, so no footage is dropped. What the companion reports is logged (set
+  `ZVID_DAW_LOG`).
+- **Status.** Removing the Record button is a separate follow-up.
 
 ### Record root
 
