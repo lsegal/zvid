@@ -264,11 +264,53 @@ button {
 /* Body */
 
 .body {
+  /* The side column takes --side-fraction of the width the two columns
+     share (the default 30%, set from split.ts), never narrower than its
+     content can reflow into. */
+  --split-handle-width: 16px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 1fr);
-  gap: 16px;
+  grid-template-columns:
+    minmax(0, 1fr) var(--split-handle-width)
+    minmax(
+      180px,
+      calc((100% - var(--split-handle-width)) * var(--side-fraction, 0.3))
+    );
   min-height: 0;
   padding: 16px;
+}
+
+/* Matches the editor's preview resize handle in /app. */
+.split-handle {
+  position: relative;
+  width: auto;
+  height: auto;
+  margin: 0;
+  border: 0;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+}
+
+.split-handle::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 4px;
+  border-radius: 999px;
+  transform: translateX(-50%);
+  background: transparent;
+  transition: background-color var(--transition);
+}
+
+.split-handle:hover::before,
+.split-handle:focus-visible::before {
+  background: rgba(246, 183, 60, 0.45);
+}
+
+.split-handle:active::before {
+  background: var(--amber);
 }
 
 .side {
