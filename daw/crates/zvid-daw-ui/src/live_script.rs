@@ -428,8 +428,16 @@ mod tests {
 
         assert!(install(&dir.join("missing"), &library).is_err());
 
-        assert_eq!(fs::read_to_string(old.join("__init__.py")).unwrap(), "# old");
-        assert!(!library.join("Remote Scripts").join(".ZVID_Capture.installing").exists());
+        assert_eq!(
+            fs::read_to_string(old.join("__init__.py")).unwrap(),
+            "# old"
+        );
+        assert!(
+            !library
+                .join("Remote Scripts")
+                .join(".ZVID_Capture.installing")
+                .exists()
+        );
         fs::remove_dir_all(&dir).unwrap();
     }
 
