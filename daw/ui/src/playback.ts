@@ -15,6 +15,18 @@ export function needsHostFrames(code: number | undefined): boolean {
   return code === MEDIA_ERR_DECODE || code === MEDIA_ERR_SRC_NOT_SUPPORTED;
 }
 
+/** Consecutive host frames that may fail before the preview gives up. */
+const MAX_FRAME_FAILURES = 10;
+
+/**
+ * Whether a host frame that failed to load ends the preview: always when the
+ * take's file is gone, otherwise once `failures` frames in a row have failed.
+ */
+export function frameFailureIsFatal(error: unknown, failures: number) {
+  const code = (error as { code?: unknown } | null)?.code;
+  return code === "notFound" || failures >= MAX_FRAME_FAILURES;
+}
+
 /** `positionSec` kept inside a take of `durationSec`. */
 export function clampPosition(positionSec: number, durationSec: number) {
   if (!Number.isFinite(positionSec)) return 0;

@@ -4,6 +4,7 @@ import type { TakeInfo } from "../ipc/types.ts";
 import {
   clampPosition,
   clockPosition,
+  frameFailureIsFatal,
   needsHostFrames,
   resumePosition,
 } from "../playback.ts";
@@ -26,6 +27,7 @@ type Props = {
 export function TakePreview({ take, src, loadFrame, onClose }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const video = useRef<HTMLVideoElement>(null);
+  const playButton = useRef<HTMLButtonElement>(null);
   const [source, setSource] = useState<"video" | "host">("video");
   const [playing, setPlaying] = useState(true);
   const [position, setPosition] = useState(0);
@@ -37,7 +39,10 @@ export function TakePreview({ take, src, loadFrame, onClose }: Props) {
   useEffect(() => {
     // Unmounting takes the dialog out of the top layer; closing it here
     // would fire `close` and dismiss a remounted preview.
-    if (!dialog.current?.open) dialog.current?.showModal();
+    if (dialog.current?.open) return;
+    dialog.current?.showModal();
+    // The main action takes focus rather than the first button, Close.
+    playButton.current?.focus();
   }, []);
 
   const clock = useRef({ fromSec: 0, atMs: 0 });
@@ -154,11 +159,10 @@ export function TakePreview({ take, src, loadFrame, onClose }: Props) {
         </div>
         <div className="take-preview-controls">
           <button
+            ref={playButton}
             type="button"
             className="icon-button"
             aria-label={playing ? "Pause" : "Play"}
-            // biome-ignore lint/a11y/noAutofocus: the modal's main action takes focus when it opens
-            autoFocus
             aria-disabled={failure !== null}
             onClick={() => {
               if (failure === null) toggle();
@@ -209,6 +213,7 @@ function HostFrames({
     const controller = new AbortController();
     let shown: string | null = null;
     let loaded: number | null = null;
+    let failures = 0;
     const idle = () => new Promise((resolve) => setTimeout(resolve, 16));
     void (async () => {
       while (!controller.signal.aborted) {
@@ -226,9 +231,14 @@ function HostFrames({
           if (shown) URL.revokeObjectURL(shown);
           shown = next;
           loaded = at;
+          failures = 0;
           setUrl(next);
         } catch (error) {
           if (controller.signal.aborted) return;
+          // Keep showing the last frame past one that won't decode.
+          loaded = at;
+          failures += 1;
+          if (shown && !frameFailureIsFatal(error, failures)) continue;
           callbacks.current.onError(
             error instanceof Error
               ? `This take couldn't be decoded: ${error.message}`

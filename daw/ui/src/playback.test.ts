@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   clampPosition,
   clockPosition,
+  frameFailureIsFatal,
   needsHostFrames,
   resumePosition,
 } from "./playback.ts";
@@ -34,4 +35,14 @@ test("replays from the start once the end is reached", () => {
   assert.equal(resumePosition(10, 10), 0);
   assert.equal(resumePosition(11, 10), 0);
   assert.equal(resumePosition(-2, 10), 0);
+});
+
+test("skips a few undecodable host frames but not a missing file", () => {
+  const internal = { code: "internal" };
+  assert.equal(frameFailureIsFatal(internal, 1), false);
+  assert.equal(frameFailureIsFatal(internal, 9), false);
+  assert.equal(frameFailureIsFatal(internal, 10), true);
+  assert.equal(frameFailureIsFatal({ code: "notFound" }, 1), true);
+  assert.equal(frameFailureIsFatal(new Error("offline"), 1), false);
+  assert.equal(frameFailureIsFatal(null, 1), false);
 });

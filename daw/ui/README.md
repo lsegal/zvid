@@ -46,7 +46,9 @@ adds a phone webcam.
   are long-polled from `zvid://ipc/events`.
 - Preview frames are long-polled JPEGs from `zvid://preview/frame`.
 - `zvid://take/<id>` streams takes with `Range` support; `zvid://thumb/<id>`
-  returns poster frames.
+  returns poster frames; `zvid://frames/<id>?t=<seconds>` returns frames the
+  host decodes, which the take preview plays when the webview can't decode
+  the take itself.
 
 The host injects `window.__ZVID__` with the platform's URL origins (WebView2
 reaches `zvid://<host>` as `https://zvid.<host>`).
