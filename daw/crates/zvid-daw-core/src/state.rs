@@ -24,6 +24,8 @@ pub const PLUGIN_ID: &str = "zvid-capture";
 pub struct State {
     pub version: String,
     pub plugin: String,
+    /// The root of the latest capture. Entries without their own
+    /// `recordRoot`, saved by earlier versions, are relative to it.
     #[serde(default)]
     pub record_root: RecordRootKind,
     #[serde(default)]
@@ -66,6 +68,11 @@ pub struct Recording {
     pub id: String,
     /// Capture file name, relative to the record root.
     pub filename: String,
+    /// The root `filename` is relative to, chosen when the capture armed.
+    /// `None` for entries saved before roots were kept per entry; those use
+    /// the state's `recordRoot`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub record_root: Option<RecordRootKind>,
     /// `[width, height]` in pixels.
     pub dimensions: [u32; 2],
     /// Frame rate as a `[numerator, denominator]` fraction.
@@ -93,6 +100,7 @@ pub struct Recording {
 pub struct RecordingMeta {
     pub id: String,
     pub filename: String,
+    pub record_root: RecordRootKind,
     pub dimensions: [u32; 2],
     pub fps: [u32; 2],
     pub camera: String,
@@ -108,6 +116,7 @@ impl Recording {
         Self {
             id: meta.id,
             filename: meta.filename,
+            record_root: Some(meta.record_root),
             dimensions: meta.dimensions,
             fps: meta.fps,
             frame_start,
@@ -121,6 +130,12 @@ impl Recording {
             created_at: meta.created_at,
             extra: Map::new(),
         }
+    }
+
+    /// The root `filename` is relative to, falling back to the state's
+    /// `recordRoot` (`state_root`) for entries that don't store one.
+    pub fn record_root_or(&self, state_root: RecordRootKind) -> RecordRootKind {
+        self.record_root.unwrap_or(state_root)
     }
 
     /// True for a capture that never saw playback; the importer skips it.
@@ -212,6 +227,7 @@ mod tests {
         RecordingMeta {
             id: "8a6f1f5e-3c1b-4f8e-9a57-2d7c1e0b9f10".to_string(),
             filename: "video-01-9-25-20-36-12-0.mp4".to_string(),
+            record_root: RecordRootKind::Project,
             dimensions: [1920, 1080],
             fps: [30, 1],
             camera: "FaceTime HD Camera".to_string(),
@@ -283,6 +299,7 @@ mod tests {
         assert_eq!(json["version"], "1");
         assert_eq!(json["plugin"], "zvid-capture");
         assert_eq!(json["recordRoot"], "project");
+        assert_eq!(json["recordings"][0]["recordRoot"], "project");
         let mut keys: Vec<&str> = json["recordings"][0]
             .as_object()
             .unwrap()
@@ -302,6 +319,7 @@ mod tests {
                 "fps",
                 "frameStart",
                 "id",
+                "recordRoot",
                 "tempo",
                 "timeSignature",
                 "transportStartBeats",
@@ -382,5 +400,25 @@ mod tests {
         assert!(!state.recordings[0].is_unanchored());
         assert!(state.recordings[1].is_unanchored());
         assert!(state.extra.contains_key("futureKey"));
+    }
+
+    #[test]
+    fn entries_without_a_root_use_the_state_root() {
+        let state = State::from_json(FIXTURE_JSON).unwrap();
+        assert_eq!(state.recordings[0].record_root, None);
+        assert_eq!(
+            state.recordings[0].record_root_or(state.record_root),
+            RecordRootKind::Project
+        );
+        let documents = Recording {
+            record_root: Some(RecordRootKind::Documents),
+            ..state.recordings[0].clone()
+        };
+        assert_eq!(
+            documents.record_root_or(state.record_root),
+            RecordRootKind::Documents
+        );
+        let json: Value = serde_json::from_str(&state.to_json()).unwrap();
+        assert!(json["recordings"][0].get("recordRoot").is_none());
     }
 }

@@ -216,10 +216,11 @@ It is implemented by `State` and `Recording` in `zvid-daw-core`.
 {
   "version": "1",
   "plugin": "zvid-capture",
-  "recordRoot": "project" | "documents",
+  "recordRoot": "project" | "documents", // the latest capture's root
   "recordings": [{
     "id": "uuid",
     "filename": "video-01-9-25-20-36-12-0.mp4", // relative to the record root
+    "recordRoot": "project",    // this take's root; absent in older states
     "dimensions": [1920, 1080],
     "fps": [30, 1],
     "frameStart": 915,          // arrangement frame of file frame 0 (Layers-compatible)
@@ -247,6 +248,10 @@ It is implemented by `State` and `Recording` in `zvid-daw-core`.
   to `null`, `fileOffsetSec: 0`, and a `durationSec` covering the whole file.
   `frameStart` is `0` and meaningless for them.
 - **`createdAt`** is an RFC 3339 UTC timestamp.
+- **`recordRoot`** is kept per entry: the root the take's capture armed
+  with (see [Record root](#record-root)). The top-level `recordRoot` is the
+  latest capture's root. Entries without their own `recordRoot`, written
+  before roots were kept per entry, are relative to the top-level one.
 - **Written as the take happens.** The control thread's `TakeLog`
   (`zvid-daw-core`) appends a take to `recordings` when it opens and keeps
   its `durationSec` running with each transport snapshot until it closes. A
@@ -276,7 +281,8 @@ It is implemented by `State` and `Recording` in `zvid-daw-core`.
   so the plugin binary registers it with `zvid_daw_ui::register_backend`
   from `GetPluginFactory` and the AU factory. The VST3 `Component` and AU
   `AudioUnitInstance` start it from a `HostLink` (state, `commands()`,
-  `take_changes()`, the host dirty notification and the record root) when
+  `take_changes()`, the host dirty notification, the Documents record root
+  and the instance's shared Live companion status) when
   their first editor opens, share it across their editors, and shut it
   down when the instance is destroyed. Without a registration, as in the
   format crates' own tests, editors get a `MockBackend`.
@@ -321,8 +327,9 @@ Layers Record support. The contract:
 4. **Placement.** The matched take's `frameStart` is the clip's capture
    offset, exactly as for Layers Record: the file frame shown at arrangement
    frame `f` is `f − frameStart`.
-5. **File resolution.** `recordRoot: "project"` resolves `filename` against
-   `<als dir>/Recorded/ZVID/`; `"documents"` resolves it against
+5. **File resolution.** Each take's `recordRoot`, or the state's when the
+   take has none, picks the directory: `"project"` resolves `filename`
+   against `<als dir>/Recorded/ZVID/`; `"documents"` resolves it against
    `~/Documents/ZVID/Recorded/`. A missing file falls through to the
    existing relink flow.
 6. **Source tracks.** Each take becomes its own source-track recording entry.
@@ -388,12 +395,44 @@ sequenceDiagram
   plugin transport as described in [Clock sync](#clock-sync); the companion
   only replaces the Record button, not the timing source, since its messages
   arrive up to one UI tick late.
-- **Set directory.** `setPath`'s parent is passed to `RecordRoot::resolve`.
-  `null` (unsaved set, or Live older than 11.3.42) falls back to
-  `<Documents>/ZVID/Recorded`.
-- **Status.** The prototype in #200 logs what the companion reports (set
-  `ZVID_DAW_LOG`). Auto-arming, removing the Record button and resolving the
-  record root from the set path are separate follow-ups.
+- **Set directory.** Each instance's control thread keeps the latest status
+  in a `SharedLiveStatus` the editor backend reads when capture arms.
+  `setPath`'s parent picks the record root (see [Record root](#record-root)).
+  `null` (unsaved set, or Live older than 11.3.42) or no companion falls back
+  to `<Documents>/ZVID/Recorded`.
+- **Status.** The control thread logs what the companion reports (set
+  `ZVID_DAW_LOG`). Auto-arming and removing the Record button are separate
+  follow-ups.
+
+### Record root
+
+`CaptureBackend::arm` resolves the root once per capture with
+`RecordRoot::for_capture(live.set_dir(), documents)`:
+
+- **Saved set, companion running:** `<set dir>/Recorded/ZVID`, stored as
+  `"recordRoot": "project"`. The importer finds it next to the `.als`.
+- **Unsaved set, Live older than 11.3.42, or no companion:**
+  `<Documents>/ZVID/Recorded`, stored as `"recordRoot": "documents"`.
+
+The recorder creates the directory. The root is fixed at arm: saving the set
+or "Save As" mid-capture doesn't move the file, and the take keeps the root
+it was recorded with.
+
+Files are never moved or collected, so each take stores its own
+`recordRoot`:
+
+- **An unsaved set that is saved later.** Takes recorded before the save
+  keep `"documents"` and stay in `<Documents>/ZVID/Recorded`; takes armed
+  after the save get `"project"`. The importer resolves each take against
+  its own root, so both still resolve.
+- **"Save As" to another folder.** `"project"` takes resolve against the
+  `.als`'s current folder, so their files have to come with it. Live's
+  "Collect All and Save" doesn't know about `Recorded/ZVID`, so copy that
+  folder next to the new set. Otherwise those takes fall through to the
+  importer's relink flow, which searches by file name. In the plugin, a
+  project take is looked up in the set's current folder, or in the folder
+  of the last capture while the companion is absent, and is listed as
+  missing when its file isn't there.
 
 ## Platform matrix
 
@@ -573,5 +612,5 @@ Revise a decision only with a stated rationale, recorded here.
 | Loop / relocate while playing | A backwards transport jump or a locate ends the current take and starts a new one. | Keeps each take linear on the timeline. |
 | Capture with no playback | Stored as an *unanchored* entry (`transportStartSec: null`). Listed in the UI, skipped by the importer. | Footage isn't lost, and nothing is placed on the timeline incorrectly. |
 | Filename | `video-{NN}-{M}-{D}-{HH}-{mm}-{ss}-{n}.mp4`. `NN` is a 2-digit per-instance capture counter, the date and time are local time at arm, and `n` is a collision counter starting at 0. | Matches the requested example `video-01-6-24-18-47-30-0.mp4`. |
-| Record root | `<set dir>/Recorded/ZVID` when detected, else `<Documents>/ZVID/Recorded`. The root kind is saved as `recordRoot`. | Portable, and the importer knows where to look. |
+| Record root | `<set dir>/Recorded/ZVID` when the companion reports a saved set at arm, else `<Documents>/ZVID/Recorded`. The root kind is saved per take as `recordRoot`, and the latest one at the top level. | Portable, and the importer knows where to look for each take, even when a set is saved after recording started. |
 | Record state and set path source | An optional Live MIDI Remote Script (`daw/live-remote-script`) reporting `Song.record_mode`, `session_record`, `is_playing` and `file_path` over localhost UDP. Without it, the plugin keeps its Record button and the Documents root. | VST3/AU report neither reliably; the LOM does, in every Live edition, without extra permissions. Max for Live needs Suite; Accessibility and window-title parsing are single-platform and fragile (#200). |

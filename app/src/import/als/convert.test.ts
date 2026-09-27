@@ -863,6 +863,29 @@ describe("convertAls with ZVID Capture fixtures", () => {
     });
   });
 
+  it("resolves each take against its own record root", async () => {
+    const doc = await parseAls(
+      new Uint8Array(fixture("zvid-capture-vst3.xml")),
+    );
+    const [track] = doc.tracks;
+    const state = track.layers as ZvidCaptureState;
+    // Recorded to Documents before the set was saved, then to the set.
+    track.layers = {
+      ...state,
+      recordRoot: "project",
+      recordings: state.recordings.map((take, index) => ({
+        ...take,
+        filename: `video-0${index + 1}.mp4`,
+        recordRoot: index === 0 ? "documents" : "project",
+      })),
+    } as ZvidCaptureState;
+    const { summary } = convertAls(doc);
+    assert.deepEqual(summary.recordRoots, {
+      "video-01.mp4": "documents",
+      "video-02.mp4": "project",
+    });
+  });
+
   it("skips a ZVID Capture track whose takes are all unanchored", async () => {
     const doc = await parseAls(
       new Uint8Array(fixture("zvid-capture-vst3.xml")),
