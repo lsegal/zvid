@@ -126,12 +126,14 @@ jobs:
       - name: Repository checks
         run: cargo xtask check
 
+      - name: Bundle
+        run: cargo xtask bundle
+
       # Installs the ad-hoc signed .component for the runner user and runs
       # Apple's AU validation against it.
       - name: Validate Audio Unit (auval)
         if: runner.os == 'macOS'
         run: |
-          cargo xtask bundle
           components="$HOME/Library/Audio/Plug-Ins/Components"
           mkdir -p "$components"
           rm -rf "$components/ZVID Capture.component"
@@ -139,3 +141,19 @@ jobs:
           killall -9 AudioComponentRegistrar 2>/dev/null || true
           auval -a | grep ZVcp
           auval -v aufx ZVcp ZVID
+
+      # Runs pluginval (Tracktion's prebuilt release, pinned and checksummed
+      # by xtask; nothing is compiled) on the VST3 bundle and, on macOS, on
+      # the .component installed above. It fails the job on any failure.
+      # - Strictness 10, the highest (5 is the usual host-compatibility bar),
+      #   set by PLUGINVAL_STRICTNESS in daw/xtask. Don't lower it to pass.
+      # - The editor tests run too: WebView2 and WKWebView both open on the
+      #   hosted runners, so there is no --skip-gui-tests.
+      # - The runners have no cameras, so this covers that case.
+      # - Steinberg's VST3 validator is not run: it has no maintained
+      #   prebuilt binary and would mean building the C++ SDK. pluginval
+      #   covers state, bus layouts, processing and parameter fuzzing; add
+      #   it (pluginval's --vst3validator) only if a host hits a VST3
+      #   conformance bug pluginval misses.
+      - name: Validate plugins (pluginval)
+        run: cargo xtask validate

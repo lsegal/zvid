@@ -429,6 +429,32 @@ sequenceDiagram
   Media Foundation does not enumerate; [#196](https://github.com/lsegal/zvid/issues/196)
   confirms each supported app and records any that aren't visible.
 
+## Testing
+
+`cargo test --workspace` covers the crates, `python -m unittest discover
+tests` in `live-remote-script` the Live companion, and `pnpm --dir daw/ui
+run test` the editor frontend.
+
+`cargo xtask validate` runs [pluginval](https://github.com/Tracktion/pluginval)
+against the built bundles, as the `daw` CI job does on macOS and Windows:
+
+```sh
+cargo xtask bundle
+# macOS only: Audio Units load only from the plug-in folders.
+cp -R "target/bundle/ZVID Capture.component" ~/Library/Audio/Plug-Ins/Components/
+cargo xtask validate
+```
+
+It validates `target/bundle/ZVID Capture.vst3` and, on macOS,
+`~/Library/Audio/Plug-Ins/Components/ZVID Capture.component`, or the bundles
+named on the command line. pluginval is Tracktion's prebuilt release,
+downloaded once to `target/tools` and checked against the SHA-256 pinned in
+`xtask`, so nothing is compiled. It runs at strictness level 10, the highest
+(5 is the usual host-compatibility bar), with the editor tests;
+`--strictness-level <n>` and `--skip-gui-tests` override that locally, but CI
+uses neither. Steinberg's VST3 validator isn't run, because it needs a C++
+SDK build; the `daw` job in `ci.yml` records why.
+
 ## CI builds
 
 Every push to `main` runs the **DAW bundles** workflow
@@ -440,11 +466,13 @@ workflow run:
   `zvid-capture-<version>+<sha>.pkg`, and the Live companion Remote Script
   in `live-remote-script/ZVID_Capture`. CI checks both architectures with
   `lipo -archs`, installs the `.pkg`, verifies both installed bundles'
-  signatures and runs `auval` against the installed `.component`.
+  signatures and runs `auval` and pluginval against the installed
+  bundles.
 - `zvid-capture-<version>-<sha>-windows-x64`: `ZVID Capture.vst3`, the
   installer `zvid-capture-<version>+<sha>-setup.exe` and
-  `live-remote-script/ZVID_Capture`. CI runs the installer silently, checks
-  the bundle landed in the shared VST3 folder, then uninstalls it.
+  `live-remote-script/ZVID_Capture`. CI runs pluginval against the bundle,
+  then runs the installer silently, checks the bundle landed in the shared
+  VST3 folder, then uninstalls it.
 
 Each is built by `cargo xtask bundle --release --installer` (plus
 `--universal` on macOS), which fails when `daw/ui/dist` is missing rather

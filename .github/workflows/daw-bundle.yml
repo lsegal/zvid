@@ -181,6 +181,18 @@ jobs:
           auval -a | grep ZVcp
           auval -v aufx ZVcp ZVID
 
+      # pluginval against the release bundles, installed on macOS since
+      # Audio Units only load from the plug-in folders. See the daw job in
+      # ci.yml for the strictness, GUI test and VST3 validator choices.
+      - name: Validate plugins (pluginval)
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then
+            cargo xtask validate "/Library/Audio/Plug-Ins/VST3/ZVID Capture.vst3" \
+              "/Library/Audio/Plug-Ins/Components/ZVID Capture.component"
+          else
+            cargo xtask validate
+          fi
+
       # Runs the installer silently, checks the bundle landed in the shared
       # VST3 folder, then uninstalls it and checks it is gone.
       - name: Install and uninstall (Windows)
