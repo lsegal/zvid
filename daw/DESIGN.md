@@ -54,6 +54,13 @@ right column side by side in the middle:
 The header and footer are fixed height. The middle row fills the remaining
 height; the takes list is the only region that scrolls.
 
+The middle row splits 70 / 30 between the preview and the right column by
+default. A resize handle between them, like the editor's preview handle in
+`/app`, drags the split between 80 / 20 and 40 / 60; arrow keys step it,
+Home / End jump to either end, and a double-click resets it. The split is
+remembered. The right column never gets narrower than 180 pt; take cards
+stack their details under the thumbnail when it is narrow.
+
 ### 1. Header
 
 - **Status dot** and **status label** on the left. The label is one of:
