@@ -6,6 +6,7 @@ const FILE: &str = "video-01-9-25-20-36-12-0.mp4";
 fn capture() -> Capture {
     Capture {
         filename: FILE.to_string(),
+        record_root: RecordRootKind::Documents,
         dimensions: [1920, 1080],
         fps: [30, 1],
         camera: "FaceTime HD Camera".to_string(),
@@ -220,6 +221,41 @@ fn arming_twice_keeps_the_first_capture() {
     );
     log.command(Command::Disarm { at: 2.0 }, &mut state);
     assert_eq!(state.recordings[0].filename, FILE);
+}
+
+#[test]
+fn takes_keep_the_root_their_capture_armed_with() {
+    let mut log = TakeLog::default();
+    let mut state = State::default();
+    log.command(arm(0.0), &mut state);
+    log.command(Command::Disarm { at: 1.0 }, &mut state);
+    assert_eq!(state.record_root, RecordRootKind::Documents);
+    log.command(
+        Command::Arm {
+            capture: Capture {
+                filename: "video-02-9-25-20-40-00-0.mp4".to_string(),
+                record_root: RecordRootKind::Project,
+                ..capture()
+            },
+            at: 2.0,
+        },
+        &mut state,
+    );
+    log.command(Command::Disarm { at: 3.0 }, &mut state);
+    let roots: Vec<_> = state
+        .recordings
+        .iter()
+        .map(|take| take.record_root)
+        .collect();
+    assert_eq!(
+        roots,
+        [
+            Some(RecordRootKind::Documents),
+            Some(RecordRootKind::Project)
+        ]
+    );
+    // The state's root follows the latest capture, for older importers.
+    assert_eq!(state.record_root, RecordRootKind::Project);
 }
 
 #[test]

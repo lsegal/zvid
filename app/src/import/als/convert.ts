@@ -113,10 +113,10 @@ export function convertAls(
   const recordings = videoTracks.flatMap(trackRecordings);
   const recordRoots: Record<string, RecordRoot> = {};
   for (const track of videoTracks) {
-    const root = zvidState(track)?.recordRoot;
-    if (!root) continue;
-    for (const { filename } of trackRecordings(track)) {
-      recordRoots[filename] = root;
+    const zvid = zvidState(track);
+    if (!zvid) continue;
+    for (const take of zvid.recordings.filter(isAnchored)) {
+      recordRoots[take.filename] = take.recordRoot ?? zvid.recordRoot;
     }
   }
   const fpsFraction = mostCommon(

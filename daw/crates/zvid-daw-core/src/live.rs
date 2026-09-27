@@ -110,6 +110,38 @@ impl fmt::Display for LiveStatus {
     }
 }
 
+/// The latest [`LiveStatus`] of one plugin instance, shared between the
+/// control thread that polls its [`LiveLink`] and the editor backend, which
+/// shows Live's record state and reads the set directory when capture
+/// arms. Clones share the status.
+#[derive(Clone, Debug, Default)]
+pub struct SharedLiveStatus {
+    status: Arc<Mutex<Option<LiveStatus>>>,
+}
+
+impl SharedLiveStatus {
+    /// Replaces the status; `None` while the companion is absent.
+    pub fn set(&self, status: Option<LiveStatus>) {
+        *self.lock() = status;
+    }
+
+    pub fn get(&self) -> Option<LiveStatus> {
+        self.lock().clone()
+    }
+
+    /// The open set's directory, or `None` while the set is unsaved, the
+    /// Live version doesn't report it, or the companion is absent.
+    pub fn set_dir(&self) -> Option<PathBuf> {
+        self.lock().as_ref().and_then(LiveStatus::set_dir)
+    }
+
+    fn lock(&self) -> MutexGuard<'_, Option<LiveStatus>> {
+        self.status
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+}
+
 /// The `hello` datagram a plugin instance sends.
 pub fn hello_datagram() -> Vec<u8> {
     format!(r#"{{"v":{PROTOCOL_VERSION},"type":"hello"}}"#).into_bytes()
@@ -192,30 +224,6 @@ impl LiveLink {
     }
 }
 
-/// The latest [`LiveStatus`], shared between the control thread that polls
-/// the [`LiveLink`] and the editor backend that shows it. Clones share the
-/// slot. `None` while the companion is absent or nothing polls it.
-#[derive(Clone, Debug, Default)]
-pub struct LiveSlot {
-    status: Arc<Mutex<Option<LiveStatus>>>,
-}
-
-impl LiveSlot {
-    pub fn get(&self) -> Option<LiveStatus> {
-        self.lock().clone()
-    }
-
-    pub fn set(&self, status: Option<LiveStatus>) {
-        *self.lock() = status;
-    }
-
-    fn lock(&self) -> MutexGuard<'_, Option<LiveStatus>> {
-        self.status
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -257,6 +265,18 @@ mod tests {
     }
 
     #[test]
+    fn shares_the_latest_status() {
+        let shared = SharedLiveStatus::default();
+        let reader = shared.clone();
+        assert_eq!(reader.get(), None);
+        assert_eq!(reader.set_dir(), None);
+        shared.set(LiveStatus::parse(STATUS.as_bytes()));
+        assert_eq!(reader.set_dir(), Some(PathBuf::from("/music/Song Project")));
+        shared.set(None);
+        assert_eq!(reader.get(), None);
+    }
+
+    #[test]
     fn either_record_button_arms_capture() {
         let status = |record_mode, session_record| LiveStatus {
             record_mode,
@@ -275,18 +295,6 @@ mod tests {
             status.to_string(),
             "record=on session-record=off playing=on set=/music/Song Project/Song.als live=12.0.25"
         );
-    }
-
-    #[test]
-    fn clones_share_the_slot() {
-        let slot = LiveSlot::default();
-        let reader = slot.clone();
-        assert_eq!(reader.get(), None);
-        let status = LiveStatus::parse(STATUS.as_bytes());
-        slot.set(status.clone());
-        assert_eq!(reader.get(), status);
-        slot.set(None);
-        assert_eq!(reader.get(), None);
     }
 
     /// Reads datagrams on `socket` until one arrives or a second passes.

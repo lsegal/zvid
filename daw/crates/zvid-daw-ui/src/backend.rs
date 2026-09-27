@@ -3,7 +3,7 @@
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex, OnceLock};
 
-use zvid_daw_core::{AudioTap, Command, LiveSlot, RecordRoot, State, TakeChange};
+use zvid_daw_core::{AudioTap, Command, RecordRoot, SharedLiveStatus, State, TakeChange};
 
 use crate::channels::Channels;
 use crate::mock::MockBackend;
@@ -50,12 +50,15 @@ pub struct HostLink {
     pub commands: Sender<Command>,
     /// Takes the control thread opens and closes (`take_changes()`).
     pub takes: Receiver<TakeChange>,
-    /// What the Live companion reports, updated by the control thread.
-    pub live: LiveSlot,
     /// Tells the host the state changed, so it marks the set as modified.
     pub state_changed: Box<dyn Fn() + Send + Sync>,
-    /// Where capture files are written.
-    pub record_root: RecordRoot,
+    /// The Documents record root: where captures are written while the
+    /// Live set's directory is unknown.
+    pub documents_root: RecordRoot,
+    /// What the Live companion reports, kept current by the control thread.
+    /// A capture armed while it knows the set's directory records to
+    /// `<set dir>/Recorded/ZVID`.
+    pub live: SharedLiveStatus,
     /// The input-bus tap (`take_audio_tap()`), or `None` to record video
     /// only.
     pub audio: Option<AudioTap>,
@@ -81,7 +84,7 @@ pub fn instance_backend(link: HostLink) -> Arc<dyn Backend> {
         Some(factory) => factory(link),
         None => {
             let state = link.state.lock().unwrap_or_else(|e| e.into_inner()).clone();
-            Arc::new(MockBackend::new(link.record_root, state, None))
+            Arc::new(MockBackend::new(link.documents_root, state, None))
         }
     }
 }

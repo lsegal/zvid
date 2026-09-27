@@ -64,7 +64,7 @@ use objc2_core_audio_types::{
 use objc2_foundation::NSString;
 use zvid_daw_core::swap::Swap;
 use zvid_daw_core::{
-    AudioTap, Command, LiveSlot, ProcessSnapshot, Producer, RecordRoot, State, TakeChange,
+    AudioTap, Command, ProcessSnapshot, Producer, RecordRoot, SharedLiveStatus, State, TakeChange,
     TakeFeed, TapWriter, audio_tap, ring,
 };
 use zvid_daw_ui::{Backend, HostLink, instance_backend};
@@ -221,9 +221,9 @@ pub struct AudioUnitInstance {
     commands: Sender<Command>,
     /// Takes the control thread opens and closes, for the editor.
     takes: TakeFeed,
-    /// What the Live companion reports, as the control thread last polled
-    /// it, for the editor.
-    live: LiveSlot,
+    /// What the Live companion last reported, kept current by the control
+    /// thread, for the editor's record root.
+    live: SharedLiveStatus,
     /// The control thread's inputs while no control thread owns them.
     inputs: Mutex<Option<Inputs>>,
     /// Runs while the unit is initialized.
@@ -289,7 +289,7 @@ impl AudioUnitInstance {
             listeners: Mutex::new(Vec::new()),
             commands,
             takes: TakeFeed::default(),
-            live: LiveSlot::default(),
+            live: SharedLiveStatus::default(),
             inputs: Mutex::new(Some(Inputs {
                 transport: transport_reader,
                 commands: command_reader,
@@ -328,7 +328,6 @@ impl AudioUnitInstance {
                     state: self.shared_state(),
                     commands: self.commands(),
                     takes: self.take_changes(),
-                    live: self.live.clone(),
                     state_changed: Box::new(move || {
                         let instance = lock(&alive);
                         if *instance != 0 {
@@ -344,8 +343,8 @@ impl AudioUnitInstance {
                             );
                         }
                     }),
-                    // The Live set's directory isn't known to the plugin yet.
-                    record_root: RecordRoot::resolve_or_temp(None),
+                    documents_root: RecordRoot::resolve_or_temp(None),
+                    live: self.live.clone(),
                     audio: self.take_audio_tap(),
                 })
             })
@@ -1617,6 +1616,7 @@ mod tests {
             .send(Command::Arm {
                 capture: zvid_daw_core::Capture {
                     filename: "video-01-9-25-20-36-12-0.mp4".to_string(),
+                    record_root: zvid_daw_core::RecordRootKind::Documents,
                     dimensions: [1280, 720],
                     fps: [30, 1],
                     camera: "Cam".to_string(),

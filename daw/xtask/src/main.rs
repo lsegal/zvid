@@ -2,14 +2,23 @@
 //!
 //! - `check`: fails when C/C++/Objective-C++ sources appear under `/daw`, or
 //!   when the zvidlib rev drifts from `app/export-bridge`.
-//! - `bundle [--release] [--universal]`: builds the plugin and lays it out as
-//!   `target/bundle/ZVID Capture.vst3`, plus, on macOS, an ad-hoc signed
-//!   `target/bundle/ZVID Capture.component` for `auval` and local hosts.
-//!   `--release` stamps the version with the commit and refuses to embed the
-//!   placeholder UI; `--universal` (macOS) builds arm64 and x86_64 and
-//!   `lipo`s them into one binary. Release signing comes later (#201). The
-//!   Live companion Remote Script goes to
+//! - `bundle [--release] [--universal] [--installer]`: builds the plugin and
+//!   lays it out as `target/bundle/ZVID Capture.vst3`, plus, on macOS,
+//!   `target/bundle/ZVID Capture.component`. `--release` stamps the version
+//!   with the commit and refuses to embed the placeholder UI; `--universal`
+//!   (macOS) builds arm64 and x86_64 and `lipo`s them into one binary. macOS
+//!   bundles are ad-hoc signed, or, for a release build with
+//!   `ZVID_CODESIGN_IDENTITY` set, signed with that Developer ID identity and
+//!   the hardened runtime. The Live companion Remote Script goes to
 //!   `target/bundle/live-remote-script/ZVID_Capture`.
+//!   `--installer` (with `--release`) also writes an installer to
+//!   `target/installer`: a `.pkg` on macOS, signed with
+//!   `ZVID_INSTALLER_IDENTITY` and notarized and stapled when notary
+//!   credentials are set (see [`notary_args`]), or an Inno Setup `.exe` on
+//!   Windows.
+//! - `check-live [<Live.app>]` (macOS): checks that Live, by default the
+//!   newest `/Applications/Ableton Live 12*.app`, has the camera usage string
+//!   and entitlements in-process capture needs.
 //! - `install-live-script [--user-library <path>]`: copies the Live companion
 //!   Remote Script into `<User Library>/Remote Scripts/ZVID_Capture`,
 //!   replacing any older copy. The User Library defaults to Live's own
@@ -27,6 +36,24 @@ const LIBRARY: &str = "zvid_capture_plugin";
 const BUNDLE_IDENTIFIER: &str = "com.lsegal.zvid.capture.vst3";
 /// Targets a universal macOS build combines.
 const UNIVERSAL_TARGETS: &[&str] = &["aarch64-apple-darwin", "x86_64-apple-darwin"];
+/// Developer ID Application identity that signs release macOS bundles.
+const CODESIGN_IDENTITY_ENV: &str = "ZVID_CODESIGN_IDENTITY";
+/// Developer ID Installer identity that signs the macOS `.pkg`.
+const INSTALLER_IDENTITY_ENV: &str = "ZVID_INSTALLER_IDENTITY";
+/// Identifier of the macOS installer package's payload.
+const PKG_IDENTIFIER: &str = "com.lsegal.zvid.capture.pkg";
+/// Inno Setup script for the Windows installer, relative to `/daw`.
+const INNO_SCRIPT: &str = "installer/zvid-capture.iss";
+/// Where the installers put the plugin bundles on macOS, relative to `/`.
+const MACOS_PLUGIN_DIRS: &[(&str, &str)] = &[
+    ("vst3", "Library/Audio/Plug-Ins/VST3"),
+    ("component", "Library/Audio/Plug-Ins/Components"),
+];
+/// Entitlements Live must have for the plugin to capture in its process.
+const LIVE_ENTITLEMENTS: &[&str] = &[
+    "com.apple.security.device.camera",
+    "com.apple.security.cs.disable-library-validation",
+];
 /// Text only the placeholder page `zvid-daw-ui` embeds when `daw/ui/dist` is
 /// missing. Not its `data-zvid-placeholder` marker: `is_placeholder` looks
 /// for that, so every build contains it.
@@ -59,7 +86,8 @@ fn main() -> ExitCode {
             let flags: Vec<String> = std::env::args().skip(2).collect();
             let release = flags.iter().any(|arg| arg == "--release");
             let universal = flags.iter().any(|arg| arg == "--universal");
-            match bundle(release, universal) {
+            let installer = flags.iter().any(|arg| arg == "--installer");
+            match bundle(release, universal, installer) {
                 Ok(paths) => {
                     for path in paths {
                         println!("{}", path.display());
@@ -85,10 +113,22 @@ fn main() -> ExitCode {
                 }
             }
         }
+        Some("check-live") => match check_live(std::env::args().nth(2).map(PathBuf::from)) {
+            Ok(app) => {
+                println!("{} can host ZVID Capture's camera capture", app.display());
+                ExitCode::SUCCESS
+            }
+            Err(problem) => {
+                eprintln!("error: {problem}");
+                ExitCode::FAILURE
+            }
+        },
         _ => {
             eprintln!(
-                "usage: cargo xtask check | cargo xtask bundle [--release] [--universal] \
-                 | cargo xtask install-live-script [--user-library <path>]"
+                "usage: cargo xtask check \
+                 | cargo xtask bundle [--release] [--universal] [--installer] \
+                 | cargo xtask install-live-script [--user-library <path>] \
+                 | cargo xtask check-live [<Live.app>]"
             );
             ExitCode::FAILURE
         }
@@ -124,11 +164,20 @@ fn check(daw: &Path) -> Result<(), Vec<String>> {
 }
 
 /// Builds the plugin library and writes its `.vst3` bundle and, on macOS,
-/// its `.component` bundle.
-fn bundle(release: bool, universal: bool) -> Result<Vec<PathBuf>, String> {
+/// its `.component` bundle, then, with `installer`, the installer for them.
+fn bundle(release: bool, universal: bool, installer: bool) -> Result<Vec<PathBuf>, String> {
     if universal && !cfg!(target_os = "macos") {
         return Err("--universal is only supported on macOS".into());
     }
+    if installer && !release {
+        return Err("--installer needs --release".into());
+    }
+    // Only release builds get a Developer ID signature; debug builds keep
+    // the ad-hoc one.
+    let identity = std::env::var(CODESIGN_IDENTITY_ENV)
+        .ok()
+        .filter(|identity| release && !identity.trim().is_empty())
+        .unwrap_or_else(|| "-".into());
     let daw = daw_root();
     let version = if release {
         // zvid-daw-ui would silently embed its placeholder page instead.
@@ -189,25 +238,449 @@ fn bundle(release: bool, universal: bool) -> Result<Vec<PathBuf>, String> {
             .join("bundle")
             .join(format!("{PLUGIN_NAME}.component"));
         write_component(&library, &component, &version)?;
-        // Apple silicon refuses to load code whose signature does not cover
-        // the bundle; an ad-hoc signature is enough for `auval`.
-        let status = Command::new("codesign")
-            .args(["--force", "--sign", "-"])
-            .arg(&component)
-            .status()
-            .map_err(|error| format!("could not run codesign: {error}"))?;
-        if !status.success() {
-            return Err(format!("signing the component failed ({status})"));
-        }
         bundles.push(component);
+        // Apple silicon refuses to load code whose signature does not cover
+        // the bundle; an ad-hoc signature is enough for `auval` and local
+        // hosts.
+        for bundle in &bundles {
+            codesign(bundle, &identity)?;
+        }
     }
     let script = target
         .join("bundle")
         .join("live-remote-script")
         .join(LIVE_SCRIPT);
     copy_live_script(&live_script_source(&daw), &script)?;
+    if installer {
+        let output = target.join("installer");
+        let package = if cfg!(target_os = "macos") {
+            package_macos(&target, &bundles, &output, &version)?
+        } else if cfg!(target_os = "windows") {
+            package_windows(&daw, &target.join("bundle"), &output, &version)?
+        } else {
+            return Err(format!(
+                "installers are not supported on {}",
+                std::env::consts::OS
+            ));
+        };
+        bundles.push(package);
+    }
     bundles.push(script);
     Ok(bundles)
+}
+
+/// `codesign` arguments that sign with `identity`: ad-hoc for `-`, otherwise
+/// a Developer ID signature with the hardened runtime and a secure
+/// timestamp, which notarization requires.
+fn codesign_args(identity: &str) -> Vec<&str> {
+    if identity == "-" {
+        vec!["--force", "--sign", "-"]
+    } else {
+        vec![
+            "--force",
+            "--options",
+            "runtime",
+            "--timestamp",
+            "--sign",
+            identity,
+        ]
+    }
+}
+
+fn codesign(bundle: &Path, identity: &str) -> Result<(), String> {
+    run(
+        Command::new("codesign")
+            .args(codesign_args(identity))
+            .arg(bundle),
+        &format!("signing {}", bundle.display()),
+    )?;
+    run(
+        Command::new("codesign")
+            .args(["--verify", "--strict", "--verbose=2"])
+            .arg(bundle),
+        &format!("verifying the signature of {}", bundle.display()),
+    )
+}
+
+/// Runs `command`, failing with `what` when it can't start or exits
+/// unsuccessfully.
+fn run(command: &mut Command, what: &str) -> Result<(), String> {
+    let program = command.get_program().to_string_lossy().into_owned();
+    let status = command
+        .status()
+        .map_err(|error| format!("{what}: could not run {program}: {error}"))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("{what} failed ({status})"))
+    }
+}
+
+/// Base name of the installer for `version`, without its extension.
+fn installer_name(version: &str) -> String {
+    format!("zvid-capture-{version}")
+}
+
+/// Builds the macOS installer package for the signed `bundles`, which
+/// installs them into `/Library/Audio/Plug-Ins`, then signs, notarizes and
+/// staples it when those are configured. Returns the package's path.
+fn package_macos(
+    target: &Path,
+    bundles: &[PathBuf],
+    output: &Path,
+    version: &str,
+) -> Result<PathBuf, String> {
+    let io = |path: &Path, error: std::io::Error| format!("{}: {error}", path.display());
+    let work = target.join("package");
+    if work.exists() {
+        fs::remove_dir_all(&work).map_err(|error| io(&work, error))?;
+    }
+    let root = work.join("root");
+    let mut relative = Vec::new();
+    for bundle in bundles {
+        let name = bundle.file_name().expect("bundles have names");
+        let extension = bundle.extension().and_then(|ext| ext.to_str());
+        let (_, dir) = MACOS_PLUGIN_DIRS
+            .iter()
+            .find(|(ext, _)| Some(*ext) == extension)
+            .ok_or_else(|| format!("{} is not a plugin bundle", bundle.display()))?;
+        let path = Path::new(dir).join(name);
+        // ditto keeps the bundles' symlinks and signatures intact.
+        run(
+            Command::new("ditto").arg(bundle).arg(root.join(&path)),
+            &format!("staging {}", bundle.display()),
+        )?;
+        relative.push(path.to_string_lossy().into_owned());
+    }
+    let components = work.join("components.plist");
+    fs::write(&components, component_plist(&relative)).map_err(|error| io(&components, error))?;
+    let payload_dir = work.join("packages");
+    fs::create_dir_all(&payload_dir).map_err(|error| io(&payload_dir, error))?;
+    run(
+        Command::new("pkgbuild")
+            .arg("--root")
+            .arg(&root)
+            .arg("--component-plist")
+            .arg(&components)
+            .args(["--identifier", PKG_IDENTIFIER, "--version", version])
+            .args(["--install-location", "/"])
+            .arg(payload_dir.join("zvid-capture.pkg")),
+        "building the installer payload",
+    )?;
+    let distribution = work.join("distribution.xml");
+    fs::write(&distribution, distribution_xml(version))
+        .map_err(|error| io(&distribution, error))?;
+    fs::create_dir_all(output).map_err(|error| io(output, error))?;
+    let package = output.join(format!("{}.pkg", installer_name(version)));
+    let installer_identity = std::env::var(INSTALLER_IDENTITY_ENV)
+        .ok()
+        .filter(|identity| !identity.trim().is_empty());
+    let notary = notary_args(|name| std::env::var(name).ok())?;
+    if notary.is_some() && installer_identity.is_none() {
+        return Err(format!(
+            "notarizing needs a signed installer; set {INSTALLER_IDENTITY_ENV}"
+        ));
+    }
+    let mut productbuild = Command::new("productbuild");
+    productbuild
+        .arg("--distribution")
+        .arg(&distribution)
+        .arg("--package-path")
+        .arg(&payload_dir);
+    if let Some(identity) = &installer_identity {
+        productbuild.args(["--sign", identity, "--timestamp"]);
+    }
+    run(productbuild.arg(&package), "building the installer")?;
+    if installer_identity.is_none() {
+        println!("warning: {INSTALLER_IDENTITY_ENV} is not set; the installer is unsigned");
+        return Ok(package);
+    }
+    run(
+        Command::new("pkgutil")
+            .arg("--check-signature")
+            .arg(&package),
+        "checking the installer signature",
+    )?;
+    match notary {
+        Some(credentials) => notarize(&package, &credentials)?,
+        None => println!("warning: notary credentials are not set; the installer is not notarized"),
+    }
+    Ok(package)
+}
+
+/// `pkgbuild` component list for bundles at the root-relative `paths`. It
+/// installs them exactly there: without it, the installer "upgrades" a copy
+/// the user moved elsewhere instead.
+fn component_plist(paths: &[String]) -> String {
+    let entries: String = paths
+        .iter()
+        .map(|path| {
+            format!(
+                "\t<dict>
+\t\t<key>BundleHasStrictIdentifier</key>
+\t\t<true/>
+\t\t<key>BundleIsRelocatable</key>
+\t\t<false/>
+\t\t<key>BundleIsVersionChecked</key>
+\t\t<false/>
+\t\t<key>BundleOverwriteAction</key>
+\t\t<string>upgrade</string>
+\t\t<key>RootRelativeBundlePath</key>
+\t\t<string>{path}</string>
+\t</dict>
+"
+            )
+        })
+        .collect();
+    format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+{entries}</array>
+</plist>
+"#
+    )
+}
+
+/// `productbuild` distribution for the payload package: runs natively on
+/// both architectures, installs only to the system volume and needs macOS
+/// 13, the plugin's minimum.
+fn distribution_xml(version: &str) -> String {
+    format!(
+        r#"<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="2">
+    <title>{PLUGIN_NAME}</title>
+    <options customize="never" require-scripts="false" hostArchitectures="arm64,x86_64"/>
+    <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
+    <volume-check>
+        <allowed-os-versions>
+            <os-version min="13.0"/>
+        </allowed-os-versions>
+    </volume-check>
+    <choices-outline>
+        <line choice="default">
+            <line choice="{PKG_IDENTIFIER}"/>
+        </line>
+    </choices-outline>
+    <choice id="default"/>
+    <choice id="{PKG_IDENTIFIER}" visible="false">
+        <pkg-ref id="{PKG_IDENTIFIER}"/>
+    </choice>
+    <pkg-ref id="{PKG_IDENTIFIER}" version="{version}" onConclusion="none">zvid-capture.pkg</pkg-ref>
+</installer-gui-script>
+"#
+    )
+}
+
+/// `notarytool` credential arguments from the environment, looked up
+/// through `var`: a keychain profile in `ZVID_NOTARY_PROFILE`, or an Apple
+/// ID, team ID and app-specific password in `ZVID_NOTARY_APPLE_ID`,
+/// `ZVID_NOTARY_TEAM_ID` and `ZVID_NOTARY_PASSWORD`. `None` when none are
+/// set; an error when only some of the Apple ID ones are.
+fn notary_args(var: impl Fn(&str) -> Option<String>) -> Result<Option<Vec<String>>, String> {
+    let var = |name: &str| var(name).filter(|value| !value.trim().is_empty());
+    if let Some(profile) = var("ZVID_NOTARY_PROFILE") {
+        return Ok(Some(vec!["--keychain-profile".into(), profile]));
+    }
+    let names = [
+        ("--apple-id", "ZVID_NOTARY_APPLE_ID"),
+        ("--team-id", "ZVID_NOTARY_TEAM_ID"),
+        ("--password", "ZVID_NOTARY_PASSWORD"),
+    ];
+    let values: Vec<Option<String>> = names.iter().map(|(_, name)| var(name)).collect();
+    if values.iter().all(Option::is_none) {
+        return Ok(None);
+    }
+    let mut args = Vec::new();
+    for ((flag, name), value) in names.iter().zip(values) {
+        let value = value.ok_or_else(|| {
+            format!(
+                "{name} is not set; notarizing with an Apple ID needs ZVID_NOTARY_APPLE_ID, \
+                 ZVID_NOTARY_TEAM_ID and ZVID_NOTARY_PASSWORD"
+            )
+        })?;
+        args.push(flag.to_string());
+        args.push(value);
+    }
+    Ok(Some(args))
+}
+
+/// Submits `package` to Apple's notary service, waits for the verdict and
+/// staples the ticket to it.
+fn notarize(package: &Path, credentials: &[String]) -> Result<(), String> {
+    let output = Command::new("xcrun")
+        .args(["notarytool", "submit"])
+        .arg(package)
+        .args(["--wait", "--output-format", "json"])
+        .args(credentials)
+        .output()
+        .map_err(|error| format!("could not run notarytool: {error}"))?;
+    let report = String::from_utf8_lossy(&output.stdout);
+    if !output.status.success() || !notarization_accepted(&report) {
+        return Err(format!(
+            "notarizing {} failed ({}): {} {}\nrun `xcrun notarytool log <id>` for details",
+            package.display(),
+            output.status,
+            report.trim(),
+            String::from_utf8_lossy(&output.stderr).trim(),
+        ));
+    }
+    run(
+        Command::new("xcrun")
+            .args(["stapler", "staple"])
+            .arg(package),
+        "stapling the notarization ticket",
+    )?;
+    run(
+        Command::new("xcrun")
+            .args(["stapler", "validate"])
+            .arg(package),
+        "validating the stapled ticket",
+    )
+}
+
+/// Whether `notarytool submit --wait --output-format json` reported the
+/// submission as accepted.
+fn notarization_accepted(report: &str) -> bool {
+    let compact: String = report.chars().filter(|c| !c.is_whitespace()).collect();
+    compact.contains(r#""status":"Accepted""#)
+}
+
+/// Compiles the Windows installer for the bundles in `bundle_dir` with Inno
+/// Setup and returns its path.
+fn package_windows(
+    daw: &Path,
+    bundle_dir: &Path,
+    output: &Path,
+    version: &str,
+) -> Result<PathBuf, String> {
+    let iscc = find_iscc()
+        .ok_or("Inno Setup 6 was not found; install it or set ISCC to the path of ISCC.exe")?;
+    let name = format!("{}-setup", installer_name(version));
+    run(
+        Command::new(&iscc)
+            .args(iscc_args(version, bundle_dir, output, &name))
+            .arg(daw.join(INNO_SCRIPT)),
+        "building the installer",
+    )?;
+    Ok(output.join(format!("{name}.exe")))
+}
+
+/// Inno Setup compiler defines for `zvid-capture.iss`.
+fn iscc_args(version: &str, bundle_dir: &Path, output: &Path, name: &str) -> Vec<String> {
+    // VERSIONINFO only takes numbers, so the build metadata is dropped there.
+    let numeric = version.split(['+', '-']).next().unwrap_or(version);
+    vec![
+        "/Q".into(),
+        format!("/DAppVersion={version}"),
+        format!("/DNumericVersion={numeric}"),
+        format!("/DSourceDir={}", bundle_dir.display()),
+        format!("/DOutputDir={}", output.display()),
+        format!("/DOutputBaseFilename={name}"),
+    ]
+}
+
+/// `ISCC.exe`: `ISCC` from the environment, else Inno Setup 6's default
+/// install location, else the one on `PATH`.
+fn find_iscc() -> Option<PathBuf> {
+    if let Some(path) = std::env::var_os("ISCC").filter(|path| !path.is_empty()) {
+        return Some(PathBuf::from(path));
+    }
+    ["ProgramFiles(x86)", "ProgramFiles"]
+        .iter()
+        .filter_map(std::env::var_os)
+        .map(|dir| PathBuf::from(dir).join("Inno Setup 6").join("ISCC.exe"))
+        .find(|path| path.is_file())
+        .or_else(|| {
+            Command::new("iscc")
+                .arg("/?")
+                .output()
+                .is_ok()
+                .then(|| "iscc".into())
+        })
+}
+
+/// Checks that Live at `app`, or the newest Live 12 in `/Applications`, has
+/// what the plugin's in-process camera capture relies on, and returns the
+/// app it checked.
+fn check_live(app: Option<PathBuf>) -> Result<PathBuf, String> {
+    if !cfg!(target_os = "macos") {
+        return Err("check-live only applies to macOS; Windows has no entitlements".into());
+    }
+    let app = match app {
+        Some(app) => app,
+        None => {
+            let mut apps: Vec<PathBuf> = fs::read_dir("/Applications")
+                .map_err(|error| format!("/Applications: {error}"))?
+                .flatten()
+                .map(|entry| entry.path())
+                .filter(|path| {
+                    path.file_name()
+                        .and_then(|name| name.to_str())
+                        .is_some_and(|name| {
+                            name.starts_with("Ableton Live 12") && name.ends_with(".app")
+                        })
+                })
+                .collect();
+            apps.sort();
+            apps.pop()
+                .ok_or("no Ableton Live 12 in /Applications; pass the app's path")?
+        }
+    };
+    let entitlements = Command::new("codesign")
+        .args(["--display", "--entitlements", "-", "--xml"])
+        .arg(&app)
+        .output()
+        .map_err(|error| format!("could not run codesign: {error}"))?;
+    if !entitlements.status.success() {
+        return Err(format!(
+            "reading the entitlements of {} failed: {}",
+            app.display(),
+            String::from_utf8_lossy(&entitlements.stderr).trim()
+        ));
+    }
+    // Live's Info.plist may be binary; plutil prints it as XML either way.
+    let info_plist = Command::new("plutil")
+        .args(["-convert", "xml1", "-o", "-"])
+        .arg(app.join("Contents/Info.plist"))
+        .output()
+        .map_err(|error| format!("could not run plutil: {error}"))?;
+    let problems = live_host_problems(
+        &String::from_utf8_lossy(&entitlements.stdout),
+        &String::from_utf8_lossy(&info_plist.stdout),
+    );
+    if problems.is_empty() {
+        Ok(app)
+    } else {
+        Err(format!(
+            "{} {}; in-process capture needs the helper-app path from #196",
+            app.display(),
+            problems.join(", ")
+        ))
+    }
+}
+
+/// What Live lacks for in-process capture, given its entitlements and
+/// `Info.plist` as XML property lists.
+fn live_host_problems(entitlements: &str, info_plist: &str) -> Vec<String> {
+    let mut problems: Vec<String> = LIVE_ENTITLEMENTS
+        .iter()
+        .filter(|key| !plist_key_is_true(entitlements, key))
+        .map(|key| format!("lacks the {key} entitlement"))
+        .collect();
+    if !info_plist.contains("<key>NSCameraUsageDescription</key>") {
+        problems.push("has no NSCameraUsageDescription".into());
+    }
+    problems
+}
+
+/// Whether the XML property list `plist` sets `key` to `true`.
+fn plist_key_is_true(plist: &str, key: &str) -> bool {
+    let marker = format!("<key>{key}</key>");
+    plist
+        .split_once(&marker)
+        .is_some_and(|(_, rest)| rest.trim_start().starts_with("<true/>"))
 }
 
 /// Installs the Live companion Remote Script into the User Library named by
@@ -766,6 +1239,164 @@ mod tests {
         );
         assert!(default_user_library("linux", env).is_err());
         assert!(default_user_library("macos", |_| None).is_err());
+    }
+
+    #[test]
+    fn installers_need_a_release_build() {
+        let error = bundle(false, false, true).unwrap_err();
+        assert!(error.contains("--release"), "{error}");
+    }
+
+    #[test]
+    fn signs_ad_hoc_or_with_the_hardened_runtime() {
+        assert_eq!(codesign_args("-"), ["--force", "--sign", "-"]);
+        let identity = "Developer ID Application: ZVID (TEAM123456)";
+        assert_eq!(
+            codesign_args(identity),
+            [
+                "--force",
+                "--options",
+                "runtime",
+                "--timestamp",
+                "--sign",
+                identity
+            ]
+        );
+    }
+
+    #[test]
+    fn pins_macos_bundles_to_the_system_plugin_folders() {
+        let plist = component_plist(&[
+            "Library/Audio/Plug-Ins/VST3/ZVID Capture.vst3".into(),
+            "Library/Audio/Plug-Ins/Components/ZVID Capture.component".into(),
+        ]);
+        assert_eq!(plist.matches("<dict>").count(), 2);
+        assert_eq!(
+            plist
+                .matches("<key>BundleIsRelocatable</key>\n\t\t<false/>")
+                .count(),
+            2
+        );
+        assert!(
+            plist.contains(
+                "<string>Library/Audio/Plug-Ins/Components/ZVID Capture.component</string>"
+            )
+        );
+        let dirs: Vec<&str> = MACOS_PLUGIN_DIRS.iter().map(|(_, dir)| *dir).collect();
+        assert_eq!(
+            dirs,
+            [
+                "Library/Audio/Plug-Ins/VST3",
+                "Library/Audio/Plug-Ins/Components"
+            ]
+        );
+    }
+
+    #[test]
+    fn describes_the_macos_installer() {
+        let xml = distribution_xml("0.1.0+c94f40e");
+        assert!(xml.contains("<title>ZVID Capture</title>"));
+        assert!(xml.contains(r#"<os-version min="13.0"/>"#));
+        assert!(xml.contains(r#"hostArchitectures="arm64,x86_64""#));
+        assert!(xml.contains(&format!(
+            r#"<pkg-ref id="{PKG_IDENTIFIER}" version="0.1.0+c94f40e" onConclusion="none">zvid-capture.pkg</pkg-ref>"#
+        )));
+        assert!(xml.contains(r#"enable_localSystem="true""#));
+        assert!(xml.contains(r#"enable_currentUserHome="false""#));
+    }
+
+    #[test]
+    fn reads_notary_credentials() {
+        let env = |pairs: &'static [(&'static str, &'static str)]| {
+            move |name: &str| {
+                pairs
+                    .iter()
+                    .find(|(key, _)| *key == name)
+                    .map(|(_, value)| value.to_string())
+            }
+        };
+        assert_eq!(notary_args(env(&[])), Ok(None));
+        assert_eq!(
+            notary_args(env(&[("ZVID_NOTARY_PROFILE", "zvid")])),
+            Ok(Some(vec!["--keychain-profile".into(), "zvid".into()]))
+        );
+        assert_eq!(
+            notary_args(env(&[
+                ("ZVID_NOTARY_APPLE_ID", "me@example.com"),
+                ("ZVID_NOTARY_TEAM_ID", "TEAM123456"),
+                ("ZVID_NOTARY_PASSWORD", "abcd-efgh"),
+            ])),
+            Ok(Some(
+                [
+                    "--apple-id",
+                    "me@example.com",
+                    "--team-id",
+                    "TEAM123456",
+                    "--password",
+                    "abcd-efgh"
+                ]
+                .map(String::from)
+                .to_vec()
+            ))
+        );
+        let partial = notary_args(env(&[
+            ("ZVID_NOTARY_APPLE_ID", "me@example.com"),
+            ("ZVID_NOTARY_PASSWORD", ""),
+        ]))
+        .unwrap_err();
+        assert!(partial.starts_with("ZVID_NOTARY_TEAM_ID"), "{partial}");
+    }
+
+    #[test]
+    fn recognizes_accepted_notarizations() {
+        assert!(notarization_accepted(
+            r#"{"id":"2efe2717","message":"Processing complete","status":"Accepted"}"#
+        ));
+        assert!(notarization_accepted("{\n  \"status\" : \"Accepted\"\n}"));
+        assert!(!notarization_accepted(
+            r#"{"id":"2efe2717","message":"Processing complete","status":"Invalid"}"#
+        ));
+        assert!(!notarization_accepted(""));
+    }
+
+    #[test]
+    fn passes_every_define_the_inno_script_uses() {
+        let args = iscc_args(
+            "0.1.0+c94f40e-dirty",
+            Path::new("target/bundle"),
+            Path::new("target/installer"),
+            "zvid-capture-0.1.0+c94f40e-dirty-setup",
+        );
+        assert!(args.contains(&"/DAppVersion=0.1.0+c94f40e-dirty".into()));
+        assert!(args.contains(&"/DNumericVersion=0.1.0".into()));
+        let script = fs::read_to_string(daw_root().join(INNO_SCRIPT)).unwrap();
+        for arg in &args[1..] {
+            let (define, _) = arg.trim_start_matches("/D").split_once('=').unwrap();
+            assert!(
+                script.contains(&format!("{{#{define}}}")),
+                "{INNO_SCRIPT} does not use {define}"
+            );
+        }
+        assert!(script.contains(r#"DestDir: "{commoncf64}\VST3\ZVID Capture.vst3""#));
+    }
+
+    #[test]
+    fn checks_live_for_camera_entitlements() {
+        let entitlements = |camera: &str| {
+            format!(
+                "<plist><dict>\n\t<key>com.apple.security.cs.disable-library-validation</key>\n\t<true/>\n\t<key>com.apple.security.device.camera</key>\n\t{camera}\n</dict></plist>"
+            )
+        };
+        let info = "<dict><key>NSCameraUsageDescription</key><string>Video</string></dict>";
+        assert!(live_host_problems(&entitlements("<true/>"), info).is_empty());
+        assert_eq!(
+            live_host_problems(&entitlements("<false/>"), "<dict/>"),
+            [
+                "lacks the com.apple.security.device.camera entitlement",
+                "has no NSCameraUsageDescription"
+            ]
+        );
+        assert_eq!(live_host_problems("", info).len(), 2);
     }
 
     #[test]

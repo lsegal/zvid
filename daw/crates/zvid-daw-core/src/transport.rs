@@ -389,6 +389,7 @@ mod tests {
             .send(Command::Arm {
                 capture: Capture {
                     filename: "video-01-9-25-20-36-12-0.mp4".to_string(),
+                    record_root: crate::RecordRootKind::Documents,
                     dimensions: [1280, 720],
                     fps: [30, 1],
                     camera: "Cam".to_string(),
@@ -438,6 +439,7 @@ mod tests {
             .send(Command::Arm {
                 capture: Capture {
                     filename: "video-01-9-25-20-36-12-0.mp4".to_string(),
+                    record_root: crate::RecordRootKind::Documents,
                     dimensions: [1280, 720],
                     fps: [30, 1],
                     camera: "Cam".to_string(),

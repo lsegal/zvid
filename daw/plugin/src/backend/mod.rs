@@ -45,7 +45,8 @@ use std::time::{Duration, Instant, SystemTime};
 use zvid_capture::record::{AudioFormat, FrameClock, RecordConfig, VideoEncoderChoice};
 use zvid_capture::{Device, DeviceEvent, Rational};
 use zvid_daw_core::{
-    AudioTap, CameraChoice, Capture, Command, LiveSlot, RecordRoot, State, TakeChange,
+    AudioTap, CameraChoice, Capture, Command, RecordRoot, RecordRootKind, Recording,
+    SharedLiveStatus, State, TakeChange,
 };
 pub use zvid_daw_ui::HostLink;
 use zvid_daw_ui::mock::rfc3339_utc;
@@ -72,8 +73,13 @@ pub struct CaptureBackend {
     state: Arc<Mutex<State>>,
     commands: Sender<Command>,
     state_changed: Box<dyn Fn() + Send + Sync>,
-    root: RecordRoot,
-    live: LiveSlot,
+    /// Where captures go while the Live set's directory is unknown.
+    documents_root: RecordRoot,
+    /// The Live companion's status, for the set directory.
+    live: SharedLiveStatus,
+    /// The last project root a capture armed with, to find project files
+    /// while the companion is absent.
+    project_root: Mutex<Option<RecordRoot>>,
     stall: Duration,
     /// Set by [`Backend::shutdown`]: the camera stays closed and commands
     /// fail.
@@ -144,9 +150,9 @@ impl CaptureBackend {
             state,
             commands,
             takes,
-            live,
             state_changed,
-            record_root,
+            documents_root,
+            live,
             audio,
         } = link;
         let backend = Arc::new(Self {
@@ -155,8 +161,9 @@ impl CaptureBackend {
             state,
             commands,
             state_changed,
-            root: record_root,
+            documents_root,
             live,
+            project_root: Mutex::new(None),
             stall,
             closed: AtomicBool::new(false),
             inner: Mutex::new(Inner::default()),
@@ -191,6 +198,34 @@ impl CaptureBackend {
     fn send(&self, command: Command) {
         if self.commands.send(command).is_err() {
             log("the plugin's control thread is gone; the command was dropped");
+        }
+    }
+
+    /// The root a capture armed now records into: the Live set's
+    /// `Recorded/ZVID` when the companion reports a saved set, else
+    /// Documents. It is chosen once per capture, so the file stays put if
+    /// the set is saved or moved mid-capture.
+    fn capture_root(&self) -> RecordRoot {
+        let root = RecordRoot::for_capture(self.live.set_dir().as_deref(), &self.documents_root);
+        if root.kind == RecordRootKind::Project {
+            *lock(&self.project_root) = Some(root.clone());
+        }
+        root
+    }
+
+    /// The directory a recording's file is under. Project files are looked
+    /// up in the set's current directory, or the last one this instance
+    /// recorded to while the companion is absent.
+    fn root_of(&self, recording: &Recording, state_root: RecordRootKind) -> RecordRoot {
+        match recording.record_root_or(state_root) {
+            RecordRootKind::Documents => self.documents_root.clone(),
+            RecordRootKind::Project => self
+                .live
+                .set_dir()
+                .map(|dir| RecordRoot::project(&dir))
+                .or_else(|| lock(&self.project_root).clone())
+                // Unknown: the take is listed as missing.
+                .unwrap_or_else(|| self.documents_root.clone()),
         }
     }
 
@@ -405,7 +440,11 @@ impl CaptureBackend {
             (TakeChange::Closed(_), _) => false,
         };
         drop(inner);
-        self.emit(&map::take_event(&change, &self.root));
+        let root = match &change {
+            TakeChange::Closed(recording) => self.root_of(recording, lock(&self.state).record_root),
+            TakeChange::Opened { .. } => self.documents_root.clone(),
+        };
+        self.emit(&map::take_event(&change, &root));
         if opened {
             self.emit_status();
         }
@@ -645,10 +684,12 @@ impl Backend for CaptureBackend {
         };
         let counter = inner.captures + 1;
         let audio = self.arm_audio();
+        let root = self.capture_root();
+        let record_root = root.kind;
         let file = self
             .platform
             .record(RecordConfig {
-                root: self.root.clone(),
+                root,
                 counter,
                 armed_at: self.platform.local_time(),
                 fps: camera.fps,
@@ -664,6 +705,7 @@ impl Backend for CaptureBackend {
             })?;
         let capture = Capture {
             filename: file.filename().to_string(),
+            record_root,
             dimensions: [camera.format.width, camera.format.height],
             fps: camera.format.fps,
             camera: device.name.clone(),
@@ -727,15 +769,21 @@ impl Backend for CaptureBackend {
     }
 
     fn takes(&self) -> Vec<TakeInfo> {
-        takes_from_state(&lock(&self.state), &self.root)
+        let state = lock(&self.state);
+        takes_from_state(&state, |recording| {
+            self.root_of(recording, state.record_root)
+        })
     }
 
     fn take_file(&self, id: &str) -> Option<TakeFile> {
-        lock(&self.state)
+        let state = lock(&self.state);
+        state
             .recordings
             .iter()
             .find(|recording| recording.id == id)
-            .map(|recording| TakeFile::from_recording(recording, &self.root))
+            .map(|recording| {
+                TakeFile::from_recording(recording, &self.root_of(recording, state.record_root))
+            })
     }
 
     fn channels(&self) -> &Channels {

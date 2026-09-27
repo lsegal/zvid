@@ -19,7 +19,7 @@ pub mod tap;
 pub mod tracker;
 pub mod transport;
 
-pub use live::{LiveLink, LiveSlot, LiveStatus};
+pub use live::{LiveLink, LiveStatus, SharedLiveStatus};
 pub use naming::{LocalTime, capture_filename, next_capture_filename};
 pub use paths::{RecordRoot, RecordRootKind};
 pub use ring::{Consumer, Producer, ring};

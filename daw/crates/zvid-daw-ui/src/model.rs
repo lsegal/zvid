@@ -131,13 +131,17 @@ impl TakeInfo {
     }
 }
 
-/// The takes list for a plugin state, newest first.
-pub fn takes_from_state(state: &State, root: &RecordRoot) -> Vec<TakeInfo> {
+/// The takes list for a plugin state, newest first. `root_of` gives the
+/// record root each recording's file is under.
+pub fn takes_from_state(
+    state: &State,
+    root_of: impl Fn(&Recording) -> RecordRoot,
+) -> Vec<TakeInfo> {
     let mut takes: Vec<TakeInfo> = state
         .recordings
         .iter()
         .rev()
-        .map(|recording| TakeInfo::from_recording(recording, root))
+        .map(|recording| TakeInfo::from_recording(recording, &root_of(recording)))
         .collect();
     // RFC 3339 UTC timestamps sort lexically; the stable sort keeps later
     // entries first when several share a timestamp.
@@ -255,7 +259,7 @@ mod tests {
             ],
             ..State::default()
         };
-        let takes = takes_from_state(&state, &root);
+        let takes = takes_from_state(&state, |_| root.clone());
         let ids: Vec<&str> = takes.iter().map(|take| take.id.as_str()).collect();
         assert_eq!(ids, ["b", "c", "a"]);
         assert!(!takes[0].missing);
