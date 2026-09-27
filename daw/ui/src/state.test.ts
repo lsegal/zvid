@@ -5,6 +5,7 @@ import {
   type AppState,
   captureElapsed,
   initialState,
+  LIVE_SCRIPT_INSTALLED,
   reducer,
   selectedCamera,
 } from "./state.ts";
@@ -78,12 +79,31 @@ test("shows one toast, newest first", () => {
       id,
     });
   }
-  assert.deepEqual(state.toast, { id: 3, message: "oops 3" });
+  assert.deepEqual(state.toast, { id: 3, message: "oops 3", tone: "warning" });
   // Dismissing a toast that was already replaced keeps the newer one.
   state = reducer(state, { type: "dismiss", id: 2 });
   assert.equal(state.toast?.id, 3);
   state = reducer(state, { type: "dismiss", id: 3 });
   assert.equal(state.toast, null);
+});
+
+test("shows notices as a green toast", () => {
+  let state = reducer(initialState, {
+    type: "error",
+    error: new Error("couldn't install"),
+    id: 1,
+  });
+  state = reducer(state, {
+    type: "notice",
+    message: LIVE_SCRIPT_INSTALLED,
+    id: 2,
+  });
+  assert.deepEqual(state.toast, {
+    id: 2,
+    message: LIVE_SCRIPT_INSTALLED,
+    tone: "ready",
+  });
+  assert.match(LIVE_SCRIPT_INSTALLED, /Restart Live/);
 });
 
 test("tracks the command in flight", () => {

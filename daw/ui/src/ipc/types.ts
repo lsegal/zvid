@@ -99,6 +99,8 @@ export type Commands = {
   listTakes: { args: undefined; result: TakeInfo[] };
   revealTake: { args: { id: string }; result: null };
   openPrivacySettings: { args: undefined; result: null };
+  /** Copies the bundled Live companion script into Live's User Library. */
+  installLiveScript: { args: undefined; result: { path: string } };
 };
 
 /** Injected by the Rust host before the page loads. */
