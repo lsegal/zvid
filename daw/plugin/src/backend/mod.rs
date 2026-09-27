@@ -26,7 +26,8 @@
 //!
 //! Commands run on the editor's worker threads. A monitor thread owned by
 //! the backend applies take changes, hot-plug events and recorder progress,
-//! and moves tapped audio into the file.
+//! and moves tapped audio into the file; shutting the backend down joins
+//! it, so it never outlives the instance or the unloaded module.
 //! None of this touches the audio thread.
 
 mod local_time;
@@ -36,7 +37,7 @@ mod platform;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex, MutexGuard, Weak};
-use std::thread;
+use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant, SystemTime};
 
 use zvid_capture::record::{AudioFormat, FrameClock, RecordConfig, VideoEncoderChoice};
@@ -78,6 +79,10 @@ pub struct CaptureBackend {
     recorder: Arc<Mutex<Option<Box<dyn CaptureFile>>>>,
     /// Locked before `recorder` when both are held.
     audio: Mutex<AudioIn>,
+    /// The monitor thread, joined by [`Backend::shutdown`]. Hosts may
+    /// unload the module as soon as the last instance is gone, so it must
+    /// not still be running then.
+    monitor: Mutex<Option<JoinHandle<()>>>,
 }
 
 /// The input bus, as it feeds the capture file.
@@ -155,13 +160,15 @@ impl CaptureBackend {
                 tap: audio,
                 ..AudioIn::default()
             }),
+            monitor: Mutex::new(None),
         });
         let weak = Arc::downgrade(&backend);
         let spawned = thread::Builder::new()
             .name("zvid-editor-backend".to_string())
             .spawn(move || monitor(weak, takes));
-        if let Err(error) = spawned {
-            log(&format!("could not start the backend thread: {error}"));
+        match spawned {
+            Ok(thread) => *lock(&backend.monitor) = Some(thread),
+            Err(error) => log(&format!("could not start the backend thread: {error}")),
         }
         backend
     }
@@ -725,6 +732,25 @@ impl Backend for CaptureBackend {
         self.stop_capture(&mut inner, true);
         drop(inner);
         self.channels.preview.clear();
+        self.join_monitor();
+    }
+}
+
+impl CaptureBackend {
+    /// Wakes the monitor thread and waits for it to see `closed` and end.
+    /// When the monitor itself drops the last reference, it is already
+    /// ending and cannot join itself.
+    fn join_monitor(&self) {
+        let Some(thread) = lock(&self.monitor).take() else {
+            return;
+        };
+        if thread.thread().id() == thread::current().id() {
+            return;
+        }
+        thread.thread().unpark();
+        if thread.join().is_err() {
+            log("the backend thread panicked");
+        }
     }
 }
 
@@ -765,7 +791,8 @@ fn monitor(backend: Weak<CaptureBackend>, takes: Receiver<TakeChange>) {
         }
         backend.tick();
         drop(backend);
-        thread::sleep(TICK);
+        // `shutdown` unparks it to stop without waiting out the tick.
+        thread::park_timeout(TICK);
     }
 }
 
