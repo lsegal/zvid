@@ -641,8 +641,8 @@ the editor runs in any browser with no plugin, DAW or Rust harness:
   `zvid://preview` requests to it with the same long-polls and status codes
   as `Protocol`. It records `revealTake`, `openPrivacySettings` and
   `installLiveScript` instead of touching the desktop, draws take posters in
-  the page, and simulates the transport and Live companion like the harness. Take playback isn't
-  served, so previewing a take stops at once.
+  the page, and simulates the transport and Live companion like the harness.
+  Take playback isn't served, so previewing a take stops at once.
 
 The Vite dev server (`pnpm --dir daw/ui dev`) starts the driver whenever the
 page has no `window.__ZVID__`, i.e. when it is opened in a plain browser
