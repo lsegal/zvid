@@ -1,19 +1,32 @@
 name: DAW bundles
 
 # Release ZVID Capture bundles and installers for every merge to main,
-# uploaded as workflow artifacts. PR CI only runs the debug `daw` job in
-# ci.yml, so this stays off pull requests. macOS builds are Developer ID
-# signed and notarized when the Apple secrets below are configured, and
-# ad-hoc signed otherwise.
+# uploaded as workflow artifacts. Pull requests that touch /daw build the same
+# bundles and installers, so a broken x86_64 slice, release-only build or
+# bundle layout fails the PR rather than main; PR runs upload nothing. macOS
+# builds are Developer ID signed and notarized when the Apple secrets below are
+# configured, and ad-hoc signed otherwise.
 on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
+    # app/export-bridge/Cargo.toml pins the zvidlib rev `cargo xtask check`
+    # compares against.
+    paths:
+      - daw/**
+      - .github/workflows/daw-bundle.yml
+      - .github/workflows/ci.yml
+      - app/export-bridge/Cargo.toml
   workflow_dispatch:
 
+# Superseded PR runs are cancelled; main runs always finish so every merge
+# keeps its artifacts.
 concurrency:
   group: daw-bundle-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   bundle:
@@ -61,9 +74,12 @@ jobs:
             rustup target add aarch64-apple-darwin x86_64-apple-darwin
           fi
 
+      # PR runs restore main's release cache (same key) but don't save their
+      # own, so main's entry isn't evicted by per-PR copies.
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: daw -> target
+          save-if: ${{ github.event_name != 'pull_request' }}
 
       # Imports the Developer ID Application and Installer certificates into a
       # temporary keychain and exports their identities for `cargo xtask
@@ -240,7 +256,10 @@ jobs:
           7z a -tzip "../dist/${{ steps.name.outputs.name }}.zip" "ZVID Capture.vst3" live-remote-script ../installer/*-setup.exe
           7z l "../dist/${{ steps.name.outputs.name }}.zip"
 
+      # PRs only check that the bundles build and package; artifacts come
+      # from main.
       - uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request'
         with:
           name: ${{ steps.name.outputs.name }}
           path: daw/target/dist/${{ steps.name.outputs.name }}.zip
