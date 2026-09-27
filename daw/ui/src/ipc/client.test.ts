@@ -10,6 +10,7 @@ const config: ZvidConfig = {
     preview: "zvid://preview",
     take: "zvid://take",
     thumb: "zvid://thumb",
+    frames: "zvid://frames",
   },
   version: "0.1.0",
   platform: "macos",
@@ -144,4 +145,29 @@ test("builds media URLs", () => {
   const client = new Client(config, fakeFetch([]).impl);
   assert.equal(client.takeUrl("a b"), "zvid://take/a%20b");
   assert.equal(client.thumbUrl("x"), "zvid://thumb/x");
+  assert.equal(client.frameUrl("a b", 1.5), "zvid://frames/a%20b?t=1.500");
+});
+
+test("fetches host-decoded take frames", async () => {
+  const { calls, impl } = fakeFetch([
+    () => new Response(new Uint8Array([0xff, 0xd8]), { status: 200 }),
+    json({ code: "notFound", message: "the take's file is missing" }, 404),
+    () => new Response("unknown take", { status: 404 }),
+  ]);
+  const client = new Client(config, impl);
+  const signal = new AbortController().signal;
+  const url = await client.takeFrame("t1", 2, signal);
+  assert.match(url, /^blob:/);
+  URL.revokeObjectURL(url);
+  assert.equal(calls[0].url, "zvid://frames/t1?t=2.000");
+  assert.equal(calls[0].init?.signal, signal);
+  await assert.rejects(client.takeFrame("t1", 3, signal), {
+    name: "CommandError",
+    code: "notFound",
+    message: "the take's file is missing",
+  });
+  await assert.rejects(client.takeFrame("t2", 0, signal), {
+    code: "internal",
+    message: "frame failed (404)",
+  });
 });

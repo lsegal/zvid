@@ -189,6 +189,9 @@ export function App({ client }: { client: Client }) {
             platform={client.config.platform}
             takeUrl={(id) => client.takeUrl(id)}
             thumbUrl={(id) => client.thumbUrl(id)}
+            loadFrame={(id, offsetSec, signal) =>
+              client.takeFrame(id, offsetSec, signal)
+            }
             onReveal={(id) =>
               void client.invoke("revealTake", { id }).catch(report)
             }

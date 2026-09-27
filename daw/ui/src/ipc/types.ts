@@ -103,7 +103,10 @@ export type Commands = {
 
 /** Injected by the Rust host before the page loads. */
 export type ZvidConfig = {
-  origins: Record<"app" | "ipc" | "preview" | "take" | "thumb", string>;
+  origins: Record<
+    "app" | "ipc" | "preview" | "take" | "thumb" | "frames",
+    string
+  >;
   version: string;
   platform: string;
 };
