@@ -329,6 +329,7 @@ impl Component {
         match parsed {
             Ok(state) => {
                 *lock(&self.state) = state;
+                log(&format!("restored state: {}", lock(&self.state).summary()));
                 OK
             }
             Err(error) => {

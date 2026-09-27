@@ -123,7 +123,7 @@ The workspace lives in `/daw` (scaffolded in
 | `daw/crates/zvid-au` | AUv2 plugin: the `AudioComponentFactoryFunction` entry point, property and render callbacks, and the Cocoa view factory. |
 | `daw/plugin` | The `cdylib` that ties everything together and exports the VST3 and AU entry points. Holds the plugin identity constants. |
 | `daw/live-remote-script` | The optional Live companion: a Python MIDI Remote Script (`ZVID_Capture`) that reports Live's record state and set path to plugin instances. Not part of the plugin binary. |
-| `daw/xtask` | `cargo xtask`: bundles the `cdylib` into `.vst3` and `.component` (release bundles are universal on macOS and commit-stamped; see [CI builds](#ci-builds)), and runs `check` (Rust-only rule, zvidlib rev matches `app/export-bridge`). |
+| `daw/xtask` | `cargo xtask`: bundles the `cdylib` into `.vst3` and `.component` (release bundles are universal on macOS and commit-stamped; see [CI builds](#ci-builds)), runs `check` (Rust-only rule, zvidlib rev matches `app/export-bridge`), and runs the host integration tests (`host-test`; see [Testing](#testing)). |
 
 Dependencies point inward: `plugin` depends on everything; `zvid-vst3`,
 `zvid-au`, `zvid-capture` and `zvid-daw-ui` depend on `zvid-daw-core` where
@@ -604,6 +604,75 @@ macOS AU and Windows VST3 before a release:
 - [ ] A clap on camera lines up with its sound in the take to within one
   frame (see [Clock sync](#clock-sync)).
 
+## Testing
+
+- **Unit tests** (`cargo test --workspace`) cover the core logic and each
+  format layer through its own vtables: `zvid-vst3` against the VST3 ABI,
+  `zvid-au` against the AudioUnit selectors.
+- **`auval`** validates the `.component` in the `daw` CI job on macOS and in
+  the DAW bundles workflow.
+- **Host integration tests** (`cargo xtask host-test`) load the real bundles
+  in a third-party host, below.
+- **Live 12** is checked by hand before a release, with the
+  [Live 12 end-to-end checklist](#live-12-end-to-end-checklist).
+
+### Host integration tests
+
+`cargo xtask host-test` builds the debug bundles (`cargo xtask bundle`) and
+runs them in [Plugalyzer](https://github.com/CrushedPixel/Plugalyzer), an
+open-source (GPL-3.0) command-line plugin host built on JUCE. It tests
+`ZVID Capture.vst3` on macOS and Windows and `ZVID Capture.component` on
+macOS. For each one it checks:
+
+- **Pass-through.** A deterministic 48 kHz stereo signal (about 2 s of a
+  different tone per channel, low-level noise and impulses no block size
+  lines up with) is rendered through the plugin at 64-, 512- and 1024-sample
+  blocks. The output must match the input sample for sample.
+- **Default state.** A fresh instance's state, saved by the host, decodes
+  to the default state JSON. VST3 state is JUCE's `VST3PluginState` blob
+  with the component stream in JUCE's own base64. AU state is the ClassInfo
+  binary property list with the JSON under `zvid-state`.
+- **State round trip.** The shared fixture
+  (`fixtures/state/zvid-capture-v1.hex`, with two takes and an unknown key)
+  goes into the host's own saved blob and is restored into another fresh
+  instance. CLI hosts can't save a state they just loaded, so the format
+  layers log `restored state: <takes> takes, <bytes> bytes` for the state
+  they now hold. The test requires both counts to match the fixture's.
+
+A run fails when the host exits with an error, crashes or runs past 60 s.
+It also fails on any `[zvid-vst3]` or `[zvid-au]` line in `ZVID_DAW_LOG`
+except `restored state: …`, `live companion: …` and `dropped N transport
+snapshots`. Rendering faster than real time outruns the control thread, so
+the transport ring dropping snapshots is expected. Plugalyzer never opens
+an editor, so the tests need no display and no cameras. A warm run takes
+under 10 s.
+
+The host is not vendored or built. `cargo xtask fetch-test-host` downloads
+the Plugalyzer release zip pinned by version and SHA-256 in
+`xtask/src/host.rs` into `target/test-host`, and refuses one whose checksum
+differs. `host-test` fetches it first when it is missing. To run the tests
+locally:
+
+```sh
+cd daw
+cargo xtask host-test
+```
+
+On macOS this installs `ZVID Capture.component` into
+`~/Library/Audio/Plug-Ins/Components`, where the AudioComponent registry
+can find it, replacing any copy already there. Each host run's WAV output,
+state blobs, stdout, stderr and plugin log are left in `target/host-test`.
+To update Plugalyzer, change `HOST_VERSION` and each asset's `sha256`, from
+`gh release view --repo CrushedPixel/Plugalyzer --json assets`.
+
+#### Choosing the host
+
+| Host | Result |
+|---|---|
+| Plugalyzer 0.5.0 | **Chosen.** Prebuilt, self-contained CLI binaries for macOS (universal, 10 MB zip) and Windows (4 MB zip). They load VST3 and AU. `process` renders WAV to WAV offline at a chosen block size, and `state` saves a fresh instance's state or restores one. It can't save a state it just restored, hence the log line above. Loaded `ZVID Capture.vst3` on Windows and passed audio through sample for sample. |
+| Carla 2.5.10 | Rejected. Its releases are a 250 MB Windows zip and a 370 MB macOS dmg of the full GUI host. It has no one-shot offline render: `carla-single` runs a plugin as a live JACK client, and tests would need to script its engine through the Python backend with a real-time driver. That makes sample-exact checks at chosen block sizes impractical. |
+| In-repo Rust host | Fallback only. It would reuse the ABI definitions in `zvid-vst3` and `zvid-au`, so it would share their mistakes and miss real hosts' quirks. |
+
 ## Decisions
 
 Revise a decision only with a stated rationale, recorded here.
@@ -613,6 +682,7 @@ Revise a decision only with a stated rationale, recorded here.
 | Plugin identity | Name **"ZVID Capture"**, vendor **ZVID**. | The `/app` importer keys on the plugin name. |
 | VST3 binding | Hand-written minimal COM ABI in `zvid-vst3`. **Not** the `nih-plug`, `vst3-sys` or `vst3` crates. | `vst3-sys` is GPLv3, and the `vst3` crate is generated from SDK headers. Both break the "no SDK" rule. |
 | AU flavour | AUv2 (`.component`). | AUv3 needs an app-extension container, and Live loads AUv2 fine. |
+| Host integration tests | [Plugalyzer](https://github.com/CrushedPixel/Plugalyzer), a prebuilt release pinned by version and SHA-256, driven by `cargo xtask host-test`. See [Host integration tests](#host-integration-tests). | A real third-party host catches what the ABI unit tests can't. It is a small prebuilt download with an offline WAV render at chosen block sizes, and needs no C++ build. Carla is far heavier and has no offline render. |
 | UI host | `wry` (Tauri's webview layer) attached as a child of the host view (`NSView` / `HWND`). Not the full Tauri runtime. | Tauri wants to own the process and event loop, which a plugin can't do inside a host. `wry` gives us the same webview and IPC model. |
 | Frontend assets | Embedded in the binary and served over `zvid://`. | A single-file bundle, with no loose files beside the plugin. |
 | Live preview transport | Native capture is the single source. The UI gets downscaled JPEG frames (≤30 fps) over `zvid://preview`. | Avoids opening the camera twice (getUserMedia plus native), and works the same in WKWebView and WebView2. |

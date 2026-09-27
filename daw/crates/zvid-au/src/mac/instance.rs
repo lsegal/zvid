@@ -70,6 +70,7 @@ use zvid_daw_core::{
 use zvid_daw_ui::{Backend, HostLink, instance_backend};
 
 use super::control::{Control, Inputs};
+use super::log::log;
 use super::{class_info, view};
 use crate::transport::{HostReading, host_ticks_to_sec, snapshot};
 
@@ -755,6 +756,7 @@ impl AudioUnitInstance {
             Ok(restored) => {
                 if let Some(state) = restored.state {
                     *self.state() = state;
+                    log(&format!("restored state: {}", self.state().summary()));
                 }
                 *lock(&self.preset) = Preset {
                     number: -1,
@@ -765,7 +767,10 @@ impl AudioUnitInstance {
                 self.notify(kAudioUnitProperty_PresentPreset, kAudioUnitScope_Global, 0);
                 0
             }
-            Err(status) => status,
+            Err(status) => {
+                log(&format!("ignoring unreadable ClassInfo ({status})"));
+                status
+            }
         }
     }
 

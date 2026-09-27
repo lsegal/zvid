@@ -126,6 +126,27 @@ jobs:
       - name: Repository checks
         run: cargo xtask check
 
+      # The pinned Plugalyzer release the host tests run in; the key changes
+      # whenever xtask/src/host.rs, which pins it, does.
+      - uses: actions/cache@v4
+        with:
+          path: daw/target/test-host
+          key: test-host-${{ runner.os }}-${{ hashFiles('daw/xtask/src/host.rs') }}
+
+      # Loads the bundles in a third-party CLI host: sample-exact
+      # pass-through at several block sizes and a state round trip, for VST3
+      # and, on macOS, AU. See ARCHITECTURE.md (Testing).
+      - name: Host integration tests
+        run: cargo xtask host-test
+
+      - name: Upload host test output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: host-test-${{ matrix.os }}
+          path: daw/target/host-test
+          if-no-files-found: ignore
+
       # Installs the ad-hoc signed .component for the runner user and runs
       # Apple's AU validation against it.
       - name: Validate Audio Unit (auval)
