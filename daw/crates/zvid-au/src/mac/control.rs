@@ -13,7 +13,9 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
-use zvid_daw_core::{Command, Consumer, ProcessSnapshot, State, TakeFeed, TransportFollower};
+use zvid_daw_core::{
+    Command, Consumer, ProcessSnapshot, SharedLiveStatus, State, TakeFeed, TransportFollower,
+};
 use zvid_daw_ui::{Backend, LiveControl};
 
 use super::log::log;
@@ -37,11 +39,13 @@ impl Control {
     /// `state_changed` after a take opens or closes in `state`, and
     /// publishes the take to `takes`. Live's record buttons arm and disarm
     /// the capture of `backend`, the instance's backend, which it starts
-    /// once the companion is present.
+    /// once the companion is present, and `shared` keeps the companion's
+    /// latest status.
     pub fn start(
         mut inputs: Inputs,
         state: Arc<Mutex<State>>,
         takes: TakeFeed,
+        shared: SharedLiveStatus,
         state_changed: impl Fn() + Send + 'static,
         backend: impl Fn() -> Arc<dyn Backend> + Send + 'static,
     ) -> Option<Self> {
@@ -51,7 +55,7 @@ impl Control {
             .name("zvid-au-control".to_string())
             .spawn(move || {
                 let mut follower = TransportFollower::with_feed(takes);
-                let mut live = LiveControl::connect()
+                let mut live = LiveControl::connect(shared)
                     .inspect_err(|error| log(&format!("could not open the Live link: {error}")))
                     .ok();
                 loop {

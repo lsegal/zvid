@@ -329,7 +329,7 @@ impl Backend for MockBackend {
     }
 
     fn takes(&self) -> Vec<TakeInfo> {
-        takes_from_state(&self.inner().state, &self.root)
+        takes_from_state(&self.inner().state, |_| self.root.clone())
     }
 
     fn take_file(&self, id: &str) -> Option<TakeFile> {

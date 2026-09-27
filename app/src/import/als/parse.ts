@@ -36,10 +36,17 @@ export interface ZvidCaptureTake extends LayersRecording {
   durationSec: number;
   /** ISO 8601 timestamp, or `""` when the plugin did not save one. */
   createdAt: string;
+  /**
+   * The root this take's file is under, chosen when its capture armed.
+   * Absent in states saved before roots were kept per take; those use the
+   * state's `recordRoot`.
+   */
+  recordRoot?: RecordRoot;
 }
 
 /** Decoded state of a ZVID Capture plugin instance (Layers-compatible). */
 export interface ZvidCaptureState extends LayersState {
+  /** The latest capture's root, for takes without their own. */
   recordRoot: RecordRoot;
   recordings: ZvidCaptureTake[];
 }
@@ -244,8 +251,15 @@ export function decodeZvidCaptureState(bytes: Uint8Array): ZvidCaptureState {
       transportStartBeats: nullableNumber(recording.transportStartBeats),
       durationSec: Number(recording.durationSec ?? 0),
       createdAt: String(recording.createdAt ?? ""),
+      ...(isRecordRoot(recording.recordRoot) && {
+        recordRoot: recording.recordRoot,
+      }),
     })),
   };
+}
+
+function isRecordRoot(value: unknown): value is RecordRoot {
+  return value === "project" || value === "documents";
 }
 
 /**

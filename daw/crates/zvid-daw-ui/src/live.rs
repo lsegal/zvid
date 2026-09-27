@@ -8,7 +8,7 @@ use std::io;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use zvid_daw_core::{ArmRequest, LiveArming, LiveLink};
+use zvid_daw_core::{ArmRequest, LiveArming, LiveLink, SharedLiveStatus};
 
 use crate::backend::Backend;
 
@@ -20,27 +20,33 @@ pub const ARM_RETRY: Duration = Duration::from_secs(1);
 /// A plugin instance's link to the Live companion, driving its capture.
 pub struct LiveControl {
     link: LiveLink,
+    /// The latest status, for the backend to pick the record root.
+    shared: SharedLiveStatus,
     arming: LiveArming,
     /// Set after a failed request: when to try again.
     retry_at: Option<Instant>,
 }
 
 impl LiveControl {
-    /// Links to the companion on its usual port.
-    pub fn connect() -> io::Result<Self> {
-        LiveLink::connect().map(Self::new)
+    /// Links to the companion on its usual port, keeping `shared` current
+    /// with its status.
+    pub fn connect(shared: SharedLiveStatus) -> io::Result<Self> {
+        LiveLink::connect().map(|link| Self::new(link, shared))
     }
 
-    pub fn new(link: LiveLink) -> Self {
+    pub fn new(link: LiveLink, shared: SharedLiveStatus) -> Self {
         Self {
             link,
+            shared,
             arming: LiveArming::default(),
             retry_at: None,
         }
     }
 
-    /// Polls the link, logs what the companion reports, and carries out what
-    /// Live's record buttons ask of the capture. Call it from the control
+    /// Polls the link, logs and shares what the companion reports, and
+    /// carries out what Live's record buttons ask of the capture. The status
+    /// is shared before arming, so the capture's record root follows the
+    /// set's directory. Call it from the control
     /// thread, never the audio thread.
     ///
     /// `backend` returns the instance's backend, starting it on first use.
@@ -54,6 +60,7 @@ impl LiveControl {
     ) {
         if self.link.poll(now) {
             let status = self.link.status();
+            self.shared.set(status.cloned());
             match status {
                 Some(status) => log(&format!("live companion: {status}")),
                 None => log("live companion: gone; the capture is left to the Record button"),
@@ -146,6 +153,7 @@ mod tests {
         companion: Companion,
         control: LiveControl,
         backend: Arc<MockBackend>,
+        shared: SharedLiveStatus,
         started: bool,
         log: Vec<String>,
     }
@@ -162,10 +170,12 @@ mod tests {
             if let Some(camera) = camera {
                 backend.select_camera(camera).unwrap();
             }
+            let shared = SharedLiveStatus::default();
             let mut rig = Self {
                 companion,
-                control: LiveControl::new(link),
+                control: LiveControl::new(link, shared.clone()),
                 backend,
+                shared,
                 started: false,
                 log: Vec::new(),
             };
@@ -211,6 +221,7 @@ mod tests {
         rig.status(now, false, false);
         assert!(rig.started, "the companion warms the backend");
         assert!(!rig.backend.is_armed());
+        assert!(rig.shared.get().is_some(), "the status is shared");
 
         rig.status(now, true, false);
         assert!(rig.backend.is_armed());
@@ -236,6 +247,7 @@ mod tests {
 
         rig.poll(now + zvid_daw_core::live::LINK_TIMEOUT);
         assert!(rig.log.last().unwrap().contains("gone"));
+        assert!(rig.shared.get().is_none());
         assert!(rig.backend.is_armed(), "footage is never dropped");
 
         // Back with record off: the user stops the capture, not Live.

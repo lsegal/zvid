@@ -176,8 +176,8 @@ Takes are only useful if they line up with the arrangement. The target is
    format tells it the audio device's output latency. What's left is the
    time between processing a block and hearing it: about one buffer, 10 ms
    at 512 samples and 48 kHz, well under one frame at 30 fps. The clap test
-   in [#201](https://github.com/lsegal/zvid/issues/201) confirms this or
-   adds a stated correction term here.
+   in the [Live 12 end-to-end checklist](#live-12-end-to-end-checklist)
+   confirms this or adds a stated correction term here.
 3. **File time.** The capture thread reports `FrameClock { host_time,
    file_sec }` pairs: a frame captured at `host_time` was written at
    `file_sec` in the MP4. The tracker maps any host time to file time using
@@ -201,8 +201,8 @@ Takes are only useful if they line up with the arrangement. The target is
    current take closes and a new one opens (`JUMP_TOLERANCE_SEC` in
    `zvid-daw-core`).
 
-If measurement in [#198](https://github.com/lsegal/zvid/issues/198) or
-[#201](https://github.com/lsegal/zvid/issues/201) shows a residual offset
+If measurement in [#198](https://github.com/lsegal/zvid/issues/198) or the
+[Live 12 end-to-end checklist](#live-12-end-to-end-checklist) shows a residual offset
 beyond one frame, fix it here with a stated correction term rather than in
 the importer.
 
@@ -216,10 +216,11 @@ It is implemented by `State` and `Recording` in `zvid-daw-core`.
 {
   "version": "1",
   "plugin": "zvid-capture",
-  "recordRoot": "project" | "documents",
+  "recordRoot": "project" | "documents", // the latest capture's root
   "recordings": [{
     "id": "uuid",
     "filename": "video-01-9-25-20-36-12-0.mp4", // relative to the record root
+    "recordRoot": "project",    // this take's root; absent in older states
     "dimensions": [1920, 1080],
     "fps": [30, 1],
     "frameStart": 915,          // arrangement frame of file frame 0 (Layers-compatible)
@@ -247,6 +248,10 @@ It is implemented by `State` and `Recording` in `zvid-daw-core`.
   to `null`, `fileOffsetSec: 0`, and a `durationSec` covering the whole file.
   `frameStart` is `0` and meaningless for them.
 - **`createdAt`** is an RFC 3339 UTC timestamp.
+- **`recordRoot`** is kept per entry: the root the take's capture armed
+  with (see [Record root](#record-root)). The top-level `recordRoot` is the
+  latest capture's root. Entries without their own `recordRoot`, written
+  before roots were kept per entry, are relative to the top-level one.
 - **Written as the take happens.** The control thread's `TakeLog`
   (`zvid-daw-core`) appends a take to `recordings` when it opens and keeps
   its `durationSec` running with each transport snapshot until it closes. A
@@ -276,7 +281,8 @@ It is implemented by `State` and `Recording` in `zvid-daw-core`.
   so the plugin binary registers it with `zvid_daw_ui::register_backend`
   from `GetPluginFactory` and the AU factory. The VST3 `Component` and AU
   `AudioUnitInstance` start it from a `HostLink` (state, `commands()`,
-  `take_changes()`, the host dirty notification and the record root) when
+  `take_changes()`, the host dirty notification, the Documents record root
+  and the instance's shared Live companion status) when
   their first editor opens, share it across their editors, and shut it
   down when the instance is destroyed. Without a registration, as in the
   format crates' own tests, editors get a `MockBackend`.
@@ -321,8 +327,9 @@ Layers Record support. The contract:
 4. **Placement.** The matched take's `frameStart` is the clip's capture
    offset, exactly as for Layers Record: the file frame shown at arrangement
    frame `f` is `f − frameStart`.
-5. **File resolution.** `recordRoot: "project"` resolves `filename` against
-   `<als dir>/Recorded/ZVID/`; `"documents"` resolves it against
+5. **File resolution.** Each take's `recordRoot`, or the state's when the
+   take has none, picks the directory: `"project"` resolves `filename`
+   against `<als dir>/Recorded/ZVID/`; `"documents"` resolves it against
    `~/Documents/ZVID/Recorded/`. A missing file falls through to the
    existing relink flow.
 6. **Source tracks.** Each take becomes its own source-track recording entry.
@@ -388,9 +395,11 @@ sequenceDiagram
   plugin transport as described in [Clock sync](#clock-sync); the companion
   only replaces the Record button, not the timing source, since its messages
   arrive up to one UI tick late.
-- **Set directory.** `setPath`'s parent is passed to `RecordRoot::resolve`.
-  `null` (unsaved set, or Live older than 11.3.42) falls back to
-  `<Documents>/ZVID/Recorded`.
+- **Set directory.** Each instance's control thread keeps the latest status
+  in a `SharedLiveStatus` the editor backend reads when capture arms.
+  `setPath`'s parent picks the record root (see [Record root](#record-root)).
+  `null` (unsaved set, or Live older than 11.3.42) or no companion falls back
+  to `<Documents>/ZVID/Recorded`.
 - **Auto-arming.** Both format layers' control threads poll the link through
   `zvid-daw-ui::LiveControl`, which follows `zvid-daw-core::LiveArming`: a
   record button turning on arms the capture through the instance's backend,
@@ -402,8 +411,37 @@ sequenceDiagram
   companion goes away, a capture it armed keeps running until the user stops
   it, so no footage is dropped. What the companion reports is logged (set
   `ZVID_DAW_LOG`).
-- **Status.** Removing the Record button and resolving the record root from
-  the set path are separate follow-ups.
+- **Status.** Removing the Record button is a separate follow-up.
+
+### Record root
+
+`CaptureBackend::arm` resolves the root once per capture with
+`RecordRoot::for_capture(live.set_dir(), documents)`:
+
+- **Saved set, companion running:** `<set dir>/Recorded/ZVID`, stored as
+  `"recordRoot": "project"`. The importer finds it next to the `.als`.
+- **Unsaved set, Live older than 11.3.42, or no companion:**
+  `<Documents>/ZVID/Recorded`, stored as `"recordRoot": "documents"`.
+
+The recorder creates the directory. The root is fixed at arm: saving the set
+or "Save As" mid-capture doesn't move the file, and the take keeps the root
+it was recorded with.
+
+Files are never moved or collected, so each take stores its own
+`recordRoot`:
+
+- **An unsaved set that is saved later.** Takes recorded before the save
+  keep `"documents"` and stay in `<Documents>/ZVID/Recorded`; takes armed
+  after the save get `"project"`. The importer resolves each take against
+  its own root, so both still resolve.
+- **"Save As" to another folder.** `"project"` takes resolve against the
+  `.als`'s current folder, so their files have to come with it. Live's
+  "Collect All and Save" doesn't know about `Recorded/ZVID`, so copy that
+  folder next to the new set. Otherwise those takes fall through to the
+  importer's relink flow, which searches by file name. In the plugin, a
+  project take is looked up in the set's current folder, or in the folder
+  of the last capture while the companion is absent, and is listed as
+  missing when its file isn't there.
 
 ## Platform matrix
 
@@ -425,8 +463,9 @@ sequenceDiagram
   11 already ship `NSCameraUsageDescription` and the
   `com.apple.security.device.camera` and `disable-library-validation`
   entitlements, so in-process AVFoundation capture works and the first capture
-  triggers the system prompt for Live. Live 12 still needs to be confirmed in
-  [#201](https://github.com/lsegal/zvid/issues/201). The plugin checks
+  triggers the system prompt for Live. `cargo xtask check-live` confirms a
+  Live 12 install has them too (see
+  [Signing and notarization](#signing-and-notarization)). The plugin checks
   `AVCaptureDevice` authorization status and shows the camera-error state
   from `DESIGN.md` when access is denied, instead of failing silently.
   Continuity Camera requires macOS 13, which sets the minimum.
@@ -445,44 +484,123 @@ Every push to `main` runs the **DAW bundles** workflow
 workflow run:
 
 - `zvid-capture-<version>-<sha>-macos-universal`: `ZVID Capture.vst3` and
-  `ZVID Capture.component`, arm64 + x86_64, plus the Live companion Remote
-  Script in `live-remote-script/ZVID_Capture`. CI checks both architectures
-  with `lipo -archs` and runs `auval` against the `.component`.
-- `zvid-capture-<version>-<sha>-windows-x64`: `ZVID Capture.vst3` and
-  `live-remote-script/ZVID_Capture`.
+  `ZVID Capture.component`, arm64 + x86_64, the installer
+  `zvid-capture-<version>+<sha>.pkg`, and the Live companion Remote Script
+  in `live-remote-script/ZVID_Capture`. CI checks both architectures with
+  `lipo -archs`, installs the `.pkg`, verifies both installed bundles'
+  signatures and runs `auval` against the installed `.component`.
+- `zvid-capture-<version>-<sha>-windows-x64`: `ZVID Capture.vst3`, the
+  installer `zvid-capture-<version>+<sha>-setup.exe` and
+  `live-remote-script/ZVID_Capture`. CI runs the installer silently, checks
+  the bundle landed in the shared VST3 folder, then uninstalls it.
 
-Each is built by `cargo xtask bundle --release` (plus `--universal` on
-macOS), which fails when `daw/ui/dist` is missing rather than embedding the
-placeholder UI, and stamps the bundle version (`Info.plist`,
-`moduleinfo.json` and the version reported to hosts) as `<version>+<sha>`.
-The same command builds identical bundles locally once `pnpm --dir daw/ui
-build` has run; `--universal` needs `rustup target add aarch64-apple-darwin
-x86_64-apple-darwin`.
+Each is built by `cargo xtask bundle --release --installer` (plus
+`--universal` on macOS), which fails when `daw/ui/dist` is missing rather
+than embedding the placeholder UI, and stamps the bundle version
+(`Info.plist`, `moduleinfo.json`, the installer and the version reported to
+hosts) as `<version>+<sha>`. The same command builds identical bundles
+locally once `pnpm --dir daw/ui build` has run; `--universal` needs `rustup
+target add aarch64-apple-darwin x86_64-apple-darwin`, and `--installer`
+needs Inno Setup 6 on Windows (`ISCC` may name its `ISCC.exe`).
 
-To install one, open the run from the repository's **Actions › DAW bundles**
-page (or run the workflow manually for any branch), download the artifact,
-and unzip it; the artifact holds one more zip, which keeps the bundles'
-symlinks and signatures intact, so unzip that too.
+### Installers
 
-- **macOS.** Copy `ZVID Capture.vst3` to `~/Library/Audio/Plug-Ins/VST3` and
-  `ZVID Capture.component` to `~/Library/Audio/Plug-Ins/Components`. CI builds
-  are ad-hoc signed and not notarized, so clear the quarantine flag the
-  browser adds before a host loads them:
+- **macOS.** A `.pkg` that installs `ZVID Capture.vst3` into
+  `/Library/Audio/Plug-Ins/VST3` and `ZVID Capture.component` into
+  `/Library/Audio/Plug-Ins/Components` for every user. It needs macOS 13 and
+  runs natively on both architectures.
+- **Windows.** An Inno Setup installer (`installer/zvid-capture.iss`) that
+  installs `ZVID Capture.vst3` into `C:\Program Files\Common Files\VST3` and
+  registers an uninstaller under *Settings › Apps*. Installing over an older
+  version replaces the whole bundle.
 
-  ```sh
-  xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/"ZVID Capture.vst3" \
-    ~/Library/Audio/Plug-Ins/Components/"ZVID Capture.component"
-  ```
+Neither installs the Live companion Remote Script, which lives in each user's
+Live User Library; see
+[`live-remote-script/README.md`](live-remote-script/README.md#install).
 
-  Then rescan plugins in the host (in Live, *Settings › Plug-Ins › Rescan*).
-- **Windows.** Copy the `ZVID Capture.vst3` folder to
-  `C:\Program Files\Common Files\VST3` and rescan plugins in the host.
+### Signing and notarization
+
+On macOS, `cargo xtask bundle` ad-hoc signs both bundles, which Apple silicon
+needs to load them at all. A `--release` build signs them instead with the
+Developer ID Application identity in `ZVID_CODESIGN_IDENTITY`, with the
+hardened runtime and a secure timestamp. `--installer` signs the `.pkg` with
+the Developer ID Installer identity in `ZVID_INSTALLER_IDENTITY` and, when
+notary credentials are set, submits it to Apple's notary service, waits for
+it to be accepted and staples the ticket. The credentials are a `notarytool
+store-credentials` keychain profile in `ZVID_NOTARY_PROFILE`, or an Apple ID,
+team ID and app-specific password in `ZVID_NOTARY_APPLE_ID`,
+`ZVID_NOTARY_TEAM_ID` and `ZVID_NOTARY_PASSWORD`.
+
+The DAW bundles workflow signs and notarizes when these repository secrets
+are set, and otherwise builds ad-hoc signed bundles and an unsigned `.pkg`:
+
+| Secret | Contents |
+|---|---|
+| `MACOS_DEVELOPER_ID_APPLICATION_P12` | Base64 of the Developer ID Application certificate and key (`.p12`) |
+| `MACOS_DEVELOPER_ID_INSTALLER_P12` | Base64 of the Developer ID Installer certificate and key (`.p12`) |
+| `MACOS_CERTIFICATES_PASSWORD` | Password of both `.p12` files |
+| `APPLE_ID`, `APPLE_TEAM_ID`, `APPLE_APP_SPECIFIC_PASSWORD` | Notary service credentials |
+
+Windows builds are not Authenticode signed, so SmartScreen warns about the
+installer until it builds reputation.
+
+The plugin runs in Live's process, so Live's own entitlements decide whether
+it can use the camera (see [Camera permission](#camera-permission)). On a Mac
+with Live 12 installed, check them with:
+
+```sh
+cargo xtask check-live                      # newest /Applications/Ableton Live 12*.app
+cargo xtask check-live "/Applications/Ableton Live 12 Suite.app"
+```
+
+It fails, naming what's missing, unless Live has `NSCameraUsageDescription`
+and the `com.apple.security.device.camera` and
+`com.apple.security.cs.disable-library-validation` entitlements. If a Live
+release drops them, capture needs the helper-app path from
+[#196](https://github.com/lsegal/zvid/issues/196).
+
+### Installing a CI build
+
+Open the run from the repository's **Actions › DAW bundles** page (or run
+the workflow manually for any branch), download the artifact, and unzip it;
+the artifact holds one more zip, which keeps the bundles' symlinks and
+signatures intact, so unzip that too. Then run the installer:
+
+- **macOS.** Open `zvid-capture-<version>+<sha>.pkg`. An unsigned build's
+  installer is blocked by Gatekeeper; Control-click it and choose *Open*.
+- **Windows.** Run `zvid-capture-<version>+<sha>-setup.exe`.
+
+Then rescan plugins in the host (in Live, *Settings › Plug-Ins › Rescan*).
+
+To install the bundles by hand instead, copy them to the folders above. On
+macOS, clear the quarantine flag the browser adds to an ad-hoc signed build
+before a host loads it:
+
+```sh
+xattr -dr com.apple.quarantine /Library/Audio/Plug-Ins/VST3/"ZVID Capture.vst3" \
+  /Library/Audio/Plug-Ins/Components/"ZVID Capture.component"
+```
 
 For Ableton Live, optionally install `live-remote-script/ZVID_Capture` too;
 see [`live-remote-script/README.md`](live-remote-script/README.md#install).
 
-Developer ID signing, notarization and installers are tracked in
-[#201](https://github.com/lsegal/zvid/issues/201).
+### Live 12 end-to-end checklist
+
+Run this with an installed release build in Live 12 for each of macOS VST3,
+macOS AU and Windows VST3 before a release:
+
+- [ ] Live scans and loads the plugin.
+- [ ] The camera list includes the built-in, USB and Continuity (macOS)
+  cameras, plus a Phone Link or DroidCam camera (Windows).
+- [ ] Arm, then play/stop three times, then disarm produces three takes, and
+  the files land in the expected directory with the expected names.
+- [ ] The takes list previews and reveals each file.
+- [ ] Save, close and reopen the `.als`; the takes are still listed.
+- [ ] Move the set folder (project root); the take paths still resolve.
+- [ ] Importing into `/app` places the takes correctly.
+- [ ] No audio dropouts at 64-sample buffers while capturing 1080p30.
+- [ ] A clap on camera lines up with its sound in the take to within one
+  frame (see [Clock sync](#clock-sync)).
 
 ## Decisions
 
@@ -503,5 +621,5 @@ Revise a decision only with a stated rationale, recorded here.
 | Loop / relocate while playing | A backwards transport jump or a locate ends the current take and starts a new one. | Keeps each take linear on the timeline. |
 | Capture with no playback | Stored as an *unanchored* entry (`transportStartSec: null`). Listed in the UI, skipped by the importer. | Footage isn't lost, and nothing is placed on the timeline incorrectly. |
 | Filename | `video-{NN}-{M}-{D}-{HH}-{mm}-{ss}-{n}.mp4`. `NN` is a 2-digit per-instance capture counter, the date and time are local time at arm, and `n` is a collision counter starting at 0. | Matches the requested example `video-01-6-24-18-47-30-0.mp4`. |
-| Record root | `<set dir>/Recorded/ZVID` when detected, else `<Documents>/ZVID/Recorded`. The root kind is saved as `recordRoot`. | Portable, and the importer knows where to look. |
+| Record root | `<set dir>/Recorded/ZVID` when the companion reports a saved set at arm, else `<Documents>/ZVID/Recorded`. The root kind is saved per take as `recordRoot`, and the latest one at the top level. | Portable, and the importer knows where to look for each take, even when a set is saved after recording started. |
 | Record state and set path source | An optional Live MIDI Remote Script (`daw/live-remote-script`) reporting `Song.record_mode`, `session_record`, `is_playing` and `file_path` over localhost UDP. Without it, the plugin keeps its Record button and the Documents root. | VST3/AU report neither reliably; the LOM does, in every Live edition, without extra permissions. Max for Live needs Suite; Accessibility and window-title parsing are single-platform and fragile (#200). |
