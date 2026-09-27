@@ -46,6 +46,23 @@ jobs:
           pnpm --dir daw/ui run test
           pnpm --dir daw/ui run build
 
+      # Drives the editor in headless Chromium against the web driver
+      # (daw/ui/src/web), so it needs no Rust build. See ARCHITECTURE.md
+      # (Testing).
+      - name: Plugin UI browser tests
+        if: ${{ !cancelled() }}
+        run: |
+          pnpm --dir daw/ui exec playwright install --with-deps chromium
+          pnpm --dir daw/ui run test:web
+
+      - name: Upload plugin UI browser test output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: daw-ui-test-results
+          path: daw/ui/test-results
+          if-no-files-found: ignore
+
   # Pull requests that don't touch /daw skip the `daw` job; pushes to main
   # always run it.
   changes:

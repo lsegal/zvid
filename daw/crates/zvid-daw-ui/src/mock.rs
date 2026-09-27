@@ -5,6 +5,9 @@
 //!
 //! Two cameras fail on purpose so the error states can be exercised:
 //! [`DENIED_CAMERA`] (permission denied) and [`BUSY_CAMERA`] (in use).
+//!
+//! `daw/ui/src/web/mock-backend.ts` ports this to TypeScript for the UI's
+//! web driver; keep the two in step.
 
 use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
