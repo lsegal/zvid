@@ -104,7 +104,9 @@ export class EventLog {
       resync,
       events: resync
         ? []
-        : this.events.filter(({ seq }) => seq > after).map(({ event }) => event),
+        : this.events
+            .filter(({ seq }) => seq > after)
+            .map(({ event }) => event),
     };
   }
 }
@@ -334,8 +336,7 @@ export class MockBackend {
     if (!capture) return;
     const open = capture.open;
     capture.open = null;
-    const take =
-      open || capture.takes === 0 ? this.closeTake(open) : undefined;
+    const take = open || capture.takes === 0 ? this.closeTake(open) : undefined;
     this.capture = null;
     if (take) this.events.emit({ event: "takeClosed", payload: take });
     this.emitStatus();

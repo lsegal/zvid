@@ -28,3 +28,7 @@ __pycache__
 tmp
 app/export-bridge/pkg
 .glorp.json
+
+# Playwright (daw/ui browser tests)
+test-results
+playwright-report
