@@ -287,14 +287,13 @@ impl Host {
                 "--overwrite".into(),
             ],
         )?;
-        let bytes = fs::read(&output).map_err(|error| format!("{}: {error}", output.display()))?;
-        let rendered = read_wav(&bytes)?;
+        let rendered = read_wav(&read(&output)?)?;
         compare_signals(signal, &rendered)
     }
 
     /// Saves the state of a fresh instance through the host, checks it is
-    /// the default state and returns the host's state blob.
-    fn save_default_state(&self, format: Format, plugin: &Path) -> Result<Vec<u8>, String> {
+    /// the default state and returns the file the host saved it to.
+    fn save_default_state(&self, format: Format, plugin: &Path) -> Result<PathBuf, String> {
         let name = format!("{}-default-state", format.name().to_lowercase());
         let path = self.work.join(format!("{name}.bin"));
         self.run(
@@ -308,9 +307,8 @@ impl Host {
                 "--overwrite".into(),
             ],
         )?;
-        let blob = fs::read(&path).map_err(|error| format!("{}: {error}", path.display()))?;
         let json = match format {
-            Format::Vst3 => vst3_state(&blob)?,
+            Format::Vst3 => vst3_state(&read(&path)?)?,
             Format::Au => plist_state(&plist_to_xml(&path)?)?,
         };
         let expected = State::default().to_json();
@@ -320,12 +318,12 @@ impl Host {
                 String::from_utf8_lossy(&json)
             ));
         }
-        Ok(blob)
+        Ok(path)
     }
 
-    /// Puts the fixture state into the host's own `saved` blob, restores it
+    /// Puts the fixture state into the state the host `saved`, restores it
     /// into a fresh instance and checks the plugin read every take back.
-    fn restore_fixture(&self, format: Format, plugin: &Path, saved: &[u8]) -> Result<(), String> {
+    fn restore_fixture(&self, format: Format, plugin: &Path, saved: &Path) -> Result<(), String> {
         let fixture = State::from_hex(FIXTURE_HEX).map_err(|error| error.to_string())?;
         let json = fixture.to_json();
         let name = format!("{}-fixture-state", format.name().to_lowercase());
@@ -333,12 +331,11 @@ impl Host {
         let io = |path: &Path, error: std::io::Error| format!("{}: {error}", path.display());
         match format {
             Format::Vst3 => {
-                let blob = with_vst3_state(saved, json.as_bytes())?;
+                let blob = with_vst3_state(&read(saved)?, json.as_bytes())?;
                 fs::write(&path, blob).map_err(|error| io(&path, error))?;
             }
             Format::Au => {
-                let default = self.work.join("au-default-state.bin");
-                let xml = with_plist_state(&plist_to_xml(&default)?, json.as_bytes())?;
+                let xml = with_plist_state(&plist_to_xml(saved)?, json.as_bytes())?;
                 let xml_path = self.work.join(format!("{name}.plist"));
                 fs::write(&xml_path, xml).map_err(|error| io(&xml_path, error))?;
                 // Hosts hand AU binary property lists, as JUCE saves them.
@@ -731,6 +728,10 @@ fn with_plist_state(xml: &str, state: &[u8]) -> Result<String, String> {
     let mut replaced = xml.to_string();
     replaced.replace_range(range, &BASE64.encode(state));
     Ok(replaced)
+}
+
+fn read(path: &Path) -> Result<Vec<u8>, String> {
+    fs::read(path).map_err(|error| format!("{}: {error}", path.display()))
 }
 
 /// Runs `command`, keeping its output unless it fails.
