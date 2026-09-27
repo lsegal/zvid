@@ -13,11 +13,14 @@ const POLL_TIMEOUT_MS = 20_000;
 const FRAME_MS = 66;
 /** File the demo takes and new takes point at, as in the harness. */
 export const DEMO_CLIP = "demo-take-v2.mp4";
+/** Where the driver pretends to install the Live companion script. */
+const LIVE_SCRIPT_PATH = "User Library/Remote Scripts/ZVID_Capture";
 
 /** What the driver did on the desktop's behalf, oldest first. */
 export type DesktopAction =
   | { action: "revealTake"; id: string }
-  | { action: "openPrivacySettings" };
+  | { action: "openPrivacySettings" }
+  | { action: "installLiveScript" };
 
 export type WebDriverOptions = {
   backend?: MockBackend;
@@ -153,6 +156,9 @@ export class WebDriver {
       case "openPrivacySettings":
         this.desktop.push({ action: "openPrivacySettings" });
         return null;
+      case "installLiveScript":
+        this.desktop.push({ action: "installLiveScript" });
+        return { path: LIVE_SCRIPT_PATH };
       default:
         throw new BackendError("invalidRequest", `unknown command ${command}`);
     }

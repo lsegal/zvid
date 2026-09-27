@@ -639,7 +639,8 @@ the editor runs in any browser with no plugin, DAW or Rust harness:
   Preview frames are an SVG test pattern instead of JPEG.
 - `driver.ts` routes `zvid://ipc`, `zvid://ipc/events` and
   `zvid://preview` requests to it with the same long-polls and status codes
-  as `Protocol`. It records `revealTake` and `openPrivacySettings` instead of
+  as `Protocol`. It records `revealTake`, `openPrivacySettings` and `installLiveScript`
+  instead of
   touching the desktop, draws take posters in the page, and simulates the
   transport and Live companion like the harness. Take playback isn't
   served, so previewing a take stops at once.

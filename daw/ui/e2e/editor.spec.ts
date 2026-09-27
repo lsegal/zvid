@@ -120,6 +120,15 @@ test("reveals a take in the file manager", async ({ page }) => {
     .toEqual([{ action: "revealTake", id: "demo-1" }]);
 });
 
+test("installs the Live companion", async ({ page }) => {
+  await open(page);
+  await page.getByRole("button", { name: "Install Live companion" }).click();
+  await expect(page.getByText(/^Live companion installed\./)).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => window.__ZVID_DRIVER__?.desktop))
+    .toEqual([{ action: "installLiveScript" }]);
+});
+
 test("follows Live's record buttons", async ({ page }) => {
   await open(page);
   await chooseCamera(page, "FaceTime HD Camera");
