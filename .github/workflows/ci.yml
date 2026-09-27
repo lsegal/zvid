@@ -46,8 +46,32 @@ jobs:
           pnpm --dir daw/ui run test
           pnpm --dir daw/ui run build
 
+  # Pull requests that don't touch /daw skip the `daw` job; pushes to main
+  # always run it.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      daw: ${{ steps.filter.outputs.daw }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            daw:
+              - daw/**
+              - .github/workflows/ci.yml
+              - app/export-bridge/Cargo.toml
+
   daw:
     name: daw (${{ matrix.os }})
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.daw == 'true'
     strategy:
       fail-fast: false
       matrix:
