@@ -362,7 +362,7 @@ impl Host {
             format.log_prefix(),
             fixture.summary()
         );
-        if lines.iter().any(|line| *line == expected) {
+        if lines.contains(&expected) {
             Ok(())
         } else {
             Err(format!(
