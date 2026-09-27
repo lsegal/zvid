@@ -45,6 +45,7 @@ export class WebDriver {
         preview: "zvid://preview",
         take: "zvid://take",
         thumb: "zvid://thumb",
+        frames: "zvid://frames",
       },
       version: options.version ?? "0.0.0-web",
       platform: options.platform ?? "macos",

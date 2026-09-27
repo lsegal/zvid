@@ -123,7 +123,7 @@ fn webview_data_dir() -> Option<PathBuf> {
 /// `zvid://` routes are on this platform.
 pub fn bootstrap_script(options: &EditorOptions) -> String {
     let origins: serde_json::Map<String, serde_json::Value> =
-        ["app", "ipc", "preview", "take", "thumb"]
+        ["app", "ipc", "preview", "take", "thumb", "frames"]
             .into_iter()
             .map(|host| (host.to_string(), origin(host).into()))
             .collect();
@@ -321,6 +321,7 @@ mod tests {
         let config: serde_json::Value = serde_json::from_str(json).unwrap();
         assert_eq!(config["version"], "9.9.9");
         assert_eq!(config["origins"]["thumb"], origin("thumb"));
+        assert_eq!(config["origins"]["frames"], origin("frames"));
         assert_eq!(config["platform"], std::env::consts::OS);
     }
 

@@ -59,10 +59,18 @@ export function Play({ className }: IconProps) {
   );
 }
 
-export function Stop({ className }: IconProps) {
+export function Pause({ className }: IconProps) {
   return (
     <svg {...base} className={className} aria-hidden="true">
-      <rect x="4" y="4" width="8" height="8" rx="1.5" fill="currentColor" />
+      <rect x="4" y="3.5" width="2.75" height="9" rx="1" fill="currentColor" />
+      <rect
+        x="9.25"
+        y="3.5"
+        width="2.75"
+        height="9"
+        rx="1"
+        fill="currentColor"
+      />
     </svg>
   );
 }

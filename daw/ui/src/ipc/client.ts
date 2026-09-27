@@ -158,4 +158,32 @@ export class Client {
   thumbUrl(id: string): string {
     return `${this.config.origins.thumb}/${encodeURIComponent(id)}`;
   }
+
+  /** The frame `offsetSec` into a take's file, decoded by the host. */
+  frameUrl(id: string, offsetSec: number): string {
+    return `${this.config.origins.frames}/${encodeURIComponent(id)}?t=${offsetSec.toFixed(3)}`;
+  }
+
+  /**
+   * Fetches a host-decoded frame as an object URL the caller revokes. For
+   * takes the webview can't decode itself.
+   */
+  async takeFrame(
+    id: string,
+    offsetSec: number,
+    signal: AbortSignal,
+  ): Promise<string> {
+    const response = await this.fetch(this.frameUrl(id, offsetSec), {
+      signal,
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      throw new CommandError(
+        body && typeof body.message === "string"
+          ? body
+          : { code: "internal", message: `frame failed (${response.status})` },
+      );
+    }
+    return URL.createObjectURL(await response.blob());
+  }
 }

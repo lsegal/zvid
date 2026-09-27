@@ -20,8 +20,8 @@ tracked in [#189](https://github.com/lsegal/zvid/issues/189).
   always visible, always in the same place, and its state is unambiguous.
   When Live's own record buttons arm capture (the Live companion is
   connected), the same place shows which state Live is in instead.
-- **Stay out of Live's way.** Dark only, compact, no modal dialogs, and no
-  animation beyond what communicates state.
+- **Stay out of Live's way.** Dark only, compact, no modal dialogs except the
+  take preview, and no animation beyond what communicates state.
 - **Never lose footage.** Every take is listed, including unanchored captures
   and takes whose file has gone missing.
 
@@ -169,8 +169,7 @@ The list shows one **TakeCard** per take in plugin state, newest first. Each
 card has:
 
 - a **thumbnail**: the poster frame at the take start;
-- a **▶ play** icon button that previews the take inline, playing only that
-  take's range of the file; while playing it becomes **■ stop**;
+- a **▶ play** icon button that opens the **TakePreview** modal for the take;
 - date and time of the take, its duration (`mm:ss`), and its transport
   position (`Bar 17.1.1`), with duration and bar position in IBM Plex Mono;
 - a **folder** icon button that reveals the file in Finder (macOS) or File
@@ -322,7 +321,7 @@ otherwise:
 - **Secondary:** pill, `--bg-soft` fill, `--line-strong` border, `--ink` text,
   32 pt tall. Used for **Refresh devices** and similar actions.
 - **Icon:** 28 pt square, transparent fill, `--ink` glyph; hover shows a
-  `--bg-soft` fill. Used for play/stop preview and reveal-in-folder. Always
+  `--bg-soft` fill. Used for preview, play/pause and reveal-in-folder. Always
   has an accessible label.
 
 ### LiveFollowing
@@ -374,11 +373,30 @@ block · icon buttons. States:
   nothing new; the icon buttons are always visible.
 - **focus:** the card is a single tab stop with its icon buttons reachable
   inside it; the focused element gets the focus ring.
-- **playing:** thumbnail area shows the inline preview and the play button
-  becomes stop.
 - **busy:** while the poster frame is being generated the thumbnail shows a
   `--bg-soft` placeholder.
 - **disabled:** the *File missing* variant described above.
+
+### TakePreview
+
+A modal dialog over the whole editor (`--bg-elevated`, `--line-strong`
+border, 12 pt radius, dimmed backdrop), at most 720 pt wide. It shows:
+
+- a header with *Take from* date and time and a **✕** close icon button;
+- the take, letterboxed on `--bg` in a 16:9 box, playing only that take's
+  range of the file from its start as soon as the modal opens;
+- a control row: a **play / pause** icon button, a playhead slider over the
+  take's duration (`--pink`), and `mm:ss / mm:ss` elapsed and total time in
+  IBM Plex Mono.
+
+When the webview can't decode the take (WebView2 plays HEVC only with
+Microsoft's HEVC Video Extensions installed), the host decodes frames for it
+and the preview plays them the same way, without sound. A take that can't be
+played at all shows a warning line in place of the picture.
+
+Focus moves to play / pause when it opens. Escape, the close button or a
+click on the backdrop close it, and focus returns to the take's play button.
+At the end of the take it pauses on the last frame; play starts it again.
 
 ### EmptyState
 
@@ -412,7 +430,8 @@ disconnected. Footage up to that point was saved.*
 - **Keyboard:** every control is reachable with Tab in visual order (header →
   preview actions → capture card → takes → toast). Space/Enter activates
   buttons; the Select opens with Space/Enter/↓ and supports arrow keys, type
-  ahead and Escape.
+  ahead and Escape. The TakePreview modal keeps focus inside it until Escape
+  closes it.
 - **Focus:** a visible `--blue` focus ring on `:focus-visible` for every
   interactive element. Never remove it without a replacement.
 - **Contrast:** text meets **≥ 4.5:1** against its background. Measured WCAG

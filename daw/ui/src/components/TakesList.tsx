@@ -6,13 +6,19 @@ import {
   formatTakeDate,
 } from "../format.ts";
 import type { TakeInfo } from "../ipc/types.ts";
-import { Folder, Play, Stop } from "./icons.tsx";
+import { Folder, Play } from "./icons.tsx";
+import { TakePreview } from "./TakePreview.tsx";
 
 type Props = {
   takes: TakeInfo[];
   platform: string | undefined;
   takeUrl: (id: string) => string;
   thumbUrl: (id: string) => string;
+  loadFrame: (
+    id: string,
+    offsetSec: number,
+    signal: AbortSignal,
+  ) => Promise<string>;
   onReveal: (id: string) => void;
 };
 
@@ -21,9 +27,13 @@ export function TakesList({
   platform,
   takeUrl,
   thumbUrl,
+  loadFrame,
   onReveal,
 }: Props) {
-  const [playing, setPlaying] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState<string | null>(null);
+  const previewed = takes.find(
+    (take) => take.id === previewing && !take.missing,
+  );
   return (
     <section className="takes" aria-labelledby="takes-heading">
       <h2 id="takes-heading" className="divider">
@@ -37,18 +47,24 @@ export function TakesList({
             <TakeCard
               key={take.id}
               take={take}
-              playing={playing === take.id}
               fileManager={fileManagerName(platform)}
-              src={takeUrl(take.id)}
               thumb={thumbUrl(take.id)}
-              onPlay={() => setPlaying(take.id)}
-              onStop={() =>
-                setPlaying((current) => (current === take.id ? null : current))
-              }
+              onPreview={() => setPreviewing(take.id)}
               onReveal={() => onReveal(take.id)}
             />
           ))}
         </ul>
+      )}
+      {previewed && (
+        <TakePreview
+          key={previewed.id}
+          take={previewed}
+          src={takeUrl(previewed.id)}
+          loadFrame={(offsetSec, signal) =>
+            loadFrame(previewed.id, offsetSec, signal)
+          }
+          onClose={() => setPreviewing(null)}
+        />
       )}
     </section>
   );
@@ -56,31 +72,23 @@ export function TakesList({
 
 type CardProps = {
   take: TakeInfo;
-  playing: boolean;
   fileManager: string;
-  src: string;
   thumb: string;
-  onPlay: () => void;
-  onStop: () => void;
+  onPreview: () => void;
   onReveal: () => void;
 };
 
 function TakeCard({
   take,
-  playing,
   fileManager,
-  src,
   thumb,
-  onPlay,
-  onStop,
+  onPreview,
   onReveal,
 }: CardProps) {
   const missingId = useId();
   const [poster, setPoster] = useState<"loading" | "ready" | "failed">(
     "loading",
   );
-  const start = take.fileOffsetSec;
-  const end = start + take.durationSec;
   const date = formatTakeDate(take.createdAt);
   const placed =
     !take.unanchored &&
@@ -99,22 +107,7 @@ function TakeCard({
       aria-label={`Take from ${date}`}
     >
       <div className="take-media">
-        {playing ? (
-          // biome-ignore lint/a11y/useMediaCaption: takes are silent camera video
-          <video
-            className="take-video"
-            src={`${src}#t=${start},${end}`}
-            autoPlay
-            onTimeUpdate={(event) => {
-              if (event.currentTarget.currentTime >= end) {
-                event.currentTarget.pause();
-                onStop();
-              }
-            }}
-            onEnded={onStop}
-            onError={onStop}
-          />
-        ) : take.missing || poster === "failed" ? (
+        {take.missing || poster === "failed" ? (
           <span className="take-thumb is-blank" />
         ) : (
           <img
@@ -149,19 +142,14 @@ function TakeCard({
         <button
           type="button"
           className="icon-button"
-          aria-label={
-            playing
-              ? `Stop preview of take from ${date}`
-              : `Preview take from ${date}`
-          }
+          aria-label={`Preview take from ${date}`}
+          aria-haspopup="dialog"
           {...disabledProps}
           onClick={() => {
-            if (take.missing) return;
-            if (playing) onStop();
-            else onPlay();
+            if (!take.missing) onPreview();
           }}
         >
-          {playing ? <Stop /> : <Play />}
+          <Play />
         </button>
         <button
           type="button"
