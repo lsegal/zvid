@@ -5,6 +5,8 @@
 //! - The `zvid://` protocol ([`protocol`]) serves the embedded frontend,
 //!   Tauri-style `invoke` commands and `emit` events, preview frames, take
 //!   files and poster frames.
+//! - [`LiveControl`] lets Live's record buttons arm the capture through the
+//!   optional companion script.
 //! - The plugin implements [`Backend`]; [`mock::MockBackend`] stands in for
 //!   it in the harness (`cargo run -p zvid-daw-ui --example harness`) and
 //!   tests.
@@ -15,6 +17,7 @@ pub mod channels;
 pub mod desktop;
 pub mod editor;
 pub mod image;
+pub mod live;
 pub mod mock;
 pub mod model;
 pub mod poster;
@@ -28,6 +31,7 @@ pub use backend::{Backend, BackendFactory, HostLink, instance_backend, register_
 pub use channels::{Channels, EventLog, PreviewSlot};
 pub use desktop::{Desktop, SystemDesktop};
 pub use editor::{DEFAULT_SIZE, Editor, EditorOptions, MIN_SIZE, ParentWindow};
+pub use live::LiveControl;
 pub use model::{
     Camera, CaptureInfo, ErrorCode, Phase, Status, TakeFile, TakeInfo, Transport, UiError, UiEvent,
     VideoFormat, takes_from_state,

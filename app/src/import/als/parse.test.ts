@@ -6,6 +6,7 @@ import {
   decodeLayersState,
   decodeTimeSignature,
   decodeZvidCaptureAuBuffer,
+  decodeZvidCaptureState,
   parseAls,
   parseAlsXml,
   type ZvidCaptureState,
@@ -372,6 +373,29 @@ describe("parseAls with ZVID Capture fixtures", () => {
     });
     assert.equal(state.recordings[2].transportStartSec, null);
     assert.equal(state.recordings[2].transportStartBeats, null);
+  });
+
+  it("reads each take's own record root", () => {
+    const state = decodeZvidCaptureState(
+      new TextEncoder().encode(
+        JSON.stringify({
+          version: "1",
+          recordRoot: "project",
+          recordings: [
+            { filename: "old.mp4" },
+            { filename: "docs.mp4", recordRoot: "documents" },
+            { filename: "set.mp4", recordRoot: "project" },
+            { filename: "odd.mp4", recordRoot: "elsewhere" },
+          ],
+        }),
+      ),
+    );
+    assert.equal(state.recordRoot, "project");
+    assert.deepEqual(
+      state.recordings.map((take) => take.recordRoot),
+      [undefined, "documents", "project", undefined],
+    );
+    assert.equal("recordRoot" in state.recordings[0], false);
   });
 
   it("reads AU state from the zvid-state key of the Buffer plist", async () => {

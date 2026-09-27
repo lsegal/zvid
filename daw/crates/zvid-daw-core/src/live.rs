@@ -24,6 +24,7 @@ use std::fmt;
 use std::io::{self, ErrorKind};
 use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
 use serde::Deserialize;
@@ -106,6 +107,91 @@ impl fmt::Display for LiveStatus {
             write!(f, " live={version}")?;
         }
         Ok(())
+    }
+}
+
+/// What [`LiveArming`] asks of the capture.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ArmRequest {
+    /// Start a capture, as the Record button does.
+    Arm,
+    /// End it, as the Stop capturing button does.
+    Disarm,
+}
+
+/// Follows Live's record buttons with the capture, in place of the plugin's
+/// Record button. Pure: the control thread feeds it the companion's status
+/// and carries out its requests.
+///
+/// - Either record button turning on asks to arm until an arm is
+///   [done](LiveArming::done); both turning off asks to disarm a capture
+///   that Live armed.
+/// - When the companion goes away, the capture it armed keeps running until
+///   the user stops it, so no footage is dropped. A companion that comes
+///   back takes over again from its next status.
+/// - Without a companion it asks for nothing, and the Record button works
+///   as before.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct LiveArming {
+    /// Whether Live's record buttons want a capture, while the companion is
+    /// present.
+    wanted: Option<bool>,
+    /// Whether the running capture is one Live armed.
+    armed: bool,
+}
+
+impl LiveArming {
+    /// Takes the companion's latest status, or `None` once it is absent.
+    pub fn update(&mut self, status: Option<&LiveStatus>) {
+        match status {
+            Some(status) => self.wanted = Some(status.record_armed()),
+            None => *self = Self::default(),
+        }
+    }
+
+    /// What Live's record buttons still ask for.
+    pub fn pending(&self) -> Option<ArmRequest> {
+        match (self.wanted?, self.armed) {
+            (true, false) => Some(ArmRequest::Arm),
+            (false, true) => Some(ArmRequest::Disarm),
+            _ => None,
+        }
+    }
+
+    /// Records that `request` was carried out.
+    pub fn done(&mut self, request: ArmRequest) {
+        self.armed = request == ArmRequest::Arm;
+    }
+}
+
+/// The latest [`LiveStatus`] of one plugin instance, shared between the
+/// control thread that polls its [`LiveLink`] and the editor backend, which
+/// reads the set directory when capture arms. Clones share the status.
+#[derive(Clone, Debug, Default)]
+pub struct SharedLiveStatus {
+    status: Arc<Mutex<Option<LiveStatus>>>,
+}
+
+impl SharedLiveStatus {
+    /// Replaces the status; `None` while the companion is absent.
+    pub fn set(&self, status: Option<LiveStatus>) {
+        *self.lock() = status;
+    }
+
+    pub fn get(&self) -> Option<LiveStatus> {
+        self.lock().clone()
+    }
+
+    /// The open set's directory, or `None` while the set is unsaved, the
+    /// Live version doesn't report it, or the companion is absent.
+    pub fn set_dir(&self) -> Option<PathBuf> {
+        self.lock().as_ref().and_then(LiveStatus::set_dir)
+    }
+
+    fn lock(&self) -> MutexGuard<'_, Option<LiveStatus>> {
+        self.status
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 }
 
@@ -232,6 +318,18 @@ mod tests {
     }
 
     #[test]
+    fn shares_the_latest_status() {
+        let shared = SharedLiveStatus::default();
+        let reader = shared.clone();
+        assert_eq!(reader.get(), None);
+        assert_eq!(reader.set_dir(), None);
+        shared.set(LiveStatus::parse(STATUS.as_bytes()));
+        assert_eq!(reader.set_dir(), Some(PathBuf::from("/music/Song Project")));
+        shared.set(None);
+        assert_eq!(reader.get(), None);
+    }
+
+    #[test]
     fn either_record_button_arms_capture() {
         let status = |record_mode, session_record| LiveStatus {
             record_mode,
@@ -241,6 +339,90 @@ mod tests {
         assert!(!status(false, false).record_armed());
         assert!(status(true, false).record_armed());
         assert!(status(false, true).record_armed());
+    }
+
+    /// A status with Live's record buttons as given.
+    fn recording(record_mode: bool, session_record: bool) -> LiveStatus {
+        LiveStatus {
+            record_mode,
+            session_record,
+            ..LiveStatus::default()
+        }
+    }
+
+    /// Feeds `status` and carries out whatever is pending.
+    fn follow(arming: &mut LiveArming, status: Option<&LiveStatus>) -> Option<ArmRequest> {
+        arming.update(status);
+        let request = arming.pending();
+        if let Some(request) = request {
+            arming.done(request);
+        }
+        request
+    }
+
+    #[test]
+    fn record_buttons_arm_and_disarm() {
+        let mut arming = LiveArming::default();
+        assert_eq!(arming.pending(), None);
+        let off = recording(false, false);
+        assert_eq!(follow(&mut arming, Some(&off)), None);
+        assert_eq!(
+            follow(&mut arming, Some(&recording(true, false))),
+            Some(ArmRequest::Arm)
+        );
+        // Play/stop and the other button changing are no edge.
+        let playing = LiveStatus {
+            is_playing: true,
+            ..recording(true, true)
+        };
+        assert_eq!(follow(&mut arming, Some(&playing)), None);
+        assert_eq!(follow(&mut arming, Some(&recording(false, true))), None);
+        assert_eq!(follow(&mut arming, Some(&off)), Some(ArmRequest::Disarm));
+        assert_eq!(follow(&mut arming, Some(&off)), None);
+        assert_eq!(
+            follow(&mut arming, Some(&recording(false, true))),
+            Some(ArmRequest::Arm)
+        );
+    }
+
+    #[test]
+    fn an_arm_is_asked_for_until_done() {
+        let mut arming = LiveArming::default();
+        arming.update(Some(&recording(true, false)));
+        assert_eq!(arming.pending(), Some(ArmRequest::Arm));
+        // Not done, e.g. no camera yet: still pending on the next status.
+        arming.update(Some(&recording(true, false)));
+        assert_eq!(arming.pending(), Some(ArmRequest::Arm));
+        // Released before it was done: nothing to disarm.
+        arming.update(Some(&recording(false, false)));
+        assert_eq!(arming.pending(), None);
+    }
+
+    #[test]
+    fn a_vanished_companion_leaves_the_capture_running() {
+        let mut arming = LiveArming::default();
+        follow(&mut arming, Some(&recording(true, false)));
+        assert_eq!(follow(&mut arming, None), None);
+        assert_eq!(arming, LiveArming::default());
+        // Back with record off: the capture is the user's to stop now.
+        assert_eq!(follow(&mut arming, Some(&recording(false, false))), None);
+        // Back with record on: Live takes over again.
+        assert_eq!(
+            follow(&mut arming, Some(&recording(true, false))),
+            Some(ArmRequest::Arm)
+        );
+        assert_eq!(
+            follow(&mut arming, Some(&recording(false, false))),
+            Some(ArmRequest::Disarm)
+        );
+    }
+
+    #[test]
+    fn nothing_is_asked_without_a_companion() {
+        let mut arming = LiveArming::default();
+        for _ in 0..3 {
+            assert_eq!(follow(&mut arming, None), None);
+        }
     }
 
     #[test]
