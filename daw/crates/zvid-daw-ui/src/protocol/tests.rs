@@ -372,3 +372,32 @@ fn serves_poster_thumbnails() {
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
     assert!(fixture.revealed.lock().unwrap().is_empty());
 }
+
+#[test]
+fn serves_decoded_take_frames() {
+    let fixture = Fixture::new("frames");
+    let id = fixture.record_take();
+    let frame = |t: &str| fixture.get(&format!("zvid://frames/{id}?t={t}"));
+    let first = frame("0");
+    assert_eq!(first.status(), StatusCode::OK);
+    assert_eq!(first.headers()[header::CONTENT_TYPE], "image/jpeg");
+    assert_eq!(first.headers()[header::CACHE_CONTROL], "no-store");
+    assert_eq!(&first.body()[..2], &[0xFF, 0xD8]);
+    // Later frames continue the open decoder; earlier ones start over.
+    let later = frame("0.5");
+    assert_eq!(later.status(), StatusCode::OK);
+    assert_ne!(later.body(), first.body());
+    assert_eq!(frame("0").body(), first.body());
+
+    assert_eq!(
+        fixture.get(&format!("zvid://frames/{id}")).status(),
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(frame("NaN").status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        fixture.get("zvid://frames/unknown?t=0").status(),
+        StatusCode::NOT_FOUND
+    );
+    std::fs::remove_file(fixture.backend.take_file(&id).unwrap().path).unwrap();
+    assert_eq!(frame("0.2").status(), StatusCode::NOT_FOUND);
+}

@@ -13,6 +13,8 @@
 //! wry buffers each custom-protocol response, so the preview is delivered as
 //! one long-polled JPEG per request instead of a multipart MJPEG stream; the
 //! frontend asks for the next frame as soon as it has drawn the last one.
+//! `zvid://frames` works the same way for previewing a take the webview
+//! can't decode itself.
 //!
 //! On Windows WebView2 reaches `zvid://<host>/` as `https://zvid.<host>/`;
 //! [`origin`] gives the right form for the running platform.
@@ -34,7 +36,7 @@ use crate::backend::Backend;
 use crate::channels::Cancel;
 use crate::desktop::Desktop;
 use crate::model::{ErrorCode, UiError};
-use crate::poster::{POSTER_EDGE, poster_jpeg};
+use crate::poster::{FRAME_EDGE, POSTER_EDGE, TakeFrames, poster_jpeg};
 use crate::range::{self, ByteRange, RangeRequest};
 
 /// Scheme registered with the webview.
@@ -111,6 +113,9 @@ pub struct Protocol {
     backend: Arc<dyn Backend>,
     posters: Arc<PosterCache>,
     desktop: Arc<dyn Desktop>,
+    /// The take `zvid://frames` last decoded from, kept open so frames
+    /// asked for in order continue its decoder.
+    frames: Mutex<Option<(PathBuf, TakeFrames)>>,
     cancel: Cancel,
     in_flight: Arc<InFlight>,
 }
@@ -125,6 +130,7 @@ impl Protocol {
             backend,
             posters,
             desktop,
+            frames: Mutex::new(None),
             cancel: Arc::new(AtomicBool::new(false)),
             in_flight: Arc::default(),
         }
@@ -205,8 +211,45 @@ impl Protocol {
                 },
                 None => plain(StatusCode::NOT_FOUND, "unknown take"),
             },
+            ("frames", &Method::GET, id) => {
+                let offset_sec = query_param(query, "t")
+                    .and_then(|t| t.parse::<f64>().ok())
+                    .filter(|t| t.is_finite());
+                match (self.backend.take_file(id), offset_sec) {
+                    (Some(file), Some(offset_sec)) => match self.frame(&file.path, offset_sec) {
+                        Ok(bytes) => jpeg(bytes, None),
+                        Err(error) => error_response(&error),
+                    },
+                    (Some(_), None) => plain(StatusCode::BAD_REQUEST, "frames need ?t=seconds"),
+                    (None, _) => plain(StatusCode::NOT_FOUND, "unknown take"),
+                }
+            }
             _ => plain(StatusCode::NOT_FOUND, "unknown URL"),
         }
+    }
+
+    /// The frame at `offset_sec` into the take file at `path`, continuing
+    /// the open decoder when it is the same file.
+    fn frame(&self, path: &Path, offset_sec: f64) -> Result<Vec<u8>, UiError> {
+        let mut frames = lock(&self.frames);
+        if !path.is_file() {
+            *frames = None;
+            return Err(UiError::new(
+                ErrorCode::NotFound,
+                "the take's file is missing",
+            ));
+        }
+        if frames.as_ref().is_none_or(|(open, _)| open != path) {
+            let opened = TakeFrames::open(path)
+                .map_err(|error| UiError::new(ErrorCode::Internal, error.to_string()))?;
+            *frames = Some((path.to_path_buf(), opened));
+        }
+        let (_, take) = frames.as_mut().expect("opened above");
+        take.jpeg_at(offset_sec, FRAME_EDGE).map_err(|error| {
+            // Start over next time rather than reuse a decoder that failed.
+            *frames = None;
+            UiError::new(ErrorCode::Internal, error.to_string())
+        })
     }
 
     /// Runs an IPC command with its JSON arguments.
