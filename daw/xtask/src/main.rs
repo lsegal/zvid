@@ -10,7 +10,8 @@
 //!   bundles are ad-hoc signed, or, for a release build with
 //!   `ZVID_CODESIGN_IDENTITY` set, signed with that Developer ID identity and
 //!   the hardened runtime. The Live companion Remote Script goes to
-//!   `target/bundle/live-remote-script/ZVID_Capture`.
+//!   `target/bundle/live-remote-script/ZVID_Capture`, and into each bundle's
+//!   `Contents/Resources/ZVID_Capture` for the editor's install button.
 //!   `--installer` (with `--release`) also writes an installer to
 //!   `target/installer`: a `.pkg` on macOS, signed with
 //!   `ZVID_INSTALLER_IDENTITY` and notarized and stapled when notary
@@ -354,12 +355,14 @@ fn bundle(release: bool, universal: bool, installer: bool) -> Result<Vec<PathBuf
         std::env::consts::ARCH,
         &version,
     )?;
+    bundle_live_script(&daw, &bundle)?;
     let mut bundles = vec![bundle];
     if cfg!(target_os = "macos") {
         let component = target
             .join("bundle")
             .join(format!("{PLUGIN_NAME}.component"));
         write_component(&library, &component, &version)?;
+        bundle_live_script(&daw, &component)?;
         bundles.push(component);
         // Apple silicon refuses to load code whose signature does not cover
         // the bundle; an ad-hoc signature is enough for `auval` and local
@@ -1009,6 +1012,13 @@ fn install_live_script(flags: &[String]) -> Result<PathBuf, String> {
     Ok(destination)
 }
 
+/// Copies the Live companion Remote Script into `bundle`'s
+/// `Contents/Resources`, where the editor's install button finds it.
+fn bundle_live_script(daw: &Path, bundle: &Path) -> Result<(), String> {
+    let destination = bundle.join("Contents").join("Resources").join(LIVE_SCRIPT);
+    copy_live_script(&live_script_source(daw), &destination)
+}
+
 fn live_script_source(daw: &Path) -> PathBuf {
     daw.join("live-remote-script").join(LIVE_SCRIPT)
 }
@@ -1600,6 +1610,20 @@ mod tests {
             .collect();
         names.sort();
         assert_eq!(names, ["__init__.py", "companion.py"]);
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn bundles_the_live_script_in_the_plugin_resources() {
+        let dir = scratch("bundle-live-script");
+        let bundle = dir.join("ZVID Capture.vst3");
+
+        bundle_live_script(&daw_root(), &bundle).unwrap();
+
+        let script = bundle.join("Contents/Resources").join(LIVE_SCRIPT);
+        assert!(script.join("__init__.py").is_file());
+        assert!(script.join("companion.py").is_file());
+        assert!(!script.join("tests").exists());
         fs::remove_dir_all(dir).unwrap();
     }
 

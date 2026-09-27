@@ -264,11 +264,53 @@ button {
 /* Body */
 
 .body {
+  /* The side column takes --side-fraction of the width the two columns
+     share (the default 30%, set from split.ts), never narrower than its
+     content can reflow into. */
+  --split-handle-width: 16px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 1fr);
-  gap: 16px;
+  grid-template-columns:
+    minmax(0, 1fr) var(--split-handle-width)
+    minmax(
+      180px,
+      calc((100% - var(--split-handle-width)) * var(--side-fraction, 0.3))
+    );
   min-height: 0;
   padding: 16px;
+}
+
+/* Matches the editor's preview resize handle in /app. */
+.split-handle {
+  position: relative;
+  width: auto;
+  height: auto;
+  margin: 0;
+  border: 0;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+}
+
+.split-handle::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 4px;
+  border-radius: 999px;
+  transform: translateX(-50%);
+  background: transparent;
+  transition: background-color var(--transition);
+}
+
+.split-handle:hover::before,
+.split-handle:focus-visible::before {
+  background: rgba(246, 183, 60, 0.45);
+}
+
+.split-handle:active::before {
+  background: var(--amber);
 }
 
 .side {
@@ -577,18 +619,6 @@ button {
   scrollbar-color: var(--bg-soft) transparent;
 }
 
-/* Near the minimum window width, shrink the thumbnail so dates still fit. */
-@container takes (max-width: 300px) {
-  .take-card {
-    grid-template-columns: 64px minmax(0, 1fr) auto;
-    gap: 8px;
-  }
-
-  .take-media {
-    width: 64px;
-  }
-}
-
 .take-card {
   flex: none;
   display: grid;
@@ -663,6 +693,36 @@ button {
   gap: 4px;
 }
 
+/* These follow the base take rules so they win. In a narrow side column,
+   shrink the thumbnail so dates still fit. */
+@container takes (max-width: 300px) {
+  .take-card {
+    grid-template-columns: 64px minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+
+  .take-media {
+    width: 64px;
+  }
+}
+
+/* Narrower still (the default 30% column at the default window size), put
+   the details under the thumbnail so they get the card's full width. */
+@container takes (max-width: 240px) {
+  .take-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .take-media {
+    width: 100%;
+  }
+
+  .take-details {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
 .badge {
   margin-top: 2px;
   padding: 0 8px;
@@ -694,6 +754,22 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.footer-end {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+}
+
+.footer-action {
+  font-size: 11px;
+}
+
+.footer-action:disabled {
+  cursor: progress;
+  opacity: 0.6;
 }
 
 .footer-dropped {

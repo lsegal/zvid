@@ -18,6 +18,9 @@ struct Fixture {
 struct RecordingDesktop {
     revealed: Arc<Mutex<Vec<PathBuf>>>,
     settings_opened: AtomicBool,
+    /// What `install_live_script` answers; `None` fails as if the bundle
+    /// had no script.
+    script_install: Mutex<Option<PathBuf>>,
 }
 
 impl Desktop for RecordingDesktop {
@@ -29,6 +32,12 @@ impl Desktop for RecordingDesktop {
     fn open_camera_privacy_settings(&self) -> std::io::Result<()> {
         self.settings_opened.store(true, Ordering::Release);
         Ok(())
+    }
+
+    fn install_live_script(&self) -> std::io::Result<PathBuf> {
+        self.script_install.lock().unwrap().clone().ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::NotFound, "no script in the bundle")
+        })
     }
 }
 
@@ -229,6 +238,29 @@ fn reveals_takes() {
     let response = fixture.invoke("openPrivacySettings", Value::Null);
     assert_eq!(response.status(), StatusCode::OK);
     assert!(fixture.desktop.settings_opened.load(Ordering::Acquire));
+}
+
+#[test]
+fn installs_the_live_script() {
+    let fixture = Fixture::new("live-script");
+    let response = fixture.invoke("installLiveScript", Value::Null);
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    assert_eq!(body_json(&response)["code"], "notFound");
+    assert!(
+        body_json(&response)["message"]
+            .as_str()
+            .unwrap()
+            .contains("no script in the bundle")
+    );
+
+    let installed = PathBuf::from("User Library/Remote Scripts/ZVID_Capture");
+    *fixture.desktop.script_install.lock().unwrap() = Some(installed.clone());
+    let response = fixture.invoke("installLiveScript", Value::Null);
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        body_json(&response)["path"],
+        installed.to_string_lossy().as_ref()
+    );
 }
 
 #[test]

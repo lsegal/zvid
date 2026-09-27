@@ -6,7 +6,8 @@
 //!   Tauri-style `invoke` commands and `emit` events, preview frames, take
 //!   files and poster frames.
 //! - [`LiveControl`] lets Live's record buttons arm the capture through the
-//!   optional companion script.
+//!   optional companion script, and [`live_script`] installs that script
+//!   from the plugin bundle.
 //! - The plugin implements [`Backend`]; [`mock::MockBackend`] stands in for
 //!   it in the harness (`cargo run -p zvid-daw-ui --example harness`) and
 //!   tests.
@@ -18,6 +19,7 @@ pub mod desktop;
 pub mod editor;
 pub mod image;
 pub mod live;
+pub mod live_script;
 pub mod mock;
 pub mod model;
 pub mod poster;
