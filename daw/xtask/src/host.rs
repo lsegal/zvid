@@ -63,8 +63,14 @@ const HOST_TIMEOUT: Duration = Duration::from_secs(60);
 /// The shared state fixture, as hex of the JSON the plugin saves.
 const FIXTURE_HEX: &str = include_str!("../../fixtures/state/zvid-capture-v1.hex");
 
-/// Plugin log lines that aren't errors, after the `[zvid-…] ` prefix.
-const INFO_LINES: &[&str] = &["restored state: ", "live companion: "];
+/// Plugin log lines that aren't errors, as the start and end of what
+/// follows the `[zvid-…] ` prefix. Rendering faster than real time outruns
+/// the control thread, so the transport ring drops snapshots by design.
+const INFO_LINES: &[(&str, &str)] = &[
+    ("restored state: ", ""),
+    ("live companion: ", ""),
+    ("dropped ", " transport snapshots"),
+];
 
 /// JUCE's `AudioProcessor::copyXmlToBinary` magic number, `VC2!`.
 const JUCE_XML_MAGIC: u32 = 0x2132_4356;
@@ -438,9 +444,11 @@ fn plugin_errors(lines: &[String], format: Format) -> Vec<String> {
     lines
         .iter()
         .filter(|line| {
-            let info = line
-                .strip_prefix(format.log_prefix())
-                .is_some_and(|rest| INFO_LINES.iter().any(|info| rest.starts_with(info)));
+            let info = line.strip_prefix(format.log_prefix()).is_some_and(|rest| {
+                INFO_LINES
+                    .iter()
+                    .any(|(start, end)| rest.starts_with(start) && rest.ends_with(end))
+            });
             !info
         })
         .cloned()
@@ -865,15 +873,18 @@ mod tests {
         let log = "\
 [zvid-vst3] restored state: 2 takes, 900 bytes
 [zvid-vst3] live companion: connected
+[zvid-vst3] dropped 311 transport snapshots
+[zvid-vst3] dropped the editor
 [zvid-vst3] ignoring unreadable state: expected value
 [zvid-au] restored state: 0 takes, 60 bytes
 [zvid-capture] recording at 30 fps
 ";
         let lines = plugin_log_lines(log);
-        assert_eq!(lines.len(), 4);
+        assert_eq!(lines.len(), 6);
         assert_eq!(
             plugin_errors(&lines, Format::Vst3),
             [
+                "[zvid-vst3] dropped the editor",
                 "[zvid-vst3] ignoring unreadable state: expected value",
                 "[zvid-au] restored state: 0 takes, 60 bytes"
             ]
