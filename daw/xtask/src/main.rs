@@ -30,11 +30,17 @@
 //!   (Audio Units must be installed to load). pluginval is a prebuilt
 //!   release, downloaded once to `target/tools` and checked against a
 //!   pinned SHA-256; nothing is compiled.
+//! - `fetch-test-host`: downloads the pinned, checksummed CLI plugin host the
+//!   host tests run in to `target/test-host` and prints its path.
+//! - `host-test`: bundles the plugin and runs the host integration tests in
+//!   [`host`] against the `.vst3` and, on macOS, the `.component`.
 
 use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
+
+mod host;
 
 use zvid_au::component;
 use zvid_daw_core::{BUILD_VERSION_ENV, PLUGIN_NAME};
@@ -170,13 +176,32 @@ fn main() -> ExitCode {
                 }
             }
         }
+        Some("fetch-test-host") => match host::fetch_test_host(&target_dir(&daw_root())) {
+            Ok(path) => {
+                println!("{}", path.display());
+                ExitCode::SUCCESS
+            }
+            Err(problem) => {
+                eprintln!("error: {problem}");
+                ExitCode::FAILURE
+            }
+        },
+        Some("host-test") => match host_test() {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(problem) => {
+                eprintln!("error: {problem}");
+                ExitCode::FAILURE
+            }
+        },
         _ => {
             eprintln!(
                 "usage: cargo xtask check \
                  | cargo xtask bundle [--release] [--universal] [--installer] \
                  | cargo xtask validate [--strictness-level <1-10>] [--skip-gui-tests] [<bundle>...] \
                  | cargo xtask install-live-script [--user-library <path>] \
-                 | cargo xtask check-live [<Live.app>]"
+                 | cargo xtask check-live [<Live.app>] \
+                 | cargo xtask fetch-test-host \
+                 | cargo xtask host-test"
             );
             ExitCode::FAILURE
         }
@@ -190,10 +215,27 @@ fn daw_root() -> PathBuf {
         .to_path_buf()
 }
 
+/// Cargo's target directory: `CARGO_TARGET_DIR`, else `daw/target`.
 fn target_dir(daw: &Path) -> PathBuf {
     std::env::var_os("CARGO_TARGET_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|| daw.join("target"))
+}
+
+/// Bundles the plugin and runs the host integration tests against it.
+fn host_test() -> Result<(), String> {
+    let bundles = bundle(false, false, false)?;
+    let extension = |ext: &str| {
+        bundles
+            .iter()
+            .find(|path| path.extension().is_some_and(|found| found == ext))
+    };
+    let vst3 = extension("vst3").ok_or("bundling wrote no .vst3")?;
+    host::host_test(
+        &target_dir(&daw_root()),
+        vst3,
+        extension("component").map(PathBuf::as_path),
+    )
 }
 
 fn check(daw: &Path) -> Result<(), Vec<String>> {
@@ -500,7 +542,7 @@ fn fetch_pluginval(target: &Path) -> Result<PathBuf, String> {
     )?;
     let bytes = fs::read(&archive)
         .map_err(|error| format!("could not read {}: {error}", archive.display()))?;
-    let actual = sha256_hex(&bytes);
+    let actual = host::sha256_hex(&bytes);
     if actual != sha256 {
         let _ = fs::remove_dir_all(&partial);
         return Err(format!(
@@ -537,14 +579,6 @@ fn fetch_pluginval(target: &Path) -> Result<PathBuf, String> {
     } else {
         Err(format!("{asset} has no {}", executable.display()))
     }
-}
-
-fn sha256_hex(bytes: &[u8]) -> String {
-    use sha2::{Digest, Sha256};
-    Sha256::digest(bytes)
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
 }
 
 /// Runs `command`, failing with `what` when it can't start or exits
@@ -1354,14 +1388,6 @@ mod tests {
         assert_eq!(
             pluginval_executable(Path::new("p"), "windows"),
             Path::new("p/pluginval.exe")
-        );
-    }
-
-    #[test]
-    fn hashes_with_sha256() {
-        assert_eq!(
-            sha256_hex(b"abc"),
-            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
         );
     }
 

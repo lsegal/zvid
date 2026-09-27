@@ -123,7 +123,7 @@ The workspace lives in `/daw` (scaffolded in
 | `daw/crates/zvid-au` | AUv2 plugin: the `AudioComponentFactoryFunction` entry point, property and render callbacks, and the Cocoa view factory. |
 | `daw/plugin` | The `cdylib` that ties everything together and exports the VST3 and AU entry points. Holds the plugin identity constants. |
 | `daw/live-remote-script` | The optional Live companion: a Python MIDI Remote Script (`ZVID_Capture`) that reports Live's record state and set path to plugin instances. Not part of the plugin binary. |
-| `daw/xtask` | `cargo xtask`: bundles the `cdylib` into `.vst3` and `.component` (release bundles are universal on macOS and commit-stamped; see [CI builds](#ci-builds)), and runs `check` (Rust-only rule, zvidlib rev matches `app/export-bridge`). |
+| `daw/xtask` | `cargo xtask`: bundles the `cdylib` into `.vst3` and `.component` (release bundles are universal on macOS and commit-stamped; see [CI builds](#ci-builds)), runs `check` (Rust-only rule, zvidlib rev matches `app/export-bridge`), and runs the host integration tests (`host-test`; see [Testing](#testing)). |
 
 Dependencies point inward: `plugin` depends on everything; `zvid-vst3`,
 `zvid-au`, `zvid-capture` and `zvid-daw-ui` depend on `zvid-daw-core` where
@@ -216,10 +216,11 @@ It is implemented by `State` and `Recording` in `zvid-daw-core`.
 {
   "version": "1",
   "plugin": "zvid-capture",
-  "recordRoot": "project" | "documents",
+  "recordRoot": "project" | "documents", // the latest capture's root
   "recordings": [{
     "id": "uuid",
     "filename": "video-01-9-25-20-36-12-0.mp4", // relative to the record root
+    "recordRoot": "project",    // this take's root; absent in older states
     "dimensions": [1920, 1080],
     "fps": [30, 1],
     "frameStart": 915,          // arrangement frame of file frame 0 (Layers-compatible)
@@ -247,6 +248,10 @@ It is implemented by `State` and `Recording` in `zvid-daw-core`.
   to `null`, `fileOffsetSec: 0`, and a `durationSec` covering the whole file.
   `frameStart` is `0` and meaningless for them.
 - **`createdAt`** is an RFC 3339 UTC timestamp.
+- **`recordRoot`** is kept per entry: the root the take's capture armed
+  with (see [Record root](#record-root)). The top-level `recordRoot` is the
+  latest capture's root. Entries without their own `recordRoot`, written
+  before roots were kept per entry, are relative to the top-level one.
 - **Written as the take happens.** The control thread's `TakeLog`
   (`zvid-daw-core`) appends a take to `recordings` when it opens and keeps
   its `durationSec` running with each transport snapshot until it closes. A
@@ -276,7 +281,8 @@ It is implemented by `State` and `Recording` in `zvid-daw-core`.
   so the plugin binary registers it with `zvid_daw_ui::register_backend`
   from `GetPluginFactory` and the AU factory. The VST3 `Component` and AU
   `AudioUnitInstance` start it from a `HostLink` (state, `commands()`,
-  `take_changes()`, the host dirty notification and the record root) when
+  `take_changes()`, the host dirty notification, the Documents record root
+  and the instance's shared Live companion status) when
   their first editor opens, share it across their editors, and shut it
   down when the instance is destroyed. Without a registration, as in the
   format crates' own tests, editors get a `MockBackend`.
@@ -321,8 +327,9 @@ Layers Record support. The contract:
 4. **Placement.** The matched take's `frameStart` is the clip's capture
    offset, exactly as for Layers Record: the file frame shown at arrangement
    frame `f` is `f − frameStart`.
-5. **File resolution.** `recordRoot: "project"` resolves `filename` against
-   `<als dir>/Recorded/ZVID/`; `"documents"` resolves it against
+5. **File resolution.** Each take's `recordRoot`, or the state's when the
+   take has none, picks the directory: `"project"` resolves `filename`
+   against `<als dir>/Recorded/ZVID/`; `"documents"` resolves it against
    `~/Documents/ZVID/Recorded/`. A missing file falls through to the
    existing relink flow.
 6. **Source tracks.** Each take becomes its own source-track recording entry.
@@ -388,12 +395,55 @@ sequenceDiagram
   plugin transport as described in [Clock sync](#clock-sync); the companion
   only replaces the Record button, not the timing source, since its messages
   arrive up to one UI tick late.
-- **Set directory.** `setPath`'s parent is passed to `RecordRoot::resolve`.
-  `null` (unsaved set, or Live older than 11.3.42) falls back to
-  `<Documents>/ZVID/Recorded`.
-- **Status.** The prototype in #200 logs what the companion reports (set
-  `ZVID_DAW_LOG`). Auto-arming, removing the Record button and resolving the
-  record root from the set path are separate follow-ups.
+- **Set directory.** Each instance's control thread keeps the latest status
+  in a `SharedLiveStatus` the editor backend reads when capture arms.
+  `setPath`'s parent picks the record root (see [Record root](#record-root)).
+  `null` (unsaved set, or Live older than 11.3.42) or no companion falls back
+  to `<Documents>/ZVID/Recorded`.
+- **Auto-arming.** Both format layers' control threads poll the link through
+  `zvid-daw-ui::LiveControl`, which follows `zvid-daw-core::LiveArming`: a
+  record button turning on arms the capture through the instance's backend,
+  as the Record button does, and both turning off disarms a capture Live
+  armed. A capture armed by hand is left alone while Live's record is off.
+  The backend starts as soon as the companion is present, so the camera is
+  already previewing and arming only starts the encoder; a failed arm (no
+  camera yet) is retried every second while record stays on. When the
+  companion goes away, a capture it armed keeps running until the user stops
+  it, so no footage is dropped. What the companion reports is logged (set
+  `ZVID_DAW_LOG`).
+- **Status.** While the companion is connected, the editor replaces its
+  Record button with a read-only indicator of Live's record state (see
+  `DESIGN.md`, Capture card).
+
+### Record root
+
+`CaptureBackend::arm` resolves the root once per capture with
+`RecordRoot::for_capture(live.set_dir(), documents)`:
+
+- **Saved set, companion running:** `<set dir>/Recorded/ZVID`, stored as
+  `"recordRoot": "project"`. The importer finds it next to the `.als`.
+- **Unsaved set, Live older than 11.3.42, or no companion:**
+  `<Documents>/ZVID/Recorded`, stored as `"recordRoot": "documents"`.
+
+The recorder creates the directory. The root is fixed at arm: saving the set
+or "Save As" mid-capture doesn't move the file, and the take keeps the root
+it was recorded with.
+
+Files are never moved or collected, so each take stores its own
+`recordRoot`:
+
+- **An unsaved set that is saved later.** Takes recorded before the save
+  keep `"documents"` and stay in `<Documents>/ZVID/Recorded`; takes armed
+  after the save get `"project"`. The importer resolves each take against
+  its own root, so both still resolve.
+- **"Save As" to another folder.** `"project"` takes resolve against the
+  `.als`'s current folder, so their files have to come with it. Live's
+  "Collect All and Save" doesn't know about `Recorded/ZVID`, so copy that
+  folder next to the new set. Otherwise those takes fall through to the
+  importer's relink flow, which searches by file name. In the plugin, a
+  project take is looked up in the set's current folder, or in the folder
+  of the last capture while the companion is absent, and is listed as
+  missing when its file isn't there.
 
 ## Platform matrix
 
@@ -428,32 +478,6 @@ sequenceDiagram
   device. Some phone-webcam apps register DirectShow-only virtual cameras that
   Media Foundation does not enumerate; [#196](https://github.com/lsegal/zvid/issues/196)
   confirms each supported app and records any that aren't visible.
-
-## Testing
-
-`cargo test --workspace` covers the crates, `python -m unittest discover
-tests` in `live-remote-script` the Live companion, and `pnpm --dir daw/ui
-run test` the editor frontend.
-
-`cargo xtask validate` runs [pluginval](https://github.com/Tracktion/pluginval)
-against the built bundles, as the `daw` CI job does on macOS and Windows:
-
-```sh
-cargo xtask bundle
-# macOS only: Audio Units load only from the plug-in folders.
-cp -R "target/bundle/ZVID Capture.component" ~/Library/Audio/Plug-Ins/Components/
-cargo xtask validate
-```
-
-It validates `target/bundle/ZVID Capture.vst3` and, on macOS,
-`~/Library/Audio/Plug-Ins/Components/ZVID Capture.component`, or the bundles
-named on the command line. pluginval is Tracktion's prebuilt release,
-downloaded once to `target/tools` and checked against the SHA-256 pinned in
-`xtask`, so nothing is compiled. It runs at strictness level 10, the highest
-(5 is the usual host-compatibility bar), with the editor tests;
-`--strictness-level <n>` and `--skip-gui-tests` override that locally, but CI
-uses neither. Steinberg's VST3 validator isn't run, because it needs a C++
-SDK build; the `daw` job in `ci.yml` records why.
 
 ## CI builds
 
@@ -582,6 +606,100 @@ macOS AU and Windows VST3 before a release:
 - [ ] A clap on camera lines up with its sound in the take to within one
   frame (see [Clock sync](#clock-sync)).
 
+## Testing
+
+- **Unit tests** (`cargo test --workspace`) cover the core logic and each
+  format layer through its own vtables: `zvid-vst3` against the VST3 ABI,
+  `zvid-au` against the AudioUnit selectors.
+- **`auval`** validates the `.component` in the `daw` CI job on macOS and in
+  the DAW bundles workflow.
+- **Host integration tests** (`cargo xtask host-test`) load the real bundles
+  in a third-party host, below.
+- **pluginval** (`cargo xtask validate`) checks both bundles' format
+  conformance, below.
+- **Live 12** is checked by hand before a release, with the
+  [Live 12 end-to-end checklist](#live-12-end-to-end-checklist).
+
+### Host integration tests
+
+`cargo xtask host-test` builds the debug bundles (`cargo xtask bundle`) and
+runs them in [Plugalyzer](https://github.com/CrushedPixel/Plugalyzer), an
+open-source (GPL-3.0) command-line plugin host built on JUCE. It tests
+`ZVID Capture.vst3` on macOS and Windows and `ZVID Capture.component` on
+macOS. For each one it checks:
+
+- **Pass-through.** A deterministic 48 kHz stereo signal (about 2 s of a
+  different tone per channel, low-level noise and impulses no block size
+  lines up with) is rendered through the plugin at 64-, 512- and 1024-sample
+  blocks. The output must match the input sample for sample.
+- **Default state.** A fresh instance's state, saved by the host, decodes
+  to the default state JSON. VST3 state is JUCE's `VST3PluginState` blob
+  with the component stream in JUCE's own base64. AU state is the ClassInfo
+  binary property list with the JSON under `zvid-state`.
+- **State round trip.** The shared fixture
+  (`fixtures/state/zvid-capture-v1.hex`, with two takes and an unknown key)
+  goes into the host's own saved blob and is restored into another fresh
+  instance. CLI hosts can't save a state they just loaded, so the format
+  layers log `restored state: <takes> takes, <bytes> bytes` for the state
+  they now hold. The test requires both counts to match the fixture's.
+
+A run fails when the host exits with an error, crashes or runs past 60 s.
+It also fails on any `[zvid-vst3]` or `[zvid-au]` line in `ZVID_DAW_LOG`
+except `restored state: …`, `live companion: …` and `dropped N transport
+snapshots`. Rendering faster than real time outruns the control thread, so
+the transport ring dropping snapshots is expected. Plugalyzer never opens
+an editor, so the tests need no display and no cameras. A warm run takes
+under 10 s.
+
+The host is not vendored or built. `cargo xtask fetch-test-host` downloads
+the Plugalyzer release zip pinned by version and SHA-256 in
+`xtask/src/host.rs` into `target/test-host`, and refuses one whose checksum
+differs. `host-test` fetches it first when it is missing. To run the tests
+locally:
+
+```sh
+cd daw
+cargo xtask host-test
+```
+
+On macOS this installs `ZVID Capture.component` into
+`~/Library/Audio/Plug-Ins/Components`, where the AudioComponent registry
+can find it, replacing any copy already there. Each host run's WAV output,
+state blobs, stdout, stderr and plugin log are left in `target/host-test`.
+To update Plugalyzer, change `HOST_VERSION` and each asset's `sha256`, from
+`gh release view --repo CrushedPixel/Plugalyzer --json assets`.
+
+#### Choosing the host
+
+| Host | Result |
+|---|---|
+| Plugalyzer 0.5.0 | **Chosen.** Prebuilt, self-contained CLI binaries for macOS (universal, 10 MB zip) and Windows (4 MB zip). They load VST3 and AU. `process` renders WAV to WAV offline at a chosen block size, and `state` saves a fresh instance's state or restores one. It can't save a state it just restored, hence the log line above. Loaded `ZVID Capture.vst3` on Windows and passed audio through sample for sample. |
+| Carla 2.5.10 | Rejected. Its releases are a 250 MB Windows zip and a 370 MB macOS dmg of the full GUI host. It has no one-shot offline render: `carla-single` runs a plugin as a live JACK client, and tests would need to script its engine through the Python backend with a real-time driver. That makes sample-exact checks at chosen block sizes impractical. |
+| In-repo Rust host | Fallback only. It would reuse the ABI definitions in `zvid-vst3` and `zvid-au`, so it would share their mistakes and miss real hosts' quirks. |
+
+### pluginval
+
+`cargo xtask validate` runs [pluginval](https://github.com/Tracktion/pluginval)
+against the built bundles, as the `daw` CI job does on macOS and Windows:
+
+```sh
+cd daw
+cargo xtask bundle
+# macOS only: Audio Units load only from the plug-in folders.
+cp -R "target/bundle/ZVID Capture.component" ~/Library/Audio/Plug-Ins/Components/
+cargo xtask validate
+```
+
+It validates `target/bundle/ZVID Capture.vst3` and, on macOS,
+`~/Library/Audio/Plug-Ins/Components/ZVID Capture.component`, or the bundles
+named on the command line. pluginval is Tracktion's prebuilt release,
+downloaded once to `target/tools` and checked against the SHA-256 pinned in
+`xtask`, so nothing is compiled. It runs at strictness level 10, the highest
+(5 is the usual host-compatibility bar), with the editor tests;
+`--strictness-level <n>` and `--skip-gui-tests` override that locally, but CI
+uses neither. Steinberg's VST3 validator isn't run, because it needs a C++
+SDK build; the `daw` job in `ci.yml` records why.
+
 ## Decisions
 
 Revise a decision only with a stated rationale, recorded here.
@@ -591,6 +709,7 @@ Revise a decision only with a stated rationale, recorded here.
 | Plugin identity | Name **"ZVID Capture"**, vendor **ZVID**. | The `/app` importer keys on the plugin name. |
 | VST3 binding | Hand-written minimal COM ABI in `zvid-vst3`. **Not** the `nih-plug`, `vst3-sys` or `vst3` crates. | `vst3-sys` is GPLv3, and the `vst3` crate is generated from SDK headers. Both break the "no SDK" rule. |
 | AU flavour | AUv2 (`.component`). | AUv3 needs an app-extension container, and Live loads AUv2 fine. |
+| Host integration tests | [Plugalyzer](https://github.com/CrushedPixel/Plugalyzer), a prebuilt release pinned by version and SHA-256, driven by `cargo xtask host-test`. See [Host integration tests](#host-integration-tests). | A real third-party host catches what the ABI unit tests can't. It is a small prebuilt download with an offline WAV render at chosen block sizes, and needs no C++ build. Carla is far heavier and has no offline render. |
 | UI host | `wry` (Tauri's webview layer) attached as a child of the host view (`NSView` / `HWND`). Not the full Tauri runtime. | Tauri wants to own the process and event loop, which a plugin can't do inside a host. `wry` gives us the same webview and IPC model. |
 | Frontend assets | Embedded in the binary and served over `zvid://`. | A single-file bundle, with no loose files beside the plugin. |
 | Live preview transport | Native capture is the single source. The UI gets downscaled JPEG frames (≤30 fps) over `zvid://preview`. | Avoids opening the camera twice (getUserMedia plus native), and works the same in WKWebView and WebView2. |
@@ -601,5 +720,5 @@ Revise a decision only with a stated rationale, recorded here.
 | Loop / relocate while playing | A backwards transport jump or a locate ends the current take and starts a new one. | Keeps each take linear on the timeline. |
 | Capture with no playback | Stored as an *unanchored* entry (`transportStartSec: null`). Listed in the UI, skipped by the importer. | Footage isn't lost, and nothing is placed on the timeline incorrectly. |
 | Filename | `video-{NN}-{M}-{D}-{HH}-{mm}-{ss}-{n}.mp4`. `NN` is a 2-digit per-instance capture counter, the date and time are local time at arm, and `n` is a collision counter starting at 0. | Matches the requested example `video-01-6-24-18-47-30-0.mp4`. |
-| Record root | `<set dir>/Recorded/ZVID` when detected, else `<Documents>/ZVID/Recorded`. The root kind is saved as `recordRoot`. | Portable, and the importer knows where to look. |
+| Record root | `<set dir>/Recorded/ZVID` when the companion reports a saved set at arm, else `<Documents>/ZVID/Recorded`. The root kind is saved per take as `recordRoot`, and the latest one at the top level. | Portable, and the importer knows where to look for each take, even when a set is saved after recording started. |
 | Record state and set path source | An optional Live MIDI Remote Script (`daw/live-remote-script`) reporting `Song.record_mode`, `session_record`, `is_playing` and `file_path` over localhost UDP. Without it, the plugin keeps its Record button and the Documents root. | VST3/AU report neither reliably; the LOM does, in every Live edition, without extra permissions. Max for Live needs Suite; Accessibility and window-title parsing are single-platform and fragile (#200). |

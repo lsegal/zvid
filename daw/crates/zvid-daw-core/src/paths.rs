@@ -41,13 +41,30 @@ impl RecordRoot {
         })
     }
 
+    /// The root a capture armed now records into: `<set dir>/Recorded/ZVID`
+    /// when the Live set's directory is known (see
+    /// [`crate::LiveStatus::set_dir`]), else `documents`, the instance's
+    /// Documents root. It is chosen once per capture, so a set saved or
+    /// moved mid-capture doesn't move the file.
+    pub fn for_capture(set_dir: Option<&Path>, documents: &RecordRoot) -> Self {
+        match set_dir {
+            Some(set_dir) => Self::project(set_dir),
+            None => documents.clone(),
+        }
+    }
+
+    /// `<set dir>/Recorded/ZVID`.
+    pub fn project(set_dir: &Path) -> Self {
+        Self {
+            kind: RecordRootKind::Project,
+            dir: set_dir.join("Recorded").join("ZVID"),
+        }
+    }
+
     /// [`RecordRoot::resolve`] with an explicit Documents directory.
     pub fn resolve_with(set_dir: Option<&Path>, documents: Option<&Path>) -> Option<Self> {
         match (set_dir, documents) {
-            (Some(set_dir), _) => Some(Self {
-                kind: RecordRootKind::Project,
-                dir: set_dir.join("Recorded").join("ZVID"),
-            }),
+            (Some(set_dir), _) => Some(Self::project(set_dir)),
             (None, Some(documents)) => Some(Self {
                 kind: RecordRootKind::Documents,
                 dir: documents.join("ZVID").join("Recorded"),
@@ -95,6 +112,40 @@ mod tests {
                 .join("Recorded")
                 .join("ZVID")
         );
+    }
+
+    #[test]
+    fn chooses_the_capture_root_from_the_live_status() {
+        use crate::LiveStatus;
+
+        let documents = RecordRoot::resolve_with(None, Some(Path::new("/docs"))).unwrap();
+        let choose = |status: Option<LiveStatus>| {
+            RecordRoot::for_capture(
+                status.and_then(|status| status.set_dir()).as_deref(),
+                &documents,
+            )
+        };
+        let set = |path: Option<&str>| {
+            Some(LiveStatus {
+                set_path: path.map(str::to_string),
+                ..LiveStatus::default()
+            })
+        };
+
+        // A saved set, reported by the companion.
+        let root = choose(set(Some("/music/Song Project/Song.als")));
+        assert_eq!(root.kind, RecordRootKind::Project);
+        assert_eq!(
+            root.dir,
+            Path::new("/music/Song Project")
+                .join("Recorded")
+                .join("ZVID")
+        );
+        // An unsaved set, a Live version without `Song.file_path`, or no
+        // companion at all.
+        assert_eq!(choose(set(None)), documents);
+        assert_eq!(choose(set(Some(""))), documents);
+        assert_eq!(choose(None), documents);
     }
 
     #[test]

@@ -64,12 +64,13 @@ use objc2_core_audio_types::{
 use objc2_foundation::NSString;
 use zvid_daw_core::swap::Swap;
 use zvid_daw_core::{
-    AudioTap, Command, ProcessSnapshot, Producer, RecordRoot, State, TakeChange, TakeFeed,
-    TapWriter, audio_tap, ring,
+    AudioTap, Command, ProcessSnapshot, Producer, RecordRoot, SharedLiveStatus, State, TakeChange,
+    TakeFeed, TapWriter, audio_tap, ring,
 };
 use zvid_daw_ui::{Backend, HostLink, instance_backend};
 
 use super::control::{Control, Inputs};
+use super::log::log;
 use super::{class_info, view};
 use crate::transport::{HostReading, host_ticks_to_sec, snapshot};
 
@@ -221,6 +222,9 @@ pub struct AudioUnitInstance {
     commands: Sender<Command>,
     /// Takes the control thread opens and closes, for the editor.
     takes: TakeFeed,
+    /// What the Live companion last reported, kept current by the control
+    /// thread, for the editor's record root.
+    live: SharedLiveStatus,
     /// The control thread's inputs while no control thread owns them.
     inputs: Mutex<Option<Inputs>>,
     /// Runs while the unit is initialized.
@@ -286,6 +290,7 @@ impl AudioUnitInstance {
             listeners: Mutex::new(Vec::new()),
             commands,
             takes: TakeFeed::default(),
+            live: SharedLiveStatus::default(),
             inputs: Mutex::new(Some(Inputs {
                 transport: transport_reader,
                 commands: command_reader,
@@ -339,8 +344,8 @@ impl AudioUnitInstance {
                             );
                         }
                     }),
-                    // The Live set's directory isn't known to the plugin yet.
-                    record_root: RecordRoot::resolve_or_temp(None),
+                    documents_root: RecordRoot::resolve_or_temp(None),
+                    live: self.live.clone(),
                     audio: self.take_audio_tap(),
                 })
             })
@@ -415,6 +420,7 @@ impl AudioUnitInstance {
                 inputs,
                 Arc::clone(&self.state),
                 self.takes.clone(),
+                self.live.clone(),
                 move || {
                     // SAFETY: the instance stops and joins the control thread
                     // before it is freed, so it outlives this call.
@@ -422,6 +428,8 @@ impl AudioUnitInstance {
                     // Hosts save ClassInfo, so this tells them the set changed.
                     instance.notify(kAudioUnitProperty_ClassInfo, kAudioUnitScope_Global, 0);
                 },
+                // SAFETY: as above.
+                move || unsafe { &*(instance as *const Self) }.backend(),
             );
         }
         0
@@ -748,6 +756,7 @@ impl AudioUnitInstance {
             Ok(restored) => {
                 if let Some(state) = restored.state {
                     *self.state() = state;
+                    log(&format!("restored state: {}", self.state().summary()));
                 }
                 *lock(&self.preset) = Preset {
                     number: -1,
@@ -758,7 +767,10 @@ impl AudioUnitInstance {
                 self.notify(kAudioUnitProperty_PresentPreset, kAudioUnitScope_Global, 0);
                 0
             }
-            Err(status) => status,
+            Err(status) => {
+                log(&format!("ignoring unreadable ClassInfo ({status})"));
+                status
+            }
         }
     }
 
@@ -967,13 +979,14 @@ impl AudioUnitInstance {
 
 impl Drop for AudioUnitInstance {
     fn drop(&mut self) {
+        // `Close` may come without `Uninitialize`. The control thread may
+        // start the backend, so it stops first.
+        self.stop_control();
         // Editors may outlive the unit; the capture must not.
         if let Some(backend) = self.backend.get() {
             backend.shutdown();
         }
         *lock(&self.alive) = 0;
-        // `Close` may come without `Uninitialize`.
-        self.stop_control();
     }
 }
 
@@ -1611,6 +1624,7 @@ mod tests {
             .send(Command::Arm {
                 capture: zvid_daw_core::Capture {
                     filename: "video-01-9-25-20-36-12-0.mp4".to_string(),
+                    record_root: zvid_daw_core::RecordRootKind::Documents,
                     dimensions: [1280, 720],
                     fps: [30, 1],
                     camera: "Cam".to_string(),

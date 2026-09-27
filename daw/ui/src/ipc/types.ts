@@ -45,12 +45,20 @@ export type UiError = {
   message: string;
 };
 
+/** What the Live companion script reports while it is connected. */
+export type LiveInfo = {
+  /** Either of Live's record buttons is on. */
+  recordArmed: boolean;
+};
+
 export type Status = {
   phase: Phase;
   cameraId: string | null;
   format: VideoFormat | null;
   capture: CaptureInfo | null;
   error: UiError | null;
+  /** The Live companion, or null while it isn't connected. */
+  live: LiveInfo | null;
 };
 
 export type TakeInfo = {

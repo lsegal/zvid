@@ -8,7 +8,7 @@ use zvid_capture::{
     CaptureError, ColorInfo, DeviceId, Format, Frame, HostTime, PixelFormat, Rotation, Selection,
     SessionStats, Transport,
 };
-use zvid_daw_core::{LocalTime, Recording, TapWriter, audio_tap};
+use zvid_daw_core::{LiveStatus, LocalTime, Recording, TapWriter, audio_tap};
 use zvid_daw_ui::Phase;
 
 use super::*;
@@ -279,6 +279,8 @@ struct Rig {
     takes: Sender<TakeChange>,
     dirty: Arc<AtomicU32>,
     root: RecordRoot,
+    /// The format layer's view of the Live companion.
+    live: SharedLiveStatus,
     /// The format layer's side of the audio tap.
     tap: Option<Mutex<TapWriter>>,
 }
@@ -305,6 +307,7 @@ impl Rig {
         let dirty = Arc::new(AtomicU32::new(0));
         let counter = Arc::clone(&dirty);
         let root = RecordRoot::resolve_with(None, Some(std::path::Path::new("/nowhere"))).unwrap();
+        let live = SharedLiveStatus::default();
         let platform: Arc<dyn Platform> = fake.clone();
         let (tap, audio) = if tapped {
             let (writer, reader) = audio_tap(1 << 12);
@@ -321,7 +324,8 @@ impl Rig {
                 state_changed: Box::new(move || {
                     counter.fetch_add(1, Ordering::Relaxed);
                 }),
-                record_root: root.clone(),
+                documents_root: root.clone(),
+                live: live.clone(),
                 audio,
             },
             stall,
@@ -334,6 +338,7 @@ impl Rig {
             takes,
             dirty,
             root,
+            live,
             tap,
         };
         wait_for("the camera list", || rig.backend.cameras().len() == 3);
@@ -405,6 +410,46 @@ fn recording(id: &str, filename: &str) -> Recording {
         "createdAt": "2026-09-25T20:36:12Z",
     }))
     .unwrap()
+}
+
+#[test]
+fn follows_the_live_companion() {
+    let rig = Rig::new(State::default());
+    assert_eq!(rig.backend.status().live, None);
+    let before = rig.named("status").len();
+    let status = |record_mode, session_record| LiveStatus {
+        record_mode,
+        session_record,
+        ..LiveStatus::default()
+    };
+
+    rig.live.set(Some(status(false, false)));
+    let statuses = rig.wait_for_event("status", before + 1);
+    assert_eq!(
+        statuses[before]["payload"]["live"],
+        serde_json::json!({ "recordArmed": false })
+    );
+
+    rig.live.set(Some(status(false, true)));
+    let statuses = rig.wait_for_event("status", before + 2);
+    assert_eq!(statuses[before + 1]["payload"]["live"]["recordArmed"], true);
+    assert_eq!(
+        rig.backend.status().live,
+        Some(LiveInfo { record_armed: true })
+    );
+
+    // Changes the editor doesn't show send nothing.
+    rig.live.set(Some(LiveStatus {
+        is_playing: true,
+        ..status(true, false)
+    }));
+    rig.settle();
+    assert_eq!(rig.named("status").len(), before + 2);
+
+    rig.live.set(None);
+    let statuses = rig.wait_for_event("status", before + 3);
+    assert_eq!(statuses[before + 2]["payload"]["live"], Value::Null);
+    assert_eq!(rig.backend.status().live, None);
 }
 
 #[test]
@@ -483,6 +528,8 @@ fn walks_through_ready_capturing_and_ready() {
     assert_eq!(capture.fps, [30, 1]);
     assert_eq!(capture.camera, "Logitech BRIO");
     assert!(capture.created_at.ends_with('Z'));
+    // Without the Live companion, captures go to Documents.
+    assert_eq!(capture.record_root, RecordRootKind::Documents);
     let config = lock(&rig.fake.configs)[0].clone();
     assert_eq!((config.counter, config.fps), (1, Rational::new(30, 1)));
     assert_eq!(config.root, rig.root);
@@ -689,6 +736,80 @@ fn an_unanchored_capture_only_announces_its_close() {
     rig.takes.send(TakeChange::Closed(take)).unwrap();
     rig.wait_for_event("takeClosed", 1);
     assert!(rig.named("takeOpened").is_empty());
+}
+
+fn live_set(path: Option<&str>) -> Option<LiveStatus> {
+    Some(LiveStatus {
+        set_path: path.map(str::to_string),
+        ..LiveStatus::default()
+    })
+}
+
+#[test]
+fn records_into_the_live_set_directory() {
+    let rig = Rig::new(State::default());
+    rig.backend.select_camera("usb-1").unwrap();
+    rig.live.set(live_set(Some("/music/Song Project/Song.als")));
+    rig.backend.arm().unwrap();
+    let Command::Arm { capture, .. } = rig.next_command() else {
+        panic!("expected an arm");
+    };
+    assert_eq!(capture.record_root, RecordRootKind::Project);
+    let project = RecordRoot::project(std::path::Path::new("/music/Song Project"));
+    assert_eq!(lock(&rig.fake.configs)[0].root, project);
+
+    // Saving elsewhere mid-capture doesn't move the capture.
+    rig.live.set(live_set(Some("/elsewhere/Song.als")));
+    assert_eq!(lock(&rig.fake.configs).len(), 1);
+    assert_eq!(lock(&rig.fake.configs)[0].root, project);
+}
+
+#[test]
+fn an_unsaved_set_records_to_documents() {
+    let rig = Rig::new(State::default());
+    rig.backend.select_camera("usb-1").unwrap();
+    rig.live.set(live_set(None));
+    rig.backend.arm().unwrap();
+    let Command::Arm { capture, .. } = rig.next_command() else {
+        panic!("expected an arm");
+    };
+    assert_eq!(capture.record_root, RecordRootKind::Documents);
+    assert_eq!(lock(&rig.fake.configs)[0].root, rig.root);
+}
+
+#[test]
+fn finds_each_take_under_its_own_root() {
+    let project = |filename: &str| Recording {
+        record_root: Some(RecordRootKind::Project),
+        ..recording(filename, filename)
+    };
+    let rig = Rig::new(State {
+        record_root: RecordRootKind::Project,
+        recordings: vec![
+            // Saved before roots were kept per entry: the state's root.
+            recording("old.mp4", "old.mp4"),
+            Recording {
+                record_root: Some(RecordRootKind::Documents),
+                ..recording("docs.mp4", "docs.mp4")
+            },
+            project("set.mp4"),
+        ],
+        ..State::default()
+    });
+    let path = |id: &str| rig.backend.take_file(id).unwrap().path;
+    assert_eq!(path("docs.mp4"), rig.root.dir.join("docs.mp4"));
+
+    rig.live.set(live_set(Some("/music/Song Project/Song.als")));
+    let set_root = RecordRoot::project(std::path::Path::new("/music/Song Project"));
+    assert_eq!(path("old.mp4"), set_root.dir.join("old.mp4"));
+    assert_eq!(path("set.mp4"), set_root.dir.join("set.mp4"));
+    assert_eq!(path("docs.mp4"), rig.root.dir.join("docs.mp4"));
+
+    // A capture remembers its project root for when the companion goes.
+    rig.backend.select_camera("usb-1").unwrap();
+    rig.backend.arm().unwrap();
+    rig.live.set(None);
+    assert_eq!(path("set.mp4"), set_root.dir.join("set.mp4"));
 }
 
 #[test]

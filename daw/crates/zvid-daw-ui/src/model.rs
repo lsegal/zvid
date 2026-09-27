@@ -5,7 +5,7 @@ use std::fmt;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
-use zvid_daw_core::{RecordRoot, Recording, State};
+use zvid_daw_core::{LiveStatus, RecordRoot, Recording, State};
 
 /// How a camera is attached, shown as the secondary line in the camera menu.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -64,6 +64,24 @@ pub struct CaptureInfo {
     pub dropped_frames: u64,
 }
 
+/// What the Live companion script reports while it is connected. The
+/// capture card then follows Live's record buttons instead of offering its
+/// own Record button.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveInfo {
+    /// Either of Live's record buttons is on.
+    pub record_armed: bool,
+}
+
+impl LiveInfo {
+    pub fn from_status(status: &LiveStatus) -> Self {
+        Self {
+            record_armed: status.record_armed(),
+        }
+    }
+}
+
 /// Everything the header, preview and capture card render from.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -73,6 +91,8 @@ pub struct Status {
     pub format: Option<VideoFormat>,
     pub capture: Option<CaptureInfo>,
     pub error: Option<UiError>,
+    /// The Live companion, or `None` while it isn't connected.
+    pub live: Option<LiveInfo>,
 }
 
 /// One card in the takes list.
@@ -111,13 +131,17 @@ impl TakeInfo {
     }
 }
 
-/// The takes list for a plugin state, newest first.
-pub fn takes_from_state(state: &State, root: &RecordRoot) -> Vec<TakeInfo> {
+/// The takes list for a plugin state, newest first. `root_of` gives the
+/// record root each recording's file is under.
+pub fn takes_from_state(
+    state: &State,
+    root_of: impl Fn(&Recording) -> RecordRoot,
+) -> Vec<TakeInfo> {
     let mut takes: Vec<TakeInfo> = state
         .recordings
         .iter()
         .rev()
-        .map(|recording| TakeInfo::from_recording(recording, root))
+        .map(|recording| TakeInfo::from_recording(recording, &root_of(recording)))
         .collect();
     // RFC 3339 UTC timestamps sort lexically; the stable sort keeps later
     // entries first when several share a timestamp.
@@ -235,7 +259,7 @@ mod tests {
             ],
             ..State::default()
         };
-        let takes = takes_from_state(&state, &root);
+        let takes = takes_from_state(&state, |_| root.clone());
         let ids: Vec<&str> = takes.iter().map(|take| take.id.as_str()).collect();
         assert_eq!(ids, ["b", "c", "a"]);
         assert!(!takes[0].missing);
@@ -267,13 +291,17 @@ mod tests {
                 dropped_frames: 3,
             }),
             error: None,
+            live: Some(LiveInfo { record_armed: true }),
         }))
         .unwrap();
         assert_eq!(json["event"], "status");
         assert_eq!(json["payload"]["phase"], "capturing");
+        assert_eq!(json["payload"]["live"]["recordArmed"], true);
         assert_eq!(json["payload"]["cameraId"], "cam");
         assert_eq!(json["payload"]["capture"]["elapsedMs"], 5000);
         assert_eq!(json["payload"]["capture"]["droppedFrames"], 3);
+        let json = serde_json::to_value(Status::default()).unwrap();
+        assert_eq!(json["live"], serde_json::Value::Null);
         let json = serde_json::to_value(UiEvent::CamerasChanged(vec![Camera {
             id: "1".into(),
             name: "iPhone".into(),
