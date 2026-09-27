@@ -321,6 +321,7 @@ impl Component {
             .and_then(|json| State::from_json(json).map_err(|error| error.to_string()));
         match parsed {
             Ok(state) => {
+                log(&format!("restored state: {}", state.summary()));
                 *lock(&self.state) = state;
                 OK
             }

@@ -168,6 +168,17 @@ impl State {
         Ok(serde_json::from_str(json)?)
     }
 
+    /// What the format layers log when a host restores this state: the take
+    /// count and the size of the JSON the plugin saves back. `cargo xtask
+    /// host-test` looks for it, since CLI hosts can't read a state back.
+    pub fn summary(&self) -> String {
+        format!(
+            "{} takes, {} bytes",
+            self.recordings.len(),
+            self.to_json().len()
+        )
+    }
+
     /// Uppercase hex of the JSON bytes, as stored in VST3 `ProcessorState`.
     pub fn to_hex(&self) -> String {
         const DIGITS: &[u8; 16] = b"0123456789ABCDEF";
@@ -382,5 +393,15 @@ mod tests {
         assert!(!state.recordings[0].is_unanchored());
         assert!(state.recordings[1].is_unanchored());
         assert!(state.extra.contains_key("futureKey"));
+    }
+
+    #[test]
+    fn summarizes_takes_and_saved_size() {
+        assert_eq!(State::default().summary(), format!("0 takes, {} bytes", State::default().to_json().len()));
+        let state = State::from_json(FIXTURE_JSON).unwrap();
+        assert_eq!(
+            state.summary(),
+            format!("2 takes, {} bytes", FIXTURE_HEX.trim().len() / 2)
+        );
     }
 }
