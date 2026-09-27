@@ -1,10 +1,11 @@
 name: DAW bundles
 
-# Release ZVID Capture bundles for every merge to main, uploaded as workflow
-# artifacts. Pull requests that touch /daw build the same bundles, so a broken
-# x86_64 slice, release-only build or bundle layout fails the PR rather than
-# main; PR runs upload nothing. Signing, notarization and installers come later
-# (#201).
+# Release ZVID Capture bundles and installers for every merge to main,
+# uploaded as workflow artifacts. Pull requests that touch /daw build the same
+# bundles and installers, so a broken x86_64 slice, release-only build or
+# bundle layout fails the PR rather than main; PR runs upload nothing. macOS
+# builds are Developer ID signed and notarized when the Apple secrets below are
+# configured, and ad-hoc signed otherwise.
 on:
   push:
     branches:
@@ -80,12 +81,67 @@ jobs:
           workspaces: daw -> target
           save-if: ${{ github.event_name != 'pull_request' }}
 
+      # Imports the Developer ID Application and Installer certificates into a
+      # temporary keychain and exports their identities for `cargo xtask
+      # bundle`. Without the secrets the bundles stay ad-hoc signed and the
+      # installer unsigned.
+      - name: Import signing certificates (macOS)
+        id: signing
+        if: runner.os == 'macOS'
+        env:
+          APPLICATION_P12: ${{ secrets.MACOS_DEVELOPER_ID_APPLICATION_P12 }}
+          INSTALLER_P12: ${{ secrets.MACOS_DEVELOPER_ID_INSTALLER_P12 }}
+          P12_PASSWORD: ${{ secrets.MACOS_CERTIFICATES_PASSWORD }}
+        run: |
+          if [ -z "$APPLICATION_P12" ] || [ -z "$INSTALLER_P12" ]; then
+            echo "::notice::Apple signing secrets are not set; building ad-hoc signed bundles and an unsigned installer"
+            exit 0
+          fi
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          password=$(uuidgen)
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          for p12 in "$APPLICATION_P12" "$INSTALLER_P12"; do
+            echo "$p12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+            security import "$RUNNER_TEMP/certificate.p12" -k "$keychain" -P "$P12_PASSWORD" \
+              -T /usr/bin/codesign -T /usr/bin/productbuild -T /usr/bin/pkgbuild
+          done
+          rm -f "$RUNNER_TEMP/certificate.p12"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$password" "$keychain" > /dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          identity() {
+            security find-identity -v "$keychain" | sed -n "s/.*\"\($1: .*\)\"/\1/p" | head -n 1
+          }
+          application=$(identity "Developer ID Application")
+          installer=$(identity "Developer ID Installer")
+          if [ -z "$application" ] || [ -z "$installer" ]; then
+            echo "::error::the certificates lack a Developer ID Application or Installer identity"
+            exit 1
+          fi
+          echo "ZVID_CODESIGN_IDENTITY=$application" >> "$GITHUB_ENV"
+          echo "ZVID_INSTALLER_IDENTITY=$installer" >> "$GITHUB_ENV"
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Install Inno Setup (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          if [ ! -f "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" ] && ! command -v iscc > /dev/null; then
+            choco install innosetup --no-progress -y
+          fi
+
+      # Notarizes only when the installer is signed; without a signing
+      # identity the notary secrets are left out.
       - name: Bundle
+        env:
+          ZVID_NOTARY_APPLE_ID: ${{ steps.signing.outputs.signed && secrets.APPLE_ID || '' }}
+          ZVID_NOTARY_TEAM_ID: ${{ steps.signing.outputs.signed && secrets.APPLE_TEAM_ID || '' }}
+          ZVID_NOTARY_PASSWORD: ${{ steps.signing.outputs.signed && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
         run: |
           if [ "$RUNNER_OS" = macOS ]; then
-            cargo xtask bundle --release --universal
+            cargo xtask bundle --release --universal --installer
           else
-            cargo xtask bundle --release
+            cargo xtask bundle --release --installer
           fi
 
       - name: Name the artifact
@@ -115,23 +171,57 @@ jobs:
             done
           done
 
-      # Installs the release .component for the runner user and runs Apple's
-      # AU validation against it.
-      - name: Validate Audio Unit (auval)
+      # Installs the .pkg as a user would, checks both bundles landed in
+      # /Library/Audio/Plug-Ins with valid signatures, and runs Apple's AU
+      # validation against the installed component.
+      - name: Install and validate (macOS)
         if: runner.os == 'macOS'
+        env:
+          SIGNED: ${{ steps.signing.outputs.signed }}
+          NOTARIZED: ${{ steps.signing.outputs.signed && secrets.APPLE_ID != '' }}
         run: |
-          components="$HOME/Library/Audio/Plug-Ins/Components"
-          mkdir -p "$components"
-          rm -rf "$components/ZVID Capture.component"
-          cp -R "target/bundle/ZVID Capture.component" "$components/"
+          pkg=$(ls target/installer/*.pkg)
+          if [ "$SIGNED" = true ]; then
+            pkgutil --check-signature "$pkg"
+          fi
+          if [ "$NOTARIZED" = true ]; then
+            spctl --assess --type install --verbose "$pkg"
+          fi
+          sudo installer -pkg "$pkg" -target /
+          for bundle in "/Library/Audio/Plug-Ins/VST3/ZVID Capture.vst3" \
+                        "/Library/Audio/Plug-Ins/Components/ZVID Capture.component"; do
+            test -f "$bundle/Contents/MacOS/ZVID Capture"
+            codesign --verify --strict --verbose=2 "$bundle"
+          done
           killall -9 AudioComponentRegistrar 2>/dev/null || true
           auval -a | grep ZVcp
           auval -v aufx ZVcp ZVID
 
+      # Runs the installer silently, checks the bundle landed in the shared
+      # VST3 folder, then uninstalls it and checks it is gone.
+      - name: Install and uninstall (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem target/installer/*-setup.exe | Select-Object -First 1
+          $flags = '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'
+          $process = Start-Process $setup.FullName -ArgumentList $flags -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "setup exited with $($process.ExitCode)" }
+          $bundle = Join-Path $env:CommonProgramFiles 'VST3\ZVID Capture.vst3'
+          foreach ($file in 'Contents\x86_64-win\ZVID Capture.vst3', 'Contents\Resources\moduleinfo.json') {
+            if (-not (Test-Path (Join-Path $bundle $file))) { throw "$file was not installed" }
+          }
+          # The uninstaller relaunches itself from a temporary copy, so wait
+          # for the bundle to disappear rather than for the process.
+          $uninstaller = Join-Path $env:ProgramFiles 'ZVID Capture\unins000.exe'
+          Start-Process $uninstaller -ArgumentList $flags -Wait
+          for ($i = 0; $i -lt 60 -and (Test-Path $bundle); $i++) { Start-Sleep -Seconds 1 }
+          if (Test-Path $bundle) { throw "uninstalling left $bundle behind" }
+
       # ditto keeps the bundles' symlinks, permissions and signatures, which
       # the artifact upload's own zip would not. It archives one source, so
-      # both bundles and the Live Remote Script go into a folder that becomes
-      # the zip's top level.
+      # both bundles, the installer and the Live Remote Script go into a
+      # folder that becomes the zip's top level.
       - name: Zip (macOS)
         if: runner.os == 'macOS'
         working-directory: daw/target
@@ -141,6 +231,7 @@ jobs:
           ditto "bundle/ZVID Capture.vst3" "dist/$name/ZVID Capture.vst3"
           ditto "bundle/ZVID Capture.component" "dist/$name/ZVID Capture.component"
           ditto "bundle/live-remote-script" "dist/$name/live-remote-script"
+          cp installer/*.pkg "dist/$name/"
           ditto -c -k --keepParent "dist/$name" "dist/$name.zip"
           unzip -l "dist/$name.zip"
 
@@ -150,7 +241,7 @@ jobs:
         run: |
           rm -rf dist && mkdir -p dist
           cd bundle
-          7z a -tzip "../dist/${{ steps.name.outputs.name }}.zip" "ZVID Capture.vst3" live-remote-script
+          7z a -tzip "../dist/${{ steps.name.outputs.name }}.zip" "ZVID Capture.vst3" live-remote-script ../installer/*-setup.exe
           7z l "../dist/${{ steps.name.outputs.name }}.zip"
 
       # PRs only check that the bundles build and package; artifacts come
