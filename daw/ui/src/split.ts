@@ -29,10 +29,7 @@ export function dragSideFraction(
 }
 
 /** The side fraction a key press on the handle moves to, or `null`. */
-export function keySideFraction(
-  fraction: number,
-  key: string,
-): number | null {
+export function keySideFraction(fraction: number, key: string): number | null {
   switch (key) {
     case "ArrowLeft":
       return clampSideFraction(fraction + SIDE_KEY_STEP);

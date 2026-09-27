@@ -619,18 +619,6 @@ button {
   scrollbar-color: var(--bg-soft) transparent;
 }
 
-/* Near the minimum window width, shrink the thumbnail so dates still fit. */
-@container takes (max-width: 300px) {
-  .take-card {
-    grid-template-columns: 64px minmax(0, 1fr) auto;
-    gap: 8px;
-  }
-
-  .take-media {
-    width: 64px;
-  }
-}
-
 .take-card {
   flex: none;
   display: grid;
@@ -703,6 +691,36 @@ button {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+/* These follow the base take rules so they win. In a narrow side column,
+   shrink the thumbnail so dates still fit. */
+@container takes (max-width: 300px) {
+  .take-card {
+    grid-template-columns: 64px minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+
+  .take-media {
+    width: 64px;
+  }
+}
+
+/* Narrower still (the default 30% column at the default window size), put
+   the details under the thumbnail so they get the card's full width. */
+@container takes (max-width: 240px) {
+  .take-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .take-media {
+    width: 100%;
+  }
+
+  .take-details {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
 }
 
 .badge {
