@@ -397,7 +397,10 @@ mod tests {
 
     #[test]
     fn summarizes_takes_and_saved_size() {
-        assert_eq!(State::default().summary(), format!("0 takes, {} bytes", State::default().to_json().len()));
+        assert_eq!(
+            State::default().summary(),
+            format!("0 takes, {} bytes", State::default().to_json().len())
+        );
         let state = State::from_json(FIXTURE_JSON).unwrap();
         assert_eq!(
             state.summary(),

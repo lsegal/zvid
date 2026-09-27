@@ -748,8 +748,8 @@ impl AudioUnitInstance {
         match class_info::restore(object) {
             Ok(restored) => {
                 if let Some(state) = restored.state {
-                    log(&format!("restored state: {}", state.summary()));
                     *self.state() = state;
+                    log(&format!("restored state: {}", self.state().summary()));
                 }
                 *lock(&self.preset) = Preset {
                     number: -1,
