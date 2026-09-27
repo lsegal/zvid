@@ -857,6 +857,7 @@ fn play_spans_while_armed_become_saved_takes() {
         .send(Command::Arm {
             capture: zvid_daw_core::Capture {
                 filename: "video-01-9-25-20-36-12-0.mp4".to_string(),
+                record_root: zvid_daw_core::RecordRootKind::Documents,
                 dimensions: [1280, 720],
                 fps: [30, 1],
                 camera: "Cam".to_string(),

@@ -13,6 +13,7 @@
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex, MutexGuard};
 
+use crate::paths::RecordRootKind;
 use crate::state::{Recording, RecordingMeta, State};
 use crate::tracker::{Event, Input, Take, TakeTracker, TransportSnapshot};
 
@@ -22,6 +23,8 @@ use crate::tracker::{Event, Input, Take, TakeTracker, TransportSnapshot};
 pub struct Capture {
     /// File name relative to the record root.
     pub filename: String,
+    /// The record root chosen at arm.
+    pub record_root: RecordRootKind,
     /// `[width, height]` in pixels.
     pub dimensions: [u32; 2],
     /// Frame rate as a `[numerator, denominator]` fraction.
@@ -174,6 +177,7 @@ impl TakeLog {
                         index: self.takes - 1,
                         id: recording.id.clone(),
                     });
+                    state.record_root = recording.record_root_or(state.record_root);
                     state.recordings.push(recording);
                 }
                 Event::TakeClosed(take) => {
@@ -193,6 +197,7 @@ impl TakeLog {
                         // The state was replaced mid-take (a preset or undo
                         // load); the take still belongs in it.
                         None => {
+                            state.record_root = finished.record_root_or(state.record_root);
                             state.recordings.push(finished.clone());
                             finished
                         }
@@ -224,6 +229,7 @@ impl TakeLog {
             RecordingMeta {
                 id,
                 filename: capture.filename.clone(),
+                record_root: capture.record_root,
                 dimensions: capture.dimensions,
                 fps: capture.fps,
                 camera: capture.camera.clone(),

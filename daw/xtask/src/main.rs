@@ -23,10 +23,16 @@
 //!   Remote Script into `<User Library>/Remote Scripts/ZVID_Capture`,
 //!   replacing any older copy. The User Library defaults to Live's own
 //!   default location for the OS.
+//! - `fetch-test-host`: downloads the pinned, checksummed CLI plugin host the
+//!   host tests run in to `target/test-host` and prints its path.
+//! - `host-test`: bundles the plugin and runs the host integration tests in
+//!   [`host`] against the `.vst3` and, on macOS, the `.component`.
 
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
+
+mod host;
 
 use zvid_au::component;
 use zvid_daw_core::{BUILD_VERSION_ENV, PLUGIN_NAME};
@@ -123,12 +129,31 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        Some("fetch-test-host") => match host::fetch_test_host(&target_dir(&daw_root())) {
+            Ok(path) => {
+                println!("{}", path.display());
+                ExitCode::SUCCESS
+            }
+            Err(problem) => {
+                eprintln!("error: {problem}");
+                ExitCode::FAILURE
+            }
+        },
+        Some("host-test") => match host_test() {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(problem) => {
+                eprintln!("error: {problem}");
+                ExitCode::FAILURE
+            }
+        },
         _ => {
             eprintln!(
                 "usage: cargo xtask check \
                  | cargo xtask bundle [--release] [--universal] [--installer] \
                  | cargo xtask install-live-script [--user-library <path>] \
-                 | cargo xtask check-live [<Live.app>]"
+                 | cargo xtask check-live [<Live.app>] \
+                 | cargo xtask fetch-test-host \
+                 | cargo xtask host-test"
             );
             ExitCode::FAILURE
         }
@@ -140,6 +165,29 @@ fn daw_root() -> PathBuf {
         .parent()
         .expect("xtask lives inside /daw")
         .to_path_buf()
+}
+
+/// Cargo's target directory: `CARGO_TARGET_DIR`, else `daw/target`.
+fn target_dir(daw: &Path) -> PathBuf {
+    std::env::var_os("CARGO_TARGET_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| daw.join("target"))
+}
+
+/// Bundles the plugin and runs the host integration tests against it.
+fn host_test() -> Result<(), String> {
+    let bundles = bundle(false, false, false)?;
+    let extension = |ext: &str| {
+        bundles
+            .iter()
+            .find(|path| path.extension().is_some_and(|found| found == ext))
+    };
+    let vst3 = extension("vst3").ok_or("bundling wrote no .vst3")?;
+    host::host_test(
+        &target_dir(&daw_root()),
+        vst3,
+        extension("component").map(PathBuf::as_path),
+    )
 }
 
 fn check(daw: &Path) -> Result<(), Vec<String>> {
@@ -191,9 +239,7 @@ fn bundle(release: bool, universal: bool, installer: bool) -> Result<Vec<PathBuf
     } else {
         env!("CARGO_PKG_VERSION").to_string()
     };
-    let target = std::env::var_os("CARGO_TARGET_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| daw.join("target"));
+    let target = target_dir(&daw);
     let library = if universal {
         let mut slices = Vec::new();
         for triple in UNIVERSAL_TARGETS {

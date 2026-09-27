@@ -1,6 +1,7 @@
 //! A scripted [`Backend`] for the harness and tests. It has no camera or
 //! host: cameras are canned, the transport is driven by
-//! [`MockBackend::set_playing`], and preview frames are a test pattern.
+//! [`MockBackend::set_playing`], the Live companion by
+//! [`MockBackend::set_live`], and preview frames are a test pattern.
 //!
 //! Two cameras fail on purpose so the error states can be exercised:
 //! [`DENIED_CAMERA`] (permission denied) and [`BUSY_CAMERA`] (in use).
@@ -14,8 +15,8 @@ use crate::backend::Backend;
 use crate::channels::Channels;
 use crate::image::encode_rgb;
 use crate::model::{
-    Camera, CaptureInfo, ErrorCode, Phase, Status, TakeFile, TakeInfo, Transport, UiError, UiEvent,
-    VideoFormat, takes_from_state,
+    Camera, CaptureInfo, ErrorCode, LiveInfo, Phase, Status, TakeFile, TakeInfo, Transport,
+    UiError, UiEvent, VideoFormat, takes_from_state,
 };
 
 pub const DENIED_CAMERA: &str = "mock-denied";
@@ -42,6 +43,7 @@ struct Inner {
     next_take: u32,
     frame: u64,
     song_beats: f64,
+    live: Option<LiveInfo>,
 }
 
 struct Capture {
@@ -73,6 +75,7 @@ impl MockBackend {
                 next_take: 1,
                 frame: 0,
                 song_beats: 64.0,
+                live: None,
             }),
         }
     }
@@ -120,6 +123,18 @@ impl MockBackend {
             }
             _ => {}
         }
+    }
+
+    /// Simulates the Live companion connecting (`Some`), changing Live's
+    /// record buttons, or going away (`None`).
+    pub fn set_live(&self, live: Option<LiveInfo>) {
+        let mut inner = self.inner();
+        if inner.live == live {
+            return;
+        }
+        inner.live = live;
+        drop(inner);
+        self.emit_status();
     }
 
     /// Whether a capture is running.
@@ -325,11 +340,12 @@ impl Backend for MockBackend {
                 dropped_frames: capture.armed_at.elapsed().as_secs() / 10,
             }),
             error: inner.error.clone(),
+            live: inner.live,
         }
     }
 
     fn takes(&self) -> Vec<TakeInfo> {
-        takes_from_state(&self.inner().state, &self.root)
+        takes_from_state(&self.inner().state, |_| self.root.clone())
     }
 
     fn take_file(&self, id: &str) -> Option<TakeFile> {
@@ -506,6 +522,29 @@ mod tests {
             .collect();
         assert_eq!(names.iter().filter(|name| *name == "takeOpened").count(), 2);
         assert_eq!(names.iter().filter(|name| *name == "takeClosed").count(), 2);
+    }
+
+    #[test]
+    fn reports_the_live_companion() {
+        let backend = backend();
+        assert_eq!(backend.status().live, None);
+        let armed = Some(LiveInfo { record_armed: true });
+        backend.set_live(armed);
+        backend.set_live(armed);
+        assert_eq!(backend.status().live, armed);
+        backend.set_live(None);
+        assert_eq!(backend.status().live, None);
+        let lives: Vec<serde_json::Value> = events(&backend, 0)
+            .iter()
+            .map(|event| event["payload"]["live"].clone())
+            .collect();
+        assert_eq!(
+            lives,
+            [
+                serde_json::json!({ "recordArmed": true }),
+                serde_json::Value::Null
+            ]
+        );
     }
 
     #[test]
