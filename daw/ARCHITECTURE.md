@@ -520,8 +520,10 @@ needs Inno Setup 6 on Windows (`ISCC` may name its `ISCC.exe`).
   version replaces the whole bundle.
 
 Neither installs the Live companion Remote Script, which lives in each user's
-Live User Library; see
-[`live-remote-script/README.md`](live-remote-script/README.md#install).
+Live User Library. Instead each bundle carries a copy in
+`Contents/Resources/ZVID_Capture`, and the editor's **Install Live
+companion** button copies it into the User Library (`zvid-daw-ui::live_script`);
+see [`live-remote-script/README.md`](live-remote-script/README.md#install).
 
 ### Signing and notarization
 
@@ -586,8 +588,9 @@ xattr -dr com.apple.quarantine /Library/Audio/Plug-Ins/VST3/"ZVID Capture.vst3" 
   /Library/Audio/Plug-Ins/Components/"ZVID Capture.component"
 ```
 
-For Ableton Live, optionally install `live-remote-script/ZVID_Capture` too;
-see [`live-remote-script/README.md`](live-remote-script/README.md#install).
+For Ableton Live, optionally install the companion Remote Script too, with
+the plugin's **Install Live companion** button or by hand; see
+[`live-remote-script/README.md`](live-remote-script/README.md#install).
 
 ### Live 12 end-to-end checklist
 

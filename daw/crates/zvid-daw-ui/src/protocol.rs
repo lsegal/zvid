@@ -263,6 +263,20 @@ impl Protocol {
                     })?;
                 Ok(Value::Null)
             }
+            "installLiveScript" => {
+                let path = self.desktop.install_live_script().map_err(|error| {
+                    let code = if error.kind() == std::io::ErrorKind::NotFound {
+                        ErrorCode::NotFound
+                    } else {
+                        ErrorCode::Internal
+                    };
+                    UiError::new(
+                        code,
+                        format!("couldn't install the Live companion: {error}"),
+                    )
+                })?;
+                Ok(serde_json::json!({ "path": path.to_string_lossy() }))
+            }
             _ => Err(UiError::new(
                 ErrorCode::InvalidRequest,
                 format!("unknown command {command}"),

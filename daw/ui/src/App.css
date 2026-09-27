@@ -696,6 +696,22 @@ button {
   white-space: nowrap;
 }
 
+.footer-end {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+}
+
+.footer-action {
+  font-size: 11px;
+}
+
+.footer-action:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
 .footer-dropped {
   color: var(--amber);
 }

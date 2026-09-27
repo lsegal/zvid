@@ -11,6 +11,7 @@ import {
   type AppState,
   captureElapsed,
   initialState,
+  LIVE_SCRIPT_INSTALLED,
   reducer,
   selectedCamera,
 } from "./state.ts";
@@ -205,7 +206,30 @@ export function App({ client }: { client: Client }) {
             </span>
           )}
         </span>
-        <span className="mono">v{client.config.version} · ZVID</span>
+        <span className="footer-end">
+          {state.loaded && !status.live && (
+            <button
+              type="button"
+              className="link-button footer-action"
+              aria-busy={state.busy === "installScript"}
+              disabled={state.busy === "installScript"}
+              title="Copy the Live companion script into Live's User Library, so Live's record buttons arm capture"
+              onClick={() =>
+                void run("installScript", async () => {
+                  await client.invoke("installLiveScript");
+                  dispatch({
+                    type: "notice",
+                    message: LIVE_SCRIPT_INSTALLED,
+                    id: toastId.current++,
+                  });
+                })
+              }
+            >
+              Install Live companion
+            </button>
+          )}
+          <span className="mono">v{client.config.version} · ZVID</span>
+        </span>
       </footer>
       <Toast toast={state.toast} onDismiss={dismiss} />
     </div>
