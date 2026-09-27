@@ -1,8 +1,9 @@
 //! Operating-system actions the editor triggers: revealing a take in Finder
-//! or Explorer, and opening the camera privacy settings.
+//! or Explorer, opening the camera privacy settings, and installing the Live
+//! companion script.
 
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Desktop integration, swappable so tests don't open real windows.
 pub trait Desktop: Send + Sync + 'static {
@@ -10,6 +11,9 @@ pub trait Desktop: Send + Sync + 'static {
     fn reveal(&self, path: &Path) -> io::Result<()>;
     /// Opens the system's camera privacy settings.
     fn open_camera_privacy_settings(&self) -> io::Result<()>;
+    /// Copies the Live companion script bundled with the plugin into Live's
+    /// User Library and returns where it went.
+    fn install_live_script(&self) -> io::Result<PathBuf>;
 }
 
 /// The real [`Desktop`] for the running platform.
@@ -23,6 +27,10 @@ impl Desktop for SystemDesktop {
 
     fn open_camera_privacy_settings(&self) -> io::Result<()> {
         platform::open_camera_privacy_settings()
+    }
+
+    fn install_live_script(&self) -> io::Result<PathBuf> {
+        crate::live_script::install_bundled()
     }
 }
 

@@ -1,6 +1,15 @@
 import type { Camera, Status, TakeInfo, UiError } from "./ipc/types.ts";
 
-export type Toast = { id: number; message: string };
+export type Toast = {
+  id: number;
+  message: string;
+  /** Amber for problems, green for something that worked. */
+  tone: "warning" | "ready";
+};
+
+/** The toast after the Live companion script is installed. */
+export const LIVE_SCRIPT_INSTALLED =
+  "Live companion installed. Restart Live, then pick ZVID Capture as a Control Surface in Settings › Link, Tempo & MIDI.";
 
 export type AppState = {
   loaded: boolean;
@@ -10,7 +19,7 @@ export type AppState = {
   cameras: Camera[];
   takes: TakeInfo[];
   /** The command in flight, which disables the controls it drives. */
-  busy: "select" | "arm" | "disarm" | "refresh" | null;
+  busy: "select" | "arm" | "disarm" | "refresh" | "installScript" | null;
   /** At most one toast shows; a newer one replaces it. */
   toast: Toast | null;
 };
@@ -28,6 +37,7 @@ export type Action =
   | { type: "takeClosed"; take: TakeInfo }
   | { type: "busy"; busy: AppState["busy"] }
   | { type: "error"; error: UiError | Error; id: number }
+  | { type: "notice"; message: string; id: number }
   | { type: "dismiss"; id: number };
 
 export const initialState: AppState = {
@@ -75,7 +85,16 @@ export function reducer(state: AppState, action: Action): AppState {
     case "error":
       return {
         ...state,
-        toast: { id: action.id, message: action.error.message },
+        toast: {
+          id: action.id,
+          message: action.error.message,
+          tone: "warning",
+        },
+      };
+    case "notice":
+      return {
+        ...state,
+        toast: { id: action.id, message: action.message, tone: "ready" },
       };
     case "dismiss":
       return state.toast?.id === action.id ? { ...state, toast: null } : state;

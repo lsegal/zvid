@@ -19,8 +19,12 @@ for why, and `crates/zvid-daw-core/src/live.rs` for the protocol.
 ## Install
 
 1. Copy the `ZVID_Capture` folder into the `Remote Scripts` folder of your
-   Live User Library, replacing any older copy. From a checkout, run this in
-   `daw`:
+   Live User Library, replacing any older copy. The easiest way is the
+   **Install Live companion** button at the bottom of the ZVID Capture
+   plugin window: it copies the script the plugin bundle carries in
+   `Contents/Resources/ZVID_Capture` into the User Library Live last used
+   (read from Live's `Library.cfg`, or Live's default location). From a
+   checkout, you can also run this in `daw`:
 
    ```sh
    cargo xtask install-live-script
