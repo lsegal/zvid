@@ -146,7 +146,8 @@ The card switches between the two states on its own, with no reload: within
 about a second of the companion starting to answer, and within about 3 s of
 it going quiet (the plugin's link timeout), for example when the companion
 is removed from Live's control surfaces or Live quits. To enable the
-companion, install it and pick **ZVID Capture** as a Control Surface in
+companion, install it (the footer's **Install Live companion** button does
+this) and pick **ZVID Capture** as a Control Surface in
 Live's *Link, Tempo & MIDI* settings; see
 [`live-remote-script/README.md`](live-remote-script/README.md).
 
@@ -184,7 +185,13 @@ Take variants:
   active. While recording, frames the encoder couldn't keep up with are
   appended as `· 3 dropped` in `--amber` once the count is above zero
   (`RecordStats::frames_dropped` in `zvid-capture`).
-- Right: plugin version, in IBM Plex Mono, `--muted`.
+- Right: while the Live companion isn't connected, an **Install Live
+  companion** link button (`--blue`, 11 pt). It copies the companion script
+  bundled with the plugin into Live's User Library, then shows a green
+  Toast: *Live companion installed. Restart Live, then pick ZVID Capture as
+  a Control Surface in Settings › Link, Tempo & MIDI.* A failure shows the
+  usual amber Toast. The button goes away once the companion connects.
+- Right, last: plugin version, in IBM Plex Mono, `--muted`.
 
 ### State summary
 
@@ -394,7 +401,7 @@ for its button.
 
 Transient message anchored bottom-centre above the footer: `--bg-elevated`
 fill, `--line-strong` border, 10 pt radius, optional leading StatusDot for
-tone (amber for warnings). Stays 5 s, or until dismissed with its close icon
+tone (amber for warnings, green for confirmations). Stays 5 s, or until dismissed with its close icon
 button; hovering or focusing it pauses the timer. At most one toast is
 visible; a newer one replaces it. Announced politely to screen readers. Used
 for non-blocking events such as *Capture stopped: the camera was
@@ -477,6 +484,8 @@ match.
   | Permission link (macOS) | Open Privacy Settings |
   | Helper | Arm capture before you start playback or recording in Live. |
   | Helper, companion connected | Turn on Record in Live to arm capture. |
+  | Footer, companion not connected | Install Live companion |
+  | Companion installed | Live companion installed. Restart Live, then pick ZVID Capture as a Control Surface in Settings › Link, Tempo & MIDI. |
   | LiveFollowing | Following Live's record button |
   | LiveFollowing, armed | Record on in Live |
   | LiveFollowing, not armed | Record off in Live |

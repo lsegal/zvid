@@ -41,7 +41,7 @@ function ToastItem({
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
     >
-      <StatusDot tone="warning" />
+      <StatusDot tone={toast.tone} />
       <span className="toast-message">{toast.message}</span>
       <button
         type="button"
