@@ -32,8 +32,10 @@
 //!   pinned SHA-256; nothing is compiled.
 //! - `fetch-test-host`: downloads the pinned, checksummed CLI plugin host the
 //!   host tests run in to `target/test-host` and prints its path.
-//! - `host-test`: bundles the plugin and runs the host integration tests in
-//!   [`host`] against the `.vst3` and, on macOS, the `.component`.
+//! - `host-test [--bundles <dir>]`: bundles the plugin and runs the host
+//!   integration tests in [`host`] against the `.vst3` and, on macOS, the
+//!   `.component`. `--bundles` tests the bundles already in `<dir>`, such as
+//!   release ones in `target/bundle`, instead of building debug ones.
 
 use std::ffi::OsString;
 use std::fs;
@@ -186,7 +188,7 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        Some("host-test") => match host_test() {
+        Some("host-test") => match host_test(&std::env::args().skip(2).collect::<Vec<_>>()) {
             Ok(()) => ExitCode::SUCCESS,
             Err(problem) => {
                 eprintln!("error: {problem}");
@@ -201,7 +203,7 @@ fn main() -> ExitCode {
                  | cargo xtask install-live-script [--user-library <path>] \
                  | cargo xtask check-live [<Live.app>] \
                  | cargo xtask fetch-test-host \
-                 | cargo xtask host-test"
+                 | cargo xtask host-test [--bundles <dir>]"
             );
             ExitCode::FAILURE
         }
@@ -222,20 +224,46 @@ fn target_dir(daw: &Path) -> PathBuf {
         .unwrap_or_else(|| daw.join("target"))
 }
 
-/// Bundles the plugin and runs the host integration tests against it.
-fn host_test() -> Result<(), String> {
-    let bundles = bundle(false, false, false)?;
-    let extension = |ext: &str| {
-        bundles
-            .iter()
-            .find(|path| path.extension().is_some_and(|found| found == ext))
+/// Runs the host integration tests against the bundles in `--bundles <dir>`,
+/// or else against freshly built debug bundles.
+fn host_test(flags: &[String]) -> Result<(), String> {
+    let (vst3, component) = match flags {
+        [] => {
+            let bundles = bundle(false, false, false)?;
+            let extension = |ext: &str| {
+                bundles
+                    .iter()
+                    .find(|path| path.extension().is_some_and(|found| found == ext))
+                    .cloned()
+            };
+            let vst3 = extension("vst3").ok_or("bundling wrote no .vst3")?;
+            (vst3, extension("component"))
+        }
+        [flag, dir] if flag == "--bundles" => {
+            existing_bundles(Path::new(dir), cfg!(target_os = "macos"))?
+        }
+        _ => return Err("usage: cargo xtask host-test [--bundles <dir>]".into()),
     };
-    let vst3 = extension("vst3").ok_or("bundling wrote no .vst3")?;
-    host::host_test(
-        &target_dir(&daw_root()),
-        vst3,
-        extension("component").map(PathBuf::as_path),
-    )
+    host::host_test(&target_dir(&daw_root()), &vst3, component.as_deref())
+}
+
+/// The absolute paths of the `.vst3` bundle in `dir` and, with `component`,
+/// of the `.component` bundle beside it.
+fn existing_bundles(dir: &Path, component: bool) -> Result<(PathBuf, Option<PathBuf>), String> {
+    let find = |ext: &str| {
+        let path = dir.join(format!("{PLUGIN_NAME}.{ext}"));
+        if !path.is_dir() {
+            return Err(format!("{} is not a bundle", path.display()));
+        }
+        std::path::absolute(&path).map_err(|error| format!("{}: {error}", path.display()))
+    };
+    let vst3 = find("vst3")?;
+    let component = if component {
+        Some(find("component")?)
+    } else {
+        None
+    };
+    Ok((vst3, component))
 }
 
 fn check(daw: &Path) -> Result<(), Vec<String>> {
@@ -1591,6 +1619,27 @@ mod tests {
             dir.join("missing").display().to_string(),
         ];
         assert!(install_live_script(&missing).is_err());
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn finds_existing_bundles_for_the_host_tests() {
+        let dir = scratch("existing-bundles");
+        let vst3 = dir.join(format!("{PLUGIN_NAME}.vst3"));
+        fs::create_dir_all(&vst3).unwrap();
+
+        assert_eq!(existing_bundles(&dir, false).unwrap(), (vst3.clone(), None));
+        let error = existing_bundles(&dir, true).unwrap_err();
+        assert!(error.contains(".component is not a bundle"), "{error}");
+
+        let component = dir.join(format!("{PLUGIN_NAME}.component"));
+        fs::create_dir_all(&component).unwrap();
+        assert_eq!(
+            existing_bundles(&dir, true).unwrap(),
+            (vst3, Some(component))
+        );
+        assert!(existing_bundles(&dir.join("missing"), false).is_err());
+        assert!(host_test(&["--bundles".into()]).is_err());
         fs::remove_dir_all(dir).unwrap();
     }
 

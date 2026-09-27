@@ -498,6 +498,9 @@ workflow run:
   then runs the installer silently, checks the bundle landed in the shared
   VST3 folder, then uninstalls it.
 
+Both jobs also run the [host integration tests](#host-integration-tests)
+against the release bundles.
+
 Each is built by `cargo xtask bundle --release --installer` (plus
 `--universal` on macOS), which fails when `daw/ui/dist` is missing rather
 than embedding the placeholder UI, and stamps the bundle version
@@ -643,6 +646,14 @@ macOS. For each one it checks:
   layers log `restored state: <takes> takes, <bytes> bytes` for the state
   they now hold. The test requires both counts to match the fixture's.
 
+The `daw` CI job runs these against the debug bundles. The DAW bundles
+workflow runs them again, on pull requests and on `main`, against the
+release bundles it builds (`cargo xtask host-test --bundles target/bundle`),
+because those differ in ways a host can notice: optimized code, the
+commit-stamped version, universal binaries on macOS, and Developer ID
+signing with the hardened runtime when the secrets are set. Both upload
+`target/host-test` when the tests fail.
+
 A run fails when the host exits with an error, crashes or runs past 60 s.
 It also fails on any `[zvid-vst3]` or `[zvid-au]` line in `ZVID_DAW_LOG`
 except `restored state: …`, `live companion: …` and `dropped N transport
@@ -661,6 +672,11 @@ locally:
 cd daw
 cargo xtask host-test
 ```
+
+`cargo xtask host-test --bundles <dir>` skips the debug build and tests the
+`ZVID Capture.vst3` and, on macOS, `ZVID Capture.component` already in
+`<dir>`, for example release bundles from `cargo xtask bundle --release`
+in `target/bundle`.
 
 On macOS this installs `ZVID Capture.component` into
 `~/Library/Audio/Plug-Ins/Components`, where the AudioComponent registry
