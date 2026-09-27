@@ -427,6 +427,8 @@ impl AudioUnitInstance {
                     // Hosts save ClassInfo, so this tells them the set changed.
                     instance.notify(kAudioUnitProperty_ClassInfo, kAudioUnitScope_Global, 0);
                 },
+                // SAFETY: as above.
+                move || unsafe { &*(instance as *const Self) }.backend(),
             );
         }
         0
@@ -972,13 +974,14 @@ impl AudioUnitInstance {
 
 impl Drop for AudioUnitInstance {
     fn drop(&mut self) {
+        // `Close` may come without `Uninitialize`. The control thread may
+        // start the backend, so it stops first.
+        self.stop_control();
         // Editors may outlive the unit; the capture must not.
         if let Some(backend) = self.backend.get() {
             backend.shutdown();
         }
         *lock(&self.alive) = 0;
-        // `Close` may come without `Uninitialize`.
-        self.stop_control();
     }
 }
 

@@ -14,8 +14,9 @@
 //! `initialize` drains the transport ring and the capture layer's
 //! [`Command`]s into the take log, which appends every take to the plugin
 //! state as it opens, and tells the host the state changed. It also logs
-//! transport changes and what the optional Live companion script reports
-//! about Live's record state and set path.
+//! transport changes, and arms and disarms the capture as Live's record
+//! buttons turn on and off when the optional Live companion script is
+//! running.
 
 use std::cell::UnsafeCell;
 use std::ffi::c_void;
@@ -28,11 +29,11 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use zvid_daw_core::{
-    AudioTap, Command, Consumer, LiveLink, ProcessSnapshot, Producer, RecordRoot, SharedLiveStatus,
-    State, TakeChange, TakeFeed, TapWriter, TransportFollower, audio_tap, clock, ring,
+    AudioTap, Command, Consumer, ProcessSnapshot, Producer, RecordRoot, SharedLiveStatus, State,
+    TakeChange, TakeFeed, TapWriter, TransportFollower, audio_tap, clock, ring,
 };
 
-use zvid_daw_ui::{Backend, HostLink, instance_backend};
+use zvid_daw_ui::{Backend, HostLink, LiveControl, instance_backend};
 
 use crate::CLASS_ID;
 use crate::abi::result::{FALSE, INVALID_ARGUMENT, NO_INTERFACE, NOT_IMPLEMENTED, OK};
@@ -267,6 +268,7 @@ impl Component {
             && let Some(inputs) = lifecycle.inputs.take()
         {
             lifecycle.control = start_control(
+                ptr::from_ref(self) as usize,
                 inputs,
                 Arc::clone(&self.state),
                 self.takes.clone(),
@@ -409,11 +411,12 @@ impl Component {
 
 impl Drop for Component {
     fn drop(&mut self) {
+        // The control thread may start the backend, so it stops first.
+        stop_control(self.lifecycle.get_mut().unwrap_or_else(|e| e.into_inner()));
         // Editors may outlive the instance; the capture must not.
         if let Some(backend) = self.backend.get() {
             backend.shutdown();
         }
-        stop_control(self.lifecycle.get_mut().unwrap_or_else(|e| e.into_inner()));
         unsafe { self.set_component_handler(ptr::null_mut()) };
     }
 }
@@ -505,7 +508,10 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
         .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
+/// Starts the control thread for the component at address `component`,
+/// which must stop and join it before it is freed.
 fn start_control(
+    component: usize,
     mut inputs: ControlInputs,
     state: Arc<Mutex<State>>,
     takes: TakeFeed,
@@ -518,16 +524,19 @@ fn start_control(
         .name("zvid-vst3-control".to_string())
         .spawn(move || {
             let mut follower = TransportFollower::with_feed(takes);
-            let mut live = LiveLink::connect()
+            let mut live = LiveControl::connect(shared.clone())
                 .inspect_err(|error| log(&format!("could not open the Live link: {error}")))
                 .ok();
+            // SAFETY: the component stops and joins this thread before it is
+            // freed, so it outlives every use here.
+            let backend = || unsafe { &*(component as *const Component) }.backend();
             loop {
                 let stopping = stopping.load(Ordering::Acquire);
                 if follower.drain(&mut inputs.transport, &inputs.commands, &state, log) {
                     handler.state_changed();
                 }
                 if let Some(live) = &mut live {
-                    poll_live(live, &shared);
+                    live.poll(Instant::now(), backend, log);
                 }
                 if stopping {
                     // Nothing polls the companion until the next start.
@@ -555,19 +564,6 @@ fn stop_control(lifecycle: &mut Lifecycle) {
     match control.thread.join() {
         Ok(inputs) => lifecycle.inputs = Some(inputs),
         Err(_) => log("the control thread panicked"),
-    }
-}
-
-/// Logs changes to what the Live companion reports and shares the status,
-/// whose set directory picks the record root when capture arms. Arming
-/// capture from Live's record buttons comes later (#200).
-fn poll_live(live: &mut LiveLink, shared: &SharedLiveStatus) {
-    if live.poll(Instant::now()) {
-        shared.set(live.status().cloned());
-        match live.status() {
-            Some(status) => log(&format!("live companion: {status}")),
-            None => log("live companion: gone"),
-        }
     }
 }
 
