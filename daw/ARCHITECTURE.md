@@ -614,10 +614,65 @@ macOS AU and Windows VST3 before a release:
   `zvid-au` against the AudioUnit selectors.
 - **`auval`** validates the `.component` in the `daw` CI job on macOS and in
   the DAW bundles workflow.
+- **UI tests** (`pnpm --dir daw/ui test` and `pnpm --dir daw/ui test:web`)
+  run the editor frontend in Node and in a browser against the web driver,
+  with no Rust build, below.
 - **Host integration tests** (`cargo xtask host-test`) load the real bundles
   in a third-party host, below.
 - **Live 12** is checked by hand before a release, with the
   [Live 12 end-to-end checklist](#live-12-end-to-end-checklist).
+
+### UI tests and the web driver
+
+The editor frontend in `daw/ui` only talks to Rust through the `zvid://`
+protocol (`zvid-daw-ui/src/protocol.rs`), which it reaches with `fetch`. The
+**web driver** (`daw/ui/src/web`) answers that protocol inside the page, so
+the editor runs in any browser with no plugin, DAW or Rust harness:
+
+- `mock-backend.ts` is a TypeScript port of `MockBackend` (`mock.rs`) and of
+  the event log and preview slot (`channels.rs`): the same canned cameras,
+  including the two that fail on purpose, the same capture, take and Live
+  companion behaviour, and the same event cursors, backlog and resync.
+  Preview frames are an SVG test pattern instead of JPEG.
+- `driver.ts` routes `zvid://ipc`, `zvid://ipc/events` and
+  `zvid://preview` requests to it with the same long-polls and status codes
+  as `Protocol`. It records `revealTake` and `openPrivacySettings` instead of
+  touching the desktop, draws take posters in the page, and simulates the
+  transport and Live companion like the harness. Take playback isn't
+  served, so previewing a take stops at once.
+
+The Vite dev server (`pnpm --dir daw/ui dev`) starts the driver whenever the
+page has no `window.__ZVID__`, i.e. when it is opened in a plain browser
+rather than in the harness. Query options pick the platform, the starting
+takes and the simulation (see `src/web/start.ts`), and
+`window.__ZVID_DRIVER__` exposes the driver to tests and the devtools
+console. The production build leaves the driver out, so the plugin never
+embeds it.
+
+UI tests use the driver rather than the Rust harness:
+
+- **Unit tests** (`pnpm --dir daw/ui test`, `node:test`) cover the
+  frontend's logic, the mock backend, and the IPC client against the
+  driver's `fetch`.
+- **Browser tests** (`pnpm --dir daw/ui test:web`, Playwright) drive the
+  real editor in headless Chromium at its default size through the dev
+  server: choosing cameras, recording takes that follow the transport,
+  permission and busy errors on macOS and Windows, refreshing devices,
+  revealing takes, and following Live's record buttons. Tests move the
+  simulated transport and companion through `window.__ZVID_DRIVER__`.
+
+The `test` CI job runs both on Ubuntu and uploads `daw/ui/test-results`
+(Playwright traces) when the browser tests fail. To run them locally:
+
+```sh
+pnpm --dir daw/ui install
+pnpm --dir daw/ui exec playwright install chromium
+pnpm --dir daw/ui test:web
+```
+
+The Rust side of the protocol keeps its own tests in `zvid-daw-ui`, and the
+harness remains the way to check the editor in the real system webviews.
+When `mock.rs` or the protocol changes, change the web driver to match.
 
 ### Host integration tests
 
@@ -699,6 +754,7 @@ Revise a decision only with a stated rationale, recorded here.
 | VST3 binding | Hand-written minimal COM ABI in `zvid-vst3`. **Not** the `nih-plug`, `vst3-sys` or `vst3` crates. | `vst3-sys` is GPLv3, and the `vst3` crate is generated from SDK headers. Both break the "no SDK" rule. |
 | AU flavour | AUv2 (`.component`). | AUv3 needs an app-extension container, and Live loads AUv2 fine. |
 | Host integration tests | [Plugalyzer](https://github.com/CrushedPixel/Plugalyzer), a prebuilt release pinned by version and SHA-256, driven by `cargo xtask host-test`. See [Host integration tests](#host-integration-tests). | A real third-party host catches what the ABI unit tests can't. It is a small prebuilt download with an offline WAV render at chosen block sizes, and needs no C++ build. Carla is far heavier and has no offline render. |
+| UI tests | A TypeScript web driver in `daw/ui/src/web` answers the `zvid://` protocol inside the page; unit tests and Playwright browser tests run the editor against it. | Testing the UI through the Rust harness means compiling the plugin crates and a native window per run. The frontend only depends on the protocol, so a port of the mock backend tests it in seconds on any OS, in CI's Ubuntu job. The cost is keeping the port in step with `mock.rs`. |
 | UI host | `wry` (Tauri's webview layer) attached as a child of the host view (`NSView` / `HWND`). Not the full Tauri runtime. | Tauri wants to own the process and event loop, which a plugin can't do inside a host. `wry` gives us the same webview and IPC model. |
 | Frontend assets | Embedded in the binary and served over `zvid://`. | A single-file bundle, with no loose files beside the plugin. |
 | Live preview transport | Native capture is the single source. The UI gets downscaled JPEG frames (≤30 fps) over `zvid://preview`. | Avoids opening the camera twice (getUserMedia plus native), and works the same in WKWebView and WebView2. |

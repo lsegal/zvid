@@ -12,11 +12,18 @@ export default defineConfig({
   reporter: process.env.CI ? [["list"], ["github"]] : "list",
   use: {
     baseURL: `http://localhost:${PORT}/`,
-    // The editor's default size (DEFAULT_SIZE in zvid-daw-ui).
-    viewport: { width: 680, height: 760 },
     trace: "retain-on-failure",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    {
+      name: "chromium",
+      use: {
+        ...devices["Desktop Chrome"],
+        // The editor's default size (DEFAULT_SIZE in zvid-daw-ui).
+        viewport: { width: 680, height: 760 },
+      },
+    },
+  ],
   webServer: {
     command: `pnpm exec vite --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}/`,
