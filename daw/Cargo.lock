@@ -3529,6 +3529,7 @@ dependencies = [
 name = "xtask"
 version = "0.1.0"
 dependencies = [
+ "sha2",
  "zvid-au",
  "zvid-daw-core",
  "zvid-vst3",

@@ -9,3 +9,4 @@ publish.workspace = true
 zvid-daw-core.workspace = true
 zvid-vst3.workspace = true
 zvid-au.workspace = true
+sha2.workspace = true
