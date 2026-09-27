@@ -20,13 +20,16 @@
 //!   only.
 //! - **Takes** the control thread opens and closes arrive as
 //!   [`TakeChange`]s and become `takeOpened` and `takeClosed` events.
+//! - **Live companion**: what the control thread last heard from it is in
+//!   the status, so the editor follows Live's record buttons while it is
+//!   connected.
 //! - **Failures**: when the camera is unplugged, stops sending video, or
 //!   the recorder fails, the capture stops, the footage so far is kept, and
 //!   the editor gets an error status and an `error` event.
 //!
 //! Commands run on the editor's worker threads. A monitor thread owned by
-//! the backend applies take changes, hot-plug events and recorder progress,
-//! and moves tapped audio into the file.
+//! the backend applies take changes, hot-plug events, recorder progress and
+//! the Live companion's status, and moves tapped audio into the file.
 //! None of this touches the audio thread.
 
 mod local_time;
@@ -48,8 +51,8 @@ use zvid_daw_core::{
 pub use zvid_daw_ui::HostLink;
 use zvid_daw_ui::mock::rfc3339_utc;
 use zvid_daw_ui::{
-    Backend, Camera, CaptureInfo, Channels, ErrorCode, Status, TakeFile, TakeInfo, UiError,
-    UiEvent, VideoFormat, takes_from_state,
+    Backend, Camera, CaptureInfo, Channels, ErrorCode, LiveInfo, Status, TakeFile, TakeInfo,
+    UiError, UiEvent, VideoFormat, takes_from_state,
 };
 
 pub use platform::{
@@ -114,6 +117,8 @@ struct Inner {
     /// Bumped whenever the camera is opened or closed, so an open that was
     /// overtaken by another is discarded.
     generation: u64,
+    /// The Live companion as last shown.
+    live: Option<LiveInfo>,
 }
 
 struct OpenCamera {
@@ -445,6 +450,19 @@ impl CaptureBackend {
         }
     }
 
+    /// Emits a status when the Live companion connected, went away, or
+    /// Live's record buttons changed.
+    fn follow_live(&self) {
+        let live = self.live.get().as_ref().map(LiveInfo::from_status);
+        let mut inner = self.lock();
+        if inner.live == live {
+            return;
+        }
+        inner.live = live;
+        drop(inner);
+        self.emit_status();
+    }
+
     fn device_event(&self, event: DeviceEvent) {
         let mut inner = self.lock();
         let lost = match &event {
@@ -746,6 +764,7 @@ impl Backend for CaptureBackend {
                 dropped_frames: active.dropped,
             }),
             error: inner.error.as_ref(),
+            live: inner.live,
         })
     }
 
@@ -788,7 +807,8 @@ impl Drop for CaptureBackend {
 }
 
 /// Runs until the backend is dropped: restores the stored camera, then
-/// applies take changes, hot-plug events and recorder progress.
+/// applies take changes, hot-plug events, recorder progress and the Live
+/// companion's status.
 fn monitor(backend: Weak<CaptureBackend>, takes: Receiver<TakeChange>) {
     let (events, hotplug) = mpsc::channel();
     // The watcher lives on this thread and stops when it ends.
@@ -816,6 +836,7 @@ fn monitor(backend: Weak<CaptureBackend>, takes: Receiver<TakeChange>) {
         for event in hotplug.try_iter() {
             backend.device_event(event);
         }
+        backend.follow_live();
         backend.tick();
         drop(backend);
         thread::sleep(TICK);

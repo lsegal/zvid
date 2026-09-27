@@ -5,6 +5,7 @@
 //! cargo run -p zvid-daw-ui --example harness                 # embedded UI (build daw/ui first)
 //! cargo run -p zvid-daw-ui --example harness -- --dev        # Vite HMR at http://localhost:5174
 //! cargo run -p zvid-daw-ui --example harness -- --instances 2 --reopen-every 5
+//! cargo run -p zvid-daw-ui --example harness -- --live           # simulate the Live companion
 //! ```
 //!
 //! - `--dev [URL]` loads the UI from a dev server (`pnpm --dir daw/ui dev`).
@@ -14,6 +15,9 @@
 //!   timer, like a host closing and reopening the plugin window.
 //! - `--manual-transport` stops the simulated transport; by default it plays
 //!   for 4 s and stops for 2 s while a capture is armed.
+//! - `--live` simulates the Live companion script: it cycles every 4 s
+//!   through disconnected, connected with Live's record buttons off, and
+//!   connected with one on.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -26,7 +30,7 @@ use tao::event_loop::{ControlFlow, EventLoopBuilder};
 use tao::window::{Window, WindowBuilder, WindowId};
 use zvid_daw_core::{RecordRoot, State};
 use zvid_daw_ui::mock::{MockBackend, rfc3339_utc};
-use zvid_daw_ui::{DEFAULT_SIZE, Editor, EditorOptions, MIN_SIZE, ParentWindow};
+use zvid_daw_ui::{DEFAULT_SIZE, Editor, EditorOptions, LiveInfo, MIN_SIZE, ParentWindow};
 
 /// Sent by the timer behind `--reopen-every`.
 struct Reopen;
@@ -39,6 +43,7 @@ struct Options {
     instances: usize,
     reopen_every: Option<Duration>,
     auto_transport: bool,
+    live: bool,
 }
 
 fn parse_args() -> Options {
@@ -47,6 +52,7 @@ fn parse_args() -> Options {
         instances: 1,
         reopen_every: None,
         auto_transport: true,
+        live: false,
     };
     let mut args = std::env::args().skip(1).peekable();
     while let Some(arg) = args.next() {
@@ -72,6 +78,7 @@ fn parse_args() -> Options {
                 options.reopen_every = Some(Duration::from_secs_f64(secs));
             }
             "--manual-transport" => options.auto_transport = false,
+            "--live" => options.live = true,
             other => panic!("unknown argument {other}; see the example's docs"),
         }
     }
@@ -197,7 +204,12 @@ fn main() {
                 state.clone(),
                 Some(DEMO_CLIP.to_string()),
             ));
-            spawn_simulation(backend.clone(), running.clone(), options.auto_transport);
+            spawn_simulation(
+                backend.clone(),
+                running.clone(),
+                options.auto_transport,
+                options.live,
+            );
             let mut instance = Instance {
                 window,
                 backend,
@@ -270,12 +282,28 @@ fn find(instances: &[Instance], id: WindowId) -> Option<usize> {
 }
 
 /// Publishes preview frames at 15 fps and, when `auto_transport` is set,
-/// plays the transport for 4 s and stops it for 2 s while armed.
-fn spawn_simulation(backend: Arc<MockBackend>, running: Arc<AtomicBool>, auto_transport: bool) {
+/// plays the transport for 4 s and stops it for 2 s while armed. With
+/// `live`, the Live companion connects, arms, and goes away in turn.
+fn spawn_simulation(
+    backend: Arc<MockBackend>,
+    running: Arc<AtomicBool>,
+    auto_transport: bool,
+    live: bool,
+) {
     std::thread::spawn(move || {
+        let started = Instant::now();
         let mut armed_since: Option<Instant> = None;
         while running.load(Ordering::Acquire) {
             backend.publish_frame();
+            if live {
+                backend.set_live(match started.elapsed().as_secs() / 4 % 3 {
+                    0 => None,
+                    1 => Some(LiveInfo {
+                        record_armed: false,
+                    }),
+                    _ => Some(LiveInfo { record_armed: true }),
+                });
+            }
             if auto_transport {
                 armed_since = match (backend.is_armed(), armed_since) {
                     (true, None) => Some(Instant::now()),

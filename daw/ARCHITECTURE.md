@@ -411,7 +411,9 @@ sequenceDiagram
   companion goes away, a capture it armed keeps running until the user stops
   it, so no footage is dropped. What the companion reports is logged (set
   `ZVID_DAW_LOG`).
-- **Status.** Removing the Record button is a separate follow-up.
+- **Status.** While the companion is connected, the editor replaces its
+  Record button with a read-only indicator of Live's record state (see
+  `DESIGN.md`, Capture card).
 
 ### Record root
 

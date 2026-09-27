@@ -166,7 +166,8 @@ impl LiveArming {
 
 /// The latest [`LiveStatus`] of one plugin instance, shared between the
 /// control thread that polls its [`LiveLink`] and the editor backend, which
-/// reads the set directory when capture arms. Clones share the status.
+/// shows Live's record state and reads the set directory when capture
+/// arms. Clones share the status.
 #[derive(Clone, Debug, Default)]
 pub struct SharedLiveStatus {
     status: Arc<Mutex<Option<LiveStatus>>>,

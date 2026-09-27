@@ -524,7 +524,7 @@ fn start_control(
         .name("zvid-vst3-control".to_string())
         .spawn(move || {
             let mut follower = TransportFollower::with_feed(takes);
-            let mut live = LiveControl::connect(shared)
+            let mut live = LiveControl::connect(shared.clone())
                 .inspect_err(|error| log(&format!("could not open the Live link: {error}")))
                 .ok();
             // SAFETY: the component stops and joins this thread before it is
@@ -539,6 +539,8 @@ fn start_control(
                     live.poll(Instant::now(), backend, log);
                 }
                 if stopping {
+                    // Nothing polls the companion until the next start.
+                    shared.set(None);
                     return inputs;
                 }
                 thread::park_timeout(CONTROL_INTERVAL);

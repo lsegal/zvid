@@ -401,6 +401,46 @@ fn recording(id: &str, filename: &str) -> Recording {
 }
 
 #[test]
+fn follows_the_live_companion() {
+    let rig = Rig::new(State::default());
+    assert_eq!(rig.backend.status().live, None);
+    let before = rig.named("status").len();
+    let status = |record_mode, session_record| LiveStatus {
+        record_mode,
+        session_record,
+        ..LiveStatus::default()
+    };
+
+    rig.live.set(Some(status(false, false)));
+    let statuses = rig.wait_for_event("status", before + 1);
+    assert_eq!(
+        statuses[before]["payload"]["live"],
+        serde_json::json!({ "recordArmed": false })
+    );
+
+    rig.live.set(Some(status(false, true)));
+    let statuses = rig.wait_for_event("status", before + 2);
+    assert_eq!(statuses[before + 1]["payload"]["live"]["recordArmed"], true);
+    assert_eq!(
+        rig.backend.status().live,
+        Some(LiveInfo { record_armed: true })
+    );
+
+    // Changes the editor doesn't show send nothing.
+    rig.live.set(Some(LiveStatus {
+        is_playing: true,
+        ..status(true, false)
+    }));
+    rig.settle();
+    assert_eq!(rig.named("status").len(), before + 2);
+
+    rig.live.set(None);
+    let statuses = rig.wait_for_event("status", before + 3);
+    assert_eq!(statuses[before + 2]["payload"]["live"], Value::Null);
+    assert_eq!(rig.backend.status().live, None);
+}
+
+#[test]
 fn lists_cameras_and_follows_hot_plug() {
     let rig = Rig::new(State::default());
     let cameras = rig.backend.cameras();

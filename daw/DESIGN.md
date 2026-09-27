@@ -18,6 +18,8 @@ tracked in [#189](https://github.com/lsegal/zvid/issues/189).
   they feel like the same tool.
 - **Capture first.** The single most important control is Record. It is
   always visible, always in the same place, and its state is unambiguous.
+  When Live's own record buttons arm capture (the Live companion is
+  connected), the same place shows which state Live is in instead.
 - **Stay out of Live's way.** Dark only, compact, no modal dialogs, and no
   animation beyond what communicates state.
 - **Never lose footage.** Every take is listed, including unanchored captures
@@ -94,13 +96,63 @@ height; the takes list is the only region that scrolls.
 
 ### 3. Capture card (right column, top)
 
+The card has two states, depending on whether the optional
+[Live companion script](live-remote-script/README.md) is connected. Without
+it, the plugin can't tell when Live is recording, so the user arms capture
+here. With it, Live's own **Arrangement Record** and **Session Record**
+buttons arm capture, and a Record button in the plugin would be a second,
+competing switch.
+
+**Companion not connected** (the default):
+
 - The **primary button** toggles between **● Record** and **■ Stop
   capturing**. It is disabled when there is no usable camera.
 - Helper text, `--muted`: *Arm capture before you start playback or recording
   in Live.*
-- While capturing, a line below the button reads *Takes follow transport: N*,
-  the live count of takes opened during this capture. It updates as Live's
-  transport starts and stops.
+
+```text
+┌────────────────────────────────┐
+│ (           ● Record         ) │  primary button
+│  Arm capture before you start  │  helper
+│  playback or recording in Live.│
+└────────────────────────────────┘
+```
+
+**Companion connected:**
+
+- The Record button is replaced by a read-only **LiveFollowing** indicator
+  in the same place: *Following Live's record button*, and below it the
+  armed state, *Record on in Live* or *Record off in Live*. It is not a
+  button and does not react to the pointer or keyboard.
+- Helper text, `--muted`: *Turn on Record in Live to arm capture.*
+- A capture that is already running keeps its **■ Stop capturing** button,
+  shown above the indicator, so a capture can always be stopped from the
+  plugin (for example one armed here before the companion connected).
+
+```text
+Live's record buttons off              Live's record buttons on
+┌──────────────────────────────┐      ┌──────────────────────────────┐
+│ ╭──────────────────────────╮ │      │ ╭──────────────────────────╮ │
+│ │ Following Live's record  │ │      │ │ Following Live's record  │ │
+│ │ button                   │ │      │ │ button                   │ │
+│ │ ○ Record off in Live     │ │      │ │ ● Record on in Live      │ │  pink ● and outline
+│ ╰──────────────────────────╯ │      │ ╰──────────────────────────╯ │
+│ Turn on Record in Live to    │      │ Turn on Record in Live to    │
+│ arm capture.                 │      │ arm capture.                 │
+└──────────────────────────────┘      └──────────────────────────────┘
+```
+
+The card switches between the two states on its own, with no reload: within
+about a second of the companion starting to answer, and within about 3 s of
+it going quiet (the plugin's link timeout), for example when the companion
+is removed from Live's control surfaces or Live quits. To enable the
+companion, install it and pick **ZVID Capture** as a Control Surface in
+Live's *Link, Tempo & MIDI* settings; see
+[`live-remote-script/README.md`](live-remote-script/README.md).
+
+In both states, while capturing, a line below reads *Takes follow transport:
+N*, the live count of takes opened during this capture. It updates as Live's
+transport starts and stops.
 
 ### 4. Takes list (right column, below the capture card)
 
@@ -143,6 +195,9 @@ Take variants:
 | Ready | green dot, *Ready to capture* | Live | Record enabled | as stored |
 | Capturing | pink pulsing dot, TimerPill | Live | Stop capturing, take count | new takes appear at top |
 | Camera error | amber dot, *Camera unavailable* | Error | Record disabled | as stored |
+
+With the Live companion connected, *Record disabled* and *Record enabled*
+read *LiveFollowing indicator* instead; the other columns don't change.
 
 If the camera fails while capturing, the capture stops, the footage recorded
 so far is kept, the header switches to the error state, and a **Toast**
@@ -256,6 +311,20 @@ otherwise:
   `--bg-soft` fill. Used for play/stop preview and reveal-in-folder. Always
   has an accessible label.
 
+### LiveFollowing
+
+- Read-only stand-in for Record while the Live companion is connected (see
+  the capture card). Not interactive, so it has no hover, pressed, focus,
+  disabled or busy state.
+- Full width of the card, at least 36 pt tall like the primary button, with
+  an 18 pt radius, a 1 px `--line-strong` outline and no fill, so it doesn't
+  read as a button.
+- First line, `--ink`, 14 pt medium: *Following Live's record button*.
+  Second line, `--muted`, 12 pt: an 8 pt ring glyph and *Record off in Live*;
+  while Live records, the glyph fills `--pink`, the outline turns `--pink`
+  and the text reads *Record on in Live*. The glyph doesn't pulse: it
+  reports Live's switch, not a running capture.
+
 ### Select
 
 The camera dropdown. Pill trigger with `--bg-soft` fill, `--line-strong`
@@ -350,7 +419,8 @@ disconnected. Footage up to that point was saved.*
 - **Labels:** every icon button has an accessible name that includes its
   target, for example *Preview take from 14:32*, *Show take from 14:32 in
   Finder*. The status region is a polite live region so state changes (ready,
-  capturing, error) are announced once.
+  capturing, error) are announced once. The LiveFollowing indicator is a
+  polite status too, so a change in Live's record state is announced.
 - **Disabled controls explain themselves:** a disabled Record button carries
   a description (*Choose a camera to record*), and a missing file's disabled
   buttons are described by the *File missing* badge.
@@ -369,6 +439,8 @@ match.
   "Your takes will show up here".
 - The plugin name is **ZVID Capture**.
 - The record button labels are exactly **Record** and **Stop capturing**.
+- Live's own buttons are *Record* in Live's words; say *in Live* rather than
+  naming Arrangement or Session Record, since either arms capture.
 - Use sentence case for labels, buttons and messages.
 - Keep messages short and say what happened and what to do next.
 - Times: capture timer `HH:MM:SS`; take duration `mm:ss`; transport position
@@ -385,6 +457,10 @@ match.
   | Refresh | Refresh devices |
   | Permission link (macOS) | Open Privacy Settings |
   | Helper | Arm capture before you start playback or recording in Live. |
+  | Helper, companion connected | Turn on Record in Live to arm capture. |
+  | LiveFollowing | Following Live's record button |
+  | LiveFollowing, armed | Record on in Live |
+  | LiveFollowing, not armed | Record off in Live |
   | Take count | Takes follow transport: N |
   | Takes divider | Takes (N) |
   | Takes empty | Your takes will show up here |

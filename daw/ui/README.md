@@ -28,6 +28,9 @@ Without `--dev` the harness serves the embedded build, so run
 - `--reopen-every SECS` tears the editors down and re-attaches them.
 - `--manual-transport` stops the simulated transport (by default it plays
   4 s, stops 2 s while armed, so takes appear).
+- `--live` simulates the Live companion script, cycling every 4 s through
+  disconnected, connected with Live's Record off, and connected with it on,
+  so both capture card states show.
 
 The mock offers cameras that fail on purpose: *Studio Display Camera*
 (permission denied) and *OBS Virtual Camera* (in use). *Refresh devices*
