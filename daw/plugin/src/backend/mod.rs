@@ -45,7 +45,7 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant, SystemTime};
 
 use zvid_capture::record::{AudioFormat, FrameClock, RecordConfig, VideoEncoderChoice};
-use zvid_capture::{Device, DeviceEvent, Rational};
+use zvid_capture::{Device, DeviceEvent, FormatPreference, Rational};
 use zvid_daw_core::{
     AudioTap, CameraChoice, Capture, Command, RecordRoot, RecordRootKind, Recording,
     SharedLiveStatus, State, TakeChange,
@@ -703,6 +703,7 @@ impl Backend for CaptureBackend {
                 fps: camera.fps,
                 audio,
                 video_encoder: VideoEncoderChoice::Auto,
+                max_size: FormatPreference::default(),
             })
             .map_err(|error| {
                 log(&format!("could not start recording: {error}"));

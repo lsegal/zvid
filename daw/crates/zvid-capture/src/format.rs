@@ -105,6 +105,12 @@ impl Format {
         (self.width.max(self.height), self.width.min(self.height))
     }
 
+    /// Whether the device reported a usable frame rate for this mode. Some
+    /// drivers report 0 or leave the rate out.
+    pub fn has_frame_rate(&self) -> bool {
+        self.fps.num > 0 && self.fps.den > 0
+    }
+
     fn pixels(&self) -> u64 {
         u64::from(self.width) * u64::from(self.height)
     }
@@ -112,7 +118,11 @@ impl Format {
 
 impl fmt::Display for Format {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}x{} @ {} fps", self.width, self.height, self.fps)
+        if self.has_frame_rate() {
+            write!(f, "{}x{} @ {} fps", self.width, self.height, self.fps)
+        } else {
+            write!(f, "{}x{} @ unknown fps", self.width, self.height)
+        }
     }
 }
 
@@ -143,6 +153,29 @@ impl FormatPreference {
         let (long, short) = format.edges();
         long <= self.max_long_edge && short <= self.max_short_edge
     }
+
+    /// The largest even size with `width`×`height`'s aspect ratio that fits
+    /// the size limits, for scaling down frames from a camera that only
+    /// offers bigger modes. Sizes that already fit are returned unchanged.
+    pub fn fit_size(&self, width: u32, height: u32) -> (u32, u32) {
+        let (long, short) = (width.max(height), width.min(height));
+        if long == 0 || (long <= self.max_long_edge && short <= self.max_short_edge) {
+            return (width, height);
+        }
+        // Scale by whichever edge is further over its limit.
+        let (num, den) = if u64::from(self.max_long_edge) * u64::from(short)
+            <= u64::from(self.max_short_edge) * u64::from(long)
+        {
+            (self.max_long_edge, long)
+        } else {
+            (self.max_short_edge, short)
+        };
+        let scale = |edge: u32| {
+            let scaled = u64::from(edge) * u64::from(num) / u64::from(den);
+            (scaled as u32 & !1).max(2)
+        };
+        (scale(width), scale(height))
+    }
 }
 
 /// The format to capture with, plus the frame rate to request from it.
@@ -159,27 +192,43 @@ pub struct Selection {
 ///
 /// Formats that fit the size limit are ranked by pixel count, then by frame
 /// rate capped at `pref.max_fps`, so a 60 fps mode that can run at 30 counts
-/// the same as a native 30 fps one and the native mode wins the tie. When no
-/// format fits, the smallest one is used so capture still works.
+/// the same as a native 30 fps one and the native mode wins the tie. A mode
+/// that fits but reports no frame rate is used only when no fitting mode
+/// reports one, and runs at `pref.max_fps`; it still beats every mode over
+/// the size limit. When no format fits, the smallest one is used so capture
+/// still works, and recordings scale its frames down (see
+/// [`FormatPreference::fit_size`]).
 pub fn select_format(formats: &[Format], pref: &FormatPreference) -> Option<Selection> {
-    let capped = |f: &Format| f.fps.min(pref.max_fps);
-    let usable = || {
+    let capped = |f: &Format| {
+        if f.has_frame_rate() {
+            f.fps.min(pref.max_fps)
+        } else {
+            pref.max_fps
+        }
+    };
+    let candidates = |rated: bool| {
         formats
             .iter()
             .enumerate()
-            .filter(|(_, f)| f.fps.num > 0 && f.fps.den > 0)
+            .filter(move |(_, f)| f.has_frame_rate() == rated && f.width > 0 && f.height > 0)
     };
-    let best_fitting = usable()
-        .filter(|(_, f)| pref.fits_size(f))
-        .max_by(|(_, a), (_, b)| {
-            a.pixels()
-                .cmp(&b.pixels())
-                .then_with(|| capped(a).cmp(&capped(b)))
-                // Prefer the mode that needs the least frame-rate reduction.
-                .then_with(|| b.fps.cmp(&a.fps))
-        });
-    let (index, format) =
-        best_fitting.or_else(|| usable().min_by_key(|(_, f)| (f.pixels(), Reverse(capped(f)))))?;
+    let best_fitting = |rated: bool| {
+        candidates(rated)
+            .filter(|(_, f)| pref.fits_size(f))
+            .max_by(|(_, a), (_, b)| {
+                a.pixels()
+                    .cmp(&b.pixels())
+                    .then_with(|| capped(a).cmp(&capped(b)))
+                    // Prefer the mode that needs the least frame-rate reduction.
+                    .then_with(|| b.fps.cmp(&a.fps))
+            })
+    };
+    let smallest =
+        |rated: bool| candidates(rated).min_by_key(|(_, f)| (f.pixels(), Reverse(capped(f))));
+    let (index, format) = best_fitting(true)
+        .or_else(|| best_fitting(false))
+        .or_else(|| smallest(true))
+        .or_else(|| smallest(false))?;
     Some(Selection {
         index,
         format: *format,
@@ -245,17 +294,76 @@ mod tests {
 
     #[test]
     fn falls_back_to_smallest_format_when_nothing_fits() {
+        // Only bigger modes: capture at the smallest, and recordings scale
+        // it down to 1920x1080.
         let formats = [fmt(3840, 2160, 30, 1), fmt(2560, 1440, 24, 1)];
         let sel = select_format(&formats, &FormatPreference::default()).unwrap();
         assert_eq!(sel.index, 1);
+        assert_eq!(
+            FormatPreference::default().fit_size(sel.format.width, sel.format.height),
+            (1920, 1080)
+        );
         assert_eq!(select_format(&[], &FormatPreference::default()), None);
     }
 
     #[test]
-    fn ignores_formats_without_a_frame_rate() {
+    fn prefers_rated_modes_among_those_that_fit() {
         let formats = [fmt(1920, 1080, 0, 1), fmt(1280, 720, 30, 1)];
         let sel = select_format(&formats, &FormatPreference::default()).unwrap();
         assert_eq!(sel.index, 1);
+    }
+
+    #[test]
+    fn prefers_1080p_without_a_frame_rate_over_bigger_modes() {
+        // A camera that lists its 1080p modes with no (or a zero) frame
+        // rate next to 1440p and 4K ones.
+        let formats = [
+            fmt(3840, 2160, 30, 1),
+            fmt(2560, 1440, 30, 1),
+            fmt(1920, 1080, 0, 1),
+            fmt(1920, 1080, 0, 0),
+            fmt(1280, 720, 0, 0),
+        ];
+        let sel = select_format(&formats, &FormatPreference::default()).unwrap();
+        assert_eq!((sel.format.width, sel.format.height), (1920, 1080));
+        assert_eq!(sel.fps, Rational::new(30, 1));
+    }
+
+    #[test]
+    fn prefers_portrait_1080p_over_bigger_landscape_modes() {
+        let formats = [
+            fmt(2560, 1440, 30, 1),
+            fmt(1080, 1920, 30, 1),
+            fmt(3840, 2160, 30, 1),
+        ];
+        let sel = select_format(&formats, &FormatPreference::default()).unwrap();
+        assert_eq!(sel.index, 1);
+    }
+
+    #[test]
+    fn falls_back_to_a_mode_without_a_frame_rate() {
+        let formats = [fmt(3840, 2160, 0, 0), fmt(2560, 1440, 0, 1)];
+        let sel = select_format(&formats, &FormatPreference::default()).unwrap();
+        assert_eq!(sel.index, 1);
+        assert_eq!(sel.fps, Rational::new(30, 1));
+        let empty = [fmt(0, 0, 30, 1)];
+        assert_eq!(select_format(&empty, &FormatPreference::default()), None);
+    }
+
+    #[test]
+    fn fits_bigger_sizes_within_1080p_keeping_the_aspect_ratio() {
+        let pref = FormatPreference::default();
+        assert_eq!(pref.fit_size(1920, 1080), (1920, 1080));
+        assert_eq!(pref.fit_size(1280, 720), (1280, 720));
+        assert_eq!(pref.fit_size(2560, 1440), (1920, 1080));
+        assert_eq!(pref.fit_size(3840, 2160), (1920, 1080));
+        assert_eq!(pref.fit_size(1440, 2560), (1080, 1920));
+        // 4:3 is limited by the short edge, ultra-wide by the long one.
+        assert_eq!(pref.fit_size(4000, 3000), (1440, 1080));
+        assert_eq!(pref.fit_size(2880, 1200), (1920, 800));
+        // Odd results round down to even sizes.
+        assert_eq!(pref.fit_size(2562, 1442), (1918, 1080));
+        assert_eq!(pref.fit_size(0, 0), (0, 0));
     }
 
     #[test]

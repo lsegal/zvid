@@ -9,7 +9,8 @@
 //!   [`encoder`]). Frames are placed on a constant-frame-rate grid at the
 //!   camera's rate, timed from their capture timestamps relative to the
 //!   first frame (file time zero). Frames are rotated upright
-//!   ([`Frame::upright`]) before encoding.
+//!   ([`Frame::upright`]) and scaled down to fit
+//!   [`RecordConfig::max_size`] before encoding.
 //! - **Audio** is AAC-LC of the plugin's input bus from zvidlib, aligned to
 //!   the same clock. Without an AAC encoder the file is video only.
 //! - **Muxing** writes a fragmented MP4 while recording, one synced
@@ -40,7 +41,7 @@ use zvidlib::mp4::{Mp4TrackConfig, Mp4TrackFormat};
 use zvidlib::{Codec, EncodedSample, Limits, SampleDependency, VideoDimensions};
 
 use crate::clock::HostTime;
-use crate::format::Rational;
+use crate::format::{FormatPreference, Rational};
 use crate::frame::{Frame, Rotation};
 
 pub use encoder::{EncoderInfo, VideoEncoderChoice};
@@ -86,6 +87,11 @@ pub struct RecordConfig {
     /// The input bus format, or `None` to record video only.
     pub audio: Option<AudioFormat>,
     pub video_encoder: VideoEncoderChoice,
+    /// The largest frame size to record; only its size limits are used.
+    /// Bigger frames, from a camera that only offers modes above it, are
+    /// scaled down to fit. Pass the capture's [`FormatPreference`] (by
+    /// default 1080p) so recordings never exceed it.
+    pub max_size: FormatPreference,
 }
 
 /// A block of input-bus audio.
@@ -321,6 +327,7 @@ impl Recorder {
             fps,
             audio: config.audio,
             choice: config.video_encoder,
+            max_size: config.max_size,
             shared: Arc::clone(&shared),
         };
         let spawned = std::thread::Builder::new()
@@ -426,6 +433,7 @@ struct Worker {
     fps: Rational,
     audio: Option<AudioFormat>,
     choice: VideoEncoderChoice,
+    max_size: FormatPreference,
     shared: Arc<Shared>,
 }
 
@@ -552,9 +560,14 @@ impl Worker {
             &upright
         };
         if video.is_none() {
-            let (encoder, skipped) =
-                encoder::open_video(frame.width, frame.height, self.fps, self.choice)
-                    .map_err(|reasons| RecordError::NoEncoder(reasons.join("; ")).to_string())?;
+            let (encoder, skipped) = encoder::open_video(
+                frame.width,
+                frame.height,
+                self.fps,
+                self.choice,
+                self.max_size,
+            )
+            .map_err(|reasons| RecordError::NoEncoder(reasons.join("; ")).to_string())?;
             let info = encoder.info();
             let mut stats = self.shared.stats();
             stats.video_encoder = Some(info.clone());

@@ -8,6 +8,10 @@
 //! encoder, are the last resort. Those are far slower than real time at
 //! camera resolutions, so the recorder drops what they can't keep up with.
 //!
+//! Frames bigger than the recording's size limit (1080p), from a camera
+//! that only offers bigger modes, are scaled down to fit with zvidlib's CPU
+//! frame transfer before encoding.
+//!
 //! Audio: AAC-LC through zvidlib's platform AAC encoder (AudioToolbox on
 //! macOS, Media Foundation on Windows). Input at a rate the encoder doesn't
 //! take, like 88.2 or 96 kHz on Windows, is resampled to one it does.
@@ -16,15 +20,16 @@ use std::fmt;
 
 use zvidlib::{
     AudioBuffer, AudioEncoder, AudioEncoderConfig, AudioEncoderFactory, AudioGapless, Codec,
-    CodecImplementation, CodecProfile, ColorRange, CpuFrameSource, EncodedSample, EncoderConfig,
-    FrameIndex, FrameSource, HardwarePreference, Limits, Orientation, PixelFormat as ZPixelFormat,
-    Plane, SampleRange, VideoDimensions, VideoEncoder, VideoEncoderConfig, VideoEncoderFactory,
-    VideoFrame,
+    CodecImplementation, CodecProfile, ColorRange, CpuFrameDestination, CpuFrameSource,
+    CpuPlaneDestination, EncodedSample, EncoderConfig, FrameDestination, FrameIndex, FrameSource,
+    HardwarePreference, Limits, Orientation, PixelFormat as ZPixelFormat, Plane, SampleRange,
+    TransferPolicy, VideoDimensions, VideoEncoder, VideoEncoderConfig, VideoEncoderFactory,
+    VideoFrame, execute_transfer,
 };
 
 use super::block_on;
 use super::resample::Resampler;
-use crate::format::Rational;
+use crate::format::{FormatPreference, Rational};
 use crate::frame::Frame;
 use crate::preview::Converter;
 
@@ -90,14 +95,17 @@ pub fn target_bitrate(width: u32, height: u32, fps: Rational) -> u32 {
 /// An opened video encoder and why earlier candidates were skipped.
 pub type Opened = (VideoStream, Vec<String>);
 
-/// Opens the first video encoder in `choice` that accepts this format.
-/// Returns the encoder and the reasons earlier candidates were skipped.
+/// Opens the first video encoder in `choice` that accepts `width`×`height`
+/// frames scaled down to fit `max_size`. Returns the encoder and the
+/// reasons earlier candidates were skipped.
 pub fn open_video(
     width: u32,
     height: u32,
     fps: Rational,
     choice: VideoEncoderChoice,
+    max_size: FormatPreference,
 ) -> Result<Opened, Vec<String>> {
+    let (width, height) = max_size.fit_size(width, height);
     let mut skipped = Vec::new();
     let bitrate = target_bitrate(width, height, fps);
     let mut candidates = Vec::new();
@@ -132,7 +140,10 @@ pub fn open_video(
         };
         let opened = VideoStream::open(codec, hardware, input_format, width, height, fps, bitrate);
         match opened {
-            Ok(encoder) => return Ok((encoder, skipped)),
+            Ok(mut encoder) => {
+                encoder.max_size = max_size;
+                return Ok((encoder, skipped));
+            }
             Err(error) => skipped.push(format!(
                 "{hardware:?} {codec:?} at {width}x{height}: {error}"
             )),
@@ -142,8 +153,8 @@ pub fn open_video(
 }
 
 /// A zvidlib video encoder fed from camera frames. HEVC takes BGRA or RGBA
-/// and AV1 takes 8-bit grey, so frames are centre-cropped to the encoder's
-/// size and converted.
+/// and AV1 takes 8-bit grey, so frames are converted, scaled down to fit
+/// `max_size`, and centre-cropped to the encoder's size.
 pub struct VideoStream {
     encoder: Box<dyn VideoEncoder>,
     codec: Codec,
@@ -153,6 +164,7 @@ pub struct VideoStream {
     frame_duration: u32,
     next: u64,
     limits: Limits,
+    max_size: FormatPreference,
 }
 
 impl VideoStream {
@@ -203,6 +215,7 @@ impl VideoStream {
             frame_duration: fps.den,
             next: 0,
             limits,
+            max_size: FormatPreference::default(),
         })
     }
 
@@ -274,36 +287,36 @@ impl VideoStream {
 
     fn convert(&self, frame: &Frame) -> Result<VideoFrame, String> {
         let (w, h) = (self.width as usize, self.height as usize);
-        let (sw, sh) = (frame.width as usize, frame.height as usize);
+        let (fit_width, fit_height) = self.max_size.fit_size(frame.width, frame.height);
+        let (sw, sh) = (fit_width as usize, fit_height as usize);
         if sw < w || sh < h {
             return Err(format!("frame is {sw}x{sh}, encoder expects {w}x{h}"));
         }
         // Even offsets keep chroma sited on the same samples.
         let (x0, y0) = (((sw - w) / 2) & !1, ((sh - h) / 2) & !1);
-        let luma = frame.luma();
+        let format = self.frame_format();
+        let data = if (fit_width, fit_height) == (frame.width, frame.height) {
+            self.pixels(frame, x0, y0, w, h)
+        } else {
+            let (width, height) = (frame.width as usize, frame.height as usize);
+            let full = self.pixels(frame, 0, 0, width & !1, height);
+            let scaled = self.scale(full, frame.width & !1, frame.height, fit_width, fit_height)?;
+            if (sw, sh) == (w, h) {
+                scaled
+            } else {
+                let bytes = bytes_per_pixel(format);
+                let mut cropped = Vec::with_capacity(w * h * bytes);
+                for row in scaled.chunks_exact(sw * bytes).skip(y0).take(h) {
+                    cropped.extend_from_slice(&row[x0 * bytes..(x0 + w) * bytes]);
+                }
+                cropped
+            }
+        };
         let dimensions = VideoDimensions::new(self.width, self.height, &self.limits)
             .map_err(|e| e.to_string())?;
-        let (format, plane) = if self.codec == Codec::Hevc {
-            let bgra = self.input_format == ZPixelFormat::Bgra8;
-            (
-                self.input_format,
-                Plane {
-                    data: to_rgb32(frame, x0, y0, w, h, bgra),
-                    stride: w * 4,
-                },
-            )
-        } else {
-            let mut grey = Vec::with_capacity(w * h);
-            for y in y0..y0 + h {
-                grey.extend_from_slice(&luma[y * sw + x0..y * sw + x0 + w]);
-            }
-            (
-                ZPixelFormat::Gray8,
-                Plane {
-                    data: grey,
-                    stride: w,
-                },
-            )
+        let plane = Plane {
+            data,
+            stride: w * bytes_per_pixel(format),
         };
         VideoFrame::new(
             dimensions,
@@ -314,6 +327,85 @@ impl VideoStream {
         )
         .map_err(|e| e.to_string())
     }
+
+    /// The encoder's input format.
+    fn frame_format(&self) -> ZPixelFormat {
+        if self.codec == Codec::Hevc {
+            self.input_format
+        } else {
+            ZPixelFormat::Gray8
+        }
+    }
+
+    /// The `w`×`h` region of `frame` at (`x0`, `y0`) in the encoder's input
+    /// format. `x0` and `w` are even.
+    fn pixels(&self, frame: &Frame, x0: usize, y0: usize, w: usize, h: usize) -> Vec<u8> {
+        if self.codec == Codec::Hevc {
+            let bgra = self.input_format == ZPixelFormat::Bgra8;
+            to_rgb32(frame, x0, y0, w, h, bgra)
+        } else {
+            let (luma, sw) = (frame.luma(), frame.width as usize);
+            let mut grey = Vec::with_capacity(w * h);
+            for y in y0..y0 + h {
+                grey.extend_from_slice(&luma[y * sw + x0..y * sw + x0 + w]);
+            }
+            grey
+        }
+    }
+
+    /// Scales tightly packed pixels in the encoder's input format from
+    /// `width`×`height` to `to_width`×`to_height` with zvidlib.
+    fn scale(
+        &self,
+        data: Vec<u8>,
+        width: u32,
+        height: u32,
+        to_width: u32,
+        to_height: u32,
+    ) -> Result<Vec<u8>, String> {
+        let format = self.frame_format();
+        let bytes = bytes_per_pixel(format);
+        let error =
+            |e: zvidlib::Error| format!("scaling {width}x{height} to {to_width}x{to_height}: {e}");
+        let source = VideoFrame::new(
+            VideoDimensions::new(width, height, &self.limits).map_err(error)?,
+            format,
+            ColorRange::Limited,
+            vec![Plane {
+                data,
+                stride: width as usize * bytes,
+            }],
+            &self.limits,
+        )
+        .map_err(error)?;
+        let stride = to_width as usize * bytes;
+        let mut scaled = vec![0; stride * to_height as usize];
+        let destination = CpuFrameDestination {
+            dimensions: VideoDimensions::new(to_width, to_height, &self.limits).map_err(error)?,
+            pixel_format: format,
+            color_range: ColorRange::Limited,
+            orientation: Orientation::TopLeft,
+            planes: vec![CpuPlaneDestination {
+                data: &mut scaled,
+                stride,
+            }],
+        };
+        execute_transfer(
+            None,
+            FrameSource::Cpu(CpuFrameSource {
+                frame: &source,
+                orientation: Orientation::TopLeft,
+            }),
+            FrameDestination::Cpu(destination),
+            TransferPolicy::any(),
+        )
+        .map_err(error)?;
+        Ok(scaled)
+    }
+}
+
+fn bytes_per_pixel(format: ZPixelFormat) -> usize {
+    if format == ZPixelFormat::Gray8 { 1 } else { 4 }
 }
 
 /// Converts the `w`×`h` NV12 region at (`x0`, `y0`) to RGBA, or BGRA when
