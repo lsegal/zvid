@@ -56,6 +56,7 @@ import {
   BrandMark,
   openBuildCommit,
 } from "./components/BrandMark";
+import { CaptureInstallerDialog } from "./components/CaptureInstallerDialog";
 import { FxChain, type FxEditMode } from "./components/FxChain";
 import {
   ImportNotice,
@@ -112,7 +113,11 @@ import {
   setEffectParameter,
   setLaneFxEnabled,
 } from "./fx-stack";
-import { getHarness, type SaveTarget } from "./harness";
+import {
+  getHarness,
+  type SaveTarget,
+  supportsHarnessCapability,
+} from "./harness";
 import { hasMediaExtension } from "./harness/media-extensions";
 import { MainWaveform } from "./MainWaveform";
 import { withMainAudio } from "./main-audio";
@@ -1766,6 +1771,8 @@ function App() {
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isStartingShare, setIsStartingShare] = useState(false);
   const [isConnectDialogOpen, setIsConnectDialogOpen] = useState(false);
+  const [isCaptureInstallerDialogOpen, setIsCaptureInstallerDialogOpen] =
+    useState(false);
   const [isOfflineMediaDialogOpen, setIsOfflineMediaDialogOpen] =
     useState(false);
   const [relinkingMediaIds, setRelinkingMediaIds] = useState<
@@ -6056,6 +6063,14 @@ function App() {
               >
                 Getting Started
               </DropdownMenuItem>
+              {/* The desktop app has no downloads to offer. */}
+              {supportsHarnessCapability("native-dialogs") ? null : (
+                <DropdownMenuItem
+                  onSelect={() => setIsCaptureInstallerDialogOpen(true)}
+                >
+                  Install Capture Plugin
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="help-menu__build"
@@ -6067,6 +6082,11 @@ function App() {
           </DropdownMenu>
         </div>
       </header>
+
+      <CaptureInstallerDialog
+        open={isCaptureInstallerDialogOpen}
+        onOpenChange={setIsCaptureInstallerDialogOpen}
+      />
 
       <Dialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen}>
         <DialogContent>

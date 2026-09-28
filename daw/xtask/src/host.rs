@@ -130,7 +130,8 @@ pub fn fetch_test_host(target: &Path) -> Result<PathBuf, String> {
     Ok(binary)
 }
 
-fn sha256_hex(bytes: &[u8]) -> String {
+/// The lowercase hex SHA-256 of `bytes`.
+pub fn sha256_hex(bytes: &[u8]) -> String {
     Sha256::digest(bytes)
         .iter()
         .map(|byte| format!("{byte:02x}"))

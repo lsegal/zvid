@@ -27,6 +27,7 @@ zvidlib = { git = "https://github.com/lsegal/zvidlib", rev = "0863b7e7d28a9b3567
 dirs = "6"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha2 = "0.10"
 jpeg-encoder = "0.7"
 # macOS camera capture (zvid-capture).
 block2 = "0.6"

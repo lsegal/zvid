@@ -84,6 +84,8 @@ pnpm run deploy
 
 Wrangler uses [wrangler.jsonc](d:\github\lsegal\zvid\app\wrangler.jsonc) and serves the built Vite output from `dist/` with SPA fallback enabled.
 
+Wrangler's build command, `pnpm run cf:prepare`, builds the app and then runs `scripts/fetch-capture-installers.ts`, which copies the ZVID Capture installers from the latest successful `DAW bundles` run on `main` into `dist/downloads` for **Help → Install Capture Plugin**. It needs a GitHub token (`GH_TOKEN`, `GITHUB_TOKEN` or a `gh auth login` session); without one the app deploys with no installers, unless `ZVID_REQUIRE_CAPTURE_INSTALLERS=1` makes that an error, as in the deploy workflow. The deploy workflow also redeploys whenever `DAW bundles` succeeds on `main`, so the downloads follow the newest bundles.
+
 MP4 export uses the zvidlib bridge built during the app build. The runtime needs a HEVC or AV1 video encoder. Audible exports use a browser AAC encoder when available; the native macOS app can also use AudioToolbox.
 
 To check playable browser and Tauri exports, follow [the MP4 export smoke test](EXPORT_SMOKE_TEST.md).

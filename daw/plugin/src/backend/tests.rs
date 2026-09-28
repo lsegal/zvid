@@ -134,6 +134,8 @@ struct Fake {
     refuse: Mutex<HashMap<String, CaptureError>>,
     open: Mutex<Option<Open>>,
     hotplug: Mutex<Option<DeviceSink>>,
+    /// Set while the watcher guard `watch` returned is alive.
+    watching: Arc<AtomicBool>,
     files: Mutex<Vec<Arc<FileState>>>,
     configs: Mutex<Vec<RecordConfig>>,
 }
@@ -178,6 +180,15 @@ impl Fake {
     }
 }
 
+/// The fake's hot-plug watcher guard.
+struct Watching(Arc<AtomicBool>);
+
+impl Drop for Watching {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::Release);
+    }
+}
+
 impl Platform for Fake {
     fn devices(&self) -> Result<Vec<Device>, CaptureError> {
         Ok(lock(&self.devices).clone())
@@ -185,7 +196,8 @@ impl Platform for Fake {
 
     fn watch(&self, on_event: DeviceSink) -> Result<Box<dyn Any>, CaptureError> {
         *lock(&self.hotplug) = Some(on_event);
-        Ok(Box::new(()))
+        self.watching.store(true, Ordering::Release);
+        Ok(Box::new(Watching(Arc::clone(&self.watching))))
     }
 
     fn open(
@@ -1002,4 +1014,15 @@ fn dropping_the_backend_finishes_the_capture() {
     wait_for("the file to finish", || {
         file.stopped.load(Ordering::Acquire)
     });
+}
+
+#[test]
+fn shutdown_waits_for_the_monitor_thread() {
+    let rig = Rig::new(State::default());
+    assert!(rig.fake.watching.load(Ordering::Acquire));
+    rig.backend.shutdown();
+    // Hosts may unload the module right after the instance goes, so the
+    // monitor thread, which owns the watcher, must have ended already.
+    assert!(!rig.fake.watching.load(Ordering::Acquire));
+    assert!(lock(&rig.backend.monitor).is_none());
 }
