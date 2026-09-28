@@ -353,6 +353,45 @@
   overflow-wrap: anywhere;
 }
 
+.capture-installer__steps {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0 0;
+  padding: 14px 16px 14px 36px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(12, 14, 20, 0.26);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.capture-installer__notice {
+  margin: 14px 0 0;
+  color: #ffd56a;
+  font-size: 0.84rem;
+}
+
+.capture-installer__others {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.capture-installer__link {
+  color: var(--ink);
+}
+
+.capture-installer__version {
+  margin-right: auto;
+  align-self: center;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.dialog-footer a.ghost-button {
+  text-decoration: none;
+}
+
 .offline-media-dialog {
   display: flex;
   flex-direction: column;
