@@ -7,7 +7,8 @@
     "dev": "vite --port 5174 --strictPort",
     "build": "tsc -b && vite build",
     "lint": "tsc -b && pnpm --dir ../.. exec biome check daw/ui",
-    "test": "node --test \"src/**/*.test.ts\""
+    "test": "node --test \"src/**/*.test.ts\"",
+    "test:web": "playwright test"
   },
   "dependencies": {
     "@zvid/tokens": "link:../../packages/tokens",
@@ -15,6 +16,7 @@
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/node": "^24.12.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

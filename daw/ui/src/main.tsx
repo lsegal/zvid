@@ -9,16 +9,31 @@ if (!root) {
   throw new Error('Missing root element with id "root".');
 }
 
-const config = hostConfig();
-createRoot(root).render(
-  <StrictMode>
-    {config ? (
-      <App client={new Client(config)} />
-    ) : (
-      <p className="no-host">
-        Open this page from the plugin or the harness:{" "}
-        <code>cargo run -p zvid-daw-ui --example harness -- --dev</code>
-      </p>
-    )}
-  </StrictMode>,
+/**
+ * The plugin's or harness's client, or in the Vite dev server without
+ * either, the web driver's (see src/web/driver.ts).
+ */
+async function connect(): Promise<Client | undefined> {
+  const config = hostConfig();
+  if (config) return new Client(config);
+  if (import.meta.env.DEV) {
+    const { startWebDriver } = await import("./web/start.ts");
+    return startWebDriver(window.location.search);
+  }
+  return undefined;
+}
+
+void connect().then((client) =>
+  createRoot(root).render(
+    <StrictMode>
+      {client ? (
+        <App client={client} />
+      ) : (
+        <p className="no-host">
+          Open this page from the plugin or the harness, or run{" "}
+          <code>pnpm --dir daw/ui dev</code> to use the web driver.
+        </p>
+      )}
+    </StrictMode>,
+  ),
 );
