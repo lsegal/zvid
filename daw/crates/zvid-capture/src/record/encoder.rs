@@ -301,14 +301,16 @@ impl VideoStream {
             let (width, height) = (frame.width as usize, frame.height as usize);
             let full = self.pixels(frame, 0, 0, width & !1, height);
             let scaled = self.scale(full, frame.width & !1, frame.height, fit_width, fit_height)?;
-            let bytes = bytes_per_pixel(format);
-            scaled
-                .chunks_exact(sw * bytes)
-                .skip(y0)
-                .take(h)
-                .flat_map(|row| &row[x0 * bytes..(x0 + w) * bytes])
-                .copied()
-                .collect()
+            if (sw, sh) == (w, h) {
+                scaled
+            } else {
+                let bytes = bytes_per_pixel(format);
+                let mut cropped = Vec::with_capacity(w * h * bytes);
+                for row in scaled.chunks_exact(sw * bytes).skip(y0).take(h) {
+                    cropped.extend_from_slice(&row[x0 * bytes..(x0 + w) * bytes]);
+                }
+                cropped
+            }
         };
         let dimensions = VideoDimensions::new(self.width, self.height, &self.limits)
             .map_err(|e| e.to_string())?;

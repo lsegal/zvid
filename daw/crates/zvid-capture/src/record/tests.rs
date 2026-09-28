@@ -216,6 +216,68 @@ fn records_rotated_captures_upright() {
     assert_eq!(jpeg_size(&jpeg), Some((48, 64)));
 }
 
+#[test]
+fn scales_frames_above_the_size_limit_down_to_fit() {
+    // A camera that only offers modes above the limit: 128x96 frames, dark
+    // on the left and bright on the right, recorded with a 64x48 limit that
+    // stands in for 1080p.
+    let (width, height) = (128u32, 96u32);
+    let mut data = vec![128; Frame::nv12_len(width, height)];
+    for row in data[..(width * height) as usize].chunks_mut(width as usize) {
+        row[..64].fill(16);
+        row[64..].fill(235);
+    }
+    let max_size = FormatPreference {
+        max_long_edge: 64,
+        max_short_edge: 48,
+        ..FormatPreference::default()
+    };
+    for (choice, codec) in [
+        (VideoEncoderChoice::Software, "hevc"),
+        (VideoEncoderChoice::Av1, "av1"),
+    ] {
+        let root = root();
+        let recorder = Recorder::start(RecordConfig {
+            max_size,
+            ..config(&root, None, choice)
+        })
+        .unwrap();
+        for index in 0..10 {
+            push(
+                &recorder,
+                Arc::new(Frame {
+                    width,
+                    height,
+                    format: PixelFormat::Nv12,
+                    color: ColorInfo::for_height(height),
+                    rotation: Rotation::None,
+                    pts: host_ms(index as f64 * 1000.0 / 30.0),
+                    sequence: index,
+                    data: data.clone(),
+                }),
+            );
+        }
+        let recorded = recorder.stop().unwrap();
+        assert_eq!(recorded.codec, codec);
+        assert_eq!(recorded.dimensions, (64, 48), "{codec}");
+        assert_eq!(recorded.stats.frames_written, 10);
+
+        // The whole picture is kept, not cropped: dark left, bright right.
+        let path = root.path_of(&recorded.filename);
+        let (w, h, rgb) = poster::poster_rgb(&path, 0.1, 64).unwrap();
+        assert_eq!((w, h), (64, 48));
+        let luma = |x: u32, y: u32| rgb[((y * w + x) * 3) as usize];
+        for y in [4, 24, 44] {
+            assert!(luma(4, y) < 40, "{codec} left at y={y} is {}", luma(4, y));
+            assert!(
+                luma(60, y) > 215,
+                "{codec} right at y={y} is {}",
+                luma(60, y)
+            );
+        }
+    }
+}
+
 /// Width and height from a baseline JPEG's frame header.
 fn jpeg_size(jpeg: &[u8]) -> Option<(u16, u16)> {
     let at = jpeg.windows(2).position(|pair| pair == [0xff, 0xc0])?;

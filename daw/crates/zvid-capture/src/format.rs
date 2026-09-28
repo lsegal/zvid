@@ -325,7 +325,7 @@ mod tests {
             fmt(1280, 720, 0, 0),
         ];
         let sel = select_format(&formats, &FormatPreference::default()).unwrap();
-        assert_eq!(sel.index, 2);
+        assert_eq!((sel.format.width, sel.format.height), (1920, 1080));
         assert_eq!(sel.fps, Rational::new(30, 1));
     }
 

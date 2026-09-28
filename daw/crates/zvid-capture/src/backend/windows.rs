@@ -345,6 +345,9 @@ struct Configured {
     source: IMFMediaSource,
     reader: IMFSourceReader,
     selection: Selection,
+    /// Size of delivered frames: the selected mode's, or smaller when the
+    /// reader scales a mode above the size limit down.
+    size: (u32, u32),
     rotation: Rotation,
     color: ColorInfo,
 }
@@ -375,17 +378,30 @@ fn configure(id: &DeviceId, pref: &FormatPreference) -> Result<Configured, Captu
         reader
             .SetCurrentMediaType(VIDEO_STREAM, None, &native.media_type)
             .map_err(|e| fail(classify("SetCurrentMediaType(native)", e, id)))?;
-        let output =
-            MFCreateMediaType().map_err(|e| fail(platform_error("MFCreateMediaType", e)))?;
-        let size = (u64::from(selection.format.width) << 32) | u64::from(selection.format.height);
-        output
-            .SetGUID(&MF_MT_MAJOR_TYPE, &MFMediaType_Video)
-            .and_then(|_| output.SetGUID(&MF_MT_SUBTYPE, &MFVideoFormat_NV12))
-            .and_then(|_| output.SetUINT64(&MF_MT_FRAME_SIZE, size))
-            .map_err(|e| fail(platform_error("output media type", e)))?;
-        reader
-            .SetCurrentMediaType(VIDEO_STREAM, None, &output)
-            .map_err(|_| fail(CaptureError::NoSupportedFormat))?;
+        let native_size = (selection.format.width, selection.format.height);
+        let set_output = |(width, height): (u32, u32)| {
+            let output = MFCreateMediaType().map_err(|e| platform_error("MFCreateMediaType", e))?;
+            let size = (u64::from(width) << 32) | u64::from(height);
+            output
+                .SetGUID(&MF_MT_MAJOR_TYPE, &MFMediaType_Video)
+                .and_then(|_| output.SetGUID(&MF_MT_SUBTYPE, &MFVideoFormat_NV12))
+                .and_then(|_| output.SetUINT64(&MF_MT_FRAME_SIZE, size))
+                .map_err(|e| platform_error("output media type", e))?;
+            reader
+                .SetCurrentMediaType(VIDEO_STREAM, None, &output)
+                .map_err(|_| CaptureError::NoSupportedFormat)
+                .map(|_| (width, height))
+        };
+        // A mode above the size limit (the camera offers nothing smaller) is
+        // scaled down by the reader's video processor. If it can't, frames
+        // arrive at the native size and recordings scale them instead.
+        let fitted = pref.fit_size(native_size.0, native_size.1);
+        let size = if fitted == native_size {
+            set_output(native_size)
+        } else {
+            set_output(fitted).or_else(|_| set_output(native_size))
+        }
+        .map_err(fail)?;
         reader.SetStreamSelection(VIDEO_STREAM, true).ok();
 
         let rotation = native
@@ -405,6 +421,7 @@ fn configure(id: &DeviceId, pref: &FormatPreference) -> Result<Configured, Captu
             source,
             reader,
             selection,
+            size,
             rotation,
             color,
         })
@@ -464,10 +481,10 @@ impl Reader {
         let Some(data) = copy_nv12(&sample, &self.configured) else {
             return Ok(Read::Skip);
         };
-        let format = self.configured.selection.format;
+        let (width, height) = self.configured.size;
         Ok(Read::Frame(Frame {
-            width: format.width,
-            height: format.height,
+            width,
+            height,
             format: PixelFormat::Nv12,
             color: self.configured.color,
             rotation: self.configured.rotation,
@@ -479,10 +496,7 @@ impl Reader {
 }
 
 fn copy_nv12(sample: &IMFSample, configured: &Configured) -> Option<Vec<u8>> {
-    let (width, height) = (
-        configured.selection.format.width,
-        configured.selection.format.height,
-    );
+    let (width, height) = configured.size;
     let (w, h) = (width as usize, height as usize);
     // SAFETY: buffers are locked for the duration of the copy.
     unsafe {
