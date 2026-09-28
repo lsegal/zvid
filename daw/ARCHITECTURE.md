@@ -525,7 +525,14 @@ needs Inno Setup 6 on Windows (`ISCC` may name its `ISCC.exe`).
   `C:\Program Files\Common Files\VST3`, and registers one uninstaller for
   both under *Settings › Apps*. Installing over an older version, including
   an older plugin-only installer, replaces the whole bundle. The app needs
-  the Microsoft Edge WebView2 Runtime, which Windows 11 includes.
+  the Microsoft Edge WebView2 Runtime, which Windows 11 includes but some
+  Windows 10 machines lack. When the runtime's registry key is missing, setup
+  downloads Microsoft's Evergreen bootstrapper after installing the files and
+  runs it silently, so `/VERYSILENT` installs get it too. If that fails, as
+  offline, setup still finishes, since the plug-in doesn't need the runtime,
+  logs the error and says where to download it (a message box that
+  `/SUPPRESSMSGBOXES` suppresses). Uninstalling leaves the runtime, which
+  other apps share.
 
 Neither installs the Live companion Remote Script, which lives in each user's
 Live User Library. Instead each bundle carries a copy in
