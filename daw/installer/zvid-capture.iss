@@ -2,7 +2,8 @@
 ; compiled by `cargo xtask bundle --release --installer --app <exe>` with Inno
 ; Setup 6, which passes the defines below. It installs the app and its
 ; uninstaller into Program Files\ZVID with a Start menu shortcut, and the VST3
-; bundle into the shared VST3 folder. The AppId is the plugin-only
+; bundle into the shared VST3 folder, and installs the WebView2 Runtime the app
+; needs when it is missing (see [Code]). The AppId is the plugin-only
 ; installer's, so installing over one upgrades it in place.
 
 #ifndef AppVersion
@@ -48,3 +49,69 @@ Filename: "{app}\{#AppExe}"; Description: "Launch ZVID"; Flags: nowait postinsta
 
 [Messages]
 FinishedLabel=Setup installed ZVID and the ZVID Capture plug-in. Rescan plug-ins in your host (in Live, Settings > Plug-Ins > Rescan) to load the plug-in.
+
+[Code]
+// The desktop app is a Tauri app, which needs the Microsoft Edge WebView2
+// Runtime. Windows 11 includes it; where it is missing, as on some Windows 10
+// machines, setup downloads Microsoft's Evergreen bootstrapper after
+// installing the files and runs it. If that fails, setup still finishes, since
+// the plug-in doesn't need the runtime, and says where to get it.
+
+const
+  WebView2ClientKey = 'SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}';
+  WebView2BootstrapperUrl = 'https://go.microsoft.com/fwlink/p/?LinkId=2124703';
+  WebView2DownloadPage = 'https://developer.microsoft.com/microsoft-edge/webview2/';
+
+function HasWebView2Under(const RootKey: Integer): Boolean;
+var
+  Version: String;
+begin
+  Result := RegQueryStringValue(RootKey, WebView2ClientKey, 'pv', Version)
+    and (Version <> '') and (Version <> '0.0.0.0');
+end;
+
+// Microsoft's documented check: a per-machine runtime registers its version
+// in the 32-bit view of HKLM, a per-user one in HKCU.
+function WebView2Installed: Boolean;
+begin
+  Result := HasWebView2Under(HKLM32) or HasWebView2Under(HKCU);
+end;
+
+procedure InstallWebView2;
+var
+  ResultCode: Integer;
+  Error: String;
+begin
+  Log('The WebView2 Runtime is missing; installing it');
+  WizardForm.StatusLabel.Caption := 'Installing the Microsoft Edge WebView2 Runtime...';
+  WizardForm.ProgressGauge.Style := npbstMarquee;
+  try
+    try
+      DownloadTemporaryFile(WebView2BootstrapperUrl, 'MicrosoftEdgeWebview2Setup.exe', '', nil);
+      if not Exec(ExpandConstant('{tmp}\MicrosoftEdgeWebview2Setup.exe'), '/silent /install', '',
+          SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+        Error := SysErrorMessage(ResultCode)
+      else if not WebView2Installed then
+        Error := Format('its installer exited with code %d', [ResultCode]);
+    except
+      Error := GetExceptionMessage;
+    end;
+  finally
+    WizardForm.ProgressGauge.Style := npbstNormal;
+  end;
+  if Error = '' then
+    Log('Installed the WebView2 Runtime')
+  else begin
+    Log('Installing the WebView2 Runtime failed: ' + Error);
+    SuppressibleMsgBox('Setup could not install the Microsoft Edge WebView2 Runtime, which the ZVID app needs: '
+      + Error + '.' + #13#10#13#10 + 'Download the Evergreen Bootstrapper from ' + WebView2DownloadPage
+      + ' and run it, then start ZVID. The ZVID Capture plug-in works without it.',
+      mbError, MB_OK, IDOK);
+  end;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if (CurStep = ssPostInstall) and not WebView2Installed then
+    InstallWebView2;
+end;
