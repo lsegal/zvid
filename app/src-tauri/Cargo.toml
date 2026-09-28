@@ -6,13 +6,13 @@ authors = ["OpenAI"]
 edition = "2021"
 
 [build-dependencies]
-tauri-build = { version = "=2.5.2", features = [] }
+tauri-build = { version = "=2.6.3", features = [] }
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha1 = "0.10"
-tauri = { version = "=2.9.3", features = ["protocol-asset"] }
-tauri-plugin-dialog = "=2.6.0"
+tauri = { version = "=2.11.6", features = ["protocol-asset"] }
+tauri-plugin-dialog = "=2.7.3"
 zvid-export-bridge = { path = "../export-bridge" }
 tempfile = "3"
