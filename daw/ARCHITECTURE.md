@@ -123,7 +123,7 @@ The workspace lives in `/daw` (scaffolded in
 | `daw/crates/zvid-au` | AUv2 plugin: the `AudioComponentFactoryFunction` entry point, property and render callbacks, and the Cocoa view factory. |
 | `daw/plugin` | The `cdylib` that ties everything together and exports the VST3 and AU entry points. Holds the plugin identity constants. |
 | `daw/live-remote-script` | The optional Live companion: a Python MIDI Remote Script (`ZVID_Capture`) that reports Live's record state and set path to plugin instances. Not part of the plugin binary. |
-| `daw/xtask` | `cargo xtask`: bundles the `cdylib` into `.vst3` and `.component` (release bundles are universal on macOS and commit-stamped; see [CI builds](#ci-builds)), runs `check` (Rust-only rule, zvidlib rev matches `app/export-bridge`), and runs the host integration tests (`host-test`; see [Testing](#testing)). |
+| `daw/xtask` | `cargo xtask`: bundles the `cdylib` into `.vst3` and `.component` (release bundles are universal on macOS and commit-stamped; see [CI builds](#ci-builds)), runs `check` (Rust-only rule, zvidlib rev matches `app/export-bridge`), runs the host integration tests (`host-test`), and runs pluginval (`validate`; see [Testing](#testing)). |
 
 Dependencies point inward: `plugin` depends on everything; `zvid-vst3`,
 `zvid-au`, `zvid-capture` and `zvid-daw-ui` depend on `zvid-daw-core` where
@@ -490,11 +490,13 @@ workflow run:
   `zvid-capture-<version>+<sha>.pkg`, and the Live companion Remote Script
   in `live-remote-script/ZVID_Capture`. CI checks both architectures with
   `lipo -archs`, installs the `.pkg`, verifies both installed bundles'
-  signatures and runs `auval` against the installed `.component`.
+  signatures and runs `auval` and pluginval against the installed
+  bundles.
 - `zvid-capture-<version>-<sha>-windows-x64`: `ZVID Capture.vst3`, the
   installer `zvid-capture-<version>+<sha>-setup.exe` and
-  `live-remote-script/ZVID_Capture`. CI runs the installer silently, checks
-  the bundle landed in the shared VST3 folder, then uninstalls it.
+  `live-remote-script/ZVID_Capture`. CI runs pluginval against the bundle,
+  then runs the installer silently, checks the bundle landed in the shared
+  VST3 folder, then uninstalls it.
 
 Both jobs also run the [host integration tests](#host-integration-tests)
 against the release bundles.
@@ -622,6 +624,8 @@ macOS AU and Windows VST3 before a release:
   with no Rust build, below.
 - **Host integration tests** (`cargo xtask host-test`) load the real bundles
   in a third-party host, below.
+- **pluginval** (`cargo xtask validate`) checks both bundles' format
+  conformance, below.
 - **Live 12** is checked by hand before a release, with the
   [Live 12 end-to-end checklist](#live-12-end-to-end-checklist).
 
@@ -746,6 +750,29 @@ To update Plugalyzer, change `HOST_VERSION` and each asset's `sha256`, from
 | Plugalyzer 0.5.0 | **Chosen.** Prebuilt, self-contained CLI binaries for macOS (universal, 10 MB zip) and Windows (4 MB zip). They load VST3 and AU. `process` renders WAV to WAV offline at a chosen block size, and `state` saves a fresh instance's state or restores one. It can't save a state it just restored, hence the log line above. Loaded `ZVID Capture.vst3` on Windows and passed audio through sample for sample. |
 | Carla 2.5.10 | Rejected. Its releases are a 250 MB Windows zip and a 370 MB macOS dmg of the full GUI host. It has no one-shot offline render: `carla-single` runs a plugin as a live JACK client, and tests would need to script its engine through the Python backend with a real-time driver. That makes sample-exact checks at chosen block sizes impractical. |
 | In-repo Rust host | Fallback only. It would reuse the ABI definitions in `zvid-vst3` and `zvid-au`, so it would share their mistakes and miss real hosts' quirks. |
+
+### pluginval
+
+`cargo xtask validate` runs [pluginval](https://github.com/Tracktion/pluginval)
+against the built bundles, as the `daw` CI job does on macOS and Windows:
+
+```sh
+cd daw
+cargo xtask bundle
+# macOS only: Audio Units load only from the plug-in folders.
+cp -R "target/bundle/ZVID Capture.component" ~/Library/Audio/Plug-Ins/Components/
+cargo xtask validate
+```
+
+It validates `target/bundle/ZVID Capture.vst3` and, on macOS,
+`~/Library/Audio/Plug-Ins/Components/ZVID Capture.component`, or the bundles
+named on the command line. pluginval is Tracktion's prebuilt release,
+downloaded once to `target/tools` and checked against the SHA-256 pinned in
+`xtask`, so nothing is compiled. It runs at strictness level 10, the highest
+(5 is the usual host-compatibility bar), with the editor tests;
+`--strictness-level <n>` and `--skip-gui-tests` override that locally, but CI
+uses neither. Steinberg's VST3 validator isn't run, because it needs a C++
+SDK build; the `daw` job in `ci.yml` records why.
 
 ## Decisions
 

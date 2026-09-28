@@ -9,6 +9,7 @@ publish.workspace = true
 zvid-daw-core.workspace = true
 zvid-vst3.workspace = true
 zvid-au.workspace = true
-# Host tests: the pinned host's checksum, and the state in AU property lists.
+# Host tests and pluginval: the pinned tools' checksums, and the state in
+# AU property lists.
 base64 = "0.22"
-sha2 = "0.10"
+sha2.workspace = true

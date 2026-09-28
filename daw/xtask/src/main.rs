@@ -24,6 +24,13 @@
 //!   Remote Script into `<User Library>/Remote Scripts/ZVID_Capture`,
 //!   replacing any older copy. The User Library defaults to Live's own
 //!   default location for the OS.
+//! - `validate [--strictness-level <1-10>] [--skip-gui-tests] [<bundle>...]`:
+//!   runs [pluginval](https://github.com/Tracktion/pluginval) against the
+//!   bundles, by default `target/bundle/ZVID Capture.vst3` and, on macOS,
+//!   the `.component` installed in `~/Library/Audio/Plug-Ins/Components`
+//!   (Audio Units must be installed to load). pluginval is a prebuilt
+//!   release, downloaded once to `target/tools` and checked against a
+//!   pinned SHA-256; nothing is compiled.
 //! - `fetch-test-host`: downloads the pinned, checksummed CLI plugin host the
 //!   host tests run in to `target/test-host` and prints its path.
 //! - `host-test [--bundles <dir>]`: bundles the plugin and runs the host
@@ -31,6 +38,7 @@
 //!   `.component`. `--bundles` tests the bundles already in `<dir>`, such as
 //!   release ones in `target/bundle`, instead of building debug ones.
 
+use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
@@ -72,6 +80,35 @@ const PLACEHOLDER_MARKER: &[u8] = b"The ZVID Capture UI was not built";
 const FORBIDDEN_EXTENSIONS: &[&str] = &["cpp", "cc", "mm"];
 /// Directories that hold build output or third-party packages, not sources.
 const SKIPPED_DIRS: &[&str] = &["target", "node_modules", ".git"];
+
+/// pluginval release `cargo xtask validate` downloads.
+const PLUGINVAL_VERSION: &str = "v1.0.4";
+/// Each OS's pluginval release asset and its SHA-256.
+const PLUGINVAL_ASSETS: &[(&str, &str, &str)] = &[
+    (
+        "macos",
+        "pluginval_macOS.zip",
+        "3c4c533bda0c5059eea3ddaea752d757ee2025041f0f47e6bcb0e87f6082b29f",
+    ),
+    (
+        "windows",
+        "pluginval_Windows.zip",
+        "c08e61ce3b96db41636f8ec7e76f4c7e2c13ebdac7fa1b5a1f52b4f32ec715ab",
+    ),
+    (
+        "linux",
+        "pluginval_Linux.zip",
+        "c01c49d8063965c4c2dea8324468336768f5c9139e0b1caebde14c2400b55352",
+    ),
+];
+/// pluginval strictness `cargo xtask validate` and CI use: the highest
+/// level, which adds parameter fuzzing and longer runs to level 5's host
+/// compatibility bar. Don't lower it to get a green build.
+const PLUGINVAL_STRICTNESS: u8 = 10;
+const _: () = assert!(
+    PLUGINVAL_STRICTNESS >= 5,
+    "5 is pluginval's host compatibility bar"
+);
 
 /// Folder name of the Live companion Remote Script, which Live shows as the
 /// Control Surface name.
@@ -132,6 +169,16 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        Some("validate") => {
+            let flags: Vec<String> = std::env::args().skip(2).collect();
+            match validate(&flags) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(problem) => {
+                    eprintln!("error: {problem}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
         Some("fetch-test-host") => match host::fetch_test_host(&target_dir(&daw_root())) {
             Ok(path) => {
                 println!("{}", path.display());
@@ -153,6 +200,7 @@ fn main() -> ExitCode {
             eprintln!(
                 "usage: cargo xtask check \
                  | cargo xtask bundle [--release] [--universal] [--installer] \
+                 | cargo xtask validate [--strictness-level <1-10>] [--skip-gui-tests] [<bundle>...] \
                  | cargo xtask install-live-script [--user-library <path>] \
                  | cargo xtask check-live [<Live.app>] \
                  | cargo xtask fetch-test-host \
@@ -377,6 +425,191 @@ fn codesign(bundle: &Path, identity: &str) -> Result<(), String> {
             .arg(bundle),
         &format!("verifying the signature of {}", bundle.display()),
     )
+}
+
+/// What `cargo xtask validate` runs pluginval on, and how.
+#[derive(Debug, PartialEq)]
+struct Validation {
+    strictness: u8,
+    skip_gui_tests: bool,
+    bundles: Vec<PathBuf>,
+}
+
+fn validation_options(flags: &[String]) -> Result<Validation, String> {
+    let mut options = Validation {
+        strictness: PLUGINVAL_STRICTNESS,
+        skip_gui_tests: false,
+        bundles: Vec::new(),
+    };
+    let mut flags = flags.iter();
+    while let Some(flag) = flags.next() {
+        match flag.as_str() {
+            "--strictness-level" => {
+                options.strictness = flags
+                    .next()
+                    .and_then(|level| level.parse().ok())
+                    .filter(|level| (1..=10).contains(level))
+                    .ok_or("--strictness-level takes a level from 1 to 10")?;
+            }
+            "--skip-gui-tests" => options.skip_gui_tests = true,
+            flag if flag.starts_with("--") => return Err(format!("unknown flag {flag}")),
+            bundle => options.bundles.push(PathBuf::from(bundle)),
+        }
+    }
+    Ok(options)
+}
+
+/// The bundles `cargo xtask validate` checks when none are named.
+fn default_validation_bundles(target: &Path, home: Option<PathBuf>) -> Vec<PathBuf> {
+    let mut bundles = vec![target.join("bundle").join(format!("{PLUGIN_NAME}.vst3"))];
+    if cfg!(target_os = "macos")
+        && let Some(home) = home
+    {
+        bundles.push(
+            home.join("Library/Audio/Plug-Ins/Components")
+                .join(format!("{PLUGIN_NAME}.component")),
+        );
+    }
+    bundles
+}
+
+/// Runs pluginval against each bundle, and fails if any fails.
+fn validate(flags: &[String]) -> Result<(), String> {
+    let mut options = validation_options(flags)?;
+    let target = target_dir(&daw_root());
+    if options.bundles.is_empty() {
+        let home = std::env::var_os("HOME").map(PathBuf::from);
+        options.bundles = default_validation_bundles(&target, home);
+    }
+    for bundle in &options.bundles {
+        if !bundle.exists() {
+            let hint = if bundle.extension().is_some_and(|ext| ext == "component") {
+                "run `cargo xtask bundle` and copy target/bundle/ZVID Capture.component there"
+            } else {
+                "run `cargo xtask bundle` first"
+            };
+            return Err(format!("{} is missing; {hint}", bundle.display()));
+        }
+    }
+    let pluginval = fetch_pluginval(&target)?;
+    let mut failed = Vec::new();
+    for bundle in &options.bundles {
+        println!(
+            "validating {} at strictness level {}",
+            bundle.display(),
+            options.strictness
+        );
+        let args = pluginval_args(options.strictness, options.skip_gui_tests, bundle);
+        let what = format!("pluginval on {}", bundle.display());
+        if let Err(problem) = run(Command::new(&pluginval).args(args), &what) {
+            eprintln!("error: {problem}");
+            failed.push(bundle.display().to_string());
+        }
+    }
+    if failed.is_empty() {
+        Ok(())
+    } else {
+        Err(format!("pluginval failed on {}", failed.join(", ")))
+    }
+}
+
+fn pluginval_args(strictness: u8, skip_gui_tests: bool, bundle: &Path) -> Vec<OsString> {
+    let mut args: Vec<OsString> = vec!["--strictness-level".into(), strictness.to_string().into()];
+    if skip_gui_tests {
+        args.push("--skip-gui-tests".into());
+    }
+    args.push("--validate".into());
+    args.push(bundle.into());
+    args
+}
+
+/// The pluginval release asset for `os` and its SHA-256.
+fn pluginval_asset(os: &str) -> Result<(&'static str, &'static str), String> {
+    PLUGINVAL_ASSETS
+        .iter()
+        .find(|(asset_os, _, _)| *asset_os == os)
+        .map(|&(_, asset, sha256)| (asset, sha256))
+        .ok_or_else(|| format!("pluginval has no release for {os}"))
+}
+
+/// The pluginval executable inside its unpacked release in `dir`.
+fn pluginval_executable(dir: &Path, os: &str) -> PathBuf {
+    match os {
+        "macos" => dir.join("pluginval.app/Contents/MacOS/pluginval"),
+        "windows" => dir.join("pluginval.exe"),
+        _ => dir.join("pluginval"),
+    }
+}
+
+/// Returns pluginval, downloading, checking and unpacking its release into
+/// `target/tools` the first time.
+fn fetch_pluginval(target: &Path) -> Result<PathBuf, String> {
+    let os = std::env::consts::OS;
+    let (asset, sha256) = pluginval_asset(os)?;
+    let tools = target.join("tools");
+    let dir = tools.join(format!("pluginval-{PLUGINVAL_VERSION}"));
+    let executable = pluginval_executable(&dir, os);
+    if executable.is_file() {
+        return Ok(executable);
+    }
+    // Unpacked beside `dir` and renamed into place, so an interrupted fetch
+    // never leaves a partial release that looks complete.
+    let partial = tools.join(format!("pluginval-{PLUGINVAL_VERSION}.partial"));
+    let _ = fs::remove_dir_all(&partial);
+    fs::create_dir_all(&partial)
+        .map_err(|error| format!("could not create {}: {error}", partial.display()))?;
+    let archive = partial.join(asset);
+    let url = format!(
+        "https://github.com/Tracktion/pluginval/releases/download/{PLUGINVAL_VERSION}/{asset}"
+    );
+    println!("downloading {url}");
+    run(
+        Command::new("curl")
+            .args(["--fail", "--silent", "--show-error", "--location"])
+            .args(["--retry", "3", "--output"])
+            .arg(&archive)
+            .arg(&url),
+        "downloading pluginval",
+    )?;
+    let bytes = fs::read(&archive)
+        .map_err(|error| format!("could not read {}: {error}", archive.display()))?;
+    let actual = host::sha256_hex(&bytes);
+    if actual != sha256 {
+        let _ = fs::remove_dir_all(&partial);
+        return Err(format!(
+            "{asset} has SHA-256 {actual}, expected {sha256}; not running it"
+        ));
+    }
+    let mut unpack = match os {
+        "macos" => {
+            let mut ditto = Command::new("ditto");
+            ditto.args(["-x", "-k"]).arg(&archive).arg(&partial);
+            ditto
+        }
+        // Windows' own bsdtar reads zips; Git's GNU tar, often first on
+        // PATH, doesn't.
+        "windows" => {
+            let root = std::env::var_os("SystemRoot").unwrap_or_else(|| r"C:\Windows".into());
+            let mut tar = Command::new(Path::new(&root).join(r"System32\tar.exe"));
+            tar.arg("-xf").arg(&archive).arg("-C").arg(&partial);
+            tar
+        }
+        _ => {
+            let mut unzip = Command::new("unzip");
+            unzip.arg("-q").arg(&archive).arg("-d").arg(&partial);
+            unzip
+        }
+    };
+    run(&mut unpack, "unpacking pluginval")?;
+    let _ = fs::remove_file(&archive);
+    let _ = fs::remove_dir_all(&dir);
+    fs::rename(&partial, &dir)
+        .map_err(|error| format!("could not move pluginval to {}: {error}", dir.display()))?;
+    if executable.is_file() {
+        Ok(executable)
+    } else {
+        Err(format!("{asset} has no {}", executable.display()))
+    }
 }
 
 /// Runs `command`, failing with `what` when it can't start or exits
@@ -1106,6 +1339,95 @@ fn zvidlib_rev(manifest: &Path) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn strings(args: &[&str]) -> Vec<String> {
+        args.iter().map(|arg| arg.to_string()).collect()
+    }
+
+    #[test]
+    fn parses_validation_flags() {
+        assert_eq!(
+            validation_options(&[]).unwrap(),
+            Validation {
+                strictness: PLUGINVAL_STRICTNESS,
+                skip_gui_tests: false,
+                bundles: Vec::new(),
+            }
+        );
+        assert_eq!(
+            validation_options(&strings(&[
+                "--strictness-level",
+                "7",
+                "--skip-gui-tests",
+                "a.vst3",
+                "b.component",
+            ]))
+            .unwrap(),
+            Validation {
+                strictness: 7,
+                skip_gui_tests: true,
+                bundles: vec!["a.vst3".into(), "b.component".into()],
+            }
+        );
+        for bad in [
+            &["--strictness-level"][..],
+            &["--strictness-level", "0"],
+            &["--strictness-level", "11"],
+            &["--release"],
+        ] {
+            assert!(validation_options(&strings(bad)).is_err(), "{bad:?}");
+        }
+    }
+
+    #[test]
+    fn validates_at_least_at_the_host_compatibility_level() {
+        let args = pluginval_args(PLUGINVAL_STRICTNESS, false, Path::new("x.vst3"));
+        assert_eq!(args, ["--strictness-level", "10", "--validate", "x.vst3"]);
+        let args = pluginval_args(5, true, Path::new("x.vst3"));
+        assert_eq!(
+            args,
+            [
+                "--strictness-level",
+                "5",
+                "--skip-gui-tests",
+                "--validate",
+                "x.vst3"
+            ]
+        );
+    }
+
+    #[test]
+    fn validates_the_vst3_and_the_installed_component_by_default() {
+        let bundles = default_validation_bundles(Path::new("/t"), Some("/home/me".into()));
+        assert_eq!(bundles[0], Path::new("/t/bundle/ZVID Capture.vst3"));
+        if cfg!(target_os = "macos") {
+            assert_eq!(
+                bundles[1],
+                Path::new("/home/me/Library/Audio/Plug-Ins/Components/ZVID Capture.component")
+            );
+        } else {
+            assert_eq!(bundles.len(), 1);
+        }
+    }
+
+    #[test]
+    fn pins_a_pluginval_release_for_each_ci_os() {
+        for os in ["macos", "windows"] {
+            let (asset, sha256) = pluginval_asset(os).unwrap();
+            assert!(asset.ends_with(".zip"));
+            assert_eq!(sha256.len(), 64);
+            assert!(sha256.bytes().all(|byte| byte.is_ascii_hexdigit()));
+        }
+        assert!(pluginval_asset("plan9").is_err());
+        assert_eq!(
+            pluginval_executable(Path::new("p"), "macos"),
+            Path::new("p/pluginval.app/Contents/MacOS/pluginval")
+        );
+        assert_eq!(
+            pluginval_executable(Path::new("p"), "windows"),
+            Path::new("p/pluginval.exe")
+        );
+    }
 
     fn scratch(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("zvid-xtask-{name}-{}", std::process::id()));
