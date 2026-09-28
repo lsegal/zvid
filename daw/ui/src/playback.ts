@@ -15,6 +15,28 @@ export function needsHostFrames(code: number | undefined): boolean {
   return code === MEDIA_ERR_DECODE || code === MEDIA_ERR_SRC_NOT_SUPPORTED;
 }
 
+/** Seconds the playhead may advance without a decoded frame. */
+const MAX_SECONDS_WITHOUT_FRAMES = 1;
+
+/**
+ * Whether a `<video>` that raised no error still can't show the take, so
+ * the preview switches to host frames. A webview that can't decode the video
+ * track but can decode the audio drops the video and plays the audio alone:
+ * no picture size, the playhead advancing, and no frames decoded.
+ * `decodedFrames` is `undefined` where the webview doesn't count frames.
+ */
+export function videoShowsNothing(video: {
+  videoWidth: number;
+  videoHeight: number;
+  advancedSec: number;
+  decodedFrames: number | undefined;
+}): boolean {
+  if (video.videoWidth === 0 || video.videoHeight === 0) return true;
+  return (
+    video.decodedFrames === 0 && video.advancedSec >= MAX_SECONDS_WITHOUT_FRAMES
+  );
+}
+
 /** Consecutive host frames that may fail before the preview gives up. */
 const MAX_FRAME_FAILURES = 10;
 

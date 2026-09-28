@@ -648,6 +648,24 @@ pub(crate) mod tests {
         assert_eq!((timing.priming, timing.padding), (2112, 528));
     }
 
+    /// The take preview plays takes in the webview, and WKWebView and
+    /// WebView2 play HEVC only from an `hvc1` sample entry, whose parameter
+    /// sets are in the `hvcC` rather than in the samples.
+    #[test]
+    fn tags_hevc_takes_hvc1() {
+        let dir = tempdir();
+        let path = dir.join("take.mp4");
+        let written = write(&path);
+        let tagged = |bytes: &[u8], kind: &[u8; 4]| bytes.windows(4).any(|w| w == kind);
+        let fragmented = std::fs::read(&path).unwrap();
+        assert!(tagged(&fragmented, b"hvc1"));
+        assert!(!tagged(&fragmented, b"hev1"));
+        finalize(&path, &written, &[]).unwrap();
+        let finalized = std::fs::read(&path).unwrap();
+        assert!(tagged(&finalized, b"hvc1"));
+        assert!(!tagged(&finalized, b"hev1"));
+    }
+
     /// A fresh directory under the system temp directory.
     pub(crate) fn tempdir() -> PathBuf {
         use std::sync::atomic::{AtomicU32, Ordering};

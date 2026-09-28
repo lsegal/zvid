@@ -6,6 +6,7 @@ import {
   frameFailureIsFatal,
   needsHostFrames,
   resumePosition,
+  videoShowsNothing,
 } from "./playback.ts";
 
 test("falls back to host frames only for codecs the webview can't play", () => {
@@ -45,4 +46,37 @@ test("skips a few undecodable host frames but not a missing file", () => {
   assert.equal(frameFailureIsFatal({ code: "notFound" }, 1), true);
   assert.equal(frameFailureIsFatal(new Error("offline"), 1), false);
   assert.equal(frameFailureIsFatal(null, 1), false);
+});
+
+test("falls back to host frames when the video track can't be decoded", () => {
+  const video = { videoWidth: 1920, videoHeight: 1080 };
+  // WebView2 without HEVC support drops the video track and plays the audio.
+  assert.equal(
+    videoShowsNothing({
+      videoWidth: 0,
+      videoHeight: 0,
+      advancedSec: 0,
+      decodedFrames: undefined,
+    }),
+    true,
+  );
+  // A decoder that claims the track but never produces a frame.
+  assert.equal(
+    videoShowsNothing({ ...video, advancedSec: 1.2, decodedFrames: 0 }),
+    true,
+  );
+  // Still starting up.
+  assert.equal(
+    videoShowsNothing({ ...video, advancedSec: 0.3, decodedFrames: 0 }),
+    false,
+  );
+  assert.equal(
+    videoShowsNothing({ ...video, advancedSec: 5, decodedFrames: 140 }),
+    false,
+  );
+  // No frame counter: trust the picture size.
+  assert.equal(
+    videoShowsNothing({ ...video, advancedSec: 5, decodedFrames: undefined }),
+    false,
+  );
 });

@@ -7,6 +7,7 @@ import {
   frameFailureIsFatal,
   needsHostFrames,
   resumePosition,
+  videoShowsNothing,
 } from "../playback.ts";
 import { Close, Pause, Play } from "./icons.tsx";
 import { Spinner, StatusDot } from "./Status.tsx";
@@ -83,6 +84,13 @@ export function TakePreview({ take, src, loadFrame, onClose }: Props) {
     setPlaying(true);
   };
 
+  // The webview can't decode the take: the host decodes frames instead.
+  const switchToHostFrames = () => {
+    restartClock(position);
+    setPlaying(true);
+    setSource("host");
+  };
+
   const seek = (to: number) => {
     const next = clampPosition(to, duration);
     if (source === "video" && video.current) {
@@ -133,17 +141,22 @@ export function TakePreview({ take, src, loadFrame, onClose }: Props) {
               playsInline
               onPlay={() => setPlaying(true)}
               onPause={() => setPlaying(false)}
+              onLoadedMetadata={(event) => {
+                if (showsNothing(event.currentTarget)) switchToHostFrames();
+              }}
               onTimeUpdate={(event) => {
                 const element = event.currentTarget;
+                if (showsNothing(element)) {
+                  switchToHostFrames();
+                  return;
+                }
                 const at = element.currentTime - start;
                 if (at >= duration && !element.paused) element.pause();
                 setPosition(clampPosition(at, duration));
               }}
               onError={(event) => {
                 if (needsHostFrames(event.currentTarget.error?.code)) {
-                  restartClock(position);
-                  setPlaying(true);
-                  setSource("host");
+                  switchToHostFrames();
                 } else {
                   setFailure("This take couldn't be loaded.");
                 }
@@ -188,6 +201,20 @@ export function TakePreview({ take, src, loadFrame, onClose }: Props) {
       </div>
     </dialog>
   );
+}
+
+/** Whether `video` plays without a picture; see {@link videoShowsNothing}. */
+function showsNothing(video: HTMLVideoElement): boolean {
+  let advancedSec = 0;
+  for (let i = 0; i < video.played.length; i++) {
+    advancedSec += video.played.end(i) - video.played.start(i);
+  }
+  return videoShowsNothing({
+    videoWidth: video.videoWidth,
+    videoHeight: video.videoHeight,
+    advancedSec,
+    decodedFrames: video.getVideoPlaybackQuality?.().totalVideoFrames,
+  });
 }
 
 /**
