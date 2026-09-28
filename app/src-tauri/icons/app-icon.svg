@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Source for the desktop app icons; regenerate the set by running
+       `pnpm tauri icon src-tauri/icons/app-icon.svg` in app/. The dots are
+       the header's brand mark (BrandMark.tsx) on the app's dark panel. -->
+  <defs>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2c3044"/>
+      <stop offset="1" stop-color="#1a1d28"/>
+    </linearGradient>
+  </defs>
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#panel)"/>
+  <g fill="#f4f6fd">
+    <circle cx="221" cy="512" r="50"/>
+    <circle cx="360" cy="512" r="50"/>
+    <circle cx="512" cy="512" r="63"/>
+    <circle cx="664" cy="512" r="50"/>
+    <circle cx="803" cy="512" r="50"/>
+  </g>
+</svg>
