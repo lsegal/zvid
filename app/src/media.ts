@@ -17,6 +17,9 @@ export type MediaItem = {
   width?: number;
   height?: number;
   fps?: number;
+  // The video track's RFC 6381 codec string, e.g. `hvc1.1.6.L93.B0`, used to
+  // check whether the platform can decode it before making thumbnails.
+  videoCodec?: string;
   sampleRate?: number;
   channels?: number;
   hasAudio: boolean;
