@@ -7,6 +7,7 @@ import {
   formatInstallerSize,
   isCaptureInstallerEntry,
   parseCaptureInstallersManifest,
+  pickCaptureDownloads,
 } from "./capture-installers.ts";
 
 const MAC_SAFARI =
@@ -164,6 +165,37 @@ describe("parseCaptureInstallersManifest", () => {
       parseCaptureInstallersManifest({ ...manifest, version: 1 }),
       null,
     );
+  });
+});
+
+describe("pickCaptureDownloads", () => {
+  const mac = { platform: "macos", file: "zvid.pkg", size: 1 } as const;
+  const windows = {
+    platform: "windows",
+    file: "zvid-setup.exe",
+    size: 1,
+  } as const;
+
+  it("offers the detected platform's installer and links the other", () => {
+    assert.deepEqual(pickCaptureDownloads([mac, windows], "windows"), {
+      primary: windows,
+      alternates: [mac],
+    });
+    assert.deepEqual(pickCaptureDownloads([mac, windows], "macos"), {
+      primary: mac,
+      alternates: [windows],
+    });
+  });
+
+  it("only links installers when the platform has none", () => {
+    assert.deepEqual(pickCaptureDownloads([mac, windows], null), {
+      primary: null,
+      alternates: [mac, windows],
+    });
+    assert.deepEqual(pickCaptureDownloads([mac], "windows"), {
+      primary: null,
+      alternates: [mac],
+    });
   });
 });
 

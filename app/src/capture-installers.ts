@@ -120,6 +120,21 @@ export function parseCaptureInstallersManifest(
     : null;
 }
 
+// The installer the download button offers (the detected platform's, if the
+// manifest has it) and the other platforms' installers, offered as smaller
+// links below it.
+export function pickCaptureDownloads(
+  installers: readonly CaptureInstaller[],
+  platform: CapturePlatform | null,
+): { primary: CaptureInstaller | null; alternates: CaptureInstaller[] } {
+  const primary =
+    installers.find((installer) => installer.platform === platform) ?? null;
+  return {
+    primary,
+    alternates: installers.filter((installer) => installer !== primary),
+  };
+}
+
 export function captureInstallerUrl(installer: CaptureInstaller) {
   return `/${CAPTURE_INSTALLERS_DIR}/${encodeURIComponent(installer.file)}`;
 }

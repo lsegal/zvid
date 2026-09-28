@@ -1,3 +1,4 @@
+import { ArrowDownTrayIcon } from "@heroicons/react/24/solid";
 import { useEffect, useState } from "react";
 import {
   CAPTURE_INSTALLERS_MANIFEST_URL,
@@ -9,6 +10,7 @@ import {
   detectCapturePlatform,
   formatInstallerSize,
   parseCaptureInstallersManifest,
+  pickCaptureDownloads,
 } from "../capture-installers";
 import {
   Dialog,
@@ -61,20 +63,31 @@ const INSTALL_NOTES: Record<
   },
 };
 
-function DownloadLink({
-  installer,
-  className,
-}: {
-  installer: CaptureInstaller;
-  className: string;
-}) {
+// The prominent download button for the detected platform.
+function DownloadButton({ installer }: { installer: CaptureInstaller }) {
   return (
     <a
-      className={className}
+      className="capture-installer__download"
       download={installer.file}
       href={captureInstallerUrl(installer)}
     >
-      Download for {CAPTURE_PLATFORM_LABELS[installer.platform]} (
+      <ArrowDownTrayIcon aria-hidden="true" />
+      <span>Download for {CAPTURE_PLATFORM_LABELS[installer.platform]}</span>
+      <span className="capture-installer__download-size">
+        {formatInstallerSize(installer.size)}
+      </span>
+    </a>
+  );
+}
+
+function AlternateLink({ installer }: { installer: CaptureInstaller }) {
+  return (
+    <a
+      className="capture-installer__link"
+      download={installer.file}
+      href={captureInstallerUrl(installer)}
+    >
+      {CAPTURE_PLATFORM_LABELS[installer.platform]} (
       {formatInstallerSize(installer.size)})
     </a>
   );
@@ -108,12 +121,10 @@ export function CaptureInstallerDialog({
     };
   }, [open, isReady]);
 
-  const installers =
-    state.status === "ready" ? state.manifest.installers : ([] as const);
-  const primary = installers.find(
-    (installer) => installer.platform === platform,
+  const { primary, alternates } = pickCaptureDownloads(
+    state.status === "ready" ? state.manifest.installers : [],
+    platform,
   );
-  const others = installers.filter((installer) => installer !== primary);
   const notes = platform ? INSTALL_NOTES[platform] : null;
   const platformLabel = platform
     ? CAPTURE_PLATFORM_LABELS[platform]
@@ -138,6 +149,42 @@ export function CaptureInstallerDialog({
           </p>
         )}
 
+        {state.status === "unavailable" ? (
+          <p className="capture-installer__notice" role="note">
+            Installers aren't included in this build of zvid.
+          </p>
+        ) : (
+          <div className="capture-installer__cta">
+            {primary ? (
+              <DownloadButton installer={primary} />
+            ) : platform ? (
+              <button
+                className="capture-installer__download"
+                disabled
+                type="button"
+              >
+                <ArrowDownTrayIcon aria-hidden="true" />
+                <span>
+                  {state.status === "loading"
+                    ? "Loading…"
+                    : `Download for ${platformLabel}`}
+                </span>
+              </button>
+            ) : null}
+            {alternates.length > 0 ? (
+              <p className="capture-installer__alternates">
+                {primary ? "Also available for " : "Download for "}
+                {alternates.map((installer, index) => (
+                  <span key={installer.platform}>
+                    {index > 0 ? " · " : null}
+                    <AlternateLink installer={installer} />
+                  </span>
+                ))}
+              </p>
+            ) : null}
+          </div>
+        )}
+
         <ol className="capture-installer__steps">
           <li>Download and run the installer. {notes?.installs}</li>
           <li>
@@ -157,27 +204,6 @@ export function CaptureInstallerDialog({
           </li>
         </ol>
 
-        {state.status === "unavailable" ? (
-          <p className="capture-installer__notice" role="note">
-            Installers aren't included in this build of zvid.
-          </p>
-        ) : null}
-
-        {state.status === "ready" && others.length > 0 ? (
-          <p className="capture-installer__others">
-            {primary ? "Also available: " : "Available for: "}
-            {others.map((installer, index) => (
-              <span key={installer.platform}>
-                {index > 0 ? " · " : null}
-                <DownloadLink
-                  className="capture-installer__link"
-                  installer={installer}
-                />
-              </span>
-            ))}
-          </p>
-        ) : null}
-
         <DialogFooter>
           {state.status === "ready" ? (
             <span className="capture-installer__version">
@@ -189,22 +215,6 @@ export function CaptureInstallerDialog({
               Close
             </button>
           </DialogClose>
-          {primary ? (
-            <DownloadLink
-              className="ghost-button ghost-button--accent"
-              installer={primary}
-            />
-          ) : platform ? (
-            <button
-              className="ghost-button ghost-button--accent"
-              disabled
-              type="button"
-            >
-              {state.status === "loading"
-                ? "Loading…"
-                : `Download for ${platformLabel}`}
-            </button>
-          ) : null}
         </DialogFooter>
       </DialogContent>
     </Dialog>
