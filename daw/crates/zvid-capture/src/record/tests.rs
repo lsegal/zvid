@@ -85,6 +85,7 @@ fn config(
         fps: Rational::new(30, 1),
         audio,
         video_encoder: choice,
+        max_size: FormatPreference::default(),
     }
 }
 
@@ -398,8 +399,14 @@ fn records_with_the_platform_encoder_when_available() {
     // encoder takes it as is.
     let (width, height) = (576, 320);
     let fps = Rational::new(30, 1);
-    let (encoder, skipped) =
-        encoder::open_video(width, height, fps, VideoEncoderChoice::Auto).unwrap();
+    let (encoder, skipped) = encoder::open_video(
+        width,
+        height,
+        fps,
+        VideoEncoderChoice::Auto,
+        FormatPreference::default(),
+    )
+    .unwrap();
     let info = encoder.info();
     eprintln!("zvidlib chose {info}");
     // VideoToolbox is always there on macOS.

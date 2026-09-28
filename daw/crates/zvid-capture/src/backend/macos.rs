@@ -161,6 +161,7 @@ fn device_formats(
             else {
                 continue;
             };
+            let mut rated = false;
             for range in format.videoSupportedFrameRateRanges().iter() {
                 let fastest = range.minFrameDuration();
                 let slowest = range.maxFrameDuration();
@@ -170,6 +171,7 @@ fn device_formats(
                 ) else {
                     continue;
                 };
+                rated = true;
                 formats.push((
                     Format {
                         width,
@@ -178,6 +180,20 @@ fn device_formats(
                     },
                     format.clone(),
                     min_fps,
+                ));
+            }
+            // Keep a mode with no usable rate range, at its default rate:
+            // dropping it can leave only modes above 1080p to choose from.
+            if !rated {
+                let unknown = Rational::new(0, 0);
+                formats.push((
+                    Format {
+                        width,
+                        height,
+                        fps: unknown,
+                    },
+                    format.clone(),
+                    unknown,
                 ));
             }
         }
@@ -517,14 +533,18 @@ impl Session {
                 ns_error("lockForConfiguration", &e)
             })?;
             device.setActiveFormat(device_format);
-            let duration = CMTime {
-                value: i64::from(requested.den),
-                timescale: requested.num as i32,
-                flags: CMTimeFlags::Valid,
-                epoch: 0,
-            };
-            device.setActiveVideoMinFrameDuration(duration);
-            device.setActiveVideoMaxFrameDuration(duration);
+            // A format without a usable rate range keeps its default rate;
+            // requesting one it doesn't list would throw.
+            if selection.format.has_frame_rate() {
+                let duration = CMTime {
+                    value: i64::from(requested.den),
+                    timescale: requested.num as i32,
+                    flags: CMTimeFlags::Valid,
+                    epoch: 0,
+                };
+                device.setActiveVideoMinFrameDuration(duration);
+                device.setActiveVideoMaxFrameDuration(duration);
+            }
 
             // Rotate portrait sources (Continuity Camera held upright) so
             // frames arrive horizon-level. macOS 14+.

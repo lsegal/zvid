@@ -222,11 +222,14 @@ fn native_types(reader: &IMFSourceReader) -> Vec<NativeType> {
                 media_type.GetGUID(&MF_MT_SUBTYPE),
             )
         };
-        let (Ok(size), Ok(rate), Ok(subtype)) = (size, rate, subtype) else {
+        // Keep modes that leave out their rate or subtype: dropping them
+        // can leave only modes above 1080p to choose from.
+        let Ok(size) = size else {
             continue;
         };
+        let subtype = subtype.unwrap_or_default();
         let (width, height) = split_u64(size);
-        let (num, den) = split_u64(rate);
+        let (num, den) = rate.map_or((0, 0), split_u64);
         types.push(NativeType {
             format: Format {
                 width,

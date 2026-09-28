@@ -533,6 +533,8 @@ fn walks_through_ready_capturing_and_ready() {
     let config = lock(&rig.fake.configs)[0].clone();
     assert_eq!((config.counter, config.fps), (1, Rational::new(30, 1)));
     assert_eq!(config.root, rig.root);
+    // Recordings are capped at 1080p even when the camera only offers more.
+    assert_eq!(config.max_size, zvid_capture::FormatPreference::default());
     // The host hasn't processed any audio, so there is no format to record.
     assert_eq!(config.audio, None);
     let status = rig.backend.status();

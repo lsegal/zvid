@@ -21,8 +21,9 @@ use zvid_capture::record::{
     AudioBlock, AudioFormat, RecordConfig, Recorder, VideoEncoderChoice, poster_jpeg,
 };
 use zvid_capture::{
-    CaptureConfig, CaptureError, CaptureSession, Device, DeviceEvent, DeviceWatcher, HostTime,
-    JitterStats, PreviewConfig, list_devices, permission, supported_formats,
+    CaptureConfig, CaptureError, CaptureSession, Device, DeviceEvent, DeviceWatcher,
+    FormatPreference, HostTime, JitterStats, PreviewConfig, list_devices, permission,
+    supported_formats,
 };
 use zvid_daw_core::{LocalTime, RecordRoot, RecordRootKind};
 
@@ -267,6 +268,7 @@ fn record(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         fps: selection.fps,
         audio,
         video_encoder: VideoEncoderChoice::Auto,
+        max_size: FormatPreference::default(),
     })?);
     println!(
         "recording {} ({}) at {} for {}s",
