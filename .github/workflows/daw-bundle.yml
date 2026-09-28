@@ -84,16 +84,31 @@ jobs:
           if [ "$RUNNER_OS" = macOS ]; then
             rustup target add aarch64-apple-darwin x86_64-apple-darwin
           fi
-          curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       # PR runs restore main's release cache (same key) but don't save their
-      # own, so main's entry isn't evicted by per-PR copies.
+      # own, so main's entry isn't evicted by per-PR copies. The export
+      # bridge's wasm build, which `tauri build` runs through the app's build
+      # script, has its own target directory.
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
             daw -> target
             app/src-tauri -> target
+            app/export-bridge -> target
           save-if: ${{ github.event_name != 'pull_request' }}
+
+      # After rust-cache so this saves before rust-cache's post step prunes
+      # ~/.cargo/bin of anything `cargo install` didn't put there.
+      - name: Cache wasm-pack binary
+        id: wasm-pack-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/wasm-pack${{ runner.os == 'Windows' && '.exe' || '' }}
+          key: wasm-pack-bin-v1-${{ runner.os }}
+
+      - name: Install wasm-pack
+        if: steps.wasm-pack-cache.outputs.cache-hit != 'true'
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       # The installers carry the desktop app: a universal zvid.app on macOS,
       # the bare executable on Windows, which Inno Setup packages.
@@ -231,6 +246,14 @@ jobs:
           killall -9 AudioComponentRegistrar 2>/dev/null || true
           auval -a | grep ZVcp
           auval -v aufx ZVcp ZVID
+
+      # The pinned pluginval release, shared with the ci.yml daw job; the key
+      # changes whenever xtask/src/main.rs, which pins it, does. rust-cache
+      # prunes daw/target/tools, so it needs a cache of its own.
+      - uses: actions/cache@v4
+        with:
+          path: daw/target/tools
+          key: pluginval-${{ runner.os }}-${{ hashFiles('daw/xtask/src/main.rs') }}
 
       # pluginval against the release bundles, installed on macOS since
       # Audio Units only load from the plug-in folders. See the daw job in
