@@ -485,24 +485,27 @@ Every push to `main` runs the **DAW bundles** workflow
 (`.github/workflows/daw-bundle.yml`), which uploads two artifacts to the
 workflow run:
 
-- `zvid-capture-<version>-<sha>-macos-universal`: `ZVID Capture.vst3` and
-  `ZVID Capture.component`, arm64 + x86_64, the installer
-  `zvid-capture-<version>+<sha>.pkg`, and the Live companion Remote Script
-  in `live-remote-script/ZVID_Capture`. CI checks both architectures with
-  `lipo -archs`, installs the `.pkg`, verifies both installed bundles'
-  signatures and runs `auval` and pluginval against the installed
-  bundles.
-- `zvid-capture-<version>-<sha>-windows-x64`: `ZVID Capture.vst3`, the
-  installer `zvid-capture-<version>+<sha>-setup.exe` and
-  `live-remote-script/ZVID_Capture`. CI runs pluginval against the bundle,
-  then runs the installer silently, checks the bundle landed in the shared
-  VST3 folder, then uninstalls it.
+- `zvid-capture-<version>-<sha>-macos-universal`: the desktop app
+  `zvid.app`, `ZVID Capture.vst3` and `ZVID Capture.component`, arm64 +
+  x86_64, the installer `zvid-capture-<version>+<sha>.pkg`, and the Live
+  companion Remote Script in `live-remote-script/ZVID_Capture`. CI checks
+  both architectures with `lipo -archs`, installs the `.pkg`, verifies the
+  installed app's and bundles' signatures and runs `auval` and pluginval
+  against the installed bundles.
+- `zvid-capture-<version>-<sha>-windows-x64`: the desktop app `zvid.exe`,
+  `ZVID Capture.vst3`, the installer `zvid-capture-<version>+<sha>-setup.exe`
+  and `live-remote-script/ZVID_Capture`. CI runs pluginval against the
+  bundle, then runs the installer silently, checks the app, its Start menu
+  shortcut and the bundle were installed, then uninstalls them.
 
 Both jobs also run the [host integration tests](#host-integration-tests)
 against the release bundles.
 
-Each is built by `cargo xtask bundle --release --installer` (plus
-`--universal` on macOS), which fails when `daw/ui/dist` is missing rather
+The desktop app is built first with `pnpm --dir app tauri build` (a
+universal `.app` bundle on macOS, `--no-bundle` on Windows), then each
+artifact by `cargo xtask bundle --release --installer --app <path>` (plus
+`--universal` on macOS), which signs the app like the plugin bundles on
+macOS and fails when `daw/ui/dist` is missing rather
 than embedding the placeholder UI, and stamps the bundle version
 (`Info.plist`, `moduleinfo.json`, the installer and the version reported to
 hosts) as `<version>+<sha>`. The same command builds identical bundles
@@ -512,14 +515,17 @@ needs Inno Setup 6 on Windows (`ISCC` may name its `ISCC.exe`).
 
 ### Installers
 
-- **macOS.** A `.pkg` that installs `ZVID Capture.vst3` into
-  `/Library/Audio/Plug-Ins/VST3` and `ZVID Capture.component` into
+- **macOS.** A `.pkg` that installs `zvid.app` into `/Applications`,
+  `ZVID Capture.vst3` into `/Library/Audio/Plug-Ins/VST3` and `ZVID Capture.component` into
   `/Library/Audio/Plug-Ins/Components` for every user. It needs macOS 13 and
   runs natively on both architectures.
 - **Windows.** An Inno Setup installer (`installer/zvid-capture.iss`) that
-  installs `ZVID Capture.vst3` into `C:\Program Files\Common Files\VST3` and
-  registers an uninstaller under *Settings › Apps*. Installing over an older
-  version replaces the whole bundle.
+  installs `zvid.exe` into `C:\Program Files\ZVID` with a Start menu
+  shortcut, installs `ZVID Capture.vst3` into
+  `C:\Program Files\Common Files\VST3`, and registers one uninstaller for
+  both under *Settings › Apps*. Installing over an older version, including
+  an older plugin-only installer, replaces the whole bundle. The app needs
+  the Microsoft Edge WebView2 Runtime, which Windows 11 includes.
 
 Neither installs the Live companion Remote Script, which lives in each user's
 Live User Library. Instead each bundle carries a copy in

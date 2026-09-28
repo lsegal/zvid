@@ -1,11 +1,12 @@
 name: DAW bundles
 
-# Release ZVID Capture bundles and installers for every merge to main,
-# uploaded as workflow artifacts. Pull requests that touch /daw build the same
-# bundles and installers, so a broken x86_64 slice, release-only build or
-# bundle layout fails the PR rather than main; PR runs upload nothing. macOS
-# builds are Developer ID signed and notarized when the Apple secrets below are
-# configured, and ad-hoc signed otherwise.
+# Release ZVID Capture bundles, the zvid desktop app, and installers for both
+# for every merge to main, uploaded as workflow artifacts. Pull requests that
+# touch /daw or the desktop app build the same bundles and installers, so a
+# broken x86_64 slice, release-only build or bundle layout fails the PR rather
+# than main; PR runs upload nothing. macOS builds are Developer ID signed and
+# notarized when the Apple secrets below are configured, and ad-hoc signed
+# otherwise.
 on:
   push:
     branches:
@@ -17,6 +18,7 @@ on:
     # compares against.
     paths:
       - daw/**
+      - app/src-tauri/**
       - .github/workflows/daw-bundle.yml
       - .github/workflows/ci.yml
       - app/export-bridge/Cargo.toml
@@ -40,7 +42,7 @@ jobs:
           - os: windows-latest
             platform: windows-x64
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    timeout-minutes: 60
     defaults:
       run:
         shell: bash
@@ -58,7 +60,9 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: daw/ui/pnpm-lock.yaml
+          cache-dependency-path: |
+            daw/ui/pnpm-lock.yaml
+            app/pnpm-lock.yaml
 
       - name: Build plugin UI
         run: |
@@ -66,20 +70,47 @@ jobs:
           pnpm --dir ui build
 
       # rustup installs the toolchain and components pinned in
-      # daw/rust-toolchain.toml on first use.
+      # daw/rust-toolchain.toml on first use. The desktop app builds with the
+      # runner's default toolchain, which also needs wasm32 and wasm-pack for
+      # the export bridge its frontend embeds.
       - name: Install toolchain
         run: |
           rustup toolchain install
           if [ "$RUNNER_OS" = macOS ]; then
             rustup target add aarch64-apple-darwin x86_64-apple-darwin
           fi
+          cd ..
+          rustup target add wasm32-unknown-unknown
+          if [ "$RUNNER_OS" = macOS ]; then
+            rustup target add aarch64-apple-darwin x86_64-apple-darwin
+          fi
+          curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       # PR runs restore main's release cache (same key) but don't save their
       # own, so main's entry isn't evicted by per-PR copies.
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: daw -> target
+          workspaces: |
+            daw -> target
+            app/src-tauri -> target
           save-if: ${{ github.event_name != 'pull_request' }}
+
+      # The installers carry the desktop app: a universal zvid.app on macOS,
+      # the bare executable on Windows, which Inno Setup packages. The Tauri
+      # npm packages are a minor release ahead of the pinned Rust crates,
+      # which `tauri build` otherwise refuses.
+      - name: Build desktop app
+        working-directory: app
+        run: |
+          pnpm install --frozen-lockfile
+          if [ "$RUNNER_OS" = macOS ]; then
+            pnpm tauri build --ignore-version-mismatches --target universal-apple-darwin \
+              --config '{"bundle":{"active":true,"targets":["app"]}}'
+            echo "ZVID_APP=$PWD/src-tauri/target/universal-apple-darwin/release/bundle/macos/zvid.app" >> "$GITHUB_ENV"
+          else
+            pnpm tauri build --ignore-version-mismatches --no-bundle
+            echo "ZVID_APP=$PWD/src-tauri/target/release/zvid-tauri.exe" >> "$GITHUB_ENV"
+          fi
 
       # Imports the Developer ID Application and Installer certificates into a
       # temporary keychain and exports their identities for `cargo xtask
@@ -139,9 +170,9 @@ jobs:
           ZVID_NOTARY_PASSWORD: ${{ steps.signing.outputs.signed && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
         run: |
           if [ "$RUNNER_OS" = macOS ]; then
-            cargo xtask bundle --release --universal --installer
+            cargo xtask bundle --release --universal --installer --app "$ZVID_APP"
           else
-            cargo xtask bundle --release --installer
+            cargo xtask bundle --release --installer --app "$ZVID_APP"
           fi
 
       - name: Name the artifact
@@ -171,9 +202,10 @@ jobs:
             done
           done
 
-      # Installs the .pkg as a user would, checks both bundles landed in
-      # /Library/Audio/Plug-Ins with valid signatures, and runs Apple's AU
-      # validation against the installed component.
+      # Installs the .pkg as a user would, checks the app landed in
+      # /Applications and both bundles in /Library/Audio/Plug-Ins with valid
+      # signatures, and runs Apple's AU validation against the installed
+      # component.
       - name: Install and validate (macOS)
         if: runner.os == 'macOS'
         env:
@@ -193,6 +225,11 @@ jobs:
             test -f "$bundle/Contents/MacOS/ZVID Capture"
             codesign --verify --strict --verbose=2 "$bundle"
           done
+          app=/Applications/zvid.app
+          executable=$(defaults read "$app/Contents/Info.plist" CFBundleExecutable)
+          test -x "$app/Contents/MacOS/$executable"
+          lipo -archs "$app/Contents/MacOS/$executable"
+          codesign --verify --strict --verbose=2 "$app"
           killall -9 AudioComponentRegistrar 2>/dev/null || true
           auval -a | grep ZVcp
           auval -v aufx ZVcp ZVID
@@ -209,8 +246,9 @@ jobs:
             cargo xtask validate
           fi
 
-      # Runs the installer silently, checks the bundle landed in the shared
-      # VST3 folder, then uninstalls it and checks it is gone.
+      # Runs the installer silently, checks the app and its Start menu
+      # shortcut were installed and the bundle landed in the shared VST3
+      # folder, then uninstalls them and checks they are gone.
       - name: Install and uninstall (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -223,12 +261,18 @@ jobs:
           foreach ($file in 'Contents\x86_64-win\ZVID Capture.vst3', 'Contents\Resources\moduleinfo.json') {
             if (-not (Test-Path (Join-Path $bundle $file))) { throw "$file was not installed" }
           }
+          $app = Join-Path $env:ProgramFiles 'ZVID\zvid.exe'
+          $shortcut = Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs\ZVID.lnk'
+          foreach ($file in $app, $shortcut) {
+            if (-not (Test-Path $file)) { throw "$file was not installed" }
+          }
           # The uninstaller relaunches itself from a temporary copy, so wait
-          # for the bundle to disappear rather than for the process.
-          $uninstaller = Join-Path $env:ProgramFiles 'ZVID Capture\unins000.exe'
+          # for the files to disappear rather than for the process.
+          $uninstaller = Join-Path $env:ProgramFiles 'ZVID\unins000.exe'
           Start-Process $uninstaller -ArgumentList $flags -Wait
-          for ($i = 0; $i -lt 60 -and (Test-Path $bundle); $i++) { Start-Sleep -Seconds 1 }
-          if (Test-Path $bundle) { throw "uninstalling left $bundle behind" }
+          $installed = { @($bundle, $app, $shortcut) | Where-Object { Test-Path $_ } }
+          for ($i = 0; $i -lt 60 -and (& $installed); $i++) { Start-Sleep -Seconds 1 }
+          foreach ($left in (& $installed)) { throw "uninstalling left $left behind" }
 
       # The pinned Plugalyzer release the host tests run in, shared with the
       # ci.yml daw job; the key changes whenever xtask/src/host.rs, which
@@ -256,14 +300,15 @@ jobs:
 
       # ditto keeps the bundles' symlinks, permissions and signatures, which
       # the artifact upload's own zip would not. It archives one source, so
-      # both bundles, the installer and the Live Remote Script go into a
-      # folder that becomes the zip's top level.
+      # the app, both bundles, the installer and the Live Remote Script go
+      # into a folder that becomes the zip's top level.
       - name: Zip (macOS)
         if: runner.os == 'macOS'
         working-directory: daw/target
         run: |
           name="${{ steps.name.outputs.name }}"
           rm -rf dist && mkdir -p "dist/$name"
+          ditto "bundle/zvid.app" "dist/$name/zvid.app"
           ditto "bundle/ZVID Capture.vst3" "dist/$name/ZVID Capture.vst3"
           ditto "bundle/ZVID Capture.component" "dist/$name/ZVID Capture.component"
           ditto "bundle/live-remote-script" "dist/$name/live-remote-script"
@@ -277,7 +322,7 @@ jobs:
         run: |
           rm -rf dist && mkdir -p dist
           cd bundle
-          7z a -tzip "../dist/${{ steps.name.outputs.name }}.zip" "ZVID Capture.vst3" live-remote-script ../installer/*-setup.exe
+          7z a -tzip "../dist/${{ steps.name.outputs.name }}.zip" zvid.exe "ZVID Capture.vst3" live-remote-script ../installer/*-setup.exe
           7z l "../dist/${{ steps.name.outputs.name }}.zip"
 
       # PRs only check that the bundles build and package; artifacts come

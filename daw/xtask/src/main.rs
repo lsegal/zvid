@@ -2,7 +2,8 @@
 //!
 //! - `check`: fails when C/C++/Objective-C++ sources appear under `/daw`, or
 //!   when the zvidlib rev drifts from `app/export-bridge`.
-//! - `bundle [--release] [--universal] [--installer]`: builds the plugin and
+//! - `bundle [--release] [--universal] [--installer] [--app <path>]`: builds
+//!   the plugin and
 //!   lays it out as `target/bundle/ZVID Capture.vst3`, plus, on macOS,
 //!   `target/bundle/ZVID Capture.component`. `--release` stamps the version
 //!   with the commit and refuses to embed the placeholder UI; `--universal`
@@ -12,11 +13,13 @@
 //!   the hardened runtime. The Live companion Remote Script goes to
 //!   `target/bundle/live-remote-script/ZVID_Capture`, and into each bundle's
 //!   `Contents/Resources/ZVID_Capture` for the editor's install button.
-//!   `--installer` (with `--release`) also writes an installer to
-//!   `target/installer`: a `.pkg` on macOS, signed with
-//!   `ZVID_INSTALLER_IDENTITY` and notarized and stapled when notary
-//!   credentials are set (see [`notary_args`]), or an Inno Setup `.exe` on
-//!   Windows.
+//!   `--app` copies the desktop app built by `tauri build` (`zvid.app` on
+//!   macOS, signed like the bundles; the `.exe` on Windows) to
+//!   `target/bundle`. `--installer` (with `--release` and `--app`) also
+//!   writes an installer for the app and the plugin to `target/installer`: a
+//!   `.pkg` on macOS, signed with `ZVID_INSTALLER_IDENTITY` and notarized and
+//!   stapled when notary credentials are set (see [`notary_args`]), or an
+//!   Inno Setup `.exe` on Windows.
 //! - `check-live [<Live.app>]` (macOS): checks that Live, by default the
 //!   newest `/Applications/Ableton Live 12*.app`, has the camera usage string
 //!   and entitlements in-process capture needs.
@@ -61,11 +64,16 @@ const INSTALLER_IDENTITY_ENV: &str = "ZVID_INSTALLER_IDENTITY";
 const PKG_IDENTIFIER: &str = "com.lsegal.zvid.capture.pkg";
 /// Inno Setup script for the Windows installer, relative to `/daw`.
 const INNO_SCRIPT: &str = "installer/zvid-capture.iss";
-/// Where the installers put the plugin bundles on macOS, relative to `/`.
-const MACOS_PLUGIN_DIRS: &[(&str, &str)] = &[
+/// Where the installers put the app and plugin bundles on macOS, relative to
+/// `/`.
+const MACOS_INSTALL_DIRS: &[(&str, &str)] = &[
+    ("app", "Applications"),
     ("vst3", "Library/Audio/Plug-Ins/VST3"),
     ("component", "Library/Audio/Plug-Ins/Components"),
 ];
+/// File stem of the desktop app, the `productName` in
+/// `app/src-tauri/tauri.conf.json`.
+const APP_NAME: &str = "zvid";
 /// Entitlements Live must have for the plugin to capture in its process.
 const LIVE_ENTITLEMENTS: &[&str] = &[
     "com.apple.security.device.camera",
@@ -133,7 +141,17 @@ fn main() -> ExitCode {
             let release = flags.iter().any(|arg| arg == "--release");
             let universal = flags.iter().any(|arg| arg == "--universal");
             let installer = flags.iter().any(|arg| arg == "--installer");
-            match bundle(release, universal, installer) {
+            let app = match flags.iter().position(|arg| arg == "--app") {
+                Some(index) => match flags.get(index + 1) {
+                    Some(path) => Some(PathBuf::from(path)),
+                    None => {
+                        eprintln!("error: --app needs the path of the built desktop app");
+                        return ExitCode::FAILURE;
+                    }
+                },
+                None => None,
+            };
+            match bundle(release, universal, installer, app.as_deref()) {
                 Ok(paths) => {
                     for path in paths {
                         println!("{}", path.display());
@@ -199,7 +217,7 @@ fn main() -> ExitCode {
         _ => {
             eprintln!(
                 "usage: cargo xtask check \
-                 | cargo xtask bundle [--release] [--universal] [--installer] \
+                 | cargo xtask bundle [--release] [--universal] [--installer] [--app <path>] \
                  | cargo xtask validate [--strictness-level <1-10>] [--skip-gui-tests] [<bundle>...] \
                  | cargo xtask install-live-script [--user-library <path>] \
                  | cargo xtask check-live [<Live.app>] \
@@ -230,7 +248,7 @@ fn target_dir(daw: &Path) -> PathBuf {
 fn host_test(flags: &[String]) -> Result<(), String> {
     let (vst3, component) = match flags {
         [] => {
-            let bundles = bundle(false, false, false)?;
+            let bundles = bundle(false, false, false, None)?;
             let extension = |ext: &str| {
                 bundles
                     .iter()
@@ -289,14 +307,28 @@ fn check(daw: &Path) -> Result<(), Vec<String>> {
 }
 
 /// Builds the plugin library and writes its `.vst3` bundle and, on macOS,
-/// its `.component` bundle, then, with `installer`, the installer for them.
-fn bundle(release: bool, universal: bool, installer: bool) -> Result<Vec<PathBuf>, String> {
+/// its `.component` bundle, copies the desktop app at `app` beside them,
+/// then, with `installer`, writes the installer for all of them.
+fn bundle(
+    release: bool,
+    universal: bool,
+    installer: bool,
+    app: Option<&Path>,
+) -> Result<Vec<PathBuf>, String> {
     if universal && !cfg!(target_os = "macos") {
         return Err("--universal is only supported on macOS".into());
     }
     if installer && !release {
         return Err("--installer needs --release".into());
     }
+    if installer && app.is_none() {
+        return Err(
+            "--installer needs --app <path> naming the desktop app built by `tauri build`".into(),
+        );
+    }
+    let app_name = app
+        .map(|app| staged_app_name(app, std::env::consts::OS))
+        .transpose()?;
     // Only release builds get a Developer ID signature; debug builds keep
     // the ad-hoc one.
     let identity = std::env::var(CODESIGN_IDENTITY_ENV)
@@ -376,6 +408,14 @@ fn bundle(release: bool, universal: bool, installer: bool) -> Result<Vec<PathBuf
         .join("live-remote-script")
         .join(LIVE_SCRIPT);
     copy_live_script(&live_script_source(&daw), &script)?;
+    if let (Some(app), Some(name)) = (app, app_name) {
+        let staged = target.join("bundle").join(name);
+        stage_app(app, &staged)?;
+        if cfg!(target_os = "macos") {
+            codesign(&staged, &identity)?;
+        }
+        bundles.push(staged);
+    }
     if installer {
         let output = target.join("installer");
         let package = if cfg!(target_os = "macos") {
@@ -409,6 +449,50 @@ fn codesign_args(identity: &str) -> Vec<&str> {
             "--sign",
             identity,
         ]
+    }
+}
+
+/// Name the desktop app at `app` gets in `target/bundle` on `os`: `zvid.app`
+/// for the bundle `tauri build` writes on macOS, `zvid.exe` for its
+/// executable on Windows, whatever the build named it.
+fn staged_app_name(app: &Path, os: &str) -> Result<String, String> {
+    let extension = match os {
+        "macos" => "app",
+        "windows" => "exe",
+        other => return Err(format!("the desktop app is not packaged on {other}")),
+    };
+    if app.extension().is_none_or(|found| found != extension) {
+        return Err(format!(
+            "{} is not the desktop app; --app takes its .{extension}",
+            app.display()
+        ));
+    }
+    if !app.exists() {
+        return Err(format!(
+            "{} does not exist; build the desktop app with `tauri build` first",
+            app.display()
+        ));
+    }
+    Ok(format!("{APP_NAME}.{extension}"))
+}
+
+/// Copies the desktop app at `source` to `destination`, replacing any older
+/// copy.
+fn stage_app(source: &Path, destination: &Path) -> Result<(), String> {
+    let io = |path: &Path, error: std::io::Error| format!("{}: {error}", path.display());
+    if destination.is_dir() {
+        fs::remove_dir_all(destination).map_err(|error| io(destination, error))?;
+    }
+    if source.is_dir() {
+        // ditto keeps the app bundle's symlinks and signature intact.
+        run(
+            Command::new("ditto").arg(source).arg(destination),
+            &format!("staging {}", source.display()),
+        )
+    } else {
+        fs::copy(source, destination)
+            .map(drop)
+            .map_err(|error| io(source, error))
     }
 }
 
@@ -632,7 +716,8 @@ fn installer_name(version: &str) -> String {
 }
 
 /// Builds the macOS installer package for the signed `bundles`, which
-/// installs them into `/Library/Audio/Plug-Ins`, then signs, notarizes and
+/// installs the app into `/Applications` and the plugins into
+/// `/Library/Audio/Plug-Ins`, then signs, notarizes and
 /// staples it when those are configured. Returns the package's path.
 fn package_macos(
     target: &Path,
@@ -650,10 +735,10 @@ fn package_macos(
     for bundle in bundles {
         let name = bundle.file_name().expect("bundles have names");
         let extension = bundle.extension().and_then(|ext| ext.to_str());
-        let (_, dir) = MACOS_PLUGIN_DIRS
+        let (_, dir) = MACOS_INSTALL_DIRS
             .iter()
             .find(|(ext, _)| Some(*ext) == extension)
-            .ok_or_else(|| format!("{} is not a plugin bundle", bundle.display()))?;
+            .ok_or_else(|| format!("{} has no install location", bundle.display()))?;
         let path = Path::new(dir).join(name);
         // ditto keeps the bundles' symlinks and signatures intact.
         run(
@@ -760,7 +845,7 @@ fn distribution_xml(version: &str) -> String {
     format!(
         r#"<?xml version="1.0" encoding="utf-8"?>
 <installer-gui-script minSpecVersion="2">
-    <title>{PLUGIN_NAME}</title>
+    <title>ZVID</title>
     <options customize="never" require-scripts="false" hostArchitectures="arm64,x86_64"/>
     <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
     <volume-check>
@@ -857,7 +942,7 @@ fn notarization_accepted(report: &str) -> bool {
     compact.contains(r#""status":"Accepted""#)
 }
 
-/// Compiles the Windows installer for the bundles in `bundle_dir` with Inno
+/// Compiles the Windows installer for the app and bundles in `bundle_dir` with Inno
 /// Setup and returns its path.
 fn package_windows(
     daw: &Path,
@@ -888,6 +973,7 @@ fn iscc_args(version: &str, bundle_dir: &Path, output: &Path, name: &str) -> Vec
         format!("/DSourceDir={}", bundle_dir.display()),
         format!("/DOutputDir={}", output.display()),
         format!("/DOutputBaseFilename={name}"),
+        format!("/DAppExe={APP_NAME}.exe"),
     ]
 }
 
@@ -1684,8 +1770,36 @@ mod tests {
 
     #[test]
     fn installers_need_a_release_build() {
-        let error = bundle(false, false, true).unwrap_err();
+        let error = bundle(false, false, true, None).unwrap_err();
         assert!(error.contains("--release"), "{error}");
+    }
+
+    #[test]
+    fn installers_need_the_desktop_app() {
+        let error = bundle(true, false, true, None).unwrap_err();
+        assert!(error.contains("--app"), "{error}");
+    }
+
+    #[test]
+    fn names_the_staged_desktop_app_per_os() {
+        let dir = scratch("staged-app");
+        let app = dir.join("zvid.app");
+        let exe = dir.join("zvid-tauri.exe");
+        fs::create_dir_all(&app).unwrap();
+        fs::write(&exe, b"MZ").unwrap();
+        assert_eq!(staged_app_name(&app, "macos"), Ok("zvid.app".into()));
+        assert_eq!(staged_app_name(&exe, "windows"), Ok("zvid.exe".into()));
+        let wrong = staged_app_name(&exe, "macos").unwrap_err();
+        assert!(wrong.contains(".app"), "{wrong}");
+        let missing = staged_app_name(&dir.join("zvid.exe"), "windows").unwrap_err();
+        assert!(missing.contains("tauri build"), "{missing}");
+        assert!(staged_app_name(&app, "linux").is_err());
+
+        let staged = dir.join("bundle").join("zvid.exe");
+        fs::create_dir_all(staged.parent().unwrap()).unwrap();
+        stage_app(&exe, &staged).unwrap();
+        stage_app(&exe, &staged).unwrap();
+        assert_eq!(fs::read(&staged).unwrap(), b"MZ");
     }
 
     #[test]
@@ -1706,27 +1820,30 @@ mod tests {
     }
 
     #[test]
-    fn pins_macos_bundles_to_the_system_plugin_folders() {
+    fn pins_macos_bundles_to_the_system_folders() {
         let plist = component_plist(&[
+            "Applications/zvid.app".into(),
             "Library/Audio/Plug-Ins/VST3/ZVID Capture.vst3".into(),
             "Library/Audio/Plug-Ins/Components/ZVID Capture.component".into(),
         ]);
-        assert_eq!(plist.matches("<dict>").count(), 2);
+        assert_eq!(plist.matches("<dict>").count(), 3);
         assert_eq!(
             plist
                 .matches("<key>BundleIsRelocatable</key>\n\t\t<false/>")
                 .count(),
-            2
+            3
         );
+        assert!(plist.contains("<string>Applications/zvid.app</string>"));
         assert!(
             plist.contains(
                 "<string>Library/Audio/Plug-Ins/Components/ZVID Capture.component</string>"
             )
         );
-        let dirs: Vec<&str> = MACOS_PLUGIN_DIRS.iter().map(|(_, dir)| *dir).collect();
+        let dirs: Vec<&str> = MACOS_INSTALL_DIRS.iter().map(|(_, dir)| *dir).collect();
         assert_eq!(
             dirs,
             [
+                "Applications",
                 "Library/Audio/Plug-Ins/VST3",
                 "Library/Audio/Plug-Ins/Components"
             ]
@@ -1736,7 +1853,7 @@ mod tests {
     #[test]
     fn describes_the_macos_installer() {
         let xml = distribution_xml("0.1.0+c94f40e");
-        assert!(xml.contains("<title>ZVID Capture</title>"));
+        assert!(xml.contains("<title>ZVID</title>"));
         assert!(xml.contains(r#"<os-version min="13.0"/>"#));
         assert!(xml.contains(r#"hostArchitectures="arm64,x86_64""#));
         assert!(xml.contains(&format!(
@@ -1819,6 +1936,7 @@ mod tests {
             );
         }
         assert!(script.contains(r#"DestDir: "{commoncf64}\VST3\ZVID Capture.vst3""#));
+        assert!(script.contains(r#"DestDir: "{app}""#));
     }
 
     #[test]
