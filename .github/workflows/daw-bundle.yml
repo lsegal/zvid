@@ -96,19 +96,17 @@ jobs:
           save-if: ${{ github.event_name != 'pull_request' }}
 
       # The installers carry the desktop app: a universal zvid.app on macOS,
-      # the bare executable on Windows, which Inno Setup packages. The Tauri
-      # npm packages are a minor release ahead of the pinned Rust crates,
-      # which `tauri build` otherwise refuses.
+      # the bare executable on Windows, which Inno Setup packages.
       - name: Build desktop app
         working-directory: app
         run: |
           pnpm install --frozen-lockfile
           if [ "$RUNNER_OS" = macOS ]; then
-            pnpm tauri build --ignore-version-mismatches --target universal-apple-darwin \
+            pnpm tauri build --target universal-apple-darwin \
               --config '{"bundle":{"active":true,"targets":["app"]}}'
             echo "ZVID_APP=$PWD/src-tauri/target/universal-apple-darwin/release/bundle/macos/zvid.app" >> "$GITHUB_ENV"
           else
-            pnpm tauri build --ignore-version-mismatches --no-bundle
+            pnpm tauri build --no-bundle
             echo "ZVID_APP=$PWD/src-tauri/target/release/zvid-tauri.exe" >> "$GITHUB_ENV"
           fi
 
