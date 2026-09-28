@@ -177,9 +177,8 @@ async function main() {
     }
     const { file, contents } = await fetchInstaller(token, artifact, platform);
     // `zvid-capture-0.1.0+bba0984.pkg` -> `0.1.0+bba0984`.
-    version ||= /^zvid-capture-(.+?)(?:-setup)?\.(?:pkg|exe)$/.exec(
-      file,
-    )?.[1] ?? "";
+    version ||=
+      /^zvid-capture-(.+?)(?:-setup)?\.(?:pkg|exe)$/.exec(file)?.[1] ?? "";
     // `+` means a space in some URL decoders, so it stays out of the URL.
     const served = file.replaceAll("+", "-");
     await writeFile(path.join(outDir, served), contents);
@@ -205,7 +204,8 @@ try {
   const message = error instanceof Error ? error.message : String(error);
   if (required) {
     console.error(`[capture-installers] ${message}`);
-    process.exit(1);
+    process.exitCode = 1;
+  } else {
+    log(`skipped: ${message}`);
   }
-  log(`skipped: ${message}`);
 }

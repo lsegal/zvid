@@ -56,6 +56,7 @@ import {
   BrandMark,
   openBuildCommit,
 } from "./components/BrandMark";
+import { CaptureInstallerDialog } from "./components/CaptureInstallerDialog";
 import { FxChain, type FxEditMode } from "./components/FxChain";
 import {
   ImportNotice,
@@ -65,7 +66,6 @@ import {
   PlayheadLine,
   TransportPlayheadReadout,
 } from "./components/LivePlayhead";
-import { CaptureInstallerDialog } from "./components/CaptureInstallerDialog";
 import { OfflineMediaDialog } from "./components/OfflineMediaDialog";
 import {
   StatusBar,

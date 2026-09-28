@@ -353,6 +353,18 @@
   overflow-wrap: anywhere;
 }
 
+.dialog-content.capture-installer {
+  width: min(92vw, 580px);
+}
+
+.capture-installer .dialog-footer {
+  flex-wrap: wrap;
+}
+
+.capture-installer .dialog-footer > * {
+  white-space: nowrap;
+}
+
 .capture-installer__steps {
   display: grid;
   gap: 10px;
@@ -379,6 +391,7 @@
 
 .capture-installer__link {
   color: var(--ink);
+  white-space: nowrap;
 }
 
 .capture-installer__version {

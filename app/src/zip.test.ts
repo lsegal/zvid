@@ -108,7 +108,11 @@ describe("readZipEntry", () => {
   it("reads stored and deflated entries", async () => {
     const zip = makeZip([
       { name: "stored.txt", data: text("stored contents") },
-      { name: "deflated.txt", data: text("deflated ".repeat(50)), deflate: true },
+      {
+        name: "deflated.txt",
+        data: text("deflated ".repeat(50)),
+        deflate: true,
+      },
     ]);
     const [stored, deflated] = listZipEntries(zip);
     assert.equal(

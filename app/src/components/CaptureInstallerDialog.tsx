@@ -56,8 +56,7 @@ const INSTALL_NOTES: Record<
       "turn on Use Audio Units and Use VST3 Plug-In System Folders, then click Rescan",
   },
   windows: {
-    installs:
-      "It installs the VST3 plug-in into Common Files\\VST3.",
+    installs: "It installs the VST3 plug-in into Common Files\\VST3.",
     liveSettings: "turn on Use VST3 Plug-In System Folders, then click Rescan",
   },
 };
@@ -140,9 +139,7 @@ export function CaptureInstallerDialog({
         )}
 
         <ol className="capture-installer__steps">
-          <li>
-            Download and run the installer. {notes?.installs}
-          </li>
+          <li>Download and run the installer. {notes?.installs}</li>
           <li>
             In Live, open Settings › Plug-Ins,{" "}
             {notes?.liveSettings ??

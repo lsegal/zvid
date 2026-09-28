@@ -53,7 +53,10 @@ describe("isCaptureInstallerEntry", () => {
 
   it("picks the Windows setup executable from a bundle zip", () => {
     assert.ok(
-      isCaptureInstallerEntry("zvid-capture-0.1.0+bba0984-setup.exe", "windows"),
+      isCaptureInstallerEntry(
+        "zvid-capture-0.1.0+bba0984-setup.exe",
+        "windows",
+      ),
     );
     assert.ok(
       !isCaptureInstallerEntry(

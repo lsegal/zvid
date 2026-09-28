@@ -89,9 +89,9 @@ export async function readZipEntry(
   if (entry.method === STORED) {
     contents = compressed;
   } else if (entry.method === DEFLATED) {
-    const stream = new Blob([compressed])
-      .stream()
-      .pipeThrough(new DecompressionStream("deflate-raw"));
+    const stream = new Response(compressed as BodyInit).body?.pipeThrough(
+      new DecompressionStream("deflate-raw"),
+    );
     contents = new Uint8Array(await new Response(stream).arrayBuffer());
   } else {
     throw new ZipError(
