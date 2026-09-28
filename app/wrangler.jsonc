@@ -3,6 +3,11 @@
   "name": "zvid",
   "main": "worker/index.ts",
   "compatibility_date": "2026-04-22",
+  // Builds the app and adds the ZVID Capture installers from the latest
+  // successful DAW bundles run on main (scripts/fetch-capture-installers.ts).
+  "build": {
+    "command": "pnpm run cf:prepare"
+  },
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
