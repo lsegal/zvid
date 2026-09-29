@@ -8221,11 +8221,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   function selectSource(sourceTrackId: string) {
     const match = clips.find((clip) => clip.sourceTrackId === sourceTrackId);
     if (match) {
+      // Selecting never moves the playhead.
       setSelectedClipId(match.id);
-      if (!isPlaying) {
-        setPlayheadQ(match.startQ);
-        playbackOriginRef.current = match.startQ;
-      }
     }
   }
 
@@ -9830,11 +9827,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                                   className="clip-card__body"
                                   onClick={() => {
                                     setPendingSelection(null);
+                                    // Selecting never moves the playhead.
                                     setSelectedClipId(clip.id);
-                                    if (!isPlaying) {
-                                      setPlayheadQ(clip.startQ);
-                                      playbackOriginRef.current = clip.startQ;
-                                    }
                                   }}
                                   // Double-clicking a text clip types on it in
                                   // the preview.
