@@ -131,6 +131,14 @@ export function createClipWarp(
 }
 
 /**
+ * The source position, in seconds, of a warp's content start: the sample
+ * start `createClipWarp` was given.
+ */
+export function warpSampleStartSeconds(warp: ClipWarp) {
+  return beatToSeconds(warp.markers, warp.contentStartBeat).seconds;
+}
+
+/**
  * The source position a warped clip plays at `linearSeconds`, the position it
  * would play at 1× (song time plus the clip's source offset).
  */
