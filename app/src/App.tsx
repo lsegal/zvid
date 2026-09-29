@@ -120,6 +120,7 @@ import {
 import { OfflineMediaDialog } from "./components/OfflineMediaDialog";
 import {
   type PreviewLayerMove,
+  type PreviewTextEdit,
   PreviewTransformOverlay,
 } from "./components/PreviewTransformOverlay";
 import {
@@ -274,6 +275,13 @@ import {
   resolvePreviewLayers,
   setLayerTransformPosition,
 } from "./preview-edit.ts";
+import {
+  setLayerText,
+  stepLayerFontSize,
+  TEXT_EDIT_HISTORY_LABEL,
+  type TextEditorKeyAction,
+  toggleLayerTextStyle,
+} from "./preview-text-edit.ts";
 import {
   createProjectHistoryState,
   isProjectEditAction,
@@ -3007,6 +3015,142 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       ),
     [editEffects, lanes],
   );
+  // The text layer being typed on in the preview. Every keystroke is a
+  // transient edit of the layer's Text effect, so the FX panel and
+  // collaborators follow along, and leaving the editor commits the whole
+  // edit as one undo step.
+  const [textEdit, setTextEdit] = useState<{
+    clipId: string;
+    laneId: string;
+    // Id for the Text effect an edit adds when the layer has none.
+    newEffectId: string;
+  }>();
+  const textEditRef = useRef(textEdit);
+  textEditRef.current = textEdit;
+  const finishTextEdit = useCallback(() => {
+    if (!textEditRef.current) {
+      return;
+    }
+
+    textEditRef.current = undefined;
+    setTextEdit(undefined);
+    editEffects(TEXT_EDIT_HISTORY_LABEL, (current) => current);
+  }, [editEffects]);
+  const startTextEdit = useCallback(
+    (clipId: string) => {
+      const clip = timelineClipsRef.current.find(
+        (candidate) => candidate.id === clipId,
+      );
+      if (
+        !clip ||
+        !isTextClip(clip) ||
+        textEditRef.current?.clipId === clipId ||
+        isExporting ||
+        refuseReadOnlyEdit()
+      ) {
+        return;
+      }
+
+      finishTextEdit();
+      // Playback pauses while editing, with the clip under the playhead.
+      setIsPlaying(false);
+      if (!isClipAtPlayhead(clip, playheadQRef.current, bpm)) {
+        setPlayheadQ(clip.startQ);
+        playbackOriginRef.current = clip.startQ;
+      }
+      setSelectedClipId(clip.id);
+      setSelectedLaneId(clip.laneId);
+      setPreviewLaneId(clip.laneId);
+      const next = {
+        clipId: clip.id,
+        laneId: clip.laneId,
+        newEffectId: crypto.randomUUID(),
+      };
+      textEditRef.current = next;
+      setTextEdit(next);
+    },
+    [bpm, finishTextEdit, isExporting, refuseReadOnlyEdit, setPlayheadQ],
+  );
+  const activatePreviewLayer = useCallback(
+    (layer: PreviewLayer) => startTextEdit(layer.clipId),
+    [startTextEdit],
+  );
+  const changeEditedText = useCallback(
+    (text: string) => {
+      const edit = textEditRef.current;
+      if (edit) {
+        editEffects(
+          TEXT_EDIT_HISTORY_LABEL,
+          (current) =>
+            setLayerText(current, edit.laneId, text, edit.newEffectId),
+          "transient",
+        );
+      }
+    },
+    [editEffects],
+  );
+  const applyTextEditAction = useCallback(
+    (action: TextEditorKeyAction) => {
+      const edit = textEditRef.current;
+      if (!edit) {
+        return;
+      }
+
+      if (action.kind === "commit") {
+        finishTextEdit();
+        return;
+      }
+
+      // Style shortcuts restyle the whole layer, within the same undo step.
+      editEffects(
+        TEXT_EDIT_HISTORY_LABEL,
+        (current) =>
+          action.kind === "style"
+            ? toggleLayerTextStyle(
+                current,
+                edit.laneId,
+                action.flag,
+                edit.newEffectId,
+              )
+            : stepLayerFontSize(
+                current,
+                edit.laneId,
+                action.direction,
+                edit.newEffectId,
+              ),
+        "transient",
+      );
+    },
+    [editEffects, finishTextEdit],
+  );
+  const editedTextStyle = useMemo(
+    () => (textEdit ? resolveTextStyle(effects, textEdit.laneId) : undefined),
+    [effects, textEdit],
+  );
+  const previewTextEdit = useMemo<PreviewTextEdit | undefined>(
+    () =>
+      textEdit && editedTextStyle
+        ? {
+            clipId: textEdit.clipId,
+            style: editedTextStyle,
+            onChangeText: changeEditedText,
+            onAction: applyTextEditAction,
+          }
+        : undefined,
+    [applyTextEditAction, changeEditedText, editedTextStyle, textEdit],
+  );
+  // Starting playback, selecting another layer or clip, or the clip leaving
+  // the preview (deleted, or the playhead moved off it) finishes editing.
+  useEffect(() => {
+    if (
+      textEdit &&
+      (isPlaying ||
+        selectedClipId !== textEdit.clipId ||
+        !previewLayers.some((layer) => layer.clipId === textEdit.clipId))
+    ) {
+      finishTextEdit();
+    }
+  }, [finishTextEdit, isPlaying, previewLayers, selectedClipId, textEdit]);
   // Audio clips have no visual effects; that only applies while one is
   // selected, not to the layer on its own.
   const fxKind = selectedClip?.mediaId
@@ -4685,6 +4829,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       return;
     }
 
+    // An open text edit is committed first, so undo steps over it whole.
+    finishTextEdit();
     stopTimelineAudibleScrub();
     setIsPlaying(false);
     setDragPreviewClips(null);
@@ -4693,13 +4839,21 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setTimelineDragState(null);
     dispatchProjectHistory({ type: "undo" });
     setStatus(formatHistoryStatus("Undid", undoLabel));
-  }, [isExporting, refuseReadOnlyEdit, stopTimelineAudibleScrub, undoLabel]);
+  }, [
+    finishTextEdit,
+    isExporting,
+    refuseReadOnlyEdit,
+    stopTimelineAudibleScrub,
+    undoLabel,
+  ]);
 
   const handleRedo = useCallback(() => {
     if (!redoLabel || isExporting || refuseReadOnlyEdit()) {
       return;
     }
 
+    // An open text edit is committed first, before redoing.
+    finishTextEdit();
     stopTimelineAudibleScrub();
     setIsPlaying(false);
     setDragPreviewClips(null);
@@ -4708,7 +4862,13 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setTimelineDragState(null);
     dispatchProjectHistory({ type: "redo" });
     setStatus(formatHistoryStatus("Redid", redoLabel));
-  }, [isExporting, redoLabel, refuseReadOnlyEdit, stopTimelineAudibleScrub]);
+  }, [
+    finishTextEdit,
+    isExporting,
+    redoLabel,
+    refuseReadOnlyEdit,
+    stopTimelineAudibleScrub,
+  ]);
 
   useEffect(() => {
     projectSnapshotRef.current = projectHistory.present;
@@ -9381,6 +9541,13 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                                       playbackOriginRef.current = clip.startQ;
                                     }
                                   }}
+                                  // Double-clicking a text clip types on it in
+                                  // the preview.
+                                  onDoubleClick={
+                                    textStyle
+                                      ? () => startTextEdit(clip.id)
+                                      : undefined
+                                  }
                                   onPointerDown={(event) => {
                                     if (
                                       isContextMenuPress(
@@ -10056,14 +10223,17 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     playheadQ={playheadQ}
                     playheadSeconds={playheadSeconds}
                     playheadSignal={playheadSignal}
+                    hiddenTextClipId={textEdit?.clipId}
                   />
                   <PreviewTransformOverlay
                     canvas={{ width: canvasWidth, height: canvasHeight }}
                     layers={previewLayers}
                     selectedLaneId={previewLaneId}
+                    textEdit={previewTextEdit}
                     getLayerPosition={getPreviewLayerPosition}
                     onSelect={selectPreviewLayer}
                     onMove={movePreviewLayer}
+                    onActivate={activatePreviewLayer}
                   />
                   {!previewClip ||
                   (previewMediaState !== "online" && !hasOnlinePlayheadClip) ? (

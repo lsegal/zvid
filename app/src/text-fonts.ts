@@ -179,9 +179,14 @@ function quoteFamily(family: string) {
   return `"${family.replace(/["\\]/g, "")}"`;
 }
 
+/** A CSS `font-family` list for the face, with the generic fallback. */
+export function formatFontFamily(face: FontFace) {
+  return `${quoteFamily(face.cssFamily)}, ${GENERIC_FALLBACK}`;
+}
+
 /** A CSS `font` shorthand for the face at `sizePx`. */
 export function formatFontSpec(face: FontFace, sizePx: number) {
-  return `${face.italic ? "italic " : ""}${face.weight} ${sizePx}px ${quoteFamily(face.cssFamily)}, ${GENERIC_FALLBACK}`;
+  return `${face.italic ? "italic " : ""}${face.weight} ${sizePx}px ${formatFontFamily(face)}`;
 }
 
 /**

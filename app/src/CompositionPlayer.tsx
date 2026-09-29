@@ -55,6 +55,9 @@ type CompositionPlayerProps = {
   // Playback advances this every frame without re-rendering the player.
   playheadSignal: PlayheadSignal;
   mainAudio?: MediaItem;
+  // A text clip being typed on in the preview, whose text the on-canvas
+  // editor shows instead.
+  hiddenTextClipId?: string;
 };
 
 export type CompositionRendererState = {
@@ -66,6 +69,9 @@ export type CompositionRendererState = {
   canvasWidth: number;
   canvasHeight: number;
   mainAudio?: MediaItem;
+  // Draws this text clip with no text: it keeps its slot, and its layer's
+  // effects, but its text doesn't show twice under the editor.
+  hiddenTextClipId?: string;
 };
 
 type CompositionPlaybackState = {
@@ -426,6 +432,9 @@ export class CompositionRenderer {
     // the first time they are needed. Fill and text clips draw no media.
     let addedElement = false;
     for (const entry of activeClips) {
+      if (entry.text && entry.clip.id === this.state.hiddenTextClipId) {
+        entry.text = { ...entry.text, text: "" };
+      }
       if (!entry.fill && !entry.text && !this.mediaRefs.has(entry.sourceKey)) {
         this.ensureMediaElement(entry.sourceKey, entry.media);
         addedElement = true;
@@ -635,6 +644,7 @@ export const CompositionPlayer = forwardRef<
     playheadSeconds,
     playheadSignal,
     mainAudio,
+    hiddenTextClipId,
   },
   ref,
 ) {
@@ -652,6 +662,7 @@ export const CompositionPlayer = forwardRef<
       canvasWidth,
       canvasHeight,
       mainAudio,
+      hiddenTextClipId,
     }),
     [
       bpm,
@@ -659,6 +670,7 @@ export const CompositionPlayer = forwardRef<
       canvasWidth,
       clips,
       effects,
+      hiddenTextClipId,
       lanes,
       mainAudio,
       mediaItems,
