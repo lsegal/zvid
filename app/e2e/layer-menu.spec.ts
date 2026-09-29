@@ -175,10 +175,10 @@ test("adding FX keeps the timeline usable", async ({ page }) => {
 
   const timelineHeight = await timeline.evaluate((el) => el.clientHeight);
   expect(timelineHeight).toBeGreaterThanOrEqual(100);
-  const body = page.locator(".fx-panel__body");
-  expect(
-    await body.evaluate((el) => el.scrollHeight > el.clientHeight),
-  ).toBe(true);
+  const bodyScrolls = await page
+    .locator(".fx-panel__body")
+    .evaluate((el) => el.scrollHeight > el.clientHeight);
+  expect(bodyScrolls).toBe(true);
 });
 
 test("the Audio row offers to import main audio", async ({ page }) => {
