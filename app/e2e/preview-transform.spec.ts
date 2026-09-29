@@ -1,9 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 
-// Clicking a layer in the preview selects and outlines it, and dragging it
-// writes its Transform effect as one undo step. The outline is drawn over the
-// whole monitor, so it stays visible past the edge of the video.
+// Clicking a layer in the preview selects and outlines its clip, and dragging
+// it writes the clip's own Transform effect as one undo step; with only the
+// layer selected, a drag writes the layer's Transform. The outline is drawn
+// over the whole monitor, so it stays visible past the edge of the video.
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
 
 async function dropVideoIntoNewSourceTrack(page: Page) {
@@ -88,8 +89,8 @@ test("the preview selects, outlines and drags a layer", async ({ page }) => {
     page.getByRole("region", { name: "Transform", exact: true }),
   ).toHaveCount(0);
 
-  // Dragging it most of the way out of frame adds a Transform. The grab is
-  // off-centre, clear of the origin marker.
+  // Dragging it most of the way out of frame adds a Transform to the clip's
+  // own stack. The grab is off-centre, clear of the origin marker.
   const grab = { x: centre.x, y: video.top + video.height * 0.25 };
   await page.mouse.move(grab.x, grab.y);
   await page.mouse.down();
@@ -101,6 +102,7 @@ test("the preview selects, outlines and drags a layer", async ({ page }) => {
   await expect(
     page.getByRole("region", { name: "Transform", exact: true }),
   ).toHaveCount(1);
+  await expect(page.locator('[data-fx-divider="clip"]')).toBeVisible();
 
   // The outline is still drawn where the layer leaves the video.
   const box = await outline.boundingBox();
@@ -112,7 +114,7 @@ test("the preview selects, outlines and drags a layer", async ({ page }) => {
   // The move, including adding the Transform, is one undo step.
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   const undo = page.getByRole("menuitem", { name: /^Undo/ });
-  await expect(undo).toHaveText(/^Undo Move Layer 1/);
+  await expect(undo).toHaveText(/^Undo Move test-pattern/);
   await undo.click();
   await expect(
     page.getByRole("region", { name: "Transform", exact: true }),
@@ -125,4 +127,83 @@ test("the preview selects, outlines and drags a layer", async ({ page }) => {
   await expect(outline).toHaveCount(1);
   await page.keyboard.press("Escape");
   await expect(outline).toHaveCount(0);
+
+  // With only the layer selected, a drag moves the layer's Transform, and
+  // the panel shows no Clip section.
+  await page
+    .locator(".track-label--lane")
+    .filter({ hasText: "Layer 1" })
+    .locator(".track-label__index")
+    .click();
+  await expect(outline).toHaveCount(1);
+  await expect(page.locator('[data-fx-divider="clip"]')).toHaveCount(0);
+  await page.mouse.move(grab.x, grab.y);
+  await page.mouse.down();
+  await page.mouse.move(grab.x + video.width * 0.2, grab.y, { steps: 4 });
+  await page.mouse.up();
+  await expect(
+    page.getByRole("region", { name: "Transform", exact: true }),
+  ).toHaveCount(1);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await expect(page.getByRole("menuitem", { name: /^Undo/ })).toHaveText(
+    /^Undo Move Layer 1/,
+  );
+  await page.keyboard.press("Escape");
+});
+
+test("a clip's own Transform follows Duplicate and Paste", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator('[data-timeline-lane-id="1"]')).toBeVisible();
+  await dropVideoIntoNewSourceTrack(page);
+  await page.locator(".source-span").click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Copy to layer" }).hover();
+  await page.getByRole("menuitem", { name: "Layer 1" }).click();
+  await expect(page.locator(".preview-placeholder")).toHaveCount(0, {
+    timeout: 30_000,
+  });
+
+  const video = await videoRect(page);
+  const grab = {
+    x: video.left + video.width / 2,
+    y: video.top + video.height * 0.25,
+  };
+  await page.mouse.click(grab.x, grab.y);
+  await page.mouse.move(grab.x, grab.y);
+  await page.mouse.down();
+  await page.mouse.move(grab.x + video.width * 0.2, grab.y, { steps: 4 });
+  await page.mouse.up();
+  const transform = page.getByRole("region", {
+    name: "Transform",
+    exact: true,
+  });
+  await expect(transform).toHaveCount(1);
+
+  const editMenu = async () => {
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await expect(page.getByRole("menu").first()).toBeVisible();
+  };
+
+  // The duplicate is selected, with its own copy of the Transform.
+  await editMenu();
+  await page.getByRole("menuitem", { name: /^Clip: / }).hover();
+  await page.getByRole("menuitem", { name: /^Duplicate/ }).click();
+  const clips = page.locator(".clip-card");
+  await expect(clips).toHaveCount(2);
+  await expect(clips.nth(1)).toHaveClass(/clip-card--selected/);
+  await expect(transform).toHaveCount(1);
+
+  // Copied and pasted on Layer 2, the clip keeps it too.
+  await editMenu();
+  await page.getByRole("menuitem", { name: /^Copy/ }).click();
+  await page
+    .locator(".track-label--lane")
+    .filter({ hasText: "Layer 2" })
+    .locator(".track-label__index")
+    .click();
+  await expect(transform).toHaveCount(0);
+  await editMenu();
+  await page.getByRole("menuitem", { name: /^Paste/ }).click();
+  const pasted = page.locator('[data-timeline-lane-id="5"] .clip-card');
+  await expect(pasted).toHaveClass(/clip-card--selected/);
+  await expect(transform).toHaveCount(1);
 });

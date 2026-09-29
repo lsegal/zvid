@@ -3307,9 +3307,17 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             fxLane?.name,
             playheadVisualLayerCount,
             missingFonts,
+            selectedClip?.id,
           )
         : [],
-    [effects, fxLane?.name, fxLaneId, missingFonts, playheadVisualLayerCount],
+    [
+      effects,
+      fxLane?.name,
+      fxLaneId,
+      missingFonts,
+      playheadVisualLayerCount,
+      selectedClip?.id,
+    ],
   );
   const playheadSeconds = quartersToSeconds(playheadQ, bpm);
   const mainAudio = mainAudioId ? mediaItemsById.get(mainAudioId) : undefined;
@@ -10572,6 +10580,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 layerFxEnabled={isLayerFxEnabled(fxLane)}
                 layerName={fxLane?.name}
                 layerTrackId={fxLaneId}
+                clipTrackId={
+                  selectedClip ? clipEffectTrackId(selectedClip.id) : undefined
+                }
                 onAdd={addFxDevice}
                 onDuplicate={duplicateFxDevice}
                 onMove={moveFxDevice}
