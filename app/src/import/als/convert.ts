@@ -402,16 +402,24 @@ function lvpClipId(track: AlsTrack, clip: AlsClip) {
  * One LVP clip per unrolled segment of `clip`, including segments shorter
  * than a frame, which the caller drops.
  *
- * Audio content positions go through the clip's warp map to sample seconds,
- * which is also a Layers recording's timeline. A ZVID Capture take started
- * independently of the sample, so audio content maps to the song time it was
- * recorded at and from there into the take (see `clipContent`). MIDI clips
- * have no sample timeline, so their arrangement position maps straight onto
- * the recording instead.
+ * Every clip follows the Layers convention: its video file frame is
+ * `clipStart + frameOffset + captureOffset`. `clipStart` is the content start
+ * in frames, which for audio goes through the clip's warp map to sample
+ * seconds and for MIDI converts beats to seconds, and `captureOffset` is the
+ * file frame at the content origin. For a Layers recording that is the
+ * recording's `frameStart`, the file frame where its audio starts.
+ *
+ * The audio content start is warp-aware on purpose: Layers itself ignored
+ * warp markers, but Live plays the warped sample time, which is the one that
+ * lines up with the recording.
+ *
+ * A ZVID Capture take started independently of the sample, so audio content
+ * maps to the song time it was recorded at and from there into the take (see
+ * `clipContent`), and MIDI content maps its arrangement position onto the
+ * take. Its `captureOffset` is whatever puts `clipStart` at that file frame.
  *
  * Without a Layers `recording`, an audio clip plays its own sample and a MIDI
- * clip becomes a placeholder with no media, positioned as if a recording
- * started at the top of the arrangement.
+ * clip becomes a placeholder with no media, both with a `captureOffset` of 0.
  */
 function convertClip(
   track: AlsTrack,
@@ -427,27 +435,24 @@ function convertClip(
     recording && captureDevice(track) === "zvid-capture"
       ? (recording as ZvidCaptureTake)
       : undefined;
-  // A ZVID Capture take's file is not aligned with the clip's sample, so
-  // content goes through the song time it was recorded at into the take.
   const contentToFrames = (position: number) =>
-    take && recordedAt
-      ? Math.max(
-          0,
-          secondsToFrames(
-            take.fileOffsetSec +
-              recordedAt(position) -
-              (take.transportStartSec as number),
-            fps,
-          ),
-        )
-      : warpMap
-        ? secondsToFrames(warpMap.beatToSampleSec(position), fps)
-        : beatsToFrames(position, tempoMap, fps);
+    warpMap
+      ? secondsToFrames(warpMap.beatToSampleSec(position), fps)
+      : beatsToFrames(position, tempoMap, fps);
+  // The file frame a ZVID Capture segment starts at: where its audio content
+  // was recorded, or where it sits in the song.
+  const takeFrame = (take: ZvidCaptureTake, songSeconds: number) =>
+    Math.max(
+      0,
+      secondsToFrames(
+        take.fileOffsetSec + songSeconds - (take.transportStartSec as number),
+        fps,
+      ),
+    );
   const duration = clip.sample
     ? clip.sample.defaultDuration / clip.sample.defaultSampleRate
     : Number.NaN;
   const baseId = lvpClipId(track, clip);
-  const captureOffset = recording?.frameStart ?? 0;
   const filePath =
     recording?.filename ??
     (isAudio ? clip.sample?.path || clip.sample?.relativePath || "" : "");
@@ -456,17 +461,21 @@ function convertClip(
     const id = index === 0 ? baseId : `${baseId}~${index}`;
     const startSeconds = tempoMap.beatsToSeconds(segment.arrStartBeat);
     const endSeconds = tempoMap.beatsToSeconds(segment.arrEndBeat);
-    const frameStart = secondsToFrames(startSeconds, fps);
+    const clipStart = contentToFrames(segment.contentStartBeat);
+    const captureOffset = take
+      ? takeFrame(
+          take,
+          recordedAt ? recordedAt(segment.contentStartBeat) : startSeconds,
+        ) - clipStart
+      : (recording?.frameStart ?? 0);
     return {
       id,
       trackId: String(track.id),
       name: clip.name,
-      frameStart,
+      frameStart: secondsToFrames(startSeconds, fps),
       frameCount: secondsToFrames(endSeconds - startSeconds, fps),
       frameOffset: 0,
-      clipStart: isAudio
-        ? contentToFrames(segment.contentStartBeat)
-        : Math.max(0, frameStart - captureOffset),
+      clipStart,
       filePath,
       warpMarkers: clip.warpMarkers.map((marker, markerIndex) => ({
         id: String(markerIndex),

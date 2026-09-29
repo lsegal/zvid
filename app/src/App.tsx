@@ -156,6 +156,7 @@ import {
   resolveSessionOverlaps,
 } from "./selection-overlaps";
 import {
+  clipSourceFrame,
   formatClipsWithoutFile,
   type LvpSession,
   normalizeLvpSession,
@@ -1523,8 +1524,7 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
       mediaId: media?.id,
       startQ: secondsToQuarters(clip.frameStart / fps, bpm),
       durationSeconds: Math.max(1, clip.frameCount) / fps,
-      trimStartSeconds:
-        Math.max(0, (clip.clipStart ?? 0) + (clip.frameOffset ?? 0)) / fps,
+      trimStartSeconds: clipSourceFrame(clip) / fps,
       tint: swatch.color,
       accent: swatch.accent,
     };

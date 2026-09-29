@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import {
+  clipSourceFrame,
   collectSessionMediaPaths,
   formatClipsWithoutFile,
   type LvpSession,
@@ -97,6 +98,49 @@ describe("formatClipsWithoutFile", () => {
     assert.equal(
       formatClipsWithoutFile(["Bass", "Keys"]),
       "2 clips have no media file and opened as placeholders: Bass, Keys.",
+    );
+  });
+});
+
+describe("clipSourceFrame", () => {
+  // Shaped like the Layers app's reference export at 72 BPM and 30 fps,
+  // where a clip's file frame is clipStart + frameOffset + captureOffset.
+  const referenceClip = (
+    fields: Partial<NonNullable<LvpSession["clips"]>[number]>,
+  ) => ({ ...clip("a", "take.mp4"), frameOffset: 0, ...fields });
+
+  it("adds the capture offset to the content start", () => {
+    // Loop start at beat 48 (40 s), recorded 393 frames into the file:
+    // 53.1 s.
+    assert.equal(
+      clipSourceFrame(referenceClip({ clipStart: 1200, captureOffset: 393 })),
+      1593,
+    );
+    // A MIDI clip from its content start, on a recording 241 frames in.
+    assert.equal(
+      clipSourceFrame(referenceClip({ clipStart: 0, captureOffset: 241 })),
+      241,
+    );
+    assert.equal(
+      clipSourceFrame(
+        referenceClip({ clipStart: 375, frameOffset: 15, captureOffset: 207 }),
+      ),
+      597,
+    );
+  });
+
+  it("treats the imported-video sentinel as no offset", () => {
+    assert.equal(
+      clipSourceFrame(referenceClip({ clipStart: 90, captureOffset: -1 })),
+      90,
+    );
+  });
+
+  it("defaults missing fields and never goes before the file start", () => {
+    assert.equal(clipSourceFrame(clip("a", "take.mp4")), 0);
+    assert.equal(
+      clipSourceFrame(referenceClip({ clipStart: 10, captureOffset: -60 })),
+      0,
     );
   });
 });
