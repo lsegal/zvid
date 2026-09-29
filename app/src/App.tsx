@@ -1358,6 +1358,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
           bpm,
           lanePriority,
           getRenderedEffects(timelineEffects, lanes),
+          fps,
         ).filter((entry) => entry.media.kind === "video"),
         { width: canvasWidth, height: canvasHeight },
         resolveCompositionOrder(timelineEffects, GLOBAL_EFFECT_TRACK_ID),
@@ -1366,6 +1367,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       bpm,
       canvasHeight,
       canvasWidth,
+      fps,
       lanePriority,
       lanes,
       mediaItemsById,
@@ -6527,6 +6529,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         lanes,
         effects,
         bpm,
+        fps,
         canvasWidth,
         canvasHeight,
         mainAudio,
@@ -8937,6 +8940,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   <CompositionPlayer
                     ref={compositionPlayerRef}
                     bpm={bpm}
+                    fps={fps}
                     canvasHeight={canvasHeight}
                     canvasWidth={canvasWidth}
                     clips={timelineClips}
