@@ -1692,7 +1692,13 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 7px 10px;
+  /* Clears the handle columns, which overlay the body's edges. */
+  padding: 7px 20px;
+}
+
+/* The frame already clears the start handle. */
+.clip-card__thumb + .clip-card__text {
+  padding-left: 10px;
 }
 
 .clip-card__body:active {
