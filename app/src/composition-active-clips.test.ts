@@ -459,3 +459,187 @@ describe("fill clips", () => {
     );
   });
 });
+
+describe("clip stacks", () => {
+  // At the playhead, selection-14 plays on Layer 1.
+  const clipTrack = "clip:selection-14";
+
+  function effect(
+    id: string,
+    trackId: string,
+    effectName: string,
+    parameters: Array<[string, number]> = [],
+  ) {
+    return {
+      id,
+      trackId,
+      effectName,
+      parameters: parameters.map(([key, value]) => ({
+        key,
+        value: value.toFixed(3),
+        numericValue: value,
+      })),
+    };
+  }
+
+  function entryFor(effects: ReturnType<typeof effect>[], clipId: string) {
+    const active = computeActiveClips(
+      DOGFOOD3_CLIPS,
+      new Map(MEDIA.map((item) => [item.id, item])),
+      PLAYHEAD_Q,
+      BPM,
+      LANE_PRIORITY,
+      effects,
+    );
+    const entry = active.find((candidate) => candidate.clip.id === clipId);
+    assert.ok(entry);
+    return entry;
+  }
+
+  it("runs the clip's chain before its layer's, and leaves Global to the composite", () => {
+    const entry = entryFor(
+      [
+        effect("global", GROUP_TRACK_ID, "NegativeSplit"),
+        effect("layer", "1", "Colorize", [["_HueOffset", 0.25]]),
+        effect("clip", clipTrack, "Colorize", [["_HueOffset", -0.5]]),
+        effect("clip-2", clipTrack, "Pixelate"),
+      ],
+      "selection-14",
+    );
+    assert.deepEqual(
+      entry.effectChain.map((step) => [
+        step.pass.effectName,
+        step.parameters[0]?.numericValue,
+      ]),
+      [
+        ["Colorize", -0.5],
+        ["Pixelate", undefined],
+        ["Colorize", 0.25],
+      ],
+    );
+  });
+
+  it("only applies a clip's stack to that clip", () => {
+    const effects = [effect("clip", clipTrack, "Pixelate")];
+    assert.equal(entryFor(effects, "selection-14").effectChain.length, 1);
+    assert.equal(entryFor(effects, "selection-16").effectChain.length, 0);
+  });
+
+  it("skips a bypassed clip effect", () => {
+    const bypassed = {
+      ...effect("clip", clipTrack, "Pixelate"),
+      enabled: false,
+    };
+    assert.deepEqual(entryFor([bypassed], "selection-14").effectChain, []);
+  });
+
+  it("reads the clip's Transform apart from its layer's", () => {
+    const visual = resolveVisualState(
+      [
+        effect("layer", "1", "Transform", [["PositionX", 0.25]]),
+        effect("clip", clipTrack, "Transform", [["ScaleX", 0.5]]),
+      ],
+      "1",
+      "selection-14",
+    );
+    assert.equal(visual.transform?.positionX, 0.25);
+    assert.equal(visual.transform?.scaleX, 1);
+    assert.equal(visual.clipTransform?.positionX, 0);
+    assert.equal(visual.clipTransform?.scaleX, 0.5);
+    // Without the clip, only the layer's Transform applies.
+    assert.equal(
+      resolveVisualState(
+        [effect("clip", clipTrack, "Transform", [["ScaleX", 0.5]])],
+        "1",
+      ).clipTransform,
+      undefined,
+    );
+  });
+
+  it("lets a clip's visual parameters override its layer's and Global's", () => {
+    const effects = [
+      effect("clip", clipTrack, "Fade", [["Opacity", 0.25]]),
+      effect("layer", "1", "Fade", [["Opacity", 0.75]]),
+      effect("global", GROUP_TRACK_ID, "Fade", [["Opacity", 0.5]]),
+    ];
+    assert.equal(resolveVisualState(effects, "1").opacity, 0.5);
+    assert.equal(
+      resolveVisualState(effects, "1", "selection-14").opacity,
+      0.25,
+    );
+  });
+
+  it("gives two text clips on one layer their own Text", () => {
+    const text = (id: string, trackId: string, value: string) => ({
+      id,
+      trackId,
+      effectName: "Text",
+      parameters: [{ key: "Text", value }],
+    });
+    const textClip = (id: string, laneId: string): ArrangementClip => ({
+      ...DOGFOOD3_CLIPS[0],
+      id,
+      kind: "text",
+      laneId,
+      mediaId: undefined,
+      startQ: 0,
+      durationSeconds: 60,
+    });
+    const effects = [
+      text("layer", "6", "Layer text"),
+      text("a", "clip:text-a", "First"),
+      text("b", "clip:text-b", "Second"),
+    ];
+    const render = (clips: ArrangementClip[]) =>
+      computeActiveClips(
+        clips,
+        new Map(),
+        PLAYHEAD_Q,
+        BPM,
+        LANE_PRIORITY,
+        effects,
+      ).map((entry) => entry.text?.text);
+
+    assert.deepEqual(render([textClip("text-a", "6")]), ["First"]);
+    assert.deepEqual(render([textClip("text-b", "6")]), ["Second"]);
+    // Moved to another layer, a text clip keeps its text.
+    assert.deepEqual(render([textClip("text-b", "7")]), ["Second"]);
+    // A text clip without its own Text uses its layer's.
+    assert.deepEqual(render([textClip("text-c", "6")]), ["Layer text"]);
+  });
+
+  it("paints a fill clip with its own Color before its layer's", () => {
+    const color = (id: string, trackId: string, value: string) => ({
+      id,
+      trackId,
+      effectName: "Color",
+      parameters: [
+        { key: "Mode", value: "Solid" },
+        { key: "Color", value },
+      ],
+    });
+    const [entry] = computeActiveClips(
+      [
+        {
+          ...DOGFOOD3_CLIPS[0],
+          id: "fill-a",
+          kind: "fill",
+          laneId: "6",
+          mediaId: undefined,
+          startQ: 0,
+          durationSeconds: 60,
+        },
+      ],
+      new Map(),
+      PLAYHEAD_Q,
+      BPM,
+      LANE_PRIORITY,
+      [color("layer", "6", "#ff0000"), color("clip", "clip:fill-a", "#0000ff")],
+    );
+    assert.deepEqual(entry.fill, {
+      kind: "solid",
+      color: { r: 0, g: 0, b: 255, a: 1 },
+      opacity: 1,
+    });
+  });
+});

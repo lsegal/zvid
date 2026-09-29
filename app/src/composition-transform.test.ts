@@ -14,8 +14,12 @@ import {
   isIdentityTransform,
   type LayerTransform,
   layerBoxInCanvas,
+  matrixQuadAxes,
+  multiplyMatrix,
+  nestedTransformMatrix,
   type Point,
   parseLayerTransform,
+  resolveClipTextBox,
   resolveTextBox,
   transformedQuadAxes,
   transformMatrix,
@@ -366,5 +370,129 @@ describe("resolveTextBox", () => {
       assert.ok(Math.abs(corner.x - scaled[index].x) < 1e-6);
       assert.ok(Math.abs(corner.y - scaled[index].y) < 1e-6);
     });
+  });
+});
+
+describe("clip Transform inside the layer Transform", () => {
+  const canvas = { width: 1000, height: 2000 };
+  const band = { x: 0, y: 0, width: 1000, height: 2000 };
+  const corners = (layer?: LayerTransform, clip?: LayerTransform) =>
+    layerBoxInCanvas(
+      { frame: canvasBoxToFrame(band, canvas) },
+      clip ?? IDENTITY_TRANSFORM,
+      canvas,
+      transformMatrix(layer ?? IDENTITY_TRANSFORM, band, canvas),
+    );
+  const close = (actual: Point[], expected: Point[]) =>
+    actual.forEach((point, index) => {
+      assert.ok(Math.abs(point.x - expected[index].x) < 1e-6, `x${index}`);
+      assert.ok(Math.abs(point.y - expected[index].y) < 1e-6, `y${index}`);
+    });
+
+  it("places the clip in its layer's box, then moves that box", () => {
+    // Half size in the middle of the band, then the layer moves right.
+    close(
+      corners(
+        transform({ positionX: 0.25 }),
+        transform({ scaleX: 0.5, scaleY: 0.5 }),
+      ),
+      [
+        { x: 500, y: 500 },
+        { x: 1000, y: 500 },
+        { x: 1000, y: 1500 },
+        { x: 500, y: 1500 },
+      ],
+    );
+    // The other way round (the clip's Transform outside the layer's) would
+    // scale the moved box about the band's centre instead.
+    const swapped = multiplyMatrix(
+      transformMatrix(transform({ scaleX: 0.5, scaleY: 0.5 }), band, canvas),
+      transformMatrix(transform({ positionX: 0.25 }), band, canvas),
+    );
+    assert.deepEqual(applyMatrix(swapped, { x: 0, y: 0 }), { x: 375, y: 500 });
+  });
+
+  it("turns the clip with its layer", () => {
+    close(
+      corners(transform({ rotationDeg: 90 }), transform({ positionX: 0.1 })),
+      // The clip moves 100px right in the layer, which the layer turns
+      // into 100px down.
+      corners(transform({ rotationDeg: 90, positionY: 0.05 })),
+    );
+  });
+
+  it("is the layer Transform alone with no clip Transform", () => {
+    const layer = transform({ positionX: 0.2, scaleY: 1.5, rotationDeg: 30 });
+    assert.deepEqual(
+      nestedTransformMatrix(band, canvas, layer),
+      transformMatrix(layer, band, canvas),
+    );
+    assert.deepEqual(
+      matrixQuadAxes(
+        canvasBoxToFrame(band, canvas),
+        nestedTransformMatrix(band, canvas, layer),
+        canvas,
+      ),
+      transformedQuadAxes(canvasBoxToFrame(band, canvas), layer, canvas),
+    );
+  });
+
+  it("maps canvas points onto the nested box and back", () => {
+    const layer = transform({ positionX: 0.25, rotationDeg: 45 });
+    const clip = transform({ scaleX: 0.5, positionY: -0.1 });
+    const frame = canvasBoxToFrame(band, canvas);
+    const [topLeft] = corners(layer, clip);
+    const local = canvasToLayer(
+      topLeft,
+      { frame },
+      clip,
+      canvas,
+      transformMatrix(layer, band, canvas),
+    );
+    assert.ok(local);
+    assert.ok(Math.abs(local.x + 1) < 1e-9);
+    assert.ok(Math.abs(local.y + 1) < 1e-9);
+  });
+
+  it("resizes a text box by both Transforms, landing where the scaled box does", () => {
+    const layer = transform({ scaleX: 2, positionX: 0.1, rotationDeg: 20 });
+    const clip = transform({ scaleY: 0.5, originX: -1, originY: -1 });
+    const text = resolveClipTextBox(band, canvas, layer, clip);
+    assert.ok(Math.abs(text.box.width - 2000) < 1e-9);
+    assert.ok(Math.abs(text.box.height - 1000) < 1e-9);
+    const landed = [
+      { x: text.box.x, y: text.box.y },
+      { x: text.box.x + text.box.width, y: text.box.y },
+      { x: text.box.x + text.box.width, y: text.box.y + text.box.height },
+      { x: text.box.x, y: text.box.y + text.box.height },
+    ].map((point) => applyMatrix(text.matrix, point));
+    close(landed, corners(layer, clip));
+  });
+
+  it("matches resolveTextBox for a layer Transform alone", () => {
+    const layer = transform({
+      positionX: 0.1,
+      scaleX: 2,
+      scaleY: 0.25,
+      originX: -1,
+      originY: 0.5,
+      rotationDeg: 30,
+    });
+    const nested = resolveClipTextBox(band, canvas, layer);
+    const single = resolveTextBox(band, layer);
+    close(
+      [
+        { x: nested.box.x, y: nested.box.y },
+        { x: nested.box.width, y: nested.box.height },
+      ],
+      [
+        { x: single.box.x, y: single.box.y },
+        { x: single.box.width, y: single.box.height },
+      ],
+    );
+    const expected = transformMatrix(single.transform, single.box, canvas);
+    for (const key of ["a", "b", "c", "d", "e", "f"] as const) {
+      assert.ok(Math.abs(nested.matrix[key] - expected[key]) < 1e-6, key);
+    }
   });
 });
