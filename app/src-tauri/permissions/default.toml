@@ -4,6 +4,11 @@ description = "Enables the open_session command."
 commands.allow = ["open_session"]
 
 [[permission]]
+identifier = "allow-list-font-families"
+description = "Enables the list_font_families command."
+commands.allow = ["list_font_families"]
+
+[[permission]]
 identifier = "allow-read-file-bytes"
 description = "Enables the read_file_bytes command."
 commands.allow = ["read_file_bytes"]
@@ -32,6 +37,7 @@ commands.allow = ["mux_export"]
 description = "Default application permissions."
 permissions = [
   "allow-open-session",
+  "allow-list-font-families",
   "allow-read-file-bytes",
   "allow-read-file-prefix",
   "allow-files-exist",
