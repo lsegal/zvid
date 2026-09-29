@@ -276,6 +276,10 @@ import {
 } from "./share-invite.ts";
 import { shareCopyFailedStatus, shareLinkVisible } from "./share-link";
 import {
+  PUBLIC_SIGNALING_URL,
+  ZVID_SIGNALING_URL,
+} from "./signaling-servers";
+import {
   dropClipOnFreeLane,
   isSourceClipDropClick,
 } from "./source-clip-drop.ts";
@@ -566,11 +570,6 @@ const PREVIEW_RESIZE_KEY_STEP = 16;
 // Horizontal space the preview panel may never take from the timeline: the
 // grid's side padding, the resize handle's column, and a usable timeline.
 const PREVIEW_RESERVED_WIDTH = 32 + 16 + 360;
-// zvid's own signaling worker (../signaling) first, with the public y-webrtc
-// relay as a fallback. y-webrtc connects to every URL, and peers find each
-// other through any one they share.
-const ZVID_SIGNALING_URL = "wss://zvid-signaling.lsegal.workers.dev";
-const PUBLIC_SIGNALING_URL = "wss://y-webrtc-eu.fly.dev";
 const DEFAULT_SIGNALING_URLS = splitSignalingUrls(
   import.meta.env.VITE_SIGNALING_URL ||
     [ZVID_SIGNALING_URL, PUBLIC_SIGNALING_URL].join(","),
