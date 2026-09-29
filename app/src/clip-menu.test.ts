@@ -2,12 +2,16 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   buildClipMenuEntries,
+  buildSelectionMenuEntries,
   buildSourceSpanMenuEntries,
   type ClipMenuActions,
   type CopyToLayerTarget,
   canSplitAt,
   copyClipToLayer,
+  isInSelection,
+  NO_FOOTAGE_TITLE,
   resolvePasteLaneId,
+  sourceTrackKeyNumber,
 } from "./clip-menu.ts";
 import type { ContextMenuEntry, ContextMenuItem } from "./context-menu.ts";
 import { MAX_LAYERS } from "./selection-overlaps.ts";
@@ -310,5 +314,226 @@ describe("copyClipToLayer", () => {
       trimCovered,
     );
     assert.equal(result, null);
+  });
+});
+
+describe("isInSelection", () => {
+  const selection = { laneId: "1", startQ: 4, durationQ: 2 };
+
+  it("is true from the start up to, but not at, the end on its layer", () => {
+    assert.equal(isInSelection(selection, "1", 4), true);
+    assert.equal(isInSelection(selection, "1", 5.9), true);
+    assert.equal(isInSelection(selection, "1", 6), false);
+    assert.equal(isInSelection(selection, "1", 3.9), false);
+  });
+
+  it("is false on another layer or without a selection", () => {
+    assert.equal(isInSelection(selection, "5", 5), false);
+    assert.equal(isInSelection(null, "1", 5), false);
+  });
+});
+
+describe("buildSelectionMenuEntries", () => {
+  const tracks = [
+    { id: "a", name: "Drums", color: "#f00", hasFootage: true },
+    { id: "b", name: "Keys", color: "#0f0", hasFootage: false },
+    ...Array.from({ length: 8 }, (_, index) => ({
+      id: `t${index}`,
+      name: `Track ${index + 3}`,
+      color: "#00f",
+      hasFootage: true,
+    })),
+  ];
+
+  function build(
+    overrides: Partial<Parameters<typeof buildSelectionMenuEntries>[0]> = {},
+    calls: string[] = [],
+  ) {
+    const entries = buildSelectionMenuEntries({
+      tracks,
+      insertTrack: (index) => calls.push(`track ${index}`),
+      clear: () => calls.push("clear"),
+      ...overrides,
+    });
+    return { entries, calls };
+  }
+
+  const items = (entries: readonly ContextMenuEntry[]) =>
+    entries.filter((entry): entry is ContextMenuItem => entry.type === "item");
+  const trackItems = (entries: readonly ContextMenuEntry[]) =>
+    items(
+      items(entries).find((entry) => entry.id === "insert-track")?.submenu ??
+        [],
+    );
+
+  it("offers Insert Track and Clear selection, without Fill until it exists", () => {
+    const { entries } = build();
+    assert.deepEqual(
+      entries.map((entry) => (entry.type === "item" ? entry.id : "---")),
+      ["insert-track", "---", "clear-selection"],
+    );
+  });
+
+  it("starts with Cut, Copy and Delete for the span when they exist", () => {
+    const calls: string[] = [];
+    const clipboard = {
+      mac: true,
+      hasContent: true,
+      cut: () => calls.push("cut"),
+      copy: () => calls.push("copy"),
+      remove: () => calls.push("remove"),
+    };
+    const { entries } = build({ clipboard }, calls);
+    assert.deepEqual(
+      entries.map((entry) => (entry.type === "item" ? entry.id : "---")),
+      [
+        "cut",
+        "copy",
+        "delete",
+        "---",
+        "insert-track",
+        "---",
+        "clear-selection",
+      ],
+    );
+    const [cut, copy, remove] = items(entries);
+    assert.deepEqual(
+      [cut, copy, remove].map((entry) => [entry?.label, entry?.shortcut]),
+      [
+        ["Cut", "Cmd+X"],
+        ["Copy", "Cmd+C"],
+        ["Delete", "Del"],
+      ],
+    );
+    for (const entry of [cut, copy, remove]) {
+      assert.equal(entry?.disabled, false);
+      entry?.onSelect?.();
+    }
+    assert.deepEqual(calls, ["cut", "copy", "remove"]);
+    assert.equal(trackItems(entries).length, tracks.length);
+  });
+
+  it("disables Cut, Copy and Delete for an empty span or while exporting", () => {
+    const clipboard = {
+      mac: false,
+      hasContent: false,
+      cut: () => {},
+      copy: () => {},
+      remove: () => {},
+    };
+    for (const entries of [
+      build({ clipboard }).entries,
+      build({ clipboard: { ...clipboard, hasContent: true }, disabled: true })
+        .entries,
+    ]) {
+      assert.deepEqual(
+        items(entries)
+          .slice(0, 3)
+          .map((entry) => [entry.id, entry.disabled]),
+        [
+          ["cut", true],
+          ["copy", true],
+          ["delete", true],
+        ],
+      );
+    }
+  });
+
+  it("adds Insert Fill Layer when the action exists", () => {
+    const calls: string[] = [];
+    const { entries } = build({ insertFill: () => calls.push("fill") }, calls);
+    const fill = items(entries).find((entry) => entry.id === "insert-fill");
+    assert.equal(fill?.label, "Insert Fill Layer");
+    fill?.onSelect?.();
+    assert.deepEqual(calls, ["fill"]);
+  });
+
+  it("adds Insert Text Layer after Insert Fill Layer when it exists", () => {
+    const calls: string[] = [];
+    const { entries } = build(
+      {
+        insertFill: () => calls.push("fill"),
+        insertText: () => calls.push("text"),
+      },
+      calls,
+    );
+    assert.deepEqual(
+      entries.map((entry) => (entry.type === "item" ? entry.id : "---")),
+      ["insert-track", "insert-fill", "insert-text", "---", "clear-selection"],
+    );
+    const text = items(entries).find((entry) => entry.id === "insert-text");
+    assert.equal(text?.label, "Insert Text Layer");
+    text?.onSelect?.();
+    assert.deepEqual(calls, ["text"]);
+    assert.equal(
+      items(build({ disabled: true, insertText: () => {} }).entries).find(
+        (entry) => entry.id === "insert-text",
+      )?.disabled,
+      true,
+    );
+  });
+
+  it("lists every source track with its swatch and number key", () => {
+    assert.deepEqual(
+      trackItems(build().entries).map((entry) => [
+        entry.label,
+        entry.swatch,
+        entry.shortcut,
+      ]),
+      [
+        ["Drums", "#f00", "1"],
+        ["Keys", "#0f0", "2"],
+        ...Array.from({ length: 7 }, (_, index) => [
+          `Track ${index + 3}`,
+          "#00f",
+          `${index + 3}`,
+        ]),
+        // Only keys 1-9 commit a selection.
+        ["Track 10", "#00f", undefined],
+      ],
+    );
+  });
+
+  it("inserts the track at its index, like its number key", () => {
+    const { entries, calls } = build();
+    const submenu = trackItems(entries);
+    submenu[0]?.onSelect?.();
+    submenu[9]?.onSelect?.();
+    assert.deepEqual(calls, ["track 0", "track 9"]);
+  });
+
+  it("disables tracks with no footage in the range", () => {
+    const [withFootage, withoutFootage] = trackItems(build().entries);
+    assert.equal(withFootage?.disabled, false);
+    assert.equal(withFootage?.title, undefined);
+    assert.equal(withoutFootage?.disabled, true);
+    assert.equal(withoutFootage?.title, NO_FOOTAGE_TITLE);
+  });
+
+  it("disables Insert Track without source tracks", () => {
+    const [insert] = items(build({ tracks: [] }).entries);
+    assert.equal(insert?.disabled, true);
+  });
+
+  it("disables inserting while exporting but still clears", () => {
+    const calls: string[] = [];
+    const { entries } = build(
+      { disabled: true, insertFill: () => calls.push("fill") },
+      calls,
+    );
+    const [insert, fill, clear] = items(entries);
+    assert.equal(insert?.disabled, true);
+    assert.equal(fill?.disabled, true);
+    assert.equal(clear?.disabled, undefined);
+    clear?.onSelect?.();
+    assert.deepEqual(calls, ["clear"]);
+  });
+});
+
+describe("sourceTrackKeyNumber", () => {
+  it("maps the first nine tracks to keys 1-9", () => {
+    assert.equal(sourceTrackKeyNumber(0), 1);
+    assert.equal(sourceTrackKeyNumber(8), 9);
+    assert.equal(sourceTrackKeyNumber(9), undefined);
   });
 });

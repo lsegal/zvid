@@ -2,7 +2,7 @@
 // which group, how knob values are formatted, and the per-device collapse
 // state that is kept in localStorage.
 
-import { isTransformEffectName } from "./composition-transform.ts";
+import { isOrderEffectName } from "./composition-order.ts";
 import {
   FX_EFFECT_DEFINITIONS,
   formatRawNumber,
@@ -11,6 +11,7 @@ import {
 import {
   type FxDevice,
   type FxDeviceGroup,
+  type FxDeviceParameter,
   isLayoutEffectName,
 } from "./fx-stack.ts";
 
@@ -39,19 +40,26 @@ export function groupChainDevices(
   };
 }
 
-// Effects the add menu offers. Layout is left out: every visual layer
-// already has its own, and it cannot go on the Global stack.
-export const ADDABLE_EFFECT_DEFINITIONS = FX_EFFECT_DEFINITIONS.filter(
-  (definition) => !isLayoutEffectName(definition.effectName),
-);
+export const NO_ORDER_HINT =
+  "No Order: layers overlap (Layer 1 on top). Add Order to arrange them.";
 
-// Transform places a single layer, so only layer stacks offer it.
-export function getAddableEffectDefinitions(group: FxDeviceGroup) {
-  return group === "global"
-    ? ADDABLE_EFFECT_DEFINITIONS.filter(
-        (definition) => !isTransformEffectName(definition.effectName),
-      )
-    : ADDABLE_EFFECT_DEFINITIONS;
+// Shown in the Global section when its stack has no Order, so the layers
+// overlap instead of being arranged.
+export function resolveGlobalOrderHint(globalDevices: readonly FxDevice[]) {
+  return globalDevices.some((device) => isOrderEffectName(device.effectName))
+    ? undefined
+    : NO_ORDER_HINT;
+}
+
+// Effects the `group` add menu offers: the known ones designed for that
+// stack, except those every layer is already given (Layout).
+export function addableEffectsFor(group: FxDeviceGroup) {
+  return FX_EFFECT_DEFINITIONS.filter(
+    (definition) =>
+      definition.known &&
+      !definition.layerDefault &&
+      definition.scopes.includes(group),
+  );
 }
 
 export function getParameterFormat(effectName: string, key: string) {
@@ -61,9 +69,27 @@ export function getParameterFormat(effectName: string, key: string) {
   return definition?.kind === "number" ? definition.format : formatRawNumber;
 }
 
-// Knobs fill two columns left to right, then wrap down to a new row.
-export function knobColumnCount(parameterCount: number) {
-  return Math.min(2, Math.max(1, parameterCount));
+// Knobs fill at most two rows left to right, and never fewer than two
+// columns unless there is only one knob.
+export function knobColumnCount(knobCount: number) {
+  return knobCount <= 1 ? 1 : Math.max(2, Math.ceil(knobCount / 2));
+}
+
+// Devices with more full-width controls than this, such as Text, lay them
+// out in columns so they fit the panel's height.
+const MAX_CONTROL_ROWS = 3;
+
+export function usesColumnLayout(controlCount: number) {
+  return controlCount > MAX_CONTROL_ROWS;
+}
+
+// Splits a device's parameters into the full-width controls (enums), which
+// sit on their own rows first, and the knobs that fill the grid below them.
+export function splitDeviceParameters(parameters: FxDeviceParameter[]) {
+  return {
+    controls: parameters.filter((parameter) => parameter.kind !== "number"),
+    knobs: parameters.filter((parameter) => parameter.kind === "number"),
+  };
 }
 
 export function readCollapsedDevices(storage: KeyValueStorage | undefined) {
@@ -151,6 +177,28 @@ export function getAutoScrollDelta(
   }
 
   return 0;
+}
+
+// Parts of the chain that keep their own pointer behaviour: devices (knobs,
+// controls and the title bars that reorder them), add slots and buttons.
+// Everything else (gaps, padding, the Global divider and the empty space
+// after the last slot) is background that hand-grab pans the chain.
+export const FX_CHAIN_CONTROL_SELECTOR =
+  ".fx-device-panel, .fx-chain__add, .fx-chain__empty, .fx-chain__layer-off, button, input, select, textarea, a[href], [role='menu']";
+
+// Whether a press starts hand-grab panning the chain: the primary button on
+// its background, or the middle button anywhere, since it operates no
+// controls.
+export function canStartFxChainPan(event: {
+  button: number;
+  target: EventTarget | null;
+}) {
+  if (event.button === 1) {
+    return true;
+  }
+
+  const target = event.target as { closest?: (selector: string) => unknown };
+  return event.button === 0 && !target?.closest?.(FX_CHAIN_CONTROL_SELECTOR);
 }
 
 // Screen reader text for a device that moved within its stack.

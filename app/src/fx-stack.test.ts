@@ -6,6 +6,7 @@ import {
   addEffect,
   duplicateEffect,
   effectHistoryLabels,
+  ensureGlobalOrder,
   ensureLayerLayouts,
   type FxLayer,
   GLOBAL_EFFECT_TRACK_ID,
@@ -121,6 +122,49 @@ describe("mapSessionEffectsToDevices", () => {
     const devices = mapSessionEffectsToDevices(load(), "6", "Layer 3");
     assert.equal(devices[0].subtitle, "Layer 3");
     assert.equal(devices[4].subtitle, "Global stack");
+  });
+
+  it("flags devices on a stack their effect isn't designed for", () => {
+    const devices = mapSessionEffectsToDevices(
+      [
+        ...load(),
+        {
+          id: "layer-order",
+          trackId: "6",
+          effectName: "Order",
+          enabled: true,
+          parameters: [],
+        },
+        {
+          id: "global-move",
+          trackId: GLOBAL_EFFECT_TRACK_ID,
+          effectName: "Transform",
+          enabled: true,
+          parameters: [],
+        },
+        {
+          id: "global-mystery",
+          trackId: GLOBAL_EFFECT_TRACK_ID,
+          effectName: "Mystery",
+          enabled: true,
+          parameters: [],
+        },
+      ],
+      "6",
+    );
+    assert.deepEqual(
+      devices.map((device) => [device.name, device.unsupported ?? false]),
+      [
+        ["Pixelate", false],
+        ["Colorize", false],
+        ["Negative Split", false],
+        ["Analog Glitch", false],
+        ["Order", true],
+        ["Layout", true],
+        ["Transform", true],
+        ["Mystery", false],
+      ],
+    );
   });
 
   it("uses friendly labels and hides internal parameters", () => {
@@ -371,6 +415,23 @@ describe("addEffect", () => {
       addEffect(effects, GLOBAL_EFFECT_TRACK_ID, "Transform"),
       effects,
     );
+  });
+
+  it("adds Order to the Global stack with defaults, never to a layer", () => {
+    const effects = addEffect(
+      load(),
+      GLOBAL_EFFECT_TRACK_ID,
+      "Order",
+      undefined,
+      "order",
+    );
+    const added = effects.find((effect) => effect.id === "order");
+    assert.deepEqual(added?.parameters, [
+      { key: "Arrangement", value: "Vertical" },
+      { key: "GridSize", value: "2.000", numericValue: 2 },
+      { key: "Spacing", value: "0.000", numericValue: 0 },
+    ]);
+    assert.equal(addEffect(effects, "6", "Order"), effects);
   });
 
   it("starts a new stack and generates ids", () => {
@@ -715,6 +776,24 @@ describe("layer FX bypass", () => {
     assert.deepEqual(ids(rendered, "6"), ["layer-layout"]);
   });
 
+  it("keeps the Color that paints fill clips on a bypassed layer", () => {
+    const effects = addEffect(load(), "6", "Color", undefined, "fill-color");
+    const rendered = getRenderedEffects(
+      effects,
+      setLaneFxEnabled(LANES, "6", false),
+    );
+    assert.deepEqual(ids(rendered, "6"), ["fill-color"]);
+  });
+
+  it("keeps the Text that styles text clips on a bypassed layer", () => {
+    const effects = addEffect(load(), "6", "Text", undefined, "text-style");
+    const rendered = getRenderedEffects(
+      effects,
+      setLaneFxEnabled(LANES, "6", false),
+    );
+    assert.deepEqual(ids(rendered, "6"), ["text-style"]);
+  });
+
   it("restores each device's own bypass state when turned back on", () => {
     const effects = setEffectEnabled(load(), "negative", false);
     const lanes = setLaneFxEnabled(
@@ -756,5 +835,93 @@ describe("layer FX bypass", () => {
     assert.equal(history.present, initial);
     history = projectHistoryReducer(history, { type: "redo" });
     assert.equal(history.present, toggled);
+  });
+});
+
+describe("Order devices", () => {
+  function orderDevice(
+    arrangement: string,
+    activeLayerCount: number,
+    enabled = true,
+  ) {
+    let effects = addEffect([], GLOBAL_EFFECT_TRACK_ID, "Order", 0, "order");
+    effects = setEffectParameter(effects, "order", "Arrangement", arrangement);
+    effects = setEffectEnabled(effects, "order", enabled);
+    return mapSessionEffectsToDevices(
+      effects,
+      "6",
+      "Layer 3",
+      activeLayerCount,
+    ).find((device) => device.id === "order");
+  }
+
+  it("shows Grid Size only while the arrangement is Grid", () => {
+    const keys = (arrangement: string) =>
+      orderDevice(arrangement, 0)?.parameters.map((parameter) => parameter.key);
+    assert.deepEqual(keys("Vertical"), ["Arrangement", "Spacing"]);
+    assert.deepEqual(keys("Horizontal"), ["Arrangement", "Spacing"]);
+    assert.deepEqual(keys("Grid"), ["Arrangement", "GridSize", "Spacing"]);
+  });
+
+  it("warns when a grid has fewer cells than active layers", () => {
+    assert.equal(orderDevice("Grid", 4)?.warning, undefined);
+    assert.equal(orderDevice("Grid", 5)?.warning, "1 layer hidden by grid");
+    assert.equal(orderDevice("Grid", 7)?.warning, "3 layers hidden by grid");
+    assert.equal(orderDevice("Vertical", 7)?.warning, undefined);
+    assert.equal(orderDevice("Grid", 7, false)?.warning, undefined);
+  });
+});
+
+describe("ensureGlobalOrder", () => {
+  it("adds a Vertical Order at the start of the Global stack", () => {
+    const effects = ensureGlobalOrder(
+      addEffect(
+        addEffect([], GLOBAL_EFFECT_TRACK_ID, "Colorize", 0, "colorize"),
+        "1",
+        "Colorize",
+        0,
+        "layer",
+      ),
+    );
+    const global = effects.filter(
+      (effect) => effect.trackId === GLOBAL_EFFECT_TRACK_ID,
+    );
+    assert.deepEqual(
+      global.map((effect) => effect.id),
+      ["order-global", "colorize"],
+    );
+    assert.equal(global[0].effectName, "Order");
+    assert.equal(
+      global[0].parameters.find((parameter) => parameter.key === "Arrangement")
+        ?.value,
+      "Vertical",
+    );
+  });
+
+  it("returns the same array when the Global stack has an Order", () => {
+    const withOrder = ensureGlobalOrder([]);
+    assert.equal(ensureGlobalOrder(withOrder), withOrder);
+    const bypassed = setEffectEnabled(withOrder, "order-global", false);
+    assert.equal(ensureGlobalOrder(bypassed), bypassed);
+  });
+
+  it("does not count an Order on a layer's stack", () => {
+    const effects: SessionEffect[] = [
+      {
+        id: "stray",
+        trackId: "1",
+        effectName: "Order",
+        parameters: [],
+        enabled: true,
+      },
+    ];
+    assert.equal(
+      ensureGlobalOrder(effects).filter(
+        (effect) =>
+          effect.trackId === GLOBAL_EFFECT_TRACK_ID &&
+          effect.effectName === "Order",
+      ).length,
+      1,
+    );
   });
 });

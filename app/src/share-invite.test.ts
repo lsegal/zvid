@@ -4,7 +4,9 @@ import {
   buildPublicShareUrl,
   isLocalHostname,
   parseInviteParams,
+  removeInviteParams,
   removeInvitePassword,
+  withJoinedRoom,
 } from "./share-invite.ts";
 
 const SIGNALING = ["wss://signal.example.com"];
@@ -143,6 +145,45 @@ describe("removeInvitePassword", () => {
       removeInvitePassword("https://zvid.example.com/?room=r#section"),
       null,
     );
+  });
+});
+
+describe("withJoinedRoom", () => {
+  it("puts the room and signaling servers in the query", () => {
+    assert.equal(
+      withJoinedRoom(
+        "https://zvid.example.com/app?x=1",
+        "abc",
+        "wss://signal.example.com",
+      ),
+      "https://zvid.example.com/app?x=1&room=abc&signal=wss%3A%2F%2Fsignal.example.com",
+    );
+  });
+
+  it("never keeps a password in the URL", () => {
+    assert.equal(
+      withJoinedRoom(
+        "https://zvid.example.com/?password=old#password=p&x=1",
+        "abc",
+        "",
+      ),
+      "https://zvid.example.com/?room=abc#x=1",
+    );
+  });
+});
+
+describe("removeInviteParams", () => {
+  it("clears the room, signaling servers and password", () => {
+    assert.equal(
+      removeInviteParams(
+        "https://zvid.example.com/?room=r&signal=s&x=1#password=p",
+      ),
+      "https://zvid.example.com/?x=1",
+    );
+  });
+
+  it("returns null when there is no invite", () => {
+    assert.equal(removeInviteParams("https://zvid.example.com/?x=1"), null);
   });
 });
 

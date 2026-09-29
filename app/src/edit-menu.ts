@@ -39,32 +39,57 @@ function selectionSubmenu(
 
 export type EditMenuSelection = {
   // The selected clip's name and its right-click menu, or undefined when no
-  // clip is selected. The Cut, Copy and Paste entries are always taken from
-  // `clipEntries`, which is also the menu for empty lane space.
+  // clip is selected. The Cut, Copy and Paste entries are taken from
+  // `clipEntries`, which is also the menu for empty lane space, except for
+  // the ones `selectionEntries` has.
   clip?: string;
   clipEntries: readonly ContextMenuEntry[];
+  // The uncommitted selection's right-click menu, while there is one. Its
+  // Cut and Copy act on the selected span and replace the clip's.
+  selectionEntries?: readonly ContextMenuEntry[];
   // The selected layer's name and its header's right-click menu.
   layer?: { name: string; entries: readonly ContextMenuEntry[] };
   // The Audio row's right-click menu.
   audioEntries: readonly ContextMenuEntry[];
 };
 
+function isClipboardEntry(entry: ContextMenuEntry) {
+  return entry.type === "item" && CLIPBOARD_IDS.has(entry.id);
+}
+
 /**
- * Undo and Redo, Cut/Copy/Paste, then Clip and Layer submenus for the
- * current selection (hidden when nothing of that kind is selected) and the
- * Audio submenu.
+ * Undo and Redo, Cut/Copy/Paste, then Selection, Clip and Layer submenus for
+ * the current selection (hidden when nothing of that kind is selected) and
+ * the Audio submenu.
  */
 export function buildEditMenuEntries(
   history: readonly ContextMenuEntry[],
-  { clip, clipEntries, layer, audioEntries }: EditMenuSelection,
+  {
+    clip,
+    clipEntries,
+    selectionEntries,
+    layer,
+    audioEntries,
+  }: EditMenuSelection,
 ): ContextMenuEntry[] {
-  const clipboard = clipEntries.filter(
-    (entry) => entry.type === "item" && CLIPBOARD_IDS.has(entry.id),
-  );
-  const clipActions = clipEntries.filter(
-    (entry) => entry.type === "separator" || !CLIPBOARD_IDS.has(entry.id),
-  );
+  const clipboard = [...CLIPBOARD_IDS].flatMap((id) => {
+    const isEntry = (entry: ContextMenuEntry) =>
+      entry.type === "item" && entry.id === id;
+    const entry = selectionEntries?.find(isEntry) ?? clipEntries.find(isEntry);
+    return entry ? [entry] : [];
+  });
+  const clipActions = clipEntries.filter((entry) => !isClipboardEntry(entry));
   const selection: ContextMenuEntry[] = [];
+  if (selectionEntries?.length) {
+    selection.push({
+      type: "item",
+      id: "selection",
+      label: "Selection",
+      submenu: trimSeparators(
+        selectionEntries.filter((entry) => !isClipboardEntry(entry)),
+      ),
+    });
+  }
   if (clip !== undefined) {
     selection.push(selectionSubmenu("clip", "Clip", clip, clipActions));
   }

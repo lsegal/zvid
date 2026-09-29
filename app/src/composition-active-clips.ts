@@ -1,17 +1,30 @@
 // Works out which clips the compositor draws at a playhead: at most one clip
 // per lane under the playhead whose media is online, in lane order, with the
-// source time, visual state and effect chain each one is drawn with.
+// source time, visual state and effect chain each one is drawn with. Fill
+// and text clips have no media and are always drawable, painted by their
+// layer's Color effect or styled by its Text effect.
 import { type ClipWarp, warpSourceTime } from "./clip-warp.ts";
+import { isOrderEffectName } from "./composition-order.ts";
 import {
   isTransformEffectName,
   type LayerTransform,
   parseLayerTransform,
 } from "./composition-transform.ts";
 import {
+  type FillPaint,
+  isColorEffectName,
+  resolveFillPaint,
+} from "./fill-paint.ts";
+import {
   type EffectChainStep,
   isChainEffectName,
   resolveEffectChain,
 } from "./fx-shaders/registry.ts";
+import {
+  isTextEffectName,
+  resolveTextStyle,
+  type TextStyle,
+} from "./text-style.ts";
 
 export type MediaKind = "video" | "audio";
 
@@ -36,6 +49,9 @@ export type Lane = {
 
 export type ArrangementClip = {
   id: string;
+  // "fill" or "text" for a media-less fill or text clip; media clips leave
+  // it unset.
+  kind?: "fill" | "text";
   sourceTrackId: string;
   laneId: string;
   label: string;
@@ -95,6 +111,10 @@ export type ActiveClip = {
   clipProgress: number;
   visual: VisualState;
   effectChain: EffectChainStep[];
+  // Set for fill clips, which draw this paint instead of a media element.
+  fill?: FillPaint;
+  // Set for text clips, which draw this text instead of a media element.
+  text?: TextStyle;
 };
 
 export const GROUP_TRACK_ID = "__group_main";
@@ -179,9 +199,20 @@ export function resolveVisualState(
       continue;
     }
 
-    // Shader-chain effects render their own passes, and a bypassed effect
+    // Shader-chain effects render their own passes, the Color and Text
+    // effects only style fill and text clips, and a bypassed effect
     // contributes nothing.
-    if (effect.enabled === false || isChainEffectName(effect.effectName)) {
+    if (
+      effect.enabled === false ||
+      isChainEffectName(effect.effectName) ||
+      isColorEffectName(effect.effectName) ||
+      isTextEffectName(effect.effectName)
+    ) {
+      continue;
+    }
+
+    // Order arranges every layer at once; the compositor reads it itself.
+    if (isOrderEffectName(effect.effectName)) {
       continue;
     }
 
@@ -289,10 +320,14 @@ export function computeActiveClips(
     })
     .map((clip) => ({
       clip,
-      media: clip.mediaId ? mediaById.get(clip.mediaId) : undefined,
+      media: isGeneratedClip(clip)
+        ? createGeneratedMedia(clip)
+        : clip.mediaId
+          ? mediaById.get(clip.mediaId)
+          : undefined,
     }))
     .filter((entry): entry is { clip: ArrangementClip; media: MediaItem } =>
-      Boolean(entry.media?.previewUrl),
+      Boolean(isGeneratedClip(entry.clip) || entry.media?.previewUrl),
     );
 
   // A lane shows one clip at a time. Where clips on a lane overlap, the one
@@ -313,6 +348,33 @@ export function computeActiveClips(
         (lanePriority.get(right.clip.laneId) ?? Number.MAX_SAFE_INTEGER),
     )
     .map<ActiveClip>(({ clip, media }) => {
+      const clipElapsedSeconds = quartersToSeconds(
+        playheadQ - clip.startQ,
+        bpm,
+      );
+      const laneRank = lanePriority.get(clip.laneId) ?? -1;
+      const clipProgress =
+        clip.durationSeconds > 0
+          ? clamp(clipElapsedSeconds / clip.durationSeconds, 0, 1)
+          : 0;
+      if (isGeneratedClip(clip)) {
+        return {
+          clip,
+          media,
+          sourceKey: media.id,
+          mediaTime: 0,
+          playbackRate: 1,
+          isInBounds: true,
+          laneRank,
+          clipProgress,
+          visual: resolveVisualState(effects, clip.laneId),
+          effectChain: resolveEffectChain(effects, clip.laneId),
+          ...(clip.kind === "text"
+            ? { text: resolveTextStyle(effects, clip.laneId) }
+            : { fill: resolveFillPaint(effects, clip.laneId) }),
+        };
+      }
+
       // The source window is in linear source time; the media's own bounds
       // apply to the warped time the media is actually drawn at.
       const linearTime =
@@ -320,10 +382,6 @@ export function computeActiveClips(
       const { seconds: mediaTime, rate: playbackRate } = clip.warp
         ? warpSourceTime(clip.warp, linearTime, bpm)
         : { seconds: linearTime, rate: 1 };
-      const clipElapsedSeconds = quartersToSeconds(
-        playheadQ - clip.startQ,
-        bpm,
-      );
       return {
         clip,
         media,
@@ -336,15 +394,33 @@ export function computeActiveClips(
           (media.durationSeconds > 0
             ? mediaTime >= 0 && mediaTime < media.durationSeconds - epsilon
             : mediaTime >= 0),
-        laneRank: lanePriority.get(clip.laneId) ?? -1,
-        clipProgress:
-          clip.durationSeconds > 0
-            ? clamp(clipElapsedSeconds / clip.durationSeconds, 0, 1)
-            : 0,
+        laneRank,
+        clipProgress,
         visual: resolveVisualState(effects, clip.laneId),
         effectChain: resolveEffectChain(effects, clip.laneId),
       };
     });
+}
+
+// Fill and text clips draw what their layer's effects describe rather than
+// a media file.
+function isGeneratedClip(clip: ArrangementClip) {
+  return clip.kind === "fill" || clip.kind === "text";
+}
+
+// Stands in for the media of a fill or text clip, which has none. Its id
+// doubles as the clip's source key, and the compositor never makes a media
+// element for it.
+function createGeneratedMedia(clip: ArrangementClip): MediaItem {
+  return {
+    id: `${clip.kind}:${clip.id}`,
+    name: clip.label,
+    kind: "video",
+    durationSeconds: clip.durationSeconds,
+    hasAudio: false,
+    hasVideo: true,
+    previewUrl: "",
+  };
 }
 
 // The first clip using a media draws from the media's own element. Further

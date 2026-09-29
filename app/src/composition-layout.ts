@@ -1,8 +1,15 @@
-// Pure layout math for the preview/export compositor. Every active layer gets
-// its own horizontal band of the canvas; the layer's source covers that band
-// and the Layout anchor decides which part of an overflowing source shows.
-// Positions are in clip space (-1..1, +y up), matching the composite shader.
+// Pure layout math for the preview/export compositor. With an Order effect
+// every active layer gets its own slot of the canvas: a horizontal band, a
+// column or a grid cell as the Order arranges them. Without one every layer's
+// slot is the whole canvas and the layers overlap. The layer's source covers
+// its slot and the Layout anchor decides which part of an overflowing source
+// shows. Positions are in clip space (-1..1, +y up), matching the composite
+// shader.
 
+import {
+  type CompositionOrder,
+  DEFAULT_COMPOSITION_ORDER,
+} from "./composition-order.ts";
 import type { LayerTransform } from "./composition-transform.ts";
 
 export type LayoutAnchor = "top" | "center" | "bottom";
@@ -29,7 +36,7 @@ export type LayerVisual = {
   translateX: number;
   translateY: number;
   layoutAnchor: LayoutAnchor;
-  // Applied after Layout, to the band as a whole. Absent means identity.
+  // Applied after Layout, to the slot as a whole. Absent means identity.
   transform?: LayerTransform;
 };
 
@@ -38,7 +45,7 @@ export type LayerPlacement = {
   // Half size of the drawn quad, including the layer's own scale.
   halfExtents: HalfExtents;
   translate: { x: number; y: number };
-  // Band in framebuffer pixels (origin bottom-left), for gl.scissor.
+  // Slot in framebuffer pixels (origin bottom-left), for gl.scissor.
   scissor: ScissorBox;
 };
 
@@ -47,18 +54,27 @@ type StackedLayer = {
   clip: { startQ: number };
 };
 
-// Draw order, which is also band order from the top: lanes in timeline order
-// (Layer 1 on top), then earlier clips first within a lane.
-export function orderStackedLayers<T extends StackedLayer>(layers: T[]) {
+// Draw order, back to front, then earlier clips first within a lane. With an
+// Order arrangement this is also slot order (bands from the top, or cells
+// left to right, then down): lanes in timeline order, Layer 1 in the first
+// slot. Without one the layers overlap, so the highest-numbered layer is
+// drawn first and Layer 1 last, on top.
+export function orderStackedLayers<T extends StackedLayer>(
+  layers: T[],
+  order: CompositionOrder = DEFAULT_COMPOSITION_ORDER,
+) {
+  const laneDirection = order.arrangement === "none" ? -1 : 1;
   return [...layers].sort((left, right) => {
     if (left.laneRank !== right.laneRank) {
-      return left.laneRank - right.laneRank;
+      return (left.laneRank - right.laneRank) * laneDirection;
     }
 
     return left.clip.startQ - right.clip.startQ;
   });
 }
 
+// The Vertical arrangement with no spacing: `slotCount` equal full-width
+// bands, top to bottom.
 export function resolveFrameBounds(
   index: number,
   slotCount: number,
@@ -98,7 +114,7 @@ export function resolveCoverHalfExtents(
 }
 
 // Vertical shift that pins the top or bottom edge of a source taller than its
-// band to the band's matching edge.
+// slot to the slot's matching edge.
 export function resolveAnchorOffsetY(
   frame: FrameBounds,
   halfExtentY: number,
@@ -136,6 +152,124 @@ export function resolveBandScissor(
   };
 }
 
+// The grid of slots `order` arranges `count` layers in. Without an Order
+// there is one slot, the whole canvas, which every layer shares.
+export function resolveSlotGrid(count: number, order: CompositionOrder) {
+  const normalizedCount = Math.max(1, count);
+  if (order.arrangement === "none") {
+    return { columns: 1, rows: 1 };
+  }
+
+  if (order.arrangement === "horizontal") {
+    return { columns: normalizedCount, rows: 1 };
+  }
+
+  if (order.arrangement === "grid") {
+    return { columns: order.gridSize, rows: order.gridSize };
+  }
+
+  return { columns: 1, rows: normalizedCount };
+}
+
+// Order spacing is in output pixels at 1080p, so it keeps the same share of
+// the frame at any output size.
+export function resolveSpacingPixels(
+  order: CompositionOrder,
+  width: number,
+  height: number,
+) {
+  return (order.spacing * Math.max(0, Math.min(width, height))) / 1080;
+}
+
+// Start and end, in pixels, of cell `index` of `cells` equal cells across
+// `size`, with `gap` between neighbours and none at either end. Neighbours
+// share the expressions for their edges, so with no gap one cell ends
+// exactly where the next starts.
+function resolveCellEdges(
+  index: number,
+  cells: number,
+  size: number,
+  gap: number,
+) {
+  const normalizedCells = Math.max(1, cells);
+  // Gaps never squeeze a cell below one pixel.
+  const clampedGap =
+    normalizedCells > 1
+      ? Math.max(
+          0,
+          Math.min(gap, (size - normalizedCells) / (normalizedCells - 1)),
+        )
+      : 0;
+  const available = size - clampedGap * (normalizedCells - 1);
+  return {
+    start: (index * available) / normalizedCells + index * clampedGap,
+    end: ((index + 1) * available) / normalizedCells + index * clampedGap,
+  };
+}
+
+// Slot `index` in canvas pixels (origin top-left). Slots are filled row by
+// row, left to right; without an Order every slot is the whole canvas.
+function resolveSlotRect(
+  index: number,
+  count: number,
+  order: CompositionOrder,
+  width: number,
+  height: number,
+) {
+  if (order.arrangement === "none") {
+    return { left: 0, right: width, top: 0, bottom: height };
+  }
+
+  const { columns, rows } = resolveSlotGrid(count, order);
+  const gap = resolveSpacingPixels(order, width, height);
+  const x = resolveCellEdges(index % columns, columns, width, gap);
+  const y = resolveCellEdges(Math.floor(index / columns), rows, height, gap);
+  return { left: x.start, right: x.end, top: y.start, bottom: y.end };
+}
+
+export function resolveSlotBounds(
+  index: number,
+  count: number,
+  order: CompositionOrder,
+  canvasWidth: number,
+  canvasHeight: number,
+): FrameBounds {
+  const width = Math.max(1, canvasWidth);
+  const height = Math.max(1, canvasHeight);
+  const slot = resolveSlotRect(index, count, order, width, height);
+  return {
+    centerX: (slot.left + slot.right) / width - 1,
+    centerY: 1 - (slot.top + slot.bottom) / height,
+    halfWidth: (slot.right - slot.left) / width,
+    halfHeight: (slot.bottom - slot.top) / height,
+    aspect: (slot.right - slot.left) / Math.max(slot.bottom - slot.top, 0.0001),
+  };
+}
+
+// Slot `index` in whole framebuffer pixels (origin bottom-left). Like
+// `resolveBandScissor`, edges are rounded from the same positions for
+// neighbouring slots, so without spacing the boxes tile the surface with no
+// gap or overlap at any size.
+export function resolveSlotScissor(
+  index: number,
+  count: number,
+  order: CompositionOrder,
+  width: number,
+  height: number,
+): ScissorBox {
+  const slot = resolveSlotRect(index, count, order, width, height);
+  const left = Math.round(slot.left);
+  const right = Math.round(slot.right);
+  const top = Math.round(slot.top);
+  const bottom = Math.round(slot.bottom);
+  return {
+    x: left,
+    y: height - bottom,
+    width: Math.max(1, right - left),
+    height: Math.max(1, bottom - top),
+  };
+}
+
 export function resolveLayerPlacement(options: {
   index: number;
   count: number;
@@ -144,11 +278,20 @@ export function resolveLayerPlacement(options: {
   sourceWidth: number;
   sourceHeight: number;
   visual: LayerVisual;
+  // Absent means stacked bands with no spacing.
+  order?: CompositionOrder;
 }): LayerPlacement {
   const { index, count, canvasWidth, canvasHeight, visual } = options;
+  const order = options.order ?? DEFAULT_COMPOSITION_ORDER;
   const canvasAspect = canvasWidth / Math.max(1, canvasHeight);
   const sourceAspect = options.sourceWidth / Math.max(1, options.sourceHeight);
-  const frame = resolveFrameBounds(index, count, canvasAspect);
+  const frame = resolveSlotBounds(
+    index,
+    count,
+    order,
+    canvasWidth,
+    canvasHeight,
+  );
   const cover = resolveCoverHalfExtents(frame, sourceAspect, canvasAspect);
   const layoutScale = Math.max(1, visual.scale);
   const halfExtents = { x: cover.x * layoutScale, y: cover.y * layoutScale };
@@ -165,6 +308,6 @@ export function resolveLayerPlacement(options: {
       x: frame.centerX + visual.translateX * frame.halfWidth,
       y: frame.centerY + anchorOffsetY + visual.translateY * frame.halfHeight,
     },
-    scissor: resolveBandScissor(index, count, canvasWidth, canvasHeight),
+    scissor: resolveSlotScissor(index, count, order, canvasWidth, canvasHeight),
   };
 }

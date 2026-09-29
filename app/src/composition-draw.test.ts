@@ -11,15 +11,19 @@ import {
 import {
   resolveBandScissor,
   resolveLayerPlacement,
+  resolveSlotScissor,
 } from "./composition-layout.ts";
+import type { CompositionOrder } from "./composition-order.ts";
 import {
   IDENTITY_TRANSFORM,
   type LayerTransform,
   transformedQuadAxes,
 } from "./composition-transform.ts";
+import type { FillPaint } from "./fill-paint.ts";
 import { SILENT_AUDIO_BANDS } from "./fx-shaders/audio-bands.ts";
 import { POSITION_ATTRIBUTE_LOCATION } from "./fx-shaders/gl.ts";
 import { type ChainEffect, resolveEffectChain } from "./fx-shaders/registry.ts";
+import { readTextStyle, type TextStyle } from "./text-style.ts";
 
 const WIDTH = 360;
 const HEIGHT = 640;
@@ -66,6 +70,8 @@ function createRecordingGl() {
     uniforms: {} as Record<string, [number, number]>,
   };
   const draws: DrawCall[] = [];
+  // Arguments of every texImage2D call.
+  const uploads: unknown[][] = [];
   const attribute = (index: number) => {
     let entry = state.attributes.get(index);
     if (!entry) {
@@ -127,6 +133,9 @@ function createRecordingGl() {
     bindTexture: (_target: string, texture: Handle | null) => {
       state.textures.set(state.activeTexture ?? "", texture);
     },
+    texImage2D: (...args: never[]) => {
+      uploads.push(args);
+    },
     uniform2f: (location: { name: string }, x: number, y: number) => {
       state.uniforms[location.name] = [x, y];
     },
@@ -165,6 +174,7 @@ function createRecordingGl() {
   return {
     gl,
     draws,
+    uploads,
     // Simulates another caller leaving unrelated vertex state behind.
     scramble() {
       state.program = handle("program");
@@ -479,4 +489,313 @@ describe("resolveBandScissor", () => {
       });
     }
   }
+});
+
+describe("drawComposition fill layers", () => {
+  const RED_FILL: FillPaint = {
+    kind: "solid",
+    color: { r: 255, g: 0, b: 0, a: 1 },
+    opacity: 1,
+  };
+
+  function fillLayer(fill: FillPaint, lane = 0): CompositeLayer {
+    return {
+      ...layers(1, [])[0],
+      media: { id: `fill:clip-${lane}` },
+      sourceKey: `fill:clip-${lane}`,
+      laneRank: lane,
+      fill,
+    };
+  }
+
+  function drawFrame(
+    recording: ReturnType<typeof createRecordingGl>,
+    resources: WebGlResources,
+    clips: CompositeLayer[],
+    mediaRefs = new Map<string, HTMLMediaElement>(),
+    order?: CompositionOrder,
+  ) {
+    drawComposition(
+      resources,
+      { width: WIDTH, height: HEIGHT },
+      clips,
+      mediaRefs,
+      [],
+      { time: 0, audio: SILENT_AUDIO_BANDS, groupClipProgress: 0 },
+      order,
+    );
+    return recording.draws.filter(
+      (draw) =>
+        draw.program === (resources.program as unknown as Handle) &&
+        draw.scissorTest,
+    );
+  }
+
+  it("draws a fill into its band without a media element", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    const composites = drawFrame(recording, resources, [fillLayer(RED_FILL)]);
+    assert.equal(composites.length, 1);
+    assertCompositeState(composites[0], resources, 0, 1, null);
+    assert.equal(
+      composites[0].texture,
+      resources.textureMap.get("fill:clip-0") as unknown as Handle,
+    );
+
+    const [upload] = recording.uploads;
+    const pixels = upload.at(-1) as Uint8Array;
+    const [width, height] = [upload[3], upload[4]] as [number, number];
+    assert.equal(pixels.length, width * height * 4);
+    assert.deepEqual(Array.from(pixels.slice(0, 4)), [255, 0, 0, 255]);
+    // Drawn at the band's aspect, no larger than 512 pixels on a side.
+    assert.equal(Math.max(width, height), 512);
+    assert.ok(Math.abs(width / height - WIDTH / HEIGHT) < 0.01);
+  });
+
+  it("stacks a fill with media layers", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    const video = layers(1, [])[0];
+    const composites = drawFrame(
+      recording,
+      resources,
+      [video, fillLayer(RED_FILL, 1)],
+      new Map([
+        ["media-0", new FakeVideo(1080, 1920) as unknown as HTMLMediaElement],
+      ]),
+    );
+    assert.equal(composites.length, 2);
+    assertCompositeState(composites[1], resources, 1, 2, null);
+    assert.equal(
+      composites[1].texture,
+      resources.textureMap.get("fill:clip-1") as unknown as Handle,
+    );
+  });
+
+  it("draws a fill at its slot's size in a Horizontal arrangement", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    drawFrame(
+      recording,
+      resources,
+      [fillLayer(RED_FILL, 0), fillLayer(RED_FILL, 1)],
+      undefined,
+      { arrangement: "horizontal", gridSize: 2, spacing: 0 },
+    );
+    // Two side-by-side columns of 180×640 pixels.
+    for (const upload of recording.uploads) {
+      const [width, height] = [upload[3], upload[4]] as [number, number];
+      assert.ok(Math.abs(width / height - WIDTH / 2 / HEIGHT) < 0.01);
+    }
+    assert.equal(recording.uploads.length, 2);
+  });
+
+  it("draws every Grid cell at the widest spacing on a small output", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    const order: CompositionOrder = {
+      arrangement: "grid",
+      gridSize: 6,
+      spacing: 50,
+    };
+    const count = 36;
+    const composites = drawFrame(
+      recording,
+      resources,
+      Array.from({ length: count }, (_, lane) => fillLayer(RED_FILL, lane)),
+      undefined,
+      order,
+    );
+    assert.equal(composites.length, count);
+    composites.forEach((draw, index) => {
+      const box = resolveSlotScissor(index, count, order, WIDTH, HEIGHT);
+      assert.deepEqual(
+        draw.scissor,
+        [box.x, box.y, box.width, box.height],
+        `cell ${index} scissor`,
+      );
+      assert.ok(box.width > 1 && box.height > 1, `cell ${index} size`);
+    });
+    // 50 at 1080p is 50 / 3 px here: the first column is (360 - 5 × 50 / 3)
+    // / 6 ≈ 46.1 px wide, so the second starts at ≈ 62.8 px.
+    assert.equal(composites[1].scissor?.[0], 63);
+    for (const upload of recording.uploads) {
+      const [width, height] = [upload[3], upload[4]] as [number, number];
+      assert.ok(width >= 1 && height >= 1);
+    }
+  });
+
+  it("redraws a fill's texture only when its paint changes", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    drawFrame(recording, resources, [fillLayer(RED_FILL)]);
+    drawFrame(recording, resources, [fillLayer(RED_FILL)]);
+    assert.equal(recording.uploads.length, 1);
+
+    drawFrame(recording, resources, [
+      fillLayer({ ...RED_FILL, color: { r: 0, g: 0, b: 255, a: 1 } }),
+    ]);
+    assert.equal(recording.uploads.length, 2);
+    const pixels = recording.uploads[1].at(-1) as Uint8Array;
+    assert.deepEqual(Array.from(pixels.slice(0, 4)), [0, 0, 255, 255]);
+  });
+});
+
+describe("drawComposition text layers", () => {
+  type TextCall = { text: string; x: number; y: number; font: string };
+
+  // An OffscreenCanvas stand-in whose 2D context measures every character
+  // as half an em and records the text it draws.
+  class FakeTextCanvas {
+    fills: TextCall[] = [];
+    strokes: TextCall[] = [];
+    context: Record<string, unknown>;
+    width: number;
+    height: number;
+
+    constructor(width: number, height: number) {
+      this.width = width;
+      this.height = height;
+      const size = () =>
+        Number.parseFloat(
+          /([\d.]+)px/.exec(String(this.context.font))?.[1] ?? "10",
+        );
+      const record =
+        (calls: TextCall[]) => (text: string, x: number, y: number) =>
+          calls.push({ text, x, y, font: String(this.context.font) });
+      this.context = {
+        font: "10px sans-serif",
+        letterSpacing: "0px",
+        measureText: (text: string) => ({
+          width: Array.from(text).length * size() * 0.5,
+          fontBoundingBoxAscent: size() * 0.8,
+          fontBoundingBoxDescent: size() * 0.2,
+        }),
+        fillText: record(this.fills),
+        strokeText: record(this.strokes),
+        createLinearGradient: () => ({ addColorStop: () => undefined }),
+        createRadialGradient: () => ({ addColorStop: () => undefined }),
+        clearRect: () => undefined,
+        fillRect: () => undefined,
+        strokeRect: () => undefined,
+      };
+    }
+
+    getContext() {
+      return this.context;
+    }
+  }
+
+  beforeEach(() => {
+    savedGlobals.OffscreenCanvas = globals.OffscreenCanvas;
+    globals.OffscreenCanvas = FakeTextCanvas;
+  });
+
+  function textLayer(text: TextStyle, lane = 0): CompositeLayer {
+    return {
+      ...layers(1, [])[0],
+      media: { id: `text:clip-${lane}` },
+      sourceKey: `text:clip-${lane}`,
+      laneRank: lane,
+      text,
+    };
+  }
+
+  function drawFrame(
+    resources: WebGlResources,
+    clips: CompositeLayer[],
+    order?: CompositionOrder,
+  ) {
+    drawComposition(
+      resources,
+      { width: WIDTH, height: HEIGHT },
+      clips,
+      new Map(),
+      [],
+      { time: 0, audio: SILENT_AUDIO_BANDS, groupClipProgress: 0 },
+      order,
+    );
+  }
+
+  const HELLO = { ...readTextStyle(undefined), text: "Hello" };
+
+  it("draws text at its slot's full size, scaled from 1080p", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    drawFrame(resources, [textLayer(HELLO)]);
+
+    assert.equal(recording.uploads.length, 1);
+    const canvas = recording.uploads[0].at(-1) as FakeTextCanvas;
+    assert.ok(canvas instanceof FakeTextCanvas);
+    // Not capped like fills: the whole 360×640 slot.
+    assert.deepEqual([canvas.width, canvas.height], [WIDTH, HEIGHT]);
+    // 96px at 1080p on a 360px short side.
+    assert.equal(canvas.fills.length, 1);
+    assert.equal(canvas.fills[0].text, "Hello");
+    assert.match(canvas.fills[0].font, /^400 32px "Inter Variable"/);
+    // Centred: five 16px characters in the 360px slot.
+    assert.equal(canvas.fills[0].x, (WIDTH - 80) / 2);
+    assert.equal(canvas.strokes.length, 0);
+  });
+
+  it("strokes before filling when the text has an outline", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    drawFrame(resources, [
+      textLayer({
+        ...HELLO,
+        stroke: { color: { r: 0, g: 0, b: 0, a: 1 }, width: 4 },
+      }),
+    ]);
+    const canvas = recording.uploads[0].at(-1) as FakeTextCanvas;
+    assert.equal(canvas.strokes.length, 1);
+    assert.equal(canvas.fills.length, 1);
+  });
+
+  it("redraws the texture only when the text or its box changes", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    drawFrame(resources, [textLayer(HELLO)]);
+    drawFrame(resources, [textLayer({ ...HELLO })]);
+    assert.equal(recording.uploads.length, 1);
+
+    drawFrame(resources, [textLayer({ ...HELLO, text: "Bye" })]);
+    assert.equal(recording.uploads.length, 2);
+
+    // Side by side, the first layer's box halves and a second one appears.
+    drawFrame(
+      resources,
+      [textLayer({ ...HELLO, text: "Bye" }), textLayer(HELLO, 1)],
+      { arrangement: "horizontal", gridSize: 2, spacing: 0 },
+    );
+    assert.equal(recording.uploads.length, 4);
+    const canvas = recording.uploads[2].at(-1) as FakeTextCanvas;
+    assert.deepEqual([canvas.width, canvas.height], [WIDTH / 2, HEIGHT]);
+  });
+
+  it("stacks text over a fill in its own band", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    const fill: CompositeLayer = {
+      ...layers(1, [])[0],
+      media: { id: "fill:clip-0" },
+      sourceKey: "fill:clip-0",
+      fill: {
+        kind: "solid",
+        color: { r: 255, g: 0, b: 0, a: 1 },
+        opacity: 1,
+      },
+    };
+    drawFrame(resources, [fill, textLayer(HELLO, 1)]);
+    const composites = recording.draws.filter(
+      (draw) =>
+        draw.program === (resources.program as unknown as Handle) &&
+        draw.scissorTest,
+    );
+    assert.equal(composites.length, 2);
+    assert.equal(
+      composites[1].texture,
+      resources.textureMap.get("text:clip-1") as unknown as Handle,
+    );
+  });
 });

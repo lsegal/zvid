@@ -1,5 +1,5 @@
-// Right-click menus for arrangement clips, empty lane space and source
-// clips, and where their clipboard actions put clips.
+// Right-click menus for arrangement clips, empty lane space, an uncommitted
+// selection and source clips, and where their clipboard actions put clips.
 import type { ContextMenuEntry } from "./context-menu.ts";
 import { MAX_LAYERS } from "./selection-overlaps.ts";
 import type { DropClip, DropLane, SourceClipDrop } from "./source-clip-drop.ts";
@@ -218,4 +218,163 @@ export function copyClipToLayer<Lane extends DropLane, Clip extends DropClip>(
     lane,
     createdLane: false,
   };
+}
+
+// A drag-selected range on a layer, not yet committed to a clip.
+export type SelectionRange = {
+  laneId: string;
+  startQ: number;
+  durationQ: number;
+};
+
+/** Whether position `q` on layer `laneId` falls inside `selection`. */
+export function isInSelection(
+  selection: SelectionRange | null | undefined,
+  laneId: string,
+  q: number,
+) {
+  return (
+    selection?.laneId === laneId &&
+    q >= selection.startQ &&
+    q < selection.startQ + selection.durationQ
+  );
+}
+
+/**
+ * The number key that commits a selection to the source track at `index`,
+ * or undefined past the ninth track, which has none.
+ */
+export function sourceTrackKeyNumber(index: number) {
+  return index >= 0 && index < 9 ? index + 1 : undefined;
+}
+
+export type SelectionMenuTrack = {
+  id: string;
+  name: string;
+  // CSS colour of the track's swatch.
+  color: string;
+  // Whether the track has footage anywhere in the selected range.
+  hasFootage: boolean;
+};
+
+export const NO_FOOTAGE_TITLE = "No footage here";
+
+// Cut, Copy and Delete for the content in a selection's span on its layer.
+// They are disabled when the span holds none.
+export type SelectionClipboardActions = {
+  mac: boolean;
+  hasContent: boolean;
+  cut: () => void;
+  copy: () => void;
+  remove: () => void;
+};
+
+/**
+ * The menu for an uncommitted selection: Cut, Copy and Delete for the span
+ * when `clipboard` is available; Insert Track with every source track,
+ * committed like pressing its number key; Insert Fill Layer and Insert Text
+ * Layer when `insertFill` and `insertText` are available; and Clear
+ * selection.
+ */
+export function buildSelectionMenuEntries({
+  tracks,
+  disabled = false,
+  clipboard,
+  insertTrack,
+  insertFill,
+  insertText,
+  clear,
+}: {
+  tracks: readonly SelectionMenuTrack[];
+  // Editing is disabled while exporting.
+  disabled?: boolean;
+  clipboard?: SelectionClipboardActions;
+  insertTrack: (index: number) => void;
+  insertFill?: () => void;
+  insertText?: () => void;
+  clear: () => void;
+}): ContextMenuEntry[] {
+  const clipboardDisabled = disabled || !clipboard?.hasContent;
+  const clipboardEntries: ContextMenuEntry[] = clipboard
+    ? [
+        {
+          type: "item",
+          id: "cut",
+          label: "Cut",
+          shortcut: formatShortcut("X", clipboard.mac),
+          disabled: clipboardDisabled,
+          onSelect: clipboard.cut,
+        },
+        {
+          type: "item",
+          id: "copy",
+          label: "Copy",
+          shortcut: formatShortcut("C", clipboard.mac),
+          disabled: clipboardDisabled,
+          onSelect: clipboard.copy,
+        },
+        {
+          type: "item",
+          id: "delete",
+          label: "Delete",
+          shortcut: "Del",
+          disabled: clipboardDisabled,
+          onSelect: clipboard.remove,
+        },
+        { type: "separator" },
+      ]
+    : [];
+  const trackEntries = tracks.map<ContextMenuEntry>((track, index) => {
+    const keyNumber = sourceTrackKeyNumber(index);
+    return {
+      type: "item",
+      id: `track-${track.id}`,
+      label: track.name,
+      swatch: track.color,
+      shortcut: keyNumber === undefined ? undefined : `${keyNumber}`,
+      disabled: disabled || !track.hasFootage,
+      title: track.hasFootage ? undefined : NO_FOOTAGE_TITLE,
+      onSelect: () => insertTrack(index),
+    };
+  });
+  return [
+    ...clipboardEntries,
+    {
+      type: "item",
+      id: "insert-track",
+      label: "Insert Track",
+      disabled: disabled || !trackEntries.length,
+      submenu: trackEntries,
+    },
+    ...(insertFill
+      ? [
+          {
+            type: "item",
+            id: "insert-fill",
+            label: "Insert Fill Layer",
+            disabled,
+            onSelect: insertFill,
+          } as const,
+        ]
+      : []),
+    ...(insertText
+      ? [
+          {
+            type: "item",
+            id: "insert-text",
+            label: "Insert Text Layer",
+            disabled,
+            onSelect: insertText,
+          } as const,
+        ]
+      : []),
+    { type: "separator" },
+    {
+      type: "item",
+      id: "clear-selection",
+      label: "Clear selection",
+      shortcut: "Esc",
+      onSelect: clear,
+    },
+  ];
 }

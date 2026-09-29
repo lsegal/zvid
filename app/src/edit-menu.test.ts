@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { buildClipMenuEntries, type ClipMenuActions } from "./clip-menu.ts";
+import {
+  buildClipMenuEntries,
+  buildSelectionMenuEntries,
+  type ClipMenuActions,
+} from "./clip-menu.ts";
 import type { ContextMenuEntry, ContextMenuItem } from "./context-menu.ts";
 import { buildEditMenuEntries } from "./edit-menu.ts";
 
@@ -49,6 +53,24 @@ function clipEntries({
     canSplit,
     mac: false,
     actions,
+  });
+}
+
+function selectionEntries(calls: string[] = []) {
+  const record = (name: string) => () => {
+    calls.push(name);
+  };
+  return buildSelectionMenuEntries({
+    tracks: [{ id: "a", name: "Drums", color: "#f00", hasFootage: true }],
+    clipboard: {
+      mac: false,
+      hasContent: true,
+      cut: record("cut selection"),
+      copy: record("copy selection"),
+      remove: record("delete selection"),
+    },
+    insertTrack: record("insert track"),
+    clear: record("clear"),
   });
 }
 
@@ -185,6 +207,53 @@ describe("buildEditMenuEntries", () => {
       "duplicate",
       "split",
       "remove",
+    ]);
+  });
+
+  it("cuts and copies the selection, and puts its menu under Selection", () => {
+    const calls: string[] = [];
+    const entries = buildEditMenuEntries(history, {
+      clip: "Intro",
+      clipEntries: clipEntries({ calls }),
+      selectionEntries: selectionEntries(calls),
+      audioEntries,
+    });
+
+    assert.deepEqual(layout(entries), [
+      "undo",
+      "redo",
+      "-",
+      "cut",
+      "copy",
+      "paste",
+      "-",
+      "selection",
+      "clip",
+      "audio",
+    ]);
+    const selection = find(entries, "selection");
+    assert.equal(selection.label, "Selection");
+    assert.deepEqual(layout(selection.submenu ?? []), [
+      "delete",
+      "-",
+      "insert-track",
+      "-",
+      "clear-selection",
+    ]);
+
+    for (const item of [
+      find(entries, "cut"),
+      find(entries, "copy"),
+      find(entries, "paste"),
+      find(selection.submenu ?? [], "delete"),
+    ]) {
+      item.onSelect?.();
+    }
+    assert.deepEqual(calls, [
+      "cut selection",
+      "copy selection",
+      "paste",
+      "delete selection",
     ]);
   });
 });
