@@ -279,10 +279,8 @@ async function openWorkspaceAls(
   const imported = await importAls(bytes, selection.sessionFile.name, {
     audioFilename,
   });
-  const { session, recordingPaths, summary } = resolveAlsMedia(
-    imported,
-    createWorkspaceAlsLocator(selection),
-  );
+  const { session, recordingPaths, layersRecordTracks, summary } =
+    resolveAlsMedia(imported, createWorkspaceAlsLocator(selection));
   const byPath = new Map(
     selection.files.map((entry) => [entry.path, entry.file]),
   );
@@ -305,6 +303,7 @@ async function openWorkspaceAls(
       session,
       recordingRefs,
       probeRecordingFrames,
+      layersRecordTracks,
     );
     return {
       ...buildWorkspaceOpenPayload(probed, selection),

@@ -30,7 +30,6 @@ import {
   applyWandArrangement,
   createWandLanes,
   getWandEndQ,
-  planWandWindows,
 } from "./arrangement-wand.ts";
 import {
   CompositionPlayer,
@@ -155,6 +154,7 @@ import {
   projectHistoryReducer,
 } from "./project-history";
 import { migrateLegacyMainAudio } from "./project-state-compat.ts";
+import { buildRandomArrangement } from "./random-arrangement.ts";
 import { listOfflineMedia, matchOfflineMedia } from "./relink";
 import {
   formatOverlapNote,
@@ -162,6 +162,7 @@ import {
   resolveSessionOverlaps,
 } from "./selection-overlaps";
 import {
+  clipSourceFrame,
   formatClipsWithoutFile,
   type LvpSession,
   normalizeLvpSession,
@@ -412,8 +413,12 @@ const TIMELINE_SCRUB_AUDIO_TAIL_MS = 50;
 // and only pauses it once the pointer has been held still this long.
 const TIMELINE_PLAYBACK_SCRUB_AUDIO_IDLE_MS = 150;
 const TIMELINE_DRAG_EPSILON = 0.0001;
+const RANDOM_SELECTION_BAR_INCREMENT = 0.25;
 const MAX_PEER_MEDIA_TRANSFERS = 2;
 const PEER_MEDIA_STATUS_INTERVAL_MS = 250;
+const RANDOM_SELECTION_MAX_BARS = 2;
+// The arrangement wand replaces the main layers with this many.
+const MAX_WAND_LAYERS = 3;
 const SOURCE_TRACK_DRAG_CLEAR_DELAY_MS = 80;
 const COLLAB_STORAGE_KEY = "zvid-collaboration";
 const INSPECTOR_COLLAPSED_STORAGE_KEY = "zvid-inspector-collapsed";
@@ -1529,8 +1534,7 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
       mediaId: media?.id,
       startQ: secondsToQuarters(clip.frameStart / fps, bpm),
       durationSeconds: Math.max(1, clip.frameCount) / fps,
-      trimStartSeconds:
-        Math.max(0, (clip.clipStart ?? 0) + (clip.frameOffset ?? 0)) / fps,
+      trimStartSeconds: clipSourceFrame(clip) / fps,
       tint: swatch.color,
       accent: swatch.accent,
     };
@@ -3452,8 +3456,8 @@ function App() {
     [bpm, createWindowClip, pendingSelection, sourceSpans, sourceTracks],
   );
 
-  function buildRandomizedArrangement() {
-    const endQ = getWandEndQ({
+  function getRandomizationTimelineEndQ() {
+    return getWandEndQ({
       projectDurationFrames,
       fps,
       bpm,
@@ -3462,40 +3466,48 @@ function App() {
       isVideoSpan: (span) =>
         Boolean(span.mediaId && mediaItemsById.get(span.mediaId)?.hasVideo),
     });
-    const wandLanes = createWandLanes(lanes);
-    const windows = planWandWindows({
-      lanes: wandLanes,
-      sourceTrackIds: sourceTracks.map((sourceTrack) => sourceTrack.id),
-      endQ,
-      barLength,
-      chooseSourceSpan: (sourceTrackId, startQ, durationQ) =>
-        chooseSourceSpanForWindow(
-          sourceSpans,
-          sourceTrackId,
-          startQ,
-          durationQ,
-          bpm,
+  }
+
+  function buildRandomizedArrangement() {
+    const wandLanes = createWandLanes(lanes, MAX_WAND_LAYERS);
+    const stepQ = barLength * RANDOM_SELECTION_BAR_INCREMENT;
+    const durationSteps = Array.from(
+      {
+        length: Math.round(
+          RANDOM_SELECTION_MAX_BARS / RANDOM_SELECTION_BAR_INCREMENT,
         ),
-      random: randomFloat,
-    });
+      },
+      (_, index) => (index + 1) * stepQ,
+    );
     const sourceTracksById = new Map(
       sourceTracks.map((sourceTrack) => [sourceTrack.id, sourceTrack]),
     );
+    const windows = buildRandomArrangement({
+      laneIds: wandLanes.map((lane) => lane.id),
+      sourceTrackIds: sourceTracks.map((sourceTrack) => sourceTrack.id),
+      spans: sourceSpans,
+      spanEndQ: (span) => getClipEndQ(span, bpm),
+      timelineEndQ: getRandomizationTimelineEndQ(),
+      stepQ,
+      durationSteps,
+      random: randomFloat,
+    });
+
     const randomizedClips = windows.flatMap((window, index) => {
-      const sourceTrack = sourceTracksById.get(window.sourceTrackId);
+      const sourceTrack = sourceTracksById.get(window.span.sourceTrackId);
       if (!sourceTrack) {
         return [];
       }
 
       const clip = createWindowClip(
         {
-          id: `selection-random-${window.laneId}-${window.stepIndex}`,
+          id: `selection-random-${window.laneId}-${index}`,
           laneId: window.laneId,
           startQ: window.startQ,
           durationQ: window.durationQ,
         },
         sourceTrack,
-        window.sourceSpan,
+        window.span,
       );
       return [{ ...clip, selected: index === 0 }];
     });
@@ -3529,7 +3541,7 @@ function App() {
     setPlayheadQ(0);
     playbackOriginRef.current = 0;
     setStatus(
-      `Rebuilt the arrangement with ${randomizedClips.length} randomized windows on a quarter-bar grid.`,
+      `Rebuilt the arrangement with ${randomizedClips.length} randomized windows inside the source clips.`,
     );
   }
 
