@@ -26,7 +26,7 @@ test("clicking empty lane space seeks without selecting, and dragging selects", 
   page,
 }) => {
   await page.goto("/");
-  const target = lane(page, "2");
+  const target = lane(page, "5");
   await expect(target).toBeVisible();
   const bounds = await target.boundingBox();
   if (!bounds) {
@@ -36,12 +36,12 @@ test("clicking empty lane space seeks without selecting, and dragging selects", 
   const selection = page.locator(".timeline-selection");
 
   // A plain click leaves no selection and moves the playhead there.
-  const before = await playheadX(page, "2");
+  const before = await playheadX(page, "5");
   await page.mouse.click(bounds.x + 200, y);
   await expect(selection).toHaveCount(0);
   await expect(target.locator("..")).toHaveClass(/track-row--selected/);
-  await expect.poll(() => playheadX(page, "2")).not.toBeCloseTo(before, 0);
-  expect(Math.abs((await playheadX(page, "2")) - 200)).toBeLessThan(40);
+  await expect.poll(() => playheadX(page, "5")).not.toBeCloseTo(before, 0);
+  expect(Math.abs((await playheadX(page, "5")) - 200)).toBeLessThan(40);
 
   // Jitter under the threshold is still a click.
   await page.mouse.move(bounds.x + 120, y);
