@@ -13,6 +13,7 @@ import {
   resolveLayerPlacement,
 } from "./composition-layout.ts";
 import { copyClipEffects, previewDuplicateClipEffects } from "./fx-stack.ts";
+import { moveLaneTo } from "./lanes.ts";
 
 // dogfood3.lvp: 126.4 BPM at 30 fps, mapped the way sessionToProject maps a
 // session's selections onto its source clips.
@@ -104,6 +105,32 @@ function activeAt(clips: ArrangementClip[], playheadQ = PLAYHEAD_Q) {
 }
 
 describe("computeActiveClips", () => {
+  it("stacks the layers in their order after a layer is moved", () => {
+    const project = {
+      lanes: LANES.map((id) => ({ id, name: `Layer ${id}` })),
+      clips: DOGFOOD3_CLIPS,
+      effects: [],
+    };
+    // Layer 2 ("5") dragged above Layer 1.
+    const moved = moveLaneTo(project, "5", 0);
+    const active = computeActiveClips(
+      moved.clips,
+      new Map(MEDIA.map((item) => [item.id, item])),
+      PLAYHEAD_Q,
+      BPM,
+      new Map(moved.lanes.map((lane, index) => [lane.id, index])),
+      [],
+    );
+    assert.deepEqual(
+      active.map((entry) => entry.clip.laneId),
+      ["5", "1"],
+    );
+    assert.deepEqual(
+      activeAt(DOGFOOD3_CLIPS).map((entry) => entry.clip.laneId),
+      ["1", "5"],
+    );
+  });
+
   it("keeps Layer 1 and Layer 2 active and in bounds at 2.2.4", () => {
     const active = activeAt(DOGFOOD3_CLIPS);
 
