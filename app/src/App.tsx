@@ -249,7 +249,10 @@ import {
   createProjectHistoryState,
   projectHistoryReducer,
 } from "./project-history";
-import { migrateLegacyMainAudio } from "./project-state-compat.ts";
+import {
+  migrateLegacyMainAudio,
+  stripClipSelectionFlags,
+} from "./project-state-compat.ts";
 import {
   buildRandomArrangement,
   sourceTrackHasFootage,
@@ -378,7 +381,6 @@ type ArrangementClip = {
   warp?: ClipWarp;
   tint: string;
   accent: string;
-  selected?: boolean;
 };
 
 // The right-click menu open on an arrangement clip, empty lane space, the
@@ -934,7 +936,6 @@ function cloneClipAtStartQ(
     startQ,
     trimStartSeconds: clip.trimStartSeconds,
     sourceOffsetSeconds: clip.trimStartSeconds - quartersToSeconds(startQ, bpm),
-    selected: true,
   };
 }
 
@@ -1649,6 +1650,8 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
   });
 
   const arrangementClips: ArrangementClip[] = [];
+  // The clip the session was saved with selected, if it could be placed.
+  let selectedClipId: string | undefined;
 
   for (const selection of session.selections ?? []) {
     const selectionStartQ = secondsToQuarters(selection.frameStart / fps, bpm);
@@ -1673,6 +1676,9 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
     const durationSeconds =
       Math.max(1, selection.frameEnd - selection.frameStart) / fps;
 
+    if (selection.selected && selectedClipId === undefined) {
+      selectedClipId = `selection-${selection.id}`;
+    }
     arrangementClips.push({
       id: `selection-${selection.id}`,
       sourceSpanId: sourceSpan.id,
@@ -1691,7 +1697,6 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
       warp: sourceSpan.warp,
       tint: sourceSpan.tint,
       accent: sourceSpan.accent,
-      selected: selection.selected,
     });
   }
 
@@ -1704,6 +1709,7 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
     sourceTracks,
     sourceSpans,
     arrangementClips,
+    selectedClipId,
     // Every layer gets its own Layout, taking over any global one, as part
     // of the load so it is not a separate undo step.
     effects: ensureLayerLayouts(
@@ -2396,13 +2402,15 @@ function App() {
     }),
     [barLength, beatUnit, quarterPx],
   );
+  // Only a clip the user selected; rendering and edits never fall back to
+  // another one.
   const selectedClip = useMemo(
-    () =>
-      timelineClips.find((clip) => clip.id === selectedClipId) ??
-      timelineClips.find((clip) => clip.selected) ??
-      timelineClips[0],
+    () => timelineClips.find((clip) => clip.id === selectedClipId),
     [selectedClipId, timelineClips],
   );
+  // What the preview describes when no clip is at the playhead: the selected
+  // clip, else the first. Read-only; never used to render or edit a clip.
+  const inspectorClip = selectedClip ?? timelineClips[0];
   const showArrangementEmptyState = shouldShowArrangementEmptyState({
     clipCount: clips.length,
     sourceSpanCount: sourceSpans.length,
@@ -2423,7 +2431,7 @@ function App() {
     () => findClipAtPlayhead(timelineClips, playheadQ, bpm, lanePriority),
     [bpm, lanePriority, playheadQ, timelineClips],
   );
-  const previewClip = playheadClip ?? selectedClip;
+  const previewClip = playheadClip ?? inspectorClip;
   const previewMedia = previewClip?.mediaId
     ? mediaItemsById.get(previewClip.mediaId)
     : undefined;
@@ -2446,30 +2454,25 @@ function App() {
       ),
     [bpm, mediaItemsById, playheadQ, timelineClips],
   );
-  // Unlike `selectedClip`, this does not fall back to the first clip.
-  const explicitClip = useMemo(
-    () => timelineClips.find((clip) => clip.id === selectedClipId),
-    [selectedClipId, timelineClips],
-  );
-  const explicitClipLaneId = explicitClip?.laneId;
+  const selectedClipLaneId = selectedClip?.laneId;
   useEffect(() => {
-    if (explicitClipLaneId !== undefined) {
-      setSelectedLaneId(explicitClipLaneId);
+    if (selectedClipLaneId !== undefined) {
+      setSelectedLaneId(selectedClipLaneId);
     }
-  }, [explicitClipLaneId]);
+  }, [selectedClipLaneId]);
   const fxLaneId = useMemo(
-    () => resolveSelectedLaneId(lanes, effects, selectedLaneId, explicitClip),
-    [effects, explicitClip, lanes, selectedLaneId],
+    () => resolveSelectedLaneId(lanes, effects, selectedLaneId, selectedClip),
+    [effects, selectedClip, lanes, selectedLaneId],
   );
   const fxLane = lanes.find((lane) => lane.id === fxLaneId);
   // The layer outlined in the preview. Selecting a clip or a layer in the
   // timeline selects it here too; Esc or a click on empty canvas clears it.
   const [previewLaneId, setPreviewLaneId] = useState<string>();
   useEffect(() => {
-    if (explicitClipLaneId !== undefined) {
-      setPreviewLaneId(explicitClipLaneId);
+    if (selectedClipLaneId !== undefined) {
+      setPreviewLaneId(selectedClipLaneId);
     }
-  }, [explicitClipLaneId]);
+  }, [selectedClipLaneId]);
   useEffect(() => {
     setPreviewLaneId(selectedLaneId);
   }, [selectedLaneId]);
@@ -2532,8 +2535,8 @@ function App() {
   );
   // Audio clips have no visual effects; that only applies while one is
   // selected, not to the layer on its own.
-  const fxKind = explicitClip?.mediaId
-    ? mediaItemsById.get(explicitClip.mediaId)?.kind
+  const fxKind = selectedClip?.mediaId
+    ? mediaItemsById.get(selectedClip.mediaId)?.kind
     : undefined;
   // Layers the compositor draws at the playhead: one per layer with an
   // online video clip there. The Order device warns when a grid hides some.
@@ -3786,7 +3789,6 @@ function App() {
         warp: sourceSpan.warp,
         tint: sourceSpan.tint,
         accent: sourceSpan.accent,
-        selected: true,
       };
     },
     [bpm],
@@ -3990,7 +3992,7 @@ function App() {
         sourceTrack,
         window.span,
       );
-      return [{ ...clip, selected: index === 0 }];
+      return [clip];
     });
     return { lanes: wandLanes, clips: randomizedClips };
   }
@@ -4260,7 +4262,9 @@ function App() {
 
   const applyRemoteProjectState = useCallback(
     (remoteSnapshot: ProjectState) => {
-      const snapshot = migrateLegacyMainAudio(remoteSnapshot);
+      const snapshot = stripClipSelectionFlags(
+        migrateLegacyMainAudio(remoteSnapshot),
+      );
       if (
         JSON.stringify(projectSnapshotRef.current) === JSON.stringify(snapshot)
       ) {
@@ -4840,7 +4844,7 @@ function App() {
       laneId ??
       resolvePasteLaneId(
         lanes,
-        explicitClip?.laneId,
+        selectedClip?.laneId,
         selectedLaneId,
         clipboardClip.laneId,
       );
@@ -4896,10 +4900,7 @@ function App() {
         }
 
         const leftClip = withWindowTiming(
-          {
-            ...sourceClip,
-            selected: false,
-          },
+          sourceClip,
           sourceClip.startQ,
           leftDurationQ,
           current.bpm,
@@ -4908,7 +4909,6 @@ function App() {
           {
             ...sourceClip,
             id: splitClipId,
-            selected: true,
           },
           splitQ,
           rightDurationQ,
@@ -5245,9 +5245,9 @@ function App() {
       return true;
     }
 
-    if (explicitClip) {
+    if (selectedClip) {
       const card = timelineScroll.querySelector<HTMLElement>(
-        `[data-clip-id="${CSS.escape(explicitClip.id)}"]`,
+        `[data-clip-id="${CSS.escape(selectedClip.id)}"]`,
       );
       if (!card) {
         return false;
@@ -5256,7 +5256,7 @@ function App() {
       const bounds = card.getBoundingClientRect();
       setClipMenu({
         kind: "clip",
-        clipId: explicitClip.id,
+        clipId: selectedClip.id,
         anchor: { x: bounds.left, y: bounds.bottom },
       });
       return true;
@@ -5476,8 +5476,8 @@ function App() {
         },
       ],
       {
-        clip: explicitClip?.label,
-        clipEntries: getArrangementClipEntries(explicitClip, undefined),
+        clip: selectedClip?.label,
+        clipEntries: getArrangementClipEntries(selectedClip, undefined),
         layer: selectedLane
           ? {
               name: selectedLane.name,
@@ -5560,6 +5560,16 @@ function App() {
         return;
       }
 
+      if (event.key === "Escape") {
+        if (!selectedClip) {
+          return;
+        }
+
+        event.preventDefault();
+        setSelectedClipId(undefined);
+        return;
+      }
+
       if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
         event.preventDefault();
         const direction = event.key === "ArrowLeft" ? -1 : 1;
@@ -5598,7 +5608,7 @@ function App() {
         const timelineScroll = timelineScrollRef.current;
         const activeElement = document.activeElement;
         if (
-          explicitClip ||
+          selectedClip ||
           (activeElement &&
             activeElement !== document.body &&
             !timelineScroll?.contains(activeElement))
@@ -5642,7 +5652,6 @@ function App() {
   }, [
     bpm,
     dragState,
-    explicitClip,
     fps,
     fxLaneId,
     isExporting,
@@ -6154,9 +6163,9 @@ function App() {
           : null,
     );
 
-    const preferredClip =
-      project.arrangementClips.find((clip) => clip.selected) ??
-      project.arrangementClips[0];
+    const preferredClip = project.arrangementClips.find(
+      (clip) => clip.id === project.selectedClipId,
+    );
     setSelectedClipId(preferredClip?.id);
     setSelectedLaneId(
       preferredClip?.laneId ??

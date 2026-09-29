@@ -38,7 +38,6 @@ export type FillClip = {
   sourceWindowEndSeconds: number;
   tint: string;
   accent: string;
-  selected?: boolean;
 };
 
 export type FillClipOptions = {
@@ -77,7 +76,6 @@ export function createFillClip({
     sourceWindowEndSeconds: durationSeconds,
     tint,
     accent,
-    selected: true,
   };
 }
 
