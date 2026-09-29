@@ -127,6 +127,32 @@ describe("arrangement empty state wiring", () => {
     assert.match(componentTsx, /aria-label="Dismiss"/);
   });
 
+  it('dismisses from a single bordered "✕ or dismiss" button', () => {
+    const dismiss = componentTsx.match(
+      /<button\s[^>]*aria-label="Dismiss"[^>]*>[\s\S]*?<\/button>/,
+    )?.[0];
+    assert.ok(dismiss, "expected a button named Dismiss");
+    assert.match(dismiss, /type="button"/);
+    assert.match(dismiss, /onClick=\{onDismiss\}/);
+    assert.match(dismiss, /<span aria-hidden="true">✕<\/span>/);
+    assert.match(dismiss, /<span>or dismiss<\/span>/);
+    assert.equal(componentTsx.match(/aria-label="Dismiss"/g)?.length, 1);
+
+    const rule = [
+      ...appCss.matchAll(/\n\.arrangement-empty-state__dismiss \{([^}]*)\}/g),
+    ]
+      .map((match) => match[1])
+      .join("");
+    assert.match(rule, /background: transparent;/);
+    assert.match(rule, /border: 1px solid var\(--line-strong\);/);
+    assert.match(rule, /border-radius: 999px;/);
+    assert.match(rule, /color: var\(--muted\);/);
+    assert.match(
+      appCss,
+      /\.arrangement-empty-state__dismiss:focus-visible \{[^}]*border-color: #ffe084;/,
+    );
+  });
+
   it("lets pointer events through to the lanes except on its buttons", () => {
     assert.match(
       appCss,
