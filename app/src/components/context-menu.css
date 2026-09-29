@@ -1,0 +1,79 @@
+/*
+ * Shared right-click menu (ContextMenu.tsx): a compact, editor-style panel.
+ * It renders in a portal on <body>, so it only relies on the :root palette.
+ */
+.context-menu-layer {
+  position: fixed;
+  inset: 0 auto auto 0;
+  z-index: 70;
+}
+
+.context-menu {
+  position: fixed;
+  min-width: 196px;
+  max-height: calc(100vh - 8px);
+  padding: 4px;
+  overflow-y: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--bg-elevated);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.34),
+    0 1px 3px rgba(0, 0, 0, 0.24);
+  color: var(--ink);
+  font-size: 0.8rem;
+  outline: none;
+  user-select: none;
+}
+
+.context-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  height: 28px;
+  padding: 0 8px 0 10px;
+  border-radius: 4px;
+  cursor: default;
+  white-space: nowrap;
+}
+
+.context-menu__item[data-highlighted] {
+  background: color-mix(in srgb, var(--blue) 22%, transparent);
+  color: var(--ink);
+}
+
+.context-menu__item[aria-expanded='true'] {
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
+}
+
+.context-menu__item[data-disabled] {
+  opacity: 0.4;
+}
+
+.context-menu__item[data-disabled][data-highlighted] {
+  background: none;
+}
+
+.context-menu__label {
+  flex: 1;
+}
+
+.context-menu__shortcut {
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.7rem;
+}
+
+.context-menu__chevron {
+  width: 12px;
+  height: 12px;
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.context-menu__separator {
+  height: 1px;
+  margin: 4px 6px;
+  border: 0;
+  background: var(--line);
+}

@@ -33,12 +33,11 @@ import {
   type FxDeviceParameter,
   GLOBAL_EFFECT_TRACK_ID,
 } from "../fx-stack";
+import { ContextMenu, type ContextMenuEntry } from "./ContextMenu";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { Knob } from "./ui/Knob";
@@ -594,6 +593,77 @@ export function FxChain({
       : null;
   const showGlobal = groups.global.length > 0 || canEdit;
   const menuDevice = menu?.device;
+  const menuEntries: ContextMenuEntry[] =
+    menu && menuDevice
+      ? [
+          {
+            type: "item",
+            id: "collapse",
+            label: collapsed.has(menuDevice.id) ? "Expand" : "Collapse",
+            onSelect: () => toggleCollapsed(menuDevice.id),
+          },
+          {
+            type: "item",
+            id: "enable",
+            label: menuDevice.enabled ? "Bypass" : "Enable",
+            onSelect: () => onSetEnabled(menuDevice, !menuDevice.enabled),
+          },
+          { type: "separator" },
+          {
+            type: "item",
+            id: "move-left",
+            label: "Move Left",
+            shortcut: "Alt+←",
+            disabled: menu.index === 0,
+            onSelect: () =>
+              moveDevice(
+                menuDevice,
+                menu.index,
+                menu.index - 1,
+                menu.stackSize,
+              ),
+          },
+          {
+            type: "item",
+            id: "move-right",
+            label: "Move Right",
+            shortcut: "Alt+→",
+            disabled: menu.index >= menu.stackSize - 1,
+            onSelect: () =>
+              moveDevice(
+                menuDevice,
+                menu.index,
+                menu.index + 1,
+                menu.stackSize,
+              ),
+          },
+          { type: "separator" },
+          ...(menuDevice.layerDefault
+            ? [
+                {
+                  type: "item",
+                  id: "reset",
+                  label: "Reset to Default",
+                  onSelect: () => resetDevice(menuDevice),
+                } satisfies ContextMenuEntry,
+              ]
+            : [
+                {
+                  type: "item",
+                  id: "duplicate",
+                  label: "Duplicate",
+                  onSelect: () => duplicateDevice(menuDevice),
+                } satisfies ContextMenuEntry,
+                {
+                  type: "item",
+                  id: "delete",
+                  label: "Delete",
+                  shortcut: "Del",
+                  onSelect: () => removeDevice(menuDevice),
+                } satisfies ContextMenuEntry,
+              ]),
+        ]
+      : [];
 
   return (
     <div
@@ -635,93 +705,18 @@ export function FxChain({
       <div aria-live="polite" className="fx-chain__status" role="status">
         {announcement}
       </div>
-      <DropdownMenu
-        onOpenChange={(open) => {
-          if (!open) {
-            setMenu(null);
+      <ContextMenu
+        anchor={menu}
+        entries={menuEntries}
+        label={menuDevice ? `${menuDevice.name} actions` : "Device actions"}
+        onClose={() => setMenu(null)}
+        onCloseFocus={() => {
+          if (!focusAfterMenu() && menuDeviceIdRef.current) {
+            focusTitle(menuDeviceIdRef.current);
           }
+          return true;
         }}
-        open={Boolean(menu)}
-      >
-        <DropdownMenuTrigger asChild>
-          <span
-            aria-hidden="true"
-            className="fx-chain__menu-anchor"
-            style={{ left: menu?.x ?? 0, top: menu?.y ?? 0 }}
-          />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="start"
-          aria-label={menuDevice ? `${menuDevice.name} actions` : undefined}
-          onCloseAutoFocus={(event) => {
-            event.preventDefault();
-            if (!focusAfterMenu() && menuDeviceIdRef.current) {
-              focusTitle(menuDeviceIdRef.current);
-            }
-          }}
-          sideOffset={2}
-        >
-          {menu && menuDevice ? (
-            <>
-              <DropdownMenuItem onSelect={() => toggleCollapsed(menuDevice.id)}>
-                {collapsed.has(menuDevice.id) ? "Expand" : "Collapse"}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => onSetEnabled(menuDevice, !menuDevice.enabled)}
-              >
-                {menuDevice.enabled ? "Bypass" : "Enable"}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                disabled={menu.index === 0}
-                onSelect={() =>
-                  moveDevice(
-                    menuDevice,
-                    menu.index,
-                    menu.index - 1,
-                    menu.stackSize,
-                  )
-                }
-              >
-                Move Left
-                <DropdownMenuShortcut>Alt+←</DropdownMenuShortcut>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={menu.index >= menu.stackSize - 1}
-                onSelect={() =>
-                  moveDevice(
-                    menuDevice,
-                    menu.index,
-                    menu.index + 1,
-                    menu.stackSize,
-                  )
-                }
-              >
-                Move Right
-                <DropdownMenuShortcut>Alt+→</DropdownMenuShortcut>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {menuDevice.layerDefault ? (
-                <DropdownMenuItem onSelect={() => resetDevice(menuDevice)}>
-                  Reset to Default
-                </DropdownMenuItem>
-              ) : (
-                <>
-                  <DropdownMenuItem
-                    onSelect={() => duplicateDevice(menuDevice)}
-                  >
-                    Duplicate
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => removeDevice(menuDevice)}>
-                    Delete
-                    <DropdownMenuShortcut>Del</DropdownMenuShortcut>
-                  </DropdownMenuItem>
-                </>
-              )}
-            </>
-          ) : null}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      />
     </div>
   );
 }
