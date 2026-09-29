@@ -282,4 +282,70 @@ describe("resolveVisualState", () => {
     const effects = [layout("global", GROUP_TRACK_ID, "Bottom")];
     assert.equal(resolveVisualState(effects, "1").layoutAnchor, "center");
   });
+
+  function transform(
+    id: string,
+    trackId: string,
+    values: Record<string, number>,
+    enabled = true,
+  ) {
+    return {
+      id,
+      trackId,
+      effectName: "Transform",
+      parameters: Object.entries(values).map(([key, value]) => ({
+        key,
+        value: `${value}`,
+        numericValue: value,
+      })),
+      enabled,
+    };
+  }
+
+  it("leaves legacy sessions without a Transform", () => {
+    const effects = [layout("layout-1", "1", "Top")];
+    assert.equal(resolveVisualState(effects, "1").transform, undefined);
+  });
+
+  it("reads a layer's Transform by its keys, not the name heuristics", () => {
+    const state = resolveVisualState(
+      [
+        layout("layout-1", "1", "Top"),
+        transform("t", "1", {
+          PositionX: 0.5,
+          PositionY: -0.25,
+          ScaleX: 2,
+          ScaleY: 0.5,
+          OriginX: -1,
+          OriginY: 1,
+          Rotation: 45,
+        }),
+      ],
+      "1",
+    );
+    assert.deepEqual(state.transform, {
+      positionX: 0.5,
+      positionY: -0.25,
+      scaleX: 2,
+      scaleY: 0.5,
+      originX: -1,
+      originY: 1,
+      rotationDeg: 45,
+    });
+    assert.equal(state.layoutAnchor, "top", "Layout still applies");
+    assert.equal(state.translateX, 0);
+    assert.equal(state.translateY, 0);
+    assert.equal(state.scale, 1);
+    assert.equal(state.rotationDeg, 0);
+  });
+
+  it("ignores Transforms on other stacks and bypassed ones", () => {
+    const effects = [
+      transform("global", GROUP_TRACK_ID, { ScaleX: 2 }),
+      transform("other", "5", { ScaleX: 3 }),
+      transform("off", "1", { ScaleX: 4 }, false),
+    ];
+    assert.equal(resolveVisualState(effects, "1").transform, undefined);
+    assert.equal(resolveVisualState(effects, "5").transform?.scaleX, 3);
+  });
 });

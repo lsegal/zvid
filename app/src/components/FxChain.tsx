@@ -14,9 +14,9 @@ import {
   useState,
 } from "react";
 import {
-  ADDABLE_EFFECT_DEFINITIONS,
   describeDeviceMove,
   dropSlotToStackIndex,
+  getAddableEffectDefinitions,
   getAutoScrollDelta,
   getDropSlot,
   getParameterFormat,
@@ -27,6 +27,7 @@ import {
   toggleCollapsedDevice,
   writeCollapsedDevices,
 } from "../fx-chain";
+import type { FxEffectDefinition } from "../fx-registry";
 import {
   type FxDevice,
   type FxDeviceGroup,
@@ -274,7 +275,7 @@ export function FxChain({
 
   function addDevice(group: FxDeviceGroup, effectName: string) {
     const trackId = getTrackId(group, layerTrackId);
-    const definition = ADDABLE_EFFECT_DEFINITIONS.find(
+    const definition = getAddableEffectDefinitions(group).find(
       (candidate) => candidate.effectName === effectName,
     );
     if (!trackId || !definition) {
@@ -569,6 +570,7 @@ export function FxChain({
     const label = `Add device to ${group === "global" ? "Global" : "this layer"}`;
     return (
       <AddDeviceMenu
+        effects={getAddableEffectDefinitions(group)}
         focusKey={`add-${group}`}
         label={label}
         onAdd={(effectName) => addDevice(group, effectName)}
@@ -722,6 +724,7 @@ export function FxChain({
 }
 
 function AddDeviceMenu({
+  effects,
   focusKey,
   label,
   withLabel,
@@ -729,6 +732,7 @@ function AddDeviceMenu({
   onCloseAutoFocus,
   onOpen,
 }: {
+  effects: readonly FxEffectDefinition[];
   focusKey: string;
   label: string;
   withLabel: boolean;
@@ -762,7 +766,7 @@ function AddDeviceMenu({
         onCloseAutoFocus={onCloseAutoFocus}
         sideOffset={6}
       >
-        {ADDABLE_EFFECT_DEFINITIONS.map((definition) => (
+        {effects.map((definition) => (
           <DropdownMenuItem
             key={definition.effectName}
             onSelect={() => onAdd(definition.effectName)}

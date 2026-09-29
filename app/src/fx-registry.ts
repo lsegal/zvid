@@ -58,6 +58,15 @@ export function formatZoom(value: number) {
   return `${(1 + 3 * value).toFixed(2)}×`;
 }
 
+export function formatSignedPercent(value: number) {
+  const percent = Math.round(value * 100);
+  return `${percent > 0 ? "+" : ""}${percent}%`;
+}
+
+export function formatDegrees(value: number) {
+  return `${Math.round(value)}°`;
+}
+
 export function formatRawNumber(value: number) {
   return value.toFixed(3);
 }
@@ -84,6 +93,26 @@ function zoomParameter(
   label: string,
 ): FxNumberParameterDefinition {
   return { ...unitParameter(key, label, 0), format: formatZoom };
+}
+
+function transformParameter(
+  key: string,
+  label: string,
+  min: number,
+  max: number,
+  defaultValue: number,
+  format: (value: number) => string,
+): FxNumberParameterDefinition {
+  return {
+    kind: "number",
+    key,
+    label,
+    min,
+    max,
+    defaultValue,
+    step: 0.01,
+    format,
+  };
 }
 
 const DEFINITIONS: FxEffectDefinition[] = [
@@ -173,6 +202,32 @@ const DEFINITIONS: FxEffectDefinition[] = [
         label: "Position",
         options: LAYOUT_POSITIONS,
         defaultValue: "Center",
+      },
+    ],
+  },
+  {
+    effectName: "Transform",
+    displayName: "Transform",
+    description: "Moves, resizes and rotates the layer inside the canvas.",
+    accent: "#ff9f6b",
+    known: true,
+    parameters: [
+      transformParameter("PositionX", "X", -2, 2, 0, formatSignedPercent),
+      transformParameter("PositionY", "Y", -2, 2, 0, formatSignedPercent),
+      transformParameter("ScaleX", "Width", 0.05, 8, 1, formatPercent),
+      transformParameter("ScaleY", "Height", 0.05, 8, 1, formatPercent),
+      transformParameter("OriginX", "Origin X", -1, 1, 0, formatSignedPercent),
+      transformParameter("OriginY", "Origin Y", -1, 1, 0, formatSignedPercent),
+      {
+        ...transformParameter(
+          "Rotation",
+          "Rotation",
+          -180,
+          180,
+          0,
+          formatDegrees,
+        ),
+        step: 1,
       },
     ],
   },

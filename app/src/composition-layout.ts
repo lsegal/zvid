@@ -3,6 +3,8 @@
 // and the Layout anchor decides which part of an overflowing source shows.
 // Positions are in clip space (-1..1, +y up), matching the composite shader.
 
+import type { LayerTransform } from "./composition-transform.ts";
+
 export type LayoutAnchor = "top" | "center" | "bottom";
 
 export type FrameBounds = {
@@ -27,6 +29,8 @@ export type LayerVisual = {
   translateX: number;
   translateY: number;
   layoutAnchor: LayoutAnchor;
+  // Applied after Layout, to the band as a whole. Absent means identity.
+  transform?: LayerTransform;
 };
 
 export type LayerPlacement = {
