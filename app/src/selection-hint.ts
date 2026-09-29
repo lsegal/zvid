@@ -13,10 +13,10 @@ export const SELECTION_HINT_FULL = "Press 1-9 to commit";
 export const SELECTION_HINT_SHORT = "1-9";
 
 // Rendered widths of the hints in `.timeline-selection span` (0.72rem Space
-// Grotesk, uppercase, 0.06em letter spacing), rounded up with a little slack
-// for font fallback.
-export const SELECTION_HINT_FULL_WIDTH_PX = 150;
-export const SELECTION_HINT_SHORT_WIDTH_PX = 24;
+// Grotesk, uppercase, 0.06em letter spacing measure about 132px and 19px),
+// rounded up with a little slack for font fallback.
+export const SELECTION_HINT_FULL_WIDTH_PX = 140;
+export const SELECTION_HINT_SHORT_WIDTH_PX = 22;
 
 // Matches `.timeline-selection` padding in App.css; narrow selections drop to
 // the compact padding so the dashed box keeps its shape around a short hint.
