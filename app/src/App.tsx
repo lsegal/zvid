@@ -198,15 +198,6 @@ import {
 import { cacheMediaBlob, getCachedMediaBlob } from "./media-cache";
 import { createMediaRelinker, type MediaRelinkCandidate } from "./media-relink";
 import {
-  createPlayheadSignal,
-  findNextClipEdgeQ,
-  PLAYBACK_COMMIT_INTERVAL_MS,
-} from "./playhead-signal";
-import {
-  createProjectHistoryState,
-  projectHistoryReducer,
-} from "./project-history";
-import {
   describeMediaSync,
   formatMediaSyncLabel,
   formatPeerMediaSyncStatus,
@@ -216,6 +207,15 @@ import {
   withPeerMediaProgress,
   withQueuedPeerMedia,
 } from "./peer-media-sync.ts";
+import {
+  createPlayheadSignal,
+  findNextClipEdgeQ,
+  PLAYBACK_COMMIT_INTERVAL_MS,
+} from "./playhead-signal";
+import {
+  createProjectHistoryState,
+  projectHistoryReducer,
+} from "./project-history";
 import { migrateLegacyMainAudio } from "./project-state-compat.ts";
 import { buildRandomArrangement } from "./random-arrangement.ts";
 import { listOfflineMedia, matchOfflineMedia } from "./relink";
@@ -1847,9 +1847,9 @@ function App() {
   const [peerMediaProgress, setPeerMediaProgress] =
     useState<PeerMediaProgressMap>(() => new Map());
   // Media that just finished syncing, so its clips cross-fade in.
-  const [revealedMediaIds, setRevealedMediaIds] = useState<
-    ReadonlySet<string>
-  >(() => new Set());
+  const [revealedMediaIds, setRevealedMediaIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const prefersReducedMotion = usePrefersReducedMotion();
   const [importNotice, setImportNotice] = useState<ImportNoticeContent | null>(
     null,
@@ -2454,16 +2454,16 @@ function App() {
     : mainAudioSync
       ? formatMediaSyncLabel(mainAudioSync, "main audio")
       : mainAudio.availability === "offline"
-      ? "Main audio is offline"
-      : mainAudio.availability === "hydrating"
-        ? "Waiting for main audio…"
-        : !currentMainWaveform
-          ? "Analyzing main audio…"
-          : currentMainWaveform.status === "no-audio"
-            ? "No audio found in main audio file"
-            : currentMainWaveform.status === "error"
-              ? "Could not decode main audio"
-              : null;
+        ? "Main audio is offline"
+        : mainAudio.availability === "hydrating"
+          ? "Waiting for main audio…"
+          : !currentMainWaveform
+            ? "Analyzing main audio…"
+            : currentMainWaveform.status === "no-audio"
+              ? "No audio found in main audio file"
+              : currentMainWaveform.status === "error"
+                ? "Could not decode main audio"
+                : null;
   const timelineContentEndQ = useMemo(
     () =>
       getTimelineContentEndQ(
@@ -4205,9 +4205,7 @@ function App() {
         } finally {
           transfers.delete(mediaId);
           mediaHydrationInFlightRef.current.delete(mediaId);
-          setPeerMediaProgress((map) =>
-            withoutPeerMediaProgress(map, mediaId),
-          );
+          setPeerMediaProgress((map) => withoutPeerMediaProgress(map, mediaId));
           setMediaHydrationTick((tick) => tick + 1);
         }
       })();
@@ -8009,8 +8007,7 @@ function App() {
                                       left: clip.startQ * quarterPx,
                                       width:
                                         getClipDurationQ(clip, bpm) * quarterPx,
-                                      ["--clip-accent" as string]:
-                                        clip.accent,
+                                      ["--clip-accent" as string]: clip.accent,
                                       backgroundColor: clip.tint,
                                       borderColor: clip.accent,
                                       opacity:

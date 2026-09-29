@@ -94,8 +94,10 @@ export function describeMediaSync(
   return { phase: progress.phase, fraction: getPeerMediaFraction(progress) };
 }
 
+// Rounds down so 100% only shows once every byte arrived; the epsilon keeps
+// float error (0.58 * 100 = 57.99…) from dropping a whole percent.
 function formatPercent(fraction: number) {
-  return `${Math.floor(fraction * 100)}%`;
+  return `${Math.floor(fraction * 100 + 1e-9)}%`;
 }
 
 // "Syncing 42%" on clips and spans; "Syncing main audio 42%" with a subject.
