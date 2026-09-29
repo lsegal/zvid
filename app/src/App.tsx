@@ -6879,8 +6879,8 @@ function App() {
             </dl>
             <p className="share-dialog__note">
               Tabs of the same browser sync without WebRTC, so test with two
-              different browsers or machines. Peers behind strict NATs need a
-              TURN relay (Relay above), which the deployed app provides.
+              different browsers or machines. Peers behind strict NATs connect
+              through the TURN relay, which the deployed app provides.
             </p>
           </div>
 
