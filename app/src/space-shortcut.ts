@@ -21,6 +21,10 @@ const TEXT_INPUT_TYPES = new Set([
 const OVERLAY_SELECTOR =
   '[role="menu"], [role="menubar"], [role="listbox"], [role="dialog"], [role="alertdialog"], [aria-modal="true"]';
 
+// A layer header's reorder grip picks up and drops its layer with Space, as
+// drag handles do (#478). Every other control leaves Space to playback (#167).
+const LAYER_GRIP_SELECTOR = "[data-layer-grip]";
+
 type SpaceTarget = {
   tagName?: string;
   type?: string;
@@ -32,7 +36,7 @@ type OverlayRoot = {
   querySelector: (selector: string) => unknown;
 };
 
-export type SpaceTargetKind = "text-entry" | "overlay" | "playback";
+export type SpaceTargetKind = "text-entry" | "overlay" | "grip" | "playback";
 
 export function isTextEntryTarget(target: unknown) {
   if (!target || typeof target !== "object") {
@@ -71,6 +75,13 @@ export function classifySpaceTarget(
     element.closest(OVERLAY_SELECTOR)
   ) {
     return "overlay";
+  }
+
+  if (
+    typeof element?.closest === "function" &&
+    element.closest(LAYER_GRIP_SELECTOR)
+  ) {
+    return "grip";
   }
 
   if (root?.querySelector(OVERLAY_SELECTOR)) {
