@@ -32,18 +32,23 @@ fn device(id: &str, name: &str, transport: Transport) -> Device {
 }
 
 fn frame(sequence: u64) -> Arc<Frame> {
+    rotated_frame(sequence, Rotation::None)
+}
+
+/// A landscape frame, displayed turned by `rotation`.
+fn rotated_frame(sequence: u64, rotation: Rotation) -> Arc<Frame> {
     Arc::new(Frame {
-        width: 2,
+        width: 4,
         height: 2,
         format: PixelFormat::Nv12,
         color: ColorInfo {
             bt709: true,
             full_range: false,
         },
-        rotation: Rotation::None,
+        rotation,
         pts: HostTime::from_nanos(1_000_000_000 + sequence * 33_333_333),
         sequence,
-        data: vec![0; Frame::nv12_len(2, 2)],
+        data: vec![0; Frame::nv12_len(4, 2)],
     })
 }
 
@@ -150,10 +155,15 @@ impl Fake {
 
     /// Delivers a frame and a preview from the open camera.
     fn deliver(&self, sequence: u64) {
+        self.deliver_rotated(sequence, Rotation::None);
+    }
+
+    /// Delivers a frame to display turned by `rotation`, and a preview.
+    fn deliver_rotated(&self, sequence: u64, rotation: Rotation) {
         let mut open = lock(&self.open);
         let open = open.as_mut().expect("a camera is open");
         open.count.fetch_add(1, Ordering::Relaxed);
-        (open.frames)(&frame(sequence));
+        (open.frames)(&rotated_frame(sequence, rotation));
         (open.preview)(vec![0xFF, 0xD8, sequence as u8]);
     }
 
@@ -974,6 +984,31 @@ fn a_camera_that_stops_sending_video_fails() {
     let error = rig.backend.status().error.unwrap();
     assert_eq!(error.code, ErrorCode::DeviceLost);
     assert_eq!(error.message, "The camera stopped sending video.");
+}
+
+#[test]
+fn shows_the_size_frames_are_displayed_at() {
+    let rig = Rig::new(State::default());
+    rig.backend.select_camera("usb-1").unwrap();
+    let size = |rig: &Rig| {
+        let format = rig.backend.status().format.unwrap();
+        (format.width, format.height)
+    };
+    assert_eq!(size(&rig), (1920, 1080));
+    let before = rig.named("status").len();
+
+    // A landscape format whose frames display a quarter turn round.
+    rig.fake.deliver_rotated(0, Rotation::Cw90);
+    wait_for("the portrait size", || size(&rig) == (1080, 1920));
+    let statuses = rig.wait_for_event("status", before + 1);
+    assert_eq!(
+        statuses.last().unwrap()["payload"]["format"],
+        serde_json::json!({ "width": 1080, "height": 1920, "fps": [30, 1] })
+    );
+
+    // The source turns back to landscape.
+    rig.fake.deliver_rotated(1, Rotation::None);
+    wait_for("the landscape size", || size(&rig) == (1920, 1080));
 }
 
 #[test]

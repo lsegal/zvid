@@ -37,13 +37,36 @@ pub fn cameras(devices: &[Device]) -> Vec<Camera> {
 }
 
 /// The footer's format: the device format's size at the frame rate
-/// requested from it.
+/// requested from it, until [`displayed_format`] turns it to match the
+/// frames.
 pub fn video_format(selection: &Selection) -> VideoFormat {
     let fps = selection.fps.reduced();
     VideoFormat {
         width: selection.format.width,
         height: selection.format.height,
         fps: [fps.num, fps.den],
+    }
+}
+
+/// `format` turned to the orientation frames are displayed in, given a
+/// frame's [`zvid_capture::Frame::display_size`]: a landscape device format
+/// that the backend rotates to portrait reads as portrait. Only the
+/// orientation comes from the frame, so a frame the reader scaled down
+/// doesn't change the size shown.
+pub fn displayed_format(format: VideoFormat, (width, height): (u32, u32)) -> VideoFormat {
+    let (long, short) = (
+        format.width.max(format.height),
+        format.width.min(format.height),
+    );
+    let (width, height) = match width.cmp(&height) {
+        std::cmp::Ordering::Less => (short, long),
+        std::cmp::Ordering::Greater => (long, short),
+        std::cmp::Ordering::Equal => return format,
+    };
+    VideoFormat {
+        width,
+        height,
+        ..format
     }
 }
 
@@ -183,7 +206,7 @@ pub fn status(inputs: StatusInputs<'_>) -> Status {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zvid_capture::{DeviceId, Format, Rational};
+    use zvid_capture::{ColorInfo, DeviceId, Format, Frame, PixelFormat, Rational, Rotation};
     use zvid_daw_core::Recording;
 
     fn device(id: &str, name: &str, transport: zvid_capture::Transport) -> Device {
@@ -262,6 +285,70 @@ mod tests {
                 height: 1920,
                 fps: [30, 1],
             }
+        );
+    }
+
+    #[test]
+    fn turns_the_format_to_the_displayed_orientation() {
+        let landscape = VideoFormat {
+            width: 1920,
+            height: 1080,
+            fps: [30, 1],
+        };
+        let portrait = VideoFormat {
+            width: 1080,
+            height: 1920,
+            fps: [30, 1],
+        };
+        let frame = |width, height, rotation| Frame {
+            width,
+            height,
+            format: PixelFormat::Nv12,
+            color: ColorInfo::for_height(1080),
+            rotation,
+            pts: HostTime::from_nanos(0),
+            sequence: 0,
+            data: Vec::new(),
+        };
+        let shown = |format, frame: Frame| displayed_format(format, frame.display_size());
+        // A landscape format the frames carry a quarter turn for (Windows'
+        // MF_MT_VIDEO_ROTATION, or macOS when the connection can't rotate).
+        assert_eq!(
+            shown(landscape, frame(1920, 1080, Rotation::Cw90)),
+            portrait
+        );
+        assert_eq!(
+            shown(landscape, frame(1920, 1080, Rotation::Cw270)),
+            portrait
+        );
+        // Frames the connection already turned upright (macOS).
+        assert_eq!(
+            shown(landscape, frame(1080, 1920, Rotation::None)),
+            portrait
+        );
+        // A frame the reader scaled down only sets the orientation.
+        assert_eq!(shown(landscape, frame(960, 540, Rotation::Cw90)), portrait);
+        assert_eq!(
+            shown(landscape, frame(1920, 1080, Rotation::None)),
+            landscape
+        );
+        assert_eq!(
+            shown(landscape, frame(1920, 1080, Rotation::Cw180)),
+            landscape
+        );
+        // Turned back when the source rotates back.
+        assert_eq!(
+            shown(portrait, frame(1920, 1080, Rotation::None)),
+            landscape
+        );
+        assert_eq!(
+            shown(portrait, frame(1080, 1920, Rotation::Cw90)),
+            landscape
+        );
+        // A square frame says nothing about orientation.
+        assert_eq!(
+            shown(landscape, frame(1080, 1080, Rotation::Cw90)),
+            landscape
         );
     }
 
