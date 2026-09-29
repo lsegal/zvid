@@ -5235,8 +5235,8 @@ function App() {
     );
   }
 
-  // Insert Track commits the selection exactly like the track's number key.
-  // Insert Fill Layer joins once fill clips (#376) provide an insert action.
+  // Insert Track commits the selection exactly like the track's number key;
+  // Insert Fill Layer fills the selected range on its layer.
   function getSelectionMenuEntries(selection: TimelineSelection) {
     const endQ = selection.startQ + selection.durationQ;
     return buildSelectionMenuEntries({
@@ -5254,6 +5254,8 @@ function App() {
       })),
       disabled: isExporting,
       insertTrack: commitPendingSelectionToSourceTrack,
+      insertFill: () =>
+        insertFillClip(selection.laneId, selection.startQ, selection.durationQ),
       clear: () => setPendingSelection(null),
     });
   }

@@ -440,6 +440,7 @@ test("right-clicking a selection keeps it and inserts a track like its number ke
   await expect(selection).toBeVisible();
   await expect(menu.getByRole("menuitem")).toHaveText([
     "Insert Track",
+    "Insert Fill Layer",
     "Clear selectionEsc",
   ]);
 
@@ -459,6 +460,21 @@ test("right-clicking a selection keeps it and inserts a track like its number ke
   expect(insertedBox?.x).toBeCloseTo(keyedBox?.x ?? Number.NaN, 0);
   expect(insertedBox?.width).toBeCloseTo(keyedBox?.width ?? Number.NaN, 0);
   expect(insertedBox?.x).toBeCloseTo(selectionBox?.x ?? Number.NaN, 0);
+
+  // Insert Fill Layer fills exactly the selected range and selects the fill.
+  await dragSelection(lane(page, "6"), 30, 130);
+  const fillSelection = lane(page, "6").locator(".timeline-selection");
+  const fillSelectionBox = await fillSelection.boundingBox();
+  await rightClickLaneAt(lane(page, "6"), 80);
+  await menuItem(page, "Insert Fill Layer").click();
+  await expect(menu).toBeHidden();
+  await expect(page.locator(".timeline-selection")).toHaveCount(0);
+  const fill = lane(page, "6").locator(".clip-card--fill");
+  await expect(fill).toHaveCount(1);
+  await expect(fill).toHaveClass(/clip-card--selected/);
+  const fillBox = await fill.boundingBox();
+  expect(fillBox?.x).toBeCloseTo(fillSelectionBox?.x ?? Number.NaN, 0);
+  expect(fillBox?.width).toBeCloseTo(fillSelectionBox?.width ?? Number.NaN, 0);
 
   // Past the end of the footage, the track is disabled.
   await dragSelection(lane(page, "6"), 600, 700);
