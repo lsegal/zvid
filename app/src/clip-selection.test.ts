@@ -20,7 +20,7 @@ function ruleBody(css: string, selector: string): string {
 
 function zToken(name: string): number {
   const match = ruleBody(appCss, ":root").match(
-    new RegExp(`--z-timeline-${name}: (\d+);`),
+    new RegExp(`--z-timeline-${name}: (\\d+);`),
   );
   assert.ok(match, `missing --z-timeline-${name}`);
   return Number(match[1]);
