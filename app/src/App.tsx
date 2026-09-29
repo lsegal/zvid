@@ -9509,7 +9509,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     </div>
                   </section>
 
-                  <div ref={arrangementLanesRef} className="arrangement-lanes">
+                  <div
+                    ref={arrangementLanesRef}
+                    className={`arrangement-lanes ${layerReorder.listClassName}`}
+                  >
                     {showArrangementEmptyState ? (
                       <ArrangementEmptyState
                         disabled={isExporting}
@@ -9540,7 +9543,11 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     {lanes.map((lane, laneIndex) => (
                       <section
                         key={lane.id}
-                        className={`track-row ${lane.id === fxLaneId ? "track-row--selected" : ""}`}
+                        className={`track-row ${lane.id === fxLaneId ? "track-row--selected" : ""} ${
+                          lane.id === layerReorder.liftedLaneId
+                            ? "track-row--lifted"
+                            : ""
+                        }`}
                         data-layer-row-id={lane.id}
                       >
                         {/* biome-ignore lint/a11y/noStaticElementInteractions: clicking anywhere on the label is a mouse shortcut; the layer name button is the keyboard equivalent */}

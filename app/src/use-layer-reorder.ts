@@ -51,7 +51,8 @@ type Session = {
  * Drag, keyboard and long-press reordering for the layer headers' grips.
  * Rows (`[data-layer-row-id]` inside `listRef`) slide imperatively while a
  * layer is lifted, so dragging never re-renders the app; `onMove` commits
- * the drop as one change.
+ * the drop as one change. The list and lifted row take their classes from
+ * `listClassName` and `liftedLaneId`.
  */
 export function useLayerReorder({
   lanes,
@@ -73,7 +74,10 @@ export function useLayerReorder({
 }) {
   const sessionRef = useRef<Session | null>(null);
   const indicatorRef = useRef<HTMLDivElement | null>(null);
-  const [activeLaneId, setActiveLaneId] = useState<string>();
+  const [lifted, setLifted] = useState<{
+    laneId: string;
+    mode: Session["mode"];
+  }>();
   const [announcement, setAnnouncement] = useState("");
   const latest = useRef({ onMove, onSelect, getScrollTop });
   latest.current = { onMove, onSelect, getScrollTop };
@@ -122,16 +126,10 @@ export function useLayerReorder({
   }
 
   function lift(session: Session) {
-    const list = listRef.current;
-    list?.classList.add(
-      "arrangement-lanes--reordering",
-      `arrangement-lanes--reordering-${session.mode}`,
-    );
-    session.rows[session.fromIndex]?.classList.add("track-row--lifted");
     if (session.mode === "pointer") {
       document.body.classList.add("layer-reorder-dragging");
     }
-    setActiveLaneId(session.lane.id);
+    setLifted({ laneId: session.lane.id, mode: session.mode });
   }
 
   function clear(session: Session) {
@@ -140,13 +138,7 @@ export function useLayerReorder({
     session.endPointer?.();
     for (const row of session.rows) {
       row.style.transform = "";
-      row.classList.remove("track-row--lifted");
     }
-    listRef.current?.classList.remove(
-      "arrangement-lanes--reordering",
-      "arrangement-lanes--reordering-pointer",
-      "arrangement-lanes--reordering-keyboard",
-    );
     document.body.classList.remove("layer-reorder-dragging");
     if (indicatorRef.current) {
       indicatorRef.current.hidden = true;
@@ -154,7 +146,7 @@ export function useLayerReorder({
     if (sessionRef.current === session) {
       sessionRef.current = null;
     }
-    setActiveLaneId(undefined);
+    setLifted(undefined);
   }
 
   function finish(commit: boolean) {
@@ -520,12 +512,15 @@ export function useLayerReorder({
   );
 
   return {
-    activeLaneId,
+    liftedLaneId: lifted?.laneId,
+    listClassName: lifted
+      ? `arrangement-lanes--reordering arrangement-lanes--reordering-${lifted.mode}`
+      : "",
     announcement,
     indicatorRef,
     gripProps: (lane: LayerRef, index: number) => ({
       "data-layer-grip": lane.id,
-      "aria-pressed": activeLaneId === lane.id,
+      "aria-pressed": lifted?.laneId === lane.id,
       onBlur,
       onKeyDown: (event: ReactKeyboardEvent<HTMLElement>) =>
         onKeyDown(event, lane, index),
