@@ -331,11 +331,15 @@ describe("effect passes", () => {
       });
       const [progress] = values.uProgress;
       const eased = progress * progress * (3 - 2 * progress);
-      const zoom = values.uStart[0] + (values.uEnd[0] - values.uStart[0]) * eased;
+      const zoom =
+        values.uStart[0] + (values.uEnd[0] - values.uStart[0]) * eased;
       return 1 + 3 * zoom;
     };
 
-    assert.match(zoomAndPanPass.fragmentSource, /smoothstep\(0\.0, 1\.0, uProgress\)/);
+    assert.match(
+      zoomAndPanPass.fragmentSource,
+      /smoothstep\(0\.0, 1\.0, uProgress\)/,
+    );
     assert.match(zoomAndPanPass.fragmentSource, /mix\(1\.0, 4\.0, k\.x\)/);
     assert.ok(Math.abs(zoomAt(0) - 1) < 1e-9);
     assert.ok(Math.abs(zoomAt(0.5) - 1.1) < 1e-9);
