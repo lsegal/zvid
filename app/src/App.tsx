@@ -27,6 +27,11 @@ import {
   isAlsFilename,
 } from "./als-import";
 import {
+  applyWandArrangement,
+  createWandLanes,
+  getWandEndQ,
+} from "./arrangement-wand.ts";
+import {
   CompositionPlayer,
   type CompositionPlayerHandle,
   CompositionRenderer,
@@ -365,6 +370,8 @@ type ProjectState = {
   clips: ArrangementClip[];
   effects: SessionEffect[];
   mainAudioId?: string;
+  // The session length from the opened session, in frames at `fps`.
+  projectDurationFrames?: number;
 };
 
 type LocalMediaOverride = {
@@ -414,6 +421,8 @@ const RANDOM_SELECTION_BAR_INCREMENT = 0.25;
 const MAX_PEER_MEDIA_TRANSFERS = 2;
 const PEER_MEDIA_STATUS_INTERVAL_MS = 250;
 const RANDOM_SELECTION_MAX_BARS = 2;
+// The arrangement wand replaces the main layers with this many.
+const MAX_WAND_LAYERS = 3;
 const SOURCE_TRACK_DRAG_CLEAR_DELAY_MS = 80;
 const COLLAB_STORAGE_KEY = "zvid-collaboration";
 const INSPECTOR_COLLAPSED_STORAGE_KEY = "zvid-inspector-collapsed";
@@ -1609,6 +1618,7 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
     displaySeconds: session.timeline?.displaySeconds ?? false,
     snapToBeat: session.timeline?.snapToBeat ?? true,
     zoom: clamp(session.timeline?.zoom ?? 1, ZOOM_MIN, ZOOM_MAX),
+    projectDurationFrames: session.timeline?.projectDuration,
     playPositionFrames: session.playPosition ?? 0,
     playStartPositionFrames: session.playStartPosition ?? 0,
     mainAudioMediaId: session.audioFilename
@@ -1706,6 +1716,7 @@ function App() {
     clips,
     effects,
     mainAudioId,
+    projectDurationFrames,
   } = projectHistory.present;
   const canUndo = projectHistory.past.length > 0;
   const canRedo = projectHistory.future.length > 0;
@@ -3461,16 +3472,19 @@ function App() {
   );
 
   function getRandomizationTimelineEndQ() {
-    return getTimelineContentEndQ(
-      clips,
-      sourceSpans,
-      mainAudio?.durationSeconds,
+    return getWandEndQ({
+      projectDurationFrames,
+      fps,
       bpm,
       barLength,
-    );
+      sourceSpans,
+      isVideoSpan: (span) =>
+        Boolean(span.mediaId && mediaItemsById.get(span.mediaId)?.hasVideo),
+    });
   }
 
-  function buildRandomizedArrangementClips() {
+  function buildRandomizedArrangement() {
+    const wandLanes = createWandLanes(lanes, MAX_WAND_LAYERS);
     const stepQ = barLength * RANDOM_SELECTION_BAR_INCREMENT;
     const durationSteps = Array.from(
       {
@@ -3484,7 +3498,7 @@ function App() {
       sourceTracks.map((sourceTrack) => [sourceTrack.id, sourceTrack]),
     );
     const windows = buildRandomArrangement({
-      laneIds: lanes.map((lane) => lane.id),
+      laneIds: wandLanes.map((lane) => lane.id),
       sourceTrackIds: sourceTracks.map((sourceTrack) => sourceTrack.id),
       spans: sourceSpans,
       spanEndQ: (span) => getClipEndQ(span, bpm),
@@ -3494,7 +3508,7 @@ function App() {
       random: randomFloat,
     });
 
-    return windows.flatMap((window, index) => {
+    const randomizedClips = windows.flatMap((window, index) => {
       const sourceTrack = sourceTracksById.get(window.span.sourceTrackId);
       if (!sourceTrack) {
         return [];
@@ -3512,6 +3526,7 @@ function App() {
       );
       return [{ ...clip, selected: index === 0 }];
     });
+    return { lanes: wandLanes, clips: randomizedClips };
   }
 
   function handleRandomizeTimeline() {
@@ -3522,7 +3537,8 @@ function App() {
       return;
     }
 
-    const randomizedClips = buildRandomizedArrangementClips();
+    const { lanes: wandLanes, clips: randomizedClips } =
+      buildRandomizedArrangement();
     if (!randomizedClips.length) {
       setStatus(
         "No randomized windows could be generated from the current source timeline.",
@@ -3534,9 +3550,7 @@ function App() {
     setPendingSelection(null);
     setDragPreviewClips(null);
     commitProjectChange("Randomize arrangement", (current) =>
-      patchProjectState(current, {
-        clips: randomizedClips,
-      }),
+      applyWandArrangement(current, wandLanes, randomizedClips),
     );
     setSelectedClipId(randomizedClips[0]?.id);
     setPlayheadQ(0);
@@ -4956,6 +4970,7 @@ function App() {
         clips: project.arrangementClips,
         effects: project.effects,
         mainAudioId: project.mainAudioMediaId,
+        projectDurationFrames: project.projectDurationFrames,
       }),
     );
     setDragPreviewClips(null);
@@ -5114,6 +5129,7 @@ function App() {
             clips: standalone.arrangementClips,
             canvasWidth: standalone.canvasWidth,
             canvasHeight: standalone.canvasHeight,
+            projectDurationFrames: undefined,
           }),
         );
         setDragPreviewClips(null);
