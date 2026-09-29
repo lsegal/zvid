@@ -37,6 +37,17 @@ export function isRulerPanPress(
   return event.button === 1 || isContextMenuPress(event, mac);
 }
 
+/**
+ * Whether a press in the timeline starts a hand-grab pan: the middle button,
+ * or the primary button while Space is held.
+ */
+export function isTimelinePanPress(
+  event: { button: number },
+  spaceHeld: boolean,
+) {
+  return event.button === 1 || (event.button === 0 && spaceHeld);
+}
+
 function axisDelta(dx: number, dy: number, axis: DragScrollAxis) {
   return {
     x: axis === "y" ? 0 : dx,
