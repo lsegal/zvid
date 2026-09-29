@@ -765,7 +765,7 @@
   height: 100%;
   display: grid;
   /* cap the FX row so a tall device chain scrolls instead of squeezing the arrangement */
-  grid-template-rows: minmax(0, 1fr) fit-content(45%);
+  grid-template-rows: minmax(0, 1fr) fit-content(40%);
   gap: 14px;
 }
 
