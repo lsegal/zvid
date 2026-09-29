@@ -2,6 +2,7 @@ import {
   ArrowPathRoundedSquareIcon,
   ArrowUpTrayIcon,
   BackwardIcon,
+  Bars3Icon,
   ChevronDownIcon,
   ForwardIcon,
   MagnifyingGlassMinusIcon,
@@ -236,6 +237,7 @@ import {
   getNextLaneName,
   insertLane,
   moveLane,
+  moveLaneTo,
   renameLane,
 } from "./lanes";
 import {
@@ -426,6 +428,7 @@ import {
   type SnapMode,
 } from "./timeline-grid";
 import { type DragScrollMove, useDragScroll } from "./use-drag-scroll";
+import { useLayerReorder } from "./use-layer-reorder";
 import { useThumbnailCache } from "./use-thumbnail-cache";
 import { ZVID_BUILD } from "./version";
 import { loadWaveformPeaks } from "./waveform-loader";
@@ -6698,6 +6701,31 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     focusLaneLabel(lane.id);
   }
 
+  function moveLayerTo(laneId: string, targetIndex: number) {
+    const lane = lanes.find((item) => item.id === laneId);
+    if (!lane) {
+      return;
+    }
+
+    commitProjectChange(layerHistoryLabels.moveTo(lane.name), (current) =>
+      patchProjectState(current, moveLaneTo(current, laneId, targetIndex)),
+    );
+  }
+
+  // Dragging a layer header's grip, or picking it up from the keyboard.
+  const layerReorder = useLayerReorder({
+    lanes,
+    listRef: arrangementLanesRef,
+    scrollRef: timelineScrollRef,
+    getScrollTop: () =>
+      timelineScrollRef.current
+        ?.querySelector(".ruler-row")
+        ?.getBoundingClientRect().bottom,
+    disabled: isExporting,
+    onMove: moveLayerTo,
+    onSelect: selectLaneFromLabel,
+  });
+
   function commitLayerRename(laneId: string, name: string) {
     setRenamingLaneId(undefined);
     const lane = lanes.find((item) => item.id === laneId);
@@ -9573,7 +9601,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     </div>
                   </section>
 
-                  <div ref={arrangementLanesRef} className="arrangement-lanes">
+                  <div
+                    ref={arrangementLanesRef}
+                    className={`arrangement-lanes ${layerReorder.listClassName}`}
+                  >
                     {showArrangementEmptyState ? (
                       <ArrangementEmptyState
                         disabled={isExporting}
@@ -9589,10 +9620,27 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                         visibleWidth={visibleTimelineWidthPx}
                       />
                     ) : null}
+                    <div
+                      aria-hidden="true"
+                      className="layer-drop-indicator"
+                      ref={layerReorder.indicatorRef}
+                    />
+                    <div
+                      aria-live="polite"
+                      className="layer-reorder-status"
+                      role="status"
+                    >
+                      {layerReorder.announcement}
+                    </div>
                     {lanes.map((lane, laneIndex) => (
                       <section
                         key={lane.id}
-                        className={`track-row ${lane.id === fxLaneId ? "track-row--selected" : ""}`}
+                        className={`track-row ${lane.id === fxLaneId ? "track-row--selected" : ""} ${
+                          lane.id === layerReorder.liftedLaneId
+                            ? "track-row--lifted"
+                            : ""
+                        }`}
+                        data-layer-row-id={lane.id}
                       >
                         {/* biome-ignore lint/a11y/noStaticElementInteractions: clicking anywhere on the label is a mouse shortcut; the layer name button is the keyboard equivalent */}
                         {/* biome-ignore lint/a11y/useKeyWithClickEvents: the layer name button handles the keyboard */}
@@ -9614,6 +9662,17 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                             selectLaneFromLabel(lane.id);
                           }}
                         >
+                          <button
+                            {...layerReorder.gripProps(lane, laneIndex)}
+                            aria-label={`Reorder ${lane.name}`}
+                            className="track-label__grip"
+                            disabled={isExporting}
+                            tabIndex={lane.id === fxLaneId ? 0 : -1}
+                            title="Drag to reorder, or press Space to pick up"
+                            type="button"
+                          >
+                            <Bars3Icon aria-hidden="true" />
+                          </button>
                           <div className="track-label__index">
                             {laneIndex + 1}
                           </div>
