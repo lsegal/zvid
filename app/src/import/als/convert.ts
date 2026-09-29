@@ -1,10 +1,12 @@
 // Converts a parsed Ableton Live set into an `LvpSession`, the session shape
-// the Layers app saved as `.lvp`. Every audio and MIDI track becomes an LVP
-// track, and its arrangement clips are unrolled into one LVP clip per played
-// segment and placed on the video frame grid. Clips on a track with a Layers
-// Record or ZVID Capture device play one of its recordings (see
-// `TAKE_MATCHERS`); other audio clips play their sample, and
-// other MIDI clips are media-less placeholders that video can be linked to.
+// the Layers app saved as `.lvp`. Arrangement clips are unrolled into one LVP
+// clip per played segment and placed on the video frame grid. Clips on a track
+// with a Layers Record or ZVID Capture device play one of its recordings (see
+// `TAKE_MATCHERS`), and audio clips whose sample is a video file play that
+// file as imported video. Both are video clips. A set with video keeps only
+// the tracks that have a video clip, as the Layers app did. In a set without
+// any, every audio and MIDI track is kept: audio clips play their sample, and
+// MIDI clips are media-less placeholders that video can be linked to.
 //
 // Everything is derived from the `.als` alone. `mainTracks` and `selections`
 // are Layers-app data with no counterpart in Live, so they are generated:
@@ -140,8 +142,9 @@ export function convertAls(
   );
 
   const skipped: AlsSkippedClip[] = [];
-  const clips: LvpClip[] = [];
+  const allClips: LvpClip[] = [];
   const videoClips: LvpClip[] = [];
+  const importedVideos = new Map<AlsTrack, Set<string>>();
   for (const track of importedTracks) {
     const trackTakes = track.isVideoTrack ? trackRecordings(track) : [];
     const matchTake = TAKE_MATCHERS[captureDevice(track)];
@@ -150,6 +153,7 @@ export function convertAls(
       const recording = trackTakes.length
         ? matchTake(trackTakes, clip, content, tempoMap)
         : undefined;
+      const importedVideo = !track.isVideoTrack && isVideoSample(clip);
       const skip = (reason: AlsSkipReason, clipId = lvpClipId(track, clip)) =>
         skipped.push({
           trackId: String(track.id),
@@ -167,19 +171,40 @@ export function convertAls(
           clip,
           content,
           recording,
+          importedVideo,
           tempoMap,
           fps,
         )) {
           if (converted.frameCount < 1) {
             skip("shorter-than-frame", converted.id);
           } else {
-            clips.push(converted);
-            if (recording) videoClips.push(converted);
+            allClips.push(converted);
+            if (recording || importedVideo) videoClips.push(converted);
+            if (importedVideo) {
+              const files = importedVideos.get(track) ?? new Set();
+              importedVideos.set(track, files.add(converted.filePath));
+            }
           }
         }
       }
     }
   }
+
+  // In a set with video, the source tracks are the tracks that play it.
+  const videoTrackIds = new Set(videoClips.map((clip) => clip.trackId));
+  const isSourceTrack = (trackId: string) =>
+    !videoClips.length || videoTrackIds.has(trackId);
+  const sourceTracks = importedTracks.filter((track) =>
+    isSourceTrack(String(track.id)),
+  );
+  const clips = allClips.filter((clip) => isSourceTrack(clip.trackId));
+  // Skips on a dropped track without video would only be noise.
+  const reported = new Set(
+    importedTracks
+      .filter((track) => track.isVideoTrack || isSourceTrack(String(track.id)))
+      .map((track) => String(track.id)),
+  );
+  const reportedSkips = skipped.filter((entry) => reported.has(entry.trackId));
 
   const { transport } = doc;
   const projectDuration =
@@ -217,18 +242,23 @@ export function convertAls(
     };
   };
   for (const selection of overlaps.dropped) {
-    skipped.push({ ...describe(selection), reason: "overlapped" });
+    reportedSkips.push({ ...describe(selection), reason: "overlapped" });
   }
 
   const session: LvpSession = {
     mainTracks: layers.mainTracks,
-    tracks: importedTracks.map((track) => ({
+    tracks: sourceTracks.map((track) => ({
       id: String(track.id),
       name: track.name,
-      recordings: trackRecordings(track).map(({ filename, frameStart }) => ({
-        filename,
-        frameStart,
-      })),
+      recordings: [
+        ...trackRecordings(track).map(({ filename, frameStart }) => ({
+          filename,
+          frameStart,
+        })),
+        ...Array.from(importedVideos.get(track) ?? [], (filename) => ({
+          filename,
+        })),
+      ],
     })),
     clips,
     selections: overlaps.selections,
@@ -256,7 +286,7 @@ export function convertAls(
   return {
     session,
     summary: {
-      skipped,
+      skipped: reportedSkips,
       trimmed: overlaps.trimmed.map(describe),
       hasLayersVideo: videoClips.length > 0,
       ...(Object.keys(recordRoots).length > 0 && { recordRoots }),
@@ -404,6 +434,17 @@ export function matchZvidTake<T extends ZvidCaptureTake>(
   return best?.take;
 }
 
+const VIDEO_EXTENSIONS = /\.(?:mp4|mov|m4v)$/i;
+
+function samplePath(clip: AlsClip) {
+  return clip.sample?.path || clip.sample?.relativePath || "";
+}
+
+/** True for an audio clip whose sample is a video file imported into Live. */
+function isVideoSample(clip: AlsClip) {
+  return clip.kind === "audio" && VIDEO_EXTENSIONS.test(samplePath(clip));
+}
+
 function lvpClipId(track: AlsTrack, clip: AlsClip) {
   return `${track.id}-${clip.id}`;
 }
@@ -430,12 +471,16 @@ function lvpClipId(track: AlsTrack, clip: AlsClip) {
  *
  * Without a Layers `recording`, an audio clip plays its own sample and a MIDI
  * clip becomes a placeholder with no media, both with a `captureOffset` of 0.
+ * An `importedVideo` clip is written as the Layers app wrote one, with
+ * `clipStart: 0` and the `captureOffset: -1` sentinel: its warp markers, not
+ * a capture offset, place the video.
  */
 function convertClip(
   track: AlsTrack,
   clip: AlsClip,
   content: ClipContent,
   recording: LayersRecording | undefined,
+  importedVideo: boolean,
   tempoMap: TempoMap,
   fps: number,
 ): LvpClip[] {
@@ -463,21 +508,23 @@ function convertClip(
     ? clip.sample.defaultDuration / clip.sample.defaultSampleRate
     : Number.NaN;
   const baseId = lvpClipId(track, clip);
-  const filePath =
-    recording?.filename ??
-    (isAudio ? clip.sample?.path || clip.sample?.relativePath || "" : "");
+  const filePath = recording?.filename ?? (isAudio ? samplePath(clip) : "");
 
   return unrolled.segments.map((segment, index) => {
     const id = index === 0 ? baseId : `${baseId}~${index}`;
     const startSeconds = tempoMap.beatsToSeconds(segment.arrStartBeat);
     const endSeconds = tempoMap.beatsToSeconds(segment.arrEndBeat);
-    const clipStart = contentToFrames(segment.contentStartBeat);
-    const captureOffset = take
-      ? takeFrame(
-          take,
-          recordedAt ? recordedAt(segment.contentStartBeat) : startSeconds,
-        ) - clipStart
-      : (recording?.frameStart ?? 0);
+    const clipStart = importedVideo
+      ? 0
+      : contentToFrames(segment.contentStartBeat);
+    const captureOffset = importedVideo
+      ? -1
+      : take
+        ? takeFrame(
+            take,
+            recordedAt ? recordedAt(segment.contentStartBeat) : startSeconds,
+          ) - clipStart
+        : (recording?.frameStart ?? 0);
     return {
       id,
       trackId: String(track.id),

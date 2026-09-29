@@ -264,24 +264,19 @@ describe("importAls", () => {
     );
 
     assert.equal(imported.sessionFile, alsPath);
+    // Like the Layers app, it drops 4-Audio, which has no video.
     assert.deepEqual(
       imported.tracks?.map((track) => track.name),
-      [
-        ...golden.tracks.map((track: { name: string }) => track.name),
-        "4-Audio",
-      ],
+      golden.tracks.map((track: { name: string }) => track.name),
     );
     assert.equal(imported.timeline?.fps, golden.timeline.fps);
     assert.equal(
       imported.timeline?.projectDuration,
       golden.timeline.projectDuration,
     );
-    // Layers stored bare filenames for the harnesses to resolve; 4-Audio's
-    // clips keep the absolute sample path Live saved.
+    // Layers stored bare filenames for the harnesses to resolve.
     for (const clip of imported.clips ?? []) {
-      if (clip.trackId !== "17") {
-        assert.equal(clip.filePath, clip.filePath.split(/[/\\]/).at(-1));
-      }
+      assert.equal(clip.filePath, clip.filePath.split(/[/\\]/).at(-1));
     }
     assert.deepEqual(imported.importReport, {
       skippedTracks: ["Audio 11 on 3-Audio (shorter than a frame)"],
@@ -289,26 +284,20 @@ describe("importAls", () => {
       layersRecordTracks: ["12", "8", "16"],
     });
 
-    // Every recording but one sits in the project's sibling Recorded folder,
-    // and 4-Audio's sample in the project's own Samples/Recorded folder.
+    // Every recording but one sits in the project's sibling Recorded folder.
     const missing = "video-12-13-23-20-19-23-2.mp4";
-    const sample = "4-Audio 0002 [2023-12-13 122224].wav";
-    const samplePath = `/sets/dogfood3 Project/Samples/Recorded/${sample}`;
     const { session, summary } = resolveAlsMedia(
       imported,
       createAlsMediaLocator(
         alsMediaSearchDirs(alsPath, "/docs"),
         (path) =>
-          (path.startsWith("/sets/Recorded/video-") &&
-            !path.endsWith(missing)) ||
-          path === samplePath,
+          path.startsWith("/sets/Recorded/video-") && !path.endsWith(missing),
       ),
     );
     assert.deepEqual(summary, {
-      tracks: 4,
-      // dogfood3.lvp's fourth clip, 16-3, is shorter than a frame, and
-      // 4-Audio adds two.
-      clips: golden.clips.length + 1,
+      tracks: 3,
+      // dogfood3.lvp's fourth clip, 16-3, is shorter than a frame.
+      clips: golden.clips.length - 1,
       skippedTracks: imported.importReport?.skippedTracks,
       missingMedia: [missing],
     });
@@ -318,8 +307,6 @@ describe("importAls", () => {
         "/sets/Recorded/video-12-13-23-21-6-51-0.mp4",
         "/sets/Recorded/video-12-13-23-20-15-14-1.mp4",
         missing,
-        samplePath,
-        samplePath,
       ],
     );
     assert.equal(imported.audioFilename, undefined);
@@ -407,14 +394,11 @@ describe("alsMainAudioPath", () => {
       alsSavePath(alsPath),
       "C:\\Music\\dogfood3 Project\\dogfood3.lvp",
     );
-    // 4-Audio's sample was recorded on another machine and is not here.
-    const sample =
-      "C:/Users/Loren/Documents/Layers/dogfood3 Project/Samples/Recorded/4-Audio 0002 [2023-12-13 122224].wav";
     assert.deepEqual(summary, {
-      tracks: 4,
-      clips: 5,
+      tracks: 3,
+      clips: 3,
       skippedTracks: ["Audio 11 on 3-Audio (shorter than a frame)"],
-      missingMedia: ["4-Audio 0002 [2023-12-13 122224].wav"],
+      missingMedia: [],
     });
     assert.deepEqual(
       session.clips?.map((clip) => clip.filePath),
@@ -422,8 +406,6 @@ describe("alsMainAudioPath", () => {
         "C:\\Users\\me\\Documents\\Layers\\Recorded\\video-12-13-23-21-6-51-0.mp4",
         "C:\\Music\\Recorded\\video-12-13-23-20-15-14-1.mp4",
         "C:\\Music\\Recorded\\video-12-13-23-20-19-23-2.mp4",
-        sample,
-        sample,
       ],
     );
     // The set's sibling Recorded folder wins over Documents.
