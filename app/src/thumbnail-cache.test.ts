@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { createClipWarp, warpSourceTime } from "./clip-warp.ts";
 import {
   createThumbnailCache,
   getClipThumbnailTimeSeconds,
@@ -324,5 +325,59 @@ describe("createThumbnailCache", () => {
 
     cache.setWanted([request("clip:a", 1)]);
     assert.equal(decodes.length, 3);
+  });
+});
+
+describe("getClipThumbnailTimeSeconds with a warp", () => {
+  const bpm = 120;
+  // Two beats per song second. The source plays at 0.5× until beat 4, source
+  // second 1, then at 2×, so linear time t maps to 0.5t below 2 s and to
+  // 2t - 3 from there.
+  const warp = createClipWarp(
+    [
+      { beatTime: 0, secTime: 0 },
+      { beatTime: 4, secTime: 1 },
+      { beatTime: 8, secTime: 5 },
+    ],
+    0,
+    0,
+    bpm,
+  );
+  assert.ok(warp);
+  const clip = {
+    trimStartSeconds: 3,
+    sourceWindowStartSeconds: 0,
+    sourceWindowEndSeconds: 10,
+    warp,
+  };
+
+  it("maps the in-point through the warp markers", () => {
+    assert.equal(getClipThumbnailTimeSeconds(clip, 20, bpm), 3);
+    assert.equal(
+      getClipThumbnailTimeSeconds({ ...clip, trimStartSeconds: 1 }, 20, bpm),
+      0.5,
+    );
+    assert.equal(
+      getClipThumbnailTimeSeconds({ ...clip, trimStartSeconds: 4 }, 20, bpm),
+      warpSourceTime(warp, 4, bpm).seconds,
+    );
+  });
+
+  it("keeps the window in linear time and the media bound in warped time", () => {
+    assert.equal(
+      getClipThumbnailTimeSeconds({ ...clip, trimStartSeconds: 12 }, 20, bpm),
+      17,
+    );
+    assert.equal(
+      getClipThumbnailTimeSeconds({ ...clip, trimStartSeconds: 5 }, 6, bpm),
+      6,
+    );
+  });
+
+  it("stays linear without a tempo", () => {
+    assert.equal(
+      getClipThumbnailTimeSeconds({ ...clip, trimStartSeconds: 1 }, 20),
+      1,
+    );
   });
 });
