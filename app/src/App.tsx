@@ -148,7 +148,7 @@ import { computeActiveClips } from "./composition-active-clips.ts";
 import { isContextMenuKey, isContextMenuPress } from "./context-menu.ts";
 import { buildEditMenuEntries } from "./edit-menu.ts";
 import {
-  getAddableEffectDefinitions,
+  addableEffectsFor,
   getDefaultLaneId,
   resolveSelectedLaneId,
   stepSelectedLaneId,
@@ -5297,7 +5297,7 @@ function App() {
       laneId: lane.id,
       fxEnabled,
       effectCount: laneStatusById.get(lane.id)?.effectCount ?? 0,
-      effects: getAddableEffectDefinitions("layer"),
+      effects: addableEffectsFor("layer"),
       disabled: isExporting,
       actions: {
         rename: () => setRenamingLaneId(lane.id),

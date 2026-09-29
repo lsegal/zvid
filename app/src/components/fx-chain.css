@@ -307,6 +307,18 @@ body.fx-chain-dragging * {
   color: var(--ink);
 }
 
+/* Flags a device on a stack its effect isn't designed for. */
+.fx-device-panel__unsupported {
+  flex: none;
+  padding: 1px 6px;
+  border: 1px solid rgba(246, 183, 60, 0.5);
+  border-radius: 999px;
+  background: rgba(246, 183, 60, 0.1);
+  color: #f6b73c;
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
 .fx-device-panel__body {
   display: grid;
   align-content: start;

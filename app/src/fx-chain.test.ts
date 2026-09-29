@@ -1,11 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
-  ADDABLE_EFFECT_DEFINITIONS,
+  addableEffectsFor,
   describeDeviceMove,
   dropSlotToStackIndex,
   FX_COLLAPSED_STORAGE_KEY,
-  getAddableEffectDefinitions,
   getAutoScrollDelta,
   getDefaultLaneId,
   getDropSlot,
@@ -89,30 +88,48 @@ describe("groupChainDevices", () => {
   });
 });
 
-describe("ADDABLE_EFFECT_DEFINITIONS", () => {
-  it("leaves Layout out, since every layer already has one", () => {
-    const names = ADDABLE_EFFECT_DEFINITIONS.map(
-      (definition) => definition.effectName,
+describe("addableEffectsFor", () => {
+  const names = (group: "layer" | "global") =>
+    addableEffectsFor(group).map((definition) => definition.effectName);
+
+  it("offers only effects scoped to the Global stack in the Global menu", () => {
+    assert.ok(
+      addableEffectsFor("global").every((definition) =>
+        definition.scopes.includes("global"),
+      ),
     );
-    assert.ok(names.includes("Colorize"));
-    assert.ok(!names.includes("Layout"));
+    assert.deepEqual(names("global"), [
+      "ZoomAndPan",
+      "Colorize",
+      "Pixelate",
+      "NegativeSplit",
+      "AnalogGlitch",
+      "Order",
+    ]);
   });
 
-  it("offers Transform on layer stacks only", () => {
-    const names = (group: "layer" | "global") =>
-      getAddableEffectDefinitions(group).map(
-        (definition) => definition.effectName,
-      );
-    assert.ok(names("layer").includes("Transform"));
-    assert.ok(!names("global").includes("Transform"));
-    assert.ok(names("global").includes("Colorize"));
+  it("offers only layer-scoped effects in the layer menu", () => {
+    assert.ok(
+      addableEffectsFor("layer").every((definition) =>
+        definition.scopes.includes("layer"),
+      ),
+    );
+    assert.deepEqual(names("layer"), [
+      "ZoomAndPan",
+      "Colorize",
+      "Pixelate",
+      "NegativeSplit",
+      "AnalogGlitch",
+      "Transform",
+    ]);
+  });
+
+  it("never offers Layout, which every layer already has", () => {
+    assert.ok(!names("layer").includes("Layout"));
+    assert.ok(!names("global").includes("Layout"));
   });
 
   it("offers Order on the Global stack only", () => {
-    const names = (group: "layer" | "global") =>
-      getAddableEffectDefinitions(group).map(
-        (definition) => definition.effectName,
-      );
     assert.ok(names("global").includes("Order"));
     assert.ok(!names("layer").includes("Order"));
   });
