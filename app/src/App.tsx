@@ -154,7 +154,12 @@ import { resolveCompositionOrder } from "./composition-order.ts";
 import { isContextMenuKey, isContextMenuPress } from "./context-menu.ts";
 import { isRulerPanPress, isTimelinePanPress } from "./drag-scroll.ts";
 import { buildEditMenuEntries } from "./edit-menu.ts";
-import { addFillClip, getDefaultFillColor, isFillClip } from "./fill-clip.ts";
+import {
+  addFillClip,
+  createFillClip,
+  getDefaultFillColor,
+  isFillClip,
+} from "./fill-clip.ts";
 import {
   formatCssColor,
   formatFillPaintCss,
@@ -315,6 +320,8 @@ import {
 import {
   chooseSessionSaveTarget,
   projectToLvpSession,
+  readSelectionSlip,
+  readSessionFills,
   SESSION_FILE_EXTENSION,
 } from "./session-save.ts";
 import {
@@ -1656,6 +1663,7 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
     id: track.id,
     name: track.name,
     colorIndex: track.colorIndex ?? -1,
+    ...(track.fxEnabled === false ? { fxEnabled: false } : {}),
   }));
   const sourceTracks = (session.tracks ?? []).map<SourceTrack>(
     (track, index) => ({
@@ -1710,19 +1718,30 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
       Math.max(1, selection.frameEnd - selection.frameStart) / fps,
       bpm,
     );
-    const sourceSpan = chooseSourceSpanForWindow(
-      sourceSpans,
-      selection.trackId,
-      selectionStartQ,
-      selectionDurationQ,
-      bpm,
-    );
+    // A slipped selection names its span and offset; any other plays the
+    // span it falls in, at that span's offset.
+    const slip = readSelectionSlip(selection);
+    const slipSpan = slip
+      ? sourceSpans.find((span) => span.id === slip.sourceSpanId)
+      : undefined;
+    const sourceSpan =
+      slipSpan ??
+      chooseSourceSpanForWindow(
+        sourceSpans,
+        selection.trackId,
+        selectionStartQ,
+        selectionDurationQ,
+        bpm,
+      );
     if (!sourceSpan) {
       continue;
     }
 
     const sourceOffsetSeconds =
-      sourceSpan.trimStartSeconds - quartersToSeconds(sourceSpan.startQ, bpm);
+      slip && slipSpan
+        ? slip.sourceOffsetSeconds
+        : sourceSpan.trimStartSeconds -
+          quartersToSeconds(sourceSpan.startQ, bpm);
     const startSeconds = selection.frameStart / fps;
     const durationSeconds =
       Math.max(1, selection.frameEnd - selection.frameStart) / fps;
@@ -1749,6 +1768,35 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
       tint: sourceSpan.tint,
       accent: sourceSpan.accent,
     });
+  }
+
+  const unresolvedPaths = arrangementClips
+    .filter((clip) => !clip.mediaId)
+    .map((clip) => basename(clip.mediaPath));
+
+  for (const fill of readSessionFills(session, bpm, fps)) {
+    const lane = lanes.find((candidate) => candidate.id === fill.laneId);
+    if (!lane) {
+      continue;
+    }
+
+    if (fill.selected && selectedClipId === undefined) {
+      selectedClipId = fill.id;
+    }
+    arrangementClips.push(
+      createFillClip({
+        id: fill.id,
+        laneId: fill.laneId,
+        startQ: fill.startQ,
+        durationQ: fill.durationQ,
+        bpm,
+        tint: FILL_CLIP_TINT,
+        accent:
+          lane.colorIndex >= 0
+            ? getSwatch(lane.colorIndex).accent
+            : FILL_CLIP_ACCENT,
+      }),
+    );
   }
 
   return {
@@ -1780,9 +1828,7 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
     mainAudioMediaId: session.audioFilename
       ? pickMediaByPath(mediaItems, session.audioFilename)?.id
       : undefined,
-    unresolvedPaths: arrangementClips
-      .filter((clip) => !clip.mediaId)
-      .map((clip) => basename(clip.mediaPath)),
+    unresolvedPaths,
     overlapNote: formatOverlapNote(overlaps),
   };
 }
@@ -4448,7 +4494,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       setStatus(`Inserted text on ${lane.name}.`);
       return id;
     },
-    [bpm, lanes],
+    [bpm, dispatchProject, lanes],
   );
 
   // The whole source clip as an arrangement clip at its song position.
@@ -7504,7 +7550,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
 
   async function handleSaveSession() {
     const harness = getHarness();
-    const { session, skippedFillClips, skippedTextClips } = projectToLvpSession(
+    const { session, skippedTextClips } = projectToLvpSession(
       projectHistory.present,
       { playheadQ: playheadQRef.current, selectedClipId },
     );
@@ -7563,13 +7609,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     }
     const savedName =
       saveTarget.kind === "native-path" ? saveTarget.path : saveTarget.filename;
-    const fillNote = skippedFillClips
-      ? ` ${pluralize(skippedFillClips, "fill clip")} ${skippedFillClips === 1 ? "was" : "were"} not saved: .lvp files cannot store fill clips.`
-      : "";
     const textNote = skippedTextClips
       ? ` ${pluralize(skippedTextClips, "text clip")} ${skippedTextClips === 1 ? "was" : "were"} not saved: .lvp files cannot store text clips.`
       : "";
-    setStatus(`Saved ${savedName}.${fillNote}${textNote}`);
+    setStatus(`Saved ${savedName}.${textNote}`);
   }
 
   async function handleExport() {
