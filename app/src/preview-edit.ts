@@ -22,10 +22,8 @@ import {
   DEFAULT_COMPOSITION_ORDER,
 } from "./composition-order.ts";
 import {
-  applyMatrix,
   type Box,
   type BoxCorners,
-  canvasBoxToFrame,
   canvasToLayer,
   frameBoxInCanvas,
   IDENTITY_MATRIX,
@@ -181,12 +179,7 @@ export function resolvePreviewEditFrame(
     transform,
     parent,
     canvas: space.canvas,
-    corners: layerBoxInCanvas(
-      layer.placement,
-      transform,
-      space.canvas,
-      parent,
-    ),
+    corners: layerBoxInCanvas(layer.placement, transform, space.canvas, parent),
   };
 }
 
