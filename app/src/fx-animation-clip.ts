@@ -167,8 +167,7 @@ export function resolveClipAnimatedParameters(
   frameContext: AnimationFrameContext,
 ) {
   const clip = effect.animation?.clip;
-  const frames =
-    clip && getClipTimingFrames(effect.effectName, clip.timing);
+  const frames = clip && getClipTimingFrames(effect.effectName, clip.timing);
   if (!clip || frames === undefined) {
     return effect.parameters;
   }
