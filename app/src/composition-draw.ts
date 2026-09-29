@@ -1,4 +1,9 @@
 import {
+  type CompositionOrder,
+  DEFAULT_COMPOSITION_ORDER,
+  visibleLayerCount,
+} from "./composition-order.ts";
+import {
   type LayerPlacement,
   type LayerVisual,
   orderStackedLayers,
@@ -196,7 +201,7 @@ export function disposeWebGlResources(resources: WebGlResources) {
 // render-target setup rebind the program, array buffer, attribute pointer,
 // blending, viewport and texture unit, so this runs before every draw
 // instead of relying on state left over from initialisation. Scissoring is
-// left off; each layer draw scissors to its own band.
+// left off; each layer draw scissors to its own slot.
 function bindCompositeState(
   resources: WebGlResources,
   framebuffer: WebGLFramebuffer | null,
@@ -260,9 +265,9 @@ function colorUniforms(visual: CompositeVisual) {
   };
 }
 
-// Draws the layer's source into a band-sized target exactly as it would
-// appear in its band (cover, Layout anchor, scale, offset and rotation), so
-// the effect chain works on what the band shows rather than on the whole
+// Draws the layer's source into a slot-sized target exactly as it would
+// appear in its slot (cover, Layout anchor, scale, offset and rotation), so
+// the effect chain works on what the slot shows rather than on the whole
 // source. Rows are written top row first to match uploaded video textures,
 // which is the orientation the effect passes and the composite shader expect.
 function renderLayerFrame(
@@ -307,6 +312,7 @@ export function drawComposition(
   mediaRefs: Map<string, HTMLMediaElement>,
   groupChain: EffectChainStep[],
   frameContext: FrameContext,
+  order: CompositionOrder = DEFAULT_COMPOSITION_ORDER,
 ) {
   const { gl, effectChain } = resources;
   const { width, height } = surface;
@@ -320,12 +326,18 @@ export function drawComposition(
   gl.clearColor(0.07, 0.08, 0.11, 1);
   gl.clear(gl.COLOR_BUFFER_BIT);
 
-  const stackedClips = orderStackedLayers(
+  // A Grid has one cell per layer, so layers past the last cell are not
+  // drawn.
+  const orderedClips = orderStackedLayers(
     activeClips.filter(
       (entry) =>
         entry.isInBounds &&
         mediaRefs.get(entry.sourceKey) instanceof HTMLVideoElement,
     ),
+  );
+  const stackedClips = orderedClips.slice(
+    0,
+    visibleLayerCount(orderedClips.length, order),
   );
 
   for (const [index, entry] of stackedClips.entries()) {
@@ -368,6 +380,7 @@ export function drawComposition(
       sourceWidth: mediaElement.videoWidth || entry.media.width || width,
       sourceHeight: mediaElement.videoHeight || entry.media.height || height,
       visual: entry.visual,
+      order,
     });
     const { frame, halfExtents, translate, scissor } = placement;
     let uniforms: CompositeUniforms = {
@@ -379,8 +392,8 @@ export function drawComposition(
       ...colorUniforms(entry.visual),
     };
 
-    // A Transform moves the band's content, so the layer is framed into its
-    // band first and that frame is drawn transformed.
+    // A Transform moves the slot's content, so the layer is framed into its
+    // slot first and that frame is drawn transformed.
     const transform = isIdentityTransform(entry.visual.transform)
       ? undefined
       : entry.visual.transform;
@@ -406,7 +419,7 @@ export function drawComposition(
             bottomUp: false,
           }) ?? framed);
       // The framed result already holds the layer's placement, so it fills
-      // its band exactly, or the box its Transform moves the band to.
+      // its slot exactly, or the box its Transform moves the slot to.
       uniforms = {
         ...(transform
           ? transformedQuadAxes(frame, transform, surface)
@@ -420,7 +433,7 @@ export function drawComposition(
     }
 
     bindCompositeState(resources, compositeFramebuffer, width, height);
-    // A transformed layer can leave its band; only the canvas clips it.
+    // A transformed layer can leave its slot; only the canvas clips it.
     if (!transform) {
       gl.enable(gl.SCISSOR_TEST);
       gl.scissor(scissor.x, scissor.y, scissor.width, scissor.height);
