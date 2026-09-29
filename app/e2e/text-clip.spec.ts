@@ -1,7 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 
 // The selection menu's Insert Text Clip turns the timeline selection into a
-// text clip, styled from the FX panel by its layer's Text effect.
+// text clip, styled from the FX panel by its own Text effect.
 
 function lane(page: Page, id: string) {
   return page.locator(`[data-timeline-lane-id="${id}"]`);

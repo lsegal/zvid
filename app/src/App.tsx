@@ -289,11 +289,11 @@ import {
 } from "./preview-resize.ts";
 import { rotateHistoryLabel } from "./preview-rotate.ts";
 import {
-  setLayerText,
-  stepLayerFontSize,
+  setClipText,
+  stepClipFontSize,
   TEXT_EDIT_HISTORY_LABEL,
   type TextEditorKeyAction,
-  toggleLayerTextStyle,
+  toggleClipTextStyle,
 } from "./preview-text-edit.ts";
 import {
   createProjectHistoryState,
@@ -303,6 +303,7 @@ import {
   projectHistoryReducer,
 } from "./project-history";
 import {
+  migrateClipContentEffects,
   migrateDefaultOrder,
   migrateLegacyMainAudio,
   stripClipSelectionFlags,
@@ -479,9 +480,9 @@ type SourceSpan = {
 
 type ArrangementClip = {
   id: string;
-  // "fill" for a media-less fill clip painted by its layer's Color effect,
-  // or "text" for a text clip styled by its Text effect; media clips leave
-  // it unset.
+  // "fill" for a media-less fill clip painted by its own (or else its
+  // layer's) Color effect, or "text" for a text clip styled by its own Text
+  // effect; media clips leave it unset.
   kind?: "fill" | "text";
   sourceSpanId: string;
   sourceTrackId: string;
@@ -630,6 +631,10 @@ type ProjectState = {
   // Set on every state since sessions got a default Order effect. A restored
   // workspace saved without it is older and gets that Order added.
   orderDefaulted?: boolean;
+  // Set on every state since text and fill clips carried their own Text and
+  // Color. A restored workspace saved without it is older and has its
+  // layers' Text and Color moved onto those clips.
+  clipContentEffects?: boolean;
 };
 
 type LocalMediaOverride = {
@@ -772,6 +777,7 @@ const INITIAL_PROJECT_STATE: ProjectState = {
   ),
   mainAudioId: undefined,
   orderDefaulted: true,
+  clipContentEffects: true,
 };
 // Card colours of fill clips on layers without an accent.
 const FILL_CLIP_TINT = "#2a2d38";
@@ -1875,18 +1881,23 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
     arrangementClips,
     selectedClipId,
     // Every layer gets its own Layout, taking over any global one, and an
-    // older session gets its default Order, as part of the load so neither
-    // is a separate undo step. Stacks of clips that could not be loaded are
-    // dropped with them.
-    effects: pruneClipEffects(
-      migrateDefaultOrder(
-        ensureLayerLayouts(
-          mapEffects(session.effects),
-          (lanes.length ? lanes : DEFAULT_LANES).map((lane) => lane.id),
+    // older session gets its default Order and its layers' Text and Color
+    // moved onto their text and fill clips, as part of the load so none of
+    // it is a separate undo step. Stacks of clips that could not be loaded
+    // are dropped with them.
+    effects: migrateClipContentEffects(
+      pruneClipEffects(
+        migrateDefaultOrder(
+          ensureLayerLayouts(
+            mapEffects(session.effects),
+            (lanes.length ? lanes : DEFAULT_LANES).map((lane) => lane.id),
+          ),
+          session.orderDefaulted,
         ),
-        session.orderDefaulted,
+        arrangementClips,
       ),
       arrangementClips,
+      session.clipContentEffects,
     ),
     displaySeconds: session.timeline?.displaySeconds ?? false,
     snapToBeat: session.timeline?.snapToBeat ?? true,
@@ -2097,8 +2108,13 @@ function normalizeRestoredProjectState(value: unknown): ProjectState {
     }
   }
   // Read from the save itself: the initial state always has the flag.
-  state.effects = migrateDefaultOrder(state.effects, saved.orderDefaulted);
+  state.effects = migrateClipContentEffects(
+    migrateDefaultOrder(state.effects, saved.orderDefaulted),
+    state.clips,
+    saved.clipContentEffects,
+  );
   state.orderDefaulted = true;
+  state.clipContentEffects = true;
   for (const field of PROJECT_POSITIVE_NUMBER_FIELDS) {
     const number = state[field];
     if (typeof number !== "number" || !Number.isFinite(number) || number <= 0) {
@@ -3125,7 +3141,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     [describePreviewEditTarget, editEffects],
   );
   // The text clip being typed on in the preview. Every keystroke is a
-  // transient edit of the layer's Text effect, so the FX panel and
+  // transient edit of the clip's Text effect, so the FX panel and
   // collaborators follow along, and leaving the editor commits the whole
   // edit as one undo step.
   const [textEdit, setTextEdit] = useState<{
@@ -3191,7 +3207,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         editEffects(
           TEXT_EDIT_HISTORY_LABEL,
           (current) =>
-            setLayerText(current, edit.laneId, text, edit.newEffectId),
+            setClipText(current, edit.clipId, text, edit.newEffectId),
           "transient",
         );
       }
@@ -3210,20 +3226,20 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         return;
       }
 
-      // Style shortcuts restyle the whole layer, within the same undo step.
+      // Style shortcuts restyle the whole clip, within the same undo step.
       editEffects(
         TEXT_EDIT_HISTORY_LABEL,
         (current) =>
           action.kind === "style"
-            ? toggleLayerTextStyle(
+            ? toggleClipTextStyle(
                 current,
-                edit.laneId,
+                edit.clipId,
                 action.flag,
                 edit.newEffectId,
               )
-            : stepLayerFontSize(
+            : stepClipFontSize(
                 current,
-                edit.laneId,
+                edit.clipId,
                 action.direction,
                 edit.newEffectId,
               ),
@@ -3233,7 +3249,14 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     [editEffects, finishTextEdit],
   );
   const editedTextStyle = useMemo(
-    () => (textEdit ? resolveTextStyle(effects, textEdit.laneId) : undefined),
+    () =>
+      textEdit
+        ? resolveTextStyle(
+            effects,
+            textEdit.laneId,
+            clipEffectTrackId(textEdit.clipId),
+          )
+        : undefined,
     [effects, textEdit],
   );
   const previewTextEdit = useMemo<PreviewTextEdit | undefined>(
@@ -4681,8 +4704,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   );
 
   // Inserts a fill clip over `durationQ` quarters from `startQ` on layer
-  // `laneId` and selects it. A layer without a Color effect gets one, in
-  // its accent colour or neutral grey. Returns the new clip's id.
+  // `laneId` and selects it. The clip gets its own Color effect, in the
+  // layer's accent colour or neutral grey. Returns the new clip's id.
   const insertFillClip = useCallback(
     (laneId: string, startQ: number, durationQ: number) => {
       const lane = lanes.find((candidate) => candidate.id === laneId);
@@ -4723,8 +4746,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   );
 
   // Inserts a text clip over `durationQ` quarters from `startQ` on layer
-  // `laneId` and selects it. A layer without a Text effect gets one with
-  // its defaults. Returns the new clip's id.
+  // `laneId` and selects it. The clip gets its own Text effect with its
+  // defaults. Returns the new clip's id.
   const insertTextClip = useCallback(
     (laneId: string, startQ: number, durationQ: number) => {
       const lane = lanes.find((candidate) => candidate.id === laneId);

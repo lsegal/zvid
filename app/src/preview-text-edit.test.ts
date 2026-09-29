@@ -6,16 +6,16 @@ import {
 } from "./composition-transform.ts";
 import type { SessionEffect } from "./fx-stack.ts";
 import {
-  findLayerTextEffect,
+  findClipTextEffect,
   formatCssMatrix,
-  readLayerText,
+  readClipText,
   resolveTextEditorKey,
   resolveTextEditorPlacement,
   resolveTextEditorTypography,
-  setLayerText,
-  stepLayerFontSize,
+  setClipText,
+  stepClipFontSize,
   textScaleForCanvas,
-  toggleLayerTextStyle,
+  toggleClipTextStyle,
 } from "./preview-text-edit.ts";
 import { layoutText } from "./text-layout.ts";
 import { readTextStyle } from "./text-style.ts";
@@ -298,69 +298,69 @@ describe("resolveTextEditorKey", () => {
   });
 });
 
-describe("layer text edits", () => {
+describe("clip text edits", () => {
   const effects = [
-    effect("text-old", "1", "Text", [textParameter("Text", "Old")], false),
-    effect("text", "1", "Text", [
+    effect("text-old", "clip:a", "Text", [textParameter("Text", "Old")], false),
+    effect("text", "clip:a", "Text", [
       textParameter("Text", "Hello"),
       textParameter("FontStyle", "Italic"),
       textParameter("FontSize", "96", 96),
     ]),
-    effect("text-2", "2", "Text", [textParameter("Text", "Other")]),
+    effect("text-2", "clip:b", "Text", [textParameter("Text", "Other")]),
+    // The layer's Text is not the clip's.
+    effect("text-layer", "1", "Text", [textParameter("Text", "Layer")]),
   ];
 
   it("edits the Text effect the compositor draws with", () => {
-    assert.equal(findLayerTextEffect(effects, "1")?.id, "text");
-    assert.equal(readLayerText(effects, "1"), "Hello");
+    assert.equal(findClipTextEffect(effects, "a")?.id, "text");
+    assert.equal(readClipText(effects, "a"), "Hello");
 
-    const next = setLayerText(effects, "1", "Hello\nworld", "new");
-    assert.equal(readLayerText(next, "1"), "Hello\nworld");
-    assert.equal(readLayerText(next, "2"), "Other");
+    const next = setClipText(effects, "a", "Hello\nworld", "new");
+    assert.equal(readClipText(next, "a"), "Hello\nworld");
+    assert.equal(readClipText(next, "b"), "Other");
     assert.equal(next.length, effects.length);
   });
 
   it("keeps an empty text", () => {
-    const next = setLayerText(effects, "1", "", "new");
-    assert.equal(readLayerText(next, "1"), "");
+    const next = setClipText(effects, "a", "", "new");
+    assert.equal(readClipText(next, "a"), "");
   });
 
-  it("adds a Text effect to a layer without one", () => {
-    const next = setLayerText([], "3", "New", "added");
+  it("adds a Text effect to a clip without one", () => {
+    const next = setClipText([], "c", "New", "added");
     assert.equal(next.length, 1);
     assert.equal(next[0].id, "added");
-    assert.equal(readLayerText(next, "3"), "New");
+    assert.equal(next[0].trackId, "clip:c");
+    assert.equal(readClipText(next, "c"), "New");
   });
 
   it("turns a bypassed Text effect back on", () => {
     const bypassed = [
-      effect("text", "1", "Text", [textParameter("Text", "Hi")], false),
+      effect("text", "clip:a", "Text", [textParameter("Text", "Hi")], false),
     ];
-    const next = setLayerText(bypassed, "1", "Hey", "new");
+    const next = setClipText(bypassed, "a", "Hey", "new");
     assert.equal(next[0].enabled, true);
-    assert.equal(readLayerText(next, "1"), "Hey");
+    assert.equal(readClipText(next, "a"), "Hey");
   });
 
-  it("toggles style flags on the whole layer", () => {
-    const bold = toggleLayerTextStyle(effects, "1", "Bold", "new");
-    const style = readTextStyle(findLayerTextEffect(bold, "1"));
+  it("toggles style flags on the whole clip", () => {
+    const bold = toggleClipTextStyle(effects, "a", "Bold", "new");
+    const style = readTextStyle(findClipTextEffect(bold, "a"));
     assert.equal(style.weight, 700);
     assert.equal(style.italic, true);
 
-    const upright = toggleLayerTextStyle(bold, "1", "Italic", "new");
-    assert.equal(
-      readTextStyle(findLayerTextEffect(upright, "1")).italic,
-      false,
-    );
+    const upright = toggleClipTextStyle(bold, "a", "Italic", "new");
+    assert.equal(readTextStyle(findClipTextEffect(upright, "a")).italic, false);
   });
 
   it("steps the font size within its range", () => {
-    const bigger = stepLayerFontSize(effects, "1", 1, "new");
-    assert.equal(readTextStyle(findLayerTextEffect(bigger, "1")).fontSize, 98);
+    const bigger = stepClipFontSize(effects, "a", 1, "new");
+    assert.equal(readTextStyle(findClipTextEffect(bigger, "a")).fontSize, 98);
 
     const tiny = [
-      effect("text", "1", "Text", [textParameter("FontSize", "8", 8)]),
+      effect("text", "clip:a", "Text", [textParameter("FontSize", "8", 8)]),
     ];
-    const smaller = stepLayerFontSize(tiny, "1", -1, "new");
-    assert.equal(readTextStyle(findLayerTextEffect(smaller, "1")).fontSize, 8);
+    const smaller = stepClipFontSize(tiny, "a", -1, "new");
+    assert.equal(readTextStyle(findClipTextEffect(smaller, "a")).fontSize, 8);
   });
 });

@@ -1,8 +1,9 @@
 // The paint a fill clip draws: a solid colour or a linear/radial gradient,
-// read from the Color effect on the clip's layer. Colours and gradients are
-// stored as the CSS strings the colour picker produces, such as
-// `rgba(255,0,0,1)` or `linear-gradient(90deg, rgba(0,0,0,1) 0%, ...)`, so
-// the timeline can show them directly and the compositor parses them here.
+// read from the Color effect on the clip or its layer. Colours and
+// gradients are stored as the CSS strings the colour picker produces, such
+// as `rgba(255,0,0,1)` or `linear-gradient(90deg, rgba(0,0,0,1) 0%, ...)`,
+// so the timeline can show them directly and the compositor parses them
+// here.
 
 export type Rgba = { r: number; g: number; b: number; a: number };
 

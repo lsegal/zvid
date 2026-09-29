@@ -1,5 +1,5 @@
 // The typography a text clip draws with, read from the Text effect on the
-// clip's layer. Sizes, padding, stroke and shadow are in pixels at 1080p and
+// clip's own stack. Sizes, padding, stroke and shadow are in pixels at 1080p and
 // scale with the output's short side, so preview and export match.
 
 import {

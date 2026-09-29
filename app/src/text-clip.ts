@@ -1,10 +1,14 @@
 // Text clips are arrangement clips with no media: each draws text in its
-// layer's box, styled by the Text effect on that layer. Like fill clips they
-// carry the same timing fields as media clips, so moving, trimming, copying,
-// splitting and undo treat them like any other clip.
+// layer's box, styled by the Text effect on the clip's own stack. Like fill
+// clips they carry the same timing fields as media clips, so moving,
+// trimming, copying, splitting and undo treat them like any other clip.
 
-import { addEffect, type SessionEffect } from "./fx-stack.ts";
-import { isTextEffectName, TEXT_EFFECT_NAME } from "./text-style.ts";
+import {
+  addEffect,
+  clipEffectTrackId,
+  type SessionEffect,
+} from "./fx-stack.ts";
+import { TEXT_EFFECT_NAME } from "./text-style.ts";
 
 export const TEXT_CLIP_KIND = "text";
 export const TEXT_CLIP_LABEL = "Text";
@@ -80,28 +84,22 @@ export type TextProject<Clip> = {
 
 /**
  * Adds a text clip spanning `durationQ` quarters from `startQ` on layer
- * `laneId`. The layer gets a Text effect with its defaults ("Text" in the
- * default font, white and centred) when it has none yet, so the new clip
- * shows straight away.
+ * `laneId`, with a Text effect with its defaults ("Text" in the default
+ * font, white and centred) on the clip's own stack, so the new clip shows
+ * straight away.
  */
 export function addTextClip<Clip>(
   project: TextProject<Clip>,
   options: TextClipOptions & { effectId: string },
 ): TextProject<Clip | TextClip> & { clip: TextClip } {
   const clip = createTextClip(options);
-  const hasTextEffect = project.effects.some(
-    (effect) =>
-      effect.trackId === options.laneId && isTextEffectName(effect.effectName),
+  const effects = addEffect(
+    project.effects,
+    clipEffectTrackId(clip.id),
+    TEXT_EFFECT_NAME,
+    undefined,
+    options.effectId,
   );
-  const effects = hasTextEffect
-    ? project.effects
-    : addEffect(
-        project.effects,
-        options.laneId,
-        TEXT_EFFECT_NAME,
-        undefined,
-        options.effectId,
-      );
 
   return { clips: [...project.clips, clip], effects, clip };
 }

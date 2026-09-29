@@ -265,7 +265,8 @@ export function setLaneFxEnabled<T extends FxLayer>(
 
 // The effects the renderer applies: a layer whose FX are off contributes
 // nothing but its Layout anchoring, the Color its fill clips are painted
-// with and the Text its text clips show. Returns `effects` itself when no
+// with and any Text a session from before clip Text still has there. Clip
+// stacks are not the layer's and stay. Returns `effects` itself when no
 // layer is bypassed.
 export function getRenderedEffects<
   T extends { trackId: string; effectName: string },

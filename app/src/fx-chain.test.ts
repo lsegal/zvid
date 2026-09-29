@@ -95,7 +95,7 @@ describe("groupChainDevices", () => {
 });
 
 describe("addableEffectsFor", () => {
-  const names = (group: "layer" | "global") =>
+  const names = (group: "layer" | "clip" | "global") =>
     addableEffectsFor(group).map((definition) => definition.effectName);
 
   it("offers only effects scoped to the Global stack in the Global menu", () => {
@@ -128,7 +128,6 @@ describe("addableEffectsFor", () => {
       "AnalogGlitch",
       "Transform",
       "Color",
-      "Text",
     ]);
   });
 
@@ -137,13 +136,15 @@ describe("addableEffectsFor", () => {
     assert.ok(!names("global").includes("Layout"));
   });
 
-  it("offers Color, which paints fill clips, on layers only", () => {
+  it("offers Color, which paints fill clips, on layers and clips", () => {
     assert.ok(names("layer").includes("Color"));
+    assert.ok(names("clip").includes("Color"));
     assert.ok(!names("global").includes("Color"));
   });
 
-  it("offers Text, which styles text clips, on layers only", () => {
-    assert.ok(names("layer").includes("Text"));
+  it("offers Text, which styles text clips, on clips only", () => {
+    assert.ok(names("clip").includes("Text"));
+    assert.ok(!names("layer").includes("Text"));
     assert.ok(!names("global").includes("Text"));
   });
 

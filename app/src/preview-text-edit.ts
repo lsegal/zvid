@@ -16,6 +16,7 @@ import {
 import { type FillPaint, formatFillPaintCss } from "./fill-paint.ts";
 import {
   addEffect,
+  clipEffectTrackId,
   type SessionEffect,
   setEffectEnabled,
   setEffectParameter,
@@ -182,15 +183,16 @@ export function resolveTextEditorKey(
   return flag ? { kind: "style", flag } : undefined;
 }
 
-// The Text effect a layer's text clips draw with: its last enabled one, as
-// in the compositor, or else its last bypassed one.
-export function findLayerTextEffect(
+// The Text effect a text clip draws with: the last enabled one on the clip's
+// own stack, as in the compositor, or else its last bypassed one.
+export function findClipTextEffect(
   effects: readonly SessionEffect[],
-  laneId: string,
+  clipId: string,
 ) {
+  const trackId = clipEffectTrackId(clipId);
   const texts = effects.filter(
     (effect) =>
-      effect.trackId === laneId && isTextEffectName(effect.effectName),
+      effect.trackId === trackId && isTextEffectName(effect.effectName),
   );
   return (
     texts.findLast((effect) => effect.enabled !== false) ??
@@ -198,27 +200,26 @@ export function findLayerTextEffect(
   );
 }
 
-// Applies `update` to the layer's Text effect, first adding one with the
-// registry defaults (with `newEffectId`) when the layer has none. A bypassed
-// Text effect is turned back on so the edit shows. Returns `effects` itself
-// when the layer can't take a Text effect.
-function updateLayerTextEffect(
+// Applies `update` to the clip's Text effect, first adding one with the
+// registry defaults (with `newEffectId`) when the clip has none. A bypassed
+// Text effect is turned back on so the edit shows.
+function updateClipTextEffect(
   effects: SessionEffect[],
-  laneId: string,
+  clipId: string,
   newEffectId: string,
   update: (effects: SessionEffect[], effect: SessionEffect) => SessionEffect[],
 ) {
   let result = effects;
-  let effect = findLayerTextEffect(result, laneId);
+  let effect = findClipTextEffect(result, clipId);
   if (!effect) {
     result = addEffect(
       result,
-      laneId,
+      clipEffectTrackId(clipId),
       TEXT_EFFECT_NAME,
       undefined,
       newEffectId,
     );
-    effect = findLayerTextEffect(result, laneId);
+    effect = findClipTextEffect(result, clipId);
     if (!effect) {
       return effects;
     }
@@ -230,31 +231,31 @@ function updateLayerTextEffect(
   return update(result, effect);
 }
 
-export function readLayerText(
+export function readClipText(
   effects: readonly SessionEffect[],
-  laneId: string,
+  clipId: string,
 ) {
-  return readTextStyle(findLayerTextEffect(effects, laneId)).text;
+  return readTextStyle(findClipTextEffect(effects, clipId)).text;
 }
 
-export function setLayerText(
+export function setClipText(
   effects: SessionEffect[],
-  laneId: string,
+  clipId: string,
   text: string,
   newEffectId: string,
 ) {
-  return updateLayerTextEffect(effects, laneId, newEffectId, (result, effect) =>
+  return updateClipTextEffect(effects, clipId, newEffectId, (result, effect) =>
     setEffectParameter(result, effect.id, TEXT_PARAMETER_KEY, text),
   );
 }
 
-export function toggleLayerTextStyle(
+export function toggleClipTextStyle(
   effects: SessionEffect[],
-  laneId: string,
+  clipId: string,
   flag: TextStyleFlag,
   newEffectId: string,
 ) {
-  return updateLayerTextEffect(effects, laneId, newEffectId, (result, effect) =>
+  return updateClipTextEffect(effects, clipId, newEffectId, (result, effect) =>
     setEffectParameter(
       result,
       effect.id,
@@ -271,13 +272,13 @@ export function toggleLayerTextStyle(
   );
 }
 
-export function stepLayerFontSize(
+export function stepClipFontSize(
   effects: SessionEffect[],
-  laneId: string,
+  clipId: string,
   direction: 1 | -1,
   newEffectId: string,
 ) {
-  return updateLayerTextEffect(effects, laneId, newEffectId, (result, effect) =>
+  return updateClipTextEffect(effects, clipId, newEffectId, (result, effect) =>
     setEffectParameter(
       result,
       effect.id,
