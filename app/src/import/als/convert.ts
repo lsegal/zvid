@@ -16,6 +16,7 @@
 // files on disk happen elsewhere.
 
 import type { LvpSession } from "../../session.ts";
+import { sourceTrackColorIndex } from "../../source-track-color.ts";
 import type {
   AlsClip,
   AlsDocument,
@@ -206,9 +207,10 @@ export function convertAls(
 
   const session: LvpSession = {
     mainTracks: [{ id: "1", name: "Layer 1", colorIndex: -1 }],
-    tracks: sourceTracks.map((track) => ({
+    tracks: sourceTracks.map((track, index) => ({
       id: String(track.id),
       name: track.name,
+      colorIndex: sourceTrackColorIndex(index),
       recordings: [
         ...trackRecordings(track).map(({ filename, frameStart }) => ({
           filename,

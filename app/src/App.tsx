@@ -212,6 +212,11 @@ import {
   isSourceClipDropClick,
 } from "./source-clip-drop.ts";
 import {
+  nextSourceTrackColorIndex,
+  sessionSourceTrackColorIndex,
+  sourceTrackColorIndex,
+} from "./source-track-color.ts";
+import {
   formatSourceTracksSummary,
   isSourceTracksSectionCollapsed,
   readSourceTracksCollapsed,
@@ -1559,14 +1564,16 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
     name: track.name,
     colorIndex: track.colorIndex ?? -1,
   }));
-  const sourceTracks = (session.tracks ?? []).map<SourceTrack>((track) => ({
-    id: track.id,
-    name: track.name,
-    colorIndex: track.colorIndex ?? -1,
-    recordingPaths: (track.recordings ?? []).map(
-      (recording) => recording.filename,
-    ),
-  }));
+  const sourceTracks = (session.tracks ?? []).map<SourceTrack>(
+    (track, index) => ({
+      id: track.id,
+      name: track.name,
+      colorIndex: sessionSourceTrackColorIndex(track.colorIndex, index),
+      recordingPaths: (track.recordings ?? []).map(
+        (recording) => recording.filename,
+      ),
+    }),
+  );
   const nameByTrack = new Map(
     sourceTracks.map((track) => [track.id, track.name]),
   );
@@ -1685,11 +1692,11 @@ function buildStandaloneProject(mediaItems: MediaItem[]) {
   const sourceTracks = mediaItems.map<SourceTrack>((item, index) => ({
     id: `import-track-${index}`,
     name: item.name.replace(/\.[^/.]+$/, ""),
-    colorIndex: index,
+    colorIndex: sourceTrackColorIndex(index),
     recordingPaths: [item.name],
   }));
   const sourceSpans = mediaItems.map<SourceSpan>((item, index) => {
-    const swatch = getSwatch(index);
+    const swatch = getSwatch(sourceTrackColorIndex(index));
     return {
       id: `source-span-${item.id}`,
       sourceTrackId: sourceTracks[index]?.id ?? `import-track-${index}`,
@@ -3053,7 +3060,7 @@ function App() {
             targetTrack = {
               id: `source-track-${crypto.randomUUID()}`,
               name: stripFilenameExtension(analyzed[0]?.name ?? "Source Track"),
-              colorIndex: current.sourceTracks.length,
+              colorIndex: nextSourceTrackColorIndex(current.sourceTracks),
               recordingPaths: [],
             };
             nextSourceTracks = [...current.sourceTracks, targetTrack];
