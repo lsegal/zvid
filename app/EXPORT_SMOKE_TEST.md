@@ -49,6 +49,10 @@ audible export can still succeed through WebCodecs AAC.
 
 The temporary Tauri config is only for this test. Remove it afterwards.
 
+`pnpm --dir app run test:web` runs the browser video-only export in headless
+Chromium and checks that the saved MP4 carries a JPEG thumbnail of the frame
+one second in. CI runs it on every pull request.
+
 The `macOS AAC fallback` GitHub Actions workflow also runs this smoke page in
 Tauri on a macOS runner. It selects the video-only and native AAC paths, saves
 both MP4s without a dialog, and runs the media validator. The automation uses
@@ -64,8 +68,9 @@ node app/scripts/verify-export.mjs <video-only.mp4> <audible.mp4>
 ```
 
 The check requires one HEVC or AV1 video track in each file, AAC audio only in
-the audible file, a duration close to two seconds, aligned track start/end
-times, successful video and audio decoding, and non-silent audio. On macOS,
+the audible file, a JPEG cover-art thumbnail of at most 640 px in each file, a
+duration close to two seconds, aligned track start/end times, successful video
+and audio decoding, and non-silent audio. On macOS,
 inspect `smoke-native-aac.mp4` in place of the audible file as a second run.
 Also open each MP4 in a player and confirm that the frame number changes and
 the audible version has a continuous tone. Record the runtime, codecs,

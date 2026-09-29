@@ -293,7 +293,7 @@ export async function maybeCreateTauriHarness(
             });
             return "native-path";
           },
-          async (video, audio) => {
+          async (video, audio, cover) => {
             const pcm = audio
               ? Array.from({ length: audio.numberOfChannels }, (_, channel) =>
                   Array.from(audio.getChannelData(channel)),
@@ -304,6 +304,7 @@ export async function maybeCreateTauriHarness(
                 video: Array.from(video),
                 pcm,
                 sampleRate: audio?.sampleRate ?? 48000,
+                cover: cover ? Array.from(cover) : null,
               }),
             );
           },
