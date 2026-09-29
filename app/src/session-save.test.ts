@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { createClipWarp } from "./clip-warp.ts";
+import type { EffectAnimation } from "./fx-animation-defaults.ts";
 import { hasGlobalOrder, mapEffects, pruneClipEffects } from "./fx-stack.ts";
 import { migrateDefaultOrder } from "./project-state-compat.ts";
 import { clipSourceFrame, type LvpSession } from "./session.ts";
@@ -377,6 +378,48 @@ describe("projectToLvpSession", () => {
       mapEffects(session.effects).map((effect) => effect.enabled),
       [false, true],
     );
+  });
+
+  it("round-trips effect animation settings", () => {
+    const animation: EffectAnimation = {
+      enabled: true,
+      mode: "reactive",
+      clip: { motionIn: "Linear", motionOut: "Ease In Out", timing: "Fast" },
+      reactive: {
+        motion: "Wobble",
+        timing: "Slow",
+        reactivity: 0.7,
+        parameters: ["_LowIntensity"],
+      },
+    };
+    const session = projectToLvpSession(
+      baseProject({
+        effects: [
+          {
+            id: "animated",
+            trackId: "main-1",
+            effectName: "Pixelate",
+            parameters: [],
+            animation,
+          },
+          {
+            id: "plain",
+            trackId: "main-1",
+            effectName: "Pixelate",
+            parameters: [],
+          },
+        ],
+      }),
+      { playheadQ: 0 },
+    );
+    assert.deepEqual(session.effects?.[0]?.animation, animation);
+    assert.equal("animation" in (session.effects?.[1] ?? {}), false);
+
+    const [animated, plain] = mapEffects(
+      JSON.parse(JSON.stringify(session)).effects,
+    );
+    assert.deepEqual(animated.animation, animation);
+    assert.equal(plain.animation, undefined);
   });
 
   it("drops an Order's exclusions of layers that no longer exist", () => {

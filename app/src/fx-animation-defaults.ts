@@ -137,10 +137,9 @@ const ANIMATION_DEFAULTS: ReadonlyMap<string, FxAnimationDefaults> = new Map([
       "_HighMod",
     ]),
   ],
-  // Color has no knobs, so nothing is modulated until it gains an opacity.
   [
     COLOR_EFFECT_NAME,
-    defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.3, []),
+    defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.3, ["Opacity"]),
   ],
   [
     TEXT_EFFECT_NAME,
