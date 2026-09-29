@@ -98,7 +98,10 @@ async function blockableMediaServe(context: BrowserContext) {
     const get = IDBObjectStore.prototype.get;
     IDBObjectStore.prototype.get = function (query) {
       // An empty array is a valid key no entry uses.
-      return get.call(this, state.blocked && this.name === "media" ? [] : query);
+      return get.call(
+        this,
+        state.blocked && this.name === "media" ? [] : query,
+      );
     };
     const fetch = window.fetch;
     window.fetch = (input, init) => {
@@ -112,8 +115,9 @@ async function blockableMediaServe(context: BrowserContext) {
 
 function setMediaServeBlocked(page: Page, blocked: boolean) {
   return page.evaluate((value) => {
-    (window as unknown as { __mediaServe: { blocked: boolean } }).__mediaServe
-      .blocked = value;
+    (
+      window as unknown as { __mediaServe: { blocked: boolean } }
+    ).__mediaServe.blocked = value;
   }, blocked);
 }
 
@@ -376,12 +380,10 @@ test("Retry in the media sync modal requests unavailable media again", async ({
   await offlineLabel(guest).click();
   const mediaSync = guest.getByRole("dialog", { name: "Media Sync" });
   await expect(mediaSync).toBeVisible();
-  await expect(guest.getByRole("dialog", { name: "Offline Media" })).toHaveCount(
-    0,
-  );
-  await expect(mediaSync).toContainText(
-    "1 file no connected peer could send.",
-  );
+  await expect(
+    guest.getByRole("dialog", { name: "Offline Media" }),
+  ).toHaveCount(0);
+  await expect(mediaSync).toContainText("1 file no connected peer could send.");
   const row = mediaSync.locator(".media-sync-dialog__row", {
     hasText: "test-pattern.mp4",
   });
