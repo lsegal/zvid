@@ -334,6 +334,16 @@ import {
   type ThumbnailSize,
 } from "./thumbnail-cache.ts";
 import { formatMusicalPosition, formatTimecode } from "./timeline-format.ts";
+import {
+  formatDivision,
+  type GridDivision,
+  type GridLineWeight,
+  getGridLayers,
+  getGridUnit,
+  getSnapUnit,
+  resolveAdaptiveDivision,
+  type SnapMode,
+} from "./timeline-grid";
 import { useDragScroll } from "./use-drag-scroll";
 import { useThumbnailCache } from "./use-thumbnail-cache";
 import { ZVID_BUILD } from "./version";
@@ -363,7 +373,6 @@ import {
 } from "./zoom";
 
 type TimelineMode = "musical" | "timecode";
-type SnapMode = "bar" | "beat" | "half" | "quarter";
 
 type TimeSignature = {
   id: string;
@@ -589,6 +598,11 @@ const LABEL_WIDTH_KEYBOARD_STEP = 10;
 // Below this width the label rows tighten their padding and gaps.
 const LABEL_WIDTH_NARROW = 170;
 const BASE_QUARTER_PX = 28;
+const GRID_LINE_COLORS: Record<GridLineWeight, string> = {
+  division: "rgba(255,255,255,0.04)",
+  beat: "rgba(255,255,255,0.08)",
+  bar: "rgba(255,255,255,0.16)",
+};
 const TIMELINE_DRAG_ZOOM_SPEED = 0.004;
 const TIMELINE_DRAG_ZOOM_THRESHOLD_PX = 25;
 const TIMELINE_SCRUB_AUDIO_TAIL_MS = 50;
@@ -655,6 +669,7 @@ const SIGNATURES: TimeSignature[] = [
   { id: "7/8", numerator: 7, denominator: 8 },
 ];
 const SNAP_OPTIONS: { id: SnapMode; label: string }[] = [
+  { id: "auto", label: "Auto" },
   { id: "bar", label: "Bar" },
   { id: "beat", label: "Beat" },
   { id: "half", label: "1/2" },
@@ -668,7 +683,7 @@ const DEFAULT_LANES: Lane[] = [
 const INITIAL_PROJECT_STATE: ProjectState = {
   timelineMode: "musical",
   signatureId: "4/4",
-  snapMode: "beat",
+  snapMode: "auto",
   snapEnabled: true,
   bpm: 120,
   fps: 30,
@@ -779,23 +794,6 @@ function formatDuration(seconds: number) {
   const remainderSeconds = Math.floor(seconds % 60);
   const tenths = Math.floor((seconds % 1) * 10);
   return `${minutes}:${remainderSeconds.toString().padStart(2, "0")}.${tenths}`;
-}
-
-function getSnapUnit(mode: SnapMode, signature: TimeSignature) {
-  const beatUnit = 4 / signature.denominator;
-  const barLength = signature.numerator * beatUnit;
-  switch (mode) {
-    case "bar":
-      return barLength;
-    case "beat":
-      return beatUnit;
-    case "half":
-      return beatUnit / 2;
-    case "quarter":
-      return beatUnit / 4;
-    default:
-      return beatUnit;
-  }
 }
 
 function snapQuarterValue(valueQ: number, snapUnit: number, enabled: boolean) {
@@ -2696,8 +2694,20 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     SIGNATURES[0];
   const beatUnit = 4 / signature.denominator;
   const barLength = signature.numerator * beatUnit;
-  const snapUnit = getSnapUnit(snapMode, signature);
   const quarterPx = BASE_QUARTER_PX * resolvedZoom;
+  // Resolved from the last division so the grid keeps it while zooming within
+  // the thresholds instead of flickering between two divisions.
+  const [lastAdaptiveDivision, setLastAdaptiveDivision] =
+    useState<GridDivision>(() => resolveAdaptiveDivision(quarterPx));
+  const adaptiveDivision = resolveAdaptiveDivision(
+    quarterPx,
+    lastAdaptiveDivision,
+  );
+  if (adaptiveDivision !== lastAdaptiveDivision) {
+    setLastAdaptiveDivision(adaptiveDivision);
+  }
+  const snapUnit = getSnapUnit(snapMode, signature, adaptiveDivision);
+  const gridUnit = getGridUnit(snapUnit, adaptiveDivision);
   const totalQuarters = useMemo(() => {
     let nextTotalQuarters = barLength * 12;
     for (const clip of timelineClips) {
@@ -2722,14 +2732,21 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     return nextTotalQuarters;
   }, [barLength, bpm, pendingSelection, sourceSpans, timelineClips]);
   const timelineWidth = totalQuarters * quarterPx;
-  const gridStyle = useMemo(
-    () => ({
-      backgroundImage:
-        "linear-gradient(to right, rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(to right, rgba(255,255,255,0.16) 1px, transparent 1px)",
-      backgroundSize: `${beatUnit * quarterPx}px 100%, ${barLength * quarterPx}px 100%`,
-    }),
-    [barLength, beatUnit, quarterPx],
-  );
+  const gridStyle = useMemo(() => {
+    // CSS paints the first layer on top, so the strongest lines go first.
+    const layers = getGridLayers(gridUnit, signature).reverse();
+    return {
+      backgroundImage: layers
+        .map(
+          (layer) =>
+            `linear-gradient(to right, ${GRID_LINE_COLORS[layer.weight]} 1px, transparent 1px)`,
+        )
+        .join(", "),
+      backgroundSize: layers
+        .map((layer) => `${layer.spacingQ * quarterPx}px 100%`)
+        .join(", "),
+    };
+  }, [gridUnit, quarterPx, signature]);
   // Only a clip the user selected; rendering and edits never fall back to
   // another one.
   const selectedClip = useMemo(
@@ -8349,7 +8366,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                       }
                       type="button"
                     >
-                      {option.label}
+                      {option.id === "auto" && snapMode === "auto"
+                        ? `${option.label} · ${formatDivision(adaptiveDivision)}`
+                        : option.label}
                     </button>
                   ))}
                 </div>
