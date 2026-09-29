@@ -88,11 +88,13 @@ export function useDragScroll({
 
   useEffect(() => () => disarmMenuRef.current?.(), []);
 
-  // Swallows the next contextmenu anywhere, until the next press.
+  // Swallows the next contextmenu anywhere, until the next press, so
+  // neither the browser's menu nor one under the pointer opens.
   const armMenuSwallow = useCallback(() => {
     disarmMenuRef.current?.();
     const swallow = (event: MouseEvent) => {
       event.preventDefault();
+      event.stopPropagation();
       disarm();
     };
     const disarm = () => {

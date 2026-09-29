@@ -244,3 +244,19 @@ test("middle-dragging the ruler up or down doesn't zoom", async ({ page }) => {
   expect(after.zoom).toBe(before.zoom);
   expect(after.scrollLeft).toBe(before.scrollLeft + 100);
 });
+
+test("releasing a right-drag over a lane opens no menu", async ({ page }) => {
+  const from = await rulerPoint(page);
+  const target = await lane(page, "1").boundingBox();
+  if (!target) {
+    throw new Error("lane is not visible");
+  }
+  await drag(page, "right", from, -150, target.y + target.height / 2 - from.y);
+
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  expect(await contextMenus(page)).not.toContain(false);
+
+  // The next right-click on the lane opens its menu as usual.
+  await lane(page, "1").click({ button: "right" });
+  await expect(page.getByRole("menu")).toBeVisible();
+});
