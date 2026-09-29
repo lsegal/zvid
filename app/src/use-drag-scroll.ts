@@ -31,6 +31,25 @@ type DragScrollOptions = {
   capture?: boolean;
   // Called when a press is claimed for a pan.
   onStart?: (event: ReactPointerEvent<HTMLElement>) => void;
+  // Movement along this axis also turns a press into a drag, for an
+  // `onDrag` that reads it; defaults to `axis`.
+  thresholdAxis?: DragScrollAxis;
+  // Places the scroll on each move of a drag instead of following the
+  // pointer 1:1, such as to zoom as well as pan.
+  onDrag?: (drag: DragScrollMove) => ScrollPosition;
+  // Called once a claimed press ends, whether or not it became a drag.
+  onEnd?: () => void;
+};
+
+export type DragScrollMove = {
+  // The pointer's offset since the press.
+  dx: number;
+  dy: number;
+  // The pointer's viewport position now and at the press.
+  clientX: number;
+  startX: number;
+  // The scroll position at the press.
+  origin: ScrollPosition;
 };
 
 type PendingPan = {
@@ -53,6 +72,9 @@ export function useDragScroll({
   momentum = true,
   capture = false,
   onStart,
+  thresholdAxis = axis,
+  onDrag,
+  onEnd,
 }: DragScrollOptions) {
   const panRef = useRef<PendingPan | null>(null);
   const momentumFrameRef = useRef<number | null>(null);
@@ -137,7 +159,7 @@ export function useDragScroll({
       const dx = event.clientX - pan.startX;
       const dy = event.clientY - pan.startY;
       if (!pan.dragging) {
-        if (!exceedsDragThreshold(dx, dy, axis)) {
+        if (!exceedsDragThreshold(dx, dy, thresholdAxis)) {
           return;
         }
         pan.dragging = true;
@@ -150,11 +172,19 @@ export function useDragScroll({
         y: event.clientY,
         time: event.timeStamp,
       });
-      const next = dragScrollPosition(pan.origin, dx, dy, axis);
+      const next = onDrag
+        ? onDrag({
+            dx,
+            dy,
+            clientX: event.clientX,
+            startX: pan.startX,
+            origin: pan.origin,
+          })
+        : dragScrollPosition(pan.origin, dx, dy, axis);
       scroll.scrollLeft = next.left;
       scroll.scrollTop = next.top;
     },
-    [axis, scrollRef],
+    [axis, onDrag, scrollRef, thresholdAxis],
   );
 
   const endPan = useCallback(
@@ -168,6 +198,7 @@ export function useDragScroll({
       if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
       }
+      onEnd?.();
       if (!pan.dragging) {
         return;
       }
@@ -178,7 +209,7 @@ export function useDragScroll({
         startMomentum(releaseVelocity(pan.samples, event.timeStamp, axis));
       }
     },
-    [axis, startMomentum],
+    [axis, onEnd, startMomentum],
   );
 
   // Keeps the middle button from starting the browser's autoscroll, which
