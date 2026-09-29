@@ -4635,9 +4635,9 @@ function App() {
   const openSelectionMenuRef = useRef(openSelectionMenu);
   openSelectionMenuRef.current = openSelectionMenu;
 
-  // Browsers report both keys as a contextmenu event on the focused element.
-  // Clips, lanes and panels with their own menu handle it first; this only
-  // takes the ones that land on the page or empty timeline space.
+  // Browsers report both keys as a contextmenu event. Clips, lanes and panels
+  // with their own menu handle it first when they have focus; this takes the
+  // rest while nothing, or empty timeline space, has focus.
   useEffect(() => {
     let keyboardMenuAt = Number.NEGATIVE_INFINITY;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -4648,14 +4648,13 @@ function App() {
     const onContextMenu = (event: MouseEvent) => {
       const fromKeyboard = event.timeStamp - keyboardMenuAt < 1000;
       keyboardMenuAt = Number.NEGATIVE_INFINITY;
-      const target = event.target;
+      const focused = document.activeElement;
       if (
         !fromKeyboard ||
         event.defaultPrevented ||
-        !(target instanceof Node) ||
-        (target !== document.body &&
-          target !== document.documentElement &&
-          !timelineScrollRef.current?.contains(target))
+        (focused &&
+          focused !== document.body &&
+          !timelineScrollRef.current?.contains(focused))
       ) {
         return;
       }

@@ -77,6 +77,19 @@ test("right-clicking empty lane space selects the layer and offers only Paste", 
   await expect(menu).toBeVisible();
   await page.mouse.click(5, 5);
   await expect(menu).toBeHidden();
+
+  // With nothing focused, Shift+F10 and the context-menu key open it on the
+  // selected layer.
+  await page.evaluate(() =>
+    (document.activeElement as HTMLElement | null)?.blur(),
+  );
+  await page.keyboard.press("Shift+F10");
+  await expect(menu).toBeVisible();
+  await expect(page.locator(".fx-panel__toggle")).toHaveText("Layer 3 effects");
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
+  await page.keyboard.press("ContextMenu");
+  await expect(menu).toBeVisible();
 });
 
 test("source clip menu copies to a chosen layer, and clip menu pastes at the playhead on the selected layer", async ({
@@ -147,9 +160,19 @@ test("source clip menu copies to a chosen layer, and clip menu pastes at the pla
   // The playhead sits at the start, so the paste lands there too.
   await expect(pasted).toHaveCSS("left", "0px");
 
-  // Delete from the menu.
-  await rightClick(pasted);
-  await menuItem(page, "Delete").click();
+  // Shift+F10 opens the menu on the selected clip; End reaches Delete.
+  await page.evaluate(() =>
+    (document.activeElement as HTMLElement | null)?.blur(),
+  );
+  await page.keyboard.press("Shift+F10");
+  await expect(clipMenu).toBeVisible();
+  await page.keyboard.press("End");
+  await expect(menuItem(page, "Delete")).toHaveAttribute(
+    "data-highlighted",
+    "",
+  );
+  await page.keyboard.press("Enter");
+  await expect(clipMenu).toBeHidden();
   await expect(lane(page, "5").locator(".clip-card")).toHaveCount(0);
 });
 
