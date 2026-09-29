@@ -73,6 +73,12 @@ export interface AlsImportSummary {
   hasLayersVideo: boolean;
   /** Where each ZVID Capture recording was saved, by filename. */
   recordRoots?: Record<string, RecordRoot>;
+  /**
+   * Ids of tracks whose recordings come from Layers Record. Their audio
+   * clips' `captureOffset` is end-aligned once the recording is probed (see
+   * `probeAlsRecordings`).
+   */
+  layersRecordTracks?: string[];
 }
 
 export interface AlsImportOptions {
@@ -244,6 +250,9 @@ export function convertAls(
       sessionFile: options.sessionFile,
     }),
   };
+  const layersRecordTracks = videoTracks
+    .filter((track) => captureDevice(track) === "layers-record")
+    .map((track) => String(track.id));
   return {
     session,
     summary: {
@@ -251,6 +260,7 @@ export function convertAls(
       trimmed: overlaps.trimmed.map(describe),
       hasLayersVideo: videoClips.length > 0,
       ...(Object.keys(recordRoots).length > 0 && { recordRoots }),
+      ...(layersRecordTracks.length > 0 && { layersRecordTracks }),
     },
   };
 }
