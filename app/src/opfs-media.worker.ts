@@ -29,8 +29,9 @@ async function probe() {
   if (
     typeof navigator.storage?.getDirectory !== "function" ||
     typeof FileSystemFileHandle === "undefined" ||
-    typeof (FileSystemFileHandle.prototype as { createSyncAccessHandle?: unknown })
-      .createSyncAccessHandle !== "function"
+    typeof (
+      FileSystemFileHandle.prototype as { createSyncAccessHandle?: unknown }
+    ).createSyncAccessHandle !== "function"
   ) {
     return false;
   }

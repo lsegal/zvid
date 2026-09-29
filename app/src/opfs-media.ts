@@ -245,7 +245,7 @@ function startOpfsMediaWorker(): OpfsMediaWorkerClient | null {
 // the main thread or through a sync-access-handle worker, or null so callers
 // fall back to IndexedDB.
 export async function openOpfsMediaBackend(): Promise<MediaBlobBackend | null> {
-  let worker: OpfsMediaWorkerClient | null = null;
+  const started: { worker: OpfsMediaWorkerClient | null } = { worker: null };
   const mode = await selectOpfsMediaWriteMode({
     directory:
       typeof navigator !== "undefined" &&
@@ -254,13 +254,13 @@ export async function openOpfsMediaBackend(): Promise<MediaBlobBackend | null> {
       typeof FileSystemFileHandle !== "undefined" &&
       typeof FileSystemFileHandle.prototype.createWritable === "function",
     syncAccessWorker: async () => {
-      worker = startOpfsMediaWorker();
-      return (await worker?.probe()) ?? false;
+      started.worker = startOpfsMediaWorker();
+      return (await started.worker?.probe()) ?? false;
     },
   });
-  const syncWorker = mode === "sync-worker" ? worker : null;
+  const syncWorker = mode === "sync-worker" ? started.worker : null;
   if (!syncWorker) {
-    (worker as OpfsMediaWorkerClient | null)?.terminate();
+    started.worker?.terminate();
   }
   if (!mode) {
     return null;
