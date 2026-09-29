@@ -29,16 +29,30 @@ function inspect(path, expectAudio) {
       "-v",
       "error",
       "-show_entries",
-      "format=duration:stream=index,codec_name,codec_type,duration,start_time",
+      "format=duration:stream=index,codec_name,codec_type,duration,start_time,width,height:stream_disposition=attached_pic",
       "-of",
       "json",
       path,
     ]).toString(),
   );
-  const video = probe.streams.filter((stream) => stream.codec_type === "video");
+  // ffprobe lists the MP4 cover art as a video stream with attached_pic set.
+  const covers = probe.streams.filter(
+    (stream) => stream.disposition?.attached_pic === 1,
+  );
+  const video = probe.streams.filter(
+    (stream) =>
+      stream.codec_type === "video" && stream.disposition?.attached_pic !== 1,
+  );
   const audio = probe.streams.filter((stream) => stream.codec_type === "audio");
   if (video.length !== 1 || !["hevc", "av1"].includes(video[0].codec_name)) {
     throw new Error(`${path}: expected one HEVC or AV1 video track`);
+  }
+  if (
+    covers.length !== 1 ||
+    covers[0].codec_name !== "mjpeg" ||
+    !(Math.max(covers[0].width, covers[0].height) <= 640)
+  ) {
+    throw new Error(`${path}: expected one JPEG cover of at most 640 px`);
   }
   if (audio.length !== (expectAudio ? 1 : 0)) {
     throw new Error(
@@ -73,7 +87,7 @@ function inspect(path, expectAudio) {
     "-i",
     path,
     "-map",
-    "0:v:0",
+    "0:V:0",
     "-f",
     "null",
     "-",
@@ -107,11 +121,11 @@ function inspect(path, expectAudio) {
     if (rms < 0.005)
       throw new Error(`${path}: AAC track is effectively silent`);
     console.log(
-      `${path}: ${video[0].codec_name} + AAC, ${duration.toFixed(3)} s, audio RMS ${rms.toFixed(3)}`,
+      `${path}: ${video[0].codec_name} + AAC, ${duration.toFixed(3)} s, audio RMS ${rms.toFixed(3)}, ${covers[0].width}x${covers[0].height} JPEG cover`,
     );
   } else {
     console.log(
-      `${path}: ${video[0].codec_name}, ${duration.toFixed(3)} s, no audio`,
+      `${path}: ${video[0].codec_name}, ${duration.toFixed(3)} s, no audio, ${covers[0].width}x${covers[0].height} JPEG cover`,
     );
   }
   return duration;

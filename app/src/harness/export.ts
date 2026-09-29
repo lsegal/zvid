@@ -14,10 +14,16 @@ import type {
   SaveMethod,
   SaveTarget,
 } from "./contracts";
+import {
+  drawThumbnail,
+  encodeThumbnail,
+  getThumbnailFrameIndex,
+} from "./export-thumbnail";
 
 type NativeMux = (
   video: Uint8Array,
   audio: AudioBuffer | null,
+  cover: Uint8Array | undefined,
 ) => Promise<Uint8Array>;
 
 export async function exportVideo(
@@ -99,6 +105,11 @@ export async function exportVideo(
       ? new AudioBufferSource({ codec: "aac", bitrate: 192_000 })
       : null;
   if (audioSource) output.addAudioTrack(audioSource);
+  const thumbnailIndex = getThumbnailFrameIndex(
+    request.frameCount,
+    request.frameRate,
+  );
+  let thumbnail: HTMLCanvasElement | null = null;
   try {
     await output.start();
     if (audioSource && audio) {
@@ -109,6 +120,13 @@ export async function exportVideo(
       const seconds = index / request.frameRate;
       const quarters = (seconds * request.bpm) / 60;
       await request.renderFrameAt(quarters, seconds);
+      if (index === thumbnailIndex) {
+        try {
+          thumbnail = drawThumbnail(request.canvas);
+        } catch (error) {
+          request.onLog?.("export:thumbnail-failed", String(error));
+        }
+      }
       await video.add(seconds, 1 / request.frameRate);
       request.setPlayheadQ(quarters);
       request.onProgress({
@@ -121,6 +139,14 @@ export async function exportVideo(
     video.close();
     await output.finalize();
     if (!target.buffer) throw new Error("Video encoder returned no output.");
+    // A missing thumbnail only costs the file-browser preview, so export
+    // without one instead of failing.
+    const cover = thumbnail
+      ? await encodeThumbnail(thumbnail).catch((error) => {
+          request.onLog?.("export:thumbnail-failed", String(error));
+          return undefined;
+        })
+      : undefined;
     request.onProgress({
       phase: "muxing",
       progress: null,
@@ -131,13 +157,14 @@ export async function exportVideo(
       bytes = await nativeMux(
         new Uint8Array(target.buffer),
         audioSource ? null : audio,
+        cover,
       );
     } else {
       const bridge = await import(
         "../../export-bridge/pkg/zvid_export_bridge.js"
       );
       await bridge.default();
-      bytes = await bridge.muxMp4(new Uint8Array(target.buffer));
+      bytes = await bridge.muxMp4(new Uint8Array(target.buffer), cover);
     }
     const blob = new Blob([new Uint8Array(bytes)], { type: "video/mp4" });
     return {

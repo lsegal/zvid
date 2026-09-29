@@ -5,12 +5,13 @@ pub async fn mux_export(
     video: Vec<u8>,
     pcm: Option<Vec<Vec<f32>>>,
     sample_rate: u32,
+    cover: Option<Vec<u8>>,
 ) -> Result<Vec<u8>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let mut video = video;
         normalize_video_tail_duration(&mut video)?;
         let audio = pcm.map(|samples| encode_aac(samples, sample_rate)).transpose()?;
-        tauri::async_runtime::block_on(zvid_export_bridge::mux(video, audio))
+        tauri::async_runtime::block_on(zvid_export_bridge::mux(video, audio, cover))
             .map_err(|error| error.to_string())
     })
     .await
@@ -173,7 +174,7 @@ mod tests {
     fn native_aac_fallback_produces_playable_mp4() {
         tauri::async_runtime::block_on(async {
         let directory = tempfile::tempdir().unwrap();
-        let video_path = directory.path().join("smoke-video-only.mp4");
+        let video_path = directory.path().join("encoder-video.mp4");
         let status = Command::new("ffmpeg")
             .args(["-v", "error", "-f", "lavfi", "-i", "testsrc=size=320x180:rate=24:duration=2", "-c:v", "libx265", "-preset", "ultrafast", "-bf", "0", "-pix_fmt", "yuv420p", "-tag:v", "hvc1", "-use_editlist", "0", "-y"])
             .arg(&video_path)
@@ -181,10 +182,26 @@ mod tests {
             .expect("ffmpeg must be installed for the macOS smoke test");
         assert!(status.success(), "failed to create the HEVC video fixture");
 
+        let cover_path = directory.path().join("cover.jpg");
+        let status = Command::new("ffmpeg")
+            .args(["-v", "error", "-f", "lavfi", "-i", "testsrc=size=320x180", "-frames:v", "1", "-y"])
+            .arg(&cover_path)
+            .status()
+            .expect("ffmpeg must be installed for the macOS smoke test");
+        assert!(status.success(), "failed to create the JPEG cover fixture");
+        let cover = std::fs::read(&cover_path).unwrap();
+
+        let video = std::fs::read(&video_path).unwrap();
+        let video_only = mux_export(video.clone(), None, 48_000, Some(cover.clone()))
+            .await
+            .expect("video-only export must mux");
+        let video_only_path = directory.path().join("smoke-video-only.mp4");
+        std::fs::write(&video_only_path, video_only).unwrap();
+
         let pcm: Vec<f32> = (0..96_000)
             .map(|index| ((2.0 * std::f32::consts::PI * 440.0 * index as f32) / 48_000.0).sin() * 0.36)
             .collect();
-        let output = mux_export(std::fs::read(&video_path).unwrap(), Some(vec![pcm]), 48_000)
+        let output = mux_export(video, Some(vec![pcm]), 48_000, Some(cover))
             .await
             .expect("macOS AudioToolbox fallback must mux AAC with video");
         let output_path = directory.path().join("smoke-native-aac.mp4");
@@ -192,7 +209,7 @@ mod tests {
 
         let status = Command::new("node")
             .arg("../scripts/verify-export.mjs")
-            .arg(&video_path)
+            .arg(&video_only_path)
             .arg(&output_path)
             .status()
             .expect("node must be installed for the macOS smoke test");

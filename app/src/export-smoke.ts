@@ -19,6 +19,7 @@ const automationOutputDir = native
   ? new URLSearchParams(location.search).get("automationOutputDir")
   : null;
 let videoOnlyBytes: Uint8Array | null = null;
+let videoOnlyCover: Uint8Array | undefined;
 
 async function reportAutomationError(error: unknown) {
   if (!automationOutputDir) return;
@@ -130,7 +131,8 @@ async function run(audible: boolean) {
         return write(blob, target);
       },
       native
-        ? async (video, audio) => {
+        ? async (video, audio, cover) => {
+            if (!audible) videoOnlyCover = cover;
             if (automationOutputDir)
               await invoke("write_file_bytes", {
                 path: `${automationOutputDir}/encoder-video.mp4`,
@@ -146,6 +148,7 @@ async function run(audible: boolean) {
                     )
                   : null,
                 sampleRate: audio?.sampleRate ?? 48_000,
+                cover: cover ? Array.from(cover) : null,
               }),
             );
           }
@@ -178,6 +181,7 @@ async function testNativeAac() {
       video: Array.from(videoOnlyBytes),
       pcm: [pcm],
       sampleRate: 48_000,
+      cover: videoOnlyCover ? Array.from(videoOnlyCover) : null,
     });
     await write(
       new Blob([new Uint8Array(bytes)], { type: "video/mp4" }),
