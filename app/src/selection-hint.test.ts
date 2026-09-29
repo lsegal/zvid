@@ -71,3 +71,35 @@ describe("selection hint", () => {
     assert.match(rule, /overflow: hidden;/);
   });
 });
+
+describe("timeline selection stacking", () => {
+  const cssRule = (className: string) =>
+    appCss.match(new RegExp(`\\n\\.${className} \\{[^}]*\\}`))?.[0] ?? "";
+  const zToken = (name: string) =>
+    Number(appCss.match(new RegExp(`--${name}: (\\d+);`))?.[1]);
+
+  it("paints above the lane's clips, which render after it", () => {
+    const rule = cssRule("timeline-selection");
+    assert.match(rule, /z-index: var\(--z-timeline-selection\);/);
+    assert.ok(zToken("z-timeline-selection") > 0);
+    // Clip cards are their own stacking context at z-index auto, so their
+    // handles and filmstrips cannot rise above a positive z-index.
+    const clip = cssRule("clip-card");
+    assert.match(clip, /isolation: isolate;/);
+    assert.doesNotMatch(clip, /z-index/);
+  });
+
+  it("stays below the playhead", () => {
+    assert.match(
+      cssRule("timeline-playhead"),
+      /z-index: var\(--z-timeline-playhead\);/,
+    );
+    assert.ok(
+      zToken("z-timeline-selection") < zToken("z-timeline-playhead"),
+    );
+  });
+
+  it("lets clicks and drags through to the clips", () => {
+    assert.match(cssRule("timeline-selection"), /pointer-events: none;/);
+  });
+});
