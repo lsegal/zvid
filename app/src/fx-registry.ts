@@ -9,6 +9,12 @@ import {
   ORDER_EFFECT_NAME,
   SPACING_MAX,
 } from "./composition-order.ts";
+import {
+  COLOR_EFFECT_NAME,
+  DEFAULT_FILL_GRADIENT,
+  FILL_MODES,
+  NEUTRAL_FILL_COLOR,
+} from "./fill-paint.ts";
 
 // Shows a parameter only while the enum parameter `key` holds one of
 // `values` (compared case-insensitively).
@@ -40,9 +46,24 @@ export type FxEnumParameterDefinition = {
   visibleWhen?: FxParameterVisibility;
 };
 
+// A CSS colour (`color`) or CSS linear/radial gradient (`gradient`) string,
+// edited with a colour picker.
+type FxPaintParameterFields = {
+  key: string;
+  label: string;
+  defaultValue: string;
+  hidden?: boolean;
+  visibleWhen?: FxParameterVisibility;
+};
+
+export type FxPaintParameterDefinition =
+  | (FxPaintParameterFields & { kind: "color" })
+  | (FxPaintParameterFields & { kind: "gradient" });
+
 export type FxParameterDefinition =
   | FxNumberParameterDefinition
-  | FxEnumParameterDefinition;
+  | FxEnumParameterDefinition
+  | FxPaintParameterDefinition;
 
 // The stacks an effect is designed for: a layer's own stack, the Global
 // stack that processes the composite, or both.
@@ -314,6 +335,38 @@ const DEFINITIONS: FxEffectDefinition[] = [
         step: 1,
         format: formatPixels,
       },
+    ],
+  },
+  {
+    effectName: COLOR_EFFECT_NAME,
+    displayName: "Color",
+    description: "Paints the layer's fill clips a solid colour or a gradient.",
+    accent: "#ffd166",
+    known: true,
+    scopes: ["layer"],
+    parameters: [
+      {
+        kind: "enum",
+        key: "Mode",
+        label: "Type",
+        options: FILL_MODES,
+        defaultValue: "Solid",
+      },
+      {
+        kind: "color",
+        key: "Color",
+        label: "Color",
+        defaultValue: NEUTRAL_FILL_COLOR,
+        visibleWhen: { key: "Mode", values: ["Solid"] },
+      },
+      {
+        kind: "gradient",
+        key: "Gradient",
+        label: "Gradient",
+        defaultValue: DEFAULT_FILL_GRADIENT,
+        visibleWhen: { key: "Mode", values: ["Gradient"] },
+      },
+      unitParameter("Opacity", "Opacity", 1),
     ],
   },
 ];

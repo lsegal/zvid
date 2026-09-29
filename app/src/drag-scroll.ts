@@ -1,6 +1,8 @@
-// Pure logic behind hand-grab drag scrolling (use-drag-scroll.ts): when a
-// press becomes a pan, where the scroll lands while dragging, and the
-// momentum fling that follows release.
+// Pure logic behind hand-grab drag scrolling (use-drag-scroll.ts): which
+// presses start a pan, when a press becomes a drag, where the scroll lands,
+// and the momentum that carries on after release.
+
+import { isContextMenuPress } from "./context-menu.ts";
 
 export type DragScrollAxis = "x" | "y" | "both";
 
@@ -10,16 +12,30 @@ export type DragScrollSample = { x: number; y: number; time: number };
 
 export type DragScrollVelocity = { x: number; y: number };
 
-// How far the pointer travels before a press becomes a pan, so a plain click
-// on the scrollable background still reads as a click.
+// How far the pointer travels before a press becomes a pan, so a plain
+// right-click still reads as a click.
 export const DRAG_SCROLL_THRESHOLD_PX = 4;
 
 // Only pointer movement this recent counts toward the release velocity, so
 // pausing before letting go stops the pan dead.
 export const DRAG_SCROLL_VELOCITY_WINDOW_MS = 100;
 
-// The fling after release decays linearly to a stop over this long.
-export const DRAG_SCROLL_MOMENTUM_MS = 300;
+// Momentum decays by this factor every 16ms frame and stops below the
+// minimum speed (px/ms).
+const MOMENTUM_FRICTION_PER_FRAME = 0.92;
+const MOMENTUM_FRAME_MS = 16;
+export const DRAG_SCROLL_MIN_VELOCITY = 0.02;
+
+/**
+ * Whether a press on the timeline ruler pans rather than scrubs: the
+ * secondary button (Ctrl-click on macOS) or the middle button.
+ */
+export function isRulerPanPress(
+  event: { button: number; ctrlKey: boolean },
+  mac: boolean,
+) {
+  return event.button === 1 || isContextMenuPress(event, mac);
+}
 
 function axisDelta(dx: number, dy: number, axis: DragScrollAxis) {
   return {
@@ -67,28 +83,31 @@ export function releaseVelocity(
   );
   const first = recent[0];
   const last = recent[recent.length - 1];
-  const elapsed = first && last ? last.time - first.time : 0;
+  const elapsed = last && first ? last.time - first.time : 0;
   if (!first || !last || elapsed <= 0) {
     return { x: 0, y: 0 };
   }
 
   const delta = axisDelta(last.x - first.x, last.y - first.y, axis);
-  // Subtract from 0 rather than negate, so a still axis is 0, not -0.
   return { x: 0 - delta.x / elapsed, y: 0 - delta.y / elapsed };
 }
 
 /**
- * How far the fling has scrolled `elapsedMs` after release, for a velocity
- * that decays linearly to zero over `durationMs`. Holds at the final
- * distance once the fling is over.
+ * One momentum step of `elapsedMs`: how far to scroll and the decayed
+ * velocity, or null once it is too slow to keep going.
  */
-export function momentumOffset(
+export function stepMomentum(
   velocity: DragScrollVelocity,
   elapsedMs: number,
-  durationMs = DRAG_SCROLL_MOMENTUM_MS,
-): { x: number; y: number } {
-  const t = Math.min(Math.max(elapsedMs, 0), durationMs);
-  // Integral of v * (1 - s / D) ds from 0 to t.
-  const factor = t - (t * t) / (2 * durationMs);
-  return { x: velocity.x * factor, y: velocity.y * factor };
+): { dx: number; dy: number; velocity: DragScrollVelocity } | null {
+  if (Math.hypot(velocity.x, velocity.y) < DRAG_SCROLL_MIN_VELOCITY) {
+    return null;
+  }
+
+  const decay = MOMENTUM_FRICTION_PER_FRAME ** (elapsedMs / MOMENTUM_FRAME_MS);
+  return {
+    dx: velocity.x * elapsedMs,
+    dy: velocity.y * elapsedMs,
+    velocity: { x: velocity.x * decay, y: velocity.y * decay },
+  };
 }

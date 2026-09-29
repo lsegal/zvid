@@ -13,6 +13,7 @@ import {
   useRef,
   useState,
 } from "react";
+import ColorPicker from "react-best-gradient-color-picker";
 import {
   addableEffectsFor,
   canStartFxChainPan,
@@ -37,6 +38,7 @@ import {
 } from "../fx-stack";
 import { useDragScroll } from "../use-drag-scroll";
 import { ContextMenu, type ContextMenuEntry } from "./ContextMenu";
+import { usePrefersReducedMotion } from "./MediaSyncSkeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,6 +46,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { Knob } from "./ui/Knob";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import "./fx-chain.css";
 
 export type FxEditMode = "commit" | "transient";
@@ -110,6 +113,15 @@ function getStorage() {
   }
 }
 
+// Presses inside the chain's own DOM that start a pan. React also bubbles
+// events from its portalled menus through the chain, which must not pan it.
+function canStartChainPan(event: ReactMouseEvent<HTMLElement>) {
+  return (
+    event.currentTarget.contains(event.target as Node) &&
+    canStartFxChainPan(event)
+  );
+}
+
 function getTrackId(group: FxDeviceGroup, layerTrackId: string | undefined) {
   return group === "global" ? GLOBAL_EFFECT_TRACK_ID : layerTrackId;
 }
@@ -150,9 +162,12 @@ export function FxChain({
   const canEdit = kind !== "audio" && layerTrackId !== undefined;
   // Dragging the chain's background, or middle-dragging anywhere in it,
   // pans it sideways.
-  const grabScrolling = useDragScroll(scrollRef, {
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const chainDragScroll = useDragScroll({
+    scrollRef,
+    canStart: canStartChainPan,
     axis: "x",
-    canStart: canStartFxChainPan,
+    momentum: !prefersReducedMotion,
   });
 
   // A vertical wheel scrolls the chain sideways. React registers wheel
@@ -678,9 +693,10 @@ export function FxChain({
   return (
     <div
       className={`fx-chain ${drag ? "fx-chain--dragging" : ""} ${
-        grabScrolling ? "fx-chain--grab-scrolling" : ""
+        chainDragScroll.isGrabbing ? "fx-chain--grab-scrolling" : ""
       }`}
       ref={scrollRef}
+      {...chainDragScroll.handlers}
     >
       {emptyMessage ? (
         <div className="fx-chain__empty">
@@ -1018,6 +1034,16 @@ function FxParameterControl({
     );
   }
 
+  if (parameter.kind === "color" || parameter.kind === "gradient") {
+    return (
+      <FxPaintControl
+        device={device}
+        onSetParameter={onSetParameter}
+        parameter={parameter}
+      />
+    );
+  }
+
   const defaultValue =
     typeof parameter.defaultValue === "number" ? parameter.defaultValue : 0;
   return (
@@ -1038,5 +1064,64 @@ function FxParameterControl({
       step={parameter.step}
       value={parameter.numericValue ?? defaultValue}
     />
+  );
+}
+
+// A swatch that opens a colour or gradient picker in a popover. Picker drags
+// send transient edits, and closing the popover commits the last value as
+// one undo step.
+function FxPaintControl({
+  device,
+  parameter,
+  onSetParameter,
+}: {
+  device: FxDevice;
+  parameter: FxDeviceParameter;
+  onSetParameter: FxChainProps["onSetParameter"];
+}) {
+  const pendingRef = useRef<string | null>(null);
+  const value = parameter.stringValue ?? `${parameter.defaultValue}`;
+  const gradient = parameter.kind === "gradient";
+  const label = `Edit ${parameter.label}`;
+
+  return (
+    <div className="fx-paint">
+      <span className="fx-paint__label">{parameter.label}</span>
+      <Popover
+        onOpenChange={(open) => {
+          const pending = pendingRef.current;
+          pendingRef.current = null;
+          if (!open && pending !== null) {
+            onSetParameter(device, parameter.key, pending, "commit");
+          }
+        }}
+      >
+        <PopoverTrigger asChild>
+          <button
+            aria-label={label}
+            className="fx-paint__swatch"
+            data-fx-no-drag
+            title={label}
+            type="button"
+          >
+            <span aria-hidden="true" style={{ background: value }} />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="fx-paint__popover">
+          <ColorPicker
+            disableLightMode
+            hideColorTypeBtns
+            hideGradientControls={!gradient}
+            height={150}
+            onChange={(next) => {
+              pendingRef.current = next;
+              onSetParameter(device, parameter.key, next, "transient");
+            }}
+            value={value}
+            width={236}
+          />
+        </PopoverContent>
+      </Popover>
+    </div>
   );
 }

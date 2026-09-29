@@ -1,25 +1,34 @@
-import { type RefObject, useEffect, useRef, useState } from "react";
 import {
-  DRAG_SCROLL_MOMENTUM_MS,
-  DRAG_SCROLL_VELOCITY_WINDOW_MS,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import {
   type DragScrollAxis,
   type DragScrollSample,
   type DragScrollVelocity,
   dragScrollPosition,
   exceedsDragThreshold,
-  momentumOffset,
   releaseVelocity,
   type ScrollPosition,
+  stepMomentum,
 } from "./drag-scroll.ts";
 
 type DragScrollOptions = {
+  // The element that scrolls; it may be an ancestor of the one dragged.
+  scrollRef: RefObject<HTMLElement | null>;
+  // Whether a press starts a pending pan, such as a particular button.
+  canStart: (event: ReactMouseEvent<HTMLElement>) => boolean;
   axis?: DragScrollAxis;
-  // Whether a press (pointerdown, or the mousedown that follows it) may
-  // start a pan: typically a background target, or the middle button.
-  canStart: (event: MouseEvent) => boolean;
+  // Keep scrolling after release; turn off for reduced motion.
+  momentum?: boolean;
 };
 
-type Pan = {
+type PendingPan = {
   pointerId: number;
   startX: number;
   startY: number;
@@ -28,101 +37,89 @@ type Pan = {
   samples: DragScrollSample[];
 };
 
-const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+// Hand-grab panning: pressing where `canStart` allows and dragging past a
+// small threshold scrolls `scrollRef` with the pointer, with momentum on
+// release unless `momentum` is off. Spread `handlers` on the grabbed
+// element and show a grabbing cursor while `isGrabbing`.
+export function useDragScroll({
+  scrollRef,
+  canStart,
+  axis = "both",
+  momentum = true,
+}: DragScrollOptions) {
+  const panRef = useRef<PendingPan | null>(null);
+  const momentumFrameRef = useRef<number | null>(null);
+  // Set when a pan ends so the contextmenu that follows a right-drag is
+  // swallowed rather than opening a menu.
+  const draggedRef = useRef(false);
+  const [isGrabbing, setIsGrabbing] = useState(false);
 
-// Hand-grab panning of the element in `ref`: a press that `canStart` allows
-// and drags past a small threshold scrolls the element with the pointer,
-// then flings on with a short momentum unless reduced motion is preferred.
-// The middle button's autoscroll is suppressed, and the click that ends a
-// pan is swallowed. Returns whether a pan is under way, for a grabbing
-// cursor. Touch is left to the browser's native scrolling.
-export function useDragScroll(
-  ref: RefObject<HTMLElement | null>,
-  { axis = "both", canStart }: DragScrollOptions,
-) {
-  const canStartRef = useRef(canStart);
-  const [dragging, setDragging] = useState(false);
-
-  useEffect(() => {
-    canStartRef.current = canStart;
-  }, [canStart]);
-
-  useEffect(() => {
-    const element = ref.current;
-    if (!element) {
-      return;
+  const stopMomentum = useCallback(() => {
+    if (momentumFrameRef.current !== null) {
+      cancelAnimationFrame(momentumFrameRef.current);
+      momentumFrameRef.current = null;
     }
+  }, []);
 
-    let pan: Pan | null = null;
-    let frame = 0;
-    let suppressClick = false;
+  useEffect(() => stopMomentum, [stopMomentum]);
 
-    const stopMomentum = () => {
-      if (frame) {
-        cancelAnimationFrame(frame);
-        frame = 0;
-      }
-    };
-
-    const startMomentum = (velocity: DragScrollVelocity) => {
-      if (
-        (!velocity.x && !velocity.y) ||
-        window.matchMedia?.(REDUCED_MOTION_QUERY).matches
-      ) {
+  const startMomentum = useCallback(
+    (initial: DragScrollVelocity) => {
+      const scroll = scrollRef.current;
+      if (!scroll || !momentum) {
         return;
       }
 
-      const origin = { left: element.scrollLeft, top: element.scrollTop };
-      const start = performance.now();
+      let velocity = initial;
+      let last = performance.now();
       const tick = (now: number) => {
-        const elapsed = now - start;
-        const offset = momentumOffset(velocity, elapsed);
-        element.scrollLeft = origin.left + offset.x;
-        element.scrollTop = origin.top + offset.y;
-        frame =
-          elapsed < DRAG_SCROLL_MOMENTUM_MS ? requestAnimationFrame(tick) : 0;
-      };
-      frame = requestAnimationFrame(tick);
-    };
+        const step = stepMomentum(velocity, Math.max(0, now - last));
+        last = now;
+        if (!step) {
+          momentumFrameRef.current = null;
+          return;
+        }
 
-    const handlePointerDown = (event: PointerEvent) => {
-      suppressClick = false;
-      if (
-        pan ||
-        !event.isPrimary ||
-        event.pointerType === "touch" ||
-        !canStartRef.current(event)
-      ) {
+        scroll.scrollLeft += step.dx;
+        scroll.scrollTop += step.dy;
+        velocity = step.velocity;
+        momentumFrameRef.current = requestAnimationFrame(tick);
+      };
+      momentumFrameRef.current = requestAnimationFrame(tick);
+    },
+    [momentum, scrollRef],
+  );
+
+  const onPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
+      const scroll = scrollRef.current;
+      if (!scroll || panRef.current || !canStart(event)) {
         return;
       }
 
+      event.preventDefault();
       stopMomentum();
-      if (event.button === 1) {
-        event.preventDefault();
-      }
-      element.setPointerCapture?.(event.pointerId);
-      pan = {
+      draggedRef.current = false;
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+      panRef.current = {
         pointerId: event.pointerId,
         startX: event.clientX,
         startY: event.clientY,
-        origin: { left: element.scrollLeft, top: element.scrollTop },
+        origin: { left: scroll.scrollLeft, top: scroll.scrollTop },
         dragging: false,
         samples: [
           { x: event.clientX, y: event.clientY, time: event.timeStamp },
         ],
       };
-    };
+    },
+    [canStart, scrollRef, stopMomentum],
+  );
 
-    // Some browsers start middle-button autoscroll on mousedown even after
-    // pointerdown was cancelled.
-    const handleMouseDown = (event: MouseEvent) => {
-      if (event.button === 1 && canStartRef.current(event)) {
-        event.preventDefault();
-      }
-    };
-
-    const handlePointerMove = (event: PointerEvent) => {
-      if (!pan || event.pointerId !== pan.pointerId) {
+  const onPointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
+      const pan = panRef.current;
+      const scroll = scrollRef.current;
+      if (!pan || !scroll || event.pointerId !== pan.pointerId) {
         return;
       }
 
@@ -133,76 +130,78 @@ export function useDragScroll(
           return;
         }
         pan.dragging = true;
-        setDragging(true);
+        setIsGrabbing(true);
       }
 
       event.preventDefault();
-      pan.samples = pan.samples.filter(
-        (sample) =>
-          event.timeStamp - sample.time <= DRAG_SCROLL_VELOCITY_WINDOW_MS,
-      );
       pan.samples.push({
         x: event.clientX,
         y: event.clientY,
         time: event.timeStamp,
       });
       const next = dragScrollPosition(pan.origin, dx, dy, axis);
-      element.scrollLeft = next.left;
-      element.scrollTop = next.top;
-    };
+      scroll.scrollLeft = next.left;
+      scroll.scrollTop = next.top;
+    },
+    [axis, scrollRef],
+  );
 
-    const endPan = (event: PointerEvent) => {
+  const endPan = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
+      const pan = panRef.current;
       if (!pan || event.pointerId !== pan.pointerId) {
         return;
       }
 
-      const ended = pan;
-      pan = null;
-      if (element.hasPointerCapture?.(event.pointerId)) {
-        element.releasePointerCapture(event.pointerId);
+      panRef.current = null;
+      if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
       }
-      if (!ended.dragging) {
+      if (!pan.dragging) {
         return;
       }
 
-      suppressClick = true;
-      setDragging(false);
+      draggedRef.current = true;
+      setIsGrabbing(false);
       if (event.type === "pointerup") {
-        startMomentum(releaseVelocity(ended.samples, event.timeStamp, axis));
+        startMomentum(releaseVelocity(pan.samples, event.timeStamp, axis));
       }
-    };
+    },
+    [axis, startMomentum],
+  );
 
-    // The click (or auxclick) a pan ends with is not a click on the target.
-    const handleClick = (event: MouseEvent) => {
-      if (suppressClick) {
-        suppressClick = false;
+  // Keeps the middle button from starting the browser's autoscroll, which
+  // some browsers begin on mousedown even after pointerdown was cancelled.
+  const onMouseDown = useCallback(
+    (event: ReactMouseEvent<HTMLElement>) => {
+      if (event.button === 1 && canStart(event)) {
         event.preventDefault();
-        event.stopPropagation();
       }
-    };
+    },
+    [canStart],
+  );
 
-    element.addEventListener("pointerdown", handlePointerDown);
-    element.addEventListener("mousedown", handleMouseDown);
-    element.addEventListener("pointermove", handlePointerMove);
-    element.addEventListener("pointerup", endPan);
-    element.addEventListener("pointercancel", endPan);
-    element.addEventListener("lostpointercapture", endPan);
-    element.addEventListener("click", handleClick, true);
-    element.addEventListener("auxclick", handleClick, true);
-    element.addEventListener("wheel", stopMomentum, { passive: true });
-    return () => {
-      stopMomentum();
-      element.removeEventListener("pointerdown", handlePointerDown);
-      element.removeEventListener("mousedown", handleMouseDown);
-      element.removeEventListener("pointermove", handlePointerMove);
-      element.removeEventListener("pointerup", endPan);
-      element.removeEventListener("pointercancel", endPan);
-      element.removeEventListener("lostpointercapture", endPan);
-      element.removeEventListener("click", handleClick, true);
-      element.removeEventListener("auxclick", handleClick, true);
-      element.removeEventListener("wheel", stopMomentum);
-    };
-  }, [ref, axis]);
+  // Swallows the contextmenu a right-drag ends with. Returns whether it did.
+  const onContextMenu = useCallback((event: ReactMouseEvent<HTMLElement>) => {
+    if (!draggedRef.current && !panRef.current?.dragging) {
+      return false;
+    }
 
-  return dragging;
+    draggedRef.current = false;
+    event.preventDefault();
+    return true;
+  }, []);
+
+  return {
+    isGrabbing,
+    onContextMenu,
+    handlers: {
+      onMouseDown,
+      onPointerDown,
+      onPointerMove,
+      onPointerUp: endPan,
+      onPointerCancel: endPan,
+      onLostPointerCapture: endPan,
+    },
+  };
 }

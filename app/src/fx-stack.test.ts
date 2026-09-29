@@ -775,6 +775,15 @@ describe("layer FX bypass", () => {
     assert.deepEqual(ids(rendered, "6"), ["layer-layout"]);
   });
 
+  it("keeps the Color that paints fill clips on a bypassed layer", () => {
+    const effects = addEffect(load(), "6", "Color", undefined, "fill-color");
+    const rendered = getRenderedEffects(
+      effects,
+      setLaneFxEnabled(LANES, "6", false),
+    );
+    assert.deepEqual(ids(rendered, "6"), ["fill-color"]);
+  });
+
   it("restores each device's own bypass state when turned back on", () => {
     const effects = setEffectEnabled(load(), "negative", false);
     const lanes = setLaneFxEnabled(

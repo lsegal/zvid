@@ -191,6 +191,20 @@
   z-index: 60;
 }
 
+.popover-content {
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(
+    180deg,
+    rgba(39, 42, 59, 0.98),
+    rgba(26, 29, 40, 0.98)
+  );
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.38);
+  color: var(--ink);
+  z-index: 60;
+}
+
 .dropdown-menu-content[data-side='bottom'] {
   animation: dropdown-slide 140ms ease;
 }
@@ -1373,7 +1387,9 @@
   user-select: none;
 }
 
-.ruler-row__content--interactive.is-dragging {
+.ruler-row__content--interactive.is-dragging,
+.ruler-row.is-grab-panning,
+.ruler-row.is-grab-panning * {
   cursor: grabbing;
 }
 
@@ -1892,6 +1908,13 @@
 
 .clip-card__body:active {
   cursor: grabbing;
+}
+
+/* A fill clip's colour or gradient, drawn behind its handles and label. */
+.clip-card__fill {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 
 /* Frames sampled along the clip, drawn behind its handles and label. */

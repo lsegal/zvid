@@ -449,3 +449,47 @@ body.fx-chain-dragging * {
   background: color-mix(in srgb, var(--fx-accent) 26%, transparent);
   color: var(--ink);
 }
+
+/* Colour and gradient parameters: a swatch that opens the picker. */
+.fx-paint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.fx-paint__label {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.fx-paint__swatch {
+  width: 56px;
+  height: 28px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  /* Checks show through a translucent colour. */
+  background: repeating-conic-gradient(#3a3d4a 0% 25%, #2a2d38 0% 50%) 50% /
+    10px 10px;
+}
+
+.fx-paint__swatch span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 5px;
+}
+
+.fx-paint__swatch:hover,
+.fx-paint__swatch[data-state="open"] {
+  border-color: var(--fx-accent);
+}
+
+.fx-paint__popover {
+  width: max-content;
+}

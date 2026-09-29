@@ -440,6 +440,7 @@ test("right-clicking a selection keeps it and inserts a track like its number ke
   await expect(selection).toBeVisible();
   await expect(menu.getByRole("menuitem")).toHaveText([
     "Insert Track",
+    "Insert Fill Layer",
     "Clear selectionEsc",
   ]);
 
