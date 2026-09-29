@@ -15,6 +15,7 @@ import {
 } from "react";
 import {
   addableEffectsFor,
+  canStartFxChainPan,
   describeDeviceMove,
   dropSlotToStackIndex,
   getAutoScrollDelta,
@@ -28,6 +29,7 @@ import {
   writeCollapsedDevices,
 } from "../fx-chain";
 import type { FxEffectDefinition } from "../fx-registry";
+import { useDragScroll } from "../use-drag-scroll";
 import {
   type FxDevice,
   type FxDeviceGroup,
@@ -146,6 +148,12 @@ export function FxChain({
   const [announcement, setAnnouncement] = useState("");
   const groups = groupChainDevices(devices, kind);
   const canEdit = kind !== "audio" && layerTrackId !== undefined;
+  // Dragging the chain's background, or middle-dragging anywhere in it,
+  // pans it sideways.
+  const grabScrolling = useDragScroll(scrollRef, {
+    axis: "x",
+    canStart: canStartFxChainPan,
+  });
 
   // A vertical wheel scrolls the chain sideways. React registers wheel
   // listeners as passive, so preventDefault needs a native listener. Knobs
@@ -669,7 +677,9 @@ export function FxChain({
 
   return (
     <div
-      className={`fx-chain ${drag ? "fx-chain--dragging" : ""}`}
+      className={`fx-chain ${drag ? "fx-chain--dragging" : ""} ${
+        grabScrolling ? "fx-chain--grab-scrolling" : ""
+      }`}
       ref={scrollRef}
     >
       {emptyMessage ? (

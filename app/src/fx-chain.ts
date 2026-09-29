@@ -148,6 +148,30 @@ export function getAutoScrollDelta(
   return 0;
 }
 
+// Parts of the chain that keep their own pointer behaviour: devices (knobs,
+// controls and the title bars that reorder them), add slots and buttons.
+// Everything else (gaps, padding, the Global divider and the empty space
+// after the last slot) is background that hand-grab pans the chain.
+export const FX_CHAIN_CONTROL_SELECTOR =
+  ".fx-device-panel, .fx-chain__add, .fx-chain__empty, .fx-chain__layer-off, button, input, select, textarea, a[href], [role='menu']";
+
+// Whether a press starts hand-grab panning the chain: the primary button on
+// its background, or the middle button anywhere, since it operates no
+// controls.
+export function canStartFxChainPan(event: {
+  button: number;
+  target: EventTarget | null;
+}) {
+  if (event.button === 1) {
+    return true;
+  }
+
+  const target = event.target as { closest?: (selector: string) => unknown };
+  return (
+    event.button === 0 && !target?.closest?.(FX_CHAIN_CONTROL_SELECTOR)
+  );
+}
+
 // Screen reader text for a device that moved within its stack.
 export function describeDeviceMove(
   device: Pick<FxDevice, "name" | "group" | "subtitle">,
