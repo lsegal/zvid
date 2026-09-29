@@ -44,10 +44,7 @@ describe("clip selection keeps the playhead", () => {
       "const startTextEdit = useCallback(",
       "\n  );\n",
     );
-    const jump = sliceFrom(
-      "const jumpToClipStart = useCallback(",
-      "\n  );\n",
-    );
+    const jump = sliceFrom("const jumpToClipStart = useCallback(", "\n  );\n");
     // Each seek sits in one of the two, one in each.
     const seeksIn = (body: string) => {
       const start = appTsx.indexOf(body);
