@@ -27,19 +27,23 @@ import {
   type BoxCorners,
   canvasBoxToFrame,
   canvasToLayer,
+  chainTransformMatrix,
   frameBoxInCanvas,
-  IDENTITY_MATRIX,
   IDENTITY_TRANSFORM,
   invertMatrix,
   isTransformEffectName,
   type LayerTransform,
-  layerBoxInCanvas,
   type Matrix2D,
+  matrixBoxCorners,
+  multiplyMatrix,
   type Point,
   parseLayerTransform,
-  resolveClipTextBox,
+  resolveVisualTextBox,
+  stackTransformChain,
   TRANSFORM_EFFECT_NAME,
-  transformMatrix,
+  type TransformedVisual,
+  type TransformMotion,
+  visualTransformMatrix,
 } from "./composition-transform.ts";
 import {
   addEffect,
@@ -97,7 +101,7 @@ type StackableLayer = {
   clip: { id: string; laneId: string; startQ: number };
   laneRank: number;
   isInBounds: boolean;
-  visual: { transform?: LayerTransform; clipTransform?: LayerTransform };
+  visual: TransformedVisual;
   // Set for FX clips, which take no slot and adjust the whole canvas.
   fx?: boolean;
   // Set for FX clips with an Order, which arranges the layers beneath them.
@@ -105,14 +109,16 @@ type StackableLayer = {
 };
 
 // A layer as the preview draws it: its slot, its layer's Transform, its
-// clip's own Transform (inside the layer's), and the corners of the clip's
-// transformed box in canvas pixels.
+// clip's own Transform (inside the layer's), their Moves at the playhead, and
+// the corners of the clip's transformed box in canvas pixels.
 export type PreviewLayer = {
   laneId: string;
   clipId: string;
   placement: { frame: FrameBounds };
   transform: LayerTransform;
   clipTransform: LayerTransform;
+  motion?: TransformMotion;
+  clipMotion?: TransformMotion;
   corners: BoxCorners;
 };
 
@@ -128,31 +134,50 @@ export function getPreviewEditTrackId(target: PreviewEditTarget) {
 }
 
 // The Transform a drag edits on `layer`, with the box it applies to and the
-// matrix that places the result (the layer's Transform, for a clip's): the
-// drag maths work in that parent's space, then map back to the canvas.
+// matrix that places the result (the layer's Transform, for a clip's, and
+// the Moves around the edited Transform): the drag maths work in that
+// parent's space, then map back to the canvas.
 export type PreviewEditFrame = {
   box: Box;
   transform: LayerTransform;
   parent: Matrix2D;
-  // The edited box's corners in canvas pixels.
+  // The edited box's corners in canvas pixels, as drawn at the playhead:
+  // with the Moves nested inside the edited Transform too.
   corners: BoxCorners;
 };
 
 export function resolvePreviewEditFrame(
-  layer: Pick<PreviewLayer, "placement" | "transform" | "clipTransform">,
+  layer: Pick<PreviewLayer, "placement" | "transform" | "clipTransform"> &
+    Partial<Pick<PreviewLayer, "motion" | "clipMotion">>,
   editsClip: boolean,
   canvas: Size,
 ): PreviewEditFrame {
   const box = frameBoxInCanvas(layer.placement.frame, canvas);
-  const parent = editsClip
-    ? transformMatrix(layer.transform, box, canvas)
-    : IDENTITY_MATRIX;
+  const motion = editsClip ? layer.clipMotion : layer.motion;
+  const parent = chainTransformMatrix(
+    [
+      ...(editsClip ? stackTransformChain(layer.transform, layer.motion) : []),
+      ...(motion?.outer ?? []),
+    ],
+    box,
+    canvas,
+  );
   const transform = editsClip ? layer.clipTransform : layer.transform;
   return {
     box,
     transform,
     parent,
-    corners: layerBoxInCanvas(layer.placement, transform, canvas, parent),
+    corners: matrixBoxCorners(
+      multiplyMatrix(
+        parent,
+        chainTransformMatrix(
+          [transform, ...(motion?.inner ?? [])],
+          box,
+          canvas,
+        ),
+      ),
+      box,
+    ),
   };
 }
 
@@ -245,17 +270,19 @@ export function resolvePreviewLayers(
     const placement = { frame };
     const transform = entry.visual.transform ?? IDENTITY_TRANSFORM;
     const clipTransform = entry.visual.clipTransform ?? IDENTITY_TRANSFORM;
-    return {
-      laneId: entry.clip.laneId,
-      clipId: entry.clip.id,
+    const { motion, clipMotion } = entry.visual;
+    const layer = {
       placement,
       transform,
       clipTransform,
-      corners: resolvePreviewEditFrame(
-        { placement, transform, clipTransform },
-        true,
-        canvas,
-      ).corners,
+      ...(motion ? { motion } : {}),
+      ...(clipMotion ? { clipMotion } : {}),
+    };
+    return {
+      laneId: entry.clip.laneId,
+      clipId: entry.clip.id,
+      ...layer,
+      corners: resolvePreviewEditFrame(layer, true, canvas).corners,
     };
   });
 }
@@ -272,11 +299,10 @@ function resolveArrangementBox(
   parent: Box,
   visual: StackableLayer["visual"],
 ): Box {
-  const placed = resolveClipTextBox(
+  const placed = resolveVisualTextBox(
     { x: 0, y: 0, width: parent.width, height: parent.height },
     { width: parent.width, height: parent.height },
-    visual.transform,
-    visual.clipTransform,
+    visual,
   );
   const center = applyMatrix(placed.matrix, {
     x: placed.box.x + placed.box.width / 2,
@@ -290,12 +316,11 @@ function resolveArrangementBox(
   };
 }
 
-type HitTestLayer = Pick<PreviewLayer, "placement" | "transform"> & {
-  clipTransform?: LayerTransform;
-};
+type HitTestLayer = Pick<PreviewLayer, "placement" | "transform"> &
+  Partial<Pick<PreviewLayer, "clipTransform" | "motion" | "clipMotion">>;
 
 // Whether `point` is on the layer's clip as drawn: its box after the clip's
-// Transform and the layer's.
+// Transform and the layer's, and their Moves.
 export function isPointOnLayer(
   point: Point,
   layer: HitTestLayer,
@@ -304,12 +329,12 @@ export function isPointOnLayer(
   const local = canvasToLayer(
     point,
     layer.placement,
-    layer.clipTransform ?? IDENTITY_TRANSFORM,
+    IDENTITY_TRANSFORM,
     canvas,
-    transformMatrix(
-      layer.transform,
+    visualTransformMatrix(
       frameBoxInCanvas(layer.placement.frame, canvas),
       canvas,
+      layer,
     ),
   );
   const edge = 1 + 1e-9;

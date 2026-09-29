@@ -11,7 +11,7 @@ import {
   applyMatrix,
   frameBoxInCanvas,
   type Matrix2D,
-  resolveClipTextBox,
+  resolveVisualTextBox,
 } from "./composition-transform.ts";
 import { type FillPaint, formatFillPaintCss } from "./fill-paint.ts";
 import {
@@ -53,17 +53,16 @@ export type TextEditorPlacement = {
 
 export function resolveTextEditorPlacement(
   layer: Pick<PreviewLayer, "placement" | "transform"> &
-    Partial<Pick<PreviewLayer, "clipTransform">>,
+    Partial<Pick<PreviewLayer, "clipTransform" | "motion" | "clipMotion">>,
   video: Rect,
   canvas: Size,
 ): TextEditorPlacement {
   // The editor is the clip's text box, which the Transforms resize rather
   // than scale, so the text wraps in it as the compositor draws it.
-  const { box, matrix: toCanvas } = resolveClipTextBox(
+  const { box, matrix: toCanvas } = resolveVisualTextBox(
     frameBoxInCanvas(layer.placement.frame, canvas),
     canvas,
-    layer.transform,
-    layer.clipTransform,
+    layer,
   );
   const scaleX = video.width / Math.max(1, canvas.width);
   const scaleY = video.height / Math.max(1, canvas.height);
