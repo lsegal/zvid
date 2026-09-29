@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 
-// Double-clicking a text layer in the preview (or Enter on the selected one,
+// Double-clicking a text clip in the preview (or Enter on the selected one,
 // or a double-click on its timeline clip) types on it directly on the canvas.
 // The FX panel follows along, and leaving the editor is one undo step.
 
@@ -8,7 +8,7 @@ function lane(page: Page, id: string) {
   return page.locator(`[data-timeline-lane-id="${id}"]`);
 }
 
-async function insertTextLayer(page: Page) {
+async function insertTextClip(page: Page) {
   const bounds = await lane(page, "1").boundingBox();
   if (!bounds) {
     throw new Error("Lane is not visible");
@@ -22,7 +22,7 @@ async function insertTextLayer(page: Page) {
   await page.mouse.click(bounds.x + 150, bounds.y + 20, { button: "right" });
   await page
     .getByRole("menu", { name: "Selection actions" })
-    .getByRole("menuitem", { name: "Insert Text Layer" })
+    .getByRole("menuitem", { name: "Insert Text Clip" })
     .click();
   const clip = lane(page, "1").locator(".clip-card--text");
   await expect(clip).toHaveCount(1);
@@ -49,10 +49,10 @@ async function fontSize(page: Page) {
     .evaluate((input) => Number.parseFloat(getComputedStyle(input).fontSize));
 }
 
-test("typing on a text layer in the preview", async ({ page }) => {
+test("typing on a text clip in the preview", async ({ page }) => {
   await page.goto("/");
   await expect(lane(page, "1")).toBeVisible();
-  const clip = await insertTextLayer(page);
+  const clip = await insertTextClip(page);
   const device = page.locator('section[aria-label="Text"]');
   const fxText = device.getByRole("textbox", { name: "Text" });
   await expect(fxText).toHaveValue("Text");
@@ -67,7 +67,7 @@ test("typing on a text layer in the preview", async ({ page }) => {
   await page.mouse.dblclick(center.x, center.y);
   await expect(input).toBeFocused();
   await expect(input).toHaveValue("Text");
-  await expect(input).toHaveAttribute("title", /whole text layer/);
+  await expect(input).toHaveAttribute("title", /whole text clip/);
   // The resize handles and origin marker step aside so they don't cover the
   // editor.
   const origin = page.getByTestId("preview-transform-origin");
@@ -154,7 +154,7 @@ test("an IME composition is one undo step with the rest of the edit", async ({
 }) => {
   await page.goto("/");
   await expect(lane(page, "1")).toBeVisible();
-  await insertTextLayer(page);
+  await insertTextClip(page);
   const fxText = page
     .locator('section[aria-label="Text"]')
     .getByRole("textbox", { name: "Text" });
@@ -233,7 +233,7 @@ test("the transform handles step aside while editing text", async ({
 }) => {
   await page.goto("/");
   await expect(lane(page, "1")).toBeVisible();
-  const clip = await insertTextLayer(page);
+  const clip = await insertTextClip(page);
   const editor = page.getByTestId("preview-text-editor");
   const input = editor.getByRole("textbox");
   const center = await videoCenter(page);

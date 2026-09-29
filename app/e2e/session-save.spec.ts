@@ -66,7 +66,7 @@ test("File ▸ Save keeps fill clips and layer FX bypass on reopen", async ({
   await page.mouse.click(bounds.x + 150, bounds.y + 20, { button: "right" });
   await page
     .getByRole("menu", { name: "Selection actions" })
-    .getByRole("menuitem", { name: "Insert Fill Layer" })
+    .getByRole("menuitem", { name: "Insert Fill Clip" })
     .click();
   await expect(lane.locator(".clip-card--fill")).toHaveCount(1);
 

@@ -92,7 +92,7 @@ describe("native app CSP fonts", () => {
       sourceAllows(source, new URL(url)),
     );
 
-  it("allows Google Fonts stylesheets and font files for Text layers", () => {
+  it("allows Google Fonts stylesheets and font files for Text clips", () => {
     assert.ok(allows("style-src", googleFontsCssUrl(["Roboto"])));
     assert.ok(
       allows("font-src", "https://fonts.gstatic.com/s/roboto/v1/roboto.woff2"),

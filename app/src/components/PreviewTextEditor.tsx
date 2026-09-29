@@ -68,9 +68,9 @@ function getMeasureContext() {
 }
 
 export const TEXT_EDITOR_TITLE =
-  "Esc or Ctrl/Cmd+Enter to finish. Ctrl/Cmd+B, I, U and Ctrl/Cmd+Shift+> / < style the whole text layer; per-character styling isn't supported.";
+  "Esc or Ctrl/Cmd+Enter to finish. Ctrl/Cmd+B, I, U and Ctrl/Cmd+Shift+> / < style the whole text clip; per-character styling isn't supported.";
 
-// Types a text layer's text directly on the canvas. The text area sits over
+// Types a text clip's text directly on the canvas. The text area sits over
 // the layer's transformed box, laid out in canvas pixels with the layer's
 // font, size (after Resize to fit), leading, tracking, alignment and paint,
 // so what is typed lines up with the final render. The compositor hides the
@@ -103,7 +103,7 @@ export function PreviewTextEditor({
     }
   }, [style.text]);
 
-  // New text layers start as "Text", which typing replaces; otherwise the
+  // New text clips start as "Text", which typing replaces; otherwise the
   // caret goes to the end.
   useEffect(() => {
     const input = inputRef.current;

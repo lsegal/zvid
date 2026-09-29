@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 
-// The selection menu's Insert Text Layer turns the timeline selection into a
+// The selection menu's Insert Text Clip turns the timeline selection into a
 // text clip, styled from the FX panel by its layer's Text effect.
 
 function lane(page: Page, id: string) {
@@ -25,7 +25,7 @@ async function dragSelection(
   await page.mouse.up();
 }
 
-async function insertTextLayer(page: Page) {
+async function insertTextClip(page: Page) {
   await dragSelection(page, "1", 40, 260);
   const bounds = await lane(page, "1").boundingBox();
   if (!bounds) {
@@ -34,16 +34,16 @@ async function insertTextLayer(page: Page) {
   await page.mouse.click(bounds.x + 150, bounds.y + 20, { button: "right" });
   await page
     .getByRole("menu", { name: "Selection actions" })
-    .getByRole("menuitem", { name: "Insert Text Layer" })
+    .getByRole("menuitem", { name: "Insert Text Clip" })
     .click();
 }
 
-test("Insert Text Layer adds a text clip edited from its Text effect", async ({
+test("Insert Text Clip adds a text clip edited from its Text effect", async ({
   page,
 }) => {
   await page.goto("/");
   await expect(lane(page, "1")).toBeVisible();
-  await insertTextLayer(page);
+  await insertTextClip(page);
 
   const clip = lane(page, "1").locator(".clip-card--text");
   await expect(clip).toHaveCount(1);
