@@ -198,6 +198,7 @@ import {
   ensureLayerLayouts,
   type FxDevice,
   GLOBAL_EFFECT_TRACK_ID,
+  getEffectClipId,
   getRenderedEffects,
   isLayerFxEnabled,
   isLayoutEffectName,
@@ -2700,10 +2701,19 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   );
 
   const addFxDevice = useCallback(
-    (trackId: string, effectName: string, id: string) =>
+    (trackId: string, effectName: string, id: string) => {
+      // An FX clip's own stack takes the effects that work on a composite,
+      // Order among them.
+      const clipId = getEffectClipId(trackId);
+      const scope =
+        clipId !== undefined &&
+        isFxClip(timelineClipsRef.current.find((clip) => clip.id === clipId))
+          ? "fxClip"
+          : undefined;
       editEffects(effectHistoryLabels.add(effectName), (current) =>
-        addEffect(current, trackId, effectName, undefined, id),
-      ),
+        addEffect(current, trackId, effectName, undefined, id, scope),
+      );
+    },
     [editEffects],
   );
 
@@ -3334,7 +3344,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     : undefined;
   // Layers the compositor draws at the playhead: one per layer with an
   // online video clip there. The Order device warns when a grid hides some.
-  const playheadVisualLayerCount = useMemo(
+  const playheadVisualLaneIds = useMemo(
     () =>
       new Set(
         timelineClips
@@ -3349,9 +3359,21 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             );
           })
           .map((clip) => clip.laneId),
-      ).size,
+      ),
     [bpm, mediaItemsById, playheadQ, timelineClips],
   );
+  const playheadVisualLayerCount = playheadVisualLaneIds.size;
+  // Of those, the layers beneath the selected FX clip, which an Order on it
+  // arranges.
+  const selectedFxClipRank = isFxClip(selectedClip)
+    ? lanePriority.get(selectedClip?.laneId ?? "")
+    : undefined;
+  const fxClipLayerCount =
+    selectedFxClipRank === undefined
+      ? 0
+      : [...playheadVisualLaneIds].filter(
+          (laneId) => (lanePriority.get(laneId) ?? -1) > selectedFxClipRank,
+        ).length;
   // Fonts Text effects pick load up front, so one that can't be loaded is
   // flagged on its device even before its clip is drawn.
   const missingFonts = useSyncExternalStore(subscribeFonts, getMissingFonts);
@@ -3402,11 +3424,13 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             missingFonts,
             fxClipId,
             fxClipScope,
+            fxClipLayerCount,
           )
         : [],
     [
       effects,
       fxClipId,
+      fxClipLayerCount,
       fxClipScope,
       fxLane?.name,
       fxLaneId,

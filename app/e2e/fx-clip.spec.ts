@@ -305,7 +305,8 @@ test("Insert FX Clip adds an empty FX clip that lists its effects", async ({
   const menu = page.getByRole("menu");
   await expect(menu.getByRole("menuitem", { name: "Colorize" })).toBeVisible();
   await expect(menu.getByRole("menuitem", { name: "Transform" })).toBeVisible();
-  for (const name of ["Color", "Text", "Layout", "Order"]) {
+  await expect(menu.getByRole("menuitem", { name: /^Order / })).toBeVisible();
+  for (const name of ["Color", "Text", "Layout"]) {
     await expect(menu.getByRole("menuitem", { name, exact: true })).toHaveCount(
       0,
     );

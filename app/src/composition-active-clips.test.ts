@@ -747,4 +747,48 @@ describe("FX clips", () => {
       ["Colorize"],
     );
   });
+
+  it("carries the Order on its own stack, which arranges the layers beneath it", () => {
+    const find = (effects: Parameters<typeof computeActiveClips>[5]) =>
+      active(effects).find((candidate) => candidate.clip.id === "fx-6");
+    assert.equal(find([])?.order, undefined);
+
+    const order = (id: string, arrangement: string, enabled = true) => ({
+      id,
+      trackId: "clip:fx-6",
+      effectName: "Order",
+      parameters: [
+        { key: "Arrangement", value: arrangement },
+        { key: "GridSize", value: "3", numericValue: 3 },
+      ],
+      enabled,
+    });
+    const colorize = {
+      id: "colorize",
+      trackId: "clip:fx-6",
+      effectName: "Colorize",
+      parameters: [],
+    };
+    // Placed after Colorize, it still arranges; only Colorize is a chain
+    // step. The last enabled Order wins.
+    const entry = find([
+      colorize,
+      order("grid", "Grid"),
+      order("off", "Horizontal", false),
+    ]);
+    assert.deepEqual(entry?.order, {
+      arrangement: "grid",
+      gridSize: 3,
+      spacing: 0,
+    });
+    assert.deepEqual(
+      entry?.effectChain.map((step) => step.pass.effectName),
+      ["Colorize"],
+    );
+    // A Global Order or the layer's is not the FX clip's.
+    assert.equal(
+      find([{ ...order("global", "Grid"), trackId: "__group_main" }])?.order,
+      undefined,
+    );
+  });
 });

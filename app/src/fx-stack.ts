@@ -341,20 +341,35 @@ export function createEffect(
 }
 
 // Inserts a new effect with the registry defaults at `atIndex` within the
-// `trackId` stack, or at the end of the stack when omitted.
+// `trackId` stack, or at the end of the stack when omitted. `scope` is the
+// stack's scope when the track alone doesn't tell: "fxClip" for an FX
+// clip's own stack.
 export function addEffect(
   effects: SessionEffect[],
   trackId: string,
   effectName: string,
   atIndex?: number,
   id?: string,
+  scope: FxEffectScope = getTrackGroup(trackId),
 ) {
-  const stack = getStack(effects, trackId);
+  let current = effects;
+  let stack = getStack(current, trackId);
   // Only effects designed for the stack can be added to it: Transform
   // places one layer, so never on the Global stack, and Order arranges
-  // every layer at once, so only on the Global stack.
-  if (!isEffectSupportedIn(effectName, getTrackGroup(trackId))) {
+  // several layers at once, so only on the Global stack or an FX clip.
+  if (!isEffectSupportedIn(effectName, scope)) {
     return effects;
+  }
+
+  // A stack arranges its layers one way: a new Order bypasses the ones
+  // already there, which stay to be switched back on.
+  if (isOrderEffectName(effectName)) {
+    for (const existing of stack) {
+      if (isOrderEffectName(existing.effectName)) {
+        current = setEffectEnabled(current, existing.id, false);
+      }
+    }
+    stack = getStack(current, trackId);
   }
 
   // Layout is per layer: never on the Global stack, and one per layer.
@@ -374,14 +389,14 @@ export function addEffect(
 
   let insertAt: number;
   if (stackIndex < stack.length) {
-    insertAt = effects.indexOf(stack[stackIndex]);
+    insertAt = current.indexOf(stack[stackIndex]);
   } else if (stack.length) {
-    insertAt = effects.indexOf(stack[stack.length - 1]) + 1;
+    insertAt = current.indexOf(stack[stack.length - 1]) + 1;
   } else {
-    insertAt = effects.length;
+    insertAt = current.length;
   }
 
-  return [...effects.slice(0, insertAt), effect, ...effects.slice(insertAt)];
+  return [...current.slice(0, insertAt), effect, ...current.slice(insertAt)];
 }
 
 export function removeEffect(effects: SessionEffect[], effectId: string) {
@@ -793,6 +808,10 @@ function toDevice(
   };
 }
 
+// Shown on an Order that isn't first on an FX clip's stack.
+export const ORDER_RUNS_FIRST_NOTE =
+  "Arranges the layers before the effects to its left";
+
 // Devices for a layer: the layer's own stack, then the Global stack, then
 // the selected clip's own stack (`clipId`), which is processed first.
 export function mapSessionEffectsToDevices(
@@ -808,6 +827,9 @@ export function mapSessionEffectsToDevices(
   clipId?: string,
   // "fxClip" when the selected clip is an FX clip.
   clipScope: FxEffectScope = "clip",
+  // Layers beneath the selected FX clip at the playhead, for the grid
+  // warning of an Order on its stack.
+  clipLayerCount = 0,
 ) {
   const layerDevices = effects
     .filter((effect) => laneId !== undefined && effect.trackId === laneId)
@@ -819,7 +841,24 @@ export function mapSessionEffectsToDevices(
     clipId === undefined ? undefined : clipEffectTrackId(clipId);
   const clipDevices = effects
     .filter((effect) => effect.trackId === clipTrackId)
-    .map((effect) => toDevice(effect, layerName, 0, missingFonts, clipScope));
+    .map((effect, index) => {
+      const device = toDevice(
+        effect,
+        layerName,
+        clipScope === "fxClip" ? clipLayerCount : 0,
+        missingFonts,
+        clipScope,
+      );
+      // An FX clip arranges the layers beneath it before any of its other
+      // effects run, wherever its Order sits in the stack.
+      return clipScope === "fxClip" &&
+        index > 0 &&
+        !device.warning &&
+        !device.unsupported &&
+        isOrderEffectName(effect.effectName)
+        ? { ...device, warning: ORDER_RUNS_FIRST_NOTE }
+        : device;
+    });
   return [...layerDevices, ...globalDevices, ...clipDevices];
 }
 
