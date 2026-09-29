@@ -256,6 +256,135 @@ describe("resolvePreviewLayers", () => {
     assert.equal(hitTestLayers(layers, { x: 100, y: 500 }, canvas), undefined);
   });
 
+  it("turns the layers beneath an FX clip with its turned box", () => {
+    const fx = {
+      ...activeLayer("fx", 0, { rotationDeg: 90 }),
+      fx: true,
+      order: { arrangement: "grid" as const, gridSize: 2, spacing: 0 },
+    };
+    const layers = resolvePreviewLayers(
+      [fx, activeLayer("b", 1), activeLayer("c", 2)],
+      canvas,
+    );
+    const [, b, c] = layers;
+    // The grid's top row turns a quarter clockwise about the canvas centre:
+    // b's top-left cell lands top-right, c's top-right cell bottom-right.
+    const turned = [
+      [1000, 0],
+      [1000, 500],
+      [500, 500],
+      [500, 0],
+    ];
+    b.corners.forEach((corner, index) => {
+      assertClose(corner.x, turned[index][0]);
+      assertClose(corner.y, turned[index][1]);
+    });
+    assertClose(c.corners[2].x, 500);
+    assertClose(c.corners[2].y, 1000);
+    assert.equal(
+      hitTestLayers(layers, { x: 750, y: 250 }, canvas)?.laneId,
+      "b",
+    );
+    assert.equal(
+      hitTestLayers(layers, { x: 750, y: 750 }, canvas)?.laneId,
+      "c",
+    );
+    // Where b would be in an upright box, only the FX clip is drawn.
+    assert.equal(
+      hitTestLayers(layers, { x: 250, y: 250 }, canvas)?.laneId,
+      "fx",
+    );
+    // The handles turn with the box.
+    assertClose(
+      matrixRotationDeg(resolvePreviewEditFrame(b, true, canvas).parent),
+      90,
+    );
+    assertClose(
+      matrixRotationDeg(resolvePreviewEditFrame(b, false, canvas).parent),
+      90,
+    );
+  });
+
+  it("moves a clip in a turned FX box under the pointer", () => {
+    const fx = {
+      ...activeLayer("fx", 0, { rotationDeg: 90 }),
+      fx: true,
+      order: { arrangement: "grid" as const, gridSize: 2, spacing: 0 },
+    };
+    const b = activeLayer("b", 1);
+    const [, before] = resolvePreviewLayers([fx, b], canvas);
+    const frame = resolvePreviewEditFrame(before, true, canvas);
+    const position = offsetTransformPosition(
+      { x: 0, y: 0 },
+      toParentDelta(frame.parent, { x: 100, y: 0 }),
+      frame.canvas,
+    );
+    const [, after] = resolvePreviewLayers(
+      [
+        fx,
+        {
+          ...b,
+          visual: {
+            clipTransform: {
+              ...IDENTITY_TRANSFORM,
+              positionX: position.x,
+              positionY: position.y,
+            },
+          },
+        },
+      ],
+      canvas,
+    );
+    assertClose(after.corners[0].x - before.corners[0].x, 100);
+    assertClose(after.corners[0].y - before.corners[0].y, 0);
+  });
+
+  it("measures a layer in a scaled FX box in the box's size", () => {
+    const fx = {
+      ...activeLayer("fx", 0, { scaleX: 0.5, scaleY: 0.25 }),
+      fx: true,
+      order: { arrangement: "horizontal" as const, gridSize: 2, spacing: 0 },
+    };
+    const [, before] = resolvePreviewLayers([fx, activeLayer("b", 1)], canvas);
+    // The layers are arranged on a 500 x 250 surface, not squeezed into it.
+    assert.deepEqual(before.arrangement?.canvas, { width: 500, height: 250 });
+    assert.deepEqual(
+      before.corners.map((corner) => [corner.x, corner.y]),
+      [
+        [250, 375],
+        [750, 375],
+        [750, 625],
+        [250, 625],
+      ],
+    );
+
+    // A drag of the layer moves it under the pointer: its position is in
+    // the box's widths and heights, as the compositor draws it.
+    const frame = resolvePreviewEditFrame(before, false, canvas);
+    assert.deepEqual(frame.canvas, { width: 500, height: 250 });
+    const position = offsetTransformPosition(
+      { x: 0, y: 0 },
+      toParentDelta(frame.parent, { x: 100, y: 50 }),
+      frame.canvas,
+    );
+    assertClose(position.x, 0.2);
+    assertClose(position.y, 0.2);
+    const [, after] = resolvePreviewLayers(
+      [
+        fx,
+        activeLayer("b", 1, { positionX: position.x, positionY: position.y }),
+      ],
+      canvas,
+    );
+    assertClose(after.corners[0].x - before.corners[0].x, 100);
+    assertClose(after.corners[0].y - before.corners[0].y, 50);
+    assert.equal(
+      hitTestLayers([after], { x: 360, y: 440 }, canvas)?.laneId,
+      "b",
+    );
+    assert.equal(hitTestLayers([after], { x: 300, y: 400 }, canvas), undefined);
+  });
+
   it("follows the Order arrangement", () => {
     const layers = resolvePreviewLayers(
       [activeLayer("a", 0), activeLayer("b", 1)],
