@@ -2,7 +2,8 @@ import { readFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
 // Arrangement clip trim handles stay hidden until the clip is hovered,
-// selected or trimmed, but keep their hit area. A four-second test pattern at
+// focused or trimmed, but keep their hit area. Selection alone shows only the
+// outline, and only a clip the user selected looks or acts selected. A four-second test pattern at
 // 120 BPM spans eight quarters.
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
 
@@ -45,27 +46,28 @@ async function center(locator: Locator) {
   return { x: box.x + box.width / 2, y: box.y + box.height / 2, box };
 }
 
-test("trim handles appear on hover, selection and trim, and grab while hidden", async ({
+async function copySpanToLayer(page: Page, layer: string) {
+  await page.locator(".source-span").click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Copy to layer" }).hover();
+  await page.getByRole("menuitem", { name: layer }).click();
+}
+
+test("trim handles appear on hover and trim, and grab while hidden", async ({
   page,
 }) => {
   await page.goto("/");
   await expect(lane(page, "1")).toBeVisible();
   await dropVideoIntoNewSourceTrack(page);
 
-  await page.locator(".source-span").click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Copy to layer" }).hover();
-  await page.getByRole("menuitem", { name: "Layer 1" }).click();
+  await copySpanToLayer(page, "Layer 1");
   const clip = lane(page, "1").locator(".clip-card");
   await expect(clip).toHaveCount(1);
   const start = clip.locator(".clip-card__handle--start");
   const end = clip.locator(".clip-card__handle--end");
   const body = clip.locator(".clip-card__body");
 
-  // A lone clip always counts as selected, so select a second one to leave
-  // this one idle.
-  await page.locator(".source-span").click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Copy to layer" }).hover();
-  await page.getByRole("menuitem", { name: "Layer 2" }).click();
+  // Select a second clip to leave this one idle.
+  await copySpanToLayer(page, "Layer 2");
   const other = lane(page, "5").locator(".clip-card");
   await other.locator(".clip-card__body").click();
   await expect(other).toHaveClass(/clip-card--selected/);
@@ -109,9 +111,62 @@ test("trim handles appear on hover, selection and trim, and grab while hidden", 
     .poll(async () => (await clip.boundingBox())?.width ?? 0)
     .toBeLessThan(widthBefore - 20);
 
-  // The trimmed clip is selected, so the handles stay visible.
+  // The trimmed clip is selected, but selection alone keeps them hidden.
   await expect(clip).toHaveClass(/clip-card--selected/);
-  await expectOpacity(start, "1");
+  await page.mouse.move(5, 5);
+  await expectOpacity(start, "0");
+  await expectOpacity(end, "0");
+});
+
+test("no clip looks or acts selected unless the user selected it", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(lane(page, "1")).toBeVisible();
+  await dropVideoIntoNewSourceTrack(page);
+  await copySpanToLayer(page, "Layer 1");
+  await copySpanToLayer(page, "Layer 2");
+  const clips = page.locator(".clip-card");
+  await expect(clips).toHaveCount(2);
+  const clip = lane(page, "1").locator(".clip-card");
+  const other = lane(page, "5").locator(".clip-card");
+
+  // Esc clears the selection, leaving no clip highlighted.
+  await clip.locator(".clip-card__body").click();
+  await expect(clip).toHaveClass(/clip-card--selected/);
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".clip-card--selected")).toHaveCount(0);
+
+  // With nothing selected, edit keys touch no clip.
+  await page.keyboard.press("Delete");
+  await page.keyboard.press("ControlOrMeta+x");
+  await page.keyboard.press("ControlOrMeta+e");
+  await page.keyboard.press("ControlOrMeta+d");
+  await expect(clips).toHaveCount(2);
+  await expect(page.locator(".clip-card--selected")).toHaveCount(0);
+
+  // Starting a range on another layer clears the selection too.
+  await other.locator(".clip-card__body").click();
+  await expect(other).toHaveClass(/clip-card--selected/);
+  const laneBox = await lane(page, "1").boundingBox();
+  const clipBox = await clip.boundingBox();
+  if (!laneBox || !clipBox) {
+    throw new Error("lane is not visible");
+  }
+  const y = laneBox.y + laneBox.height / 2;
+  const x = clipBox.x + clipBox.width + 40;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + 80, y, { steps: 4 });
+  await page.mouse.up();
+  await expect(page.locator(".clip-card--selected")).toHaveCount(0);
+  await page.mouse.move(5, 5);
+  for (const card of [clip, other]) {
+    await expectOpacity(card.locator(".clip-card__handle--start"), "0");
+  }
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Delete");
+  await expect(clips).toHaveCount(2);
 });
 
 test("trim handles appear without a fade when motion is reduced", async ({
@@ -121,9 +176,7 @@ test("trim handles appear without a fade when motion is reduced", async ({
   await page.goto("/");
   await expect(lane(page, "1")).toBeVisible();
   await dropVideoIntoNewSourceTrack(page);
-  await page.locator(".source-span").click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Copy to layer" }).hover();
-  await page.getByRole("menuitem", { name: "Layer 1" }).click();
+  await copySpanToLayer(page, "Layer 1");
 
   const handle = lane(page, "1").locator(".clip-card__handle--start");
   expect(

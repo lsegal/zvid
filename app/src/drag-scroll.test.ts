@@ -6,6 +6,7 @@ import {
   dragScrollPosition,
   exceedsDragThreshold,
   isRulerPanPress,
+  isTimelinePanPress,
   releaseVelocity,
   stepMomentum,
 } from "./drag-scroll.ts";
@@ -23,6 +24,16 @@ describe("ruler pan presses", () => {
   it("treats Ctrl-click as a right-click only on macOS", () => {
     assert.equal(isRulerPanPress({ button: 0, ctrlKey: true }, true), true);
     assert.equal(isRulerPanPress({ button: 0, ctrlKey: true }, false), false);
+  });
+});
+
+describe("timeline pan presses", () => {
+  it("pans on the middle button, or the left button while Space is held", () => {
+    assert.equal(isTimelinePanPress({ button: 1 }, false), true);
+    assert.equal(isTimelinePanPress({ button: 1 }, true), true);
+    assert.equal(isTimelinePanPress({ button: 0 }, true), true);
+    assert.equal(isTimelinePanPress({ button: 0 }, false), false);
+    assert.equal(isTimelinePanPress({ button: 2 }, true), false);
   });
 });
 
@@ -116,6 +127,19 @@ describe("timeline ruler", () => {
     assert.match(
       appTsx,
       /event\.button !== 0 \|\|\s*isRulerPanPress\(event, shortcutLabels\.mac\)/,
+    );
+  });
+});
+
+describe("timeline pan", () => {
+  it("claims presses before lane, clip and ruler handlers see them", () => {
+    assert.match(
+      appTsx,
+      /useDragScroll\(\{\s*scrollRef: timelineScrollRef,\s*canStart: canStartTimelinePan,\s*axis: "both",[^}]*capture: true,/,
+    );
+    assert.match(
+      appTsx,
+      /className=\{`timeline-scroll [^`]*`\}\s*\{\.\.\.timelineDragScroll\.handlers\}/,
     );
   });
 });

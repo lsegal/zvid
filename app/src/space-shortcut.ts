@@ -79,3 +79,38 @@ export function classifySpaceTarget(
 
   return "playback";
 }
+
+// Tracks a held Space key so Space + left-drag can pan the timeline like a
+// hand tool. Playback toggles on release, and only if no pan used the hold.
+export function createSpaceHold() {
+  let held = false;
+  let panned = false;
+
+  return {
+    get held() {
+      return held;
+    },
+    press() {
+      if (!held) {
+        held = true;
+        panned = false;
+      }
+    },
+    markPanned() {
+      if (held) {
+        panned = true;
+      }
+    },
+    // Ends the hold and reports whether it should toggle playback.
+    release() {
+      const shouldToggle = held && !panned;
+      held = false;
+      panned = false;
+      return shouldToggle;
+    },
+    cancel() {
+      held = false;
+      panned = false;
+    },
+  };
+}

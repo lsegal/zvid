@@ -14,6 +14,20 @@
   overflow-y: hidden;
   overscroll-behavior-x: contain;
   scrollbar-width: thin;
+  /* Its background hand-grab pans it (useDragScroll). */
+  cursor: grab;
+}
+
+.fx-chain .fx-device-panel,
+.fx-chain__empty,
+.fx-chain__layer-off {
+  cursor: default;
+}
+
+.fx-chain--grab-scrolling,
+.fx-chain--grab-scrolling * {
+  cursor: grabbing !important;
+  user-select: none;
 }
 
 .fx-chain__empty {

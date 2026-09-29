@@ -106,6 +106,7 @@ import {
   PlayheadLine,
   TransportPlayheadReadout,
 } from "./components/LivePlayhead";
+import { MediaStorageDialog } from "./components/MediaStorageDialog";
 import {
   MediaSyncDialog,
   type MediaSyncPeer,
@@ -148,7 +149,7 @@ import {
 import { WandIcon } from "./components/WandIcon";
 import { computeActiveClips } from "./composition-active-clips.ts";
 import { isContextMenuKey, isContextMenuPress } from "./context-menu.ts";
-import { isRulerPanPress } from "./drag-scroll.ts";
+import { isRulerPanPress, isTimelinePanPress } from "./drag-scroll.ts";
 import { buildEditMenuEntries } from "./edit-menu.ts";
 import { addFillClip, getDefaultFillColor, isFillClip } from "./fill-clip.ts";
 import { formatFillPaintCss, resolveFillPaint } from "./fill-paint.ts";
@@ -186,6 +187,12 @@ import {
 import { hasMediaExtension } from "./harness/media-extensions";
 import { loadIceServers, resolveRelayIceServersUrl } from "./ice-servers";
 import {
+  type LaneSelectionGesture,
+  moveLaneSelectionGesture,
+  releaseLaneSelectionGesture,
+  startLaneSelectionGesture,
+} from "./lane-selection-gesture.ts";
+import {
   createLaneId,
   deleteLane,
   duplicateLane,
@@ -218,7 +225,12 @@ import {
   probeMediaBlob,
   toShareableMediaItem,
 } from "./media";
-import { cacheMediaBlob, getCachedMediaBlob } from "./media-cache";
+import {
+  cacheMediaBlob,
+  getCachedMediaBlob,
+  migrateMediaCache,
+  setCachedMediaSession,
+} from "./media-cache";
 import { createMediaRelinker, type MediaRelinkCandidate } from "./media-relink";
 import {
   listMediaSync,
@@ -252,12 +264,16 @@ import {
   type ProjectHistoryState,
   projectHistoryReducer,
 } from "./project-history";
-import { migrateLegacyMainAudio } from "./project-state-compat.ts";
+import {
+  migrateLegacyMainAudio,
+  stripClipSelectionFlags,
+} from "./project-state-compat.ts";
 import {
   buildRandomArrangement,
   sourceTrackHasFootage,
 } from "./random-arrangement.ts";
 import { listOfflineMedia, matchOfflineMedia } from "./relink";
+import { selectionHint } from "./selection-hint.ts";
 import {
   formatOverlapNote,
   MAX_LAYERS,
@@ -299,7 +315,7 @@ import {
   readSourceTracksCollapsed,
   writeSourceTracksCollapsed,
 } from "./source-tracks-section.ts";
-import { classifySpaceTarget } from "./space-shortcut";
+import { classifySpaceTarget, createSpaceHold } from "./space-shortcut";
 import { statusMessageTone } from "./status-bar";
 import { buildStatusItems } from "./status-items";
 import {
@@ -396,7 +412,6 @@ type ArrangementClip = {
   warp?: ClipWarp;
   tint: string;
   accent: string;
-  selected?: boolean;
 };
 
 // The right-click menu open on an arrangement clip, empty lane space, the
@@ -450,7 +465,7 @@ type DragState =
       kind: "selection";
       pointerId: number;
       laneId: string;
-      anchorQ: number;
+      gesture: LaneSelectionGesture;
     };
 
 type TimelineDragState = {
@@ -955,7 +970,6 @@ function cloneClipAtStartQ(
     startQ,
     trimStartSeconds: clip.trimStartSeconds,
     sourceOffsetSeconds: clip.trimStartSeconds - quartersToSeconds(startQ, bpm),
-    selected: true,
   };
 }
 
@@ -969,19 +983,6 @@ function duplicateClip(
 
 function getSelectionEndQ(selection: TimelineSelection) {
   return selection.startQ + selection.durationQ;
-}
-
-function buildSelection(
-  anchorQ: number,
-  currentQ: number,
-  minimumDurationQ: number,
-) {
-  const startQ = Math.max(0, Math.min(anchorQ, currentQ));
-  const endQ = Math.max(anchorQ, currentQ, startQ + minimumDurationQ);
-  return {
-    startQ,
-    durationQ: Math.max(minimumDurationQ, endQ - startQ),
-  };
 }
 
 function getTimelineContentEndQ(
@@ -1713,6 +1714,8 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
   });
 
   const arrangementClips: ArrangementClip[] = [];
+  // The clip the session was saved with selected, if it could be placed.
+  let selectedClipId: string | undefined;
 
   for (const selection of session.selections ?? []) {
     const selectionStartQ = secondsToQuarters(selection.frameStart / fps, bpm);
@@ -1737,6 +1740,9 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
     const durationSeconds =
       Math.max(1, selection.frameEnd - selection.frameStart) / fps;
 
+    if (selection.selected && selectedClipId === undefined) {
+      selectedClipId = `selection-${selection.id}`;
+    }
     arrangementClips.push({
       id: `selection-${selection.id}`,
       sourceSpanId: sourceSpan.id,
@@ -1755,7 +1761,6 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
       warp: sourceSpan.warp,
       tint: sourceSpan.tint,
       accent: sourceSpan.accent,
-      selected: selection.selected,
     });
   }
 
@@ -1768,6 +1773,7 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
     sourceTracks,
     sourceSpans,
     arrangementClips,
+    selectedClipId,
     // Every layer gets its own Layout, taking over any global one, as part
     // of the load so it is not a separate undo step.
     effects: ensureLayerLayouts(
@@ -2306,6 +2312,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const [isOfflineMediaDialogOpen, setIsOfflineMediaDialogOpen] =
     useState(false);
   const [isMediaSyncDialogOpen, setIsMediaSyncDialogOpen] = useState(false);
+  const [isMediaStorageDialogOpen, setIsMediaStorageDialogOpen] =
+    useState(false);
   // Mirrors peerMediaMissesRef.current.ids so rendering sees peer misses.
   const [peerMediaMissIds, setPeerMediaMissIds] = useState<ReadonlySet<string>>(
     () => new Set(),
@@ -2352,6 +2360,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const compositionPlayerRef = useRef<CompositionPlayerHandle | null>(null);
   const appShellRef = useRef<HTMLDivElement | null>(null);
   const timelineScrollRef = useRef<HTMLDivElement | null>(null);
+  const spaceHoldRef = useRef(createSpaceHold());
   const arrangementLanesRef = useRef<HTMLDivElement | null>(null);
   const editorGridRef = useRef<HTMLDivElement | null>(null);
   const previewResizeRef = useRef<{
@@ -2577,6 +2586,24 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     [setLocalMediaOverride],
   );
 
+  // Caching skips a file rather than failing when browser storage is full, so
+  // the user learns the file won't survive a refresh.
+  const reportMediaNotCached = useCallback(
+    (mediaId: string, blob: Blob, name?: string) => {
+      const displayName =
+        name ??
+        projectSnapshotRef.current.mediaItems.find(
+          (candidate) => candidate.id === mediaId,
+        )?.name ??
+        (blob instanceof File ? blob.name : mediaId);
+      logClient("media:cache:skipped", { mediaId, size: blob.size });
+      setStatus(
+        `${displayName} not cached, browser storage is full; it will need relinking after refresh.`,
+      );
+    },
+    [],
+  );
+
   const adoptMediaBlob = useCallback(
     async (
       mediaId: string,
@@ -2619,7 +2646,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       }
 
       try {
-        await cacheMediaBlob(mediaId, blob);
+        const cached = await cacheMediaBlob(mediaId, blob);
+        if (cached.status === "skipped") {
+          reportMediaNotCached(mediaId, blob);
+        }
       } catch (error) {
         logClient("media:adopt:cache:error", {
           mediaId,
@@ -2683,20 +2713,31 @@ function App({ boot }: { boot: WorkspaceBoot }) {
 
       return { previewUrl, warning };
     },
-    [commitProjectChange, seedLocalMediaItems, setLocalMediaOverride],
+    [
+      commitProjectChange,
+      reportMediaNotCached,
+      seedLocalMediaItems,
+      setLocalMediaOverride,
+    ],
   );
 
-  const cacheLocalMediaItems = useCallback(async (items: MediaItem[]) => {
-    const harness = getHarness();
-    await Promise.allSettled(
-      items
-        .filter((item) => item.previewUrl)
-        .map(async (item) => {
-          const blob = await harness.readMediaBlob(item);
-          await cacheMediaBlob(item.id, blob);
-        }),
-    );
-  }, []);
+  const cacheLocalMediaItems = useCallback(
+    async (items: MediaItem[]) => {
+      const harness = getHarness();
+      await Promise.allSettled(
+        items
+          .filter((item) => item.previewUrl)
+          .map(async (item) => {
+            const blob = await harness.readMediaBlob(item);
+            const cached = await cacheMediaBlob(item.id, blob);
+            if (cached.status === "skipped") {
+              reportMediaNotCached(item.id, blob, item.name);
+            }
+          }),
+      );
+    },
+    [reportMediaNotCached],
+  );
 
   const signature =
     SIGNATURES.find((candidate) => candidate.id === signatureId) ??
@@ -2737,13 +2778,15 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     }),
     [barLength, beatUnit, quarterPx],
   );
+  // Only a clip the user selected; rendering and edits never fall back to
+  // another one.
   const selectedClip = useMemo(
-    () =>
-      timelineClips.find((clip) => clip.id === selectedClipId) ??
-      timelineClips.find((clip) => clip.selected) ??
-      timelineClips[0],
+    () => timelineClips.find((clip) => clip.id === selectedClipId),
     [selectedClipId, timelineClips],
   );
+  // What the preview describes when no clip is at the playhead: the selected
+  // clip, else the first. Read-only; never used to render or edit a clip.
+  const inspectorClip = selectedClip ?? timelineClips[0];
   const showArrangementEmptyState = shouldShowArrangementEmptyState({
     clipCount: clips.length,
     sourceSpanCount: sourceSpans.length,
@@ -2764,7 +2807,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     () => findClipAtPlayhead(timelineClips, playheadQ, bpm, lanePriority),
     [bpm, lanePriority, playheadQ, timelineClips],
   );
-  const previewClip = playheadClip ?? selectedClip;
+  const previewClip = playheadClip ?? inspectorClip;
   const previewMedia = previewClip?.mediaId
     ? mediaItemsById.get(previewClip.mediaId)
     : undefined;
@@ -2787,30 +2830,25 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       ),
     [bpm, mediaItemsById, playheadQ, timelineClips],
   );
-  // Unlike `selectedClip`, this does not fall back to the first clip.
-  const explicitClip = useMemo(
-    () => timelineClips.find((clip) => clip.id === selectedClipId),
-    [selectedClipId, timelineClips],
-  );
-  const explicitClipLaneId = explicitClip?.laneId;
+  const selectedClipLaneId = selectedClip?.laneId;
   useEffect(() => {
-    if (explicitClipLaneId !== undefined) {
-      setSelectedLaneId(explicitClipLaneId);
+    if (selectedClipLaneId !== undefined) {
+      setSelectedLaneId(selectedClipLaneId);
     }
-  }, [explicitClipLaneId]);
+  }, [selectedClipLaneId]);
   const fxLaneId = useMemo(
-    () => resolveSelectedLaneId(lanes, effects, selectedLaneId, explicitClip),
-    [effects, explicitClip, lanes, selectedLaneId],
+    () => resolveSelectedLaneId(lanes, effects, selectedLaneId, selectedClip),
+    [effects, selectedClip, lanes, selectedLaneId],
   );
   const fxLane = lanes.find((lane) => lane.id === fxLaneId);
   // The layer outlined in the preview. Selecting a clip or a layer in the
   // timeline selects it here too; Esc or a click on empty canvas clears it.
   const [previewLaneId, setPreviewLaneId] = useState<string>();
   useEffect(() => {
-    if (explicitClipLaneId !== undefined) {
-      setPreviewLaneId(explicitClipLaneId);
+    if (selectedClipLaneId !== undefined) {
+      setPreviewLaneId(selectedClipLaneId);
     }
-  }, [explicitClipLaneId]);
+  }, [selectedClipLaneId]);
   useEffect(() => {
     setPreviewLaneId(selectedLaneId);
   }, [selectedLaneId]);
@@ -2873,8 +2911,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   );
   // Audio clips have no visual effects; that only applies while one is
   // selected, not to the layer on its own.
-  const fxKind = explicitClip?.mediaId
-    ? mediaItemsById.get(explicitClip.mediaId)?.kind
+  const fxKind = selectedClip?.mediaId
+    ? mediaItemsById.get(selectedClip.mediaId)?.kind
     : undefined;
   // Layers the compositor draws at the playhead: one per layer with an
   // online video clip there. The Order device warns when a grid hides some.
@@ -4127,7 +4165,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         warp: sourceSpan.warp,
         tint: sourceSpan.tint,
         accent: sourceSpan.accent,
-        selected: true,
       };
     },
     [bpm],
@@ -4331,7 +4368,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         sourceTrack,
         window.span,
       );
-      return [{ ...clip, selected: index === 0 }];
+      return [clip];
     });
     return { lanes: wandLanes, clips: randomizedClips };
   }
@@ -4723,6 +4760,89 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     [reportSessionMediaCheck],
   );
 
+  // Media an undo or redo step still uses counts as part of the session too,
+  // since the history survives a refresh. Keyed by the sorted ids so the
+  // cache index is only rewritten when the set changes.
+  const sessionMediaIdsKey = useMemo(() => {
+    const ids = new Set<string>();
+    const seen = new Set<MediaItem[]>();
+    for (const snapshot of [
+      projectHistory.present,
+      ...projectHistory.past.map((entry) => entry.snapshot),
+      ...projectHistory.future.map((entry) => entry.snapshot),
+    ]) {
+      if (seen.has(snapshot.mediaItems)) {
+        continue;
+      }
+      seen.add(snapshot.mediaItems);
+      for (const item of snapshot.mediaItems) {
+        ids.add(item.id);
+      }
+    }
+    return JSON.stringify([...ids].sort());
+  }, [projectHistory.past, projectHistory.present, projectHistory.future]);
+
+  // Runs before hydration so media the open session uses is never evicted to
+  // make room for its other files.
+  useEffect(() => {
+    setCachedMediaSession(
+      sessionName ?? "Untitled session",
+      JSON.parse(sessionMediaIdsKey) as string[],
+    ).catch((error) => {
+      logClient("media:cache:session:error", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    });
+  }, [sessionMediaIdsKey, sessionName]);
+
+  useEffect(() => {
+    migrateMediaCache()
+      .then((moved) => {
+        if (moved) {
+          logClient("media:cache:migrated", { moved });
+        }
+      })
+      .catch((error) => {
+        logClient("media:cache:migrate:error", {
+          message: error instanceof Error ? error.message : String(error),
+        });
+      });
+  }, []);
+
+  // Media whose cached copy the storage dialog removed while it was loaded
+  // from that copy can no longer be read, so it goes offline for relinking.
+  const handleMediaStorageCleared = useCallback(
+    (invalidatedIds: string[], clearedCount: number) => {
+      for (const mediaId of invalidatedIds) {
+        const previewUrl = mediaObjectUrlsRef.current.get(mediaId);
+        if (previewUrl) {
+          URL.revokeObjectURL(previewUrl);
+          mediaObjectUrlsRef.current.delete(mediaId);
+        }
+      }
+      if (invalidatedIds.length) {
+        setLocalMediaOverrides((current) => {
+          const next = { ...current };
+          for (const mediaId of invalidatedIds) {
+            next[mediaId] = {
+              availability: "offline",
+              lastError: "Its cached copy was cleared",
+            };
+          }
+          return next;
+        });
+      }
+      setStatus(
+        `Cleared ${pluralize(clearedCount, "cached media file")}.${
+          invalidatedIds.length
+            ? ` ${pluralize(invalidatedIds.length, "file")} in this session went offline. ${LOCATE_OFFLINE_MEDIA_HINT}`
+            : ""
+        }`,
+      );
+    },
+    [],
+  );
+
   useEffect(() => {
     // A hydration can outlive the run that started it: the effect reruns
     // whenever the media list changes (and at once under StrictMode), and
@@ -4825,7 +4945,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
 
   const applyRemoteProjectState = useCallback(
     (remoteSnapshot: ProjectState) => {
-      const snapshot = migrateLegacyMainAudio(remoteSnapshot);
+      const snapshot = stripClipSelectionFlags(
+        migrateLegacyMainAudio(remoteSnapshot),
+      );
       if (
         JSON.stringify(projectSnapshotRef.current) === JSON.stringify(snapshot)
       ) {
@@ -5255,29 +5377,53 @@ function App({ boot }: { boot: WorkspaceBoot }) {
 
   // Space toggles playback from anywhere except text entry and open menus or
   // dialogs. It runs in the capture phase so a focused button, menu trigger
-  // or slider never sees the key and cannot also activate.
+  // or slider never sees the key and cannot also activate. Playback toggles
+  // on release, so holding Space to pan the timeline never starts it.
   useEffect(() => {
-    let spaceKeyDownHandled = false;
+    const spaceHold = spaceHoldRef.current;
+    const setSpaceHeldClass = (held: boolean) =>
+      timelineScrollRef.current?.classList.toggle(
+        "timeline-scroll--space-held",
+        held,
+      );
 
     const onSpaceKeyDown = (event: KeyboardEvent) => {
       if (event.code !== "Space") {
         return;
       }
 
-      spaceKeyDownHandled = false;
       if (
         event.metaKey ||
         event.ctrlKey ||
         event.altKey ||
         classifySpaceTarget(event.target, document) !== "playback"
       ) {
+        spaceHold.cancel();
+        setSpaceHeldClass(false);
         return;
       }
 
       event.preventDefault();
       event.stopPropagation();
-      spaceKeyDownHandled = true;
-      if (event.repeat || dragState || timelineDragState || !clips.length) {
+      spaceHold.press();
+      setSpaceHeldClass(true);
+    };
+
+    // Native buttons activate on Space keyup, so swallow the matching keyup.
+    const onSpaceKeyUp = (event: KeyboardEvent) => {
+      if (event.code !== "Space" || !spaceHold.held) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      setSpaceHeldClass(false);
+      if (
+        !spaceHold.release() ||
+        dragState ||
+        timelineDragState ||
+        !clips.length
+      ) {
         return;
       }
 
@@ -5290,22 +5436,18 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       startPlayback();
     };
 
-    // Native buttons activate on Space keyup, so swallow the matching keyup.
-    const onSpaceKeyUp = (event: KeyboardEvent) => {
-      if (event.code !== "Space" || !spaceKeyDownHandled) {
-        return;
-      }
-
-      spaceKeyDownHandled = false;
-      event.preventDefault();
-      event.stopPropagation();
+    const onBlur = () => {
+      spaceHold.cancel();
+      setSpaceHeldClass(false);
     };
 
     window.addEventListener("keydown", onSpaceKeyDown, true);
     window.addEventListener("keyup", onSpaceKeyUp, true);
+    window.addEventListener("blur", onBlur);
     return () => {
       window.removeEventListener("keydown", onSpaceKeyDown, true);
       window.removeEventListener("keyup", onSpaceKeyUp, true);
+      window.removeEventListener("blur", onBlur);
     };
   }, [
     cancelScrubPlaybackResume,
@@ -5315,6 +5457,28 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     startPlayback,
     timelineDragState,
   ]);
+
+  // Middle-drag, or Space + left-drag, pans the timeline from anywhere in it,
+  // including over clips. The press is claimed before lane, clip and ruler
+  // handlers see it, so a pan never selects, edits clips or moves the playhead.
+  const canStartTimelinePan = useCallback(
+    (event: { button: number }) =>
+      isTimelinePanPress(event, spaceHoldRef.current.held),
+    [],
+  );
+  const markSpacePanned = useCallback((event: { button: number }) => {
+    if (event.button === 0) {
+      spaceHoldRef.current.markPanned();
+    }
+  }, []);
+  const timelineDragScroll = useDragScroll({
+    scrollRef: timelineScrollRef,
+    canStart: canStartTimelinePan,
+    axis: "both",
+    momentum: !prefersReducedMotion,
+    capture: true,
+    onStart: markSpacePanned,
+  });
 
   // Clipboard and edit actions shared by the keyboard shortcuts and the clip
   // menus. Each is one undo step.
@@ -5363,7 +5527,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       laneId ??
       resolvePasteLaneId(
         lanes,
-        explicitClip?.laneId,
+        selectedClip?.laneId,
         selectedLaneId,
         clipboardClip.laneId,
       );
@@ -5419,10 +5583,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         }
 
         const leftClip = withWindowTiming(
-          {
-            ...sourceClip,
-            selected: false,
-          },
+          sourceClip,
           sourceClip.startQ,
           leftDurationQ,
           current.bpm,
@@ -5431,7 +5592,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
           {
             ...sourceClip,
             id: splitClipId,
-            selected: true,
           },
           splitQ,
           rightDurationQ,
@@ -5768,9 +5928,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       return true;
     }
 
-    if (explicitClip) {
+    if (selectedClip) {
       const card = timelineScroll.querySelector<HTMLElement>(
-        `[data-clip-id="${CSS.escape(explicitClip.id)}"]`,
+        `[data-clip-id="${CSS.escape(selectedClip.id)}"]`,
       );
       if (!card) {
         return false;
@@ -5779,7 +5939,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       const bounds = card.getBoundingClientRect();
       setClipMenu({
         kind: "clip",
-        clipId: explicitClip.id,
+        clipId: selectedClip.id,
         anchor: { x: bounds.left, y: bounds.bottom },
       });
       return true;
@@ -5999,8 +6159,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         },
       ],
       {
-        clip: explicitClip?.label,
-        clipEntries: getArrangementClipEntries(explicitClip, undefined),
+        clip: selectedClip?.label,
+        clipEntries: getArrangementClipEntries(selectedClip, undefined),
         layer: selectedLane
           ? {
               name: selectedLane.name,
@@ -6083,6 +6243,16 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         return;
       }
 
+      if (event.key === "Escape") {
+        if (!selectedClip) {
+          return;
+        }
+
+        event.preventDefault();
+        setSelectedClipId(undefined);
+        return;
+      }
+
       if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
         event.preventDefault();
         const direction = event.key === "ArrowLeft" ? -1 : 1;
@@ -6121,7 +6291,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         const timelineScroll = timelineScrollRef.current;
         const activeElement = document.activeElement;
         if (
-          explicitClip ||
+          selectedClip ||
           (activeElement &&
             activeElement !== document.body &&
             !timelineScroll?.contains(activeElement))
@@ -6165,7 +6335,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   }, [
     bpm,
     dragState,
-    explicitClip,
     fps,
     fxLaneId,
     isExporting,
@@ -6237,10 +6406,22 @@ function App({ boot }: { boot: WorkspaceBoot }) {
           snapUnit,
           shouldSnap,
         );
+        const { gesture, selection } = moveLaneSelectionGesture(
+          dragState.gesture,
+          event.clientX,
+          nextQ,
+          minimumWindowQ,
+        );
+        if (!selection) {
+          return;
+        }
+        if (gesture !== dragState.gesture) {
+          setDragState({ ...dragState, gesture });
+        }
         setPendingSelection({
           id: `selection-${dragState.laneId}`,
           laneId: dragState.laneId,
-          ...buildSelection(dragState.anchorQ, nextQ, minimumWindowQ),
+          ...selection,
         });
         return;
       }
@@ -6367,13 +6548,15 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         return;
       }
 
-      if (dragState.kind === "selection" && !pendingSelection) {
-        setPendingSelection({
-          id: `selection-${dragState.laneId}`,
-          laneId: dragState.laneId,
-          startQ: dragState.anchorQ,
-          durationQ: minimumWindowQ,
-        });
+      // A press released before it became a drag is a click: it seeks
+      // instead of leaving a selection behind.
+      if (dragState.kind === "selection") {
+        const release = releaseLaneSelectionGesture(dragState.gesture);
+        if (release.kind === "click") {
+          setPendingSelection(null);
+          setPlayheadQ(release.playheadQ);
+          playbackOriginRef.current = release.playheadQ;
+        }
       }
 
       if (dragState.kind !== "selection" && dragPreviewClips) {
@@ -6438,7 +6621,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     dragPreviewClips,
     dragState,
     minimumWindowQ,
-    pendingSelection,
+    setPlayheadQ,
     snapEnabled,
     labelWidth,
     quarterPx,
@@ -6688,9 +6871,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
           : null,
     );
 
-    const preferredClip =
-      project.arrangementClips.find((clip) => clip.selected) ??
-      project.arrangementClips[0];
+    const preferredClip = project.arrangementClips.find(
+      (clip) => clip.id === project.selectedClipId,
+    );
     setSelectedClipId(preferredClip?.id);
     setSelectedLaneId(
       preferredClip?.laneId ??
@@ -7606,6 +7789,11 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   ? "Locate Offline Media…"
                   : "All Media Linked"}
               </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => setIsMediaStorageDialogOpen(true)}
+              >
+                Media Storage…
+              </DropdownMenuItem>
               {inSharedMediaSession ? (
                 <DropdownMenuItem
                   onSelect={() => setIsMediaSyncDialogOpen(true)}
@@ -7933,6 +8121,12 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         relinkingIds={relinkingMediaIds}
       />
 
+      <MediaStorageDialog
+        onCleared={handleMediaStorageCleared}
+        onOpenChange={setIsMediaStorageDialogOpen}
+        open={isMediaStorageDialogOpen}
+      />
+
       <MediaSyncDialog
         entries={mediaSyncEntries}
         onOpenChange={setIsMediaSyncDialogOpen}
@@ -8157,7 +8351,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             >
               <div
                 ref={timelineScrollRef}
-                className="timeline-scroll"
+                className={`timeline-scroll ${
+                  timelineDragScroll.isGrabbing ? "is-grab-panning" : ""
+                }`}
+                {...timelineDragScroll.handlers}
                 onScroll={() => syncTimelineViewport()}
                 style={{ ["--label-width" as string]: `${labelWidth}px` }}
               >
@@ -8491,32 +8688,42 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                               snapUnit,
                               snapEnabled && !event.shiftKey,
                             );
-                            setPendingSelection({
-                              id: `selection-${lane.id}`,
-                              laneId: lane.id,
-                              startQ: anchorQ,
-                              durationQ: minimumWindowQ,
-                            });
+                            // The selection starts once the pointer drags
+                            // past the threshold; until then it's a click.
+                            setPendingSelection(null);
                             setDragState({
                               kind: "selection",
                               pointerId: event.pointerId,
                               laneId: lane.id,
-                              anchorQ,
+                              gesture: startLaneSelectionGesture(
+                                anchorQ,
+                                event.clientX,
+                              ),
                             });
                           }}
                           style={gridStyle}
                         >
-                          {pendingSelection?.laneId === lane.id ? (
-                            <div
-                              className="timeline-selection"
-                              style={{
-                                left: pendingSelection.startQ * quarterPx,
-                                width: pendingSelection.durationQ * quarterPx,
-                              }}
-                            >
-                              <span>Press 1-9 to commit</span>
-                            </div>
-                          ) : null}
+                          {pendingSelection?.laneId === lane.id
+                            ? (() => {
+                                const width =
+                                  pendingSelection.durationQ * quarterPx;
+                                const hint = selectionHint(width);
+                                return (
+                                  <div
+                                    className="timeline-selection"
+                                    style={{
+                                      left: pendingSelection.startQ * quarterPx,
+                                      width,
+                                      paddingInline: hint.paddingPx,
+                                    }}
+                                  >
+                                    {hint.label ? (
+                                      <span>{hint.label}</span>
+                                    ) : null}
+                                  </div>
+                                );
+                              })()
+                            : null}
                           {(clipsByLane.get(lane.id) ?? []).map((clip) => {
                             const selected = clip.id === selectedClip?.id;
                             // Keeps the trim handles shown while the pointer
