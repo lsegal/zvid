@@ -406,10 +406,10 @@ export class CompositionRenderer {
     );
 
     // Clips sharing a media at this playhead draw from extra elements, made
-    // the first time they are needed.
+    // the first time they are needed. Fill clips draw no media.
     let addedElement = false;
     for (const entry of activeClips) {
-      if (!this.mediaRefs.has(entry.sourceKey)) {
+      if (!entry.fill && !this.mediaRefs.has(entry.sourceKey)) {
         this.ensureMediaElement(entry.sourceKey, entry.media);
         addedElement = true;
       }

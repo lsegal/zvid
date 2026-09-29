@@ -4,6 +4,7 @@ import {
   PowerIcon,
   XMarkIcon,
 } from "@heroicons/react/24/solid";
+import ColorPicker from "react-best-gradient-color-picker";
 import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -14,10 +15,10 @@ import {
   useState,
 } from "react";
 import {
-  ADDABLE_EFFECT_DEFINITIONS,
   describeDeviceMove,
   dropSlotToStackIndex,
   getAutoScrollDelta,
+  getAddableEffectDefinitions,
   getDropSlot,
   getParameterFormat,
   groupChainDevices,
@@ -41,6 +42,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { Knob } from "./ui/Knob";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import "./fx-chain.css";
 
 export type FxEditMode = "commit" | "transient";
@@ -274,7 +276,7 @@ export function FxChain({
 
   function addDevice(group: FxDeviceGroup, effectName: string) {
     const trackId = getTrackId(group, layerTrackId);
-    const definition = ADDABLE_EFFECT_DEFINITIONS.find(
+    const definition = getAddableEffectDefinitions(group).find(
       (candidate) => candidate.effectName === effectName,
     );
     if (!trackId || !definition) {
@@ -569,6 +571,7 @@ export function FxChain({
     const label = `Add device to ${group === "global" ? "Global" : "this layer"}`;
     return (
       <AddDeviceMenu
+        definitions={getAddableEffectDefinitions(group)}
         focusKey={`add-${group}`}
         label={label}
         onAdd={(effectName) => addDevice(group, effectName)}
@@ -722,6 +725,7 @@ export function FxChain({
 }
 
 function AddDeviceMenu({
+  definitions,
   focusKey,
   label,
   withLabel,
@@ -729,6 +733,7 @@ function AddDeviceMenu({
   onCloseAutoFocus,
   onOpen,
 }: {
+  definitions: ReturnType<typeof getAddableEffectDefinitions>;
   focusKey: string;
   label: string;
   withLabel: boolean;
@@ -762,7 +767,7 @@ function AddDeviceMenu({
         onCloseAutoFocus={onCloseAutoFocus}
         sideOffset={6}
       >
-        {ADDABLE_EFFECT_DEFINITIONS.map((definition) => (
+        {definitions.map((definition) => (
           <DropdownMenuItem
             key={definition.effectName}
             onSelect={() => onAdd(definition.effectName)}
@@ -983,6 +988,16 @@ function FxParameterControl({
     );
   }
 
+  if (parameter.kind === "color" || parameter.kind === "gradient") {
+    return (
+      <FxPaintControl
+        device={device}
+        onSetParameter={onSetParameter}
+        parameter={parameter}
+      />
+    );
+  }
+
   const defaultValue =
     typeof parameter.defaultValue === "number" ? parameter.defaultValue : 0;
   return (
@@ -1003,5 +1018,64 @@ function FxParameterControl({
       step={parameter.step}
       value={parameter.numericValue ?? defaultValue}
     />
+  );
+}
+
+// A swatch that opens a colour or gradient picker in a popover. Picker drags
+// send transient edits, and closing the popover commits the last value as
+// one undo step.
+function FxPaintControl({
+  device,
+  parameter,
+  onSetParameter,
+}: {
+  device: FxDevice;
+  parameter: FxDeviceParameter;
+  onSetParameter: FxChainProps["onSetParameter"];
+}) {
+  const pendingRef = useRef<string | null>(null);
+  const value = parameter.stringValue ?? `${parameter.defaultValue}`;
+  const gradient = parameter.kind === "gradient";
+  const label = `Edit ${parameter.label}`;
+
+  return (
+    <div className="fx-paint">
+      <span className="fx-paint__label">{parameter.label}</span>
+      <Popover
+        onOpenChange={(open) => {
+          const pending = pendingRef.current;
+          pendingRef.current = null;
+          if (!open && pending !== null) {
+            onSetParameter(device, parameter.key, pending, "commit");
+          }
+        }}
+      >
+        <PopoverTrigger asChild>
+          <button
+            aria-label={label}
+            className="fx-paint__swatch"
+            data-fx-no-drag
+            title={label}
+            type="button"
+          >
+            <span aria-hidden="true" style={{ background: value }} />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="fx-paint__popover">
+          <ColorPicker
+            disableLightMode
+            hideColorTypeBtns
+            hideGradientControls={!gradient}
+            height={150}
+            onChange={(next) => {
+              pendingRef.current = next;
+              onSetParameter(device, parameter.key, next, "transient");
+            }}
+            value={value}
+            width={236}
+          />
+        </PopoverContent>
+      </Popover>
+    </div>
   );
 }

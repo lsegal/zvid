@@ -57,6 +57,7 @@ import {
   describePreviewMediaState,
   formatClipMediaState,
   isPlaceholderClip,
+  usesMediaFile,
 } from "./clip-media-state";
 import {
   buildClipMenuEntries,
@@ -166,6 +167,12 @@ import {
   supportsHarnessCapability,
 } from "./harness";
 import { hasMediaExtension } from "./harness/media-extensions";
+import {
+  addFillClip,
+  getDefaultFillColor,
+  isFillClip,
+} from "./fill-clip.ts";
+import { formatFillPaintCss, resolveFillPaint } from "./fill-paint.ts";
 import { loadIceServers, resolveRelayIceServersUrl } from "./ice-servers";
 import {
   createLaneId,
@@ -326,6 +333,9 @@ type SourceSpan = {
 
 type ArrangementClip = {
   id: string;
+  // "fill" for a media-less fill clip painted by its layer's Color effect;
+  // media clips leave it unset.
+  kind?: "fill";
   sourceSpanId: string;
   sourceTrackId: string;
   laneId: string;
@@ -609,6 +619,9 @@ const INITIAL_PROJECT_STATE: ProjectState = {
   ),
   mainAudioId: undefined,
 };
+// Card colours of fill clips on layers without an accent.
+const FILL_CLIP_TINT = "#2a2d38";
+const FILL_CLIP_ACCENT = "#8d93a8";
 const PALETTE: Palette[] = [
   { color: "#3d4052", accent: "#7ca1ff" },
   { color: "#444351", accent: "#ff6f9d" },
@@ -1496,7 +1509,10 @@ function getPlaybackStopQ(
   const playableMediaIds = new Set(mediaItems.map((item) => item.id));
 
   return clips.reduce((maximum, clip) => {
-    if (!clip.mediaId || !playableMediaIds.has(clip.mediaId)) {
+    if (
+      !isFillClip(clip) &&
+      (!clip.mediaId || !playableMediaIds.has(clip.mediaId))
+    ) {
       return maximum;
     }
 
@@ -2392,11 +2408,12 @@ function App() {
       timelineClips.some(
         (clip) =>
           isClipAtPlayhead(clip, playheadQ, bpm) &&
-          describeMediaAvailability(
-            clip.mediaId
-              ? mediaItemsById.get(clip.mediaId)?.availability
-              : undefined,
-          ) === "online",
+          (isFillClip(clip) ||
+            describeMediaAvailability(
+              clip.mediaId
+                ? mediaItemsById.get(clip.mediaId)?.availability
+                : undefined,
+            ) === "online"),
       ),
     [bpm, mediaItemsById, playheadQ, timelineClips],
   );
@@ -2528,8 +2545,9 @@ function App() {
     const missingKeys = new Set<string>();
     for (const clip of [...timelineClips, ...sourceSpans]) {
       // Placeholder clips, such as MIDI imported from a Live set, never had
-      // media, so there is no file to report as offline.
-      if (isPlaceholderClip(clip)) {
+      // media, and fill clips need none, so there is no file to report as
+      // offline.
+      if (!usesMediaFile(clip)) {
         continue;
       }
 
@@ -3658,6 +3676,48 @@ function App() {
       );
     },
     [bpm, createWindowClip, pendingSelection, sourceSpans, sourceTracks],
+  );
+
+  // Inserts a fill clip over `durationQ` quarters from `startQ` on layer
+  // `laneId` and selects it. A layer without a Color effect gets one, in
+  // its accent colour or neutral grey. Returns the new clip's id.
+  const insertFillClip = useCallback(
+    (laneId: string, startQ: number, durationQ: number) => {
+      const lane = lanes.find((candidate) => candidate.id === laneId);
+      if (!lane || !(durationQ > 0)) {
+        return undefined;
+      }
+
+      const accent =
+        lane.colorIndex >= 0 ? getSwatch(lane.colorIndex).accent : undefined;
+      const id = `fill-${crypto.randomUUID()}`;
+      dispatchProject({
+        type: "commit",
+        label: "Insert fill layer",
+        updater: (current) => {
+          const result = addFillClip(current, {
+            id,
+            laneId,
+            startQ,
+            durationQ,
+            bpm,
+            tint: FILL_CLIP_TINT,
+            accent: accent ?? FILL_CLIP_ACCENT,
+            color: getDefaultFillColor(accent),
+            effectId: crypto.randomUUID(),
+          });
+          return patchProjectState(current, {
+            clips: result.clips,
+            effects: result.effects,
+          });
+        },
+      });
+      setPendingSelection(null);
+      setSelectedClipId(id);
+      setStatus(`Inserted a fill on ${lane.name}.`);
+      return id;
+    },
+    [bpm, lanes],
   );
 
   // The whole source clip as an arrangement clip at its song position.
@@ -5145,6 +5205,23 @@ function App() {
             }
           : undefined,
         audioEntries: getMainAudioMenuEntries(),
+        insertEntries: [
+          {
+            type: "item",
+            id: "insert-fill",
+            label: "Insert Fill Layer",
+            disabled: isExporting || !pendingSelection,
+            onSelect: () => {
+              if (pendingSelection) {
+                insertFillClip(
+                  pendingSelection.laneId,
+                  pendingSelection.startQ,
+                  pendingSelection.durationQ,
+                );
+              }
+            },
+          },
+        ],
       },
     );
   }
@@ -7575,11 +7652,16 @@ function App() {
                                   media.availability,
                                 )
                               : null;
+                            const fillBackground = isFillClip(clip)
+                              ? formatFillPaintCss(
+                                  resolveFillPaint(effects, clip.laneId),
+                                )
+                              : undefined;
                             return (
                               // biome-ignore lint/a11y/noStaticElementInteractions: right-click is a pointer shortcut; the context-menu key and Shift+F10 open the same menu on the selected clip
                               <div
                                 key={clip.id}
-                                className={`clip-card ${selected ? "clip-card--selected" : ""} ${trimming ? "clip-card--trimming" : ""} ${filmstrip ? "clip-card--filmstrip" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""}`}
+                                className={`clip-card ${selected ? "clip-card--selected" : ""} ${trimming ? "clip-card--trimming" : ""} ${filmstrip || fillBackground ? "clip-card--filmstrip" : ""} ${fillBackground ? "clip-card--fill" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""}`}
                                 data-clip-id={clip.id}
                                 onContextMenu={(event) =>
                                   openArrangementClipMenu(event, clip)
@@ -7615,6 +7697,13 @@ function App() {
                                   <MediaSyncSkeleton
                                     variant="clip"
                                     view={mediaSync}
+                                  />
+                                ) : null}
+                                {fillBackground ? (
+                                  <span
+                                    aria-hidden="true"
+                                    className="clip-card__fill"
+                                    style={{ background: fillBackground }}
                                   />
                                 ) : null}
                                 {filmstrip ? (

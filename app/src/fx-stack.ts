@@ -4,6 +4,7 @@
 // `effects` array, or the same array when nothing changed so history
 // commits can skip no-op edits.
 
+import { isColorEffectName } from "./fill-paint.ts";
 import {
   type FxEffectDefinition,
   type FxParameterDefinition,
@@ -33,7 +34,7 @@ export type SessionEffect = {
 export type FxDeviceParameter = {
   key: string;
   label: string;
-  kind: "number" | "enum";
+  kind: "number" | "enum" | "color" | "gradient";
   // Position of the value within [min, max], 0..1, for meters.
   value: number;
   numericValue?: number;
@@ -93,7 +94,7 @@ function createParameter(
   value: number | string,
   clampToRange = true,
 ): EffectParameter {
-  if (definition.kind === "enum" || typeof value === "string") {
+  if (definition.kind !== "number" || typeof value === "string") {
     return { key: definition.key, value: `${value}` };
   }
 
@@ -219,8 +220,8 @@ export function setLaneFxEnabled<T extends FxLayer>(
 }
 
 // The effects the renderer applies: a layer whose FX are off contributes
-// nothing but its Layout anchoring. Returns `effects` itself when no layer
-// is bypassed.
+// nothing but its Layout anchoring and the Color its fill clips are painted
+// with. Returns `effects` itself when no layer is bypassed.
 export function getRenderedEffects<
   T extends { trackId: string; effectName: string },
 >(effects: T[], layers: FxLayer[]) {
@@ -233,7 +234,9 @@ export function getRenderedEffects<
 
   return effects.filter(
     (effect) =>
-      !bypassed.has(effect.trackId) || isLayoutEffectName(effect.effectName),
+      !bypassed.has(effect.trackId) ||
+      isLayoutEffectName(effect.effectName) ||
+      isColorEffectName(effect.effectName),
   );
 }
 
@@ -488,6 +491,21 @@ function toDeviceParameter(
   definition: FxParameterDefinition,
   stored: EffectParameter | undefined,
 ): FxDeviceParameter {
+  if (definition.kind === "color" || definition.kind === "gradient") {
+    const stringValue = stored?.value.trim() || definition.defaultValue;
+    return {
+      key: definition.key,
+      label: definition.label,
+      kind: definition.kind,
+      value: 0,
+      stringValue,
+      min: 0,
+      max: 0,
+      defaultValue: definition.defaultValue,
+      display: stringValue,
+    };
+  }
+
   if (definition.kind === "enum") {
     const raw = stored?.value ?? definition.defaultValue;
     const option = definition.options.find(
@@ -538,6 +556,29 @@ function toDeviceParameter(
   };
 }
 
+// Whether a parameter shows given the effect's stored values: always,
+// unless it only applies while another parameter holds a given value.
+export function isParameterVisible(
+  definition: FxParameterDefinition,
+  effectDefinition: FxEffectDefinition,
+  parameters: readonly EffectParameter[],
+) {
+  const condition = definition.visibleWhen;
+  if (!condition) {
+    return true;
+  }
+
+  const controlling = findParameterDefinition(effectDefinition, condition.key);
+  const stored = parameters.find(
+    (parameter) => parameter.key === condition.key,
+  );
+  const value =
+    stored?.value ??
+    (controlling ? `${controlling.defaultValue}` : undefined) ??
+    "";
+  return value.trim().toLowerCase() === condition.value.toLowerCase();
+}
+
 function toDevice(effect: SessionEffect, layerName: string): FxDevice {
   const definition = getEffectDefinition(effect.effectName);
   const group: FxDeviceGroup =
@@ -571,7 +612,11 @@ function toDevice(effect: SessionEffect, layerName: string): FxDevice {
     enabled: effect.enabled !== false,
     layerDefault: isLayerLayoutEffect(effect) || undefined,
     parameters: parameterDefinitions
-      .filter((parameter) => !parameter.hidden)
+      .filter(
+        (parameter) =>
+          !parameter.hidden &&
+          isParameterVisible(parameter, definition, effect.parameters),
+      )
       .map((parameter) =>
         toDeviceParameter(
           parameter,

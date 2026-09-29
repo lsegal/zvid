@@ -2,6 +2,17 @@
 // Each definition gives the device a friendly name and describes its raw
 // parameters (label, range, default and display format) in stack UI order.
 
+import {
+  COLOR_EFFECT_NAME,
+  DEFAULT_FILL_GRADIENT,
+  FILL_MODES,
+  NEUTRAL_FILL_COLOR,
+} from "./fill-paint.ts";
+
+// Shows a parameter only while another parameter of the same effect holds
+// `value`, such as the Color effect's colour while its Type is Solid.
+export type FxParameterVisibility = { key: string; value: string };
+
 export type FxNumberParameterDefinition = {
   kind: "number";
   key: string;
@@ -12,6 +23,7 @@ export type FxNumberParameterDefinition = {
   step?: number;
   format: (value: number) => string;
   hidden?: boolean;
+  visibleWhen?: FxParameterVisibility;
 };
 
 export type FxEnumParameterDefinition = {
@@ -21,11 +33,27 @@ export type FxEnumParameterDefinition = {
   options: readonly string[];
   defaultValue: string;
   hidden?: boolean;
+  visibleWhen?: FxParameterVisibility;
+};
+
+// A CSS colour (`color`) or CSS linear/radial gradient (`gradient`) string,
+// edited with a colour picker.
+export type FxPaintParameterDefinition = {
+  kind: "color" | "gradient";
+  key: string;
+  label: string;
+  defaultValue: string;
+  hidden?: boolean;
+  visibleWhen?: FxParameterVisibility;
 };
 
 export type FxParameterDefinition =
   | FxNumberParameterDefinition
-  | FxEnumParameterDefinition;
+  | FxEnumParameterDefinition
+  | FxPaintParameterDefinition;
+
+// Where an effect can go: a layer's own stack and/or the Global stack.
+export type FxEffectScope = "layer" | "global";
 
 export type FxEffectDefinition = {
   effectName: string;
@@ -33,6 +61,8 @@ export type FxEffectDefinition = {
   description: string;
   accent: string;
   parameters: FxParameterDefinition[];
+  // Stacks the add menus offer the effect on; every stack when omitted.
+  scopes?: readonly FxEffectScope[];
   // False for the placeholder returned for effect names the registry does
   // not know; those devices show their raw parameter keys.
   known: boolean;
@@ -176,7 +206,40 @@ const DEFINITIONS: FxEffectDefinition[] = [
       },
     ],
   },
+  {
+    effectName: COLOR_EFFECT_NAME,
+    displayName: "Color",
+    description: "Paints the layer's fill clips a solid colour or a gradient.",
+    accent: "#ffd166",
+    known: true,
+    scopes: ["layer"],
+    parameters: [
+      {
+        kind: "enum",
+        key: "Mode",
+        label: "Type",
+        options: FILL_MODES,
+        defaultValue: "Solid",
+      },
+      {
+        kind: "color",
+        key: "Color",
+        label: "Color",
+        defaultValue: NEUTRAL_FILL_COLOR,
+        visibleWhen: { key: "Mode", value: "Solid" },
+      },
+      {
+        kind: "gradient",
+        key: "Gradient",
+        label: "Gradient",
+        defaultValue: DEFAULT_FILL_GRADIENT,
+        visibleWhen: { key: "Mode", value: "Gradient" },
+      },
+      unitParameter("Opacity", "Opacity", 1),
+    ],
+  },
 ];
+
 
 const DEFINITIONS_BY_NAME = new Map(
   DEFINITIONS.map((definition) => [definition.effectName, definition]),

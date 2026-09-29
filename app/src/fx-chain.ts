@@ -4,10 +4,15 @@
 
 import {
   FX_EFFECT_DEFINITIONS,
+  type FxEffectDefinition,
   formatRawNumber,
   getEffectDefinition,
 } from "./fx-registry.ts";
-import { type FxDevice, isLayoutEffectName } from "./fx-stack.ts";
+import {
+  type FxDevice,
+  type FxDeviceGroup,
+  isLayoutEffectName,
+} from "./fx-stack.ts";
 
 export const FX_COLLAPSED_STORAGE_KEY = "zvid-fx-collapsed-devices";
 
@@ -39,6 +44,16 @@ export function groupChainDevices(
 export const ADDABLE_EFFECT_DEFINITIONS = FX_EFFECT_DEFINITIONS.filter(
   (definition) => !isLayoutEffectName(definition.effectName),
 );
+
+// The effects the add menu of one stack offers: those whose scopes include
+// it, such as the layer-only Color effect.
+export function getAddableEffectDefinitions(
+  group: FxDeviceGroup,
+): FxEffectDefinition[] {
+  return ADDABLE_EFFECT_DEFINITIONS.filter(
+    (definition) => !definition.scopes || definition.scopes.includes(group),
+  );
+}
 
 export function getParameterFormat(effectName: string, key: string) {
   const definition = getEffectDefinition(effectName).parameters.find(
