@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { resolveLayerPlacement } from "./composition-layout.ts";
+import {
+  type LayoutAnchor,
+  resolveLayerPlacement,
+} from "./composition-layout.ts";
 import {
   applyMatrix,
   canvasToLayer,
@@ -23,7 +26,7 @@ function transform(overrides: Partial<LayerTransform>): LayerTransform {
 }
 
 // Band `index` of `count` on CANVAS, placed with a portrait source.
-function placement(index = 0, count = 1, anchor = "center" as const) {
+function placement(index = 0, count = 1, anchor: LayoutAnchor = "center") {
   return resolveLayerPlacement({
     index,
     count,
