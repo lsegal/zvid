@@ -17,8 +17,8 @@ export const FILL_CLIP_LABEL = "Fill";
 
 export type FillClipKind = typeof FILL_CLIP_KIND;
 
-export function isFillClip(clip: { kind?: string } | undefined) {
-  return clip?.kind === FILL_CLIP_KIND;
+export function isFillClip(clip: object | undefined) {
+  return clip !== undefined && "kind" in clip && clip.kind === FILL_CLIP_KIND;
 }
 
 export type FillClip = {
