@@ -16,7 +16,7 @@ import {
 import {
   describeDeviceMove,
   dropSlotToStackIndex,
-  getAddableEffectDefinitions,
+  addableEffectsFor,
   getAutoScrollDelta,
   getDropSlot,
   getParameterFormat,
@@ -275,7 +275,7 @@ export function FxChain({
 
   function addDevice(group: FxDeviceGroup, effectName: string) {
     const trackId = getTrackId(group, layerTrackId);
-    const definition = getAddableEffectDefinitions(group).find(
+    const definition = addableEffectsFor(group).find(
       (candidate) => candidate.effectName === effectName,
     );
     if (!trackId || !definition) {
@@ -570,7 +570,7 @@ export function FxChain({
     const label = `Add device to ${group === "global" ? "Global" : "this layer"}`;
     return (
       <AddDeviceMenu
-        effects={getAddableEffectDefinitions(group)}
+        effects={addableEffectsFor(group)}
         focusKey={`add-${group}`}
         label={label}
         onAdd={(effectName) => addDevice(group, effectName)}
@@ -803,6 +803,13 @@ type FxDevicePanelProps = {
   onSetParameter: FxChainProps["onSetParameter"];
 };
 
+// Explains the "Not supported here" chip on a device loaded onto a stack its
+// effect isn't designed for.
+function getUnsupportedTitle(device: FxDevice) {
+  const stack = device.group === "global" ? "the Global stack" : "a layer";
+  return `${device.name} isn't designed for ${stack}. Remove it, or add it where it is supported.`;
+}
+
 function getTitleShortcuts(device: FxDevice) {
   return device.layerDefault
     ? "Alt+ArrowLeft Alt+ArrowRight"
@@ -831,6 +838,7 @@ export function FxDevicePanel({
     device.enabled ? "" : "fx-device-panel--bypassed",
     layerBypassed ? "fx-device-panel--layer-off" : "",
     dragging ? "fx-device-panel--dragging" : "",
+    device.unsupported ? "fx-device-panel--unsupported" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -909,6 +917,14 @@ export function FxDevicePanel({
         >
           {device.name}
         </button>
+        {device.unsupported ? (
+          <span
+            className="fx-device-panel__unsupported"
+            title={getUnsupportedTitle(device)}
+          >
+            Not supported here
+          </span>
+        ) : null}
         {device.layerDefault ? null : (
           <button
             aria-label={`Remove ${device.name}`}

@@ -2,7 +2,6 @@
 // which group, how knob values are formatted, and the per-device collapse
 // state that is kept in localStorage.
 
-import { isTransformEffectName } from "./composition-transform.ts";
 import {
   FX_EFFECT_DEFINITIONS,
   formatRawNumber,
@@ -39,19 +38,15 @@ export function groupChainDevices(
   };
 }
 
-// Effects the add menu offers. Layout is left out: every visual layer
-// already has its own, and it cannot go on the Global stack.
-export const ADDABLE_EFFECT_DEFINITIONS = FX_EFFECT_DEFINITIONS.filter(
-  (definition) => !isLayoutEffectName(definition.effectName),
-);
-
-// Transform places a single layer, so only layer stacks offer it.
-export function getAddableEffectDefinitions(group: FxDeviceGroup) {
-  return group === "global"
-    ? ADDABLE_EFFECT_DEFINITIONS.filter(
-        (definition) => !isTransformEffectName(definition.effectName),
-      )
-    : ADDABLE_EFFECT_DEFINITIONS;
+// Effects the `group` add menu offers: the known ones designed for that
+// stack, except those every layer is already given (Layout).
+export function addableEffectsFor(group: FxDeviceGroup) {
+  return FX_EFFECT_DEFINITIONS.filter(
+    (definition) =>
+      definition.known &&
+      !definition.layerDefault &&
+      definition.scopes.includes(group),
+  );
 }
 
 export function getParameterFormat(effectName: string, key: string) {

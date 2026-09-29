@@ -143,7 +143,7 @@ import { WandIcon } from "./components/WandIcon";
 import { isContextMenuKey, isContextMenuPress } from "./context-menu.ts";
 import { buildEditMenuEntries } from "./edit-menu.ts";
 import {
-  ADDABLE_EFFECT_DEFINITIONS,
+  addableEffectsFor,
   getDefaultLaneId,
   resolveSelectedLaneId,
   stepSelectedLaneId,
@@ -5195,7 +5195,7 @@ function App() {
       laneId: lane.id,
       fxEnabled,
       effectCount: laneStatusById.get(lane.id)?.effectCount ?? 0,
-      effects: ADDABLE_EFFECT_DEFINITIONS,
+      effects: addableEffectsFor("layer"),
       disabled: isExporting,
       actions: {
         rename: () => setRenamingLaneId(lane.id),

@@ -27,12 +27,24 @@ export type FxParameterDefinition =
   | FxNumberParameterDefinition
   | FxEnumParameterDefinition;
 
+// The stacks an effect is designed for: a layer's own stack, the Global
+// stack that processes the composite, or both.
+export type FxEffectScope = "layer" | "global";
+
+const ALL_SCOPES: readonly FxEffectScope[] = ["layer", "global"];
+
 export type FxEffectDefinition = {
   effectName: string;
   displayName: string;
   description: string;
   accent: string;
   parameters: FxParameterDefinition[];
+  // Stacks the add menus offer the effect on. A device loaded onto any other
+  // stack still shows, flagged as not supported there.
+  scopes: readonly FxEffectScope[];
+  // True for an effect every visual layer is given exactly once, so no add
+  // menu offers it.
+  layerDefault?: boolean;
   // False for the placeholder returned for effect names the registry does
   // not know; those devices show their raw parameter keys.
   known: boolean;
@@ -122,6 +134,7 @@ const DEFINITIONS: FxEffectDefinition[] = [
     description: "Zooms and pans the frame from a start to an end framing.",
     accent: "#7ca1ff",
     known: true,
+    scopes: ALL_SCOPES,
     parameters: [
       zoomParameter("_Start_Zoom", "Start Zoom"),
       unitParameter("_Start_X", "Start X", 0.5),
@@ -141,6 +154,7 @@ const DEFINITIONS: FxEffectDefinition[] = [
     description: "Shifts the hue of the layer in time with the music.",
     accent: "#ff6f9d",
     known: true,
+    scopes: ALL_SCOPES,
     parameters: [
       {
         kind: "number",
@@ -161,6 +175,7 @@ const DEFINITIONS: FxEffectDefinition[] = [
     description: "Reduces the layer to large pixels between two intensities.",
     accent: "#7ee0a4",
     known: true,
+    scopes: ALL_SCOPES,
     parameters: [
       unitParameter("_NumPixels", "Pixel Size", 0.5),
       unitParameter("_LowIntensity", "Low", 0),
@@ -173,6 +188,7 @@ const DEFINITIONS: FxEffectDefinition[] = [
     description: "Inverts the brightness range between two intensities.",
     accent: "#c38fff",
     known: true,
+    scopes: ALL_SCOPES,
     parameters: [
       unitParameter("_LowIntensity", "Low", 0),
       unitParameter("_HighIntensity", "High", 1),
@@ -184,6 +200,7 @@ const DEFINITIONS: FxEffectDefinition[] = [
     description: "Adds analog tape jitter and colour bleed.",
     accent: "#f6b73c",
     known: true,
+    scopes: ALL_SCOPES,
     parameters: [
       unitParameter("_LowMod", "Low", 0),
       unitParameter("_HighMod", "High", 0.5),
@@ -195,6 +212,8 @@ const DEFINITIONS: FxEffectDefinition[] = [
     description: "Anchors the frame inside the canvas.",
     accent: "#5fd3e6",
     known: true,
+    scopes: ["layer"],
+    layerDefault: true,
     parameters: [
       {
         kind: "enum",
@@ -211,6 +230,7 @@ const DEFINITIONS: FxEffectDefinition[] = [
     description: "Moves, resizes and rotates the layer inside the canvas.",
     accent: "#ff9f6b",
     known: true,
+    scopes: ["layer"],
     parameters: [
       transformParameter("PositionX", "X", -2, 2, 0, formatSignedPercent),
       transformParameter("PositionY", "Y", -2, 2, 0, formatSignedPercent),
@@ -249,9 +269,17 @@ export function getEffectDefinition(effectName: string): FxEffectDefinition {
       description: "Unrecognized effect",
       accent: FALLBACK_ACCENT,
       known: false,
+      // Unrecognized effects stay wherever the session put them.
+      scopes: ALL_SCOPES,
       parameters: [],
     }
   );
+}
+
+// Whether `effectName` is designed for the `scope` stack. Unrecognized
+// effects are supported wherever they are.
+export function isEffectSupportedIn(effectName: string, scope: FxEffectScope) {
+  return getEffectDefinition(effectName).scopes.includes(scope);
 }
 
 export function isHiddenParameterKey(key: string) {

@@ -4,12 +4,12 @@
 // `effects` array, or the same array when nothing changed so history
 // commits can skip no-op edits.
 
-import { isTransformEffectName } from "./composition-transform.ts";
 import {
   type FxEffectDefinition,
   type FxParameterDefinition,
   getEffectDefinition,
   getFallbackParameterDefinition,
+  isEffectSupportedIn,
 } from "./fx-registry.ts";
 import type { LvpSession } from "./session.ts";
 
@@ -61,8 +61,15 @@ export type FxDevice = {
   // True for a layer's own Layout device. Every visual layer has exactly
   // one, so it can be reset to its defaults but not removed or duplicated.
   layerDefault?: boolean;
+  // True for a device on a stack its effect isn't designed for, such as a
+  // Global Layout from an older session. It still loads and can be removed.
+  unsupported?: boolean;
   parameters: FxDeviceParameter[];
 };
+
+export function getTrackGroup(trackId: string): FxDeviceGroup {
+  return trackId === GLOBAL_EFFECT_TRACK_ID ? "global" : "layer";
+}
 
 export function mapEffects(source: LvpSession["effects"]) {
   return (source ?? []).map<SessionEffect>((effect) => ({
@@ -300,8 +307,9 @@ export function addEffect(
   id?: string,
 ) {
   const stack = getStack(effects, trackId);
-  // Transform places one layer, so it has no meaning on the Global stack.
-  if (trackId === GLOBAL_EFFECT_TRACK_ID && isTransformEffectName(effectName)) {
+  // Only effects designed for the stack can be added to it, such as
+  // Transform, which places one layer, never on the Global stack.
+  if (!isEffectSupportedIn(effectName, getTrackGroup(trackId))) {
     return effects;
   }
 
@@ -546,8 +554,7 @@ function toDeviceParameter(
 
 function toDevice(effect: SessionEffect, layerName: string): FxDevice {
   const definition = getEffectDefinition(effect.effectName);
-  const group: FxDeviceGroup =
-    effect.trackId === GLOBAL_EFFECT_TRACK_ID ? "global" : "layer";
+  const group = getTrackGroup(effect.trackId);
   const knownKeys = new Set(
     definition.parameters.map((parameter) => parameter.key),
   );
@@ -576,6 +583,7 @@ function toDevice(effect: SessionEffect, layerName: string): FxDevice {
     group,
     enabled: effect.enabled !== false,
     layerDefault: isLayerLayoutEffect(effect) || undefined,
+    unsupported: !isEffectSupportedIn(effect.effectName, group) || undefined,
     parameters: parameterDefinitions
       .filter((parameter) => !parameter.hidden)
       .map((parameter) =>
