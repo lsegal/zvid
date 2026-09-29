@@ -254,6 +254,15 @@ import {
   buildRandomArrangement,
   sourceTrackHasFootage,
 } from "./random-arrangement.ts";
+import {
+  type ClipboardContent,
+  copyClip,
+  copyRange,
+  pasteClipboard,
+  removeRangeFromLane,
+  resolveClipOverlaps,
+  withWindowTiming,
+} from "./range-edit.ts";
 import { listOfflineMedia, matchOfflineMedia } from "./relink";
 import {
   formatOverlapNote,
@@ -794,22 +803,6 @@ function getFilmstripTileOwner(
   return `${kind}:${id}:tile:${index}`;
 }
 
-function withWindowTiming(
-  clip: ArrangementClip,
-  startQ: number,
-  durationQ: number,
-  bpm: number,
-  laneId = clip.laneId,
-) {
-  return {
-    ...clip,
-    laneId,
-    startQ,
-    durationSeconds: quartersToSeconds(durationQ, bpm),
-    trimStartSeconds: quartersToSeconds(startQ, bpm) + clip.sourceOffsetSeconds,
-  };
-}
-
 function resolveClipOverlapPreview(
   clips: ArrangementClip[],
   activeClipId: string,
@@ -876,49 +869,6 @@ function findClosestTimelineLaneId(
   }
 
   return closestLaneId;
-}
-
-function resolveClipOverlaps(
-  clips: ArrangementClip[],
-  activeClip: ArrangementClip,
-  bpm: number,
-) {
-  const epsilon = 0.0001;
-  const activeEndQ = getClipEndQ(activeClip, bpm);
-
-  return clips.flatMap<ArrangementClip>((clip) => {
-    if (clip.id === activeClip.id) {
-      return [activeClip];
-    }
-
-    if (clip.laneId !== activeClip.laneId) {
-      return [clip];
-    }
-
-    const clipEndQ = getClipEndQ(clip, bpm);
-    const overlapStartQ = Math.max(activeClip.startQ, clip.startQ);
-    const overlapEndQ = Math.min(activeEndQ, clipEndQ);
-    if (overlapEndQ - overlapStartQ <= epsilon) {
-      return [clip];
-    }
-
-    const leftDurationQ = Math.max(0, activeClip.startQ - clip.startQ);
-    const rightDurationQ = Math.max(0, clipEndQ - activeEndQ);
-
-    if (leftDurationQ <= epsilon && rightDurationQ <= epsilon) {
-      return [];
-    }
-
-    if (leftDurationQ >= rightDurationQ && leftDurationQ > epsilon) {
-      return [withWindowTiming(clip, clip.startQ, leftDurationQ, bpm)];
-    }
-
-    if (rightDurationQ > epsilon) {
-      return [withWindowTiming(clip, activeEndQ, rightDurationQ, bpm)];
-    }
-
-    return [];
-  });
 }
 
 function cloneClipAtStartQ(
@@ -2018,7 +1968,9 @@ function App() {
     startWidth: number;
   } | null>(null);
   const timelineScrubAudioTimeoutRef = useRef<number | null>(null);
-  const clipClipboardRef = useRef<ArrangementClip | null>(null);
+  const clipClipboardRef = useRef<ClipboardContent<ArrangementClip> | null>(
+    null,
+  );
   const collaborationControllerRef =
     useRef<CollaborationController<ProjectState> | null>(null);
   const shareCopyResetTimeoutRef = useRef<number | null>(null);
@@ -4795,7 +4747,7 @@ function App() {
   // Clipboard and edit actions shared by the keyboard shortcuts and the clip
   // menus. Each is one undo step.
   function copyArrangementClip(clip: ArrangementClip) {
-    clipClipboardRef.current = { ...clip };
+    clipClipboardRef.current = copyClip(clip, bpm);
     setStatus(`Copied ${clip.label}.`);
   }
 
@@ -4818,7 +4770,7 @@ function App() {
   }
 
   function cutArrangementClip(clip: ArrangementClip) {
-    clipClipboardRef.current = { ...clip };
+    clipClipboardRef.current = copyClip(clip, bpm);
     removeArrangementClip(clip, "Cut clip");
     setStatus(`Cut ${clip.label}.`);
   }
@@ -4828,10 +4780,77 @@ function App() {
     setStatus(`Deleted ${clip.label}.`);
   }
 
-  // Pastes at the playhead on `laneId`, or on the selected layer.
+  // With a selection, Cut, Copy and Delete act on its span on its layer only.
+  // The selection stays, showing what they acted on.
+  function copySelectionRange(selection: TimelineSelection) {
+    return copyRange(
+      timelineClips,
+      selection.laneId,
+      selection.startQ,
+      getSelectionEndQ(selection),
+      bpm,
+    );
+  }
+
+  function removeSelectionRange(selection: TimelineSelection, label: string) {
+    const splitClipId = `window-${crypto.randomUUID()}`;
+    dispatchProject({
+      type: "commit",
+      label,
+      updater: (current) => {
+        const splitClipIds = [splitClipId];
+        return patchProjectState(current, {
+          clips: removeRangeFromLane(
+            current.clips,
+            selection.laneId,
+            selection.startQ,
+            getSelectionEndQ(selection),
+            current.bpm,
+            () => splitClipIds.shift() ?? `window-${crypto.randomUUID()}`,
+          ),
+        });
+      },
+    });
+  }
+
+  function copySelection(selection: TimelineSelection) {
+    const content = copySelectionRange(selection);
+    if (!content.fragments.length) {
+      setStatus("Nothing in the selection to copy.");
+      return;
+    }
+
+    clipClipboardRef.current = content;
+    setStatus("Copied the selection.");
+  }
+
+  function cutSelection(selection: TimelineSelection) {
+    const content = copySelectionRange(selection);
+    if (!content.fragments.length) {
+      setStatus("Nothing in the selection to cut.");
+      return;
+    }
+
+    clipClipboardRef.current = content;
+    removeSelectionRange(selection, "Cut selection");
+    setStatus("Cut the selection.");
+  }
+
+  function deleteSelection(selection: TimelineSelection) {
+    if (!copySelectionRange(selection).fragments.length) {
+      return;
+    }
+
+    removeSelectionRange(selection, "Delete selection");
+    setStatus("Deleted the selection.");
+  }
+
+  // Pastes at the playhead on `laneId`, or on the selected layer, keeping the
+  // copied pieces' spacing.
   function pasteArrangementClip(laneId?: string) {
-    const clipboardClip = clipClipboardRef.current;
-    if (!clipboardClip) {
+    const clipboard = clipClipboardRef.current;
+    const [firstFragment] = clipboard?.fragments ?? [];
+    if (!clipboard || !firstFragment) {
       return;
     }
 
@@ -4841,32 +4860,36 @@ function App() {
         lanes,
         explicitClip?.laneId,
         selectedLaneId,
-        clipboardClip.laneId,
+        firstFragment.clip.laneId,
       );
-    const pastedClipId = `window-${crypto.randomUUID()}`;
+    const pastedClipIds = clipboard.fragments.map(
+      () => `window-${crypto.randomUUID()}`,
+    );
     const pasteQ = playheadQRef.current;
     dispatchProject({
       type: "commit",
       label: "Paste clip",
       updater: (current) => {
-        const pastedClip = cloneClipAtStartQ(
-          { ...clipboardClip, laneId: pasteLaneId },
-          current.bpm,
-          pasteQ,
-          pastedClipId,
-        );
+        const ids = [...pastedClipIds];
         return patchProjectState(current, {
-          clips: resolveClipOverlaps(
-            [...current.clips, pastedClip],
-            pastedClip,
+          clips: pasteClipboard(
+            current.clips,
+            clipboard,
+            pasteLaneId,
+            pasteQ,
             current.bpm,
-          ),
+            () => ids.shift() ?? `window-${crypto.randomUUID()}`,
+          ).clips,
         });
       },
     });
-    setSelectedClipId(pastedClipId);
+    setSelectedClipId(pastedClipIds[0]);
     setPendingSelection(null);
-    setStatus(`Pasted ${clipboardClip.label}.`);
+    setStatus(
+      clipboard.fragments.length === 1
+        ? `Pasted ${firstFragment.clip.label}.`
+        : `Pasted ${clipboard.fragments.length} clips.`,
+    );
   }
 
   function splitArrangementClip(clip: ArrangementClip) {
@@ -4962,7 +4985,7 @@ function App() {
       return;
     }
 
-    clipClipboardRef.current = clip;
+    clipClipboardRef.current = copyClip(clip, bpm);
     setStatus(`Copied ${clip.label}.`);
   }
 
@@ -5019,6 +5042,9 @@ function App() {
     split: splitArrangementClip,
     duplicate: duplicateArrangementClip,
     remove: deleteArrangementClip,
+    copySelection,
+    cutSelection,
+    deleteSelection,
   };
   // The keyboard shortcuts read the latest actions without re-subscribing.
   const clipActionsRef = useRef(clipActions);
@@ -5384,6 +5410,13 @@ function App() {
         ),
       })),
       disabled: isExporting,
+      clipboard: {
+        mac: shortcutLabels.mac,
+        hasContent: copySelectionRange(selection).fragments.length > 0,
+        cut: () => cutSelection(selection),
+        copy: () => copySelection(selection),
+        remove: () => deleteSelection(selection),
+      },
       insertTrack: commitPendingSelectionToSourceTrack,
       insertFill: () =>
         insertFillClip(selection.laneId, selection.startQ, selection.durationQ),
@@ -5477,6 +5510,9 @@ function App() {
       {
         clip: explicitClip?.label,
         clipEntries: getArrangementClipEntries(explicitClip, undefined),
+        selectionEntries: pendingSelection
+          ? getSelectionMenuEntries(pendingSelection)
+          : undefined,
         layer: selectedLane
           ? {
               name: selectedLane.name,
@@ -5506,7 +5542,17 @@ function App() {
       const key = event.key.toLowerCase();
       const clipActions = clipActionsRef.current;
       if (hasPrimaryModifier && key === "c") {
-        if (!selectedClip || isExporting) {
+        if (isExporting) {
+          return;
+        }
+
+        if (pendingSelection) {
+          event.preventDefault();
+          clipActions.copySelection(pendingSelection);
+          return;
+        }
+
+        if (!selectedClip) {
           return;
         }
 
@@ -5516,7 +5562,17 @@ function App() {
       }
 
       if (hasPrimaryModifier && key === "x") {
-        if (!selectedClip || isExporting) {
+        if (isExporting) {
+          return;
+        }
+
+        if (pendingSelection) {
+          event.preventDefault();
+          clipActions.cutSelection(pendingSelection);
+          return;
+        }
+
+        if (!selectedClip) {
           return;
         }
 
@@ -5627,7 +5683,17 @@ function App() {
       }
 
       if (event.key === "Delete" || event.key === "Backspace") {
-        if (!selectedClip || isExporting) {
+        if (isExporting) {
+          return;
+        }
+
+        if (pendingSelection) {
+          event.preventDefault();
+          clipActions.deleteSelection(pendingSelection);
+          return;
+        }
+
+        if (!selectedClip) {
           return;
         }
 
@@ -5646,6 +5712,7 @@ function App() {
     fxLaneId,
     isExporting,
     lanes,
+    pendingSelection,
     selectedClip,
     setPlayheadQ,
     timelineContentEndQ,
