@@ -83,6 +83,7 @@ import {
   type ContextMenuEntry,
   type MenuPoint,
 } from "./components/ContextMenu";
+import { DropdownMenuEntries } from "./components/DropdownMenuEntries";
 import { FxChain, type FxEditMode } from "./components/FxChain";
 import {
   ImportNotice,
@@ -113,11 +114,11 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
 import { WandIcon } from "./components/WandIcon";
 import { isContextMenuKey, isContextMenuPress } from "./context-menu.ts";
+import { buildEditMenuEntries } from "./edit-menu.ts";
 import {
   ADDABLE_EFFECT_DEFINITIONS,
   getDefaultLaneId,
@@ -1845,6 +1846,8 @@ function App() {
   const [clipMenu, setClipMenu] = useState<ClipMenuState | null>(null);
   // The layer whose name is being edited in its header.
   const [renamingLaneId, setRenamingLaneId] = useState<string>();
+  const renamingLaneIdRef = useRef(renamingLaneId);
+  renamingLaneIdRef.current = renamingLaneId;
   // The layer the FX chain edits. Selecting a clip selects its layer, and
   // clearing the clip selection keeps the layer.
   const [selectedLaneId, setSelectedLaneId] = useState<string>();
@@ -4919,40 +4922,12 @@ function App() {
 
   function getClipMenuEntries(menu: ClipMenuState): ContextMenuEntry[] {
     if (menu.kind === "audio") {
-      return buildMainAudioMenuEntries({
-        hasMainAudio: Boolean(mainAudioId),
-        disabled: isExporting,
-        chooseFile: () => mainAudioInputRef.current?.click(),
-        remove: removeMainAudio,
-      });
+      return getMainAudioMenuEntries();
     }
 
     if (menu.kind === "layer") {
       const lane = lanes.find((item) => item.id === menu.laneId);
-      if (!lane) {
-        return [];
-      }
-
-      const fxEnabled = isLayerFxEnabled(lane);
-      return buildLayerMenuEntries({
-        lanes,
-        laneId: lane.id,
-        fxEnabled,
-        effectCount: laneStatusById.get(lane.id)?.effectCount ?? 0,
-        effects: ADDABLE_EFFECT_DEFINITIONS,
-        disabled: isExporting,
-        actions: {
-          rename: () => setRenamingLaneId(lane.id),
-          duplicate: () => duplicateLayer(lane),
-          remove: () => deleteLayer(lane),
-          toggleFx: () => setLayerFxEnabled(lane.id, !fxEnabled),
-          addFx: (effectName) => addLayerFx(lane.id, effectName),
-          insertAbove: () => insertLayer(lane.id, "above"),
-          insertBelow: () => insertLayer(lane.id, "below"),
-          moveUp: () => moveLayer(lane, -1),
-          moveDown: () => moveLayer(lane, 1),
-        },
-      });
+      return lane ? getLayerMenuEntries(lane) : [];
     }
 
     if (menu.kind === "span") {
@@ -4973,7 +4948,50 @@ function App() {
       menu.kind === "clip"
         ? timelineClips.find((item) => item.id === menu.clipId)
         : undefined;
-    const pasteLaneId = menu.kind === "lane" ? menu.laneId : clip?.laneId;
+    return getArrangementClipEntries(
+      clip,
+      menu.kind === "lane" ? menu.laneId : clip?.laneId,
+    );
+  }
+
+  function getMainAudioMenuEntries() {
+    return buildMainAudioMenuEntries({
+      hasMainAudio: Boolean(mainAudioId),
+      disabled: isExporting,
+      chooseFile: () => mainAudioInputRef.current?.click(),
+      remove: removeMainAudio,
+    });
+  }
+
+  function getLayerMenuEntries(lane: Lane) {
+    const fxEnabled = isLayerFxEnabled(lane);
+    return buildLayerMenuEntries({
+      lanes,
+      laneId: lane.id,
+      fxEnabled,
+      effectCount: laneStatusById.get(lane.id)?.effectCount ?? 0,
+      effects: ADDABLE_EFFECT_DEFINITIONS,
+      disabled: isExporting,
+      actions: {
+        rename: () => setRenamingLaneId(lane.id),
+        duplicate: () => duplicateLayer(lane),
+        remove: () => deleteLayer(lane),
+        toggleFx: () => setLayerFxEnabled(lane.id, !fxEnabled),
+        addFx: (effectName) => addLayerFx(lane.id, effectName),
+        insertAbove: () => insertLayer(lane.id, "above"),
+        insertBelow: () => insertLayer(lane.id, "below"),
+        moveUp: () => moveLayer(lane, -1),
+        moveDown: () => moveLayer(lane, 1),
+      },
+    });
+  }
+
+  // The clip menu, or the empty lane space menu without a clip. Paste goes on
+  // `pasteLaneId`, or on the selected layer when it is undefined.
+  function getArrangementClipEntries(
+    clip: ArrangementClip | undefined,
+    pasteLaneId: string | undefined,
+  ): ContextMenuEntry[] {
     const withClip = (action: (clip: ArrangementClip) => void) => () => {
       if (clip) {
         action(clip);
@@ -4995,6 +5013,42 @@ function App() {
         remove: withClip(deleteArrangementClip),
       },
     });
+  }
+
+  // Built when the Edit menu opens, so it reflects the current selection.
+  function getEditMenuEntries(): ContextMenuEntry[] {
+    const selectedLane = lanes.find((lane) => lane.id === selectedLaneId);
+    return buildEditMenuEntries(
+      [
+        {
+          type: "item",
+          id: "undo",
+          label: undoLabel ? `Undo ${undoLabel}` : "Undo",
+          shortcut: shortcutLabels.undo,
+          disabled: isExporting || !canUndo,
+          onSelect: handleUndo,
+        },
+        {
+          type: "item",
+          id: "redo",
+          label: redoLabel ? `Redo ${redoLabel}` : "Redo",
+          shortcut: shortcutLabels.redo,
+          disabled: isExporting || !canRedo,
+          onSelect: handleRedo,
+        },
+      ],
+      {
+        clip: explicitClip?.label,
+        clipEntries: getArrangementClipEntries(explicitClip, undefined),
+        layer: selectedLane
+          ? {
+              name: selectedLane.name,
+              entries: getLayerMenuEntries(selectedLane),
+            }
+          : undefined,
+        audioEntries: getMainAudioMenuEntries(),
+      },
+    );
   }
 
   useEffect(() => {
@@ -6578,25 +6632,16 @@ function App() {
                 </span>
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuItem
-                disabled={isExporting || !canUndo}
-                onSelect={() => handleUndo()}
-              >
-                <span>{undoLabel ? `Undo ${undoLabel}` : "Undo"}</span>
-                <DropdownMenuShortcut>
-                  {shortcutLabels.undo}
-                </DropdownMenuShortcut>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={isExporting || !canRedo}
-                onSelect={() => handleRedo()}
-              >
-                <span>{redoLabel ? `Redo ${redoLabel}` : "Redo"}</span>
-                <DropdownMenuShortcut>
-                  {shortcutLabels.redo}
-                </DropdownMenuShortcut>
-              </DropdownMenuItem>
+            <DropdownMenuContent
+              align="start"
+              onCloseAutoFocus={(event) => {
+                // Leave focus on the layer name field Rename… opened.
+                if (renamingLaneIdRef.current) {
+                  event.preventDefault();
+                }
+              }}
+            >
+              <DropdownMenuEntries entries={getEditMenuEntries()} />
             </DropdownMenuContent>
           </DropdownMenu>
           <div className="tempo-pill">
