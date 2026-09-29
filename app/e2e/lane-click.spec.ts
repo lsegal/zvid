@@ -17,8 +17,7 @@ function playheadX(page: Page, id: string) {
       `[data-timeline-lane-id="${laneId}"]`,
     ) as HTMLElement;
     return (
-      marker.getBoundingClientRect().left -
-      content.getBoundingClientRect().left
+      marker.getBoundingClientRect().left - content.getBoundingClientRect().left
     );
   }, id);
 }

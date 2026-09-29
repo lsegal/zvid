@@ -184,6 +184,12 @@ import {
 import { hasMediaExtension } from "./harness/media-extensions";
 import { loadIceServers, resolveRelayIceServersUrl } from "./ice-servers";
 import {
+  type LaneSelectionGesture,
+  moveLaneSelectionGesture,
+  releaseLaneSelectionGesture,
+  startLaneSelectionGesture,
+} from "./lane-selection-gesture.ts";
+import {
   createLaneId,
   deleteLane,
   duplicateLane,
@@ -198,13 +204,6 @@ import {
   layerHistoryLabels,
   MAX_LAYERS_MESSAGE,
 } from "./layer-menu";
-import {
-  buildSelection,
-  type LaneSelectionGesture,
-  moveLaneSelectionGesture,
-  releaseLaneSelectionGesture,
-  startLaneSelectionGesture,
-} from "./lane-selection-gesture.ts";
 import { MainWaveform } from "./MainWaveform";
 import { withMainAudio } from "./main-audio";
 import {

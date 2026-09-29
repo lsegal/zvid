@@ -57,8 +57,7 @@ export function moveLaneSelectionGesture(
   threshold = LANE_SELECTION_DRAG_THRESHOLD_PX,
 ): { gesture: LaneSelectionGesture; selection: LaneSelectionRange | null } {
   const dragging =
-    gesture.dragging ||
-    Math.abs(pointerX - gesture.pointerStartX) > threshold;
+    gesture.dragging || Math.abs(pointerX - gesture.pointerStartX) > threshold;
   if (!dragging) {
     return { gesture, selection: null };
   }
