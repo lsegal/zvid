@@ -63,6 +63,62 @@ test("Transform lays its knobs out in two rows", async ({ page }) => {
   ]);
 });
 
+// Move puts its Motion curve on its own row, then a Start row and an End row
+// of Transform's knobs, each led by its label.
+test("Move lays out Motion, then labelled Start and End rows", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const layerHeader = page.locator('[data-layer-header-id="6"]');
+  await layerHeader.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Add FX", exact: true }).hover();
+  await page
+    .getByRole("menu", { name: "Add FX" })
+    .getByRole("menuitem", { name: /^Move/ })
+    .click();
+
+  const move = page.locator('section[aria-label="Move"]');
+  const motion = move.getByRole("group", { name: "Motion" });
+  await expect(motion.getByRole("button")).toHaveText([
+    "Linear",
+    "Ease In",
+    "Ease Out",
+    "Ease In Out",
+  ]);
+  await expect(
+    motion.getByRole("button", { name: "Ease In Out" }),
+  ).toHaveAttribute("aria-pressed", "true");
+
+  // Each row's label sits left of its knobs, which share one line below the
+  // previous row's.
+  let previousTop = (await motion.boundingBox())?.y ?? 0;
+  for (const name of ["Start", "End"]) {
+    const row = move.getByRole("group", { name });
+    const labels = row.locator(".knob__label");
+    await expect(labels).toHaveText([
+      "X",
+      "Y",
+      "Width",
+      "Height",
+      "Origin X",
+      "Origin Y",
+      "Rotation",
+    ]);
+    const tops = new Set<number>();
+    for (const label of await labels.all()) {
+      tops.add(Math.round((await label.boundingBox())?.y ?? 0));
+    }
+    expect(tops.size).toBe(1);
+    const [top] = tops;
+    expect(top).toBeGreaterThan(previousTop);
+    previousTop = top;
+
+    const legend = await row.locator("legend").boundingBox();
+    const first = await labels.first().boundingBox();
+    expect(legend && first && legend.x + legend.width <= first.x).toBe(true);
+  }
+});
+
 // Every new session arranges its layers with a Vertical Order on the Global
 // stack. Removing it lets the layers overlap, which the Global section
 // points out.

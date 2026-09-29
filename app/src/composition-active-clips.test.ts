@@ -6,6 +6,7 @@ import {
   GROUP_TRACK_ID,
   type MediaItem,
   resolveVisualState,
+  type SessionEffect,
 } from "./composition-active-clips.ts";
 import {
   orderStackedLayers,
@@ -818,7 +819,7 @@ describe("Move", () => {
     id: string,
     trackId: string,
     parameters: Array<[string, number | string]>,
-  ) => ({
+  ): SessionEffect => ({
     id,
     trackId,
     effectName: "Move",
