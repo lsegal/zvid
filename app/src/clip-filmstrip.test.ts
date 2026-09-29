@@ -9,6 +9,7 @@ import {
   getFilmstripTileWidthPx,
   getSourceSpanFilmstripClip,
 } from "./clip-filmstrip.ts";
+import { createClipWarp, warpSourceTime } from "./clip-warp.ts";
 
 describe("getFilmstripTileWidthPx", () => {
   it("follows the source aspect", () => {
@@ -250,6 +251,99 @@ describe("getSourceSpanFilmstripClip", () => {
     assert.deepEqual(
       mediaEnd.map((tile) => tile.timeSeconds),
       [0, 8, 16, 18, 18],
+    );
+  });
+});
+
+describe("getClipFilmstripTiles with a warp", () => {
+  const bpm = 120;
+  // The source plays at 0.5× until linear second 2, source second 1, then
+  // at 2×.
+  const warp = createClipWarp(
+    [
+      { beatTime: 0, secTime: 0 },
+      { beatTime: 4, secTime: 1 },
+      { beatTime: 8, secTime: 5 },
+    ],
+    0,
+    0,
+    bpm,
+  );
+  assert.ok(warp);
+  // One tile covers 1 s, so linear samples fall on whole seconds.
+  const layout: FilmstripLayout = {
+    clip: {
+      trimStartSeconds: 0,
+      sourceWindowStartSeconds: 0,
+      sourceWindowEndSeconds: 1000,
+      warp,
+    },
+    mediaDurationSeconds: 1000,
+    clipLeftPx: 0,
+    clipWidthPx: 400,
+    tileWidthPx: 80,
+    secondsPerPx: 1 / 80,
+    range: { startPx: 0, endPx: 10_000 },
+    bpm,
+  };
+
+  it("samples each tile at the frame the player draws under it", () => {
+    const tiles = getClipFilmstripTiles(layout);
+    assert.deepEqual(
+      tiles.map((tile) => tile.timeSeconds),
+      [0, 0.5, 1, 3, 5],
+    );
+    for (const tile of tiles) {
+      const linearSeconds = tile.leftPx * layout.secondsPerPx;
+      assert.equal(
+        tile.timeSeconds,
+        warpSourceTime(warp, linearSeconds, bpm).seconds,
+      );
+    }
+  });
+
+  it("keeps the window in linear time and the media bound in warped time", () => {
+    const windowEnd = getClipFilmstripTiles({
+      ...layout,
+      clip: { ...layout.clip, sourceWindowEndSeconds: 3 },
+    });
+    assert.deepEqual(
+      windowEnd.map((tile) => tile.timeSeconds),
+      [0, 0.5, 1, 3, 3],
+    );
+    const mediaEnd = getClipFilmstripTiles({
+      ...layout,
+      mediaDurationSeconds: 4,
+    });
+    assert.deepEqual(
+      mediaEnd.map((tile) => tile.timeSeconds),
+      [0, 0.5, 1, 3, 4],
+    );
+  });
+
+  it("maps a warped source span's tiles through its warp", () => {
+    const tiles = getClipFilmstripTiles({
+      ...layout,
+      clip: getSourceSpanFilmstripClip({
+        trimStartSeconds: 0,
+        durationSeconds: 5,
+        warp,
+      }),
+    });
+    assert.deepEqual(
+      tiles.map((tile) => tile.timeSeconds),
+      [0, 0.5, 1, 3, 5],
+    );
+  });
+
+  it("keeps unwarped clips linear", () => {
+    const tiles = getClipFilmstripTiles({
+      ...layout,
+      clip: { ...layout.clip, warp: undefined },
+    });
+    assert.deepEqual(
+      tiles.map((tile) => tile.timeSeconds),
+      [0, 1, 2, 3, 4],
     );
   });
 });

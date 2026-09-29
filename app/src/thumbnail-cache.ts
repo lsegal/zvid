@@ -8,6 +8,8 @@
 // so trimming a clip does not flash an empty thumbnail. Object URLs are revoked
 // as soon as nothing wants or shows them.
 
+import { type ClipWarp, warpSourceTime } from "./clip-warp.ts";
+
 // The pixel size a thumbnail is decoded at. The frame is scaled to cover it.
 export type ThumbnailSize = { width: number; height: number };
 
@@ -74,23 +76,40 @@ type ClipThumbnailTiming = {
   trimStartSeconds: number;
   sourceWindowStartSeconds: number;
   sourceWindowEndSeconds: number;
+  warp?: ClipWarp;
 };
 
 // The source time of the first frame the compositor shows for a clip. That is
 // the clip's in-point, pulled inside its source window, since the compositor
-// shows nothing for times outside the window, and inside the media.
+// shows nothing for times outside the window, and inside the media. A warped
+// clip's in-point and window are in linear source time, so the in-point is
+// mapped through its warp markers, which needs the song's `bpm`, before it is
+// pulled inside the media.
 export function getClipThumbnailTimeSeconds(
   clip: ClipThumbnailTiming,
   mediaDurationSeconds: number,
+  bpm?: number,
 ) {
+  const warp = clip.warp && bpm && bpm > 0 ? clip.warp : undefined;
   const lower = Math.max(0, clip.sourceWindowStartSeconds);
   let upper = clip.sourceWindowEndSeconds;
-  if (mediaDurationSeconds > 0) {
+  if (mediaDurationSeconds > 0 && !warp) {
     upper = Math.min(upper, mediaDurationSeconds);
   }
 
   const time = Math.max(clip.trimStartSeconds, lower);
-  return upper > lower ? Math.min(time, upper) : lower;
+  const linearTime = upper > lower ? Math.min(time, upper) : lower;
+  if (!warp) {
+    return linearTime;
+  }
+
+  const warpedTime = Math.max(
+    0,
+    warpSourceTime(warp, linearTime, bpm as number).seconds,
+  );
+  return mediaDurationSeconds > 0
+    ? Math.min(warpedTime, mediaDurationSeconds)
+    : warpedTime;
 }
 
 export function createThumbnailCache<M>({

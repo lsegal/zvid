@@ -2540,6 +2540,7 @@ function App() {
           tileWidthPx,
           secondsPerPx,
           range: { startPx: filmstripRangeStartPx, endPx: filmstripRangeEndPx },
+          bpm,
         }),
       });
     }
@@ -2588,6 +2589,7 @@ function App() {
           tileWidthPx,
           secondsPerPx,
           range: { startPx: filmstripRangeStartPx, endPx: filmstripRangeEndPx },
+          bpm,
         }),
       });
     }
@@ -2650,7 +2652,8 @@ function App() {
         `clip:${clip.id}`,
         clip.mediaId ? mediaItemsById.get(clip.mediaId) : undefined,
         clipFilmstrips.get(clip.id)?.size,
-        (media) => getClipThumbnailTimeSeconds(clip, media.durationSeconds),
+        (media) =>
+          getClipThumbnailTimeSeconds(clip, media.durationSeconds, bpm),
       );
     }
     for (const [kind, filmstrips] of [
@@ -2670,6 +2673,7 @@ function App() {
     }
     return requests;
   }, [
+    bpm,
     clipFilmstrips,
     mediaItemsById,
     sourceSpans,
@@ -6614,6 +6618,7 @@ function App() {
                                     getClipThumbnailTimeSeconds(
                                       clip,
                                       media.durationSeconds,
+                                      bpm,
                                     ),
                                     clipFilmstrips.get(clip.id)?.size,
                                   ),
