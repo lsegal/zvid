@@ -3,6 +3,7 @@ import {
   type LayerVisual,
   orderStackedLayers,
   resolveLayerPlacement,
+  resolveSlotBounds,
   resolveSlotScissor,
 } from "./composition-layout.ts";
 import {
@@ -11,8 +12,13 @@ import {
   visibleLayerCount,
 } from "./composition-order.ts";
 import {
+  canvasBoxToFrame,
+  frameBoxInCanvas,
+  IDENTITY_TRANSFORM,
   isIdentityTransform,
   type QuadAxes,
+  resolveTextBox,
+  type TextBox,
   transformedQuadAxes,
 } from "./composition-transform.ts";
 import { type FillPaint, rasterizeFillPaint } from "./fill-paint.ts";
@@ -283,26 +289,22 @@ function colorUniforms(visual: CompositeVisual) {
   };
 }
 
-// Draws the layer's source into a slot-sized target exactly as it would
-// appear in its slot (cover, Layout anchor, scale, offset and rotation), so
-// the effect chain works on what the slot shows rather than on the whole
-// source. Rows are written top row first to match uploaded video textures,
+// Draws the layer's source into a `size` target exactly as it would appear
+// in its slot, or a text layer's box (cover, Layout anchor, scale, offset
+// and rotation), so the effect chain works on what the slot shows rather
+// than on the whole source. Rows are written top row first to match uploaded video textures,
 // which is the orientation the effect passes and the composite shader expect.
 function renderLayerFrame(
   resources: WebGlResources,
   texture: WebGLTexture,
   placement: LayerPlacement,
   visual: CompositeVisual,
+  size: { width: number; height: number },
 ) {
   const { gl, effectChain } = resources;
-  const { frame, halfExtents, translate, scissor } = placement;
-  const target = effectChain.getLayerTarget(scissor.width, scissor.height);
-  bindCompositeState(
-    resources,
-    target.framebuffer,
-    scissor.width,
-    scissor.height,
-  );
+  const { frame, halfExtents, translate } = placement;
+  const target = effectChain.getLayerTarget(size.width, size.height);
+  bindCompositeState(resources, target.framebuffer, size.width, size.height);
   gl.disable(gl.BLEND);
   gl.clearColor(0, 0, 0, 0);
   gl.clear(gl.COLOR_BUFFER_BIT);
@@ -399,6 +401,22 @@ function uploadFillTexture(
   return texture;
 }
 
+// A texture size for a `width` × `height` box: whole pixels, shrunk by
+// `factor` to fit the largest texture the context allows.
+function fitTextureSize(
+  gl: WebGLRenderingContext,
+  width: number,
+  height: number,
+) {
+  const maxSize = Number(gl.getParameter(gl.MAX_TEXTURE_SIZE)) || 4096;
+  const factor = Math.min(1, maxSize / Math.max(width, height, 1));
+  return {
+    width: Math.max(1, Math.min(maxSize, Math.round(width * factor))),
+    height: Math.max(1, Math.min(maxSize, Math.round(height * factor))),
+    factor,
+  };
+}
+
 // Draws a text clip into its texture at the full size of its box, so it
 // stays sharp, when its text, style, face or the box changed since last
 // time. Until its face has loaded, the previous texture is kept, or nothing
@@ -409,12 +427,13 @@ function uploadTextTexture(
   text: TextStyle,
   boxWidth: number,
   boxHeight: number,
-  scale: number,
+  boxScale: number,
 ) {
   const { gl } = resources;
   const face = resolveFontFace(text.font, text.weight, text.italic);
-  const width = Math.max(1, Math.round(boxWidth));
-  const height = Math.max(1, Math.round(boxHeight));
+  // A box too large for a texture is drawn smaller, laid out the same.
+  const { width, height, factor } = fitTextureSize(gl, boxWidth, boxHeight);
+  const scale = boxScale * factor;
   const key = `${width}x${height}@${scale}:${JSON.stringify(face)}:${JSON.stringify(text)}`;
   const drawn = resources.generatedTextureKeys.get(sourceKey);
   if (drawn !== key && !isFontFaceReady(face)) {
@@ -488,6 +507,7 @@ export function drawComposition(
     let sourceWidth: number;
     let sourceHeight: number;
     let texture: WebGLTexture;
+    let textBox: TextBox | undefined;
     if (entry.fill || entry.text) {
       // Fills and text are drawn at their slot's own size, so they cover
       // the slot exactly in any arrangement.
@@ -500,6 +520,20 @@ export function drawComposition(
       );
       sourceWidth = Math.max(1, slot.width);
       sourceHeight = Math.max(1, slot.height);
+      if (entry.text) {
+        // A Transform's scale resizes the text box, which the text is laid
+        // out and drawn in at full size, rather than stretching the text.
+        const textTransform = entry.visual.transform ?? IDENTITY_TRANSFORM;
+        textBox = resolveTextBox(
+          frameBoxInCanvas(
+            resolveSlotBounds(index, stackedClips.length, order, width, height),
+            surface,
+          ),
+          textTransform,
+        );
+        sourceWidth *= textTransform.scaleX;
+        sourceHeight *= textTransform.scaleY;
+      }
       if (entry.fill) {
         texture = uploadFillTexture(
           resources,
@@ -547,6 +581,7 @@ export function drawComposition(
       sourceHeight,
       visual: entry.visual,
       order,
+      frame: textBox && canvasBoxToFrame(textBox.box, surface),
     });
     const { frame, halfExtents, translate, scissor } = placement;
     let uniforms: CompositeUniforms = {
@@ -565,30 +600,42 @@ export function drawComposition(
       : entry.visual.transform;
     const layerSteps = effectChain.prepare(entry.effectChain);
     if (layerSteps.length || transform) {
+      // Text is framed at its box's size, so its effects see it unstretched.
+      const frameSize = textBox
+        ? fitTextureSize(gl, sourceWidth, sourceHeight)
+        : scissor;
       const framed = renderLayerFrame(
         resources,
         texture,
         placement,
         entry.visual,
+        frameSize,
       );
       texture = !layerSteps.length
         ? framed
-        : (effectChain.run(framed, scissor.width, scissor.height, layerSteps, {
-            time: frameContext.time,
-            clipProgress: entry.clipProgress,
-            resolution: [scissor.width, scissor.height],
-            audioLow: frameContext.audio.low,
-            audioHigh: frameContext.audio.high,
-            impulseLow: frameContext.audio.impulseLow,
-            impulseHigh: frameContext.audio.impulseHigh,
-            // The framed layer is written top row first, like a layer texture.
-            bottomUp: false,
-          }) ?? framed);
+        : (effectChain.run(
+            framed,
+            frameSize.width,
+            frameSize.height,
+            layerSteps,
+            {
+              time: frameContext.time,
+              clipProgress: entry.clipProgress,
+              resolution: [frameSize.width, frameSize.height],
+              audioLow: frameContext.audio.low,
+              audioHigh: frameContext.audio.high,
+              impulseLow: frameContext.audio.impulseLow,
+              impulseHigh: frameContext.audio.impulseHigh,
+              // The framed layer is written top row first, like a layer texture.
+              bottomUp: false,
+            },
+          ) ?? framed);
       // The framed result already holds the layer's placement, so it fills
-      // its slot exactly, or the box its Transform moves the slot to.
+      // its slot exactly, or the box its Transform moves the slot to. A text
+      // box already holds the Transform's scale, so it is drawn without it.
       uniforms = {
         ...(transform
-          ? transformedQuadAxes(frame, transform, surface)
+          ? transformedQuadAxes(frame, textBox?.transform ?? transform, surface)
           : quadAxes(
               [frame.halfWidth, frame.halfHeight],
               [frame.centerX, frame.centerY],

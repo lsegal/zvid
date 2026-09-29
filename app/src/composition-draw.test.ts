@@ -773,6 +773,137 @@ describe("drawComposition text layers", () => {
     assert.deepEqual([canvas.width, canvas.height], [WIDTH / 2, HEIGHT]);
   });
 
+  function transformedText(text: TextStyle, transform: LayerTransform) {
+    const layer = textLayer(text);
+    return { ...layer, visual: { ...layer.visual, transform } };
+  }
+
+  // Four-letter words, 64px each at 32px with a 16px space.
+  const WORDS = { ...HELLO, text: "aaaa bbbb cccc dddd eeee ffff" };
+
+  it("widens a text layer's box with ScaleX, re-wrapping the text at the same size", () => {
+    const plain = createRecordingGl();
+    drawFrame(createWebGlResources(plain.gl), [textLayer(WORDS)]);
+    const plainCanvas = plain.uploads[0].at(-1) as FakeTextCanvas;
+    assert.deepEqual(
+      plainCanvas.fills.map((call) => call.text),
+      ["aaaa bbbb cccc dddd", "eeee ffff"],
+    );
+
+    const wide = createRecordingGl();
+    drawFrame(createWebGlResources(wide.gl), [
+      transformedText(WORDS, { ...IDENTITY_TRANSFORM, scaleX: 2 }),
+    ]);
+    const wideCanvas = wide.uploads[0].at(-1) as FakeTextCanvas;
+    // Drawn at the doubled box's own size, so the glyphs aren't stretched.
+    assert.deepEqual(
+      [wideCanvas.width, wideCanvas.height],
+      [WIDTH * 2, HEIGHT],
+    );
+    assert.deepEqual(
+      wideCanvas.fills.map((call) => call.text),
+      ["aaaa bbbb cccc dddd eeee ffff"],
+    );
+    assert.equal(wideCanvas.fills[0].font, plainCanvas.fills[0].font);
+  });
+
+  it("shrinks text to fit a shorter box with ScaleY and Resize to fit", () => {
+    const lines = { ...HELLO, text: Array(12).fill("a").join("\n") };
+    const fontSize = (text: TextStyle, transform: LayerTransform) => {
+      const recording = createRecordingGl();
+      drawFrame(createWebGlResources(recording.gl), [
+        transformedText(text, transform),
+      ]);
+      const canvas = recording.uploads[0].at(-1) as FakeTextCanvas;
+      return Number.parseFloat(
+        /([\d.]+)px/.exec(canvas.fills[0].font)?.[1] ?? "",
+      );
+    };
+    const short = { ...IDENTITY_TRANSFORM, scaleY: 0.5 };
+
+    // Twelve 38.4px lines fit in 640px but not in 320px.
+    assert.equal(
+      fontSize({ ...lines, resizeToFit: true }, IDENTITY_TRANSFORM),
+      32,
+    );
+    assert.equal(fontSize(lines, short), 32);
+    const fitted = fontSize({ ...lines, resizeToFit: true }, short);
+    assert.ok(fitted < 32, `${fitted}px shrinks to fit`);
+    assert.ok(12 * 1.2 * fitted <= HEIGHT / 2 + 0.5, `${fitted}px fits`);
+  });
+
+  it("draws a resized text box where its Transform puts the layer, unstretched", () => {
+    const transform: LayerTransform = {
+      ...IDENTITY_TRANSFORM,
+      positionX: 0.25,
+      scaleX: 0.5,
+      scaleY: 2,
+      originX: -1,
+      originY: 1,
+      rotationDeg: 30,
+    };
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    drawFrame(resources, [transformedText(HELLO, transform)]);
+
+    // Framed at the resized box's size.
+    const framing = recording.draws.filter(
+      (draw) =>
+        draw.framebuffer !== null &&
+        draw.viewport?.[2] === WIDTH / 2 &&
+        draw.viewport?.[3] === HEIGHT * 2,
+    );
+    assert.equal(framing.length, 1);
+
+    const canvasDraws = recording.draws.filter(
+      (draw) =>
+        draw.program === (resources.program as unknown as Handle) &&
+        draw.framebuffer === null,
+    );
+    assert.equal(canvasDraws.length, 1);
+    assert.ok(!canvasDraws[0].scissorTest);
+    // The quad covers the same box a stretched layer would.
+    const { frame } = resolveLayerPlacement({
+      index: 0,
+      count: 1,
+      canvasWidth: WIDTH,
+      canvasHeight: HEIGHT,
+      sourceWidth: WIDTH,
+      sourceHeight: HEIGHT,
+      visual: { scale: 1, translateX: 0, translateY: 0, layoutAnchor: "top" },
+    });
+    const expected = transformedQuadAxes(frame, transform, {
+      width: WIDTH,
+      height: HEIGHT,
+    });
+    const { uAxisX, uAxisY, uOffset } = canvasDraws[0].axes;
+    for (const [actual, wanted] of [
+      [uAxisX, expected.axisX],
+      [uAxisY, expected.axisY],
+      [uOffset, expected.offset],
+    ]) {
+      assert.ok(
+        Math.abs(actual[0] - wanted[0]) < 1e-9,
+        `${actual} ≈ ${wanted}`,
+      );
+      assert.ok(
+        Math.abs(actual[1] - wanted[1]) < 1e-9,
+        `${actual} ≈ ${wanted}`,
+      );
+    }
+  });
+
+  it("caps a text box's texture at the largest texture size", () => {
+    const recording = createRecordingGl();
+    drawFrame(createWebGlResources(recording.gl), [
+      transformedText(HELLO, { ...IDENTITY_TRANSFORM, scaleY: 8 }),
+    ]);
+    const canvas = recording.uploads[0].at(-1) as FakeTextCanvas;
+    // 640 × 8 = 5120 rows, over the context's 4096.
+    assert.deepEqual([canvas.width, canvas.height], [288, 4096]);
+    assert.match(canvas.fills[0].font, /^400 25.6px /);
+  });
+
   it("stacks text over a fill in its own band", () => {
     const recording = createRecordingGl();
     const resources = createWebGlResources(recording.gl);

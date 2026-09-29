@@ -3,13 +3,15 @@
 // that makes typed text line up with the rendered text, the editor's
 // keyboard shortcuts, and the Text effect edits they make.
 //
-// The editor is laid out in canvas pixels, the size of the layer's box, and a
-// CSS matrix maps it onto the monitor, so it follows the layer's Transform
-// (move, scale, rotation) exactly as the compositor draws it.
+// The editor is laid out in canvas pixels, the size of the layer's text box
+// (which the Transform's scale resizes), and a CSS matrix maps it onto the
+// monitor, so it follows the rest of the layer's Transform (move, rotation)
+// exactly as the compositor draws it.
 import {
   applyMatrix,
   frameBoxInCanvas,
   type Matrix2D,
+  resolveTextBox,
   transformMatrix,
 } from "./composition-transform.ts";
 import { type FillPaint, formatFillPaintCss } from "./fill-paint.ts";
@@ -54,8 +56,13 @@ export function resolveTextEditorPlacement(
   video: Rect,
   canvas: Size,
 ): TextEditorPlacement {
-  const box = frameBoxInCanvas(layer.placement.frame, canvas);
-  const toCanvas = transformMatrix(layer.transform, box, canvas);
+  // The editor is the layer's text box, which the Transform resizes rather
+  // than scales, so the text wraps in it as the compositor draws it.
+  const { box, transform } = resolveTextBox(
+    frameBoxInCanvas(layer.placement.frame, canvas),
+    layer.transform,
+  );
+  const toCanvas = transformMatrix(transform, box, canvas);
   const scaleX = video.width / Math.max(1, canvas.width);
   const scaleY = video.height / Math.max(1, canvas.height);
   // The editor's origin is the box's top-left corner, not the canvas's.
