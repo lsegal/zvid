@@ -4054,10 +4054,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       isRulerPanPress(event, shortcutLabels.mac),
     [shortcutLabels.mac],
   );
-  const rulerZoomRef = useRef<{
-    originZoom: number;
-    startY: number;
-  } | null>(null);
+  const rulerZoomRef = useRef<{ originZoom: number } | null>(null);
   // The scroll a ruler zoom wants, put back once the new zoom has laid out
   // so it isn't clamped to the old timeline width.
   const rulerZoomScrollRef = useRef<{ zoom: number; left: number } | null>(
@@ -4066,7 +4063,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const startRulerPan = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
       rulerZoomRef.current = isContextMenuPress(event, shortcutLabels.mac)
-        ? { originZoom: resolvedZoom, startY: event.clientY }
+        ? { originZoom: resolvedZoom }
         : null;
     },
     [resolvedZoom, shortcutLabels.mac],
