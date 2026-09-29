@@ -784,6 +784,25 @@ describe("matchZvidTake", () => {
     assert.equal(matchZvidTake(takes, 2, 6), undefined);
     assert.equal(matchZvidTake([], 0, 1), undefined);
   });
+
+  it("picks the overlapping take that best fits the clip's sample", () => {
+    const takes = [
+      take({ filename: "long", durationSec: 25.39 }),
+      take({
+        filename: "short",
+        durationSec: 9.72,
+        createdAt: "2026-09-25T21:00:00Z",
+      }),
+      take({ filename: "later", transportStartSec: 30, durationSec: 20 }),
+    ];
+    // Content 0–9 s overlaps both takes at 0 equally.
+    assert.equal(matchZvidTake(takes, 0, 9, [0, 25.4])?.filename, "long");
+    assert.equal(matchZvidTake(takes, 0, 9, [0, 9.7])?.filename, "short");
+    // Without the sample, the tie goes to the latest take.
+    assert.equal(matchZvidTake(takes, 0, 9)?.filename, "short");
+    // Only takes that overlap the content itself are candidates.
+    assert.equal(matchZvidTake(takes, 12, 20, [0, 50])?.filename, "long");
+  });
 });
 
 describe("convertAls with ZVID Capture fixtures", () => {
@@ -888,6 +907,58 @@ describe("convertAls with ZVID Capture fixtures", () => {
       ],
     );
     assert.deepEqual(result.summary.skipped, []);
+  });
+
+  describe("with two takes anchored at song time 0 (zvid2.als)", () => {
+    const VIDEO_01 = "video-01-9-28-16-58-36-0.mp4";
+    const VIDEO_02 = "video-02-9-28-16-59-30-0.mp4";
+    const takesOf = (result: AlsImportResult) =>
+      result.session.clips?.map(({ id, filePath, clipStart }) => [
+        id,
+        filePath,
+        clipStart,
+      ]);
+
+    it("converts all nine clips, each with the take of its sample", async () => {
+      const result = await load("zvid2-rearranged.xml");
+      assert.deepEqual(takesOf(result), [
+        // The 9.7 s sample overlaps both takes; the 9.72 s take fits it.
+        ["8-1", VIDEO_02, 0],
+        // Start marker at bar 9 (beat 32, 16 s).
+        ["8-8", VIDEO_01, 480],
+        ["8-9", VIDEO_01, 480],
+        ["8-10", VIDEO_01, 480],
+        ["8-11", VIDEO_01, 480],
+        ["8-3", VIDEO_01, 486],
+        // Content from beat 19.4 (9.7 s), which both takes cover.
+        ["8-4", VIDEO_01, 291],
+        ["8-5", VIDEO_01, 291],
+        ["8-6", VIDEO_01, 291],
+      ]);
+      assert.deepEqual(result.summary.skipped, []);
+    });
+
+    it("keeps each rearranged clip on its own take", async () => {
+      const doc = await parseAls(
+        new Uint8Array(fixture("zvid2-rearranged.xml")),
+      );
+      const clips = doc.tracks[0].clips;
+      // The short sample's clip moves far past both takes, and a clip of the
+      // long sample from its start takes its place, where both takes overlap
+      // its content equally.
+      const short = clips.find((clip) => clip.id === 1) as AlsClip;
+      Object.assign(short, { currentStart: 200, currentEnd: 219.41 });
+      const long = clips.find((clip) => clip.id === 8) as AlsClip;
+      Object.assign(long, { currentStart: 0, currentEnd: 18.8 });
+      Object.assign(long.loop, { loopStart: 0, loopEnd: 18.8 });
+      const result = convertAls(doc);
+      const byId = new Map(
+        takesOf(result)?.map((entry) => [entry[0], entry.slice(1)]),
+      );
+      assert.deepEqual(byId.get("8-1"), [VIDEO_02, 0]);
+      assert.deepEqual(byId.get("8-8"), [VIDEO_01, 0]);
+      assert.deepEqual(result.summary.skipped, []);
+    });
   });
 
   it("offsets a clip into its take's file, not its sample", async () => {

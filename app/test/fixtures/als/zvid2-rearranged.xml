@@ -1,0 +1,327 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Hand-written fixture for the /app ALS importer (#294), not saved by Live. Shaped like the 1-Audio track of zvid2.als: two ZVID Capture takes both anchored at song time 0 (25.39 s and 9.72 s) recorded with two samples (25.4 s and 9.7 s) at 120 BPM, whose clips were then trimmed, copied and moved across about 52 bars. -->
+<Ableton MajorVersion="5" MinorVersion="12.0_12117" Creator="Ableton Live 12.1.5">
+  <LiveSet>
+    <Tracks>
+    <AudioTrack Id="8">
+      <Name><EffectiveName Value="1-Audio" /></Name>
+      <Color Value="20" />
+      <TrackGroupId Value="-1" />
+      <DeviceChain>
+        <MainSequencer>
+          <Sample>
+            <ArrangerAutomation>
+              <Events>
+              <AudioClip Id="1" Time="0">
+                <CurrentStart Value="0" />
+                <CurrentEnd Value="19.41" />
+                <Loop>
+                  <LoopStart Value="0" />
+                  <LoopEnd Value="19.41" />
+                  <StartRelative Value="0" />
+                  <LoopOn Value="false" />
+                  <HiddenLoopStart Value="0" />
+                  <HiddenLoopEnd Value="19.41" />
+                </Loop>
+                <Name Value="Audio 2" />
+                <Disabled Value="false" />
+                <IsWarped Value="true" />
+                <WarpMode Value="0" />
+                <WarpMarkers>
+                  <WarpMarker Id="0" SecTime="0" BeatTime="0" />
+                  <WarpMarker Id="1" SecTime="0.5" BeatTime="1" />
+                </WarpMarkers>
+                <SampleRef>
+                  <FileRef>
+                    <RelativePath Value="Samples/Recorded/1-Audio 0002 [2026-09-28 165838].wav" />
+                    <Path Value="/Users/example/Music/zvid2 Project/Samples/Recorded/1-Audio 0002 [2026-09-28 165838].wav" />
+                  </FileRef>
+                  <DefaultDuration Value="465840" />
+                  <DefaultSampleRate Value="48000" />
+                </SampleRef>
+              </AudioClip>
+              <AudioClip Id="8" Time="20">
+                <CurrentStart Value="20" />
+                <CurrentEnd Value="38.8" />
+                <Loop>
+                  <LoopStart Value="32" />
+                  <LoopEnd Value="50.8" />
+                  <StartRelative Value="0" />
+                  <LoopOn Value="false" />
+                  <HiddenLoopStart Value="32" />
+                  <HiddenLoopEnd Value="50.8" />
+                </Loop>
+                <Name Value="1-Audio" />
+                <Disabled Value="false" />
+                <IsWarped Value="true" />
+                <WarpMode Value="0" />
+                <WarpMarkers>
+                  <WarpMarker Id="0" SecTime="0" BeatTime="0" />
+                  <WarpMarker Id="1" SecTime="0.5" BeatTime="1" />
+                </WarpMarkers>
+                <SampleRef>
+                  <FileRef>
+                    <RelativePath Value="Samples/Recorded/1-Audio 0001 [2026-09-28 150128].wav" />
+                    <Path Value="/Users/example/Music/zvid2 Project/Samples/Recorded/1-Audio 0001 [2026-09-28 150128].wav" />
+                  </FileRef>
+                  <DefaultDuration Value="1219584" />
+                  <DefaultSampleRate Value="48000" />
+                </SampleRef>
+              </AudioClip>
+              <AudioClip Id="9" Time="38.8">
+                <CurrentStart Value="38.8" />
+                <CurrentEnd Value="57.6" />
+                <Loop>
+                  <LoopStart Value="32" />
+                  <LoopEnd Value="50.8" />
+                  <StartRelative Value="0" />
+                  <LoopOn Value="false" />
+                  <HiddenLoopStart Value="32" />
+                  <HiddenLoopEnd Value="50.8" />
+                </Loop>
+                <Name Value="1-Audio" />
+                <Disabled Value="false" />
+                <IsWarped Value="true" />
+                <WarpMode Value="0" />
+                <WarpMarkers>
+                  <WarpMarker Id="0" SecTime="0" BeatTime="0" />
+                  <WarpMarker Id="1" SecTime="0.5" BeatTime="1" />
+                </WarpMarkers>
+                <SampleRef>
+                  <FileRef>
+                    <RelativePath Value="Samples/Recorded/1-Audio 0001 [2026-09-28 150128].wav" />
+                    <Path Value="/Users/example/Music/zvid2 Project/Samples/Recorded/1-Audio 0001 [2026-09-28 150128].wav" />
+                  </FileRef>
+                  <DefaultDuration Value="1219584" />
+                  <DefaultSampleRate Value="48000" />
+                </SampleRef>
+              </AudioClip>
+              <AudioClip Id="10" Time="57.6">
+                <CurrentStart Value="57.6" />
+                <CurrentEnd Value="76.4" />
+                <Loop>
+                  <LoopStart Value="32" />
+                  <LoopEnd Value="50.8" />
+                  <StartRelative Value="0" />
+                  <LoopOn Value="false" />
+                  <HiddenLoopStart Value="32" />
+                  <HiddenLoopEnd Value="50.8" />
+                </Loop>
+                <Name Value="1-Audio" />
+                <Disabled Value="false" />
+                <IsWarped Value="true" />
+                <WarpMode Value="0" />
+                <WarpMarkers>
+                  <WarpMarker Id="0" SecTime="0" BeatTime="0" />
+                  <WarpMarker Id="1" SecTime="0.5" BeatTime="1" />
+                </WarpMarkers>
+                <SampleRef>
+                  <FileRef>
+                    <RelativePath Value="Samples/Recorded/1-Audio 0001 [2026-09-28 150128].wav" />
+                    <Path Value="/Users/example/Music/zvid2 Project/Samples/Recorded/1-Audio 0001 [2026-09-28 150128].wav" />
+                  </FileRef>
+                  <DefaultDuration Value="1219584" />
+                  <DefaultSampleRate Value="48000" />
+                </SampleRef>
+              </AudioClip>
+              <AudioClip Id="11" Time="76.4">
+                <CurrentStart Value="76.4" />
+                <CurrentEnd Value="95.2" />
+                <Loop>
+                  <LoopStart Value="32" />
+                  <LoopEnd Value="50.8" />
+                  <StartRelative Value="0" />
+                  <LoopOn Value="false" />
+                  <HiddenLoopStart Value="32" />
+                  <HiddenLoopEnd Value="50.8" />
+                </Loop>
+                <Name Value="1-Audio" />
+                <Disabled Value="false" />
+                <IsWarped Value="true" />
+                <WarpMode Value="0" />
+                <WarpMarkers>
+                  <WarpMarker Id="0" SecTime="0" BeatTime="0" />
+                  <WarpMarker Id="1" SecTime="0.5" BeatTime="1" />
+                </WarpMarkers>
+                <SampleRef>
+                  <FileRef>
+                    <RelativePath Value="Samples/Recorded/1-Audio 0001 [2026-09-28 150128].wav" />
+                    <Path Value="/Users/example/Music/zvid2 Project/Samples/Recorded/1-Audio 0001 [2026-09-28 150128].wav" />
+                  </FileRef>
+                  <DefaultDuration Value="1219584" />
+                  <DefaultSampleRate Value="48000" />
+                </SampleRef>
+              </AudioClip>
+              <AudioClip Id="3" Time="95.2">
+                <CurrentStart Value="95.2" />
+                <CurrentEnd Value="113.6" />
+                <Loop>
+                  <LoopStart Value="32.4" />
+                  <LoopEnd Value="50.8" />
+                  <StartRelative Value="0" />
+                  <LoopOn Value="false" />
+                  <HiddenLoopStart Value="32.4" />
+                  <HiddenLoopEnd Value="50.8" />
+                </Loop>
+                <Name Value="1-Audio" />
+                <Disabled Value="false" />
+                <IsWarped Value="true" />
+                <WarpMode Value="0" />
+                <WarpMarkers>
+                  <WarpMarker Id="0" SecTime="0" BeatTime="0" />
+                  <WarpMarker Id="1" SecTime="0.5" BeatTime="1" />
+                </WarpMarkers>
+                <SampleRef>
+                  <FileRef>
+                    <RelativePath Value="Samples/Recorded/1-Audio 0001 [2026-09-28 150128].wav" />
+                    <Path Value="/Users/example/Music/zvid2 Project/Samples/Recorded/1-Audio 0001 [2026-09-28 150128].wav" />
+                  </FileRef>
+                  <DefaultDuration Value="1219584" />
+                  <DefaultSampleRate Value="48000" />
+                </SampleRef>
+              </AudioClip>
+              <AudioClip Id="4" Time="113.6">
+                <CurrentStart Value="113.6" />
+                <CurrentEnd Value="144" />
+                <Loop>
+                  <LoopStart Value="19.4" />
+                  <LoopEnd Value="49.8" />
+                  <StartRelative Value="0" />
+                  <LoopOn Value="false" />
+                  <HiddenLoopStart Value="19.4" />
+                  <HiddenLoopEnd Value="49.8" />
+                </Loop>
+                <Name Value="1-Audio" />
+                <Disabled Value="false" />
+                <IsWarped Value="true" />
+                <WarpMode Value="0" />
+                <WarpMarkers>
+                  <WarpMarker Id="0" SecTime="0" BeatTime="0" />
+                  <WarpMarker Id="1" SecTime="0.5" BeatTime="1" />
+                </WarpMarkers>
+                <SampleRef>
+                  <FileRef>
+                    <RelativePath Value="Samples/Recorded/1-Audio 0001 [2026-09-28 150128].wav" />
+                    <Path Value="/Users/example/Music/zvid2 Project/Samples/Recorded/1-Audio 0001 [2026-09-28 150128].wav" />
+                  </FileRef>
+                  <DefaultDuration Value="1219584" />
+                  <DefaultSampleRate Value="48000" />
+                </SampleRef>
+              </AudioClip>
+              <AudioClip Id="5" Time="144">
+                <CurrentStart Value="144" />
+                <CurrentEnd Value="175" />
+                <Loop>
+                  <LoopStart Value="19.4" />
+                  <LoopEnd Value="50.4" />
+                  <StartRelative Value="0" />
+                  <LoopOn Value="false" />
+                  <HiddenLoopStart Value="19.4" />
+                  <HiddenLoopEnd Value="50.4" />
+                </Loop>
+                <Name Value="1-Audio" />
+                <Disabled Value="false" />
+                <IsWarped Value="true" />
+                <WarpMode Value="0" />
+                <WarpMarkers>
+                  <WarpMarker Id="0" SecTime="0" BeatTime="0" />
+                  <WarpMarker Id="1" SecTime="0.5" BeatTime="1" />
+                </WarpMarkers>
+                <SampleRef>
+                  <FileRef>
+                    <RelativePath Value="Samples/Recorded/1-Audio 0001 [2026-09-28 150128].wav" />
+                    <Path Value="/Users/example/Music/zvid2 Project/Samples/Recorded/1-Audio 0001 [2026-09-28 150128].wav" />
+                  </FileRef>
+                  <DefaultDuration Value="1219584" />
+                  <DefaultSampleRate Value="48000" />
+                </SampleRef>
+              </AudioClip>
+              <AudioClip Id="6" Time="175">
+                <CurrentStart Value="175" />
+                <CurrentEnd Value="206" />
+                <Loop>
+                  <LoopStart Value="19.4" />
+                  <LoopEnd Value="50.4" />
+                  <StartRelative Value="0" />
+                  <LoopOn Value="false" />
+                  <HiddenLoopStart Value="19.4" />
+                  <HiddenLoopEnd Value="50.4" />
+                </Loop>
+                <Name Value="1-Audio" />
+                <Disabled Value="false" />
+                <IsWarped Value="true" />
+                <WarpMode Value="0" />
+                <WarpMarkers>
+                  <WarpMarker Id="0" SecTime="0" BeatTime="0" />
+                  <WarpMarker Id="1" SecTime="0.5" BeatTime="1" />
+                </WarpMarkers>
+                <SampleRef>
+                  <FileRef>
+                    <RelativePath Value="Samples/Recorded/1-Audio 0001 [2026-09-28 150128].wav" />
+                    <Path Value="/Users/example/Music/zvid2 Project/Samples/Recorded/1-Audio 0001 [2026-09-28 150128].wav" />
+                  </FileRef>
+                  <DefaultDuration Value="1219584" />
+                  <DefaultSampleRate Value="48000" />
+                </SampleRef>
+              </AudioClip>
+              </Events>
+            </ArrangerAutomation>
+          </Sample>
+        </MainSequencer>
+        <DeviceChain>
+          <Devices>
+            <PluginDevice Id="0">
+              <On><Manual Value="true" /></On>
+              <PluginDesc>
+                <Vst3PluginInfo Id="0">
+                  <Preset>
+                    <Vst3Preset Id="1">
+                      <ProcessorState>
+                        7B2276657273696F6E223A2231222C22706C7567696E223A227A7669642D63617074757265222C22
+                        7265636F7264526F6F74223A2270726F6A656374222C227265636F7264696E6773223A5B7B226964
+                        223A227431222C2266696C656E616D65223A22766964656F2D30312D392D32382D31362D35382D33
+                        362D302E6D7034222C2264696D656E73696F6E73223A5B313932302C313038305D2C22667073223A
+                        5B33302C315D2C226672616D655374617274223A302C2266696C654F6666736574536563223A302C
+                        227472616E73706F72745374617274536563223A302C227472616E73706F72745374617274426561
+                        7473223A302C226475726174696F6E536563223A32352E33392C2274656D706F223A3132302C2274
+                        696D655369676E6174757265223A5B342C345D2C2263616D657261223A224661636554696D652048
+                        442043616D657261222C22637265617465644174223A22323032362D30392D32385431363A35383A
+                        33365A227D2C7B226964223A227432222C2266696C656E616D65223A22766964656F2D30322D392D
+                        32382D31362D35392D33302D302E6D7034222C2264696D656E73696F6E73223A5B313932302C3130
+                        38305D2C22667073223A5B33302C315D2C226672616D655374617274223A302C2266696C654F6666
+                        736574536563223A302C227472616E73706F72745374617274536563223A302C227472616E73706F
+                        727453746172744265617473223A302C226475726174696F6E536563223A392E37322C2274656D70
+                        6F223A3132302C2274696D655369676E6174757265223A5B342C345D2C2263616D657261223A2246
+                        61636554696D652048442043616D657261222C22637265617465644174223A22323032362D30392D
+                        32385431363A35393A33305A227D5D7D
+                      </ProcessorState>
+                      <ControllerState />
+                      <Name Value="" />
+                    </Vst3Preset>
+                  </Preset>
+                  <Name Value="ZVID Capture" />
+                  <DeviceType Value="1" />
+                </Vst3PluginInfo>
+              </PluginDesc>
+            </PluginDevice>
+          </Devices>
+        </DeviceChain>
+      </DeviceChain>
+    </AudioTrack>
+    </Tracks>
+    <MainTrack>
+      <DeviceChain>
+        <Mixer>
+          <Tempo><Manual Value="120" /></Tempo>
+          <TimeSignature><Manual Value="201" /></TimeSignature>
+        </Mixer>
+      </DeviceChain>
+    </MainTrack>
+    <Transport>
+      <CurrentTime Value="0" />
+      <LoopOn Value="false" />
+      <LoopStart Value="0" />
+      <LoopLength Value="16" />
+    </Transport>
+  </LiveSet>
+</Ableton>
