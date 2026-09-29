@@ -17,6 +17,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useReducer,
   useRef,
@@ -247,6 +248,7 @@ import {
 } from "./preview-edit.ts";
 import {
   createProjectHistoryState,
+  type ProjectHistoryState,
   projectHistoryReducer,
 } from "./project-history";
 import { migrateLegacyMainAudio } from "./project-state-compat.ts";
@@ -275,7 +277,9 @@ import {
   buildPublicShareUrl,
   type InviteParams,
   parseInviteParams,
+  removeInviteParams,
   removeInvitePassword,
+  withJoinedRoom,
 } from "./share-invite.ts";
 import { shareCopyFailedStatus, shareLinkVisible } from "./share-link";
 import { PUBLIC_SIGNALING_URL, ZVID_SIGNALING_URL } from "./signaling-servers";
@@ -309,6 +313,20 @@ import { useThumbnailCache } from "./use-thumbnail-cache";
 import { ZVID_BUILD } from "./version";
 import { loadWaveformPeaks } from "./waveform-loader";
 import type { WaveformPeaks } from "./waveform-peaks";
+import { createWorkspaceAutosave } from "./workspace-autosave.ts";
+import { createWorkspaceLock, type WorkspaceLock } from "./workspace-lock.ts";
+import {
+  parseWorkspaceSession,
+  serializeWorkspaceSession,
+  toProjectHistoryState,
+  type WorkspaceSession,
+  type WorkspaceSessionSource,
+} from "./workspace-session.ts";
+import {
+  clearCurrentSession,
+  getWorkspaceStore,
+  saveCurrentSession,
+} from "./workspace-store.ts";
 import {
   formatZoomFactor,
   stepZoom,
@@ -563,6 +581,9 @@ const RANDOM_SELECTION_MAX_BARS = 2;
 const MAX_WAND_LAYERS = 3;
 const SOURCE_TRACK_DRAG_CLEAR_DELAY_MS = 80;
 const COLLAB_STORAGE_KEY = "zvid-collaboration";
+// Per-tab record of the room this tab joined, so a refresh can rejoin it even
+// though the password is scrubbed from the address bar.
+const JOINED_ROOM_STORAGE_KEY = "zvid-joined-room";
 const INSPECTOR_COLLAPSED_STORAGE_KEY = "zvid-inspector-collapsed";
 const LABEL_WIDTH_STORAGE_KEY = "zvid-label-width";
 const PREVIEW_WIDTH_STORAGE_KEY = "zvid-preview-width";
@@ -1205,12 +1226,55 @@ function getPreviewMaxWidth(editorGridWidth: number) {
 
 let pageInvite: InviteParams | null = null;
 
+function rememberJoinedRoom(room: string, password: string) {
+  try {
+    window.sessionStorage.setItem(
+      JOINED_ROOM_STORAGE_KEY,
+      JSON.stringify({ room, password }),
+    );
+  } catch {
+    // Without session storage a refresh rejoins without the password.
+  }
+}
+
+function forgetJoinedRoom() {
+  try {
+    window.sessionStorage.removeItem(JOINED_ROOM_STORAGE_KEY);
+  } catch {
+    // Nothing was stored.
+  }
+}
+
+// Fills in the password of a room this tab joined before a refresh, since
+// the address bar only keeps the room and signaling servers.
+function withRememberedPassword(invite: InviteParams): InviteParams {
+  if (!invite.room) {
+    return invite;
+  }
+  if (invite.password) {
+    rememberJoinedRoom(invite.room, invite.password);
+    return invite;
+  }
+  try {
+    const stored = JSON.parse(
+      window.sessionStorage.getItem(JOINED_ROOM_STORAGE_KEY) ?? "null",
+    ) as { room?: string; password?: string } | null;
+    return stored?.room === invite.room && stored.password
+      ? { ...invite, password: stored.password }
+      : invite;
+  } catch {
+    return invite;
+  }
+}
+
 // Reads the invite from the page URL once, then scrubs the password from the
 // address bar and history. Cached so StrictMode's repeated state initializers
 // still see the password after the URL has been cleaned.
 function readPageInvite() {
   if (!pageInvite) {
-    pageInvite = parseInviteParams(window.location.href);
+    pageInvite = withRememberedPassword(
+      parseInviteParams(window.location.href),
+    );
     const scrubbedHref = removeInvitePassword(window.location.href);
     if (scrubbedHref) {
       window.history.replaceState(window.history.state, "", scrubbedHref);
@@ -1844,14 +1908,263 @@ function LayerNameInput({
   );
 }
 
-function App() {
+// What a refresh restores besides the project and its history.
+type WorkspaceView = {
+  playheadQ: number;
+  selectedClipId?: string;
+  selectedLaneId?: string;
+  scrollLeft: number;
+  scrollTop: number;
+};
+
+type SavedWorkspaceSession = WorkspaceSession<
+  ProjectState,
+  WorkspaceView,
+  ImportNoticeContent
+>;
+
+// "owner" autosaves. "blocked" is waiting on the other-tab prompt, and
+// "read-only" and "taken-over" leave the saved session to another tab.
+// "joiner" opened an invite link and saves nothing over its own session.
+type WorkspaceAccess =
+  | "owner"
+  | "blocked"
+  | "read-only"
+  | "taken-over"
+  | "joiner";
+
+type WorkspaceBoot = {
+  session: SavedWorkspaceSession | null;
+  // Set when the saved session could not be read and was set aside.
+  corruptKey: string | null;
+  access: WorkspaceAccess;
+  lock: WorkspaceLock;
+};
+
+const PROJECT_ARRAY_FIELDS = [
+  "mediaItems",
+  "lanes",
+  "sourceTracks",
+  "sourceSpans",
+  "clips",
+  "effects",
+] as const;
+const PROJECT_POSITIVE_NUMBER_FIELDS = [
+  "bpm",
+  "fps",
+  "canvasWidth",
+  "canvasHeight",
+  "zoom",
+] as const;
+
+// Restored history shares objects between snapshots; normalising each
+// shared object once keeps that sharing.
+const restoredProjectStates = new WeakMap<object, ProjectState>();
+const restoredMediaItems = new WeakMap<object, MediaItem>();
+
+// Validates a saved snapshot, fills in fields older saves lack and drops
+// object URLs, which die with the page that made them.
+function normalizeRestoredProjectState(value: unknown): ProjectState {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Saved project snapshot is not an object");
+  }
+  const cached = restoredProjectStates.get(value);
+  if (cached) {
+    return cached;
+  }
+
+  const state: ProjectState = {
+    ...INITIAL_PROJECT_STATE,
+    ...migrateLegacyMainAudio(value as Partial<ProjectState>),
+  };
+  for (const field of PROJECT_ARRAY_FIELDS) {
+    if (!Array.isArray(state[field])) {
+      throw new Error(`Saved project snapshot has no ${field}`);
+    }
+  }
+  for (const field of PROJECT_POSITIVE_NUMBER_FIELDS) {
+    const number = state[field];
+    if (typeof number !== "number" || !Number.isFinite(number) || number <= 0) {
+      throw new Error(`Saved project snapshot has an invalid ${field}`);
+    }
+  }
+  state.mediaItems = state.mediaItems.map((item) => {
+    let shareable = restoredMediaItems.get(item);
+    if (!shareable) {
+      shareable = toShareableMediaItem(item);
+      restoredMediaItems.set(item, shareable);
+    }
+    return shareable;
+  });
+  restoredProjectStates.set(value, state);
+  return state;
+}
+
+function normalizeRestoredView(value: unknown): WorkspaceView {
+  const view = (value && typeof value === "object" ? value : {}) as Record<
+    string,
+    unknown
+  >;
+  const finite = (field: unknown) =>
+    typeof field === "number" && Number.isFinite(field) ? Math.max(0, field) : 0;
+  const text = (field: unknown) =>
+    typeof field === "string" && field ? field : undefined;
+  return {
+    playheadQ: finite(view.playheadQ),
+    selectedClipId: text(view.selectedClipId),
+    selectedLaneId: text(view.selectedLaneId),
+    scrollLeft: finite(view.scrollLeft),
+    scrollTop: finite(view.scrollTop),
+  };
+}
+
+// Reads the saved session. One that cannot be read is set aside under a
+// `corrupt-<ts>` key so the app starts clean instead of failing every load.
+async function readSavedWorkspaceSession(): Promise<{
+  session: SavedWorkspaceSession | null;
+  corruptKey: string | null;
+}> {
+  const store = getWorkspaceStore();
+  try {
+    const record = await store.loadCurrentSession();
+    if (!record) {
+      return { session: null, corruptKey: null };
+    }
+    return {
+      session: parseWorkspaceSession<
+        ProjectState,
+        WorkspaceView,
+        ImportNoticeContent
+      >(record.payload, {
+        normalizeState: normalizeRestoredProjectState,
+        normalizeView: normalizeRestoredView,
+      }),
+      corruptKey: null,
+    };
+  } catch (error) {
+    logClient("workspace:restore:error", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+    try {
+      return { session: null, corruptKey: await store.setAsideCurrentSession() };
+    } catch {
+      // IndexedDB itself is unavailable, so there is nothing to set aside.
+      return { session: null, corruptKey: null };
+    }
+  }
+}
+
+// Lock callbacks outlive a single render, so they reach the mounted App
+// through this object.
+const workspaceLockEvents = {
+  flush: async () => {},
+  lost: () => {},
+};
+
+async function loadWorkspaceBoot(): Promise<WorkspaceBoot> {
+  const lock = createWorkspaceLock({
+    onFlushRequest: () => workspaceLockEvents.flush(),
+    onLost: () => workspaceLockEvents.lost(),
+  });
+  // A joiner shows someone else's session, and a refresh rejoins it from the
+  // URL, so the joiner's own saved session is neither restored nor replaced.
+  if (readPageInvite().room) {
+    return { session: null, corruptKey: null, access: "joiner", lock };
+  }
+
+  const owner = await lock.acquire();
+  const { session, corruptKey } = await readSavedWorkspaceSession();
+  return { session, corruptKey, access: owner ? "owner" : "blocked", lock };
+}
+
+let workspaceBootPromise: Promise<WorkspaceBoot> | null = null;
+
+function bootWorkspace() {
+  workspaceBootPromise ??= loadWorkspaceBoot();
+  return workspaceBootPromise;
+}
+
+function isPristineProjectHistory(history: ProjectHistoryState<ProjectState>) {
+  return (
+    history.present === INITIAL_PROJECT_STATE &&
+    !history.past.length &&
+    !history.future.length
+  );
+}
+
+function findRestoredSelection(
+  session: SavedWorkspaceSession | null,
+): Pick<WorkspaceView, "selectedClipId" | "selectedLaneId"> {
+  if (!session) {
+    return {};
+  }
+  const { clips, lanes } = session.history.present;
+  const { selectedClipId, selectedLaneId } = session.view;
+  return {
+    selectedClipId: clips.some((clip) => clip.id === selectedClipId)
+      ? selectedClipId
+      : undefined,
+    selectedLaneId: lanes.some((lane) => lane.id === selectedLaneId)
+      ? selectedLaneId
+      : undefined,
+  };
+}
+
+const CORRUPT_WORKSPACE_NOTICE: ImportNoticeContent = {
+  tone: "warning",
+  title: "Could not restore the last session",
+  lines: [
+    "The saved session could not be read, so zvid started with an empty session. The saved copy was set aside.",
+  ],
+};
+
+function formatRestoredStatus(session: SavedWorkspaceSession) {
+  const name = session.history.present.sessionName;
+  return name ? `Restored ${name}.` : "Restored the last session.";
+}
+
+// Loads the saved session before the editor renders, so the timeline never
+// flashes empty before a restore.
+function AppRoot() {
+  const [boot, setBoot] = useState<WorkspaceBoot | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void bootWorkspace().then((result) => {
+      if (active) {
+        setBoot(result);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (!boot) {
+    return (
+      <div className="workspace-restoring" role="status">
+        Restoring session…
+      </div>
+    );
+  }
+  return <App boot={boot} />;
+}
+
+function App({ boot }: { boot: WorkspaceBoot }) {
   const [initialCollaborationConfig] = useState(() =>
     getInitialCollaborationConfig(),
   );
+  const restoredSession = boot.session;
+  const [restoredSelection] = useState(() =>
+    findRestoredSelection(restoredSession),
+  );
   const [projectHistory, dispatchProject] = useReducer(
     projectHistoryReducer<ProjectState>,
-    INITIAL_PROJECT_STATE,
-    createProjectHistoryState<ProjectState>,
+    restoredSession,
+    (session) =>
+      session
+        ? toProjectHistoryState(session.history)
+        : createProjectHistoryState(INITIAL_PROJECT_STATE),
   );
   const {
     timelineMode,
@@ -1881,7 +2194,9 @@ function App() {
   const [dragPreviewClips, setDragPreviewClips] = useState<
     ArrangementClip[] | null
   >(null);
-  const [selectedClipId, setSelectedClipId] = useState<string>();
+  const [selectedClipId, setSelectedClipId] = useState<string | undefined>(
+    restoredSelection.selectedClipId,
+  );
   const [clipMenu, setClipMenu] = useState<ClipMenuState | null>(null);
   // The layer whose name is being edited in its header.
   const [renamingLaneId, setRenamingLaneId] = useState<string>();
@@ -1889,11 +2204,19 @@ function App() {
   renamingLaneIdRef.current = renamingLaneId;
   // The layer the FX chain edits. Selecting a clip selects its layer, and
   // clearing the clip selection keeps the layer.
-  const [selectedLaneId, setSelectedLaneId] = useState<string>();
+  const [selectedLaneId, setSelectedLaneId] = useState<string | undefined>(
+    restoredSelection.selectedLaneId,
+  );
   const [pendingSelection, setPendingSelection] =
     useState<TimelineSelection | null>(null);
   const [arrangementEmptyStateDismissed, setArrangementEmptyStateDismissed] =
-    useState(false);
+    useState(() =>
+      restoredSession
+        ? isArrangementEmptyStateDismissedOnOpen(
+            restoredSession.history.present.clips.length,
+          )
+        : false,
+    );
   const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(
     readInspectorCollapsed,
   );
@@ -1911,7 +2234,10 @@ function App() {
   } | null>(null);
   const [previewWidth, setPreviewWidth] = useState(readPreviewWidth);
   const [editorGridWidth, setEditorGridWidth] = useState(0);
-  const [playheadQ, setPlayheadQState] = useState(0);
+  const [initialPlayheadQ] = useState(
+    () => restoredSession?.view.playheadQ ?? 0,
+  );
+  const [playheadQ, setPlayheadQState] = useState(initialPlayheadQ);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportState, setExportState] = useState<ExportState>({
@@ -1925,8 +2251,10 @@ function App() {
     clientHeight: 0,
     lanesTop: 0,
   });
-  const [status, setStatus] = useState(
-    "Open a session or import media to get started.",
+  const [status, setStatus] = useState(() =>
+    restoredSession
+      ? formatRestoredStatus(restoredSession)
+      : "Open a session or import media to get started.",
   );
   const [peerMediaProgress, setPeerMediaProgress] =
     useState<PeerMediaProgressMap>(() => new Map());
@@ -1936,7 +2264,10 @@ function App() {
   );
   const prefersReducedMotion = usePrefersReducedMotion();
   const [importNotice, setImportNotice] = useState<ImportNoticeContent | null>(
-    null,
+    () =>
+      boot.corruptKey
+        ? CORRUPT_WORKSPACE_NOTICE
+        : (restoredSession?.importNotice ?? null),
   );
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [timelineDragState, setTimelineDragState] =
@@ -1992,9 +2323,19 @@ function App() {
   const [mediaHydrationTick, setMediaHydrationTick] = useState(0);
   const collaborationColor = initialCollaborationConfig.color;
 
-  const playbackOriginRef = useRef(0);
-  const playheadQRef = useRef(0);
-  const [playheadSignal] = useState(() => createPlayheadSignal());
+  const [workspaceAccess, setWorkspaceAccess] = useState(boot.access);
+  const [sessionSource, setSessionSource] = useState<WorkspaceSessionSource>(
+    () => restoredSession?.source ?? { kind: "none" },
+  );
+  // True while the project is someone else's shared session, which is never
+  // saved over this browser's own session.
+  const viewingSharedSessionRef = useRef(boot.access === "joiner");
+
+  const playbackOriginRef = useRef(initialPlayheadQ);
+  const playheadQRef = useRef(initialPlayheadQ);
+  const [playheadSignal] = useState(() =>
+    createPlayheadSignal(initialPlayheadQ),
+  );
   // Seeks move the live playhead and state together. Playback advances only
   // the live playhead each frame and commits it to state now and then.
   const setPlayheadQ = useCallback(
@@ -8938,4 +9279,4 @@ function App() {
   );
 }
 
-export default App;
+export default AppRoot;

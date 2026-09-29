@@ -107,11 +107,13 @@ class GraphEncoder {
 
 class GraphDecoder {
   private readonly values: unknown[] = [];
+  private readonly nodes: EncodedNode[];
 
-  constructor(private readonly nodes: EncodedNode[]) {
+  constructor(nodes: EncodedNode[]) {
     if (!Array.isArray(nodes)) {
       throw new Error("Saved session has no node table");
     }
+    this.nodes = nodes;
   }
 
   decode(child: EncodedChild): unknown {
