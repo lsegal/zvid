@@ -216,6 +216,101 @@ fn records_rotated_captures_upright() {
     assert_eq!(jpeg_size(&jpeg), Some((48, 64)));
 }
 
+/// File browsers thumbnail a recording from its cover art, so they need no
+/// HEVC or AV1 decoder: a JPEG of the upright frame about a second in.
+#[test]
+fn embeds_an_upright_cover_thumbnail() {
+    let root = root();
+    let recorder = Recorder::start(config(&root, None, VideoEncoderChoice::Software)).unwrap();
+    // Three seconds of a 64x48 sensor frame, dark on the left and bright on
+    // the right, from a camera held in portrait.
+    let (width, height) = (64u32, 48u32);
+    for index in 0..90 {
+        let mut frame = Arc::unwrap_or_clone(frame(
+            width,
+            height,
+            index,
+            index as f64 * 1000.0 / 30.0,
+        ));
+        for row in frame.data[..(width * height) as usize].chunks_mut(width as usize) {
+            row[..32].fill(16);
+            row[32..].fill(235);
+        }
+        frame.rotation = Rotation::Cw90;
+        push(&recorder, Arc::new(frame));
+    }
+    let recorded = recorder.stop().unwrap();
+    assert_eq!(recorded.dimensions, (48, 64));
+    assert!(recorded.stats.warnings.is_empty(), "{:?}", recorded.stats);
+
+    let path = root.path_of(&recorded.filename);
+    let (movie, _) = demux(&path);
+    let cover = movie.cover_art.expect("the file has cover art");
+    assert_eq!(cover.format, zvidlib::CoverArtFormat::Jpeg);
+    // Upright: portrait, and the picture the poster decodes a second in,
+    // whose upright orientation `records_rotated_captures_upright` checks.
+    assert_eq!(jpeg_size(&cover.data), Some((48, 64)));
+    assert_eq!(cover.data, poster_jpeg(&path, 1.0, COVER_EDGE).unwrap());
+    let (_, _, rgb) = poster::poster_rgb(&path, 1.0, COVER_EDGE).unwrap();
+    let luma = |x: u32, y: u32| rgb[((y * 48 + x) * 3) as usize];
+    assert!(luma(24, 8) < 40 && luma(24, 56) > 215);
+}
+
+#[test]
+fn sizes_the_cover_for_a_thumbnail() {
+    let root = root();
+    let recorder = Recorder::start(config(&root, None, VideoEncoderChoice::Software)).unwrap();
+    for index in 0..6 {
+        push(
+            &recorder,
+            frame(1280, 720, index, index as f64 * 1000.0 / 30.0),
+        );
+    }
+    let recorded = recorder.stop().unwrap();
+    let path = root.path_of(&recorded.filename);
+    let (movie, _) = demux(&path);
+    let cover = movie.cover_art.expect("the file has cover art");
+    assert_eq!(jpeg_size(&cover.data), Some((640, 360)));
+    // Shorter than two seconds: the middle frame.
+    assert_eq!(cover.data, poster_jpeg(&path, 0.1, COVER_EDGE).unwrap());
+}
+
+#[test]
+fn picks_the_cover_a_second_in_or_mid_way() {
+    assert_eq!(cover_sec(60.0), 1.0);
+    assert_eq!(cover_sec(2.0), 1.0);
+    assert_eq!(cover_sec(1.0), 0.5);
+    assert_eq!(cover_sec(0.2), 0.1);
+}
+
+/// Finder and Quick Look make a thumbnail of a finished recording.
+#[cfg(target_os = "macos")]
+#[test]
+fn quick_look_thumbnails_recordings() {
+    let root = root();
+    let recorder = Recorder::start(config(&root, None, VideoEncoderChoice::Software)).unwrap();
+    for index in 0..45 {
+        push(
+            &recorder,
+            frame(64, 48, index, index as f64 * 1000.0 / 30.0),
+        );
+    }
+    let recorded = recorder.stop().unwrap();
+    let path = root.path_of(&recorded.filename);
+    let out = tempdir();
+    let status = std::process::Command::new("qlmanage")
+        .args(["-t", "-s", "128", "-o"])
+        .arg(&out)
+        .arg(&path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+    let mut thumbnail = out.join(&recorded.filename).into_os_string();
+    thumbnail.push(".png");
+    let png = std::fs::read(&thumbnail).expect("Quick Look wrote a thumbnail");
+    assert_eq!(&png[..8], b"\x89PNG\r\n\x1a\n");
+}
+
 #[test]
 fn scales_frames_above_the_size_limit_down_to_fit() {
     // A camera that only offers modes above the limit: 128x96 frames, dark
@@ -329,6 +424,8 @@ fn leaves_a_playable_file_if_the_host_dies_mid_capture() {
     // Simulate a crash: the recorder never finalizes.
     std::mem::forget(recorder);
     let (movie, source) = demux(&path);
+    // The cover is only added on finalize.
+    assert_eq!(movie.cover_art, None);
     let video = &movie.tracks[0];
     // Two whole one-second fragments made it to disk.
     assert_eq!(video.samples.len(), 60);

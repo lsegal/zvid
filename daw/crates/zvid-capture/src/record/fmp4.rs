@@ -5,7 +5,8 @@
 //! single `write` and synced. If the host dies mid-capture, the file holds
 //! every complete fragment and plays as is. On disarm, [`finalize`] remuxes
 //! it through zvidlib's [`Mp4Muxer`] into an ordinary MP4 (sample tables in
-//! the `moov`, exact gapless audio metadata) and swaps it into place.
+//! the `moov`, exact gapless audio metadata, cover art) and swaps it into
+//! place.
 
 use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom, Write};
@@ -13,7 +14,7 @@ use std::path::{Path, PathBuf};
 
 use zvidlib::io::{ByteSink, IoFuture};
 use zvidlib::mp4::{Mp4Muxer, Mp4TrackConfig, Mp4TrackFormat};
-use zvidlib::{AudioGapless, Codec, EncodedSample, SampleDependency};
+use zvidlib::{AudioGapless, Codec, CoverArt, EncodedSample, SampleDependency};
 
 use super::block_on;
 
@@ -179,15 +180,17 @@ impl Written {
 
 /// Remuxes the fragmented file at `path` into an ordinary MP4 with
 /// zvidlib's muxer, then replaces `path` with it. `gapless` gives the audio
-/// track's final encoder delay and padding. Until the rename, `path` still
+/// track's final encoder delay and padding, and `cover` the picture file
+/// browsers show as the file's thumbnail. Until the rename, `path` still
 /// holds the playable fragmented file.
 pub fn finalize(
     path: &Path,
     written: &Written,
     gapless: &[(usize, AudioGapless)],
+    cover: Option<CoverArt>,
 ) -> io::Result<()> {
     let temp = finalizing_path(path);
-    let result = remux(path, &temp, written, gapless);
+    let result = remux(path, &temp, written, gapless, cover);
     if let Err(error) = result {
         let _ = std::fs::remove_file(&temp);
         return Err(error);
@@ -207,6 +210,7 @@ fn remux(
     target: &Path,
     written: &Written,
     gapless: &[(usize, AudioGapless)],
+    cover: Option<CoverArt>,
 ) -> io::Result<()> {
     let mut input = File::open(source)?;
     let sink = FileSink::new(File::create(target)?);
@@ -216,6 +220,7 @@ fn remux(
     for &(track, value) in gapless {
         muxer.set_audio_gapless(track, value).map_err(zvid_error)?;
     }
+    muxer.set_cover_art(cover).map_err(zvid_error)?;
     for (track, samples) in written.index.iter().enumerate() {
         for sample in samples {
             let mut data = vec![0; sample.size as usize];
@@ -638,7 +643,7 @@ pub(crate) mod tests {
             priming: 2112,
             padding: 528,
         };
-        finalize(&path, &written, &[(1, gapless)]).unwrap();
+        finalize(&path, &written, &[(1, gapless)], None).unwrap();
         assert!(!finalizing_path(&path).exists());
         let bytes = std::fs::read(&path).unwrap();
         assert!(!bytes.windows(4).any(|w| w == b"moof"), "no fragments left");
@@ -660,7 +665,7 @@ pub(crate) mod tests {
         let fragmented = std::fs::read(&path).unwrap();
         assert!(tagged(&fragmented, b"hvc1"));
         assert!(!tagged(&fragmented, b"hev1"));
-        finalize(&path, &written, &[]).unwrap();
+        finalize(&path, &written, &[], None).unwrap();
         let finalized = std::fs::read(&path).unwrap();
         assert!(tagged(&finalized, b"hvc1"));
         assert!(!tagged(&finalized, b"hev1"));

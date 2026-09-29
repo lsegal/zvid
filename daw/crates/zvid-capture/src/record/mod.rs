@@ -15,7 +15,9 @@
 //!   the same clock. Without an AAC encoder the file is video only.
 //! - **Muxing** writes a fragmented MP4 while recording, one synced
 //!   fragment a second, so a crash leaves a playable file. [`Recorder::stop`]
-//!   remuxes it with zvidlib's `Mp4Muxer` into an ordinary MP4.
+//!   remuxes it with zvidlib's `Mp4Muxer` into an ordinary MP4, with a
+//!   poster frame as cover art so file browsers show a thumbnail without
+//!   an HEVC or AV1 decoder.
 //!
 //! When the encoder falls behind, frames are dropped at the queue and
 //! counted in [`RecordStats::frames_dropped`].
@@ -38,7 +40,9 @@ use std::thread::JoinHandle;
 
 use zvid_daw_core::{LocalTime, RecordRoot, next_capture_filename};
 use zvidlib::mp4::{Mp4TrackConfig, Mp4TrackFormat};
-use zvidlib::{Codec, EncodedSample, Limits, SampleDependency, VideoDimensions};
+use zvidlib::{
+    Codec, CoverArt, CoverArtFormat, EncodedSample, Limits, SampleDependency, VideoDimensions,
+};
 
 use crate::clock::HostTime;
 use crate::format::{FormatPreference, Rational};
@@ -64,6 +68,11 @@ const AUDIO_QUEUE_SEC: f64 = 2.0;
 const PRE_ROLL_SEC: f64 = 2.0;
 /// How much video each crash-safe fragment holds, in seconds.
 const FRAGMENT_SEC: u64 = 1;
+/// The finished file's cover art, which file browsers show as its
+/// thumbnail: the frame this far in, or the middle of shorter recordings.
+const COVER_SEC: f64 = 1.0;
+/// The cover's longer edge at most, in pixels.
+const COVER_EDGE: u32 = 640;
 
 /// The audio stream recorded with the video.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -877,7 +886,20 @@ impl Worker {
             .map(|g| (1, g))
             .into_iter()
             .collect();
-        if let Err(error) = fmp4::finalize(&self.path, &written, &gapless) {
+        let duration_sec = video.clock.slot_sec(video.written_slots);
+        let cover = match poster::poster_jpeg(&self.path, cover_sec(duration_sec), COVER_EDGE) {
+            Ok(data) => Some(CoverArt {
+                format: CoverArtFormat::Jpeg,
+                data,
+            }),
+            Err(error) => {
+                let warning = format!("finalizing without a thumbnail: {error}");
+                log(&warning);
+                self.shared.stats().warnings.push(warning);
+                None
+            }
+        };
+        if let Err(error) = fmp4::finalize(&self.path, &written, &gapless, cover) {
             // The fragmented file is still complete and playable.
             let warning = format!("kept the fragmented file: finalizing failed: {error}");
             log(&warning);
@@ -888,7 +910,7 @@ impl Worker {
             filename: self.filename.clone(),
             dimensions: (width, height),
             fps: self.fps,
-            duration_sec: video.clock.slot_sec(video.written_slots),
+            duration_sec,
             codec: video.encoder.codec_name(),
             has_audio,
             zero: video.clock.zero().unwrap_or_default(),
@@ -912,6 +934,11 @@ impl Audio {
             self.pre_roll_frames -= old.samples.len() / channels;
         }
     }
+}
+
+/// The file time of the cover frame in a recording `duration_sec` long.
+fn cover_sec(duration_sec: f64) -> f64 {
+    COVER_SEC.min(duration_sec / 2.0)
 }
 
 /// Takes the grid slot of the frame submitted to the encoder as `index`,
