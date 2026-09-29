@@ -12,7 +12,11 @@ import {
   resolveSpacingPixels,
   type ScissorBox,
 } from "./composition-layout.ts";
-import type { Arrangement, CompositionOrder } from "./composition-order.ts";
+import {
+  type Arrangement,
+  type CompositionOrder,
+  Z_ORDER_COMPOSITION,
+} from "./composition-order.ts";
 
 const EPSILON = 1e-9;
 const ANCHORS: LayoutAnchor[] = ["top", "center", "bottom"];
@@ -71,6 +75,20 @@ describe("orderStackedLayers", () => {
       layers.map((layer) => layer.id),
       ["a", "b", "c", "d"],
       "the input is left in place",
+    );
+  });
+
+  it("draws the highest layer first and Layer 1 last without an Order", () => {
+    const layers = [
+      { id: "a", laneRank: 0, clip: { startQ: 0 } },
+      { id: "b", laneRank: 2, clip: { startQ: 8 } },
+      { id: "c", laneRank: 1, clip: { startQ: 0 } },
+      { id: "d", laneRank: 2, clip: { startQ: 4 } },
+    ];
+
+    assert.deepEqual(
+      orderStackedLayers(layers, Z_ORDER_COMPOSITION).map((layer) => layer.id),
+      ["d", "b", "c", "a"],
     );
   });
 });
@@ -368,11 +386,50 @@ describe("resolveSlotBounds", () => {
     );
   });
 
+  it("leaves 50 px gaps at the widest spacing", () => {
+    const order = arranged("horizontal", 50);
+    assertClose(resolveSpacingPixels(order, 1920, 1080), 50, "50 px at 1080p");
+    const first = resolveSlotBounds(0, 3, order, 1920, 1080);
+    const second = resolveSlotBounds(1, 3, order, 1920, 1080);
+    assertClose(
+      ((second.centerX - second.halfWidth - first.centerX - first.halfWidth) /
+        2) *
+        1920,
+      50,
+      "column gap",
+    );
+    assertClose(first.halfWidth, (1920 - 100) / 3 / 1920, "equal widths");
+  });
+
+  it("keeps cells positive with the widest spacing on small outputs", () => {
+    const cases = [
+      { order: arranged("grid", 50, 6), count: 36, width: 640, height: 360 },
+      { order: arranged("grid", 50, 6), count: 36, width: 360, height: 640 },
+      { order: arranged("vertical", 50), count: 40, width: 360, height: 640 },
+      { order: arranged("horizontal", 50), count: 40, width: 97, height: 53 },
+    ];
+    for (const { order, count, width, height } of cases) {
+      const slots = order.arrangement === "grid" ? 36 : count;
+      for (let index = 0; index < slots; index++) {
+        const slot = resolveSlotBounds(index, count, order, width, height);
+        const name = `${order.arrangement} ${count} at ${width}×${height}, cell ${index}`;
+        assert.ok(slot.halfWidth * width >= 1 - 1e-9, `${name} width`);
+        assert.ok(slot.halfHeight * height >= 1 - 1e-9, `${name} height`);
+        assert.ok(Number.isFinite(slot.aspect) && slot.aspect > 0, name);
+      }
+    }
+  });
+
   it("scales spacing with the output size", () => {
     assertClose(
       resolveSpacingPixels(arranged("vertical", 10), 540, 960),
       5,
       "half size",
+    );
+    assertClose(
+      resolveSpacingPixels(arranged("grid", 50, 6), 640, 360),
+      50 / 3,
+      "50 at 360p",
     );
     assertClose(
       resolveSpacingPixels(arranged("vertical", 0), 1080, 1920),
@@ -458,6 +515,67 @@ describe("resolveSlotScissor", () => {
     assert.equal(boxes[0].x, 0);
     assert.equal(boxes[1].x - (boxes[0].x + boxes[0].width), 10);
     assert.equal(boxes[1].x + boxes[1].width, 1920);
+
+    const wide = slotScissors(2, arranged("horizontal", 50), 1920, 1080);
+    assert.equal(wide[1].x - (wide[0].x + wide[0].width), 50);
+    assert.equal(wide[1].x + wide[1].width, 1920);
+  });
+
+  it("stays pixel-exact and inside the surface at the widest spacing", () => {
+    const cases = [
+      { count: 36, order: arranged("grid", 50, 6), width: 640, height: 360 },
+      { count: 36, order: arranged("grid", 50, 6), width: 97, height: 53 },
+      { count: 7, order: arranged("vertical", 50), width: 361, height: 643 },
+      { count: 40, order: arranged("vertical", 50), width: 360, height: 640 },
+      { count: 60, order: arranged("horizontal", 50), width: 97, height: 53 },
+    ];
+    for (const { count, order, width, height } of cases) {
+      const name = `${order.arrangement} ${count} at ${width}×${height}`;
+      const boxes = slotScissors(count, order, width, height);
+      for (const box of boxes) {
+        assert.ok(box.width >= 1 && box.height >= 1, `${name} positive`);
+        assert.ok(box.x >= 0 && box.y >= 0, `${name} inside`);
+        assert.ok(box.x + box.width <= width, `${name} inside right`);
+        assert.ok(box.y + box.height <= height, `${name} inside top`);
+      }
+      const counts = coverage(boxes, width, height);
+      assert.ok(
+        counts.every((value) => value <= 1),
+        `${name} overlaps`,
+      );
+    }
+  });
+});
+
+describe("resolveLayerPlacement without an Order", () => {
+  it("gives every layer the whole canvas", () => {
+    for (const index of [0, 1, 2]) {
+      const placement = resolveLayerPlacement({
+        index,
+        count: 3,
+        canvasWidth: 1080,
+        canvasHeight: 1920,
+        sourceWidth: 1920,
+        sourceHeight: 1080,
+        visual: visual("top"),
+        order: Z_ORDER_COMPOSITION,
+      });
+      assert.deepEqual(placement.frame, {
+        centerX: 0,
+        centerY: 0,
+        halfWidth: 1,
+        halfHeight: 1,
+        aspect: 1080 / 1920,
+      });
+      assert.deepEqual(placement.scissor, {
+        x: 0,
+        y: 0,
+        width: 1080,
+        height: 1920,
+      });
+      assertClose(placement.halfExtents.y, 1, "covers the canvas height");
+      assertClose(placement.translate.x, 0, "centred sideways");
+    }
   });
 });
 

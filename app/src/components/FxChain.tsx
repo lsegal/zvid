@@ -26,6 +26,7 @@ import {
   isNoopDropSlot,
   knobColumnCount,
   readCollapsedDevices,
+  resolveGlobalOrderHint,
   splitDeviceParameters,
   toggleCollapsedDevice,
   usesColumnLayout,
@@ -621,6 +622,7 @@ export function FxChain({
       ? `No effects on ${layerName}`
       : null;
   const showGlobal = groups.global.length > 0 || canEdit;
+  const globalOrderHint = resolveGlobalOrderHint(groups.global);
   const menuDevice = menu?.device;
   const menuEntries: ContextMenuEntry[] =
     menu && menuDevice
@@ -723,6 +725,9 @@ export function FxChain({
           <div className="fx-chain__divider">
             <span>Global</span>
           </div>
+          {globalOrderHint ? (
+            <p className="fx-chain__hint">{globalOrderHint}</p>
+          ) : null}
           {renderStack("global")}
           {canEdit ? renderAddMenu("global") : null}
         </>

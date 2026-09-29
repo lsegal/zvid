@@ -7,6 +7,7 @@
 import {
   hiddenLayerCount,
   isOrderEffectName,
+  ORDER_EFFECT_NAME,
   parseCompositionOrder,
 } from "./composition-order.ts";
 import { isColorEffectName } from "./fill-paint.ts";
@@ -487,6 +488,32 @@ export function ensureLayerLayouts(
   }
 
   return result;
+}
+
+// Adds an Order effect with its defaults (Vertical, no spacing) at the start
+// of the Global stack when the stack has none, enabled or bypassed, so the
+// layers keep their stacked bands. Returns `effects` itself when nothing
+// changed.
+export function ensureGlobalOrder(effects: SessionEffect[]) {
+  if (hasGlobalOrder(effects)) {
+    return effects;
+  }
+
+  // A stable id keeps collaborating peers that add it in agreement.
+  const stableId = "order-global";
+  const id = effects.some((effect) => effect.id === stableId)
+    ? crypto.randomUUID()
+    : stableId;
+  return addEffect(effects, GLOBAL_EFFECT_TRACK_ID, ORDER_EFFECT_NAME, 0, id);
+}
+
+// True when the Global stack holds an Order effect, enabled or bypassed.
+export function hasGlobalOrder(effects: readonly SessionEffect[]) {
+  return effects.some(
+    (effect) =>
+      effect.trackId === GLOBAL_EFFECT_TRACK_ID &&
+      isOrderEffectName(effect.effectName),
+  );
 }
 
 export function getEffectDisplayName(effectName: string) {

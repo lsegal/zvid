@@ -17,6 +17,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useReducer,
   useRef,
@@ -107,6 +108,7 @@ import {
   PlayheadLine,
   TransportPlayheadReadout,
 } from "./components/LivePlayhead";
+import { MediaStorageDialog } from "./components/MediaStorageDialog";
 import {
   MediaSyncDialog,
   type MediaSyncPeer,
@@ -148,6 +150,7 @@ import {
 } from "./components/ui/dropdown-menu";
 import { WandIcon } from "./components/WandIcon";
 import { computeActiveClips } from "./composition-active-clips.ts";
+import { resolveCompositionOrder } from "./composition-order.ts";
 import { isContextMenuKey, isContextMenuPress } from "./context-menu.ts";
 import { isRulerPanPress, isTimelinePanPress } from "./drag-scroll.ts";
 import { buildEditMenuEntries } from "./edit-menu.ts";
@@ -167,8 +170,10 @@ import {
   addEffect,
   duplicateEffect,
   effectHistoryLabels,
+  ensureGlobalOrder,
   ensureLayerLayouts,
   type FxDevice,
+  GLOBAL_EFFECT_TRACK_ID,
   getRenderedEffects,
   isLayerFxEnabled,
   isLayoutEffectName,
@@ -185,6 +190,7 @@ import {
 import {
   getHarness,
   type SaveTarget,
+  type SessionSelection,
   supportsHarnessCapability,
 } from "./harness";
 import { hasMediaExtension } from "./harness/media-extensions";
@@ -228,7 +234,12 @@ import {
   probeMediaBlob,
   toShareableMediaItem,
 } from "./media";
-import { cacheMediaBlob, getCachedMediaBlob } from "./media-cache";
+import {
+  cacheMediaBlob,
+  getCachedMediaBlob,
+  migrateMediaCache,
+  setCachedMediaSession,
+} from "./media-cache";
 import { createMediaRelinker, type MediaRelinkCandidate } from "./media-relink";
 import {
   listMediaSync,
@@ -259,9 +270,11 @@ import {
 } from "./preview-edit.ts";
 import {
   createProjectHistoryState,
+  type ProjectHistoryState,
   projectHistoryReducer,
 } from "./project-history";
 import {
+  migrateDefaultOrder,
   migrateLegacyMainAudio,
   stripClipSelectionFlags,
 } from "./project-state-compat.ts";
@@ -269,6 +282,15 @@ import {
   buildRandomArrangement,
   sourceTrackHasFootage,
 } from "./random-arrangement.ts";
+import {
+  type ClipboardContent,
+  copyClip,
+  copyRange,
+  pasteClipboard,
+  removeRangeFromLane,
+  resolveClipOverlaps,
+  withWindowTiming,
+} from "./range-edit.ts";
 import { listOfflineMedia, matchOfflineMedia } from "./relink";
 import { selectionHint } from "./selection-hint.ts";
 import {
@@ -288,10 +310,17 @@ import {
   offlineSessionMediaIds,
 } from "./session-media.ts";
 import {
+  chooseSessionSaveTarget,
+  projectToLvpSession,
+  SESSION_FILE_EXTENSION,
+} from "./session-save.ts";
+import {
   buildPublicShareUrl,
   type InviteParams,
   parseInviteParams,
+  removeInviteParams,
   removeInvitePassword,
+  withJoinedRoom,
 } from "./share-invite.ts";
 import { shareCopyFailedStatus, shareLinkVisible } from "./share-link";
 import { PUBLIC_SIGNALING_URL, ZVID_SIGNALING_URL } from "./signaling-servers";
@@ -333,11 +362,35 @@ import {
   type ThumbnailSize,
 } from "./thumbnail-cache.ts";
 import { formatMusicalPosition, formatTimecode } from "./timeline-format.ts";
+import {
+  formatDivision,
+  type GridDivision,
+  type GridLineWeight,
+  getGridLayers,
+  getGridUnit,
+  getSnapUnit,
+  resolveAdaptiveDivision,
+  type SnapMode,
+} from "./timeline-grid";
 import { useDragScroll } from "./use-drag-scroll";
 import { useThumbnailCache } from "./use-thumbnail-cache";
 import { ZVID_BUILD } from "./version";
 import { loadWaveformPeaks } from "./waveform-loader";
 import type { WaveformPeaks } from "./waveform-peaks";
+import { createWorkspaceAutosave } from "./workspace-autosave.ts";
+import { createWorkspaceLock, type WorkspaceLock } from "./workspace-lock.ts";
+import {
+  parseWorkspaceSession,
+  serializeWorkspaceSession,
+  toProjectHistoryState,
+  type WorkspaceSession,
+  type WorkspaceSessionSource,
+} from "./workspace-session.ts";
+import {
+  clearCurrentSession,
+  getWorkspaceStore,
+  saveCurrentSession,
+} from "./workspace-store.ts";
 import {
   formatZoomFactor,
   stepZoom,
@@ -348,7 +401,6 @@ import {
 } from "./zoom";
 
 type TimelineMode = "musical" | "timecode";
-type SnapMode = "bar" | "beat" | "half" | "quarter";
 
 type TimeSignature = {
   id: string;
@@ -537,6 +589,9 @@ type ProjectState = {
   mainAudioId?: string;
   // The session length from the opened session, in frames at `fps`.
   projectDurationFrames?: number;
+  // Set on every state since sessions got a default Order effect. A restored
+  // workspace saved without it is older and gets that Order added.
+  orderDefaulted?: boolean;
 };
 
 type LocalMediaOverride = {
@@ -575,6 +630,11 @@ const LABEL_WIDTH_KEYBOARD_STEP = 10;
 // Below this width the label rows tighten their padding and gaps.
 const LABEL_WIDTH_NARROW = 170;
 const BASE_QUARTER_PX = 28;
+const GRID_LINE_COLORS: Record<GridLineWeight, string> = {
+  division: "rgba(255,255,255,0.04)",
+  beat: "rgba(255,255,255,0.08)",
+  bar: "rgba(255,255,255,0.16)",
+};
 const TIMELINE_DRAG_ZOOM_SPEED = 0.004;
 const TIMELINE_DRAG_ZOOM_THRESHOLD_PX = 25;
 const TIMELINE_SCRUB_AUDIO_TAIL_MS = 50;
@@ -592,6 +652,9 @@ const RANDOM_SELECTION_MAX_BARS = 2;
 const MAX_WAND_LAYERS = 3;
 const SOURCE_TRACK_DRAG_CLEAR_DELAY_MS = 80;
 const COLLAB_STORAGE_KEY = "zvid-collaboration";
+// Per-tab record of the room this tab joined, so a refresh can rejoin it even
+// though the password is scrubbed from the address bar.
+const JOINED_ROOM_STORAGE_KEY = "zvid-joined-room";
 const INSPECTOR_COLLAPSED_STORAGE_KEY = "zvid-inspector-collapsed";
 const LABEL_WIDTH_STORAGE_KEY = "zvid-label-width";
 const PREVIEW_WIDTH_STORAGE_KEY = "zvid-preview-width";
@@ -638,6 +701,7 @@ const SIGNATURES: TimeSignature[] = [
   { id: "7/8", numerator: 7, denominator: 8 },
 ];
 const SNAP_OPTIONS: { id: SnapMode; label: string }[] = [
+  { id: "auto", label: "Auto" },
   { id: "bar", label: "Bar" },
   { id: "beat", label: "Beat" },
   { id: "half", label: "1/2" },
@@ -651,7 +715,7 @@ const DEFAULT_LANES: Lane[] = [
 const INITIAL_PROJECT_STATE: ProjectState = {
   timelineMode: "musical",
   signatureId: "4/4",
-  snapMode: "beat",
+  snapMode: "auto",
   snapEnabled: true,
   bpm: 120,
   fps: 30,
@@ -664,11 +728,14 @@ const INITIAL_PROJECT_STATE: ProjectState = {
   sourceTracks: [],
   sourceSpans: [],
   clips: [],
-  effects: ensureLayerLayouts(
-    [],
-    DEFAULT_LANES.map((lane) => lane.id),
+  effects: ensureGlobalOrder(
+    ensureLayerLayouts(
+      [],
+      DEFAULT_LANES.map((lane) => lane.id),
+    ),
   ),
   mainAudioId: undefined,
+  orderDefaulted: true,
 };
 // Card colours of fill clips on layers without an accent.
 const FILL_CLIP_TINT = "#2a2d38";
@@ -766,23 +833,6 @@ function formatDuration(seconds: number) {
   return `${minutes}:${remainderSeconds.toString().padStart(2, "0")}.${tenths}`;
 }
 
-function getSnapUnit(mode: SnapMode, signature: TimeSignature) {
-  const beatUnit = 4 / signature.denominator;
-  const barLength = signature.numerator * beatUnit;
-  switch (mode) {
-    case "bar":
-      return barLength;
-    case "beat":
-      return beatUnit;
-    case "half":
-      return beatUnit / 2;
-    case "quarter":
-      return beatUnit / 4;
-    default:
-      return beatUnit;
-  }
-}
-
 function snapQuarterValue(valueQ: number, snapUnit: number, enabled: boolean) {
   if (!enabled) {
     return valueQ;
@@ -823,22 +873,6 @@ function getFilmstripTileOwner(
   index: number,
 ) {
   return `${kind}:${id}:tile:${index}`;
-}
-
-function withWindowTiming(
-  clip: ArrangementClip,
-  startQ: number,
-  durationQ: number,
-  bpm: number,
-  laneId = clip.laneId,
-) {
-  return {
-    ...clip,
-    laneId,
-    startQ,
-    durationSeconds: quartersToSeconds(durationQ, bpm),
-    trimStartSeconds: quartersToSeconds(startQ, bpm) + clip.sourceOffsetSeconds,
-  };
 }
 
 function resolveClipOverlapPreview(
@@ -907,49 +941,6 @@ function findClosestTimelineLaneId(
   }
 
   return closestLaneId;
-}
-
-function resolveClipOverlaps(
-  clips: ArrangementClip[],
-  activeClip: ArrangementClip,
-  bpm: number,
-) {
-  const epsilon = 0.0001;
-  const activeEndQ = getClipEndQ(activeClip, bpm);
-
-  return clips.flatMap<ArrangementClip>((clip) => {
-    if (clip.id === activeClip.id) {
-      return [activeClip];
-    }
-
-    if (clip.laneId !== activeClip.laneId) {
-      return [clip];
-    }
-
-    const clipEndQ = getClipEndQ(clip, bpm);
-    const overlapStartQ = Math.max(activeClip.startQ, clip.startQ);
-    const overlapEndQ = Math.min(activeEndQ, clipEndQ);
-    if (overlapEndQ - overlapStartQ <= epsilon) {
-      return [clip];
-    }
-
-    const leftDurationQ = Math.max(0, activeClip.startQ - clip.startQ);
-    const rightDurationQ = Math.max(0, clipEndQ - activeEndQ);
-
-    if (leftDurationQ <= epsilon && rightDurationQ <= epsilon) {
-      return [];
-    }
-
-    if (leftDurationQ >= rightDurationQ && leftDurationQ > epsilon) {
-      return [withWindowTiming(clip, clip.startQ, leftDurationQ, bpm)];
-    }
-
-    if (rightDurationQ > epsilon) {
-      return [withWindowTiming(clip, activeEndQ, rightDurationQ, bpm)];
-    }
-
-    return [];
-  });
 }
 
 function cloneClipAtStartQ(
@@ -1222,12 +1213,55 @@ function getPreviewMaxWidth(editorGridWidth: number) {
 
 let pageInvite: InviteParams | null = null;
 
+function rememberJoinedRoom(room: string, password: string) {
+  try {
+    window.sessionStorage.setItem(
+      JOINED_ROOM_STORAGE_KEY,
+      JSON.stringify({ room, password }),
+    );
+  } catch {
+    // Without session storage a refresh rejoins without the password.
+  }
+}
+
+function forgetJoinedRoom() {
+  try {
+    window.sessionStorage.removeItem(JOINED_ROOM_STORAGE_KEY);
+  } catch {
+    // Nothing was stored.
+  }
+}
+
+// Fills in the password of a room this tab joined before a refresh, since
+// the address bar only keeps the room and signaling servers.
+function withRememberedPassword(invite: InviteParams): InviteParams {
+  if (!invite.room) {
+    return invite;
+  }
+  if (invite.password) {
+    rememberJoinedRoom(invite.room, invite.password);
+    return invite;
+  }
+  try {
+    const stored = JSON.parse(
+      window.sessionStorage.getItem(JOINED_ROOM_STORAGE_KEY) ?? "null",
+    ) as { room?: string; password?: string } | null;
+    return stored?.room === invite.room && stored.password
+      ? { ...invite, password: stored.password }
+      : invite;
+  } catch {
+    return invite;
+  }
+}
+
 // Reads the invite from the page URL once, then scrubs the password from the
 // address bar and history. Cached so StrictMode's repeated state initializers
 // still see the password after the URL has been cleaned.
 function readPageInvite() {
   if (!pageInvite) {
-    pageInvite = parseInviteParams(window.location.href);
+    pageInvite = withRememberedPassword(
+      parseInviteParams(window.location.href),
+    );
     const scrubbedHref = removeInvitePassword(window.location.href);
     if (scrubbedHref) {
       window.history.replaceState(window.history.state, "", scrubbedHref);
@@ -1725,11 +1759,15 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
     sourceSpans,
     arrangementClips,
     selectedClipId,
-    // Every layer gets its own Layout, taking over any global one, as part
-    // of the load so it is not a separate undo step.
-    effects: ensureLayerLayouts(
-      mapEffects(session.effects),
-      (lanes.length ? lanes : DEFAULT_LANES).map((lane) => lane.id),
+    // Every layer gets its own Layout, taking over any global one, and an
+    // older session gets its default Order, as part of the load so neither
+    // is a separate undo step.
+    effects: migrateDefaultOrder(
+      ensureLayerLayouts(
+        mapEffects(session.effects),
+        (lanes.length ? lanes : DEFAULT_LANES).map((lane) => lane.id),
+      ),
+      session.orderDefaulted,
     ),
     displaySeconds: session.timeline?.displaySeconds ?? false,
     snapToBeat: session.timeline?.snapToBeat ?? true,
@@ -1866,14 +1904,268 @@ function LayerNameInput({
   );
 }
 
-function App() {
+// What a refresh restores besides the project and its history.
+type WorkspaceView = {
+  playheadQ: number;
+  selectedClipId?: string;
+  selectedLaneId?: string;
+  scrollLeft: number;
+  scrollTop: number;
+};
+
+type SavedWorkspaceSession = WorkspaceSession<
+  ProjectState,
+  WorkspaceView,
+  ImportNoticeContent
+>;
+
+// "owner" autosaves. "blocked" is waiting on the other-tab prompt, and
+// "read-only" and "taken-over" leave the saved session to another tab.
+// "joiner" opened an invite link and saves nothing over its own session.
+type WorkspaceAccess =
+  | "owner"
+  | "blocked"
+  | "read-only"
+  | "taken-over"
+  | "joiner";
+
+type WorkspaceBoot = {
+  session: SavedWorkspaceSession | null;
+  // Set when the saved session could not be read and was set aside.
+  corruptKey: string | null;
+  access: WorkspaceAccess;
+  lock: WorkspaceLock;
+};
+
+const PROJECT_ARRAY_FIELDS = [
+  "mediaItems",
+  "lanes",
+  "sourceTracks",
+  "sourceSpans",
+  "clips",
+  "effects",
+] as const;
+const PROJECT_POSITIVE_NUMBER_FIELDS = [
+  "bpm",
+  "fps",
+  "canvasWidth",
+  "canvasHeight",
+  "zoom",
+] as const;
+
+// Restored history shares objects between snapshots; normalising each
+// shared object once keeps that sharing.
+const restoredProjectStates = new WeakMap<object, ProjectState>();
+const restoredMediaItems = new WeakMap<object, MediaItem>();
+
+// Validates a saved snapshot, fills in fields older saves lack and drops
+// object URLs, which die with the page that made them.
+function normalizeRestoredProjectState(value: unknown): ProjectState {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Saved project snapshot is not an object");
+  }
+  const cached = restoredProjectStates.get(value);
+  if (cached) {
+    return cached;
+  }
+
+  const saved = value as Partial<ProjectState>;
+  const state: ProjectState = {
+    ...INITIAL_PROJECT_STATE,
+    ...migrateLegacyMainAudio(saved),
+  };
+  for (const field of PROJECT_ARRAY_FIELDS) {
+    if (!Array.isArray(state[field])) {
+      throw new Error(`Saved project snapshot has no ${field}`);
+    }
+  }
+  // Read from the save itself: the initial state always has the flag.
+  state.effects = migrateDefaultOrder(state.effects, saved.orderDefaulted);
+  state.orderDefaulted = true;
+  for (const field of PROJECT_POSITIVE_NUMBER_FIELDS) {
+    const number = state[field];
+    if (typeof number !== "number" || !Number.isFinite(number) || number <= 0) {
+      throw new Error(`Saved project snapshot has an invalid ${field}`);
+    }
+  }
+  state.mediaItems = state.mediaItems.map((item) => {
+    let shareable = restoredMediaItems.get(item);
+    if (!shareable) {
+      shareable = toShareableMediaItem(item);
+      restoredMediaItems.set(item, shareable);
+    }
+    return shareable;
+  });
+  restoredProjectStates.set(value, state);
+  return state;
+}
+
+function normalizeRestoredView(value: unknown): WorkspaceView {
+  const view = (value && typeof value === "object" ? value : {}) as Record<
+    string,
+    unknown
+  >;
+  const finite = (field: unknown) =>
+    typeof field === "number" && Number.isFinite(field)
+      ? Math.max(0, field)
+      : 0;
+  const text = (field: unknown) =>
+    typeof field === "string" && field ? field : undefined;
+  return {
+    playheadQ: finite(view.playheadQ),
+    selectedClipId: text(view.selectedClipId),
+    selectedLaneId: text(view.selectedLaneId),
+    scrollLeft: finite(view.scrollLeft),
+    scrollTop: finite(view.scrollTop),
+  };
+}
+
+// Reads the saved session. One that cannot be read is set aside under a
+// `corrupt-<ts>` key so the app starts clean instead of failing every load.
+async function readSavedWorkspaceSession(): Promise<{
+  session: SavedWorkspaceSession | null;
+  corruptKey: string | null;
+}> {
+  const store = getWorkspaceStore();
+  try {
+    const record = await store.loadCurrentSession();
+    if (!record) {
+      return { session: null, corruptKey: null };
+    }
+    return {
+      session: parseWorkspaceSession<
+        ProjectState,
+        WorkspaceView,
+        ImportNoticeContent
+      >(record.payload, {
+        normalizeState: normalizeRestoredProjectState,
+        normalizeView: normalizeRestoredView,
+      }),
+      corruptKey: null,
+    };
+  } catch (error) {
+    logClient("workspace:restore:error", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+    try {
+      return {
+        session: null,
+        corruptKey: await store.setAsideCurrentSession(),
+      };
+    } catch {
+      // IndexedDB itself is unavailable, so there is nothing to set aside.
+      return { session: null, corruptKey: null };
+    }
+  }
+}
+
+// Lock callbacks outlive a single render, so they reach the mounted App
+// through this object.
+const workspaceLockEvents = {
+  flush: async () => {},
+  lost: () => {},
+};
+
+async function loadWorkspaceBoot(): Promise<WorkspaceBoot> {
+  const lock = createWorkspaceLock({
+    onFlushRequest: () => workspaceLockEvents.flush(),
+    onLost: () => workspaceLockEvents.lost(),
+  });
+  // A joiner shows someone else's session, and a refresh rejoins it from the
+  // URL, so the joiner's own saved session is neither restored nor replaced.
+  if (readPageInvite().room) {
+    return { session: null, corruptKey: null, access: "joiner", lock };
+  }
+
+  const owner = await lock.acquire();
+  const { session, corruptKey } = await readSavedWorkspaceSession();
+  return { session, corruptKey, access: owner ? "owner" : "blocked", lock };
+}
+
+let workspaceBootPromise: Promise<WorkspaceBoot> | null = null;
+
+function bootWorkspace() {
+  workspaceBootPromise ??= loadWorkspaceBoot();
+  return workspaceBootPromise;
+}
+
+function isPristineProjectHistory(history: ProjectHistoryState<ProjectState>) {
+  return (
+    history.present === INITIAL_PROJECT_STATE &&
+    !history.past.length &&
+    !history.future.length
+  );
+}
+
+function findRestoredSelection(
+  session: SavedWorkspaceSession | null,
+): Pick<WorkspaceView, "selectedClipId" | "selectedLaneId"> {
+  if (!session) {
+    return {};
+  }
+  const { clips, lanes } = session.history.present;
+  const { selectedClipId, selectedLaneId } = session.view;
+  return {
+    selectedClipId: clips.some((clip) => clip.id === selectedClipId)
+      ? selectedClipId
+      : undefined,
+    selectedLaneId: lanes.some((lane) => lane.id === selectedLaneId)
+      ? selectedLaneId
+      : undefined,
+  };
+}
+
+const CORRUPT_WORKSPACE_NOTICE: ImportNoticeContent = {
+  tone: "warning",
+  title: "Could not restore the last session",
+  lines: [
+    "The saved session could not be read, so zvid started with an empty session. The saved copy was set aside.",
+  ],
+};
+
+function formatRestoredStatus(session: SavedWorkspaceSession) {
+  const name = session.history.present.sessionName;
+  return name ? `Restored ${name}.` : "Restored the last session.";
+}
+
+// Loads the saved session before the editor renders, so the timeline never
+// flashes empty before a restore.
+function AppRoot() {
+  const [boot, setBoot] = useState<WorkspaceBoot | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void bootWorkspace().then((result) => {
+      if (active) {
+        setBoot(result);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (!boot) {
+    return <output className="workspace-restoring">Restoring session…</output>;
+  }
+  return <App boot={boot} />;
+}
+
+function App({ boot }: { boot: WorkspaceBoot }) {
   const [initialCollaborationConfig] = useState(() =>
     getInitialCollaborationConfig(),
   );
+  const restoredSession = boot.session;
+  const [restoredSelection] = useState(() =>
+    findRestoredSelection(restoredSession),
+  );
   const [projectHistory, dispatchProject] = useReducer(
     projectHistoryReducer<ProjectState>,
-    INITIAL_PROJECT_STATE,
-    createProjectHistoryState<ProjectState>,
+    restoredSession,
+    (session) =>
+      session
+        ? toProjectHistoryState(session.history)
+        : createProjectHistoryState(INITIAL_PROJECT_STATE),
   );
   const {
     timelineMode,
@@ -1903,7 +2195,9 @@ function App() {
   const [dragPreviewClips, setDragPreviewClips] = useState<
     ArrangementClip[] | null
   >(null);
-  const [selectedClipId, setSelectedClipId] = useState<string>();
+  const [selectedClipId, setSelectedClipId] = useState<string | undefined>(
+    restoredSelection.selectedClipId,
+  );
   const [clipMenu, setClipMenu] = useState<ClipMenuState | null>(null);
   // The layer whose name is being edited in its header.
   const [renamingLaneId, setRenamingLaneId] = useState<string>();
@@ -1911,11 +2205,19 @@ function App() {
   renamingLaneIdRef.current = renamingLaneId;
   // The layer the FX chain edits. Selecting a clip selects its layer, and
   // clearing the clip selection keeps the layer.
-  const [selectedLaneId, setSelectedLaneId] = useState<string>();
+  const [selectedLaneId, setSelectedLaneId] = useState<string | undefined>(
+    restoredSelection.selectedLaneId,
+  );
   const [pendingSelection, setPendingSelection] =
     useState<TimelineSelection | null>(null);
   const [arrangementEmptyStateDismissed, setArrangementEmptyStateDismissed] =
-    useState(false);
+    useState(() =>
+      restoredSession
+        ? isArrangementEmptyStateDismissedOnOpen(
+            restoredSession.history.present.clips.length,
+          )
+        : false,
+    );
   const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(
     readInspectorCollapsed,
   );
@@ -1933,7 +2235,10 @@ function App() {
   } | null>(null);
   const [previewWidth, setPreviewWidth] = useState(readPreviewWidth);
   const [editorGridWidth, setEditorGridWidth] = useState(0);
-  const [playheadQ, setPlayheadQState] = useState(0);
+  const [initialPlayheadQ] = useState(
+    () => restoredSession?.view.playheadQ ?? 0,
+  );
+  const [playheadQ, setPlayheadQState] = useState(initialPlayheadQ);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportState, setExportState] = useState<ExportState>({
@@ -1947,8 +2252,10 @@ function App() {
     clientHeight: 0,
     lanesTop: 0,
   });
-  const [status, setStatus] = useState(
-    "Open a session or import media to get started.",
+  const [status, setStatus] = useState(() =>
+    restoredSession
+      ? formatRestoredStatus(restoredSession)
+      : "Open a session or import media to get started.",
   );
   const [peerMediaProgress, setPeerMediaProgress] =
     useState<PeerMediaProgressMap>(() => new Map());
@@ -1958,7 +2265,10 @@ function App() {
   );
   const prefersReducedMotion = usePrefersReducedMotion();
   const [importNotice, setImportNotice] = useState<ImportNoticeContent | null>(
-    null,
+    () =>
+      boot.corruptKey
+        ? CORRUPT_WORKSPACE_NOTICE
+        : (restoredSession?.importNotice ?? null),
   );
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [timelineDragState, setTimelineDragState] =
@@ -1995,6 +2305,8 @@ function App() {
   const [isOfflineMediaDialogOpen, setIsOfflineMediaDialogOpen] =
     useState(false);
   const [isMediaSyncDialogOpen, setIsMediaSyncDialogOpen] = useState(false);
+  const [isMediaStorageDialogOpen, setIsMediaStorageDialogOpen] =
+    useState(false);
   // Mirrors peerMediaMissesRef.current.ids so rendering sees peer misses.
   const [peerMediaMissIds, setPeerMediaMissIds] = useState<ReadonlySet<string>>(
     () => new Set(),
@@ -2014,9 +2326,19 @@ function App() {
   const [mediaHydrationTick, setMediaHydrationTick] = useState(0);
   const collaborationColor = initialCollaborationConfig.color;
 
-  const playbackOriginRef = useRef(0);
-  const playheadQRef = useRef(0);
-  const [playheadSignal] = useState(() => createPlayheadSignal());
+  const [workspaceAccess, setWorkspaceAccess] = useState(boot.access);
+  const [sessionSource, setSessionSource] = useState<WorkspaceSessionSource>(
+    () => restoredSession?.source ?? { kind: "none" },
+  );
+  // True while the project is someone else's shared session, which is never
+  // saved over this browser's own session.
+  const viewingSharedSessionRef = useRef(boot.access === "joiner");
+
+  const playbackOriginRef = useRef(initialPlayheadQ);
+  const playheadQRef = useRef(initialPlayheadQ);
+  const [playheadSignal] = useState(() =>
+    createPlayheadSignal(initialPlayheadQ),
+  );
   // Seeks move the live playhead and state together. Playback advances only
   // the live playhead each frame and commits it to state now and then.
   const setPlayheadQ = useCallback(
@@ -2040,7 +2362,9 @@ function App() {
     startWidth: number;
   } | null>(null);
   const timelineScrubAudioTimeoutRef = useRef<number | null>(null);
-  const clipClipboardRef = useRef<ArrangementClip | null>(null);
+  const clipClipboardRef = useRef<ClipboardContent<ArrangementClip> | null>(
+    null,
+  );
   const collaborationControllerRef =
     useRef<CollaborationController<ProjectState> | null>(null);
   const shareCopyResetTimeoutRef = useRef<number | null>(null);
@@ -2257,6 +2581,24 @@ function App() {
     [setLocalMediaOverride],
   );
 
+  // Caching skips a file rather than failing when browser storage is full, so
+  // the user learns the file won't survive a refresh.
+  const reportMediaNotCached = useCallback(
+    (mediaId: string, blob: Blob, name?: string) => {
+      const displayName =
+        name ??
+        projectSnapshotRef.current.mediaItems.find(
+          (candidate) => candidate.id === mediaId,
+        )?.name ??
+        (blob instanceof File ? blob.name : mediaId);
+      logClient("media:cache:skipped", { mediaId, size: blob.size });
+      setStatus(
+        `${displayName} not cached, browser storage is full; it will need relinking after refresh.`,
+      );
+    },
+    [],
+  );
+
   const adoptMediaBlob = useCallback(
     async (
       mediaId: string,
@@ -2299,7 +2641,10 @@ function App() {
       }
 
       try {
-        await cacheMediaBlob(mediaId, blob);
+        const cached = await cacheMediaBlob(mediaId, blob);
+        if (cached.status === "skipped") {
+          reportMediaNotCached(mediaId, blob);
+        }
       } catch (error) {
         logClient("media:adopt:cache:error", {
           mediaId,
@@ -2363,28 +2708,51 @@ function App() {
 
       return { previewUrl, warning };
     },
-    [commitProjectChange, seedLocalMediaItems, setLocalMediaOverride],
+    [
+      commitProjectChange,
+      reportMediaNotCached,
+      seedLocalMediaItems,
+      setLocalMediaOverride,
+    ],
   );
 
-  const cacheLocalMediaItems = useCallback(async (items: MediaItem[]) => {
-    const harness = getHarness();
-    await Promise.allSettled(
-      items
-        .filter((item) => item.previewUrl)
-        .map(async (item) => {
-          const blob = await harness.readMediaBlob(item);
-          await cacheMediaBlob(item.id, blob);
-        }),
-    );
-  }, []);
+  const cacheLocalMediaItems = useCallback(
+    async (items: MediaItem[]) => {
+      const harness = getHarness();
+      await Promise.allSettled(
+        items
+          .filter((item) => item.previewUrl)
+          .map(async (item) => {
+            const blob = await harness.readMediaBlob(item);
+            const cached = await cacheMediaBlob(item.id, blob);
+            if (cached.status === "skipped") {
+              reportMediaNotCached(item.id, blob, item.name);
+            }
+          }),
+      );
+    },
+    [reportMediaNotCached],
+  );
 
   const signature =
     SIGNATURES.find((candidate) => candidate.id === signatureId) ??
     SIGNATURES[0];
   const beatUnit = 4 / signature.denominator;
   const barLength = signature.numerator * beatUnit;
-  const snapUnit = getSnapUnit(snapMode, signature);
   const quarterPx = BASE_QUARTER_PX * resolvedZoom;
+  // Resolved from the last division so the grid keeps it while zooming within
+  // the thresholds instead of flickering between two divisions.
+  const [lastAdaptiveDivision, setLastAdaptiveDivision] =
+    useState<GridDivision>(() => resolveAdaptiveDivision(quarterPx));
+  const adaptiveDivision = resolveAdaptiveDivision(
+    quarterPx,
+    lastAdaptiveDivision,
+  );
+  if (adaptiveDivision !== lastAdaptiveDivision) {
+    setLastAdaptiveDivision(adaptiveDivision);
+  }
+  const snapUnit = getSnapUnit(snapMode, signature, adaptiveDivision);
+  const gridUnit = getGridUnit(snapUnit, adaptiveDivision);
   const totalQuarters = useMemo(() => {
     let nextTotalQuarters = barLength * 12;
     for (const clip of timelineClips) {
@@ -2409,14 +2777,21 @@ function App() {
     return nextTotalQuarters;
   }, [barLength, bpm, pendingSelection, sourceSpans, timelineClips]);
   const timelineWidth = totalQuarters * quarterPx;
-  const gridStyle = useMemo(
-    () => ({
-      backgroundImage:
-        "linear-gradient(to right, rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(to right, rgba(255,255,255,0.16) 1px, transparent 1px)",
-      backgroundSize: `${beatUnit * quarterPx}px 100%, ${barLength * quarterPx}px 100%`,
-    }),
-    [barLength, beatUnit, quarterPx],
-  );
+  const gridStyle = useMemo(() => {
+    // CSS paints the first layer on top, so the strongest lines go first.
+    const layers = getGridLayers(gridUnit, signature).reverse();
+    return {
+      backgroundImage: layers
+        .map(
+          (layer) =>
+            `linear-gradient(to right, ${GRID_LINE_COLORS[layer.weight]} 1px, transparent 1px)`,
+        )
+        .join(", "),
+      backgroundSize: layers
+        .map((layer) => `${layer.spacingQ * quarterPx}px 100%`)
+        .join(", "),
+    };
+  }, [gridUnit, quarterPx, signature]);
   // Only a clip the user selected; rendering and edits never fall back to
   // another one.
   const selectedClip = useMemo(
@@ -2510,6 +2885,7 @@ function App() {
           getRenderedEffects(effects, lanes),
         ).filter((entry) => entry.media.kind === "video"),
         { width: canvasWidth, height: canvasHeight },
+        resolveCompositionOrder(effects, GLOBAL_EFFECT_TRACK_ID),
       ),
     [
       bpm,
@@ -4169,6 +4545,227 @@ function App() {
     projectSnapshotRef.current = projectHistory.present;
   }, [projectHistory.present]);
 
+  // Everything a refresh brings back, read when an autosave serialises.
+  const readWorkspaceSession = (): SavedWorkspaceSession => ({
+    history: {
+      past: projectHistory.past,
+      present: projectHistory.present,
+      future: projectHistory.future,
+    },
+    view: {
+      playheadQ: playheadQRef.current,
+      selectedClipId,
+      selectedLaneId,
+      scrollLeft: timelineScrollRef.current?.scrollLeft ?? 0,
+      scrollTop: timelineScrollRef.current?.scrollTop ?? 0,
+    },
+    source: sessionSource,
+    // Failures are about the attempt, not the session, so they are not kept.
+    importNotice: importNotice?.tone === "error" ? null : importNotice,
+  });
+  const readWorkspaceSessionRef = useRef(readWorkspaceSession);
+  readWorkspaceSessionRef.current = readWorkspaceSession;
+  const workspaceBusyRef = useRef(false);
+  // Playback and gestures change the session many times a second; it is
+  // saved once they stop.
+  workspaceBusyRef.current = Boolean(
+    isPlaying ||
+      dragState ||
+      timelineDragState ||
+      isTimelineAudibleScrubbing ||
+      projectHistory.transientBase !== undefined,
+  );
+  const canSaveWorkspace =
+    workspaceAccess === "owner" && collaborationMode !== "connected";
+  const canSaveWorkspaceRef = useRef(canSaveWorkspace);
+  canSaveWorkspaceRef.current = canSaveWorkspace;
+  const [workspaceAutosave] = useState(() =>
+    createWorkspaceAutosave({
+      serialize: () =>
+        serializeWorkspaceSession(readWorkspaceSessionRef.current()),
+      write: (payload) => saveCurrentSession({ savedAt: Date.now(), payload }),
+      isBusy: () => workspaceBusyRef.current,
+      onError: (error) =>
+        logClient("workspace:save:error", {
+          message: error instanceof Error ? error.message : String(error),
+        }),
+    }),
+  );
+  const shouldSaveWorkspace = useCallback(
+    () => canSaveWorkspaceRef.current && !viewingSharedSessionRef.current,
+    [],
+  );
+
+  // Saves every change to the session after a short pause. A session that
+  // was closed, or never started, clears the saved record instead.
+  useEffect(() => {
+    void [
+      canSaveWorkspace,
+      playheadQ,
+      selectedClipId,
+      selectedLaneId,
+      sessionSource,
+      importNotice,
+      timelineViewport.scrollLeft,
+    ];
+    if (!shouldSaveWorkspace()) {
+      return;
+    }
+    if (isPristineProjectHistory(projectHistory)) {
+      workspaceAutosave.cancel();
+      void clearCurrentSession().catch((error: unknown) =>
+        logClient("workspace:clear:error", {
+          message: error instanceof Error ? error.message : String(error),
+        }),
+      );
+      return;
+    }
+    workspaceAutosave.markDirty();
+  }, [
+    canSaveWorkspace,
+    importNotice,
+    playheadQ,
+    projectHistory,
+    selectedClipId,
+    selectedLaneId,
+    sessionSource,
+    shouldSaveWorkspace,
+    timelineViewport.scrollLeft,
+    workspaceAutosave,
+  ]);
+
+  const flushWorkspaceSession = useCallback(async () => {
+    if (!shouldSaveWorkspace()) {
+      return;
+    }
+    // Playback moves only the live playhead, so mark the session dirty to
+    // capture where it is now.
+    workspaceAutosave.markDirty();
+    await workspaceAutosave.flush();
+  }, [shouldSaveWorkspace, workspaceAutosave]);
+
+  useEffect(() => {
+    const flush = () => {
+      void flushWorkspaceSession();
+    };
+    const flushWhenHidden = () => {
+      if (document.visibilityState === "hidden") {
+        flush();
+      }
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", flushWhenHidden);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", flushWhenHidden);
+    };
+  }, [flushWorkspaceSession]);
+
+  useEffect(() => {
+    workspaceLockEvents.flush = flushWorkspaceSession;
+    workspaceLockEvents.lost = () => {
+      workspaceAutosave.cancel();
+      setWorkspaceAccess("taken-over");
+      setStatus(
+        "This session was taken over in another tab. Changes here are no longer saved.",
+      );
+    };
+    return () => {
+      workspaceLockEvents.flush = async () => {};
+      workspaceLockEvents.lost = () => {};
+    };
+  }, [flushWorkspaceSession, workspaceAutosave]);
+
+  // Puts the saved scroll position back once the timeline has laid out.
+  useLayoutEffect(() => {
+    const scroller = timelineScrollRef.current;
+    const view = restoredSession?.view;
+    if (scroller && view) {
+      scroller.scrollLeft = view.scrollLeft;
+      scroller.scrollTop = view.scrollTop;
+    }
+  }, [restoredSession]);
+
+  const applyWorkspaceSession = useCallback(
+    (session: SavedWorkspaceSession | null) => {
+      stopTimelineAudibleScrub();
+      setIsPlaying(false);
+      setDragPreviewClips(null);
+      setDragState(null);
+      setPendingSelection(null);
+      setTimelineDragState(null);
+      sessionMediaCheckRef.current = null;
+      dispatchProject({
+        type: "restore",
+        history: session
+          ? toProjectHistoryState(session.history)
+          : createProjectHistoryState(INITIAL_PROJECT_STATE),
+      });
+      const selection = findRestoredSelection(session);
+      setSelectedClipId(selection.selectedClipId);
+      setSelectedLaneId(selection.selectedLaneId);
+      setPlayheadQ(session?.view.playheadQ ?? 0);
+      playbackOriginRef.current = session?.view.playheadQ ?? 0;
+      setSessionSource(session?.source ?? { kind: "none" });
+      setImportNotice(session?.importNotice ?? null);
+      setArrangementEmptyStateDismissed(
+        session
+          ? isArrangementEmptyStateDismissedOnOpen(
+              session.history.present.clips.length,
+            )
+          : false,
+      );
+      const scroller = timelineScrollRef.current;
+      if (scroller) {
+        scroller.scrollLeft = session?.view.scrollLeft ?? 0;
+        scroller.scrollTop = session?.view.scrollTop ?? 0;
+      }
+    },
+    [setPlayheadQ, stopTimelineAudibleScrub],
+  );
+
+  // A session this tab opens or closes itself is its own again, so it is
+  // saved once this tab owns the saved session.
+  const claimWorkspaceSession = useCallback(() => {
+    viewingSharedSessionRef.current = false;
+    if (workspaceAccess === "joiner") {
+      void boot.lock.acquire().then((owner) => {
+        setWorkspaceAccess(owner ? "owner" : "read-only");
+      });
+    }
+  }, [boot.lock, workspaceAccess]);
+
+  async function handleTakeOverWorkspace() {
+    setStatus("Taking over the session from the other tab...");
+    await boot.lock.takeOver();
+    const { session, corruptKey } = await readSavedWorkspaceSession();
+    viewingSharedSessionRef.current = false;
+    applyWorkspaceSession(session);
+    if (corruptKey) {
+      setImportNotice(CORRUPT_WORKSPACE_NOTICE);
+    }
+    setWorkspaceAccess("owner");
+    setStatus(
+      session
+        ? formatRestoredStatus(session)
+        : "Took over the session from the other tab.",
+    );
+  }
+
+  function handleOpenWorkspaceReadOnly() {
+    setWorkspaceAccess("read-only");
+    setStatus(
+      "Opened read-only. The session is open in another tab, so changes here are not saved.",
+    );
+  }
+
+  function handleCloseSession() {
+    workspaceAutosave.cancel();
+    claimWorkspaceSession();
+    applyWorkspaceSession(null);
+    setStatus("Closed the session.");
+  }
+
   useEffect(() => {
     localMediaOverridesRef.current = localMediaOverrides;
   }, [localMediaOverrides]);
@@ -4233,8 +4830,98 @@ function App() {
     [reportSessionMediaCheck],
   );
 
+  // Media an undo or redo step still uses counts as part of the session too,
+  // since the history survives a refresh. Keyed by the sorted ids so the
+  // cache index is only rewritten when the set changes.
+  const sessionMediaIdsKey = useMemo(() => {
+    const ids = new Set<string>();
+    const seen = new Set<MediaItem[]>();
+    for (const snapshot of [
+      projectHistory.present,
+      ...projectHistory.past.map((entry) => entry.snapshot),
+      ...projectHistory.future.map((entry) => entry.snapshot),
+    ]) {
+      if (seen.has(snapshot.mediaItems)) {
+        continue;
+      }
+      seen.add(snapshot.mediaItems);
+      for (const item of snapshot.mediaItems) {
+        ids.add(item.id);
+      }
+    }
+    return JSON.stringify([...ids].sort());
+  }, [projectHistory.past, projectHistory.present, projectHistory.future]);
+
+  // Runs before hydration so media the open session uses is never evicted to
+  // make room for its other files.
   useEffect(() => {
-    let cancelled = false;
+    setCachedMediaSession(
+      sessionName ?? "Untitled session",
+      JSON.parse(sessionMediaIdsKey) as string[],
+    ).catch((error) => {
+      logClient("media:cache:session:error", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    });
+  }, [sessionMediaIdsKey, sessionName]);
+
+  useEffect(() => {
+    migrateMediaCache()
+      .then((moved) => {
+        if (moved) {
+          logClient("media:cache:migrated", { moved });
+        }
+      })
+      .catch((error) => {
+        logClient("media:cache:migrate:error", {
+          message: error instanceof Error ? error.message : String(error),
+        });
+      });
+  }, []);
+
+  // Media whose cached copy the storage dialog removed while it was loaded
+  // from that copy can no longer be read, so it goes offline for relinking.
+  const handleMediaStorageCleared = useCallback(
+    (invalidatedIds: string[], clearedCount: number) => {
+      for (const mediaId of invalidatedIds) {
+        const previewUrl = mediaObjectUrlsRef.current.get(mediaId);
+        if (previewUrl) {
+          URL.revokeObjectURL(previewUrl);
+          mediaObjectUrlsRef.current.delete(mediaId);
+        }
+      }
+      if (invalidatedIds.length) {
+        setLocalMediaOverrides((current) => {
+          const next = { ...current };
+          for (const mediaId of invalidatedIds) {
+            next[mediaId] = {
+              availability: "offline",
+              lastError: "Its cached copy was cleared",
+            };
+          }
+          return next;
+        });
+      }
+      setStatus(
+        `Cleared ${pluralize(clearedCount, "cached media file")}.${
+          invalidatedIds.length
+            ? ` ${pluralize(invalidatedIds.length, "file")} in this session went offline. ${LOCATE_OFFLINE_MEDIA_HINT}`
+            : ""
+        }`,
+      );
+    },
+    [],
+  );
+
+  useEffect(() => {
+    // A hydration can outlive the run that started it: the effect reruns
+    // whenever the media list changes (and at once under StrictMode), and
+    // the rerun skips items still in flight. So a result is only dropped when
+    // its media has left the project.
+    const isRemoved = (mediaId: string) =>
+      !projectSnapshotRef.current.mediaItems.some(
+        (candidate) => candidate.id === mediaId,
+      );
 
     for (const item of projectMediaItems) {
       const override = localMediaOverridesRef.current[item.id];
@@ -4258,7 +4945,7 @@ function App() {
         try {
           const cachedBlob = await getCachedMediaBlob(item.id);
           if (cachedBlob) {
-            if (cancelled) {
+            if (isRemoved(item.id)) {
               return;
             }
 
@@ -4268,14 +4955,14 @@ function App() {
           }
 
           if (!item.sourcePath && !item.previewUrl) {
-            if (!cancelled) {
+            if (!isRemoved(item.id)) {
               setLocalMediaOverride(item.id, { availability: "offline" });
             }
             return;
           }
 
           const blob = await getHarness().readMediaBlob(item);
-          if (cancelled) {
+          if (isRemoved(item.id)) {
             // Keep the bytes so the next hydration pass is a cache hit.
             await cacheMediaBlob(item.id, blob);
             return;
@@ -4288,7 +4975,7 @@ function App() {
             mediaId: item.id,
             message: error instanceof Error ? error.message : String(error),
           });
-          if (!cancelled) {
+          if (!isRemoved(item.id)) {
             setLocalMediaOverride(item.id, { availability: "offline" });
           }
         } finally {
@@ -4298,10 +4985,6 @@ function App() {
         }
       })();
     }
-
-    return () => {
-      cancelled = true;
-    };
   }, [
     adoptMediaBlob,
     projectMediaItems,
@@ -4870,7 +5553,7 @@ function App() {
   // Clipboard and edit actions shared by the keyboard shortcuts and the clip
   // menus. Each is one undo step.
   function copyArrangementClip(clip: ArrangementClip) {
-    clipClipboardRef.current = { ...clip };
+    clipClipboardRef.current = copyClip(clip, bpm);
     setStatus(`Copied ${clip.label}.`);
   }
 
@@ -4893,7 +5576,7 @@ function App() {
   }
 
   function cutArrangementClip(clip: ArrangementClip) {
-    clipClipboardRef.current = { ...clip };
+    clipClipboardRef.current = copyClip(clip, bpm);
     removeArrangementClip(clip, "Cut clip");
     setStatus(`Cut ${clip.label}.`);
   }
@@ -4903,10 +5586,77 @@ function App() {
     setStatus(`Deleted ${clip.label}.`);
   }
 
-  // Pastes at the playhead on `laneId`, or on the selected layer.
+  // With a selection, Cut, Copy and Delete act on its span on its layer only.
+  // The selection stays, showing what they acted on.
+  function copySelectionRange(selection: TimelineSelection) {
+    return copyRange(
+      timelineClips,
+      selection.laneId,
+      selection.startQ,
+      getSelectionEndQ(selection),
+      bpm,
+    );
+  }
+
+  function removeSelectionRange(selection: TimelineSelection, label: string) {
+    const splitClipId = `window-${crypto.randomUUID()}`;
+    dispatchProject({
+      type: "commit",
+      label,
+      updater: (current) => {
+        const splitClipIds = [splitClipId];
+        return patchProjectState(current, {
+          clips: removeRangeFromLane(
+            current.clips,
+            selection.laneId,
+            selection.startQ,
+            getSelectionEndQ(selection),
+            current.bpm,
+            () => splitClipIds.shift() ?? `window-${crypto.randomUUID()}`,
+          ),
+        });
+      },
+    });
+  }
+
+  function copySelection(selection: TimelineSelection) {
+    const content = copySelectionRange(selection);
+    if (!content.fragments.length) {
+      setStatus("Nothing in the selection to copy.");
+      return;
+    }
+
+    clipClipboardRef.current = content;
+    setStatus("Copied the selection.");
+  }
+
+  function cutSelection(selection: TimelineSelection) {
+    const content = copySelectionRange(selection);
+    if (!content.fragments.length) {
+      setStatus("Nothing in the selection to cut.");
+      return;
+    }
+
+    clipClipboardRef.current = content;
+    removeSelectionRange(selection, "Cut selection");
+    setStatus("Cut the selection.");
+  }
+
+  function deleteSelection(selection: TimelineSelection) {
+    if (!copySelectionRange(selection).fragments.length) {
+      return;
+    }
+
+    removeSelectionRange(selection, "Delete selection");
+    setStatus("Deleted the selection.");
+  }
+
+  // Pastes at the playhead on `laneId`, or on the selected layer, keeping the
+  // copied pieces' spacing.
   function pasteArrangementClip(laneId?: string) {
-    const clipboardClip = clipClipboardRef.current;
-    if (!clipboardClip) {
+    const clipboard = clipClipboardRef.current;
+    const [firstFragment] = clipboard?.fragments ?? [];
+    if (!clipboard || !firstFragment) {
       return;
     }
 
@@ -4916,32 +5666,36 @@ function App() {
         lanes,
         selectedClip?.laneId,
         selectedLaneId,
-        clipboardClip.laneId,
+        firstFragment.clip.laneId,
       );
-    const pastedClipId = `window-${crypto.randomUUID()}`;
+    const pastedClipIds = clipboard.fragments.map(
+      () => `window-${crypto.randomUUID()}`,
+    );
     const pasteQ = playheadQRef.current;
     dispatchProject({
       type: "commit",
       label: "Paste clip",
       updater: (current) => {
-        const pastedClip = cloneClipAtStartQ(
-          { ...clipboardClip, laneId: pasteLaneId },
-          current.bpm,
-          pasteQ,
-          pastedClipId,
-        );
+        const ids = [...pastedClipIds];
         return patchProjectState(current, {
-          clips: resolveClipOverlaps(
-            [...current.clips, pastedClip],
-            pastedClip,
+          clips: pasteClipboard(
+            current.clips,
+            clipboard,
+            pasteLaneId,
+            pasteQ,
             current.bpm,
-          ),
+            () => ids.shift() ?? `window-${crypto.randomUUID()}`,
+          ).clips,
         });
       },
     });
-    setSelectedClipId(pastedClipId);
+    setSelectedClipId(pastedClipIds[0]);
     setPendingSelection(null);
-    setStatus(`Pasted ${clipboardClip.label}.`);
+    setStatus(
+      clipboard.fragments.length === 1
+        ? `Pasted ${firstFragment.clip.label}.`
+        : `Pasted ${clipboard.fragments.length} clips.`,
+    );
   }
 
   function splitArrangementClip(clip: ArrangementClip) {
@@ -5033,7 +5787,7 @@ function App() {
       return;
     }
 
-    clipClipboardRef.current = clip;
+    clipClipboardRef.current = copyClip(clip, bpm);
     setStatus(`Copied ${clip.label}.`);
   }
 
@@ -5090,6 +5844,9 @@ function App() {
     split: splitArrangementClip,
     duplicate: duplicateArrangementClip,
     remove: deleteArrangementClip,
+    copySelection,
+    cutSelection,
+    deleteSelection,
   };
   // The keyboard shortcuts read the latest actions without re-subscribing.
   const clipActionsRef = useRef(clipActions);
@@ -5455,6 +6212,13 @@ function App() {
         ),
       })),
       disabled: isExporting,
+      clipboard: {
+        mac: shortcutLabels.mac,
+        hasContent: copySelectionRange(selection).fragments.length > 0,
+        cut: () => cutSelection(selection),
+        copy: () => copySelection(selection),
+        remove: () => deleteSelection(selection),
+      },
       insertTrack: commitPendingSelectionToSourceTrack,
       insertFill: () =>
         insertFillClip(selection.laneId, selection.startQ, selection.durationQ),
@@ -5556,6 +6320,9 @@ function App() {
       {
         clip: selectedClip?.label,
         clipEntries: getArrangementClipEntries(selectedClip, undefined),
+        selectionEntries: pendingSelection
+          ? getSelectionMenuEntries(pendingSelection)
+          : undefined,
         layer: selectedLane
           ? {
               name: selectedLane.name,
@@ -5585,7 +6352,17 @@ function App() {
       const key = event.key.toLowerCase();
       const clipActions = clipActionsRef.current;
       if (hasPrimaryModifier && key === "c") {
-        if (!selectedClip || isExporting) {
+        if (isExporting) {
+          return;
+        }
+
+        if (pendingSelection) {
+          event.preventDefault();
+          clipActions.copySelection(pendingSelection);
+          return;
+        }
+
+        if (!selectedClip) {
           return;
         }
 
@@ -5595,7 +6372,17 @@ function App() {
       }
 
       if (hasPrimaryModifier && key === "x") {
-        if (!selectedClip || isExporting) {
+        if (isExporting) {
+          return;
+        }
+
+        if (pendingSelection) {
+          event.preventDefault();
+          clipActions.cutSelection(pendingSelection);
+          return;
+        }
+
+        if (!selectedClip) {
           return;
         }
 
@@ -5716,7 +6503,17 @@ function App() {
       }
 
       if (event.key === "Delete" || event.key === "Backspace") {
-        if (!selectedClip || isExporting) {
+        if (isExporting) {
+          return;
+        }
+
+        if (pendingSelection) {
+          event.preventDefault();
+          clipActions.deleteSelection(pendingSelection);
+          return;
+        }
+
+        if (!selectedClip) {
           return;
         }
 
@@ -5734,6 +6531,7 @@ function App() {
     fxLaneId,
     isExporting,
     lanes,
+    pendingSelection,
     selectedClip,
     setPlayheadQ,
     timelineContentEndQ,
@@ -6174,7 +6972,18 @@ function App() {
     };
   }, [bpm, isPlaying, playheadSignal, setPlayheadQ, totalQuarters]);
 
-  async function applyOpenedSessionPayload(payload: SessionOpenResponse) {
+  async function applyOpenedSessionPayload(
+    payload: SessionOpenResponse,
+    selection: SessionSelection,
+  ) {
+    claimWorkspaceSession();
+    setSessionSource(
+      payload.alsImport
+        ? { kind: "import", name: payload.sessionName }
+        : selection.kind === "path"
+          ? { kind: "path", name: payload.sessionName, path: selection.path }
+          : { kind: selection.kind, name: payload.sessionName },
+    );
     const existingRefs = payload.mediaRefs.filter((ref) => ref.exists);
     const missingRefs = payload.mediaRefs.filter((ref) => !ref.exists);
     const placeholderMedia = payload.mediaRefs.map((ref, index) =>
@@ -6375,9 +7184,11 @@ function App() {
           patchProjectState(current, {
             mediaItems: nextMedia,
             lanes: standalone.lanes,
-            effects: ensureLayerLayouts(
-              current.effects,
-              standalone.lanes.map((lane) => lane.id),
+            effects: ensureGlobalOrder(
+              ensureLayerLayouts(
+                current.effects,
+                standalone.lanes.map((lane) => lane.id),
+              ),
             ),
             sourceTracks: standalone.sourceTracks,
             sourceSpans: standalone.sourceSpans,
@@ -6512,7 +7323,7 @@ function App() {
             : selection.name;
       setStatus(`Opening ${selectionName}...`);
       const payload = await harness.openSession(selection);
-      await applyOpenedSessionPayload(payload);
+      await applyOpenedSessionPayload(payload, selection);
     } catch (error) {
       reportOpenFailure("Open failed", selectionName, error);
     }
@@ -6542,10 +7353,77 @@ function App() {
             : selection.name;
       setStatus(`Opening workspace ${selectionName}...`);
       const payload = await harness.openSession(selection);
-      await applyOpenedSessionPayload(payload);
+      await applyOpenedSessionPayload(payload, selection);
     } catch (error) {
       reportOpenFailure("Open workspace failed", selectionName, error);
     }
+  }
+
+  async function handleSaveSession() {
+    const harness = getHarness();
+    const { session, skippedFillClips } = projectToLvpSession(
+      projectHistory.present,
+      { playheadQ: playheadQRef.current, selectedClipId },
+    );
+    const blob = new Blob([`${JSON.stringify(session, null, 2)}\n`], {
+      type: "application/json",
+    });
+    const choice = chooseSessionSaveTarget(sessionSource, sessionName);
+
+    let saveTarget: SaveTarget;
+    if (choice.kind === "path" && harness.capabilities["native-blob-write"]) {
+      saveTarget = {
+        kind: "native-path",
+        filename: basename(choice.path),
+        path: choice.path,
+      };
+    } else {
+      const filename =
+        choice.kind === "path" ? basename(choice.path) : choice.filename;
+      try {
+        const nextSaveTarget = await harness.prepareSave(filename, {
+          mimeType: "application/json",
+          extensions: [SESSION_FILE_EXTENSION],
+          description: "ZVID session",
+        });
+        if (!nextSaveTarget) {
+          setStatus("Save canceled.");
+          return;
+        }
+        saveTarget = nextSaveTarget;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          setStatus("Save canceled.");
+          return;
+        }
+        const message = error instanceof Error ? error.message : String(error);
+        setStatus(`Failed to prepare save destination: ${message}`);
+        return;
+      }
+    }
+
+    try {
+      await harness.saveBlob(blob, saveTarget);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus(`Save failed: ${message}`);
+      return;
+    }
+
+    // A session saved to a new path keeps saving there.
+    if (saveTarget.kind === "native-path" && sessionSource.kind !== "path") {
+      setSessionSource({
+        kind: "path",
+        name: basename(saveTarget.path),
+        path: saveTarget.path,
+      });
+    }
+    const savedName =
+      saveTarget.kind === "native-path" ? saveTarget.path : saveTarget.filename;
+    const fillNote = skippedFillClips
+      ? ` ${pluralize(skippedFillClips, "fill clip")} ${skippedFillClips === 1 ? "was" : "were"} not saved: .lvp files cannot store fill clips.`
+      : "";
+    setStatus(`Saved ${savedName}.${fillNote}`);
   }
 
   async function handleExport() {
@@ -6786,6 +7664,11 @@ function App() {
   }
 
   function handleDisconnectConnection() {
+    forgetJoinedRoom();
+    const href = removeInviteParams(window.location.href);
+    if (href) {
+      window.history.replaceState(window.history.state, "", href);
+    }
     collaborationControllerRef.current?.destroy();
     collaborationControllerRef.current = null;
     setCollaborationState(IDLE_COLLABORATION_STATE);
@@ -6801,6 +7684,15 @@ function App() {
     setIsStartingConnect(true);
     try {
       const invite = parseCollaborationInvite(connectInviteValue);
+      // Save this browser's own session before the shared one replaces it.
+      await flushWorkspaceSession();
+      viewingSharedSessionRef.current = true;
+      rememberJoinedRoom(invite.room, invite.password);
+      window.history.replaceState(
+        window.history.state,
+        "",
+        withJoinedRoom(window.location.href, invite.room, invite.signaling),
+      );
       setCollaborationRoom(invite.room);
       setCollaborationSignaling(invite.signaling);
       setCollaborationPassword(invite.password);
@@ -7143,12 +8035,26 @@ function App() {
                 Import Media
               </DropdownMenuItem>
               <DropdownMenuItem
+                disabled={
+                  collaborationMode !== "idle" ||
+                  isPristineProjectHistory(projectHistory)
+                }
+                onSelect={handleCloseSession}
+              >
+                Close Session
+              </DropdownMenuItem>
+              <DropdownMenuItem
                 disabled={!offlineMedia.length}
                 onSelect={() => setIsOfflineMediaDialogOpen(true)}
               >
                 {offlineMedia.length
                   ? "Locate Offline Media…"
                   : "All Media Linked"}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => setIsMediaStorageDialogOpen(true)}
+              >
+                Media Storage…
               </DropdownMenuItem>
               {inSharedMediaSession ? (
                 <DropdownMenuItem
@@ -7174,11 +8080,9 @@ function App() {
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onSelect={() =>
-                  setStatus(
-                    "Save/export is not wired yet in the dev-server refactor.",
-                  )
-                }
+                onSelect={() => {
+                  void handleSaveSession();
+                }}
               >
                 Save
               </DropdownMenuItem>
@@ -7477,6 +8381,12 @@ function App() {
         relinkingIds={relinkingMediaIds}
       />
 
+      <MediaStorageDialog
+        onCleared={handleMediaStorageCleared}
+        onOpenChange={setIsMediaStorageDialogOpen}
+        open={isMediaStorageDialogOpen}
+      />
+
       <MediaSyncDialog
         entries={mediaSyncEntries}
         onOpenChange={setIsMediaSyncDialogOpen}
@@ -7487,6 +8397,35 @@ function App() {
         retryMedia={retryPeerMedia}
         summary={mediaSyncSummary}
       />
+
+      <Dialog open={workspaceAccess === "blocked"}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>This session is open in another tab</DialogTitle>
+            <DialogDescription>
+              Only one tab saves the session. Take over to continue here with
+              the latest saved session, or open it read-only so changes in this
+              tab are not saved.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button
+              className="ghost-button"
+              onClick={handleOpenWorkspaceReadOnly}
+              type="button"
+            >
+              Open read-only
+            </button>
+            <button
+              className="ghost-button ghost-button--accent"
+              onClick={() => void handleTakeOverWorkspace()}
+              type="button"
+            >
+              Take over
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isConnectDialogOpen} onOpenChange={setIsConnectDialogOpen}>
         <DialogContent>
@@ -7603,7 +8542,9 @@ function App() {
                       }
                       type="button"
                     >
-                      {option.label}
+                      {option.id === "auto" && snapMode === "auto"
+                        ? `${option.label} · ${formatDivision(adaptiveDivision)}`
+                        : option.label}
                     </button>
                   ))}
                 </div>
@@ -9091,6 +10032,23 @@ function App() {
         </div>
       </main>
 
+      {workspaceAccess === "read-only" || workspaceAccess === "taken-over" ? (
+        <output className="workspace-lock-banner">
+          <span>
+            {workspaceAccess === "taken-over"
+              ? "This session was taken over in another tab."
+              : "This session is open in another tab."}{" "}
+            Changes here are not saved.
+          </span>
+          <button
+            className="ghost-button ghost-button--accent"
+            onClick={() => void handleTakeOverWorkspace()}
+            type="button"
+          >
+            Take over
+          </button>
+        </output>
+      ) : null}
       {importNotice ? (
         <ImportNotice
           notice={importNotice}
@@ -9120,4 +10078,4 @@ function App() {
   );
 }
 
-export default App;
+export default AppRoot;

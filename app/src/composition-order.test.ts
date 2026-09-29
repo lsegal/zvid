@@ -7,6 +7,7 @@ import {
   parseCompositionOrder,
   resolveCompositionOrder,
   visibleLayerCount,
+  Z_ORDER_COMPOSITION,
 } from "./composition-order.ts";
 
 const GLOBAL = "__group_main";
@@ -43,10 +44,10 @@ describe("parseCompositionOrder", () => {
   });
 
   it("clamps out-of-range values and keeps defaults for unreadable ones", () => {
-    assert.deepEqual(parseCompositionOrder(order("Grid", 9.4, 30).parameters), {
+    assert.deepEqual(parseCompositionOrder(order("Grid", 9.4, 60).parameters), {
       arrangement: "grid",
       gridSize: 6,
-      spacing: 10,
+      spacing: 50,
     });
     assert.deepEqual(parseCompositionOrder(order("Spiral", 1, -2).parameters), {
       arrangement: "vertical",
@@ -55,15 +56,42 @@ describe("parseCompositionOrder", () => {
     });
     assert.deepEqual(parseCompositionOrder([]), DEFAULT_COMPOSITION_ORDER);
   });
+
+  it("keeps spacing within 0 to 50", () => {
+    for (const [saved, expected] of [
+      [0, 0],
+      [10, 10],
+      [30, 30],
+      [50, 50],
+      [60, 50],
+    ]) {
+      assert.equal(
+        parseCompositionOrder(order("Vertical", 2, saved).parameters).spacing,
+        expected,
+        `${saved}`,
+      );
+    }
+  });
 });
 
 describe("resolveCompositionOrder", () => {
-  it("stacks vertically with no spacing without an Order effect", () => {
-    assert.deepEqual(resolveCompositionOrder([], GLOBAL), {
-      arrangement: "vertical",
-      gridSize: 2,
-      spacing: 0,
-    });
+  it("overlaps the layers by z-order without an Order effect", () => {
+    assert.deepEqual(resolveCompositionOrder([], GLOBAL), Z_ORDER_COMPOSITION);
+    assert.equal(Z_ORDER_COMPOSITION.arrangement, "none");
+    assert.deepEqual(
+      resolveCompositionOrder([order("Grid", 3, 2, { trackId: "1" })], GLOBAL),
+      Z_ORDER_COMPOSITION,
+    );
+  });
+
+  it("treats a bypassed Order like no Order", () => {
+    assert.deepEqual(
+      resolveCompositionOrder(
+        [order("Vertical", 2, 0, { enabled: false })],
+        GLOBAL,
+      ),
+      Z_ORDER_COMPOSITION,
+    );
   });
 
   it("uses the last enabled Order on the Global stack", () => {
@@ -94,6 +122,11 @@ describe("visibleLayerCount", () => {
       assert.equal(visibleLayerCount(9, value), 9);
       assert.equal(hiddenLayerCount(9, value), 0);
     }
+  });
+
+  it("draws every layer when they overlap", () => {
+    assert.equal(visibleLayerCount(9, Z_ORDER_COMPOSITION), 9);
+    assert.equal(hiddenLayerCount(9, Z_ORDER_COMPOSITION), 0);
   });
 
   it("draws at most one layer per grid cell", () => {

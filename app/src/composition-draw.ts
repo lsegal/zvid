@@ -476,6 +476,7 @@ export function drawComposition(
           entry.text ||
           mediaRefs.get(entry.sourceKey) instanceof HTMLVideoElement),
     ),
+    order,
   );
   const stackedClips = orderedClips.slice(
     0,

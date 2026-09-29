@@ -32,6 +32,11 @@ export type ProjectHistoryAction<State> =
   | {
       type: "replace";
       snapshot: State;
+    }
+  | {
+      // Swaps in a whole history, such as one restored after a refresh.
+      type: "restore";
+      history: ProjectHistoryState<State>;
     };
 
 export function createProjectHistoryState<State>(
@@ -121,6 +126,13 @@ export function projectHistoryReducer<State>(
         future: [],
       };
     }
+
+    case "restore":
+      return {
+        past: action.history.past,
+        present: action.history.present,
+        future: action.history.future,
+      };
 
     default:
       return state;

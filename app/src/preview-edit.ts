@@ -10,8 +10,13 @@
 import {
   type FrameBounds,
   orderStackedLayers,
-  resolveFrameBounds,
+  resolveSlotBounds,
 } from "./composition-layout.ts";
+import {
+  type CompositionOrder,
+  DEFAULT_COMPOSITION_ORDER,
+  visibleLayerCount,
+} from "./composition-order.ts";
 import {
   type BoxCorners,
   canvasToLayer,
@@ -80,7 +85,7 @@ type StackableLayer = {
   visual: { transform?: LayerTransform };
 };
 
-// A layer as the preview draws it: its band, its Transform, and the corners
+// A layer as the preview draws it: its slot, its Transform, and the corners
 // of the transformed box in canvas pixels.
 export type PreviewLayer = {
   laneId: string;
@@ -91,19 +96,29 @@ export type PreviewLayer = {
 };
 
 // The layers the compositor draws at the playhead, in draw order (the last
-// one is on top). As in the compositor, only in-bounds layers take a band.
+// one is on top). As in the compositor, only in-bounds layers take a slot,
+// and a Grid shows no more layers than it has cells. Without an Order every
+// slot is the whole canvas and Layer 1 is drawn last.
 export function resolvePreviewLayers(
   activeClips: readonly StackableLayer[],
   canvas: Size,
+  order: CompositionOrder = DEFAULT_COMPOSITION_ORDER,
 ): PreviewLayer[] {
-  const stacked = orderStackedLayers(
+  const ordered = orderStackedLayers(
     activeClips.filter((entry) => entry.isInBounds),
+    order,
   );
-  const canvasAspect = canvas.width / Math.max(1, canvas.height);
+  const stacked = ordered.slice(0, visibleLayerCount(ordered.length, order));
 
   return stacked.map((entry, index) => {
     const placement = {
-      frame: resolveFrameBounds(index, stacked.length, canvasAspect),
+      frame: resolveSlotBounds(
+        index,
+        stacked.length,
+        order,
+        canvas.width,
+        canvas.height,
+      ),
     };
     const transform = entry.visual.transform ?? IDENTITY_TRANSFORM;
     return {

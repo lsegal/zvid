@@ -1,9 +1,12 @@
 // The Order global effect: how the compositor arranges its layers (stacked
 // Vertical bands, Horizontal columns or an N×N Grid) and how much space it
-// leaves between them. Without an Order effect the layers stack vertically
-// with no gaps.
+// leaves between them. Without an enabled Order effect the layers are not
+// arranged at all: each covers the whole canvas and they overlap by z-order,
+// Layer 1 on top.
 
-export type Arrangement = "vertical" | "horizontal" | "grid";
+// "none" is the z-order overlay used when there is no enabled Order; it is
+// never an Order device's own setting.
+export type Arrangement = "vertical" | "horizontal" | "grid" | "none";
 
 export type CompositionOrder = {
   arrangement: Arrangement;
@@ -19,10 +22,17 @@ export const ORDER_ARRANGEMENTS = ["Vertical", "Horizontal", "Grid"] as const;
 
 export const GRID_SIZE_MIN = 2;
 export const GRID_SIZE_MAX = 6;
-export const SPACING_MAX = 10;
+export const SPACING_MAX = 50;
 
 export const DEFAULT_COMPOSITION_ORDER: CompositionOrder = {
   arrangement: "vertical",
+  gridSize: GRID_SIZE_MIN,
+  spacing: 0,
+};
+
+// Layers overlapping full-frame, with no Order to arrange them.
+export const Z_ORDER_COMPOSITION: CompositionOrder = {
+  arrangement: "none",
   gridSize: GRID_SIZE_MIN,
   spacing: 0,
 };
@@ -87,7 +97,7 @@ export function parseCompositionOrder(
 }
 
 // The arrangement the compositor uses: the last enabled Order effect on the
-// Global stack, or stacked bands with no gaps when there is none.
+// Global stack, or the z-order overlay when there is none.
 export function resolveCompositionOrder(
   effects: readonly OrderEffect[],
   globalTrackId: string,
@@ -100,7 +110,7 @@ export function resolveCompositionOrder(
   );
   return effect
     ? parseCompositionOrder(effect.parameters)
-    : DEFAULT_COMPOSITION_ORDER;
+    : Z_ORDER_COMPOSITION;
 }
 
 // Layers the arrangement has room for: every layer, except that a Grid

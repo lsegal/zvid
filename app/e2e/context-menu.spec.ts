@@ -392,7 +392,11 @@ test("Ctrl-click on macOS opens the menus without selecting, dragging or droppin
 // the song start, with the timeline scrolled back to it.
 async function dragSelection(target: Locator, fromX: number, toX: number) {
   const page = target.page();
-  await target.scrollIntoViewIfNeeded();
+  // Centred, so the timeline's sticky header row doesn't cover the lane
+  // when the FX panel leaves the timeline short.
+  await target.evaluate((element) =>
+    element.scrollIntoView({ block: "center" }),
+  );
   await page.locator(".timeline-scroll").evaluate(
     (element) =>
       new Promise((resolve) => {
@@ -444,6 +448,9 @@ test("right-clicking a selection keeps it and inserts a track like its number ke
   await expect(menu).toBeVisible();
   await expect(selection).toBeVisible();
   await expect(menu.getByRole("menuitem")).toHaveText([
+    /^Cut/,
+    /^Copy/,
+    /^Delete/,
     "Insert Track",
     "Insert Fill Layer",
     "Insert Text Layer",
