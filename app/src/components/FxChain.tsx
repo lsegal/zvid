@@ -29,6 +29,7 @@ import {
   readCollapsedDevices,
   resolveGlobalOrderHint,
   splitDeviceParameters,
+  splitKnobRows,
   toggleCollapsedDevice,
   usesColumnLayout,
   writeCollapsedDevices,
@@ -987,6 +988,7 @@ export function FxDevicePanel({
   }
 
   const { controls, knobs } = splitDeviceParameters(device.parameters);
+  const knobRows = splitKnobRows(knobs, device.knobRows);
 
   return (
     <section
@@ -1077,6 +1079,38 @@ export function FxDevicePanel({
               ))}
             </div>
           ) : null}
+        </div>
+      ) : knobRows ? (
+        // Labelled knob rows (a Move's Start and End), each led by its label.
+        <div
+          className="fx-device-panel__body"
+          style={{
+            gridTemplateColumns: `auto repeat(${knobRows[0].knobs.length}, auto)`,
+          }}
+        >
+          {controls.map((parameter) => (
+            <FxParameterControl
+              key={parameter.key}
+              device={device}
+              onSetParameter={onSetParameter}
+              parameter={parameter}
+            />
+          ))}
+          {knobRows.map((row) => (
+            <fieldset className="fx-device-panel__knob-row" key={row.label}>
+              <legend className="fx-device-panel__row-label">
+                {row.label}
+              </legend>
+              {row.knobs.map((parameter) => (
+                <FxParameterControl
+                  key={parameter.key}
+                  device={device}
+                  onSetParameter={onSetParameter}
+                  parameter={parameter}
+                />
+              ))}
+            </fieldset>
+          ))}
         </div>
       ) : (
         <div

@@ -365,6 +365,25 @@ body.fx-chain-dragging * {
   grid-column: 1 / -1;
 }
 
+/* Labelled knob rows (a Move's Start and End): each row's label, then its
+   knobs, in one grid so the columns line up. */
+.fx-device-panel__knob-row {
+  display: contents;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.fx-device-panel__row-label {
+  align-self: center;
+  padding: 0 4px 0 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
 /* Many controls: four to a column, then the knobs in two rows beside them. */
 .fx-device-panel__body--columns {
   display: flex;

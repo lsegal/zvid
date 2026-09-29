@@ -123,6 +123,23 @@ export function splitDeviceParameters(parameters: FxDeviceParameter[]) {
   };
 }
 
+// The knobs split evenly into rows labelled `labels`, in order, such as a
+// Move's Start and End rows. Undefined when there are no labels or the
+// knobs don't split evenly, so they fill the usual two rows instead.
+export function splitKnobRows<T>(
+  knobs: readonly T[],
+  labels: readonly string[] | undefined,
+) {
+  if (!labels?.length || !knobs.length || knobs.length % labels.length !== 0) {
+    return undefined;
+  }
+  const size = knobs.length / labels.length;
+  return labels.map((label, index) => ({
+    label,
+    knobs: knobs.slice(index * size, (index + 1) * size),
+  }));
+}
+
 export function readCollapsedDevices(storage: KeyValueStorage | undefined) {
   try {
     const parsed: unknown = JSON.parse(

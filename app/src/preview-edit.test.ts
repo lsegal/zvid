@@ -439,6 +439,57 @@ describe("resolvePreviewLayers", () => {
     assertClose(layer.corners[0].x, 500);
     assertClose(layer.corners[1].x, 1500);
   });
+
+  it("shows the box a Move puts the clip in at the playhead", () => {
+    // The clip's Move halves its width about its left edge, inside the
+    // layer's Transform, which moves it right by a quarter.
+    const [layer] = resolvePreviewLayers(
+      [
+        {
+          ...activeLayer("a", 0, { positionX: 0.25 }),
+          visual: {
+            transform: { ...IDENTITY_TRANSFORM, positionX: 0.25 },
+            clipMotion: {
+              outer: [{ ...IDENTITY_TRANSFORM, scaleX: 0.5, originX: -1 }],
+              inner: [],
+            },
+          },
+        },
+      ],
+      canvas,
+    );
+    assertClose(layer.corners[0].x, 250);
+    assertClose(layer.corners[1].x, 750);
+    assert.equal(isPointOnLayer({ x: 300, y: 500 }, layer, canvas), true);
+    assert.equal(isPointOnLayer({ x: 800, y: 500 }, layer, canvas), false);
+
+    // Dragging the clip's Transform works inside the layer's Transform and
+    // the Move before it, so a new Transform nests inside the Move.
+    const frame = resolvePreviewEditFrame(layer, true, canvas);
+    assertClose(frame.parent.a, 0.5);
+    assertClose(frame.parent.e, 250);
+    assert.deepEqual(frame.corners, layer.corners);
+  });
+
+  it("keeps Moves inside the edited Transform in its corners, not its parent", () => {
+    const [layer] = resolvePreviewLayers(
+      [
+        {
+          ...activeLayer("a", 0),
+          visual: {
+            motion: {
+              outer: [],
+              inner: [{ ...IDENTITY_TRANSFORM, positionX: 0.1 }],
+            },
+          },
+        },
+      ],
+      canvas,
+    );
+    const frame = resolvePreviewEditFrame(layer, false, canvas);
+    assertClose(frame.parent.e, 0);
+    assertClose(frame.corners[0].x, 100);
+  });
 });
 
 describe("hitTestLayers", () => {

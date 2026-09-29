@@ -5,6 +5,11 @@
 // Transform moves the result. Everything here is in canvas pixels, origin
 // top-left, +y down, with positive rotation turning clockwise on screen.
 import type { FrameBounds } from "./composition-layout.ts";
+import {
+  easeMotion,
+  type MotionCurve,
+  parseMotionCurve,
+} from "./motion-easing.ts";
 
 export type LayerTransform = {
   // Offset of the box, in canvas widths (x) and heights (y, + down).
@@ -113,6 +118,86 @@ export function nestedTransformMatrix(
     transformMatrix(layerTransform, box, canvas),
     transformMatrix(clipTransform, box, canvas),
   );
+}
+
+// A stack's Moves at the playhead, as the Transforms they resolve to, split
+// by where they sit in the stack: `outer` before the stack's Transform
+// (which nests inside them) and `inner` after it (nested inside it). A stack
+// without a Transform has its Moves in `outer`, so a Transform added to the
+// end of the stack nests inside them.
+export type TransformMotion = {
+  outer: readonly LayerTransform[];
+  inner: readonly LayerTransform[];
+};
+
+// The geometry a clip is drawn with: its layer's Transform and Moves, then
+// its own nested inside them.
+export type TransformedVisual = {
+  transform?: LayerTransform;
+  clipTransform?: LayerTransform;
+  motion?: TransformMotion;
+  clipMotion?: TransformMotion;
+};
+
+// Outermost first: each Transform nests inside the ones before it.
+export type TransformChain = readonly LayerTransform[];
+
+// One stack's chain: its outer Moves, its Transform, then its inner Moves.
+export function stackTransformChain(
+  transform: LayerTransform | undefined,
+  motion: TransformMotion | undefined,
+): LayerTransform[] {
+  return [
+    ...(motion?.outer ?? []),
+    ...(transform ? [transform] : []),
+    ...(motion?.inner ?? []),
+  ];
+}
+
+// The whole chain that places a clip: its layer's stack, then its own.
+export function visualTransformChain(visual: TransformedVisual) {
+  return [
+    ...stackTransformChain(visual.transform, visual.motion),
+    ...stackTransformChain(visual.clipTransform, visual.clipMotion),
+  ];
+}
+
+export function isIdentityChain(chain: TransformChain) {
+  return chain.every((transform) => isIdentityTransform(transform));
+}
+
+// Where `chain` puts `box`, every Transform taken about the same
+// untransformed box, as in `nestedTransformMatrix`.
+export function chainTransformMatrix(
+  chain: TransformChain,
+  box: Box,
+  canvas: CanvasSize,
+): Matrix2D {
+  return chain.reduce<Matrix2D>(
+    (matrix, transform) =>
+      multiplyMatrix(matrix, transformMatrix(transform, box, canvas)),
+    IDENTITY_MATRIX,
+  );
+}
+
+export function visualTransformMatrix(
+  box: Box,
+  canvas: CanvasSize,
+  visual: TransformedVisual,
+) {
+  return chainTransformMatrix(visualTransformChain(visual), box, canvas);
+}
+
+// The corners of `box` placed by `matrix`, clockwise from top-left.
+export function matrixBoxCorners(matrix: Matrix2D, box: Box): BoxCorners {
+  const right = box.x + box.width;
+  const bottom = box.y + box.height;
+  return [
+    applyMatrix(matrix, { x: box.x, y: box.y }),
+    applyMatrix(matrix, { x: right, y: box.y }),
+    applyMatrix(matrix, { x: right, y: bottom }),
+    applyMatrix(matrix, { x: box.x, y: bottom }),
+  ];
 }
 
 export function applyMatrix(matrix: Matrix2D, point: Point): Point {
@@ -242,12 +327,24 @@ export function resolveClipTextBox(
   layerTransform?: LayerTransform,
   clipTransform?: LayerTransform,
 ) {
-  const pivot = isIdentityTransform(clipTransform)
-    ? layerTransform
-    : clipTransform;
+  return resolveVisualTextBox(band, canvas, {
+    transform: layerTransform,
+    clipTransform,
+  });
+}
+
+// `resolveClipTextBox` for a clip's whole chain, Moves included: the box is
+// resized about the origin of the innermost Transform that changes it.
+export function resolveVisualTextBox(
+  band: Box,
+  canvas: CanvasSize,
+  visual: TransformedVisual,
+) {
+  const chain = visualTransformChain(visual);
+  const pivot = chain.findLast((transform) => !isIdentityTransform(transform));
   return resolveNestedTextBox(
     band,
-    nestedTransformMatrix(band, canvas, layerTransform, clipTransform),
+    chainTransformMatrix(chain, band, canvas),
     pivot && { x: pivot.originX, y: pivot.originY },
   );
 }
@@ -389,5 +486,60 @@ export function parseLayerTransform(
     transform[field] = Math.max(minimum, Math.min(maximum, numeric));
   }
 
+  return transform;
+}
+
+export const MOVE_EFFECT_NAME = "Move";
+
+export function isMoveEffectName(effectName: string) {
+  return effectName.trim().toLowerCase() === "move";
+}
+
+// A Move effect: a Transform animated from `start` to `end` over each clip
+// it applies to, along its `motion` curve.
+export type LayerMove = {
+  start: LayerTransform;
+  end: LayerTransform;
+  motion: MotionCurve;
+};
+
+// Reads a Move effect's parameters: Transform's keys prefixed with "Start"
+// and "End", and its Motion curve. Missing or unreadable values keep their
+// identity default, as for Transform.
+export function parseLayerMove(parameters: TransformParameter[]): LayerMove {
+  const start: TransformParameter[] = [];
+  const end: TransformParameter[] = [];
+  let motion: string | undefined;
+  for (const parameter of parameters) {
+    const key = parameter.key.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (key === "motion") {
+      motion = parameter.value;
+    } else if (key.startsWith("start")) {
+      start.push({ ...parameter, key: key.slice("start".length) });
+    } else if (key.startsWith("end")) {
+      end.push({ ...parameter, key: key.slice("end".length) });
+    }
+  }
+
+  return {
+    start: parseLayerTransform(start),
+    end: parseLayerTransform(end),
+    motion: parseMotionCurve(motion),
+  };
+}
+
+// The Transform a Move gives at clip progress `progress` (0 at the clip's
+// start, 1 at its end): each field eased from its start to its end value,
+// exactly `start` at 0 and `end` at 1.
+export function resolveMoveTransform(
+  move: LayerMove,
+  progress: number,
+): LayerTransform {
+  const eased = easeMotion(move.motion, progress);
+  const transform = { ...IDENTITY_TRANSFORM };
+  for (const field of Object.keys(transform) as Array<keyof LayerTransform>) {
+    transform[field] =
+      (1 - eased) * move.start[field] + eased * move.end[field];
+  }
   return transform;
 }
