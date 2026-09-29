@@ -39,3 +39,49 @@
 .preview-transform-overlay:focus-visible .preview-transform-overlay__box {
   stroke-width: 2px;
 }
+
+/* Resize handles: an 8px square drawn inside a larger hit area, turned with
+   the box. They sit above the move-drag surface, so they win over it. */
+.preview-transform-overlay__handle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  z-index: 2;
+}
+
+.preview-transform-overlay__handle::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  box-sizing: border-box;
+  background: #fff;
+  border: 1px solid var(--lane-selected-accent);
+  box-shadow: 0 0 0 1px rgba(7, 8, 15, 0.55);
+}
+
+.preview-transform-overlay__origin {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  z-index: 1;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  cursor: move;
+}
+
+.preview-transform-overlay__origin-mark circle,
+.preview-transform-overlay__origin-mark line {
+  fill: none;
+  stroke: var(--lane-selected-accent);
+  stroke-width: 1.5px;
+  paint-order: stroke;
+  filter: drop-shadow(0 0 1px rgba(7, 8, 15, 0.9));
+}
+
+/* Snapping guides while a handle is dragged. */
+.preview-transform-overlay__guide {
+  stroke: var(--lane-selected-accent);
+  stroke-width: 1px;
+  stroke-dasharray: 4 3;
+  opacity: 0.85;
+}

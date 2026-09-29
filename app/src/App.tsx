@@ -113,6 +113,7 @@ import {
 import { OfflineMediaDialog } from "./components/OfflineMediaDialog";
 import {
   type PreviewLayerMove,
+  type PreviewLayerTransformEdit,
   PreviewTransformOverlay,
 } from "./components/PreviewTransformOverlay";
 import {
@@ -235,10 +236,16 @@ import {
 import {
   moveHistoryLabel,
   type PreviewLayer,
+  readLayerTransform,
   readLayerTransformPosition,
   resolvePreviewLayers,
+  setLayerTransformParameters,
   setLayerTransformPosition,
 } from "./preview-edit.ts";
+import {
+  MOVE_ORIGIN_HISTORY_LABEL,
+  resizeHistoryLabel,
+} from "./preview-resize.ts";
 import {
   createProjectHistoryState,
   projectHistoryReducer,
@@ -2507,6 +2514,25 @@ function App() {
         ),
         (current) =>
           setLayerTransformPosition(current, laneId, position, newEffectId),
+        mode,
+      ),
+    [editEffects, lanes],
+  );
+  const getPreviewLayerTransform = useCallback(
+    (laneId: string) => readLayerTransform(effectsRef.current, laneId),
+    [],
+  );
+  const transformPreviewLayer = useCallback(
+    ({ laneId, kind, values, mode, newEffectId }: PreviewLayerTransformEdit) =>
+      editEffects(
+        kind === "resize"
+          ? resizeHistoryLabel(
+              lanes.find((lane) => lane.id === laneId)?.name ??
+                `Layer ${laneId}`,
+            )
+          : MOVE_ORIGIN_HISTORY_LABEL,
+        (current) =>
+          setLayerTransformParameters(current, laneId, values, newEffectId),
         mode,
       ),
     [editEffects, lanes],
@@ -8536,8 +8562,10 @@ function App() {
                     layers={previewLayers}
                     selectedLaneId={previewLaneId}
                     getLayerPosition={getPreviewLayerPosition}
+                    getLayerTransform={getPreviewLayerTransform}
                     onSelect={selectPreviewLayer}
                     onMove={movePreviewLayer}
+                    onTransform={transformPreviewLayer}
                   />
                   {!previewClip ||
                   (previewMediaState !== "online" && !hasOnlinePlayheadClip) ? (
