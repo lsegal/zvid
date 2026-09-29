@@ -349,6 +349,30 @@ describe("addEffect", () => {
     assert.equal(addEffect(effects, GLOBAL_EFFECT_TRACK_ID, "Layout"), effects);
   });
 
+  it("adds Transform to layers with identity defaults, never to Global", () => {
+    const effects = addEffect(load(), "6", "Transform", undefined, "move");
+    const added = effects.find((effect) => effect.id === "move");
+    assert.deepEqual(
+      added?.parameters.map((parameter) => [
+        parameter.key,
+        parameter.numericValue,
+      ]),
+      [
+        ["PositionX", 0],
+        ["PositionY", 0],
+        ["ScaleX", 1],
+        ["ScaleY", 1],
+        ["OriginX", 0],
+        ["OriginY", 0],
+        ["Rotation", 0],
+      ],
+    );
+    assert.equal(
+      addEffect(effects, GLOBAL_EFFECT_TRACK_ID, "Transform"),
+      effects,
+    );
+  });
+
   it("starts a new stack and generates ids", () => {
     const next = addEffect(load(), "5", "Layout");
     const added = next.at(-1);
