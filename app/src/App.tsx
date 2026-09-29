@@ -211,6 +211,10 @@ import {
   resolveSessionOverlaps,
 } from "./selection-overlaps";
 import {
+  forgetChangedMainAudioMiss,
+  offlineSessionMediaIds,
+} from "./session-media.ts";
+import {
   clipSourceFrame,
   formatClipsWithoutFile,
   type LvpSession,
@@ -1919,6 +1923,7 @@ function App() {
     ids: Set<string>;
   }>({ controller: null, mediaPeerCount: 0, ids: new Set() });
   const peerMediaStatusAtRef = useRef(0);
+  const peerMainAudioIdRef = useRef<string | undefined>(undefined);
   const sessionMediaCheckRef = useRef<SessionMediaCheck | null>(null);
   const lastCollaborationCursorRef = useRef("");
   const sourceTrackDragPreviewRef = useRef<SourceTrackDragPreview | null>(null);
@@ -1940,19 +1945,6 @@ function App() {
     () => new Map(mediaItems.map((item) => [item.id, item])),
     [mediaItems],
   );
-  // Serialized so the peer fetch effect only reruns when the set changes.
-  const offlineClipMediaIdsKey = useMemo(() => {
-    const ids = new Set<string>();
-    for (const clip of clips) {
-      if (
-        clip.mediaId &&
-        mediaItemsById.get(clip.mediaId)?.availability === "offline"
-      ) {
-        ids.add(clip.mediaId);
-      }
-    }
-    return JSON.stringify(Array.from(ids).sort());
-  }, [clips, mediaItemsById]);
   const lanePriority = useMemo(
     () => new Map(lanes.map((lane, index) => [lane.id, index])),
     [lanes],
@@ -2575,6 +2567,36 @@ function App() {
     timelineViewport.clientWidth - labelWidth,
   );
   const visibleTimelineEndPx = visibleTimelineStartPx + visibleTimelineWidthPx;
+  // Every offline media the session references, in peer request order.
+  // Serialized so the peer fetch effect only reruns when the list changes.
+  const offlineSessionMediaIdsKey = useMemo(() => {
+    const toRange = (clip: ArrangementClip | SourceSpan) => ({
+      mediaId: clip.mediaId,
+      startQ: clip.startQ,
+      endQ: getClipEndQ(clip, bpm),
+    });
+    return JSON.stringify(
+      offlineSessionMediaIds({
+        availability: (mediaId) => mediaItemsById.get(mediaId)?.availability,
+        mainAudioId,
+        clips: clips.map(toRange),
+        sourceSpans: sourceSpans.map(toRange),
+        playheadQ,
+        visibleStartQ: visibleTimelineStartPx / quarterPx,
+        visibleEndQ: visibleTimelineEndPx / quarterPx,
+      }),
+    );
+  }, [
+    bpm,
+    clips,
+    mainAudioId,
+    mediaItemsById,
+    playheadQ,
+    quarterPx,
+    sourceSpans,
+    visibleTimelineEndPx,
+    visibleTimelineStartPx,
+  ]);
   const filmstripRange = getFilmstripRange(
     visibleTimelineStartPx,
     visibleTimelineWidthPx,
@@ -4063,9 +4085,16 @@ function App() {
       misses.mediaPeerCount = mediaPeerCount;
       misses.ids.clear();
     }
+    // A main audio the host adds or replaces mid-share is requested at once.
+    forgetChangedMainAudioMiss(
+      misses.ids,
+      peerMainAudioIdRef.current,
+      mainAudioId,
+    );
+    peerMainAudioIdRef.current = mainAudioId;
 
     const transfers = peerMediaTransfersRef.current;
-    const offlineIds = JSON.parse(offlineClipMediaIdsKey) as string[];
+    const offlineIds = JSON.parse(offlineSessionMediaIdsKey) as string[];
     for (const mediaId of offlineIds) {
       if (transfers.size >= MAX_PEER_MEDIA_TRANSFERS) {
         break;
@@ -4145,8 +4174,9 @@ function App() {
   }, [
     adoptMediaBlob,
     collaborationMode,
+    mainAudioId,
     mediaPeerCount,
-    offlineClipMediaIdsKey,
+    offlineSessionMediaIdsKey,
     mediaHydrationTick,
     setLocalMediaOverride,
   ]);
