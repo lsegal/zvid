@@ -6077,7 +6077,7 @@ function App() {
         }, 4500);
         setStatus(
           localOnly
-            ? "Public sharing is live. Invite copied, but it points at this machine, so it only works on this computer or network. Share from the deployed app to invite others. Click Stop Share to disconnect."
+            ? "Invite copied, but it only works on this computer or network. Share from the deployed app to invite others. Click Stop Share to disconnect."
             : "Public sharing is live. Invite copied. Click Stop Share to disconnect.",
         );
       } catch (error) {
@@ -6682,8 +6682,9 @@ function App() {
               meta={collaborationView.remoteCollaboratorNames || undefined}
             />
             <p className="share-dialog__note">
-              Your invite uses a Google STUN probe to detect a public IP when
-              one is available, then it copies the connection URL automatically.
+              The invite links to this app's address and copies automatically.
+              Any room password travels in the link's fragment, which is never
+              sent to servers.
             </p>
           </div>
 
