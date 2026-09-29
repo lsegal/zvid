@@ -737,7 +737,7 @@ export function PreviewTransformOverlay({
             points={outline}
           />
           {rotationHandle ? (
-            <g className="preview-transform-overlay__rotate-stem">
+            <g>
               <line
                 className="preview-transform-overlay__halo"
                 x1={rotationHandle.stemStart.x}
