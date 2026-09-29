@@ -365,7 +365,24 @@ describe("splitDeviceParameters", () => {
     );
     assert.deepEqual(
       knobs.map((knob) => knob.key),
-      ["GridSize", "Spacing"],
+      ["GridSize", "Spacing", "BorderColor"],
+    );
+  });
+
+  it("keeps a colour listed before the knobs with the controls", () => {
+    const [color] = mapSessionEffectsToDevices(
+      [effect("fx-color", "3", "Color")],
+      "3",
+    );
+    const { controls, knobs } = splitDeviceParameters(color.parameters);
+
+    assert.deepEqual(
+      controls.map((control) => control.key),
+      ["Mode", "Color"],
+    );
+    assert.deepEqual(
+      knobs.map((knob) => knob.key),
+      ["Opacity"],
     );
   });
 });

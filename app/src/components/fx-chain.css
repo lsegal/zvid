@@ -560,6 +560,12 @@ body.fx-chain-dragging * {
   border-color: var(--fx-accent);
 }
 
+/* Still editable, but nothing shows it yet, such as a Border without
+   Spacing. */
+.fx-paint--dimmed {
+  opacity: 0.45;
+}
+
 .fx-paint__popover {
   width: max-content;
 }

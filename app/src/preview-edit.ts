@@ -231,11 +231,12 @@ export function matrixRotationDeg(parent: Matrix2D) {
 // one is on top). As in the compositor, only in-bounds layers take a slot,
 // and a Grid shows no more layers than it has cells. Without an Order every
 // slot is the whole canvas and Layer 1 is drawn last. FX clips take no slot:
-// their box starts as the whole canvas, and they come first so a click only
-// picks one where no other layer is. Layers beneath an FX clip with an Order
-// take their slots from that Order, inside the FX clip's box, and come
-// before the layers above it, which are drawn over them. They are measured
-// on that box's own surface, which its Transforms move, resize and turn.
+// their box starts as the whole surface they are drawn on, and they come
+// first so a click only picks one where no other layer is. Layers beneath an
+// FX clip with an Order take their slots from that Order, inside the FX
+// clip's box, and come before the layers above it, which are drawn over
+// them. They, and the FX clips beneath it, are measured on that box's own
+// surface, which its Transforms move, resize and turn.
 // Layers an Order excludes cover its whole box, in z-order with the layers
 // it arranges.
 export function resolvePreviewLayers(
@@ -248,11 +249,14 @@ export function resolvePreviewLayers(
     inBounds.filter((entry) => entry.fx),
     order,
   );
-  const placed: {
+  type Placed = {
     entry: StackableLayer;
     frame: FrameBounds;
     arrangement?: PreviewArrangement;
-  }[] = [];
+  };
+  const placed: Placed[] = [];
+  // Each FX clip's box: the whole surface it is drawn on.
+  const fxPlaced = new Map<StackableLayer, Placed>();
   const collect = (
     steps: LayerDrawStep<StackableLayer>[],
     arrangement: PreviewArrangement | undefined,
@@ -266,6 +270,13 @@ export function resolvePreviewLayers(
       (step) => step.type === "layer" && step.order !== stackOrder,
     );
     for (const step of steps) {
+      if (step.type === "arrange" || step.type === "fx") {
+        fxPlaced.set(step.entry, {
+          entry: step.entry,
+          frame: resolveCanvasBounds(space.canvas.width, space.canvas.height),
+          arrangement,
+        });
+      }
       if (step.type === "arrange") {
         collect(
           step.steps,
@@ -291,11 +302,14 @@ export function resolvePreviewLayers(
   collect(planLayerDraws(inBounds, order), undefined, order);
 
   return [
-    ...fxLayers.map((entry) => ({
-      entry,
-      frame: resolveCanvasBounds(canvas.width, canvas.height),
-      arrangement: undefined,
-    })),
+    ...fxLayers.map(
+      (entry) =>
+        fxPlaced.get(entry) ?? {
+          entry,
+          frame: resolveCanvasBounds(canvas.width, canvas.height),
+          arrangement: undefined,
+        },
+    ),
     ...placed,
   ].map(({ entry, frame, arrangement }) => {
     const placement = { frame };

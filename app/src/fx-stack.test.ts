@@ -440,6 +440,7 @@ describe("addEffect", () => {
       { key: "ExcludedLayers", value: "" },
       { key: "GridSize", value: "2.000", numericValue: 2 },
       { key: "Spacing", value: "0.000", numericValue: 0 },
+      { key: "BorderColor", value: "rgba(0,0,0,1)" },
     ]);
     assert.equal(addEffect(effects, "6", "Order"), effects);
   });
@@ -892,18 +893,39 @@ describe("Order devices", () => {
       "Arrangement",
       "ExcludedLayers",
       "Spacing",
+      "BorderColor",
     ]);
     assert.deepEqual(keys("Horizontal"), [
       "Arrangement",
       "ExcludedLayers",
       "Spacing",
+      "BorderColor",
     ]);
     assert.deepEqual(keys("Grid"), [
       "Arrangement",
       "ExcludedLayers",
       "GridSize",
       "Spacing",
+      "BorderColor",
     ]);
+  });
+
+  it("dims Border only while Spacing is 0", () => {
+    const border = (spacing?: number) => {
+      let effects = addEffect([], GLOBAL_EFFECT_TRACK_ID, "Order", 0, "order");
+      if (spacing !== undefined) {
+        effects = setEffectParameter(effects, "order", "Spacing", spacing);
+      }
+      return mapSessionEffectsToDevices(effects, "6")
+        .find((device) => device.id === "order")
+        ?.parameters.find((parameter) => parameter.key === "BorderColor");
+    };
+    assert.equal(border()?.kind, "color");
+    assert.equal(border()?.label, "Border");
+    assert.equal(border()?.stringValue, "rgba(0,0,0,1)");
+    assert.equal(border()?.dimmed, true);
+    assert.equal(border(0)?.dimmed, true);
+    assert.equal(border(20)?.dimmed, undefined);
   });
 
   it("warns when a grid has fewer cells than active layers", () => {

@@ -809,6 +809,7 @@ describe("FX clips", () => {
       gridSize: 3,
       spacing: 0,
       excludedLayers: [],
+      borderColor: { r: 0, g: 0, b: 0, a: 1 },
     });
     assert.deepEqual(
       entry?.effectChain.map((step) => step.pass.effectName),
