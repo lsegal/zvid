@@ -107,6 +107,15 @@ describe("ADDABLE_EFFECT_DEFINITIONS", () => {
     assert.ok(!names("global").includes("Transform"));
     assert.ok(names("global").includes("Colorize"));
   });
+
+  it("offers Order on the Global stack only", () => {
+    const names = (group: "layer" | "global") =>
+      getAddableEffectDefinitions(group).map(
+        (definition) => definition.effectName,
+      );
+    assert.ok(names("global").includes("Order"));
+    assert.ok(!names("layer").includes("Order"));
+  });
 });
 
 describe("getParameterFormat", () => {
@@ -116,6 +125,8 @@ describe("getParameterFormat", () => {
     assert.equal(getParameterFormat("Transform", "PositionX")(0.25), "+25%");
     assert.equal(getParameterFormat("Transform", "ScaleY")(1.5), "150%");
     assert.equal(getParameterFormat("Transform", "Rotation")(-45), "-45°");
+    assert.equal(getParameterFormat("Order", "GridSize")(3), "3×3");
+    assert.equal(getParameterFormat("Order", "Spacing")(4), "4 px");
   });
 
   it("falls back to raw numbers for unknown parameters", () => {

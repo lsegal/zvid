@@ -143,7 +143,7 @@ import { WandIcon } from "./components/WandIcon";
 import { isContextMenuKey, isContextMenuPress } from "./context-menu.ts";
 import { buildEditMenuEntries } from "./edit-menu.ts";
 import {
-  ADDABLE_EFFECT_DEFINITIONS,
+  getAddableEffectDefinitions,
   getDefaultLaneId,
   resolveSelectedLaneId,
   stepSelectedLaneId,
@@ -2445,12 +2445,37 @@ function App() {
   const fxKind = explicitClip?.mediaId
     ? mediaItemsById.get(explicitClip.mediaId)?.kind
     : undefined;
+  // Layers the compositor draws at the playhead: one per layer with an
+  // online video clip there. The Order device warns when a grid hides some.
+  const playheadVisualLayerCount = useMemo(
+    () =>
+      new Set(
+        timelineClips
+          .filter((clip) => {
+            const media = clip.mediaId
+              ? mediaItemsById.get(clip.mediaId)
+              : undefined;
+            return (
+              media?.kind === "video" &&
+              isClipAtPlayhead(clip, playheadQ, bpm) &&
+              describeMediaAvailability(media.availability) === "online"
+            );
+          })
+          .map((clip) => clip.laneId),
+      ).size,
+    [bpm, mediaItemsById, playheadQ, timelineClips],
+  );
   const fxDevices = useMemo(
     () =>
       fxLaneId
-        ? mapSessionEffectsToDevices(effects, fxLaneId, fxLane?.name)
+        ? mapSessionEffectsToDevices(
+            effects,
+            fxLaneId,
+            fxLane?.name,
+            playheadVisualLayerCount,
+          )
         : [],
-    [effects, fxLane?.name, fxLaneId],
+    [effects, fxLane?.name, fxLaneId, playheadVisualLayerCount],
   );
   const playheadSeconds = quartersToSeconds(playheadQ, bpm);
   const mainAudio = mainAudioId ? mediaItemsById.get(mainAudioId) : undefined;
@@ -5195,7 +5220,7 @@ function App() {
       laneId: lane.id,
       fxEnabled,
       effectCount: laneStatusById.get(lane.id)?.effectCount ?? 0,
-      effects: ADDABLE_EFFECT_DEFINITIONS,
+      effects: getAddableEffectDefinitions("layer"),
       disabled: isExporting,
       actions: {
         rename: () => setRenamingLaneId(lane.id),

@@ -2,6 +2,7 @@
 // per lane under the playhead whose media is online, in lane order, with the
 // source time, visual state and effect chain each one is drawn with.
 import { type ClipWarp, warpSourceTime } from "./clip-warp.ts";
+import { isOrderEffectName } from "./composition-order.ts";
 import {
   isTransformEffectName,
   type LayerTransform,
@@ -182,6 +183,11 @@ export function resolveVisualState(
     // Shader-chain effects render their own passes, and a bypassed effect
     // contributes nothing.
     if (effect.enabled === false || isChainEffectName(effect.effectName)) {
+      continue;
+    }
+
+    // Order arranges every layer at once; the compositor reads it itself.
+    if (isOrderEffectName(effect.effectName)) {
       continue;
     }
 
