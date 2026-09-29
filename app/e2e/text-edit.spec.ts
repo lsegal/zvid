@@ -68,6 +68,11 @@ test("typing on a text layer in the preview", async ({ page }) => {
   await expect(input).toBeFocused();
   await expect(input).toHaveValue("Text");
   await expect(input).toHaveAttribute("title", /whole text layer/);
+  // The resize handles and origin marker step aside so they don't cover the
+  // editor.
+  const origin = page.getByTestId("preview-transform-origin");
+  await expect(origin).toHaveCount(0);
+  await expect(page.locator("[data-transform-handle]")).toHaveCount(0);
 
   // Typing updates the Text effect as it goes: the FX panel and the clip.
   await page.keyboard.type("Hello");
@@ -80,6 +85,7 @@ test("typing on a text layer in the preview", async ({ page }) => {
   // Esc commits the edit, which undoes as one step.
   await page.keyboard.press("Escape");
   await expect(editor).toHaveCount(0);
+  await expect(origin).toHaveCount(1);
   await page.keyboard.press("ControlOrMeta+z");
   await expect(fxText).toHaveValue("Text");
   await page.keyboard.press("ControlOrMeta+Shift+z");

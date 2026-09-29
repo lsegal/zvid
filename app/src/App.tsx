@@ -120,6 +120,7 @@ import {
 import { OfflineMediaDialog } from "./components/OfflineMediaDialog";
 import {
   type PreviewLayerMove,
+  type PreviewLayerTransformEdit,
   type PreviewTextEdit,
   PreviewTransformOverlay,
 } from "./components/PreviewTransformOverlay";
@@ -271,10 +272,16 @@ import {
 import {
   moveHistoryLabel,
   type PreviewLayer,
+  readLayerTransform,
   readLayerTransformPosition,
   resolvePreviewLayers,
+  setLayerTransformParameters,
   setLayerTransformPosition,
 } from "./preview-edit.ts";
+import {
+  MOVE_ORIGIN_HISTORY_LABEL,
+  resizeHistoryLabel,
+} from "./preview-resize.ts";
 import {
   setLayerText,
   stepLayerFontSize,
@@ -3022,6 +3029,25 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         ),
         (current) =>
           setLayerTransformPosition(current, laneId, position, newEffectId),
+        mode,
+      ),
+    [editEffects, lanes],
+  );
+  const getPreviewLayerTransform = useCallback(
+    (laneId: string) => readLayerTransform(effectsRef.current, laneId),
+    [],
+  );
+  const transformPreviewLayer = useCallback(
+    ({ laneId, kind, values, mode, newEffectId }: PreviewLayerTransformEdit) =>
+      editEffects(
+        kind === "resize"
+          ? resizeHistoryLabel(
+              lanes.find((lane) => lane.id === laneId)?.name ??
+                `Layer ${laneId}`,
+            )
+          : MOVE_ORIGIN_HISTORY_LABEL,
+        (current) =>
+          setLayerTransformParameters(current, laneId, values, newEffectId),
         mode,
       ),
     [editEffects, lanes],
@@ -10239,8 +10265,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     selectedLaneId={previewLaneId}
                     textEdit={previewTextEdit}
                     getLayerPosition={getPreviewLayerPosition}
+                    getLayerTransform={getPreviewLayerTransform}
                     onSelect={selectPreviewLayer}
                     onMove={movePreviewLayer}
+                    onTransform={transformPreviewLayer}
                     onActivate={activatePreviewLayer}
                   />
                   {!previewClip ||
