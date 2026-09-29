@@ -51,6 +51,7 @@ import {
   formatClipMediaState,
   isPlaceholderClip,
 } from "./clip-media-state";
+import { type ClipWarp, createClipWarp } from "./clip-warp.ts";
 import {
   type CollaborationConnectionState,
   type CollaborationController,
@@ -230,6 +231,8 @@ type SourceSpan = {
   startQ: number;
   durationSeconds: number;
   trimStartSeconds: number;
+  // Warp markers the source follows instead of playing at 1×.
+  warp?: ClipWarp;
   tint: string;
   accent: string;
 };
@@ -248,6 +251,7 @@ type ArrangementClip = {
   sourceOffsetSeconds: number;
   sourceWindowStartSeconds: number;
   sourceWindowEndSeconds: number;
+  warp?: ClipWarp;
   tint: string;
   accent: string;
   selected?: boolean;
@@ -1525,6 +1529,7 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
       sourceTracks.find((track) => track.id === clip.trackId)?.colorIndex ?? 0,
     );
     const media = pickMediaByPath(mediaItems, clip.filePath);
+    const trimStartSeconds = clipSourceFrame(clip) / fps;
     return {
       id: `source-${clip.id}`,
       sourceTrackId: clip.trackId,
@@ -1534,7 +1539,15 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
       mediaId: media?.id,
       startQ: secondsToQuarters(clip.frameStart / fps, bpm),
       durationSeconds: Math.max(1, clip.frameCount) / fps,
-      trimStartSeconds: clipSourceFrame(clip) / fps,
+      trimStartSeconds,
+      // `clipStart + frameOffset` is the content start in the warp markers'
+      // seconds, before any capture offset.
+      warp: createClipWarp(
+        clip.warpMarkers,
+        ((clip.clipStart ?? 0) + (clip.frameOffset ?? 0)) / fps,
+        trimStartSeconds,
+        bpm,
+      ),
       tint: swatch.color,
       accent: swatch.accent,
     };
@@ -1580,6 +1593,7 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
       sourceWindowStartSeconds: sourceSpan.trimStartSeconds,
       sourceWindowEndSeconds:
         sourceSpan.trimStartSeconds + sourceSpan.durationSeconds,
+      warp: sourceSpan.warp,
       tint: sourceSpan.tint,
       accent: sourceSpan.accent,
       selected: selection.selected,
@@ -3402,6 +3416,7 @@ function App() {
         sourceWindowStartSeconds: sourceSpan.trimStartSeconds,
         sourceWindowEndSeconds:
           sourceSpan.trimStartSeconds + sourceSpan.durationSeconds,
+        warp: sourceSpan.warp,
         tint: sourceSpan.tint,
         accent: sourceSpan.accent,
         selected: true,
