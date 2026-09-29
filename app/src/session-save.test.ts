@@ -152,7 +152,7 @@ function baseProject(
 
 describe("projectToLvpSession", () => {
   it("writes tracks, clips, selections, effects and timeline", () => {
-    const session = projectToLvpSession(baseProject(), {
+    const { session } = projectToLvpSession(baseProject(), {
       playheadQ: 2,
       selectedClipId: "clip-added",
     });
@@ -222,7 +222,7 @@ describe("projectToLvpSession", () => {
   });
 
   it("does not reuse a selection id another clip keeps", () => {
-    const session = projectToLvpSession(
+    const { session } = projectToLvpSession(
       baseProject({
         clips: [
           {
@@ -251,7 +251,7 @@ describe("projectToLvpSession", () => {
 
   it("keeps fill clips out of selections and reads them back", () => {
     const project = baseProject();
-    const session = projectToLvpSession(
+    const { session } = projectToLvpSession(
       {
         ...project,
         clips: [
@@ -292,7 +292,7 @@ describe("projectToLvpSession", () => {
 
   it("round-trips effect and layer FX bypass", () => {
     const project = baseProject();
-    const session = projectToLvpSession(
+    const { session } = projectToLvpSession(
       {
         ...project,
         lanes: [
@@ -321,7 +321,7 @@ describe("projectToLvpSession", () => {
   it("round-trips a slipped clip's span and source offset", () => {
     const project = baseProject();
     // The span's offset is trimStart 1 s minus its 2 s start: -1 s.
-    const session = projectToLvpSession(
+    const { session } = projectToLvpSession(
       {
         ...project,
         clips: [
@@ -351,7 +351,7 @@ describe("projectToLvpSession", () => {
   });
 
   it("opens sessions without zvid-only fields as before", () => {
-    const session = projectToLvpSession(baseProject(), { playheadQ: 0 });
+    const { session } = projectToLvpSession(baseProject(), { playheadQ: 0 });
     assert.equal(session.fills, undefined);
     assert.equal("fxEnabled" in (session.mainTracks?.[0] ?? {}), false);
     assert.deepEqual(readSessionFills(session, 120, 30), []);
@@ -394,6 +394,30 @@ describe("projectToLvpSession", () => {
     );
   });
 
+  it("leaves out text clips and counts them", () => {
+    const project = baseProject();
+    const { session, skippedTextClips } = projectToLvpSession(
+      {
+        ...project,
+        clips: [
+          ...project.clips,
+          {
+            id: "text-1",
+            kind: "text",
+            sourceTrackId: "",
+            laneId: "main-1",
+            startQ: 0,
+            durationSeconds: 1,
+          },
+        ],
+      },
+      { playheadQ: 0 },
+    );
+    assert.equal(skippedTextClips, 1);
+    assert.equal(session.selections?.length, 2);
+    assert.equal(session.fills, undefined);
+  });
+
   it("keeps a warped span's source start and warp anchor", () => {
     const fps = 30;
     const bpm = 120;
@@ -406,7 +430,7 @@ describe("projectToLvpSession", () => {
     const warp = createClipWarp(markers, 30 / fps, trimStartSeconds, bpm);
     assert.ok(warp);
 
-    const session = projectToLvpSession(
+    const { session } = projectToLvpSession(
       baseProject({
         sourceSpans: [
           {

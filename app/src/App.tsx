@@ -22,6 +22,7 @@ import {
   useReducer,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import "./App.css";
 import {
@@ -57,6 +58,7 @@ import {
   describeMediaAvailability,
   describePreviewMediaState,
   formatClipMediaState,
+  isGeneratedClip,
   isPlaceholderClip,
   usesMediaFile,
 } from "./clip-media-state";
@@ -158,7 +160,11 @@ import {
   getDefaultFillColor,
   isFillClip,
 } from "./fill-clip.ts";
-import { formatFillPaintCss, resolveFillPaint } from "./fill-paint.ts";
+import {
+  formatCssColor,
+  formatFillPaintCss,
+  resolveFillPaint,
+} from "./fill-paint.ts";
 import {
   addableEffectsFor,
   getDefaultLaneId,
@@ -195,6 +201,7 @@ import {
 import { hasMediaExtension } from "./harness/media-extensions";
 import { loadIceServers, resolveRelayIceServersUrl } from "./ice-servers";
 import {
+  LANE_SELECTION_DRAG_THRESHOLD_PX,
   type LaneSelectionGesture,
   moveLaneSelectionGesture,
   releaseLaneSelectionGesture,
@@ -269,6 +276,8 @@ import {
 } from "./preview-edit.ts";
 import {
   createProjectHistoryState,
+  isProjectEditAction,
+  type ProjectHistoryAction,
   type ProjectHistoryState,
   projectHistoryReducer,
 } from "./project-history";
@@ -343,6 +352,19 @@ import {
 import { classifySpaceTarget, createSpaceHold } from "./space-shortcut";
 import { statusMessageTone } from "./status-bar";
 import { buildStatusItems } from "./status-items";
+import { addTextClip, isTextClip } from "./text-clip.ts";
+import {
+  getMissingFonts,
+  loadFontFace,
+  resolveFontFace,
+  subscribeFonts,
+} from "./text-fonts.ts";
+import {
+  getTextPreview,
+  isTextEffectName,
+  readTextStyle,
+  resolveTextStyle,
+} from "./text-style.ts";
 import {
   getClipThumbnailTimeSeconds,
   getThumbnailCacheKey,
@@ -428,9 +450,10 @@ type SourceSpan = {
 
 type ArrangementClip = {
   id: string;
-  // "fill" for a media-less fill clip painted by its layer's Color effect;
-  // media clips leave it unset.
-  kind?: "fill";
+  // "fill" for a media-less fill clip painted by its layer's Color effect,
+  // or "text" for a text clip styled by its Text effect; media clips leave
+  // it unset.
+  kind?: "fill" | "text";
   sourceSpanId: string;
   sourceTrackId: string;
   laneId: string;
@@ -727,6 +750,8 @@ const INITIAL_PROJECT_STATE: ProjectState = {
 // Card colours of fill clips on layers without an accent.
 const FILL_CLIP_TINT = "#2a2d38";
 const FILL_CLIP_ACCENT = "#8d93a8";
+// Bars a text clip inserted at the playhead spans.
+const TEXT_CLIP_BARS = 4;
 const PALETTE: Palette[] = [
   { color: "#3d4052", accent: "#7ca1ff" },
   { color: "#444351", accent: "#ff6f9d" },
@@ -1568,7 +1593,7 @@ function getPlaybackStopQ(
 
   return clips.reduce((maximum, clip) => {
     if (
-      !isFillClip(clip) &&
+      !isGeneratedClip(clip) &&
       (!clip.mediaId || !playableMediaIds.has(clip.mediaId))
     ) {
       return maximum;
@@ -2183,7 +2208,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const [restoredSelection] = useState(() =>
     findRestoredSelection(restoredSession),
   );
-  const [projectHistory, dispatchProject] = useReducer(
+  const [projectHistory, dispatchProjectHistory] = useReducer(
     projectHistoryReducer<ProjectState>,
     restoredSession,
     (session) =>
@@ -2351,6 +2376,32 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const collaborationColor = initialCollaborationConfig.color;
 
   const [workspaceAccess, setWorkspaceAccess] = useState(boot.access);
+  // Edits in a tab that doesn't save the session would be lost, so a
+  // read-only tab refuses them and asks to take the session over instead.
+  const isWorkspaceReadOnly =
+    workspaceAccess === "read-only" || workspaceAccess === "taken-over";
+  const isWorkspaceReadOnlyRef = useRef(isWorkspaceReadOnly);
+  isWorkspaceReadOnlyRef.current = isWorkspaceReadOnly;
+  const [isTakeOverPromptOpen, setIsTakeOverPromptOpen] = useState(false);
+  // Returns true, and opens the Take over prompt, when this tab is read-only.
+  const refuseReadOnlyEdit = useCallback(() => {
+    if (!isWorkspaceReadOnlyRef.current) {
+      return false;
+    }
+
+    setIsTakeOverPromptOpen(true);
+    return true;
+  }, []);
+  const dispatchProject = useCallback(
+    (action: ProjectHistoryAction<ProjectState>) => {
+      if (isProjectEditAction(action) && refuseReadOnlyEdit()) {
+        return;
+      }
+
+      dispatchProjectHistory(action);
+    },
+    [refuseReadOnlyEdit],
+  );
   const [sessionSource, setSessionSource] = useState<WorkspaceSessionSource>(
     () => restoredSession?.source ?? { kind: "none" },
   );
@@ -2438,6 +2489,15 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     (label: string, updater: (current: ProjectState) => ProjectState) => {
       dispatchProject({ type: "commit", label, updater });
     },
+    [dispatchProject],
+  );
+
+  // Zoom and media hydration change the project without editing it, so a
+  // read-only tab still applies them.
+  const commitViewChange = useCallback(
+    (label: string, updater: (current: ProjectState) => ProjectState) => {
+      dispatchProjectHistory({ type: "commit", label, updater });
+    },
     [],
   );
 
@@ -2467,7 +2527,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
           : { type: "commit", label, updater: projectUpdater },
       );
     },
-    [],
+    [dispatchProject],
   );
 
   const setLayerFxEnabled = useCallback(
@@ -2716,7 +2776,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
           previewUrl,
         };
         seedLocalMediaItems([analyzed]);
-        commitProjectChange("Hydrate media", (current) =>
+        commitViewChange("Hydrate media", (current) =>
           patchProjectState(current, {
             mediaItems: mergeMediaItemsById(current.mediaItems, [
               toShareableMediaItem(analyzed),
@@ -2733,7 +2793,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       return { previewUrl, warning };
     },
     [
-      commitProjectChange,
+      commitViewChange,
       reportMediaNotCached,
       seedLocalMediaItems,
       setLocalMediaOverride,
@@ -2859,7 +2919,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       timelineClips.some(
         (clip) =>
           isClipAtPlayhead(clip, playheadQ, bpm) &&
-          (isFillClip(clip) ||
+          (isGeneratedClip(clip) ||
             describeMediaAvailability(
               clip.mediaId
                 ? mediaItemsById.get(clip.mediaId)?.availability
@@ -2973,6 +3033,19 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       ).size,
     [bpm, mediaItemsById, playheadQ, timelineClips],
   );
+  // Fonts Text effects pick load up front, so one that can't be loaded is
+  // flagged on its device even before its clip is drawn.
+  const missingFonts = useSyncExternalStore(subscribeFonts, getMissingFonts);
+  useEffect(() => {
+    for (const effect of effects) {
+      if (effect.enabled !== false && isTextEffectName(effect.effectName)) {
+        const style = readTextStyle(effect);
+        void loadFontFace(
+          resolveFontFace(style.font, style.weight, style.italic, new Set()),
+        );
+      }
+    }
+  }, [effects]);
   const fxDevices = useMemo(
     () =>
       fxLaneId
@@ -2981,9 +3054,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             fxLaneId,
             fxLane?.name,
             playheadVisualLayerCount,
+            missingFonts,
           )
         : [],
-    [effects, fxLane?.name, fxLaneId, playheadVisualLayerCount],
+    [effects, fxLane?.name, fxLaneId, missingFonts, playheadVisualLayerCount],
   );
   const playheadSeconds = quartersToSeconds(playheadQ, bpm);
   const mainAudio = mainAudioId ? mediaItemsById.get(mainAudioId) : undefined;
@@ -3651,6 +3725,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
 
   const importMediaIntoSourceTrack = useCallback(
     async (files: File[], target: SourceTrackDropTarget) => {
+      if (refuseReadOnlyEdit()) {
+        return;
+      }
+
       const harness = getHarness();
 
       try {
@@ -3771,6 +3849,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       cacheLocalMediaItems,
       commitProjectChange,
       projectMediaItems.length,
+      refuseReadOnlyEdit,
       seedLocalMediaItems,
       setSourceTracksCollapsed,
     ],
@@ -3780,6 +3859,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   // session's main audio. Shared by the Audio lane button and drag and drop.
   const replaceMainAudioFromFile = useCallback(
     async (file: File) => {
+      if (refuseReadOnlyEdit()) {
+        return;
+      }
+
       const harness = getHarness();
 
       try {
@@ -3821,6 +3904,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       commitProjectChange,
       mainAudioId,
       projectMediaItems.length,
+      refuseReadOnlyEdit,
       seedLocalMediaItems,
     ],
   );
@@ -4089,9 +4173,11 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         return;
       }
 
-      commitProjectPatch(label, { zoom: pendingZoom });
+      commitViewChange(label, (current) =>
+        patchProjectState(current, { zoom: pendingZoom }),
+      );
     },
-    [commitProjectPatch, zoom, updateZoomDraft],
+    [commitViewChange, zoom, updateZoomDraft],
   );
 
   const setZoomValue = useCallback(
@@ -4101,9 +4187,11 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         return;
       }
 
-      commitProjectPatch(label, { zoom: nextZoom });
+      commitViewChange(label, (current) =>
+        patchProjectState(current, { zoom: nextZoom }),
+      );
     },
-    [commitProjectPatch, zoom, updateZoomDraft],
+    [commitViewChange, zoom, updateZoomDraft],
   );
 
   function handleCreateLayer() {
@@ -4252,7 +4340,14 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         `Committed a window on ${sourceTrack.name} with key ${sourceIndex + 1}.`,
       );
     },
-    [bpm, createWindowClip, pendingSelection, sourceSpans, sourceTracks],
+    [
+      bpm,
+      createWindowClip,
+      dispatchProject,
+      pendingSelection,
+      sourceSpans,
+      sourceTracks,
+    ],
   );
 
   // Inserts a fill clip over `durationQ` quarters from `startQ` on layer
@@ -4292,6 +4387,47 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       setPendingSelection(null);
       setSelectedClipId(id);
       setStatus(`Inserted a fill on ${lane.name}.`);
+      return id;
+    },
+    [bpm, dispatchProject, lanes],
+  );
+
+  // Inserts a text clip over `durationQ` quarters from `startQ` on layer
+  // `laneId` and selects it. A layer without a Text effect gets one with
+  // its defaults. Returns the new clip's id.
+  const insertTextClip = useCallback(
+    (laneId: string, startQ: number, durationQ: number) => {
+      const lane = lanes.find((candidate) => candidate.id === laneId);
+      if (!lane || !(durationQ > 0)) {
+        return undefined;
+      }
+
+      const accent =
+        lane.colorIndex >= 0 ? getSwatch(lane.colorIndex).accent : undefined;
+      const id = `text-${crypto.randomUUID()}`;
+      dispatchProject({
+        type: "commit",
+        label: "Insert text layer",
+        updater: (current) => {
+          const result = addTextClip(current, {
+            id,
+            laneId,
+            startQ,
+            durationQ,
+            bpm,
+            tint: FILL_CLIP_TINT,
+            accent: accent ?? FILL_CLIP_ACCENT,
+            effectId: crypto.randomUUID(),
+          });
+          return patchProjectState(current, {
+            clips: result.clips,
+            effects: result.effects,
+          });
+        },
+      });
+      setPendingSelection(null);
+      setSelectedClipId(id);
+      setStatus(`Inserted text on ${lane.name}.`);
       return id;
     },
     [bpm, lanes],
@@ -4481,7 +4617,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   );
 
   const handleUndo = useCallback(() => {
-    if (!undoLabel || isExporting) {
+    if (!undoLabel || isExporting || refuseReadOnlyEdit()) {
       return;
     }
 
@@ -4491,12 +4627,12 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setDragState(null);
     setPendingSelection(null);
     setTimelineDragState(null);
-    dispatchProject({ type: "undo" });
+    dispatchProjectHistory({ type: "undo" });
     setStatus(formatHistoryStatus("Undid", undoLabel));
-  }, [isExporting, stopTimelineAudibleScrub, undoLabel]);
+  }, [isExporting, refuseReadOnlyEdit, stopTimelineAudibleScrub, undoLabel]);
 
   const handleRedo = useCallback(() => {
-    if (!redoLabel || isExporting) {
+    if (!redoLabel || isExporting || refuseReadOnlyEdit()) {
       return;
     }
 
@@ -4506,9 +4642,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setDragState(null);
     setPendingSelection(null);
     setTimelineDragState(null);
-    dispatchProject({ type: "redo" });
+    dispatchProjectHistory({ type: "redo" });
     setStatus(formatHistoryStatus("Redid", redoLabel));
-  }, [isExporting, redoLabel, stopTimelineAudibleScrub]);
+  }, [isExporting, redoLabel, refuseReadOnlyEdit, stopTimelineAudibleScrub]);
 
   useEffect(() => {
     projectSnapshotRef.current = projectHistory.present;
@@ -4664,7 +4800,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       setPendingSelection(null);
       setTimelineDragState(null);
       sessionMediaCheckRef.current = null;
-      dispatchProject({
+      dispatchProjectHistory({
         type: "restore",
         history: session
           ? toProjectHistoryState(session.history)
@@ -4705,6 +4841,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   }, [boot.lock, workspaceAccess]);
 
   async function handleTakeOverWorkspace() {
+    setIsTakeOverPromptOpen(false);
     setStatus("Taking over the session from the other tab...");
     await boot.lock.takeOver();
     const { session, corruptKey } = await readSavedWorkspaceSession();
@@ -4729,6 +4866,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   }
 
   function handleCloseSession() {
+    if (refuseReadOnlyEdit()) {
+      return;
+    }
+
     workspaceAutosave.cancel();
     claimWorkspaceSession();
     applyWorkspaceSession(null);
@@ -4999,7 +5140,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       setDragState(null);
       setPendingSelection(null);
       setTimelineDragState(null);
-      dispatchProject({ type: "replace", snapshot });
+      dispatchProjectHistory({ type: "replace", snapshot });
     },
     [stopTimelineAudibleScrub],
   );
@@ -6191,6 +6332,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       insertTrack: commitPendingSelectionToSourceTrack,
       insertFill: () =>
         insertFillClip(selection.laneId, selection.startQ, selection.durationQ),
+      insertText: () =>
+        insertTextClip(selection.laneId, selection.startQ, selection.durationQ),
       clear: () => setPendingSelection(null),
     });
   }
@@ -6219,6 +6362,12 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         remove: () => deleteLayer(lane),
         toggleFx: () => setLayerFxEnabled(lane.id, !fxEnabled),
         addFx: (effectName) => addLayerFx(lane.id, effectName),
+        insertText: () =>
+          insertTextClip(
+            lane.id,
+            playheadQRef.current,
+            TEXT_CLIP_BARS * barLength,
+          ),
         insertAbove: () => insertLayer(lane.id, "above"),
         insertBelow: () => insertLayer(lane.id, "below"),
         moveUp: () => moveLayer(lane, -1),
@@ -6580,6 +6729,22 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         return;
       }
 
+      // A read-only tab never previews a move or trim. Once the pointer
+      // passes the click threshold, the drag ends and asks to take over.
+      if (isWorkspaceReadOnlyRef.current) {
+        if (
+          Math.abs(event.clientX - dragState.pointerStartX) >
+          LANE_SELECTION_DRAG_THRESHOLD_PX
+        ) {
+          if (dragState.kind === "move" && dragState.duplicateOnDrag) {
+            setSelectedClipId(dragState.sourceClipId);
+          }
+          setDragState(null);
+          refuseReadOnlyEdit();
+        }
+        return;
+      }
+
       const deltaQuarters =
         (event.clientX - dragState.pointerStartX) / quarterPx;
 
@@ -6775,6 +6940,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     dragPreviewClips,
     dragState,
     minimumWindowQ,
+    refuseReadOnlyEdit,
     setPlayheadQ,
     snapEnabled,
     labelWidth,
@@ -7095,7 +7261,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
           });
           seedLocalMediaItems(analyzedMedia);
           void cacheLocalMediaItems(analyzedMedia);
-          commitProjectChange("Hydrate session media", (current) =>
+          commitViewChange("Hydrate session media", (current) =>
             patchProjectState(current, {
               mediaItems: mergeMediaItemsById(
                 current.mediaItems,
@@ -7118,6 +7284,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   }
 
   async function handleImport() {
+    if (refuseReadOnlyEdit()) {
+      return;
+    }
+
     const harness = getHarness();
     const selection = await harness.pickMedia();
     if (!selection) {
@@ -7269,6 +7439,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   }
 
   async function handleOpenSession() {
+    if (refuseReadOnlyEdit()) {
+      return;
+    }
+
     const harness = getHarness();
     let selectionName: string | undefined;
     try {
@@ -7291,6 +7465,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   }
 
   async function handleOpenWorkspace() {
+    if (refuseReadOnlyEdit()) {
+      return;
+    }
+
     const harness = getHarness();
     if (!harness.pickWorkspace) {
       setStatus(
@@ -7322,10 +7500,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
 
   async function handleSaveSession() {
     const harness = getHarness();
-    const session = projectToLvpSession(projectHistory.present, {
-      playheadQ: playheadQRef.current,
-      selectedClipId,
-    });
+    const { session, skippedTextClips } = projectToLvpSession(
+      projectHistory.present,
+      { playheadQ: playheadQRef.current, selectedClipId },
+    );
     const blob = new Blob([`${JSON.stringify(session, null, 2)}\n`], {
       type: "application/json",
     });
@@ -7381,7 +7559,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     }
     const savedName =
       saveTarget.kind === "native-path" ? saveTarget.path : saveTarget.filename;
-    setStatus(`Saved ${savedName}.`);
+    const textNote = skippedTextClips
+      ? ` ${pluralize(skippedTextClips, "text clip")} ${skippedTextClips === 1 ? "was" : "were"} not saved: .lvp files cannot store text clips.`
+      : "";
+    setStatus(`Saved ${savedName}.${textNote}`);
   }
 
   async function handleExport() {
@@ -8385,6 +8566,40 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         </DialogContent>
       </Dialog>
 
+      <Dialog
+        open={isTakeOverPromptOpen && isWorkspaceReadOnly}
+        onOpenChange={setIsTakeOverPromptOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>This tab is read-only</DialogTitle>
+            <DialogDescription>
+              {workspaceAccess === "taken-over"
+                ? "This session was taken over in another tab,"
+                : "This session is open in another tab,"}{" "}
+              so edits here would not be saved. Take over to edit in this tab,
+              starting from the latest saved session.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button
+              className="ghost-button"
+              onClick={() => setIsTakeOverPromptOpen(false)}
+              type="button"
+            >
+              Stay read-only
+            </button>
+            <button
+              className="ghost-button ghost-button--accent"
+              onClick={() => void handleTakeOverWorkspace()}
+              type="button"
+            >
+              Take over
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={isConnectDialogOpen} onOpenChange={setIsConnectDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -8990,11 +9205,14 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                                   resolveFillPaint(effects, clip.laneId),
                                 )
                               : undefined;
+                            const textStyle = isTextClip(clip)
+                              ? resolveTextStyle(effects, clip.laneId)
+                              : undefined;
                             return (
                               // biome-ignore lint/a11y/noStaticElementInteractions: right-click is a pointer shortcut; the context-menu key and Shift+F10 open the same menu on the selected clip
                               <div
                                 key={clip.id}
-                                className={`clip-card ${selected ? "clip-card--selected" : ""} ${trimming ? "clip-card--trimming" : ""} ${filmstrip || fillBackground ? "clip-card--filmstrip" : ""} ${fillBackground ? "clip-card--fill" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""}`}
+                                className={`clip-card ${selected ? "clip-card--selected" : ""} ${trimming ? "clip-card--trimming" : ""} ${filmstrip || fillBackground ? "clip-card--filmstrip" : ""} ${fillBackground ? "clip-card--fill" : ""} ${textStyle ? "clip-card--text" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""}`}
                                 data-clip-id={clip.id}
                                 onContextMenu={(event) =>
                                   openArrangementClipMenu(event, clip)
@@ -9157,8 +9375,29 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                                       }}
                                     />
                                   ) : null}
+                                  {textStyle ? (
+                                    <span
+                                      aria-hidden="true"
+                                      className="clip-card__glyph"
+                                      style={{
+                                        color:
+                                          textStyle.paint.kind === "solid"
+                                            ? formatCssColor(
+                                                textStyle.paint.color,
+                                              )
+                                            : undefined,
+                                      }}
+                                    >
+                                      T
+                                    </span>
+                                  ) : null}
                                   <span className="clip-card__text">
-                                    <strong>{clip.label}</strong>
+                                    <strong>
+                                      {textStyle
+                                        ? getTextPreview(textStyle) ||
+                                          clip.label
+                                        : clip.label}
+                                    </strong>
                                     <span className="clip-card__meta">
                                       {mediaSync ? (
                                         formatMediaSyncLabel(mediaSync)

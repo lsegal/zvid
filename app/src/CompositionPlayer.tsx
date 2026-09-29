@@ -36,6 +36,7 @@ import {
 } from "./fx-shaders/registry.ts";
 import { getRenderedEffects } from "./fx-stack.ts";
 import type { PlayheadSignal } from "./playhead-signal";
+import { loadFontFace, resolveFontFace, subscribeFonts } from "./text-fonts.ts";
 
 type CompositionPlayerProps = {
   mediaItems: MediaItem[];
@@ -270,6 +271,21 @@ export class CompositionRenderer {
       await Promise.all(pendingSeeks.values());
     }
 
+    // Exported frames never draw text in a fallback font.
+    await Promise.all(
+      nextActiveClips.map((entry) =>
+        entry.text
+          ? loadFontFace(
+              resolveFontFace(
+                entry.text.font,
+                entry.text.weight,
+                entry.text.italic,
+              ),
+            )
+          : undefined,
+      ),
+    );
+
     const audio = await this.sampleAudioBandsAt(playheadSeconds);
 
     if (this.mainAudioElement && this.state.mainAudio?.previewUrl) {
@@ -407,10 +423,10 @@ export class CompositionRenderer {
     );
 
     // Clips sharing a media at this playhead draw from extra elements, made
-    // the first time they are needed. Fill clips draw no media.
+    // the first time they are needed. Fill and text clips draw no media.
     let addedElement = false;
     for (const entry of activeClips) {
-      if (!entry.fill && !this.mediaRefs.has(entry.sourceKey)) {
+      if (!entry.fill && !entry.text && !this.mediaRefs.has(entry.sourceKey)) {
         this.ensureMediaElement(entry.sourceKey, entry.media);
         addedElement = true;
       }
@@ -819,6 +835,17 @@ export const CompositionPlayer = forwardRef<
   useEffect(() => {
     return rendererRef.current?.addVideoFrameReadyListeners(scheduleDraw);
   }, [scheduleDraw]);
+
+  // Text waits for its font, so a paused preview redraws once it loads.
+  useEffect(
+    () =>
+      subscribeFonts(() => {
+        if (!isPlayingRef.current) {
+          scheduleDrawRef.current();
+        }
+      }),
+    [],
+  );
 
   useEffect(() => {
     rendererRef.current?.syncPlayback({

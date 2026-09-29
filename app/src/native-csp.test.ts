@@ -6,17 +6,27 @@ import {
   PUBLIC_SIGNALING_URL,
   ZVID_SIGNALING_URL,
 } from "./signaling-servers.ts";
+import { googleFontsCssUrl } from "./text-fonts.ts";
 
 // The native webview enforces app.security.csp, whose connect-src also
 // governs WebSockets. The collaboration defaults must stay reachable, so
 // check them against it here rather than in a running native build.
-const connectSources = (
+const csp = (
   JSON.parse(
     readFileSync(
       new URL("../src-tauri/tauri.conf.json", import.meta.url),
     ).toString("utf8"),
-  ) as { app: { security: { csp: { "connect-src": string[] } } } }
-).app.security.csp["connect-src"].flatMap((entry) => entry.split(/\s+/));
+  ) as { app: { security: { csp: Record<string, string | string[]> } } }
+).app.security.csp;
+
+function directiveSources(name: string) {
+  const value = csp[name] ?? csp["default-src"];
+  return (Array.isArray(value) ? value : [value]).flatMap((entry) =>
+    entry.split(/\s+/),
+  );
+}
+
+const connectSources = directiveSources("connect-src");
 
 // Scheme sources ("wss:") and host sources ("https://host[:port][/path]"),
 // the forms the CSP uses; wildcards and keywords aren't needed.
@@ -73,5 +83,23 @@ describe("native app CSP connect-src", () => {
 
   it("still blocks arbitrary HTTP origins", () => {
     assert.equal(connectSrcAllows("https://example.com/"), false);
+  });
+});
+
+describe("native app CSP fonts", () => {
+  const allows = (directive: string, url: string) =>
+    directiveSources(directive).some((source) =>
+      sourceAllows(source, new URL(url)),
+    );
+
+  it("allows Google Fonts stylesheets and font files for Text layers", () => {
+    assert.ok(allows("style-src", googleFontsCssUrl(["Roboto"])));
+    assert.ok(
+      allows("font-src", "https://fonts.gstatic.com/s/roboto/v1/roboto.woff2"),
+    );
+  });
+
+  it("still loads the bundled fonts", () => {
+    assert.ok(directiveSources("font-src").includes("'self'"));
   });
 });

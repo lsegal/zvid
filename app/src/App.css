@@ -1918,6 +1918,21 @@
   border-right: 1px solid rgba(0, 0, 0, 0.35);
 }
 
+/* A text clip's "T", in its text colour. */
+.clip-card__glyph {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: clamp(0px, calc(100% - 48px), 28px);
+  border-right: 1px solid rgba(0, 0, 0, 0.35);
+  background-color: rgba(0, 0, 0, 0.35);
+  color: var(--ink);
+  font-family: Georgia, serif;
+  font-size: 1rem;
+  font-weight: 700;
+  overflow: hidden;
+}
+
 .clip-card__text {
   flex: 1;
   min-width: 0;

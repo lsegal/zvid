@@ -84,7 +84,7 @@ export type SaveableSourceSpan = {
 
 export type SaveableClip = {
   id: string;
-  kind?: "fill";
+  kind?: "fill" | "text";
   sourceSpanId?: string;
   sourceTrackId: string;
   laneId: string;
@@ -123,6 +123,12 @@ export type SaveableProject = {
 export type SaveableView = {
   playheadQ: number;
   selectedClipId?: string;
+};
+
+export type LvpSessionSave = {
+  session: LvpSession;
+  // Text clips have no `.lvp` representation and are left out.
+  skippedTextClips: number;
 };
 
 const SOURCE_SPAN_ID_PREFIX = "source-";
@@ -214,7 +220,7 @@ function selectionSlip(
 export function projectToLvpSession(
   project: SaveableProject,
   view: SaveableView,
-): LvpSession {
+): LvpSessionSave {
   const { bpm, fps } = project;
 
   const clips = project.sourceSpans.map<
@@ -242,7 +248,9 @@ export function projectToLvpSession(
     };
   });
 
-  const mediaClips = project.clips.filter((clip) => clip.kind !== "fill");
+  const mediaClips = project.clips.filter(
+    (clip) => clip.kind !== "fill" && clip.kind !== "text",
+  );
   const fillClips = project.clips.filter((clip) => clip.kind === "fill");
   const usedSelectionIds = new Set<number>();
   for (const clip of mediaClips) {
@@ -335,7 +343,11 @@ export function projectToLvpSession(
       : {}),
   };
 
-  return session;
+  return {
+    session,
+    skippedTextClips: project.clips.filter((clip) => clip.kind === "text")
+      .length,
+  };
 }
 
 function isFiniteNumber(value: unknown): value is number {

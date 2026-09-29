@@ -15,6 +15,27 @@ import {
   FILL_MODES,
   NEUTRAL_FILL_COLOR,
 } from "./fill-paint.ts";
+import {
+  DEFAULT_FONT_FAMILY,
+  FONT_WEIGHT_LABELS,
+  getFontWeightLabels,
+} from "./text-fonts.ts";
+import {
+  DEFAULT_FONT_SIZE,
+  DEFAULT_SHADOW_COLOR,
+  DEFAULT_STROKE_COLOR,
+  DEFAULT_TEXT,
+  DEFAULT_TEXT_COLOR,
+  DEFAULT_TEXT_GRADIENT,
+  MAX_FONT_SIZE,
+  MIN_FONT_SIZE,
+  OFF_ON,
+  TEXT_ALIGNS,
+  TEXT_EFFECT_NAME,
+  TEXT_FILL_MODES,
+  TEXT_STYLE_FLAGS,
+  TEXT_VERTICAL_ALIGNS,
+} from "./text-style.ts";
 
 // Shows a parameter only while the enum parameter `key` holds one of
 // `values` (compared case-insensitively).
@@ -36,19 +57,35 @@ export type FxNumberParameterDefinition = {
   visibleWhen?: FxParameterVisibility;
 };
 
+// Reads another parameter's stored value on the same effect.
+export type FxParameterReader = (key: string) => string | undefined;
+
 export type FxEnumParameterDefinition = {
   kind: "enum";
   key: string;
   label: string;
   options: readonly string[];
+  // The options available for the effect's current values, a subset of
+  // `options` in the same order. A stored value outside them shows as the
+  // nearest one.
+  optionsFor?: (read: FxParameterReader) => readonly string[];
+  // Picks from a dropdown menu instead of segmented buttons, for long
+  // option lists.
+  menu?: boolean;
   defaultValue: string;
   hidden?: boolean;
   visibleWhen?: FxParameterVisibility;
 };
 
-// A CSS colour (`color`) or CSS linear/radial gradient (`gradient`) string,
-// edited with a colour picker.
-type FxPaintParameterFields = {
+// A toggle in a `flags` parameter: `value` is stored, `label` is its button
+// and `title` its accessible name.
+export type FxFlagOption = { value: string; label: string; title: string };
+
+// String parameters with their own editors: a CSS colour (`color`) or CSS
+// linear/radial gradient (`gradient`) with a colour picker, free text
+// (`text`) in a text area, a font (`font`) from the font list, and a set of
+// toggles (`flags`) stored comma-separated.
+type FxStringParameterFields = {
   key: string;
   label: string;
   defaultValue: string;
@@ -56,14 +93,20 @@ type FxPaintParameterFields = {
   visibleWhen?: FxParameterVisibility;
 };
 
-export type FxPaintParameterDefinition =
-  | (FxPaintParameterFields & { kind: "color" })
-  | (FxPaintParameterFields & { kind: "gradient" });
+export type FxStringParameterDefinition =
+  | (FxStringParameterFields & { kind: "color" })
+  | (FxStringParameterFields & { kind: "gradient" })
+  | (FxStringParameterFields & { kind: "text" })
+  | (FxStringParameterFields & { kind: "font" })
+  | (FxStringParameterFields & {
+      kind: "flags";
+      options: readonly FxFlagOption[];
+    });
 
 export type FxParameterDefinition =
   | FxNumberParameterDefinition
   | FxEnumParameterDefinition
-  | FxPaintParameterDefinition;
+  | FxStringParameterDefinition;
 
 // The stacks an effect is designed for: a layer's own stack, the Global
 // stack that processes the composite, or both.
@@ -124,6 +167,14 @@ export function formatGridSize(value: number) {
 
 export function formatPixels(value: number) {
   return `${Math.round(value)} px`;
+}
+
+export function formatEms(value: number) {
+  return `${Number(value.toFixed(2))} em`;
+}
+
+export function formatMultiple(value: number) {
+  return `${value.toFixed(2)}×`;
 }
 
 export function formatRawNumber(value: number) {
@@ -367,6 +418,184 @@ const DEFINITIONS: FxEffectDefinition[] = [
         visibleWhen: { key: "Mode", values: ["Gradient"] },
       },
       unitParameter("Opacity", "Opacity", 1),
+    ],
+  },
+  {
+    effectName: TEXT_EFFECT_NAME,
+    displayName: "Text",
+    description: "Sets the words, font and look of the layer's text clips.",
+    accent: "#e8e4ff",
+    known: true,
+    scopes: ["layer"],
+    parameters: [
+      { kind: "text", key: "Text", label: "Text", defaultValue: DEFAULT_TEXT },
+      {
+        kind: "font",
+        key: "FontFamily",
+        label: "Font",
+        defaultValue: DEFAULT_FONT_FAMILY,
+      },
+      {
+        kind: "enum",
+        key: "FontWeight",
+        label: "Weight",
+        options: FONT_WEIGHT_LABELS,
+        optionsFor: (read) => getFontWeightLabels(read("FontFamily")),
+        menu: true,
+        defaultValue: "Regular",
+      },
+      {
+        kind: "flags",
+        key: "FontStyle",
+        label: "Style",
+        options: TEXT_STYLE_FLAGS,
+        defaultValue: "",
+      },
+      {
+        kind: "enum",
+        key: "Align",
+        label: "Align",
+        options: TEXT_ALIGNS,
+        defaultValue: "Center",
+      },
+      {
+        kind: "enum",
+        key: "VerticalAlign",
+        label: "Vertical",
+        options: TEXT_VERTICAL_ALIGNS,
+        defaultValue: "Middle",
+      },
+      {
+        kind: "enum",
+        key: "ResizeToFit",
+        label: "Resize to fit",
+        options: OFF_ON,
+        defaultValue: "Off",
+      },
+      {
+        kind: "enum",
+        key: "FillMode",
+        label: "Fill",
+        options: TEXT_FILL_MODES,
+        defaultValue: "Solid",
+      },
+      {
+        kind: "color",
+        key: "Color",
+        label: "Color",
+        defaultValue: DEFAULT_TEXT_COLOR,
+        visibleWhen: { key: "FillMode", values: ["Solid"] },
+      },
+      {
+        kind: "gradient",
+        key: "Gradient",
+        label: "Gradient",
+        defaultValue: DEFAULT_TEXT_GRADIENT,
+        visibleWhen: { key: "FillMode", values: ["Gradient"] },
+      },
+      {
+        kind: "color",
+        key: "Stroke",
+        label: "Stroke Color",
+        defaultValue: DEFAULT_STROKE_COLOR,
+      },
+      {
+        kind: "enum",
+        key: "Shadow",
+        label: "Shadow",
+        options: OFF_ON,
+        defaultValue: "Off",
+      },
+      {
+        kind: "color",
+        key: "ShadowColor",
+        label: "Shadow Color",
+        defaultValue: DEFAULT_SHADOW_COLOR,
+        visibleWhen: { key: "Shadow", values: ["On"] },
+      },
+      {
+        kind: "number",
+        key: "FontSize",
+        label: "Size",
+        min: MIN_FONT_SIZE,
+        max: MAX_FONT_SIZE,
+        defaultValue: DEFAULT_FONT_SIZE,
+        step: 1,
+        format: formatPixels,
+      },
+      {
+        kind: "number",
+        key: "LineHeight",
+        label: "Leading",
+        min: 0.6,
+        max: 3,
+        defaultValue: 1.2,
+        step: 0.01,
+        format: formatMultiple,
+      },
+      {
+        kind: "number",
+        key: "LetterSpacing",
+        label: "Tracking",
+        min: -0.2,
+        max: 1,
+        defaultValue: 0,
+        step: 0.01,
+        format: formatEms,
+      },
+      {
+        kind: "number",
+        key: "StrokeWidth",
+        label: "Stroke",
+        min: 0,
+        max: 20,
+        defaultValue: 0,
+        step: 0.5,
+        format: formatPixels,
+      },
+      {
+        kind: "number",
+        key: "Padding",
+        label: "Padding",
+        min: 0,
+        max: 200,
+        defaultValue: 0,
+        step: 1,
+        format: formatPixels,
+      },
+      {
+        kind: "number",
+        key: "ShadowBlur",
+        label: "Blur",
+        min: 0,
+        max: 50,
+        defaultValue: 8,
+        step: 1,
+        format: formatPixels,
+        visibleWhen: { key: "Shadow", values: ["On"] },
+      },
+      {
+        kind: "number",
+        key: "ShadowOffsetX",
+        label: "Shadow X",
+        min: -50,
+        max: 50,
+        defaultValue: 4,
+        step: 1,
+        format: formatPixels,
+        visibleWhen: { key: "Shadow", values: ["On"] },
+      },
+      {
+        kind: "number",
+        key: "ShadowOffsetY",
+        label: "Shadow Y",
+        min: -50,
+        max: 50,
+        defaultValue: 4,
+        step: 1,
+        format: formatPixels,
+        visibleWhen: { key: "Shadow", values: ["On"] },
+      },
     ],
   },
 ];

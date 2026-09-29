@@ -39,6 +39,19 @@ export type ProjectHistoryAction<State> =
       history: ProjectHistoryState<State>;
     };
 
+// True for actions that edit the project, which a read-only tab refuses.
+// `replace` and `restore` swap in a whole session that came from elsewhere.
+export function isProjectEditAction<State>(
+  action: ProjectHistoryAction<State>,
+) {
+  return (
+    action.type === "commit" ||
+    action.type === "transient" ||
+    action.type === "undo" ||
+    action.type === "redo"
+  );
+}
+
 export function createProjectHistoryState<State>(
   initial: State,
 ): ProjectHistoryState<State> {

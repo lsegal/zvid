@@ -1,0 +1,14 @@
+/*
+ * Fonts bundled for Text layers (see BUNDLED_FONTS in text-fonts.ts), so the
+ * preview, exports and collaborators all draw the same faces. Space Grotesk
+ * and IBM Plex Mono come from @zvid/tokens. All are licensed under the SIL
+ * Open Font License 1.1.
+ */
+@import "@fontsource-variable/inter/wght.css";
+@import "@fontsource-variable/inter/wght-italic.css";
+@import "@fontsource-variable/montserrat/wght.css";
+@import "@fontsource-variable/montserrat/wght-italic.css";
+@import "@fontsource-variable/playfair-display/wght.css";
+@import "@fontsource-variable/playfair-display/wght-italic.css";
+@import "@fontsource/bebas-neue/400.css";
+@import "@fontsource/anton/400.css";
