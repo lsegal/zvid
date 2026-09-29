@@ -191,6 +191,63 @@ test("a second tab asks before taking the session over", async ({
   );
 });
 
+test("a read-only tab refuses edits until it takes the session over", async ({
+  page,
+  context,
+}) => {
+  await dropVideoIntoNewSourceTrack(page);
+  await waitForSave(page, "test-pattern.mp4");
+
+  const second = await context.newPage();
+  await second.goto("/");
+  await second
+    .getByRole("dialog", { name: "This session is open in another tab" })
+    .getByRole("button", { name: "Open read-only" })
+    .click();
+  const prompt = second.getByRole("dialog", { name: "This tab is read-only" });
+
+  // An edit asks to take over instead of being made and thrown away.
+  await copySpanToLayer(second, "Layer 1");
+  await expect(prompt).toBeVisible();
+  await expect(prompt).toContainText("open in another tab");
+  await prompt.getByRole("button", { name: "Stay read-only" }).click();
+  await expect(prompt).toBeHidden();
+  await expect(second.locator(".clip-card")).toHaveCount(0);
+
+  // So does Undo.
+  await second.getByRole("button", { name: "Edit", exact: true }).click();
+  await second.getByRole("menuitem", { name: /^Undo/ }).click();
+  await expect(prompt).toBeVisible();
+  await prompt.getByRole("button", { name: "Stay read-only" }).click();
+  await expect(second.locator(".source-span")).toHaveCount(1);
+
+  // Zoom still works.
+  const zoom = second.getByRole("slider", { name: "Timeline zoom" });
+  const zoomBefore = await zoom.inputValue();
+  await second.getByRole("button", { name: "Zoom in" }).click();
+  await expect(zoom).not.toHaveValue(zoomBefore);
+  await expect(prompt).toBeHidden();
+
+  // Take over from the prompt restores full editing.
+  await copySpanToLayer(second, "Layer 1");
+  await prompt.getByRole("button", { name: "Take over" }).click();
+  await expect(prompt).toBeHidden();
+  await expect(second.locator(".workspace-lock-banner")).toBeHidden();
+  await copySpanToLayer(second, "Layer 1");
+  await expect(second.locator(".clip-card")).toHaveCount(1);
+
+  // The tab that was taken over refuses edits in turn.
+  await expect(page.locator(".workspace-lock-banner")).toContainText(
+    "taken over in another tab",
+  );
+  await copySpanToLayer(page, "Layer 2");
+  const takenOverPrompt = page.getByRole("dialog", {
+    name: "This tab is read-only",
+  });
+  await expect(takenOverPrompt).toContainText("taken over in another tab");
+  await expect(page.locator(".clip-card")).toHaveCount(0);
+});
+
 // Sessions saved since every session got a default Order keep their Global
 // stack as saved; older saves get that Order added once when restored.
 test("a restored session keeps a removed Order, and an older one gets it", async ({

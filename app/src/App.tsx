@@ -190,6 +190,7 @@ import {
 import { hasMediaExtension } from "./harness/media-extensions";
 import { loadIceServers, resolveRelayIceServersUrl } from "./ice-servers";
 import {
+  LANE_SELECTION_DRAG_THRESHOLD_PX,
   type LaneSelectionGesture,
   moveLaneSelectionGesture,
   releaseLaneSelectionGesture,
@@ -264,6 +265,8 @@ import {
 } from "./preview-edit.ts";
 import {
   createProjectHistoryState,
+  isProjectEditAction,
+  type ProjectHistoryAction,
   type ProjectHistoryState,
   projectHistoryReducer,
 } from "./project-history";
@@ -2137,7 +2140,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const [restoredSelection] = useState(() =>
     findRestoredSelection(restoredSession),
   );
-  const [projectHistory, dispatchProject] = useReducer(
+  const [projectHistory, dispatchProjectHistory] = useReducer(
     projectHistoryReducer<ProjectState>,
     restoredSession,
     (session) =>
@@ -2305,6 +2308,32 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const collaborationColor = initialCollaborationConfig.color;
 
   const [workspaceAccess, setWorkspaceAccess] = useState(boot.access);
+  // Edits in a tab that doesn't save the session would be lost, so a
+  // read-only tab refuses them and asks to take the session over instead.
+  const isWorkspaceReadOnly =
+    workspaceAccess === "read-only" || workspaceAccess === "taken-over";
+  const isWorkspaceReadOnlyRef = useRef(isWorkspaceReadOnly);
+  isWorkspaceReadOnlyRef.current = isWorkspaceReadOnly;
+  const [isTakeOverPromptOpen, setIsTakeOverPromptOpen] = useState(false);
+  // Returns true, and opens the Take over prompt, when this tab is read-only.
+  const refuseReadOnlyEdit = useCallback(() => {
+    if (!isWorkspaceReadOnlyRef.current) {
+      return false;
+    }
+
+    setIsTakeOverPromptOpen(true);
+    return true;
+  }, []);
+  const dispatchProject = useCallback(
+    (action: ProjectHistoryAction<ProjectState>) => {
+      if (isProjectEditAction(action) && refuseReadOnlyEdit()) {
+        return;
+      }
+
+      dispatchProjectHistory(action);
+    },
+    [refuseReadOnlyEdit],
+  );
   const [sessionSource, setSessionSource] = useState<WorkspaceSessionSource>(
     () => restoredSession?.source ?? { kind: "none" },
   );
@@ -2392,6 +2421,15 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     (label: string, updater: (current: ProjectState) => ProjectState) => {
       dispatchProject({ type: "commit", label, updater });
     },
+    [dispatchProject],
+  );
+
+  // Zoom and media hydration change the project without editing it, so a
+  // read-only tab still applies them.
+  const commitViewChange = useCallback(
+    (label: string, updater: (current: ProjectState) => ProjectState) => {
+      dispatchProjectHistory({ type: "commit", label, updater });
+    },
     [],
   );
 
@@ -2421,7 +2459,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
           : { type: "commit", label, updater: projectUpdater },
       );
     },
-    [],
+    [dispatchProject],
   );
 
   const setLayerFxEnabled = useCallback(
@@ -2670,7 +2708,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
           previewUrl,
         };
         seedLocalMediaItems([analyzed]);
-        commitProjectChange("Hydrate media", (current) =>
+        commitViewChange("Hydrate media", (current) =>
           patchProjectState(current, {
             mediaItems: mergeMediaItemsById(current.mediaItems, [
               toShareableMediaItem(analyzed),
@@ -2687,7 +2725,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       return { previewUrl, warning };
     },
     [
-      commitProjectChange,
+      commitViewChange,
       reportMediaNotCached,
       seedLocalMediaItems,
       setLocalMediaOverride,
@@ -3605,6 +3643,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
 
   const importMediaIntoSourceTrack = useCallback(
     async (files: File[], target: SourceTrackDropTarget) => {
+      if (refuseReadOnlyEdit()) {
+        return;
+      }
+
       const harness = getHarness();
 
       try {
@@ -3725,6 +3767,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       cacheLocalMediaItems,
       commitProjectChange,
       projectMediaItems.length,
+      refuseReadOnlyEdit,
       seedLocalMediaItems,
       setSourceTracksCollapsed,
     ],
@@ -3734,6 +3777,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   // session's main audio. Shared by the Audio lane button and drag and drop.
   const replaceMainAudioFromFile = useCallback(
     async (file: File) => {
+      if (refuseReadOnlyEdit()) {
+        return;
+      }
+
       const harness = getHarness();
 
       try {
@@ -3775,6 +3822,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       commitProjectChange,
       mainAudioId,
       projectMediaItems.length,
+      refuseReadOnlyEdit,
       seedLocalMediaItems,
     ],
   );
@@ -4043,9 +4091,11 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         return;
       }
 
-      commitProjectPatch(label, { zoom: pendingZoom });
+      commitViewChange(label, (current) =>
+        patchProjectState(current, { zoom: pendingZoom }),
+      );
     },
-    [commitProjectPatch, zoom, updateZoomDraft],
+    [commitViewChange, zoom, updateZoomDraft],
   );
 
   const setZoomValue = useCallback(
@@ -4055,9 +4105,11 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         return;
       }
 
-      commitProjectPatch(label, { zoom: nextZoom });
+      commitViewChange(label, (current) =>
+        patchProjectState(current, { zoom: nextZoom }),
+      );
     },
-    [commitProjectPatch, zoom, updateZoomDraft],
+    [commitViewChange, zoom, updateZoomDraft],
   );
 
   function handleCreateLayer() {
@@ -4206,7 +4258,14 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         `Committed a window on ${sourceTrack.name} with key ${sourceIndex + 1}.`,
       );
     },
-    [bpm, createWindowClip, pendingSelection, sourceSpans, sourceTracks],
+    [
+      bpm,
+      createWindowClip,
+      dispatchProject,
+      pendingSelection,
+      sourceSpans,
+      sourceTracks,
+    ],
   );
 
   // Inserts a fill clip over `durationQ` quarters from `startQ` on layer
@@ -4248,7 +4307,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       setStatus(`Inserted a fill on ${lane.name}.`);
       return id;
     },
-    [bpm, lanes],
+    [bpm, dispatchProject, lanes],
   );
 
   // The whole source clip as an arrangement clip at its song position.
@@ -4435,7 +4494,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   );
 
   const handleUndo = useCallback(() => {
-    if (!undoLabel || isExporting) {
+    if (!undoLabel || isExporting || refuseReadOnlyEdit()) {
       return;
     }
 
@@ -4445,12 +4504,12 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setDragState(null);
     setPendingSelection(null);
     setTimelineDragState(null);
-    dispatchProject({ type: "undo" });
+    dispatchProjectHistory({ type: "undo" });
     setStatus(formatHistoryStatus("Undid", undoLabel));
-  }, [isExporting, stopTimelineAudibleScrub, undoLabel]);
+  }, [isExporting, refuseReadOnlyEdit, stopTimelineAudibleScrub, undoLabel]);
 
   const handleRedo = useCallback(() => {
-    if (!redoLabel || isExporting) {
+    if (!redoLabel || isExporting || refuseReadOnlyEdit()) {
       return;
     }
 
@@ -4460,9 +4519,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setDragState(null);
     setPendingSelection(null);
     setTimelineDragState(null);
-    dispatchProject({ type: "redo" });
+    dispatchProjectHistory({ type: "redo" });
     setStatus(formatHistoryStatus("Redid", redoLabel));
-  }, [isExporting, redoLabel, stopTimelineAudibleScrub]);
+  }, [isExporting, redoLabel, refuseReadOnlyEdit, stopTimelineAudibleScrub]);
 
   useEffect(() => {
     projectSnapshotRef.current = projectHistory.present;
@@ -4618,7 +4677,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       setPendingSelection(null);
       setTimelineDragState(null);
       sessionMediaCheckRef.current = null;
-      dispatchProject({
+      dispatchProjectHistory({
         type: "restore",
         history: session
           ? toProjectHistoryState(session.history)
@@ -4659,6 +4718,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   }, [boot.lock, workspaceAccess]);
 
   async function handleTakeOverWorkspace() {
+    setIsTakeOverPromptOpen(false);
     setStatus("Taking over the session from the other tab...");
     await boot.lock.takeOver();
     const { session, corruptKey } = await readSavedWorkspaceSession();
@@ -4683,6 +4743,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   }
 
   function handleCloseSession() {
+    if (refuseReadOnlyEdit()) {
+      return;
+    }
+
     workspaceAutosave.cancel();
     claimWorkspaceSession();
     applyWorkspaceSession(null);
@@ -4953,7 +5017,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       setDragState(null);
       setPendingSelection(null);
       setTimelineDragState(null);
-      dispatchProject({ type: "replace", snapshot });
+      dispatchProjectHistory({ type: "replace", snapshot });
     },
     [stopTimelineAudibleScrub],
   );
@@ -6534,6 +6598,22 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         return;
       }
 
+      // A read-only tab never previews a move or trim. Once the pointer
+      // passes the click threshold, the drag ends and asks to take over.
+      if (isWorkspaceReadOnlyRef.current) {
+        if (
+          Math.abs(event.clientX - dragState.pointerStartX) >
+          LANE_SELECTION_DRAG_THRESHOLD_PX
+        ) {
+          if (dragState.kind === "move" && dragState.duplicateOnDrag) {
+            setSelectedClipId(dragState.sourceClipId);
+          }
+          setDragState(null);
+          refuseReadOnlyEdit();
+        }
+        return;
+      }
+
       const deltaQuarters =
         (event.clientX - dragState.pointerStartX) / quarterPx;
 
@@ -6729,6 +6809,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     dragPreviewClips,
     dragState,
     minimumWindowQ,
+    refuseReadOnlyEdit,
     setPlayheadQ,
     snapEnabled,
     labelWidth,
@@ -7049,7 +7130,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
           });
           seedLocalMediaItems(analyzedMedia);
           void cacheLocalMediaItems(analyzedMedia);
-          commitProjectChange("Hydrate session media", (current) =>
+          commitViewChange("Hydrate session media", (current) =>
             patchProjectState(current, {
               mediaItems: mergeMediaItemsById(
                 current.mediaItems,
@@ -7072,6 +7153,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   }
 
   async function handleImport() {
+    if (refuseReadOnlyEdit()) {
+      return;
+    }
+
     const harness = getHarness();
     const selection = await harness.pickMedia();
     if (!selection) {
@@ -7223,6 +7308,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   }
 
   async function handleOpenSession() {
+    if (refuseReadOnlyEdit()) {
+      return;
+    }
+
     const harness = getHarness();
     let selectionName: string | undefined;
     try {
@@ -7245,6 +7334,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   }
 
   async function handleOpenWorkspace() {
+    if (refuseReadOnlyEdit()) {
+      return;
+    }
+
     const harness = getHarness();
     if (!harness.pickWorkspace) {
       setStatus(
@@ -8330,6 +8423,40 @@ function App({ boot }: { boot: WorkspaceBoot }) {
               type="button"
             >
               Open read-only
+            </button>
+            <button
+              className="ghost-button ghost-button--accent"
+              onClick={() => void handleTakeOverWorkspace()}
+              type="button"
+            >
+              Take over
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isTakeOverPromptOpen && isWorkspaceReadOnly}
+        onOpenChange={setIsTakeOverPromptOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>This tab is read-only</DialogTitle>
+            <DialogDescription>
+              {workspaceAccess === "taken-over"
+                ? "This session was taken over in another tab,"
+                : "This session is open in another tab,"}{" "}
+              so edits here would not be saved. Take over to edit in this tab,
+              starting from the latest saved session.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button
+              className="ghost-button"
+              onClick={() => setIsTakeOverPromptOpen(false)}
+              type="button"
+            >
+              Stay read-only
             </button>
             <button
               className="ghost-button ghost-button--accent"
