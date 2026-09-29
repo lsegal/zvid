@@ -1,8 +1,9 @@
-import { LinkIcon } from "@heroicons/react/24/solid";
+import { CheckIcon, LinkIcon } from "@heroicons/react/24/solid";
 import {
   type CSSProperties,
   type RefObject,
   useEffect,
+  useId,
   useRef,
   useState,
 } from "react";
@@ -10,9 +11,38 @@ import { createPortal } from "react-dom";
 import {
   copyShareLink,
   SHARE_LINK_COPIED_RESET_MS,
+  SHARE_LINK_ICON_COPIED_RESET_MS,
   type ShareLinkCopyState,
   shareLinkButtonLabel,
 } from "../share-link";
+
+// Copy state shared by both share link buttons: "copied" reverts to "idle"
+// after resetMs, and "failed" stays until the fallback popover closes.
+function useShareLinkCopy(
+  url: string,
+  resetMs: number,
+  onCopied?: () => void,
+) {
+  const [copyState, setCopyState] = useState<ShareLinkCopyState>("idle");
+
+  useEffect(() => {
+    if (copyState !== "copied") {
+      return;
+    }
+    const timer = window.setTimeout(() => setCopyState("idle"), resetMs);
+    return () => window.clearTimeout(timer);
+  }, [copyState, resetMs]);
+
+  async function copy() {
+    const state = await copyShareLink(url);
+    setCopyState(state);
+    if (state === "copied") {
+      onCopied?.();
+    }
+  }
+
+  return { copy, copyState, reset: () => setCopyState("idle") };
+}
 
 /**
  * Status bar button that copies the live share's invite URL. It confirms a
@@ -21,22 +51,11 @@ import {
  */
 export function ShareLinkButton({ url }: { url: string }) {
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const [copyState, setCopyState] = useState<ShareLinkCopyState>("idle");
-
-  useEffect(() => {
-    if (copyState !== "copied") {
-      return;
-    }
-    const timer = window.setTimeout(
-      () => setCopyState("idle"),
-      SHARE_LINK_COPIED_RESET_MS,
-    );
-    return () => window.clearTimeout(timer);
-  }, [copyState]);
-
-  async function handleCopy() {
-    setCopyState(await copyShareLink(url));
-  }
+  const {
+    copy: handleCopy,
+    copyState,
+    reset,
+  } = useShareLinkCopy(url, SHARE_LINK_COPIED_RESET_MS);
 
   return (
     <>
@@ -55,7 +74,8 @@ export function ShareLinkButton({ url }: { url: string }) {
         ? createPortal(
             <ShareLinkFallback
               anchorRef={buttonRef}
-              onClose={() => setCopyState("idle")}
+              onClose={reset}
+              placement="above"
               url={url}
             />,
             document.body,
@@ -65,28 +85,85 @@ export function ShareLinkButton({ url }: { url: string }) {
   );
 }
 
-// Opens above the button (the status bar clips its own overflow) with the URL
-// selected. Escape or a click outside closes it.
+/**
+ * Green link icon next to Stop Share in the top bar. Copies the same invite
+ * URL as the status bar button, briefly swapping to a check on success and
+ * opening the same manual-copy popover (below it) on failure.
+ */
+export function ShareLinkIconButton({
+  onCopied,
+  url,
+}: {
+  onCopied?: () => void;
+  url: string;
+}) {
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const {
+    copy: handleCopy,
+    copyState,
+    reset,
+  } = useShareLinkCopy(url, SHARE_LINK_ICON_COPIED_RESET_MS, onCopied);
+  const Icon = copyState === "copied" ? CheckIcon : LinkIcon;
+
+  return (
+    <>
+      <button
+        aria-label="Copy share link"
+        className={`share-link-icon-button share-link-icon-button--${copyState}`}
+        onClick={handleCopy}
+        ref={buttonRef}
+        title="Copy share link"
+        type="button"
+      >
+        <Icon aria-hidden="true" className="share-link-icon-button__icon" />
+      </button>
+      {copyState === "failed" && typeof document !== "undefined"
+        ? createPortal(
+            <ShareLinkFallback
+              anchorRef={buttonRef}
+              onClose={reset}
+              placement="below"
+              url={url}
+            />,
+            document.body,
+          )
+        : null}
+    </>
+  );
+}
+
+// Opens above the status bar button (the status bar clips its own overflow)
+// or below the top bar icon, with the URL selected. Escape or a click outside
+// closes it.
 function ShareLinkFallback({
   anchorRef,
   onClose,
+  placement,
   url,
 }: {
   anchorRef: RefObject<HTMLButtonElement | null>;
   onClose: () => void;
+  placement: "above" | "below";
   url: string;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const inputId = useId();
   // The button is already mounted, so the popover can be placed on first render.
   const [position] = useState<CSSProperties>(() => {
     const anchor = anchorRef.current?.getBoundingClientRect();
-    return anchor
+    if (!anchor) {
+      return placement === "above" ? { bottom: 32, left: 8 } : { top: 64, right: 8 };
+    }
+    return placement === "above"
       ? {
           bottom: window.innerHeight - anchor.top + 6,
           left: Math.max(8, anchor.left),
         }
-      : { bottom: 32, left: 8 };
+      : {
+          top: anchor.bottom + 6,
+          right: Math.max(8, window.innerWidth - anchor.right),
+        };
   });
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -128,12 +205,12 @@ function ShareLinkFallback({
       role="dialog"
       style={position}
     >
-      <label className="share-link-fallback__label" htmlFor="share-link-url">
+      <label className="share-link-fallback__label" htmlFor={inputId}>
         Copying failed. Copy the link manually:
       </label>
       <input
         className="share-link-fallback__input"
-        id="share-link-url"
+        id={inputId}
         onFocus={(event) => event.currentTarget.select()}
         readOnly
         ref={inputRef}

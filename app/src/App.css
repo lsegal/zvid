@@ -274,6 +274,46 @@
   transform: scale(1.06);
 }
 
+/* Icon-only "Copy share link" button next to Stop Share, in the share-live
+   green. Matches the Share button's height (1px border + 10px padding around
+   the 16px icon's row). */
+.share-link-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  min-width: 38px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: transparent;
+  color: #9affc0;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.share-link-icon-button:hover,
+.share-link-icon-button:focus-visible {
+  border-color: rgba(86, 255, 155, 0.36);
+  background: rgba(35, 255, 126, 0.12);
+}
+
+.share-link-icon-button:focus-visible {
+  outline: 2px solid var(--mint);
+  outline-offset: 1px;
+}
+
+.share-link-icon-button--failed {
+  color: var(--pink);
+}
+
+.share-link-icon-button__icon {
+  width: 16px;
+  height: 16px;
+}
+
 .share-copy-badge {
   display: inline-flex;
   align-items: center;
