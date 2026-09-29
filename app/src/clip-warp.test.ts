@@ -276,9 +276,10 @@ describe("warped clip playback", () => {
     assertClose(middle.mediaTime, 16.64, "clip middle");
     assertClose(middle.playbackRate, 10.68 / 12.5, "clip middle rate");
 
-    // Just before the end, the video is at 21.98 s, not 11.3 + 12.5 s.
-    const end = activeAt(startSeconds + 12.5 - 1e-6);
-    assert.ok(Math.abs(end.mediaTime - 21.98) < 1e-5, `${end.mediaTime}`);
+    // 10 ms before the end, the video is 10 ms × rate short of 21.98 s,
+    // where playing at 1× would reach 11.3 + 12.49 s.
+    const end = activeAt(startSeconds + 12.49);
+    assertClose(end.mediaTime, 21.98 - 0.01 * (10.68 / 12.5), "clip end");
     assert.ok(end.isInBounds);
   });
 
