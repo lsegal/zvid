@@ -10,6 +10,8 @@ const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
 const DropdownMenuPortal = DropdownMenuPrimitive.Portal;
 const DropdownMenuItem = DropdownMenuPrimitive.Item;
 const DropdownMenuSeparator = DropdownMenuPrimitive.Separator;
+const DropdownMenuSub = DropdownMenuPrimitive.Sub;
+const DropdownMenuSubTrigger = DropdownMenuPrimitive.SubTrigger;
 
 function DropdownMenuShortcut({
   className,
@@ -35,11 +37,31 @@ const DropdownMenuContent = React.forwardRef<
 ));
 DropdownMenuContent.displayName = DropdownMenuPrimitive.Content.displayName;
 
+// Submenus share the dropdown's panel styling and open beside their trigger.
+const DropdownMenuSubContent = React.forwardRef<
+  React.ElementRef<typeof DropdownMenuPrimitive.SubContent>,
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubContent>
+>(({ className, sideOffset = 6, ...props }, ref) => (
+  <DropdownMenuPortal>
+    <DropdownMenuPrimitive.SubContent
+      ref={ref}
+      sideOffset={sideOffset}
+      className={cn("dropdown-menu-content", className)}
+      {...props}
+    />
+  </DropdownMenuPortal>
+));
+DropdownMenuSubContent.displayName =
+  DropdownMenuPrimitive.SubContent.displayName;
+
 export {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 };

@@ -91,6 +91,7 @@ import {
   type ContextMenuEntry,
   type MenuPoint,
 } from "./components/ContextMenu";
+import { DropdownMenuEntries } from "./components/DropdownMenuEntries";
 import { FxChain, type FxEditMode } from "./components/FxChain";
 import {
   ImportNotice,
@@ -101,6 +102,7 @@ import {
   TransportPlayheadReadout,
 } from "./components/LivePlayhead";
 import { OfflineMediaDialog } from "./components/OfflineMediaDialog";
+import { ShareLinkButton } from "./components/ShareLinkButton";
 import {
   StatusBar,
   type StatusItem,
@@ -121,11 +123,11 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
 import { WandIcon } from "./components/WandIcon";
 import { isContextMenuKey, isContextMenuPress } from "./context-menu.ts";
+import { buildEditMenuEntries } from "./edit-menu.ts";
 import {
   ADDABLE_EFFECT_DEFINITIONS,
   getDefaultLaneId,
@@ -216,9 +218,21 @@ import {
   type SessionOpenResponse,
 } from "./session";
 import {
+  buildPublicShareUrl,
+  type InviteParams,
+  parseInviteParams,
+  removeInvitePassword,
+} from "./share-invite.ts";
+import { shareCopyFailedStatus, shareLinkVisible } from "./share-link";
+import {
   dropClipOnFreeLane,
   isSourceClipDropClick,
 } from "./source-clip-drop.ts";
+import {
+  nextSourceTrackColorIndex,
+  sessionSourceTrackColorIndex,
+  sourceTrackColorIndex,
+} from "./source-track-color.ts";
 import {
   formatSourceTracksSummary,
   isSourceTracksSectionCollapsed,
@@ -1093,6 +1107,22 @@ function getPreviewMaxWidth(editorGridWidth: number) {
   );
 }
 
+let pageInvite: InviteParams | null = null;
+
+// Reads the invite from the page URL once, then scrubs the password from the
+// address bar and history. Cached so StrictMode's repeated state initializers
+// still see the password after the URL has been cleaned.
+function readPageInvite() {
+  if (!pageInvite) {
+    pageInvite = parseInviteParams(window.location.href);
+    const scrubbedHref = removeInvitePassword(window.location.href);
+    if (scrubbedHref) {
+      window.history.replaceState(window.history.state, "", scrubbedHref);
+    }
+  }
+  return pageInvite;
+}
+
 function getInitialCollaborationConfig() {
   const defaults = {
     room: "",
@@ -1119,11 +1149,11 @@ function getInitialCollaborationConfig() {
     });
   }
 
-  const params = new URLSearchParams(window.location.search);
-  const paramRoom = params.get("room")?.trim() || "";
+  const invite = readPageInvite();
+  const paramRoom = invite.room;
   const room = paramRoom || defaults.room;
-  const password = params.get("password")?.trim() || defaults.password;
-  const signalingParam = params.get("signal")?.trim();
+  const password = invite.password || defaults.password;
+  const signalingParam = invite.signal;
   const signaling = signalingParam
     ? parseSignalingUrls(signalingParam).join(", ")
     : migrateLegacyStoredSignaling(stored.signaling, defaults.signaling);
@@ -1142,118 +1172,21 @@ function buildShareRoomName() {
   return crypto.randomUUID().replaceAll("-", "").slice(0, 8);
 }
 
-function isPrivateIpv4Address(address: string) {
-  return (
-    address === "127.0.0.1" ||
-    address === "0.0.0.0" ||
-    address.startsWith("10.") ||
-    address.startsWith("192.168.") ||
-    /^172\.(1[6-9]|2\d|3[0-1])\./.test(address)
-  );
-}
-
-function extractPublicIpFromCandidate(candidate: string) {
-  const matches = candidate.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g) ?? [];
-  return matches.find((address) => !isPrivateIpv4Address(address)) ?? null;
-}
-
-async function detectPublicIpAddress(timeoutMs = 4000) {
-  if (
-    typeof window === "undefined" ||
-    typeof RTCPeerConnection === "undefined"
-  ) {
-    return null;
-  }
-
-  try {
-    const peerConnection = new RTCPeerConnection({
-      iceServers: [{ urls: ["stun:stun.l.google.com:19302"] }],
-    });
-    peerConnection.createDataChannel("zvid-share-probe");
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-
-    return await new Promise<string | null>((resolve) => {
-      let settled = false;
-      const finish = (value: string | null) => {
-        if (settled) {
-          return;
-        }
-
-        settled = true;
-        window.clearTimeout(timeoutId);
-        if (peerConnection) {
-          peerConnection.onicecandidate = null;
-          peerConnection.close();
-        }
-        resolve(value);
-      };
-
-      const timeoutId = window.setTimeout(() => finish(null), timeoutMs);
-      peerConnection.onicecandidate = (event) => {
-        const candidate = event.candidate?.candidate;
-        if (!candidate) {
-          finish(null);
-          return;
-        }
-
-        const publicIp = extractPublicIpFromCandidate(candidate);
-        if (publicIp) {
-          finish(publicIp);
-        }
-      };
-    });
-  } catch {
-    return null;
-  }
-}
-
-function buildPublicShareUrl(
-  roomName: string,
-  signaling: string,
-  password: string,
-  publicIpAddress: string | null,
-) {
-  const currentUrl = new URL(window.location.href);
-  const origin = publicIpAddress
-    ? `${currentUrl.protocol}//${publicIpAddress}${currentUrl.port ? `:${currentUrl.port}` : ""}`
-    : currentUrl.origin;
-  const shareUrl = new URL(currentUrl.pathname, origin);
-
-  shareUrl.searchParams.set("room", roomName);
-  shareUrl.searchParams.set("signal", parseSignalingUrls(signaling).join(","));
-
-  if (password.trim()) {
-    shareUrl.searchParams.set("password", password.trim());
-  }
-
-  return shareUrl.toString();
-}
-
 function parseCollaborationInvite(value: string) {
   const rawValue = value.trim();
   if (!rawValue) {
     throw new Error("Paste the share URL first.");
   }
 
-  let params: URLSearchParams;
-  try {
-    params = new URL(rawValue).searchParams;
-  } catch {
-    const fallback = rawValue.startsWith("?") ? rawValue.slice(1) : rawValue;
-    params = new URLSearchParams(fallback);
-  }
-
-  const room = params.get("room")?.trim() ?? "";
+  const { room, signal, password } = parseInviteParams(rawValue);
   if (!room) {
     throw new Error("That invite is missing a room name.");
   }
 
   return {
     room,
-    signaling:
-      params.get("signal")?.trim() || DEFAULT_SIGNALING_URLS.join(", "),
-    password: params.get("password")?.trim() || "",
+    signaling: signal || DEFAULT_SIGNALING_URLS.join(", "),
+    password,
   };
 }
 
@@ -1571,14 +1504,16 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
     name: track.name,
     colorIndex: track.colorIndex ?? -1,
   }));
-  const sourceTracks = (session.tracks ?? []).map<SourceTrack>((track) => ({
-    id: track.id,
-    name: track.name,
-    colorIndex: track.colorIndex ?? -1,
-    recordingPaths: (track.recordings ?? []).map(
-      (recording) => recording.filename,
-    ),
-  }));
+  const sourceTracks = (session.tracks ?? []).map<SourceTrack>(
+    (track, index) => ({
+      id: track.id,
+      name: track.name,
+      colorIndex: sessionSourceTrackColorIndex(track.colorIndex, index),
+      recordingPaths: (track.recordings ?? []).map(
+        (recording) => recording.filename,
+      ),
+    }),
+  );
   const nameByTrack = new Map(
     sourceTracks.map((track) => [track.id, track.name]),
   );
@@ -1697,11 +1632,11 @@ function buildStandaloneProject(mediaItems: MediaItem[]) {
   const sourceTracks = mediaItems.map<SourceTrack>((item, index) => ({
     id: `import-track-${index}`,
     name: item.name.replace(/\.[^/.]+$/, ""),
-    colorIndex: index,
+    colorIndex: sourceTrackColorIndex(index),
     recordingPaths: [item.name],
   }));
   const sourceSpans = mediaItems.map<SourceSpan>((item, index) => {
-    const swatch = getSwatch(index);
+    const swatch = getSwatch(sourceTrackColorIndex(index));
     return {
       id: `source-span-${item.id}`,
       sourceTrackId: sourceTracks[index]?.id ?? `import-track-${index}`,
@@ -1850,6 +1785,8 @@ function App() {
   const [clipMenu, setClipMenu] = useState<ClipMenuState | null>(null);
   // The layer whose name is being edited in its header.
   const [renamingLaneId, setRenamingLaneId] = useState<string>();
+  const renamingLaneIdRef = useRef(renamingLaneId);
+  renamingLaneIdRef.current = renamingLaneId;
   // The layer the FX chain edits. Selecting a clip selects its layer, and
   // clearing the clip selection keeps the layer.
   const [selectedLaneId, setSelectedLaneId] = useState<string>();
@@ -1934,7 +1871,7 @@ function App() {
   const [connectInviteValue, setConnectInviteValue] = useState("");
   const [isStartingConnect, setIsStartingConnect] = useState(false);
   const [hasCopiedShareInvite, setHasCopiedShareInvite] = useState(false);
-  const [lastCopiedShareUrl, setLastCopiedShareUrl] = useState("");
+  const [shareUrl, setShareUrl] = useState("");
   const [collaborationState, setCollaborationState] =
     useState<CollaborationConnectionState>(IDLE_COLLABORATION_STATE);
   const [isDiagnosticsDialogOpen, setIsDiagnosticsDialogOpen] = useState(false);
@@ -3061,7 +2998,7 @@ function App() {
             targetTrack = {
               id: `source-track-${crypto.randomUUID()}`,
               name: stripFilenameExtension(analyzed[0]?.name ?? "Source Track"),
-              colorIndex: current.sourceTracks.length,
+              colorIndex: nextSourceTrackColorIndex(current.sourceTracks),
               recordingPaths: [],
             };
             nextSourceTracks = [...current.sourceTracks, targetTrack];
@@ -4923,40 +4860,12 @@ function App() {
 
   function getClipMenuEntries(menu: ClipMenuState): ContextMenuEntry[] {
     if (menu.kind === "audio") {
-      return buildMainAudioMenuEntries({
-        hasMainAudio: Boolean(mainAudioId),
-        disabled: isExporting,
-        chooseFile: () => mainAudioInputRef.current?.click(),
-        remove: removeMainAudio,
-      });
+      return getMainAudioMenuEntries();
     }
 
     if (menu.kind === "layer") {
       const lane = lanes.find((item) => item.id === menu.laneId);
-      if (!lane) {
-        return [];
-      }
-
-      const fxEnabled = isLayerFxEnabled(lane);
-      return buildLayerMenuEntries({
-        lanes,
-        laneId: lane.id,
-        fxEnabled,
-        effectCount: laneStatusById.get(lane.id)?.effectCount ?? 0,
-        effects: ADDABLE_EFFECT_DEFINITIONS,
-        disabled: isExporting,
-        actions: {
-          rename: () => setRenamingLaneId(lane.id),
-          duplicate: () => duplicateLayer(lane),
-          remove: () => deleteLayer(lane),
-          toggleFx: () => setLayerFxEnabled(lane.id, !fxEnabled),
-          addFx: (effectName) => addLayerFx(lane.id, effectName),
-          insertAbove: () => insertLayer(lane.id, "above"),
-          insertBelow: () => insertLayer(lane.id, "below"),
-          moveUp: () => moveLayer(lane, -1),
-          moveDown: () => moveLayer(lane, 1),
-        },
-      });
+      return lane ? getLayerMenuEntries(lane) : [];
     }
 
     if (menu.kind === "span") {
@@ -4977,7 +4886,50 @@ function App() {
       menu.kind === "clip"
         ? timelineClips.find((item) => item.id === menu.clipId)
         : undefined;
-    const pasteLaneId = menu.kind === "lane" ? menu.laneId : clip?.laneId;
+    return getArrangementClipEntries(
+      clip,
+      menu.kind === "lane" ? menu.laneId : clip?.laneId,
+    );
+  }
+
+  function getMainAudioMenuEntries() {
+    return buildMainAudioMenuEntries({
+      hasMainAudio: Boolean(mainAudioId),
+      disabled: isExporting,
+      chooseFile: () => mainAudioInputRef.current?.click(),
+      remove: removeMainAudio,
+    });
+  }
+
+  function getLayerMenuEntries(lane: Lane) {
+    const fxEnabled = isLayerFxEnabled(lane);
+    return buildLayerMenuEntries({
+      lanes,
+      laneId: lane.id,
+      fxEnabled,
+      effectCount: laneStatusById.get(lane.id)?.effectCount ?? 0,
+      effects: ADDABLE_EFFECT_DEFINITIONS,
+      disabled: isExporting,
+      actions: {
+        rename: () => setRenamingLaneId(lane.id),
+        duplicate: () => duplicateLayer(lane),
+        remove: () => deleteLayer(lane),
+        toggleFx: () => setLayerFxEnabled(lane.id, !fxEnabled),
+        addFx: (effectName) => addLayerFx(lane.id, effectName),
+        insertAbove: () => insertLayer(lane.id, "above"),
+        insertBelow: () => insertLayer(lane.id, "below"),
+        moveUp: () => moveLayer(lane, -1),
+        moveDown: () => moveLayer(lane, 1),
+      },
+    });
+  }
+
+  // The clip menu, or the empty lane space menu without a clip. Paste goes on
+  // `pasteLaneId`, or on the selected layer when it is undefined.
+  function getArrangementClipEntries(
+    clip: ArrangementClip | undefined,
+    pasteLaneId: string | undefined,
+  ): ContextMenuEntry[] {
     const withClip = (action: (clip: ArrangementClip) => void) => () => {
       if (clip) {
         action(clip);
@@ -4999,6 +4951,42 @@ function App() {
         remove: withClip(deleteArrangementClip),
       },
     });
+  }
+
+  // Built when the Edit menu opens, so it reflects the current selection.
+  function getEditMenuEntries(): ContextMenuEntry[] {
+    const selectedLane = lanes.find((lane) => lane.id === selectedLaneId);
+    return buildEditMenuEntries(
+      [
+        {
+          type: "item",
+          id: "undo",
+          label: undoLabel ? `Undo ${undoLabel}` : "Undo",
+          shortcut: shortcutLabels.undo,
+          disabled: isExporting || !canUndo,
+          onSelect: handleUndo,
+        },
+        {
+          type: "item",
+          id: "redo",
+          label: redoLabel ? `Redo ${redoLabel}` : "Redo",
+          shortcut: shortcutLabels.redo,
+          disabled: isExporting || !canRedo,
+          onSelect: handleRedo,
+        },
+      ],
+      {
+        clip: explicitClip?.label,
+        clipEntries: getArrangementClipEntries(explicitClip, undefined),
+        layer: selectedLane
+          ? {
+              name: selectedLane.name,
+              entries: getLayerMenuEntries(selectedLane),
+            }
+          : undefined,
+        audioEntries: getMainAudioMenuEntries(),
+      },
+    );
   }
 
   useEffect(() => {
@@ -6135,22 +6123,28 @@ function App() {
     const roomName = collaborationView.pendingShareRoom;
     setIsStartingShare(true);
     setHasCopiedShareInvite(false);
+    setShareUrl("");
 
     try {
       setCollaborationRoom(roomName);
       setCollaborationMode("sharing");
 
-      const publicIpAddress = await detectPublicIpAddress();
-      const shareUrl = buildPublicShareUrl(
+      const { url: inviteUrl, localOnly } = buildPublicShareUrl(
         roomName,
-        collaborationSignaling,
+        parseSignalingUrls(collaborationSignaling),
         collaborationPassword,
-        publicIpAddress,
+        {
+          origin: window.location.origin,
+          pathname: window.location.pathname,
+          publicAppUrl: import.meta.env.VITE_PUBLIC_APP_URL,
+        },
       );
+      // Kept whether or not the copy below works, so the status bar's Copy
+      // link button can copy it again for the rest of the session.
+      setShareUrl(inviteUrl);
 
       try {
-        await navigator.clipboard.writeText(shareUrl);
-        setLastCopiedShareUrl(shareUrl);
+        await navigator.clipboard.writeText(inviteUrl);
         setHasCopiedShareInvite(true);
         if (shareCopyResetTimeoutRef.current !== null) {
           window.clearTimeout(shareCopyResetTimeoutRef.current);
@@ -6159,14 +6153,12 @@ function App() {
           setHasCopiedShareInvite(false);
         }, 4500);
         setStatus(
-          `Public sharing is live. Invite copied${publicIpAddress ? ` via ${publicIpAddress}` : ""}. Click Stop Share to disconnect.`,
+          localOnly
+            ? "Invite copied, but it only works on this computer or network. Share from the deployed app to invite others. Click Stop Share to disconnect."
+            : "Public sharing is live. Invite copied. Click Stop Share to disconnect.",
         );
       } catch (error) {
-        setStatus(
-          `Public sharing is live, but copying the invite failed: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
+        setStatus(shareCopyFailedStatus(error));
       }
 
       setIsShareDialogOpen(false);
@@ -6180,6 +6172,7 @@ function App() {
     collaborationControllerRef.current = null;
     setCollaborationState(IDLE_COLLABORATION_STATE);
     setCollaborationMode("idle");
+    setShareUrl("");
     setStatus("Public sharing stopped. Signaling socket disconnected.");
   }
 
@@ -6430,9 +6423,10 @@ function App() {
         clipCount: timelineClips.length,
         trackCount: lanes.length,
         offlineCount,
-      }).map((item) =>
-        item.id === "playhead"
-          ? {
+      }).flatMap((item): StatusItem[] => {
+        if (item.id === "playhead") {
+          return [
+            {
               id: item.id,
               label: item.label,
               value: (
@@ -6444,9 +6438,24 @@ function App() {
                   timelineMode={timelineMode}
                 />
               ),
-            }
-          : item,
-      ),
+            },
+          ];
+        }
+        // The Copy link button sits right after the share status.
+        if (
+          item.id === "collaboration" &&
+          shareLinkVisible(collaborationMode, shareUrl)
+        ) {
+          return [
+            item,
+            {
+              id: "share-link",
+              value: <ShareLinkButton key={shareUrl} url={shareUrl} />,
+            },
+          ];
+        }
+        return [item];
+      }),
     [
       bpm,
       canvasHeight,
@@ -6460,6 +6469,7 @@ function App() {
       playheadSignal,
       previewMedia,
       sessionName,
+      shareUrl,
       signature,
       timelineClips.length,
       timelineMode,
@@ -6572,25 +6582,16 @@ function App() {
                 </span>
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuItem
-                disabled={isExporting || !canUndo}
-                onSelect={() => handleUndo()}
-              >
-                <span>{undoLabel ? `Undo ${undoLabel}` : "Undo"}</span>
-                <DropdownMenuShortcut>
-                  {shortcutLabels.undo}
-                </DropdownMenuShortcut>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={isExporting || !canRedo}
-                onSelect={() => handleRedo()}
-              >
-                <span>{redoLabel ? `Redo ${redoLabel}` : "Redo"}</span>
-                <DropdownMenuShortcut>
-                  {shortcutLabels.redo}
-                </DropdownMenuShortcut>
-              </DropdownMenuItem>
+            <DropdownMenuContent
+              align="start"
+              onCloseAutoFocus={(event) => {
+                // Leave focus on the layer name field Rename… opened.
+                if (renamingLaneIdRef.current) {
+                  event.preventDefault();
+                }
+              }}
+            >
+              <DropdownMenuEntries entries={getEditMenuEntries()} />
             </DropdownMenuContent>
           </DropdownMenu>
           <div className="tempo-pill">
@@ -6688,7 +6689,7 @@ function App() {
             <span
               className="share-copy-badge"
               aria-live="polite"
-              title={lastCopiedShareUrl}
+              title={shareUrl}
             >
               <svg viewBox="0 0 20 20" role="presentation" aria-hidden="true">
                 <path
@@ -6766,8 +6767,9 @@ function App() {
               meta={collaborationView.remoteCollaboratorNames || undefined}
             />
             <p className="share-dialog__note">
-              Your invite uses a Google STUN probe to detect a public IP when
-              one is available, then it copies the connection URL automatically.
+              The invite links to this app's address and copies automatically.
+              Any room password travels in the link's fragment, which is never
+              sent to servers.
             </p>
           </div>
 
