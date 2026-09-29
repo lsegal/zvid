@@ -194,3 +194,191 @@ test("the FX device menu runs on the shared context menu", async ({ page }) => {
   await rightClick(title);
   await expect(menuItem(page, "Expand")).toBeVisible();
 });
+
+// Whether the browser would show its own menu for the last contextmenu event.
+// Handlers stop it from bubbling, so keep the event from the capture phase and
+// read it once they have all run.
+async function trackNativeMenu(page: Page) {
+  await page.evaluate(() => {
+    const state = window as unknown as { __lastContextMenu?: Event };
+    window.addEventListener(
+      "contextmenu",
+      (event) => {
+        state.__lastContextMenu = event;
+      },
+      true,
+    );
+  });
+}
+
+function lastEventShowedNativeMenu(page: Page) {
+  return page.evaluate(() => {
+    const event = (window as unknown as { __lastContextMenu?: Event })
+      .__lastContextMenu;
+    return event ? !event.defaultPrevented : undefined;
+  });
+}
+
+// Dispatches contextmenu on the first match of `selector` itself, as when the
+// press starts on that element, and reports whether the native menu would
+// have opened.
+function contextMenuOn(page: Page, selector: string) {
+  return page.evaluate((target) => {
+    const element = document.querySelector(target);
+    if (!element) {
+      throw new Error(`No element matches ${target}`);
+    }
+
+    const bounds = element.getBoundingClientRect();
+    const event = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+      button: 2,
+      clientX: bounds.left + bounds.width / 2,
+      clientY: bounds.top + bounds.height / 2,
+    });
+    element.dispatchEvent(event);
+    return !event.defaultPrevented;
+  }, selector);
+}
+
+test("right-clicks on clips, lanes and source clips, even on their thumbnails, never open the browser menu", async ({
+  page,
+}) => {
+  await dropVideoIntoNewSourceTrack(page);
+  await page.locator(".source-span").click({ modifiers: ["ControlOrMeta"] });
+  const clip = lane(page, "6").locator(".clip-card");
+  await expect(clip).toHaveCount(1);
+  await expect(page.locator(".clip-card__tile").first()).toBeAttached();
+  await expect(page.locator(".source-span__tile").first()).toBeAttached();
+  await trackNativeMenu(page);
+
+  const clipMenu = page.getByRole("menu", { name: "Clip actions" });
+  const laneMenu = page.getByRole("menu", { name: "Layer actions" });
+  const spanMenu = page.getByRole("menu", { name: "Source clip actions" });
+
+  // Real right-clicks.
+  for (const [target, menu] of [
+    [clip, clipMenu],
+    [page.locator(".source-span"), spanMenu],
+  ] as const) {
+    await rightClick(target);
+    await expect(menu).toBeVisible();
+    expect(await lastEventShowedNativeMenu(page)).toBe(false);
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
+  }
+  await rightClick(lane(page, "5"), { x: 400, y: 20 });
+  await expect(laneMenu).toBeVisible();
+  expect(await lastEventShowedNativeMenu(page)).toBe(false);
+  await page.keyboard.press("Escape");
+
+  // Presses that start on a clip's children, including images and video,
+  // where browsers otherwise offer their image and video menus.
+  await page.evaluate(() => {
+    for (const parent of document.querySelectorAll(
+      ".clip-card, .source-span",
+    )) {
+      const image = document.createElement("img");
+      image.className = "test-image";
+      const video = document.createElement("video");
+      video.className = "test-video";
+      parent.append(image, video);
+    }
+  });
+  for (const [owner, menu] of [
+    [".clip-card", clipMenu],
+    [".source-span", spanMenu],
+  ] as const) {
+    const prefix = owner.slice(1);
+    for (const child of [
+      `.${prefix}__filmstrip`,
+      `.${prefix}__tile`,
+      `.${prefix}__body`,
+      `${owner} .test-image`,
+      `${owner} .test-video`,
+    ]) {
+      if (!(await page.locator(child).count())) {
+        continue;
+      }
+      expect(await contextMenuOn(page, child), child).toBe(false);
+      await expect(menu).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(menu).toBeHidden();
+    }
+  }
+  // Every clip has at least its filmstrip, body, image and video checked.
+  await expect(page.locator(".clip-card__filmstrip")).toHaveCount(1);
+  await expect(page.locator(".source-span__filmstrip")).toHaveCount(1);
+
+  // Elsewhere the browser keeps its own menu.
+  expect(await contextMenuOn(page, ".topbar")).toBe(true);
+  await expect(page.getByRole("menu")).toHaveCount(0);
+});
+
+test("Ctrl-click on macOS opens the menus without selecting, dragging or dropping", async ({
+  page,
+}) => {
+  // Report macOS so the editor treats Ctrl-click as a context-menu press.
+  await page.addInitScript(() => {
+    Object.defineProperty(Navigator.prototype, "platform", {
+      get: () => "MacIntel",
+    });
+    Object.defineProperty(Navigator.prototype, "userAgentData", {
+      get: () => ({ platform: "macOS" }),
+    });
+  });
+  await page.reload();
+  await expect(lane(page, "1")).toBeVisible();
+  await dropVideoIntoNewSourceTrack(page);
+  await page.locator(".source-span").click({ modifiers: ["Meta"] });
+  await expect(page.locator(".clip-card")).toHaveCount(1);
+  await trackNativeMenu(page);
+
+  // macOS sends a primary-button press with Ctrl, then contextmenu.
+  async function ctrlClick(
+    target: Locator,
+    position = { x: 20, y: 20 },
+  ): Promise<void> {
+    await target.scrollIntoViewIfNeeded();
+    const bounds = await target.boundingBox();
+    if (!bounds) {
+      throw new Error("Target is not visible");
+    }
+    const x = bounds.x + position.x;
+    const y = bounds.y + position.y;
+    await page.keyboard.down("Control");
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await target.dispatchEvent("contextmenu", {
+      button: 0,
+      ctrlKey: true,
+      clientX: x,
+      clientY: y,
+    });
+    await page.mouse.up();
+    await page.keyboard.up("Control");
+  }
+
+  await ctrlClick(lane(page, "5"), { x: 400, y: 20 });
+  await expect(page.getByRole("menu", { name: "Layer actions" })).toBeVisible();
+  expect(await lastEventShowedNativeMenu(page)).toBe(false);
+  await expect(page.locator(".timeline-selection")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
+  const clip = page.locator(".clip-card");
+  await ctrlClick(clip.locator(".clip-card__body"));
+  await expect(page.getByRole("menu", { name: "Clip actions" })).toBeVisible();
+  expect(await lastEventShowedNativeMenu(page)).toBe(false);
+  await expect(clip).toHaveCount(1);
+  await expect(clip).toHaveClass(/clip-card--selected/);
+  await page.keyboard.press("Escape");
+
+  // Cmd-click drops a source clip on macOS; Ctrl-click only opens its menu.
+  await ctrlClick(page.locator(".source-span"));
+  await expect(
+    page.getByRole("menu", { name: "Source clip actions" }),
+  ).toBeVisible();
+  expect(await lastEventShowedNativeMenu(page)).toBe(false);
+  await expect(page.locator(".clip-card")).toHaveCount(1);
+});

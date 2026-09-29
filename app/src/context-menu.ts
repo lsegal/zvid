@@ -65,6 +65,18 @@ export function isContextMenuKey(event: {
   );
 }
 
+/**
+ * Whether a pointer press opens a context menu rather than acting as a click
+ * or drag: the secondary button, or Ctrl with the primary button on macOS,
+ * which browsers there also report as a contextmenu event.
+ */
+export function isContextMenuPress(
+  event: { button: number; ctrlKey: boolean },
+  mac: boolean,
+) {
+  return event.button === 2 || (mac && event.button === 0 && event.ctrlKey);
+}
+
 /** The entries shown at `level`, or undefined when that level is not open. */
 export function getLevelEntries(
   entries: readonly ContextMenuEntry[],
