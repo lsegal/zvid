@@ -292,12 +292,6 @@ export function resolveLayerPlacement(options: {
       x: frame.centerX + visual.translateX * frame.halfWidth,
       y: frame.centerY + anchorOffsetY + visual.translateY * frame.halfHeight,
     },
-    scissor: resolveSlotScissor(
-      index,
-      count,
-      order,
-      canvasWidth,
-      canvasHeight,
-    ),
+    scissor: resolveSlotScissor(index, count, order, canvasWidth, canvasHeight),
   };
 }

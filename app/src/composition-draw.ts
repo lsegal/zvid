@@ -1,14 +1,14 @@
 import {
-  type CompositionOrder,
-  DEFAULT_COMPOSITION_ORDER,
-  visibleLayerCount,
-} from "./composition-order.ts";
-import {
   type LayerPlacement,
   type LayerVisual,
   orderStackedLayers,
   resolveLayerPlacement,
 } from "./composition-layout.ts";
+import {
+  type CompositionOrder,
+  DEFAULT_COMPOSITION_ORDER,
+  visibleLayerCount,
+} from "./composition-order.ts";
 import {
   isIdentityTransform,
   type QuadAxes,
