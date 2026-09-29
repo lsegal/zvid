@@ -385,6 +385,112 @@ describe("resolvePreviewLayers", () => {
     assert.equal(hitTestLayers([after], { x: 300, y: 400 }, canvas), undefined);
   });
 
+  it("turns an FX clip beneath an FX clip with an Order with its box", () => {
+    const fx = {
+      ...activeLayer("fx", 0, { rotationDeg: 90 }),
+      fx: true,
+      order: { arrangement: "grid" as const, gridSize: 2, spacing: 0 },
+    };
+    const inner = { ...activeLayer("inner", 1, { scaleX: 0.5 }), fx: true };
+    const layers = resolvePreviewLayers([fx, inner], canvas);
+    // FX clips still come first, in layer order.
+    assert.deepEqual(
+      layers.map((layer) => layer.laneId),
+      ["fx", "inner"],
+    );
+    const [, nested] = layers;
+    // Its box is the whole arrangement surface, halved in width by its own
+    // Transform (x 250..750), then turned a quarter clockwise: y 250..750.
+    assert.deepEqual(nested.arrangement?.canvas, canvas);
+    const turned = [
+      [1000, 250],
+      [1000, 750],
+      [0, 750],
+      [0, 250],
+    ];
+    nested.corners.forEach((corner, index) => {
+      assertClose(corner.x, turned[index][0]);
+      assertClose(corner.y, turned[index][1]);
+    });
+    assert.equal(
+      hitTestLayers(layers, { x: 500, y: 500 }, canvas)?.laneId,
+      "inner",
+    );
+    // Where its upright box would be, only the outer FX clip is.
+    assert.equal(
+      hitTestLayers(layers, { x: 500, y: 100 }, canvas)?.laneId,
+      "fx",
+    );
+    // Its handles turn with the box.
+    assertClose(
+      matrixRotationDeg(resolvePreviewEditFrame(nested, false, canvas).parent),
+      90,
+    );
+  });
+
+  it("measures FX clips in a scaled FX box in the box's size", () => {
+    const fx = {
+      ...activeLayer("fx", 0, { scaleX: 0.5, scaleY: 0.25 }),
+      fx: true,
+      order: { arrangement: "horizontal" as const, gridSize: 2, spacing: 0 },
+    };
+    const arranger = {
+      ...activeLayer("arranger", 1),
+      fx: true,
+      order: { arrangement: "vertical" as const, gridSize: 2, spacing: 0 },
+    };
+    const plain = { ...activeLayer("plain", 2), fx: true };
+    const layers = resolvePreviewLayers([fx, arranger, plain], canvas);
+    assert.deepEqual(
+      layers.map((layer) => layer.laneId),
+      ["fx", "arranger", "plain"],
+    );
+    const [outer, nested, before] = layers;
+    assert.equal(outer.arrangement, undefined);
+    // Both nested FX clips fill the outer box's 500 x 250 surface, whether
+    // or not they arrange the layers beneath them.
+    for (const layer of [nested, before]) {
+      assert.deepEqual(layer.arrangement?.canvas, { width: 500, height: 250 });
+      assert.deepEqual(
+        layer.corners.map((corner) => [corner.x, corner.y]),
+        [
+          [250, 375],
+          [750, 375],
+          [750, 625],
+          [250, 625],
+        ],
+      );
+    }
+
+    // A drag moves the FX clip under the pointer: its position is in the
+    // box's widths and heights, as the compositor draws it.
+    const frame = resolvePreviewEditFrame(before, false, canvas);
+    assert.deepEqual(frame.canvas, { width: 500, height: 250 });
+    const position = offsetTransformPosition(
+      { x: 0, y: 0 },
+      toParentDelta(frame.parent, { x: 100, y: 50 }),
+      frame.canvas,
+    );
+    assertClose(position.x, 0.2);
+    assertClose(position.y, 0.2);
+    const [, , after] = resolvePreviewLayers(
+      [
+        fx,
+        arranger,
+        {
+          ...activeLayer("plain", 2, {
+            positionX: position.x,
+            positionY: position.y,
+          }),
+          fx: true,
+        },
+      ],
+      canvas,
+    );
+    assertClose(after.corners[0].x - before.corners[0].x, 100);
+    assertClose(after.corners[0].y - before.corners[0].y, 50);
+  });
+
   it("follows the Order arrangement", () => {
     const layers = resolvePreviewLayers(
       [activeLayer("a", 0), activeLayer("b", 1)],
