@@ -863,6 +863,50 @@ describe("convertAls with ZVID Capture fixtures", () => {
     });
   });
 
+  it("keeps trimmed and moved clips on the take their content was recorded in", async () => {
+    const result = await load("zvid-capture-trimmed.xml");
+    // The take starts 1.5 s (45 frames) into its file at song time 0. Each
+    // clip plays the file from where its content was recorded, not from
+    // where it sits in the arrangement or where it starts in its sample.
+    assert.deepEqual(
+      result.session.clips?.map(
+        ({ id, filePath, frameStart, frameCount, clipStart }) => [
+          id,
+          filePath,
+          frameStart,
+          frameCount,
+          clipStart,
+        ],
+      ),
+      [
+        // Resized at its end: content from beat 0, recorded at 0 s.
+        ["1-1", "video-01-9-28-15-01-28-0.mp4", 0, 240, 45],
+        // Start marker at bar 9 (beat 32), recorded at 16 s.
+        ["1-2", "video-01-9-28-15-01-28-0.mp4", 240, 360, 525],
+        // Moved to beat 200, past the take, with content from beat 60 (30 s).
+        ["1-3", "video-01-9-28-15-01-28-0.mp4", 3000, 120, 945],
+      ],
+    );
+    assert.deepEqual(result.summary.skipped, []);
+  });
+
+  it("offsets a clip into its take's file, not its sample", async () => {
+    const result = await load("zvid-capture-vst3.xml");
+    // Chorus plays content from beat 32 (16 s), where take a2 is 20 s into
+    // its file; Verse plays from 0 s, 1.5 s into take a1.
+    assert.deepEqual(
+      result.session.clips?.map(({ id, clipStart, frameHiddenLoopEnd }) => [
+        id,
+        clipStart,
+        frameHiddenLoopEnd,
+      ]),
+      [
+        ["20-1", 45, 285],
+        ["20-2", 600, 780],
+      ],
+    );
+  });
+
   it("resolves each take against its own record root", async () => {
     const doc = await parseAls(
       new Uint8Array(fixture("zvid-capture-vst3.xml")),
