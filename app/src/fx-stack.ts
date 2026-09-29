@@ -13,6 +13,7 @@ import {
 import { isColorEffectName } from "./fill-paint.ts";
 import {
   type FxEffectDefinition,
+  type FxEffectScope,
   type FxFlagOption,
   type FxParameterDefinition,
   getEffectDefinition,
@@ -730,9 +731,13 @@ function toDevice(
   layerName: string,
   activeLayerCount = 0,
   missingFonts: ReadonlySet<string> = new Set(),
+  // The scope a clip stack's effects are checked against: "fxClip" for an
+  // FX clip.
+  clipScope: FxEffectScope = "clip",
 ): FxDevice {
   const definition = getEffectDefinition(effect.effectName);
   const group = getTrackGroup(effect.trackId);
+  const scope = group === "clip" ? clipScope : group;
   const knownKeys = new Set(
     definition.parameters.map((parameter) => parameter.key),
   );
@@ -766,7 +771,7 @@ function toDevice(
     group,
     enabled: effect.enabled !== false,
     layerDefault: isLayerLayoutEffect(effect) || undefined,
-    unsupported: !isEffectSupportedIn(effect.effectName, group) || undefined,
+    unsupported: !isEffectSupportedIn(effect.effectName, scope) || undefined,
     warning:
       describeHiddenLayers(effect, activeLayerCount) ??
       describeMissingFont(effect, missingFonts),
@@ -800,6 +805,8 @@ export function mapSessionEffectsToDevices(
   missingFonts: ReadonlySet<string> = new Set(),
   // The selected clip, whose own stack is listed too.
   clipId?: string,
+  // "fxClip" when the selected clip is an FX clip.
+  clipScope: FxEffectScope = "clip",
 ) {
   const layerDevices = effects
     .filter((effect) => laneId !== undefined && effect.trackId === laneId)
@@ -811,7 +818,7 @@ export function mapSessionEffectsToDevices(
     clipId === undefined ? undefined : clipEffectTrackId(clipId);
   const clipDevices = effects
     .filter((effect) => effect.trackId === clipTrackId)
-    .map((effect) => toDevice(effect, layerName, 0, missingFonts));
+    .map((effect) => toDevice(effect, layerName, 0, missingFonts, clipScope));
   return [...layerDevices, ...globalDevices, ...clipDevices];
 }
 

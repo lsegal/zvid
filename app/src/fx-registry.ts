@@ -109,11 +109,18 @@ export type FxParameterDefinition =
   | FxStringParameterDefinition;
 
 // The stacks an effect is designed for: a clip's own stack, which processes
-// that clip before its layer does, a layer's own stack, and the Global stack
-// that processes the composite.
-export type FxEffectScope = "layer" | "clip" | "global";
+// that clip before its layer does, a layer's own stack, the Global stack
+// that processes the composite, and an FX clip's own stack, which processes
+// the composite beneath the FX clip. Effects that make content (Color, Text)
+// or place a layer (Layout) have nothing to work on in an FX clip.
+export type FxEffectScope = "layer" | "clip" | "global" | "fxClip";
 
-const ALL_SCOPES: readonly FxEffectScope[] = ["layer", "clip", "global"];
+const ALL_SCOPES: readonly FxEffectScope[] = [
+  "layer",
+  "clip",
+  "global",
+  "fxClip",
+];
 
 export type FxEffectDefinition = {
   effectName: string;
@@ -329,8 +336,9 @@ const DEFINITIONS: FxEffectDefinition[] = [
     description: "Moves, resizes and rotates the layer inside the canvas.",
     accent: "#ff9f6b",
     known: true,
-    // On a clip it places the clip inside its layer's transformed box.
-    scopes: ["layer", "clip"],
+    // On a clip it places the clip inside its layer's transformed box, and
+    // on an FX clip it moves the box the FX clip adjusts.
+    scopes: ["layer", "clip", "fxClip"],
     parameters: [
       transformParameter("PositionX", "X", -2, 2, 0, formatSignedPercent),
       transformParameter("PositionY", "Y", -2, 2, 0, formatSignedPercent),
