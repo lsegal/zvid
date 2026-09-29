@@ -238,7 +238,11 @@ describe("importAls", () => {
     ]);
     assert.deepEqual(segments("5-808 Pure"), [[8, 4]]);
     assert.ok(imported.clips?.every((clip) => clip.filePath === ""));
-    assert.equal(imported.selections?.length, imported.clips?.length);
+    // The arrangement opens empty for the user to build.
+    assert.deepEqual(imported.mainTracks, [
+      { id: "1", name: "Layer 1", colorIndex: -1 },
+    ]);
+    assert.deepEqual(imported.selections, []);
 
     const { summary } = resolveAlsMedia(imported, () => null);
     assert.deepEqual(summary, {
@@ -278,6 +282,10 @@ describe("importAls", () => {
     for (const clip of imported.clips ?? []) {
       assert.equal(clip.filePath, clip.filePath.split(/[/\\]/).at(-1));
     }
+    assert.deepEqual(imported.mainTracks, [
+      { id: "1", name: "Layer 1", colorIndex: -1 },
+    ]);
+    assert.deepEqual(imported.selections, []);
     assert.deepEqual(imported.importReport, {
       skippedTracks: ["Audio 11 on 3-Audio (shorter than a frame)"],
       hasLayersVideo: true,
@@ -719,23 +727,6 @@ describe("formatAlsImportSummary", () => {
         "Imported 3 tracks and 1 clip.",
         "Skipped 1 track or clip: Drums (no Layers Record).",
         "2 media files could not be found and will open offline: a.mp4, b.mp4.",
-      ],
-    );
-  });
-
-  it("lists clips trimmed to fit the layers", () => {
-    assert.deepEqual(
-      formatAlsImportSummary({
-        tracks: 11,
-        clips: 11,
-        skippedTracks: ["Clip on Cam 1 (covered by a later clip)"],
-        trimmedClips: ["Clip on Cam 2"],
-        missingMedia: [],
-      }),
-      [
-        "Imported 11 tracks and 11 clips.",
-        "Skipped 1 track or clip: Clip on Cam 1 (covered by a later clip).",
-        "Trimmed 1 clip that overlapped once all 9 layers were in use: Clip on Cam 2.",
       ],
     );
   });

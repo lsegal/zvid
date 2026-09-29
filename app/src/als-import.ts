@@ -1,7 +1,6 @@
 import {
   type AlsSkippedClip,
   type AlsSkipReason,
-  type AlsTrimmedClip,
   convertAls,
   siblingAudioFilename,
 } from "./import/als/convert.ts";
@@ -10,7 +9,6 @@ import {
   parseAlsXml,
   type RecordRoot,
 } from "./import/als/parse.ts";
-import { MAX_LAYERS } from "./selection-overlaps.ts";
 import type { LvpSession, ServerMediaRef } from "./session.ts";
 
 // Opening an Ableton Live set (.als) as a zvid session. The set only names the
@@ -21,8 +19,6 @@ import type { LvpSession, ServerMediaRef } from "./session.ts";
 // entries name clips that were dropped.
 export type AlsImportReport = {
   skippedTracks?: string[];
-  /** Clips shortened to fit the layers, as `describeClip` names them. */
-  trimmedClips?: string[];
   /** False when no imported clip plays a Layers recording. */
   hasLayersVideo?: boolean;
   /** Where each ZVID Capture recording was saved, by filename. */
@@ -39,8 +35,6 @@ export type AlsImportSummary = {
   tracks: number;
   clips: number;
   skippedTracks: string[];
-  /** Clips shortened because they overlapped once every layer was taken. */
-  trimmedClips?: string[];
   missingMedia: string[];
   /** Set when the set had no Layers video, so every clip is a placeholder. */
   noLayersVideo?: boolean;
@@ -131,10 +125,9 @@ const SKIP_REASONS: Record<AlsSkipReason, string> = {
   "no-recording": "no Layers recording",
   "no-take": "no ZVID take at its position",
   "shorter-than-frame": "shorter than a frame",
-  overlapped: "covered by a later clip",
 };
 
-function describeClip(clip: AlsTrimmedClip) {
+function describeClip(clip: AlsSkippedClip) {
   return `${clip.clipName || clip.clipId} on ${clip.trackName}`;
 }
 
@@ -186,9 +179,6 @@ async function convertAlsXml(
     ...session,
     importReport: {
       skippedTracks: describeSkipped(summary.skipped),
-      ...(summary.trimmed.length > 0 && {
-        trimmedClips: summary.trimmed.map(describeClip),
-      }),
       hasLayersVideo: summary.hasLayersVideo,
       ...(summary.recordRoots && { recordRoots: summary.recordRoots }),
       ...(summary.layersRecordTracks && {
@@ -408,9 +398,6 @@ export function resolveAlsMedia(
       tracks: session.tracks?.length ?? 0,
       clips: session.clips?.length ?? 0,
       skippedTracks: importReport?.skippedTracks ?? [],
-      ...(importReport?.trimmedClips?.length
-        ? { trimmedClips: importReport.trimmedClips }
-        : {}),
       missingMedia: Array.from(missing),
       ...(importReport?.hasLayersVideo === false && { noLayersVideo: true }),
     } satisfies AlsImportSummary,
@@ -512,11 +499,6 @@ export function formatAlsImportSummary(
   if (summary.skippedTracks.length) {
     lines.push(
       `Skipped ${pluralize(summary.skippedTracks.length, "track or clip", "tracks and clips")}: ${summary.skippedTracks.join(", ")}.`,
-    );
-  }
-  if (summary.trimmedClips?.length) {
-    lines.push(
-      `Trimmed ${pluralize(summary.trimmedClips.length, "clip")} that overlapped once all ${MAX_LAYERS} layers were in use: ${summary.trimmedClips.join(", ")}.`,
     );
   }
   if (summary.missingMedia.length) {
