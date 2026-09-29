@@ -24,6 +24,7 @@ const sharedTokens = [
   "--mint",
   "--amber",
   "--blue",
+  "--selection-ring",
 ];
 
 function ruleBody(css: string, selector: string): string {
