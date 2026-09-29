@@ -9,6 +9,8 @@ import {
   getAutoScrollDelta,
   getDefaultLaneId,
   getDropSlot,
+  getFxClipName,
+  getFxPanelTitle,
   getParameterFormat,
   groupChainDevices,
   isNoopDropSlot,
@@ -25,6 +27,7 @@ import {
 import {
   ensureGlobalOrder,
   GLOBAL_EFFECT_TRACK_ID,
+  getClipEffectTrackId,
   mapSessionEffectsToDevices,
   moveEffect,
   type SessionEffect,
@@ -82,7 +85,7 @@ describe("groupChainDevices", () => {
       mapSessionEffectsToDevices([], "2", "Layer 2"),
       "video",
     );
-    assert.deepEqual(groups, { layer: [], global: [] });
+    assert.deepEqual(groups, { global: [], layer: [], clip: [] });
   });
 
   it("shows no devices for audio clips", () => {
@@ -90,12 +93,77 @@ describe("groupChainDevices", () => {
       mapSessionEffectsToDevices(DOGFOOD_EFFECTS, "3", "Layer 3"),
       "audio",
     );
-    assert.deepEqual(groups, { layer: [], global: [] });
+    assert.deepEqual(groups, { global: [], layer: [], clip: [] });
+  });
+
+  it("lists the selected clip's own stack, apart from other clips'", () => {
+    const effects = [
+      ...DOGFOOD_EFFECTS,
+      effect("fx-clip", getClipEffectTrackId("clip-a"), "Transform"),
+      effect("fx-other-clip", getClipEffectTrackId("clip-b"), "Pixelate"),
+    ];
+    const groups = groupChainDevices(
+      mapSessionEffectsToDevices(effects, "3", "Layer 3", 0, new Set(), {
+        id: "clip-a",
+        name: "Text",
+      }),
+      "video",
+    );
+    assert.deepEqual(
+      groups.clip.map((device) => [device.name, device.subtitle]),
+      [["Transform", "Text"]],
+    );
+    assert.equal(groups.clip[0].unsupported, undefined);
+    assert.equal(groups.layer.length, 5);
+    assert.equal(groups.global.length, 1);
+  });
+
+  it("lists no clip stack without a selected clip", () => {
+    const effects = [
+      ...DOGFOOD_EFFECTS,
+      effect("fx-clip", getClipEffectTrackId("clip-a"), "Transform"),
+    ];
+    const groups = groupChainDevices(
+      mapSessionEffectsToDevices(effects, "3", "Layer 3"),
+      "video",
+    );
+    assert.deepEqual(groups.clip, []);
+  });
+});
+
+describe("getFxPanelTitle", () => {
+  it("names the selected clip and its layer", () => {
+    assert.equal(
+      getFxPanelTitle("Layer 2", "Text"),
+      "Clip Text Effects (Layer 2)",
+    );
+  });
+
+  it("names the layer when no clip is selected", () => {
+    assert.equal(getFxPanelTitle("Layer 2", undefined), "Layer 2 Effects");
+  });
+
+  it("names the Global stack when nothing is selected", () => {
+    assert.equal(getFxPanelTitle(undefined, undefined), "Global Effects");
+  });
+});
+
+describe("getFxClipName", () => {
+  it("uses the clip's label", () => {
+    assert.equal(getFxClipName("Intro.mp4", "Hello"), "Intro.mp4");
+  });
+
+  it("falls back to the first line of the clip's text", () => {
+    assert.equal(getFxClipName("  ", " Hello "), "Hello");
+  });
+
+  it("still names a clip with neither", () => {
+    assert.equal(getFxClipName(""), "Untitled");
   });
 });
 
 describe("addableEffectsFor", () => {
-  const names = (group: "layer" | "global") =>
+  const names = (group: "layer" | "global" | "clip") =>
     addableEffectsFor(group).map((definition) => definition.effectName);
 
   it("offers only effects scoped to the Global stack in the Global menu", () => {
@@ -135,6 +203,17 @@ describe("addableEffectsFor", () => {
   it("never offers Layout, which every layer already has", () => {
     assert.ok(!names("layer").includes("Layout"));
     assert.ok(!names("global").includes("Layout"));
+    assert.ok(!names("clip").includes("Layout"));
+  });
+
+  it("offers only clip-scoped effects in the clip menu", () => {
+    assert.ok(
+      addableEffectsFor("clip").every((definition) =>
+        definition.scopes.includes("clip"),
+      ),
+    );
+    assert.ok(names("clip").includes("Transform"));
+    assert.ok(!names("clip").includes("Order"));
   });
 
   it("offers Color, which paints fill clips, on layers only", () => {
