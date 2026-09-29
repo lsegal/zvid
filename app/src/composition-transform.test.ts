@@ -6,6 +6,7 @@ import {
 } from "./composition-layout.ts";
 import {
   applyMatrix,
+  canvasBoxToFrame,
   canvasToLayer,
   frameBoxInCanvas,
   IDENTITY_TRANSFORM,
@@ -15,6 +16,7 @@ import {
   layerBoxInCanvas,
   type Point,
   parseLayerTransform,
+  resolveTextBox,
   transformedQuadAxes,
   transformMatrix,
 } from "./composition-transform.ts";
@@ -311,5 +313,58 @@ describe("parseLayerTransform", () => {
       ]),
       IDENTITY_TRANSFORM,
     );
+  });
+});
+
+describe("resolveTextBox", () => {
+  const canvas = { width: 1920, height: 1080 };
+  const band = { x: 0, y: 540, width: 1920, height: 540 };
+
+  it("round-trips a box through clip-space bounds", () => {
+    assert.deepEqual(
+      frameBoxInCanvas(canvasBoxToFrame(band, canvas), canvas),
+      band,
+    );
+  });
+
+  it("leaves an unscaled band as it is", () => {
+    const moved = { ...IDENTITY_TRANSFORM, positionX: 0.5, rotationDeg: 45 };
+    assert.deepEqual(resolveTextBox(band, moved), {
+      box: band,
+      transform: moved,
+    });
+  });
+
+  it("resizes the band about the origin, and lands where the scaled band does", () => {
+    const transform: LayerTransform = {
+      ...IDENTITY_TRANSFORM,
+      positionX: 0.1,
+      positionY: -0.2,
+      scaleX: 2,
+      scaleY: 0.25,
+      originX: -1,
+      originY: 0.5,
+      rotationDeg: 30,
+    };
+    const text = resolveTextBox(band, transform);
+    assert.equal(text.box.width, 3840);
+    assert.equal(text.box.height, 135);
+    assert.equal(text.transform.scaleX, 1);
+    assert.equal(text.transform.scaleY, 1);
+
+    const scaled = layerBoxInCanvas(
+      { frame: canvasBoxToFrame(band, canvas) },
+      transform,
+      canvas,
+    );
+    const resized = layerBoxInCanvas(
+      { frame: canvasBoxToFrame(text.box, canvas) },
+      text.transform,
+      canvas,
+    );
+    resized.forEach((corner, index) => {
+      assert.ok(Math.abs(corner.x - scaled[index].x) < 1e-6);
+      assert.ok(Math.abs(corner.y - scaled[index].y) < 1e-6);
+    });
   });
 });

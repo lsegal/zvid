@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { IDENTITY_TRANSFORM } from "./composition-transform.ts";
+import {
+  IDENTITY_TRANSFORM,
+  layerBoxInCanvas,
+} from "./composition-transform.ts";
 import type { SessionEffect } from "./fx-stack.ts";
 import {
   findLayerTextEffect,
@@ -108,15 +111,57 @@ describe("resolveTextEditorPlacement", () => {
       y: b * x + d * y + f,
     });
 
-    // Scaled by half about the centre, turned 90° clockwise and moved a
+    // Resized by half about the centre, turned 90° clockwise and moved a
     // quarter of the canvas right: the box's top-left corner lands at the
     // top right of the rotated box.
+    assert.equal(placement.width, 960);
+    assert.equal(placement.height, 540);
     const topLeft = map(0, 0);
     assertClose(topLeft.x, (960 + 270 + 480) / 2);
     assertClose(topLeft.y, (540 - 480) / 2);
-    const bottomRight = map(1920, 1080);
+    const bottomRight = map(960, 540);
     assertClose(bottomRight.x, (960 - 270 + 480) / 2);
     assertClose(bottomRight.y, (540 + 480) / 2);
+  });
+
+  it("resizes the editor to the scaled text box instead of scaling it", () => {
+    const transform = {
+      ...IDENTITY_TRANSFORM,
+      scaleX: 2,
+      scaleY: 0.5,
+      originX: -1,
+      originY: -1,
+    };
+    const video = { left: 0, top: 0, width: 960, height: 540 };
+    const placement = resolveTextEditorPlacement(
+      { placement: { frame: FULL_FRAME }, transform },
+      video,
+      CANVAS,
+    );
+    const box = layerBoxInCanvas({ frame: FULL_FRAME }, transform, CANVAS).map(
+      ({ x, y }) => ({ x: x / 2, y: y / 2 }),
+    );
+
+    // Twice as wide and half as tall, pinned at the top left, with only the
+    // monitor's own scale: no CSS stretch.
+    assert.equal(placement.width, 3840);
+    assert.equal(placement.height, 540);
+    assertClose(placement.matrix.a, 0.5);
+    assertClose(placement.matrix.b, 0);
+    assertClose(placement.matrix.c, 0);
+    assertClose(placement.matrix.d, 0.5);
+    const { a, b, c, d, e, f } = placement.matrix;
+    const corners = [
+      [0, 0],
+      [3840, 0],
+      [3840, 540],
+      [0, 540],
+    ].map(([x, y]) => ({ x: a * x + c * y + e, y: b * x + d * y + f }));
+    // The same box the transform overlay draws and hit-tests.
+    corners.forEach((corner, index) => {
+      assertClose(corner.x, box[index].x);
+      assertClose(corner.y, box[index].y);
+    });
   });
 
   it("formats the matrix for CSS", () => {
