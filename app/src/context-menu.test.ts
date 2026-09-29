@@ -7,6 +7,7 @@ import {
   handleMenuKey,
   hoverMenuPath,
   isContextMenuKey,
+  isContextMenuPress,
   MENU_VIEWPORT_MARGIN,
   placeContextMenu,
   placeSubmenu,
@@ -49,6 +50,29 @@ describe("isContextMenuKey", () => {
       false,
     );
     assert.equal(isContextMenuKey({ key: "Enter", shiftKey: true }), false);
+  });
+});
+
+describe("isContextMenuPress", () => {
+  it("accepts the secondary button everywhere", () => {
+    assert.equal(
+      isContextMenuPress({ button: 2, ctrlKey: false }, false),
+      true,
+    );
+    assert.equal(isContextMenuPress({ button: 2, ctrlKey: false }, true), true);
+  });
+
+  it("accepts Ctrl with the primary button on macOS only", () => {
+    assert.equal(isContextMenuPress({ button: 0, ctrlKey: true }, true), true);
+    assert.equal(
+      isContextMenuPress({ button: 0, ctrlKey: true }, false),
+      false,
+    );
+    assert.equal(
+      isContextMenuPress({ button: 0, ctrlKey: false }, true),
+      false,
+    );
+    assert.equal(isContextMenuPress({ button: 1, ctrlKey: true }, true), false);
   });
 });
 

@@ -117,7 +117,7 @@ import {
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
 import { WandIcon } from "./components/WandIcon";
-import { isContextMenuKey } from "./context-menu.ts";
+import { isContextMenuKey, isContextMenuPress } from "./context-menu.ts";
 import {
   ADDABLE_EFFECT_DEFINITIONS,
   getDefaultLaneId,
@@ -7237,10 +7237,10 @@ function App() {
                             openLaneMenu(event, lane.id)
                           }
                           onPointerDown={(event) => {
-                            // Right-click opens the lane menu instead.
+                            // Right-click, or Ctrl-click on macOS, opens the lane menu instead.
                             if (
                               event.target !== event.currentTarget ||
-                              event.button === 2
+                              isContextMenuPress(event, shortcutLabels.mac)
                             ) {
                               return;
                             }
@@ -7337,10 +7337,14 @@ function App() {
                                   openArrangementClipMenu(event, clip)
                                 }
                                 onPointerDown={(event) => {
-                                  // Right-click selects through the menu
-                                  // instead of starting a drag or a lane
-                                  // selection.
-                                  if (event.button === 2) {
+                                  // Right-click, or Ctrl-click on macOS, selects through the
+                                  // menu instead of starting a drag or a lane selection.
+                                  if (
+                                    isContextMenuPress(
+                                      event,
+                                      shortcutLabels.mac,
+                                    )
+                                  ) {
                                     event.stopPropagation();
                                   }
                                 }}
@@ -7396,7 +7400,12 @@ function App() {
                                 <button
                                   className="clip-card__handle clip-card__handle--start"
                                   onPointerDown={(event) => {
-                                    if (event.button === 2) {
+                                    if (
+                                      isContextMenuPress(
+                                        event,
+                                        shortcutLabels.mac,
+                                      )
+                                    ) {
                                       return;
                                     }
 
@@ -7427,7 +7436,12 @@ function App() {
                                     }
                                   }}
                                   onPointerDown={(event) => {
-                                    if (event.button === 2) {
+                                    if (
+                                      isContextMenuPress(
+                                        event,
+                                        shortcutLabels.mac,
+                                      )
+                                    ) {
                                       return;
                                     }
 
@@ -7481,7 +7495,12 @@ function App() {
                                 <button
                                   className="clip-card__handle clip-card__handle--end"
                                   onPointerDown={(event) => {
-                                    if (event.button === 2) {
+                                    if (
+                                      isContextMenuPress(
+                                        event,
+                                        shortcutLabels.mac,
+                                      )
+                                    ) {
                                       return;
                                     }
 
@@ -7790,7 +7809,14 @@ function App() {
                                     key={clip.id}
                                     className={`source-span ${filmstrip ? "source-span--filmstrip" : ""} ${clipMenu?.kind === "span" && clipMenu.spanId === clip.id ? "source-span--selected" : ""}`}
                                     onClick={(event) => {
-                                      if (!isSourceClipDropClick(event)) {
+                                      // Ctrl-click on macOS opens the menu instead.
+                                      if (
+                                        !isSourceClipDropClick(event) ||
+                                        isContextMenuPress(
+                                          event,
+                                          shortcutLabels.mac,
+                                        )
+                                      ) {
                                         return;
                                       }
 

@@ -45,7 +45,8 @@ export function ArrangementEmptyState({
           title="Dismiss"
           type="button"
         >
-          ×
+          <span aria-hidden="true">✕</span>
+          <span>or dismiss</span>
         </button>
       </div>
     </div>
