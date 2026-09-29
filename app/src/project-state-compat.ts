@@ -14,3 +14,28 @@ export function migrateLegacyMainAudio<T extends object>(snapshot: T): T {
     mainAudioId: rest.mainAudioId ?? masterAudioId,
   } as T;
 }
+
+// Peers on builds from before selection was per-user mark clips with a
+// `selected` flag. Selection is local, so drop it rather than let a stale
+// flag travel with the project.
+export function stripClipSelectionFlags<T extends object>(snapshot: T): T {
+  const { clips } = snapshot as T & { clips?: unknown };
+  if (
+    !Array.isArray(clips) ||
+    !clips.some(
+      (clip) => typeof clip === "object" && clip && "selected" in clip,
+    )
+  ) {
+    return snapshot;
+  }
+  return {
+    ...snapshot,
+    clips: clips.map((clip) => {
+      if (typeof clip !== "object" || !clip || !("selected" in clip)) {
+        return clip;
+      }
+      const { selected: _selected, ...rest } = clip;
+      return rest;
+    }),
+  };
+}
