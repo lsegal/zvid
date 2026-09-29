@@ -100,6 +100,8 @@ The editor only supplies canvas frames and timeline state. Media analysis uses t
 
 Collaboration signals through zvid's own [signaling worker](../signaling/README.md) (`wss://zvid-signaling.lsegal.workers.dev`) by default, with the public `wss://y-webrtc-eu.fly.dev` y-webrtc relay as a fallback. Peers find each other through any server they share. To use different servers, copy `.env.example` to `.env.local` and set `VITE_SIGNALING_URL` before building. An invite's `signal=` parameter always decides which servers a joiner uses.
 
+Since an invite can name any signaling server, the native app's CSP allows every `ws:` and `wss:` URL in `connect-src` (`src-tauri/tauri.conf.json`) rather than listing the defaults; other `connect-src` origins stay restricted. `src/native-csp.test.ts` checks that the CSP covers the default signaling servers and native relay.
+
 After signaling, peers connect over WebRTC. Public STUN servers let most peers connect directly, but peers behind symmetric NAT, CGNAT, mobile hotspots or corporate firewalls need a TURN relay. The deployed app provides one (see [Collaboration TURN relay](#collaboration-turn-relay)); `VITE_ICE_SERVERS` (see `.env.example`) adds your own STUN or TURN servers at build time.
 
 ### Collaboration TURN relay
