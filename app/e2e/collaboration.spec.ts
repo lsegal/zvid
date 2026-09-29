@@ -73,7 +73,9 @@ async function renameLayer(page: Page, id: string, name: string) {
   await input.press("Enter");
 }
 
-async function dropVideo(page: Page) {
+// `place` also puts the source clip on the timeline; without it the video is
+// only on a source track.
+async function dropVideo(page: Page, { place = true } = {}) {
   const base64 = (await readFile(VIDEO)).toString("base64");
   const dataTransfer = await page.evaluateHandle((data) => {
     const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
@@ -90,9 +92,59 @@ async function dropVideo(page: Page) {
   await expect(page.locator(".source-span")).toHaveCount(1, {
     timeout: 30_000,
   });
+  if (!place) {
+    return;
+  }
   // Ctrl/Cmd+click places the source clip on the timeline.
   await page.locator(".source-span").click({ modifiers: ["ControlOrMeta"] });
   await expect(page.locator(".clip-card")).toHaveCount(1);
+}
+
+// A one-second 16-bit mono sine tone as a WAV file.
+function toneWav(frequency: number) {
+  const sampleRate = 8000;
+  const samples = sampleRate;
+  const buffer = Buffer.alloc(44 + samples * 2);
+  buffer.write("RIFF", 0);
+  buffer.writeUInt32LE(36 + samples * 2, 4);
+  buffer.write("WAVEfmt ", 8);
+  buffer.writeUInt32LE(16, 16);
+  buffer.writeUInt16LE(1, 20);
+  buffer.writeUInt16LE(1, 22);
+  buffer.writeUInt32LE(sampleRate, 24);
+  buffer.writeUInt32LE(sampleRate * 2, 28);
+  buffer.writeUInt16LE(2, 32);
+  buffer.writeUInt16LE(16, 34);
+  buffer.write("data", 36);
+  buffer.writeUInt32LE(samples * 2, 40);
+  for (let index = 0; index < samples; index += 1) {
+    const value = Math.sin((2 * Math.PI * frequency * index) / sampleRate);
+    buffer.writeInt16LE(Math.round(value * 16000), 44 + index * 2);
+  }
+  return buffer;
+}
+
+function audioRow(page: Page) {
+  return page.locator("[data-main-audio-drop-target]");
+}
+
+async function setMainAudio(page: Page, name: string, frequency: number) {
+  await audioRow(page)
+    .locator('input[type="file"]')
+    .setInputFiles({
+      name,
+      mimeType: "audio/wav",
+      buffer: toneWav(frequency),
+    });
+  await expect(audioRow(page)).toContainText(name, { timeout: 30_000 });
+}
+
+async function expectMainAudioWaveform(page: Page, name: string) {
+  await expect(audioRow(page)).toContainText(name, { timeout: 30_000 });
+  await expect(audioRow(page).locator(".waveform__canvas")).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(audioRow(page).locator(".waveform__empty")).toHaveCount(0);
 }
 
 async function startSharing(page: Page) {
@@ -167,6 +219,50 @@ test("a guest in another browser context joins, syncs both ways and receives med
   await expect(diagnostics).toContainText("Peers connected (WebRTC)1");
   await expect(diagnostics).toContainText("Received from host");
   await expect(diagnostics).not.toContainText("Same-browser tabs");
+});
+
+test("main audio and source-track-only media added during a share reach the guest", async ({
+  browser,
+}) => {
+  test.setTimeout(150_000);
+  const host = await openApp(browser);
+  const invitePath = await startSharing(host);
+  const guest = await openApp(browser, invitePath);
+  await expect(connectionStatus(guest)).toHaveText("1 peer connected", {
+    timeout: 30_000,
+  });
+  await expect(audioRow(guest)).toContainText(
+    "No main audio track in this session",
+  );
+
+  // Video that is only on a source track, never placed on a layer.
+  await dropVideo(host, { place: false });
+  await expect(guest.locator(".source-span")).toHaveCount(1);
+  await expect(guest.locator(".clip-card")).toHaveCount(0);
+  await expect(guest.locator(".source-span")).not.toContainText(
+    "offline clip",
+    { timeout: 30_000 },
+  );
+
+  // Main audio added mid-share arrives without a reload.
+  await setMainAudio(host, "tone.wav", 440);
+  await expectMainAudioWaveform(host, "tone.wav");
+  await expectMainAudioWaveform(guest, "tone.wav");
+
+  // So does a replacement.
+  await setMainAudio(host, "tone-2.wav", 880);
+  await expectMainAudioWaveform(guest, "tone-2.wav");
+  await expect(guest.locator(".track-label__offline")).toHaveCount(0);
+
+  // Removing it syncs too.
+  await audioRow(host).locator(".track-label").click({ button: "right" });
+  await host
+    .getByRole("menu", { name: "Main audio actions" })
+    .getByRole("menuitem", { name: "Remove main audio", exact: true })
+    .click();
+  await expect(audioRow(guest)).toContainText(
+    "No main audio track in this session",
+  );
 });
 
 test("a guest with no host waits, then says the host wasn't found", async ({

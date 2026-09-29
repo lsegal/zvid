@@ -211,16 +211,16 @@ import {
   resolveSessionOverlaps,
 } from "./selection-overlaps";
 import {
-  forgetChangedMainAudioMiss,
-  offlineSessionMediaIds,
-} from "./session-media.ts";
-import {
   clipSourceFrame,
   formatClipsWithoutFile,
   type LvpSession,
   normalizeLvpSession,
   type SessionOpenResponse,
 } from "./session";
+import {
+  forgetChangedMainAudioMiss,
+  offlineSessionMediaIds,
+} from "./session-media.ts";
 import {
   buildPublicShareUrl,
   type InviteParams,

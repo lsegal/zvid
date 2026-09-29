@@ -3,8 +3,8 @@ import { describe, it } from "node:test";
 import type { MediaAvailability } from "./media.ts";
 import {
   forgetChangedMainAudioMiss,
-  offlineSessionMediaIds,
   type OfflineSessionMediaOptions,
+  offlineSessionMediaIds,
 } from "./session-media.ts";
 
 function options(
@@ -25,7 +25,9 @@ function options(
 describe("offlineSessionMediaIds", () => {
   it("includes offline main audio with no clips referencing it", () => {
     assert.deepEqual(
-      offlineSessionMediaIds(options({ song: "offline" }, { mainAudioId: "song" })),
+      offlineSessionMediaIds(
+        options({ song: "offline" }, { mainAudioId: "song" }),
+      ),
       ["song"],
     );
   });
