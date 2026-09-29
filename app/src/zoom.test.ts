@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  anchoredTimelineScrollLeft,
   clampZoom,
   formatZoomFactor,
   stepZoom,
+  TIMELINE_DRAG_ZOOM_SPEED,
+  TIMELINE_DRAG_ZOOM_THRESHOLD_PX,
+  timelineDragZoom,
   ZOOM_MAX,
   ZOOM_MIN,
   zoomFillFraction,
@@ -56,5 +60,61 @@ describe("zoomFillFraction", () => {
     assert.equal(zoomFillFraction(ZOOM_MAX), 1);
     assert.equal(zoomFillFraction(10), 1);
     assert.ok(Math.abs(zoomFillFraction(1.225) - 0.5) < 1e-9);
+  });
+});
+
+describe("timelineDragZoom", () => {
+  it("keeps the zoom within the threshold", () => {
+    assert.equal(timelineDragZoom(1, 0), 1);
+    assert.equal(timelineDragZoom(1, TIMELINE_DRAG_ZOOM_THRESHOLD_PX), 1);
+    assert.equal(timelineDragZoom(1, -TIMELINE_DRAG_ZOOM_THRESHOLD_PX), 1);
+  });
+
+  it("zooms in going up and out going down past the threshold", () => {
+    const past = TIMELINE_DRAG_ZOOM_THRESHOLD_PX + 50;
+    assert.equal(timelineDragZoom(1, past), 1 + 50 * TIMELINE_DRAG_ZOOM_SPEED);
+    assert.equal(timelineDragZoom(1, -past), 1 - 50 * TIMELINE_DRAG_ZOOM_SPEED);
+  });
+
+  it("clamps to the zoom range", () => {
+    assert.equal(timelineDragZoom(1, 10_000), ZOOM_MAX);
+    assert.equal(timelineDragZoom(1, -10_000), ZOOM_MIN);
+  });
+});
+
+describe("anchoredTimelineScrollLeft", () => {
+  const view = { labelWidth: 240, totalQuarters: 400, clientWidth: 1000 };
+
+  it("puts the anchored time under the pointer at any zoom", () => {
+    for (const quarterPx of [20, 28, 40]) {
+      const left = anchoredTimelineScrollLeft({
+        ...view,
+        anchorQ: 100,
+        pointerX: 600,
+        quarterPx,
+      });
+      assert.equal((left - view.labelWidth + 600) / quarterPx, 100);
+    }
+  });
+
+  it("clamps to the scrollable range", () => {
+    assert.equal(
+      anchoredTimelineScrollLeft({
+        ...view,
+        anchorQ: 0,
+        pointerX: 900,
+        quarterPx: 28,
+      }),
+      0,
+    );
+    assert.equal(
+      anchoredTimelineScrollLeft({
+        ...view,
+        anchorQ: 400,
+        pointerX: 0,
+        quarterPx: 28,
+      }),
+      240 + 400 * 28 - 1000,
+    );
   });
 });

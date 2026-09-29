@@ -382,7 +382,7 @@ import {
   resolveAdaptiveDivision,
   type SnapMode,
 } from "./timeline-grid";
-import { useDragScroll } from "./use-drag-scroll";
+import { type DragScrollMove, useDragScroll } from "./use-drag-scroll";
 import { useThumbnailCache } from "./use-thumbnail-cache";
 import { ZVID_BUILD } from "./version";
 import { loadWaveformPeaks } from "./waveform-loader";
@@ -402,8 +402,10 @@ import {
   saveCurrentSession,
 } from "./workspace-store.ts";
 import {
+  anchoredTimelineScrollLeft,
   formatZoomFactor,
   stepZoom,
+  timelineDragZoom,
   ZOOM_DEFAULT,
   ZOOM_MAX,
   ZOOM_MIN,
@@ -528,7 +530,6 @@ type DragState =
 type TimelineDragState = {
   pointerId: number;
   pointerStartX: number;
-  pointerStartY: number;
   originPlayheadQ: number;
   originZoom: number;
   wasPlaying: boolean;
@@ -645,8 +646,6 @@ const GRID_LINE_COLORS: Record<GridLineWeight, string> = {
   beat: "rgba(255,255,255,0.08)",
   bar: "rgba(255,255,255,0.16)",
 };
-const TIMELINE_DRAG_ZOOM_SPEED = 0.004;
-const TIMELINE_DRAG_ZOOM_THRESHOLD_PX = 25;
 const TIMELINE_SCRUB_AUDIO_TAIL_MS = 50;
 // A scrub started during playback keeps audio running between pointer moves
 // and only pauses it once the pointer has been held still this long.
@@ -3991,19 +3990,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     ],
   );
   const shortcutLabels = useMemo(() => getShortcutLabels(), []);
-  // Right-, Ctrl- (macOS) or middle-dragging the ruler pans the timeline;
-  // the left button keeps scrubbing the playhead.
-  const canStartRulerPan = useCallback(
-    (event: { button: number; ctrlKey: boolean }) =>
-      isRulerPanPress(event, shortcutLabels.mac),
-    [shortcutLabels.mac],
-  );
-  const rulerDragScroll = useDragScroll({
-    scrollRef: timelineScrollRef,
-    canStart: canStartRulerPan,
-    axis: "x",
-    momentum: !prefersReducedMotion,
-  });
   const previewMaxWidth = getPreviewMaxWidth(editorGridWidth);
   const effectivePreviewWidth = Math.min(previewWidth, previewMaxWidth);
 
@@ -4193,6 +4179,84 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     },
     [commitViewChange, zoom, updateZoomDraft],
   );
+
+  // Right-, Ctrl- (macOS) or middle-dragging the ruler pans the timeline;
+  // the left button only scrubs the playhead. A right- or Ctrl-drag also
+  // zooms when it moves up or down, around the time under the pointer.
+  const canStartRulerPan = useCallback(
+    (event: { button: number; ctrlKey: boolean }) =>
+      isRulerPanPress(event, shortcutLabels.mac),
+    [shortcutLabels.mac],
+  );
+  const rulerZoomRef = useRef<{ originZoom: number } | null>(null);
+  // The scroll a ruler zoom wants, put back once the new zoom has laid out
+  // so it isn't clamped to the old timeline width.
+  const rulerZoomScrollRef = useRef<{ zoom: number; left: number } | null>(
+    null,
+  );
+  const startRulerPan = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
+      rulerZoomRef.current = isContextMenuPress(event, shortcutLabels.mac)
+        ? { originZoom: resolvedZoom }
+        : null;
+    },
+    [resolvedZoom, shortcutLabels.mac],
+  );
+  const dragRuler = useCallback(
+    ({ dx, dy, clientX, startX, origin }: DragScrollMove) => {
+      const rulerZoom = rulerZoomRef.current;
+      const timelineScroll = timelineScrollRef.current;
+      if (!rulerZoom || !timelineScroll) {
+        return { left: origin.left - dx, top: origin.top };
+      }
+
+      const nextZoom = timelineDragZoom(rulerZoom.originZoom, -dy);
+      const viewLeft = timelineScroll.getBoundingClientRect().left;
+      // The time under the pointer at the press follows the pointer.
+      const anchorQ =
+        (origin.left - labelWidth + startX - viewLeft) /
+        (BASE_QUARTER_PX * rulerZoom.originZoom);
+      const left = anchoredTimelineScrollLeft({
+        anchorQ,
+        pointerX: clientX - viewLeft,
+        quarterPx: BASE_QUARTER_PX * nextZoom,
+        labelWidth,
+        totalQuarters,
+        clientWidth: timelineScroll.clientWidth,
+      });
+      rulerZoomScrollRef.current = { zoom: nextZoom, left };
+      updateZoomDraft(nextZoom);
+      return { left, top: origin.top };
+    },
+    [labelWidth, totalQuarters, updateZoomDraft],
+  );
+  const endRulerPan = useCallback(() => {
+    if (!rulerZoomRef.current) {
+      return;
+    }
+
+    rulerZoomRef.current = null;
+    rulerZoomScrollRef.current = null;
+    flushZoomDraft();
+  }, [flushZoomDraft]);
+  const rulerDragScroll = useDragScroll({
+    scrollRef: timelineScrollRef,
+    canStart: canStartRulerPan,
+    axis: "x",
+    momentum: !prefersReducedMotion,
+    onStart: startRulerPan,
+    thresholdAxis: "both",
+    onDrag: dragRuler,
+    onEnd: endRulerPan,
+  });
+
+  useLayoutEffect(() => {
+    const timelineScroll = timelineScrollRef.current;
+    const pending = rulerZoomScrollRef.current;
+    if (timelineScroll && pending?.zoom === resolvedZoom) {
+      timelineScroll.scrollLeft = pending.left;
+    }
+  }, [resolvedZoom]);
 
   function handleCreateLayer() {
     if (!canCreateLayer) {
@@ -6964,18 +7028,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         return;
       }
 
-      const rawVerticalDelta = timelineDragState.pointerStartY - event.clientY;
-      const zoomDelta =
-        Math.abs(rawVerticalDelta) <= TIMELINE_DRAG_ZOOM_THRESHOLD_PX
-          ? 0
-          : Math.sign(rawVerticalDelta) *
-            (Math.abs(rawVerticalDelta) - TIMELINE_DRAG_ZOOM_THRESHOLD_PX);
-      const nextZoom = clamp(
-        timelineDragState.originZoom + zoomDelta * TIMELINE_DRAG_ZOOM_SPEED,
-        ZOOM_MIN,
-        ZOOM_MAX,
-      );
-      const nextQuarterPx = BASE_QUARTER_PX * nextZoom;
+      // A left drag only scrubs; zooming is a right-drag on the ruler.
+      const nextQuarterPx = BASE_QUARTER_PX * timelineDragState.originZoom;
       const deltaX = event.clientX - timelineDragState.pointerStartX;
       const nextPlayheadQ = clamp(
         timelineDragState.originPlayheadQ + deltaX / nextQuarterPx,
@@ -7003,7 +7057,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
           ? TIMELINE_PLAYBACK_SCRUB_AUDIO_IDLE_MS
           : TIMELINE_SCRUB_AUDIO_TAIL_MS,
       );
-      updateZoomDraft(nextZoom);
       setPlayheadQ(nextPlayheadQ);
       playbackOriginRef.current = nextPlayheadQ;
     };
@@ -7014,7 +7067,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       }
 
       stopTimelineAudibleScrub();
-      flushZoomDraft();
       setTimelineDragState(null);
       if (event.type === "pointerup" && timelineDragState.wasPlaying) {
         // Batched with stopTimelineAudibleScrub so the player hands the audible
@@ -7033,7 +7085,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       window.removeEventListener("pointercancel", onPointerUp);
     };
   }, [
-    flushZoomDraft,
     labelWidth,
     pulseTimelineAudibleScrub,
     setPlayheadQ,
@@ -7041,7 +7092,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     stopTimelineAudibleScrub,
     timelineDragState,
     totalQuarters,
-    updateZoomDraft,
   ]);
 
   useEffect(() => {
@@ -8957,7 +9007,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                         setTimelineDragState({
                           pointerId: event.pointerId,
                           pointerStartX: event.clientX,
-                          pointerStartY: event.clientY,
                           originPlayheadQ: nextPlayheadQ,
                           originZoom: resolvedZoom,
                           wasPlaying: isPlaying,
