@@ -4,6 +4,11 @@ import {
   orderStackedLayers,
   resolveLayerPlacement,
 } from "./composition-layout.ts";
+import {
+  isIdentityTransform,
+  type QuadAxes,
+  transformedQuadAxes,
+} from "./composition-transform.ts";
 import type { AudioBands } from "./fx-shaders/audio-bands.ts";
 import { EffectChainRenderer } from "./fx-shaders/chain.ts";
 import { linkProgram } from "./fx-shaders/gl.ts";
@@ -47,10 +52,9 @@ export type WebGlResources = {
   uniforms: {
     position: number;
     texture: WebGLUniformLocation | null;
-    coverScale: WebGLUniformLocation | null;
-    userScale: WebGLUniformLocation | null;
-    translate: WebGLUniformLocation | null;
-    rotation: WebGLUniformLocation | null;
+    axisX: WebGLUniformLocation | null;
+    axisY: WebGLUniformLocation | null;
+    offset: WebGLUniformLocation | null;
     opacity: WebGLUniformLocation | null;
     brightness: WebGLUniformLocation | null;
     contrast: WebGLUniformLocation | null;
@@ -58,10 +62,7 @@ export type WebGlResources = {
   };
 };
 
-type CompositeUniforms = {
-  coverScale: [number, number];
-  translate: [number, number];
-  rotation: number;
+type CompositeUniforms = QuadAxes & {
   opacity: number;
   brightness: number;
   contrast: number;
@@ -93,17 +94,12 @@ const COMPOSITE_VERTEX_SOURCE = `
   attribute vec2 aPosition;
   varying vec2 vUv;
 
-  uniform vec2 uCoverScale;
-  uniform float uUserScale;
-  uniform vec2 uTranslate;
-  uniform float uRotation;
+  uniform vec2 uAxisX;
+  uniform vec2 uAxisY;
+  uniform vec2 uOffset;
 
   void main() {
-    vec2 position = aPosition * uCoverScale * uUserScale;
-    float s = sin(uRotation);
-    float c = cos(uRotation);
-    position = mat2(c, -s, s, c) * position;
-    position += uTranslate;
+    vec2 position = aPosition.x * uAxisX + aPosition.y * uAxisY + uOffset;
     gl_Position = vec4(position, 0.0, 1.0);
     vUv = aPosition * 0.5 + 0.5;
   }
@@ -152,10 +148,9 @@ export function createWebGlResources(
     uniforms: {
       position: gl.getAttribLocation(program, "aPosition"),
       texture: gl.getUniformLocation(program, "uTexture"),
-      coverScale: gl.getUniformLocation(program, "uCoverScale"),
-      userScale: gl.getUniformLocation(program, "uUserScale"),
-      translate: gl.getUniformLocation(program, "uTranslate"),
-      rotation: gl.getUniformLocation(program, "uRotation"),
+      axisX: gl.getUniformLocation(program, "uAxisX"),
+      axisY: gl.getUniformLocation(program, "uAxisY"),
+      offset: gl.getUniformLocation(program, "uOffset"),
       opacity: gl.getUniformLocation(program, "uOpacity"),
       brightness: gl.getUniformLocation(program, "uBrightness"),
       contrast: gl.getUniformLocation(program, "uContrast"),
@@ -230,15 +225,30 @@ function drawQuad(
   const { gl, uniforms } = resources;
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.uniform1i(uniforms.texture, 0);
-  gl.uniform2f(uniforms.coverScale, ...values.coverScale);
-  gl.uniform1f(uniforms.userScale, 1);
-  gl.uniform2f(uniforms.translate, ...values.translate);
-  gl.uniform1f(uniforms.rotation, values.rotation);
+  gl.uniform2f(uniforms.axisX, ...values.axisX);
+  gl.uniform2f(uniforms.axisY, ...values.axisY);
+  gl.uniform2f(uniforms.offset, ...values.offset);
   gl.uniform1f(uniforms.opacity, values.opacity);
   gl.uniform1f(uniforms.brightness, values.brightness);
   gl.uniform1f(uniforms.contrast, values.contrast);
   gl.uniform1f(uniforms.saturation, values.saturation);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+}
+
+// Quad axes for a quad scaled by `scale`, turned clockwise by `radians` in
+// clip space and centred on `translate`.
+function quadAxes(
+  scale: [number, number],
+  translate: [number, number],
+  radians: number,
+): QuadAxes {
+  const s = Math.sin(radians);
+  const c = Math.cos(radians);
+  return {
+    axisX: [c * scale[0], -s * scale[0]],
+    axisY: [s * scale[1], c * scale[1]],
+    offset: translate,
+  };
 }
 
 function colorUniforms(visual: CompositeVisual) {
@@ -274,15 +284,14 @@ function renderLayerFrame(
   gl.clearColor(0, 0, 0, 0);
   gl.clear(gl.COLOR_BUFFER_BIT);
   drawQuad(resources, texture, {
-    coverScale: [
-      halfExtents.x / frame.halfWidth,
-      -halfExtents.y / frame.halfHeight,
-    ],
-    translate: [
-      (translate.x - frame.centerX) / frame.halfWidth,
-      -(translate.y - frame.centerY) / frame.halfHeight,
-    ],
-    rotation: (-visual.rotationDeg * Math.PI) / 180,
+    ...quadAxes(
+      [halfExtents.x / frame.halfWidth, -halfExtents.y / frame.halfHeight],
+      [
+        (translate.x - frame.centerX) / frame.halfWidth,
+        -(translate.y - frame.centerY) / frame.halfHeight,
+      ],
+      (-visual.rotationDeg * Math.PI) / 180,
+    ),
     opacity: 1,
     brightness: 0,
     contrast: 1,
@@ -362,45 +371,60 @@ export function drawComposition(
     });
     const { frame, halfExtents, translate, scissor } = placement;
     let uniforms: CompositeUniforms = {
-      coverScale: [halfExtents.x, halfExtents.y],
-      translate: [translate.x, translate.y],
-      rotation: (entry.visual.rotationDeg * Math.PI) / 180,
+      ...quadAxes(
+        [halfExtents.x, halfExtents.y],
+        [translate.x, translate.y],
+        (entry.visual.rotationDeg * Math.PI) / 180,
+      ),
       ...colorUniforms(entry.visual),
     };
 
+    // A Transform moves the band's content, so the layer is framed into its
+    // band first and that frame is drawn transformed.
+    const transform = isIdentityTransform(entry.visual.transform)
+      ? undefined
+      : entry.visual.transform;
     const layerSteps = effectChain.prepare(entry.effectChain);
-    if (layerSteps.length) {
+    if (layerSteps.length || transform) {
       const framed = renderLayerFrame(
         resources,
         texture,
         placement,
         entry.visual,
       );
-      texture =
-        effectChain.run(framed, scissor.width, scissor.height, layerSteps, {
-          time: frameContext.time,
-          clipProgress: entry.clipProgress,
-          resolution: [scissor.width, scissor.height],
-          audioLow: frameContext.audio.low,
-          audioHigh: frameContext.audio.high,
-          impulseLow: frameContext.audio.impulseLow,
-          impulseHigh: frameContext.audio.impulseHigh,
-          // The framed layer is written top row first, like a layer texture.
-          bottomUp: false,
-        }) ?? framed;
+      texture = !layerSteps.length
+        ? framed
+        : (effectChain.run(framed, scissor.width, scissor.height, layerSteps, {
+            time: frameContext.time,
+            clipProgress: entry.clipProgress,
+            resolution: [scissor.width, scissor.height],
+            audioLow: frameContext.audio.low,
+            audioHigh: frameContext.audio.high,
+            impulseLow: frameContext.audio.impulseLow,
+            impulseHigh: frameContext.audio.impulseHigh,
+            // The framed layer is written top row first, like a layer texture.
+            bottomUp: false,
+          }) ?? framed);
       // The framed result already holds the layer's placement, so it fills
-      // its band exactly.
+      // its band exactly, or the box its Transform moves the band to.
       uniforms = {
-        coverScale: [frame.halfWidth, frame.halfHeight],
-        translate: [frame.centerX, frame.centerY],
-        rotation: 0,
+        ...(transform
+          ? transformedQuadAxes(frame, transform, surface)
+          : quadAxes(
+              [frame.halfWidth, frame.halfHeight],
+              [frame.centerX, frame.centerY],
+              0,
+            )),
         ...colorUniforms(entry.visual),
       };
     }
 
     bindCompositeState(resources, compositeFramebuffer, width, height);
-    gl.enable(gl.SCISSOR_TEST);
-    gl.scissor(scissor.x, scissor.y, scissor.width, scissor.height);
+    // A transformed layer can leave its band; only the canvas clips it.
+    if (!transform) {
+      gl.enable(gl.SCISSOR_TEST);
+      gl.scissor(scissor.x, scissor.y, scissor.width, scissor.height);
+    }
     drawQuad(resources, texture, uniforms);
   }
 

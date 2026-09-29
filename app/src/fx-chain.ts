@@ -2,12 +2,17 @@
 // which group, how knob values are formatted, and the per-device collapse
 // state that is kept in localStorage.
 
+import { isTransformEffectName } from "./composition-transform.ts";
 import {
   FX_EFFECT_DEFINITIONS,
   formatRawNumber,
   getEffectDefinition,
 } from "./fx-registry.ts";
-import { type FxDevice, isLayoutEffectName } from "./fx-stack.ts";
+import {
+  type FxDevice,
+  type FxDeviceGroup,
+  isLayoutEffectName,
+} from "./fx-stack.ts";
 
 export const FX_COLLAPSED_STORAGE_KEY = "zvid-fx-collapsed-devices";
 
@@ -39,6 +44,15 @@ export function groupChainDevices(
 export const ADDABLE_EFFECT_DEFINITIONS = FX_EFFECT_DEFINITIONS.filter(
   (definition) => !isLayoutEffectName(definition.effectName),
 );
+
+// Transform places a single layer, so only layer stacks offer it.
+export function getAddableEffectDefinitions(group: FxDeviceGroup) {
+  return group === "global"
+    ? ADDABLE_EFFECT_DEFINITIONS.filter(
+        (definition) => !isTransformEffectName(definition.effectName),
+      )
+    : ADDABLE_EFFECT_DEFINITIONS;
+}
 
 export function getParameterFormat(effectName: string, key: string) {
   const definition = getEffectDefinition(effectName).parameters.find(

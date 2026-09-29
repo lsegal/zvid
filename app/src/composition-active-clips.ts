@@ -3,6 +3,11 @@
 // source time, visual state and effect chain each one is drawn with.
 import { type ClipWarp, warpSourceTime } from "./clip-warp.ts";
 import {
+  isTransformEffectName,
+  type LayerTransform,
+  parseLayerTransform,
+} from "./composition-transform.ts";
+import {
   type EffectChainStep,
   isChainEffectName,
   resolveEffectChain,
@@ -71,6 +76,8 @@ export type VisualState = {
   contrast: number;
   saturation: number;
   layoutAnchor: "top" | "center" | "bottom";
+  // Set only when the layer's own stack has an enabled Transform.
+  transform?: LayerTransform;
 };
 
 export type ActiveClip = {
@@ -175,6 +182,16 @@ export function resolveVisualState(
     // Shader-chain effects render their own passes, and a bypassed effect
     // contributes nothing.
     if (effect.enabled === false || isChainEffectName(effect.effectName)) {
+      continue;
+    }
+
+    // Transform is per layer and read by its exact keys, which the name
+    // heuristics below would misread ("PositionX" as an offset, and so on).
+    // The last enabled one in the stack wins.
+    if (isTransformEffectName(effect.effectName)) {
+      if (effect.trackId === laneId) {
+        state.transform = parseLayerTransform(effect.parameters);
+      }
       continue;
     }
 

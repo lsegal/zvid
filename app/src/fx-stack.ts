@@ -4,6 +4,7 @@
 // `effects` array, or the same array when nothing changed so history
 // commits can skip no-op edits.
 
+import { isTransformEffectName } from "./composition-transform.ts";
 import {
   type FxEffectDefinition,
   type FxParameterDefinition,
@@ -299,6 +300,11 @@ export function addEffect(
   id?: string,
 ) {
   const stack = getStack(effects, trackId);
+  // Transform places one layer, so it has no meaning on the Global stack.
+  if (trackId === GLOBAL_EFFECT_TRACK_ID && isTransformEffectName(effectName)) {
+    return effects;
+  }
+
   // Layout is per layer: never on the Global stack, and one per layer.
   if (
     isLayoutEffectName(effectName) &&
