@@ -278,6 +278,100 @@ fn scales_frames_above_the_size_limit_down_to_fit() {
     }
 }
 
+#[test]
+fn keeps_the_take_orientation_when_the_camera_turns_mid_take() {
+    // A bright 64x48 landscape camera turned upright after 10 frames: its
+    // frames stay 64x48 but now need a quarter turn, so they display
+    // 48x64. They are letterboxed into the landscape take.
+    let (width, height) = (64u32, 48u32);
+    let mut data = vec![128; Frame::nv12_len(width, height)];
+    data[..(width * height) as usize].fill(235);
+    for (choice, codec) in [
+        (VideoEncoderChoice::Software, "hevc"),
+        (VideoEncoderChoice::Av1, "av1"),
+    ] {
+        let root = root();
+        let recorder = Recorder::start(config(&root, None, choice)).unwrap();
+        for index in 0..20 {
+            let rotation = if index < 10 {
+                Rotation::None
+            } else {
+                Rotation::Cw90
+            };
+            push(
+                &recorder,
+                Arc::new(Frame {
+                    width,
+                    height,
+                    format: PixelFormat::Nv12,
+                    color: ColorInfo::for_height(height),
+                    rotation,
+                    pts: host_ms(index as f64 * 1000.0 / 30.0),
+                    sequence: index,
+                    data: data.clone(),
+                }),
+            );
+        }
+        let recorded = recorder.stop().unwrap();
+        assert_eq!(recorded.codec, codec);
+        assert_eq!(recorded.dimensions, (64, 48), "{codec}");
+        assert_eq!(recorded.stats.frames_written, 20, "{codec}");
+        assert_eq!(recorded.stats.error, None, "{codec}");
+        assert!(
+            recorded
+                .stats
+                .warnings
+                .iter()
+                .any(|w| w.contains("letterboxing into 64x48")),
+            "{codec}: {:?}",
+            recorded.stats.warnings
+        );
+
+        // Before the turn the picture fills the frame; after it, the 36x48
+        // portrait picture is centred between black bars.
+        let path = root.path_of(&recorded.filename);
+        let luma_at = |sec: f64| {
+            let (w, h, rgb) = poster::poster_rgb(&path, sec, 64).unwrap();
+            assert_eq!((w, h), (64, 48), "{codec}");
+            move |x: u32, y: u32| rgb[((y * w + x) * 3) as usize]
+        };
+        let before = luma_at(0.1);
+        for x in [4, 32, 60] {
+            assert!(before(x, 24) > 215, "{codec} before at x={x}");
+        }
+        let after = luma_at(0.5);
+        for y in [8, 24, 40] {
+            assert!(after(4, y) < 40, "{codec} left bar at y={y}");
+            assert!(after(32, y) > 215, "{codec} picture at y={y}");
+            assert!(after(60, y) < 40, "{codec} right bar at y={y}");
+        }
+    }
+}
+
+#[test]
+fn records_a_portrait_take_after_a_landscape_one() {
+    // Turning the camera between takes changes the next take's orientation.
+    let root = root();
+    let mut dimensions = Vec::new();
+    for rotation in [Rotation::None, Rotation::Cw90] {
+        let recorder = Recorder::start(config(&root, None, VideoEncoderChoice::Software)).unwrap();
+        for index in 0..5 {
+            let mut frame = (*frame(64, 48, index, index as f64 * 1000.0 / 30.0)).clone();
+            frame.rotation = rotation;
+            push(&recorder, Arc::new(frame));
+        }
+        let recorded = recorder.stop().unwrap();
+        assert!(recorded.stats.warnings.is_empty());
+        let (movie, _) = demux(&root.path_of(&recorded.filename));
+        assert_eq!(
+            movie.tracks[0].dimensions.map(|d| (d.width, d.height)),
+            Some(recorded.dimensions)
+        );
+        dimensions.push(recorded.dimensions);
+    }
+    assert_eq!(dimensions, [(64, 48), (48, 64)]);
+}
+
 /// Width and height from a baseline JPEG's frame header.
 fn jpeg_size(jpeg: &[u8]) -> Option<(u16, u16)> {
     let at = jpeg.windows(2).position(|pair| pair == [0xff, 0xc0])?;

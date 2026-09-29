@@ -10,7 +10,10 @@
 //!   camera's rate, timed from their capture timestamps relative to the
 //!   first frame (file time zero). Frames are rotated upright
 //!   ([`Frame::upright`]) and scaled down to fit
-//!   [`RecordConfig::max_size`] before encoding.
+//!   [`RecordConfig::max_size`] before encoding. A take keeps the
+//!   orientation and size of its first frame: when the camera turns
+//!   mid-take, later frames are letterboxed into it, and the next take
+//!   records the new orientation.
 //! - **Audio** is AAC-LC of the plugin's input bus from zvidlib, aligned to
 //!   the same clock. Without an AAC encoder the file is video only.
 //! - **Muxing** writes a fragmented MP4 while recording, one synced
@@ -449,6 +452,8 @@ struct Video {
     /// The last encoded frame, held until the next one gives its duration.
     pending: Option<(u64, EncodedFrame)>,
     written_slots: u64,
+    /// Set once a frame no longer fits the encoder and was letterboxed.
+    letterboxed: bool,
 }
 
 struct Audio {
@@ -593,9 +598,20 @@ impl Worker {
                 next_index: 0,
                 pending: None,
                 written_slots: 0,
+                letterboxed: false,
             });
         }
         let video = video.as_mut().expect("opened above");
+        if !video.letterboxed && !video.encoder.fits(frame.width, frame.height) {
+            video.letterboxed = true;
+            let (width, height) = video.encoder.dimensions();
+            let warning = format!(
+                "the camera changed to {}x{} mid-take; letterboxing into {width}x{height}",
+                frame.width, frame.height
+            );
+            log(&warning);
+            self.shared.stats().warnings.push(warning);
+        }
         let Some(slot) = video.clock.place(frame.pts) else {
             self.shared.stats().frames_skipped += 1;
             return Ok(());

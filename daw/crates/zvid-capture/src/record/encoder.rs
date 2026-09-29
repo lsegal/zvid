@@ -285,32 +285,23 @@ impl VideoStream {
             .collect()
     }
 
+    /// Whether `width`×`height` frames fill the encoder once scaled to fit
+    /// `max_size`, give or take the few pixels its size was rounded down
+    /// by. Frames that don't, such as a camera turned between landscape
+    /// and portrait mid-take, are letterboxed instead.
+    pub fn fits(&self, width: u32, height: u32) -> bool {
+        let (fit_width, fit_height) = self.max_size.fit_size(width, height);
+        (self.width..self.width + 16).contains(&fit_width)
+            && (self.height..self.height + 16).contains(&fit_height)
+    }
+
     fn convert(&self, frame: &Frame) -> Result<VideoFrame, String> {
         let (w, h) = (self.width as usize, self.height as usize);
-        let (fit_width, fit_height) = self.max_size.fit_size(frame.width, frame.height);
-        let (sw, sh) = (fit_width as usize, fit_height as usize);
-        if sw < w || sh < h {
-            return Err(format!("frame is {sw}x{sh}, encoder expects {w}x{h}"));
-        }
-        // Even offsets keep chroma sited on the same samples.
-        let (x0, y0) = (((sw - w) / 2) & !1, ((sh - h) / 2) & !1);
         let format = self.frame_format();
-        let data = if (fit_width, fit_height) == (frame.width, frame.height) {
-            self.pixels(frame, x0, y0, w, h)
+        let data = if self.fits(frame.width, frame.height) {
+            self.cropped(frame)?
         } else {
-            let (width, height) = (frame.width as usize, frame.height as usize);
-            let full = self.pixels(frame, 0, 0, width & !1, height);
-            let scaled = self.scale(full, frame.width & !1, frame.height, fit_width, fit_height)?;
-            if (sw, sh) == (w, h) {
-                scaled
-            } else {
-                let bytes = bytes_per_pixel(format);
-                let mut cropped = Vec::with_capacity(w * h * bytes);
-                for row in scaled.chunks_exact(sw * bytes).skip(y0).take(h) {
-                    cropped.extend_from_slice(&row[x0 * bytes..(x0 + w) * bytes]);
-                }
-                cropped
-            }
+            self.letterboxed(frame)?
         };
         let dimensions = VideoDimensions::new(self.width, self.height, &self.limits)
             .map_err(|e| e.to_string())?;
@@ -326,6 +317,75 @@ impl VideoStream {
             &self.limits,
         )
         .map_err(|e| e.to_string())
+    }
+
+    /// The frame scaled down to fit `max_size` and centre-cropped to the
+    /// encoder's size, in the encoder's input format.
+    fn cropped(&self, frame: &Frame) -> Result<Vec<u8>, String> {
+        let (w, h) = (self.width as usize, self.height as usize);
+        let (fit_width, fit_height) = self.max_size.fit_size(frame.width, frame.height);
+        let (sw, sh) = (fit_width as usize, fit_height as usize);
+        // Even offsets keep chroma sited on the same samples.
+        let (x0, y0) = (((sw - w) / 2) & !1, ((sh - h) / 2) & !1);
+        let format = self.frame_format();
+        Ok(if (fit_width, fit_height) == (frame.width, frame.height) {
+            self.pixels(frame, x0, y0, w, h)
+        } else {
+            let (width, height) = (frame.width as usize, frame.height as usize);
+            let full = self.pixels(frame, 0, 0, width & !1, height);
+            let scaled = self.scale(full, frame.width & !1, frame.height, fit_width, fit_height)?;
+            if (sw, sh) == (w, h) {
+                scaled
+            } else {
+                let bytes = bytes_per_pixel(format);
+                let mut cropped = Vec::with_capacity(w * h * bytes);
+                for row in scaled.chunks_exact(sw * bytes).skip(y0).take(h) {
+                    cropped.extend_from_slice(&row[x0 * bytes..(x0 + w) * bytes]);
+                }
+                cropped
+            }
+        })
+    }
+
+    /// The whole frame scaled to fit inside the encoder's size and centred
+    /// on black, in the encoder's input format.
+    fn letterboxed(&self, frame: &Frame) -> Result<Vec<u8>, String> {
+        let (w, h) = (self.width as usize, self.height as usize);
+        let (width, height) = (frame.width & !1, frame.height);
+        let (fw, fh) = (u64::from(width), u64::from(height));
+        let (ew, eh) = (u64::from(self.width), u64::from(self.height));
+        if fw == 0 || fh == 0 {
+            return Err(format!("frame is {width}x{height}"));
+        }
+        let (to_width, to_height) = if fw * eh >= fh * ew {
+            (ew, fh * ew / fw)
+        } else {
+            (fw * eh / fh, eh)
+        };
+        let even = |edge: u64| (edge as u32 & !1).max(2);
+        let (to_width, to_height) = (even(to_width), even(to_height));
+        let full = self.pixels(frame, 0, 0, width as usize, height as usize);
+        let scaled = if (to_width, to_height) == (width, height) {
+            full
+        } else {
+            self.scale(full, width, height, to_width, to_height)?
+        };
+        let format = self.frame_format();
+        let bytes = bytes_per_pixel(format);
+        let black: &[u8] = if format == ZPixelFormat::Gray8 {
+            // Video-range luma, as the camera delivers it.
+            &[16]
+        } else {
+            &[0, 0, 0, 255]
+        };
+        let mut out = black.repeat(w * h);
+        let (sw, sh) = (to_width as usize, to_height as usize);
+        let (x0, y0) = (((w - sw) / 2) & !1, ((h - sh) / 2) & !1);
+        for (row, pixels) in scaled.chunks_exact(sw * bytes).enumerate() {
+            let at = ((y0 + row) * w + x0) * bytes;
+            out[at..at + sw * bytes].copy_from_slice(pixels);
+        }
+        Ok(out)
     }
 
     /// The encoder's input format.
