@@ -126,7 +126,9 @@ export function splitDeviceParameters(parameters: FxDeviceParameter[]) {
     parameter.kind === "number" ||
     (parameter.kind === "color" && firstKnob >= 0 && index > firstKnob);
   return {
-    controls: parameters.filter((parameter, index) => !inGrid(parameter, index)),
+    controls: parameters.filter(
+      (parameter, index) => !inGrid(parameter, index),
+    ),
     knobs: parameters.filter(inGrid),
   };
 }

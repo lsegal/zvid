@@ -70,7 +70,12 @@ describe("parseCompositionOrder", () => {
     assert.deepEqual(border(), BLACK);
     assert.deepEqual(DEFAULT_COMPOSITION_ORDER.borderColor, BLACK);
     assert.deepEqual(border("rgba(255,0,0,1)"), { r: 255, g: 0, b: 0, a: 1 });
-    assert.deepEqual(border("rgba(0, 0, 255, 0)"), { r: 0, g: 0, b: 255, a: 0 });
+    assert.deepEqual(border("rgba(0, 0, 255, 0)"), {
+      r: 0,
+      g: 0,
+      b: 255,
+      a: 0,
+    });
     assert.deepEqual(border("#00ff0080"), {
       r: 0,
       g: 255,

@@ -166,9 +166,8 @@ const BLUE: Rgb = [0, 0, 255];
 const YELLOW: Rgb = [255, 255, 0];
 const WHITE: Rgb = [255, 255, 255];
 const CYAN: Rgb = [0, 255, 255];
+// The default border of an Order, where it draws no layer.
 const BLACK: Rgb = [0, 0, 0];
-// The canvas where no layer is drawn and no Order's border shows.
-const BACKGROUND: Rgb = [18, 20, 28];
 
 function expectColor(actual: Rgb, expected: Rgb) {
   for (const [index, value] of expected.entries()) {
@@ -344,9 +343,7 @@ test.describe("Order border", () => {
     ...(color ? [{ key: "BorderColor", value: color }] : []),
   ];
 
-  test("colours the gaps between layers black by default", async ({
-    page,
-  }) => {
+  test("colours the gaps between layers black by default", async ({ page }) => {
     const pixels = await render(page, {
       layers: ["#ff0000", "#0000ff"],
       effects: [],
