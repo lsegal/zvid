@@ -47,26 +47,16 @@ export type EditMenuSelection = {
   layer?: { name: string; entries: readonly ContextMenuEntry[] };
   // The Audio row's right-click menu.
   audioEntries: readonly ContextMenuEntry[];
-  // Actions that insert into the timeline selection, such as Insert Fill
-  // Layer, shown after the clipboard actions.
-  insertEntries?: readonly ContextMenuEntry[];
 };
 
 /**
- * Undo and Redo, Cut/Copy/Paste, the insert actions, then Clip and Layer
- * submenus for the
+ * Undo and Redo, Cut/Copy/Paste, then Clip and Layer submenus for the
  * current selection (hidden when nothing of that kind is selected) and the
  * Audio submenu.
  */
 export function buildEditMenuEntries(
   history: readonly ContextMenuEntry[],
-  {
-    clip,
-    clipEntries,
-    layer,
-    audioEntries,
-    insertEntries = [],
-  }: EditMenuSelection,
+  { clip, clipEntries, layer, audioEntries }: EditMenuSelection,
 ): ContextMenuEntry[] {
   const clipboard = clipEntries.filter(
     (entry) => entry.type === "item" && CLIPBOARD_IDS.has(entry.id),
@@ -96,8 +86,6 @@ export function buildEditMenuEntries(
     ...history,
     { type: "separator" },
     ...clipboard,
-    { type: "separator" },
-    ...insertEntries,
     { type: "separator" },
     ...selection,
   ]);

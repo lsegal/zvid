@@ -17,8 +17,7 @@ import {
 } from "./fill-paint.ts";
 
 // Shows a parameter only while the enum parameter `key` holds one of
-// `values` (compared case-insensitively), such as the Color effect's colour
-// while its Type is Solid.
+// `values` (compared case-insensitively).
 export type FxParameterVisibility = {
   key: string;
   values: readonly string[];
@@ -66,17 +65,12 @@ export type FxParameterDefinition =
   | FxEnumParameterDefinition
   | FxPaintParameterDefinition;
 
-// Where an effect can go: a layer's own stack and/or the Global stack.
-export type FxEffectScope = "layer" | "global";
-
 export type FxEffectDefinition = {
   effectName: string;
   displayName: string;
   description: string;
   accent: string;
   parameters: FxParameterDefinition[];
-  // Stacks the add menus offer the effect on; every stack when omitted.
-  scopes?: readonly FxEffectScope[];
   // False for the placeholder returned for effect names the registry does
   // not know; those devices show their raw parameter keys.
   known: boolean;
@@ -259,38 +253,6 @@ const DEFINITIONS: FxEffectDefinition[] = [
     ],
   },
   {
-    effectName: COLOR_EFFECT_NAME,
-    displayName: "Color",
-    description: "Paints the layer's fill clips a solid colour or a gradient.",
-    accent: "#ffd166",
-    known: true,
-    scopes: ["layer"],
-    parameters: [
-      {
-        kind: "enum",
-        key: "Mode",
-        label: "Type",
-        options: FILL_MODES,
-        defaultValue: "Solid",
-      },
-      {
-        kind: "color",
-        key: "Color",
-        label: "Color",
-        defaultValue: NEUTRAL_FILL_COLOR,
-        visibleWhen: { key: "Mode", values: ["Solid"] },
-      },
-      {
-        kind: "gradient",
-        key: "Gradient",
-        label: "Gradient",
-        defaultValue: DEFAULT_FILL_GRADIENT,
-        visibleWhen: { key: "Mode", values: ["Gradient"] },
-      },
-      unitParameter("Opacity", "Opacity", 1),
-    ],
-  },
-  {
     effectName: "Transform",
     displayName: "Transform",
     description: "Moves, resizes and rotates the layer inside the canvas.",
@@ -352,6 +314,37 @@ const DEFINITIONS: FxEffectDefinition[] = [
         step: 1,
         format: formatPixels,
       },
+    ],
+  },
+  {
+    effectName: COLOR_EFFECT_NAME,
+    displayName: "Color",
+    description: "Paints the layer's fill clips a solid colour or a gradient.",
+    accent: "#ffd166",
+    known: true,
+    parameters: [
+      {
+        kind: "enum",
+        key: "Mode",
+        label: "Type",
+        options: FILL_MODES,
+        defaultValue: "Solid",
+      },
+      {
+        kind: "color",
+        key: "Color",
+        label: "Color",
+        defaultValue: NEUTRAL_FILL_COLOR,
+        visibleWhen: { key: "Mode", values: ["Solid"] },
+      },
+      {
+        kind: "gradient",
+        key: "Gradient",
+        label: "Gradient",
+        defaultValue: DEFAULT_FILL_GRADIENT,
+        visibleWhen: { key: "Mode", values: ["Gradient"] },
+      },
+      unitParameter("Opacity", "Opacity", 1),
     ],
   },
 ];

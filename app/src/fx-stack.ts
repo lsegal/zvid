@@ -575,20 +575,20 @@ function toDeviceParameter(
   };
 }
 
-// Whether a parameter shows given the effect's stored values: always,
-// unless it only applies while another parameter holds one of given values.
-export function isParameterVisible(
-  definition: FxParameterDefinition,
-  effectDefinition: FxEffectDefinition,
-  parameters: readonly EffectParameter[],
+// Whether a parameter with a `visibleWhen` condition shows for the effect's
+// current values.
+function isParameterVisible(
+  parameter: FxParameterDefinition,
+  definition: FxEffectDefinition,
+  effect: SessionEffect,
 ) {
-  const condition = definition.visibleWhen;
+  const condition = parameter.visibleWhen;
   if (!condition) {
     return true;
   }
 
-  const controlling = findParameterDefinition(effectDefinition, condition.key);
-  const stored = parameters.find(
+  const controlling = findParameterDefinition(definition, condition.key);
+  const stored = effect.parameters.find(
     (candidate) => candidate.key === condition.key,
   )?.value;
   const value = (stored ?? `${controlling?.defaultValue ?? ""}`)
@@ -655,7 +655,7 @@ function toDevice(
       .filter(
         (parameter) =>
           !parameter.hidden &&
-          isParameterVisible(parameter, definition, effect.parameters),
+          isParameterVisible(parameter, definition, effect),
       )
       .map((parameter) =>
         toDeviceParameter(

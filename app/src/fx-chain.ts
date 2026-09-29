@@ -4,9 +4,9 @@
 
 import { isOrderEffectName } from "./composition-order.ts";
 import { isTransformEffectName } from "./composition-transform.ts";
+import { isColorEffectName } from "./fill-paint.ts";
 import {
   FX_EFFECT_DEFINITIONS,
-  type FxEffectDefinition,
   formatRawNumber,
   getEffectDefinition,
 } from "./fx-registry.ts";
@@ -47,19 +47,15 @@ export const ADDABLE_EFFECT_DEFINITIONS = FX_EFFECT_DEFINITIONS.filter(
   (definition) => !isLayoutEffectName(definition.effectName),
 );
 
-// The effects the add menu of one stack offers: those whose scopes include
-// it, such as the layer-only Color effect. Transform places a single layer,
-// so only layer stacks offer it. Order arranges every layer at once, so only
+// Transform places a single layer and Color paints a layer's fill clips, so
+// only layer stacks offer them. Order arranges every layer at once, so only
 // the Global stack offers it.
-export function getAddableEffectDefinitions(
-  group: FxDeviceGroup,
-): FxEffectDefinition[] {
-  return ADDABLE_EFFECT_DEFINITIONS.filter(
-    (definition) =>
-      (!definition.scopes || definition.scopes.includes(group)) &&
-      (group === "global"
-        ? !isTransformEffectName(definition.effectName)
-        : !isOrderEffectName(definition.effectName)),
+export function getAddableEffectDefinitions(group: FxDeviceGroup) {
+  return ADDABLE_EFFECT_DEFINITIONS.filter((definition) =>
+    group === "global"
+      ? !isTransformEffectName(definition.effectName) &&
+        !isColorEffectName(definition.effectName)
+      : !isOrderEffectName(definition.effectName),
   );
 }
 

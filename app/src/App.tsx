@@ -2597,8 +2597,8 @@ function App() {
       listMediaSync({
         mediaItems,
         // Placeholder clips, such as MIDI imported from a Live set, never
-        // had media, and fill clips need none, so there is no file to report
-        // as offline.
+        // had media, and fill clips need none, so there is no file to
+        // report as offline.
         arrangementClips: timelineClips.filter(usesMediaFile),
         sourceClips: sourceSpans.filter(usesMediaFile),
         mainAudioId,
@@ -5235,8 +5235,8 @@ function App() {
     );
   }
 
-  // Insert Track commits the selection exactly like the track's number key;
-  // Insert Fill Layer fills the selected range on its layer.
+  // Insert Track commits the selection exactly like the track's number key,
+  // and Insert Fill Layer covers it with a fill clip.
   function getSelectionMenuEntries(selection: TimelineSelection) {
     const endQ = selection.startQ + selection.durationQ;
     return buildSelectionMenuEntries({
@@ -5353,23 +5353,6 @@ function App() {
             }
           : undefined,
         audioEntries: getMainAudioMenuEntries(),
-        insertEntries: [
-          {
-            type: "item",
-            id: "insert-fill",
-            label: "Insert Fill Layer",
-            disabled: isExporting || !pendingSelection,
-            onSelect: () => {
-              if (pendingSelection) {
-                insertFillClip(
-                  pendingSelection.laneId,
-                  pendingSelection.startQ,
-                  pendingSelection.durationQ,
-                );
-              }
-            },
-          },
-        ],
       },
     );
   }

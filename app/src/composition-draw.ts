@@ -3,6 +3,7 @@ import {
   type LayerVisual,
   orderStackedLayers,
   resolveLayerPlacement,
+  resolveSlotScissor,
 } from "./composition-layout.ts";
 import {
   type CompositionOrder,
@@ -435,10 +436,17 @@ export function drawComposition(
     let sourceHeight: number;
     let texture: WebGLTexture;
     if (entry.fill) {
-      // A fill is drawn at its band's own aspect, so it covers the band
-      // exactly.
-      sourceWidth = width;
-      sourceHeight = height / stackedClips.length;
+      // A fill is drawn at its slot's own size, so it covers the slot
+      // exactly in any arrangement.
+      const slot = resolveSlotScissor(
+        index,
+        stackedClips.length,
+        order,
+        width,
+        height,
+      );
+      sourceWidth = Math.max(1, slot.width);
+      sourceHeight = Math.max(1, slot.height);
       texture = uploadFillTexture(
         resources,
         entry.sourceKey,

@@ -59,10 +59,9 @@ test("Edit shows Clip and Layer only for a selection, and Audio always", async (
     /^Cut/,
     /^Copy/,
     /^Paste/,
-    "Insert Fill Layer",
     "Audio",
   ]);
-  for (const name of ["Cut", "Copy", "Paste", "Insert Fill Layer"]) {
+  for (const name of ["Cut", "Copy", "Paste"]) {
     await expect(
       page.getByRole("menuitem", { name: new RegExp(`^${name}`) }),
     ).toHaveAttribute("aria-disabled", "true");

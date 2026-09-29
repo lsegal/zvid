@@ -12,6 +12,7 @@ import {
   resolveBandScissor,
   resolveLayerPlacement,
 } from "./composition-layout.ts";
+import type { CompositionOrder } from "./composition-order.ts";
 import {
   IDENTITY_TRANSFORM,
   type LayerTransform,
@@ -510,6 +511,7 @@ describe("drawComposition fill layers", () => {
     resources: WebGlResources,
     clips: CompositeLayer[],
     mediaRefs = new Map<string, HTMLMediaElement>(),
+    order?: CompositionOrder,
   ) {
     drawComposition(
       resources,
@@ -518,6 +520,7 @@ describe("drawComposition fill layers", () => {
       mediaRefs,
       [],
       { time: 0, audio: SILENT_AUDIO_BANDS, groupClipProgress: 0 },
+      order,
     );
     return recording.draws.filter(
       (draw) =>
@@ -565,6 +568,24 @@ describe("drawComposition fill layers", () => {
       composites[1].texture,
       resources.textureMap.get("fill:clip-1") as unknown as Handle,
     );
+  });
+
+  it("draws a fill at its slot's size in a Horizontal arrangement", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    drawFrame(
+      recording,
+      resources,
+      [fillLayer(RED_FILL, 0), fillLayer(RED_FILL, 1)],
+      undefined,
+      { arrangement: "horizontal", gridSize: 2, spacing: 0 },
+    );
+    // Two side-by-side columns of 180×640 pixels.
+    for (const upload of recording.uploads) {
+      const [width, height] = [upload[3], upload[4]] as [number, number];
+      assert.ok(Math.abs(width / height - WIDTH / 2 / HEIGHT) < 0.01);
+    }
+    assert.equal(recording.uploads.length, 2);
   });
 
   it("redraws a fill's texture only when its paint changes", () => {
