@@ -87,7 +87,9 @@ export type SessionOpenResponse = {
  * file frame at its content origin. Imported videos mark `captureOffset` as
  * -1, which is treated as 0.
  */
-export function clipSourceFrame(clip: NonNullable<LvpSession["clips"]>[number]) {
+export function clipSourceFrame(
+  clip: NonNullable<LvpSession["clips"]>[number],
+) {
   const captureOffset =
     clip.captureOffset === -1 ? 0 : (clip.captureOffset ?? 0);
   return Math.max(
