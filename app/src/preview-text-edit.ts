@@ -181,7 +181,8 @@ export function findLayerTextEffect(
   laneId: string,
 ) {
   const texts = effects.filter(
-    (effect) => effect.trackId === laneId && isTextEffectName(effect.effectName),
+    (effect) =>
+      effect.trackId === laneId && isTextEffectName(effect.effectName),
   );
   return (
     texts.findLast((effect) => effect.enabled !== false) ??
@@ -202,7 +203,13 @@ function updateLayerTextEffect(
   let result = effects;
   let effect = findLayerTextEffect(result, laneId);
   if (!effect) {
-    result = addEffect(result, laneId, TEXT_EFFECT_NAME, undefined, newEffectId);
+    result = addEffect(
+      result,
+      laneId,
+      TEXT_EFFECT_NAME,
+      undefined,
+      newEffectId,
+    );
     effect = findLayerTextEffect(result, laneId);
     if (!effect) {
       return effects;

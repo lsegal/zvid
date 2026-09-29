@@ -1,5 +1,6 @@
 import {
   type KeyboardEvent,
+  type MouseEvent,
   type PointerEvent,
   useEffect,
   useRef,
@@ -18,7 +19,21 @@ import {
   type Size,
   screenToCanvas,
 } from "../preview-edit.ts";
+import {
+  resolveTextEditorPlacement,
+  type TextEditorKeyAction,
+} from "../preview-text-edit.ts";
+import type { TextStyle } from "../text-style.ts";
+import { PreviewTextEditor } from "./PreviewTextEditor";
 import "./preview-transform-overlay.css";
+
+// The text layer being edited on the canvas, and where its edits go.
+export type PreviewTextEdit = {
+  clipId: string;
+  style: TextStyle;
+  onChangeText: (text: string) => void;
+  onAction: (action: TextEditorKeyAction) => void;
+};
 
 export type PreviewLayerMove = {
   laneId: string;
@@ -49,20 +64,26 @@ const DRAG_THRESHOLD_PX = 3;
 // Covers the whole preview monitor, not just the letterboxed video, so the
 // selected layer's outline stays visible where it extends past the frame.
 // Clicks pick the topmost layer under the pointer; dragging moves it.
+// Double-clicking a layer, or Enter on the selected one, activates it, which
+// for a text layer starts typing on the canvas (`textEdit`).
 export function PreviewTransformOverlay({
   canvas,
   layers,
   selectedLaneId,
+  textEdit,
   getLayerPosition,
   onSelect,
   onMove,
+  onActivate,
 }: {
   canvas: Size;
   layers: readonly PreviewLayer[];
   selectedLaneId: string | undefined;
+  textEdit?: PreviewTextEdit;
   getLayerPosition: (laneId: string) => Point;
   onSelect: (layer: PreviewLayer | undefined) => void;
   onMove: (move: PreviewLayerMove) => void;
+  onActivate?: (layer: PreviewLayer) => void;
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -85,6 +106,9 @@ export function PreviewTransformOverlay({
 
   const video = resolveVideoRect(monitor, canvas);
   const selected = layers.find((layer) => layer.laneId === selectedLaneId);
+  const editedLayer = textEdit
+    ? layers.find((layer) => layer.clipId === textEdit.clipId)
+    : undefined;
 
   const toCanvas = (event: { clientX: number; clientY: number }) => {
     const bounds = rootRef.current?.getBoundingClientRect();
@@ -98,19 +122,20 @@ export function PreviewTransformOverlay({
     );
   };
 
+  // The selected layer keeps the press anywhere inside its outline, even
+  // where another layer is drawn over it.
+  const pickLayer = (point: Point) =>
+    selected && isPointOnLayer(point, selected, canvas)
+      ? selected
+      : hitTestLayers(layers, point, canvas);
+
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) {
       return;
     }
 
     event.currentTarget.focus({ preventScroll: true });
-    const point = toCanvas(event);
-    // The selected layer keeps the press anywhere inside its outline, even
-    // where another layer is drawn over it.
-    const target =
-      selected && isPointOnLayer(point, selected, canvas)
-        ? selected
-        : hitTestLayers(layers, point, canvas);
+    const target = pickLayer(toCanvas(event));
     onSelect(target);
     if (!target) {
       return;
@@ -181,7 +206,33 @@ export function PreviewTransformOverlay({
     }
   };
 
+  const handleDoubleClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || !onActivate) {
+      return;
+    }
+
+    const target = pickLayer(toCanvas(event));
+    if (target) {
+      event.preventDefault();
+      onActivate(target);
+    }
+  };
+
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (
+      event.key === "Enter" &&
+      selected &&
+      onActivate &&
+      !dragRef.current &&
+      !event.altKey &&
+      !event.ctrlKey &&
+      !event.metaKey
+    ) {
+      event.preventDefault();
+      onActivate(selected);
+      return;
+    }
+
     if (event.key === "Escape" && selected) {
       event.preventDefault();
       onSelect(undefined);
@@ -229,8 +280,9 @@ export function PreviewTransformOverlay({
       role="application"
       // biome-ignore lint/a11y/noNoninteractiveTabindex: focus is how the arrow keys reach the selected layer
       tabIndex={0}
-      aria-label="Preview. Click a layer to select it, drag or use the arrow keys to move it."
+      aria-label="Preview. Click a layer to select it, drag or use the arrow keys to move it. Double-click a text layer or press Enter to edit its text."
       onPointerDown={handlePointerDown}
+      onDoubleClick={handleDoubleClick}
       onPointerMove={handlePointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
@@ -253,6 +305,15 @@ export function PreviewTransformOverlay({
             points={outline}
           />
         </svg>
+      ) : null}
+      {textEdit && editedLayer && monitor.width > 0 ? (
+        <PreviewTextEditor
+          canvas={canvas}
+          placement={resolveTextEditorPlacement(editedLayer, video, canvas)}
+          style={textEdit.style}
+          onChangeText={textEdit.onChangeText}
+          onAction={textEdit.onAction}
+        />
       ) : null}
     </div>
   );

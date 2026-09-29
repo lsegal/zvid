@@ -1,0 +1,35 @@
+/* Laid out in canvas pixels at the size of the text layer's box; an inline
+   matrix maps it onto the preview monitor over the layer's transformed box. */
+.preview-text-editor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+
+.preview-text-editor__input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background-color: transparent;
+  overflow: hidden;
+  resize: none;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  paint-order: stroke fill;
+  cursor: text;
+}
+
+.preview-text-editor__input:focus {
+  outline: none;
+}
+
+/* "Text" stands in for an empty layer in the editor only. */
+.preview-text-editor__input::placeholder {
+  color: inherit;
+  opacity: 0.45;
+}
