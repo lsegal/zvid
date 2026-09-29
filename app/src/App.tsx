@@ -10,7 +10,6 @@ import {
   PauseIcon,
   PlayIcon,
 } from "@heroicons/react/24/solid";
-import { isTauri } from "@tauri-apps/api/core";
 import {
   type DragEvent as ReactDragEvent,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -33,6 +32,147 @@ import {
   isAlsFilename,
 } from "./als-import";
 import {
+  type ClipClipboard,
+  cloneClipAtStartQ,
+  duplicateClip,
+  withClipStacks,
+} from "./app/clip-ops.ts";
+import {
+  buildCollaborationViewModel,
+  forgetJoinedRoom,
+  getCollaborationRole,
+  getInitialCollaborationConfig,
+  getSessionIceServers,
+  ICE_SERVERS,
+  IDLE_COLLABORATION_STATE,
+  parseCollaborationInvite,
+  parseSignalingUrls,
+  rememberJoinedRoom,
+} from "./app/collaboration-config.ts";
+import {
+  BASE_QUARTER_PX,
+  COLLAB_STORAGE_KEY,
+  DEFAULT_LANES,
+  FILL_CLIP_ACCENT,
+  FILL_CLIP_TINT,
+  FX_CLIP_BARS,
+  GRID_LINE_COLORS,
+  INITIAL_PROJECT_STATE,
+  INSPECTOR_COLLAPSED_STORAGE_KEY,
+  LABEL_WIDTH_DEFAULT,
+  LABEL_WIDTH_KEYBOARD_STEP,
+  LABEL_WIDTH_MAX,
+  LABEL_WIDTH_MIN,
+  LABEL_WIDTH_NARROW,
+  LABEL_WIDTH_STORAGE_KEY,
+  LOCATE_OFFLINE_MEDIA_HINT,
+  MAX_PEER_MEDIA_TRANSFERS,
+  MAX_WAND_LAYERS,
+  PALETTE,
+  PEER_MEDIA_REVEAL_MS,
+  PEER_MEDIA_STATUS_INTERVAL_MS,
+  PREVIEW_DEFAULT_WIDTH,
+  PREVIEW_MIN_WIDTH,
+  PREVIEW_RESIZE_KEY_STEP,
+  PREVIEW_WIDTH_STORAGE_KEY,
+  RANDOM_SELECTION_BAR_INCREMENT,
+  RANDOM_SELECTION_MAX_BARS,
+  RELINK_DURATION_TOLERANCE_SECONDS,
+  SIGNATURES,
+  SNAP_OPTIONS,
+  SOURCE_TRACK_DRAG_CLEAR_DELAY_MS,
+  TEXT_CLIP_BARS,
+  TIMELINE_DRAG_EPSILON,
+  TIMELINE_PLAYBACK_SCRUB_AUDIO_IDLE_MS,
+  TIMELINE_SCRUB_AUDIO_TAIL_MS,
+} from "./app/constants.ts";
+import {
+  CLIP_FILMSTRIP_HEIGHT_PX,
+  type Filmstrip,
+  getFilmstripTileOwner,
+  SOURCE_SPAN_FILMSTRIP_HEIGHT_PX,
+} from "./app/filmstrip.ts";
+import {
+  formatDuration,
+  formatHistoryStatus,
+  formatSessionMediaCheckStatus,
+} from "./app/format.ts";
+import {
+  clampLabelWidth,
+  getPreviewMaxWidth,
+  readInspectorCollapsed,
+  readLabelWidth,
+  readPreviewWidth,
+} from "./app/layout-prefs.ts";
+import {
+  buildStandaloneProject,
+  mergeMediaItemsById,
+  patchProjectState,
+  sessionToProject,
+} from "./app/session-project.ts";
+import { getShortcutLabels } from "./app/shortcut-labels.ts";
+import {
+  chooseSourceSpanForWindow,
+  findClipAtPlayhead,
+  findClosestTimelineLaneId,
+  getClipDurationQ,
+  getClipEndQ,
+  getPlaybackStopQ,
+  getSelectionEndQ,
+  getSourceTrackEndQ,
+  getTimelineContentEndQ,
+  isClipAtPlayhead,
+  quartersToSeconds,
+  resolveClipOverlapPreview,
+  secondsToQuarters,
+  snapQuarterValue,
+} from "./app/timeline-math.ts";
+import type {
+  AdoptMediaResult,
+  ArrangementClip,
+  ClipMenuState,
+  CollaborationMode,
+  DragState,
+  ExportState,
+  Lane,
+  LocalMediaOverride,
+  ProjectState,
+  SavedWorkspaceSession,
+  SessionMediaCheck,
+  SourceSpan,
+  SourceTrack,
+  SourceTrackDragPreview,
+  SourceTrackDropTarget,
+  TimelineDragState,
+  TimelineSelection,
+  TimelineViewport,
+  WorkspaceBoot,
+} from "./app/types.ts";
+import {
+  basename,
+  buildDraggedMediaKey,
+  clamp,
+  getDraggedMediaFiles,
+  getNextLaneNumber,
+  getSwatch,
+  hasDraggedFileData,
+  isEditableEventTarget,
+  logClient,
+  pluralize,
+  randomFloat,
+  revokeObjectUrlIfNeeded,
+  sanitizeFilenameSegment,
+  stripFilenameExtension,
+} from "./app/util.ts";
+import {
+  CORRUPT_WORKSPACE_NOTICE,
+  findRestoredSelection,
+  formatRestoredStatus,
+  isPristineProjectHistory,
+  readSavedWorkspaceSession,
+  workspaceLockEvents,
+} from "./app/workspace-boot.ts";
+import {
   hasArrangementActivity,
   isArrangementEmptyStateDismissedOnOpen,
   shouldShowArrangementEmptyState,
@@ -48,18 +188,13 @@ import {
   CompositionRenderer,
 } from "./CompositionPlayer";
 import {
-  type FilmstripTile,
   getClipFilmstripTiles,
   getFilmstripDecodeSize,
   getFilmstripRange,
   getFilmstripTileWidthPx,
   getSourceSpanFilmstripClip,
 } from "./clip-filmstrip.ts";
-import {
-  formatClipJumpShortcut,
-  isClipJumpPress,
-  revealScrollLeft,
-} from "./clip-jump.ts";
+import { isClipJumpPress, revealScrollLeft } from "./clip-jump.ts";
 import {
   describeClipMediaState,
   describeMediaAvailability,
@@ -79,20 +214,11 @@ import {
   isInSelection,
   resolvePasteLaneId,
 } from "./clip-menu.ts";
-import { type ClipWarp, createClipWarp } from "./clip-warp.ts";
 import {
   type CollaborationConnectionState,
   type CollaborationController,
   createCollaborationController,
 } from "./collaboration";
-import {
-  buildDiagnosticsRows,
-  type CollaborationRole,
-  type CollaborationTone,
-  EMPTY_COLLABORATION_DIAGNOSTICS,
-  parseIceServers,
-  summarizeCollaboration,
-} from "./collaboration-diagnostics";
 import { ArrangementEmptyState } from "./components/ArrangementEmptyState";
 import {
   APP_BUILD_LABEL,
@@ -100,6 +226,7 @@ import {
   openBuildCommit,
 } from "./components/BrandMark";
 import { CaptureInstallerDialog } from "./components/CaptureInstallerDialog";
+import { CollaborationDetailCard } from "./components/CollaborationDetailCard";
 import {
   ContextMenu,
   type ContextMenuEntry,
@@ -111,6 +238,7 @@ import {
   ImportNotice,
   type ImportNoticeContent,
 } from "./components/ImportNotice";
+import { LayerNameInput } from "./components/LayerNameInput";
 import {
   PlayheadLine,
   TransportPlayheadReadout,
@@ -163,12 +291,7 @@ import { resolveCompositionOrder } from "./composition-order.ts";
 import { isContextMenuKey, isContextMenuPress } from "./context-menu.ts";
 import { isRulerPanPress, isTimelinePanPress } from "./drag-scroll.ts";
 import { buildEditMenuEntries } from "./edit-menu.ts";
-import {
-  addFillClip,
-  createFillClip,
-  getDefaultFillColor,
-  isFillClip,
-} from "./fill-clip.ts";
+import { addFillClip, getDefaultFillColor, isFillClip } from "./fill-clip.ts";
 import {
   formatCssColor,
   formatFillPaintCss,
@@ -184,7 +307,6 @@ import {
 } from "./fx-chain";
 import {
   addFxClip,
-  createFxClip,
   describeFxClip,
   FX_CLIP_LABEL,
   isFxClip,
@@ -203,11 +325,9 @@ import {
   getRenderedEffects,
   isLayerFxEnabled,
   isLayoutEffectName,
-  mapEffects,
   mapSessionEffectsToDevices,
   moveEffect,
   previewDuplicateClipEffects,
-  pruneClipEffects,
   removeEffect,
   resetEffect,
   type SessionEffect,
@@ -221,11 +341,8 @@ import {
   type SessionSelection,
   supportsHarnessCapability,
 } from "./harness";
-import { hasMediaExtension } from "./harness/media-extensions";
-import { loadIceServers, resolveRelayIceServersUrl } from "./ice-servers";
 import {
   LANE_SELECTION_DRAG_THRESHOLD_PX,
-  type LaneSelectionGesture,
   moveLaneSelectionGesture,
   releaseLaneSelectionGesture,
   startLaneSelectionGesture,
@@ -256,11 +373,8 @@ import {
 import {
   buildFallbackMediaItem,
   inferMediaKind,
-  type MediaAvailability,
   type MediaItem,
-  type MediaKind,
   type MediaProbeResult,
-  type Palette,
   probeMediaBlob,
   toShareableMediaItem,
 } from "./media";
@@ -318,12 +432,9 @@ import {
   createProjectHistoryState,
   isProjectEditAction,
   type ProjectHistoryAction,
-  type ProjectHistoryState,
   projectHistoryReducer,
 } from "./project-history";
 import {
-  migrateClipContentEffects,
-  migrateDefaultOrder,
   migrateLegacyMainAudio,
   stripClipSelectionFlags,
 } from "./project-state-compat.ts";
@@ -332,7 +443,6 @@ import {
   sourceTrackHasFootage,
 } from "./random-arrangement.ts";
 import {
-  type ClipboardContent,
   copyClip,
   copyRange,
   pasteClipboard,
@@ -342,15 +452,9 @@ import {
 } from "./range-edit.ts";
 import { listOfflineMedia, matchOfflineMedia } from "./relink";
 import { selectionHint } from "./selection-hint.ts";
+import { MAX_LAYERS } from "./selection-overlaps";
 import {
-  formatOverlapNote,
-  MAX_LAYERS,
-  resolveSessionOverlaps,
-} from "./selection-overlaps";
-import {
-  clipSourceFrame,
   formatClipsWithoutFile,
-  type LvpSession,
   normalizeLvpSession,
   type SessionOpenResponse,
 } from "./session";
@@ -361,31 +465,19 @@ import {
 import {
   chooseSessionSaveTarget,
   projectToLvpSession,
-  readSelectionSlip,
-  readSessionFills,
-  readSessionFxClips,
-  readSessionTexts,
   SESSION_FILE_EXTENSION,
 } from "./session-save.ts";
 import {
   buildPublicShareUrl,
-  type InviteParams,
-  parseInviteParams,
   removeInviteParams,
-  removeInvitePassword,
   withJoinedRoom,
 } from "./share-invite.ts";
 import { shareCopyFailedStatus, shareLinkVisible } from "./share-link";
-import { PUBLIC_SIGNALING_URL, ZVID_SIGNALING_URL } from "./signaling-servers";
 import {
   dropClipOnFreeLane,
   isSourceClipDropClick,
 } from "./source-clip-drop.ts";
-import {
-  nextSourceTrackColorIndex,
-  sessionSourceTrackColorIndex,
-  sourceTrackColorIndex,
-} from "./source-track-color.ts";
+import { nextSourceTrackColorIndex } from "./source-track-color.ts";
 import {
   formatSourceTracksSummary,
   isSourceTracksSectionCollapsed,
@@ -395,7 +487,7 @@ import {
 import { classifySpaceTarget, createSpaceHold } from "./space-shortcut";
 import { statusMessageTone } from "./status-bar";
 import { buildStatusItems } from "./status-items";
-import { addTextClip, createTextClip, isTextClip } from "./text-clip.ts";
+import { addTextClip, isTextClip } from "./text-clip.ts";
 import {
   getMissingFonts,
   loadFontFace,
@@ -418,14 +510,12 @@ import { formatMusicalPosition, formatTimecode } from "./timeline-format.ts";
 import {
   formatDivision,
   type GridDivision,
-  type GridLineWeight,
   getBarStep,
   getGridLayers,
   getGridUnit,
   getSnapUnit,
   RULER_LABEL_MIN_PX,
   resolveAdaptiveDivision,
-  type SnapMode,
 } from "./timeline-grid";
 import { type DragScrollMove, useDragScroll } from "./use-drag-scroll";
 import { useLayerReorder } from "./use-layer-reorder";
@@ -434,19 +524,12 @@ import { ZVID_BUILD } from "./version";
 import { loadWaveformPeaks } from "./waveform-loader";
 import type { WaveformPeaks } from "./waveform-peaks";
 import { createWorkspaceAutosave } from "./workspace-autosave.ts";
-import { createWorkspaceLock, type WorkspaceLock } from "./workspace-lock.ts";
 import {
-  parseWorkspaceSession,
   serializeWorkspaceSession,
   toProjectHistoryState,
-  type WorkspaceSession,
   type WorkspaceSessionSource,
 } from "./workspace-session.ts";
-import {
-  clearCurrentSession,
-  getWorkspaceStore,
-  saveCurrentSession,
-} from "./workspace-store.ts";
+import { clearCurrentSession, saveCurrentSession } from "./workspace-store.ts";
 import {
   anchoredTimelineScrollLeft,
   formatZoomFactor,
@@ -460,1861 +543,6 @@ import {
   zoomFillFraction,
   zoomToSliderPosition,
 } from "./zoom";
-
-type TimelineMode = "musical" | "timecode";
-
-type TimeSignature = {
-  id: string;
-  numerator: number;
-  denominator: number;
-};
-
-type Lane = {
-  id: string;
-  name: string;
-  colorIndex: number;
-  // Layer-wide FX bypass; a missing flag means on.
-  fxEnabled?: boolean;
-};
-
-type SourceTrack = {
-  id: string;
-  name: string;
-  colorIndex: number;
-  recordingPaths: string[];
-};
-
-type SourceSpan = {
-  id: string;
-  sourceTrackId: string;
-  label: string;
-  mediaPath: string;
-  mediaId?: string;
-  startQ: number;
-  durationSeconds: number;
-  trimStartSeconds: number;
-  // Warp markers the source follows instead of playing at 1×.
-  warp?: ClipWarp;
-  tint: string;
-  accent: string;
-};
-
-type ArrangementClip = {
-  id: string;
-  // "fill" for a media-less fill clip painted by its own (or else its
-  // layer's) Color effect, "text" for a text clip styled by its own Text
-  // effect, or "fx" for an FX clip whose own stack adjusts what is beneath
-  // it; media clips leave it unset.
-  kind?: "fill" | "text" | "fx";
-  sourceSpanId: string;
-  sourceTrackId: string;
-  laneId: string;
-  label: string;
-  mediaPath: string;
-  mediaId?: string;
-  startQ: number;
-  durationSeconds: number;
-  trimStartSeconds: number;
-  sourceOffsetSeconds: number;
-  sourceWindowStartSeconds: number;
-  sourceWindowEndSeconds: number;
-  warp?: ClipWarp;
-  tint: string;
-  accent: string;
-};
-
-// The right-click menu open on an arrangement clip, empty lane space, the
-// uncommitted selection, a source clip, a layer header or the Audio row, at
-// `anchor` in viewport coordinates.
-type ClipMenuState = { anchor: MenuPoint } & (
-  | { kind: "clip"; clipId: string }
-  | { kind: "lane"; laneId: string }
-  | { kind: "selection" }
-  | { kind: "span"; spanId: string }
-  | { kind: "layer"; laneId: string }
-  | { kind: "audio" }
-);
-
-type TimelineSelection = {
-  id: string;
-  laneId: string;
-  startQ: number;
-  durationQ: number;
-};
-
-type DragState =
-  | {
-      kind: "move";
-      pointerId: number;
-      clipId: string;
-      sourceClipId: string;
-      pointerStartX: number;
-      originStartQ: number;
-      originDurationQ: number;
-      originLaneId: string;
-      duplicateOnDrag: boolean;
-      // A Ctrl/Cmd-press released without dragging jumps to the clip start.
-      jumpOnClick: boolean;
-    }
-  | {
-      kind: "resize-start";
-      pointerId: number;
-      clipId: string;
-      pointerStartX: number;
-      originStartQ: number;
-      originDurationQ: number;
-    }
-  | {
-      kind: "resize-end";
-      pointerId: number;
-      clipId: string;
-      pointerStartX: number;
-      originStartQ: number;
-      originDurationQ: number;
-    }
-  | {
-      kind: "selection";
-      pointerId: number;
-      laneId: string;
-      gesture: LaneSelectionGesture;
-    };
-
-type TimelineDragState = {
-  pointerId: number;
-  pointerStartX: number;
-  originPlayheadQ: number;
-  originZoom: number;
-  wasPlaying: boolean;
-};
-
-type ExportState = {
-  phase: "idle" | "preparing" | "decoding-audio" | "rendering" | "muxing";
-  progress: number | null;
-  detail: string;
-};
-
-type TimelineViewport = {
-  scrollLeft: number;
-  clientWidth: number;
-  clientHeight: number;
-  // Height of the sticky ruler above the arrangement lanes.
-  lanesTop: number;
-};
-
-type SourceTrackDropTarget =
-  | {
-      kind: "track";
-      trackId: string;
-    }
-  | {
-      kind: "new-track";
-    };
-
-type SourceTrackDragPreview = {
-  dragKey: string;
-  fileCount: number;
-  names: string[];
-  label: string;
-  status: "loading" | "ready" | "error";
-  kind?: MediaKind;
-  durationSeconds?: number;
-  thumbnailUrl?: string;
-  error?: string;
-};
-
-type CollaborationMode = "idle" | "sharing" | "connected";
-
-type CollaborationRemoteCursor = {
-  clientId: number;
-  name: string;
-  color: string;
-  x: number;
-  y: number;
-};
-
-type ProjectState = {
-  timelineMode: TimelineMode;
-  signatureId: string;
-  snapMode: SnapMode;
-  snapEnabled: boolean;
-  bpm: number;
-  fps: number;
-  canvasWidth: number;
-  canvasHeight: number;
-  zoom: number;
-  sessionName: string | null;
-  mediaItems: MediaItem[];
-  lanes: Lane[];
-  sourceTracks: SourceTrack[];
-  sourceSpans: SourceSpan[];
-  clips: ArrangementClip[];
-  effects: SessionEffect[];
-  mainAudioId?: string;
-  // The session length from the opened session, in frames at `fps`.
-  projectDurationFrames?: number;
-  // Set on every state since sessions got a default Order effect. A restored
-  // workspace saved without it is older and gets that Order added.
-  orderDefaulted?: boolean;
-  // Set on every state since text and fill clips carried their own Text and
-  // Color. A restored workspace saved without it is older and has its
-  // layers' Text and Color moved onto those clips.
-  clipContentEffects?: boolean;
-};
-
-type LocalMediaOverride = {
-  availability?: MediaAvailability;
-  previewUrl?: string;
-  thumbnailUrl?: string;
-  lastError?: string;
-};
-
-type AdoptMediaResult = {
-  previewUrl: string;
-  warning?: string;
-};
-
-// Media whose probed duration differs from the recorded one by more than
-// this is probably a different file that happens to share its name.
-const RELINK_DURATION_TOLERANCE_SECONDS = 0.5;
-
-// Tracks the offline refs of a just-opened session until cache hydration
-// settles, so the status bar can report the real outcome.
-type SessionMediaCheck = {
-  sessionName: string;
-  pendingIds: Set<string>;
-  restored: number;
-  offline: number;
-  analyzingFromDisk: boolean;
-  hydratedFromDisk: boolean;
-  /** Set when loading resolved overlapping clips. */
-  overlapNote: string;
-};
-
-const LABEL_WIDTH_DEFAULT = 240;
-const LABEL_WIDTH_MIN = 120;
-const LABEL_WIDTH_MAX = 300;
-const LABEL_WIDTH_KEYBOARD_STEP = 10;
-// Below this width the label rows tighten their padding and gaps.
-const LABEL_WIDTH_NARROW = 170;
-const BASE_QUARTER_PX = 28;
-const GRID_LINE_COLORS: Record<GridLineWeight, string> = {
-  division: "rgba(255,255,255,0.04)",
-  beat: "rgba(255,255,255,0.08)",
-  bar: "rgba(255,255,255,0.16)",
-};
-const TIMELINE_SCRUB_AUDIO_TAIL_MS = 50;
-// A scrub started during playback keeps audio running between pointer moves
-// and only pauses it once the pointer has been held still this long.
-const TIMELINE_PLAYBACK_SCRUB_AUDIO_IDLE_MS = 150;
-const TIMELINE_DRAG_EPSILON = 0.0001;
-const RANDOM_SELECTION_BAR_INCREMENT = 0.25;
-const MAX_PEER_MEDIA_TRANSFERS = 2;
-const PEER_MEDIA_STATUS_INTERVAL_MS = 250;
-// How long a clip keeps cross-fading from its skeleton to its filmstrip.
-const PEER_MEDIA_REVEAL_MS = 1200;
-const RANDOM_SELECTION_MAX_BARS = 2;
-// The arrangement wand replaces the main layers with this many.
-const MAX_WAND_LAYERS = 3;
-const SOURCE_TRACK_DRAG_CLEAR_DELAY_MS = 80;
-const COLLAB_STORAGE_KEY = "zvid-collaboration";
-// Per-tab record of the room this tab joined, so a refresh can rejoin it even
-// though the password is scrubbed from the address bar.
-const JOINED_ROOM_STORAGE_KEY = "zvid-joined-room";
-const INSPECTOR_COLLAPSED_STORAGE_KEY = "zvid-inspector-collapsed";
-const LABEL_WIDTH_STORAGE_KEY = "zvid-label-width";
-const PREVIEW_WIDTH_STORAGE_KEY = "zvid-preview-width";
-const PREVIEW_DEFAULT_WIDTH = 280;
-const PREVIEW_MIN_WIDTH = 240;
-const PREVIEW_MAX_WIDTH = 560;
-const PREVIEW_RESIZE_KEY_STEP = 16;
-// Horizontal space the preview panel may never take from the timeline: the
-// grid's side padding, the resize handle's column, and a usable timeline.
-const PREVIEW_RESERVED_WIDTH = 32 + 16 + 360;
-const DEFAULT_SIGNALING_URLS = splitSignalingUrls(
-  import.meta.env.VITE_SIGNALING_URL ||
-    [ZVID_SIGNALING_URL, PUBLIC_SIGNALING_URL].join(","),
-);
-// Earlier defaults, persisted as the user's setting; they move to the current
-// default instead of pinning the user to a single relay.
-const LEGACY_DEFAULT_SIGNALING_URLS = [
-  [ZVID_SIGNALING_URL],
-  [PUBLIC_SIGNALING_URL],
-];
-const ICE_SERVERS = resolveIceServers();
-// The app worker's short-lived TURN credentials (worker/turn.ts).
-const RELAY_ICE_SERVERS_URL = resolveRelayIceServersUrl(
-  import.meta.env.VITE_ICE_SERVERS_URL,
-  // The Vite dev server has no Worker to answer /api/ice-servers.
-  import.meta.env.DEV ? undefined : globalThis.location?.origin,
-  isTauri(),
-);
-// Relay credentials last a day; reuse them for an hour so reconnecting or
-// renaming yourself doesn't mint new ones every time.
-const RELAY_ICE_SERVERS_REUSE_MS = 60 * 60 * 1000;
-const IDLE_COLLABORATION_STATE: CollaborationConnectionState = {
-  connected: false,
-  peerCount: 0,
-  mediaPeerCount: 0,
-  collaborators: [],
-  diagnostics: EMPTY_COLLABORATION_DIAGNOSTICS,
-};
-const SIGNATURES: TimeSignature[] = [
-  { id: "4/4", numerator: 4, denominator: 4 },
-  { id: "3/4", numerator: 3, denominator: 4 },
-  { id: "5/4", numerator: 5, denominator: 4 },
-  { id: "6/8", numerator: 6, denominator: 8 },
-  { id: "7/8", numerator: 7, denominator: 8 },
-];
-const SNAP_OPTIONS: { id: SnapMode; label: string }[] = [
-  { id: "auto", label: "Auto" },
-  { id: "bar", label: "Bar" },
-  { id: "beat", label: "Beat" },
-  { id: "half", label: "1/2" },
-  { id: "quarter", label: "1/4" },
-];
-const DEFAULT_LANES: Lane[] = [
-  { id: "1", name: "Layer 1", colorIndex: -1 },
-  { id: "5", name: "Layer 2", colorIndex: -1 },
-  { id: "6", name: "Layer 3", colorIndex: -1 },
-];
-const INITIAL_PROJECT_STATE: ProjectState = {
-  timelineMode: "musical",
-  signatureId: "4/4",
-  snapMode: "auto",
-  snapEnabled: true,
-  bpm: 120,
-  fps: 30,
-  canvasWidth: 1080,
-  canvasHeight: 1920,
-  zoom: 1,
-  sessionName: null,
-  mediaItems: [],
-  lanes: DEFAULT_LANES,
-  sourceTracks: [],
-  sourceSpans: [],
-  clips: [],
-  effects: ensureGlobalOrder(
-    ensureLayerLayouts(
-      [],
-      DEFAULT_LANES.map((lane) => lane.id),
-    ),
-  ),
-  mainAudioId: undefined,
-  orderDefaulted: true,
-  clipContentEffects: true,
-};
-// Card colours of fill clips on layers without an accent.
-const FILL_CLIP_TINT = "#2a2d38";
-const FILL_CLIP_ACCENT = "#8d93a8";
-// Bars a text clip inserted at the playhead spans.
-const TEXT_CLIP_BARS = 4;
-// Bars an FX clip inserted at the playhead spans.
-const FX_CLIP_BARS = 4;
-const PALETTE: Palette[] = [
-  { color: "#3d4052", accent: "#7ca1ff" },
-  { color: "#444351", accent: "#ff6f9d" },
-  { color: "#393d4d", accent: "#7ee0a4" },
-  { color: "#474150", accent: "#f6b73c" },
-  { color: "#434a58", accent: "#c38fff" },
-];
-const COLLAB_NAME_PREFIXES = [
-  "Neon",
-  "Velvet",
-  "Signal",
-  "Tempo",
-  "Quartz",
-  "Echo",
-  "Prism",
-  "Static",
-];
-const COLLAB_NAME_SUFFIXES = [
-  "Fox",
-  "Tape",
-  "Wave",
-  "Frame",
-  "Orbit",
-  "Pulse",
-  "Cut",
-  "Vector",
-];
-function clamp(value: number, minimum: number, maximum: number) {
-  return Math.max(minimum, Math.min(maximum, value));
-}
-
-function pluralize(count: number, singular: string, plural = `${singular}s`) {
-  return `${count} ${count === 1 ? singular : plural}`;
-}
-
-const LOCATE_OFFLINE_MEDIA_HINT = "Relink from File → Locate Offline Media…";
-
-function formatSessionMediaCheckStatus(check: SessionMediaCheck) {
-  return [formatSessionMediaStatus(check), check.overlapNote]
-    .filter(Boolean)
-    .join(" ");
-}
-
-function formatSessionMediaStatus(check: SessionMediaCheck) {
-  const { sessionName, restored, offline, hydratedFromDisk } = check;
-  if (!restored && !offline) {
-    return hydratedFromDisk
-      ? `Loaded ${sessionName} with local media hydrated from disk.`
-      : `Loaded ${sessionName}.`;
-  }
-
-  if (!restored && !hydratedFromDisk) {
-    return `Loaded ${sessionName}. All referenced media is currently offline. ${LOCATE_OFFLINE_MEDIA_HINT}`;
-  }
-
-  const details: string[] = [];
-  if (restored) {
-    details.push(`Restored ${pluralize(restored, "media file")} from cache.`);
-  }
-  if (offline) {
-    details.push(
-      `${offline === 1 ? "1 clip is" : `${offline} clips are`} still offline. ${LOCATE_OFFLINE_MEDIA_HINT}`,
-    );
-  }
-  return `Loaded ${sessionName}. ${details.join(" ")}`;
-}
-
-function isEditableEventTarget(target: EventTarget | null) {
-  return (
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement ||
-    target instanceof HTMLSelectElement ||
-    (target instanceof HTMLElement && target.isContentEditable)
-  );
-}
-
-function quartersToSeconds(quarters: number, bpm: number) {
-  return (quarters * 60) / bpm;
-}
-
-function secondsToQuarters(seconds: number, bpm: number) {
-  return (seconds * bpm) / 60;
-}
-
-function formatDuration(seconds: number) {
-  const minutes = Math.floor(seconds / 60);
-  const remainderSeconds = Math.floor(seconds % 60);
-  const tenths = Math.floor((seconds % 1) * 10);
-  return `${minutes}:${remainderSeconds.toString().padStart(2, "0")}.${tenths}`;
-}
-
-function snapQuarterValue(valueQ: number, snapUnit: number, enabled: boolean) {
-  if (!enabled) {
-    return valueQ;
-  }
-
-  return Math.round(valueQ / snapUnit) * snapUnit;
-}
-
-function getClipDurationQ(
-  clip: Pick<ArrangementClip | SourceSpan, "durationSeconds">,
-  bpm: number,
-) {
-  return secondsToQuarters(clip.durationSeconds, bpm);
-}
-
-function getClipEndQ(
-  clip: Pick<ArrangementClip | SourceSpan, "startQ" | "durationSeconds">,
-  bpm: number,
-) {
-  return clip.startQ + getClipDurationQ(clip, bpm);
-}
-
-// The inner heights of a clip card and a source span, which filmstrip tiles
-// fill.
-const CLIP_FILMSTRIP_HEIGHT_PX = 42;
-const SOURCE_SPAN_FILMSTRIP_HEIGHT_PX = 54;
-
-// `size` is the pixel size every frame of the filmstrip is decoded at.
-type Filmstrip = {
-  media: MediaItem;
-  size: ThumbnailSize;
-  tiles: FilmstripTile[];
-};
-
-function getFilmstripTileOwner(
-  kind: "clip" | "span",
-  id: string,
-  index: number,
-) {
-  return `${kind}:${id}:tile:${index}`;
-}
-
-function resolveClipOverlapPreview(
-  clips: ArrangementClip[],
-  activeClipId: string,
-  startQ: number,
-  durationQ: number,
-  bpm: number,
-  laneId?: string,
-) {
-  const targetClip = clips.find((clip) => clip.id === activeClipId);
-  if (!targetClip) {
-    return clips;
-  }
-
-  const activeClip = withWindowTiming(
-    targetClip,
-    startQ,
-    durationQ,
-    bpm,
-    laneId,
-  );
-  return resolveClipOverlaps(clips, activeClip, bpm);
-}
-
-function findClosestTimelineLaneId(
-  timelineScroll: HTMLElement,
-  clientY: number,
-  fallbackLaneId: string,
-) {
-  const laneElements = Array.from(
-    timelineScroll.querySelectorAll<HTMLElement>("[data-timeline-lane-id]"),
-  );
-
-  if (!laneElements.length) {
-    return fallbackLaneId;
-  }
-
-  for (const laneElement of laneElements) {
-    const laneId = laneElement.dataset.timelineLaneId;
-    if (!laneId) {
-      continue;
-    }
-
-    const bounds = laneElement.getBoundingClientRect();
-    if (clientY >= bounds.top && clientY <= bounds.bottom) {
-      return laneId;
-    }
-  }
-
-  let closestLaneId = fallbackLaneId;
-  let closestDistance = Number.POSITIVE_INFINITY;
-
-  for (const laneElement of laneElements) {
-    const laneId = laneElement.dataset.timelineLaneId;
-    if (!laneId) {
-      continue;
-    }
-
-    const bounds = laneElement.getBoundingClientRect();
-    const distance = Math.abs(clientY - (bounds.top + bounds.bottom) / 2);
-    if (distance < closestDistance) {
-      closestDistance = distance;
-      closestLaneId = laneId;
-    }
-  }
-
-  return closestLaneId;
-}
-
-function cloneClipAtStartQ(
-  clip: ArrangementClip,
-  bpm: number,
-  startQ: number,
-  id = `window-${crypto.randomUUID()}`,
-) {
-  return {
-    ...clip,
-    id,
-    startQ,
-    trimStartSeconds: clip.trimStartSeconds,
-    sourceOffsetSeconds: clip.trimStartSeconds - quartersToSeconds(startQ, bpm),
-  };
-}
-
-// Clipboard content with the effect stacks of the clips it was copied from,
-// taken when copying, so a cut clip still pastes with its effects.
-type ClipClipboard = ClipboardContent<ArrangementClip> & {
-  effects?: SessionEffect[];
-};
-
-function withClipStacks(
-  content: ClipboardContent<ArrangementClip>,
-  effects: readonly SessionEffect[],
-): ClipClipboard {
-  const trackIds = new Set(
-    content.fragments.map((fragment) => clipEffectTrackId(fragment.clip.id)),
-  );
-  return {
-    ...content,
-    effects: effects.filter((effect) => trackIds.has(effect.trackId)),
-  };
-}
-
-function duplicateClip(
-  clip: ArrangementClip,
-  bpm: number,
-  id = `window-${crypto.randomUUID()}`,
-) {
-  return cloneClipAtStartQ(clip, bpm, getClipEndQ(clip, bpm), id);
-}
-
-function getSelectionEndQ(selection: TimelineSelection) {
-  return selection.startQ + selection.durationQ;
-}
-
-function getTimelineContentEndQ(
-  clips: ArrangementClip[],
-  sourceSpans: SourceSpan[],
-  mainAudioDurationSeconds: number | undefined,
-  bpm: number,
-  barLength: number,
-) {
-  const clipTimelineEndQ = clips.reduce(
-    (maximum, clip) => Math.max(maximum, getClipEndQ(clip, bpm)),
-    0,
-  );
-  const sourceTimelineEndQ = sourceSpans.reduce(
-    (maximum, span) => Math.max(maximum, getClipEndQ(span, bpm)),
-    0,
-  );
-  const audioTimelineEndQ = mainAudioDurationSeconds
-    ? secondsToQuarters(mainAudioDurationSeconds, bpm)
-    : 0;
-
-  return Math.max(
-    barLength,
-    clipTimelineEndQ,
-    sourceTimelineEndQ,
-    audioTimelineEndQ,
-  );
-}
-
-function getSwatch(colorIndex: number) {
-  return PALETTE[Math.abs(colorIndex) % PALETTE.length] ?? PALETTE[0];
-}
-
-function basename(path: string | undefined) {
-  if (!path) {
-    return "";
-  }
-
-  const normalized = path.replaceAll("\\", "/");
-  const parts = normalized.split("/");
-  return parts[parts.length - 1] ?? path;
-}
-
-function stripFilenameExtension(value: string) {
-  return value.replace(/\.[^/.]+$/, "") || value;
-}
-
-function getDraggedMediaFiles(dataTransfer: DataTransfer | null) {
-  const directFiles = Array.from(dataTransfer?.files ?? []);
-  const itemFiles =
-    directFiles.length > 0
-      ? directFiles
-      : Array.from(dataTransfer?.items ?? [])
-          .filter((item) => item.kind === "file")
-          .map((item) => item.getAsFile())
-          .filter((file): file is File => Boolean(file));
-
-  return itemFiles.filter(
-    (file) =>
-      file.type.startsWith("video/") ||
-      file.type.startsWith("audio/") ||
-      hasMediaExtension(file.name),
-  );
-}
-
-function hasDraggedFileData(dataTransfer: DataTransfer | null) {
-  if (!dataTransfer) {
-    return false;
-  }
-
-  if (Array.from(dataTransfer.types).includes("Files")) {
-    return true;
-  }
-
-  return Array.from(dataTransfer.items ?? []).some(
-    (item) => item.kind === "file",
-  );
-}
-
-function buildDraggedMediaKey(files: readonly File[]) {
-  return files
-    .map((file) => `${file.name}:${file.size}:${file.lastModified}`)
-    .join("|");
-}
-
-function getNextLaneNumber(lanes: Lane[]) {
-  return lanes.length + 1;
-}
-
-function randomFloat() {
-  const values = new Uint32Array(1);
-  crypto.getRandomValues(values);
-  return values[0] / 0x1_0000_0000;
-}
-
-function pickRandom<T>(items: readonly T[]) {
-  if (!items.length) {
-    return undefined;
-  }
-
-  return items[Math.floor(randomFloat() * items.length)];
-}
-
-function mergeMediaItemsById(current: MediaItem[], incoming: MediaItem[]) {
-  const incomingById = new Map(incoming.map((item) => [item.id, item]));
-  return current.map((item) => incomingById.get(item.id) ?? item);
-}
-
-function splitSignalingUrls(value: string) {
-  return value
-    .split(/[,\n]/)
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-}
-
-function parseSignalingUrls(value: string) {
-  const urls = splitSignalingUrls(value);
-  return urls.length ? urls : DEFAULT_SIGNALING_URLS;
-}
-
-function migrateLegacyStoredSignaling(
-  value: string | undefined,
-  fallback: string,
-) {
-  if (!value) {
-    return fallback;
-  }
-
-  const normalized = parseSignalingUrls(value).join(", ");
-  return LEGACY_DEFAULT_SIGNALING_URLS.some(
-    (legacy) => legacy.join(", ") === normalized,
-  )
-    ? fallback
-    : normalized;
-}
-
-function resolveIceServers() {
-  try {
-    return parseIceServers(import.meta.env.VITE_ICE_SERVERS);
-  } catch (error) {
-    console.error(
-      `[zvid] collaboration:ice:config:error ${error instanceof Error ? error.message : String(error)}`,
-    );
-    return parseIceServers(undefined);
-  }
-}
-
-let sessionIceServers: {
-  promise: Promise<RTCIceServer[]>;
-  fetchedAt: number;
-} | null = null;
-
-// The configured ICE servers plus the relay's TURN servers, fetched before a
-// collaboration session starts.
-function getSessionIceServers() {
-  if (
-    !sessionIceServers ||
-    Date.now() - sessionIceServers.fetchedAt > RELAY_ICE_SERVERS_REUSE_MS
-  ) {
-    const promise = loadIceServers(ICE_SERVERS, RELAY_ICE_SERVERS_URL, {
-      log: logClient,
-    });
-    sessionIceServers = { promise, fetchedAt: Date.now() };
-    // Without a relay, try again for the next session.
-    void promise.then((servers) => {
-      if (servers === ICE_SERVERS && sessionIceServers?.promise === promise) {
-        sessionIceServers = null;
-      }
-    });
-  }
-  return sessionIceServers.promise;
-}
-
-function buildCollaboratorName() {
-  const prefix = pickRandom(COLLAB_NAME_PREFIXES) ?? "Signal";
-  const suffix = pickRandom(COLLAB_NAME_SUFFIXES) ?? "Wave";
-  return `${prefix} ${suffix}`;
-}
-
-function clampLabelWidth(width: number) {
-  return Math.round(clamp(width, LABEL_WIDTH_MIN, LABEL_WIDTH_MAX));
-}
-
-function readLabelWidth() {
-  if (typeof window === "undefined") {
-    return LABEL_WIDTH_DEFAULT;
-  }
-
-  try {
-    const stored = Number(
-      window.localStorage.getItem(LABEL_WIDTH_STORAGE_KEY) ?? Number.NaN,
-    );
-    return Number.isFinite(stored)
-      ? clampLabelWidth(stored)
-      : LABEL_WIDTH_DEFAULT;
-  } catch {
-    return LABEL_WIDTH_DEFAULT;
-  }
-}
-
-function readInspectorCollapsed() {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  try {
-    return (
-      window.localStorage.getItem(INSPECTOR_COLLAPSED_STORAGE_KEY) === "true"
-    );
-  } catch {
-    return false;
-  }
-}
-
-function readPreviewWidth() {
-  if (typeof window === "undefined") {
-    return PREVIEW_DEFAULT_WIDTH;
-  }
-
-  try {
-    const stored = Number(
-      window.localStorage.getItem(PREVIEW_WIDTH_STORAGE_KEY),
-    );
-    return stored
-      ? clamp(Math.round(stored), PREVIEW_MIN_WIDTH, PREVIEW_MAX_WIDTH)
-      : PREVIEW_DEFAULT_WIDTH;
-  } catch {
-    return PREVIEW_DEFAULT_WIDTH;
-  }
-}
-
-function getPreviewMaxWidth(editorGridWidth: number) {
-  if (!editorGridWidth) {
-    return PREVIEW_MAX_WIDTH;
-  }
-
-  return clamp(
-    editorGridWidth - PREVIEW_RESERVED_WIDTH,
-    PREVIEW_MIN_WIDTH,
-    PREVIEW_MAX_WIDTH,
-  );
-}
-
-let pageInvite: InviteParams | null = null;
-
-function rememberJoinedRoom(room: string, password: string) {
-  try {
-    window.sessionStorage.setItem(
-      JOINED_ROOM_STORAGE_KEY,
-      JSON.stringify({ room, password }),
-    );
-  } catch {
-    // Without session storage a refresh rejoins without the password.
-  }
-}
-
-function forgetJoinedRoom() {
-  try {
-    window.sessionStorage.removeItem(JOINED_ROOM_STORAGE_KEY);
-  } catch {
-    // Nothing was stored.
-  }
-}
-
-// Fills in the password of a room this tab joined before a refresh, since
-// the address bar only keeps the room and signaling servers.
-function withRememberedPassword(invite: InviteParams): InviteParams {
-  if (!invite.room) {
-    return invite;
-  }
-  if (invite.password) {
-    rememberJoinedRoom(invite.room, invite.password);
-    return invite;
-  }
-  try {
-    const stored = JSON.parse(
-      window.sessionStorage.getItem(JOINED_ROOM_STORAGE_KEY) ?? "null",
-    ) as { room?: string; password?: string } | null;
-    return stored?.room === invite.room && stored.password
-      ? { ...invite, password: stored.password }
-      : invite;
-  } catch {
-    return invite;
-  }
-}
-
-// Reads the invite from the page URL once, then scrubs the password from the
-// address bar and history. Cached so StrictMode's repeated state initializers
-// still see the password after the URL has been cleaned.
-function readPageInvite() {
-  if (!pageInvite) {
-    pageInvite = withRememberedPassword(
-      parseInviteParams(window.location.href),
-    );
-    const scrubbedHref = removeInvitePassword(window.location.href);
-    if (scrubbedHref) {
-      window.history.replaceState(window.history.state, "", scrubbedHref);
-    }
-  }
-  return pageInvite;
-}
-
-function getInitialCollaborationConfig() {
-  const defaults = {
-    room: "",
-    password: "",
-    signaling: DEFAULT_SIGNALING_URLS.join(", "),
-    name: buildCollaboratorName(),
-    color: pickRandom(PALETTE)?.accent ?? "#7ca1ff",
-    autoConnect: false,
-  };
-
-  if (typeof window === "undefined") {
-    return defaults;
-  }
-
-  let stored: Partial<typeof defaults> = {};
-  try {
-    const raw = window.localStorage.getItem(COLLAB_STORAGE_KEY);
-    if (raw) {
-      stored = JSON.parse(raw) as Partial<typeof defaults>;
-    }
-  } catch (error) {
-    logClient("collaboration:storage:read:error", {
-      message: error instanceof Error ? error.message : String(error),
-    });
-  }
-
-  const invite = readPageInvite();
-  const paramRoom = invite.room;
-  const room = paramRoom || defaults.room;
-  const password = invite.password || defaults.password;
-  const signalingParam = invite.signal;
-  const signaling = signalingParam
-    ? parseSignalingUrls(signalingParam).join(", ")
-    : migrateLegacyStoredSignaling(stored.signaling, defaults.signaling);
-
-  return {
-    room,
-    password,
-    signaling,
-    name: stored.name || defaults.name,
-    color: stored.color || defaults.color,
-    autoConnect: Boolean(paramRoom),
-  };
-}
-
-function buildShareRoomName() {
-  return crypto.randomUUID().replaceAll("-", "").slice(0, 8);
-}
-
-function parseCollaborationInvite(value: string) {
-  const rawValue = value.trim();
-  if (!rawValue) {
-    throw new Error("Paste the share URL first.");
-  }
-
-  const { room, signal, password } = parseInviteParams(rawValue);
-  if (!room) {
-    throw new Error("That invite is missing a room name.");
-  }
-
-  return {
-    room,
-    signaling: signal || DEFAULT_SIGNALING_URLS.join(", "),
-    password,
-  };
-}
-
-function getShortcutLabels() {
-  if (typeof window === "undefined") {
-    return {
-      mac: false,
-      undo: "Ctrl+Z",
-      redo: "Ctrl+Shift+Z",
-      sourceClipDrop: "Ctrl+click",
-      clipJump: formatClipJumpShortcut(false),
-    };
-  }
-
-  const navigatorWithPlatform = window.navigator as Navigator & {
-    userAgentData?: {
-      platform?: string;
-    };
-  };
-  const platform =
-    navigatorWithPlatform.userAgentData?.platform ??
-    window.navigator.platform ??
-    "";
-  const isMac = /mac/i.test(platform);
-  return {
-    mac: isMac,
-    undo: isMac ? "Cmd+Z" : "Ctrl+Z",
-    redo: isMac ? "Shift+Cmd+Z" : "Ctrl+Shift+Z",
-    sourceClipDrop: isMac ? "Cmd+click" : "Ctrl+click",
-    clipJump: formatClipJumpShortcut(isMac),
-  };
-}
-
-function getCollaborationRole(mode: CollaborationMode): CollaborationRole {
-  return mode === "sharing" ? "host" : "guest";
-}
-
-function summarizeCollaborationState(
-  mode: CollaborationMode,
-  state: CollaborationConnectionState,
-  isStartingShare: boolean,
-  isStartingConnect: boolean,
-): { label: string; tone: CollaborationTone } {
-  if (isStartingShare) {
-    return { label: "Starting share...", tone: "pending" };
-  }
-
-  if (isStartingConnect) {
-    return { label: "Connecting...", tone: "pending" };
-  }
-
-  if (mode === "idle") {
-    return { label: "Not connected", tone: "idle" };
-  }
-
-  return summarizeCollaboration(getCollaborationRole(mode), state.diagnostics);
-}
-
-function buildCollaborationViewModel(
-  mode: CollaborationMode,
-  state: CollaborationConnectionState,
-  isStartingShare: boolean,
-  isStartingConnect: boolean,
-  activeShareRoom: string,
-  collaborationSignaling: string,
-  iceServers: RTCIceServer[],
-) {
-  const remoteCollaborators = state.collaborators.filter(
-    (collaborator) => !collaborator.isLocal,
-  );
-  const remoteCursors: CollaborationRemoteCursor[] =
-    remoteCollaborators.flatMap((collaborator) =>
-      collaborator.cursor
-        ? [
-            {
-              clientId: collaborator.clientId,
-              name: collaborator.name,
-              color: collaborator.color,
-              x: collaborator.cursor.x,
-              y: collaborator.cursor.y,
-            },
-          ]
-        : [],
-    );
-
-  const summary = summarizeCollaborationState(
-    mode,
-    state,
-    isStartingShare,
-    isStartingConnect,
-  );
-
-  return {
-    pendingShareRoom: activeShareRoom || buildShareRoomName(),
-    signalingLabel: parseSignalingUrls(collaborationSignaling).join(", "),
-    stateLabel: summary.label,
-    stateTone: summary.tone,
-    diagnosticsRows:
-      mode === "idle"
-        ? []
-        : buildDiagnosticsRows(
-            getCollaborationRole(mode),
-            state.diagnostics,
-            iceServers,
-          ),
-    remoteCollaboratorNames: remoteCollaborators
-      .map((collaborator) => collaborator.name)
-      .join(", "),
-    remoteCursors,
-  };
-}
-
-function CollaborationDetailCard({
-  label,
-  value,
-  meta,
-}: {
-  label: string;
-  value: string;
-  meta?: string;
-}) {
-  return (
-    <div className="share-dialog__card">
-      <span className="share-dialog__label">{label}</span>
-      <strong>{value}</strong>
-      {meta ? <span className="share-dialog__meta">{meta}</span> : null}
-    </div>
-  );
-}
-
-function normalizeMediaPath(value: string | undefined) {
-  return (value ?? "").replaceAll("/", "\\").toLowerCase();
-}
-
-function logClient(event: string, payload?: unknown) {
-  if (payload === undefined) {
-    console.info(`[zvid] ${event}`);
-    return;
-  }
-
-  console.info(`[zvid] ${event}`, payload);
-}
-
-function revokeObjectUrlIfNeeded(url: string | undefined) {
-  if (url?.startsWith("blob:")) {
-    URL.revokeObjectURL(url);
-  }
-}
-
-function getSourceTrackEndQ(
-  sourceSpans: SourceSpan[],
-  sourceTrackId: string,
-  bpm: number,
-) {
-  return sourceSpans.reduce((maximum, span) => {
-    if (span.sourceTrackId !== sourceTrackId) {
-      return maximum;
-    }
-
-    return Math.max(maximum, getClipEndQ(span, bpm));
-  }, 0);
-}
-
-function sanitizeFilenameSegment(value: string) {
-  const sanitized = Array.from(value, (character) => {
-    const code = character.charCodeAt(0);
-    if (code < 0x20 || '<>:"/\\|?*'.includes(character)) {
-      return "-";
-    }
-
-    return character;
-  })
-    .join("")
-    .trim();
-  return sanitized || "zvid-session";
-}
-
-function patchProjectState(
-  current: ProjectState,
-  patch: Partial<ProjectState>,
-) {
-  // Clips that are gone take their own effect stacks with them.
-  if (patch.clips) {
-    const effects = patch.effects ?? current.effects;
-    const pruned = pruneClipEffects(effects, patch.clips);
-    if (pruned !== effects) {
-      patch = { ...patch, effects: pruned };
-    }
-  }
-
-  let changed = false;
-  const next = { ...current };
-
-  for (const [rawKey, value] of Object.entries(patch) as Array<
-    [keyof ProjectState, ProjectState[keyof ProjectState]]
-  >) {
-    if (Object.is(current[rawKey], value)) {
-      continue;
-    }
-
-    changed = true;
-    (next as ProjectState)[rawKey] = value as never;
-  }
-
-  return changed ? next : current;
-}
-
-function formatHistoryStatus(prefix: "Undid" | "Redid", label: string) {
-  return `${prefix}: ${label}.`;
-}
-
-function isClipAtPlayhead(
-  clip: ArrangementClip,
-  playheadQ: number,
-  bpm: number,
-) {
-  const epsilon = 0.0001;
-  const clipEndQ = clip.startQ + secondsToQuarters(clip.durationSeconds, bpm);
-  return playheadQ >= clip.startQ - epsilon && playheadQ < clipEndQ - epsilon;
-}
-
-function findClipAtPlayhead(
-  clips: ArrangementClip[],
-  playheadQ: number,
-  bpm: number,
-  lanePriority: Map<string, number>,
-) {
-  let match: ArrangementClip | undefined;
-  let matchLaneRank = -1;
-  let matchStartQ = -1;
-
-  for (const clip of clips) {
-    if (!isClipAtPlayhead(clip, playheadQ, bpm)) {
-      continue;
-    }
-
-    const laneRank = lanePriority.get(clip.laneId) ?? -1;
-    if (
-      laneRank > matchLaneRank ||
-      (laneRank === matchLaneRank && clip.startQ > matchStartQ)
-    ) {
-      match = clip;
-      matchLaneRank = laneRank;
-      matchStartQ = clip.startQ;
-    }
-  }
-
-  return match;
-}
-
-function getPlaybackStopQ(
-  clips: ArrangementClip[],
-  mediaItems: MediaItem[],
-  startQ: number,
-  bpm: number,
-) {
-  const playableMediaIds = new Set(mediaItems.map((item) => item.id));
-
-  return clips.reduce((maximum, clip) => {
-    if (
-      !isGeneratedClip(clip) &&
-      (!clip.mediaId || !playableMediaIds.has(clip.mediaId))
-    ) {
-      return maximum;
-    }
-
-    const clipEndQ = getClipEndQ(clip, bpm);
-    if (clipEndQ <= startQ) {
-      return maximum;
-    }
-
-    return Math.max(maximum, clipEndQ);
-  }, startQ);
-}
-
-function pickMediaByPath(items: MediaItem[], rawPath: string | undefined) {
-  if (!rawPath?.trim()) {
-    return undefined;
-  }
-
-  const normalizedTarget = normalizeMediaPath(rawPath);
-  const exactMatch = items.find(
-    (item) =>
-      item.sourcePath &&
-      normalizeMediaPath(item.sourcePath) === normalizedTarget,
-  );
-  if (exactMatch) {
-    return exactMatch;
-  }
-
-  const targetBase = basename(rawPath).toLowerCase();
-  return items.find((item) => item.name.toLowerCase() === targetBase);
-}
-
-function chooseSourceSpanForWindow(
-  spans: SourceSpan[],
-  sourceTrackId: string,
-  startQ: number,
-  durationQ: number,
-  bpm: number,
-) {
-  const endQ = startQ + durationQ;
-  const sourceTrackSpans = spans.filter(
-    (span) => span.sourceTrackId === sourceTrackId,
-  );
-  return (
-    sourceTrackSpans.find((span) => {
-      const spanEndQ = span.startQ + getClipDurationQ(span, bpm);
-      return startQ >= span.startQ && startQ < spanEndQ;
-    }) ??
-    sourceTrackSpans.sort((left, right) => {
-      const leftEnd = left.startQ + getClipDurationQ(left, bpm);
-      const rightEnd = right.startQ + getClipDurationQ(right, bpm);
-      const leftOverlap =
-        Math.min(endQ, leftEnd) - Math.max(startQ, left.startQ);
-      const rightOverlap =
-        Math.min(endQ, rightEnd) - Math.max(startQ, right.startQ);
-      return rightOverlap - leftOverlap;
-    })[0]
-  );
-}
-
-function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
-  // Stacked clips on one layer would hide all but the top one.
-  const { session, ...overlaps } = resolveSessionOverlaps(loadedSession);
-  const bpm = session.timeline?.bpm ?? 120;
-  const fps = session.timeline?.fps ?? 30;
-  const lanes = (session.mainTracks ?? DEFAULT_LANES).map<Lane>((track) => ({
-    id: track.id,
-    name: track.name,
-    colorIndex: track.colorIndex ?? -1,
-    ...(track.fxEnabled === false ? { fxEnabled: false } : {}),
-  }));
-  const sourceTracks = (session.tracks ?? []).map<SourceTrack>(
-    (track, index) => ({
-      id: track.id,
-      name: track.name,
-      colorIndex: sessionSourceTrackColorIndex(track.colorIndex, index),
-      recordingPaths: (track.recordings ?? []).map(
-        (recording) => recording.filename,
-      ),
-    }),
-  );
-  const nameByTrack = new Map(
-    sourceTracks.map((track) => [track.id, track.name]),
-  );
-
-  const sourceSpans = (session.clips ?? []).map<SourceSpan>((clip) => {
-    const swatch = getSwatch(
-      sourceTracks.find((track) => track.id === clip.trackId)?.colorIndex ?? 0,
-    );
-    const media = pickMediaByPath(mediaItems, clip.filePath);
-    const trimStartSeconds = clipSourceFrame(clip) / fps;
-    return {
-      id: `source-${clip.id}`,
-      sourceTrackId: clip.trackId,
-      label:
-        nameByTrack.get(clip.trackId) ?? clip.name ?? `Track ${clip.trackId}`,
-      mediaPath: clip.filePath,
-      mediaId: media?.id,
-      startQ: secondsToQuarters(clip.frameStart / fps, bpm),
-      durationSeconds: Math.max(1, clip.frameCount) / fps,
-      trimStartSeconds,
-      // `clipStart + frameOffset` is the content start in the warp markers'
-      // seconds, before any capture offset.
-      warp: createClipWarp(
-        clip.warpMarkers,
-        ((clip.clipStart ?? 0) + (clip.frameOffset ?? 0)) / fps,
-        trimStartSeconds,
-        bpm,
-      ),
-      tint: swatch.color,
-      accent: swatch.accent,
-    };
-  });
-
-  const arrangementClips: ArrangementClip[] = [];
-  // The clip the session was saved with selected, if it could be placed.
-  let selectedClipId: string | undefined;
-
-  for (const selection of session.selections ?? []) {
-    const selectionStartQ = secondsToQuarters(selection.frameStart / fps, bpm);
-    const selectionDurationQ = secondsToQuarters(
-      Math.max(1, selection.frameEnd - selection.frameStart) / fps,
-      bpm,
-    );
-    // A slipped selection names its span and offset; any other plays the
-    // span it falls in, at that span's offset.
-    const slip = readSelectionSlip(selection);
-    const slipSpan = slip
-      ? sourceSpans.find((span) => span.id === slip.sourceSpanId)
-      : undefined;
-    const sourceSpan =
-      slipSpan ??
-      chooseSourceSpanForWindow(
-        sourceSpans,
-        selection.trackId,
-        selectionStartQ,
-        selectionDurationQ,
-        bpm,
-      );
-    if (!sourceSpan) {
-      continue;
-    }
-
-    const sourceOffsetSeconds =
-      slip && slipSpan
-        ? slip.sourceOffsetSeconds
-        : sourceSpan.trimStartSeconds -
-          quartersToSeconds(sourceSpan.startQ, bpm);
-    const startSeconds = selection.frameStart / fps;
-    const durationSeconds =
-      Math.max(1, selection.frameEnd - selection.frameStart) / fps;
-
-    if (selection.selected && selectedClipId === undefined) {
-      selectedClipId = `selection-${selection.id}`;
-    }
-    arrangementClips.push({
-      id: `selection-${selection.id}`,
-      sourceSpanId: sourceSpan.id,
-      sourceTrackId: selection.trackId,
-      laneId: selection.mainTrackId,
-      label: nameByTrack.get(selection.trackId) ?? sourceSpan.label,
-      mediaPath: sourceSpan.mediaPath,
-      mediaId: sourceSpan.mediaId,
-      startQ: selectionStartQ,
-      durationSeconds,
-      trimStartSeconds: startSeconds + sourceOffsetSeconds,
-      sourceOffsetSeconds,
-      sourceWindowStartSeconds: sourceSpan.trimStartSeconds,
-      sourceWindowEndSeconds:
-        sourceSpan.trimStartSeconds + sourceSpan.durationSeconds,
-      warp: sourceSpan.warp,
-      tint: sourceSpan.tint,
-      accent: sourceSpan.accent,
-    });
-  }
-
-  const unresolvedPaths = arrangementClips
-    .filter((clip) => !clip.mediaId)
-    .map((clip) => basename(clip.mediaPath));
-
-  const layerClips = [
-    ...readSessionFills(session, bpm, fps).map((clip) => ({
-      clip,
-      create: createFillClip,
-    })),
-    ...readSessionTexts(session, bpm, fps).map((clip) => ({
-      clip,
-      create: createTextClip,
-    })),
-    ...readSessionFxClips(session, bpm, fps).map((clip) => ({
-      clip,
-      create: createFxClip,
-    })),
-  ];
-  for (const { clip, create } of layerClips) {
-    const lane = lanes.find((candidate) => candidate.id === clip.laneId);
-    if (!lane) {
-      continue;
-    }
-
-    if (clip.selected && selectedClipId === undefined) {
-      selectedClipId = clip.id;
-    }
-    arrangementClips.push(
-      create({
-        id: clip.id,
-        laneId: clip.laneId,
-        startQ: clip.startQ,
-        durationQ: clip.durationQ,
-        bpm,
-        tint: FILL_CLIP_TINT,
-        accent:
-          lane.colorIndex >= 0
-            ? getSwatch(lane.colorIndex).accent
-            : FILL_CLIP_ACCENT,
-      }),
-    );
-  }
-
-  return {
-    bpm,
-    fps,
-    canvasWidth: Math.max(320, session.timeline?.canvasWidth ?? 1080),
-    canvasHeight: Math.max(320, session.timeline?.canvasHeight ?? 1920),
-    lanes,
-    sourceTracks,
-    sourceSpans,
-    arrangementClips,
-    selectedClipId,
-    // Every layer gets its own Layout, taking over any global one, and an
-    // older session gets its default Order and its layers' Text and Color
-    // moved onto their text and fill clips, as part of the load so none of
-    // it is a separate undo step. Stacks of clips that could not be loaded
-    // are dropped with them.
-    effects: migrateClipContentEffects(
-      pruneClipEffects(
-        migrateDefaultOrder(
-          ensureLayerLayouts(
-            mapEffects(session.effects),
-            (lanes.length ? lanes : DEFAULT_LANES).map((lane) => lane.id),
-          ),
-          session.orderDefaulted,
-        ),
-        arrangementClips,
-      ),
-      arrangementClips,
-      session.clipContentEffects,
-    ),
-    displaySeconds: session.timeline?.displaySeconds ?? false,
-    snapToBeat: session.timeline?.snapToBeat ?? true,
-    zoom: clamp(session.timeline?.zoom ?? 1, ZOOM_MIN, ZOOM_MAX),
-    projectDurationFrames: session.timeline?.projectDuration,
-    playPositionFrames: session.playPosition ?? 0,
-    playStartPositionFrames: session.playStartPosition ?? 0,
-    mainAudioMediaId: session.audioFilename
-      ? pickMediaByPath(mediaItems, session.audioFilename)?.id
-      : undefined,
-    unresolvedPaths,
-    overlapNote: formatOverlapNote(overlaps),
-  };
-}
-
-function buildStandaloneProject(mediaItems: MediaItem[]) {
-  const lanes = DEFAULT_LANES;
-  const canvasWidth = mediaItems.find((item) => item.width)?.width ?? 1080;
-  const canvasHeight = mediaItems.find((item) => item.height)?.height ?? 1920;
-  const sourceTracks = mediaItems.map<SourceTrack>((item, index) => ({
-    id: `import-track-${index}`,
-    name: item.name.replace(/\.[^/.]+$/, ""),
-    colorIndex: sourceTrackColorIndex(index),
-    recordingPaths: [item.name],
-  }));
-  const sourceSpans = mediaItems.map<SourceSpan>((item, index) => {
-    const swatch = getSwatch(sourceTrackColorIndex(index));
-    return {
-      id: `source-span-${item.id}`,
-      sourceTrackId: sourceTracks[index]?.id ?? `import-track-${index}`,
-      label: item.name.replace(/\.[^/.]+$/, ""),
-      mediaPath: item.name,
-      mediaId: item.id,
-      startQ: 0,
-      durationSeconds: Math.max(1, item.durationSeconds),
-      trimStartSeconds: 0,
-      tint: swatch.color,
-      accent: swatch.accent,
-    };
-  });
-  const arrangementClips = mediaItems.map<ArrangementClip>((item, index) => {
-    const sourceSpan = sourceSpans[index];
-    return {
-      id: `import-clip-${item.id}`,
-      sourceSpanId: sourceSpan?.id ?? `source-span-${item.id}`,
-      sourceTrackId:
-        sourceSpan?.sourceTrackId ??
-        sourceTracks[index]?.id ??
-        `import-track-${index}`,
-      laneId: lanes[index % lanes.length]?.id ?? lanes[0].id,
-      label: item.name.replace(/\.[^/.]+$/, ""),
-      mediaPath: item.name,
-      mediaId: item.id,
-      startQ: index * 4,
-      durationSeconds: Math.max(1, item.durationSeconds),
-      trimStartSeconds: index * quartersToSeconds(4, 120),
-      sourceOffsetSeconds: 0,
-      sourceWindowStartSeconds: 0,
-      sourceWindowEndSeconds: Math.max(0, item.durationSeconds),
-      tint: sourceSpan?.tint ?? getSwatch(index).color,
-      accent: sourceSpan?.accent ?? getSwatch(index).accent,
-    };
-  });
-  return {
-    lanes,
-    sourceTracks,
-    sourceSpans,
-    arrangementClips,
-    canvasWidth,
-    canvasHeight,
-  };
-}
-
-// Inline editor for a layer name: Enter or leaving the field saves, Escape
-// cancels.
-function LayerNameInput({
-  initialName,
-  onSubmit,
-  onCancel,
-}: {
-  initialName: string;
-  onSubmit: (name: string) => void;
-  onCancel: () => void;
-}) {
-  const [name, setName] = useState(initialName);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const doneRef = useRef(false);
-  const finish = (save: boolean) => {
-    if (doneRef.current) {
-      return;
-    }
-
-    doneRef.current = true;
-    if (save) {
-      onSubmit(name);
-    } else {
-      onCancel();
-    }
-  };
-
-  // Waits a tick so the closing menu does not take focus back.
-  useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      inputRef.current?.focus();
-      inputRef.current?.select();
-    }, 0);
-    return () => window.clearTimeout(timeout);
-  }, []);
-
-  return (
-    <input
-      aria-label="Layer name"
-      className="track-label__rename"
-      maxLength={64}
-      onBlur={() => finish(true)}
-      onChange={(event) => setName(event.target.value)}
-      onKeyDown={(event) => {
-        // Keep app shortcuts (Delete, arrows, Space) away from the field.
-        event.stopPropagation();
-        if (event.key === "Enter") {
-          event.preventDefault();
-          finish(true);
-        } else if (event.key === "Escape") {
-          event.preventDefault();
-          finish(false);
-        }
-      }}
-      ref={inputRef}
-      type="text"
-      value={name}
-    />
-  );
-}
-
-// What a refresh restores besides the project and its history.
-type WorkspaceView = {
-  playheadQ: number;
-  selectedClipId?: string;
-  selectedLaneId?: string;
-  scrollLeft: number;
-  scrollTop: number;
-};
-
-type SavedWorkspaceSession = WorkspaceSession<
-  ProjectState,
-  WorkspaceView,
-  ImportNoticeContent
->;
-
-// "owner" autosaves. "blocked" is waiting on the other-tab prompt, and
-// "read-only" and "taken-over" leave the saved session to another tab.
-// "joiner" opened an invite link and saves nothing over its own session.
-type WorkspaceAccess =
-  | "owner"
-  | "blocked"
-  | "read-only"
-  | "taken-over"
-  | "joiner";
-
-type WorkspaceBoot = {
-  session: SavedWorkspaceSession | null;
-  // Set when the saved session could not be read and was set aside.
-  corruptKey: string | null;
-  access: WorkspaceAccess;
-  lock: WorkspaceLock;
-};
-
-const PROJECT_ARRAY_FIELDS = [
-  "mediaItems",
-  "lanes",
-  "sourceTracks",
-  "sourceSpans",
-  "clips",
-  "effects",
-] as const;
-const PROJECT_POSITIVE_NUMBER_FIELDS = [
-  "bpm",
-  "fps",
-  "canvasWidth",
-  "canvasHeight",
-  "zoom",
-] as const;
-
-// Restored history shares objects between snapshots; normalising each
-// shared object once keeps that sharing.
-const restoredProjectStates = new WeakMap<object, ProjectState>();
-const restoredMediaItems = new WeakMap<object, MediaItem>();
-
-// Validates a saved snapshot, fills in fields older saves lack and drops
-// object URLs, which die with the page that made them.
-function normalizeRestoredProjectState(value: unknown): ProjectState {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("Saved project snapshot is not an object");
-  }
-  const cached = restoredProjectStates.get(value);
-  if (cached) {
-    return cached;
-  }
-
-  const saved = value as Partial<ProjectState>;
-  const state: ProjectState = {
-    ...INITIAL_PROJECT_STATE,
-    ...migrateLegacyMainAudio(saved),
-  };
-  for (const field of PROJECT_ARRAY_FIELDS) {
-    if (!Array.isArray(state[field])) {
-      throw new Error(`Saved project snapshot has no ${field}`);
-    }
-  }
-  // Read from the save itself: the initial state always has the flag.
-  state.effects = migrateClipContentEffects(
-    migrateDefaultOrder(state.effects, saved.orderDefaulted),
-    state.clips,
-    saved.clipContentEffects,
-  );
-  state.orderDefaulted = true;
-  state.clipContentEffects = true;
-  for (const field of PROJECT_POSITIVE_NUMBER_FIELDS) {
-    const number = state[field];
-    if (typeof number !== "number" || !Number.isFinite(number) || number <= 0) {
-      throw new Error(`Saved project snapshot has an invalid ${field}`);
-    }
-  }
-  state.mediaItems = state.mediaItems.map((item) => {
-    let shareable = restoredMediaItems.get(item);
-    if (!shareable) {
-      shareable = toShareableMediaItem(item);
-      restoredMediaItems.set(item, shareable);
-    }
-    return shareable;
-  });
-  restoredProjectStates.set(value, state);
-  return state;
-}
-
-function normalizeRestoredView(value: unknown): WorkspaceView {
-  const view = (value && typeof value === "object" ? value : {}) as Record<
-    string,
-    unknown
-  >;
-  const finite = (field: unknown) =>
-    typeof field === "number" && Number.isFinite(field)
-      ? Math.max(0, field)
-      : 0;
-  const text = (field: unknown) =>
-    typeof field === "string" && field ? field : undefined;
-  return {
-    playheadQ: finite(view.playheadQ),
-    selectedClipId: text(view.selectedClipId),
-    selectedLaneId: text(view.selectedLaneId),
-    scrollLeft: finite(view.scrollLeft),
-    scrollTop: finite(view.scrollTop),
-  };
-}
-
-// Reads the saved session. One that cannot be read is set aside under a
-// `corrupt-<ts>` key so the app starts clean instead of failing every load.
-async function readSavedWorkspaceSession(): Promise<{
-  session: SavedWorkspaceSession | null;
-  corruptKey: string | null;
-}> {
-  const store = getWorkspaceStore();
-  try {
-    const record = await store.loadCurrentSession();
-    if (!record) {
-      return { session: null, corruptKey: null };
-    }
-    return {
-      session: parseWorkspaceSession<
-        ProjectState,
-        WorkspaceView,
-        ImportNoticeContent
-      >(record.payload, {
-        normalizeState: normalizeRestoredProjectState,
-        normalizeView: normalizeRestoredView,
-      }),
-      corruptKey: null,
-    };
-  } catch (error) {
-    logClient("workspace:restore:error", {
-      message: error instanceof Error ? error.message : String(error),
-    });
-    try {
-      return {
-        session: null,
-        corruptKey: await store.setAsideCurrentSession(),
-      };
-    } catch {
-      // IndexedDB itself is unavailable, so there is nothing to set aside.
-      return { session: null, corruptKey: null };
-    }
-  }
-}
-
-// Lock callbacks outlive a single render, so they reach the mounted App
-// through this object.
-const workspaceLockEvents = {
-  flush: async () => {},
-  lost: () => {},
-};
-
-async function loadWorkspaceBoot(): Promise<WorkspaceBoot> {
-  const lock = createWorkspaceLock({
-    onFlushRequest: () => workspaceLockEvents.flush(),
-    onLost: () => workspaceLockEvents.lost(),
-  });
-  // A joiner shows someone else's session, and a refresh rejoins it from the
-  // URL, so the joiner's own saved session is neither restored nor replaced.
-  if (readPageInvite().room) {
-    return { session: null, corruptKey: null, access: "joiner", lock };
-  }
-
-  const owner = await lock.acquire();
-  const { session, corruptKey } = await readSavedWorkspaceSession();
-  return { session, corruptKey, access: owner ? "owner" : "blocked", lock };
-}
-
-let workspaceBootPromise: Promise<WorkspaceBoot> | null = null;
-
-function bootWorkspace() {
-  workspaceBootPromise ??= loadWorkspaceBoot();
-  return workspaceBootPromise;
-}
-
-function isPristineProjectHistory(history: ProjectHistoryState<ProjectState>) {
-  return (
-    history.present === INITIAL_PROJECT_STATE &&
-    !history.past.length &&
-    !history.future.length
-  );
-}
-
-function findRestoredSelection(
-  session: SavedWorkspaceSession | null,
-): Pick<WorkspaceView, "selectedClipId" | "selectedLaneId"> {
-  if (!session) {
-    return {};
-  }
-  const { clips, lanes } = session.history.present;
-  const { selectedClipId, selectedLaneId } = session.view;
-  return {
-    selectedClipId: clips.some((clip) => clip.id === selectedClipId)
-      ? selectedClipId
-      : undefined,
-    selectedLaneId: lanes.some((lane) => lane.id === selectedLaneId)
-      ? selectedLaneId
-      : undefined,
-  };
-}
-
-const CORRUPT_WORKSPACE_NOTICE: ImportNoticeContent = {
-  tone: "warning",
-  title: "Could not restore the last session",
-  lines: [
-    "The saved session could not be read, so zvid started with an empty session. The saved copy was set aside.",
-  ],
-};
-
-function formatRestoredStatus(session: SavedWorkspaceSession) {
-  const name = session.history.present.sessionName;
-  return name ? `Restored ${name}.` : "Restored the last session.";
-}
-
-// Loads the saved session before the editor renders, so the timeline never
-// flashes empty before a restore.
-function AppRoot() {
-  const [boot, setBoot] = useState<WorkspaceBoot | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    void bootWorkspace().then((result) => {
-      if (active) {
-        setBoot(result);
-      }
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  if (!boot) {
-    return <output className="workspace-restoring">Restoring session…</output>;
-  }
-  return <App boot={boot} />;
-}
 
 function App({ boot }: { boot: WorkspaceBoot }) {
   const [initialCollaborationConfig] = useState(() =>
@@ -10958,4 +9186,4 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   );
 }
 
-export default AppRoot;
+export default App;
