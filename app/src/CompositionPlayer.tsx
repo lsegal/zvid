@@ -23,6 +23,7 @@ import {
   type FrameContext,
   type WebGlResources,
 } from "./composition-draw.ts";
+import { resolveCompositionOrder } from "./composition-order.ts";
 import { getGroupClipProgress } from "./composition-progress.ts";
 import {
   LiveAudioBands,
@@ -497,6 +498,7 @@ export class CompositionRenderer {
       this.mediaRefs,
       resolveEffectChain(this.state.effects, GROUP_TRACK_ID),
       frameContext,
+      resolveCompositionOrder(this.state.effects, GROUP_TRACK_ID),
     );
   }
 

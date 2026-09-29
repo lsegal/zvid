@@ -104,6 +104,7 @@ describe("addableEffectsFor", () => {
       "Pixelate",
       "NegativeSplit",
       "AnalogGlitch",
+      "Order",
     ]);
   });
 
@@ -127,6 +128,11 @@ describe("addableEffectsFor", () => {
     assert.ok(!names("layer").includes("Layout"));
     assert.ok(!names("global").includes("Layout"));
   });
+
+  it("offers Order on the Global stack only", () => {
+    assert.ok(names("global").includes("Order"));
+    assert.ok(!names("layer").includes("Order"));
+  });
 });
 
 describe("getParameterFormat", () => {
@@ -136,6 +142,8 @@ describe("getParameterFormat", () => {
     assert.equal(getParameterFormat("Transform", "PositionX")(0.25), "+25%");
     assert.equal(getParameterFormat("Transform", "ScaleY")(1.5), "150%");
     assert.equal(getParameterFormat("Transform", "Rotation")(-45), "-45°");
+    assert.equal(getParameterFormat("Order", "GridSize")(3), "3×3");
+    assert.equal(getParameterFormat("Order", "Spacing")(4), "4 px");
   });
 
   it("falls back to raw numbers for unknown parameters", () => {

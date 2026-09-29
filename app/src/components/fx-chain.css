@@ -327,6 +327,17 @@ body.fx-chain-dragging * {
   padding: 10px 8px 12px;
 }
 
+.fx-device-panel__warning {
+  align-self: start;
+  margin: 8px 8px 0;
+  padding: 2px 8px;
+  border: 1px solid var(--amber);
+  border-radius: 999px;
+  color: var(--amber);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
 .fx-device-panel__empty {
   margin: 0;
   color: var(--muted);

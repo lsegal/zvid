@@ -949,6 +949,11 @@ export function FxDevicePanel({
           <ChevronLeftIcon aria-hidden="true" />
         </button>
       </header>
+      {device.warning ? (
+        <p className="fx-device-panel__warning" role="status">
+          {device.warning}
+        </p>
+      ) : null}
       <div
         className="fx-device-panel__body"
         style={{

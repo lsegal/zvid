@@ -1,0 +1,41 @@
+/* Covers the whole preview monitor, above the letterboxed video, so the
+   selected layer's outline is drawn past the video edge too. */
+.preview-transform-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  outline: none;
+  touch-action: none;
+}
+
+.preview-transform-overlay--dragging {
+  cursor: grabbing;
+}
+
+.preview-transform-overlay__outline {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.preview-transform-overlay__halo,
+.preview-transform-overlay__box {
+  fill: none;
+  stroke-linejoin: miter;
+}
+
+/* A dark halo under the accent line keeps it visible on any footage. */
+.preview-transform-overlay__halo {
+  stroke: rgba(7, 8, 15, 0.7);
+  stroke-width: 3px;
+}
+
+.preview-transform-overlay__box {
+  stroke: var(--lane-selected-accent);
+  stroke-width: 1px;
+}
+
+.preview-transform-overlay:focus-visible .preview-transform-overlay__box {
+  stroke-width: 2px;
+}

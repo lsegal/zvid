@@ -114,6 +114,10 @@ import {
 } from "./components/MediaSyncSkeleton";
 import { OfflineMediaDialog } from "./components/OfflineMediaDialog";
 import {
+  type PreviewLayerMove,
+  PreviewTransformOverlay,
+} from "./components/PreviewTransformOverlay";
+import {
   ShareLinkButton,
   ShareLinkIconButton,
 } from "./components/ShareLinkButton";
@@ -140,6 +144,7 @@ import {
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
 import { WandIcon } from "./components/WandIcon";
+import { computeActiveClips } from "./composition-active-clips.ts";
 import { isContextMenuKey, isContextMenuPress } from "./context-menu.ts";
 import { buildEditMenuEntries } from "./edit-menu.ts";
 import {
@@ -154,6 +159,7 @@ import {
   effectHistoryLabels,
   ensureLayerLayouts,
   type FxDevice,
+  getRenderedEffects,
   isLayerFxEnabled,
   isLayoutEffectName,
   mapEffects,
@@ -228,6 +234,13 @@ import {
   findNextClipEdgeQ,
   PLAYBACK_COMMIT_INTERVAL_MS,
 } from "./playhead-signal";
+import {
+  moveHistoryLabel,
+  type PreviewLayer,
+  readLayerTransformPosition,
+  resolvePreviewLayers,
+  setLayerTransformPosition,
+} from "./preview-edit.ts";
 import {
   createProjectHistoryState,
   projectHistoryReducer,
@@ -2436,21 +2449,110 @@ function App() {
     [effects, explicitClip, lanes, selectedLaneId],
   );
   const fxLane = lanes.find((lane) => lane.id === fxLaneId);
+  // The layer outlined in the preview. Selecting a clip or a layer in the
+  // timeline selects it here too; Esc or a click on empty canvas clears it.
+  const [previewLaneId, setPreviewLaneId] = useState<string>();
+  useEffect(() => {
+    if (explicitClipLaneId !== undefined) {
+      setPreviewLaneId(explicitClipLaneId);
+    }
+  }, [explicitClipLaneId]);
+  useEffect(() => {
+    setPreviewLaneId(selectedLaneId);
+  }, [selectedLaneId]);
   const selectLaneFromLabel = (laneId: string) => {
     setSelectedClipId(undefined);
     setSelectedLaneId(laneId);
+    setPreviewLaneId(laneId);
   };
+  const effectsRef = useRef(effects);
+  effectsRef.current = effects;
+  const previewLayers = useMemo(
+    () =>
+      resolvePreviewLayers(
+        computeActiveClips(
+          timelineClips,
+          mediaItemsById,
+          playheadQ,
+          bpm,
+          lanePriority,
+          getRenderedEffects(effects, lanes),
+        ).filter((entry) => entry.media.kind === "video"),
+        { width: canvasWidth, height: canvasHeight },
+      ),
+    [
+      bpm,
+      canvasHeight,
+      canvasWidth,
+      effects,
+      lanePriority,
+      lanes,
+      mediaItemsById,
+      playheadQ,
+      timelineClips,
+    ],
+  );
+  const selectPreviewLayer = useCallback((layer: PreviewLayer | undefined) => {
+    setPreviewLaneId(layer?.laneId);
+    if (layer) {
+      setSelectedClipId(layer.clipId);
+      setSelectedLaneId(layer.laneId);
+    } else {
+      setSelectedClipId(undefined);
+    }
+  }, []);
+  const getPreviewLayerPosition = useCallback(
+    (laneId: string) => readLayerTransformPosition(effectsRef.current, laneId),
+    [],
+  );
+  const movePreviewLayer = useCallback(
+    ({ laneId, position, mode, newEffectId }: PreviewLayerMove) =>
+      editEffects(
+        moveHistoryLabel(
+          lanes.find((lane) => lane.id === laneId)?.name ?? `Layer ${laneId}`,
+        ),
+        (current) =>
+          setLayerTransformPosition(current, laneId, position, newEffectId),
+        mode,
+      ),
+    [editEffects, lanes],
+  );
   // Audio clips have no visual effects; that only applies while one is
   // selected, not to the layer on its own.
   const fxKind = explicitClip?.mediaId
     ? mediaItemsById.get(explicitClip.mediaId)?.kind
     : undefined;
+  // Layers the compositor draws at the playhead: one per layer with an
+  // online video clip there. The Order device warns when a grid hides some.
+  const playheadVisualLayerCount = useMemo(
+    () =>
+      new Set(
+        timelineClips
+          .filter((clip) => {
+            const media = clip.mediaId
+              ? mediaItemsById.get(clip.mediaId)
+              : undefined;
+            return (
+              media?.kind === "video" &&
+              isClipAtPlayhead(clip, playheadQ, bpm) &&
+              describeMediaAvailability(media.availability) === "online"
+            );
+          })
+          .map((clip) => clip.laneId),
+      ).size,
+    [bpm, mediaItemsById, playheadQ, timelineClips],
+  );
   const fxDevices = useMemo(
     () =>
       fxLaneId
-        ? mapSessionEffectsToDevices(effects, fxLaneId, fxLane?.name)
+        ? mapSessionEffectsToDevices(
+            effects,
+            fxLaneId,
+            fxLane?.name,
+            playheadVisualLayerCount,
+          )
         : [],
-    [effects, fxLane?.name, fxLaneId],
+    [effects, fxLane?.name, fxLaneId, playheadVisualLayerCount],
   );
   const playheadSeconds = quartersToSeconds(playheadQ, bpm);
   const mainAudio = mainAudioId ? mediaItemsById.get(mainAudioId) : undefined;
@@ -5278,7 +5380,10 @@ function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      // A focused control that already handled the key, such as the preview
+      // nudging a layer with the arrows, owns it.
       if (
+        event.defaultPrevented ||
         isEditableEventTarget(event.target) ||
         dragState ||
         timelineDragState
@@ -8509,6 +8614,14 @@ function App() {
                     playheadQ={playheadQ}
                     playheadSeconds={playheadSeconds}
                     playheadSignal={playheadSignal}
+                  />
+                  <PreviewTransformOverlay
+                    canvas={{ width: canvasWidth, height: canvasHeight }}
+                    layers={previewLayers}
+                    selectedLaneId={previewLaneId}
+                    getLayerPosition={getPreviewLayerPosition}
+                    onSelect={selectPreviewLayer}
+                    onMove={movePreviewLayer}
                   />
                   {!previewClip ||
                   (previewMediaState !== "online" && !hasOnlinePlayheadClip) ? (

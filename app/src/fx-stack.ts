@@ -5,6 +5,11 @@
 // commits can skip no-op edits.
 
 import {
+  hiddenLayerCount,
+  isOrderEffectName,
+  parseCompositionOrder,
+} from "./composition-order.ts";
+import {
   type FxEffectDefinition,
   type FxParameterDefinition,
   getEffectDefinition,
@@ -64,6 +69,9 @@ export type FxDevice = {
   // True for a device on a stack its effect isn't designed for, such as a
   // Global Layout from an older session. It still loads and can be removed.
   unsupported?: boolean;
+  // A problem to point out on the device, such as layers an Order grid has
+  // no cell for.
+  warning?: string;
   parameters: FxDeviceParameter[];
 };
 
@@ -307,8 +315,9 @@ export function addEffect(
   id?: string,
 ) {
   const stack = getStack(effects, trackId);
-  // Only effects designed for the stack can be added to it, such as
-  // Transform, which places one layer, never on the Global stack.
+  // Only effects designed for the stack can be added to it: Transform
+  // places one layer, so never on the Global stack, and Order arranges
+  // every layer at once, so only on the Global stack.
   if (!isEffectSupportedIn(effectName, getTrackGroup(trackId))) {
     return effects;
   }
@@ -552,7 +561,50 @@ function toDeviceParameter(
   };
 }
 
-function toDevice(effect: SessionEffect, layerName: string): FxDevice {
+// Whether a parameter with a `visibleWhen` condition shows for the effect's
+// current values.
+function isParameterVisible(
+  parameter: FxParameterDefinition,
+  definition: FxEffectDefinition,
+  effect: SessionEffect,
+) {
+  const condition = parameter.visibleWhen;
+  if (!condition) {
+    return true;
+  }
+
+  const controlling = findParameterDefinition(definition, condition.key);
+  const stored = effect.parameters.find(
+    (candidate) => candidate.key === condition.key,
+  )?.value;
+  const value = (stored ?? `${controlling?.defaultValue ?? ""}`)
+    .trim()
+    .toLowerCase();
+  return condition.values.some(
+    (candidate) => candidate.toLowerCase() === value,
+  );
+}
+
+// Layers an enabled Order grid has no cell for, when there are any.
+function describeHiddenLayers(effect: SessionEffect, activeLayerCount: number) {
+  if (effect.enabled === false || !isOrderEffectName(effect.effectName)) {
+    return undefined;
+  }
+
+  const hidden = hiddenLayerCount(
+    activeLayerCount,
+    parseCompositionOrder(effect.parameters),
+  );
+  return hidden
+    ? `${hidden} ${hidden === 1 ? "layer" : "layers"} hidden by grid`
+    : undefined;
+}
+
+function toDevice(
+  effect: SessionEffect,
+  layerName: string,
+  activeLayerCount = 0,
+): FxDevice {
   const definition = getEffectDefinition(effect.effectName);
   const group = getTrackGroup(effect.trackId);
   const knownKeys = new Set(
@@ -584,8 +636,13 @@ function toDevice(effect: SessionEffect, layerName: string): FxDevice {
     enabled: effect.enabled !== false,
     layerDefault: isLayerLayoutEffect(effect) || undefined,
     unsupported: !isEffectSupportedIn(effect.effectName, group) || undefined,
+    warning: describeHiddenLayers(effect, activeLayerCount),
     parameters: parameterDefinitions
-      .filter((parameter) => !parameter.hidden)
+      .filter(
+        (parameter) =>
+          !parameter.hidden &&
+          isParameterVisible(parameter, definition, effect),
+      )
       .map((parameter) =>
         toDeviceParameter(
           parameter,
@@ -602,12 +659,14 @@ export function mapSessionEffectsToDevices(
   laneId: string | undefined,
   // Display name of the layer, such as "Layer 3"; defaults to its id.
   layerName = `Layer ${laneId}`,
+  // Layers the compositor draws at the playhead, for the Order grid warning.
+  activeLayerCount = 0,
 ) {
   const layerDevices = effects
     .filter((effect) => laneId !== undefined && effect.trackId === laneId)
     .map((effect) => toDevice(effect, layerName));
   const globalDevices = effects
     .filter((effect) => effect.trackId === GLOBAL_EFFECT_TRACK_ID)
-    .map((effect) => toDevice(effect, layerName));
+    .map((effect) => toDevice(effect, layerName, activeLayerCount));
   return [...layerDevices, ...globalDevices];
 }

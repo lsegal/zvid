@@ -2,6 +2,21 @@
 // Each definition gives the device a friendly name and describes its raw
 // parameters (label, range, default and display format) in stack UI order.
 
+import {
+  GRID_SIZE_MAX,
+  GRID_SIZE_MIN,
+  ORDER_ARRANGEMENTS,
+  ORDER_EFFECT_NAME,
+  SPACING_MAX,
+} from "./composition-order.ts";
+
+// Shows a parameter only while the enum parameter `key` holds one of
+// `values` (compared case-insensitively).
+export type FxParameterVisibility = {
+  key: string;
+  values: readonly string[];
+};
+
 export type FxNumberParameterDefinition = {
   kind: "number";
   key: string;
@@ -12,6 +27,7 @@ export type FxNumberParameterDefinition = {
   step?: number;
   format: (value: number) => string;
   hidden?: boolean;
+  visibleWhen?: FxParameterVisibility;
 };
 
 export type FxEnumParameterDefinition = {
@@ -21,6 +37,7 @@ export type FxEnumParameterDefinition = {
   options: readonly string[];
   defaultValue: string;
   hidden?: boolean;
+  visibleWhen?: FxParameterVisibility;
 };
 
 export type FxParameterDefinition =
@@ -77,6 +94,15 @@ export function formatSignedPercent(value: number) {
 
 export function formatDegrees(value: number) {
   return `${Math.round(value)}°`;
+}
+
+export function formatGridSize(value: number) {
+  const size = Math.round(value);
+  return `${size}×${size}`;
+}
+
+export function formatPixels(value: number) {
+  return `${Math.round(value)} px`;
 }
 
 export function formatRawNumber(value: number) {
@@ -248,6 +274,45 @@ const DEFINITIONS: FxEffectDefinition[] = [
           formatDegrees,
         ),
         step: 1,
+      },
+    ],
+  },
+  {
+    effectName: ORDER_EFFECT_NAME,
+    displayName: "Order",
+    description:
+      "Arranges the layers in stacked rows, side-by-side columns or a grid.",
+    accent: "#b6e36b",
+    known: true,
+    scopes: ["global"],
+    parameters: [
+      {
+        kind: "enum",
+        key: "Arrangement",
+        label: "Order",
+        options: ORDER_ARRANGEMENTS,
+        defaultValue: "Vertical",
+      },
+      {
+        kind: "number",
+        key: "GridSize",
+        label: "Grid Size",
+        min: GRID_SIZE_MIN,
+        max: GRID_SIZE_MAX,
+        defaultValue: GRID_SIZE_MIN,
+        step: 1,
+        format: formatGridSize,
+        visibleWhen: { key: "Arrangement", values: ["Grid"] },
+      },
+      {
+        kind: "number",
+        key: "Spacing",
+        label: "Spacing",
+        min: 0,
+        max: SPACING_MAX,
+        defaultValue: 0,
+        step: 1,
+        format: formatPixels,
       },
     ],
   },
