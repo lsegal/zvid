@@ -116,6 +116,11 @@ pnpm exec wrangler secret put TURN_KEY_API_TOKEN
 
 Create the key in the Cloudflare dashboard (**Realtime → TURN Server → Create**), which shows the API token once. Without both secrets `/api/ice-servers` answers `503` and the app uses STUN only. For `wrangler dev`, put them in `app/.dev.vars`.
 
+To limit abuse of the TURN key, the endpoint only mints credentials for the app itself and caps how often one client can mint them:
+
+- Requests a browser marks as coming from another site (`Sec-Fetch-Site` other than `same-origin`, or an `Origin` other than the Worker's own) get `403`.
+- Each client IP (`CF-Connecting-IP`) can mint 10 credentials per minute, counted by the Workers [Rate Limiting](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/) binding `TURN_RATE_LIMITER` (`ratelimits` in `wrangler.jsonc`, which `wrangler deploy` creates; no setup needed). Requests over the limit get `429` with `Retry-After`, and the app starts that session with STUN only. The limit is per Cloudflare location and approximate, so it curbs scripted minting rather than capping it exactly.
+
 To rotate the token, create a new TURN key, `wrangler secret put` both secrets with the new key's values (secrets take effect immediately, without a redeploy), then delete the old key. Credentials already handed out stop working when the old key is deleted, so connected peers may need to reconnect; delete it after a day to let them expire instead.
 
 The web app uses its own origin's `/api/ice-servers`, so `wrangler dev` (`pnpm cf:dev`) exercises the relay too. The native app and the Vite dev server (`pnpm dev`) have no Worker, so they use STUN only unless `VITE_ICE_SERVERS_URL` names an endpoint returning `{ "iceServers": [...] }` that allows the app's origin through CORS (the app Worker's own endpoint answers same-origin requests only). Set `VITE_ICE_SERVERS_URL=none` to turn the relay off.
