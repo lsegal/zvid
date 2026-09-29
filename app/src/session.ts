@@ -82,6 +82,22 @@ export type SessionOpenResponse = {
   recordingRefs?: ServerMediaRef[];
 };
 
+/**
+ * The video file frame a session clip starts at: its content start plus the
+ * file frame at its content origin. Imported videos mark `captureOffset` as
+ * -1, which is treated as 0.
+ */
+export function clipSourceFrame(
+  clip: NonNullable<LvpSession["clips"]>[number],
+) {
+  const captureOffset =
+    clip.captureOffset === -1 ? 0 : (clip.captureOffset ?? 0);
+  return Math.max(
+    0,
+    (clip.clipStart ?? 0) + (clip.frameOffset ?? 0) + captureOffset,
+  );
+}
+
 function isFilePath(value: unknown): value is string {
   return typeof value === "string" && value.trim() !== "";
 }

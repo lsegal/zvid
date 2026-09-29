@@ -6,6 +6,7 @@ import {
   computeActiveClips,
   type MediaItem,
 } from "./composition-active-clips.ts";
+import { clipSourceFrame, type LvpSession } from "./session.ts";
 
 const BPM = 120;
 
@@ -204,16 +205,19 @@ describe("warped clip playback", () => {
   // warp position of the clip start at 30 fps.
   const FPS = 30;
   const SONG_BPM = 72;
-  const session = {
+  const session: NonNullable<LvpSession["clips"]>[number] = {
+    id: "1-1",
+    trackId: "1",
+    filePath: "video.mov",
     frameStart: 300,
     frameCount: 375,
     clipStart: 339,
     frameOffset: 0,
     captureOffset: -1,
     warpMarkers: [
-      { beatTime: 0, secTime: 0 },
-      { beatTime: 20, secTime: 11.3 },
-      { beatTime: 35, secTime: 21.98 },
+      { id: "0", clipId: "1-1", beatTime: 0, secTime: 0 },
+      { id: "1", clipId: "1-1", beatTime: 20, secTime: 11.3 },
+      { id: "2", clipId: "1-1", beatTime: 35, secTime: 21.98 },
     ],
   };
   const media: MediaItem = {
@@ -229,8 +233,7 @@ describe("warped clip playback", () => {
   // Maps the session clip the way sessionToProject does.
   const startSeconds = session.frameStart / FPS;
   // The sentinel capture offset adds nothing to the source position.
-  const trimStartSeconds =
-    Math.max(0, session.clipStart + session.frameOffset) / FPS;
+  const trimStartSeconds = clipSourceFrame(session) / FPS;
   const clip: ArrangementClip = {
     id: "selection-1",
     sourceTrackId: "1",
@@ -246,7 +249,7 @@ describe("warped clip playback", () => {
     sourceWindowEndSeconds: trimStartSeconds + session.frameCount / FPS,
     warp: createClipWarp(
       session.warpMarkers,
-      (session.clipStart + session.frameOffset) / FPS,
+      ((session.clipStart ?? 0) + (session.frameOffset ?? 0)) / FPS,
       trimStartSeconds,
       SONG_BPM,
     ),

@@ -21,6 +21,7 @@ import {
   rankWorkspaceSessions,
   resolveAlsMedia,
 } from "./als-import.ts";
+import type { LvpSession } from "./session.ts";
 
 function gzip(text: string) {
   return new Uint8Array(gzipSync(Buffer.from(text, "utf8")));
@@ -285,6 +286,7 @@ describe("importAls", () => {
     assert.deepEqual(imported.importReport, {
       skippedTracks: ["Audio 11 on 3-Audio (shorter than a frame)"],
       hasLayersVideo: true,
+      layersRecordTracks: ["12", "8", "16"],
     });
 
     // Every recording but one sits in the project's sibling Recorded folder,
@@ -588,6 +590,137 @@ describe("Live set media resolution", () => {
     assert.deepEqual(probed.tracks?.[1].recordings, [
       { filename: "video-3.mp4", frameStart: 0 },
     ]);
+  });
+
+  describe("end-aligning capture offsets", () => {
+    // Track 8 records with Layers Record and track 12 with ZVID Capture. On
+    // track 8, two audio clips play different samples of one recording and a
+    // MIDI clip plays it too. Track 9 is a Layers Record track whose video
+    // cannot be read.
+    const endAlignSession = (): LvpSession => {
+      const clip = (
+        id: string,
+        trackId: string,
+        filePath: string,
+        captureOffset: number,
+        audioFileDuration: number | "NaN",
+      ) => ({
+        id,
+        trackId,
+        frameStart: 0,
+        frameCount: 30,
+        filePath,
+        captureOffset,
+        audioFileDuration,
+      });
+      return {
+        tracks: [
+          {
+            id: "8",
+            name: "Vocals",
+            recordings: [{ filename: "/rec/vocals.mp4", frameStart: 298 }],
+          },
+          {
+            id: "9",
+            name: "Bass",
+            recordings: [{ filename: "/rec/bass.mp4", frameStart: 179 }],
+          },
+          {
+            id: "12",
+            name: "Cam A",
+            recordings: [{ filename: "/rec/take.mp4", frameStart: 0 }],
+          },
+        ],
+        clips: [
+          clip("8-1", "8", "/rec/vocals.mp4", 298, 415.9 / 30),
+          clip("8-2", "8", "/rec/vocals.mp4", 298, 400 / 30),
+          clip("8-3", "8", "/rec/vocals.mp4", 298, "NaN"),
+          clip("9-1", "9", "/rec/bass.mp4", 179, 227.6 / 30),
+          clip("12-1", "12", "/rec/take.mp4", -45, 10),
+        ],
+        timeline: { fps: 30 },
+      };
+    };
+    const refs = [
+      { path: "/rec/vocals.mp4", url: "blob:vocals", exists: true },
+      { path: "/rec/bass.mp4", url: "blob:bass", exists: true },
+      { path: "/rec/take.mp4", url: "blob:take", exists: true },
+    ];
+    const offsets = (session: LvpSession) =>
+      session.clips?.map((clip) => [clip.id, clip.captureOffset]);
+
+    it("lines each audio clip's take up with the end of its probed video", async () => {
+      const probed = await probeAlsRecordings(
+        endAlignSession(),
+        refs,
+        async (url) => {
+          if (url === "blob:bass") {
+            return null;
+          }
+          return {
+            numFrames: url === "blob:vocals" ? 750 : 900,
+            frameRate: 30,
+          };
+        },
+        ["8", "9"],
+      );
+
+      assert.deepEqual(offsets(probed), [
+        // round(750 - 415.9) and round(750 - 400): per clip, by its sample.
+        ["8-1", 334],
+        ["8-2", 350],
+        // MIDI clips have no sample and keep the recording's frameStart.
+        ["8-3", 298],
+        // An unreadable video keeps its frameStart.
+        ["9-1", 179],
+        // ZVID Capture takes keep the offset from the plugin's clock.
+        ["12-1", -45],
+      ]);
+    });
+
+    it("measures a video at its own frame rate", async () => {
+      // 845 frames at 29.916666 fps is 28.245 s: 3.547 s longer than the
+      // 24.699 s sample, or 106 frames at 30 fps (not 845 - 741 = 104).
+      const session: LvpSession = {
+        tracks: [
+          {
+            id: "16",
+            name: "Guitar",
+            recordings: [{ filename: "/rec/guitar.mp4", frameStart: 107 }],
+          },
+        ],
+        clips: [
+          {
+            id: "16-2",
+            trackId: "16",
+            frameStart: 0,
+            frameCount: 30,
+            filePath: "/rec/guitar.mp4",
+            captureOffset: 107,
+            audioFileDuration: 24.6986675,
+          },
+        ],
+        timeline: { fps: 30 },
+      };
+      const probed = await probeAlsRecordings(
+        session,
+        [{ path: "/rec/guitar.mp4", url: "blob:guitar", exists: true }],
+        async () => ({ numFrames: 845, frameRate: 29.916666 }),
+        ["16"],
+      );
+
+      assert.equal(probed.clips?.[0].captureOffset, 106);
+    });
+
+    it("keeps frameStart when no recording could be probed", async () => {
+      const session = endAlignSession();
+      const probed = await probeAlsRecordings(session, refs, async () => null, [
+        "8",
+        "9",
+      ]);
+
+      assert.deepEqual(offsets(probed), offsets(session));
+    });
   });
 });
 

@@ -157,6 +157,7 @@ import {
   resolveSessionOverlaps,
 } from "./selection-overlaps";
 import {
+  clipSourceFrame,
   formatClipsWithoutFile,
   type LvpSession,
   normalizeLvpSession,
@@ -1518,8 +1519,7 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
       sourceTracks.find((track) => track.id === clip.trackId)?.colorIndex ?? 0,
     );
     const media = pickMediaByPath(mediaItems, clip.filePath);
-    const trimStartSeconds =
-      Math.max(0, (clip.clipStart ?? 0) + (clip.frameOffset ?? 0)) / fps;
+    const trimStartSeconds = clipSourceFrame(clip) / fps;
     return {
       id: `source-${clip.id}`,
       sourceTrackId: clip.trackId,
