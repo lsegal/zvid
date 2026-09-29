@@ -37,7 +37,6 @@ export type Rect = { left: number; top: number; width: number; height: number };
 
 export const TRANSFORM_POSITION_X_KEY = "PositionX";
 export const TRANSFORM_POSITION_Y_KEY = "PositionY";
-export const TRANSFORM_ROTATION_KEY = "Rotation";
 const POSITION_LIMIT = 2;
 
 // Shift snaps a rotation to these steps; without it, the angle still settles
@@ -254,40 +253,6 @@ export function setLayerTransformPosition(
   position: Point,
   newEffectId: string,
 ) {
-  return setLayerTransformParameters(effects, laneId, newEffectId, [
-    [TRANSFORM_POSITION_X_KEY, clampPosition(position.x)],
-    [TRANSFORM_POSITION_Y_KEY, clampPosition(position.y)],
-  ]);
-}
-
-export function readLayerTransformRotation(
-  effects: readonly SessionEffect[],
-  laneId: string,
-) {
-  return readNumericParameter(
-    findLayerTransform(effects, laneId),
-    TRANSFORM_ROTATION_KEY,
-  );
-}
-
-// Writes the layer's Transform rotation the same way as its position.
-export function setLayerTransformRotation(
-  effects: SessionEffect[],
-  laneId: string,
-  rotationDeg: number,
-  newEffectId: string,
-) {
-  return setLayerTransformParameters(effects, laneId, newEffectId, [
-    [TRANSFORM_ROTATION_KEY, wrapRotation(rotationDeg)],
-  ]);
-}
-
-function setLayerTransformParameters(
-  effects: SessionEffect[],
-  laneId: string,
-  newEffectId: string,
-  values: ReadonlyArray<[string, number]>,
-) {
   let result = effects;
   let transform = findLayerTransform(result, laneId);
   if (!transform) {
@@ -305,10 +270,41 @@ function setLayerTransformParameters(
   }
 
   result = setEffectEnabled(result, transform.id, true);
-  for (const [key, value] of values) {
-    result = setEffectParameter(result, transform.id, key, value);
-  }
-  return result;
+  result = setEffectParameter(
+    result,
+    transform.id,
+    TRANSFORM_POSITION_X_KEY,
+    clampPosition(position.x),
+  );
+  return setEffectParameter(
+    result,
+    transform.id,
+    TRANSFORM_POSITION_Y_KEY,
+    clampPosition(position.y),
+  );
+}
+
+export function readLayerTransformRotation(
+  effects: readonly SessionEffect[],
+  laneId: string,
+) {
+  return readLayerTransform(effects, laneId).rotationDeg;
+}
+
+// Writes the layer's Transform rotation, adding or re-enabling the Transform
+// as `setLayerTransformPosition` does.
+export function setLayerTransformRotation(
+  effects: SessionEffect[],
+  laneId: string,
+  rotationDeg: number,
+  newEffectId: string,
+) {
+  return setLayerTransformParameters(
+    effects,
+    laneId,
+    { rotationDeg: wrapRotation(rotationDeg) },
+    newEffectId,
+  );
 }
 
 const TRANSFORM_PARAMETER_KEYS: Record<keyof LayerTransform, string> = {
