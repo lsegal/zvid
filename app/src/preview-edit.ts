@@ -15,7 +15,6 @@ import {
 import {
   type BoxCorners,
   canvasToLayer,
-  frameBoxInCanvas,
   IDENTITY_TRANSFORM,
   isTransformEffectName,
   type LayerTransform,
@@ -38,11 +37,6 @@ export type Rect = { left: number; top: number; width: number; height: number };
 export const TRANSFORM_POSITION_X_KEY = "PositionX";
 export const TRANSFORM_POSITION_Y_KEY = "PositionY";
 const POSITION_LIMIT = 2;
-
-// Shift snaps a rotation to these steps; without it, the angle still settles
-// onto a right angle within the soft-snap range.
-export const ROTATION_SNAP_STEP_DEG = 15;
-export const ROTATION_SOFT_SNAP_DEG = 3;
 
 export const PREVIEW_NUDGE_PX = 1;
 export const PREVIEW_NUDGE_LARGE_PX = 10;
@@ -284,29 +278,6 @@ export function setLayerTransformPosition(
   );
 }
 
-export function readLayerTransformRotation(
-  effects: readonly SessionEffect[],
-  laneId: string,
-) {
-  return readLayerTransform(effects, laneId).rotationDeg;
-}
-
-// Writes the layer's Transform rotation, adding or re-enabling the Transform
-// as `setLayerTransformPosition` does.
-export function setLayerTransformRotation(
-  effects: SessionEffect[],
-  laneId: string,
-  rotationDeg: number,
-  newEffectId: string,
-) {
-  return setLayerTransformParameters(
-    effects,
-    laneId,
-    { rotationDeg: wrapRotation(rotationDeg) },
-    newEffectId,
-  );
-}
-
 const TRANSFORM_PARAMETER_KEYS: Record<keyof LayerTransform, string> = {
   positionX: TRANSFORM_POSITION_X_KEY,
   positionY: TRANSFORM_POSITION_Y_KEY,
@@ -358,84 +329,4 @@ export function setLayerTransformParameters(
 
 export function moveHistoryLabel(layerName: string) {
   return `Move ${layerName}`;
-}
-
-// Where the layer's origin marker sits on the canvas. The Transform pivots on
-// its origin and then offsets by its position, so the origin stays put while
-// the layer rotates or scales about it.
-export function layerOriginInCanvas(
-  layer: Pick<PreviewLayer, "placement" | "transform">,
-  canvas: Size,
-): Point {
-  const box = frameBoxInCanvas(layer.placement.frame, canvas);
-  const { transform } = layer;
-  return {
-    x:
-      box.x +
-      ((transform.originX + 1) / 2) * box.width +
-      transform.positionX * canvas.width,
-    y:
-      box.y +
-      ((transform.originY + 1) / 2) * box.height +
-      transform.positionY * canvas.height,
-  };
-}
-
-// Into the Transform's -180..180 range, keeping 180 rather than -180.
-export function wrapRotation(degrees: number) {
-  if (!Number.isFinite(degrees)) {
-    return 0;
-  }
-
-  const wrapped = ((((degrees + 180) % 360) + 360) % 360) - 180;
-  return wrapped === -180 ? 180 : wrapped;
-}
-
-// The Rotation for a rotate drag: the start rotation plus how far the pointer
-// has turned about the origin. Positive is clockwise on screen, as the canvas
-// has +y down. Position is left alone: the Transform already pivots on its
-// origin, so the origin stays put and the box swings around it. Shift snaps
-// to 15 degree steps; otherwise the angle settles onto 0, 90, 180 or -90 when
-// within a few degrees of one.
-export function rotateTransform(
-  start: LayerTransform,
-  originCanvas: Point,
-  pointerStart: Point,
-  pointerNow: Point,
-  { snap15 = false }: { snap15?: boolean } = {},
-): LayerTransform {
-  const angleOf = (point: Point) =>
-    (Math.atan2(point.y - originCanvas.y, point.x - originCanvas.x) * 180) /
-    Math.PI;
-  const turned = angleOf(pointerNow) - angleOf(pointerStart);
-  let rotation = wrapRotation(start.rotationDeg + turned);
-  if (snap15) {
-    rotation = wrapRotation(
-      Math.round(rotation / ROTATION_SNAP_STEP_DEG) * ROTATION_SNAP_STEP_DEG,
-    );
-  } else {
-    const rightAngle = wrapRotation(Math.round(rotation / 90) * 90);
-    if (
-      Math.abs(wrapRotation(rotation - rightAngle)) <= ROTATION_SOFT_SNAP_DEG
-    ) {
-      rotation = rightAngle;
-    }
-  }
-
-  // Avoid writing -0.
-  return { ...start, rotationDeg: rotation === 0 ? 0 : rotation };
-}
-
-// The angle readout shown while rotating, e.g. "32.5°".
-export function formatRotation(degrees: number) {
-  const rounded = Math.round(degrees * 10) / 10;
-  return `${rounded === 0 ? "0" : rounded.toFixed(1).replace(/\.0$/, "")}°`;
-}
-
-export function rotateHistoryLabel(layerName: string) {
-  return `Rotate ${layerName}`;
-}
-
-export function resetRotationHistoryLabel(layerName: string) {
-  return `Reset rotation of ${layerName}`;
 }
