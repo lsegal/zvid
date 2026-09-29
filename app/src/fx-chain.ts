@@ -11,6 +11,7 @@ import {
 } from "./fx-registry.ts";
 import {
   type FxDevice,
+  type FxDeviceGroup,
   type FxDeviceParameter,
   isLayoutEffectName,
 } from "./fx-stack.ts";
@@ -20,26 +21,53 @@ export const FX_COLLAPSED_STORAGE_KEY = "zvid-fx-collapsed-devices";
 type KeyValueStorage = Pick<Storage, "getItem" | "setItem">;
 
 export type FxChainGroups = {
+  global: FxDevice[];
   layer: FxDevice[];
   clip: FxDevice[];
-  global: FxDevice[];
 };
 
-// Splits the devices for the selected clip into the clip's own stack, the
-// layer's own stack and the Global stack. Audio layers show no devices.
+// The chain's sections, left to right.
+export const FX_CHAIN_SECTIONS: readonly FxDeviceGroup[] = [
+  "global",
+  "layer",
+  "clip",
+];
+
+// Splits the devices for the selection into the Global stack, the layer's
+// own stack and the selected clip's own stack. Audio layers show no devices.
 export function groupChainDevices(
   devices: FxDevice[],
   kind: string | undefined,
 ): FxChainGroups {
   if (kind === "audio") {
-    return { layer: [], clip: [], global: [] };
+    return { global: [], layer: [], clip: [] };
   }
 
   return {
+    global: devices.filter((device) => device.group === "global"),
     layer: devices.filter((device) => device.group === "layer"),
     clip: devices.filter((device) => device.group === "clip"),
-    global: devices.filter((device) => device.group === "global"),
   };
+}
+
+// The FX panel's title: the selected clip and its layer, else the selected
+// layer, else the Global stack alone.
+export function getFxPanelTitle(
+  layerName: string | undefined,
+  clipName: string | undefined,
+) {
+  if (!layerName) {
+    return "Global Effects";
+  }
+  return clipName
+    ? `Clip ${clipName} Effects (${layerName})`
+    : `${layerName} Effects`;
+}
+
+// What a clip is called in the FX panel: its label, or else the first line
+// of its text, so an unnamed clip still reads as one.
+export function getFxClipName(label: string, textPreview = "") {
+  return label.trim() || textPreview.trim() || "Untitled";
 }
 
 export const NO_ORDER_HINT =

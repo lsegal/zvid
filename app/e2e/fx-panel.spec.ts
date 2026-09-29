@@ -88,3 +88,51 @@ test("a new session has a Global Order, and removing it shows a hint", async ({
   await expect(order).toHaveCount(1);
   await expect(hint).toHaveCount(0);
 });
+
+// The chain reads GLOBAL | LAYER, and GLOBAL | LAYER | CLIP once a clip is
+// selected; the title names the selection.
+test("the FX panel shows Global, then the layer, then the selected clip", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const title = page.locator(".fx-panel__toggle");
+  const sections = page.locator(".fx-chain [data-fx-divider]");
+
+  await page.locator('[data-layer-header-id="5"]').click();
+  await expect(title).toHaveText("Layer 2 Effects");
+  await expect(sections).toHaveText(["Global", "Layer"]);
+  await expect(
+    page.getByRole("button", { name: "Add device to Global" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Add device to this clip" }),
+  ).toHaveCount(0);
+
+  await page.locator('[data-layer-header-id="5"]').click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Insert text at playhead" }).click();
+  await expect(
+    page.locator('[data-timeline-lane-id="5"] .clip-card--selected'),
+  ).toHaveCount(1);
+  await expect(title).toHaveText("Clip Text Effects (Layer 2)");
+  await expect(sections).toHaveText(["Global", "Layer", "Clip"]);
+
+  // Global's Order sits left of the layer's devices, which sit left of the
+  // clip's add slot.
+  const order = await page.locator('section[aria-label="Order"]').boundingBox();
+  const layout = await page
+    .locator('section[aria-label="Layout"]')
+    .boundingBox();
+  const addToClip = await page
+    .getByRole("button", { name: "Add device to this clip" })
+    .boundingBox();
+  expect(order?.x ?? 0).toBeLessThan(layout?.x ?? 0);
+  expect(layout?.x ?? 0).toBeLessThan(addToClip?.x ?? 0);
+
+  // Adding from the clip slot puts the device on the clip's stack.
+  await page.getByRole("button", { name: "Add device to this clip" }).click();
+  await page.getByRole("menuitem", { name: /^Transform/ }).click();
+  const clipTransform = page.locator(
+    '.fx-chain [data-fx-divider="clip"] ~ section[aria-label="Transform"]',
+  );
+  await expect(clipTransform).toHaveCount(1);
+});
