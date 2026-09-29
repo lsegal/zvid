@@ -372,10 +372,14 @@ async function joinHostThatCantServe(browser: Browser) {
     timeout: 30_000,
   });
   await expect(guest.locator(".clip-card")).toHaveCount(1);
-  // Media no peer could send is offline, not syncing.
-  await expect(offlineLabel(guest)).toHaveText("1 offline media file", {
-    timeout: 30_000,
-  });
+  // Media no peer could send is offline, not syncing. If the block misses a
+  // place the host reads media from, the guest receives the file and the
+  // label goes away; the call log then only shows the "Syncing" label seen
+  // before that, which looks like a stuck sync but isn't one.
+  await expect(
+    offlineLabel(guest),
+    "the host shouldn't be able to send the video",
+  ).toHaveText("1 offline media file", { timeout: 30_000 });
   return { host, guest };
 }
 
