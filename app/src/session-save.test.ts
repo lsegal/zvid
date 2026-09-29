@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { createClipWarp } from "./clip-warp.ts";
-import { mapEffects } from "./fx-stack.ts";
+import { hasGlobalOrder, mapEffects } from "./fx-stack.ts";
+import { migrateDefaultOrder } from "./project-state-compat.ts";
 import { clipSourceFrame, type LvpSession } from "./session.ts";
 import {
   chooseSessionSaveTarget,
@@ -316,6 +317,22 @@ describe("projectToLvpSession", () => {
     assert.deepEqual(
       mapEffects(session.effects).map((effect) => effect.enabled),
       [false, true],
+    );
+  });
+
+  it("keeps a removed Order removed when reopened", () => {
+    const session = projectToLvpSession(baseProject(), { playheadQ: 0 });
+    assert.equal(session.orderDefaulted, true);
+
+    const reopened = JSON.parse(JSON.stringify(session)) as typeof session;
+    const effects = migrateDefaultOrder(
+      mapEffects(reopened.effects),
+      reopened.orderDefaulted,
+    );
+    assert.equal(hasGlobalOrder(effects), false);
+    assert.deepEqual(
+      effects.map((effect) => effect.id),
+      ["fx1"],
     );
   });
 

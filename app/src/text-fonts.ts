@@ -8,6 +8,8 @@
 // and a family that can't be loaded is reported missing so it is drawn in
 // the default font and flagged on its device.
 
+import { invoke, isTauri } from "@tauri-apps/api/core";
+
 export type FontSource = "bundled" | "google" | "local";
 
 export type FontChoice = { source: FontSource; family: string };
@@ -179,9 +181,14 @@ function quoteFamily(family: string) {
   return `"${family.replace(/["\\]/g, "")}"`;
 }
 
+/** A CSS `font-family` list for the face, with the generic fallback. */
+export function formatFontFamily(face: FontFace) {
+  return `${quoteFamily(face.cssFamily)}, ${GENERIC_FALLBACK}`;
+}
+
 /** A CSS `font` shorthand for the face at `sizePx`. */
 export function formatFontSpec(face: FontFace, sizePx: number) {
-  return `${face.italic ? "italic " : ""}${face.weight} ${sizePx}px ${quoteFamily(face.cssFamily)}, ${GENERIC_FALLBACK}`;
+  return `${face.italic ? "italic " : ""}${face.weight} ${sizePx}px ${formatFontFamily(face)}`;
 }
 
 /**
@@ -375,24 +382,45 @@ type LocalFontWindow = Window & {
   queryLocalFonts?: () => Promise<LocalFontData[]>;
 };
 
-export function canQueryLocalFonts() {
-  return (
-    typeof window !== "undefined" &&
-    typeof (window as LocalFontWindow).queryLocalFonts === "function"
-  );
+// Where installed fonts can be listed from: the Local Font Access API, or
+// the native app's own command where the webview lacks it (WKWebView and
+// WebKitGTK).
+export type LocalFontSources = {
+  queryLocalFonts?: () => Promise<LocalFontData[]>;
+  listNativeFontFamilies?: () => Promise<string[]>;
+};
+
+function getLocalFontSources(): LocalFontSources {
+  if (typeof window === "undefined") {
+    return {};
+  }
+  const query = (window as LocalFontWindow).queryLocalFonts;
+  return {
+    queryLocalFonts:
+      typeof query === "function" ? () => query.call(window) : undefined,
+    listNativeFontFamilies: isTauri()
+      ? () => invoke<string[]>("list_font_families")
+      : undefined,
+  };
+}
+
+export function canQueryLocalFonts(sources = getLocalFontSources()) {
+  return Boolean(sources.queryLocalFonts || sources.listNativeFontFamilies);
 }
 
 /**
  * Families installed on this machine, via the Local Font Access API, which
- * asks for permission first. Empty where it isn't supported or is denied.
+ * asks for permission first, or else the native app. Empty where neither is
+ * available.
  */
-export async function queryLocalFontFamilies() {
-  const query = (window as LocalFontWindow).queryLocalFonts;
-  if (!query) {
-    return [];
+export async function queryLocalFontFamilies(sources = getLocalFontSources()) {
+  let families: string[] = [];
+  if (sources.queryLocalFonts) {
+    families = (await sources.queryLocalFonts()).map((font) => font.family);
+  } else if (sources.listNativeFontFamilies) {
+    families = await sources.listNativeFontFamilies();
   }
-  const fonts = await query.call(window);
-  return Array.from(new Set(fonts.map((font) => font.family))).sort(
-    (left, right) => left.localeCompare(right),
+  return Array.from(new Set(families)).sort((left, right) =>
+    left.localeCompare(right),
   );
 }
