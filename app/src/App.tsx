@@ -170,6 +170,10 @@ import {
   type SessionOpenResponse,
 } from "./session";
 import {
+  dropClipOnFreeLane,
+  isSourceClipDropClick,
+} from "./source-clip-drop.ts";
+import {
   formatSourceTracksSummary,
   isSourceTracksSectionCollapsed,
   readSourceTracksCollapsed,
@@ -1183,6 +1187,7 @@ function getShortcutLabels() {
     return {
       undo: "Ctrl+Z",
       redo: "Ctrl+Shift+Z",
+      sourceClipDrop: "Ctrl+click",
     };
   }
 
@@ -1199,6 +1204,7 @@ function getShortcutLabels() {
   return {
     undo: isMac ? "Cmd+Z" : "Ctrl+Z",
     redo: isMac ? "Shift+Cmd+Z" : "Ctrl+Shift+Z",
+    sourceClipDrop: isMac ? "Cmd+click" : "Ctrl+click",
   };
 }
 
@@ -3474,6 +3480,54 @@ function App() {
     },
     [bpm, createWindowClip, pendingSelection, sourceSpans, sourceTracks],
   );
+
+  // Ctrl/Cmd-click on a source clip: drops the whole clip onto the last layer
+  // with room for it at the same song position, or onto a new layer.
+  function addSourceSpanToArrangement(sourceSpan: SourceSpan) {
+    const sourceTrack = sourceTracks.find(
+      (track) => track.id === sourceSpan.sourceTrackId,
+    );
+    if (!sourceTrack) {
+      return;
+    }
+
+    const clip = createWindowClip(
+      {
+        id: sourceSpan.id,
+        laneId: "",
+        startQ: sourceSpan.startQ,
+        durationQ: getClipDurationQ(sourceSpan, bpm),
+      },
+      sourceTrack,
+      sourceSpan,
+    );
+    const drop = dropClipOnFreeLane(lanes, clips, clip, bpm, () => ({
+      id: createLaneId(lanes),
+      name: `Layer ${getNextLaneNumber(lanes)}`,
+      colorIndex: -1,
+    }));
+    if (!drop) {
+      setStatus(`You already have the maximum of ${MAX_LAYERS} layers.`);
+      return;
+    }
+
+    commitProjectChange("Add clip from source", (current) =>
+      patchProjectState(current, {
+        lanes: drop.lanes,
+        clips: drop.clips,
+        effects: drop.createdLane
+          ? ensureLayerLayouts(current.effects, [drop.lane.id])
+          : current.effects,
+      }),
+    );
+    setPendingSelection(null);
+    setSelectedClipId(drop.clip.id);
+    setStatus(
+      drop.createdLane
+        ? `Added ${sourceTrack.name} to a new layer, ${drop.lane.name}.`
+        : `Added ${sourceTrack.name} to ${drop.lane.name}.`,
+    );
+  }
 
   function getRandomizationTimelineEndQ() {
     return getWandEndQ({
@@ -7059,9 +7113,21 @@ function App() {
                                     ? spanFilmstrips.get(clip.id)
                                     : undefined;
                                 return (
+                                  // biome-ignore lint/a11y/noStaticElementInteractions: Ctrl/Cmd-click is a mouse shortcut; pressing a source layer's number key commits a selection from the keyboard
+                                  // biome-ignore lint/a11y/useKeyWithClickEvents: a plain click does nothing, so there is no keyboard equivalent to add
                                   <div
                                     key={clip.id}
                                     className={`source-span ${filmstrip ? "source-span--filmstrip" : ""}`}
+                                    onClick={(event) => {
+                                      if (!isSourceClipDropClick(event)) {
+                                        return;
+                                      }
+
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                      addSourceSpanToArrangement(clip);
+                                    }}
+                                    title={`${shortcutLabels.sourceClipDrop} to add this clip to the arrangement`}
                                     style={{
                                       left: clip.startQ * quarterPx,
                                       width:
