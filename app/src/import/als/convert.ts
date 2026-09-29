@@ -534,12 +534,16 @@ function convertClip(
       frameOffset: 0,
       clipStart,
       filePath,
-      warpMarkers: clip.warpMarkers.map((marker, markerIndex) => ({
-        id: String(markerIndex),
-        clipId: id,
-        secTime: marker.secTime,
-        beatTime: marker.beatTime,
-      })),
+      // Live keeps an unwarped clip's markers but plays it at native speed,
+      // so it gets none here: the player follows every clip's markers.
+      warpMarkers: (isAudio && !clip.isWarped ? [] : clip.warpMarkers).map(
+        (marker, markerIndex) => ({
+          id: String(markerIndex),
+          clipId: id,
+          secTime: marker.secTime,
+          beatTime: marker.beatTime,
+        }),
+      ),
       frameHiddenLoopEnd: contentToFrames(unrolled.hiddenLoopEnd),
       captureOffset,
       audioFileDuration: Number.isFinite(duration) ? duration : "NaN",
