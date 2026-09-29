@@ -792,13 +792,24 @@ describe("layer FX bypass", () => {
     assert.deepEqual(ids(rendered, "6"), ["fill-color"]);
   });
 
-  it("keeps the Text that styles text clips on a bypassed layer", () => {
-    const effects = addEffect(load(), "6", "Text", undefined, "text-style");
+  it("keeps a text clip's own Text on a bypassed layer", () => {
+    const effects = addEffect(
+      load(),
+      "clip:t",
+      "Text",
+      undefined,
+      "text-style",
+    );
     const rendered = getRenderedEffects(
       effects,
       setLaneFxEnabled(LANES, "6", false),
     );
-    assert.deepEqual(ids(rendered, "6"), ["text-style"]);
+    assert.deepEqual(ids(rendered, "clip:t"), ["text-style"]);
+  });
+
+  it("never adds Text to a layer's own stack", () => {
+    const effects = load();
+    assert.equal(addEffect(effects, "6", "Text", undefined, "text"), effects);
   });
 
   it("restores each device's own bypass state when turned back on", () => {

@@ -121,6 +121,12 @@ describe("addTextClip", () => {
     assert.equal(resolveTextStyle(effects, "1", "clip:text-b").text, "Second");
   });
 
+  it("keeps its text when moved to another layer", () => {
+    const { effects } = insert({ clips: [], effects: [layout("1")] });
+    const moved = setEffectParameter(effects, "text-effect", "Text", "Moved");
+    assert.equal(resolveTextStyle(moved, "2", "clip:text-a").text, "Moved");
+  });
+
   it("puts no Text effect on the layer", () => {
     const { effects } = insert({ clips: [], effects: [layout("1")] });
     assert.ok(
