@@ -4,6 +4,10 @@
   --lane-selected-accent: var(--amber);
   --lane-selected-label: #3a3d53;
   --lane-selected-tint: rgba(246, 183, 60, 0.05);
+  /* Arrangement lane stacking, lowest first. Clip cards are isolated at
+     z-index auto, so anything positive paints over them and their handles. */
+  --z-timeline-selection: 3;
+  --z-timeline-playhead: 4;
 }
 
 .app-shell {
@@ -1340,7 +1344,7 @@
   transform: translateX(-50%);
   background: #f6b73c;
   pointer-events: none;
-  z-index: 4;
+  z-index: var(--z-timeline-playhead);
 }
 
 .ruler-row,
@@ -1750,30 +1754,40 @@
   cursor: crosshair;
 }
 
+/* Drawn over the lane's clips (it renders before them) so the range stays
+   visible on busy filmstrips, but under the playhead. */
 .timeline-selection {
   position: absolute;
+  z-index: var(--z-timeline-selection);
   top: 12px;
   height: 48px;
   border-radius: 10px;
   border: 1px dashed rgba(124, 161, 255, 0.85);
   background:
-    linear-gradient(180deg, rgba(124, 161, 255, 0.16), rgba(124, 161, 255, 0.08)),
+    linear-gradient(180deg, rgba(124, 161, 255, 0.22), rgba(124, 161, 255, 0.14)),
     repeating-linear-gradient(
       135deg,
-      rgba(124, 161, 255, 0.12) 0,
-      rgba(124, 161, 255, 0.12) 10px,
+      rgba(124, 161, 255, 0.14) 0,
+      rgba(124, 161, 255, 0.14) 10px,
       transparent 10px,
       transparent 20px
     );
-  box-shadow: 0 0 0 1px rgba(124, 161, 255, 0.18);
+  /* The dark inner ring separates the dashed border from clip frames. */
+  box-shadow:
+    0 0 0 1px rgba(124, 161, 255, 0.18),
+    inset 0 0 0 1px rgba(10, 11, 20, 0.45);
   display: flex;
   align-items: center;
+  /* Default padding; the render narrows it for small selections
+     (selection-hint.ts). */
   padding: 0 14px;
+  overflow: hidden;
   pointer-events: none;
 }
 
 .timeline-selection span {
   color: #d9e3ff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
   font-size: 0.72rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1843,8 +1857,9 @@
 }
 
 /* The handles sit over the body's edges and stay hidden until the clip is
-   hovered, selected, keyboard-focused or trimmed. Hidden handles keep their hit area,
-   so an edge can still be grabbed without hovering first. */
+   hovered, keyboard-focused or trimmed; selection alone shows only the
+   outline. Hidden handles keep their hit area, so an edge can still be
+   grabbed without hovering first. */
 .clip-card__handle {
   position: relative;
   z-index: 1;
@@ -1857,7 +1872,6 @@
 
 .clip-card:hover .clip-card__handle,
 .clip-card:has(:focus-visible) .clip-card__handle,
-.clip-card--selected .clip-card__handle,
 .clip-card--trimming .clip-card__handle {
   opacity: 1;
 }
@@ -3117,4 +3131,50 @@
   color: var(--ink);
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.72rem;
+}
+
+.media-storage__summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px 16px;
+  margin: 16px 0 0;
+}
+
+.media-storage__summary div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.media-storage__summary dt {
+  color: #a4a9bf;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.media-storage__summary dd {
+  margin: 0;
+  font-size: 0.86rem;
+}
+
+.media-storage__persistence--persistent {
+  color: #7ee0a4;
+}
+
+.media-storage__persistence--best-effort,
+.media-storage__persistence--unsupported {
+  color: #ffe084;
+}
+
+.media-storage__bytes {
+  color: #d8dcef;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.media-storage__empty {
+  margin: 16px 0 0;
+  color: #a4a9bf;
+  font-size: 0.86rem;
 }

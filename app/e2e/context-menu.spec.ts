@@ -367,6 +367,11 @@ test("Ctrl-click on macOS opens the menus without selecting, dragging or droppin
   await page.keyboard.press("Escape");
 
   const clip = page.locator(".clip-card");
+  // The lane press scrolled the timeline, leaving the clip under the sticky
+  // layer labels, so scroll back before pressing it.
+  await page.locator(".timeline-scroll").evaluate((element) => {
+    element.scrollLeft = 0;
+  });
   await ctrlClick(clip.locator(".clip-card__body"));
   await expect(page.getByRole("menu", { name: "Clip actions" })).toBeVisible();
   expect(await lastEventShowedNativeMenu(page)).toBe(false);
