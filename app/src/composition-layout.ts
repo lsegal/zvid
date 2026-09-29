@@ -280,18 +280,17 @@ export function resolveLayerPlacement(options: {
   visual: LayerVisual;
   // Absent means stacked bands with no spacing.
   order?: CompositionOrder;
+  // The box the layer fills, when it isn't its slot: a text layer's box,
+  // which its Transform resizes.
+  frame?: FrameBounds;
 }): LayerPlacement {
   const { index, count, canvasWidth, canvasHeight, visual } = options;
   const order = options.order ?? DEFAULT_COMPOSITION_ORDER;
   const canvasAspect = canvasWidth / Math.max(1, canvasHeight);
   const sourceAspect = options.sourceWidth / Math.max(1, options.sourceHeight);
-  const frame = resolveSlotBounds(
-    index,
-    count,
-    order,
-    canvasWidth,
-    canvasHeight,
-  );
+  const frame =
+    options.frame ??
+    resolveSlotBounds(index, count, order, canvasWidth, canvasHeight);
   const cover = resolveCoverHalfExtents(frame, sourceAspect, canvasAspect);
   const layoutScale = Math.max(1, visual.scale);
   const halfExtents = { x: cover.x * layoutScale, y: cover.y * layoutScale };

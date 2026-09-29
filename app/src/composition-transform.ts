@@ -124,6 +124,49 @@ export function frameBoxInCanvas(frame: FrameBounds, canvas: CanvasSize): Box {
   };
 }
 
+// The inverse of `frameBoxInCanvas`: a canvas-pixel box as clip-space
+// bounds.
+export function canvasBoxToFrame(box: Box, canvas: CanvasSize): FrameBounds {
+  const halfWidth = box.width / canvas.width;
+  const halfHeight = box.height / canvas.height;
+  return {
+    centerX: (box.x / canvas.width) * 2 - 1 + halfWidth,
+    centerY: 1 - (box.y / canvas.height) * 2 - halfHeight,
+    halfWidth,
+    halfHeight,
+    aspect: box.width / Math.max(box.height, 0.0001),
+  };
+}
+
+export type TextBox = {
+  // The text box in canvas pixels, before its Transform moves and turns it.
+  box: Box;
+  // The layer's Transform without its scale, which the box already holds.
+  transform: LayerTransform;
+};
+
+// A text layer's Transform resizes its text box instead of stretching the
+// text: Width and Height scale the band about the Transform's origin, and
+// the rest of the Transform (position, origin, rotation) moves and turns the
+// resized box. The box lands exactly where the Transform puts the band, so
+// only the text inside it is laid out differently.
+export function resolveTextBox(
+  band: Box,
+  transform: LayerTransform = IDENTITY_TRANSFORM,
+): TextBox {
+  const pivotX = band.x + ((transform.originX + 1) / 2) * band.width;
+  const pivotY = band.y + ((transform.originY + 1) / 2) * band.height;
+  return {
+    box: {
+      x: pivotX + (band.x - pivotX) * transform.scaleX,
+      y: pivotY + (band.y - pivotY) * transform.scaleY,
+      width: band.width * transform.scaleX,
+      height: band.height * transform.scaleY,
+    },
+    transform: { ...transform, scaleX: 1, scaleY: 1 },
+  };
+}
+
 // The four corners of a placed layer after its Transform, in canvas pixels.
 export function layerBoxInCanvas(
   placement: { frame: FrameBounds },
