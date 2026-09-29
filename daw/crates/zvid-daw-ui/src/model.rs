@@ -34,6 +34,8 @@ pub struct Camera {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VideoFormat {
+    /// Displayed size: portrait for a source rotated to portrait, even
+    /// when its device format is landscape.
     pub width: u32,
     pub height: u32,
     /// Frame rate as a `[numerator, denominator]` fraction.

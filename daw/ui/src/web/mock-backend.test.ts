@@ -7,6 +7,7 @@ import {
   EventLog,
   MockBackend,
   PreviewSlot,
+  ROTATED_CAMERA,
   rfc3339Utc,
 } from "./mock-backend.ts";
 
@@ -119,6 +120,16 @@ test("failing cameras report errors", () => {
   assert.equal(mock.status().phase, "ready");
   assert.equal(mock.status().format?.height, 1920);
   assert.throws(() => mock.selectCamera("gone"), /that camera is gone/);
+});
+
+test("a rotated camera reads portrait", () => {
+  const { mock } = backend();
+  mock.selectCamera(ROTATED_CAMERA);
+  assert.deepEqual(mock.status().format, {
+    width: 1080,
+    height: 1920,
+    fps: [30, 1],
+  });
 });
 
 test("refresh finds the phone", async () => {
