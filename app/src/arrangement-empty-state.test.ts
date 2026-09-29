@@ -127,7 +127,7 @@ describe("arrangement empty state wiring", () => {
     assert.match(componentTsx, /aria-label="Dismiss"/);
   });
 
-  it("dismisses from a single bordered \"✕ or dismiss\" button", () => {
+  it('dismisses from a single bordered "✕ or dismiss" button', () => {
     const dismiss = componentTsx.match(
       /<button\s[^>]*aria-label="Dismiss"[^>]*>[\s\S]*?<\/button>/,
     )?.[0];
