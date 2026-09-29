@@ -8,6 +8,8 @@ export type ContextMenuItem = {
   label: string;
   shortcut?: string;
   disabled?: boolean;
+  // Tooltip, such as why the item is disabled.
+  title?: string;
   onSelect?: () => void;
   submenu?: ContextMenuEntry[];
 };
@@ -63,6 +65,18 @@ export function isContextMenuKey(event: {
     !event.ctrlKey &&
     !event.metaKey
   );
+}
+
+/**
+ * Whether a pointer press opens a context menu rather than acting as a click
+ * or drag: the secondary button, or Ctrl with the primary button on macOS,
+ * which browsers there also report as a contextmenu event.
+ */
+export function isContextMenuPress(
+  event: { button: number; ctrlKey: boolean },
+  mac: boolean,
+) {
+  return event.button === 2 || (mac && event.button === 0 && event.ctrlKey);
 }
 
 /** The entries shown at `level`, or undefined when that level is not open. */

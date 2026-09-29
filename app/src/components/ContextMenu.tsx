@@ -312,6 +312,7 @@ function OpenContextMenu({
                     setPath(hoverMenuPath(entries, path, level, index))
                   }
                   role="menuitem"
+                  title={entry.title}
                 >
                   <span className="context-menu__label">{entry.label}</span>
                   {entry.shortcut ? (

@@ -117,8 +117,9 @@ import {
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
 import { WandIcon } from "./components/WandIcon";
-import { isContextMenuKey } from "./context-menu.ts";
+import { isContextMenuKey, isContextMenuPress } from "./context-menu.ts";
 import {
+  ADDABLE_EFFECT_DEFINITIONS,
   getDefaultLaneId,
   resolveSelectedLaneId,
   stepSelectedLaneId,
@@ -147,6 +148,21 @@ import {
   supportsHarnessCapability,
 } from "./harness";
 import { hasMediaExtension } from "./harness/media-extensions";
+import {
+  createLaneId,
+  deleteLane,
+  duplicateLane,
+  getNextLaneName,
+  insertLane,
+  moveLane,
+  renameLane,
+} from "./lanes";
+import {
+  buildLayerMenuEntries,
+  buildMainAudioMenuEntries,
+  layerHistoryLabels,
+  MAX_LAYERS_MESSAGE,
+} from "./layer-menu";
 import { MainWaveform } from "./MainWaveform";
 import { withMainAudio } from "./main-audio";
 import {
@@ -288,12 +304,15 @@ type ArrangementClip = {
   selected?: boolean;
 };
 
-// The right-click menu open on an arrangement clip, empty lane space or a
-// source clip, at `anchor` in viewport coordinates.
+// The right-click menu open on an arrangement clip, empty lane space, a
+// source clip, a layer header or the Audio row, at `anchor` in viewport
+// coordinates.
 type ClipMenuState = { anchor: MenuPoint } & (
   | { kind: "clip"; clipId: string }
   | { kind: "lane"; laneId: string }
   | { kind: "span"; spanId: string }
+  | { kind: "layer"; laneId: string }
+  | { kind: "audio" }
 );
 
 type TimelineSelection = {
@@ -927,19 +946,6 @@ function buildDraggedMediaKey(files: readonly File[]) {
 
 function getNextLaneNumber(lanes: Lane[]) {
   return lanes.length + 1;
-}
-
-function createLaneId(lanes: Lane[]) {
-  const numericIds = lanes
-    .map((lane) => Number.parseInt(lane.id, 10))
-    .filter((value) => Number.isInteger(value));
-  let nextId = Math.max(0, ...numericIds) + 1;
-
-  while (lanes.some((lane) => lane.id === `${nextId}`)) {
-    nextId += 1;
-  }
-
-  return `${nextId}`;
 }
 
 function randomFloat() {
@@ -1737,6 +1743,67 @@ function buildStandaloneProject(mediaItems: MediaItem[]) {
   };
 }
 
+// Inline editor for a layer name: Enter or leaving the field saves, Escape
+// cancels.
+function LayerNameInput({
+  initialName,
+  onSubmit,
+  onCancel,
+}: {
+  initialName: string;
+  onSubmit: (name: string) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState(initialName);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const doneRef = useRef(false);
+  const finish = (save: boolean) => {
+    if (doneRef.current) {
+      return;
+    }
+
+    doneRef.current = true;
+    if (save) {
+      onSubmit(name);
+    } else {
+      onCancel();
+    }
+  };
+
+  // Waits a tick so the closing menu does not take focus back.
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, []);
+
+  return (
+    <input
+      aria-label="Layer name"
+      className="track-label__rename"
+      maxLength={64}
+      onBlur={() => finish(true)}
+      onChange={(event) => setName(event.target.value)}
+      onKeyDown={(event) => {
+        // Keep app shortcuts (Delete, arrows, Space) away from the field.
+        event.stopPropagation();
+        if (event.key === "Enter") {
+          event.preventDefault();
+          finish(true);
+        } else if (event.key === "Escape") {
+          event.preventDefault();
+          finish(false);
+        }
+      }}
+      ref={inputRef}
+      type="text"
+      value={name}
+    />
+  );
+}
+
 function App() {
   const [initialCollaborationConfig] = useState(() =>
     getInitialCollaborationConfig(),
@@ -1776,6 +1843,8 @@ function App() {
   >(null);
   const [selectedClipId, setSelectedClipId] = useState<string>();
   const [clipMenu, setClipMenu] = useState<ClipMenuState | null>(null);
+  // The layer whose name is being edited in its header.
+  const [renamingLaneId, setRenamingLaneId] = useState<string>();
   // The layer the FX chain edits. Selecting a clip selects its layer, and
   // clearing the clip selection keeps the layer.
   const [selectedLaneId, setSelectedLaneId] = useState<string>();
@@ -4606,6 +4675,143 @@ function App() {
     setClipMenu({ kind: "lane", laneId, anchor: getMenuAnchor(event) });
   }
 
+  // Right-clicking a layer header, or the context-menu key on it, selects
+  // the layer before the menu opens.
+  function openLayerMenu(event: ReactMouseEvent<HTMLElement>, laneId: string) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (renamingLaneId === laneId) {
+      return;
+    }
+
+    selectLaneFromLabel(laneId);
+    setClipMenu({ kind: "layer", laneId, anchor: getMenuAnchor(event) });
+  }
+
+  function openMainAudioMenu(event: ReactMouseEvent<HTMLElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    setClipMenu({ kind: "audio", anchor: getMenuAnchor(event) });
+  }
+
+  // Selects `laneId` and focuses its header once it has rendered.
+  function focusLaneLabel(laneId: string) {
+    selectLaneFromLabel(laneId);
+    window.setTimeout(() => {
+      document
+        .querySelector<HTMLElement>(
+          `[data-lane-label-id="${CSS.escape(laneId)}"]`,
+        )
+        ?.focus();
+    }, 0);
+  }
+
+  function insertLayer(laneId: string, where: "above" | "below") {
+    const index = lanes.findIndex((lane) => lane.id === laneId);
+    if (index < 0) {
+      return;
+    }
+    if (!canCreateLayer) {
+      setStatus(MAX_LAYERS_MESSAGE);
+      return;
+    }
+
+    const nextLane: Lane = {
+      id: createLaneId(lanes),
+      name: getNextLaneName(lanes),
+      colorIndex: -1,
+    };
+    commitProjectChange(
+      layerHistoryLabels.insert(lanes[index].name, where),
+      (current) =>
+        patchProjectState(
+          current,
+          insertLane(current, where === "above" ? index : index + 1, nextLane),
+        ),
+    );
+    focusLaneLabel(nextLane.id);
+    setStatus(`Created ${nextLane.name}.`);
+  }
+
+  function duplicateLayer(lane: Lane) {
+    if (!canCreateLayer) {
+      setStatus(MAX_LAYERS_MESSAGE);
+      return;
+    }
+
+    const newLaneId = createLaneId(lanes);
+    commitProjectChange(layerHistoryLabels.duplicate(lane.name), (current) =>
+      patchProjectState(
+        current,
+        duplicateLane(current, lane.id, newLaneId, (kind) =>
+          kind === "clip"
+            ? `window-${crypto.randomUUID()}`
+            : crypto.randomUUID(),
+        ),
+      ),
+    );
+    focusLaneLabel(newLaneId);
+    setStatus(`Duplicated ${lane.name}.`);
+  }
+
+  function deleteLayer(lane: Lane) {
+    if (lanes.length <= 1) {
+      return;
+    }
+
+    commitProjectChange(layerHistoryLabels.remove(lane.name), (current) =>
+      patchProjectState(current, deleteLane(current, lane.id)),
+    );
+    if (selectedClip?.laneId === lane.id) {
+      setSelectedClipId(undefined);
+    }
+    if (pendingSelection?.laneId === lane.id) {
+      setPendingSelection(null);
+    }
+    // The layer that takes its place in the list, else the one above.
+    const index = lanes.findIndex((item) => item.id === lane.id);
+    const neighbour = lanes[index + 1] ?? lanes[index - 1];
+    if (neighbour) {
+      focusLaneLabel(neighbour.id);
+    }
+    setStatus(`Deleted ${lane.name}.`);
+  }
+
+  function moveLayer(lane: Lane, direction: -1 | 1) {
+    commitProjectChange(
+      layerHistoryLabels.move(lane.name, direction),
+      (current) =>
+        patchProjectState(current, moveLane(current, lane.id, direction)),
+    );
+    focusLaneLabel(lane.id);
+  }
+
+  function commitLayerRename(laneId: string, name: string) {
+    setRenamingLaneId(undefined);
+    const lane = lanes.find((item) => item.id === laneId);
+    if (!lane) {
+      return;
+    }
+
+    commitProjectChange(layerHistoryLabels.rename(lane.name), (current) =>
+      patchProjectState(current, renameLane(current, laneId, name)),
+    );
+  }
+
+  // Adds an effect to the layer's chain and shows it in the FX panel.
+  function addLayerFx(laneId: string, effectName: string) {
+    selectLaneFromLabel(laneId);
+    addFxDevice(laneId, effectName, crypto.randomUUID());
+    if (isInspectorCollapsed) {
+      toggleInspectorCollapsed();
+    }
+  }
+
+  function removeMainAudio() {
+    commitProjectPatch("Remove main audio", { mainAudioId: undefined });
+    setStatus("Removed main audio.");
+  }
+
   function openSourceSpanMenu(
     event: ReactMouseEvent<HTMLElement>,
     span: SourceSpan,
@@ -4712,6 +4918,43 @@ function App() {
   }, []);
 
   function getClipMenuEntries(menu: ClipMenuState): ContextMenuEntry[] {
+    if (menu.kind === "audio") {
+      return buildMainAudioMenuEntries({
+        hasMainAudio: Boolean(mainAudioId),
+        disabled: isExporting,
+        chooseFile: () => mainAudioInputRef.current?.click(),
+        remove: removeMainAudio,
+      });
+    }
+
+    if (menu.kind === "layer") {
+      const lane = lanes.find((item) => item.id === menu.laneId);
+      if (!lane) {
+        return [];
+      }
+
+      const fxEnabled = isLayerFxEnabled(lane);
+      return buildLayerMenuEntries({
+        lanes,
+        laneId: lane.id,
+        fxEnabled,
+        effectCount: laneStatusById.get(lane.id)?.effectCount ?? 0,
+        effects: ADDABLE_EFFECT_DEFINITIONS,
+        disabled: isExporting,
+        actions: {
+          rename: () => setRenamingLaneId(lane.id),
+          duplicate: () => duplicateLayer(lane),
+          remove: () => deleteLayer(lane),
+          toggleFx: () => setLayerFxEnabled(lane.id, !fxEnabled),
+          addFx: (effectName) => addLayerFx(lane.id, effectName),
+          insertAbove: () => insertLayer(lane.id, "above"),
+          insertBelow: () => insertLayer(lane.id, "below"),
+          moveUp: () => moveLayer(lane, -1),
+          moveDown: () => moveLayer(lane, 1),
+        },
+      });
+    }
+
     if (menu.kind === "span") {
       const span = sourceSpans.find((item) => item.id === menu.spanId);
       if (!span) {
@@ -6928,10 +7171,16 @@ function App() {
                         {/* biome-ignore lint/a11y/useKeyWithClickEvents: the layer name button handles the keyboard */}
                         <div
                           className="track-label track-label--lane"
+                          data-layer-header-id={lane.id}
+                          onContextMenu={(event) =>
+                            openLayerMenu(event, lane.id)
+                          }
                           onClick={(event) => {
                             if (
                               event.target instanceof Element &&
-                              event.target.closest(".track-label__fx")
+                              event.target.closest(
+                                ".track-label__fx, .track-label__rename",
+                              )
                             ) {
                               return;
                             }
@@ -6941,20 +7190,34 @@ function App() {
                           <div className="track-label__index">
                             {laneIndex + 1}
                           </div>
-                          <button
-                            aria-current={
-                              lane.id === fxLaneId ? "true" : undefined
-                            }
-                            className="track-label__select"
-                            data-lane-label-id={lane.id}
-                            tabIndex={lane.id === fxLaneId ? 0 : -1}
-                            type="button"
-                          >
-                            <span>{lane.name}</span>
-                            <small>
-                              {laneStatusById.get(lane.id)?.summary}
-                            </small>
-                          </button>
+                          {renamingLaneId === lane.id ? (
+                            <LayerNameInput
+                              initialName={lane.name}
+                              onCancel={() => {
+                                setRenamingLaneId(undefined);
+                                focusLaneLabel(lane.id);
+                              }}
+                              onSubmit={(name) => {
+                                commitLayerRename(lane.id, name);
+                                focusLaneLabel(lane.id);
+                              }}
+                            />
+                          ) : (
+                            <button
+                              aria-current={
+                                lane.id === fxLaneId ? "true" : undefined
+                              }
+                              className="track-label__select"
+                              data-lane-label-id={lane.id}
+                              tabIndex={lane.id === fxLaneId ? 0 : -1}
+                              type="button"
+                            >
+                              <span>{lane.name}</span>
+                              <small>
+                                {laneStatusById.get(lane.id)?.summary}
+                              </small>
+                            </button>
+                          )}
                           <button
                             aria-label={`${lane.name} effects`}
                             aria-pressed={laneStatusById.get(lane.id)?.fxToggle}
@@ -6981,10 +7244,10 @@ function App() {
                             openLaneMenu(event, lane.id)
                           }
                           onPointerDown={(event) => {
-                            // Right-click opens the lane menu instead.
+                            // Right-click, or Ctrl-click on macOS, opens the lane menu instead.
                             if (
                               event.target !== event.currentTarget ||
-                              event.button === 2
+                              isContextMenuPress(event, shortcutLabels.mac)
                             ) {
                               return;
                             }
@@ -7081,10 +7344,14 @@ function App() {
                                   openArrangementClipMenu(event, clip)
                                 }
                                 onPointerDown={(event) => {
-                                  // Right-click selects through the menu
-                                  // instead of starting a drag or a lane
-                                  // selection.
-                                  if (event.button === 2) {
+                                  // Right-click, or Ctrl-click on macOS, selects through the
+                                  // menu instead of starting a drag or a lane selection.
+                                  if (
+                                    isContextMenuPress(
+                                      event,
+                                      shortcutLabels.mac,
+                                    )
+                                  ) {
                                     event.stopPropagation();
                                   }
                                 }}
@@ -7140,7 +7407,12 @@ function App() {
                                 <button
                                   className="clip-card__handle clip-card__handle--start"
                                   onPointerDown={(event) => {
-                                    if (event.button === 2) {
+                                    if (
+                                      isContextMenuPress(
+                                        event,
+                                        shortcutLabels.mac,
+                                      )
+                                    ) {
                                       return;
                                     }
 
@@ -7171,7 +7443,12 @@ function App() {
                                     }
                                   }}
                                   onPointerDown={(event) => {
-                                    if (event.button === 2) {
+                                    if (
+                                      isContextMenuPress(
+                                        event,
+                                        shortcutLabels.mac,
+                                      )
+                                    ) {
                                       return;
                                     }
 
@@ -7225,7 +7502,12 @@ function App() {
                                 <button
                                   className="clip-card__handle clip-card__handle--end"
                                   onPointerDown={(event) => {
-                                    if (event.button === 2) {
+                                    if (
+                                      isContextMenuPress(
+                                        event,
+                                        shortcutLabels.mac,
+                                      )
+                                    ) {
                                       return;
                                     }
 
@@ -7257,6 +7539,7 @@ function App() {
                     aria-label="Main audio drop area"
                     className={`track-row track-row--bus ${isMainAudioDropTarget ? "is-drop-target" : ""}`}
                     data-main-audio-drop-target=""
+                    onContextMenu={openMainAudioMenu}
                     onDragEnter={handleMainAudioDragEvent}
                     onDragLeave={handleMainAudioDragLeave}
                     onDragOver={handleMainAudioDragEvent}
@@ -7533,7 +7816,14 @@ function App() {
                                     key={clip.id}
                                     className={`source-span ${filmstrip ? "source-span--filmstrip" : ""} ${clipMenu?.kind === "span" && clipMenu.spanId === clip.id ? "source-span--selected" : ""}`}
                                     onClick={(event) => {
-                                      if (!isSourceClipDropClick(event)) {
+                                      // Ctrl-click on macOS opens the menu instead.
+                                      if (
+                                        !isSourceClipDropClick(event) ||
+                                        isContextMenuPress(
+                                          event,
+                                          shortcutLabels.mac,
+                                        )
+                                      ) {
                                         return;
                                       }
 
@@ -7979,9 +8269,13 @@ function App() {
         label={
           clipMenu?.kind === "span"
             ? "Source clip actions"
-            : clipMenu?.kind === "lane"
-              ? "Layer actions"
-              : "Clip actions"
+            : clipMenu?.kind === "layer"
+              ? "Layer header actions"
+              : clipMenu?.kind === "audio"
+                ? "Main audio actions"
+                : clipMenu?.kind === "lane"
+                  ? "Layer actions"
+                  : "Clip actions"
         }
         onClose={() => setClipMenu(null)}
       />

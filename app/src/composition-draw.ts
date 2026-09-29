@@ -383,6 +383,8 @@ export function drawComposition(
           resolution: [scissor.width, scissor.height],
           audioLow: frameContext.audio.low,
           audioHigh: frameContext.audio.high,
+          impulseLow: frameContext.audio.impulseLow,
+          impulseHigh: frameContext.audio.impulseHigh,
           // The framed layer is written top row first, like a layer texture.
           bottomUp: false,
         }) ?? framed;
@@ -415,6 +417,8 @@ export function drawComposition(
         resolution: [width, height],
         audioLow: frameContext.audio.low,
         audioHigh: frameContext.audio.high,
+        impulseLow: frameContext.audio.impulseLow,
+        impulseHigh: frameContext.audio.impulseHigh,
         // The scene framebuffer is rendered normally, so it is bottom-up.
         bottomUp: true,
       },

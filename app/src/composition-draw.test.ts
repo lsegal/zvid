@@ -9,6 +9,7 @@ import {
   type WebGlResources,
 } from "./composition-draw.ts";
 import { resolveBandScissor } from "./composition-layout.ts";
+import { SILENT_AUDIO_BANDS } from "./fx-shaders/audio-bands.ts";
 import { POSITION_ATTRIBUTE_LOCATION } from "./fx-shaders/gl.ts";
 import { type ChainEffect, resolveEffectChain } from "./fx-shaders/registry.ts";
 
@@ -243,7 +244,7 @@ function render(
     layers(count, effects, sharedMedia),
     mediaRefs,
     resolveEffectChain(effects, "__group_main"),
-    { time: 1, audio: { low: 0, high: 0 }, groupClipProgress: 0 },
+    { time: 1, audio: SILENT_AUDIO_BANDS, groupClipProgress: 0 },
   );
   return {
     draws: recording.draws,
