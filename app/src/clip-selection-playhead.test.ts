@@ -36,24 +36,22 @@ describe("clip selection keeps the playhead", () => {
   });
 
   it("no selection path seeks to a clip's start", () => {
-    const seeks = [...appTsx.matchAll(/setPlayheadQ\((\w+)\.startQ\)/g)].map(
-      (match) => match.index ?? -1,
-    );
-    // Only the text-edit entry and a Ctrl/Cmd-click jump (#473) move to a
-    // clip; neither is a plain selection.
-    const allowed = [
+    const seeks = [...appTsx.matchAll(/setPlayheadQ\((\w+)\.startQ\)/g)];
+    // Only the text-edit entry and the explicit Ctrl/Cmd-click jump move to
+    // a clip.
+    assert.equal(seeks.length, 2, seeks.map((match) => match[0]).join(", "));
+    const textEdit = sliceFrom(
       "const startTextEdit = useCallback(",
-      "const jumpToClipStart = useCallback(",
-    ].map((marker) => {
-      const start = appTsx.indexOf(marker);
-      assert.notEqual(start, -1, `missing ${marker}`);
-      return { start, end: appTsx.indexOf("\n  );\n", start) };
-    });
-    assert.equal(seeks.length, allowed.length);
-    for (const index of seeks) {
+      "\n  );\n",
+    );
+    const jump = sliceFrom("const jumpToClipStart = useCallback(", "\n  );\n");
+    const seekIndexes = seeks.map((match) => match.index);
+    for (const body of [textEdit, jump]) {
+      const start = appTsx.indexOf(body);
       assert.ok(
-        allowed.some(({ start, end }) => index > start && index < end),
-        `unexpected seek at ${index}`,
+        seekIndexes.some(
+          (index) => index >= start && index < start + body.length,
+        ),
       );
     }
   });
