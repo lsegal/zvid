@@ -564,6 +564,9 @@ type ProjectState = {
   mainAudioId?: string;
   // The session length from the opened session, in frames at `fps`.
   projectDurationFrames?: number;
+  // Set on every state since sessions got a default Order effect. A restored
+  // workspace saved without it is older and gets that Order added.
+  orderDefaulted?: boolean;
 };
 
 type LocalMediaOverride = {
@@ -707,6 +710,7 @@ const INITIAL_PROJECT_STATE: ProjectState = {
     ),
   ),
   mainAudioId: undefined,
+  orderDefaulted: true,
 };
 // Card colours of fill clips on layers without an accent.
 const FILL_CLIP_TINT = "#2a2d38";
@@ -1938,15 +1942,19 @@ function normalizeRestoredProjectState(value: unknown): ProjectState {
     return cached;
   }
 
+  const saved = value as Partial<ProjectState>;
   const state: ProjectState = {
     ...INITIAL_PROJECT_STATE,
-    ...migrateLegacyMainAudio(value as Partial<ProjectState>),
+    ...migrateLegacyMainAudio(saved),
   };
   for (const field of PROJECT_ARRAY_FIELDS) {
     if (!Array.isArray(state[field])) {
       throw new Error(`Saved project snapshot has no ${field}`);
     }
   }
+  // Read from the save itself: the initial state always has the flag.
+  state.effects = migrateDefaultOrder(state.effects, saved.orderDefaulted);
+  state.orderDefaulted = true;
   for (const field of PROJECT_POSITIVE_NUMBER_FIELDS) {
     const number = state[field];
     if (typeof number !== "number" || !Number.isFinite(number) || number <= 0) {
