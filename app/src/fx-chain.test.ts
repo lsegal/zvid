@@ -25,9 +25,9 @@ import {
   writeCollapsedDevices,
 } from "./fx-chain.ts";
 import {
+  clipEffectTrackId,
   ensureGlobalOrder,
   GLOBAL_EFFECT_TRACK_ID,
-  getClipEffectTrackId,
   mapSessionEffectsToDevices,
   moveEffect,
   type SessionEffect,
@@ -99,19 +99,23 @@ describe("groupChainDevices", () => {
   it("lists the selected clip's own stack, apart from other clips'", () => {
     const effects = [
       ...DOGFOOD_EFFECTS,
-      effect("fx-clip", getClipEffectTrackId("clip-a"), "Transform"),
-      effect("fx-other-clip", getClipEffectTrackId("clip-b"), "Pixelate"),
+      effect("fx-clip", clipEffectTrackId("clip-a"), "Transform"),
+      effect("fx-other-clip", clipEffectTrackId("clip-b"), "Pixelate"),
     ];
     const groups = groupChainDevices(
-      mapSessionEffectsToDevices(effects, "3", "Layer 3", 0, new Set(), {
-        id: "clip-a",
-        name: "Text",
-      }),
+      mapSessionEffectsToDevices(
+        effects,
+        "3",
+        "Layer 3",
+        0,
+        new Set(),
+        "clip-a",
+      ),
       "video",
     );
     assert.deepEqual(
       groups.clip.map((device) => [device.name, device.subtitle]),
-      [["Transform", "Text"]],
+      [["Transform", "Clip"]],
     );
     assert.equal(groups.clip[0].unsupported, undefined);
     assert.equal(groups.layer.length, 5);
@@ -121,7 +125,7 @@ describe("groupChainDevices", () => {
   it("lists no clip stack without a selected clip", () => {
     const effects = [
       ...DOGFOOD_EFFECTS,
-      effect("fx-clip", getClipEffectTrackId("clip-a"), "Transform"),
+      effect("fx-clip", clipEffectTrackId("clip-a"), "Transform"),
     ];
     const groups = groupChainDevices(
       mapSessionEffectsToDevices(effects, "3", "Layer 3"),
@@ -196,7 +200,6 @@ describe("addableEffectsFor", () => {
       "AnalogGlitch",
       "Transform",
       "Color",
-      "Text",
     ]);
   });
 
@@ -216,13 +219,15 @@ describe("addableEffectsFor", () => {
     assert.ok(!names("clip").includes("Order"));
   });
 
-  it("offers Color, which paints fill clips, on layers only", () => {
+  it("offers Color, which paints fill clips, on layers and clips", () => {
     assert.ok(names("layer").includes("Color"));
+    assert.ok(names("clip").includes("Color"));
     assert.ok(!names("global").includes("Color"));
   });
 
-  it("offers Text, which styles text clips, on layers only", () => {
-    assert.ok(names("layer").includes("Text"));
+  it("offers Text, which styles text clips, on clips only", () => {
+    assert.ok(names("clip").includes("Text"));
+    assert.ok(!names("layer").includes("Text"));
     assert.ok(!names("global").includes("Text"));
   });
 

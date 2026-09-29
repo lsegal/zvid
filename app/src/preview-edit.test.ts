@@ -11,14 +11,20 @@ import {
   canvasToScreen,
   constrainDragDelta,
   findLayerTransform,
+  getPreviewEditTrackId,
   hitTestLayers,
+  isPointOnLayer,
+  matrixRotationDeg,
   offsetTransformPosition,
   readLayerTransformPosition,
   resolveNudgeDelta,
+  resolvePreviewEditFrame,
   resolvePreviewLayers,
   resolveVideoRect,
   screenToCanvas,
+  setLayerTransformParameters,
   setLayerTransformPosition,
+  toParentDelta,
 } from "./preview-edit.ts";
 
 const EPSILON = 1e-9;
@@ -146,6 +152,36 @@ describe("resolvePreviewLayers", () => {
       ["a", "b"],
     );
     assert.deepEqual(layers[0].corners, [
+      { x: 0, y: 0 },
+      { x: 1000, y: 0 },
+      { x: 1000, y: 500 },
+      { x: 0, y: 500 },
+    ]);
+  });
+
+  it("gives an FX clip no band and the whole canvas as its box", () => {
+    const layers = resolvePreviewLayers(
+      [
+        activeLayer("b", 1),
+        { ...activeLayer("fx", 0), fx: true },
+        activeLayer("c", 2),
+      ],
+      canvas,
+    );
+    // First, so a click only picks it where no other layer is.
+    assert.deepEqual(
+      layers.map((layer) => layer.laneId),
+      ["fx", "b", "c"],
+    );
+    assert.deepEqual(layers[0].corners, [
+      { x: 0, y: 0 },
+      { x: 1000, y: 0 },
+      { x: 1000, y: 1000 },
+      { x: 0, y: 1000 },
+    ]);
+    // The two other layers share the canvas as if the FX clip were not
+    // there.
+    assert.deepEqual(layers[1].corners, [
       { x: 0, y: 0 },
       { x: 1000, y: 0 },
       { x: 1000, y: 500 },
@@ -396,5 +432,117 @@ describe("setLayerTransformPosition", () => {
       setLayerTransformPosition(once, "a", { x: 0.2, y: 0 }, "t2"),
       once,
     );
+  });
+});
+
+describe("clip Transform editing", () => {
+  const canvas = { width: 1000, height: 1000 };
+  // A layer moved right by a quarter, holding a clip at half size.
+  const [layer] = resolvePreviewLayers(
+    [
+      {
+        clip: { id: "clip-a", laneId: "a", startQ: 0 },
+        laneRank: 0,
+        isInBounds: true,
+        visual: {
+          transform: { ...IDENTITY_TRANSFORM, positionX: 0.25 },
+          clipTransform: { ...IDENTITY_TRANSFORM, scaleX: 0.5, scaleY: 0.5 },
+        },
+      },
+    ],
+    canvas,
+    Z_ORDER_COMPOSITION,
+  );
+
+  it("outlines the clip where it is drawn, inside its layer", () => {
+    assert.deepEqual(layer.corners, [
+      { x: 500, y: 250 },
+      { x: 1000, y: 250 },
+      { x: 1000, y: 750 },
+      { x: 500, y: 750 },
+    ]);
+  });
+
+  it("hits the clip only where it is drawn", () => {
+    assert.equal(isPointOnLayer({ x: 750, y: 500 }, layer, canvas), true);
+    assert.equal(isPointOnLayer({ x: 400, y: 500 }, layer, canvas), false);
+  });
+
+  it("edits the clip's Transform inside the layer's, or the layer's alone", () => {
+    const clipFrame = resolvePreviewEditFrame(layer, true, canvas);
+    assert.equal(clipFrame.transform.scaleX, 0.5);
+    assert.deepEqual(clipFrame.corners, layer.corners);
+    assert.equal(clipFrame.parent.e, 250);
+
+    const layerFrame = resolvePreviewEditFrame(layer, false, canvas);
+    assert.equal(layerFrame.transform.positionX, 0.25);
+    assert.deepEqual(layerFrame.corners, [
+      { x: 250, y: 0 },
+      { x: 1250, y: 0 },
+      { x: 1250, y: 1000 },
+      { x: 250, y: 1000 },
+    ]);
+  });
+
+  it("measures drags inside a scaled or turned layer in the clip's own space", () => {
+    const scaled = {
+      a: 2,
+      b: 0,
+      c: 0,
+      d: 0.5,
+      e: 30,
+      f: 40,
+    };
+    assert.deepEqual(toParentDelta(scaled, { x: 10, y: 10 }), { x: 5, y: 20 });
+
+    const turned = {
+      ...IDENTITY_TRANSFORM,
+      rotationDeg: 90,
+    };
+    const turnedFrame = resolvePreviewEditFrame(
+      { ...layer, transform: turned },
+      true,
+      canvas,
+    );
+    assertClose(matrixRotationDeg(turnedFrame.parent), 90);
+    // Dragging down the screen moves the clip along the layer's own +x.
+    const delta = toParentDelta(turnedFrame.parent, { x: 0, y: 10 });
+    assertClose(delta.x, 10);
+    assertClose(delta.y, 0);
+  });
+
+  it("writes a selected clip's Transform to the clip's own stack", () => {
+    const base = [effect("layout-a", "a", "Layout")];
+    const trackId = getPreviewEditTrackId({ laneId: "a", clipId: "clip-a" });
+    assert.equal(trackId, "clip:clip-a");
+    assert.equal(getPreviewEditTrackId({ laneId: "a" }), "a");
+
+    const moved = setLayerTransformPosition(
+      base,
+      trackId,
+      { x: 0.1, y: 0.2 },
+      "clip-transform",
+    );
+    assert.deepEqual(
+      moved.map((entry) => [entry.id, entry.trackId]),
+      [
+        ["layout-a", "a"],
+        ["clip-transform", "clip:clip-a"],
+      ],
+    );
+    assert.deepEqual(readLayerTransformPosition(moved, trackId), {
+      x: 0.1,
+      y: 0.2,
+    });
+    // The layer's own Transform is untouched.
+    assert.equal(findLayerTransform(moved, "a"), undefined);
+
+    const resized = setLayerTransformParameters(
+      base,
+      trackId,
+      { scaleX: 0.5 },
+      "clip-transform",
+    );
+    assert.equal(findLayerTransform(resized, trackId)?.id, "clip-transform");
   });
 });

@@ -33,7 +33,7 @@ import {
   usesColumnLayout,
   writeCollapsedDevices,
 } from "../fx-chain";
-import type { FxEffectDefinition } from "../fx-registry";
+import type { FxEffectDefinition, FxEffectScope } from "../fx-registry";
 import {
   type FxDevice,
   type FxDeviceGroup,
@@ -67,6 +67,8 @@ type FxChainProps = {
   // Track id of the selected clip's own stack; undefined when no clip is
   // selected, which hides the Clip section.
   clipTrackId?: string;
+  // The scope the Clip section's add menu offers: "fxClip" for an FX clip.
+  clipScope?: FxEffectScope;
   // False when the selected layer's FX badge bypasses its whole stack.
   layerFxEnabled?: boolean;
   onSetLayerFxEnabled?: (enabled: boolean) => void;
@@ -160,6 +162,7 @@ export function FxChain({
   layerTrackId,
   layerName,
   clipTrackId,
+  clipScope = "clip",
   layerFxEnabled = true,
   onSetLayerFxEnabled,
   onSetEnabled,
@@ -326,9 +329,14 @@ export function FxChain({
     setAnnouncement(`Duplicated ${device.name}`);
   }
 
+  // The scope a section's add menu offers effects for.
+  function scopeOf(group: FxDeviceGroup): FxEffectScope {
+    return group === "clip" ? clipScope : group;
+  }
+
   function addDevice(group: FxDeviceGroup, effectName: string) {
     const trackId = getTrackId(group, layerTrackId, clipTrackId);
-    const definition = addableEffectsFor(group).find(
+    const definition = addableEffectsFor(scopeOf(group)).find(
       (candidate) => candidate.effectName === effectName,
     );
     if (!trackId || !definition) {
@@ -364,7 +372,7 @@ export function FxChain({
     const dividerX = (section: FxDeviceGroup | undefined) => {
       const divider = section
         ? scroller
-            .querySelector<HTMLElement>(`[data-fx-section="${section}"]`)
+            .querySelector<HTMLElement>(`[data-fx-divider="${section}"]`)
             ?.getBoundingClientRect()
         : undefined;
       return divider ? divider.left + divider.width / 2 : undefined;
@@ -631,7 +639,7 @@ export function FxChain({
     const label = ADD_MENU_LABELS[group];
     return (
       <AddDeviceMenu
-        effects={addableEffectsFor(group)}
+        effects={addableEffectsFor(scopeOf(group))}
         focusKey={`add-${group}`}
         label={label}
         onAdd={(effectName) => addDevice(group, effectName)}
@@ -650,7 +658,7 @@ export function FxChain({
 
   function renderDivider(group: FxDeviceGroup) {
     return (
-      <div className="fx-chain__divider" data-fx-section={group}>
+      <div className="fx-chain__divider" data-fx-divider={group}>
         <span>{SECTION_LABELS[group]}</span>
       </div>
     );

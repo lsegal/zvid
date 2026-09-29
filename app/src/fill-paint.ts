@@ -1,8 +1,9 @@
 // The paint a fill clip draws: a solid colour or a linear/radial gradient,
-// read from the Color effect on the clip's layer. Colours and gradients are
-// stored as the CSS strings the colour picker produces, such as
-// `rgba(255,0,0,1)` or `linear-gradient(90deg, rgba(0,0,0,1) 0%, ...)`, so
-// the timeline can show them directly and the compositor parses them here.
+// read from the Color effect on the clip or its layer. Colours and
+// gradients are stored as the CSS strings the colour picker produces, such
+// as `rgba(255,0,0,1)` or `linear-gradient(90deg, rgba(0,0,0,1) 0%, ...)`,
+// so the timeline can show them directly and the compositor parses them
+// here.
 
 export type Rgba = { r: number; g: number; b: number; a: number };
 
@@ -238,19 +239,25 @@ function readParameter(effect: FillEffect, key: string) {
 }
 
 /**
- * The paint for fill clips on layer `laneId`: the last enabled Color effect
- * on that layer's own stack, or a solid neutral grey when there is none.
+ * The paint for a fill clip on layer `laneId`: the last enabled Color effect
+ * on the clip's own stack (`clipTrackId`), else on that layer's own stack,
+ * or a solid neutral grey when there is none.
  */
 export function resolveFillPaint(
   effects: readonly FillEffect[],
   laneId: string,
+  clipTrackId?: string,
 ): FillPaint {
-  const effect = effects.findLast(
-    (candidate) =>
-      candidate.trackId === laneId &&
-      candidate.enabled !== false &&
-      isColorEffectName(candidate.effectName),
-  );
+  const find = (trackId: string | undefined) =>
+    trackId === undefined
+      ? undefined
+      : effects.findLast(
+          (candidate) =>
+            candidate.trackId === trackId &&
+            candidate.enabled !== false &&
+            isColorEffectName(candidate.effectName),
+        );
+  const effect = find(clipTrackId) ?? find(laneId);
   const fallback: FillPaint = {
     kind: "solid",
     color: parseCssColor(NEUTRAL_FILL_COLOR) as Rgba,

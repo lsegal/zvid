@@ -305,3 +305,14 @@ describe("pasteClipboard", () => {
     );
   });
 });
+
+describe("removeRangeFromLane ids", () => {
+  it("names the clip a split piece comes from", () => {
+    const sources: string[] = [];
+    removeRangeFromLane([clip("a", 0, 8)], "1", 2, 6, BPM, (source) => {
+      sources.push(source.id);
+      return "a-right";
+    });
+    assert.deepEqual(sources, ["a"]);
+  });
+});

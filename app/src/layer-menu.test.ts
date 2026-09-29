@@ -81,6 +81,35 @@ describe("buildLayerMenuEntries", () => {
     );
   });
 
+  it("inserts an FX clip at the playhead when the action exists", () => {
+    const { calls, actions } = recordingActions();
+    const entries = buildLayerMenuEntries({
+      lanes: lanes(3),
+      laneId: "2",
+      fxEnabled: true,
+      effectCount: 1,
+      effects: addableEffectsFor("layer"),
+      actions: {
+        ...actions,
+        insertText: () => calls.push("insertText"),
+        insertFx: () => calls.push("insertFx"),
+      },
+    });
+    const insert = item(entries, "insert-fx");
+    assert.equal(insert.label, "Insert FX clip at playhead");
+    assert.equal(
+      entries.indexOf(insert),
+      entries.indexOf(item(entries, "insert-text")) + 1,
+    );
+    insert.onSelect?.();
+    assert.deepEqual(calls, ["insertFx"]);
+    assert.ok(
+      !layerMenu().entries.some(
+        (entry) => entry.type === "item" && entry.id === "insert-fx",
+      ),
+    );
+  });
+
   it("lists the layer actions in order", () => {
     const { entries } = layerMenu();
     assert.deepEqual(

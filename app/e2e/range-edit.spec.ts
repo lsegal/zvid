@@ -187,6 +187,7 @@ test("the selection menu's Cut, Copy and Delete act on the span", async ({
     "Insert Track",
     "Insert Fill Clip",
     "Insert Text Clip",
+    "Insert FX Clip",
     "Clear selectionEsc",
   ]);
   await menu.getByRole("menuitem", { name: /^Delete/ }).click();

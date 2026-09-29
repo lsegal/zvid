@@ -176,20 +176,30 @@ import {
   stepSelectedLaneId,
 } from "./fx-chain";
 import {
+  addFxClip,
+  createFxClip,
+  describeFxClip,
+  FX_CLIP_LABEL,
+  isFxClip,
+} from "./fx-clip.ts";
+import {
   addEffect,
+  clipEffectTrackId,
+  copyClipEffects,
   duplicateEffect,
   effectHistoryLabels,
   ensureGlobalOrder,
   ensureLayerLayouts,
   type FxDevice,
   GLOBAL_EFFECT_TRACK_ID,
-  getClipEffectTrackId,
   getRenderedEffects,
   isLayerFxEnabled,
   isLayoutEffectName,
   mapEffects,
   mapSessionEffectsToDevices,
   moveEffect,
+  previewDuplicateClipEffects,
+  pruneClipEffects,
   removeEffect,
   resetEffect,
   type SessionEffect,
@@ -273,7 +283,9 @@ import {
   PLAYBACK_COMMIT_INTERVAL_MS,
 } from "./playhead-signal";
 import {
+  getPreviewEditTrackId,
   moveHistoryLabel,
+  type PreviewEditTarget,
   type PreviewLayer,
   readLayerTransform,
   readLayerTransformPosition,
@@ -287,11 +299,11 @@ import {
 } from "./preview-resize.ts";
 import { rotateHistoryLabel } from "./preview-rotate.ts";
 import {
-  setLayerText,
-  stepLayerFontSize,
+  setClipText,
+  stepClipFontSize,
   TEXT_EDIT_HISTORY_LABEL,
   type TextEditorKeyAction,
-  toggleLayerTextStyle,
+  toggleClipTextStyle,
 } from "./preview-text-edit.ts";
 import {
   createProjectHistoryState,
@@ -301,6 +313,7 @@ import {
   projectHistoryReducer,
 } from "./project-history";
 import {
+  migrateClipContentEffects,
   migrateDefaultOrder,
   migrateLegacyMainAudio,
   stripClipSelectionFlags,
@@ -341,6 +354,7 @@ import {
   projectToLvpSession,
   readSelectionSlip,
   readSessionFills,
+  readSessionFxClips,
   readSessionTexts,
   SESSION_FILE_EXTENSION,
 } from "./session-save.ts";
@@ -477,10 +491,11 @@ type SourceSpan = {
 
 type ArrangementClip = {
   id: string;
-  // "fill" for a media-less fill clip painted by its layer's Color effect,
-  // or "text" for a text clip styled by its Text effect; media clips leave
-  // it unset.
-  kind?: "fill" | "text";
+  // "fill" for a media-less fill clip painted by its own (or else its
+  // layer's) Color effect, "text" for a text clip styled by its own Text
+  // effect, or "fx" for an FX clip whose own stack adjusts what is beneath
+  // it; media clips leave it unset.
+  kind?: "fill" | "text" | "fx";
   sourceSpanId: string;
   sourceTrackId: string;
   laneId: string;
@@ -628,6 +643,10 @@ type ProjectState = {
   // Set on every state since sessions got a default Order effect. A restored
   // workspace saved without it is older and gets that Order added.
   orderDefaulted?: boolean;
+  // Set on every state since text and fill clips carried their own Text and
+  // Color. A restored workspace saved without it is older and has its
+  // layers' Text and Color moved onto those clips.
+  clipContentEffects?: boolean;
 };
 
 type LocalMediaOverride = {
@@ -770,12 +789,15 @@ const INITIAL_PROJECT_STATE: ProjectState = {
   ),
   mainAudioId: undefined,
   orderDefaulted: true,
+  clipContentEffects: true,
 };
 // Card colours of fill clips on layers without an accent.
 const FILL_CLIP_TINT = "#2a2d38";
 const FILL_CLIP_ACCENT = "#8d93a8";
 // Bars a text clip inserted at the playhead spans.
 const TEXT_CLIP_BARS = 4;
+// Bars an FX clip inserted at the playhead spans.
+const FX_CLIP_BARS = 4;
 const PALETTE: Palette[] = [
   { color: "#3d4052", accent: "#7ca1ff" },
   { color: "#444351", accent: "#ff6f9d" },
@@ -989,6 +1011,25 @@ function cloneClipAtStartQ(
     startQ,
     trimStartSeconds: clip.trimStartSeconds,
     sourceOffsetSeconds: clip.trimStartSeconds - quartersToSeconds(startQ, bpm),
+  };
+}
+
+// Clipboard content with the effect stacks of the clips it was copied from,
+// taken when copying, so a cut clip still pastes with its effects.
+type ClipClipboard = ClipboardContent<ArrangementClip> & {
+  effects?: SessionEffect[];
+};
+
+function withClipStacks(
+  content: ClipboardContent<ArrangementClip>,
+  effects: readonly SessionEffect[],
+): ClipClipboard {
+  const trackIds = new Set(
+    content.fragments.map((fragment) => clipEffectTrackId(fragment.clip.id)),
+  );
+  return {
+    ...content,
+    effects: effects.filter((effect) => trackIds.has(effect.trackId)),
   };
 }
 
@@ -1547,6 +1588,15 @@ function patchProjectState(
   current: ProjectState,
   patch: Partial<ProjectState>,
 ) {
+  // Clips that are gone take their own effect stacks with them.
+  if (patch.clips) {
+    const effects = patch.effects ?? current.effects;
+    const pruned = pruneClipEffects(effects, patch.clips);
+    if (pruned !== effects) {
+      patch = { ...patch, effects: pruned };
+    }
+  }
+
   let changed = false;
   const next = { ...current };
 
@@ -1808,6 +1858,10 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
       clip,
       create: createTextClip,
     })),
+    ...readSessionFxClips(session, bpm, fps).map((clip) => ({
+      clip,
+      create: createFxClip,
+    })),
   ];
   for (const { clip, create } of layerClips) {
     const lane = lanes.find((candidate) => candidate.id === clip.laneId);
@@ -1845,14 +1899,23 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
     arrangementClips,
     selectedClipId,
     // Every layer gets its own Layout, taking over any global one, and an
-    // older session gets its default Order, as part of the load so neither
-    // is a separate undo step.
-    effects: migrateDefaultOrder(
-      ensureLayerLayouts(
-        mapEffects(session.effects),
-        (lanes.length ? lanes : DEFAULT_LANES).map((lane) => lane.id),
+    // older session gets its default Order and its layers' Text and Color
+    // moved onto their text and fill clips, as part of the load so none of
+    // it is a separate undo step. Stacks of clips that could not be loaded
+    // are dropped with them.
+    effects: migrateClipContentEffects(
+      pruneClipEffects(
+        migrateDefaultOrder(
+          ensureLayerLayouts(
+            mapEffects(session.effects),
+            (lanes.length ? lanes : DEFAULT_LANES).map((lane) => lane.id),
+          ),
+          session.orderDefaulted,
+        ),
+        arrangementClips,
       ),
-      session.orderDefaulted,
+      arrangementClips,
+      session.clipContentEffects,
     ),
     displaySeconds: session.timeline?.displaySeconds ?? false,
     snapToBeat: session.timeline?.snapToBeat ?? true,
@@ -2063,8 +2126,13 @@ function normalizeRestoredProjectState(value: unknown): ProjectState {
     }
   }
   // Read from the save itself: the initial state always has the flag.
-  state.effects = migrateDefaultOrder(state.effects, saved.orderDefaulted);
+  state.effects = migrateClipContentEffects(
+    migrateDefaultOrder(state.effects, saved.orderDefaulted),
+    state.clips,
+    saved.clipContentEffects,
+  );
   state.orderDefaulted = true;
+  state.clipContentEffects = true;
   for (const field of PROJECT_POSITIVE_NUMBER_FIELDS) {
     const number = state[field];
     if (typeof number !== "number" || !Number.isFinite(number) || number <= 0) {
@@ -2471,9 +2539,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     startWidth: number;
   } | null>(null);
   const timelineScrubAudioTimeoutRef = useRef<number | null>(null);
-  const clipClipboardRef = useRef<ClipboardContent<ArrangementClip> | null>(
-    null,
-  );
+  const clipClipboardRef = useRef<ClipClipboard | null>(null);
   const collaborationControllerRef =
     useRef<CollaborationController<ProjectState> | null>(null);
   const shareCopyResetTimeoutRef = useRef<number | null>(null);
@@ -2517,6 +2583,22 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const timelineClips = dragPreviewClips ?? clips;
   const timelineClipsRef = useRef(timelineClips);
   timelineClipsRef.current = timelineClips;
+  // A clip being Ctrl/Cmd-dragged to duplicate it is drawn with its source
+  // clip's stack; the drop commits the copy's own.
+  const isDuplicateDragging = Boolean(
+    dragPreviewClips && dragState?.kind === "move" && dragState.duplicateOnDrag,
+  );
+  const timelineEffects = useMemo(
+    () =>
+      isDuplicateDragging && dragState?.kind === "move"
+        ? previewDuplicateClipEffects(
+            effects,
+            dragState.sourceClipId,
+            dragState.clipId,
+          )
+        : effects,
+    [dragState, effects, isDuplicateDragging],
+  );
   const resolvedZoom = zoomDraft ?? zoom;
 
   const commitProjectChange = useCallback(
@@ -3000,21 +3082,21 @@ function App({ boot }: { boot: WorkspaceBoot }) {
           playheadQ,
           bpm,
           lanePriority,
-          getRenderedEffects(effects, lanes),
+          getRenderedEffects(timelineEffects, lanes),
         ).filter((entry) => entry.media.kind === "video"),
         { width: canvasWidth, height: canvasHeight },
-        resolveCompositionOrder(effects, GLOBAL_EFFECT_TRACK_ID),
+        resolveCompositionOrder(timelineEffects, GLOBAL_EFFECT_TRACK_ID),
       ),
     [
       bpm,
       canvasHeight,
       canvasWidth,
-      effects,
       lanePriority,
       lanes,
       mediaItemsById,
       playheadQ,
       timelineClips,
+      timelineEffects,
     ],
   );
   const selectPreviewLayer = useCallback((layer: PreviewLayer | undefined) => {
@@ -3026,51 +3108,74 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       setSelectedClipId(undefined);
     }
   }, []);
+  // A preview edit goes to the selected clip's own Transform, or to the
+  // layer's when only the layer is selected; its history names either.
+  const describePreviewEditTarget = useCallback(
+    ({ laneId, clipId }: PreviewEditTarget) =>
+      (clipId !== undefined
+        ? timelineClipsRef.current.find((clip) => clip.id === clipId)?.label
+        : undefined) ??
+      lanes.find((lane) => lane.id === laneId)?.name ??
+      `Layer ${laneId}`,
+    [lanes],
+  );
   const getPreviewLayerPosition = useCallback(
-    (laneId: string) => readLayerTransformPosition(effectsRef.current, laneId),
+    (target: PreviewEditTarget) =>
+      readLayerTransformPosition(
+        effectsRef.current,
+        getPreviewEditTrackId(target),
+      ),
     [],
   );
   const movePreviewLayer = useCallback(
-    ({ laneId, position, mode, newEffectId }: PreviewLayerMove) =>
+    ({ position, mode, newEffectId, ...target }: PreviewLayerMove) =>
       editEffects(
-        moveHistoryLabel(
-          lanes.find((lane) => lane.id === laneId)?.name ?? `Layer ${laneId}`,
-        ),
+        moveHistoryLabel(describePreviewEditTarget(target)),
         (current) =>
-          setLayerTransformPosition(current, laneId, position, newEffectId),
+          setLayerTransformPosition(
+            current,
+            getPreviewEditTrackId(target),
+            position,
+            newEffectId,
+          ),
         mode,
       ),
-    [editEffects, lanes],
+    [describePreviewEditTarget, editEffects],
   );
   const getPreviewLayerTransform = useCallback(
-    (laneId: string) => readLayerTransform(effectsRef.current, laneId),
+    (target: PreviewEditTarget) =>
+      readLayerTransform(effectsRef.current, getPreviewEditTrackId(target)),
     [],
   );
   const transformPreviewLayer = useCallback(
     ({
-      laneId,
       kind,
       values,
       mode,
       newEffectId,
+      ...target
     }: PreviewLayerTransformEdit) => {
-      const layerName =
-        lanes.find((lane) => lane.id === laneId)?.name ?? `Layer ${laneId}`;
+      const targetName = describePreviewEditTarget(target);
       editEffects(
         kind === "resize"
-          ? resizeHistoryLabel(layerName)
+          ? resizeHistoryLabel(targetName)
           : kind === "rotate"
-            ? rotateHistoryLabel(layerName)
+            ? rotateHistoryLabel(targetName)
             : MOVE_ORIGIN_HISTORY_LABEL,
         (current) =>
-          setLayerTransformParameters(current, laneId, values, newEffectId),
+          setLayerTransformParameters(
+            current,
+            getPreviewEditTrackId(target),
+            values,
+            newEffectId,
+          ),
         mode,
       );
     },
-    [editEffects, lanes],
+    [describePreviewEditTarget, editEffects],
   );
   // The text clip being typed on in the preview. Every keystroke is a
-  // transient edit of the layer's Text effect, so the FX panel and
+  // transient edit of the clip's Text effect, so the FX panel and
   // collaborators follow along, and leaving the editor commits the whole
   // edit as one undo step.
   const [textEdit, setTextEdit] = useState<{
@@ -3136,7 +3241,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         editEffects(
           TEXT_EDIT_HISTORY_LABEL,
           (current) =>
-            setLayerText(current, edit.laneId, text, edit.newEffectId),
+            setClipText(current, edit.clipId, text, edit.newEffectId),
           "transient",
         );
       }
@@ -3155,20 +3260,20 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         return;
       }
 
-      // Style shortcuts restyle the whole layer, within the same undo step.
+      // Style shortcuts restyle the whole clip, within the same undo step.
       editEffects(
         TEXT_EDIT_HISTORY_LABEL,
         (current) =>
           action.kind === "style"
-            ? toggleLayerTextStyle(
+            ? toggleClipTextStyle(
                 current,
-                edit.laneId,
+                edit.clipId,
                 action.flag,
                 edit.newEffectId,
               )
-            : stepLayerFontSize(
+            : stepClipFontSize(
                 current,
-                edit.laneId,
+                edit.clipId,
                 action.direction,
                 edit.newEffectId,
               ),
@@ -3178,7 +3283,14 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     [editEffects, finishTextEdit],
   );
   const editedTextStyle = useMemo(
-    () => (textEdit ? resolveTextStyle(effects, textEdit.laneId) : undefined),
+    () =>
+      textEdit
+        ? resolveTextStyle(
+            effects,
+            textEdit.laneId,
+            clipEffectTrackId(textEdit.clipId),
+          )
+        : undefined,
     [effects, textEdit],
   );
   const previewTextEdit = useMemo<PreviewTextEdit | undefined>(
@@ -3252,13 +3364,23 @@ function App({ boot }: { boot: WorkspaceBoot }) {
           name: getFxClipName(
             selectedClip.label,
             isTextClip(selectedClip)
-              ? getTextPreview(resolveTextStyle(effects, selectedClip.laneId))
-              : undefined,
+              ? getTextPreview(
+                  resolveTextStyle(
+                    effects,
+                    selectedClip.laneId,
+                    clipEffectTrackId(selectedClip.id),
+                  ),
+                )
+              : isFxClip(selectedClip)
+                ? FX_CLIP_LABEL
+                : undefined,
           ),
         }
       : undefined;
   const fxClipId = fxClip?.id;
   const fxClipName = fxClip?.name;
+  // An FX clip's own stack offers only effects that work on a composite.
+  const fxClipScope = isFxClip(selectedClip) ? "fxClip" : "clip";
   const fxDevices = useMemo(
     () =>
       fxLaneId
@@ -3268,15 +3390,14 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             fxLane?.name,
             playheadVisualLayerCount,
             missingFonts,
-            fxClipId && fxClipName
-              ? { id: fxClipId, name: fxClipName }
-              : undefined,
+            fxClipId,
+            fxClipScope,
           )
         : [],
     [
       effects,
       fxClipId,
-      fxClipName,
+      fxClipScope,
       fxLane?.name,
       fxLaneId,
       missingFonts,
@@ -4645,8 +4766,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   );
 
   // Inserts a fill clip over `durationQ` quarters from `startQ` on layer
-  // `laneId` and selects it. A layer without a Color effect gets one, in
-  // its accent colour or neutral grey. Returns the new clip's id.
+  // `laneId` and selects it. The clip gets its own Color effect, in the
+  // layer's accent colour or neutral grey. Returns the new clip's id.
   const insertFillClip = useCallback(
     (laneId: string, startQ: number, durationQ: number) => {
       const lane = lanes.find((candidate) => candidate.id === laneId);
@@ -4687,8 +4808,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   );
 
   // Inserts a text clip over `durationQ` quarters from `startQ` on layer
-  // `laneId` and selects it. A layer without a Text effect gets one with
-  // its defaults. Returns the new clip's id.
+  // `laneId` and selects it. The clip gets its own Text effect with its
+  // defaults. Returns the new clip's id.
   const insertTextClip = useCallback(
     (laneId: string, startQ: number, durationQ: number) => {
       const lane = lanes.find((candidate) => candidate.id === laneId);
@@ -4722,6 +4843,44 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       setPendingSelection(null);
       setSelectedClipId(id);
       setStatus(`Inserted text on ${lane.name}.`);
+      return id;
+    },
+    [bpm, dispatchProject, lanes],
+  );
+
+  // Inserts an FX clip over `durationQ` quarters from `startQ` on layer
+  // `laneId` and selects it, so the FX panel's Clip section opens ready for
+  // its first effect. It starts with no effects, so it changes nothing yet.
+  // Returns the new clip's id.
+  const insertFxClip = useCallback(
+    (laneId: string, startQ: number, durationQ: number) => {
+      const lane = lanes.find((candidate) => candidate.id === laneId);
+      if (!lane || !(durationQ > 0)) {
+        return undefined;
+      }
+
+      const accent =
+        lane.colorIndex >= 0 ? getSwatch(lane.colorIndex).accent : undefined;
+      const id = `fx-${crypto.randomUUID()}`;
+      dispatchProject({
+        type: "commit",
+        label: "Insert FX clip",
+        updater: (current) =>
+          patchProjectState(current, {
+            clips: addFxClip(current, {
+              id,
+              laneId,
+              startQ,
+              durationQ,
+              bpm,
+              tint: FILL_CLIP_TINT,
+              accent: accent ?? FILL_CLIP_ACCENT,
+            }).clips,
+          }),
+      });
+      setPendingSelection(null);
+      setSelectedClipId(id);
+      setStatus(`Inserted an FX clip on ${lane.name}.`);
       return id;
     },
     [bpm, dispatchProject, lanes],
@@ -5973,7 +6132,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   // Clipboard and edit actions shared by the keyboard shortcuts and the clip
   // menus. Each is one undo step.
   function copyArrangementClip(clip: ArrangementClip) {
-    clipClipboardRef.current = copyClip(clip, bpm);
+    clipClipboardRef.current = withClipStacks(copyClip(clip, bpm), effects);
     setStatus(`Copied ${clip.label}.`);
   }
 
@@ -5996,7 +6155,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   }
 
   function cutArrangementClip(clip: ArrangementClip) {
-    clipClipboardRef.current = copyClip(clip, bpm);
+    clipClipboardRef.current = withClipStacks(copyClip(clip, bpm), effects);
     removeArrangementClip(clip, "Cut clip");
     setStatus(`Cut ${clip.label}.`);
   }
@@ -6009,12 +6168,15 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   // With a selection, Cut, Copy and Delete act on its span on its layer only.
   // The selection stays, showing what they acted on.
   function copySelectionRange(selection: TimelineSelection) {
-    return copyRange(
-      timelineClips,
-      selection.laneId,
-      selection.startQ,
-      getSelectionEndQ(selection),
-      bpm,
+    return withClipStacks(
+      copyRange(
+        timelineClips,
+        selection.laneId,
+        selection.startQ,
+        getSelectionEndQ(selection),
+        bpm,
+      ),
+      effects,
     );
   }
 
@@ -6025,15 +6187,24 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       label,
       updater: (current) => {
         const splitClipIds = [splitClipId];
+        // A clip split around the range gives its right piece a copy of
+        // its stack.
+        const copies: Array<[string, string]> = [];
+        const clips = removeRangeFromLane(
+          current.clips,
+          selection.laneId,
+          selection.startQ,
+          getSelectionEndQ(selection),
+          current.bpm,
+          (source) => {
+            const id = splitClipIds.shift() ?? `window-${crypto.randomUUID()}`;
+            copies.push([source.id, id]);
+            return id;
+          },
+        );
         return patchProjectState(current, {
-          clips: removeRangeFromLane(
-            current.clips,
-            selection.laneId,
-            selection.startQ,
-            getSelectionEndQ(selection),
-            current.bpm,
-            () => splitClipIds.shift() ?? `window-${crypto.randomUUID()}`,
-          ),
+          clips,
+          effects: copyClipEffects(current.effects, copies),
         });
       },
     });
@@ -6097,15 +6268,25 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       label: "Paste clip",
       updater: (current) => {
         const ids = [...pastedClipIds];
+        const { clips, pasted } = pasteClipboard(
+          current.clips,
+          clipboard,
+          pasteLaneId,
+          pasteQ,
+          current.bpm,
+          () => ids.shift() ?? `window-${crypto.randomUUID()}`,
+        );
+        // Each pasted clip gets the stack its fragment was copied with.
         return patchProjectState(current, {
-          clips: pasteClipboard(
-            current.clips,
-            clipboard,
-            pasteLaneId,
-            pasteQ,
-            current.bpm,
-            () => ids.shift() ?? `window-${crypto.randomUUID()}`,
-          ).clips,
+          clips,
+          effects: copyClipEffects(
+            current.effects,
+            pasted.map((clip, index) => [
+              clipboard.fragments[index].clip.id,
+              clip.id,
+            ]),
+            clipboard.effects,
+          ),
         });
       },
     });
@@ -6159,10 +6340,14 @@ function App({ boot }: { boot: WorkspaceBoot }) {
           current.bpm,
         );
 
+        // Both halves keep the clip's stack.
         return patchProjectState(current, {
           clips: current.clips.flatMap((item) =>
             item.id === sourceClip.id ? [leftClip, rightClip] : [item],
           ),
+          effects: copyClipEffects(current.effects, [
+            [sourceClip.id, splitClipId],
+          ]),
         });
       },
     });
@@ -6193,6 +6378,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             duplicatedClip,
             current.bpm,
           ),
+          effects: copyClipEffects(current.effects, [
+            [sourceClip.id, duplicatedClipId],
+          ]),
         });
       },
     });
@@ -6644,6 +6832,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         insertFillClip(selection.laneId, selection.startQ, selection.durationQ),
       insertText: () =>
         insertTextClip(selection.laneId, selection.startQ, selection.durationQ),
+      insertFx: () =>
+        insertFxClip(selection.laneId, selection.startQ, selection.durationQ),
       clear: () => setPendingSelection(null),
     });
   }
@@ -6678,6 +6868,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             playheadQRef.current,
             TEXT_CLIP_BARS * barLength,
           ),
+        insertFx: () =>
+          insertFxClip(lane.id, playheadQRef.current, FX_CLIP_BARS * barLength),
         insertAbove: () => insertLayer(lane.id, "above"),
         insertBelow: () => insertLayer(lane.id, "below"),
         moveUp: () => moveLayer(lane, -1),
@@ -7200,6 +7392,14 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         commitProjectChange(historyLabel, (current) =>
           patchProjectState(current, {
             clips: dragPreviewClips,
+            // A clip duplicated by dragging gets a copy of the stack.
+            ...(dragState.kind === "move" && dragState.duplicateOnDrag
+              ? {
+                  effects: copyClipEffects(current.effects, [
+                    [dragState.sourceClipId, dragState.clipId],
+                  ]),
+                }
+              : {}),
           }),
         );
       }
@@ -9494,19 +9694,32 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                                   media.availability,
                                 )
                               : null;
+                            // As the compositor draws it: the clip's own
+                            // Color or Text first, else its layer's.
                             const fillBackground = isFillClip(clip)
                               ? formatFillPaintCss(
-                                  resolveFillPaint(effects, clip.laneId),
+                                  resolveFillPaint(
+                                    timelineEffects,
+                                    clip.laneId,
+                                    clipEffectTrackId(clip.id),
+                                  ),
                                 )
                               : undefined;
                             const textStyle = isTextClip(clip)
-                              ? resolveTextStyle(effects, clip.laneId)
+                              ? resolveTextStyle(
+                                  timelineEffects,
+                                  clip.laneId,
+                                  clipEffectTrackId(clip.id),
+                                )
+                              : undefined;
+                            const fxLabel = isFxClip(clip)
+                              ? describeFxClip(effects, clip.id)
                               : undefined;
                             return (
                               // biome-ignore lint/a11y/noStaticElementInteractions: right-click is a pointer shortcut; the context-menu key and Shift+F10 open the same menu on the selected clip
                               <div
                                 key={clip.id}
-                                className={`clip-card ${selected ? "clip-card--selected" : ""} ${trimming ? "clip-card--trimming" : ""} ${filmstrip || fillBackground ? "clip-card--filmstrip" : ""} ${fillBackground ? "clip-card--fill" : ""} ${textStyle ? "clip-card--text" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""}`}
+                                className={`clip-card ${selected ? "clip-card--selected" : ""} ${trimming ? "clip-card--trimming" : ""} ${filmstrip || fillBackground ? "clip-card--filmstrip" : ""} ${fillBackground ? "clip-card--fill" : ""} ${textStyle ? "clip-card--text" : ""} ${fxLabel ? "clip-card--fx" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""}`}
                                 data-clip-id={clip.id}
                                 onContextMenu={(event) =>
                                   openArrangementClipMenu(event, clip)
@@ -9529,9 +9742,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                                   ["--clip-accent" as string]: clip.accent,
                                   backgroundColor: clip.tint,
                                   borderColor: clip.accent,
-                                  boxShadow: selected
-                                    ? `0 0 0 2px ${clip.accent}`
-                                    : undefined,
                                   opacity:
                                     mediaState === "online" || mediaSync
                                       ? 1
@@ -9692,12 +9902,20 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                                       T
                                     </span>
                                   ) : null}
+                                  {fxLabel ? (
+                                    <span
+                                      aria-hidden="true"
+                                      className="clip-card__glyph clip-card__glyph--fx"
+                                    >
+                                      FX
+                                    </span>
+                                  ) : null}
                                   <span className="clip-card__text">
                                     <strong>
                                       {textStyle
                                         ? getTextPreview(textStyle) ||
                                           clip.label
-                                        : clip.label}
+                                        : (fxLabel ?? clip.label)}
                                     </strong>
                                     <span className="clip-card__meta">
                                       {mediaSync ? (
@@ -10295,7 +10513,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     canvasHeight={canvasHeight}
                     canvasWidth={canvasWidth}
                     clips={timelineClips}
-                    effects={effects}
+                    effects={timelineEffects}
                     isPlaying={isPlaying}
                     isScrubbing={Boolean(timelineDragState)}
                     isAudibleScrubbing={isTimelineAudibleScrubbing}
@@ -10314,6 +10532,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     canvas={{ width: canvasWidth, height: canvasHeight }}
                     layers={previewLayers}
                     selectedLaneId={previewLaneId}
+                    selectedClipId={selectedClip?.id}
                     textEdit={previewTextEdit}
                     getLayerPosition={getPreviewLayerPosition}
                     getLayerTransform={getPreviewLayerTransform}
@@ -10493,12 +10712,11 @@ function App({ boot }: { boot: WorkspaceBoot }) {
               <FxChain
                 devices={fxDevices}
                 kind={fxKind}
-                clipTrackId={
-                  fxClipId ? getClipEffectTrackId(fxClipId) : undefined
-                }
                 layerFxEnabled={isLayerFxEnabled(fxLane)}
                 layerName={fxLane?.name}
                 layerTrackId={fxLaneId}
+                clipTrackId={fxClipId ? clipEffectTrackId(fxClipId) : undefined}
+                clipScope={fxClipScope}
                 onAdd={addFxDevice}
                 onDuplicate={duplicateFxDevice}
                 onMove={moveFxDevice}

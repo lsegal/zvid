@@ -5,7 +5,9 @@
   --lane-selected-label: #3a3d53;
   --lane-selected-tint: rgba(246, 183, 60, 0.05);
   /* Arrangement lane stacking, lowest first. Clip cards are isolated at
-     z-index auto, so anything positive paints over them and their handles. */
+     z-index auto, so anything positive paints over them and their handles;
+     the selected clip rises above its neighbours only. */
+  --z-timeline-selected-clip: 2;
   --z-timeline-selection: 3;
   --z-timeline-playhead: 4;
 }
@@ -1959,6 +1961,24 @@
   pointer-events: none;
 }
 
+/* FX clips draw nothing themselves: a translucent, hatched body over what
+   the lane shows. */
+.clip-card--fx {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--clip-accent) 28%, transparent) 0 4px,
+    transparent 4px 10px
+  );
+  border-style: dashed;
+}
+
+.clip-card__glyph--fx {
+  color: var(--clip-accent);
+  font-family: inherit;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+}
+
 /* Frames sampled along the clip, drawn behind its handles and label. */
 .clip-card__filmstrip {
   position: absolute;
@@ -2030,8 +2050,29 @@
   text-overflow: ellipsis;
 }
 
+/* A neutral double ring (near-white over a dark halo) plus a lift, so the
+   selection reads against every clip accent, amber included, and over busy
+   filmstrips. The clip paints over its neighbours but under the range
+   selection, the playhead and the sticky track labels. Keyboard focus inside
+   a clip shows the same ring. */
+.clip-card--selected,
+.clip-card:has(:focus-visible) {
+  z-index: var(--z-timeline-selected-clip);
+  outline: 2px solid var(--selection-ring);
+  outline-offset: 1px;
+  box-shadow:
+    0 0 0 4px rgba(0, 0, 0, 0.55),
+    0 6px 14px rgba(0, 0, 0, 0.45);
+}
+
 .clip-card--selected {
   transform: translateY(-1px);
+}
+
+/* The clip's ring replaces the global amber focus glow, which would read as
+   an amber clip. */
+.clip-card :focus-visible {
+  box-shadow: none;
 }
 
 .source-header__content {

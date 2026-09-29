@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  clipEffectTrackId,
   createEffect,
   ensureLayerLayouts,
   isLayoutEffectName,
@@ -257,5 +258,43 @@ describe("undo", () => {
       updater: (current) => moveLane(current, "1", -1),
     });
     assert.equal(next, history);
+  });
+});
+
+describe("clip stacks", () => {
+  function withClipStacks(): Project {
+    const project = makeProject();
+    return {
+      ...project,
+      effects: [
+        ...project.effects,
+        createEffect(clipEffectTrackId("c2"), "Transform", "c2-transform"),
+        createEffect(clipEffectTrackId("c1"), "Colorize", "c1-colorize"),
+      ],
+    };
+  }
+
+  it("gives a duplicated layer's clips copies of their own stacks", () => {
+    const next = duplicateLane(withClipStacks(), "2", "4", counter());
+    const copy = next.clips.find(
+      (clip) => clip.laneId === "4" && clip.startQ === 4,
+    );
+    assert.ok(copy);
+    const copiedStack = next.effects.filter(
+      (effect) => effect.trackId === clipEffectTrackId(copy.id),
+    );
+    assert.deepEqual(
+      copiedStack.map((effect) => effect.effectName),
+      ["Transform"],
+    );
+    assert.ok(copiedStack[0].id.startsWith("effect-new"));
+    // The original keeps its own.
+    assert.ok(next.effects.some((effect) => effect.id === "c2-transform"));
+  });
+
+  it("removes a deleted layer's clips' own stacks", () => {
+    const next = deleteLane(withClipStacks(), "2");
+    assert.ok(next.effects.every((effect) => effect.id !== "c2-transform"));
+    assert.ok(next.effects.some((effect) => effect.id === "c1-colorize"));
   });
 });

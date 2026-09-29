@@ -9,6 +9,7 @@
 import {
   type CompositionOrder,
   DEFAULT_COMPOSITION_ORDER,
+  visibleLayerCount,
 } from "./composition-order.ts";
 import type { LayerTransform } from "./composition-transform.ts";
 
@@ -38,6 +39,9 @@ export type LayerVisual = {
   layoutAnchor: LayoutAnchor;
   // Applied after Layout, to the slot as a whole. Absent means identity.
   transform?: LayerTransform;
+  // A clip's own Transform, applied inside `transform`. Absent means
+  // identity.
+  clipTransform?: LayerTransform;
 };
 
 export type LayerPlacement = {
@@ -53,6 +57,79 @@ type StackedLayer = {
   laneRank: number;
   clip: { startQ: number };
 };
+
+// One step of drawing the composite: a layer drawn into slot `slot` of
+// `slotCount`, or an FX clip whose chain adjusts what has been drawn so far.
+export type LayerDrawStep<T> =
+  | { type: "layer"; entry: T; slot: number; slotCount: number }
+  | { type: "fx"; entry: T };
+
+/**
+ * The steps that draw `layers`, back to front. Layers take slots as
+ * `orderStackedLayers` orders them, and a Grid shows no more layers than it
+ * has cells. FX clips (`fx` set) take no slot: each is applied once every
+ * higher-numbered layer beneath it is drawn and before the layers above it.
+ * Without an Order that is the usual draw order; with one, layers are drawn
+ * from the highest-numbered up while an FX clip is present, which only
+ * changes where transformed layers overlap.
+ */
+export function planLayerDraws<T extends StackedLayer & { fx?: boolean }>(
+  layers: readonly T[],
+  order: CompositionOrder = DEFAULT_COMPOSITION_ORDER,
+): LayerDrawStep<T>[] {
+  const ordered = orderStackedLayers(
+    layers.filter((layer) => !layer.fx),
+    order,
+  );
+  const stacked = ordered.slice(0, visibleLayerCount(ordered.length, order));
+  const draws = stacked.map<LayerDrawStep<T> & { type: "layer" }>(
+    (entry, slot) => ({
+      type: "layer",
+      entry,
+      slot,
+      slotCount: stacked.length,
+    }),
+  );
+  const fxLayers = layers
+    .filter((layer) => layer.fx)
+    .sort((left, right) => right.laneRank - left.laneRank);
+  if (!fxLayers.length) {
+    return draws;
+  }
+
+  const steps: LayerDrawStep<T>[] = [];
+  let nextFx = 0;
+  for (const draw of [...draws].sort(
+    (left, right) => right.entry.laneRank - left.entry.laneRank,
+  )) {
+    while (
+      nextFx < fxLayers.length &&
+      fxLayers[nextFx].laneRank > draw.entry.laneRank
+    ) {
+      steps.push({ type: "fx", entry: fxLayers[nextFx++] });
+    }
+    steps.push(draw);
+  }
+  for (const entry of fxLayers.slice(nextFx)) {
+    steps.push({ type: "fx", entry });
+  }
+  return steps;
+}
+
+// The whole canvas as clip-space bounds: the box an FX clip adjusts before
+// its Transforms move it.
+export function resolveCanvasBounds(
+  canvasWidth: number,
+  canvasHeight: number,
+): FrameBounds {
+  return {
+    centerX: 0,
+    centerY: 0,
+    halfWidth: 1,
+    halfHeight: 1,
+    aspect: Math.max(1, canvasWidth) / Math.max(1, canvasHeight),
+  };
+}
 
 // Draw order, back to front, then earlier clips first within a lane. With an
 // Order arrangement this is also slot order (bands from the top, or cells

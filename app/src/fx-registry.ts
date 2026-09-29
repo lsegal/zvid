@@ -108,11 +108,19 @@ export type FxParameterDefinition =
   | FxEnumParameterDefinition
   | FxStringParameterDefinition;
 
-// The stacks an effect is designed for: a layer's own stack, the Global
-// stack that processes the composite, a clip's own stack, or several.
-export type FxEffectScope = "layer" | "global" | "clip";
+// The stacks an effect is designed for: a clip's own stack, which processes
+// that clip before its layer does, a layer's own stack, the Global stack
+// that processes the composite, and an FX clip's own stack, which processes
+// the composite beneath the FX clip. Effects that make content (Color, Text)
+// or place a layer (Layout) have nothing to work on in an FX clip.
+export type FxEffectScope = "layer" | "clip" | "global" | "fxClip";
 
-const ALL_SCOPES: readonly FxEffectScope[] = ["layer", "global", "clip"];
+const ALL_SCOPES: readonly FxEffectScope[] = [
+  "layer",
+  "clip",
+  "global",
+  "fxClip",
+];
 
 export type FxEffectDefinition = {
   effectName: string;
@@ -328,7 +336,9 @@ const DEFINITIONS: FxEffectDefinition[] = [
     description: "Moves, resizes and rotates the layer inside the canvas.",
     accent: "#ff9f6b",
     known: true,
-    scopes: ["layer", "clip"],
+    // On a clip it places the clip inside its layer's transformed box, and
+    // on an FX clip it moves the box the FX clip adjusts.
+    scopes: ["layer", "clip", "fxClip"],
     parameters: [
       transformParameter("PositionX", "X", -2, 2, 0, formatSignedPercent),
       transformParameter("PositionY", "Y", -2, 2, 0, formatSignedPercent),
@@ -391,10 +401,12 @@ const DEFINITIONS: FxEffectDefinition[] = [
   {
     effectName: COLOR_EFFECT_NAME,
     displayName: "Color",
-    description: "Paints the layer's fill clips a solid colour or a gradient.",
+    description: "Paints fill clips a solid colour or a gradient.",
     accent: "#ffd166",
     known: true,
-    scopes: ["layer"],
+    // A fill clip carries its own Color; one on the layer paints the layer's
+    // fill clips that have none.
+    scopes: ["layer", "clip"],
     parameters: [
       {
         kind: "enum",
@@ -423,10 +435,12 @@ const DEFINITIONS: FxEffectDefinition[] = [
   {
     effectName: TEXT_EFFECT_NAME,
     displayName: "Text",
-    description: "Sets the words, font and look of the layer's text clips.",
+    description: "Sets the words, font and look of a text clip.",
     accent: "#e8e4ff",
     known: true,
-    scopes: ["layer"],
+    // Each text clip carries its own Text, so clips on one layer can say
+    // different things.
+    scopes: ["clip"],
     parameters: [
       { kind: "text", key: "Text", label: "Text", defaultValue: DEFAULT_TEXT },
       {

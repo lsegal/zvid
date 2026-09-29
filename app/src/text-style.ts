@@ -1,5 +1,5 @@
 // The typography a text clip draws with, read from the Text effect on the
-// clip's layer. Sizes, padding, stroke and shadow are in pixels at 1080p and
+// clip's own stack. Sizes, padding, stroke and shadow are in pixels at 1080p and
 // scale with the output's short side, so preview and export match.
 
 import {
@@ -220,21 +220,25 @@ export function readTextStyle(effect: FillEffect | undefined): TextStyle {
 }
 
 /**
- * The style for text clips on layer `laneId`: the last enabled Text effect
- * on that layer's own stack, or the defaults when there is none.
+ * The style for a text clip on layer `laneId`: the last enabled Text effect
+ * on the clip's own stack (`clipTrackId`), else on that layer's own stack,
+ * or the defaults when there is none.
  */
 export function resolveTextStyle(
   effects: readonly FillEffect[],
   laneId: string,
+  clipTrackId?: string,
 ): TextStyle {
-  return readTextStyle(
-    effects.findLast(
-      (candidate) =>
-        candidate.trackId === laneId &&
-        candidate.enabled !== false &&
-        isTextEffectName(candidate.effectName),
-    ),
-  );
+  const find = (trackId: string | undefined) =>
+    trackId === undefined
+      ? undefined
+      : effects.findLast(
+          (candidate) =>
+            candidate.trackId === trackId &&
+            candidate.enabled !== false &&
+            isTextEffectName(candidate.effectName),
+        );
+  return readTextStyle(find(clipTrackId) ?? find(laneId));
 }
 
 /** The first line of the text, for the clip's timeline card. */

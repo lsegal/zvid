@@ -96,7 +96,7 @@ test("the FX panel shows Global, then the layer, then the selected clip", async 
 }) => {
   await page.goto("/");
   const title = page.locator(".fx-panel__toggle");
-  const sections = page.locator(".fx-chain [data-fx-section]");
+  const sections = page.locator(".fx-chain [data-fx-divider]");
 
   await page.locator('[data-layer-header-id="5"]').click();
   await expect(title).toHaveText("Layer 2 Effects");
@@ -132,7 +132,7 @@ test("the FX panel shows Global, then the layer, then the selected clip", async 
   await page.getByRole("button", { name: "Add device to this clip" }).click();
   await page.getByRole("menuitem", { name: /^Transform/ }).click();
   const clipTransform = page.locator(
-    '.fx-chain [data-fx-section="clip"] ~ section[aria-label="Transform"]',
+    '.fx-chain [data-fx-divider="clip"] ~ section[aria-label="Transform"]',
   );
   await expect(clipTransform).toHaveCount(1);
 });

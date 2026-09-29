@@ -1,6 +1,6 @@
 // A layer's effect stack is the ordered subset of the project's `effects`
-// array that shares one `trackId` (a Layer id or GLOBAL_EFFECT_TRACK_ID).
-// Array order is stack order. The helpers here are pure: each returns a new
+// array that shares one `trackId` (a Layer id, a clip's `clip:<clipId>` or
+// GLOBAL_EFFECT_TRACK_ID). Array order is stack order. The helpers here are pure: each returns a new
 // `effects` array, or the same array when nothing changed so history
 // commits can skip no-op edits.
 
@@ -13,6 +13,7 @@ import {
 import { isColorEffectName } from "./fill-paint.ts";
 import {
   type FxEffectDefinition,
+  type FxEffectScope,
   type FxFlagOption,
   type FxParameterDefinition,
   getEffectDefinition,
@@ -25,11 +26,20 @@ import { isTextEffectName } from "./text-style.ts";
 
 export const GLOBAL_EFFECT_TRACK_ID = "__group_main";
 
-// A clip's own stack uses the track id `clip:<clipId>`.
+// A clip's own stack is keyed by its clip id, so it follows the clip to
+// another layer and survives save/load and collaboration with the clip.
 const CLIP_EFFECT_TRACK_PREFIX = "clip:";
 
-export function getClipEffectTrackId(clipId: string) {
+export function clipEffectTrackId(clipId: string) {
   return `${CLIP_EFFECT_TRACK_PREFIX}${clipId}`;
+}
+
+// The clip a clip stack belongs to, or undefined for a layer or the Global
+// stack.
+export function getEffectClipId(trackId: string) {
+  return trackId.startsWith(CLIP_EFFECT_TRACK_PREFIX)
+    ? trackId.slice(CLIP_EFFECT_TRACK_PREFIX.length)
+    : undefined;
 }
 
 export type EffectParameter = {
@@ -67,7 +77,7 @@ export type FxDeviceParameter = {
   display: string;
 };
 
-export type FxDeviceGroup = "layer" | "global" | "clip";
+export type FxDeviceGroup = "layer" | "clip" | "global";
 
 export type FxDevice = {
   id: string;
@@ -94,7 +104,8 @@ export function getTrackGroup(trackId: string): FxDeviceGroup {
   if (trackId === GLOBAL_EFFECT_TRACK_ID) {
     return "global";
   }
-  return trackId.startsWith(CLIP_EFFECT_TRACK_PREFIX) ? "clip" : "layer";
+
+  return getEffectClipId(trackId) === undefined ? "layer" : "clip";
 }
 
 export function mapEffects(source: LvpSession["effects"]) {
@@ -255,7 +266,8 @@ export function setLaneFxEnabled<T extends FxLayer>(
 
 // The effects the renderer applies: a layer whose FX are off contributes
 // nothing but its Layout anchoring, the Color its fill clips are painted
-// with and the Text its text clips show. Returns `effects` itself when no
+// with and any Text a session from before clip Text still has there. Clip
+// stacks are not the layer's and stay. Returns `effects` itself when no
 // layer is bypassed.
 export function getRenderedEffects<
   T extends { trackId: string; effectName: string },
@@ -436,7 +448,7 @@ export const LAYOUT_EFFECT_NAME = "Layout";
 // Global stack.
 function isLayerLayoutEffect(effect: SessionEffect) {
   return (
-    effect.trackId !== GLOBAL_EFFECT_TRACK_ID &&
+    getTrackGroup(effect.trackId) === "layer" &&
     isLayoutEffectName(effect.effectName)
   );
 }
@@ -717,13 +729,16 @@ function describeMissingFont(
 
 function toDevice(
   effect: SessionEffect,
-  // Name of the layer or clip that owns the stack, shown as its subtitle.
-  stackName: string,
+  layerName: string,
   activeLayerCount = 0,
   missingFonts: ReadonlySet<string> = new Set(),
+  // The scope a clip stack's effects are checked against: "fxClip" for an
+  // FX clip.
+  clipScope: FxEffectScope = "clip",
 ): FxDevice {
   const definition = getEffectDefinition(effect.effectName);
   const group = getTrackGroup(effect.trackId);
+  const scope = group === "clip" ? clipScope : group;
   const knownKeys = new Set(
     definition.parameters.map((parameter) => parameter.key),
   );
@@ -747,12 +762,17 @@ function toDevice(
     effectName: effect.effectName,
     name: definition.displayName,
     description: definition.description,
-    subtitle: group === "global" ? "Global stack" : stackName,
+    subtitle:
+      group === "global"
+        ? "Global stack"
+        : group === "clip"
+          ? "Clip"
+          : layerName,
     accent: definition.accent,
     group,
     enabled: effect.enabled !== false,
     layerDefault: isLayerLayoutEffect(effect) || undefined,
-    unsupported: !isEffectSupportedIn(effect.effectName, group) || undefined,
+    unsupported: !isEffectSupportedIn(effect.effectName, scope) || undefined,
     warning:
       describeHiddenLayers(effect, activeLayerCount) ??
       describeMissingFont(effect, missingFonts),
@@ -773,8 +793,8 @@ function toDevice(
   };
 }
 
-// Devices for a layer, and the selected clip on it, in processing order:
-// the clip's own stack first, then the layer's, then the Global stack.
+// Devices for a layer: the layer's own stack, then the Global stack, then
+// the selected clip's own stack (`clipId`), which is processed first.
 export function mapSessionEffectsToDevices(
   effects: SessionEffect[],
   laneId: string | undefined,
@@ -785,19 +805,115 @@ export function mapSessionEffectsToDevices(
   // Fonts that could not be loaded, for the Text device's warning.
   missingFonts: ReadonlySet<string> = new Set(),
   // The selected clip, whose own stack is listed too.
-  clip?: { id: string; name: string },
+  clipId?: string,
+  // "fxClip" when the selected clip is an FX clip.
+  clipScope: FxEffectScope = "clip",
 ) {
-  const clipTrackId = clip ? getClipEffectTrackId(clip.id) : undefined;
-  const clipDevices = clip
-    ? effects
-        .filter((effect) => effect.trackId === clipTrackId)
-        .map((effect) => toDevice(effect, clip.name, 0, missingFonts))
-    : [];
   const layerDevices = effects
     .filter((effect) => laneId !== undefined && effect.trackId === laneId)
     .map((effect) => toDevice(effect, layerName, 0, missingFonts));
   const globalDevices = effects
     .filter((effect) => effect.trackId === GLOBAL_EFFECT_TRACK_ID)
     .map((effect) => toDevice(effect, layerName, activeLayerCount));
-  return [...clipDevices, ...layerDevices, ...globalDevices];
+  const clipTrackId =
+    clipId === undefined ? undefined : clipEffectTrackId(clipId);
+  const clipDevices = effects
+    .filter((effect) => effect.trackId === clipTrackId)
+    .map((effect) => toDevice(effect, layerName, 0, missingFonts, clipScope));
+  return [...layerDevices, ...globalDevices, ...clipDevices];
+}
+
+type StackEffect = {
+  id: string;
+  trackId: string;
+  parameters: readonly object[];
+};
+
+// Gives each `[fromClipId, toClipId]` copy of a clip the source clip's stack,
+// with new effect ids, in place of any stack the copy had. The stacks are
+// read from `source`, such as a clipboard snapshot of clips that were cut
+// since, and default to `effects`. Returns `effects` itself when no source
+// clip has a stack.
+export function copyClipEffects<T extends StackEffect>(
+  effects: T[],
+  copies: Iterable<readonly [string, string]>,
+  source: readonly T[] = effects,
+  createId: () => string = () => crypto.randomUUID(),
+) {
+  let result = effects;
+  for (const [fromClipId, toClipId] of copies) {
+    const fromTrackId = clipEffectTrackId(fromClipId);
+    const toTrackId = clipEffectTrackId(toClipId);
+    const stack = source.filter((effect) => effect.trackId === fromTrackId);
+    if (!stack.length || fromTrackId === toTrackId) {
+      continue;
+    }
+
+    result = [
+      ...result.filter((effect) => effect.trackId !== toTrackId),
+      ...stack.map(
+        (effect) =>
+          ({
+            ...effect,
+            id: createId(),
+            trackId: toTrackId,
+            parameters: effect.parameters.map((parameter) => ({
+              ...parameter,
+            })),
+          }) as T,
+      ),
+    ];
+  }
+  return result;
+}
+
+// The effects a Ctrl/Cmd-drag duplicate is drawn with before it is dropped:
+// the in-flight copy borrows its source clip's stack, so it looks as it will
+// once dropped. Nothing is committed; the drop copies the stack for real
+// with `copyClipEffects`. The ids are stable across calls, so redrawing the
+// drag doesn't churn them. Returns `effects` itself when the source clip has
+// no stack.
+export function previewDuplicateClipEffects<T extends StackEffect>(
+  effects: T[],
+  sourceClipId: string,
+  copyClipId: string,
+) {
+  let next = 0;
+  return copyClipEffects(
+    effects,
+    [[sourceClipId, copyClipId]],
+    effects,
+    () => `${clipEffectTrackId(copyClipId)}:preview-${++next}`,
+  );
+}
+
+// Drops the stacks of clips that are gone, so deleting a clip deletes its
+// effects. Returns `effects` itself when every clip stack still has its clip.
+export function pruneClipEffects<T extends { trackId: string }>(
+  effects: T[],
+  clips: readonly { id: string }[],
+) {
+  const clipIds = new Set(clips.map((clip) => clip.id));
+  const isOrphan = (effect: T) => {
+    const clipId = getEffectClipId(effect.trackId);
+    return clipId !== undefined && !clipIds.has(clipId);
+  };
+  return effects.some(isOrphan)
+    ? effects.filter((effect) => !isOrphan(effect))
+    : effects;
+}
+
+// The effects with each clip stack moved to the clip's new id in `clipIds`,
+// such as the ids clips are saved under. Other stacks keep their track.
+export function renameClipEffectTracks<T extends { trackId: string }>(
+  effects: T[],
+  clipIds: ReadonlyMap<string, string>,
+) {
+  return effects.map((effect) => {
+    const clipId = getEffectClipId(effect.trackId);
+    const renamed = clipId === undefined ? undefined : clipIds.get(clipId);
+    return renamed === undefined || renamed === clipId
+      ? effect
+      : { ...effect, trackId: clipEffectTrackId(renamed) };
+  });
 }

@@ -5,6 +5,7 @@
 import { isOrderEffectName } from "./composition-order.ts";
 import {
   FX_EFFECT_DEFINITIONS,
+  type FxEffectScope,
   formatRawNumber,
   getEffectDefinition,
 } from "./fx-registry.ts";
@@ -81,8 +82,9 @@ export function resolveGlobalOrderHint(globalDevices: readonly FxDevice[]) {
 }
 
 // Effects the `group` add menu offers: the known ones designed for that
-// stack, except those every layer is already given (Layout).
-export function addableEffectsFor(group: FxDeviceGroup) {
+// stack, except those every layer is already given (Layout). An FX clip's
+// stack is the "fxClip" scope.
+export function addableEffectsFor(group: FxEffectScope) {
   return FX_EFFECT_DEFINITIONS.filter(
     (definition) =>
       definition.known &&
