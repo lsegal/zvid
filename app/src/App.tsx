@@ -7561,10 +7561,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
 
   async function handleSaveSession() {
     const harness = getHarness();
-    const session = projectToLvpSession(
-      projectHistory.present,
-      { playheadQ: playheadQRef.current, selectedClipId },
-    );
+    const session = projectToLvpSession(projectHistory.present, {
+      playheadQ: playheadQRef.current,
+      selectedClipId,
+    });
     const blob = new Blob([`${JSON.stringify(session, null, 2)}\n`], {
       type: "application/json",
     });
