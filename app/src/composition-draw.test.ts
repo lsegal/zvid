@@ -11,6 +11,7 @@ import {
 import {
   resolveBandScissor,
   resolveLayerPlacement,
+  resolveSlotScissor,
 } from "./composition-layout.ts";
 import type { CompositionOrder } from "./composition-order.ts";
 import {
@@ -586,6 +587,41 @@ describe("drawComposition fill layers", () => {
       assert.ok(Math.abs(width / height - WIDTH / 2 / HEIGHT) < 0.01);
     }
     assert.equal(recording.uploads.length, 2);
+  });
+
+  it("draws every Grid cell at the widest spacing on a small output", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    const order: CompositionOrder = {
+      arrangement: "grid",
+      gridSize: 6,
+      spacing: 50,
+    };
+    const count = 36;
+    const composites = drawFrame(
+      recording,
+      resources,
+      Array.from({ length: count }, (_, lane) => fillLayer(RED_FILL, lane)),
+      undefined,
+      order,
+    );
+    assert.equal(composites.length, count);
+    composites.forEach((draw, index) => {
+      const box = resolveSlotScissor(index, count, order, WIDTH, HEIGHT);
+      assert.deepEqual(
+        draw.scissor,
+        [box.x, box.y, box.width, box.height],
+        `cell ${index} scissor`,
+      );
+      assert.ok(box.width > 1 && box.height > 1, `cell ${index} size`);
+    });
+    // 50 at 1080p is 50 / 3 px here: the first column is (360 - 5 × 50 / 3)
+    // / 6 ≈ 46.1 px wide, so the second starts at ≈ 62.8 px.
+    assert.equal(composites[1].scissor?.[0], 63);
+    for (const upload of recording.uploads) {
+      const [width, height] = [upload[3], upload[4]] as [number, number];
+      assert.ok(width >= 1 && height >= 1);
+    }
   });
 
   it("redraws a fill's texture only when its paint changes", () => {
