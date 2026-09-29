@@ -160,6 +160,27 @@ test("Add FX adds to the layer and the FX toggle follows it", async ({
   await expect(menuItem(page, "Enable FX")).toBeVisible();
 });
 
+// At the default 1280x720 viewport a device chain taller than the FX panel's
+// share of the workspace scrolls inside the panel instead of squeezing the
+// timeline (#342).
+test("adding FX keeps the timeline usable", async ({ page }) => {
+  const timeline = page.locator(".timeline-scroll");
+  await openLayerMenu(page, "6");
+  await menuItem(page, "Add FX").hover();
+  await page
+    .getByRole("menu", { name: "Add FX" })
+    .getByRole("menuitem", { name: "Zoom & Pan" })
+    .click();
+  await expect(page.locator(".fx-panel")).toContainText("Zoom & Pan");
+
+  const timelineHeight = await timeline.evaluate((el) => el.clientHeight);
+  expect(timelineHeight).toBeGreaterThanOrEqual(100);
+  const body = page.locator(".fx-panel__body");
+  expect(
+    await body.evaluate((el) => el.scrollHeight > el.clientHeight),
+  ).toBe(true);
+});
+
 test("the Audio row offers to import main audio", async ({ page }) => {
   const audioRow = page.locator("[data-main-audio-drop-target]");
   await rightClick(audioRow.locator(".track-label"));
