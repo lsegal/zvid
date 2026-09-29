@@ -14,6 +14,11 @@ export type EffectContext = {
   // Smoothed main-audio band energy, 0..1.
   audioLow: number;
   audioHigh: number;
+  // Detected main-audio onsets per band, 0..1: jumps on a hit and decays
+  // quickly between hits. Audio-reactive effects scale their reactivity by
+  // these rather than by the band energy.
+  impulseLow: number;
+  impulseHigh: number;
   // True when the source texture is bottom row first (vUv.y = 0 is the bottom
   // of the image), as for offscreen framebuffers. Layer textures are uploaded
   // top row first, so this is false for layer stacks.

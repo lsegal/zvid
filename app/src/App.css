@@ -774,7 +774,8 @@
 .workspace__main {
   height: 100%;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  /* cap the FX row so a tall device chain scrolls instead of squeezing the arrangement */
+  grid-template-rows: minmax(0, 1fr) fit-content(40%);
   gap: 14px;
 }
 
@@ -2424,6 +2425,13 @@
 
 .fx-panel--collapsed .fx-panel__toggle svg {
   transform: rotate(-90deg);
+}
+
+.fx-panel__body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
 }
 
 .fx-panel__body[hidden] {
