@@ -261,14 +261,16 @@ export const NO_FOOTAGE_TITLE = "No footage here";
 
 /**
  * The menu for an uncommitted selection: Insert Track with every source
- * track, committed like pressing its number key; Insert Fill Layer when
- * `insertFill` is available; and Clear selection.
+ * track, committed like pressing its number key; Insert Fill Layer and
+ * Insert Text Layer when `insertFill` and `insertText` are available; and
+ * Clear selection.
  */
 export function buildSelectionMenuEntries({
   tracks,
   disabled = false,
   insertTrack,
   insertFill,
+  insertText,
   clear,
 }: {
   tracks: readonly SelectionMenuTrack[];
@@ -276,6 +278,7 @@ export function buildSelectionMenuEntries({
   disabled?: boolean;
   insertTrack: (index: number) => void;
   insertFill?: () => void;
+  insertText?: () => void;
   clear: () => void;
 }): ContextMenuEntry[] {
   const trackEntries = tracks.map<ContextMenuEntry>((track, index) => {
@@ -307,6 +310,17 @@ export function buildSelectionMenuEntries({
             label: "Insert Fill Layer",
             disabled,
             onSelect: insertFill,
+          } as const,
+        ]
+      : []),
+    ...(insertText
+      ? [
+          {
+            type: "item",
+            id: "insert-text",
+            label: "Insert Text Layer",
+            disabled,
+            onSelect: insertText,
           } as const,
         ]
       : []),

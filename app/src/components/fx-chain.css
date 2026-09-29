@@ -342,7 +342,8 @@ body.fx-chain-dragging * {
 }
 
 /* Enum controls take a full row above the knobs, which keep to two rows. */
-.fx-device-panel__body > .fx-segmented {
+.fx-device-panel__body > .fx-segmented,
+.fx-device-panel__body > .fx-text {
   grid-column: 1 / -1;
 }
 
@@ -497,4 +498,164 @@ body.fx-chain-dragging * {
 
 .fx-paint__popover {
   width: max-content;
+}
+
+/* Free text, such as a Text layer's words. */
+.fx-text,
+.fx-select,
+.fx-font {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 0;
+}
+
+.fx-text__label,
+.fx-select__label,
+.fx-font__label {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.fx-text textarea {
+  min-width: 220px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(11, 13, 19, 0.4);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.82rem;
+  resize: vertical;
+}
+
+.fx-text textarea:focus,
+.fx-select select:focus,
+.fx-font__trigger:focus-visible {
+  border-color: var(--fx-accent);
+  outline: none;
+}
+
+.fx-select select,
+.fx-font__trigger {
+  max-width: 140px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(11, 13, 19, 0.4);
+  color: var(--ink);
+  font-size: 0.82rem;
+}
+
+.fx-font__trigger {
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fx-font__trigger:hover,
+.fx-font__trigger[data-state="open"] {
+  border-color: var(--fx-accent);
+}
+
+/* Style toggles show what they do: bold B, italic I and so on. */
+.fx-flags .fx-flags__bold {
+  font-weight: 700;
+}
+
+.fx-flags .fx-flags__italic {
+  font-style: italic;
+  font-family: Georgia, serif;
+}
+
+.fx-flags .fx-flags__underline {
+  text-decoration: underline;
+}
+
+.fx-flags .fx-flags__strikethrough {
+  text-decoration: line-through;
+}
+
+.fx-flags .fx-flags__allcaps {
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+}
+
+/* The searchable font list. */
+.font-picker {
+  width: 260px;
+  padding: 8px;
+}
+
+.font-picker__search {
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(11, 13, 19, 0.4);
+  color: var(--ink);
+  font-size: 0.85rem;
+}
+
+.font-picker__search:focus {
+  border-color: var(--line-strong);
+  outline: none;
+}
+
+.font-picker__list {
+  max-height: 320px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.font-picker [cmdk-group-heading] {
+  padding: 8px 8px 4px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.font-picker__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.font-picker__item[data-selected="true"] {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.font-picker__preview {
+  overflow: hidden;
+  font-size: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.font-picker__check {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+
+.font-picker__empty,
+.font-picker__note {
+  margin: 0;
+  padding: 6px 8px;
+  color: var(--muted);
+  font-size: 0.72rem;
 }

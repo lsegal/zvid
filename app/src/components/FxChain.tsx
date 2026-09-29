@@ -37,8 +37,10 @@ import {
   type FxDeviceParameter,
   GLOBAL_EFFECT_TRACK_ID,
 } from "../fx-stack";
+import { toggleStyleFlag } from "../text-style";
 import { useDragScroll } from "../use-drag-scroll";
 import { ContextMenu, type ContextMenuEntry } from "./ContextMenu";
+import { FontPicker } from "./FontPicker";
 import { usePrefersReducedMotion } from "./MediaSyncSkeleton";
 import {
   DropdownMenu,
@@ -1015,6 +1017,28 @@ function FxParameterControl({
   parameter: FxDeviceParameter;
   onSetParameter: FxChainProps["onSetParameter"];
 }) {
+  // Long option lists, such as font weights, pick from a menu instead.
+  if (parameter.kind === "enum" && (parameter.options?.length ?? 0) > 4) {
+    return (
+      <label className="fx-select">
+        <span className="fx-select__label">{parameter.label}</span>
+        <select
+          data-fx-no-drag
+          onChange={(event) =>
+            onSetParameter(device, parameter.key, event.target.value, "commit")
+          }
+          value={parameter.stringValue}
+        >
+          {parameter.options?.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
+
   if (parameter.kind === "enum") {
     return (
       <fieldset className="fx-segmented">
@@ -1044,6 +1068,60 @@ function FxParameterControl({
         onSetParameter={onSetParameter}
         parameter={parameter}
       />
+    );
+  }
+
+  if (parameter.kind === "text") {
+    return (
+      <FxTextControl
+        device={device}
+        onSetParameter={onSetParameter}
+        parameter={parameter}
+      />
+    );
+  }
+
+  if (parameter.kind === "font") {
+    return (
+      <FontPicker
+        label={parameter.label}
+        onChange={(value) =>
+          onSetParameter(device, parameter.key, value, "commit")
+        }
+        value={parameter.stringValue ?? `${parameter.defaultValue}`}
+      />
+    );
+  }
+
+  if (parameter.kind === "flags") {
+    const value = parameter.stringValue ?? "";
+    const on = new Set(value.split(","));
+    return (
+      <fieldset className="fx-segmented fx-flags">
+        <legend>{parameter.label}</legend>
+        <div className="fx-segmented__options">
+          {parameter.flags?.map((flag) => (
+            <button
+              aria-label={flag.title}
+              aria-pressed={on.has(flag.value)}
+              className={`fx-flags__${flag.value.toLowerCase()}`}
+              key={flag.value}
+              onClick={() =>
+                onSetParameter(
+                  device,
+                  parameter.key,
+                  toggleStyleFlag(value, flag.value),
+                  "commit",
+                )
+              }
+              title={flag.title}
+              type="button"
+            >
+              {flag.label}
+            </button>
+          ))}
+        </div>
+      </fieldset>
     );
   }
 
@@ -1126,5 +1204,64 @@ function FxPaintControl({
         </PopoverContent>
       </Popover>
     </div>
+  );
+}
+
+// A text area for free text. Typing sends transient edits, and leaving the
+// field commits them as one undo step.
+function FxTextControl({
+  device,
+  parameter,
+  onSetParameter,
+}: {
+  device: FxDevice;
+  parameter: FxDeviceParameter;
+  onSetParameter: FxChainProps["onSetParameter"];
+}) {
+  const value = parameter.stringValue ?? "";
+  const [draft, setDraft] = useState(value);
+  const editingRef = useRef(false);
+  const pendingRef = useRef<string | null>(null);
+
+  // Follows edits made elsewhere, such as undo or a collaborator, except
+  // while typing here.
+  useEffect(() => {
+    if (!editingRef.current) {
+      setDraft(value);
+    }
+  }, [value]);
+
+  return (
+    <label className="fx-text">
+      <span className="fx-text__label">{parameter.label}</span>
+      <textarea
+        data-fx-no-drag
+        onBlur={() => {
+          editingRef.current = false;
+          const pending = pendingRef.current;
+          pendingRef.current = null;
+          if (pending !== null) {
+            onSetParameter(device, parameter.key, pending, "commit");
+          }
+        }}
+        onChange={(event) => {
+          editingRef.current = true;
+          pendingRef.current = event.target.value;
+          setDraft(event.target.value);
+          onSetParameter(
+            device,
+            parameter.key,
+            event.target.value,
+            "transient",
+          );
+        }}
+        onFocus={() => {
+          editingRef.current = true;
+        }}
+        rows={3}
+        spellCheck={false}
+        value={draft}
+      />
+    </label>
   );
 }

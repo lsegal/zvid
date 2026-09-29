@@ -12,12 +12,15 @@ import {
 import { isColorEffectName } from "./fill-paint.ts";
 import {
   type FxEffectDefinition,
+  type FxFlagOption,
   type FxParameterDefinition,
   getEffectDefinition,
   getFallbackParameterDefinition,
   isEffectSupportedIn,
 } from "./fx-registry.ts";
 import type { LvpSession } from "./session.ts";
+import { parseFontChoice } from "./text-fonts.ts";
+import { isTextEffectName } from "./text-style.ts";
 
 export const GLOBAL_EFFECT_TRACK_ID = "__group_main";
 
@@ -40,7 +43,7 @@ export type SessionEffect = {
 export type FxDeviceParameter = {
   key: string;
   label: string;
-  kind: "number" | "enum" | "color" | "gradient";
+  kind: "number" | "enum" | "color" | "gradient" | "text" | "font" | "flags";
   // Position of the value within [min, max], 0..1, for meters.
   value: number;
   numericValue?: number;
@@ -50,6 +53,8 @@ export type FxDeviceParameter = {
   defaultValue: number | string;
   step?: number;
   options?: readonly string[];
+  // The toggles of a `flags` parameter.
+  flags?: readonly FxFlagOption[];
   display: string;
 };
 
@@ -236,8 +241,9 @@ export function setLaneFxEnabled<T extends FxLayer>(
 }
 
 // The effects the renderer applies: a layer whose FX are off contributes
-// nothing but its Layout anchoring and the Color its fill clips are painted
-// with. Returns `effects` itself when no layer is bypassed.
+// nothing but its Layout anchoring, the Color its fill clips are painted
+// with and the Text its text clips show. Returns `effects` itself when no
+// layer is bypassed.
 export function getRenderedEffects<
   T extends { trackId: string; effectName: string },
 >(effects: T[], layers: FxLayer[]) {
@@ -252,7 +258,8 @@ export function getRenderedEffects<
     (effect) =>
       !bypassed.has(effect.trackId) ||
       isLayoutEffectName(effect.effectName) ||
-      isColorEffectName(effect.effectName),
+      isColorEffectName(effect.effectName) ||
+      isTextEffectName(effect.effectName),
   );
 }
 
@@ -510,12 +517,37 @@ export function isLayoutEffectName(effectName: string) {
   return effectName.trim().toLowerCase().includes("layout");
 }
 
+// The option of `available` nearest to `value` in the full `options` order.
+function nearestOption(
+  value: string,
+  options: readonly string[],
+  available: readonly string[],
+) {
+  const index = options.indexOf(value);
+  let best = available[0] ?? value;
+  for (const candidate of available) {
+    if (
+      Math.abs(options.indexOf(candidate) - index) <
+      Math.abs(options.indexOf(best) - index)
+    ) {
+      best = candidate;
+    }
+  }
+  return best;
+}
+
 function toDeviceParameter(
   definition: FxParameterDefinition,
   stored: EffectParameter | undefined,
+  read: (key: string) => string | undefined,
 ): FxDeviceParameter {
-  if (definition.kind === "color" || definition.kind === "gradient") {
-    const stringValue = stored?.value.trim() || definition.defaultValue;
+  if (definition.kind !== "number" && definition.kind !== "enum") {
+    // Text and style toggles can be empty; paint and fonts fall back to
+    // their defaults.
+    const stringValue =
+      definition.kind === "text" || definition.kind === "flags"
+        ? (stored?.value ?? definition.defaultValue)
+        : stored?.value.trim() || definition.defaultValue;
     return {
       key: definition.key,
       label: definition.label,
@@ -525,7 +557,11 @@ function toDeviceParameter(
       min: 0,
       max: 0,
       defaultValue: definition.defaultValue,
-      display: stringValue,
+      flags: definition.kind === "flags" ? definition.options : undefined,
+      display:
+        definition.kind === "font"
+          ? parseFontChoice(stringValue).family
+          : stringValue,
     };
   }
 
@@ -534,23 +570,24 @@ function toDeviceParameter(
     const option = definition.options.find(
       (candidate) => candidate.toLowerCase() === raw.trim().toLowerCase(),
     );
-    const stringValue = option ?? raw;
-    const optionIndex = Math.max(0, definition.options.indexOf(stringValue));
+    const available = definition.optionsFor?.(read) ?? definition.options;
+    const stringValue =
+      option && !available.includes(option)
+        ? nearestOption(option, definition.options, available)
+        : (option ?? raw);
+    const optionIndex = Math.max(0, available.indexOf(stringValue));
     return {
       key: definition.key,
       label: definition.label,
       kind: "enum",
-      value:
-        definition.options.length > 1
-          ? optionIndex / (definition.options.length - 1)
-          : 0.5,
+      value: available.length > 1 ? optionIndex / (available.length - 1) : 0.5,
       stringValue,
       min: 0,
-      max: Math.max(0, definition.options.length - 1),
+      max: Math.max(0, available.length - 1),
       defaultValue: definition.defaultValue,
-      options: definition.options.includes(stringValue)
-        ? definition.options
-        : [...definition.options, stringValue],
+      options: available.includes(stringValue)
+        ? available
+        : [...available, stringValue],
       display: stringValue,
     };
   }
@@ -618,10 +655,31 @@ function describeHiddenLayers(effect: SessionEffect, activeLayerCount: number) {
     : undefined;
 }
 
+// The font of an enabled Text effect that could not be loaded, which is
+// drawn in the default font instead.
+function describeMissingFont(
+  effect: SessionEffect,
+  missingFonts: ReadonlySet<string>,
+) {
+  if (effect.enabled === false || !isTextEffectName(effect.effectName)) {
+    return undefined;
+  }
+
+  const stored = effect.parameters.find(
+    (parameter) => parameter.key === "FontFamily",
+  )?.value;
+  const font = parseFontChoice(stored);
+  const value = stored?.trim();
+  return value && missingFonts.has(value)
+    ? `Font not available: ${font.family}`
+    : undefined;
+}
+
 function toDevice(
   effect: SessionEffect,
   layerName: string,
   activeLayerCount = 0,
+  missingFonts: ReadonlySet<string> = new Set(),
 ): FxDevice {
   const definition = getEffectDefinition(effect.effectName);
   const group = getTrackGroup(effect.trackId);
@@ -654,7 +712,9 @@ function toDevice(
     enabled: effect.enabled !== false,
     layerDefault: isLayerLayoutEffect(effect) || undefined,
     unsupported: !isEffectSupportedIn(effect.effectName, group) || undefined,
-    warning: describeHiddenLayers(effect, activeLayerCount),
+    warning:
+      describeHiddenLayers(effect, activeLayerCount) ??
+      describeMissingFont(effect, missingFonts),
     parameters: parameterDefinitions
       .filter(
         (parameter) =>
@@ -665,6 +725,8 @@ function toDevice(
         toDeviceParameter(
           parameter,
           effect.parameters.find((stored) => stored.key === parameter.key),
+          (key) =>
+            effect.parameters.find((stored) => stored.key === key)?.value,
         ),
       ),
   };
@@ -679,10 +741,12 @@ export function mapSessionEffectsToDevices(
   layerName = `Layer ${laneId}`,
   // Layers the compositor draws at the playhead, for the Order grid warning.
   activeLayerCount = 0,
+  // Fonts that could not be loaded, for the Text device's warning.
+  missingFonts: ReadonlySet<string> = new Set(),
 ) {
   const layerDevices = effects
     .filter((effect) => laneId !== undefined && effect.trackId === laneId)
-    .map((effect) => toDevice(effect, layerName));
+    .map((effect) => toDevice(effect, layerName, 0, missingFonts));
   const globalDevices = effects
     .filter((effect) => effect.trackId === GLOBAL_EFFECT_TRACK_ID)
     .map((effect) => toDevice(effect, layerName, activeLayerCount));

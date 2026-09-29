@@ -1,8 +1,8 @@
 // Works out which clips the compositor draws at a playhead: at most one clip
 // per lane under the playhead whose media is online, in lane order, with the
 // source time, visual state and effect chain each one is drawn with. Fill
-// clips have no media and are always drawable, painted by their layer's
-// Color effect.
+// and text clips have no media and are always drawable, painted by their
+// layer's Color effect or styled by its Text effect.
 import { type ClipWarp, warpSourceTime } from "./clip-warp.ts";
 import { isOrderEffectName } from "./composition-order.ts";
 import {
@@ -20,6 +20,11 @@ import {
   isChainEffectName,
   resolveEffectChain,
 } from "./fx-shaders/registry.ts";
+import {
+  isTextEffectName,
+  resolveTextStyle,
+  type TextStyle,
+} from "./text-style.ts";
 
 export type MediaKind = "video" | "audio";
 
@@ -44,8 +49,9 @@ export type Lane = {
 
 export type ArrangementClip = {
   id: string;
-  // "fill" for a media-less fill clip; media clips leave it unset.
-  kind?: "fill";
+  // "fill" or "text" for a media-less fill or text clip; media clips leave
+  // it unset.
+  kind?: "fill" | "text";
   sourceTrackId: string;
   laneId: string;
   label: string;
@@ -107,6 +113,8 @@ export type ActiveClip = {
   effectChain: EffectChainStep[];
   // Set for fill clips, which draw this paint instead of a media element.
   fill?: FillPaint;
+  // Set for text clips, which draw this text instead of a media element.
+  text?: TextStyle;
 };
 
 export const GROUP_TRACK_ID = "__group_main";
@@ -191,12 +199,14 @@ export function resolveVisualState(
       continue;
     }
 
-    // Shader-chain effects render their own passes, the Color effect only
-    // paints fill clips, and a bypassed effect contributes nothing.
+    // Shader-chain effects render their own passes, the Color and Text
+    // effects only style fill and text clips, and a bypassed effect
+    // contributes nothing.
     if (
       effect.enabled === false ||
       isChainEffectName(effect.effectName) ||
-      isColorEffectName(effect.effectName)
+      isColorEffectName(effect.effectName) ||
+      isTextEffectName(effect.effectName)
     ) {
       continue;
     }
@@ -310,15 +320,14 @@ export function computeActiveClips(
     })
     .map((clip) => ({
       clip,
-      media:
-        clip.kind === "fill"
-          ? createFillMedia(clip)
-          : clip.mediaId
-            ? mediaById.get(clip.mediaId)
-            : undefined,
+      media: isGeneratedClip(clip)
+        ? createGeneratedMedia(clip)
+        : clip.mediaId
+          ? mediaById.get(clip.mediaId)
+          : undefined,
     }))
     .filter((entry): entry is { clip: ArrangementClip; media: MediaItem } =>
-      Boolean(entry.clip.kind === "fill" || entry.media?.previewUrl),
+      Boolean(isGeneratedClip(entry.clip) || entry.media?.previewUrl),
     );
 
   // A lane shows one clip at a time. Where clips on a lane overlap, the one
@@ -348,7 +357,7 @@ export function computeActiveClips(
         clip.durationSeconds > 0
           ? clamp(clipElapsedSeconds / clip.durationSeconds, 0, 1)
           : 0;
-      if (clip.kind === "fill") {
+      if (isGeneratedClip(clip)) {
         return {
           clip,
           media,
@@ -360,7 +369,9 @@ export function computeActiveClips(
           clipProgress,
           visual: resolveVisualState(effects, clip.laneId),
           effectChain: resolveEffectChain(effects, clip.laneId),
-          fill: resolveFillPaint(effects, clip.laneId),
+          ...(clip.kind === "text"
+            ? { text: resolveTextStyle(effects, clip.laneId) }
+            : { fill: resolveFillPaint(effects, clip.laneId) }),
         };
       }
 
@@ -391,12 +402,18 @@ export function computeActiveClips(
     });
 }
 
-// Stands in for the media of a fill clip, which has none. Its id doubles as
-// the clip's source key, and the compositor never makes a media element
-// for it.
-function createFillMedia(clip: ArrangementClip): MediaItem {
+// Fill and text clips draw what their layer's effects describe rather than
+// a media file.
+function isGeneratedClip(clip: ArrangementClip) {
+  return clip.kind === "fill" || clip.kind === "text";
+}
+
+// Stands in for the media of a fill or text clip, which has none. Its id
+// doubles as the clip's source key, and the compositor never makes a media
+// element for it.
+function createGeneratedMedia(clip: ArrangementClip): MediaItem {
   return {
-    id: `fill:${clip.id}`,
+    id: `${clip.kind}:${clip.id}`,
     name: clip.label,
     kind: "video",
     durationSeconds: clip.durationSeconds,
