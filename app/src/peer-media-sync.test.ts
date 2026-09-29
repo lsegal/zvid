@@ -122,8 +122,12 @@ describe("media sync view", () => {
       "Syncing…",
     );
     assert.equal(
-      formatMediaSyncLabel({ phase: "queued", fraction: null }, "main audio"),
+      formatMediaSyncLabel({ phase: "queued", fraction: null }),
       "Waiting…",
+    );
+    assert.equal(
+      formatMediaSyncLabel({ phase: "queued", fraction: null }, "main audio"),
+      "Waiting for main audio…",
     );
   });
 

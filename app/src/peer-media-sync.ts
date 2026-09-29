@@ -103,7 +103,7 @@ function formatPercent(fraction: number) {
 // "Syncing 42%" on clips and spans; "Syncing main audio 42%" with a subject.
 export function formatMediaSyncLabel(view: MediaSyncView, subject?: string) {
   if (view.phase === "queued") {
-    return "Waiting…";
+    return subject ? `Waiting for ${subject}…` : "Waiting…";
   }
   const prefix = subject ? `Syncing ${subject}` : "Syncing";
   return view.fraction === null

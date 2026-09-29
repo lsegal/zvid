@@ -2094,6 +2094,11 @@
   min-width: 0;
 }
 
+/* The progress bar takes the place of the span's accent line. */
+.source-span.is-syncing .source-span__line {
+  visibility: hidden;
+}
+
 /* Placeholder waveform bars of a few heights across the main Audio row. */
 .media-sync--waveform {
   inset: 8px auto 8px 0;
