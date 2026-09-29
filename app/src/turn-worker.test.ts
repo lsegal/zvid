@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   handleIceServers,
+  NATIVE_APP_ORIGINS,
   type RateLimiter,
   TURN_CREDENTIAL_TTL_SECONDS,
   TURN_RATE_LIMIT_PERIOD_SECONDS,
@@ -196,6 +197,115 @@ describe("handleIceServers", () => {
         fetcher,
       );
       assert.equal(response.status, 403, JSON.stringify(headers));
+      assert.deepEqual(calls, []);
+      assert.equal(counts.size, 0);
+    }
+  });
+
+  it("allows the native app's origins cross-origin", async () => {
+    assert.deepEqual(NATIVE_APP_ORIGINS, [
+      "tauri://localhost",
+      "http://tauri.localhost",
+    ]);
+    for (const origin of NATIVE_APP_ORIGINS) {
+      const { fetcher } = cloudflareReturning(Response.json(ICE_SERVERS));
+      const response = await handleIceServers(
+        fromIp("192.0.2.1", { Origin: origin, "Sec-Fetch-Site": "cross-site" }),
+        ENV,
+        fetcher,
+      );
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get("Access-Control-Allow-Origin"), origin);
+      assert.equal(response.headers.get("Vary"), "Origin");
+      assert.equal(response.headers.get("Cache-Control"), "no-store");
+    }
+  });
+
+  it("lets the native app read failures too", async () => {
+    const origin = { Origin: "tauri://localhost" };
+    const unconfigured = await handleIceServers(
+      fromIp("192.0.2.1", origin),
+      {},
+    );
+    assert.equal(unconfigured.status, 503);
+    assert.equal(
+      unconfigured.headers.get("Access-Control-Allow-Origin"),
+      "tauri://localhost",
+    );
+
+    const { limiter } = rateLimiter(0);
+    const { fetcher } = cloudflareReturning(Response.json(ICE_SERVERS));
+    const limited = await handleIceServers(
+      fromIp("192.0.2.1", origin),
+      { ...ENV, TURN_RATE_LIMITER: limiter },
+      fetcher,
+    );
+    assert.equal(limited.status, 429);
+    assert.equal(
+      limited.headers.get("Access-Control-Allow-Origin"),
+      "tauri://localhost",
+    );
+  });
+
+  it("allows no other cross-origin callers", async () => {
+    for (const origin of [
+      "https://evil.example",
+      "null",
+      "tauri://localhost.evil.example",
+      "https://tauri.localhost",
+    ]) {
+      const { calls, fetcher } = cloudflareReturning(
+        Response.json(ICE_SERVERS),
+      );
+      const response = await handleIceServers(
+        fromIp("192.0.2.1", { Origin: origin }),
+        ENV,
+        fetcher,
+      );
+      assert.equal(response.status, 403, origin);
+      assert.equal(response.headers.get("Access-Control-Allow-Origin"), null);
+      assert.equal(response.headers.get("Vary"), "Origin");
+
+      const preflight = await handleIceServers(
+        new Request(REQUEST, {
+          method: "OPTIONS",
+          headers: { Origin: origin, "Access-Control-Request-Method": "GET" },
+        }),
+        ENV,
+        fetcher,
+      );
+      assert.equal(preflight.status, 204);
+      assert.equal(preflight.headers.get("Access-Control-Allow-Origin"), null);
+      assert.equal(preflight.headers.get("Access-Control-Allow-Methods"), null);
+      assert.deepEqual(calls, []);
+    }
+  });
+
+  it("answers the native app's CORS preflight without minting", async () => {
+    for (const origin of NATIVE_APP_ORIGINS) {
+      const { limiter, counts } = rateLimiter(10);
+      const { calls, fetcher } = cloudflareReturning(Response.json({}));
+      const response = await handleIceServers(
+        new Request(REQUEST, {
+          method: "OPTIONS",
+          headers: {
+            Origin: origin,
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "accept",
+          },
+        }),
+        { ...ENV, TURN_RATE_LIMITER: limiter },
+        fetcher,
+      );
+      assert.equal(response.status, 204);
+      assert.equal(response.headers.get("Access-Control-Allow-Origin"), origin);
+      assert.equal(response.headers.get("Access-Control-Allow-Methods"), "GET");
+      assert.equal(
+        response.headers.get("Access-Control-Allow-Headers"),
+        "Accept",
+      );
+      assert.equal(response.headers.get("Access-Control-Max-Age"), "86400");
+      assert.equal(response.headers.get("Vary"), "Origin");
       assert.deepEqual(calls, []);
       assert.equal(counts.size, 0);
     }
