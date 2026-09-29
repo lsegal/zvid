@@ -371,6 +371,7 @@ fn default_cameras() -> Vec<Camera> {
         ("mock-builtin", "FaceTime HD Camera", Transport::BuiltIn),
         ("mock-iphone", "iPhone Camera", Transport::Continuity),
         ("mock-usb", "Logitech BRIO", Transport::Usb),
+        (ROTATED_CAMERA, "Elgato Facecam (portrait)", Transport::Usb),
         (DENIED_CAMERA, "Studio Display Camera", Transport::Usb),
         (BUSY_CAMERA, "OBS Virtual Camera", Transport::Virtual),
     ]
@@ -383,8 +384,27 @@ fn default_cameras() -> Vec<Camera> {
     .collect()
 }
 
+/// A camera mounted on its side: its device format is landscape, but it
+/// reports a quarter turn, so it shows and records portrait.
+const ROTATED_CAMERA: &str = "mock-rotated";
+
+/// The format shown for `camera`: its device format, turned the way its
+/// frames are displayed.
 fn format_of(camera: Option<&str>) -> Option<VideoFormat> {
-    Some(match camera? {
+    let format = device_format_of(camera?);
+    Some(if camera == Some(ROTATED_CAMERA) {
+        VideoFormat {
+            width: format.height,
+            height: format.width,
+            ..format
+        }
+    } else {
+        format
+    })
+}
+
+fn device_format_of(camera: &str) -> VideoFormat {
+    match camera {
         "mock-iphone" | "mock-phone" => VideoFormat {
             width: 1080,
             height: 1920,
@@ -400,7 +420,7 @@ fn format_of(camera: Option<&str>) -> Option<VideoFormat> {
             height: 1080,
             fps: [30, 1],
         },
-    })
+    }
 }
 
 /// A scrolling colour-bar pattern with a sweep line, as JPEG.
@@ -582,6 +602,11 @@ mod tests {
         let status = backend.status();
         assert_eq!(status.phase, Phase::Ready);
         assert_eq!(status.format.unwrap().height, 1920);
+
+        // A landscape device format displayed a quarter turn round.
+        backend.select_camera(ROTATED_CAMERA).unwrap();
+        let format = backend.status().format.unwrap();
+        assert_eq!((format.width, format.height), (1080, 1920));
     }
 
     #[test]

@@ -15,6 +15,10 @@ export type Camera = {
 };
 
 export type VideoFormat = {
+  /**
+   * Displayed size: portrait for a source rotated to portrait, even when its
+   * device format is landscape.
+   */
   width: number;
   height: number;
   /** Frame rate as a [numerator, denominator] fraction. */

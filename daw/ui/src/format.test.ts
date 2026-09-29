@@ -57,6 +57,12 @@ test("summarizes the device", () => {
     deviceSummary(camera, { width: 1920, height: 1080, fps: [30, 1] }),
     "FaceTime HD Camera · 1920×1080 · 30 fps",
   );
+  // The backend reports the displayed size, so a portrait source reads
+  // portrait.
+  assert.equal(
+    deviceSummary(camera, { width: 1080, height: 1920, fps: [30, 1] }),
+    "FaceTime HD Camera · 1080×1920 · 30 fps",
+  );
   assert.equal(formatFps([30000, 1001]), "29.97 fps");
   assert.equal(droppedSummary(null), null);
   assert.equal(

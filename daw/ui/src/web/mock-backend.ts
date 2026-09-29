@@ -15,6 +15,11 @@ import type {
 
 export const DENIED_CAMERA = "mock-denied";
 export const BUSY_CAMERA = "mock-busy";
+/**
+ * A camera mounted on its side: its device format is landscape, but it
+ * reports a quarter turn, so it shows and records portrait.
+ */
+export const ROTATED_CAMERA = "mock-rotated";
 
 /** Song tempo the mock transport runs at. */
 const TEMPO = 120;
@@ -419,15 +424,30 @@ function defaultCameras(): Camera[] {
     { id: "mock-builtin", name: "FaceTime HD Camera", transport: "builtIn" },
     { id: "mock-iphone", name: "iPhone Camera", transport: "continuity" },
     { id: "mock-usb", name: "Logitech BRIO", transport: "usb" },
+    {
+      id: ROTATED_CAMERA,
+      name: "Elgato Facecam (portrait)",
+      transport: "usb",
+    },
     { id: DENIED_CAMERA, name: "Studio Display Camera", transport: "usb" },
     { id: BUSY_CAMERA, name: "OBS Virtual Camera", transport: "virtual" },
   ];
 }
 
+/**
+ * The format shown for `camera`: its device format, turned the way its
+ * frames are displayed.
+ */
 function formatOf(camera: string | null): VideoFormat | null {
+  if (camera === null) return null;
+  const format = deviceFormatOf(camera);
+  return camera === ROTATED_CAMERA
+    ? { ...format, width: format.height, height: format.width }
+    : format;
+}
+
+function deviceFormatOf(camera: string): VideoFormat {
   switch (camera) {
-    case null:
-      return null;
     case "mock-iphone":
     case "mock-phone":
       return { width: 1080, height: 1920, fps: [30, 1] };

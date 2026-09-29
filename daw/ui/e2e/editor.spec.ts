@@ -53,6 +53,19 @@ test("previews the chosen camera", async ({ page }) => {
   );
 });
 
+test("shows a rotated camera's portrait size", async ({ page }) => {
+  await open(page);
+  await chooseCamera(page, "Elgato Facecam");
+  await expect(page.getByAltText("Live camera preview")).toBeVisible();
+  await expect(page.locator("footer")).toContainText(
+    "Elgato Facecam (portrait) · 1080×1920",
+  );
+  await chooseCamera(page, "FaceTime HD Camera");
+  await expect(page.locator("footer")).toContainText(
+    "FaceTime HD Camera · 1920×1080",
+  );
+});
+
 test("records takes that follow the transport", async ({ page }) => {
   await open(page, "manual-transport&takes=none");
   await expect(page.getByText("Your takes will show up here")).toBeVisible();
