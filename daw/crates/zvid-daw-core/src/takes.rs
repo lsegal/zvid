@@ -17,7 +17,7 @@ use crate::paths::RecordRootKind;
 use crate::state::{Recording, RecordingMeta, State};
 use crate::tracker::{Event, Input, Take, TakeTracker, TransportSnapshot};
 
-/// The capture file an arm records to. Every take of that capture shares
+/// The capture file an arm records to. Every take of that file shares
 /// these details.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Capture {
@@ -51,13 +51,20 @@ pub enum Command {
     /// replaces the size the capture armed with, which can't tell a
     /// portrait camera from a landscape one.
     Dimensions { dimensions: [u32; 2], at: f64 },
+    /// Capture continues in the new file `capture` from host time `at`,
+    /// because the camera turned. The open take moves to it, so each file
+    /// has one orientation and its own takes.
+    NextFile { capture: Capture, at: f64 },
 }
 
 impl Command {
     /// The host time the command applies at.
     pub fn at(&self) -> f64 {
         match *self {
-            Self::Arm { at, .. } | Self::Disarm { at } | Self::Dimensions { at, .. } => at,
+            Self::Arm { at, .. }
+            | Self::Disarm { at }
+            | Self::Dimensions { at, .. }
+            | Self::NextFile { at, .. } => at,
             Self::FrameClock { host_time, .. } => host_time,
         }
     }
@@ -152,12 +159,62 @@ impl TakeLog {
                 self.set_dimensions(dimensions, state);
                 return Vec::new();
             }
+            Command::NextFile { capture, at } => return self.next_file(capture, at, state),
         };
+        let clock = matches!(input, Input::FrameClock { .. });
         let events = self.apply(input, state);
+        if clock {
+            // The first frame of a new file places the take moved to it.
+            self.update_open(state);
+        }
         if !self.is_armed() {
             self.capture = None;
         }
         events
+    }
+
+    /// Moves the open take to the new file `capture`. The previous file
+    /// keeps the takes that closed in it, or becomes an unanchored entry
+    /// without any.
+    fn next_file(&mut self, capture: Capture, at: f64, state: &mut State) -> Vec<Event> {
+        if !self.is_armed() || self.capture.is_none() {
+            return Vec::new();
+        }
+        let moved = self.open.take();
+        let changes = self.changes.len();
+        let events = self.apply(Input::NextFile { at }, state);
+        // The previous file's entry isn't a take the capture opened.
+        let added = self.changes.split_off(changes);
+        self.changes.extend(
+            added
+                .into_iter()
+                .filter(|change| !matches!(change, TakeChange::Opened { .. })),
+        );
+        self.capture = Some(capture);
+        self.open = moved;
+        self.update_open(state);
+        events
+    }
+
+    /// Brings the open take's entry up to its file and place in it.
+    fn update_open(&mut self, state: &mut State) {
+        let Some(take) = self.tracker.open_take().copied() else {
+            return;
+        };
+        let Some(updated) = self.recording(&take) else {
+            return;
+        };
+        if let Some(recording) = self.open_recording(state)
+            && (recording.filename != updated.filename
+                || recording.transport_start_sec != updated.transport_start_sec)
+        {
+            *recording = Recording {
+                id: recording.id.clone(),
+                duration_sec: recording.duration_sec,
+                extra: std::mem::take(&mut recording.extra),
+                ..updated
+            };
+        }
     }
 
     /// Applies a transport snapshot. Returns the take events it caused, as

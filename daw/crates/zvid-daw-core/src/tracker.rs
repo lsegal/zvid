@@ -41,6 +41,13 @@ pub enum Input {
         host_time: f64,
         file_sec: f64,
     },
+    /// The capture continues in a new file from host time `at`, as
+    /// [`Input::Arm`] would start one. The open take moves to the new file
+    /// and starts at its first frame. A previous file without a take of its
+    /// own becomes an unanchored entry, as a capture without playback does.
+    NextFile {
+        at: f64,
+    },
 }
 
 /// Transport position a take is anchored to.
@@ -50,6 +57,19 @@ pub struct Anchor {
     pub transport_start_beats: f64,
     pub tempo: f64,
     pub time_signature: [u32; 2],
+}
+
+impl Anchor {
+    /// The transport position `sec` seconds later, or this one for times
+    /// before it.
+    fn later_by(self, sec: f64) -> Self {
+        let sec = sec.max(0.0);
+        Self {
+            transport_start_sec: self.transport_start_sec + sec,
+            transport_start_beats: self.transport_start_beats + sec * self.tempo / 60.0,
+            ..self
+        }
+    }
 }
 
 /// One take: a slice of the capture file.
@@ -77,7 +97,11 @@ struct Armed {
     at: f64,
     /// Latest `(host_time, file_sec)` frame clock pair.
     clock: Option<(f64, f64)>,
+    /// Takes in the current file.
     takes: u32,
+    /// The open take moved to this file, until the file's first frame
+    /// clock places it: the host time it started at, and its anchor then.
+    moved: Option<(f64, Option<Anchor>)>,
 }
 
 /// Turns arm, transport and frame-clock inputs into take events.
@@ -122,6 +146,7 @@ impl TakeTracker {
                     at,
                     clock: None,
                     takes: 0,
+                    moved: None,
                 });
                 // Arming while the transport already plays starts a take at
                 // arm, anchored where the transport is at that moment.
@@ -189,10 +214,56 @@ impl TakeTracker {
             } => {
                 if let Some(armed) = self.armed.as_mut() {
                     armed.clock = Some((host_time, file_sec));
+                    // The moved take starts at the new file's first frame.
+                    if let Some((start, anchor)) = armed.moved.take()
+                        && let Some(take) = self.open.as_mut()
+                    {
+                        let zero = host_time - file_sec;
+                        take.anchor = anchor.map(|anchor| anchor.later_by(zero - start));
+                    }
+                }
+            }
+            Input::NextFile { at } => {
+                let Some(armed) = self.armed else {
+                    return events;
+                };
+                let moved = self.open.take();
+                let start = moved.map(|take| self.host_time(take.file_offset_sec));
+                if armed.takes == u32::from(moved.is_some()) {
+                    // Nothing but the moved take was recorded in the file.
+                    self.start_take(0.0, None, &mut events);
+                    self.finish_take(at, &mut events);
+                }
+                self.armed = Some(Armed {
+                    at,
+                    clock: None,
+                    takes: u32::from(moved.is_some()),
+                    moved: None,
+                });
+                if let (Some(take), Some(start)) = (moved, start) {
+                    self.open = Some(Take {
+                        file_offset_sec: 0.0,
+                        anchor: take.anchor.map(|anchor| anchor.later_by(at - start)),
+                        ..take
+                    });
+                    if let Some(armed) = self.armed.as_mut() {
+                        armed.moved = Some((start, take.anchor));
+                    }
                 }
             }
         }
         events
+    }
+
+    /// The host time of `file_sec` in the capture file.
+    fn host_time(&self, file_sec: f64) -> f64 {
+        let Some(armed) = self.armed else {
+            return 0.0;
+        };
+        match armed.clock {
+            Some((host_time, clock_sec)) => host_time + (file_sec - clock_sec),
+            None => armed.at + file_sec,
+        }
     }
 
     /// Seconds into the capture file at host time `at`.
