@@ -189,6 +189,7 @@ import {
   ensureLayerLayouts,
   type FxDevice,
   GLOBAL_EFFECT_TRACK_ID,
+  getEffectClipId,
   getRenderedEffects,
   isLayerFxEnabled,
   isLayoutEffectName,
@@ -2687,10 +2688,21 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   );
 
   const addFxDevice = useCallback(
-    (trackId: string, effectName: string, id: string) =>
+    (trackId: string, effectName: string, id: string) => {
+      // An FX clip's own stack takes the effects that work on a composite,
+      // Order among them.
+      const clipId = getEffectClipId(trackId);
+      const scope =
+        clipId !== undefined &&
+        isFxClip(
+          timelineClipsRef.current.find((clip) => clip.id === clipId),
+        )
+          ? "fxClip"
+          : undefined;
       editEffects(effectHistoryLabels.add(effectName), (current) =>
-        addEffect(current, trackId, effectName, undefined, id),
-      ),
+        addEffect(current, trackId, effectName, undefined, id, scope),
+      );
+    },
     [editEffects],
   );
 

@@ -341,20 +341,35 @@ export function createEffect(
 }
 
 // Inserts a new effect with the registry defaults at `atIndex` within the
-// `trackId` stack, or at the end of the stack when omitted.
+// `trackId` stack, or at the end of the stack when omitted. `scope` is the
+// stack's scope when the track alone doesn't tell: "fxClip" for an FX
+// clip's own stack.
 export function addEffect(
   effects: SessionEffect[],
   trackId: string,
   effectName: string,
   atIndex?: number,
   id?: string,
+  scope: FxEffectScope = getTrackGroup(trackId),
 ) {
-  const stack = getStack(effects, trackId);
+  let current = effects;
+  let stack = getStack(current, trackId);
   // Only effects designed for the stack can be added to it: Transform
   // places one layer, so never on the Global stack, and Order arranges
-  // every layer at once, so only on the Global stack.
-  if (!isEffectSupportedIn(effectName, getTrackGroup(trackId))) {
+  // several layers at once, so only on the Global stack or an FX clip.
+  if (!isEffectSupportedIn(effectName, scope)) {
     return effects;
+  }
+
+  // A stack arranges its layers one way: a new Order bypasses the ones
+  // already there, which stay to be switched back on.
+  if (isOrderEffectName(effectName)) {
+    for (const existing of stack) {
+      if (isOrderEffectName(existing.effectName)) {
+        current = setEffectEnabled(current, existing.id, false);
+      }
+    }
+    stack = getStack(current, trackId);
   }
 
   // Layout is per layer: never on the Global stack, and one per layer.
@@ -374,14 +389,14 @@ export function addEffect(
 
   let insertAt: number;
   if (stackIndex < stack.length) {
-    insertAt = effects.indexOf(stack[stackIndex]);
+    insertAt = current.indexOf(stack[stackIndex]);
   } else if (stack.length) {
-    insertAt = effects.indexOf(stack[stack.length - 1]) + 1;
+    insertAt = current.indexOf(stack[stack.length - 1]) + 1;
   } else {
-    insertAt = effects.length;
+    insertAt = current.length;
   }
 
-  return [...effects.slice(0, insertAt), effect, ...effects.slice(insertAt)];
+  return [...current.slice(0, insertAt), effect, ...current.slice(insertAt)];
 }
 
 export function removeEffect(effects: SessionEffect[], effectId: string) {
