@@ -170,6 +170,12 @@ export function formatZoom(value: number) {
   return `${(1 + 3 * value).toFixed(2)}×`;
 }
 
+// The stored 0..1 value of a zoom factor, rounded to the 0.01× knob step so
+// defaults like 1.20× land exactly on a step.
+export function zoomToUnit(zoom: number) {
+  return Math.round((zoom - 1) * 100) / 300;
+}
+
 export function formatSignedPercent(value: number) {
   const percent = Math.round(value * 100);
   return `${percent > 0 ? "+" : ""}${percent}%`;
@@ -217,11 +223,17 @@ function unitParameter(
   };
 }
 
+// A zoom knob defaulting to `defaultZoom` (1x..4x), stepping 0.01× at a time.
 function zoomParameter(
   key: string,
   label: string,
+  defaultZoom = 1,
 ): FxNumberParameterDefinition {
-  return { ...unitParameter(key, label, 0), format: formatZoom };
+  return {
+    ...unitParameter(key, label, zoomToUnit(defaultZoom)),
+    step: 1 / 300,
+    format: formatZoom,
+  };
 }
 
 function transformParameter(
@@ -308,7 +320,7 @@ const DEFINITIONS: FxEffectDefinition[] = [
       zoomParameter("_Start_Zoom", "Start Zoom"),
       unitParameter("_Start_X", "Start X", 0.5),
       unitParameter("_Start_Y", "Start Y", 0.5),
-      zoomParameter("_End_Zoom", "End Zoom"),
+      zoomParameter("_End_Zoom", "End Zoom", 1.2),
       unitParameter("_End_X", "End X", 0.5),
       unitParameter("_End_Y", "End Y", 0.5),
       {

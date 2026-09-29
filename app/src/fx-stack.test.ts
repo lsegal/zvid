@@ -540,6 +540,77 @@ describe("resetEffect", () => {
   });
 });
 
+describe("Zoom & Pan defaults", () => {
+  function knobs(effects: SessionEffect[], trackId: string) {
+    const device = mapSessionEffectsToDevices(effects, trackId).find(
+      (candidate) => candidate.effectName === "ZoomAndPan",
+    );
+    return Object.fromEntries(
+      (device?.parameters ?? []).map((parameter) => [
+        parameter.label,
+        parameter.display,
+      ]),
+    );
+  }
+
+  const DEFAULT_KNOBS = {
+    "Start Zoom": "1.00×",
+    "Start X": "50%",
+    "Start Y": "50%",
+    "End Zoom": "1.20×",
+    "End X": "50%",
+    "End Y": "50%",
+  };
+
+  it("zooms a new device in from 1.00x to 1.20x, centred", () => {
+    const effect = createEffect("1", "ZoomAndPan", "zoom");
+    assert.deepEqual(knobs([effect], "1"), DEFAULT_KNOBS);
+    const endZoom = effect.parameters.find(
+      (parameter) => parameter.key === "_End_Zoom",
+    );
+    assert.equal(endZoom?.numericValue, 0.2 / 3);
+  });
+
+  it("puts End Zoom's default on a knob step", () => {
+    const definition = getEffectDefinition("ZoomAndPan").parameters.find(
+      (parameter) => parameter.key === "_End_Zoom",
+    );
+    assert.ok(definition?.kind === "number" && definition.step);
+    const steps = definition.defaultValue / definition.step;
+    assert.equal(Math.round(steps), 20);
+    assert.ok(Math.abs(steps - 20) < 1e-9);
+  });
+
+  it("restores the defaults on reset", () => {
+    const edited = setEffectParameter(
+      setEffectParameter(
+        [createEffect("1", "ZoomAndPan", "zoom")],
+        "zoom",
+        "_End_Zoom",
+        0.5,
+      ),
+      "zoom",
+      "_Start_X",
+      0.1,
+    );
+    assert.equal(knobs(edited, "1")["End Zoom"], "2.50×");
+    assert.deepEqual(knobs(resetEffect(edited, "zoom"), "1"), DEFAULT_KNOBS);
+  });
+
+  it("keeps a loaded session's saved zoom", () => {
+    const effects = load();
+    assert.equal(knobs(effects, "1")["Start Zoom"], "1.00×");
+    assert.equal(knobs(effects, "1")["End Zoom"], "1.69×");
+    assert.equal(
+      effects
+        .find((effect) => effect.id === "zoom")
+        ?.parameters.find((parameter) => parameter.key === "_End_Zoom")
+        ?.numericValue,
+      0.23,
+    );
+  });
+});
+
 describe("ensureLayerLayouts", () => {
   it("gives every layer a default Layout at the start of its stack", () => {
     const next = ensureLayerLayouts([], ["1", "5"]);

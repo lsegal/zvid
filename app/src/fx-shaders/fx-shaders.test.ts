@@ -2,6 +2,7 @@
 /// <reference lib="dom" />
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { createEffect } from "../fx-stack.ts";
 import { analogGlitchPass } from "./analog-glitch.ts";
 import {
   type AudioBands,
@@ -318,6 +319,27 @@ describe("effect passes", () => {
       }).uDown,
       [-1],
     );
+  });
+
+  it("zooms a default Zoom & Pan from 1.0x to 1.2x across the clip", () => {
+    const parameters = createEffect("1", "ZoomAndPan").parameters;
+    // Mirrors the fragment shader's eased start-to-end zoom factor.
+    const zoomAt = (clipProgress: number) => {
+      const values = uniformValues(zoomAndPanPass, parameters, {
+        ...CONTEXT,
+        clipProgress,
+      });
+      const [progress] = values.uProgress;
+      const eased = progress * progress * (3 - 2 * progress);
+      const zoom = values.uStart[0] + (values.uEnd[0] - values.uStart[0]) * eased;
+      return 1 + 3 * zoom;
+    };
+
+    assert.match(zoomAndPanPass.fragmentSource, /smoothstep\(0\.0, 1\.0, uProgress\)/);
+    assert.match(zoomAndPanPass.fragmentSource, /mix\(1\.0, 4\.0, k\.x\)/);
+    assert.ok(Math.abs(zoomAt(0) - 1) < 1e-9);
+    assert.ok(Math.abs(zoomAt(0.5) - 1.1) < 1e-9);
+    assert.ok(Math.abs(zoomAt(1) - 1.2) < 1e-9);
   });
 
   it("centers a Zoom & Pan framing with missing parameters", () => {
