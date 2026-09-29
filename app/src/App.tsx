@@ -275,10 +275,7 @@ import {
   removeInvitePassword,
 } from "./share-invite.ts";
 import { shareCopyFailedStatus, shareLinkVisible } from "./share-link";
-import {
-  PUBLIC_SIGNALING_URL,
-  ZVID_SIGNALING_URL,
-} from "./signaling-servers";
+import { PUBLIC_SIGNALING_URL, ZVID_SIGNALING_URL } from "./signaling-servers";
 import {
   dropClipOnFreeLane,
   isSourceClipDropClick,
