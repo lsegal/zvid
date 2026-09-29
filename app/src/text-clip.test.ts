@@ -53,13 +53,14 @@ function textDevice(effects: SessionEffect[], missing?: ReadonlySet<string>) {
     "Layer 1",
     0,
     missing,
+    "text-a",
   ).find((candidate) => candidate.effectName === "Text");
   assert.ok(device);
   return device;
 }
 
 describe("addTextClip", () => {
-  it("adds a media-less text clip over the range with a Text effect", () => {
+  it("adds a media-less text clip over the range with its own Text effect", () => {
     const existing: MediaClip = { id: "clip-1", laneId: "1", mediaId: "m" };
     const result = insert({ clips: [existing], effects: [layout("1")] });
 
@@ -76,10 +77,10 @@ describe("addTextClip", () => {
     assert.equal(result.clip.label, "Text");
 
     const text = result.effects.find((effect) => effect.id === "text-effect");
-    assert.equal(text?.trackId, "1");
+    assert.equal(text?.trackId, "clip:text-a");
     assert.equal(text?.effectName, "Text");
     // "Text" in the default font, white and centred.
-    const style = resolveTextStyle(result.effects, "1");
+    const style = resolveTextStyle(result.effects, "1", "clip:text-a");
     assert.equal(style.text, "Text");
     assert.equal(style.font, "Inter");
     assert.equal(style.weight, 400);
@@ -95,7 +96,7 @@ describe("addTextClip", () => {
     assert.equal(style.shadow, undefined);
   });
 
-  it("keeps a layer's existing Text effect", () => {
+  it("gives each text clip on a layer its own Text effect", () => {
     const first = insert({ clips: [], effects: [layout("1")] });
     const second = addTextClip(first, {
       ...first.clip,
@@ -105,7 +106,28 @@ describe("addTextClip", () => {
       effectId: "text-effect-b",
     });
     assert.equal(second.clips.length, 2);
-    assert.equal(second.effects, first.effects);
+    assert.equal(
+      second.effects.find((effect) => effect.id === "text-effect-b")?.trackId,
+      "clip:text-b",
+    );
+
+    const effects = setEffectParameter(
+      second.effects,
+      "text-effect-b",
+      "Text",
+      "Second",
+    );
+    assert.equal(resolveTextStyle(effects, "1", "clip:text-a").text, "Text");
+    assert.equal(resolveTextStyle(effects, "1", "clip:text-b").text, "Second");
+  });
+
+  it("puts no Text effect on the layer", () => {
+    const { effects } = insert({ clips: [], effects: [layout("1")] });
+    assert.ok(
+      !effects.some(
+        (effect) => effect.trackId === "1" && effect.effectName === "Text",
+      ),
+    );
   });
 
   it("round-trips the clip and its style through saved project state", () => {
@@ -136,8 +158,8 @@ describe("addTextClip", () => {
 
     assert.deepEqual(loaded.clips, inserted.clips);
     assert.ok(isTextClip(loaded.clips[0]));
-    const style = resolveTextStyle(loaded.effects, "1");
-    assert.deepEqual(style, resolveTextStyle(effects, "1"));
+    const style = resolveTextStyle(loaded.effects, "1", "clip:text-a");
+    assert.deepEqual(style, resolveTextStyle(effects, "1", "clip:text-a"));
     assert.equal(style.text, "Line one\nLine two");
     assert.equal(style.font, "google:Roboto");
     assert.equal(style.italic, true);
@@ -254,7 +276,10 @@ describe("Text effect parameters", () => {
     ]);
     // A weight the font lacks shows, and draws, as its nearest one.
     assert.equal(weight(spaceGrotesk)?.stringValue, "Bold");
-    assert.equal(resolveTextStyle(spaceGrotesk, "1").weight, 700);
+    assert.equal(
+      resolveTextStyle(spaceGrotesk, "1", "clip:text-a").weight,
+      700,
+    );
   });
 
   it("keeps empty text and style toggles", () => {
@@ -269,7 +294,7 @@ describe("Text effect parameters", () => {
       device.parameters.find((parameter) => parameter.key === key)?.stringValue;
     assert.equal(value("Text"), "");
     assert.equal(value("FontStyle"), "");
-    assert.equal(resolveTextStyle(next, "1").text, "");
+    assert.equal(resolveTextStyle(next, "1", "clip:text-a").text, "");
   });
 
   it("warns on the device when its font is missing", () => {

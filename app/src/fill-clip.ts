@@ -1,16 +1,20 @@
 // Fill clips are arrangement clips with no media: each draws a rectangle
-// over its layer's band, painted by the Color effect on that layer. They
-// carry the same timing fields as media clips, so moving, trimming, copying,
-// splitting and undo treat them like any other clip.
+// over its layer's band, painted by the Color effect on the clip's own stack
+// or, when it has none, the one on its layer. They carry the same timing
+// fields as media clips, so moving, trimming, copying, splitting and undo
+// treat them like any other clip.
 
 import {
   COLOR_EFFECT_NAME,
   formatCssColor,
-  isColorEffectName,
   NEUTRAL_FILL_COLOR,
   parseCssColor,
 } from "./fill-paint.ts";
-import { addEffect, type SessionEffect } from "./fx-stack.ts";
+import {
+  addEffect,
+  clipEffectTrackId,
+  type SessionEffect,
+} from "./fx-stack.ts";
 
 export const FILL_CLIP_KIND = "fill";
 export const FILL_CLIP_LABEL = "Fill";
@@ -93,39 +97,32 @@ export type FillProject<Clip> = {
 
 /**
  * Adds a fill clip spanning `durationQ` quarters from `startQ` on layer
- * `laneId`. The layer gets a Color effect in Solid mode with `color` when it
- * has none yet, so the new clip is visible straight away.
+ * `laneId`, with a Color effect in Solid mode with `color` on the clip's own
+ * stack, so the new clip is visible straight away.
  */
 export function addFillClip<Clip>(
   project: FillProject<Clip>,
   options: FillClipOptions & { color: string; effectId: string },
 ): FillProject<Clip | FillClip> & { clip: FillClip } {
   const clip = createFillClip(options);
-  const hasColorEffect = project.effects.some(
-    (effect) =>
-      effect.trackId === options.laneId && isColorEffectName(effect.effectName),
+  const effects = addEffect(
+    project.effects,
+    clipEffectTrackId(clip.id),
+    COLOR_EFFECT_NAME,
+    undefined,
+    options.effectId,
+  ).map((effect) =>
+    effect.id === options.effectId
+      ? {
+          ...effect,
+          parameters: effect.parameters.map((parameter) =>
+            parameter.key === "Color"
+              ? { ...parameter, value: options.color }
+              : parameter,
+          ),
+        }
+      : effect,
   );
-  let effects = project.effects;
-  if (!hasColorEffect) {
-    effects = addEffect(
-      effects,
-      options.laneId,
-      COLOR_EFFECT_NAME,
-      undefined,
-      options.effectId,
-    ).map((effect) =>
-      effect.id === options.effectId
-        ? {
-            ...effect,
-            parameters: effect.parameters.map((parameter) =>
-              parameter.key === "Color"
-                ? { ...parameter, value: options.color }
-                : parameter,
-            ),
-          }
-        : effect,
-    );
-  }
 
   return { clips: [...project.clips, clip], effects, clip };
 }
