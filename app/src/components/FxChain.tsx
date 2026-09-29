@@ -1309,7 +1309,6 @@ function FxLayersControl({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
-        aria-label="Layers to arrange"
         className="fx-layers-menu"
         sideOffset={4}
       >
