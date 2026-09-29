@@ -107,6 +107,23 @@
   opacity: 0.45;
 }
 
+.collaboration-status--error {
+  color: #ff8fb2;
+}
+
+.collaboration-status--button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.collaboration-status--button:hover {
+  text-decoration: underline;
+}
+
 .ghost-button {
   position: relative;
   display: inline-flex;
@@ -351,6 +368,43 @@
   color: var(--muted);
   font-size: 0.82rem;
   overflow-wrap: anywhere;
+}
+
+.collaboration-diagnostics {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(12, 14, 20, 0.26);
+  font-size: 0.84rem;
+}
+
+.collaboration-diagnostics__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.collaboration-diagnostics__row dt {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.collaboration-diagnostics__row dd {
+  margin: 0;
+  color: var(--ink);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.collaboration-diagnostics__row--ok dd {
+  color: #9affc0;
+}
+
+.collaboration-diagnostics__row--error dd {
+  color: #ff8fb2;
 }
 
 .dialog-content.capture-installer {

@@ -30,7 +30,12 @@ export type CollaborationDiagnostics = {
   lastError: string | null;
 };
 
-export type CollaborationTone = "idle" | "pending" | "waiting" | "live" | "error";
+export type CollaborationTone =
+  | "idle"
+  | "pending"
+  | "waiting"
+  | "live"
+  | "error";
 
 export const EMPTY_COLLABORATION_DIAGNOSTICS: CollaborationDiagnostics = {
   signaling: [],
