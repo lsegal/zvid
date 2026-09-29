@@ -49,7 +49,7 @@ import {
   type TextEditorKeyAction,
 } from "../preview-text-edit.ts";
 import type { TextStyle } from "../text-style.ts";
-import { PreviewTextEditor } from "./PreviewTextEditor";
+import { didPressEndTextEdit, PreviewTextEditor } from "./PreviewTextEditor";
 import "./preview-transform-overlay.css";
 
 // The text layer being edited on the canvas, and where its edits go.
@@ -414,11 +414,14 @@ export function PreviewTransformOverlay({
             "[data-transform-handle], [data-transform-origin], [data-transform-rotate]",
           )
         : null;
-    // Handles on the box win over the rotate zones around its corners.
+    // Handles on the box win over the rotate zones around its corners. A
+    // press that just finished editing text never rotates, as the zones were
+    // hidden when it landed.
     if (
       selected &&
       selectedBox &&
       rotateCorners &&
+      !didPressEndTextEdit(event.nativeEvent) &&
       (control?.dataset.transformRotate !== undefined ||
         (!control && isInRotateZone(point.screen, rotateCorners)))
     ) {

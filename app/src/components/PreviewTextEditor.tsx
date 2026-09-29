@@ -43,6 +43,15 @@ function isInEditingScope(target: EventTarget | null) {
   );
 }
 
+// Presses that finished editing by landing outside it. The edit ends before
+// the press reaches the page, so the preview's transform handles are back by
+// then; this lets it keep them out of the press that closed the editor.
+const pressesThatEndedEditing = new WeakSet<Event>();
+
+export function didPressEndTextEdit(event: Event) {
+  return pressesThatEndedEditing.has(event);
+}
+
 type MeasureContext =
   | OffscreenCanvasRenderingContext2D
   | CanvasRenderingContext2D;
@@ -113,6 +122,7 @@ export function PreviewTextEditor({
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
       if (!isInEditingScope(event.target)) {
+        pressesThatEndedEditing.add(event);
         onActionRef.current({ kind: "commit" });
       }
     };

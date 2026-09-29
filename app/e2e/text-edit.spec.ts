@@ -182,3 +182,122 @@ test("an IME composition is one undo step with the rest of the edit", async ({
   await page.keyboard.press("ControlOrMeta+z");
   await expect(fxText).toHaveValue("Text");
 });
+
+// Whether the selected layer's resize handles, rotation handle and origin
+// marker are shown.
+async function expectTransformHandles(page: Page, shown: boolean) {
+  await expect(page.locator("[data-transform-handle]")).toHaveCount(
+    shown ? 8 : 0,
+  );
+  await expect(page.getByTestId("preview-rotation-handle")).toHaveCount(
+    shown ? 1 : 0,
+  );
+  await expect(page.getByTestId("preview-transform-origin")).toHaveCount(
+    shown ? 1 : 0,
+  );
+}
+
+// The outline's edge lengths and rotation, in CSS pixels and degrees.
+async function outlineShape(page: Page) {
+  const points = await page
+    .getByTestId("preview-transform-outline")
+    .getAttribute("points");
+  const [topLeft, topRight, , bottomLeft] = (points ?? "")
+    .trim()
+    .split(/\s+/)
+    .map((pair) => pair.split(",").map(Number));
+  return {
+    width: Math.round(
+      Math.hypot(topRight[0] - topLeft[0], topRight[1] - topLeft[1]),
+    ),
+    height: Math.round(
+      Math.hypot(bottomLeft[0] - topLeft[0], bottomLeft[1] - topLeft[1]),
+    ),
+    rotation: Math.round(
+      (Math.atan2(topRight[1] - topLeft[1], topRight[0] - topLeft[0]) * 180) /
+        Math.PI,
+    ),
+  };
+}
+
+async function centreOf(page: Page, testId: string) {
+  const bounds = await page.getByTestId(testId).boundingBox();
+  if (!bounds) {
+    throw new Error(`${testId} is not visible`);
+  }
+  return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+}
+
+test("the transform handles step aside while editing text", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(lane(page, "1")).toBeVisible();
+  const clip = await insertTextLayer(page);
+  const editor = page.getByTestId("preview-text-editor");
+  const input = editor.getByRole("textbox");
+  const center = await videoCenter(page);
+
+  await page.mouse.click(center.x, center.y);
+  await expectTransformHandles(page, true);
+  const shape = await outlineShape(page);
+
+  // Each way out of the editor brings the handles back: Esc,
+  // Ctrl/Cmd+Enter, a click outside and starting playback.
+  const exits: [string, () => Promise<void>][] = [
+    ["Escape", () => page.keyboard.press("Escape")],
+    ["Ctrl/Cmd+Enter", () => page.keyboard.press("ControlOrMeta+Enter")],
+    [
+      "a click outside",
+      () => page.getByRole("banner").getByText("120 BPM").click(),
+    ],
+    [
+      "playback",
+      async () => {
+        await page.getByRole("button", { name: "Play timeline" }).click();
+        await page.getByRole("button", { name: "Pause playback" }).click();
+      },
+    ],
+  ];
+  for (const [name, exit] of exits) {
+    await test.step(name, async () => {
+      await page.mouse.dblclick(center.x, center.y);
+      await expect(input).toBeFocused();
+      await expectTransformHandles(page, false);
+      await exit();
+      await expect(editor).toHaveCount(0);
+      await expectTransformHandles(page, true);
+    });
+  }
+
+  // While editing, dragging from where a resize handle or a corner's rotate
+  // zone would be doesn't resize or rotate the layer. The press still ends
+  // the edit, and moves the layer or clears the selection as usual. The zone
+  // is beside the corner, as the text box fills the preview's height.
+  const pressPoints: [string, () => Promise<{ x: number; y: number }>][] = [
+    [
+      "rotate zone",
+      async () => {
+        const corner = await centreOf(page, "preview-transform-handle-se");
+        return { x: corner.x + 12, y: corner.y - 8 };
+      },
+    ],
+    ["resize handle", () => centreOf(page, "preview-transform-handle-e")],
+  ];
+  for (const [name, pressPoint] of pressPoints) {
+    await test.step(`nothing from the ${name} while editing`, async () => {
+      const from = await pressPoint();
+      await page.mouse.dblclick(center.x, center.y);
+      await expect(input).toBeFocused();
+      await expectTransformHandles(page, false);
+      await page.mouse.move(from.x, from.y);
+      await page.mouse.down();
+      await page.mouse.move(from.x - 40, from.y + 30, { steps: 5 });
+      await page.mouse.up();
+      await expect(editor).toHaveCount(0);
+      await clip.locator(".clip-card__body").click();
+      await expectTransformHandles(page, true);
+      expect(await outlineShape(page)).toEqual(shape);
+    });
+  }
+});
