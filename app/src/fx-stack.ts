@@ -787,8 +787,8 @@ function toDevice(
   };
 }
 
-// Devices for a layer in processing order: the layer's own stack first,
-// then the Global stack.
+// Devices for a layer: the layer's own stack, then the Global stack, then
+// the selected clip's own stack (`clipId`), which is processed first.
 export function mapSessionEffectsToDevices(
   effects: SessionEffect[],
   laneId: string | undefined,
@@ -798,6 +798,8 @@ export function mapSessionEffectsToDevices(
   activeLayerCount = 0,
   // Fonts that could not be loaded, for the Text device's warning.
   missingFonts: ReadonlySet<string> = new Set(),
+  // The selected clip, whose own stack is listed too.
+  clipId?: string,
 ) {
   const layerDevices = effects
     .filter((effect) => laneId !== undefined && effect.trackId === laneId)
@@ -805,7 +807,12 @@ export function mapSessionEffectsToDevices(
   const globalDevices = effects
     .filter((effect) => effect.trackId === GLOBAL_EFFECT_TRACK_ID)
     .map((effect) => toDevice(effect, layerName, activeLayerCount));
-  return [...layerDevices, ...globalDevices];
+  const clipTrackId =
+    clipId === undefined ? undefined : clipEffectTrackId(clipId);
+  const clipDevices = effects
+    .filter((effect) => effect.trackId === clipTrackId)
+    .map((effect) => toDevice(effect, layerName, 0, missingFonts));
+  return [...layerDevices, ...globalDevices, ...clipDevices];
 }
 
 type StackEffect = {
