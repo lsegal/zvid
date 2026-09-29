@@ -160,10 +160,7 @@ describe("share link icon next to Stop Share", () => {
   });
 
   it("swaps to a check after copying", () => {
-    assert.match(
-      iconButton,
-      /copyState === "copied" \? CheckIcon : LinkIcon/,
-    );
+    assert.match(iconButton, /copyState === "copied" \? CheckIcon : LinkIcon/);
   });
 
   it("opens the manual-copy fallback when copying fails", () => {

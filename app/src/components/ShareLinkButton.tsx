@@ -18,11 +18,7 @@ import {
 
 // Copy state shared by both share link buttons: "copied" reverts to "idle"
 // after resetMs, and "failed" stays until the fallback popover closes.
-function useShareLinkCopy(
-  url: string,
-  resetMs: number,
-  onCopied?: () => void,
-) {
+function useShareLinkCopy(url: string, resetMs: number, onCopied?: () => void) {
   const [copyState, setCopyState] = useState<ShareLinkCopyState>("idle");
 
   useEffect(() => {
@@ -153,7 +149,9 @@ function ShareLinkFallback({
   const [position] = useState<CSSProperties>(() => {
     const anchor = anchorRef.current?.getBoundingClientRect();
     if (!anchor) {
-      return placement === "above" ? { bottom: 32, left: 8 } : { top: 64, right: 8 };
+      return placement === "above"
+        ? { bottom: 32, left: 8 }
+        : { top: 64, right: 8 };
     }
     return placement === "above"
       ? {
