@@ -7364,6 +7364,12 @@ function App() {
                           ) : null}
                           {(clipsByLane.get(lane.id) ?? []).map((clip) => {
                             const selected = clip.id === selectedClip?.id;
+                            // Keeps the trim handles shown while the pointer
+                            // strays off the clip mid-drag.
+                            const trimming =
+                              (dragState?.kind === "resize-start" ||
+                                dragState?.kind === "resize-end") &&
+                              dragState.clipId === clip.id;
                             const durationQ = getClipDurationQ(clip, bpm);
                             const media = clip.mediaId
                               ? mediaItemsById.get(clip.mediaId)
@@ -7395,7 +7401,7 @@ function App() {
                               // biome-ignore lint/a11y/noStaticElementInteractions: right-click is a pointer shortcut; the context-menu key and Shift+F10 open the same menu on the selected clip
                               <div
                                 key={clip.id}
-                                className={`clip-card ${selected ? "clip-card--selected" : ""} ${filmstrip ? "clip-card--filmstrip" : ""}`}
+                                className={`clip-card ${selected ? "clip-card--selected" : ""} ${trimming ? "clip-card--trimming" : ""} ${filmstrip ? "clip-card--filmstrip" : ""}`}
                                 data-clip-id={clip.id}
                                 onContextMenu={(event) =>
                                   openArrangementClipMenu(event, clip)
