@@ -20,6 +20,7 @@ import {
   type LayerTransform,
   layerBoxInCanvas,
   type Point,
+  parseLayerTransform,
   TRANSFORM_EFFECT_NAME,
 } from "./composition-transform.ts";
 import {
@@ -216,6 +217,17 @@ export function readLayerTransformPosition(
   };
 }
 
+// The full Transform a drag edits, or the identity when the layer has none.
+export function readLayerTransform(
+  effects: readonly SessionEffect[],
+  laneId: string,
+): LayerTransform {
+  const transform = findLayerTransform(effects, laneId);
+  return transform
+    ? parseLayerTransform(transform.parameters)
+    : { ...IDENTITY_TRANSFORM };
+}
+
 function readNumericParameter(effect: SessionEffect | undefined, key: string) {
   const parameter = effect?.parameters.find(
     (candidate) => candidate.key === key,
@@ -264,6 +276,55 @@ export function setLayerTransformPosition(
     TRANSFORM_POSITION_Y_KEY,
     clampPosition(position.y),
   );
+}
+
+const TRANSFORM_PARAMETER_KEYS: Record<keyof LayerTransform, string> = {
+  positionX: TRANSFORM_POSITION_X_KEY,
+  positionY: TRANSFORM_POSITION_Y_KEY,
+  scaleX: "ScaleX",
+  scaleY: "ScaleY",
+  originX: "OriginX",
+  originY: "OriginY",
+  rotationDeg: "Rotation",
+};
+
+// Writes the given fields of the layer's Transform, adding or re-enabling it
+// as `setLayerTransformPosition` does.
+export function setLayerTransformParameters(
+  effects: SessionEffect[],
+  laneId: string,
+  values: Partial<LayerTransform>,
+  newEffectId: string,
+) {
+  let result = effects;
+  let transform = findLayerTransform(result, laneId);
+  if (!transform) {
+    result = addEffect(
+      result,
+      laneId,
+      TRANSFORM_EFFECT_NAME,
+      undefined,
+      newEffectId,
+    );
+    transform = findLayerTransform(result, laneId);
+    if (!transform) {
+      return effects;
+    }
+  }
+
+  result = setEffectEnabled(result, transform.id, true);
+  for (const field of Object.keys(values) as Array<keyof LayerTransform>) {
+    const value = values[field];
+    if (value !== undefined && Number.isFinite(value)) {
+      result = setEffectParameter(
+        result,
+        transform.id,
+        TRANSFORM_PARAMETER_KEYS[field],
+        value,
+      );
+    }
+  }
+  return result;
 }
 
 export function moveHistoryLabel(layerName: string) {
