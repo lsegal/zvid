@@ -22,7 +22,7 @@ async function timelineState(page: Page) {
       ".ruler-row__content",
     ) as HTMLElement;
     return {
-      zoom: Number(zoom.value),
+      zoom: Number(zoom.dataset.zoom),
       contentLeft: content.getBoundingClientRect().left,
       scrollLeft: scroll.scrollLeft,
       maxScrollLeft: scroll.scrollWidth - scroll.clientWidth,
@@ -191,8 +191,8 @@ test("right-dragging the ruler up zooms in around the pointer without moving the
   await page.mouse.up({ button: "right" });
 
   const after = await timelineState(page);
-  // 75px past the 25px threshold at 0.004 per pixel.
-  expect(after.zoom).toBeCloseTo(before.zoom + 0.3, 2);
+  // 75px past the 25px threshold scales by e^0.004 per pixel.
+  expect(after.zoom).toBeCloseTo(before.zoom * Math.exp(75 * 0.004), 2);
   expect(timeAt(after, from.x)).toBeCloseTo(timeAt(before, from.x), 0);
   expect(after.playheadX / after.zoom).toBeCloseTo(
     before.playheadX / before.zoom,
@@ -217,7 +217,7 @@ test("a diagonal right-drag pans and zooms at once, keeping the grabbed time und
 
   const after = await timelineState(page);
   // 55px past the threshold downward zooms out.
-  expect(after.zoom).toBeCloseTo(before.zoom - 0.22, 2);
+  expect(after.zoom).toBeCloseTo(before.zoom * Math.exp(-55 * 0.004), 2);
   expect(timeAt(after, from.x - 120)).toBeCloseTo(grabbed, 0);
   expect(after.playheadX / after.zoom).toBeCloseTo(
     before.playheadX / before.zoom,

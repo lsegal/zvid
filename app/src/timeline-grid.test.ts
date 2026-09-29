@@ -8,9 +8,11 @@ import {
   GRID_MAX_PX,
   GRID_MIN_PX,
   type GridDivision,
+  getBarStep,
   getGridLayers,
   getGridUnit,
   getSnapUnit,
+  RULER_LABEL_MIN_PX,
   resolveAdaptiveDivision,
 } from "./timeline-grid.ts";
 
@@ -155,6 +157,67 @@ describe("getGridLayers", () => {
       { spacingQ: 0.5, weight: "beat" },
       { spacingQ: 3, weight: "bar" },
     ]);
+  });
+});
+
+describe("getGridLayers thinning", () => {
+  // A quarter at 25% zoom.
+  const quarterPx = 28 * 0.25;
+
+  it("keeps every layer when its lines are far enough apart", () => {
+    assert.deepEqual(
+      getGridLayers(0.25, FOUR_FOUR, 100),
+      getGridLayers(0.25, FOUR_FOUR),
+    );
+  });
+
+  it("drops layers whose lines would be closer than GRID_MIN_PX", () => {
+    // A fixed 1/4-beat snap at 25%: divisions 1.75px apart are not drawn,
+    // beats 7px apart still are.
+    assert.deepEqual(getGridLayers(0.25, FOUR_FOUR, quarterPx), [
+      { spacingQ: 1, weight: "beat" },
+      { spacingQ: 4, weight: "bar" },
+    ]);
+    assert.deepEqual(getGridLayers(0.25, SIX_EIGHT, quarterPx), [
+      { spacingQ: 3, weight: "bar" },
+    ]);
+  });
+
+  it("thins bar lines to multiples of bars", () => {
+    assert.deepEqual(getGridLayers(4, FOUR_FOUR, 1), [
+      { spacingQ: 8, weight: "bar" },
+    ]);
+    assert.deepEqual(getGridLayers(4, FOUR_FOUR, 0.3), [
+      { spacingQ: 32, weight: "bar" },
+    ]);
+  });
+
+  it("never draws lines closer than GRID_MIN_PX", () => {
+    for (const px of [0.2, 1, quarterPx, 10, 84]) {
+      for (const unit of [0.125, 0.25, 0.5, 1, 4]) {
+        for (const layer of getGridLayers(unit, SIX_EIGHT, px)) {
+          assert.ok(layer.spacingQ * px >= GRID_MIN_PX);
+        }
+      }
+    }
+  });
+});
+
+describe("getBarStep", () => {
+  it("is one bar when a bar spans the minimum", () => {
+    assert.equal(getBarStep(40, 40), 1);
+    assert.equal(getBarStep(112, 40), 1);
+  });
+
+  it("doubles until the step spans the minimum", () => {
+    assert.equal(getBarStep(21, 40), 2);
+    assert.equal(getBarStep(21, RULER_LABEL_MIN_PX.timecode), 4);
+    assert.equal(getBarStep(3, 40), 16);
+  });
+
+  it("falls back to every bar for an invalid width", () => {
+    assert.equal(getBarStep(0, 40), 1);
+    assert.equal(getBarStep(Number.NaN, 40), 1);
   });
 });
 

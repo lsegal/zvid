@@ -80,21 +80,52 @@ export function getGridUnit(snapUnit: number, adaptiveDivision: GridDivision) {
   return Math.min(snapUnit, divisionQuarters(adaptiveDivision));
 }
 
+// The smallest power-of-two number of bars that spans at least `minPx`, so
+// lines or labels a bar apart thin out to every 2, 4, 8... bars when zoomed
+// far out.
+export function getBarStep(barPx: number, minPx: number) {
+  if (!Number.isFinite(barPx) || barPx <= 0) {
+    return 1;
+  }
+
+  let step = 1;
+  while (step * barPx < minPx) {
+    step *= 2;
+  }
+  return step;
+}
+
+// How far apart ruler labels must start so they don't overlap: a bar number
+// such as "128", or a timecode such as "01:23:15".
+export const RULER_LABEL_MIN_PX = { musical: 40, timecode: 80 } as const;
+
 // Line layers from faintest to strongest. Beat lines only draw when the grid
-// is at least as fine as a beat; bar lines always draw.
+// is at least as fine as a beat; bar lines always draw. Given the width of a
+// quarter, layers spaced closer than GRID_MIN_PX are dropped and bar lines
+// thin to multiples of bars. This only thins what is drawn: snapping keeps
+// the snap unit, so a fixed snap mode can snap between the drawn lines.
 export function getGridLayers(
   gridUnit: number,
   signature: GridSignature,
+  quarterPx = Number.POSITIVE_INFINITY,
 ): GridLayer[] {
   const beatUnit = 4 / signature.denominator;
   const barLength = signature.numerator * beatUnit;
+  const isVisible = (spacingQ: number) => spacingQ * quarterPx >= GRID_MIN_PX;
   const layers: GridLayer[] = [];
-  if (gridUnit < barLength && Math.abs(gridUnit - beatUnit) > 1e-9) {
+  if (
+    gridUnit < barLength &&
+    Math.abs(gridUnit - beatUnit) > 1e-9 &&
+    isVisible(gridUnit)
+  ) {
     layers.push({ spacingQ: gridUnit, weight: "division" });
   }
-  if (gridUnit <= beatUnit && beatUnit < barLength) {
+  if (gridUnit <= beatUnit && beatUnit < barLength && isVisible(beatUnit)) {
     layers.push({ spacingQ: beatUnit, weight: "beat" });
   }
-  layers.push({ spacingQ: barLength, weight: "bar" });
+  layers.push({
+    spacingQ: barLength * getBarStep(barLength * quarterPx, GRID_MIN_PX),
+    weight: "bar",
+  });
   return layers;
 }

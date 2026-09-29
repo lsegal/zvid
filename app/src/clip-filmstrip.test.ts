@@ -163,6 +163,33 @@ describe("getClipFilmstripTiles", () => {
     assert.equal(zoomedIn.length, 10);
   });
 
+  it("bounds the tiles by the range however far zoomed in", () => {
+    // A 1000 s clip at 300% zoom and 120 bpm: a quarter is 84 px, 0.5 s.
+    const range = getFilmstripRange(4096, 2048);
+    const tiles = getClipFilmstripTiles({
+      ...layout,
+      clipWidthPx: 1000 * 168,
+      secondsPerPx: 0.5 / 84,
+      range,
+    });
+    // Tiles part-way into either end of the range count too.
+    assert.ok(
+      tiles.length <=
+        Math.ceil((range.endPx - range.startPx) / layout.tileWidthPx) + 1,
+    );
+  });
+
+  it("reuses frames when a tile covers less than a frame", () => {
+    const tiles = getClipFilmstripTiles({
+      ...layout,
+      clipWidthPx: 4000,
+      secondsPerPx: 1 / 30 / 160,
+    });
+    const times = new Set(tiles.map((tile) => tile.timeSeconds));
+    assert.equal(tiles.length, 50);
+    assert.equal(times.size, 25);
+  });
+
   it("only lays out tiles in the range", () => {
     const tiles = getClipFilmstripTiles({
       ...layout,
