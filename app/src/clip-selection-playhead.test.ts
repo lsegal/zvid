@@ -39,12 +39,18 @@ describe("clip selection keeps the playhead", () => {
     const seeks = [...appTsx.matchAll(/setPlayheadQ\((\w+)\.startQ\)/g)];
     // Only the text-edit entry moves to a clip.
     assert.equal(seeks.length, 1, seeks.map((match) => match[0]).join(", "));
-    const textEdit = sliceFrom("const startTextEdit = useCallback(", "\n  );\n");
+    const textEdit = sliceFrom(
+      "const startTextEdit = useCallback(",
+      "\n  );\n",
+    );
     assert.ok(textEdit.includes(seeks[0][0]));
   });
 
   it("entering text edit on an off-playhead clip still moves to it", () => {
-    const textEdit = sliceFrom("const startTextEdit = useCallback(", "\n  );\n");
+    const textEdit = sliceFrom(
+      "const startTextEdit = useCallback(",
+      "\n  );\n",
+    );
     assert.match(
       textEdit,
       /if \(!isClipAtPlayhead\(clip, playheadQRef\.current, bpm\)\) \{\s*setPlayheadQ\(clip\.startQ\);\s*playbackOriginRef\.current = clip\.startQ;\s*\}/,
