@@ -198,6 +198,13 @@ import {
   layerHistoryLabels,
   MAX_LAYERS_MESSAGE,
 } from "./layer-menu";
+import {
+  buildSelection,
+  type LaneSelectionGesture,
+  moveLaneSelectionGesture,
+  releaseLaneSelectionGesture,
+  startLaneSelectionGesture,
+} from "./lane-selection-gesture.ts";
 import { MainWaveform } from "./MainWaveform";
 import { withMainAudio } from "./main-audio";
 import {
@@ -431,7 +438,7 @@ type DragState =
       kind: "selection";
       pointerId: number;
       laneId: string;
-      anchorQ: number;
+      gesture: LaneSelectionGesture;
     };
 
 type TimelineDragState = {
@@ -947,19 +954,6 @@ function duplicateClip(
 
 function getSelectionEndQ(selection: TimelineSelection) {
   return selection.startQ + selection.durationQ;
-}
-
-function buildSelection(
-  anchorQ: number,
-  currentQ: number,
-  minimumDurationQ: number,
-) {
-  const startQ = Math.max(0, Math.min(anchorQ, currentQ));
-  const endQ = Math.max(anchorQ, currentQ, startQ + minimumDurationQ);
-  return {
-    startQ,
-    durationQ: Math.max(minimumDurationQ, endQ - startQ),
-  };
 }
 
 function getTimelineContentEndQ(
@@ -5713,10 +5707,22 @@ function App() {
           snapUnit,
           shouldSnap,
         );
+        const { gesture, selection } = moveLaneSelectionGesture(
+          dragState.gesture,
+          event.clientX,
+          nextQ,
+          minimumWindowQ,
+        );
+        if (!selection) {
+          return;
+        }
+        if (gesture !== dragState.gesture) {
+          setDragState({ ...dragState, gesture });
+        }
         setPendingSelection({
           id: `selection-${dragState.laneId}`,
           laneId: dragState.laneId,
-          ...buildSelection(dragState.anchorQ, nextQ, minimumWindowQ),
+          ...selection,
         });
         return;
       }
@@ -5843,13 +5849,15 @@ function App() {
         return;
       }
 
-      if (dragState.kind === "selection" && !pendingSelection) {
-        setPendingSelection({
-          id: `selection-${dragState.laneId}`,
-          laneId: dragState.laneId,
-          startQ: dragState.anchorQ,
-          durationQ: minimumWindowQ,
-        });
+      // A press released before it became a drag is a click: it seeks
+      // instead of leaving a selection behind.
+      if (dragState.kind === "selection") {
+        const release = releaseLaneSelectionGesture(dragState.gesture);
+        if (release.kind === "click") {
+          setPendingSelection(null);
+          setPlayheadQ(release.playheadQ);
+          playbackOriginRef.current = release.playheadQ;
+        }
       }
 
       if (dragState.kind !== "selection" && dragPreviewClips) {
@@ -5914,7 +5922,7 @@ function App() {
     dragPreviewClips,
     dragState,
     minimumWindowQ,
-    pendingSelection,
+    setPlayheadQ,
     snapEnabled,
     labelWidth,
     quarterPx,
@@ -7907,17 +7915,17 @@ function App() {
                               snapUnit,
                               snapEnabled && !event.shiftKey,
                             );
-                            setPendingSelection({
-                              id: `selection-${lane.id}`,
-                              laneId: lane.id,
-                              startQ: anchorQ,
-                              durationQ: minimumWindowQ,
-                            });
+                            // The selection starts once the pointer drags
+                            // past the threshold; until then it's a click.
+                            setPendingSelection(null);
                             setDragState({
                               kind: "selection",
                               pointerId: event.pointerId,
                               laneId: lane.id,
-                              anchorQ,
+                              gesture: startLaneSelectionGesture(
+                                anchorQ,
+                                event.clientX,
+                              ),
                             });
                           }}
                           style={gridStyle}
