@@ -1613,6 +1613,7 @@
   color: var(--ink);
   text-align: left;
   overflow: hidden;
+  isolation: isolate;
 }
 
 .clip-card__body,
@@ -1623,21 +1624,52 @@
   padding: 0;
 }
 
+/* The handles sit over the body's edges and stay hidden until the clip is
+   hovered, selected, keyboard-focused or trimmed. Hidden handles keep their hit area,
+   so an edge can still be grabbed without hovering first. */
 .clip-card__handle {
   position: relative;
+  z-index: 1;
+  grid-row: 1;
   background: var(--clip-accent, var(--line-strong));
   cursor: ew-resize;
+  opacity: 0;
+  transition: opacity 100ms ease;
+}
+
+.clip-card:hover .clip-card__handle,
+.clip-card:has(:focus-visible) .clip-card__handle,
+.clip-card--selected .clip-card__handle,
+.clip-card--trimming .clip-card__handle {
+  opacity: 1;
+}
+
+/* Without hover there is no way to reveal them, so always show them. */
+@media (hover: none) {
+  .clip-card__handle {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clip-card__handle {
+    transition: none;
+  }
 }
 
 .clip-card__handle--start {
+  grid-column: 1;
   border-radius: 8px 0 0 8px;
 }
 
 .clip-card__handle--end {
+  grid-column: 3;
   border-radius: 0 8px 8px 0;
 }
 
 .clip-card__body {
+  grid-row: 1;
+  grid-column: 1 / -1;
   min-width: 0;
   display: flex;
   text-align: left;
@@ -1660,7 +1692,13 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 7px 10px;
+  /* Clears the handle columns, which overlay the body's edges. */
+  padding: 7px 20px;
+}
+
+/* The frame already clears the start handle. */
+.clip-card__thumb + .clip-card__text {
+  padding-left: 10px;
 }
 
 .clip-card__body:active {
