@@ -180,6 +180,7 @@ import {
 import {
   getHarness,
   type SaveTarget,
+  type SessionSelection,
   supportsHarnessCapability,
 } from "./harness";
 import { hasMediaExtension } from "./harness/media-extensions";
@@ -2006,7 +2007,9 @@ function normalizeRestoredView(value: unknown): WorkspaceView {
     unknown
   >;
   const finite = (field: unknown) =>
-    typeof field === "number" && Number.isFinite(field) ? Math.max(0, field) : 0;
+    typeof field === "number" && Number.isFinite(field)
+      ? Math.max(0, field)
+      : 0;
   const text = (field: unknown) =>
     typeof field === "string" && field ? field : undefined;
   return {
@@ -2046,7 +2049,10 @@ async function readSavedWorkspaceSession(): Promise<{
       message: error instanceof Error ? error.message : String(error),
     });
     try {
-      return { session: null, corruptKey: await store.setAsideCurrentSession() };
+      return {
+        session: null,
+        corruptKey: await store.setAsideCurrentSession(),
+      };
     } catch {
       // IndexedDB itself is unavailable, so there is nothing to set aside.
       return { session: null, corruptKey: null };
@@ -2141,11 +2147,7 @@ function AppRoot() {
   }, []);
 
   if (!boot) {
-    return (
-      <div className="workspace-restoring" role="status">
-        Restoring session…
-      </div>
-    );
+    return <output className="workspace-restoring">Restoring session…</output>;
   }
   return <App boot={boot} />;
 }
@@ -4436,6 +4438,227 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     projectSnapshotRef.current = projectHistory.present;
   }, [projectHistory.present]);
 
+  // Everything a refresh brings back, read when an autosave serialises.
+  const readWorkspaceSession = (): SavedWorkspaceSession => ({
+    history: {
+      past: projectHistory.past,
+      present: projectHistory.present,
+      future: projectHistory.future,
+    },
+    view: {
+      playheadQ: playheadQRef.current,
+      selectedClipId,
+      selectedLaneId,
+      scrollLeft: timelineScrollRef.current?.scrollLeft ?? 0,
+      scrollTop: timelineScrollRef.current?.scrollTop ?? 0,
+    },
+    source: sessionSource,
+    // Failures are about the attempt, not the session, so they are not kept.
+    importNotice: importNotice?.tone === "error" ? null : importNotice,
+  });
+  const readWorkspaceSessionRef = useRef(readWorkspaceSession);
+  readWorkspaceSessionRef.current = readWorkspaceSession;
+  const workspaceBusyRef = useRef(false);
+  // Playback and gestures change the session many times a second; it is
+  // saved once they stop.
+  workspaceBusyRef.current = Boolean(
+    isPlaying ||
+      dragState ||
+      timelineDragState ||
+      isTimelineAudibleScrubbing ||
+      projectHistory.transientBase !== undefined,
+  );
+  const canSaveWorkspace =
+    workspaceAccess === "owner" && collaborationMode !== "connected";
+  const canSaveWorkspaceRef = useRef(canSaveWorkspace);
+  canSaveWorkspaceRef.current = canSaveWorkspace;
+  const [workspaceAutosave] = useState(() =>
+    createWorkspaceAutosave({
+      serialize: () =>
+        serializeWorkspaceSession(readWorkspaceSessionRef.current()),
+      write: (payload) => saveCurrentSession({ savedAt: Date.now(), payload }),
+      isBusy: () => workspaceBusyRef.current,
+      onError: (error) =>
+        logClient("workspace:save:error", {
+          message: error instanceof Error ? error.message : String(error),
+        }),
+    }),
+  );
+  const shouldSaveWorkspace = useCallback(
+    () => canSaveWorkspaceRef.current && !viewingSharedSessionRef.current,
+    [],
+  );
+
+  // Saves every change to the session after a short pause. A session that
+  // was closed, or never started, clears the saved record instead.
+  useEffect(() => {
+    void [
+      canSaveWorkspace,
+      playheadQ,
+      selectedClipId,
+      selectedLaneId,
+      sessionSource,
+      importNotice,
+      timelineViewport.scrollLeft,
+    ];
+    if (!shouldSaveWorkspace()) {
+      return;
+    }
+    if (isPristineProjectHistory(projectHistory)) {
+      workspaceAutosave.cancel();
+      void clearCurrentSession().catch((error: unknown) =>
+        logClient("workspace:clear:error", {
+          message: error instanceof Error ? error.message : String(error),
+        }),
+      );
+      return;
+    }
+    workspaceAutosave.markDirty();
+  }, [
+    canSaveWorkspace,
+    importNotice,
+    playheadQ,
+    projectHistory,
+    selectedClipId,
+    selectedLaneId,
+    sessionSource,
+    shouldSaveWorkspace,
+    timelineViewport.scrollLeft,
+    workspaceAutosave,
+  ]);
+
+  const flushWorkspaceSession = useCallback(async () => {
+    if (!shouldSaveWorkspace()) {
+      return;
+    }
+    // Playback moves only the live playhead, so mark the session dirty to
+    // capture where it is now.
+    workspaceAutosave.markDirty();
+    await workspaceAutosave.flush();
+  }, [shouldSaveWorkspace, workspaceAutosave]);
+
+  useEffect(() => {
+    const flush = () => {
+      void flushWorkspaceSession();
+    };
+    const flushWhenHidden = () => {
+      if (document.visibilityState === "hidden") {
+        flush();
+      }
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", flushWhenHidden);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", flushWhenHidden);
+    };
+  }, [flushWorkspaceSession]);
+
+  useEffect(() => {
+    workspaceLockEvents.flush = flushWorkspaceSession;
+    workspaceLockEvents.lost = () => {
+      workspaceAutosave.cancel();
+      setWorkspaceAccess("taken-over");
+      setStatus(
+        "This session was taken over in another tab. Changes here are no longer saved.",
+      );
+    };
+    return () => {
+      workspaceLockEvents.flush = async () => {};
+      workspaceLockEvents.lost = () => {};
+    };
+  }, [flushWorkspaceSession, workspaceAutosave]);
+
+  // Puts the saved scroll position back once the timeline has laid out.
+  useLayoutEffect(() => {
+    const scroller = timelineScrollRef.current;
+    const view = restoredSession?.view;
+    if (scroller && view) {
+      scroller.scrollLeft = view.scrollLeft;
+      scroller.scrollTop = view.scrollTop;
+    }
+  }, [restoredSession]);
+
+  const applyWorkspaceSession = useCallback(
+    (session: SavedWorkspaceSession | null) => {
+      stopTimelineAudibleScrub();
+      setIsPlaying(false);
+      setDragPreviewClips(null);
+      setDragState(null);
+      setPendingSelection(null);
+      setTimelineDragState(null);
+      sessionMediaCheckRef.current = null;
+      dispatchProject({
+        type: "restore",
+        history: session
+          ? toProjectHistoryState(session.history)
+          : createProjectHistoryState(INITIAL_PROJECT_STATE),
+      });
+      const selection = findRestoredSelection(session);
+      setSelectedClipId(selection.selectedClipId);
+      setSelectedLaneId(selection.selectedLaneId);
+      setPlayheadQ(session?.view.playheadQ ?? 0);
+      playbackOriginRef.current = session?.view.playheadQ ?? 0;
+      setSessionSource(session?.source ?? { kind: "none" });
+      setImportNotice(session?.importNotice ?? null);
+      setArrangementEmptyStateDismissed(
+        session
+          ? isArrangementEmptyStateDismissedOnOpen(
+              session.history.present.clips.length,
+            )
+          : false,
+      );
+      const scroller = timelineScrollRef.current;
+      if (scroller) {
+        scroller.scrollLeft = session?.view.scrollLeft ?? 0;
+        scroller.scrollTop = session?.view.scrollTop ?? 0;
+      }
+    },
+    [setPlayheadQ, stopTimelineAudibleScrub],
+  );
+
+  // A session this tab opens or closes itself is its own again, so it is
+  // saved once this tab owns the saved session.
+  const claimWorkspaceSession = useCallback(() => {
+    viewingSharedSessionRef.current = false;
+    if (workspaceAccess === "joiner") {
+      void boot.lock.acquire().then((owner) => {
+        setWorkspaceAccess(owner ? "owner" : "read-only");
+      });
+    }
+  }, [boot.lock, workspaceAccess]);
+
+  async function handleTakeOverWorkspace() {
+    setStatus("Taking over the session from the other tab...");
+    await boot.lock.takeOver();
+    const { session, corruptKey } = await readSavedWorkspaceSession();
+    viewingSharedSessionRef.current = false;
+    applyWorkspaceSession(session);
+    if (corruptKey) {
+      setImportNotice(CORRUPT_WORKSPACE_NOTICE);
+    }
+    setWorkspaceAccess("owner");
+    setStatus(
+      session
+        ? formatRestoredStatus(session)
+        : "Took over the session from the other tab.",
+    );
+  }
+
+  function handleOpenWorkspaceReadOnly() {
+    setWorkspaceAccess("read-only");
+    setStatus(
+      "Opened read-only. The session is open in another tab, so changes here are not saved.",
+    );
+  }
+
+  function handleCloseSession() {
+    workspaceAutosave.cancel();
+    claimWorkspaceSession();
+    applyWorkspaceSession(null);
+    setStatus("Closed the session.");
+  }
+
   useEffect(() => {
     localMediaOverridesRef.current = localMediaOverrides;
   }, [localMediaOverrides]);
@@ -4501,7 +4724,14 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   );
 
   useEffect(() => {
-    let cancelled = false;
+    // A hydration can outlive the run that started it: the effect reruns
+    // whenever the media list changes (and at once under StrictMode), and
+    // the rerun skips items still in flight. So a result is only dropped when
+    // its media has left the project.
+    const isRemoved = (mediaId: string) =>
+      !projectSnapshotRef.current.mediaItems.some(
+        (candidate) => candidate.id === mediaId,
+      );
 
     for (const item of projectMediaItems) {
       const override = localMediaOverridesRef.current[item.id];
@@ -4525,7 +4755,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         try {
           const cachedBlob = await getCachedMediaBlob(item.id);
           if (cachedBlob) {
-            if (cancelled) {
+            if (isRemoved(item.id)) {
               return;
             }
 
@@ -4535,14 +4765,14 @@ function App({ boot }: { boot: WorkspaceBoot }) {
           }
 
           if (!item.sourcePath && !item.previewUrl) {
-            if (!cancelled) {
+            if (!isRemoved(item.id)) {
               setLocalMediaOverride(item.id, { availability: "offline" });
             }
             return;
           }
 
           const blob = await getHarness().readMediaBlob(item);
-          if (cancelled) {
+          if (isRemoved(item.id)) {
             // Keep the bytes so the next hydration pass is a cache hit.
             await cacheMediaBlob(item.id, blob);
             return;
@@ -4555,7 +4785,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             mediaId: item.id,
             message: error instanceof Error ? error.message : String(error),
           });
-          if (!cancelled) {
+          if (!isRemoved(item.id)) {
             setLocalMediaOverride(item.id, { availability: "offline" });
           }
         } finally {
@@ -4565,10 +4795,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         }
       })();
     }
-
-    return () => {
-      cancelled = true;
-    };
   }, [
     adoptMediaBlob,
     projectMediaItems,
@@ -6370,7 +6596,18 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     };
   }, [bpm, isPlaying, playheadSignal, setPlayheadQ, totalQuarters]);
 
-  async function applyOpenedSessionPayload(payload: SessionOpenResponse) {
+  async function applyOpenedSessionPayload(
+    payload: SessionOpenResponse,
+    selection: SessionSelection,
+  ) {
+    claimWorkspaceSession();
+    setSessionSource(
+      payload.alsImport
+        ? { kind: "import", name: payload.sessionName }
+        : selection.kind === "path"
+          ? { kind: "path", name: payload.sessionName, path: selection.path }
+          : { kind: selection.kind, name: payload.sessionName },
+    );
     const existingRefs = payload.mediaRefs.filter((ref) => ref.exists);
     const missingRefs = payload.mediaRefs.filter((ref) => !ref.exists);
     const placeholderMedia = payload.mediaRefs.map((ref, index) =>
@@ -6708,7 +6945,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             : selection.name;
       setStatus(`Opening ${selectionName}...`);
       const payload = await harness.openSession(selection);
-      await applyOpenedSessionPayload(payload);
+      await applyOpenedSessionPayload(payload, selection);
     } catch (error) {
       reportOpenFailure("Open failed", selectionName, error);
     }
@@ -6738,7 +6975,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             : selection.name;
       setStatus(`Opening workspace ${selectionName}...`);
       const payload = await harness.openSession(selection);
-      await applyOpenedSessionPayload(payload);
+      await applyOpenedSessionPayload(payload, selection);
     } catch (error) {
       reportOpenFailure("Open workspace failed", selectionName, error);
     }
@@ -6982,6 +7219,11 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   }
 
   function handleDisconnectConnection() {
+    forgetJoinedRoom();
+    const href = removeInviteParams(window.location.href);
+    if (href) {
+      window.history.replaceState(window.history.state, "", href);
+    }
     collaborationControllerRef.current?.destroy();
     collaborationControllerRef.current = null;
     setCollaborationState(IDLE_COLLABORATION_STATE);
@@ -6997,6 +7239,15 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setIsStartingConnect(true);
     try {
       const invite = parseCollaborationInvite(connectInviteValue);
+      // Save this browser's own session before the shared one replaces it.
+      await flushWorkspaceSession();
+      viewingSharedSessionRef.current = true;
+      rememberJoinedRoom(invite.room, invite.password);
+      window.history.replaceState(
+        window.history.state,
+        "",
+        withJoinedRoom(window.location.href, invite.room, invite.signaling),
+      );
       setCollaborationRoom(invite.room);
       setCollaborationSignaling(invite.signaling);
       setCollaborationPassword(invite.password);
@@ -7337,6 +7588,15 @@ function App({ boot }: { boot: WorkspaceBoot }) {
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => void handleImport()}>
                 Import Media
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={
+                  collaborationMode !== "idle" ||
+                  isPristineProjectHistory(projectHistory)
+                }
+                onSelect={handleCloseSession}
+              >
+                Close Session
               </DropdownMenuItem>
               <DropdownMenuItem
                 disabled={!offlineMedia.length}
@@ -7683,6 +7943,35 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         retryMedia={retryPeerMedia}
         summary={mediaSyncSummary}
       />
+
+      <Dialog open={workspaceAccess === "blocked"}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>This session is open in another tab</DialogTitle>
+            <DialogDescription>
+              Only one tab saves the session. Take over to continue here with
+              the latest saved session, or open it read-only so changes in this
+              tab are not saved.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button
+              className="ghost-button"
+              onClick={handleOpenWorkspaceReadOnly}
+              type="button"
+            >
+              Open read-only
+            </button>
+            <button
+              className="ghost-button ghost-button--accent"
+              onClick={() => void handleTakeOverWorkspace()}
+              type="button"
+            >
+              Take over
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isConnectDialogOpen} onOpenChange={setIsConnectDialogOpen}>
         <DialogContent>
@@ -9250,6 +9539,23 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         </div>
       </main>
 
+      {workspaceAccess === "read-only" || workspaceAccess === "taken-over" ? (
+        <output className="workspace-lock-banner">
+          <span>
+            {workspaceAccess === "taken-over"
+              ? "This session was taken over in another tab."
+              : "This session is open in another tab."}{" "}
+            Changes here are not saved.
+          </span>
+          <button
+            className="ghost-button ghost-button--accent"
+            onClick={() => void handleTakeOverWorkspace()}
+            type="button"
+          >
+            Take over
+          </button>
+        </output>
+      ) : null}
       {importNotice ? (
         <ImportNotice
           notice={importNotice}

@@ -23,15 +23,12 @@ function createFakeLocks() {
       return new Promise<unknown>((resolve, reject) => {
         const entry = { abort: reject };
         held = entry;
-        Promise.resolve(callback({ name: "lock" })).then(
-          (value) => {
-            if (held === entry) {
-              held = null;
-            }
-            resolve(value);
-          },
-          reject,
-        );
+        Promise.resolve(callback({ name: "lock" })).then((value) => {
+          if (held === entry) {
+            held = null;
+          }
+          resolve(value);
+        }, reject);
       });
     },
   };
@@ -46,7 +43,7 @@ describe("workspace lock", () => {
     const locks = createFakeLocks();
     const name = `test-${Math.random()}`;
     const first = createWorkspaceLock({ locks, name });
-    const second = createWorkspaceLock({ locks, name });
+    const second = createWorkspaceLock({ locks, name, acquireWaitMs: 0 });
 
     assert.equal(await first.acquire(), true);
     assert.equal(await second.acquire(), false);
@@ -102,6 +99,18 @@ describe("workspace lock", () => {
 
     first.dispose();
     second.dispose();
+  });
+
+  it("waits briefly for a refreshed page's predecessor to let go", async () => {
+    const locks = createFakeLocks();
+    const name = `test-${Math.random()}`;
+    const previous = createWorkspaceLock({ locks, name });
+    const next = createWorkspaceLock({ locks, name, acquireWaitMs: 1000 });
+    await previous.acquire();
+    setTimeout(() => previous.dispose(), 150);
+
+    assert.equal(await next.acquire(), true);
+    next.dispose();
   });
 
   it("releases the lock on dispose so another tab can own it", async () => {

@@ -6,6 +6,11 @@
 
 export const WORKSPACE_LOCK_NAME = "zvid-workspace-session";
 const FLUSH_TIMEOUT_MS = 1500;
+// A refreshed page can start before the page it replaces has let go of the
+// lock, so a taken lock is retried for this long before it counts as held by
+// another tab.
+const ACQUIRE_WAIT_MS = 1000;
+const ACQUIRE_RETRY_MS = 100;
 
 type LockManagerLike = {
   request(
@@ -34,11 +39,13 @@ export type WorkspaceLockOptions = {
   // Called when another tab took the session over.
   onLost?(): void;
   flushTimeoutMs?: number;
+  acquireWaitMs?: number;
 };
 
 export type WorkspaceLock = {
-  // Tries to become the owner without waiting. True when this tab owns the
-  // session afterwards, or when the browser cannot coordinate tabs at all.
+  // Tries to become the owner, retrying briefly while the lock is taken.
+  // True when this tab owns the session afterwards, or when the browser
+  // cannot coordinate tabs at all.
   acquire(): Promise<boolean>;
   // Becomes the owner even if another tab holds the session.
   takeOver(): Promise<void>;
@@ -71,6 +78,7 @@ export function createWorkspaceLock(
       ? null
       : (options.createChannel ?? defaultChannel)(name);
   const flushTimeoutMs = options.flushTimeoutMs ?? FLUSH_TIMEOUT_MS;
+  const acquireWaitMs = options.acquireWaitMs ?? ACQUIRE_WAIT_MS;
 
   let owner = false;
   let releaseHeld: (() => void) | null = null;
@@ -153,11 +161,17 @@ export function createWorkspaceLock(
     });
 
   return {
-    acquire() {
-      if (owner) {
-        return Promise.resolve(true);
+    async acquire() {
+      const deadline = Date.now() + acquireWaitMs;
+      for (;;) {
+        if (owner || (await hold({ ifAvailable: true }))) {
+          return true;
+        }
+        if (Date.now() >= deadline) {
+          return false;
+        }
+        await new Promise((resolve) => setTimeout(resolve, ACQUIRE_RETRY_MS));
       }
-      return hold({ ifAvailable: true });
     },
     async takeOver() {
       if (owner) {
