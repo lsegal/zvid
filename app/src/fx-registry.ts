@@ -69,6 +69,9 @@ export type FxEnumParameterDefinition = {
   // `options` in the same order. A stored value outside them shows as the
   // nearest one.
   optionsFor?: (read: FxParameterReader) => readonly string[];
+  // Picks from a dropdown menu instead of segmented buttons, for long
+  // option lists.
+  menu?: boolean;
   defaultValue: string;
   hidden?: boolean;
   visibleWhen?: FxParameterVisibility;
@@ -438,6 +441,7 @@ const DEFINITIONS: FxEffectDefinition[] = [
         label: "Weight",
         options: FONT_WEIGHT_LABELS,
         optionsFor: (read) => getFontWeightLabels(read("FontFamily")),
+        menu: true,
         defaultValue: "Regular",
       },
       {
@@ -492,7 +496,7 @@ const DEFINITIONS: FxEffectDefinition[] = [
       {
         kind: "color",
         key: "Stroke",
-        label: "Stroke",
+        label: "Stroke Color",
         defaultValue: DEFAULT_STROKE_COLOR,
       },
       {
@@ -542,7 +546,7 @@ const DEFINITIONS: FxEffectDefinition[] = [
       {
         kind: "number",
         key: "StrokeWidth",
-        label: "Stroke Width",
+        label: "Stroke",
         min: 0,
         max: 20,
         defaultValue: 0,

@@ -55,6 +55,8 @@ export type FxDeviceParameter = {
   options?: readonly string[];
   // The toggles of a `flags` parameter.
   flags?: readonly FxFlagOption[];
+  // An enum picked from a dropdown menu.
+  menu?: boolean;
   display: string;
 };
 
@@ -588,6 +590,7 @@ function toDeviceParameter(
       options: available.includes(stringValue)
         ? available
         : [...available, stringValue],
+      menu: definition.menu,
       display: stringValue,
     };
   }

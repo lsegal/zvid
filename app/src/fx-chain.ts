@@ -63,6 +63,14 @@ export function knobColumnCount(knobCount: number) {
   return knobCount <= 1 ? 1 : Math.max(2, Math.ceil(knobCount / 2));
 }
 
+// Devices with more full-width controls than this, such as Text, lay them
+// out in columns so they fit the panel's height.
+const MAX_CONTROL_ROWS = 3;
+
+export function usesColumnLayout(controlCount: number) {
+  return controlCount > MAX_CONTROL_ROWS;
+}
+
 // Splits a device's parameters into the full-width controls (enums), which
 // sit on their own rows first, and the knobs that fill the grid below them.
 export function splitDeviceParameters(parameters: FxDeviceParameter[]) {

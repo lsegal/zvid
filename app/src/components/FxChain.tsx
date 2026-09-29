@@ -28,6 +28,7 @@ import {
   readCollapsedDevices,
   splitDeviceParameters,
   toggleCollapsedDevice,
+  usesColumnLayout,
   writeCollapsedDevices,
 } from "../fx-chain";
 import type { FxEffectDefinition } from "../fx-registry";
@@ -985,25 +986,54 @@ export function FxDevicePanel({
           {device.warning}
         </p>
       ) : null}
-      <div
-        className="fx-device-panel__body"
-        style={{
-          gridTemplateColumns: `repeat(${knobColumnCount(knobs.length)}, auto)`,
-        }}
-      >
-        {device.parameters.length ? (
-          [...controls, ...knobs].map((parameter) => (
-            <FxParameterControl
-              key={parameter.key}
-              device={device}
-              onSetParameter={onSetParameter}
-              parameter={parameter}
-            />
-          ))
-        ) : (
-          <p className="fx-device-panel__empty">No settings</p>
-        )}
-      </div>
+      {usesColumnLayout(controls.length) ? (
+        // Too many controls for a row each: they fill columns instead,
+        // with the knobs beside them.
+        <div className="fx-device-panel__body fx-device-panel__body--columns">
+          <div className="fx-device-panel__controls">
+            {controls.map((parameter) => (
+              <FxParameterControl
+                key={parameter.key}
+                device={device}
+                onSetParameter={onSetParameter}
+                parameter={parameter}
+              />
+            ))}
+          </div>
+          {knobs.length ? (
+            <div className="fx-device-panel__knobs">
+              {knobs.map((parameter) => (
+                <FxParameterControl
+                  key={parameter.key}
+                  device={device}
+                  onSetParameter={onSetParameter}
+                  parameter={parameter}
+                />
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <div
+          className="fx-device-panel__body"
+          style={{
+            gridTemplateColumns: `repeat(${knobColumnCount(knobs.length)}, auto)`,
+          }}
+        >
+          {device.parameters.length ? (
+            [...controls, ...knobs].map((parameter) => (
+              <FxParameterControl
+                key={parameter.key}
+                device={device}
+                onSetParameter={onSetParameter}
+                parameter={parameter}
+              />
+            ))
+          ) : (
+            <p className="fx-device-panel__empty">No settings</p>
+          )}
+        </div>
+      )}
     </section>
   );
 }
@@ -1018,7 +1048,7 @@ function FxParameterControl({
   onSetParameter: FxChainProps["onSetParameter"];
 }) {
   // Long option lists, such as font weights, pick from a menu instead.
-  if (parameter.kind === "enum" && (parameter.options?.length ?? 0) > 4) {
+  if (parameter.kind === "enum" && parameter.menu) {
     return (
       <label className="fx-select">
         <span className="fx-select__label">{parameter.label}</span>

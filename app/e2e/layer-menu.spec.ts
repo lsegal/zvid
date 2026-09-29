@@ -42,6 +42,17 @@ test.beforeEach(async ({ page }) => {
   await expect(header(page, "1")).toBeVisible();
 });
 
+test("Insert text at playhead adds a text clip on the layer", async ({
+  page,
+}) => {
+  await openLayerMenu(page, "5");
+  await menuItem(page, "Insert text at playhead").click();
+  const text = page.locator('[data-timeline-lane-id="5"] .clip-card--text');
+  await expect(text).toHaveCount(1);
+  await expect(text).toHaveClass(/clip-card--selected/);
+  await expect(page.locator('section[aria-label="Text"]')).toBeVisible();
+});
+
 test("right-clicking a layer header selects it and lists the layer actions", async ({
   page,
 }) => {
@@ -53,6 +64,7 @@ test("right-clicking a layer header selects it and lists the layer actions", asy
     "Delete",
     /^(Enable|Disable) FX$/,
     "Add FX",
+    "Insert text at playhead",
     "Insert layer above",
     "Insert layer below",
     "Move up",
