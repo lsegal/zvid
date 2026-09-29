@@ -1207,6 +1207,18 @@
   border-radius: 4px;
 }
 
+.track-label__rename {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 6px;
+  border: 1px solid var(--lane-selected-accent);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.25);
+  color: inherit;
+  font: inherit;
+  outline: none;
+}
+
 .track-label > div {
   min-width: 0;
 }
