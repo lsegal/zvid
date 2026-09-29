@@ -1751,6 +1751,8 @@
 
 .track-row--lifted {
   z-index: 7;
+  /* Grows away from the label, so the header stays under the pointer. */
+  transform-origin: left center;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--line-strong);
 }
 
