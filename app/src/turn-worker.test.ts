@@ -3,11 +3,36 @@ import { describe, it } from "node:test";
 import {
   handleIceServers,
   NATIVE_APP_ORIGINS,
+  type RateLimiter,
   TURN_CREDENTIAL_TTL_SECONDS,
+  TURN_RATE_LIMIT_PERIOD_SECONDS,
 } from "../worker/turn.ts";
 
 const ENV = { TURN_KEY_ID: "key-id", TURN_KEY_API_TOKEN: "api-token" };
 const REQUEST = new Request("https://zvid.example/api/ice-servers");
+
+// Allows `limit` requests per key, like the Workers Rate Limiting binding.
+function rateLimiter(limit: number) {
+  const counts = new Map<string, number>();
+  const limiter: RateLimiter = {
+    async limit({ key }) {
+      const count = (counts.get(key) ?? 0) + 1;
+      counts.set(key, count);
+      return { success: count <= limit };
+    },
+  };
+  return { counts, limiter };
+}
+
+function fromIp(ip: string, headers: Record<string, string> = {}) {
+  return new Request(REQUEST, {
+    headers: { "CF-Connecting-IP": ip, ...headers },
+  });
+}
+
+const ICE_SERVERS = {
+  iceServers: [{ urls: "turn:turn.cloudflare.com:3478", username: "u" }],
+};
 
 function cloudflareReturning(response: Response) {
   const calls: { url: string; init?: RequestInit }[] = [];
@@ -111,17 +136,81 @@ describe("handleIceServers", () => {
     assert.equal(response.status, 405);
   });
 
+  it("rate-limits credential minting per client IP", async () => {
+    const { counts, limiter } = rateLimiter(2);
+    const env = { ...ENV, TURN_RATE_LIMITER: limiter };
+    let calls = 0;
+    const fetcher = (async () => {
+      calls++;
+      return Response.json(ICE_SERVERS);
+    }) as typeof fetch;
+    const mint = (ip: string) => handleIceServers(fromIp(ip), env, fetcher);
+
+    assert.equal((await mint("192.0.2.1")).status, 200);
+    assert.equal((await mint("192.0.2.1")).status, 200);
+    const limited = await mint("192.0.2.1");
+    assert.equal(limited.status, 429);
+    assert.equal(
+      limited.headers.get("Retry-After"),
+      String(TURN_RATE_LIMIT_PERIOD_SECONDS),
+    );
+    assert.equal(limited.headers.get("Cache-Control"), "no-store");
+    assert.equal((await mint("192.0.2.2")).status, 200);
+
+    assert.equal(calls, 3);
+    assert.deepEqual(Object.fromEntries(counts), {
+      "192.0.2.1": 3,
+      "192.0.2.2": 1,
+    });
+  });
+
+  it("answers same-origin requests from the app", async () => {
+    for (const headers of [
+      { "Sec-Fetch-Site": "same-origin" },
+      { "Sec-Fetch-Site": "same-origin", Origin: "https://zvid.example" },
+      {},
+    ] as Record<string, string>[]) {
+      const { fetcher } = cloudflareReturning(Response.json(ICE_SERVERS));
+      const response = await handleIceServers(
+        fromIp("192.0.2.1", headers),
+        ENV,
+        fetcher,
+      );
+      assert.equal(response.status, 200);
+    }
+  });
+
+  it("rejects requests from other origins", async () => {
+    for (const headers of [
+      { "Sec-Fetch-Site": "cross-site" },
+      { "Sec-Fetch-Site": "same-site" },
+      { Origin: "https://evil.example" },
+      { Origin: "null" },
+    ] as Record<string, string>[]) {
+      const { limiter, counts } = rateLimiter(10);
+      const { calls, fetcher } = cloudflareReturning(
+        Response.json(ICE_SERVERS),
+      );
+      const response = await handleIceServers(
+        fromIp("192.0.2.1", headers),
+        { ...ENV, TURN_RATE_LIMITER: limiter },
+        fetcher,
+      );
+      assert.equal(response.status, 403, JSON.stringify(headers));
+      assert.deepEqual(calls, []);
+      assert.equal(counts.size, 0);
+    }
+  });
+
   it("allows the native app's origins cross-origin", async () => {
     assert.deepEqual(NATIVE_APP_ORIGINS, [
       "tauri://localhost",
       "http://tauri.localhost",
     ]);
     for (const origin of NATIVE_APP_ORIGINS) {
-      const { fetcher } = cloudflareReturning(
-        Response.json({ iceServers: [{ urls: "turn:turn.example:3478" }] }),
-      );
+      const { fetcher } = cloudflareReturning(Response.json(ICE_SERVERS));
       const response = await handleIceServers(
-        new Request(REQUEST, { headers: { Origin: origin } }),
+        fromIp("192.0.2.1", { Origin: origin, "Sec-Fetch-Site": "cross-site" }),
         ENV,
         fetcher,
       );
@@ -133,13 +222,27 @@ describe("handleIceServers", () => {
   });
 
   it("lets the native app read failures too", async () => {
-    const response = await handleIceServers(
-      new Request(REQUEST, { headers: { Origin: "tauri://localhost" } }),
+    const origin = { Origin: "tauri://localhost" };
+    const unconfigured = await handleIceServers(
+      fromIp("192.0.2.1", origin),
       {},
     );
-    assert.equal(response.status, 503);
+    assert.equal(unconfigured.status, 503);
     assert.equal(
-      response.headers.get("Access-Control-Allow-Origin"),
+      unconfigured.headers.get("Access-Control-Allow-Origin"),
+      "tauri://localhost",
+    );
+
+    const { limiter } = rateLimiter(0);
+    const { fetcher } = cloudflareReturning(Response.json(ICE_SERVERS));
+    const limited = await handleIceServers(
+      fromIp("192.0.2.1", origin),
+      { ...ENV, TURN_RATE_LIMITER: limiter },
+      fetcher,
+    );
+    assert.equal(limited.status, 429);
+    assert.equal(
+      limited.headers.get("Access-Control-Allow-Origin"),
       "tauri://localhost",
     );
   });
@@ -147,18 +250,19 @@ describe("handleIceServers", () => {
   it("allows no other cross-origin callers", async () => {
     for (const origin of [
       "https://evil.example",
-      "https://zvid.example",
       "null",
       "tauri://localhost.evil.example",
+      "https://tauri.localhost",
     ]) {
-      const { fetcher } = cloudflareReturning(
-        Response.json({ iceServers: [{ urls: "turn:turn.example:3478" }] }),
+      const { calls, fetcher } = cloudflareReturning(
+        Response.json(ICE_SERVERS),
       );
       const response = await handleIceServers(
-        new Request(REQUEST, { headers: { Origin: origin } }),
+        fromIp("192.0.2.1", { Origin: origin }),
         ENV,
         fetcher,
       );
+      assert.equal(response.status, 403, origin);
       assert.equal(response.headers.get("Access-Control-Allow-Origin"), null);
       assert.equal(response.headers.get("Vary"), "Origin");
 
@@ -173,11 +277,13 @@ describe("handleIceServers", () => {
       assert.equal(preflight.status, 204);
       assert.equal(preflight.headers.get("Access-Control-Allow-Origin"), null);
       assert.equal(preflight.headers.get("Access-Control-Allow-Methods"), null);
+      assert.deepEqual(calls, []);
     }
   });
 
   it("answers the native app's CORS preflight without minting", async () => {
     for (const origin of NATIVE_APP_ORIGINS) {
+      const { limiter, counts } = rateLimiter(10);
       const { calls, fetcher } = cloudflareReturning(Response.json({}));
       const response = await handleIceServers(
         new Request(REQUEST, {
@@ -188,7 +294,7 @@ describe("handleIceServers", () => {
             "Access-Control-Request-Headers": "accept",
           },
         }),
-        ENV,
+        { ...ENV, TURN_RATE_LIMITER: limiter },
         fetcher,
       );
       assert.equal(response.status, 204);
@@ -201,6 +307,7 @@ describe("handleIceServers", () => {
       assert.equal(response.headers.get("Access-Control-Max-Age"), "86400");
       assert.equal(response.headers.get("Vary"), "Origin");
       assert.deepEqual(calls, []);
+      assert.equal(counts.size, 0);
     }
   });
 });

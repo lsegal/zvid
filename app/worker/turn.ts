@@ -7,6 +7,14 @@ export type TurnEnv = {
   // `wrangler secret put`. Without both, no relay is offered.
   TURN_KEY_ID?: string;
   TURN_KEY_API_TOKEN?: string;
+  // Workers Rate Limiting binding (`ratelimits` in wrangler.jsonc) that caps
+  // how often one client IP can mint credentials.
+  TURN_RATE_LIMITER?: RateLimiter;
+};
+
+// The subset of the Workers `RateLimit` binding this module uses.
+export type RateLimiter = {
+  limit(options: { key: string }): Promise<{ success: boolean }>;
 };
 
 type IceServer = {
@@ -21,6 +29,9 @@ export const TURN_CREDENTIAL_TTL_SECONDS = 24 * 60 * 60;
 
 const TURN_API_BASE = "https://rtc.live.cloudflare.com/v1/turn/keys";
 
+// Matches the `simple.period` of TURN_RATE_LIMITER in wrangler.jsonc.
+export const TURN_RATE_LIMIT_PERIOD_SECONDS = 60;
+
 const NO_STORE = { "Cache-Control": "no-store" };
 
 // The native (Tauri) app has no Worker of its own, so it fetches relay
@@ -32,9 +43,13 @@ export const NATIVE_APP_ORIGINS = [
   "http://tauri.localhost",
 ];
 
+function isNativeAppOrigin(origin: string | null): origin is string {
+  return origin !== null && NATIVE_APP_ORIGINS.includes(origin);
+}
+
 function corsHeaders(request: Request): Record<string, string> {
   const origin = request.headers.get("Origin");
-  if (!origin || !NATIVE_APP_ORIGINS.includes(origin)) {
+  if (!isNativeAppOrigin(origin)) {
     return { Vary: "Origin" };
   }
   return { "Access-Control-Allow-Origin": origin, Vary: "Origin" };
@@ -45,6 +60,22 @@ function withHeaders(response: Response, headers: Record<string, string>) {
     response.headers.set(name, value);
   }
   return response;
+}
+
+// Only the app itself may mint credentials: the web app same-origin, or the
+// native app from its own origins. Browsers mark cross-site fetches with
+// `Sec-Fetch-Site` and `Origin`; requests without either (older browsers,
+// scripts) are left to the rate limit.
+function isFromApp(request: Request): boolean {
+  if (isNativeAppOrigin(request.headers.get("Origin"))) {
+    return true;
+  }
+  const site = request.headers.get("Sec-Fetch-Site");
+  if (site && site !== "same-origin" && site !== "none") {
+    return false;
+  }
+  const origin = request.headers.get("Origin");
+  return !origin || origin === new URL(request.url).origin;
 }
 
 function isIceServer(value: unknown): value is IceServer {
@@ -104,11 +135,35 @@ async function mintIceServers(
     });
   }
 
+  if (!isFromApp(request)) {
+    return Response.json(
+      { error: "Cross-origin requests are not allowed" },
+      { status: 403, headers: NO_STORE },
+    );
+  }
+
   if (!env.TURN_KEY_ID || !env.TURN_KEY_API_TOKEN) {
     return Response.json(
       { error: "TURN relay is not configured" },
       { status: 503, headers: NO_STORE },
     );
+  }
+
+  if (env.TURN_RATE_LIMITER) {
+    const key = request.headers.get("CF-Connecting-IP") ?? "unknown";
+    const { success } = await env.TURN_RATE_LIMITER.limit({ key });
+    if (!success) {
+      return Response.json(
+        { error: "Too many TURN credential requests" },
+        {
+          status: 429,
+          headers: {
+            ...NO_STORE,
+            "Retry-After": String(TURN_RATE_LIMIT_PERIOD_SECONDS),
+          },
+        },
+      );
+    }
   }
 
   try {

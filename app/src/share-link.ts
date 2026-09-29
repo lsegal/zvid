@@ -1,11 +1,15 @@
-// Status bar "Copy link" button for a live share: when it shows, what it
-// says, and how a copy attempt resolves. Kept free of React so it can be unit
+// "Copy share link" buttons for a live share (the status bar button and the
+// link icon next to Stop Share): when they show, what they say, and how a copy
+// attempt resolves. Kept free of React so it can be unit
 // tested directly.
 
 export type ShareLinkCopyState = "idle" | "copied" | "failed";
 
-// How long "Copied ✓" stays before the button goes back to "Copy link".
+// How long "Copied ✓" stays before the button goes back to "Copy share link".
 export const SHARE_LINK_COPIED_RESET_MS = 2000;
+
+// How long the top bar link icon shows a check after a successful copy.
+export const SHARE_LINK_ICON_COPIED_RESET_MS = 1500;
 
 // Shown only while hosting a share, and only once its invite URL is built.
 export function shareLinkVisible(
@@ -22,7 +26,7 @@ export function shareLinkButtonLabel(state: ShareLinkCopyState) {
     case "failed":
       return "Copy failed";
     default:
-      return "Copy link";
+      return "Copy share link";
   }
 }
 
@@ -48,5 +52,5 @@ export async function copyShareLink(
 // Status message when the automatic copy at share start fails.
 export function shareCopyFailedStatus(error: unknown) {
   const reason = error instanceof Error ? error.message : String(error);
-  return `Public sharing is live, but copying the invite failed: ${reason}. Use Copy link in the status bar to copy it.`;
+  return `Public sharing is live, but copying the invite failed: ${reason}. Use Copy share link in the status bar to copy it.`;
 }
