@@ -8,21 +8,31 @@
 // CSS pixels, so the device pixel ratio never enters the mapping: it only
 // changes the canvas backing store, not where the canvas sits on screen.
 import {
+  type FrameBounds,
+  orderStackedLayers,
+  resolveFrameBounds,
+} from "./composition-layout.ts";
+import {
+  type BoxCorners,
+  canvasToLayer,
+  IDENTITY_TRANSFORM,
+  isTransformEffectName,
+  type LayerTransform,
+  layerBoxInCanvas,
+  type Point,
+  TRANSFORM_EFFECT_NAME,
+} from "./composition-transform.ts";
+import {
   addEffect,
   type SessionEffect,
+  setEffectEnabled,
   setEffectParameter,
 } from "./fx-stack.ts";
-
-export type Point = { x: number; y: number };
 
 export type Size = { width: number; height: number };
 
 export type Rect = { left: number; top: number; width: number; height: number };
 
-// Corners of a layer's box in canvas pixels, in drawing order around the box.
-export type Quad = readonly [Point, Point, Point, Point];
-
-export const TRANSFORM_EFFECT_NAME = "Transform";
 export const TRANSFORM_POSITION_X_KEY = "PositionX";
 export const TRANSFORM_POSITION_Y_KEY = "PositionY";
 const POSITION_LIMIT = 2;
@@ -32,11 +42,7 @@ export const PREVIEW_NUDGE_LARGE_PX = 10;
 
 // Where the canvas is drawn inside the monitor: letterboxed like CSS
 // `object-fit: contain`, centred, then magnified by `zoom` about the centre.
-export function resolveVideoRect(
-  monitor: Size,
-  canvas: Size,
-  zoom = 1,
-): Rect {
+export function resolveVideoRect(monitor: Size, canvas: Size, zoom = 1): Rect {
   const canvasWidth = Math.max(1, canvas.width);
   const canvasHeight = Math.max(1, canvas.height);
   const fit =
@@ -67,48 +73,70 @@ export function canvasToScreen(point: Point, video: Rect, canvas: Size): Point {
   };
 }
 
-// Converts a clip-space point (-1..1, +y up), as the compositor places
-// layers, into canvas pixels.
-export function clipSpaceToCanvas(point: Point, canvas: Size): Point {
-  return {
-    x: ((point.x + 1) / 2) * canvas.width,
-    y: ((1 - point.y) / 2) * canvas.height,
-  };
+type StackableLayer = {
+  clip: { id: string; laneId: string; startQ: number };
+  laneRank: number;
+  isInBounds: boolean;
+  visual: { transform?: LayerTransform };
+};
+
+// A layer as the preview draws it: its band, its Transform, and the corners
+// of the transformed box in canvas pixels.
+export type PreviewLayer = {
+  laneId: string;
+  clipId: string;
+  placement: { frame: FrameBounds };
+  transform: LayerTransform;
+  corners: BoxCorners;
+};
+
+// The layers the compositor draws at the playhead, in draw order (the last
+// one is on top). As in the compositor, only in-bounds layers take a band.
+export function resolvePreviewLayers(
+  activeClips: readonly StackableLayer[],
+  canvas: Size,
+): PreviewLayer[] {
+  const stacked = orderStackedLayers(
+    activeClips.filter((entry) => entry.isInBounds),
+  );
+  const canvasAspect = canvas.width / Math.max(1, canvas.height);
+
+  return stacked.map((entry, index) => {
+    const placement = {
+      frame: resolveFrameBounds(index, stacked.length, canvasAspect),
+    };
+    const transform = entry.visual.transform ?? IDENTITY_TRANSFORM;
+    return {
+      laneId: entry.clip.laneId,
+      clipId: entry.clip.id,
+      placement,
+      transform,
+      corners: layerBoxInCanvas(placement, transform, canvas),
+    };
+  });
 }
 
-// True when `point` lies inside or on the edge of the convex `quad`, in
-// either winding.
-export function isPointInQuad(point: Point, quad: Quad) {
-  let sign = 0;
-  for (let index = 0; index < quad.length; index += 1) {
-    const from = quad[index];
-    const to = quad[(index + 1) % quad.length];
-    const cross =
-      (to.x - from.x) * (point.y - from.y) -
-      (to.y - from.y) * (point.x - from.x);
-    if (cross === 0) {
-      continue;
-    }
-
-    const side = Math.sign(cross);
-    if (sign === 0) {
-      sign = side;
-    } else if (side !== sign) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-// The topmost layer whose box holds `point`. `layers` are in draw order, so
-// the last one drawn is on top.
-export function hitTestLayers<T extends { quad: Quad }>(
-  layers: readonly T[],
+export function isPointOnLayer(
   point: Point,
+  layer: Pick<PreviewLayer, "placement" | "transform">,
+  canvas: Size,
 ) {
+  const local = canvasToLayer(point, layer.placement, layer.transform, canvas);
+  const edge = 1 + 1e-9;
+  return (
+    local !== undefined &&
+    Math.abs(local.x) <= edge &&
+    Math.abs(local.y) <= edge
+  );
+}
+
+// The topmost layer whose transformed box holds `point`. `layers` are in
+// draw order, so the last one drawn is on top.
+export function hitTestLayers<
+  T extends Pick<PreviewLayer, "placement" | "transform">,
+>(layers: readonly T[], point: Point, canvas: Size) {
   for (let index = layers.length - 1; index >= 0; index -= 1) {
-    if (isPointInQuad(point, layers[index].quad)) {
+    if (isPointOnLayer(point, layers[index], canvas)) {
       return layers[index];
     }
   }
@@ -161,19 +189,19 @@ export function resolveNudgeDelta(key: string, large: boolean) {
   }
 }
 
-export function isTransformEffectName(effectName: string) {
-  return effectName.trim().toLowerCase() === "transform";
-}
-
-// The layer's own Transform effect: the last one in its stack, since it is
-// applied last.
+// The Transform a drag edits: the layer's last enabled one, which is the one
+// the compositor applies, or else its last bypassed one.
 export function findLayerTransform(
   effects: readonly SessionEffect[],
   laneId: string,
 ) {
-  return effects.findLast(
+  const transforms = effects.filter(
     (effect) =>
       effect.trackId === laneId && isTransformEffectName(effect.effectName),
+  );
+  return (
+    transforms.findLast((effect) => effect.enabled !== false) ??
+    transforms[transforms.length - 1]
   );
 }
 
@@ -188,10 +216,7 @@ export function readLayerTransformPosition(
   };
 }
 
-function readNumericParameter(
-  effect: SessionEffect | undefined,
-  key: string,
-) {
+function readNumericParameter(effect: SessionEffect | undefined, key: string) {
   const parameter = effect?.parameters.find(
     (candidate) => candidate.key === key,
   );
@@ -202,7 +227,8 @@ function readNumericParameter(
 
 // Writes the layer's Transform position, first adding a Transform with the
 // registry defaults (with `newEffectId`) to the end of the layer's stack if
-// it has none. Returns `effects` itself when nothing changed.
+// it has none. A bypassed Transform is turned back on so the move shows.
+// Returns `effects` itself when nothing changed.
 export function setLayerTransformPosition(
   effects: SessionEffect[],
   laneId: string,
@@ -225,6 +251,7 @@ export function setLayerTransformPosition(
     }
   }
 
+  result = setEffectEnabled(result, transform.id, true);
   result = setEffectParameter(
     result,
     transform.id,

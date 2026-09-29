@@ -1,21 +1,23 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import {
+  IDENTITY_TRANSFORM,
+  type LayerTransform,
+  TRANSFORM_EFFECT_NAME,
+} from "./composition-transform.ts";
 import { addEffect, type SessionEffect } from "./fx-stack.ts";
 import {
   canvasToScreen,
-  clipSpaceToCanvas,
   constrainDragDelta,
   findLayerTransform,
   hitTestLayers,
-  isPointInQuad,
   offsetTransformPosition,
-  type Quad,
   readLayerTransformPosition,
   resolveNudgeDelta,
+  resolvePreviewLayers,
   resolveVideoRect,
   screenToCanvas,
   setLayerTransformPosition,
-  TRANSFORM_EFFECT_NAME,
 } from "./preview-edit.ts";
 
 const EPSILON = 1e-9;
@@ -27,22 +29,29 @@ function assertClose(actual: number, expected: number) {
   );
 }
 
-function rectQuad(left: number, top: number, width: number, height: number) {
-  return [
-    { x: left, y: top },
-    { x: left + width, y: top },
-    { x: left + width, y: top + height },
-    { x: left, y: top + height },
-  ] as const satisfies Quad;
-}
-
 function effect(
   id: string,
   trackId: string,
   effectName: string,
   parameters: SessionEffect["parameters"] = [],
+  enabled = true,
 ): SessionEffect {
-  return { id, trackId, effectName, parameters, enabled: true };
+  return { id, trackId, effectName, parameters, enabled };
+}
+
+function activeLayer(
+  laneId: string,
+  laneRank: number,
+  transform?: Partial<LayerTransform>,
+) {
+  return {
+    clip: { id: `clip-${laneId}`, laneId, startQ: 0 },
+    laneRank,
+    isInBounds: true,
+    visual: transform
+      ? { transform: { ...IDENTITY_TRANSFORM, ...transform } }
+      : {},
+  };
 }
 
 describe("resolveVideoRect", () => {
@@ -111,53 +120,92 @@ describe("screenToCanvas", () => {
     assertClose(back.x, screen.x);
     assertClose(back.y, screen.y);
   });
-});
 
-describe("clipSpaceToCanvas", () => {
-  it("puts clip-space +y at the top of the canvas", () => {
-    const canvas = { width: 200, height: 100 };
-    assert.deepEqual(clipSpaceToCanvas({ x: -1, y: 1 }, canvas), {
-      x: 0,
-      y: 0,
-    });
-    assert.deepEqual(clipSpaceToCanvas({ x: 1, y: -1 }, canvas), {
-      x: 200,
-      y: 100,
-    });
+  it("places canvas points past the edge outside the video rect", () => {
+    const outside = canvasToScreen({ x: 1620, y: -100 }, video, canvas);
+    assert.ok(outside.x > video.left + video.width);
+    assert.ok(outside.y < video.top);
   });
 });
 
-describe("hit-testing", () => {
-  it("finds points inside, on the edge of and outside a quad", () => {
-    const quad = rectQuad(0, 0, 10, 10);
-    assert.equal(isPointInQuad({ x: 5, y: 5 }, quad), true);
-    assert.equal(isPointInQuad({ x: 10, y: 5 }, quad), true);
-    assert.equal(isPointInQuad({ x: 11, y: 5 }, quad), false);
+describe("resolvePreviewLayers", () => {
+  const canvas = { width: 1000, height: 1000 };
+
+  it("gives each in-bounds layer its band, in draw order", () => {
+    const layers = resolvePreviewLayers(
+      [
+        activeLayer("b", 1),
+        activeLayer("a", 0),
+        { ...activeLayer("gone", 2), isInBounds: false },
+      ],
+      canvas,
+    );
+    assert.deepEqual(
+      layers.map((layer) => layer.laneId),
+      ["a", "b"],
+    );
+    assert.deepEqual(layers[0].corners, [
+      { x: 0, y: 0 },
+      { x: 1000, y: 0 },
+      { x: 1000, y: 500 },
+      { x: 0, y: 500 },
+    ]);
   });
 
-  it("handles rotated quads in either winding", () => {
-    const diamond: Quad = [
-      { x: 5, y: 0 },
-      { x: 10, y: 5 },
-      { x: 5, y: 10 },
-      { x: 0, y: 5 },
-    ];
-    const reversed: Quad = [diamond[3], diamond[2], diamond[1], diamond[0]];
-    for (const quad of [diamond, reversed]) {
-      assert.equal(isPointInQuad({ x: 5, y: 5 }, quad), true);
-      assert.equal(isPointInQuad({ x: 1, y: 1 }, quad), false);
-    }
+  it("moves the corners with the Transform, past the canvas edge", () => {
+    const [layer] = resolvePreviewLayers(
+      [activeLayer("a", 0, { positionX: 0.5 })],
+      canvas,
+    );
+    assertClose(layer.corners[0].x, 500);
+    assertClose(layer.corners[1].x, 1500);
+  });
+});
+
+describe("hitTestLayers", () => {
+  const canvas = { width: 1000, height: 1000 };
+
+  it("hits a layer only inside its transformed box", () => {
+    // A lone layer fills the canvas; half size about its centre is 250..750.
+    const layers = resolvePreviewLayers(
+      [activeLayer("a", 0, { scaleX: 0.5, scaleY: 0.5 })],
+      canvas,
+    );
+    assert.equal(
+      hitTestLayers(layers, { x: 500, y: 600 }, canvas)?.laneId,
+      "a",
+    );
+    assert.equal(hitTestLayers(layers, { x: 500, y: 100 }, canvas), undefined);
+  });
+
+  it("follows rotation", () => {
+    // A narrow box turned 45 degrees no longer covers the band's corner.
+    const layers = resolvePreviewLayers(
+      [activeLayer("a", 0, { rotationDeg: 45, scaleX: 0.2 })],
+      canvas,
+    );
+    assert.equal(hitTestLayers(layers, { x: 10, y: 10 }, canvas), undefined);
+    assert.equal(
+      hitTestLayers(layers, { x: 500, y: 600 }, canvas)?.laneId,
+      "a",
+    );
   });
 
   it("picks the layer drawn last where layers overlap", () => {
-    const layers = [
-      { id: "bottom", quad: rectQuad(0, 0, 100, 100) },
-      { id: "top", quad: rectQuad(50, 50, 100, 100) },
-    ];
-    assert.equal(hitTestLayers(layers, { x: 75, y: 75 })?.id, "top");
-    assert.equal(hitTestLayers(layers, { x: 25, y: 25 })?.id, "bottom");
-    assert.equal(hitTestLayers(layers, { x: 140, y: 140 })?.id, "top");
-    assert.equal(hitTestLayers(layers, { x: 200, y: 10 }), undefined);
+    // Layer b is drawn second and moved up over layer a.
+    const layers = resolvePreviewLayers(
+      [activeLayer("a", 0), activeLayer("b", 1, { positionY: -0.25 })],
+      canvas,
+    );
+    assert.equal(
+      hitTestLayers(layers, { x: 500, y: 400 }, canvas)?.laneId,
+      "b",
+    );
+    assert.equal(
+      hitTestLayers(layers, { x: 500, y: 100 }, canvas)?.laneId,
+      "a",
+    );
+    assert.equal(hitTestLayers(layers, { x: 500, y: 900 }, canvas), undefined);
   });
 });
 
@@ -223,8 +271,10 @@ describe("setLayerTransformPosition", () => {
       next.map((entry) => entry.id),
       ["layout-a", "blur-a", "transform-a", "layout-b"],
     );
-    const transform = findLayerTransform(next, "a");
-    assert.equal(transform?.effectName, TRANSFORM_EFFECT_NAME);
+    assert.equal(
+      findLayerTransform(next, "a")?.effectName,
+      TRANSFORM_EFFECT_NAME,
+    );
     assert.deepEqual(readLayerTransformPosition(next, "a"), {
       x: 0.25,
       y: -0.5,
@@ -252,6 +302,28 @@ describe("setLayerTransformPosition", () => {
       x: -0.1,
       y: 0.3,
     });
+  });
+
+  it("edits the enabled Transform and turns a bypassed only one back on", () => {
+    const bypassed = [
+      ...base,
+      effect("off", "a", TRANSFORM_EFFECT_NAME, [], false),
+    ];
+    const next = setLayerTransformPosition(
+      bypassed,
+      "a",
+      { x: 0.1, y: 0 },
+      "unused",
+    );
+    assert.equal(next.length, bypassed.length);
+    assert.equal(findLayerTransform(next, "a")?.enabled, true);
+
+    const both = [
+      ...bypassed,
+      effect("on", "a", TRANSFORM_EFFECT_NAME, [], true),
+      effect("off-2", "a", TRANSFORM_EFFECT_NAME, [], false),
+    ];
+    assert.equal(findLayerTransform(both, "a")?.id, "on");
   });
 
   it("returns the same array when the position is unchanged", () => {
