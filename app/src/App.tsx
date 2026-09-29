@@ -9,6 +9,7 @@ import {
   PauseIcon,
   PlayIcon,
 } from "@heroicons/react/24/solid";
+import { isTauri } from "@tauri-apps/api/core";
 import {
   type DragEvent as ReactDragEvent,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -79,6 +80,7 @@ import {
   parseIceServers,
   summarizeCollaboration,
 } from "./collaboration-diagnostics";
+import { loadIceServers, resolveRelayIceServersUrl } from "./ice-servers";
 import { ArrangementEmptyState } from "./components/ArrangementEmptyState";
 import {
   APP_BUILD_LABEL,
@@ -527,6 +529,15 @@ const LEGACY_DEFAULT_SIGNALING_URLS = [
   [PUBLIC_SIGNALING_URL],
 ];
 const ICE_SERVERS = resolveIceServers();
+// The app worker's short-lived TURN credentials (worker/turn.ts).
+const RELAY_ICE_SERVERS_URL = resolveRelayIceServersUrl(
+  import.meta.env.VITE_ICE_SERVERS_URL,
+  globalThis.location?.origin,
+  isTauri(),
+);
+// Relay credentials last a day; reuse them for an hour so reconnecting or
+// renaming yourself doesn't mint new ones every time.
+const RELAY_ICE_SERVERS_REUSE_MS = 60 * 60 * 1000;
 const IDLE_COLLABORATION_STATE: CollaborationConnectionState = {
   connected: false,
   peerCount: 0,
@@ -1037,6 +1048,32 @@ function resolveIceServers() {
   }
 }
 
+let sessionIceServers: {
+  promise: Promise<RTCIceServer[]>;
+  fetchedAt: number;
+} | null = null;
+
+// The configured ICE servers plus the relay's TURN servers, fetched before a
+// collaboration session starts.
+function getSessionIceServers() {
+  if (
+    !sessionIceServers ||
+    Date.now() - sessionIceServers.fetchedAt > RELAY_ICE_SERVERS_REUSE_MS
+  ) {
+    const promise = loadIceServers(ICE_SERVERS, RELAY_ICE_SERVERS_URL, {
+      log: logClient,
+    });
+    sessionIceServers = { promise, fetchedAt: Date.now() };
+    // Without a relay, try again for the next session.
+    void promise.then((servers) => {
+      if (servers === ICE_SERVERS && sessionIceServers?.promise === promise) {
+        sessionIceServers = null;
+      }
+    });
+  }
+  return sessionIceServers.promise;
+}
+
 function buildCollaboratorName() {
   const prefix = pickRandom(COLLAB_NAME_PREFIXES) ?? "Signal";
   const suffix = pickRandom(COLLAB_NAME_SUFFIXES) ?? "Wave";
@@ -1250,6 +1287,7 @@ function buildCollaborationViewModel(
   isStartingConnect: boolean,
   activeShareRoom: string,
   collaborationSignaling: string,
+  iceServers: RTCIceServer[],
 ) {
   const remoteCollaborators = state.collaborators.filter(
     (collaborator) => !collaborator.isLocal,
@@ -1287,7 +1325,7 @@ function buildCollaborationViewModel(
         : buildDiagnosticsRows(
             getCollaborationRole(mode),
             state.diagnostics,
-            ICE_SERVERS,
+            iceServers,
           ),
     remoteCollaboratorNames: remoteCollaborators
       .map((collaborator) => collaborator.name)
@@ -1874,6 +1912,8 @@ function App() {
   const [shareUrl, setShareUrl] = useState("");
   const [collaborationState, setCollaborationState] =
     useState<CollaborationConnectionState>(IDLE_COLLABORATION_STATE);
+  const [collaborationIceServers, setCollaborationIceServers] =
+    useState<RTCIceServer[]>(ICE_SERVERS);
   const [isDiagnosticsDialogOpen, setIsDiagnosticsDialogOpen] = useState(false);
   const [mediaHydrationTick, setMediaHydrationTick] = useState(0);
   const collaborationColor = initialCollaborationConfig.color;
@@ -3207,9 +3247,11 @@ function App() {
         isStartingConnect,
         activeShareRoom,
         collaborationSignaling,
+        collaborationIceServers,
       ),
     [
       activeShareRoom,
+      collaborationIceServers,
       collaborationMode,
       collaborationSignaling,
       collaborationState,
@@ -4003,32 +4045,40 @@ function App() {
       return;
     }
 
-    const controller = createCollaborationController<ProjectState>({
-      roomName,
-      password: collaborationPassword.trim(),
-      signalingUrls: parseSignalingUrls(collaborationSignaling),
-      role: getCollaborationRole(collaborationMode),
-      iceServers: ICE_SERVERS,
-      log: logClient,
-      initialState: INITIAL_PROJECT_STATE,
-      bootstrapState: projectSnapshotRef.current,
-      user: {
-        name: collaborationName.trim() || initialCollaborationConfig.name,
-        color: collaborationColor,
-      },
-      onRemoteState: applyRemoteProjectState,
-      onConnectionState: setCollaborationState,
-      resolveMedia: resolvePeerMedia,
+    let cancelled = false;
+    let controller: CollaborationController<ProjectState> | null = null;
+    void getSessionIceServers().then((iceServers) => {
+      if (cancelled) {
+        return;
+      }
+      setCollaborationIceServers(iceServers);
+      controller = createCollaborationController<ProjectState>({
+        roomName,
+        password: collaborationPassword.trim(),
+        signalingUrls: parseSignalingUrls(collaborationSignaling),
+        role: getCollaborationRole(collaborationMode),
+        iceServers,
+        log: logClient,
+        initialState: INITIAL_PROJECT_STATE,
+        bootstrapState: projectSnapshotRef.current,
+        user: {
+          name: collaborationName.trim() || initialCollaborationConfig.name,
+          color: collaborationColor,
+        },
+        onRemoteState: applyRemoteProjectState,
+        onConnectionState: setCollaborationState,
+        resolveMedia: resolvePeerMedia,
+      });
+      collaborationControllerRef.current = controller;
     });
 
-    collaborationControllerRef.current = controller;
-
     return () => {
-      if (collaborationControllerRef.current === controller) {
+      cancelled = true;
+      if (controller && collaborationControllerRef.current === controller) {
         collaborationControllerRef.current = null;
       }
       abortPeerMediaTransfers();
-      controller.destroy();
+      controller?.destroy();
     };
   }, [
     abortPeerMediaTransfers,
@@ -6829,7 +6879,7 @@ function App() {
             <p className="share-dialog__note">
               Tabs of the same browser sync without WebRTC, so test with two
               different browsers or machines. Peers behind strict NATs need a
-              TURN relay (VITE_ICE_SERVERS).
+              TURN relay (Relay above), which the deployed app provides.
             </p>
           </div>
 

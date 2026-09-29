@@ -1,4 +1,6 @@
-type Env = {
+import { handleIceServers, type TurnEnv } from "./turn.ts";
+
+type Env = TurnEnv & {
   ASSETS: Fetcher;
 };
 
@@ -29,6 +31,10 @@ export default {
         { ok: true, service: "zvid-app", ...version },
         { headers: { "X-Zvid-Commit": version.commit ?? "unknown" } },
       );
+    }
+
+    if (url.pathname === "/api/ice-servers") {
+      return handleIceServers(request, env);
     }
 
     return env.ASSETS.fetch(request);
