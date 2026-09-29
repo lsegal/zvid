@@ -341,21 +341,65 @@ describe("hitTestLayers", () => {
     );
   });
 
-  it("picks the layer drawn last where layers overlap", () => {
-    // Layer b is drawn second and moved up over layer a.
+  it("ignores the part of a moved layer outside its slot", () => {
+    // Layer b, in the bottom band, moves up a quarter: its box reaches into
+    // Layer a's band, but it is cropped to its own, so only y 500..750 of
+    // it shows.
     const layers = resolvePreviewLayers(
       [activeLayer("a", 0), activeLayer("b", 1, { positionY: -0.25 })],
       canvas,
     );
+    assert.deepEqual(layers[1].slot, {
+      x: 0,
+      y: 500,
+      width: 1000,
+      height: 500,
+    });
     assert.equal(
       hitTestLayers(layers, { x: 500, y: 400 }, canvas)?.laneId,
-      "b",
-    );
-    assert.equal(
-      hitTestLayers(layers, { x: 500, y: 100 }, canvas)?.laneId,
       "a",
     );
+    assert.equal(
+      hitTestLayers(layers, { x: 500, y: 600 }, canvas)?.laneId,
+      "b",
+    );
     assert.equal(hitTestLayers(layers, { x: 500, y: 900 }, canvas), undefined);
+    assert.equal(
+      isPointOnLayer({ x: 500, y: 400 }, layers[1], canvas),
+      false,
+      "outside its slot",
+    );
+  });
+
+  it("ignores a moved layer in the spacing between slots", () => {
+    const layers = resolvePreviewLayers(
+      [activeLayer("a", 0, { scaleX: 2 }), activeLayer("b", 1)],
+      canvas,
+      { arrangement: "horizontal", gridSize: 2, spacing: 50 },
+    );
+    const [a] = layers;
+    assertClose(a.slot.x + a.slot.width, (1000 - 50000 / 1080) / 2);
+    assert.equal(hitTestLayers(layers, { x: 500, y: 500 }, canvas), undefined);
+  });
+
+  it("gives every layer the whole canvas as its slot without an Order", () => {
+    const layers = resolvePreviewLayers(
+      [activeLayer("a", 0, { positionX: 0.5 }), activeLayer("b", 1)],
+      canvas,
+      Z_ORDER_COMPOSITION,
+    );
+    for (const layer of layers) {
+      assert.deepEqual(layer.slot, { x: 0, y: 0, width: 1000, height: 1000 });
+    }
+    // Layer a, moved half a canvas right, still covers Layer b there.
+    assert.equal(
+      hitTestLayers(layers, { x: 750, y: 500 }, canvas)?.laneId,
+      "a",
+    );
+    assert.equal(
+      hitTestLayers(layers, { x: 250, y: 500 }, canvas)?.laneId,
+      "b",
+    );
   });
 
   it("picks Layer 1 where overlapping layers meet without an Order", () => {

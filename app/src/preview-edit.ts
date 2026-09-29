@@ -232,11 +232,7 @@ export function resolvePreviewLayers(
     placed.push(...layers.filter(Boolean));
   };
   const canvasBox = { x: 0, y: 0, width: canvas.width, height: canvas.height };
-  collect(
-    planLayerDraws(inBounds, order),
-    canvasBox,
-    order,
-  );
+  collect(planLayerDraws(inBounds, order), canvasBox, order);
 
   return [
     ...fxLayers.map((entry) => ({
