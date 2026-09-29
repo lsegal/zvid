@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 
 // The timeline range selection renders before a lane's clips but paints over
 // them, so a range on a layer that already has clips stays visible, while
@@ -30,6 +30,19 @@ function lane(page: Page, id: string) {
   return page.locator(`[data-timeline-lane-id="${id}"]`);
 }
 
+// The selected clip's neutral ring and stacking, read from computed style.
+function ringOf(clip: Locator) {
+  return clip.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      outline: `${style.outlineStyle} ${style.outlineWidth} ${style.outlineColor}`,
+      zIndex: style.zIndex,
+    };
+  });
+}
+
+const RING = "solid 2px rgb(244, 246, 255)";
+
 test("a range selection paints over the clips it overlaps", async ({
   page,
 }) => {
@@ -49,6 +62,9 @@ test("a range selection paints over the clips it overlaps", async ({
   await page.getByRole("menuitem", { name: "Layer 2" }).click();
   const other = lane(page, "5").locator(".clip-card");
   await expect(other).toHaveClass(/clip-card--selected/);
+  const otherRing = await ringOf(other);
+  expect(otherRing.outline).toBe(RING);
+  expect((await ringOf(clip)).outline).toMatch(/^none /);
   await clip.evaluate((element) => element.scrollIntoView({ block: "center" }));
 
   // Drag from the empty lane after the clip back across it.
@@ -85,6 +101,9 @@ test("a range selection paints over the clips it overlaps", async ({
   expect(clipZ).toBe("auto");
   expect(Number(selectionZ)).toBeGreaterThan(0);
   expect(Number(selectionZ)).toBeLessThan(Number(playheadZ));
+  // The selected clip rises above its neighbours but stays under the range.
+  expect(Number(otherRing.zIndex)).toBeGreaterThan(0);
+  expect(Number(otherRing.zIndex)).toBeLessThan(Number(selectionZ));
 
   // The clip under the selection still takes the click.
   await page.mouse.click(
@@ -93,4 +112,6 @@ test("a range selection paints over the clips it overlaps", async ({
   );
   await expect(clip).toHaveClass(/clip-card--selected/);
   await expect(other).not.toHaveClass(/clip-card--selected/);
+  expect((await ringOf(clip)).outline).toBe(RING);
+  expect((await ringOf(other)).outline).toMatch(/^none /);
 });

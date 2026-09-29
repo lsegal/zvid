@@ -9499,9 +9499,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                                   ["--clip-accent" as string]: clip.accent,
                                   backgroundColor: clip.tint,
                                   borderColor: clip.accent,
-                                  boxShadow: selected
-                                    ? `0 0 0 2px ${clip.accent}`
-                                    : undefined,
                                   opacity:
                                     mediaState === "online" || mediaSync
                                       ? 1
