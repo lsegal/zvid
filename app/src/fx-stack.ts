@@ -859,6 +859,26 @@ export function copyClipEffects<T extends StackEffect>(
   return result;
 }
 
+// The effects a Ctrl/Cmd-drag duplicate is drawn with before it is dropped:
+// the in-flight copy borrows its source clip's stack, so it looks as it will
+// once dropped. Nothing is committed; the drop copies the stack for real
+// with `copyClipEffects`. The ids are stable across calls, so redrawing the
+// drag doesn't churn them. Returns `effects` itself when the source clip has
+// no stack.
+export function previewDuplicateClipEffects<T extends StackEffect>(
+  effects: T[],
+  sourceClipId: string,
+  copyClipId: string,
+) {
+  let next = 0;
+  return copyClipEffects(
+    effects,
+    [[sourceClipId, copyClipId]],
+    effects,
+    () => `${clipEffectTrackId(copyClipId)}:preview-${++next}`,
+  );
+}
+
 // Drops the stacks of clips that are gone, so deleting a clip deletes its
 // effects. Returns `effects` itself when every clip stack still has its clip.
 export function pruneClipEffects<T extends { trackId: string }>(
