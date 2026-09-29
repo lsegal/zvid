@@ -103,7 +103,10 @@ import {
   TransportPlayheadReadout,
 } from "./components/LivePlayhead";
 import { OfflineMediaDialog } from "./components/OfflineMediaDialog";
-import { ShareLinkButton } from "./components/ShareLinkButton";
+import {
+  ShareLinkButton,
+  ShareLinkIconButton,
+} from "./components/ShareLinkButton";
 import {
   StatusBar,
   type StatusItem,
@@ -6196,6 +6199,17 @@ function App() {
     }
   }
 
+  // Shows the top bar "Copied" badge for a few seconds after a copy.
+  function showShareCopiedBadge() {
+    setHasCopiedShareInvite(true);
+    if (shareCopyResetTimeoutRef.current !== null) {
+      window.clearTimeout(shareCopyResetTimeoutRef.current);
+    }
+    shareCopyResetTimeoutRef.current = window.setTimeout(() => {
+      setHasCopiedShareInvite(false);
+    }, 4500);
+  }
+
   async function handleStartShare() {
     if (typeof window === "undefined" || isStartingShare) {
       return;
@@ -6220,19 +6234,13 @@ function App() {
           publicAppUrl: import.meta.env.VITE_PUBLIC_APP_URL,
         },
       );
-      // Kept whether or not the copy below works, so the status bar's Copy
-      // link button can copy it again for the rest of the session.
+      // Kept whether or not the copy below works, so the Copy share link
+      // buttons can copy it again for the rest of the session.
       setShareUrl(inviteUrl);
 
       try {
         await navigator.clipboard.writeText(inviteUrl);
-        setHasCopiedShareInvite(true);
-        if (shareCopyResetTimeoutRef.current !== null) {
-          window.clearTimeout(shareCopyResetTimeoutRef.current);
-        }
-        shareCopyResetTimeoutRef.current = window.setTimeout(() => {
-          setHasCopiedShareInvite(false);
-        }, 4500);
+        showShareCopiedBadge();
         setStatus(
           localOnly
             ? "Invite copied, but it only works on this computer or network. Share from the deployed app to invite others. Click Stop Share to disconnect."
@@ -6522,7 +6530,7 @@ function App() {
             },
           ];
         }
-        // The Copy link button sits right after the share status.
+        // The Copy share link button sits right after the share status.
         if (
           item.id === "collaboration" &&
           shareLinkVisible(collaborationMode, shareUrl)
@@ -6766,6 +6774,13 @@ function App() {
                   : "Share"}
             </span>
           </button>
+          {shareLinkVisible(collaborationMode, shareUrl) ? (
+            <ShareLinkIconButton
+              key={shareUrl}
+              onCopied={showShareCopiedBadge}
+              url={shareUrl}
+            />
+          ) : null}
           {hasCopiedShareInvite ? (
             <span
               className="share-copy-badge"
