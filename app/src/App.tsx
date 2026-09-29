@@ -93,6 +93,7 @@ import {
   TransportPlayheadReadout,
 } from "./components/LivePlayhead";
 import { OfflineMediaDialog } from "./components/OfflineMediaDialog";
+import { ShareLinkButton } from "./components/ShareLinkButton";
 import {
   StatusBar,
   type StatusItem,
@@ -207,6 +208,7 @@ import {
   normalizeLvpSession,
   type SessionOpenResponse,
 } from "./session";
+import { shareCopyFailedStatus, shareLinkVisible } from "./share-link";
 import {
   dropClipOnFreeLane,
   isSourceClipDropClick,
@@ -1922,7 +1924,7 @@ function App() {
   const [connectInviteValue, setConnectInviteValue] = useState("");
   const [isStartingConnect, setIsStartingConnect] = useState(false);
   const [hasCopiedShareInvite, setHasCopiedShareInvite] = useState(false);
-  const [lastCopiedShareUrl, setLastCopiedShareUrl] = useState("");
+  const [shareUrl, setShareUrl] = useState("");
   const [collaborationState, setCollaborationState] =
     useState<CollaborationConnectionState>({
       connected: false,
@@ -6124,22 +6126,25 @@ function App() {
     const roomName = collaborationView.pendingShareRoom;
     setIsStartingShare(true);
     setHasCopiedShareInvite(false);
+    setShareUrl("");
 
     try {
       setCollaborationRoom(roomName);
       setCollaborationMode("sharing");
 
       const publicIpAddress = await detectPublicIpAddress();
-      const shareUrl = buildPublicShareUrl(
+      const inviteUrl = buildPublicShareUrl(
         roomName,
         collaborationSignaling,
         collaborationPassword,
         publicIpAddress,
       );
+      // Kept whether or not the copy below works, so the status bar's Copy
+      // link button can copy it again for the rest of the session.
+      setShareUrl(inviteUrl);
 
       try {
-        await navigator.clipboard.writeText(shareUrl);
-        setLastCopiedShareUrl(shareUrl);
+        await navigator.clipboard.writeText(inviteUrl);
         setHasCopiedShareInvite(true);
         if (shareCopyResetTimeoutRef.current !== null) {
           window.clearTimeout(shareCopyResetTimeoutRef.current);
@@ -6151,11 +6156,7 @@ function App() {
           `Public sharing is live. Invite copied${publicIpAddress ? ` via ${publicIpAddress}` : ""}. Click Stop Share to disconnect.`,
         );
       } catch (error) {
-        setStatus(
-          `Public sharing is live, but copying the invite failed: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
+        setStatus(shareCopyFailedStatus(error));
       }
 
       setIsShareDialogOpen(false);
@@ -6174,6 +6175,7 @@ function App() {
       collaborators: [],
     });
     setCollaborationMode("idle");
+    setShareUrl("");
     setStatus("Public sharing stopped. Signaling socket disconnected.");
   }
 
@@ -6429,9 +6431,10 @@ function App() {
         clipCount: timelineClips.length,
         trackCount: lanes.length,
         offlineCount,
-      }).map((item) =>
-        item.id === "playhead"
-          ? {
+      }).flatMap((item): StatusItem[] => {
+        if (item.id === "playhead") {
+          return [
+            {
               id: item.id,
               label: item.label,
               value: (
@@ -6443,9 +6446,24 @@ function App() {
                   timelineMode={timelineMode}
                 />
               ),
-            }
-          : item,
-      ),
+            },
+          ];
+        }
+        // The Copy link button sits right after the share status.
+        if (
+          item.id === "collaboration" &&
+          shareLinkVisible(collaborationMode, shareUrl)
+        ) {
+          return [
+            item,
+            {
+              id: "share-link",
+              value: <ShareLinkButton key={shareUrl} url={shareUrl} />,
+            },
+          ];
+        }
+        return [item];
+      }),
     [
       bpm,
       canvasHeight,
@@ -6459,6 +6477,7 @@ function App() {
       playheadSignal,
       previewMedia,
       sessionName,
+      shareUrl,
       signature,
       timelineClips.length,
       timelineMode,
@@ -6674,7 +6693,7 @@ function App() {
             <span
               className="share-copy-badge"
               aria-live="polite"
-              title={lastCopiedShareUrl}
+              title={shareUrl}
             >
               <svg viewBox="0 0 20 20" role="presentation" aria-hidden="true">
                 <path
