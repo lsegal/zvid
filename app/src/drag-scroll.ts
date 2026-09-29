@@ -172,7 +172,10 @@ export function attachDragScroll(
     event.preventDefault();
     const t = now();
     drag.samples.push({ t, x: event.clientX, y: event.clientY });
-    while (drag.samples.length > 2 && t - drag.samples[0].t > VELOCITY_WINDOW_MS) {
+    while (
+      drag.samples.length > 2 &&
+      t - drag.samples[0].t > VELOCITY_WINDOW_MS
+    ) {
       drag.samples.shift();
     }
     const next = dragScrollPosition(axis, drag.origin, drag.start, {
@@ -201,8 +204,7 @@ export function attachDragScroll(
   };
 
   const onPointerUp = (event: PointerEvent) => endDrag(event, true);
-  const onPointerCancel = (event: PointerEvent) =>
-    endDrag(event, false);
+  const onPointerCancel = (event: PointerEvent) => endDrag(event, false);
 
   const suppressMiddle = (event: MouseEvent) => {
     if (event.button === MIDDLE_BUTTON) {

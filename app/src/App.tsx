@@ -4716,8 +4716,7 @@ function App() {
   useDragScroll(timelineScrollRef, {
     axis: "both",
     suppressMiddleClick: true,
-    canStart: (event) =>
-      isTimelinePanPress(event, spaceHoldRef.current.held),
+    canStart: (event) => isTimelinePanPress(event, spaceHoldRef.current.held),
     onStart: (event) => {
       if (event.button === 0) {
         spaceHoldRef.current.markPanned();
