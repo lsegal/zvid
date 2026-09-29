@@ -8,7 +8,7 @@
 
 import { alsSavePath } from "./als-import.ts";
 import { type ClipWarp, warpSampleStartSeconds } from "./clip-warp.ts";
-import { renameClipEffectTracks } from "./fx-stack.ts";
+import { pruneExcludedLayers, renameClipEffectTracks } from "./fx-stack.ts";
 import type { LvpLayerClip, LvpSession } from "./session.ts";
 import type { WorkspaceSessionSource } from "./workspace-session.ts";
 
@@ -325,7 +325,14 @@ export function projectToLvpSession(
     ...(fills.length ? { fills } : {}),
     ...(texts.length ? { texts } : {}),
     ...(fxClips.length ? { fxClips } : {}),
-    effects: renameClipEffectTracks(project.effects, savedClipIds).map(
+    // An Order only keeps exclusions of layers that still exist.
+    effects: renameClipEffectTracks(
+      pruneExcludedLayers(
+        project.effects,
+        project.lanes.map((lane) => lane.id),
+      ),
+      savedClipIds,
+    ).map(
       (effect) => ({
         id: effect.id,
         trackId: effect.trackId,

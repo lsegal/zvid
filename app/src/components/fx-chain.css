@@ -704,3 +704,107 @@ body.fx-chain-dragging * {
   color: var(--muted);
   font-size: 0.72rem;
 }
+
+/* The Order device's Layers button. */
+.fx-layers__trigger {
+  align-self: center;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(11, 13, 19, 0.4);
+  color: var(--ink);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.fx-layers__trigger:hover,
+.fx-layers__trigger[data-state="open"],
+.fx-layers__trigger:focus-visible {
+  border-color: var(--fx-accent);
+  outline: none;
+}
+
+/*
+ * Its checkmark menu matches the right-click menu (context-menu.css). It
+ * renders in a portal, so it overrides the dropdown panel's own styling.
+ */
+.dropdown-menu-content.fx-layers-menu {
+  min-width: 196px;
+  max-height: var(--radix-dropdown-menu-content-available-height);
+  padding: 4px;
+  overflow-y: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--bg-elevated);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.34),
+    0 1px 3px rgba(0, 0, 0, 0.24);
+  color: var(--ink);
+  font-size: 0.8rem;
+  user-select: none;
+}
+
+.dropdown-menu-content.fx-layers-menu [data-radix-collection-item] {
+  justify-content: flex-start;
+  gap: 8px;
+  min-height: 0;
+  height: 28px;
+  padding: 0 10px 0 6px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: default;
+  white-space: nowrap;
+}
+
+.dropdown-menu-content.fx-layers-menu [data-radix-collection-item][data-highlighted] {
+  background: color-mix(in srgb, var(--blue) 22%, transparent);
+  color: var(--ink);
+}
+
+.dropdown-menu-content.fx-layers-menu [data-radix-collection-item][data-disabled][data-highlighted] {
+  background: none;
+}
+
+.dropdown-menu-content.fx-layers-menu [role='separator'] {
+  margin: 4px 6px;
+}
+
+.fx-layers-menu__check {
+  display: inline-flex;
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--ink);
+}
+
+.fx-layers-menu__check svg {
+  width: 14px;
+  height: 14px;
+}
+
+.fx-layers-menu__number {
+  flex: none;
+  min-width: 1.4em;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.7rem;
+  text-align: right;
+}
+
+.fx-layers-menu__swatch {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+.fx-layers-menu__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Footer rows line up with the layer names. */
+.fx-layers-menu__item[role='menuitem'] {
+  padding-left: 28px;
+}

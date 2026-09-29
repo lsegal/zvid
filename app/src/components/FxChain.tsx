@@ -1,4 +1,5 @@
 import {
+  CheckIcon,
   ChevronLeftIcon,
   PlusIcon,
   PowerIcon,
@@ -17,9 +18,12 @@ import ColorPicker from "react-best-gradient-color-picker";
 import {
   addableEffectsFor,
   canStartFxChainPan,
+  describeArrangedLayers,
   describeDeviceMove,
   dropSlotToStackIndex,
+  excludeAllLayers,
   FX_CHAIN_SECTIONS,
+  type FxLayerOption,
   getAutoScrollDelta,
   getDropSlot,
   getParameterFormat,
@@ -33,6 +37,7 @@ import {
   usesColumnLayout,
   writeCollapsedDevices,
 } from "../fx-chain";
+import { parseLayerIdList, toggleLayerId } from "../composition-order";
 import type { FxEffectDefinition, FxEffectScope } from "../fx-registry";
 import {
   type FxDevice,
@@ -47,8 +52,11 @@ import { FontPicker } from "./FontPicker";
 import { usePrefersReducedMotion } from "./MediaSyncSkeleton";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuItemIndicator,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { Knob } from "./ui/Knob";
@@ -71,6 +79,8 @@ type FxChainProps = {
   clipScope?: FxEffectScope;
   // False when the selected layer's FX badge bypasses its whole stack.
   layerFxEnabled?: boolean;
+  // The layers an Order's Layers menu lists, in timeline order.
+  layers?: readonly FxLayerOption[];
   onSetLayerFxEnabled?: (enabled: boolean) => void;
   onSetEnabled: (device: FxDevice, enabled: boolean) => void;
   onSetParameter: (
@@ -150,6 +160,8 @@ const SECTION_LABELS: Record<FxDeviceGroup, string> = {
   clip: "Clip",
 };
 
+const NO_LAYERS: readonly FxLayerOption[] = [];
+
 const ADD_MENU_LABELS: Record<FxDeviceGroup, string> = {
   global: "Add device to Global",
   layer: "Add device to this layer",
@@ -164,6 +176,7 @@ export function FxChain({
   clipTrackId,
   clipScope = "clip",
   layerFxEnabled = true,
+  layers = NO_LAYERS,
   onSetLayerFxEnabled,
   onSetEnabled,
   onSetParameter,
@@ -618,6 +631,7 @@ export function FxChain({
         onRemove={() => removeDevice(device)}
         layerBypassed={device.group === "layer" && !layerFxEnabled}
         onSetEnabled={onSetEnabled}
+        layers={layers}
         onSetParameter={onSetParameter}
         onStripClick={() => {
           if (suppressClickRef.current) {
@@ -890,6 +904,7 @@ type FxDevicePanelProps = {
   onTitleKeyDown: (event: ReactKeyboardEvent<HTMLElement>) => void;
   onContextMenu: (event: ReactMouseEvent<HTMLElement>) => void;
   onSetEnabled: FxChainProps["onSetEnabled"];
+  layers: readonly FxLayerOption[];
   onSetParameter: FxChainProps["onSetParameter"];
 };
 
@@ -924,6 +939,7 @@ export function FxDevicePanel({
   onContextMenu,
   onSetEnabled,
   onSetParameter,
+  layers,
 }: FxDevicePanelProps) {
   const style = { "--fx-accent": device.accent } as CSSProperties;
   const powerLabel = `${device.enabled ? "Bypass" : "Enable"} ${device.name}`;
@@ -1060,6 +1076,7 @@ export function FxDevicePanel({
               <FxParameterControl
                 key={parameter.key}
                 device={device}
+                layers={layers}
                 onSetParameter={onSetParameter}
                 parameter={parameter}
               />
@@ -1071,6 +1088,7 @@ export function FxDevicePanel({
                 <FxParameterControl
                   key={parameter.key}
                   device={device}
+                  layers={layers}
                   onSetParameter={onSetParameter}
                   parameter={parameter}
                 />
@@ -1090,6 +1108,7 @@ export function FxDevicePanel({
               <FxParameterControl
                 key={parameter.key}
                 device={device}
+                layers={layers}
                 onSetParameter={onSetParameter}
                 parameter={parameter}
               />
@@ -1107,9 +1126,11 @@ function FxParameterControl({
   device,
   parameter,
   onSetParameter,
+  layers,
 }: {
   device: FxDevice;
   parameter: FxDeviceParameter;
+  layers: readonly FxLayerOption[];
   onSetParameter: FxChainProps["onSetParameter"];
 }) {
   // Long option lists, such as font weights, pick from a menu instead.
@@ -1188,6 +1209,17 @@ function FxParameterControl({
     );
   }
 
+  if (parameter.kind === "layers") {
+    return (
+      <FxLayersControl
+        device={device}
+        layers={layers}
+        onSetParameter={onSetParameter}
+        parameter={parameter}
+      />
+    );
+  }
+
   if (parameter.kind === "flags") {
     const value = parameter.stringValue ?? "";
     const on = new Set(value.split(","));
@@ -1240,6 +1272,92 @@ function FxParameterControl({
       step={parameter.step}
       value={parameter.numericValue ?? defaultValue}
     />
+  );
+}
+
+// A button that opens a checkmark menu of `layers`: ticked layers are the
+// ones the Order arranges. The parameter stores the unticked ones. Each
+// toggle is one undo step and leaves the menu open for the next.
+function FxLayersControl({
+  device,
+  parameter,
+  layers,
+  onSetParameter,
+}: {
+  device: FxDevice;
+  parameter: FxDeviceParameter;
+  layers: readonly FxLayerOption[];
+  onSetParameter: FxChainProps["onSetParameter"];
+}) {
+  const value = parameter.stringValue ?? "";
+  const excluded = new Set(parseLayerIdList(value));
+  const excludedCount = layers.filter((layer) => excluded.has(layer.id)).length;
+  const set = (next: string) => {
+    if (next !== value) {
+      onSetParameter(device, parameter.key, next, "commit");
+    }
+  };
+  // Menu rows toggle in place instead of closing the menu.
+  const keepOpen = (event: Event) => event.preventDefault();
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="fx-layers__trigger" data-fx-no-drag type="button">
+          {describeArrangedLayers(value, layers)}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        aria-label="Layers to arrange"
+        className="fx-layers-menu"
+        sideOffset={4}
+      >
+        {layers.map((layer, index) => (
+          <DropdownMenuCheckboxItem
+            checked={!excluded.has(layer.id)}
+            className="fx-layers-menu__item"
+            key={layer.id}
+            onCheckedChange={() => set(toggleLayerId(value, layer.id))}
+            onSelect={keepOpen}
+          >
+            <span className="fx-layers-menu__check">
+              <DropdownMenuItemIndicator>
+                <CheckIcon aria-hidden="true" />
+              </DropdownMenuItemIndicator>
+            </span>
+            <span className="fx-layers-menu__number">{index + 1}</span>
+            <span
+              aria-hidden="true"
+              className="fx-layers-menu__swatch"
+              style={{ background: layer.color }}
+            />
+            <span className="fx-layers-menu__name">{layer.name}</span>
+          </DropdownMenuCheckboxItem>
+        ))}
+        {layers.length ? <DropdownMenuSeparator /> : null}
+        <DropdownMenuItem
+          className="fx-layers-menu__item"
+          disabled={!excludedCount}
+          onSelect={(event) => {
+            keepOpen(event);
+            set("");
+          }}
+        >
+          Include all
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className="fx-layers-menu__item"
+          disabled={!layers.length || excludedCount === layers.length}
+          onSelect={(event) => {
+            keepOpen(event);
+            set(excludeAllLayers(layers));
+          }}
+        >
+          Exclude all
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

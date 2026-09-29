@@ -199,7 +199,7 @@ describe("Color effect parameters", () => {
       stack,
       "1",
       "Layer 1",
-      0,
+      [],
       undefined,
       "fill-a",
     )
@@ -239,7 +239,7 @@ describe("Color effect parameters", () => {
       next,
       "1",
       undefined,
-      0,
+      [],
       undefined,
       "fill-a",
     ).find((candidate) => candidate.effectName === "Color");

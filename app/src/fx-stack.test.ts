@@ -21,6 +21,7 @@ import {
   mapSessionEffectsToDevices,
   moveEffect,
   previewDuplicateClipEffects,
+  pruneExcludedLayers,
   pruneClipEffects,
   removeEffect,
   renameClipEffectTracks,
@@ -862,24 +863,46 @@ describe("Order devices", () => {
     arrangement: string,
     activeLayerCount: number,
     enabled = true,
+    excludedLayers?: string,
   ) {
     let effects = addEffect([], GLOBAL_EFFECT_TRACK_ID, "Order", 0, "order");
     effects = setEffectParameter(effects, "order", "Arrangement", arrangement);
     effects = setEffectEnabled(effects, "order", enabled);
+    if (excludedLayers !== undefined) {
+      effects = setEffectParameter(
+        effects,
+        "order",
+        "ExcludedLayers",
+        excludedLayers,
+      );
+    }
     return mapSessionEffectsToDevices(
       effects,
       "6",
       "Layer 3",
-      activeLayerCount,
+      Array.from({ length: activeLayerCount }, (_, index) => `${index + 1}`),
     ).find((device) => device.id === "order");
   }
 
   it("shows Grid Size only while the arrangement is Grid", () => {
     const keys = (arrangement: string) =>
       orderDevice(arrangement, 0)?.parameters.map((parameter) => parameter.key);
-    assert.deepEqual(keys("Vertical"), ["Arrangement", "Spacing"]);
-    assert.deepEqual(keys("Horizontal"), ["Arrangement", "Spacing"]);
-    assert.deepEqual(keys("Grid"), ["Arrangement", "GridSize", "Spacing"]);
+    assert.deepEqual(keys("Vertical"), [
+      "Arrangement",
+      "ExcludedLayers",
+      "Spacing",
+    ]);
+    assert.deepEqual(keys("Horizontal"), [
+      "Arrangement",
+      "ExcludedLayers",
+      "Spacing",
+    ]);
+    assert.deepEqual(keys("Grid"), [
+      "Arrangement",
+      "ExcludedLayers",
+      "GridSize",
+      "Spacing",
+    ]);
   });
 
   it("warns when a grid has fewer cells than active layers", () => {
@@ -888,6 +911,52 @@ describe("Order devices", () => {
     assert.equal(orderDevice("Grid", 7)?.warning, "3 layers hidden by grid");
     assert.equal(orderDevice("Vertical", 7)?.warning, undefined);
     assert.equal(orderDevice("Grid", 7, false)?.warning, undefined);
+  });
+
+  it("counts only the layers the Order arranges for the grid warning", () => {
+    assert.equal(orderDevice("Grid", 5, true, "1")?.warning, undefined);
+    assert.equal(
+      orderDevice("Grid", 7, true, "2")?.warning,
+      "2 layers hidden by grid",
+    );
+    // Excluding a layer with nothing at the playhead changes nothing.
+    assert.equal(
+      orderDevice("Grid", 5, true, "9")?.warning,
+      "1 layer hidden by grid",
+    );
+  });
+
+  it("gives the Layers control the stored exclusions, empty by default", () => {
+    const layers = (excluded?: string) =>
+      orderDevice("Vertical", 0, true, excluded)?.parameters.find(
+        (parameter) => parameter.key === "ExcludedLayers",
+      );
+    assert.equal(layers()?.kind, "layers");
+    assert.equal(layers()?.stringValue, "");
+    assert.equal(layers("1,4")?.stringValue, "1,4");
+  });
+});
+
+describe("pruneExcludedLayers", () => {
+  it("drops excluded ids of layers that no longer exist", () => {
+    let effects = addEffect([], GLOBAL_EFFECT_TRACK_ID, "Order", 0, "order");
+    effects = setEffectParameter(effects, "order", "ExcludedLayers", "1,3,7");
+    const pruned = pruneExcludedLayers(effects, ["1", "2", "3"]);
+    assert.equal(
+      pruned[0].parameters.find(
+        (parameter) => parameter.key === "ExcludedLayers",
+      )?.value,
+      "1,3",
+    );
+  });
+
+  it("keeps effects with nothing to drop as they are", () => {
+    let effects = addEffect([], GLOBAL_EFFECT_TRACK_ID, "Order", 0, "order");
+    effects = setEffectParameter(effects, "order", "ExcludedLayers", "2");
+    effects = addEffect(effects, "2", "Colorize", 0, "colorize");
+    const pruned = pruneExcludedLayers(effects, ["1", "2"]);
+    assert.equal(pruned[0], effects[0]);
+    assert.equal(pruned[1], effects[1]);
   });
 });
 

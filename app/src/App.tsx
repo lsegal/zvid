@@ -3324,9 +3324,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     : undefined;
   // Layers the compositor draws at the playhead: one per layer with an
   // online video clip there. The Order device warns when a grid hides some.
-  const playheadVisualLayerCount = useMemo(
-    () =>
-      new Set(
+  const playheadVisualLayerIds = useMemo(
+    () => [
+      ...new Set(
         timelineClips
           .filter((clip) => {
             const media = clip.mediaId
@@ -3339,8 +3339,20 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             );
           })
           .map((clip) => clip.laneId),
-      ).size,
+      ),
+    ],
     [bpm, mediaItemsById, playheadQ, timelineClips],
+  );
+  // The layers an Order's Layers menu lists, in timeline order.
+  const orderLayerOptions = useMemo(
+    () =>
+      lanes.map((lane) => ({
+        id: lane.id,
+        name: lane.name,
+        color:
+          lane.colorIndex >= 0 ? getSwatch(lane.colorIndex).accent : undefined,
+      })),
+    [lanes],
   );
   // Fonts Text effects pick load up front, so one that can't be loaded is
   // flagged on its device even before its clip is drawn.
@@ -3388,7 +3400,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             effects,
             fxLaneId,
             fxLane?.name,
-            playheadVisualLayerCount,
+            playheadVisualLayerIds,
             missingFonts,
             fxClipId,
             fxClipScope,
@@ -3401,7 +3413,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       fxLane?.name,
       fxLaneId,
       missingFonts,
-      playheadVisualLayerCount,
+      playheadVisualLayerIds,
     ],
   );
   const playheadSeconds = quartersToSeconds(playheadQ, bpm);
@@ -10707,6 +10719,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 devices={fxDevices}
                 kind={fxKind}
                 layerFxEnabled={isLayerFxEnabled(fxLane)}
+                layers={orderLayerOptions}
                 layerName={fxLane?.name}
                 layerTrackId={fxLaneId}
                 clipTrackId={fxClipId ? clipEffectTrackId(fxClipId) : undefined}

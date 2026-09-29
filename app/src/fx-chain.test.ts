@@ -107,7 +107,7 @@ describe("groupChainDevices", () => {
         effects,
         "3",
         "Layer 3",
-        0,
+        [],
         new Set(),
         "clip-a",
       ),

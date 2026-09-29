@@ -158,7 +158,7 @@ describe("FX clip stacks", () => {
       effects,
       "1",
       "Layer 1",
-      0,
+      [],
       new Set(),
       "fx-a",
       "fxClip",

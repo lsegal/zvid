@@ -51,7 +51,7 @@ function textDevice(effects: SessionEffect[], missing?: ReadonlySet<string>) {
     effects,
     "1",
     "Layer 1",
-    0,
+    [],
     missing,
     "text-a",
   ).find((candidate) => candidate.effectName === "Text");
