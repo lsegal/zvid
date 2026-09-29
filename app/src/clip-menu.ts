@@ -259,25 +259,68 @@ export type SelectionMenuTrack = {
 
 export const NO_FOOTAGE_TITLE = "No footage here";
 
+// Cut, Copy and Delete for the content in a selection's span on its layer.
+// They are disabled when the span holds none.
+export type SelectionClipboardActions = {
+  mac: boolean;
+  hasContent: boolean;
+  cut: () => void;
+  copy: () => void;
+  remove: () => void;
+};
+
 /**
- * The menu for an uncommitted selection: Insert Track with every source
- * track, committed like pressing its number key; Insert Fill Layer when
+ * The menu for an uncommitted selection: Cut, Copy and Delete for the span
+ * when `clipboard` is available; Insert Track with every source track,
+ * committed like pressing its number key; Insert Fill Layer when
  * `insertFill` is available; and Clear selection.
  */
 export function buildSelectionMenuEntries({
   tracks,
   disabled = false,
+  clipboard,
   insertTrack,
   insertFill,
   clear,
 }: {
   tracks: readonly SelectionMenuTrack[];
-  // Inserting is disabled while exporting.
+  // Editing is disabled while exporting.
   disabled?: boolean;
+  clipboard?: SelectionClipboardActions;
   insertTrack: (index: number) => void;
   insertFill?: () => void;
   clear: () => void;
 }): ContextMenuEntry[] {
+  const clipboardDisabled = disabled || !clipboard?.hasContent;
+  const clipboardEntries: ContextMenuEntry[] = clipboard
+    ? [
+        {
+          type: "item",
+          id: "cut",
+          label: "Cut",
+          shortcut: formatShortcut("X", clipboard.mac),
+          disabled: clipboardDisabled,
+          onSelect: clipboard.cut,
+        },
+        {
+          type: "item",
+          id: "copy",
+          label: "Copy",
+          shortcut: formatShortcut("C", clipboard.mac),
+          disabled: clipboardDisabled,
+          onSelect: clipboard.copy,
+        },
+        {
+          type: "item",
+          id: "delete",
+          label: "Delete",
+          shortcut: "Del",
+          disabled: clipboardDisabled,
+          onSelect: clipboard.remove,
+        },
+        { type: "separator" },
+      ]
+    : [];
   const trackEntries = tracks.map<ContextMenuEntry>((track, index) => {
     const keyNumber = sourceTrackKeyNumber(index);
     return {
@@ -292,6 +335,7 @@ export function buildSelectionMenuEntries({
     };
   });
   return [
+    ...clipboardEntries,
     {
       type: "item",
       id: "insert-track",

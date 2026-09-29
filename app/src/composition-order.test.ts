@@ -44,10 +44,10 @@ describe("parseCompositionOrder", () => {
   });
 
   it("clamps out-of-range values and keeps defaults for unreadable ones", () => {
-    assert.deepEqual(parseCompositionOrder(order("Grid", 9.4, 30).parameters), {
+    assert.deepEqual(parseCompositionOrder(order("Grid", 9.4, 60).parameters), {
       arrangement: "grid",
       gridSize: 6,
-      spacing: 10,
+      spacing: 50,
     });
     assert.deepEqual(parseCompositionOrder(order("Spiral", 1, -2).parameters), {
       arrangement: "vertical",
@@ -55,6 +55,22 @@ describe("parseCompositionOrder", () => {
       spacing: 0,
     });
     assert.deepEqual(parseCompositionOrder([]), DEFAULT_COMPOSITION_ORDER);
+  });
+
+  it("keeps spacing within 0 to 50", () => {
+    for (const [saved, expected] of [
+      [0, 0],
+      [10, 10],
+      [30, 30],
+      [50, 50],
+      [60, 50],
+    ]) {
+      assert.equal(
+        parseCompositionOrder(order("Vertical", 2, saved).parameters).spacing,
+        expected,
+        `${saved}`,
+      );
+    }
   });
 });
 

@@ -1,0 +1,192 @@
+import { readFile } from "node:fs/promises";
+import { expect, type Page, test } from "@playwright/test";
+
+// The open session, its undo history and view state are saved in IndexedDB,
+// so a refresh brings them back. Only one tab saves the session at a time.
+const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
+
+async function dropVideoIntoNewSourceTrack(page: Page) {
+  const base64 = (await readFile(VIDEO)).toString("base64");
+  const dataTransfer = await page.evaluateHandle((data) => {
+    const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
+    const transfer = new DataTransfer();
+    transfer.items.add(
+      new File([bytes], "test-pattern.mp4", { type: "video/mp4" }),
+    );
+    return transfer;
+  }, base64);
+  const target = '[data-source-track-drop-target="new-track"]';
+  for (const type of ["dragenter", "dragover", "drop"]) {
+    await page.dispatchEvent(target, type, { dataTransfer });
+  }
+  await expect(page.locator(".source-span")).toHaveCount(1, {
+    timeout: 30_000,
+  });
+}
+
+function lane(page: Page, id: string) {
+  return page.locator(`[data-timeline-lane-id="${id}"]`);
+}
+
+async function copySpanToLayer(page: Page, layer: string) {
+  await page.locator(".source-span").click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Copy to layer" }).hover();
+  await page.getByRole("menuitem", { name: layer }).click();
+}
+
+// The saved session payload, or null when nothing is saved.
+function readSavedPayload(page: Page) {
+  return page.evaluate(
+    () =>
+      new Promise<string | null>((resolve, reject) => {
+        const request = indexedDB.open("zvid-workspace");
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const database = request.result;
+          if (!database.objectStoreNames.contains("sessions")) {
+            database.close();
+            resolve(null);
+            return;
+          }
+          const get = database
+            .transaction("sessions", "readonly")
+            .objectStore("sessions")
+            .get("current");
+          get.onerror = () => reject(get.error);
+          get.onsuccess = () => {
+            database.close();
+            resolve(
+              (get.result as { payload?: string } | undefined)?.payload ?? null,
+            );
+          };
+        };
+      }),
+  );
+}
+
+// Waits until the autosave has written a session that mentions `text`.
+async function waitForSave(page: Page, text: string) {
+  await expect
+    .poll(async () => (await readSavedPayload(page))?.includes(text) ?? false, {
+      timeout: 10_000,
+    })
+    .toBe(true);
+}
+
+async function openFileMenu(page: Page) {
+  await page.getByRole("button", { name: "File", exact: true }).click();
+  await expect(page.getByRole("menu").first()).toBeVisible();
+}
+
+test.beforeEach(async ({ page }) => {
+  await page.goto("/");
+  await expect(lane(page, "1")).toBeVisible();
+});
+
+test("a refresh restores the session, its media and its undo history", async ({
+  page,
+}) => {
+  await dropVideoIntoNewSourceTrack(page);
+  await copySpanToLayer(page, "Layer 1");
+  await copySpanToLayer(page, "Layer 2");
+  await expect(page.locator(".clip-card")).toHaveCount(2);
+  // The clip on Layer 2 ("5") is the last edit.
+  await waitForSave(page, '"laneId":"5"');
+
+  await page.reload();
+
+  await expect(page.locator(".source-span")).toHaveCount(1);
+  await expect(lane(page, "1").locator(".clip-card")).toHaveCount(1);
+  await expect(lane(page, "5").locator(".clip-card")).toHaveCount(1);
+  // The media comes back from the media cache without a re-import.
+  await openFileMenu(page);
+  await expect(
+    page.getByRole("menuitem", { name: "All Media Linked" }),
+  ).toBeVisible({ timeout: 30_000 });
+  await page.keyboard.press("Escape");
+
+  // Undo reverts the last action made before the refresh.
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByRole("menuitem", { name: /^Undo/ }).click();
+  await expect(lane(page, "5").locator(".clip-card")).toHaveCount(0);
+  await expect(lane(page, "1").locator(".clip-card")).toHaveCount(1);
+});
+
+test("File ▸ Close Session clears the saved session", async ({ page }) => {
+  await dropVideoIntoNewSourceTrack(page);
+  await waitForSave(page, "test-pattern.mp4");
+
+  await openFileMenu(page);
+  await page.getByRole("menuitem", { name: "Close Session" }).click();
+  await expect(page.locator(".source-span")).toHaveCount(0);
+  await expect.poll(() => readSavedPayload(page)).toBeNull();
+
+  await page.reload();
+  await expect(lane(page, "1")).toBeVisible();
+  await expect(page.locator(".source-span")).toHaveCount(0);
+});
+
+test("a saved session that cannot be read is set aside", async ({ page }) => {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        const request = indexedDB.open("zvid-workspace");
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const database = request.result;
+          const transaction = database.transaction("sessions", "readwrite");
+          transaction.objectStore("sessions").put({
+            id: "current",
+            schemaVersion: 1,
+            savedAt: 1,
+            payload: "{not json",
+          });
+          transaction.oncomplete = () => {
+            database.close();
+            resolve();
+          };
+          transaction.onerror = () => reject(transaction.error);
+        };
+      }),
+  );
+
+  await page.reload();
+
+  await expect(
+    page.getByText("Could not restore the last session"),
+  ).toBeVisible();
+  await expect(lane(page, "1")).toBeVisible();
+  await expect(page.locator(".source-span")).toHaveCount(0);
+});
+
+test("a second tab asks before taking the session over", async ({
+  page,
+  context,
+}) => {
+  await dropVideoIntoNewSourceTrack(page);
+  await waitForSave(page, "test-pattern.mp4");
+
+  const second = await context.newPage();
+  await second.goto("/");
+  const prompt = second.getByRole("dialog", {
+    name: "This session is open in another tab",
+  });
+  await expect(prompt).toBeVisible();
+  // The second tab shows the saved session behind the prompt.
+  await expect(second.locator(".source-span")).toHaveCount(1);
+
+  await prompt.getByRole("button", { name: "Open read-only" }).click();
+  await expect(prompt).toBeHidden();
+  await expect(second.locator(".workspace-lock-banner")).toContainText(
+    "open in another tab",
+  );
+
+  // An edit in the first tab is saved before the second takes over.
+  await copySpanToLayer(page, "Layer 1");
+  await second.getByRole("button", { name: "Take over" }).click();
+  await expect(second.locator(".clip-card")).toHaveCount(1);
+  await expect(second.locator(".workspace-lock-banner")).toBeHidden();
+  await expect(page.locator(".workspace-lock-banner")).toContainText(
+    "taken over in another tab",
+  );
+});

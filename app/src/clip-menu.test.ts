@@ -361,7 +361,10 @@ describe("buildSelectionMenuEntries", () => {
   const items = (entries: readonly ContextMenuEntry[]) =>
     entries.filter((entry): entry is ContextMenuItem => entry.type === "item");
   const trackItems = (entries: readonly ContextMenuEntry[]) =>
-    items(items(entries)[0]?.submenu ?? []);
+    items(
+      items(entries).find((entry) => entry.id === "insert-track")?.submenu ??
+        [],
+    );
 
   it("offers Insert Track and Clear selection, without Fill until it exists", () => {
     const { entries } = build();
@@ -369,6 +372,71 @@ describe("buildSelectionMenuEntries", () => {
       entries.map((entry) => (entry.type === "item" ? entry.id : "---")),
       ["insert-track", "---", "clear-selection"],
     );
+  });
+
+  it("starts with Cut, Copy and Delete for the span when they exist", () => {
+    const calls: string[] = [];
+    const clipboard = {
+      mac: true,
+      hasContent: true,
+      cut: () => calls.push("cut"),
+      copy: () => calls.push("copy"),
+      remove: () => calls.push("remove"),
+    };
+    const { entries } = build({ clipboard }, calls);
+    assert.deepEqual(
+      entries.map((entry) => (entry.type === "item" ? entry.id : "---")),
+      [
+        "cut",
+        "copy",
+        "delete",
+        "---",
+        "insert-track",
+        "---",
+        "clear-selection",
+      ],
+    );
+    const [cut, copy, remove] = items(entries);
+    assert.deepEqual(
+      [cut, copy, remove].map((entry) => [entry?.label, entry?.shortcut]),
+      [
+        ["Cut", "Cmd+X"],
+        ["Copy", "Cmd+C"],
+        ["Delete", "Del"],
+      ],
+    );
+    for (const entry of [cut, copy, remove]) {
+      assert.equal(entry?.disabled, false);
+      entry?.onSelect?.();
+    }
+    assert.deepEqual(calls, ["cut", "copy", "remove"]);
+    assert.equal(trackItems(entries).length, tracks.length);
+  });
+
+  it("disables Cut, Copy and Delete for an empty span or while exporting", () => {
+    const clipboard = {
+      mac: false,
+      hasContent: false,
+      cut: () => {},
+      copy: () => {},
+      remove: () => {},
+    };
+    for (const entries of [
+      build({ clipboard }).entries,
+      build({ clipboard: { ...clipboard, hasContent: true }, disabled: true })
+        .entries,
+    ]) {
+      assert.deepEqual(
+        items(entries)
+          .slice(0, 3)
+          .map((entry) => [entry.id, entry.disabled]),
+        [
+          ["cut", true],
+          ["copy", true],
+          ["delete", true],
+        ],
+      );
+    }
   });
 
   it("adds Insert Fill Layer when the action exists", () => {
