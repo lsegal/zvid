@@ -1387,7 +1387,9 @@
   user-select: none;
 }
 
-.ruler-row__content--interactive.is-dragging {
+.ruler-row__content--interactive.is-dragging,
+.ruler-row.is-grab-panning,
+.ruler-row.is-grab-panning * {
   cursor: grabbing;
 }
 
