@@ -107,8 +107,10 @@ const DRAG_THRESHOLD_PX = 3;
 const SNAP_PX = 6;
 // Radius, in CSS pixels, of the origin marker's hit area.
 const ORIGIN_HIT_RADIUS_PX = 9;
-// The angle readout sits below and right of the pointer, clear of the cursor.
+// The angle readout sits below and right of the pointer, clear of the cursor,
+// or on the other side of it within this far of the monitor's edge.
 const READOUT_OFFSET_PX = 16;
+const READOUT_FLIP_PX = 64;
 // A curved double arrow, white on a dark halo like the system cursors, for
 // the rotation handle and the rotate zones just outside the corners.
 const ROTATE_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(
@@ -277,8 +279,8 @@ export function PreviewTransformOverlay({
       { snap15: modifiers.shiftKey },
     );
     setReadout({
-      x: pointerScreen.x + READOUT_OFFSET_PX,
-      y: pointerScreen.y + READOUT_OFFSET_PX,
+      x: pointerScreen.x,
+      y: pointerScreen.y,
       text: formatRotation(drag.transform.rotationDeg),
     });
     onTransform({
@@ -814,7 +816,19 @@ export function PreviewTransformOverlay({
         <div
           className="preview-transform-overlay__readout"
           data-testid="preview-rotation-readout"
-          style={{ left: readout.x, top: readout.y }}
+          style={{
+            left: readout.x,
+            top: readout.y,
+            transform: `translate(${
+              readout.x > monitor.width - READOUT_FLIP_PX
+                ? `calc(-100% - ${READOUT_OFFSET_PX}px)`
+                : `${READOUT_OFFSET_PX}px`
+            }, ${
+              readout.y > monitor.height - READOUT_FLIP_PX
+                ? `calc(-100% - ${READOUT_OFFSET_PX}px)`
+                : `${READOUT_OFFSET_PX}px`
+            })`,
+          }}
         >
           {readout.text}
         </div>
