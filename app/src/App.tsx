@@ -105,6 +105,7 @@ import {
   PlayheadLine,
   TransportPlayheadReadout,
 } from "./components/LivePlayhead";
+import { MediaStorageDialog } from "./components/MediaStorageDialog";
 import {
   MediaSyncDialog,
   type MediaSyncPeer,
@@ -222,7 +223,12 @@ import {
   probeMediaBlob,
   toShareableMediaItem,
 } from "./media";
-import { cacheMediaBlob, getCachedMediaBlob } from "./media-cache";
+import {
+  cacheMediaBlob,
+  getCachedMediaBlob,
+  migrateMediaCache,
+  setCachedMediaSession,
+} from "./media-cache";
 import { createMediaRelinker, type MediaRelinkCandidate } from "./media-relink";
 import {
   listMediaSync,
@@ -1973,6 +1979,8 @@ function App() {
   const [isOfflineMediaDialogOpen, setIsOfflineMediaDialogOpen] =
     useState(false);
   const [isMediaSyncDialogOpen, setIsMediaSyncDialogOpen] = useState(false);
+  const [isMediaStorageDialogOpen, setIsMediaStorageDialogOpen] =
+    useState(false);
   // Mirrors peerMediaMissesRef.current.ids so rendering sees peer misses.
   const [peerMediaMissIds, setPeerMediaMissIds] = useState<ReadonlySet<string>>(
     () => new Set(),
@@ -2235,6 +2243,24 @@ function App() {
     [setLocalMediaOverride],
   );
 
+  // Caching skips a file rather than failing when browser storage is full, so
+  // the user learns the file won't survive a refresh.
+  const reportMediaNotCached = useCallback(
+    (mediaId: string, blob: Blob, name?: string) => {
+      const displayName =
+        name ??
+        projectSnapshotRef.current.mediaItems.find(
+          (candidate) => candidate.id === mediaId,
+        )?.name ??
+        (blob instanceof File ? blob.name : mediaId);
+      logClient("media:cache:skipped", { mediaId, size: blob.size });
+      setStatus(
+        `${displayName} not cached, browser storage is full; it will need relinking after refresh.`,
+      );
+    },
+    [],
+  );
+
   const adoptMediaBlob = useCallback(
     async (
       mediaId: string,
@@ -2277,7 +2303,10 @@ function App() {
       }
 
       try {
-        await cacheMediaBlob(mediaId, blob);
+        const cached = await cacheMediaBlob(mediaId, blob);
+        if (cached.status === "skipped") {
+          reportMediaNotCached(mediaId, blob);
+        }
       } catch (error) {
         logClient("media:adopt:cache:error", {
           mediaId,
@@ -2341,20 +2370,31 @@ function App() {
 
       return { previewUrl, warning };
     },
-    [commitProjectChange, seedLocalMediaItems, setLocalMediaOverride],
+    [
+      commitProjectChange,
+      reportMediaNotCached,
+      seedLocalMediaItems,
+      setLocalMediaOverride,
+    ],
   );
 
-  const cacheLocalMediaItems = useCallback(async (items: MediaItem[]) => {
-    const harness = getHarness();
-    await Promise.allSettled(
-      items
-        .filter((item) => item.previewUrl)
-        .map(async (item) => {
-          const blob = await harness.readMediaBlob(item);
-          await cacheMediaBlob(item.id, blob);
-        }),
-    );
-  }, []);
+  const cacheLocalMediaItems = useCallback(
+    async (items: MediaItem[]) => {
+      const harness = getHarness();
+      await Promise.allSettled(
+        items
+          .filter((item) => item.previewUrl)
+          .map(async (item) => {
+            const blob = await harness.readMediaBlob(item);
+            const cached = await cacheMediaBlob(item.id, blob);
+            if (cached.status === "skipped") {
+              reportMediaNotCached(item.id, blob, item.name);
+            }
+          }),
+      );
+    },
+    [reportMediaNotCached],
+  );
 
   const signature =
     SIGNATURES.find((candidate) => candidate.id === signatureId) ??
@@ -4154,6 +4194,67 @@ function App() {
       reportSessionMediaCheck();
     },
     [reportSessionMediaCheck],
+  );
+
+  // Runs before hydration so media the open session uses is never evicted to
+  // make room for its other files.
+  useEffect(() => {
+    setCachedMediaSession(
+      sessionName ?? "Untitled session",
+      projectMediaItems.map((item) => item.id),
+    ).catch((error) => {
+      logClient("media:cache:session:error", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    });
+  }, [projectMediaItems, sessionName]);
+
+  useEffect(() => {
+    migrateMediaCache()
+      .then((moved) => {
+        if (moved) {
+          logClient("media:cache:migrated", { moved });
+        }
+      })
+      .catch((error) => {
+        logClient("media:cache:migrate:error", {
+          message: error instanceof Error ? error.message : String(error),
+        });
+      });
+  }, []);
+
+  // Media whose cached copy the storage dialog removed while it was loaded
+  // from that copy can no longer be read, so it goes offline for relinking.
+  const handleMediaStorageCleared = useCallback(
+    (invalidatedIds: string[], clearedCount: number) => {
+      for (const mediaId of invalidatedIds) {
+        const previewUrl = mediaObjectUrlsRef.current.get(mediaId);
+        if (previewUrl) {
+          URL.revokeObjectURL(previewUrl);
+          mediaObjectUrlsRef.current.delete(mediaId);
+        }
+      }
+      if (invalidatedIds.length) {
+        setLocalMediaOverrides((current) => {
+          const next = { ...current };
+          for (const mediaId of invalidatedIds) {
+            next[mediaId] = {
+              availability: "offline",
+              lastError: "Its cached copy was cleared",
+            };
+          }
+          return next;
+        });
+      }
+      setStatus(
+        `Cleared ${pluralize(clearedCount, "cached media file")}.${
+          invalidatedIds.length
+            ? ` ${pluralize(invalidatedIds.length, "file")} in this session went offline. ${LOCATE_OFFLINE_MEDIA_HINT}`
+            : ""
+        }`,
+      );
+    },
+    [],
   );
 
   useEffect(() => {
@@ -7065,6 +7166,11 @@ function App() {
                   ? "Locate Offline Media…"
                   : "All Media Linked"}
               </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => setIsMediaStorageDialogOpen(true)}
+              >
+                Media Storage…
+              </DropdownMenuItem>
               {inSharedMediaSession ? (
                 <DropdownMenuItem
                   onSelect={() => setIsMediaSyncDialogOpen(true)}
@@ -7390,6 +7496,12 @@ function App() {
         relinkMedia={relinkOfflineMedia}
         relinkMediaItem={relinkOfflineMediaItem}
         relinkingIds={relinkingMediaIds}
+      />
+
+      <MediaStorageDialog
+        onCleared={handleMediaStorageCleared}
+        onOpenChange={setIsMediaStorageDialogOpen}
+        open={isMediaStorageDialogOpen}
       />
 
       <MediaSyncDialog

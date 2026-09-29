@@ -89,8 +89,9 @@ async function recordMediaLabels(context: BrowserContext) {
 }
 
 // Lets a test stop a host from serving media: while blocked, reads from the
-// media cache find nothing and fetches of local blob URLs fail, which are the
-// two places the host reads a file it sends to a peer.
+// media cache (OPFS files, or the IndexedDB blob store without OPFS) find
+// nothing and fetches of local blob URLs fail, which are the places the host
+// reads a file it sends to a peer.
 async function blockableMediaServe(context: BrowserContext) {
   await context.addInitScript(() => {
     const state = { blocked: false };
@@ -103,6 +104,14 @@ async function blockableMediaServe(context: BrowserContext) {
         state.blocked && this.name === "media" ? [] : query,
       );
     };
+    if (typeof FileSystemFileHandle !== "undefined") {
+      const getFile = FileSystemFileHandle.prototype.getFile;
+      FileSystemFileHandle.prototype.getFile = function () {
+        return state.blocked
+          ? Promise.reject(new DOMException("Blocked", "NotFoundError"))
+          : getFile.call(this);
+      };
+    }
     const fetch = window.fetch;
     window.fetch = (input, init) => {
       const url = input instanceof Request ? input.url : String(input);
