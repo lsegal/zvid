@@ -132,7 +132,10 @@ struct Inner {
 
 struct OpenCamera {
     session: Box<dyn CameraSession>,
+    /// The footer's format, turned to match [`OpenCamera::displayed`].
     format: VideoFormat,
+    /// The latest frame's displayed size, set by the capture thread.
+    displayed: Arc<Mutex<Option<(u32, u32)>>>,
     fps: Rational,
     /// Frames seen at `frames_at`, to notice a camera that stopped.
     frames: u64,
@@ -315,7 +318,10 @@ impl CaptureBackend {
         self.emit_status();
 
         let recorder = Arc::clone(&self.recorder);
+        let displayed = Arc::new(Mutex::new(None));
+        let sink_displayed = Arc::clone(&displayed);
         let frames: FrameSink = Box::new(move |frame| {
+            *lock(&sink_displayed) = Some(frame.display_size());
             if let Some(file) = lock(&recorder).as_ref() {
                 file.push_frame(Arc::clone(frame));
             }
@@ -338,6 +344,7 @@ impl CaptureBackend {
                 inner.camera = Some(OpenCamera {
                     session,
                     format: map::video_format(&selection),
+                    displayed,
                     fps: selection.fps,
                     frames: 0,
                     frames_at: Instant::now(),
@@ -590,6 +597,15 @@ impl CaptureBackend {
             }
         }
         if let Some(camera) = inner.camera.as_mut() {
+            // Frames turned upright, or a source that rotated, change the
+            // size shown.
+            if let Some(displayed) = *lock(&camera.displayed) {
+                let format = map::displayed_format(camera.format, displayed);
+                if format != camera.format {
+                    camera.format = format;
+                    changed = true;
+                }
+            }
             let frames = camera.session.stats().frames;
             if frames != camera.frames {
                 camera.frames = frames;

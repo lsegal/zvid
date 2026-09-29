@@ -296,19 +296,18 @@ const TAKE_MATCHERS: Record<CaptureDeviceKind, TakeMatcher> = {
   // Layers Record kept one recording per track that mattered: the last.
   "layers-record": (recordings) => recordings.at(-1),
   // An audio clip plays the take its content was recorded in, wherever the
-  // clip was moved, trimmed or copied to since. A MIDI clip has no recorded
-  // content, so it plays the take under it.
-  "zvid-capture": (recordings, clip, content, tempoMap) => {
-    const span = content.recordedSpan ?? [
-      tempoMap.beatsToSeconds(clip.currentStart),
-      tempoMap.beatsToSeconds(clip.currentEnd),
-    ];
-    return matchZvidTake(
+  // clip was moved, trimmed or copied to since. Where takes overlap, the one
+  // its sample was recorded with wins, so clips sharing a sample share a
+  // take. A MIDI clip has no recorded content, so it plays the take under it.
+  "zvid-capture": (recordings, clip, content, tempoMap) =>
+    matchZvidTake(
       recordings as readonly ZvidCaptureTake[],
-      span[0],
-      span[1],
-    );
-  },
+      ...(content.recordedSpan ?? [
+        tempoMap.beatsToSeconds(clip.currentStart),
+        tempoMap.beatsToSeconds(clip.currentEnd),
+      ]),
+      content.sampleSpan ?? undefined,
+    ),
 };
 
 function captureDevice(track: AlsTrack): CaptureDeviceKind {
@@ -344,30 +343,50 @@ function trackRecordings(track: AlsTrack): LayersRecording[] {
  * durationSec)` span overlaps the song-time span `[startSec, endSec)` the
  * most, preferring the latest `createdAt` on a tie. `undefined` when no
  * take overlaps it.
+ *
+ * With `sampleSpan`, the song-time span a clip's whole sample was recorded
+ * over, the overlapping take that best fits the sample wins instead: the one
+ * sharing the most of the sample's span with it, less the time only one of
+ * the two covers. Several takes can start at the same song time, and this
+ * picks the one whose length matches the sample's.
  */
 export function matchZvidTake<T extends ZvidCaptureTake>(
   takes: readonly T[],
   startSec: number,
   endSec: number,
+  sampleSpan?: readonly [number, number],
 ): T | undefined {
-  let best: { take: T; overlap: number; createdAt: number } | undefined;
-  for (const take of takes) {
-    if (!isAnchored(take)) continue;
+  const spanOf = (take: T) => {
     const takeStart = take.transportStartSec as number;
-    const takeEnd = takeStart + Math.max(0, take.durationSec || 0);
-    const overlap = Math.min(endSec, takeEnd) - Math.max(startSec, takeStart);
-    if (!(overlap > 0)) continue;
+    return [takeStart, takeStart + Math.max(0, take.durationSec || 0)];
+  };
+  const overlap = (take: T, start: number, end: number) => {
+    const [takeStart, takeEnd] = spanOf(take);
+    return Math.min(end, takeEnd) - Math.max(start, takeStart);
+  };
+  const score = (take: T) => {
+    if (!sampleSpan) return overlap(take, startSec, endSec);
+    const [sampleStart, sampleEnd] = sampleSpan;
+    const [takeStart, takeEnd] = spanOf(take);
+    const shared = overlap(take, sampleStart, sampleEnd);
+    const union =
+      Math.max(sampleEnd, takeEnd) - Math.min(sampleStart, takeStart);
+    return shared - (union - Math.max(0, shared));
+  };
+
+  let best: { take: T; score: number; createdAt: number } | undefined;
+  for (const take of takes) {
+    if (!isAnchored(take) || !(overlap(take, startSec, endSec) > 0)) continue;
     const createdAt = Date.parse(take.createdAt);
     const candidate = {
       take,
-      overlap,
+      score: score(take),
       createdAt: Number.isNaN(createdAt) ? -Infinity : createdAt,
     };
     if (
       !best ||
-      candidate.overlap > best.overlap ||
-      (candidate.overlap === best.overlap &&
-        candidate.createdAt > best.createdAt)
+      candidate.score > best.score ||
+      (candidate.score === best.score && candidate.createdAt > best.createdAt)
     ) {
       best = candidate;
     }
@@ -472,6 +491,8 @@ type ClipContent = {
   recordedAt: ((position: number) => number) | null;
   /** Song-time span over which the content the clip plays was recorded. */
   recordedSpan: [number, number] | null;
+  /** Song-time span over which the clip's whole sample was recorded. */
+  sampleSpan: [number, number] | null;
 };
 
 /**
@@ -499,18 +520,29 @@ function clipContent(clip: AlsClip, tempoMap: TempoMap): ClipContent {
   const warpMap = isAudio ? tryWarpMap(clip) : null;
   const [first] = unrolled.segments;
   if (!isAudio || !first || (isWarped && !warpMap)) {
-    return { unrolled, warpMap, recordedAt: null, recordedSpan: null };
+    return {
+      unrolled,
+      warpMap,
+      recordedAt: null,
+      recordedSpan: null,
+      sampleSpan: null,
+    };
   }
 
+  // Song seconds at which sample second 0 was recorded.
+  let origin: number;
   let recordedAt: (position: number) => number;
   if (warpMap && isWarped) {
-    const origin = tempoMap.beatsToSeconds(warpMap.sampleSecToBeat(0));
+    origin = tempoMap.beatsToSeconds(warpMap.sampleSecToBeat(0));
     recordedAt = (position) => origin + warpMap.beatToSampleSec(position);
   } else {
-    const origin =
+    origin =
       tempoMap.beatsToSeconds(first.arrStartBeat) - first.contentStartBeat;
     recordedAt = (position) => origin + position;
   }
+  const sampleDuration = clip.sample
+    ? clip.sample.defaultDuration / clip.sample.defaultSampleRate
+    : Number.NaN;
   // Warped content advances one beat per arrangement beat, unwarped content
   // one second per arrangement second.
   const contentEnd = (segment: (typeof unrolled.segments)[number]) =>
@@ -530,6 +562,10 @@ function clipContent(clip: AlsClip, tempoMap: TempoMap): ClipContent {
     warpMap,
     recordedAt,
     recordedSpan: [Math.min(...starts), Math.max(...ends)],
+    sampleSpan:
+      Number.isFinite(sampleDuration) && sampleDuration > 0
+        ? [origin, origin + sampleDuration]
+        : null,
   };
 }
 
