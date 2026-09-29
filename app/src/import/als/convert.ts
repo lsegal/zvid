@@ -35,7 +35,9 @@ import {
   createWarpMap,
   secondsToFrames,
   type TempoMap,
+  type UnrolledClip,
   unrollClipLoop,
+  type WarpMap,
 } from "./time.ts";
 
 type LvpClip = NonNullable<LvpSession["clips"]>[number];
@@ -138,8 +140,9 @@ export function convertAls(
     const trackTakes = track.isVideoTrack ? trackRecordings(track) : [];
     const matchTake = TAKE_MATCHERS[captureDevice(track)];
     for (const clip of track.clips) {
+      const content = clipContent(clip, tempoMap);
       const recording = trackTakes.length
-        ? matchTake(trackTakes, clip, tempoMap)
+        ? matchTake(trackTakes, clip, content, tempoMap)
         : undefined;
       const skip = (reason: AlsSkipReason, clipId = lvpClipId(track, clip)) =>
         skipped.push({
@@ -156,6 +159,7 @@ export function convertAls(
         for (const converted of convertClip(
           track,
           clip,
+          content,
           recording,
           tempoMap,
           fps,
@@ -283,6 +287,7 @@ function assignLayers(
 type TakeMatcher = (
   recordings: readonly LayersRecording[],
   clip: AlsClip,
+  content: ClipContent,
   tempoMap: TempoMap,
 ) => LayersRecording | undefined;
 
@@ -290,12 +295,20 @@ type TakeMatcher = (
 const TAKE_MATCHERS: Record<CaptureDeviceKind, TakeMatcher> = {
   // Layers Record kept one recording per track that mattered: the last.
   "layers-record": (recordings) => recordings.at(-1),
-  "zvid-capture": (recordings, clip, tempoMap) =>
-    matchZvidTake(
-      recordings as readonly ZvidCaptureTake[],
+  // An audio clip plays the take its content was recorded in, wherever the
+  // clip was moved, trimmed or copied to since. A MIDI clip has no recorded
+  // content, so it plays the take under it.
+  "zvid-capture": (recordings, clip, content, tempoMap) => {
+    const span = content.recordedSpan ?? [
       tempoMap.beatsToSeconds(clip.currentStart),
       tempoMap.beatsToSeconds(clip.currentEnd),
-    ),
+    ];
+    return matchZvidTake(
+      recordings as readonly ZvidCaptureTake[],
+      span[0],
+      span[1],
+    );
+  },
 };
 
 function captureDevice(track: AlsTrack): CaptureDeviceKind {
@@ -371,8 +384,11 @@ function lvpClipId(track: AlsTrack, clip: AlsClip) {
  * than a frame, which the caller drops.
  *
  * Audio content positions go through the clip's warp map to sample seconds,
- * which is also the recording's timeline. MIDI clips have no sample timeline,
- * so their arrangement position maps straight onto the recording instead.
+ * which is also a Layers recording's timeline. A ZVID Capture take started
+ * independently of the sample, so audio content maps to the song time it was
+ * recorded at and from there into the take (see `clipContent`). MIDI clips
+ * have no sample timeline, so their arrangement position maps straight onto
+ * the recording instead.
  *
  * Without a Layers `recording`, an audio clip plays its own sample and a MIDI
  * clip becomes a placeholder with no media, positioned as if a recording
@@ -381,24 +397,33 @@ function lvpClipId(track: AlsTrack, clip: AlsClip) {
 function convertClip(
   track: AlsTrack,
   clip: AlsClip,
+  content: ClipContent,
   recording: LayersRecording | undefined,
   tempoMap: TempoMap,
   fps: number,
 ): LvpClip[] {
   const isAudio = clip.kind === "audio";
-  const unrolled = unrollClipLoop(
-    {
-      ...clip.loop,
-      currentStart: clip.currentStart,
-      currentEnd: clip.currentEnd,
-    },
-    { isWarped: !isAudio || clip.isWarped, tempoMap },
-  );
-  const warpMap = isAudio ? tryWarpMap(clip) : null;
+  const { unrolled, warpMap, recordedAt } = content;
+  const take =
+    recording && captureDevice(track) === "zvid-capture"
+      ? (recording as ZvidCaptureTake)
+      : undefined;
+  // A ZVID Capture take's file is not aligned with the clip's sample, so
+  // content goes through the song time it was recorded at into the take.
   const contentToFrames = (position: number) =>
-    warpMap
-      ? secondsToFrames(warpMap.beatToSampleSec(position), fps)
-      : beatsToFrames(position, tempoMap, fps);
+    take && recordedAt
+      ? Math.max(
+          0,
+          secondsToFrames(
+            take.fileOffsetSec +
+              recordedAt(position) -
+              (take.transportStartSec as number),
+            fps,
+          ),
+        )
+      : warpMap
+        ? secondsToFrames(warpMap.beatToSampleSec(position), fps)
+        : beatsToFrames(position, tempoMap, fps);
   const duration = clip.sample
     ? clip.sample.defaultDuration / clip.sample.defaultSampleRate
     : Number.NaN;
@@ -435,6 +460,77 @@ function convertClip(
       audioFileDuration: Number.isFinite(duration) ? duration : "NaN",
     };
   });
+}
+
+type ClipContent = {
+  unrolled: UnrolledClip;
+  warpMap: WarpMap | null;
+  /**
+   * Song seconds at which an audio clip's content position was recorded, or
+   * `null` for a MIDI clip.
+   */
+  recordedAt: ((position: number) => number) | null;
+  /** Song-time span over which the content the clip plays was recorded. */
+  recordedSpan: [number, number] | null;
+};
+
+/**
+ * How `clip`'s content lines up with the arrangement and with the song time
+ * it was recorded at.
+ *
+ * Live warps an arrangement recording so its content beats are the song
+ * beats it was recorded over, which a trimmed, moved or copied clip keeps.
+ * Sample second 0 was therefore recorded at the song time of the beat its
+ * warp map puts there, and every later sample second follows in real time.
+ * An unwarped clip keeps no beat grid, so it is taken to play its content at
+ * the song time it was recorded.
+ */
+function clipContent(clip: AlsClip, tempoMap: TempoMap): ClipContent {
+  const isAudio = clip.kind === "audio";
+  const isWarped = !isAudio || clip.isWarped;
+  const unrolled = unrollClipLoop(
+    {
+      ...clip.loop,
+      currentStart: clip.currentStart,
+      currentEnd: clip.currentEnd,
+    },
+    { isWarped, tempoMap },
+  );
+  const warpMap = isAudio ? tryWarpMap(clip) : null;
+  const [first] = unrolled.segments;
+  if (!isAudio || !first || (isWarped && !warpMap)) {
+    return { unrolled, warpMap, recordedAt: null, recordedSpan: null };
+  }
+
+  let recordedAt: (position: number) => number;
+  if (warpMap && isWarped) {
+    const origin = tempoMap.beatsToSeconds(warpMap.sampleSecToBeat(0));
+    recordedAt = (position) => origin + warpMap.beatToSampleSec(position);
+  } else {
+    const origin =
+      tempoMap.beatsToSeconds(first.arrStartBeat) - first.contentStartBeat;
+    recordedAt = (position) => origin + position;
+  }
+  // Warped content advances one beat per arrangement beat, unwarped content
+  // one second per arrangement second.
+  const contentEnd = (segment: (typeof unrolled.segments)[number]) =>
+    segment.contentStartBeat +
+    (isWarped
+      ? segment.arrEndBeat - segment.arrStartBeat
+      : tempoMap.beatsToSeconds(segment.arrEndBeat) -
+        tempoMap.beatsToSeconds(segment.arrStartBeat));
+  const starts = unrolled.segments.map((segment) =>
+    recordedAt(segment.contentStartBeat),
+  );
+  const ends = unrolled.segments.map((segment) =>
+    recordedAt(contentEnd(segment)),
+  );
+  return {
+    unrolled,
+    warpMap,
+    recordedAt,
+    recordedSpan: [Math.min(...starts), Math.max(...ends)],
+  };
 }
 
 /** The clip's warp map, or `null` when a warped clip lacks usable markers. */

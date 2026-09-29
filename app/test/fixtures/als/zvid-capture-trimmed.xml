@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Hand-written fixture for the /app ALS importer (#294), not saved by Live. One 40-second ZVID Capture take recorded with the 1-Audio 0001.wav sample from song beat 0 at 120 BPM, then cut into clips: one resized at its end, one whose start marker moved to bar 9, and one moved past the end of the take. -->
+<Ableton MajorVersion="5" MinorVersion="12.0_12117" Creator="Ableton Live 12.1.5">
+  <LiveSet>
+    <Tracks>
+    <AudioTrack Id="1">
+      <Name><EffectiveName Value="1-Audio" /></Name>
+      <Color Value="20" />
+      <TrackGroupId Value="-1" />
+      <DeviceChain>
+        <MainSequencer>
+          <Sample>
+            <ArrangerAutomation>
+              <Events>
+              <AudioClip Id="1" Time="0">
+                <CurrentStart Value="0" />
+                <CurrentEnd Value="16" />
+                <Loop>
+                  <LoopStart Value="0" />
+                  <LoopEnd Value="16" />
+                  <StartRelative Value="0" />
+                  <LoopOn Value="false" />
+                  <HiddenLoopStart Value="0" />
+                  <HiddenLoopEnd Value="16" />
+                </Loop>
+                <Name Value="Resized" />
+                <Disabled Value="false" />
+                <IsWarped Value="true" />
+                <WarpMode Value="0" />
+                <WarpMarkers>
+                  <WarpMarker Id="0" SecTime="0" BeatTime="0" />
+                  <WarpMarker Id="1" SecTime="0.5" BeatTime="1" />
+                </WarpMarkers>
+                <SampleRef>
+                  <FileRef>
+                    <RelativePath Value="Samples/Recorded/1-Audio 0001.wav" />
+                    <Path Value="/Users/example/Music/Fixture Project/Samples/Recorded/1-Audio 0001.wav" />
+                  </FileRef>
+                  <DefaultDuration Value="1920000" />
+                  <DefaultSampleRate Value="48000" />
+                </SampleRef>
+              </AudioClip>
+              <AudioClip Id="2" Time="16">
+                <CurrentStart Value="16" />
+                <CurrentEnd Value="40" />
+                <Loop>
+                  <LoopStart Value="32" />
+                  <LoopEnd Value="56" />
+                  <StartRelative Value="0" />
+                  <LoopOn Value="false" />
+                  <HiddenLoopStart Value="32" />
+                  <HiddenLoopEnd Value="56" />
+                </Loop>
+                <Name Value="Start at bar 9" />
+                <Disabled Value="false" />
+                <IsWarped Value="true" />
+                <WarpMode Value="0" />
+                <WarpMarkers>
+                  <WarpMarker Id="0" SecTime="0" BeatTime="0" />
+                  <WarpMarker Id="1" SecTime="0.5" BeatTime="1" />
+                </WarpMarkers>
+                <SampleRef>
+                  <FileRef>
+                    <RelativePath Value="Samples/Recorded/1-Audio 0001.wav" />
+                    <Path Value="/Users/example/Music/Fixture Project/Samples/Recorded/1-Audio 0001.wav" />
+                  </FileRef>
+                  <DefaultDuration Value="1920000" />
+                  <DefaultSampleRate Value="48000" />
+                </SampleRef>
+              </AudioClip>
+              <AudioClip Id="3" Time="200">
+                <CurrentStart Value="200" />
+                <CurrentEnd Value="208" />
+                <Loop>
+                  <LoopStart Value="60" />
+                  <LoopEnd Value="68" />
+                  <StartRelative Value="0" />
+                  <LoopOn Value="false" />
+                  <HiddenLoopStart Value="60" />
+                  <HiddenLoopEnd Value="68" />
+                </Loop>
+                <Name Value="Moved" />
+                <Disabled Value="false" />
+                <IsWarped Value="true" />
+                <WarpMode Value="0" />
+                <WarpMarkers>
+                  <WarpMarker Id="0" SecTime="0" BeatTime="0" />
+                  <WarpMarker Id="1" SecTime="0.5" BeatTime="1" />
+                </WarpMarkers>
+                <SampleRef>
+                  <FileRef>
+                    <RelativePath Value="Samples/Recorded/1-Audio 0001.wav" />
+                    <Path Value="/Users/example/Music/Fixture Project/Samples/Recorded/1-Audio 0001.wav" />
+                  </FileRef>
+                  <DefaultDuration Value="1920000" />
+                  <DefaultSampleRate Value="48000" />
+                </SampleRef>
+              </AudioClip>
+              </Events>
+            </ArrangerAutomation>
+          </Sample>
+        </MainSequencer>
+        <DeviceChain>
+          <Devices>
+            <PluginDevice Id="0">
+              <On><Manual Value="true" /></On>
+              <PluginDesc>
+                <Vst3PluginInfo Id="0">
+                  <Preset>
+                    <Vst3Preset Id="1">
+                      <ProcessorState>
+                        7B2276657273696F6E223A2231222C22706C7567696E223A227A7669642D63617074757265222C22
+                        7265636F7264526F6F74223A2270726F6A656374222C227265636F7264696E6773223A5B7B226964
+                        223A227431222C2266696C656E616D65223A22766964656F2D30312D392D32382D31352D30312D32
+                        382D302E6D7034222C2264696D656E73696F6E73223A5B313932302C313038305D2C22667073223A
+                        5B33302C315D2C226672616D655374617274223A2D34352C2266696C654F6666736574536563223A
+                        312E352C227472616E73706F72745374617274536563223A302C227472616E73706F727453746172
+                        744265617473223A302C226475726174696F6E536563223A34302C2274656D706F223A3132302C22
+                        74696D655369676E6174757265223A5B342C345D2C2263616D657261223A224661636554696D6520
+                        48442043616D657261222C22637265617465644174223A22323032362D30392D32385431353A3031
+                        3A32385A227D5D7D
+                      </ProcessorState>
+                      <ControllerState />
+                      <Name Value="" />
+                    </Vst3Preset>
+                  </Preset>
+                  <Name Value="ZVID Capture" />
+                  <DeviceType Value="1" />
+                </Vst3PluginInfo>
+              </PluginDesc>
+            </PluginDevice>
+          </Devices>
+        </DeviceChain>
+      </DeviceChain>
+    </AudioTrack>
+    </Tracks>
+    <MainTrack>
+      <DeviceChain>
+        <Mixer>
+          <Tempo><Manual Value="120" /></Tempo>
+          <TimeSignature><Manual Value="201" /></TimeSignature>
+        </Mixer>
+      </DeviceChain>
+    </MainTrack>
+    <Transport>
+      <CurrentTime Value="0" />
+      <LoopOn Value="false" />
+      <LoopStart Value="0" />
+      <LoopLength Value="16" />
+    </Transport>
+  </LiveSet>
+</Ableton>
