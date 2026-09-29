@@ -189,6 +189,7 @@ import {
   mapEffects,
   mapSessionEffectsToDevices,
   moveEffect,
+  previewDuplicateClipEffects,
   pruneClipEffects,
   removeEffect,
   resetEffect,
@@ -2565,6 +2566,22 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const timelineClips = dragPreviewClips ?? clips;
   const timelineClipsRef = useRef(timelineClips);
   timelineClipsRef.current = timelineClips;
+  // A clip being Ctrl/Cmd-dragged to duplicate it is drawn with its source
+  // clip's stack; the drop commits the copy's own.
+  const isDuplicateDragging = Boolean(
+    dragPreviewClips && dragState?.kind === "move" && dragState.duplicateOnDrag,
+  );
+  const timelineEffects = useMemo(
+    () =>
+      isDuplicateDragging && dragState?.kind === "move"
+        ? previewDuplicateClipEffects(
+            effects,
+            dragState.sourceClipId,
+            dragState.clipId,
+          )
+        : effects,
+    [dragState, effects, isDuplicateDragging],
+  );
   const resolvedZoom = zoomDraft ?? zoom;
 
   const commitProjectChange = useCallback(
@@ -3048,21 +3065,21 @@ function App({ boot }: { boot: WorkspaceBoot }) {
           playheadQ,
           bpm,
           lanePriority,
-          getRenderedEffects(effects, lanes),
+          getRenderedEffects(timelineEffects, lanes),
         ).filter((entry) => entry.media.kind === "video"),
         { width: canvasWidth, height: canvasHeight },
-        resolveCompositionOrder(effects, GLOBAL_EFFECT_TRACK_ID),
+        resolveCompositionOrder(timelineEffects, GLOBAL_EFFECT_TRACK_ID),
       ),
     [
       bpm,
       canvasHeight,
       canvasWidth,
-      effects,
       lanePriority,
       lanes,
       mediaItemsById,
       playheadQ,
       timelineClips,
+      timelineEffects,
     ],
   );
   const selectPreviewLayer = useCallback((layer: PreviewLayer | undefined) => {
@@ -9595,7 +9612,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                             const fillBackground = isFillClip(clip)
                               ? formatFillPaintCss(
                                   resolveFillPaint(
-                                    effects,
+                                    timelineEffects,
                                     clip.laneId,
                                     clipEffectTrackId(clip.id),
                                   ),
@@ -9603,7 +9620,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                               : undefined;
                             const textStyle = isTextClip(clip)
                               ? resolveTextStyle(
-                                  effects,
+                                  timelineEffects,
                                   clip.laneId,
                                   clipEffectTrackId(clip.id),
                                 )
@@ -10398,7 +10415,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     canvasHeight={canvasHeight}
                     canvasWidth={canvasWidth}
                     clips={timelineClips}
-                    effects={effects}
+                    effects={timelineEffects}
                     isPlaying={isPlaying}
                     isScrubbing={Boolean(timelineDragState)}
                     isAudibleScrubbing={isTimelineAudibleScrubbing}
