@@ -114,7 +114,9 @@ export function planEviction(
   }
 
   const candidates = records
-    .filter((record) => record.id !== excludeId && !referencedIds.has(record.id))
+    .filter(
+      (record) => record.id !== excludeId && !referencedIds.has(record.id),
+    )
     .sort((a, b) => a.lastUsedAt - b.lastUsedAt);
   const evicted: string[] = [];
   let available = bytesAvailable;

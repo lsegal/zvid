@@ -70,7 +70,11 @@ export function createMediaStore({
     return kind === "opfs" ? await opfs() : idb;
   }
 
-  async function touch(id: string, blob: Blob, record: MediaIndexRecord | null) {
+  async function touch(
+    id: string,
+    blob: Blob,
+    record: MediaIndexRecord | null,
+  ) {
     await index.put({
       id,
       size: record?.size ?? blob.size,

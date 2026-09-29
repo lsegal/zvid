@@ -76,7 +76,9 @@ describe("requestPersistence", () => {
 describe("estimateStorage", () => {
   it("returns usage and quota", async () => {
     assert.deepEqual(
-      await estimateStorage({ estimate: async () => ({ usage: 5, quota: 10 }) }),
+      await estimateStorage({
+        estimate: async () => ({ usage: 5, quota: 10 }),
+      }),
       { usage: 5, quota: 10 },
     );
   });

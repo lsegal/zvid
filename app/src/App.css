@@ -3105,3 +3105,49 @@
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.72rem;
 }
+
+.media-storage__summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px 16px;
+  margin: 16px 0 0;
+}
+
+.media-storage__summary div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.media-storage__summary dt {
+  color: #a4a9bf;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.media-storage__summary dd {
+  margin: 0;
+  font-size: 0.86rem;
+}
+
+.media-storage__persistence--persistent {
+  color: #7ee0a4;
+}
+
+.media-storage__persistence--best-effort,
+.media-storage__persistence--unsupported {
+  color: #ffe084;
+}
+
+.media-storage__bytes {
+  color: #d8dcef;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.media-storage__empty {
+  margin: 16px 0 0;
+  color: #a4a9bf;
+  font-size: 0.86rem;
+}

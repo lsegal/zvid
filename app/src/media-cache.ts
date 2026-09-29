@@ -168,7 +168,8 @@ const mediaIndex: MediaIndex = {
       },
       INDEX_STORE_NAME,
     ),
-  put: (record) => runStoreWrite((store) => store.put(record), INDEX_STORE_NAME),
+  put: (record) =>
+    runStoreWrite((store) => store.put(record), INDEX_STORE_NAME),
   remove: (ids) =>
     runStoreWrite((store) => {
       for (const id of ids) {

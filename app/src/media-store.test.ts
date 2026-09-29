@@ -58,8 +58,8 @@ function createFakeDirectory(): OpfsDirectoryHandle & {
           return new File([blob], name, { type: blob.type });
         },
         async createWritable() {
-          const chunks: Uint8Array[] = [];
-          const stream = new WritableStream<Uint8Array>({
+          const chunks: Uint8Array<ArrayBuffer>[] = [];
+          const stream = new WritableStream<Uint8Array<ArrayBuffer>>({
             write(chunk) {
               chunks.push(chunk);
             },
