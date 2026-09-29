@@ -168,7 +168,7 @@ describe("handleIceServers", () => {
       { "Sec-Fetch-Site": "same-origin" },
       { "Sec-Fetch-Site": "same-origin", Origin: "https://zvid.example" },
       {},
-    ]) {
+    ] as Record<string, string>[]) {
       const { fetcher } = cloudflareReturning(Response.json(ICE_SERVERS));
       const response = await handleIceServers(
         fromIp("192.0.2.1", headers),
@@ -185,7 +185,7 @@ describe("handleIceServers", () => {
       { "Sec-Fetch-Site": "same-site" },
       { Origin: "https://evil.example" },
       { Origin: "null" },
-    ]) {
+    ] as Record<string, string>[]) {
       const { limiter, counts } = rateLimiter(10);
       const { calls, fetcher } = cloudflareReturning(
         Response.json(ICE_SERVERS),
