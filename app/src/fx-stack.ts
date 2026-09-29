@@ -9,13 +9,13 @@ import {
   isOrderEffectName,
   parseCompositionOrder,
 } from "./composition-order.ts";
-import { isTransformEffectName } from "./composition-transform.ts";
 import { isColorEffectName } from "./fill-paint.ts";
 import {
   type FxEffectDefinition,
   type FxParameterDefinition,
   getEffectDefinition,
   getFallbackParameterDefinition,
+  isEffectSupportedIn,
 } from "./fx-registry.ts";
 import type { LvpSession } from "./session.ts";
 
@@ -67,11 +67,18 @@ export type FxDevice = {
   // True for a layer's own Layout device. Every visual layer has exactly
   // one, so it can be reset to its defaults but not removed or duplicated.
   layerDefault?: boolean;
+  // True for a device on a stack its effect isn't designed for, such as a
+  // Global Layout from an older session. It still loads and can be removed.
+  unsupported?: boolean;
   // A problem to point out on the device, such as layers an Order grid has
   // no cell for.
   warning?: string;
   parameters: FxDeviceParameter[];
 };
+
+export function getTrackGroup(trackId: string): FxDeviceGroup {
+  return trackId === GLOBAL_EFFECT_TRACK_ID ? "global" : "layer";
+}
 
 export function mapEffects(source: LvpSession["effects"]) {
   return (source ?? []).map<SessionEffect>((effect) => ({
@@ -311,13 +318,10 @@ export function addEffect(
   id?: string,
 ) {
   const stack = getStack(effects, trackId);
-  // Transform places one layer, so it has no meaning on the Global stack.
-  if (trackId === GLOBAL_EFFECT_TRACK_ID && isTransformEffectName(effectName)) {
-    return effects;
-  }
-
-  // Order arranges every layer at once, so only the Global stack takes it.
-  if (trackId !== GLOBAL_EFFECT_TRACK_ID && isOrderEffectName(effectName)) {
+  // Only effects designed for the stack can be added to it: Transform
+  // places one layer, so never on the Global stack, and Order arranges
+  // every layer at once, so only on the Global stack.
+  if (!isEffectSupportedIn(effectName, getTrackGroup(trackId))) {
     return effects;
   }
 
@@ -620,8 +624,7 @@ function toDevice(
   activeLayerCount = 0,
 ): FxDevice {
   const definition = getEffectDefinition(effect.effectName);
-  const group: FxDeviceGroup =
-    effect.trackId === GLOBAL_EFFECT_TRACK_ID ? "global" : "layer";
+  const group = getTrackGroup(effect.trackId);
   const knownKeys = new Set(
     definition.parameters.map((parameter) => parameter.key),
   );
@@ -650,6 +653,7 @@ function toDevice(
     group,
     enabled: effect.enabled !== false,
     layerDefault: isLayerLayoutEffect(effect) || undefined,
+    unsupported: !isEffectSupportedIn(effect.effectName, group) || undefined,
     warning: describeHiddenLayers(effect, activeLayerCount),
     parameters: parameterDefinitions
       .filter(

@@ -2,9 +2,6 @@
 // which group, how knob values are formatted, and the per-device collapse
 // state that is kept in localStorage.
 
-import { isOrderEffectName } from "./composition-order.ts";
-import { isTransformEffectName } from "./composition-transform.ts";
-import { isColorEffectName } from "./fill-paint.ts";
 import {
   FX_EFFECT_DEFINITIONS,
   formatRawNumber,
@@ -41,21 +38,14 @@ export function groupChainDevices(
   };
 }
 
-// Effects the add menu offers. Layout is left out: every visual layer
-// already has its own, and it cannot go on the Global stack.
-export const ADDABLE_EFFECT_DEFINITIONS = FX_EFFECT_DEFINITIONS.filter(
-  (definition) => !isLayoutEffectName(definition.effectName),
-);
-
-// Transform places a single layer and Color paints a layer's fill clips, so
-// only layer stacks offer them. Order arranges every layer at once, so only
-// the Global stack offers it.
-export function getAddableEffectDefinitions(group: FxDeviceGroup) {
-  return ADDABLE_EFFECT_DEFINITIONS.filter((definition) =>
-    group === "global"
-      ? !isTransformEffectName(definition.effectName) &&
-        !isColorEffectName(definition.effectName)
-      : !isOrderEffectName(definition.effectName),
+// Effects the `group` add menu offers: the known ones designed for that
+// stack, except those every layer is already given (Layout).
+export function addableEffectsFor(group: FxDeviceGroup) {
+  return FX_EFFECT_DEFINITIONS.filter(
+    (definition) =>
+      definition.known &&
+      !definition.layerDefault &&
+      definition.scopes.includes(group),
   );
 }
 
