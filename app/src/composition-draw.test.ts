@@ -23,6 +23,7 @@ import type { FillPaint } from "./fill-paint.ts";
 import { SILENT_AUDIO_BANDS } from "./fx-shaders/audio-bands.ts";
 import { POSITION_ATTRIBUTE_LOCATION } from "./fx-shaders/gl.ts";
 import { type ChainEffect, resolveEffectChain } from "./fx-shaders/registry.ts";
+import { readTextStyle, type TextStyle } from "./text-style.ts";
 
 const WIDTH = 360;
 const HEIGHT = 640;
@@ -637,5 +638,164 @@ describe("drawComposition fill layers", () => {
     assert.equal(recording.uploads.length, 2);
     const pixels = recording.uploads[1].at(-1) as Uint8Array;
     assert.deepEqual(Array.from(pixels.slice(0, 4)), [0, 0, 255, 255]);
+  });
+});
+
+describe("drawComposition text layers", () => {
+  type TextCall = { text: string; x: number; y: number; font: string };
+
+  // An OffscreenCanvas stand-in whose 2D context measures every character
+  // as half an em and records the text it draws.
+  class FakeTextCanvas {
+    fills: TextCall[] = [];
+    strokes: TextCall[] = [];
+    context: Record<string, unknown>;
+    width: number;
+    height: number;
+
+    constructor(width: number, height: number) {
+      this.width = width;
+      this.height = height;
+      const size = () =>
+        Number.parseFloat(
+          /([\d.]+)px/.exec(String(this.context.font))?.[1] ?? "10",
+        );
+      const record =
+        (calls: TextCall[]) => (text: string, x: number, y: number) =>
+          calls.push({ text, x, y, font: String(this.context.font) });
+      this.context = {
+        font: "10px sans-serif",
+        letterSpacing: "0px",
+        measureText: (text: string) => ({
+          width: Array.from(text).length * size() * 0.5,
+          fontBoundingBoxAscent: size() * 0.8,
+          fontBoundingBoxDescent: size() * 0.2,
+        }),
+        fillText: record(this.fills),
+        strokeText: record(this.strokes),
+        createLinearGradient: () => ({ addColorStop: () => undefined }),
+        createRadialGradient: () => ({ addColorStop: () => undefined }),
+        clearRect: () => undefined,
+        fillRect: () => undefined,
+        strokeRect: () => undefined,
+      };
+    }
+
+    getContext() {
+      return this.context;
+    }
+  }
+
+  beforeEach(() => {
+    savedGlobals.OffscreenCanvas = globals.OffscreenCanvas;
+    globals.OffscreenCanvas = FakeTextCanvas;
+  });
+
+  function textLayer(text: TextStyle, lane = 0): CompositeLayer {
+    return {
+      ...layers(1, [])[0],
+      media: { id: `text:clip-${lane}` },
+      sourceKey: `text:clip-${lane}`,
+      laneRank: lane,
+      text,
+    };
+  }
+
+  function drawFrame(
+    resources: WebGlResources,
+    clips: CompositeLayer[],
+    order?: CompositionOrder,
+  ) {
+    drawComposition(
+      resources,
+      { width: WIDTH, height: HEIGHT },
+      clips,
+      new Map(),
+      [],
+      { time: 0, audio: SILENT_AUDIO_BANDS, groupClipProgress: 0 },
+      order,
+    );
+  }
+
+  const HELLO = { ...readTextStyle(undefined), text: "Hello" };
+
+  it("draws text at its slot's full size, scaled from 1080p", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    drawFrame(resources, [textLayer(HELLO)]);
+
+    assert.equal(recording.uploads.length, 1);
+    const canvas = recording.uploads[0].at(-1) as FakeTextCanvas;
+    assert.ok(canvas instanceof FakeTextCanvas);
+    // Not capped like fills: the whole 360×640 slot.
+    assert.deepEqual([canvas.width, canvas.height], [WIDTH, HEIGHT]);
+    // 96px at 1080p on a 360px short side.
+    assert.equal(canvas.fills.length, 1);
+    assert.equal(canvas.fills[0].text, "Hello");
+    assert.match(canvas.fills[0].font, /^400 32px "Inter Variable"/);
+    // Centred: five 16px characters in the 360px slot.
+    assert.equal(canvas.fills[0].x, (WIDTH - 80) / 2);
+    assert.equal(canvas.strokes.length, 0);
+  });
+
+  it("strokes before filling when the text has an outline", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    drawFrame(resources, [
+      textLayer({
+        ...HELLO,
+        stroke: { color: { r: 0, g: 0, b: 0, a: 1 }, width: 4 },
+      }),
+    ]);
+    const canvas = recording.uploads[0].at(-1) as FakeTextCanvas;
+    assert.equal(canvas.strokes.length, 1);
+    assert.equal(canvas.fills.length, 1);
+  });
+
+  it("redraws the texture only when the text or its box changes", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    drawFrame(resources, [textLayer(HELLO)]);
+    drawFrame(resources, [textLayer({ ...HELLO })]);
+    assert.equal(recording.uploads.length, 1);
+
+    drawFrame(resources, [textLayer({ ...HELLO, text: "Bye" })]);
+    assert.equal(recording.uploads.length, 2);
+
+    // Side by side, the first layer's box halves and a second one appears.
+    drawFrame(
+      resources,
+      [textLayer({ ...HELLO, text: "Bye" }), textLayer(HELLO, 1)],
+      { arrangement: "horizontal", gridSize: 2, spacing: 0 },
+    );
+    assert.equal(recording.uploads.length, 4);
+    const canvas = recording.uploads[2].at(-1) as FakeTextCanvas;
+    assert.deepEqual([canvas.width, canvas.height], [WIDTH / 2, HEIGHT]);
+  });
+
+  it("stacks text over a fill in its own band", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    const fill: CompositeLayer = {
+      ...layers(1, [])[0],
+      media: { id: "fill:clip-0" },
+      sourceKey: "fill:clip-0",
+      fill: {
+        kind: "solid",
+        color: { r: 255, g: 0, b: 0, a: 1 },
+        opacity: 1,
+      },
+    };
+    drawFrame(resources, [fill, textLayer(HELLO, 1)]);
+    const composites = recording.draws.filter(
+      (draw) =>
+        draw.program === (resources.program as unknown as Handle) &&
+        draw.scissorTest,
+    );
+    assert.equal(composites.length, 2);
+    assert.equal(
+      composites[1].texture,
+      resources.textureMap.get("text:clip-1") as unknown as Handle,
+    );
   });
 });

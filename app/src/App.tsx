@@ -22,6 +22,7 @@ import {
   useReducer,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import "./App.css";
 import {
@@ -57,6 +58,7 @@ import {
   describeMediaAvailability,
   describePreviewMediaState,
   formatClipMediaState,
+  isGeneratedClip,
   isPlaceholderClip,
   usesMediaFile,
 } from "./clip-media-state";
@@ -153,7 +155,11 @@ import { isContextMenuKey, isContextMenuPress } from "./context-menu.ts";
 import { isRulerPanPress, isTimelinePanPress } from "./drag-scroll.ts";
 import { buildEditMenuEntries } from "./edit-menu.ts";
 import { addFillClip, getDefaultFillColor, isFillClip } from "./fill-clip.ts";
-import { formatFillPaintCss, resolveFillPaint } from "./fill-paint.ts";
+import {
+  formatCssColor,
+  formatFillPaintCss,
+  resolveFillPaint,
+} from "./fill-paint.ts";
 import {
   addableEffectsFor,
   getDefaultLaneId,
@@ -339,6 +345,19 @@ import {
 import { classifySpaceTarget, createSpaceHold } from "./space-shortcut";
 import { statusMessageTone } from "./status-bar";
 import { buildStatusItems } from "./status-items";
+import { addTextClip, isTextClip } from "./text-clip.ts";
+import {
+  getMissingFonts,
+  loadFontFace,
+  resolveFontFace,
+  subscribeFonts,
+} from "./text-fonts.ts";
+import {
+  getTextPreview,
+  isTextEffectName,
+  readTextStyle,
+  resolveTextStyle,
+} from "./text-style.ts";
 import {
   getClipThumbnailTimeSeconds,
   getThumbnailCacheKey,
@@ -424,9 +443,10 @@ type SourceSpan = {
 
 type ArrangementClip = {
   id: string;
-  // "fill" for a media-less fill clip painted by its layer's Color effect;
-  // media clips leave it unset.
-  kind?: "fill";
+  // "fill" for a media-less fill clip painted by its layer's Color effect,
+  // or "text" for a text clip styled by its Text effect; media clips leave
+  // it unset.
+  kind?: "fill" | "text";
   sourceSpanId: string;
   sourceTrackId: string;
   laneId: string;
@@ -723,6 +743,8 @@ const INITIAL_PROJECT_STATE: ProjectState = {
 // Card colours of fill clips on layers without an accent.
 const FILL_CLIP_TINT = "#2a2d38";
 const FILL_CLIP_ACCENT = "#8d93a8";
+// Bars a text clip inserted at the playhead spans.
+const TEXT_CLIP_BARS = 4;
 const PALETTE: Palette[] = [
   { color: "#3d4052", accent: "#7ca1ff" },
   { color: "#444351", accent: "#ff6f9d" },
@@ -1564,7 +1586,7 @@ function getPlaybackStopQ(
 
   return clips.reduce((maximum, clip) => {
     if (
-      !isFillClip(clip) &&
+      !isGeneratedClip(clip) &&
       (!clip.mediaId || !playableMediaIds.has(clip.mediaId))
     ) {
       return maximum;
@@ -2851,7 +2873,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       timelineClips.some(
         (clip) =>
           isClipAtPlayhead(clip, playheadQ, bpm) &&
-          (isFillClip(clip) ||
+          (isGeneratedClip(clip) ||
             describeMediaAvailability(
               clip.mediaId
                 ? mediaItemsById.get(clip.mediaId)?.availability
@@ -2965,6 +2987,19 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       ).size,
     [bpm, mediaItemsById, playheadQ, timelineClips],
   );
+  // Fonts Text effects pick load up front, so one that can't be loaded is
+  // flagged on its device even before its clip is drawn.
+  const missingFonts = useSyncExternalStore(subscribeFonts, getMissingFonts);
+  useEffect(() => {
+    for (const effect of effects) {
+      if (effect.enabled !== false && isTextEffectName(effect.effectName)) {
+        const style = readTextStyle(effect);
+        void loadFontFace(
+          resolveFontFace(style.font, style.weight, style.italic, new Set()),
+        );
+      }
+    }
+  }, [effects]);
   const fxDevices = useMemo(
     () =>
       fxLaneId
@@ -2973,9 +3008,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             fxLaneId,
             fxLane?.name,
             playheadVisualLayerCount,
+            missingFonts,
           )
         : [],
-    [effects, fxLane?.name, fxLaneId, playheadVisualLayerCount],
+    [effects, fxLane?.name, fxLaneId, missingFonts, playheadVisualLayerCount],
   );
   const playheadSeconds = quartersToSeconds(playheadQ, bpm);
   const mainAudio = mainAudioId ? mediaItemsById.get(mainAudioId) : undefined;
@@ -4308,6 +4344,47 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       return id;
     },
     [bpm, dispatchProject, lanes],
+  );
+
+  // Inserts a text clip over `durationQ` quarters from `startQ` on layer
+  // `laneId` and selects it. A layer without a Text effect gets one with
+  // its defaults. Returns the new clip's id.
+  const insertTextClip = useCallback(
+    (laneId: string, startQ: number, durationQ: number) => {
+      const lane = lanes.find((candidate) => candidate.id === laneId);
+      if (!lane || !(durationQ > 0)) {
+        return undefined;
+      }
+
+      const accent =
+        lane.colorIndex >= 0 ? getSwatch(lane.colorIndex).accent : undefined;
+      const id = `text-${crypto.randomUUID()}`;
+      dispatchProject({
+        type: "commit",
+        label: "Insert text layer",
+        updater: (current) => {
+          const result = addTextClip(current, {
+            id,
+            laneId,
+            startQ,
+            durationQ,
+            bpm,
+            tint: FILL_CLIP_TINT,
+            accent: accent ?? FILL_CLIP_ACCENT,
+            effectId: crypto.randomUUID(),
+          });
+          return patchProjectState(current, {
+            clips: result.clips,
+            effects: result.effects,
+          });
+        },
+      });
+      setPendingSelection(null);
+      setSelectedClipId(id);
+      setStatus(`Inserted text on ${lane.name}.`);
+      return id;
+    },
+    [bpm, lanes],
   );
 
   // The whole source clip as an arrangement clip at its song position.
@@ -6209,6 +6286,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       insertTrack: commitPendingSelectionToSourceTrack,
       insertFill: () =>
         insertFillClip(selection.laneId, selection.startQ, selection.durationQ),
+      insertText: () =>
+        insertTextClip(selection.laneId, selection.startQ, selection.durationQ),
       clear: () => setPendingSelection(null),
     });
   }
@@ -6237,6 +6316,12 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         remove: () => deleteLayer(lane),
         toggleFx: () => setLayerFxEnabled(lane.id, !fxEnabled),
         addFx: (effectName) => addLayerFx(lane.id, effectName),
+        insertText: () =>
+          insertTextClip(
+            lane.id,
+            playheadQRef.current,
+            TEXT_CLIP_BARS * barLength,
+          ),
         insertAbove: () => insertLayer(lane.id, "above"),
         insertBelow: () => insertLayer(lane.id, "below"),
         moveUp: () => moveLayer(lane, -1),
@@ -7369,7 +7454,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
 
   async function handleSaveSession() {
     const harness = getHarness();
-    const { session, skippedFillClips } = projectToLvpSession(
+    const { session, skippedFillClips, skippedTextClips } = projectToLvpSession(
       projectHistory.present,
       { playheadQ: playheadQRef.current, selectedClipId },
     );
@@ -7431,7 +7516,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     const fillNote = skippedFillClips
       ? ` ${pluralize(skippedFillClips, "fill clip")} ${skippedFillClips === 1 ? "was" : "were"} not saved: .lvp files cannot store fill clips.`
       : "";
-    setStatus(`Saved ${savedName}.${fillNote}`);
+    const textNote = skippedTextClips
+      ? ` ${pluralize(skippedTextClips, "text clip")} ${skippedTextClips === 1 ? "was" : "were"} not saved: .lvp files cannot store text clips.`
+      : "";
+    setStatus(`Saved ${savedName}.${fillNote}${textNote}`);
   }
 
   async function handleExport() {
@@ -9074,11 +9162,14 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                                   resolveFillPaint(effects, clip.laneId),
                                 )
                               : undefined;
+                            const textStyle = isTextClip(clip)
+                              ? resolveTextStyle(effects, clip.laneId)
+                              : undefined;
                             return (
                               // biome-ignore lint/a11y/noStaticElementInteractions: right-click is a pointer shortcut; the context-menu key and Shift+F10 open the same menu on the selected clip
                               <div
                                 key={clip.id}
-                                className={`clip-card ${selected ? "clip-card--selected" : ""} ${trimming ? "clip-card--trimming" : ""} ${filmstrip || fillBackground ? "clip-card--filmstrip" : ""} ${fillBackground ? "clip-card--fill" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""}`}
+                                className={`clip-card ${selected ? "clip-card--selected" : ""} ${trimming ? "clip-card--trimming" : ""} ${filmstrip || fillBackground ? "clip-card--filmstrip" : ""} ${fillBackground ? "clip-card--fill" : ""} ${textStyle ? "clip-card--text" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""}`}
                                 data-clip-id={clip.id}
                                 onContextMenu={(event) =>
                                   openArrangementClipMenu(event, clip)
@@ -9241,8 +9332,29 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                                       }}
                                     />
                                   ) : null}
+                                  {textStyle ? (
+                                    <span
+                                      aria-hidden="true"
+                                      className="clip-card__glyph"
+                                      style={{
+                                        color:
+                                          textStyle.paint.kind === "solid"
+                                            ? formatCssColor(
+                                                textStyle.paint.color,
+                                              )
+                                            : undefined,
+                                      }}
+                                    >
+                                      T
+                                    </span>
+                                  ) : null}
                                   <span className="clip-card__text">
-                                    <strong>{clip.label}</strong>
+                                    <strong>
+                                      {textStyle
+                                        ? getTextPreview(textStyle) ||
+                                          clip.label
+                                        : clip.label}
+                                    </strong>
                                     <span className="clip-card__meta">
                                       {mediaSync ? (
                                         formatMediaSyncLabel(mediaSync)

@@ -128,6 +128,7 @@ describe("addableEffectsFor", () => {
       "AnalogGlitch",
       "Transform",
       "Color",
+      "Text",
     ]);
   });
 
@@ -139,6 +140,11 @@ describe("addableEffectsFor", () => {
   it("offers Color, which paints fill clips, on layers only", () => {
     assert.ok(names("layer").includes("Color"));
     assert.ok(!names("global").includes("Color"));
+  });
+
+  it("offers Text, which styles text clips, on layers only", () => {
+    assert.ok(names("layer").includes("Text"));
+    assert.ok(!names("global").includes("Text"));
   });
 
   it("offers Order on the Global stack only", () => {

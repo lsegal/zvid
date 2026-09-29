@@ -448,6 +448,31 @@ describe("buildSelectionMenuEntries", () => {
     assert.deepEqual(calls, ["fill"]);
   });
 
+  it("adds Insert Text Layer after Insert Fill Layer when it exists", () => {
+    const calls: string[] = [];
+    const { entries } = build(
+      {
+        insertFill: () => calls.push("fill"),
+        insertText: () => calls.push("text"),
+      },
+      calls,
+    );
+    assert.deepEqual(
+      entries.map((entry) => (entry.type === "item" ? entry.id : "---")),
+      ["insert-track", "insert-fill", "insert-text", "---", "clear-selection"],
+    );
+    const text = items(entries).find((entry) => entry.id === "insert-text");
+    assert.equal(text?.label, "Insert Text Layer");
+    text?.onSelect?.();
+    assert.deepEqual(calls, ["text"]);
+    assert.equal(
+      items(build({ disabled: true, insertText: () => {} }).entries).find(
+        (entry) => entry.id === "insert-text",
+      )?.disabled,
+      true,
+    );
+  });
+
   it("lists every source track with its swatch and number key", () => {
     assert.deepEqual(
       trackItems(build().entries).map((entry) => [

@@ -20,6 +20,9 @@ import type { AudioBands } from "./fx-shaders/audio-bands.ts";
 import { EffectChainRenderer } from "./fx-shaders/chain.ts";
 import { linkProgram } from "./fx-shaders/gl.ts";
 import type { EffectChainStep } from "./fx-shaders/registry.ts";
+import { isFontFaceReady, resolveFontFace } from "./text-fonts.ts";
+import { createTextCanvas, drawText } from "./text-render.ts";
+import { TEXT_REFERENCE_HEIGHT, type TextStyle } from "./text-style.ts";
 
 export type CompositeVisual = LayerVisual & {
   opacity: number;
@@ -41,6 +44,8 @@ export type CompositeLayer = {
   effectChain: EffectChainStep[];
   // Set for fill clips, which draw this paint instead of a media element.
   fill?: FillPaint;
+  // Set for text clips, which draw this text instead of a media element.
+  text?: TextStyle;
 };
 
 // Fill textures are drawn at most this many pixels on a side; the linear
@@ -61,9 +66,9 @@ export type WebGlResources = {
   positionBuffer: WebGLBuffer;
   textureMap: Map<string, WebGLTexture>;
   readyTextureIds: Set<string>;
-  // What each fill texture was last drawn with, so it is only redrawn when
-  // its paint or size changes.
-  fillTextureKeys: Map<string, string>;
+  // What each fill or text texture was last drawn with, so it is only
+  // redrawn when its paint, text or size changes.
+  generatedTextureKeys: Map<string, string>;
   effectChain: EffectChainRenderer;
   uniforms: {
     position: number;
@@ -160,7 +165,7 @@ export function createWebGlResources(
     positionBuffer,
     textureMap: new Map<string, WebGLTexture>(),
     readyTextureIds: new Set<string>(),
-    fillTextureKeys: new Map<string, string>(),
+    generatedTextureKeys: new Map<string, string>(),
     effectChain: new EffectChainRenderer(gl, positionBuffer),
     uniforms: {
       position: gl.getAttribLocation(program, "aPosition"),
@@ -205,7 +210,7 @@ export function disposeWebGlResources(resources: WebGlResources) {
   }
   resources.textureMap.clear();
   resources.readyTextureIds.clear();
-  resources.fillTextureKeys.clear();
+  resources.generatedTextureKeys.clear();
   gl.deleteBuffer(resources.positionBuffer);
   gl.deleteProgram(resources.program);
 }
@@ -374,7 +379,7 @@ function uploadFillTexture(
   const key = `${textureWidth}x${textureHeight}:${JSON.stringify(fill)}`;
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, texture);
-  if (resources.fillTextureKeys.get(sourceKey) !== key) {
+  if (resources.generatedTextureKeys.get(sourceKey) !== key) {
     const raster = rasterizeFillPaint(fill, textureWidth, textureHeight);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
@@ -389,7 +394,53 @@ function uploadFillTexture(
       gl.UNSIGNED_BYTE,
       raster.pixels,
     );
-    resources.fillTextureKeys.set(sourceKey, key);
+    resources.generatedTextureKeys.set(sourceKey, key);
+  }
+  return texture;
+}
+
+// Draws a text clip into its texture at the full size of its box, so it
+// stays sharp, when its text, style, face or the box changed since last
+// time. Until its face has loaded, the previous texture is kept, or nothing
+// is drawn, so the text never shows in a fallback font.
+function uploadTextTexture(
+  resources: WebGlResources,
+  sourceKey: string,
+  text: TextStyle,
+  boxWidth: number,
+  boxHeight: number,
+  scale: number,
+) {
+  const { gl } = resources;
+  const face = resolveFontFace(text.font, text.weight, text.italic);
+  const width = Math.max(1, Math.round(boxWidth));
+  const height = Math.max(1, Math.round(boxHeight));
+  const key = `${width}x${height}@${scale}:${JSON.stringify(face)}:${JSON.stringify(text)}`;
+  const drawn = resources.generatedTextureKeys.get(sourceKey);
+  if (drawn !== key && !isFontFaceReady(face)) {
+    return drawn === undefined
+      ? undefined
+      : getOrCreateTexture(resources, sourceKey);
+  }
+
+  const texture = getOrCreateTexture(resources, sourceKey);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  if (drawn !== key) {
+    const canvas = createTextCanvas(width, height);
+    if (!canvas || !drawText(canvas, text, face, width, height, scale)) {
+      return undefined;
+    }
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      canvas as TexImageSource,
+    );
+    resources.generatedTextureKeys.set(sourceKey, key);
   }
   return texture;
 }
@@ -422,6 +473,7 @@ export function drawComposition(
       (entry) =>
         entry.isInBounds &&
         (entry.fill ||
+          entry.text ||
           mediaRefs.get(entry.sourceKey) instanceof HTMLVideoElement),
     ),
     order,
@@ -436,9 +488,9 @@ export function drawComposition(
     let sourceWidth: number;
     let sourceHeight: number;
     let texture: WebGLTexture;
-    if (entry.fill) {
-      // A fill is drawn at its slot's own size, so it covers the slot
-      // exactly in any arrangement.
+    if (entry.fill || entry.text) {
+      // Fills and text are drawn at their slot's own size, so they cover
+      // the slot exactly in any arrangement.
       const slot = resolveSlotScissor(
         index,
         stackedClips.length,
@@ -448,13 +500,30 @@ export function drawComposition(
       );
       sourceWidth = Math.max(1, slot.width);
       sourceHeight = Math.max(1, slot.height);
-      texture = uploadFillTexture(
-        resources,
-        entry.sourceKey,
-        entry.fill,
-        sourceWidth,
-        sourceHeight,
-      );
+      if (entry.fill) {
+        texture = uploadFillTexture(
+          resources,
+          entry.sourceKey,
+          entry.fill,
+          sourceWidth,
+          sourceHeight,
+        );
+      } else {
+        const uploaded = uploadTextTexture(
+          resources,
+          entry.sourceKey,
+          entry.text as TextStyle,
+          sourceWidth,
+          sourceHeight,
+          // Text sizes are given at 1080p and scale with the output's
+          // short side, in portrait as in landscape.
+          Math.min(width, height) / TEXT_REFERENCE_HEIGHT,
+        );
+        if (!uploaded) {
+          continue;
+        }
+        texture = uploaded;
+      }
     } else {
       if (!(mediaElement instanceof HTMLVideoElement)) {
         continue;

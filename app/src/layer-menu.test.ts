@@ -60,6 +60,27 @@ function layerMenu(
 }
 
 describe("buildLayerMenuEntries", () => {
+  it("inserts text at the playhead when the action exists", () => {
+    const { calls, actions } = recordingActions();
+    const entries = buildLayerMenuEntries({
+      lanes: lanes(3),
+      laneId: "2",
+      fxEnabled: true,
+      effectCount: 1,
+      effects: addableEffectsFor("layer"),
+      actions: { ...actions, insertText: () => calls.push("insertText") },
+    });
+    const insert = item(entries, "insert-text");
+    assert.equal(insert.label, "Insert text at playhead");
+    insert.onSelect?.();
+    assert.deepEqual(calls, ["insertText"]);
+    assert.ok(
+      !layerMenu().entries.some(
+        (entry) => entry.type === "item" && entry.id === "insert-text",
+      ),
+    );
+  });
+
   it("lists the layer actions in order", () => {
     const { entries } = layerMenu();
     assert.deepEqual(

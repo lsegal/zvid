@@ -453,6 +453,7 @@ test("right-clicking a selection keeps it and inserts a track like its number ke
     /^Delete/,
     "Insert Track",
     "Insert Fill Layer",
+    "Insert Text Layer",
     "Clear selectionEsc",
   ]);
 

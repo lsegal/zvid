@@ -420,4 +420,42 @@ describe("fill clips", () => {
   it("keeps the Color effect's opacity out of the layer's visual state", () => {
     assert.equal(resolveVisualState([color], "6").opacity, 1);
   });
+
+  it("draws a text clip with no media, styled by its layer's Text", () => {
+    const text = {
+      id: "text",
+      trackId: "6",
+      effectName: "Text",
+      parameters: [
+        { key: "Text", value: "Hello\nWorld" },
+        { key: "FontSize", value: "120.000", numericValue: 120 },
+        { key: "Padding", value: "0.500", numericValue: 0.5 },
+      ],
+    };
+    const active = computeActiveClips(
+      [
+        ...DOGFOOD3_CLIPS,
+        { ...fill("text-1", "6", 60, 60), kind: "text", label: "Text" },
+      ],
+      new Map(MEDIA.map((item) => [item.id, item])),
+      PLAYHEAD_Q,
+      BPM,
+      LANE_PRIORITY,
+      [text],
+    );
+
+    const entry = active.find((candidate) => candidate.clip.id === "text-1");
+    assert.ok(entry?.isInBounds);
+    assert.equal(entry.sourceKey, "text:text-1");
+    assert.equal(entry.fill, undefined);
+    assert.equal(entry.text?.text, "Hello\nWorld");
+    assert.equal(entry.text?.fontSize, 120);
+    assert.equal(entry.text?.align, "center");
+    // The Text effect only styles text, so it never reads as the layer's
+    // scale, offset or opacity.
+    assert.deepEqual(
+      resolveVisualState([text], "6"),
+      resolveVisualState([], "6"),
+    );
+  });
 });

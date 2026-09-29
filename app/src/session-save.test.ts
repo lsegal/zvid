@@ -270,6 +270,30 @@ describe("projectToLvpSession", () => {
     assert.equal(session.selections?.length, 2);
   });
 
+  it("leaves out text clips and counts them", () => {
+    const project = baseProject();
+    const { session, skippedFillClips, skippedTextClips } = projectToLvpSession(
+      {
+        ...project,
+        clips: [
+          ...project.clips,
+          {
+            id: "text-1",
+            kind: "text",
+            sourceTrackId: "",
+            laneId: "main-1",
+            startQ: 0,
+            durationSeconds: 1,
+          },
+        ],
+      },
+      { playheadQ: 0 },
+    );
+    assert.equal(skippedTextClips, 1);
+    assert.equal(skippedFillClips, 0);
+    assert.equal(session.selections?.length, 2);
+  });
+
   it("keeps a warped span's source start and warp anchor", () => {
     const fps = 30;
     const bpm = 120;

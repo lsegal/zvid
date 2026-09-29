@@ -1,10 +1,11 @@
 // Describes whether a clip's media can be shown. Placeholder clips, such as
 // MIDI clips imported from a Live set without Layers video, never had a media
 // file, so they get their own state instead of reading as offline. Fill
-// clips need no media at all, so they are always online.
+// and text clips need no media at all, so they are always online.
 
 import { isFillClip } from "./fill-clip.ts";
 import type { MediaAvailability } from "./media.ts";
+import { isTextClip } from "./text-clip.ts";
 
 export type ClipMediaState = "online" | "hydrating" | "offline" | "placeholder";
 
@@ -14,14 +15,20 @@ export type ClipMediaRef = {
   mediaPath?: string;
 };
 
+// Whether the clip draws what its layer's effects describe (a fill or
+// text) rather than a media file.
+export function isGeneratedClip(clip: ClipMediaRef) {
+  return isFillClip(clip) || isTextClip(clip);
+}
+
 export function isPlaceholderClip(clip: ClipMediaRef) {
-  return !isFillClip(clip) && !clip.mediaId && !clip.mediaPath?.trim();
+  return !isGeneratedClip(clip) && !clip.mediaId && !clip.mediaPath?.trim();
 }
 
 // Whether the clip draws from a media file, so a missing file counts as
-// offline media. Placeholder and fill clips have no file.
+// offline media. Placeholder, fill and text clips have no file.
 export function usesMediaFile(clip: ClipMediaRef) {
-  return !isFillClip(clip) && !isPlaceholderClip(clip);
+  return !isGeneratedClip(clip) && !isPlaceholderClip(clip);
 }
 
 export function describeMediaAvailability(
@@ -41,7 +48,7 @@ export function describeClipMediaState(
   clip: ClipMediaRef,
   availability: MediaAvailability | undefined,
 ): ClipMediaState {
-  if (isFillClip(clip)) {
+  if (isGeneratedClip(clip)) {
     return "online";
   }
   return isPlaceholderClip(clip)
