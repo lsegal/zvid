@@ -64,13 +64,18 @@ function isClipboardEntry(entry: ContextMenuEntry) {
  */
 export function buildEditMenuEntries(
   history: readonly ContextMenuEntry[],
-  { clip, clipEntries, selectionEntries, layer, audioEntries }: EditMenuSelection,
+  {
+    clip,
+    clipEntries,
+    selectionEntries,
+    layer,
+    audioEntries,
+  }: EditMenuSelection,
 ): ContextMenuEntry[] {
   const clipboard = [...CLIPBOARD_IDS].flatMap((id) => {
     const isEntry = (entry: ContextMenuEntry) =>
       entry.type === "item" && entry.id === id;
-    const entry =
-      selectionEntries?.find(isEntry) ?? clipEntries.find(isEntry);
+    const entry = selectionEntries?.find(isEntry) ?? clipEntries.find(isEntry);
     return entry ? [entry] : [];
   });
   const clipActions = clipEntries.filter((entry) => !isClipboardEntry(entry));

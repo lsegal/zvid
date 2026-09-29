@@ -150,10 +150,7 @@ export function removeRangeFromLane<Clip extends RangeClip>(
     }
 
     const clipEndQ = getClipEndQ(clip, bpm);
-    if (
-      Math.min(clipEndQ, endQ) - Math.max(clip.startQ, startQ) <=
-      EPSILON
-    ) {
+    if (Math.min(clipEndQ, endQ) - Math.max(clip.startQ, startQ) <= EPSILON) {
       return [clip];
     }
 
@@ -228,8 +225,7 @@ export function placeClipAt<Clip extends RangeClip>(
     id,
     laneId,
     startQ,
-    sourceOffsetSeconds:
-      clip.trimStartSeconds - quartersToSeconds(startQ, bpm),
+    sourceOffsetSeconds: clip.trimStartSeconds - quartersToSeconds(startQ, bpm),
   };
 }
 
