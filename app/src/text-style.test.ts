@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  canQueryLocalFonts,
   DEFAULT_FONT_FAMILY,
   formatFontChoice,
   formatFontSpec,
@@ -8,6 +9,7 @@ import {
   googleFontsCssUrl,
   nearestFontWeight,
   parseFontChoice,
+  queryLocalFontFamilies,
   resolveFontFace,
 } from "./text-fonts.ts";
 import {
@@ -198,5 +200,39 @@ describe("fonts", () => {
       googleFontsCssUrl(["Lato", "Open Sans"]),
       "https://fonts.googleapis.com/css2?family=Lato&family=Open+Sans&display=swap",
     );
+  });
+
+  it("lists local fonts from the Local Font Access API where it's available", async () => {
+    let listedNatively = false;
+    const sources = {
+      queryLocalFonts: async () => [
+        { family: "Helvetica" },
+        { family: "Arial" },
+        { family: "Helvetica" },
+      ],
+      listNativeFontFamilies: async () => {
+        listedNatively = true;
+        return ["Menlo"];
+      },
+    };
+    assert.equal(canQueryLocalFonts(sources), true);
+    assert.deepEqual(await queryLocalFontFamilies(sources), [
+      "Arial",
+      "Helvetica",
+    ]);
+    assert.equal(listedNatively, false);
+  });
+
+  it("lists local fonts from the native app without queryLocalFonts", async () => {
+    const sources = {
+      listNativeFontFamilies: async () => ["Menlo", "Avenir", "Menlo"],
+    };
+    assert.equal(canQueryLocalFonts(sources), true);
+    assert.deepEqual(await queryLocalFontFamilies(sources), ["Avenir", "Menlo"]);
+  });
+
+  it("lists no local fonts where neither source is available", async () => {
+    assert.equal(canQueryLocalFonts({}), false);
+    assert.deepEqual(await queryLocalFontFamilies({}), []);
   });
 });
