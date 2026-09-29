@@ -3,10 +3,10 @@
 // parameters (label, range, default and display format) in stack UI order.
 
 import {
+  EXCLUDED_LAYERS_KEY,
   GRID_SIZE_MAX,
   GRID_SIZE_MIN,
   ORDER_ARRANGEMENTS,
-  EXCLUDED_LAYERS_KEY,
   ORDER_EFFECT_NAME,
   SPACING_MAX,
 } from "./composition-order.ts";

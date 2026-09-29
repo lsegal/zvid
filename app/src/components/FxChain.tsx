@@ -15,6 +15,7 @@ import {
   useState,
 } from "react";
 import ColorPicker from "react-best-gradient-color-picker";
+import { parseLayerIdList, toggleLayerId } from "../composition-order";
 import {
   addableEffectsFor,
   canStartFxChainPan,
@@ -37,7 +38,6 @@ import {
   usesColumnLayout,
   writeCollapsedDevices,
 } from "../fx-chain";
-import { parseLayerIdList, toggleLayerId } from "../composition-order";
 import type { FxEffectDefinition, FxEffectScope } from "../fx-registry";
 import {
   type FxDevice,

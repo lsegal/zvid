@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { toggleLayerId } from "./composition-order.ts";
 import {
   addableEffectsFor,
   canStartFxChainPan,
+  describeArrangedLayers,
   describeDeviceMove,
   dropSlotToStackIndex,
+  excludeAllLayers,
   FX_COLLAPSED_STORAGE_KEY,
   getAutoScrollDelta,
   getDefaultLaneId,
@@ -307,7 +310,7 @@ describe("splitDeviceParameters", () => {
 
     assert.deepEqual(
       controls.map((control) => control.key),
-      ["Arrangement"],
+      ["Arrangement", "ExcludedLayers"],
     );
     assert.deepEqual(
       knobs.map((knob) => knob.key),
@@ -587,5 +590,44 @@ describe("resolveGlobalOrderHint", () => {
       ),
       undefined,
     );
+  });
+});
+
+describe("Order Layers menu", () => {
+  const layers = [1, 2, 3, 4, 5].map((number) => ({
+    id: `${number}`,
+    name: `Layer ${number}`,
+  }));
+
+  it("labels the button with how many layers the Order arranges", () => {
+    assert.equal(describeArrangedLayers("", layers), "Layers: All");
+    assert.equal(describeArrangedLayers("1,5", layers), "Layers: 3 of 5");
+    assert.equal(
+      describeArrangedLayers(excludeAllLayers(layers), layers),
+      "Layers: None",
+    );
+  });
+
+  it("updates the label as layers are toggled", () => {
+    let value = "";
+    value = toggleLayerId(value, "2");
+    assert.equal(describeArrangedLayers(value, layers), "Layers: 4 of 5");
+    value = toggleLayerId(value, "4");
+    assert.equal(describeArrangedLayers(value, layers), "Layers: 3 of 5");
+    value = toggleLayerId(value, "2");
+    assert.equal(describeArrangedLayers(value, layers), "Layers: 4 of 5");
+  });
+
+  it("keeps exclusions by id when layers are renamed or reordered", () => {
+    const renamed = [...layers]
+      .reverse()
+      .map((layer) => ({ ...layer, name: `${layer.name} (renamed)` }));
+    assert.equal(describeArrangedLayers("3", renamed), "Layers: 4 of 5");
+  });
+
+  it("counts a new layer as arranged and ignores removed ones", () => {
+    const added = [...layers, { id: "6", name: "Layer 6" }];
+    assert.equal(describeArrangedLayers("1", added), "Layers: 5 of 6");
+    assert.equal(describeArrangedLayers("1,9", layers.slice(1)), "Layers: All");
   });
 });

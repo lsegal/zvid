@@ -332,15 +332,13 @@ export function projectToLvpSession(
         project.lanes.map((lane) => lane.id),
       ),
       savedClipIds,
-    ).map(
-      (effect) => ({
-        id: effect.id,
-        trackId: effect.trackId,
-        effectName: effect.effectName,
-        parameters: toLvpParameters(effect.parameters),
-        ...(effect.enabled === false ? { enabled: false } : {}),
-      }),
-    ),
+    ).map((effect) => ({
+      id: effect.id,
+      trackId: effect.trackId,
+      effectName: effect.effectName,
+      parameters: toLvpParameters(effect.parameters),
+      ...(effect.enabled === false ? { enabled: false } : {}),
+    })),
     timeline: {
       bpm,
       fps,

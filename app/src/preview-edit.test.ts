@@ -243,6 +243,36 @@ describe("resolvePreviewLayers", () => {
     assertClose(layer.corners[0].x, 500);
     assertClose(layer.corners[1].x, 1500);
   });
+
+  it("gives an excluded layer the whole canvas, on top when it is Layer 1", () => {
+    const layers = resolvePreviewLayers(
+      ["a", "b", "c", "d", "e"].map((id, rank) => activeLayer(id, rank)),
+      canvas,
+      { arrangement: "grid", gridSize: 2, spacing: 0, excludedLayers: ["a"] },
+    );
+    // Drawn last, so a click picks it wherever it is.
+    assert.deepEqual(
+      layers.map((layer) => layer.laneId),
+      ["e", "d", "c", "b", "a"],
+    );
+    assert.deepEqual(layers[4].corners, [
+      { x: 0, y: 0 },
+      { x: 1000, y: 0 },
+      { x: 1000, y: 1000 },
+      { x: 0, y: 1000 },
+    ]);
+    // Layer 2 takes the first cell.
+    assert.deepEqual(layers[3].corners, [
+      { x: 0, y: 0 },
+      { x: 500, y: 0 },
+      { x: 500, y: 500 },
+      { x: 0, y: 500 },
+    ]);
+    assert.equal(
+      hitTestLayers(layers, { x: 250, y: 250 }, canvas)?.laneId,
+      "a",
+    );
+  });
 });
 
 describe("hitTestLayers", () => {

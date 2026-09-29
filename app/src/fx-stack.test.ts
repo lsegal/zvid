@@ -21,8 +21,8 @@ import {
   mapSessionEffectsToDevices,
   moveEffect,
   previewDuplicateClipEffects,
-  pruneExcludedLayers,
   pruneClipEffects,
+  pruneExcludedLayers,
   removeEffect,
   renameClipEffectTracks,
   resetEffect,
@@ -437,6 +437,7 @@ describe("addEffect", () => {
     const added = effects.find((effect) => effect.id === "order");
     assert.deepEqual(added?.parameters, [
       { key: "Arrangement", value: "Vertical" },
+      { key: "ExcludedLayers", value: "" },
       { key: "GridSize", value: "2.000", numericValue: 2 },
       { key: "Spacing", value: "0.000", numericValue: 0 },
     ]);

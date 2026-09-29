@@ -379,6 +379,32 @@ describe("projectToLvpSession", () => {
     );
   });
 
+  it("drops an Order's exclusions of layers that no longer exist", () => {
+    const project = baseProject();
+    const session = projectToLvpSession(
+      {
+        ...project,
+        effects: [
+          ...project.effects,
+          {
+            id: "order",
+            trackId: "__group_main",
+            effectName: "Order",
+            parameters: [
+              { key: "Arrangement", value: "Grid" },
+              { key: "ExcludedLayers", value: "main-1,main-9" },
+            ],
+          },
+        ],
+      },
+      { playheadQ: 0 },
+    );
+    assert.deepEqual(session.effects?.[1]?.parameters, {
+      Arrangement: { stringValue: "Grid" },
+      ExcludedLayers: { stringValue: "main-1" },
+    });
+  });
+
   it("keeps a removed Order removed when reopened", () => {
     const session = projectToLvpSession(baseProject(), { playheadQ: 0 });
     assert.equal(session.orderDefaulted, true);

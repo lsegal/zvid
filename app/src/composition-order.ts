@@ -15,8 +15,8 @@ export type CompositionOrder = {
   // Gap between neighbouring layers, in output pixels at 1080p.
   spacing: number;
   // Ids of the layers the arrangement leaves out. They are drawn full-frame
-  // in their z-order instead, as with no Order.
-  excludedLayers: readonly string[];
+  // in their z-order instead, as with no Order. Absent means none.
+  excludedLayers?: readonly string[];
 };
 
 export const ORDER_EFFECT_NAME = "Order";
@@ -113,7 +113,7 @@ export function pruneLayerIdList(
 // every layer without an Order, cover the whole canvas instead.
 export function isLayerArranged(order: CompositionOrder, layerId: string) {
   return (
-    order.arrangement !== "none" && !order.excludedLayers.includes(layerId)
+    order.arrangement !== "none" && !order.excludedLayers?.includes(layerId)
   );
 }
 
