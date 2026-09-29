@@ -33,3 +33,49 @@ export function stepZoom(
 export function zoomFillFraction(zoom: number) {
   return (clampZoom(zoom) - ZOOM_MIN) / (ZOOM_MAX - ZOOM_MIN);
 }
+
+// Right-dragging the timeline ruler up or down zooms once the pointer has
+// moved past the threshold, by the speed per further pixel.
+export const TIMELINE_DRAG_ZOOM_SPEED = 0.004;
+export const TIMELINE_DRAG_ZOOM_THRESHOLD_PX = 25;
+
+// The zoom for a ruler drag that began at `originZoom` and has moved
+// `verticalDelta` pixels up (negative for down): up zooms in.
+export function timelineDragZoom(originZoom: number, verticalDelta: number) {
+  const distance = Math.abs(verticalDelta) - TIMELINE_DRAG_ZOOM_THRESHOLD_PX;
+  if (distance <= 0) {
+    return clampZoom(originZoom);
+  }
+
+  return clampZoom(
+    originZoom + Math.sign(verticalDelta) * distance * TIMELINE_DRAG_ZOOM_SPEED,
+  );
+}
+
+// The timeline scroll that puts `anchorQ` (in quarters) at `pointerX`, the
+// pointer's offset from the scroll view's left edge, when a quarter is
+// `quarterPx` wide, clamped to the scrollable range.
+export function anchoredTimelineScrollLeft({
+  anchorQ,
+  pointerX,
+  quarterPx,
+  labelWidth,
+  totalQuarters,
+  clientWidth,
+}: {
+  anchorQ: number;
+  pointerX: number;
+  quarterPx: number;
+  labelWidth: number;
+  totalQuarters: number;
+  clientWidth: number;
+}) {
+  const maxScrollLeft = Math.max(
+    0,
+    labelWidth + totalQuarters * quarterPx - clientWidth,
+  );
+  return Math.max(
+    0,
+    Math.min(maxScrollLeft, labelWidth + anchorQ * quarterPx - pointerX),
+  );
+}
