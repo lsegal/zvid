@@ -228,7 +228,10 @@ describe("fonts", () => {
       listNativeFontFamilies: async () => ["Menlo", "Avenir", "Menlo"],
     };
     assert.equal(canQueryLocalFonts(sources), true);
-    assert.deepEqual(await queryLocalFontFamilies(sources), ["Avenir", "Menlo"]);
+    assert.deepEqual(await queryLocalFontFamilies(sources), [
+      "Avenir",
+      "Menlo",
+    ]);
   });
 
   it("lists no local fonts where neither source is available", async () => {
