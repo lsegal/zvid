@@ -61,6 +61,10 @@ export type LvpSession = {
   playStartPosition?: number;
   audioFilename?: string;
   sessionFile?: string;
+  // Set on sessions saved since every session got a default Order effect;
+  // without it the session is older and opens with one added. Anything that
+  // writes a session must set it, or a removed Order comes back on open.
+  orderDefaulted?: boolean;
 };
 
 export type ServerMediaRef = {

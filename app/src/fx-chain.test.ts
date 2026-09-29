@@ -13,7 +13,9 @@ import {
   groupChainDevices,
   isNoopDropSlot,
   knobColumnCount,
+  NO_ORDER_HINT,
   readCollapsedDevices,
+  resolveGlobalOrderHint,
   resolveSelectedLaneId,
   splitDeviceParameters,
   stepSelectedLaneId,
@@ -21,10 +23,12 @@ import {
   writeCollapsedDevices,
 } from "./fx-chain.ts";
 import {
+  ensureGlobalOrder,
   GLOBAL_EFFECT_TRACK_ID,
   mapSessionEffectsToDevices,
   moveEffect,
   type SessionEffect,
+  setEffectEnabled,
 } from "./fx-stack.ts";
 
 function effect(
@@ -469,5 +473,29 @@ describe("canStartFxChainPan", () => {
 
   it("ignores the secondary button so context menus still open", () => {
     assert.equal(canStartFxChainPan({ button: 2, target: target() }), false);
+  });
+});
+
+describe("resolveGlobalOrderHint", () => {
+  const globalDevices = (effects: SessionEffect[]) =>
+    groupChainDevices(mapSessionEffectsToDevices(effects, "1"), "video").global;
+
+  it("points out a Global stack with no Order", () => {
+    assert.equal(resolveGlobalOrderHint(globalDevices([])), NO_ORDER_HINT);
+    assert.equal(
+      NO_ORDER_HINT,
+      "No Order: layers overlap (Layer 1 on top). Add Order to arrange them.",
+    );
+  });
+
+  it("stays quiet while the Global stack has an Order", () => {
+    const effects = ensureGlobalOrder([]);
+    assert.equal(resolveGlobalOrderHint(globalDevices(effects)), undefined);
+    assert.equal(
+      resolveGlobalOrderHint(
+        globalDevices(setEffectEnabled(effects, "order-global", false)),
+      ),
+      undefined,
+    );
   });
 });

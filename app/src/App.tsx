@@ -146,6 +146,7 @@ import {
 } from "./components/ui/dropdown-menu";
 import { WandIcon } from "./components/WandIcon";
 import { computeActiveClips } from "./composition-active-clips.ts";
+import { resolveCompositionOrder } from "./composition-order.ts";
 import { isContextMenuKey, isContextMenuPress } from "./context-menu.ts";
 import { isRulerPanPress, isTimelinePanPress } from "./drag-scroll.ts";
 import { buildEditMenuEntries } from "./edit-menu.ts";
@@ -161,8 +162,10 @@ import {
   addEffect,
   duplicateEffect,
   effectHistoryLabels,
+  ensureGlobalOrder,
   ensureLayerLayouts,
   type FxDevice,
+  GLOBAL_EFFECT_TRACK_ID,
   getRenderedEffects,
   isLayerFxEnabled,
   isLayoutEffectName,
@@ -256,6 +259,7 @@ import {
   projectHistoryReducer,
 } from "./project-history";
 import {
+  migrateDefaultOrder,
   migrateLegacyMainAudio,
   stripClipSelectionFlags,
 } from "./project-state-compat.ts";
@@ -644,9 +648,11 @@ const INITIAL_PROJECT_STATE: ProjectState = {
   sourceTracks: [],
   sourceSpans: [],
   clips: [],
-  effects: ensureLayerLayouts(
-    [],
-    DEFAULT_LANES.map((lane) => lane.id),
+  effects: ensureGlobalOrder(
+    ensureLayerLayouts(
+      [],
+      DEFAULT_LANES.map((lane) => lane.id),
+    ),
   ),
   mainAudioId: undefined,
 };
@@ -1703,11 +1709,15 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
     sourceSpans,
     arrangementClips,
     selectedClipId,
-    // Every layer gets its own Layout, taking over any global one, as part
-    // of the load so it is not a separate undo step.
-    effects: ensureLayerLayouts(
-      mapEffects(session.effects),
-      (lanes.length ? lanes : DEFAULT_LANES).map((lane) => lane.id),
+    // Every layer gets its own Layout, taking over any global one, and an
+    // older session gets its default Order, as part of the load so neither
+    // is a separate undo step.
+    effects: migrateDefaultOrder(
+      ensureLayerLayouts(
+        mapEffects(session.effects),
+        (lanes.length ? lanes : DEFAULT_LANES).map((lane) => lane.id),
+      ),
+      session.orderDefaulted,
     ),
     displaySeconds: session.timeline?.displaySeconds ?? false,
     snapToBeat: session.timeline?.snapToBeat ?? true,
@@ -2488,6 +2498,7 @@ function App() {
           getRenderedEffects(effects, lanes),
         ).filter((entry) => entry.media.kind === "video"),
         { width: canvasWidth, height: canvasHeight },
+        resolveCompositionOrder(effects, GLOBAL_EFFECT_TRACK_ID),
       ),
     [
       bpm,
@@ -6290,9 +6301,11 @@ function App() {
           patchProjectState(current, {
             mediaItems: nextMedia,
             lanes: standalone.lanes,
-            effects: ensureLayerLayouts(
-              current.effects,
-              standalone.lanes.map((lane) => lane.id),
+            effects: ensureGlobalOrder(
+              ensureLayerLayouts(
+                current.effects,
+                standalone.lanes.map((lane) => lane.id),
+              ),
             ),
             sourceTracks: standalone.sourceTracks,
             sourceSpans: standalone.sourceSpans,
