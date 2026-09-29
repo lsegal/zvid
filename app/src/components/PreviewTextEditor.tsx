@@ -17,7 +17,7 @@ import {
   textScaleForCanvas,
 } from "../preview-text-edit.ts";
 import {
-  formatFontSpec,
+  formatFontFamily,
   loadFontFace,
   resolveFontFace,
   subscribeFonts,
@@ -173,8 +173,14 @@ export function PreviewTextEditor({
   ]
     .filter(Boolean)
     .join(" ");
+  const shadow = style.shadow
+    ? `${style.shadow.offsetX * scale}px ${style.shadow.offsetY * scale}px ${style.shadow.blur * scale}px ${formatCssColor(style.shadow.color)}`
+    : undefined;
   const inputStyle: CSSProperties = {
-    font: formatFontSpec(face, typography.fontSize),
+    fontFamily: formatFontFamily(face),
+    fontSize: `${typography.fontSize}px`,
+    fontWeight: face.weight,
+    fontStyle: face.italic ? "italic" : "normal",
     lineHeight: `${typography.lineHeight}px`,
     letterSpacing: `${typography.letterSpacing}px`,
     padding: `${typography.paddingTop}px ${typography.paddingX}px ${typography.paddingX}px`,
@@ -199,9 +205,13 @@ export function PreviewTextEditor({
     WebkitTextStroke: style.stroke
       ? `${typography.strokeWidth}px ${formatCssColor(style.stroke.color)}`
       : undefined,
-    textShadow: style.shadow
-      ? `${style.shadow.offsetX * scale}px ${style.shadow.offsetY * scale}px ${style.shadow.blur * scale}px ${formatCssColor(style.shadow.color)}`
-      : undefined,
+    // A text shadow paints over a gradient clipped to the text, so a
+    // gradient casts its shadow through a filter instead.
+    ...(shadow
+      ? style.paint.kind === "solid"
+        ? { textShadow: shadow }
+        : { filter: `drop-shadow(${shadow})` }
+      : {}),
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
