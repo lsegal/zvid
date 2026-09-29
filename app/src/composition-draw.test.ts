@@ -611,7 +611,6 @@ describe("drawComposition text layers", () => {
   // An OffscreenCanvas stand-in whose 2D context measures every character
   // as half an em and records the text it draws.
   class FakeTextCanvas {
-    static created: FakeTextCanvas[] = [];
     fills: TextCall[] = [];
     strokes: TextCall[] = [];
     context: Record<string, unknown>;
@@ -621,7 +620,6 @@ describe("drawComposition text layers", () => {
     constructor(width: number, height: number) {
       this.width = width;
       this.height = height;
-      FakeTextCanvas.created.push(this);
       const size = () =>
         Number.parseFloat(
           /([\d.]+)px/.exec(String(this.context.font))?.[1] ?? "10",
@@ -655,7 +653,6 @@ describe("drawComposition text layers", () => {
   beforeEach(() => {
     savedGlobals.OffscreenCanvas = globals.OffscreenCanvas;
     globals.OffscreenCanvas = FakeTextCanvas;
-    FakeTextCanvas.created = [];
   });
 
   function textLayer(text: TextStyle, lane = 0): CompositeLayer {
