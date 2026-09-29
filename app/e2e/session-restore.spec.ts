@@ -271,6 +271,13 @@ test("a restored session keeps a removed Order, and an older one gets it", async
   await expect(order).toHaveCount(0);
 
   // The same session as a build from before the default Order saved it.
+  // Edited from a blank page of the same origin, with the app closed: its
+  // unload flush and any pending autosave would otherwise write the live
+  // session back over the edit.
+  await page.route("**/blank.html", (route) =>
+    route.fulfill({ contentType: "text/html", body: "" }),
+  );
+  await page.goto("/blank.html");
   await page.evaluate(
     () =>
       new Promise<void>((resolve, reject) => {
@@ -302,7 +309,7 @@ test("a restored session keeps a removed Order, and an older one gets it", async
   );
   expect(await readSavedPayload(page)).not.toContain("orderDefaulted");
 
-  await page.reload();
+  await page.goto("/");
   await page.locator('[data-layer-header-id="1"]').click();
   await expect(order).toHaveCount(1);
   await expect(order).toContainText("Vertical");
