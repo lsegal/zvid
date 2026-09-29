@@ -106,11 +106,13 @@ type StackableLayer = {
 
 // A layer as the preview draws it: its slot, its layer's Transform, its
 // clip's own Transform (inside the layer's), and the corners of the clip's
-// transformed box in canvas pixels.
+// transformed box in canvas pixels. The compositor crops the layer to
+// `slot`, its slot in canvas pixels: the whole canvas without an Order.
 export type PreviewLayer = {
   laneId: string;
   clipId: string;
   placement: { frame: FrameBounds };
+  slot: Box;
   transform: LayerTransform;
   clipTransform: LayerTransform;
   corners: BoxCorners;
@@ -229,9 +231,10 @@ export function resolvePreviewLayers(
     }
     placed.push(...layers.filter(Boolean));
   };
+  const canvasBox = { x: 0, y: 0, width: canvas.width, height: canvas.height };
   collect(
     planLayerDraws(inBounds, order),
-    { x: 0, y: 0, width: canvas.width, height: canvas.height },
+    canvasBox,
     order,
   );
 
@@ -249,6 +252,8 @@ export function resolvePreviewLayers(
       laneId: entry.clip.laneId,
       clipId: entry.clip.id,
       placement,
+      // An FX clip's box starts as the canvas and is cropped only by it.
+      slot: entry.fx ? canvasBox : frameBoxInCanvas(frame, canvas),
       transform,
       clipTransform,
       corners: resolvePreviewEditFrame(
@@ -292,15 +297,21 @@ function resolveArrangementBox(
 
 type HitTestLayer = Pick<PreviewLayer, "placement" | "transform"> & {
   clipTransform?: LayerTransform;
+  // The box the layer is cropped to; absent means only the canvas crops it.
+  slot?: Box;
 };
 
 // Whether `point` is on the layer's clip as drawn: its box after the clip's
-// Transform and the layer's.
+// Transform and the layer's, where it shows inside its slot.
 export function isPointOnLayer(
   point: Point,
   layer: HitTestLayer,
   canvas: Size,
 ) {
+  if (layer.slot && !isPointInBox(point, layer.slot)) {
+    return false;
+  }
+
   const local = canvasToLayer(
     point,
     layer.placement,
@@ -317,6 +328,15 @@ export function isPointOnLayer(
     local !== undefined &&
     Math.abs(local.x) <= edge &&
     Math.abs(local.y) <= edge
+  );
+}
+
+function isPointInBox(point: Point, box: Box) {
+  return (
+    point.x >= box.x &&
+    point.x <= box.x + box.width &&
+    point.y >= box.y &&
+    point.y <= box.y + box.height
   );
 }
 

@@ -271,15 +271,19 @@ export function PreviewTransformOverlay({
   };
 
   // The selected layer keeps the press anywhere inside its outline (its
-  // clip's box, or the layer's own box when only the layer is selected),
-  // even where another layer is drawn over it.
+  // clip's box, or the layer's own box when only the layer is selected)
+  // where it shows in its slot, even where another layer is drawn over it.
   const pickLayer = (point: Point) =>
     selected &&
     isPointOnLayer(
       point,
       editsClip
         ? selected
-        : { placement: selected.placement, transform: selected.transform },
+        : {
+            placement: selected.placement,
+            transform: selected.transform,
+            slot: selected.slot,
+          },
       canvas,
     )
       ? selected
@@ -819,6 +823,23 @@ export function PreviewTransformOverlay({
       matrixRotationDeg(selectedFrame.parent)
     : 0;
   const showControls = Boolean(outline && monitor.width > 0);
+  // The slot the compositor crops the selected layer to, so the crop shows
+  // while its outline and handles reach past it. Without an Order the slot
+  // is the whole canvas, whose edge needs no marking.
+  const slotRect =
+    selected && !coversCanvas(selected.slot, canvas)
+      ? {
+          start: canvasToScreen(selected.slot, video, canvas),
+          end: canvasToScreen(
+            {
+              x: selected.slot.x + selected.slot.width,
+              y: selected.slot.y + selected.slot.height,
+            },
+            video,
+            canvas,
+          ),
+        }
+      : undefined;
   const showHandles = showControls && !editedLayer;
   const videoBottom = video.top + video.height;
   const videoRight = video.left + video.width;
@@ -884,6 +905,16 @@ export function PreviewTransformOverlay({
               />
             );
           })}
+          {slotRect ? (
+            <rect
+              className="preview-transform-overlay__slot"
+              data-testid="preview-transform-slot"
+              x={slotRect.start.x}
+              y={slotRect.start.y}
+              width={slotRect.end.x - slotRect.start.x}
+              height={slotRect.end.y - slotRect.start.y}
+            />
+          ) : null}
           <polygon
             className="preview-transform-overlay__halo"
             points={outline}
@@ -1000,6 +1031,16 @@ export function PreviewTransformOverlay({
         </div>
       ) : null}
     </div>
+  );
+}
+
+// Whether `box` reaches every edge of the canvas, to within a pixel.
+function coversCanvas(box: Box, canvas: Size) {
+  return (
+    box.x <= 0.5 &&
+    box.y <= 0.5 &&
+    box.x + box.width >= canvas.width - 0.5 &&
+    box.y + box.height >= canvas.height - 0.5
   );
 }
 
