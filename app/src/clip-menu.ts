@@ -9,7 +9,7 @@ const EPSILON = 0.0001;
 
 // Shortcut hints use the platform's primary modifier.
 export function formatShortcut(key: string, mac: boolean) {
-  return mac ? `⌘${key}` : `Ctrl+${key}`;
+  return mac ? `Cmd+${key}` : `Ctrl+${key}`;
 }
 
 /**
@@ -108,7 +108,7 @@ export function buildClipMenuEntries({
       type: "item",
       id: "delete",
       label: "Delete",
-      shortcut: mac ? "⌫" : "Del",
+      shortcut: "Del",
       disabled: !hasClip,
       onSelect: actions.remove,
     },
