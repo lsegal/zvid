@@ -9,6 +9,7 @@ import {
   PauseIcon,
   PlayIcon,
 } from "@heroicons/react/24/solid";
+import { isTauri } from "@tauri-apps/api/core";
 import {
   type DragEvent as ReactDragEvent,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -106,7 +107,10 @@ import {
   usePrefersReducedMotion,
 } from "./components/MediaSyncSkeleton";
 import { OfflineMediaDialog } from "./components/OfflineMediaDialog";
-import { ShareLinkButton } from "./components/ShareLinkButton";
+import {
+  ShareLinkButton,
+  ShareLinkIconButton,
+} from "./components/ShareLinkButton";
 import {
   StatusBar,
   type StatusItem,
@@ -162,6 +166,7 @@ import {
   supportsHarnessCapability,
 } from "./harness";
 import { hasMediaExtension } from "./harness/media-extensions";
+import { loadIceServers, resolveRelayIceServersUrl } from "./ice-servers";
 import {
   createLaneId,
   deleteLane,
@@ -231,6 +236,10 @@ import {
   normalizeLvpSession,
   type SessionOpenResponse,
 } from "./session";
+import {
+  forgetChangedMainAudioMiss,
+  offlineSessionMediaIds,
+} from "./session-media.ts";
 import {
   buildPublicShareUrl,
   type InviteParams,
@@ -543,6 +552,16 @@ const LEGACY_DEFAULT_SIGNALING_URLS = [
   [PUBLIC_SIGNALING_URL],
 ];
 const ICE_SERVERS = resolveIceServers();
+// The app worker's short-lived TURN credentials (worker/turn.ts).
+const RELAY_ICE_SERVERS_URL = resolveRelayIceServersUrl(
+  import.meta.env.VITE_ICE_SERVERS_URL,
+  // The Vite dev server has no Worker to answer /api/ice-servers.
+  import.meta.env.DEV ? undefined : globalThis.location?.origin,
+  isTauri(),
+);
+// Relay credentials last a day; reuse them for an hour so reconnecting or
+// renaming yourself doesn't mint new ones every time.
+const RELAY_ICE_SERVERS_REUSE_MS = 60 * 60 * 1000;
 const IDLE_COLLABORATION_STATE: CollaborationConnectionState = {
   connected: false,
   peerCount: 0,
@@ -1053,6 +1072,32 @@ function resolveIceServers() {
   }
 }
 
+let sessionIceServers: {
+  promise: Promise<RTCIceServer[]>;
+  fetchedAt: number;
+} | null = null;
+
+// The configured ICE servers plus the relay's TURN servers, fetched before a
+// collaboration session starts.
+function getSessionIceServers() {
+  if (
+    !sessionIceServers ||
+    Date.now() - sessionIceServers.fetchedAt > RELAY_ICE_SERVERS_REUSE_MS
+  ) {
+    const promise = loadIceServers(ICE_SERVERS, RELAY_ICE_SERVERS_URL, {
+      log: logClient,
+    });
+    sessionIceServers = { promise, fetchedAt: Date.now() };
+    // Without a relay, try again for the next session.
+    void promise.then((servers) => {
+      if (servers === ICE_SERVERS && sessionIceServers?.promise === promise) {
+        sessionIceServers = null;
+      }
+    });
+  }
+  return sessionIceServers.promise;
+}
+
 function buildCollaboratorName() {
   const prefix = pickRandom(COLLAB_NAME_PREFIXES) ?? "Signal";
   const suffix = pickRandom(COLLAB_NAME_SUFFIXES) ?? "Wave";
@@ -1266,6 +1311,7 @@ function buildCollaborationViewModel(
   isStartingConnect: boolean,
   activeShareRoom: string,
   collaborationSignaling: string,
+  iceServers: RTCIceServer[],
 ) {
   const remoteCollaborators = state.collaborators.filter(
     (collaborator) => !collaborator.isLocal,
@@ -1303,7 +1349,7 @@ function buildCollaborationViewModel(
         : buildDiagnosticsRows(
             getCollaborationRole(mode),
             state.diagnostics,
-            ICE_SERVERS,
+            iceServers,
           ),
     remoteCollaboratorNames: remoteCollaborators
       .map((collaborator) => collaborator.name)
@@ -1897,6 +1943,8 @@ function App() {
   const [shareUrl, setShareUrl] = useState("");
   const [collaborationState, setCollaborationState] =
     useState<CollaborationConnectionState>(IDLE_COLLABORATION_STATE);
+  const [collaborationIceServers, setCollaborationIceServers] =
+    useState<RTCIceServer[]>(ICE_SERVERS);
   const [isDiagnosticsDialogOpen, setIsDiagnosticsDialogOpen] = useState(false);
   const [mediaHydrationTick, setMediaHydrationTick] = useState(0);
   const collaborationColor = initialCollaborationConfig.color;
@@ -1941,6 +1989,7 @@ function App() {
     mediaPeerCount: number;
     ids: Set<string>;
   }>({ controller: null, mediaPeerCount: 0, ids: new Set() });
+  const peerMainAudioIdRef = useRef<string | undefined>(undefined);
   const sessionMediaCheckRef = useRef<SessionMediaCheck | null>(null);
   const lastCollaborationCursorRef = useRef("");
   const sourceTrackDragPreviewRef = useRef<SourceTrackDragPreview | null>(null);
@@ -1962,19 +2011,6 @@ function App() {
     () => new Map(mediaItems.map((item) => [item.id, item])),
     [mediaItems],
   );
-  // Serialized so the peer fetch effect only reruns when the set changes.
-  const offlineClipMediaIdsKey = useMemo(() => {
-    const ids = new Set<string>();
-    for (const clip of clips) {
-      if (
-        clip.mediaId &&
-        mediaItemsById.get(clip.mediaId)?.availability === "offline"
-      ) {
-        ids.add(clip.mediaId);
-      }
-    }
-    return JSON.stringify(Array.from(ids).sort());
-  }, [clips, mediaItemsById]);
   const lanePriority = useMemo(
     () => new Map(lanes.map((lane, index) => [lane.id, index])),
     [lanes],
@@ -2613,6 +2649,36 @@ function App() {
           width: ((mainAudio.durationSeconds * bpm) / 60) * quarterPx,
         }
       : { left: visibleTimelineStartPx, width: visibleTimelineWidthPx };
+  // Every offline media the session references, in peer request order.
+  // Serialized so the peer fetch effect only reruns when the list changes.
+  const offlineSessionMediaIdsKey = useMemo(() => {
+    const toRange = (clip: ArrangementClip | SourceSpan) => ({
+      mediaId: clip.mediaId,
+      startQ: clip.startQ,
+      endQ: getClipEndQ(clip, bpm),
+    });
+    return JSON.stringify(
+      offlineSessionMediaIds({
+        availability: (mediaId) => mediaItemsById.get(mediaId)?.availability,
+        mainAudioId,
+        clips: clips.map(toRange),
+        sourceSpans: sourceSpans.map(toRange),
+        playheadQ,
+        visibleStartQ: visibleTimelineStartPx / quarterPx,
+        visibleEndQ: visibleTimelineEndPx / quarterPx,
+      }),
+    );
+  }, [
+    bpm,
+    clips,
+    mainAudioId,
+    mediaItemsById,
+    playheadQ,
+    quarterPx,
+    sourceSpans,
+    visibleTimelineEndPx,
+    visibleTimelineStartPx,
+  ]);
   const filmstripRange = getFilmstripRange(
     visibleTimelineStartPx,
     visibleTimelineWidthPx,
@@ -3245,9 +3311,11 @@ function App() {
         isStartingConnect,
         activeShareRoom,
         collaborationSignaling,
+        collaborationIceServers,
       ),
     [
       activeShareRoom,
+      collaborationIceServers,
       collaborationMode,
       collaborationSignaling,
       collaborationState,
@@ -4041,32 +4109,40 @@ function App() {
       return;
     }
 
-    const controller = createCollaborationController<ProjectState>({
-      roomName,
-      password: collaborationPassword.trim(),
-      signalingUrls: parseSignalingUrls(collaborationSignaling),
-      role: getCollaborationRole(collaborationMode),
-      iceServers: ICE_SERVERS,
-      log: logClient,
-      initialState: INITIAL_PROJECT_STATE,
-      bootstrapState: projectSnapshotRef.current,
-      user: {
-        name: collaborationName.trim() || initialCollaborationConfig.name,
-        color: collaborationColor,
-      },
-      onRemoteState: applyRemoteProjectState,
-      onConnectionState: setCollaborationState,
-      resolveMedia: resolvePeerMedia,
+    let cancelled = false;
+    let controller: CollaborationController<ProjectState> | null = null;
+    void getSessionIceServers().then((iceServers) => {
+      if (cancelled) {
+        return;
+      }
+      setCollaborationIceServers(iceServers);
+      controller = createCollaborationController<ProjectState>({
+        roomName,
+        password: collaborationPassword.trim(),
+        signalingUrls: parseSignalingUrls(collaborationSignaling),
+        role: getCollaborationRole(collaborationMode),
+        iceServers,
+        log: logClient,
+        initialState: INITIAL_PROJECT_STATE,
+        bootstrapState: projectSnapshotRef.current,
+        user: {
+          name: collaborationName.trim() || initialCollaborationConfig.name,
+          color: collaborationColor,
+        },
+        onRemoteState: applyRemoteProjectState,
+        onConnectionState: setCollaborationState,
+        resolveMedia: resolvePeerMedia,
+      });
+      collaborationControllerRef.current = controller;
     });
 
-    collaborationControllerRef.current = controller;
-
     return () => {
-      if (collaborationControllerRef.current === controller) {
+      cancelled = true;
+      if (controller && collaborationControllerRef.current === controller) {
         collaborationControllerRef.current = null;
       }
       abortPeerMediaTransfers();
-      controller.destroy();
+      controller?.destroy();
     };
   }, [
     abortPeerMediaTransfers,
@@ -4102,9 +4178,16 @@ function App() {
       misses.mediaPeerCount = mediaPeerCount;
       misses.ids.clear();
     }
+    // A main audio the host adds or replaces mid-share is requested at once.
+    forgetChangedMainAudioMiss(
+      misses.ids,
+      peerMainAudioIdRef.current,
+      mainAudioId,
+    );
+    peerMainAudioIdRef.current = mainAudioId;
 
     const transfers = peerMediaTransfersRef.current;
-    const offlineIds = JSON.parse(offlineClipMediaIdsKey) as string[];
+    const offlineIds = JSON.parse(offlineSessionMediaIdsKey) as string[];
     // Media a peer may have that is waiting for a free transfer slot.
     const queuedIds: string[] = [];
     for (const mediaId of offlineIds) {
@@ -4214,8 +4297,9 @@ function App() {
   }, [
     adoptMediaBlob,
     collaborationMode,
+    mainAudioId,
     mediaPeerCount,
-    offlineClipMediaIdsKey,
+    offlineSessionMediaIdsKey,
     mediaHydrationTick,
     setLocalMediaOverride,
   ]);
@@ -6191,6 +6275,17 @@ function App() {
     }
   }
 
+  // Shows the top bar "Copied" badge for a few seconds after a copy.
+  function showShareCopiedBadge() {
+    setHasCopiedShareInvite(true);
+    if (shareCopyResetTimeoutRef.current !== null) {
+      window.clearTimeout(shareCopyResetTimeoutRef.current);
+    }
+    shareCopyResetTimeoutRef.current = window.setTimeout(() => {
+      setHasCopiedShareInvite(false);
+    }, 4500);
+  }
+
   async function handleStartShare() {
     if (typeof window === "undefined" || isStartingShare) {
       return;
@@ -6215,19 +6310,13 @@ function App() {
           publicAppUrl: import.meta.env.VITE_PUBLIC_APP_URL,
         },
       );
-      // Kept whether or not the copy below works, so the status bar's Copy
-      // link button can copy it again for the rest of the session.
+      // Kept whether or not the copy below works, so the Copy share link
+      // buttons can copy it again for the rest of the session.
       setShareUrl(inviteUrl);
 
       try {
         await navigator.clipboard.writeText(inviteUrl);
-        setHasCopiedShareInvite(true);
-        if (shareCopyResetTimeoutRef.current !== null) {
-          window.clearTimeout(shareCopyResetTimeoutRef.current);
-        }
-        shareCopyResetTimeoutRef.current = window.setTimeout(() => {
-          setHasCopiedShareInvite(false);
-        }, 4500);
+        showShareCopiedBadge();
         setStatus(
           localOnly
             ? "Invite copied, but it only works on this computer or network. Share from the deployed app to invite others. Click Stop Share to disconnect."
@@ -6517,7 +6606,7 @@ function App() {
             },
           ];
         }
-        // The Copy link button sits right after the share status.
+        // The Copy share link button sits right after the share status.
         if (
           item.id === "collaboration" &&
           shareLinkVisible(collaborationMode, shareUrl)
@@ -6761,6 +6850,13 @@ function App() {
                   : "Share"}
             </span>
           </button>
+          {shareLinkVisible(collaborationMode, shareUrl) ? (
+            <ShareLinkIconButton
+              key={shareUrl}
+              onCopied={showShareCopiedBadge}
+              url={shareUrl}
+            />
+          ) : null}
           {hasCopiedShareInvite ? (
             <span
               className="share-copy-badge"
@@ -6904,8 +7000,8 @@ function App() {
             </dl>
             <p className="share-dialog__note">
               Tabs of the same browser sync without WebRTC, so test with two
-              different browsers or machines. Peers behind strict NATs need a
-              TURN relay (VITE_ICE_SERVERS).
+              different browsers or machines. Peers behind strict NATs connect
+              through the TURN relay, which the deployed app provides.
             </p>
           </div>
 
@@ -7440,6 +7536,12 @@ function App() {
                           ) : null}
                           {(clipsByLane.get(lane.id) ?? []).map((clip) => {
                             const selected = clip.id === selectedClip?.id;
+                            // Keeps the trim handles shown while the pointer
+                            // strays off the clip mid-drag.
+                            const trimming =
+                              (dragState?.kind === "resize-start" ||
+                                dragState?.kind === "resize-end") &&
+                              dragState.clipId === clip.id;
                             const durationQ = getClipDurationQ(clip, bpm);
                             const media = clip.mediaId
                               ? mediaItemsById.get(clip.mediaId)
@@ -7477,7 +7579,7 @@ function App() {
                               // biome-ignore lint/a11y/noStaticElementInteractions: right-click is a pointer shortcut; the context-menu key and Shift+F10 open the same menu on the selected clip
                               <div
                                 key={clip.id}
-                                className={`clip-card ${selected ? "clip-card--selected" : ""} ${filmstrip ? "clip-card--filmstrip" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""}`}
+                                className={`clip-card ${selected ? "clip-card--selected" : ""} ${trimming ? "clip-card--trimming" : ""} ${filmstrip ? "clip-card--filmstrip" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""}`}
                                 data-clip-id={clip.id}
                                 onContextMenu={(event) =>
                                   openArrangementClipMenu(event, clip)
