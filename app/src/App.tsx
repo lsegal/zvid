@@ -103,6 +103,10 @@ import {
   TransportPlayheadReadout,
 } from "./components/LivePlayhead";
 import {
+  MediaSyncDialog,
+  type MediaSyncPeer,
+} from "./components/MediaSyncDialog";
+import {
   MediaSyncSkeleton,
   usePrefersReducedMotion,
 } from "./components/MediaSyncSkeleton";
@@ -202,6 +206,11 @@ import {
 } from "./media";
 import { cacheMediaBlob, getCachedMediaBlob } from "./media-cache";
 import { createMediaRelinker, type MediaRelinkCandidate } from "./media-relink";
+import {
+  listMediaSync,
+  mediaSyncLabel,
+  summarizeMediaSync,
+} from "./media-sync.ts";
 import {
   describeMediaSync,
   formatMediaSyncLabel,
@@ -1934,6 +1943,11 @@ function App() {
     useState(false);
   const [isOfflineMediaDialogOpen, setIsOfflineMediaDialogOpen] =
     useState(false);
+  const [isMediaSyncDialogOpen, setIsMediaSyncDialogOpen] = useState(false);
+  // Mirrors peerMediaMissesRef.current.ids so rendering sees peer misses.
+  const [peerMediaMissIds, setPeerMediaMissIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const [relinkingMediaIds, setRelinkingMediaIds] = useState<
     ReadonlySet<string>
   >(() => new Set());
@@ -2524,24 +2538,55 @@ function App() {
     () => listOfflineMedia(mediaItems, [...timelineClips, ...sourceSpans]),
     [mediaItems, sourceSpans, timelineClips],
   );
-  const offlineCount = useMemo(() => {
-    const missingKeys = new Set<string>();
-    for (const clip of [...timelineClips, ...sourceSpans]) {
-      // Placeholder clips, such as MIDI imported from a Live set, never had
-      // media, so there is no file to report as offline.
-      if (isPlaceholderClip(clip)) {
-        continue;
-      }
-
-      if (!clip.mediaId || !mediaItemsById.has(clip.mediaId)) {
-        missingKeys.add(clip.mediaId ?? `clip:${clip.id}`);
-      }
-    }
-    return (
-      offlineMedia.filter((entry) => entry.state === "offline").length +
-      missingKeys.size
+  // Media a peer may still send is syncing, not offline, so only files no
+  // connected peer could serve count toward the offline label. A joiner can
+  // receive the project over a peer connection before that peer's media
+  // channel opens, so any connected peer counts.
+  const { diagnostics: collaborationDiagnostics } = collaborationState;
+  const inSharedMediaSession =
+    collaborationMode !== "idle" &&
+    (collaborationState.mediaPeerCount > 0 ||
+      collaborationDiagnostics.peersConnected > 0 ||
+      collaborationDiagnostics.sameBrowserPeers > 0);
+  const mediaSyncEntries = useMemo(
+    () =>
+      listMediaSync({
+        mediaItems,
+        // Placeholder clips, such as MIDI imported from a Live set, never
+        // had media, so there is no file to report as offline.
+        arrangementClips: timelineClips.filter(
+          (clip) => !isPlaceholderClip(clip),
+        ),
+        sourceClips: sourceSpans.filter((clip) => !isPlaceholderClip(clip)),
+        mainAudioId,
+        progress: peerMediaProgress,
+        misses: peerMediaMissIds,
+        inSharedSession: inSharedMediaSession,
+      }),
+    [
+      inSharedMediaSession,
+      mainAudioId,
+      mediaItems,
+      peerMediaMissIds,
+      peerMediaProgress,
+      sourceSpans,
+      timelineClips,
+    ],
+  );
+  const mediaSyncSummary = useMemo(
+    () => summarizeMediaSync(mediaSyncEntries),
+    [mediaSyncEntries],
+  );
+  const mediaSyncStatusLabel = mediaSyncLabel(mediaSyncSummary);
+  const offlineCount = mediaSyncSummary.offline;
+  const mediaSyncPeer = useMemo<MediaSyncPeer | undefined>(() => {
+    const remote = collaborationState.collaborators.filter(
+      (collaborator) => !collaborator.isLocal,
     );
-  }, [mediaItemsById, offlineMedia, sourceSpans, timelineClips]);
+    return remote.length === 1
+      ? { name: remote[0].name, color: remote[0].color }
+      : undefined;
+  }, [collaborationState.collaborators]);
   const sessionMediaStatus = useMemo(() => {
     if (!mediaItems.length) {
       return "No media";
@@ -4157,6 +4202,16 @@ function App() {
     resolvePeerMedia,
   ]);
 
+  // Copies peer misses into state so the media sync list can show them.
+  const syncPeerMediaMissIds = useCallback(() => {
+    const ids = peerMediaMissesRef.current.ids;
+    setPeerMediaMissIds((current) =>
+      current.size === ids.size && [...ids].every((id) => current.has(id))
+        ? current
+        : new Set(ids),
+    );
+  }, []);
+
   const { mediaPeerCount } = collaborationState;
   useEffect(() => {
     // mediaHydrationTick reruns this whenever a local or peer hydration
@@ -4185,6 +4240,7 @@ function App() {
       mainAudioId,
     );
     peerMainAudioIdRef.current = mainAudioId;
+    syncPeerMediaMissIds();
 
     const transfers = peerMediaTransfersRef.current;
     const offlineIds = JSON.parse(offlineSessionMediaIdsKey) as string[];
@@ -4214,6 +4270,7 @@ function App() {
           misses.mediaPeerCount === mediaPeerCount
         ) {
           misses.ids.add(mediaId);
+          syncPeerMediaMissIds();
         }
       };
       transfers.set(mediaId, abortController);
@@ -4302,7 +4359,18 @@ function App() {
     offlineSessionMediaIdsKey,
     mediaHydrationTick,
     setLocalMediaOverride,
+    syncPeerMediaMissIds,
   ]);
+
+  // Forgets a peer miss so the hydration effect requests the media again.
+  const retryPeerMedia = useCallback(
+    (mediaId: string) => {
+      peerMediaMissesRef.current.ids.delete(mediaId);
+      syncPeerMediaMissIds();
+      setMediaHydrationTick((tick) => tick + 1);
+    },
+    [syncPeerMediaMissIds],
+  );
 
   useEffect(() => {
     const message = formatPeerMediaSyncStatus(peerMediaProgress);
@@ -6706,6 +6774,13 @@ function App() {
                   ? "Locate Offline Media…"
                   : "All Media Linked"}
               </DropdownMenuItem>
+              {inSharedMediaSession ? (
+                <DropdownMenuItem
+                  onSelect={() => setIsMediaSyncDialogOpen(true)}
+                >
+                  Media Sync Status…
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onSelect={() => {
@@ -7026,6 +7101,17 @@ function App() {
         relinkingIds={relinkingMediaIds}
       />
 
+      <MediaSyncDialog
+        entries={mediaSyncEntries}
+        onOpenChange={setIsMediaSyncDialogOpen}
+        open={isMediaSyncDialogOpen}
+        peer={mediaSyncPeer}
+        relinkMediaItem={relinkOfflineMediaItem}
+        relinkingIds={relinkingMediaIds}
+        retryMedia={retryPeerMedia}
+        summary={mediaSyncSummary}
+      />
+
       <Dialog open={isConnectDialogOpen} onOpenChange={setIsConnectDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -7280,10 +7366,28 @@ function App() {
                     <div className="track-label track-label--header">
                       <div>
                         <span>{sessionName ?? "Session"}</span>
-                        {offlineCount ? (
+                        {mediaSyncStatusLabel ? (
+                          <button
+                            aria-live="polite"
+                            className="track-label__offline track-label__offline--syncing"
+                            onClick={() => setIsMediaSyncDialogOpen(true)}
+                            title="Show media sync status"
+                            type="button"
+                          >
+                            <span
+                              aria-hidden="true"
+                              className="offline-media__spinner"
+                            />
+                            {mediaSyncStatusLabel}
+                          </button>
+                        ) : offlineCount ? (
                           <button
                             className="track-label__offline"
-                            onClick={() => setIsOfflineMediaDialogOpen(true)}
+                            onClick={() =>
+                              inSharedMediaSession
+                                ? setIsMediaSyncDialogOpen(true)
+                                : setIsOfflineMediaDialogOpen(true)
+                            }
                             title="Review and locate offline media"
                             type="button"
                           >
