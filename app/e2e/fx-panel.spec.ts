@@ -32,3 +32,33 @@ test("a tall FX device keeps the arrangement usable", async ({ page }) => {
     page.getByRole("menu", { name: "Layer header actions" }),
   ).toBeVisible();
 });
+
+// Knobs fill at most two rows: Transform reads X Y Width Height, then
+// Origin X Origin Y Rotation.
+test("Transform lays its knobs out in two rows", async ({ page }) => {
+  await page.goto("/");
+  const layerHeader = page.locator('[data-layer-header-id="6"]');
+  await layerHeader.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Add FX", exact: true }).hover();
+  await page
+    .getByRole("menu", { name: "Add FX" })
+    .getByRole("menuitem", { name: /^Transform/ })
+    .click();
+
+  const knobs = page.locator(
+    'section[aria-label="Transform"] .fx-device-panel__body > *',
+  );
+  await expect(knobs).toHaveCount(7);
+  const rows = new Map<number, string[]>();
+  for (const knob of await knobs.all()) {
+    const top = Math.round((await knob.boundingBox())?.y ?? 0);
+    const label = (await knob.locator(".knob__label").textContent()) ?? "";
+    rows.set(top, [...(rows.get(top) ?? []), label]);
+  }
+  expect(
+    [...rows.entries()].sort(([a], [b]) => a - b).map(([, row]) => row),
+  ).toEqual([
+    ["X", "Y", "Width", "Height"],
+    ["Origin X", "Origin Y", "Rotation"],
+  ]);
+});
