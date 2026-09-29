@@ -45,7 +45,9 @@ export function chooseSessionSaveTarget(
     case "import":
       return {
         kind: "prompt",
-        filename: sessionFilename(alsSavePath(source.name || sessionName || "")),
+        filename: sessionFilename(
+          alsSavePath(source.name || sessionName || ""),
+        ),
       };
     case "file":
     case "workspace":
@@ -178,30 +180,30 @@ export function projectToLvpSession(
 ): LvpSessionSave {
   const { bpm, fps } = project;
 
-  const clips = project.sourceSpans.map<NonNullable<LvpSession["clips"]>[number]>(
-    (span) => {
-      const clipId = sourceClipId(span.id);
-      return {
-        id: clipId,
-        trackId: span.sourceTrackId,
-        name: span.label,
-        frameStart: toFrames(quartersToSeconds(span.startQ, bpm), fps),
-        frameCount: Math.max(1, toFrames(span.durationSeconds, fps)),
-        ...spanSourceFrames(span, fps),
-        filePath: span.mediaPath,
-        ...(span.warp
-          ? {
-              warpMarkers: span.warp.markers.map((marker, index) => ({
-                id: `${clipId}-warp-${index}`,
-                clipId,
-                secTime: marker.secTime,
-                beatTime: marker.beatTime,
-              })),
-            }
-          : {}),
-      };
-    },
-  );
+  const clips = project.sourceSpans.map<
+    NonNullable<LvpSession["clips"]>[number]
+  >((span) => {
+    const clipId = sourceClipId(span.id);
+    return {
+      id: clipId,
+      trackId: span.sourceTrackId,
+      name: span.label,
+      frameStart: toFrames(quartersToSeconds(span.startQ, bpm), fps),
+      frameCount: Math.max(1, toFrames(span.durationSeconds, fps)),
+      ...spanSourceFrames(span, fps),
+      filePath: span.mediaPath,
+      ...(span.warp
+        ? {
+            warpMarkers: span.warp.markers.map((marker, index) => ({
+              id: `${clipId}-warp-${index}`,
+              clipId,
+              secTime: marker.secTime,
+              beatTime: marker.beatTime,
+            })),
+          }
+        : {}),
+    };
+  });
 
   const mediaClips = project.clips.filter((clip) => clip.kind !== "fill");
   const usedSelectionIds = new Set<number>();

@@ -300,6 +300,11 @@ import {
   offlineSessionMediaIds,
 } from "./session-media.ts";
 import {
+  chooseSessionSaveTarget,
+  projectToLvpSession,
+  SESSION_FILE_EXTENSION,
+} from "./session-save.ts";
+import {
   buildPublicShareUrl,
   type InviteParams,
   parseInviteParams,
@@ -7231,6 +7236,73 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     }
   }
 
+  async function handleSaveSession() {
+    const harness = getHarness();
+    const { session, skippedFillClips } = projectToLvpSession(
+      projectHistory.present,
+      { playheadQ: playheadQRef.current, selectedClipId },
+    );
+    const blob = new Blob([`${JSON.stringify(session, null, 2)}\n`], {
+      type: "application/json",
+    });
+    const choice = chooseSessionSaveTarget(sessionSource, sessionName);
+
+    let saveTarget: SaveTarget;
+    if (choice.kind === "path" && harness.capabilities["native-blob-write"]) {
+      saveTarget = {
+        kind: "native-path",
+        filename: basename(choice.path),
+        path: choice.path,
+      };
+    } else {
+      const filename =
+        choice.kind === "path" ? basename(choice.path) : choice.filename;
+      try {
+        const nextSaveTarget = await harness.prepareSave(filename, {
+          mimeType: "application/json",
+          extensions: [SESSION_FILE_EXTENSION],
+          description: "ZVID session",
+        });
+        if (!nextSaveTarget) {
+          setStatus("Save canceled.");
+          return;
+        }
+        saveTarget = nextSaveTarget;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          setStatus("Save canceled.");
+          return;
+        }
+        const message = error instanceof Error ? error.message : String(error);
+        setStatus(`Failed to prepare save destination: ${message}`);
+        return;
+      }
+    }
+
+    try {
+      await harness.saveBlob(blob, saveTarget);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus(`Save failed: ${message}`);
+      return;
+    }
+
+    // A session saved to a new path keeps saving there.
+    if (saveTarget.kind === "native-path" && sessionSource.kind !== "path") {
+      setSessionSource({
+        kind: "path",
+        name: basename(saveTarget.path),
+        path: saveTarget.path,
+      });
+    }
+    const savedName =
+      saveTarget.kind === "native-path" ? saveTarget.path : saveTarget.filename;
+    const fillNote = skippedFillClips
+      ? ` ${pluralize(skippedFillClips, "fill clip")} ${skippedFillClips === 1 ? "was" : "were"} not saved: .lvp files cannot store fill clips.`
+      : "";
+    setStatus(`Saved ${savedName}.${fillNote}`);
+  }
+
   async function handleExport() {
     if (isExporting) {
       return;
@@ -7885,11 +7957,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onSelect={() =>
-                  setStatus(
-                    "Save/export is not wired yet in the dev-server refactor.",
-                  )
-                }
+                onSelect={() => {
+                  void handleSaveSession();
+                }}
               >
                 Save
               </DropdownMenuItem>
