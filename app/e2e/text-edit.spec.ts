@@ -26,7 +26,14 @@ async function insertTextClip(page: Page) {
     .click();
   const clip = lane(page, "1").locator(".clip-card--text");
   await expect(clip).toHaveCount(1);
-  // Clicking the clip moves the playhead onto it, so the preview shows it.
+  // Seek onto the clip from an empty layer so the preview shows it, then
+  // select it. Selecting alone leaves the playhead where it is.
+  const clipBox = await clip.boundingBox();
+  const emptyLane = await lane(page, "5").boundingBox();
+  if (!clipBox || !emptyLane) {
+    throw new Error("Text clip is not visible");
+  }
+  await page.mouse.click(clipBox.x + clipBox.width / 2, emptyLane.y + 20);
   await clip.locator(".clip-card__body").click();
   return clip;
 }
