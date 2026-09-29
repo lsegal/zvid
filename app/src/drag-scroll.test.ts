@@ -129,6 +129,30 @@ describe("timeline ruler", () => {
       /event\.button !== 0 \|\|\s*isRulerPanPress\(event, shortcutLabels\.mac\)/,
     );
   });
+
+  it("zooms on a right-drag and commits the zoom when it ends", () => {
+    assert.match(
+      appTsx,
+      /useDragScroll\(\{\s*scrollRef: timelineScrollRef,\s*canStart: canStartRulerPan,[^}]*thresholdAxis: "both",\s*onDrag: dragRuler,\s*onEnd: endRulerPan,/,
+    );
+    assert.match(
+      appTsx,
+      /rulerZoomRef\.current = isContextMenuPress\(event, shortcutLabels\.mac\)/,
+    );
+    assert.match(
+      appTsx,
+      /const endRulerPan = useCallback\(\(\) => \{[^}]*\}\s*rulerZoomRef\.current = null;\s*rulerZoomScrollRef\.current = null;\s*flushZoomDraft\(\);/,
+    );
+  });
+
+  it("never zooms while scrubbing with the left button", () => {
+    const scrub = appTsx.slice(
+      appTsx.indexOf("if (!timelineDragState) {"),
+      appTsx.indexOf("}, [", appTsx.indexOf("if (!timelineDragState) {")),
+    );
+    assert.ok(scrub.includes("timelineDragState.originZoom"));
+    assert.doesNotMatch(scrub, /updateZoomDraft|flushZoomDraft|clientY/);
+  });
 });
 
 describe("timeline pan", () => {

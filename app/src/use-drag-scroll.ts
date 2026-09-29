@@ -81,7 +81,29 @@ export function useDragScroll({
   // Set when a pan ends so the contextmenu that follows a right-drag is
   // swallowed rather than opening a menu.
   const draggedRef = useRef(false);
+  // Removes the window listener that swallows that contextmenu when the
+  // drag is released off the grabbed element.
+  const disarmMenuRef = useRef<(() => void) | null>(null);
   const [isGrabbing, setIsGrabbing] = useState(false);
+
+  useEffect(() => () => disarmMenuRef.current?.(), []);
+
+  // Swallows the next contextmenu anywhere, until the next press.
+  const armMenuSwallow = useCallback(() => {
+    disarmMenuRef.current?.();
+    const swallow = (event: MouseEvent) => {
+      event.preventDefault();
+      disarm();
+    };
+    const disarm = () => {
+      window.removeEventListener("contextmenu", swallow, true);
+      window.removeEventListener("pointerdown", disarm, true);
+      disarmMenuRef.current = null;
+    };
+    window.addEventListener("contextmenu", swallow, true);
+    window.addEventListener("pointerdown", disarm, true);
+    disarmMenuRef.current = disarm;
+  }, []);
 
   const stopMomentum = useCallback(() => {
     if (momentumFrameRef.current !== null) {
@@ -206,10 +228,11 @@ export function useDragScroll({
       draggedRef.current = true;
       setIsGrabbing(false);
       if (event.type === "pointerup") {
+        armMenuSwallow();
         startMomentum(releaseVelocity(pan.samples, event.timeStamp, axis));
       }
     },
-    [axis, onEnd, startMomentum],
+    [armMenuSwallow, axis, onEnd, startMomentum],
   );
 
   // Keeps the middle button from starting the browser's autoscroll, which
