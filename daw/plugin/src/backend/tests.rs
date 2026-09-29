@@ -31,12 +31,8 @@ fn device(id: &str, name: &str, transport: Transport) -> Device {
     }
 }
 
-fn frame(sequence: u64) -> Arc<Frame> {
-    rotated_frame(sequence, Rotation::None)
-}
-
 /// A landscape frame, displayed turned by `rotation`.
-fn rotated_frame(sequence: u64, rotation: Rotation) -> Arc<Frame> {
+fn frame(sequence: u64, rotation: Rotation) -> Arc<Frame> {
     Arc::new(Frame {
         width: 4,
         height: 2,
@@ -163,7 +159,7 @@ impl Fake {
         let mut open = lock(&self.open);
         let open = open.as_mut().expect("a camera is open");
         open.count.fetch_add(1, Ordering::Relaxed);
-        (open.frames)(&rotated_frame(sequence, rotation));
+        (open.frames)(&frame(sequence, rotation));
         (open.preview)(vec![0xFF, 0xD8, sequence as u8]);
     }
 
