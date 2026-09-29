@@ -428,8 +428,8 @@ impl DelegateState {
     /// when a phone is turned between portrait and landscape. The
     /// connection rotates buffers from the next one; when it can't rotate
     /// by the angle, frames carry the rotation instead. A turn mid-take is
-    /// letterboxed by the recorder, and the next take uses the new
-    /// orientation.
+    /// letterboxed by the recorder, and the next take starts a new file in
+    /// the new orientation.
     fn follow_rotation(&self, connection: &AVCaptureConnection) {
         let mut rotator = lock(&self.rotator);
         let Some(rotator) = rotator.as_mut() else {
