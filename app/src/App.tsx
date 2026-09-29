@@ -149,6 +149,7 @@ import {
   projectHistoryReducer,
 } from "./project-history";
 import { migrateLegacyMainAudio } from "./project-state-compat.ts";
+import { buildRandomArrangement } from "./random-arrangement.ts";
 import { listOfflineMedia, matchOfflineMedia } from "./relink";
 import {
   formatOverlapNote,
@@ -3455,7 +3456,6 @@ function App() {
   }
 
   function buildRandomizedArrangementClips() {
-    const timelineEndQ = getRandomizationTimelineEndQ();
     const stepQ = barLength * RANDOM_SELECTION_BAR_INCREMENT;
     const durationSteps = Array.from(
       {
@@ -3465,83 +3465,38 @@ function App() {
       },
       (_, index) => (index + 1) * stepQ,
     );
-    const nextAvailableByLane = new Map(lanes.map((lane) => [lane.id, 0]));
-    const randomizedClips: ArrangementClip[] = [];
-    const epsilon = 0.0001;
-    const stepCount = Math.max(1, Math.ceil(timelineEndQ / stepQ));
+    const sourceTracksById = new Map(
+      sourceTracks.map((sourceTrack) => [sourceTrack.id, sourceTrack]),
+    );
+    const windows = buildRandomArrangement({
+      laneIds: lanes.map((lane) => lane.id),
+      sourceTrackIds: sourceTracks.map((sourceTrack) => sourceTrack.id),
+      spans: sourceSpans,
+      spanEndQ: (span) => getClipEndQ(span, bpm),
+      timelineEndQ: getRandomizationTimelineEndQ(),
+      stepQ,
+      durationSteps,
+      random: randomFloat,
+    });
 
-    for (let stepIndex = 0; stepIndex < stepCount; stepIndex += 1) {
-      const startQ = stepIndex * stepQ;
-      if (startQ >= timelineEndQ - epsilon) {
-        break;
+    return windows.flatMap((window, index) => {
+      const sourceTrack = sourceTracksById.get(window.span.sourceTrackId);
+      if (!sourceTrack) {
+        return [];
       }
 
-      for (const [laneIndex, lane] of lanes.entries()) {
-        const nextAvailableQ = nextAvailableByLane.get(lane.id) ?? 0;
-        if (startQ < nextAvailableQ - epsilon) {
-          continue;
-        }
-
-        const layerChance = laneIndex === 0 ? 1 : 0.5 ** laneIndex;
-        if (randomFloat() > layerChance) {
-          continue;
-        }
-
-        const validDurations = durationSteps.filter(
-          (durationQ) => startQ + durationQ <= timelineEndQ + epsilon,
-        );
-        if (!validDurations.length) {
-          continue;
-        }
-
-        const durationQ = pickRandom(validDurations) ?? validDurations[0];
-        const selection: TimelineSelection = {
-          id: `selection-random-${lane.id}-${stepIndex}`,
-          laneId: lane.id,
-          startQ,
-          durationQ,
-        };
-        const candidateSources = sourceTracks
-          .map((sourceTrack) => ({
-            sourceTrack,
-            sourceSpan: chooseSourceSpanForWindow(
-              sourceSpans,
-              sourceTrack.id,
-              startQ,
-              durationQ,
-              bpm,
-            ),
-          }))
-          .filter(
-            (
-              candidate,
-            ): candidate is {
-              sourceTrack: SourceTrack;
-              sourceSpan: SourceSpan;
-            } => Boolean(candidate.sourceSpan),
-          );
-
-        if (!candidateSources.length) {
-          continue;
-        }
-
-        const pickedSource =
-          pickRandom(candidateSources) ?? candidateSources[0];
-        randomizedClips.push(
-          createWindowClip(
-            selection,
-            pickedSource.sourceTrack,
-            pickedSource.sourceSpan,
-          ),
-        );
-        nextAvailableByLane.set(lane.id, startQ + durationQ);
-      }
-    }
-
-    return randomizedClips.map((clip, index) => ({
-      ...clip,
-      selected: index === 0,
-    }));
+      const clip = createWindowClip(
+        {
+          id: `selection-random-${window.laneId}-${index}`,
+          laneId: window.laneId,
+          startQ: window.startQ,
+          durationQ: window.durationQ,
+        },
+        sourceTrack,
+        window.span,
+      );
+      return [{ ...clip, selected: index === 0 }];
+    });
   }
 
   function handleRandomizeTimeline() {
@@ -3572,7 +3527,7 @@ function App() {
     setPlayheadQ(0);
     playbackOriginRef.current = 0;
     setStatus(
-      `Rebuilt the arrangement with ${randomizedClips.length} randomized windows on a quarter-bar grid.`,
+      `Rebuilt the arrangement with ${randomizedClips.length} randomized windows inside the source clips.`,
     );
   }
 
