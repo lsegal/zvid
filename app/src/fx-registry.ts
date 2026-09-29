@@ -3,6 +3,7 @@
 // parameters (label, range, default and display format) in stack UI order.
 
 import {
+  DEFAULT_BORDER_COLOR,
   GRID_SIZE_MAX,
   GRID_SIZE_MIN,
   ORDER_ARRANGEMENTS,
@@ -37,8 +38,8 @@ import {
   TEXT_VERTICAL_ALIGNS,
 } from "./text-style.ts";
 
-// Shows a parameter only while the enum parameter `key` holds one of
-// `values` (compared case-insensitively).
+// Shows a parameter only while the parameter `key` holds one of `values`
+// (compared as numbers when both are numeric, otherwise case-insensitively).
 export type FxParameterVisibility = {
   key: string;
   values: readonly string[];
@@ -91,6 +92,8 @@ type FxStringParameterFields = {
   defaultValue: string;
   hidden?: boolean;
   visibleWhen?: FxParameterVisibility;
+  // Dims the control, which stays editable, while it has no visible effect.
+  dimmedWhen?: FxParameterVisibility;
 };
 
 export type FxStringParameterDefinition =
@@ -396,6 +399,14 @@ const DEFINITIONS: FxEffectDefinition[] = [
         defaultValue: 0,
         step: 1,
         format: formatPixels,
+      },
+      {
+        kind: "color",
+        key: "BorderColor",
+        label: "Border",
+        defaultValue: DEFAULT_BORDER_COLOR,
+        // Without spacing there are no gaps to colour.
+        dimmedWhen: { key: "Spacing", values: ["0"] },
       },
     ],
   },

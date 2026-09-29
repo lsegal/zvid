@@ -1261,7 +1261,9 @@ function FxPaintControl({
   const label = `Edit ${parameter.label}`;
 
   return (
-    <div className="fx-paint">
+    <div
+      className={`fx-paint${parameter.dimmed ? " fx-paint--dimmed" : ""}`}
+    >
       <span className="fx-paint__label">{parameter.label}</span>
       <Popover
         onOpenChange={(open) => {

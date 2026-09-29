@@ -16,6 +16,7 @@ import {
   type FxEffectScope,
   type FxFlagOption,
   type FxParameterDefinition,
+  type FxParameterVisibility,
   getEffectDefinition,
   getFallbackParameterDefinition,
   isEffectSupportedIn,
@@ -74,6 +75,8 @@ export type FxDeviceParameter = {
   flags?: readonly FxFlagOption[];
   // An enum picked from a dropdown menu.
   menu?: boolean;
+  // Shown dimmed, still editable, while it has no visible effect.
+  dimmed?: boolean;
   display: string;
 };
 
@@ -683,6 +686,28 @@ function toDeviceParameter(
   };
 }
 
+// Whether the effect's current value of `condition.key` is one of
+// `condition.values`: numerically for numbers, otherwise ignoring case.
+function matchesCondition(
+  condition: FxParameterVisibility,
+  definition: FxEffectDefinition,
+  effect: SessionEffect,
+) {
+  const controlling = findParameterDefinition(definition, condition.key);
+  const stored = effect.parameters.find(
+    (candidate) => candidate.key === condition.key,
+  );
+  const value = (stored?.value ?? `${controlling?.defaultValue ?? ""}`)
+    .trim()
+    .toLowerCase();
+  const numeric = stored?.numericValue ?? Number.parseFloat(value);
+  return condition.values.some((candidate) =>
+    Number.isFinite(numeric) && Number.isFinite(Number.parseFloat(candidate))
+      ? Number.parseFloat(candidate) === numeric
+      : candidate.toLowerCase() === value,
+  );
+}
+
 // Whether a parameter with a `visibleWhen` condition shows for the effect's
 // current values.
 function isParameterVisible(
@@ -691,20 +716,19 @@ function isParameterVisible(
   effect: SessionEffect,
 ) {
   const condition = parameter.visibleWhen;
-  if (!condition) {
-    return true;
-  }
+  return !condition || matchesCondition(condition, definition, effect);
+}
 
-  const controlling = findParameterDefinition(definition, condition.key);
-  const stored = effect.parameters.find(
-    (candidate) => candidate.key === condition.key,
-  )?.value;
-  const value = (stored ?? `${controlling?.defaultValue ?? ""}`)
-    .trim()
-    .toLowerCase();
-  return condition.values.some(
-    (candidate) => candidate.toLowerCase() === value,
-  );
+// Whether a parameter with a `dimmedWhen` condition is dimmed for the
+// effect's current values.
+function isParameterDimmed(
+  parameter: FxParameterDefinition,
+  definition: FxEffectDefinition,
+  effect: SessionEffect,
+) {
+  const condition =
+    "dimmedWhen" in parameter ? parameter.dimmedWhen : undefined;
+  return !!condition && matchesCondition(condition, definition, effect);
 }
 
 // Layers an enabled Order grid has no cell for, when there are any.
@@ -797,14 +821,17 @@ function toDevice(
           !parameter.hidden &&
           isParameterVisible(parameter, definition, effect),
       )
-      .map((parameter) =>
-        toDeviceParameter(
+      .map((parameter) => {
+        const device = toDeviceParameter(
           parameter,
           effect.parameters.find((stored) => stored.key === parameter.key),
           (key) =>
             effect.parameters.find((stored) => stored.key === key)?.value,
-        ),
-      ),
+        );
+        return isParameterDimmed(parameter, definition, effect)
+          ? { ...device, dimmed: true }
+          : device;
+      }),
   };
 }
 
