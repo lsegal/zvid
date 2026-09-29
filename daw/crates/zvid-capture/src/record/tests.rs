@@ -226,12 +226,8 @@ fn embeds_an_upright_cover_thumbnail() {
     // the right, from a camera held in portrait.
     let (width, height) = (64u32, 48u32);
     for index in 0..90 {
-        let mut frame = Arc::unwrap_or_clone(frame(
-            width,
-            height,
-            index,
-            index as f64 * 1000.0 / 30.0,
-        ));
+        let mut frame =
+            Arc::unwrap_or_clone(frame(width, height, index, index as f64 * 1000.0 / 30.0));
         for row in frame.data[..(width * height) as usize].chunks_mut(width as usize) {
             row[..32].fill(16);
             row[32..].fill(235);
