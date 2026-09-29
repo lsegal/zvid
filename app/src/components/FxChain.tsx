@@ -616,7 +616,12 @@ export function FxChain({
             shortcut: "Alt+←",
             disabled: menu.index === 0,
             onSelect: () =>
-              moveDevice(menuDevice, menu.index, menu.index - 1, menu.stackSize),
+              moveDevice(
+                menuDevice,
+                menu.index,
+                menu.index - 1,
+                menu.stackSize,
+              ),
           },
           {
             type: "item",
@@ -625,7 +630,12 @@ export function FxChain({
             shortcut: "Alt+→",
             disabled: menu.index >= menu.stackSize - 1,
             onSelect: () =>
-              moveDevice(menuDevice, menu.index, menu.index + 1, menu.stackSize),
+              moveDevice(
+                menuDevice,
+                menu.index,
+                menu.index + 1,
+                menu.stackSize,
+              ),
           },
           { type: "separator" },
           ...(menuDevice.layerDefault

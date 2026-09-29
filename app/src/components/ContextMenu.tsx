@@ -49,7 +49,10 @@ export function ContextMenu({ anchor, ...props }: ContextMenuProps) {
     return null;
   }
 
-  return createPortal(<OpenContextMenu anchor={anchor} {...props} />, document.body);
+  return createPortal(
+    <OpenContextMenu anchor={anchor} {...props} />,
+    document.body,
+  );
 }
 
 function OpenContextMenu({
@@ -63,9 +66,7 @@ function OpenContextMenu({
   const rootRef = useRef<HTMLDivElement>(null);
   const panelRefs = useRef<Array<HTMLDivElement | null>>([]);
   const [path, setPath] = useState<ContextMenuPath>([-1]);
-  const [positions, setPositions] = useState<Array<MenuPoint | undefined>>(
-    [],
-  );
+  const [positions, setPositions] = useState<Array<MenuPoint | undefined>>([]);
   const onCloseRef = useRef(onClose);
   const onCloseFocusRef = useRef(onCloseFocus);
   onCloseRef.current = onClose;
@@ -179,7 +180,6 @@ function OpenContextMenu({
 
   // Keyboard focus follows the deepest open level.
   const deepestPositioned = positions[openLevels - 1] !== undefined;
-  // biome-ignore lint/correctness/useExhaustiveDependencies: refocuses whenever a level opens or closes
   useEffect(() => {
     if (deepestPositioned) {
       panelRefs.current[openLevels - 1]?.focus({ preventScroll: true });
@@ -197,9 +197,6 @@ function OpenContextMenu({
     // away from the open menu.
     event.stopPropagation();
     if (result.type === "ignore") {
-      if (event.key !== "Shift") {
-        event.preventDefault();
-      }
       return;
     }
 
@@ -218,12 +215,7 @@ function OpenContextMenu({
   );
 
   return (
-    <div
-      className="context-menu-layer"
-      onContextMenu={(event) => event.preventDefault()}
-      onKeyDown={handleKeyDown}
-      ref={rootRef}
-    >
+    <div className="context-menu-layer" ref={rootRef}>
       {levels.map((levelEntries, level) => {
         if (!levelEntries) {
           return null;
@@ -246,6 +238,8 @@ function OpenContextMenu({
             className="context-menu"
             // biome-ignore lint/suspicious/noArrayIndexKey: one panel per open level
             key={level}
+            onContextMenu={(event) => event.preventDefault()}
+            onKeyDown={handleKeyDown}
             onPointerLeave={() => {
               // Leaving a panel clears its highlight but keeps an open
               // submenu open, so the pointer can travel into it.
@@ -267,13 +261,19 @@ function OpenContextMenu({
             {levelEntries.map((entry, index) => {
               if (entry.type === "separator") {
                 return (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: separators have no identity
-                  <div className="context-menu__separator" key={`separator-${index}`} role="separator" />
+                  <hr
+                    className="context-menu__separator"
+                    // biome-ignore lint/suspicious/noArrayIndexKey: separators have no identity of their own
+                    key={`separator-${index}`}
+                  />
                 );
               }
 
               const highlighted = index === active;
-              const expanded = Boolean(entry.submenu) && path[level + 1] !== undefined && highlighted;
+              const expanded =
+                Boolean(entry.submenu) &&
+                path[level + 1] !== undefined &&
+                highlighted;
               return (
                 // biome-ignore lint/a11y/useFocusableInteractive: focus stays on the menu, which points at this item with aria-activedescendant
                 // biome-ignore lint/a11y/useKeyWithClickEvents: the menu handles keys for every item

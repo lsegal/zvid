@@ -12,6 +12,7 @@ import {
 import {
   type DragEvent as ReactDragEvent,
   type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
@@ -51,6 +52,14 @@ import {
   formatClipMediaState,
   isPlaceholderClip,
 } from "./clip-media-state";
+import {
+  buildClipMenuEntries,
+  buildSourceSpanMenuEntries,
+  type CopyToLayerTarget,
+  canSplitAt,
+  copyClipToLayer,
+  resolvePasteLaneId,
+} from "./clip-menu.ts";
 import { type ClipWarp, createClipWarp } from "./clip-warp.ts";
 import {
   type CollaborationConnectionState,
@@ -63,6 +72,11 @@ import {
   openBuildCommit,
 } from "./components/BrandMark";
 import { CaptureInstallerDialog } from "./components/CaptureInstallerDialog";
+import {
+  ContextMenu,
+  type ContextMenuEntry,
+  type MenuPoint,
+} from "./components/ContextMenu";
 import { FxChain, type FxEditMode } from "./components/FxChain";
 import {
   ImportNotice,
@@ -96,6 +110,7 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
+import { isContextMenuKey } from "./context-menu.ts";
 import {
   getDefaultLaneId,
   resolveSelectedLaneId,
@@ -260,6 +275,14 @@ type ArrangementClip = {
   accent: string;
   selected?: boolean;
 };
+
+// The right-click menu open on an arrangement clip, empty lane space or a
+// source clip, at `anchor` in viewport coordinates.
+type ClipMenuState = { anchor: MenuPoint } & (
+  | { kind: "clip"; clipId: string }
+  | { kind: "lane"; laneId: string }
+  | { kind: "span"; spanId: string }
+);
 
 type TimelineSelection = {
   id: string;
@@ -1185,6 +1208,7 @@ function parseCollaborationInvite(value: string) {
 function getShortcutLabels() {
   if (typeof window === "undefined") {
     return {
+      mac: false,
       undo: "Ctrl+Z",
       redo: "Ctrl+Shift+Z",
       sourceClipDrop: "Ctrl+click",
@@ -1202,6 +1226,7 @@ function getShortcutLabels() {
     "";
   const isMac = /mac/i.test(platform);
   return {
+    mac: isMac,
     undo: isMac ? "Cmd+Z" : "Ctrl+Z",
     redo: isMac ? "Shift+Cmd+Z" : "Ctrl+Shift+Z",
     sourceClipDrop: isMac ? "Cmd+click" : "Ctrl+click",
@@ -1733,6 +1758,7 @@ function App() {
     ArrangementClip[] | null
   >(null);
   const [selectedClipId, setSelectedClipId] = useState<string>();
+  const [clipMenu, setClipMenu] = useState<ClipMenuState | null>(null);
   // The layer the FX chain edits. Selecting a clip selects its layer, and
   // clearing the clip selection keeps the layer.
   const [selectedLaneId, setSelectedLaneId] = useState<string>();
@@ -3481,26 +3507,35 @@ function App() {
     [bpm, createWindowClip, pendingSelection, sourceSpans, sourceTracks],
   );
 
+  // The whole source clip as an arrangement clip at its song position.
+  function createSourceSpanClip(span: SourceSpan, laneId: string) {
+    const sourceTrack = sourceTracks.find(
+      (track) => track.id === span.sourceTrackId,
+    );
+    if (!sourceTrack) {
+      return null;
+    }
+
+    return createWindowClip(
+      {
+        id: span.id,
+        laneId,
+        startQ: span.startQ,
+        durationQ: getClipDurationQ(span, bpm),
+      },
+      sourceTrack,
+      span,
+    );
+  }
+
   // Ctrl/Cmd-click on a source clip: drops the whole clip onto the last layer
   // with room for it at the same song position, or onto a new layer.
   function addSourceSpanToArrangement(sourceSpan: SourceSpan) {
-    const sourceTrack = sourceTracks.find(
-      (track) => track.id === sourceSpan.sourceTrackId,
-    );
-    if (!sourceTrack) {
+    const clip = createSourceSpanClip(sourceSpan, "");
+    if (!clip) {
       return;
     }
 
-    const clip = createWindowClip(
-      {
-        id: sourceSpan.id,
-        laneId: "",
-        startQ: sourceSpan.startQ,
-        durationQ: getClipDurationQ(sourceSpan, bpm),
-      },
-      sourceTrack,
-      sourceSpan,
-    );
     const drop = dropClipOnFreeLane(lanes, clips, clip, bpm, () => ({
       id: createLaneId(lanes),
       name: `Layer ${getNextLaneNumber(lanes)}`,
@@ -3524,8 +3559,8 @@ function App() {
     setSelectedClipId(drop.clip.id);
     setStatus(
       drop.createdLane
-        ? `Added ${sourceTrack.name} to a new layer, ${drop.lane.name}.`
-        : `Added ${sourceTrack.name} to ${drop.lane.name}.`,
+        ? `Added ${clip.label} to a new layer, ${drop.lane.name}.`
+        : `Added ${clip.label} to ${drop.lane.name}.`,
     );
   }
 
@@ -4263,6 +4298,423 @@ function App() {
     timelineDragState,
   ]);
 
+  // Clipboard and edit actions shared by the keyboard shortcuts and the clip
+  // menus. Each is one undo step.
+  function copyArrangementClip(clip: ArrangementClip) {
+    clipClipboardRef.current = { ...clip };
+    setStatus(`Copied ${clip.label}.`);
+  }
+
+  function removeArrangementClip(clip: ArrangementClip, label: string) {
+    const nextSelectedClipId =
+      timelineClips.find(
+        (item) => item.id !== clip.id && item.laneId === clip.laneId,
+      )?.id ?? timelineClips.find((item) => item.id !== clip.id)?.id;
+
+    dispatchProject({
+      type: "commit",
+      label,
+      updater: (current) =>
+        patchProjectState(current, {
+          clips: current.clips.filter((item) => item.id !== clip.id),
+        }),
+    });
+    setSelectedClipId(nextSelectedClipId);
+    setPendingSelection(null);
+  }
+
+  function cutArrangementClip(clip: ArrangementClip) {
+    clipClipboardRef.current = { ...clip };
+    removeArrangementClip(clip, "Cut clip");
+    setStatus(`Cut ${clip.label}.`);
+  }
+
+  function deleteArrangementClip(clip: ArrangementClip) {
+    removeArrangementClip(clip, "Delete clip");
+    setStatus(`Deleted ${clip.label}.`);
+  }
+
+  // Pastes at the playhead on `laneId`, or on the selected layer.
+  function pasteArrangementClip(laneId?: string) {
+    const clipboardClip = clipClipboardRef.current;
+    if (!clipboardClip) {
+      return;
+    }
+
+    const pasteLaneId =
+      laneId ??
+      resolvePasteLaneId(
+        lanes,
+        explicitClip?.laneId,
+        selectedLaneId,
+        clipboardClip.laneId,
+      );
+    const pastedClipId = `window-${crypto.randomUUID()}`;
+    const pasteQ = playheadQRef.current;
+    dispatchProject({
+      type: "commit",
+      label: "Paste clip",
+      updater: (current) => {
+        const pastedClip = cloneClipAtStartQ(
+          { ...clipboardClip, laneId: pasteLaneId },
+          current.bpm,
+          pasteQ,
+          pastedClipId,
+        );
+        return patchProjectState(current, {
+          clips: resolveClipOverlaps(
+            [...current.clips, pastedClip],
+            pastedClip,
+            current.bpm,
+          ),
+        });
+      },
+    });
+    setSelectedClipId(pastedClipId);
+    setPendingSelection(null);
+    setStatus(`Pasted ${clipboardClip.label}.`);
+  }
+
+  function splitArrangementClip(clip: ArrangementClip) {
+    const epsilon = 0.0001;
+    const splitQ = playheadQRef.current;
+    if (!canSplitAt(clip.startQ, getClipEndQ(clip, bpm), splitQ)) {
+      setStatus(`Move the playhead inside ${clip.label} to split it.`);
+      return;
+    }
+
+    const splitClipId = `window-${crypto.randomUUID()}`;
+    dispatchProject({
+      type: "commit",
+      label: "Split clip",
+      updater: (current) => {
+        const sourceClip = current.clips.find((item) => item.id === clip.id);
+        if (!sourceClip) {
+          return current;
+        }
+
+        const sourceClipEndQ = getClipEndQ(sourceClip, current.bpm);
+        const leftDurationQ = splitQ - sourceClip.startQ;
+        const rightDurationQ = sourceClipEndQ - splitQ;
+        if (leftDurationQ <= epsilon || rightDurationQ <= epsilon) {
+          return current;
+        }
+
+        const leftClip = withWindowTiming(
+          {
+            ...sourceClip,
+            selected: false,
+          },
+          sourceClip.startQ,
+          leftDurationQ,
+          current.bpm,
+        );
+        const rightClip = withWindowTiming(
+          {
+            ...sourceClip,
+            id: splitClipId,
+            selected: true,
+          },
+          splitQ,
+          rightDurationQ,
+          current.bpm,
+        );
+
+        return patchProjectState(current, {
+          clips: current.clips.flatMap((item) =>
+            item.id === sourceClip.id ? [leftClip, rightClip] : [item],
+          ),
+        });
+      },
+    });
+    setSelectedClipId(splitClipId);
+    setPendingSelection(null);
+    setStatus(`Split ${clip.label} at the playhead.`);
+  }
+
+  function duplicateArrangementClip(clip: ArrangementClip) {
+    const duplicatedClipId = `window-${crypto.randomUUID()}`;
+    dispatchProject({
+      type: "commit",
+      label: "Duplicate clip",
+      updater: (current) => {
+        const sourceClip = current.clips.find((item) => item.id === clip.id);
+        if (!sourceClip) {
+          return current;
+        }
+
+        const duplicatedClip = duplicateClip(
+          sourceClip,
+          current.bpm,
+          duplicatedClipId,
+        );
+        return patchProjectState(current, {
+          clips: resolveClipOverlaps(
+            [...current.clips, duplicatedClip],
+            duplicatedClip,
+            current.bpm,
+          ),
+        });
+      },
+    });
+    setSelectedClipId(duplicatedClipId);
+    setPendingSelection(null);
+    setStatus(`Duplicated ${clip.label}.`);
+  }
+
+  function copySourceSpan(span: SourceSpan) {
+    const clip = createSourceSpanClip(span, fxLaneId ?? "");
+    if (!clip) {
+      return;
+    }
+
+    clipClipboardRef.current = clip;
+    setStatus(`Copied ${clip.label}.`);
+  }
+
+  function copySourceSpanToLayer(span: SourceSpan, target: CopyToLayerTarget) {
+    if (target.kind === "auto") {
+      addSourceSpanToArrangement(span);
+      return;
+    }
+
+    const clip = createSourceSpanClip(span, "");
+    if (!clip) {
+      return;
+    }
+
+    const result = copyClipToLayer(
+      target,
+      lanes,
+      clips,
+      clip,
+      () => ({
+        id: createLaneId(lanes),
+        name: `Layer ${getNextLaneNumber(lanes)}`,
+        colorIndex: -1,
+      }),
+      (nextClips, placed) => resolveClipOverlaps(nextClips, placed, bpm),
+    );
+    if (!result) {
+      setStatus(
+        target.kind === "lane"
+          ? "That layer no longer exists."
+          : `You already have the maximum of ${MAX_LAYERS} layers.`,
+      );
+      return;
+    }
+
+    commitProjectChange("Copy clip to layer", (current) =>
+      patchProjectState(current, {
+        lanes: result.lanes,
+        clips: result.clips,
+        ...(result.createdLane
+          ? { effects: ensureLayerLayouts(current.effects, [result.lane.id]) }
+          : {}),
+      }),
+    );
+    setPendingSelection(null);
+    setSelectedClipId(result.clip.id);
+    setStatus(`Copied ${clip.label} to ${result.lane.name}.`);
+  }
+
+  const clipActions = {
+    copy: copyArrangementClip,
+    cut: cutArrangementClip,
+    paste: pasteArrangementClip,
+    split: splitArrangementClip,
+    duplicate: duplicateArrangementClip,
+    remove: deleteArrangementClip,
+  };
+  // The keyboard shortcuts read the latest actions without re-subscribing.
+  const clipActionsRef = useRef(clipActions);
+  clipActionsRef.current = clipActions;
+
+  // The pointer position, or below the element when the context-menu key or
+  // Shift+F10 opened the menu and reported no position.
+  function getMenuAnchor(event: ReactMouseEvent<HTMLElement>): MenuPoint {
+    if (event.clientX || event.clientY) {
+      return { x: event.clientX, y: event.clientY };
+    }
+
+    const bounds = event.currentTarget.getBoundingClientRect();
+    return { x: bounds.left, y: bounds.bottom };
+  }
+
+  // Right-clicking a clip selects it (and so its layer) before the menu opens.
+  function openArrangementClipMenu(
+    event: ReactMouseEvent<HTMLElement>,
+    clip: ArrangementClip,
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+    setPendingSelection(null);
+    setSelectedClipId(clip.id);
+    setClipMenu({
+      kind: "clip",
+      clipId: clip.id,
+      anchor: getMenuAnchor(event),
+    });
+  }
+
+  function openLaneMenu(event: ReactMouseEvent<HTMLElement>, laneId: string) {
+    event.preventDefault();
+    event.stopPropagation();
+    setPendingSelection(null);
+    setSelectedClipId(undefined);
+    setSelectedLaneId(laneId);
+    setClipMenu({ kind: "lane", laneId, anchor: getMenuAnchor(event) });
+  }
+
+  function openSourceSpanMenu(
+    event: ReactMouseEvent<HTMLElement>,
+    span: SourceSpan,
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+    setClipMenu({
+      kind: "span",
+      spanId: span.id,
+      anchor: getMenuAnchor(event),
+    });
+  }
+
+  // The context-menu key or Shift+F10 with nothing focused opens the menu on
+  // the selected clip, or on the selected layer at the playhead.
+  function openSelectionMenu() {
+    const timelineScroll = timelineScrollRef.current;
+    if (!timelineScroll) {
+      return false;
+    }
+
+    if (explicitClip) {
+      const card = timelineScroll.querySelector<HTMLElement>(
+        `[data-clip-id="${CSS.escape(explicitClip.id)}"]`,
+      );
+      if (!card) {
+        return false;
+      }
+
+      const bounds = card.getBoundingClientRect();
+      setClipMenu({
+        kind: "clip",
+        clipId: explicitClip.id,
+        anchor: { x: bounds.left, y: bounds.bottom },
+      });
+      return true;
+    }
+
+    if (!fxLaneId) {
+      return false;
+    }
+
+    const lane = timelineScroll.querySelector<HTMLElement>(
+      `[data-timeline-lane-id="${CSS.escape(fxLaneId)}"]`,
+    );
+    if (!lane) {
+      return false;
+    }
+
+    const bounds = lane.getBoundingClientRect();
+    setSelectedLaneId(fxLaneId);
+    setClipMenu({
+      kind: "lane",
+      laneId: fxLaneId,
+      anchor: {
+        x: clamp(
+          bounds.left + playheadQRef.current * quarterPx,
+          bounds.left,
+          bounds.right,
+        ),
+        y: bounds.bottom,
+      },
+    });
+    return true;
+  }
+
+  const openSelectionMenuRef = useRef(openSelectionMenu);
+  openSelectionMenuRef.current = openSelectionMenu;
+
+  // Browsers report both keys as a contextmenu event on the focused element.
+  // Clips, lanes and panels with their own menu handle it first; this only
+  // takes the ones that land on the page or empty timeline space.
+  useEffect(() => {
+    let keyboardMenuAt = Number.NEGATIVE_INFINITY;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (isContextMenuKey(event)) {
+        keyboardMenuAt = event.timeStamp;
+      }
+    };
+    const onContextMenu = (event: MouseEvent) => {
+      const fromKeyboard = event.timeStamp - keyboardMenuAt < 1000;
+      keyboardMenuAt = Number.NEGATIVE_INFINITY;
+      const target = event.target;
+      if (
+        !fromKeyboard ||
+        event.defaultPrevented ||
+        !(target instanceof Node) ||
+        (target !== document.body &&
+          target !== document.documentElement &&
+          !timelineScrollRef.current?.contains(target))
+      ) {
+        return;
+      }
+
+      if (openSelectionMenuRef.current()) {
+        event.preventDefault();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    document.addEventListener("contextmenu", onContextMenu);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown, true);
+      document.removeEventListener("contextmenu", onContextMenu);
+    };
+  }, []);
+
+  function getClipMenuEntries(menu: ClipMenuState): ContextMenuEntry[] {
+    if (menu.kind === "span") {
+      const span = sourceSpans.find((item) => item.id === menu.spanId);
+      if (!span) {
+        return [];
+      }
+
+      return buildSourceSpanMenuEntries({
+        lanes,
+        mac: shortcutLabels.mac,
+        copy: () => copySourceSpan(span),
+        copyToLayer: (target) => copySourceSpanToLayer(span, target),
+      });
+    }
+
+    const clip =
+      menu.kind === "clip"
+        ? timelineClips.find((item) => item.id === menu.clipId)
+        : undefined;
+    const pasteLaneId = menu.kind === "lane" ? menu.laneId : clip?.laneId;
+    const withClip = (action: (clip: ArrangementClip) => void) => () => {
+      if (clip) {
+        action(clip);
+      }
+    };
+    return buildClipMenuEntries({
+      hasClip: Boolean(clip) && !isExporting,
+      canPaste: Boolean(clipClipboardRef.current) && !isExporting,
+      canSplit: clip
+        ? canSplitAt(clip.startQ, getClipEndQ(clip, bpm), playheadQRef.current)
+        : false,
+      mac: shortcutLabels.mac,
+      actions: {
+        cut: withClip(cutArrangementClip),
+        copy: withClip(copyArrangementClip),
+        paste: () => pasteArrangementClip(pasteLaneId),
+        duplicate: withClip(duplicateArrangementClip),
+        split: withClip(splitArrangementClip),
+        remove: withClip(deleteArrangementClip),
+      },
+    });
+  }
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (
@@ -4276,14 +4728,14 @@ function App() {
       const hasPrimaryModifier = event.metaKey || event.ctrlKey;
       const hasSystemModifier = hasPrimaryModifier || event.altKey;
       const key = event.key.toLowerCase();
+      const clipActions = clipActionsRef.current;
       if (hasPrimaryModifier && key === "c") {
         if (!selectedClip || isExporting) {
           return;
         }
 
         event.preventDefault();
-        clipClipboardRef.current = { ...selectedClip };
-        setStatus(`Copied ${selectedClip.label}.`);
+        clipActions.copy(selectedClip);
         return;
       }
 
@@ -4293,62 +4745,17 @@ function App() {
         }
 
         event.preventDefault();
-        clipClipboardRef.current = { ...selectedClip };
-        const nextSelectedClipId =
-          timelineClips.find(
-            (clip) =>
-              clip.id !== selectedClip.id &&
-              clip.laneId === selectedClip.laneId,
-          )?.id ??
-          timelineClips.find((clip) => clip.id !== selectedClip.id)?.id;
-
-        dispatchProject({
-          type: "commit",
-          label: "Cut clip",
-          updater: (current) =>
-            patchProjectState(current, {
-              clips: current.clips.filter(
-                (clip) => clip.id !== selectedClip.id,
-              ),
-            }),
-        });
-        setSelectedClipId(nextSelectedClipId);
-        setPendingSelection(null);
-        setStatus(`Cut ${selectedClip.label}.`);
+        clipActions.cut(selectedClip);
         return;
       }
 
       if (hasPrimaryModifier && key === "v") {
-        const clipboardClip = clipClipboardRef.current;
-        if (!clipboardClip || isExporting) {
+        if (!clipClipboardRef.current || isExporting) {
           return;
         }
 
         event.preventDefault();
-        const pastedClipId = `window-${crypto.randomUUID()}`;
-        const pasteQ = playheadQRef.current;
-        dispatchProject({
-          type: "commit",
-          label: "Paste clip",
-          updater: (current) => {
-            const pastedClip = cloneClipAtStartQ(
-              clipboardClip,
-              current.bpm,
-              pasteQ,
-              pastedClipId,
-            );
-            return patchProjectState(current, {
-              clips: resolveClipOverlaps(
-                [...current.clips, pastedClip],
-                pastedClip,
-                current.bpm,
-              ),
-            });
-          },
-        });
-        setSelectedClipId(pastedClipId);
-        setPendingSelection(null);
-        setStatus(`Pasted ${clipboardClip.label}.`);
+        clipActions.paste();
         return;
       }
 
@@ -4358,68 +4765,7 @@ function App() {
         }
 
         event.preventDefault();
-        const clipEndQ = getClipEndQ(selectedClip, bpm);
-        const epsilon = 0.0001;
-        const splitQ = playheadQRef.current;
-        if (
-          splitQ <= selectedClip.startQ + epsilon ||
-          splitQ >= clipEndQ - epsilon
-        ) {
-          setStatus(
-            `Move the playhead inside ${selectedClip.label} to split it.`,
-          );
-          return;
-        }
-
-        const splitClipId = `window-${crypto.randomUUID()}`;
-        dispatchProject({
-          type: "commit",
-          label: "Split clip",
-          updater: (current) => {
-            const sourceClip = current.clips.find(
-              (clip) => clip.id === selectedClip.id,
-            );
-            if (!sourceClip) {
-              return current;
-            }
-
-            const sourceClipEndQ = getClipEndQ(sourceClip, current.bpm);
-            const leftDurationQ = splitQ - sourceClip.startQ;
-            const rightDurationQ = sourceClipEndQ - splitQ;
-            if (leftDurationQ <= epsilon || rightDurationQ <= epsilon) {
-              return current;
-            }
-
-            const leftClip = withWindowTiming(
-              {
-                ...sourceClip,
-                selected: false,
-              },
-              sourceClip.startQ,
-              leftDurationQ,
-              current.bpm,
-            );
-            const rightClip = withWindowTiming(
-              {
-                ...sourceClip,
-                id: splitClipId,
-                selected: true,
-              },
-              splitQ,
-              rightDurationQ,
-              current.bpm,
-            );
-
-            return patchProjectState(current, {
-              clips: current.clips.flatMap((clip) =>
-                clip.id === sourceClip.id ? [leftClip, rightClip] : [clip],
-              ),
-            });
-          },
-        });
-        setSelectedClipId(splitClipId);
-        setPendingSelection(null);
-        setStatus(`Split ${selectedClip.label} at the playhead.`);
+        clipActions.split(selectedClip);
         return;
       }
 
@@ -4429,35 +4775,7 @@ function App() {
         }
 
         event.preventDefault();
-        const duplicatedClipId = `window-${crypto.randomUUID()}`;
-        dispatchProject({
-          type: "commit",
-          label: "Duplicate clip",
-          updater: (current) => {
-            const sourceClip = current.clips.find(
-              (clip) => clip.id === selectedClip.id,
-            );
-            if (!sourceClip) {
-              return current;
-            }
-
-            const duplicatedClip = duplicateClip(
-              sourceClip,
-              current.bpm,
-              duplicatedClipId,
-            );
-            return patchProjectState(current, {
-              clips: resolveClipOverlaps(
-                [...current.clips, duplicatedClip],
-                duplicatedClip,
-                current.bpm,
-              ),
-            });
-          },
-        });
-        setSelectedClipId(duplicatedClipId);
-        setPendingSelection(null);
-        setStatus(`Duplicated ${selectedClip.label}.`);
+        clipActions.duplicate(selectedClip);
         return;
       }
 
@@ -4538,27 +4856,7 @@ function App() {
         }
 
         event.preventDefault();
-        const nextSelectedClipId =
-          timelineClips.find(
-            (clip) =>
-              clip.id !== selectedClip.id &&
-              clip.laneId === selectedClip.laneId,
-          )?.id ??
-          timelineClips.find((clip) => clip.id !== selectedClip.id)?.id;
-
-        dispatchProject({
-          type: "commit",
-          label: "Delete clip",
-          updater: (current) =>
-            patchProjectState(current, {
-              clips: current.clips.filter(
-                (clip) => clip.id !== selectedClip.id,
-              ),
-            }),
-        });
-        setSelectedClipId(nextSelectedClipId);
-        setPendingSelection(null);
-        setStatus(`Deleted ${selectedClip.label}.`);
+        clipActions.remove(selectedClip);
       }
     };
 
@@ -4574,7 +4872,6 @@ function App() {
     lanes,
     selectedClip,
     setPlayheadQ,
-    timelineClips,
     timelineContentEndQ,
     timelineDragState,
     totalQuarters,
@@ -6594,11 +6891,17 @@ function App() {
                           fx
                         </button>
                       </div>
+                      {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click is a pointer shortcut; the context-menu key and Shift+F10 open the same menu on the selected layer */}
                       <div
                         className="track-row__content track-row__content--arrangement"
                         data-timeline-lane-id={lane.id}
+                        onContextMenu={(event) => openLaneMenu(event, lane.id)}
                         onPointerDown={(event) => {
-                          if (event.target !== event.currentTarget) {
+                          // Right-click opens the lane menu instead.
+                          if (
+                            event.target !== event.currentTarget ||
+                            event.button === 2
+                          ) {
                             return;
                           }
 
@@ -6684,9 +6987,22 @@ function App() {
                               ? clipFilmstrips.get(clip.id)
                               : undefined;
                           return (
+                            // biome-ignore lint/a11y/noStaticElementInteractions: right-click is a pointer shortcut; the context-menu key and Shift+F10 open the same menu on the selected clip
                             <div
                               key={clip.id}
                               className={`clip-card ${selected ? "clip-card--selected" : ""} ${filmstrip ? "clip-card--filmstrip" : ""}`}
+                              data-clip-id={clip.id}
+                              onContextMenu={(event) =>
+                                openArrangementClipMenu(event, clip)
+                              }
+                              onPointerDown={(event) => {
+                                // Right-click selects through the menu
+                                // instead of starting a drag or a lane
+                                // selection.
+                                if (event.button === 2) {
+                                  event.stopPropagation();
+                                }
+                              }}
                               style={{
                                 left: clip.startQ * quarterPx,
                                 width: durationQ * quarterPx,
@@ -6739,6 +7055,10 @@ function App() {
                               <button
                                 className="clip-card__handle clip-card__handle--start"
                                 onPointerDown={(event) => {
+                                  if (event.button === 2) {
+                                    return;
+                                  }
+
                                   event.preventDefault();
                                   event.stopPropagation();
                                   setPendingSelection(null);
@@ -6766,6 +7086,10 @@ function App() {
                                   }
                                 }}
                                 onPointerDown={(event) => {
+                                  if (event.button === 2) {
+                                    return;
+                                  }
+
                                   event.preventDefault();
                                   event.stopPropagation();
                                   setPendingSelection(null);
@@ -6816,6 +7140,10 @@ function App() {
                               <button
                                 className="clip-card__handle clip-card__handle--end"
                                 onPointerDown={(event) => {
+                                  if (event.button === 2) {
+                                    return;
+                                  }
+
                                   event.preventDefault();
                                   event.stopPropagation();
                                   setPendingSelection(null);
@@ -7113,11 +7441,11 @@ function App() {
                                     ? spanFilmstrips.get(clip.id)
                                     : undefined;
                                 return (
-                                  // biome-ignore lint/a11y/noStaticElementInteractions: Ctrl/Cmd-click is a mouse shortcut; pressing a source layer's number key commits a selection from the keyboard
+                                  // biome-ignore lint/a11y/noStaticElementInteractions: Ctrl/Cmd-click and right-click are mouse shortcuts; pressing a source layer's number key commits a selection from the keyboard
                                   // biome-ignore lint/a11y/useKeyWithClickEvents: a plain click does nothing, so there is no keyboard equivalent to add
                                   <div
                                     key={clip.id}
-                                    className={`source-span ${filmstrip ? "source-span--filmstrip" : ""}`}
+                                    className={`source-span ${filmstrip ? "source-span--filmstrip" : ""} ${clipMenu?.kind === "span" && clipMenu.spanId === clip.id ? "source-span--selected" : ""}`}
                                     onClick={(event) => {
                                       if (!isSourceClipDropClick(event)) {
                                         return;
@@ -7127,6 +7455,9 @@ function App() {
                                       event.stopPropagation();
                                       addSourceSpanToArrangement(clip);
                                     }}
+                                    onContextMenu={(event) =>
+                                      openSourceSpanMenu(event, clip)
+                                    }
                                     title={`${shortcutLabels.sourceClipDrop} to add this clip to the arrangement`}
                                     style={{
                                       left: clip.startQ * quarterPx,
@@ -7561,6 +7892,18 @@ function App() {
         />
       ) : null}
       <StatusBar items={statusBarItems} message={statusMessage} />
+      <ContextMenu
+        anchor={clipMenu?.anchor ?? null}
+        entries={clipMenu ? getClipMenuEntries(clipMenu) : []}
+        label={
+          clipMenu?.kind === "span"
+            ? "Source clip actions"
+            : clipMenu?.kind === "lane"
+              ? "Layer actions"
+              : "Clip actions"
+        }
+        onClose={() => setClipMenu(null)}
+      />
     </div>
   );
 }

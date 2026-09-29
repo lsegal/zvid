@@ -1749,6 +1749,11 @@
   background: rgba(36, 38, 53, 0.92);
 }
 
+/* The source clip whose right-click menu is open. */
+.source-span--selected {
+  box-shadow: 0 0 0 2px var(--ink);
+}
+
 .source-span__thumb {
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.12), transparent),
