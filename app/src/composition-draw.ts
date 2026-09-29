@@ -9,6 +9,7 @@ import {
   resolveSlotScissor,
 } from "./composition-layout.ts";
 import {
+  BLACK_BORDER,
   type CompositionOrder,
   DEFAULT_COMPOSITION_ORDER,
 } from "./composition-order.ts";
@@ -69,6 +70,32 @@ export type CompositeLayer = {
 
 // What the composite shows where no layer is drawn.
 const BACKGROUND_COLOR = [0.07, 0.08, 0.11, 1] as const;
+
+type ClearColor = readonly [number, number, number, number];
+
+// An Order's border colour for `gl.clearColor`, unpremultiplied.
+function borderClearColor(order: CompositionOrder): ClearColor {
+  const { r, g, b, a } = order.borderColor ?? BLACK_BORDER;
+  return [r / 255, g / 255, b / 255, Math.max(0, Math.min(1, a))];
+}
+
+// What the canvas is cleared to: the background, under the Global Order's
+// border colour when there is an Order, so a translucent border shows the
+// background through it.
+function sceneClearColor(order: CompositionOrder): ClearColor {
+  if (order.arrangement === "none") {
+    return BACKGROUND_COLOR;
+  }
+
+  const border = borderClearColor(order);
+  const alpha = border[3];
+  return [
+    border[0] * alpha + BACKGROUND_COLOR[0] * (1 - alpha),
+    border[1] * alpha + BACKGROUND_COLOR[1] * (1 - alpha),
+    border[2] * alpha + BACKGROUND_COLOR[2] * (1 - alpha),
+    1,
+  ];
+}
 
 // Fill textures are drawn at most this many pixels on a side; the linear
 // filter smooths gradients when the band is larger.
@@ -308,7 +335,14 @@ function bindCompositeState(
   gl.enableVertexAttribArray(uniforms.position);
   gl.vertexAttribPointer(uniforms.position, 2, gl.FLOAT, false, 0, 0);
   gl.enable(gl.BLEND);
-  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  // Alpha accumulates as "over" too, so a translucent layer on an opaque
+  // border leaves it opaque when an FX clip's arrangement is drawn out.
+  gl.blendFuncSeparate(
+    gl.SRC_ALPHA,
+    gl.ONE_MINUS_SRC_ALPHA,
+    gl.ONE,
+    gl.ONE_MINUS_SRC_ALPHA,
+  );
   gl.disable(gl.SCISSOR_TEST);
   gl.activeTexture(gl.TEXTURE0);
 }
@@ -803,7 +837,8 @@ export function drawComposition(
     height,
   };
   bindCompositeState(resources, sceneTarget.framebuffer, width, height);
-  gl.clearColor(...BACKGROUND_COLOR);
+  // The Global Order's border fills its gaps and empty cells.
+  gl.clearColor(...sceneClearColor(order));
   gl.clear(gl.COLOR_BUFFER_BIT);
 
   const drawSteps = (
@@ -844,9 +879,9 @@ export function drawComposition(
   };
 
   // An FX clip with an Order draws the layers beneath it into its own box,
-  // arranged by its Order, runs the rest of its chain on the result and
-  // writes that into its box on `parent`. Nothing is beneath it there but
-  // the background, which the arrangement is drawn over.
+  // arranged by its Order over its border colour, runs the rest of its
+  // chain on the result and draws that into its box on `parent`. Nothing is
+  // beneath it there but the background, which a translucent border shows.
   const drawArrangement = (
     step: LayerDrawStep<CompositeLayer> & { type: "arrange" },
     parent: StackTarget,
@@ -868,7 +903,7 @@ export function drawComposition(
       size.height,
     );
     bindCompositeState(resources, target.framebuffer, size.width, size.height);
-    gl.clearColor(...BACKGROUND_COLOR);
+    gl.clearColor(...borderClearColor(step.order));
     gl.clear(gl.COLOR_BUFFER_BIT);
     drawSteps(step.steps, target, step.order, depth + 1);
     gl.disable(gl.SCISSOR_TEST);
@@ -900,7 +935,6 @@ export function drawComposition(
       parent.width,
       parent.height,
     );
-    gl.disable(gl.BLEND);
     drawQuad(resources, arranged, {
       // The arrangement is bottom-up, unlike the top-row-first layer
       // textures the composite shader expects, so it is drawn flipped.

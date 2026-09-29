@@ -5,6 +5,8 @@
 // Without an enabled Order effect the layers are not arranged at all: each
 // covers the whole canvas and they overlap by z-order, Layer 1 on top.
 
+import { parseCssColor, type Rgba } from "./fill-paint.ts";
+
 // "none" is the z-order overlay used when there is no enabled Order; it is
 // never an Order device's own setting.
 export type Arrangement = "vertical" | "horizontal" | "grid" | "none";
@@ -15,6 +17,9 @@ export type CompositionOrder = {
   gridSize: number;
   // Gap between neighbouring layers, in output pixels at 1080p.
   spacing: number;
+  // What fills the Order's area beneath its layers, showing in the gaps
+  // and empty grid cells. Black when unset.
+  borderColor?: Rgba;
 };
 
 export const ORDER_EFFECT_NAME = "Order";
@@ -24,11 +29,14 @@ export const ORDER_ARRANGEMENTS = ["Vertical", "Horizontal", "Grid"] as const;
 export const GRID_SIZE_MIN = 2;
 export const GRID_SIZE_MAX = 6;
 export const SPACING_MAX = 50;
+export const DEFAULT_BORDER_COLOR = "rgba(0,0,0,1)";
+export const BLACK_BORDER: Rgba = { r: 0, g: 0, b: 0, a: 1 };
 
 export const DEFAULT_COMPOSITION_ORDER: CompositionOrder = {
   arrangement: "vertical",
   gridSize: GRID_SIZE_MIN,
   spacing: 0,
+  borderColor: BLACK_BORDER,
 };
 
 // Layers overlapping full-frame, with no Order to arrange them.
@@ -75,6 +83,10 @@ export function parseCompositionOrder(
     if (key === "arrangement") {
       order.arrangement =
         parseArrangement(parameter.value) ?? order.arrangement;
+      continue;
+    }
+    if (key === "bordercolor") {
+      order.borderColor = parseCssColor(parameter.value) ?? order.borderColor;
       continue;
     }
 
