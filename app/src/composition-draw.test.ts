@@ -459,7 +459,7 @@ describe("drawComposition Transform", () => {
   });
 
   for (const effects of [[], [colorize("lane-1")]]) {
-    it(`frames a transformed layer into its band, then draws it transformed and unclipped by the band${effects.length ? ", after its effects" : ""}`, () => {
+    it(`frames a transformed layer into its band, then draws it transformed and cropped to the band${effects.length ? ", after its effects" : ""}`, () => {
       const { canvasDraws, resources, draws } = render(
         2,
         effects,
@@ -484,7 +484,13 @@ describe("drawComposition Transform", () => {
         resources.textureMap.get("media-1") as unknown as Handle,
         "the framed band is drawn, not the raw source",
       );
-      assert.ok(!bottom.scissorTest, "only the canvas clips the layer");
+      assert.ok(bottom.scissorTest, "the band crops the transformed layer");
+      assert.deepEqual(bottom.scissor, [
+        band.x,
+        band.y,
+        band.width,
+        band.height,
+      ]);
 
       const { frame } = resolveLayerPlacement({
         index: 1,
@@ -560,7 +566,9 @@ describe("drawComposition clip Transform", () => {
       [undefined, clipTransform],
     );
     const bottom = canvasDraws[1];
-    assert.ok(!bottom.scissorTest, "only the canvas clips the clip");
+    assert.ok(bottom.scissorTest, "the band crops the transformed clip");
+    const band = resolveBandScissor(1, 2, WIDTH, HEIGHT);
+    assert.deepEqual(bottom.scissor, [band.x, band.y, band.width, band.height]);
     const expected = transformedQuadAxes(frame, clipTransform, surface);
     assert.deepEqual(bottom.axes, {
       uAxisX: expected.axisX,
@@ -1013,7 +1021,9 @@ describe("drawComposition text layers", () => {
         draw.framebuffer === null,
     );
     assert.equal(canvasDraws.length, 1);
-    assert.ok(!canvasDraws[0].scissorTest);
+    // Its slot, the whole canvas, crops it.
+    assert.ok(canvasDraws[0].scissorTest);
+    assert.deepEqual(canvasDraws[0].scissor, [0, 0, WIDTH, HEIGHT]);
     // The quad covers the same box a stretched layer would.
     const { frame } = resolveLayerPlacement({
       index: 0,

@@ -2,7 +2,8 @@
 // a layer's box (its band, showing what Layout placed there) inside the
 // canvas. A clip's own Transform does the same inside its layer's
 // transformed box: it is applied to the band first, then the layer's
-// Transform moves the result. Everything here is in canvas pixels, origin
+// Transform moves the result. The compositor crops the result to the band,
+// so with an Order a transformed layer never leaves its slot. Everything here is in canvas pixels, origin
 // top-left, +y down, with positive rotation turning clockwise on screen.
 import type { FrameBounds } from "./composition-layout.ts";
 import {

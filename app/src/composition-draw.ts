@@ -791,11 +791,13 @@ function drawLayer(
   }
 
   bindCompositeState(resources, target.framebuffer, width, height);
-  // A transformed layer can leave its slot; only the canvas clips it.
-  if (!transformed) {
-    gl.enable(gl.SCISSOR_TEST);
-    gl.scissor(scissor.x, scissor.y, scissor.width, scissor.height);
-  }
+  // Every layer is cropped to its slot, transformed or not, so a Transform
+  // or Move never spills into a neighbouring slot or the spacing between
+  // them.
+  // Without an Order the slot is the whole of `target`: the canvas, or the
+  // box of the FX clip arranging it.
+  gl.enable(gl.SCISSOR_TEST);
+  gl.scissor(scissor.x, scissor.y, scissor.width, scissor.height);
   drawQuad(resources, texture, uniforms);
 }
 

@@ -86,6 +86,15 @@
   opacity: 0.85;
 }
 
+/* The slot the selected layer is cropped to, under its outline. */
+.preview-transform-overlay__slot {
+  fill: none;
+  stroke: var(--lane-selected-accent);
+  stroke-width: 1px;
+  stroke-dasharray: 4 3;
+  opacity: 0.45;
+}
+
 /* The rotation handle: a dot on a stem above the top edge, turned with the
    box, inside a larger hit area. */
 .preview-transform-overlay__rotate-handle {

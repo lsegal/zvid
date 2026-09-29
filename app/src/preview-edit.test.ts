@@ -20,6 +20,7 @@ import {
   resolveNudgeDelta,
   resolvePreviewEditFrame,
   resolvePreviewLayers,
+  resolveSlotCorners,
   resolveVideoRect,
   screenToCanvas,
   setLayerTransformParameters,
@@ -657,21 +658,99 @@ describe("hitTestLayers", () => {
     );
   });
 
-  it("picks the layer drawn last where layers overlap", () => {
-    // Layer b is drawn second and moved up over layer a.
+  it("ignores the part of a moved layer outside its slot", () => {
+    // Layer b, in the bottom band, moves up a quarter: its box reaches into
+    // Layer a's band, but it is cropped to its own, so only y 500..750 of
+    // it shows.
     const layers = resolvePreviewLayers(
       [activeLayer("a", 0), activeLayer("b", 1, { positionY: -0.25 })],
       canvas,
     );
+    assert.deepEqual(resolveSlotCorners(layers[1], canvas), [
+      { x: 0, y: 500 },
+      { x: 1000, y: 500 },
+      { x: 1000, y: 1000 },
+      { x: 0, y: 1000 },
+    ]);
     assert.equal(
       hitTestLayers(layers, { x: 500, y: 400 }, canvas)?.laneId,
-      "b",
-    );
-    assert.equal(
-      hitTestLayers(layers, { x: 500, y: 100 }, canvas)?.laneId,
       "a",
     );
+    assert.equal(
+      hitTestLayers(layers, { x: 500, y: 600 }, canvas)?.laneId,
+      "b",
+    );
     assert.equal(hitTestLayers(layers, { x: 500, y: 900 }, canvas), undefined);
+    assert.equal(
+      isPointOnLayer({ x: 500, y: 400 }, layers[1], canvas),
+      false,
+      "outside its slot",
+    );
+  });
+
+  it("ignores a moved layer in the spacing between slots", () => {
+    const layers = resolvePreviewLayers(
+      [activeLayer("a", 0, { scaleX: 2 }), activeLayer("b", 1)],
+      canvas,
+      { arrangement: "horizontal", gridSize: 2, spacing: 50 },
+    );
+    assertClose(
+      resolveSlotCorners(layers[0], canvas)[1].x,
+      (1000 - 50000 / 1080) / 2,
+    );
+    assert.equal(hitTestLayers(layers, { x: 500, y: 500 }, canvas), undefined);
+  });
+
+  it("gives every layer the whole canvas as its slot without an Order", () => {
+    const layers = resolvePreviewLayers(
+      [activeLayer("a", 0, { positionX: 0.5 }), activeLayer("b", 1)],
+      canvas,
+      Z_ORDER_COMPOSITION,
+    );
+    for (const layer of layers) {
+      assert.deepEqual(resolveSlotCorners(layer, canvas), [
+        { x: 0, y: 0 },
+        { x: 1000, y: 0 },
+        { x: 1000, y: 1000 },
+        { x: 0, y: 1000 },
+      ]);
+    }
+    // Layer a, moved half a canvas right, still covers Layer b there.
+    assert.equal(
+      hitTestLayers(layers, { x: 750, y: 500 }, canvas)?.laneId,
+      "a",
+    );
+    assert.equal(
+      hitTestLayers(layers, { x: 250, y: 500 }, canvas)?.laneId,
+      "b",
+    );
+  });
+
+  it("crops a moved layer to its slot in a turned FX box", () => {
+    const fx = {
+      ...activeLayer("fx", 0, { rotationDeg: 90 }),
+      fx: true,
+      order: { arrangement: "grid" as const, gridSize: 2, spacing: 0 },
+    };
+    // b's cell lands top-right; moved a quarter of the box along its own
+    // x axis, which the turn points down the canvas, it would reach into
+    // c's cell below.
+    const layers = resolvePreviewLayers(
+      [fx, activeLayer("b", 1, { positionX: 0.25 }), activeLayer("c", 2)],
+      canvas,
+    );
+    const [, b] = layers;
+    const slot = resolveSlotCorners(b, canvas);
+    assertClose(slot[0].x, 1000);
+    assertClose(slot[0].y, 0);
+    assertClose(slot[2].x, 500);
+    assertClose(slot[2].y, 500);
+    assert.equal(isPointOnLayer({ x: 750, y: 400 }, b, canvas), true);
+    assert.equal(isPointOnLayer({ x: 750, y: 600 }, b, canvas), false);
+    assert.equal(
+      hitTestLayers(layers, { x: 750, y: 600 }, canvas)?.laneId,
+      "c",
+    );
   });
 
   it("picks Layer 1 where overlapping layers meet without an Order", () => {

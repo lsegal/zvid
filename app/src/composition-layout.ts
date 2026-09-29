@@ -3,7 +3,8 @@
 // column or a grid cell as the Order arranges them. Without one every layer's
 // slot is the whole canvas and the layers overlap. The layer's source covers
 // its slot and the Layout anchor decides which part of an overflowing source
-// shows. Positions are in clip space (-1..1, +y up), matching the composite
+// shows. Everything a layer draws, Transforms included, is cropped to its
+// slot. Positions are in clip space (-1..1, +y up), matching the composite
 // shader.
 
 import {
@@ -58,7 +59,8 @@ export type LayerPlacement = {
   // Half size of the drawn quad, including the layer's own scale.
   halfExtents: HalfExtents;
   translate: { x: number; y: number };
-  // Slot in framebuffer pixels (origin bottom-left), for gl.scissor.
+  // Slot in framebuffer pixels (origin bottom-left), for gl.scissor: the
+  // layer is cropped to it, transformed or not.
   scissor: ScissorBox;
 };
 
@@ -98,7 +100,8 @@ export type LayerDrawStep<T> =
  * above it. Without an Order that is the usual draw order; with one, layers
  * are drawn from the highest-numbered up while an excluded layer or an FX
  * clip is present, so they stack by z-order around the arranged layers.
- * Among arranged layers that only changes where transformed ones overlap.
+ * Among arranged layers that changes nothing, since each is cropped to its
+ * own slot.
  *
  * The topmost FX clip with an Order of its own (`order` set) governs every
  * layer beneath it: they are planned again by its Order, as an "arrange"

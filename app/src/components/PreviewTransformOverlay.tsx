@@ -26,6 +26,7 @@ import {
   resolveLayerSpace,
   resolveNudgeDelta,
   resolvePreviewEditFrame,
+  resolveSlotCorners,
   resolveVideoRect,
   type Size,
   screenToCanvas,
@@ -276,8 +277,8 @@ export function PreviewTransformOverlay({
   };
 
   // The selected layer keeps the press anywhere inside its outline (its
-  // clip's box, or the layer's own box when only the layer is selected),
-  // even where another layer is drawn over it.
+  // clip's box, or the layer's own box when only the layer is selected)
+  // where it shows in its slot, even where another layer is drawn over it.
   const pickLayer = (point: Point) =>
     selected &&
     isPointOnLayer(
@@ -835,6 +836,19 @@ export function PreviewTransformOverlay({
       matrixRotationDeg(selectedFrame.parent)
     : 0;
   const showControls = Boolean(outline && monitor.width > 0);
+  // The slot the compositor crops the selected layer to, so the crop shows
+  // while its outline and handles reach past it. Without an Order the slot
+  // is the whole canvas, whose edge needs no marking.
+  const slotCorners = selected
+    ? resolveSlotCorners(selected, canvas)
+    : undefined;
+  const slotOutline =
+    slotCorners && !isCanvasBox(slotCorners, canvas)
+      ? slotCorners
+          .map((corner) => canvasToScreen(corner, video, canvas))
+          .map((point) => `${point.x},${point.y}`)
+          .join(" ")
+      : undefined;
   const showHandles = showControls && !editedLayer;
   const videoBottom = video.top + video.height;
   const videoRight = video.left + video.width;
@@ -900,6 +914,13 @@ export function PreviewTransformOverlay({
               />
             );
           })}
+          {slotOutline ? (
+            <polygon
+              className="preview-transform-overlay__slot"
+              data-testid="preview-transform-slot"
+              points={slotOutline}
+            />
+          ) : null}
           <polygon
             className="preview-transform-overlay__halo"
             points={outline}
@@ -1016,6 +1037,21 @@ export function PreviewTransformOverlay({
         </div>
       ) : null}
     </div>
+  );
+}
+
+// Whether `corners` are the canvas's own, to within half a pixel.
+function isCanvasBox(corners: BoxCorners, canvas: Size) {
+  const expected = [
+    { x: 0, y: 0 },
+    { x: canvas.width, y: 0 },
+    { x: canvas.width, y: canvas.height },
+    { x: 0, y: canvas.height },
+  ];
+  return corners.every(
+    (corner, index) =>
+      Math.abs(corner.x - expected[index].x) <= 0.5 &&
+      Math.abs(corner.y - expected[index].y) <= 0.5,
   );
 }
 
