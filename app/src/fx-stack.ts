@@ -25,6 +25,13 @@ import { isTextEffectName } from "./text-style.ts";
 
 export const GLOBAL_EFFECT_TRACK_ID = "__group_main";
 
+// A clip's own stack uses the track id `clip:<clipId>`.
+const CLIP_EFFECT_TRACK_PREFIX = "clip:";
+
+export function getClipEffectTrackId(clipId: string) {
+  return `${CLIP_EFFECT_TRACK_PREFIX}${clipId}`;
+}
+
 export type EffectParameter = {
   key: string;
   value: string;
@@ -60,7 +67,7 @@ export type FxDeviceParameter = {
   display: string;
 };
 
-export type FxDeviceGroup = "layer" | "global";
+export type FxDeviceGroup = "layer" | "global" | "clip";
 
 export type FxDevice = {
   id: string;
@@ -84,7 +91,10 @@ export type FxDevice = {
 };
 
 export function getTrackGroup(trackId: string): FxDeviceGroup {
-  return trackId === GLOBAL_EFFECT_TRACK_ID ? "global" : "layer";
+  if (trackId === GLOBAL_EFFECT_TRACK_ID) {
+    return "global";
+  }
+  return trackId.startsWith(CLIP_EFFECT_TRACK_PREFIX) ? "clip" : "layer";
 }
 
 export function mapEffects(source: LvpSession["effects"]) {
@@ -707,7 +717,8 @@ function describeMissingFont(
 
 function toDevice(
   effect: SessionEffect,
-  layerName: string,
+  // Name of the layer or clip that owns the stack, shown as its subtitle.
+  stackName: string,
   activeLayerCount = 0,
   missingFonts: ReadonlySet<string> = new Set(),
 ): FxDevice {
@@ -736,7 +747,7 @@ function toDevice(
     effectName: effect.effectName,
     name: definition.displayName,
     description: definition.description,
-    subtitle: group === "global" ? "Global stack" : layerName,
+    subtitle: group === "global" ? "Global stack" : stackName,
     accent: definition.accent,
     group,
     enabled: effect.enabled !== false,
@@ -762,8 +773,8 @@ function toDevice(
   };
 }
 
-// Devices for a layer in processing order: the layer's own stack first,
-// then the Global stack.
+// Devices for a layer, and the selected clip on it, in processing order:
+// the clip's own stack first, then the layer's, then the Global stack.
 export function mapSessionEffectsToDevices(
   effects: SessionEffect[],
   laneId: string | undefined,
@@ -773,12 +784,20 @@ export function mapSessionEffectsToDevices(
   activeLayerCount = 0,
   // Fonts that could not be loaded, for the Text device's warning.
   missingFonts: ReadonlySet<string> = new Set(),
+  // The selected clip, whose own stack is listed too.
+  clip?: { id: string; name: string },
 ) {
+  const clipTrackId = clip ? getClipEffectTrackId(clip.id) : undefined;
+  const clipDevices = clip
+    ? effects
+        .filter((effect) => effect.trackId === clipTrackId)
+        .map((effect) => toDevice(effect, clip.name, 0, missingFonts))
+    : [];
   const layerDevices = effects
     .filter((effect) => laneId !== undefined && effect.trackId === laneId)
     .map((effect) => toDevice(effect, layerName, 0, missingFonts));
   const globalDevices = effects
     .filter((effect) => effect.trackId === GLOBAL_EFFECT_TRACK_ID)
     .map((effect) => toDevice(effect, layerName, activeLayerCount));
-  return [...layerDevices, ...globalDevices];
+  return [...clipDevices, ...layerDevices, ...globalDevices];
 }

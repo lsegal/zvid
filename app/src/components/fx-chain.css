@@ -158,6 +158,12 @@ body.fx-chain-dragging * {
   border-left: 1px solid var(--line-strong);
 }
 
+/* The first section needs no line on its left. */
+.fx-chain__divider:first-child {
+  padding-left: 0;
+  border-left: none;
+}
+
 .fx-chain__divider span {
   writing-mode: vertical-rl;
   transform: rotate(180deg);

@@ -109,10 +109,10 @@ export type FxParameterDefinition =
   | FxStringParameterDefinition;
 
 // The stacks an effect is designed for: a layer's own stack, the Global
-// stack that processes the composite, or both.
-export type FxEffectScope = "layer" | "global";
+// stack that processes the composite, a clip's own stack, or several.
+export type FxEffectScope = "layer" | "global" | "clip";
 
-const ALL_SCOPES: readonly FxEffectScope[] = ["layer", "global"];
+const ALL_SCOPES: readonly FxEffectScope[] = ["layer", "global", "clip"];
 
 export type FxEffectDefinition = {
   effectName: string;
@@ -328,7 +328,7 @@ const DEFINITIONS: FxEffectDefinition[] = [
     description: "Moves, resizes and rotates the layer inside the canvas.",
     accent: "#ff9f6b",
     known: true,
-    scopes: ["layer"],
+    scopes: ["layer", "clip"],
     parameters: [
       transformParameter("PositionX", "X", -2, 2, 0, formatSignedPercent),
       transformParameter("PositionY", "Y", -2, 2, 0, formatSignedPercent),
