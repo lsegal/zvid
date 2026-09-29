@@ -414,6 +414,7 @@ describe("convertAls with synthetic sets", () => {
       skipped: [],
       trimmed: [],
       hasLayersVideo: true,
+      layersRecordTracks: ["5"],
     });
     // The arrangement keeps showing the Layers video.
     assert.deepEqual(
@@ -880,6 +881,8 @@ describe("convertAls with ZVID Capture fixtures", () => {
     assert.deepEqual(result.summary.recordRoots, {
       "video-01-9-25-20-36-12-0.mp4": "project",
     });
+    // Only the Layers Record track's clips are end-aligned after probing.
+    assert.deepEqual(result.summary.layersRecordTracks, ["8"]);
   });
 
   it("keeps trimmed and moved clips on the take their content was recorded in", async () => {
