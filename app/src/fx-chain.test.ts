@@ -97,6 +97,25 @@ describe("ADDABLE_EFFECT_DEFINITIONS", () => {
     assert.ok(names.includes("Colorize"));
     assert.ok(!names.includes("Layout"));
   });
+
+  it("offers Transform on layer stacks only", () => {
+    const names = (group: "layer" | "global") =>
+      getAddableEffectDefinitions(group).map(
+        (definition) => definition.effectName,
+      );
+    assert.ok(names("layer").includes("Transform"));
+    assert.ok(!names("global").includes("Transform"));
+    assert.ok(names("global").includes("Colorize"));
+  });
+
+  it("offers Order on the Global stack only", () => {
+    const names = (group: "layer" | "global") =>
+      getAddableEffectDefinitions(group).map(
+        (definition) => definition.effectName,
+      );
+    assert.ok(names("global").includes("Order"));
+    assert.ok(!names("layer").includes("Order"));
+  });
 });
 
 describe("getAddableEffectDefinitions", () => {
@@ -115,6 +134,11 @@ describe("getParameterFormat", () => {
   it("uses the registry format for known parameters", () => {
     assert.equal(getParameterFormat("Colorize", "_HueOffset")(0.5), "+180°");
     assert.equal(getParameterFormat("Pixelate", "_NumPixels")(0.5), "50%");
+    assert.equal(getParameterFormat("Transform", "PositionX")(0.25), "+25%");
+    assert.equal(getParameterFormat("Transform", "ScaleY")(1.5), "150%");
+    assert.equal(getParameterFormat("Transform", "Rotation")(-45), "-45°");
+    assert.equal(getParameterFormat("Order", "GridSize")(3), "3×3");
+    assert.equal(getParameterFormat("Order", "Spacing")(4), "4 px");
   });
 
   it("falls back to raw numbers for unknown parameters", () => {

@@ -2,6 +2,8 @@
 // which group, how knob values are formatted, and the per-device collapse
 // state that is kept in localStorage.
 
+import { isOrderEffectName } from "./composition-order.ts";
+import { isTransformEffectName } from "./composition-transform.ts";
 import {
   FX_EFFECT_DEFINITIONS,
   type FxEffectDefinition,
@@ -46,12 +48,18 @@ export const ADDABLE_EFFECT_DEFINITIONS = FX_EFFECT_DEFINITIONS.filter(
 );
 
 // The effects the add menu of one stack offers: those whose scopes include
-// it, such as the layer-only Color effect.
+// it, such as the layer-only Color effect. Transform places a single layer,
+// so only layer stacks offer it. Order arranges every layer at once, so only
+// the Global stack offers it.
 export function getAddableEffectDefinitions(
   group: FxDeviceGroup,
 ): FxEffectDefinition[] {
   return ADDABLE_EFFECT_DEFINITIONS.filter(
-    (definition) => !definition.scopes || definition.scopes.includes(group),
+    (definition) =>
+      (!definition.scopes || definition.scopes.includes(group)) &&
+      (group === "global"
+        ? !isTransformEffectName(definition.effectName)
+        : !isOrderEffectName(definition.effectName)),
   );
 }
 

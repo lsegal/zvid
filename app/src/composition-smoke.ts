@@ -2,8 +2,10 @@
 // context. Start the dev server (`pnpm dev`), open
 // http://localhost:1420/composition-smoke.html and click "Run layout checks",
 // or append `?autorun` to run on load. The first status line reads
-// "PASSED n/n cases" or lists every failing band. Needs a browser with WebGL
-// and a VP9 encoder to build the test sources.
+// "PASSED n/n cases" or lists every failing slot. Layers are checked stacked
+// in bands and, through the Order global effect, in columns and grid cells
+// with and without spacing. Needs a browser with WebGL and a VP9 encoder to
+// build the test sources.
 import {
   BufferTarget,
   CanvasSource,
@@ -15,7 +17,15 @@ import {
   CompositionRenderer,
   type CompositionRendererState,
 } from "./CompositionPlayer";
-import { type LayoutAnchor, resolveFrameBounds } from "./composition-layout.ts";
+import {
+  type LayoutAnchor,
+  resolveSlotBounds,
+  resolveSpacingPixels,
+} from "./composition-layout.ts";
+import {
+  type CompositionOrder,
+  DEFAULT_COMPOSITION_ORDER,
+} from "./composition-order.ts";
 
 type MediaItem = CompositionRendererState["mediaItems"][number];
 type SessionEffect = CompositionRendererState["effects"][number];
@@ -130,10 +140,34 @@ function zoomEffect(trackId: string): SessionEffect {
   };
 }
 
+function orderEffect(order: CompositionOrder): SessionEffect {
+  const arrangement =
+    order.arrangement[0].toUpperCase() + order.arrangement.slice(1);
+  return {
+    id: "order",
+    trackId: "__group_main",
+    effectName: "Order",
+    parameters: [
+      { key: "Arrangement", value: arrangement },
+      {
+        key: "GridSize",
+        value: String(order.gridSize),
+        numericValue: order.gridSize,
+      },
+      {
+        key: "Spacing",
+        value: String(order.spacing),
+        numericValue: order.spacing,
+      },
+    ],
+  };
+}
+
 function buildState(
   sources: Array<{ url: string; width: number; height: number }>,
   anchor: LayoutAnchor,
   effectMode: EffectMode,
+  order: CompositionOrder,
 ): CompositionRendererState {
   const lanes = sources.map((_, index) => ({
     id: `lane-${index}`,
@@ -185,6 +219,9 @@ function buildState(
   } else if (effectMode === "zoom") {
     effects.push(...lanes.map((lane) => zoomEffect(lane.id)));
   }
+  if (order !== DEFAULT_COMPOSITION_ORDER) {
+    effects.push(orderEffect(order));
+  }
 
   return {
     mediaItems,
@@ -197,18 +234,35 @@ function buildState(
   };
 }
 
-// Which third of the source shows at the centre of a band. The source covers
-// its band, so a source relatively taller than the band shows only a slice,
+// A slot in canvas pixels, origin top-left.
+function slotRect(index: number, count: number, order: CompositionOrder) {
+  const bounds = resolveSlotBounds(
+    index,
+    count,
+    order,
+    CANVAS_WIDTH,
+    CANVAS_HEIGHT,
+  );
+  return {
+    left: ((bounds.centerX - bounds.halfWidth + 1) / 2) * CANVAS_WIDTH,
+    right: ((bounds.centerX + bounds.halfWidth + 1) / 2) * CANVAS_WIDTH,
+    top: ((1 - (bounds.centerY + bounds.halfHeight)) / 2) * CANVAS_HEIGHT,
+    bottom: ((1 - (bounds.centerY - bounds.halfHeight)) / 2) * CANVAS_HEIGHT,
+    aspect: bounds.aspect,
+  };
+}
+
+// Which third of the source shows at the centre of a slot. The source covers
+// its slot, so a source relatively taller than the slot shows only a slice,
 // placed by the anchor. Layer effects work on that slice: Zoom & Pan picks
-// its window inside what the band shows, not inside the whole source.
+// its window inside what the slot shows, not inside the whole source.
 function expectedThird(
   anchor: LayoutAnchor,
   source: { width: number; height: number },
-  layerCount: number,
+  slotAspect: number,
   effectMode: EffectMode,
 ) {
-  const bandAspect = (CANVAS_WIDTH / CANVAS_HEIGHT) * layerCount;
-  const visible = Math.min(1, source.width / source.height / bandAspect);
+  const visible = Math.min(1, source.width / source.height / slotAspect);
   const start =
     anchor === "top"
       ? 0
@@ -239,10 +293,16 @@ function isEmpty([r, g, b]: Rgb) {
   return r + g + b < 24 || (r < 30 && g < 30 && b < 40 && b > r);
 }
 
-function bandsHaveContent(gl: WebGLRenderingContext, count: number) {
-  for (let band = 0; band < count; band++) {
-    const y = ((band + 0.5) / count) * CANVAS_HEIGHT;
-    if (isEmpty(readPixel(gl, CANVAS_WIDTH / 2, y))) return false;
+function slotsHaveContent(
+  gl: WebGLRenderingContext,
+  count: number,
+  order: CompositionOrder,
+) {
+  for (let slot = 0; slot < count; slot++) {
+    const rect = slotRect(slot, count, order);
+    const x = (rect.left + rect.right) / 2;
+    const y = (rect.top + rect.bottom) / 2;
+    if (isEmpty(readPixel(gl, x, y))) return false;
   }
   return true;
 }
@@ -257,10 +317,11 @@ async function runCase(
   sources: Array<{ url: string; width: number; height: number }>,
   anchor: LayoutAnchor,
   effectMode: EffectMode,
+  order: CompositionOrder = DEFAULT_COMPOSITION_ORDER,
 ) {
   const canvas = document.createElement("canvas");
   const renderer = new CompositionRenderer(
-    buildState(sources, anchor, effectMode),
+    buildState(sources, anchor, effectMode, order),
     { canvas, audioAnalysis: "offline" },
   );
   const failures: string[] = [];
@@ -268,32 +329,33 @@ async function runCase(
     const gl = canvas.getContext("webgl");
     if (!gl) throw new Error("WebGL is unavailable.");
     // A new video element may not have decoded its first frame yet, so render
-    // until every band shows something other than the empty canvas.
+    // until every slot shows something other than the empty canvas.
     for (let attempt = 0; attempt < 20; attempt++) {
       await renderer.renderFrameAt(0.5, 0.25);
-      if (bandsHaveContent(gl, sources.length)) break;
+      if (slotsHaveContent(gl, sources.length, order)) break;
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
-    const third = expectedThird(anchor, sources[0], sources.length, effectMode);
-    for (let band = 0; band < sources.length; band++) {
-      // Band 0 is the top band and holds the first lane.
-      const layer = band;
-      const bounds = resolveFrameBounds(band, sources.length, 1);
-      const top =
-        ((1 - (bounds.centerY + bounds.halfHeight)) / 2) * CANVAS_HEIGHT;
-      const bottom =
-        ((1 - (bounds.centerY - bounds.halfHeight)) / 2) * CANVAS_HEIGHT;
-      const center = readPixel(gl, CANVAS_WIDTH / 2, (top + bottom) / 2);
+    for (let slot = 0; slot < sources.length; slot++) {
+      // Slot 0 is the top (left) slot and holds the first lane.
+      const layer = slot;
+      const { left, right, top, bottom, aspect } = slotRect(
+        slot,
+        sources.length,
+        order,
+      );
+      const centerX = (left + right) / 2;
+      const third = expectedThird(anchor, sources[0], aspect, effectMode);
+      const center = readPixel(gl, centerX, (top + bottom) / 2);
       if (!matches(center, LAYER_COLORS[layer][third])) {
         failures.push(
-          `band ${band} center is rgb(${center.join(", ")}), expected layer ${layer + 1} ${THIRDS[third]} rgb(${LAYER_COLORS[layer][third].join(", ")})`,
+          `slot ${slot} center is rgb(${center.join(", ")}), expected layer ${layer + 1} ${THIRDS[third]} rgb(${LAYER_COLORS[layer][third].join(", ")})`,
         );
       }
       for (const [edge, y] of [
         ["top", top + 2],
         ["bottom", bottom - 3],
       ] as const) {
-        const pixel = readPixel(gl, CANVAS_WIDTH / 2, y);
+        const pixel = readPixel(gl, centerX, y);
         const primary = LAYER_COLORS[layer][0];
         const isLayer = primary.every(
           (value, index) =>
@@ -301,11 +363,12 @@ async function runCase(
         );
         if (!isLayer) {
           failures.push(
-            `band ${band} ${edge} edge is rgb(${pixel.join(", ")}), not layer ${layer + 1}`,
+            `slot ${slot} ${edge} edge is rgb(${pixel.join(", ")}), not layer ${layer + 1}`,
           );
         }
       }
     }
+    failures.push(...checkGaps(gl, sources.length, order));
   } finally {
     renderer.destroy();
   }
@@ -313,11 +376,101 @@ async function runCase(
   return failures;
 }
 
+// With spacing, the middle of the gap after each slot shows the background;
+// without it, the next slot starts right away. Grid cells with no layer
+// show the background too.
+function checkGaps(
+  gl: WebGLRenderingContext,
+  count: number,
+  order: CompositionOrder,
+) {
+  const failures: string[] = [];
+  const gap = resolveSpacingPixels(order, CANVAS_WIDTH, CANVAS_HEIGHT);
+  const columns =
+    order.arrangement === "horizontal"
+      ? count
+      : order.arrangement === "grid"
+        ? order.gridSize
+        : 1;
+  for (let slot = 0; slot < count; slot++) {
+    const rect = slotRect(slot, count, order);
+    const probes: Array<[string, number, number]> = [];
+    if (slot % columns < columns - 1 && slot + 1 < count) {
+      probes.push([
+        "right",
+        rect.right + gap / 2,
+        (rect.top + rect.bottom) / 2,
+      ]);
+    }
+    if (slot + columns < count) {
+      probes.push([
+        "below",
+        (rect.left + rect.right) / 2,
+        rect.bottom + gap / 2,
+      ]);
+    }
+    for (const [side, x, y] of probes) {
+      const pixel = readPixel(gl, x, y);
+      if (gap >= 2 && !isEmpty(pixel)) {
+        failures.push(
+          `gap ${side} of slot ${slot} is rgb(${pixel.join(", ")}), not the background`,
+        );
+      }
+      if (gap === 0 && isEmpty(pixel)) {
+        failures.push(`seam ${side} of slot ${slot} shows the background`);
+      }
+    }
+  }
+  if (order.arrangement === "grid") {
+    for (let cell = count; cell < order.gridSize ** 2; cell++) {
+      const rect = slotRect(cell, count, order);
+      const pixel = readPixel(
+        gl,
+        (rect.left + rect.right) / 2,
+        (rect.top + rect.bottom) / 2,
+      );
+      if (!isEmpty(pixel)) {
+        failures.push(
+          `empty cell ${cell} is rgb(${pixel.join(", ")}), not the background`,
+        );
+      }
+    }
+  }
+  return failures;
+}
+
+// Arrangements the Order effect adds, each checked with 1-3 layers.
+const ORDER_CASES: Array<[string, CompositionOrder]> = [
+  ["horizontal", { arrangement: "horizontal", gridSize: 2, spacing: 0 }],
+  [
+    "horizontal, spacing 10",
+    { arrangement: "horizontal", gridSize: 2, spacing: 10 },
+  ],
+  [
+    "vertical, spacing 10",
+    { arrangement: "vertical", gridSize: 2, spacing: 10 },
+  ],
+  ["grid 2", { arrangement: "grid", gridSize: 2, spacing: 0 }],
+  ["grid 2, spacing 10", { arrangement: "grid", gridSize: 2, spacing: 10 }],
+  ["grid 3, spacing 6", { arrangement: "grid", gridSize: 3, spacing: 6 }],
+];
+
 async function run() {
   runButton.disabled = true;
   const lines: string[] = [];
   let failed = 0;
   let total = 0;
+  const check = async (name: string, runChecks: () => Promise<string[]>) => {
+    total++;
+    statusElement.textContent = `Rendering ${name}...`;
+    const failures = await runChecks();
+    if (failures.length) {
+      failed++;
+      lines.push(`FAIL ${name}`, ...failures.map((line) => `  ${line}`));
+    } else {
+      lines.push(`ok   ${name}`);
+    }
+  };
   try {
     for (const orientation of ["portrait", "landscape"] as const) {
       statusElement.textContent = `Encoding ${orientation} sources...`;
@@ -335,22 +488,26 @@ async function run() {
             "global",
             "zoom",
           ] as const) {
-            total++;
-            const name = `${count} layer(s), ${orientation}, ${anchor}, effects: ${effectMode}`;
-            statusElement.textContent = `Rendering ${name}...`;
-            const failures = await runCase(
-              sources.slice(0, count),
-              anchor,
-              effectMode,
+            await check(
+              `${count} layer(s), ${orientation}, ${anchor}, effects: ${effectMode}`,
+              () => runCase(sources.slice(0, count), anchor, effectMode),
             );
-            if (failures.length) {
-              failed++;
-              lines.push(
-                `FAIL ${name}`,
-                ...failures.map((line) => `  ${line}`),
+          }
+        }
+      }
+      for (const [orderName, order] of ORDER_CASES) {
+        for (let count = 1; count <= 3; count++) {
+          for (const anchor of ["top", "center"] as const) {
+            for (const effectMode of [
+              "none",
+              "all-layers",
+              "global",
+            ] as const) {
+              await check(
+                `${orderName}, ${count} layer(s), ${orientation}, ${anchor}, effects: ${effectMode}`,
+                () =>
+                  runCase(sources.slice(0, count), anchor, effectMode, order),
               );
-            } else {
-              lines.push(`ok   ${name}`);
             }
           }
         }

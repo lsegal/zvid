@@ -50,6 +50,25 @@ export function sourceSpanCovering<S extends CoverageSpan>(
   );
 }
 
+/**
+ * Whether `sourceTrackId` has a clip anywhere in `[startQ, endQ)`, so a
+ * window on it over that range shows at least some footage.
+ */
+export function sourceTrackHasFootage<S extends CoverageSpan>(
+  spans: readonly S[],
+  spanEndQ: (span: S) => number,
+  sourceTrackId: string,
+  startQ: number,
+  endQ: number,
+) {
+  return spans.some(
+    (span) =>
+      span.sourceTrackId === sourceTrackId &&
+      span.startQ < endQ - EPSILON &&
+      spanEndQ(span) > startQ + EPSILON,
+  );
+}
+
 function pick<T>(items: readonly T[], random: () => number) {
   return items[Math.min(items.length - 1, Math.floor(random() * items.length))];
 }

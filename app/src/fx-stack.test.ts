@@ -349,6 +349,47 @@ describe("addEffect", () => {
     assert.equal(addEffect(effects, GLOBAL_EFFECT_TRACK_ID, "Layout"), effects);
   });
 
+  it("adds Transform to layers with identity defaults, never to Global", () => {
+    const effects = addEffect(load(), "6", "Transform", undefined, "move");
+    const added = effects.find((effect) => effect.id === "move");
+    assert.deepEqual(
+      added?.parameters.map((parameter) => [
+        parameter.key,
+        parameter.numericValue,
+      ]),
+      [
+        ["PositionX", 0],
+        ["PositionY", 0],
+        ["ScaleX", 1],
+        ["ScaleY", 1],
+        ["OriginX", 0],
+        ["OriginY", 0],
+        ["Rotation", 0],
+      ],
+    );
+    assert.equal(
+      addEffect(effects, GLOBAL_EFFECT_TRACK_ID, "Transform"),
+      effects,
+    );
+  });
+
+  it("adds Order to the Global stack with defaults, never to a layer", () => {
+    const effects = addEffect(
+      load(),
+      GLOBAL_EFFECT_TRACK_ID,
+      "Order",
+      undefined,
+      "order",
+    );
+    const added = effects.find((effect) => effect.id === "order");
+    assert.deepEqual(added?.parameters, [
+      { key: "Arrangement", value: "Vertical" },
+      { key: "GridSize", value: "2.000", numericValue: 2 },
+      { key: "Spacing", value: "0.000", numericValue: 0 },
+    ]);
+    assert.equal(addEffect(effects, "6", "Order"), effects);
+  });
+
   it("starts a new stack and generates ids", () => {
     const next = addEffect(load(), "5", "Layout");
     const added = next.at(-1);
@@ -741,5 +782,39 @@ describe("layer FX bypass", () => {
     assert.equal(history.present, initial);
     history = projectHistoryReducer(history, { type: "redo" });
     assert.equal(history.present, toggled);
+  });
+});
+
+describe("Order devices", () => {
+  function orderDevice(
+    arrangement: string,
+    activeLayerCount: number,
+    enabled = true,
+  ) {
+    let effects = addEffect([], GLOBAL_EFFECT_TRACK_ID, "Order", 0, "order");
+    effects = setEffectParameter(effects, "order", "Arrangement", arrangement);
+    effects = setEffectEnabled(effects, "order", enabled);
+    return mapSessionEffectsToDevices(
+      effects,
+      "6",
+      "Layer 3",
+      activeLayerCount,
+    ).find((device) => device.id === "order");
+  }
+
+  it("shows Grid Size only while the arrangement is Grid", () => {
+    const keys = (arrangement: string) =>
+      orderDevice(arrangement, 0)?.parameters.map((parameter) => parameter.key);
+    assert.deepEqual(keys("Vertical"), ["Arrangement", "Spacing"]);
+    assert.deepEqual(keys("Horizontal"), ["Arrangement", "Spacing"]);
+    assert.deepEqual(keys("Grid"), ["Arrangement", "GridSize", "Spacing"]);
+  });
+
+  it("warns when a grid has fewer cells than active layers", () => {
+    assert.equal(orderDevice("Grid", 4)?.warning, undefined);
+    assert.equal(orderDevice("Grid", 5)?.warning, "1 layer hidden by grid");
+    assert.equal(orderDevice("Grid", 7)?.warning, "3 layers hidden by grid");
+    assert.equal(orderDevice("Vertical", 7)?.warning, undefined);
+    assert.equal(orderDevice("Grid", 7, false)?.warning, undefined);
   });
 });

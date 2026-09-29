@@ -4,6 +4,12 @@
 // `effects` array, or the same array when nothing changed so history
 // commits can skip no-op edits.
 
+import {
+  hiddenLayerCount,
+  isOrderEffectName,
+  parseCompositionOrder,
+} from "./composition-order.ts";
+import { isTransformEffectName } from "./composition-transform.ts";
 import { isColorEffectName } from "./fill-paint.ts";
 import {
   type FxEffectDefinition,
@@ -61,6 +67,9 @@ export type FxDevice = {
   // True for a layer's own Layout device. Every visual layer has exactly
   // one, so it can be reset to its defaults but not removed or duplicated.
   layerDefault?: boolean;
+  // A problem to point out on the device, such as layers an Order grid has
+  // no cell for.
+  warning?: string;
   parameters: FxDeviceParameter[];
 };
 
@@ -302,6 +311,16 @@ export function addEffect(
   id?: string,
 ) {
   const stack = getStack(effects, trackId);
+  // Transform places one layer, so it has no meaning on the Global stack.
+  if (trackId === GLOBAL_EFFECT_TRACK_ID && isTransformEffectName(effectName)) {
+    return effects;
+  }
+
+  // Order arranges every layer at once, so only the Global stack takes it.
+  if (trackId !== GLOBAL_EFFECT_TRACK_ID && isOrderEffectName(effectName)) {
+    return effects;
+  }
+
   // Layout is per layer: never on the Global stack, and one per layer.
   if (
     isLayoutEffectName(effectName) &&
@@ -557,7 +576,7 @@ function toDeviceParameter(
 }
 
 // Whether a parameter shows given the effect's stored values: always,
-// unless it only applies while another parameter holds a given value.
+// unless it only applies while another parameter holds one of given values.
 export function isParameterVisible(
   definition: FxParameterDefinition,
   effectDefinition: FxEffectDefinition,
@@ -570,16 +589,36 @@ export function isParameterVisible(
 
   const controlling = findParameterDefinition(effectDefinition, condition.key);
   const stored = parameters.find(
-    (parameter) => parameter.key === condition.key,
+    (candidate) => candidate.key === condition.key,
+  )?.value;
+  const value = (stored ?? `${controlling?.defaultValue ?? ""}`)
+    .trim()
+    .toLowerCase();
+  return condition.values.some(
+    (candidate) => candidate.toLowerCase() === value,
   );
-  const value =
-    stored?.value ??
-    (controlling ? `${controlling.defaultValue}` : undefined) ??
-    "";
-  return value.trim().toLowerCase() === condition.value.toLowerCase();
 }
 
-function toDevice(effect: SessionEffect, layerName: string): FxDevice {
+// Layers an enabled Order grid has no cell for, when there are any.
+function describeHiddenLayers(effect: SessionEffect, activeLayerCount: number) {
+  if (effect.enabled === false || !isOrderEffectName(effect.effectName)) {
+    return undefined;
+  }
+
+  const hidden = hiddenLayerCount(
+    activeLayerCount,
+    parseCompositionOrder(effect.parameters),
+  );
+  return hidden
+    ? `${hidden} ${hidden === 1 ? "layer" : "layers"} hidden by grid`
+    : undefined;
+}
+
+function toDevice(
+  effect: SessionEffect,
+  layerName: string,
+  activeLayerCount = 0,
+): FxDevice {
   const definition = getEffectDefinition(effect.effectName);
   const group: FxDeviceGroup =
     effect.trackId === GLOBAL_EFFECT_TRACK_ID ? "global" : "layer";
@@ -611,6 +650,7 @@ function toDevice(effect: SessionEffect, layerName: string): FxDevice {
     group,
     enabled: effect.enabled !== false,
     layerDefault: isLayerLayoutEffect(effect) || undefined,
+    warning: describeHiddenLayers(effect, activeLayerCount),
     parameters: parameterDefinitions
       .filter(
         (parameter) =>
@@ -633,12 +673,14 @@ export function mapSessionEffectsToDevices(
   laneId: string | undefined,
   // Display name of the layer, such as "Layer 3"; defaults to its id.
   layerName = `Layer ${laneId}`,
+  // Layers the compositor draws at the playhead, for the Order grid warning.
+  activeLayerCount = 0,
 ) {
   const layerDevices = effects
     .filter((effect) => laneId !== undefined && effect.trackId === laneId)
     .map((effect) => toDevice(effect, layerName));
   const globalDevices = effects
     .filter((effect) => effect.trackId === GLOBAL_EFFECT_TRACK_ID)
-    .map((effect) => toDevice(effect, layerName));
+    .map((effect) => toDevice(effect, layerName, activeLayerCount));
   return [...layerDevices, ...globalDevices];
 }

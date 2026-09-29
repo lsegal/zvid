@@ -3,15 +3,26 @@
 // parameters (label, range, default and display format) in stack UI order.
 
 import {
+  GRID_SIZE_MAX,
+  GRID_SIZE_MIN,
+  ORDER_ARRANGEMENTS,
+  ORDER_EFFECT_NAME,
+  SPACING_MAX,
+} from "./composition-order.ts";
+import {
   COLOR_EFFECT_NAME,
   DEFAULT_FILL_GRADIENT,
   FILL_MODES,
   NEUTRAL_FILL_COLOR,
 } from "./fill-paint.ts";
 
-// Shows a parameter only while another parameter of the same effect holds
-// `value`, such as the Color effect's colour while its Type is Solid.
-export type FxParameterVisibility = { key: string; value: string };
+// Shows a parameter only while the enum parameter `key` holds one of
+// `values` (compared case-insensitively), such as the Color effect's colour
+// while its Type is Solid.
+export type FxParameterVisibility = {
+  key: string;
+  values: readonly string[];
+};
 
 export type FxNumberParameterDefinition = {
   kind: "number";
@@ -91,6 +102,24 @@ export function formatZoom(value: number) {
   return `${(1 + 3 * value).toFixed(2)}×`;
 }
 
+export function formatSignedPercent(value: number) {
+  const percent = Math.round(value * 100);
+  return `${percent > 0 ? "+" : ""}${percent}%`;
+}
+
+export function formatDegrees(value: number) {
+  return `${Math.round(value)}°`;
+}
+
+export function formatGridSize(value: number) {
+  const size = Math.round(value);
+  return `${size}×${size}`;
+}
+
+export function formatPixels(value: number) {
+  return `${Math.round(value)} px`;
+}
+
 export function formatRawNumber(value: number) {
   return value.toFixed(3);
 }
@@ -117,6 +146,26 @@ function zoomParameter(
   label: string,
 ): FxNumberParameterDefinition {
   return { ...unitParameter(key, label, 0), format: formatZoom };
+}
+
+function transformParameter(
+  key: string,
+  label: string,
+  min: number,
+  max: number,
+  defaultValue: number,
+  format: (value: number) => string,
+): FxNumberParameterDefinition {
+  return {
+    kind: "number",
+    key,
+    label,
+    min,
+    max,
+    defaultValue,
+    step: 0.01,
+    format,
+  };
 }
 
 const DEFINITIONS: FxEffectDefinition[] = [
@@ -229,16 +278,80 @@ const DEFINITIONS: FxEffectDefinition[] = [
         key: "Color",
         label: "Color",
         defaultValue: NEUTRAL_FILL_COLOR,
-        visibleWhen: { key: "Mode", value: "Solid" },
+        visibleWhen: { key: "Mode", values: ["Solid"] },
       },
       {
         kind: "gradient",
         key: "Gradient",
         label: "Gradient",
         defaultValue: DEFAULT_FILL_GRADIENT,
-        visibleWhen: { key: "Mode", value: "Gradient" },
+        visibleWhen: { key: "Mode", values: ["Gradient"] },
       },
       unitParameter("Opacity", "Opacity", 1),
+    ],
+  },
+  {
+    effectName: "Transform",
+    displayName: "Transform",
+    description: "Moves, resizes and rotates the layer inside the canvas.",
+    accent: "#ff9f6b",
+    known: true,
+    parameters: [
+      transformParameter("PositionX", "X", -2, 2, 0, formatSignedPercent),
+      transformParameter("PositionY", "Y", -2, 2, 0, formatSignedPercent),
+      transformParameter("ScaleX", "Width", 0.05, 8, 1, formatPercent),
+      transformParameter("ScaleY", "Height", 0.05, 8, 1, formatPercent),
+      transformParameter("OriginX", "Origin X", -1, 1, 0, formatSignedPercent),
+      transformParameter("OriginY", "Origin Y", -1, 1, 0, formatSignedPercent),
+      {
+        ...transformParameter(
+          "Rotation",
+          "Rotation",
+          -180,
+          180,
+          0,
+          formatDegrees,
+        ),
+        step: 1,
+      },
+    ],
+  },
+  {
+    effectName: ORDER_EFFECT_NAME,
+    displayName: "Order",
+    description:
+      "Arranges the layers in stacked rows, side-by-side columns or a grid.",
+    accent: "#b6e36b",
+    known: true,
+    parameters: [
+      {
+        kind: "enum",
+        key: "Arrangement",
+        label: "Order",
+        options: ORDER_ARRANGEMENTS,
+        defaultValue: "Vertical",
+      },
+      {
+        kind: "number",
+        key: "GridSize",
+        label: "Grid Size",
+        min: GRID_SIZE_MIN,
+        max: GRID_SIZE_MAX,
+        defaultValue: GRID_SIZE_MIN,
+        step: 1,
+        format: formatGridSize,
+        visibleWhen: { key: "Arrangement", values: ["Grid"] },
+      },
+      {
+        kind: "number",
+        key: "Spacing",
+        label: "Spacing",
+        min: 0,
+        max: SPACING_MAX,
+        defaultValue: 0,
+        step: 1,
+        format: formatPixels,
+      },
     ],
   },
 ];

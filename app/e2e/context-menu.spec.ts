@@ -382,3 +382,112 @@ test("Ctrl-click on macOS opens the menus without selecting, dragging or droppin
   expect(await lastEventShowedNativeMenu(page)).toBe(false);
   await expect(page.locator(".clip-card")).toHaveCount(1);
 });
+
+// Drags out an uncommitted selection on `target` between two x offsets from
+// the song start, with the timeline scrolled back to it.
+async function dragSelection(target: Locator, fromX: number, toX: number) {
+  const page = target.page();
+  await target.scrollIntoViewIfNeeded();
+  await page.locator(".timeline-scroll").evaluate(
+    (element) =>
+      new Promise((resolve) => {
+        element.scrollLeft = 0;
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+      }),
+  );
+  const bounds = await target.boundingBox();
+  if (!bounds) {
+    throw new Error("Target is not visible");
+  }
+  const y = bounds.y + 20;
+  await page.mouse.move(bounds.x + fromX, y);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + toX, y, { steps: 4 });
+  await page.mouse.up();
+  await expect(target.locator(".timeline-selection")).toBeVisible();
+}
+
+// Right-clicks the lane `x` from the song start where `dragSelection` left
+// it, without scrolling, which would close the menu.
+async function rightClickLaneAt(target: Locator, x: number) {
+  const bounds = await target.boundingBox();
+  if (!bounds) {
+    throw new Error("Target is not visible");
+  }
+  await target.page().mouse.click(bounds.x + x, bounds.y + 20, {
+    button: "right",
+  });
+}
+
+test("right-clicking a selection keeps it and inserts a track like its number key", async ({
+  page,
+}) => {
+  await dropVideoIntoNewSourceTrack(page);
+  const trackName = "test-pattern";
+
+  // The number key commits the same range on Layer 2, for comparison.
+  await dragSelection(lane(page, "5"), 30, 130);
+  await page.keyboard.press("1");
+  const keyed = lane(page, "5").locator(".clip-card");
+  await expect(keyed).toHaveCount(1);
+
+  await dragSelection(lane(page, "1"), 30, 130);
+  const selection = lane(page, "1").locator(".timeline-selection");
+  const selectionBox = await selection.boundingBox();
+  await rightClickLaneAt(lane(page, "1"), 80);
+  const menu = page.getByRole("menu", { name: "Selection actions" });
+  await expect(menu).toBeVisible();
+  await expect(selection).toBeVisible();
+  await expect(menu.getByRole("menuitem")).toHaveText([
+    "Insert Track",
+    "Clear selectionEsc",
+  ]);
+
+  await menuItem(page, "Insert Track").hover();
+  const submenu = page.getByRole("menu", { name: "Insert Track" });
+  await expect(submenu).toBeVisible();
+  await expect(submenu.getByRole("menuitem")).toHaveText([`${trackName}1`]);
+  await submenu.getByRole("menuitem", { name: trackName }).click();
+  await expect(menu).toBeHidden();
+  await expect(page.locator(".timeline-selection")).toHaveCount(0);
+
+  const inserted = lane(page, "1").locator(".clip-card");
+  await expect(inserted).toHaveCount(1);
+  await expect(inserted).toHaveClass(/clip-card--selected/);
+  const insertedBox = await inserted.boundingBox();
+  const keyedBox = await keyed.boundingBox();
+  expect(insertedBox?.x).toBeCloseTo(keyedBox?.x ?? Number.NaN, 0);
+  expect(insertedBox?.width).toBeCloseTo(keyedBox?.width ?? Number.NaN, 0);
+  expect(insertedBox?.x).toBeCloseTo(selectionBox?.x ?? Number.NaN, 0);
+
+  // Past the end of the footage, the track is disabled.
+  await dragSelection(lane(page, "6"), 600, 700);
+  await rightClickLaneAt(lane(page, "6"), 650);
+  await menuItem(page, "Insert Track").hover();
+  const noFootage = page
+    .getByRole("menu", { name: "Insert Track" })
+    .getByRole("menuitem", { name: trackName });
+  await expect(noFootage).toHaveAttribute("aria-disabled", "true");
+  await expect(noFootage).toHaveAttribute("title", "No footage here");
+
+  // Clear selection is the Escape equivalent.
+  await page.keyboard.press("Escape");
+  await menuItem(page, "Clear selection").click();
+  await expect(page.locator(".timeline-selection")).toHaveCount(0);
+
+  // Right-clicking outside the selection opens the lane menu and clears it.
+  await dragSelection(lane(page, "6"), 600, 700);
+  await rightClickLaneAt(lane(page, "6"), 300);
+  await expect(page.getByRole("menu", { name: "Layer actions" })).toBeVisible();
+  await expect(page.locator(".timeline-selection")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
+  // With nothing focused, Shift+F10 opens the selection menu on it.
+  await dragSelection(lane(page, "6"), 600, 700);
+  await page.evaluate(() =>
+    (document.activeElement as HTMLElement | null)?.blur(),
+  );
+  await page.keyboard.press("Shift+F10");
+  await expect(menu).toBeVisible();
+  await expect(lane(page, "6").locator(".timeline-selection")).toBeVisible();
+});
