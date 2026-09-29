@@ -1,4 +1,4 @@
-/* Laid out in canvas pixels at the size of the text layer's box; an inline
+/* Laid out in canvas pixels at the size of the text clip's box; an inline
    matrix maps it onto the preview monitor over the layer's transformed box. */
 .preview-text-editor {
   position: absolute;

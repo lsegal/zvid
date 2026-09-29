@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 
-// The selection menu's Insert Fill Layer turns the timeline selection into a
+// The selection menu's Insert Fill Clip turns the timeline selection into a
 // fill clip, painted by a Color effect that switches between a colour and a
 // gradient.
 
@@ -26,7 +26,7 @@ async function dragSelection(
   await page.mouse.up();
 }
 
-test("Insert Fill Layer adds a fill clip with a Solid/Gradient Color effect", async ({
+test("Insert Fill Clip adds a fill clip with a Solid/Gradient Color effect", async ({
   page,
 }) => {
   await page.goto("/");
@@ -35,7 +35,7 @@ test("Insert Fill Layer adds a fill clip with a Solid/Gradient Color effect", as
   await dragSelection(page, "1", 40, 260);
   await expect(page.locator(".timeline-selection")).toHaveCount(1);
 
-  // Right-clicking the selection keeps it and offers Insert Fill Layer.
+  // Right-clicking the selection keeps it and offers Insert Fill Clip.
   const bounds = await lane(page, "1").boundingBox();
   if (!bounds) {
     throw new Error("Lane is not visible");
@@ -43,7 +43,7 @@ test("Insert Fill Layer adds a fill clip with a Solid/Gradient Color effect", as
   await page.mouse.click(bounds.x + 150, bounds.y + 20, { button: "right" });
   await page
     .getByRole("menu", { name: "Selection actions" })
-    .getByRole("menuitem", { name: "Insert Fill Layer" })
+    .getByRole("menuitem", { name: "Insert Fill Clip" })
     .click();
 
   const fill = lane(page, "1").locator(".clip-card--fill");

@@ -3066,7 +3066,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     },
     [editEffects, lanes],
   );
-  // The text layer being typed on in the preview. Every keystroke is a
+  // The text clip being typed on in the preview. Every keystroke is a
   // transient edit of the layer's Text effect, so the FX panel and
   // collaborators follow along, and leaving the editor commits the whole
   // edit as one undo step.
@@ -4629,7 +4629,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       const id = `fill-${crypto.randomUUID()}`;
       dispatchProject({
         type: "commit",
-        label: "Insert fill layer",
+        label: "Insert fill clip",
         updater: (current) => {
           const result = addFillClip(current, {
             id,
@@ -4671,7 +4671,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       const id = `text-${crypto.randomUUID()}`;
       dispatchProject({
         type: "commit",
-        label: "Insert text layer",
+        label: "Insert text clip",
         updater: (current) => {
           const result = addTextClip(current, {
             id,
@@ -6585,7 +6585,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   }
 
   // Insert Track commits the selection exactly like the track's number key,
-  // and Insert Fill Layer covers it with a fill clip.
+  // and Insert Fill Clip covers it with a fill clip.
   function getSelectionMenuEntries(selection: TimelineSelection) {
     const endQ = selection.startQ + selection.durationQ;
     return buildSelectionMenuEntries({

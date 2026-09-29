@@ -1,5 +1,5 @@
 // Pure pieces of live text editing in the preview monitor: where the
-// on-canvas editor sits over a text layer's transformed box, the typography
+// on-canvas editor sits over a text clip's transformed box, the typography
 // that makes typed text line up with the rendered text, the editor's
 // keyboard shortcuts, and the Text effect edits they make.
 //

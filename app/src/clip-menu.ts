@@ -272,7 +272,7 @@ export type SelectionClipboardActions = {
 /**
  * The menu for an uncommitted selection: Cut, Copy and Delete for the span
  * when `clipboard` is available; Insert Track with every source track,
- * committed like pressing its number key; Insert Fill Layer and Insert Text
+ * committed like pressing its number key; Insert Fill Clip and Insert Text
  * Layer when `insertFill` and `insertText` are available; and Clear
  * selection.
  */
@@ -351,7 +351,7 @@ export function buildSelectionMenuEntries({
           {
             type: "item",
             id: "insert-fill",
-            label: "Insert Fill Layer",
+            label: "Insert Fill Clip",
             disabled,
             onSelect: insertFill,
           } as const,
@@ -362,7 +362,7 @@ export function buildSelectionMenuEntries({
           {
             type: "item",
             id: "insert-text",
-            label: "Insert Text Layer",
+            label: "Insert Text Clip",
             disabled,
             onSelect: insertText,
           } as const,

@@ -439,16 +439,16 @@ describe("buildSelectionMenuEntries", () => {
     }
   });
 
-  it("adds Insert Fill Layer when the action exists", () => {
+  it("adds Insert Fill Clip when the action exists", () => {
     const calls: string[] = [];
     const { entries } = build({ insertFill: () => calls.push("fill") }, calls);
     const fill = items(entries).find((entry) => entry.id === "insert-fill");
-    assert.equal(fill?.label, "Insert Fill Layer");
+    assert.equal(fill?.label, "Insert Fill Clip");
     fill?.onSelect?.();
     assert.deepEqual(calls, ["fill"]);
   });
 
-  it("adds Insert Text Layer after Insert Fill Layer when it exists", () => {
+  it("adds Insert Text Clip after Insert Fill Clip when it exists", () => {
     const calls: string[] = [];
     const { entries } = build(
       {
@@ -462,7 +462,7 @@ describe("buildSelectionMenuEntries", () => {
       ["insert-track", "insert-fill", "insert-text", "---", "clear-selection"],
     );
     const text = items(entries).find((entry) => entry.id === "insert-text");
-    assert.equal(text?.label, "Insert Text Layer");
+    assert.equal(text?.label, "Insert Text Clip");
     text?.onSelect?.();
     assert.deepEqual(calls, ["text"]);
     assert.equal(

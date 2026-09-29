@@ -52,7 +52,7 @@ import type { TextStyle } from "../text-style.ts";
 import { didPressEndTextEdit, PreviewTextEditor } from "./PreviewTextEditor";
 import "./preview-transform-overlay.css";
 
-// The text layer being edited on the canvas, and where its edits go.
+// The text clip being edited on the canvas, and where its edits go.
 export type PreviewTextEdit = {
   clipId: string;
   style: TextStyle;
@@ -155,7 +155,7 @@ function isMacPlatform() {
 // its pivot. The rotation handle above the box, and the zones just outside its
 // corners, turn it about its origin (Shift snaps to 15 degrees).
 // Double-clicking a layer, or Enter on the selected one, activates it, which
-// for a text layer starts typing on the canvas (`textEdit`).
+// for a text clip starts typing on the canvas (`textEdit`).
 export function PreviewTransformOverlay({
   canvas,
   layers,
@@ -757,7 +757,7 @@ export function PreviewTransformOverlay({
       role="application"
       // biome-ignore lint/a11y/noNoninteractiveTabindex: focus is how the arrow keys reach the selected layer
       tabIndex={0}
-      aria-label="Preview. Click a layer to select it, drag or use the arrow keys to move it, drag a handle to resize it, drag the rotation handle or just outside a corner to rotate it. Double-click a text layer or press Enter to edit its text."
+      aria-label="Preview. Click a layer to select it, drag or use the arrow keys to move it, drag a handle to resize it, drag the rotation handle or just outside a corner to rotate it. Double-click a text clip or press Enter to edit its text."
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={endDrag}

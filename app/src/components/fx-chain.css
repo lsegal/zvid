@@ -539,7 +539,7 @@ body.fx-chain-dragging * {
   width: max-content;
 }
 
-/* Free text, such as a Text layer's words. */
+/* Free text, such as a Text clip's words. */
 .fx-text,
 .fx-select,
 .fx-font {
