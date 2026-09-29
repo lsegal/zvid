@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   handleIceServers,
+  NATIVE_APP_ORIGINS,
   TURN_CREDENTIAL_TTL_SECONDS,
 } from "../worker/turn.ts";
 
@@ -108,5 +109,98 @@ describe("handleIceServers", () => {
       fetcher,
     );
     assert.equal(response.status, 405);
+  });
+
+  it("allows the native app's origins cross-origin", async () => {
+    assert.deepEqual(NATIVE_APP_ORIGINS, [
+      "tauri://localhost",
+      "http://tauri.localhost",
+    ]);
+    for (const origin of NATIVE_APP_ORIGINS) {
+      const { fetcher } = cloudflareReturning(
+        Response.json({ iceServers: [{ urls: "turn:turn.example:3478" }] }),
+      );
+      const response = await handleIceServers(
+        new Request(REQUEST, { headers: { Origin: origin } }),
+        ENV,
+        fetcher,
+      );
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get("Access-Control-Allow-Origin"), origin);
+      assert.equal(response.headers.get("Vary"), "Origin");
+      assert.equal(response.headers.get("Cache-Control"), "no-store");
+    }
+  });
+
+  it("lets the native app read failures too", async () => {
+    const response = await handleIceServers(
+      new Request(REQUEST, { headers: { Origin: "tauri://localhost" } }),
+      {},
+    );
+    assert.equal(response.status, 503);
+    assert.equal(
+      response.headers.get("Access-Control-Allow-Origin"),
+      "tauri://localhost",
+    );
+  });
+
+  it("allows no other cross-origin callers", async () => {
+    for (const origin of [
+      "https://evil.example",
+      "https://zvid.example",
+      "null",
+      "tauri://localhost.evil.example",
+    ]) {
+      const { fetcher } = cloudflareReturning(
+        Response.json({ iceServers: [{ urls: "turn:turn.example:3478" }] }),
+      );
+      const response = await handleIceServers(
+        new Request(REQUEST, { headers: { Origin: origin } }),
+        ENV,
+        fetcher,
+      );
+      assert.equal(response.headers.get("Access-Control-Allow-Origin"), null);
+      assert.equal(response.headers.get("Vary"), "Origin");
+
+      const preflight = await handleIceServers(
+        new Request(REQUEST, {
+          method: "OPTIONS",
+          headers: { Origin: origin, "Access-Control-Request-Method": "GET" },
+        }),
+        ENV,
+        fetcher,
+      );
+      assert.equal(preflight.status, 204);
+      assert.equal(preflight.headers.get("Access-Control-Allow-Origin"), null);
+      assert.equal(preflight.headers.get("Access-Control-Allow-Methods"), null);
+    }
+  });
+
+  it("answers the native app's CORS preflight without minting", async () => {
+    for (const origin of NATIVE_APP_ORIGINS) {
+      const { calls, fetcher } = cloudflareReturning(Response.json({}));
+      const response = await handleIceServers(
+        new Request(REQUEST, {
+          method: "OPTIONS",
+          headers: {
+            Origin: origin,
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "accept",
+          },
+        }),
+        ENV,
+        fetcher,
+      );
+      assert.equal(response.status, 204);
+      assert.equal(response.headers.get("Access-Control-Allow-Origin"), origin);
+      assert.equal(response.headers.get("Access-Control-Allow-Methods"), "GET");
+      assert.equal(
+        response.headers.get("Access-Control-Allow-Headers"),
+        "Accept",
+      );
+      assert.equal(response.headers.get("Access-Control-Max-Age"), "86400");
+      assert.equal(response.headers.get("Vary"), "Origin");
+      assert.deepEqual(calls, []);
+    }
   });
 });

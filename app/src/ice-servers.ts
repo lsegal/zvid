@@ -7,6 +7,12 @@ import { isIceServer } from "./collaboration-diagnostics.ts";
 
 export const RELAY_ICE_SERVERS_PATH = "/api/ice-servers";
 
+// The deployed app's relay endpoint, which the native app uses by default
+// since it has no Worker of its own. The Worker allows the native app's
+// origins through CORS.
+export const NATIVE_RELAY_ICE_SERVERS_URL =
+  "https://zvid.lsegal.workers.dev/api/ice-servers";
+
 // A session waits at most this long for relay credentials before starting
 // with the configured servers alone.
 export const RELAY_FETCH_TIMEOUT_MS = 5000;
@@ -16,7 +22,7 @@ type Log = (event: string, payload?: unknown) => void;
 /**
  * Where to fetch relay credentials: `VITE_ICE_SERVERS_URL` when set ("none"
  * disables the relay), otherwise the app worker on the page's own origin.
- * The native app has no worker of its own, so it needs the variable.
+ * The native app has no worker of its own, so it uses the deployed app's.
  */
 export function resolveRelayIceServersUrl(
   configured: string | undefined,
@@ -27,7 +33,10 @@ export function resolveRelayIceServersUrl(
   if (value) {
     return value.toLowerCase() === "none" ? null : value;
   }
-  if (native || !origin || !/^https?:/i.test(origin)) {
+  if (native) {
+    return NATIVE_RELAY_ICE_SERVERS_URL;
+  }
+  if (!origin || !/^https?:/i.test(origin)) {
     return null;
   }
   return new URL(RELAY_ICE_SERVERS_PATH, origin).toString();

@@ -23,6 +23,30 @@ const TURN_API_BASE = "https://rtc.live.cloudflare.com/v1/turn/keys";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
+// The native (Tauri) app has no Worker of its own, so it fetches relay
+// credentials from the deployed app's endpoint cross-origin: tauri://localhost
+// on macOS and Linux, http://tauri.localhost on Windows. Only these origins
+// are allowed; the web app itself calls the endpoint same-origin.
+export const NATIVE_APP_ORIGINS = [
+  "tauri://localhost",
+  "http://tauri.localhost",
+];
+
+function corsHeaders(request: Request): Record<string, string> {
+  const origin = request.headers.get("Origin");
+  if (!origin || !NATIVE_APP_ORIGINS.includes(origin)) {
+    return { Vary: "Origin" };
+  }
+  return { "Access-Control-Allow-Origin": origin, Vary: "Origin" };
+}
+
+function withHeaders(response: Response, headers: Record<string, string>) {
+  for (const [name, value] of Object.entries(headers)) {
+    response.headers.set(name, value);
+  }
+  return response;
+}
+
 function isIceServer(value: unknown): value is IceServer {
   if (!value || typeof value !== "object") {
     return false;
@@ -43,16 +67,40 @@ function withoutPort53(server: IceServer): IceServer | null {
   return urls.length > 0 ? { ...server, urls } : null;
 }
 
-/** Handles `GET /api/ice-servers`: `{ iceServers: RTCIceServer[] }`. */
+/**
+ * Handles `GET /api/ice-servers`: `{ iceServers: RTCIceServer[] }`, plus the
+ * CORS preflight for the native app's origins.
+ */
 export async function handleIceServers(
   request: Request,
   env: TurnEnv,
   fetcher: typeof fetch = fetch,
 ): Promise<Response> {
+  const cors = corsHeaders(request);
+  if (request.method === "OPTIONS") {
+    const preflight: Record<string, string> = {
+      ...cors,
+      Allow: "GET, OPTIONS",
+    };
+    if (cors["Access-Control-Allow-Origin"]) {
+      preflight["Access-Control-Allow-Methods"] = "GET";
+      preflight["Access-Control-Allow-Headers"] = "Accept";
+      preflight["Access-Control-Max-Age"] = "86400";
+    }
+    return new Response(null, { status: 204, headers: preflight });
+  }
+  return withHeaders(await mintIceServers(request, env, fetcher), cors);
+}
+
+async function mintIceServers(
+  request: Request,
+  env: TurnEnv,
+  fetcher: typeof fetch,
+): Promise<Response> {
   if (request.method !== "GET") {
     return new Response("Method not allowed", {
       status: 405,
-      headers: { Allow: "GET" },
+      headers: { Allow: "GET, OPTIONS" },
     });
   }
 
