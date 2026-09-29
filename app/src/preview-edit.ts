@@ -22,6 +22,7 @@ import {
   DEFAULT_COMPOSITION_ORDER,
 } from "./composition-order.ts";
 import {
+  applyMatrix,
   type Box,
   type BoxCorners,
   canvasToLayer,
@@ -115,8 +116,9 @@ export type PreviewArrangement = { matrix: Matrix2D; canvas: Size };
 
 // A layer as the preview draws it: its slot, its layer's Transform, its
 // clip's own Transform (inside the layer's), their Moves at the playhead,
-// and the corners of the clip's transformed box in canvas pixels. A layer
-// beneath an FX clip with an Order
+// and the corners of the clip's transformed box in canvas pixels. The
+// compositor crops the layer to its slot, however its Transforms and Moves
+// move it. A layer beneath an FX clip with an Order
 // has that FX clip's `arrangement`: its slot and Transforms are then measured
 // on the arrangement's surface rather than the canvas.
 export type PreviewLayer = {
@@ -359,13 +361,52 @@ type HitTestLayer = Pick<PreviewLayer, "placement" | "transform"> &
     >
   >;
 
+// The corners, in canvas pixels, of the slot the compositor crops `layer`
+// to: its untransformed box, on the surface it is drawn on. Without an
+// Order that is the whole canvas, or the whole arrangement it is drawn in.
+export function resolveSlotCorners(
+  layer: Pick<PreviewLayer, "placement"> &
+    Partial<Pick<PreviewLayer, "arrangement">>,
+  canvas: Size,
+): BoxCorners {
+  const space = resolveLayerSpace(layer, canvas);
+  return matrixBoxCorners(
+    space.matrix,
+    frameBoxInCanvas(layer.placement.frame, space.canvas),
+  );
+}
+
+// Whether `point` is inside the slot `layer` is cropped to.
+function isPointInSlot(point: Point, layer: HitTestLayer, canvas: Size) {
+  const space = resolveLayerSpace(layer, canvas);
+  const inverse = invertMatrix(space.matrix);
+  if (!inverse) {
+    return false;
+  }
+
+  const local = applyMatrix(inverse, point);
+  const box = frameBoxInCanvas(layer.placement.frame, space.canvas);
+  const edge = 1e-6;
+  return (
+    local.x >= box.x - edge &&
+    local.x <= box.x + box.width + edge &&
+    local.y >= box.y - edge &&
+    local.y <= box.y + box.height + edge
+  );
+}
+
 // Whether `point` is on the layer's clip as drawn: its box after the clip's
-// Transform, the layer's, their Moves, and the arrangement it is drawn in.
+// Transform, the layer's, their Moves, and the arrangement it is drawn in,
+// where it shows inside its slot.
 export function isPointOnLayer(
   point: Point,
   layer: HitTestLayer,
   canvas: Size,
 ) {
+  if (!isPointInSlot(point, layer, canvas)) {
+    return false;
+  }
+
   const space = resolveLayerSpace(layer, canvas);
   const local = canvasToLayer(
     point,
