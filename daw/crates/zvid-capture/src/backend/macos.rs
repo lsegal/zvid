@@ -289,6 +289,11 @@ struct Rotator {
     applied: Option<Rotation>,
 }
 
+// SAFETY: the coordinator is only reached through `DelegateState::rotator`'s
+// mutex, so one thread uses it at a time. Its retain count is atomic, and
+// reading its capture angle off the main thread is allowed.
+unsafe impl Send for Rotator {}
+
 /// The delegate class, registered at runtime under a name unique to this
 /// copy of the crate. A literal `define_class!` name would panic when the
 /// VST3 and AU builds are both loaded into one host process.
