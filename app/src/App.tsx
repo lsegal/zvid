@@ -4806,7 +4806,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       return;
     }
 
-    // An open text edit is committed first, so undo steps over it whole.
+    // An open text edit is committed first, before redoing.
     finishTextEdit();
     stopTimelineAudibleScrub();
     setIsPlaying(false);
