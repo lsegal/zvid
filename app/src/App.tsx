@@ -146,6 +146,7 @@ import {
 import { WandIcon } from "./components/WandIcon";
 import { computeActiveClips } from "./composition-active-clips.ts";
 import { isContextMenuKey, isContextMenuPress } from "./context-menu.ts";
+import { isRulerPanPress } from "./drag-scroll.ts";
 import { buildEditMenuEntries } from "./edit-menu.ts";
 import {
   getAddableEffectDefinitions,
@@ -299,6 +300,7 @@ import {
   type ThumbnailSize,
 } from "./thumbnail-cache.ts";
 import { formatMusicalPosition, formatTimecode } from "./timeline-format.ts";
+import { useDragScroll } from "./use-drag-scroll";
 import { useThumbnailCache } from "./use-thumbnail-cache";
 import { ZVID_BUILD } from "./version";
 import { loadWaveformPeaks } from "./waveform-loader";
@@ -3477,6 +3479,19 @@ function App() {
     ],
   );
   const shortcutLabels = useMemo(() => getShortcutLabels(), []);
+  // Right-, Ctrl- (macOS) or middle-dragging the ruler pans the timeline;
+  // the left button keeps scrubbing the playhead.
+  const canStartRulerPan = useCallback(
+    (event: { button: number; ctrlKey: boolean }) =>
+      isRulerPanPress(event, shortcutLabels.mac),
+    [shortcutLabels.mac],
+  );
+  const rulerDragScroll = useDragScroll({
+    scrollRef: timelineScrollRef,
+    canStart: canStartRulerPan,
+    axis: "x",
+    momentum: !prefersReducedMotion,
+  });
   const previewMaxWidth = getPreviewMaxWidth(editorGridWidth);
   const effectivePreviewWidth = Math.min(previewWidth, previewMaxWidth);
 
@@ -7526,7 +7541,18 @@ function App() {
                     offsetPx={labelWidth}
                   />
 
-                  <section className="ruler-row">
+                  <section
+                    className={`ruler-row ${
+                      rulerDragScroll.isGrabbing ? "is-grab-panning" : ""
+                    }`}
+                    {...rulerDragScroll.handlers}
+                    onContextMenu={(event) => {
+                      // The ruler has no menu of its own, so the browser's
+                      // never shows, with or without a pan.
+                      event.preventDefault();
+                      rulerDragScroll.onContextMenu(event);
+                    }}
+                  >
                     <div className="track-label track-label--header">
                       <div>
                         <span>{sessionName ?? "Session"}</span>
@@ -7579,7 +7605,13 @@ function App() {
                       }`}
                       onPointerDown={(event) => {
                         const timelineScroll = timelineScrollRef.current;
-                        if (!timelineScroll) {
+                        // Only the primary button scrubs; the others pan the
+                        // timeline through the ruler row.
+                        if (
+                          !timelineScroll ||
+                          event.button !== 0 ||
+                          isRulerPanPress(event, shortcutLabels.mac)
+                        ) {
                           return;
                         }
 
