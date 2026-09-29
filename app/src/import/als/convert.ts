@@ -9,17 +9,12 @@
 // MIDI clips are media-less placeholders that video can be linked to.
 //
 // Everything is derived from the `.als` alone. `mainTracks` and `selections`
-// are Layers-app data with no counterpart in Live, so they are generated:
-// each arranged track gets its own layer, in track order, up to `MAX_LAYERS`.
-// Tracks past that share the last layer, where overlaps are resolved. Effects
-// are out of scope. Media probing (`numFrames`, `frameRate`) and resolving recording
+// are Layers-app data with no counterpart in Live, so the import opens with an
+// empty arrangement, as the Layers app did: one empty `Layer 1` and no
+// selections. The user builds the edit from the source clips. Effects are out
+// of scope. Media probing (`numFrames`, `frameRate`) and resolving recording
 // files on disk happen elsewhere.
 
-import {
-  type LvpSelection,
-  MAX_LAYERS,
-  resolveSelectionOverlaps,
-} from "../../selection-overlaps.ts";
 import type { LvpSession } from "../../session.ts";
 import type {
   AlsClip,
@@ -52,9 +47,7 @@ export type AlsSkipReason =
   /** No ZVID Capture take overlaps the clip. */
   | "no-take"
   /** The clip, or one unrolled segment of it, rounds to zero frames. */
-  | "shorter-than-frame"
-  /** Every layer was taken and a later clip covers this one entirely. */
-  | "overlapped";
+  | "shorter-than-frame";
 
 export interface AlsSkippedClip {
   trackId: string;
@@ -65,12 +58,8 @@ export interface AlsSkippedClip {
   reason: AlsSkipReason;
 }
 
-export type AlsTrimmedClip = Omit<AlsSkippedClip, "reason">;
-
 export interface AlsImportSummary {
   skipped: AlsSkippedClip[];
-  /** Clips shortened because every layer was taken and a later one overlaps. */
-  trimmed: AlsTrimmedClip[];
   /** True when at least one imported clip plays a Layers recording. */
   hasLayersVideo: boolean;
   /** Where each ZVID Capture recording was saved, by filename. */
@@ -215,38 +204,8 @@ export function convertAls(
     ? beatsToFrames(transport.currentTime, tempoMap, fps)
     : 0;
 
-  // Layers video is what the arrangement shows. A set without any gets its
-  // other clips there instead, so its structure is visible.
-  const arrangedClips = videoClips.length ? videoClips : clips;
-  const trackNames = new Map(
-    importedTracks.map((track) => [String(track.id), track.name]),
-  );
-  const layers = assignLayers(arrangedClips, trackNames);
-  const overlaps = resolveSelectionOverlaps(
-    arrangedClips.map((clip, index) => ({
-      id: index + 1,
-      trackId: clip.trackId,
-      mainTrackId: layers.idOf.get(clip.trackId) ?? "1",
-      frameStart: clip.frameStart,
-      frameEnd: clip.frameStart + clip.frameCount,
-      selected: false,
-    })),
-  );
-  const describe = (selection: LvpSelection): AlsTrimmedClip => {
-    const clip = arrangedClips[selection.id - 1];
-    return {
-      trackId: clip.trackId,
-      trackName: trackNames.get(clip.trackId) ?? clip.trackId,
-      clipId: clip.id,
-      clipName: clip.name ?? "",
-    };
-  };
-  for (const selection of overlaps.dropped) {
-    reportedSkips.push({ ...describe(selection), reason: "overlapped" });
-  }
-
   const session: LvpSession = {
-    mainTracks: layers.mainTracks,
+    mainTracks: [{ id: "1", name: "Layer 1", colorIndex: -1 }],
     tracks: sourceTracks.map((track) => ({
       id: String(track.id),
       name: track.name,
@@ -261,7 +220,7 @@ export function convertAls(
       ],
     })),
     clips,
-    selections: overlaps.selections,
+    selections: [],
     timeline: {
       bpm: doc.tempo,
       fps,
@@ -287,41 +246,11 @@ export function convertAls(
     session,
     summary: {
       skipped: reportedSkips,
-      trimmed: overlaps.trimmed.map(describe),
       hasLayersVideo: videoClips.length > 0,
       ...(Object.keys(recordRoots).length > 0 && { recordRoots }),
       ...(layersRecordTracks.length > 0 && { layersRecordTracks }),
     },
   };
-}
-
-/**
- * One layer per track with arranged clips, in track order, named after its
- * track. Tracks past `MAX_LAYERS` share the last layer, and the caller
- * resolves their overlaps. That shared layer, a layer whose track has no
- * name, and the layer a set with nothing arranged still gets are named
- * `Layer N`.
- */
-function assignLayers(
-  clips: readonly LvpClip[],
-  trackNames: ReadonlyMap<string, string>,
-) {
-  const trackIds = Array.from(new Set(clips.map((clip) => clip.trackId)));
-  const mainTracks = Array.from(
-    { length: Math.max(1, Math.min(trackIds.length, MAX_LAYERS)) },
-    (_, index) => {
-      const shared = index === MAX_LAYERS - 1 && trackIds.length > MAX_LAYERS;
-      const trackName = shared ? "" : trackNames.get(trackIds[index])?.trim();
-      return { id: String(index + 1), name: trackName || `Layer ${index + 1}` };
-    },
-  );
-  const idOf = new Map(
-    trackIds.map((trackId, index) => [
-      trackId,
-      String(Math.min(index, MAX_LAYERS - 1) + 1),
-    ]),
-  );
-  return { mainTracks, idOf };
 }
 
 type TakeMatcher = (

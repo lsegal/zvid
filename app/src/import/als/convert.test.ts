@@ -204,39 +204,11 @@ describe("convertAls with dogfood3.als against dogfood3.lvp", () => {
     assert.equal(result.summary.hasLayersVideo, true);
   });
 
-  it("gives each Layers track its own layer, named after the track", () => {
+  it("opens with an empty arrangement", () => {
     assert.deepEqual(session.mainTracks, [
-      { id: "1", name: "1-Akustichord Kit" },
-      { id: "2", name: "2-Audio" },
-      { id: "3", name: "3-Audio" },
+      { id: "1", name: "Layer 1", colorIndex: -1 },
     ]);
-    assert.deepEqual(session.selections, [
-      {
-        id: 1,
-        trackId: "12",
-        mainTrackId: "1",
-        frameStart: 0,
-        frameEnd: 317,
-        selected: false,
-      },
-      {
-        id: 2,
-        trackId: "8",
-        mainTrackId: "2",
-        frameStart: 0,
-        frameEnd: 317,
-        selected: false,
-      },
-      {
-        id: 3,
-        trackId: "16",
-        mainTrackId: "3",
-        frameStart: 0,
-        frameEnd: 316,
-        selected: false,
-      },
-    ]);
-    assert.deepEqual(result.summary.trimmed, []);
+    assert.deepEqual(session.selections, []);
   });
 });
 
@@ -344,17 +316,6 @@ describe("convertAls with synthetic sets", () => {
       session.clips?.[1].warpMarkers?.map((marker) => marker.clipId),
       ["5-1~1", "5-1~1"],
     );
-    assert.deepEqual(
-      session.selections?.map(({ frameStart, frameEnd }) => [
-        frameStart,
-        frameEnd,
-      ]),
-      [
-        [0, 45],
-        [45, 105],
-        [105, 150],
-      ],
-    );
   });
 
   it("plays a non-Layers audio clip from its sample", () => {
@@ -392,7 +353,6 @@ describe("convertAls with synthetic sets", () => {
     );
     assert.deepEqual(summary, {
       skipped: [],
-      trimmed: [],
       hasLayersVideo: false,
     });
   });
@@ -479,25 +439,8 @@ describe("convertAls with synthetic sets", () => {
         ],
       },
     );
-    // The imported video is arranged alongside the recorded video.
-    assert.deepEqual(
-      session.selections?.map(({ trackId, mainTrackId, frameStart }) => [
-        trackId,
-        mainTrackId,
-        frameStart,
-      ]),
-      [
-        ["5", "1", 0],
-        ["6", "2", 60],
-      ],
-    );
-    assert.deepEqual(
-      session.mainTracks?.map((layer) => layer.name),
-      ["Video", "Imported"],
-    );
     assert.deepEqual(summary, {
       skipped: [],
-      trimmed: [],
       hasLayersVideo: true,
       layersRecordTracks: ["5"],
     });
@@ -562,19 +505,8 @@ describe("convertAls with synthetic sets", () => {
     );
     assert.deepEqual(summary, {
       skipped: [],
-      trimmed: [],
       hasLayersVideo: false,
     });
-    assert.deepEqual(
-      session.selections?.map(({ frameStart, frameEnd }) => [
-        frameStart,
-        frameEnd,
-      ]),
-      [
-        [120, 180],
-        [180, 240],
-      ],
-    );
     assert.equal(session.timeline?.fps, 30);
     assert.equal(session.timeline?.canvasWidth, undefined);
   });
@@ -610,126 +542,32 @@ describe("convertAls with synthetic sets", () => {
     );
   });
 
-  it("gives every track its own layer, even when clips never overlap", () => {
-    // Drums and Bass play together; Keys only plays after both end.
-    const { session, summary } = convertAls(
-      doc([
-        videoTrack({ id: 5, name: "Drums" }),
-        videoTrack({ id: 6, name: "Bass" }),
-        videoTrack({
-          id: 7,
-          name: "Keys",
-          clips: [
-            audioClip({ currentStart: 4, currentEnd: 8 }),
-            audioClip({ id: 2, currentStart: 8, currentEnd: 12 }),
-          ],
-        }),
-      ]),
-    );
-    assert.deepEqual(session.mainTracks, [
-      { id: "1", name: "Drums" },
-      { id: "2", name: "Bass" },
-      { id: "3", name: "Keys" },
-    ]);
-    assert.deepEqual(
-      session.selections?.map(
-        ({ trackId, mainTrackId, frameStart, frameEnd }) => [
-          trackId,
-          mainTrackId,
-          frameStart,
-          frameEnd,
-        ],
-      ),
-      [
-        ["5", "1", 0, 60],
-        ["6", "2", 0, 60],
-        ["7", "3", 60, 120],
-        ["7", "3", 120, 180],
-      ],
-    );
-    assert.deepEqual(summary.skipped, []);
-    assert.deepEqual(summary.trimmed, []);
-  });
-
-  it("names a layer whose track has no name Layer N", () => {
-    const { session } = convertAls(
-      doc([
-        videoTrack({ id: 5, name: "Drums" }),
-        videoTrack({ id: 6, name: " " }),
-      ]),
-    );
-    assert.deepEqual(session.mainTracks, [
-      { id: "1", name: "Drums" },
-      { id: "2", name: "Layer 2" },
-    ]);
-  });
-
-  it("names nine layers after their nine tracks", () => {
-    const tracks = Array.from({ length: 9 }, (_, index) =>
+  it("opens with an empty arrangement, however many tracks overlap", () => {
+    // Eleven tracks, more than the nine layers, all playing at once.
+    const tracks = Array.from({ length: 11 }, (_, index) =>
       videoTrack({ id: 10 + index, name: `Cam ${index + 1}` }),
     );
-    const { session } = convertAls(doc(tracks));
+    const { session, summary } = convertAls(doc(tracks));
+    assert.deepEqual(session.mainTracks, [
+      { id: "1", name: "Layer 1", colorIndex: -1 },
+    ]);
+    assert.deepEqual(session.selections, []);
+    // The source tracks and their spans are all kept.
     assert.deepEqual(
-      session.mainTracks?.map((track) => track.name),
+      session.tracks?.map((track) => track.name),
       tracks.map((track) => track.name),
     );
-  });
-
-  it("puts tracks past nine on the last layer, the later clip winning", () => {
-    // Nine tracks fill the layers from 0 to 4 beats. A tenth covers the
-    // ninth entirely on the last layer, and an eleventh overlaps its tail.
-    const tracks = Array.from({ length: 9 }, (_, index) =>
-      videoTrack({ id: 10 + index, name: `Cam ${index + 1}` }),
-    );
-    const { session, summary } = convertAls(
-      doc([
-        ...tracks,
-        videoTrack({ id: 30, name: "Cover" }),
-        videoTrack({
-          id: 31,
-          name: "Tail",
-          clips: [audioClip({ id: 2, currentStart: 3, currentEnd: 6 })],
-        }),
+    assert.deepEqual(
+      session.clips?.map(({ id, trackId, frameStart, frameCount }) => [
+        id,
+        trackId,
+        frameStart,
+        frameCount,
       ]),
+      tracks.map((track) => [`${track.id}-1`, String(track.id), 0, 60]),
     );
-    assert.deepEqual(
-      session.mainTracks?.map((track) => track.name),
-      // The shared last layer is named after none of its tracks.
-      [...tracks.slice(0, 8).map((track) => track.name), "Layer 9"],
-    );
-    assert.deepEqual(
-      session.selections?.map(
-        ({ trackId, mainTrackId, frameStart, frameEnd }) => [
-          trackId,
-          mainTrackId,
-          frameStart,
-          frameEnd,
-        ],
-      ),
-      [
-        ...tracks
-          .slice(0, 8)
-          .map((_, index) => [String(10 + index), String(1 + index), 0, 60]),
-        ["30", "9", 0, 45],
-        ["31", "9", 45, 90],
-      ],
-    );
-    assert.deepEqual(
-      summary.skipped.map(({ clipId, trackName, reason }) => [
-        clipId,
-        trackName,
-        reason,
-      ]),
-      [["18-1", "Cam 9", "overlapped"]],
-    );
-    assert.deepEqual(summary.trimmed, [
-      {
-        trackId: "30",
-        trackName: "Cover",
-        clipId: "30-1",
-        clipName: "Clip",
-      },
-    ]);
+    assert.deepEqual(summary.skipped, []);
+    assert.equal("trimmed" in summary, false);
   });
 
   it("starts a MIDI clip at its content start, offset by the recording", () => {
@@ -1062,10 +900,6 @@ describe("convertAls with ZVID Capture fixtures", () => {
     assert.deepEqual(
       result.session.tracks?.map((track) => track.recordings?.length),
       [2, 2],
-    );
-    assert.deepEqual(
-      result.session.mainTracks?.map((track) => track.name),
-      ["Layers", "Cam A"],
     );
     assert.deepEqual(result.summary.recordRoots, {
       "video-01-9-25-20-36-12-0.mp4": "project",
