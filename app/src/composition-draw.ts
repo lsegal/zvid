@@ -12,14 +12,15 @@ import {
   visibleLayerCount,
 } from "./composition-order.ts";
 import {
+  type Box,
   canvasBoxToFrame,
   frameBoxInCanvas,
-  IDENTITY_TRANSFORM,
   isIdentityTransform,
+  type Matrix2D,
+  matrixQuadAxes,
+  nestedTransformMatrix,
   type QuadAxes,
-  resolveTextBox,
-  type TextBox,
-  transformedQuadAxes,
+  resolveNestedTextBox,
 } from "./composition-transform.ts";
 import { type FillPaint, rasterizeFillPaint } from "./fill-paint.ts";
 import type { AudioBands } from "./fx-shaders/audio-bands.ts";
@@ -507,7 +508,7 @@ export function drawComposition(
     let sourceWidth: number;
     let sourceHeight: number;
     let texture: WebGLTexture;
-    let textBox: TextBox | undefined;
+    let textBox: { box: Box; matrix: Matrix2D } | undefined;
     if (entry.fill || entry.text) {
       // Fills and text are drawn at their slot's own size, so they cover
       // the slot exactly in any arrangement.
@@ -521,18 +522,25 @@ export function drawComposition(
       sourceWidth = Math.max(1, slot.width);
       sourceHeight = Math.max(1, slot.height);
       if (entry.text) {
-        // A Transform's scale resizes the text box, which the text is laid
+        // The Transforms' scale resizes the text box, which the text is laid
         // out and drawn in at full size, rather than stretching the text.
-        const textTransform = entry.visual.transform ?? IDENTITY_TRANSFORM;
-        textBox = resolveTextBox(
-          frameBoxInCanvas(
-            resolveSlotBounds(index, stackedClips.length, order, width, height),
-            surface,
-          ),
-          textTransform,
+        const band = frameBoxInCanvas(
+          resolveSlotBounds(index, stackedClips.length, order, width, height),
+          surface,
         );
-        sourceWidth *= textTransform.scaleX;
-        sourceHeight *= textTransform.scaleY;
+        const pivot = entry.visual.clipTransform ?? entry.visual.transform;
+        textBox = resolveNestedTextBox(
+          band,
+          nestedTransformMatrix(
+            band,
+            surface,
+            entry.visual.transform,
+            entry.visual.clipTransform,
+          ),
+          pivot && { x: pivot.originX, y: pivot.originY },
+        );
+        sourceWidth *= textBox.box.width / Math.max(1e-6, band.width);
+        sourceHeight *= textBox.box.height / Math.max(1e-6, band.height);
       }
       if (entry.fill) {
         texture = uploadFillTexture(
@@ -594,12 +602,14 @@ export function drawComposition(
     };
 
     // A Transform moves the slot's content, so the layer is framed into its
-    // slot first and that frame is drawn transformed.
-    const transform = isIdentityTransform(entry.visual.transform)
-      ? undefined
-      : entry.visual.transform;
+    // slot first and that frame is drawn transformed: by the clip's own
+    // Transform inside its layer's Transform.
+    const transformed =
+      !isIdentityTransform(entry.visual.transform) ||
+      !isIdentityTransform(entry.visual.clipTransform);
+    // The clip's own chain steps come first, then its layer's.
     const layerSteps = effectChain.prepare(entry.effectChain);
-    if (layerSteps.length || transform) {
+    if (layerSteps.length || transformed) {
       // Text is framed at its box's size, so its effects see it unstretched.
       const frameSize = textBox
         ? fitTextureSize(gl, sourceWidth, sourceHeight)
@@ -631,11 +641,21 @@ export function drawComposition(
             },
           ) ?? framed);
       // The framed result already holds the layer's placement, so it fills
-      // its slot exactly, or the box its Transform moves the slot to. A text
-      // box already holds the Transform's scale, so it is drawn without it.
+      // its slot exactly, or the box its Transforms move the slot to. A text
+      // box already holds the Transforms' scale, so it is drawn without it.
       uniforms = {
-        ...(transform
-          ? transformedQuadAxes(frame, textBox?.transform ?? transform, surface)
+        ...(transformed
+          ? matrixQuadAxes(
+              frame,
+              textBox?.matrix ??
+                nestedTransformMatrix(
+                  frameBoxInCanvas(frame, surface),
+                  surface,
+                  entry.visual.transform,
+                  entry.visual.clipTransform,
+                ),
+              surface,
+            )
           : quadAxes(
               [frame.halfWidth, frame.halfHeight],
               [frame.centerX, frame.centerY],
@@ -647,7 +667,7 @@ export function drawComposition(
 
     bindCompositeState(resources, compositeFramebuffer, width, height);
     // A transformed layer can leave its slot; only the canvas clips it.
-    if (!transform) {
+    if (!transformed) {
       gl.enable(gl.SCISSOR_TEST);
       gl.scissor(scissor.x, scissor.y, scissor.width, scissor.height);
     }

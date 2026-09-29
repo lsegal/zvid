@@ -238,19 +238,25 @@ function readParameter(effect: FillEffect, key: string) {
 }
 
 /**
- * The paint for fill clips on layer `laneId`: the last enabled Color effect
- * on that layer's own stack, or a solid neutral grey when there is none.
+ * The paint for a fill clip on layer `laneId`: the last enabled Color effect
+ * on the clip's own stack (`clipTrackId`), else on that layer's own stack,
+ * or a solid neutral grey when there is none.
  */
 export function resolveFillPaint(
   effects: readonly FillEffect[],
   laneId: string,
+  clipTrackId?: string,
 ): FillPaint {
-  const effect = effects.findLast(
-    (candidate) =>
-      candidate.trackId === laneId &&
-      candidate.enabled !== false &&
-      isColorEffectName(candidate.effectName),
-  );
+  const find = (trackId: string | undefined) =>
+    trackId === undefined
+      ? undefined
+      : effects.findLast(
+          (candidate) =>
+            candidate.trackId === trackId &&
+            candidate.enabled !== false &&
+            isColorEffectName(candidate.effectName),
+        );
+  const effect = find(clipTrackId) ?? find(laneId);
   const fallback: FillPaint = {
     kind: "solid",
     color: parseCssColor(NEUTRAL_FILL_COLOR) as Rgba,

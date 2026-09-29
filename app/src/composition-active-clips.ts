@@ -1,8 +1,26 @@
 // Works out which clips the compositor draws at a playhead: at most one clip
 // per lane under the playhead whose media is online, in lane order, with the
 // source time, visual state and effect chain each one is drawn with. Fill
-// and text clips have no media and are always drawable, painted by their
-// layer's Color effect or styled by its Text effect.
+// and text clips have no media and are always drawable, painted by a Color
+// effect or styled by a Text effect.
+//
+// Effects come from three stacks, resolved Global -> Layer -> Clip: the
+// clip's own stack (`clip:<clipId>`), its layer's stack and the Global
+// stack. A clip is rendered in this order (preview and export alike):
+//
+//   1. its source: the media frame, the fill's paint or the text raster;
+//      content effects (Text, Color) on the clip win over the layer's;
+//   2. the clip's shader-chain effects (Colorize, Pixelate, ...), in stack
+//      order, on the clip's framed pixels;
+//   3. the layer's shader-chain effects, in stack order, on the result;
+//   4. geometry: the clip's Transform places the clip inside its layer's
+//      box, and the layer's Transform then places that box (the Layout
+//      anchor is the layer's own);
+//   5. compositing by the Global Order, then the Global chain on the whole
+//      composite.
+//
+// Other visual parameters (opacity and the like) read Global, then Layer,
+// then Clip, so the most specific stack wins.
 import { type ClipWarp, warpSourceTime } from "./clip-warp.ts";
 import { isOrderEffectName } from "./composition-order.ts";
 import {
@@ -15,6 +33,7 @@ import {
   isColorEffectName,
   resolveFillPaint,
 } from "./fill-paint.ts";
+import { clipEffectTrackId } from "./fx-stack.ts";
 import {
   type EffectChainStep,
   isChainEffectName,
@@ -94,6 +113,9 @@ export type VisualState = {
   layoutAnchor: "top" | "center" | "bottom";
   // Set only when the layer's own stack has an enabled Transform.
   transform?: LayerTransform;
+  // Set only when the clip's own stack has an enabled Transform. It places
+  // the clip inside the layer's transformed box.
+  clipTransform?: LayerTransform;
 };
 
 export type ActiveClip = {
@@ -110,6 +132,7 @@ export type ActiveClip = {
   laneRank: number;
   clipProgress: number;
   visual: VisualState;
+  // The clip's chain steps, then its layer's.
   effectChain: EffectChainStep[];
   // Set for fill clips, which draw this paint instead of a media element.
   fill?: FillPaint;
@@ -178,10 +201,28 @@ function parseLayoutAnchor(
   return undefined;
 }
 
+// The effects with the clip's own stack moved last, so it overrides its
+// layer's and the Global stack's.
+function withClipStackLast(
+  effects: SessionEffect[],
+  clipTrackId: string | undefined,
+) {
+  return clipTrackId === undefined
+    ? effects
+    : [
+        ...effects.filter((effect) => effect.trackId !== clipTrackId),
+        ...effects.filter((effect) => effect.trackId === clipTrackId),
+      ];
+}
+
 export function resolveVisualState(
   effects: SessionEffect[],
   laneId: string,
+  // The clip's own stack, when the state is for a clip.
+  clipId?: string,
 ): VisualState {
+  const clipTrackId =
+    clipId === undefined ? undefined : clipEffectTrackId(clipId);
   const state: VisualState = {
     opacity: 1,
     scale: 1,
@@ -194,8 +235,12 @@ export function resolveVisualState(
     layoutAnchor: "center",
   };
 
-  for (const effect of effects) {
-    if (effect.trackId !== laneId && effect.trackId !== GROUP_TRACK_ID) {
+  for (const effect of withClipStackLast(effects, clipTrackId)) {
+    if (
+      effect.trackId !== laneId &&
+      effect.trackId !== GROUP_TRACK_ID &&
+      effect.trackId !== clipTrackId
+    ) {
       continue;
     }
 
@@ -216,12 +261,14 @@ export function resolveVisualState(
       continue;
     }
 
-    // Transform is per layer and read by its exact keys, which the name
-    // heuristics below would misread ("PositionX" as an offset, and so on).
-    // The last enabled one in the stack wins.
+    // Transform is per layer or clip and read by its exact keys, which the
+    // name heuristics below would misread ("PositionX" as an offset, and so
+    // on). The last enabled one in each stack wins.
     if (isTransformEffectName(effect.effectName)) {
       if (effect.trackId === laneId) {
         state.transform = parseLayerTransform(effect.parameters);
+      } else if (effect.trackId === clipTrackId) {
+        state.clipTransform = parseLayerTransform(effect.parameters);
       }
       continue;
     }
@@ -367,11 +414,23 @@ export function computeActiveClips(
           isInBounds: true,
           laneRank,
           clipProgress,
-          visual: resolveVisualState(effects, clip.laneId),
-          effectChain: resolveEffectChain(effects, clip.laneId),
+          visual: resolveVisualState(effects, clip.laneId, clip.id),
+          effectChain: resolveClipEffectChain(effects, clip),
           ...(clip.kind === "text"
-            ? { text: resolveTextStyle(effects, clip.laneId) }
-            : { fill: resolveFillPaint(effects, clip.laneId) }),
+            ? {
+                text: resolveTextStyle(
+                  effects,
+                  clip.laneId,
+                  clipEffectTrackId(clip.id),
+                ),
+              }
+            : {
+                fill: resolveFillPaint(
+                  effects,
+                  clip.laneId,
+                  clipEffectTrackId(clip.id),
+                ),
+              }),
         };
       }
 
@@ -396,10 +455,22 @@ export function computeActiveClips(
             : mediaTime >= 0),
         laneRank,
         clipProgress,
-        visual: resolveVisualState(effects, clip.laneId),
-        effectChain: resolveEffectChain(effects, clip.laneId),
+        visual: resolveVisualState(effects, clip.laneId, clip.id),
+        effectChain: resolveClipEffectChain(effects, clip),
       };
     });
+}
+
+// The chain a clip is drawn with: its own stack's steps first, on the clip's
+// pixels, then its layer's.
+export function resolveClipEffectChain(
+  effects: SessionEffect[],
+  clip: Pick<ArrangementClip, "id" | "laneId">,
+): EffectChainStep[] {
+  return [
+    ...resolveEffectChain(effects, clipEffectTrackId(clip.id)),
+    ...resolveEffectChain(effects, clip.laneId),
+  ];
 }
 
 // Fill and text clips draw what their layer's effects describe rather than
