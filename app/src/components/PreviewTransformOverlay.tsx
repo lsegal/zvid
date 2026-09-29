@@ -8,6 +8,7 @@ import {
 } from "react";
 import {
   type Box,
+  type BoxCorners,
   frameBoxInCanvas,
   type LayerTransform,
   type Point,
@@ -37,6 +38,13 @@ import {
   snapOriginPoint,
 } from "../preview-resize.ts";
 import {
+  formatRotation,
+  isInRotateZone,
+  isOnRotationHandle,
+  rotateTransform,
+  rotationHandleGeometry,
+} from "../preview-rotate.ts";
+import {
   resolveTextEditorPlacement,
   type TextEditorKeyAction,
 } from "../preview-text-edit.ts";
@@ -61,10 +69,10 @@ export type PreviewLayerMove = {
   newEffectId: string;
 };
 
-// A resize or origin drag: the Transform fields it sets on the layer.
+// A resize, origin or rotate drag: the Transform fields it sets on the layer.
 export type PreviewLayerTransformEdit = {
   laneId: string;
-  kind: "resize" | "origin";
+  kind: "resize" | "origin" | "rotate";
   values: Partial<LayerTransform>;
   mode: "transient" | "commit";
   newEffectId: string;
@@ -98,6 +106,14 @@ type DragState = {
       startOrigin: Point;
       transform?: LayerTransform;
     }
+  | {
+      kind: "rotate";
+      startTransform: LayerTransform;
+      // Where the origin was on the page when the drag began.
+      originClient: Point;
+      lastClient: Point;
+      transform?: LayerTransform;
+    }
 );
 
 // Pointer travel, in CSS pixels, before a press on a layer becomes a move.
@@ -108,6 +124,15 @@ const DRAG_THRESHOLD_PX = 3;
 const SNAP_PX = 6;
 // Radius, in CSS pixels, of the origin marker's hit area.
 const ORIGIN_HIT_RADIUS_PX = 9;
+// The angle readout sits below and right of the pointer, clear of the cursor,
+// or on the other side of it within this far of the monitor's edge.
+const READOUT_OFFSET_PX = 16;
+const READOUT_FLIP_PX = 64;
+// A curved double arrow, white on a dark halo like the system cursors, for
+// the rotation handle and the rotate zones just outside the corners.
+const ROTATE_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(
+  "<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke-linecap='round' stroke-linejoin='round'><path d='M5 15a8 8 0 0 1 14 0M5 15l-1-5M5 15l5-1M19 15l1-5M19 15l-5-1' stroke='#07080f' stroke-width='4'/><path d='M5 15a8 8 0 0 1 14 0M5 15l-1-5M5 15l5-1M19 15l1-5M19 15l-5-1' stroke='#fff' stroke-width='1.75'/></g></svg>",
+)}") 12 12, crosshair`;
 
 const NO_GUIDES: ResizeResult["guides"] = { x: [], y: [] };
 
@@ -127,9 +152,10 @@ function isMacPlatform() {
 // usable where they extend past the frame. Clicks pick the topmost layer under
 // the pointer; dragging moves it. The handles resize it (Shift keeps the
 // aspect ratio, Ctrl/Cmd resizes from the centre) and the origin marker moves
-// its pivot. Double-clicking a layer, or Enter on the selected one,
-// activates it, which for a text layer starts typing on the canvas
-// (`textEdit`).
+// its pivot. The rotation handle above the box, and the zones just outside its
+// corners, turn it about its origin (Shift snaps to 15 degrees).
+// Double-clicking a layer, or Enter on the selected one, activates it, which
+// for a text layer starts typing on the canvas (`textEdit`).
 export function PreviewTransformOverlay({
   canvas,
   layers,
@@ -158,6 +184,10 @@ export function PreviewTransformOverlay({
   const [monitor, setMonitor] = useState<Size>({ width: 0, height: 0 });
   const [dragCursor, setDragCursor] = useState<string>();
   const [guides, setGuides] = useState(NO_GUIDES);
+  const [isRotateHover, setIsRotateHover] = useState(false);
+  const [readout, setReadout] = useState<
+    { x: number; y: number; text: string } | undefined
+  >();
 
   useEffect(() => {
     const root = rootRef.current;
@@ -181,6 +211,12 @@ export function PreviewTransformOverlay({
   const editedLayer = textEdit
     ? layers.find((layer) => layer.clipId === textEdit.clipId)
     : undefined;
+  const selectedCorners = selected?.corners.map((corner) =>
+    canvasToScreen(corner, video, canvas),
+  ) as BoxCorners | undefined;
+  // The rotation handle and rotate zones step aside, like the other handles,
+  // while text is typed on the canvas.
+  const rotateCorners = editedLayer ? undefined : selectedCorners;
   // Canvas pixels per CSS pixel at the current zoom.
   const scale = {
     x: canvas.width / Math.max(1, video.width),
@@ -254,9 +290,54 @@ export function PreviewTransformOverlay({
   const updateResizeRef = useRef(updateResize);
   updateResizeRef.current = updateResize;
 
-  const isResizing = dragCursor !== undefined && dragCursor !== "grabbing";
+  // A rotation is the pointer's turn about the origin, measured on the page
+  // from where both were when the drag began, so a preview that moves or
+  // resizes mid-drag doesn't make it jump.
+  const updateRotate = (pointerClient: Point, modifiers: Modifiers) => {
+    const drag = dragRef.current;
+    if (!drag || drag.kind !== "rotate") {
+      return;
+    }
+
+    drag.lastClient = pointerClient;
+    if (
+      !drag.transform &&
+      Math.hypot(
+        pointerClient.x - drag.startClient.x,
+        pointerClient.y - drag.startClient.y,
+      ) < DRAG_THRESHOLD_PX
+    ) {
+      return;
+    }
+
+    drag.transform = rotateTransform(
+      drag.startTransform,
+      drag.originClient,
+      drag.startClient,
+      pointerClient,
+      { snap15: modifiers.shiftKey },
+    );
+    const bounds = rootRef.current?.getBoundingClientRect();
+    setReadout({
+      x: pointerClient.x - (bounds?.left ?? 0),
+      y: pointerClient.y - (bounds?.top ?? 0),
+      text: formatRotation(drag.transform.rotationDeg),
+    });
+    onTransform({
+      laneId: drag.laneId,
+      kind: "rotate",
+      values: rotateValues(drag.transform),
+      mode: "transient",
+      newEffectId: drag.newEffectId,
+    });
+  };
+  const updateRotateRef = useRef(updateRotate);
+  updateRotateRef.current = updateRotate;
+
+  // Resizes and rotations follow modifier keys pressed or released mid-drag.
+  const tracksModifiers = dragCursor !== undefined && dragCursor !== "grabbing";
   useEffect(() => {
-    if (!isResizing) {
+    if (!tracksModifiers) {
       return;
     }
 
@@ -269,6 +350,8 @@ export function PreviewTransformOverlay({
           event.key === "Meta")
       ) {
         updateResizeRef.current(drag.lastClient, event);
+      } else if (drag?.kind === "rotate" && event.key === "Shift") {
+        updateRotateRef.current(drag.lastClient, event);
       }
     };
     window.addEventListener("keydown", onModifier);
@@ -277,7 +360,45 @@ export function PreviewTransformOverlay({
       window.removeEventListener("keydown", onModifier);
       window.removeEventListener("keyup", onModifier);
     };
-  }, [isResizing]);
+  }, [tracksModifiers]);
+
+  const startRotate = (
+    event: PointerEvent<HTMLDivElement>,
+    layer: PreviewLayer,
+    box: Box,
+    point: { screen: Point; canvas: Point },
+  ) => {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const startTransform = getLayerTransform(layer.laneId);
+    const client = { x: event.clientX, y: event.clientY };
+    const originScreen = canvasToScreen(
+      layerPointInCanvas(
+        { x: startTransform.originX, y: startTransform.originY },
+        startTransform,
+        box,
+        canvas,
+      ),
+      video,
+      canvas,
+    );
+    dragRef.current = {
+      kind: "rotate",
+      pointerId: event.pointerId,
+      laneId: layer.laneId,
+      startClient: client,
+      scale,
+      newEffectId: crypto.randomUUID(),
+      startTransform,
+      originClient: {
+        x: client.x + originScreen.x - point.screen.x,
+        y: client.y + originScreen.y - point.screen.y,
+      },
+      lastClient: client,
+    };
+    setIsRotateHover(false);
+    setDragCursor(ROTATE_CURSOR);
+  };
 
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) {
@@ -286,12 +407,25 @@ export function PreviewTransformOverlay({
 
     event.currentTarget.focus({ preventScroll: true });
     const client = { x: event.clientX, y: event.clientY };
+    const point = toCanvas(event);
     const control =
       event.target instanceof Element
         ? event.target.closest<HTMLElement>(
-            "[data-transform-handle], [data-transform-origin]",
+            "[data-transform-handle], [data-transform-origin], [data-transform-rotate]",
           )
         : null;
+    // Handles on the box win over the rotate zones around its corners.
+    if (
+      selected &&
+      selectedBox &&
+      rotateCorners &&
+      (control?.dataset.transformRotate !== undefined ||
+        (!control && isInRotateZone(point.screen, rotateCorners)))
+    ) {
+      startRotate(event, selected, selectedBox, point);
+      return;
+    }
+
     if (selected && selectedBox && control) {
       event.preventDefault();
       event.currentTarget.setPointerCapture(event.pointerId);
@@ -332,7 +466,7 @@ export function PreviewTransformOverlay({
       return;
     }
 
-    const target = pickLayer(toCanvas(event).canvas);
+    const target = pickLayer(point.canvas);
     onSelect(target);
     if (!target) {
       return;
@@ -353,13 +487,26 @@ export function PreviewTransformOverlay({
 
   const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) {
+    if (!drag) {
+      setIsRotateHover(
+        rotateCorners !== undefined &&
+          isInRotateZone(toCanvas(event).screen, rotateCorners),
+      );
+      return;
+    }
+
+    if (drag.pointerId !== event.pointerId) {
       return;
     }
 
     const client = { x: event.clientX, y: event.clientY };
     if (drag.kind === "resize") {
       updateResize(client, event);
+      return;
+    }
+
+    if (drag.kind === "rotate") {
+      updateRotate(client, event);
       return;
     }
 
@@ -421,6 +568,7 @@ export function PreviewTransformOverlay({
     dragRef.current = null;
     setDragCursor(undefined);
     setGuides(NO_GUIDES);
+    setReadout(undefined);
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
@@ -444,24 +592,44 @@ export function PreviewTransformOverlay({
         values:
           drag.kind === "resize"
             ? resizeValues(drag.transform)
-            : originValues(drag.transform),
+            : drag.kind === "rotate"
+              ? rotateValues(drag.transform)
+              : originValues(drag.transform),
         mode: "commit",
         newEffectId: drag.newEffectId,
       });
     }
   };
 
-  // Double-clicking a moved origin marker puts the origin back at the centre;
-  // anywhere else, including a marker already at the centre, it activates the
-  // layer under the pointer. The pointer is captured by the overlay while
-  // pressed, so the marker is found by position rather than by the event
-  // target.
+  // Double-clicking the rotation handle straightens the layer. Double-clicking
+  // a moved origin marker puts the origin back at the centre; anywhere else,
+  // including a marker already at the centre, it activates the layer under the
+  // pointer. The pointer is captured by the overlay while pressed, so the
+  // handle and marker are found by position rather than by the event target.
   const handleDoubleClick = (event: MouseEvent<HTMLDivElement>) => {
     if (event.button !== 0) {
       return;
     }
 
     const point = toCanvas(event);
+    if (
+      selected &&
+      rotateCorners &&
+      isOnRotationHandle(point.screen, rotateCorners)
+    ) {
+      event.preventDefault();
+      if (getLayerTransform(selected.laneId).rotationDeg !== 0) {
+        onTransform({
+          laneId: selected.laneId,
+          kind: "rotate",
+          values: { rotationDeg: 0 },
+          mode: "commit",
+          newEffectId: crypto.randomUUID(),
+        });
+      }
+      return;
+    }
+
     const start =
       selected && selectedBox && originScreen
         ? getLayerTransform(selected.laneId)
@@ -548,12 +716,12 @@ export function PreviewTransformOverlay({
           canvas,
         )
       : undefined;
-  const outline = selected?.corners
-    .map((corner) => {
-      const point = canvasToScreen(corner, video, canvas);
-      return `${point.x},${point.y}`;
-    })
+  const outline = selectedCorners
+    ?.map((point) => `${point.x},${point.y}`)
     .join(" ");
+  const rotationHandle = rotateCorners
+    ? rotationHandleGeometry(rotateCorners)
+    : undefined;
   // The handles and origin marker step aside while text is typed on the
   // canvas, so they don't cover the editor.
   const originScreen =
@@ -575,18 +743,23 @@ export function PreviewTransformOverlay({
       className={`preview-transform-overlay${
         dragCursor ? " preview-transform-overlay--dragging" : ""
       }`}
-      style={dragCursor ? { cursor: dragCursor } : undefined}
+      style={
+        dragCursor || isRotateHover
+          ? { cursor: dragCursor ?? ROTATE_CURSOR }
+          : undefined
+      }
       data-testid="preview-transform-overlay"
       // A canvas surface: layers are picked by position, and the arrow keys
       // nudge the selected one.
       role="application"
       // biome-ignore lint/a11y/noNoninteractiveTabindex: focus is how the arrow keys reach the selected layer
       tabIndex={0}
-      aria-label="Preview. Click a layer to select it, drag or use the arrow keys to move it, drag a handle to resize it. Double-click a text layer or press Enter to edit its text."
+      aria-label="Preview. Click a layer to select it, drag or use the arrow keys to move it, drag a handle to resize it, drag the rotation handle or just outside a corner to rotate it. Double-click a text layer or press Enter to edit its text."
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
+      onPointerLeave={() => setIsRotateHover(false)}
       onDoubleClick={handleDoubleClick}
       onKeyDown={handleKeyDown}
     >
@@ -634,6 +807,24 @@ export function PreviewTransformOverlay({
             data-testid="preview-transform-outline"
             points={outline}
           />
+          {rotationHandle ? (
+            <g>
+              <line
+                className="preview-transform-overlay__halo"
+                x1={rotationHandle.stemStart.x}
+                y1={rotationHandle.stemStart.y}
+                x2={rotationHandle.handle.x}
+                y2={rotationHandle.handle.y}
+              />
+              <line
+                className="preview-transform-overlay__box"
+                x1={rotationHandle.stemStart.x}
+                y1={rotationHandle.stemStart.y}
+                x2={rotationHandle.handle.x}
+                y2={rotationHandle.handle.y}
+              />
+            </g>
+          ) : null}
           {originScreen ? (
             <g
               className="preview-transform-overlay__origin-mark"
@@ -645,6 +836,19 @@ export function PreviewTransformOverlay({
             </g>
           ) : null}
         </svg>
+      ) : null}
+      {showControls && rotationHandle ? (
+        <div
+          className="preview-transform-overlay__rotate-handle"
+          data-transform-rotate=""
+          data-testid="preview-rotation-handle"
+          title="Rotate. Drag to turn about the origin, Shift for 15° steps, double-click to straighten."
+          style={{
+            left: rotationHandle.handle.x,
+            top: rotationHandle.handle.y,
+            cursor: ROTATE_CURSOR,
+          }}
+        />
       ) : null}
       {showControls && originScreen ? (
         <div
@@ -688,6 +892,27 @@ export function PreviewTransformOverlay({
           onAction={textEdit.onAction}
         />
       ) : null}
+      {readout ? (
+        <div
+          className="preview-transform-overlay__readout"
+          data-testid="preview-rotation-readout"
+          style={{
+            left: readout.x,
+            top: readout.y,
+            transform: `translate(${
+              readout.x > monitor.width - READOUT_FLIP_PX
+                ? `calc(-100% - ${READOUT_OFFSET_PX}px)`
+                : `${READOUT_OFFSET_PX}px`
+            }, ${
+              readout.y > monitor.height - READOUT_FLIP_PX
+                ? `calc(-100% - ${READOUT_OFFSET_PX}px)`
+                : `${READOUT_OFFSET_PX}px`
+            })`,
+          }}
+        >
+          {readout.text}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -708,4 +933,8 @@ function originValues(transform: LayerTransform): Partial<LayerTransform> {
     positionX: transform.positionX,
     positionY: transform.positionY,
   };
+}
+
+function rotateValues(transform: LayerTransform): Partial<LayerTransform> {
+  return { rotationDeg: transform.rotationDeg };
 }

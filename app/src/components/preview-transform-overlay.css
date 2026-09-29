@@ -85,3 +85,39 @@
   stroke-dasharray: 4 3;
   opacity: 0.85;
 }
+
+/* The rotation handle: a dot on a stem above the top edge, turned with the
+   box, inside a larger hit area. */
+.preview-transform-overlay__rotate-handle {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  z-index: 2;
+  transform: translate(-50%, -50%);
+}
+
+.preview-transform-overlay__rotate-handle::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid var(--lane-selected-accent);
+  box-shadow: 0 0 0 1px rgba(7, 8, 15, 0.55);
+}
+
+/* The angle while rotating, next to the pointer. */
+.preview-transform-overlay__readout {
+  position: absolute;
+  z-index: 3;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(7, 8, 15, 0.85);
+  color: #fff;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+  white-space: nowrap;
+  pointer-events: none;
+}
