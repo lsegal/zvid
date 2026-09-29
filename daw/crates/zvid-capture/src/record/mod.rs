@@ -135,6 +135,10 @@ pub struct RecordStats {
     pub frame_clock: Option<FrameClock>,
     /// The video encoder zvidlib chose, once the first frame arrives.
     pub video_encoder: Option<EncoderInfo>,
+    /// The recorded picture size, upright, once the first frame arrives.
+    /// It is portrait for a portrait camera, and stays as it is when the
+    /// camera turns mid-recording.
+    pub dimensions: Option<(u32, u32)>,
     pub audio_encoder: Option<&'static str>,
     /// Problems that didn't stop the recording, such as a missing AAC
     /// encoder or skipped encoder candidates.
@@ -576,6 +580,7 @@ impl Worker {
             let info = encoder.info();
             let mut stats = self.shared.stats();
             stats.video_encoder = Some(info.clone());
+            stats.dimensions = Some(encoder.dimensions());
             for reason in skipped {
                 log(&format!("skipped video encoder: {reason}"));
                 stats

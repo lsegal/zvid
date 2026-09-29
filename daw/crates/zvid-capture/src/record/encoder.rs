@@ -296,7 +296,7 @@ impl VideoStream {
     }
 
     fn convert(&self, frame: &Frame) -> Result<VideoFrame, String> {
-        let (w, h) = (self.width as usize, self.height as usize);
+        let w = self.width as usize;
         let format = self.frame_format();
         let data = if self.fits(frame.width, frame.height) {
             self.cropped(frame)?

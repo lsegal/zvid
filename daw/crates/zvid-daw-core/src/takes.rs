@@ -46,13 +46,18 @@ pub enum Command {
     /// The frame captured at `host_time` was written at `file_sec` in the
     /// capture file.
     FrameClock { host_time: f64, file_sec: f64 },
+    /// The capture file's picture is `dimensions` (`[width, height]`),
+    /// known at host time `at` once its first frame was encoded. It
+    /// replaces the size the capture armed with, which can't tell a
+    /// portrait camera from a landscape one.
+    Dimensions { dimensions: [u32; 2], at: f64 },
 }
 
 impl Command {
     /// The host time the command applies at.
     pub fn at(&self) -> f64 {
         match *self {
-            Self::Arm { at, .. } | Self::Disarm { at } => at,
+            Self::Arm { at, .. } | Self::Disarm { at } | Self::Dimensions { at, .. } => at,
             Self::FrameClock { host_time, .. } => host_time,
         }
     }
@@ -143,6 +148,10 @@ impl TakeLog {
                 host_time,
                 file_sec,
             },
+            Command::Dimensions { dimensions, .. } => {
+                self.set_dimensions(dimensions, state);
+                return Vec::new();
+            }
         };
         let events = self.apply(input, state);
         if !self.is_armed() {
@@ -208,6 +217,22 @@ impl TakeLog {
             }
         }
         events
+    }
+
+    /// Gives the capture, and every take of it already in `state`, the
+    /// size its file was recorded at.
+    fn set_dimensions(&mut self, dimensions: [u32; 2], state: &mut State) {
+        let Some(capture) = self.capture.as_mut() else {
+            return;
+        };
+        capture.dimensions = dimensions;
+        for recording in &mut state.recordings {
+            if recording.filename == capture.filename
+                && recording.record_root_or(state.record_root) == capture.record_root
+            {
+                recording.dimensions = dimensions;
+            }
+        }
     }
 
     /// The state entry for `take`, or `None` without a capture.
