@@ -150,6 +150,8 @@ describe("convertAls with dogfood3.als against dogfood3.lvp", () => {
       assert.equal(clip("8-6").clipStart, 313);
     });
 
+    // Until the video is probed; probing end-aligns it to 106 (see
+    // `probeAlsRecordings`).
     it("16-2 captureOffset is the recording's frameStart (107, not 106)", () => {
       assert.equal(goldenClip("16-2").captureOffset, 106);
       assert.equal(clip("16-2").captureOffset, 107);
@@ -173,9 +175,9 @@ describe("convertAls with dogfood3.als against dogfood3.lvp", () => {
       );
     });
 
-    it("12-4 (MIDI) clipStart maps the arrangement onto the recording (0, not 42)", () => {
+    it("12-4 (MIDI) clipStart is its content start, LoopStart 110.5 (1574, not 42)", () => {
       assert.equal(goldenClip("12-4").clipStart, 42);
-      assert.equal(clip("12-4").clipStart, 0);
+      assert.equal(clip("12-4").clipStart, 1574);
     });
 
     it("playPosition comes from Transport/CurrentTime 22.25 (317, not 79)", () => {
@@ -497,6 +499,7 @@ describe("convertAls with synthetic sets", () => {
       skipped: [],
       trimmed: [],
       hasLayersVideo: true,
+      layersRecordTracks: ["5"],
     });
   });
 
@@ -545,14 +548,14 @@ describe("convertAls with synthetic sets", () => {
           id: "5-1",
           frameStart: 120,
           frameCount: 60,
-          clipStart: 120,
+          clipStart: 0,
           filePath: "",
         },
         {
           id: "5-1~1",
           frameStart: 180,
           frameCount: 60,
-          clipStart: 180,
+          clipStart: 0,
           filePath: "",
         },
       ],
@@ -729,7 +732,7 @@ describe("convertAls with synthetic sets", () => {
     ]);
   });
 
-  it("clamps a MIDI clip's clipStart to the recording start", () => {
+  it("starts a MIDI clip at its content start, offset by the recording", () => {
     const midi = audioClip({
       kind: "midi",
       currentStart: 1,
@@ -739,15 +742,117 @@ describe("convertAls with synthetic sets", () => {
     });
     const { session } = convertAls(doc([videoTrack({ clips: [midi] })]));
     assert.equal(session.clips?.[0].frameStart, 15);
-    // 15 frames into the arrangement, minus the take's frameStart of 12.
-    assert.equal(session.clips?.[0].clipStart, 3);
+    // Content from beat 0, wherever the clip sits in the arrangement.
+    assert.equal(session.clips?.[0].clipStart, 0);
+    assert.equal(session.clips?.[0].captureOffset, 12);
     assert.equal(session.clips?.[0].audioFileDuration, "NaN");
 
-    const early = convertAls(
-      doc([videoTrack({ clips: [{ ...midi, currentStart: 0.5 }] })]),
+    const trimmed = convertAls(
+      doc([
+        videoTrack({
+          clips: [{ ...midi, loop: { ...midi.loop, loopStart: 1 } }],
+        }),
+      ]),
     );
-    assert.equal(early.session.clips?.[0].frameStart, 8);
-    assert.equal(early.session.clips?.[0].clipStart, 0);
+    assert.equal(trimmed.session.clips?.[0].clipStart, 15);
+    assert.equal(trimmed.session.clips?.[0].captureOffset, 12);
+  });
+
+  it("maps warped audio content through the warp map, not the beat grid", () => {
+    // The first warp marker sits at beat 2, so content beat 4 plays sample
+    // second 1, not the 2 s beat 4 is at 120 BPM. The Layers app ignored
+    // warp markers here, but Live plays the warped time, so keep it.
+    const warped = audioClip({
+      loop: {
+        loopStart: 4,
+        loopEnd: 8,
+        startRelative: 0,
+        loopOn: false,
+        hiddenLoopStart: 0,
+        hiddenLoopEnd: 8,
+      },
+      warpMarkers: [
+        { secTime: 0, beatTime: 2 },
+        { secTime: 0.5, beatTime: 3 },
+      ],
+    });
+    const { session } = convertAls(doc([videoTrack({ clips: [warped] })]));
+    assert.equal(session.clips?.[0].clipStart, 30);
+  });
+
+  it("places audio, MIDI and ZVID Capture clips at their file frames", () => {
+    const midi = audioClip({
+      kind: "midi",
+      currentStart: 4,
+      currentEnd: 8,
+      loop: {
+        loopStart: 1,
+        loopEnd: 5,
+        startRelative: 0,
+        loopOn: false,
+        hiddenLoopStart: 0,
+        hiddenLoopEnd: 5,
+      },
+      warpMarkers: [],
+      sample: null,
+    });
+    const audio = audioClip({
+      currentStart: 4,
+      currentEnd: 8,
+      loop: { ...midi.loop, loopStart: 2, loopEnd: 6, hiddenLoopEnd: 8 },
+    });
+    // Song time 0 is 1.5 s (45 frames) into the take's file.
+    const zvid = (id: number, kind: AlsTrack["kind"], clip: AlsClip) =>
+      videoTrack({
+        id,
+        kind,
+        clips: [clip],
+        captureDevice: "zvid-capture",
+        layers: {
+          version: "1",
+          recordRoot: "project",
+          recordings: [
+            {
+              filename: "zvid.mp4",
+              dimensions: [640, 480],
+              fps: [30, 1],
+              frameStart: -45,
+              fileOffsetSec: 1.5,
+              transportStartSec: 0,
+              transportStartBeats: 0,
+              durationSec: 20,
+              createdAt: "",
+            },
+          ],
+        } as ZvidCaptureState,
+      });
+    const { session } = convertAls(
+      doc([
+        videoTrack({ clips: [audio] }),
+        videoTrack({ id: 6, kind: "midi", clips: [midi] }),
+        zvid(7, "audio", audio),
+        zvid(8, "midi", midi),
+      ]),
+    );
+    assert.deepEqual(
+      session.clips?.map(({ id, clipStart, captureOffset }) => [
+        id,
+        clipStart,
+        captureOffset,
+        (clipStart ?? 0) + (captureOffset ?? 0),
+      ]),
+      [
+        // Content beat 2 is sample second 1, in take-1 from frame 12.
+        ["5-1", 30, 12, 42],
+        // Content beat 1, in take-1 from frame 12.
+        ["6-1", 15, 12, 27],
+        // Sample second 0 was recorded at song time 0, 45 frames into the
+        // file, so sample second 1 is at frame 75.
+        ["7-1", 30, 45, 75],
+        // Song-anchored: arrangement beat 4 (2 s) is 3.5 s into the file.
+        ["8-1", 15, 90, 105],
+      ],
+    );
   });
 
   it("maps unwarped audio content in sample seconds", () => {
@@ -886,19 +991,22 @@ describe("matchZvidTake", () => {
 describe("convertAls with ZVID Capture fixtures", () => {
   const load = async (name: string) =>
     convertAls(await parseAls(new Uint8Array(fixture(name))));
+  // The file frame each clip starts at.
+  const fileFrame = (clip: LvpClip) =>
+    (clip.clipStart ?? 0) + (clip.captureOffset ?? 0);
   const placed = (result: AlsImportResult) =>
-    result.session.clips?.map(({ id, filePath, frameStart, captureOffset }) => [
-      id,
-      filePath,
-      frameStart,
-      captureOffset,
+    result.session.clips?.map((clip) => [
+      clip.id,
+      clip.filePath,
+      clip.frameStart,
+      fileFrame(clip),
     ]);
 
   it("maps each VST3 clip to the take it overlaps, one entry per take", async () => {
     const result = await load("zvid-capture-vst3.xml");
     assert.deepEqual(placed(result), [
-      ["20-1", "video-01-9-25-20-36-12-0.mp4", 0, -45],
-      ["20-2", "video-01-9-25-20-36-12-0.mp4", 480, -120],
+      ["20-1", "video-01-9-25-20-36-12-0.mp4", 0, 45],
+      ["20-2", "video-01-9-25-20-36-12-0.mp4", 480, 600],
     ]);
     // The unanchored take is not a source-track entry.
     assert.deepEqual(result.session.tracks, [
@@ -929,7 +1037,7 @@ describe("convertAls with ZVID Capture fixtures", () => {
   it("breaks AU overlap ties by the latest take", async () => {
     const result = await load("zvid-capture-au.xml");
     assert.deepEqual(placed(result), [
-      ["21-1", "video-01-9-25-21-00-00-0.mp4", 0, -15],
+      ["21-1", "video-01-9-25-21-00-00-0.mp4", 0, 15],
       ["21-2", "video-02-9-25-21-05-00-0.mp4", 60, 30],
     ]);
     assert.equal(result.session.timeline?.canvasWidth, 1280);
@@ -944,8 +1052,8 @@ describe("convertAls with ZVID Capture fixtures", () => {
     assert.deepEqual(placed(result), [
       // Layers Record keeps playing its last recording.
       ["8-1", "video-12-13-23-20-15-14-1.mp4", 0, 57],
-      ["20-1", "video-01-9-25-20-36-12-0.mp4", 0, -45],
-      ["20-2", "video-01-9-25-20-36-12-0.mp4", 480, -120],
+      ["20-1", "video-01-9-25-20-36-12-0.mp4", 0, 45],
+      ["20-2", "video-01-9-25-20-36-12-0.mp4", 480, 600],
     ]);
     assert.deepEqual(
       result.session.tracks?.map((track) => track.recordings?.length),
@@ -958,6 +1066,8 @@ describe("convertAls with ZVID Capture fixtures", () => {
     assert.deepEqual(result.summary.recordRoots, {
       "video-01-9-25-20-36-12-0.mp4": "project",
     });
+    // Only the Layers Record track's clips are end-aligned after probing.
+    assert.deepEqual(result.summary.layersRecordTracks, ["8"]);
   });
 
   it("keeps trimmed and moved clips on the take their content was recorded in", async () => {
@@ -966,15 +1076,13 @@ describe("convertAls with ZVID Capture fixtures", () => {
     // clip plays the file from where its content was recorded, not from
     // where it sits in the arrangement or where it starts in its sample.
     assert.deepEqual(
-      result.session.clips?.map(
-        ({ id, filePath, frameStart, frameCount, clipStart }) => [
-          id,
-          filePath,
-          frameStart,
-          frameCount,
-          clipStart,
-        ],
-      ),
+      result.session.clips?.map((clip) => [
+        clip.id,
+        clip.filePath,
+        clip.frameStart,
+        clip.frameCount,
+        fileFrame(clip),
+      ]),
       [
         // Resized at its end: content from beat 0, recorded at 0 s.
         ["1-1", "video-01-9-28-15-01-28-0.mp4", 0, 240, 45],
@@ -991,10 +1099,10 @@ describe("convertAls with ZVID Capture fixtures", () => {
     const VIDEO_01 = "video-01-9-28-16-58-36-0.mp4";
     const VIDEO_02 = "video-02-9-28-16-59-30-0.mp4";
     const takesOf = (result: AlsImportResult) =>
-      result.session.clips?.map(({ id, filePath, clipStart }) => [
-        id,
-        filePath,
-        clipStart,
+      result.session.clips?.map((clip) => [
+        clip.id,
+        clip.filePath,
+        fileFrame(clip),
       ]);
 
     it("converts all nine clips, each with the take of its sample", async () => {
@@ -1042,16 +1150,21 @@ describe("convertAls with ZVID Capture fixtures", () => {
   it("offsets a clip into its take's file, not its sample", async () => {
     const result = await load("zvid-capture-vst3.xml");
     // Chorus plays content from beat 32 (16 s), where take a2 is 20 s into
-    // its file; Verse plays from 0 s, 1.5 s into take a1.
+    // its file; Verse plays from 0 s, 1.5 s into take a1. `clipStart` and
+    // `frameHiddenLoopEnd` stay in sample frames, and `captureOffset` is the
+    // file frame of sample second 0.
     assert.deepEqual(
-      result.session.clips?.map(({ id, clipStart, frameHiddenLoopEnd }) => [
-        id,
-        clipStart,
-        frameHiddenLoopEnd,
-      ]),
+      result.session.clips?.map(
+        ({ id, clipStart, captureOffset, frameHiddenLoopEnd }) => [
+          id,
+          clipStart,
+          captureOffset,
+          frameHiddenLoopEnd,
+        ],
+      ),
       [
-        ["20-1", 45, 285],
-        ["20-2", 600, 780],
+        ["20-1", 0, 45, 240],
+        ["20-2", 480, 120, 660],
       ],
     );
   });

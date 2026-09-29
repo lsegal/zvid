@@ -27,6 +27,8 @@ export type AlsImportReport = {
   hasLayersVideo?: boolean;
   /** Where each ZVID Capture recording was saved, by filename. */
   recordRoots?: Record<string, RecordRoot>;
+  /** Tracks whose clips play a Layers Record recording, by id. */
+  layersRecordTracks?: string[];
 };
 
 export type ImportedAlsSession = LvpSession & {
@@ -189,6 +191,9 @@ async function convertAlsXml(
       }),
       hasLayersVideo: summary.hasLayersVideo,
       ...(summary.recordRoots && { recordRoots: summary.recordRoots }),
+      ...(summary.layersRecordTracks && {
+        layersRecordTracks: summary.layersRecordTracks,
+      }),
     },
   };
 }
@@ -398,6 +403,7 @@ export function resolveAlsMedia(
   return {
     session: resolvedSession,
     recordingPaths: Array.from(new Set(resolved.values())),
+    layersRecordTracks: importReport?.layersRecordTracks ?? [],
     summary: {
       tracks: session.tracks?.length ?? 0,
       clips: session.clips?.length ?? 0,
@@ -413,10 +419,20 @@ export function resolveAlsMedia(
 
 // Fills each located recording's frame count and rate from the file itself.
 // A recording that cannot be probed is left as it is.
+//
+// Layers lines each audio take on a `layersRecordTracks` track up with the end
+// of its video rather than with the recording's stored `frameStart`, so once
+// the video's length is known, each such clip's `captureOffset` becomes
+// `round((numFrames / frameRate - audioFileDuration) * fps)`, which is
+// `round(numFrames - audioFileDuration * fps)` when the video runs at the
+// session's rate. The offset is per clip: clips playing different samples of
+// one recording get different offsets. MIDI clips have no sample and ZVID
+// Capture takes are aligned by the plugin's own clock, so both keep theirs.
 export async function probeAlsRecordings(
   session: LvpSession,
   recordingRefs: Array<Pick<ServerMediaRef, "path" | "url" | "exists">>,
   probe: (url: string) => Promise<RecordingProbe | null>,
+  layersRecordTracks: readonly string[] = [],
 ): Promise<LvpSession> {
   const probes = new Map<string, RecordingProbe>();
   await Promise.all(
@@ -440,15 +456,42 @@ export async function probeAlsRecordings(
     return session;
   }
 
+  const tracks = session.tracks?.map((track) => ({
+    ...track,
+    recordings: track.recordings?.map((recording) => {
+      const result = probes.get(recording.filename);
+      return result ? { ...recording, ...result } : recording;
+    }),
+  }));
+  const endAligned = new Set(layersRecordTracks);
+  const fps = session.timeline?.fps;
+  // Seconds of video, by track id and recording filename.
+  const videoSeconds = new Map<string, number>();
+  for (const track of tracks ?? []) {
+    if (!endAligned.has(track.id)) continue;
+    for (const { filename, numFrames, frameRate } of track.recordings ?? []) {
+      if (numFrames !== undefined && frameRate) {
+        videoSeconds.set(`${track.id}:${filename}`, numFrames / frameRate);
+      }
+    }
+  }
+
   return {
     ...session,
-    tracks: session.tracks?.map((track) => ({
-      ...track,
-      recordings: track.recordings?.map((recording) => {
-        const result = probes.get(recording.filename);
-        return result ? { ...recording, ...result } : recording;
-      }),
-    })),
+    tracks,
+    clips: session.clips?.map((clip) => {
+      const seconds = videoSeconds.get(`${clip.trackId}:${clip.filePath}`);
+      const duration = clip.audioFileDuration;
+      if (
+        seconds === undefined ||
+        typeof duration !== "number" ||
+        !Number.isFinite(duration) ||
+        !fps
+      ) {
+        return clip;
+      }
+      return { ...clip, captureOffset: Math.round((seconds - duration) * fps) };
+    }),
   };
 }
 

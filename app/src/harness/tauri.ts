@@ -92,14 +92,16 @@ export async function maybeCreateTauriHarness(
       if (audioFilename) {
         found.add(audioFilename);
       }
-      const { session, recordingPaths, summary } = resolveAlsMedia(
-        imported,
-        createAlsMediaLocator(dirs, (path) => found.has(path), recordDirOf),
-      );
+      const { session, recordingPaths, layersRecordTracks, summary } =
+        resolveAlsMedia(
+          imported,
+          createAlsMediaLocator(dirs, (path) => found.has(path), recordDirOf),
+        );
       const probed = await probeAlsRecordings(
         session,
         recordingPaths.map(toMediaRef),
         probeRecordingFrames,
+        layersRecordTracks,
       );
       return {
         sessionName: basename(sessionPath),
