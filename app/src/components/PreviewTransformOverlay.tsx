@@ -7,10 +7,11 @@ import {
   useState,
 } from "react";
 import {
+  applyMatrix,
   type Box,
   type BoxCorners,
-  frameBoxInCanvas,
   type LayerTransform,
+  type Matrix2D,
   type Point,
 } from "../composition-transform.ts";
 import {
@@ -18,12 +19,16 @@ import {
   constrainDragDelta,
   hitTestLayers,
   isPointOnLayer,
+  matrixRotationDeg,
   offsetTransformPosition,
+  type PreviewEditTarget,
   type PreviewLayer,
   resolveNudgeDelta,
+  resolvePreviewEditFrame,
   resolveVideoRect,
   type Size,
   screenToCanvas,
+  toParentDelta,
 } from "../preview-edit.ts";
 import {
   handleName,
@@ -60,8 +65,9 @@ export type PreviewTextEdit = {
   onAction: (action: TextEditorKeyAction) => void;
 };
 
-export type PreviewLayerMove = {
-  laneId: string;
+// A move of the target's Transform: the clip's own when `clipId` is set,
+// else the layer's.
+export type PreviewLayerMove = PreviewEditTarget & {
   position: Point;
   mode: "transient" | "commit";
   // Id for the Transform the move adds when the layer has none. One gesture
@@ -69,9 +75,9 @@ export type PreviewLayerMove = {
   newEffectId: string;
 };
 
-// A resize, origin or rotate drag: the Transform fields it sets on the layer.
-export type PreviewLayerTransformEdit = {
-  laneId: string;
+// A resize, origin or rotate drag: the Transform fields it sets on the
+// target.
+export type PreviewLayerTransformEdit = PreviewEditTarget & {
   kind: "resize" | "origin" | "rotate";
   values: Partial<LayerTransform>;
   mode: "transient" | "commit";
@@ -82,7 +88,10 @@ type Modifiers = { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean };
 
 type DragState = {
   pointerId: number;
-  laneId: string;
+  target: PreviewEditTarget;
+  // The matrix above the edited Transform: the layer's Transform when a
+  // clip's is edited. Pointer moves are measured in its input space.
+  parent: Matrix2D;
   // Page coordinates, so the drag is unaffected if the monitor moves or
   // resizes under it (adding a Transform can grow the FX panel).
   startClient: Point;
@@ -156,10 +165,15 @@ function isMacPlatform() {
 // corners, turn it about its origin (Shift snaps to 15 degrees).
 // Double-clicking a layer, or Enter on the selected one, activates it, which
 // for a text clip starts typing on the canvas (`textEdit`).
+//
+// With a clip selected, the edits go to that clip's own Transform, nested in
+// its layer's (added on the first edit). With only a layer selected, they go
+// to the layer's Transform.
 export function PreviewTransformOverlay({
   canvas,
   layers,
   selectedLaneId,
+  selectedClipId,
   textEdit,
   getLayerPosition,
   getLayerTransform,
@@ -171,9 +185,12 @@ export function PreviewTransformOverlay({
   canvas: Size;
   layers: readonly PreviewLayer[];
   selectedLaneId: string | undefined;
+  // The selected clip, whose own Transform the edits go to; undefined when
+  // only a layer is selected.
+  selectedClipId?: string;
   textEdit?: PreviewTextEdit;
-  getLayerPosition: (laneId: string) => Point;
-  getLayerTransform: (laneId: string) => LayerTransform;
+  getLayerPosition: (target: PreviewEditTarget) => Point;
+  getLayerTransform: (target: PreviewEditTarget) => LayerTransform;
   onSelect: (layer: PreviewLayer | undefined) => void;
   onMove: (move: PreviewLayerMove) => void;
   onTransform: (edit: PreviewLayerTransformEdit) => void;
@@ -205,13 +222,18 @@ export function PreviewTransformOverlay({
 
   const video = resolveVideoRect(monitor, canvas);
   const selected = layers.find((layer) => layer.laneId === selectedLaneId);
-  const selectedBox = selected
-    ? frameBoxInCanvas(selected.placement.frame, canvas)
+  // A selected clip is edited in its own Transform; a layer selected on its
+  // own, in the layer's.
+  const editsClip = selectedClipId !== undefined;
+  const selectedFrame = selected
+    ? resolvePreviewEditFrame(selected, editsClip, canvas)
     : undefined;
+  const selectedBox = selectedFrame?.box;
+  const selectedTarget = selected ? editTarget(selected, editsClip) : undefined;
   const editedLayer = textEdit
     ? layers.find((layer) => layer.clipId === textEdit.clipId)
     : undefined;
-  const selectedCorners = selected?.corners.map((corner) =>
+  const selectedCorners = selectedFrame?.corners.map((corner) =>
     canvasToScreen(corner, video, canvas),
   ) as BoxCorners | undefined;
   // The rotation handle and rotate zones step aside, like the other handles,
@@ -224,10 +246,12 @@ export function PreviewTransformOverlay({
   };
   // A drag measures the pointer's travel on the page at the zoom it started
   // at, so a preview that moves or resizes mid-drag doesn't make it jump.
-  const dragDelta = (drag: DragState, client: Point) => ({
-    x: (client.x - drag.startClient.x) * drag.scale.x,
-    y: (client.y - drag.startClient.y) * drag.scale.y,
-  });
+  // The travel is in the edited Transform's own space, inside its parent.
+  const dragDelta = (drag: DragState, client: Point) =>
+    toParentDelta(drag.parent, {
+      x: (client.x - drag.startClient.x) * drag.scale.x,
+      y: (client.y - drag.startClient.y) * drag.scale.y,
+    });
 
   const toCanvas = (event: { clientX: number; clientY: number }) => {
     const bounds = rootRef.current?.getBoundingClientRect();
@@ -238,10 +262,26 @@ export function PreviewTransformOverlay({
     return { screen, canvas: screenToCanvas(screen, video, canvas) };
   };
 
-  // The selected layer keeps the press anywhere inside its outline, even
-  // where another layer is drawn over it.
+  // Editing a selected clip's Transform from a handle selects the clip the
+  // preview shows on its layer, if another clip on the layer was selected.
+  const selectShownClip = (layer: PreviewLayer) => {
+    if (editsClip && selectedClipId !== layer.clipId) {
+      onSelect(layer);
+    }
+  };
+
+  // The selected layer keeps the press anywhere inside its outline (its
+  // clip's box, or the layer's own box when only the layer is selected),
+  // even where another layer is drawn over it.
   const pickLayer = (point: Point) =>
-    selected && isPointOnLayer(point, selected, canvas)
+    selected &&
+    isPointOnLayer(
+      point,
+      editsClip
+        ? selected
+        : { placement: selected.placement, transform: selected.transform },
+      canvas,
+    )
       ? selected
       : hitTestLayers(layers, point, canvas);
 
@@ -267,20 +307,13 @@ export function PreviewTransformOverlay({
       drag.box,
       canvas,
       { proportional: modifiers.shiftKey, fromCenter },
-      {
-        xLines: [0, canvas.width / 2, canvas.width],
-        yLines: [0, canvas.height / 2, canvas.height],
-        threshold: SNAP_PX * drag.scale.x,
-      },
+      resolveResizeSnap(drag.parent, canvas, SNAP_PX * drag.scale.x),
     );
     drag.transform = result.transform;
-    setGuides(
-      result.guides.x.length || result.guides.y.length
-        ? result.guides
-        : NO_GUIDES,
-    );
+    const guides = guidesInCanvas(drag.parent, result.guides);
+    setGuides(guides.x.length || guides.y.length ? guides : NO_GUIDES);
     onTransform({
-      laneId: drag.laneId,
+      ...drag.target,
       kind: "resize",
       values: resizeValues(result.transform),
       mode: "transient",
@@ -324,7 +357,7 @@ export function PreviewTransformOverlay({
       text: formatRotation(drag.transform.rotationDeg),
     });
     onTransform({
-      laneId: drag.laneId,
+      ...drag.target,
       kind: "rotate",
       values: rotateValues(drag.transform),
       mode: "transient",
@@ -364,20 +397,24 @@ export function PreviewTransformOverlay({
 
   const startRotate = (
     event: PointerEvent<HTMLDivElement>,
-    layer: PreviewLayer,
+    target: PreviewEditTarget,
+    parent: Matrix2D,
     box: Box,
     point: { screen: Point; canvas: Point },
   ) => {
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
-    const startTransform = getLayerTransform(layer.laneId);
+    const startTransform = getLayerTransform(target);
     const client = { x: event.clientX, y: event.clientY };
     const originScreen = canvasToScreen(
-      layerPointInCanvas(
-        { x: startTransform.originX, y: startTransform.originY },
-        startTransform,
-        box,
-        canvas,
+      applyMatrix(
+        parent,
+        layerPointInCanvas(
+          { x: startTransform.originX, y: startTransform.originY },
+          startTransform,
+          box,
+          canvas,
+        ),
       ),
       video,
       canvas,
@@ -385,7 +422,8 @@ export function PreviewTransformOverlay({
     dragRef.current = {
       kind: "rotate",
       pointerId: event.pointerId,
-      laneId: layer.laneId,
+      target,
+      parent,
       startClient: client,
       scale,
       newEffectId: crypto.randomUUID(),
@@ -419,23 +457,34 @@ export function PreviewTransformOverlay({
     // hidden when it landed.
     if (
       selected &&
-      selectedBox &&
+      selectedFrame &&
+      selectedTarget &&
       rotateCorners &&
       !didPressEndTextEdit(event.nativeEvent) &&
       (control?.dataset.transformRotate !== undefined ||
         (!control && isInRotateZone(point.screen, rotateCorners)))
     ) {
-      startRotate(event, selected, selectedBox, point);
+      selectShownClip(selected);
+      startRotate(
+        event,
+        selectedTarget,
+        selectedFrame.parent,
+        selectedFrame.box,
+        point,
+      );
       return;
     }
 
-    if (selected && selectedBox && control) {
+    if (selected && selectedFrame && selectedTarget && control) {
       event.preventDefault();
       event.currentTarget.setPointerCapture(event.pointerId);
-      const startTransform = getLayerTransform(selected.laneId);
+      selectShownClip(selected);
+      const startTransform = getLayerTransform(selectedTarget);
+      const selectedBox = selectedFrame.box;
       const common = {
         pointerId: event.pointerId,
-        laneId: selected.laneId,
+        target: selectedTarget,
+        parent: selectedFrame.parent,
         startClient: client,
         scale,
         newEffectId: crypto.randomUUID(),
@@ -453,7 +502,13 @@ export function PreviewTransformOverlay({
           handle,
           lastClient: client,
         };
-        setDragCursor(resizeCursor(handle, startTransform.rotationDeg));
+        setDragCursor(
+          resizeCursor(
+            handle,
+            startTransform.rotationDeg +
+              matrixRotationDeg(selectedFrame.parent),
+          ),
+        );
       } else {
         dragRef.current = {
           ...common,
@@ -469,21 +524,32 @@ export function PreviewTransformOverlay({
       return;
     }
 
-    const target = pickLayer(point.canvas);
-    onSelect(target);
-    if (!target) {
+    const layer = pickLayer(point.canvas);
+    // Pressing a layer selects its clip, whose own Transform the drag then
+    // moves, unless the layer is already selected on its own: then the drag
+    // moves the layer.
+    const movesLayer =
+      layer !== undefined &&
+      layer.laneId === selectedLaneId &&
+      selectedClipId === undefined;
+    if (!movesLayer) {
+      onSelect(layer);
+    }
+    if (!layer) {
       return;
     }
 
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
+    const target = editTarget(layer, !movesLayer);
     dragRef.current = {
       kind: "move",
       pointerId: event.pointerId,
-      laneId: target.laneId,
+      target,
+      parent: resolvePreviewEditFrame(layer, !movesLayer, canvas).parent,
       startClient: client,
       scale,
-      startPosition: getLayerPosition(target.laneId),
+      startPosition: getLayerPosition(target),
       newEffectId: crypto.randomUUID(),
     };
   };
@@ -529,7 +595,7 @@ export function PreviewTransformOverlay({
         drag.startTransform,
         drag.box,
         canvas,
-        SNAP_PX * drag.scale.x,
+        (SNAP_PX * drag.scale.x) / matrixScale(drag.parent),
       );
       drag.transform = moveOrigin(
         drag.startTransform,
@@ -539,7 +605,7 @@ export function PreviewTransformOverlay({
       );
       setDragCursor("grabbing");
       onTransform({
-        laneId: drag.laneId,
+        ...drag.target,
         kind: "origin",
         values: originValues(drag.transform),
         mode: "transient",
@@ -555,7 +621,7 @@ export function PreviewTransformOverlay({
     );
     setDragCursor("grabbing");
     onMove({
-      laneId: drag.laneId,
+      ...drag.target,
       position: drag.position,
       mode: "transient",
       newEffectId: drag.newEffectId,
@@ -579,7 +645,7 @@ export function PreviewTransformOverlay({
     if (drag.kind === "move") {
       if (drag.position) {
         onMove({
-          laneId: drag.laneId,
+          ...drag.target,
           position: drag.position,
           mode: "commit",
           newEffectId: drag.newEffectId,
@@ -590,7 +656,7 @@ export function PreviewTransformOverlay({
 
     if (drag.transform) {
       onTransform({
-        laneId: drag.laneId,
+        ...drag.target,
         kind: drag.kind,
         values:
           drag.kind === "resize"
@@ -616,14 +682,14 @@ export function PreviewTransformOverlay({
 
     const point = toCanvas(event);
     if (
-      selected &&
+      selectedTarget &&
       rotateCorners &&
       isOnRotationHandle(point.screen, rotateCorners)
     ) {
       event.preventDefault();
-      if (getLayerTransform(selected.laneId).rotationDeg !== 0) {
+      if (getLayerTransform(selectedTarget).rotationDeg !== 0) {
         onTransform({
-          laneId: selected.laneId,
+          ...selectedTarget,
           kind: "rotate",
           values: { rotationDeg: 0 },
           mode: "commit",
@@ -634,11 +700,11 @@ export function PreviewTransformOverlay({
     }
 
     const start =
-      selected && selectedBox && originScreen
-        ? getLayerTransform(selected.laneId)
+      selectedTarget && selectedBox && originScreen
+        ? getLayerTransform(selectedTarget)
         : undefined;
     if (
-      !selected ||
+      !selectedTarget ||
       !selectedBox ||
       !originScreen ||
       !start ||
@@ -658,7 +724,7 @@ export function PreviewTransformOverlay({
 
     event.preventDefault();
     onTransform({
-      laneId: selected.laneId,
+      ...selectedTarget,
       kind: "origin",
       values: originValues(
         setOrigin(start, { x: 0, y: 0 }, selectedBox, canvas),
@@ -690,7 +756,13 @@ export function PreviewTransformOverlay({
     }
 
     const delta = resolveNudgeDelta(event.key, event.shiftKey);
-    if (!delta || !selected || dragRef.current || event.altKey) {
+    if (
+      !delta ||
+      !selectedTarget ||
+      !selectedFrame ||
+      dragRef.current ||
+      event.altKey
+    ) {
       return;
     }
 
@@ -700,10 +772,10 @@ export function PreviewTransformOverlay({
 
     event.preventDefault();
     onMove({
-      laneId: selected.laneId,
+      ...selectedTarget,
       position: offsetTransformPosition(
-        getLayerPosition(selected.laneId),
-        delta,
+        getLayerPosition(selectedTarget),
+        toParentDelta(selectedFrame.parent, delta),
         canvas,
       ),
       mode: "commit",
@@ -712,9 +784,17 @@ export function PreviewTransformOverlay({
   };
 
   const toScreen = (local: Point) =>
-    selected && selectedBox
+    selectedFrame
       ? canvasToScreen(
-          layerPointInCanvas(local, selected.transform, selectedBox, canvas),
+          applyMatrix(
+            selectedFrame.parent,
+            layerPointInCanvas(
+              local,
+              selectedFrame.transform,
+              selectedFrame.box,
+              canvas,
+            ),
+          ),
           video,
           canvas,
         )
@@ -728,13 +808,16 @@ export function PreviewTransformOverlay({
   // The handles and origin marker step aside while text is typed on the
   // canvas, so they don't cover the editor.
   const originScreen =
-    selected && !editedLayer
+    selectedFrame && !editedLayer
       ? toScreen({
-          x: selected.transform.originX,
-          y: selected.transform.originY,
+          x: selectedFrame.transform.originX,
+          y: selectedFrame.transform.originY,
         })
       : undefined;
-  const rotationDeg = selected?.transform.rotationDeg ?? 0;
+  const rotationDeg = selectedFrame
+    ? selectedFrame.transform.rotationDeg +
+      matrixRotationDeg(selectedFrame.parent)
+    : 0;
   const showControls = Boolean(outline && monitor.width > 0);
   const showHandles = showControls && !editedLayer;
   const videoBottom = video.top + video.height;
@@ -918,6 +1001,55 @@ export function PreviewTransformOverlay({
       ) : null}
     </div>
   );
+}
+
+function editTarget(
+  layer: PreviewLayer,
+  editsClip: boolean,
+): PreviewEditTarget {
+  return editsClip
+    ? { laneId: layer.laneId, clipId: layer.clipId }
+    : { laneId: layer.laneId };
+}
+
+// How much `parent` scales a length, on average over its two axes.
+function matrixScale(parent: Matrix2D) {
+  return Math.max(
+    1e-6,
+    (Math.hypot(parent.a, parent.b) + Math.hypot(parent.c, parent.d)) / 2,
+  );
+}
+
+function isAxisAligned(parent: Matrix2D) {
+  return Math.abs(parent.b) < 1e-9 && Math.abs(parent.c) < 1e-9;
+}
+
+// Resized edges snap to the canvas edges and centre lines. For a clip inside
+// a moved or scaled layer, the lines are taken into the clip's space; inside
+// a turned layer they no longer line up with its edges, so nothing snaps.
+function resolveResizeSnap(parent: Matrix2D, canvas: Size, threshold: number) {
+  const xLines = [0, canvas.width / 2, canvas.width];
+  const yLines = [0, canvas.height / 2, canvas.height];
+  if (!isAxisAligned(parent)) {
+    return undefined;
+  }
+
+  return {
+    xLines: xLines.map((x) => (x - parent.e) / parent.a),
+    yLines: yLines.map((y) => (y - parent.f) / parent.d),
+    threshold: threshold / matrixScale(parent),
+  };
+}
+
+// Snapped lines from the edited Transform's space, back on the canvas.
+function guidesInCanvas(
+  parent: Matrix2D,
+  guides: ResizeResult["guides"],
+): ResizeResult["guides"] {
+  return {
+    x: guides.x.map((x) => parent.a * x + parent.e),
+    y: guides.y.map((y) => parent.d * y + parent.f),
+  };
 }
 
 function resizeValues(transform: LayerTransform): Partial<LayerTransform> {

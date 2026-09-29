@@ -179,7 +179,7 @@ test("the preview rotates a layer with its handle and corner zones", async ({
   await expect(transform).toHaveCount(1);
 
   // The rotation, including adding the Transform, is one undo step.
-  const undo = await expectUndo(page, /^Undo Rotate Layer 1/);
+  const undo = await expectUndo(page, /^Undo Rotate test-pattern/);
   await undo.click();
   await expect(transform).toHaveCount(0);
   expect(await outlineRotation(page)).toBeCloseTo(0, 1);
@@ -226,9 +226,9 @@ test("the preview rotates a layer with its handle and corner zones", async ({
   await expect(readout).toHaveText("90°");
   await page.mouse.up();
   expect(await outlineRotation(page)).toBeCloseTo(90, 1);
-  await (await expectUndo(page, /^Undo Rotate Layer 1/)).click();
+  await (await expectUndo(page, /^Undo Rotate test-pattern/)).click();
   expect(await outlineRotation(page)).toBeCloseTo(0, 1);
-  await (await expectUndo(page, /^Undo Move Layer 1/)).click();
+  await (await expectUndo(page, /^Undo Move test-pattern/)).click();
 
   // Move the layer down instead, so its handle stays on the monitor as it
   // turns. With Shift, the handle snaps to 15 degree steps: 41 is 45.

@@ -189,7 +189,7 @@ test("a corner drag with Shift and Ctrl/Cmd scales proportionally about the cent
   expectClose(after.x + after.width / 2, before.x + before.width / 2);
   expectClose(after.y + after.height / 2, before.y + before.height / 2);
 
-  await expectUndoLabel(page, /^Undo Resize Layer 1/);
+  await expectUndoLabel(page, /^Undo Resize test-pattern/);
   await undo(page);
   const restored = await outlineBox(page);
   expectClose(restored.width, before.width);
@@ -228,7 +228,7 @@ test("an edge drag resizes one side and keeps the opposite edge", async ({
   const after = await outlineBox(page);
   expectClose(after.x, before.x);
   expectClose(after.width, before.width * 0.8, 3);
-  await expectUndoLabel(page, /^Undo Resize Layer 1/);
+  await expectUndoLabel(page, /^Undo Resize test-pattern/);
 });
 
 test("dragging the origin moves the pivot but not the layer", async ({
@@ -324,5 +324,5 @@ test("handles outside the video area can still be dragged", async ({
     expectClose(after.y, moved.y);
     expectClose(after.height, moved.height - shrink, 3);
   }
-  await expectUndoLabel(page, /^Undo Resize Layer 1/);
+  await expectUndoLabel(page, /^Undo Resize test-pattern/);
 });

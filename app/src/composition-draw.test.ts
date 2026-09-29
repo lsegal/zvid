@@ -15,8 +15,11 @@ import {
 } from "./composition-layout.ts";
 import type { CompositionOrder } from "./composition-order.ts";
 import {
+  frameBoxInCanvas,
   IDENTITY_TRANSFORM,
   type LayerTransform,
+  matrixQuadAxes,
+  nestedTransformMatrix,
   transformedQuadAxes,
 } from "./composition-transform.ts";
 import type { FillPaint } from "./fill-paint.ts";
@@ -226,6 +229,7 @@ function layers(
   effects: ChainEffect[],
   sharedMedia = false,
   transforms: Array<LayerTransform | undefined> = [],
+  clipTransforms: Array<LayerTransform | undefined> = [],
 ) {
   return Array.from({ length: count }, (_, lane) => {
     const layer: CompositeLayer = {
@@ -250,6 +254,7 @@ function layers(
         saturation: 1,
         layoutAnchor: "top",
         transform: transforms[lane],
+        clipTransform: clipTransforms[lane],
       },
       effectChain: resolveEffectChain(effects, `lane-${lane}`),
     };
@@ -263,6 +268,7 @@ function render(
   before?: (resources: WebGlResources) => void,
   sharedMedia = false,
   transforms: Array<LayerTransform | undefined> = [],
+  clipTransforms: Array<LayerTransform | undefined> = [],
 ) {
   const recording = createRecordingGl();
   const resources = createWebGlResources(recording.gl);
@@ -277,7 +283,7 @@ function render(
   drawComposition(
     resources,
     { width: WIDTH, height: HEIGHT },
-    layers(count, effects, sharedMedia, transforms),
+    layers(count, effects, sharedMedia, transforms, clipTransforms),
     mediaRefs,
     resolveEffectChain(effects, "__group_main"),
     { time: 1, audio: SILENT_AUDIO_BANDS, groupClipProgress: 0 },
@@ -473,6 +479,105 @@ describe("drawComposition Transform", () => {
       });
     });
   }
+});
+
+describe("drawComposition clip Transform", () => {
+  const surface = { width: WIDTH, height: HEIGHT };
+  const layerTransform: LayerTransform = {
+    ...IDENTITY_TRANSFORM,
+    positionX: 0.25,
+    rotationDeg: 30,
+  };
+  const clipTransform: LayerTransform = {
+    ...IDENTITY_TRANSFORM,
+    scaleX: 0.5,
+    positionY: 0.1,
+  };
+  const { frame } = resolveLayerPlacement({
+    index: 1,
+    count: 2,
+    canvasWidth: WIDTH,
+    canvasHeight: HEIGHT,
+    sourceWidth: 1080,
+    sourceHeight: 1920,
+    visual: { scale: 1, translateX: 0, translateY: 0, layoutAnchor: "top" },
+  });
+  const axesOf = (
+    layer: LayerTransform | undefined,
+    clip: LayerTransform | undefined,
+  ) => {
+    const expected = matrixQuadAxes(
+      frame,
+      nestedTransformMatrix(
+        frameBoxInCanvas(frame, surface),
+        surface,
+        layer,
+        clip,
+      ),
+      surface,
+    );
+    return {
+      uAxisX: expected.axisX,
+      uAxisY: expected.axisY,
+      uOffset: expected.offset,
+    };
+  };
+
+  it("draws a clip Transform on its own like a layer Transform", () => {
+    const { canvasDraws } = render(
+      2,
+      [],
+      undefined,
+      false,
+      [],
+      [undefined, clipTransform],
+    );
+    const bottom = canvasDraws[1];
+    assert.ok(!bottom.scissorTest, "only the canvas clips the clip");
+    const expected = transformedQuadAxes(frame, clipTransform, surface);
+    assert.deepEqual(bottom.axes, {
+      uAxisX: expected.axisX,
+      uAxisY: expected.axisY,
+      uOffset: expected.offset,
+    });
+  });
+
+  it("draws the clip Transform inside the layer Transform", () => {
+    for (const effects of [[], [colorize("lane-1")]]) {
+      const { canvasDraws } = render(
+        2,
+        effects,
+        undefined,
+        false,
+        [undefined, layerTransform],
+        [undefined, clipTransform],
+      );
+      assert.deepEqual(
+        canvasDraws[1].axes,
+        axesOf(layerTransform, clipTransform),
+      );
+      assert.notDeepEqual(
+        canvasDraws[1].axes,
+        axesOf(layerTransform, undefined),
+      );
+    }
+  });
+
+  it("draws an identity clip Transform exactly as none", () => {
+    const plain = render(2, []);
+    const identity = render(
+      2,
+      [],
+      undefined,
+      false,
+      [],
+      [IDENTITY_TRANSFORM, IDENTITY_TRANSFORM],
+    );
+    assert.deepEqual(
+      identity.canvasDraws.map((draw) => [draw.scissor, draw.axes]),
+      plain.canvasDraws.map((draw) => [draw.scissor, draw.axes]),
+    );
+  });
 });
 
 describe("resolveBandScissor", () => {
@@ -805,6 +910,26 @@ describe("drawComposition text layers", () => {
       ["aaaa bbbb cccc dddd eeee ffff"],
     );
     assert.equal(wideCanvas.fills[0].font, plainCanvas.fills[0].font);
+  });
+
+  it("widens a text clip's box with its own ScaleX inside its layer's", () => {
+    const wide = createRecordingGl();
+    const layer = transformedText(WORDS, { ...IDENTITY_TRANSFORM, scaleX: 2 });
+    drawFrame(createWebGlResources(wide.gl), [
+      {
+        ...layer,
+        visual: {
+          ...layer.visual,
+          clipTransform: { ...IDENTITY_TRANSFORM, scaleX: 0.75 },
+        },
+      },
+    ]);
+    const wideCanvas = wide.uploads[0].at(-1) as FakeTextCanvas;
+    // Both widths resize the box: 2 × 0.75 of the band, unstretched.
+    assert.deepEqual(
+      [wideCanvas.width, wideCanvas.height],
+      [WIDTH * 1.5, HEIGHT],
+    );
   });
 
   it("shrinks text to fit a shorter box with ScaleY and Resize to fit", () => {

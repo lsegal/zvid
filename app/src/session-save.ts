@@ -8,6 +8,7 @@
 
 import { alsSavePath } from "./als-import.ts";
 import { type ClipWarp, warpSampleStartSeconds } from "./clip-warp.ts";
+import { renameClipEffectTracks } from "./fx-stack.ts";
 import type { LvpLayerClip, LvpSession } from "./session.ts";
 import type { WorkspaceSessionSource } from "./workspace-session.ts";
 
@@ -264,12 +265,17 @@ export function projectToLvpSession(
     usedSelectionIds.add(nextSelectionId);
     return nextSelectionId;
   };
+  // Media clips load back as `selection-<id>`, so their own effect stacks are
+  // saved under that id too.
+  const savedClipIds = new Map<string, string>();
   const selections = mediaClips.map<
     NonNullable<LvpSession["selections"]>[number]
   >((clip) => {
     const frameStart = toFrames(quartersToSeconds(clip.startQ, bpm), fps);
+    const id = allocateSelectionId(clip.id);
+    savedClipIds.set(clip.id, `selection-${id}`);
     return {
-      id: allocateSelectionId(clip.id),
+      id,
       trackId: clip.sourceTrackId,
       mainTrackId: clip.laneId,
       frameStart,
@@ -316,13 +322,15 @@ export function projectToLvpSession(
     selections,
     ...(fills.length ? { fills } : {}),
     ...(texts.length ? { texts } : {}),
-    effects: project.effects.map((effect) => ({
-      id: effect.id,
-      trackId: effect.trackId,
-      effectName: effect.effectName,
-      parameters: toLvpParameters(effect.parameters),
-      ...(effect.enabled === false ? { enabled: false } : {}),
-    })),
+    effects: renameClipEffectTracks(project.effects, savedClipIds).map(
+      (effect) => ({
+        id: effect.id,
+        trackId: effect.trackId,
+        effectName: effect.effectName,
+        parameters: toLvpParameters(effect.parameters),
+        ...(effect.enabled === false ? { enabled: false } : {}),
+      }),
+    ),
     timeline: {
       bpm,
       fps,

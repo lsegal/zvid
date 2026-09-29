@@ -82,7 +82,7 @@ describe("groupChainDevices", () => {
       mapSessionEffectsToDevices([], "2", "Layer 2"),
       "video",
     );
-    assert.deepEqual(groups, { layer: [], global: [] });
+    assert.deepEqual(groups, { layer: [], clip: [], global: [] });
   });
 
   it("shows no devices for audio clips", () => {
@@ -90,7 +90,7 @@ describe("groupChainDevices", () => {
       mapSessionEffectsToDevices(DOGFOOD_EFFECTS, "3", "Layer 3"),
       "audio",
     );
-    assert.deepEqual(groups, { layer: [], global: [] });
+    assert.deepEqual(groups, { layer: [], clip: [], global: [] });
   });
 });
 

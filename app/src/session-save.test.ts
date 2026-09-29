@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { createClipWarp } from "./clip-warp.ts";
-import { hasGlobalOrder, mapEffects } from "./fx-stack.ts";
+import { hasGlobalOrder, mapEffects, pruneClipEffects } from "./fx-stack.ts";
 import { migrateDefaultOrder } from "./project-state-compat.ts";
 import { clipSourceFrame, type LvpSession } from "./session.ts";
 import {
@@ -521,6 +521,89 @@ describe("projectToLvpSession", () => {
         bpm,
       ),
       warp,
+    );
+  });
+});
+
+describe("clip stacks in a saved session", () => {
+  it("saves a media clip's stack under the id it loads back with", () => {
+    const project = baseProject();
+    const stackEffect = (id: string, trackId: string) => ({
+      id,
+      trackId,
+      effectName: "Transform",
+      parameters: [{ key: "ScaleX", value: "0.500", numericValue: 0.5 }],
+    });
+    const session = projectToLvpSession(
+      {
+        ...project,
+        effects: [
+          ...project.effects,
+          stackEffect("kept-id", "clip:selection-7"),
+          stackEffect("new-clip", "clip:clip-added"),
+        ],
+      },
+      { playheadQ: 0 },
+    );
+    // clip-added is saved as selection 0, selection-7 keeps its number.
+    assert.deepEqual(
+      session.effects?.map((effect) => effect.trackId),
+      ["main-1", "clip:selection-7", "clip:selection-0"],
+    );
+
+    const reopened = JSON.parse(JSON.stringify(session)) as LvpSession;
+    const loadedClipIds = (reopened.selections ?? []).map((selection) => ({
+      id: `selection-${selection.id}`,
+    }));
+    const effects = pruneClipEffects(
+      mapEffects(reopened.effects),
+      loadedClipIds,
+    );
+    assert.deepEqual(
+      effects.map((effect) => [effect.id, effect.trackId]),
+      [
+        ["fx1", "main-1"],
+        ["kept-id", "clip:selection-7"],
+        ["new-clip", "clip:selection-0"],
+      ],
+    );
+    assert.equal(effects[2].parameters[0]?.numericValue, 0.5);
+  });
+
+  it("keeps a fill or text clip's stack under its own id", () => {
+    const project = baseProject();
+    const session = projectToLvpSession(
+      {
+        ...project,
+        clips: [
+          ...project.clips,
+          {
+            id: "text-1",
+            kind: "text",
+            sourceTrackId: "",
+            laneId: "main-1",
+            startQ: 0,
+            durationSeconds: 1,
+          },
+        ],
+        effects: [
+          {
+            id: "text",
+            trackId: "clip:text-1",
+            effectName: "Text",
+            parameters: [{ key: "Text", value: "Hi" }],
+          },
+        ],
+      },
+      { playheadQ: 0 },
+    );
+    assert.deepEqual(
+      session.texts?.map((clip) => clip.id),
+      ["text-1"],
+    );
+    assert.deepEqual(
+      session.effects?.map((effect) => effect.trackId),
+      ["clip:text-1"],
     );
   });
 });

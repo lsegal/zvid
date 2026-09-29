@@ -1,7 +1,9 @@
-// Pure maths for the Transform layer effect. A Transform moves, scales and
-// rotates a layer's box (its band, showing what Layout placed there) inside
-// the canvas. Everything here is in canvas pixels, origin top-left, +y down,
-// with positive rotation turning clockwise on screen.
+// Pure maths for the Transform effect. A Transform moves, scales and rotates
+// a layer's box (its band, showing what Layout placed there) inside the
+// canvas. A clip's own Transform does the same inside its layer's
+// transformed box: it is applied to the band first, then the layer's
+// Transform moves the result. Everything here is in canvas pixels, origin
+// top-left, +y down, with positive rotation turning clockwise on screen.
 import type { FrameBounds } from "./composition-layout.ts";
 
 export type LayerTransform = {
@@ -82,6 +84,35 @@ export function transformMatrix(
     e: pivotX + transform.positionX * canvas.width - (a * pivotX + c * pivotY),
     f: pivotY + transform.positionY * canvas.height - (b * pivotX + d * pivotY),
   };
+}
+
+export const IDENTITY_MATRIX: Matrix2D = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+
+// `outer` after `inner`: maps a point through `inner`, then `outer`.
+export function multiplyMatrix(outer: Matrix2D, inner: Matrix2D): Matrix2D {
+  return {
+    a: outer.a * inner.a + outer.c * inner.b,
+    b: outer.b * inner.a + outer.d * inner.b,
+    c: outer.a * inner.c + outer.c * inner.d,
+    d: outer.b * inner.c + outer.d * inner.d,
+    e: outer.a * inner.e + outer.c * inner.f + outer.e,
+    f: outer.b * inner.e + outer.d * inner.f + outer.f,
+  };
+}
+
+// Where a clip's box lands: its own Transform places it in its layer's box,
+// and the layer's Transform then places that. Both are taken about the same
+// untransformed box, the clip's band.
+export function nestedTransformMatrix(
+  box: Box,
+  canvas: CanvasSize,
+  layerTransform: LayerTransform = IDENTITY_TRANSFORM,
+  clipTransform: LayerTransform = IDENTITY_TRANSFORM,
+): Matrix2D {
+  return multiplyMatrix(
+    transformMatrix(layerTransform, box, canvas),
+    transformMatrix(clipTransform, box, canvas),
+  );
 }
 
 export function applyMatrix(matrix: Matrix2D, point: Point): Point {
@@ -167,14 +198,73 @@ export function resolveTextBox(
   };
 }
 
+// A clip's text box: like `resolveTextBox`, but for the clip's Transform
+// nested in its layer's (`matrix`, as `nestedTransformMatrix` gives it).
+// The box takes the scale the matrix gives each of the band's sides, about
+// `pivot` (the origin of the innermost Transform, in -1..1 box units), and
+// `matrix` is what is left to move and turn the box: it keeps text from
+// stretching however the Transforms scale it.
+export function resolveNestedTextBox(
+  band: Box,
+  matrix: Matrix2D,
+  pivot: Point = { x: 0, y: 0 },
+): { box: Box; matrix: Matrix2D } {
+  const scaleX = Math.max(1e-6, Math.hypot(matrix.a, matrix.b));
+  const scaleY = Math.max(1e-6, Math.hypot(matrix.c, matrix.d));
+  const pivotX = band.x + ((pivot.x + 1) / 2) * band.width;
+  const pivotY = band.y + ((pivot.y + 1) / 2) * band.height;
+  // Maps the resized box back onto the band, so the matrix still applies.
+  const unscale: Matrix2D = {
+    a: 1 / scaleX,
+    b: 0,
+    c: 0,
+    d: 1 / scaleY,
+    e: pivotX - pivotX / scaleX,
+    f: pivotY - pivotY / scaleY,
+  };
+  return {
+    box: {
+      x: pivotX + (band.x - pivotX) * scaleX,
+      y: pivotY + (band.y - pivotY) * scaleY,
+      width: band.width * scaleX,
+      height: band.height * scaleY,
+    },
+    matrix: multiplyMatrix(matrix, unscale),
+  };
+}
+
+// A text clip's box and placement for its layer's Transform and its own
+// nested inside it: resized by both Transforms' scale, about the clip's
+// origin (or the layer's, without a clip Transform).
+export function resolveClipTextBox(
+  band: Box,
+  canvas: CanvasSize,
+  layerTransform?: LayerTransform,
+  clipTransform?: LayerTransform,
+) {
+  const pivot = isIdentityTransform(clipTransform)
+    ? layerTransform
+    : clipTransform;
+  return resolveNestedTextBox(
+    band,
+    nestedTransformMatrix(band, canvas, layerTransform, clipTransform),
+    pivot && { x: pivot.originX, y: pivot.originY },
+  );
+}
+
 // The four corners of a placed layer after its Transform, in canvas pixels.
+// A clip's Transform nests inside its layer's, which is then `parent`.
 export function layerBoxInCanvas(
   placement: { frame: FrameBounds },
   transform: LayerTransform,
   canvas: CanvasSize,
+  parent: Matrix2D = IDENTITY_MATRIX,
 ): BoxCorners {
   const box = frameBoxInCanvas(placement.frame, canvas);
-  const matrix = transformMatrix(transform, box, canvas);
+  const matrix = multiplyMatrix(
+    parent,
+    transformMatrix(transform, box, canvas),
+  );
   const right = box.x + box.width;
   const bottom = box.y + box.height;
   return [
@@ -193,9 +283,12 @@ export function canvasToLayer(
   placement: { frame: FrameBounds },
   transform: LayerTransform,
   canvas: CanvasSize,
+  parent: Matrix2D = IDENTITY_MATRIX,
 ): Point | undefined {
   const box = frameBoxInCanvas(placement.frame, canvas);
-  const inverse = invertMatrix(transformMatrix(transform, box, canvas));
+  const inverse = invertMatrix(
+    multiplyMatrix(parent, transformMatrix(transform, box, canvas)),
+  );
   if (!inverse || box.width <= 0 || box.height <= 0) {
     return undefined;
   }
@@ -220,8 +313,20 @@ export function transformedQuadAxes(
   transform: LayerTransform,
   canvas: CanvasSize,
 ): QuadAxes {
+  return matrixQuadAxes(
+    frame,
+    transformMatrix(transform, frameBoxInCanvas(frame, canvas), canvas),
+    canvas,
+  );
+}
+
+// `transformedQuadAxes` for a box placed by `matrix`, in canvas pixels.
+export function matrixQuadAxes(
+  frame: FrameBounds,
+  matrix: Matrix2D,
+  canvas: CanvasSize,
+): QuadAxes {
   const box = frameBoxInCanvas(frame, canvas);
-  const matrix = transformMatrix(transform, box, canvas);
   const toClip = (point: Point): [number, number] => {
     const mapped = applyMatrix(matrix, point);
     return [

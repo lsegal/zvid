@@ -38,6 +38,9 @@ export type LayerVisual = {
   layoutAnchor: LayoutAnchor;
   // Applied after Layout, to the slot as a whole. Absent means identity.
   transform?: LayerTransform;
+  // A clip's own Transform, applied inside `transform`. Absent means
+  // identity.
+  clipTransform?: LayerTransform;
 };
 
 export type LayerPlacement = {

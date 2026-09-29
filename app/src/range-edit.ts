@@ -133,8 +133,8 @@ export function sliceClipToRange<Clip extends RangeClip>(
  * Removes the content in `[startQ, endQ)` on layer `laneId`: clips inside it
  * are removed, clips over one edge are trimmed to the part outside it, and a
  * clip over both edges is split in two around the gap, its right piece taking
- * the id `createId` returns. Other layers are unchanged, and nothing moves to
- * close the gap.
+ * the id `createId` returns for it. Other layers are unchanged, and nothing
+ * moves to close the gap.
  */
 export function removeRangeFromLane<Clip extends RangeClip>(
   clips: readonly Clip[],
@@ -142,7 +142,7 @@ export function removeRangeFromLane<Clip extends RangeClip>(
   startQ: number,
   endQ: number,
   bpm: number,
-  createId: () => string,
+  createId: (source: Clip) => string,
 ): Clip[] {
   return clips.flatMap<Clip>((clip) => {
     if (clip.laneId !== laneId) {
@@ -165,7 +165,7 @@ export function removeRangeFromLane<Clip extends RangeClip>(
       ...(hasRight
         ? [
             withWindowTiming(
-              hasLeft ? { ...clip, id: createId() } : clip,
+              hasLeft ? { ...clip, id: createId(clip) } : clip,
               endQ,
               rightDurationQ,
               bpm,

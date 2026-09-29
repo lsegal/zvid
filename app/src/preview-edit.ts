@@ -1,6 +1,8 @@
 // Pure geometry and effect edits behind on-canvas editing in the preview
 // monitor: mapping pointer positions onto the composition canvas, picking the
-// layer under the pointer, and writing drags to the layer's Transform effect.
+// layer under the pointer, and writing drags to a Transform effect: the
+// selected clip's own, nested inside its layer's, or the layer's when only
+// the layer is selected.
 //
 // Screen points are CSS pixels relative to the preview monitor's top-left
 // corner. Canvas points are composition pixels (the session's canvas size,
@@ -18,18 +20,25 @@ import {
   visibleLayerCount,
 } from "./composition-order.ts";
 import {
+  type Box,
   type BoxCorners,
   canvasToLayer,
+  frameBoxInCanvas,
+  IDENTITY_MATRIX,
   IDENTITY_TRANSFORM,
+  invertMatrix,
   isTransformEffectName,
   type LayerTransform,
   layerBoxInCanvas,
+  type Matrix2D,
   type Point,
   parseLayerTransform,
   TRANSFORM_EFFECT_NAME,
+  transformMatrix,
 } from "./composition-transform.ts";
 import {
   addEffect,
+  clipEffectTrackId,
   type SessionEffect,
   setEffectEnabled,
   setEffectParameter,
@@ -83,18 +92,77 @@ type StackableLayer = {
   clip: { id: string; laneId: string; startQ: number };
   laneRank: number;
   isInBounds: boolean;
-  visual: { transform?: LayerTransform };
+  visual: { transform?: LayerTransform; clipTransform?: LayerTransform };
 };
 
-// A layer as the preview draws it: its slot, its Transform, and the corners
-// of the transformed box in canvas pixels.
+// A layer as the preview draws it: its slot, its layer's Transform, its
+// clip's own Transform (inside the layer's), and the corners of the clip's
+// transformed box in canvas pixels.
 export type PreviewLayer = {
   laneId: string;
   clipId: string;
   placement: { frame: FrameBounds };
   transform: LayerTransform;
+  clipTransform: LayerTransform;
   corners: BoxCorners;
 };
+
+// What a preview edit writes to: the clip's own Transform when `clipId` is
+// set, else the layer's.
+export type PreviewEditTarget = { laneId: string; clipId?: string };
+
+// The stack holding a target's Transform.
+export function getPreviewEditTrackId(target: PreviewEditTarget) {
+  return target.clipId === undefined
+    ? target.laneId
+    : clipEffectTrackId(target.clipId);
+}
+
+// The Transform a drag edits on `layer`, with the box it applies to and the
+// matrix that places the result (the layer's Transform, for a clip's): the
+// drag maths work in that parent's space, then map back to the canvas.
+export type PreviewEditFrame = {
+  box: Box;
+  transform: LayerTransform;
+  parent: Matrix2D;
+  // The edited box's corners in canvas pixels.
+  corners: BoxCorners;
+};
+
+export function resolvePreviewEditFrame(
+  layer: Pick<PreviewLayer, "placement" | "transform" | "clipTransform">,
+  editsClip: boolean,
+  canvas: Size,
+): PreviewEditFrame {
+  const box = frameBoxInCanvas(layer.placement.frame, canvas);
+  const parent = editsClip
+    ? transformMatrix(layer.transform, box, canvas)
+    : IDENTITY_MATRIX;
+  const transform = editsClip ? layer.clipTransform : layer.transform;
+  return {
+    box,
+    transform,
+    parent,
+    corners: layerBoxInCanvas(layer.placement, transform, canvas, parent),
+  };
+}
+
+// A canvas-pixel move in the space of `parent`'s input, where a nested
+// Transform's position and size are measured.
+export function toParentDelta(parent: Matrix2D, delta: Point): Point {
+  const inverse = invertMatrix({ ...parent, e: 0, f: 0 });
+  return inverse
+    ? {
+        x: inverse.a * delta.x + inverse.c * delta.y,
+        y: inverse.b * delta.x + inverse.d * delta.y,
+      }
+    : delta;
+}
+
+// `parent`'s turn on screen, in degrees.
+export function matrixRotationDeg(parent: Matrix2D) {
+  return (Math.atan2(parent.b, parent.a) * 180) / Math.PI;
+}
 
 // The layers the compositor draws at the playhead, in draw order (the last
 // one is on top). As in the compositor, only in-bounds layers take a slot,
@@ -122,22 +190,44 @@ export function resolvePreviewLayers(
       ),
     };
     const transform = entry.visual.transform ?? IDENTITY_TRANSFORM;
+    const clipTransform = entry.visual.clipTransform ?? IDENTITY_TRANSFORM;
     return {
       laneId: entry.clip.laneId,
       clipId: entry.clip.id,
       placement,
       transform,
-      corners: layerBoxInCanvas(placement, transform, canvas),
+      clipTransform,
+      corners: resolvePreviewEditFrame(
+        { placement, transform, clipTransform },
+        true,
+        canvas,
+      ).corners,
     };
   });
 }
 
+type HitTestLayer = Pick<PreviewLayer, "placement" | "transform"> & {
+  clipTransform?: LayerTransform;
+};
+
+// Whether `point` is on the layer's clip as drawn: its box after the clip's
+// Transform and the layer's.
 export function isPointOnLayer(
   point: Point,
-  layer: Pick<PreviewLayer, "placement" | "transform">,
+  layer: HitTestLayer,
   canvas: Size,
 ) {
-  const local = canvasToLayer(point, layer.placement, layer.transform, canvas);
+  const local = canvasToLayer(
+    point,
+    layer.placement,
+    layer.clipTransform ?? IDENTITY_TRANSFORM,
+    canvas,
+    transformMatrix(
+      layer.transform,
+      frameBoxInCanvas(layer.placement.frame, canvas),
+      canvas,
+    ),
+  );
   const edge = 1 + 1e-9;
   return (
     local !== undefined &&
@@ -148,9 +238,11 @@ export function isPointOnLayer(
 
 // The topmost layer whose transformed box holds `point`. `layers` are in
 // draw order, so the last one drawn is on top.
-export function hitTestLayers<
-  T extends Pick<PreviewLayer, "placement" | "transform">,
->(layers: readonly T[], point: Point, canvas: Size) {
+export function hitTestLayers<T extends HitTestLayer>(
+  layers: readonly T[],
+  point: Point,
+  canvas: Size,
+) {
   for (let index = layers.length - 1; index >= 0; index -= 1) {
     if (isPointOnLayer(point, layers[index], canvas)) {
       return layers[index];
@@ -205,15 +297,16 @@ export function resolveNudgeDelta(key: string, large: boolean) {
   }
 }
 
-// The Transform a drag edits: the layer's last enabled one, which is the one
-// the compositor applies, or else its last bypassed one.
+// The Transform a drag edits on stack `trackId` (a layer's, or a clip's as
+// `getPreviewEditTrackId` gives it): the stack's last enabled one, which is
+// the one the compositor applies, or else its last bypassed one.
 export function findLayerTransform(
   effects: readonly SessionEffect[],
-  laneId: string,
+  trackId: string,
 ) {
   const transforms = effects.filter(
     (effect) =>
-      effect.trackId === laneId && isTransformEffectName(effect.effectName),
+      effect.trackId === trackId && isTransformEffectName(effect.effectName),
   );
   return (
     transforms.findLast((effect) => effect.enabled !== false) ??
@@ -223,21 +316,21 @@ export function findLayerTransform(
 
 export function readLayerTransformPosition(
   effects: readonly SessionEffect[],
-  laneId: string,
+  trackId: string,
 ): Point {
-  const transform = findLayerTransform(effects, laneId);
+  const transform = findLayerTransform(effects, trackId);
   return {
     x: readNumericParameter(transform, TRANSFORM_POSITION_X_KEY),
     y: readNumericParameter(transform, TRANSFORM_POSITION_Y_KEY),
   };
 }
 
-// The full Transform a drag edits, or the identity when the layer has none.
+// The full Transform a drag edits, or the identity when the stack has none.
 export function readLayerTransform(
   effects: readonly SessionEffect[],
-  laneId: string,
+  trackId: string,
 ): LayerTransform {
-  const transform = findLayerTransform(effects, laneId);
+  const transform = findLayerTransform(effects, trackId);
   return transform
     ? parseLayerTransform(transform.parameters)
     : { ...IDENTITY_TRANSFORM };
@@ -252,27 +345,27 @@ function readNumericParameter(effect: SessionEffect | undefined, key: string) {
   return Number.isFinite(value) ? value : 0;
 }
 
-// Writes the layer's Transform position, first adding a Transform with the
-// registry defaults (with `newEffectId`) to the end of the layer's stack if
-// it has none. A bypassed Transform is turned back on so the move shows.
+// Writes the Transform position on stack `trackId` (a layer's or a clip's),
+// first adding a Transform with the registry defaults (with `newEffectId`)
+// to the end of the stack if it has none. A bypassed Transform is turned back on so the move shows.
 // Returns `effects` itself when nothing changed.
 export function setLayerTransformPosition(
   effects: SessionEffect[],
-  laneId: string,
+  trackId: string,
   position: Point,
   newEffectId: string,
 ) {
   let result = effects;
-  let transform = findLayerTransform(result, laneId);
+  let transform = findLayerTransform(result, trackId);
   if (!transform) {
     result = addEffect(
       result,
-      laneId,
+      trackId,
       TRANSFORM_EFFECT_NAME,
       undefined,
       newEffectId,
     );
-    transform = findLayerTransform(result, laneId);
+    transform = findLayerTransform(result, trackId);
     if (!transform) {
       return effects;
     }
@@ -303,25 +396,25 @@ const TRANSFORM_PARAMETER_KEYS: Record<keyof LayerTransform, string> = {
   rotationDeg: "Rotation",
 };
 
-// Writes the given fields of the layer's Transform, adding or re-enabling it
+// Writes the given fields of a stack's Transform, adding or re-enabling it
 // as `setLayerTransformPosition` does.
 export function setLayerTransformParameters(
   effects: SessionEffect[],
-  laneId: string,
+  trackId: string,
   values: Partial<LayerTransform>,
   newEffectId: string,
 ) {
   let result = effects;
-  let transform = findLayerTransform(result, laneId);
+  let transform = findLayerTransform(result, trackId);
   if (!transform) {
     result = addEffect(
       result,
-      laneId,
+      trackId,
       TRANSFORM_EFFECT_NAME,
       undefined,
       newEffectId,
     );
-    transform = findLayerTransform(result, laneId);
+    transform = findLayerTransform(result, trackId);
     if (!transform) {
       return effects;
     }
