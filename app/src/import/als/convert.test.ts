@@ -687,6 +687,10 @@ describe("convertAls with synthetic sets", () => {
     const { session } = convertAls(doc([videoTrack({ clips: [unwarped] })]));
     assert.equal(session.clips?.[0].clipStart, 45);
     assert.equal(session.clips?.[0].frameHiddenLoopEnd, 300);
+    // Live plays it at native speed, so the player must not follow the
+    // markers it keeps.
+    assert.ok(unwarped.warpMarkers.length > 0);
+    assert.deepEqual(session.clips?.[0].warpMarkers, []);
   });
 
   it("ends the project at the last clip when the transport loop is off", () => {
