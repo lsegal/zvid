@@ -1,7 +1,8 @@
-// Pure layout math for the preview/export compositor. Every active layer gets
-// its own slot of the canvas: a horizontal band by default, or a column or
-// grid cell as the Order effect arranges them. The layer's source covers its
-// slot and the Layout anchor decides which part of an overflowing source
+// Pure layout math for the preview/export compositor. With an Order effect
+// every active layer gets its own slot of the canvas: a horizontal band, a
+// column or a grid cell as the Order arranges them. Without one every layer's
+// slot is the whole canvas and the layers overlap. The layer's source covers
+// its slot and the Layout anchor decides which part of an overflowing source
 // shows. Positions are in clip space (-1..1, +y up), matching the composite
 // shader.
 
@@ -53,13 +54,19 @@ type StackedLayer = {
   clip: { startQ: number };
 };
 
-// Draw order, which is also slot order (bands from the top, or cells left to
-// right, then down): lanes in timeline order
-// (Layer 1 on top), then earlier clips first within a lane.
-export function orderStackedLayers<T extends StackedLayer>(layers: T[]) {
+// Draw order, back to front, then earlier clips first within a lane. With an
+// Order arrangement this is also slot order (bands from the top, or cells
+// left to right, then down): lanes in timeline order, Layer 1 in the first
+// slot. Without one the layers overlap, so the highest-numbered layer is
+// drawn first and Layer 1 last, on top.
+export function orderStackedLayers<T extends StackedLayer>(
+  layers: T[],
+  order: CompositionOrder = DEFAULT_COMPOSITION_ORDER,
+) {
+  const laneDirection = order.arrangement === "none" ? -1 : 1;
   return [...layers].sort((left, right) => {
     if (left.laneRank !== right.laneRank) {
-      return left.laneRank - right.laneRank;
+      return (left.laneRank - right.laneRank) * laneDirection;
     }
 
     return left.clip.startQ - right.clip.startQ;
@@ -145,9 +152,14 @@ export function resolveBandScissor(
   };
 }
 
-// The grid of slots `order` arranges `count` layers in.
+// The grid of slots `order` arranges `count` layers in. Without an Order
+// there is one slot, the whole canvas, which every layer shares.
 export function resolveSlotGrid(count: number, order: CompositionOrder) {
   const normalizedCount = Math.max(1, count);
+  if (order.arrangement === "none") {
+    return { columns: 1, rows: 1 };
+  }
+
   if (order.arrangement === "horizontal") {
     return { columns: normalizedCount, rows: 1 };
   }
@@ -196,7 +208,7 @@ function resolveCellEdges(
 }
 
 // Slot `index` in canvas pixels (origin top-left). Slots are filled row by
-// row, left to right.
+// row, left to right; without an Order every slot is the whole canvas.
 function resolveSlotRect(
   index: number,
   count: number,
@@ -204,6 +216,10 @@ function resolveSlotRect(
   width: number,
   height: number,
 ) {
+  if (order.arrangement === "none") {
+    return { left: 0, right: width, top: 0, bottom: height };
+  }
+
   const { columns, rows } = resolveSlotGrid(count, order);
   const gap = resolveSpacingPixels(order, width, height);
   const x = resolveCellEdges(index % columns, columns, width, gap);

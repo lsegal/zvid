@@ -148,6 +148,7 @@ import {
 } from "./components/ui/dropdown-menu";
 import { WandIcon } from "./components/WandIcon";
 import { computeActiveClips } from "./composition-active-clips.ts";
+import { resolveCompositionOrder } from "./composition-order.ts";
 import { isContextMenuKey, isContextMenuPress } from "./context-menu.ts";
 import { isRulerPanPress, isTimelinePanPress } from "./drag-scroll.ts";
 import { buildEditMenuEntries } from "./edit-menu.ts";
@@ -163,8 +164,10 @@ import {
   addEffect,
   duplicateEffect,
   effectHistoryLabels,
+  ensureGlobalOrder,
   ensureLayerLayouts,
   type FxDevice,
+  GLOBAL_EFFECT_TRACK_ID,
   getRenderedEffects,
   isLayerFxEnabled,
   isLayoutEffectName,
@@ -268,6 +271,7 @@ import {
   projectHistoryReducer,
 } from "./project-history";
 import {
+  migrateDefaultOrder,
   migrateLegacyMainAudio,
   stripClipSelectionFlags,
 } from "./project-state-compat.ts";
@@ -303,6 +307,11 @@ import {
   offlineSessionMediaIds,
 } from "./session-media.ts";
 import {
+  chooseSessionSaveTarget,
+  projectToLvpSession,
+  SESSION_FILE_EXTENSION,
+} from "./session-save.ts";
+import {
   buildPublicShareUrl,
   type InviteParams,
   parseInviteParams,
@@ -337,6 +346,16 @@ import {
   type ThumbnailSize,
 } from "./thumbnail-cache.ts";
 import { formatMusicalPosition, formatTimecode } from "./timeline-format.ts";
+import {
+  formatDivision,
+  type GridDivision,
+  type GridLineWeight,
+  getGridLayers,
+  getGridUnit,
+  getSnapUnit,
+  resolveAdaptiveDivision,
+  type SnapMode,
+} from "./timeline-grid";
 import { useDragScroll } from "./use-drag-scroll";
 import { useThumbnailCache } from "./use-thumbnail-cache";
 import { ZVID_BUILD } from "./version";
@@ -366,7 +385,6 @@ import {
 } from "./zoom";
 
 type TimelineMode = "musical" | "timecode";
-type SnapMode = "bar" | "beat" | "half" | "quarter";
 
 type TimeSignature = {
   id: string;
@@ -554,6 +572,9 @@ type ProjectState = {
   mainAudioId?: string;
   // The session length from the opened session, in frames at `fps`.
   projectDurationFrames?: number;
+  // Set on every state since sessions got a default Order effect. A restored
+  // workspace saved without it is older and gets that Order added.
+  orderDefaulted?: boolean;
 };
 
 type LocalMediaOverride = {
@@ -592,6 +613,11 @@ const LABEL_WIDTH_KEYBOARD_STEP = 10;
 // Below this width the label rows tighten their padding and gaps.
 const LABEL_WIDTH_NARROW = 170;
 const BASE_QUARTER_PX = 28;
+const GRID_LINE_COLORS: Record<GridLineWeight, string> = {
+  division: "rgba(255,255,255,0.04)",
+  beat: "rgba(255,255,255,0.08)",
+  bar: "rgba(255,255,255,0.16)",
+};
 const TIMELINE_DRAG_ZOOM_SPEED = 0.004;
 const TIMELINE_DRAG_ZOOM_THRESHOLD_PX = 25;
 const TIMELINE_SCRUB_AUDIO_TAIL_MS = 50;
@@ -658,6 +684,7 @@ const SIGNATURES: TimeSignature[] = [
   { id: "7/8", numerator: 7, denominator: 8 },
 ];
 const SNAP_OPTIONS: { id: SnapMode; label: string }[] = [
+  { id: "auto", label: "Auto" },
   { id: "bar", label: "Bar" },
   { id: "beat", label: "Beat" },
   { id: "half", label: "1/2" },
@@ -671,7 +698,7 @@ const DEFAULT_LANES: Lane[] = [
 const INITIAL_PROJECT_STATE: ProjectState = {
   timelineMode: "musical",
   signatureId: "4/4",
-  snapMode: "beat",
+  snapMode: "auto",
   snapEnabled: true,
   bpm: 120,
   fps: 30,
@@ -684,11 +711,14 @@ const INITIAL_PROJECT_STATE: ProjectState = {
   sourceTracks: [],
   sourceSpans: [],
   clips: [],
-  effects: ensureLayerLayouts(
-    [],
-    DEFAULT_LANES.map((lane) => lane.id),
+  effects: ensureGlobalOrder(
+    ensureLayerLayouts(
+      [],
+      DEFAULT_LANES.map((lane) => lane.id),
+    ),
   ),
   mainAudioId: undefined,
+  orderDefaulted: true,
 };
 // Card colours of fill clips on layers without an accent.
 const FILL_CLIP_TINT = "#2a2d38";
@@ -782,23 +812,6 @@ function formatDuration(seconds: number) {
   const remainderSeconds = Math.floor(seconds % 60);
   const tenths = Math.floor((seconds % 1) * 10);
   return `${minutes}:${remainderSeconds.toString().padStart(2, "0")}.${tenths}`;
-}
-
-function getSnapUnit(mode: SnapMode, signature: TimeSignature) {
-  const beatUnit = 4 / signature.denominator;
-  const barLength = signature.numerator * beatUnit;
-  switch (mode) {
-    case "bar":
-      return barLength;
-    case "beat":
-      return beatUnit;
-    case "half":
-      return beatUnit / 2;
-    case "quarter":
-      return beatUnit / 4;
-    default:
-      return beatUnit;
-  }
 }
 
 function snapQuarterValue(valueQ: number, snapUnit: number, enabled: boolean) {
@@ -1727,11 +1740,15 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
     sourceSpans,
     arrangementClips,
     selectedClipId,
-    // Every layer gets its own Layout, taking over any global one, as part
-    // of the load so it is not a separate undo step.
-    effects: ensureLayerLayouts(
-      mapEffects(session.effects),
-      (lanes.length ? lanes : DEFAULT_LANES).map((lane) => lane.id),
+    // Every layer gets its own Layout, taking over any global one, and an
+    // older session gets its default Order, as part of the load so neither
+    // is a separate undo step.
+    effects: migrateDefaultOrder(
+      ensureLayerLayouts(
+        mapEffects(session.effects),
+        (lanes.length ? lanes : DEFAULT_LANES).map((lane) => lane.id),
+      ),
+      session.orderDefaulted,
     ),
     displaySeconds: session.timeline?.displaySeconds ?? false,
     snapToBeat: session.timeline?.snapToBeat ?? true,
@@ -1933,15 +1950,19 @@ function normalizeRestoredProjectState(value: unknown): ProjectState {
     return cached;
   }
 
+  const saved = value as Partial<ProjectState>;
   const state: ProjectState = {
     ...INITIAL_PROJECT_STATE,
-    ...migrateLegacyMainAudio(value as Partial<ProjectState>),
+    ...migrateLegacyMainAudio(saved),
   };
   for (const field of PROJECT_ARRAY_FIELDS) {
     if (!Array.isArray(state[field])) {
       throw new Error(`Saved project snapshot has no ${field}`);
     }
   }
+  // Read from the save itself: the initial state always has the flag.
+  state.effects = migrateDefaultOrder(state.effects, saved.orderDefaulted);
+  state.orderDefaulted = true;
   for (const field of PROJECT_POSITIVE_NUMBER_FIELDS) {
     const number = state[field];
     if (typeof number !== "number" || !Number.isFinite(number) || number <= 0) {
@@ -2734,8 +2755,20 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     SIGNATURES[0];
   const beatUnit = 4 / signature.denominator;
   const barLength = signature.numerator * beatUnit;
-  const snapUnit = getSnapUnit(snapMode, signature);
   const quarterPx = BASE_QUARTER_PX * resolvedZoom;
+  // Resolved from the last division so the grid keeps it while zooming within
+  // the thresholds instead of flickering between two divisions.
+  const [lastAdaptiveDivision, setLastAdaptiveDivision] =
+    useState<GridDivision>(() => resolveAdaptiveDivision(quarterPx));
+  const adaptiveDivision = resolveAdaptiveDivision(
+    quarterPx,
+    lastAdaptiveDivision,
+  );
+  if (adaptiveDivision !== lastAdaptiveDivision) {
+    setLastAdaptiveDivision(adaptiveDivision);
+  }
+  const snapUnit = getSnapUnit(snapMode, signature, adaptiveDivision);
+  const gridUnit = getGridUnit(snapUnit, adaptiveDivision);
   const totalQuarters = useMemo(() => {
     let nextTotalQuarters = barLength * 12;
     for (const clip of timelineClips) {
@@ -2760,14 +2793,21 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     return nextTotalQuarters;
   }, [barLength, bpm, pendingSelection, sourceSpans, timelineClips]);
   const timelineWidth = totalQuarters * quarterPx;
-  const gridStyle = useMemo(
-    () => ({
-      backgroundImage:
-        "linear-gradient(to right, rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(to right, rgba(255,255,255,0.16) 1px, transparent 1px)",
-      backgroundSize: `${beatUnit * quarterPx}px 100%, ${barLength * quarterPx}px 100%`,
-    }),
-    [barLength, beatUnit, quarterPx],
-  );
+  const gridStyle = useMemo(() => {
+    // CSS paints the first layer on top, so the strongest lines go first.
+    const layers = getGridLayers(gridUnit, signature).reverse();
+    return {
+      backgroundImage: layers
+        .map(
+          (layer) =>
+            `linear-gradient(to right, ${GRID_LINE_COLORS[layer.weight]} 1px, transparent 1px)`,
+        )
+        .join(", "),
+      backgroundSize: layers
+        .map((layer) => `${layer.spacingQ * quarterPx}px 100%`)
+        .join(", "),
+    };
+  }, [gridUnit, quarterPx, signature]);
   // Only a clip the user selected; rendering and edits never fall back to
   // another one.
   const selectedClip = useMemo(
@@ -2861,6 +2901,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
           getRenderedEffects(effects, lanes),
         ).filter((entry) => entry.media.kind === "video"),
         { width: canvasWidth, height: canvasHeight },
+        resolveCompositionOrder(effects, GLOBAL_EFFECT_TRACK_ID),
       ),
     [
       bpm,
@@ -7143,9 +7184,11 @@ function App({ boot }: { boot: WorkspaceBoot }) {
           patchProjectState(current, {
             mediaItems: nextMedia,
             lanes: standalone.lanes,
-            effects: ensureLayerLayouts(
-              current.effects,
-              standalone.lanes.map((lane) => lane.id),
+            effects: ensureGlobalOrder(
+              ensureLayerLayouts(
+                current.effects,
+                standalone.lanes.map((lane) => lane.id),
+              ),
             ),
             sourceTracks: standalone.sourceTracks,
             sourceSpans: standalone.sourceSpans,
@@ -7322,6 +7365,73 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     } catch (error) {
       reportOpenFailure("Open workspace failed", selectionName, error);
     }
+  }
+
+  async function handleSaveSession() {
+    const harness = getHarness();
+    const { session, skippedFillClips } = projectToLvpSession(
+      projectHistory.present,
+      { playheadQ: playheadQRef.current, selectedClipId },
+    );
+    const blob = new Blob([`${JSON.stringify(session, null, 2)}\n`], {
+      type: "application/json",
+    });
+    const choice = chooseSessionSaveTarget(sessionSource, sessionName);
+
+    let saveTarget: SaveTarget;
+    if (choice.kind === "path" && harness.capabilities["native-blob-write"]) {
+      saveTarget = {
+        kind: "native-path",
+        filename: basename(choice.path),
+        path: choice.path,
+      };
+    } else {
+      const filename =
+        choice.kind === "path" ? basename(choice.path) : choice.filename;
+      try {
+        const nextSaveTarget = await harness.prepareSave(filename, {
+          mimeType: "application/json",
+          extensions: [SESSION_FILE_EXTENSION],
+          description: "ZVID session",
+        });
+        if (!nextSaveTarget) {
+          setStatus("Save canceled.");
+          return;
+        }
+        saveTarget = nextSaveTarget;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          setStatus("Save canceled.");
+          return;
+        }
+        const message = error instanceof Error ? error.message : String(error);
+        setStatus(`Failed to prepare save destination: ${message}`);
+        return;
+      }
+    }
+
+    try {
+      await harness.saveBlob(blob, saveTarget);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus(`Save failed: ${message}`);
+      return;
+    }
+
+    // A session saved to a new path keeps saving there.
+    if (saveTarget.kind === "native-path" && sessionSource.kind !== "path") {
+      setSessionSource({
+        kind: "path",
+        name: basename(saveTarget.path),
+        path: saveTarget.path,
+      });
+    }
+    const savedName =
+      saveTarget.kind === "native-path" ? saveTarget.path : saveTarget.filename;
+    const fillNote = skippedFillClips
+      ? ` ${pluralize(skippedFillClips, "fill clip")} ${skippedFillClips === 1 ? "was" : "were"} not saved: .lvp files cannot store fill clips.`
+      : "";
+    setStatus(`Saved ${savedName}.${fillNote}`);
   }
 
   async function handleExport() {
@@ -7978,11 +8088,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onSelect={() =>
-                  setStatus(
-                    "Save/export is not wired yet in the dev-server refactor.",
-                  )
-                }
+                onSelect={() => {
+                  void handleSaveSession();
+                }}
               >
                 Save
               </DropdownMenuItem>
@@ -8476,7 +8584,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                       }
                       type="button"
                     >
-                      {option.label}
+                      {option.id === "auto" && snapMode === "auto"
+                        ? `${option.label} · ${formatDivision(adaptiveDivision)}`
+                        : option.label}
                     </button>
                   ))}
                 </div>

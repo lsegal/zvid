@@ -12,7 +12,11 @@ import {
   resolveSpacingPixels,
   type ScissorBox,
 } from "./composition-layout.ts";
-import type { Arrangement, CompositionOrder } from "./composition-order.ts";
+import {
+  type Arrangement,
+  type CompositionOrder,
+  Z_ORDER_COMPOSITION,
+} from "./composition-order.ts";
 
 const EPSILON = 1e-9;
 const ANCHORS: LayoutAnchor[] = ["top", "center", "bottom"];
@@ -71,6 +75,20 @@ describe("orderStackedLayers", () => {
       layers.map((layer) => layer.id),
       ["a", "b", "c", "d"],
       "the input is left in place",
+    );
+  });
+
+  it("draws the highest layer first and Layer 1 last without an Order", () => {
+    const layers = [
+      { id: "a", laneRank: 0, clip: { startQ: 0 } },
+      { id: "b", laneRank: 2, clip: { startQ: 8 } },
+      { id: "c", laneRank: 1, clip: { startQ: 0 } },
+      { id: "d", laneRank: 2, clip: { startQ: 4 } },
+    ];
+
+    assert.deepEqual(
+      orderStackedLayers(layers, Z_ORDER_COMPOSITION).map((layer) => layer.id),
+      ["d", "b", "c", "a"],
     );
   });
 });
@@ -525,6 +543,38 @@ describe("resolveSlotScissor", () => {
         counts.every((value) => value <= 1),
         `${name} overlaps`,
       );
+    }
+  });
+});
+
+describe("resolveLayerPlacement without an Order", () => {
+  it("gives every layer the whole canvas", () => {
+    for (const index of [0, 1, 2]) {
+      const placement = resolveLayerPlacement({
+        index,
+        count: 3,
+        canvasWidth: 1080,
+        canvasHeight: 1920,
+        sourceWidth: 1920,
+        sourceHeight: 1080,
+        visual: visual("top"),
+        order: Z_ORDER_COMPOSITION,
+      });
+      assert.deepEqual(placement.frame, {
+        centerX: 0,
+        centerY: 0,
+        halfWidth: 1,
+        halfHeight: 1,
+        aspect: 1080 / 1920,
+      });
+      assert.deepEqual(placement.scissor, {
+        x: 0,
+        y: 0,
+        width: 1080,
+        height: 1920,
+      });
+      assertClose(placement.halfExtents.y, 1, "covers the canvas height");
+      assertClose(placement.translate.x, 0, "centred sideways");
     }
   });
 });
