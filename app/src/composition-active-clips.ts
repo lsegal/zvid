@@ -50,6 +50,8 @@ import {
   isColorEffectName,
   resolveFillPaint,
 } from "./fill-paint.ts";
+import { resolveAnimatedEffects } from "./fx-animation.ts";
+import type { EffectAnimation } from "./fx-animation-defaults.ts";
 import {
   type EffectChainStep,
   isChainEffectName,
@@ -116,6 +118,7 @@ export type SessionEffect = {
     numericValue?: number;
   }>;
   enabled?: boolean;
+  animation?: EffectAnimation;
 };
 
 export type VisualState = {
@@ -418,7 +421,7 @@ export function computeActiveClips(
   playheadQ: number,
   bpm: number,
   lanePriority: Map<string, number>,
-  effects: SessionEffect[],
+  sessionEffects: SessionEffect[],
 ): ActiveClip[] {
   const epsilon = 0.0001;
   const usedSourceKeys = new Set<string>();
@@ -471,6 +474,18 @@ export function computeActiveClips(
         clip.durationSeconds > 0
           ? clamp(clipElapsedSeconds / clip.durationSeconds, 0, 1)
           : 0;
+      // The parameters every effect is drawn with for this clip and frame.
+      const effects = resolveAnimatedEffects(
+        sessionEffects,
+        {
+          clipId: clip.id,
+          laneId: clip.laneId,
+          progress: clipProgress,
+          elapsedSeconds: clipElapsedSeconds,
+          durationSeconds: clip.durationSeconds,
+        },
+        { playheadQ, bpm },
+      );
       if (clip.kind === "fx") {
         // Only the FX clip's own stack adjusts what is beneath it, so an FX
         // clip without effects changes nothing.
