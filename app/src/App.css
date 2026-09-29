@@ -1625,7 +1625,7 @@
 }
 
 /* The handles sit over the body's edges and stay hidden until the clip is
-   hovered, selected, focused or trimmed. Hidden handles keep their hit area,
+   hovered, selected, keyboard-focused or trimmed. Hidden handles keep their hit area,
    so an edge can still be grabbed without hovering first. */
 .clip-card__handle {
   position: relative;
@@ -1638,7 +1638,7 @@
 }
 
 .clip-card:hover .clip-card__handle,
-.clip-card:focus-within .clip-card__handle,
+.clip-card:has(:focus-visible) .clip-card__handle,
 .clip-card--selected .clip-card__handle,
 .clip-card--trimming .clip-card__handle {
   opacity: 1;
