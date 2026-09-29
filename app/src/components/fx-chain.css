@@ -19,6 +19,7 @@
 }
 
 .fx-chain .fx-device-panel,
+.fx-chain .fx-animation-panel,
 .fx-chain__empty,
 .fx-chain__layer-off {
   cursor: default;
@@ -284,6 +285,7 @@ body.fx-chain-dragging * {
 }
 
 .fx-device-panel__power,
+.fx-device-panel__animate,
 .fx-device-panel__remove,
 .fx-device-panel__collapse {
   flex: none;
@@ -305,7 +307,15 @@ body.fx-chain-dragging * {
   height: 13px;
 }
 
-.fx-device-panel__power[aria-pressed="true"] {
+/* The (A) Animation toggle matches the power button beside it. */
+.fx-device-panel__animate span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.fx-device-panel__power[aria-pressed="true"],
+.fx-device-panel__animate[aria-pressed="true"] {
   border-color: var(--fx-accent);
   background: color-mix(in srgb, var(--fx-accent) 22%, transparent);
   color: var(--fx-accent);
@@ -334,6 +344,7 @@ body.fx-chain-dragging * {
 }
 
 .fx-device-panel__power:hover,
+.fx-device-panel__animate:hover,
 .fx-device-panel__remove:hover,
 .fx-device-panel__collapse:hover {
   color: var(--ink);
@@ -439,7 +450,8 @@ body.fx-chain-dragging * {
   overflow: hidden;
 }
 
-.fx-device-panel--collapsed .fx-device-panel__power {
+.fx-device-panel--collapsed .fx-device-panel__power,
+.fx-device-panel--collapsed .fx-device-panel__animate {
   width: 22px;
   height: 22px;
 }
@@ -832,4 +844,113 @@ body.fx-chain-dragging * {
 /* Footer rows line up with the layer numbers. */
 .dropdown-menu-content.fx-layers-menu [data-radix-collection-item][role='menuitem'] {
   padding-left: 28px;
+}
+
+/*
+ * A device with its Animation modifier on: the device and its Animation
+ * section share a border, and the pair is one panel of the stack.
+ */
+.fx-device-unit {
+  flex: none;
+  display: flex;
+  align-items: stretch;
+}
+
+.fx-device-unit--dragging {
+  opacity: 0.35;
+}
+
+.fx-device-unit--dragging .fx-device-panel--dragging {
+  opacity: 1;
+}
+
+.fx-device-panel--attached {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.fx-animation-panel {
+  --fx-accent: var(--muted);
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid color-mix(in srgb, var(--fx-accent) 34%, var(--line));
+  border-left-style: dashed;
+  border-radius: 0 16px 16px 0;
+  margin-left: -1px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--fx-accent) 10%, transparent),
+      transparent 60%
+    ),
+    rgba(11, 13, 19, 0.32);
+  transition:
+    opacity 160ms ease,
+    border-color 160ms ease;
+}
+
+.fx-animation-panel--bypassed {
+  border-color: var(--line);
+  opacity: 0.5;
+}
+
+.fx-animation-panel__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px 7px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.fx-animation-panel__name {
+  flex: 1;
+  min-width: 0;
+  color: var(--fx-accent);
+  font-size: 0.86rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/*
+ * Mode and Timing on the first row; the motion menus (or Motion and
+ * Parameters) on the second, keeping to two rows with Reactivity beside
+ * them.
+ */
+.fx-animation-panel__body {
+  display: grid;
+  grid-template-rows: repeat(2, auto);
+  grid-auto-flow: column;
+  align-content: start;
+  align-items: start;
+  justify-items: center;
+  gap: 8px 12px;
+  padding: 10px 10px 12px;
+}
+
+.fx-animation-panel__body > .fx-select {
+  align-self: stretch;
+}
+
+.fx-animation-panel__knob {
+  grid-row: span 2;
+  align-self: center;
+}
+
+.fx-animation-panel__parameters {
+  align-self: end;
+}
+
+.fx-animation-panel__parameters:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+/* Folded, it's a strip with a vertical "Animation", like a folded device. */
+.fx-animation-panel--collapsed {
+  width: 28px;
+  min-width: 28px;
+  align-items: center;
+  padding: 4px 0 6px;
+  overflow: hidden;
 }

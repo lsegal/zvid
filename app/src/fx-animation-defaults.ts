@@ -206,9 +206,8 @@ export function getReactiveTimingFrames(
   effectName: string,
   timing: AnimationTiming,
 ) {
-  return (
-    getAnimationDefaults(effectName)?.reactiveFrames ?? DEFAULT_REACTIVE_FRAMES
-  )[timing];
+  return (getAnimationDefaults(effectName)?.reactiveFrames ??
+    DEFAULT_REACTIVE_FRAMES)[timing];
 }
 
 function readOption<T extends string>(

@@ -174,6 +174,7 @@ import {
   formatFillPaintCss,
   resolveFillPaint,
 } from "./fill-paint.ts";
+import type { EffectAnimation } from "./fx-animation-defaults";
 import {
   addableEffectsFor,
   getDefaultLaneId,
@@ -211,6 +212,8 @@ import {
   removeEffect,
   resetEffect,
   type SessionEffect,
+  setEffectAnimation,
+  setEffectAnimationEnabled,
   setEffectEnabled,
   setEffectParameter,
   setLaneFxEnabled,
@@ -2690,6 +2693,25 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       editEffects(
         effectHistoryLabels.parameter(device.effectName, key),
         (current) => setEffectParameter(current, device.id, key, value),
+        mode,
+      ),
+    [editEffects],
+  );
+
+  const setFxDeviceAnimationEnabled = useCallback(
+    (device: FxDevice, enabled: boolean) =>
+      editEffects(
+        effectHistoryLabels.animationEnabled(device.effectName, enabled),
+        (current) => setEffectAnimationEnabled(current, device.id, enabled),
+      ),
+    [editEffects],
+  );
+
+  const setFxDeviceAnimation = useCallback(
+    (device: FxDevice, animation: EffectAnimation, mode: FxEditMode) =>
+      editEffects(
+        effectHistoryLabels.animation(device.effectName),
+        (current) => setEffectAnimation(current, device.id, animation),
         mode,
       ),
     [editEffects],
@@ -10905,6 +10927,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   }
                 }}
                 onSetEnabled={setFxDeviceEnabled}
+                onSetAnimationEnabled={setFxDeviceAnimationEnabled}
+                onSetAnimation={setFxDeviceAnimation}
                 onSetParameter={setFxDeviceParameter}
               />
             </div>

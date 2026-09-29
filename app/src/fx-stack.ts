@@ -147,20 +147,22 @@ export function mapEffects(source: LvpSession["effects"]) {
     );
     return {
       id: effect.id,
-    trackId: effect.trackId,
-    effectName: effect.effectName,
-    parameters: Object.entries(effect.parameters ?? {}).map(([key, value]) => ({
-      key,
-      value:
-        typeof value.stringValue === "string"
-          ? value.stringValue
-          : formatStoredNumber(value.floatValue ?? 0),
-      numericValue: value.floatValue,
-    })),
-    // Sessions without the flag, including every Layers session, are on.
-    enabled: effect.enabled !== false,
-    ...(animation ? { animation } : {}),
-  };
+      trackId: effect.trackId,
+      effectName: effect.effectName,
+      parameters: Object.entries(effect.parameters ?? {}).map(
+        ([key, value]) => ({
+          key,
+          value:
+            typeof value.stringValue === "string"
+              ? value.stringValue
+              : formatStoredNumber(value.floatValue ?? 0),
+          numericValue: value.floatValue,
+        }),
+      ),
+      // Sessions without the flag, including every Layers session, are on.
+      enabled: effect.enabled !== false,
+      ...(animation ? { animation } : {}),
+    };
   });
 }
 
@@ -291,7 +293,8 @@ export function setEffectAnimationEnabled(
       return effect;
     }
 
-    const current = effect.animation ?? createDefaultAnimation(effect.effectName);
+    const current =
+      effect.animation ?? createDefaultAnimation(effect.effectName);
     return current ? { ...effect, animation: { ...current, enabled } } : effect;
   });
 }
@@ -306,8 +309,7 @@ export function setEffectAnimation(
 ) {
   return updateEffect(effects, effectId, (effect) => {
     const next = normalizeEffectAnimation(animation, effect.effectName);
-    return !next ||
-      JSON.stringify(next) === JSON.stringify(effect.animation)
+    return !next || JSON.stringify(next) === JSON.stringify(effect.animation)
       ? effect
       : { ...effect, animation: next };
   });
@@ -501,7 +503,9 @@ export function duplicateEffect(
     ...source,
     id,
     parameters: source.parameters.map((parameter) => ({ ...parameter })),
-    ...(source.animation ? { animation: cloneAnimation(source.animation) } : {}),
+    ...(source.animation
+      ? { animation: cloneAnimation(source.animation) }
+      : {}),
   };
   return [...effects.slice(0, index + 1), copy, ...effects.slice(index + 1)];
 }
@@ -1027,7 +1031,11 @@ export function copyClipEffects<T extends StackEffect>(
               ...parameter,
             })),
             ...("animation" in effect && effect.animation
-              ? { animation: cloneAnimation(effect.animation as EffectAnimation) }
+              ? {
+                  animation: cloneAnimation(
+                    effect.animation as EffectAnimation,
+                  ),
+                }
               : {}),
           }) as T,
       ),
