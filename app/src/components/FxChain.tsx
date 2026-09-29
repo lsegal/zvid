@@ -24,6 +24,7 @@ import {
   isNoopDropSlot,
   knobColumnCount,
   readCollapsedDevices,
+  splitDeviceParameters,
   toggleCollapsedDevice,
   writeCollapsedDevices,
 } from "../fx-chain";
@@ -891,6 +892,8 @@ export function FxDevicePanel({
     }
   }
 
+  const { controls, knobs } = splitDeviceParameters(device.parameters);
+
   return (
     <section
       aria-label={device.name}
@@ -957,11 +960,11 @@ export function FxDevicePanel({
       <div
         className="fx-device-panel__body"
         style={{
-          gridTemplateColumns: `repeat(${knobColumnCount(device.parameters.length)}, auto)`,
+          gridTemplateColumns: `repeat(${knobColumnCount(knobs.length)}, auto)`,
         }}
       >
         {device.parameters.length ? (
-          device.parameters.map((parameter) => (
+          [...controls, ...knobs].map((parameter) => (
             <FxParameterControl
               key={parameter.key}
               device={device}

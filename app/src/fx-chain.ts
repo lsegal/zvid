@@ -10,6 +10,7 @@ import {
 import {
   type FxDevice,
   type FxDeviceGroup,
+  type FxDeviceParameter,
   isLayoutEffectName,
 } from "./fx-stack.ts";
 
@@ -56,9 +57,19 @@ export function getParameterFormat(effectName: string, key: string) {
   return definition?.kind === "number" ? definition.format : formatRawNumber;
 }
 
-// Knobs fill two columns left to right, then wrap down to a new row.
-export function knobColumnCount(parameterCount: number) {
-  return Math.min(2, Math.max(1, parameterCount));
+// Knobs fill at most two rows left to right, and never fewer than two
+// columns unless there is only one knob.
+export function knobColumnCount(knobCount: number) {
+  return knobCount <= 1 ? 1 : Math.max(2, Math.ceil(knobCount / 2));
+}
+
+// Splits a device's parameters into the full-width controls (enums), which
+// sit on their own rows first, and the knobs that fill the grid below them.
+export function splitDeviceParameters(parameters: FxDeviceParameter[]) {
+  return {
+    controls: parameters.filter((parameter) => parameter.kind !== "number"),
+    knobs: parameters.filter((parameter) => parameter.kind === "number"),
+  };
 }
 
 export function readCollapsedDevices(storage: KeyValueStorage | undefined) {
