@@ -23,13 +23,22 @@ type Scenario = {
   playheadSeconds: number;
   samples: Array<[number, number]>;
   size?: number;
+  // Parameters of the Global Vertical Order besides its arrangement.
+  globalOrder?: Effect["parameters"];
 };
 
 // Renders the layers under a Global Vertical Order and returns the pixels at
 // `samples`, fractions of the canvas from its top-left corner.
 async function render(page: Page, scenario: Scenario) {
   return page.evaluate(
-    async ({ layers, effects, playheadSeconds, samples, size = 120 }) => {
+    async ({
+      layers,
+      effects,
+      playheadSeconds,
+      samples,
+      size = 120,
+      globalOrder: globalParameters = [],
+    }) => {
       // A variable keeps TypeScript from resolving the dev server's path.
       const modulePath = "/src/CompositionPlayer.tsx";
       const { CompositionRenderer } = await import(
@@ -84,7 +93,10 @@ async function render(page: Page, scenario: Scenario) {
         trackId: "__group_main",
         effectName: "Order",
         enabled: true,
-        parameters: [{ key: "Arrangement", value: "Vertical" }],
+        parameters: [
+          { key: "Arrangement", value: "Vertical" },
+          ...globalParameters,
+        ],
       };
 
       const canvas = document.createElement("canvas");
@@ -154,8 +166,8 @@ const BLUE: Rgb = [0, 0, 255];
 const YELLOW: Rgb = [255, 255, 0];
 const WHITE: Rgb = [255, 255, 255];
 const CYAN: Rgb = [0, 255, 255];
-// The canvas where no layer is drawn.
-const BACKGROUND: Rgb = [18, 20, 28];
+// The default border of an Order, where it draws no layer.
+const BLACK: Rgb = [0, 0, 0];
 
 function expectColor(actual: Rgb, expected: Rgb) {
   for (const [index, value] of expected.entries()) {
@@ -248,8 +260,9 @@ test.describe("compositing", () => {
       ],
     });
     // Layer 1's Horizontal gives Layer 2 the first of three columns; Layer
-    // 3's Grid puts Layers 4 and 5 in the top row of the whole box beneath.
-    expectColors(pixels, [RED, GREEN, BLUE, BACKGROUND]);
+    // 3's Grid puts Layers 4 and 5 in the top row of the whole box beneath,
+    // its empty cells in its border colour.
+    expectColors(pixels, [RED, GREEN, BLUE, BLACK]);
   });
 
   test("confines the arrangement to the FX clip's Transform box", async ({
@@ -269,8 +282,9 @@ test.describe("compositing", () => {
         [0.5, 0.1],
       ],
     });
-    // Two columns inside the centred half-size box, nothing outside it.
-    expectColors(pixels, [RED, BLUE, BACKGROUND, BACKGROUND]);
+    // Two columns inside the centred half-size box, nothing outside it but
+    // the Global Order's border.
+    expectColors(pixels, [RED, BLUE, BLACK, BLACK]);
   });
 
   test("runs the FX clip's other effects on the arranged result", async ({
@@ -312,7 +326,132 @@ test.describe("compositing", () => {
     };
     const preview = await render(page, { ...scenario, size: 90 });
     const exported = await render(page, { ...scenario, size: 360 });
-    expectColors(preview, [RED, BLUE, BACKGROUND, WHITE]);
+    expectColors(preview, [RED, BLUE, BLACK, WHITE]);
+    expectColors(exported, preview);
+  });
+});
+
+test.describe("Order border", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/composition-smoke.html");
+  });
+
+  // At 360 px a Spacing of 20 is a 6.7 px gap.
+  const SIZE = 360;
+  const spaced = (color?: string) => [
+    { key: "Spacing", value: "20", numericValue: 20 },
+    ...(color ? [{ key: "BorderColor", value: color }] : []),
+  ];
+
+  test("colours the gaps between layers black by default", async ({ page }) => {
+    const pixels = await render(page, {
+      layers: ["#ff0000", "#0000ff"],
+      effects: [],
+      globalOrder: spaced(),
+      playheadSeconds: 1,
+      size: SIZE,
+      samples: [
+        [0.5, 0.25],
+        [0.5, 0.5],
+        [0.5, 0.75],
+      ],
+    });
+    expectColors(pixels, [RED, BLACK, BLUE]);
+  });
+
+  test("colours the gaps and empty grid cells with a custom border", async ({
+    page,
+  }) => {
+    const pixels = await render(page, {
+      layers: ["fx", "#ff0000", "#0000ff", "#ffff00"],
+      effects: [
+        effect("grid", "clip:fx-1", "Order", {
+          Arrangement: "Grid",
+          GridSize: 2,
+          Spacing: 20,
+          BorderColor: "rgba(0,255,0,1)",
+        }),
+      ],
+      playheadSeconds: 1,
+      size: SIZE,
+      samples: [
+        [0.25, 0.25],
+        [0.5, 0.25],
+        [0.5, 0.5],
+        [0.75, 0.75],
+      ],
+    });
+    // A slot, the gap beside it, the gaps' crossing and the empty fourth
+    // cell.
+    expectColors(pixels, [RED, GREEN, GREEN, GREEN]);
+
+    const global = await render(page, {
+      layers: ["#ff0000", "#0000ff"],
+      effects: [],
+      globalOrder: spaced("#00ffff"),
+      playheadSeconds: 1,
+      size: SIZE,
+      samples: [[0.5, 0.5]],
+    });
+    expectColors(global, [CYAN]);
+  });
+
+  test("shows what is beneath an FX clip's Order through a transparent border", async ({
+    page,
+  }) => {
+    const scenario = {
+      layers: ["fx", "#ff0000", "#0000ff"],
+      globalOrder: spaced("#ffffff"),
+      playheadSeconds: 1,
+      size: SIZE,
+      // Layer 2's column, the gap between the columns.
+      samples: [
+        [0.25, 0.5],
+        [0.5, 0.5],
+      ] as Array<[number, number]>,
+    };
+    const fxOrder = (color: string) =>
+      effect("columns", "clip:fx-1", "Order", {
+        Arrangement: "Horizontal",
+        Spacing: 20,
+        BorderColor: color,
+      });
+    const transparent = await render(page, {
+      ...scenario,
+      effects: [fxOrder("rgba(255,0,255,0)")],
+    });
+    // The Global Order's white border is all that is beneath the FX clip.
+    expectColors(transparent, [RED, WHITE]);
+
+    const opaque = await render(page, {
+      ...scenario,
+      effects: [fxOrder("rgba(255,0,255,1)")],
+    });
+    expectColors(opaque, [RED, [255, 0, 255]]);
+  });
+
+  test("exports the border as the preview shows it", async ({ page }) => {
+    const scenario = {
+      layers: ["#ff0000", "#0000ff", "#ffff00"],
+      effects: [
+        effect("grid", "__group_main", "Order", {
+          Arrangement: "Grid",
+          GridSize: 2,
+          Spacing: 50,
+          BorderColor: "rgba(255,0,255,1)",
+        }),
+      ],
+      playheadSeconds: 1,
+      // A cell, the gap beside it and the empty fourth cell.
+      samples: [
+        [0.25, 0.25],
+        [0.5, 0.25],
+        [0.75, 0.75],
+      ] as Array<[number, number]>,
+    };
+    const preview = await render(page, { ...scenario, size: 180 });
+    const exported = await render(page, { ...scenario, size: 720 });
+    expectColors(preview, [RED, [255, 0, 255], [255, 0, 255]]);
     expectColors(exported, preview);
   });
 });

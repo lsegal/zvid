@@ -287,7 +287,8 @@ function readPixel(gl: WebGLRenderingContext, x: number, yFromTop: number) {
   return [pixel[0], pixel[1], pixel[2]] as Rgb;
 }
 
-// Black (nothing decoded yet) or the compositor's clear colour.
+// Black (nothing decoded yet, or the Order's default border) or the
+// compositor's clear colour.
 function isEmpty([r, g, b]: Rgb) {
   return r + g + b < 24 || (r < 30 && g < 30 && b < 40 && b > r);
 }
@@ -375,9 +376,9 @@ async function runCase(
   return failures;
 }
 
-// With spacing, the middle of the gap after each slot shows the background;
-// without it, the next slot starts right away. Grid cells with no layer
-// show the background too.
+// With spacing, the middle of the gap after each slot shows the Order's
+// border, black by default; without it, the next slot starts right away.
+// Grid cells with no layer show the border too.
 function checkGaps(
   gl: WebGLRenderingContext,
   count: number,

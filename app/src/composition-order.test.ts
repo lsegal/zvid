@@ -11,6 +11,7 @@ import {
 } from "./composition-order.ts";
 
 const GLOBAL = "__group_main";
+const BLACK = { r: 0, g: 0, b: 0, a: 1 };
 
 function order(
   arrangement: string,
@@ -36,6 +37,7 @@ describe("parseCompositionOrder", () => {
       arrangement: "grid",
       gridSize: 4,
       spacing: 6,
+      borderColor: BLACK,
     });
     assert.equal(
       parseCompositionOrder(order("horizontal", 2, 0).parameters).arrangement,
@@ -48,13 +50,39 @@ describe("parseCompositionOrder", () => {
       arrangement: "grid",
       gridSize: 6,
       spacing: 50,
+      borderColor: BLACK,
     });
     assert.deepEqual(parseCompositionOrder(order("Spiral", 1, -2).parameters), {
       arrangement: "vertical",
       gridSize: 2,
       spacing: 0,
+      borderColor: BLACK,
     });
     assert.deepEqual(parseCompositionOrder([]), DEFAULT_COMPOSITION_ORDER);
+  });
+
+  it("reads the border colour, black when missing or unreadable", () => {
+    const border = (value?: string) =>
+      parseCompositionOrder([
+        ...order("Grid", 2, 20).parameters,
+        ...(value === undefined ? [] : [{ key: "BorderColor", value }]),
+      ]).borderColor;
+    assert.deepEqual(border(), BLACK);
+    assert.deepEqual(DEFAULT_COMPOSITION_ORDER.borderColor, BLACK);
+    assert.deepEqual(border("rgba(255,0,0,1)"), { r: 255, g: 0, b: 0, a: 1 });
+    assert.deepEqual(border("rgba(0, 0, 255, 0)"), {
+      r: 0,
+      g: 0,
+      b: 255,
+      a: 0,
+    });
+    assert.deepEqual(border("#00ff0080"), {
+      r: 0,
+      g: 255,
+      b: 0,
+      a: 128 / 255,
+    });
+    assert.deepEqual(border("tomato"), BLACK);
   });
 
   it("keeps spacing within 0 to 50", () => {
@@ -105,6 +133,7 @@ describe("resolveCompositionOrder", () => {
       arrangement: "grid",
       gridSize: 3,
       spacing: 2,
+      borderColor: BLACK,
     });
   });
 });
