@@ -100,7 +100,25 @@ The editor only supplies canvas frames and timeline state. Media analysis uses t
 
 Collaboration signals through zvid's own [signaling worker](../signaling/README.md) (`wss://zvid-signaling.lsegal.workers.dev`) by default, with the public `wss://y-webrtc-eu.fly.dev` y-webrtc relay as a fallback. Peers find each other through any server they share. To use different servers, copy `.env.example` to `.env.local` and set `VITE_SIGNALING_URL` before building. An invite's `signal=` parameter always decides which servers a joiner uses.
 
-After signaling, peers connect directly over WebRTC. By default only STUN servers are used, so peers behind symmetric NAT, CGNAT, mobile hotspots or corporate firewalls may not connect; set `VITE_ICE_SERVERS` (see `.env.example`) to add a TURN relay.
+After signaling, peers connect over WebRTC. Public STUN servers let most peers connect directly, but peers behind symmetric NAT, CGNAT, mobile hotspots or corporate firewalls need a TURN relay. The deployed app provides one (see [Collaboration TURN relay](#collaboration-turn-relay)); `VITE_ICE_SERVERS` (see `.env.example`) adds your own STUN or TURN servers at build time.
+
+### Collaboration TURN relay
+
+Before each collaboration session the app fetches short-lived TURN credentials from its own Worker at `GET /api/ice-servers` (`worker/turn.ts`) and adds them to the configured ICE servers. The Worker mints them with [Cloudflare Realtime TURN](https://developers.cloudflare.com/realtime/turn/)'s `generate-ice-servers` API; the credentials expire after 24 hours, and the app reuses them for an hour before fetching new ones. No TURN secret is built into the app. If the fetch fails or times out, the session starts with STUN (and `VITE_ICE_SERVERS`) only, and the console logs `[zvid] collaboration:ice:relay:error`. The diagnostics dialog's **Relay (TURN)** row reads **Configured** when a relay was obtained.
+
+The Worker needs two secrets, the TURN key's ID and its API token:
+
+```sh
+cd app
+pnpm exec wrangler secret put TURN_KEY_ID
+pnpm exec wrangler secret put TURN_KEY_API_TOKEN
+```
+
+Create the key in the Cloudflare dashboard (**Realtime → TURN Server → Create**), which shows the API token once. Without both secrets `/api/ice-servers` answers `503` and the app uses STUN only. For `wrangler dev`, put them in `app/.dev.vars`.
+
+To rotate the token, create a new TURN key, `wrangler secret put` both secrets with the new key's values (secrets take effect immediately, without a redeploy), then delete the old key. Credentials already handed out stop working when the old key is deleted, so connected peers may need to reconnect; delete it after a day to let them expire instead.
+
+The web app uses its own origin's `/api/ice-servers`, so `wrangler dev` (`pnpm cf:dev`) exercises the relay too. The native app and the Vite dev server (`pnpm dev`) have no Worker, so they use STUN only unless `VITE_ICE_SERVERS_URL` names an endpoint returning `{ "iceServers": [...] }` that allows the app's origin through CORS (the app Worker's own endpoint answers same-origin requests only). Set `VITE_ICE_SERVERS_URL=none` to turn the relay off.
 
 While sharing or joined, click the connection status in the header for diagnostics: each signaling server, peers found and connected over WebRTC, whether the project state has synced, and the last error. The browser console logs the same events as `[zvid] collaboration:*`.
 

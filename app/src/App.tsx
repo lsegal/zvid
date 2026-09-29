@@ -80,7 +80,6 @@ import {
   parseIceServers,
   summarizeCollaboration,
 } from "./collaboration-diagnostics";
-import { loadIceServers, resolveRelayIceServersUrl } from "./ice-servers";
 import { ArrangementEmptyState } from "./components/ArrangementEmptyState";
 import {
   APP_BUILD_LABEL,
@@ -160,6 +159,7 @@ import {
   supportsHarnessCapability,
 } from "./harness";
 import { hasMediaExtension } from "./harness/media-extensions";
+import { loadIceServers, resolveRelayIceServersUrl } from "./ice-servers";
 import {
   createLaneId,
   deleteLane,
@@ -532,7 +532,8 @@ const ICE_SERVERS = resolveIceServers();
 // The app worker's short-lived TURN credentials (worker/turn.ts).
 const RELAY_ICE_SERVERS_URL = resolveRelayIceServersUrl(
   import.meta.env.VITE_ICE_SERVERS_URL,
-  globalThis.location?.origin,
+  // The Vite dev server has no Worker to answer /api/ice-servers.
+  import.meta.env.DEV ? undefined : globalThis.location?.origin,
   isTauri(),
 );
 // Relay credentials last a day; reuse them for an hour so reconnecting or

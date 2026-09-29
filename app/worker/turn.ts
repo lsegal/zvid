@@ -37,8 +37,9 @@ function isIceServer(value: unknown): value is IceServer {
 // Browsers block port 53, so Cloudflare recommends dropping those URLs to
 // avoid ICE gathering timeouts.
 function withoutPort53(server: IceServer): IceServer | null {
-  const urls = (Array.isArray(server.urls) ? server.urls : [server.urls])
-    .filter((url) => !/:53(\?|$)/.test(url));
+  const urls = (
+    Array.isArray(server.urls) ? server.urls : [server.urls]
+  ).filter((url) => !/:53(\?|$)/.test(url));
   return urls.length > 0 ? { ...server, urls } : null;
 }
 
