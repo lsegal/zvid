@@ -8,6 +8,8 @@ export type ContextMenuItem = {
   label: string;
   shortcut?: string;
   disabled?: boolean;
+  // Tooltip, such as why the item is disabled.
+  title?: string;
   onSelect?: () => void;
   submenu?: ContextMenuEntry[];
 };
