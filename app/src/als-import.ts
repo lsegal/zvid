@@ -423,10 +423,11 @@ export function resolveAlsMedia(
 // Layers lines each audio take on a `layersRecordTracks` track up with the end
 // of its video rather than with the recording's stored `frameStart`, so once
 // the video's length is known, each such clip's `captureOffset` becomes
-// `round(numFrames - audioFileDuration * fps)`. The offset is per clip: clips
-// playing different samples of one recording get different offsets. MIDI
-// clips have no sample and ZVID Capture takes are aligned by the plugin's own
-// clock, so both keep theirs.
+// `round((numFrames / frameRate - audioFileDuration) * fps)`, which is
+// `round(numFrames - audioFileDuration * fps)` when the video runs at the
+// session's rate. The offset is per clip: clips playing different samples of
+// one recording get different offsets. MIDI clips have no sample and ZVID
+// Capture takes are aligned by the plugin's own clock, so both keep theirs.
 export async function probeAlsRecordings(
   session: LvpSession,
   recordingRefs: Array<Pick<ServerMediaRef, "path" | "url" | "exists">>,
@@ -464,16 +465,13 @@ export async function probeAlsRecordings(
   }));
   const endAligned = new Set(layersRecordTracks);
   const fps = session.timeline?.fps;
-  const videoFrames = new Map<string, number>();
+  // Seconds of video, by track id and recording filename.
+  const videoSeconds = new Map<string, number>();
   for (const track of tracks ?? []) {
     if (!endAligned.has(track.id)) continue;
-    for (const recording of track.recordings ?? []) {
-      if (recording.numFrames !== undefined) {
-        videoFrames.set(
-          `${track.id}
-${recording.filename}`,
-          recording.numFrames,
-        );
+    for (const { filename, numFrames, frameRate } of track.recordings ?? []) {
+      if (numFrames !== undefined && frameRate) {
+        videoSeconds.set(`${track.id}:${filename}`, numFrames / frameRate);
       }
     }
   }
@@ -482,21 +480,17 @@ ${recording.filename}`,
     ...session,
     tracks,
     clips: session.clips?.map((clip) => {
-      const numFrames = videoFrames.get(`${clip.trackId}
-${clip.filePath}`);
+      const seconds = videoSeconds.get(`${clip.trackId}:${clip.filePath}`);
       const duration = clip.audioFileDuration;
       if (
-        numFrames === undefined ||
+        seconds === undefined ||
         typeof duration !== "number" ||
         !Number.isFinite(duration) ||
         !fps
       ) {
         return clip;
       }
-      return {
-        ...clip,
-        captureOffset: Math.round(numFrames - duration * fps),
-      };
+      return { ...clip, captureOffset: Math.round((seconds - duration) * fps) };
     }),
   };
 }

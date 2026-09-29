@@ -678,6 +678,40 @@ describe("Live set media resolution", () => {
       ]);
     });
 
+    it("measures a video at its own frame rate", async () => {
+      // 845 frames at 29.916666 fps is 28.245 s: 3.547 s longer than the
+      // 24.699 s sample, or 106 frames at 30 fps (not 845 - 741 = 104).
+      const session: LvpSession = {
+        tracks: [
+          {
+            id: "16",
+            name: "Guitar",
+            recordings: [{ filename: "/rec/guitar.mp4", frameStart: 107 }],
+          },
+        ],
+        clips: [
+          {
+            id: "16-2",
+            trackId: "16",
+            frameStart: 0,
+            frameCount: 30,
+            filePath: "/rec/guitar.mp4",
+            captureOffset: 107,
+            audioFileDuration: 24.6986675,
+          },
+        ],
+        timeline: { fps: 30 },
+      };
+      const probed = await probeAlsRecordings(
+        session,
+        [{ path: "/rec/guitar.mp4", url: "blob:guitar", exists: true }],
+        async () => ({ numFrames: 845, frameRate: 29.916666 }),
+        ["16"],
+      );
+
+      assert.equal(probed.clips?.[0].captureOffset, 106);
+    });
+
     it("keeps frameStart when no recording could be probed", async () => {
       const session = endAlignSession();
       const probed = await probeAlsRecordings(session, refs, async () => null, [

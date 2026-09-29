@@ -152,6 +152,8 @@ describe("convertAls with dogfood3.als against dogfood3.lvp", () => {
       assert.equal(clip("8-6").clipStart, 313);
     });
 
+    // Until the video is probed; probing end-aligns it to 106 (see
+    // `probeAlsRecordings`).
     it("16-2 captureOffset is the recording's frameStart (107, not 106)", () => {
       assert.equal(goldenClip("16-2").captureOffset, 106);
       assert.equal(clip("16-2").captureOffset, 107);
