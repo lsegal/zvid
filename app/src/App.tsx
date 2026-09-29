@@ -324,6 +324,9 @@ type ExportState = {
 type TimelineViewport = {
   scrollLeft: number;
   clientWidth: number;
+  clientHeight: number;
+  // Height of the sticky ruler above the arrangement lanes.
+  lanesTop: number;
 };
 
 type SourceTrackDropTarget =
@@ -1769,6 +1772,8 @@ function App() {
   const [timelineViewport, setTimelineViewport] = useState<TimelineViewport>({
     scrollLeft: 0,
     clientWidth: 0,
+    clientHeight: 0,
+    lanesTop: 0,
   });
   const [status, setStatus] = useState(
     "Open a session or import media to get started.",
@@ -1844,6 +1849,7 @@ function App() {
   const compositionPlayerRef = useRef<CompositionPlayerHandle | null>(null);
   const appShellRef = useRef<HTMLDivElement | null>(null);
   const timelineScrollRef = useRef<HTMLDivElement | null>(null);
+  const arrangementLanesRef = useRef<HTMLDivElement | null>(null);
   const editorGridRef = useRef<HTMLDivElement | null>(null);
   const previewResizeRef = useRef<{
     pointerId: number;
@@ -3322,6 +3328,8 @@ function App() {
     setTimelineViewport({
       scrollLeft: timelineScroll.scrollLeft,
       clientWidth: timelineScroll.clientWidth,
+      clientHeight: timelineScroll.clientHeight,
+      lanesTop: arrangementLanesRef.current?.offsetTop ?? 0,
     });
   }, []);
 
@@ -4563,8 +4571,24 @@ function App() {
 
     const handleResize = () => syncTimelineViewport();
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    // Panel and preview resizes change the timeline's size without a window
+    // resize.
+    const observer = new ResizeObserver(handleResize);
+    if (timelineScrollRef.current) {
+      observer.observe(timelineScrollRef.current);
+    }
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      observer.disconnect();
+    };
   }, [syncTimelineViewport]);
+
+  // The empty arrangement's call to action sizes itself below the ruler.
+  useEffect(() => {
+    if (showArrangementEmptyState) {
+      syncTimelineViewport();
+    }
+  }, [showArrangementEmptyState, syncTimelineViewport]);
 
   useEffect(() => {
     if (!dragState) {
@@ -6522,7 +6546,7 @@ function App() {
                     </div>
                   </section>
 
-                  <div className="arrangement-lanes">
+                  <div ref={arrangementLanesRef} className="arrangement-lanes">
                     {showArrangementEmptyState ? (
                       <ArrangementEmptyState
                         disabled={isExporting}
@@ -6530,6 +6554,11 @@ function App() {
                           setArrangementEmptyStateDismissed(true)
                         }
                         onGenerate={handleRandomizeTimeline}
+                        top={timelineViewport.lanesTop}
+                        visibleHeight={
+                          timelineViewport.clientHeight -
+                          timelineViewport.lanesTop
+                        }
                         visibleWidth={visibleTimelineWidthPx}
                       />
                     ) : null}

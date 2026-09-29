@@ -106,7 +106,7 @@ describe("arrangement empty state wiring", () => {
   it("hides for the session when dismissed", () => {
     assert.match(
       appTsx,
-      /<ArrangementEmptyState[\s\S]*?onDismiss=\{\(\) => setArrangementEmptyStateDismissed\(true\)\}/,
+      /<ArrangementEmptyState[\s\S]*?onDismiss=\{\(\) =>\s*setArrangementEmptyStateDismissed\(true\)\s*\}/,
     );
   });
 

@@ -1686,8 +1686,9 @@
 }
 
 /* Spans the lanes, above the playhead line and below the sticky track labels.
-   The sticky viewport inside centres the call to action in the visible part
-   of the arrangement rather than the full timeline canvas. */
+   The sticky viewport inside (sized from the scroll viewport in JS) centres
+   the call to action in the visible part of the arrangement rather than the
+   full timeline canvas. */
 .arrangement-empty-state {
   position: absolute;
   inset: 0;
@@ -2415,6 +2416,13 @@
     border-left: none;
     padding-block: 10px;
     background: #202230;
+  }
+
+  .arrangement-empty-state__generate {
+    gap: 8px;
+    padding: 8px 14px;
+    font-size: 0.82rem;
+    text-wrap: balance;
   }
 
   .source-header--empty .source-empty-state {

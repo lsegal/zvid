@@ -6,18 +6,28 @@ export function ArrangementEmptyState({
   disabled,
   onDismiss,
   onGenerate,
+  top,
+  visibleHeight,
   visibleWidth,
 }: {
   disabled?: boolean;
   onDismiss: () => void;
   onGenerate: () => void;
+  // Offset below the sticky ruler, and the scroll viewport's size beside the
+  // track labels and below the ruler.
+  top: number;
+  visibleHeight: number;
   visibleWidth: number;
 }) {
   return (
     <div className="arrangement-empty-state">
       <div
         className="arrangement-empty-state__viewport"
-        style={visibleWidth > 0 ? { width: visibleWidth } : undefined}
+        style={{
+          top,
+          width: visibleWidth > 0 ? visibleWidth : undefined,
+          maxHeight: visibleHeight > 0 ? visibleHeight : undefined,
+        }}
       >
         <button
           className="arrangement-empty-state__generate"
