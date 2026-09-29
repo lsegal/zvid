@@ -2,12 +2,13 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { createClipWarp } from "./clip-warp.ts";
 import { mapEffects } from "./fx-stack.ts";
-import { clipSourceFrame } from "./session.ts";
+import { clipSourceFrame, type LvpSession } from "./session.ts";
 import {
   chooseSessionSaveTarget,
   projectToLvpSession,
   readSelectionSlip,
   readSessionFills,
+  readSessionTexts,
   type SaveableProject,
 } from "./session-save.ts";
 import {
@@ -152,7 +153,7 @@ function baseProject(
 
 describe("projectToLvpSession", () => {
   it("writes tracks, clips, selections, effects and timeline", () => {
-    const { session } = projectToLvpSession(baseProject(), {
+    const session = projectToLvpSession(baseProject(), {
       playheadQ: 2,
       selectedClipId: "clip-added",
     });
@@ -222,7 +223,7 @@ describe("projectToLvpSession", () => {
   });
 
   it("does not reuse a selection id another clip keeps", () => {
-    const { session } = projectToLvpSession(
+    const session = projectToLvpSession(
       baseProject({
         clips: [
           {
@@ -251,7 +252,7 @@ describe("projectToLvpSession", () => {
 
   it("keeps fill clips out of selections and reads them back", () => {
     const project = baseProject();
-    const { session } = projectToLvpSession(
+    const session = projectToLvpSession(
       {
         ...project,
         clips: [
@@ -292,7 +293,7 @@ describe("projectToLvpSession", () => {
 
   it("round-trips effect and layer FX bypass", () => {
     const project = baseProject();
-    const { session } = projectToLvpSession(
+    const session = projectToLvpSession(
       {
         ...project,
         lanes: [
@@ -321,7 +322,7 @@ describe("projectToLvpSession", () => {
   it("round-trips a slipped clip's span and source offset", () => {
     const project = baseProject();
     // The span's offset is trimStart 1 s minus its 2 s start: -1 s.
-    const { session } = projectToLvpSession(
+    const session = projectToLvpSession(
       {
         ...project,
         clips: [
@@ -351,10 +352,12 @@ describe("projectToLvpSession", () => {
   });
 
   it("opens sessions without zvid-only fields as before", () => {
-    const { session } = projectToLvpSession(baseProject(), { playheadQ: 0 });
+    const session = projectToLvpSession(baseProject(), { playheadQ: 0 });
     assert.equal(session.fills, undefined);
+    assert.equal(session.texts, undefined);
     assert.equal("fxEnabled" in (session.mainTracks?.[0] ?? {}), false);
     assert.deepEqual(readSessionFills(session, 120, 30), []);
+    assert.deepEqual(readSessionTexts(session, 120, 30), []);
     assert.ok(
       session.selections?.every(
         (selection) => readSelectionSlip(selection) === undefined,
@@ -374,11 +377,24 @@ describe("projectToLvpSession", () => {
           { id: "bad", mainTrackId: 3, frameStart: 0, frameEnd: 30 },
           null,
         ],
+        texts: [
+          { id: "ok", mainTrackId: "main-1", frameStart: 0, frameEnd: 30 },
+          { id: "", mainTrackId: "main-1", frameStart: 0, frameEnd: 30 },
+          { id: "bad", mainTrackId: "main-1", frameStart: "0", frameEnd: 30 },
+        ],
       }),
     );
     assert.deepEqual(
       readSessionFills(session, 120, 30).map((fill) => fill.id),
       ["ok"],
+    );
+    assert.deepEqual(
+      readSessionTexts(session, 120, 30).map((text) => text.id),
+      ["ok"],
+    );
+    assert.deepEqual(
+      readSessionTexts({ texts: "nope" } as unknown as LvpSession, 120, 30),
+      [],
     );
     assert.equal(
       readSelectionSlip({
@@ -394,9 +410,9 @@ describe("projectToLvpSession", () => {
     );
   });
 
-  it("leaves out text clips and counts them", () => {
+  it("keeps text clips out of selections and reads them back", () => {
     const project = baseProject();
-    const { session, skippedTextClips } = projectToLvpSession(
+    const session = projectToLvpSession(
       {
         ...project,
         clips: [
@@ -405,17 +421,41 @@ describe("projectToLvpSession", () => {
             id: "text-1",
             kind: "text",
             sourceTrackId: "",
-            laneId: "main-1",
-            startQ: 0,
-            durationSeconds: 1,
+            laneId: "main-2",
+            // 1 s at 120 bpm.
+            startQ: 2,
+            durationSeconds: 1.5,
           },
         ],
       },
-      { playheadQ: 0 },
+      { playheadQ: 0, selectedClipId: "text-1" },
     );
-    assert.equal(skippedTextClips, 1);
     assert.equal(session.selections?.length, 2);
     assert.equal(session.fills, undefined);
+    assert.deepEqual(session.texts, [
+      {
+        id: "text-1",
+        mainTrackId: "main-2",
+        frameStart: 30,
+        frameEnd: 75,
+        selected: true,
+      },
+    ]);
+    assert.deepEqual(readSessionTexts(session, 120, 30), [
+      {
+        id: "text-1",
+        laneId: "main-2",
+        startQ: 2,
+        durationQ: 3,
+        selected: true,
+      },
+    ]);
+    assert.deepEqual(readSessionFills(session, 120, 30), []);
+    const reopened = JSON.parse(JSON.stringify(session));
+    assert.deepEqual(
+      readSessionTexts(reopened, 120, 30),
+      readSessionTexts(session, 120, 30),
+    );
   });
 
   it("keeps a warped span's source start and warp anchor", () => {
@@ -430,7 +470,7 @@ describe("projectToLvpSession", () => {
     const warp = createClipWarp(markers, 30 / fps, trimStartSeconds, bpm);
     assert.ok(warp);
 
-    const { session } = projectToLvpSession(
+    const session = projectToLvpSession(
       baseProject({
         sourceSpans: [
           {
