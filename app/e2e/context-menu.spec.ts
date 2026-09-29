@@ -454,6 +454,7 @@ test("right-clicking a selection keeps it and inserts a track like its number ke
     "Insert Track",
     "Insert Fill Clip",
     "Insert Text Clip",
+    "Insert FX Clip",
     "Clear selectionEsc",
   ]);
 

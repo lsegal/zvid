@@ -10,10 +10,15 @@ import {
 } from "./composition-draw.ts";
 import {
   resolveBandScissor,
+  resolveCanvasBounds,
   resolveLayerPlacement,
   resolveSlotScissor,
 } from "./composition-layout.ts";
-import type { CompositionOrder } from "./composition-order.ts";
+import {
+  type CompositionOrder,
+  DEFAULT_COMPOSITION_ORDER,
+  Z_ORDER_COMPOSITION,
+} from "./composition-order.ts";
 import {
   frameBoxInCanvas,
   IDENTITY_TRANSFORM,
@@ -1053,5 +1058,207 @@ describe("drawComposition text layers", () => {
       composites[1].texture,
       resources.textureMap.get("text:clip-1") as unknown as Handle,
     );
+  });
+});
+
+describe("drawComposition FX clips", () => {
+  const surface = { width: WIDTH, height: HEIGHT };
+
+  // Media layers on `ranks`, each drawing its own video.
+  function mediaLayers(ranks: number[]) {
+    return layers(ranks.length, []).map((layer, index) => ({
+      ...layer,
+      laneRank: ranks[index],
+      sourceKey: `media-${ranks[index]}`,
+    }));
+  }
+
+  function fxLayer(
+    laneRank: number,
+    effects: ChainEffect[],
+    clipTransform?: LayerTransform,
+  ): CompositeLayer {
+    const [layer] = layers(1, [], false, [], [clipTransform]);
+    return {
+      ...layer,
+      media: { id: `fx:${laneRank}` },
+      sourceKey: `fx:${laneRank}`,
+      laneRank,
+      effectChain: resolveEffectChain(effects, "clip:fx"),
+      fx: true,
+    };
+  }
+
+  function draw(
+    entries: CompositeLayer[],
+    order: CompositionOrder = Z_ORDER_COMPOSITION,
+  ) {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    const mediaRefs = new Map<string, HTMLMediaElement>(
+      entries
+        .filter((entry) => !entry.fx)
+        .map((entry) => [
+          entry.sourceKey,
+          new FakeVideo(1080, 1920) as unknown as HTMLMediaElement,
+        ]),
+    );
+    drawComposition(
+      resources,
+      surface,
+      entries,
+      mediaRefs,
+      [],
+      {
+        time: 1,
+        audio: SOURCE_SILENCE,
+        groupClipProgress: 0,
+      },
+      order,
+    );
+    const program = (draw: DrawCall) =>
+      draw.program === (resources.program as unknown as Handle)
+        ? "composite"
+        : draw.program === (resources.fxMask.program as unknown as Handle)
+          ? "fx-mask"
+          : "effect";
+    return { draws: recording.draws, resources, program };
+  }
+
+  const SOURCE_SILENCE = SILENT_AUDIO_BANDS;
+
+  it("draws exactly as without it when it has no effects", () => {
+    for (const order of [Z_ORDER_COMPOSITION, DEFAULT_COMPOSITION_ORDER]) {
+      const without = draw(mediaLayers([0, 2]), order);
+      const withEmpty = draw([...mediaLayers([0, 2]), fxLayer(1, [])], order);
+      assert.deepEqual(withEmpty.draws, without.draws);
+    }
+  });
+
+  it("adjusts only the layers beneath it, over the whole canvas", () => {
+    const { draws, resources, program } = draw([
+      ...mediaLayers([0, 2]),
+      fxLayer(1, [colorize("clip:fx")]),
+    ]);
+    const scene = resources.effectChain.getSceneTarget(WIDTH, HEIGHT);
+    const sceneFramebuffer = scene.framebuffer as unknown as Handle;
+    assert.deepEqual(
+      draws.map((call) => [
+        program(call),
+        call.framebuffer === sceneFramebuffer,
+      ]),
+      [
+        // Layer 3, beneath the FX clip, into the offscreen composite.
+        ["composite", true],
+        // Colorize on the composite so far, then back over its box.
+        ["effect", false],
+        ["fx-mask", true],
+        // Layer 1, above it, drawn after and so left alone.
+        ["composite", true],
+        // The composite shown on the canvas.
+        ["composite", false],
+      ],
+    );
+    assert.equal(draws[1].texture, scene.texture as unknown as Handle);
+    assert.notEqual(draws[2].texture, scene.texture as unknown as Handle);
+    assert.equal(draws[2].blend, false);
+    assert.equal(draws[2].scissorTest, false);
+    assert.deepEqual(draws[2].axes, {
+      uAxisX: [1, 0],
+      uAxisY: [0, 1],
+      uOffset: [0, 0],
+    });
+    assert.equal(draws[4].framebuffer, null);
+    assert.equal(draws[4].texture, scene.texture as unknown as Handle);
+  });
+
+  it("limits the adjustment to its Transform box", () => {
+    const clipTransform: LayerTransform = {
+      ...IDENTITY_TRANSFORM,
+      scaleX: 0.5,
+      scaleY: 0.5,
+      positionX: 0.25,
+    };
+    const { draws, program } = draw([
+      ...mediaLayers([1]),
+      fxLayer(0, [colorize("clip:fx")], clipTransform),
+    ]);
+    const mask = draws.find((call) => program(call) === "fx-mask");
+    const frame = resolveCanvasBounds(WIDTH, HEIGHT);
+    const expected = matrixQuadAxes(
+      frame,
+      nestedTransformMatrix(
+        frameBoxInCanvas(frame, surface),
+        surface,
+        undefined,
+        clipTransform,
+      ),
+      surface,
+    );
+    assert.deepEqual(mask?.axes, {
+      uAxisX: expected.axisX,
+      uAxisY: expected.axisY,
+      uOffset: expected.offset,
+    });
+    // Half the canvas across and down, moved a quarter canvas right.
+    assert.ok(Math.abs((mask?.axes.uAxisX[0] ?? 0) - 0.5) < 1e-9);
+    assert.ok(Math.abs((mask?.axes.uAxisY[1] ?? 0) - 0.5) < 1e-9);
+    assert.ok(Math.abs((mask?.axes.uOffset[0] ?? 0) - 0.5) < 1e-9);
+  });
+
+  it("takes no Order slot", () => {
+    const { draws, program } = draw(
+      [...mediaLayers([1, 2]), fxLayer(0, [colorize("clip:fx")])],
+      DEFAULT_COMPOSITION_ORDER,
+    );
+    const composites = draws.filter(
+      (call) => program(call) === "composite" && call.scissorTest,
+    );
+    // Layer 3 in the lower band, Layer 2 in the upper one, then the FX clip
+    // on Layer 1 over both.
+    assert.deepEqual(
+      composites.map((call) => call.scissor),
+      [1, 0].map((band) => {
+        const slot = resolveSlotScissor(
+          band,
+          2,
+          DEFAULT_COMPOSITION_ORDER,
+          WIDTH,
+          HEIGHT,
+        );
+        return [slot.x, slot.y, slot.width, slot.height];
+      }),
+    );
+    assert.deepEqual(draws.map(program).slice(-3), [
+      "effect",
+      "fx-mask",
+      "composite",
+    ]);
+  });
+
+  it("is adjusted by the Global chain after it", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    const entries = [...mediaLayers([1]), fxLayer(0, [colorize("clip:fx")])];
+    drawComposition(
+      resources,
+      surface,
+      entries,
+      new Map([
+        ["media-1", new FakeVideo(1080, 1920) as unknown as HTMLMediaElement],
+      ]),
+      resolveEffectChain([colorize("__group_main")], "__group_main"),
+      { time: 1, audio: SILENT_AUDIO_BANDS, groupClipProgress: 0 },
+      Z_ORDER_COMPOSITION,
+    );
+    const last = recording.draws[recording.draws.length - 1];
+    const mask = recording.draws.findIndex(
+      (call) =>
+        call.program === (resources.fxMask.program as unknown as Handle),
+    );
+    assert.ok(mask > 0 && mask < recording.draws.length - 1);
+    // The Global chain's last pass draws straight to the canvas.
+    assert.equal(last.framebuffer, null);
+    assert.notEqual(last.program, resources.program as unknown as Handle);
   });
 });

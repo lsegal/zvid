@@ -32,7 +32,7 @@ import {
   usesColumnLayout,
   writeCollapsedDevices,
 } from "../fx-chain";
-import type { FxEffectDefinition } from "../fx-registry";
+import type { FxEffectDefinition, FxEffectScope } from "../fx-registry";
 import {
   type FxDevice,
   type FxDeviceGroup,
@@ -64,6 +64,8 @@ type FxChainProps = {
   // Track id of the selected clip's own stack; undefined when no clip is
   // selected, which hides the Clip section.
   clipTrackId?: string;
+  // The scope the Clip section's add menu offers: "fxClip" for an FX clip.
+  clipScope?: FxEffectScope;
   // Name of the selected layer, such as "Layer 3"; undefined when none is.
   layerName: string | undefined;
   // False when the selected layer's FX badge bypasses its whole stack.
@@ -150,6 +152,7 @@ export function FxChain({
   kind,
   layerTrackId,
   clipTrackId,
+  clipScope = "clip",
   layerName,
   layerFxEnabled = true,
   onSetLayerFxEnabled,
@@ -316,9 +319,14 @@ export function FxChain({
     setAnnouncement(`Duplicated ${device.name}`);
   }
 
+  // The scope a section's add menu offers effects for.
+  function scopeOf(group: FxDeviceGroup): FxEffectScope {
+    return group === "clip" ? clipScope : group;
+  }
+
   function addDevice(group: FxDeviceGroup, effectName: string) {
     const trackId = getTrackId(group, layerTrackId, clipTrackId);
-    const definition = addableEffectsFor(group).find(
+    const definition = addableEffectsFor(scopeOf(group)).find(
       (candidate) => candidate.effectName === effectName,
     );
     if (!trackId || !definition) {
@@ -627,7 +635,7 @@ export function FxChain({
     }`;
     return (
       <AddDeviceMenu
-        effects={addableEffectsFor(group)}
+        effects={addableEffectsFor(scopeOf(group))}
         focusKey={`add-${group}`}
         label={label}
         onAdd={(effectName) => addDevice(group, effectName)}

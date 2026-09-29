@@ -85,7 +85,7 @@ export type SaveableSourceSpan = {
 
 export type SaveableClip = {
   id: string;
-  kind?: "fill" | "text";
+  kind?: "fill" | "text" | "fx";
   sourceSpanId?: string;
   sourceTrackId: string;
   laneId: string;
@@ -244,7 +244,8 @@ export function projectToLvpSession(
   });
 
   const mediaClips = project.clips.filter(
-    (clip) => clip.kind !== "fill" && clip.kind !== "text",
+    (clip) =>
+      clip.kind !== "fill" && clip.kind !== "text" && clip.kind !== "fx",
   );
   const usedSelectionIds = new Set<number>();
   for (const clip of mediaClips) {
@@ -284,7 +285,7 @@ export function projectToLvpSession(
       ...selectionSlip(clip, project.sourceSpans, bpm),
     };
   });
-  const layerClips = (kind: "fill" | "text") =>
+  const layerClips = (kind: "fill" | "text" | "fx") =>
     project.clips
       .filter((clip) => clip.kind === kind)
       .map<LvpLayerClip>((clip) => {
@@ -300,6 +301,7 @@ export function projectToLvpSession(
       });
   const fills = layerClips("fill");
   const texts = layerClips("text");
+  const fxClips = layerClips("fx");
 
   const mainAudio = project.mainAudioId
     ? project.mediaItems.find((item) => item.id === project.mainAudioId)
@@ -322,6 +324,7 @@ export function projectToLvpSession(
     selections,
     ...(fills.length ? { fills } : {}),
     ...(texts.length ? { texts } : {}),
+    ...(fxClips.length ? { fxClips } : {}),
     effects: renameClipEffectTracks(project.effects, savedClipIds).map(
       (effect) => ({
         id: effect.id,
@@ -439,4 +442,13 @@ export function readSessionTexts(
   fps: number,
 ): SessionLayerClip[] {
   return readLayerClips(session.texts, bpm, fps);
+}
+
+// The FX clips a session was saved with, skipping malformed entries.
+export function readSessionFxClips(
+  session: LvpSession,
+  bpm: number,
+  fps: number,
+): SessionLayerClip[] {
+  return readLayerClips(session.fxClips, bpm, fps);
 }

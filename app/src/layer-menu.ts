@@ -16,6 +16,9 @@ export type LayerMenuActions = {
   // Adds a text clip on the layer at the playhead; omitted where there is
   // no playhead to insert at.
   insertText?: () => void;
+  // Adds an empty FX clip on the layer at the playhead; omitted where there
+  // is no playhead to insert at.
+  insertFx?: () => void;
   insertAbove: () => void;
   insertBelow: () => void;
   moveUp: () => void;
@@ -108,6 +111,17 @@ export function buildLayerMenuEntries({
             label: "Insert text at playhead",
             disabled,
             onSelect: actions.insertText,
+          } as const,
+        ]
+      : []),
+    ...(actions.insertFx
+      ? [
+          {
+            type: "item",
+            id: "insert-fx",
+            label: "Insert FX clip at playhead",
+            disabled,
+            onSelect: actions.insertFx,
           } as const,
         ]
       : []),

@@ -159,6 +159,36 @@ describe("resolvePreviewLayers", () => {
     ]);
   });
 
+  it("gives an FX clip no band and the whole canvas as its box", () => {
+    const layers = resolvePreviewLayers(
+      [
+        activeLayer("b", 1),
+        { ...activeLayer("fx", 0), fx: true },
+        activeLayer("c", 2),
+      ],
+      canvas,
+    );
+    // First, so a click only picks it where no other layer is.
+    assert.deepEqual(
+      layers.map((layer) => layer.laneId),
+      ["fx", "b", "c"],
+    );
+    assert.deepEqual(layers[0].corners, [
+      { x: 0, y: 0 },
+      { x: 1000, y: 0 },
+      { x: 1000, y: 1000 },
+      { x: 0, y: 1000 },
+    ]);
+    // The two other layers share the canvas as if the FX clip were not
+    // there.
+    assert.deepEqual(layers[1].corners, [
+      { x: 0, y: 0 },
+      { x: 1000, y: 0 },
+      { x: 1000, y: 500 },
+      { x: 0, y: 500 },
+    ]);
+  });
+
   it("follows the Order arrangement", () => {
     const layers = resolvePreviewLayers(
       [activeLayer("a", 0), activeLayer("b", 1)],

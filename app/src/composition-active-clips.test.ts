@@ -686,3 +686,65 @@ describe("clip stacks", () => {
     });
   });
 });
+
+describe("FX clips", () => {
+  const fxClip = (laneId: string): ArrangementClip => ({
+    id: `fx-${laneId}`,
+    kind: "fx",
+    sourceTrackId: "",
+    laneId,
+    label: "FX",
+    mediaPath: "",
+    startQ: 0,
+    durationSeconds: 1000,
+    trimStartSeconds: 0,
+    sourceOffsetSeconds: 0,
+    sourceWindowStartSeconds: 0,
+    sourceWindowEndSeconds: 1000,
+    tint: "#000",
+    accent: "#fff",
+  });
+
+  function active(effects: Parameters<typeof computeActiveClips>[5]) {
+    return computeActiveClips(
+      [fxClip("6"), ...DOGFOOD3_CLIPS],
+      new Map(MEDIA.map((item) => [item.id, item])),
+      PLAYHEAD_Q,
+      BPM,
+      LANE_PRIORITY,
+      effects,
+    );
+  }
+
+  it("is drawable without media and draws nothing of its own", () => {
+    const entry = active([]).find((candidate) => candidate.clip.id === "fx-6");
+    assert.ok(entry);
+    assert.equal(entry.fx, true);
+    assert.equal(entry.isInBounds, true);
+    assert.equal(entry.fill, undefined);
+    assert.equal(entry.text, undefined);
+    assert.equal(entry.laneRank, 2);
+    assert.deepEqual(entry.effectChain, []);
+  });
+
+  it("runs only its own stack, not its layer's", () => {
+    const entry = active([
+      {
+        id: "layer",
+        trackId: "6",
+        effectName: "NegativeSplit",
+        parameters: [],
+      },
+      {
+        id: "clip",
+        trackId: "clip:fx-6",
+        effectName: "Colorize",
+        parameters: [{ key: "_HueOffset", value: "0.25", numericValue: 0.25 }],
+      },
+    ]).find((candidate) => candidate.clip.id === "fx-6");
+    assert.deepEqual(
+      entry?.effectChain.map((step) => step.pass.effectName),
+      ["Colorize"],
+    );
+  });
+});

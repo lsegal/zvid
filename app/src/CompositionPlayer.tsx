@@ -429,13 +429,18 @@ export class CompositionRenderer {
     );
 
     // Clips sharing a media at this playhead draw from extra elements, made
-    // the first time they are needed. Fill and text clips draw no media.
+    // the first time they are needed. Fill, text and FX clips draw no media.
     let addedElement = false;
     for (const entry of activeClips) {
       if (entry.text && entry.clip.id === this.state.hiddenTextClipId) {
         entry.text = { ...entry.text, text: "" };
       }
-      if (!entry.fill && !entry.text && !this.mediaRefs.has(entry.sourceKey)) {
+      if (
+        !entry.fill &&
+        !entry.text &&
+        !entry.fx &&
+        !this.mediaRefs.has(entry.sourceKey)
+      ) {
         this.ensureMediaElement(entry.sourceKey, entry.media);
         addedElement = true;
       }

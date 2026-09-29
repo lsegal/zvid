@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  type LayerDrawStep,
   type LayoutAnchor,
   orderStackedLayers,
+  planLayerDraws,
   resolveBandScissor,
   resolveCoverHalfExtents,
   resolveFrameBounds,
@@ -15,6 +17,7 @@ import {
 import {
   type Arrangement,
   type CompositionOrder,
+  DEFAULT_COMPOSITION_ORDER,
   Z_ORDER_COMPOSITION,
 } from "./composition-order.ts";
 
@@ -625,5 +628,86 @@ describe("resolveLayerPlacement with an Order", () => {
       width: 960,
       height: 540,
     });
+  });
+});
+
+describe("planLayerDraws", () => {
+  const layer = (laneRank: number, fx = false) => ({
+    id: `${fx ? "fx" : "layer"}-${laneRank}`,
+    laneRank,
+    clip: { startQ: 0 },
+    fx,
+  });
+  const describeSteps = (steps: LayerDrawStep<ReturnType<typeof layer>>[]) =>
+    steps.map((step) =>
+      step.type === "layer"
+        ? `${step.entry.id}@${step.slot}/${step.slotCount}`
+        : step.entry.id,
+    );
+
+  it("draws layers in slot order without FX clips", () => {
+    assert.deepEqual(
+      describeSteps(
+        planLayerDraws([layer(0), layer(1), layer(2)], Z_ORDER_COMPOSITION),
+      ),
+      ["layer-2@0/3", "layer-1@1/3", "layer-0@2/3"],
+    );
+  });
+
+  it("applies an FX clip after the layers beneath it and before those above", () => {
+    assert.deepEqual(
+      describeSteps(
+        planLayerDraws(
+          [layer(0), layer(1, true), layer(2), layer(3)],
+          Z_ORDER_COMPOSITION,
+        ),
+      ),
+      ["layer-3@0/3", "layer-2@1/3", "fx-1", "layer-0@2/3"],
+    );
+  });
+
+  it("applies FX clips from the highest-numbered layer up", () => {
+    assert.deepEqual(
+      describeSteps(
+        planLayerDraws(
+          [layer(0, true), layer(1), layer(2, true), layer(3)],
+          Z_ORDER_COMPOSITION,
+        ),
+      ),
+      ["layer-3@0/2", "fx-2", "layer-1@1/2", "fx-0"],
+    );
+  });
+
+  it("gives FX clips no Order slot", () => {
+    const steps = planLayerDraws(
+      [layer(0, true), layer(1), layer(2)],
+      DEFAULT_COMPOSITION_ORDER,
+    );
+    // Two bands for the two layers, drawn from the highest-numbered up so
+    // the FX clip on Layer 1 comes after both.
+    assert.deepEqual(describeSteps(steps), [
+      "layer-2@1/2",
+      "layer-1@0/2",
+      "fx-0",
+    ]);
+  });
+
+  it("leaves a Grid's hidden layers out beneath an FX clip", () => {
+    const grid: CompositionOrder = {
+      arrangement: "grid",
+      gridSize: 2,
+      spacing: 0,
+    };
+    const steps = planLayerDraws(
+      [layer(0, true), ...[1, 2, 3, 4, 5].map((rank) => layer(rank))],
+      grid,
+    );
+    assert.deepEqual(describeSteps(steps), [
+      "layer-4@3/4",
+      "layer-3@2/4",
+      "layer-2@1/4",
+      "layer-1@0/4",
+      "fx-0",
+    ]);
   });
 });

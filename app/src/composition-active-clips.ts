@@ -2,7 +2,8 @@
 // per lane under the playhead whose media is online, in lane order, with the
 // source time, visual state and effect chain each one is drawn with. Fill
 // and text clips have no media and are always drawable, painted by a Color
-// effect or styled by a Text effect.
+// effect or styled by a Text effect. FX clips have no media either: they draw
+// nothing and instead apply their own clip stack to what is beneath them.
 //
 // Effects come from three stacks, resolved Global -> Layer -> Clip: the
 // clip's own stack (`clip:<clipId>`), its layer's stack and the Global
@@ -18,6 +19,11 @@
 //      anchor is the layer's own);
 //   5. compositing by the Global Order, then the Global chain on the whole
 //      composite.
+//
+// An FX clip draws nothing and takes no Order slot. Its own stack's chain
+// runs on the composite of the layers beneath it (higher-numbered layers),
+// within the canvas or the box its Transforms move the canvas to, before the
+// layers above it are drawn.
 //
 // Other visual parameters (opacity and the like) read Global, then Layer,
 // then Clip, so the most specific stack wins.
@@ -68,9 +74,9 @@ export type Lane = {
 
 export type ArrangementClip = {
   id: string;
-  // "fill" or "text" for a media-less fill or text clip; media clips leave
-  // it unset.
-  kind?: "fill" | "text";
+  // "fill", "text" or "fx" for a media-less fill, text or FX clip; media
+  // clips leave it unset.
+  kind?: "fill" | "text" | "fx";
   sourceTrackId: string;
   laneId: string;
   label: string;
@@ -138,6 +144,9 @@ export type ActiveClip = {
   fill?: FillPaint;
   // Set for text clips, which draw this text instead of a media element.
   text?: TextStyle;
+  // Set for FX clips, which draw nothing and instead run `effectChain` on
+  // the composite beneath them.
+  fx?: true;
 };
 
 export const GROUP_TRACK_ID = "__group_main";
@@ -404,6 +413,24 @@ export function computeActiveClips(
         clip.durationSeconds > 0
           ? clamp(clipElapsedSeconds / clip.durationSeconds, 0, 1)
           : 0;
+      if (clip.kind === "fx") {
+        // Only the FX clip's own stack adjusts what is beneath it, so an FX
+        // clip without effects changes nothing.
+        return {
+          clip,
+          media,
+          sourceKey: media.id,
+          mediaTime: 0,
+          playbackRate: 1,
+          isInBounds: true,
+          laneRank,
+          clipProgress,
+          visual: resolveVisualState(effects, clip.laneId, clip.id),
+          effectChain: resolveEffectChain(effects, clipEffectTrackId(clip.id)),
+          fx: true,
+        };
+      }
+
       if (isGeneratedClip(clip)) {
         return {
           clip,
@@ -474,12 +501,12 @@ export function resolveClipEffectChain(
 }
 
 // Fill and text clips draw what their layer's effects describe rather than
-// a media file.
+// a media file, and FX clips adjust what is beneath them.
 function isGeneratedClip(clip: ArrangementClip) {
-  return clip.kind === "fill" || clip.kind === "text";
+  return clip.kind === "fill" || clip.kind === "text" || clip.kind === "fx";
 }
 
-// Stands in for the media of a fill or text clip, which has none. Its id
+// Stands in for the media of a fill, text or FX clip, which has none. Its id
 // doubles as the clip's source key, and the compositor never makes a media
 // element for it.
 function createGeneratedMedia(clip: ArrangementClip): MediaItem {

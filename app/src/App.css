@@ -1961,6 +1961,24 @@
   pointer-events: none;
 }
 
+/* FX clips draw nothing themselves: a translucent, hatched body over what
+   the lane shows. */
+.clip-card--fx {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--clip-accent) 28%, transparent) 0 4px,
+    transparent 4px 10px
+  );
+  border-style: dashed;
+}
+
+.clip-card__glyph--fx {
+  color: var(--clip-accent);
+  font-family: inherit;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+}
+
 /* Frames sampled along the clip, drawn behind its handles and label. */
 .clip-card__filmstrip {
   position: absolute;

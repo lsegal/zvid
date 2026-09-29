@@ -473,6 +473,39 @@ describe("buildSelectionMenuEntries", () => {
     );
   });
 
+  it("adds Insert FX Clip after Insert Text Clip when it exists", () => {
+    const calls: string[] = [];
+    const { entries } = build(
+      {
+        insertFill: () => calls.push("fill"),
+        insertText: () => calls.push("text"),
+        insertFx: () => calls.push("fx"),
+      },
+      calls,
+    );
+    assert.deepEqual(
+      entries.map((entry) => (entry.type === "item" ? entry.id : "---")),
+      [
+        "insert-track",
+        "insert-fill",
+        "insert-text",
+        "insert-fx",
+        "---",
+        "clear-selection",
+      ],
+    );
+    const fx = items(entries).find((entry) => entry.id === "insert-fx");
+    assert.equal(fx?.label, "Insert FX Clip");
+    fx?.onSelect?.();
+    assert.deepEqual(calls, ["fx"]);
+    assert.equal(
+      items(build({ disabled: true, insertFx: () => {} }).entries).find(
+        (entry) => entry.id === "insert-fx",
+      )?.disabled,
+      true,
+    );
+  });
+
   it("lists every source track with its swatch and number key", () => {
     assert.deepEqual(
       trackItems(build().entries).map((entry) => [

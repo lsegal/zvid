@@ -65,6 +65,7 @@ test("right-clicking a layer header selects it and lists the layer actions", asy
     /^(Enable|Disable) FX$/,
     "Add FX",
     "Insert text at playhead",
+    "Insert FX clip at playhead",
     "Insert layer above",
     "Insert layer below",
     "Move up",
