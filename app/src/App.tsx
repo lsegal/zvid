@@ -22,16 +22,16 @@ import {
 } from "react";
 import "./App.css";
 import {
+  AlsImportError,
+  formatAlsImportSummary,
+  isAlsFilename,
+} from "./als-import";
+import {
   applyWandArrangement,
   createWandLanes,
   getWandEndQ,
   planWandWindows,
 } from "./arrangement-wand.ts";
-import {
-  AlsImportError,
-  formatAlsImportSummary,
-  isAlsFilename,
-} from "./als-import";
 import {
   CompositionPlayer,
   type CompositionPlayerHandle,

@@ -48,6 +48,7 @@ const layoutEffect = (id: string, trackId: string): SessionEffect => ({
   trackId,
   effectName: "Layout",
   parameters: [],
+  enabled: true,
 });
 
 // An imported set: 9 layers named after source tracks.
@@ -131,7 +132,9 @@ describe("planWandWindows", () => {
       endQ,
       barLength: BAR,
       chooseSourceSpan: (sourceTrackId) =>
-        sourceSpans.find((candidate) => candidate.sourceTrackId === sourceTrackId),
+        sourceSpans.find(
+          (candidate) => candidate.sourceTrackId === sourceTrackId,
+        ),
       random: seededRandom(seed),
     });
 
@@ -140,7 +143,10 @@ describe("planWandWindows", () => {
       const windows = plan(52, seed);
       assert.ok(windows.length > 0);
       for (const window of windows) {
-        assert.ok(window.startQ < 52, `seed ${seed} starts at ${window.startQ}`);
+        assert.ok(
+          window.startQ < 52,
+          `seed ${seed} starts at ${window.startQ}`,
+        );
         assert.ok(
           window.startQ + window.durationQ <= 52 + 1e-9,
           `seed ${seed} ends at ${window.startQ + window.durationQ}`,
