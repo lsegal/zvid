@@ -19,7 +19,7 @@ export const ORDER_ARRANGEMENTS = ["Vertical", "Horizontal", "Grid"] as const;
 
 export const GRID_SIZE_MIN = 2;
 export const GRID_SIZE_MAX = 6;
-export const SPACING_MAX = 10;
+export const SPACING_MAX = 50;
 
 export const DEFAULT_COMPOSITION_ORDER: CompositionOrder = {
   arrangement: "vertical",
