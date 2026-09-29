@@ -174,6 +174,12 @@ import {
   stepSelectedLaneId,
 } from "./fx-chain";
 import {
+  addFxClip,
+  createFxClip,
+  describeFxClip,
+  isFxClip,
+} from "./fx-clip.ts";
+import {
   addEffect,
   clipEffectTrackId,
   copyClipEffects,
@@ -343,6 +349,7 @@ import {
   projectToLvpSession,
   readSelectionSlip,
   readSessionFills,
+  readSessionFxClips,
   readSessionTexts,
   SESSION_FILE_EXTENSION,
 } from "./session-save.ts";
@@ -480,9 +487,10 @@ type SourceSpan = {
 type ArrangementClip = {
   id: string;
   // "fill" for a media-less fill clip painted by its layer's Color effect,
-  // or "text" for a text clip styled by its Text effect; media clips leave
-  // it unset.
-  kind?: "fill" | "text";
+  // "text" for a text clip styled by its Text effect, or "fx" for an FX
+  // clip whose own stack adjusts what is beneath it; media clips leave it
+  // unset.
+  kind?: "fill" | "text" | "fx";
   sourceSpanId: string;
   sourceTrackId: string;
   laneId: string;
@@ -778,6 +786,8 @@ const FILL_CLIP_TINT = "#2a2d38";
 const FILL_CLIP_ACCENT = "#8d93a8";
 // Bars a text clip inserted at the playhead spans.
 const TEXT_CLIP_BARS = 4;
+// Bars an FX clip inserted at the playhead spans.
+const FX_CLIP_BARS = 4;
 const PALETTE: Palette[] = [
   { color: "#3d4052", accent: "#7ca1ff" },
   { color: "#444351", accent: "#ff6f9d" },
@@ -1837,6 +1847,10 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
     ...readSessionTexts(session, bpm, fps).map((clip) => ({
       clip,
       create: createTextClip,
+    })),
+    ...readSessionFxClips(session, bpm, fps).map((clip) => ({
+      clip,
+      create: createFxClip,
     })),
   ];
   for (const { clip, create } of layerClips) {
@@ -3298,6 +3312,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       }
     }
   }, [effects]);
+  // An FX clip's own stack offers only effects that work on a composite.
+  const fxClipScope = isFxClip(selectedClip) ? "fxClip" : "clip";
   const fxDevices = useMemo(
     () =>
       fxLaneId
@@ -3308,10 +3324,12 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             playheadVisualLayerCount,
             missingFonts,
             selectedClip?.id,
+            fxClipScope,
           )
         : [],
     [
       effects,
+      fxClipScope,
       fxLane?.name,
       fxLaneId,
       missingFonts,
@@ -4758,6 +4776,44 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       setPendingSelection(null);
       setSelectedClipId(id);
       setStatus(`Inserted text on ${lane.name}.`);
+      return id;
+    },
+    [bpm, dispatchProject, lanes],
+  );
+
+  // Inserts an FX clip over `durationQ` quarters from `startQ` on layer
+  // `laneId` and selects it, so the FX panel's Clip section opens ready for
+  // its first effect. It starts with no effects, so it changes nothing yet.
+  // Returns the new clip's id.
+  const insertFxClip = useCallback(
+    (laneId: string, startQ: number, durationQ: number) => {
+      const lane = lanes.find((candidate) => candidate.id === laneId);
+      if (!lane || !(durationQ > 0)) {
+        return undefined;
+      }
+
+      const accent =
+        lane.colorIndex >= 0 ? getSwatch(lane.colorIndex).accent : undefined;
+      const id = `fx-${crypto.randomUUID()}`;
+      dispatchProject({
+        type: "commit",
+        label: "Insert FX clip",
+        updater: (current) =>
+          patchProjectState(current, {
+            clips: addFxClip(current, {
+              id,
+              laneId,
+              startQ,
+              durationQ,
+              bpm,
+              tint: FILL_CLIP_TINT,
+              accent: accent ?? FILL_CLIP_ACCENT,
+            }).clips,
+          }),
+      });
+      setPendingSelection(null);
+      setSelectedClipId(id);
+      setStatus(`Inserted an FX clip on ${lane.name}.`);
       return id;
     },
     [bpm, dispatchProject, lanes],
@@ -6709,6 +6765,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         insertFillClip(selection.laneId, selection.startQ, selection.durationQ),
       insertText: () =>
         insertTextClip(selection.laneId, selection.startQ, selection.durationQ),
+      insertFx: () =>
+        insertFxClip(selection.laneId, selection.startQ, selection.durationQ),
       clear: () => setPendingSelection(null),
     });
   }
@@ -6743,6 +6801,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             playheadQRef.current,
             TEXT_CLIP_BARS * barLength,
           ),
+        insertFx: () =>
+          insertFxClip(lane.id, playheadQRef.current, FX_CLIP_BARS * barLength),
         insertAbove: () => insertLayer(lane.id, "above"),
         insertBelow: () => insertLayer(lane.id, "below"),
         moveUp: () => moveLayer(lane, -1),
@@ -9585,11 +9645,14 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                                   clipEffectTrackId(clip.id),
                                 )
                               : undefined;
+                            const fxLabel = isFxClip(clip)
+                              ? describeFxClip(effects, clip.id)
+                              : undefined;
                             return (
                               // biome-ignore lint/a11y/noStaticElementInteractions: right-click is a pointer shortcut; the context-menu key and Shift+F10 open the same menu on the selected clip
                               <div
                                 key={clip.id}
-                                className={`clip-card ${selected ? "clip-card--selected" : ""} ${trimming ? "clip-card--trimming" : ""} ${filmstrip || fillBackground ? "clip-card--filmstrip" : ""} ${fillBackground ? "clip-card--fill" : ""} ${textStyle ? "clip-card--text" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""}`}
+                                className={`clip-card ${selected ? "clip-card--selected" : ""} ${trimming ? "clip-card--trimming" : ""} ${filmstrip || fillBackground ? "clip-card--filmstrip" : ""} ${fillBackground ? "clip-card--fill" : ""} ${textStyle ? "clip-card--text" : ""} ${fxLabel ? "clip-card--fx" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""}`}
                                 data-clip-id={clip.id}
                                 onContextMenu={(event) =>
                                   openArrangementClipMenu(event, clip)
@@ -9775,12 +9838,20 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                                       T
                                     </span>
                                   ) : null}
+                                  {fxLabel ? (
+                                    <span
+                                      aria-hidden="true"
+                                      className="clip-card__glyph clip-card__glyph--fx"
+                                    >
+                                      FX
+                                    </span>
+                                  ) : null}
                                   <span className="clip-card__text">
                                     <strong>
                                       {textStyle
                                         ? getTextPreview(textStyle) ||
                                           clip.label
-                                        : clip.label}
+                                        : (fxLabel ?? clip.label)}
                                     </strong>
                                     <span className="clip-card__meta">
                                       {mediaSync ? (
@@ -10583,6 +10654,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 clipTrackId={
                   selectedClip ? clipEffectTrackId(selectedClip.id) : undefined
                 }
+                clipScope={fxClipScope}
                 onAdd={addFxDevice}
                 onDuplicate={duplicateFxDevice}
                 onMove={moveFxDevice}

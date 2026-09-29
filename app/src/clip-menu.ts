@@ -272,9 +272,9 @@ export type SelectionClipboardActions = {
 /**
  * The menu for an uncommitted selection: Cut, Copy and Delete for the span
  * when `clipboard` is available; Insert Track with every source track,
- * committed like pressing its number key; Insert Fill Clip and Insert Text
- * Layer when `insertFill` and `insertText` are available; and Clear
- * selection.
+ * committed like pressing its number key; Insert Fill Clip, Insert Text
+ * Clip and Insert FX Clip when `insertFill`, `insertText` and `insertFx`
+ * are available; and Clear selection.
  */
 export function buildSelectionMenuEntries({
   tracks,
@@ -283,6 +283,7 @@ export function buildSelectionMenuEntries({
   insertTrack,
   insertFill,
   insertText,
+  insertFx,
   clear,
 }: {
   tracks: readonly SelectionMenuTrack[];
@@ -292,6 +293,7 @@ export function buildSelectionMenuEntries({
   insertTrack: (index: number) => void;
   insertFill?: () => void;
   insertText?: () => void;
+  insertFx?: () => void;
   clear: () => void;
 }): ContextMenuEntry[] {
   const clipboardDisabled = disabled || !clipboard?.hasContent;
@@ -365,6 +367,17 @@ export function buildSelectionMenuEntries({
             label: "Insert Text Clip",
             disabled,
             onSelect: insertText,
+          } as const,
+        ]
+      : []),
+    ...(insertFx
+      ? [
+          {
+            type: "item",
+            id: "insert-fx",
+            label: "Insert FX Clip",
+            disabled,
+            onSelect: insertFx,
           } as const,
         ]
       : []),

@@ -628,13 +628,7 @@ export function drawComposition(
     if (entry.fill || entry.text) {
       // Fills and text are drawn at their slot's own size, so they cover
       // the slot exactly in any arrangement.
-      const slot = resolveSlotScissor(
-        index,
-        count,
-        order,
-        width,
-        height,
-      );
+      const slot = resolveSlotScissor(index, count, order, width, height);
       sourceWidth = Math.max(1, slot.width);
       sourceHeight = Math.max(1, slot.height);
       if (entry.text) {

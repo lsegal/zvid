@@ -68,6 +68,11 @@ export type LvpSession = {
   fills?: LvpLayerClip[];
   /** zvid-only: text clips, styled by their main track's Text effect. */
   texts?: LvpLayerClip[];
+  /**
+   * zvid-only: FX clips, whose own effect stack adjusts everything beneath
+   * them.
+   */
+  fxClips?: LvpLayerClip[];
   effects?: Array<{
     id: string;
     trackId: string;
