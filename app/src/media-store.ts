@@ -88,14 +88,18 @@ export function createMediaStore({
     const record = await index.get(id);
     // Files cached before the index existed are in IndexedDB.
     const backend = await backendFor(record?.backend ?? "idb");
-    const blob = (await backend?.read(id)) ?? null;
+    if (!backend) {
+      // OPFS is unavailable right now; keep the entry for a later read.
+      return null;
+    }
+    const blob = await backend.read(id);
     if (!blob) {
       if (record) {
         await index.remove([id]);
       }
       return null;
     }
-    if (backend?.kind === "opfs") {
+    if (backend.kind === "opfs") {
       openFiles.set(id, blob);
     }
     await touch(id, blob, record);
