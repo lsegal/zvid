@@ -341,6 +341,8 @@ export function projectToLvpSession(
     ...(mainAudio
       ? { audioFilename: mainAudio.sourcePath ?? mainAudio.name }
       : {}),
+    // The effects are written as they are, so a removed Order stays removed.
+    orderDefaulted: true,
   };
 
   return {
