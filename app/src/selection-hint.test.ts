@@ -94,9 +94,7 @@ describe("timeline selection stacking", () => {
       cssRule("timeline-playhead"),
       /z-index: var\(--z-timeline-playhead\);/,
     );
-    assert.ok(
-      zToken("z-timeline-selection") < zToken("z-timeline-playhead"),
-    );
+    assert.ok(zToken("z-timeline-selection") < zToken("z-timeline-playhead"));
   });
 
   it("lets clicks and drags through to the clips", () => {
