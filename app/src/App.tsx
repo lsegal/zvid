@@ -325,6 +325,16 @@ import {
   type ThumbnailSize,
 } from "./thumbnail-cache.ts";
 import { formatMusicalPosition, formatTimecode } from "./timeline-format.ts";
+import {
+  formatDivision,
+  type GridDivision,
+  type GridLineWeight,
+  getGridLayers,
+  getGridUnit,
+  getSnapUnit,
+  resolveAdaptiveDivision,
+  type SnapMode,
+} from "./timeline-grid";
 import { useDragScroll } from "./use-drag-scroll";
 import { useThumbnailCache } from "./use-thumbnail-cache";
 import { ZVID_BUILD } from "./version";
@@ -352,16 +362,6 @@ import {
   ZOOM_MIN,
   zoomFillFraction,
 } from "./zoom";
-import {
-  formatDivision,
-  type GridDivision,
-  type GridLineWeight,
-  getGridLayers,
-  getGridUnit,
-  getSnapUnit,
-  resolveAdaptiveDivision,
-  type SnapMode,
-} from "./timeline-grid";
 
 type TimelineMode = "musical" | "timecode";
 
