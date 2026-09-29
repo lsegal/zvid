@@ -13,7 +13,9 @@
 //!   file's frame clock is forwarded as [`Command::FrameClock`]. The
 //!   takes are stored at the size the file is recorded at, forwarded as
 //!   [`Command::Dimensions`] once the first frame is encoded, so a
-//!   portrait camera gives portrait takes.
+//!   portrait camera gives portrait takes. When the camera has turned
+//!   since the file started, the next take starts a new file in the new
+//!   orientation ([`Command::NextFile`]); a turn mid-take is letterboxed.
 //!   [`Backend::disarm`] sends [`Command::Disarm`] and finalizes the file
 //!   on a worker thread.
 //! - **Audio**: the format layer's input-bus tap delivers blocks timed on
@@ -144,11 +146,14 @@ struct OpenCamera {
 
 /// The capture in progress.
 struct Active {
+    /// Where its files go, chosen at arm.
+    root: RecordRoot,
     started: Instant,
     takes: u32,
     dropped: u64,
     clock: Option<FrameClock>,
-    /// The recorded size last sent as [`Command::Dimensions`].
+    /// The current file's recorded size last sent as
+    /// [`Command::Dimensions`].
     dimensions: Option<(u32, u32)>,
 }
 
@@ -417,24 +422,83 @@ impl CaptureBackend {
         self.send(Command::Disarm {
             at: self.platform.now_sec(),
         });
-        let Some(file) = file else {
+        if let Some(file) = file {
+            finish_file(file, wait);
+        }
+    }
+
+    /// Moves the capture to a new file for the take that just opened, when
+    /// the camera turned since the current file started. A file has one
+    /// size, so the take would otherwise be letterboxed into the old
+    /// orientation. The previous file is finalized on a worker thread.
+    fn next_file(&self, inner: &mut Inner) {
+        let (Some(active), Some(device), Some(camera)) =
+            (inner.capture.as_mut(), &inner.selected, &inner.camera)
+        else {
             return;
         };
-        let finish = move || match file.stop() {
-            Ok(recorded) => log(&format!(
-                "finished {} ({:.1} s)",
-                recorded.filename, recorded.duration_sec
-            )),
-            Err(error) => log(&format!("could not finish the capture file: {error}")),
-        };
-        if wait {
-            finish();
-        } else if let Err(error) = thread::Builder::new()
-            .name("zvid-capture-finish".to_string())
-            .spawn(finish)
-        {
-            log(&format!("could not finish the capture file: {error}"));
+        let letterboxing = lock(&self.recorder)
+            .as_ref()
+            .is_some_and(|file| file.stats().letterboxing);
+        if !letterboxing {
+            return;
         }
+        let audio = lock(&self.audio).format;
+        let file = match self.platform.record(RecordConfig {
+            root: active.root.clone(),
+            counter: inner.captures,
+            armed_at: self.platform.local_time(),
+            fps: camera.fps,
+            audio,
+            video_encoder: VideoEncoderChoice::Auto,
+            max_size: FormatPreference::default(),
+        }) {
+            Ok(file) => file,
+            Err(error) => {
+                // The take is letterboxed into the current file instead.
+                log(&format!(
+                    "could not start a file for the turned camera: {error}"
+                ));
+                return;
+            }
+        };
+        let capture = Capture {
+            filename: file.filename().to_string(),
+            record_root: active.root.kind,
+            dimensions: [camera.format.width, camera.format.height],
+            fps: camera.format.fps,
+            camera: device.name.clone(),
+            created_at: rfc3339_utc(SystemTime::now()),
+        };
+        log(&format!(
+            "the camera turned to {}x{}; recording the take to {}",
+            capture.dimensions[0], capture.dimensions[1], capture.filename
+        ));
+        // The audio tapped up to now belongs to the previous file.
+        self.pump_audio(false);
+        let previous = {
+            let _audio = lock(&self.audio);
+            lock(&self.recorder).replace(file)
+        };
+        let Some(previous) = previous else {
+            return;
+        };
+        let stats = previous.stats();
+        if let Some(size) = stats.dimensions
+            && Some(size) != active.dimensions
+        {
+            self.send(dimensions(size, self.platform.now_sec()));
+        }
+        if let Some(clock) = stats.frame_clock {
+            self.send(frame_clock(clock));
+        }
+        self.send(Command::NextFile {
+            capture,
+            at: self.platform.now_sec(),
+        });
+        active.clock = None;
+        active.dimensions = None;
+        finish_file(previous, false);
     }
 
     /// Stops the capture and closes the camera after a failure, and tells
@@ -458,6 +522,7 @@ impl CaptureBackend {
         let opened = match (&change, inner.capture.as_mut()) {
             (TakeChange::Opened { index, .. }, Some(active)) => {
                 active.takes = active.takes.max(index + 1);
+                self.next_file(&mut inner);
                 true
             }
             // The capture already ended, as for an unanchored capture's
@@ -730,7 +795,7 @@ impl Backend for CaptureBackend {
         let file = self
             .platform
             .record(RecordConfig {
-                root,
+                root: root.clone(),
                 counter,
                 armed_at: self.platform.local_time(),
                 fps: camera.fps,
@@ -774,6 +839,7 @@ impl Backend for CaptureBackend {
         self.send(Command::Arm { capture, at });
         inner.captures = counter;
         inner.capture = Some(Active {
+            root,
             started: Instant::now(),
             takes: 0,
             dropped: 0,
@@ -903,6 +969,26 @@ fn monitor(backend: Weak<CaptureBackend>, takes: Receiver<TakeChange>) {
         drop(backend);
         // `shutdown` unparks it to stop without waiting out the tick.
         thread::park_timeout(TICK);
+    }
+}
+
+/// Finishes a capture file on a worker thread, or before returning with
+/// `wait`.
+fn finish_file(file: Box<dyn CaptureFile>, wait: bool) {
+    let finish = move || match file.stop() {
+        Ok(recorded) => log(&format!(
+            "finished {} ({:.1} s)",
+            recorded.filename, recorded.duration_sec
+        )),
+        Err(error) => log(&format!("could not finish the capture file: {error}")),
+    };
+    if wait {
+        finish();
+    } else if let Err(error) = thread::Builder::new()
+        .name("zvid-capture-finish".to_string())
+        .spawn(finish)
+    {
+        log(&format!("could not finish the capture file: {error}"));
     }
 }
 

@@ -408,6 +408,7 @@ fn keeps_the_take_orientation_when_the_camera_turns_mid_take() {
         assert_eq!(recorded.dimensions, (64, 48), "{codec}");
         assert_eq!(recorded.stats.frames_written, 20, "{codec}");
         assert_eq!(recorded.stats.error, None, "{codec}");
+        assert!(recorded.stats.letterboxing, "{codec}");
         assert!(
             recorded
                 .stats
@@ -440,6 +441,31 @@ fn keeps_the_take_orientation_when_the_camera_turns_mid_take() {
 }
 
 #[test]
+fn reports_letterboxing_while_the_camera_is_turned() {
+    // The caller starts a new file for the next take only while the camera
+    // is still turned away from the file's orientation.
+    let root = root();
+    let recorder = Recorder::start(config(&root, None, VideoEncoderChoice::Software)).unwrap();
+    for index in 0..15 {
+        let mut frame = (*frame(64, 48, index, index as f64 * 1000.0 / 30.0)).clone();
+        if (5..10).contains(&index) {
+            frame.rotation = Rotation::Cw90;
+        }
+        push(&recorder, Arc::new(frame));
+    }
+    let recorded = recorder.stop().unwrap();
+    assert_eq!(recorded.dimensions, (64, 48));
+    assert_eq!(recorded.stats.frames_written, 15);
+    assert!(!recorded.stats.letterboxing);
+    assert_eq!(
+        recorded.stats.warnings.len(),
+        1,
+        "{:?}",
+        recorded.stats.warnings
+    );
+}
+
+#[test]
 fn records_a_portrait_take_after_a_landscape_one() {
     // Turning the camera between takes changes the next take's orientation.
     let root = root();
@@ -453,6 +479,7 @@ fn records_a_portrait_take_after_a_landscape_one() {
         }
         let recorded = recorder.stop().unwrap();
         assert!(recorded.stats.warnings.is_empty());
+        assert!(!recorded.stats.letterboxing);
         let (movie, _) = demux(&root.path_of(&recorded.filename));
         assert_eq!(
             movie.tracks[0].dimensions.map(|d| (d.width, d.height)),

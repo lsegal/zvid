@@ -10,10 +10,10 @@
 //!   camera's rate, timed from their capture timestamps relative to the
 //!   first frame (file time zero). Frames are rotated upright
 //!   ([`Frame::upright`]) and scaled down to fit
-//!   [`RecordConfig::max_size`] before encoding. A take keeps the
-//!   orientation and size of its first frame: when the camera turns
-//!   mid-take, later frames are letterboxed into it, and the next take
-//!   records the new orientation.
+//!   [`RecordConfig::max_size`] before encoding. A file keeps the
+//!   orientation and size of its first frame: when the camera turns, later
+//!   frames are letterboxed into it and [`RecordStats::letterboxing`] is
+//!   set, so the caller can start the next take in a new file.
 //! - **Audio** is AAC-LC of the plugin's input bus from zvidlib, aligned to
 //!   the same clock. Without an AAC encoder the file is video only.
 //! - **Muxing** writes a fragmented MP4 while recording, one synced
@@ -148,6 +148,10 @@ pub struct RecordStats {
     /// It is portrait for a portrait camera, and stays as it is when the
     /// camera turns mid-recording.
     pub dimensions: Option<(u32, u32)>,
+    /// Whether the latest frame no longer fits `dimensions` and was
+    /// letterboxed into it, because the camera turned since the file
+    /// started. A file for the camera's new orientation starts afresh.
+    pub letterboxing: bool,
     pub audio_encoder: Option<&'static str>,
     /// Problems that didn't stop the recording, such as a missing AAC
     /// encoder or skipped encoder candidates.
@@ -467,6 +471,8 @@ struct Video {
     written_slots: u64,
     /// Set once a frame no longer fits the encoder and was letterboxed.
     letterboxed: bool,
+    /// Whether the latest frame was letterboxed.
+    letterboxing: bool,
 }
 
 struct Audio {
@@ -613,14 +619,20 @@ impl Worker {
                 pending: None,
                 written_slots: 0,
                 letterboxed: false,
+                letterboxing: false,
             });
         }
         let video = video.as_mut().expect("opened above");
-        if !video.letterboxed && !video.encoder.fits(frame.width, frame.height) {
+        let fits = video.encoder.fits(frame.width, frame.height);
+        if fits == video.letterboxing {
+            video.letterboxing = !fits;
+            self.shared.stats().letterboxing = !fits;
+        }
+        if !video.letterboxed && !fits {
             video.letterboxed = true;
             let (width, height) = video.encoder.dimensions();
             let warning = format!(
-                "the camera changed to {}x{} mid-take; letterboxing into {width}x{height}",
+                "the camera changed to {}x{}; letterboxing into {width}x{height}",
                 frame.width, frame.height
             );
             log(&warning);

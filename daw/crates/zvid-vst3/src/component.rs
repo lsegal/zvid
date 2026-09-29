@@ -172,7 +172,8 @@ impl Component {
     }
 
     /// Where the capture layer sends [`Command::Arm`], [`Command::Disarm`],
-    /// [`Command::FrameClock`] and [`Command::Dimensions`]. Commands wait
+    /// [`Command::FrameClock`], [`Command::Dimensions`] and
+    /// [`Command::NextFile`]. Commands wait
     /// while the component is not initialized and are applied once the control
     /// thread runs.
     pub fn commands(&self) -> Sender<Command> {

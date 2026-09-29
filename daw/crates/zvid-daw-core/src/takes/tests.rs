@@ -230,6 +230,158 @@ fn takes_get_the_size_the_file_was_recorded_at() {
     assert_eq!(state.recordings[3].dimensions, [1920, 1080]);
 }
 
+const TURNED: &str = "video-01-9-25-20-36-17-0.mp4";
+
+/// The file a capture continues in after the camera turned to portrait.
+fn turned(at: f64) -> Command {
+    Command::NextFile {
+        capture: Capture {
+            filename: TURNED.to_string(),
+            dimensions: [1080, 1920],
+            created_at: "2026-09-25T20:36:17Z".to_string(),
+            ..capture()
+        },
+        at,
+    }
+}
+
+fn frame_clock(host_time: f64, file_sec: f64) -> Command {
+    Command::FrameClock {
+        host_time,
+        file_sec,
+    }
+}
+
+#[test]
+fn a_take_after_the_camera_turned_gets_its_own_file() {
+    let mut log = TakeLog::default();
+    let mut state = State::default();
+    log.command(arm(100.0), &mut state);
+    log.command(frame_clock(100.2, 0.0), &mut state);
+    play(&mut log, &mut state, 8.0, 101.0, 2.0);
+    // The camera turned; the next take opens and moves to a new file,
+    // whose first frame arrives 0.1 s into the take.
+    log.transport(snap(true, 16.0, 105.0), &mut state);
+    assert!(log.command(turned(105.05), &mut state).is_empty());
+    let open = &state.recordings[1];
+    assert_eq!(open.filename, TURNED);
+    assert_eq!(open.dimensions, [1080, 1920]);
+    assert_eq!(open.file_offset_sec, 0.0);
+    assert!(close(open.transport_start_sec.unwrap(), 16.05), "{open:?}");
+    log.command(frame_clock(105.1, 0.0), &mut state);
+    for step in 1..=100 {
+        let elapsed = f64::from(step) / 100.0;
+        log.transport(snap(true, 16.0 + elapsed, 105.0 + elapsed), &mut state);
+        log.command(frame_clock(105.1 + elapsed, elapsed), &mut state);
+    }
+    log.transport(snap(false, 17.0, 106.01), &mut state);
+    log.command(
+        Command::Dimensions {
+            dimensions: [1080, 1918],
+            at: 106.1,
+        },
+        &mut state,
+    );
+    log.command(Command::Disarm { at: 107.0 }, &mut state);
+
+    assert_eq!(state.recordings.len(), 2);
+    let (first, second) = (&state.recordings[0], &state.recordings[1]);
+    assert_eq!(first.filename, FILE);
+    assert_eq!(first.dimensions, [1920, 1080]);
+    assert!(close(first.file_offset_sec, 0.8), "{first:?}");
+    assert!(close(first.duration_sec, 2.0), "{first:?}");
+
+    // The take keeps its ID and starts at the new file's first frame, 0.1 s
+    // after play began.
+    assert_eq!(second.id, "video-01-9-25-20-36-12-0-take-2");
+    assert_eq!(second.filename, TURNED);
+    assert_eq!(second.dimensions, [1080, 1918]);
+    assert_eq!(second.file_offset_sec, 0.0);
+    assert!(
+        close(second.transport_start_sec.unwrap(), 16.1),
+        "{second:?}"
+    );
+    assert!(
+        close(second.transport_start_beats.unwrap(), 32.2),
+        "{second:?}"
+    );
+    assert_eq!(second.frame_start, 483);
+    assert!(close(second.duration_sec, 0.91), "{second:?}");
+    assert_eq!(second.created_at, "2026-09-25T20:36:17Z");
+
+    let changes = log.take_changes();
+    let opened: Vec<u32> = changes
+        .iter()
+        .filter_map(|change| match change {
+            TakeChange::Opened { index, .. } => Some(*index),
+            TakeChange::Closed(_) => None,
+        })
+        .collect();
+    assert_eq!(opened, [0, 1]);
+    assert!(
+        matches!(changes.last(), Some(TakeChange::Closed(take)) if take.filename == TURNED),
+        "{changes:?}"
+    );
+}
+
+#[test]
+fn a_file_without_takes_of_its_own_becomes_an_unanchored_entry() {
+    let mut log = TakeLog::default();
+    let mut state = State::default();
+    // The camera turned before the first take.
+    log.command(arm(100.0), &mut state);
+    log.transport(snap(true, 8.0, 101.0), &mut state);
+    log.command(turned(101.05), &mut state);
+    log.transport(snap(false, 9.0, 102.0), &mut state);
+    log.command(Command::Disarm { at: 103.0 }, &mut state);
+
+    assert_eq!(state.recordings.len(), 2);
+    let (take, previous) = (&state.recordings[0], &state.recordings[1]);
+    assert_eq!(take.filename, TURNED);
+    assert!(close(take.transport_start_sec.unwrap(), 8.05), "{take:?}");
+    assert!(close(take.duration_sec, 0.95), "{take:?}");
+    assert_eq!(previous.filename, FILE);
+    assert!(previous.is_unanchored());
+    assert!(close(previous.duration_sec, 1.05), "{previous:?}");
+    assert_ne!(previous.id, take.id);
+
+    // Only the take counts as opened; the previous file's entry closes.
+    let changes = log.take_changes();
+    assert!(matches!(changes[0], TakeChange::Opened { index: 0, .. }));
+    assert_eq!(changes[1], TakeChange::Closed(state.recordings[1].clone()));
+    assert_eq!(changes[2], TakeChange::Closed(state.recordings[0].clone()));
+    assert_eq!(changes.len(), 3);
+}
+
+#[test]
+fn a_new_file_without_its_take_is_unanchored_at_disarm() {
+    let mut log = TakeLog::default();
+    let mut state = State::default();
+    log.command(arm(100.0), &mut state);
+    play(&mut log, &mut state, 8.0, 101.0, 0.02);
+    // The take closed before the new file reached the log.
+    log.command(turned(101.1), &mut state);
+    log.command(Command::Disarm { at: 104.0 }, &mut state);
+
+    assert_eq!(state.recordings.len(), 2);
+    assert_eq!(state.recordings[0].filename, FILE);
+    assert!(!state.recordings[0].is_unanchored());
+    assert_eq!(state.recordings[1].filename, TURNED);
+    assert!(state.recordings[1].is_unanchored());
+    assert!(close(state.recordings[1].duration_sec, 2.9));
+}
+
+#[test]
+fn a_new_file_without_a_capture_changes_nothing() {
+    let mut log = TakeLog::default();
+    let mut state = State::default();
+    assert!(log.command(turned(1.0), &mut state).is_empty());
+    log.command(arm(2.0), &mut state);
+    log.command(Command::Disarm { at: 3.0 }, &mut state);
+    assert_eq!(state.recordings.len(), 1);
+    assert_eq!(state.recordings[0].filename, FILE);
+}
+
 #[test]
 fn a_size_without_a_capture_changes_nothing() {
     let mut log = TakeLog::default();
