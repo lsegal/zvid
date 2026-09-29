@@ -1,13 +1,7 @@
-// The arrangement wand: rebuilds the arrangement from randomized windows on a
-// quarter-bar grid, on a fresh set of at most `MAX_WAND_LAYERS` layers that
-// ends at the session end.
+// The arrangement wand's layers and extent: it rebuilds the arrangement on a
+// fresh set of layers named `Layer 1` onward and stops at the session end.
+// `random-arrangement.ts` picks the windows themselves.
 import { ensureLayerLayouts, type SessionEffect } from "./fx-stack.ts";
-
-export const RANDOM_SELECTION_BAR_INCREMENT = 0.25;
-export const RANDOM_SELECTION_MAX_BARS = 2;
-export const MAX_WAND_LAYERS = 3;
-
-const EPSILON = 0.0001;
 
 export type WandLane = {
   id: string;
@@ -16,19 +10,9 @@ export type WandLane = {
 };
 
 export type WandSourceSpan = {
-  sourceTrackId: string;
   mediaId?: string;
   startQ: number;
   durationSeconds: number;
-};
-
-export type WandWindow<Span> = {
-  laneId: string;
-  stepIndex: number;
-  startQ: number;
-  durationQ: number;
-  sourceTrackId: string;
-  sourceSpan: Span;
 };
 
 function secondsToQuarters(seconds: number, bpm: number) {
@@ -37,15 +21,15 @@ function secondsToQuarters(seconds: number, bpm: number) {
 
 // Where the wand stops: the session length (Live's loop end or the last clip
 // end from an import) when the session has one, otherwise the end of the
-// last video source span. Audio-only spans such as frozen tracks and the
-// main audio can run far past the song, so they do not count.
-export function getWandEndQ(options: {
+// last video source span. Audio-only spans such as frozen tracks, and the
+// main audio, can run far past the song, so they do not count.
+export function getWandEndQ<Span extends WandSourceSpan>(options: {
   projectDurationFrames?: number;
   fps: number;
   bpm: number;
   barLength: number;
-  sourceSpans: readonly WandSourceSpan[];
-  isVideoSpan: (span: WandSourceSpan) => boolean;
+  sourceSpans: readonly Span[];
+  isVideoSpan: (span: Span) => boolean;
 }) {
   const { projectDurationFrames, fps, bpm, barLength, sourceSpans } = options;
   if (projectDurationFrames && projectDurationFrames > 0 && fps > 0) {
@@ -65,104 +49,24 @@ export function getWandEndQ(options: {
   return Math.max(barLength, spanEndQ);
 }
 
-// `Layer 1` to `Layer <MAX_WAND_LAYERS>`, with ids no existing layer uses so
-// nothing still keyed to an old layer attaches to them.
-export function createWandLanes(existingLanes: readonly { id: string }[]) {
+// `Layer 1` to `Layer <count>`, with ids no existing layer uses so nothing
+// still keyed to an old layer attaches to them.
+export function createWandLanes(
+  existingLanes: readonly { id: string }[],
+  count: number,
+) {
   const numericIds = existingLanes
     .map((lane) => Number.parseInt(lane.id, 10))
     .filter((value) => Number.isInteger(value));
   const firstId = Math.max(0, ...numericIds) + 1;
   return Array.from(
-    { length: MAX_WAND_LAYERS },
+    { length: count },
     (_, index): WandLane => ({
       id: `${firstId + index}`,
       name: `Layer ${index + 1}`,
       colorIndex: -1,
     }),
   );
-}
-
-// Picks the randomized windows. Layer 1 is always filled and each layer above
-// it half as often as the one below. No window starts or ends past `endQ`;
-// the last one is shortened to end on it when no grid length fits.
-export function planWandWindows<Span>(options: {
-  lanes: readonly { id: string }[];
-  sourceTrackIds: readonly string[];
-  endQ: number;
-  barLength: number;
-  chooseSourceSpan: (
-    sourceTrackId: string,
-    startQ: number,
-    durationQ: number,
-  ) => Span | undefined;
-  random: () => number;
-}) {
-  const { lanes, sourceTrackIds, endQ, barLength, random } = options;
-  const pickRandom = <T>(items: readonly T[]) =>
-    items[Math.floor(random() * items.length)] ?? items[0];
-  const stepQ = barLength * RANDOM_SELECTION_BAR_INCREMENT;
-  const durationSteps = Array.from(
-    {
-      length: Math.round(
-        RANDOM_SELECTION_MAX_BARS / RANDOM_SELECTION_BAR_INCREMENT,
-      ),
-    },
-    (_, index) => (index + 1) * stepQ,
-  );
-  const nextAvailableByLane = new Map(lanes.map((lane) => [lane.id, 0]));
-  const windows: WandWindow<Span>[] = [];
-  const stepCount = Math.max(1, Math.ceil(endQ / stepQ));
-
-  for (let stepIndex = 0; stepIndex < stepCount; stepIndex += 1) {
-    const startQ = stepIndex * stepQ;
-    if (startQ >= endQ - EPSILON) {
-      break;
-    }
-
-    for (const [laneIndex, lane] of lanes.entries()) {
-      const nextAvailableQ = nextAvailableByLane.get(lane.id) ?? 0;
-      if (startQ < nextAvailableQ - EPSILON) {
-        continue;
-      }
-
-      const layerChance = laneIndex === 0 ? 1 : 0.5 ** laneIndex;
-      if (random() > layerChance) {
-        continue;
-      }
-
-      const fittingDurations = durationSteps.filter(
-        (durationQ) => startQ + durationQ <= endQ + EPSILON,
-      );
-      const validDurations = fittingDurations.length
-        ? fittingDurations
-        : [endQ - startQ];
-      const durationQ = pickRandom(validDurations);
-      const candidates = sourceTrackIds.flatMap((sourceTrackId) => {
-        const sourceSpan = options.chooseSourceSpan(
-          sourceTrackId,
-          startQ,
-          durationQ,
-        );
-        return sourceSpan ? [{ sourceTrackId, sourceSpan }] : [];
-      });
-      if (!candidates.length) {
-        continue;
-      }
-
-      const picked = pickRandom(candidates);
-      windows.push({
-        laneId: lane.id,
-        stepIndex,
-        startQ,
-        durationQ,
-        sourceTrackId: picked.sourceTrackId,
-        sourceSpan: picked.sourceSpan,
-      });
-      nextAvailableByLane.set(lane.id, startQ + durationQ);
-    }
-  }
-
-  return windows;
 }
 
 // Swaps the wand's layers and windows into the project: the old layers, their

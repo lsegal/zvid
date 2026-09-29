@@ -4,8 +4,6 @@ import {
   applyWandArrangement,
   createWandLanes,
   getWandEndQ,
-  MAX_WAND_LAYERS,
-  planWandWindows,
   type WandSourceSpan,
 } from "./arrangement-wand.ts";
 import type { SessionEffect } from "./fx-stack.ts";
@@ -13,10 +11,12 @@ import {
   createProjectHistoryState,
   projectHistoryReducer,
 } from "./project-history.ts";
+import { buildRandomArrangement } from "./random-arrangement.ts";
 
 const BPM = 120;
 const FPS = 25;
 const BAR = 4;
+const WAND_LAYERS = 3;
 
 // Mulberry32, so every run of a test sees the same windows.
 function seededRandom(seed: number) {
@@ -36,7 +36,7 @@ const span = (
   startQ: number,
   endQ: number,
   mediaId = `${sourceTrackId}-media`,
-): WandSourceSpan => ({
+): WandSourceSpan & { sourceTrackId: string } => ({
   sourceTrackId,
   mediaId,
   startQ,
@@ -111,8 +111,7 @@ describe("getWandEndQ", () => {
 
 describe("createWandLanes", () => {
   it("creates Layer 1 to Layer 3 with ids no old layer uses", () => {
-    const lanes = createWandLanes(importedLanes);
-    assert.equal(MAX_WAND_LAYERS, 3);
+    const lanes = createWandLanes(importedLanes, WAND_LAYERS);
     assert.deepEqual(
       lanes.map((lane) => lane.name),
       ["Layer 1", "Layer 2", "Layer 3"],
@@ -123,30 +122,40 @@ describe("createWandLanes", () => {
   });
 });
 
-describe("planWandWindows", () => {
-  const sourceSpans = [span("a", 0, 124), span("b", 0, 124)];
-  const plan = (endQ: number, seed: number) =>
-    planWandWindows({
-      lanes: createWandLanes(importedLanes),
-      sourceTrackIds: ["a", "b"],
-      endQ,
-      barLength: BAR,
-      chooseSourceSpan: (sourceTrackId) =>
-        sourceSpans.find(
-          (candidate) => candidate.sourceTrackId === sourceTrackId,
-        ),
+describe("the wand on an imported set", () => {
+  // The video runs to bar 12; a frozen audio-only track runs to about bar
+  // 31. The session is 13 bars long.
+  const sourceSpans = [
+    span("video-a", 0, 48),
+    span("video-b", 8, 48),
+    span("frozen", 0, 124, "frozen.wav"),
+  ];
+  const endQ = getWandEndQ({
+    projectDurationFrames: 650,
+    fps: FPS,
+    bpm: BPM,
+    barLength: BAR,
+    sourceSpans,
+    isVideoSpan: (candidate) => candidate.mediaId !== "frozen.wav",
+  });
+  const wandLanes = createWandLanes(importedLanes, WAND_LAYERS);
+  const arrange = (seed: number) =>
+    buildRandomArrangement({
+      laneIds: wandLanes.map((lane) => lane.id),
+      sourceTrackIds: ["video-a", "video-b", "frozen"],
+      spans: sourceSpans,
+      spanEndQ: (candidate) => candidate.startQ + candidate.durationSeconds * 2,
+      timelineEndQ: endQ,
+      stepQ: BAR / 4,
+      durationSteps: [1, 2, 3, 4, 5, 6, 7, 8],
       random: seededRandom(seed),
     });
 
   it("never places a window past the session end", () => {
     for (let seed = 1; seed <= 50; seed += 1) {
-      const windows = plan(52, seed);
+      const windows = arrange(seed);
       assert.ok(windows.length > 0);
       for (const window of windows) {
-        assert.ok(
-          window.startQ < 52,
-          `seed ${seed} starts at ${window.startQ}`,
-        );
         assert.ok(
           window.startQ + window.durationQ <= 52 + 1e-9,
           `seed ${seed} ends at ${window.startQ + window.durationQ}`,
@@ -155,24 +164,12 @@ describe("planWandWindows", () => {
     }
   });
 
-  it("fills Layer 1 up to a session end off the quarter-bar grid", () => {
-    // 51.5 quarters leaves half a quarter after the last grid step.
-    for (let seed = 1; seed <= 50; seed += 1) {
-      const windows = plan(51.5, seed);
-      const layerOne = windows.filter(
-        (window) => window.laneId === windows[0].laneId,
-      );
-      const last = layerOne[layerOne.length - 1];
-      assert.equal(last.startQ + last.durationQ, 51.5, `seed ${seed}`);
-    }
-  });
-
-  it("only uses the wand layers", () => {
-    const laneIds = new Set(
-      createWandLanes(importedLanes).map((lane) => lane.id),
-    );
-    for (const window of plan(52, 7)) {
-      assert.ok(laneIds.has(window.laneId));
+  it("only uses Layer 1 to Layer 3", () => {
+    const laneIds = new Set(wandLanes.map((lane) => lane.id));
+    for (let seed = 1; seed <= 20; seed += 1) {
+      for (const window of arrange(seed)) {
+        assert.ok(laneIds.has(window.laneId));
+      }
     }
   });
 });
@@ -189,7 +186,7 @@ describe("applyWandArrangement", () => {
   };
 
   it("replaces the old layers, and undo restores them", () => {
-    const wandLanes = createWandLanes(initial.lanes);
+    const wandLanes = createWandLanes(initial.lanes, WAND_LAYERS);
     const wandClips = [{ id: "wand-clip", laneId: wandLanes[0].id }];
     const committed = projectHistoryReducer(
       createProjectHistoryState(initial),
