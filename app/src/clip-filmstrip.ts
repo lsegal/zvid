@@ -2,6 +2,9 @@
 // each showing the source frame under its left edge. Only tiles inside the
 // visible timeline range are laid out, and sample times are snapped to a
 // zoom-dependent grid so small zoom changes reuse frames already decoded.
+// A warped clip's grid is in linear source time, and each tile's time is then
+// mapped through its warp markers, so it shows the frame the player draws there.
+import type { ClipWarp } from "./clip-warp.ts";
 import {
   getClipThumbnailTimeSeconds,
   type ThumbnailSize,
@@ -22,6 +25,7 @@ export type FilmstripClip = {
   trimStartSeconds: number;
   sourceWindowStartSeconds: number;
   sourceWindowEndSeconds: number;
+  warp?: ClipWarp;
 };
 
 export type FilmstripLayout = {
@@ -34,6 +38,8 @@ export type FilmstripLayout = {
   // How much source time one timeline pixel covers.
   secondsPerPx: number;
   range: FilmstripRange;
+  // The song tempo, which maps a warped clip's tiles through its warp.
+  bpm?: number;
 };
 
 const DEFAULT_ASPECT = 16 / 9;
@@ -88,8 +94,10 @@ export function getFilmstripDecodeSize(
 export function getSourceSpanFilmstripClip(span: {
   trimStartSeconds: number;
   durationSeconds: number;
+  warp?: ClipWarp;
 }): FilmstripClip {
   return {
+    warp: span.warp,
     trimStartSeconds: span.trimStartSeconds,
     sourceWindowStartSeconds: span.trimStartSeconds,
     sourceWindowEndSeconds:
@@ -136,6 +144,7 @@ export function getClipFilmstripTiles({
   tileWidthPx,
   secondsPerPx,
   range,
+  bpm,
 }: FilmstripLayout): FilmstripTile[] {
   if (clipWidthPx <= 0 || tileWidthPx <= 0 || range.endPx <= range.startPx) {
     return [];
@@ -170,6 +179,7 @@ export function getClipFilmstripTiles({
       timeSeconds: getClipThumbnailTimeSeconds(
         { ...clip, trimStartSeconds: sampleSeconds },
         mediaDurationSeconds,
+        bpm,
       ),
     });
   }
