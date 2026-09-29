@@ -47,7 +47,8 @@ export type CompositeVisual = LayerVisual & {
 };
 
 export type CompositeLayer = {
-  clip: { startQ: number };
+  // `laneId` is the layer the clip is on, which an Order can exclude.
+  clip: { startQ: number; laneId?: string };
   media: { id: string; width?: number; height?: number };
   // Key of the media element in `mediaRefs` this layer draws from.
   sourceKey: string;
@@ -844,7 +845,6 @@ export function drawComposition(
   const drawSteps = (
     steps: LayerDrawStep<CompositeLayer>[],
     target: StackTarget,
-    stackOrder: CompositionOrder,
     depth: number,
   ) => {
     for (const step of steps) {
@@ -852,7 +852,8 @@ export function drawComposition(
         drawLayer(
           resources,
           target,
-          stackOrder,
+          // The Order, or the z-order overlay for a layer it excludes.
+          step.order,
           mediaRefs,
           frameContext,
           step.entry,
@@ -905,7 +906,7 @@ export function drawComposition(
     bindCompositeState(resources, target.framebuffer, size.width, size.height);
     gl.clearColor(...borderClearColor(step.order));
     gl.clear(gl.COLOR_BUFFER_BIT);
-    drawSteps(step.steps, target, step.order, depth + 1);
+    drawSteps(step.steps, target, depth + 1);
     gl.disable(gl.SCISSOR_TEST);
 
     // The FX clip's other effects run on the arranged layers.
@@ -948,8 +949,9 @@ export function drawComposition(
     });
   };
 
-  // FX clips take no slot, and a Grid has one cell per layer, so layers past
-  // the last cell are not drawn.
+  // FX clips and the layers the Order excludes take no slot, and a Grid has
+  // one cell per arranged layer, so arranged layers past the last cell are
+  // not drawn.
   drawSteps(
     planLayerDraws(
       activeClips.filter((entry) =>
@@ -964,7 +966,6 @@ export function drawComposition(
       order,
     ),
     sceneTarget,
-    order,
     0,
   );
 

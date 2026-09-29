@@ -4,8 +4,13 @@ import {
   type CompositionOrder,
   DEFAULT_COMPOSITION_ORDER,
   hiddenLayerCount,
+  isLayerArranged,
   parseCompositionOrder,
+  parseLayerIdList,
+  pruneLayerIdList,
   resolveCompositionOrder,
+  serializeLayerIdList,
+  toggleLayerId,
   visibleLayerCount,
   Z_ORDER_COMPOSITION,
 } from "./composition-order.ts";
@@ -37,6 +42,7 @@ describe("parseCompositionOrder", () => {
       arrangement: "grid",
       gridSize: 4,
       spacing: 6,
+      excludedLayers: [],
       borderColor: BLACK,
     });
     assert.equal(
@@ -50,12 +56,14 @@ describe("parseCompositionOrder", () => {
       arrangement: "grid",
       gridSize: 6,
       spacing: 50,
+      excludedLayers: [],
       borderColor: BLACK,
     });
     assert.deepEqual(parseCompositionOrder(order("Spiral", 1, -2).parameters), {
       arrangement: "vertical",
       gridSize: 2,
       spacing: 0,
+      excludedLayers: [],
       borderColor: BLACK,
     });
     assert.deepEqual(parseCompositionOrder([]), DEFAULT_COMPOSITION_ORDER);
@@ -133,6 +141,7 @@ describe("resolveCompositionOrder", () => {
       arrangement: "grid",
       gridSize: 3,
       spacing: 2,
+      excludedLayers: [],
       borderColor: BLACK,
     });
   });
@@ -164,5 +173,43 @@ describe("visibleLayerCount", () => {
     assert.equal(hiddenLayerCount(5, grid(2)), 1);
     assert.equal(hiddenLayerCount(40, grid(6)), 4);
     assert.equal(hiddenLayerCount(0, grid(2)), 0);
+  });
+});
+
+describe("excluded layers", () => {
+  it("excludes no layer by default, so every layer is arranged", () => {
+    const parsed = parseCompositionOrder(order("Grid", 2, 0).parameters);
+    assert.deepEqual(parsed.excludedLayers, []);
+    assert.equal(isLayerArranged(parsed, "1"), true);
+  });
+
+  it("reads the excluded layer ids", () => {
+    const parsed = parseCompositionOrder([
+      { key: "Arrangement", value: "Grid" },
+      { key: "ExcludedLayers", value: " 3, 1,,3 " },
+    ]);
+    assert.deepEqual(parsed.excludedLayers, ["3", "1"]);
+    assert.equal(isLayerArranged(parsed, "1"), false);
+    assert.equal(isLayerArranged(parsed, "2"), true);
+    // A layer added later is not in the list, so it is arranged.
+    assert.equal(isLayerArranged(parsed, "9"), true);
+  });
+
+  it("arranges nothing without an Order", () => {
+    assert.equal(isLayerArranged(Z_ORDER_COMPOSITION, "1"), false);
+  });
+
+  it("toggles one layer id at a time", () => {
+    assert.equal(toggleLayerId("", "2"), "2");
+    assert.equal(toggleLayerId("2", "5"), "2,5");
+    assert.equal(toggleLayerId("2,5", "2"), "5");
+    assert.equal(toggleLayerId("5", "5"), "");
+  });
+
+  it("drops ids of layers that no longer exist", () => {
+    assert.equal(pruneLayerIdList("1,4,7", ["1", "2", "7"]), "1,7");
+    assert.equal(pruneLayerIdList("4", ["1"]), "");
+    assert.equal(serializeLayerIdList(["2", "2", " 3 "]), "2,3");
+    assert.deepEqual(parseLayerIdList(undefined), []);
   });
 });

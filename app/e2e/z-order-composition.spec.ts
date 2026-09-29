@@ -9,7 +9,7 @@ type Rgb = [number, number, number];
 
 type Scenario = {
   layer1Opacity: number;
-  order?: { arrangement: string; enabled: boolean };
+  order?: { arrangement: string; enabled: boolean; excludedLayers?: string };
 };
 
 // Layer 1 is red and Layer 2 blue. Returns the pixels at the top and the
@@ -68,6 +68,7 @@ async function render(
           { key: "Arrangement", value: order.arrangement },
           { key: "GridSize", value: "2", numericValue: 2 },
           { key: "Spacing", value: "0", numericValue: 0 },
+          { key: "ExcludedLayers", value: order.excludedLayers ?? "" },
         ],
       });
     }
@@ -154,4 +155,28 @@ test("a Vertical Order stacks Layer 1 above Layer 2", async ({ page }) => {
   });
   expectColor(top, [255, 0, 0]);
   expectColor(bottom, [0, 0, 255]);
+});
+
+test("an Order draws an excluded Layer 1 full-frame on top", async ({
+  page,
+}) => {
+  const { top, bottom } = await render(page, {
+    layer1Opacity: 1,
+    order: { arrangement: "Vertical", enabled: true, excludedLayers: "1" },
+  });
+  expectColor(top, [255, 0, 0]);
+  expectColor(bottom, [255, 0, 0]);
+});
+
+test("an Order draws an excluded Layer 2 full-frame beneath the arranged Layer 1", async ({
+  page,
+}) => {
+  // Layer 1 is the only arranged layer, so it fills the one slot, and
+  // Layer 2 shows through it everywhere.
+  const { top, bottom } = await render(page, {
+    layer1Opacity: 0.5,
+    order: { arrangement: "Vertical", enabled: true, excludedLayers: "2" },
+  });
+  expectColor(top, [128, 0, 127]);
+  expectColor(bottom, [128, 0, 127]);
 });

@@ -5,10 +5,13 @@
 // commits can skip no-op edits.
 
 import {
+  EXCLUDED_LAYERS_KEY,
   hiddenLayerCount,
+  isLayerArranged,
   isOrderEffectName,
   ORDER_EFFECT_NAME,
   parseCompositionOrder,
+  pruneLayerIdList,
 } from "./composition-order.ts";
 import { isColorEffectName } from "./fill-paint.ts";
 import {
@@ -61,7 +64,15 @@ export type SessionEffect = {
 export type FxDeviceParameter = {
   key: string;
   label: string;
-  kind: "number" | "enum" | "color" | "gradient" | "text" | "font" | "flags";
+  kind:
+    | "number"
+    | "enum"
+    | "color"
+    | "gradient"
+    | "text"
+    | "font"
+    | "flags"
+    | "layers";
   // Position of the value within [min, max], 0..1, for meters.
   value: number;
   numericValue?: number;
@@ -614,10 +625,12 @@ function toDeviceParameter(
   read: (key: string) => string | undefined,
 ): FxDeviceParameter {
   if (definition.kind !== "number" && definition.kind !== "enum") {
-    // Text and style toggles can be empty; paint and fonts fall back to
-    // their defaults.
+    // Text, style toggles and layer lists can be empty; paint and fonts
+    // fall back to their defaults.
     const stringValue =
-      definition.kind === "text" || definition.kind === "flags"
+      definition.kind === "text" ||
+      definition.kind === "flags" ||
+      definition.kind === "layers"
         ? (stored?.value ?? definition.defaultValue)
         : stored?.value.trim() || definition.defaultValue;
     return {
@@ -734,15 +747,20 @@ function isParameterDimmed(
   return !!condition && matchesCondition(condition, definition, effect);
 }
 
-// Layers an enabled Order grid has no cell for, when there are any.
-function describeHiddenLayers(effect: SessionEffect, activeLayerCount: number) {
+// Layers an enabled Order grid has no cell for, when there are any. Layers
+// the Order excludes need no cell.
+function describeHiddenLayers(
+  effect: SessionEffect,
+  activeLayerIds: readonly string[],
+) {
   if (effect.enabled === false || !isOrderEffectName(effect.effectName)) {
     return undefined;
   }
 
+  const order = parseCompositionOrder(effect.parameters);
   const hidden = hiddenLayerCount(
-    activeLayerCount,
-    parseCompositionOrder(effect.parameters),
+    activeLayerIds.filter((id) => isLayerArranged(order, id)).length,
+    order,
   );
   return hidden
     ? `${hidden} ${hidden === 1 ? "layer" : "layers"} hidden by grid`
@@ -772,7 +790,7 @@ function describeMissingFont(
 function toDevice(
   effect: SessionEffect,
   layerName: string,
-  activeLayerCount = 0,
+  activeLayerIds: readonly string[] = [],
   missingFonts: ReadonlySet<string> = new Set(),
   // The scope a clip stack's effects are checked against: "fxClip" for an
   // FX clip.
@@ -817,7 +835,7 @@ function toDevice(
     ...(definition.knobRows ? { knobRows: definition.knobRows } : {}),
     unsupported: !isEffectSupportedIn(effect.effectName, scope) || undefined,
     warning:
-      describeHiddenLayers(effect, activeLayerCount) ??
+      describeHiddenLayers(effect, activeLayerIds) ??
       describeMissingFont(effect, missingFonts),
     parameters: parameterDefinitions
       .filter(
@@ -850,24 +868,25 @@ export function mapSessionEffectsToDevices(
   laneId: string | undefined,
   // Display name of the layer, such as "Layer 3"; defaults to its id.
   layerName = `Layer ${laneId}`,
-  // Layers the compositor draws at the playhead, for the Order grid warning.
-  activeLayerCount = 0,
+  // Ids of the layers the compositor draws at the playhead, for the Order
+  // grid warning.
+  activeLayerIds: readonly string[] = [],
   // Fonts that could not be loaded, for the Text device's warning.
   missingFonts: ReadonlySet<string> = new Set(),
   // The selected clip, whose own stack is listed too.
   clipId?: string,
   // "fxClip" when the selected clip is an FX clip.
   clipScope: FxEffectScope = "clip",
-  // Layers beneath the selected FX clip at the playhead, for the grid
-  // warning of an Order on its stack.
-  clipLayerCount = 0,
+  // Ids of the layers beneath the selected FX clip at the playhead, for the
+  // grid warning of an Order on its stack.
+  clipLayerIds: readonly string[] = [],
 ) {
   const layerDevices = effects
     .filter((effect) => laneId !== undefined && effect.trackId === laneId)
-    .map((effect) => toDevice(effect, layerName, 0, missingFonts));
+    .map((effect) => toDevice(effect, layerName, [], missingFonts));
   const globalDevices = effects
     .filter((effect) => effect.trackId === GLOBAL_EFFECT_TRACK_ID)
-    .map((effect) => toDevice(effect, layerName, activeLayerCount));
+    .map((effect) => toDevice(effect, layerName, activeLayerIds));
   const clipTrackId =
     clipId === undefined ? undefined : clipEffectTrackId(clipId);
   const clipDevices = effects
@@ -876,7 +895,7 @@ export function mapSessionEffectsToDevices(
       const device = toDevice(
         effect,
         layerName,
-        clipScope === "fxClip" ? clipLayerCount : 0,
+        clipScope === "fxClip" ? clipLayerIds : [],
         missingFonts,
         clipScope,
       );
@@ -971,6 +990,34 @@ export function pruneClipEffects<T extends { trackId: string }>(
   return effects.some(isOrphan)
     ? effects.filter((effect) => !isOrphan(effect))
     : effects;
+}
+
+// The effects with each Order's excluded layers limited to `layerIds`, the
+// layers that still exist. Effects with nothing to drop are kept as they
+// are.
+export function pruneExcludedLayers<
+  T extends { effectName: string; parameters: EffectParameter[] },
+>(effects: T[], layerIds: Iterable<string>) {
+  const existing = [...layerIds];
+  return effects.map((effect) => {
+    if (!isOrderEffectName(effect.effectName)) {
+      return effect;
+    }
+
+    let changed = false;
+    const parameters = effect.parameters.map((parameter) => {
+      if (parameter.key !== EXCLUDED_LAYERS_KEY) {
+        return parameter;
+      }
+      const value = pruneLayerIdList(parameter.value, existing);
+      if (value === parameter.value) {
+        return parameter;
+      }
+      changed = true;
+      return { key: parameter.key, value };
+    });
+    return changed ? { ...effect, parameters } : effect;
+  });
 }
 
 // The effects with each clip stack moved to the clip's new id in `clipIds`,

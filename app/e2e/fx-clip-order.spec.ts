@@ -489,3 +489,51 @@ test("an FX clip's add menu offers Order", async ({ page }) => {
     .click();
   await expect(clip.locator("strong")).toHaveText("FX · Order");
 });
+
+// An Order on an FX clip only arranges the layers beneath it, so its Layers
+// menu lists only those; the Global Order's menu lists every layer.
+test("an FX clip's Order lists only the layers beneath it", async ({
+  page,
+}) => {
+  await page.goto("/");
+  // Layer 2 of the default session's three layers.
+  await expect(lane(page, "5")).toBeVisible();
+
+  const bounds = await lane(page, "5").boundingBox();
+  if (!bounds) {
+    throw new Error("Lane is not visible");
+  }
+  const y = bounds.y + bounds.height / 2;
+  await page.mouse.move(bounds.x + 40, y);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + 150, y);
+  await page.mouse.move(bounds.x + 260, y);
+  await page.mouse.up();
+  await page.mouse.click(bounds.x + 150, bounds.y + 20, { button: "right" });
+  await page
+    .getByRole("menu", { name: "Selection actions" })
+    .getByRole("menuitem", { name: "Insert FX Clip" })
+    .click();
+  await expect(lane(page, "5").locator(".clip-card--fx")).toHaveCount(1);
+
+  await page.getByRole("button", { name: "Add device to this clip" }).click();
+  await page
+    .getByRole("menu")
+    .getByRole("menuitem", { name: /^Order / })
+    .click();
+
+  const menuRows = page.getByRole("menu").getByRole("menuitemcheckbox");
+  const clipOrder = page.locator(
+    '.fx-chain [data-fx-divider="clip"] ~ section[aria-label="Order"]',
+  );
+  await clipOrder.locator(".fx-layers__trigger").click();
+  await expect(menuRows).toHaveText(["3Layer 3"]);
+  await page.keyboard.press("Escape");
+
+  const globalOrder = page
+    .locator('section[aria-label="Order"]')
+    .filter({ hasNotText: "Arranges the layers" })
+    .first();
+  await globalOrder.locator(".fx-layers__trigger").click();
+  await expect(menuRows).toHaveText(["1Layer 1", "2Layer 2", "3Layer 3"]);
+});

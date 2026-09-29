@@ -213,11 +213,11 @@ describe("FX clip stacks", () => {
         effects,
         "1",
         "Layer 1",
-        0,
+        [],
         new Set(),
         "fx-a",
         "fxClip",
-        layerCount,
+        Array.from({ length: layerCount }, (_, index) => `${index + 2}`),
       ).find((device) => device.id === "order");
     assert.equal(orderDevice(4)?.warning, ORDER_RUNS_FIRST_NOTE);
     assert.equal(orderDevice(4)?.unsupported, undefined);
@@ -245,7 +245,7 @@ describe("FX clip stacks", () => {
       effects,
       "1",
       "Layer 1",
-      0,
+      [],
       new Set(),
       "fx-a",
       "fxClip",

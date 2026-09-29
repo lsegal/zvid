@@ -3365,18 +3365,43 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       ),
     [bpm, mediaItemsById, playheadQ, timelineClips],
   );
-  const playheadVisualLayerCount = playheadVisualLaneIds.size;
+  const playheadVisualLayerIds = useMemo(
+    () => [...playheadVisualLaneIds],
+    [playheadVisualLaneIds],
+  );
   // Of those, the layers beneath the selected FX clip, which an Order on it
   // arranges.
   const selectedFxClipRank = isFxClip(selectedClip)
     ? lanePriority.get(selectedClip?.laneId ?? "")
     : undefined;
-  const fxClipLayerCount =
-    selectedFxClipRank === undefined
-      ? 0
-      : [...playheadVisualLaneIds].filter(
-          (laneId) => (lanePriority.get(laneId) ?? -1) > selectedFxClipRank,
-        ).length;
+  const isBeneathSelectedFxClip = useCallback(
+    (laneId: string) =>
+      selectedFxClipRank !== undefined &&
+      (lanePriority.get(laneId) ?? -1) > selectedFxClipRank,
+    [lanePriority, selectedFxClipRank],
+  );
+  const fxClipLayerIds = useMemo(
+    () => playheadVisualLayerIds.filter(isBeneathSelectedFxClip),
+    [isBeneathSelectedFxClip, playheadVisualLayerIds],
+  );
+  // The layers an Order's Layers menu lists, in timeline order: every
+  // layer for the Global Order, and those beneath the FX clip for its own.
+  const orderLayerOptions = useMemo(
+    () =>
+      lanes.map((lane, index) => ({
+        id: lane.id,
+        number: index + 1,
+        name: lane.name,
+        color:
+          lane.colorIndex >= 0 ? getSwatch(lane.colorIndex).accent : undefined,
+      })),
+    [lanes],
+  );
+  const fxClipLayerOptions = useMemo(
+    () =>
+      orderLayerOptions.filter((layer) => isBeneathSelectedFxClip(layer.id)),
+    [isBeneathSelectedFxClip, orderLayerOptions],
+  );
   // Fonts Text effects pick load up front, so one that can't be loaded is
   // flagged on its device even before its clip is drawn.
   const missingFonts = useSyncExternalStore(subscribeFonts, getMissingFonts);
@@ -3423,22 +3448,22 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             effects,
             fxLaneId,
             fxLane?.name,
-            playheadVisualLayerCount,
+            playheadVisualLayerIds,
             missingFonts,
             fxClipId,
             fxClipScope,
-            fxClipLayerCount,
+            fxClipLayerIds,
           )
         : [],
     [
       effects,
       fxClipId,
-      fxClipLayerCount,
+      fxClipLayerIds,
       fxClipScope,
       fxLane?.name,
       fxLaneId,
       missingFonts,
-      playheadVisualLayerCount,
+      playheadVisualLayerIds,
     ],
   );
   const playheadSeconds = quartersToSeconds(playheadQ, bpm);
@@ -10863,6 +10888,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 devices={fxDevices}
                 kind={fxKind}
                 layerFxEnabled={isLayerFxEnabled(fxLane)}
+                layers={orderLayerOptions}
+                clipLayers={fxClipLayerOptions}
                 layerName={fxLane?.name}
                 layerTrackId={fxLaneId}
                 clipTrackId={fxClipId ? clipEffectTrackId(fxClipId) : undefined}

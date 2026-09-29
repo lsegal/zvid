@@ -780,3 +780,205 @@ describe("planLayerDraws", () => {
     ]);
   });
 });
+
+describe("planLayerDraws with excluded layers", () => {
+  // Layer N is on lane "N", at lane rank N - 1. An FX clip can carry an
+  // Order of its own.
+  const layer = (
+    number: number,
+    fx = false,
+    order?: CompositionOrder,
+  ): {
+    id: string;
+    laneRank: number;
+    clip: { startQ: number; laneId: string };
+    fx: boolean;
+    order?: CompositionOrder;
+  } => ({
+    id: `${fx ? "fx" : "layer"}-${number}`,
+    laneRank: number - 1,
+    clip: { startQ: 0, laneId: `${number}` },
+    fx,
+    ...(order ? { order } : {}),
+  });
+  const grid = (excludedLayers: string[] = []): CompositionOrder => ({
+    arrangement: "grid",
+    gridSize: 2,
+    spacing: 0,
+    excludedLayers,
+  });
+  // Arranged layers show their slot; excluded ones show "full" for the
+  // whole canvas. An FX clip's arrangement lists its steps in brackets.
+  const describeSteps = (
+    steps: LayerDrawStep<ReturnType<typeof layer>>[],
+  ): string[] =>
+    steps.map((step) =>
+      step.type === "arrange"
+        ? `${step.entry.id}[${describeSteps(step.steps).join(" ")}]`
+        : step.type === "fx"
+          ? step.entry.id
+          : step.order.arrangement === "none"
+            ? `${step.entry.id}@full`
+            : `${step.entry.id}@${step.slot}/${step.slotCount}`,
+    );
+  const layers = [1, 2, 3, 4, 5].map((number) => layer(number));
+
+  it("arranges every layer when none is excluded", () => {
+    assert.deepEqual(
+      describeSteps(planLayerDraws(layers, grid())),
+      describeSteps(
+        planLayerDraws(layers, {
+          arrangement: "grid",
+          gridSize: 2,
+          spacing: 0,
+        }),
+      ),
+    );
+    assert.deepEqual(describeSteps(planLayerDraws(layers, grid())), [
+      "layer-1@0/4",
+      "layer-2@1/4",
+      "layer-3@2/4",
+      "layer-4@3/4",
+    ]);
+  });
+
+  it("draws an excluded Layer 1 full-frame on top of a 2×2 grid of Layers 2–5", () => {
+    assert.deepEqual(describeSteps(planLayerDraws(layers, grid(["1"]))), [
+      "layer-5@3/4",
+      "layer-4@2/4",
+      "layer-3@1/4",
+      "layer-2@0/4",
+      "layer-1@full",
+    ]);
+  });
+
+  it("draws an excluded lowest layer full-frame beneath the arranged ones", () => {
+    const six = [...layers, layer(6)];
+    assert.deepEqual(describeSteps(planLayerDraws(six, grid(["6"]))), [
+      "layer-6@full",
+      "layer-4@3/4",
+      "layer-3@2/4",
+      "layer-2@1/4",
+      "layer-1@0/4",
+    ]);
+  });
+
+  it("gives slots only to the layers the Order arranges", () => {
+    const vertical: CompositionOrder = {
+      arrangement: "vertical",
+      gridSize: 2,
+      spacing: 0,
+      excludedLayers: ["2", "4"],
+    };
+    assert.deepEqual(describeSteps(planLayerDraws(layers, vertical)), [
+      "layer-5@2/3",
+      "layer-4@full",
+      "layer-3@1/3",
+      "layer-2@full",
+      "layer-1@0/3",
+    ]);
+  });
+
+  it("follows the layer by id when it moves to another position", () => {
+    // Lane "1" moved to the bottom: it is now the fifth layer.
+    const moved = [
+      { ...layer(2), laneRank: 0 },
+      { ...layer(3), laneRank: 1 },
+      { ...layer(4), laneRank: 2 },
+      { ...layer(5), laneRank: 3 },
+      { ...layer(1), laneRank: 4 },
+    ];
+    assert.deepEqual(describeSteps(planLayerDraws(moved, grid(["1"]))), [
+      "layer-1@full",
+      "layer-5@3/4",
+      "layer-4@2/4",
+      "layer-3@1/4",
+      "layer-2@0/4",
+    ]);
+  });
+
+  it("stacks FX clips and excluded layers by z-order", () => {
+    assert.deepEqual(
+      describeSteps(
+        planLayerDraws([layer(1), layer(2, true), layer(3)], grid(["1"])),
+      ),
+      ["layer-3@0/1", "fx-2", "layer-1@full"],
+    );
+  });
+
+  it("ignores exclusions without an Order", () => {
+    assert.deepEqual(
+      describeSteps(
+        planLayerDraws(layers.slice(0, 2), {
+          ...Z_ORDER_COMPOSITION,
+          excludedLayers: ["1"],
+        }),
+      ),
+      ["layer-2@full", "layer-1@full"],
+    );
+  });
+});
+
+describe("planLayerDraws with an FX clip Order that excludes layers", () => {
+  const layer = (number: number, fx = false, order?: CompositionOrder) => ({
+    id: `${fx ? "fx" : "layer"}-${number}`,
+    laneRank: number - 1,
+    clip: { startQ: 0, laneId: `${number}` },
+    fx,
+    ...(order ? { order } : {}),
+  });
+  const describeSteps = (
+    steps: LayerDrawStep<ReturnType<typeof layer>>[],
+  ): string[] =>
+    steps.map((step) =>
+      step.type === "arrange"
+        ? `${step.entry.id}[${describeSteps(step.steps).join(" ")}]`
+        : step.type === "fx"
+          ? step.entry.id
+          : step.order.arrangement === "none"
+            ? `${step.entry.id}@full`
+            : `${step.entry.id}@${step.slot}/${step.slotCount}`,
+    );
+
+  it("draws a layer its Order excludes full-frame inside its box", () => {
+    // An FX clip on Layer 1 arranges Layers 2–5 in a 2×2 Grid, leaving
+    // Layer 2 out.
+    const fxOrder: CompositionOrder = {
+      arrangement: "grid",
+      gridSize: 2,
+      spacing: 0,
+      excludedLayers: ["2"],
+    };
+    const steps = planLayerDraws(
+      [layer(1, true, fxOrder), ...[2, 3, 4, 5].map((number) => layer(number))],
+      DEFAULT_COMPOSITION_ORDER,
+    );
+    assert.deepEqual(describeSteps(steps), [
+      "fx-1[layer-5@2/3 layer-4@1/3 layer-3@0/3 layer-2@full]",
+    ]);
+  });
+
+  it("leaves the Global Order's exclusions to the layers above the FX clip", () => {
+    // The Global Order excludes Layer 1 (above the FX clip on Layer 2) and
+    // Layer 3 (beneath it, where the FX clip's Order applies instead).
+    const global: CompositionOrder = {
+      arrangement: "vertical",
+      gridSize: 2,
+      spacing: 0,
+      excludedLayers: ["1", "3"],
+    };
+    const fxOrder: CompositionOrder = {
+      arrangement: "horizontal",
+      gridSize: 2,
+      spacing: 0,
+    };
+    const steps = planLayerDraws(
+      [layer(1), layer(2, true, fxOrder), layer(3), layer(4)],
+      global,
+    );
+    assert.deepEqual(describeSteps(steps), [
+      "fx-2[layer-3@0/2 layer-4@1/2]",
+      "layer-1@full",
+    ]);
+  });
+});

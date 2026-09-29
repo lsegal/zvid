@@ -4,6 +4,7 @@
 
 import {
   DEFAULT_BORDER_COLOR,
+  EXCLUDED_LAYERS_KEY,
   GRID_SIZE_MAX,
   GRID_SIZE_MIN,
   ORDER_ARRANGEMENTS,
@@ -86,8 +87,9 @@ export type FxFlagOption = { value: string; label: string; title: string };
 
 // String parameters with their own editors: a CSS colour (`color`) or CSS
 // linear/radial gradient (`gradient`) with a colour picker, free text
-// (`text`) in a text area, a font (`font`) from the font list, and a set of
-// toggles (`flags`) stored comma-separated.
+// (`text`) in a text area, a font (`font`) from the font list, a set of
+// toggles (`flags`) stored comma-separated, and a set of layers (`layers`)
+// stored as comma-separated layer ids.
 type FxStringParameterFields = {
   key: string;
   label: string;
@@ -103,6 +105,7 @@ export type FxStringParameterDefinition =
   | (FxStringParameterFields & { kind: "gradient" })
   | (FxStringParameterFields & { kind: "text" })
   | (FxStringParameterFields & { kind: "font" })
+  | (FxStringParameterFields & { kind: "layers" })
   | (FxStringParameterFields & {
       kind: "flags";
       options: readonly FxFlagOption[];
@@ -457,6 +460,13 @@ const DEFINITIONS: FxEffectDefinition[] = [
         label: "Order",
         options: ORDER_ARRANGEMENTS,
         defaultValue: "Vertical",
+      },
+      // Only exclusions are stored, so a new layer is arranged too.
+      {
+        kind: "layers",
+        key: EXCLUDED_LAYERS_KEY,
+        label: "Layers",
+        defaultValue: "",
       },
       {
         kind: "number",

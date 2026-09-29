@@ -9,6 +9,8 @@ const DropdownMenu = DropdownMenuPrimitive.Root;
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
 const DropdownMenuPortal = DropdownMenuPrimitive.Portal;
 const DropdownMenuItem = DropdownMenuPrimitive.Item;
+const DropdownMenuCheckboxItem = DropdownMenuPrimitive.CheckboxItem;
+const DropdownMenuItemIndicator = DropdownMenuPrimitive.ItemIndicator;
 const DropdownMenuSeparator = DropdownMenuPrimitive.Separator;
 const DropdownMenuSub = DropdownMenuPrimitive.Sub;
 const DropdownMenuSubTrigger = DropdownMenuPrimitive.SubTrigger;
@@ -56,8 +58,10 @@ DropdownMenuSubContent.displayName =
 
 export {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuItemIndicator,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuSub,

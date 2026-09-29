@@ -2,7 +2,11 @@
 // which group, how knob values are formatted, and the per-device collapse
 // state that is kept in localStorage.
 
-import { isOrderEffectName } from "./composition-order.ts";
+import {
+  isOrderEffectName,
+  parseLayerIdList,
+  serializeLayerIdList,
+} from "./composition-order.ts";
 import {
   FX_EFFECT_DEFINITIONS,
   type FxEffectScope,
@@ -319,4 +323,33 @@ export function resolveSelectedLaneId(
     return selectedLaneId;
   }
   return getDefaultLaneId(lanes, effects);
+}
+
+// A layer an Order's Layers menu lists, in timeline order.
+export type FxLayerOption = {
+  id: string;
+  // Its position in the timeline, from 1.
+  number: number;
+  name: string;
+  // The layer's colour, for its swatch.
+  color?: string;
+};
+
+// The Layers button's label: how many of `layers` the Order arranges.
+// Excluded ids of layers that no longer exist don't count.
+export function describeArrangedLayers(
+  excludedLayers: string | undefined,
+  layers: readonly FxLayerOption[],
+) {
+  const excluded = new Set(parseLayerIdList(excludedLayers));
+  const arranged = layers.filter((layer) => !excluded.has(layer.id)).length;
+  if (arranged === layers.length) {
+    return "Layers: All";
+  }
+  return arranged ? `Layers: ${arranged} of ${layers.length}` : "Layers: None";
+}
+
+// The stored exclusions that leave every one of `layers` out.
+export function excludeAllLayers(layers: readonly FxLayerOption[]) {
+  return serializeLayerIdList(layers.map((layer) => layer.id));
 }

@@ -10,7 +10,9 @@
 import {
   type CompositionOrder,
   DEFAULT_COMPOSITION_ORDER,
+  isLayerArranged,
   visibleLayerCount,
+  Z_ORDER_COMPOSITION,
 } from "./composition-order.ts";
 import type {
   LayerTransform,
@@ -64,15 +66,23 @@ export type LayerPlacement = {
 
 type StackedLayer = {
   laneRank: number;
-  clip: { startQ: number };
+  clip: { startQ: number; laneId?: string };
 };
 
 // One step of drawing the composite: a layer drawn into slot `slot` of
-// `slotCount`, an FX clip whose chain adjusts what has been drawn so far, or
-// an FX clip with an Order that arranges the layers beneath it (`steps`) by
-// `order` inside its own box.
+// `slotCount` as `order` arranges them, an FX clip whose chain adjusts what
+// has been drawn so far, or an FX clip with an Order that arranges the
+// layers beneath it (`steps`) by `order` inside its own box. A layer the
+// Order leaves out is drawn with the z-order overlay, into the whole
+// canvas.
 export type LayerDrawStep<T> =
-  | { type: "layer"; entry: T; slot: number; slotCount: number }
+  | {
+      type: "layer";
+      entry: T;
+      slot: number;
+      slotCount: number;
+      order: CompositionOrder;
+    }
   | { type: "fx"; entry: T }
   | {
       type: "arrange";
@@ -82,18 +92,22 @@ export type LayerDrawStep<T> =
     };
 
 /**
- * The steps that draw `layers`, back to front. Layers take slots as
- * `orderStackedLayers` orders them, and a Grid shows no more layers than it
- * has cells. FX clips (`fx` set) take no slot: each is applied once every
- * higher-numbered layer beneath it is drawn and before the layers above it.
- * Without an Order that is the usual draw order; with one, layers are drawn
- * from the highest-numbered up while an FX clip is present, which changes
- * nothing since each layer is cropped to its own slot.
+ * The steps that draw `layers`, back to front. Layers the Order arranges
+ * take slots as `orderStackedLayers` orders them, and a Grid shows no more
+ * layers than it has cells. Layers it excludes take no slot and cover the
+ * whole canvas. FX clips (`fx` set) take no slot: each is applied once
+ * every higher-numbered layer beneath it is drawn and before the layers
+ * above it. Without an Order that is the usual draw order; with one, layers
+ * are drawn from the highest-numbered up while an excluded layer or an FX
+ * clip is present, so they stack by z-order around the arranged layers.
+ * Among arranged layers that changes nothing, since each is cropped to its
+ * own slot.
  *
  * The topmost FX clip with an Order of its own (`order` set) governs every
  * layer beneath it: they are planned again by its Order, as an "arrange"
  * step drawn first, under everything above it. Layers above it keep the
- * slots they have without it: the slots are counted over every layer.
+ * slots they have without it: the slots are counted over every arranged
+ * layer.
  */
 export function planLayerDraws<
   T extends StackedLayer & { fx?: boolean; order?: CompositionOrder },
@@ -110,8 +124,12 @@ export function planLayerDraws<
     );
   const isGoverned = (layer: T) =>
     arranger !== undefined && layer.laneRank > arranger.laneRank;
+  const isArranged = (layer: T) =>
+    order.arrangement === "none" ||
+    layer.clip.laneId === undefined ||
+    isLayerArranged(order, layer.clip.laneId);
   const ordered = orderStackedLayers(
-    layers.filter((layer) => !layer.fx),
+    layers.filter((layer) => !layer.fx && isArranged(layer)),
     order,
   );
   const stacked = ordered.slice(0, visibleLayerCount(ordered.length, order));
@@ -121,8 +139,21 @@ export function planLayerDraws<
       entry,
       slot,
       slotCount: stacked.length,
+      order,
     }))
     .filter((draw) => !isGoverned(draw.entry));
+  const excluded = orderStackedLayers(
+    layers.filter(
+      (layer) => !layer.fx && !isArranged(layer) && !isGoverned(layer),
+    ),
+    Z_ORDER_COMPOSITION,
+  ).map<LayerDrawStep<T> & { type: "layer" }>((entry) => ({
+    type: "layer",
+    entry,
+    slot: 0,
+    slotCount: 1,
+    order: Z_ORDER_COMPOSITION,
+  }));
   const arrange: LayerDrawStep<T>[] =
     arranger?.order === undefined
       ? []
@@ -137,14 +168,16 @@ export function planLayerDraws<
   const fxLayers = layers
     .filter((layer) => layer.fx && layer !== arranger && !isGoverned(layer))
     .sort((left, right) => right.laneRank - left.laneRank);
-  if (!fxLayers.length) {
+  if (!fxLayers.length && !excluded.length) {
     return [...arrange, ...draws];
   }
 
   const steps: LayerDrawStep<T>[] = [...arrange];
   let nextFx = 0;
-  for (const draw of [...draws].sort(
-    (left, right) => right.entry.laneRank - left.entry.laneRank,
+  for (const draw of [...draws, ...excluded].sort(
+    (left, right) =>
+      right.entry.laneRank - left.entry.laneRank ||
+      left.entry.clip.startQ - right.entry.clip.startQ,
   )) {
     while (
       nextFx < fxLayers.length &&

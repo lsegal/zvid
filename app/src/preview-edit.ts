@@ -239,6 +239,8 @@ export function matrixRotationDeg(parent: Matrix2D) {
 // clip's box, and come before the layers above it, which are drawn over
 // them. They, and the FX clips beneath it, are measured on that box's own
 // surface, which its Transforms move, resize and turn.
+// Layers an Order excludes cover its whole box, in z-order with the layers
+// it arranges.
 export function resolvePreviewLayers(
   activeClips: readonly StackableLayer[],
   canvas: Size,
@@ -264,6 +266,11 @@ export function resolvePreviewLayers(
   ) => {
     const space = resolveLayerSpace({ arrangement }, canvas);
     const layers: typeof placed = [];
+    // Arranged layers keep slot order. Once the Order excludes a layer,
+    // which is placed by z-order instead, they all keep draw order.
+    const byDrawOrder = steps.some(
+      (step) => step.type === "layer" && step.order !== stackOrder,
+    );
     for (const step of steps) {
       if (step.type === "arrange" || step.type === "fx") {
         fxPlaced.set(step.entry, {
@@ -279,12 +286,12 @@ export function resolvePreviewLayers(
           step.order,
         );
       } else if (step.type === "layer") {
-        layers[step.slot] = {
+        layers[byDrawOrder ? layers.length : step.slot] = {
           entry: step.entry,
           frame: resolveSlotBounds(
             step.slot,
             step.slotCount,
-            stackOrder,
+            step.order,
             space.canvas.width,
             space.canvas.height,
           ),

@@ -192,3 +192,52 @@ test("the FX panel shows Global, then the layer, then the selected clip", async 
   );
   await expect(clipTransform).toHaveCount(1);
 });
+
+// The Order's Layers button opens a checkmark menu of every layer. Toggling
+// a row leaves the menu open and updates the button, and each toggle is one
+// undo step.
+test("the Order's Layers menu toggles layers in place", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('[data-layer-header-id="1"]').click();
+
+  const order = page.locator('section[aria-label="Order"]');
+  // The open menu hides the rest of the page from the accessibility tree.
+  const button = order.locator(".fx-layers__trigger");
+  await expect(button).toHaveText("Layers: All");
+
+  await button.click();
+  const menu = page.getByRole("menu", { name: /^Layers: / });
+  await expect(menu).toBeVisible();
+  const rows = menu.getByRole("menuitemcheckbox");
+  const count = await rows.count();
+  expect(count).toBeGreaterThan(1);
+  for (let index = 0; index < count; index++) {
+    await expect(rows.nth(index)).toHaveAttribute("aria-checked", "true");
+  }
+
+  await rows.first().click();
+  await expect(menu).toBeVisible();
+  await expect(rows.first()).toHaveAttribute("aria-checked", "false");
+  await expect(button).toHaveText(`Layers: ${count - 1} of ${count}`);
+
+  // Space toggles the highlighted row from the keyboard.
+  await rows.nth(1).focus();
+  await page.keyboard.press("Space");
+  await expect(menu).toBeVisible();
+  await expect(button).toHaveText(`Layers: ${count - 2} of ${count}`);
+
+  await menu.getByRole("menuitem", { name: "Exclude all" }).click();
+  await expect(menu).toBeVisible();
+  await expect(button).toHaveText("Layers: None");
+
+  await menu.getByRole("menuitem", { name: "Include all" }).click();
+  await expect(button).toHaveText("Layers: All");
+
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(button).toHaveText("Layers: None");
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(button).toHaveText(`Layers: ${count - 2} of ${count}`);
+});
