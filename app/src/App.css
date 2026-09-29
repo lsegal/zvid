@@ -1768,7 +1768,10 @@
   box-shadow: 0 0 0 1px rgba(124, 161, 255, 0.18);
   display: flex;
   align-items: center;
+  /* Default padding; the render narrows it for small selections
+     (selection-hint.ts). */
   padding: 0 14px;
+  overflow: hidden;
   pointer-events: none;
 }
 
