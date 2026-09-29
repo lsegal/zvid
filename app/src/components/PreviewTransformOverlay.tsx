@@ -270,10 +270,18 @@ export function PreviewTransformOverlay({
     }
   };
 
-  // The selected layer keeps the press anywhere inside its outline, even
-  // where another layer is drawn over it.
+  // The selected layer keeps the press anywhere inside its outline (its
+  // clip's box, or the layer's own box when only the layer is selected),
+  // even where another layer is drawn over it.
   const pickLayer = (point: Point) =>
-    selected && isPointOnLayer(point, selected, canvas)
+    selected &&
+    isPointOnLayer(
+      point,
+      editsClip
+        ? selected
+        : { placement: selected.placement, transform: selected.transform },
+      canvas,
+    )
       ? selected
       : hitTestLayers(layers, point, canvas);
 
