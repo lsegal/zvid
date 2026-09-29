@@ -804,7 +804,7 @@ body.fx-chain-dragging * {
   text-overflow: ellipsis;
 }
 
-/* Footer rows line up with the layer names. */
-.fx-layers-menu__item[role='menuitem'] {
+/* Footer rows line up with the layer numbers. */
+.dropdown-menu-content.fx-layers-menu [data-radix-collection-item][role='menuitem'] {
   padding-left: 28px;
 }
