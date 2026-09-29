@@ -88,11 +88,13 @@ test("the preview selects, outlines and drags a layer", async ({ page }) => {
     page.getByRole("region", { name: "Transform", exact: true }),
   ).toHaveCount(0);
 
-  // Dragging it most of the way out of frame adds a Transform.
-  await page.mouse.move(centre.x, centre.y);
+  // Dragging it most of the way out of frame adds a Transform. The grab is
+  // off-centre, clear of the origin marker.
+  const grab = { x: centre.x, y: video.top + video.height * 0.25 };
+  await page.mouse.move(grab.x, grab.y);
   await page.mouse.down();
-  await page.mouse.move(centre.x + video.width * 0.3, centre.y, { steps: 4 });
-  await page.mouse.move(centre.x + video.width * 0.75, centre.y, {
+  await page.mouse.move(grab.x + video.width * 0.3, grab.y, { steps: 4 });
+  await page.mouse.move(grab.x + video.width * 0.75, grab.y, {
     steps: 4,
   });
   await page.mouse.up();

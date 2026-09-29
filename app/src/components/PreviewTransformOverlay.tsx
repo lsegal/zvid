@@ -71,7 +71,7 @@ type DragState = {
       handle: ResizeHandle;
       box: Box;
       startTransform: LayerTransform;
-      lastCanvas: Point;
+      lastScreen: Point;
       transform?: LayerTransform;
     }
   | {
@@ -157,6 +157,12 @@ export function PreviewTransformOverlay({
     : undefined;
   // Canvas pixels per CSS pixel, for distances measured on screen.
   const canvasPerScreenPx = canvas.width / Math.max(0.0001, video.width);
+  // A handle or origin drag measures the pointer's travel on screen at the
+  // current zoom, so a preview that resizes mid-drag doesn't make it jump.
+  const screenDeltaToCanvas = (from: Point, to: Point) => ({
+    x: (to.x - from.x) * canvasPerScreenPx,
+    y: (to.y - from.y) * canvasPerScreenPx,
+  });
 
   const toCanvas = (event: { clientX: number; clientY: number }) => {
     const bounds = rootRef.current?.getBoundingClientRect();
@@ -169,17 +175,14 @@ export function PreviewTransformOverlay({
 
   // Recomputes a resize from the pointer and the modifiers held right now,
   // so pressing or releasing one mid-drag switches behaviour at once.
-  const updateResize = (pointer: Point, modifiers: Modifiers) => {
+  const updateResize = (pointerScreen: Point, modifiers: Modifiers) => {
     const drag = dragRef.current;
     if (!drag || drag.kind !== "resize") {
       return;
     }
 
-    drag.lastCanvas = pointer;
-    const delta = {
-      x: pointer.x - drag.startCanvas.x,
-      y: pointer.y - drag.startCanvas.y,
-    };
+    drag.lastScreen = pointerScreen;
+    const delta = screenDeltaToCanvas(drag.startScreen, pointerScreen);
     if (!drag.transform && delta.x === 0 && delta.y === 0) {
       return;
     }
@@ -229,7 +232,7 @@ export function PreviewTransformOverlay({
           event.key === "Control" ||
           event.key === "Meta")
       ) {
-        updateResizeRef.current(drag.lastCanvas, event);
+        updateResizeRef.current(drag.lastScreen, event);
       }
     };
     window.addEventListener("keydown", onModifier);
@@ -275,7 +278,7 @@ export function PreviewTransformOverlay({
           ...common,
           kind: "resize",
           handle,
-          lastCanvas: point.canvas,
+          lastScreen: point.screen,
         };
         setDragCursor(resizeCursor(handle, startTransform.rotationDeg));
       } else {
@@ -325,7 +328,7 @@ export function PreviewTransformOverlay({
 
     const point = toCanvas(event);
     if (drag.kind === "resize") {
-      updateResize(point.canvas, event);
+      updateResize(point.screen, event);
       return;
     }
 
@@ -341,11 +344,9 @@ export function PreviewTransformOverlay({
     }
 
     if (drag.kind === "origin") {
+      const delta = screenDeltaToCanvas(drag.startScreen, point.screen);
       const origin = snapOriginPoint(
-        {
-          x: drag.startOrigin.x + point.canvas.x - drag.startCanvas.x,
-          y: drag.startOrigin.y + point.canvas.y - drag.startCanvas.y,
-        },
+        { x: drag.startOrigin.x + delta.x, y: drag.startOrigin.y + delta.y },
         drag.startTransform,
         drag.box,
         canvas,
