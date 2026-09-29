@@ -13,10 +13,11 @@ import {
   useRef,
   useState,
 } from "react";
+import ColorPicker from "react-best-gradient-color-picker";
 import {
+  addableEffectsFor,
   describeDeviceMove,
   dropSlotToStackIndex,
-  getAddableEffectDefinitions,
   getAutoScrollDelta,
   getDropSlot,
   getParameterFormat,
@@ -42,6 +43,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { Knob } from "./ui/Knob";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import "./fx-chain.css";
 
 export type FxEditMode = "commit" | "transient";
@@ -275,7 +277,7 @@ export function FxChain({
 
   function addDevice(group: FxDeviceGroup, effectName: string) {
     const trackId = getTrackId(group, layerTrackId);
-    const definition = getAddableEffectDefinitions(group).find(
+    const definition = addableEffectsFor(group).find(
       (candidate) => candidate.effectName === effectName,
     );
     if (!trackId || !definition) {
@@ -570,7 +572,7 @@ export function FxChain({
     const label = `Add device to ${group === "global" ? "Global" : "this layer"}`;
     return (
       <AddDeviceMenu
-        effects={getAddableEffectDefinitions(group)}
+        effects={addableEffectsFor(group)}
         focusKey={`add-${group}`}
         label={label}
         onAdd={(effectName) => addDevice(group, effectName)}
@@ -803,6 +805,13 @@ type FxDevicePanelProps = {
   onSetParameter: FxChainProps["onSetParameter"];
 };
 
+// Explains the "Not supported here" chip on a device loaded onto a stack its
+// effect isn't designed for.
+function getUnsupportedTitle(device: FxDevice) {
+  const stack = device.group === "global" ? "the Global stack" : "a layer";
+  return `${device.name} isn't designed for ${stack}. Remove it, or add it where it is supported.`;
+}
+
 function getTitleShortcuts(device: FxDevice) {
   return device.layerDefault
     ? "Alt+ArrowLeft Alt+ArrowRight"
@@ -831,6 +840,7 @@ export function FxDevicePanel({
     device.enabled ? "" : "fx-device-panel--bypassed",
     layerBypassed ? "fx-device-panel--layer-off" : "",
     dragging ? "fx-device-panel--dragging" : "",
+    device.unsupported ? "fx-device-panel--unsupported" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -909,6 +919,14 @@ export function FxDevicePanel({
         >
           {device.name}
         </button>
+        {device.unsupported ? (
+          <span
+            className="fx-device-panel__unsupported"
+            title={getUnsupportedTitle(device)}
+          >
+            Not supported here
+          </span>
+        ) : null}
         {device.layerDefault ? null : (
           <button
             aria-label={`Remove ${device.name}`}
@@ -992,6 +1010,16 @@ function FxParameterControl({
     );
   }
 
+  if (parameter.kind === "color" || parameter.kind === "gradient") {
+    return (
+      <FxPaintControl
+        device={device}
+        onSetParameter={onSetParameter}
+        parameter={parameter}
+      />
+    );
+  }
+
   const defaultValue =
     typeof parameter.defaultValue === "number" ? parameter.defaultValue : 0;
   return (
@@ -1012,5 +1040,64 @@ function FxParameterControl({
       step={parameter.step}
       value={parameter.numericValue ?? defaultValue}
     />
+  );
+}
+
+// A swatch that opens a colour or gradient picker in a popover. Picker drags
+// send transient edits, and closing the popover commits the last value as
+// one undo step.
+function FxPaintControl({
+  device,
+  parameter,
+  onSetParameter,
+}: {
+  device: FxDevice;
+  parameter: FxDeviceParameter;
+  onSetParameter: FxChainProps["onSetParameter"];
+}) {
+  const pendingRef = useRef<string | null>(null);
+  const value = parameter.stringValue ?? `${parameter.defaultValue}`;
+  const gradient = parameter.kind === "gradient";
+  const label = `Edit ${parameter.label}`;
+
+  return (
+    <div className="fx-paint">
+      <span className="fx-paint__label">{parameter.label}</span>
+      <Popover
+        onOpenChange={(open) => {
+          const pending = pendingRef.current;
+          pendingRef.current = null;
+          if (!open && pending !== null) {
+            onSetParameter(device, parameter.key, pending, "commit");
+          }
+        }}
+      >
+        <PopoverTrigger asChild>
+          <button
+            aria-label={label}
+            className="fx-paint__swatch"
+            data-fx-no-drag
+            title={label}
+            type="button"
+          >
+            <span aria-hidden="true" style={{ background: value }} />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="fx-paint__popover">
+          <ColorPicker
+            disableLightMode
+            hideColorTypeBtns
+            hideGradientControls={!gradient}
+            height={150}
+            onChange={(next) => {
+              pendingRef.current = next;
+              onSetParameter(device, parameter.key, next, "transient");
+            }}
+            value={value}
+            width={236}
+          />
+        </PopoverContent>
+      </Popover>
+    </div>
   );
 }

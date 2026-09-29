@@ -5,7 +5,6 @@ import {
   classifySpaceTarget,
   createSpaceHold,
   isTextEntryTarget,
-  isTimelinePanPress,
 } from "./space-shortcut.ts";
 
 const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
@@ -147,17 +146,8 @@ describe("space hold for hand-grab panning", () => {
     assert.equal(hold.release(), false);
   });
 
-  it("pans on a middle press, or a left press while Space is held", () => {
-    assert.equal(isTimelinePanPress({ button: 1 }, false), true);
-    assert.equal(isTimelinePanPress({ button: 1 }, true), true);
-    assert.equal(isTimelinePanPress({ button: 0 }, true), true);
-    assert.equal(isTimelinePanPress({ button: 0 }, false), false);
-    assert.equal(isTimelinePanPress({ button: 2 }, true), false);
-  });
-
-  it("toggles playback on keyup and pans the timeline scroller", () => {
+  it("toggles playback on keyup and pans on Space + left-drag", () => {
     assert.match(appTsx, /spaceHold\.release\(\)/);
-    assert.match(appTsx, /useDragScroll\(timelineScrollRef, \{/);
     assert.match(
       appTsx,
       /isTimelinePanPress\(event, spaceHoldRef\.current\.held\)/,

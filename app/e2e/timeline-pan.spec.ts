@@ -110,7 +110,7 @@ test("middle-drag and Space-drag pan the timeline without editing it", async ({
   await drag(page, empty, 150, "middle");
   expect(await scrollLeft(page)).toBeCloseTo(250, -1);
   await expect(page.locator(".timeline-selection")).toHaveCount(0);
-  await expect(scroller).not.toHaveClass(/is-drag-scrolling/);
+  await expect(scroller).not.toHaveClass(/is-grab-panning/);
 
   // Middle-drag over the clip pans instead of moving it.
   await setScrollLeft(page, 0);

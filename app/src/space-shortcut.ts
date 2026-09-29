@@ -114,12 +114,3 @@ export function createSpaceHold() {
     },
   };
 }
-
-// Whether a timeline press starts a hand-grab pan: the middle button, or the
-// left button while Space is held.
-export function isTimelinePanPress(
-  event: { button: number },
-  spaceHeld: boolean,
-) {
-  return event.button === 1 || (event.button === 0 && spaceHeld);
-}

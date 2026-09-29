@@ -57,6 +57,7 @@ import {
   describePreviewMediaState,
   formatClipMediaState,
   isPlaceholderClip,
+  usesMediaFile,
 } from "./clip-media-state";
 import {
   buildClipMenuEntries,
@@ -146,9 +147,12 @@ import {
 import { WandIcon } from "./components/WandIcon";
 import { computeActiveClips } from "./composition-active-clips.ts";
 import { isContextMenuKey, isContextMenuPress } from "./context-menu.ts";
+import { isRulerPanPress, isTimelinePanPress } from "./drag-scroll.ts";
 import { buildEditMenuEntries } from "./edit-menu.ts";
+import { addFillClip, getDefaultFillColor, isFillClip } from "./fill-clip.ts";
+import { formatFillPaintCss, resolveFillPaint } from "./fill-paint.ts";
 import {
-  getAddableEffectDefinitions,
+  addableEffectsFor,
   getDefaultLaneId,
   resolveSelectedLaneId,
   stepSelectedLaneId,
@@ -289,11 +293,7 @@ import {
   readSourceTracksCollapsed,
   writeSourceTracksCollapsed,
 } from "./source-tracks-section.ts";
-import {
-  classifySpaceTarget,
-  createSpaceHold,
-  isTimelinePanPress,
-} from "./space-shortcut";
+import { classifySpaceTarget, createSpaceHold } from "./space-shortcut";
 import { statusMessageTone } from "./status-bar";
 import { buildStatusItems } from "./status-items";
 import {
@@ -358,6 +358,9 @@ type SourceSpan = {
 
 type ArrangementClip = {
   id: string;
+  // "fill" for a media-less fill clip painted by its layer's Color effect;
+  // media clips leave it unset.
+  kind?: "fill";
   sourceSpanId: string;
   sourceTrackId: string;
   laneId: string;
@@ -642,6 +645,9 @@ const INITIAL_PROJECT_STATE: ProjectState = {
   ),
   mainAudioId: undefined,
 };
+// Card colours of fill clips on layers without an accent.
+const FILL_CLIP_TINT = "#2a2d38";
+const FILL_CLIP_ACCENT = "#8d93a8";
 const PALETTE: Palette[] = [
   { color: "#3d4052", accent: "#7ca1ff" },
   { color: "#444351", accent: "#ff6f9d" },
@@ -1529,7 +1535,10 @@ function getPlaybackStopQ(
   const playableMediaIds = new Set(mediaItems.map((item) => item.id));
 
   return clips.reduce((maximum, clip) => {
-    if (!clip.mediaId || !playableMediaIds.has(clip.mediaId)) {
+    if (
+      !isFillClip(clip) &&
+      (!clip.mediaId || !playableMediaIds.has(clip.mediaId))
+    ) {
       return maximum;
     }
 
@@ -2431,11 +2440,12 @@ function App() {
       timelineClips.some(
         (clip) =>
           isClipAtPlayhead(clip, playheadQ, bpm) &&
-          describeMediaAvailability(
-            clip.mediaId
-              ? mediaItemsById.get(clip.mediaId)?.availability
-              : undefined,
-          ) === "online",
+          (isFillClip(clip) ||
+            describeMediaAvailability(
+              clip.mediaId
+                ? mediaItemsById.get(clip.mediaId)?.availability
+                : undefined,
+            ) === "online"),
       ),
     [bpm, mediaItemsById, playheadQ, timelineClips],
   );
@@ -2667,11 +2677,10 @@ function App() {
       listMediaSync({
         mediaItems,
         // Placeholder clips, such as MIDI imported from a Live set, never
-        // had media, so there is no file to report as offline.
-        arrangementClips: timelineClips.filter(
-          (clip) => !isPlaceholderClip(clip),
-        ),
-        sourceClips: sourceSpans.filter((clip) => !isPlaceholderClip(clip)),
+        // had media, and fill clips need none, so there is no file to
+        // report as offline.
+        arrangementClips: timelineClips.filter(usesMediaFile),
+        sourceClips: sourceSpans.filter(usesMediaFile),
         mainAudioId,
         progress: peerMediaProgress,
         misses: peerMediaMissIds,
@@ -3483,6 +3492,19 @@ function App() {
     ],
   );
   const shortcutLabels = useMemo(() => getShortcutLabels(), []);
+  // Right-, Ctrl- (macOS) or middle-dragging the ruler pans the timeline;
+  // the left button keeps scrubbing the playhead.
+  const canStartRulerPan = useCallback(
+    (event: { button: number; ctrlKey: boolean }) =>
+      isRulerPanPress(event, shortcutLabels.mac),
+    [shortcutLabels.mac],
+  );
+  const rulerDragScroll = useDragScroll({
+    scrollRef: timelineScrollRef,
+    canStart: canStartRulerPan,
+    axis: "x",
+    momentum: !prefersReducedMotion,
+  });
   const previewMaxWidth = getPreviewMaxWidth(editorGridWidth);
   const effectivePreviewWidth = Math.min(previewWidth, previewMaxWidth);
 
@@ -3817,6 +3839,48 @@ function App() {
       );
     },
     [bpm, createWindowClip, pendingSelection, sourceSpans, sourceTracks],
+  );
+
+  // Inserts a fill clip over `durationQ` quarters from `startQ` on layer
+  // `laneId` and selects it. A layer without a Color effect gets one, in
+  // its accent colour or neutral grey. Returns the new clip's id.
+  const insertFillClip = useCallback(
+    (laneId: string, startQ: number, durationQ: number) => {
+      const lane = lanes.find((candidate) => candidate.id === laneId);
+      if (!lane || !(durationQ > 0)) {
+        return undefined;
+      }
+
+      const accent =
+        lane.colorIndex >= 0 ? getSwatch(lane.colorIndex).accent : undefined;
+      const id = `fill-${crypto.randomUUID()}`;
+      dispatchProject({
+        type: "commit",
+        label: "Insert fill layer",
+        updater: (current) => {
+          const result = addFillClip(current, {
+            id,
+            laneId,
+            startQ,
+            durationQ,
+            bpm,
+            tint: FILL_CLIP_TINT,
+            accent: accent ?? FILL_CLIP_ACCENT,
+            color: getDefaultFillColor(accent),
+            effectId: crypto.randomUUID(),
+          });
+          return patchProjectState(current, {
+            clips: result.clips,
+            effects: result.effects,
+          });
+        },
+      });
+      setPendingSelection(null);
+      setSelectedClipId(id);
+      setStatus(`Inserted a fill on ${lane.name}.`);
+      return id;
+    },
+    [bpm, lanes],
   );
 
   // The whole source clip as an arrangement clip at its song position.
@@ -4713,15 +4777,23 @@ function App() {
   // Middle-drag, or Space + left-drag, pans the timeline from anywhere in it,
   // including over clips. The press is claimed before lane, clip and ruler
   // handlers see it, so a pan never selects, edits clips or moves the playhead.
-  useDragScroll(timelineScrollRef, {
+  const canStartTimelinePan = useCallback(
+    (event: { button: number }) =>
+      isTimelinePanPress(event, spaceHoldRef.current.held),
+    [],
+  );
+  const markSpacePanned = useCallback((event: { button: number }) => {
+    if (event.button === 0) {
+      spaceHoldRef.current.markPanned();
+    }
+  }, []);
+  const timelineDragScroll = useDragScroll({
+    scrollRef: timelineScrollRef,
+    canStart: canStartTimelinePan,
     axis: "both",
-    suppressMiddleClick: true,
-    canStart: (event) => isTimelinePanPress(event, spaceHoldRef.current.held),
-    onStart: (event) => {
-      if (event.button === 0) {
-        spaceHoldRef.current.markPanned();
-      }
-    },
+    momentum: !prefersReducedMotion,
+    capture: true,
+    onStart: markSpacePanned,
   });
 
   // Clipboard and edit actions shared by the keyboard shortcuts and the clip
@@ -5298,8 +5370,8 @@ function App() {
     );
   }
 
-  // Insert Track commits the selection exactly like the track's number key.
-  // Insert Fill Layer joins once fill clips (#376) provide an insert action.
+  // Insert Track commits the selection exactly like the track's number key,
+  // and Insert Fill Layer covers it with a fill clip.
   function getSelectionMenuEntries(selection: TimelineSelection) {
     const endQ = selection.startQ + selection.durationQ;
     return buildSelectionMenuEntries({
@@ -5317,6 +5389,8 @@ function App() {
       })),
       disabled: isExporting,
       insertTrack: commitPendingSelectionToSourceTrack,
+      insertFill: () =>
+        insertFillClip(selection.laneId, selection.startQ, selection.durationQ),
       clear: () => setPendingSelection(null),
     });
   }
@@ -5337,7 +5411,7 @@ function App() {
       laneId: lane.id,
       fxEnabled,
       effectCount: laneStatusById.get(lane.id)?.effectCount ?? 0,
-      effects: getAddableEffectDefinitions("layer"),
+      effects: addableEffectsFor("layer"),
       disabled: isExporting,
       actions: {
         rename: () => setRenamingLaneId(lane.id),
@@ -7500,7 +7574,10 @@ function App() {
             >
               <div
                 ref={timelineScrollRef}
-                className="timeline-scroll"
+                className={`timeline-scroll ${
+                  timelineDragScroll.isGrabbing ? "is-grab-panning" : ""
+                }`}
+                {...timelineDragScroll.handlers}
                 onScroll={() => syncTimelineViewport()}
                 style={{ ["--label-width" as string]: `${labelWidth}px` }}
               >
@@ -7566,7 +7643,19 @@ function App() {
                     offsetPx={labelWidth}
                   />
 
-                  <section className="ruler-row">
+                  {/* biome-ignore lint/a11y/noStaticElementInteractions: hand-grab panning is a pointer shortcut; the timeline scrolls from the keyboard and wheel as usual */}
+                  <section
+                    className={`ruler-row ${
+                      rulerDragScroll.isGrabbing ? "is-grab-panning" : ""
+                    }`}
+                    {...rulerDragScroll.handlers}
+                    onContextMenu={(event) => {
+                      // The ruler has no menu of its own, so the browser's
+                      // never shows, with or without a pan.
+                      event.preventDefault();
+                      rulerDragScroll.onContextMenu(event);
+                    }}
+                  >
                     <div className="track-label track-label--header">
                       <div>
                         <span>{sessionName ?? "Session"}</span>
@@ -7619,7 +7708,13 @@ function App() {
                       }`}
                       onPointerDown={(event) => {
                         const timelineScroll = timelineScrollRef.current;
-                        if (!timelineScroll) {
+                        // Only the primary button scrubs; the others pan the
+                        // timeline through the ruler row.
+                        if (
+                          !timelineScroll ||
+                          event.button !== 0 ||
+                          isRulerPanPress(event, shortcutLabels.mac)
+                        ) {
                           return;
                         }
 
@@ -7883,11 +7978,16 @@ function App() {
                                   media.availability,
                                 )
                               : null;
+                            const fillBackground = isFillClip(clip)
+                              ? formatFillPaintCss(
+                                  resolveFillPaint(effects, clip.laneId),
+                                )
+                              : undefined;
                             return (
                               // biome-ignore lint/a11y/noStaticElementInteractions: right-click is a pointer shortcut; the context-menu key and Shift+F10 open the same menu on the selected clip
                               <div
                                 key={clip.id}
-                                className={`clip-card ${selected ? "clip-card--selected" : ""} ${trimming ? "clip-card--trimming" : ""} ${filmstrip ? "clip-card--filmstrip" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""}`}
+                                className={`clip-card ${selected ? "clip-card--selected" : ""} ${trimming ? "clip-card--trimming" : ""} ${filmstrip || fillBackground ? "clip-card--filmstrip" : ""} ${fillBackground ? "clip-card--fill" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""}`}
                                 data-clip-id={clip.id}
                                 onContextMenu={(event) =>
                                   openArrangementClipMenu(event, clip)
@@ -7923,6 +8023,13 @@ function App() {
                                   <MediaSyncSkeleton
                                     variant="clip"
                                     view={mediaSync}
+                                  />
+                                ) : null}
+                                {fillBackground ? (
+                                  <span
+                                    aria-hidden="true"
+                                    className="clip-card__fill"
+                                    style={{ background: fillBackground }}
                                   />
                                 ) : null}
                                 {filmstrip ? (

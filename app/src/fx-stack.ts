@@ -9,12 +9,13 @@ import {
   isOrderEffectName,
   parseCompositionOrder,
 } from "./composition-order.ts";
-import { isTransformEffectName } from "./composition-transform.ts";
+import { isColorEffectName } from "./fill-paint.ts";
 import {
   type FxEffectDefinition,
   type FxParameterDefinition,
   getEffectDefinition,
   getFallbackParameterDefinition,
+  isEffectSupportedIn,
 } from "./fx-registry.ts";
 import type { LvpSession } from "./session.ts";
 
@@ -39,7 +40,7 @@ export type SessionEffect = {
 export type FxDeviceParameter = {
   key: string;
   label: string;
-  kind: "number" | "enum";
+  kind: "number" | "enum" | "color" | "gradient";
   // Position of the value within [min, max], 0..1, for meters.
   value: number;
   numericValue?: number;
@@ -66,11 +67,18 @@ export type FxDevice = {
   // True for a layer's own Layout device. Every visual layer has exactly
   // one, so it can be reset to its defaults but not removed or duplicated.
   layerDefault?: boolean;
+  // True for a device on a stack its effect isn't designed for, such as a
+  // Global Layout from an older session. It still loads and can be removed.
+  unsupported?: boolean;
   // A problem to point out on the device, such as layers an Order grid has
   // no cell for.
   warning?: string;
   parameters: FxDeviceParameter[];
 };
+
+export function getTrackGroup(trackId: string): FxDeviceGroup {
+  return trackId === GLOBAL_EFFECT_TRACK_ID ? "global" : "layer";
+}
 
 export function mapEffects(source: LvpSession["effects"]) {
   return (source ?? []).map<SessionEffect>((effect) => ({
@@ -102,7 +110,7 @@ function createParameter(
   value: number | string,
   clampToRange = true,
 ): EffectParameter {
-  if (definition.kind === "enum" || typeof value === "string") {
+  if (definition.kind !== "number" || typeof value === "string") {
     return { key: definition.key, value: `${value}` };
   }
 
@@ -228,8 +236,8 @@ export function setLaneFxEnabled<T extends FxLayer>(
 }
 
 // The effects the renderer applies: a layer whose FX are off contributes
-// nothing but its Layout anchoring. Returns `effects` itself when no layer
-// is bypassed.
+// nothing but its Layout anchoring and the Color its fill clips are painted
+// with. Returns `effects` itself when no layer is bypassed.
 export function getRenderedEffects<
   T extends { trackId: string; effectName: string },
 >(effects: T[], layers: FxLayer[]) {
@@ -242,7 +250,9 @@ export function getRenderedEffects<
 
   return effects.filter(
     (effect) =>
-      !bypassed.has(effect.trackId) || isLayoutEffectName(effect.effectName),
+      !bypassed.has(effect.trackId) ||
+      isLayoutEffectName(effect.effectName) ||
+      isColorEffectName(effect.effectName),
   );
 }
 
@@ -308,13 +318,10 @@ export function addEffect(
   id?: string,
 ) {
   const stack = getStack(effects, trackId);
-  // Transform places one layer, so it has no meaning on the Global stack.
-  if (trackId === GLOBAL_EFFECT_TRACK_ID && isTransformEffectName(effectName)) {
-    return effects;
-  }
-
-  // Order arranges every layer at once, so only the Global stack takes it.
-  if (trackId !== GLOBAL_EFFECT_TRACK_ID && isOrderEffectName(effectName)) {
+  // Only effects designed for the stack can be added to it: Transform
+  // places one layer, so never on the Global stack, and Order arranges
+  // every layer at once, so only on the Global stack.
+  if (!isEffectSupportedIn(effectName, getTrackGroup(trackId))) {
     return effects;
   }
 
@@ -507,6 +514,21 @@ function toDeviceParameter(
   definition: FxParameterDefinition,
   stored: EffectParameter | undefined,
 ): FxDeviceParameter {
+  if (definition.kind === "color" || definition.kind === "gradient") {
+    const stringValue = stored?.value.trim() || definition.defaultValue;
+    return {
+      key: definition.key,
+      label: definition.label,
+      kind: definition.kind,
+      value: 0,
+      stringValue,
+      min: 0,
+      max: 0,
+      defaultValue: definition.defaultValue,
+      display: stringValue,
+    };
+  }
+
   if (definition.kind === "enum") {
     const raw = stored?.value ?? definition.defaultValue;
     const option = definition.options.find(
@@ -602,8 +624,7 @@ function toDevice(
   activeLayerCount = 0,
 ): FxDevice {
   const definition = getEffectDefinition(effect.effectName);
-  const group: FxDeviceGroup =
-    effect.trackId === GLOBAL_EFFECT_TRACK_ID ? "global" : "layer";
+  const group = getTrackGroup(effect.trackId);
   const knownKeys = new Set(
     definition.parameters.map((parameter) => parameter.key),
   );
@@ -632,6 +653,7 @@ function toDevice(
     group,
     enabled: effect.enabled !== false,
     layerDefault: isLayerLayoutEffect(effect) || undefined,
+    unsupported: !isEffectSupportedIn(effect.effectName, group) || undefined,
     warning: describeHiddenLayers(effect, activeLayerCount),
     parameters: parameterDefinitions
       .filter(

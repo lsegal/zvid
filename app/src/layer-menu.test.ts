@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { ContextMenuEntry, ContextMenuItem } from "./context-menu.ts";
-import { ADDABLE_EFFECT_DEFINITIONS } from "./fx-chain.ts";
+import { addableEffectsFor } from "./fx-chain.ts";
 import {
   buildLayerMenuEntries,
   buildMainAudioMenuEntries,
@@ -52,7 +52,7 @@ function layerMenu(
     laneId: "2",
     fxEnabled: true,
     effectCount: 1,
-    effects: ADDABLE_EFFECT_DEFINITIONS,
+    effects: addableEffectsFor("layer"),
     actions,
     ...options,
   });
@@ -108,7 +108,7 @@ describe("buildLayerMenuEntries", () => {
     const submenu = item(entries, "add-fx").submenu ?? [];
     assert.deepEqual(
       submenu.map((entry) => (entry.type === "item" ? entry.label : "")),
-      ADDABLE_EFFECT_DEFINITIONS.map((definition) => definition.displayName),
+      addableEffectsFor("layer").map((definition) => definition.displayName),
     );
     const first = submenu[0];
     assert.equal(first?.type, "item");
@@ -116,7 +116,7 @@ describe("buildLayerMenuEntries", () => {
       first.onSelect?.();
     }
     assert.deepEqual(calls, [
-      `addFx:${ADDABLE_EFFECT_DEFINITIONS[0].effectName}`,
+      `addFx:${addableEffectsFor("layer")[0].effectName}`,
     ]);
   });
 

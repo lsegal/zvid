@@ -123,6 +123,49 @@ describe("mapSessionEffectsToDevices", () => {
     assert.equal(devices[4].subtitle, "Global stack");
   });
 
+  it("flags devices on a stack their effect isn't designed for", () => {
+    const devices = mapSessionEffectsToDevices(
+      [
+        ...load(),
+        {
+          id: "layer-order",
+          trackId: "6",
+          effectName: "Order",
+          enabled: true,
+          parameters: [],
+        },
+        {
+          id: "global-move",
+          trackId: GLOBAL_EFFECT_TRACK_ID,
+          effectName: "Transform",
+          enabled: true,
+          parameters: [],
+        },
+        {
+          id: "global-mystery",
+          trackId: GLOBAL_EFFECT_TRACK_ID,
+          effectName: "Mystery",
+          enabled: true,
+          parameters: [],
+        },
+      ],
+      "6",
+    );
+    assert.deepEqual(
+      devices.map((device) => [device.name, device.unsupported ?? false]),
+      [
+        ["Pixelate", false],
+        ["Colorize", false],
+        ["Negative Split", false],
+        ["Analog Glitch", false],
+        ["Order", true],
+        ["Layout", true],
+        ["Transform", true],
+        ["Mystery", false],
+      ],
+    );
+  });
+
   it("uses friendly labels and hides internal parameters", () => {
     const [zoom] = mapSessionEffectsToDevices(load(), "1");
     assert.equal(zoom.name, "Zoom & Pan");
@@ -730,6 +773,15 @@ describe("layer FX bypass", () => {
       setLaneFxEnabled(LANES, "6", false),
     );
     assert.deepEqual(ids(rendered, "6"), ["layer-layout"]);
+  });
+
+  it("keeps the Color that paints fill clips on a bypassed layer", () => {
+    const effects = addEffect(load(), "6", "Color", undefined, "fill-color");
+    const rendered = getRenderedEffects(
+      effects,
+      setLaneFxEnabled(LANES, "6", false),
+    );
+    assert.deepEqual(ids(rendered, "6"), ["fill-color"]);
   });
 
   it("restores each device's own bypass state when turned back on", () => {
