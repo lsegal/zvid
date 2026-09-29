@@ -255,6 +255,7 @@ import {
   sourceTrackHasFootage,
 } from "./random-arrangement.ts";
 import { listOfflineMedia, matchOfflineMedia } from "./relink";
+import { selectionHint } from "./selection-hint.ts";
 import {
   formatOverlapNote,
   MAX_LAYERS,
@@ -7922,17 +7923,27 @@ function App() {
                           }}
                           style={gridStyle}
                         >
-                          {pendingSelection?.laneId === lane.id ? (
-                            <div
-                              className="timeline-selection"
-                              style={{
-                                left: pendingSelection.startQ * quarterPx,
-                                width: pendingSelection.durationQ * quarterPx,
-                              }}
-                            >
-                              <span>Press 1-9 to commit</span>
-                            </div>
-                          ) : null}
+                          {pendingSelection?.laneId === lane.id
+                            ? (() => {
+                                const width =
+                                  pendingSelection.durationQ * quarterPx;
+                                const hint = selectionHint(width);
+                                return (
+                                  <div
+                                    className="timeline-selection"
+                                    style={{
+                                      left: pendingSelection.startQ * quarterPx,
+                                      width,
+                                      paddingInline: hint.paddingPx,
+                                    }}
+                                  >
+                                    {hint.label ? (
+                                      <span>{hint.label}</span>
+                                    ) : null}
+                                  </div>
+                                );
+                              })()
+                            : null}
                           {(clipsByLane.get(lane.id) ?? []).map((clip) => {
                             const selected = clip.id === selectedClip?.id;
                             // Keeps the trim handles shown while the pointer
