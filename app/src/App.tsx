@@ -60,10 +60,12 @@ import {
 } from "./clip-media-state";
 import {
   buildClipMenuEntries,
+  buildSelectionMenuEntries,
   buildSourceSpanMenuEntries,
   type CopyToLayerTarget,
   canSplitAt,
   copyClipToLayer,
+  isInSelection,
   resolvePasteLaneId,
 } from "./clip-menu.ts";
 import { type ClipWarp, createClipWarp } from "./clip-warp.ts";
@@ -231,7 +233,10 @@ import {
   projectHistoryReducer,
 } from "./project-history";
 import { migrateLegacyMainAudio } from "./project-state-compat.ts";
-import { buildRandomArrangement } from "./random-arrangement.ts";
+import {
+  buildRandomArrangement,
+  sourceTrackHasFootage,
+} from "./random-arrangement.ts";
 import { listOfflineMedia, matchOfflineMedia } from "./relink";
 import {
   formatOverlapNote,
@@ -353,12 +358,13 @@ type ArrangementClip = {
   selected?: boolean;
 };
 
-// The right-click menu open on an arrangement clip, empty lane space, a
-// source clip, a layer header or the Audio row, at `anchor` in viewport
-// coordinates.
+// The right-click menu open on an arrangement clip, empty lane space, the
+// uncommitted selection, a source clip, a layer header or the Audio row, at
+// `anchor` in viewport coordinates.
 type ClipMenuState = { anchor: MenuPoint } & (
   | { kind: "clip"; clipId: string }
   | { kind: "lane"; laneId: string }
+  | { kind: "selection" }
   | { kind: "span"; spanId: string }
   | { kind: "layer"; laneId: string }
   | { kind: "audio" }
@@ -4835,9 +4841,18 @@ function App() {
     });
   }
 
+  // Right-clicking inside the uncommitted selection keeps it and opens the
+  // selection menu; anywhere else on the lane clears it for the lane menu.
   function openLaneMenu(event: ReactMouseEvent<HTMLElement>, laneId: string) {
     event.preventDefault();
     event.stopPropagation();
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const pointerQ = (event.clientX - bounds.left) / quarterPx;
+    if (isInSelection(pendingSelection, laneId, pointerQ)) {
+      setClipMenu({ kind: "selection", anchor: getMenuAnchor(event) });
+      return;
+    }
+
     setPendingSelection(null);
     setSelectedClipId(undefined);
     setSelectedLaneId(laneId);
@@ -4995,11 +5010,28 @@ function App() {
   }
 
   // The context-menu key or Shift+F10 with nothing focused opens the menu on
-  // the selected clip, or on the selected layer at the playhead.
+  // the uncommitted selection, the selected clip, or the selected layer at
+  // the playhead.
   function openSelectionMenu() {
     const timelineScroll = timelineScrollRef.current;
     if (!timelineScroll) {
       return false;
+    }
+
+    if (pendingSelection) {
+      const selection = timelineScroll.querySelector<HTMLElement>(
+        `[data-timeline-lane-id="${CSS.escape(pendingSelection.laneId)}"] .timeline-selection`,
+      );
+      if (!selection) {
+        return false;
+      }
+
+      const bounds = selection.getBoundingClientRect();
+      setClipMenu({
+        kind: "selection",
+        anchor: { x: bounds.left, y: bounds.bottom },
+      });
+      return true;
     }
 
     if (explicitClip) {
@@ -5096,6 +5128,10 @@ function App() {
       return lane ? getLayerMenuEntries(lane) : [];
     }
 
+    if (menu.kind === "selection") {
+      return pendingSelection ? getSelectionMenuEntries(pendingSelection) : [];
+    }
+
     if (menu.kind === "span") {
       const span = sourceSpans.find((item) => item.id === menu.spanId);
       if (!span) {
@@ -5118,6 +5154,29 @@ function App() {
       clip,
       menu.kind === "lane" ? menu.laneId : clip?.laneId,
     );
+  }
+
+  // Insert Track commits the selection exactly like the track's number key.
+  // Insert Fill Layer joins once fill clips (#376) provide an insert action.
+  function getSelectionMenuEntries(selection: TimelineSelection) {
+    const endQ = selection.startQ + selection.durationQ;
+    return buildSelectionMenuEntries({
+      tracks: sourceTracks.map((track) => ({
+        id: track.id,
+        name: track.name,
+        color: getSwatch(track.colorIndex).accent,
+        hasFootage: sourceTrackHasFootage(
+          sourceSpans,
+          (span) => span.startQ + getClipDurationQ(span, bpm),
+          track.id,
+          selection.startQ,
+          endQ,
+        ),
+      })),
+      disabled: isExporting,
+      insertTrack: commitPendingSelectionToSourceTrack,
+      clear: () => setPendingSelection(null),
+    });
   }
 
   function getMainAudioMenuEntries() {
@@ -8659,7 +8718,9 @@ function App() {
                 ? "Main audio actions"
                 : clipMenu?.kind === "lane"
                   ? "Layer actions"
-                  : "Clip actions"
+                  : clipMenu?.kind === "selection"
+                    ? "Selection actions"
+                    : "Clip actions"
         }
         onClose={() => setClipMenu(null)}
       />
