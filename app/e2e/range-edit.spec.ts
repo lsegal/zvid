@@ -32,6 +32,20 @@ function lane(page: Page, id: string) {
 // start and returns its box.
 async function dragSelection(target: Locator, fromX: number, toX: number) {
   const page = target.page();
+  // Centred vertically, so the timeline's sticky header row doesn't cover
+  // the lane when the FX panel leaves the timeline short.
+  await target.evaluate(
+    (element) =>
+      new Promise((resolve) => {
+        const scroller = element.closest(".timeline-scroll");
+        const scrollLeft = scroller?.scrollLeft ?? 0;
+        element.scrollIntoView({ block: "center" });
+        if (scroller) {
+          scroller.scrollLeft = scrollLeft;
+        }
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+      }),
+  );
   const bounds = await target.boundingBox();
   if (!bounds) {
     throw new Error("Target is not visible");

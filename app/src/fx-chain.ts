@@ -2,6 +2,7 @@
 // which group, how knob values are formatted, and the per-device collapse
 // state that is kept in localStorage.
 
+import { isOrderEffectName } from "./composition-order.ts";
 import {
   FX_EFFECT_DEFINITIONS,
   formatRawNumber,
@@ -37,6 +38,17 @@ export function groupChainDevices(
     layer: devices.filter((device) => device.group === "layer"),
     global: devices.filter((device) => device.group === "global"),
   };
+}
+
+export const NO_ORDER_HINT =
+  "No Order: layers overlap (Layer 1 on top). Add Order to arrange them.";
+
+// Shown in the Global section when its stack has no Order, so the layers
+// overlap instead of being arranged.
+export function resolveGlobalOrderHint(globalDevices: readonly FxDevice[]) {
+  return globalDevices.some((device) => isOrderEffectName(device.effectName))
+    ? undefined
+    : NO_ORDER_HINT;
 }
 
 // Effects the `group` add menu offers: the known ones designed for that

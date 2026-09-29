@@ -6,6 +6,7 @@ import {
   addEffect,
   duplicateEffect,
   effectHistoryLabels,
+  ensureGlobalOrder,
   ensureLayerLayouts,
   type FxLayer,
   GLOBAL_EFFECT_TRACK_ID,
@@ -859,5 +860,59 @@ describe("Order devices", () => {
     assert.equal(orderDevice("Grid", 7)?.warning, "3 layers hidden by grid");
     assert.equal(orderDevice("Vertical", 7)?.warning, undefined);
     assert.equal(orderDevice("Grid", 7, false)?.warning, undefined);
+  });
+});
+
+describe("ensureGlobalOrder", () => {
+  it("adds a Vertical Order at the start of the Global stack", () => {
+    const effects = ensureGlobalOrder(
+      addEffect(
+        addEffect([], GLOBAL_EFFECT_TRACK_ID, "Colorize", 0, "colorize"),
+        "1",
+        "Colorize",
+        0,
+        "layer",
+      ),
+    );
+    const global = effects.filter(
+      (effect) => effect.trackId === GLOBAL_EFFECT_TRACK_ID,
+    );
+    assert.deepEqual(
+      global.map((effect) => effect.id),
+      ["order-global", "colorize"],
+    );
+    assert.equal(global[0].effectName, "Order");
+    assert.equal(
+      global[0].parameters.find((parameter) => parameter.key === "Arrangement")
+        ?.value,
+      "Vertical",
+    );
+  });
+
+  it("returns the same array when the Global stack has an Order", () => {
+    const withOrder = ensureGlobalOrder([]);
+    assert.equal(ensureGlobalOrder(withOrder), withOrder);
+    const bypassed = setEffectEnabled(withOrder, "order-global", false);
+    assert.equal(ensureGlobalOrder(bypassed), bypassed);
+  });
+
+  it("does not count an Order on a layer's stack", () => {
+    const effects: SessionEffect[] = [
+      {
+        id: "stray",
+        trackId: "1",
+        effectName: "Order",
+        parameters: [],
+        enabled: true,
+      },
+    ];
+    assert.equal(
+      ensureGlobalOrder(effects).filter(
+        (effect) =>
+          effect.trackId === GLOBAL_EFFECT_TRACK_ID &&
+          effect.effectName === "Order",
+      ).length,
+      1,
+    );
   });
 });

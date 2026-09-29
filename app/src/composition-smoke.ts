@@ -219,9 +219,8 @@ function buildState(
   } else if (effectMode === "zoom") {
     effects.push(...lanes.map((lane) => zoomEffect(lane.id)));
   }
-  if (order !== DEFAULT_COMPOSITION_ORDER) {
-    effects.push(orderEffect(order));
-  }
+  // Every session has an Order; without one the layers would overlap.
+  effects.push(orderEffect(order));
 
   return {
     mediaItems,

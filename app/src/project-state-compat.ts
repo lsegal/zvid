@@ -1,3 +1,5 @@
+import { ensureGlobalOrder, type SessionEffect } from "./fx-stack.ts";
+
 // Collaboration peers on builds from before the "main audio" rename publish
 // the session's main audio as `masterAudioId`. Reading it keeps their audio
 // selection when they share a room with newer peers.
@@ -38,4 +40,15 @@ export function stripClipSelectionFlags<T extends object>(snapshot: T): T {
       return rest;
     }),
   };
+}
+
+// Sessions saved before layers could overlap had no Order effect and were
+// arranged in Vertical bands anyway. Opening one adds that Order so it looks
+// the same. A session saved since carries `orderDefaulted` and opens with its
+// Global stack as saved, so an Order the user removed stays removed.
+export function migrateDefaultOrder(
+  effects: SessionEffect[],
+  orderDefaulted: boolean | undefined,
+) {
+  return orderDefaulted === true ? effects : ensureGlobalOrder(effects);
 }

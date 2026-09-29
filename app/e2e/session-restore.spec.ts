@@ -190,3 +190,64 @@ test("a second tab asks before taking the session over", async ({
     "taken over in another tab",
   );
 });
+
+// Sessions saved since every session got a default Order keep their Global
+// stack as saved; older saves get that Order added once when restored.
+test("a restored session keeps a removed Order, and an older one gets it", async ({
+  page,
+}) => {
+  const order = page.locator('section[aria-label="Order"]');
+  const hint = page.getByText(
+    "No Order: layers overlap (Layer 1 on top). Add Order to arrange them.",
+  );
+  await page.locator('[data-layer-header-id="1"]').click();
+  await expect(order).toHaveCount(1);
+  await order.getByRole("button", { name: "Remove Order" }).click();
+  await expect(hint).toBeVisible();
+  // Saved once the removal is in the undo history.
+  await waitForSave(page, "Remove Order");
+  expect(await readSavedPayload(page)).toContain('"orderDefaulted":true');
+
+  await page.reload();
+  await page.locator('[data-layer-header-id="1"]').click();
+  await expect(hint).toBeVisible();
+  await expect(order).toHaveCount(0);
+
+  // The same session as a build from before the default Order saved it.
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        const request = indexedDB.open("zvid-workspace");
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const database = request.result;
+          const transaction = database.transaction("sessions", "readwrite");
+          const store = transaction.objectStore("sessions");
+          const get = store.get("current");
+          get.onsuccess = () => {
+            const record = get.result as { payload: string };
+            store.put({
+              ...record,
+              payload: record.payload.replace(
+                /,?"orderDefaulted":true,?/g,
+                (match) =>
+                  match.startsWith(",") && match.endsWith(",") ? "," : "",
+              ),
+            });
+          };
+          transaction.oncomplete = () => {
+            database.close();
+            resolve();
+          };
+          transaction.onerror = () => reject(transaction.error);
+        };
+      }),
+  );
+  expect(await readSavedPayload(page)).not.toContain("orderDefaulted");
+
+  await page.reload();
+  await page.locator('[data-layer-header-id="1"]').click();
+  await expect(order).toHaveCount(1);
+  await expect(order).toContainText("Vertical");
+  await expect(hint).toHaveCount(0);
+});
