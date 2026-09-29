@@ -21,21 +21,23 @@ type KeyValueStorage = Pick<Storage, "getItem" | "setItem">;
 
 export type FxChainGroups = {
   layer: FxDevice[];
+  clip: FxDevice[];
   global: FxDevice[];
 };
 
-// Splits the devices for the selected clip into the layer's own stack and
-// the Global stack. Audio layers show no devices.
+// Splits the devices for the selected clip into the clip's own stack, the
+// layer's own stack and the Global stack. Audio layers show no devices.
 export function groupChainDevices(
   devices: FxDevice[],
   kind: string | undefined,
 ): FxChainGroups {
   if (kind === "audio") {
-    return { layer: [], global: [] };
+    return { layer: [], clip: [], global: [] };
   }
 
   return {
     layer: devices.filter((device) => device.group === "layer"),
+    clip: devices.filter((device) => device.group === "clip"),
     global: devices.filter((device) => device.group === "global"),
   };
 }

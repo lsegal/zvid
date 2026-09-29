@@ -233,6 +233,25 @@ export function resolveNestedTextBox(
   };
 }
 
+// A text clip's box and placement for its layer's Transform and its own
+// nested inside it: resized by both Transforms' scale, about the clip's
+// origin (or the layer's, without a clip Transform).
+export function resolveClipTextBox(
+  band: Box,
+  canvas: CanvasSize,
+  layerTransform?: LayerTransform,
+  clipTransform?: LayerTransform,
+) {
+  const pivot = isIdentityTransform(clipTransform)
+    ? layerTransform
+    : clipTransform;
+  return resolveNestedTextBox(
+    band,
+    nestedTransformMatrix(band, canvas, layerTransform, clipTransform),
+    pivot && { x: pivot.originX, y: pivot.originY },
+  );
+}
+
 // The four corners of a placed layer after its Transform, in canvas pixels.
 // A clip's Transform nests inside its layer's, which is then `parent`.
 export function layerBoxInCanvas(

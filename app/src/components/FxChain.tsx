@@ -127,8 +127,12 @@ function canStartChainPan(event: ReactMouseEvent<HTMLElement>) {
   );
 }
 
+// The stack an add menu adds to. Clip stacks have no add menu here yet.
 function getTrackId(group: FxDeviceGroup, layerTrackId: string | undefined) {
-  return group === "global" ? GLOBAL_EFFECT_TRACK_ID : layerTrackId;
+  if (group === "global") {
+    return GLOBAL_EFFECT_TRACK_ID;
+  }
+  return group === "layer" ? layerTrackId : undefined;
 }
 
 export function FxChain({

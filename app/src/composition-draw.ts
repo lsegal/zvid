@@ -20,7 +20,7 @@ import {
   matrixQuadAxes,
   nestedTransformMatrix,
   type QuadAxes,
-  resolveNestedTextBox,
+  resolveClipTextBox,
 } from "./composition-transform.ts";
 import { type FillPaint, rasterizeFillPaint } from "./fill-paint.ts";
 import type { AudioBands } from "./fx-shaders/audio-bands.ts";
@@ -528,16 +528,11 @@ export function drawComposition(
           resolveSlotBounds(index, stackedClips.length, order, width, height),
           surface,
         );
-        const pivot = entry.visual.clipTransform ?? entry.visual.transform;
-        textBox = resolveNestedTextBox(
+        textBox = resolveClipTextBox(
           band,
-          nestedTransformMatrix(
-            band,
-            surface,
-            entry.visual.transform,
-            entry.visual.clipTransform,
-          ),
-          pivot && { x: pivot.originX, y: pivot.originY },
+          surface,
+          entry.visual.transform,
+          entry.visual.clipTransform,
         );
         sourceWidth *= textBox.box.width / Math.max(1e-6, band.width);
         sourceHeight *= textBox.box.height / Math.max(1e-6, band.height);

@@ -270,7 +270,9 @@ import {
   PLAYBACK_COMMIT_INTERVAL_MS,
 } from "./playhead-signal";
 import {
+  getPreviewEditTrackId,
   moveHistoryLabel,
+  type PreviewEditTarget,
   type PreviewLayer,
   readLayerTransform,
   readLayerTransformPosition,
@@ -3023,48 +3025,71 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       setSelectedClipId(undefined);
     }
   }, []);
+  // A preview edit goes to the selected clip's own Transform, or to the
+  // layer's when only the layer is selected; its history names either.
+  const describePreviewEditTarget = useCallback(
+    ({ laneId, clipId }: PreviewEditTarget) =>
+      (clipId !== undefined
+        ? timelineClipsRef.current.find((clip) => clip.id === clipId)?.label
+        : undefined) ??
+      lanes.find((lane) => lane.id === laneId)?.name ??
+      `Layer ${laneId}`,
+    [lanes],
+  );
   const getPreviewLayerPosition = useCallback(
-    (laneId: string) => readLayerTransformPosition(effectsRef.current, laneId),
+    (target: PreviewEditTarget) =>
+      readLayerTransformPosition(
+        effectsRef.current,
+        getPreviewEditTrackId(target),
+      ),
     [],
   );
   const movePreviewLayer = useCallback(
-    ({ laneId, position, mode, newEffectId }: PreviewLayerMove) =>
+    ({ position, mode, newEffectId, ...target }: PreviewLayerMove) =>
       editEffects(
-        moveHistoryLabel(
-          lanes.find((lane) => lane.id === laneId)?.name ?? `Layer ${laneId}`,
-        ),
+        moveHistoryLabel(describePreviewEditTarget(target)),
         (current) =>
-          setLayerTransformPosition(current, laneId, position, newEffectId),
+          setLayerTransformPosition(
+            current,
+            getPreviewEditTrackId(target),
+            position,
+            newEffectId,
+          ),
         mode,
       ),
-    [editEffects, lanes],
+    [describePreviewEditTarget, editEffects],
   );
   const getPreviewLayerTransform = useCallback(
-    (laneId: string) => readLayerTransform(effectsRef.current, laneId),
+    (target: PreviewEditTarget) =>
+      readLayerTransform(effectsRef.current, getPreviewEditTrackId(target)),
     [],
   );
   const transformPreviewLayer = useCallback(
     ({
-      laneId,
       kind,
       values,
       mode,
       newEffectId,
+      ...target
     }: PreviewLayerTransformEdit) => {
-      const layerName =
-        lanes.find((lane) => lane.id === laneId)?.name ?? `Layer ${laneId}`;
+      const targetName = describePreviewEditTarget(target);
       editEffects(
         kind === "resize"
-          ? resizeHistoryLabel(layerName)
+          ? resizeHistoryLabel(targetName)
           : kind === "rotate"
-            ? rotateHistoryLabel(layerName)
+            ? rotateHistoryLabel(targetName)
             : MOVE_ORIGIN_HISTORY_LABEL,
         (current) =>
-          setLayerTransformParameters(current, laneId, values, newEffectId),
+          setLayerTransformParameters(
+            current,
+            getPreviewEditTrackId(target),
+            values,
+            newEffectId,
+          ),
         mode,
       );
     },
-    [editEffects, lanes],
+    [describePreviewEditTarget, editEffects],
   );
   // The text clip being typed on in the preview. Every keystroke is a
   // transient edit of the layer's Text effect, so the FX panel and
@@ -10284,6 +10309,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     canvas={{ width: canvasWidth, height: canvasHeight }}
                     layers={previewLayers}
                     selectedLaneId={previewLaneId}
+                    selectedClipId={selectedClip?.id}
                     textEdit={previewTextEdit}
                     getLayerPosition={getPreviewLayerPosition}
                     getLayerTransform={getPreviewLayerTransform}
