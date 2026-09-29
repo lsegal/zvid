@@ -11,6 +11,7 @@
 // changes the canvas backing store, not where the canvas sits on screen.
 import {
   type FrameBounds,
+  type LayerDrawStep,
   orderStackedLayers,
   planLayerDraws,
   resolveCanvasBounds,
@@ -21,8 +22,10 @@ import {
   DEFAULT_COMPOSITION_ORDER,
 } from "./composition-order.ts";
 import {
+  applyMatrix,
   type Box,
   type BoxCorners,
+  canvasBoxToFrame,
   canvasToLayer,
   frameBoxInCanvas,
   IDENTITY_MATRIX,
@@ -34,6 +37,7 @@ import {
   type Matrix2D,
   type Point,
   parseLayerTransform,
+  resolveClipTextBox,
   TRANSFORM_EFFECT_NAME,
   transformMatrix,
 } from "./composition-transform.ts";
@@ -96,6 +100,8 @@ type StackableLayer = {
   visual: { transform?: LayerTransform; clipTransform?: LayerTransform };
   // Set for FX clips, which take no slot and adjust the whole canvas.
   fx?: boolean;
+  // Set for FX clips with an Order, which arranges the layers beneath them.
+  order?: CompositionOrder;
 };
 
 // A layer as the preview draws it: its slot, its layer's Transform, its
@@ -170,21 +176,68 @@ export function matrixRotationDeg(parent: Matrix2D) {
 // The layers the compositor draws at the playhead, in draw order (the last
 // one is on top). As in the compositor, only in-bounds layers take a slot,
 // and a Grid shows no more layers than it has cells. Without an Order every
-// slot is the whole canvas and Layer 1 is drawn last; layers the Order
-// excludes cover the whole canvas too, in the same z-order. FX clips take
-// no slot: their box starts as the whole canvas, and they come first so a
-// click only picks one where no other layer is.
+// slot is the whole canvas and Layer 1 is drawn last. FX clips take no slot:
+// their box starts as the whole canvas, and they come first so a click only
+// picks one where no other layer is. Layers beneath an FX clip with an Order
+// take their slots from that Order, inside the FX clip's box, and come
+// before the layers above it, which are drawn over them. Layers an Order
+// excludes cover its whole box, in z-order with the layers it arranges.
 export function resolvePreviewLayers(
   activeClips: readonly StackableLayer[],
   canvas: Size,
   order: CompositionOrder = DEFAULT_COMPOSITION_ORDER,
 ): PreviewLayer[] {
-  const layerDraws = planLayerDraws(
-    activeClips.filter((entry) => entry.isInBounds && !entry.fx),
-    order,
-  ).flatMap((step) => (step.type === "layer" ? [step] : []));
+  const inBounds = activeClips.filter((entry) => entry.isInBounds);
   const fxLayers = orderStackedLayers(
-    activeClips.filter((entry) => entry.isInBounds && entry.fx),
+    inBounds.filter((entry) => entry.fx),
+    order,
+  );
+  const placed: { entry: StackableLayer; frame: FrameBounds }[] = [];
+  const collect = (
+    steps: LayerDrawStep<StackableLayer>[],
+    box: Box,
+    stackOrder: CompositionOrder,
+  ) => {
+    const layers: typeof placed = [];
+    // Arranged layers keep slot order. Once the Order excludes a layer,
+    // which is placed by z-order instead, they all keep draw order.
+    const byDrawOrder = steps.some(
+      (step) => step.type === "layer" && step.order !== stackOrder,
+    );
+    for (const step of steps) {
+      if (step.type === "arrange") {
+        collect(
+          step.steps,
+          resolveArrangementBox(box, step.entry.visual),
+          step.order,
+        );
+      } else if (step.type === "layer") {
+        layers[byDrawOrder ? layers.length : step.slot] = {
+          entry: step.entry,
+          frame: canvasBoxToFrame(
+            offsetBox(
+              frameBoxInCanvas(
+                resolveSlotBounds(
+                  step.slot,
+                  step.slotCount,
+                  step.order,
+                  box.width,
+                  box.height,
+                ),
+                box,
+              ),
+              box,
+            ),
+            canvas,
+          ),
+        };
+      }
+    }
+    placed.push(...layers.filter(Boolean));
+  };
+  collect(
+    planLayerDraws(inBounds, order),
+    { x: 0, y: 0, width: canvas.width, height: canvas.height },
     order,
   );
 
@@ -193,16 +246,7 @@ export function resolvePreviewLayers(
       entry,
       frame: resolveCanvasBounds(canvas.width, canvas.height),
     })),
-    ...layerDraws.map((step) => ({
-      entry: step.entry,
-      frame: resolveSlotBounds(
-        step.slot,
-        step.slotCount,
-        step.order,
-        canvas.width,
-        canvas.height,
-      ),
-    })),
+    ...placed,
   ].map(({ entry, frame }) => {
     const placement = { frame };
     const transform = entry.visual.transform ?? IDENTITY_TRANSFORM;
@@ -220,6 +264,36 @@ export function resolvePreviewLayers(
       ).corners,
     };
   });
+}
+
+function offsetBox(box: Box, by: Box): Box {
+  return { ...box, x: box.x + by.x, y: box.y + by.y };
+}
+
+// The canvas box an FX clip with an Order arranges the layers beneath it
+// in, inside `parent`: the box the compositor draws, resized by its
+// Transforms. The preview keeps it upright; a turned box is placed at its
+// centre.
+function resolveArrangementBox(
+  parent: Box,
+  visual: StackableLayer["visual"],
+): Box {
+  const placed = resolveClipTextBox(
+    { x: 0, y: 0, width: parent.width, height: parent.height },
+    { width: parent.width, height: parent.height },
+    visual.transform,
+    visual.clipTransform,
+  );
+  const center = applyMatrix(placed.matrix, {
+    x: placed.box.x + placed.box.width / 2,
+    y: placed.box.y + placed.box.height / 2,
+  });
+  return {
+    x: parent.x + center.x - placed.box.width / 2,
+    y: parent.y + center.y - placed.box.height / 2,
+    width: placed.box.width,
+    height: placed.box.height,
+  };
 }
 
 type HitTestLayer = Pick<PreviewLayer, "placement" | "transform"> & {

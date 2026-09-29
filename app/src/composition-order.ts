@@ -1,8 +1,9 @@
-// The Order global effect: how the compositor arranges its layers (stacked
+// The Order effect: how the compositor arranges its layers (stacked
 // Vertical bands, Horizontal columns or an N×N Grid) and how much space it
-// leaves between them. Without an enabled Order effect the layers are not
-// arranged at all: each covers the whole canvas and they overlap by z-order,
-// Layer 1 on top.
+// leaves between them. On the Global stack it arranges every layer; on an FX
+// clip it arranges the layers beneath the clip, for the clip's duration.
+// Without an enabled Order effect the layers are not arranged at all: each
+// covers the whole canvas and they overlap by z-order, Layer 1 on top.
 
 // "none" is the z-order overlay used when there is no enabled Order; it is
 // never an Order device's own setting.
@@ -155,21 +156,29 @@ export function parseCompositionOrder(
   return order;
 }
 
+// The arrangement the last enabled Order effect on the `trackId` stack
+// sets, or undefined when the stack has none.
+export function findCompositionOrder(
+  effects: readonly OrderEffect[],
+  trackId: string,
+): CompositionOrder | undefined {
+  const effect = effects.findLast(
+    (candidate) =>
+      candidate.trackId === trackId &&
+      candidate.enabled !== false &&
+      isOrderEffectName(candidate.effectName),
+  );
+  return effect ? parseCompositionOrder(effect.parameters) : undefined;
+}
+
 // The arrangement the compositor uses: the last enabled Order effect on the
-// Global stack, or the z-order overlay when there is none.
+// Global stack, or the z-order overlay when there is none. An FX clip with
+// an Order of its own arranges the layers beneath it instead.
 export function resolveCompositionOrder(
   effects: readonly OrderEffect[],
   globalTrackId: string,
 ): CompositionOrder {
-  const effect = effects.findLast(
-    (candidate) =>
-      candidate.trackId === globalTrackId &&
-      candidate.enabled !== false &&
-      isOrderEffectName(candidate.effectName),
-  );
-  return effect
-    ? parseCompositionOrder(effect.parameters)
-    : Z_ORDER_COMPOSITION;
+  return findCompositionOrder(effects, globalTrackId) ?? Z_ORDER_COMPOSITION;
 }
 
 // Layers the arrangement has room for: every layer, except that a Grid

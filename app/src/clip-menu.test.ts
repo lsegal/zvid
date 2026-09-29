@@ -69,6 +69,7 @@ function find(entries: readonly ContextMenuEntry[], id: string) {
 function recordingActions() {
   const calls: string[] = [];
   const actions: ClipMenuActions = {
+    jumpToStart: () => calls.push("jumpToStart"),
     cut: () => calls.push("cut"),
     copy: () => calls.push("copy"),
     paste: () => calls.push("paste"),
@@ -106,7 +107,7 @@ describe("canSplitAt", () => {
 });
 
 describe("buildClipMenuEntries", () => {
-  it("lists the clip actions with shortcuts, Delete after a separator", () => {
+  it("lists Jump to start, then the clip actions with shortcuts, Delete after a separator", () => {
     const { actions } = recordingActions();
     const entries = buildClipMenuEntries({
       hasClip: true,
@@ -117,11 +118,21 @@ describe("buildClipMenuEntries", () => {
     });
     assert.deepEqual(
       entries.map((entry) => (entry.type === "item" ? entry.label : "—")),
-      ["Cut", "Copy", "Paste", "Duplicate", "Split at playhead", "—", "Delete"],
+      [
+        "Jump to start",
+        "—",
+        "Cut",
+        "Copy",
+        "Paste",
+        "Duplicate",
+        "Split at playhead",
+        "—",
+        "Delete",
+      ],
     );
     assert.deepEqual(
       items(entries).map((entry) => entry.shortcut),
-      ["Ctrl+X", "Ctrl+C", "Ctrl+V", "Ctrl+D", "Ctrl+E", "Del"],
+      ["Ctrl+click", "Ctrl+X", "Ctrl+C", "Ctrl+V", "Ctrl+D", "Ctrl+E", "Del"],
     );
     assert.equal(
       items(entries).some((entry) => entry.disabled),
@@ -139,6 +150,7 @@ describe("buildClipMenuEntries", () => {
       actions,
     });
     assert.equal(find(entries, "copy").shortcut, "Cmd+C");
+    assert.equal(find(entries, "jump-to-start").shortcut, "Cmd+click");
   });
 
   it("runs the matching action for each item", () => {
@@ -154,6 +166,7 @@ describe("buildClipMenuEntries", () => {
       entry.onSelect?.();
     }
     assert.deepEqual(calls, [
+      "jumpToStart",
       "cut",
       "copy",
       "paste",
@@ -221,6 +234,8 @@ describe("buildSourceSpanMenuEntries", () => {
       ["Auto (last free layer)", "Layer 1", "Layer 2", "Layer 3", "New layer"],
     );
     assert.equal(find(submenu, "new").disabled, false);
+    // Ctrl/Cmd-click on a source clip is the same as Auto.
+    assert.equal(find(submenu, "auto").shortcut, "Ctrl+click");
   });
 
   it("passes the chosen target to copyToLayer", () => {

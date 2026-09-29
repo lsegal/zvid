@@ -1,4 +1,5 @@
 import {
+  type LayerDrawStep,
   type LayerPlacement,
   type LayerVisual,
   planLayerDraws,
@@ -61,7 +62,13 @@ export type CompositeLayer = {
   // Set for FX clips, which draw nothing and instead run `effectChain` on
   // the composite beneath them.
   fx?: boolean;
+  // Set for FX clips with an Order, which arranges the layers beneath them
+  // inside the clip's box before `effectChain` runs.
+  order?: CompositionOrder;
 };
+
+// What the composite shows where no layer is drawn.
+const BACKGROUND_COLOR = [0.07, 0.08, 0.11, 1] as const;
 
 // Fill textures are drawn at most this many pixels on a side; the linear
 // filter smooths gradients when the band is larger.
@@ -585,6 +592,189 @@ function applyFxClip(
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }
 
+// A surface a stack of layers is drawn into: the canvas itself
+// (`framebuffer` null) or an offscreen target the FX clips can read back.
+type StackTarget = {
+  framebuffer: WebGLFramebuffer | null;
+  width: number;
+  height: number;
+  texture?: WebGLTexture;
+};
+
+// Draws `entry` into slot `index` of `count` of `target`, arranged by
+// `order`.
+function drawLayer(
+  resources: WebGlResources,
+  target: StackTarget,
+  order: CompositionOrder,
+  mediaRefs: Map<string, HTMLMediaElement>,
+  frameContext: FrameContext,
+  entry: CompositeLayer,
+  index: number,
+  count: number,
+) {
+  const { gl, effectChain } = resources;
+  const { width, height } = target;
+  const surface = { width, height };
+  const mediaElement = mediaRefs.get(entry.sourceKey);
+  let sourceWidth: number;
+  let sourceHeight: number;
+  let texture: WebGLTexture;
+  let textBox: { box: Box; matrix: Matrix2D } | undefined;
+  if (entry.fill || entry.text) {
+    // Fills and text are drawn at their slot's own size, so they cover
+    // the slot exactly in any arrangement.
+    const slot = resolveSlotScissor(index, count, order, width, height);
+    sourceWidth = Math.max(1, slot.width);
+    sourceHeight = Math.max(1, slot.height);
+    if (entry.text) {
+      // The Transforms' scale resizes the text box, which the text is laid
+      // out and drawn in at full size, rather than stretching the text.
+      const band = frameBoxInCanvas(
+        resolveSlotBounds(index, count, order, width, height),
+        surface,
+      );
+      textBox = resolveClipTextBox(
+        band,
+        surface,
+        entry.visual.transform,
+        entry.visual.clipTransform,
+      );
+      sourceWidth *= textBox.box.width / Math.max(1e-6, band.width);
+      sourceHeight *= textBox.box.height / Math.max(1e-6, band.height);
+    }
+    if (entry.fill) {
+      texture = uploadFillTexture(
+        resources,
+        entry.sourceKey,
+        entry.fill,
+        sourceWidth,
+        sourceHeight,
+      );
+    } else {
+      const uploaded = uploadTextTexture(
+        resources,
+        entry.sourceKey,
+        entry.text as TextStyle,
+        sourceWidth,
+        sourceHeight,
+        // Text sizes are given at 1080p and scale with the output's
+        // short side, in portrait as in landscape.
+        Math.min(width, height) / TEXT_REFERENCE_HEIGHT,
+      );
+      if (!uploaded) {
+        return;
+      }
+      texture = uploaded;
+    }
+  } else {
+    if (!(mediaElement instanceof HTMLVideoElement)) {
+      return;
+    }
+
+    const uploaded = uploadVideoTexture(resources, entry, mediaElement);
+    if (!uploaded) {
+      return;
+    }
+    texture = uploaded;
+    sourceWidth = mediaElement.videoWidth || entry.media.width || width;
+    sourceHeight = mediaElement.videoHeight || entry.media.height || height;
+  }
+
+  const placement = resolveLayerPlacement({
+    index,
+    count: count,
+    canvasWidth: width,
+    canvasHeight: height,
+    sourceWidth,
+    sourceHeight,
+    visual: entry.visual,
+    order,
+    frame: textBox && canvasBoxToFrame(textBox.box, surface),
+  });
+  const { frame, halfExtents, translate, scissor } = placement;
+  let uniforms: CompositeUniforms = {
+    ...quadAxes(
+      [halfExtents.x, halfExtents.y],
+      [translate.x, translate.y],
+      (entry.visual.rotationDeg * Math.PI) / 180,
+    ),
+    ...colorUniforms(entry.visual),
+  };
+
+  // A Transform moves the slot's content, so the layer is framed into its
+  // slot first and that frame is drawn transformed: by the clip's own
+  // Transform inside its layer's Transform.
+  const transformed =
+    !isIdentityTransform(entry.visual.transform) ||
+    !isIdentityTransform(entry.visual.clipTransform);
+  // The clip's own chain steps come first, then its layer's.
+  const layerSteps = effectChain.prepare(entry.effectChain);
+  if (layerSteps.length || transformed) {
+    // Text is framed at its box's size, so its effects see it unstretched.
+    const frameSize = textBox
+      ? fitTextureSize(gl, sourceWidth, sourceHeight)
+      : scissor;
+    const framed = renderLayerFrame(
+      resources,
+      texture,
+      placement,
+      entry.visual,
+      frameSize,
+    );
+    texture = !layerSteps.length
+      ? framed
+      : (effectChain.run(
+          framed,
+          frameSize.width,
+          frameSize.height,
+          layerSteps,
+          {
+            time: frameContext.time,
+            clipProgress: entry.clipProgress,
+            resolution: [frameSize.width, frameSize.height],
+            audioLow: frameContext.audio.low,
+            audioHigh: frameContext.audio.high,
+            impulseLow: frameContext.audio.impulseLow,
+            impulseHigh: frameContext.audio.impulseHigh,
+            // The framed layer is written top row first, like a layer texture.
+            bottomUp: false,
+          },
+        ) ?? framed);
+    // The framed result already holds the layer's placement, so it fills
+    // its slot exactly, or the box its Transforms move the slot to. A text
+    // box already holds the Transforms' scale, so it is drawn without it.
+    uniforms = {
+      ...(transformed
+        ? matrixQuadAxes(
+            frame,
+            textBox?.matrix ??
+              nestedTransformMatrix(
+                frameBoxInCanvas(frame, surface),
+                surface,
+                entry.visual.transform,
+                entry.visual.clipTransform,
+              ),
+            surface,
+          )
+        : quadAxes(
+            [frame.halfWidth, frame.halfHeight],
+            [frame.centerX, frame.centerY],
+            0,
+          )),
+      ...colorUniforms(entry.visual),
+    };
+  }
+
+  bindCompositeState(resources, target.framebuffer, width, height);
+  // A transformed layer can leave its slot; only the canvas clips it.
+  if (!transformed) {
+    gl.enable(gl.SCISSOR_TEST);
+    gl.scissor(scissor.x, scissor.y, scissor.width, scissor.height);
+  }
+  drawQuad(resources, texture, uniforms);
+}
+
 export function drawComposition(
   resources: WebGlResources,
   surface: CompositeSurface,
@@ -599,7 +789,8 @@ export function drawComposition(
   effectChain.syncSurface(width, height);
   const groupSteps = effectChain.prepare(groupChain);
   // Each FX clip's chain, when it has one; an FX clip without effects
-  // changes nothing, so it is skipped.
+  // changes nothing, so it is skipped unless its Order arranges the layers
+  // beneath it.
   const fxSteps = new Map<CompositeLayer, PreparedEffectStep[]>();
   for (const entry of activeClips) {
     if (entry.fx && entry.isInBounds) {
@@ -615,206 +806,143 @@ export function drawComposition(
     groupSteps.length || fxSteps.size
       ? effectChain.getSceneTarget(width, height)
       : null;
-  const compositeFramebuffer = scene?.framebuffer ?? null;
-  bindCompositeState(resources, compositeFramebuffer, width, height);
-  gl.clearColor(0.07, 0.08, 0.11, 1);
+  const sceneTarget: StackTarget = scene ?? {
+    framebuffer: null,
+    width,
+    height,
+  };
+  bindCompositeState(resources, sceneTarget.framebuffer, width, height);
+  gl.clearColor(...BACKGROUND_COLOR);
   gl.clear(gl.COLOR_BUFFER_BIT);
 
-  const drawLayer = (
-    entry: CompositeLayer,
-    index: number,
-    count: number,
-    // How the layer is placed: the Order, or the z-order overlay for a
-    // layer the Order excludes.
-    layerOrder: CompositionOrder,
+  const drawSteps = (
+    steps: LayerDrawStep<CompositeLayer>[],
+    target: StackTarget,
+    depth: number,
   ) => {
-    const mediaElement = mediaRefs.get(entry.sourceKey);
-    let sourceWidth: number;
-    let sourceHeight: number;
-    let texture: WebGLTexture;
-    let textBox: { box: Box; matrix: Matrix2D } | undefined;
-    if (entry.fill || entry.text) {
-      // Fills and text are drawn at their slot's own size, so they cover
-      // the slot exactly in any arrangement.
-      const slot = resolveSlotScissor(index, count, layerOrder, width, height);
-      sourceWidth = Math.max(1, slot.width);
-      sourceHeight = Math.max(1, slot.height);
-      if (entry.text) {
-        // The Transforms' scale resizes the text box, which the text is laid
-        // out and drawn in at full size, rather than stretching the text.
-        const band = frameBoxInCanvas(
-          resolveSlotBounds(index, count, layerOrder, width, height),
-          surface,
-        );
-        textBox = resolveClipTextBox(
-          band,
-          surface,
-          entry.visual.transform,
-          entry.visual.clipTransform,
-        );
-        sourceWidth *= textBox.box.width / Math.max(1e-6, band.width);
-        sourceHeight *= textBox.box.height / Math.max(1e-6, band.height);
-      }
-      if (entry.fill) {
-        texture = uploadFillTexture(
+    for (const step of steps) {
+      if (step.type === "layer") {
+        drawLayer(
           resources,
-          entry.sourceKey,
-          entry.fill,
-          sourceWidth,
-          sourceHeight,
+          target,
+          // The Order, or the z-order overlay for a layer it excludes.
+          step.order,
+          mediaRefs,
+          frameContext,
+          step.entry,
+          step.slot,
+          step.slotCount,
         );
-      } else {
-        const uploaded = uploadTextTexture(
+      } else if (step.type === "arrange") {
+        drawArrangement(step, target, depth);
+      } else if (target.texture && target.framebuffer) {
+        applyFxClip(
           resources,
-          entry.sourceKey,
-          entry.text as TextStyle,
-          sourceWidth,
-          sourceHeight,
-          // Text sizes are given at 1080p and scale with the output's
-          // short side, in portrait as in landscape.
-          Math.min(width, height) / TEXT_REFERENCE_HEIGHT,
+          {
+            ...target,
+            texture: target.texture,
+            framebuffer: target.framebuffer,
+          },
+          { width: target.width, height: target.height },
+          step.entry,
+          fxSteps.get(step.entry) ?? [],
+          frameContext,
         );
-        if (!uploaded) {
-          return;
-        }
-        texture = uploaded;
       }
-    } else {
-      if (!(mediaElement instanceof HTMLVideoElement)) {
-        return;
-      }
-
-      const uploaded = uploadVideoTexture(resources, entry, mediaElement);
-      if (!uploaded) {
-        return;
-      }
-      texture = uploaded;
-      sourceWidth = mediaElement.videoWidth || entry.media.width || width;
-      sourceHeight = mediaElement.videoHeight || entry.media.height || height;
     }
+  };
 
-    const placement = resolveLayerPlacement({
-      index,
-      count: count,
-      canvasWidth: width,
-      canvasHeight: height,
-      sourceWidth,
-      sourceHeight,
-      visual: entry.visual,
-      order: layerOrder,
-      frame: textBox && canvasBoxToFrame(textBox.box, surface),
+  // An FX clip with an Order draws the layers beneath it into its own box,
+  // arranged by its Order, runs the rest of its chain on the result and
+  // writes that into its box on `parent`. Nothing is beneath it there but
+  // the background, which the arrangement is drawn over.
+  const drawArrangement = (
+    step: LayerDrawStep<CompositeLayer> & { type: "arrange" },
+    parent: StackTarget,
+    depth: number,
+  ) => {
+    const { entry } = step;
+    const parentSurface = { width: parent.width, height: parent.height };
+    // The box takes the Transforms' scale, so the layers are arranged in a
+    // smaller or larger box rather than squeezed or stretched.
+    const placed = resolveClipTextBox(
+      { x: 0, y: 0, width: parent.width, height: parent.height },
+      parentSurface,
+      entry.visual.transform,
+      entry.visual.clipTransform,
+    );
+    const size = fitTextureSize(gl, placed.box.width, placed.box.height);
+    const target = effectChain.getArrangementTarget(
+      depth,
+      size.width,
+      size.height,
+    );
+    bindCompositeState(resources, target.framebuffer, size.width, size.height);
+    gl.clearColor(...BACKGROUND_COLOR);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    drawSteps(step.steps, target, depth + 1);
+    gl.disable(gl.SCISSOR_TEST);
+
+    // The FX clip's other effects run on the arranged layers.
+    const steps = fxSteps.get(entry) ?? [];
+    const arranged = steps.length
+      ? (effectChain.run(target.texture, size.width, size.height, steps, {
+          time: frameContext.time,
+          clipProgress: entry.clipProgress,
+          resolution: [size.width, size.height],
+          audioLow: frameContext.audio.low,
+          audioHigh: frameContext.audio.high,
+          impulseLow: frameContext.audio.impulseLow,
+          impulseHigh: frameContext.audio.impulseHigh,
+          // The arrangement framebuffer is rendered normally, so it is
+          // bottom-up.
+          bottomUp: true,
+        }) ?? target.texture)
+      : target.texture;
+    const axes = matrixQuadAxes(
+      canvasBoxToFrame(placed.box, parentSurface),
+      placed.matrix,
+      parentSurface,
+    );
+    bindCompositeState(
+      resources,
+      parent.framebuffer,
+      parent.width,
+      parent.height,
+    );
+    gl.disable(gl.BLEND);
+    drawQuad(resources, arranged, {
+      // The arrangement is bottom-up, unlike the top-row-first layer
+      // textures the composite shader expects, so it is drawn flipped.
+      axisX: axes.axisX,
+      axisY: [-axes.axisY[0], -axes.axisY[1]],
+      offset: axes.offset,
+      opacity: 1,
+      brightness: 0,
+      contrast: 1,
+      saturation: 1,
     });
-    const { frame, halfExtents, translate, scissor } = placement;
-    let uniforms: CompositeUniforms = {
-      ...quadAxes(
-        [halfExtents.x, halfExtents.y],
-        [translate.x, translate.y],
-        (entry.visual.rotationDeg * Math.PI) / 180,
-      ),
-      ...colorUniforms(entry.visual),
-    };
-
-    // A Transform moves the slot's content, so the layer is framed into its
-    // slot first and that frame is drawn transformed: by the clip's own
-    // Transform inside its layer's Transform.
-    const transformed =
-      !isIdentityTransform(entry.visual.transform) ||
-      !isIdentityTransform(entry.visual.clipTransform);
-    // The clip's own chain steps come first, then its layer's.
-    const layerSteps = effectChain.prepare(entry.effectChain);
-    if (layerSteps.length || transformed) {
-      // Text is framed at its box's size, so its effects see it unstretched.
-      const frameSize = textBox
-        ? fitTextureSize(gl, sourceWidth, sourceHeight)
-        : scissor;
-      const framed = renderLayerFrame(
-        resources,
-        texture,
-        placement,
-        entry.visual,
-        frameSize,
-      );
-      texture = !layerSteps.length
-        ? framed
-        : (effectChain.run(
-            framed,
-            frameSize.width,
-            frameSize.height,
-            layerSteps,
-            {
-              time: frameContext.time,
-              clipProgress: entry.clipProgress,
-              resolution: [frameSize.width, frameSize.height],
-              audioLow: frameContext.audio.low,
-              audioHigh: frameContext.audio.high,
-              impulseLow: frameContext.audio.impulseLow,
-              impulseHigh: frameContext.audio.impulseHigh,
-              // The framed layer is written top row first, like a layer texture.
-              bottomUp: false,
-            },
-          ) ?? framed);
-      // The framed result already holds the layer's placement, so it fills
-      // its slot exactly, or the box its Transforms move the slot to. A text
-      // box already holds the Transforms' scale, so it is drawn without it.
-      uniforms = {
-        ...(transformed
-          ? matrixQuadAxes(
-              frame,
-              textBox?.matrix ??
-                nestedTransformMatrix(
-                  frameBoxInCanvas(frame, surface),
-                  surface,
-                  entry.visual.transform,
-                  entry.visual.clipTransform,
-                ),
-              surface,
-            )
-          : quadAxes(
-              [frame.halfWidth, frame.halfHeight],
-              [frame.centerX, frame.centerY],
-              0,
-            )),
-        ...colorUniforms(entry.visual),
-      };
-    }
-
-    bindCompositeState(resources, compositeFramebuffer, width, height);
-    // A transformed layer can leave its slot; only the canvas clips it.
-    if (!transformed) {
-      gl.enable(gl.SCISSOR_TEST);
-      gl.scissor(scissor.x, scissor.y, scissor.width, scissor.height);
-    }
-    drawQuad(resources, texture, uniforms);
   };
 
   // FX clips and the layers the Order excludes take no slot, and a Grid has
   // one cell per arranged layer, so arranged layers past the last cell are
   // not drawn.
-  const draws = planLayerDraws(
-    activeClips.filter((entry) =>
-      entry.fx
-        ? fxSteps.has(entry)
-        : entry.isInBounds &&
-          (entry.fill ||
-            entry.text ||
-            mediaRefs.get(entry.sourceKey) instanceof HTMLVideoElement),
+  drawSteps(
+    planLayerDraws(
+      activeClips.filter((entry) =>
+        entry.fx
+          ? fxSteps.has(entry) ||
+            (entry.isInBounds && entry.order !== undefined)
+          : entry.isInBounds &&
+            (entry.fill ||
+              entry.text ||
+              mediaRefs.get(entry.sourceKey) instanceof HTMLVideoElement),
+      ),
+      order,
     ),
-    order,
+    sceneTarget,
+    0,
   );
-  for (const step of draws) {
-    if (step.type === "layer") {
-      drawLayer(step.entry, step.slot, step.slotCount, step.order);
-    } else if (scene) {
-      applyFxClip(
-        resources,
-        scene,
-        surface,
-        step.entry,
-        fxSteps.get(step.entry) ?? [],
-        frameContext,
-      );
-    }
-  }
 
   gl.disable(gl.SCISSOR_TEST);
   if (scene && !groupSteps.length) {

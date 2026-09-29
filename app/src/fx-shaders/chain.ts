@@ -43,6 +43,7 @@ export class EffectChainRenderer {
   private pingPongTargets = new Map<string, [RenderTarget, RenderTarget]>();
   private sceneTarget: RenderTarget | null = null;
   private layerTargets = new Map<string, RenderTarget>();
+  private arrangementTargets = new Map<number, RenderTarget>();
   private surfaceKey = "";
 
   constructor(gl: WebGLRenderingContext, positionBuffer: WebGLBuffer) {
@@ -95,6 +96,21 @@ export class EffectChainRenderer {
     if (!target) {
       target = this.createTarget(width, height);
       this.layerTargets.set(key, target);
+    }
+
+    return target;
+  }
+
+  // Surface an FX clip with an Order arranges the layers beneath it into, one
+  // per nesting `depth`, since an arrangement can hold another.
+  getArrangementTarget(depth: number, width: number, height: number) {
+    let target = this.arrangementTargets.get(depth);
+    if (!target || target.width !== width || target.height !== height) {
+      if (target) {
+        this.deleteTarget(target);
+      }
+      target = this.createTarget(width, height);
+      this.arrangementTargets.set(depth, target);
     }
 
     return target;
@@ -272,6 +288,10 @@ export class EffectChainRenderer {
       this.deleteTarget(target);
     }
     this.layerTargets.clear();
+    for (const target of this.arrangementTargets.values()) {
+      this.deleteTarget(target);
+    }
+    this.arrangementTargets.clear();
     if (this.sceneTarget) {
       this.deleteTarget(this.sceneTarget);
       this.sceneTarget = null;

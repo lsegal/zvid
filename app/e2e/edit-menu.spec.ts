@@ -115,6 +115,7 @@ test("Edit ▸ Clip runs the clip actions on the selected clip", async ({
   await openEditMenu(page);
   const clipMenu = await openSubmenu(page, /^Clip: /);
   await expect(clipMenu.getByRole("menuitem")).toHaveText([
+    /^Jump to start/,
     /^Duplicate/,
     /^Split at playhead/,
     /^Delete/,

@@ -301,6 +301,8 @@ export function resolveSelectedLaneId(
 // A layer an Order's Layers menu lists, in timeline order.
 export type FxLayerOption = {
   id: string;
+  // Its position in the timeline, from 1.
+  number: number;
   name: string;
   // The layer's colour, for its swatch.
   color?: string;

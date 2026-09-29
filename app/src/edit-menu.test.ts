@@ -40,6 +40,7 @@ function clipEntries({
     calls.push(name);
   };
   const actions: ClipMenuActions = {
+    jumpToStart: record("jumpToStart"),
     cut: record("cut"),
     copy: record("copy"),
     paste: record("paste"),
@@ -108,6 +109,8 @@ describe("buildEditMenuEntries", () => {
     const clip = find(entries, "clip");
     assert.equal(clip.label, "Clip: 3-Audio");
     assert.deepEqual(layout(clip.submenu ?? []), [
+      "jump-to-start",
+      "-",
       "duplicate",
       "split",
       "-",

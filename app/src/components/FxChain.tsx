@@ -79,8 +79,10 @@ type FxChainProps = {
   clipScope?: FxEffectScope;
   // False when the selected layer's FX badge bypasses its whole stack.
   layerFxEnabled?: boolean;
-  // The layers an Order's Layers menu lists, in timeline order.
+  // The layers the Global Order's Layers menu lists, in timeline order.
   layers?: readonly FxLayerOption[];
+  // The layers beneath the selected FX clip, which its Order's menu lists.
+  clipLayers?: readonly FxLayerOption[];
   onSetLayerFxEnabled?: (enabled: boolean) => void;
   onSetEnabled: (device: FxDevice, enabled: boolean) => void;
   onSetParameter: (
@@ -177,6 +179,7 @@ export function FxChain({
   clipScope = "clip",
   layerFxEnabled = true,
   layers = NO_LAYERS,
+  clipLayers = NO_LAYERS,
   onSetLayerFxEnabled,
   onSetEnabled,
   onSetParameter,
@@ -631,7 +634,7 @@ export function FxChain({
         onRemove={() => removeDevice(device)}
         layerBypassed={device.group === "layer" && !layerFxEnabled}
         onSetEnabled={onSetEnabled}
-        layers={layers}
+        layers={device.group === "clip" ? clipLayers : layers}
         onSetParameter={onSetParameter}
         onStripClick={() => {
           if (suppressClickRef.current) {
@@ -1312,7 +1315,7 @@ function FxLayersControl({
         className="fx-layers-menu"
         sideOffset={4}
       >
-        {layers.map((layer, index) => (
+        {layers.map((layer) => (
           <DropdownMenuCheckboxItem
             checked={!excluded.has(layer.id)}
             className="fx-layers-menu__item"
@@ -1325,7 +1328,7 @@ function FxLayersControl({
                 <CheckIcon aria-hidden="true" />
               </DropdownMenuItemIndicator>
             </span>
-            <span className="fx-layers-menu__number">{index + 1}</span>
+            <span className="fx-layers-menu__number">{layer.number}</span>
             <span
               aria-hidden="true"
               className="fx-layers-menu__swatch"

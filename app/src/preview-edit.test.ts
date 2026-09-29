@@ -189,6 +189,73 @@ describe("resolvePreviewLayers", () => {
     ]);
   });
 
+  it("places the layers beneath an FX clip with an Order by its Order", () => {
+    const fx = {
+      ...activeLayer("fx", 1),
+      fx: true,
+      order: { arrangement: "grid" as const, gridSize: 2, spacing: 0 },
+    };
+    const layers = resolvePreviewLayers(
+      [activeLayer("a", 0), fx, activeLayer("c", 2), activeLayer("d", 3)],
+      canvas,
+    );
+    // The arranged layers come before Layer 1, which is drawn over them.
+    assert.deepEqual(
+      layers.map((layer) => layer.laneId),
+      ["fx", "c", "d", "a"],
+    );
+    // Grid cells for the two layers beneath the FX clip.
+    assert.deepEqual(layers[1].corners, [
+      { x: 0, y: 0 },
+      { x: 500, y: 0 },
+      { x: 500, y: 500 },
+      { x: 0, y: 500 },
+    ]);
+    assert.deepEqual(layers[2].corners, [
+      { x: 500, y: 0 },
+      { x: 1000, y: 0 },
+      { x: 1000, y: 500 },
+      { x: 500, y: 500 },
+    ]);
+    // Layer 1 keeps its Global band: the first of three.
+    assertClose(layers[3].corners[2].y, 1000 / 3);
+    assert.equal(
+      hitTestLayers(layers, { x: 750, y: 400 }, canvas)?.laneId,
+      "d",
+    );
+  });
+
+  it("arranges inside an FX clip's Transform box", () => {
+    const fx = {
+      ...activeLayer("fx", 0, { scaleX: 0.5, scaleY: 0.5, positionX: 0.25 }),
+      fx: true,
+      order: { arrangement: "horizontal" as const, gridSize: 2, spacing: 0 },
+    };
+    const layers = resolvePreviewLayers(
+      [fx, activeLayer("b", 1), activeLayer("c", 2)],
+      canvas,
+    );
+    // The box is the centred half-size canvas moved a quarter right:
+    // x 500..1000, y 250..750, split into two columns.
+    const [b, c] = layers.slice(1);
+    assert.deepEqual(
+      b.corners.map((corner) => [corner.x, corner.y]),
+      [
+        [500, 250],
+        [750, 250],
+        [750, 750],
+        [500, 750],
+      ],
+    );
+    assert.deepEqual(c.corners[1], { x: 1000, y: 250 });
+    assert.equal(
+      hitTestLayers(layers, { x: 600, y: 500 }, canvas)?.laneId,
+      "b",
+    );
+    // Nothing is drawn outside the box.
+    assert.equal(hitTestLayers(layers, { x: 100, y: 500 }, canvas), undefined);
+  });
+
   it("follows the Order arrangement", () => {
     const layers = resolvePreviewLayers(
       [activeLayer("a", 0), activeLayer("b", 1)],

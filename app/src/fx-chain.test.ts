@@ -596,6 +596,7 @@ describe("resolveGlobalOrderHint", () => {
 describe("Order Layers menu", () => {
   const layers = [1, 2, 3, 4, 5].map((number) => ({
     id: `${number}`,
+    number,
     name: `Layer ${number}`,
   }));
 
@@ -626,7 +627,7 @@ describe("Order Layers menu", () => {
   });
 
   it("counts a new layer as arranged and ignores removed ones", () => {
-    const added = [...layers, { id: "6", name: "Layer 6" }];
+    const added = [...layers, { id: "6", number: 6, name: "Layer 6" }];
     assert.equal(describeArrangedLayers("1", added), "Layers: 5 of 6");
     assert.equal(describeArrangedLayers("1,9", layers.slice(1)), "Layers: All");
   });

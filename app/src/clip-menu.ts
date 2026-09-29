@@ -1,5 +1,6 @@
 // Right-click menus for arrangement clips, empty lane space, an uncommitted
 // selection and source clips, and where their clipboard actions put clips.
+import { formatClipJumpShortcut } from "./clip-jump.ts";
 import type { ContextMenuEntry } from "./context-menu.ts";
 import { MAX_LAYERS } from "./selection-overlaps.ts";
 import type { DropClip, DropLane, SourceClipDrop } from "./source-clip-drop.ts";
@@ -37,6 +38,7 @@ export function canSplitAt(startQ: number, endQ: number, playheadQ: number) {
 }
 
 export type ClipMenuActions = {
+  jumpToStart: () => void;
   cut: () => void;
   copy: () => void;
   paste: () => void;
@@ -63,6 +65,15 @@ export function buildClipMenuEntries({
   actions: ClipMenuActions;
 }): ContextMenuEntry[] {
   return [
+    {
+      type: "item",
+      id: "jump-to-start",
+      label: "Jump to start",
+      shortcut: formatClipJumpShortcut(mac),
+      disabled: !hasClip,
+      onSelect: actions.jumpToStart,
+    },
+    { type: "separator" },
     {
       type: "item",
       id: "cut",
@@ -157,6 +168,7 @@ export function buildSourceSpanMenuEntries({
           type: "item",
           id: "auto",
           label: "Auto (last free layer)",
+          shortcut: formatShortcut("click", mac),
           onSelect: () => copyToLayer({ kind: "auto" }),
         },
         ...(laneEntries.length
