@@ -1,6 +1,15 @@
 import type { AlsImportSummary } from "./als-import.ts";
 
 // Fields marked zvid-only are written by zvid and ignored by the Layers app.
+/** A zvid-only clip with no media, drawn by its main track's effects. */
+export type LvpLayerClip = {
+  id: string;
+  mainTrackId: string;
+  frameStart: number;
+  frameEnd: number;
+  selected?: boolean;
+};
+
 export type LvpSession = {
   mainTracks?: Array<{
     id: string;
@@ -56,13 +65,9 @@ export type LvpSession = {
     sourceOffsetSeconds?: number;
   }>;
   /** zvid-only: fill clips, painted by their main track's Color effect. */
-  fills?: Array<{
-    id: string;
-    mainTrackId: string;
-    frameStart: number;
-    frameEnd: number;
-    selected?: boolean;
-  }>;
+  fills?: LvpLayerClip[];
+  /** zvid-only: text clips, styled by their main track's Text effect. */
+  texts?: LvpLayerClip[];
   effects?: Array<{
     id: string;
     trackId: string;

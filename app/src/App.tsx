@@ -330,6 +330,7 @@ import {
   projectToLvpSession,
   readSelectionSlip,
   readSessionFills,
+  readSessionTexts,
   SESSION_FILE_EXTENSION,
 } from "./session-save.ts";
 import {
@@ -360,7 +361,7 @@ import {
 import { classifySpaceTarget, createSpaceHold } from "./space-shortcut";
 import { statusMessageTone } from "./status-bar";
 import { buildStatusItems } from "./status-items";
-import { addTextClip, isTextClip } from "./text-clip.ts";
+import { addTextClip, createTextClip, isTextClip } from "./text-clip.ts";
 import {
   getMissingFonts,
   loadFontFace,
@@ -1782,21 +1783,31 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
     .filter((clip) => !clip.mediaId)
     .map((clip) => basename(clip.mediaPath));
 
-  for (const fill of readSessionFills(session, bpm, fps)) {
-    const lane = lanes.find((candidate) => candidate.id === fill.laneId);
+  const layerClips = [
+    ...readSessionFills(session, bpm, fps).map((clip) => ({
+      clip,
+      create: createFillClip,
+    })),
+    ...readSessionTexts(session, bpm, fps).map((clip) => ({
+      clip,
+      create: createTextClip,
+    })),
+  ];
+  for (const { clip, create } of layerClips) {
+    const lane = lanes.find((candidate) => candidate.id === clip.laneId);
     if (!lane) {
       continue;
     }
 
-    if (fill.selected && selectedClipId === undefined) {
-      selectedClipId = fill.id;
+    if (clip.selected && selectedClipId === undefined) {
+      selectedClipId = clip.id;
     }
     arrangementClips.push(
-      createFillClip({
-        id: fill.id,
-        laneId: fill.laneId,
-        startQ: fill.startQ,
-        durationQ: fill.durationQ,
+      create({
+        id: clip.id,
+        laneId: clip.laneId,
+        startQ: clip.startQ,
+        durationQ: clip.durationQ,
         bpm,
         tint: FILL_CLIP_TINT,
         accent:
@@ -7710,10 +7721,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
 
   async function handleSaveSession() {
     const harness = getHarness();
-    const { session, skippedTextClips } = projectToLvpSession(
-      projectHistory.present,
-      { playheadQ: playheadQRef.current, selectedClipId },
-    );
+    const session = projectToLvpSession(projectHistory.present, {
+      playheadQ: playheadQRef.current,
+      selectedClipId,
+    });
     const blob = new Blob([`${JSON.stringify(session, null, 2)}\n`], {
       type: "application/json",
     });
@@ -7769,10 +7780,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     }
     const savedName =
       saveTarget.kind === "native-path" ? saveTarget.path : saveTarget.filename;
-    const textNote = skippedTextClips
-      ? ` ${pluralize(skippedTextClips, "text clip")} ${skippedTextClips === 1 ? "was" : "were"} not saved: .lvp files cannot store text clips.`
-      : "";
-    setStatus(`Saved ${savedName}.${textNote}`);
+    setStatus(`Saved ${savedName}.`);
   }
 
   async function handleExport() {

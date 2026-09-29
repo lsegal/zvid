@@ -8,7 +8,7 @@
 
 import { alsSavePath } from "./als-import.ts";
 import { type ClipWarp, warpSampleStartSeconds } from "./clip-warp.ts";
-import type { LvpSession } from "./session.ts";
+import type { LvpLayerClip, LvpSession } from "./session.ts";
 import type { WorkspaceSessionSource } from "./workspace-session.ts";
 
 export const SESSION_FILE_EXTENSION = ".lvp";
@@ -125,12 +125,6 @@ export type SaveableView = {
   selectedClipId?: string;
 };
 
-export type LvpSessionSave = {
-  session: LvpSession;
-  // Text clips have no `.lvp` representation and are left out.
-  skippedTextClips: number;
-};
-
 const SOURCE_SPAN_ID_PREFIX = "source-";
 const SELECTION_ID_PATTERN = /^selection-(\d+)$/;
 // Offsets closer than this to their span's are not slipped.
@@ -215,12 +209,12 @@ function selectionSlip(
 
 // Writes the project as a `.lvp` session that opens back into the same
 // arrangement. Selections point at their source clip by track and position,
-// the way the Layers app stores them. Fill clips, bypass flags and slipped
-// clips go in zvid-only fields the Layers app ignores.
+// the way the Layers app stores them. Fill and text clips, bypass flags and
+// slipped clips go in zvid-only fields the Layers app ignores.
 export function projectToLvpSession(
   project: SaveableProject,
   view: SaveableView,
-): LvpSessionSave {
+): LvpSession {
   const { bpm, fps } = project;
 
   const clips = project.sourceSpans.map<
@@ -251,7 +245,6 @@ export function projectToLvpSession(
   const mediaClips = project.clips.filter(
     (clip) => clip.kind !== "fill" && clip.kind !== "text",
   );
-  const fillClips = project.clips.filter((clip) => clip.kind === "fill");
   const usedSelectionIds = new Set<number>();
   for (const clip of mediaClips) {
     const match = SELECTION_ID_PATTERN.exec(clip.id);
@@ -285,18 +278,22 @@ export function projectToLvpSession(
       ...selectionSlip(clip, project.sourceSpans, bpm),
     };
   });
-  const fills = fillClips.map<NonNullable<LvpSession["fills"]>[number]>(
-    (clip) => {
-      const frameStart = toFrames(quartersToSeconds(clip.startQ, bpm), fps);
-      return {
-        id: clip.id,
-        mainTrackId: clip.laneId,
-        frameStart,
-        frameEnd: frameStart + Math.max(1, toFrames(clip.durationSeconds, fps)),
-        ...(clip.id === view.selectedClipId ? { selected: true } : {}),
-      };
-    },
-  );
+  const layerClips = (kind: "fill" | "text") =>
+    project.clips
+      .filter((clip) => clip.kind === kind)
+      .map<LvpLayerClip>((clip) => {
+        const frameStart = toFrames(quartersToSeconds(clip.startQ, bpm), fps);
+        return {
+          id: clip.id,
+          mainTrackId: clip.laneId,
+          frameStart,
+          frameEnd:
+            frameStart + Math.max(1, toFrames(clip.durationSeconds, fps)),
+          ...(clip.id === view.selectedClipId ? { selected: true } : {}),
+        };
+      });
+  const fills = layerClips("fill");
+  const texts = layerClips("text");
 
   const mainAudio = project.mainAudioId
     ? project.mediaItems.find((item) => item.id === project.mainAudioId)
@@ -318,6 +315,7 @@ export function projectToLvpSession(
     clips,
     selections,
     ...(fills.length ? { fills } : {}),
+    ...(texts.length ? { texts } : {}),
     effects: project.effects.map((effect) => ({
       id: effect.id,
       trackId: effect.trackId,
@@ -345,11 +343,7 @@ export function projectToLvpSession(
     orderDefaulted: true,
   };
 
-  return {
-    session,
-    skippedTextClips: project.clips.filter((clip) => clip.kind === "text")
-      .length,
-  };
+  return session;
 }
 
 function isFiniteNumber(value: unknown): value is number {
@@ -381,7 +375,7 @@ export function readSelectionSlip(
   };
 }
 
-export type SessionFill = {
+export type SessionLayerClip = {
   id: string;
   laneId: string;
   startQ: number;
@@ -389,32 +383,50 @@ export type SessionFill = {
   selected: boolean;
 };
 
+function readLayerClips(
+  entries: unknown,
+  bpm: number,
+  fps: number,
+): SessionLayerClip[] {
+  const clips: SessionLayerClip[] = [];
+  for (const entry of Array.isArray(entries) ? entries : []) {
+    const clip = entry as Partial<LvpLayerClip> | null;
+    if (
+      !isNonEmptyString(clip?.id) ||
+      !isNonEmptyString(clip.mainTrackId) ||
+      !isFiniteNumber(clip.frameStart) ||
+      !isFiniteNumber(clip.frameEnd)
+    ) {
+      continue;
+    }
+    clips.push({
+      id: clip.id,
+      laneId: clip.mainTrackId,
+      startQ: secondsToQuarters(clip.frameStart / fps, bpm),
+      durationQ: secondsToQuarters(
+        Math.max(1, clip.frameEnd - clip.frameStart) / fps,
+        bpm,
+      ),
+      selected: clip.selected === true,
+    });
+  }
+  return clips;
+}
+
 // The fill clips a session was saved with, skipping malformed entries.
 export function readSessionFills(
   session: LvpSession,
   bpm: number,
   fps: number,
-): SessionFill[] {
-  const fills: SessionFill[] = [];
-  for (const fill of session.fills ?? []) {
-    if (
-      !isNonEmptyString(fill?.id) ||
-      !isNonEmptyString(fill.mainTrackId) ||
-      !isFiniteNumber(fill.frameStart) ||
-      !isFiniteNumber(fill.frameEnd)
-    ) {
-      continue;
-    }
-    fills.push({
-      id: fill.id,
-      laneId: fill.mainTrackId,
-      startQ: secondsToQuarters(fill.frameStart / fps, bpm),
-      durationQ: secondsToQuarters(
-        Math.max(1, fill.frameEnd - fill.frameStart) / fps,
-        bpm,
-      ),
-      selected: fill.selected === true,
-    });
-  }
-  return fills;
+): SessionLayerClip[] {
+  return readLayerClips(session.fills, bpm, fps);
+}
+
+// The text clips a session was saved with, skipping malformed entries.
+export function readSessionTexts(
+  session: LvpSession,
+  bpm: number,
+  fps: number,
+): SessionLayerClip[] {
+  return readLayerClips(session.texts, bpm, fps);
 }
