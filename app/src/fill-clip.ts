@@ -2,7 +2,7 @@
 // over its layer's band, painted by the Color effect on that layer. They
 // carry the same timing fields as media clips, so moving, trimming, copying,
 // splitting and undo treat them like any other clip.
-import { addEffect, type SessionEffect } from "./fx-stack.ts";
+
 import {
   COLOR_EFFECT_NAME,
   formatCssColor,
@@ -10,6 +10,7 @@ import {
   NEUTRAL_FILL_COLOR,
   parseCssColor,
 } from "./fill-paint.ts";
+import { addEffect, type SessionEffect } from "./fx-stack.ts";
 
 export const FILL_CLIP_KIND = "fill";
 export const FILL_CLIP_LABEL = "Fill";
@@ -104,8 +105,7 @@ export function addFillClip<Clip>(
   const clip = createFillClip(options);
   const hasColorEffect = project.effects.some(
     (effect) =>
-      effect.trackId === options.laneId &&
-      isColorEffectName(effect.effectName),
+      effect.trackId === options.laneId && isColorEffectName(effect.effectName),
   );
   let effects = project.effects;
   if (!hasColorEffect) {

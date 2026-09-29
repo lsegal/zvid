@@ -38,14 +38,17 @@ export type FxEnumParameterDefinition = {
 
 // A CSS colour (`color`) or CSS linear/radial gradient (`gradient`) string,
 // edited with a colour picker.
-export type FxPaintParameterDefinition = {
-  kind: "color" | "gradient";
+type FxPaintParameterFields = {
   key: string;
   label: string;
   defaultValue: string;
   hidden?: boolean;
   visibleWhen?: FxParameterVisibility;
 };
+
+export type FxPaintParameterDefinition =
+  | (FxPaintParameterFields & { kind: "color" })
+  | (FxPaintParameterFields & { kind: "gradient" });
 
 export type FxParameterDefinition =
   | FxNumberParameterDefinition
@@ -239,7 +242,6 @@ const DEFINITIONS: FxEffectDefinition[] = [
     ],
   },
 ];
-
 
 const DEFINITIONS_BY_NAME = new Map(
   DEFINITIONS.map((definition) => [definition.effectName, definition]),

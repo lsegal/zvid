@@ -5,6 +5,7 @@ import {
   describeDeviceMove,
   dropSlotToStackIndex,
   FX_COLLAPSED_STORAGE_KEY,
+  getAddableEffectDefinitions,
   getAutoScrollDelta,
   getDefaultLaneId,
   getDropSlot,
@@ -95,6 +96,18 @@ describe("ADDABLE_EFFECT_DEFINITIONS", () => {
     );
     assert.ok(names.includes("Colorize"));
     assert.ok(!names.includes("Layout"));
+  });
+});
+
+describe("getAddableEffectDefinitions", () => {
+  it("offers the layer-only Color effect on layers but not on Global", () => {
+    const names = (group: "layer" | "global") =>
+      getAddableEffectDefinitions(group).map(
+        (definition) => definition.effectName,
+      );
+    assert.ok(names("layer").includes("Color"));
+    assert.ok(!names("global").includes("Color"));
+    assert.ok(names("global").includes("Colorize"));
   });
 });
 

@@ -4,7 +4,6 @@ import {
   PowerIcon,
   XMarkIcon,
 } from "@heroicons/react/24/solid";
-import ColorPicker from "react-best-gradient-color-picker";
 import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -14,11 +13,12 @@ import {
   useRef,
   useState,
 } from "react";
+import ColorPicker from "react-best-gradient-color-picker";
 import {
   describeDeviceMove,
   dropSlotToStackIndex,
-  getAutoScrollDelta,
   getAddableEffectDefinitions,
+  getAutoScrollDelta,
   getDropSlot,
   getParameterFormat,
   groupChainDevices,

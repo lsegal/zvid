@@ -137,6 +137,8 @@ import {
 import { WandIcon } from "./components/WandIcon";
 import { isContextMenuKey, isContextMenuPress } from "./context-menu.ts";
 import { buildEditMenuEntries } from "./edit-menu.ts";
+import { addFillClip, getDefaultFillColor, isFillClip } from "./fill-clip.ts";
+import { formatFillPaintCss, resolveFillPaint } from "./fill-paint.ts";
 import {
   ADDABLE_EFFECT_DEFINITIONS,
   getDefaultLaneId,
@@ -167,12 +169,6 @@ import {
   supportsHarnessCapability,
 } from "./harness";
 import { hasMediaExtension } from "./harness/media-extensions";
-import {
-  addFillClip,
-  getDefaultFillColor,
-  isFillClip,
-} from "./fill-clip.ts";
-import { formatFillPaintCss, resolveFillPaint } from "./fill-paint.ts";
 import { loadIceServers, resolveRelayIceServersUrl } from "./ice-servers";
 import {
   createLaneId,
