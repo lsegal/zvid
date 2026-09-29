@@ -243,7 +243,10 @@ function withClipStackLast(
       ];
 }
 
-type TransformMotionDraft = { outer: LayerTransform[]; inner: LayerTransform[] };
+type TransformMotionDraft = {
+  outer: LayerTransform[];
+  inner: LayerTransform[];
+};
 
 export function resolveVisualState(
   effects: SessionEffect[],
@@ -550,12 +553,7 @@ export function computeActiveClips(
             : mediaTime >= 0),
         laneRank,
         clipProgress,
-        visual: resolveVisualState(
-            effects,
-            clip.laneId,
-            clip.id,
-            clipProgress,
-          ),
+        visual: resolveVisualState(effects, clip.laneId, clip.id, clipProgress),
         effectChain: resolveClipEffectChain(effects, clip),
       };
     });

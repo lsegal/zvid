@@ -538,7 +538,8 @@ export function resolveMoveTransform(
   const eased = easeMotion(move.motion, progress);
   const transform = { ...IDENTITY_TRANSFORM };
   for (const field of Object.keys(transform) as Array<keyof LayerTransform>) {
-    transform[field] = (1 - eased) * move.start[field] + eased * move.end[field];
+    transform[field] =
+      (1 - eased) * move.start[field] + eased * move.end[field];
   }
   return transform;
 }

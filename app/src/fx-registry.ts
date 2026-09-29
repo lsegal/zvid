@@ -9,12 +9,14 @@ import {
   ORDER_EFFECT_NAME,
   SPACING_MAX,
 } from "./composition-order.ts";
+import { MOVE_EFFECT_NAME } from "./composition-transform.ts";
 import {
   COLOR_EFFECT_NAME,
   DEFAULT_FILL_GRADIENT,
   FILL_MODES,
   NEUTRAL_FILL_COLOR,
 } from "./fill-paint.ts";
+import { DEFAULT_MOTION_CURVE, MOTION_CURVES } from "./motion-easing.ts";
 import {
   DEFAULT_FONT_FAMILY,
   FONT_WEIGHT_LABELS,
@@ -134,6 +136,9 @@ export type FxEffectDefinition = {
   // True for an effect every visual layer is given exactly once, so no add
   // menu offers it.
   layerDefault?: boolean;
+  // Labels for the knob rows, when the knobs split evenly into labelled
+  // rows (a Move's Start and End) instead of filling two rows freely.
+  knobRows?: readonly string[];
   // False for the placeholder returned for effect names the registry does
   // not know; those devices show their raw parameter keys.
   known: boolean;
@@ -231,6 +236,58 @@ function transformParameter(
     step: 0.01,
     format,
   };
+}
+
+// Transform's knobs with keys prefixed by `prefix` ("Start" or "End"), for
+// one row of a Move.
+function moveParameters(prefix: string): FxNumberParameterDefinition[] {
+  return [
+    transformParameter(
+      `${prefix}PositionX`,
+      "X",
+      -2,
+      2,
+      0,
+      formatSignedPercent,
+    ),
+    transformParameter(
+      `${prefix}PositionY`,
+      "Y",
+      -2,
+      2,
+      0,
+      formatSignedPercent,
+    ),
+    transformParameter(`${prefix}ScaleX`, "Width", 0.05, 8, 1, formatPercent),
+    transformParameter(`${prefix}ScaleY`, "Height", 0.05, 8, 1, formatPercent),
+    transformParameter(
+      `${prefix}OriginX`,
+      "Origin X",
+      -1,
+      1,
+      0,
+      formatSignedPercent,
+    ),
+    transformParameter(
+      `${prefix}OriginY`,
+      "Origin Y",
+      -1,
+      1,
+      0,
+      formatSignedPercent,
+    ),
+    {
+      ...transformParameter(
+        `${prefix}Rotation`,
+        "Rotation",
+        -180,
+        180,
+        0,
+        formatDegrees,
+      ),
+      step: 1,
+    },
+  ];
 }
 
 const DEFINITIONS: FxEffectDefinition[] = [
@@ -357,6 +414,28 @@ const DEFINITIONS: FxEffectDefinition[] = [
         ),
         step: 1,
       },
+    ],
+  },
+  {
+    effectName: MOVE_EFFECT_NAME,
+    displayName: "Move",
+    description:
+      "Moves, resizes and rotates each clip from a start to an end placement over its duration.",
+    accent: "#ff7f8f",
+    known: true,
+    // On a layer it runs over each of the layer's clips in turn.
+    scopes: ["layer", "clip"],
+    knobRows: ["Start", "End"],
+    parameters: [
+      {
+        kind: "enum",
+        key: "Motion",
+        label: "Motion",
+        options: MOTION_CURVES,
+        defaultValue: DEFAULT_MOTION_CURVE,
+      },
+      ...moveParameters("Start"),
+      ...moveParameters("End"),
     ],
   },
   {
