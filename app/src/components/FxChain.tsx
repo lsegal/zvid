@@ -16,6 +16,7 @@ import {
 import ColorPicker from "react-best-gradient-color-picker";
 import {
   addableEffectsFor,
+  canStartFxChainPan,
   describeDeviceMove,
   dropSlotToStackIndex,
   getAutoScrollDelta,
@@ -36,7 +37,9 @@ import {
   type FxDeviceParameter,
   GLOBAL_EFFECT_TRACK_ID,
 } from "../fx-stack";
+import { useDragScroll } from "../use-drag-scroll";
 import { ContextMenu, type ContextMenuEntry } from "./ContextMenu";
+import { usePrefersReducedMotion } from "./MediaSyncSkeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -111,6 +114,15 @@ function getStorage() {
   }
 }
 
+// Presses inside the chain's own DOM that start a pan. React also bubbles
+// events from its portalled menus through the chain, which must not pan it.
+function canStartChainPan(event: ReactMouseEvent<HTMLElement>) {
+  return (
+    event.currentTarget.contains(event.target as Node) &&
+    canStartFxChainPan(event)
+  );
+}
+
 function getTrackId(group: FxDeviceGroup, layerTrackId: string | undefined) {
   return group === "global" ? GLOBAL_EFFECT_TRACK_ID : layerTrackId;
 }
@@ -149,6 +161,15 @@ export function FxChain({
   const [announcement, setAnnouncement] = useState("");
   const groups = groupChainDevices(devices, kind);
   const canEdit = kind !== "audio" && layerTrackId !== undefined;
+  // Dragging the chain's background, or middle-dragging anywhere in it,
+  // pans it sideways.
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const chainDragScroll = useDragScroll({
+    scrollRef,
+    canStart: canStartChainPan,
+    axis: "x",
+    momentum: !prefersReducedMotion,
+  });
 
   // A vertical wheel scrolls the chain sideways. React registers wheel
   // listeners as passive, so preventDefault needs a native listener. Knobs
@@ -672,8 +693,11 @@ export function FxChain({
 
   return (
     <div
-      className={`fx-chain ${drag ? "fx-chain--dragging" : ""}`}
+      className={`fx-chain ${drag ? "fx-chain--dragging" : ""} ${
+        chainDragScroll.isGrabbing ? "fx-chain--grab-scrolling" : ""
+      }`}
       ref={scrollRef}
+      {...chainDragScroll.handlers}
     >
       {emptyMessage ? (
         <div className="fx-chain__empty">
