@@ -51,6 +51,7 @@ import {
   resolveFillPaint,
 } from "./fill-paint.ts";
 import { resolveAnimatedEffects } from "./fx-animation.ts";
+import type { AudioBands } from "./fx-shaders/audio-bands.ts";
 import type { EffectAnimation } from "./fx-animation-defaults.ts";
 import {
   type EffectChainStep,
@@ -422,6 +423,8 @@ export function computeActiveClips(
   bpm: number,
   lanePriority: Map<string, number>,
   sessionEffects: SessionEffect[],
+  // The main audio at this frame, for effects that react to it.
+  audio?: AudioBands,
 ): ActiveClip[] {
   const epsilon = 0.0001;
   const usedSourceKeys = new Set<string>();
@@ -484,7 +487,7 @@ export function computeActiveClips(
           elapsedSeconds: clipElapsedSeconds,
           durationSeconds: clip.durationSeconds,
         },
-        { playheadQ, bpm },
+        { playheadQ, bpm, audio },
       );
       if (clip.kind === "fx") {
         // Only the FX clip's own stack adjusts what is beneath it, so an FX

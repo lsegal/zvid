@@ -26,6 +26,7 @@ import {
 import { resolveCompositionOrder } from "./composition-order.ts";
 import { getGroupClipProgress } from "./composition-progress.ts";
 import {
+  type AudioBands,
   LiveAudioBands,
   OfflineAudioBands,
   SILENT_AUDIO_BANDS,
@@ -232,11 +233,12 @@ export class CompositionRenderer {
 
   renderPreviewFrame(playheadQ: number, pixelRatio: number) {
     this.ensureResources();
-    this.activeClips = this.computeActiveClips(playheadQ);
+    const audio =
+      this.liveAudioBands?.sample(performance.now()) ?? SILENT_AUDIO_BANDS;
+    this.activeClips = this.computeActiveClips(playheadQ, audio);
     this.draw(this.activeClips, pixelRatio, {
       time: quartersToSeconds(playheadQ, this.state.bpm),
-      audio:
-        this.liveAudioBands?.sample(performance.now()) ?? SILENT_AUDIO_BANDS,
+      audio,
       groupClipProgress: this.groupClipProgressAt(playheadQ),
     });
   }
@@ -254,7 +256,8 @@ export class CompositionRenderer {
       pixelRatio,
     );
 
-    const nextActiveClips = this.computeActiveClips(playheadQ);
+    const audio = await this.sampleAudioBandsAt(playheadSeconds);
+    const nextActiveClips = this.computeActiveClips(playheadQ, audio);
     const pendingSeeks = new Map<string, Promise<void>>();
 
     for (const entry of nextActiveClips) {
@@ -291,8 +294,6 @@ export class CompositionRenderer {
           : undefined,
       ),
     );
-
-    const audio = await this.sampleAudioBandsAt(playheadSeconds);
 
     if (this.mainAudioElement && this.state.mainAudio?.previewUrl) {
       this.mainAudioElement.pause();
@@ -411,7 +412,7 @@ export class CompositionRenderer {
     }
   }
 
-  private computeActiveClips(playheadQ: number) {
+  private computeActiveClips(playheadQ: number, audio?: AudioBands) {
     const mediaById = new Map(
       this.state.mediaItems.map((item) => [item.id, item]),
     );
@@ -426,6 +427,7 @@ export class CompositionRenderer {
       this.state.bpm,
       lanePriority,
       this.renderedEffects(),
+      audio,
     );
 
     // Clips sharing a media at this playhead draw from extra elements, made
@@ -465,7 +467,10 @@ export class CompositionRenderer {
   private usesAudioBands() {
     return this.renderedEffects().some(
       (effect) =>
-        effect.enabled !== false && isChainEffectName(effect.effectName),
+        effect.enabled !== false &&
+        (isChainEffectName(effect.effectName) ||
+          (effect.animation?.enabled === true &&
+            effect.animation.mode === "reactive")),
     );
   }
 

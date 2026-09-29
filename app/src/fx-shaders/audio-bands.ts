@@ -5,6 +5,16 @@ export type AudioBands = {
   // Detected onsets, 0..1: jumps on a hit and decays quickly between hits.
   impulseLow: number;
   impulseHigh: number;
+  // Hits detected in the last ONSET_MEMORY_SECONDS, oldest first, each at
+  // the stronger of the two bands' strengths.
+  onsets?: readonly AudioOnset[];
+};
+
+export type AudioOnset = {
+  // Seconds from the hit to the moment the bands describe.
+  secondsAgo: number;
+  // 0..1.
+  strength: number;
 };
 
 export const SILENT_AUDIO_BANDS: AudioBands = {
@@ -12,6 +22,7 @@ export const SILENT_AUDIO_BANDS: AudioBands = {
   high: 0,
   impulseLow: 0,
   impulseHigh: 0,
+  onsets: [],
 };
 
 const FFT_SIZE = 1024;
@@ -44,6 +55,9 @@ const IMPULSE_DECAY_SECONDS = 0.15;
 // Offline envelopes are rebuilt from this much audio before a random seek.
 // It must cover the onset window so seeks detect the same hits.
 const OFFLINE_WARMUP_SECONDS = 1;
+// How long a hit is remembered in `AudioBands.onsets`. It stays within the
+// warm-up so seeks remember the same hits.
+const ONSET_MEMORY_SECONDS = 1;
 
 const TICK_SECONDS = 1 / ENVELOPE_REFERENCE_FPS;
 const ONSET_WINDOW_TICKS = Math.round(
@@ -51,6 +65,9 @@ const ONSET_WINDOW_TICKS = Math.round(
 );
 const ONSET_REFRACTORY_TICKS = Math.round(
   ONSET_REFRACTORY_SECONDS * ENVELOPE_REFERENCE_FPS,
+);
+const ONSET_MEMORY_TICKS = Math.round(
+  ONSET_MEMORY_SECONDS * ENVELOPE_REFERENCE_FPS,
 );
 
 function bandBins(sampleRate: number, minimumHz: number, maximumHz: number) {
@@ -146,6 +163,7 @@ class OnsetDetector {
   private refractoryTicks = 0;
   impulse = 0;
 
+  // Steps one tick and returns the strength of the hit it detected, or 0.
   tick(flux: number) {
     let mean = 0;
     for (let index = 0; index < this.historyCount; index++) {
@@ -163,20 +181,19 @@ class OnsetDetector {
     );
 
     this.impulse = decayImpulse(this.impulse, TICK_SECONDS);
+    let hit = 0;
     if (this.refractoryTicks > 0) {
       this.refractoryTicks -= 1;
     } else if (flux > threshold) {
-      const strength = Math.min(
-        1,
-        (flux - threshold) / ONSET_FULL_STRENGTH_FLUX,
-      );
-      this.impulse = Math.max(this.impulse, strength);
+      hit = Math.min(1, (flux - threshold) / ONSET_FULL_STRENGTH_FLUX);
+      this.impulse = Math.max(this.impulse, hit);
       this.refractoryTicks = ONSET_REFRACTORY_TICKS;
     }
 
     this.history[this.historyNext] = flux;
     this.historyNext = (this.historyNext + 1) % ONSET_WINDOW_TICKS;
     this.historyCount = Math.min(ONSET_WINDOW_TICKS, this.historyCount + 1);
+    return hit;
   }
 
   reset() {
@@ -198,6 +215,10 @@ export class AudioBandTracker {
   private hasPrevious = false;
   // Seconds since the last onset tick, carried between live samples.
   private sinceTick = 0;
+  // Ticks stepped since the last reset, and the hits among the latest of
+  // them.
+  private tickCount = 0;
+  private hits: Array<{ tick: number; strength: number }> = [];
 
   // Feeds the latest analyser bins after `elapsedSeconds` of playback and
   // steps every grid tick that elapsed. Only the latest bins are known, so
@@ -236,6 +257,11 @@ export class AudioBandTracker {
       high: this.envelope.high,
       impulseLow: decayImpulse(this.lowOnsets.impulse, sinceTickSeconds),
       impulseHigh: decayImpulse(this.highOnsets.impulse, sinceTickSeconds),
+      onsets: this.hits.map((hit) => ({
+        secondsAgo:
+          (this.tickCount - hit.tick) * TICK_SECONDS + sinceTickSeconds,
+        strength: hit.strength,
+      })),
     };
   }
 
@@ -245,6 +271,8 @@ export class AudioBandTracker {
     this.highOnsets.reset();
     this.hasPrevious = false;
     this.sinceTick = 0;
+    this.tickCount = 0;
+    this.hits = [];
   }
 
   // A tick whose spectrum matches the previous one, so nothing rose.
@@ -253,15 +281,17 @@ export class AudioBandTracker {
       this.lowOnsets.tick(0);
       this.highOnsets.tick(0);
     }
+    this.recordHit(0);
   }
 
   private tickOnsets(bins: Uint8Array, sampleRate: number) {
     // The first spectrum after a reset has nothing to rise from.
+    let hit = 0;
     if (this.hasPrevious) {
-      this.lowOnsets.tick(
+      const low = this.lowOnsets.tick(
         bandFlux(bins, this.previous, sampleRate, 0, LOW_BAND_MAX_HZ),
       );
-      this.highOnsets.tick(
+      const high = this.highOnsets.tick(
         bandFlux(
           bins,
           this.previous,
@@ -270,9 +300,24 @@ export class AudioBandTracker {
           HIGH_BAND_MAX_HZ,
         ),
       );
+      hit = Math.max(low, high);
     }
     this.previous.set(bins);
     this.hasPrevious = true;
+    this.recordHit(hit);
+  }
+
+  // Counts a tick, remembering it when it was a hit, and forgets hits older
+  // than ONSET_MEMORY_SECONDS.
+  private recordHit(strength: number) {
+    this.tickCount += 1;
+    if (strength > 0) {
+      this.hits.push({ tick: this.tickCount, strength });
+    }
+    const oldest = this.tickCount - ONSET_MEMORY_TICKS;
+    while (this.hits.length && this.hits[0].tick <= oldest) {
+      this.hits.shift();
+    }
   }
 }
 

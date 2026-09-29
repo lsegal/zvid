@@ -1,9 +1,14 @@
 // Where an effect's Animation modifier changes the parameters it is drawn
 // with. The Clip and Reactive engines plug in behind
-// `resolveAnimatedParameters` from their own modules; until then every
-// effect is drawn with its parameters as they are.
+// `resolveAnimatedParameters` from their own modules; an effect whose mode
+// has no engine yet is drawn with its parameters as they are.
 
 import type { EffectAnimation } from "./fx-animation-defaults.ts";
+import {
+  placeOnsets,
+  resolveReactiveParameters,
+} from "./fx-animation-reactive.ts";
+import type { AudioBands } from "./fx-shaders/audio-bands.ts";
 
 type AnimatedParameter = {
   key: string;
@@ -12,6 +17,7 @@ type AnimatedParameter = {
 };
 
 export type AnimatableEffect = {
+  id?: string;
   effectName: string;
   parameters: AnimatedParameter[];
   animation?: EffectAnimation;
@@ -31,6 +37,8 @@ export type AnimationClipContext = {
 export type AnimationFrameContext = {
   playheadQ: number;
   bpm: number;
+  // The main audio at this frame, which Reactive mode follows.
+  audio?: AudioBands;
 };
 
 // The parameters `effect` is drawn with for the clip and frame. Returns
@@ -39,8 +47,17 @@ export type AnimationFrameContext = {
 export function resolveAnimatedParameters(
   effect: AnimatableEffect,
   _clipContext: AnimationClipContext,
-  _frameContext: AnimationFrameContext,
+  frameContext: AnimationFrameContext,
 ): AnimatedParameter[] {
+  const animation = effect.animation;
+  if (animation?.enabled && animation.mode === "reactive") {
+    const time =
+      frameContext.bpm > 0 ? (frameContext.playheadQ * 60) / frameContext.bpm : 0;
+    return resolveReactiveParameters(effect, animation.reactive, {
+      time,
+      onsets: placeOnsets(frameContext.audio?.onsets, time),
+    });
+  }
   return effect.parameters;
 }
 
