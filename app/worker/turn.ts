@@ -7,6 +7,14 @@ export type TurnEnv = {
   // `wrangler secret put`. Without both, no relay is offered.
   TURN_KEY_ID?: string;
   TURN_KEY_API_TOKEN?: string;
+  // Workers Rate Limiting binding (`ratelimits` in wrangler.jsonc) that caps
+  // how often one client IP can mint credentials.
+  TURN_RATE_LIMITER?: RateLimiter;
+};
+
+// The subset of the Workers `RateLimit` binding this module uses.
+export type RateLimiter = {
+  limit(options: { key: string }): Promise<{ success: boolean }>;
 };
 
 type IceServer = {
@@ -21,7 +29,22 @@ export const TURN_CREDENTIAL_TTL_SECONDS = 24 * 60 * 60;
 
 const TURN_API_BASE = "https://rtc.live.cloudflare.com/v1/turn/keys";
 
+// Matches the `simple.period` of TURN_RATE_LIMITER in wrangler.jsonc.
+export const TURN_RATE_LIMIT_PERIOD_SECONDS = 60;
+
 const NO_STORE = { "Cache-Control": "no-store" };
+
+// Only the app itself may mint credentials. Browsers mark cross-site fetches
+// with `Sec-Fetch-Site` and `Origin`; requests without either (older
+// browsers, scripts) are left to the rate limit.
+function isFromApp(request: Request): boolean {
+  const site = request.headers.get("Sec-Fetch-Site");
+  if (site && site !== "same-origin" && site !== "none") {
+    return false;
+  }
+  const origin = request.headers.get("Origin");
+  return !origin || origin === new URL(request.url).origin;
+}
 
 function isIceServer(value: unknown): value is IceServer {
   if (!value || typeof value !== "object") {
@@ -56,11 +79,35 @@ export async function handleIceServers(
     });
   }
 
+  if (!isFromApp(request)) {
+    return Response.json(
+      { error: "Cross-origin requests are not allowed" },
+      { status: 403, headers: NO_STORE },
+    );
+  }
+
   if (!env.TURN_KEY_ID || !env.TURN_KEY_API_TOKEN) {
     return Response.json(
       { error: "TURN relay is not configured" },
       { status: 503, headers: NO_STORE },
     );
+  }
+
+  if (env.TURN_RATE_LIMITER) {
+    const key = request.headers.get("CF-Connecting-IP") ?? "unknown";
+    const { success } = await env.TURN_RATE_LIMITER.limit({ key });
+    if (!success) {
+      return Response.json(
+        { error: "Too many TURN credential requests" },
+        {
+          status: 429,
+          headers: {
+            ...NO_STORE,
+            "Retry-After": String(TURN_RATE_LIMIT_PERIOD_SECONDS),
+          },
+        },
+      );
+    }
   }
 
   try {
