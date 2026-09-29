@@ -437,7 +437,9 @@ export function computeActiveClips(
           visual: resolveVisualState(effects, clip.laneId, clip.id),
           effectChain: resolveEffectChain(effects, clipEffectTrackId(clip.id)),
           fx: true,
-          ...withOrder(findCompositionOrder(effects, clipEffectTrackId(clip.id))),
+          ...withOrder(
+            findCompositionOrder(effects, clipEffectTrackId(clip.id)),
+          ),
         };
       }
 

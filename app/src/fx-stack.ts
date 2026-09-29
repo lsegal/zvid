@@ -808,6 +808,10 @@ function toDevice(
   };
 }
 
+// Shown on an Order that isn't first on an FX clip's stack.
+export const ORDER_RUNS_FIRST_NOTE =
+  "Arranges the layers before the effects to its left";
+
 // Devices for a layer: the layer's own stack, then the Global stack, then
 // the selected clip's own stack (`clipId`), which is processed first.
 export function mapSessionEffectsToDevices(
@@ -823,6 +827,9 @@ export function mapSessionEffectsToDevices(
   clipId?: string,
   // "fxClip" when the selected clip is an FX clip.
   clipScope: FxEffectScope = "clip",
+  // Layers beneath the selected FX clip at the playhead, for the grid
+  // warning of an Order on its stack.
+  clipLayerCount = 0,
 ) {
   const layerDevices = effects
     .filter((effect) => laneId !== undefined && effect.trackId === laneId)
@@ -834,7 +841,24 @@ export function mapSessionEffectsToDevices(
     clipId === undefined ? undefined : clipEffectTrackId(clipId);
   const clipDevices = effects
     .filter((effect) => effect.trackId === clipTrackId)
-    .map((effect) => toDevice(effect, layerName, 0, missingFonts, clipScope));
+    .map((effect, index) => {
+      const device = toDevice(
+        effect,
+        layerName,
+        clipScope === "fxClip" ? clipLayerCount : 0,
+        missingFonts,
+        clipScope,
+      );
+      // An FX clip arranges the layers beneath it before any of its other
+      // effects run, wherever its Order sits in the stack.
+      return clipScope === "fxClip" &&
+        index > 0 &&
+        !device.warning &&
+        !device.unsupported &&
+        isOrderEffectName(effect.effectName)
+        ? { ...device, warning: ORDER_RUNS_FIRST_NOTE }
+        : device;
+    });
   return [...layerDevices, ...globalDevices, ...clipDevices];
 }
 

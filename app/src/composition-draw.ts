@@ -837,7 +837,11 @@ export function drawComposition(
       } else if (target.texture && target.framebuffer) {
         applyFxClip(
           resources,
-          { ...target, texture: target.texture, framebuffer: target.framebuffer },
+          {
+            ...target,
+            texture: target.texture,
+            framebuffer: target.framebuffer,
+          },
           { width: target.width, height: target.height },
           step.entry,
           fxSteps.get(step.entry) ?? [],
