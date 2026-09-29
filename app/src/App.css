@@ -1759,25 +1759,27 @@
   height: 18px;
 }
 
+/* Secondary to the yellow button: a transparent pill with a thin border. */
 .arrangement-empty-state__dismiss {
-  display: grid;
-  place-items: center;
-  width: 26px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   height: 26px;
-  padding: 0;
+  padding: 0 12px;
   border: 1px solid var(--line-strong);
   border-radius: 999px;
-  background: rgba(15, 17, 24, 0.72);
+  background: transparent;
   color: var(--muted);
-  font-size: 1rem;
+  font-size: 0.78rem;
   line-height: 1;
+  white-space: nowrap;
   transition:
-    background 160ms ease,
+    border-color 160ms ease,
     color 160ms ease;
 }
 
 .arrangement-empty-state__dismiss:hover {
-  background: rgba(30, 33, 46, 0.9);
+  border-color: rgba(255, 255, 255, 0.34);
   color: var(--ink);
 }
 
@@ -1785,6 +1787,11 @@
 .arrangement-empty-state__dismiss:focus-visible {
   outline: 2px solid #ffe084;
   outline-offset: 3px;
+}
+
+.arrangement-empty-state__dismiss:focus-visible {
+  border-color: #ffe084;
+  color: #ffe084;
 }
 
 .track-label--source {
