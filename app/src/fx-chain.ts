@@ -47,9 +47,9 @@ export function getParameterFormat(effectName: string, key: string) {
   return definition?.kind === "number" ? definition.format : formatRawNumber;
 }
 
-// Knobs fill two rows, adding columns as needed.
+// Knobs fill two columns left to right, then wrap down to a new row.
 export function knobColumnCount(parameterCount: number) {
-  return Math.max(1, Math.ceil(parameterCount / 2));
+  return Math.min(2, Math.max(1, parameterCount));
 }
 
 export function readCollapsedDevices(storage: KeyValueStorage | undefined) {

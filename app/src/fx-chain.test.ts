@@ -110,12 +110,14 @@ describe("getParameterFormat", () => {
 });
 
 describe("knobColumnCount", () => {
-  it("fills two rows before adding columns", () => {
+  it("fills two columns before wrapping down", () => {
     assert.equal(knobColumnCount(0), 1);
     assert.equal(knobColumnCount(1), 1);
-    assert.equal(knobColumnCount(2), 1);
+    assert.equal(knobColumnCount(2), 2);
     assert.equal(knobColumnCount(3), 2);
-    assert.equal(knobColumnCount(6), 3);
+    assert.equal(knobColumnCount(4), 2);
+    assert.equal(knobColumnCount(5), 2);
+    assert.equal(knobColumnCount(6), 2);
   });
 });
 
