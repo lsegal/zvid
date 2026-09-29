@@ -9,6 +9,7 @@ import {
   isOrderEffectName,
   parseCompositionOrder,
 } from "./composition-order.ts";
+import { isColorEffectName } from "./fill-paint.ts";
 import {
   type FxEffectDefinition,
   type FxParameterDefinition,
@@ -39,7 +40,7 @@ export type SessionEffect = {
 export type FxDeviceParameter = {
   key: string;
   label: string;
-  kind: "number" | "enum";
+  kind: "number" | "enum" | "color" | "gradient";
   // Position of the value within [min, max], 0..1, for meters.
   value: number;
   numericValue?: number;
@@ -109,7 +110,7 @@ function createParameter(
   value: number | string,
   clampToRange = true,
 ): EffectParameter {
-  if (definition.kind === "enum" || typeof value === "string") {
+  if (definition.kind !== "number" || typeof value === "string") {
     return { key: definition.key, value: `${value}` };
   }
 
@@ -235,8 +236,8 @@ export function setLaneFxEnabled<T extends FxLayer>(
 }
 
 // The effects the renderer applies: a layer whose FX are off contributes
-// nothing but its Layout anchoring. Returns `effects` itself when no layer
-// is bypassed.
+// nothing but its Layout anchoring and the Color its fill clips are painted
+// with. Returns `effects` itself when no layer is bypassed.
 export function getRenderedEffects<
   T extends { trackId: string; effectName: string },
 >(effects: T[], layers: FxLayer[]) {
@@ -249,7 +250,9 @@ export function getRenderedEffects<
 
   return effects.filter(
     (effect) =>
-      !bypassed.has(effect.trackId) || isLayoutEffectName(effect.effectName),
+      !bypassed.has(effect.trackId) ||
+      isLayoutEffectName(effect.effectName) ||
+      isColorEffectName(effect.effectName),
   );
 }
 
@@ -511,6 +514,21 @@ function toDeviceParameter(
   definition: FxParameterDefinition,
   stored: EffectParameter | undefined,
 ): FxDeviceParameter {
+  if (definition.kind === "color" || definition.kind === "gradient") {
+    const stringValue = stored?.value.trim() || definition.defaultValue;
+    return {
+      key: definition.key,
+      label: definition.label,
+      kind: definition.kind,
+      value: 0,
+      stringValue,
+      min: 0,
+      max: 0,
+      defaultValue: definition.defaultValue,
+      display: stringValue,
+    };
+  }
+
   if (definition.kind === "enum") {
     const raw = stored?.value ?? definition.defaultValue;
     const option = definition.options.find(

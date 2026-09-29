@@ -3,6 +3,7 @@ import {
   type LayerVisual,
   orderStackedLayers,
   resolveLayerPlacement,
+  resolveSlotScissor,
 } from "./composition-layout.ts";
 import {
   type CompositionOrder,
@@ -14,6 +15,7 @@ import {
   type QuadAxes,
   transformedQuadAxes,
 } from "./composition-transform.ts";
+import { type FillPaint, rasterizeFillPaint } from "./fill-paint.ts";
 import type { AudioBands } from "./fx-shaders/audio-bands.ts";
 import { EffectChainRenderer } from "./fx-shaders/chain.ts";
 import { linkProgram } from "./fx-shaders/gl.ts";
@@ -37,7 +39,13 @@ export type CompositeLayer = {
   clipProgress: number;
   visual: CompositeVisual;
   effectChain: EffectChainStep[];
+  // Set for fill clips, which draw this paint instead of a media element.
+  fill?: FillPaint;
 };
+
+// Fill textures are drawn at most this many pixels on a side; the linear
+// filter smooths gradients when the band is larger.
+const MAX_FILL_TEXTURE_SIZE = 512;
 
 export type FrameContext = {
   time: number;
@@ -53,6 +61,9 @@ export type WebGlResources = {
   positionBuffer: WebGLBuffer;
   textureMap: Map<string, WebGLTexture>;
   readyTextureIds: Set<string>;
+  // What each fill texture was last drawn with, so it is only redrawn when
+  // its paint or size changes.
+  fillTextureKeys: Map<string, string>;
   effectChain: EffectChainRenderer;
   uniforms: {
     position: number;
@@ -149,6 +160,7 @@ export function createWebGlResources(
     positionBuffer,
     textureMap: new Map<string, WebGLTexture>(),
     readyTextureIds: new Set<string>(),
+    fillTextureKeys: new Map<string, string>(),
     effectChain: new EffectChainRenderer(gl, positionBuffer),
     uniforms: {
       position: gl.getAttribLocation(program, "aPosition"),
@@ -193,6 +205,7 @@ export function disposeWebGlResources(resources: WebGlResources) {
   }
   resources.textureMap.clear();
   resources.readyTextureIds.clear();
+  resources.fillTextureKeys.clear();
   gl.deleteBuffer(resources.positionBuffer);
   gl.deleteProgram(resources.program);
 }
@@ -305,6 +318,82 @@ function renderLayerFrame(
   return target.texture;
 }
 
+// Uploads the media element's current frame into the layer's texture.
+// Returns undefined when the element has never had a frame to show.
+function uploadVideoTexture(
+  resources: WebGlResources,
+  entry: CompositeLayer,
+  mediaElement: HTMLVideoElement,
+) {
+  const { gl } = resources;
+  const texture = getOrCreateTexture(resources, entry.sourceKey);
+  const hasDecodedFrame =
+    mediaElement.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
+    (mediaElement.videoWidth > 0 || Boolean(entry.media.width)) &&
+    (mediaElement.videoHeight > 0 || Boolean(entry.media.height));
+
+  if (hasDecodedFrame) {
+    resources.readyTextureIds.add(entry.sourceKey);
+  } else if (!resources.readyTextureIds.has(entry.sourceKey)) {
+    return undefined;
+  }
+
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  if (hasDecodedFrame) {
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      mediaElement,
+    );
+  }
+  return texture;
+}
+
+// Draws a fill's paint into its texture, top row first like an uploaded
+// video frame, when the paint or the band size changed since last time.
+function uploadFillTexture(
+  resources: WebGlResources,
+  sourceKey: string,
+  fill: FillPaint,
+  bandWidth: number,
+  bandHeight: number,
+) {
+  const { gl } = resources;
+  const texture = getOrCreateTexture(resources, sourceKey);
+  const scale = Math.min(
+    1,
+    MAX_FILL_TEXTURE_SIZE / Math.max(bandWidth, bandHeight, 1),
+  );
+  const textureWidth = Math.max(1, Math.round(bandWidth * scale));
+  const textureHeight = Math.max(1, Math.round(bandHeight * scale));
+  const key = `${textureWidth}x${textureHeight}:${JSON.stringify(fill)}`;
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  if (resources.fillTextureKeys.get(sourceKey) !== key) {
+    const raster = rasterizeFillPaint(fill, textureWidth, textureHeight);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      raster.width,
+      raster.height,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      raster.pixels,
+    );
+    resources.fillTextureKeys.set(sourceKey, key);
+  }
+  return texture;
+}
+
 export function drawComposition(
   resources: WebGlResources,
   surface: CompositeSurface,
@@ -332,7 +421,8 @@ export function drawComposition(
     activeClips.filter(
       (entry) =>
         entry.isInBounds &&
-        mediaRefs.get(entry.sourceKey) instanceof HTMLVideoElement,
+        (entry.fill ||
+          mediaRefs.get(entry.sourceKey) instanceof HTMLVideoElement),
     ),
   );
   const stackedClips = orderedClips.slice(
@@ -342,34 +432,40 @@ export function drawComposition(
 
   for (const [index, entry] of stackedClips.entries()) {
     const mediaElement = mediaRefs.get(entry.sourceKey);
-    if (!(mediaElement instanceof HTMLVideoElement)) {
-      continue;
-    }
-
-    let texture = getOrCreateTexture(resources, entry.sourceKey);
-    const hasDecodedFrame =
-      mediaElement.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
-      (mediaElement.videoWidth > 0 || Boolean(entry.media.width)) &&
-      (mediaElement.videoHeight > 0 || Boolean(entry.media.height));
-
-    if (hasDecodedFrame) {
-      resources.readyTextureIds.add(entry.sourceKey);
-    } else if (!resources.readyTextureIds.has(entry.sourceKey)) {
-      continue;
-    }
-
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    if (hasDecodedFrame) {
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
-      gl.texImage2D(
-        gl.TEXTURE_2D,
-        0,
-        gl.RGBA,
-        gl.RGBA,
-        gl.UNSIGNED_BYTE,
-        mediaElement,
+    let sourceWidth: number;
+    let sourceHeight: number;
+    let texture: WebGLTexture;
+    if (entry.fill) {
+      // A fill is drawn at its slot's own size, so it covers the slot
+      // exactly in any arrangement.
+      const slot = resolveSlotScissor(
+        index,
+        stackedClips.length,
+        order,
+        width,
+        height,
       );
+      sourceWidth = Math.max(1, slot.width);
+      sourceHeight = Math.max(1, slot.height);
+      texture = uploadFillTexture(
+        resources,
+        entry.sourceKey,
+        entry.fill,
+        sourceWidth,
+        sourceHeight,
+      );
+    } else {
+      if (!(mediaElement instanceof HTMLVideoElement)) {
+        continue;
+      }
+
+      const uploaded = uploadVideoTexture(resources, entry, mediaElement);
+      if (!uploaded) {
+        continue;
+      }
+      texture = uploaded;
+      sourceWidth = mediaElement.videoWidth || entry.media.width || width;
+      sourceHeight = mediaElement.videoHeight || entry.media.height || height;
     }
 
     const placement = resolveLayerPlacement({
@@ -377,8 +473,8 @@ export function drawComposition(
       count: stackedClips.length,
       canvasWidth: width,
       canvasHeight: height,
-      sourceWidth: mediaElement.videoWidth || entry.media.width || width,
-      sourceHeight: mediaElement.videoHeight || entry.media.height || height,
+      sourceWidth,
+      sourceHeight,
       visual: entry.visual,
       order,
     });

@@ -121,12 +121,18 @@ describe("addableEffectsFor", () => {
       "NegativeSplit",
       "AnalogGlitch",
       "Transform",
+      "Color",
     ]);
   });
 
   it("never offers Layout, which every layer already has", () => {
     assert.ok(!names("layer").includes("Layout"));
     assert.ok(!names("global").includes("Layout"));
+  });
+
+  it("offers Color, which paints fill clips, on layers only", () => {
+    assert.ok(names("layer").includes("Color"));
+    assert.ok(!names("global").includes("Color"));
   });
 
   it("offers Order on the Global stack only", () => {

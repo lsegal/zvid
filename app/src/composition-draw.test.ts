@@ -12,11 +12,13 @@ import {
   resolveBandScissor,
   resolveLayerPlacement,
 } from "./composition-layout.ts";
+import type { CompositionOrder } from "./composition-order.ts";
 import {
   IDENTITY_TRANSFORM,
   type LayerTransform,
   transformedQuadAxes,
 } from "./composition-transform.ts";
+import type { FillPaint } from "./fill-paint.ts";
 import { SILENT_AUDIO_BANDS } from "./fx-shaders/audio-bands.ts";
 import { POSITION_ATTRIBUTE_LOCATION } from "./fx-shaders/gl.ts";
 import { type ChainEffect, resolveEffectChain } from "./fx-shaders/registry.ts";
@@ -66,6 +68,8 @@ function createRecordingGl() {
     uniforms: {} as Record<string, [number, number]>,
   };
   const draws: DrawCall[] = [];
+  // Arguments of every texImage2D call.
+  const uploads: unknown[][] = [];
   const attribute = (index: number) => {
     let entry = state.attributes.get(index);
     if (!entry) {
@@ -127,6 +131,9 @@ function createRecordingGl() {
     bindTexture: (_target: string, texture: Handle | null) => {
       state.textures.set(state.activeTexture ?? "", texture);
     },
+    texImage2D: (...args: never[]) => {
+      uploads.push(args);
+    },
     uniform2f: (location: { name: string }, x: number, y: number) => {
       state.uniforms[location.name] = [x, y];
     },
@@ -165,6 +172,7 @@ function createRecordingGl() {
   return {
     gl,
     draws,
+    uploads,
     // Simulates another caller leaving unrelated vertex state behind.
     scramble() {
       state.program = handle("program");
@@ -479,4 +487,119 @@ describe("resolveBandScissor", () => {
       });
     }
   }
+});
+
+describe("drawComposition fill layers", () => {
+  const RED_FILL: FillPaint = {
+    kind: "solid",
+    color: { r: 255, g: 0, b: 0, a: 1 },
+    opacity: 1,
+  };
+
+  function fillLayer(fill: FillPaint, lane = 0): CompositeLayer {
+    return {
+      ...layers(1, [])[0],
+      media: { id: `fill:clip-${lane}` },
+      sourceKey: `fill:clip-${lane}`,
+      laneRank: lane,
+      fill,
+    };
+  }
+
+  function drawFrame(
+    recording: ReturnType<typeof createRecordingGl>,
+    resources: WebGlResources,
+    clips: CompositeLayer[],
+    mediaRefs = new Map<string, HTMLMediaElement>(),
+    order?: CompositionOrder,
+  ) {
+    drawComposition(
+      resources,
+      { width: WIDTH, height: HEIGHT },
+      clips,
+      mediaRefs,
+      [],
+      { time: 0, audio: SILENT_AUDIO_BANDS, groupClipProgress: 0 },
+      order,
+    );
+    return recording.draws.filter(
+      (draw) =>
+        draw.program === (resources.program as unknown as Handle) &&
+        draw.scissorTest,
+    );
+  }
+
+  it("draws a fill into its band without a media element", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    const composites = drawFrame(recording, resources, [fillLayer(RED_FILL)]);
+    assert.equal(composites.length, 1);
+    assertCompositeState(composites[0], resources, 0, 1, null);
+    assert.equal(
+      composites[0].texture,
+      resources.textureMap.get("fill:clip-0") as unknown as Handle,
+    );
+
+    const [upload] = recording.uploads;
+    const pixels = upload.at(-1) as Uint8Array;
+    const [width, height] = [upload[3], upload[4]] as [number, number];
+    assert.equal(pixels.length, width * height * 4);
+    assert.deepEqual(Array.from(pixels.slice(0, 4)), [255, 0, 0, 255]);
+    // Drawn at the band's aspect, no larger than 512 pixels on a side.
+    assert.equal(Math.max(width, height), 512);
+    assert.ok(Math.abs(width / height - WIDTH / HEIGHT) < 0.01);
+  });
+
+  it("stacks a fill with media layers", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    const video = layers(1, [])[0];
+    const composites = drawFrame(
+      recording,
+      resources,
+      [video, fillLayer(RED_FILL, 1)],
+      new Map([
+        ["media-0", new FakeVideo(1080, 1920) as unknown as HTMLMediaElement],
+      ]),
+    );
+    assert.equal(composites.length, 2);
+    assertCompositeState(composites[1], resources, 1, 2, null);
+    assert.equal(
+      composites[1].texture,
+      resources.textureMap.get("fill:clip-1") as unknown as Handle,
+    );
+  });
+
+  it("draws a fill at its slot's size in a Horizontal arrangement", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    drawFrame(
+      recording,
+      resources,
+      [fillLayer(RED_FILL, 0), fillLayer(RED_FILL, 1)],
+      undefined,
+      { arrangement: "horizontal", gridSize: 2, spacing: 0 },
+    );
+    // Two side-by-side columns of 180×640 pixels.
+    for (const upload of recording.uploads) {
+      const [width, height] = [upload[3], upload[4]] as [number, number];
+      assert.ok(Math.abs(width / height - WIDTH / 2 / HEIGHT) < 0.01);
+    }
+    assert.equal(recording.uploads.length, 2);
+  });
+
+  it("redraws a fill's texture only when its paint changes", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    drawFrame(recording, resources, [fillLayer(RED_FILL)]);
+    drawFrame(recording, resources, [fillLayer(RED_FILL)]);
+    assert.equal(recording.uploads.length, 1);
+
+    drawFrame(recording, resources, [
+      fillLayer({ ...RED_FILL, color: { r: 0, g: 0, b: 255, a: 1 } }),
+    ]);
+    assert.equal(recording.uploads.length, 2);
+    const pixels = recording.uploads[1].at(-1) as Uint8Array;
+    assert.deepEqual(Array.from(pixels.slice(0, 4)), [0, 0, 255, 255]);
+  });
 });

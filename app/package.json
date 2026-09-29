@@ -23,11 +23,13 @@
     "@heroicons/react": "^2.2.0",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
+    "@radix-ui/react-popover": "^1.1.23",
     "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/plugin-dialog": "^2.7.0",
     "@zvid/tokens": "link:../packages/tokens",
     "mediabunny": "^1.40.1",
     "react": "^19.2.4",
+    "react-best-gradient-color-picker": "^3.0.14",
     "react-dom": "^19.2.4",
     "y-webrtc": "^10.3.0",
     "yjs": "^13.6.30"
