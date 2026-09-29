@@ -25,6 +25,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { flushSync } from "react-dom";
 import "./App.css";
 import {
   AlsImportError,
@@ -54,6 +55,11 @@ import {
   getFilmstripTileWidthPx,
   getSourceSpanFilmstripClip,
 } from "./clip-filmstrip.ts";
+import {
+  formatClipJumpShortcut,
+  isClipJumpPress,
+  revealScrollLeft,
+} from "./clip-jump.ts";
 import {
   describeClipMediaState,
   describeMediaAvailability,
@@ -193,6 +199,7 @@ import {
   ensureLayerLayouts,
   type FxDevice,
   GLOBAL_EFFECT_TRACK_ID,
+  getEffectClipId,
   getRenderedEffects,
   isLayerFxEnabled,
   isLayoutEffectName,
@@ -546,6 +553,8 @@ type DragState =
       originDurationQ: number;
       originLaneId: string;
       duplicateOnDrag: boolean;
+      // A Ctrl/Cmd-press released without dragging jumps to the clip start.
+      jumpOnClick: boolean;
     }
   | {
       kind: "resize-start";
@@ -1422,6 +1431,7 @@ function getShortcutLabels() {
       undo: "Ctrl+Z",
       redo: "Ctrl+Shift+Z",
       sourceClipDrop: "Ctrl+click",
+      clipJump: formatClipJumpShortcut(false),
     };
   }
 
@@ -1440,6 +1450,7 @@ function getShortcutLabels() {
     undo: isMac ? "Cmd+Z" : "Ctrl+Z",
     redo: isMac ? "Shift+Cmd+Z" : "Ctrl+Shift+Z",
     sourceClipDrop: isMac ? "Cmd+click" : "Ctrl+click",
+    clipJump: formatClipJumpShortcut(isMac),
   };
 }
 
@@ -2693,10 +2704,19 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   );
 
   const addFxDevice = useCallback(
-    (trackId: string, effectName: string, id: string) =>
+    (trackId: string, effectName: string, id: string) => {
+      // An FX clip's own stack takes the effects that work on a composite,
+      // Order among them.
+      const clipId = getEffectClipId(trackId);
+      const scope =
+        clipId !== undefined &&
+        isFxClip(timelineClipsRef.current.find((clip) => clip.id === clipId))
+          ? "fxClip"
+          : undefined;
       editEffects(effectHistoryLabels.add(effectName), (current) =>
-        addEffect(current, trackId, effectName, undefined, id),
-      ),
+        addEffect(current, trackId, effectName, undefined, id, scope),
+      );
+    },
     [editEffects],
   );
 
@@ -3327,7 +3347,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     : undefined;
   // Layers the compositor draws at the playhead: one per layer with an
   // online video clip there. The Order device warns when a grid hides some.
-  const playheadVisualLayerCount = useMemo(
+  const playheadVisualLaneIds = useMemo(
     () =>
       new Set(
         timelineClips
@@ -3342,9 +3362,21 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             );
           })
           .map((clip) => clip.laneId),
-      ).size,
+      ),
     [bpm, mediaItemsById, playheadQ, timelineClips],
   );
+  const playheadVisualLayerCount = playheadVisualLaneIds.size;
+  // Of those, the layers beneath the selected FX clip, which an Order on it
+  // arranges.
+  const selectedFxClipRank = isFxClip(selectedClip)
+    ? lanePriority.get(selectedClip?.laneId ?? "")
+    : undefined;
+  const fxClipLayerCount =
+    selectedFxClipRank === undefined
+      ? 0
+      : [...playheadVisualLaneIds].filter(
+          (laneId) => (lanePriority.get(laneId) ?? -1) > selectedFxClipRank,
+        ).length;
   // Fonts Text effects pick load up front, so one that can't be loaded is
   // flagged on its device even before its clip is drawn.
   const missingFonts = useSyncExternalStore(subscribeFonts, getMissingFonts);
@@ -3395,11 +3427,13 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             missingFonts,
             fxClipId,
             fxClipScope,
+            fxClipLayerCount,
           )
         : [],
     [
       effects,
       fxClipId,
+      fxClipLayerCount,
       fxClipScope,
       fxLane?.name,
       fxLaneId,
@@ -4682,6 +4716,54 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       current?.wasPlaying ? { ...current, wasPlaying: false } : current,
     );
   }, []);
+
+  // Ctrl/Cmd-click on an arrangement clip: select it and move the playhead to
+  // its start, scrolled into view. Playback carries on from there.
+  const jumpToClipStart = useCallback(
+    (clipId: string) => {
+      const clip = timelineClipsRef.current.find(
+        (candidate) => candidate.id === clipId,
+      );
+      if (!clip) {
+        return;
+      }
+
+      setPendingSelection(null);
+      setSelectedClipId(clip.id);
+      setPlayheadQ(clip.startQ);
+      playbackOriginRef.current = clip.startQ;
+      if (isPlaying) {
+        // The playback loop only restarts from the new origin when it stops
+        // first, so the pause commits before playback starts again.
+        cancelScrubPlaybackResume();
+        flushSync(() => setIsPlaying(false));
+        startPlayback(clip.startQ);
+      }
+
+      const timelineScroll = timelineScrollRef.current;
+      if (timelineScroll) {
+        const nextScrollLeft = revealScrollLeft({
+          targetPx: labelWidth + clip.startQ * quarterPx,
+          scrollLeft: timelineScroll.scrollLeft,
+          viewportWidth: timelineScroll.clientWidth,
+          labelWidth,
+          maxScrollLeft:
+            timelineScroll.scrollWidth - timelineScroll.clientWidth,
+        });
+        if (nextScrollLeft !== timelineScroll.scrollLeft) {
+          timelineScroll.scrollTo({ left: nextScrollLeft, behavior: "smooth" });
+        }
+      }
+    },
+    [
+      cancelScrubPlaybackResume,
+      isPlaying,
+      labelWidth,
+      quarterPx,
+      setPlayheadQ,
+      startPlayback,
+    ],
+  );
 
   const createWindowClip = useCallback(
     (
@@ -6925,6 +7007,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         : false,
       mac: shortcutLabels.mac,
       actions: {
+        jumpToStart: withClip((clip) => jumpToClipStart(clip.id)),
         cut: withClip(cutArrangementClip),
         copy: withClip(copyArrangementClip),
         paste: () => pasteArrangementClip(pasteLaneId),
@@ -7438,6 +7521,14 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         !dragPreviewClips
       ) {
         setSelectedClipId(dragState.sourceClipId);
+        // Released where it was pressed, a Ctrl/Cmd-press is a click.
+        if (
+          dragState.jumpOnClick &&
+          Math.abs(event.clientX - dragState.pointerStartX) <=
+            LANE_SELECTION_DRAG_THRESHOLD_PX
+        ) {
+          jumpToClipStart(dragState.sourceClipId);
+        }
       }
 
       setDragPreviewClips(null);
@@ -7477,6 +7568,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     commitProjectChange,
     dragPreviewClips,
     dragState,
+    jumpToClipStart,
     minimumWindowQ,
     refuseReadOnlyEdit,
     setPlayheadQ,
@@ -9891,6 +9983,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                                   }}
                                   // Double-clicking a text clip types on it in
                                   // the preview.
+                                  title={`${shortcutLabels.clipJump} to jump to start`}
                                   onDoubleClick={
                                     textStyle
                                       ? () => startTextEdit(clip.id)
@@ -9926,6 +10019,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                                       originDurationQ: durationQ,
                                       originLaneId: clip.laneId,
                                       duplicateOnDrag,
+                                      jumpOnClick: isClipJumpPress(
+                                        event,
+                                        shortcutLabels.mac,
+                                      ),
                                     });
                                   }}
                                   type="button"

@@ -638,12 +638,25 @@ describe("planLayerDraws", () => {
     clip: { startQ: 0 },
     fx,
   });
-  const describeSteps = (steps: LayerDrawStep<ReturnType<typeof layer>>[]) =>
+  const describeSteps = (
+    steps: LayerDrawStep<ReturnType<typeof layer>>[],
+  ): string[] =>
     steps.map((step) =>
       step.type === "layer"
         ? `${step.entry.id}@${step.slot}/${step.slotCount}`
-        : step.entry.id,
+        : step.type === "arrange"
+          ? `${step.entry.id}:${step.order.arrangement}[${describeSteps(step.steps).join(" ")}]`
+          : step.entry.id,
     );
+  const grid2: CompositionOrder = {
+    arrangement: "grid",
+    gridSize: 2,
+    spacing: 0,
+  };
+  const arranging = (laneRank: number, order: CompositionOrder) => ({
+    ...layer(laneRank, true),
+    order,
+  });
 
   it("draws layers in slot order without FX clips", () => {
     assert.deepEqual(
@@ -708,6 +721,62 @@ describe("planLayerDraws", () => {
       "layer-2@1/4",
       "layer-1@0/4",
       "fx-0",
+    ]);
+  });
+
+  it("arranges the layers beneath an FX clip with an Order by its Order", () => {
+    // An FX clip on Layer 1 with a 2×2 Grid over Layers 2–5, under a
+    // Global Vertical.
+    const steps = planLayerDraws(
+      [arranging(0, grid2), ...[1, 2, 3, 4].map((rank) => layer(rank))],
+      DEFAULT_COMPOSITION_ORDER,
+    );
+    assert.deepEqual(describeSteps(steps), [
+      "fx-0:grid[layer-1@0/4 layer-2@1/4 layer-3@2/4 layer-4@3/4]",
+    ]);
+  });
+
+  it("leaves the layers above it in their Global slots, drawn over it", () => {
+    const steps = planLayerDraws(
+      [layer(0), arranging(1, grid2), layer(2), layer(3)],
+      DEFAULT_COMPOSITION_ORDER,
+    );
+    // Layer 1 keeps the first of three bands, as without the FX clip's
+    // Order; the arrangement is drawn first, beneath it.
+    assert.deepEqual(describeSteps(steps), [
+      "fx-1:grid[layer-2@0/2 layer-3@1/2]",
+      "layer-0@0/3",
+    ]);
+  });
+
+  it("lets nested FX clips with an Order each govern the layers below them", () => {
+    const horizontal: CompositionOrder = {
+      arrangement: "horizontal",
+      gridSize: 2,
+      spacing: 0,
+    };
+    const steps = planLayerDraws(
+      [
+        arranging(0, horizontal),
+        layer(1),
+        arranging(2, grid2),
+        layer(3),
+        layer(4),
+      ],
+      DEFAULT_COMPOSITION_ORDER,
+    );
+    assert.deepEqual(describeSteps(steps), [
+      "fx-0:horizontal[fx-2:grid[layer-3@0/2 layer-4@1/2] layer-1@0/3]",
+    ]);
+  });
+
+  it("applies FX clips without an Order inside the arrangement they are in", () => {
+    const steps = planLayerDraws(
+      [arranging(0, grid2), layer(1), layer(2, true), layer(3)],
+      DEFAULT_COMPOSITION_ORDER,
+    );
+    assert.deepEqual(describeSteps(steps), [
+      "fx-0:grid[layer-3@1/2 fx-2 layer-1@0/2]",
     ]);
   });
 });

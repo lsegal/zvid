@@ -19,7 +19,10 @@ import {
   clipEffectTrackId,
   copyClipEffects,
   mapSessionEffectsToDevices,
+  moveEffect,
+  ORDER_RUNS_FIRST_NOTE,
   type SessionEffect,
+  setEffectParameter,
 } from "./fx-stack.ts";
 import type { MediaItem } from "./media.ts";
 import { copyClip, pasteClipboard, removeRangeFromLane } from "./range-edit.ts";
@@ -135,12 +138,96 @@ describe("FX clip stacks", () => {
       "NegativeSplit",
       "AnalogGlitch",
       "Transform",
+      "Order",
     ]) {
       assert.ok(names.includes(name), name);
     }
-    for (const name of ["Color", "Text", "Layout", "Order"]) {
+    for (const name of ["Color", "Text", "Layout"]) {
       assert.ok(!names.includes(name), name);
     }
+  });
+
+  it("offers Order on an FX clip but not on other clips or layers", () => {
+    const names = (scope: "clip" | "layer" | "fxClip") =>
+      addableEffectsFor(scope).map((definition) => definition.effectName);
+    assert.ok(names("fxClip").includes("Order"));
+    assert.ok(!names("clip").includes("Order"));
+    assert.ok(!names("layer").includes("Order"));
+  });
+
+  it("adds Order only to a stack known to be an FX clip's", () => {
+    const trackId = clipEffectTrackId("fx-a");
+    assert.deepEqual(addEffect([], trackId, "Order"), []);
+    const effects = addEffect([], trackId, "Order", 0, "order", "fxClip");
+    assert.deepEqual(
+      effects.map((effect) => [effect.id, effect.trackId, effect.effectName]),
+      [["order", trackId, "Order"]],
+    );
+  });
+
+  it("keeps one Order per FX clip: a new one bypasses the last", () => {
+    const trackId = clipEffectTrackId("fx-a");
+    let effects = addEffect([], trackId, "Order", 0, "first", "fxClip");
+    effects = addEffect(effects, trackId, "Colorize", undefined, "colorize");
+    effects = addEffect(
+      effects,
+      trackId,
+      "Order",
+      undefined,
+      "second",
+      "fxClip",
+    );
+    assert.deepEqual(
+      effects.map((effect) => [effect.id, effect.enabled]),
+      [
+        ["first", false],
+        ["colorize", true],
+        ["second", true],
+      ],
+    );
+    // Another stack's Order is left alone.
+    const other = addEffect(
+      effects,
+      clipEffectTrackId("fx-b"),
+      "Order",
+      undefined,
+      "other",
+      "fxClip",
+    );
+    assert.equal(other.find((effect) => effect.id === "second")?.enabled, true);
+  });
+
+  it("notes an Order that isn't first, and warns of layers its grid hides", () => {
+    const trackId = clipEffectTrackId("fx-a");
+    let effects = addEffect([], trackId, "Colorize", undefined, "colorize");
+    effects = addEffect(
+      effects,
+      trackId,
+      "Order",
+      undefined,
+      "order",
+      "fxClip",
+    );
+    const orderDevice = (layerCount: number) =>
+      mapSessionEffectsToDevices(
+        effects,
+        "1",
+        "Layer 1",
+        0,
+        new Set(),
+        "fx-a",
+        "fxClip",
+        layerCount,
+      ).find((device) => device.id === "order");
+    assert.equal(orderDevice(4)?.warning, ORDER_RUNS_FIRST_NOTE);
+    assert.equal(orderDevice(4)?.unsupported, undefined);
+
+    effects = setEffectParameter(effects, "order", "Arrangement", "Grid");
+    assert.equal(orderDevice(4)?.warning, ORDER_RUNS_FIRST_NOTE);
+    assert.equal(orderDevice(6)?.warning, "2 layers hidden by grid");
+
+    effects = moveEffect(effects, "order", 0);
+    assert.equal(orderDevice(4)?.warning, undefined);
   });
 
   it("flags content effects on an FX clip's stack as unsupported", () => {

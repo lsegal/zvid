@@ -59,10 +59,18 @@ type StackedLayer = {
 };
 
 // One step of drawing the composite: a layer drawn into slot `slot` of
-// `slotCount`, or an FX clip whose chain adjusts what has been drawn so far.
+// `slotCount`, an FX clip whose chain adjusts what has been drawn so far, or
+// an FX clip with an Order that arranges the layers beneath it (`steps`) by
+// `order` inside its own box.
 export type LayerDrawStep<T> =
   | { type: "layer"; entry: T; slot: number; slotCount: number }
-  | { type: "fx"; entry: T };
+  | { type: "fx"; entry: T }
+  | {
+      type: "arrange";
+      entry: T;
+      order: CompositionOrder;
+      steps: LayerDrawStep<T>[];
+    };
 
 /**
  * The steps that draw `layers`, back to front. Layers take slots as
@@ -72,32 +80,59 @@ export type LayerDrawStep<T> =
  * Without an Order that is the usual draw order; with one, layers are drawn
  * from the highest-numbered up while an FX clip is present, which only
  * changes where transformed layers overlap.
+ *
+ * The topmost FX clip with an Order of its own (`order` set) governs every
+ * layer beneath it: they are planned again by its Order, as an "arrange"
+ * step drawn first, under everything above it. Layers above it keep the
+ * slots they have without it: the slots are counted over every layer.
  */
-export function planLayerDraws<T extends StackedLayer & { fx?: boolean }>(
+export function planLayerDraws<
+  T extends StackedLayer & { fx?: boolean; order?: CompositionOrder },
+>(
   layers: readonly T[],
   order: CompositionOrder = DEFAULT_COMPOSITION_ORDER,
 ): LayerDrawStep<T>[] {
+  const arranger = layers
+    .filter((layer) => layer.fx && layer.order)
+    .reduce<T | undefined>(
+      (top, layer) =>
+        top === undefined || layer.laneRank < top.laneRank ? layer : top,
+      undefined,
+    );
+  const isGoverned = (layer: T) =>
+    arranger !== undefined && layer.laneRank > arranger.laneRank;
   const ordered = orderStackedLayers(
     layers.filter((layer) => !layer.fx),
     order,
   );
   const stacked = ordered.slice(0, visibleLayerCount(ordered.length, order));
-  const draws = stacked.map<LayerDrawStep<T> & { type: "layer" }>(
-    (entry, slot) => ({
+  const draws = stacked
+    .map<LayerDrawStep<T> & { type: "layer" }>((entry, slot) => ({
       type: "layer",
       entry,
       slot,
       slotCount: stacked.length,
-    }),
-  );
+    }))
+    .filter((draw) => !isGoverned(draw.entry));
+  const arrange: LayerDrawStep<T>[] =
+    arranger?.order === undefined
+      ? []
+      : [
+          {
+            type: "arrange",
+            entry: arranger,
+            order: arranger.order,
+            steps: planLayerDraws(layers.filter(isGoverned), arranger.order),
+          },
+        ];
   const fxLayers = layers
-    .filter((layer) => layer.fx)
+    .filter((layer) => layer.fx && layer !== arranger && !isGoverned(layer))
     .sort((left, right) => right.laneRank - left.laneRank);
   if (!fxLayers.length) {
-    return draws;
+    return [...arrange, ...draws];
   }
 
-  const steps: LayerDrawStep<T>[] = [];
+  const steps: LayerDrawStep<T>[] = [...arrange];
   let nextFx = 0;
   for (const draw of [...draws].sort(
     (left, right) => right.entry.laneRank - left.entry.laneRank,

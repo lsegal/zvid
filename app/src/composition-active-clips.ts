@@ -23,12 +23,18 @@
 // An FX clip draws nothing and takes no Order slot. Its own stack's chain
 // runs on the composite of the layers beneath it (higher-numbered layers),
 // within the canvas or the box its Transforms move the canvas to, before the
-// layers above it are drawn.
+// layers above it are drawn. An Order on its stack arranges those layers
+// inside that box first, in place of the Global Order (the nearest such FX
+// clip above a layer wins); the rest of its chain then runs on the result.
 //
 // Other visual parameters (opacity and the like) read Global, then Layer,
 // then Clip, so the most specific stack wins.
 import { type ClipWarp, warpSourceTime } from "./clip-warp.ts";
-import { isOrderEffectName } from "./composition-order.ts";
+import {
+  type CompositionOrder,
+  findCompositionOrder,
+  isOrderEffectName,
+} from "./composition-order.ts";
 import {
   isTransformEffectName,
   type LayerTransform,
@@ -147,6 +153,9 @@ export type ActiveClip = {
   // Set for FX clips, which draw nothing and instead run `effectChain` on
   // the composite beneath them.
   fx?: true;
+  // Set for FX clips with an enabled Order, which arranges the layers
+  // beneath them.
+  order?: CompositionOrder;
 };
 
 export const GROUP_TRACK_ID = "__group_main";
@@ -428,6 +437,9 @@ export function computeActiveClips(
           visual: resolveVisualState(effects, clip.laneId, clip.id),
           effectChain: resolveEffectChain(effects, clipEffectTrackId(clip.id)),
           fx: true,
+          ...withOrder(
+            findCompositionOrder(effects, clipEffectTrackId(clip.id)),
+          ),
         };
       }
 
@@ -486,6 +498,10 @@ export function computeActiveClips(
         effectChain: resolveClipEffectChain(effects, clip),
       };
     });
+}
+
+function withOrder(order: CompositionOrder | undefined) {
+  return order ? { order } : {};
 }
 
 // The chain a clip is drawn with: its own stack's steps first, on the clip's
