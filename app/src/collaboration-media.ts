@@ -20,6 +20,7 @@ type MediaTransportOptions = {
   provider: WebrtcProvider;
   resolveMedia?: MediaResolver;
   onChange(): void;
+  log?(event: string, payload?: unknown): void;
 };
 
 type ControlMessage =
@@ -118,6 +119,7 @@ export function createMediaTransport(
   options: MediaTransportOptions,
 ): MediaTransport {
   const { provider } = options;
+  const log = options.log ?? (() => {});
   const peers = new Map<string, MediaPeer>();
   let nextReq = 1;
   let destroyed = false;
@@ -254,9 +256,18 @@ export function createMediaTransport(
       return;
     }
     if (!blob) {
+      log("collaboration:media:serve:miss", {
+        peerId: mediaPeer.peerId,
+        mediaId: transfer.id,
+      });
       sendControl(mediaPeer, { t: "miss", req });
       return;
     }
+    log("collaboration:media:serve:start", {
+      peerId: mediaPeer.peerId,
+      mediaId: transfer.id,
+      size: blob.size,
+    });
     if (
       !sendControl(mediaPeer, {
         t: "meta",
@@ -291,6 +302,10 @@ export function createMediaTransport(
       }
     }
     sendControl(mediaPeer, { t: "end", req });
+    log("collaboration:media:serve:end", {
+      peerId: mediaPeer.peerId,
+      mediaId: transfer.id,
+    });
   };
 
   const pumpOutgoing = (mediaPeer: MediaPeer) => {
@@ -581,6 +596,10 @@ export function createMediaTransport(
       };
       mediaPeer.incoming.set(req, transfer);
       signal?.addEventListener("abort", onAbort);
+      log("collaboration:media:request:start", {
+        peerId: mediaPeer.peerId,
+        mediaId,
+      });
       armStallTimer(mediaPeer, req, transfer);
       if (!sendControl(mediaPeer, { t: "want", req, id: mediaId })) {
         finishIncoming(mediaPeer, req);
@@ -632,6 +651,11 @@ export function createMediaTransport(
             mediaId,
             requestOptions,
           );
+          log("collaboration:media:request:end", {
+            peerId: mediaPeer.peerId,
+            mediaId,
+            size: blob?.size ?? null,
+          });
           if (blob) {
             return blob;
           }

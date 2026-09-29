@@ -71,6 +71,14 @@ import {
   type CollaborationController,
   createCollaborationController,
 } from "./collaboration";
+import {
+  buildDiagnosticsRows,
+  type CollaborationRole,
+  type CollaborationTone,
+  EMPTY_COLLABORATION_DIAGNOSTICS,
+  parseIceServers,
+  summarizeCollaboration,
+} from "./collaboration-diagnostics";
 import { ArrangementEmptyState } from "./components/ArrangementEmptyState";
 import {
   APP_BUILD_LABEL,
@@ -412,8 +420,6 @@ type SourceTrackDragPreview = {
 
 type CollaborationMode = "idle" | "sharing" | "connected";
 
-type CollaborationTone = "idle" | "pending" | "waiting" | "live";
-
 type CollaborationRemoteCursor = {
   clientId: number;
   name: string;
@@ -505,13 +511,29 @@ const PREVIEW_RESIZE_KEY_STEP = 16;
 // Horizontal space the preview panel may never take from the timeline: the
 // grid's side padding, the resize handle's column, and a usable timeline.
 const PREVIEW_RESERVED_WIDTH = 32 + 16 + 360;
+// zvid's own signaling worker (../signaling) first, with the public y-webrtc
+// relay as a fallback. y-webrtc connects to every URL, and peers find each
+// other through any one they share.
+const ZVID_SIGNALING_URL = "wss://zvid-signaling.lsegal.workers.dev";
 const PUBLIC_SIGNALING_URL = "wss://y-webrtc-eu.fly.dev";
 const DEFAULT_SIGNALING_URLS = splitSignalingUrls(
-  import.meta.env.VITE_SIGNALING_URL || PUBLIC_SIGNALING_URL,
+  import.meta.env.VITE_SIGNALING_URL ||
+    [ZVID_SIGNALING_URL, PUBLIC_SIGNALING_URL].join(","),
 );
+// Earlier defaults, persisted as the user's setting; they move to the current
+// default instead of pinning the user to a single relay.
 const LEGACY_DEFAULT_SIGNALING_URLS = [
-  "wss://zvid-signaling.lsegal.workers.dev",
+  [ZVID_SIGNALING_URL],
+  [PUBLIC_SIGNALING_URL],
 ];
+const ICE_SERVERS = resolveIceServers();
+const IDLE_COLLABORATION_STATE: CollaborationConnectionState = {
+  connected: false,
+  peerCount: 0,
+  mediaPeerCount: 0,
+  collaborators: [],
+  diagnostics: EMPTY_COLLABORATION_DIAGNOSTICS,
+};
 const SIGNATURES: TimeSignature[] = [
   { id: "4/4", numerator: 4, denominator: 4 },
   { id: "3/4", numerator: 3, denominator: 4 },
@@ -997,8 +1019,22 @@ function migrateLegacyStoredSignaling(
   }
 
   const normalized = parseSignalingUrls(value).join(", ");
-  const legacy = LEGACY_DEFAULT_SIGNALING_URLS.join(", ");
-  return normalized === legacy ? fallback : normalized;
+  return LEGACY_DEFAULT_SIGNALING_URLS.some(
+    (legacy) => legacy.join(", ") === normalized,
+  )
+    ? fallback
+    : normalized;
+}
+
+function resolveIceServers() {
+  try {
+    return parseIceServers(import.meta.env.VITE_ICE_SERVERS);
+  } catch (error) {
+    console.error(
+      `[zvid] collaboration:ice:config:error ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return parseIceServers(undefined);
+  }
 }
 
 function buildCollaboratorName() {
@@ -1182,58 +1218,29 @@ function getShortcutLabels() {
   };
 }
 
-function formatCollaborationStateLabel(
+function getCollaborationRole(mode: CollaborationMode): CollaborationRole {
+  return mode === "sharing" ? "host" : "guest";
+}
+
+function summarizeCollaborationState(
   mode: CollaborationMode,
   state: CollaborationConnectionState,
   isStartingShare: boolean,
   isStartingConnect: boolean,
-) {
+): { label: string; tone: CollaborationTone } {
   if (isStartingShare) {
-    return "Starting share...";
+    return { label: "Starting share...", tone: "pending" };
   }
 
   if (isStartingConnect) {
-    return "Connecting...";
+    return { label: "Connecting...", tone: "pending" };
   }
 
-  if (state.peerCount > 0) {
-    return state.peerCount === 1
-      ? "1 peer connected"
-      : `${state.peerCount} peers connected`;
+  if (mode === "idle") {
+    return { label: "Not connected", tone: "idle" };
   }
 
-  if (mode === "sharing") {
-    return state.connected ? "Sharing, waiting for peer" : "Opening share...";
-  }
-
-  if (mode === "connected") {
-    return state.connected
-      ? "Connected, waiting for host"
-      : "Connecting to share...";
-  }
-
-  return "Not connected";
-}
-
-function getCollaborationStateTone(
-  mode: CollaborationMode,
-  state: CollaborationConnectionState,
-  isStartingShare: boolean,
-  isStartingConnect: boolean,
-): CollaborationTone {
-  if (isStartingShare || isStartingConnect) {
-    return "pending";
-  }
-
-  if (state.peerCount > 0) {
-    return "live";
-  }
-
-  if (mode === "sharing" || mode === "connected") {
-    return state.connected ? "waiting" : "pending";
-  }
-
-  return "idle";
+  return summarizeCollaboration(getCollaborationRole(mode), state.diagnostics);
 }
 
 function buildCollaborationViewModel(
@@ -1262,21 +1269,26 @@ function buildCollaborationViewModel(
         : [],
     );
 
+  const summary = summarizeCollaborationState(
+    mode,
+    state,
+    isStartingShare,
+    isStartingConnect,
+  );
+
   return {
     pendingShareRoom: activeShareRoom || buildShareRoomName(),
     signalingLabel: parseSignalingUrls(collaborationSignaling).join(", "),
-    stateLabel: formatCollaborationStateLabel(
-      mode,
-      state,
-      isStartingShare,
-      isStartingConnect,
-    ),
-    stateTone: getCollaborationStateTone(
-      mode,
-      state,
-      isStartingShare,
-      isStartingConnect,
-    ),
+    stateLabel: summary.label,
+    stateTone: summary.tone,
+    diagnosticsRows:
+      mode === "idle"
+        ? []
+        : buildDiagnosticsRows(
+            getCollaborationRole(mode),
+            state.diagnostics,
+            ICE_SERVERS,
+          ),
     remoteCollaboratorNames: remoteCollaborators
       .map((collaborator) => collaborator.name)
       .join(", "),
@@ -1861,12 +1873,8 @@ function App() {
   const [hasCopiedShareInvite, setHasCopiedShareInvite] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
   const [collaborationState, setCollaborationState] =
-    useState<CollaborationConnectionState>({
-      connected: false,
-      peerCount: 0,
-      mediaPeerCount: 0,
-      collaborators: [],
-    });
+    useState<CollaborationConnectionState>(IDLE_COLLABORATION_STATE);
+  const [isDiagnosticsDialogOpen, setIsDiagnosticsDialogOpen] = useState(false);
   const [mediaHydrationTick, setMediaHydrationTick] = useState(0);
   const collaborationColor = initialCollaborationConfig.color;
 
@@ -3999,6 +4007,9 @@ function App() {
       roomName,
       password: collaborationPassword.trim(),
       signalingUrls: parseSignalingUrls(collaborationSignaling),
+      role: getCollaborationRole(collaborationMode),
+      iceServers: ICE_SERVERS,
+      log: logClient,
       initialState: INITIAL_PROJECT_STATE,
       bootstrapState: projectSnapshotRef.current,
       user: {
@@ -6159,12 +6170,7 @@ function App() {
   function handleStopShare() {
     collaborationControllerRef.current?.destroy();
     collaborationControllerRef.current = null;
-    setCollaborationState({
-      connected: false,
-      peerCount: 0,
-      mediaPeerCount: 0,
-      collaborators: [],
-    });
+    setCollaborationState(IDLE_COLLABORATION_STATE);
     setCollaborationMode("idle");
     setShareUrl("");
     setStatus("Public sharing stopped. Signaling socket disconnected.");
@@ -6173,12 +6179,7 @@ function App() {
   function handleDisconnectConnection() {
     collaborationControllerRef.current?.destroy();
     collaborationControllerRef.current = null;
-    setCollaborationState({
-      connected: false,
-      peerCount: 0,
-      mediaPeerCount: 0,
-      collaborators: [],
-    });
+    setCollaborationState(IDLE_COLLABORATION_STATE);
     setCollaborationMode("idle");
     setStatus("Disconnected from the shared collaboration session.");
   }
@@ -6635,13 +6636,26 @@ function App() {
           >
             {exportButtonLabel}
           </button>
-          <span
-            className={`collaboration-status collaboration-status--${collaborationView.stateTone}`}
-            aria-live="polite"
-          >
-            <span className="collaboration-status__dot" aria-hidden="true" />
-            {collaborationView.stateLabel}
-          </span>
+          {collaborationMode === "idle" ? (
+            <span
+              className={`collaboration-status collaboration-status--${collaborationView.stateTone}`}
+              aria-live="polite"
+            >
+              <span className="collaboration-status__dot" aria-hidden="true" />
+              {collaborationView.stateLabel}
+            </span>
+          ) : (
+            <button
+              className={`collaboration-status collaboration-status--${collaborationView.stateTone} collaboration-status--button`}
+              aria-live="polite"
+              onClick={() => setIsDiagnosticsDialogOpen(true)}
+              title="Show connection diagnostics"
+              type="button"
+            >
+              <span className="collaboration-status__dot" aria-hidden="true" />
+              {collaborationView.stateLabel}
+            </button>
+          )}
           <button
             className={`ghost-button share-button ${isSharing ? "is-sharing" : ""}`}
             disabled={isExporting || isStartingShare || isConnectedClient}
@@ -6777,6 +6791,54 @@ function App() {
             >
               {isStartingShare ? "Starting..." : "Start Sharing"}
             </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isDiagnosticsDialogOpen && collaborationMode !== "idle"}
+        onOpenChange={setIsDiagnosticsDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Connection diagnostics</DialogTitle>
+            <DialogDescription>
+              {collaborationMode === "sharing" ? "Sharing" : "Joined"} room{" "}
+              {activeShareRoom}. Peers find each other through the signaling
+              servers, then connect directly over WebRTC.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="share-dialog__body">
+            <CollaborationDetailCard
+              label="Connection"
+              value={collaborationView.stateLabel}
+              meta={collaborationView.remoteCollaboratorNames || undefined}
+            />
+            <dl className="collaboration-diagnostics">
+              {collaborationView.diagnosticsRows.map((row) => (
+                <div
+                  className={`collaboration-diagnostics__row${row.tone ? ` collaboration-diagnostics__row--${row.tone}` : ""}`}
+                  key={row.label}
+                >
+                  <dt>{row.label}</dt>
+                  <dd>{row.value}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="share-dialog__note">
+              Tabs of the same browser sync without WebRTC, so test with two
+              different browsers or machines. Peers behind strict NATs need a
+              TURN relay (VITE_ICE_SERVERS).
+            </p>
+          </div>
+
+          <DialogFooter>
+            <DialogClose asChild>
+              <button className="ghost-button" type="button">
+                Close
+              </button>
+            </DialogClose>
           </DialogFooter>
         </DialogContent>
       </Dialog>

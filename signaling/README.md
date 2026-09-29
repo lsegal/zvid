@@ -38,7 +38,7 @@ Use that URL as `VITE_SIGNALING_URL` when building the app.
 
 ## Do you need to self-host this?
 
-No. By default zvid connects to the public `wss://y-webrtc-eu.fly.dev` relay, so collaboration works out of the box without deploying anything.
+No. By default zvid connects to the deployed `wss://zvid-signaling.lsegal.workers.dev` worker and to the public `wss://y-webrtc-eu.fly.dev` relay as a fallback, so collaboration works out of the box without deploying anything.
 
 This worker (or the public relay) only helps browsers find each other; it never sees project content. If you'd rather not depend on a third-party relay, deploy your own copy with the steps above and either:
 

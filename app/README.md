@@ -98,7 +98,13 @@ The editor only supplies canvas frames and timeline state. Media analysis uses t
 
 ## Collaboration signaling
 
-Collaboration uses the public `wss://y-webrtc-eu.fly.dev` y-webrtc relay by default, so no signaling deploy is needed. To use a different server, copy `.env.example` to `.env.local` and set `VITE_SIGNALING_URL` before building, or deploy the optional [signaling worker](../signaling/README.md).
+Collaboration signals through zvid's own [signaling worker](../signaling/README.md) (`wss://zvid-signaling.lsegal.workers.dev`) by default, with the public `wss://y-webrtc-eu.fly.dev` y-webrtc relay as a fallback. Peers find each other through any server they share. To use different servers, copy `.env.example` to `.env.local` and set `VITE_SIGNALING_URL` before building. An invite's `signal=` parameter always decides which servers a joiner uses.
+
+After signaling, peers connect directly over WebRTC. By default only STUN servers are used, so peers behind symmetric NAT, CGNAT, mobile hotspots or corporate firewalls may not connect; set `VITE_ICE_SERVERS` (see `.env.example`) to add a TURN relay.
+
+While sharing or joined, click the connection status in the header for diagnostics: each signaling server, peers found and connected over WebRTC, whether the project state has synced, and the last error. The browser console logs the same events as `[zvid] collaboration:*`.
+
+Tabs of the same browser profile also sync through `BroadcastChannel`, which works even when signaling and WebRTC are broken, so test sharing with two different browsers or machines (the diagnostics list same-browser tabs separately). `pnpm test:web` runs a two-browser-context test against a local signaling server (`e2e/collaboration.spec.ts`).
 
 ## Versioning
 
