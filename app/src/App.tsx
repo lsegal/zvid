@@ -55,6 +55,11 @@ import {
   getSourceSpanFilmstripClip,
 } from "./clip-filmstrip.ts";
 import {
+  formatClipJumpShortcut,
+  isClipJumpPress,
+  revealScrollLeft,
+} from "./clip-jump.ts";
+import {
   describeClipMediaState,
   describeMediaAvailability,
   describePreviewMediaState,
@@ -73,11 +78,6 @@ import {
   isInSelection,
   resolvePasteLaneId,
 } from "./clip-menu.ts";
-import {
-  formatClipJumpShortcut,
-  isClipJumpPress,
-  revealScrollLeft,
-} from "./clip-jump.ts";
 import { type ClipWarp, createClipWarp } from "./clip-warp.ts";
 import {
   type CollaborationConnectionState,

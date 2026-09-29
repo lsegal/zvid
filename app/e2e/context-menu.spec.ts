@@ -64,7 +64,7 @@ test("right-clicking empty lane space selects the layer and offers only Paste", 
   const menu = page.getByRole("menu", { name: "Layer actions" });
   await expect(menu).toBeVisible();
   await expect(page.locator(".fx-panel__toggle")).toHaveText("Layer 2 effects");
-  await expect(menu.getByRole("menuitem")).toHaveCount(6);
+  await expect(menu.getByRole("menuitem")).toHaveCount(7);
   // Nothing is on the clipboard yet, so even Paste is disabled.
   for (const item of await menu.getByRole("menuitem").all()) {
     await expect(item).toHaveAttribute("aria-disabled", "true");
@@ -111,7 +111,7 @@ test("source clip menu copies to a chosen layer, and clip menu pastes at the pla
   const submenu = page.getByRole("menu", { name: "Copy to layer" });
   await expect(submenu).toBeVisible();
   await expect(submenu.getByRole("menuitem")).toHaveText([
-    "Auto (last free layer)",
+    /^Auto \(last free layer\)(Ctrl|Cmd)\+click$/,
     "Layer 1",
     "Layer 2",
     "Layer 3",
