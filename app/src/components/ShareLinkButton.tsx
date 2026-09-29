@@ -3,7 +3,6 @@ import {
   type CSSProperties,
   type RefObject,
   useEffect,
-  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -79,23 +78,23 @@ function ShareLinkFallback({
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [position, setPosition] = useState<CSSProperties>({
-    visibility: "hidden",
+  // The button is already mounted, so the popover can be placed on first render.
+  const [position] = useState<CSSProperties>(() => {
+    const anchor = anchorRef.current?.getBoundingClientRect();
+    return anchor
+      ? {
+          bottom: window.innerHeight - anchor.top + 6,
+          left: Math.max(8, anchor.left),
+        }
+      : { bottom: 32, left: 8 };
   });
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
-  useLayoutEffect(() => {
-    const anchor = anchorRef.current?.getBoundingClientRect();
-    if (anchor) {
-      setPosition({
-        bottom: window.innerHeight - anchor.top + 6,
-        left: Math.max(8, anchor.left),
-      });
-    }
+  useEffect(() => {
     inputRef.current?.focus();
     inputRef.current?.select();
-  }, [anchorRef]);
+  }, []);
 
   useEffect(() => {
     function handlePointerDown(event: PointerEvent) {
