@@ -291,9 +291,8 @@ function colorUniforms(visual: CompositeVisual) {
 
 // Draws the layer's source into a `size` target exactly as it would appear
 // in its slot, or a text layer's box (cover, Layout anchor, scale, offset
-// and rotation), so
-// the effect chain works on what the slot shows rather than on the whole
-// source. Rows are written top row first to match uploaded video textures,
+// and rotation), so the effect chain works on what the slot shows rather
+// than on the whole source. Rows are written top row first to match uploaded video textures,
 // which is the orientation the effect passes and the composite shader expect.
 function renderLayerFrame(
   resources: WebGlResources,
