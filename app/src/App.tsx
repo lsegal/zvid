@@ -393,9 +393,11 @@ import {
   formatDivision,
   type GridDivision,
   type GridLineWeight,
+  getBarStep,
   getGridLayers,
   getGridUnit,
   getSnapUnit,
+  RULER_LABEL_MIN_PX,
   resolveAdaptiveDivision,
   type SnapMode,
 } from "./timeline-grid";
@@ -421,12 +423,15 @@ import {
 import {
   anchoredTimelineScrollLeft,
   formatZoomFactor,
+  sliderPositionToZoom,
   stepZoom,
   timelineDragZoom,
   ZOOM_DEFAULT,
   ZOOM_MAX,
   ZOOM_MIN,
+  ZOOM_SLIDER_STEP,
   zoomFillFraction,
+  zoomToSliderPosition,
 } from "./zoom";
 
 type TimelineMode = "musical" | "timecode";
@@ -2889,7 +2894,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const timelineWidth = totalQuarters * quarterPx;
   const gridStyle = useMemo(() => {
     // CSS paints the first layer on top, so the strongest lines go first.
-    const layers = getGridLayers(gridUnit, signature).reverse();
+    const layers = getGridLayers(gridUnit, signature, quarterPx).reverse();
     return {
       backgroundImage: layers
         .map(
@@ -3334,6 +3339,11 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       quarter: index * barLength,
     }));
   }, [barLength, totalQuarters]);
+  // Zoomed far out, only every 2nd, 4th, 8th... bar is labelled.
+  const rulerLabelBarStep = getBarStep(
+    barLength * quarterPx,
+    RULER_LABEL_MIN_PX[timelineMode],
+  );
   // Arrangement and source-track clips both count, so sessions whose media
   // is only used on source tracks still surface the Locate Media shortcut.
   const offlineMedia = useMemo(
@@ -9229,14 +9239,16 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                           className="ruler-marker"
                           style={{ left: bar.quarter * quarterPx }}
                         >
-                          <span>
-                            {timelineMode === "musical"
-                              ? `${bar.index + 1}`
-                              : formatTimecode(
-                                  quartersToSeconds(bar.quarter, bpm),
-                                  fps,
-                                )}
-                          </span>
+                          {bar.index % rulerLabelBarStep === 0 ? (
+                            <span>
+                              {timelineMode === "musical"
+                                ? `${bar.index + 1}`
+                                : formatTimecode(
+                                    quartersToSeconds(bar.quarter, bpm),
+                                    fps,
+                                  )}
+                            </span>
+                          ) : null}
                         </div>
                       ))}
                     </div>
@@ -10324,20 +10336,23 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   aria-label="Timeline zoom"
                   aria-valuetext={formatZoomFactor(resolvedZoom)}
                   className="zoom-control__slider"
-                  max={ZOOM_MAX}
-                  min={ZOOM_MIN}
+                  data-zoom={resolvedZoom}
+                  max={1}
+                  min={0}
                   onBlur={() => flushZoomDraft()}
                   onChange={(event) =>
-                    updateZoomDraft(Number(event.target.value))
+                    updateZoomDraft(
+                      sliderPositionToZoom(Number(event.target.value)),
+                    )
                   }
                   onKeyUp={() => flushZoomDraft()}
                   onPointerUp={() => flushZoomDraft()}
-                  step="0.01"
+                  step={ZOOM_SLIDER_STEP}
                   style={{
                     ["--zoom-fill" as string]: `${zoomFillFraction(resolvedZoom) * 100}%`,
                   }}
                   type="range"
-                  value={resolvedZoom}
+                  value={zoomToSliderPosition(resolvedZoom)}
                 />
                 <button
                   aria-label="Zoom in"
