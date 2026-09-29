@@ -142,8 +142,9 @@ function transform(trackId: string, parameters: Record<string, number>) {
 
 const RED: Rgb = [255, 0, 0];
 const BLUE: Rgb = [0, 0, 255];
-// The canvas where no layer is drawn.
-const BACKGROUND: Rgb = [18, 20, 28];
+// An Order's default border, which fills its slots where no layer is drawn
+// and the spacing between them.
+const BORDER: Rgb = [0, 0, 0];
 
 function expectColors(actual: Rgb[], expected: Rgb[]) {
   expect(actual).toHaveLength(expected.length);
@@ -182,7 +183,7 @@ test.describe("Order and Transform", () => {
         [0.8, 0.5],
       ] as Array<[number, number]>,
     };
-    const expected = [BACKGROUND, RED, BLUE, BACKGROUND];
+    const expected = [BORDER, RED, BLUE, BORDER];
     expectColors(await render(page, { ...scenario, size: 90 }), expected);
     expectColors(await render(page, { ...scenario, size: 360 }), expected);
   });
@@ -213,7 +214,7 @@ test.describe("Order and Transform", () => {
     expectColors(pixels, [RED, BLUE]);
   });
 
-  test("keeps the spacing between slots clear", async ({ page }) => {
+  test("keeps the spacing between slots to the border", async ({ page }) => {
     const pixels = await render(page, {
       layers: ["#ff0000", "#0000ff"],
       effects: [
@@ -228,7 +229,7 @@ test.describe("Order and Transform", () => {
       ],
       size: 216,
     });
-    expectColors(pixels, [RED, BACKGROUND, BLUE]);
+    expectColors(pixels, [RED, BORDER, BLUE]);
   });
 
   test("clips only to the canvas without an Order", async ({ page }) => {
@@ -260,6 +261,6 @@ test.describe("Order and Transform", () => {
         [0.8, 0.5],
       ],
     });
-    expectColors(pixels, [RED, BLUE, BACKGROUND]);
+    expectColors(pixels, [RED, BLUE, BORDER]);
   });
 });
