@@ -1686,6 +1686,126 @@
   right: 10px;
 }
 
+/* Drag handle for reordering layers (#478): faint until the header is
+   hovered or focused, and the only part of the header that starts a drag. */
+.track-label__grip {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 28px;
+  margin-right: -8px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--muted);
+  opacity: 0.45;
+  cursor: grab;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+  transition: opacity 120ms ease, color 120ms ease;
+}
+
+.track-label__grip svg {
+  width: 16px;
+  height: 16px;
+}
+
+.track-label--lane:hover .track-label__grip,
+.track-label--lane:focus-within .track-label__grip,
+.track-label__grip[aria-pressed='true'] {
+  opacity: 1;
+}
+
+.track-label__grip:hover,
+.track-label__grip[aria-pressed='true'] {
+  color: var(--ink);
+}
+
+.track-label__grip:active,
+.track-label__grip[aria-pressed='true'] {
+  cursor: grabbing;
+}
+
+.track-label__grip:focus-visible {
+  outline: 2px solid var(--lane-selected-accent);
+  outline-offset: 1px;
+}
+
+.track-label__grip:disabled {
+  opacity: 0.2;
+  cursor: default;
+}
+
+.timeline-canvas--narrow-labels .track-label__grip {
+  margin-right: -4px;
+}
+
+/* While a layer is lifted, the rows it passes slide out of its way. */
+.arrangement-lanes--reordering .track-row {
+  position: relative;
+  transition: transform 160ms ease;
+}
+
+.track-row--lifted {
+  z-index: 7;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--line-strong);
+}
+
+.arrangement-lanes--reordering-pointer .track-row--lifted {
+  transition: box-shadow 160ms ease;
+}
+
+.track-row--lifted .track-label {
+  background: var(--lane-selected-label);
+}
+
+.track-row--lifted .track-row__content {
+  background: var(--bg-elevated);
+}
+
+.layer-drop-indicator {
+  display: none;
+  position: absolute;
+  top: -1px;
+  left: 0;
+  right: 0;
+  z-index: 8;
+  height: 2px;
+  background: var(--lane-selected-accent);
+  box-shadow: 0 0 6px var(--lane-selected-accent);
+  pointer-events: none;
+}
+
+.arrangement-lanes--reordering .layer-drop-indicator:not([hidden]) {
+  display: block;
+}
+
+.layer-reorder-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+body.layer-reorder-dragging,
+body.layer-reorder-dragging * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track-label__grip,
+  .arrangement-lanes--reordering .track-row,
+  .arrangement-lanes--reordering-pointer .track-row--lifted {
+    transition: none;
+  }
+}
+
 .track-label__index {
   flex-shrink: 0;
   width: 28px;
