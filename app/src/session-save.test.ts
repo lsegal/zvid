@@ -9,6 +9,7 @@ import {
   projectToLvpSession,
   readSelectionSlip,
   readSessionFills,
+  readSessionFxClips,
   readSessionTexts,
   type SaveableProject,
 } from "./session-save.ts";
@@ -292,6 +293,64 @@ describe("projectToLvpSession", () => {
     ]);
   });
 
+  it("keeps FX clips out of selections and reads them back with their stack", () => {
+    const project = baseProject();
+    const session = projectToLvpSession(
+      {
+        ...project,
+        clips: [
+          ...project.clips,
+          {
+            id: "fx-1",
+            kind: "fx",
+            sourceTrackId: "",
+            laneId: "main-1",
+            startQ: 2,
+            durationSeconds: 1.5,
+          },
+        ],
+        effects: [
+          ...project.effects,
+          {
+            id: "fx-colorize",
+            trackId: "clip:fx-1",
+            effectName: "Colorize",
+            parameters: [{ key: "_HueOffset", value: "0.25" }],
+          },
+        ],
+      },
+      { playheadQ: 0, selectedClipId: "fx-1" },
+    );
+    assert.equal(session.selections?.length, 2);
+    assert.equal(session.fills, undefined);
+    assert.equal(session.texts, undefined);
+    assert.deepEqual(session.fxClips, [
+      {
+        id: "fx-1",
+        mainTrackId: "main-1",
+        frameStart: 30,
+        frameEnd: 75,
+        selected: true,
+      },
+    ]);
+    const reopened = JSON.parse(JSON.stringify(session)) as LvpSession;
+    assert.deepEqual(readSessionFxClips(reopened, 120, 30), [
+      {
+        id: "fx-1",
+        laneId: "main-1",
+        startQ: 2,
+        durationQ: 3,
+        selected: true,
+      },
+    ]);
+    assert.deepEqual(
+      pruneClipEffects(mapEffects(reopened.effects), [{ id: "fx-1" }])
+        .filter((effect) => effect.trackId === "clip:fx-1")
+        .map((effect) => effect.effectName),
+      ["Colorize"],
+    );
+  });
+
   it("round-trips effect and layer FX bypass", () => {
     const project = baseProject();
     const session = projectToLvpSession(
@@ -372,9 +431,11 @@ describe("projectToLvpSession", () => {
     const session = projectToLvpSession(baseProject(), { playheadQ: 0 });
     assert.equal(session.fills, undefined);
     assert.equal(session.texts, undefined);
+    assert.equal(session.fxClips, undefined);
     assert.equal("fxEnabled" in (session.mainTracks?.[0] ?? {}), false);
     assert.deepEqual(readSessionFills(session, 120, 30), []);
     assert.deepEqual(readSessionTexts(session, 120, 30), []);
+    assert.deepEqual(readSessionFxClips(session, 120, 30), []);
     assert.ok(
       session.selections?.every(
         (selection) => readSelectionSlip(selection) === undefined,

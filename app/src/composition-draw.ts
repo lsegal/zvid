@@ -552,10 +552,10 @@ function applyFxClip(
   }
 
   const frame = resolveCanvasBounds(width, height);
-  const axes =
+  const axes: QuadAxes =
     isIdentityTransform(entry.visual.transform) &&
     isIdentityTransform(entry.visual.clipTransform)
-      ? quadAxes([1, 1], [0, 0], 0)
+      ? { axisX: [1, 0], axisY: [0, 1], offset: [0, 0] }
       : matrixQuadAxes(
           frame,
           nestedTransformMatrix(
