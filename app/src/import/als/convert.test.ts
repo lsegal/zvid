@@ -56,22 +56,20 @@ describe("convertAls with dogfood3.als against dogfood3.lvp", () => {
   const goldenClip = (id: string): LvpClip =>
     golden.clips.find((candidate: LvpClip) => candidate.id === id);
 
-  it("keeps every audio and MIDI track, with Layers recordings", () => {
-    assert.deepEqual(session.tracks, [
-      ...golden.tracks.map(
-        (track: NonNullable<LvpSession["tracks"]>[number]) => ({
-          id: track.id,
-          name: track.name,
-          // `numFrames`/`frameRate` come from media probing, not the .als.
-          recordings: track.recordings?.map(({ filename, frameStart }) => ({
-            filename,
-            frameStart,
-          })),
-        }),
-      ),
-      // The Layers app dropped 4-Audio, which has no Layers Record device.
-      { id: "17", name: "4-Audio", recordings: [] },
-    ]);
+  it("keeps the golden video tracks, with Layers recordings", () => {
+    // Like the Layers app, it drops 4-Audio, which has no video.
+    assert.deepEqual(
+      session.tracks,
+      golden.tracks.map((track: NonNullable<LvpSession["tracks"]>[number]) => ({
+        id: track.id,
+        name: track.name,
+        // `numFrames`/`frameRate` come from media probing, not the .als.
+        recordings: track.recordings?.map(({ filename, frameStart }) => ({
+          filename,
+          frameStart,
+        })),
+      })),
+    );
   });
 
   it("maps the timeline, session file and audio", () => {
@@ -88,10 +86,10 @@ describe("convertAls with dogfood3.als against dogfood3.lvp", () => {
     assert.equal(session.audioFilename, golden.audioFilename);
   });
 
-  it("produces the golden clips in order, minus the dropped sub-frame clip, plus 4-Audio's", () => {
+  it("produces the golden clips in order, minus the dropped sub-frame clip", () => {
     assert.deepEqual(
       session.clips?.map((candidate) => candidate.id),
-      ["12-4", "8-6", "16-2", "17-6", "17-10"],
+      ["12-4", "8-6", "16-2"],
     );
   });
 
@@ -192,35 +190,14 @@ describe("convertAls with dogfood3.als against dogfood3.lvp", () => {
     });
   });
 
-  it("imports 4-Audio's clips as audio from their samples", () => {
-    const sample =
-      "C:/Users/Loren/Documents/Layers/dogfood3 Project/Samples/Recorded/4-Audio 0002 [2023-12-13 122224].wav";
-    assert.deepEqual(
-      session.clips
-        ?.filter((candidate) => candidate.trackId === "17")
-        .map(({ id, frameStart, frameCount, filePath, captureOffset }) => ({
-          id,
-          frameStart,
-          frameCount,
-          filePath,
-          captureOffset,
-        })),
-      [
-        {
-          id: "17-6",
-          frameStart: 0,
-          frameCount: 159,
-          filePath: sample,
-          captureOffset: 0,
-        },
-        {
-          id: "17-10",
-          frameStart: 159,
-          frameCount: 158,
-          filePath: sample,
-          captureOffset: 0,
-        },
-      ],
+  it("leaves out 4-Audio, a track without video, and its clips", () => {
+    assert.equal(
+      session.clips?.some((candidate) => candidate.trackId === "17"),
+      false,
+    );
+    assert.equal(
+      result.summary.skipped.some((entry) => entry.trackId === "17"),
+      false,
     );
     assert.equal(result.summary.hasLayersVideo, true);
   });
@@ -381,7 +358,6 @@ describe("convertAls with synthetic sets", () => {
   it("plays a non-Layers audio clip from its sample", () => {
     const { session, summary } = convertAls(
       doc([
-        videoTrack(),
         videoTrack({
           id: 6,
           name: "Drums",
@@ -397,6 +373,7 @@ describe("convertAls with synthetic sets", () => {
         id: drums.id,
         frameStart: drums.frameStart,
         frameCount: drums.frameCount,
+        clipStart: drums.clipStart,
         filePath: drums.filePath,
         captureOffset: drums.captureOffset,
         audioFileDuration: drums.audioFileDuration,
@@ -405,6 +382,7 @@ describe("convertAls with synthetic sets", () => {
         id: "6-2",
         frameStart: 60,
         frameCount: 60,
+        clipStart: 0,
         filePath: "a.wav",
         captureOffset: 0,
         audioFileDuration: 10,
@@ -413,13 +391,113 @@ describe("convertAls with synthetic sets", () => {
     assert.deepEqual(summary, {
       skipped: [],
       trimmed: [],
+      hasLayersVideo: false,
+    });
+  });
+
+  it("keeps only video tracks, including audio tracks playing a video file", () => {
+    const movie = audioClip({
+      id: 3,
+      name: "Movie",
+      currentStart: 4,
+      currentEnd: 8,
+      warpMarkers: [
+        { secTime: 0, beatTime: 0 },
+        { secTime: 2, beatTime: 4 },
+      ],
+      sample: {
+        path: "C:/Videos/Movie.MP4",
+        relativePath: "../Videos/Movie.MP4",
+        defaultDuration: 480000,
+        defaultSampleRate: 48000,
+      },
+    });
+    const { session, summary } = convertAls(
+      doc([
+        videoTrack(),
+        videoTrack({
+          id: 6,
+          name: "Imported",
+          clips: [movie, audioClip({ id: 4, currentStart: 8, currentEnd: 12 })],
+          layers: null,
+          isVideoTrack: false,
+        }),
+        videoTrack({
+          id: 7,
+          name: "Drums",
+          clips: [
+            audioClip({ id: 2, currentStart: 4, currentEnd: 8 }),
+            audioClip({ id: 5, disabled: true }),
+          ],
+          layers: null,
+          isVideoTrack: false,
+        }),
+      ]),
+    );
+    assert.deepEqual(session.tracks, [
+      {
+        id: "5",
+        name: "Video",
+        recordings: [
+          { filename: "take-0.mp4", frameStart: 0 },
+          { filename: "take-1.mp4", frameStart: 12 },
+        ],
+      },
+      {
+        id: "6",
+        name: "Imported",
+        recordings: [{ filename: "C:/Videos/Movie.MP4" }],
+      },
+    ]);
+    assert.deepEqual(
+      session.clips?.map((clip) => [clip.id, clip.filePath]),
+      [
+        ["5-1", "take-1.mp4"],
+        ["6-3", "C:/Videos/Movie.MP4"],
+        ["6-4", "a.wav"],
+      ],
+    );
+    const imported = session.clips?.find((clip) => clip.id === "6-3");
+    assert.deepEqual(
+      imported && {
+        frameStart: imported.frameStart,
+        frameCount: imported.frameCount,
+        clipStart: imported.clipStart,
+        captureOffset: imported.captureOffset,
+        warpMarkers: imported.warpMarkers,
+      },
+      {
+        frameStart: 60,
+        frameCount: 60,
+        clipStart: 0,
+        captureOffset: -1,
+        warpMarkers: [
+          { id: "0", clipId: "6-3", secTime: 0, beatTime: 0 },
+          { id: "1", clipId: "6-3", secTime: 2, beatTime: 4 },
+        ],
+      },
+    );
+    // The imported video is arranged alongside the recorded video.
+    assert.deepEqual(
+      session.selections?.map(({ trackId, mainTrackId, frameStart }) => [
+        trackId,
+        mainTrackId,
+        frameStart,
+      ]),
+      [
+        ["5", "1", 0],
+        ["6", "2", 60],
+      ],
+    );
+    assert.deepEqual(
+      session.mainTracks?.map((layer) => layer.name),
+      ["Video", "Imported"],
+    );
+    assert.deepEqual(summary, {
+      skipped: [],
+      trimmed: [],
       hasLayersVideo: true,
     });
-    // The arrangement keeps showing the Layers video.
-    assert.deepEqual(
-      session.selections?.map((selection) => selection.trackId),
-      ["5"],
-    );
   });
 
   it("imports a set without Layers video as placeholder clips", () => {
