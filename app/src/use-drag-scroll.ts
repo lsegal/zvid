@@ -1,10 +1,10 @@
 import { type RefObject, useEffect, useRef, useState } from "react";
 import {
+  DRAG_SCROLL_MOMENTUM_MS,
+  DRAG_SCROLL_VELOCITY_WINDOW_MS,
   type DragScrollAxis,
   type DragScrollSample,
   type DragScrollVelocity,
-  DRAG_SCROLL_MOMENTUM_MS,
-  DRAG_SCROLL_VELOCITY_WINDOW_MS,
   dragScrollPosition,
   exceedsDragThreshold,
   momentumOffset,

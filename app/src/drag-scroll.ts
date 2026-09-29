@@ -73,7 +73,8 @@ export function releaseVelocity(
   }
 
   const delta = axisDelta(last.x - first.x, last.y - first.y, axis);
-  return { x: -delta.x / elapsed, y: -delta.y / elapsed };
+  // Subtract from 0 rather than negate, so a still axis is 0, not -0.
+  return { x: 0 - delta.x / elapsed, y: 0 - delta.y / elapsed };
 }
 
 /**

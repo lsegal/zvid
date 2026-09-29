@@ -29,13 +29,13 @@ import {
   writeCollapsedDevices,
 } from "../fx-chain";
 import type { FxEffectDefinition } from "../fx-registry";
-import { useDragScroll } from "../use-drag-scroll";
 import {
   type FxDevice,
   type FxDeviceGroup,
   type FxDeviceParameter,
   GLOBAL_EFFECT_TRACK_ID,
 } from "../fx-stack";
+import { useDragScroll } from "../use-drag-scroll";
 import { ContextMenu, type ContextMenuEntry } from "./ContextMenu";
 import {
   DropdownMenu,

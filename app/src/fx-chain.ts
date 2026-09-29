@@ -167,9 +167,7 @@ export function canStartFxChainPan(event: {
   }
 
   const target = event.target as { closest?: (selector: string) => unknown };
-  return (
-    event.button === 0 && !target?.closest?.(FX_CHAIN_CONTROL_SELECTOR)
-  );
+  return event.button === 0 && !target?.closest?.(FX_CHAIN_CONTROL_SELECTOR);
 }
 
 // Screen reader text for a device that moved within its stack.
