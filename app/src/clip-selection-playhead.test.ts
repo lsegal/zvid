@@ -37,23 +37,23 @@ describe("clip selection keeps the playhead", () => {
 
   it("no selection path seeks to a clip's start", () => {
     const seeks = [...appTsx.matchAll(/setPlayheadQ\((\w+)\.startQ\)/g)];
-    // Only the text-edit entry and the explicit Ctrl/Cmd-click jump (#475)
-    // move to a clip.
+    // Only the text-edit entry and the explicit Ctrl/Cmd-click jump move to
+    // a clip.
     assert.equal(seeks.length, 2, seeks.map((match) => match[0]).join(", "));
     const textEdit = sliceFrom(
       "const startTextEdit = useCallback(",
       "\n  );\n",
     );
     const jump = sliceFrom("const jumpToClipStart = useCallback(", "\n  );\n");
-    // Each seek sits in one of the two, one in each.
-    const seeksIn = (body: string) => {
+    const seekIndexes = seeks.map((match) => match.index);
+    for (const body of [textEdit, jump]) {
       const start = appTsx.indexOf(body);
-      return seeks.filter(
-        ({ index }) => index >= start && index < start + body.length,
-      ).length;
-    };
-    assert.equal(seeksIn(textEdit), 1);
-    assert.equal(seeksIn(jump), 1);
+      assert.ok(
+        seekIndexes.some(
+          (index) => index >= start && index < start + body.length,
+        ),
+      );
+    }
   });
 
   it("entering text edit on an off-playhead clip still moves to it", () => {
