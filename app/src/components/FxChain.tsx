@@ -14,9 +14,9 @@ import {
   useState,
 } from "react";
 import {
+  addableEffectsFor,
   describeDeviceMove,
   dropSlotToStackIndex,
-  addableEffectsFor,
   getAutoScrollDelta,
   getDropSlot,
   getParameterFormat,
