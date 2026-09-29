@@ -24,6 +24,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { flushSync } from "react-dom";
 import "./App.css";
 import {
   AlsImportError,
@@ -53,6 +54,11 @@ import {
   getFilmstripTileWidthPx,
   getSourceSpanFilmstripClip,
 } from "./clip-filmstrip.ts";
+import {
+  formatClipJumpShortcut,
+  isClipJumpPress,
+  revealScrollLeft,
+} from "./clip-jump.ts";
 import {
   describeClipMediaState,
   describeMediaAvailability,
@@ -543,6 +549,8 @@ type DragState =
       originDurationQ: number;
       originLaneId: string;
       duplicateOnDrag: boolean;
+      // A Ctrl/Cmd-press released without dragging jumps to the clip start.
+      jumpOnClick: boolean;
     }
   | {
       kind: "resize-start";
@@ -1419,6 +1427,7 @@ function getShortcutLabels() {
       undo: "Ctrl+Z",
       redo: "Ctrl+Shift+Z",
       sourceClipDrop: "Ctrl+click",
+      clipJump: formatClipJumpShortcut(false),
     };
   }
 
@@ -1437,6 +1446,7 @@ function getShortcutLabels() {
     undo: isMac ? "Cmd+Z" : "Ctrl+Z",
     redo: isMac ? "Shift+Cmd+Z" : "Ctrl+Shift+Z",
     sourceClipDrop: isMac ? "Cmd+click" : "Ctrl+click",
+    clipJump: formatClipJumpShortcut(isMac),
   };
 }
 
@@ -4680,6 +4690,54 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     );
   }, []);
 
+  // Ctrl/Cmd-click on an arrangement clip: select it and move the playhead to
+  // its start, scrolled into view. Playback carries on from there.
+  const jumpToClipStart = useCallback(
+    (clipId: string) => {
+      const clip = timelineClipsRef.current.find(
+        (candidate) => candidate.id === clipId,
+      );
+      if (!clip) {
+        return;
+      }
+
+      setPendingSelection(null);
+      setSelectedClipId(clip.id);
+      setPlayheadQ(clip.startQ);
+      playbackOriginRef.current = clip.startQ;
+      if (isPlaying) {
+        // The playback loop only restarts from the new origin when it stops
+        // first, so the pause commits before playback starts again.
+        cancelScrubPlaybackResume();
+        flushSync(() => setIsPlaying(false));
+        startPlayback(clip.startQ);
+      }
+
+      const timelineScroll = timelineScrollRef.current;
+      if (timelineScroll) {
+        const nextScrollLeft = revealScrollLeft({
+          targetPx: labelWidth + clip.startQ * quarterPx,
+          scrollLeft: timelineScroll.scrollLeft,
+          viewportWidth: timelineScroll.clientWidth,
+          labelWidth,
+          maxScrollLeft:
+            timelineScroll.scrollWidth - timelineScroll.clientWidth,
+        });
+        if (nextScrollLeft !== timelineScroll.scrollLeft) {
+          timelineScroll.scrollTo({ left: nextScrollLeft, behavior: "smooth" });
+        }
+      }
+    },
+    [
+      cancelScrubPlaybackResume,
+      isPlaying,
+      labelWidth,
+      quarterPx,
+      setPlayheadQ,
+      startPlayback,
+    ],
+  );
+
   const createWindowClip = useCallback(
     (
       selection: TimelineSelection,
@@ -6897,6 +6955,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         : false,
       mac: shortcutLabels.mac,
       actions: {
+        jumpToStart: withClip((clip) => jumpToClipStart(clip.id)),
         cut: withClip(cutArrangementClip),
         copy: withClip(copyArrangementClip),
         paste: () => pasteArrangementClip(pasteLaneId),
@@ -7410,6 +7469,14 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         !dragPreviewClips
       ) {
         setSelectedClipId(dragState.sourceClipId);
+        // Released where it was pressed, a Ctrl/Cmd-press is a click.
+        if (
+          dragState.jumpOnClick &&
+          Math.abs(event.clientX - dragState.pointerStartX) <=
+            LANE_SELECTION_DRAG_THRESHOLD_PX
+        ) {
+          jumpToClipStart(dragState.sourceClipId);
+        }
       }
 
       setDragPreviewClips(null);
@@ -7449,6 +7516,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     commitProjectChange,
     dragPreviewClips,
     dragState,
+    jumpToClipStart,
     minimumWindowQ,
     refuseReadOnlyEdit,
     setPlayheadQ,
@@ -9832,6 +9900,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                                   }}
                                   // Double-clicking a text clip types on it in
                                   // the preview.
+                                  title={`${shortcutLabels.clipJump} to jump to start`}
                                   onDoubleClick={
                                     textStyle
                                       ? () => startTextEdit(clip.id)
@@ -9867,6 +9936,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                                       originDurationQ: durationQ,
                                       originLaneId: clip.laneId,
                                       duplicateOnDrag,
+                                      jumpOnClick: isClipJumpPress(
+                                        event,
+                                        shortcutLabels.mac,
+                                      ),
                                     });
                                   }}
                                   type="button"
