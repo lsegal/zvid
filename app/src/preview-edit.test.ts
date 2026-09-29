@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   IDENTITY_TRANSFORM,
   type LayerTransform,
+  layerBoxInCanvas,
   TRANSFORM_EFFECT_NAME,
 } from "./composition-transform.ts";
 import { addEffect, type SessionEffect } from "./fx-stack.ts";
@@ -10,14 +11,20 @@ import {
   canvasToScreen,
   constrainDragDelta,
   findLayerTransform,
+  formatRotation,
   hitTestLayers,
+  layerOriginInCanvas,
   offsetTransformPosition,
   readLayerTransformPosition,
+  readLayerTransformRotation,
   resolveNudgeDelta,
   resolvePreviewLayers,
   resolveVideoRect,
+  rotateTransform,
   screenToCanvas,
   setLayerTransformPosition,
+  setLayerTransformRotation,
+  wrapRotation,
 } from "./preview-edit.ts";
 
 const EPSILON = 1e-9;
@@ -332,5 +339,144 @@ describe("setLayerTransformPosition", () => {
       setLayerTransformPosition(once, "a", { x: 0.2, y: 0 }, "t2"),
       once,
     );
+  });
+});
+
+describe("rotateTransform", () => {
+  const canvas = { width: 1000, height: 1000 };
+  const fullFrame = { frame: { centerX: 0, centerY: 0, halfWidth: 1, halfHeight: 1 } };
+
+  function rotateBy(startDeg: number, turnDeg: number, snap15 = false) {
+    // Turn a pointer 100px from the origin by `turnDeg`, clockwise.
+    const origin = { x: 500, y: 500 };
+    const radians = (turnDeg * Math.PI) / 180;
+    return rotateTransform(
+      { ...IDENTITY_TRANSFORM, rotationDeg: startDeg },
+      origin,
+      { x: 600, y: 500 },
+      {
+        x: origin.x + 100 * Math.cos(radians),
+        y: origin.y + 100 * Math.sin(radians),
+      },
+      { snap15 },
+    ).rotationDeg;
+  }
+
+  it("turns the layer about its centre by the pointer's angle", () => {
+    const start = IDENTITY_TRANSFORM;
+    const origin = layerOriginInCanvas(
+      { placement: fullFrame, transform: start },
+      canvas,
+    );
+    assert.deepEqual(origin, { x: 500, y: 500 });
+
+    // From straight above the centre to straight right of it: a quarter turn
+    // clockwise.
+    const next = rotateTransform(
+      start,
+      origin,
+      { x: 500, y: 0 },
+      { x: 1000, y: 500 },
+    );
+    assertClose(next.rotationDeg, 90);
+    assert.equal(next.positionX, 0);
+    assert.equal(next.positionY, 0);
+    const corners = layerBoxInCanvas(fullFrame, next, canvas);
+    assertClose(corners[0].x, 1000);
+    assertClose(corners[0].y, 0);
+  });
+
+  it("pivots on an off-centre origin, which stays put", () => {
+    // Origin at the box's top-left corner, with the box moved right 10%.
+    const start = {
+      ...IDENTITY_TRANSFORM,
+      originX: -1,
+      originY: -1,
+      positionX: 0.1,
+      scaleX: 0.5,
+      scaleY: 0.5,
+    };
+    const origin = layerOriginInCanvas(
+      { placement: fullFrame, transform: start },
+      canvas,
+    );
+    assert.deepEqual(origin, { x: 100, y: 0 });
+
+    const next = rotateTransform(
+      start,
+      origin,
+      { x: 200, y: 0 },
+      { x: 100, y: 100 },
+    );
+    assertClose(next.rotationDeg, 90);
+    assert.equal(next.positionX, start.positionX);
+    // The top-left corner is the origin and does not move; the top-right one
+    // swings from right of it to below it.
+    const corners = layerBoxInCanvas(fullFrame, next, canvas);
+    assertClose(corners[0].x, 100);
+    assertClose(corners[0].y, 0);
+    assertClose(corners[1].x, 100);
+    assertClose(corners[1].y, 500);
+    assert.deepEqual(
+      layerOriginInCanvas({ placement: fullFrame, transform: next }, canvas),
+      origin,
+    );
+  });
+
+  it("adds to the start rotation and wraps into -180..180", () => {
+    assertClose(rotateBy(30, 20), 50);
+    assertClose(rotateBy(170, 20), -170);
+    assertClose(rotateBy(-170, -20), 170);
+    assert.equal(wrapRotation(-180), 180);
+    assert.equal(wrapRotation(540), 180);
+    assert.equal(wrapRotation(-450), -90);
+  });
+
+  it("snaps to 15 degree steps with Shift", () => {
+    assertClose(rotateBy(0, 32, true), 30);
+    assertClose(rotateBy(0, 38, true), 45);
+    assertClose(rotateBy(10, -17, true), 0);
+    assertClose(rotateBy(170, 16, true), 180);
+  });
+
+  it("softly snaps onto right angles within 3 degrees", () => {
+    assertClose(rotateBy(0, 88), 90);
+    assertClose(rotateBy(0, 86), 86);
+    assertClose(rotateBy(0, -2.5), 0);
+    assertClose(rotateBy(0, -92), -90);
+    assertClose(rotateBy(0, 178), 180);
+    assertClose(rotateBy(0, -178), 180);
+    assertClose(rotateBy(0, 4), 4);
+  });
+
+  it("formats the angle readout", () => {
+    assert.equal(formatRotation(32.46), "32.5°");
+    assert.equal(formatRotation(15), "15°");
+    assert.equal(formatRotation(-90), "-90°");
+    assert.equal(formatRotation(-0.04), "0°");
+  });
+});
+
+describe("setLayerTransformRotation", () => {
+  const base = [effect("layout-a", "a", "Layout")];
+
+  it("adds a Transform if needed and writes a wrapped Rotation", () => {
+    const next = setLayerTransformRotation(base, "a", 190, "transform-a");
+    assert.equal(findLayerTransform(next, "a")?.id, "transform-a");
+    assertClose(readLayerTransformRotation(next, "a"), -170);
+    assert.deepEqual(readLayerTransformPosition(next, "a"), { x: 0, y: 0 });
+  });
+
+  it("keeps the position and resets to 0", () => {
+    const moved = setLayerTransformPosition(base, "a", { x: 0.2, y: 0 }, "t");
+    const turned = setLayerTransformRotation(moved, "a", 45, "unused");
+    assert.equal(findLayerTransform(turned, "a")?.id, "t");
+    assert.deepEqual(readLayerTransformPosition(turned, "a"), {
+      x: 0.2,
+      y: 0,
+    });
+    const reset = setLayerTransformRotation(turned, "a", 0, "unused");
+    assert.equal(readLayerTransformRotation(reset, "a"), 0);
+    assert.equal(setLayerTransformRotation(reset, "a", 0, "unused"), reset);
   });
 });
