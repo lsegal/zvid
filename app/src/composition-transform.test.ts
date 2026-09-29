@@ -11,18 +11,25 @@ import {
   frameBoxInCanvas,
   IDENTITY_TRANSFORM,
   invertMatrix,
+  isIdentityChain,
   isIdentityTransform,
+  type LayerMove,
   type LayerTransform,
   layerBoxInCanvas,
   matrixQuadAxes,
   multiplyMatrix,
   nestedTransformMatrix,
   type Point,
+  parseLayerMove,
   parseLayerTransform,
   resolveClipTextBox,
+  resolveMoveTransform,
   resolveTextBox,
+  resolveVisualTextBox,
   transformedQuadAxes,
   transformMatrix,
+  visualTransformChain,
+  visualTransformMatrix,
 } from "./composition-transform.ts";
 
 const CANVAS = { width: 1080, height: 1920 };
@@ -494,5 +501,139 @@ describe("clip Transform inside the layer Transform", () => {
     for (const key of ["a", "b", "c", "d", "e", "f"] as const) {
       assert.ok(Math.abs(nested.matrix[key] - expected[key]) < 1e-6, key);
     }
+  });
+});
+
+describe("Move", () => {
+  const start = transform({
+    positionX: -0.5,
+    positionY: 0.25,
+    scaleX: 0.5,
+    scaleY: 2,
+    originX: -1,
+    originY: 1,
+    rotationDeg: -90,
+  });
+  const end = transform({
+    positionX: 0.5,
+    positionY: -0.25,
+    scaleX: 1.5,
+    scaleY: 1,
+    originX: 1,
+    originY: -1,
+    rotationDeg: 90,
+  });
+  const linear: LayerMove = { start, end, motion: "Linear" };
+
+  it("reads Start and End by Transform's keys, and the Motion curve", () => {
+    const move = parseLayerMove([
+      { key: "Motion", value: "Ease Out" },
+      { key: "StartPositionX", value: "-0.5", numericValue: -0.5 },
+      { key: "EndScaleY", value: "3" },
+      { key: "EndRotation", value: "999" },
+      { key: "PositionX", value: "1" },
+    ]);
+    assert.equal(move.motion, "Ease Out");
+    assert.deepEqual(move.start, transform({ positionX: -0.5 }));
+    // Clamped to Transform's range.
+    assert.deepEqual(move.end, transform({ scaleY: 3, rotationDeg: 180 }));
+  });
+
+  it("defaults to the identity at both ends, eased in and out", () => {
+    const move = parseLayerMove([]);
+    assert.deepEqual(move, {
+      start: IDENTITY_TRANSFORM,
+      end: IDENTITY_TRANSFORM,
+      motion: "Ease In Out",
+    });
+    assert.ok(isIdentityTransform(resolveMoveTransform(move, 0.5)));
+  });
+
+  it("gives exactly Start at the clip's start and End at its end", () => {
+    for (const motion of ["Linear", "Ease In", "Ease Out", "Ease In Out"]) {
+      const move = { ...linear, motion } as LayerMove;
+      assert.deepEqual(resolveMoveTransform(move, 0), start, motion);
+      assert.deepEqual(resolveMoveTransform(move, 1), end, motion);
+    }
+  });
+
+  it("gives the midpoints halfway through a Linear Move", () => {
+    assert.deepEqual(resolveMoveTransform(linear, 0.5), {
+      positionX: 0,
+      positionY: 0,
+      scaleX: 1,
+      scaleY: 1.5,
+      originX: 0,
+      originY: 0,
+      rotationDeg: 0,
+    });
+  });
+
+  it("lags linear halfway through with Ease In and leads it with Ease Out", () => {
+    const at = (motion: LayerMove["motion"]) =>
+      resolveMoveTransform({ ...linear, motion }, 0.5).positionX;
+    assert.ok(at("Ease In") < at("Linear"));
+    assert.ok(at("Ease Out") > at("Linear"));
+    assert.equal(at("Ease In Out"), at("Linear"));
+  });
+
+  it("nests a clip's Move inside its Transform, inside its layer's", () => {
+    const box = frameBoxInCanvas(placement().frame, CANVAS);
+    const layerTransform = transform({ positionX: 0.1, rotationDeg: 30 });
+    const clipTransform = transform({ scaleX: 0.5, originX: -1 });
+    const moved = resolveMoveTransform(linear, 0.25);
+    const visual = {
+      transform: layerTransform,
+      clipTransform,
+      clipMotion: { outer: [], inner: [moved] },
+    };
+    const expected = multiplyMatrix(
+      nestedTransformMatrix(box, CANVAS, layerTransform, clipTransform),
+      transformMatrix(moved, box, CANVAS),
+    );
+    const actual = visualTransformMatrix(box, CANVAS, visual);
+    for (const key of ["a", "b", "c", "d", "e", "f"] as const) {
+      assert.ok(Math.abs(actual[key] - expected[key]) < 1e-6, key);
+    }
+    assert.deepEqual(visualTransformChain(visual), [
+      layerTransform,
+      clipTransform,
+      moved,
+    ]);
+    // A Move before the stack's Transform nests the Transform inside it.
+    assert.deepEqual(
+      visualTransformChain({
+        clipTransform,
+        clipMotion: { outer: [moved], inner: [] },
+      }),
+      [moved, clipTransform],
+    );
+  });
+
+  it("composes several Moves in stack order", () => {
+    const first = transform({ positionX: 0.25 });
+    const second = transform({ scaleX: 2 });
+    const chain = visualTransformChain({
+      motion: { outer: [first, second], inner: [] },
+    });
+    assert.deepEqual(chain, [first, second]);
+    assert.equal(isIdentityChain(chain), false);
+    assert.equal(isIdentityChain([IDENTITY_TRANSFORM]), true);
+    assert.equal(isIdentityChain([]), true);
+  });
+
+  it("resizes a text clip's box rather than its glyphs", () => {
+    const band = { x: 0, y: 0, width: 400, height: 200 };
+    const placed = resolveVisualTextBox(band, CANVAS, {
+      clipMotion: {
+        outer: [transform({ scaleX: 2, originX: -1, originY: -1 })],
+        inner: [],
+      },
+    });
+    assert.deepEqual(placed.box, { x: 0, y: 0, width: 800, height: 200 });
+    assertPoint(applyMatrix(placed.matrix, { x: 800, y: 200 }), {
+      x: 800,
+      y: 200,
+    });
   });
 });

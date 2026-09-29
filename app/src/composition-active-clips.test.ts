@@ -6,12 +6,14 @@ import {
   GROUP_TRACK_ID,
   type MediaItem,
   resolveVisualState,
+  type SessionEffect,
 } from "./composition-active-clips.ts";
 import {
   orderStackedLayers,
   resolveLayerPlacement,
 } from "./composition-layout.ts";
 import { copyClipEffects, previewDuplicateClipEffects } from "./fx-stack.ts";
+import { moveLaneTo } from "./lanes.ts";
 
 // dogfood3.lvp: 126.4 BPM at 30 fps, mapped the way sessionToProject maps a
 // session's selections onto its source clips.
@@ -103,6 +105,32 @@ function activeAt(clips: ArrangementClip[], playheadQ = PLAYHEAD_Q) {
 }
 
 describe("computeActiveClips", () => {
+  it("stacks the layers in their order after a layer is moved", () => {
+    const project = {
+      lanes: LANES.map((id) => ({ id, name: `Layer ${id}` })),
+      clips: DOGFOOD3_CLIPS,
+      effects: [],
+    };
+    // Layer 2 ("5") dragged above Layer 1.
+    const moved = moveLaneTo(project, "5", 0);
+    const active = computeActiveClips(
+      moved.clips,
+      new Map(MEDIA.map((item) => [item.id, item])),
+      PLAYHEAD_Q,
+      BPM,
+      new Map(moved.lanes.map((lane, index) => [lane.id, index])),
+      [],
+    );
+    assert.deepEqual(
+      active.map((entry) => entry.clip.laneId),
+      ["5", "1"],
+    );
+    assert.deepEqual(
+      activeAt(DOGFOOD3_CLIPS).map((entry) => entry.clip.laneId),
+      ["1", "5"],
+    );
+  });
+
   it("keeps Layer 1 and Layer 2 active and in bounds at 2.2.4", () => {
     const active = activeAt(DOGFOOD3_CLIPS);
 
@@ -789,6 +817,121 @@ describe("FX clips", () => {
     // A Global Order or the layer's is not the FX clip's.
     assert.equal(
       find([{ ...order("global", "Grid"), trackId: "__group_main" }])?.order,
+      undefined,
+    );
+  });
+});
+
+describe("Move", () => {
+  // Two fill clips back to back on layer 1 at 120 BPM: A over 0..2 s
+  // (quarters 0..4) and B over 2..6 s (quarters 4..12).
+  const clip = (id: string, startQ: number, durationSeconds: number) =>
+    ({
+      id,
+      kind: "fill",
+      sourceTrackId: "fill",
+      laneId: "1",
+      label: id,
+      mediaPath: "",
+      startQ,
+      durationSeconds,
+      trimStartSeconds: 0,
+      sourceOffsetSeconds: 0,
+      sourceWindowStartSeconds: 0,
+      sourceWindowEndSeconds: durationSeconds,
+      tint: "#000",
+      accent: "#fff",
+    }) satisfies ArrangementClip;
+  const clips = [clip("a", 0, 2), clip("b", 4, 4)];
+  const move = (
+    id: string,
+    trackId: string,
+    parameters: Array<[string, number | string]>,
+  ): SessionEffect => ({
+    id,
+    trackId,
+    effectName: "Move",
+    parameters: parameters.map(([key, value]) =>
+      typeof value === "number"
+        ? { key, value: `${value}`, numericValue: value }
+        : { key, value },
+    ),
+  });
+  const visualAt = (effects: ReturnType<typeof move>[], playheadQ: number) => {
+    const [entry] = computeActiveClips(
+      clips,
+      new Map(),
+      playheadQ,
+      120,
+      new Map([["1", 0]]),
+      effects,
+    );
+    assert.ok(entry);
+    return entry.visual;
+  };
+  const layerMove = move("move", "1", [
+    ["Motion", "Linear"],
+    ["StartPositionX", -0.5],
+    ["EndPositionX", 0.5],
+  ]);
+
+  it("leaves layers without a Move unanimated", () => {
+    const visual = visualAt([], 2);
+    assert.equal(visual.motion, undefined);
+    assert.equal(visual.clipMotion, undefined);
+  });
+
+  it("runs a layer's Move over each of its clips separately", () => {
+    const positionAt = (playheadQ: number) =>
+      visualAt([layerMove], playheadQ).motion?.outer[0]?.positionX;
+    // Halfway through A, then B's start, halfway and three quarters in.
+    assert.equal(positionAt(2), 0);
+    assert.equal(positionAt(4), -0.5);
+    assert.equal(positionAt(8), 0);
+    assert.equal(positionAt(10), 0.25);
+  });
+
+  it("runs a clip's Move over that clip only", () => {
+    const clipMove = { ...layerMove, trackId: "clip:b" };
+    assert.equal(visualAt([clipMove], 2).clipMotion, undefined);
+    assert.equal(visualAt([clipMove], 8).clipMotion?.outer[0]?.positionX, 0);
+    assert.equal(visualAt([clipMove], 8).motion, undefined);
+  });
+
+  it("nests a Move inside the Transform before it and around the one after it", () => {
+    const transform = (id: string, value: number) => ({
+      ...move(id, "1", [["PositionY", value]]),
+      effectName: "Transform",
+    });
+    const visual = visualAt(
+      [
+        { ...layerMove, id: "outer" },
+        transform("transform", 0.25),
+        move("inner", "1", [
+          ["StartScaleX", 2],
+          ["EndScaleX", 2],
+        ]),
+      ],
+      2,
+    );
+    assert.equal(visual.transform?.positionY, 0.25);
+    assert.deepEqual(
+      visual.motion?.outer.map((step) => step.positionX),
+      [0],
+    );
+    assert.deepEqual(
+      visual.motion?.inner.map((step) => step.scaleX),
+      [2],
+    );
+  });
+
+  it("ignores bypassed Moves and Moves on the Global stack", () => {
+    assert.equal(
+      visualAt([{ ...layerMove, enabled: false }], 2).motion,
+      undefined,
+    );
+    assert.equal(
+      visualAt([{ ...layerMove, trackId: GROUP_TRACK_ID }], 2).motion,
       undefined,
     );
   });

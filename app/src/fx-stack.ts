@@ -102,6 +102,9 @@ export type FxDevice = {
   // True for a layer's own Layout device. Every visual layer has exactly
   // one, so it can be reset to its defaults but not removed or duplicated.
   layerDefault?: boolean;
+  // Labels for the knob rows, when the knobs split evenly into labelled
+  // rows, such as a Move's Start and End.
+  knobRows?: readonly string[];
   // True for a device on a stack its effect isn't designed for, such as a
   // Global Layout from an older session. It still loads and can be removed.
   unsupported?: boolean;
@@ -805,6 +808,7 @@ function toDevice(
     group,
     enabled: effect.enabled !== false,
     layerDefault: isLayerLayoutEffect(effect) || undefined,
+    ...(definition.knobRows ? { knobRows: definition.knobRows } : {}),
     unsupported: !isEffectSupportedIn(effect.effectName, scope) || undefined,
     warning:
       describeHiddenLayers(effect, activeLayerIds) ??

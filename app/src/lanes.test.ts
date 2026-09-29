@@ -16,6 +16,7 @@ import {
   insertLane,
   type LaneProject,
   moveLane,
+  moveLaneTo,
   renameLane,
 } from "./lanes.ts";
 import {
@@ -202,6 +203,64 @@ describe("moveLane", () => {
     assert.equal(canMoveLane(project.lanes, "1", 1), true);
     assert.equal(canMoveLane(project.lanes, "3", 1), false);
     assert.equal(canMoveLane(project.lanes, "x", 1), false);
+  });
+});
+
+describe("moveLaneTo", () => {
+  function fiveLayers(): Project {
+    const project = makeProject();
+    return { ...project, lanes: [...project.lanes, lane("4"), lane("5")] };
+  }
+
+  it("moves a layer anywhere and keeps ids, clips and effects", () => {
+    const project = fiveLayers();
+    const up = moveLaneTo(project, "4", 0);
+    assert.deepEqual(
+      up.lanes.map((item) => item.id),
+      ["4", "1", "2", "3", "5"],
+    );
+    assert.equal(up.clips, project.clips);
+    assert.equal(up.effects, project.effects);
+    assert.equal(up.lanes[0], project.lanes[3]);
+    assert.deepEqual(
+      moveLaneTo(project, "1", 3).lanes.map((item) => item.id),
+      ["2", "3", "4", "1", "5"],
+    );
+  });
+
+  it("clamps the target to the list", () => {
+    const project = fiveLayers();
+    assert.deepEqual(
+      moveLaneTo(project, "2", 99).lanes.map((item) => item.id),
+      ["1", "3", "4", "5", "2"],
+    );
+    assert.deepEqual(
+      moveLaneTo(project, "2", -3).lanes.map((item) => item.id),
+      ["2", "1", "3", "4", "5"],
+    );
+  });
+
+  it("does nothing in place or for a missing layer", () => {
+    const project = fiveLayers();
+    assert.equal(moveLaneTo(project, "3", 2), project);
+    assert.equal(moveLaneTo(project, "x", 0), project);
+    assert.equal(moveLaneTo(project, "3", Number.NaN), project);
+  });
+
+  it("undoes a drag in one step", () => {
+    const initial = fiveLayers();
+    const committed = projectHistoryReducer(
+      createProjectHistoryState(initial),
+      {
+        type: "commit",
+        label: "Move Layer 4",
+        updater: (current) => moveLaneTo(current, "4", 0),
+      },
+    );
+    assert.equal(committed.past.length, 1);
+    assert.equal(committed.past.at(-1)?.label, "Move Layer 4");
+    const undone = projectHistoryReducer(committed, { type: "undo" });
+    assert.equal(undone.present, initial);
   });
 });
 

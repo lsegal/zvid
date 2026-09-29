@@ -219,6 +219,7 @@ describe("layerHistoryLabels", () => {
   it("names the layer and the action", () => {
     assert.equal(layerHistoryLabels.move("Layer 2", -1), "Move Layer 2 up");
     assert.equal(layerHistoryLabels.move("Layer 2", 1), "Move Layer 2 down");
+    assert.equal(layerHistoryLabels.moveTo("Layer 4"), "Move Layer 4");
     assert.equal(layerHistoryLabels.remove("Layer 1"), "Delete Layer 1");
     assert.equal(
       layerHistoryLabels.insert("Layer 1", "above"),

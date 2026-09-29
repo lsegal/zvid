@@ -23,6 +23,7 @@ import {
   resolveGlobalOrderHint,
   resolveSelectedLaneId,
   splitDeviceParameters,
+  splitKnobRows,
   stepSelectedLaneId,
   toggleCollapsedDevice,
   writeCollapsedDevices,
@@ -202,6 +203,7 @@ describe("addableEffectsFor", () => {
       "NegativeSplit",
       "AnalogGlitch",
       "Transform",
+      "Move",
       "Color",
     ]);
   });
@@ -292,6 +294,55 @@ describe("knobColumnCount", () => {
       ["X", "Y", "Width", "Height"],
       ["Origin X", "Origin Y", "Rotation"],
     ]);
+  });
+
+  it("lays Move out as a Motion row, then labelled Start and End rows", () => {
+    const [move] = mapSessionEffectsToDevices(
+      [effect("fx-move", "3", "Move")],
+      "3",
+    );
+    const { controls, knobs } = splitDeviceParameters(move.parameters);
+    const transformRow = [
+      "X",
+      "Y",
+      "Width",
+      "Height",
+      "Origin X",
+      "Origin Y",
+      "Rotation",
+    ];
+
+    assert.deepEqual(
+      controls.map((control) => [control.label, control.stringValue]),
+      [["Motion", "Ease In Out"]],
+    );
+    assert.deepEqual(
+      splitKnobRows(knobs, move.knobRows)?.map((row) => [
+        row.label,
+        row.knobs.map((knob) => knob.label),
+      ]),
+      [
+        ["Start", transformRow],
+        ["End", transformRow],
+      ],
+    );
+    assert.equal(knobs[0].key, "StartPositionX");
+    assert.equal(knobs[7].key, "EndPositionX");
+  });
+});
+
+describe("splitKnobRows", () => {
+  it("splits knobs evenly into the labelled rows", () => {
+    assert.deepEqual(splitKnobRows([1, 2, 3, 4], ["A", "B"]), [
+      { label: "A", knobs: [1, 2] },
+      { label: "B", knobs: [3, 4] },
+    ]);
+  });
+
+  it("leaves knobs without labels or an even split to the usual rows", () => {
+    assert.equal(splitKnobRows([1, 2, 3], ["A", "B"]), undefined);
+    assert.equal(splitKnobRows([1, 2], undefined), undefined);
+    assert.equal(splitKnobRows([], ["A"]), undefined);
   });
 });
 

@@ -16,12 +16,13 @@ import {
   type Box,
   canvasBoxToFrame,
   frameBoxInCanvas,
-  isIdentityTransform,
+  isIdentityChain,
   type Matrix2D,
   matrixQuadAxes,
-  nestedTransformMatrix,
   type QuadAxes,
-  resolveClipTextBox,
+  resolveVisualTextBox,
+  visualTransformChain,
+  visualTransformMatrix,
 } from "./composition-transform.ts";
 import { type FillPaint, rasterizeFillPaint } from "./fill-paint.ts";
 import type { AudioBands } from "./fx-shaders/audio-bands.ts";
@@ -560,20 +561,17 @@ function applyFxClip(
   }
 
   const frame = resolveCanvasBounds(width, height);
-  const axes: QuadAxes =
-    isIdentityTransform(entry.visual.transform) &&
-    isIdentityTransform(entry.visual.clipTransform)
-      ? { axisX: [1, 0], axisY: [0, 1], offset: [0, 0] }
-      : matrixQuadAxes(
-          frame,
-          nestedTransformMatrix(
-            frameBoxInCanvas(frame, surface),
-            surface,
-            entry.visual.transform,
-            entry.visual.clipTransform,
-          ),
+  const axes: QuadAxes = isIdentityChain(visualTransformChain(entry.visual))
+    ? { axisX: [1, 0], axisY: [0, 1], offset: [0, 0] }
+    : matrixQuadAxes(
+        frame,
+        visualTransformMatrix(
+          frameBoxInCanvas(frame, surface),
           surface,
-        );
+          entry.visual,
+        ),
+        surface,
+      );
   gl.bindFramebuffer(gl.FRAMEBUFFER, scene.framebuffer);
   gl.viewport(0, 0, width, height);
   // biome-ignore lint/correctness/useHookAtTopLevel: WebGLRenderingContext.useProgram is not a React hook.
@@ -634,12 +632,7 @@ function drawLayer(
         resolveSlotBounds(index, count, order, width, height),
         surface,
       );
-      textBox = resolveClipTextBox(
-        band,
-        surface,
-        entry.visual.transform,
-        entry.visual.clipTransform,
-      );
+      textBox = resolveVisualTextBox(band, surface, entry.visual);
       sourceWidth *= textBox.box.width / Math.max(1e-6, band.width);
       sourceHeight *= textBox.box.height / Math.max(1e-6, band.height);
     }
@@ -704,10 +697,8 @@ function drawLayer(
 
   // A Transform moves the slot's content, so the layer is framed into its
   // slot first and that frame is drawn transformed: by the clip's own
-  // Transform inside its layer's Transform.
-  const transformed =
-    !isIdentityTransform(entry.visual.transform) ||
-    !isIdentityTransform(entry.visual.clipTransform);
+  // Transform inside its layer's Transform, with their Moves.
+  const transformed = !isIdentityChain(visualTransformChain(entry.visual));
   // The clip's own chain steps come first, then its layer's.
   const layerSteps = effectChain.prepare(entry.effectChain);
   if (layerSteps.length || transformed) {
@@ -749,11 +740,10 @@ function drawLayer(
         ? matrixQuadAxes(
             frame,
             textBox?.matrix ??
-              nestedTransformMatrix(
+              visualTransformMatrix(
                 frameBoxInCanvas(frame, surface),
                 surface,
-                entry.visual.transform,
-                entry.visual.clipTransform,
+                entry.visual,
               ),
             surface,
           )
@@ -865,11 +855,10 @@ export function drawComposition(
     const parentSurface = { width: parent.width, height: parent.height };
     // The box takes the Transforms' scale, so the layers are arranged in a
     // smaller or larger box rather than squeezed or stretched.
-    const placed = resolveClipTextBox(
+    const placed = resolveVisualTextBox(
       { x: 0, y: 0, width: parent.width, height: parent.height },
       parentSurface,
-      entry.visual.transform,
-      entry.visual.clipTransform,
+      entry.visual,
     );
     const size = fitTextureSize(gl, placed.box.width, placed.box.height);
     const target = effectChain.getArrangementTarget(

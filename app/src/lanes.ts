@@ -192,11 +192,31 @@ export function moveLane<Lane extends LaneLike, Clip extends LaneClip>(
   }
 
   const index = project.lanes.findIndex((lane) => lane.id === laneId);
+  return moveLaneTo(project, laneId, index + direction);
+}
+
+/**
+ * Moves layer `laneId` so it ends up at `targetIndex` (clamped to the list).
+ * Its id, clips and effects stay the same. Unchanged when it is already there
+ * or missing.
+ */
+export function moveLaneTo<Lane extends LaneLike, Clip extends LaneClip>(
+  project: LaneProject<Lane, Clip>,
+  laneId: string,
+  targetIndex: number,
+): LaneProject<Lane, Clip> {
+  const index = project.lanes.findIndex((lane) => lane.id === laneId);
+  const target = Math.max(
+    0,
+    Math.min(project.lanes.length - 1, Math.trunc(targetIndex)),
+  );
+  if (index < 0 || Number.isNaN(target) || target === index) {
+    return project;
+  }
+
   const lanes = [...project.lanes];
-  [lanes[index], lanes[index + direction]] = [
-    lanes[index + direction],
-    lanes[index],
-  ];
+  const [lane] = lanes.splice(index, 1);
+  lanes.splice(target, 0, lane);
   return { ...project, lanes };
 }
 

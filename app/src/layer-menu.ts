@@ -34,6 +34,8 @@ export const layerHistoryLabels = {
     `Insert layer ${where} ${name}`,
   move: (name: string, direction: -1 | 1) =>
     `Move ${name} ${direction < 0 ? "up" : "down"}`,
+  // Dragging the grip, or picking it up with the keyboard.
+  moveTo: (name: string) => `Move ${name}`,
 };
 
 /**

@@ -16,7 +16,8 @@
 //   3. the layer's shader-chain effects, in stack order, on the result;
 //   4. geometry: the clip's Transform places the clip inside its layer's
 //      box, and the layer's Transform then places that box (the Layout
-//      anchor is the layer's own);
+//      anchor is the layer's own). Moves are Transforms animated over each
+//      clip's progress, nested with their stack's Transform in stack order;
 //   5. compositing by the Global Order, then the Global chain on the whole
 //      composite.
 //
@@ -36,9 +37,13 @@ import {
   isOrderEffectName,
 } from "./composition-order.ts";
 import {
+  isMoveEffectName,
   isTransformEffectName,
   type LayerTransform,
+  parseLayerMove,
   parseLayerTransform,
+  resolveMoveTransform,
+  type TransformMotion,
 } from "./composition-transform.ts";
 import {
   type FillPaint,
@@ -128,6 +133,11 @@ export type VisualState = {
   // Set only when the clip's own stack has an enabled Transform. It places
   // the clip inside the layer's transformed box.
   clipTransform?: LayerTransform;
+  // Set only when the layer's (`motion`) or the clip's own (`clipMotion`)
+  // stack has an enabled Move: its Moves at the clip's progress, around and
+  // inside that stack's Transform.
+  motion?: TransformMotion;
+  clipMotion?: TransformMotion;
 };
 
 export type ActiveClip = {
@@ -233,11 +243,18 @@ function withClipStackLast(
       ];
 }
 
+type TransformMotionDraft = {
+  outer: LayerTransform[];
+  inner: LayerTransform[];
+};
+
 export function resolveVisualState(
   effects: SessionEffect[],
   laneId: string,
   // The clip's own stack, when the state is for a clip.
   clipId?: string,
+  // How far through the clip the playhead is (0..1), for its Moves.
+  clipProgress = 0,
 ): VisualState {
   const clipTrackId =
     clipId === undefined ? undefined : clipEffectTrackId(clipId);
@@ -252,6 +269,8 @@ export function resolveVisualState(
     saturation: 1,
     layoutAnchor: "center",
   };
+  const layerMotion: TransformMotionDraft = { outer: [], inner: [] };
+  const clipMotion: TransformMotionDraft = { outer: [], inner: [] };
 
   for (const effect of withClipStackLast(effects, clipTrackId)) {
     if (
@@ -283,11 +302,35 @@ export function resolveVisualState(
     // name heuristics below would misread ("PositionX" as an offset, and so
     // on). The last enabled one in each stack wins.
     if (isTransformEffectName(effect.effectName)) {
+      let motion: TransformMotionDraft | undefined;
       if (effect.trackId === laneId) {
         state.transform = parseLayerTransform(effect.parameters);
+        motion = layerMotion;
       } else if (effect.trackId === clipTrackId) {
         state.clipTransform = parseLayerTransform(effect.parameters);
+        motion = clipMotion;
       }
+      // The Moves so far are outside the stack's Transform, which is this
+      // one unless a later one replaces it.
+      motion?.outer.push(...motion.inner.splice(0));
+      continue;
+    }
+
+    // A Move is a Transform at the clip's progress, nested in stack order
+    // with the stack's Transform: inside it when after it in the stack, and
+    // around it when before it. Each Move in a stack applies.
+    if (isMoveEffectName(effect.effectName)) {
+      if (effect.trackId === GROUP_TRACK_ID) {
+        continue;
+      }
+      const isLayer = effect.trackId === laneId;
+      const hasTransform = isLayer
+        ? state.transform !== undefined
+        : state.clipTransform !== undefined;
+      const motion = isLayer ? layerMotion : clipMotion;
+      (hasTransform ? motion.inner : motion.outer).push(
+        resolveMoveTransform(parseLayerMove(effect.parameters), clipProgress),
+      );
       continue;
     }
 
@@ -360,6 +403,12 @@ export function resolveVisualState(
     }
   }
 
+  if (layerMotion.outer.length || layerMotion.inner.length) {
+    state.motion = layerMotion;
+  }
+  if (clipMotion.outer.length || clipMotion.inner.length) {
+    state.clipMotion = clipMotion;
+  }
   return state;
 }
 
@@ -434,7 +483,12 @@ export function computeActiveClips(
           isInBounds: true,
           laneRank,
           clipProgress,
-          visual: resolveVisualState(effects, clip.laneId, clip.id),
+          visual: resolveVisualState(
+            effects,
+            clip.laneId,
+            clip.id,
+            clipProgress,
+          ),
           effectChain: resolveEffectChain(effects, clipEffectTrackId(clip.id)),
           fx: true,
           ...withOrder(
@@ -453,7 +507,12 @@ export function computeActiveClips(
           isInBounds: true,
           laneRank,
           clipProgress,
-          visual: resolveVisualState(effects, clip.laneId, clip.id),
+          visual: resolveVisualState(
+            effects,
+            clip.laneId,
+            clip.id,
+            clipProgress,
+          ),
           effectChain: resolveClipEffectChain(effects, clip),
           ...(clip.kind === "text"
             ? {
@@ -494,7 +553,7 @@ export function computeActiveClips(
             : mediaTime >= 0),
         laneRank,
         clipProgress,
-        visual: resolveVisualState(effects, clip.laneId, clip.id),
+        visual: resolveVisualState(effects, clip.laneId, clip.id, clipProgress),
         effectChain: resolveClipEffectChain(effects, clip),
       };
     });

@@ -25,20 +25,24 @@ import {
   type Box,
   type BoxCorners,
   canvasToLayer,
+  chainTransformMatrix,
   frameBoxInCanvas,
   IDENTITY_MATRIX,
   IDENTITY_TRANSFORM,
   invertMatrix,
   isTransformEffectName,
   type LayerTransform,
-  layerBoxInCanvas,
   type Matrix2D,
+  matrixBoxCorners,
   multiplyMatrix,
   type Point,
   parseLayerTransform,
-  resolveClipTextBox,
+  resolveVisualTextBox,
+  stackTransformChain,
   TRANSFORM_EFFECT_NAME,
-  transformMatrix,
+  type TransformedVisual,
+  type TransformMotion,
+  visualTransformMatrix,
 } from "./composition-transform.ts";
 import {
   addEffect,
@@ -96,7 +100,7 @@ type StackableLayer = {
   clip: { id: string; laneId: string; startQ: number };
   laneRank: number;
   isInBounds: boolean;
-  visual: { transform?: LayerTransform; clipTransform?: LayerTransform };
+  visual: TransformedVisual;
   // Set for FX clips, which take no slot and adjust the whole canvas.
   fx?: boolean;
   // Set for FX clips with an Order, which arranges the layers beneath them.
@@ -110,8 +114,9 @@ type StackableLayer = {
 export type PreviewArrangement = { matrix: Matrix2D; canvas: Size };
 
 // A layer as the preview draws it: its slot, its layer's Transform, its
-// clip's own Transform (inside the layer's), and the corners of the clip's
-// transformed box in canvas pixels. A layer beneath an FX clip with an Order
+// clip's own Transform (inside the layer's), their Moves at the playhead,
+// and the corners of the clip's transformed box in canvas pixels. A layer
+// beneath an FX clip with an Order
 // has that FX clip's `arrangement`: its slot and Transforms are then measured
 // on the arrangement's surface rather than the canvas.
 export type PreviewLayer = {
@@ -120,6 +125,8 @@ export type PreviewLayer = {
   placement: { frame: FrameBounds };
   transform: LayerTransform;
   clipTransform: LayerTransform;
+  motion?: TransformMotion;
+  clipMotion?: TransformMotion;
   arrangement?: PreviewArrangement;
   corners: BoxCorners;
 };
@@ -145,9 +152,10 @@ export function getPreviewEditTrackId(target: PreviewEditTarget) {
 }
 
 // The Transform a drag edits on `layer`, with the box it applies to and the
-// matrix that places the result (the layer's Transform, for a clip's, in
-// the arrangement the layer is drawn in): the drag maths work in that
-// parent's space, then map back to the canvas.
+// matrix that places the result (the layer's Transform, for a clip's, and
+// the Moves around the edited Transform, in the arrangement the layer is
+// drawn in): the drag maths work in that parent's space, then map back to
+// the canvas.
 export type PreviewEditFrame = {
   box: Box;
   transform: LayerTransform;
@@ -155,31 +163,50 @@ export type PreviewEditFrame = {
   // The surface the Transform is measured on: the canvas, or the layer's
   // arrangement. `box`, and the Transform's position, are in its pixels.
   canvas: Size;
-  // The edited box's corners in canvas pixels.
+  // The edited box's corners in canvas pixels, as drawn at the playhead:
+  // with the Moves nested inside the edited Transform too.
   corners: BoxCorners;
 };
 
 export function resolvePreviewEditFrame(
   layer: Pick<PreviewLayer, "placement" | "transform" | "clipTransform"> &
-    Partial<Pick<PreviewLayer, "arrangement">>,
+    Partial<Pick<PreviewLayer, "arrangement" | "motion" | "clipMotion">>,
   editsClip: boolean,
   canvas: Size,
 ): PreviewEditFrame {
   const space = resolveLayerSpace(layer, canvas);
   const box = frameBoxInCanvas(layer.placement.frame, space.canvas);
-  const parent = editsClip
-    ? multiplyMatrix(
-        space.matrix,
-        transformMatrix(layer.transform, box, space.canvas),
-      )
-    : space.matrix;
+  const motion = editsClip ? layer.clipMotion : layer.motion;
+  const parent = multiplyMatrix(
+    space.matrix,
+    chainTransformMatrix(
+      [
+        ...(editsClip
+          ? stackTransformChain(layer.transform, layer.motion)
+          : []),
+        ...(motion?.outer ?? []),
+      ],
+      box,
+      space.canvas,
+    ),
+  );
   const transform = editsClip ? layer.clipTransform : layer.transform;
   return {
     box,
     transform,
     parent,
     canvas: space.canvas,
-    corners: layerBoxInCanvas(layer.placement, transform, space.canvas, parent),
+    corners: matrixBoxCorners(
+      multiplyMatrix(
+        parent,
+        chainTransformMatrix(
+          [transform, ...(motion?.inner ?? [])],
+          box,
+          space.canvas,
+        ),
+      ),
+      box,
+    ),
   };
 }
 
@@ -274,18 +301,20 @@ export function resolvePreviewLayers(
     const placement = { frame };
     const transform = entry.visual.transform ?? IDENTITY_TRANSFORM;
     const clipTransform = entry.visual.clipTransform ?? IDENTITY_TRANSFORM;
-    return {
-      laneId: entry.clip.laneId,
-      clipId: entry.clip.id,
+    const { motion, clipMotion } = entry.visual;
+    const layer = {
       placement,
       transform,
       clipTransform,
+      ...(motion && { motion }),
+      ...(clipMotion && { clipMotion }),
       ...(arrangement && { arrangement }),
-      corners: resolvePreviewEditFrame(
-        { placement, transform, clipTransform, arrangement },
-        true,
-        canvas,
-      ).corners,
+    };
+    return {
+      laneId: entry.clip.laneId,
+      clipId: entry.clip.id,
+      ...layer,
+      corners: resolvePreviewEditFrame(layer, true, canvas).corners,
     };
   });
 }
@@ -298,11 +327,10 @@ function resolveArrangement(
   parent: PreviewArrangement,
   visual: StackableLayer["visual"],
 ): PreviewArrangement {
-  const placed = resolveClipTextBox(
+  const placed = resolveVisualTextBox(
     { x: 0, y: 0, width: parent.canvas.width, height: parent.canvas.height },
     parent.canvas,
-    visual.transform,
-    visual.clipTransform,
+    visual,
   );
   // The surface's top-left corner is the resized box's.
   const fromSurface = multiplyMatrix(placed.matrix, {
@@ -316,13 +344,16 @@ function resolveArrangement(
   };
 }
 
-type HitTestLayer = Pick<PreviewLayer, "placement" | "transform"> & {
-  clipTransform?: LayerTransform;
-  arrangement?: PreviewArrangement;
-};
+type HitTestLayer = Pick<PreviewLayer, "placement" | "transform"> &
+  Partial<
+    Pick<
+      PreviewLayer,
+      "clipTransform" | "motion" | "clipMotion" | "arrangement"
+    >
+  >;
 
 // Whether `point` is on the layer's clip as drawn: its box after the clip's
-// Transform, the layer's, and the arrangement it is drawn in.
+// Transform, the layer's, their Moves, and the arrangement it is drawn in.
 export function isPointOnLayer(
   point: Point,
   layer: HitTestLayer,
@@ -332,14 +363,14 @@ export function isPointOnLayer(
   const local = canvasToLayer(
     point,
     layer.placement,
-    layer.clipTransform ?? IDENTITY_TRANSFORM,
+    IDENTITY_TRANSFORM,
     space.canvas,
     multiplyMatrix(
       space.matrix,
-      transformMatrix(
-        layer.transform,
+      visualTransformMatrix(
         frameBoxInCanvas(layer.placement.frame, space.canvas),
         space.canvas,
+        layer,
       ),
     ),
   );

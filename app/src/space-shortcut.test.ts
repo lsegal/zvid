@@ -90,6 +90,16 @@ describe("space shortcut target classification", () => {
     );
   });
 
+  it("lets a layer's reorder grip pick up and drop with Space", () => {
+    assert.equal(
+      classifySpaceTarget(
+        element("BUTTON", { ancestors: ["[data-layer-grip]"] }),
+        noOverlay,
+      ),
+      "grip",
+    );
+  });
+
   it("still types into text fields inside a dialog", () => {
     assert.equal(
       classifySpaceTarget(

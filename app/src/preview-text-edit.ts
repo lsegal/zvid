@@ -12,7 +12,7 @@ import {
   frameBoxInCanvas,
   type Matrix2D,
   multiplyMatrix,
-  resolveClipTextBox,
+  resolveVisualTextBox,
 } from "./composition-transform.ts";
 import { type FillPaint, formatFillPaintCss } from "./fill-paint.ts";
 import {
@@ -59,7 +59,12 @@ export type TextEditorPlacement = {
 
 export function resolveTextEditorPlacement(
   layer: Pick<PreviewLayer, "placement" | "transform"> &
-    Partial<Pick<PreviewLayer, "clipTransform" | "arrangement">>,
+    Partial<
+      Pick<
+        PreviewLayer,
+        "clipTransform" | "motion" | "clipMotion" | "arrangement"
+      >
+    >,
   video: Rect,
   canvas: Size,
 ): TextEditorPlacement {
@@ -67,11 +72,10 @@ export function resolveTextEditorPlacement(
   // than scale, so the text wraps in it as the compositor draws it. In an
   // FX clip's arrangement, the box is on the arrangement's surface.
   const space = resolveLayerSpace(layer, canvas);
-  const { box, matrix } = resolveClipTextBox(
+  const { box, matrix } = resolveVisualTextBox(
     frameBoxInCanvas(layer.placement.frame, space.canvas),
     space.canvas,
-    layer.transform,
-    layer.clipTransform,
+    layer,
   );
   const toCanvas = multiplyMatrix(space.matrix, matrix);
   const scaleX = video.width / Math.max(1, canvas.width);

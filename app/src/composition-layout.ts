@@ -13,7 +13,10 @@ import {
   visibleLayerCount,
   Z_ORDER_COMPOSITION,
 } from "./composition-order.ts";
-import type { LayerTransform } from "./composition-transform.ts";
+import type {
+  LayerTransform,
+  TransformMotion,
+} from "./composition-transform.ts";
 
 export type LayoutAnchor = "top" | "center" | "bottom";
 
@@ -44,6 +47,10 @@ export type LayerVisual = {
   // A clip's own Transform, applied inside `transform`. Absent means
   // identity.
   clipTransform?: LayerTransform;
+  // The layer's and the clip's Moves at the playhead, nested with their
+  // stack's Transform. Absent means none.
+  motion?: TransformMotion;
+  clipMotion?: TransformMotion;
 };
 
 export type LayerPlacement = {
