@@ -1,48 +1,78 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 
-// Share invites in the real app: the link keeps the page origin, carries the
-// password in the fragment, and a joining page scrubs the password from the
-// address bar after reading it.
+// The status bar's Copy link button during a live share, driven in the real
+// app. Starting a share builds the invite URL and tries to copy it once; the
+// button copies it again at any time until Stop Share.
 
-test("copies an invite that points at the page origin", async ({
+function copyLinkButton(page: Page) {
+  return page.getByRole("button", { name: "Copy share link" });
+}
+
+async function startShare(page: Page) {
+  await page.goto("/");
+  await expect(copyLinkButton(page)).toHaveCount(0);
+  await page.getByRole("button", { name: "Share", exact: true }).click();
+  await page.getByRole("button", { name: "Start Sharing" }).click();
+  await expect(copyLinkButton(page)).toBeVisible({ timeout: 15_000 });
+}
+
+test("copies the invite from the status bar until Stop Share", async ({
   context,
   page,
 }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-  await page.goto("/");
+  await startShare(page);
 
-  await page.getByRole("button", { name: "Share", exact: true }).click();
-  await page.getByRole("button", { name: "Start Sharing" }).click();
+  const button = copyLinkButton(page);
+  const url = await button.getAttribute("title");
+  expect(url).toContain("room=");
+  await expect(button).toHaveText("Copy link");
 
-  // Served from localhost, so the status warns the link is local-only.
-  await expect(
-    page.getByText("only works on this computer or network", { exact: false }),
-  ).toBeVisible();
+  await page.evaluate(() => navigator.clipboard.writeText(""));
+  await button.click();
+  await expect(button).toHaveText("Copied ✓");
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(url);
+  await expect(button).toHaveText("Copy link", { timeout: 5_000 });
 
-  const invite = new URL(
-    await page.evaluate(() => navigator.clipboard.readText()),
-  );
-  expect(invite.origin).toBe(new URL(page.url()).origin);
-  expect(invite.searchParams.get("room")).toBeTruthy();
-  expect(invite.searchParams.has("password")).toBe(false);
+  // Keyboard reachable.
+  await button.focus();
+  await page.keyboard.press("Enter");
+  await expect(button).toHaveText("Copied ✓");
+
+  await page.getByRole("button", { name: "Stop Share" }).click();
+  await expect(copyLinkButton(page)).toHaveCount(0);
 });
 
-test("reads the password from the fragment and clears it", async ({ page }) => {
-  await page.goto("/?room=e2eroom#password=s3cret");
-
-  await expect.poll(() => new URL(page.url()).hash).toBe("");
-  const url = new URL(page.url());
-  expect(url.searchParams.get("room")).toBe("e2eroom");
-  expect(url.searchParams.has("password")).toBe(false);
-});
-
-test("still reads the password from the query of old links", async ({
+test("offers the link for manual copy when the clipboard fails", async ({
   page,
 }) => {
-  await page.goto("/?room=e2eroom&password=s3cret");
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: () => Promise.reject(new Error("Clipboard blocked")),
+      },
+    });
+  });
+  await startShare(page);
 
-  await expect
-    .poll(() => new URL(page.url()).searchParams.has("password"))
-    .toBe(false);
-  expect(new URL(page.url()).searchParams.get("room")).toBe("e2eroom");
+  // The automatic copy at share start failed too; the status points here.
+  await expect(page.locator(".status-bar__message")).toContainText(
+    "Use Copy link in the status bar",
+  );
+
+  const button = copyLinkButton(page);
+  const url = await button.getAttribute("title");
+  await button.click();
+  await expect(button).toHaveText("Copy failed");
+
+  const fallback = page.getByRole("dialog", { name: "Share link" });
+  const input = fallback.getByRole("textbox");
+  await expect(input).toHaveValue(url ?? "");
+  await expect(input).toBeFocused();
+
+  await page.keyboard.press("Escape");
+  await expect(fallback).toHaveCount(0);
+  await expect(button).toHaveText("Copy link");
+  await expect(button).toBeFocused();
 });

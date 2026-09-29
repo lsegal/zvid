@@ -63,6 +63,7 @@ describe("convertAls with dogfood3.als against dogfood3.lvp", () => {
       golden.tracks.map((track: NonNullable<LvpSession["tracks"]>[number]) => ({
         id: track.id,
         name: track.name,
+        colorIndex: track.colorIndex,
         // `numFrames`/`frameRate` come from media probing, not the .als.
         recordings: track.recordings?.map(({ filename, frameStart }) => ({
           filename,
@@ -400,6 +401,7 @@ describe("convertAls with synthetic sets", () => {
       {
         id: "5",
         name: "Video",
+        colorIndex: 4,
         recordings: [
           { filename: "take-0.mp4", frameStart: 0 },
           { filename: "take-1.mp4", frameStart: 12 },
@@ -408,6 +410,7 @@ describe("convertAls with synthetic sets", () => {
       {
         id: "6",
         name: "Imported",
+        colorIndex: 0,
         recordings: [{ filename: "C:/Videos/Movie.MP4" }],
       },
     ]);
@@ -474,7 +477,7 @@ describe("convertAls with synthetic sets", () => {
       ]),
     );
     assert.deepEqual(session.tracks, [
-      { id: "5", name: "Keys", recordings: [] },
+      { id: "5", name: "Keys", colorIndex: 4, recordings: [] },
     ]);
     assert.deepEqual(
       session.clips?.map(
@@ -568,6 +571,37 @@ describe("convertAls with synthetic sets", () => {
     );
     assert.deepEqual(summary.skipped, []);
     assert.equal("trimmed" in summary, false);
+  });
+
+  it("gives the source tracks cycling palette colours, in track order", () => {
+    // An audio track between video tracks is dropped and takes no colour.
+    const tracks = [
+      ...Array.from({ length: 3 }, (_, index) =>
+        videoTrack({ id: 10 + index, name: `Cam ${index + 1}` }),
+      ),
+      videoTrack({ id: 20, name: "Bass", layers: null, isVideoTrack: false }),
+      ...Array.from({ length: 4 }, (_, index) =>
+        videoTrack({ id: 30 + index, name: `Cam ${index + 4}` }),
+      ),
+    ];
+    const { session } = convertAls(doc(tracks));
+    assert.deepEqual(
+      session.tracks?.map(({ name, colorIndex }) => [name, colorIndex]),
+      [
+        ["Cam 1", 4],
+        ["Cam 2", 0],
+        ["Cam 3", 1],
+        ["Cam 4", 2],
+        ["Cam 5", 3],
+        ["Cam 6", 4],
+        ["Cam 7", 0],
+      ],
+    );
+    // Main layers keep no palette colour.
+    assert.deepEqual(
+      session.mainTracks?.map(({ colorIndex }) => colorIndex),
+      [-1],
+    );
   });
 
   it("starts a MIDI clip at its content start, offset by the recording", () => {
@@ -855,6 +889,7 @@ describe("convertAls with ZVID Capture fixtures", () => {
       {
         id: "20",
         name: "Cam A",
+        colorIndex: 4,
         recordings: [
           { filename: "video-01-9-25-20-36-12-0.mp4", frameStart: -45 },
           { filename: "video-01-9-25-20-36-12-0.mp4", frameStart: -120 },

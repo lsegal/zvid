@@ -83,6 +83,7 @@ import {
   type ContextMenuEntry,
   type MenuPoint,
 } from "./components/ContextMenu";
+import { DropdownMenuEntries } from "./components/DropdownMenuEntries";
 import { FxChain, type FxEditMode } from "./components/FxChain";
 import {
   ImportNotice,
@@ -93,6 +94,7 @@ import {
   TransportPlayheadReadout,
 } from "./components/LivePlayhead";
 import { OfflineMediaDialog } from "./components/OfflineMediaDialog";
+import { ShareLinkButton } from "./components/ShareLinkButton";
 import {
   StatusBar,
   type StatusItem,
@@ -113,11 +115,11 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
 import { WandIcon } from "./components/WandIcon";
 import { isContextMenuKey, isContextMenuPress } from "./context-menu.ts";
+import { buildEditMenuEntries } from "./edit-menu.ts";
 import {
   ADDABLE_EFFECT_DEFINITIONS,
   getDefaultLaneId,
@@ -212,11 +214,17 @@ import {
   type InviteParams,
   parseInviteParams,
   removeInvitePassword,
-} from "./share-link.ts";
+} from "./share-invite.ts";
+import { shareCopyFailedStatus, shareLinkVisible } from "./share-link";
 import {
   dropClipOnFreeLane,
   isSourceClipDropClick,
 } from "./source-clip-drop.ts";
+import {
+  nextSourceTrackColorIndex,
+  sessionSourceTrackColorIndex,
+  sourceTrackColorIndex,
+} from "./source-track-color.ts";
 import {
   formatSourceTracksSummary,
   isSourceTracksSectionCollapsed,
@@ -1484,14 +1492,16 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
     name: track.name,
     colorIndex: track.colorIndex ?? -1,
   }));
-  const sourceTracks = (session.tracks ?? []).map<SourceTrack>((track) => ({
-    id: track.id,
-    name: track.name,
-    colorIndex: track.colorIndex ?? -1,
-    recordingPaths: (track.recordings ?? []).map(
-      (recording) => recording.filename,
-    ),
-  }));
+  const sourceTracks = (session.tracks ?? []).map<SourceTrack>(
+    (track, index) => ({
+      id: track.id,
+      name: track.name,
+      colorIndex: sessionSourceTrackColorIndex(track.colorIndex, index),
+      recordingPaths: (track.recordings ?? []).map(
+        (recording) => recording.filename,
+      ),
+    }),
+  );
   const nameByTrack = new Map(
     sourceTracks.map((track) => [track.id, track.name]),
   );
@@ -1610,11 +1620,11 @@ function buildStandaloneProject(mediaItems: MediaItem[]) {
   const sourceTracks = mediaItems.map<SourceTrack>((item, index) => ({
     id: `import-track-${index}`,
     name: item.name.replace(/\.[^/.]+$/, ""),
-    colorIndex: index,
+    colorIndex: sourceTrackColorIndex(index),
     recordingPaths: [item.name],
   }));
   const sourceSpans = mediaItems.map<SourceSpan>((item, index) => {
-    const swatch = getSwatch(index);
+    const swatch = getSwatch(sourceTrackColorIndex(index));
     return {
       id: `source-span-${item.id}`,
       sourceTrackId: sourceTracks[index]?.id ?? `import-track-${index}`,
@@ -1763,6 +1773,8 @@ function App() {
   const [clipMenu, setClipMenu] = useState<ClipMenuState | null>(null);
   // The layer whose name is being edited in its header.
   const [renamingLaneId, setRenamingLaneId] = useState<string>();
+  const renamingLaneIdRef = useRef(renamingLaneId);
+  renamingLaneIdRef.current = renamingLaneId;
   // The layer the FX chain edits. Selecting a clip selects its layer, and
   // clearing the clip selection keeps the layer.
   const [selectedLaneId, setSelectedLaneId] = useState<string>();
@@ -1847,7 +1859,7 @@ function App() {
   const [connectInviteValue, setConnectInviteValue] = useState("");
   const [isStartingConnect, setIsStartingConnect] = useState(false);
   const [hasCopiedShareInvite, setHasCopiedShareInvite] = useState(false);
-  const [lastCopiedShareUrl, setLastCopiedShareUrl] = useState("");
+  const [shareUrl, setShareUrl] = useState("");
   const [collaborationState, setCollaborationState] =
     useState<CollaborationConnectionState>({
       connected: false,
@@ -2978,7 +2990,7 @@ function App() {
             targetTrack = {
               id: `source-track-${crypto.randomUUID()}`,
               name: stripFilenameExtension(analyzed[0]?.name ?? "Source Track"),
-              colorIndex: current.sourceTracks.length,
+              colorIndex: nextSourceTrackColorIndex(current.sourceTracks),
               recordingPaths: [],
             };
             nextSourceTracks = [...current.sourceTracks, targetTrack];
@@ -4837,40 +4849,12 @@ function App() {
 
   function getClipMenuEntries(menu: ClipMenuState): ContextMenuEntry[] {
     if (menu.kind === "audio") {
-      return buildMainAudioMenuEntries({
-        hasMainAudio: Boolean(mainAudioId),
-        disabled: isExporting,
-        chooseFile: () => mainAudioInputRef.current?.click(),
-        remove: removeMainAudio,
-      });
+      return getMainAudioMenuEntries();
     }
 
     if (menu.kind === "layer") {
       const lane = lanes.find((item) => item.id === menu.laneId);
-      if (!lane) {
-        return [];
-      }
-
-      const fxEnabled = isLayerFxEnabled(lane);
-      return buildLayerMenuEntries({
-        lanes,
-        laneId: lane.id,
-        fxEnabled,
-        effectCount: laneStatusById.get(lane.id)?.effectCount ?? 0,
-        effects: ADDABLE_EFFECT_DEFINITIONS,
-        disabled: isExporting,
-        actions: {
-          rename: () => setRenamingLaneId(lane.id),
-          duplicate: () => duplicateLayer(lane),
-          remove: () => deleteLayer(lane),
-          toggleFx: () => setLayerFxEnabled(lane.id, !fxEnabled),
-          addFx: (effectName) => addLayerFx(lane.id, effectName),
-          insertAbove: () => insertLayer(lane.id, "above"),
-          insertBelow: () => insertLayer(lane.id, "below"),
-          moveUp: () => moveLayer(lane, -1),
-          moveDown: () => moveLayer(lane, 1),
-        },
-      });
+      return lane ? getLayerMenuEntries(lane) : [];
     }
 
     if (menu.kind === "span") {
@@ -4891,7 +4875,50 @@ function App() {
       menu.kind === "clip"
         ? timelineClips.find((item) => item.id === menu.clipId)
         : undefined;
-    const pasteLaneId = menu.kind === "lane" ? menu.laneId : clip?.laneId;
+    return getArrangementClipEntries(
+      clip,
+      menu.kind === "lane" ? menu.laneId : clip?.laneId,
+    );
+  }
+
+  function getMainAudioMenuEntries() {
+    return buildMainAudioMenuEntries({
+      hasMainAudio: Boolean(mainAudioId),
+      disabled: isExporting,
+      chooseFile: () => mainAudioInputRef.current?.click(),
+      remove: removeMainAudio,
+    });
+  }
+
+  function getLayerMenuEntries(lane: Lane) {
+    const fxEnabled = isLayerFxEnabled(lane);
+    return buildLayerMenuEntries({
+      lanes,
+      laneId: lane.id,
+      fxEnabled,
+      effectCount: laneStatusById.get(lane.id)?.effectCount ?? 0,
+      effects: ADDABLE_EFFECT_DEFINITIONS,
+      disabled: isExporting,
+      actions: {
+        rename: () => setRenamingLaneId(lane.id),
+        duplicate: () => duplicateLayer(lane),
+        remove: () => deleteLayer(lane),
+        toggleFx: () => setLayerFxEnabled(lane.id, !fxEnabled),
+        addFx: (effectName) => addLayerFx(lane.id, effectName),
+        insertAbove: () => insertLayer(lane.id, "above"),
+        insertBelow: () => insertLayer(lane.id, "below"),
+        moveUp: () => moveLayer(lane, -1),
+        moveDown: () => moveLayer(lane, 1),
+      },
+    });
+  }
+
+  // The clip menu, or the empty lane space menu without a clip. Paste goes on
+  // `pasteLaneId`, or on the selected layer when it is undefined.
+  function getArrangementClipEntries(
+    clip: ArrangementClip | undefined,
+    pasteLaneId: string | undefined,
+  ): ContextMenuEntry[] {
     const withClip = (action: (clip: ArrangementClip) => void) => () => {
       if (clip) {
         action(clip);
@@ -4913,6 +4940,42 @@ function App() {
         remove: withClip(deleteArrangementClip),
       },
     });
+  }
+
+  // Built when the Edit menu opens, so it reflects the current selection.
+  function getEditMenuEntries(): ContextMenuEntry[] {
+    const selectedLane = lanes.find((lane) => lane.id === selectedLaneId);
+    return buildEditMenuEntries(
+      [
+        {
+          type: "item",
+          id: "undo",
+          label: undoLabel ? `Undo ${undoLabel}` : "Undo",
+          shortcut: shortcutLabels.undo,
+          disabled: isExporting || !canUndo,
+          onSelect: handleUndo,
+        },
+        {
+          type: "item",
+          id: "redo",
+          label: redoLabel ? `Redo ${redoLabel}` : "Redo",
+          shortcut: shortcutLabels.redo,
+          disabled: isExporting || !canRedo,
+          onSelect: handleRedo,
+        },
+      ],
+      {
+        clip: explicitClip?.label,
+        clipEntries: getArrangementClipEntries(explicitClip, undefined),
+        layer: selectedLane
+          ? {
+              name: selectedLane.name,
+              entries: getLayerMenuEntries(selectedLane),
+            }
+          : undefined,
+        audioEntries: getMainAudioMenuEntries(),
+      },
+    );
   }
 
   useEffect(() => {
@@ -6049,12 +6112,13 @@ function App() {
     const roomName = collaborationView.pendingShareRoom;
     setIsStartingShare(true);
     setHasCopiedShareInvite(false);
+    setShareUrl("");
 
     try {
       setCollaborationRoom(roomName);
       setCollaborationMode("sharing");
 
-      const { url: shareUrl, localOnly } = buildPublicShareUrl(
+      const { url: inviteUrl, localOnly } = buildPublicShareUrl(
         roomName,
         parseSignalingUrls(collaborationSignaling),
         collaborationPassword,
@@ -6064,10 +6128,12 @@ function App() {
           publicAppUrl: import.meta.env.VITE_PUBLIC_APP_URL,
         },
       );
+      // Kept whether or not the copy below works, so the status bar's Copy
+      // link button can copy it again for the rest of the session.
+      setShareUrl(inviteUrl);
 
       try {
-        await navigator.clipboard.writeText(shareUrl);
-        setLastCopiedShareUrl(shareUrl);
+        await navigator.clipboard.writeText(inviteUrl);
         setHasCopiedShareInvite(true);
         if (shareCopyResetTimeoutRef.current !== null) {
           window.clearTimeout(shareCopyResetTimeoutRef.current);
@@ -6081,11 +6147,7 @@ function App() {
             : "Public sharing is live. Invite copied. Click Stop Share to disconnect.",
         );
       } catch (error) {
-        setStatus(
-          `Public sharing is live, but copying the invite failed: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
+        setStatus(shareCopyFailedStatus(error));
       }
 
       setIsShareDialogOpen(false);
@@ -6104,6 +6166,7 @@ function App() {
       collaborators: [],
     });
     setCollaborationMode("idle");
+    setShareUrl("");
     setStatus("Public sharing stopped. Signaling socket disconnected.");
   }
 
@@ -6359,9 +6422,10 @@ function App() {
         clipCount: timelineClips.length,
         trackCount: lanes.length,
         offlineCount,
-      }).map((item) =>
-        item.id === "playhead"
-          ? {
+      }).flatMap((item): StatusItem[] => {
+        if (item.id === "playhead") {
+          return [
+            {
               id: item.id,
               label: item.label,
               value: (
@@ -6373,9 +6437,24 @@ function App() {
                   timelineMode={timelineMode}
                 />
               ),
-            }
-          : item,
-      ),
+            },
+          ];
+        }
+        // The Copy link button sits right after the share status.
+        if (
+          item.id === "collaboration" &&
+          shareLinkVisible(collaborationMode, shareUrl)
+        ) {
+          return [
+            item,
+            {
+              id: "share-link",
+              value: <ShareLinkButton key={shareUrl} url={shareUrl} />,
+            },
+          ];
+        }
+        return [item];
+      }),
     [
       bpm,
       canvasHeight,
@@ -6389,6 +6468,7 @@ function App() {
       playheadSignal,
       previewMedia,
       sessionName,
+      shareUrl,
       signature,
       timelineClips.length,
       timelineMode,
@@ -6501,25 +6581,16 @@ function App() {
                 </span>
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuItem
-                disabled={isExporting || !canUndo}
-                onSelect={() => handleUndo()}
-              >
-                <span>{undoLabel ? `Undo ${undoLabel}` : "Undo"}</span>
-                <DropdownMenuShortcut>
-                  {shortcutLabels.undo}
-                </DropdownMenuShortcut>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={isExporting || !canRedo}
-                onSelect={() => handleRedo()}
-              >
-                <span>{redoLabel ? `Redo ${redoLabel}` : "Redo"}</span>
-                <DropdownMenuShortcut>
-                  {shortcutLabels.redo}
-                </DropdownMenuShortcut>
-              </DropdownMenuItem>
+            <DropdownMenuContent
+              align="start"
+              onCloseAutoFocus={(event) => {
+                // Leave focus on the layer name field Rename… opened.
+                if (renamingLaneIdRef.current) {
+                  event.preventDefault();
+                }
+              }}
+            >
+              <DropdownMenuEntries entries={getEditMenuEntries()} />
             </DropdownMenuContent>
           </DropdownMenu>
           <div className="tempo-pill">
@@ -6604,7 +6675,7 @@ function App() {
             <span
               className="share-copy-badge"
               aria-live="polite"
-              title={lastCopiedShareUrl}
+              title={shareUrl}
             >
               <svg viewBox="0 0 20 20" role="presentation" aria-hidden="true">
                 <path
