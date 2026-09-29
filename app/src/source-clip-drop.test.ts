@@ -76,9 +76,7 @@ describe("dropClipOnFreeLane", () => {
           BPM,
           () => lane(`${current.lanes.length + 1}`),
         );
-        return result
-          ? { lanes: result.lanes, clips: result.clips }
-          : current;
+        return result ? { lanes: result.lanes, clips: result.clips } : current;
       },
     });
     return history;
@@ -163,8 +161,14 @@ describe("dropClipOnFreeLane", () => {
 
 describe("isSourceClipDropClick", () => {
   it("accepts Ctrl or Cmd and rejects a plain click", () => {
-    assert.equal(isSourceClipDropClick({ ctrlKey: true, metaKey: false }), true);
-    assert.equal(isSourceClipDropClick({ ctrlKey: false, metaKey: true }), true);
+    assert.equal(
+      isSourceClipDropClick({ ctrlKey: true, metaKey: false }),
+      true,
+    );
+    assert.equal(
+      isSourceClipDropClick({ ctrlKey: false, metaKey: true }),
+      true,
+    );
     assert.equal(
       isSourceClipDropClick({ ctrlKey: false, metaKey: false }),
       false,
