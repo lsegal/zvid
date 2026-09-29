@@ -1,6 +1,7 @@
 // Works out which clips the compositor draws at a playhead: at most one clip
 // per lane under the playhead whose media is online, in lane order, with the
 // source time, visual state and effect chain each one is drawn with.
+import { type ClipWarp, warpSourceTime } from "./clip-warp.ts";
 import {
   type EffectChainStep,
   isChainEffectName,
@@ -41,6 +42,9 @@ export type ArrangementClip = {
   sourceOffsetSeconds: number;
   sourceWindowStartSeconds: number;
   sourceWindowEndSeconds: number;
+  // Present when the clip's source follows warp markers instead of playing
+  // at 1×.
+  warp?: ClipWarp;
   tint: string;
   accent: string;
 };
@@ -77,6 +81,8 @@ export type ActiveClip = {
   // show one time.
   sourceKey: string;
   mediaTime: number;
+  // Source seconds per song second at the playhead: 1 unless warped.
+  playbackRate: number;
   isInBounds: boolean;
   laneRank: number;
   clipProgress: number;
@@ -290,8 +296,13 @@ export function computeActiveClips(
         (lanePriority.get(right.clip.laneId) ?? Number.MAX_SAFE_INTEGER),
     )
     .map<ActiveClip>(({ clip, media }) => {
-      const mediaTime =
+      // The source window is in linear source time; the media's own bounds
+      // apply to the warped time the media is actually drawn at.
+      const linearTime =
         quartersToSeconds(playheadQ, bpm) + clip.sourceOffsetSeconds;
+      const { seconds: mediaTime, rate: playbackRate } = clip.warp
+        ? warpSourceTime(clip.warp, linearTime, bpm)
+        : { seconds: linearTime, rate: 1 };
       const clipElapsedSeconds = quartersToSeconds(
         playheadQ - clip.startQ,
         bpm,
@@ -301,9 +312,10 @@ export function computeActiveClips(
         media,
         sourceKey: claimSourceKey(usedSourceKeys, media.id, clip),
         mediaTime,
+        playbackRate,
         isInBounds:
-          mediaTime >= clip.sourceWindowStartSeconds &&
-          mediaTime < clip.sourceWindowEndSeconds - epsilon &&
+          linearTime >= clip.sourceWindowStartSeconds &&
+          linearTime < clip.sourceWindowEndSeconds - epsilon &&
           (media.durationSeconds > 0
             ? mediaTime >= 0 && mediaTime < media.durationSeconds - epsilon
             : mediaTime >= 0),

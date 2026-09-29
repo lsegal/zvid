@@ -91,6 +91,14 @@ const SCRUB_AUDIO_DRIFT_SECONDS = 0.035;
 // Audio keeps playing through a scrub started during playback, so it only
 // re-syncs once it falls this far behind or ahead of the playhead.
 const CONTINUOUS_SCRUB_AUDIO_DRIFT_SECONDS = 0.1;
+// The playback rates every browser accepts; a media element throws outside
+// them.
+const MIN_PLAYBACK_RATE = 0.0625;
+const MAX_PLAYBACK_RATE = 16;
+
+function clamp(value: number, minimum: number, maximum: number) {
+  return Math.max(minimum, Math.min(maximum, value));
+}
 
 function syncCanvasSurface(
   canvas: HTMLCanvasElement,
@@ -301,6 +309,17 @@ export class CompositionRenderer {
           element.pause();
         }
         continue;
+      }
+
+      // A warped clip changes speed between its warp markers; the drift
+      // check below re-seeks it at each marker.
+      const playbackRate = clamp(
+        activeEntry.playbackRate,
+        MIN_PLAYBACK_RATE,
+        MAX_PLAYBACK_RATE,
+      );
+      if (element.playbackRate !== playbackRate) {
+        element.playbackRate = playbackRate;
       }
 
       const drift = Math.abs(element.currentTime - activeEntry.mediaTime);
