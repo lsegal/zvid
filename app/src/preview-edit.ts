@@ -12,13 +12,13 @@
 import {
   type FrameBounds,
   orderStackedLayers,
+  planLayerDraws,
   resolveCanvasBounds,
   resolveSlotBounds,
 } from "./composition-layout.ts";
 import {
   type CompositionOrder,
   DEFAULT_COMPOSITION_ORDER,
-  visibleLayerCount,
 } from "./composition-order.ts";
 import {
   type Box,
@@ -170,36 +170,41 @@ export function matrixRotationDeg(parent: Matrix2D) {
 // The layers the compositor draws at the playhead, in draw order (the last
 // one is on top). As in the compositor, only in-bounds layers take a slot,
 // and a Grid shows no more layers than it has cells. Without an Order every
-// slot is the whole canvas and Layer 1 is drawn last. FX clips take no slot:
-// their box starts as the whole canvas, and they come first so a click only
-// picks one where no other layer is.
+// slot is the whole canvas and Layer 1 is drawn last; layers the Order
+// excludes cover the whole canvas too, in the same z-order. FX clips take
+// no slot: their box starts as the whole canvas, and they come first so a
+// click only picks one where no other layer is.
 export function resolvePreviewLayers(
   activeClips: readonly StackableLayer[],
   canvas: Size,
   order: CompositionOrder = DEFAULT_COMPOSITION_ORDER,
 ): PreviewLayer[] {
-  const ordered = orderStackedLayers(
+  const layerDraws = planLayerDraws(
     activeClips.filter((entry) => entry.isInBounds && !entry.fx),
     order,
-  );
-  const stacked = ordered.slice(0, visibleLayerCount(ordered.length, order));
+  ).flatMap((step) => (step.type === "layer" ? [step] : []));
   const fxLayers = orderStackedLayers(
     activeClips.filter((entry) => entry.isInBounds && entry.fx),
     order,
   );
 
-  return [...fxLayers, ...stacked].map((entry, index) => {
-    const placement = {
-      frame: entry.fx
-        ? resolveCanvasBounds(canvas.width, canvas.height)
-        : resolveSlotBounds(
-            index - fxLayers.length,
-            stacked.length,
-            order,
-            canvas.width,
-            canvas.height,
-          ),
-    };
+  return [
+    ...fxLayers.map((entry) => ({
+      entry,
+      frame: resolveCanvasBounds(canvas.width, canvas.height),
+    })),
+    ...layerDraws.map((step) => ({
+      entry: step.entry,
+      frame: resolveSlotBounds(
+        step.slot,
+        step.slotCount,
+        step.order,
+        canvas.width,
+        canvas.height,
+      ),
+    })),
+  ].map(({ entry, frame }) => {
+    const placement = { frame };
     const transform = entry.visual.transform ?? IDENTITY_TRANSFORM;
     const clipTransform = entry.visual.clipTransform ?? IDENTITY_TRANSFORM;
     return {

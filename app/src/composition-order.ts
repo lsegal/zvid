@@ -14,6 +14,9 @@ export type CompositionOrder = {
   gridSize: number;
   // Gap between neighbouring layers, in output pixels at 1080p.
   spacing: number;
+  // Ids of the layers the arrangement leaves out. They are drawn full-frame
+  // in their z-order instead, as with no Order.
+  excludedLayers: readonly string[];
 };
 
 export const ORDER_EFFECT_NAME = "Order";
@@ -28,6 +31,7 @@ export const DEFAULT_COMPOSITION_ORDER: CompositionOrder = {
   arrangement: "vertical",
   gridSize: GRID_SIZE_MIN,
   spacing: 0,
+  excludedLayers: [],
 };
 
 // Layers overlapping full-frame, with no Order to arrange them.
@@ -35,7 +39,11 @@ export const Z_ORDER_COMPOSITION: CompositionOrder = {
   arrangement: "none",
   gridSize: GRID_SIZE_MIN,
   spacing: 0,
+  excludedLayers: [],
 };
+
+// The Order parameter that lists the ids of the layers it leaves out.
+export const EXCLUDED_LAYERS_KEY = "ExcludedLayers";
 
 export function isOrderEffectName(effectName: string) {
   return effectName.trim().toLowerCase() === ORDER_EFFECT_NAME.toLowerCase();
@@ -63,6 +71,52 @@ function parseArrangement(value: string | undefined): Arrangement | undefined {
     : undefined;
 }
 
+// A stored list of layer ids: comma-separated, blank and repeated ids
+// ignored.
+export function parseLayerIdList(value: string | undefined): string[] {
+  return [
+    ...new Set(
+      (value ?? "")
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean),
+    ),
+  ];
+}
+
+export function serializeLayerIdList(ids: readonly string[]) {
+  return parseLayerIdList(ids.join(",")).join(",");
+}
+
+// Adds `layerId` to the stored list, or removes it when it is there.
+export function toggleLayerId(value: string | undefined, layerId: string) {
+  const ids = parseLayerIdList(value);
+  return serializeLayerIdList(
+    ids.includes(layerId)
+      ? ids.filter((id) => id !== layerId)
+      : [...ids, layerId],
+  );
+}
+
+// The stored list without ids of layers that no longer exist.
+export function pruneLayerIdList(
+  value: string | undefined,
+  layerIds: Iterable<string>,
+) {
+  const existing = new Set(layerIds);
+  return serializeLayerIdList(
+    parseLayerIdList(value).filter((id) => existing.has(id)),
+  );
+}
+
+// Whether `order` gives the layer `layerId` a slot. Excluded layers, and
+// every layer without an Order, cover the whole canvas instead.
+export function isLayerArranged(order: CompositionOrder, layerId: string) {
+  return (
+    order.arrangement !== "none" && !order.excludedLayers.includes(layerId)
+  );
+}
+
 // Reads an Order effect's parameters by key; missing or unreadable values
 // keep their defaults.
 export function parseCompositionOrder(
@@ -74,6 +128,11 @@ export function parseCompositionOrder(
     if (key === "arrangement") {
       order.arrangement =
         parseArrangement(parameter.value) ?? order.arrangement;
+      continue;
+    }
+
+    if (key === "excludedlayers") {
+      order.excludedLayers = parseLayerIdList(parameter.value);
       continue;
     }
 
@@ -114,7 +173,8 @@ export function resolveCompositionOrder(
 }
 
 // Layers the arrangement has room for: every layer, except that a Grid
-// draws at most one per cell.
+// draws at most one per cell. `layerCount` counts arranged layers only:
+// excluded ones take no slot.
 export function visibleLayerCount(layerCount: number, order: CompositionOrder) {
   const count = Math.max(0, layerCount);
   return order.arrangement === "grid"

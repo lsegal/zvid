@@ -44,7 +44,8 @@ export type CompositeVisual = LayerVisual & {
 };
 
 export type CompositeLayer = {
-  clip: { startQ: number };
+  // `laneId` is the layer the clip is on, which an Order can exclude.
+  clip: { startQ: number; laneId?: string };
   media: { id: string; width?: number; height?: number };
   // Key of the media element in `mediaRefs` this layer draws from.
   sourceKey: string;
@@ -619,7 +620,14 @@ export function drawComposition(
   gl.clearColor(0.07, 0.08, 0.11, 1);
   gl.clear(gl.COLOR_BUFFER_BIT);
 
-  const drawLayer = (entry: CompositeLayer, index: number, count: number) => {
+  const drawLayer = (
+    entry: CompositeLayer,
+    index: number,
+    count: number,
+    // How the layer is placed: the Order, or the z-order overlay for a
+    // layer the Order excludes.
+    layerOrder: CompositionOrder,
+  ) => {
     const mediaElement = mediaRefs.get(entry.sourceKey);
     let sourceWidth: number;
     let sourceHeight: number;
@@ -628,14 +636,14 @@ export function drawComposition(
     if (entry.fill || entry.text) {
       // Fills and text are drawn at their slot's own size, so they cover
       // the slot exactly in any arrangement.
-      const slot = resolveSlotScissor(index, count, order, width, height);
+      const slot = resolveSlotScissor(index, count, layerOrder, width, height);
       sourceWidth = Math.max(1, slot.width);
       sourceHeight = Math.max(1, slot.height);
       if (entry.text) {
         // The Transforms' scale resizes the text box, which the text is laid
         // out and drawn in at full size, rather than stretching the text.
         const band = frameBoxInCanvas(
-          resolveSlotBounds(index, count, order, width, height),
+          resolveSlotBounds(index, count, layerOrder, width, height),
           surface,
         );
         textBox = resolveClipTextBox(
@@ -693,7 +701,7 @@ export function drawComposition(
       sourceWidth,
       sourceHeight,
       visual: entry.visual,
-      order,
+      order: layerOrder,
       frame: textBox && canvasBoxToFrame(textBox.box, surface),
     });
     const { frame, halfExtents, translate, scissor } = placement;
@@ -779,8 +787,9 @@ export function drawComposition(
     drawQuad(resources, texture, uniforms);
   };
 
-  // FX clips take no slot, and a Grid has one cell per layer, so layers past
-  // the last cell are not drawn.
+  // FX clips and the layers the Order excludes take no slot, and a Grid has
+  // one cell per arranged layer, so arranged layers past the last cell are
+  // not drawn.
   const draws = planLayerDraws(
     activeClips.filter((entry) =>
       entry.fx
@@ -794,7 +803,7 @@ export function drawComposition(
   );
   for (const step of draws) {
     if (step.type === "layer") {
-      drawLayer(step.entry, step.slot, step.slotCount);
+      drawLayer(step.entry, step.slot, step.slotCount, step.order);
     } else if (scene) {
       applyFxClip(
         resources,
