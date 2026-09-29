@@ -1290,6 +1290,19 @@
   scrollbar-width: thin;
 }
 
+/* Hand-grab panning: Space shows the grab hand, and a middle- or Space-drag
+   grabs the whole timeline, overriding clip and handle cursors. */
+.timeline-scroll--space-held,
+.timeline-scroll--space-held * {
+  cursor: grab !important;
+}
+
+.timeline-scroll.is-drag-scrolling,
+.timeline-scroll.is-drag-scrolling * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
 .timeline-jump-overlay {
   position: sticky;
   top: 0;

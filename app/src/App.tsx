@@ -289,7 +289,11 @@ import {
   readSourceTracksCollapsed,
   writeSourceTracksCollapsed,
 } from "./source-tracks-section.ts";
-import { classifySpaceTarget } from "./space-shortcut";
+import {
+  classifySpaceTarget,
+  createSpaceHold,
+  isTimelinePanPress,
+} from "./space-shortcut";
 import { statusMessageTone } from "./status-bar";
 import { buildStatusItems } from "./status-items";
 import {
@@ -299,6 +303,7 @@ import {
   type ThumbnailSize,
 } from "./thumbnail-cache.ts";
 import { formatMusicalPosition, formatTimecode } from "./timeline-format.ts";
+import { useDragScroll } from "./use-drag-scroll";
 import { useThumbnailCache } from "./use-thumbnail-cache";
 import { ZVID_BUILD } from "./version";
 import { loadWaveformPeaks } from "./waveform-loader";
@@ -1999,6 +2004,7 @@ function App() {
   const compositionPlayerRef = useRef<CompositionPlayerHandle | null>(null);
   const appShellRef = useRef<HTMLDivElement | null>(null);
   const timelineScrollRef = useRef<HTMLDivElement | null>(null);
+  const spaceHoldRef = useRef(createSpaceHold());
   const arrangementLanesRef = useRef<HTMLDivElement | null>(null);
   const editorGridRef = useRef<HTMLDivElement | null>(null);
   const previewResizeRef = useRef<{
@@ -4623,29 +4629,53 @@ function App() {
 
   // Space toggles playback from anywhere except text entry and open menus or
   // dialogs. It runs in the capture phase so a focused button, menu trigger
-  // or slider never sees the key and cannot also activate.
+  // or slider never sees the key and cannot also activate. Playback toggles
+  // on release, so holding Space to pan the timeline never starts it.
   useEffect(() => {
-    let spaceKeyDownHandled = false;
+    const spaceHold = spaceHoldRef.current;
+    const setSpaceHeldClass = (held: boolean) =>
+      timelineScrollRef.current?.classList.toggle(
+        "timeline-scroll--space-held",
+        held,
+      );
 
     const onSpaceKeyDown = (event: KeyboardEvent) => {
       if (event.code !== "Space") {
         return;
       }
 
-      spaceKeyDownHandled = false;
       if (
         event.metaKey ||
         event.ctrlKey ||
         event.altKey ||
         classifySpaceTarget(event.target, document) !== "playback"
       ) {
+        spaceHold.cancel();
+        setSpaceHeldClass(false);
         return;
       }
 
       event.preventDefault();
       event.stopPropagation();
-      spaceKeyDownHandled = true;
-      if (event.repeat || dragState || timelineDragState || !clips.length) {
+      spaceHold.press();
+      setSpaceHeldClass(true);
+    };
+
+    // Native buttons activate on Space keyup, so swallow the matching keyup.
+    const onSpaceKeyUp = (event: KeyboardEvent) => {
+      if (event.code !== "Space" || !spaceHold.held) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      setSpaceHeldClass(false);
+      if (
+        !spaceHold.release() ||
+        dragState ||
+        timelineDragState ||
+        !clips.length
+      ) {
         return;
       }
 
@@ -4658,22 +4688,18 @@ function App() {
       startPlayback();
     };
 
-    // Native buttons activate on Space keyup, so swallow the matching keyup.
-    const onSpaceKeyUp = (event: KeyboardEvent) => {
-      if (event.code !== "Space" || !spaceKeyDownHandled) {
-        return;
-      }
-
-      spaceKeyDownHandled = false;
-      event.preventDefault();
-      event.stopPropagation();
+    const onBlur = () => {
+      spaceHold.cancel();
+      setSpaceHeldClass(false);
     };
 
     window.addEventListener("keydown", onSpaceKeyDown, true);
     window.addEventListener("keyup", onSpaceKeyUp, true);
+    window.addEventListener("blur", onBlur);
     return () => {
       window.removeEventListener("keydown", onSpaceKeyDown, true);
       window.removeEventListener("keyup", onSpaceKeyUp, true);
+      window.removeEventListener("blur", onBlur);
     };
   }, [
     cancelScrubPlaybackResume,
@@ -4683,6 +4709,21 @@ function App() {
     startPlayback,
     timelineDragState,
   ]);
+
+  // Middle-drag, or Space + left-drag, pans the timeline from anywhere in it,
+  // including over clips. The press is claimed before lane, clip and ruler
+  // handlers see it, so a pan never selects, edits clips or moves the playhead.
+  useDragScroll(timelineScrollRef, {
+    axis: "both",
+    suppressMiddleClick: true,
+    canStart: (event) =>
+      isTimelinePanPress(event, spaceHoldRef.current.held),
+    onStart: (event) => {
+      if (event.button === 0) {
+        spaceHoldRef.current.markPanned();
+      }
+    },
+  });
 
   // Clipboard and edit actions shared by the keyboard shortcuts and the clip
   // menus. Each is one undo step.

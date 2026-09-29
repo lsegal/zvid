@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
-import { classifySpaceTarget, isTextEntryTarget } from "./space-shortcut.ts";
+import {
+  classifySpaceTarget,
+  createSpaceHold,
+  isTextEntryTarget,
+  isTimelinePanPress,
+} from "./space-shortcut.ts";
 
 const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
 
@@ -105,6 +110,57 @@ describe("space shortcut target classification", () => {
     assert.match(
       appTsx,
       /window\.addEventListener\("keyup", onSpaceKeyUp, true\)/,
+    );
+  });
+});
+
+describe("space hold for hand-grab panning", () => {
+  it("toggles playback on release when Space was not used to pan", () => {
+    const hold = createSpaceHold();
+    hold.press();
+    assert.equal(hold.held, true);
+    // Key repeat keeps the same hold.
+    hold.press();
+    assert.equal(hold.release(), true);
+    assert.equal(hold.held, false);
+  });
+
+  it("does not toggle playback when Space was held for a pan", () => {
+    const hold = createSpaceHold();
+    hold.press();
+    hold.markPanned();
+    hold.press();
+    assert.equal(hold.release(), false);
+
+    // The next plain tap toggles again.
+    hold.press();
+    assert.equal(hold.release(), true);
+  });
+
+  it("ignores releases without a press and cancelled holds", () => {
+    const hold = createSpaceHold();
+    hold.markPanned();
+    assert.equal(hold.release(), false);
+    hold.press();
+    hold.cancel();
+    assert.equal(hold.held, false);
+    assert.equal(hold.release(), false);
+  });
+
+  it("pans on a middle press, or a left press while Space is held", () => {
+    assert.equal(isTimelinePanPress({ button: 1 }, false), true);
+    assert.equal(isTimelinePanPress({ button: 1 }, true), true);
+    assert.equal(isTimelinePanPress({ button: 0 }, true), true);
+    assert.equal(isTimelinePanPress({ button: 0 }, false), false);
+    assert.equal(isTimelinePanPress({ button: 2 }, true), false);
+  });
+
+  it("toggles playback on keyup and pans the timeline scroller", () => {
+    assert.match(appTsx, /spaceHold\.release\(\)/);
+    assert.match(appTsx, /useDragScroll\(timelineScrollRef, \{/);
+    assert.match(
+      appTsx,
+      /isTimelinePanPress\(event, spaceHoldRef\.current\.held\)/,
     );
   });
 });
