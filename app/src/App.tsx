@@ -28,6 +28,11 @@ import {
   isAlsFilename,
 } from "./als-import";
 import {
+  hasArrangementActivity,
+  isArrangementEmptyStateDismissedOnOpen,
+  shouldShowArrangementEmptyState,
+} from "./arrangement-empty-state.ts";
+import {
   applyWandArrangement,
   createWandLanes,
   getWandEndQ,
@@ -66,6 +71,7 @@ import {
   type CollaborationController,
   createCollaborationController,
 } from "./collaboration";
+import { ArrangementEmptyState } from "./components/ArrangementEmptyState";
 import {
   APP_BUILD_LABEL,
   BrandMark,
@@ -110,6 +116,7 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
+import { WandIcon } from "./components/WandIcon";
 import { isContextMenuKey } from "./context-menu.ts";
 import {
   getDefaultLaneId,
@@ -344,6 +351,9 @@ type ExportState = {
 type TimelineViewport = {
   scrollLeft: number;
   clientWidth: number;
+  clientHeight: number;
+  // Height of the sticky ruler above the arrangement lanes.
+  lanesTop: number;
 };
 
 type SourceTrackDropTarget =
@@ -1764,6 +1774,8 @@ function App() {
   const [selectedLaneId, setSelectedLaneId] = useState<string>();
   const [pendingSelection, setPendingSelection] =
     useState<TimelineSelection | null>(null);
+  const [arrangementEmptyStateDismissed, setArrangementEmptyStateDismissed] =
+    useState(false);
   const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(
     readInspectorCollapsed,
   );
@@ -1792,6 +1804,8 @@ function App() {
   const [timelineViewport, setTimelineViewport] = useState<TimelineViewport>({
     scrollLeft: 0,
     clientWidth: 0,
+    clientHeight: 0,
+    lanesTop: 0,
   });
   const [status, setStatus] = useState(
     "Open a session or import media to get started.",
@@ -1867,6 +1881,7 @@ function App() {
   const compositionPlayerRef = useRef<CompositionPlayerHandle | null>(null);
   const appShellRef = useRef<HTMLDivElement | null>(null);
   const timelineScrollRef = useRef<HTMLDivElement | null>(null);
+  const arrangementLanesRef = useRef<HTMLDivElement | null>(null);
   const editorGridRef = useRef<HTMLDivElement | null>(null);
   const previewResizeRef = useRef<{
     pointerId: number;
@@ -2271,6 +2286,22 @@ function App() {
       timelineClips[0],
     [selectedClipId, timelineClips],
   );
+  const showArrangementEmptyState = shouldShowArrangementEmptyState({
+    clipCount: clips.length,
+    sourceSpanCount: sourceSpans.length,
+    dismissed: arrangementEmptyStateDismissed,
+  });
+  useEffect(() => {
+    if (
+      hasArrangementActivity({
+        clipCount: clips.length,
+        hasClipSelection: selectedClipId !== undefined,
+        hasPendingSelection: pendingSelection !== null,
+      })
+    ) {
+      setArrangementEmptyStateDismissed(true);
+    }
+  }, [clips.length, pendingSelection, selectedClipId]);
   const playheadClip = useMemo(
     () => findClipAtPlayhead(timelineClips, playheadQ, bpm, lanePriority),
     [bpm, lanePriority, playheadQ, timelineClips],
@@ -3329,6 +3360,8 @@ function App() {
     setTimelineViewport({
       scrollLeft: timelineScroll.scrollLeft,
       clientWidth: timelineScroll.clientWidth,
+      clientHeight: timelineScroll.clientHeight,
+      lanesTop: arrangementLanesRef.current?.offsetTop ?? 0,
     });
   }, []);
 
@@ -4888,8 +4921,24 @@ function App() {
 
     const handleResize = () => syncTimelineViewport();
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    // Panel and preview resizes change the timeline's size without a window
+    // resize.
+    const observer = new ResizeObserver(handleResize);
+    if (timelineScrollRef.current) {
+      observer.observe(timelineScrollRef.current);
+    }
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      observer.disconnect();
+    };
   }, [syncTimelineViewport]);
+
+  // The empty arrangement's call to action sizes itself below the ruler.
+  useEffect(() => {
+    if (showArrangementEmptyState) {
+      syncTimelineViewport();
+    }
+  }, [showArrangementEmptyState, syncTimelineViewport]);
 
   useEffect(() => {
     if (!dragState) {
@@ -5300,6 +5349,12 @@ function App() {
     }
 
     const project = sessionToProject(session, placeholderMedia);
+    // A stale selection from the previous session would dismiss the empty
+    // arrangement's call to action as soon as it appears.
+    setSelectedClipId(undefined);
+    setArrangementEmptyStateDismissed(
+      isArrangementEmptyStateDismissedOnOpen(project.arrangementClips.length),
+    );
     logClient("openSession:project", {
       clips: project.arrangementClips.length,
       lanes: project.lanes.length,
@@ -6841,330 +6896,355 @@ function App() {
                     </div>
                   </section>
 
-                  {lanes.map((lane, laneIndex) => (
-                    <section
-                      key={lane.id}
-                      className={`track-row ${lane.id === fxLaneId ? "track-row--selected" : ""}`}
-                    >
-                      {/* biome-ignore lint/a11y/noStaticElementInteractions: clicking anywhere on the label is a mouse shortcut; the layer name button is the keyboard equivalent */}
-                      {/* biome-ignore lint/a11y/useKeyWithClickEvents: the layer name button handles the keyboard */}
-                      <div
-                        className="track-label track-label--lane"
-                        onClick={(event) => {
-                          if (
-                            event.target instanceof Element &&
-                            event.target.closest(".track-label__fx")
-                          ) {
-                            return;
-                          }
-                          selectLaneFromLabel(lane.id);
-                        }}
+                  <div ref={arrangementLanesRef} className="arrangement-lanes">
+                    {showArrangementEmptyState ? (
+                      <ArrangementEmptyState
+                        disabled={isExporting}
+                        onDismiss={() =>
+                          setArrangementEmptyStateDismissed(true)
+                        }
+                        onGenerate={handleRandomizeTimeline}
+                        top={timelineViewport.lanesTop}
+                        visibleHeight={
+                          timelineViewport.clientHeight -
+                          timelineViewport.lanesTop
+                        }
+                        visibleWidth={visibleTimelineWidthPx}
+                      />
+                    ) : null}
+                    {lanes.map((lane, laneIndex) => (
+                      <section
+                        key={lane.id}
+                        className={`track-row ${lane.id === fxLaneId ? "track-row--selected" : ""}`}
                       >
-                        <div className="track-label__index">
-                          {laneIndex + 1}
-                        </div>
-                        <button
-                          aria-current={
-                            lane.id === fxLaneId ? "true" : undefined
-                          }
-                          className="track-label__select"
-                          data-lane-label-id={lane.id}
-                          tabIndex={lane.id === fxLaneId ? 0 : -1}
-                          type="button"
-                        >
-                          <span>{lane.name}</span>
-                          <small>{laneStatusById.get(lane.id)?.summary}</small>
-                        </button>
-                        <button
-                          aria-label={`${lane.name} effects`}
-                          aria-pressed={laneStatusById.get(lane.id)?.fxToggle}
-                          className={`track-label__fx ${laneStatusById.get(lane.id)?.fxClassName ?? ""}`}
-                          disabled={!laneStatusById.get(lane.id)?.effectCount}
+                        {/* biome-ignore lint/a11y/noStaticElementInteractions: clicking anywhere on the label is a mouse shortcut; the layer name button is the keyboard equivalent */}
+                        {/* biome-ignore lint/a11y/useKeyWithClickEvents: the layer name button handles the keyboard */}
+                        <div
+                          className="track-label track-label--lane"
                           onClick={(event) => {
-                            event.stopPropagation();
-                            setLayerFxEnabled(lane.id, !isLayerFxEnabled(lane));
+                            if (
+                              event.target instanceof Element &&
+                              event.target.closest(".track-label__fx")
+                            ) {
+                              return;
+                            }
+                            selectLaneFromLabel(lane.id);
                           }}
-                          title={laneStatusById.get(lane.id)?.fxTitle}
-                          type="button"
                         >
-                          fx
-                        </button>
-                      </div>
-                      {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click is a pointer shortcut; the context-menu key and Shift+F10 open the same menu on the selected layer */}
-                      <div
-                        className="track-row__content track-row__content--arrangement"
-                        data-timeline-lane-id={lane.id}
-                        onContextMenu={(event) => openLaneMenu(event, lane.id)}
-                        onPointerDown={(event) => {
-                          // Right-click opens the lane menu instead.
-                          if (
-                            event.target !== event.currentTarget ||
-                            event.button === 2
-                          ) {
-                            return;
-                          }
-
-                          event.preventDefault();
-                          setSelectedClipId(undefined);
-                          setSelectedLaneId(lane.id);
-                          setIsPlaying(false);
-                          setDragPreviewClips(null);
-
-                          const timelineScroll = timelineScrollRef.current;
-                          if (!timelineScroll) {
-                            return;
-                          }
-
-                          const timelineBounds =
-                            timelineScroll.getBoundingClientRect();
-                          const pointerX = event.clientX - timelineBounds.left;
-                          const anchorQ = snapQuarterValue(
-                            clamp(
-                              (timelineScroll.scrollLeft -
-                                labelWidth +
-                                pointerX) /
-                                quarterPx,
-                              0,
-                              totalQuarters,
-                            ),
-                            snapUnit,
-                            snapEnabled && !event.shiftKey,
-                          );
-                          setPendingSelection({
-                            id: `selection-${lane.id}`,
-                            laneId: lane.id,
-                            startQ: anchorQ,
-                            durationQ: minimumWindowQ,
-                          });
-                          setDragState({
-                            kind: "selection",
-                            pointerId: event.pointerId,
-                            laneId: lane.id,
-                            anchorQ,
-                          });
-                        }}
-                        style={gridStyle}
-                      >
-                        {pendingSelection?.laneId === lane.id ? (
-                          <div
-                            className="timeline-selection"
-                            style={{
-                              left: pendingSelection.startQ * quarterPx,
-                              width: pendingSelection.durationQ * quarterPx,
-                            }}
-                          >
-                            <span>Press 1-9 to commit</span>
+                          <div className="track-label__index">
+                            {laneIndex + 1}
                           </div>
-                        ) : null}
-                        {(clipsByLane.get(lane.id) ?? []).map((clip) => {
-                          const selected = clip.id === selectedClip?.id;
-                          const durationQ = getClipDurationQ(clip, bpm);
-                          const media = clip.mediaId
-                            ? mediaItemsById.get(clip.mediaId)
-                            : undefined;
-                          const mediaState = describeClipMediaState(
-                            clip,
-                            media?.availability,
-                          );
-                          const thumbnailUrl =
-                            media?.hasVideo && mediaState === "online"
-                              ? (thumbnails.get(
-                                  getThumbnailCacheKey(
-                                    media.id,
-                                    getClipThumbnailTimeSeconds(
-                                      clip,
-                                      media.durationSeconds,
-                                      bpm,
-                                    ),
-                                    clipFilmstrips.get(clip.id)?.size,
-                                  ),
-                                  `clip:${clip.id}`,
-                                ) ?? media.thumbnailUrl)
-                              : undefined;
-                          const filmstrip =
-                            media?.hasVideo && mediaState === "online"
-                              ? clipFilmstrips.get(clip.id)
-                              : undefined;
-                          return (
-                            // biome-ignore lint/a11y/noStaticElementInteractions: right-click is a pointer shortcut; the context-menu key and Shift+F10 open the same menu on the selected clip
+                          <button
+                            aria-current={
+                              lane.id === fxLaneId ? "true" : undefined
+                            }
+                            className="track-label__select"
+                            data-lane-label-id={lane.id}
+                            tabIndex={lane.id === fxLaneId ? 0 : -1}
+                            type="button"
+                          >
+                            <span>{lane.name}</span>
+                            <small>
+                              {laneStatusById.get(lane.id)?.summary}
+                            </small>
+                          </button>
+                          <button
+                            aria-label={`${lane.name} effects`}
+                            aria-pressed={laneStatusById.get(lane.id)?.fxToggle}
+                            className={`track-label__fx ${laneStatusById.get(lane.id)?.fxClassName ?? ""}`}
+                            disabled={!laneStatusById.get(lane.id)?.effectCount}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setLayerFxEnabled(
+                                lane.id,
+                                !isLayerFxEnabled(lane),
+                              );
+                            }}
+                            title={laneStatusById.get(lane.id)?.fxTitle}
+                            type="button"
+                          >
+                            fx
+                          </button>
+                        </div>
+                        {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click is a pointer shortcut; the context-menu key and Shift+F10 open the same menu on the selected layer */}
+                        <div
+                          className="track-row__content track-row__content--arrangement"
+                          data-timeline-lane-id={lane.id}
+                          onContextMenu={(event) =>
+                            openLaneMenu(event, lane.id)
+                          }
+                          onPointerDown={(event) => {
+                            // Right-click opens the lane menu instead.
+                            if (
+                              event.target !== event.currentTarget ||
+                              event.button === 2
+                            ) {
+                              return;
+                            }
+
+                            event.preventDefault();
+                            setSelectedClipId(undefined);
+                            setSelectedLaneId(lane.id);
+                            setIsPlaying(false);
+                            setDragPreviewClips(null);
+
+                            const timelineScroll = timelineScrollRef.current;
+                            if (!timelineScroll) {
+                              return;
+                            }
+
+                            const timelineBounds =
+                              timelineScroll.getBoundingClientRect();
+                            const pointerX =
+                              event.clientX - timelineBounds.left;
+                            const anchorQ = snapQuarterValue(
+                              clamp(
+                                (timelineScroll.scrollLeft -
+                                  labelWidth +
+                                  pointerX) /
+                                  quarterPx,
+                                0,
+                                totalQuarters,
+                              ),
+                              snapUnit,
+                              snapEnabled && !event.shiftKey,
+                            );
+                            setPendingSelection({
+                              id: `selection-${lane.id}`,
+                              laneId: lane.id,
+                              startQ: anchorQ,
+                              durationQ: minimumWindowQ,
+                            });
+                            setDragState({
+                              kind: "selection",
+                              pointerId: event.pointerId,
+                              laneId: lane.id,
+                              anchorQ,
+                            });
+                          }}
+                          style={gridStyle}
+                        >
+                          {pendingSelection?.laneId === lane.id ? (
                             <div
-                              key={clip.id}
-                              className={`clip-card ${selected ? "clip-card--selected" : ""} ${filmstrip ? "clip-card--filmstrip" : ""}`}
-                              data-clip-id={clip.id}
-                              onContextMenu={(event) =>
-                                openArrangementClipMenu(event, clip)
-                              }
-                              onPointerDown={(event) => {
-                                // Right-click selects through the menu
-                                // instead of starting a drag or a lane
-                                // selection.
-                                if (event.button === 2) {
-                                  event.stopPropagation();
-                                }
-                              }}
+                              className="timeline-selection"
                               style={{
-                                left: clip.startQ * quarterPx,
-                                width: durationQ * quarterPx,
-                                ["--clip-accent" as string]: clip.accent,
-                                backgroundColor: clip.tint,
-                                borderColor: clip.accent,
-                                boxShadow: selected
-                                  ? `0 0 0 2px ${clip.accent}`
-                                  : undefined,
-                                opacity: mediaState === "online" ? 1 : 0.62,
+                                left: pendingSelection.startQ * quarterPx,
+                                width: pendingSelection.durationQ * quarterPx,
                               }}
                             >
-                              {filmstrip ? (
-                                <span
-                                  aria-hidden="true"
-                                  className="clip-card__filmstrip"
-                                >
-                                  {filmstrip.tiles.map((tile) => {
-                                    // A tile shows the clip's first frame
-                                    // until its own frame is decoded.
-                                    const tileUrl =
-                                      thumbnails.get(
-                                        getThumbnailCacheKey(
-                                          filmstrip.media.id,
-                                          tile.timeSeconds,
-                                          filmstrip.size,
-                                        ),
-                                        getFilmstripTileOwner(
-                                          "clip",
-                                          clip.id,
-                                          tile.index,
-                                        ),
-                                      ) ?? thumbnailUrl;
-                                    return (
-                                      <span
-                                        key={tile.index}
-                                        className="clip-card__tile"
-                                        style={{
-                                          left: tile.leftPx,
-                                          width: tile.widthPx,
-                                          backgroundImage: tileUrl
-                                            ? `url(${tileUrl})`
-                                            : undefined,
-                                        }}
-                                      />
-                                    );
-                                  })}
-                                </span>
-                              ) : null}
-                              <button
-                                className="clip-card__handle clip-card__handle--start"
+                              <span>Press 1-9 to commit</span>
+                            </div>
+                          ) : null}
+                          {(clipsByLane.get(lane.id) ?? []).map((clip) => {
+                            const selected = clip.id === selectedClip?.id;
+                            const durationQ = getClipDurationQ(clip, bpm);
+                            const media = clip.mediaId
+                              ? mediaItemsById.get(clip.mediaId)
+                              : undefined;
+                            const mediaState = describeClipMediaState(
+                              clip,
+                              media?.availability,
+                            );
+                            const thumbnailUrl =
+                              media?.hasVideo && mediaState === "online"
+                                ? (thumbnails.get(
+                                    getThumbnailCacheKey(
+                                      media.id,
+                                      getClipThumbnailTimeSeconds(
+                                        clip,
+                                        media.durationSeconds,
+                                        bpm,
+                                      ),
+                                      clipFilmstrips.get(clip.id)?.size,
+                                    ),
+                                    `clip:${clip.id}`,
+                                  ) ?? media.thumbnailUrl)
+                                : undefined;
+                            const filmstrip =
+                              media?.hasVideo && mediaState === "online"
+                                ? clipFilmstrips.get(clip.id)
+                                : undefined;
+                            return (
+                              // biome-ignore lint/a11y/noStaticElementInteractions: right-click is a pointer shortcut; the context-menu key and Shift+F10 open the same menu on the selected clip
+                              <div
+                                key={clip.id}
+                                className={`clip-card ${selected ? "clip-card--selected" : ""} ${filmstrip ? "clip-card--filmstrip" : ""}`}
+                                data-clip-id={clip.id}
+                                onContextMenu={(event) =>
+                                  openArrangementClipMenu(event, clip)
+                                }
                                 onPointerDown={(event) => {
+                                  // Right-click selects through the menu
+                                  // instead of starting a drag or a lane
+                                  // selection.
                                   if (event.button === 2) {
-                                    return;
-                                  }
-
-                                  event.preventDefault();
-                                  event.stopPropagation();
-                                  setPendingSelection(null);
-                                  setDragPreviewClips(null);
-                                  setSelectedClipId(clip.id);
-                                  setDragState({
-                                    kind: "resize-start",
-                                    pointerId: event.pointerId,
-                                    clipId: clip.id,
-                                    pointerStartX: event.clientX,
-                                    originStartQ: clip.startQ,
-                                    originDurationQ: durationQ,
-                                  });
-                                }}
-                                type="button"
-                              />
-                              <button
-                                className="clip-card__body"
-                                onClick={() => {
-                                  setPendingSelection(null);
-                                  setSelectedClipId(clip.id);
-                                  if (!isPlaying) {
-                                    setPlayheadQ(clip.startQ);
-                                    playbackOriginRef.current = clip.startQ;
+                                    event.stopPropagation();
                                   }
                                 }}
-                                onPointerDown={(event) => {
-                                  if (event.button === 2) {
-                                    return;
-                                  }
-
-                                  event.preventDefault();
-                                  event.stopPropagation();
-                                  setPendingSelection(null);
-                                  setDragPreviewClips(null);
-                                  const duplicateOnDrag =
-                                    event.ctrlKey || event.metaKey;
-                                  const dragClipId = duplicateOnDrag
-                                    ? `window-${crypto.randomUUID()}`
-                                    : clip.id;
-                                  setSelectedClipId(dragClipId);
-                                  setDragState({
-                                    kind: "move",
-                                    pointerId: event.pointerId,
-                                    clipId: dragClipId,
-                                    sourceClipId: clip.id,
-                                    pointerStartX: event.clientX,
-                                    originStartQ: clip.startQ,
-                                    originDurationQ: durationQ,
-                                    originLaneId: clip.laneId,
-                                    duplicateOnDrag,
-                                  });
+                                style={{
+                                  left: clip.startQ * quarterPx,
+                                  width: durationQ * quarterPx,
+                                  ["--clip-accent" as string]: clip.accent,
+                                  backgroundColor: clip.tint,
+                                  borderColor: clip.accent,
+                                  boxShadow: selected
+                                    ? `0 0 0 2px ${clip.accent}`
+                                    : undefined,
+                                  opacity: mediaState === "online" ? 1 : 0.62,
                                 }}
-                                type="button"
                               >
-                                {thumbnailUrl && !filmstrip ? (
+                                {filmstrip ? (
                                   <span
                                     aria-hidden="true"
-                                    className="clip-card__thumb"
-                                    style={{
-                                      backgroundImage: `url(${thumbnailUrl})`,
-                                    }}
-                                  />
-                                ) : null}
-                                <span className="clip-card__text">
-                                  <strong>{clip.label}</strong>
-                                  <span className="clip-card__meta">
-                                    {formatMusicalPosition(
-                                      clip.startQ,
-                                      signature,
-                                    )}{" "}
-                                    / {formatDuration(clip.durationSeconds)}
-                                    {mediaState === "online"
-                                      ? ""
-                                      : ` / ${formatClipMediaState(mediaState)}`}
+                                    className="clip-card__filmstrip"
+                                  >
+                                    {filmstrip.tiles.map((tile) => {
+                                      // A tile shows the clip's first frame
+                                      // until its own frame is decoded.
+                                      const tileUrl =
+                                        thumbnails.get(
+                                          getThumbnailCacheKey(
+                                            filmstrip.media.id,
+                                            tile.timeSeconds,
+                                            filmstrip.size,
+                                          ),
+                                          getFilmstripTileOwner(
+                                            "clip",
+                                            clip.id,
+                                            tile.index,
+                                          ),
+                                        ) ?? thumbnailUrl;
+                                      return (
+                                        <span
+                                          key={tile.index}
+                                          className="clip-card__tile"
+                                          style={{
+                                            left: tile.leftPx,
+                                            width: tile.widthPx,
+                                            backgroundImage: tileUrl
+                                              ? `url(${tileUrl})`
+                                              : undefined,
+                                          }}
+                                        />
+                                      );
+                                    })}
                                   </span>
-                                </span>
-                              </button>
-                              <button
-                                className="clip-card__handle clip-card__handle--end"
-                                onPointerDown={(event) => {
-                                  if (event.button === 2) {
-                                    return;
-                                  }
+                                ) : null}
+                                <button
+                                  className="clip-card__handle clip-card__handle--start"
+                                  onPointerDown={(event) => {
+                                    if (event.button === 2) {
+                                      return;
+                                    }
 
-                                  event.preventDefault();
-                                  event.stopPropagation();
-                                  setPendingSelection(null);
-                                  setDragPreviewClips(null);
-                                  setSelectedClipId(clip.id);
-                                  setDragState({
-                                    kind: "resize-end",
-                                    pointerId: event.pointerId,
-                                    clipId: clip.id,
-                                    pointerStartX: event.clientX,
-                                    originStartQ: clip.startQ,
-                                    originDurationQ: durationQ,
-                                  });
-                                }}
-                                type="button"
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </section>
-                  ))}
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    setPendingSelection(null);
+                                    setDragPreviewClips(null);
+                                    setSelectedClipId(clip.id);
+                                    setDragState({
+                                      kind: "resize-start",
+                                      pointerId: event.pointerId,
+                                      clipId: clip.id,
+                                      pointerStartX: event.clientX,
+                                      originStartQ: clip.startQ,
+                                      originDurationQ: durationQ,
+                                    });
+                                  }}
+                                  type="button"
+                                />
+                                <button
+                                  className="clip-card__body"
+                                  onClick={() => {
+                                    setPendingSelection(null);
+                                    setSelectedClipId(clip.id);
+                                    if (!isPlaying) {
+                                      setPlayheadQ(clip.startQ);
+                                      playbackOriginRef.current = clip.startQ;
+                                    }
+                                  }}
+                                  onPointerDown={(event) => {
+                                    if (event.button === 2) {
+                                      return;
+                                    }
+
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    setPendingSelection(null);
+                                    setDragPreviewClips(null);
+                                    const duplicateOnDrag =
+                                      event.ctrlKey || event.metaKey;
+                                    const dragClipId = duplicateOnDrag
+                                      ? `window-${crypto.randomUUID()}`
+                                      : clip.id;
+                                    setSelectedClipId(dragClipId);
+                                    setDragState({
+                                      kind: "move",
+                                      pointerId: event.pointerId,
+                                      clipId: dragClipId,
+                                      sourceClipId: clip.id,
+                                      pointerStartX: event.clientX,
+                                      originStartQ: clip.startQ,
+                                      originDurationQ: durationQ,
+                                      originLaneId: clip.laneId,
+                                      duplicateOnDrag,
+                                    });
+                                  }}
+                                  type="button"
+                                >
+                                  {thumbnailUrl && !filmstrip ? (
+                                    <span
+                                      aria-hidden="true"
+                                      className="clip-card__thumb"
+                                      style={{
+                                        backgroundImage: `url(${thumbnailUrl})`,
+                                      }}
+                                    />
+                                  ) : null}
+                                  <span className="clip-card__text">
+                                    <strong>{clip.label}</strong>
+                                    <span className="clip-card__meta">
+                                      {formatMusicalPosition(
+                                        clip.startQ,
+                                        signature,
+                                      )}{" "}
+                                      / {formatDuration(clip.durationSeconds)}
+                                      {mediaState === "online"
+                                        ? ""
+                                        : ` / ${formatClipMediaState(mediaState)}`}
+                                    </span>
+                                  </span>
+                                </button>
+                                <button
+                                  className="clip-card__handle clip-card__handle--end"
+                                  onPointerDown={(event) => {
+                                    if (event.button === 2) {
+                                      return;
+                                    }
+
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    setPendingSelection(null);
+                                    setDragPreviewClips(null);
+                                    setSelectedClipId(clip.id);
+                                    setDragState({
+                                      kind: "resize-end",
+                                      pointerId: event.pointerId,
+                                      clipId: clip.id,
+                                      pointerStartX: event.clientX,
+                                      originStartQ: clip.startQ,
+                                      originDurationQ: durationQ,
+                                    });
+                                  }}
+                                  type="button"
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    ))}
+                  </div>
 
                   <section
                     aria-label="Main audio drop area"
@@ -7830,12 +7910,7 @@ function App() {
                   title="Replace the arrangement with randomized selections"
                   type="button"
                 >
-                  <svg aria-hidden="true" viewBox="0 0 24 24">
-                    <path
-                      d="M4.75 18.19 2.5 20.44l1.06 1.06 2.25-2.25 1.13 1.13L20.5 6.81l-3.19-3.19L3.63 17.06l1.12 1.13Zm13.62-13.06 1.06 1.06-1.31 1.31-1.06-1.06 1.31-1.31ZM12 3.25l.52 1.98 1.98.52-1.98.52L12 8.25l-.52-1.98-1.98-.52 1.98-.52L12 3.25Zm6.75 6.5.39 1.46 1.46.39-1.46.39-.39 1.46-.39-1.46-1.46-.39 1.46-.39.39-1.46Zm-9 6 .39 1.46 1.46.39-1.46.39-.39 1.46-.39-1.46-1.46-.39 1.46-.39.39-1.46Z"
-                      fill="currentColor"
-                    />
-                  </svg>
+                  <WandIcon />
                 </button>
               </div>
             </div>
