@@ -2552,20 +2552,19 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   timelineClipsRef.current = timelineClips;
   // A clip being Ctrl/Cmd-dragged to duplicate it is drawn with its source
   // clip's stack; the drop commits the copy's own.
-  const duplicateDrag =
-    dragPreviewClips && dragState?.kind === "move" && dragState.duplicateOnDrag
-      ? dragState
-      : undefined;
+  const isDuplicateDragging = Boolean(
+    dragPreviewClips && dragState?.kind === "move" && dragState.duplicateOnDrag,
+  );
   const timelineEffects = useMemo(
     () =>
-      duplicateDrag
+      isDuplicateDragging && dragState?.kind === "move"
         ? previewDuplicateClipEffects(
             effects,
-            duplicateDrag.sourceClipId,
-            duplicateDrag.clipId,
+            dragState.sourceClipId,
+            dragState.clipId,
           )
         : effects,
-    [duplicateDrag?.clipId, duplicateDrag?.sourceClipId, effects],
+    [dragState, effects, isDuplicateDragging],
   );
   const resolvedZoom = zoomDraft ?? zoom;
 

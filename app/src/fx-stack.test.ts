@@ -20,6 +20,7 @@ import {
   mapEffects,
   mapSessionEffectsToDevices,
   moveEffect,
+  previewDuplicateClipEffects,
   pruneClipEffects,
   removeEffect,
   renameClipEffectTracks,
@@ -1020,6 +1021,33 @@ describe("clip stacks", () => {
   it("leaves effects alone when the source clip has no stack", () => {
     const effects = [createEffect("6", "Pixelate", "p")];
     assert.equal(copyClipEffects(effects, [["clip-1", "clip-2"]]), effects);
+  });
+
+  it("previews a duplicate's stack without touching the effects", () => {
+    const transform = createEffect(clipTrack, "Transform", "t");
+    const effects = [transform, createEffect("6", "Pixelate", "p")];
+    const snapshot = structuredClone(effects);
+    const preview = previewDuplicateClipEffects(effects, "clip-1", "clip-2");
+    assert.deepEqual(
+      preview.map((effect) => [effect.id, effect.trackId, effect.effectName]),
+      [
+        ["t", clipTrack, "Transform"],
+        ["p", "6", "Pixelate"],
+        ["clip:clip-2:preview-1", "clip:clip-2", "Transform"],
+      ],
+    );
+    assert.deepEqual(preview[2].parameters, transform.parameters);
+    // Nothing is written back, so cancelling the drag leaves no stack.
+    assert.deepEqual(effects, snapshot);
+    // Redrawing the drag gives the same ids.
+    assert.deepEqual(
+      previewDuplicateClipEffects(effects, "clip-1", "clip-2"),
+      preview,
+    );
+    assert.equal(
+      previewDuplicateClipEffects(effects, "clip-3", "clip-4"),
+      effects,
+    );
   });
 
   it("drops the stacks of clips that are gone", () => {

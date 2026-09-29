@@ -11,6 +11,7 @@ import {
   orderStackedLayers,
   resolveLayerPlacement,
 } from "./composition-layout.ts";
+import { copyClipEffects, previewDuplicateClipEffects } from "./fx-stack.ts";
 
 // dogfood3.lvp: 126.4 BPM at 30 fps, mapped the way sessionToProject maps a
 // session's selections onto its source clips.
@@ -554,6 +555,48 @@ describe("clip stacks", () => {
       ).clipTransform,
       undefined,
     );
+  });
+
+  it("draws a Ctrl/Cmd-drag duplicate with its source's stack, as after the drop", () => {
+    const source = DOGFOOD3_CLIPS.find((clip) => clip.id === "selection-14");
+    assert.ok(source);
+    // The in-flight copy starts with its source, on its lane, so it is the
+    // clip the lane shows.
+    const copy: ArrangementClip = { ...source, id: "selection-14-copy" };
+    const clips = [...DOGFOOD3_CLIPS, copy];
+    const effects = [
+      effect("layer", "1", "Transform", [["PositionX", 0.25]]),
+      effect("clip", clipTrack, "Transform", [["ScaleX", 0.5]]),
+      effect("clip-2", clipTrack, "Colorize", [["_HueOffset", -0.5]]),
+    ];
+    const draw = (stack: ReturnType<typeof effect>[]) => {
+      const entry = computeActiveClips(
+        clips,
+        new Map(MEDIA.map((item) => [item.id, item])),
+        PLAYHEAD_Q,
+        BPM,
+        LANE_PRIORITY,
+        stack,
+      ).find((candidate) => candidate.clip.id === copy.id);
+      assert.ok(entry);
+      return {
+        visual: entry.visual,
+        chain: entry.effectChain.map((step) => [
+          step.pass.effectName,
+          step.parameters,
+        ]),
+      };
+    };
+
+    // Without the source's stack the copy loses its clip Transform.
+    assert.equal(draw(effects).visual.clipTransform, undefined);
+
+    const during = draw(
+      previewDuplicateClipEffects(effects, source.id, copy.id),
+    );
+    const afterDrop = draw(copyClipEffects(effects, [[source.id, copy.id]]));
+    assert.equal(during.visual.clipTransform?.scaleX, 0.5);
+    assert.deepEqual(during, afterDrop);
   });
 
   it("lets a clip's visual parameters override its layer's and Global's", () => {
