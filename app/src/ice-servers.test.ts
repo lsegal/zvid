@@ -191,9 +191,13 @@ describe("loadIceServers", () => {
     const { events, log } = recordLog();
     const fetcher = ((_input: RequestInfo | URL, init?: RequestInit) =>
       new Promise((_resolve, reject) => {
-        init?.signal?.addEventListener("abort", () =>
-          reject(init.signal?.reason),
-        );
+        // AbortSignal.timeout's timer doesn't keep Node's event loop alive,
+        // as a pending request would.
+        const pending = setInterval(() => {}, 1000);
+        init?.signal?.addEventListener("abort", () => {
+          clearInterval(pending);
+          reject(init.signal?.reason);
+        });
       })) as typeof fetch;
 
     const servers = await loadIceServers(DEFAULT_ICE_SERVERS, RELAY_URL, {
