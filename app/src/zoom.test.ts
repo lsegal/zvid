@@ -99,10 +99,7 @@ describe("slider mapping", () => {
       zoomToSliderPosition(0.5) - zoomToSliderPosition(0.25),
       zoomToSliderPosition(2) - zoomToSliderPosition(1),
     );
-    assertClose(
-      zoomToSliderPosition(Math.sqrt(ZOOM_MIN * ZOOM_MAX)),
-      0.5,
-    );
+    assertClose(zoomToSliderPosition(Math.sqrt(ZOOM_MIN * ZOOM_MAX)), 0.5);
   });
 
   it("maps both ways", () => {
