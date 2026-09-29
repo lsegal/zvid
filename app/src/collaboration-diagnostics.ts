@@ -60,7 +60,7 @@ export const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
 export const PEER_UNREACHABLE_MESSAGE =
   "Can't reach peers, check network (TURN may be required)";
 
-function isIceServer(value: unknown): value is RTCIceServer {
+export function isIceServer(value: unknown): value is RTCIceServer {
   if (!value || typeof value !== "object") {
     return false;
   }
