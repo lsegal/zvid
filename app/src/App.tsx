@@ -7361,7 +7361,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
 
   async function handleSaveSession() {
     const harness = getHarness();
-    const { session, skippedFillClips } = projectToLvpSession(
+    const { session, skippedFillClips, skippedTextClips } = projectToLvpSession(
       projectHistory.present,
       { playheadQ: playheadQRef.current, selectedClipId },
     );
@@ -7423,7 +7423,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     const fillNote = skippedFillClips
       ? ` ${pluralize(skippedFillClips, "fill clip")} ${skippedFillClips === 1 ? "was" : "were"} not saved: .lvp files cannot store fill clips.`
       : "";
-    setStatus(`Saved ${savedName}.${fillNote}`);
+    const textNote = skippedTextClips
+      ? ` ${pluralize(skippedTextClips, "text clip")} ${skippedTextClips === 1 ? "was" : "were"} not saved: .lvp files cannot store text clips.`
+      : "";
+    setStatus(`Saved ${savedName}.${fillNote}${textNote}`);
   }
 
   async function handleExport() {

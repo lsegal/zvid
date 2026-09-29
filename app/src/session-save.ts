@@ -79,7 +79,7 @@ export type SaveableSourceSpan = {
 
 export type SaveableClip = {
   id: string;
-  kind?: "fill";
+  kind?: "fill" | "text";
   sourceTrackId: string;
   laneId: string;
   startQ: number;
@@ -118,8 +118,9 @@ export type SaveableView = {
 
 export type LvpSessionSave = {
   session: LvpSession;
-  // Fill clips have no `.lvp` representation and are left out.
+  // Fill and text clips have no `.lvp` representation and are left out.
   skippedFillClips: number;
+  skippedTextClips: number;
 };
 
 const SOURCE_SPAN_ID_PREFIX = "source-";
@@ -205,7 +206,9 @@ export function projectToLvpSession(
     };
   });
 
-  const mediaClips = project.clips.filter((clip) => clip.kind !== "fill");
+  const mediaClips = project.clips.filter(
+    (clip) => clip.kind !== "fill" && clip.kind !== "text",
+  );
   const usedSelectionIds = new Set<number>();
   for (const clip of mediaClips) {
     const match = SELECTION_ID_PATTERN.exec(clip.id);
@@ -283,6 +286,9 @@ export function projectToLvpSession(
 
   return {
     session,
-    skippedFillClips: project.clips.length - mediaClips.length,
+    skippedFillClips: project.clips.filter((clip) => clip.kind === "fill")
+      .length,
+    skippedTextClips: project.clips.filter((clip) => clip.kind === "text")
+      .length,
   };
 }
