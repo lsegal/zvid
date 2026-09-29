@@ -327,6 +327,11 @@ body.fx-chain-dragging * {
   padding: 10px 8px 12px;
 }
 
+/* Enum controls take a full row above the knobs, which keep to two rows. */
+.fx-device-panel__body > .fx-segmented {
+  grid-column: 1 / -1;
+}
+
 .fx-device-panel__warning {
   align-self: start;
   margin: 8px 8px 0;

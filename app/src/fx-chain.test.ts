@@ -14,6 +14,7 @@ import {
   knobColumnCount,
   readCollapsedDevices,
   resolveSelectedLaneId,
+  splitDeviceParameters,
   stepSelectedLaneId,
   toggleCollapsedDevice,
   writeCollapsedDevices,
@@ -158,14 +159,65 @@ describe("getParameterFormat", () => {
 });
 
 describe("knobColumnCount", () => {
-  it("fills two columns before wrapping down", () => {
-    assert.equal(knobColumnCount(0), 1);
-    assert.equal(knobColumnCount(1), 1);
-    assert.equal(knobColumnCount(2), 2);
-    assert.equal(knobColumnCount(3), 2);
-    assert.equal(knobColumnCount(4), 2);
-    assert.equal(knobColumnCount(5), 2);
-    assert.equal(knobColumnCount(6), 2);
+  it("keeps knobs to two rows of at least two columns", () => {
+    const layouts = [0, 1, 2, 3, 4, 5, 6, 7, 8].map((count) => {
+      const columns = knobColumnCount(count);
+      return [count, columns, Math.ceil(count / columns)];
+    });
+    assert.deepEqual(layouts, [
+      [0, 1, 0],
+      [1, 1, 1],
+      [2, 2, 1],
+      [3, 2, 2],
+      [4, 2, 2],
+      [5, 3, 2],
+      [6, 3, 2],
+      [7, 4, 2],
+      [8, 4, 2],
+    ]);
+  });
+
+  it("lays Transform out as X Y Width Height / Origin X Origin Y Rotation", () => {
+    const [transform] = mapSessionEffectsToDevices(
+      [effect("fx-transform", "3", "Transform")],
+      "3",
+    );
+    const { controls, knobs } = splitDeviceParameters(transform.parameters);
+    const columns = knobColumnCount(knobs.length);
+    const rows = [];
+    for (let start = 0; start < knobs.length; start += columns) {
+      rows.push(knobs.slice(start, start + columns).map((knob) => knob.label));
+    }
+
+    assert.deepEqual(controls, []);
+    assert.deepEqual(rows, [
+      ["X", "Y", "Width", "Height"],
+      ["Origin X", "Origin Y", "Rotation"],
+    ]);
+  });
+});
+
+describe("splitDeviceParameters", () => {
+  it("puts enum controls before the knob grid", () => {
+    const [order] = mapSessionEffectsToDevices(
+      [
+        {
+          ...effect("fx-order", GLOBAL_EFFECT_TRACK_ID, "Order"),
+          parameters: [{ key: "Arrangement", value: "Grid" }],
+        },
+      ],
+      "3",
+    );
+    const { controls, knobs } = splitDeviceParameters(order.parameters);
+
+    assert.deepEqual(
+      controls.map((control) => control.key),
+      ["Arrangement"],
+    );
+    assert.deepEqual(
+      knobs.map((knob) => knob.key),
+      ["GridSize", "Spacing"],
+    );
   });
 });
 
