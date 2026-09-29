@@ -4494,7 +4494,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       setStatus(`Inserted text on ${lane.name}.`);
       return id;
     },
-    [bpm, lanes],
+    [bpm, dispatchProject, lanes],
   );
 
   // The whole source clip as an arrangement clip at its song position.
