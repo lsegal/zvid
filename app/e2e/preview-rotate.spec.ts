@@ -83,10 +83,7 @@ async function outlineCentre(page: Page): Promise<Point> {
 }
 
 async function handleCentre(page: Page): Promise<Point> {
-  const box = await page
-    .getByTestId("preview-rotation-handle")
-    .locator("circle")
-    .boundingBox();
+  const box = await page.getByTestId("preview-rotation-handle").boundingBox();
   if (!box) {
     throw new Error("rotation handle is not visible");
   }
@@ -170,17 +167,15 @@ test("the preview rotates a layer with its handle and corner zones", async ({
     ? { x: corner.x + 12, y: corner.y - 8 }
     : { x: corner.x - 8, y: corner.y + 12 };
   await page.mouse.move(zone.x, zone.y);
-  await expect(overlay).toHaveClass(/preview-transform-overlay--rotate/);
-  await dragAround(page, zone, await outlineCentre(page), 30);
-  await expect(readout).toHaveText(/°$/);
+  await expect(overlay).toHaveCSS("cursor", /url\(/);
   // Adding the Transform shows it in the FX panel, which can resize the
-  // monitor mid-drag, so compare the readout with the drawn outline rather
-  // than with the pointer's angle.
-  const shown = Number.parseFloat((await readout.textContent()) ?? "");
+  // monitor mid-drag; the angle is measured from where the drag began, so it
+  // still follows the pointer.
+  await dragAround(page, zone, await outlineCentre(page), 30);
+  await expect(readout).toHaveText("30°");
   await page.mouse.up();
   await expect(readout).toHaveCount(0);
-  expect(shown).toBeGreaterThan(15);
-  expect(await outlineRotation(page)).toBeCloseTo(shown, 0);
+  expect(await outlineRotation(page)).toBeCloseTo(30, 1);
   await expect(transform).toHaveCount(1);
 
   // The rotation, including adding the Transform, is one undo step.
@@ -200,7 +195,9 @@ test("the preview rotates a layer with its handle and corner zones", async ({
   if (!settledMonitor) {
     throw new Error("preview monitor is not visible");
   }
-  const start = await outlineCentre(page);
+  // Grab the layer below its centre, clear of the origin marker there.
+  const centred = await outlineCentre(page);
+  const start = { x: centred.x, y: centred.y + settled.height / 8 };
   const pillarbox = settled.left - settledMonitor.x;
   const offset =
     pillarbox > 20
@@ -220,8 +217,10 @@ test("the preview rotates a layer with its handle and corner zones", async ({
 
   // Dragging the handle from above the layer's centre to beside it is a
   // quarter turn, which settles exactly on 90 degrees.
-  await page.mouse.move(handle.x, handle.y);
-  await expect(overlay).toHaveClass(/preview-transform-overlay--rotate/);
+  await expect(page.getByTestId("preview-rotation-handle")).toHaveCSS(
+    "cursor",
+    /url\(/,
+  );
   await dragAround(page, handle, origin, 88.5);
   await expect(readout).toBeVisible();
   await expect(readout).toHaveText("90°");

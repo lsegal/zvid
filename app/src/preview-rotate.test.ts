@@ -2,26 +2,20 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   type BoxCorners,
+  frameBoxInCanvas,
   IDENTITY_TRANSFORM,
+  type LayerTransform,
   layerBoxInCanvas,
 } from "./composition-transform.ts";
-import type { SessionEffect } from "./fx-stack.ts";
-import {
-  findLayerTransform,
-  readLayerTransformPosition,
-  setLayerTransformPosition,
-} from "./preview-edit.ts";
+import { layerPointInCanvas } from "./preview-resize.ts";
 import {
   formatRotation,
   isInRotateZone,
   isOnRotationHandle,
   isPointInQuad,
-  layerOriginInCanvas,
   ROTATION_HANDLE_OFFSET_PX,
-  readLayerTransformRotation,
   rotateTransform,
   rotationHandleGeometry,
-  setLayerTransformRotation,
   wrapRotation,
 } from "./preview-rotate.ts";
 
@@ -38,6 +32,16 @@ const canvas = { width: 1000, height: 1000 };
 const fullFrame = {
   frame: { centerX: 0, centerY: 0, halfWidth: 1, halfHeight: 1, aspect: 1 },
 };
+
+// Where the layer's origin marker sits on the canvas.
+function originInCanvas(transform: LayerTransform) {
+  return layerPointInCanvas(
+    { x: transform.originX, y: transform.originY },
+    transform,
+    frameBoxInCanvas(fullFrame.frame, canvas),
+    canvas,
+  );
+}
 
 // Turns a pointer 100px from the centre by `turnDeg`, clockwise, starting
 // from `startDeg`.
@@ -58,11 +62,9 @@ function rotateBy(startDeg: number, turnDeg: number, snap15 = false) {
 
 describe("rotateTransform", () => {
   it("turns the layer about its centre by the pointer's angle", () => {
-    const origin = layerOriginInCanvas(
-      { placement: fullFrame, transform: IDENTITY_TRANSFORM },
-      canvas,
-    );
-    assert.deepEqual(origin, { x: 500, y: 500 });
+    const origin = originInCanvas(IDENTITY_TRANSFORM);
+    assertClose(origin.x, 500);
+    assertClose(origin.y, 500);
 
     // From straight above the centre to straight right of it: a quarter turn
     // clockwise, which brings the top-left corner to the top-right.
@@ -91,11 +93,9 @@ describe("rotateTransform", () => {
       scaleX: 0.5,
       scaleY: 0.5,
     };
-    const origin = layerOriginInCanvas(
-      { placement: fullFrame, transform: start },
-      canvas,
-    );
-    assert.deepEqual(origin, { x: 100, y: 0 });
+    const origin = originInCanvas(start);
+    assertClose(origin.x, 100);
+    assertClose(origin.y, 0);
 
     const next = rotateTransform(
       start,
@@ -112,10 +112,9 @@ describe("rotateTransform", () => {
     assertClose(corners[0].y, 0);
     assertClose(corners[1].x, 100);
     assertClose(corners[1].y, 500);
-    assert.deepEqual(
-      layerOriginInCanvas({ placement: fullFrame, transform: next }, canvas),
-      origin,
-    );
+    const after = originInCanvas(next);
+    assertClose(after.x, origin.x);
+    assertClose(after.y, origin.y);
   });
 
   it("adds to the start rotation and wraps into -180..180", () => {
@@ -195,37 +194,5 @@ describe("rotation handle and zones", () => {
     assert.equal(isPointInQuad({ x: 0, y: 0 }, diamond), true);
     assert.equal(isPointInQuad({ x: 8, y: 8 }, diamond), false);
     assert.equal(isPointInQuad({ x: 10, y: 0 }, diamond), true);
-  });
-});
-
-describe("setLayerTransformRotation", () => {
-  const base: SessionEffect[] = [
-    {
-      id: "layout-a",
-      trackId: "a",
-      effectName: "Layout",
-      parameters: [],
-      enabled: true,
-    },
-  ];
-
-  it("adds a Transform if needed and writes a wrapped Rotation", () => {
-    const next = setLayerTransformRotation(base, "a", 190, "transform-a");
-    assert.equal(findLayerTransform(next, "a")?.id, "transform-a");
-    assertClose(readLayerTransformRotation(next, "a"), -170);
-    assert.deepEqual(readLayerTransformPosition(next, "a"), { x: 0, y: 0 });
-  });
-
-  it("keeps the position and resets to 0", () => {
-    const moved = setLayerTransformPosition(base, "a", { x: 0.2, y: 0 }, "t");
-    const turned = setLayerTransformRotation(moved, "a", 45, "unused");
-    assert.equal(findLayerTransform(turned, "a")?.id, "t");
-    assert.deepEqual(readLayerTransformPosition(turned, "a"), {
-      x: 0.2,
-      y: 0,
-    });
-    const reset = setLayerTransformRotation(turned, "a", 0, "unused");
-    assert.equal(readLayerTransformRotation(reset, "a"), 0);
-    assert.equal(setLayerTransformRotation(reset, "a", 0, "unused"), reset);
   });
 });

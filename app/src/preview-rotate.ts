@@ -6,19 +6,11 @@
 // angles turn clockwise on screen. Screen points are CSS pixels relative to
 // the preview monitor. The video is scaled uniformly onto the monitor, so an
 // angle is the same measured in either.
-import {
-  type BoxCorners,
-  frameBoxInCanvas,
-  type LayerTransform,
-  type Point,
+import type {
+  BoxCorners,
+  LayerTransform,
+  Point,
 } from "./composition-transform.ts";
-import type { SessionEffect } from "./fx-stack.ts";
-import {
-  type PreviewLayer,
-  readLayerTransform,
-  type Size,
-  setLayerTransformParameters,
-} from "./preview-edit.ts";
 
 // Shift snaps a rotation to these steps; without it, the angle still settles
 // onto a right angle within the soft-snap range.
@@ -33,27 +25,6 @@ export const ROTATION_HANDLE_HIT_PX = 8;
 // the corners themselves take precedence.
 export const ROTATE_ZONE_PX = 20;
 
-// Where the layer's origin marker sits on the canvas. The Transform pivots on
-// its origin and then offsets by its position, so the origin stays put while
-// the layer rotates or scales about it.
-export function layerOriginInCanvas(
-  layer: Pick<PreviewLayer, "placement" | "transform">,
-  canvas: Size,
-): Point {
-  const box = frameBoxInCanvas(layer.placement.frame, canvas);
-  const { transform } = layer;
-  return {
-    x:
-      box.x +
-      ((transform.originX + 1) / 2) * box.width +
-      transform.positionX * canvas.width,
-    y:
-      box.y +
-      ((transform.originY + 1) / 2) * box.height +
-      transform.positionY * canvas.height,
-  };
-}
-
 // Into the Transform's -180..180 range, keeping 180 rather than -180.
 export function wrapRotation(degrees: number) {
   if (!Number.isFinite(degrees)) {
@@ -65,7 +36,8 @@ export function wrapRotation(degrees: number) {
 }
 
 // The Transform for a rotate drag: the start rotation plus how far the
-// pointer has turned about the origin. Position is left alone: the Transform
+// pointer has turned about the origin, all in the same (canvas or screen)
+// space. Position is left alone: the Transform
 // already pivots on its origin, so the origin stays put and the box swings
 // around it. Shift snaps to 15 degree steps; otherwise the angle settles onto
 // 0, 90, 180 or -90 when within a few degrees of one.
@@ -169,29 +141,6 @@ function midpoint(a: Point, b: Point): Point {
 export function formatRotation(degrees: number) {
   const rounded = Math.round(degrees * 10) / 10 || 0;
   return `${rounded.toFixed(1).replace(/\.0$/, "")}°`;
-}
-
-export function readLayerTransformRotation(
-  effects: readonly SessionEffect[],
-  laneId: string,
-) {
-  return readLayerTransform(effects, laneId).rotationDeg;
-}
-
-// Writes the layer's Transform rotation, adding or re-enabling the Transform
-// as `setLayerTransformPosition` does.
-export function setLayerTransformRotation(
-  effects: SessionEffect[],
-  laneId: string,
-  rotationDeg: number,
-  newEffectId: string,
-) {
-  return setLayerTransformParameters(
-    effects,
-    laneId,
-    { rotationDeg: wrapRotation(rotationDeg) },
-    newEffectId,
-  );
 }
 
 export function rotateHistoryLabel(layerName: string) {

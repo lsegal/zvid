@@ -246,6 +246,7 @@ import {
   MOVE_ORIGIN_HISTORY_LABEL,
   resizeHistoryLabel,
 } from "./preview-resize.ts";
+import { rotateHistoryLabel } from "./preview-rotate.ts";
 import {
   createProjectHistoryState,
   projectHistoryReducer,
@@ -2523,18 +2524,26 @@ function App() {
     [],
   );
   const transformPreviewLayer = useCallback(
-    ({ laneId, kind, values, mode, newEffectId }: PreviewLayerTransformEdit) =>
+    ({
+      laneId,
+      kind,
+      values,
+      mode,
+      newEffectId,
+    }: PreviewLayerTransformEdit) => {
+      const layerName =
+        lanes.find((lane) => lane.id === laneId)?.name ?? `Layer ${laneId}`;
       editEffects(
         kind === "resize"
-          ? resizeHistoryLabel(
-              lanes.find((lane) => lane.id === laneId)?.name ??
-                `Layer ${laneId}`,
-            )
-          : MOVE_ORIGIN_HISTORY_LABEL,
+          ? resizeHistoryLabel(layerName)
+          : kind === "rotate"
+            ? rotateHistoryLabel(layerName)
+            : MOVE_ORIGIN_HISTORY_LABEL,
         (current) =>
           setLayerTransformParameters(current, laneId, values, newEffectId),
         mode,
-      ),
+      );
+    },
     [editEffects, lanes],
   );
   // Audio clips have no visual effects; that only applies while one is
