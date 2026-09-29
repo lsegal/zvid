@@ -2101,6 +2101,153 @@
   border-radius: 999px;
 }
 
+/* Media syncing from a peer: a shimmer skeleton in place of the filmstrip,
+   thumbnail or waveform, with a progress bar along the bottom edge. The
+   shimmer and indeterminate bar only move under .is-syncing--animated, which
+   is dropped when the user prefers reduced motion. */
+.media-sync {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.media-sync__shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.16) 50%,
+    transparent 65%
+  );
+  background-size: 250% 100%;
+  background-position: 100% 0;
+}
+
+.is-syncing--animated .media-sync__shimmer {
+  animation: media-sync-shimmer 1.6s linear infinite;
+}
+
+.media-sync__track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.32);
+}
+
+.media-sync__bar {
+  display: block;
+  height: 100%;
+  background: var(--clip-accent, var(--ink));
+  transition: width 250ms linear;
+}
+
+/* Unknown size: a segment that slides along the track. */
+.media-sync__bar--indeterminate {
+  width: 30%;
+  transition: none;
+}
+
+.is-syncing--animated .media-sync__bar--indeterminate {
+  animation: media-sync-indeterminate 1.3s ease-in-out infinite;
+}
+
+/* The clip label stays above the skeleton. */
+.clip-card.is-syncing .clip-card__body,
+.clip-card.is-syncing .clip-card__handle {
+  position: relative;
+}
+
+.source-span.is-syncing {
+  grid-template-columns: 1fr;
+}
+
+.source-span.is-syncing .source-span__body {
+  position: relative;
+  min-width: 0;
+}
+
+/* The progress bar takes the place of the span's accent line. */
+.source-span.is-syncing .source-span__line {
+  visibility: hidden;
+}
+
+/* Placeholder waveform bars of a few heights across the main Audio row. */
+.media-sync--waveform {
+  inset: 8px auto 8px 0;
+  --clip-accent: rgba(214, 236, 245, 0.82);
+  border-radius: 6px;
+  background:
+    repeating-linear-gradient(
+        90deg,
+        rgba(214, 236, 245, 0.16) 0 2px,
+        transparent 2px 12px
+      )
+      left center / 100% 80% no-repeat,
+    repeating-linear-gradient(
+        90deg,
+        transparent 0 4px,
+        rgba(214, 236, 245, 0.12) 4px 6px,
+        transparent 6px 12px
+      )
+      left center / 100% 45% no-repeat,
+    repeating-linear-gradient(
+        90deg,
+        transparent 0 8px,
+        rgba(214, 236, 245, 0.12) 8px 10px,
+        transparent 10px 12px
+      )
+      left center / 100% 62% no-repeat;
+}
+
+/* Cross-fades a clip from its skeleton to its frames once syncing ends. */
+.is-sync-revealed .clip-card__filmstrip,
+.is-sync-revealed .clip-card__thumb,
+.is-sync-revealed .source-span__filmstrip,
+.is-sync-revealed .source-span__thumb {
+  animation: media-sync-reveal 400ms ease-out both;
+}
+
+@keyframes media-sync-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0% 0;
+  }
+}
+
+@keyframes media-sync-indeterminate {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(340%);
+  }
+}
+
+@keyframes media-sync-reveal {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .media-sync__shimmer,
+  .media-sync__bar--indeterminate,
+  .is-sync-revealed .clip-card__filmstrip,
+  .is-sync-revealed .clip-card__thumb,
+  .is-sync-revealed .source-span__filmstrip,
+  .is-sync-revealed .source-span__thumb {
+    animation: none;
+  }
+}
+
 .source-drop-preview {
   position: absolute;
   inset: 10px 12px;
