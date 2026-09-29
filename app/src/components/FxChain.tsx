@@ -19,6 +19,7 @@ import {
   canStartFxChainPan,
   describeDeviceMove,
   dropSlotToStackIndex,
+  FX_CHAIN_SECTIONS,
   getAutoScrollDelta,
   getDropSlot,
   getParameterFormat,
@@ -61,13 +62,13 @@ type FxChainProps = {
   kind: string | undefined;
   // Track id of the selected layer's stack; undefined when none is.
   layerTrackId: string | undefined;
+  // Name of the selected layer, such as "Layer 3"; undefined when none is.
+  layerName: string | undefined;
   // Track id of the selected clip's own stack; undefined when no clip is
   // selected, which hides the Clip section.
   clipTrackId?: string;
   // The scope the Clip section's add menu offers: "fxClip" for an FX clip.
   clipScope?: FxEffectScope;
-  // Name of the selected layer, such as "Layer 3"; undefined when none is.
-  layerName: string | undefined;
   // False when the selected layer's FX badge bypasses its whole stack.
   layerFxEnabled?: boolean;
   onSetLayerFxEnabled?: (enabled: boolean) => void;
@@ -132,7 +133,6 @@ function canStartChainPan(event: ReactMouseEvent<HTMLElement>) {
   );
 }
 
-// The stack an add menu adds to.
 function getTrackId(
   group: FxDeviceGroup,
   layerTrackId: string | undefined,
@@ -141,19 +141,28 @@ function getTrackId(
   if (group === "global") {
     return GLOBAL_EFFECT_TRACK_ID;
   }
-  return group === "layer" ? layerTrackId : clipTrackId;
+  return group === "clip" ? clipTrackId : layerTrackId;
 }
 
-// Sections left to right; a drag stays within its own section.
-const SECTION_ORDER: readonly FxDeviceGroup[] = ["layer", "global", "clip"];
+const SECTION_LABELS: Record<FxDeviceGroup, string> = {
+  global: "Global",
+  layer: "Layer",
+  clip: "Clip",
+};
+
+const ADD_MENU_LABELS: Record<FxDeviceGroup, string> = {
+  global: "Add device to Global",
+  layer: "Add device to this layer",
+  clip: "Add device to this clip",
+};
 
 export function FxChain({
   devices,
   kind,
   layerTrackId,
+  layerName,
   clipTrackId,
   clipScope = "clip",
-  layerName,
   layerFxEnabled = true,
   onSetLayerFxEnabled,
   onSetEnabled,
@@ -183,6 +192,7 @@ export function FxChain({
   const [announcement, setAnnouncement] = useState("");
   const groups = groupChainDevices(devices, kind);
   const canEdit = kind !== "audio" && layerTrackId !== undefined;
+  const showClip = canEdit && clipTrackId !== undefined;
   // Dragging the chain's background, or middle-dragging anywhere in it,
   // pans it sideways.
   const prefersReducedMotion = usePrefersReducedMotion();
@@ -357,21 +367,21 @@ export function FxChain({
 
     const { group } = session.device;
     const pointerX = session.lastX;
-    // A section runs from its divider (the layer's from the start) to the
-    // next section's divider.
-    const dividerX = (section: FxDeviceGroup) => {
-      const divider = scroller
-        .querySelector<HTMLElement>(`[data-fx-divider="${section}"]`)
-        ?.getBoundingClientRect();
+    // A stack spans from the middle of its own divider to the middle of the
+    // next one; devices only move within their stack.
+    const dividerX = (section: FxDeviceGroup | undefined) => {
+      const divider = section
+        ? scroller
+            .querySelector<HTMLElement>(`[data-fx-divider="${section}"]`)
+            ?.getBoundingClientRect()
+        : undefined;
       return divider ? divider.left + divider.width / 2 : undefined;
     };
-    const start = group === "layer" ? undefined : dividerX(group);
-    const end = SECTION_ORDER.slice(SECTION_ORDER.indexOf(group) + 1)
-      .map(dividerX)
-      .find((x) => x !== undefined);
-    const overOtherStack =
-      (start !== undefined && pointerX < start) ||
-      (end !== undefined && pointerX > end);
+    const sectionIndex = FX_CHAIN_SECTIONS.indexOf(group);
+    const startX = dividerX(group) ?? Number.NEGATIVE_INFINITY;
+    const endX =
+      dividerX(FX_CHAIN_SECTIONS[sectionIndex + 1]) ?? Number.POSITIVE_INFINITY;
+    const overOtherStack = pointerX < startX || pointerX > endX;
 
     const panels = getStackPanels(group).map((panel) =>
       panel.getBoundingClientRect(),
@@ -626,13 +636,7 @@ export function FxChain({
   }
 
   function renderAddMenu(group: FxDeviceGroup, withLabel = false) {
-    const label = `Add device to ${
-      group === "global"
-        ? "Global"
-        : group === "clip"
-          ? "this clip"
-          : "this layer"
-    }`;
+    const label = ADD_MENU_LABELS[group];
     return (
       <AddDeviceMenu
         effects={addableEffectsFor(scopeOf(group))}
@@ -652,6 +656,14 @@ export function FxChain({
     );
   }
 
+  function renderDivider(group: FxDeviceGroup) {
+    return (
+      <div className="fx-chain__divider" data-fx-divider={group}>
+        <span>{SECTION_LABELS[group]}</span>
+      </div>
+    );
+  }
+
   const layerEmpty = !groups.layer.length;
   const emptyMessage = !layerName
     ? "Select a layer to see its effects"
@@ -659,8 +671,6 @@ export function FxChain({
       ? `No effects on ${layerName}`
       : null;
   const showGlobal = groups.global.length > 0 || canEdit;
-  // A selected clip's own stack, processed before its layer's.
-  const showClip = clipTrackId !== undefined && kind !== "audio";
   const globalOrderHint = resolveGlobalOrderHint(groups.global);
   const menuDevice = menu?.device;
   const menuEntries: ContextMenuEntry[] =
@@ -743,6 +753,17 @@ export function FxChain({
       ref={scrollRef}
       {...chainDragScroll.handlers}
     >
+      {showGlobal ? (
+        <>
+          {renderDivider("global")}
+          {globalOrderHint ? (
+            <p className="fx-chain__hint">{globalOrderHint}</p>
+          ) : null}
+          {renderStack("global")}
+          {canEdit ? renderAddMenu("global") : null}
+        </>
+      ) : null}
+      {layerName ? renderDivider("layer") : null}
       {emptyMessage ? (
         <div className="fx-chain__empty">
           <p>{emptyMessage}</p>
@@ -759,25 +780,11 @@ export function FxChain({
       ) : null}
       {renderStack("layer")}
       {canEdit && !layerEmpty ? renderAddMenu("layer") : null}
-      {showGlobal ? (
-        <>
-          <div className="fx-chain__divider" data-fx-divider="global">
-            <span>Global</span>
-          </div>
-          {globalOrderHint ? (
-            <p className="fx-chain__hint">{globalOrderHint}</p>
-          ) : null}
-          {renderStack("global")}
-          {canEdit ? renderAddMenu("global") : null}
-        </>
-      ) : null}
       {showClip ? (
         <>
-          <div className="fx-chain__divider" data-fx-divider="clip">
-            <span>Clip</span>
-          </div>
+          {renderDivider("clip")}
           {renderStack("clip")}
-          {canEdit ? renderAddMenu("clip") : null}
+          {renderAddMenu("clip")}
         </>
       ) : null}
       {drag?.markerX != null ? (
@@ -889,7 +896,12 @@ type FxDevicePanelProps = {
 // Explains the "Not supported here" chip on a device loaded onto a stack its
 // effect isn't designed for.
 function getUnsupportedTitle(device: FxDevice) {
-  const stack = device.group === "global" ? "the Global stack" : "a layer";
+  const stack =
+    device.group === "global"
+      ? "the Global stack"
+      : device.group === "clip"
+        ? "a clip"
+        : "a layer";
   return `${device.name} isn't designed for ${stack}. Remove it, or add it where it is supported.`;
 }
 

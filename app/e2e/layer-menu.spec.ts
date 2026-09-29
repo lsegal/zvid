@@ -57,7 +57,7 @@ test("right-clicking a layer header selects it and lists the layer actions", asy
   page,
 }) => {
   const menu = await openLayerMenu(page, "5");
-  await expect(page.locator(".fx-panel__toggle")).toHaveText("Layer 2 effects");
+  await expect(page.locator(".fx-panel__toggle")).toHaveText("Layer 2 Effects");
   await expect(menu.getByRole("menuitem")).toHaveText([
     "Rename…",
     "Duplicate",
@@ -164,7 +164,7 @@ test("Add FX adds to the layer and the FX toggle follows it", async ({
   const effectName = (await first.textContent()) ?? "";
   await first.click();
   await expect(submenu).toBeHidden();
-  await expect(page.locator(".fx-panel__toggle")).toHaveText("Layer 3 effects");
+  await expect(page.locator(".fx-panel__toggle")).toHaveText("Layer 3 Effects");
   await expect(page.locator(".fx-panel")).toContainText(effectName);
 
   await openLayerMenu(page, "6");
