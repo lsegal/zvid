@@ -208,6 +208,12 @@ import {
   type SessionOpenResponse,
 } from "./session";
 import {
+  buildPublicShareUrl,
+  type InviteParams,
+  parseInviteParams,
+  removeInvitePassword,
+} from "./share-link.ts";
+import {
   dropClipOnFreeLane,
   isSourceClipDropClick,
 } from "./source-clip-drop.ts";
@@ -1057,6 +1063,22 @@ function getPreviewMaxWidth(editorGridWidth: number) {
   );
 }
 
+let pageInvite: InviteParams | null = null;
+
+// Reads the invite from the page URL once, then scrubs the password from the
+// address bar and history. Cached so StrictMode's repeated state initializers
+// still see the password after the URL has been cleaned.
+function readPageInvite() {
+  if (!pageInvite) {
+    pageInvite = parseInviteParams(window.location.href);
+    const scrubbedHref = removeInvitePassword(window.location.href);
+    if (scrubbedHref) {
+      window.history.replaceState(window.history.state, "", scrubbedHref);
+    }
+  }
+  return pageInvite;
+}
+
 function getInitialCollaborationConfig() {
   const defaults = {
     room: "",
@@ -1083,11 +1105,11 @@ function getInitialCollaborationConfig() {
     });
   }
 
-  const params = new URLSearchParams(window.location.search);
-  const paramRoom = params.get("room")?.trim() || "";
+  const invite = readPageInvite();
+  const paramRoom = invite.room;
   const room = paramRoom || defaults.room;
-  const password = params.get("password")?.trim() || defaults.password;
-  const signalingParam = params.get("signal")?.trim();
+  const password = invite.password || defaults.password;
+  const signalingParam = invite.signal;
   const signaling = signalingParam
     ? parseSignalingUrls(signalingParam).join(", ")
     : migrateLegacyStoredSignaling(stored.signaling, defaults.signaling);
@@ -1106,118 +1128,21 @@ function buildShareRoomName() {
   return crypto.randomUUID().replaceAll("-", "").slice(0, 8);
 }
 
-function isPrivateIpv4Address(address: string) {
-  return (
-    address === "127.0.0.1" ||
-    address === "0.0.0.0" ||
-    address.startsWith("10.") ||
-    address.startsWith("192.168.") ||
-    /^172\.(1[6-9]|2\d|3[0-1])\./.test(address)
-  );
-}
-
-function extractPublicIpFromCandidate(candidate: string) {
-  const matches = candidate.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g) ?? [];
-  return matches.find((address) => !isPrivateIpv4Address(address)) ?? null;
-}
-
-async function detectPublicIpAddress(timeoutMs = 4000) {
-  if (
-    typeof window === "undefined" ||
-    typeof RTCPeerConnection === "undefined"
-  ) {
-    return null;
-  }
-
-  try {
-    const peerConnection = new RTCPeerConnection({
-      iceServers: [{ urls: ["stun:stun.l.google.com:19302"] }],
-    });
-    peerConnection.createDataChannel("zvid-share-probe");
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-
-    return await new Promise<string | null>((resolve) => {
-      let settled = false;
-      const finish = (value: string | null) => {
-        if (settled) {
-          return;
-        }
-
-        settled = true;
-        window.clearTimeout(timeoutId);
-        if (peerConnection) {
-          peerConnection.onicecandidate = null;
-          peerConnection.close();
-        }
-        resolve(value);
-      };
-
-      const timeoutId = window.setTimeout(() => finish(null), timeoutMs);
-      peerConnection.onicecandidate = (event) => {
-        const candidate = event.candidate?.candidate;
-        if (!candidate) {
-          finish(null);
-          return;
-        }
-
-        const publicIp = extractPublicIpFromCandidate(candidate);
-        if (publicIp) {
-          finish(publicIp);
-        }
-      };
-    });
-  } catch {
-    return null;
-  }
-}
-
-function buildPublicShareUrl(
-  roomName: string,
-  signaling: string,
-  password: string,
-  publicIpAddress: string | null,
-) {
-  const currentUrl = new URL(window.location.href);
-  const origin = publicIpAddress
-    ? `${currentUrl.protocol}//${publicIpAddress}${currentUrl.port ? `:${currentUrl.port}` : ""}`
-    : currentUrl.origin;
-  const shareUrl = new URL(currentUrl.pathname, origin);
-
-  shareUrl.searchParams.set("room", roomName);
-  shareUrl.searchParams.set("signal", parseSignalingUrls(signaling).join(","));
-
-  if (password.trim()) {
-    shareUrl.searchParams.set("password", password.trim());
-  }
-
-  return shareUrl.toString();
-}
-
 function parseCollaborationInvite(value: string) {
   const rawValue = value.trim();
   if (!rawValue) {
     throw new Error("Paste the share URL first.");
   }
 
-  let params: URLSearchParams;
-  try {
-    params = new URL(rawValue).searchParams;
-  } catch {
-    const fallback = rawValue.startsWith("?") ? rawValue.slice(1) : rawValue;
-    params = new URLSearchParams(fallback);
-  }
-
-  const room = params.get("room")?.trim() ?? "";
+  const { room, signal, password } = parseInviteParams(rawValue);
   if (!room) {
     throw new Error("That invite is missing a room name.");
   }
 
   return {
     room,
-    signaling:
-      params.get("signal")?.trim() || DEFAULT_SIGNALING_URLS.join(", "),
-    password: params.get("password")?.trim() || "",
+    signaling: signal || DEFAULT_SIGNALING_URLS.join(", "),
+    password,
   };
 }
 
@@ -6129,12 +6054,15 @@ function App() {
       setCollaborationRoom(roomName);
       setCollaborationMode("sharing");
 
-      const publicIpAddress = await detectPublicIpAddress();
-      const shareUrl = buildPublicShareUrl(
+      const { url: shareUrl, localOnly } = buildPublicShareUrl(
         roomName,
-        collaborationSignaling,
+        parseSignalingUrls(collaborationSignaling),
         collaborationPassword,
-        publicIpAddress,
+        {
+          origin: window.location.origin,
+          pathname: window.location.pathname,
+          publicAppUrl: import.meta.env.VITE_PUBLIC_APP_URL,
+        },
       );
 
       try {
@@ -6148,7 +6076,9 @@ function App() {
           setHasCopiedShareInvite(false);
         }, 4500);
         setStatus(
-          `Public sharing is live. Invite copied${publicIpAddress ? ` via ${publicIpAddress}` : ""}. Click Stop Share to disconnect.`,
+          localOnly
+            ? "Public sharing is live. Invite copied, but it points at this machine, so it only works on this computer or network. Share from the deployed app to invite others. Click Stop Share to disconnect."
+            : "Public sharing is live. Invite copied. Click Stop Share to disconnect.",
         );
       } catch (error) {
         setStatus(
