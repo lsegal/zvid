@@ -325,7 +325,11 @@ describe("projectToLvpSession", () => {
       {
         ...project,
         clips: [
-          { ...project.clips[0], sourceSpanId: "source-c1", sourceOffsetSeconds: -1 },
+          {
+            ...project.clips[0],
+            sourceSpanId: "source-c1",
+            sourceOffsetSeconds: -1,
+          },
           {
             ...project.clips[1],
             sourceSpanId: "source-c1",

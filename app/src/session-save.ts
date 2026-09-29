@@ -284,8 +284,7 @@ export function projectToLvpSession(
         id: clip.id,
         mainTrackId: clip.laneId,
         frameStart,
-        frameEnd:
-          frameStart + Math.max(1, toFrames(clip.durationSeconds, fps)),
+        frameEnd: frameStart + Math.max(1, toFrames(clip.durationSeconds, fps)),
         ...(clip.id === view.selectedClipId ? { selected: true } : {}),
       };
     },
@@ -347,7 +346,10 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value !== "";
 }
 
-export type SelectionSlip = { sourceSpanId: string; sourceOffsetSeconds: number };
+export type SelectionSlip = {
+  sourceSpanId: string;
+  sourceOffsetSeconds: number;
+};
 
 // The source span and offset a slipped selection was saved with, or
 // undefined for a selection that plays the span it falls in. Session files
