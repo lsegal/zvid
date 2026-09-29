@@ -33,12 +33,12 @@ import {
   isColorEffectName,
   resolveFillPaint,
 } from "./fill-paint.ts";
-import { clipEffectTrackId } from "./fx-stack.ts";
 import {
   type EffectChainStep,
   isChainEffectName,
   resolveEffectChain,
 } from "./fx-shaders/registry.ts";
+import { clipEffectTrackId } from "./fx-stack.ts";
 import {
   isTextEffectName,
   resolveTextStyle,

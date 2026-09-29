@@ -1,9 +1,15 @@
 // Pure edits to a project's arrangement layers (lanes): insert, duplicate,
 // delete, reorder and rename. A layer owns the clips whose `laneId` and the
-// effects whose `trackId` is its id, so those follow it. Each helper returns
+// effects whose `trackId` is its id, so those follow it, and each clip owns
+// its own stack (`clip:<clipId>`). Each helper returns
 // the project itself when nothing changed so history commits can skip no-op
 // edits.
-import { ensureLayerLayouts, type SessionEffect } from "./fx-stack.ts";
+import {
+  copyClipEffects,
+  ensureLayerLayouts,
+  pruneClipEffects,
+  type SessionEffect,
+} from "./fx-stack.ts";
 import { MAX_LAYERS } from "./selection-overlaps.ts";
 
 export type LaneLike = { id: string; name: string };
@@ -87,9 +93,12 @@ export function duplicateLane<Lane extends LaneLike, Clip extends LaneClip>(
 
   const source = project.lanes[index];
   const copy: Lane = { ...source, id: newLaneId, name: `${source.name} copy` };
-  const copiedClips = project.clips
-    .filter((clip) => clip.laneId === laneId)
-    .map((clip) => ({ ...clip, id: createId("clip"), laneId: newLaneId }));
+  const sourceClips = project.clips.filter((clip) => clip.laneId === laneId);
+  const copiedClips = sourceClips.map((clip) => ({
+    ...clip,
+    id: createId("clip"),
+    laneId: newLaneId,
+  }));
   const copiedEffects = project.effects
     .filter((effect) => effect.trackId === laneId)
     .map<SessionEffect>((effect) => ({
@@ -113,13 +122,19 @@ export function duplicateLane<Lane extends LaneLike, Clip extends LaneClip>(
       ...project.lanes.slice(index + 1),
     ],
     clips: [...project.clips, ...copiedClips],
-    effects: ensureLayerLayouts(
-      [
-        ...project.effects.slice(0, insertEffectsAt),
-        ...copiedEffects,
-        ...project.effects.slice(insertEffectsAt),
-      ],
-      [newLaneId],
+    // Each copied clip gets a copy of its clip's own stack too.
+    effects: copyClipEffects(
+      ensureLayerLayouts(
+        [
+          ...project.effects.slice(0, insertEffectsAt),
+          ...copiedEffects,
+          ...project.effects.slice(insertEffectsAt),
+        ],
+        [newLaneId],
+      ),
+      sourceClips.map((clip, index) => [clip.id, copiedClips[index].id]),
+      project.effects,
+      () => createId("effect"),
     ),
   };
 }
@@ -139,11 +154,16 @@ export function deleteLane<Lane extends LaneLike, Clip extends LaneClip>(
     return project;
   }
 
+  const clips = project.clips.filter((clip) => clip.laneId !== laneId);
   return {
     ...project,
     lanes: project.lanes.filter((lane) => lane.id !== laneId),
-    clips: project.clips.filter((clip) => clip.laneId !== laneId),
-    effects: project.effects.filter((effect) => effect.trackId !== laneId),
+    clips,
+    // The layer's stack goes, and so do its clips' own stacks.
+    effects: pruneClipEffects(
+      project.effects.filter((effect) => effect.trackId !== laneId),
+      clips,
+    ),
   };
 }
 

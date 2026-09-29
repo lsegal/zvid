@@ -757,7 +757,11 @@ function toDevice(
     name: definition.displayName,
     description: definition.description,
     subtitle:
-      group === "global" ? "Global stack" : group === "clip" ? "Clip" : layerName,
+      group === "global"
+        ? "Global stack"
+        : group === "clip"
+          ? "Clip"
+          : layerName,
     accent: definition.accent,
     group,
     enabled: effect.enabled !== false,

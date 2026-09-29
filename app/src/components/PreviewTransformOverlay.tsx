@@ -229,9 +229,7 @@ export function PreviewTransformOverlay({
     ? resolvePreviewEditFrame(selected, editsClip, canvas)
     : undefined;
   const selectedBox = selectedFrame?.box;
-  const selectedTarget = selected
-    ? editTarget(selected, editsClip)
-    : undefined;
+  const selectedTarget = selected ? editTarget(selected, editsClip) : undefined;
   const editedLayer = textEdit
     ? layers.find((layer) => layer.clipId === textEdit.clipId)
     : undefined;
@@ -997,7 +995,10 @@ export function PreviewTransformOverlay({
   );
 }
 
-function editTarget(layer: PreviewLayer, editsClip: boolean): PreviewEditTarget {
+function editTarget(
+  layer: PreviewLayer,
+  editsClip: boolean,
+): PreviewEditTarget {
   return editsClip
     ? { laneId: layer.laneId, clipId: layer.clipId }
     : { laneId: layer.laneId };

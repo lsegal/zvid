@@ -175,6 +175,8 @@ import {
 } from "./fx-chain";
 import {
   addEffect,
+  clipEffectTrackId,
+  copyClipEffects,
   duplicateEffect,
   effectHistoryLabels,
   ensureGlobalOrder,
@@ -187,6 +189,7 @@ import {
   mapEffects,
   mapSessionEffectsToDevices,
   moveEffect,
+  pruneClipEffects,
   removeEffect,
   resetEffect,
   type SessionEffect,
@@ -991,6 +994,25 @@ function cloneClipAtStartQ(
   };
 }
 
+// Clipboard content with the effect stacks of the clips it was copied from,
+// taken when copying, so a cut clip still pastes with its effects.
+type ClipClipboard = ClipboardContent<ArrangementClip> & {
+  effects?: SessionEffect[];
+};
+
+function withClipStacks(
+  content: ClipboardContent<ArrangementClip>,
+  effects: readonly SessionEffect[],
+): ClipClipboard {
+  const trackIds = new Set(
+    content.fragments.map((fragment) => clipEffectTrackId(fragment.clip.id)),
+  );
+  return {
+    ...content,
+    effects: effects.filter((effect) => trackIds.has(effect.trackId)),
+  };
+}
+
 function duplicateClip(
   clip: ArrangementClip,
   bpm: number,
@@ -1546,6 +1568,15 @@ function patchProjectState(
   current: ProjectState,
   patch: Partial<ProjectState>,
 ) {
+  // Clips that are gone take their own effect stacks with them.
+  if (patch.clips) {
+    const effects = patch.effects ?? current.effects;
+    const pruned = pruneClipEffects(effects, patch.clips);
+    if (pruned !== effects) {
+      patch = { ...patch, effects: pruned };
+    }
+  }
+
   let changed = false;
   const next = { ...current };
 
@@ -1845,13 +1876,17 @@ function sessionToProject(loadedSession: LvpSession, mediaItems: MediaItem[]) {
     selectedClipId,
     // Every layer gets its own Layout, taking over any global one, and an
     // older session gets its default Order, as part of the load so neither
-    // is a separate undo step.
-    effects: migrateDefaultOrder(
-      ensureLayerLayouts(
-        mapEffects(session.effects),
-        (lanes.length ? lanes : DEFAULT_LANES).map((lane) => lane.id),
+    // is a separate undo step. Stacks of clips that could not be loaded are
+    // dropped with them.
+    effects: pruneClipEffects(
+      migrateDefaultOrder(
+        ensureLayerLayouts(
+          mapEffects(session.effects),
+          (lanes.length ? lanes : DEFAULT_LANES).map((lane) => lane.id),
+        ),
+        session.orderDefaulted,
       ),
-      session.orderDefaulted,
+      arrangementClips,
     ),
     displaySeconds: session.timeline?.displaySeconds ?? false,
     snapToBeat: session.timeline?.snapToBeat ?? true,
@@ -2470,9 +2505,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     startWidth: number;
   } | null>(null);
   const timelineScrubAudioTimeoutRef = useRef<number | null>(null);
-  const clipClipboardRef = useRef<ClipboardContent<ArrangementClip> | null>(
-    null,
-  );
+  const clipClipboardRef = useRef<ClipClipboard | null>(null);
   const collaborationControllerRef =
     useRef<CollaborationController<ProjectState> | null>(null);
   const shareCopyResetTimeoutRef = useRef<number | null>(null);
@@ -5968,7 +6001,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   // Clipboard and edit actions shared by the keyboard shortcuts and the clip
   // menus. Each is one undo step.
   function copyArrangementClip(clip: ArrangementClip) {
-    clipClipboardRef.current = copyClip(clip, bpm);
+    clipClipboardRef.current = withClipStacks(copyClip(clip, bpm), effects);
     setStatus(`Copied ${clip.label}.`);
   }
 
@@ -5991,7 +6024,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   }
 
   function cutArrangementClip(clip: ArrangementClip) {
-    clipClipboardRef.current = copyClip(clip, bpm);
+    clipClipboardRef.current = withClipStacks(copyClip(clip, bpm), effects);
     removeArrangementClip(clip, "Cut clip");
     setStatus(`Cut ${clip.label}.`);
   }
@@ -6004,12 +6037,15 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   // With a selection, Cut, Copy and Delete act on its span on its layer only.
   // The selection stays, showing what they acted on.
   function copySelectionRange(selection: TimelineSelection) {
-    return copyRange(
-      timelineClips,
-      selection.laneId,
-      selection.startQ,
-      getSelectionEndQ(selection),
-      bpm,
+    return withClipStacks(
+      copyRange(
+        timelineClips,
+        selection.laneId,
+        selection.startQ,
+        getSelectionEndQ(selection),
+        bpm,
+      ),
+      effects,
     );
   }
 
@@ -6020,15 +6056,24 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       label,
       updater: (current) => {
         const splitClipIds = [splitClipId];
+        // A clip split around the range gives its right piece a copy of
+        // its stack.
+        const copies: Array<[string, string]> = [];
+        const clips = removeRangeFromLane(
+          current.clips,
+          selection.laneId,
+          selection.startQ,
+          getSelectionEndQ(selection),
+          current.bpm,
+          (source) => {
+            const id = splitClipIds.shift() ?? `window-${crypto.randomUUID()}`;
+            copies.push([source.id, id]);
+            return id;
+          },
+        );
         return patchProjectState(current, {
-          clips: removeRangeFromLane(
-            current.clips,
-            selection.laneId,
-            selection.startQ,
-            getSelectionEndQ(selection),
-            current.bpm,
-            () => splitClipIds.shift() ?? `window-${crypto.randomUUID()}`,
-          ),
+          clips,
+          effects: copyClipEffects(current.effects, copies),
         });
       },
     });
@@ -6092,15 +6137,25 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       label: "Paste clip",
       updater: (current) => {
         const ids = [...pastedClipIds];
+        const { clips, pasted } = pasteClipboard(
+          current.clips,
+          clipboard,
+          pasteLaneId,
+          pasteQ,
+          current.bpm,
+          () => ids.shift() ?? `window-${crypto.randomUUID()}`,
+        );
+        // Each pasted clip gets the stack its fragment was copied with.
         return patchProjectState(current, {
-          clips: pasteClipboard(
-            current.clips,
-            clipboard,
-            pasteLaneId,
-            pasteQ,
-            current.bpm,
-            () => ids.shift() ?? `window-${crypto.randomUUID()}`,
-          ).clips,
+          clips,
+          effects: copyClipEffects(
+            current.effects,
+            pasted.map((clip, index) => [
+              clipboard.fragments[index].clip.id,
+              clip.id,
+            ]),
+            clipboard.effects,
+          ),
         });
       },
     });
@@ -6154,10 +6209,14 @@ function App({ boot }: { boot: WorkspaceBoot }) {
           current.bpm,
         );
 
+        // Both halves keep the clip's stack.
         return patchProjectState(current, {
           clips: current.clips.flatMap((item) =>
             item.id === sourceClip.id ? [leftClip, rightClip] : [item],
           ),
+          effects: copyClipEffects(current.effects, [
+            [sourceClip.id, splitClipId],
+          ]),
         });
       },
     });
@@ -6188,6 +6247,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             duplicatedClip,
             current.bpm,
           ),
+          effects: copyClipEffects(current.effects, [
+            [sourceClip.id, duplicatedClipId],
+          ]),
         });
       },
     });
@@ -7195,6 +7257,14 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         commitProjectChange(historyLabel, (current) =>
           patchProjectState(current, {
             clips: dragPreviewClips,
+            // A clip duplicated by dragging gets a copy of the stack.
+            ...(dragState.kind === "move" && dragState.duplicateOnDrag
+              ? {
+                  effects: copyClipEffects(current.effects, [
+                    [dragState.sourceClipId, dragState.clipId],
+                  ]),
+                }
+              : {}),
           }),
         );
       }
@@ -9489,13 +9559,23 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                                   media.availability,
                                 )
                               : null;
+                            // As the compositor draws it: the clip's own
+                            // Color or Text first, else its layer's.
                             const fillBackground = isFillClip(clip)
                               ? formatFillPaintCss(
-                                  resolveFillPaint(effects, clip.laneId),
+                                  resolveFillPaint(
+                                    effects,
+                                    clip.laneId,
+                                    clipEffectTrackId(clip.id),
+                                  ),
                                 )
                               : undefined;
                             const textStyle = isTextClip(clip)
-                              ? resolveTextStyle(effects, clip.laneId)
+                              ? resolveTextStyle(
+                                  effects,
+                                  clip.laneId,
+                                  clipEffectTrackId(clip.id),
+                                )
                               : undefined;
                             return (
                               // biome-ignore lint/a11y/noStaticElementInteractions: right-click is a pointer shortcut; the context-menu key and Shift+F10 open the same menu on the selected clip
