@@ -57,7 +57,12 @@ export function chooseSessionSaveTarget(
   }
 }
 
-export type SaveableLane = { id: string; name: string; colorIndex: number };
+export type SaveableLane = {
+  id: string;
+  name: string;
+  colorIndex: number;
+  fxEnabled?: boolean;
+};
 
 export type SaveableSourceTrack = {
   id: string;
@@ -80,10 +85,13 @@ export type SaveableSourceSpan = {
 export type SaveableClip = {
   id: string;
   kind?: "fill";
+  sourceSpanId?: string;
   sourceTrackId: string;
   laneId: string;
   startQ: number;
   durationSeconds: number;
+  // Source position minus song position, in seconds.
+  sourceOffsetSeconds?: number;
 };
 
 export type SaveableEffect = {
@@ -91,6 +99,7 @@ export type SaveableEffect = {
   trackId: string;
   effectName: string;
   parameters: Array<{ key: string; value: string; numericValue?: number }>;
+  enabled?: boolean;
 };
 
 export type SaveableProject = {
@@ -116,14 +125,10 @@ export type SaveableView = {
   selectedClipId?: string;
 };
 
-export type LvpSessionSave = {
-  session: LvpSession;
-  // Fill clips have no `.lvp` representation and are left out.
-  skippedFillClips: number;
-};
-
 const SOURCE_SPAN_ID_PREFIX = "source-";
 const SELECTION_ID_PATTERN = /^selection-(\d+)$/;
+// Offsets closer than this to their span's are not slipped.
+const SLIP_EPSILON_SECONDS = 1e-6;
 
 function toFrames(seconds: number, fps: number) {
   return Math.round(seconds * fps);
@@ -131,6 +136,15 @@ function toFrames(seconds: number, fps: number) {
 
 function quartersToSeconds(quarters: number, bpm: number) {
   return (quarters * 60) / bpm;
+}
+
+// The source offset a clip gets from span `span` when it is opened.
+function spanSourceOffsetSeconds(span: SaveableSourceSpan, bpm: number) {
+  return span.trimStartSeconds - quartersToSeconds(span.startQ, bpm);
+}
+
+function secondsToQuarters(seconds: number, bpm: number) {
+  return (seconds * bpm) / 60;
 }
 
 function sourceClipId(spanId: string) {
@@ -171,13 +185,36 @@ function toLvpParameters(parameters: SaveableEffect["parameters"]) {
   return result;
 }
 
+// A clip slipped off its span's source offset keeps its span and offset in
+// zvid-only fields; any other clip is found by track and position on open.
+function selectionSlip(
+  clip: SaveableClip,
+  spans: SaveableSourceSpan[],
+  bpm: number,
+) {
+  const span = spans.find((candidate) => candidate.id === clip.sourceSpanId);
+  if (
+    !span ||
+    clip.sourceOffsetSeconds === undefined ||
+    Math.abs(clip.sourceOffsetSeconds - spanSourceOffsetSeconds(span, bpm)) <
+      SLIP_EPSILON_SECONDS
+  ) {
+    return {};
+  }
+  return {
+    sourceClipId: sourceClipId(span.id),
+    sourceOffsetSeconds: clip.sourceOffsetSeconds,
+  };
+}
+
 // Writes the project as a `.lvp` session that opens back into the same
 // arrangement. Selections point at their source clip by track and position,
-// the way the Layers app stores them.
+// the way the Layers app stores them. Fill clips, bypass flags and slipped
+// clips go in zvid-only fields the Layers app ignores.
 export function projectToLvpSession(
   project: SaveableProject,
   view: SaveableView,
-): LvpSessionSave {
+): LvpSession {
   const { bpm, fps } = project;
 
   const clips = project.sourceSpans.map<
@@ -206,6 +243,7 @@ export function projectToLvpSession(
   });
 
   const mediaClips = project.clips.filter((clip) => clip.kind !== "fill");
+  const fillClips = project.clips.filter((clip) => clip.kind === "fill");
   const usedSelectionIds = new Set<number>();
   for (const clip of mediaClips) {
     const match = SELECTION_ID_PATTERN.exec(clip.id);
@@ -236,8 +274,22 @@ export function projectToLvpSession(
       frameStart,
       frameEnd: frameStart + Math.max(1, toFrames(clip.durationSeconds, fps)),
       ...(clip.id === view.selectedClipId ? { selected: true } : {}),
+      ...selectionSlip(clip, project.sourceSpans, bpm),
     };
   });
+  const fills = fillClips.map<NonNullable<LvpSession["fills"]>[number]>(
+    (clip) => {
+      const frameStart = toFrames(quartersToSeconds(clip.startQ, bpm), fps);
+      return {
+        id: clip.id,
+        mainTrackId: clip.laneId,
+        frameStart,
+        frameEnd:
+          frameStart + Math.max(1, toFrames(clip.durationSeconds, fps)),
+        ...(clip.id === view.selectedClipId ? { selected: true } : {}),
+      };
+    },
+  );
 
   const mainAudio = project.mainAudioId
     ? project.mediaItems.find((item) => item.id === project.mainAudioId)
@@ -248,6 +300,7 @@ export function projectToLvpSession(
       id: lane.id,
       name: lane.name,
       colorIndex: lane.colorIndex,
+      ...(lane.fxEnabled === false ? { fxEnabled: false } : {}),
     })),
     tracks: project.sourceTracks.map((track) => ({
       id: track.id,
@@ -257,11 +310,13 @@ export function projectToLvpSession(
     })),
     clips,
     selections,
+    ...(fills.length ? { fills } : {}),
     effects: project.effects.map((effect) => ({
       id: effect.id,
       trackId: effect.trackId,
       effectName: effect.effectName,
       parameters: toLvpParameters(effect.parameters),
+      ...(effect.enabled === false ? { enabled: false } : {}),
     })),
     timeline: {
       bpm,
@@ -281,8 +336,69 @@ export function projectToLvpSession(
       : {}),
   };
 
+  return session;
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value !== "";
+}
+
+export type SelectionSlip = { sourceSpanId: string; sourceOffsetSeconds: number };
+
+// The source span and offset a slipped selection was saved with, or
+// undefined for a selection that plays the span it falls in. Session files
+// are unchecked JSON, so malformed fields read as no slip.
+export function readSelectionSlip(
+  selection: NonNullable<LvpSession["selections"]>[number],
+): SelectionSlip | undefined {
+  const { sourceClipId: clipId, sourceOffsetSeconds } = selection;
+  if (!isNonEmptyString(clipId) || !isFiniteNumber(sourceOffsetSeconds)) {
+    return undefined;
+  }
   return {
-    session,
-    skippedFillClips: project.clips.length - mediaClips.length,
+    sourceSpanId: `${SOURCE_SPAN_ID_PREFIX}${clipId}`,
+    sourceOffsetSeconds,
   };
+}
+
+export type SessionFill = {
+  id: string;
+  laneId: string;
+  startQ: number;
+  durationQ: number;
+  selected: boolean;
+};
+
+// The fill clips a session was saved with, skipping malformed entries.
+export function readSessionFills(
+  session: LvpSession,
+  bpm: number,
+  fps: number,
+): SessionFill[] {
+  const fills: SessionFill[] = [];
+  for (const fill of session.fills ?? []) {
+    if (
+      !isNonEmptyString(fill?.id) ||
+      !isNonEmptyString(fill.mainTrackId) ||
+      !isFiniteNumber(fill.frameStart) ||
+      !isFiniteNumber(fill.frameEnd)
+    ) {
+      continue;
+    }
+    fills.push({
+      id: fill.id,
+      laneId: fill.mainTrackId,
+      startQ: secondsToQuarters(fill.frameStart / fps, bpm),
+      durationQ: secondsToQuarters(
+        Math.max(1, fill.frameEnd - fill.frameStart) / fps,
+        bpm,
+      ),
+      selected: fill.selected === true,
+    });
+  }
+  return fills;
 }

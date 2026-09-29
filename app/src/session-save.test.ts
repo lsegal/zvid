@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { createClipWarp } from "./clip-warp.ts";
+import { mapEffects } from "./fx-stack.ts";
 import { clipSourceFrame } from "./session.ts";
 import {
   chooseSessionSaveTarget,
   projectToLvpSession,
+  readSelectionSlip,
+  readSessionFills,
   type SaveableProject,
 } from "./session-save.ts";
 import {
@@ -149,12 +152,11 @@ function baseProject(
 
 describe("projectToLvpSession", () => {
   it("writes tracks, clips, selections, effects and timeline", () => {
-    const { session, skippedFillClips } = projectToLvpSession(baseProject(), {
+    const session = projectToLvpSession(baseProject(), {
       playheadQ: 2,
       selectedClipId: "clip-added",
     });
 
-    assert.equal(skippedFillClips, 0);
     assert.deepEqual(session.mainTracks, [
       { id: "main-1", name: "Layer 1", colorIndex: 2 },
     ]);
@@ -220,7 +222,7 @@ describe("projectToLvpSession", () => {
   });
 
   it("does not reuse a selection id another clip keeps", () => {
-    const { session } = projectToLvpSession(
+    const session = projectToLvpSession(
       baseProject({
         clips: [
           {
@@ -247,9 +249,9 @@ describe("projectToLvpSession", () => {
     );
   });
 
-  it("leaves out fill clips and counts them", () => {
+  it("keeps fill clips out of selections and reads them back", () => {
     const project = baseProject();
-    const { session, skippedFillClips } = projectToLvpSession(
+    const session = projectToLvpSession(
       {
         ...project,
         clips: [
@@ -259,15 +261,133 @@ describe("projectToLvpSession", () => {
             kind: "fill",
             sourceTrackId: "",
             laneId: "main-1",
-            startQ: 0,
-            durationSeconds: 1,
+            // 1 s at 120 bpm.
+            startQ: 2,
+            durationSeconds: 1.5,
+          },
+        ],
+      },
+      { playheadQ: 0, selectedClipId: "fill-1" },
+    );
+    assert.equal(session.selections?.length, 2);
+    assert.deepEqual(session.fills, [
+      {
+        id: "fill-1",
+        mainTrackId: "main-1",
+        frameStart: 30,
+        frameEnd: 75,
+        selected: true,
+      },
+    ]);
+    assert.deepEqual(readSessionFills(session, 120, 30), [
+      {
+        id: "fill-1",
+        laneId: "main-1",
+        startQ: 2,
+        durationQ: 3,
+        selected: true,
+      },
+    ]);
+  });
+
+  it("round-trips effect and layer FX bypass", () => {
+    const project = baseProject();
+    const session = projectToLvpSession(
+      {
+        ...project,
+        lanes: [
+          { id: "main-1", name: "Layer 1", colorIndex: 2, fxEnabled: false },
+          { id: "main-2", name: "Layer 2", colorIndex: 3, fxEnabled: true },
+        ],
+        effects: [
+          { ...project.effects[0], enabled: false },
+          { ...project.effects[0], id: "fx2", enabled: true },
+        ],
+      },
+      { playheadQ: 0 },
+    );
+    assert.deepEqual(session.mainTracks, [
+      { id: "main-1", name: "Layer 1", colorIndex: 2, fxEnabled: false },
+      { id: "main-2", name: "Layer 2", colorIndex: 3 },
+    ]);
+    assert.equal(session.effects?.[0]?.enabled, false);
+    assert.equal("enabled" in (session.effects?.[1] ?? {}), false);
+    assert.deepEqual(
+      mapEffects(session.effects).map((effect) => effect.enabled),
+      [false, true],
+    );
+  });
+
+  it("round-trips a slipped clip's span and source offset", () => {
+    const project = baseProject();
+    // The span's offset is trimStart 1 s minus its 2 s start: -1 s.
+    const session = projectToLvpSession(
+      {
+        ...project,
+        clips: [
+          { ...project.clips[0], sourceSpanId: "source-c1", sourceOffsetSeconds: -1 },
+          {
+            ...project.clips[1],
+            sourceSpanId: "source-c1",
+            sourceOffsetSeconds: 2.25,
           },
         ],
       },
       { playheadQ: 0 },
     );
-    assert.equal(skippedFillClips, 1);
-    assert.equal(session.selections?.length, 2);
+    const [unslipped, slipped] = session.selections ?? [];
+    assert.ok(unslipped && slipped);
+    assert.equal("sourceClipId" in unslipped, false);
+    assert.equal(readSelectionSlip(unslipped), undefined);
+    assert.equal(slipped.sourceClipId, "c1");
+    assert.deepEqual(readSelectionSlip(slipped), {
+      sourceSpanId: "source-c1",
+      sourceOffsetSeconds: 2.25,
+    });
+  });
+
+  it("opens sessions without zvid-only fields as before", () => {
+    const session = projectToLvpSession(baseProject(), { playheadQ: 0 });
+    assert.equal(session.fills, undefined);
+    assert.equal("fxEnabled" in (session.mainTracks?.[0] ?? {}), false);
+    assert.deepEqual(readSessionFills(session, 120, 30), []);
+    assert.ok(
+      session.selections?.every(
+        (selection) => readSelectionSlip(selection) === undefined,
+      ),
+    );
+    assert.deepEqual(
+      mapEffects(session.effects).map((effect) => effect.enabled),
+      [true],
+    );
+  });
+
+  it("skips malformed zvid-only fields", () => {
+    const session = JSON.parse(
+      JSON.stringify({
+        fills: [
+          { id: "ok", mainTrackId: "main-1", frameStart: 0, frameEnd: 30 },
+          { id: "bad", mainTrackId: 3, frameStart: 0, frameEnd: 30 },
+          null,
+        ],
+      }),
+    );
+    assert.deepEqual(
+      readSessionFills(session, 120, 30).map((fill) => fill.id),
+      ["ok"],
+    );
+    assert.equal(
+      readSelectionSlip({
+        id: 0,
+        trackId: "t1",
+        mainTrackId: "main-1",
+        frameStart: 0,
+        frameEnd: 30,
+        sourceClipId: "c1",
+        sourceOffsetSeconds: "2" as unknown as number,
+      }),
+      undefined,
+    );
   });
 
   it("keeps a warped span's source start and warp anchor", () => {
@@ -282,7 +402,7 @@ describe("projectToLvpSession", () => {
     const warp = createClipWarp(markers, 30 / fps, trimStartSeconds, bpm);
     assert.ok(warp);
 
-    const { session } = projectToLvpSession(
+    const session = projectToLvpSession(
       baseProject({
         sourceSpans: [
           {

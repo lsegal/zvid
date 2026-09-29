@@ -1,7 +1,14 @@
 import type { AlsImportSummary } from "./als-import.ts";
 
+// Fields marked zvid-only are written by zvid and ignored by the Layers app.
 export type LvpSession = {
-  mainTracks?: Array<{ id: string; name: string; colorIndex?: number }>;
+  mainTracks?: Array<{
+    id: string;
+    name: string;
+    colorIndex?: number;
+    /** zvid-only: `false` when the layer's FX are bypassed. */
+    fxEnabled?: boolean;
+  }>;
   tracks?: Array<{
     id: string;
     name: string;
@@ -40,12 +47,29 @@ export type LvpSession = {
     frameStart: number;
     frameEnd: number;
     selected?: boolean;
+    /**
+     * zvid-only, set on a slipped selection: the clip its source comes from
+     * and its source position minus its song position, in seconds. Without
+     * them the selection plays the clip it falls in, at that clip's offset.
+     */
+    sourceClipId?: string;
+    sourceOffsetSeconds?: number;
+  }>;
+  /** zvid-only: fill clips, painted by their main track's Color effect. */
+  fills?: Array<{
+    id: string;
+    mainTrackId: string;
+    frameStart: number;
+    frameEnd: number;
+    selected?: boolean;
   }>;
   effects?: Array<{
     id: string;
     trackId: string;
     effectName: string;
     parameters?: Record<string, { floatValue?: number; stringValue?: string }>;
+    /** zvid-only: `false` when the effect is bypassed. */
+    enabled?: boolean;
   }>;
   timeline?: {
     bpm?: number;

@@ -33,8 +33,7 @@ export type SessionEffect = {
   trackId: string;
   effectName: string;
   parameters: EffectParameter[];
-  // Bypass flag. `.lvp` has no field for it yet, so it only lives in
-  // project state; a missing flag means enabled.
+  // Bypass flag, saved to `.lvp` as zvid-only `enabled: false`.
   enabled: boolean;
 };
 
@@ -94,7 +93,8 @@ export function mapEffects(source: LvpSession["effects"]) {
           : formatStoredNumber(value.floatValue ?? 0),
       numericValue: value.floatValue,
     })),
-    enabled: true,
+    // Sessions without the flag, including every Layers session, are on.
+    enabled: effect.enabled !== false,
   }));
 }
 
