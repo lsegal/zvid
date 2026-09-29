@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { Z_ORDER_COMPOSITION } from "./composition-order.ts";
 import {
   IDENTITY_TRANSFORM,
   type LayerTransform,
@@ -152,6 +153,52 @@ describe("resolvePreviewLayers", () => {
     ]);
   });
 
+  it("follows the Order arrangement", () => {
+    const layers = resolvePreviewLayers(
+      [activeLayer("a", 0), activeLayer("b", 1)],
+      canvas,
+      { arrangement: "horizontal", gridSize: 2, spacing: 0 },
+    );
+    assert.deepEqual(layers[1].corners, [
+      { x: 500, y: 0 },
+      { x: 1000, y: 0 },
+      { x: 1000, y: 1000 },
+      { x: 500, y: 1000 },
+    ]);
+  });
+
+  it("leaves out layers a Grid has no cell for", () => {
+    const layers = resolvePreviewLayers(
+      ["a", "b", "c", "d", "e"].map((id, rank) => activeLayer(id, rank)),
+      canvas,
+      { arrangement: "grid", gridSize: 2, spacing: 0 },
+    );
+    assert.deepEqual(
+      layers.map((layer) => layer.laneId),
+      ["a", "b", "c", "d"],
+    );
+  });
+
+  it("gives every layer the whole canvas without an Order, Layer 1 last", () => {
+    const layers = resolvePreviewLayers(
+      [activeLayer("a", 0), activeLayer("b", 1), activeLayer("c", 2)],
+      canvas,
+      Z_ORDER_COMPOSITION,
+    );
+    assert.deepEqual(
+      layers.map((layer) => layer.laneId),
+      ["c", "b", "a"],
+    );
+    for (const layer of layers) {
+      assert.deepEqual(layer.corners, [
+        { x: 0, y: 0 },
+        { x: 1000, y: 0 },
+        { x: 1000, y: 1000 },
+        { x: 0, y: 1000 },
+      ]);
+    }
+  });
+
   it("moves the corners with the Transform, past the canvas edge", () => {
     const [layer] = resolvePreviewLayers(
       [activeLayer("a", 0, { positionX: 0.5 })],
@@ -206,6 +253,23 @@ describe("hitTestLayers", () => {
       "a",
     );
     assert.equal(hitTestLayers(layers, { x: 500, y: 900 }, canvas), undefined);
+  });
+
+  it("picks Layer 1 where overlapping layers meet without an Order", () => {
+    const layers = resolvePreviewLayers(
+      [activeLayer("a", 0, { scaleX: 0.5, scaleY: 0.5 }), activeLayer("b", 1)],
+      canvas,
+      Z_ORDER_COMPOSITION,
+    );
+    assert.equal(
+      hitTestLayers(layers, { x: 500, y: 500 }, canvas)?.laneId,
+      "a",
+    );
+    // Outside Layer 1's shrunk box, the layer behind it is hit.
+    assert.equal(
+      hitTestLayers(layers, { x: 100, y: 100 }, canvas)?.laneId,
+      "b",
+    );
   });
 });
 

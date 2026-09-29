@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
-  ADDABLE_EFFECT_DEFINITIONS,
+  addableEffectsFor,
+  canStartFxChainPan,
   describeDeviceMove,
   dropSlotToStackIndex,
   FX_COLLAPSED_STORAGE_KEY,
-  getAddableEffectDefinitions,
   getAutoScrollDelta,
   getDefaultLaneId,
   getDropSlot,
@@ -13,17 +13,22 @@ import {
   groupChainDevices,
   isNoopDropSlot,
   knobColumnCount,
+  NO_ORDER_HINT,
   readCollapsedDevices,
+  resolveGlobalOrderHint,
   resolveSelectedLaneId,
+  splitDeviceParameters,
   stepSelectedLaneId,
   toggleCollapsedDevice,
   writeCollapsedDevices,
 } from "./fx-chain.ts";
 import {
+  ensureGlobalOrder,
   GLOBAL_EFFECT_TRACK_ID,
   mapSessionEffectsToDevices,
   moveEffect,
   type SessionEffect,
+  setEffectEnabled,
 } from "./fx-stack.ts";
 
 function effect(
@@ -89,23 +94,62 @@ describe("groupChainDevices", () => {
   });
 });
 
-describe("ADDABLE_EFFECT_DEFINITIONS", () => {
-  it("leaves Layout out, since every layer already has one", () => {
-    const names = ADDABLE_EFFECT_DEFINITIONS.map(
-      (definition) => definition.effectName,
+describe("addableEffectsFor", () => {
+  const names = (group: "layer" | "global") =>
+    addableEffectsFor(group).map((definition) => definition.effectName);
+
+  it("offers only effects scoped to the Global stack in the Global menu", () => {
+    assert.ok(
+      addableEffectsFor("global").every((definition) =>
+        definition.scopes.includes("global"),
+      ),
     );
-    assert.ok(names.includes("Colorize"));
-    assert.ok(!names.includes("Layout"));
+    assert.deepEqual(names("global"), [
+      "ZoomAndPan",
+      "Colorize",
+      "Pixelate",
+      "NegativeSplit",
+      "AnalogGlitch",
+      "Order",
+    ]);
   });
 
-  it("offers Transform on layer stacks only", () => {
-    const names = (group: "layer" | "global") =>
-      getAddableEffectDefinitions(group).map(
-        (definition) => definition.effectName,
-      );
-    assert.ok(names("layer").includes("Transform"));
-    assert.ok(!names("global").includes("Transform"));
-    assert.ok(names("global").includes("Colorize"));
+  it("offers only layer-scoped effects in the layer menu", () => {
+    assert.ok(
+      addableEffectsFor("layer").every((definition) =>
+        definition.scopes.includes("layer"),
+      ),
+    );
+    assert.deepEqual(names("layer"), [
+      "ZoomAndPan",
+      "Colorize",
+      "Pixelate",
+      "NegativeSplit",
+      "AnalogGlitch",
+      "Transform",
+      "Color",
+      "Text",
+    ]);
+  });
+
+  it("never offers Layout, which every layer already has", () => {
+    assert.ok(!names("layer").includes("Layout"));
+    assert.ok(!names("global").includes("Layout"));
+  });
+
+  it("offers Color, which paints fill clips, on layers only", () => {
+    assert.ok(names("layer").includes("Color"));
+    assert.ok(!names("global").includes("Color"));
+  });
+
+  it("offers Text, which styles text clips, on layers only", () => {
+    assert.ok(names("layer").includes("Text"));
+    assert.ok(!names("global").includes("Text"));
+  });
+
+  it("offers Order on the Global stack only", () => {
+    assert.ok(names("global").includes("Order"));
+    assert.ok(!names("layer").includes("Order"));
   });
 });
 
@@ -116,6 +160,8 @@ describe("getParameterFormat", () => {
     assert.equal(getParameterFormat("Transform", "PositionX")(0.25), "+25%");
     assert.equal(getParameterFormat("Transform", "ScaleY")(1.5), "150%");
     assert.equal(getParameterFormat("Transform", "Rotation")(-45), "-45°");
+    assert.equal(getParameterFormat("Order", "GridSize")(3), "3×3");
+    assert.equal(getParameterFormat("Order", "Spacing")(4), "4 px");
   });
 
   it("falls back to raw numbers for unknown parameters", () => {
@@ -124,14 +170,65 @@ describe("getParameterFormat", () => {
 });
 
 describe("knobColumnCount", () => {
-  it("fills two columns before wrapping down", () => {
-    assert.equal(knobColumnCount(0), 1);
-    assert.equal(knobColumnCount(1), 1);
-    assert.equal(knobColumnCount(2), 2);
-    assert.equal(knobColumnCount(3), 2);
-    assert.equal(knobColumnCount(4), 2);
-    assert.equal(knobColumnCount(5), 2);
-    assert.equal(knobColumnCount(6), 2);
+  it("keeps knobs to two rows of at least two columns", () => {
+    const layouts = [0, 1, 2, 3, 4, 5, 6, 7, 8].map((count) => {
+      const columns = knobColumnCount(count);
+      return [count, columns, Math.ceil(count / columns)];
+    });
+    assert.deepEqual(layouts, [
+      [0, 1, 0],
+      [1, 1, 1],
+      [2, 2, 1],
+      [3, 2, 2],
+      [4, 2, 2],
+      [5, 3, 2],
+      [6, 3, 2],
+      [7, 4, 2],
+      [8, 4, 2],
+    ]);
+  });
+
+  it("lays Transform out as X Y Width Height / Origin X Origin Y Rotation", () => {
+    const [transform] = mapSessionEffectsToDevices(
+      [effect("fx-transform", "3", "Transform")],
+      "3",
+    );
+    const { controls, knobs } = splitDeviceParameters(transform.parameters);
+    const columns = knobColumnCount(knobs.length);
+    const rows = [];
+    for (let start = 0; start < knobs.length; start += columns) {
+      rows.push(knobs.slice(start, start + columns).map((knob) => knob.label));
+    }
+
+    assert.deepEqual(controls, []);
+    assert.deepEqual(rows, [
+      ["X", "Y", "Width", "Height"],
+      ["Origin X", "Origin Y", "Rotation"],
+    ]);
+  });
+});
+
+describe("splitDeviceParameters", () => {
+  it("puts enum controls before the knob grid", () => {
+    const [order] = mapSessionEffectsToDevices(
+      [
+        {
+          ...effect("fx-order", GLOBAL_EFFECT_TRACK_ID, "Order"),
+          parameters: [{ key: "Arrangement", value: "Grid" }],
+        },
+      ],
+      "3",
+    );
+    const { controls, knobs } = splitDeviceParameters(order.parameters);
+
+    assert.deepEqual(
+      controls.map((control) => control.key),
+      ["Arrangement"],
+    );
+    assert.deepEqual(
+      knobs.map((knob) => knob.key),
+      ["GridSize", "Spacing"],
+    );
   });
 });
 
@@ -336,5 +433,75 @@ describe("getDefaultLaneId", () => {
 
   it("falls back to the first layer", () => {
     assert.equal(getDefaultLaneId([{ id: "1" }, { id: "2" }], []), "1");
+  });
+});
+
+describe("canStartFxChainPan", () => {
+  // A stand-in target inside the listed elements, innermost first.
+  function target(...classes: string[]) {
+    return {
+      closest: (selector: string) =>
+        classes.some((name) =>
+          selector.split(", ").some((part) => part === name),
+        ),
+    } as unknown as EventTarget;
+  }
+
+  it("pans from the background with the primary button", () => {
+    assert.equal(canStartFxChainPan({ button: 0, target: target() }), true);
+    assert.equal(
+      canStartFxChainPan({ button: 0, target: target(".fx-chain__divider") }),
+      true,
+    );
+  });
+
+  it("leaves devices, add slots and buttons to their own behaviour", () => {
+    for (const name of [
+      ".fx-device-panel",
+      ".fx-chain__add",
+      ".fx-chain__layer-off",
+      "button",
+    ]) {
+      assert.equal(
+        canStartFxChainPan({ button: 0, target: target(name) }),
+        false,
+        name,
+      );
+    }
+  });
+
+  it("pans with the middle button anywhere, including over devices", () => {
+    assert.equal(
+      canStartFxChainPan({ button: 1, target: target(".fx-device-panel") }),
+      true,
+    );
+  });
+
+  it("ignores the secondary button so context menus still open", () => {
+    assert.equal(canStartFxChainPan({ button: 2, target: target() }), false);
+  });
+});
+
+describe("resolveGlobalOrderHint", () => {
+  const globalDevices = (effects: SessionEffect[]) =>
+    groupChainDevices(mapSessionEffectsToDevices(effects, "1"), "video").global;
+
+  it("points out a Global stack with no Order", () => {
+    assert.equal(resolveGlobalOrderHint(globalDevices([])), NO_ORDER_HINT);
+    assert.equal(
+      NO_ORDER_HINT,
+      "No Order: layers overlap (Layer 1 on top). Add Order to arrange them.",
+    );
+  });
+
+  it("stays quiet while the Global stack has an Order", () => {
+    const effects = ensureGlobalOrder([]);
+    assert.equal(resolveGlobalOrderHint(globalDevices(effects)), undefined);
+    assert.equal(
+      resolveGlobalOrderHint(
+        globalDevices(setEffectEnabled(effects, "order-global", false)),
+      ),
+      undefined,
+    );
   });
 });

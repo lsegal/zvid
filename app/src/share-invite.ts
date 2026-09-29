@@ -137,3 +137,40 @@ export function removeInvitePassword(href: string) {
   url.hash = hash.toString();
   return url.toString();
 }
+
+// Returns `href` with the joined room in its query, so refreshing the page
+// rejoins it. The password is left out of the URL.
+export function withJoinedRoom(href: string, room: string, signal: string) {
+  const url = new URL(href);
+  url.searchParams.set("room", room);
+  if (signal) {
+    url.searchParams.set("signal", signal);
+  } else {
+    url.searchParams.delete("signal");
+  }
+  url.searchParams.delete(PASSWORD_PARAM);
+  const hash = new URLSearchParams(url.hash.slice(1));
+  hash.delete(PASSWORD_PARAM);
+  url.hash = hash.toString();
+  return url.toString();
+}
+
+// Returns `href` without invite parameters, or null when it has none.
+export function removeInviteParams(href: string) {
+  const url = new URL(href);
+  const hash = new URLSearchParams(url.hash.slice(1));
+  const params = ["room", "signal", PASSWORD_PARAM];
+  if (
+    !params.some((param) => url.searchParams.has(param)) &&
+    !hash.has(PASSWORD_PARAM)
+  ) {
+    return null;
+  }
+
+  for (const param of params) {
+    url.searchParams.delete(param);
+  }
+  hash.delete(PASSWORD_PARAM);
+  url.hash = hash.toString();
+  return url.toString();
+}

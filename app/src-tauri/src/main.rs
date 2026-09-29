@@ -178,12 +178,35 @@ fn list_media_files(root: String, extensions: Vec<String>) -> Result<Vec<String>
   Ok(collect_media_files(&root, &extensions, MAX_LISTED_MEDIA_FILES))
 }
 
+// Family names sorted case-insensitively, without blanks or duplicates.
+fn sort_font_families(families: Vec<String>) -> Vec<String> {
+  let mut families: Vec<String> = families
+    .into_iter()
+    .map(|family| family.trim().to_string())
+    .filter(|family| !family.is_empty())
+    .collect();
+  families.sort_by_key(|family| (family.to_lowercase(), family.clone()));
+  families.dedup();
+  families
+}
+
+// The font families installed on this machine, for webviews without the
+// Local Font Access API (WKWebView and WebKitGTK).
+#[tauri::command]
+async fn list_font_families() -> Result<Vec<String>, String> {
+  let families = font_kit::source::SystemSource::new()
+    .all_families()
+    .map_err(|error| format!("Failed to list fonts: {error}"))?;
+  Ok(sort_font_families(families))
+}
+
 fn main() {
   tauri::Builder::default()
     .plugin(tauri_plugin_dialog::init())
     .invoke_handler(tauri::generate_handler![
       open_session,
       list_media_files,
+      list_font_families,
       read_file_bytes,
       read_file_prefix,
       files_exist,
@@ -244,6 +267,22 @@ mod tests {
         root.path().to_string_lossy().into_owned(),
       ]),
       vec![true, false, false]
+    );
+  }
+
+  #[test]
+  fn sorts_and_dedupes_font_families() {
+    let families = vec![
+      "Helvetica".to_string(),
+      " Arial ".to_string(),
+      "Arial".to_string(),
+      String::new(),
+      "courier New".to_string(),
+    ];
+
+    assert_eq!(
+      sort_font_families(families),
+      vec!["Arial", "courier New", "Helvetica"]
     );
   }
 

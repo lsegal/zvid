@@ -44,7 +44,21 @@ import {
   rotateTransform,
   rotationHandleGeometry,
 } from "../preview-rotate.ts";
+import {
+  resolveTextEditorPlacement,
+  type TextEditorKeyAction,
+} from "../preview-text-edit.ts";
+import type { TextStyle } from "../text-style.ts";
+import { PreviewTextEditor } from "./PreviewTextEditor";
 import "./preview-transform-overlay.css";
+
+// The text layer being edited on the canvas, and where its edits go.
+export type PreviewTextEdit = {
+  clipId: string;
+  style: TextStyle;
+  onChangeText: (text: string) => void;
+  onAction: (action: TextEditorKeyAction) => void;
+};
 
 export type PreviewLayerMove = {
   laneId: string;
@@ -69,8 +83,11 @@ type Modifiers = { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean };
 type DragState = {
   pointerId: number;
   laneId: string;
-  startScreen: Point;
-  startCanvas: Point;
+  // Page coordinates, so the drag is unaffected if the monitor moves or
+  // resizes under it (adding a Transform can grow the FX panel).
+  startClient: Point;
+  // Canvas pixels per CSS pixel when the drag started.
+  scale: Point;
   newEffectId: string;
 } & (
   | { kind: "move"; startPosition: Point; position?: Point }
@@ -79,7 +96,7 @@ type DragState = {
       handle: ResizeHandle;
       box: Box;
       startTransform: LayerTransform;
-      lastScreen: Point;
+      lastClient: Point;
       transform?: LayerTransform;
     }
   | {
@@ -92,9 +109,9 @@ type DragState = {
   | {
       kind: "rotate";
       startTransform: LayerTransform;
-      // Where the origin was on screen when the drag began.
-      originScreen: Point;
-      lastScreen: Point;
+      // Where the origin was on the page when the drag began.
+      originClient: Point;
+      lastClient: Point;
       transform?: LayerTransform;
     }
 );
@@ -137,24 +154,30 @@ function isMacPlatform() {
 // aspect ratio, Ctrl/Cmd resizes from the centre) and the origin marker moves
 // its pivot. The rotation handle above the box, and the zones just outside its
 // corners, turn it about its origin (Shift snaps to 15 degrees).
+// Double-clicking a layer, or Enter on the selected one, activates it, which
+// for a text layer starts typing on the canvas (`textEdit`).
 export function PreviewTransformOverlay({
   canvas,
   layers,
   selectedLaneId,
+  textEdit,
   getLayerPosition,
   getLayerTransform,
   onSelect,
   onMove,
   onTransform,
+  onActivate,
 }: {
   canvas: Size;
   layers: readonly PreviewLayer[];
   selectedLaneId: string | undefined;
+  textEdit?: PreviewTextEdit;
   getLayerPosition: (laneId: string) => Point;
   getLayerTransform: (laneId: string) => LayerTransform;
   onSelect: (layer: PreviewLayer | undefined) => void;
   onMove: (move: PreviewLayerMove) => void;
   onTransform: (edit: PreviewLayerTransformEdit) => void;
+  onActivate?: (layer: PreviewLayer) => void;
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -185,16 +208,25 @@ export function PreviewTransformOverlay({
   const selectedBox = selected
     ? frameBoxInCanvas(selected.placement.frame, canvas)
     : undefined;
+  const editedLayer = textEdit
+    ? layers.find((layer) => layer.clipId === textEdit.clipId)
+    : undefined;
   const selectedCorners = selected?.corners.map((corner) =>
     canvasToScreen(corner, video, canvas),
   ) as BoxCorners | undefined;
-  // Canvas pixels per CSS pixel, for distances measured on screen.
-  const canvasPerScreenPx = canvas.width / Math.max(0.0001, video.width);
-  // A handle or origin drag measures the pointer's travel on screen at the
-  // current zoom, so a preview that resizes mid-drag doesn't make it jump.
-  const screenDeltaToCanvas = (from: Point, to: Point) => ({
-    x: (to.x - from.x) * canvasPerScreenPx,
-    y: (to.y - from.y) * canvasPerScreenPx,
+  // The rotation handle and rotate zones step aside, like the other handles,
+  // while text is typed on the canvas.
+  const rotateCorners = editedLayer ? undefined : selectedCorners;
+  // Canvas pixels per CSS pixel at the current zoom.
+  const scale = {
+    x: canvas.width / Math.max(1, video.width),
+    y: canvas.height / Math.max(1, video.height),
+  };
+  // A drag measures the pointer's travel on the page at the zoom it started
+  // at, so a preview that moves or resizes mid-drag doesn't make it jump.
+  const dragDelta = (drag: DragState, client: Point) => ({
+    x: (client.x - drag.startClient.x) * drag.scale.x,
+    y: (client.y - drag.startClient.y) * drag.scale.y,
   });
 
   const toCanvas = (event: { clientX: number; clientY: number }) => {
@@ -206,16 +238,23 @@ export function PreviewTransformOverlay({
     return { screen, canvas: screenToCanvas(screen, video, canvas) };
   };
 
+  // The selected layer keeps the press anywhere inside its outline, even
+  // where another layer is drawn over it.
+  const pickLayer = (point: Point) =>
+    selected && isPointOnLayer(point, selected, canvas)
+      ? selected
+      : hitTestLayers(layers, point, canvas);
+
   // Recomputes a resize from the pointer and the modifiers held right now,
   // so pressing or releasing one mid-drag switches behaviour at once.
-  const updateResize = (pointerScreen: Point, modifiers: Modifiers) => {
+  const updateResize = (pointerClient: Point, modifiers: Modifiers) => {
     const drag = dragRef.current;
     if (!drag || drag.kind !== "resize") {
       return;
     }
 
-    drag.lastScreen = pointerScreen;
-    const delta = screenDeltaToCanvas(drag.startScreen, pointerScreen);
+    drag.lastClient = pointerClient;
+    const delta = dragDelta(drag, pointerClient);
     if (!drag.transform && delta.x === 0 && delta.y === 0) {
       return;
     }
@@ -231,7 +270,7 @@ export function PreviewTransformOverlay({
       {
         xLines: [0, canvas.width / 2, canvas.width],
         yLines: [0, canvas.height / 2, canvas.height],
-        threshold: SNAP_PX * canvasPerScreenPx,
+        threshold: SNAP_PX * drag.scale.x,
       },
     );
     drag.transform = result.transform;
@@ -251,21 +290,21 @@ export function PreviewTransformOverlay({
   const updateResizeRef = useRef(updateResize);
   updateResizeRef.current = updateResize;
 
-  // A rotation is the pointer's turn about the origin, measured on screen
-  // from where both were when the drag began, so a preview that resizes
-  // mid-drag doesn't make it jump.
-  const updateRotate = (pointerScreen: Point, modifiers: Modifiers) => {
+  // A rotation is the pointer's turn about the origin, measured on the page
+  // from where both were when the drag began, so a preview that moves or
+  // resizes mid-drag doesn't make it jump.
+  const updateRotate = (pointerClient: Point, modifiers: Modifiers) => {
     const drag = dragRef.current;
     if (!drag || drag.kind !== "rotate") {
       return;
     }
 
-    drag.lastScreen = pointerScreen;
+    drag.lastClient = pointerClient;
     if (
       !drag.transform &&
       Math.hypot(
-        pointerScreen.x - drag.startScreen.x,
-        pointerScreen.y - drag.startScreen.y,
+        pointerClient.x - drag.startClient.x,
+        pointerClient.y - drag.startClient.y,
       ) < DRAG_THRESHOLD_PX
     ) {
       return;
@@ -273,14 +312,15 @@ export function PreviewTransformOverlay({
 
     drag.transform = rotateTransform(
       drag.startTransform,
-      drag.originScreen,
-      drag.startScreen,
-      pointerScreen,
+      drag.originClient,
+      drag.startClient,
+      pointerClient,
       { snap15: modifiers.shiftKey },
     );
+    const bounds = rootRef.current?.getBoundingClientRect();
     setReadout({
-      x: pointerScreen.x,
-      y: pointerScreen.y,
+      x: pointerClient.x - (bounds?.left ?? 0),
+      y: pointerClient.y - (bounds?.top ?? 0),
       text: formatRotation(drag.transform.rotationDeg),
     });
     onTransform({
@@ -309,9 +349,9 @@ export function PreviewTransformOverlay({
           event.key === "Control" ||
           event.key === "Meta")
       ) {
-        updateResizeRef.current(drag.lastScreen, event);
+        updateResizeRef.current(drag.lastClient, event);
       } else if (drag?.kind === "rotate" && event.key === "Shift") {
-        updateRotateRef.current(drag.lastScreen, event);
+        updateRotateRef.current(drag.lastClient, event);
       }
     };
     window.addEventListener("keydown", onModifier);
@@ -331,25 +371,30 @@ export function PreviewTransformOverlay({
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     const startTransform = getLayerTransform(layer.laneId);
+    const client = { x: event.clientX, y: event.clientY };
+    const originScreen = canvasToScreen(
+      layerPointInCanvas(
+        { x: startTransform.originX, y: startTransform.originY },
+        startTransform,
+        box,
+        canvas,
+      ),
+      video,
+      canvas,
+    );
     dragRef.current = {
       kind: "rotate",
       pointerId: event.pointerId,
       laneId: layer.laneId,
-      startScreen: point.screen,
-      startCanvas: point.canvas,
+      startClient: client,
+      scale,
       newEffectId: crypto.randomUUID(),
       startTransform,
-      originScreen: canvasToScreen(
-        layerPointInCanvas(
-          { x: startTransform.originX, y: startTransform.originY },
-          startTransform,
-          box,
-          canvas,
-        ),
-        video,
-        canvas,
-      ),
-      lastScreen: point.screen,
+      originClient: {
+        x: client.x + originScreen.x - point.screen.x,
+        y: client.y + originScreen.y - point.screen.y,
+      },
+      lastClient: client,
     };
     setIsRotateHover(false);
     setDragCursor(ROTATE_CURSOR);
@@ -361,6 +406,7 @@ export function PreviewTransformOverlay({
     }
 
     event.currentTarget.focus({ preventScroll: true });
+    const client = { x: event.clientX, y: event.clientY };
     const point = toCanvas(event);
     const control =
       event.target instanceof Element
@@ -372,9 +418,9 @@ export function PreviewTransformOverlay({
     if (
       selected &&
       selectedBox &&
-      selectedCorners &&
+      rotateCorners &&
       (control?.dataset.transformRotate !== undefined ||
-        (!control && isInRotateZone(point.screen, selectedCorners)))
+        (!control && isInRotateZone(point.screen, rotateCorners)))
     ) {
       startRotate(event, selected, selectedBox, point);
       return;
@@ -387,8 +433,8 @@ export function PreviewTransformOverlay({
       const common = {
         pointerId: event.pointerId,
         laneId: selected.laneId,
-        startScreen: point.screen,
-        startCanvas: point.canvas,
+        startClient: client,
+        scale,
         newEffectId: crypto.randomUUID(),
         box: selectedBox,
         startTransform,
@@ -402,7 +448,7 @@ export function PreviewTransformOverlay({
           ...common,
           kind: "resize",
           handle,
-          lastScreen: point.screen,
+          lastClient: client,
         };
         setDragCursor(resizeCursor(handle, startTransform.rotationDeg));
       } else {
@@ -420,12 +466,7 @@ export function PreviewTransformOverlay({
       return;
     }
 
-    // The selected layer keeps the press anywhere inside its outline, even
-    // where another layer is drawn over it.
-    const target =
-      selected && isPointOnLayer(point.canvas, selected, canvas)
-        ? selected
-        : hitTestLayers(layers, point.canvas, canvas);
+    const target = pickLayer(point.canvas);
     onSelect(target);
     if (!target) {
       return;
@@ -437,8 +478,8 @@ export function PreviewTransformOverlay({
       kind: "move",
       pointerId: event.pointerId,
       laneId: target.laneId,
-      startScreen: point.screen,
-      startCanvas: point.canvas,
+      startClient: client,
+      scale,
       startPosition: getLayerPosition(target.laneId),
       newEffectId: crypto.randomUUID(),
     };
@@ -448,8 +489,8 @@ export function PreviewTransformOverlay({
     const drag = dragRef.current;
     if (!drag) {
       setIsRotateHover(
-        selectedCorners !== undefined &&
-          isInRotateZone(toCanvas(event).screen, selectedCorners),
+        rotateCorners !== undefined &&
+          isInRotateZone(toCanvas(event).screen, rotateCorners),
       );
       return;
     }
@@ -458,36 +499,34 @@ export function PreviewTransformOverlay({
       return;
     }
 
-    const point = toCanvas(event);
+    const client = { x: event.clientX, y: event.clientY };
     if (drag.kind === "resize") {
-      updateResize(point.screen, event);
+      updateResize(client, event);
       return;
     }
 
     if (drag.kind === "rotate") {
-      updateRotate(point.screen, event);
+      updateRotate(client, event);
       return;
     }
 
     const moved = drag.kind === "move" ? drag.position : drag.transform;
     if (
       !moved &&
-      Math.hypot(
-        point.screen.x - drag.startScreen.x,
-        point.screen.y - drag.startScreen.y,
-      ) < DRAG_THRESHOLD_PX
+      Math.hypot(client.x - drag.startClient.x, client.y - drag.startClient.y) <
+        DRAG_THRESHOLD_PX
     ) {
       return;
     }
 
+    const delta = dragDelta(drag, client);
     if (drag.kind === "origin") {
-      const delta = screenDeltaToCanvas(drag.startScreen, point.screen);
       const origin = snapOriginPoint(
         { x: drag.startOrigin.x + delta.x, y: drag.startOrigin.y + delta.y },
         drag.startTransform,
         drag.box,
         canvas,
-        SNAP_PX * canvasPerScreenPx,
+        SNAP_PX * drag.scale.x,
       );
       drag.transform = moveOrigin(
         drag.startTransform,
@@ -506,14 +545,11 @@ export function PreviewTransformOverlay({
       return;
     }
 
-    const delta = constrainDragDelta(
-      {
-        x: point.canvas.x - drag.startCanvas.x,
-        y: point.canvas.y - drag.startCanvas.y,
-      },
-      event.shiftKey,
+    drag.position = offsetTransformPosition(
+      drag.startPosition,
+      constrainDragDelta(delta, event.shiftKey),
+      canvas,
     );
-    drag.position = offsetTransformPosition(drag.startPosition, delta, canvas);
     setDragCursor("grabbing");
     onMove({
       laneId: drag.laneId,
@@ -565,17 +601,22 @@ export function PreviewTransformOverlay({
     }
   };
 
-  // Double-clicking the origin marker puts the origin back at the centre,
-  // and double-clicking the rotation handle straightens the layer. The
-  // pointer is captured by the overlay while pressed, so both are found by
-  // position rather than by the event target.
+  // Double-clicking the rotation handle straightens the layer. Double-clicking
+  // a moved origin marker puts the origin back at the centre; anywhere else,
+  // including a marker already at the centre, it activates the layer under the
+  // pointer. The pointer is captured by the overlay while pressed, so the
+  // handle and marker are found by position rather than by the event target.
   const handleDoubleClick = (event: MouseEvent<HTMLDivElement>) => {
-    if (!selected || !selectedBox || !originScreen) {
+    if (event.button !== 0) {
       return;
     }
 
     const point = toCanvas(event);
-    if (selectedCorners && isOnRotationHandle(point.screen, selectedCorners)) {
+    if (
+      selected &&
+      rotateCorners &&
+      isOnRotationHandle(point.screen, rotateCorners)
+    ) {
       event.preventDefault();
       if (getLayerTransform(selected.laneId).rotationDeg !== 0) {
         onTransform({
@@ -589,21 +630,30 @@ export function PreviewTransformOverlay({
       return;
     }
 
+    const start =
+      selected && selectedBox && originScreen
+        ? getLayerTransform(selected.laneId)
+        : undefined;
     if (
+      !selected ||
+      !selectedBox ||
+      !originScreen ||
+      !start ||
+      (start.originX === 0 && start.originY === 0) ||
       Math.hypot(
         point.screen.x - originScreen.x,
         point.screen.y - originScreen.y,
       ) > ORIGIN_HIT_RADIUS_PX
     ) {
+      const target = onActivate ? pickLayer(point.canvas) : undefined;
+      if (target) {
+        event.preventDefault();
+        onActivate?.(target);
+      }
       return;
     }
 
     event.preventDefault();
-    const start = getLayerTransform(selected.laneId);
-    if (start.originX === 0 && start.originY === 0) {
-      return;
-    }
-
     onTransform({
       laneId: selected.laneId,
       kind: "origin",
@@ -616,6 +666,20 @@ export function PreviewTransformOverlay({
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (
+      event.key === "Enter" &&
+      selected &&
+      onActivate &&
+      !dragRef.current &&
+      !event.altKey &&
+      !event.ctrlKey &&
+      !event.metaKey
+    ) {
+      event.preventDefault();
+      onActivate(selected);
+      return;
+    }
+
     if (event.key === "Escape" && selected) {
       event.preventDefault();
       onSelect(undefined);
@@ -655,14 +719,21 @@ export function PreviewTransformOverlay({
   const outline = selectedCorners
     ?.map((point) => `${point.x},${point.y}`)
     .join(" ");
-  const rotationHandle = selectedCorners
-    ? rotationHandleGeometry(selectedCorners)
+  const rotationHandle = rotateCorners
+    ? rotationHandleGeometry(rotateCorners)
     : undefined;
-  const originScreen = selected
-    ? toScreen({ x: selected.transform.originX, y: selected.transform.originY })
-    : undefined;
+  // The handles and origin marker step aside while text is typed on the
+  // canvas, so they don't cover the editor.
+  const originScreen =
+    selected && !editedLayer
+      ? toScreen({
+          x: selected.transform.originX,
+          y: selected.transform.originY,
+        })
+      : undefined;
   const rotationDeg = selected?.transform.rotationDeg ?? 0;
   const showControls = Boolean(outline && monitor.width > 0);
+  const showHandles = showControls && !editedLayer;
   const videoBottom = video.top + video.height;
   const videoRight = video.left + video.width;
 
@@ -683,7 +754,7 @@ export function PreviewTransformOverlay({
       role="application"
       // biome-ignore lint/a11y/noNoninteractiveTabindex: focus is how the arrow keys reach the selected layer
       tabIndex={0}
-      aria-label="Preview. Click a layer to select it, drag or use the arrow keys to move it, drag a handle to resize it, drag the rotation handle or just outside a corner to rotate it."
+      aria-label="Preview. Click a layer to select it, drag or use the arrow keys to move it, drag a handle to resize it, drag the rotation handle or just outside a corner to rotate it. Double-click a text layer or press Enter to edit its text."
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={endDrag}
@@ -788,7 +859,7 @@ export function PreviewTransformOverlay({
           style={{ left: originScreen.x, top: originScreen.y }}
         />
       ) : null}
-      {showControls
+      {showHandles
         ? RESIZE_HANDLES.map((handle) => {
             const point = toScreen(handle);
             if (!point) {
@@ -812,6 +883,15 @@ export function PreviewTransformOverlay({
             );
           })
         : null}
+      {textEdit && editedLayer && monitor.width > 0 ? (
+        <PreviewTextEditor
+          canvas={canvas}
+          placement={resolveTextEditorPlacement(editedLayer, video, canvas)}
+          style={textEdit.style}
+          onChangeText={textEdit.onChangeText}
+          onAction={textEdit.onAction}
+        />
+      ) : null}
       {readout ? (
         <div
           className="preview-transform-overlay__readout"

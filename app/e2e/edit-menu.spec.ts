@@ -86,6 +86,7 @@ test("Edit shows Clip and Layer only for a selection, and Audio always", async (
     "Delete",
     /^(Enable|Disable) FX$/,
     "Add FX",
+    "Insert text at playhead",
     "Insert layer above",
     "Insert layer below",
     "Move up",

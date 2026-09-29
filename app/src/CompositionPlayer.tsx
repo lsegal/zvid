@@ -23,6 +23,7 @@ import {
   type FrameContext,
   type WebGlResources,
 } from "./composition-draw.ts";
+import { resolveCompositionOrder } from "./composition-order.ts";
 import { getGroupClipProgress } from "./composition-progress.ts";
 import {
   LiveAudioBands,
@@ -35,6 +36,7 @@ import {
 } from "./fx-shaders/registry.ts";
 import { getRenderedEffects } from "./fx-stack.ts";
 import type { PlayheadSignal } from "./playhead-signal";
+import { loadFontFace, resolveFontFace, subscribeFonts } from "./text-fonts.ts";
 
 type CompositionPlayerProps = {
   mediaItems: MediaItem[];
@@ -53,6 +55,9 @@ type CompositionPlayerProps = {
   // Playback advances this every frame without re-rendering the player.
   playheadSignal: PlayheadSignal;
   mainAudio?: MediaItem;
+  // A text clip being typed on in the preview, whose text the on-canvas
+  // editor shows instead.
+  hiddenTextClipId?: string;
 };
 
 export type CompositionRendererState = {
@@ -64,6 +69,9 @@ export type CompositionRendererState = {
   canvasWidth: number;
   canvasHeight: number;
   mainAudio?: MediaItem;
+  // Draws this text clip with no text: it keeps its slot, and its layer's
+  // effects, but its text doesn't show twice under the editor.
+  hiddenTextClipId?: string;
 };
 
 type CompositionPlaybackState = {
@@ -269,6 +277,21 @@ export class CompositionRenderer {
       await Promise.all(pendingSeeks.values());
     }
 
+    // Exported frames never draw text in a fallback font.
+    await Promise.all(
+      nextActiveClips.map((entry) =>
+        entry.text
+          ? loadFontFace(
+              resolveFontFace(
+                entry.text.font,
+                entry.text.weight,
+                entry.text.italic,
+              ),
+            )
+          : undefined,
+      ),
+    );
+
     const audio = await this.sampleAudioBandsAt(playheadSeconds);
 
     if (this.mainAudioElement && this.state.mainAudio?.previewUrl) {
@@ -406,10 +429,13 @@ export class CompositionRenderer {
     );
 
     // Clips sharing a media at this playhead draw from extra elements, made
-    // the first time they are needed.
+    // the first time they are needed. Fill and text clips draw no media.
     let addedElement = false;
     for (const entry of activeClips) {
-      if (!this.mediaRefs.has(entry.sourceKey)) {
+      if (entry.text && entry.clip.id === this.state.hiddenTextClipId) {
+        entry.text = { ...entry.text, text: "" };
+      }
+      if (!entry.fill && !entry.text && !this.mediaRefs.has(entry.sourceKey)) {
         this.ensureMediaElement(entry.sourceKey, entry.media);
         addedElement = true;
       }
@@ -497,6 +523,7 @@ export class CompositionRenderer {
       this.mediaRefs,
       resolveEffectChain(this.state.effects, GROUP_TRACK_ID),
       frameContext,
+      resolveCompositionOrder(this.state.effects, GROUP_TRACK_ID),
     );
   }
 
@@ -617,6 +644,7 @@ export const CompositionPlayer = forwardRef<
     playheadSeconds,
     playheadSignal,
     mainAudio,
+    hiddenTextClipId,
   },
   ref,
 ) {
@@ -634,6 +662,7 @@ export const CompositionPlayer = forwardRef<
       canvasWidth,
       canvasHeight,
       mainAudio,
+      hiddenTextClipId,
     }),
     [
       bpm,
@@ -641,6 +670,7 @@ export const CompositionPlayer = forwardRef<
       canvasWidth,
       clips,
       effects,
+      hiddenTextClipId,
       lanes,
       mainAudio,
       mediaItems,
@@ -817,6 +847,17 @@ export const CompositionPlayer = forwardRef<
   useEffect(() => {
     return rendererRef.current?.addVideoFrameReadyListeners(scheduleDraw);
   }, [scheduleDraw]);
+
+  // Text waits for its font, so a paused preview redraws once it loads.
+  useEffect(
+    () =>
+      subscribeFonts(() => {
+        if (!isPlayingRef.current) {
+          scheduleDrawRef.current();
+        }
+      }),
+    [],
+  );
 
   useEffect(() => {
     rendererRef.current?.syncPlayback({

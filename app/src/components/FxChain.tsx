@@ -13,10 +13,12 @@ import {
   useRef,
   useState,
 } from "react";
+import ColorPicker from "react-best-gradient-color-picker";
 import {
+  addableEffectsFor,
+  canStartFxChainPan,
   describeDeviceMove,
   dropSlotToStackIndex,
-  getAddableEffectDefinitions,
   getAutoScrollDelta,
   getDropSlot,
   getParameterFormat,
@@ -24,7 +26,10 @@ import {
   isNoopDropSlot,
   knobColumnCount,
   readCollapsedDevices,
+  resolveGlobalOrderHint,
+  splitDeviceParameters,
   toggleCollapsedDevice,
+  usesColumnLayout,
   writeCollapsedDevices,
 } from "../fx-chain";
 import type { FxEffectDefinition } from "../fx-registry";
@@ -34,7 +39,11 @@ import {
   type FxDeviceParameter,
   GLOBAL_EFFECT_TRACK_ID,
 } from "../fx-stack";
+import { toggleStyleFlag } from "../text-style";
+import { useDragScroll } from "../use-drag-scroll";
 import { ContextMenu, type ContextMenuEntry } from "./ContextMenu";
+import { FontPicker } from "./FontPicker";
+import { usePrefersReducedMotion } from "./MediaSyncSkeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,6 +51,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { Knob } from "./ui/Knob";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import "./fx-chain.css";
 
 export type FxEditMode = "commit" | "transient";
@@ -108,6 +118,15 @@ function getStorage() {
   }
 }
 
+// Presses inside the chain's own DOM that start a pan. React also bubbles
+// events from its portalled menus through the chain, which must not pan it.
+function canStartChainPan(event: ReactMouseEvent<HTMLElement>) {
+  return (
+    event.currentTarget.contains(event.target as Node) &&
+    canStartFxChainPan(event)
+  );
+}
+
 function getTrackId(group: FxDeviceGroup, layerTrackId: string | undefined) {
   return group === "global" ? GLOBAL_EFFECT_TRACK_ID : layerTrackId;
 }
@@ -146,6 +165,15 @@ export function FxChain({
   const [announcement, setAnnouncement] = useState("");
   const groups = groupChainDevices(devices, kind);
   const canEdit = kind !== "audio" && layerTrackId !== undefined;
+  // Dragging the chain's background, or middle-dragging anywhere in it,
+  // pans it sideways.
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const chainDragScroll = useDragScroll({
+    scrollRef,
+    canStart: canStartChainPan,
+    axis: "x",
+    momentum: !prefersReducedMotion,
+  });
 
   // A vertical wheel scrolls the chain sideways. React registers wheel
   // listeners as passive, so preventDefault needs a native listener. Knobs
@@ -275,7 +303,7 @@ export function FxChain({
 
   function addDevice(group: FxDeviceGroup, effectName: string) {
     const trackId = getTrackId(group, layerTrackId);
-    const definition = getAddableEffectDefinitions(group).find(
+    const definition = addableEffectsFor(group).find(
       (candidate) => candidate.effectName === effectName,
     );
     if (!trackId || !definition) {
@@ -570,7 +598,7 @@ export function FxChain({
     const label = `Add device to ${group === "global" ? "Global" : "this layer"}`;
     return (
       <AddDeviceMenu
-        effects={getAddableEffectDefinitions(group)}
+        effects={addableEffectsFor(group)}
         focusKey={`add-${group}`}
         label={label}
         onAdd={(effectName) => addDevice(group, effectName)}
@@ -594,6 +622,7 @@ export function FxChain({
       ? `No effects on ${layerName}`
       : null;
   const showGlobal = groups.global.length > 0 || canEdit;
+  const globalOrderHint = resolveGlobalOrderHint(groups.global);
   const menuDevice = menu?.device;
   const menuEntries: ContextMenuEntry[] =
     menu && menuDevice
@@ -669,8 +698,11 @@ export function FxChain({
 
   return (
     <div
-      className={`fx-chain ${drag ? "fx-chain--dragging" : ""}`}
+      className={`fx-chain ${drag ? "fx-chain--dragging" : ""} ${
+        chainDragScroll.isGrabbing ? "fx-chain--grab-scrolling" : ""
+      }`}
       ref={scrollRef}
+      {...chainDragScroll.handlers}
     >
       {emptyMessage ? (
         <div className="fx-chain__empty">
@@ -693,6 +725,9 @@ export function FxChain({
           <div className="fx-chain__divider">
             <span>Global</span>
           </div>
+          {globalOrderHint ? (
+            <p className="fx-chain__hint">{globalOrderHint}</p>
+          ) : null}
           {renderStack("global")}
           {canEdit ? renderAddMenu("global") : null}
         </>
@@ -803,6 +838,13 @@ type FxDevicePanelProps = {
   onSetParameter: FxChainProps["onSetParameter"];
 };
 
+// Explains the "Not supported here" chip on a device loaded onto a stack its
+// effect isn't designed for.
+function getUnsupportedTitle(device: FxDevice) {
+  const stack = device.group === "global" ? "the Global stack" : "a layer";
+  return `${device.name} isn't designed for ${stack}. Remove it, or add it where it is supported.`;
+}
+
 function getTitleShortcuts(device: FxDevice) {
   return device.layerDefault
     ? "Alt+ArrowLeft Alt+ArrowRight"
@@ -831,6 +873,7 @@ export function FxDevicePanel({
     device.enabled ? "" : "fx-device-panel--bypassed",
     layerBypassed ? "fx-device-panel--layer-off" : "",
     dragging ? "fx-device-panel--dragging" : "",
+    device.unsupported ? "fx-device-panel--unsupported" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -883,6 +926,8 @@ export function FxDevicePanel({
     }
   }
 
+  const { controls, knobs } = splitDeviceParameters(device.parameters);
+
   return (
     <section
       aria-label={device.name}
@@ -909,6 +954,14 @@ export function FxDevicePanel({
         >
           {device.name}
         </button>
+        {device.unsupported ? (
+          <span
+            className="fx-device-panel__unsupported"
+            title={getUnsupportedTitle(device)}
+          >
+            Not supported here
+          </span>
+        ) : null}
         {device.layerDefault ? null : (
           <button
             aria-label={`Remove ${device.name}`}
@@ -933,25 +986,59 @@ export function FxDevicePanel({
           <ChevronLeftIcon aria-hidden="true" />
         </button>
       </header>
-      <div
-        className="fx-device-panel__body"
-        style={{
-          gridTemplateColumns: `repeat(${knobColumnCount(device.parameters.length)}, auto)`,
-        }}
-      >
-        {device.parameters.length ? (
-          device.parameters.map((parameter) => (
-            <FxParameterControl
-              key={parameter.key}
-              device={device}
-              onSetParameter={onSetParameter}
-              parameter={parameter}
-            />
-          ))
-        ) : (
-          <p className="fx-device-panel__empty">No settings</p>
-        )}
-      </div>
+      {device.warning ? (
+        <p className="fx-device-panel__warning" role="status">
+          {device.warning}
+        </p>
+      ) : null}
+      {usesColumnLayout(controls.length) ? (
+        // Too many controls for a row each: they fill columns instead,
+        // with the knobs beside them.
+        <div className="fx-device-panel__body fx-device-panel__body--columns">
+          <div className="fx-device-panel__controls">
+            {controls.map((parameter) => (
+              <FxParameterControl
+                key={parameter.key}
+                device={device}
+                onSetParameter={onSetParameter}
+                parameter={parameter}
+              />
+            ))}
+          </div>
+          {knobs.length ? (
+            <div className="fx-device-panel__knobs">
+              {knobs.map((parameter) => (
+                <FxParameterControl
+                  key={parameter.key}
+                  device={device}
+                  onSetParameter={onSetParameter}
+                  parameter={parameter}
+                />
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <div
+          className="fx-device-panel__body"
+          style={{
+            gridTemplateColumns: `repeat(${knobColumnCount(knobs.length)}, auto)`,
+          }}
+        >
+          {device.parameters.length ? (
+            [...controls, ...knobs].map((parameter) => (
+              <FxParameterControl
+                key={parameter.key}
+                device={device}
+                onSetParameter={onSetParameter}
+                parameter={parameter}
+              />
+            ))
+          ) : (
+            <p className="fx-device-panel__empty">No settings</p>
+          )}
+        </div>
+      )}
     </section>
   );
 }
@@ -965,6 +1052,28 @@ function FxParameterControl({
   parameter: FxDeviceParameter;
   onSetParameter: FxChainProps["onSetParameter"];
 }) {
+  // Long option lists, such as font weights, pick from a menu instead.
+  if (parameter.kind === "enum" && parameter.menu) {
+    return (
+      <label className="fx-select">
+        <span className="fx-select__label">{parameter.label}</span>
+        <select
+          data-fx-no-drag
+          onChange={(event) =>
+            onSetParameter(device, parameter.key, event.target.value, "commit")
+          }
+          value={parameter.stringValue}
+        >
+          {parameter.options?.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
+
   if (parameter.kind === "enum") {
     return (
       <fieldset className="fx-segmented">
@@ -980,6 +1089,70 @@ function FxParameterControl({
               type="button"
             >
               {option}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+    );
+  }
+
+  if (parameter.kind === "color" || parameter.kind === "gradient") {
+    return (
+      <FxPaintControl
+        device={device}
+        onSetParameter={onSetParameter}
+        parameter={parameter}
+      />
+    );
+  }
+
+  if (parameter.kind === "text") {
+    return (
+      <FxTextControl
+        device={device}
+        onSetParameter={onSetParameter}
+        parameter={parameter}
+      />
+    );
+  }
+
+  if (parameter.kind === "font") {
+    return (
+      <FontPicker
+        label={parameter.label}
+        onChange={(value) =>
+          onSetParameter(device, parameter.key, value, "commit")
+        }
+        value={parameter.stringValue ?? `${parameter.defaultValue}`}
+      />
+    );
+  }
+
+  if (parameter.kind === "flags") {
+    const value = parameter.stringValue ?? "";
+    const on = new Set(value.split(","));
+    return (
+      <fieldset className="fx-segmented fx-flags">
+        <legend>{parameter.label}</legend>
+        <div className="fx-segmented__options">
+          {parameter.flags?.map((flag) => (
+            <button
+              aria-label={flag.title}
+              aria-pressed={on.has(flag.value)}
+              className={`fx-flags__${flag.value.toLowerCase()}`}
+              key={flag.value}
+              onClick={() =>
+                onSetParameter(
+                  device,
+                  parameter.key,
+                  toggleStyleFlag(value, flag.value),
+                  "commit",
+                )
+              }
+              title={flag.title}
+              type="button"
+            >
+              {flag.label}
             </button>
           ))}
         </div>
@@ -1007,5 +1180,123 @@ function FxParameterControl({
       step={parameter.step}
       value={parameter.numericValue ?? defaultValue}
     />
+  );
+}
+
+// A swatch that opens a colour or gradient picker in a popover. Picker drags
+// send transient edits, and closing the popover commits the last value as
+// one undo step.
+function FxPaintControl({
+  device,
+  parameter,
+  onSetParameter,
+}: {
+  device: FxDevice;
+  parameter: FxDeviceParameter;
+  onSetParameter: FxChainProps["onSetParameter"];
+}) {
+  const pendingRef = useRef<string | null>(null);
+  const value = parameter.stringValue ?? `${parameter.defaultValue}`;
+  const gradient = parameter.kind === "gradient";
+  const label = `Edit ${parameter.label}`;
+
+  return (
+    <div className="fx-paint">
+      <span className="fx-paint__label">{parameter.label}</span>
+      <Popover
+        onOpenChange={(open) => {
+          const pending = pendingRef.current;
+          pendingRef.current = null;
+          if (!open && pending !== null) {
+            onSetParameter(device, parameter.key, pending, "commit");
+          }
+        }}
+      >
+        <PopoverTrigger asChild>
+          <button
+            aria-label={label}
+            className="fx-paint__swatch"
+            data-fx-no-drag
+            title={label}
+            type="button"
+          >
+            <span aria-hidden="true" style={{ background: value }} />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="fx-paint__popover">
+          <ColorPicker
+            disableLightMode
+            hideColorTypeBtns
+            hideGradientControls={!gradient}
+            height={150}
+            onChange={(next) => {
+              pendingRef.current = next;
+              onSetParameter(device, parameter.key, next, "transient");
+            }}
+            value={value}
+            width={236}
+          />
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
+// A text area for free text. Typing sends transient edits, and leaving the
+// field commits them as one undo step.
+function FxTextControl({
+  device,
+  parameter,
+  onSetParameter,
+}: {
+  device: FxDevice;
+  parameter: FxDeviceParameter;
+  onSetParameter: FxChainProps["onSetParameter"];
+}) {
+  const value = parameter.stringValue ?? "";
+  const [draft, setDraft] = useState(value);
+  const editingRef = useRef(false);
+  const pendingRef = useRef<string | null>(null);
+
+  // Follows edits made elsewhere, such as undo or a collaborator, except
+  // while typing here.
+  useEffect(() => {
+    if (!editingRef.current) {
+      setDraft(value);
+    }
+  }, [value]);
+
+  return (
+    <label className="fx-text">
+      <span className="fx-text__label">{parameter.label}</span>
+      <textarea
+        data-fx-no-drag
+        onBlur={() => {
+          editingRef.current = false;
+          const pending = pendingRef.current;
+          pendingRef.current = null;
+          if (pending !== null) {
+            onSetParameter(device, parameter.key, pending, "commit");
+          }
+        }}
+        onChange={(event) => {
+          editingRef.current = true;
+          pendingRef.current = event.target.value;
+          setDraft(event.target.value);
+          onSetParameter(
+            device,
+            parameter.key,
+            event.target.value,
+            "transient",
+          );
+        }}
+        onFocus={() => {
+          editingRef.current = true;
+        }}
+        rows={3}
+        spellCheck={false}
+        value={draft}
+      />
+    </label>
   );
 }

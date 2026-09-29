@@ -3,16 +3,26 @@ import {
   type LayerVisual,
   orderStackedLayers,
   resolveLayerPlacement,
+  resolveSlotScissor,
 } from "./composition-layout.ts";
+import {
+  type CompositionOrder,
+  DEFAULT_COMPOSITION_ORDER,
+  visibleLayerCount,
+} from "./composition-order.ts";
 import {
   isIdentityTransform,
   type QuadAxes,
   transformedQuadAxes,
 } from "./composition-transform.ts";
+import { type FillPaint, rasterizeFillPaint } from "./fill-paint.ts";
 import type { AudioBands } from "./fx-shaders/audio-bands.ts";
 import { EffectChainRenderer } from "./fx-shaders/chain.ts";
 import { linkProgram } from "./fx-shaders/gl.ts";
 import type { EffectChainStep } from "./fx-shaders/registry.ts";
+import { isFontFaceReady, resolveFontFace } from "./text-fonts.ts";
+import { createTextCanvas, drawText } from "./text-render.ts";
+import { TEXT_REFERENCE_HEIGHT, type TextStyle } from "./text-style.ts";
 
 export type CompositeVisual = LayerVisual & {
   opacity: number;
@@ -32,7 +42,15 @@ export type CompositeLayer = {
   clipProgress: number;
   visual: CompositeVisual;
   effectChain: EffectChainStep[];
+  // Set for fill clips, which draw this paint instead of a media element.
+  fill?: FillPaint;
+  // Set for text clips, which draw this text instead of a media element.
+  text?: TextStyle;
 };
+
+// Fill textures are drawn at most this many pixels on a side; the linear
+// filter smooths gradients when the band is larger.
+const MAX_FILL_TEXTURE_SIZE = 512;
 
 export type FrameContext = {
   time: number;
@@ -48,6 +66,9 @@ export type WebGlResources = {
   positionBuffer: WebGLBuffer;
   textureMap: Map<string, WebGLTexture>;
   readyTextureIds: Set<string>;
+  // What each fill or text texture was last drawn with, so it is only
+  // redrawn when its paint, text or size changes.
+  generatedTextureKeys: Map<string, string>;
   effectChain: EffectChainRenderer;
   uniforms: {
     position: number;
@@ -144,6 +165,7 @@ export function createWebGlResources(
     positionBuffer,
     textureMap: new Map<string, WebGLTexture>(),
     readyTextureIds: new Set<string>(),
+    generatedTextureKeys: new Map<string, string>(),
     effectChain: new EffectChainRenderer(gl, positionBuffer),
     uniforms: {
       position: gl.getAttribLocation(program, "aPosition"),
@@ -188,6 +210,7 @@ export function disposeWebGlResources(resources: WebGlResources) {
   }
   resources.textureMap.clear();
   resources.readyTextureIds.clear();
+  resources.generatedTextureKeys.clear();
   gl.deleteBuffer(resources.positionBuffer);
   gl.deleteProgram(resources.program);
 }
@@ -196,7 +219,7 @@ export function disposeWebGlResources(resources: WebGlResources) {
 // render-target setup rebind the program, array buffer, attribute pointer,
 // blending, viewport and texture unit, so this runs before every draw
 // instead of relying on state left over from initialisation. Scissoring is
-// left off; each layer draw scissors to its own band.
+// left off; each layer draw scissors to its own slot.
 function bindCompositeState(
   resources: WebGlResources,
   framebuffer: WebGLFramebuffer | null,
@@ -260,9 +283,9 @@ function colorUniforms(visual: CompositeVisual) {
   };
 }
 
-// Draws the layer's source into a band-sized target exactly as it would
-// appear in its band (cover, Layout anchor, scale, offset and rotation), so
-// the effect chain works on what the band shows rather than on the whole
+// Draws the layer's source into a slot-sized target exactly as it would
+// appear in its slot (cover, Layout anchor, scale, offset and rotation), so
+// the effect chain works on what the slot shows rather than on the whole
 // source. Rows are written top row first to match uploaded video textures,
 // which is the orientation the effect passes and the composite shader expect.
 function renderLayerFrame(
@@ -300,6 +323,128 @@ function renderLayerFrame(
   return target.texture;
 }
 
+// Uploads the media element's current frame into the layer's texture.
+// Returns undefined when the element has never had a frame to show.
+function uploadVideoTexture(
+  resources: WebGlResources,
+  entry: CompositeLayer,
+  mediaElement: HTMLVideoElement,
+) {
+  const { gl } = resources;
+  const texture = getOrCreateTexture(resources, entry.sourceKey);
+  const hasDecodedFrame =
+    mediaElement.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
+    (mediaElement.videoWidth > 0 || Boolean(entry.media.width)) &&
+    (mediaElement.videoHeight > 0 || Boolean(entry.media.height));
+
+  if (hasDecodedFrame) {
+    resources.readyTextureIds.add(entry.sourceKey);
+  } else if (!resources.readyTextureIds.has(entry.sourceKey)) {
+    return undefined;
+  }
+
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  if (hasDecodedFrame) {
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      mediaElement,
+    );
+  }
+  return texture;
+}
+
+// Draws a fill's paint into its texture, top row first like an uploaded
+// video frame, when the paint or the band size changed since last time.
+function uploadFillTexture(
+  resources: WebGlResources,
+  sourceKey: string,
+  fill: FillPaint,
+  bandWidth: number,
+  bandHeight: number,
+) {
+  const { gl } = resources;
+  const texture = getOrCreateTexture(resources, sourceKey);
+  const scale = Math.min(
+    1,
+    MAX_FILL_TEXTURE_SIZE / Math.max(bandWidth, bandHeight, 1),
+  );
+  const textureWidth = Math.max(1, Math.round(bandWidth * scale));
+  const textureHeight = Math.max(1, Math.round(bandHeight * scale));
+  const key = `${textureWidth}x${textureHeight}:${JSON.stringify(fill)}`;
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  if (resources.generatedTextureKeys.get(sourceKey) !== key) {
+    const raster = rasterizeFillPaint(fill, textureWidth, textureHeight);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      raster.width,
+      raster.height,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      raster.pixels,
+    );
+    resources.generatedTextureKeys.set(sourceKey, key);
+  }
+  return texture;
+}
+
+// Draws a text clip into its texture at the full size of its box, so it
+// stays sharp, when its text, style, face or the box changed since last
+// time. Until its face has loaded, the previous texture is kept, or nothing
+// is drawn, so the text never shows in a fallback font.
+function uploadTextTexture(
+  resources: WebGlResources,
+  sourceKey: string,
+  text: TextStyle,
+  boxWidth: number,
+  boxHeight: number,
+  scale: number,
+) {
+  const { gl } = resources;
+  const face = resolveFontFace(text.font, text.weight, text.italic);
+  const width = Math.max(1, Math.round(boxWidth));
+  const height = Math.max(1, Math.round(boxHeight));
+  const key = `${width}x${height}@${scale}:${JSON.stringify(face)}:${JSON.stringify(text)}`;
+  const drawn = resources.generatedTextureKeys.get(sourceKey);
+  if (drawn !== key && !isFontFaceReady(face)) {
+    return drawn === undefined
+      ? undefined
+      : getOrCreateTexture(resources, sourceKey);
+  }
+
+  const texture = getOrCreateTexture(resources, sourceKey);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  if (drawn !== key) {
+    const canvas = createTextCanvas(width, height);
+    if (!canvas || !drawText(canvas, text, face, width, height, scale)) {
+      return undefined;
+    }
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      canvas as TexImageSource,
+    );
+    resources.generatedTextureKeys.set(sourceKey, key);
+  }
+  return texture;
+}
+
 export function drawComposition(
   resources: WebGlResources,
   surface: CompositeSurface,
@@ -307,6 +452,7 @@ export function drawComposition(
   mediaRefs: Map<string, HTMLMediaElement>,
   groupChain: EffectChainStep[],
   frameContext: FrameContext,
+  order: CompositionOrder = DEFAULT_COMPOSITION_ORDER,
 ) {
   const { gl, effectChain } = resources;
   const { width, height } = surface;
@@ -320,44 +466,76 @@ export function drawComposition(
   gl.clearColor(0.07, 0.08, 0.11, 1);
   gl.clear(gl.COLOR_BUFFER_BIT);
 
-  const stackedClips = orderStackedLayers(
+  // A Grid has one cell per layer, so layers past the last cell are not
+  // drawn.
+  const orderedClips = orderStackedLayers(
     activeClips.filter(
       (entry) =>
         entry.isInBounds &&
-        mediaRefs.get(entry.sourceKey) instanceof HTMLVideoElement,
+        (entry.fill ||
+          entry.text ||
+          mediaRefs.get(entry.sourceKey) instanceof HTMLVideoElement),
     ),
+    order,
+  );
+  const stackedClips = orderedClips.slice(
+    0,
+    visibleLayerCount(orderedClips.length, order),
   );
 
   for (const [index, entry] of stackedClips.entries()) {
     const mediaElement = mediaRefs.get(entry.sourceKey);
-    if (!(mediaElement instanceof HTMLVideoElement)) {
-      continue;
-    }
-
-    let texture = getOrCreateTexture(resources, entry.sourceKey);
-    const hasDecodedFrame =
-      mediaElement.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
-      (mediaElement.videoWidth > 0 || Boolean(entry.media.width)) &&
-      (mediaElement.videoHeight > 0 || Boolean(entry.media.height));
-
-    if (hasDecodedFrame) {
-      resources.readyTextureIds.add(entry.sourceKey);
-    } else if (!resources.readyTextureIds.has(entry.sourceKey)) {
-      continue;
-    }
-
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    if (hasDecodedFrame) {
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
-      gl.texImage2D(
-        gl.TEXTURE_2D,
-        0,
-        gl.RGBA,
-        gl.RGBA,
-        gl.UNSIGNED_BYTE,
-        mediaElement,
+    let sourceWidth: number;
+    let sourceHeight: number;
+    let texture: WebGLTexture;
+    if (entry.fill || entry.text) {
+      // Fills and text are drawn at their slot's own size, so they cover
+      // the slot exactly in any arrangement.
+      const slot = resolveSlotScissor(
+        index,
+        stackedClips.length,
+        order,
+        width,
+        height,
       );
+      sourceWidth = Math.max(1, slot.width);
+      sourceHeight = Math.max(1, slot.height);
+      if (entry.fill) {
+        texture = uploadFillTexture(
+          resources,
+          entry.sourceKey,
+          entry.fill,
+          sourceWidth,
+          sourceHeight,
+        );
+      } else {
+        const uploaded = uploadTextTexture(
+          resources,
+          entry.sourceKey,
+          entry.text as TextStyle,
+          sourceWidth,
+          sourceHeight,
+          // Text sizes are given at 1080p and scale with the output's
+          // short side, in portrait as in landscape.
+          Math.min(width, height) / TEXT_REFERENCE_HEIGHT,
+        );
+        if (!uploaded) {
+          continue;
+        }
+        texture = uploaded;
+      }
+    } else {
+      if (!(mediaElement instanceof HTMLVideoElement)) {
+        continue;
+      }
+
+      const uploaded = uploadVideoTexture(resources, entry, mediaElement);
+      if (!uploaded) {
+        continue;
+      }
+      texture = uploaded;
+      sourceWidth = mediaElement.videoWidth || entry.media.width || width;
+      sourceHeight = mediaElement.videoHeight || entry.media.height || height;
     }
 
     const placement = resolveLayerPlacement({
@@ -365,9 +543,10 @@ export function drawComposition(
       count: stackedClips.length,
       canvasWidth: width,
       canvasHeight: height,
-      sourceWidth: mediaElement.videoWidth || entry.media.width || width,
-      sourceHeight: mediaElement.videoHeight || entry.media.height || height,
+      sourceWidth,
+      sourceHeight,
       visual: entry.visual,
+      order,
     });
     const { frame, halfExtents, translate, scissor } = placement;
     let uniforms: CompositeUniforms = {
@@ -379,8 +558,8 @@ export function drawComposition(
       ...colorUniforms(entry.visual),
     };
 
-    // A Transform moves the band's content, so the layer is framed into its
-    // band first and that frame is drawn transformed.
+    // A Transform moves the slot's content, so the layer is framed into its
+    // slot first and that frame is drawn transformed.
     const transform = isIdentityTransform(entry.visual.transform)
       ? undefined
       : entry.visual.transform;
@@ -406,7 +585,7 @@ export function drawComposition(
             bottomUp: false,
           }) ?? framed);
       // The framed result already holds the layer's placement, so it fills
-      // its band exactly, or the box its Transform moves the band to.
+      // its slot exactly, or the box its Transform moves the slot to.
       uniforms = {
         ...(transform
           ? transformedQuadAxes(frame, transform, surface)
@@ -420,7 +599,7 @@ export function drawComposition(
     }
 
     bindCompositeState(resources, compositeFramebuffer, width, height);
-    // A transformed layer can leave its band; only the canvas clips it.
+    // A transformed layer can leave its slot; only the canvas clips it.
     if (!transform) {
       gl.enable(gl.SCISSOR_TEST);
       gl.scissor(scissor.x, scissor.y, scissor.width, scissor.height);

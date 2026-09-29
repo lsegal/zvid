@@ -4,6 +4,7 @@ import {
   buildRandomArrangement,
   type RandomArrangementWindow,
   sourceSpanCovering,
+  sourceTrackHasFootage,
 } from "./random-arrangement.ts";
 
 type Span = {
@@ -185,5 +186,26 @@ describe("buildRandomArrangement", () => {
         }
       }
     }
+  });
+});
+
+describe("sourceTrackHasFootage", () => {
+  const spans = [
+    { id: "x", sourceTrackId: "a", startQ: 4, endQ: 8 },
+    { id: "y", sourceTrackId: "b", startQ: 0, endQ: 2 },
+  ];
+  const endQ = (entry: { endQ: number }) => entry.endQ;
+
+  it("is true when a clip on the track overlaps the range at all", () => {
+    assert.equal(sourceTrackHasFootage(spans, endQ, "a", 2, 5), true);
+    assert.equal(sourceTrackHasFootage(spans, endQ, "a", 7, 12), true);
+    assert.equal(sourceTrackHasFootage(spans, endQ, "a", 0, 12), true);
+  });
+
+  it("is false when the track's clips only touch or miss the range", () => {
+    assert.equal(sourceTrackHasFootage(spans, endQ, "a", 0, 4), false);
+    assert.equal(sourceTrackHasFootage(spans, endQ, "a", 8, 10), false);
+    assert.equal(sourceTrackHasFootage(spans, endQ, "b", 4, 6), false);
+    assert.equal(sourceTrackHasFootage(spans, endQ, "c", 0, 12), false);
   });
 });

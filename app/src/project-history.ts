@@ -32,7 +32,25 @@ export type ProjectHistoryAction<State> =
   | {
       type: "replace";
       snapshot: State;
+    }
+  | {
+      // Swaps in a whole history, such as one restored after a refresh.
+      type: "restore";
+      history: ProjectHistoryState<State>;
     };
+
+// True for actions that edit the project, which a read-only tab refuses.
+// `replace` and `restore` swap in a whole session that came from elsewhere.
+export function isProjectEditAction<State>(
+  action: ProjectHistoryAction<State>,
+) {
+  return (
+    action.type === "commit" ||
+    action.type === "transient" ||
+    action.type === "undo" ||
+    action.type === "redo"
+  );
+}
 
 export function createProjectHistoryState<State>(
   initial: State,
@@ -121,6 +139,13 @@ export function projectHistoryReducer<State>(
         future: [],
       };
     }
+
+    case "restore":
+      return {
+        past: action.history.past,
+        present: action.history.present,
+        future: action.history.future,
+      };
 
     default:
       return state;

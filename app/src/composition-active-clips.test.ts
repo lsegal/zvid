@@ -349,3 +349,113 @@ describe("resolveVisualState", () => {
     assert.equal(resolveVisualState(effects, "5").transform?.scaleX, 3);
   });
 });
+
+describe("fill clips", () => {
+  function fill(
+    id: string,
+    laneId: string,
+    frameStart: number,
+    frames: number,
+  ) {
+    const clip: ArrangementClip = {
+      id,
+      kind: "fill",
+      sourceTrackId: "",
+      laneId,
+      label: "Fill",
+      mediaPath: "",
+      startQ: frameToQ(frameStart),
+      durationSeconds: frames / FPS,
+      trimStartSeconds: 0,
+      sourceOffsetSeconds: 0,
+      sourceWindowStartSeconds: 0,
+      sourceWindowEndSeconds: frames / FPS,
+      tint: "#000",
+      accent: "#fff",
+    };
+    return clip;
+  }
+
+  const color = {
+    id: "color",
+    trackId: "6",
+    effectName: "Color",
+    parameters: [
+      { key: "Mode", value: "Solid" },
+      { key: "Color", value: "rgba(255,0,0,1)" },
+      { key: "Opacity", value: "0.500", numericValue: 0.5 },
+    ],
+  };
+
+  it("draws a fill with no media, painted by its layer's Color", () => {
+    const active = computeActiveClips(
+      [...DOGFOOD3_CLIPS, fill("fill-1", "6", 60, 60)],
+      new Map(MEDIA.map((item) => [item.id, item])),
+      PLAYHEAD_Q,
+      BPM,
+      LANE_PRIORITY,
+      [color],
+    );
+
+    assert.deepEqual(
+      active.map((entry) => entry.clip.id),
+      ["selection-14", "selection-16", "fill-1"],
+    );
+    const entry = active[2];
+    assert.ok(entry.isInBounds);
+    assert.equal(entry.sourceKey, "fill:fill-1");
+    assert.deepEqual(entry.fill, {
+      kind: "solid",
+      color: { r: 255, g: 0, b: 0, a: 1 },
+      opacity: 0.5,
+    });
+    assert.equal(active[0].fill, undefined);
+  });
+
+  it("is only drawn while the playhead is over it", () => {
+    const active = activeAt([fill("fill-1", "6", 0, 30)]);
+    assert.deepEqual(active, []);
+  });
+
+  it("keeps the Color effect's opacity out of the layer's visual state", () => {
+    assert.equal(resolveVisualState([color], "6").opacity, 1);
+  });
+
+  it("draws a text clip with no media, styled by its layer's Text", () => {
+    const text = {
+      id: "text",
+      trackId: "6",
+      effectName: "Text",
+      parameters: [
+        { key: "Text", value: "Hello\nWorld" },
+        { key: "FontSize", value: "120.000", numericValue: 120 },
+        { key: "Padding", value: "0.500", numericValue: 0.5 },
+      ],
+    };
+    const active = computeActiveClips(
+      [
+        ...DOGFOOD3_CLIPS,
+        { ...fill("text-1", "6", 60, 60), kind: "text", label: "Text" },
+      ],
+      new Map(MEDIA.map((item) => [item.id, item])),
+      PLAYHEAD_Q,
+      BPM,
+      LANE_PRIORITY,
+      [text],
+    );
+
+    const entry = active.find((candidate) => candidate.clip.id === "text-1");
+    assert.ok(entry?.isInBounds);
+    assert.equal(entry.sourceKey, "text:text-1");
+    assert.equal(entry.fill, undefined);
+    assert.equal(entry.text?.text, "Hello\nWorld");
+    assert.equal(entry.text?.fontSize, 120);
+    assert.equal(entry.text?.align, "center");
+    // The Text effect only styles text, so it never reads as the layer's
+    // scale, offset or opacity.
+    assert.deepEqual(
+      resolveVisualState([text], "6"),
+      resolveVisualState([], "6"),
+    );
+  });
+});
