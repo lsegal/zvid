@@ -202,6 +202,16 @@
   cursor: not-allowed;
 }
 
+.dropdown-menu-content [data-radix-collection-item][data-state='open'] {
+  background: rgba(124, 161, 255, 0.1);
+}
+
+.dropdown-menu-sub-chevron {
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
+}
+
 .dropdown-menu-content [role='separator'] {
   height: 1px;
   margin: 8px 4px;
