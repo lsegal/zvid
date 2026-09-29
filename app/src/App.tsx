@@ -176,6 +176,8 @@ import {
 import {
   addableEffectsFor,
   getDefaultLaneId,
+  getFxClipName,
+  getFxPanelTitle,
   resolveSelectedLaneId,
   stepSelectedLaneId,
 } from "./fx-chain";
@@ -183,6 +185,7 @@ import {
   addFxClip,
   createFxClip,
   describeFxClip,
+  FX_CLIP_LABEL,
   isFxClip,
 } from "./fx-clip.ts";
 import {
@@ -3362,6 +3365,30 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       }
     }
   }, [effects]);
+  // The clip whose own stack the FX chain shows: only an explicitly
+  // selected clip, on the layer the chain shows.
+  const fxClip =
+    selectedClip && selectedClip.laneId === fxLaneId
+      ? {
+          id: selectedClip.id,
+          name: getFxClipName(
+            selectedClip.label,
+            isTextClip(selectedClip)
+              ? getTextPreview(
+                  resolveTextStyle(
+                    effects,
+                    selectedClip.laneId,
+                    clipEffectTrackId(selectedClip.id),
+                  ),
+                )
+              : isFxClip(selectedClip)
+                ? FX_CLIP_LABEL
+                : undefined,
+          ),
+        }
+      : undefined;
+  const fxClipId = fxClip?.id;
+  const fxClipName = fxClip?.name;
   // An FX clip's own stack offers only effects that work on a composite.
   const fxClipScope = isFxClip(selectedClip) ? "fxClip" : "clip";
   const fxDevices = useMemo(
@@ -3373,18 +3400,18 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             fxLane?.name,
             playheadVisualLayerCount,
             missingFonts,
-            selectedClip?.id,
+            fxClipId,
             fxClipScope,
           )
         : [],
     [
       effects,
+      fxClipId,
       fxClipScope,
       fxLane?.name,
       fxLaneId,
       missingFonts,
       playheadVisualLayerCount,
-      selectedClip?.id,
     ],
   );
   const playheadSeconds = quartersToSeconds(playheadQ, bpm);
@@ -10746,7 +10773,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
               onClick={toggleInspectorCollapsed}
               type="button"
             >
-              <span>{fxLane ? `${fxLane.name} effects` : "Effects"}</span>
+              <span>{getFxPanelTitle(fxLane?.name, fxClipName)}</span>
               <ChevronDownIcon aria-hidden="true" />
             </button>
 
@@ -10761,9 +10788,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 layerFxEnabled={isLayerFxEnabled(fxLane)}
                 layerName={fxLane?.name}
                 layerTrackId={fxLaneId}
-                clipTrackId={
-                  selectedClip ? clipEffectTrackId(selectedClip.id) : undefined
-                }
+                clipTrackId={fxClipId ? clipEffectTrackId(fxClipId) : undefined}
                 clipScope={fxClipScope}
                 onAdd={addFxDevice}
                 onDuplicate={duplicateFxDevice}

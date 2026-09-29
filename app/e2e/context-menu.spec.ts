@@ -63,7 +63,7 @@ test("right-clicking empty lane space selects the layer and offers only Paste", 
 
   const menu = page.getByRole("menu", { name: "Layer actions" });
   await expect(menu).toBeVisible();
-  await expect(page.locator(".fx-panel__toggle")).toHaveText("Layer 2 effects");
+  await expect(page.locator(".fx-panel__toggle")).toHaveText("Layer 2 Effects");
   await expect(menu.getByRole("menuitem")).toHaveCount(7);
   // Nothing is on the clipboard yet, so even Paste is disabled.
   for (const item of await menu.getByRole("menuitem").all()) {
@@ -85,7 +85,7 @@ test("right-clicking empty lane space selects the layer and offers only Paste", 
   );
   await page.keyboard.press("Shift+F10");
   await expect(menu).toBeVisible();
-  await expect(page.locator(".fx-panel__toggle")).toHaveText("Layer 3 effects");
+  await expect(page.locator(".fx-panel__toggle")).toHaveText("Layer 3 Effects");
   await page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
   await page.keyboard.press("ContextMenu");
