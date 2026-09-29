@@ -52,7 +52,7 @@ function insert(
 }
 
 describe("addFillClip", () => {
-  it("adds a media-less fill clip over the range with a Color effect", () => {
+  it("adds a media-less fill clip over the range with its own Color effect", () => {
     const existing: MediaClip = { id: "clip-1", laneId: "1", mediaId: "m" };
     const result = insert({ clips: [existing], effects: [layout("1")] });
 
@@ -68,7 +68,7 @@ describe("addFillClip", () => {
     assert.equal(result.clip.label, "Fill");
 
     const color = result.effects.find((effect) => effect.id === "color-a");
-    assert.equal(color?.trackId, "1");
+    assert.equal(color?.trackId, "clip:fill-a");
     assert.equal(color?.effectName, "Color");
     assert.deepEqual(
       color?.parameters.map((parameter) => [parameter.key, parameter.value]),
@@ -82,14 +82,14 @@ describe("addFillClip", () => {
         ["Opacity", "1.000"],
       ],
     );
-    assert.deepEqual(resolveFillPaint(result.effects, "1"), {
+    assert.deepEqual(resolveFillPaint(result.effects, "1", "clip:fill-a"), {
       kind: "solid",
       color: { r: 124, g: 161, b: 255, a: 1 },
       opacity: 1,
     });
   });
 
-  it("keeps a layer's existing Color effect", () => {
+  it("gives each fill clip on a layer its own Color effect", () => {
     const first = insert({ clips: [], effects: [layout("1")] });
     const second = addFillClip(first, {
       ...first.clip,
@@ -100,7 +100,37 @@ describe("addFillClip", () => {
       effectId: "color-b",
     });
     assert.equal(second.clips.length, 2);
-    assert.equal(second.effects, first.effects);
+    assert.equal(
+      second.effects.find((effect) => effect.id === "color-b")?.trackId,
+      "clip:fill-b",
+    );
+    assert.deepEqual(resolveFillPaint(second.effects, "1", "clip:fill-b"), {
+      kind: "solid",
+      color: { r: 0, g: 0, b: 0, a: 1 },
+      opacity: 1,
+    });
+    assert.deepEqual(
+      resolveFillPaint(second.effects, "1", "clip:fill-a"),
+      resolveFillPaint(first.effects, "1", "clip:fill-a"),
+    );
+  });
+
+  it("falls back to its layer's Color when it has none of its own", () => {
+    const layerColor: SessionEffect = {
+      id: "color-layer",
+      trackId: "1",
+      effectName: "Color",
+      parameters: [
+        { key: "Mode", value: "Solid" },
+        { key: "Color", value: "rgba(255,0,0,1)" },
+      ],
+      enabled: true,
+    };
+    assert.deepEqual(resolveFillPaint([layerColor], "1", "clip:fill-a"), {
+      kind: "solid",
+      color: { r: 255, g: 0, b: 0, a: 1 },
+      opacity: 1,
+    });
   });
 
   it("defaults to neutral grey on a layer without an accent", () => {
@@ -122,10 +152,13 @@ describe("addFillClip", () => {
     assert.deepEqual(loaded.clips, inserted.clips);
     assert.ok(isFillClip(loaded.clips[0]));
     assert.deepEqual(
-      resolveFillPaint(loaded.effects, "1"),
-      resolveFillPaint(effects, "1"),
+      resolveFillPaint(loaded.effects, "1", "clip:fill-a"),
+      resolveFillPaint(effects, "1", "clip:fill-a"),
     );
-    assert.equal(resolveFillPaint(loaded.effects, "1").kind, "radial");
+    assert.equal(
+      resolveFillPaint(loaded.effects, "1", "clip:fill-a").kind,
+      "radial",
+    );
   });
 });
 
@@ -162,7 +195,14 @@ describe("Color effect parameters", () => {
   const { effects } = insert({ clips: [], effects: [layout("1")] });
 
   function colorParameterKeys(stack: SessionEffect[]) {
-    return mapSessionEffectsToDevices(stack, "1", "Layer 1")
+    return mapSessionEffectsToDevices(
+      stack,
+      "1",
+      "Layer 1",
+      0,
+      undefined,
+      "fill-a",
+    )
       .find((device) => device.effectName === "Color")
       ?.parameters.map((parameter) => [parameter.key, parameter.kind]);
   }
@@ -195,9 +235,14 @@ describe("Color effect parameters", () => {
       "Color",
       "rgba(1,2,3,0.5)",
     );
-    const device = mapSessionEffectsToDevices(next, "1").find(
-      (candidate) => candidate.effectName === "Color",
-    );
+    const device = mapSessionEffectsToDevices(
+      next,
+      "1",
+      undefined,
+      0,
+      undefined,
+      "fill-a",
+    ).find((candidate) => candidate.effectName === "Color");
     const color = device?.parameters.find(
       (parameter) => parameter.key === "Color",
     );

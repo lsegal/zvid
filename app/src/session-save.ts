@@ -352,6 +352,8 @@ export function projectToLvpSession(
       : {}),
     // The effects are written as they are, so a removed Order stays removed.
     orderDefaulted: true,
+    // Text and Color are written on the clips that carry them.
+    clipContentEffects: true,
   };
 
   return session;

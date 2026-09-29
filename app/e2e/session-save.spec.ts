@@ -70,7 +70,12 @@ test("File ▸ Save keeps fill clips and layer FX bypass on reopen", async ({
     .click();
   await expect(lane.locator(".clip-card--fill")).toHaveCount(1);
 
+  // The fill carries its own Color, so the layer needs an effect of its own
+  // to bypass.
   const header = page.locator('[data-layer-header-id="1"]');
+  await header.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Add FX", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Colorize", exact: true }).click();
   await header.click({ button: "right" });
   await page.getByRole("menuitem", { name: "Disable FX", exact: true }).click();
 

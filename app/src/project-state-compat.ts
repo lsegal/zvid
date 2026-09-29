@@ -1,4 +1,11 @@
-import { ensureGlobalOrder, type SessionEffect } from "./fx-stack.ts";
+import { isColorEffectName } from "./fill-paint.ts";
+import {
+  clipEffectTrackId,
+  ensureGlobalOrder,
+  getTrackGroup,
+  type SessionEffect,
+} from "./fx-stack.ts";
+import { isTextEffectName } from "./text-style.ts";
 
 // Collaboration peers on builds from before the "main audio" rename publish
 // the session's main audio as `masterAudioId`. Reading it keeps their audio
@@ -51,4 +58,100 @@ export function migrateDefaultOrder(
   orderDefaulted: boolean | undefined,
 ) {
   return orderDefaulted === true ? effects : ensureGlobalOrder(effects);
+}
+
+type ContentClip = { id: string; laneId: string; kind?: string };
+
+// Sessions saved before clips had their own stacks styled every text clip
+// on a layer with the layer's Text effect, and painted its fill clips with
+// the layer's Color. Opening one gives each text clip a copy of its layer's
+// Text effects and each fill clip a copy of its layer's Color effects, so
+// it looks the same. Text is clip-only now, so it leaves the layer; Color
+// leaves a layer only when it has fill clips and nothing else. A clip that already
+// has its own Text or Color keeps it. A session saved since carries
+// `clipContentEffects` and opens with its stacks as saved.
+export function migrateClipContentEffects(
+  effects: SessionEffect[],
+  clips: readonly ContentClip[],
+  clipContentEffects: boolean | undefined,
+  createId: () => string = () => crypto.randomUUID(),
+) {
+  if (clipContentEffects === true) {
+    return effects;
+  }
+
+  const moves = [
+    { kind: "text", isContent: isTextEffectName },
+    { kind: "fill", isContent: isColorEffectName },
+  ] as const;
+  const removedIds = new Set<string>();
+  const copies = new Map<string, SessionEffect[]>();
+  for (const { kind, isContent } of moves) {
+    const layerEffects = effects.filter(
+      (effect) =>
+        getTrackGroup(effect.trackId) === "layer" &&
+        isContent(effect.effectName),
+    );
+    for (const laneId of new Set(
+      layerEffects.map((effect) => effect.trackId),
+    )) {
+      const laneClips = clips.filter((clip) => clip.laneId === laneId);
+      const targets = laneClips.filter((clip) => clip.kind === kind);
+      if (
+        kind === "text" ||
+        (targets.length && targets.length === laneClips.length)
+      ) {
+        for (const effect of layerEffects) {
+          if (effect.trackId === laneId) {
+            removedIds.add(effect.id);
+          }
+        }
+      }
+      for (const clip of targets) {
+        const trackId = clipEffectTrackId(clip.id);
+        if (
+          effects.some(
+            (effect) =>
+              effect.trackId === trackId && isContent(effect.effectName),
+          )
+        ) {
+          continue;
+        }
+        copies.set(trackId, [
+          ...(copies.get(trackId) ?? []),
+          ...layerEffects
+            .filter((effect) => effect.trackId === laneId)
+            .map((effect) => ({
+              ...effect,
+              id: createId(),
+              trackId,
+              parameters: effect.parameters.map((parameter) => ({
+                ...parameter,
+              })),
+            })),
+        ]);
+      }
+    }
+  }
+
+  if (!removedIds.size && !copies.size) {
+    return effects;
+  }
+
+  // Each copy leads its clip's stack, ahead of any effects it already has.
+  const result: SessionEffect[] = [];
+  for (const effect of effects) {
+    const copied = copies.get(effect.trackId);
+    if (copied) {
+      result.push(...copied);
+      copies.delete(effect.trackId);
+    }
+    if (!removedIds.has(effect.id)) {
+      result.push(effect);
+    }
+  }
+  for (const copied of copies.values()) {
+    result.push(...copied);
+  }
+  return result;
 }

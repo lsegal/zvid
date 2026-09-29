@@ -99,6 +99,10 @@ export type LvpSession = {
   // without it the session is older and opens with one added. Anything that
   // writes a session must set it, or a removed Order comes back on open.
   orderDefaulted?: boolean;
+  // Set on sessions saved since text and fill clips carried their own Text
+  // and Color effects; without it the session is older and its layers' Text
+  // and Color are moved onto those clips on open.
+  clipContentEffects?: boolean;
 };
 
 export type ServerMediaRef = {

@@ -401,10 +401,12 @@ const DEFINITIONS: FxEffectDefinition[] = [
   {
     effectName: COLOR_EFFECT_NAME,
     displayName: "Color",
-    description: "Paints the layer's fill clips a solid colour or a gradient.",
+    description: "Paints fill clips a solid colour or a gradient.",
     accent: "#ffd166",
     known: true,
-    scopes: ["layer"],
+    // A fill clip carries its own Color; one on the layer paints the layer's
+    // fill clips that have none.
+    scopes: ["layer", "clip"],
     parameters: [
       {
         kind: "enum",
@@ -433,10 +435,12 @@ const DEFINITIONS: FxEffectDefinition[] = [
   {
     effectName: TEXT_EFFECT_NAME,
     displayName: "Text",
-    description: "Sets the words, font and look of the layer's text clips.",
+    description: "Sets the words, font and look of a text clip.",
     accent: "#e8e4ff",
     known: true,
-    scopes: ["layer"],
+    // Each text clip carries its own Text, so clips on one layer can say
+    // different things.
+    scopes: ["clip"],
     parameters: [
       { kind: "text", key: "Text", label: "Text", defaultValue: DEFAULT_TEXT },
       {

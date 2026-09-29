@@ -92,7 +92,7 @@ test("typing on a text clip in the preview", async ({ page }) => {
   await expect(fxText).toHaveValue("Hello\nworld");
 
   // Enter on the selected layer edits it too. The style shortcuts restyle
-  // the whole layer, and Ctrl/Cmd+Enter commits.
+  // the whole clip, and Ctrl/Cmd+Enter commits.
   await page.mouse.click(center.x, center.y);
   await page.keyboard.press("Enter");
   await expect(input).toBeFocused();
@@ -130,9 +130,11 @@ test("typing on a text clip in the preview", async ({ page }) => {
   );
   await expect.poll(() => fontSize(page)).toBeLessThan(fitted);
 
-  // A click outside the box commits.
+  // A click outside the box commits. It also deselects the clip, whose Text
+  // device shows again once it is selected.
   await lane(page, "1").click({ position: { x: 700, y: 10 } });
   await expect(editor).toHaveCount(0);
+  await clip.locator(".clip-card__body").click();
   await expect(fxText).toHaveValue(/shrink to fit$/);
 
   // Double-clicking the clip on the timeline edits it too; an empty text
