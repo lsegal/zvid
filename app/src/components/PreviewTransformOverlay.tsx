@@ -23,8 +23,10 @@ import {
   offsetTransformPosition,
   type PreviewEditTarget,
   type PreviewLayer,
+  resolveLayerSpace,
   resolveNudgeDelta,
   resolvePreviewEditFrame,
+  resolveSlotCorners,
   resolveVideoRect,
   type Size,
   screenToCanvas,
@@ -90,8 +92,12 @@ type DragState = {
   pointerId: number;
   target: PreviewEditTarget;
   // The matrix above the edited Transform: the layer's Transform when a
-  // clip's is edited. Pointer moves are measured in its input space.
+  // clip's is edited, in the FX clip arrangement the layer is drawn in.
+  // Pointer moves are measured in its input space.
   parent: Matrix2D;
+  // The surface the edited Transform is measured on: the canvas, or the
+  // layer's arrangement.
+  surface: Size;
   // Page coordinates, so the drag is unaffected if the monitor moves or
   // resizes under it (adding a Transform can grow the FX panel).
   startClient: Point;
@@ -282,7 +288,7 @@ export function PreviewTransformOverlay({
         : {
             placement: selected.placement,
             transform: selected.transform,
-            slot: selected.slot,
+            arrangement: selected.arrangement,
           },
       canvas,
     )
@@ -309,7 +315,7 @@ export function PreviewTransformOverlay({
       drag.handle,
       delta,
       drag.box,
-      canvas,
+      drag.surface,
       { proportional: modifiers.shiftKey, fromCenter },
       resolveResizeSnap(drag.parent, canvas, SNAP_PX * drag.scale.x),
     );
@@ -404,6 +410,7 @@ export function PreviewTransformOverlay({
     target: PreviewEditTarget,
     parent: Matrix2D,
     box: Box,
+    surface: Size,
     point: { screen: Point; canvas: Point },
   ) => {
     event.preventDefault();
@@ -417,7 +424,7 @@ export function PreviewTransformOverlay({
           { x: startTransform.originX, y: startTransform.originY },
           startTransform,
           box,
-          canvas,
+          surface,
         ),
       ),
       video,
@@ -428,6 +435,7 @@ export function PreviewTransformOverlay({
       pointerId: event.pointerId,
       target,
       parent,
+      surface,
       startClient: client,
       scale,
       newEffectId: crypto.randomUUID(),
@@ -474,6 +482,7 @@ export function PreviewTransformOverlay({
         selectedTarget,
         selectedFrame.parent,
         selectedFrame.box,
+        selectedFrame.canvas,
         point,
       );
       return;
@@ -489,6 +498,7 @@ export function PreviewTransformOverlay({
         pointerId: event.pointerId,
         target: selectedTarget,
         parent: selectedFrame.parent,
+        surface: selectedFrame.canvas,
         startClient: client,
         scale,
         newEffectId: crypto.randomUUID(),
@@ -521,7 +531,7 @@ export function PreviewTransformOverlay({
             { x: startTransform.originX, y: startTransform.originY },
             startTransform,
             selectedBox,
-            canvas,
+            selectedFrame.canvas,
           ),
         };
       }
@@ -546,11 +556,13 @@ export function PreviewTransformOverlay({
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     const target = editTarget(layer, !movesLayer);
+    const frame = resolvePreviewEditFrame(layer, !movesLayer, canvas);
     dragRef.current = {
       kind: "move",
       pointerId: event.pointerId,
       target,
-      parent: resolvePreviewEditFrame(layer, !movesLayer, canvas).parent,
+      parent: frame.parent,
+      surface: frame.canvas,
       startClient: client,
       scale,
       startPosition: getLayerPosition(target),
@@ -598,14 +610,14 @@ export function PreviewTransformOverlay({
         { x: drag.startOrigin.x + delta.x, y: drag.startOrigin.y + delta.y },
         drag.startTransform,
         drag.box,
-        canvas,
+        drag.surface,
         (SNAP_PX * drag.scale.x) / matrixScale(drag.parent),
       );
       drag.transform = moveOrigin(
         drag.startTransform,
         origin,
         drag.box,
-        canvas,
+        drag.surface,
       );
       setDragCursor("grabbing");
       onTransform({
@@ -621,7 +633,7 @@ export function PreviewTransformOverlay({
     drag.position = offsetTransformPosition(
       drag.startPosition,
       constrainDragDelta(delta, event.shiftKey),
-      canvas,
+      drag.surface,
     );
     setDragCursor("grabbing");
     onMove({
@@ -704,11 +716,12 @@ export function PreviewTransformOverlay({
     }
 
     const start =
-      selectedTarget && selectedBox && originScreen
+      selectedTarget && selectedFrame && selectedBox && originScreen
         ? getLayerTransform(selectedTarget)
         : undefined;
     if (
       !selectedTarget ||
+      !selectedFrame ||
       !selectedBox ||
       !originScreen ||
       !start ||
@@ -731,7 +744,7 @@ export function PreviewTransformOverlay({
       ...selectedTarget,
       kind: "origin",
       values: originValues(
-        setOrigin(start, { x: 0, y: 0 }, selectedBox, canvas),
+        setOrigin(start, { x: 0, y: 0 }, selectedBox, selectedFrame.canvas),
       ),
       mode: "commit",
       newEffectId: crypto.randomUUID(),
@@ -780,7 +793,7 @@ export function PreviewTransformOverlay({
       position: offsetTransformPosition(
         getLayerPosition(selectedTarget),
         toParentDelta(selectedFrame.parent, delta),
-        canvas,
+        selectedFrame.canvas,
       ),
       mode: "commit",
       newEffectId: crypto.randomUUID(),
@@ -796,7 +809,7 @@ export function PreviewTransformOverlay({
               local,
               selectedFrame.transform,
               selectedFrame.box,
-              canvas,
+              selectedFrame.canvas,
             ),
           ),
           video,
@@ -826,19 +839,15 @@ export function PreviewTransformOverlay({
   // The slot the compositor crops the selected layer to, so the crop shows
   // while its outline and handles reach past it. Without an Order the slot
   // is the whole canvas, whose edge needs no marking.
-  const slotRect =
-    selected && !coversCanvas(selected.slot, canvas)
-      ? {
-          start: canvasToScreen(selected.slot, video, canvas),
-          end: canvasToScreen(
-            {
-              x: selected.slot.x + selected.slot.width,
-              y: selected.slot.y + selected.slot.height,
-            },
-            video,
-            canvas,
-          ),
-        }
+  const slotCorners = selected
+    ? resolveSlotCorners(selected, canvas)
+    : undefined;
+  const slotOutline =
+    slotCorners && !isCanvasBox(slotCorners, canvas)
+      ? slotCorners
+          .map((corner) => canvasToScreen(corner, video, canvas))
+          .map((point) => `${point.x},${point.y}`)
+          .join(" ")
       : undefined;
   const showHandles = showControls && !editedLayer;
   const videoBottom = video.top + video.height;
@@ -905,14 +914,11 @@ export function PreviewTransformOverlay({
               />
             );
           })}
-          {slotRect ? (
-            <rect
+          {slotOutline ? (
+            <polygon
               className="preview-transform-overlay__slot"
               data-testid="preview-transform-slot"
-              x={slotRect.start.x}
-              y={slotRect.start.y}
-              width={slotRect.end.x - slotRect.start.x}
-              height={slotRect.end.y - slotRect.start.y}
+              points={slotOutline}
             />
           ) : null}
           <polygon
@@ -1002,7 +1008,7 @@ export function PreviewTransformOverlay({
         : null}
       {textEdit && editedLayer && monitor.width > 0 ? (
         <PreviewTextEditor
-          canvas={canvas}
+          canvas={resolveLayerSpace(editedLayer, canvas).canvas}
           placement={resolveTextEditorPlacement(editedLayer, video, canvas)}
           style={textEdit.style}
           onChangeText={textEdit.onChangeText}
@@ -1034,13 +1040,18 @@ export function PreviewTransformOverlay({
   );
 }
 
-// Whether `box` reaches every edge of the canvas, to within a pixel.
-function coversCanvas(box: Box, canvas: Size) {
-  return (
-    box.x <= 0.5 &&
-    box.y <= 0.5 &&
-    box.x + box.width >= canvas.width - 0.5 &&
-    box.y + box.height >= canvas.height - 0.5
+// Whether `corners` are the canvas's own, to within half a pixel.
+function isCanvasBox(corners: BoxCorners, canvas: Size) {
+  const expected = [
+    { x: 0, y: 0 },
+    { x: canvas.width, y: 0 },
+    { x: canvas.width, y: canvas.height },
+    { x: 0, y: canvas.height },
+  ];
+  return corners.every(
+    (corner, index) =>
+      Math.abs(corner.x - expected[index].x) <= 0.5 &&
+      Math.abs(corner.y - expected[index].y) <= 0.5,
   );
 }
 

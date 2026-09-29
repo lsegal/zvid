@@ -11,6 +11,7 @@ import {
   applyMatrix,
   frameBoxInCanvas,
   type Matrix2D,
+  multiplyMatrix,
   resolveClipTextBox,
 } from "./composition-transform.ts";
 import { type FillPaint, formatFillPaintCss } from "./fill-paint.ts";
@@ -21,7 +22,12 @@ import {
   setEffectEnabled,
   setEffectParameter,
 } from "./fx-stack.ts";
-import type { PreviewLayer, Rect, Size } from "./preview-edit.ts";
+import {
+  type PreviewLayer,
+  type Rect,
+  resolveLayerSpace,
+  type Size,
+} from "./preview-edit.ts";
 import type { TextLayout } from "./text-layout.ts";
 import {
   isTextEffectName,
@@ -53,18 +59,21 @@ export type TextEditorPlacement = {
 
 export function resolveTextEditorPlacement(
   layer: Pick<PreviewLayer, "placement" | "transform"> &
-    Partial<Pick<PreviewLayer, "clipTransform">>,
+    Partial<Pick<PreviewLayer, "clipTransform" | "arrangement">>,
   video: Rect,
   canvas: Size,
 ): TextEditorPlacement {
   // The editor is the clip's text box, which the Transforms resize rather
-  // than scale, so the text wraps in it as the compositor draws it.
-  const { box, matrix: toCanvas } = resolveClipTextBox(
-    frameBoxInCanvas(layer.placement.frame, canvas),
-    canvas,
+  // than scale, so the text wraps in it as the compositor draws it. In an
+  // FX clip's arrangement, the box is on the arrangement's surface.
+  const space = resolveLayerSpace(layer, canvas);
+  const { box, matrix } = resolveClipTextBox(
+    frameBoxInCanvas(layer.placement.frame, space.canvas),
+    space.canvas,
     layer.transform,
     layer.clipTransform,
   );
+  const toCanvas = multiplyMatrix(space.matrix, matrix);
   const scaleX = video.width / Math.max(1, canvas.width);
   const scaleY = video.height / Math.max(1, canvas.height);
   // The editor's origin is the box's top-left corner, not the canvas's.
