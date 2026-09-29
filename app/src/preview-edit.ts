@@ -35,6 +35,7 @@ import {
   type LayerTransform,
   layerBoxInCanvas,
   type Matrix2D,
+  multiplyMatrix,
   type Point,
   parseLayerTransform,
   resolveClipTextBox,
@@ -104,17 +105,35 @@ type StackableLayer = {
   order?: CompositionOrder;
 };
 
+// The box an FX clip with an Order arranges the layers beneath it in, as
+// the compositor draws it: the layers are placed on a surface of `canvas`'s
+// size, which `matrix` then maps into the composition canvas (moved, resized
+// and turned by the FX clip's Transforms).
+export type PreviewArrangement = { matrix: Matrix2D; canvas: Size };
+
 // A layer as the preview draws it: its slot, its layer's Transform, its
 // clip's own Transform (inside the layer's), and the corners of the clip's
-// transformed box in canvas pixels.
+// transformed box in canvas pixels. A layer beneath an FX clip with an Order
+// has that FX clip's `arrangement`: its slot and Transforms are then measured
+// on the arrangement's surface rather than the canvas.
 export type PreviewLayer = {
   laneId: string;
   clipId: string;
   placement: { frame: FrameBounds };
   transform: LayerTransform;
   clipTransform: LayerTransform;
+  arrangement?: PreviewArrangement;
   corners: BoxCorners;
 };
+
+// The surface a layer's slot and Transforms are measured on, and the matrix
+// that maps it into the canvas.
+export function resolveLayerSpace(
+  layer: { arrangement?: PreviewArrangement },
+  canvas: Size,
+): PreviewArrangement {
+  return layer.arrangement ?? { matrix: IDENTITY_MATRIX, canvas };
+}
 
 // What a preview edit writes to: the clip's own Transform when `clipId` is
 // set, else the layer's.
@@ -128,31 +147,46 @@ export function getPreviewEditTrackId(target: PreviewEditTarget) {
 }
 
 // The Transform a drag edits on `layer`, with the box it applies to and the
-// matrix that places the result (the layer's Transform, for a clip's): the
-// drag maths work in that parent's space, then map back to the canvas.
+// matrix that places the result (the layer's Transform, for a clip's, in
+// the arrangement the layer is drawn in): the drag maths work in that
+// parent's space, then map back to the canvas.
 export type PreviewEditFrame = {
   box: Box;
   transform: LayerTransform;
   parent: Matrix2D;
+  // The surface the Transform is measured on: the canvas, or the layer's
+  // arrangement. `box`, and the Transform's position, are in its pixels.
+  canvas: Size;
   // The edited box's corners in canvas pixels.
   corners: BoxCorners;
 };
 
 export function resolvePreviewEditFrame(
-  layer: Pick<PreviewLayer, "placement" | "transform" | "clipTransform">,
+  layer: Pick<PreviewLayer, "placement" | "transform" | "clipTransform"> &
+    Partial<Pick<PreviewLayer, "arrangement">>,
   editsClip: boolean,
   canvas: Size,
 ): PreviewEditFrame {
-  const box = frameBoxInCanvas(layer.placement.frame, canvas);
+  const space = resolveLayerSpace(layer, canvas);
+  const box = frameBoxInCanvas(layer.placement.frame, space.canvas);
   const parent = editsClip
-    ? transformMatrix(layer.transform, box, canvas)
-    : IDENTITY_MATRIX;
+    ? multiplyMatrix(
+        space.matrix,
+        transformMatrix(layer.transform, box, space.canvas),
+      )
+    : space.matrix;
   const transform = editsClip ? layer.clipTransform : layer.transform;
   return {
     box,
     transform,
     parent,
-    corners: layerBoxInCanvas(layer.placement, transform, canvas, parent),
+    canvas: space.canvas,
+    corners: layerBoxInCanvas(
+      layer.placement,
+      transform,
+      space.canvas,
+      parent,
+    ),
   };
 }
 
@@ -180,7 +214,8 @@ export function matrixRotationDeg(parent: Matrix2D) {
 // their box starts as the whole canvas, and they come first so a click only
 // picks one where no other layer is. Layers beneath an FX clip with an Order
 // take their slots from that Order, inside the FX clip's box, and come
-// before the layers above it, which are drawn over them.
+// before the layers above it, which are drawn over them. They are measured
+// on that box's own surface, which its Transforms move, resize and turn.
 export function resolvePreviewLayers(
   activeClips: readonly StackableLayer[],
   canvas: Size,
@@ -191,57 +226,51 @@ export function resolvePreviewLayers(
     inBounds.filter((entry) => entry.fx),
     order,
   );
-  const placed: { entry: StackableLayer; frame: FrameBounds }[] = [];
+  const placed: {
+    entry: StackableLayer;
+    frame: FrameBounds;
+    arrangement?: PreviewArrangement;
+  }[] = [];
   const collect = (
     steps: LayerDrawStep<StackableLayer>[],
-    box: Box,
+    arrangement: PreviewArrangement | undefined,
     stackOrder: CompositionOrder,
   ) => {
+    const space = resolveLayerSpace({ arrangement }, canvas);
     const layers: typeof placed = [];
     for (const step of steps) {
       if (step.type === "arrange") {
         collect(
           step.steps,
-          resolveArrangementBox(box, step.entry.visual),
+          resolveArrangement(space, step.entry.visual),
           step.order,
         );
       } else if (step.type === "layer") {
         layers[step.slot] = {
           entry: step.entry,
-          frame: canvasBoxToFrame(
-            offsetBox(
-              frameBoxInCanvas(
-                resolveSlotBounds(
-                  step.slot,
-                  step.slotCount,
-                  stackOrder,
-                  box.width,
-                  box.height,
-                ),
-                box,
-              ),
-              box,
-            ),
-            canvas,
+          frame: resolveSlotBounds(
+            step.slot,
+            step.slotCount,
+            stackOrder,
+            space.canvas.width,
+            space.canvas.height,
           ),
+          arrangement,
         };
       }
     }
     placed.push(...layers.filter(Boolean));
   };
-  collect(
-    planLayerDraws(inBounds, order),
-    { x: 0, y: 0, width: canvas.width, height: canvas.height },
-    order,
-  );
+  collect(planLayerDraws(inBounds, order), undefined, order);
 
   return [
     ...fxLayers.map((entry) => ({
       entry,
       frame: resolveCanvasBounds(canvas.width, canvas.height),
+      arrangement: undefined,
     })),
     ...placed,
-  ].map(({ entry, frame }) => {
+  ].map(({ entry, frame, arrangement }) => {
     const placement = { frame };
     const transform = entry.visual.transform ?? IDENTITY_TRANSFORM;
     const clipTransform = entry.visual.clipTransform ?? IDENTITY_TRANSFORM;
@@ -251,8 +280,9 @@ export function resolvePreviewLayers(
       placement,
       transform,
       clipTransform,
+      ...(arrangement && { arrangement }),
       corners: resolvePreviewEditFrame(
-        { placement, transform, clipTransform },
+        { placement, transform, clipTransform, arrangement },
         true,
         canvas,
       ).corners,
@@ -260,56 +290,57 @@ export function resolvePreviewLayers(
   });
 }
 
-function offsetBox(box: Box, by: Box): Box {
-  return { ...box, x: box.x + by.x, y: box.y + by.y };
-}
-
-// The canvas box an FX clip with an Order arranges the layers beneath it
-// in, inside `parent`: the box the compositor draws, resized by its
-// Transforms. The preview keeps it upright; a turned box is placed at its
-// centre.
-function resolveArrangementBox(
-  parent: Box,
+// The surface an FX clip with an Order arranges the layers beneath it on,
+// inside `parent`, as the compositor draws it: the FX clip's box resized by
+// its Transforms' scale, so the layers are arranged in a smaller or larger
+// box, which the rest of its Transforms then move and turn into place.
+function resolveArrangement(
+  parent: PreviewArrangement,
   visual: StackableLayer["visual"],
-): Box {
+): PreviewArrangement {
   const placed = resolveClipTextBox(
-    { x: 0, y: 0, width: parent.width, height: parent.height },
-    { width: parent.width, height: parent.height },
+    { x: 0, y: 0, width: parent.canvas.width, height: parent.canvas.height },
+    parent.canvas,
     visual.transform,
     visual.clipTransform,
   );
-  const center = applyMatrix(placed.matrix, {
-    x: placed.box.x + placed.box.width / 2,
-    y: placed.box.y + placed.box.height / 2,
+  // The surface's top-left corner is the resized box's.
+  const fromSurface = multiplyMatrix(placed.matrix, {
+    ...IDENTITY_MATRIX,
+    e: placed.box.x,
+    f: placed.box.y,
   });
   return {
-    x: parent.x + center.x - placed.box.width / 2,
-    y: parent.y + center.y - placed.box.height / 2,
-    width: placed.box.width,
-    height: placed.box.height,
+    matrix: multiplyMatrix(parent.matrix, fromSurface),
+    canvas: { width: placed.box.width, height: placed.box.height },
   };
 }
 
 type HitTestLayer = Pick<PreviewLayer, "placement" | "transform"> & {
   clipTransform?: LayerTransform;
+  arrangement?: PreviewArrangement;
 };
 
 // Whether `point` is on the layer's clip as drawn: its box after the clip's
-// Transform and the layer's.
+// Transform, the layer's, and the arrangement it is drawn in.
 export function isPointOnLayer(
   point: Point,
   layer: HitTestLayer,
   canvas: Size,
 ) {
+  const space = resolveLayerSpace(layer, canvas);
   const local = canvasToLayer(
     point,
     layer.placement,
     layer.clipTransform ?? IDENTITY_TRANSFORM,
-    canvas,
-    transformMatrix(
-      layer.transform,
-      frameBoxInCanvas(layer.placement.frame, canvas),
-      canvas,
+    space.canvas,
+    multiplyMatrix(
+      space.matrix,
+      transformMatrix(
+        layer.transform,
+        frameBoxInCanvas(layer.placement.frame, space.canvas),
+        space.canvas,
+      ),
     ),
   );
   const edge = 1 + 1e-9;
@@ -348,7 +379,8 @@ export function constrainDragDelta(delta: Point, axisLock: boolean): Point {
 }
 
 // Transform positions are in canvas widths (x) and heights (y, +down) from
-// the centre, so a pixel delta divides by the canvas size.
+// the centre, so a pixel delta divides by the canvas size: for a layer in an
+// FX clip's arrangement, the arrangement's (`PreviewEditFrame.canvas`).
 export function offsetTransformPosition(
   start: Point,
   deltaCanvasPx: Point,
