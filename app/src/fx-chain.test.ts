@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   addableEffectsFor,
+  canStartFxChainPan,
   describeDeviceMove,
   dropSlotToStackIndex,
   FX_COLLAPSED_STORAGE_KEY,
@@ -422,5 +423,51 @@ describe("getDefaultLaneId", () => {
 
   it("falls back to the first layer", () => {
     assert.equal(getDefaultLaneId([{ id: "1" }, { id: "2" }], []), "1");
+  });
+});
+
+describe("canStartFxChainPan", () => {
+  // A stand-in target inside the listed elements, innermost first.
+  function target(...classes: string[]) {
+    return {
+      closest: (selector: string) =>
+        classes.some((name) =>
+          selector.split(", ").some((part) => part === name),
+        ),
+    } as unknown as EventTarget;
+  }
+
+  it("pans from the background with the primary button", () => {
+    assert.equal(canStartFxChainPan({ button: 0, target: target() }), true);
+    assert.equal(
+      canStartFxChainPan({ button: 0, target: target(".fx-chain__divider") }),
+      true,
+    );
+  });
+
+  it("leaves devices, add slots and buttons to their own behaviour", () => {
+    for (const name of [
+      ".fx-device-panel",
+      ".fx-chain__add",
+      ".fx-chain__layer-off",
+      "button",
+    ]) {
+      assert.equal(
+        canStartFxChainPan({ button: 0, target: target(name) }),
+        false,
+        name,
+      );
+    }
+  });
+
+  it("pans with the middle button anywhere, including over devices", () => {
+    assert.equal(
+      canStartFxChainPan({ button: 1, target: target(".fx-device-panel") }),
+      true,
+    );
+  });
+
+  it("ignores the secondary button so context menus still open", () => {
+    assert.equal(canStartFxChainPan({ button: 2, target: target() }), false);
   });
 });

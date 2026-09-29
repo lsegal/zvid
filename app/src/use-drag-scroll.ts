@@ -26,6 +26,11 @@ type DragScrollOptions = {
   axis?: DragScrollAxis;
   // Keep scrolling after release; turn off for reduced motion.
   momentum?: boolean;
+  // Claim accepted presses in the capture phase so handlers inside the
+  // grabbed element never see them. The handlers then use capture names.
+  capture?: boolean;
+  // Called when a press is claimed for a pan.
+  onStart?: (event: ReactPointerEvent<HTMLElement>) => void;
 };
 
 type PendingPan = {
@@ -46,6 +51,8 @@ export function useDragScroll({
   canStart,
   axis = "both",
   momentum = true,
+  capture = false,
+  onStart,
 }: DragScrollOptions) {
   const panRef = useRef<PendingPan | null>(null);
   const momentumFrameRef = useRef<number | null>(null);
@@ -98,6 +105,9 @@ export function useDragScroll({
       }
 
       event.preventDefault();
+      if (capture) {
+        event.stopPropagation();
+      }
       stopMomentum();
       draggedRef.current = false;
       event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -111,8 +121,9 @@ export function useDragScroll({
           { x: event.clientX, y: event.clientY, time: event.timeStamp },
         ],
       };
+      onStart?.(event);
     },
-    [canStart, scrollRef, stopMomentum],
+    [canStart, capture, onStart, scrollRef, stopMomentum],
   );
 
   const onPointerMove = useCallback(
@@ -176,6 +187,19 @@ export function useDragScroll({
     (event: ReactMouseEvent<HTMLElement>) => {
       if (event.button === 1 && canStart(event)) {
         event.preventDefault();
+        if (capture) {
+          event.stopPropagation();
+        }
+      }
+    },
+    [canStart, capture],
+  );
+
+  // Keeps a middle click from pasting (Linux) or opening links.
+  const onAuxClick = useCallback(
+    (event: ReactMouseEvent<HTMLElement>) => {
+      if (event.button === 1 && canStart(event)) {
+        event.preventDefault();
       }
     },
     [canStart],
@@ -196,8 +220,13 @@ export function useDragScroll({
     isGrabbing,
     onContextMenu,
     handlers: {
-      onMouseDown,
-      onPointerDown,
+      ...(capture
+        ? {
+            onMouseDownCapture: onMouseDown,
+            onPointerDownCapture: onPointerDown,
+            onAuxClickCapture: onAuxClick,
+          }
+        : { onMouseDown, onPointerDown, onAuxClick }),
       onPointerMove,
       onPointerUp: endPan,
       onPointerCancel: endPan,

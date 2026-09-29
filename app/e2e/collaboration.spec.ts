@@ -37,12 +37,19 @@ test.afterEach(async () => {
   await Promise.all(contexts.splice(0).map((context) => context.close()));
 });
 
-async function openApp(browser: Browser, path = "/") {
+async function openApp(
+  browser: Browser,
+  path = "/",
+  { blockableServe = false } = {},
+) {
   const context = await browser.newContext({
     permissions: ["clipboard-read", "clipboard-write"],
   });
   contexts.push(context);
   await recordMediaLabels(context);
+  if (blockableServe) {
+    await blockableMediaServe(context);
+  }
   // Point the app's signaling setting at the local server.
   await context.addInitScript((url) => {
     window.localStorage.setItem(
@@ -79,6 +86,43 @@ async function recordMediaLabels(context: BrowserContext) {
       subtree: true,
     });
   });
+}
+
+// Lets a test stop a host from serving media: while blocked, reads from the
+// media cache find nothing and fetches of local blob URLs fail, which are the
+// two places the host reads a file it sends to a peer.
+async function blockableMediaServe(context: BrowserContext) {
+  await context.addInitScript(() => {
+    const state = { blocked: false };
+    Object.assign(window, { __mediaServe: state });
+    const get = IDBObjectStore.prototype.get;
+    IDBObjectStore.prototype.get = function (query) {
+      // An empty array is a valid key no entry uses.
+      return get.call(
+        this,
+        state.blocked && this.name === "media" ? [] : query,
+      );
+    };
+    const fetch = window.fetch;
+    window.fetch = (input, init) => {
+      const url = input instanceof Request ? input.url : String(input);
+      return state.blocked && url.startsWith("blob:")
+        ? Promise.resolve(new Response(null, { status: 404 }))
+        : fetch(input, init);
+    };
+  });
+}
+
+function setMediaServeBlocked(page: Page, blocked: boolean) {
+  return page.evaluate((value) => {
+    (
+      window as unknown as { __mediaServe: { blocked: boolean } }
+    ).__mediaServe.blocked = value;
+  }, blocked);
+}
+
+function offlineLabel(page: Page) {
+  return page.locator(".track-label__offline");
 }
 
 function mediaLabels(page: Page) {
@@ -304,6 +348,77 @@ test("main audio and source-track-only media added during a share reach the gues
     .click();
   await expect(audioRow(guest)).toContainText(
     "No main audio track in this session",
+  );
+});
+
+// A host with a video it can't read, sharing, and a guest that has joined
+// and failed to get the video from it.
+async function joinHostThatCantServe(browser: Browser) {
+  const host = await openApp(browser, "/", { blockableServe: true });
+  await dropVideo(host);
+  await setMediaServeBlocked(host, true);
+  const invitePath = await startSharing(host);
+  const guest = await openApp(browser, invitePath);
+  await expect(connectionStatus(guest)).toHaveText("1 peer connected", {
+    timeout: 30_000,
+  });
+  await expect(guest.locator(".clip-card")).toHaveCount(1);
+  // Media no peer could send is offline, not syncing.
+  await expect(offlineLabel(guest)).toHaveText("1 offline media file", {
+    timeout: 30_000,
+  });
+  return { host, guest };
+}
+
+test("Retry in the media sync modal requests unavailable media again", async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const { host, guest } = await joinHostThatCantServe(browser);
+
+  // In a share, the offline label opens the media sync modal.
+  await offlineLabel(guest).click();
+  const mediaSync = guest.getByRole("dialog", { name: "Media Sync" });
+  await expect(mediaSync).toBeVisible();
+  await expect(
+    guest.getByRole("dialog", { name: "Offline Media" }),
+  ).toHaveCount(0);
+  await expect(mediaSync).toContainText("1 file no connected peer could send.");
+  const row = mediaSync.locator(".media-sync-dialog__row", {
+    hasText: "test-pattern.mp4",
+  });
+  await expect(row.locator(".media-sync-dialog__chip")).toHaveText(
+    "Unavailable",
+  );
+
+  // Once the host can send the file, Retry fetches it.
+  await setMediaServeBlocked(host, false);
+  await row.getByRole("button", { name: "Retry" }).click();
+  await expect(mediaSync).toContainText("All session media is ready.", {
+    timeout: 30_000,
+  });
+  await mediaSync.getByRole("button", { name: "1 ready" }).click();
+  await expect(row.locator(".media-sync-dialog__chip")).toHaveText("Ready");
+  await expect(offlineLabel(guest)).toHaveCount(0);
+});
+
+test("outside a share, the offline label opens the offline media dialog", async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const { guest } = await joinHostThatCantServe(browser);
+
+  await guest.locator(".file-menu-button", { hasText: "File" }).click();
+  await guest
+    .getByRole("menuitem", { name: "Disconnect from Share", exact: true })
+    .click();
+  await expect(offlineLabel(guest)).toHaveText("1 offline media file");
+  await offlineLabel(guest).click();
+  await expect(
+    guest.getByRole("dialog", { name: "Offline Media" }),
+  ).toBeVisible();
+  await expect(guest.getByRole("dialog", { name: "Media Sync" })).toHaveCount(
+    0,
   );
 });
 
