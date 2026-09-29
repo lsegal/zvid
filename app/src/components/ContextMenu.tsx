@@ -99,25 +99,30 @@ function OpenContextMenu({
     };
   }, []);
 
+  // Scrolling closes the menu when the user does it (wheel or touch), not
+  // when the app scrolls the timeline itself, such as to follow playback.
   useEffect(() => {
     const close = () => onCloseRef.current();
-    const onPointerDown = (event: PointerEvent) => {
+    const closeOutside = (event: Event) => {
       if (!rootRef.current?.contains(event.target as Node)) {
         close();
       }
     };
-    const onScroll = (event: Event) => {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        close();
-      }
-    };
-    document.addEventListener("pointerdown", onPointerDown, true);
-    window.addEventListener("scroll", onScroll, true);
+    document.addEventListener("pointerdown", closeOutside, true);
+    document.addEventListener("wheel", closeOutside, {
+      capture: true,
+      passive: true,
+    });
+    document.addEventListener("touchmove", closeOutside, {
+      capture: true,
+      passive: true,
+    });
     window.addEventListener("blur", close);
     window.addEventListener("resize", close);
     return () => {
-      document.removeEventListener("pointerdown", onPointerDown, true);
-      window.removeEventListener("scroll", onScroll, true);
+      document.removeEventListener("pointerdown", closeOutside, true);
+      document.removeEventListener("wheel", closeOutside, true);
+      document.removeEventListener("touchmove", closeOutside, true);
       window.removeEventListener("blur", close);
       window.removeEventListener("resize", close);
     };
@@ -178,12 +183,18 @@ function OpenContextMenu({
     );
   }, [anchor, openLevels, pathKey]);
 
-  // Keyboard focus follows the deepest open level.
+  // Keyboard focus follows the deepest open level. It waits a tick because
+  // the right-click that opened the menu can still focus its own target.
   const deepestPositioned = positions[openLevels - 1] !== undefined;
   useEffect(() => {
-    if (deepestPositioned) {
-      panelRefs.current[openLevels - 1]?.focus({ preventScroll: true });
+    if (!deepestPositioned) {
+      return;
     }
+
+    const timeout = window.setTimeout(() => {
+      panelRefs.current[openLevels - 1]?.focus({ preventScroll: true });
+    }, 0);
+    return () => window.clearTimeout(timeout);
   }, [deepestPositioned, openLevels]);
 
   function activate(item: ContextMenuItem) {
