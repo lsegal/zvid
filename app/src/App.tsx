@@ -7541,6 +7541,7 @@ function App() {
                     offsetPx={labelWidth}
                   />
 
+                  {/* biome-ignore lint/a11y/noStaticElementInteractions: hand-grab panning is a pointer shortcut; the timeline scrolls from the keyboard and wheel as usual */}
                   <section
                     className={`ruler-row ${
                       rulerDragScroll.isGrabbing ? "is-grab-panning" : ""
