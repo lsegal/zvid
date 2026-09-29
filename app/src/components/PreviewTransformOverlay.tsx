@@ -32,8 +32,11 @@ export type PreviewLayerMove = {
 type DragState = {
   pointerId: number;
   laneId: string;
-  startScreen: Point;
-  startCanvas: Point;
+  // Page coordinates, so the drag is unaffected if the monitor moves or
+  // resizes under it (adding a Transform can grow the FX panel).
+  startClient: Point;
+  // Canvas pixels per CSS pixel when the drag started.
+  scale: Point;
   startPosition: Point;
   newEffectId: string;
   position?: Point;
@@ -85,11 +88,14 @@ export function PreviewTransformOverlay({
 
   const toCanvas = (event: { clientX: number; clientY: number }) => {
     const bounds = rootRef.current?.getBoundingClientRect();
-    const screen = {
-      x: event.clientX - (bounds?.left ?? 0),
-      y: event.clientY - (bounds?.top ?? 0),
-    };
-    return { screen, canvas: screenToCanvas(screen, video, canvas) };
+    return screenToCanvas(
+      {
+        x: event.clientX - (bounds?.left ?? 0),
+        y: event.clientY - (bounds?.top ?? 0),
+      },
+      video,
+      canvas,
+    );
   };
 
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
@@ -102,9 +108,9 @@ export function PreviewTransformOverlay({
     // The selected layer keeps the press anywhere inside its outline, even
     // where another layer is drawn over it.
     const target =
-      selected && isPointOnLayer(point.canvas, selected, canvas)
+      selected && isPointOnLayer(point, selected, canvas)
         ? selected
-        : hitTestLayers(layers, point.canvas, canvas);
+        : hitTestLayers(layers, point, canvas);
     onSelect(target);
     if (!target) {
       return;
@@ -115,8 +121,11 @@ export function PreviewTransformOverlay({
     dragRef.current = {
       pointerId: event.pointerId,
       laneId: target.laneId,
-      startScreen: point.screen,
-      startCanvas: point.canvas,
+      startClient: { x: event.clientX, y: event.clientY },
+      scale: {
+        x: canvas.width / Math.max(1, video.width),
+        y: canvas.height / Math.max(1, video.height),
+      },
       startPosition: getLayerPosition(target.laneId),
       newEffectId: crypto.randomUUID(),
     };
@@ -128,22 +137,16 @@ export function PreviewTransformOverlay({
       return;
     }
 
-    const point = toCanvas(event);
-    if (
-      !drag.position &&
-      Math.hypot(
-        point.screen.x - drag.startScreen.x,
-        point.screen.y - drag.startScreen.y,
-      ) < DRAG_THRESHOLD_PX
-    ) {
+    const moved = {
+      x: event.clientX - drag.startClient.x,
+      y: event.clientY - drag.startClient.y,
+    };
+    if (!drag.position && Math.hypot(moved.x, moved.y) < DRAG_THRESHOLD_PX) {
       return;
     }
 
     const delta = constrainDragDelta(
-      {
-        x: point.canvas.x - drag.startCanvas.x,
-        y: point.canvas.y - drag.startCanvas.y,
-      },
+      { x: moved.x * drag.scale.x, y: moved.y * drag.scale.y },
       event.shiftKey,
     );
     drag.position = offsetTransformPosition(drag.startPosition, delta, canvas);
