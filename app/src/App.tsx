@@ -101,6 +101,10 @@ import {
   PlayheadLine,
   TransportPlayheadReadout,
 } from "./components/LivePlayhead";
+import {
+  MediaSyncSkeleton,
+  usePrefersReducedMotion,
+} from "./components/MediaSyncSkeleton";
 import { OfflineMediaDialog } from "./components/OfflineMediaDialog";
 import { ShareLinkButton } from "./components/ShareLinkButton";
 import {
@@ -202,6 +206,16 @@ import {
   createProjectHistoryState,
   projectHistoryReducer,
 } from "./project-history";
+import {
+  describeMediaSync,
+  formatMediaSyncLabel,
+  formatPeerMediaSyncStatus,
+  getMediaSyncClassName,
+  type PeerMediaProgressMap,
+  withoutPeerMediaProgress,
+  withPeerMediaProgress,
+  withQueuedPeerMedia,
+} from "./peer-media-sync.ts";
 import { migrateLegacyMainAudio } from "./project-state-compat.ts";
 import { buildRandomArrangement } from "./random-arrangement.ts";
 import { listOfflineMedia, matchOfflineMedia } from "./relink";
@@ -496,6 +510,8 @@ const TIMELINE_DRAG_EPSILON = 0.0001;
 const RANDOM_SELECTION_BAR_INCREMENT = 0.25;
 const MAX_PEER_MEDIA_TRANSFERS = 2;
 const PEER_MEDIA_STATUS_INTERVAL_MS = 250;
+// How long a clip keeps cross-fading from its skeleton to its filmstrip.
+const PEER_MEDIA_REVEAL_MS = 1200;
 const RANDOM_SELECTION_MAX_BARS = 2;
 // The arrangement wand replaces the main layers with this many.
 const MAX_WAND_LAYERS = 3;
@@ -1828,6 +1844,13 @@ function App() {
   const [status, setStatus] = useState(
     "Open a session or import media to get started.",
   );
+  const [peerMediaProgress, setPeerMediaProgress] =
+    useState<PeerMediaProgressMap>(() => new Map());
+  // Media that just finished syncing, so its clips cross-fade in.
+  const [revealedMediaIds, setRevealedMediaIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
+  const prefersReducedMotion = usePrefersReducedMotion();
   const [importNotice, setImportNotice] = useState<ImportNoticeContent | null>(
     null,
   );
@@ -1918,7 +1941,6 @@ function App() {
     mediaPeerCount: number;
     ids: Set<string>;
   }>({ controller: null, mediaPeerCount: 0, ids: new Set() });
-  const peerMediaStatusAtRef = useRef(0);
   const sessionMediaCheckRef = useRef<SessionMediaCheck | null>(null);
   const lastCollaborationCursorRef = useRef("");
   const sourceTrackDragPreviewRef = useRef<SourceTrackDragPreview | null>(null);
@@ -2421,9 +2443,17 @@ function App() {
   }, [mainAudioId, mainAudioUrl]);
   const currentMainWaveform =
     mainWaveform && mainWaveform.key === mainWaveformKey ? mainWaveform : null;
+  const mainAudioSync = mainAudio
+    ? describeMediaSync(
+        peerMediaProgress.get(mainAudio.id),
+        mainAudio.availability,
+      )
+    : null;
   const mainWaveformMessage = !mainAudio
     ? "No main audio track in this session"
-    : mainAudio.availability === "offline"
+    : mainAudioSync
+      ? formatMediaSyncLabel(mainAudioSync, "main audio")
+      : mainAudio.availability === "offline"
       ? "Main audio is offline"
       : mainAudio.availability === "hydrating"
         ? "Waiting for main audio…"
@@ -2575,6 +2605,14 @@ function App() {
     timelineViewport.clientWidth - labelWidth,
   );
   const visibleTimelineEndPx = visibleTimelineStartPx + visibleTimelineWidthPx;
+  // The waveform skeleton spans the known duration, else the visible lane.
+  const mainAudioSkeletonStyle =
+    mainAudio?.durationSeconds && mainAudio.durationSeconds > 0
+      ? {
+          left: 0,
+          width: ((mainAudio.durationSeconds * bpm) / 60) * quarterPx,
+        }
+      : { left: visibleTimelineStartPx, width: visibleTimelineWidthPx };
   const filmstripRange = getFilmstripRange(
     visibleTimelineStartPx,
     visibleTimelineWidthPx,
@@ -4050,6 +4088,7 @@ function App() {
     void mediaHydrationTick;
     const controller = collaborationControllerRef.current;
     if (collaborationMode === "idle" || !controller || mediaPeerCount === 0) {
+      setPeerMediaProgress((map) => withQueuedPeerMedia(map, []));
       return;
     }
 
@@ -4066,14 +4105,17 @@ function App() {
 
     const transfers = peerMediaTransfersRef.current;
     const offlineIds = JSON.parse(offlineClipMediaIdsKey) as string[];
+    // Media a peer may have that is waiting for a free transfer slot.
+    const queuedIds: string[] = [];
     for (const mediaId of offlineIds) {
-      if (transfers.size >= MAX_PEER_MEDIA_TRANSFERS) {
-        break;
-      }
       if (
         misses.ids.has(mediaId) ||
         mediaHydrationInFlightRef.current.has(mediaId)
       ) {
+        continue;
+      }
+      if (transfers.size >= MAX_PEER_MEDIA_TRANSFERS) {
+        queuedIds.push(mediaId);
         continue;
       }
 
@@ -4094,25 +4136,39 @@ function App() {
       transfers.set(mediaId, abortController);
       mediaHydrationInFlightRef.current.add(mediaId);
       setLocalMediaOverride(mediaId, { availability: "hydrating" });
+      setPeerMediaProgress((map) =>
+        withPeerMediaProgress(map, mediaId, {
+          phase: "receiving",
+          received: 0,
+          total: 0,
+        }),
+      );
 
       void (async () => {
         let receiving = false;
+        let progressAt = 0;
         try {
           const blob = await controller.requestMedia(mediaId, {
             signal: abortController.signal,
             onProgress(received, total) {
-              receiving = true;
               const now = performance.now();
               if (
-                now - peerMediaStatusAtRef.current <
-                PEER_MEDIA_STATUS_INTERVAL_MS
+                receiving &&
+                now - progressAt < PEER_MEDIA_STATUS_INTERVAL_MS
               ) {
                 return;
               }
-              peerMediaStatusAtRef.current = now;
-              const percent =
-                total > 0 ? Math.floor((received / total) * 100) : 0;
-              setStatus(`Receiving ${name} from peer... ${percent}%`);
+              receiving = true;
+              progressAt = now;
+              setPeerMediaProgress((map) =>
+                transfers.get(mediaId) === abortController
+                  ? withPeerMediaProgress(map, mediaId, {
+                      phase: "receiving",
+                      received,
+                      total,
+                    })
+                  : map,
+              );
             },
           });
           if (!blob) {
@@ -4126,6 +4182,17 @@ function App() {
 
           await adoptMediaBlob(mediaId, blob);
           setStatus(`Received ${name} from peer.`);
+          setRevealedMediaIds((ids) => new Set(ids).add(mediaId));
+          window.setTimeout(() => {
+            setRevealedMediaIds((ids) => {
+              if (!ids.has(mediaId)) {
+                return ids;
+              }
+              const next = new Set(ids);
+              next.delete(mediaId);
+              return next;
+            });
+          }, PEER_MEDIA_REVEAL_MS);
         } catch (error) {
           if (!abortController.signal.aborted) {
             const message =
@@ -4138,10 +4205,14 @@ function App() {
         } finally {
           transfers.delete(mediaId);
           mediaHydrationInFlightRef.current.delete(mediaId);
+          setPeerMediaProgress((map) =>
+            withoutPeerMediaProgress(map, mediaId),
+          );
           setMediaHydrationTick((tick) => tick + 1);
         }
       })();
     }
+    setPeerMediaProgress((map) => withQueuedPeerMedia(map, queuedIds));
   }, [
     adoptMediaBlob,
     collaborationMode,
@@ -4150,6 +4221,13 @@ function App() {
     mediaHydrationTick,
     setLocalMediaOverride,
   ]);
+
+  useEffect(() => {
+    const message = formatPeerMediaSyncStatus(peerMediaProgress);
+    if (message) {
+      setStatus(message);
+    }
+  }, [peerMediaProgress]);
 
   useEffect(() => {
     collaborationControllerRef.current?.updateUser({
@@ -7391,11 +7469,17 @@ function App() {
                               media?.hasVideo && mediaState === "online"
                                 ? clipFilmstrips.get(clip.id)
                                 : undefined;
+                            const mediaSync = media
+                              ? describeMediaSync(
+                                  peerMediaProgress.get(media.id),
+                                  media.availability,
+                                )
+                              : null;
                             return (
                               // biome-ignore lint/a11y/noStaticElementInteractions: right-click is a pointer shortcut; the context-menu key and Shift+F10 open the same menu on the selected clip
                               <div
                                 key={clip.id}
-                                className={`clip-card ${selected ? "clip-card--selected" : ""} ${filmstrip ? "clip-card--filmstrip" : ""}`}
+                                className={`clip-card ${selected ? "clip-card--selected" : ""} ${filmstrip ? "clip-card--filmstrip" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""}`}
                                 data-clip-id={clip.id}
                                 onContextMenu={(event) =>
                                   openArrangementClipMenu(event, clip)
@@ -7421,9 +7505,18 @@ function App() {
                                   boxShadow: selected
                                     ? `0 0 0 2px ${clip.accent}`
                                     : undefined,
-                                  opacity: mediaState === "online" ? 1 : 0.62,
+                                  opacity:
+                                    mediaState === "online" || mediaSync
+                                      ? 1
+                                      : 0.62,
                                 }}
                               >
+                                {mediaSync ? (
+                                  <MediaSyncSkeleton
+                                    variant="clip"
+                                    view={mediaSync}
+                                  />
+                                ) : null}
                                 {filmstrip ? (
                                   <span
                                     aria-hidden="true"
@@ -7545,14 +7638,21 @@ function App() {
                                   <span className="clip-card__text">
                                     <strong>{clip.label}</strong>
                                     <span className="clip-card__meta">
-                                      {formatMusicalPosition(
-                                        clip.startQ,
-                                        signature,
-                                      )}{" "}
-                                      / {formatDuration(clip.durationSeconds)}
-                                      {mediaState === "online"
-                                        ? ""
-                                        : ` / ${formatClipMediaState(mediaState)}`}
+                                      {mediaSync ? (
+                                        formatMediaSyncLabel(mediaSync)
+                                      ) : (
+                                        <>
+                                          {formatMusicalPosition(
+                                            clip.startQ,
+                                            signature,
+                                          )}{" "}
+                                          /{" "}
+                                          {formatDuration(clip.durationSeconds)}
+                                          {mediaState === "online"
+                                            ? ""
+                                            : ` / ${formatClipMediaState(mediaState)}`}
+                                        </>
+                                      )}
                                     </span>
                                   </span>
                                 </button>
@@ -7643,9 +7743,16 @@ function App() {
                       />
                     </div>
                     <div
-                      className="track-row__content track-row__content--waveform"
+                      className={`track-row__content track-row__content--waveform ${mainAudioSync ? getMediaSyncClassName(mainAudioSync, prefersReducedMotion) : ""}`}
                       style={gridStyle}
                     >
+                      {mainAudioSync ? (
+                        <MediaSyncSkeleton
+                          style={mainAudioSkeletonStyle}
+                          variant="waveform"
+                          view={mainAudioSync}
+                        />
+                      ) : null}
                       {mainWaveformMessage ? (
                         <div
                           className="waveform__empty"
@@ -7866,12 +7973,18 @@ function App() {
                                   media?.hasVideo && mediaState === "online"
                                     ? spanFilmstrips.get(clip.id)
                                     : undefined;
+                                const mediaSync = media
+                                  ? describeMediaSync(
+                                      peerMediaProgress.get(media.id),
+                                      media.availability,
+                                    )
+                                  : null;
                                 return (
                                   // biome-ignore lint/a11y/noStaticElementInteractions: Ctrl/Cmd-click and right-click are mouse shortcuts; pressing a source layer's number key commits a selection from the keyboard
                                   // biome-ignore lint/a11y/useKeyWithClickEvents: a plain click does nothing, so there is no keyboard equivalent to add
                                   <div
                                     key={clip.id}
-                                    className={`source-span ${filmstrip ? "source-span--filmstrip" : ""} ${clipMenu?.kind === "span" && clipMenu.spanId === clip.id ? "source-span--selected" : ""}`}
+                                    className={`source-span ${filmstrip ? "source-span--filmstrip" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""} ${clipMenu?.kind === "span" && clipMenu.spanId === clip.id ? "source-span--selected" : ""}`}
                                     onClick={(event) => {
                                       // Ctrl-click on macOS opens the menu instead.
                                       if (
@@ -7896,13 +8009,22 @@ function App() {
                                       left: clip.startQ * quarterPx,
                                       width:
                                         getClipDurationQ(clip, bpm) * quarterPx,
+                                      ["--clip-accent" as string]:
+                                        clip.accent,
                                       backgroundColor: clip.tint,
                                       borderColor: clip.accent,
                                       opacity:
-                                        mediaState === "online" ? 1 : 0.56,
+                                        mediaState === "online" || mediaSync
+                                          ? 1
+                                          : 0.56,
                                     }}
                                   >
-                                    {filmstrip ? (
+                                    {mediaSync ? (
+                                      <MediaSyncSkeleton
+                                        variant="span"
+                                        view={mediaSync}
+                                      />
+                                    ) : filmstrip ? (
                                       <span
                                         aria-hidden="true"
                                         className="source-span__filmstrip"
@@ -7956,7 +8078,9 @@ function App() {
                                     <div className="source-span__body">
                                       <span>{clip.label}</span>
                                       <small>
-                                        {formatClipMediaState(mediaState)}
+                                        {mediaSync
+                                          ? formatMediaSyncLabel(mediaSync)
+                                          : formatClipMediaState(mediaState)}
                                       </small>
                                       <div
                                         className="source-span__line"
