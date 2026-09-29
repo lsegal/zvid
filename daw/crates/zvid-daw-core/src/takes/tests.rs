@@ -201,6 +201,51 @@ fn frame_clocks_place_takes_in_file_time() {
 }
 
 #[test]
+fn takes_get_the_size_the_file_was_recorded_at() {
+    let mut log = TakeLog::default();
+    let mut state = State::default();
+    log.command(arm(100.0), &mut state);
+    // A take closed before the first frame, one still open when the size
+    // arrives, and one after it.
+    play(&mut log, &mut state, 0.0, 100.5, 1.0);
+    log.transport(snap(true, 4.0, 103.0), &mut state);
+    let portrait = Command::Dimensions {
+        dimensions: [1080, 1920],
+        at: 103.1,
+    };
+    assert!(log.command(portrait, &mut state).is_empty());
+    log.transport(snap(false, 4.5, 103.5), &mut state);
+    play(&mut log, &mut state, 8.0, 105.0, 1.0);
+    log.command(Command::Disarm { at: 107.0 }, &mut state);
+
+    assert_eq!(state.recordings.len(), 3);
+    for recording in &state.recordings {
+        assert_eq!(recording.dimensions, [1080, 1920], "{}", recording.id);
+    }
+
+    // The next capture starts from the size it arms with again.
+    log.command(arm(110.0), &mut state);
+    play(&mut log, &mut state, 0.0, 110.5, 1.0);
+    log.command(Command::Disarm { at: 112.0 }, &mut state);
+    assert_eq!(state.recordings[3].dimensions, [1920, 1080]);
+}
+
+#[test]
+fn a_size_without_a_capture_changes_nothing() {
+    let mut log = TakeLog::default();
+    let mut state = State::default();
+    log.command(arm(100.0), &mut state);
+    play(&mut log, &mut state, 0.0, 100.5, 1.0);
+    log.command(Command::Disarm { at: 102.0 }, &mut state);
+    let dimensions = Command::Dimensions {
+        dimensions: [1080, 1920],
+        at: 103.0,
+    };
+    assert!(log.command(dimensions, &mut state).is_empty());
+    assert_eq!(state.recordings[0].dimensions, [1920, 1080]);
+}
+
+#[test]
 fn arming_twice_keeps_the_first_capture() {
     let mut log = TakeLog::default();
     let mut state = State::default();

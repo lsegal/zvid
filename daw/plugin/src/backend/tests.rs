@@ -728,6 +728,41 @@ fn records_video_only_without_a_tap() {
 }
 
 #[test]
+fn stores_takes_at_the_recorded_size() {
+    let rig = Rig::new(State::default());
+    rig.backend.select_camera("usb-1").unwrap();
+    rig.backend.arm().unwrap();
+    let Command::Arm { capture, .. } = rig.next_command() else {
+        panic!("expected an arm");
+    };
+    assert_eq!(capture.dimensions, [1920, 1080]);
+    // The camera is held upright, so the file is recorded portrait.
+    lock(&rig.fake.file(0).stats).dimensions = Some((1080, 1920));
+    wait_for("the recorded size", || {
+        rig.commands.try_iter().any(|command| {
+            command
+                == Command::Dimensions {
+                    dimensions: [1080, 1920],
+                    at: 42.0,
+                }
+        })
+    });
+    rig.backend.disarm().unwrap();
+    let commands: Vec<Command> = rig.commands.try_iter().collect();
+    assert!(
+        commands
+            .iter()
+            .any(|command| matches!(command, Command::Disarm { .. }))
+    );
+    assert!(
+        !commands
+            .iter()
+            .any(|command| matches!(command, Command::Dimensions { .. })),
+        "the size is sent once: {commands:?}"
+    );
+}
+
+#[test]
 fn an_unanchored_capture_only_announces_its_close() {
     let rig = Rig::new(State::default());
     rig.backend.select_camera("builtin").unwrap();

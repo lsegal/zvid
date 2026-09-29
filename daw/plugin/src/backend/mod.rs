@@ -10,7 +10,10 @@
 //! - **Capture**: [`Backend::arm`] starts a capture file and sends
 //!   [`Command::Arm`] to the format layer's control thread, which turns
 //!   play/stop spans into takes. Frames go to the file while armed, and the
-//!   file's frame clock is forwarded as [`Command::FrameClock`].
+//!   file's frame clock is forwarded as [`Command::FrameClock`]. The
+//!   takes are stored at the size the file is recorded at, forwarded as
+//!   [`Command::Dimensions`] once the first frame is encoded, so a
+//!   portrait camera gives portrait takes.
 //!   [`Backend::disarm`] sends [`Command::Disarm`] and finalizes the file
 //!   on a worker thread.
 //! - **Audio**: the format layer's input-bus tap delivers blocks timed on
@@ -145,6 +148,8 @@ struct Active {
     takes: u32,
     dropped: u64,
     clock: Option<FrameClock>,
+    /// The recorded size last sent as [`Command::Dimensions`].
+    dimensions: Option<(u32, u32)>,
 }
 
 impl CaptureBackend {
@@ -393,13 +398,19 @@ impl CaptureBackend {
     /// The file is finalized on a worker thread, or before returning with
     /// `wait`.
     fn stop_capture(&self, inner: &mut Inner, wait: bool) {
-        if inner.capture.take().is_none() {
+        let Some(active) = inner.capture.take() else {
             return;
-        }
+        };
         // The audio tapped up to now belongs to this file.
         self.pump_audio(true);
         let file = lock(&self.recorder).take();
-        if let Some(clock) = file.as_ref().and_then(|file| file.stats().frame_clock) {
+        let stats = file.as_ref().map(|file| file.stats());
+        if let Some(size) = stats.as_ref().and_then(|stats| stats.dimensions)
+            && Some(size) != active.dimensions
+        {
+            self.send(dimensions(size, self.platform.now_sec()));
+        }
+        if let Some(clock) = stats.and_then(|stats| stats.frame_clock) {
             // Place the take's end with the latest frame written.
             self.send(frame_clock(clock));
         }
@@ -568,6 +579,12 @@ impl CaptureBackend {
                 if let Some(clock) = stats.frame_clock {
                     self.send(frame_clock(clock));
                 }
+            }
+            if let Some(size) = stats.dimensions
+                && Some(size) != active.dimensions
+            {
+                active.dimensions = Some(size);
+                self.send(dimensions(size, self.platform.now_sec()));
             }
             if stats.frames_dropped != active.dropped {
                 active.dropped = stats.frames_dropped;
@@ -761,6 +778,7 @@ impl Backend for CaptureBackend {
             takes: 0,
             dropped: 0,
             clock: None,
+            dimensions: None,
         });
         drop(inner);
         self.emit_status();
@@ -885,6 +903,13 @@ fn monitor(backend: Weak<CaptureBackend>, takes: Receiver<TakeChange>) {
         drop(backend);
         // `shutdown` unparks it to stop without waiting out the tick.
         thread::park_timeout(TICK);
+    }
+}
+
+fn dimensions((width, height): (u32, u32), at: f64) -> Command {
+    Command::Dimensions {
+        dimensions: [width, height],
+        at,
     }
 }
 

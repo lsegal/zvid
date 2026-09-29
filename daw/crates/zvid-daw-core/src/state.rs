@@ -360,6 +360,28 @@ mod tests {
     }
 
     #[test]
+    fn portrait_takes_round_trip_as_width_then_height() {
+        let state = State {
+            recordings: vec![Recording::from_take(
+                &anchored_take(),
+                RecordingMeta {
+                    dimensions: [1080, 1920],
+                    ..meta()
+                },
+            )],
+            ..State::default()
+        };
+        let json: Value = serde_json::from_str(&state.to_json()).unwrap();
+        assert_eq!(
+            json["recordings"][0]["dimensions"],
+            serde_json::json!([1080, 1920])
+        );
+        let parsed = State::from_hex(&state.to_hex()).unwrap();
+        assert_eq!(parsed.recordings[0].dimensions, [1080, 1920]);
+        assert_eq!(parsed, state);
+    }
+
+    #[test]
     fn hex_round_trips() {
         let state = State {
             recordings: vec![Recording::from_take(&anchored_take(), meta())],

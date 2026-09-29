@@ -5,6 +5,13 @@
 //! Continuity Camera devices; Desk View is excluded. Frames come from an
 //! `AVCaptureVideoDataOutput` as NV12 ('420v'/'420f') on a serial dispatch
 //! queue.
+//!
+//! On macOS 14+, frames are turned horizon-level with the device's
+//! `AVCaptureDeviceRotationCoordinator`, so a Continuity Camera held upright
+//! delivers portrait frames. The angle is checked on every frame and follows
+//! the device when it turns. It's read on the capture queue rather than
+//! observed with KVO: KVO notifies on the main queue, which the session
+//! can't wait for when it stops.
 
 use crate::clock::HostTime;
 use crate::fanout::{Dispatcher, lock};
@@ -21,12 +28,12 @@ use objc2::{AnyThread, ClassType, Message, ProtocolType, msg_send, sel};
 #[allow(deprecated)]
 use objc2_av_foundation::AVCaptureDeviceTypeExternalUnknown;
 use objc2_av_foundation::{
-    AVAuthorizationStatus, AVCaptureDevice, AVCaptureDeviceDiscoverySession, AVCaptureDeviceFormat,
-    AVCaptureDeviceInput, AVCaptureDevicePosition, AVCaptureDeviceRotationCoordinator,
-    AVCaptureDeviceType, AVCaptureDeviceTypeBuiltInWideAngleCamera,
-    AVCaptureDeviceWasConnectedNotification, AVCaptureDeviceWasDisconnectedNotification,
-    AVCaptureSession, AVCaptureVideoDataOutput, AVCaptureVideoDataOutputSampleBufferDelegate,
-    AVMediaTypeVideo,
+    AVAuthorizationStatus, AVCaptureConnection, AVCaptureDevice, AVCaptureDeviceDiscoverySession,
+    AVCaptureDeviceFormat, AVCaptureDeviceInput, AVCaptureDevicePosition,
+    AVCaptureDeviceRotationCoordinator, AVCaptureDeviceType,
+    AVCaptureDeviceTypeBuiltInWideAngleCamera, AVCaptureDeviceWasConnectedNotification,
+    AVCaptureDeviceWasDisconnectedNotification, AVCaptureSession, AVCaptureVideoDataOutput,
+    AVCaptureVideoDataOutputSampleBufferDelegate, AVMediaTypeVideo,
 };
 use objc2_core_foundation::{CFRunLoop, kCFRunLoopDefaultMode};
 use objc2_core_media::{
@@ -271,7 +278,21 @@ struct DelegateState {
     clock: Mutex<Option<Retained<CMClock>>>,
     /// Rotation still to apply when the connection couldn't rotate frames.
     rotation: Mutex<Rotation>,
+    /// The device's rotation coordinator (macOS 14+).
+    rotator: Mutex<Option<Rotator>>,
 }
+
+/// Follows the angle that makes the device's frames horizon-level.
+struct Rotator {
+    coordinator: Retained<AVCaptureDeviceRotationCoordinator>,
+    /// The angle last applied, as a quarter turn.
+    applied: Option<Rotation>,
+}
+
+// SAFETY: the coordinator is only reached through `DelegateState::rotator`'s
+// mutex, so one thread uses it at a time. Its retain count is atomic, and
+// reading its capture angle off the main thread is allowed.
+unsafe impl Send for Rotator {}
 
 /// The delegate class, registered at runtime under a name unique to this
 /// copy of the crate. A literal `define_class!` name would panic when the
@@ -332,16 +353,21 @@ unsafe extern "C-unwind" fn did_output(
     _cmd: Sel,
     _output: *mut AnyObject,
     sample: *const CMSampleBuffer,
-    _connection: *mut AnyObject,
+    connection: *mut AnyObject,
 ) {
     // SAFETY: only registered on delegates made by `new_delegate`; AVFoundation
-    // passes a valid sample buffer for the duration of the call.
+    // passes a valid sample buffer and its connection for the duration of
+    // the call.
     let (Some(this), Some(sample)) = (unsafe { this.as_ref() }, unsafe { sample.as_ref() }) else {
         return;
     };
-    if let Some(state) = unsafe { delegate_state(this) }
-        && let Some(frame) = state.frame_from(sample)
-    {
+    let Some(state) = (unsafe { delegate_state(this) }) else {
+        return;
+    };
+    if let Some(connection) = unsafe { connection.cast::<AVCaptureConnection>().as_ref() } {
+        state.follow_rotation(connection);
+    }
+    if let Some(frame) = state.frame_from(sample) {
         lock(&state.dispatcher).deliver(frame);
     }
 }
@@ -381,7 +407,57 @@ impl DelegateState {
             dispatcher: Mutex::new(dispatcher),
             clock: Mutex::new(None),
             rotation: Mutex::new(Rotation::None),
+            rotator: Mutex::new(None),
         }
+    }
+
+    /// Starts following `coordinator`'s capture angle on `connection`.
+    fn start_rotating(
+        &self,
+        coordinator: Retained<AVCaptureDeviceRotationCoordinator>,
+        connection: &AVCaptureConnection,
+    ) {
+        *lock(&self.rotator) = Some(Rotator {
+            coordinator,
+            applied: None,
+        });
+        self.follow_rotation(connection);
+    }
+
+    /// Applies the device's current capture angle when it changed, such as
+    /// when a phone is turned between portrait and landscape. The
+    /// connection rotates buffers from the next one; when it can't rotate
+    /// by the angle, frames carry the rotation instead. A turn mid-take is
+    /// letterboxed by the recorder, and the next take uses the new
+    /// orientation.
+    fn follow_rotation(&self, connection: &AVCaptureConnection) {
+        let mut rotator = lock(&self.rotator);
+        let Some(rotator) = rotator.as_mut() else {
+            return;
+        };
+        // SAFETY: property read on a live coordinator (macOS 14+, checked
+        // when it was created).
+        let angle = unsafe {
+            rotator
+                .coordinator
+                .videoRotationAngleForHorizonLevelCapture()
+        };
+        let quarter = Rotation::from_degrees(angle);
+        if rotator.applied == Some(quarter) {
+            return;
+        }
+        rotator.applied = Some(quarter);
+        // SAFETY: rotating the output's own connection; AVFoundation allows
+        // it while the session runs.
+        let remaining = unsafe {
+            if connection.isVideoRotationAngleSupported(angle) {
+                connection.setVideoRotationAngle(angle);
+                Rotation::None
+            } else {
+                quarter
+            }
+        };
+        *lock(&self.rotation) = remaining;
     }
 
     /// Converts a sample's presentation time to host time.
@@ -457,7 +533,6 @@ pub(crate) struct Session {
     _delegate: Retained<AnyObject>,
     /// Declared after `_delegate`: the delegate points into it.
     _state: Arc<DelegateState>,
-    _rotation: Option<Retained<AVCaptureDeviceRotationCoordinator>>,
 }
 
 // SAFETY: AVCaptureSession and its outputs may be started, stopped and
@@ -547,8 +622,8 @@ impl Session {
             }
 
             // Rotate portrait sources (Continuity Camera held upright) so
-            // frames arrive horizon-level. macOS 14+.
-            let mut remaining = Rotation::None;
+            // frames arrive horizon-level, and keep following the device
+            // as it turns. macOS 14+.
             let coordinator = at_least(14, 0).then(|| {
                 AVCaptureDeviceRotationCoordinator::initWithDevice_previewLayer(
                     AVCaptureDeviceRotationCoordinator::alloc(),
@@ -557,17 +632,11 @@ impl Session {
                 )
             });
             if let (Some(coordinator), Some(connection)) = (
-                &coordinator,
+                coordinator,
                 output.connectionWithMediaType(video_media_type()),
             ) {
-                let angle = coordinator.videoRotationAngleForHorizonLevelCapture();
-                if connection.isVideoRotationAngleSupported(angle) {
-                    connection.setVideoRotationAngle(angle);
-                } else {
-                    remaining = Rotation::from_degrees(angle);
-                }
+                state.start_rotating(coordinator, &connection);
             }
-            *lock(&state.rotation) = remaining;
 
             session.commitConfiguration();
             let clock = if at_least(12, 3) {
@@ -593,7 +662,6 @@ impl Session {
                 queue,
                 _delegate: delegate,
                 _state: state,
-                _rotation: coordinator,
             };
             Ok((started, selection))
         }

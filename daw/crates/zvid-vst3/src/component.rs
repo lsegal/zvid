@@ -171,9 +171,10 @@ impl Component {
         lock(&self.state)
     }
 
-    /// Where the capture layer sends [`Command::Arm`], [`Command::Disarm`]
-    /// and [`Command::FrameClock`]. Commands wait while the component is
-    /// not initialized and are applied once the control thread runs.
+    /// Where the capture layer sends [`Command::Arm`], [`Command::Disarm`],
+    /// [`Command::FrameClock`] and [`Command::Dimensions`]. Commands wait
+    /// while the component is not initialized and are applied once the control
+    /// thread runs.
     pub fn commands(&self) -> Sender<Command> {
         self.commands.clone()
     }
