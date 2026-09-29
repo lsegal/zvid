@@ -456,7 +456,9 @@ impl CaptureBackend {
             Ok(file) => file,
             Err(error) => {
                 // The take is letterboxed into the current file instead.
-                log(&format!("could not start a file for the turned camera: {error}"));
+                log(&format!(
+                    "could not start a file for the turned camera: {error}"
+                ));
                 return;
             }
         };

@@ -239,11 +239,21 @@ impl Platform for Fake {
     }
 
     fn record(&self, config: RecordConfig) -> Result<Box<dyn CaptureFile>, RecordError> {
+        let mut files = lock(&self.files);
+        // Files a capture continues in count collisions up.
+        let collision = files
+            .iter()
+            .filter(|file| {
+                file.filename
+                    .starts_with(&format!("video-{:02}-", config.counter))
+            })
+            .count();
         let file = Arc::new(FileState {
-            filename: format!("video-{:02}-9-25-20-36-12-0.mp4", config.counter),
+            filename: format!("video-{:02}-9-25-20-36-12-{collision}.mp4", config.counter),
             ..FileState::default()
         });
-        lock(&self.files).push(Arc::clone(&file));
+        files.push(Arc::clone(&file));
+        drop(files);
         lock(&self.configs).push(config);
         Ok(Box::new(FakeFile(file)))
     }
@@ -760,6 +770,85 @@ fn stores_takes_at_the_recorded_size() {
             .any(|command| matches!(command, Command::Dimensions { .. })),
         "the size is sent once: {commands:?}"
     );
+}
+
+#[test]
+fn a_take_after_the_camera_turned_starts_a_new_file() {
+    let rig = Rig::new(State::default());
+    rig.backend.select_camera("usb-1").unwrap();
+    rig.backend.arm().unwrap();
+    assert!(matches!(rig.next_command(), Command::Arm { .. }));
+    let opened = |index: u32| TakeChange::Opened {
+        index,
+        id: format!("video-01-9-25-20-36-12-0-take-{}", index + 1),
+    };
+    rig.fake.deliver(0);
+    lock(&rig.fake.file(0).stats).dimensions = Some((1920, 1080));
+
+    // A take while the camera is as the file started stays in it.
+    rig.takes.send(opened(0)).unwrap();
+    rig.wait_for_event("takeOpened", 1);
+
+    // The camera turns between takes, so the recorder letterboxes.
+    rig.fake.deliver_rotated(1, Rotation::Cw90);
+    lock(&rig.fake.file(0).stats).letterboxing = true;
+    wait_for("the portrait size", || {
+        rig.backend
+            .status()
+            .format
+            .is_some_and(|format| format.height > format.width)
+    });
+    rig.takes.send(opened(1)).unwrap();
+    rig.wait_for_event("takeOpened", 2);
+    wait_for("the new file", || lock(&rig.fake.files).len() == 2);
+    wait_for("the previous file to finish", || {
+        rig.fake.file(0).stopped.load(Ordering::Acquire)
+    });
+    let commands: Vec<Command> = rig.commands.try_iter().collect();
+    let capture = commands
+        .iter()
+        .find_map(|command| match command {
+            Command::NextFile { capture, .. } => Some(capture.clone()),
+            _ => None,
+        })
+        .unwrap_or_else(|| panic!("no new file: {commands:?}"));
+    assert_eq!(capture.filename, "video-01-9-25-20-36-12-1.mp4");
+    assert_eq!(capture.filename, rig.fake.file(1).filename);
+    assert_eq!(capture.dimensions, [1080, 1920]);
+    assert_eq!(capture.camera, "Logitech BRIO");
+    assert_eq!(capture.record_root, rig.root.kind);
+    {
+        let configs = lock(&rig.fake.configs);
+        assert_eq!(configs[1].root.dir, configs[0].root.dir);
+        assert_eq!(configs[1].counter, 1);
+    }
+    // The previous file's clock is placed before the take moves.
+    let next = commands
+        .iter()
+        .position(|command| matches!(command, Command::NextFile { .. }))
+        .unwrap();
+    assert!(matches!(commands[next - 1], Command::FrameClock { .. }));
+
+    // Frames go to the new file, whose size is sent once it is known.
+    rig.fake.deliver_rotated(2, Rotation::Cw90);
+    assert_eq!(lock(&rig.fake.file(1).stats).frames_received, 1);
+    assert_eq!(lock(&rig.fake.file(0).stats).frames_received, 2);
+    lock(&rig.fake.file(1).stats).dimensions = Some((1080, 1920));
+    wait_for("the new file's size", || {
+        rig.commands.try_iter().any(|command| {
+            command
+                == Command::Dimensions {
+                    dimensions: [1080, 1920],
+                    at: 42.0,
+                }
+        })
+    });
+    // Another take in the same orientation stays in the new file.
+    rig.takes.send(opened(2)).unwrap();
+    rig.wait_for_event("takeOpened", 3);
+    rig.backend.disarm().unwrap();
+    assert_eq!(lock(&rig.fake.files).len(), 2);
+    assert_eq!(rig.backend.status().capture, None);
 }
 
 #[test]

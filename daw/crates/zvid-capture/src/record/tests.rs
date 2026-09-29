@@ -457,7 +457,12 @@ fn reports_letterboxing_while_the_camera_is_turned() {
     assert_eq!(recorded.dimensions, (64, 48));
     assert_eq!(recorded.stats.frames_written, 15);
     assert!(!recorded.stats.letterboxing);
-    assert_eq!(recorded.stats.warnings.len(), 1, "{:?}", recorded.stats.warnings);
+    assert_eq!(
+        recorded.stats.warnings.len(),
+        1,
+        "{:?}",
+        recorded.stats.warnings
+    );
 }
 
 #[test]
