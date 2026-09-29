@@ -42,6 +42,7 @@ async function openApp(browser: Browser, path = "/") {
     permissions: ["clipboard-read", "clipboard-write"],
   });
   contexts.push(context);
+  await recordMediaLabels(context);
   // Point the app's signaling setting at the local server.
   await context.addInitScript((url) => {
     window.localStorage.setItem(
@@ -57,6 +58,33 @@ async function openApp(browser: Browser, path = "/") {
 
 function layerNames(page: Page) {
   return page.locator("[data-layer-header-id] .track-label__select > span");
+}
+
+// Records every media label the header shows, so a test can check that a
+// joiner never reported syncing media as offline.
+async function recordMediaLabels(context: BrowserContext) {
+  await context.addInitScript(() => {
+    const labels: string[] = [];
+    Object.assign(window, { __mediaLabels: labels });
+    new MutationObserver(() => {
+      for (const label of document.querySelectorAll(".track-label__offline")) {
+        const text = label.textContent ?? "";
+        if (labels.at(-1) !== text) {
+          labels.push(text);
+        }
+      }
+    }).observe(document, {
+      characterData: true,
+      childList: true,
+      subtree: true,
+    });
+  });
+}
+
+function mediaLabels(page: Page) {
+  return page.evaluate(
+    () => (window as unknown as { __mediaLabels: string[] }).__mediaLabels,
+  );
 }
 
 function connectionStatus(page: Page) {
@@ -209,6 +237,20 @@ test("a guest in another browser context joins, syncs both ways and receives med
     .poll(() => mediaReceived, { timeout: 30_000 })
     .toBeGreaterThan(0);
   await expect(guest.locator(".track-label__offline")).toHaveCount(0);
+  // Media on its way from the host shows as syncing, never as offline.
+  const labels = await mediaLabels(guest);
+  expect(labels.filter((label) => /offline/i.test(label))).toEqual([]);
+
+  // The media sync modal lists the received media as ready.
+  await guest.locator(".file-menu-button", { hasText: "File" }).click();
+  await guest.getByRole("menuitem", { name: "Media Sync Status…" }).click();
+  const mediaSync = guest.getByRole("dialog", { name: "Media Sync" });
+  await expect(mediaSync).toContainText("All session media is ready.");
+  await mediaSync.getByRole("button", { name: "1 ready" }).click();
+  await expect(mediaSync).toContainText("test-pattern.mp4");
+  await expect(mediaSync).toContainText("Ready");
+  await mediaSync.getByRole("button", { name: "Close" }).click();
+  await expect(mediaSync).toHaveCount(0);
 
   // The diagnostics show a real WebRTC peer, not a same-browser tab.
   await connectionStatus(guest).click();

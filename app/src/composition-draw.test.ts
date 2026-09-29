@@ -8,7 +8,16 @@ import {
   drawComposition,
   type WebGlResources,
 } from "./composition-draw.ts";
-import { resolveBandScissor } from "./composition-layout.ts";
+import {
+  resolveBandScissor,
+  resolveLayerPlacement,
+} from "./composition-layout.ts";
+import type { CompositionOrder } from "./composition-order.ts";
+import {
+  IDENTITY_TRANSFORM,
+  type LayerTransform,
+  transformedQuadAxes,
+} from "./composition-transform.ts";
 import type { FillPaint } from "./fill-paint.ts";
 import { SILENT_AUDIO_BANDS } from "./fx-shaders/audio-bands.ts";
 import { POSITION_ATTRIBUTE_LOCATION } from "./fx-shaders/gl.ts";
@@ -32,6 +41,8 @@ type DrawCall = {
   viewport: ScissorBox | null;
   activeTexture: string | null;
   texture: Handle | null;
+  // uAxisX, uAxisY and uOffset of the composite program.
+  axes: Record<string, [number, number]>;
 };
 
 // A WebGLRenderingContext stand-in that tracks the state drawComposition and
@@ -54,6 +65,7 @@ function createRecordingGl() {
     viewport: null as ScissorBox | null,
     activeTexture: "TEXTURE0" as string | null,
     textures: new Map<string, Handle | null>(),
+    uniforms: {} as Record<string, [number, number]>,
   };
   const draws: DrawCall[] = [];
   // Arguments of every texImage2D call.
@@ -122,6 +134,9 @@ function createRecordingGl() {
     texImage2D: (...args: never[]) => {
       uploads.push(args);
     },
+    uniform2f: (location: { name: string }, x: number, y: number) => {
+      state.uniforms[location.name] = [x, y];
+    },
     drawArrays: () => {
       draws.push({
         program: state.program,
@@ -137,6 +152,11 @@ function createRecordingGl() {
         viewport: state.viewport,
         activeTexture: state.activeTexture,
         texture: state.textures.get(state.activeTexture ?? "") ?? null,
+        axes: {
+          uAxisX: state.uniforms.uAxisX,
+          uAxisY: state.uniforms.uAxisY,
+          uOffset: state.uniforms.uOffset,
+        },
       });
     },
   };
@@ -199,7 +219,12 @@ function colorize(trackId: string): ChainEffect {
   };
 }
 
-function layers(count: number, effects: ChainEffect[], sharedMedia = false) {
+function layers(
+  count: number,
+  effects: ChainEffect[],
+  sharedMedia = false,
+  transforms: Array<LayerTransform | undefined> = [],
+) {
   return Array.from({ length: count }, (_, lane) => {
     const layer: CompositeLayer = {
       clip: { startQ: 0 },
@@ -222,6 +247,7 @@ function layers(count: number, effects: ChainEffect[], sharedMedia = false) {
         contrast: 1,
         saturation: 1,
         layoutAnchor: "top",
+        transform: transforms[lane],
       },
       effectChain: resolveEffectChain(effects, `lane-${lane}`),
     };
@@ -234,6 +260,7 @@ function render(
   effects: ChainEffect[],
   before?: (resources: WebGlResources) => void,
   sharedMedia = false,
+  transforms: Array<LayerTransform | undefined> = [],
 ) {
   const recording = createRecordingGl();
   const resources = createWebGlResources(recording.gl);
@@ -248,7 +275,7 @@ function render(
   drawComposition(
     resources,
     { width: WIDTH, height: HEIGHT },
-    layers(count, effects, sharedMedia),
+    layers(count, effects, sharedMedia, transforms),
     mediaRefs,
     resolveEffectChain(effects, "__group_main"),
     { time: 1, audio: SILENT_AUDIO_BANDS, groupClipProgress: 0 },
@@ -260,6 +287,12 @@ function render(
       (draw) =>
         draw.program === (resources.program as unknown as Handle) &&
         draw.scissorTest,
+    ),
+    // Composite program draws onto the canvas, scissored or not.
+    canvasDraws: recording.draws.filter(
+      (draw) =>
+        draw.program === (resources.program as unknown as Handle) &&
+        draw.framebuffer === null,
     ),
   };
 }
@@ -366,6 +399,80 @@ describe("drawComposition GL state", () => {
   });
 });
 
+describe("drawComposition Transform", () => {
+  const moved: LayerTransform = {
+    ...IDENTITY_TRANSFORM,
+    positionX: 0.25,
+    scaleX: 0.5,
+    scaleY: 2,
+    rotationDeg: 30,
+  };
+
+  it("draws an identity Transform exactly as no Transform", () => {
+    for (const effects of [[], [colorize("lane-1")]]) {
+      const plain = render(2, effects);
+      const identity = render(2, effects, undefined, false, [
+        IDENTITY_TRANSFORM,
+        { ...IDENTITY_TRANSFORM, originX: 1, originY: -1 },
+      ]);
+      assert.equal(identity.draws.length, plain.draws.length);
+      assert.deepEqual(
+        identity.canvasDraws.map((draw) => [draw.scissor, draw.axes]),
+        plain.canvasDraws.map((draw) => [draw.scissor, draw.axes]),
+      );
+    }
+  });
+
+  for (const effects of [[], [colorize("lane-1")]]) {
+    it(`frames a transformed layer into its band, then draws it transformed and unclipped by the band${effects.length ? ", after its effects" : ""}`, () => {
+      const { canvasDraws, resources, draws } = render(
+        2,
+        effects,
+        undefined,
+        false,
+        [undefined, moved],
+      );
+      assert.equal(canvasDraws.length, 2);
+      const [top, bottom] = canvasDraws;
+      assertCompositeState(top, resources, 0, 2, null);
+
+      const band = resolveBandScissor(1, 2, WIDTH, HEIGHT);
+      const framing = draws.filter(
+        (draw) =>
+          draw.framebuffer !== null &&
+          draw.viewport?.[2] === band.width &&
+          draw.viewport?.[3] === band.height,
+      );
+      assert.ok(framing.length >= 1 + effects.length, "framed at band size");
+      assert.notEqual(
+        bottom.texture,
+        resources.textureMap.get("media-1") as unknown as Handle,
+        "the framed band is drawn, not the raw source",
+      );
+      assert.ok(!bottom.scissorTest, "only the canvas clips the layer");
+
+      const { frame } = resolveLayerPlacement({
+        index: 1,
+        count: 2,
+        canvasWidth: WIDTH,
+        canvasHeight: HEIGHT,
+        sourceWidth: 1080,
+        sourceHeight: 1920,
+        visual: { scale: 1, translateX: 0, translateY: 0, layoutAnchor: "top" },
+      });
+      const expected = transformedQuadAxes(frame, moved, {
+        width: WIDTH,
+        height: HEIGHT,
+      });
+      assert.deepEqual(bottom.axes, {
+        uAxisX: expected.axisX,
+        uAxisY: expected.axisY,
+        uOffset: expected.offset,
+      });
+    });
+  }
+});
+
 describe("resolveBandScissor", () => {
   for (const height of [640, 1080, 1081, 1920, 1921]) {
     for (const count of [1, 2, 3]) {
@@ -404,6 +511,7 @@ describe("drawComposition fill layers", () => {
     resources: WebGlResources,
     clips: CompositeLayer[],
     mediaRefs = new Map<string, HTMLMediaElement>(),
+    order?: CompositionOrder,
   ) {
     drawComposition(
       resources,
@@ -412,6 +520,7 @@ describe("drawComposition fill layers", () => {
       mediaRefs,
       [],
       { time: 0, audio: SILENT_AUDIO_BANDS, groupClipProgress: 0 },
+      order,
     );
     return recording.draws.filter(
       (draw) =>
@@ -459,6 +568,24 @@ describe("drawComposition fill layers", () => {
       composites[1].texture,
       resources.textureMap.get("fill:clip-1") as unknown as Handle,
     );
+  });
+
+  it("draws a fill at its slot's size in a Horizontal arrangement", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    drawFrame(
+      recording,
+      resources,
+      [fillLayer(RED_FILL, 0), fillLayer(RED_FILL, 1)],
+      undefined,
+      { arrangement: "horizontal", gridSize: 2, spacing: 0 },
+    );
+    // Two side-by-side columns of 180×640 pixels.
+    for (const upload of recording.uploads) {
+      const [width, height] = [upload[3], upload[4]] as [number, number];
+      assert.ok(Math.abs(width / height - WIDTH / 2 / HEIGHT) < 0.01);
+    }
+    assert.equal(recording.uploads.length, 2);
   });
 
   it("redraws a fill's texture only when its paint changes", () => {

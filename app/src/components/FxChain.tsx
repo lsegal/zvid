@@ -28,6 +28,7 @@ import {
   toggleCollapsedDevice,
   writeCollapsedDevices,
 } from "../fx-chain";
+import type { FxEffectDefinition } from "../fx-registry";
 import {
   type FxDevice,
   type FxDeviceGroup,
@@ -571,7 +572,7 @@ export function FxChain({
     const label = `Add device to ${group === "global" ? "Global" : "this layer"}`;
     return (
       <AddDeviceMenu
-        definitions={getAddableEffectDefinitions(group)}
+        effects={getAddableEffectDefinitions(group)}
         focusKey={`add-${group}`}
         label={label}
         onAdd={(effectName) => addDevice(group, effectName)}
@@ -725,7 +726,7 @@ export function FxChain({
 }
 
 function AddDeviceMenu({
-  definitions,
+  effects,
   focusKey,
   label,
   withLabel,
@@ -733,7 +734,7 @@ function AddDeviceMenu({
   onCloseAutoFocus,
   onOpen,
 }: {
-  definitions: ReturnType<typeof getAddableEffectDefinitions>;
+  effects: readonly FxEffectDefinition[];
   focusKey: string;
   label: string;
   withLabel: boolean;
@@ -767,7 +768,7 @@ function AddDeviceMenu({
         onCloseAutoFocus={onCloseAutoFocus}
         sideOffset={6}
       >
-        {definitions.map((definition) => (
+        {effects.map((definition) => (
           <DropdownMenuItem
             key={definition.effectName}
             onSelect={() => onAdd(definition.effectName)}
@@ -934,6 +935,11 @@ export function FxDevicePanel({
           <ChevronLeftIcon aria-hidden="true" />
         </button>
       </header>
+      {device.warning ? (
+        <p className="fx-device-panel__warning" role="status">
+          {device.warning}
+        </p>
+      ) : null}
       <div
         className="fx-device-panel__body"
         style={{

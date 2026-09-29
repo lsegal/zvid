@@ -8,6 +8,7 @@ import {
 import {
   loadIceServers,
   mergeIceServers,
+  NATIVE_RELAY_ICE_SERVERS_URL,
   parseRelayIceServers,
   resolveRelayIceServersUrl,
 } from "./ice-servers.ts";
@@ -74,11 +75,21 @@ describe("resolveRelayIceServersUrl", () => {
     );
   });
 
-  it("has no default in the native app or without a web origin", () => {
+  it("uses the deployed app's relay in the native app", () => {
+    for (const origin of ["http://tauri.localhost", "tauri://localhost"]) {
+      assert.equal(
+        resolveRelayIceServersUrl(undefined, origin, true),
+        NATIVE_RELAY_ICE_SERVERS_URL,
+      );
+    }
     assert.equal(
-      resolveRelayIceServersUrl(undefined, "http://tauri.localhost", true),
-      null,
+      NATIVE_RELAY_ICE_SERVERS_URL,
+      "https://zvid.lsegal.workers.dev/api/ice-servers",
     );
+    assert.equal(resolveRelayIceServersUrl("none", undefined, true), null);
+  });
+
+  it("has no default without a web origin", () => {
     assert.equal(
       resolveRelayIceServersUrl(undefined, "tauri://localhost", false),
       null,

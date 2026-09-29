@@ -58,6 +58,15 @@
   flex: 1;
 }
 
+/* Sits closer to its label than the item's gap to the shortcut. */
+.context-menu__swatch {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  margin-right: -10px;
+  border-radius: 2px;
+}
+
 .context-menu__shortcut {
   color: var(--muted);
   font-family: 'IBM Plex Mono', monospace;

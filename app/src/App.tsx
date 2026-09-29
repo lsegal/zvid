@@ -61,10 +61,12 @@ import {
 } from "./clip-media-state";
 import {
   buildClipMenuEntries,
+  buildSelectionMenuEntries,
   buildSourceSpanMenuEntries,
   type CopyToLayerTarget,
   canSplitAt,
   copyClipToLayer,
+  isInSelection,
   resolvePasteLaneId,
 } from "./clip-menu.ts";
 import { type ClipWarp, createClipWarp } from "./clip-warp.ts";
@@ -104,6 +106,10 @@ import {
   TransportPlayheadReadout,
 } from "./components/LivePlayhead";
 import {
+  MediaSyncDialog,
+  type MediaSyncPeer,
+} from "./components/MediaSyncDialog";
+import {
   MediaSyncSkeleton,
   usePrefersReducedMotion,
 } from "./components/MediaSyncSkeleton";
@@ -140,7 +146,7 @@ import { buildEditMenuEntries } from "./edit-menu.ts";
 import { addFillClip, getDefaultFillColor, isFillClip } from "./fill-clip.ts";
 import { formatFillPaintCss, resolveFillPaint } from "./fill-paint.ts";
 import {
-  ADDABLE_EFFECT_DEFINITIONS,
+  getAddableEffectDefinitions,
   getDefaultLaneId,
   resolveSelectedLaneId,
   stepSelectedLaneId,
@@ -206,6 +212,11 @@ import {
 import { cacheMediaBlob, getCachedMediaBlob } from "./media-cache";
 import { createMediaRelinker, type MediaRelinkCandidate } from "./media-relink";
 import {
+  listMediaSync,
+  mediaSyncLabel,
+  summarizeMediaSync,
+} from "./media-sync.ts";
+import {
   describeMediaSync,
   formatMediaSyncLabel,
   formatPeerMediaSyncStatus,
@@ -225,7 +236,10 @@ import {
   projectHistoryReducer,
 } from "./project-history";
 import { migrateLegacyMainAudio } from "./project-state-compat.ts";
-import { buildRandomArrangement } from "./random-arrangement.ts";
+import {
+  buildRandomArrangement,
+  sourceTrackHasFootage,
+} from "./random-arrangement.ts";
 import { listOfflineMedia, matchOfflineMedia } from "./relink";
 import {
   formatOverlapNote,
@@ -350,12 +364,13 @@ type ArrangementClip = {
   selected?: boolean;
 };
 
-// The right-click menu open on an arrangement clip, empty lane space, a
-// source clip, a layer header or the Audio row, at `anchor` in viewport
-// coordinates.
+// The right-click menu open on an arrangement clip, empty lane space, the
+// uncommitted selection, a source clip, a layer header or the Audio row, at
+// `anchor` in viewport coordinates.
 type ClipMenuState = { anchor: MenuPoint } & (
   | { kind: "clip"; clipId: string }
   | { kind: "lane"; laneId: string }
+  | { kind: "selection" }
   | { kind: "span"; spanId: string }
   | { kind: "layer"; laneId: string }
   | { kind: "audio" }
@@ -1946,6 +1961,11 @@ function App() {
     useState(false);
   const [isOfflineMediaDialogOpen, setIsOfflineMediaDialogOpen] =
     useState(false);
+  const [isMediaSyncDialogOpen, setIsMediaSyncDialogOpen] = useState(false);
+  // Mirrors peerMediaMissesRef.current.ids so rendering sees peer misses.
+  const [peerMediaMissIds, setPeerMediaMissIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const [relinkingMediaIds, setRelinkingMediaIds] = useState<
     ReadonlySet<string>
   >(() => new Set());
@@ -2438,12 +2458,37 @@ function App() {
   const fxKind = explicitClip?.mediaId
     ? mediaItemsById.get(explicitClip.mediaId)?.kind
     : undefined;
+  // Layers the compositor draws at the playhead: one per layer with an
+  // online video clip there. The Order device warns when a grid hides some.
+  const playheadVisualLayerCount = useMemo(
+    () =>
+      new Set(
+        timelineClips
+          .filter((clip) => {
+            const media = clip.mediaId
+              ? mediaItemsById.get(clip.mediaId)
+              : undefined;
+            return (
+              media?.kind === "video" &&
+              isClipAtPlayhead(clip, playheadQ, bpm) &&
+              describeMediaAvailability(media.availability) === "online"
+            );
+          })
+          .map((clip) => clip.laneId),
+      ).size,
+    [bpm, mediaItemsById, playheadQ, timelineClips],
+  );
   const fxDevices = useMemo(
     () =>
       fxLaneId
-        ? mapSessionEffectsToDevices(effects, fxLaneId, fxLane?.name)
+        ? mapSessionEffectsToDevices(
+            effects,
+            fxLaneId,
+            fxLane?.name,
+            playheadVisualLayerCount,
+          )
         : [],
-    [effects, fxLane?.name, fxLaneId],
+    [effects, fxLane?.name, fxLaneId, playheadVisualLayerCount],
   );
   const playheadSeconds = quartersToSeconds(playheadQ, bpm);
   const mainAudio = mainAudioId ? mediaItemsById.get(mainAudioId) : undefined;
@@ -2537,25 +2582,54 @@ function App() {
     () => listOfflineMedia(mediaItems, [...timelineClips, ...sourceSpans]),
     [mediaItems, sourceSpans, timelineClips],
   );
-  const offlineCount = useMemo(() => {
-    const missingKeys = new Set<string>();
-    for (const clip of [...timelineClips, ...sourceSpans]) {
-      // Placeholder clips, such as MIDI imported from a Live set, never had
-      // media, and fill clips need none, so there is no file to report as
-      // offline.
-      if (!usesMediaFile(clip)) {
-        continue;
-      }
-
-      if (!clip.mediaId || !mediaItemsById.has(clip.mediaId)) {
-        missingKeys.add(clip.mediaId ?? `clip:${clip.id}`);
-      }
-    }
-    return (
-      offlineMedia.filter((entry) => entry.state === "offline").length +
-      missingKeys.size
+  // Media a peer may still send is syncing, not offline, so only files no
+  // connected peer could serve count toward the offline label. A joiner can
+  // receive the project over a peer connection before that peer's media
+  // channel opens, so any connected peer counts.
+  const { diagnostics: collaborationDiagnostics } = collaborationState;
+  const inSharedMediaSession =
+    collaborationMode !== "idle" &&
+    (collaborationState.mediaPeerCount > 0 ||
+      collaborationDiagnostics.peersConnected > 0 ||
+      collaborationDiagnostics.sameBrowserPeers > 0);
+  const mediaSyncEntries = useMemo(
+    () =>
+      listMediaSync({
+        mediaItems,
+        // Placeholder clips, such as MIDI imported from a Live set, never
+        // had media, and fill clips need none, so there is no file to
+        // report as offline.
+        arrangementClips: timelineClips.filter(usesMediaFile),
+        sourceClips: sourceSpans.filter(usesMediaFile),
+        mainAudioId,
+        progress: peerMediaProgress,
+        misses: peerMediaMissIds,
+        inSharedSession: inSharedMediaSession,
+      }),
+    [
+      inSharedMediaSession,
+      mainAudioId,
+      mediaItems,
+      peerMediaMissIds,
+      peerMediaProgress,
+      sourceSpans,
+      timelineClips,
+    ],
+  );
+  const mediaSyncSummary = useMemo(
+    () => summarizeMediaSync(mediaSyncEntries),
+    [mediaSyncEntries],
+  );
+  const mediaSyncStatusLabel = mediaSyncLabel(mediaSyncSummary);
+  const offlineCount = mediaSyncSummary.offline;
+  const mediaSyncPeer = useMemo<MediaSyncPeer | undefined>(() => {
+    const remote = collaborationState.collaborators.filter(
+      (collaborator) => !collaborator.isLocal,
     );
-  }, [mediaItemsById, offlineMedia, sourceSpans, timelineClips]);
+    return remote.length === 1
+      ? { name: remote[0].name, color: remote[0].color }
+      : undefined;
+  }, [collaborationState.collaborators]);
   const sessionMediaStatus = useMemo(() => {
     if (!mediaItems.length) {
       return "No media";
@@ -4213,6 +4287,16 @@ function App() {
     resolvePeerMedia,
   ]);
 
+  // Copies peer misses into state so the media sync list can show them.
+  const syncPeerMediaMissIds = useCallback(() => {
+    const ids = peerMediaMissesRef.current.ids;
+    setPeerMediaMissIds((current) =>
+      current.size === ids.size && [...ids].every((id) => current.has(id))
+        ? current
+        : new Set(ids),
+    );
+  }, []);
+
   const { mediaPeerCount } = collaborationState;
   useEffect(() => {
     // mediaHydrationTick reruns this whenever a local or peer hydration
@@ -4241,6 +4325,7 @@ function App() {
       mainAudioId,
     );
     peerMainAudioIdRef.current = mainAudioId;
+    syncPeerMediaMissIds();
 
     const transfers = peerMediaTransfersRef.current;
     const offlineIds = JSON.parse(offlineSessionMediaIdsKey) as string[];
@@ -4270,6 +4355,7 @@ function App() {
           misses.mediaPeerCount === mediaPeerCount
         ) {
           misses.ids.add(mediaId);
+          syncPeerMediaMissIds();
         }
       };
       transfers.set(mediaId, abortController);
@@ -4358,7 +4444,18 @@ function App() {
     offlineSessionMediaIdsKey,
     mediaHydrationTick,
     setLocalMediaOverride,
+    syncPeerMediaMissIds,
   ]);
+
+  // Forgets a peer miss so the hydration effect requests the media again.
+  const retryPeerMedia = useCallback(
+    (mediaId: string) => {
+      peerMediaMissesRef.current.ids.delete(mediaId);
+      syncPeerMediaMissIds();
+      setMediaHydrationTick((tick) => tick + 1);
+    },
+    [syncPeerMediaMissIds],
+  );
 
   useEffect(() => {
     const message = formatPeerMediaSyncStatus(peerMediaProgress);
@@ -4823,9 +4920,18 @@ function App() {
     });
   }
 
+  // Right-clicking inside the uncommitted selection keeps it and opens the
+  // selection menu; anywhere else on the lane clears it for the lane menu.
   function openLaneMenu(event: ReactMouseEvent<HTMLElement>, laneId: string) {
     event.preventDefault();
     event.stopPropagation();
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const pointerQ = (event.clientX - bounds.left) / quarterPx;
+    if (isInSelection(pendingSelection, laneId, pointerQ)) {
+      setClipMenu({ kind: "selection", anchor: getMenuAnchor(event) });
+      return;
+    }
+
     setPendingSelection(null);
     setSelectedClipId(undefined);
     setSelectedLaneId(laneId);
@@ -4983,11 +5089,28 @@ function App() {
   }
 
   // The context-menu key or Shift+F10 with nothing focused opens the menu on
-  // the selected clip, or on the selected layer at the playhead.
+  // the uncommitted selection, the selected clip, or the selected layer at
+  // the playhead.
   function openSelectionMenu() {
     const timelineScroll = timelineScrollRef.current;
     if (!timelineScroll) {
       return false;
+    }
+
+    if (pendingSelection) {
+      const selection = timelineScroll.querySelector<HTMLElement>(
+        `[data-timeline-lane-id="${CSS.escape(pendingSelection.laneId)}"] .timeline-selection`,
+      );
+      if (!selection) {
+        return false;
+      }
+
+      const bounds = selection.getBoundingClientRect();
+      setClipMenu({
+        kind: "selection",
+        anchor: { x: bounds.left, y: bounds.bottom },
+      });
+      return true;
     }
 
     if (explicitClip) {
@@ -5084,6 +5207,10 @@ function App() {
       return lane ? getLayerMenuEntries(lane) : [];
     }
 
+    if (menu.kind === "selection") {
+      return pendingSelection ? getSelectionMenuEntries(pendingSelection) : [];
+    }
+
     if (menu.kind === "span") {
       const span = sourceSpans.find((item) => item.id === menu.spanId);
       if (!span) {
@@ -5108,6 +5235,31 @@ function App() {
     );
   }
 
+  // Insert Track commits the selection exactly like the track's number key,
+  // and Insert Fill Layer covers it with a fill clip.
+  function getSelectionMenuEntries(selection: TimelineSelection) {
+    const endQ = selection.startQ + selection.durationQ;
+    return buildSelectionMenuEntries({
+      tracks: sourceTracks.map((track) => ({
+        id: track.id,
+        name: track.name,
+        color: getSwatch(track.colorIndex).accent,
+        hasFootage: sourceTrackHasFootage(
+          sourceSpans,
+          (span) => span.startQ + getClipDurationQ(span, bpm),
+          track.id,
+          selection.startQ,
+          endQ,
+        ),
+      })),
+      disabled: isExporting,
+      insertTrack: commitPendingSelectionToSourceTrack,
+      insertFill: () =>
+        insertFillClip(selection.laneId, selection.startQ, selection.durationQ),
+      clear: () => setPendingSelection(null),
+    });
+  }
+
   function getMainAudioMenuEntries() {
     return buildMainAudioMenuEntries({
       hasMainAudio: Boolean(mainAudioId),
@@ -5124,7 +5276,7 @@ function App() {
       laneId: lane.id,
       fxEnabled,
       effectCount: laneStatusById.get(lane.id)?.effectCount ?? 0,
-      effects: ADDABLE_EFFECT_DEFINITIONS,
+      effects: getAddableEffectDefinitions("layer"),
       disabled: isExporting,
       actions: {
         rename: () => setRenamingLaneId(lane.id),
@@ -5201,23 +5353,6 @@ function App() {
             }
           : undefined,
         audioEntries: getMainAudioMenuEntries(),
-        insertEntries: [
-          {
-            type: "item",
-            id: "insert-fill",
-            label: "Insert Fill Layer",
-            disabled: isExporting || !pendingSelection,
-            onSelect: () => {
-              if (pendingSelection) {
-                insertFillClip(
-                  pendingSelection.laneId,
-                  pendingSelection.startQ,
-                  pendingSelection.durationQ,
-                );
-              }
-            },
-          },
-        ],
       },
     );
   }
@@ -6779,6 +6914,13 @@ function App() {
                   ? "Locate Offline Media…"
                   : "All Media Linked"}
               </DropdownMenuItem>
+              {inSharedMediaSession ? (
+                <DropdownMenuItem
+                  onSelect={() => setIsMediaSyncDialogOpen(true)}
+                >
+                  Media Sync Status…
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onSelect={() => {
@@ -7099,6 +7241,17 @@ function App() {
         relinkingIds={relinkingMediaIds}
       />
 
+      <MediaSyncDialog
+        entries={mediaSyncEntries}
+        onOpenChange={setIsMediaSyncDialogOpen}
+        open={isMediaSyncDialogOpen}
+        peer={mediaSyncPeer}
+        relinkMediaItem={relinkOfflineMediaItem}
+        relinkingIds={relinkingMediaIds}
+        retryMedia={retryPeerMedia}
+        summary={mediaSyncSummary}
+      />
+
       <Dialog open={isConnectDialogOpen} onOpenChange={setIsConnectDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -7353,10 +7506,28 @@ function App() {
                     <div className="track-label track-label--header">
                       <div>
                         <span>{sessionName ?? "Session"}</span>
-                        {offlineCount ? (
+                        {mediaSyncStatusLabel ? (
+                          <button
+                            aria-live="polite"
+                            className="track-label__offline track-label__offline--syncing"
+                            onClick={() => setIsMediaSyncDialogOpen(true)}
+                            title="Show media sync status"
+                            type="button"
+                          >
+                            <span
+                              aria-hidden="true"
+                              className="offline-media__spinner"
+                            />
+                            {mediaSyncStatusLabel}
+                          </button>
+                        ) : offlineCount ? (
                           <button
                             className="track-label__offline"
-                            onClick={() => setIsOfflineMediaDialogOpen(true)}
+                            onClick={() =>
+                              inSharedMediaSession
+                                ? setIsMediaSyncDialogOpen(true)
+                                : setIsOfflineMediaDialogOpen(true)
+                            }
                             title="Review and locate offline media"
                             type="button"
                           >
@@ -8640,7 +8811,9 @@ function App() {
                 ? "Main audio actions"
                 : clipMenu?.kind === "lane"
                   ? "Layer actions"
-                  : "Clip actions"
+                  : clipMenu?.kind === "selection"
+                    ? "Selection actions"
+                    : "Clip actions"
         }
         onClose={() => setClipMenu(null)}
       />
