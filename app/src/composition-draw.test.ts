@@ -45,7 +45,8 @@ type DrawCall = {
   arrayBuffer: Handle | null;
   attribute: { enabled: boolean; buffer: Handle | null; size: number } | null;
   blend: boolean;
-  blendFunc: [string, string] | null;
+  // Source and destination factors for colour, then for alpha.
+  blendFunc: string[] | null;
   scissorTest: boolean;
   scissor: ScissorBox | null;
   viewport: ScissorBox | null;
@@ -70,7 +71,8 @@ function createRecordingGl() {
       { enabled: boolean; buffer: Handle | null; size: number }
     >(),
     enabled: new Set<string>(),
-    blendFunc: null as [string, string] | null,
+    blendFunc: null as string[] | null,
+    clearColor: [0, 0, 0, 0] as number[],
     scissor: null as ScissorBox | null,
     viewport: null as ScissorBox | null,
     activeTexture: "TEXTURE0" as string | null,
@@ -78,6 +80,8 @@ function createRecordingGl() {
     uniforms: {} as Record<string, [number, number]>,
   };
   const draws: DrawCall[] = [];
+  // The framebuffer and colour of every clear.
+  const clears: Array<{ framebuffer: Handle | null; color: number[] }> = [];
   // Arguments of every texImage2D call.
   const uploads: unknown[][] = [];
   const attribute = (index: number) => {
@@ -127,7 +131,19 @@ function createRecordingGl() {
       state.enabled.delete(capability);
     },
     blendFunc: (source: string, destination: string) => {
-      state.blendFunc = [source, destination];
+      state.blendFunc = [source, destination, source, destination];
+    },
+    blendFuncSeparate: (...factors: string[]) => {
+      state.blendFunc = factors;
+    },
+    clearColor: (...color: number[]) => {
+      state.clearColor = color;
+    },
+    clear: () => {
+      clears.push({
+        framebuffer: state.framebuffer,
+        color: [...state.clearColor],
+      });
     },
     scissor: (...box: ScissorBox) => {
       state.scissor = box;
@@ -182,6 +198,7 @@ function createRecordingGl() {
   return {
     gl,
     draws,
+    clears,
     uploads,
     // Simulates another caller leaving unrelated vertex state behind.
     scramble() {
@@ -335,7 +352,12 @@ function assertCompositeState(
     `band ${band} position attribute`,
   );
   assert.ok(draw.blend, `band ${band} blends`);
-  assert.deepEqual(draw.blendFunc, ["SRC_ALPHA", "ONE_MINUS_SRC_ALPHA"]);
+  assert.deepEqual(draw.blendFunc, [
+    "SRC_ALPHA",
+    "ONE_MINUS_SRC_ALPHA",
+    "ONE",
+    "ONE_MINUS_SRC_ALPHA",
+  ]);
   assert.deepEqual(draw.viewport, [0, 0, WIDTH, HEIGHT]);
   assert.deepEqual(
     draw.scissor,
@@ -1122,7 +1144,12 @@ describe("drawComposition FX clips", () => {
         : draw.program === (resources.fxMask.program as unknown as Handle)
           ? "fx-mask"
           : "effect";
-    return { draws: recording.draws, resources, program };
+    return {
+      draws: recording.draws,
+      clears: recording.clears,
+      resources,
+      program,
+    };
   }
 
   const SOURCE_SILENCE = SILENT_AUDIO_BANDS;
@@ -1233,6 +1260,69 @@ describe("drawComposition FX clips", () => {
       "effect",
       "fx-mask",
       "composite",
+    ]);
+  });
+
+  it("fills the Global Order's area with its border colour, black by default", () => {
+    const clearOf = (order: CompositionOrder) =>
+      draw(mediaLayers([0, 1]), order).clears[0];
+    assert.deepEqual(clearOf(DEFAULT_COMPOSITION_ORDER), {
+      framebuffer: null,
+      color: [0, 0, 0, 1],
+    });
+    // A session saved before Border had none: still black.
+    assert.deepEqual(
+      clearOf({ ...DEFAULT_COMPOSITION_ORDER, borderColor: undefined }).color,
+      [0, 0, 0, 1],
+    );
+    assert.deepEqual(
+      clearOf({
+        ...DEFAULT_COMPOSITION_ORDER,
+        arrangement: "grid",
+        borderColor: { r: 255, g: 0, b: 0, a: 1 },
+      }).color,
+      [1, 0, 0, 1],
+    );
+    // A translucent border shows the background through it.
+    const translucent = clearOf({
+      ...DEFAULT_COMPOSITION_ORDER,
+      borderColor: { r: 255, g: 255, b: 255, a: 0.5 },
+    }).color;
+    for (const [channel, value] of [0.535, 0.54, 0.555, 1].entries()) {
+      assert.ok(Math.abs(translucent[channel] - value) < 1e-9, `${channel}`);
+    }
+    // Without an Order there is no border, only the background.
+    assert.deepEqual(clearOf(Z_ORDER_COMPOSITION).color, [0.07, 0.08, 0.11, 1]);
+  });
+
+  it("fills an FX clip Order's box with its border colour, drawn over what is beneath", () => {
+    const fxOrder: CompositeLayer = {
+      ...fxLayer(0, []),
+      order: {
+        ...DEFAULT_COMPOSITION_ORDER,
+        arrangement: "grid",
+        spacing: 20,
+        borderColor: { r: 0, g: 0, b: 255, a: 0 },
+      },
+    };
+    const { draws, clears, program } = draw([...mediaLayers([1, 2]), fxOrder]);
+    // The canvas, then the arrangement's box in the border colour, alpha
+    // and all.
+    assert.equal(clears.length, 2);
+    assert.deepEqual(clears[0].color, [0.07, 0.08, 0.11, 1]);
+    assert.notEqual(clears[1].framebuffer, null);
+    assert.deepEqual(clears[1].color, [0, 0, 1, 0]);
+    // The arranged box is blended onto the canvas, so a transparent border
+    // shows what is beneath the FX clip.
+    const last = draws[draws.length - 1];
+    assert.equal(program(last), "composite");
+    assert.equal(last.framebuffer, null);
+    assert.equal(last.blend, true);
+    assert.deepEqual(last.blendFunc, [
+      "SRC_ALPHA",
+      "ONE_MINUS_SRC_ALPHA",
+      "ONE",
+      "ONE_MINUS_SRC_ALPHA",
     ]);
   });
 
