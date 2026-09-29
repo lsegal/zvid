@@ -10,6 +10,8 @@ export type ContextMenuItem = {
   disabled?: boolean;
   // Tooltip, such as why the item is disabled.
   title?: string;
+  // A colour chip shown before the label, such as a source track's colour.
+  swatch?: string;
   onSelect?: () => void;
   submenu?: ContextMenuEntry[];
 };

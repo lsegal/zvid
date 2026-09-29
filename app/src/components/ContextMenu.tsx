@@ -314,6 +314,13 @@ function OpenContextMenu({
                   role="menuitem"
                   title={entry.title}
                 >
+                  {entry.swatch ? (
+                    <span
+                      aria-hidden="true"
+                      className="context-menu__swatch"
+                      style={{ backgroundColor: entry.swatch }}
+                    />
+                  ) : null}
                   <span className="context-menu__label">{entry.label}</span>
                   {entry.shortcut ? (
                     <span className="context-menu__shortcut">

@@ -1,5 +1,5 @@
-// Right-click menus for arrangement clips, empty lane space and source
-// clips, and where their clipboard actions put clips.
+// Right-click menus for arrangement clips, empty lane space, an uncommitted
+// selection and source clips, and where their clipboard actions put clips.
 import type { ContextMenuEntry } from "./context-menu.ts";
 import { MAX_LAYERS } from "./selection-overlaps.ts";
 import type { DropClip, DropLane, SourceClipDrop } from "./source-clip-drop.ts";
@@ -218,4 +218,105 @@ export function copyClipToLayer<Lane extends DropLane, Clip extends DropClip>(
     lane,
     createdLane: false,
   };
+}
+
+// A drag-selected range on a layer, not yet committed to a clip.
+export type SelectionRange = {
+  laneId: string;
+  startQ: number;
+  durationQ: number;
+};
+
+/** Whether position `q` on layer `laneId` falls inside `selection`. */
+export function isInSelection(
+  selection: SelectionRange | null | undefined,
+  laneId: string,
+  q: number,
+) {
+  return (
+    selection?.laneId === laneId &&
+    q >= selection.startQ &&
+    q < selection.startQ + selection.durationQ
+  );
+}
+
+/**
+ * The number key that commits a selection to the source track at `index`,
+ * or undefined past the ninth track, which has none.
+ */
+export function sourceTrackKeyNumber(index: number) {
+  return index >= 0 && index < 9 ? index + 1 : undefined;
+}
+
+export type SelectionMenuTrack = {
+  id: string;
+  name: string;
+  // CSS colour of the track's swatch.
+  color: string;
+  // Whether the track has footage anywhere in the selected range.
+  hasFootage: boolean;
+};
+
+export const NO_FOOTAGE_TITLE = "No footage here";
+
+/**
+ * The menu for an uncommitted selection: Insert Track with every source
+ * track, committed like pressing its number key; Insert Fill Layer when
+ * `insertFill` is available; and Clear selection.
+ */
+export function buildSelectionMenuEntries({
+  tracks,
+  disabled = false,
+  insertTrack,
+  insertFill,
+  clear,
+}: {
+  tracks: readonly SelectionMenuTrack[];
+  // Inserting is disabled while exporting.
+  disabled?: boolean;
+  insertTrack: (index: number) => void;
+  insertFill?: () => void;
+  clear: () => void;
+}): ContextMenuEntry[] {
+  const trackEntries = tracks.map<ContextMenuEntry>((track, index) => {
+    const keyNumber = sourceTrackKeyNumber(index);
+    return {
+      type: "item",
+      id: `track-${track.id}`,
+      label: track.name,
+      swatch: track.color,
+      shortcut: keyNumber === undefined ? undefined : `${keyNumber}`,
+      disabled: disabled || !track.hasFootage,
+      title: track.hasFootage ? undefined : NO_FOOTAGE_TITLE,
+      onSelect: () => insertTrack(index),
+    };
+  });
+  return [
+    {
+      type: "item",
+      id: "insert-track",
+      label: "Insert Track",
+      disabled: disabled || !trackEntries.length,
+      submenu: trackEntries,
+    },
+    ...(insertFill
+      ? [
+          {
+            type: "item",
+            id: "insert-fill",
+            label: "Insert Fill Layer",
+            disabled,
+            onSelect: insertFill,
+          } as const,
+        ]
+      : []),
+    { type: "separator" },
+    {
+      type: "item",
+      id: "clear-selection",
+      label: "Clear selection",
+      shortcut: "Esc",
+      onSelect: clear,
+    },
+  ];
 }
