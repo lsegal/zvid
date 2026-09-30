@@ -6,6 +6,7 @@ import {
   type Palette,
 } from "../media";
 import type { ServerMediaRef } from "../session";
+import { probeVideoInput } from "../video-format-probe";
 import type { MediaSelection } from "./contracts";
 
 type WebMediaRuntime = {
@@ -437,7 +438,7 @@ async function analyzeServerMediaRef(
   }
 }
 
-// Frame count and rate of a recording, read from its container metadata.
+// Frame count, rate and size of a recording, read from its container metadata.
 export async function probeRecordingFrames(
   url: string,
 ): Promise<RecordingProbe | null> {
@@ -445,16 +446,7 @@ export async function probeRecordingFrames(
   const { ALL_FORMATS, Input, UrlSource } = runtime.mediabunny;
   const input = new Input({ formats: ALL_FORMATS, source: new UrlSource(url) });
   try {
-    const videoTrack = await input.getPrimaryVideoTrack();
-    if (!videoTrack) {
-      return null;
-    }
-
-    const stats = await videoTrack.computePacketStats();
-    return {
-      numFrames: stats.packetCount,
-      frameRate: stats.averagePacketRate,
-    };
+    return await probeVideoInput(input);
   } finally {
     input.dispose();
   }

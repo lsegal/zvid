@@ -553,7 +553,7 @@ describe("Live set media resolution", () => {
     const { session } = resolveAlsMedia(importedSession(), (name) =>
       name === "video-3.mp4" ? null : `/rec/${name}`,
     );
-    const probed = await probeAlsRecordings(
+    const { session: probed } = await probeAlsRecordings(
       session,
       [
         { path: "/rec/video-1.mp4", url: "blob:1", exists: true },
@@ -640,7 +640,7 @@ describe("Live set media resolution", () => {
       session.clips?.map((clip) => [clip.id, clip.captureOffset]);
 
     it("lines each audio clip's take up with the end of its probed video", async () => {
-      const probed = await probeAlsRecordings(
+      const { session: probed } = await probeAlsRecordings(
         endAlignSession(),
         refs,
         async (url) => {
@@ -692,7 +692,7 @@ describe("Live set media resolution", () => {
         ],
         timeline: { fps: 30 },
       };
-      const probed = await probeAlsRecordings(
+      const { session: probed } = await probeAlsRecordings(
         session,
         [{ path: "/rec/guitar.mp4", url: "blob:guitar", exists: true }],
         async () => ({ numFrames: 845, frameRate: 29.916666 }),
@@ -704,10 +704,12 @@ describe("Live set media resolution", () => {
 
     it("keeps frameStart when no recording could be probed", async () => {
       const session = endAlignSession();
-      const probed = await probeAlsRecordings(session, refs, async () => null, [
-        "8",
-        "9",
-      ]);
+      const { session: probed } = await probeAlsRecordings(
+        session,
+        refs,
+        async () => null,
+        ["8", "9"],
+      );
 
       assert.deepEqual(offsets(probed), offsets(session));
     });

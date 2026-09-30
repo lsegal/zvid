@@ -16,6 +16,7 @@ import {
   resolveSessionOverlaps,
 } from "../selection-overlaps.ts";
 import { clipSourceFrame, type LvpSession } from "../session.ts";
+import { snapFrameRate } from "../session-format.ts";
 import {
   readSelectionSlip,
   readSessionFills,
@@ -316,6 +317,7 @@ export function buildStandaloneProject(mediaItems: MediaItem[]) {
   const lanes = DEFAULT_LANES;
   const canvasWidth = mediaItems.find((item) => item.width)?.width ?? 1080;
   const canvasHeight = mediaItems.find((item) => item.height)?.height ?? 1920;
+  const fps = mediaFrameRate(mediaItems);
   const sourceTracks = mediaItems.map<SourceTrack>((item, index) => ({
     id: `import-track-${index}`,
     name: item.name.replace(/\.[^/.]+$/, ""),
@@ -367,5 +369,17 @@ export function buildStandaloneProject(mediaItems: MediaItem[]) {
     arrangementClips,
     canvasWidth,
     canvasHeight,
+    fps,
   };
+}
+
+/**
+ * The frame rate of the first video among `mediaItems`, snapped to a standard
+ * rate, for a session created from them. Undefined when none has one.
+ */
+export function mediaFrameRate(mediaItems: readonly MediaItem[]) {
+  const fps = mediaItems.find(
+    (item) => item.hasVideo && item.fps && Number.isFinite(item.fps),
+  )?.fps;
+  return fps && fps > 0 ? snapFrameRate(fps) : undefined;
 }
