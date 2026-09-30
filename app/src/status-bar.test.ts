@@ -10,6 +10,10 @@ import {
 
 const appCss = readFileSync(new URL("./App.css", import.meta.url), "utf8");
 const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const appStatusBarTsx = readFileSync(
+  new URL("./components/AppStatusBar.tsx", import.meta.url),
+  "utf8",
+);
 const usePlaybackTs = readFileSync(
   new URL("./hooks/usePlayback.ts", import.meta.url),
   "utf8",
@@ -70,7 +74,7 @@ describe("status bar wiring", () => {
       useStatusBarItemsTsx,
       /buildStatusItems\(\{\s*version: ZVID_BUILD,/,
     );
-    assert.match(appTsx, /<StatusBar items=\{statusBarItems\}/);
+    assert.match(appStatusBarTsx, /<StatusBar items=\{statusBarItems\}/);
     assert.doesNotMatch(appTsx, /preview-meta/);
   });
 
@@ -142,7 +146,7 @@ describe("status bar message", () => {
     assert.equal(appTsx.includes("transport-summary"), false);
     assert.equal(appCss.includes(".transport-summary"), false);
     assert.match(
-      appTsx,
+      appStatusBarTsx,
       /<StatusBar items=\{[^}]+\} message=\{statusMessage\} \/>/,
     );
   });
@@ -162,7 +166,7 @@ describe("status bar message", () => {
 describe("status bar layout", () => {
   it("is mounted after the workspace so it docks at the bottom", () => {
     const workspaceEnd = appTsx.lastIndexOf("</main>");
-    const statusBar = appTsx.indexOf("<StatusBar ");
+    const statusBar = appTsx.indexOf("<AppStatusBar");
     assert.notEqual(statusBar, -1);
     assert.ok(statusBar > workspaceEnd);
   });

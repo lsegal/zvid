@@ -7,6 +7,7 @@ import { findBundledSampleAsset } from "./samples.ts";
 const read = (path: string) =>
   readFileSync(new URL(path, import.meta.url), "utf8");
 const appTsx = read("../App.tsx");
+const appDialogsTsx = read("../components/AppDialogs.tsx");
 const useSampleProjectTs = read("../hooks/useSampleProject.ts");
 const useSampleMediaTs = read("../hooks/useSampleMedia.ts");
 const mediaHydrationTs = read("../app/media-hydration.ts");
@@ -27,7 +28,10 @@ describe("sample media loading", () => {
       ),
       false,
     );
-    assert.doesNotMatch(appTsx, /SampleLoadDialog|sample\.dialog/);
+    assert.doesNotMatch(
+      appTsx + appDialogsTsx,
+      /SampleLoadDialog|sample\.dialog/,
+    );
     assert.doesNotMatch(useSampleProjectTs, /loadSampleAssets|Dialog/);
     assert.match(
       useSampleProjectTs,
@@ -58,7 +62,7 @@ describe("sample media loading", () => {
     const peerMedia = appTsx.indexOf("usePeerMedia({");
     assert.ok(sampleMedia > 0 && sampleMedia < peerMedia);
     assert.match(
-      appTsx,
+      appDialogsTsx,
       /retrySampleMedia\(mediaId\);\s*retryPeerMedia\(mediaId\);/,
     );
   });

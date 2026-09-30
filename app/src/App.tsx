@@ -29,11 +29,10 @@ import {
   LABEL_WIDTH_MIN,
   LABEL_WIDTH_NARROW,
   LABEL_WIDTH_STORAGE_KEY,
-  PREVIEW_DEFAULT_WIDTH,
   PREVIEW_MIN_WIDTH,
   PREVIEW_RESIZE_KEY_STEP,
   PREVIEW_WIDTH_STORAGE_KEY,
-  SIGNATURES,
+  SIGNATURE_OPTIONS,
   SNAP_OPTIONS,
   TIMELINE_DRAG_EPSILON,
   TIMELINE_PLAYBACK_SCRUB_AUDIO_IDLE_MS,
@@ -94,10 +93,7 @@ import {
   isArrangementEmptyStateDismissedOnOpen,
   shouldShowArrangementEmptyState,
 } from "./arrangement-empty-state.ts";
-import {
-  CompositionPlayer,
-  type CompositionPlayerHandle,
-} from "./CompositionPlayer";
+import type { CompositionPlayerHandle } from "./CompositionPlayer";
 import {
   getClipFilmstripTiles,
   getFilmstripDecodeSize,
@@ -108,65 +104,30 @@ import { isClipJumpPress } from "./clip-jump.ts";
 import {
   describeClipMediaState,
   describeMediaAvailability,
-  describePreviewMediaState,
   formatClipMediaState,
   isGeneratedClip,
   isPlaceholderClip,
 } from "./clip-media-state";
+import { AppDialogs } from "./components/AppDialogs";
+import { AppStatusBar } from "./components/AppStatusBar";
 import { ArrangementEmptyState } from "./components/ArrangementEmptyState";
-import {
-  APP_BUILD_LABEL,
-  BrandMark,
-  openBuildCommit,
-} from "./components/BrandMark";
-import { CaptureInstallerDialog } from "./components/CaptureInstallerDialog";
-import { CollaborationDetailCard } from "./components/CollaborationDetailCard";
 import { ContextMenu } from "./components/ContextMenu";
-import { DropdownMenuEntries } from "./components/DropdownMenuEntries";
-import { ExportDialog } from "./components/ExportDialog";
-import { FxChain } from "./components/FxChain";
-import {
-  ImportNotice,
-  type ImportNoticeContent,
-} from "./components/ImportNotice";
+import { FxPanel } from "./components/FxPanel";
+import type { ImportNoticeContent } from "./components/ImportNotice";
 import { LayerNameInput } from "./components/LayerNameInput";
 import {
   PlayheadLine,
   TransportPlayheadReadout,
 } from "./components/LivePlayhead";
-import { MediaStorageDialog } from "./components/MediaStorageDialog";
-import {
-  MediaSyncDialog,
-  type MediaSyncPeer,
-} from "./components/MediaSyncDialog";
+import type { MediaSyncPeer } from "./components/MediaSyncDialog";
 import {
   MediaSyncSkeleton,
   usePrefersReducedMotion,
 } from "./components/MediaSyncSkeleton";
-import { MenuChevron } from "./components/MenuChevron";
-import { OfflineMediaDialog } from "./components/OfflineMediaDialog";
-import { PreviewTransformOverlay } from "./components/PreviewTransformOverlay";
-import { SessionSettingsDialog } from "./components/SessionSettingsDialog";
-import { ShareLinkIconButton } from "./components/ShareLinkButton";
+import { PreviewPanel } from "./components/PreviewPanel";
 import { SourceEmptyState } from "./components/SourceEmptyState";
-import { StatusBar, type StatusMessage } from "./components/StatusBar";
-import { TempoPill } from "./components/TempoPill";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "./components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "./components/ui/dropdown-menu";
+import { TopBar } from "./components/TopBar";
+import { Select } from "./components/ui/select";
 import { WandIcon } from "./components/WandIcon";
 import { isContextMenuPress } from "./context-menu.ts";
 import { isRulerPanPress } from "./drag-scroll.ts";
@@ -184,7 +145,6 @@ import {
   isLayoutEffectName,
   previewDuplicateClipEffects,
 } from "./fx-stack";
-import { getHarness, supportsHarnessCapability } from "./harness";
 import { useClipActions } from "./hooks/useClipActions.ts";
 import { useClipInsertion } from "./hooks/useClipInsertion.ts";
 import {
@@ -238,11 +198,6 @@ import {
 import { selectionHint } from "./selection-hint.ts";
 import { MAX_LAYERS } from "./selection-overlaps";
 import { offlineSessionMediaIds } from "./session-media.ts";
-import {
-  applySessionSettings,
-  sessionSettingsFromProject,
-} from "./session-settings.ts";
-import { shareLinkVisible } from "./share-link";
 import { useKeyboardShortcuts } from "./shortcuts/useKeyboardShortcuts.ts";
 import { useSpacePlayback } from "./shortcuts/useSpacePlayback.ts";
 import { isSourceClipDropClick } from "./source-clip-drop.ts";
@@ -253,8 +208,6 @@ import {
   writeSourceTracksCollapsed,
 } from "./source-tracks-section.ts";
 import { createSpaceHold } from "./space-shortcut";
-import { statusMessageTone } from "./status-bar";
-import { useStatusBarItems } from "./status-bar/useStatusBarItems.tsx";
 import { isTextClip } from "./text-clip.ts";
 import { loadFontFace, resolveFontFace } from "./text-fonts.ts";
 import {
@@ -289,23 +242,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const collaboration = useCollaborationState();
   const {
     collaborationMode,
-    isShareDialogOpen,
-    setIsShareDialogOpen,
-    isStartingShare,
-    isConnectDialogOpen,
-    setIsConnectDialogOpen,
-    connectInviteValue,
-    setConnectInviteValue,
-    isStartingConnect,
-    hasCopiedShareInvite,
     shareUrl,
     collaborationState,
-    isDiagnosticsDialogOpen,
-    setIsDiagnosticsDialogOpen,
     shareCopyResetTimeoutRef,
-    activeShareRoom,
-    isSharing,
-    isConnectedClient,
     collaborationView,
   } = collaboration;
   const restoredSession = boot.session;
@@ -2114,37 +2053,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     commitPreviewWidth(nextWidth);
   }
 
-  const statusMessage = useMemo<StatusMessage>(
-    () =>
-      exportStatusText
-        ? {
-            text: exportStatusText,
-            tone: statusMessageTone(exportStatusText),
-            sticky: true,
-          }
-        : { text: status, tone: statusMessageTone(status) },
-    [exportStatusText, status],
-  );
-
-  const statusBarItems = useStatusBarItems({
-    bpm,
-    canvasHeight,
-    canvasWidth,
-    clipCount: timelineClips.length,
-    collaborationMode,
-    collaborationState,
-    fps,
-    offlineCount,
-    playheadSignal,
-    previewMedia,
-    sessionName,
-    setIsSessionSettingsOpen,
-    shareUrl,
-    signature,
-    timelineMode,
-    trackCount: lanes.length,
-  });
-
   return (
     <div className="app-shell" ref={appShellRef}>
       {collaborationView.remoteCursors.length ? (
@@ -2175,492 +2083,34 @@ function App({ boot }: { boot: WorkspaceBoot }) {
           ))}
         </div>
       ) : null}
-      <header className="topbar">
-        <div className="topbar__group">
-          <BrandMark onStatus={setStatus} />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="ghost-button file-menu-button" type="button">
-                <span>File</span>
-                <MenuChevron />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuItem onSelect={() => void handleOpenSession()}>
-                Open Session
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void handleOpenWorkspace()}>
-                Open Workspace
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={sample.handleOpenSample}>
-                Open Sample
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void handleImport()}>
-                Import Media
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={
-                  collaborationMode !== "idle" ||
-                  isPristineProjectHistory(projectHistory)
-                }
-                onSelect={handleCloseSession}
-              >
-                Close Session
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={!offlineMedia.length}
-                onSelect={() => setIsOfflineMediaDialogOpen(true)}
-              >
-                {offlineMedia.length
-                  ? "Locate Offline Media…"
-                  : "All Media Linked"}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => setIsMediaStorageDialogOpen(true)}
-              >
-                Media Storage…
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setIsSessionSettingsOpen(true)}>
-                Session Settings…
-              </DropdownMenuItem>
-              {showsMediaSync ? (
-                <DropdownMenuItem
-                  onSelect={() => setIsMediaSyncDialogOpen(true)}
-                >
-                  Media Sync Status…
-                </DropdownMenuItem>
-              ) : null}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onSelect={() => {
-                  if (isConnectedClient) {
-                    handleDisconnectConnection();
-                    return;
-                  }
-
-                  setIsConnectDialogOpen(true);
-                }}
-              >
-                {isConnectedClient
-                  ? "Disconnect from Share"
-                  : "Connect to Share"}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onSelect={() => {
-                  void handleSaveSession();
-                }}
-              >
-                Save
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="ghost-button file-menu-button" type="button">
-                <span>Edit</span>
-                <MenuChevron />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="start"
-              onCloseAutoFocus={(event) => {
-                // Leave focus on the layer name field Rename… opened.
-                if (renamingLaneIdRef.current) {
-                  event.preventDefault();
-                }
-              }}
-            >
-              <DropdownMenuEntries entries={getEditMenuEntries()} />
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <TempoPill bpm={bpm} commitProjectChange={commitProjectChange} />
-        </div>
-
-        <div className="topbar__group topbar__group--right">
-          <button
-            className="ghost-button"
-            disabled={isExporting}
-            onClick={openExportDialog}
-            type="button"
-          >
-            {exportButtonLabel}
-          </button>
-          {collaborationMode === "idle" ? (
-            <span
-              className={`collaboration-status collaboration-status--${collaborationView.stateTone}`}
-              aria-live="polite"
-            >
-              <span className="collaboration-status__dot" aria-hidden="true" />
-              {collaborationView.stateLabel}
-            </span>
-          ) : (
-            <button
-              className={`collaboration-status collaboration-status--${collaborationView.stateTone} collaboration-status--button`}
-              aria-live="polite"
-              onClick={() => setIsDiagnosticsDialogOpen(true)}
-              title="Show connection diagnostics"
-              type="button"
-            >
-              <span className="collaboration-status__dot" aria-hidden="true" />
-              {collaborationView.stateLabel}
-            </button>
-          )}
-          <button
-            className={`ghost-button share-button ${isSharing ? "is-sharing" : ""}`}
-            disabled={isExporting || isStartingShare || isConnectedClient}
-            onClick={() => {
-              if (isSharing) {
-                handleStopShare();
-                return;
-              }
-
-              setIsShareDialogOpen(true);
-            }}
-            type="button"
-          >
-            <span className="share-button__icon" aria-hidden="true">
-              <svg viewBox="0 0 16 16" role="presentation">
-                <path
-                  d="M8 1.5a6.5 6.5 0 1 0 0 13a6.5 6.5 0 0 0 0-13Zm4.82 5.75H10.9a12 12 0 0 0-.62-3.11a5.03 5.03 0 0 1 2.54 3.11ZM8 2.47c.36 0 1.14 1.02 1.45 3.28h-2.9C6.86 3.49 7.64 2.47 8 2.47ZM5.72 4.14a12 12 0 0 0-.62 3.11H3.18a5.03 5.03 0 0 1 2.54-3.11Zm-2.54 4.61H5.1c.08 1.13.29 2.19.62 3.11a5.03 5.03 0 0 1-2.54-3.11ZM8 13.53c-.36 0-1.14-1.02-1.45-3.28h2.9C9.14 12.51 8.36 13.53 8 13.53Zm1.62-4.78H6.38a10.7 10.7 0 0 1 0-1.5h3.24c.06.5.06 1 0 1.5Zm.66 3.11c.33-.92.54-1.98.62-3.11h1.92a5.03 5.03 0 0 1-2.54 3.11Z"
-                  fill="currentColor"
-                />
-              </svg>
-            </span>
-            <span>
-              {isSharing
-                ? "Stop Share"
-                : isStartingShare
-                  ? "Sharing..."
-                  : "Share"}
-            </span>
-          </button>
-          {shareLinkVisible(collaborationMode, shareUrl) ? (
-            <ShareLinkIconButton
-              key={shareUrl}
-              onCopied={showShareCopiedBadge}
-              url={shareUrl}
-            />
-          ) : null}
-          {hasCopiedShareInvite ? (
-            <span
-              className="share-copy-badge"
-              aria-live="polite"
-              title={shareUrl}
-            >
-              <svg viewBox="0 0 20 20" role="presentation" aria-hidden="true">
-                <path
-                  d="M10 1.5a8.5 8.5 0 1 0 0 17a8.5 8.5 0 0 0 0-17Zm3.57 6.2l-4.2 5.1a.75.75 0 0 1-1.12.06l-1.82-1.82a.75.75 0 1 1 1.06-1.06l1.24 1.24l3.62-4.4a.75.75 0 0 1 1.22.88Z"
-                  fill="currentColor"
-                />
-              </svg>
-              <span>Copied</span>
-            </span>
-          ) : null}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="ghost-button" type="button">
-                Help
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onSelect={() =>
-                  setStatus(
-                    "Use File → Open Session to open a .lvp session or an Ableton .als set, or File → Import Media to add clips.",
-                  )
-                }
-              >
-                Getting Started
-              </DropdownMenuItem>
-              {/* The desktop app has no downloads to offer. */}
-              {supportsHarnessCapability("native-dialogs") ? null : (
-                <DropdownMenuItem
-                  onSelect={() => setIsCaptureInstallerDialogOpen(true)}
-                >
-                  Install Capture Plugin
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="help-menu__build"
-                onSelect={() => void openBuildCommit().then(setStatus)}
-              >
-                {APP_BUILD_LABEL}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </header>
-
-      <CaptureInstallerDialog
-        open={isCaptureInstallerDialogOpen}
-        onOpenChange={setIsCaptureInstallerDialogOpen}
-      />
-
-      <Dialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Share this session publicly?</DialogTitle>
-            <DialogDescription>
-              This will start the collaboration websocket, generate a public
-              room, and copy a shareable address to your clipboard. Click Stop
-              Share any time to disconnect immediately.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="share-dialog__body">
-            <CollaborationDetailCard
-              label="Room"
-              value={collaborationView.pendingShareRoom}
-            />
-            <CollaborationDetailCard
-              label="Signal"
-              value={collaborationView.signalingLabel}
-            />
-            <CollaborationDetailCard
-              label="Connection"
-              value={collaborationView.stateLabel}
-              meta={collaborationView.remoteCollaboratorNames || undefined}
-            />
-            <p className="share-dialog__note">
-              The invite links to this app's address and copies automatically.
-              Any room password travels in the link's fragment, which is never
-              sent to servers.
-            </p>
-          </div>
-
-          <DialogFooter>
-            <DialogClose asChild>
-              <button
-                className="ghost-button"
-                disabled={isStartingShare}
-                type="button"
-              >
-                Cancel
-              </button>
-            </DialogClose>
-            <button
-              className="ghost-button ghost-button--accent"
-              disabled={isStartingShare}
-              onClick={handleStartShare}
-              type="button"
-            >
-              {isStartingShare ? "Starting..." : "Start Sharing"}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={isDiagnosticsDialogOpen && collaborationMode !== "idle"}
-        onOpenChange={setIsDiagnosticsDialogOpen}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Connection diagnostics</DialogTitle>
-            <DialogDescription>
-              {collaborationMode === "sharing" ? "Sharing" : "Joined"} room{" "}
-              {activeShareRoom}. Peers find each other through the signaling
-              servers, then connect directly over WebRTC.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="share-dialog__body">
-            <CollaborationDetailCard
-              label="Connection"
-              value={collaborationView.stateLabel}
-              meta={collaborationView.remoteCollaboratorNames || undefined}
-            />
-            <dl className="collaboration-diagnostics">
-              {collaborationView.diagnosticsRows.map((row) => (
-                <div
-                  className={`collaboration-diagnostics__row${row.tone ? ` collaboration-diagnostics__row--${row.tone}` : ""}`}
-                  key={row.label}
-                >
-                  <dt>{row.label}</dt>
-                  <dd>{row.value}</dd>
-                </div>
-              ))}
-            </dl>
-            <p className="share-dialog__note">
-              Tabs of the same browser sync without WebRTC, so test with two
-              different browsers or machines. Peers behind strict NATs connect
-              through the TURN relay, which the deployed app provides.
-            </p>
-          </div>
-
-          <DialogFooter>
-            <DialogClose asChild>
-              <button className="ghost-button" type="button">
-                Close
-              </button>
-            </DialogClose>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <OfflineMediaDialog
-        canLocateFolder={Boolean(getHarness().pickMediaFolder)}
-        mediaItemsById={mediaItemsById}
+      <TopBar
+        bpm={bpm}
+        collaboration={collaboration}
+        commitProjectChange={commitProjectChange}
+        exportButtonLabel={exportButtonLabel}
+        getEditMenuEntries={getEditMenuEntries}
+        handleCloseSession={handleCloseSession}
+        handleDisconnectConnection={handleDisconnectConnection}
+        handleImport={handleImport}
+        handleOpenSession={handleOpenSession}
+        handleOpenWorkspace={handleOpenWorkspace}
+        handleSaveSession={handleSaveSession}
+        handleStopShare={handleStopShare}
+        isExporting={isExporting}
         offlineMedia={offlineMedia}
-        onOpenChange={setIsOfflineMediaDialogOpen}
-        open={isOfflineMediaDialogOpen}
-        relinkMedia={relinkOfflineMedia}
-        relinkMediaItem={relinkOfflineMediaItem}
-        relinkingIds={relinkingMediaIds}
+        openExportDialog={openExportDialog}
+        projectHistory={projectHistory}
+        renamingLaneIdRef={renamingLaneIdRef}
+        sample={sample}
+        setIsCaptureInstallerDialogOpen={setIsCaptureInstallerDialogOpen}
+        setIsMediaStorageDialogOpen={setIsMediaStorageDialogOpen}
+        setIsMediaSyncDialogOpen={setIsMediaSyncDialogOpen}
+        setIsOfflineMediaDialogOpen={setIsOfflineMediaDialogOpen}
+        setIsSessionSettingsOpen={setIsSessionSettingsOpen}
+        setStatus={setStatus}
+        showShareCopiedBadge={showShareCopiedBadge}
+        showsMediaSync={showsMediaSync}
       />
-
-      <MediaStorageDialog
-        onCleared={handleMediaStorageCleared}
-        onOpenChange={setIsMediaStorageDialogOpen}
-        open={isMediaStorageDialogOpen}
-      />
-
-      <SessionSettingsDialog
-        onApply={(settings) =>
-          commitProjectChange("Session Settings", (current) =>
-            applySessionSettings(current, settings),
-          )
-        }
-        onOpenChange={setIsSessionSettingsOpen}
-        open={isSessionSettingsOpen}
-        settings={sessionSettingsFromProject(projectHistory.present)}
-      />
-
-      <ExportDialog model={exportDialog} />
-
-      <MediaSyncDialog
-        entries={mediaSyncEntries}
-        onOpenChange={setIsMediaSyncDialogOpen}
-        open={isMediaSyncDialogOpen}
-        peer={mediaSyncPeer}
-        relinkMediaItem={relinkOfflineMediaItem}
-        relinkingIds={relinkingMediaIds}
-        retryMedia={(mediaId) => {
-          retrySampleMedia(mediaId);
-          retryPeerMedia(mediaId);
-        }}
-        summary={mediaSyncSummary}
-      />
-
-      <Dialog open={workspaceAccess === "blocked"}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>This session is open in another tab</DialogTitle>
-            <DialogDescription>
-              Only one tab saves the session. Take over to continue here with
-              the latest saved session, or open it read-only so changes in this
-              tab are not saved.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <button
-              className="ghost-button"
-              onClick={handleOpenWorkspaceReadOnly}
-              type="button"
-            >
-              Open read-only
-            </button>
-            <button
-              className="ghost-button ghost-button--accent"
-              onClick={() => void handleTakeOverWorkspace()}
-              type="button"
-            >
-              Take over
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={isTakeOverPromptOpen && isWorkspaceReadOnly}
-        onOpenChange={setIsTakeOverPromptOpen}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>This tab is read-only</DialogTitle>
-            <DialogDescription>
-              {workspaceAccess === "taken-over"
-                ? "This session was taken over in another tab,"
-                : "This session is open in another tab,"}{" "}
-              so edits here would not be saved. Take over to edit in this tab,
-              starting from the latest saved session.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <button
-              className="ghost-button"
-              onClick={() => setIsTakeOverPromptOpen(false)}
-              type="button"
-            >
-              Stay read-only
-            </button>
-            <button
-              className="ghost-button ghost-button--accent"
-              onClick={() => void handleTakeOverWorkspace()}
-              type="button"
-            >
-              Take over
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isConnectDialogOpen} onOpenChange={setIsConnectDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Connect to a shared session</DialogTitle>
-            <DialogDescription>
-              Paste the invite copied from Share. The room, signaling server,
-              and optional password will be pulled from that URL and the
-              collaboration websocket will connect immediately.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="share-dialog__body">
-            <label className="connect-dialog__field">
-              <span className="share-dialog__label">Shared invite</span>
-              <textarea
-                className="connect-dialog__input"
-                onChange={(event) => setConnectInviteValue(event.target.value)}
-                placeholder="http://public-ip:1420/?room=...&signal=wss://y-webrtc-eu.fly.dev"
-                rows={4}
-                value={connectInviteValue}
-              />
-            </label>
-            <CollaborationDetailCard
-              label="Connection"
-              value={collaborationView.stateLabel}
-              meta={collaborationView.remoteCollaboratorNames || undefined}
-            />
-            <p className="share-dialog__note">
-              If the host shared from this app, just paste the copied invite URL
-              here and press Connect.
-            </p>
-          </div>
-
-          <DialogFooter>
-            <DialogClose asChild>
-              <button
-                className="ghost-button"
-                disabled={isStartingConnect}
-                type="button"
-              >
-                Cancel
-              </button>
-            </DialogClose>
-            <button
-              className="ghost-button ghost-button--accent"
-              disabled={isStartingConnect}
-              onClick={handleConnectToShare}
-              type="button"
-            >
-              {isStartingConnect ? "Connecting..." : "Connect"}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <main className="workspace">
         <div className="workspace__main">
@@ -2748,23 +2198,19 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   </button>
                 </div>
 
-                <label className="signature-picker">
+                <div className="signature-picker">
                   <span>Time Sig</span>
-                  <select
-                    value={signatureId}
-                    onChange={(event) =>
+                  <Select
+                    aria-label="Time signature"
+                    onValueChange={(value) =>
                       commitProjectPatch("Change time signature", {
-                        signatureId: event.target.value,
+                        signatureId: value,
                       })
                     }
-                  >
-                    {SIGNATURES.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.id}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    options={SIGNATURE_OPTIONS}
+                    value={signatureId}
+                  />
+                </div>
 
                 <div className="layer-toolbar">
                   <span className="layer-toolbar__count">
@@ -4012,94 +3458,47 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 </div>
               </div>
 
-              <hr
-                className="preview-resize-handle"
-                aria-orientation="vertical"
-                aria-label="Resize preview panel"
-                aria-valuenow={effectivePreviewWidth}
-                aria-valuemin={PREVIEW_MIN_WIDTH}
-                aria-valuemax={previewMaxWidth}
-                tabIndex={0}
-                title="Drag to resize. Double-click to reset."
-                onPointerDown={handlePreviewResizePointerDown}
-                onPointerMove={handlePreviewResizePointerMove}
-                onPointerUp={handlePreviewResizePointerEnd}
-                onPointerCancel={handlePreviewResizePointerEnd}
-                onDoubleClick={() => commitPreviewWidth(PREVIEW_DEFAULT_WIDTH)}
-                onKeyDown={handlePreviewResizeKeyDown}
+              <PreviewPanel
+                activatePreviewLayer={activatePreviewLayer}
+                bpm={bpm}
+                canvasHeight={canvasHeight}
+                canvasWidth={canvasWidth}
+                commitPreviewWidth={commitPreviewWidth}
+                compositionPlayerRef={compositionPlayerRef}
+                effectivePreviewWidth={effectivePreviewWidth}
+                fps={fps}
+                getPreviewLayerPosition={getPreviewLayerPosition}
+                getPreviewLayerTransform={getPreviewLayerTransform}
+                handlePreviewResizeKeyDown={handlePreviewResizeKeyDown}
+                handlePreviewResizePointerDown={handlePreviewResizePointerDown}
+                handlePreviewResizePointerEnd={handlePreviewResizePointerEnd}
+                handlePreviewResizePointerMove={handlePreviewResizePointerMove}
+                hasOnlinePlayheadClip={hasOnlinePlayheadClip}
+                isPlaying={isPlaying}
+                isTimelineAudibleScrubbing={isTimelineAudibleScrubbing}
+                lanes={lanes}
+                mainAudio={mainAudio}
+                mediaItems={mediaItems}
+                movePreviewLayer={movePreviewLayer}
+                playheadQ={playheadQ}
+                playheadSeconds={playheadSeconds}
+                playheadSignal={playheadSignal}
+                previewClip={previewClip}
+                previewLaneId={previewLaneId}
+                previewLayers={previewLayers}
+                previewMaxWidth={previewMaxWidth}
+                previewMedia={previewMedia}
+                previewMediaState={previewMediaState}
+                previewTextEdit={previewTextEdit}
+                projectDurationFrames={projectDurationFrames}
+                selectPreviewLayer={selectPreviewLayer}
+                selectedClip={selectedClip}
+                textEdit={textEdit}
+                timelineClips={timelineClips}
+                timelineDragState={timelineDragState}
+                timelineEffects={timelineEffects}
+                transformPreviewLayer={transformPreviewLayer}
               />
-
-              <aside className="preview-panel">
-                <div className="preview-panel__header">
-                  <strong>Program</strong>
-                  <span className="preview-panel__clip">
-                    {previewClip ? previewClip.label : "No clip at playhead"}
-                  </span>
-                  <span className="preview-panel__mode">
-                    {previewMedia?.kind === "audio" ? "Audio" : "Video"}
-                  </span>
-                </div>
-
-                <div className="preview-monitor">
-                  <CompositionPlayer
-                    ref={compositionPlayerRef}
-                    bpm={bpm}
-                    fps={fps}
-                    canvasHeight={canvasHeight}
-                    canvasWidth={canvasWidth}
-                    clips={timelineClips}
-                    effects={timelineEffects}
-                    isPlaying={isPlaying}
-                    isScrubbing={Boolean(timelineDragState)}
-                    isAudibleScrubbing={isTimelineAudibleScrubbing}
-                    isContinuousScrubbing={Boolean(
-                      timelineDragState?.wasPlaying,
-                    )}
-                    lanes={lanes}
-                    mainAudio={mainAudio}
-                    mediaItems={mediaItems}
-                    playheadQ={playheadQ}
-                    playheadSeconds={playheadSeconds}
-                    playheadSignal={playheadSignal}
-                    projectDurationFrames={projectDurationFrames}
-                    hiddenTextClipId={textEdit?.clipId}
-                  />
-                  <PreviewTransformOverlay
-                    canvas={{ width: canvasWidth, height: canvasHeight }}
-                    layers={previewLayers}
-                    selectedLaneId={previewLaneId}
-                    selectedClipId={selectedClip?.id}
-                    textEdit={previewTextEdit}
-                    getLayerPosition={getPreviewLayerPosition}
-                    getLayerTransform={getPreviewLayerTransform}
-                    onSelect={selectPreviewLayer}
-                    onMove={movePreviewLayer}
-                    onTransform={transformPreviewLayer}
-                    onActivate={activatePreviewLayer}
-                  />
-                  {!previewClip ||
-                  (previewMediaState !== "online" && !hasOnlinePlayheadClip) ? (
-                    <div className="preview-placeholder">
-                      <div className="preview-placeholder__overlay">
-                        <strong>
-                          {!previewClip || previewMediaState === "online"
-                            ? "No clip at playhead"
-                            : describePreviewMediaState(previewMediaState)
-                                .title}
-                        </strong>
-                        <span>
-                          {!previewClip || previewMediaState === "online"
-                            ? isPlaying
-                              ? "The playhead is currently in a gap between clips."
-                              : "Move the playhead onto a clip or start playback to render the session comp."
-                            : describePreviewMediaState(previewMediaState)
-                                .detail}
-                        </span>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              </aside>
             </div>
 
             <div className="transport-bar">
@@ -4226,79 +3625,89 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             </div>
           </section>
 
-          <section
-            className={`fx-panel ${isInspectorCollapsed ? "fx-panel--collapsed" : ""}`}
-          >
-            <button
-              aria-controls="fx-panel-body"
-              aria-expanded={!isInspectorCollapsed}
-              className="fx-panel__toggle"
-              onClick={toggleInspectorCollapsed}
-              type="button"
-            >
-              <span>{fxPanelTitle}</span>
-              <ChevronDownIcon aria-hidden="true" />
-            </button>
-
-            <div
-              className="fx-panel__body"
-              hidden={isInspectorCollapsed}
-              id="fx-panel-body"
-            >
-              <FxChain
-                devices={fxDevices}
-                kind={fxKind}
-                layerFxEnabled={isLayerFxEnabled(fxLane)}
-                layers={orderLayerOptions}
-                clipLayers={fxClipLayerOptions}
-                layerName={fxLane?.name}
-                layerTrackId={fxLaneId}
-                clipTrackId={fxClipId ? clipEffectTrackId(fxClipId) : undefined}
-                clipScope={fxClipScope}
-                onAdd={addFxDevice}
-                onDuplicate={duplicateFxDevice}
-                onMove={moveFxDevice}
-                onRemove={removeFxDevice}
-                onReset={resetFxDevice}
-                onSetLayerFxEnabled={(enabled) => {
-                  if (fxLaneId) {
-                    setLayerFxEnabled(fxLaneId, enabled);
-                  }
-                }}
-                onSetEnabled={setFxDeviceEnabled}
-                onSetAnimationEnabled={setFxDeviceAnimationEnabled}
-                onSetAnimation={setFxDeviceAnimation}
-                onSetParameter={setFxDeviceParameter}
-              />
-            </div>
-          </section>
+          <FxPanel
+            addFxDevice={addFxDevice}
+            duplicateFxDevice={duplicateFxDevice}
+            fxClipId={fxClipId}
+            fxClipLayerOptions={fxClipLayerOptions}
+            fxClipScope={fxClipScope}
+            fxDevices={fxDevices}
+            fxKind={fxKind}
+            fxLane={fxLane}
+            fxLaneId={fxLaneId}
+            fxPanelTitle={fxPanelTitle}
+            isInspectorCollapsed={isInspectorCollapsed}
+            moveFxDevice={moveFxDevice}
+            orderLayerOptions={orderLayerOptions}
+            removeFxDevice={removeFxDevice}
+            resetFxDevice={resetFxDevice}
+            setFxDeviceAnimation={setFxDeviceAnimation}
+            setFxDeviceAnimationEnabled={setFxDeviceAnimationEnabled}
+            setFxDeviceEnabled={setFxDeviceEnabled}
+            setFxDeviceParameter={setFxDeviceParameter}
+            setLayerFxEnabled={setLayerFxEnabled}
+            toggleInspectorCollapsed={toggleInspectorCollapsed}
+          />
         </div>
       </main>
 
-      {workspaceAccess === "read-only" || workspaceAccess === "taken-over" ? (
-        <output className="workspace-lock-banner">
-          <span>
-            {workspaceAccess === "taken-over"
-              ? "This session was taken over in another tab."
-              : "This session is open in another tab."}{" "}
-            Changes here are not saved.
-          </span>
-          <button
-            className="ghost-button ghost-button--accent"
-            onClick={() => void handleTakeOverWorkspace()}
-            type="button"
-          >
-            Take over
-          </button>
-        </output>
-      ) : null}
-      {importNotice ? (
-        <ImportNotice
-          notice={importNotice}
-          onDismiss={() => setImportNotice(null)}
-        />
-      ) : null}
-      <StatusBar items={statusBarItems} message={statusMessage} />
+      <AppDialogs
+        collaboration={collaboration}
+        commitProjectChange={commitProjectChange}
+        exportDialog={exportDialog}
+        handleConnectToShare={handleConnectToShare}
+        handleMediaStorageCleared={handleMediaStorageCleared}
+        handleOpenWorkspaceReadOnly={handleOpenWorkspaceReadOnly}
+        handleStartShare={handleStartShare}
+        handleTakeOverWorkspace={handleTakeOverWorkspace}
+        importNotice={importNotice}
+        isCaptureInstallerDialogOpen={isCaptureInstallerDialogOpen}
+        isMediaStorageDialogOpen={isMediaStorageDialogOpen}
+        isMediaSyncDialogOpen={isMediaSyncDialogOpen}
+        isOfflineMediaDialogOpen={isOfflineMediaDialogOpen}
+        isSessionSettingsOpen={isSessionSettingsOpen}
+        isTakeOverPromptOpen={isTakeOverPromptOpen}
+        isWorkspaceReadOnly={isWorkspaceReadOnly}
+        mediaItemsById={mediaItemsById}
+        mediaSyncEntries={mediaSyncEntries}
+        mediaSyncPeer={mediaSyncPeer}
+        mediaSyncSummary={mediaSyncSummary}
+        offlineMedia={offlineMedia}
+        projectHistory={projectHistory}
+        relinkOfflineMedia={relinkOfflineMedia}
+        relinkOfflineMediaItem={relinkOfflineMediaItem}
+        relinkingMediaIds={relinkingMediaIds}
+        retryPeerMedia={retryPeerMedia}
+        retrySampleMedia={retrySampleMedia}
+        setImportNotice={setImportNotice}
+        setIsCaptureInstallerDialogOpen={setIsCaptureInstallerDialogOpen}
+        setIsMediaStorageDialogOpen={setIsMediaStorageDialogOpen}
+        setIsMediaSyncDialogOpen={setIsMediaSyncDialogOpen}
+        setIsOfflineMediaDialogOpen={setIsOfflineMediaDialogOpen}
+        setIsSessionSettingsOpen={setIsSessionSettingsOpen}
+        setIsTakeOverPromptOpen={setIsTakeOverPromptOpen}
+        workspaceAccess={workspaceAccess}
+      />
+      <AppStatusBar
+        bpm={bpm}
+        canvasHeight={canvasHeight}
+        canvasWidth={canvasWidth}
+        clipCount={timelineClips.length}
+        collaborationMode={collaborationMode}
+        collaborationState={collaborationState}
+        exportStatusText={exportStatusText}
+        fps={fps}
+        offlineCount={offlineCount}
+        playheadSignal={playheadSignal}
+        previewMedia={previewMedia}
+        sessionName={sessionName}
+        setIsSessionSettingsOpen={setIsSessionSettingsOpen}
+        shareUrl={shareUrl}
+        signature={signature}
+        status={status}
+        timelineMode={timelineMode}
+        trackCount={lanes.length}
+      />
       <ContextMenu
         anchor={clipMenu?.anchor ?? null}
         entries={clipMenu ? getClipMenuEntries(clipMenu) : []}

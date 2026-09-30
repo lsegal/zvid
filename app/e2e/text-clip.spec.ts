@@ -74,7 +74,9 @@ test("Insert Text Clip adds a text clip edited from its Text effect", async ({
 
   // Every weight for Inter.
   const weight = device.getByRole("combobox", { name: "Weight" });
-  await expect(weight.locator("option")).toHaveCount(9);
+  await weight.click();
+  await expect(page.getByRole("option")).toHaveCount(9);
+  await page.keyboard.press("Escape");
 
   // The font list is searchable; each row previews its font.
   await device.getByRole("button", { name: "Font: Inter" }).click();
@@ -94,7 +96,9 @@ test("Insert Text Clip adds a text clip edited from its Text effect", async ({
     device.getByRole("button", { name: "Font: Anton" }),
   ).toBeVisible();
   // Anton only has a regular weight.
-  await expect(weight.locator("option")).toHaveText(["Regular"]);
+  await weight.click();
+  await expect(page.getByRole("option")).toHaveText(["Regular"]);
+  await page.keyboard.press("Escape");
 
   // Gradient fill swaps the color swatch for a gradient one; the shadow
   // controls show once it is on.
