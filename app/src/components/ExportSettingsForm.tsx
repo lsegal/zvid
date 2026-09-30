@@ -23,6 +23,7 @@ import {
   videoBitrateMbps,
   videoCodecOptions,
 } from "../session-settings.ts";
+import { Select } from "./ui/select";
 
 type ExportSettingsFormProps = {
   options: ExportOptions;
@@ -117,26 +118,24 @@ export function ExportSettingsForm({
         "resolution",
         "Resolution",
         <div className="export-settings__row">
-          <select
+          <Select
             aria-label="Resolution preset"
-            onChange={(event) => {
-              const id = event.target.value;
+            disabled={disabled}
+            onValueChange={(id) =>
               onChange((current) => ({
                 ...current,
                 ...applyCanvasPreset(current, id),
-              }));
-            }}
+              }))
+            }
+            options={[
+              ...CANVAS_PRESETS.map((preset) => ({
+                value: preset.id,
+                label: preset.label,
+              })),
+              { value: CUSTOM_PRESET_ID, label: "Custom", disabled: true },
+            ]}
             value={presetId}
-          >
-            {CANVAS_PRESETS.map((preset) => (
-              <option key={preset.id} value={preset.id}>
-                {preset.label}
-              </option>
-            ))}
-            <option disabled value={CUSTOM_PRESET_ID}>
-              Custom
-            </option>
-          </select>
+          />
           <input
             aria-label="Width"
             className="export-settings__number"
@@ -171,49 +170,49 @@ export function ExportSettingsForm({
       {field(
         "fps",
         "Frame rate",
-        <select
+        <Select
           aria-label="Frame rate"
-          onChange={(event) => update({ fps: Number(event.target.value) })}
+          disabled={disabled}
+          onValueChange={(value) => update({ fps: Number(value) })}
+          options={[
+            ...(frameRateLabel
+              ? []
+              : [
+                  {
+                    value: String(options.fps),
+                    label: `${formatNumber(options.fps)} fps`,
+                  },
+                ]),
+            ...FRAME_RATES.map((rate) => ({
+              value: String(rate.value),
+              label: `${rate.label} fps`,
+            })),
+          ]}
           value={String(
             FRAME_RATES.find((rate) => rate.label === frameRateLabel)?.value ??
               options.fps,
           )}
-        >
-          {frameRateLabel ? null : (
-            <option value={String(options.fps)}>
-              {formatNumber(options.fps)} fps
-            </option>
-          )}
-          {FRAME_RATES.map((rate) => (
-            <option key={rate.label} value={String(rate.value)}>
-              {rate.label} fps
-            </option>
-          ))}
-        </select>,
+        />,
         errors.fps,
       )}
 
       {field(
         "videoCodec",
         "Video codec",
-        <select
+        <Select
           aria-label="Video codec"
-          onChange={(event) =>
-            setEncoding({ videoCodec: event.target.value as VideoCodecChoice })
+          disabled={disabled}
+          onValueChange={(videoCodec: VideoCodecChoice) =>
+            setEncoding({ videoCodec })
           }
+          options={videoCodecOptions(support).map((codec) => ({
+            ...codec,
+            label: codec.disabled
+              ? `${codec.label} (unsupported)`
+              : codec.label,
+          }))}
           value={encoding.videoCodec}
-        >
-          {videoCodecOptions(support).map((codec) => (
-            <option
-              disabled={codec.disabled}
-              key={codec.value}
-              title={codec.reason}
-              value={codec.value}
-            >
-              {codec.disabled ? `${codec.label} (unsupported)` : codec.label}
-            </option>
-          ))}
-        </select>,
+        />,
         errors.codec,
       )}
 
@@ -221,10 +220,10 @@ export function ExportSettingsForm({
         "quality",
         "Quality",
         <div className="export-settings__row">
-          <select
+          <Select
             aria-label="Quality"
-            onChange={(event) => {
-              const quality = event.target.value as VideoQuality;
+            disabled={disabled}
+            onValueChange={(quality: VideoQuality) =>
               onChange((current) => ({
                 ...current,
                 encoding: {
@@ -236,16 +235,11 @@ export function ExportSettingsForm({
                     ? { customBitrateMbps: videoBitrateMbps(current) }
                     : {}),
                 },
-              }));
-            }}
+              }))
+            }
+            options={VIDEO_QUALITIES}
             value={encoding.quality}
-          >
-            {VIDEO_QUALITIES.map((quality) => (
-              <option key={quality.value} value={quality.value}>
-                {quality.label}
-              </option>
-            ))}
-          </select>
+          />
           {encoding.quality === "custom" ? (
             <input
               aria-label="Video bitrate (Mbps)"
@@ -277,44 +271,38 @@ export function ExportSettingsForm({
         "Audio",
         <div className="export-settings__row">
           <span className="export-settings__hint">AAC</span>
-          <select
+          <Select
             aria-label="Audio bitrate"
-            onChange={(event) =>
+            disabled={disabled}
+            onValueChange={(value) =>
               setEncoding({
-                audioBitrateKbps: Number(
-                  event.target.value,
-                ) as AudioBitrateKbps,
+                audioBitrateKbps: Number(value) as AudioBitrateKbps,
               })
             }
-            value={encoding.audioBitrateKbps}
-          >
-            {AUDIO_BITRATES.map((bitrate) => (
-              <option key={bitrate} value={bitrate}>
-                {bitrate} kbps
-              </option>
-            ))}
-          </select>
+            options={AUDIO_BITRATES.map((bitrate) => ({
+              value: String(bitrate),
+              label: `${bitrate} kbps`,
+            }))}
+            value={String(encoding.audioBitrateKbps)}
+          />
         </div>,
       )}
 
       {field(
         "audioSampleRate",
         "Sample rate",
-        <select
+        <Select
           aria-label="Audio sample rate"
-          onChange={(event) =>
-            setEncoding({
-              audioSampleRate: Number(event.target.value) as AudioSampleRate,
-            })
+          disabled={disabled}
+          onValueChange={(value) =>
+            setEncoding({ audioSampleRate: Number(value) as AudioSampleRate })
           }
-          value={encoding.audioSampleRate}
-        >
-          {AUDIO_SAMPLE_RATES.map((rate) => (
-            <option key={rate} value={rate}>
-              {formatNumber(rate / 1000)} kHz
-            </option>
-          ))}
-        </select>,
+          options={AUDIO_SAMPLE_RATES.map((rate) => ({
+            value: String(rate),
+            label: `${formatNumber(rate / 1000)} kHz`,
+          }))}
+          value={String(encoding.audioSampleRate)}
+        />,
       )}
 
       {field(
