@@ -482,7 +482,7 @@ Files are never moved or collected, so each take stores its own
 ## CI builds
 
 Every push to `main` runs the **DAW bundles** workflow
-(`.github/workflows/daw-bundle.yml`), which builds two installers:
+(`.github/workflows/daw-bundle.yml`), which builds two plugin installers:
 
 - `zvid-capture-macos.pkg`: `ZVID Capture.vst3` and
   `ZVID Capture.component`, arm64 only. CI checks with `lipo -archs` that
@@ -493,7 +493,17 @@ Every push to `main` runs the **DAW bundles** workflow
   against the bundle, then runs the installer silently, checks the bundle
   was installed, then uninstalls it.
 
-The installers are plugin only; the desktop app is not built here.
+The plugin installers are plugin only. The zvid desktop app ships as its
+own installers, built by the workflow's `desktop` job with Tauri's bundler:
+
+- `zvid-macos.dmg`: `zvid.app`, arm64 only (`pnpm --dir app tauri build
+  --target aarch64-apple-darwin --bundles dmg`), signed and notarized by
+  Tauri when the Apple secrets are set. CI mounts it and checks the app is
+  arm64 and, when signed, its signature.
+- `zvid-windows-setup.exe`: Tauri's NSIS installer (`--bundles nsis`),
+  which installs the app for the current user and downloads the Microsoft
+  Edge WebView2 Runtime when Windows lacks it. CI installs it silently,
+  checks the app was installed, then uninstalls it.
 
 Both jobs also run the [host integration tests](#host-integration-tests)
 against the release bundles. On `main`, each then uploads its installer to
@@ -501,9 +511,11 @@ the `zvid-downloads` R2 bucket under `capture/`, overwriting the previous
 build's, and a final job writes `capture/manifest.json` (version, commit,
 build time and each installer's size and SHA-256) once both have. The web
 app's Worker serves the bucket at `/downloads`, where **Help › Install
-Capture Plugin** links to them. The installer names carry no version; the
-version is stamped inside them and in the manifest. Pull request runs
-publish nothing.
+Capture Plugin** links to them. The desktop app installers are published
+the same way under `desktop/`, with their own `desktop/manifest.json`
+(versioned from `app/package.json`), for **Help › Download Desktop App**.
+The installer names carry no version; the version is stamped inside them
+and in the manifest. Pull request runs publish nothing.
 
 Each installer is built by `cargo xtask bundle --release --installer`, which
 builds the plugin for `aarch64-apple-darwin` on macOS, fails when
@@ -517,29 +529,23 @@ needs Inno Setup 6 on Windows (`ISCC` may name its `ISCC.exe`).
 
 ### Installers
 
-- **macOS.** A `.pkg` that installs `zvid.app` into `/Applications`,
-  `ZVID Capture.vst3` into `/Library/Audio/Plug-Ins/VST3` and `ZVID Capture.component` into
+- **macOS.** A `.pkg` that installs `ZVID Capture.vst3` into
+  `/Library/Audio/Plug-Ins/VST3` and `ZVID Capture.component` into
   `/Library/Audio/Plug-Ins/Components` for every user. It needs macOS 13 and
   Apple silicon: its `hostArchitectures` is `arm64`, so Installer refuses
   Intel Macs rather than installing binaries they can't run.
   `pkgbuild --compression latest` compresses its payload with pbzx (xz)
   rather than gzip, about 13% smaller.
 - **Windows.** An Inno Setup installer (`installer/zvid-capture.iss`) that
-  installs `zvid.exe` into `C:\Program Files\ZVID` with a Start menu
-  shortcut, installs `ZVID Capture.vst3` into
-  `C:\Program Files\Common Files\VST3`, and registers one uninstaller for
-  both under *Settings › Apps*. Installing over an older version, including
-  an older plugin-only installer, replaces the whole bundle. The app needs
-  the Microsoft Edge WebView2 Runtime, which Windows 11 includes but some
-  Windows 10 machines lack. When the runtime's registry key is missing, setup
-  downloads Microsoft's Evergreen bootstrapper after installing the files and
-  runs it silently, so `/VERYSILENT` installs get it too. If that fails, as
-  offline, setup still finishes, since the plug-in doesn't need the runtime,
-  logs the error and says where to download it (a message box that
-  `/SUPPRESSMSGBOXES` suppresses). Uninstalling leaves the runtime, which
-  other apps share.
+  installs `ZVID Capture.vst3` into `C:\Program Files\Common Files\VST3`
+  and registers its uninstaller under *Settings › Apps*. Installing over an
+  older version, including an older installer that also carried the desktop
+  app, replaces the whole bundle; a desktop app such an installer put in
+  `C:\Program Files\ZVID` stays until it's uninstalled.
+- **Desktop app.** A `.dmg` to drag `zvid.app` into `/Applications` from on
+  macOS, and Tauri's NSIS installer on Windows (see above).
 
-Neither installs the Live companion Remote Script, which lives in each user's
+Neither plugin installer installs the Live companion Remote Script, which lives in each user's
 Live User Library. Instead each bundle carries a copy in
 `Contents/Resources/ZVID_Capture`, and the editor's **Install Live
 companion** button copies it into the User Library (`zvid-daw-ui::live_script`);

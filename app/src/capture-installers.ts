@@ -1,11 +1,14 @@
-// ZVID Capture installer downloads. Every merge to main, the `DAW bundles`
-// workflow overwrites the installers in the zvid-downloads R2 bucket under
-// fixed names and describes them in a manifest the Help → Install Capture
-// Plugin dialog reads. The Worker serves the bucket at /downloads
-// (worker/downloads.ts).
+// ZVID Capture plugin and zvid desktop app installer downloads. Every merge to
+// main, the `DAW bundles` workflow overwrites the installers in the
+// zvid-downloads R2 bucket under fixed names and describes each kind in its
+// own manifest: capture/manifest.json for the Help → Install Capture Plugin
+// dialog, desktop/manifest.json for Help → Download Desktop App. The Worker
+// serves the bucket at /downloads (worker/downloads.ts).
 
 export const CAPTURE_INSTALLERS_DIR = "downloads/capture";
 export const CAPTURE_INSTALLERS_MANIFEST_URL = `/${CAPTURE_INSTALLERS_DIR}/manifest.json`;
+export const DESKTOP_INSTALLERS_DIR = "downloads/desktop";
+export const DESKTOP_INSTALLERS_MANIFEST_URL = `/${DESKTOP_INSTALLERS_DIR}/manifest.json`;
 
 export type CapturePlatform = "macos" | "windows";
 
@@ -26,7 +29,7 @@ export const MACOS_INTEL_NOTICE =
 
 export type CaptureInstaller = {
   platform: CapturePlatform;
-  // The installer's file name inside /downloads/capture.
+  // The installer's file name inside its manifest's directory.
   file: string;
   size: number;
   sha256: string;
@@ -69,8 +72,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-// Validates a fetched manifest, which is missing (a 404) until the DAW
-// bundles workflow first publishes the installers.
+// Validates a fetched manifest, plugin or desktop app, which is missing (a
+// 404) until the DAW bundles workflow first publishes those installers.
 export function parseCaptureInstallersManifest(
   value: unknown,
 ): CaptureInstallersManifest | null {
@@ -117,8 +120,12 @@ export function pickCaptureDownloads(
   };
 }
 
-export function captureInstallerUrl(installer: CaptureInstaller) {
-  return `/${CAPTURE_INSTALLERS_DIR}/${encodeURIComponent(installer.file)}`;
+// The installer's URL; `dir` is its manifest's directory.
+export function captureInstallerUrl(
+  installer: CaptureInstaller,
+  dir = CAPTURE_INSTALLERS_DIR,
+) {
+  return `/${dir}/${encodeURIComponent(installer.file)}`;
 }
 
 // `8070936` -> `7.7 MB`.

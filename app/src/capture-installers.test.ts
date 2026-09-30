@@ -4,6 +4,8 @@ import {
   CAPTURE_INSTALLERS_MANIFEST_URL,
   CAPTURE_PLATFORM_LABELS,
   captureInstallerUrl,
+  DESKTOP_INSTALLERS_DIR,
+  DESKTOP_INSTALLERS_MANIFEST_URL,
   detectCapturePlatform,
   formatInstallerSize,
   parseCaptureInstallersManifest,
@@ -192,6 +194,50 @@ describe("captureInstallerUrl", () => {
       }),
       "/downloads/capture/a%20b.exe",
     );
+  });
+
+  it("serves desktop app installers from /downloads/desktop", () => {
+    assert.equal(
+      DESKTOP_INSTALLERS_MANIFEST_URL,
+      "/downloads/desktop/manifest.json",
+    );
+    assert.equal(
+      captureInstallerUrl(
+        {
+          platform: "windows",
+          file: "zvid-windows-setup.exe",
+          size: 1,
+          sha256: "",
+        },
+        DESKTOP_INSTALLERS_DIR,
+      ),
+      "/downloads/desktop/zvid-windows-setup.exe",
+    );
+  });
+});
+
+describe("parseCaptureInstallersManifest for the desktop app", () => {
+  it("accepts the desktop manifest the workflow writes", () => {
+    const manifest = {
+      version: "0.0.0+ab32a85",
+      sha: "ab32a85a1e717bcd68cb5a4cda2a82b66417dc00",
+      builtAt: "2026-09-30T08:17:50Z",
+      installers: [
+        {
+          platform: "macos",
+          file: "zvid-macos.dmg",
+          size: 20648849,
+          sha256: "0".repeat(64),
+        },
+        {
+          platform: "windows",
+          file: "zvid-windows-setup.exe",
+          size: 18025807,
+          sha256: "1".repeat(64),
+        },
+      ],
+    };
+    assert.deepEqual(parseCaptureInstallersManifest(manifest), manifest);
   });
 });
 

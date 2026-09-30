@@ -1,4 +1,9 @@
-import type { Dispatch, RefObject, SetStateAction } from "react";
+import {
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+  useState,
+} from "react";
 import type { ProjectState } from "../app/types.ts";
 import { isPristineProjectHistory } from "../app/workspace-boot.ts";
 import type { ContextMenuEntry } from "../context-menu.ts";
@@ -13,6 +18,7 @@ import type { useSampleProject } from "../hooks/useSampleProject.ts";
 import type { useSessionIO } from "../hooks/useSessionIO.ts";
 import { shareLinkVisible } from "../share-link";
 import { APP_BUILD_LABEL, BrandMark, openBuildCommit } from "./BrandMark";
+import { DesktopAppDialog } from "./DesktopAppDialog";
 import { DropdownMenuEntries } from "./DropdownMenuEntries";
 import { MenuChevron } from "./MenuChevron";
 import { ShareLinkIconButton } from "./ShareLinkButton";
@@ -106,6 +112,7 @@ export function TopBar({
     setIsShareDialogOpen,
     shareUrl,
   } = collaboration;
+  const [isDesktopAppDialogOpen, setIsDesktopAppDialogOpen] = useState(false);
 
   return (
     <header className="topbar">
@@ -311,11 +318,18 @@ export function TopBar({
             </DropdownMenuItem>
             {/* The desktop app has no downloads to offer. */}
             {supportsHarnessCapability("native-dialogs") ? null : (
-              <DropdownMenuItem
-                onSelect={() => setIsCaptureInstallerDialogOpen(true)}
-              >
-                Install Capture Plugin
-              </DropdownMenuItem>
+              <>
+                <DropdownMenuItem
+                  onSelect={() => setIsCaptureInstallerDialogOpen(true)}
+                >
+                  Install Capture Plugin
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => setIsDesktopAppDialogOpen(true)}
+                >
+                  Download Desktop App
+                </DropdownMenuItem>
+              </>
             )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -326,6 +340,10 @@ export function TopBar({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        <DesktopAppDialog
+          open={isDesktopAppDialogOpen}
+          onOpenChange={setIsDesktopAppDialogOpen}
+        />
       </div>
     </header>
   );
