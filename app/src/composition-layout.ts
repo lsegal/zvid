@@ -19,7 +19,7 @@ import type {
   LayerTransform,
   TransformMotion,
 } from "./composition-transform.ts";
-import { orderSlideWeight } from "./fx-animation-clip.ts";
+import { orderSlideWeight, type SessionEdges } from "./fx-animation-clip.ts";
 
 export type LayoutAnchor = "top" | "center" | "bottom";
 
@@ -72,6 +72,8 @@ type StackedLayer = {
   // How far through its clip the playhead is, 0..1. With the clip's
   // duration it times an animated Order's slides.
   clipProgress?: number;
+  // The clip's ends on the session's, which it doesn't slide in or out at.
+  sessionEdges?: SessionEdges;
 };
 
 // How an animated Order's layer sits between arrangements while clips
@@ -243,7 +245,12 @@ export function resolveSlotMotions<T extends StackedLayer>(
     const duration = layer.clip.durationSeconds;
     return duration === undefined || layer.clipProgress === undefined
       ? 1
-      : orderSlideWeight(slide, layer.clipProgress * duration, duration);
+      : orderSlideWeight(
+          slide,
+          layer.clipProgress * duration,
+          duration,
+          layer.sessionEdges,
+        );
   });
   // Moving layers, grouped by weight, so clips entering or exiting together
   // move as one.

@@ -33,6 +33,7 @@ import {
   SILENT_AUDIO_BANDS,
 } from "./fx-shaders/audio-bands.ts";
 import { resolveEffectChain } from "./fx-shaders/registry.ts";
+import { seekMediaElement } from "./media-seek.ts";
 import { getRenderedEffects } from "./fx-stack.ts";
 import type { PlayheadSignal } from "./playhead-signal";
 import { loadFontFace, resolveFontFace, subscribeFonts } from "./text-fonts.ts";
@@ -46,6 +47,8 @@ type CompositionPlayerProps = {
   bpm: number;
   // The session's frame rate, which effect animations are timed in.
   fps: number;
+  // The session's length, where Clip-mode animations stop animating out.
+  projectDurationFrames?: number;
   isPlaying: boolean;
   isScrubbing: boolean;
   isAudibleScrubbing: boolean;
@@ -68,6 +71,7 @@ export type CompositionRendererState = {
   effects: SessionEffect[];
   bpm: number;
   fps: number;
+  projectDurationFrames?: number;
   canvasWidth: number;
   canvasHeight: number;
   mainAudio?: MediaItem;
@@ -95,8 +99,6 @@ export type CompositionPlayerHandle = {
 };
 
 const MAX_DRIFT_SECONDS = 0.18;
-const MEDIA_SEEK_TOLERANCE_SECONDS = 0.001;
-const MEDIA_SEEK_TIMEOUT_MS = 4000;
 const SCRUB_AUDIO_DRIFT_SECONDS = 0.035;
 // Audio keeps playing through a scrub started during playback, so it only
 // re-syncs once it falls this far behind or ahead of the playhead.
@@ -124,44 +126,6 @@ function syncCanvasSurface(
   }
 
   canvas.style.aspectRatio = `${canvasWidth} / ${canvasHeight}`;
-}
-
-function seekMediaElement(element: HTMLMediaElement, targetSeconds: number) {
-  const clampedTarget = Math.max(0, targetSeconds);
-  const drift = Math.abs(element.currentTime - clampedTarget);
-  if (drift <= MEDIA_SEEK_TOLERANCE_SECONDS) {
-    return Promise.resolve();
-  }
-
-  return new Promise<void>((resolve) => {
-    let settled = false;
-    let timeoutId = 0;
-
-    const settle = () => {
-      if (settled) {
-        return;
-      }
-
-      settled = true;
-      window.clearTimeout(timeoutId);
-      element.removeEventListener("seeked", settle);
-      element.removeEventListener("error", settle);
-      element.removeEventListener("loadeddata", settle);
-      resolve();
-    };
-
-    timeoutId = window.setTimeout(settle, MEDIA_SEEK_TIMEOUT_MS);
-    element.addEventListener("seeked", settle, { once: true });
-    element.addEventListener("error", settle, { once: true });
-    element.addEventListener("loadeddata", settle, { once: true });
-
-    try {
-      element.pause();
-      element.currentTime = clampedTarget;
-    } catch {
-      settle();
-    }
-  });
 }
 
 // "live" reads the main audio element as it plays (preview). "offline"
@@ -429,6 +393,7 @@ export class CompositionRenderer {
       this.renderedEffects(),
       this.state.fps,
       audio,
+      this.state.projectDurationFrames,
     );
 
     // Clips sharing a media at this playhead draw from extra elements, made
@@ -651,6 +616,7 @@ export const CompositionPlayer = forwardRef<
     playheadQ,
     bpm,
     fps,
+    projectDurationFrames,
     isPlaying,
     isScrubbing,
     isAudibleScrubbing,
@@ -676,6 +642,7 @@ export const CompositionPlayer = forwardRef<
       effects,
       bpm,
       fps,
+      projectDurationFrames,
       canvasWidth,
       canvasHeight,
       mainAudio,
@@ -692,6 +659,7 @@ export const CompositionPlayer = forwardRef<
       lanes,
       mainAudio,
       mediaItems,
+      projectDurationFrames,
     ],
   );
   const rendererStateRef = useRef(rendererState);

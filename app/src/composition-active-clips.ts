@@ -38,6 +38,7 @@ import {
   parseCompositionOrder,
   Z_ORDER_COMPOSITION,
 } from "./composition-order.ts";
+import { getCompositionEndQ } from "./composition-progress.ts";
 import {
   isMoveEffectName,
   isTransformEffectName,
@@ -57,7 +58,11 @@ import {
   reactsToAudio,
   resolveAnimatedEffects,
 } from "./fx-animation.ts";
-import { resolveOrderSlide } from "./fx-animation-clip.ts";
+import {
+  clipSessionEdges,
+  resolveOrderSlide,
+  type SessionEdges,
+} from "./fx-animation-clip.ts";
 import type { EffectAnimation } from "./fx-animation-defaults.ts";
 import type { AudioBands } from "./fx-shaders/audio-bands.ts";
 import {
@@ -164,6 +169,8 @@ export type ActiveClip = {
   isInBounds: boolean;
   laneRank: number;
   clipProgress: number;
+  // The clip's ends on the session's, which Clip-mode animations skip.
+  sessionEdges: SessionEdges;
   visual: VisualState;
   // The clip's chain steps, then its layer's.
   effectChain: EffectChainStep[];
@@ -446,9 +453,17 @@ export function computeActiveClips(
   fps = DEFAULT_FPS,
   // The main audio at this frame, for effects that react to it.
   audio?: AudioBands,
+  // The session's length (Live's loop end or the last clip end from an
+  // import), as the wand and export use it. Without one the session ends
+  // with its last clip.
+  projectDurationFrames?: number,
 ): ActiveClip[] {
   const epsilon = 0.0001;
   const usedSourceKeys = new Set<string>();
+  const sessionEndSeconds =
+    projectDurationFrames && projectDurationFrames > 0 && fps > 0
+      ? projectDurationFrames / fps
+      : quartersToSeconds(getCompositionEndQ(clips, bpm), bpm);
 
   // Offline or still-restoring media has nothing to draw, so its clip is
   // skipped and takes no band. It never hides the clips on other lanes.
@@ -490,7 +505,18 @@ export function computeActiveClips(
     )
     .map<ActiveClip>(({ clip, media }) => {
       const laneRank = lanePriority.get(clip.laneId) ?? -1;
-      const clipContext = animationClipContext(clip, playheadQ, bpm);
+      const sessionEdges = clipSessionEdges(
+        quartersToSeconds(clip.startQ, bpm),
+        clip.durationSeconds,
+        sessionEndSeconds,
+        fps,
+      );
+      const clipContext = animationClipContext(
+        clip,
+        playheadQ,
+        bpm,
+        sessionEdges,
+      );
       const clipProgress = clipContext.progress;
       // The parameters every effect is drawn with for this clip and frame,
       // so a layer or Global effect animates with each clip on its own.
@@ -512,6 +538,7 @@ export function computeActiveClips(
           isInBounds: true,
           laneRank,
           clipProgress,
+          sessionEdges,
           visual: resolveVisualState(
             effects,
             clip.laneId,
@@ -536,6 +563,7 @@ export function computeActiveClips(
           isInBounds: true,
           laneRank,
           clipProgress,
+          sessionEdges,
           visual: resolveVisualState(
             effects,
             clip.laneId,
@@ -582,6 +610,7 @@ export function computeActiveClips(
             : mediaTime >= 0),
         laneRank,
         clipProgress,
+        sessionEdges,
         visual: resolveVisualState(effects, clip.laneId, clip.id, clipProgress),
         effectChain: resolveClipEffectChain(effects, clip),
       };
@@ -592,6 +621,7 @@ function animationClipContext(
   clip: ArrangementClip,
   playheadQ: number,
   bpm: number,
+  sessionEdges?: SessionEdges,
 ): AnimationClipContext {
   const elapsedSeconds = quartersToSeconds(playheadQ - clip.startQ, bpm);
   return {
@@ -603,6 +633,7 @@ function animationClipContext(
         : 0,
     elapsedSeconds,
     durationSeconds: clip.durationSeconds,
+    sessionEdges,
   };
 }
 
@@ -612,16 +643,22 @@ function animationClipContext(
 // clip they are drawn as set.
 export function resolveFrameEffects<T extends SessionEffect>(
   effects: T[],
-  activeClips: readonly Pick<ActiveClip, "clip">[],
+  activeClips: readonly (Pick<ActiveClip, "clip"> &
+    Partial<Pick<ActiveClip, "sessionEdges">>)[],
   playheadQ: number,
   bpm: number,
   fps = DEFAULT_FPS,
 ): T[] {
-  const topmost = activeClips[0]?.clip;
+  const topmost = activeClips[0];
   return topmost
     ? resolveAnimatedEffects(
         effects,
-        animationClipContext(topmost, playheadQ, bpm),
+        animationClipContext(
+          topmost.clip,
+          playheadQ,
+          bpm,
+          topmost.sessionEdges,
+        ),
         { playheadQ, bpm, fps },
       )
     : effects;

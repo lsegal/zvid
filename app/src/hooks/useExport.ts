@@ -78,6 +78,7 @@ export type ExportInputs = {
   mainAudio: MediaItem | undefined;
   bpm: number;
   fps: number;
+  projectDurationFrames: number | undefined;
   canvasWidth: number;
   canvasHeight: number;
   sessionName: string | null;
@@ -101,6 +102,7 @@ export function useExport({
   mainAudio,
   bpm,
   fps,
+  projectDurationFrames,
   canvasWidth,
   canvasHeight,
   sessionName,
@@ -182,6 +184,7 @@ export function useExport({
         effects,
         bpm,
         fps,
+        projectDurationFrames,
         canvasWidth,
         canvasHeight,
         mainAudio,
