@@ -36,6 +36,7 @@
     "@radix-ui/react-popover": "^1.1.23",
     "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/plugin-dialog": "^2.7.0",
+    "@tauri-apps/plugin-opener": "~2.5.5",
     "@zvid/tokens": "link:../packages/tokens",
     "cmdk": "^1.1.1",
     "mediabunny": "^1.40.1",

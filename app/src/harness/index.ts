@@ -34,6 +34,8 @@ export function supportsHarnessCapability(capability: HarnessCapability) {
   return Boolean(window.harness?.capabilities[capability]);
 }
 
+export { canRevealSavedFile } from "./reveal";
+
 export type {
   Harness,
   HarnessCapability,
