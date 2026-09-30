@@ -559,20 +559,29 @@ Developer ID Application identity in `ZVID_CODESIGN_IDENTITY`, with the
 hardened runtime and a secure timestamp. `--installer` signs the `.pkg` with
 the Developer ID Installer identity in `ZVID_INSTALLER_IDENTITY` and, when
 notary credentials are set, submits it to Apple's notary service, waits for
-it to be accepted and staples the ticket. The credentials are a `notarytool
-store-credentials` keychain profile in `ZVID_NOTARY_PROFILE`, or an Apple ID,
-team ID and app-specific password in `ZVID_NOTARY_APPLE_ID`,
-`ZVID_NOTARY_TEAM_ID` and `ZVID_NOTARY_PASSWORD`.
+it to be accepted and staples the ticket. The credentials are, in order of
+preference, a `notarytool store-credentials` keychain profile in
+`ZVID_NOTARY_PROFILE`; an App Store Connect API key, as the path of its `.p8`,
+its key ID and its issuer ID in `ZVID_NOTARY_KEY_PATH`, `ZVID_NOTARY_KEY_ID`
+and `ZVID_NOTARY_ISSUER`; or an Apple ID, team ID and app-specific password
+in `ZVID_NOTARY_APPLE_ID`, `ZVID_NOTARY_TEAM_ID` and `ZVID_NOTARY_PASSWORD`.
 
-The DAW bundles workflow signs and notarizes when these repository secrets
-are set, and otherwise builds ad-hoc signed bundles and an unsigned `.pkg`:
+The DAW bundles workflow signs the bundles and the desktop app whenever
+`APPLE_CERTIFICATE` is set, and otherwise builds ad-hoc signed bundles, an
+unsigned `.pkg` and an unsigned app. It signs the `.pkg` only when
+`APPLE_INSTALLER_CERTIFICATE` is also set, and notarizes the signed `.pkg`
+and the app with the API key. It uses these repository secrets:
 
 | Secret | Contents |
 |---|---|
-| `MACOS_DEVELOPER_ID_APPLICATION_P12` | Base64 of the Developer ID Application certificate and key (`.p12`) |
-| `MACOS_DEVELOPER_ID_INSTALLER_P12` | Base64 of the Developer ID Installer certificate and key (`.p12`) |
-| `MACOS_CERTIFICATES_PASSWORD` | Password of both `.p12` files |
-| `APPLE_ID`, `APPLE_TEAM_ID`, `APPLE_APP_SPECIFIC_PASSWORD` | Notary service credentials |
+| `APPLE_CERTIFICATE` | Base64 of the Developer ID Application certificate and key (`.p12`) |
+| `APPLE_INSTALLER_CERTIFICATE` | Base64 of the Developer ID Installer certificate and key (`.p12`) |
+| `APPLE_CERTIFICATE_PASSWORD` | Password of both `.p12` files |
+| `APPLE_SIGNING_IDENTITY` | The Developer ID Application identity, for Tauri |
+| `APPLE_TEAM_ID` | The Apple Developer team ID |
+| `APPLE_API_ISSUER` | App Store Connect API issuer ID |
+| `APPLE_API_KEY` | App Store Connect API key ID |
+| `APPLE_API_KEY_P8` | Contents of the API key's `.p8` |
 
 Windows builds are not Authenticode signed, so SmartScreen warns about the
 installer until it builds reputation.
