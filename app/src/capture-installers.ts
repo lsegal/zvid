@@ -1,7 +1,8 @@
 // ZVID Capture installer downloads. The Cloudflare build
-// (scripts/fetch-capture-installers.ts) copies the installers from the latest
-// successful `DAW bundles` run on main into /downloads and describes them in
-// a manifest the Help → Install Capture Plugin dialog reads.
+// (scripts/fetch-capture-installers.ts) uploads the installers from the latest
+// successful `DAW bundles` run on main to R2, which the Worker serves under
+// /downloads (worker/downloads.ts), and describes them in a manifest the
+// Help → Install Capture Plugin dialog reads.
 
 export const CAPTURE_INSTALLERS_DIR = "downloads";
 export const CAPTURE_INSTALLERS_MANIFEST = "zvid-capture.json";
