@@ -158,7 +158,7 @@ export function CaptureInstallerDialog({
 
         {state.status === "unavailable" ? (
           <p className="capture-installer__notice" role="note">
-            Installers aren't included in this build of zvid.
+            Installers aren't available right now.
           </p>
         ) : (
           <div className="capture-installer__cta">

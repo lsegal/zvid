@@ -1,12 +1,18 @@
 name: DAW bundles
 
-# Release ZVID Capture bundles and the plugin installer for every merge to
-# main, uploaded as workflow artifacts. The zvid desktop app is not built or
+# Release ZVID Capture bundles and the plugin installers for every merge to
+# main, and publish the installers to the zvid-downloads R2 bucket under
+# fixed names, overwriting the previous build's, where the app's Worker
+# serves them at /downloads/capture. The zvid desktop app is not built or
 # packaged here. Pull requests that touch /daw build the same bundles and
 # installers, so a broken release-only build or bundle layout fails the PR
-# rather than main; PR runs upload nothing. macOS builds are Apple silicon
+# rather than main; PR runs publish nothing. macOS builds are Apple silicon
 # (arm64) only, and Developer ID signed and notarized when the Apple secrets
 # below are configured, and ad-hoc signed otherwise.
+#
+# Publishing needs the CLOUDFLARE_ACCOUNT_ID secret and an API token with R2
+# write access to the zvid-downloads bucket in CLOUDFLARE_R2_API_TOKEN
+# (falling back to CLOUDFLARE_API_TOKEN when that is unset).
 on:
   push:
     branches:
@@ -23,8 +29,8 @@ on:
       - app/export-bridge/Cargo.toml
   workflow_dispatch:
 
-# Superseded PR runs are canceled; main runs always finish so every merge
-# keeps its artifacts.
+# Superseded PR runs are canceled; main runs always finish, one at a time,
+# so every merge publishes its installers and they never interleave.
 concurrency:
   group: daw-bundle-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -38,8 +44,14 @@ jobs:
         include:
           - os: macos-latest
             platform: macos-arm64
+            capture-platform: macos
+            installer: zvid-capture-macos.pkg
+            content-type: application/octet-stream
           - os: windows-latest
             platform: windows-x64
+            capture-platform: windows
+            installer: zvid-capture-windows-setup.exe
+            content-type: application/vnd.microsoft.portable-executable
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     defaults:
@@ -140,8 +152,10 @@ jobs:
           ZVID_NOTARY_PASSWORD: ${{ steps.signing.outputs.signed && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
         run: cargo xtask bundle --release --installer
 
-      - name: Name the artifact
-        id: name
+      # The installer's name carries no version, so each main build replaces
+      # the published one; the version is stamped into the bundles and the
+      # installer instead.
+      - name: Check the version stamp
         run: |
           version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)
           sha=${GITHUB_SHA::7}
@@ -150,7 +164,7 @@ jobs:
             *"\"$version+$sha\""*) ;;
             *) echo "::error::bundle is not stamped $version+$sha: $stamped"; exit 1 ;;
           esac
-          echo "name=zvid-capture-$version-$sha-${{ matrix.platform }}" >> "$GITHUB_OUTPUT"
+          test -f "target/installer/${{ matrix.installer }}"
 
       # Intel Macs aren't supported: every binary must be arm64 only, with no
       # x86_64 slice.
@@ -177,7 +191,7 @@ jobs:
           SIGNED: ${{ steps.signing.outputs.signed }}
           NOTARIZED: ${{ steps.signing.outputs.signed && secrets.APPLE_ID != '' }}
         run: |
-          pkg=$(ls target/installer/*.pkg)
+          pkg="target/installer/${{ matrix.installer }}"
           if [ "$SIGNED" = true ]; then
             pkgutil --check-signature "$pkg"
           fi
@@ -222,7 +236,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $setup = Get-ChildItem target/installer/*-setup.exe | Select-Object -First 1
+          $setup = Get-Item 'target/installer/${{ matrix.installer }}'
           $flags = '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'
           $process = Start-Process $setup.FullName -ArgumentList $flags -Wait -PassThru
           if ($process.ExitCode -ne 0) { throw "setup exited with $($process.ExitCode)" }
@@ -264,37 +278,75 @@ jobs:
           path: daw/target/host-test
           if-no-files-found: ignore
 
-      # ditto keeps the bundles' symlinks, permissions and signatures, which
-      # the artifact upload's own zip would not. It archives one source, so
-      # both bundles, the installer and the Live Remote Script go
-      # into a folder that becomes the zip's top level.
-      - name: Zip (macOS)
-        if: runner.os == 'macOS'
-        working-directory: daw/target
+      # main only. Overwrites the installer in R2 under its fixed name, with
+      # headers that make browsers download it and never serve a stale copy,
+      # and records its size and hash for the manifest the publish job writes
+      # once both platforms have uploaded.
+      - name: Upload the installer to R2
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        working-directory: daw/target/installer
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_R2_API_TOKEN || secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
+          INSTALLER: ${{ matrix.installer }}
+          CONTENT_TYPE: ${{ matrix.content-type }}
+          PLATFORM: ${{ matrix.capture-platform }}
         run: |
-          name="${{ steps.name.outputs.name }}"
-          rm -rf dist && mkdir -p "dist/$name"
-          ditto "bundle/ZVID Capture.vst3" "dist/$name/ZVID Capture.vst3"
-          ditto "bundle/ZVID Capture.component" "dist/$name/ZVID Capture.component"
-          ditto "bundle/live-remote-script" "dist/$name/live-remote-script"
-          cp installer/*.pkg "dist/$name/"
-          ditto -c -k --keepParent "dist/$name" "dist/$name.zip"
-          unzip -l "dist/$name.zip"
+          npx --yes wrangler@4 r2 object put "zvid-downloads/capture/$INSTALLER" --remote \
+            --file "$INSTALLER" --content-type "$CONTENT_TYPE" \
+            --content-disposition "attachment; filename=\"$INSTALLER\"" \
+            --cache-control no-cache
+          size=$(wc -c < "$INSTALLER" | tr -d ' ')
+          if command -v sha256sum > /dev/null; then
+            sha256=$(sha256sum "$INSTALLER" | cut -d ' ' -f 1)
+          else
+            sha256=$(shasum -a 256 "$INSTALLER" | cut -d ' ' -f 1)
+          fi
+          mkdir -p ../published
+          printf '{"platform":"%s","file":"%s","size":%s,"sha256":"%s"}\n' \
+            "$PLATFORM" "$INSTALLER" "$size" "$sha256" | tee "../published/$PLATFORM.json"
 
-      - name: Zip (Windows)
-        if: runner.os == 'Windows'
-        working-directory: daw/target
-        run: |
-          rm -rf dist && mkdir -p dist
-          cd bundle
-          7z a -tzip "../dist/${{ steps.name.outputs.name }}.zip" "ZVID Capture.vst3" live-remote-script ../installer/*-setup.exe
-          7z l "../dist/${{ steps.name.outputs.name }}.zip"
-
-      # PRs only check that the bundles build and package; artifacts come
-      # from main.
+      # The published installer's manifest entry, not the installer itself.
       - uses: actions/upload-artifact@v4
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         with:
-          name: ${{ steps.name.outputs.name }}
-          path: daw/target/dist/${{ steps.name.outputs.name }}.zip
+          name: capture-installer-${{ matrix.capture-platform }}
+          path: daw/target/published/${{ matrix.capture-platform }}.json
           if-no-files-found: error
+          retention-days: 1
+
+  # Writes capture/manifest.json, which the app's Install Capture Plugin
+  # dialog reads, only after every platform's installer uploaded, so it never
+  # describes a half-updated pair.
+  publish:
+    name: publish manifest
+    needs: bundle
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: capture-installer-*
+          path: published
+          merge-multiple: true
+
+      - name: Upload the manifest to R2
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_R2_API_TOKEN || secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"$/\1/p' daw/Cargo.toml | head -n 1)
+          jq -s --arg version "$version+${GITHUB_SHA::7}" --arg sha "$GITHUB_SHA" \
+            --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{version: $version, sha: $sha, builtAt: $builtAt, installers: sort_by(.platform)}' \
+            published/*.json | tee manifest.json
+          count=$(jq '.installers | length' manifest.json)
+          if [ "$count" != 2 ]; then
+            echo "::error::expected 2 installers, got $count"
+            exit 1
+          fi
+          npx --yes wrangler@4 r2 object put zvid-downloads/capture/manifest.json --remote \
+            --file manifest.json --content-type application/json --cache-control no-cache

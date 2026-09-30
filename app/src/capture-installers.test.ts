@@ -1,12 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
-  artifactPlatform,
+  CAPTURE_INSTALLERS_MANIFEST_URL,
   CAPTURE_PLATFORM_LABELS,
   captureInstallerUrl,
   detectCapturePlatform,
   formatInstallerSize,
-  isCaptureInstallerEntry,
   parseCaptureInstallersManifest,
   pickCaptureDownloads,
 } from "./capture-installers.ts";
@@ -19,69 +18,6 @@ const LINUX_FIREFOX =
   "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0";
 const IPHONE =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
-
-describe("artifactPlatform", () => {
-  it("maps DAW bundle artifact names to platforms", () => {
-    assert.equal(
-      artifactPlatform("zvid-capture-0.1.0-bba0984-macos-arm64"),
-      "macos",
-    );
-    assert.equal(
-      artifactPlatform("zvid-capture-0.1.0-bba0984-windows-x64"),
-      "windows",
-    );
-  });
-
-  it("still accepts universal macOS bundles from older runs", () => {
-    assert.equal(
-      artifactPlatform("zvid-capture-0.1.0-bba0984-macos-universal"),
-      "macos",
-    );
-  });
-
-  it("ignores other artifacts", () => {
-    assert.equal(artifactPlatform("host-test-windows-x64"), null);
-    assert.equal(artifactPlatform("zvid-capture-0.1.0-bba0984-linux"), null);
-    assert.equal(
-      artifactPlatform("zvid-capture-0.1.0-bba0984-macos-x86_64"),
-      null,
-    );
-  });
-});
-
-describe("isCaptureInstallerEntry", () => {
-  it("picks the macOS .pkg from a bundle zip", () => {
-    const dir = "zvid-capture-0.1.0-bba0984-macos-arm64";
-    assert.ok(
-      isCaptureInstallerEntry(`${dir}/zvid-capture-0.1.0+bba0984.pkg`, "macos"),
-    );
-    assert.ok(!isCaptureInstallerEntry(`${dir}/ZVID Capture.vst3/`, "macos"));
-    assert.ok(
-      !isCaptureInstallerEntry(
-        `__MACOSX/${dir}/._zvid-capture-0.1.0+bba0984.pkg`,
-        "macos",
-      ),
-    );
-  });
-
-  it("picks the Windows setup executable from a bundle zip", () => {
-    assert.ok(
-      isCaptureInstallerEntry(
-        "zvid-capture-0.1.0+bba0984-setup.exe",
-        "windows",
-      ),
-    );
-    assert.ok(
-      !isCaptureInstallerEntry(
-        "ZVID Capture.vst3/Contents/x86_64-win/ZVID Capture.vst3",
-        "windows",
-      ),
-    );
-    assert.ok(
-      !isCaptureInstallerEntry("zvid-capture-0.1.0+bba0984.pkg", "windows"),
-    );
-  });
-});
 
 describe("detectCapturePlatform", () => {
   it("detects macOS and Windows desktops", () => {
@@ -134,18 +70,22 @@ describe("detectCapturePlatform", () => {
 describe("parseCaptureInstallersManifest", () => {
   const manifest = {
     version: "0.1.0+bba0984",
-    commit: "bba098408a1e717bcd68cb5a4cda2a82b66417dc",
-    runUrl: "https://github.com/lsegal/zvid/actions/runs/36356285598",
+    sha: "bba098408a1e717bcd68cb5a4cda2a82b66417dc",
+    builtAt: "2026-09-30T08:00:00Z",
     installers: [
       {
         platform: "macos",
-        file: "zvid-capture-0.1.0+bba0984.pkg",
+        file: "zvid-capture-macos.pkg",
         size: 8070936,
+        sha256:
+          "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
       },
       {
         platform: "windows",
-        file: "zvid-capture-0.1.0+bba0984-setup.exe",
+        file: "zvid-capture-windows-setup.exe",
         size: 3556059,
+        sha256:
+          "60303ae22b998861bce3b28f33eec1be758a213c86c93c076dbe9f558c11c752",
       },
     ],
   };
@@ -159,8 +99,9 @@ describe("parseCaptureInstallersManifest", () => {
       ...manifest,
       installers: [
         ...manifest.installers,
-        { platform: "linux", file: "zvid.deb", size: 1 },
-        { platform: "macos", file: "", size: 1 },
+        { platform: "linux", file: "zvid.deb", size: 1, sha256: "" },
+        { platform: "macos", file: "", size: 1, sha256: "" },
+        { platform: "windows", file: "zvid-setup.exe", size: 1 },
       ],
     });
     assert.deepEqual(parsed?.installers, manifest.installers);
@@ -177,15 +118,31 @@ describe("parseCaptureInstallersManifest", () => {
       parseCaptureInstallersManifest({ ...manifest, version: 1 }),
       null,
     );
+    // The manifest the old Cloudflare build packaged with the app.
+    assert.equal(
+      parseCaptureInstallersManifest({
+        version: manifest.version,
+        commit: manifest.sha,
+        runUrl: "https://github.com/lsegal/zvid/actions/runs/1",
+        installers: manifest.installers,
+      }),
+      null,
+    );
   });
 });
 
 describe("pickCaptureDownloads", () => {
-  const mac = { platform: "macos", file: "zvid.pkg", size: 1 } as const;
+  const mac = {
+    platform: "macos",
+    file: "zvid.pkg",
+    size: 1,
+    sha256: "",
+  } as const;
   const windows = {
     platform: "windows",
     file: "zvid-setup.exe",
     size: 1,
+    sha256: "",
   } as const;
 
   it("offers the detected platform's installer and links the other", () => {
@@ -212,18 +169,28 @@ describe("pickCaptureDownloads", () => {
 });
 
 describe("captureInstallerUrl", () => {
-  it("serves installers from /downloads with an encoded name", () => {
+  it("serves installers from /downloads/capture with an encoded name", () => {
+    assert.equal(
+      CAPTURE_INSTALLERS_MANIFEST_URL,
+      "/downloads/capture/manifest.json",
+    );
     assert.equal(
       captureInstallerUrl({
         platform: "macos",
-        file: "zvid-capture-0.1.0-bba0984.pkg",
+        file: "zvid-capture-macos.pkg",
         size: 1,
+        sha256: "",
       }),
-      "/downloads/zvid-capture-0.1.0-bba0984.pkg",
+      "/downloads/capture/zvid-capture-macos.pkg",
     );
     assert.equal(
-      captureInstallerUrl({ platform: "windows", file: "a b.exe", size: 1 }),
-      "/downloads/a%20b.exe",
+      captureInstallerUrl({
+        platform: "windows",
+        file: "a b.exe",
+        size: 1,
+        sha256: "",
+      }),
+      "/downloads/capture/a%20b.exe",
     );
   });
 });
