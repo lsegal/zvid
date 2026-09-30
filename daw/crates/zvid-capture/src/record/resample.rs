@@ -1,7 +1,7 @@
 //! Sample-rate conversion for AAC encoders that take only some rates.
 //!
 //! A windowed-sinc polyphase resampler for rational ratios. Output frame `k`
-//! is input position `k * from / to` exactly: the filter is centred on it,
+//! is input position `k * from / to` exactly: the filter is centered on it,
 //! so the resampler adds no delay and file times are the same at either
 //! rate. [`AudioClock`](super::AudioClock) keeps counting input frames, and
 //! frame `n` of it lands at output frame `n * to / from`.

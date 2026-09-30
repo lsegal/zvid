@@ -36,7 +36,7 @@ pub enum RangeRequest {
 }
 
 /// Resolves a `Range` header against a file of `total` bytes. Only the first
-/// range of a multi-range request is honoured, and every range is capped at
+/// range of a multi-range request is honored, and every range is capped at
 /// [`MAX_CHUNK`] bytes.
 pub fn resolve(header: Option<&str>, total: u64) -> RangeRequest {
     let Some(spec) = header.and_then(|header| header.trim().strip_prefix("bytes=")) else {

@@ -68,7 +68,7 @@ function session(
   };
 }
 
-describe("workspace session serialisation", () => {
+describe("workspace session serialization", () => {
   it("round-trips the present state, history, view and source", () => {
     let history = buildHistory(5);
     history = projectHistoryReducer(history, { type: "undo" });

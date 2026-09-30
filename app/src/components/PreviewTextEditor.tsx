@@ -29,7 +29,7 @@ import { formatCssColor } from "../fill-paint.ts";
 
 // Clicks here keep the editor open: the editor itself, the FX panel (whose
 // changes show in the editor straight away) and the popovers and dialogs it
-// opens, such as the font list and colour pickers.
+// opens, such as the font list and color pickers.
 const EDITING_SCOPE_SELECTOR = [
   ".preview-text-editor",
   ".fx-panel",

@@ -152,7 +152,7 @@ function effect(
   };
 }
 
-// Inverts every colour: red becomes cyan and blue yellow.
+// Inverts every color: red becomes cyan and blue yellow.
 const invert = effect("invert", "clip:fx-2", "NegativeSplit", {
   _LowIntensity: 1,
   _HighIntensity: 1,

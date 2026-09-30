@@ -164,7 +164,7 @@ test("holding a drag near the top edge scrolls, and Escape cancels it", async ({
     .poll(() => scroller.evaluate((element) => element.scrollTop))
     .toBe(0);
   await page.keyboard.press("Escape");
-  await expect(status(page)).toHaveText("Cancelled moving Layer 3");
+  await expect(status(page)).toHaveText("Canceled moving Layer 3");
   await page.mouse.up();
   await expect(names(page)).toHaveText(["Layer 1", "Layer 2", "Layer 3"]);
   await expect(page.locator(".track-row--lifted")).toHaveCount(0);
@@ -200,7 +200,7 @@ test("the keyboard picks a layer up, moves it and drops it", async ({
   await page.keyboard.press("Space");
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Escape");
-  await expect(status(page)).toHaveText("Cancelled moving Layer 3");
+  await expect(status(page)).toHaveText("Canceled moving Layer 3");
   await expect(names(page)).toHaveText(["Layer 3", "Layer 1", "Layer 2"]);
 
   await page.keyboard.press("ControlOrMeta+z");

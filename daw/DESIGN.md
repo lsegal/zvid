@@ -67,7 +67,7 @@ stack their details under the thumbnail when it is narrow.
 
   | State | Dot | Label |
   |---|---|---|
-  | No camera | grey (`--muted`) | *No camera* |
+  | No camera | gray (`--muted`) | *No camera* |
   | Ready | green (`--mint`) | *Ready to capture* |
   | Capturing | pink (`--pink`), pulsing | Timer pill `00:00:05` |
   | Camera error | amber (`--amber`) | *Camera unavailable* |
@@ -164,7 +164,7 @@ transport starts and stops.
 
 ### 4. Takes list (right column, below the capture card)
 
-A hairline divider labelled **Takes (N)** separates it from the capture card.
+A hairline divider labeled **Takes (N)** separates it from the capture card.
 The list shows one **TakeCard** per take in plugin state, newest first. Each
 card has:
 
@@ -204,7 +204,7 @@ Take variants:
 
 | App state | Header | Preview | Capture card | Takes |
 |---|---|---|---|---|
-| No camera | grey dot, *No camera* | Empty | Record disabled | as stored |
+| No camera | gray dot, *No camera* | Empty | Record disabled | as stored |
 | Ready | green dot, *Ready to capture* | Live | Record enabled | as stored |
 | Capturing | pink pulsing dot, TimerPill | Live | Stop capturing, take count | new takes appear at top |
 | Camera error | amber dot, *Camera unavailable* | Error | Record disabled | as stored |
@@ -236,10 +236,10 @@ match that file.
 | Token | Value | Use |
 |---|---|---|
 | `--ink` | `#eef2ff` | Primary text and icons |
-| `--muted` | `#a4a9bf` | Secondary text, helper text, footer, grey status dot |
+| `--muted` | `#a4a9bf` | Secondary text, helper text, footer, gray status dot |
 | `--ink-on-accent` *(new)* | `#0f1220` | Text and icons on accent fills (pink button, TimerPill) |
 
-`--ink-on-accent` is the dark text colour `/app` already uses on accent fills
+`--ink-on-accent` is the dark text color `/app` already uses on accent fills
 (for example collaboration cursor labels); it is promoted to a token so both
 products use one value.
 
@@ -260,7 +260,7 @@ products use one value.
 | `--blue` | `#7ca1ff` | Focus ring, links |
 
 Accents carry meaning; do not use them decoratively. Every accent-coded state
-also has a text label so colour is never the only signal.
+also has a text label so color is never the only signal.
 
 ### Where the tokens live
 
@@ -268,7 +268,7 @@ So `/app` and `daw/ui` cannot drift, the shared tokens live in a small CSS
 package, [`packages/tokens`](../packages/tokens) (`@zvid/tokens`), whose
 `tokens.css` holds the `:root` block and the `@font-face` rules. `/app` and
 `daw/ui` both import it, and `app/src/App.css` keeps only app-specific
-variables such as the lane-selection colours.
+variables such as the lane-selection colors.
 
 ## Typography
 
@@ -317,7 +317,7 @@ otherwise:
 - **Primary:** pill, `--pink` fill, `--ink-on-accent` text, 36 pt tall. Used
   only for Record / Stop capturing. While capturing, its leading ■ glyph
   replaces the ● and the label changes; the fill stays pink. Busy while the
-  capture is starting or finalising the file.
+  capture is starting or finalizing the file.
 - **Secondary:** pill, `--bg-soft` fill, `--line-strong` border, `--ink` text,
   32 pt tall. Used for **Refresh devices** and similar actions.
 - **Icon:** 28 pt square, transparent fill, `--ink` glyph; hover shows a
@@ -348,7 +348,7 @@ enumerated. Disabled while capturing or when there are no devices.
 
 ### StatusDot
 
-An 8 pt circle in the state colour (see the header table). Not interactive,
+An 8 pt circle in the state color (see the header table). Not interactive,
 so it has no hover, pressed, focus or disabled states. While capturing it
 pulses (see Motion). Always paired with visible text.
 
@@ -400,13 +400,13 @@ At the end of the take it pauses on the last frame; play starts it again.
 
 ### EmptyState
 
-Centred block: optional dashed `--line-strong` frame, a title in `--ink`, a
+Centered block: optional dashed `--line-strong` frame, a title in `--ink`, a
 hint in `--muted`, and an optional secondary Button. Not interactive except
 for its button.
 
 ### Toast
 
-Transient message anchored bottom-centre above the footer: `--bg-elevated`
+Transient message anchored bottom-center above the footer: `--bg-elevated`
 fill, `--line-strong` border, 10 pt radius, optional leading StatusDot for
 tone (amber for warnings, green for confirmations). Stays 5 s, or until dismissed with its close icon
 button; hovering or focusing it pauses the timer. At most one toast is
@@ -422,7 +422,7 @@ disconnected. Footage up to that point was saved.*
   in 180 ms.
 - Under `prefers-reduced-motion: reduce`, the pulse is replaced by a steady
   dot and all transitions are instant. Capture state stays readable through
-  colour and the TimerPill text.
+  color and the TimerPill text.
 - Nothing else animates: no looping decoration and no layout animation.
 
 ## Accessibility
@@ -457,7 +457,7 @@ disconnected. Footage up to that point was saved.*
 - **Disabled controls explain themselves:** a disabled Record button carries
   a description (*Choose a camera to record*), and a missing file's disabled
   buttons are described by the *File missing* badge.
-- **Colour is never the only signal:** each coloured state also has text or a
+- **Color is never the only signal:** each colored state also has text or a
   glyph.
 
 ## Theme

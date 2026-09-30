@@ -82,7 +82,7 @@ type IncomingTransfer = {
 type OutgoingTransfer = {
   req: number;
   id: string;
-  cancelled: boolean;
+  canceled: boolean;
 };
 
 type MediaPeer = {
@@ -192,7 +192,7 @@ export function createMediaTransport(
       finishIncoming(mediaPeer, req)?.reject(reason);
     }
     for (const transfer of mediaPeer.outgoing.values()) {
-      transfer.cancelled = true;
+      transfer.canceled = true;
     }
     mediaPeer.outgoing.clear();
     mediaPeer.queue.length = 0;
@@ -252,7 +252,7 @@ export function createMediaTransport(
       });
       return;
     }
-    if (transfer.cancelled) {
+    if (transfer.canceled) {
       return;
     }
     if (!blob) {
@@ -285,11 +285,11 @@ export function createMediaTransport(
       );
       for (let start = 0; start < buffer.byteLength; start += CHUNK_SIZE) {
         const channel = mediaPeer.channel;
-        if (transfer.cancelled || !channel) {
+        if (transfer.canceled || !channel) {
           return;
         }
         await waitForBufferedAmount(channel);
-        if (transfer.cancelled) {
+        if (transfer.canceled) {
           return;
         }
         const payload = buffer.subarray(start, start + CHUNK_SIZE);
@@ -351,7 +351,7 @@ export function createMediaTransport(
         ) {
           return;
         }
-        const transfer = { req: message.req, id: message.id, cancelled: false };
+        const transfer = { req: message.req, id: message.id, canceled: false };
         mediaPeer.outgoing.set(transfer.req, transfer);
         mediaPeer.queue.push(transfer);
         pumpOutgoing(mediaPeer);
@@ -360,7 +360,7 @@ export function createMediaTransport(
       case "cancel": {
         const transfer = mediaPeer.outgoing.get(message.req);
         if (transfer) {
-          transfer.cancelled = true;
+          transfer.canceled = true;
           mediaPeer.outgoing.delete(message.req);
           const queued = mediaPeer.queue.indexOf(transfer);
           if (queued >= 0) {

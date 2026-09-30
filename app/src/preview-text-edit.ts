@@ -138,7 +138,7 @@ export function resolveTextEditorTypography(
   };
 }
 
-/** CSS paint for the editor's text: a colour, or a gradient to clip to it. */
+/** CSS paint for the editor's text: a color, or a gradient to clip to it. */
 export function formatTextPaintCss(paint: TextPaint) {
   return formatFillPaintCss({ ...paint, opacity: 1 } as FillPaint);
 }

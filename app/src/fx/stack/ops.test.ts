@@ -314,7 +314,7 @@ describe("Zoom & Pan defaults", () => {
     "End Y": "50%",
   };
 
-  it("zooms a new device in from 1.00x to 1.20x, centred", () => {
+  it("zooms a new device in from 1.00x to 1.20x, centered", () => {
     const effect = createEffect("1", "ZoomAndPan", "zoom");
     assert.deepEqual(knobs([effect], "1"), DEFAULT_KNOBS);
     const endZoom = effect.parameters.find(

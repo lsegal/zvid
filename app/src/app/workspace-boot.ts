@@ -36,7 +36,7 @@ const PROJECT_POSITIVE_NUMBER_FIELDS = [
   "zoom",
 ] as const;
 
-// Restored history shares objects between snapshots; normalising each
+// Restored history shares objects between snapshots; normalizing each
 // shared object once keeps that sharing.
 const restoredProjectStates = new WeakMap<object, ProjectState>();
 

@@ -35,7 +35,7 @@ export function AddDeviceMenu({
       <DropdownMenuTrigger asChild>
         <button
           aria-label={label}
-          className={`fx-chain__add ${withLabel ? "fx-chain__add--labelled" : ""}`}
+          className={`fx-chain__add ${withLabel ? "fx-chain__add--labeled" : ""}`}
           data-fx-focus={focusKey}
           title={label}
           type="button"

@@ -1,7 +1,7 @@
 import { formatTimer } from "../format.ts";
 import type { Phase } from "../ipc/types.ts";
 
-/** An 8 pt state-colour circle; always paired with visible text. */
+/** An 8 pt state-color circle; always paired with visible text. */
 export function StatusDot({ tone }: { tone: Phase | "warning" | "onAccent" }) {
   return <span className={`status-dot is-${tone}`} aria-hidden="true" />;
 }

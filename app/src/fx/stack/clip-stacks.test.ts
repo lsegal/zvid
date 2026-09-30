@@ -117,7 +117,7 @@ describe("clip stacks", () => {
       ],
     );
     assert.deepEqual(preview[2].parameters, transform.parameters);
-    // Nothing is written back, so cancelling the drag leaves no stack.
+    // Nothing is written back, so canceling the drag leaves no stack.
     assert.deepEqual(effects, snapshot);
     // Redrawing the drag gives the same ids.
     assert.deepEqual(

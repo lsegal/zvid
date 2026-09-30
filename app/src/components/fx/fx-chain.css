@@ -76,7 +76,7 @@
   color: var(--ink);
 }
 
-.fx-chain__add--labelled {
+.fx-chain__add--labeled {
   display: inline-flex;
   align-self: auto;
   gap: 6px;
@@ -86,7 +86,7 @@
   font-size: 0.82rem;
 }
 
-.fx-chain__add--labelled svg {
+.fx-chain__add--labeled svg {
   width: 14px;
   height: 14px;
 }
@@ -370,7 +370,7 @@ body.fx-chain-dragging * {
   grid-column: 1 / -1;
 }
 
-/* Labelled knob rows (a Move's Start and End): each row's label, then its
+/* Labeled knob rows (a Move's Start and End): each row's label, then its
    knobs, in one grid so the columns line up. */
 .fx-device-panel__knob-row {
   display: contents;
@@ -526,7 +526,7 @@ body.fx-chain-dragging * {
   color: var(--ink);
 }
 
-/* Colour and gradient parameters: a swatch that opens the picker. */
+/* Color and gradient parameters: a swatch that opens the picker. */
 .fx-paint {
   display: flex;
   flex-direction: column;
@@ -549,7 +549,7 @@ body.fx-chain-dragging * {
   padding: 3px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  /* Checks show through a translucent colour. */
+  /* Checks show through a translucent color. */
   background: repeating-conic-gradient(#3a3d4a 0% 25%, #2a2d38 0% 50%) 50% /
     10px 10px;
 }

@@ -40,7 +40,7 @@ function setLetterSpacing(context: Context2D, pixels: number) {
   }
 }
 
-// CSS gradient geometry: a linear gradient runs through the box centre at
+// CSS gradient geometry: a linear gradient runs through the box center at
 // its angle, just long enough to reach the far corners; a radial one reaches
 // the farthest corner.
 function createPaintStyle(
@@ -168,7 +168,7 @@ export function drawText(
   context.textAlign = "left";
   context.textBaseline = "alphabetic";
 
-  // Lines sit centred in their line box on the font's own ascent and descent.
+  // Lines sit centered in their line box on the font's own ascent and descent.
   const metrics = context.measureText("Hg");
   const ascent = metrics.fontBoundingBoxAscent || fontSize * 0.8;
   const descent = metrics.fontBoundingBoxDescent || fontSize * 0.2;
@@ -211,7 +211,7 @@ export function drawText(
     context.shadowOffsetY = shadow ? shadow.offsetY * scale : 0;
   };
 
-  // The stroke is centred on the outline and the fill covers its inner
+  // The stroke is centered on the outline and the fill covers its inner
   // half, so the visible outline is the stroke width. The shadow is cast by
   // whichever is drawn first, so it is only drawn once.
   if (style.stroke) {

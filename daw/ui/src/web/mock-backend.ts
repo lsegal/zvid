@@ -1,6 +1,6 @@
 // A browser-side port of daw/crates/zvid-daw-ui/src/mock.rs and the event
 // and preview channels in channels.rs, so the editor runs without the Rust
-// harness. Keep its behaviour in step with the Rust mock.
+// harness. Keep its behavior in step with the Rust mock.
 
 import type {
   Camera,
@@ -461,7 +461,7 @@ function deviceFormatOf(camera: string): VideoFormat {
 const BARS = ["#c0c0c0", "#c0c000", "#00c0c0", "#00c000", "#c000c0", "#c00000"];
 
 /**
- * The colour-bar test pattern with a sweep line, as SVG. The Rust mock sends
+ * The color-bar test pattern with a sweep line, as SVG. The Rust mock sends
  * JPEG; the editor draws either, and SVG needs no canvas, so it works in
  * Node too.
  */

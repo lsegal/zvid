@@ -153,8 +153,8 @@ pub fn open_video(
 }
 
 /// A zvidlib video encoder fed from camera frames. HEVC takes BGRA or RGBA
-/// and AV1 takes 8-bit grey, so frames are converted, scaled down to fit
-/// `max_size`, and centre-cropped to the encoder's size.
+/// and AV1 takes 8-bit gray, so frames are converted, scaled down to fit
+/// `max_size`, and center-cropped to the encoder's size.
 pub struct VideoStream {
     encoder: Box<dyn VideoEncoder>,
     codec: Codec,
@@ -319,7 +319,7 @@ impl VideoStream {
         .map_err(|e| e.to_string())
     }
 
-    /// The frame scaled down to fit `max_size` and centre-cropped to the
+    /// The frame scaled down to fit `max_size` and center-cropped to the
     /// encoder's size, in the encoder's input format.
     fn cropped(&self, frame: &Frame) -> Result<Vec<u8>, String> {
         let (w, h) = (self.width as usize, self.height as usize);
@@ -347,7 +347,7 @@ impl VideoStream {
         })
     }
 
-    /// The whole frame scaled to fit inside the encoder's size and centred
+    /// The whole frame scaled to fit inside the encoder's size and centered
     /// on black, in the encoder's input format.
     fn letterboxed(&self, frame: &Frame) -> Result<Vec<u8>, String> {
         let (w, h) = (self.width as usize, self.height as usize);
@@ -405,11 +405,11 @@ impl VideoStream {
             to_rgb32(frame, x0, y0, w, h, bgra)
         } else {
             let (luma, sw) = (frame.luma(), frame.width as usize);
-            let mut grey = Vec::with_capacity(w * h);
+            let mut gray = Vec::with_capacity(w * h);
             for y in y0..y0 + h {
-                grey.extend_from_slice(&luma[y * sw + x0..y * sw + x0 + w]);
+                gray.extend_from_slice(&luma[y * sw + x0..y * sw + x0 + w]);
             }
-            grey
+            gray
         }
     }
 

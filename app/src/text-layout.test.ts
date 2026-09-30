@@ -77,7 +77,7 @@ describe("layoutText", () => {
     ]);
   });
 
-  it("aligns lines left, centre and right", () => {
+  it("aligns lines left, center and right", () => {
     const x = (align: TextLayoutOptions["align"]) =>
       layoutText(options({ align, text: "Hi" }), measure).lines[0].x;
     // "Hi" is 20px wide in a 200px box.

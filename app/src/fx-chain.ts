@@ -120,7 +120,7 @@ export function usesColumnLayout(controlCount: number) {
 
 // Splits a device's parameters into the full-width controls (enums), which
 // sit on their own rows first, and the knobs that fill the grid below them.
-// A colour listed after a knob, such as the Order's Border after Spacing,
+// A color listed after a knob, such as the Order's Border after Spacing,
 // sits in the knob grid beside it instead.
 export function splitDeviceParameters(parameters: FxDeviceParameter[]) {
   const firstKnob = parameters.findIndex(
@@ -137,7 +137,7 @@ export function splitDeviceParameters(parameters: FxDeviceParameter[]) {
   };
 }
 
-// The knobs split evenly into rows labelled `labels`, in order, such as a
+// The knobs split evenly into rows labeled `labels`, in order, such as a
 // Move's Start and End rows. Undefined when there are no labels or the
 // knobs don't split evenly, so they fill the usual two rows instead.
 export function splitKnobRows<T>(
@@ -247,7 +247,7 @@ export function getAutoScrollDelta(
   return 0;
 }
 
-// Parts of the chain that keep their own pointer behaviour: devices (knobs,
+// Parts of the chain that keep their own pointer behavior: devices (knobs,
 // controls and the title bars that reorder them), add slots and buttons.
 // Everything else (gaps, padding, the Global divider and the empty space
 // after the last slot) is background that hand-grab pans the chain.
@@ -337,7 +337,7 @@ export type FxLayerOption = {
   // Its position in the timeline, from 1.
   number: number;
   name: string;
-  // The layer's colour, for its swatch.
+  // The layer's color, for its swatch.
   color?: string;
 };
 

@@ -111,7 +111,7 @@ describe("resolveTextEditorPlacement", () => {
       y: b * x + d * y + f,
     });
 
-    // Resized by half about the centre, turned 90° clockwise and moved a
+    // Resized by half about the center, turned 90° clockwise and moved a
     // quarter of the canvas right: the box's top-left corner lands at the
     // top right of the rotated box.
     assert.equal(placement.width, 960);
@@ -206,7 +206,7 @@ describe("resolveTextEditorTypography", () => {
     assert.equal(typography.fontSize, 100);
     assertClose(typography.lineHeight, 120);
     assertClose(typography.letterSpacing, 10);
-    // One 120 px line centred in the 500 px box.
+    // One 120 px line centered in the 500 px box.
     assertClose(typography.paddingTop, (500 - 120) / 2);
     assert.equal(typography.paddingX, 20);
     assert.equal(typography.strokeWidth, 12);

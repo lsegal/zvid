@@ -97,7 +97,7 @@ describe("shared design tokens", () => {
     }
   });
 
-  it("uses the accent ink token instead of a hard-coded colour", () => {
+  it("uses the accent ink token instead of a hard-coded color", () => {
     for (const css of appStylesheets(new URL("./", import.meta.url))) {
       assert.doesNotMatch(css, /#0f1220/i);
     }

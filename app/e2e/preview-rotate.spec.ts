@@ -74,7 +74,7 @@ async function outlineRotation(page: Page) {
 }
 
 // The middle of the outline, which is the layer's default origin.
-async function outlineCentre(page: Page): Promise<Point> {
+async function outlineCenter(page: Page): Promise<Point> {
   const corners = await outlineCorners(page);
   return {
     x: corners.reduce((sum, corner) => sum + corner.x, 0) / corners.length,
@@ -82,7 +82,7 @@ async function outlineCentre(page: Page): Promise<Point> {
   };
 }
 
-async function handleCentre(page: Page): Promise<Point> {
+async function handleCenter(page: Page): Promise<Point> {
   const box = await page.getByTestId("preview-rotation-handle").boundingBox();
   if (!box) {
     throw new Error("rotation handle is not visible");
@@ -146,13 +146,13 @@ test("the preview rotates a layer with its handle and corner zones", async ({
   if (!monitor) {
     throw new Error("preview monitor is not visible");
   }
-  const centre = {
+  const center = {
     x: video.left + video.width / 2,
     y: video.top + video.height / 2,
   };
 
   // Select the layer; it fills the video, so its corners are the video's.
-  await page.mouse.click(centre.x, centre.y);
+  await page.mouse.click(center.x, center.y);
   await expect(page.getByTestId("preview-rotation-handle")).toHaveCount(1);
 
   // Just outside the bottom-right corner, in the letterbox bar beside or
@@ -171,7 +171,7 @@ test("the preview rotates a layer with its handle and corner zones", async ({
   // Adding the Transform shows it in the FX panel, which can resize the
   // monitor mid-drag; the angle is measured from where the drag began, so it
   // still follows the pointer.
-  await dragAround(page, zone, await outlineCentre(page), 30);
+  await dragAround(page, zone, await outlineCenter(page), 30);
   await expect(readout).toHaveText("30°");
   await page.mouse.up();
   await expect(readout).toHaveCount(0);
@@ -187,7 +187,7 @@ test("the preview rotates a layer with its handle and corner zones", async ({
   // Nudge the layer so it has a Transform and the layout settles, then move
   // it so its rotation handle, above the middle of its top edge, sits in the
   // letterbox bar outside the video.
-  await page.mouse.click(centre.x, centre.y);
+  await page.mouse.click(center.x, center.y);
   await page.keyboard.press("ArrowDown");
   await expect(transform).toHaveCount(1);
   const settledMonitor = await overlay.boundingBox();
@@ -195,9 +195,9 @@ test("the preview rotates a layer with its handle and corner zones", async ({
   if (!settledMonitor) {
     throw new Error("preview monitor is not visible");
   }
-  // Grab the layer below its centre, clear of the origin marker there.
-  const centred = await outlineCentre(page);
-  const start = { x: centred.x, y: centred.y + settled.height / 8 };
+  // Grab the layer below its center, clear of the origin marker there.
+  const centered = await outlineCenter(page);
+  const start = { x: centered.x, y: centered.y + settled.height / 8 };
   const pillarbox = settled.left - settledMonitor.x;
   const offset =
     pillarbox > 20
@@ -209,13 +209,13 @@ test("the preview rotates a layer with its handle and corner zones", async ({
     steps: 6,
   });
   await page.mouse.up();
-  const origin = await outlineCentre(page);
-  const handle = await handleCentre(page);
+  const origin = await outlineCenter(page);
+  const handle = await handleCenter(page);
   expect(
     handle.x > settled.left + settled.width || handle.y < settled.top,
   ).toBeTruthy();
 
-  // Dragging the handle from above the layer's centre to beside it is a
+  // Dragging the handle from above the layer's center to beside it is a
   // quarter turn, which settles exactly on 90 degrees.
   await expect(page.getByTestId("preview-rotation-handle")).toHaveCSS(
     "cursor",
@@ -236,16 +236,16 @@ test("the preview rotates a layer with its handle and corner zones", async ({
   await page.mouse.down();
   await page.mouse.move(start.x, start.y + settled.height / 4, { steps: 6 });
   await page.mouse.up();
-  const lowered = await outlineCentre(page);
+  const lowered = await outlineCenter(page);
   await page.keyboard.down("Shift");
-  await dragAround(page, await handleCentre(page), lowered, 41);
+  await dragAround(page, await handleCenter(page), lowered, 41);
   await expect(readout).toHaveText("45°");
   await page.mouse.up();
   await page.keyboard.up("Shift");
   expect(await outlineRotation(page)).toBeCloseTo(45, 1);
 
   // Double-clicking the handle straightens the layer.
-  const last = await handleCentre(page);
+  const last = await handleCenter(page);
   await page.mouse.dblclick(last.x, last.y);
   await expect
     .poll(async () => Math.abs(await outlineRotation(page)))

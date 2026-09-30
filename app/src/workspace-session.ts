@@ -1,4 +1,4 @@
-// Serialises the current session (project state, undo/redo history and view
+// Serializes the current session (project state, undo/redo history and view
 // state) into the string stored by the workspace store, and reads it back.
 //
 // History entries are full project snapshots, but consecutive snapshots

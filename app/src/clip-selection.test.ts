@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
 // The selected arrangement clip gets a neutral ring, a dark halo and a lift
-// from CSS, never a ring in its own accent colour: an amber clip's accent
+// from CSS, never a ring in its own accent color: an amber clip's accent
 // would otherwise look like the amber selection and playhead UI.
 const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
 const appCss = readFileSync(new URL("./App.css", import.meta.url), "utf8");
@@ -73,7 +73,7 @@ describe("selected clip ring", () => {
     assert.ok(zToken("selection") < zToken("playhead"));
   });
 
-  it("does not ring the selected clip in its accent colour", () => {
+  it("does not ring the selected clip in its accent color", () => {
     assert.doesNotMatch(appTsx, /0 0 0 2px \$\{clip\.accent\}/);
     assert.match(appTsx, /selected \? "clip-card--selected" : ""/);
   });

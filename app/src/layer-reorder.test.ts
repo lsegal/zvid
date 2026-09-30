@@ -12,7 +12,7 @@ import {
 const rows = [0, 1, 2, 3, 4].map((index) => ({ top: index * 72, height: 72 }));
 
 describe("layerDropIndex", () => {
-  it("stays put until the dragged row crosses a neighbour's middle", () => {
+  it("stays put until the dragged row crosses a neighbor's middle", () => {
     assert.equal(layerDropIndex(rows, 3, 3 * 72 + 36), 3);
     assert.equal(layerDropIndex(rows, 3, 2 * 72 + 37), 3);
     assert.equal(layerDropIndex(rows, 3, 2 * 72 + 35), 2);
@@ -86,8 +86,8 @@ describe("layerReorderAnnouncements", () => {
       "Dropped Layer 4, position 1 of 5",
     );
     assert.equal(
-      layerReorderAnnouncements.cancelled("Layer 4"),
-      "Cancelled moving Layer 4",
+      layerReorderAnnouncements.canceled("Layer 4"),
+      "Canceled moving Layer 4",
     );
   });
 });

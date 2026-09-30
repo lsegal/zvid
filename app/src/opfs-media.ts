@@ -150,7 +150,7 @@ export type OpfsMediaWorkerPort = {
 type OpfsMediaWorkerSuccess = Extract<OpfsMediaWorkerResponse, { ok: true }>;
 
 // Sends requests to the OPFS media worker. Failures are rethrown with the
-// worker's error name, so quota errors are still recognised.
+// worker's error name, so quota errors are still recognized.
 export function createOpfsMediaWorkerClient(port: OpfsMediaWorkerPort) {
   const pending = new Map<
     number,

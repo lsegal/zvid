@@ -96,7 +96,7 @@ test("Insert Text Clip adds a text clip edited from its Text effect", async ({
   // Anton only has a regular weight.
   await expect(weight.locator("option")).toHaveText(["Regular"]);
 
-  // Gradient fill swaps the colour swatch for a gradient one; the shadow
+  // Gradient fill swaps the color swatch for a gradient one; the shadow
   // controls show once it is on.
   await device
     .getByRole("group", { name: "Fill" })

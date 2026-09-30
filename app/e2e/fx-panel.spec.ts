@@ -65,7 +65,7 @@ test("Transform lays its knobs out in two rows", async ({ page }) => {
 
 // Move puts its Motion curve on its own row, then a Start row and an End row
 // of Transform's knobs, each led by its label.
-test("Move lays out Motion, then labelled Start and End rows", async ({
+test("Move lays out Motion, then labeled Start and End rows", async ({
   page,
 }) => {
   await page.goto("/");

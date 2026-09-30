@@ -76,14 +76,14 @@ const BACKGROUND_COLOR = [0.07, 0.08, 0.11, 1] as const;
 
 type ClearColor = readonly [number, number, number, number];
 
-// An Order's border colour for `gl.clearColor`, unpremultiplied.
+// An Order's border color for `gl.clearColor`, unpremultiplied.
 function borderClearColor(order: CompositionOrder): ClearColor {
   const { r, g, b, a } = order.borderColor ?? BLACK_BORDER;
   return [r / 255, g / 255, b / 255, Math.max(0, Math.min(1, a))];
 }
 
 // What the canvas is cleared to: the background, under the Global Order's
-// border colour when there is an Order, so a translucent border shows the
+// border color when there is an Order, so a translucent border shows the
 // background through it.
 function sceneClearColor(order: CompositionOrder): ClearColor {
   if (order.arrangement === "none") {
@@ -321,7 +321,7 @@ export function disposeWebGlResources(resources: WebGlResources) {
 // Restores everything the composite draw depends on. The effect chain and
 // render-target setup rebind the program, array buffer, attribute pointer,
 // blending, viewport and texture unit, so this runs before every draw
-// instead of relying on state left over from initialisation. Scissoring is
+// instead of relying on state left over from initialization. Scissoring is
 // left off; each layer draw scissors to its own slot.
 function bindCompositeState(
   resources: WebGlResources,
@@ -369,7 +369,7 @@ function drawQuad(
 }
 
 // Quad axes for a quad scaled by `scale`, turned clockwise by `radians` in
-// clip space and centred on `translate`.
+// clip space and centered on `translate`.
 function quadAxes(
   scale: [number, number],
   translate: [number, number],
@@ -796,7 +796,7 @@ function drawLayer(
 
   bindCompositeState(resources, target.framebuffer, width, height);
   // Every layer is cropped to its slot, transformed or not, so a Transform
-  // or Move never spills into a neighbouring slot or the spacing between
+  // or Move never spills into a neighboring slot or the spacing between
   // them.
   // Without an Order the slot is the whole of `target`: the canvas, or the
   // box of the FX clip arranging it.
@@ -885,7 +885,7 @@ export function drawComposition(
   };
 
   // An FX clip with an Order draws the layers beneath it into its own box,
-  // arranged by its Order over its border colour, runs the rest of its
+  // arranged by its Order over its border color, runs the rest of its
   // chain on the result and draws that into its box on `parent`. Nothing is
   // beneath it there but the background, which a translucent border shows.
   const drawArrangement = (

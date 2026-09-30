@@ -162,7 +162,7 @@ export function useLayerReorder({
 
     const { lane, fromIndex, targetIndex } = session;
     if (!commit) {
-      setAnnouncement(layerReorderAnnouncements.cancelled(lane.name));
+      setAnnouncement(layerReorderAnnouncements.canceled(lane.name));
       return;
     }
 

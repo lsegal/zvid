@@ -3,7 +3,7 @@ import ColorPicker from "react-best-gradient-color-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover";
 import type { FxParameterControlProps } from "../types";
 
-// A swatch that opens a colour or gradient picker in a popover. Picker drags
+// A swatch that opens a color or gradient picker in a popover. Picker drags
 // send transient edits, and closing the popover commits the last value as
 // one undo step.
 export function PaintControl({

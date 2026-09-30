@@ -69,10 +69,10 @@ export function useMainAudio({
     }
 
     const key = `${mainAudioId}\n${mainAudioUrl}`;
-    let cancelled = false;
+    let canceled = false;
     loadWaveformPeaks(mainAudioId, mainAudioUrl).then(
       (result) => {
-        if (!cancelled) {
+        if (!canceled) {
           setMainWaveform(
             result.status === "ready"
               ? { key, status: "ready", peaks: result.peaks }
@@ -85,13 +85,13 @@ export function useMainAudio({
           mediaId: mainAudioId,
           message: error instanceof Error ? error.message : String(error),
         });
-        if (!cancelled) {
+        if (!canceled) {
           setMainWaveform({ key, status: "error" });
         }
       },
     );
     return () => {
-      cancelled = true;
+      canceled = true;
     };
   }, [mainAudioId, mainAudioUrl]);
   const currentMainWaveform =

@@ -6,7 +6,7 @@
 export type LayerRowBox = { top: number; height: number };
 
 /**
- * The index layer `fromIndex` would move to with its centre at `centerY`:
+ * The index layer `fromIndex` would move to with its center at `centerY`:
  * past every other row whose middle it has crossed.
  */
 export function layerDropIndex(
@@ -71,5 +71,5 @@ export const layerReorderAnnouncements = {
     `Picked up ${layerReorderAnnouncements.position(name, index, count)}. Use the up and down arrow keys to move it, Space or Enter to drop it, Escape to cancel.`,
   dropped: (name: string, index: number, count: number) =>
     `Dropped ${layerReorderAnnouncements.position(name, index, count)}`,
-  cancelled: (name: string) => `Cancelled moving ${name}`,
+  canceled: (name: string) => `Canceled moving ${name}`,
 };

@@ -154,7 +154,7 @@ describe("space hold for hand-grab panning", () => {
     assert.equal(hold.release(), true);
   });
 
-  it("ignores releases without a press and cancelled holds", () => {
+  it("ignores releases without a press and canceled holds", () => {
     const hold = createSpaceHold();
     hold.markPanned();
     assert.equal(hold.release(), false);

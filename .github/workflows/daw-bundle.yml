@@ -24,7 +24,7 @@ on:
       - app/export-bridge/Cargo.toml
   workflow_dispatch:
 
-# Superseded PR runs are cancelled; main runs always finish so every merge
+# Superseded PR runs are canceled; main runs always finish so every merge
 # keeps its artifacts.
 concurrency:
   group: daw-bundle-${{ github.ref }}

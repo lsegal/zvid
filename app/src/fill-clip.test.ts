@@ -133,7 +133,7 @@ describe("addFillClip", () => {
     });
   });
 
-  it("defaults to neutral grey on a layer without an accent", () => {
+  it("defaults to neutral gray on a layer without an accent", () => {
     assert.equal(getDefaultFillColor(undefined), "rgba(128,128,128,1)");
     assert.equal(getDefaultFillColor("#ff6f9d"), "rgba(255,111,157,1)");
   });
@@ -207,7 +207,7 @@ describe("Color effect parameters", () => {
       ?.parameters.map((parameter) => [parameter.key, parameter.kind]);
   }
 
-  it("shows the colour picker in Solid mode", () => {
+  it("shows the color picker in Solid mode", () => {
     assert.deepEqual(colorParameterKeys(effects), [
       ["Mode", "enum"],
       ["Color", "color"],
@@ -228,7 +228,7 @@ describe("Color effect parameters", () => {
     );
   });
 
-  it("stores picked colours as strings", () => {
+  it("stores picked colors as strings", () => {
     const next = setEffectParameter(
       effects,
       "color-a",

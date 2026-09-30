@@ -124,7 +124,7 @@ export const INITIAL_PROJECT_STATE: ProjectState = {
   clipContentEffects: true,
 };
 
-// Card colours of fill clips on layers without an accent.
+// Card colors of fill clips on layers without an accent.
 export const FILL_CLIP_TINT = "#2a2d38";
 
 export const FILL_CLIP_ACCENT = "#8d93a8";

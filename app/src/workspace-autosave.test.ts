@@ -137,7 +137,7 @@ describe("workspace autosave", () => {
     assert.deepEqual(harness.writes, []);
   });
 
-  it("reports serialisation and write errors and keeps working", async () => {
+  it("reports serialization and write errors and keeps working", async () => {
     const errors: unknown[] = [];
     let fail = true;
     const writes: string[] = [];

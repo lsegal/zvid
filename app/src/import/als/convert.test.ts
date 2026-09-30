@@ -573,8 +573,8 @@ describe("convertAls with synthetic sets", () => {
     assert.equal("trimmed" in summary, false);
   });
 
-  it("gives the source tracks cycling palette colours, in track order", () => {
-    // An audio track between video tracks is dropped and takes no colour.
+  it("gives the source tracks cycling palette colors, in track order", () => {
+    // An audio track between video tracks is dropped and takes no color.
     const tracks = [
       ...Array.from({ length: 3 }, (_, index) =>
         videoTrack({ id: 10 + index, name: `Cam ${index + 1}` }),
@@ -597,7 +597,7 @@ describe("convertAls with synthetic sets", () => {
         ["Cam 7", 0],
       ],
     );
-    // Main layers keep no palette colour.
+    // Main layers keep no palette color.
     assert.deepEqual(
       session.mainTracks?.map(({ colorIndex }) => colorIndex),
       [-1],

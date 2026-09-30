@@ -170,7 +170,7 @@ describe("peer media sync status", () => {
     );
   });
 
-  it("summarises overall progress across files", () => {
+  it("summarizes overall progress across files", () => {
     let map = withPeerMediaProgress(empty, "m1", {
       phase: "receiving",
       received: 50,

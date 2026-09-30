@@ -46,7 +46,7 @@ pub struct TakeFrames {
     codec: Codec,
     profile: CodecProfile,
     limits: Limits,
-    /// The colour range that last decoded, tried first for the next group.
+    /// The color range that last decoded, tried first for the next group.
     color_range: Option<ColorRange>,
     /// The group being decoded: its decode-order samples and their reader.
     group: Option<(Range<usize>, ExactFrameReader)>,
@@ -135,7 +135,7 @@ impl TakeFrames {
         samples: Vec<EncodedVideoSample>,
         target: usize,
     ) -> zvidlib::Result<(ExactFrameReader, VideoFrame)> {
-        // AV1 carries its colour range in the stream and the reader insists
+        // AV1 carries its color range in the stream and the reader insists
         // the output matches the configuration, so try the capture default
         // first, or whichever range the last group decoded with.
         let ranges: &[ColorRange] = match (self.codec, self.color_range) {
@@ -148,7 +148,7 @@ impl TakeFrames {
             Codec::Av1 => Box::new(native_av1_video_decoder_factory()),
             _ => Box::new(native_hevc_video_decoder_factory()),
         };
-        let mut result = Err(Error::new(ErrorKind::Codec, "no colour range to try"));
+        let mut result = Err(Error::new(ErrorKind::Codec, "no color range to try"));
         for &color_range in ranges {
             let configuration = VideoDecoderConfig {
                 codec: self.codec,
