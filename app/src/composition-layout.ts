@@ -279,8 +279,7 @@ export function resolveSlotMotions<T extends StackedLayer>(
       let weight = 1;
       groups.forEach((group, groupIndex) => {
         if (groupIndex !== forced) {
-          weight *=
-            mask & (1 << groupIndex) ? group.weight : 1 - group.weight;
+          weight *= mask & (1 << groupIndex) ? group.weight : 1 - group.weight;
         }
       });
       if (weight <= 0) {
@@ -526,8 +525,7 @@ function resolveMovingSlotRect(
     return resolveSlotRect(index, count, order, width, height);
   }
 
-  const total =
-    motion.slots.reduce((sum, { weight }) => sum + weight, 0) || 1;
+  const total = motion.slots.reduce((sum, { weight }) => sum + weight, 0) || 1;
   return motion.slots.reduce(
     (rect, { slot, slotCount, weight }) => {
       const share = weight / total;

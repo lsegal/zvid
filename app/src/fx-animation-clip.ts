@@ -229,10 +229,7 @@ export function resolveOrderSlide(
   if (!animation?.enabled || animation.mode !== "clip") {
     return undefined;
   }
-  const frames = getClipTimingFrames(
-    ORDER_EFFECT_NAME,
-    animation.clip.timing,
-  );
+  const frames = getClipTimingFrames(ORDER_EFFECT_NAME, animation.clip.timing);
   return frames === undefined
     ? undefined
     : {
