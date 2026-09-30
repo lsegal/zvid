@@ -220,12 +220,15 @@ export function moveEffect(
   );
 }
 
+// A new effect with the registry defaults. Effects that support animation
+// come with their Animation modifier turned on, at its defaults.
 export function createEffect(
   trackId: string,
   effectName: string,
   id: string = crypto.randomUUID(),
 ): SessionEffect {
   const definition = getEffectDefinition(effectName);
+  const animation = createDefaultAnimation(effectName);
   return {
     id,
     trackId,
@@ -234,6 +237,7 @@ export function createEffect(
       createParameter(parameter, parameter.defaultValue),
     ),
     enabled: true,
+    ...(animation ? { animation } : {}),
   };
 }
 
@@ -305,8 +309,9 @@ export function removeEffect(effects: SessionEffect[], effectId: string) {
   return [...effects.slice(0, index), ...effects.slice(index + 1)];
 }
 
-// Inserts a copy of an effect, with its parameters and bypass state, right
-// after the original in the same stack.
+// Inserts a copy of an effect, with its parameters, bypass state and
+// animation, right after the original in the same stack. A copy of an effect
+// saved without animation gets the defaults, as a new effect would.
 export function duplicateEffect(
   effects: SessionEffect[],
   effectId: string,
@@ -318,19 +323,20 @@ export function duplicateEffect(
   }
 
   const source = effects[index];
+  const animation = source.animation
+    ? cloneAnimation(source.animation)
+    : createDefaultAnimation(source.effectName);
   const copy: SessionEffect = {
     ...source,
     id,
     parameters: source.parameters.map((parameter) => ({ ...parameter })),
-    ...(source.animation
-      ? { animation: cloneAnimation(source.animation) }
-      : {}),
+    ...(animation ? { animation } : {}),
   };
   return [...effects.slice(0, index + 1), copy, ...effects.slice(index + 1)];
 }
 
-// Puts an effect's parameters back to the registry defaults and turns it
-// back on. Unrecognized parameters are kept, since they have no default.
+// Puts an effect's parameters and animation back to the defaults and turns
+// it back on. Unrecognized parameters are kept, since they have no default.
 export function resetEffect(effects: SessionEffect[], effectId: string) {
   return updateEffect(effects, effectId, (effect) => {
     const defaults = createEffect(effect.trackId, effect.effectName, effect.id);
@@ -343,6 +349,8 @@ export function resetEffect(effects: SessionEffect[], effectId: string) {
     ];
     const unchanged =
       effect.enabled !== false &&
+      JSON.stringify(defaults.animation) ===
+        JSON.stringify(effect.animation) &&
       parameters.length === effect.parameters.length &&
       parameters.every((parameter) => {
         const current = effect.parameters.find(
@@ -353,7 +361,17 @@ export function resetEffect(effects: SessionEffect[], effectId: string) {
           current.numericValue === parameter.numericValue
         );
       });
-    return unchanged ? effect : { ...effect, parameters, enabled: true };
+    if (unchanged) {
+      return effect;
+    }
+
+    const { animation: _animation, ...rest } = effect;
+    return {
+      ...rest,
+      parameters,
+      enabled: true,
+      ...(defaults.animation ? { animation: defaults.animation } : {}),
+    };
   });
 }
 

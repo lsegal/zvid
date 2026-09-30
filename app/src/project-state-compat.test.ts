@@ -79,6 +79,11 @@ describe("migrateDefaultOrder", () => {
     assert.equal(value("Spacing")?.numericValue, 0);
   });
 
+  it("adds the older session's Order without animation", () => {
+    const [order] = globalOrders(migrateDefaultOrder([], undefined));
+    assert.equal("animation" in order, false);
+  });
+
   it("keeps the Global stack of a session saved without Order since", () => {
     const effects = addEffect([], GLOBAL_EFFECT_TRACK_ID, "Colorize", 0, "c");
     assert.equal(migrateDefaultOrder(effects, true), effects);
