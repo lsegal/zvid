@@ -578,7 +578,10 @@ The DAW bundles workflow signs the bundles and the desktop app whenever
 `APPLE_CERTIFICATE` is set, and otherwise builds ad-hoc signed bundles, an
 unsigned `.pkg` and an unsigned app. It signs the `.pkg` only when
 `APPLE_INSTALLER_CERTIFICATE` is also set, and notarizes the signed `.pkg`
-and the app with the API key. It uses these repository secrets:
+and the app with the API key. Builds of `main` fail unless both the `.pkg`
+and the app are notarized with stapled tickets, so a missing or broken secret
+can't publish unsigned installers; pull request builds keep the unsigned
+fallback. It uses these repository secrets:
 
 | Secret | Contents |
 |---|---|

@@ -227,6 +227,7 @@ jobs:
           done
           ls -l target/installer/*.pkg
 
+      # Builds of main fail unless the .pkg is signed, notarized and stapled.
       # Installs the .pkg as a user would, checks both bundles landed in
       # /Library/Audio/Plug-Ins with valid signatures, and runs Apple's AU validation against the installed
       # component.
@@ -235,13 +236,19 @@ jobs:
         env:
           SIGNED: ${{ steps.signing.outputs.installer_signed }}
           NOTARIZED: ${{ steps.signing.outputs.installer_signed && secrets.APPLE_API_KEY != '' }}
+          REQUIRE_NOTARIZED: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
         run: |
           pkg="target/installer/${{ matrix.installer }}"
+          if [ "$REQUIRE_NOTARIZED" = true ] && [ "$NOTARIZED" != true ]; then
+            echo "::error::main builds must be signed and notarized; check the APPLE_* signing secrets"
+            exit 1
+          fi
           if [ "$SIGNED" = true ]; then
             pkgutil --check-signature "$pkg"
           fi
           if [ "$NOTARIZED" = true ]; then
             spctl --assess --type install --verbose "$pkg"
+            xcrun stapler validate "$pkg"
           fi
           sudo installer -pkg "$pkg" -target /
           for bundle in "/Library/Audio/Plug-Ins/VST3/ZVID Capture.vst3" \
@@ -514,14 +521,20 @@ jobs:
           ls -l "target/desktop/$INSTALLER"
 
       # Mounts the .dmg and checks the app in it is arm64 only and, when
-      # signed, has a valid signature Gatekeeper accepts.
+      # signed, has a valid signature Gatekeeper accepts and a stapled
+      # notarization ticket. Builds of main fail unless they're notarized.
       - name: Verify (macOS)
         if: runner.os == 'macOS'
         env:
           INSTALLER: target/desktop/${{ matrix.installer }}
           SIGNED: ${{ steps.build.outputs.signed }}
           NOTARIZED: ${{ steps.build.outputs.notarized }}
+          REQUIRE_NOTARIZED: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
         run: |
+          if [ "$REQUIRE_NOTARIZED" = true ] && [ "$NOTARIZED" != true ]; then
+            echo "::error::main builds must be signed and notarized; check the APPLE_* signing secrets"
+            exit 1
+          fi
           mount="$RUNNER_TEMP/zvid-dmg"
           hdiutil attach "$INSTALLER" -nobrowse -readonly -mountpoint "$mount"
           app="$mount/zvid.app"
@@ -537,6 +550,7 @@ jobs:
           fi
           if [ "$NOTARIZED" = true ]; then
             spctl --assess --type execute --verbose "$app"
+            xcrun stapler validate "$app"
           fi
           hdiutil detach "$mount"
 
