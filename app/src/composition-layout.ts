@@ -15,6 +15,12 @@ import {
   visibleLayerCount,
   Z_ORDER_COMPOSITION,
 } from "./composition-order.ts";
+import {
+  isSquishOrder,
+  resolveSquishRect,
+  type SlotCollapse,
+  type SlotRect,
+} from "./composition-squish.ts";
 import type {
   LayerTransform,
   TransformMotion,
@@ -76,11 +82,18 @@ type StackedLayer = {
 
 // How an animated Order's layer sits between arrangements while clips
 // enter and exit. Its slot is the weighted sum of `slots`, each a slot
-// `slot` of `slotCount` of the Order, and it is drawn `slide` of the way
-// out of that slot towards the canvas edge it enters from, 0 in place to
-// 1 just off the canvas, cropped to the slot.
+// `slot` of `slotCount` of the Order, and it is `slide` of the way out of
+// it, 0 in place. With Push it is drawn that far towards the canvas edge it
+// enters from, 1 just off the canvas, cropped to the slot. With Squish it
+// is collapsed that far towards `collapse`, where the others leave a gap
+// for it (see composition-squish.ts), 1 zero wide or high.
 export type SlotMotion = {
-  slots: { slot: number; slotCount: number; weight: number }[];
+  slots: {
+    slot: number;
+    slotCount: number;
+    weight: number;
+    collapse?: SlotCollapse;
+  }[];
   slide: number;
 };
 
@@ -292,12 +305,26 @@ export function resolveSlotMotions<T extends StackedLayer>(
           return group < 0 || Boolean(mask & (1 << group));
         });
       const slot = present.indexOf(index);
-      const key = `${slot}/${present.length}`;
+      // Where a moving layer's slot is among the others without its group.
+      const others = present.filter((other) => groupOf(other) !== forced);
+      const collapse =
+        forced >= 0
+          ? {
+              boundary: others.filter((other) => other < index).length,
+              slotCount: others.length,
+            }
+          : undefined;
+      const key = `${slot}/${present.length}/${collapse?.boundary}/${collapse?.slotCount}`;
       const existing = slots.get(key);
       if (existing) {
         existing.weight += weight;
       } else {
-        slots.set(key, { slot, slotCount: present.length, weight });
+        slots.set(key, {
+          slot,
+          slotCount: present.length,
+          weight,
+          ...(collapse ? { collapse } : {}),
+        });
       }
     }
     return [...slots.values()];
@@ -509,10 +536,8 @@ function resolveSlotRect(
   return { left: x.start, right: x.end, top: y.start, bottom: y.end };
 }
 
-type SlotRect = ReturnType<typeof resolveSlotRect>;
-
 // Slot `index`, or the slot a moving layer is at: the weighted sum of the
-// slots it is between.
+// slots it is between. A squishing layer is at each of them squished.
 function resolveMovingSlotRect(
   index: number,
   count: number,
@@ -526,10 +551,26 @@ function resolveMovingSlotRect(
   }
 
   const total = motion.slots.reduce((sum, { weight }) => sum + weight, 0) || 1;
+  const squish = isSquishOrder(order) && motion.slide > 0;
+  const slotRect = (slot: number, slotCount: number) =>
+    resolveSlotRect(slot, slotCount, order, width, height);
   return motion.slots.reduce(
-    (rect, { slot, slotCount, weight }) => {
+    (rect, { slot, slotCount, weight, collapse }) => {
       const share = weight / total;
-      const next = resolveSlotRect(slot, slotCount, order, width, height);
+      const settled = slotRect(slot, slotCount);
+      const next = squish
+        ? resolveSquishRect(
+            settled,
+            slot,
+            slotCount,
+            collapse,
+            order,
+            width,
+            height,
+            slotRect,
+            1 - motion.slide,
+          )
+        : settled;
       return {
         left: rect.left + next.left * share,
         right: rect.right + next.right * share,
@@ -597,7 +638,7 @@ function resolveSlideRect(
 }
 
 // The box slot `index` draws its layer in. A moving layer (`motion`) is
-// drawn where it has got to, which a slide can take out of its slot.
+// drawn where it has got to, which a Push can take out of its slot.
 export function resolveSlotBounds(
   index: number,
   count: number,
@@ -613,7 +654,7 @@ export function resolveSlotBounds(
     order,
     width,
     height,
-    motion?.slide ?? 0,
+    isSquishOrder(order) ? 0 : (motion?.slide ?? 0),
   );
   return {
     centerX: (slot.left + slot.right) / width - 1,
@@ -628,7 +669,8 @@ export function resolveSlotBounds(
 // `resolveBandScissor`, edges are rounded from the same positions for
 // neighboring slots, so without spacing the boxes tile the surface with no
 // gap or overlap at any size. A moving layer (`motion`) is cropped to the
-// slot it is at, even while it slides into or out of it.
+// slot it is at, even while it slides into or out of it, or to the box it
+// is squished to.
 export function resolveSlotScissor(
   index: number,
   count: number,

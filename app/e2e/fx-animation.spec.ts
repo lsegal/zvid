@@ -153,3 +153,35 @@ test("Order's Animation offers only Clip mode", async ({ page }) => {
   await expect(section.getByLabel("Motion Out")).toHaveValue("Ease In");
   await expect(section.locator(".knob__label")).toHaveCount(0);
 });
+
+// Order's Clip mode also picks how clips enter and exit its arrangement:
+// Squish, for a new Order, or Push. No other device offers it.
+test("Order's Animation section picks a Transition", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('[data-layer-header-id="1"]').click();
+  // A new session's Global Order is animated, at Order's defaults.
+  await expect(
+    page
+      .locator('section[aria-label="Order"]')
+      .getByRole("button", { name: "Turn Animation Off for Order" }),
+  ).toHaveAttribute("aria-pressed", "true");
+
+  const section = page.locator('section[aria-label="Order animation"]');
+  const transition = section.getByRole("group", { name: "Transition" });
+  await expect(transition.getByRole("button")).toHaveText(["Push", "Squish"]);
+  await expect(
+    transition.getByRole("button", { name: "Squish" }),
+  ).toHaveAttribute("aria-pressed", "true");
+
+  await transition.getByRole("button", { name: "Push" }).click();
+  await expect(
+    transition.getByRole("button", { name: "Push" }),
+  ).toHaveAttribute("aria-pressed", "true");
+
+  await addLayerEffect(page, /^Pixelate/);
+  await expect(
+    page
+      .locator('section[aria-label="Pixelate animation"]')
+      .getByRole("group", { name: "Transition" }),
+  ).toHaveCount(0);
+});

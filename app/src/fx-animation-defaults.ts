@@ -33,10 +33,20 @@ export const FULL_CLIP_TIMING = "Full";
 export const CLIP_TIMINGS = [...ANIMATION_TIMINGS, FULL_CLIP_TIMING] as const;
 export type ClipTiming = (typeof CLIP_TIMINGS)[number];
 
+// How an Order's clips enter and exit its arrangement: Push slides them in
+// from a canvas edge, Squish grows them from zero width or height.
+export const ORDER_TRANSITIONS = ["Push", "Squish"] as const;
+export type OrderTransition = (typeof ORDER_TRANSITIONS)[number];
+
+// Order sessions saved before Transition existed keep sliding.
+const LEGACY_ORDER_TRANSITION: OrderTransition = "Push";
+
 export type ClipAnimation = {
   motionIn: ClipMotion;
   motionOut: ClipMotion;
   timing: ClipTiming;
+  // Order only.
+  transition?: OrderTransition;
 };
 
 export type ReactiveAnimation = {
@@ -113,10 +123,23 @@ function defaults(
   };
 }
 
+function withTransition(
+  effectDefaults: FxAnimationDefaults,
+  transition: OrderTransition,
+): FxAnimationDefaults {
+  return {
+    ...effectDefaults,
+    clip: { ...effectDefaults.clip, transition },
+  };
+}
+
 const ANIMATION_DEFAULTS: ReadonlyMap<string, FxAnimationDefaults> = new Map([
   // Order arranges layers; jiggling its arrangement on audio hits isn't a
   // meaningful effect, so it only animates in Clip mode.
-  [ORDER_EFFECT_NAME, clipDefaults("Ease Out", "Ease In", [7, 5, 3])],
+  [
+    ORDER_EFFECT_NAME,
+    withTransition(clipDefaults("Ease Out", "Ease In", [7, 5, 3]), "Squish"),
+  ],
   [
     "Transform",
     defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.3, [
@@ -296,6 +319,15 @@ export function normalizeEffectAnimation(
         fallback.clip.motionOut,
       ),
       timing: readOption(clip.timing, CLIP_TIMINGS, fallback.clip.timing),
+      ...(fallback.clip.transition
+        ? {
+            transition: readOption(
+              clip.transition,
+              ORDER_TRANSITIONS,
+              LEGACY_ORDER_TRANSITION,
+            ),
+          }
+        : {}),
     },
     ...(fallback.reactive
       ? { reactive: normalizeReactive(raw.reactive, fallback.reactive) }
