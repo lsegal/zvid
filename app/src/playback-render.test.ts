@@ -3,6 +3,22 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
 const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const timelineToolbarTsx = readFileSync(
+  new URL("./components/timeline/TimelineToolbar.tsx", import.meta.url),
+  "utf8",
+);
+const timelineTsx = readFileSync(
+  new URL("./components/timeline/Timeline.tsx", import.meta.url),
+  "utf8",
+);
+const rulerTsx = readFileSync(
+  new URL("./components/timeline/Ruler.tsx", import.meta.url),
+  "utf8",
+);
+const timelineSource = `${appTsx}
+${timelineToolbarTsx}
+${timelineTsx}
+${rulerTsx}`;
 const usePlaybackTs = readFileSync(
   new URL("./hooks/usePlayback.ts", import.meta.url),
   "utf8",
@@ -30,18 +46,21 @@ describe("playback rendering", () => {
 
   it("draws per-frame readouts from the playhead signal", () => {
     assert.match(
-      appTsx,
+      timelineToolbarTsx,
       /<TransportPlayheadReadout\s+signal=\{playheadSignal\}/,
     );
     assert.match(
-      appTsx,
+      timelineTsx,
       /<PlayheadLine\s+className="timeline-playhead"\s+signal=\{playheadSignal\}/,
     );
     assert.match(
-      appTsx,
+      rulerTsx,
       /<PlayheadLine\s+className="timeline-playhead-marker"\s+signal=\{playheadSignal\}/,
     );
-    assert.doesNotMatch(appTsx, /left: labelWidth \+ playheadTimelinePx/);
+    assert.doesNotMatch(
+      timelineSource,
+      /left: labelWidth \+ playheadTimelinePx/,
+    );
   });
 
   it("renders the preview from the live playhead while playing", () => {

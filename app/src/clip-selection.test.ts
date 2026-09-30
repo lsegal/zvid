@@ -5,7 +5,10 @@ import { describe, it } from "node:test";
 // The selected arrangement clip gets a neutral ring, a dark halo and a lift
 // from CSS, never a ring in its own accent color: an amber clip's accent
 // would otherwise look like the amber selection and playhead UI.
-const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const clipCardTsx = readFileSync(
+  new URL("./components/timeline/ClipCard.tsx", import.meta.url),
+  "utf8",
+);
 const appCss = readFileSync(new URL("./App.css", import.meta.url), "utf8");
 const tokensCss = readFileSync(
   new URL("../../packages/tokens/tokens.css", import.meta.url),
@@ -74,7 +77,7 @@ describe("selected clip ring", () => {
   });
 
   it("does not ring the selected clip in its accent color", () => {
-    assert.doesNotMatch(appTsx, /0 0 0 2px \$\{clip\.accent\}/);
-    assert.match(appTsx, /selected \? "clip-card--selected" : ""/);
+    assert.doesNotMatch(clipCardTsx, /0 0 0 2px \$\{clip\.accent\}/);
+    assert.match(clipCardTsx, /selected \? "clip-card--selected" : ""/);
   });
 });

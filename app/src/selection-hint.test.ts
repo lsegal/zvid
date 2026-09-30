@@ -11,7 +11,10 @@ import {
   selectionHint,
 } from "./selection-hint.ts";
 
-const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const selectionOverlayTsx = readFileSync(
+  new URL("./components/timeline/SelectionOverlay.tsx", import.meta.url),
+  "utf8",
+);
 const appCss = readFileSync(new URL("./App.css", import.meta.url), "utf8");
 
 // Smallest widths that fit each hint inside its padding and 1px borders.
@@ -61,9 +64,12 @@ describe("selection hint", () => {
   });
 
   it("is wired into the timeline selection render", () => {
-    assert.match(appTsx, /selectionHint\(width\)/);
-    assert.match(appTsx, /paddingInline: hint\.paddingPx/);
-    assert.doesNotMatch(appTsx, /<span>Press 1-9 to commit<\/span>/);
+    assert.match(selectionOverlayTsx, /selectionHint\(width\)/);
+    assert.match(selectionOverlayTsx, /paddingInline: hint\.paddingPx/);
+    assert.doesNotMatch(
+      selectionOverlayTsx,
+      /<span>Press 1-9 to commit<\/span>/,
+    );
   });
 
   it("clips the selection box contents", () => {

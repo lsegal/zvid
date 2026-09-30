@@ -9,7 +9,10 @@ import {
   writeSourceTracksCollapsed,
 } from "./source-tracks-section.ts";
 
-const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const sourceTracksTsx = readFileSync(
+  new URL("./components/timeline/SourceTracks.tsx", import.meta.url),
+  "utf8",
+);
 
 function memoryStorage() {
   const values = new Map<string, string>();
@@ -59,7 +62,9 @@ describe("source tracks section", () => {
 
   it("counts source tracks, not media items, in the header", () => {
     const counts = [
-      ...appTsx.matchAll(/\{pluralize\(([^,]+), "track"\)\}\s*in\s+session/g),
+      ...sourceTracksTsx.matchAll(
+        /\{pluralize\(([^,]+), "track"\)\}\s*in\s+session/g,
+      ),
     ].map((match) => match[1]);
     assert.equal(counts.length, 2, "expected both header branches");
     for (const count of counts) {
@@ -68,15 +73,18 @@ describe("source tracks section", () => {
   });
 
   it("exposes the toggle state to assistive tech", () => {
-    const start = appTsx.indexOf('className="source-header__toggle"');
+    const start = sourceTracksTsx.indexOf('className="source-header__toggle"');
     assert.notEqual(start, -1, "missing source tracks toggle");
-    const toggle = appTsx.slice(appTsx.lastIndexOf("<button", start), start);
+    const toggle = sourceTracksTsx.slice(
+      sourceTracksTsx.lastIndexOf("<button", start),
+      start,
+    );
     assert.match(toggle, /aria-expanded=\{!isSourceTracksCollapsed\}/);
   });
 
   it("keeps the collapsed header a new-track drop target", () => {
     assert.match(
-      appTsx,
+      sourceTracksTsx,
       /data-source-track-drop-target=\{\s*isSourceHeaderDropTarget \? "new-track" : undefined\s*\}/,
     );
   });
