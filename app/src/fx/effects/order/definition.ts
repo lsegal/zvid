@@ -6,8 +6,9 @@ import {
   GRID_SIZE_MAX,
   GRID_SIZE_MIN,
   ORDER_ARRANGEMENTS,
+  LEGACY_OUTER_MARGIN_KEY,
+  MARGIN_KEY,
   ORDER_EFFECT_NAME,
-  OUTER_MARGIN_OPTIONS,
   SPACING_MAX,
 } from "./order.ts";
 
@@ -23,6 +24,10 @@ export const definition: FxEffectDefinition = {
   known: true,
   // On an FX clip it arranges the layers beneath the clip.
   scopes: ["global", "fxClip"],
+  // The Margin On/Off toggle, now the Margin knob. Sessions and restored
+  // workspaces migrate it (migrateOrderOuterMargin); remote snapshots are
+  // left as their peer sent them and still read (parseCompositionOrder).
+  retiredParameters: [LEGACY_OUTER_MARGIN_KEY],
   parameters: [
     {
       kind: "enum",
@@ -59,21 +64,28 @@ export const definition: FxEffectDefinition = {
       step: 1,
       format: formatPixels,
     },
-    // Insets the arrangement by its spacing too, so the border frames it.
+    // Insets the arrangement from the edges, so the border frames it. The
+    // same range as Spacing.
     {
-      kind: "enum",
-      key: "OuterMargin",
+      kind: "number",
+      key: MARGIN_KEY,
       label: "Margin",
-      options: OUTER_MARGIN_OPTIONS,
-      defaultValue: "Off",
+      min: 0,
+      max: SPACING_MAX,
+      defaultValue: 0,
+      step: 1,
+      format: formatPixels,
     },
     {
       kind: "color",
       key: "BorderColor",
       label: "Border",
       defaultValue: DEFAULT_BORDER_COLOR,
-      // Without spacing there are no gaps to color.
-      dimmedWhen: { key: "Spacing", values: ["0"] },
+      // Without spacing or a margin there are no gaps to color.
+      dimmedWhen: [
+        { key: "Spacing", values: ["0"] },
+        { key: MARGIN_KEY, values: ["0"] },
+      ],
     },
   ],
 };

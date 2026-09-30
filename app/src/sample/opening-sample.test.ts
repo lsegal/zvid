@@ -103,7 +103,7 @@ describe("zvid opening sample", () => {
         const [order] = effectsOn(`clip:${clip.id}`);
         assert.equal(order.effectName, "Order");
         assert.equal(numberParameter(order, "Spacing"), 108);
-        assert.equal(stringParameter(order, "OuterMargin"), "On");
+        assert.equal(numberParameter(order, "Margin"), 108);
         assert.equal(
           stringParameter(order, "BorderColor"),
           "rgba(243,226,191,1)",

@@ -174,7 +174,13 @@ function isParameterDimmed(
 ) {
   const condition =
     "dimmedWhen" in parameter ? parameter.dimmedWhen : undefined;
-  return !!condition && matchesCondition(condition, definition, effect);
+  const conditions = condition ? [condition].flat() : [];
+  return (
+    conditions.length > 0 &&
+    conditions.every((candidate) =>
+      matchesCondition(candidate, definition, effect),
+    )
+  );
 }
 
 // Layers an enabled Order grid has no cell for, when there are any. Layers
