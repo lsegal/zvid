@@ -89,8 +89,13 @@ export type ExportRequest = {
   settings: SessionSettings;
   durationSeconds: number;
   frameCount: number;
+  // Where on the session timeline the export starts; the video and the
+  // main audio both begin there. Defaults to the session start.
+  startSeconds?: number;
   bpm: number;
   mainAudio?: MediaItem;
+  // Aborting stops the export before it saves anything.
+  signal?: AbortSignal;
   renderFrameAt(playheadQ: number, playheadSeconds: number): Promise<void>;
   setPlayheadQ(playheadQ: number): void;
   onProgress(update: ExportProgress): void;
