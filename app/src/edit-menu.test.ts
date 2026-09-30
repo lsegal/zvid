@@ -1,12 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import {
-  buildClipMenuEntries,
-  buildSelectionMenuEntries,
-  type ClipMenuActions,
-} from "./clip-menu.ts";
 import type { ContextMenuEntry, ContextMenuItem } from "./context-menu.ts";
-import { buildEditMenuEntries } from "./edit-menu.ts";
+import { buildClipMenuEntries, type ClipMenuActions } from "./menus/clip-menu.ts";
+import { buildEditMenuEntries } from "./menus/edit-menu.ts";
+import { buildSelectionMenuEntries } from "./menus/selection-menu.ts";
 
 function items(entries: readonly ContextMenuEntry[]) {
   return entries.filter(
