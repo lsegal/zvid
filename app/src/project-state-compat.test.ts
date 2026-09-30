@@ -77,6 +77,7 @@ describe("migrateOrderOuterMargin", () => {
     id: "order",
     trackId: GLOBAL_EFFECT_TRACK_ID,
     effectName,
+    enabled: true,
     parameters: [
       { key: "Arrangement", value: "Grid" },
       { key: "Spacing", value: "24", numericValue: 24 },

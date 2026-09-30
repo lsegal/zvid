@@ -489,24 +489,13 @@ export function resolveSlotGrid(count: number, order: CompositionOrder) {
 
 // Order spacing and margin are in output pixels at 1080p, so they keep the
 // same share of the frame at any output size.
-function scaleTo1080(value: number, width: number, height: number) {
-  return (value * Math.max(0, Math.min(width, height))) / 1080;
-}
-
 export function resolveSpacingPixels(
   order: CompositionOrder,
   width: number,
   height: number,
+  value = order.spacing,
 ) {
-  return scaleTo1080(order.spacing, width, height);
-}
-
-export function resolveMarginPixels(
-  order: CompositionOrder,
-  width: number,
-  height: number,
-) {
-  return scaleTo1080(order.margin ?? 0, width, height);
+  return (value * Math.max(0, Math.min(width, height))) / 1080;
 }
 
 // Start and end, in pixels, of cell `index` of `cells` equal cells across
@@ -564,7 +553,7 @@ function resolveSlotRect(
 
   const { columns, rows } = resolveSlotGrid(count, order);
   const gap = resolveSpacingPixels(order, width, height);
-  const margin = resolveMarginPixels(order, width, height);
+  const margin = resolveSpacingPixels(order, width, height, order.margin ?? 0);
   const x = resolveCellEdges(index % columns, columns, width, gap, margin);
   const y = resolveCellEdges(
     Math.floor(index / columns),
