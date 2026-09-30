@@ -216,7 +216,11 @@ async function main() {
     // `+` means a space in some URL decoders, so it stays out of the URL.
     const served = file.replaceAll("+", "-");
     uploadInstaller(served, source);
-    installers.push({ platform, file: served, size: (await stat(source)).size });
+    installers.push({
+      platform,
+      file: served,
+      size: (await stat(source)).size,
+    });
     log(
       `${platform}: ${CAPTURE_INSTALLERS_DIR}/${served} (${remote ? "remote" : "local"} R2)`,
     );

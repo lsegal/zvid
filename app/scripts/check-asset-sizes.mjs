@@ -23,7 +23,10 @@ export function findOversizedAssets(root, limit = MAX_ASSET_BYTES) {
       } else if (entry.isFile()) {
         const { size } = statSync(full);
         if (size > limit) {
-          oversized.push({ path: relative(root, full).split(sep).join("/"), size });
+          oversized.push({
+            path: relative(root, full).split(sep).join("/"),
+            size,
+          });
         }
       }
     }
@@ -44,12 +47,15 @@ export function formatOversizedAssets(oversized, limit = MAX_ASSET_BYTES) {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const root =
-    process.argv[2] ?? join(dirname(fileURLToPath(import.meta.url)), "..", "dist");
+    process.argv[2] ??
+    join(dirname(fileURLToPath(import.meta.url)), "..", "dist");
   const oversized = findOversizedAssets(root);
   if (oversized.length > 0) {
     console.error(`[asset-sizes] ${formatOversizedAssets(oversized)}`);
     process.exitCode = 1;
   } else {
-    console.log(`[asset-sizes] every file in ${root} is within ${mib(MAX_ASSET_BYTES)}`);
+    console.log(
+      `[asset-sizes] every file in ${root} is within ${mib(MAX_ASSET_BYTES)}`,
+    );
   }
 }

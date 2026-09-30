@@ -10,8 +10,28 @@ import {
 
 const DOWNLOADS_PREFIX = `/${CAPTURE_INSTALLERS_DIR}/`;
 
+// The parts of the R2 binding used here, so this module type-checks and runs
+// under test without the Workers runtime types.
+export type InstallerObject = {
+  key: string;
+  size: number;
+  httpEtag: string;
+  range?: { offset?: number; length?: number } | { suffix: number };
+  writeHttpMetadata(headers: Headers): void;
+};
+
+export type InstallerBucket = {
+  head(key: string): Promise<InstallerObject | null>;
+  get(
+    key: string,
+    options: { onlyIf: Headers; range?: Headers },
+  ): Promise<
+    InstallerObject | (InstallerObject & { body: ReadableStream }) | null
+  >;
+};
+
 export type DownloadsEnv = {
-  CAPTURE_INSTALLERS: R2Bucket;
+  CAPTURE_INSTALLERS: InstallerBucket;
 };
 
 // The R2 key for an installer URL path, or null for paths the static assets
@@ -34,7 +54,7 @@ export function downloadKey(pathname: string): string | null {
     : `${CAPTURE_INSTALLERS_DIR}/${file}`;
 }
 
-function objectHeaders(object: R2Object) {
+function objectHeaders(object: InstallerObject) {
   const headers = new Headers();
   object.writeHttpMetadata(headers);
   if (!headers.has("Content-Type")) {
@@ -50,7 +70,7 @@ function objectHeaders(object: R2Object) {
 }
 
 // The byte range R2 returned for a ranged get, as `[start, end]` inclusive.
-function servedRange(object: R2Object): [number, number] | null {
+function servedRange(object: InstallerObject): [number, number] | null {
   const range = object.range;
   if (!range) {
     return null;
@@ -103,7 +123,10 @@ export async function handleDownload(
   }
   const range = request.headers.has("Range") ? servedRange(object) : null;
   if (range) {
-    headers.set("Content-Range", `bytes ${range[0]}-${range[1]}/${object.size}`);
+    headers.set(
+      "Content-Range",
+      `bytes ${range[0]}-${range[1]}/${object.size}`,
+    );
     headers.set("Content-Length", String(range[1] - range[0] + 1));
     return new Response(object.body, { status: 206, headers });
   }

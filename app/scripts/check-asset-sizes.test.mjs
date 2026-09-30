@@ -11,7 +11,9 @@ import {
   MAX_ASSET_BYTES,
 } from "./check-asset-sizes.mjs";
 
-const script = fileURLToPath(new URL("./check-asset-sizes.mjs", import.meta.url));
+const script = fileURLToPath(
+  new URL("./check-asset-sizes.mjs", import.meta.url),
+);
 
 function withDist(files, run) {
   const root = mkdtempSync(join(tmpdir(), "asset-sizes-"));

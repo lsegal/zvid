@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { downloadKey, handleDownload } from "../worker/downloads.ts";
+import {
+  downloadKey,
+  handleDownload,
+  type InstallerBucket,
+  type InstallerObject,
+} from "../worker/downloads.ts";
 
 const INSTALLER = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
 const KEY = "downloads/zvid-capture-0.1.0-28ff96d.pkg";
@@ -9,17 +14,19 @@ type GetOptions = { range?: Headers; onlyIf?: Headers };
 
 // A one-object stand-in for the R2 binding, honouring `Range` and
 // `If-None-Match` the way R2's get does.
-function bucket(objects: Record<string, Uint8Array>) {
-  const describe = (key: string, range?: R2Range) =>
-    ({
-      key,
-      size: objects[key].byteLength,
-      httpEtag: '"etag-1"',
-      range,
-      writeHttpMetadata(headers: Headers) {
-        headers.set("Content-Type", "application/octet-stream");
-      },
-    }) as unknown as R2Object;
+function bucket(objects: Record<string, Uint8Array<ArrayBuffer>>) {
+  const describe = (
+    key: string,
+    range?: InstallerObject["range"],
+  ): InstallerObject => ({
+    key,
+    size: objects[key].byteLength,
+    httpEtag: '"etag-1"',
+    range,
+    writeHttpMetadata(headers: Headers) {
+      headers.set("Content-Type", "application/octet-stream");
+    },
+  });
   return {
     async head(key: string) {
       return key in objects ? describe(key) : null;
@@ -35,14 +42,17 @@ function bucket(objects: Record<string, Uint8Array>) {
         options.range?.get("Range") ?? "",
       );
       const range = match
-        ? { offset: Number(match[1]), length: Number(match[2]) - Number(match[1]) + 1 }
+        ? {
+            offset: Number(match[1]),
+            length: Number(match[2]) - Number(match[1]) + 1,
+          }
         : undefined;
       const bytes = range
         ? objects[key].slice(range.offset, range.offset + range.length)
         : objects[key];
       return { ...describe(key, range), body: new Blob([bytes]).stream() };
     },
-  } as unknown as R2Bucket;
+  } satisfies InstallerBucket;
 }
 
 const ENV = { CAPTURE_INSTALLERS: bucket({ [KEY]: INSTALLER }) };
