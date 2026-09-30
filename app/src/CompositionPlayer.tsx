@@ -33,8 +33,8 @@ import {
   SILENT_AUDIO_BANDS,
 } from "./fx-shaders/audio-bands.ts";
 import { resolveEffectChain } from "./fx-shaders/registry.ts";
-import { seekMediaElement } from "./media-seek.ts";
 import { getRenderedEffects } from "./fx-stack.ts";
+import { seekMediaElement } from "./media-seek.ts";
 import type { PlayheadSignal } from "./playhead-signal";
 import { loadFontFace, resolveFontFace, subscribeFonts } from "./text-fonts.ts";
 

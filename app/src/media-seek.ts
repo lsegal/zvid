@@ -3,7 +3,10 @@ const MEDIA_SEEK_TIMEOUT_MS = 4000;
 
 // Seeks `element` to `targetSeconds`, resolving once the frame there is
 // ready, the seek fails, or it times out.
-export function seekMediaElement(element: HTMLMediaElement, targetSeconds: number) {
+export function seekMediaElement(
+  element: HTMLMediaElement,
+  targetSeconds: number,
+) {
   const clampedTarget = Math.max(0, targetSeconds);
   const drift = Math.abs(element.currentTime - clampedTarget);
   if (drift <= MEDIA_SEEK_TOLERANCE_SECONDS) {
