@@ -75,7 +75,10 @@ describe("createFrameThumbnailer", () => {
       decodable: (url) => url !== "odd.mkv",
     });
 
-    assert.equal(await thumbnailer.generate("odd.mkv", 4, SIZE), "video:odd.mkv@4");
+    assert.equal(
+      await thumbnailer.generate("odd.mkv", 4, SIZE),
+      "video:odd.mkv@4",
+    );
     assert.deepEqual(log, ["open odd.mkv", "fallback odd.mkv@4"]);
   });
 
