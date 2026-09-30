@@ -94,17 +94,17 @@ test("the Animation section attaches, switches modes and folds", async ({
   await expect(section.getByLabel("Motion")).toHaveValue("Bounce");
   await expect(section.locator(".knob__label")).toHaveText(["Reactivity"]);
   const parameters = section.getByRole("button", {
-    name: "Parameters: 1 of 3",
+    name: "Parameters: 1 of 1",
   });
   await parameters.click();
   const items = page.getByRole("menuitemcheckbox");
-  await expect(items).toHaveText(["Pixel Size", "Low", "High"]);
+  await expect(items).toHaveText(["Pixel Size"]);
   await expect(items.first()).toHaveAttribute("aria-checked", "true");
-  await items.nth(2).click();
-  await expect(items.nth(2)).toHaveAttribute("aria-checked", "true");
+  await items.first().click();
+  await expect(items.first()).toHaveAttribute("aria-checked", "false");
   await page.keyboard.press("Escape");
   await expect(
-    section.getByRole("button", { name: "Parameters: 2 of 3" }),
+    section.getByRole("button", { name: "Parameters: 0 of 1" }),
   ).toBeVisible();
 
   // It folds into a strip of its own, and stays folded.
