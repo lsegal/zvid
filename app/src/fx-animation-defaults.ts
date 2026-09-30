@@ -44,20 +44,24 @@ export type ReactiveAnimation = {
 
 // Stored on an effect instance, and saved to `.lvp` as zvid-only
 // `animation`. Turning the modifier off keeps the settings for next time.
+// Effects that only support Clip mode have no `reactive` settings.
 export type EffectAnimation = {
   enabled: boolean;
   mode: AnimationMode;
   clip: ClipAnimation;
-  reactive: ReactiveAnimation;
+  reactive?: ReactiveAnimation;
 };
 
 // Frames an animation takes at each timing.
 export type AnimationTimingFrames = Readonly<Record<AnimationTiming, number>>;
 
 export type FxAnimationDefaults = {
+  // The modes the effect's Animation offers, Clip first.
+  modes: readonly AnimationMode[];
   clip: Readonly<ClipAnimation>;
   clipFrames: AnimationTimingFrames;
-  reactive: Readonly<ReactiveAnimation>;
+  // Absent when the effect doesn't support Reactive mode.
+  reactive?: Readonly<ReactiveAnimation>;
   reactiveFrames: AnimationTimingFrames;
 };
 
@@ -69,32 +73,44 @@ export const DEFAULT_REACTIVE_FRAMES: AnimationTimingFrames = {
 
 export const REACTIVITY_STEP = 0.1;
 
-function defaults(
+// Defaults for an effect that only animates on its clip's enter and exit.
+function clipDefaults(
   motionIn: ClipMotion,
   motionOut: ClipMotion,
   [slow, normal, fast]: readonly [number, number, number],
+): FxAnimationDefaults {
+  return {
+    modes: ["clip"],
+    clip: { motionIn, motionOut, timing: "Normal" },
+    clipFrames: { Slow: slow, Normal: normal, Fast: fast },
+    reactiveFrames: DEFAULT_REACTIVE_FRAMES,
+  };
+}
+
+function defaults(
+  motionIn: ClipMotion,
+  motionOut: ClipMotion,
+  frames: readonly [number, number, number],
   motion: ReactiveMotion,
   reactivity: number,
   parameters: readonly string[],
 ): FxAnimationDefaults {
   return {
-    clip: { motionIn, motionOut, timing: "Normal" },
-    clipFrames: { Slow: slow, Normal: normal, Fast: fast },
+    ...clipDefaults(motionIn, motionOut, frames),
+    modes: ANIMATION_MODES,
     reactive: {
       motion,
       timing: "Normal",
       reactivity,
       parameters: [...parameters],
     },
-    reactiveFrames: DEFAULT_REACTIVE_FRAMES,
   };
 }
 
 const ANIMATION_DEFAULTS: ReadonlyMap<string, FxAnimationDefaults> = new Map([
-  [
-    ORDER_EFFECT_NAME,
-    defaults("Ease Out", "Ease In", [7, 5, 3], "Bounce", 0.3, ["Spacing"]),
-  ],
+  // Order arranges layers; jiggling its arrangement on audio hits isn't a
+  // meaningful effect, so it only animates in Clip mode.
+  [ORDER_EFFECT_NAME, clipDefaults("Ease Out", "Ease In", [7, 5, 3])],
   [
     "Transform",
     defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.3, [
@@ -160,6 +176,18 @@ export function supportsAnimation(effectName: string) {
   return ANIMATION_DEFAULTS.has(effectName);
 }
 
+// The modes the effect's Animation offers; none when it doesn't support
+// animation.
+export function getAnimationModes(
+  effectName: string,
+): readonly AnimationMode[] {
+  return getAnimationDefaults(effectName)?.modes ?? [];
+}
+
+export function supportsAnimationMode(effectName: string, mode: AnimationMode) {
+  return getAnimationModes(effectName).includes(mode);
+}
+
 export type AnimatableParameter = { key: string; label: string };
 
 // The parameters Reactive mode can modulate: the effect's visible knobs.
@@ -183,14 +211,14 @@ export function createDefaultAnimation(
     return undefined;
   }
 
+  const reactive = effectDefaults.reactive;
   return {
     enabled: true,
     mode: "clip",
     clip: { ...effectDefaults.clip },
-    reactive: {
-      ...effectDefaults.reactive,
-      parameters: [...effectDefaults.reactive.parameters],
-    },
+    ...(reactive
+      ? { reactive: { ...reactive, parameters: [...reactive.parameters] } }
+      : {}),
   };
 }
 
@@ -233,7 +261,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 // The animation an effect was saved or synced with, with anything missing or
 // malformed filled in from the effect's defaults. Undefined when there is
-// none, or the effect doesn't support animation.
+// none, or the effect doesn't support animation. A mode the effect doesn't
+// support, such as Reactive on an Order, loads as Clip, and its settings are
+// dropped.
 export function normalizeEffectAnimation(
   raw: unknown,
   effectName: string,
@@ -244,10 +274,9 @@ export function normalizeEffectAnimation(
   }
 
   const clip = isRecord(raw.clip) ? raw.clip : {};
-  const reactive = isRecord(raw.reactive) ? raw.reactive : {};
   return {
     enabled: raw.enabled === true,
-    mode: readOption(raw.mode, ANIMATION_MODES, fallback.mode),
+    mode: readOption(raw.mode, getAnimationModes(effectName), fallback.mode),
     clip: {
       motionIn: readOption(clip.motionIn, CLIP_MOTIONS, fallback.clip.motionIn),
       motionOut: readOption(
@@ -257,31 +286,30 @@ export function normalizeEffectAnimation(
       ),
       timing: readOption(clip.timing, ANIMATION_TIMINGS, fallback.clip.timing),
     },
-    reactive: {
-      motion: readOption(
-        reactive.motion,
-        REACTIVE_MOTIONS,
-        fallback.reactive.motion,
-      ),
-      timing: readOption(
-        reactive.timing,
-        ANIMATION_TIMINGS,
-        fallback.reactive.timing,
-      ),
-      reactivity: readReactivity(
-        reactive.reactivity,
-        fallback.reactive.reactivity,
-      ),
-      parameters: Array.isArray(reactive.parameters)
-        ? [
-            ...new Set(
-              reactive.parameters.filter(
-                (key): key is string => typeof key === "string",
-              ),
+    ...(fallback.reactive
+      ? { reactive: normalizeReactive(raw.reactive, fallback.reactive) }
+      : {}),
+  };
+}
+
+function normalizeReactive(
+  raw: unknown,
+  fallback: ReactiveAnimation,
+): ReactiveAnimation {
+  const reactive = isRecord(raw) ? raw : {};
+  return {
+    motion: readOption(reactive.motion, REACTIVE_MOTIONS, fallback.motion),
+    timing: readOption(reactive.timing, ANIMATION_TIMINGS, fallback.timing),
+    reactivity: readReactivity(reactive.reactivity, fallback.reactivity),
+    parameters: Array.isArray(reactive.parameters)
+      ? [
+          ...new Set(
+            reactive.parameters.filter(
+              (key): key is string => typeof key === "string",
             ),
-          ]
-        : fallback.reactive.parameters,
-    },
+          ),
+        ]
+      : fallback.parameters,
   };
 }
 

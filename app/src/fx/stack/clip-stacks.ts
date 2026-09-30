@@ -31,10 +31,14 @@ export function cloneAnimation(animation: EffectAnimation): EffectAnimation {
   return {
     ...animation,
     clip: { ...animation.clip },
-    reactive: {
-      ...animation.reactive,
-      parameters: [...animation.reactive.parameters],
-    },
+    ...(animation.reactive
+      ? {
+          reactive: {
+            ...animation.reactive,
+            parameters: [...animation.reactive.parameters],
+          },
+        }
+      : {}),
   };
 }
 
