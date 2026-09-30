@@ -237,6 +237,9 @@ export function resolveOrderSlide(
         motionOut: animation.clip.motionOut,
         frames,
         fps,
+        ...(animation.clip.transition
+          ? { transition: animation.clip.transition }
+          : {}),
       };
 }
 

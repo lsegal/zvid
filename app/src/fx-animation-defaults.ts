@@ -27,10 +27,20 @@ export type ReactiveMotion = (typeof REACTIVE_MOTIONS)[number];
 export const ANIMATION_TIMINGS = ["Slow", "Normal", "Fast"] as const;
 export type AnimationTiming = (typeof ANIMATION_TIMINGS)[number];
 
+// How an Order's clips enter and exit its arrangement: Push slides them in
+// from a canvas edge, Squish grows them from zero width or height.
+export const ORDER_TRANSITIONS = ["Push", "Squish"] as const;
+export type OrderTransition = (typeof ORDER_TRANSITIONS)[number];
+
+// Order sessions saved before Transition existed keep sliding.
+const LEGACY_ORDER_TRANSITION: OrderTransition = "Push";
+
 export type ClipAnimation = {
   motionIn: ClipMotion;
   motionOut: ClipMotion;
   timing: AnimationTiming;
+  // Order only.
+  transition?: OrderTransition;
 };
 
 export type ReactiveAnimation = {
@@ -90,10 +100,23 @@ function defaults(
   };
 }
 
+function withTransition(
+  effectDefaults: FxAnimationDefaults,
+  transition: OrderTransition,
+): FxAnimationDefaults {
+  return {
+    ...effectDefaults,
+    clip: { ...effectDefaults.clip, transition },
+  };
+}
+
 const ANIMATION_DEFAULTS: ReadonlyMap<string, FxAnimationDefaults> = new Map([
   [
     ORDER_EFFECT_NAME,
-    defaults("Ease Out", "Ease In", [7, 5, 3], "Bounce", 0.3, ["Spacing"]),
+    withTransition(
+      defaults("Ease Out", "Ease In", [7, 5, 3], "Bounce", 0.3, ["Spacing"]),
+      "Squish",
+    ),
   ],
   [
     "Transform",
@@ -256,6 +279,15 @@ export function normalizeEffectAnimation(
         fallback.clip.motionOut,
       ),
       timing: readOption(clip.timing, ANIMATION_TIMINGS, fallback.clip.timing),
+      ...(fallback.clip.transition
+        ? {
+            transition: readOption(
+              clip.transition,
+              ORDER_TRANSITIONS,
+              LEGACY_ORDER_TRANSITION,
+            ),
+          }
+        : {}),
     },
     reactive: {
       motion: readOption(
