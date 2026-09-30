@@ -13,14 +13,14 @@ import type {
 import type { CollaborationConnectionState } from "../collaboration";
 import type { MediaItem } from "../media";
 import { mediaSyncLabel, summarizeMediaSync } from "../media-sync.ts";
-import type { PeerMediaProgressMap } from "../peer-media-sync.ts";
+import type { RemoteMediaProgressMap } from "../remote-media-sync.ts";
 
 export type MediaStatusInputs = {
   mediaItems: MediaItem[];
   timelineClips: ArrangementClip[];
   sourceSpans: SourceSpan[];
   mainAudioId: string | undefined;
-  peerMediaProgress: PeerMediaProgressMap;
+  remoteMediaProgress: RemoteMediaProgressMap;
   peerMediaMissIds: ReadonlySet<string>;
   collaborationMode: CollaborationMode;
   collaborationState: CollaborationConnectionState;
@@ -33,7 +33,7 @@ export function useMediaStatus({
   timelineClips,
   sourceSpans,
   mainAudioId,
-  peerMediaProgress,
+  remoteMediaProgress,
   peerMediaMissIds,
   collaborationMode,
   collaborationState,
@@ -53,7 +53,7 @@ export function useMediaStatus({
         timelineClips,
         sourceSpans,
         mainAudioId,
-        progress: peerMediaProgress,
+        progress: remoteMediaProgress,
         misses: peerMediaMissIds,
         inSharedSession: inSharedMediaSession,
       }),
@@ -62,7 +62,7 @@ export function useMediaStatus({
       mainAudioId,
       mediaItems,
       peerMediaMissIds,
-      peerMediaProgress,
+      remoteMediaProgress,
       sourceSpans,
       timelineClips,
     ],

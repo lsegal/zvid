@@ -6,8 +6,8 @@ import {
   downloadSampleAsset,
   loadSampleAssets,
   SampleLoadCancelledError,
+  type SampleAssetEvent,
   type SampleLoadDeps,
-  type SampleLoadProgress,
   sha256Hex,
   shouldAutoOpenSample,
 } from "./sample-loader.ts";
@@ -73,14 +73,30 @@ function harness(
   return { deps, cache, fetched };
 }
 
+// The events `onAsset` reported, as `name:phase` (with bytes while
+// receiving).
+function recordEvents() {
+  const events: string[] = [];
+  const onAsset = (event: SampleAssetEvent) => {
+    events.push(
+      event.phase === "receiving"
+        ? `${event.asset.name}:receiving:${event.received}/${event.total}`
+        : `${event.asset.name}:${event.phase}`,
+    );
+  };
+  return { events, onAsset };
+}
+
 describe("loadSampleAssets", () => {
-  it("downloads and caches every asset, reporting progress", async () => {
+  it("downloads and caches every asset, reporting each one's progress", async () => {
     const { deps, cache, fetched } = harness();
-    const progress: SampleLoadProgress[] = [];
-    const result = await loadSampleAssets(MANIFEST, deps, {
-      onProgress: (update) => progress.push(update),
+    const { events, onAsset } = recordEvents();
+    const result = await loadSampleAssets(MANIFEST.assets, deps, {
+      concurrency: 1,
+      onAsset,
     });
     assert.equal(result.downloaded, 2);
+    assert.deepEqual(result.failed, []);
     assert.deepEqual(fetched, [
       "/samples/test/one.mp4",
       "/samples/test/two.mp4",
@@ -93,35 +109,60 @@ describe("loadSampleAssets", () => {
       await cache.get("zvid-sample:test:two")?.text(),
       "the second asset",
     );
-    const total = MANIFEST.assets[0].bytes + MANIFEST.assets[1].bytes;
-    assert.deepEqual(progress.at(-1), {
-      loadedBytes: total,
-      totalBytes: total,
-      completedAssets: 2,
-      totalAssets: 2,
-      current: undefined,
-    });
-    assert.ok(progress.some((update) => update.current === "two.mp4"));
+    const [one, two] = MANIFEST.assets;
+    assert.deepEqual(events, [
+      "one.mp4:queued",
+      "two.mp4:queued",
+      `one.mp4:receiving:0/${one.bytes}`,
+      `one.mp4:receiving:${one.bytes}/${one.bytes}`,
+      "one.mp4:ready",
+      `two.mp4:receiving:0/${two.bytes}`,
+      `two.mp4:receiving:${two.bytes}/${two.bytes}`,
+      "two.mp4:ready",
+    ]);
   });
 
-  it("reuses cached assets without the network, so a warm cache opens offline", async () => {
+  it("downloads at most `concurrency` assets at once", async () => {
+    const { deps } = harness();
+    let active = 0;
+    let peak = 0;
+    const slow: SampleLoadDeps = {
+      ...deps,
+      async fetch(url, init) {
+        active += 1;
+        peak = Math.max(peak, active);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        active -= 1;
+        return deps.fetch(url, init);
+      },
+    };
+    const assets = [...MANIFEST.assets, ...MANIFEST.assets, MANIFEST.assets[0]];
+    await loadSampleAssets(assets, slow, { concurrency: 2 });
+    assert.equal(peak, 2);
+  });
+
+  it("makes cached assets ready without the network, so a warm cache opens offline", async () => {
     const { deps, cache } = harness();
-    await loadSampleAssets(MANIFEST, deps);
+    await loadSampleAssets(MANIFEST.assets, deps);
     const offline = harness({
       failing: new Set(["/samples/test/one.mp4", "/samples/test/two.mp4"]),
     });
     for (const [id, blob] of cache) {
       await offline.deps.cache(id, blob);
     }
-    const result = await loadSampleAssets(MANIFEST, offline.deps);
+    const { events, onAsset } = recordEvents();
+    const result = await loadSampleAssets(MANIFEST.assets, offline.deps, {
+      onAsset,
+    });
     assert.equal(result.downloaded, 0);
     assert.deepEqual(offline.fetched, []);
+    assert.deepEqual(events, ["one.mp4:ready", "two.mp4:ready"]);
   });
 
   it("downloads an asset again when its cached copy was evicted or is truncated", async () => {
     const { deps, cache, fetched } = harness();
     await deps.cache("zvid-sample:test:one", new Blob(["first"]));
-    await loadSampleAssets(MANIFEST, deps);
+    await loadSampleAssets(MANIFEST.assets, deps, { concurrency: 1 });
     assert.deepEqual(fetched, [
       "/samples/test/one.mp4",
       "/samples/test/two.mp4",
@@ -132,45 +173,57 @@ describe("loadSampleAssets", () => {
     );
   });
 
-  it("fails on a cold cache offline, and a retry only downloads what is missing", async () => {
-    const flaky = harness({ failing: new Set(["/samples/test/two.mp4"]) });
-    await assert.rejects(
-      loadSampleAssets(MANIFEST, flaky.deps),
-      /Could not download two\.mp4: Failed to fetch/,
+  it("reports a failed asset without stopping the others, and a retry only downloads it", async () => {
+    const flaky = harness({ failing: new Set(["/samples/test/one.mp4"]) });
+    const failures: string[] = [];
+    const result = await loadSampleAssets(MANIFEST.assets, flaky.deps, {
+      onAsset: (event) => {
+        if (event.phase === "failed") {
+          failures.push(event.error.message);
+        }
+      },
+    });
+    assert.deepEqual(
+      result.failed.map((asset) => asset.name),
+      ["one.mp4"],
     );
-    assert.ok(flaky.cache.has("zvid-sample:test:one"));
+    assert.deepEqual(failures, ["Could not download one.mp4: Failed to fetch"]);
+    assert.ok(flaky.cache.has("zvid-sample:test:two"));
 
     const retry = harness();
     for (const [id, blob] of flaky.cache) {
       await retry.deps.cache(id, blob);
     }
-    await loadSampleAssets(MANIFEST, retry.deps);
-    assert.deepEqual(retry.fetched, ["/samples/test/two.mp4"]);
+    await loadSampleAssets(MANIFEST.assets, retry.deps);
+    assert.deepEqual(retry.fetched, ["/samples/test/one.mp4"]);
   });
 
-  it("rejects bytes that don't match the manifest and caches nothing for them", async () => {
+  it("fails bytes that don't match the manifest and caches nothing for them", async () => {
     const { deps, cache } = harness({
       bodies: {
         "/samples/test/one.mp4": "first assex",
         "/samples/test/two.mp4": "the second asset",
       },
     });
-    await assert.rejects(
-      loadSampleAssets(MANIFEST, deps),
-      /one\.mp4 did not match the sample manifest/,
-    );
-    assert.equal(cache.size, 0);
+    const failures: string[] = [];
+    await loadSampleAssets(MANIFEST.assets, deps, {
+      onAsset: (event) => {
+        if (event.phase === "failed") {
+          failures.push(event.error.message);
+        }
+      },
+    });
+    assert.match(failures[0] ?? "", /one\.mp4 did not match the sample manifest/);
+    assert.equal(cache.has("zvid-sample:test:one"), false);
   });
 
   it("reports a failed response", async () => {
     const { deps } = harness({ bodies: {} });
-    await assert.rejects(
-      loadSampleAssets(MANIFEST, deps),
-      /Could not download one\.mp4: 404/,
-    );
+    const result = await loadSampleAssets(MANIFEST.assets, deps);
+    assert.equal(result.failed.length, 2);
   });
 
-  it("stops when cancelled, without caching the asset in flight", async () => {
+  it("stops when cancelled, without caching or reporting the asset in flight", async () => {
     const controller = new AbortController();
     const { deps, cache } = harness();
     const cancelling: SampleLoadDeps = {
@@ -180,11 +233,19 @@ describe("loadSampleAssets", () => {
         return deps.fetch(url, init);
       },
     };
+    const { events, onAsset } = recordEvents();
     await assert.rejects(
-      loadSampleAssets(MANIFEST, cancelling, { signal: controller.signal }),
+      loadSampleAssets(MANIFEST.assets, cancelling, {
+        signal: controller.signal,
+        onAsset,
+      }),
       SampleLoadCancelledError,
     );
     assert.equal(cache.size, 0);
+    assert.equal(
+      events.some((event) => /ready|failed/.test(event)),
+      false,
+    );
   });
 });
 

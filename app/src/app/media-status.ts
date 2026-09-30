@@ -4,7 +4,7 @@ import { usesMediaFile } from "../clip-media-state.ts";
 import type { CollaborationConnectionState } from "../collaboration.ts";
 import type { MediaItem } from "../media.ts";
 import { listMediaSync } from "../media-sync.ts";
-import type { PeerMediaProgressMap } from "../peer-media-sync.ts";
+import type { RemoteMediaProgressMap } from "../remote-media-sync.ts";
 import { listOfflineMedia } from "../relink.ts";
 import type {
   ArrangementClip,
@@ -45,7 +45,7 @@ export type SessionMediaSyncInputs = {
   timelineClips: ArrangementClip[];
   sourceSpans: SourceSpan[];
   mainAudioId: string | undefined;
-  progress: PeerMediaProgressMap;
+  progress: RemoteMediaProgressMap;
   misses: ReadonlySet<string>;
   inSharedSession: boolean;
 };

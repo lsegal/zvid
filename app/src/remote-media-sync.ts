@@ -1,36 +1,42 @@
-// Tracks media being transferred from a peer in a shared session so clips,
-// source spans and the main Audio row can show a skeleton with progress.
-// Queued media is waiting for a free transfer slot; receiving media has an
-// open request, and its total stays 0 until the peer reports a size.
+// Tracks media arriving from elsewhere so clips, source spans and the main
+// Audio row can show a skeleton with progress: from a peer in a shared
+// session, or downloaded from a URL (a bundled sample's assets). Queued
+// media is waiting for a free transfer slot; receiving media has an open
+// request, and its total stays 0 until the source reports a size.
 
 import type { MediaAvailability } from "./media.ts";
 
-export type PeerMediaPhase = "queued" | "receiving";
+export type RemoteMediaSource = "peer" | "url";
 
-export type PeerMediaProgress = {
-  phase: PeerMediaPhase;
+export type RemoteMediaPhase = "queued" | "receiving";
+
+export type RemoteMediaProgress = {
+  source: RemoteMediaSource;
+  phase: RemoteMediaPhase;
   received: number;
   total: number;
 };
 
-export type PeerMediaProgressMap = ReadonlyMap<string, PeerMediaProgress>;
+export type RemoteMediaProgressMap = ReadonlyMap<string, RemoteMediaProgress>;
 
 export type MediaSyncView = {
-  phase: PeerMediaPhase;
+  source: RemoteMediaSource;
+  phase: RemoteMediaPhase;
   // 0-1 when the transfer size is known, otherwise null (indeterminate).
   fraction: number | null;
 };
 
 // Each helper returns the same map when nothing changed so React can skip
 // the render.
-export function withPeerMediaProgress(
-  map: PeerMediaProgressMap,
+export function withRemoteMediaProgress(
+  map: RemoteMediaProgressMap,
   mediaId: string,
-  progress: PeerMediaProgress,
-): PeerMediaProgressMap {
+  progress: RemoteMediaProgress,
+): RemoteMediaProgressMap {
   const current = map.get(mediaId);
   if (
     current &&
+    current.source === progress.source &&
     current.phase === progress.phase &&
     current.received === progress.received &&
     current.total === progress.total
@@ -42,10 +48,10 @@ export function withPeerMediaProgress(
   return next;
 }
 
-export function withoutPeerMediaProgress(
-  map: PeerMediaProgressMap,
+export function withoutRemoteMediaProgress(
+  map: RemoteMediaProgressMap,
   mediaId: string,
-): PeerMediaProgressMap {
+): RemoteMediaProgressMap {
   if (!map.has(mediaId)) {
     return map;
   }
@@ -54,15 +60,21 @@ export function withoutPeerMediaProgress(
   return next;
 }
 
-// Replaces the queued entries with queuedIds, leaving receiving entries alone.
-export function withQueuedPeerMedia(
-  map: PeerMediaProgressMap,
+// Replaces `source`'s queued entries with queuedIds, leaving receiving
+// entries and other sources' entries alone.
+export function withQueuedRemoteMedia(
+  map: RemoteMediaProgressMap,
+  source: RemoteMediaSource,
   queuedIds: Iterable<string>,
-): PeerMediaProgressMap {
+): RemoteMediaProgressMap {
   const queued = new Set(queuedIds);
-  let next: Map<string, PeerMediaProgress> | null = null;
+  let next: Map<string, RemoteMediaProgress> | null = null;
   for (const [mediaId, progress] of map) {
-    if (progress.phase === "queued" && !queued.has(mediaId)) {
+    if (
+      progress.source === source &&
+      progress.phase === "queued" &&
+      !queued.has(mediaId)
+    ) {
       next ??= new Map(map);
       next.delete(mediaId);
     }
@@ -70,13 +82,13 @@ export function withQueuedPeerMedia(
   for (const mediaId of queued) {
     if (!map.has(mediaId)) {
       next ??= new Map(map);
-      next.set(mediaId, { phase: "queued", received: 0, total: 0 });
+      next.set(mediaId, { source, phase: "queued", received: 0, total: 0 });
     }
   }
   return next ?? map;
 }
 
-export function getPeerMediaFraction(progress: PeerMediaProgress) {
+export function getRemoteMediaFraction(progress: RemoteMediaProgress) {
   if (progress.phase !== "receiving" || progress.total <= 0) {
     return null;
   }
@@ -85,13 +97,17 @@ export function getPeerMediaFraction(progress: PeerMediaProgress) {
 
 // Media that is ready never shows the skeleton, even if a stale entry lingers.
 export function describeMediaSync(
-  progress: PeerMediaProgress | undefined,
+  progress: RemoteMediaProgress | undefined,
   availability: MediaAvailability | undefined,
 ): MediaSyncView | null {
   if (!progress || availability === "ready") {
     return null;
   }
-  return { phase: progress.phase, fraction: getPeerMediaFraction(progress) };
+  return {
+    source: progress.source,
+    phase: progress.phase,
+    fraction: getRemoteMediaFraction(progress),
+  };
 }
 
 // Rounds down so 100% only shows once every byte arrived; the epsilon keeps
@@ -101,11 +117,13 @@ function formatPercent(fraction: number) {
 }
 
 // "Syncing 42%" on clips and spans; "Syncing main audio 42%" with a subject.
+// Media downloaded from a URL is "Loading" instead.
 export function formatMediaSyncLabel(view: MediaSyncView, subject?: string) {
   if (view.phase === "queued") {
     return subject ? `Waiting for ${subject}…` : "Waiting…";
   }
-  const prefix = subject ? `Syncing ${subject}` : "Syncing";
+  const verb = view.source === "url" ? "Loading" : "Syncing";
+  const prefix = subject ? `${verb} ${subject}` : verb;
   return view.fraction === null
     ? `${prefix}…`
     : `${prefix} ${formatPercent(view.fraction)}`;
@@ -124,13 +142,18 @@ export function getMediaSyncClassName(
     .join(" ");
 }
 
-// Summarizes every transfer for the status bar, or null until a peer has
-// started sending. The percent covers transfers whose size is known.
-export function formatPeerMediaSyncStatus(map: PeerMediaProgressMap) {
+// Summarizes every peer transfer for the status bar, or null until a peer
+// has started sending. The percent covers transfers whose size is known.
+export function formatPeerMediaSyncStatus(map: RemoteMediaProgressMap) {
   let started = false;
+  let count = 0;
   let received = 0;
   let total = 0;
   for (const progress of map.values()) {
+    if (progress.source !== "peer") {
+      continue;
+    }
+    count += 1;
     if (progress.phase !== "receiving") {
       continue;
     }
@@ -143,7 +166,6 @@ export function formatPeerMediaSyncStatus(map: PeerMediaProgressMap) {
   if (!started) {
     return null;
   }
-  const count = map.size;
   const files = `${count} ${count === 1 ? "file" : "files"}`;
   return total > 0
     ? `Syncing ${files} from peer… ${formatPercent(received / total)}`

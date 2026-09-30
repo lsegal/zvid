@@ -238,7 +238,7 @@ import {
   describeMediaSync,
   formatMediaSyncLabel,
   getMediaSyncClassName,
-} from "./peer-media-sync.ts";
+} from "./remote-media-sync.ts";
 import { selectionHint } from "./selection-hint.ts";
 import { MAX_LAYERS } from "./selection-overlaps";
 import { offlineSessionMediaIds } from "./session-media.ts";
@@ -482,7 +482,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     localMediaOverridesRef,
     projectSnapshotRef,
   });
-  const { peerMediaProgress, revealedMediaIds, peerMediaMissIds } = peerMedia;
+  const { remoteMediaProgress, revealedMediaIds, peerMediaMissIds } = peerMedia;
   const lanePriority = useMemo(
     () => new Map(lanes.map((lane, index) => [lane.id, index])),
     [lanes],
@@ -727,7 +727,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   } = useMainAudio({
     mainAudioId,
     mediaItemsById,
-    peerMediaProgress,
+    remoteMediaProgress,
     projectMediaItems,
     refuseReadOnlyEdit,
     commitProjectChange,
@@ -761,7 +761,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     timelineClips,
     sourceSpans,
     mainAudioId,
-    peerMediaProgress,
+    remoteMediaProgress,
     peerMediaMissIds,
     collaborationMode,
     collaborationState,
@@ -3291,7 +3291,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                                 : undefined;
                             const mediaSync = media
                               ? describeMediaSync(
-                                  peerMediaProgress.get(media.id),
+                                  remoteMediaProgress.get(media.id),
                                   media.availability,
                                 )
                               : null;
@@ -3845,7 +3845,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                                     : undefined;
                                 const mediaSync = media
                                   ? describeMediaSync(
-                                      peerMediaProgress.get(media.id),
+                                      remoteMediaProgress.get(media.id),
                                       media.availability,
                                     )
                                   : null;

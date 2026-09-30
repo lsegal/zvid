@@ -1,9 +1,9 @@
-// Loads a sample project's media into the media cache before the sample is
-// opened, so opening it never commits a half-loaded project: every asset is
-// either already cached or downloaded from its same-origin URL and checked
-// against the manifest's hash first. Cached assets are reused without a
-// download, so a warm cache opens offline; an evicted asset is downloaded
-// again the next time it is needed.
+// Loads a sample project's media into the media cache while the sample is
+// open, reporting each asset's progress so its clips show the same skeleton
+// as media syncing from a peer: every asset is either already cached or
+// downloaded from its same-origin URL and checked against the manifest's
+// hash. Cached assets are reused without a download, so a warm cache opens
+// offline; an evicted asset is downloaded again the next time it is needed.
 
 import type { LvpSession, SessionOpenResponse } from "../session.ts";
 import type { SampleAsset, SampleManifest } from "./sample-manifest.ts";
@@ -18,14 +18,17 @@ export type SampleLoadDeps = {
   digest: (blob: Blob) => Promise<string>;
 };
 
-export type SampleLoadProgress = {
-  loadedBytes: number;
-  totalBytes: number;
-  completedAssets: number;
-  totalAssets: number;
-  // The asset being downloaded, if any.
-  current?: string;
-};
+// What happens to each asset, in order: `queued` once it was not in the
+// cache, `receiving` as its bytes arrive, then `ready` with its bytes or
+// `failed`. A cached asset goes straight to `ready`.
+export type SampleAssetEvent =
+  | { asset: SampleAsset; phase: "queued" }
+  | { asset: SampleAsset; phase: "receiving"; received: number; total: number }
+  | { asset: SampleAsset; phase: "ready"; blob: Blob; downloaded: boolean }
+  | { asset: SampleAsset; phase: "failed"; error: Error };
+
+// Sample assets downloaded at once, like peer transfers.
+export const MAX_SAMPLE_DOWNLOADS = 2;
 
 export class SampleLoadCancelledError extends Error {
   constructor() {
@@ -110,61 +113,82 @@ async function readCachedAsset(asset: SampleAsset, deps: SampleLoadDeps) {
   }
 }
 
-// Makes sure every asset of `manifest` is cached, downloading the ones that
-// aren't. Rejects with SampleLoadCancelledError when `signal` aborts, and
-// with the first failure otherwise; assets cached before either stay cached,
-// so a retry only downloads the rest.
+// Makes sure every one of `assets` is cached, reporting each one through
+// `onAsset`: cached assets are ready at once, and the rest are downloaded
+// at most `concurrency` at a time. A failed asset doesn't stop the others,
+// and assets cached before a failure or cancel stay cached, so a retry only
+// downloads the rest. Rejects with SampleLoadCancelledError when `signal`
+// aborts, without reporting the assets it stopped.
 export async function loadSampleAssets(
-  manifest: SampleManifest,
+  assets: readonly SampleAsset[],
   deps: SampleLoadDeps,
   options: {
     signal?: AbortSignal;
-    onProgress?: (progress: SampleLoadProgress) => void;
+    concurrency?: number;
+    onAsset?: (event: SampleAssetEvent) => void;
   } = {},
 ) {
-  const { signal, onProgress } = options;
-  const totalBytes = manifest.assets.reduce(
-    (total, asset) => total + asset.bytes,
-    0,
-  );
-  const progress: SampleLoadProgress = {
-    loadedBytes: 0,
-    totalBytes,
-    completedAssets: 0,
-    totalAssets: manifest.assets.length,
+  const { signal, onAsset } = options;
+  const concurrency = Math.max(1, options.concurrency ?? MAX_SAMPLE_DOWNLOADS);
+  const report = (event: SampleAssetEvent) => {
+    if (!signal?.aborted) {
+      onAsset?.(event);
+    }
   };
-  const report = (patch: Partial<SampleLoadProgress>) => {
-    Object.assign(progress, patch);
-    onProgress?.({ ...progress });
-  };
-  report({});
+
+  const pending: SampleAsset[] = [];
+  for (const asset of assets) {
+    throwIfAborted(signal);
+    const blob = await readCachedAsset(asset, deps);
+    if (blob) {
+      report({ asset, phase: "ready", blob, downloaded: false });
+    } else {
+      pending.push(asset);
+    }
+  }
+  throwIfAborted(signal);
+  for (const asset of pending) {
+    report({ asset, phase: "queued" });
+  }
 
   let downloaded = 0;
-  for (const asset of manifest.assets) {
-    throwIfAborted(signal);
-    const done = progress.loadedBytes;
-    if (!(await readCachedAsset(asset, deps))) {
-      report({ current: asset.name });
-      const blob = await downloadSampleAsset(asset, deps, {
-        signal,
-        onBytes: (bytes) => report({ loadedBytes: done + bytes }),
-      });
+  const failed: SampleAsset[] = [];
+  const next = pending.values();
+  const worker = async () => {
+    for (const asset of next) {
       throwIfAborted(signal);
-      await deps.cache(asset.id, blob);
-      downloaded += 1;
+      report({ asset, phase: "receiving", received: 0, total: asset.bytes });
+      try {
+        const blob = await downloadSampleAsset(asset, deps, {
+          signal,
+          onBytes: (received) =>
+            report({ asset, phase: "receiving", received, total: asset.bytes }),
+        });
+        throwIfAborted(signal);
+        await deps.cache(asset.id, blob);
+        downloaded += 1;
+        report({ asset, phase: "ready", blob, downloaded: true });
+      } catch (error) {
+        throwIfAborted(signal);
+        failed.push(asset);
+        report({
+          asset,
+          phase: "failed",
+          error: error instanceof Error ? error : new Error(String(error)),
+        });
+      }
     }
-    report({
-      loadedBytes: done + asset.bytes,
-      completedAssets: progress.completedAssets + 1,
-      current: undefined,
-    });
-  }
-  return { downloaded };
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, pending.length) }, worker),
+  );
+  throwIfAborted(signal);
+  return { downloaded, failed };
 }
 
-// What opening the sample applies, once its assets are cached: the template
-// session, with every asset as a missing ref under its stable id so the
-// cache supplies it.
+// What opening the sample applies: the template session, with every asset
+// as a missing ref under its stable id so the cache, or a download, supplies
+// it.
 export function buildSampleOpenPayload(
   manifest: SampleManifest,
   sessionText: string,
@@ -203,11 +227,6 @@ export function shouldAutoOpenSample(options: {
     return flag === "1";
   }
   return !options.webdriver;
-}
-
-export function formatSampleProgress(progress: SampleLoadProgress) {
-  const megabytes = (bytes: number) => (bytes / (1024 * 1024)).toFixed(1);
-  return `${megabytes(progress.loadedBytes)} of ${megabytes(progress.totalBytes)} MB`;
 }
 
 export async function sha256Hex(blob: Blob) {
