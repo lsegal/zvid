@@ -1,5 +1,5 @@
 // Moving the layer selection.
-import { stepSelectedLaneId } from "../fx-chain";
+import { stepSelectedLaneId } from "../fx-chain.ts";
 import { canEditTimeline } from "./guards.ts";
 import type { Shortcut } from "./types.ts";
 
