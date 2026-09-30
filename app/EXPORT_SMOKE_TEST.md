@@ -17,12 +17,20 @@ npx -y pnpm@8 run build
 npx -y pnpm@8 dev
 ```
 
-Open `http://localhost:1420/export-smoke.html` in a browser with a HEVC or AV1
-video encoder and an AAC audio encoder. Click **Export video only** and
-**Export with audio**. Each button reports `Saved ...` on success; keep the two
-downloaded MP4 files. If the runtime lacks HEVC/AV1 or AAC, record the exact
-error and browser version. An unsupported encoder is a platform result, not a
-passing export.
+Open `http://localhost:1420/export-smoke.html` in a browser with a HEVC, AV1
+or H.264 video encoder and an AAC audio encoder. Click **Export video only**
+and **Export with audio**. Each button reports `Saved ...` on success; keep the
+two downloaded MP4 files. If the runtime lacks HEVC/AV1/H.264 or AAC, record
+the exact error and browser version. An unsupported encoder is a platform
+result, not a passing export.
+
+The page exports with the default Session Settings (Auto codec, High quality,
+AAC 192 kbps at 48 kHz) and reports the effective settings, like
+`320×180 · 24 fps · AV1 · 0.5 Mbps`. Query parameters override the encoding:
+`codec` (`auto`, `h264`, `hevc` or `av1`), `mbps` (a custom video bitrate),
+`audioKbps` (128, 192, 256 or 320) and `sampleRate` (44100 or 48000), for
+example `export-smoke.html?codec=h264&mbps=2&sampleRate=44100`. A codec the
+runtime can't encode fails before rendering and suggests Auto.
 
 ## Tauri
 
@@ -67,7 +75,10 @@ Run from the repository root with FFmpeg's `ffprobe` and `ffmpeg` on `PATH`:
 node app/scripts/verify-export.mjs <video-only.mp4> <audible.mp4>
 ```
 
-The check requires one HEVC or AV1 video track in each file, AAC audio only in
+Add `--codec=h264` (or `hevc`, `av1`) and `--sample-rate=44100` to check the
+files were made with those Session Settings.
+
+The check requires one HEVC, AV1 or H.264 video track in each file, AAC audio only in
 the audible file, a JPEG cover-art thumbnail of at most 640 px in each file, a
 duration close to two seconds, aligned track start/end times, successful video
 and audio decoding, and non-silent audio. On macOS,
