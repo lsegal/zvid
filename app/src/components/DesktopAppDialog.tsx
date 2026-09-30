@@ -50,9 +50,9 @@ export function DesktopAppDialog({
         <DialogHeader>
           <DialogTitle>Download the zvid desktop app</DialogTitle>
           <DialogDescription>
-            The zvid desktop app runs zvid as an app on {platformLabel}. On
-            macOS it needs a Mac with Apple silicon. The ZVID Capture plug-in
-            has its own installer under Help › Install Capture Plugin.
+            The zvid desktop app runs zvid as a native app on Windows and on
+            Macs with Apple silicon. The ZVID Capture plug-in has its own
+            installer under Help › Install Capture Plugin.
           </DialogDescription>
         </DialogHeader>
 
