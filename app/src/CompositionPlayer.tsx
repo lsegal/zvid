@@ -92,10 +92,6 @@ type CompositionPlaybackState = {
 export type CompositionPlayerHandle = {
   getCanvas(): HTMLCanvasElement | null;
   renderFrameAt(playheadQ: number, playheadSeconds: number): Promise<void>;
-  restorePreviewSurface(
-    playheadQ: number,
-    playheadSeconds: number,
-  ): Promise<void>;
 };
 
 const MAX_DRIFT_SECONDS = 0.18;
@@ -737,12 +733,6 @@ export const CompositionPlayer = forwardRef<
       getCanvas: () => canvasRef.current,
       renderFrameAt: (nextPlayheadQ, nextPlayheadSeconds) =>
         renderFrameAt(nextPlayheadQ, nextPlayheadSeconds, 1),
-      restorePreviewSurface: (nextPlayheadQ, nextPlayheadSeconds) =>
-        renderFrameAt(
-          nextPlayheadQ,
-          nextPlayheadSeconds,
-          window.devicePixelRatio || 1,
-        ),
     }),
     [renderFrameAt],
   );

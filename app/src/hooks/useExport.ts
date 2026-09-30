@@ -1,11 +1,15 @@
-import { type Dispatch, type SetStateAction, useRef, useState } from "react";
-import { quartersToSeconds } from "../app/timeline-math.ts";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { ExportState, ProjectState } from "../app/types.ts";
 import { logClient, pluralize } from "../app/util.ts";
-import {
-  type CompositionPlayerHandle,
-  CompositionRenderer,
-} from "../CompositionPlayer";
+import { CompositionRenderer } from "../CompositionPlayer";
 import {
   createExportOptions,
   defaultExportFileName,
@@ -18,9 +22,14 @@ import {
   projectDurationAt,
   reopenExportOptions,
 } from "../export-options.ts";
+import {
+  describeExportActivity,
+  estimateExportSecondsLeft,
+} from "../export-progress.ts";
 import { canRevealSavedFile, getHarness, type SaveTarget } from "../harness";
 import type { ExportProgress } from "../harness/contracts";
 import type { MediaItem } from "../media";
+import { retainObjectUrls } from "../object-url-retention.ts";
 import {
   type SessionSettings,
   sessionSettingsFromProject,
@@ -28,14 +37,13 @@ import {
 import type { MeterSignature } from "../timeline-format.ts";
 import type { WaveformPeaks } from "../waveform-peaks";
 
-export type ExportStateInputs = {
-  setStatus: Dispatch<SetStateAction<string>>;
-};
+// While the editor plays, the export renders at most one frame per this
+// many milliseconds, so preview playback stays smooth.
+const PLAYING_FRAME_YIELD_MS = 32;
 
 // Whether an export is running, its progress, and the Export button label
-// and status text that show it. App calls this early, since much of App
-// reads `isExporting`.
-export function useExportState({ setStatus }: ExportStateInputs) {
+// that shows it. App calls this early, since App reads `isExporting`.
+export function useExportState() {
   const [isExporting, setIsExporting] = useState(false);
   const [exportState, setExportState] = useState<ExportState>({
     phase: "idle",
@@ -48,12 +56,7 @@ export function useExportState({ setStatus }: ExportStateInputs) {
     detail: string,
     progress: number | null = null,
   ) {
-    setExportState({
-      phase,
-      detail,
-      progress,
-    });
-    setStatus(detail);
+    setExportState({ phase, detail, progress });
   }
 
   const exportButtonLabel = isExporting
@@ -66,17 +69,12 @@ export function useExportState({ setStatus }: ExportStateInputs) {
           : "Render..."
     : "Export";
 
-  // Export progress stays visible for the whole export.
-  const exportStatusText =
-    isExporting && exportState.detail ? exportState.detail : "";
-
   return {
     isExporting,
     setIsExporting,
     setExportState,
     updateExportState,
     exportButtonLabel,
-    exportStatusText,
   };
 }
 
@@ -97,13 +95,35 @@ export type ExportInputs = {
   mainAudioPeaks: WaveformPeaks | undefined;
   signature: MeterSignature;
   beatUnit: number;
-  playheadQRef: { current: number };
-  compositionPlayerRef: { current: CompositionPlayerHandle | null };
+  // Whether the editor's preview is playing; the export yields more
+  // between frames meanwhile.
+  isPlaying: boolean;
   setIsPlaying: Dispatch<SetStateAction<boolean>>;
   setStatus: Dispatch<SetStateAction<string>>;
 };
 
 export type ExportDialogPhase = "editing" | "exporting" | "done";
+
+// The session as it was when an export started. The export renders only
+// this, so editing meanwhile doesn't change it, and the dialog shows it
+// while exporting and once done.
+export type ExportSnapshot = {
+  takenAt: Date;
+  project: ProjectState;
+  session: SessionSettings;
+  defaultRange: ExportRange;
+  mediaItems: MediaItem[];
+  mainAudio: MediaItem | undefined;
+  mainAudioPeaks: WaveformPeaks | undefined;
+  signature: MeterSignature;
+  beatUnit: number;
+};
+
+// A running export, or one that ended while the dialog was hidden, as the
+// status bar and the completion notice show it.
+export type ExportActivity =
+  | { kind: "running"; label: string; progress: number | null }
+  | { kind: "done" | "failed"; label: string };
 
 // What the Export dialog shows and does. See ExportDialog.
 export type ExportDialogModel = {
@@ -114,6 +134,8 @@ export type ExportDialogModel = {
   session: SessionSettings;
   defaultRange: ExportRange;
   progress: ExportProgress | null;
+  // When the running (or finished) export's snapshot was taken.
+  snapshotTakenAt: Date | null;
   // What the last export did, shown once it finishes or fails.
   message: string;
   // Whether the done state offers Reveal file for the saved export.
@@ -132,6 +154,7 @@ export type ExportDialogModel = {
   startExport(): void;
   cancelExport(): void;
   revealFile(): void;
+  // Hides the dialog. A running export keeps going in the background.
   close(): void;
 };
 
@@ -145,8 +168,26 @@ function isAbort(error: unknown) {
   return error instanceof DOMException && error.name === "AbortError";
 }
 
+function wait(milliseconds: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+}
+
+// Closing the window mid-export asks first, since it would cancel it.
+function useConfirmCloseWhileExporting(isExporting: boolean) {
+  useEffect(() => {
+    if (!isExporting) {
+      return;
+    }
+    return getHarness().guardWindowClose?.(
+      "An export is still running. Closing the window cancels it. Close anyway?",
+    );
+  }, [isExporting]);
+}
+
 // Export opens the Export dialog, where the In→Out range and the settings
 // are chosen; the dialog's Export renders that range to an MP4 and saves it.
+// The export runs in the background: the dialog can be hidden and reopened
+// meanwhile, and the editor stays usable.
 export function useExport({
   isExporting,
   setIsExporting,
@@ -158,16 +199,15 @@ export function useExport({
   mainAudioPeaks,
   signature,
   beatUnit,
-  playheadQRef,
-  compositionPlayerRef,
+  isPlaying,
   setIsPlaying,
   setStatus,
 }: ExportInputs) {
-  const { clips, lanes, effects, bpm, sessionName } = project;
+  const { clips, sessionName } = project;
   const session = sessionSettingsFromProject(project);
   const defaultRange = defaultExportRange({
     clips,
-    bpm,
+    bpm: project.bpm,
     fps: session.fps,
     projectDurationFrames: project.projectDurationFrames,
   });
@@ -178,12 +218,23 @@ export function useExport({
   );
   const [progress, setProgress] = useState<ExportProgress | null>(null);
   const [message, setMessage] = useState("");
+  const [snapshot, setSnapshot] = useState<ExportSnapshot | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState<number | undefined>();
+  // How an export that ended while the dialog was hidden went, until the
+  // dialog is shown again.
+  const [unseenResult, setUnseenResult] = useState<ExportActivity | null>(null);
   // Where the last successful export was saved, for Reveal file.
   const [savedTarget, setSavedTarget] = useState<SaveTarget | null>(null);
   // The options last used, kept while the app is open (not saved) so
   // reopening Export picks up where it left off.
   const rememberedRef = useRef<Remembered | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const openRef = useRef(open);
+  openRef.current = open;
+  const isPlayingRef = useRef(isPlaying);
+  isPlayingRef.current = isPlaying;
+
+  useConfirmCloseWhileExporting(isExporting);
 
   function openExportDialog() {
     if (isExporting) {
@@ -209,14 +260,24 @@ export function useExport({
     setProgress(null);
     setMessage("");
     setSavedTarget(null);
+    setSnapshot(null);
+    setUnseenResult(null);
     setOpen(true);
   }
 
+  // Shows the dialog again as it was: a running export's progress, or how
+  // the last one ended.
+  const reopenExportDialog = useCallback(() => {
+    setUnseenResult(null);
+    setOpen(true);
+  }, []);
+
+  const dismissExportActivity = useCallback(() => setUnseenResult(null), []);
+
   function close() {
-    if (abortRef.current) {
-      return;
+    if (!abortRef.current) {
+      rememberedRef.current = { sessionName, options, session };
     }
-    rememberedRef.current = { sessionName, options, session };
     setOpen(false);
   }
 
@@ -224,7 +285,8 @@ export function useExport({
     abortRef.current?.abort();
   }
 
-  async function runExport(exportOptions: ExportOptions) {
+  async function runExport(exportOptions: ExportOptions, from: ExportSnapshot) {
+    const { bpm } = from.project;
     const settings = exportSettings(exportOptions);
     const { startSeconds, durationSeconds, frameCount } = exportTiming(
       exportOptions,
@@ -259,6 +321,14 @@ export function useExport({
 
     const abort = new AbortController();
     abortRef.current = abort;
+    // Media replaced or removed in the editor meanwhile stays readable.
+    const releaseMedia = retainObjectUrls([
+      ...from.mediaItems.map((item) => item.previewUrl),
+      from.mainAudio?.previewUrl,
+    ]);
+    let renderStartedAt: number | null = null;
+    setSnapshot(from);
+    setSecondsLeft(undefined);
     setPhase("exporting");
     setIsExporting(true);
     updateExportState(
@@ -274,33 +344,35 @@ export function useExport({
       canvasWidth,
       canvasHeight,
       encoding: settings.encoding,
-      mainAudio: mainAudio?.name,
+      mainAudio: from.mainAudio?.name,
     });
     logClient("export:phase", { phase: "preparing", frames: frameCount });
 
+    // Its own canvas, WebGL context, media elements and audio analysis, so
+    // the preview and the export never share renderer state.
     const exportRenderer = new CompositionRenderer(
       {
-        mediaItems,
-        clips,
-        lanes,
-        effects,
+        mediaItems: from.mediaItems,
+        clips: from.project.clips,
+        lanes: from.project.lanes,
+        effects: from.project.effects,
         bpm,
         fps,
         projectDurationFrames: projectDurationAt(
-          project.projectDurationFrames,
-          session.fps,
+          from.project.projectDurationFrames,
+          from.session.fps,
           fps,
         ),
         canvasWidth,
         canvasHeight,
-        mainAudio,
+        mainAudio: from.mainAudio,
       },
       { audioAnalysis: "offline" },
     );
 
-    let finished = false;
+    let result: ExportActivity | null = null;
     try {
-      const result = await getHarness().exportVideo({
+      const exported = await getHarness().exportVideo({
         filename: exportName,
         saveTarget,
         canvas: exportRenderer.canvas,
@@ -309,33 +381,42 @@ export function useExport({
         durationSeconds,
         frameCount,
         bpm,
-        mainAudio,
+        mainAudio: from.mainAudio,
         signal: abort.signal,
         renderFrameAt: (frameQ, frameSeconds) =>
           exportRenderer.renderFrameAt(frameQ, frameSeconds),
         setPlayheadQ: () => {},
+        yieldBetweenFrames: () =>
+          wait(isPlayingRef.current ? PLAYING_FRAME_YIELD_MS : 0),
         onProgress: (update) => {
+          const now = performance.now();
+          if (update.phase === "rendering" && renderStartedAt === null) {
+            renderStartedAt = now;
+          }
           setProgress(update);
+          setSecondsLeft(
+            estimateExportSecondsLeft(update, renderStartedAt, now),
+          );
           updateExportState(update.phase, update.detail, update.progress);
         },
         onLog: logClient,
       });
 
       const done =
-        result.saveMethod === "download"
-          ? `Exported ${exportName} (${result.summary}) through the browser download flow.`
-          : `Saved ${exportName} (${result.summary}).`;
+        exported.saveMethod === "download"
+          ? `Exported ${exportName} (${exported.summary}) through the browser download flow.`
+          : `Saved ${exportName} (${exported.summary}).`;
       setStatus(done);
       setMessage(done);
       setSavedTarget(saveTarget);
-      finished = true;
+      result = { kind: "done", label: `Exported ${exportName}` };
       logClient("export:complete", {
         filename: exportName,
-        bytes: result.bytes,
-        mimeType: result.mimeType,
-        muxedWith: result.muxedWith,
-        saveMethod: result.saveMethod,
-        encoding: result.encoding,
+        bytes: exported.bytes,
+        mimeType: exported.mimeType,
+        muxedWith: exported.muxedWith,
+        saveMethod: exported.saveMethod,
+        encoding: exported.encoding,
       });
     } catch (error) {
       if (isAbort(error)) {
@@ -346,24 +427,21 @@ export function useExport({
         const message = error instanceof Error ? error.message : String(error);
         setStatus(`Export failed: ${message}`);
         setMessage(`Export failed: ${message}`);
+        result = { kind: "failed", label: `Export failed: ${message}` };
         logClient("export:error", { message });
       }
     } finally {
       abortRef.current = null;
-      setPhase(finished ? "done" : "editing");
+      setPhase(result?.kind === "done" ? "done" : "editing");
       setProgress(null);
+      setSecondsLeft(undefined);
       setIsExporting(false);
       setExportState({ phase: "idle", progress: null, detail: "" });
       exportRenderer.destroy();
-      const previewPlayheadQ = playheadQRef.current;
-      try {
-        await compositionPlayerRef.current?.restorePreviewSurface(
-          previewPlayheadQ,
-          quartersToSeconds(previewPlayheadQ, bpm),
-        );
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        logClient("export:restorePreviewSurface:error", { message });
+      releaseMedia();
+      // An export that ends out of sight says so until the dialog is shown.
+      if (!openRef.current) {
+        setUnseenResult(result);
       }
     }
   }
@@ -375,7 +453,18 @@ export function useExport({
     rememberedRef.current = { sessionName, options, session };
     setMessage("");
     setSavedTarget(null);
-    void runExport(options);
+    setUnseenResult(null);
+    void runExport(options, {
+      takenAt: new Date(),
+      project,
+      session,
+      defaultRange,
+      mediaItems,
+      mainAudio,
+      mainAudioPeaks,
+      signature,
+      beatUnit,
+    });
   }
 
   function revealFile() {
@@ -390,31 +479,59 @@ export function useExport({
     });
   }
 
+  // Exporting and done show the snapshot the export rendered; editing shows
+  // the session as it is now.
+  const shown = phase !== "editing" && snapshot ? snapshot : null;
+  const shownProject = shown?.project ?? project;
   const exportDialog: ExportDialogModel = {
     open,
     phase,
     options,
     setOptions,
-    session,
-    defaultRange,
+    session: shown?.session ?? session,
+    defaultRange: shown?.defaultRange ?? defaultRange,
     progress,
+    snapshotTakenAt: shown?.takenAt ?? null,
     message,
     canReveal: canRevealSavedFile(window.harness, savedTarget),
-    mediaItems,
-    clips,
-    lanes,
-    effects,
-    mainAudio,
-    mainAudioPeaks,
-    bpm,
-    signature,
-    beatUnit,
-    projectDurationFrames: project.projectDurationFrames,
+    mediaItems: shown?.mediaItems ?? mediaItems,
+    clips: shownProject.clips,
+    lanes: shownProject.lanes,
+    effects: shownProject.effects,
+    mainAudio: shown ? shown.mainAudio : mainAudio,
+    mainAudioPeaks: shown ? shown.mainAudioPeaks : mainAudioPeaks,
+    bpm: shownProject.bpm,
+    signature: shown?.signature ?? signature,
+    beatUnit: shown?.beatUnit ?? beatUnit,
+    projectDurationFrames: shownProject.projectDurationFrames,
     startExport,
     cancelExport,
     revealFile,
     close,
   };
 
-  return { openExportDialog, exportDialog };
+  // Shown in the status bar while the dialog is hidden.
+  const activityLabel = describeExportActivity(progress, secondsLeft);
+  const activityProgress = progress?.progress ?? null;
+  const exportActivity = useMemo<ExportActivity | null>(
+    () =>
+      open
+        ? null
+        : isExporting
+          ? {
+              kind: "running",
+              label: activityLabel,
+              progress: activityProgress,
+            }
+          : unseenResult,
+    [activityLabel, activityProgress, isExporting, open, unseenResult],
+  );
+
+  return {
+    openExportDialog,
+    reopenExportDialog,
+    dismissExportActivity,
+    exportDialog,
+    exportActivity,
+  };
 }

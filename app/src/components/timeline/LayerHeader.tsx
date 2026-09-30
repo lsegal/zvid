@@ -13,7 +13,6 @@ type LayerActions = ReturnType<typeof useLayerActions>;
 // What every layer header shares.
 export type LayerHeaderContext = {
   layerReorder: LayerActions["layerReorder"];
-  isExporting: boolean;
   renamingLaneId: string | undefined;
   setRenamingLaneId: Dispatch<SetStateAction<string | undefined>>;
   openLayerMenu: ReturnType<typeof useMenus>["openLayerMenu"];
@@ -39,7 +38,6 @@ export function LayerHeader({
   fxLaneId,
   status,
   layerReorder,
-  isExporting,
   renamingLaneId,
   setRenamingLaneId,
   openLayerMenu,
@@ -69,7 +67,6 @@ export function LayerHeader({
         {...layerReorder.gripProps(lane, laneIndex)}
         aria-label={`Reorder ${lane.name}`}
         className="track-label__grip"
-        disabled={isExporting}
         tabIndex={lane.id === fxLaneId ? 0 : -1}
         title="Drag to reorder, or press Space to pick up"
         type="button"

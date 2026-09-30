@@ -25,7 +25,6 @@ type TransportBarProps = {
   updateZoomDraft: (nextZoom: number | null) => void;
   flushZoomDraft: (label?: string) => void;
   isPlaying: boolean;
-  isExporting: boolean;
   jumpPlayhead: (bars: number) => void;
   onTransportToggle: () => void;
   onRandomize: () => void;
@@ -38,7 +37,6 @@ export function TransportBar({
   updateZoomDraft,
   flushZoomDraft,
   isPlaying,
-  isExporting,
   jumpPlayhead,
   onTransportToggle,
   onRandomize,
@@ -151,7 +149,6 @@ export function TransportBar({
         <button
           aria-label="Randomize arrangement"
           className="transport-button transport-button--wand"
-          disabled={isExporting}
           onClick={onRandomize}
           title="Replace the arrangement with randomized selections"
           type="button"

@@ -485,29 +485,28 @@ Every push to `main` runs the **DAW bundles** workflow
 (`.github/workflows/daw-bundle.yml`), which uploads two artifacts to the
 workflow run:
 
-- `zvid-capture-<version>-<sha>-macos-arm64`: the desktop app
-  `zvid.app`, `ZVID Capture.vst3` and `ZVID Capture.component`, arm64 only,
-  the installer `zvid-capture-<version>+<sha>.pkg`, and the Live
-  companion Remote Script in `live-remote-script/ZVID_Capture`. CI checks
-  with `lipo -archs` that every binary is arm64 with no x86_64 slice,
-  installs the `.pkg`, verifies the
-  installed app's and bundles' signatures and runs `auval` and pluginval
-  against the installed bundles.
-- `zvid-capture-<version>-<sha>-windows-x64`: the desktop app `zvid.exe`,
-  `ZVID Capture.vst3`, the installer `zvid-capture-<version>+<sha>-setup.exe`
-  and `live-remote-script/ZVID_Capture`. CI runs pluginval against the
-  bundle, then runs the installer silently, checks the app, its Start menu
-  shortcut and the bundle were installed, then uninstalls them.
+- `zvid-capture-<version>-<sha>-macos-arm64`: `ZVID Capture.vst3` and
+  `ZVID Capture.component`, arm64 only, the installer
+  `zvid-capture-<version>+<sha>.pkg`, and the Live companion Remote Script
+  in `live-remote-script/ZVID_Capture`. CI checks with `lipo -archs` that
+  both binaries are arm64 with no x86_64 slice, installs the `.pkg`,
+  verifies the installed bundles' signatures and runs `auval` and pluginval
+  against them.
+- `zvid-capture-<version>-<sha>-windows-x64`: `ZVID Capture.vst3`, the
+  installer `zvid-capture-<version>+<sha>-setup.exe` and
+  `live-remote-script/ZVID_Capture`. CI runs pluginval against the bundle,
+  then runs the installer silently, checks the bundle was installed, then
+  uninstalls it.
+
+The installers are plugin only; the desktop app is not built here.
 
 Both jobs also run the [host integration tests](#host-integration-tests)
 against the release bundles.
 
-The desktop app is built first with `pnpm --dir app tauri build` (an
-`aarch64-apple-darwin` `.app` bundle on macOS, `--no-bundle` on Windows),
-then each artifact by `cargo xtask bundle --release --installer --app
-<path>`, which builds the plugin for `aarch64-apple-darwin` on macOS, signs
-the app like the plugin bundles on macOS, fails when `daw/ui/dist` is
-missing rather than embedding the placeholder UI, and stamps the bundle version
+Each artifact is built by `cargo xtask bundle --release --installer`, which
+builds the plugin for `aarch64-apple-darwin` on macOS, fails when
+`daw/ui/dist` is missing rather than embedding the placeholder UI, and
+stamps the bundle version
 (`Info.plist`, `moduleinfo.json`, the installer and the version reported to
 hosts) as `<version>+<sha>`. The same command builds identical bundles
 locally once `pnpm --dir daw/ui build` has run; on macOS it needs `rustup
@@ -521,6 +520,8 @@ needs Inno Setup 6 on Windows (`ISCC` may name its `ISCC.exe`).
   `/Library/Audio/Plug-Ins/Components` for every user. It needs macOS 13 and
   Apple silicon: its `hostArchitectures` is `arm64`, so Installer refuses
   Intel Macs rather than installing binaries they can't run.
+  `pkgbuild --compression latest` compresses its payload with pbzx (xz)
+  rather than gzip, about 13% smaller.
 - **Windows.** An Inno Setup installer (`installer/zvid-capture.iss`) that
   installs `zvid.exe` into `C:\Program Files\ZVID` with a Start menu
   shortcut, installs `ZVID Capture.vst3` into

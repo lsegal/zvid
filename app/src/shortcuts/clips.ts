@@ -7,8 +7,8 @@ export const splitClipShortcut: Shortcut = {
   id: "clips.split",
   keys: ["Mod+E"],
   when: canEditTimeline,
-  run: ({ clipActionsRef, isExporting, selectedClip }, event) => {
-    if (!selectedClip || isExporting) {
+  run: ({ clipActionsRef, selectedClip }, event) => {
+    if (!selectedClip) {
       return;
     }
 
@@ -21,8 +21,8 @@ export const duplicateClipShortcut: Shortcut = {
   id: "clips.duplicate",
   keys: ["Mod+D"],
   when: canEditTimeline,
-  run: ({ clipActionsRef, isExporting, selectedClip }, event) => {
-    if (!selectedClip || isExporting) {
+  run: ({ clipActionsRef, selectedClip }, event) => {
+    if (!selectedClip) {
       return;
     }
 
@@ -35,14 +35,7 @@ export const deleteShortcut: Shortcut = {
   id: "clips.delete",
   keys: ["Delete", "Backspace"],
   when: canEditTimeline,
-  run: (
-    { clipActionsRef, isExporting, pendingSelection, selectedClip },
-    event,
-  ) => {
-    if (isExporting) {
-      return;
-    }
-
+  run: ({ clipActionsRef, pendingSelection, selectedClip }, event) => {
     const clipActions = clipActionsRef.current;
     if (pendingSelection) {
       event.preventDefault();

@@ -17,7 +17,6 @@ type MainAudioRowProps = {
   audio: ReturnType<typeof useMainAudio>;
   drop: ReturnType<typeof useMainAudioDrop>;
   openMainAudioMenu: ReturnType<typeof useMenus>["openMainAudioMenu"];
-  isExporting: boolean;
   prefersReducedMotion: boolean;
   bpm: number;
   quarterPx: number;
@@ -32,7 +31,6 @@ export function MainAudioRow({
   audio,
   drop,
   openMainAudioMenu,
-  isExporting,
   prefersReducedMotion,
   bpm,
   quarterPx,
@@ -82,7 +80,6 @@ export function MainAudioRow({
         <button
           aria-label={mainAudio ? "Replace main audio" : "Add main audio"}
           className="track-label__fx track-label__audio"
-          disabled={isExporting}
           onClick={() => mainAudioInputRef.current?.click()}
           title={mainAudio ? "Replace main audio" : "Add main audio"}
           type="button"

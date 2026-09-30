@@ -35,7 +35,7 @@ export type SelectionClipboardActions = {
 
 export type SelectionMenuOptions = {
   tracks: readonly SelectionMenuTrack[];
-  // Editing is disabled while exporting.
+  // Disables every editing entry.
   disabled?: boolean;
   clipboard?: SelectionClipboardActions;
   insertTrack: (index: number) => void;

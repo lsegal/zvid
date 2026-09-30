@@ -328,7 +328,8 @@ test("Cancel stops an export in progress", async ({ page }) => {
 
   await dialog.getByRole("button", { name: "Export", exact: true }).click();
   await expect(dialog.getByRole("progressbar")).toBeVisible();
-  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await dialog.getByRole("button", { name: "Cancel export" }).click();
+  await dialog.getByRole("button", { name: "Stop export" }).click();
 
   await expect(dialog.getByRole("status")).toHaveText("Export canceled.");
   await expect(dialog.getByRole("progressbar")).toHaveCount(0);
