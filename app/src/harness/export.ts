@@ -172,7 +172,8 @@ export async function exportVideo(
         progress: Math.round(((index + 1) / request.frameCount) * 100),
         detail: `Rendering frame ${index + 1}/${request.frameCount} · ${summary}...`,
       });
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await (request.yieldBetweenFrames?.() ??
+        new Promise((resolve) => setTimeout(resolve, 0)));
     }
     signal?.throwIfAborted();
     video.close();

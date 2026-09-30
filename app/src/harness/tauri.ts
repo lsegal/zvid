@@ -297,6 +297,36 @@ export async function maybeCreateTauriHarness(
         });
         return "native-path" as const;
       },
+      guardWindowClose(message) {
+        let disposed = false;
+        let unlisten: (() => void) | undefined;
+        void import("@tauri-apps/api/window")
+          .then(({ getCurrentWindow }) =>
+            getCurrentWindow().onCloseRequested(async (event) => {
+              const close = await dialog.ask(message, {
+                title: "Export in progress",
+                kind: "warning",
+              });
+              if (!close) {
+                event.preventDefault();
+              }
+            }),
+          )
+          .then((stop) => {
+            if (disposed) {
+              stop();
+            } else {
+              unlisten = stop;
+            }
+          })
+          .catch((error: unknown) => {
+            console.warn("Cannot guard closing the window.", error);
+          });
+        return () => {
+          disposed = true;
+          unlisten?.();
+        };
+      },
       async revealSavedFile(target) {
         if (target.kind !== "native-path") {
           throw new Error(`Cannot reveal ${target.filename}: it has no path.`);

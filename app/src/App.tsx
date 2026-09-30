@@ -237,8 +237,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setExportState,
     updateExportState,
     exportButtonLabel,
-    exportStatusText,
-  } = useExportState({ setStatus });
+  } = useExportState();
   const prefersReducedMotion = usePrefersReducedMotion();
   const [importNotice, setImportNotice] = useState<ImportNoticeContent | null>(
     () =>
@@ -486,7 +485,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     bpm,
     editEffects,
     effects,
-    isExporting,
     isPlaying,
     lanes,
     playbackOriginRef,
@@ -787,7 +785,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     projectSnapshotRef,
     undoLabel,
     redoLabel,
-    isExporting,
     refuseReadOnlyEdit,
     finishTextEdit,
     stopTimelineAudibleScrub,
@@ -1023,7 +1020,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     canCreateLayer,
     commitProjectChange,
     focusLaneLabel,
-    isExporting,
     isInspectorCollapsed,
     lanes,
     pendingSelection,
@@ -1072,7 +1068,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     insertFxClip,
     insertLayer,
     insertTextClip,
-    isExporting,
     jumpToClipStart,
     laneStatusById,
     lanes,
@@ -1114,7 +1109,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     fxLaneId,
     handleRedo,
     handleUndo,
-    isExporting,
     lanes,
     pendingSelection,
     playbackOriginRef,
@@ -1202,7 +1196,13 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setStatus,
   });
 
-  const { openExportDialog, exportDialog } = useExport({
+  const {
+    openExportDialog,
+    reopenExportDialog,
+    dismissExportActivity,
+    exportDialog,
+    exportActivity,
+  } = useExport({
     isExporting,
     setIsExporting,
     setExportState,
@@ -1213,8 +1213,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     mainAudioPeaks: currentMainWaveform?.peaks,
     signature,
     beatUnit,
-    playheadQRef,
-    compositionPlayerRef,
+    isPlaying,
     setIsPlaying,
     setStatus,
   });
@@ -1453,7 +1452,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   emptyState={
                     showArrangementEmptyState ? (
                       <ArrangementEmptyState
-                        disabled={isExporting}
                         onDismiss={() =>
                           setArrangementEmptyStateDismissed(true)
                         }
@@ -1469,7 +1467,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   }
                   header={{
                     layerReorder,
-                    isExporting,
                     renamingLaneId,
                     setRenamingLaneId,
                     openLayerMenu,
@@ -1523,7 +1520,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   audio={mainAudioModel}
                   drop={mainAudioDrop}
                   openMainAudioMenu={openMainAudioMenu}
-                  isExporting={isExporting}
                   prefersReducedMotion={prefersReducedMotion}
                   bpm={bpm}
                   quarterPx={quarterPx}
@@ -1610,7 +1606,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
               updateZoomDraft={updateZoomDraft}
               flushZoomDraft={flushZoomDraft}
               isPlaying={isPlaying}
-              isExporting={isExporting}
               jumpPlayhead={jumpPlayhead}
               onTransportToggle={handleTransportToggle}
               onRandomize={handleRandomizeTimeline}
@@ -1687,11 +1682,13 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         clipCount={timelineClips.length}
         collaborationMode={collaborationMode}
         collaborationState={collaborationState}
-        exportStatusText={exportStatusText}
+        dismissExportActivity={dismissExportActivity}
+        exportActivity={exportActivity}
         fps={fps}
         offlineCount={offlineCount}
         playheadSignal={playheadSignal}
         previewMedia={previewMedia}
+        reopenExportDialog={reopenExportDialog}
         sessionName={sessionName}
         setIsSessionSettingsOpen={setIsSessionSettingsOpen}
         shareUrl={shareUrl}

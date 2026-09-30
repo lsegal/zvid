@@ -80,7 +80,6 @@ export type MenusInputs = Pick<
     fxLaneId: string | undefined;
     handleRedo: () => void;
     handleUndo: () => void;
-    isExporting: boolean;
     laneStatusById: ReadonlyMap<string, { effectCount: number }>;
     lanes: Lane[];
     mainAudioId: string | undefined;
@@ -147,7 +146,6 @@ export function useMenus({
   insertFxClip,
   insertLayer,
   insertTextClip,
-  isExporting,
   jumpToClipStart,
   laneStatusById,
   lanes,
@@ -310,7 +308,6 @@ export function useMenus({
           endQ,
         ),
       })),
-      disabled: isExporting,
       clipboard: {
         mac: shortcutLabels.mac,
         hasContent: copySelectionRange(selection).fragments.length > 0,
@@ -332,7 +329,6 @@ export function useMenus({
   function getMainAudioMenuEntries() {
     return buildMainAudioMenuEntries({
       hasMainAudio: Boolean(mainAudioId),
-      disabled: isExporting,
       chooseFile: () => mainAudioInputRef.current?.click(),
       remove: removeMainAudio,
     });
@@ -346,7 +342,6 @@ export function useMenus({
       fxEnabled,
       effectCount: laneStatusById.get(lane.id)?.effectCount ?? 0,
       effects: addableEffectsFor("layer"),
-      disabled: isExporting,
       actions: {
         rename: () => setRenamingLaneId(lane.id),
         duplicate: () => duplicateLayer(lane),
@@ -381,8 +376,8 @@ export function useMenus({
       }
     };
     return buildClipMenuEntries({
-      hasClip: Boolean(clip) && !isExporting,
-      canPaste: Boolean(clipClipboardRef.current) && !isExporting,
+      hasClip: Boolean(clip),
+      canPaste: Boolean(clipClipboardRef.current),
       canSplit: clip
         ? canSplitAt(clip.startQ, getClipEndQ(clip, bpm), playheadQRef.current)
         : false,
@@ -408,7 +403,6 @@ export function useMenus({
         redoLabel,
         canUndo,
         canRedo,
-        disabled: isExporting,
         shortcuts: shortcutLabels,
         undo: handleUndo,
         redo: handleRedo,

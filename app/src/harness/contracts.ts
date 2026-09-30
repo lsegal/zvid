@@ -99,6 +99,9 @@ export type ExportRequest = {
   signal?: AbortSignal;
   renderFrameAt(playheadQ: number, playheadSeconds: number): Promise<void>;
   setPlayheadQ(playheadQ: number): void;
+  // Awaited between frames so the rest of the app keeps running; defaults
+  // to a zero-length timeout.
+  yieldBetweenFrames?(): Promise<void>;
   onProgress(update: ExportProgress): void;
   onLog?(event: string, payload?: unknown): void;
 };
@@ -144,6 +147,9 @@ export type Harness = {
   // Shows a saved file in the system file manager, selected. Present with
   // the "reveal-saved-file" capability; see canRevealSavedFile.
   revealSavedFile?(target: SaveTarget): Promise<void>;
+  // Asks for confirmation, with `message`, before the app's window closes,
+  // until the returned function is called.
+  guardWindowClose?(message: string): () => void;
 };
 
 declare global {

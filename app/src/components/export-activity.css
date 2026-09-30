@@ -1,0 +1,90 @@
+.export-activity {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.export-activity__bar {
+  position: relative;
+  width: 56px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.export-activity__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--amber);
+  transition: width 160ms ease;
+}
+
+.export-activity__bar--indeterminate > span {
+  opacity: 0.5;
+  animation: export-activity-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes export-activity-pulse {
+  50% {
+    opacity: 0.2;
+  }
+}
+
+/* Like the import notice, above the status bar. */
+.export-notice {
+  position: fixed;
+  right: 16px;
+  bottom: 40px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(92vw, 420px);
+  padding: 10px 12px 10px 16px;
+  border: 1px solid var(--line-strong);
+  border-left: 3px solid var(--mint);
+  border-radius: 14px;
+  background: linear-gradient(
+    180deg,
+    rgba(39, 42, 59, 0.98),
+    rgba(28, 30, 43, 0.98)
+  );
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+  color: var(--ink);
+  font-size: 0.84rem;
+}
+
+.export-notice--failed {
+  border-left-color: var(--pink);
+}
+
+.export-notice__text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.export-notice__dismiss {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.export-notice__dismiss:hover,
+.export-notice__dismiss:focus-visible {
+  color: var(--ink);
+}
+
+.export-notice__dismiss svg {
+  width: 16px;
+  height: 16px;
+}

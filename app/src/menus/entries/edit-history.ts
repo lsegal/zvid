@@ -23,8 +23,7 @@ export function buildHistoryEntries({
   redoLabel: string | undefined;
   canUndo: boolean;
   canRedo: boolean;
-  // Editing is disabled while exporting.
-  disabled: boolean;
+  disabled?: boolean;
   shortcuts: { undo: string; redo: string };
   undo: () => void;
   redo: () => void;
