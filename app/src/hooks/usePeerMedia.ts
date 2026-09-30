@@ -22,11 +22,11 @@ import { getHarness } from "../harness";
 import { getCachedMediaBlob } from "../media-cache";
 import {
   formatPeerMediaSyncStatus,
-  type PeerMediaProgressMap,
-  withoutPeerMediaProgress,
-  withPeerMediaProgress,
-  withQueuedPeerMedia,
-} from "../peer-media-sync.ts";
+  type RemoteMediaProgressMap,
+  withoutRemoteMediaProgress,
+  withQueuedRemoteMedia,
+  withRemoteMediaProgress,
+} from "../remote-media-sync.ts";
 import { forgetChangedMainAudioMiss } from "../session-media.ts";
 
 export type PeerMediaStateInputs = {
@@ -34,15 +34,15 @@ export type PeerMediaStateInputs = {
   projectSnapshotRef: { current: ProjectState };
 };
 
-// Peer media transfer progress, the media just received from a peer, and
-// the media no peer had. Also serves this tab's media to peers and aborts
+// Remote media progress (peer transfers and sample downloads), the media
+// just received, the media no peer had and the downloads that failed. Also serves this tab's media to peers and aborts
 // transfers. App calls this before `useCollaboration`, which needs both.
 export function usePeerMediaState({
   localMediaOverridesRef,
   projectSnapshotRef,
 }: PeerMediaStateInputs) {
-  const [peerMediaProgress, setPeerMediaProgress] =
-    useState<PeerMediaProgressMap>(() => new Map());
+  const [remoteMediaProgress, setRemoteMediaProgress] =
+    useState<RemoteMediaProgressMap>(() => new Map());
   // Media that just finished syncing, so its clips cross-fade in.
   const [revealedMediaIds, setRevealedMediaIds] = useState<ReadonlySet<string>>(
     () => new Set(),
@@ -51,6 +51,11 @@ export function usePeerMediaState({
   const [peerMediaMissIds, setPeerMediaMissIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
+  // Bundled sample media whose download failed, until the user retries it.
+  // useSampleMedia downloads it into the same progress map.
+  const [failedSampleMediaIds, setFailedSampleMediaIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
   const peerMediaTransfersRef = useRef(new Map<string, AbortController>());
   const peerMediaMissesRef = useRef<{
     controller: CollaborationController<ProjectState> | null;
@@ -98,12 +103,14 @@ export function usePeerMediaState({
   }, []);
 
   return {
-    peerMediaProgress,
-    setPeerMediaProgress,
+    remoteMediaProgress,
+    setRemoteMediaProgress,
     revealedMediaIds,
     setRevealedMediaIds,
     peerMediaMissIds,
     setPeerMediaMissIds,
+    failedSampleMediaIds,
+    setFailedSampleMediaIds,
     peerMediaTransfersRef,
     peerMediaMissesRef,
     peerMainAudioIdRef,
@@ -151,8 +158,8 @@ export function usePeerMedia({
   setStatus,
 }: PeerMediaInputs) {
   const {
-    peerMediaProgress,
-    setPeerMediaProgress,
+    remoteMediaProgress,
+    setRemoteMediaProgress,
     setRevealedMediaIds,
     setPeerMediaMissIds,
     peerMediaTransfersRef,
@@ -176,7 +183,7 @@ export function usePeerMedia({
     void mediaHydrationTick;
     const controller = collaborationControllerRef.current;
     if (collaborationMode === "idle" || !controller || mediaPeerCount === 0) {
-      setPeerMediaProgress((map) => withQueuedPeerMedia(map, []));
+      setRemoteMediaProgress((map) => withQueuedRemoteMedia(map, "peer", []));
       return;
     }
 
@@ -233,8 +240,9 @@ export function usePeerMedia({
       transfers.set(mediaId, abortController);
       mediaHydrationInFlightRef.current.add(mediaId);
       setLocalMediaOverride(mediaId, { availability: "hydrating" });
-      setPeerMediaProgress((map) =>
-        withPeerMediaProgress(map, mediaId, {
+      setRemoteMediaProgress((map) =>
+        withRemoteMediaProgress(map, mediaId, {
+          source: "peer",
           phase: "receiving",
           received: 0,
           total: 0,
@@ -257,9 +265,10 @@ export function usePeerMedia({
               }
               receiving = true;
               progressAt = now;
-              setPeerMediaProgress((map) =>
+              setRemoteMediaProgress((map) =>
                 transfers.get(mediaId) === abortController
-                  ? withPeerMediaProgress(map, mediaId, {
+                  ? withRemoteMediaProgress(map, mediaId, {
+                      source: "peer",
                       phase: "receiving",
                       received,
                       total,
@@ -302,12 +311,16 @@ export function usePeerMedia({
         } finally {
           transfers.delete(mediaId);
           mediaHydrationInFlightRef.current.delete(mediaId);
-          setPeerMediaProgress((map) => withoutPeerMediaProgress(map, mediaId));
+          setRemoteMediaProgress((map) =>
+            withoutRemoteMediaProgress(map, mediaId),
+          );
           setMediaHydrationTick((tick) => tick + 1);
         }
       })();
     }
-    setPeerMediaProgress((map) => withQueuedPeerMedia(map, queuedIds));
+    setRemoteMediaProgress((map) =>
+      withQueuedRemoteMedia(map, "peer", queuedIds),
+    );
   }, [
     adoptMediaBlob,
     collaborationControllerRef,
@@ -323,7 +336,7 @@ export function usePeerMedia({
     projectSnapshotRef,
     setLocalMediaOverride,
     setMediaHydrationTick,
-    setPeerMediaProgress,
+    setRemoteMediaProgress,
     setRevealedMediaIds,
     setStatus,
     syncPeerMediaMissIds,
@@ -340,11 +353,11 @@ export function usePeerMedia({
   );
 
   useEffect(() => {
-    const message = formatPeerMediaSyncStatus(peerMediaProgress);
+    const message = formatPeerMediaSyncStatus(remoteMediaProgress);
     if (message) {
       setStatus(message);
     }
-  }, [peerMediaProgress, setStatus]);
+  }, [remoteMediaProgress, setStatus]);
 
   return { retryPeerMedia };
 }

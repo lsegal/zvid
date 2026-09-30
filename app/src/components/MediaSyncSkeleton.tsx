@@ -1,5 +1,5 @@
 import { type CSSProperties, useSyncExternalStore } from "react";
-import type { MediaSyncView } from "../peer-media-sync";
+import type { MediaSyncView } from "../remote-media-sync";
 
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
