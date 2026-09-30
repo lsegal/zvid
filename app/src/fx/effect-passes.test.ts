@@ -2,8 +2,8 @@
 /// <reference lib="dom" />
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { EffectContext } from "../fx-shaders/types.ts";
 import { getEffectDefinition } from "../fx-registry.ts";
+import type { EffectContext } from "../fx-shaders/types.ts";
 import { EFFECT_PASSES } from "./effects/index.generated.ts";
 import { CONTEXT, params, uniformValues } from "./pass-test-utils.ts";
 

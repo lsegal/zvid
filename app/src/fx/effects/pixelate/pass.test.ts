@@ -18,8 +18,9 @@ describe("Pixelate pass", () => {
   });
 
   it("clamps the Pixelate amount", () => {
-    assert.deepEqual(uniformValues(pass, params({ _NumPixels: 1.5 })).uNum, [
-      1,
-    ]);
+    assert.deepEqual(
+      uniformValues(pass, params({ _NumPixels: 1.5 })).uNum,
+      [1],
+    );
   });
 });

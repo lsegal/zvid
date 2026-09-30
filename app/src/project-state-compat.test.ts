@@ -5,7 +5,10 @@ import {
   computeActiveClips,
 } from "./composition-active-clips.ts";
 import { resolveFillPaint } from "./fill-paint.ts";
-import { createDefaultAnimation } from "./fx-animation-defaults.ts";
+import {
+  createDefaultAnimation,
+  type EffectAnimation,
+} from "./fx-animation-defaults.ts";
 import {
   addEffect,
   GLOBAL_EFFECT_TRACK_ID,
@@ -64,7 +67,10 @@ describe("stripClipSelectionFlags", () => {
 });
 
 describe("migrateColorizeReactivity", () => {
-  function colorize(reactivity: number | undefined, animation?: boolean) {
+  function colorize(
+    reactivity: number | undefined,
+    animation?: EffectAnimation,
+  ) {
     return mapEffects([
       {
         id: "colorize",
@@ -76,9 +82,7 @@ describe("migrateColorizeReactivity", () => {
             ? {}
             : { _Reactivity: { floatValue: reactivity } }),
         },
-        ...(animation
-          ? { animation: { enabled: false, mode: "clip" } }
-          : {}),
+        ...(animation ? { animation } : {}),
       },
     ]);
   }
@@ -113,7 +117,9 @@ describe("migrateColorizeReactivity", () => {
   });
 
   it("keeps animation settings a Colorize already has", () => {
-    const [before] = colorize(0.4, true);
+    const animation = createDefaultAnimation("Colorize");
+    assert.ok(animation);
+    const [before] = colorize(0.4, { ...animation, enabled: false });
     const [effect] = migrateColorizeReactivity([before]);
     assert.deepEqual(
       effect.parameters.map((parameter) => parameter.key),

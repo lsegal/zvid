@@ -559,7 +559,12 @@ describe("resolveAnimatedEffects", () => {
     ...frameContext,
     audio: { ...hitFrame.audio, impulseLow: 0, impulseHigh: 0, onsets: [] },
   };
-  const audioEffects = ["Colorize", "Pixelate", "NegativeSplit", "AnalogGlitch"];
+  const audioEffects = [
+    "Colorize",
+    "Pixelate",
+    "NegativeSplit",
+    "AnalogGlitch",
+  ];
 
   function withMode(
     effectName: string,
@@ -596,11 +601,7 @@ describe("resolveAnimatedEffects", () => {
   it("moves the selected knobs on an audio hit in Reactive mode", () => {
     for (const effectName of audioEffects) {
       const effect = withMode(effectName, true, "reactive");
-      const [quiet] = resolveAnimatedEffects(
-        [effect],
-        clipContext,
-        quietFrame,
-      );
+      const [quiet] = resolveAnimatedEffects([effect], clipContext, quietFrame);
       const [hit] = resolveAnimatedEffects([effect], clipContext, hitFrame);
       assert.equal(quiet, effect, effectName);
       assert.notDeepEqual(hit.parameters, effect.parameters, effectName);
