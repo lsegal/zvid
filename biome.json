@@ -34,6 +34,17 @@
                   "setIsTakeOverPromptOpen",
                   "projectSnapshotRef"
                 ]
+              },
+              {
+                "name": "useMediaLibrary",
+                "stableResult": ["localMediaOverridesRef"]
+              },
+              {
+                "name": "useMainAudio",
+                "stableResult": [
+                  "setIsMainAudioDropTarget",
+                  "mainAudioInputRef"
+                ]
               }
             ]
           }
