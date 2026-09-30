@@ -3,10 +3,10 @@ name: DAW bundles
 # Release ZVID Capture bundles, the zvid desktop app, and installers for both
 # for every merge to main, uploaded as workflow artifacts. Pull requests that
 # touch /daw or the desktop app build the same bundles and installers, so a
-# broken x86_64 slice, release-only build or bundle layout fails the PR rather
-# than main; PR runs upload nothing. macOS builds are Developer ID signed and
-# notarized when the Apple secrets below are configured, and ad-hoc signed
-# otherwise.
+# broken release-only build or bundle layout fails the PR rather than main;
+# PR runs upload nothing. macOS builds are Apple silicon (arm64) only, and
+# Developer ID signed and notarized when the Apple secrets below are
+# configured, and ad-hoc signed otherwise.
 on:
   push:
     branches:
@@ -38,7 +38,7 @@ jobs:
       matrix:
         include:
           - os: macos-latest
-            platform: macos-universal
+            platform: macos-arm64
           - os: windows-latest
             platform: windows-x64
     runs-on: ${{ matrix.os }}
@@ -77,12 +77,12 @@ jobs:
         run: |
           rustup toolchain install
           if [ "$RUNNER_OS" = macOS ]; then
-            rustup target add aarch64-apple-darwin x86_64-apple-darwin
+            rustup target add aarch64-apple-darwin
           fi
           cd ..
           rustup target add wasm32-unknown-unknown
           if [ "$RUNNER_OS" = macOS ]; then
-            rustup target add aarch64-apple-darwin x86_64-apple-darwin
+            rustup target add aarch64-apple-darwin
           fi
 
       # PR runs restore main's release cache (same key) but don't save their
@@ -110,16 +110,16 @@ jobs:
         if: steps.wasm-pack-cache.outputs.cache-hit != 'true'
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
-      # The installers carry the desktop app: a universal zvid.app on macOS,
+      # The installers carry the desktop app: an arm64 zvid.app on macOS,
       # the bare executable on Windows, which Inno Setup packages.
       - name: Build desktop app
         working-directory: app
         run: |
           pnpm install --frozen-lockfile
           if [ "$RUNNER_OS" = macOS ]; then
-            pnpm tauri build --target universal-apple-darwin \
+            pnpm tauri build --target aarch64-apple-darwin \
               --config '{"bundle":{"active":true,"targets":["app"]}}'
-            echo "ZVID_APP=$PWD/src-tauri/target/universal-apple-darwin/release/bundle/macos/zvid.app" >> "$GITHUB_ENV"
+            echo "ZVID_APP=$PWD/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/zvid.app" >> "$GITHUB_ENV"
           else
             pnpm tauri build --no-bundle
             echo "ZVID_APP=$PWD/src-tauri/target/release/zvid-tauri.exe" >> "$GITHUB_ENV"
@@ -181,12 +181,7 @@ jobs:
           ZVID_NOTARY_APPLE_ID: ${{ steps.signing.outputs.signed && secrets.APPLE_ID || '' }}
           ZVID_NOTARY_TEAM_ID: ${{ steps.signing.outputs.signed && secrets.APPLE_TEAM_ID || '' }}
           ZVID_NOTARY_PASSWORD: ${{ steps.signing.outputs.signed && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
-        run: |
-          if [ "$RUNNER_OS" = macOS ]; then
-            cargo xtask bundle --release --universal --installer --app "$ZVID_APP"
-          else
-            cargo xtask bundle --release --installer --app "$ZVID_APP"
-          fi
+        run: cargo xtask bundle --release --installer --app "$ZVID_APP"
 
       - name: Name the artifact
         id: name
@@ -200,20 +195,24 @@ jobs:
           esac
           echo "name=zvid-capture-$version-$sha-${{ matrix.platform }}" >> "$GITHUB_OUTPUT"
 
-      - name: Verify universal binaries
+      # Intel Macs aren't supported: every binary must be arm64 only, with no
+      # x86_64 slice.
+      - name: Verify arm64 binaries
         if: runner.os == 'macOS'
         run: |
+          app=target/bundle/zvid.app
+          executable=$(defaults read "$PWD/$app/Contents/Info.plist" CFBundleExecutable)
           for binary in "target/bundle/ZVID Capture.vst3/Contents/MacOS/ZVID Capture" \
-                        "target/bundle/ZVID Capture.component/Contents/MacOS/ZVID Capture"; do
+                        "target/bundle/ZVID Capture.component/Contents/MacOS/ZVID Capture" \
+                        "$app/Contents/MacOS/$executable"; do
             archs=$(lipo -archs "$binary")
-            echo "$binary: $archs"
-            for arch in x86_64 arm64; do
-              case " $archs " in
-                *" $arch "*) ;;
-                *) echo "::error::$binary lacks $arch"; exit 1 ;;
-              esac
-            done
+            echo "$binary: $archs, $(wc -c < "$binary" | tr -d ' ') bytes"
+            if [ "$archs" != arm64 ]; then
+              echo "::error::$binary must be arm64 only, has: $archs"
+              exit 1
+            fi
           done
+          ls -l target/installer/*.pkg
 
       # Installs the .pkg as a user would, checks the app landed in
       # /Applications and both bundles in /Library/Audio/Plug-Ins with valid
@@ -304,7 +303,7 @@ jobs:
           key: test-host-${{ runner.os }}-${{ hashFiles('daw/xtask/src/host.rs') }}
 
       # The daw job runs these against debug bundles; this runs them against
-      # the release bundles above: optimized, stamped, universal on macOS and
+      # the release bundles above: optimized, stamped, arm64 only on macOS and
       # Developer ID signed when the secrets are set. Runs after the macOS
       # install step so auval there only sees the installed .component. See
       # ARCHITECTURE.md (Testing).
