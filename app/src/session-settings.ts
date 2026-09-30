@@ -179,6 +179,11 @@ export function matchFrameRate(fps: number) {
   return FRAME_RATES.find((rate) => Math.abs(rate.value - fps) < 1e-6)?.label;
 }
 
+/** `fps` as the dropdown lists it, e.g. "29.97", or to three decimals. */
+export function formatFrameRate(fps: number) {
+  return matchFrameRate(fps) ?? String(Math.round(fps * 1000) / 1000);
+}
+
 function roundToEven(value: number) {
   return Math.max(2, Math.round(value / 2) * 2);
 }

@@ -7,6 +7,7 @@ import {
   formatAppVersion,
   formatBuildTitle,
 } from "./build-info.ts";
+import { formatFrameRate } from "./session-settings.ts";
 import {
   formatMusicalPosition,
   formatTimecode,
@@ -173,11 +174,12 @@ export function buildStatusItems(state: StatusItemsState): StatusItem[] {
 
   items.push(buildPlayheadStatusItem(state));
 
+  const fps = formatFrameRate(state.fps);
   items.push({
     id: "resolution",
     label: "Res",
-    value: `${state.canvasWidth}x${state.canvasHeight}`,
-    title: `Resolution: ${state.canvasWidth} x ${state.canvasHeight}`,
+    value: `${state.canvasWidth}x${state.canvasHeight} · ${fps} fps`,
+    title: `Resolution: ${state.canvasWidth} x ${state.canvasHeight} at ${fps} fps`,
   });
 
   const audio = formatStatusAudio(state.audio);
