@@ -9,7 +9,10 @@ import {
   MAIN_AUDIO_DROP_TARGET_ATTRIBUTE,
 } from "./main-audio-drop.ts";
 
-const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const mainAudioRowTsx = readFileSync(
+  new URL("./components/timeline/MainAudioRow.tsx", import.meta.url),
+  "utf8",
+);
 const useSourceTrackDropTs = readFileSync(
   new URL("./hooks/useSourceTrackDrop.ts", import.meta.url),
   "utf8",
@@ -129,11 +132,11 @@ describe("isWithinMainAudioDropTarget", () => {
 
 describe("Audio lane wiring", () => {
   it("marks the Audio lane as a main-audio drop target", () => {
-    const lane = appTsx.slice(
-      appTsx.indexOf('aria-label="Main audio drop area"'),
-      appTsx.indexOf(
+    const lane = mainAudioRowTsx.slice(
+      mainAudioRowTsx.indexOf('aria-label="Main audio drop area"'),
+      mainAudioRowTsx.indexOf(
         '<div className="track-label">',
-        appTsx.indexOf('aria-label="Main audio drop area"'),
+        mainAudioRowTsx.indexOf('aria-label="Main audio drop area"'),
       ),
     );
     assert.match(lane, /track-row--bus/);

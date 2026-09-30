@@ -10,6 +10,18 @@ import {
 } from "./lane-selection-gesture.ts";
 
 const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const laneRowTsx = readFileSync(
+  new URL("./components/timeline/LaneRow.tsx", import.meta.url),
+  "utf8",
+);
+const useClipDragTs = readFileSync(
+  new URL("./hooks/useClipDrag.ts", import.meta.url),
+  "utf8",
+);
+// The lane press starts in LaneRow and useClipDrag follows it.
+const lanePressSource = `${appTsx}
+${laneRowTsx}
+${useClipDragTs}`;
 const MINIMUM_Q = 0.25;
 
 describe("lane selection gestures", () => {
@@ -66,9 +78,9 @@ describe("lane selection gestures", () => {
 
 describe("lane press wiring", () => {
   it("does not create a selection on press or on a click's release", () => {
-    assert.doesNotMatch(appTsx, /durationQ: minimumWindowQ/);
+    assert.doesNotMatch(lanePressSource, /durationQ: minimumWindowQ/);
     assert.match(
-      appTsx,
+      useClipDragTs,
       /if \(release\.kind === "click"\) \{\s*setPendingSelection\(null\);\s*setPlayheadQ\(release\.playheadQ\);/,
     );
   });

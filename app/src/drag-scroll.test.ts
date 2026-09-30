@@ -11,7 +11,14 @@ import {
   stepMomentum,
 } from "./drag-scroll.ts";
 
-const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const rulerTsx = readFileSync(
+  new URL("./components/timeline/Ruler.tsx", import.meta.url),
+  "utf8",
+);
+const timelineTsx = readFileSync(
+  new URL("./components/timeline/Timeline.tsx", import.meta.url),
+  "utf8",
+);
 const useRulerGesturesTs = readFileSync(
   new URL("./hooks/useRulerGestures.ts", import.meta.url),
   "utf8",
@@ -129,14 +136,14 @@ describe("timeline ruler", () => {
       /useDragScroll\(\{\s*scrollRef: timelineScrollRef,/,
     );
     assert.match(
-      appTsx,
+      rulerTsx,
       /\{\.\.\.rulerDragScroll\.handlers\}\s*onContextMenu=\{\(event\) => \{[^}]*event\.preventDefault\(\);/,
     );
   });
 
   it("only scrubs the playhead with the primary button", () => {
     assert.match(
-      appTsx,
+      rulerTsx,
       /event\.button !== 0 \|\|\s*isRulerPanPress\(event, shortcutLabels\.mac\)/,
     );
   });
@@ -176,7 +183,7 @@ describe("timeline pan", () => {
       /useDragScroll\(\{\s*scrollRef: timelineScrollRef,\s*canStart: canStartTimelinePan,\s*axis: "both",[^}]*capture: true,/,
     );
     assert.match(
-      appTsx,
+      timelineTsx,
       /className=\{`timeline-scroll [^`]*`\}\s*\{\.\.\.timelineDragScroll\.handlers\}/,
     );
   });

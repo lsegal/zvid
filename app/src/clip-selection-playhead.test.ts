@@ -13,7 +13,17 @@ const usePreviewEditingTs = readFileSync(
   new URL("./hooks/usePreviewEditing.ts", import.meta.url),
   "utf8",
 );
+const clipCardTsx = readFileSync(
+  new URL("./components/timeline/ClipCard.tsx", import.meta.url),
+  "utf8",
+);
+const sourceTracksTsx = readFileSync(
+  new URL("./components/timeline/SourceTracks.tsx", import.meta.url),
+  "utf8",
+);
 const source = `${appTsx}
+${clipCardTsx}
+${sourceTracksTsx}
 ${usePlaybackTs}
 ${usePreviewEditingTs}`;
 

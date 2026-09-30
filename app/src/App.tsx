@@ -1,16 +1,4 @@
 import {
-  ArrowPathRoundedSquareIcon,
-  ArrowUpTrayIcon,
-  BackwardIcon,
-  Bars3Icon,
-  ChevronDownIcon,
-  ForwardIcon,
-  MagnifyingGlassMinusIcon,
-  MagnifyingGlassPlusIcon,
-  PauseIcon,
-  PlayIcon,
-} from "@heroicons/react/24/solid";
-import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   useCallback,
@@ -20,49 +8,25 @@ import {
   useState,
 } from "react";
 import "./App.css";
-import { type ClipClipboard, cloneClipAtStartQ } from "./app/clip-ops.ts";
+import type { ClipClipboard } from "./app/clip-ops.ts";
 import {
   INSPECTOR_COLLAPSED_STORAGE_KEY,
-  LABEL_WIDTH_DEFAULT,
-  LABEL_WIDTH_KEYBOARD_STEP,
-  LABEL_WIDTH_MAX,
-  LABEL_WIDTH_MIN,
-  LABEL_WIDTH_NARROW,
-  LABEL_WIDTH_STORAGE_KEY,
   PREVIEW_MIN_WIDTH,
   PREVIEW_RESIZE_KEY_STEP,
   PREVIEW_WIDTH_STORAGE_KEY,
-  SIGNATURE_OPTIONS,
-  SNAP_OPTIONS,
-  TIMELINE_DRAG_EPSILON,
-  TIMELINE_PLAYBACK_SCRUB_AUDIO_IDLE_MS,
 } from "./app/constants.ts";
 import {
-  CLIP_FILMSTRIP_HEIGHT_PX,
-  type Filmstrip,
-  getFilmstripTileOwner,
-  SOURCE_SPAN_FILMSTRIP_HEIGHT_PX,
-} from "./app/filmstrip.ts";
-import { formatDuration } from "./app/format.ts";
-import {
-  clampLabelWidth,
   getPreviewMaxWidth,
   readInspectorCollapsed,
-  readLabelWidth,
   readPreviewWidth,
 } from "./app/layout-prefs.ts";
-import { patchProjectState } from "./app/session-project.ts";
 import { getShortcutLabels } from "./app/shortcut-labels.ts";
 import {
   findClipAtPlayhead,
-  findClosestTimelineLaneId,
-  getClipDurationQ,
   getClipEndQ,
   getTimelineContentEndQ,
   isClipAtPlayhead,
   quartersToSeconds,
-  resolveClipOverlapPreview,
-  snapQuarterValue,
 } from "./app/timeline-math.ts";
 import type {
   ArrangementClip,
@@ -73,14 +37,7 @@ import type {
   TimelineDragState,
   TimelineSelection,
 } from "./app/types.ts";
-import {
-  clamp,
-  getDraggedMediaFiles,
-  getNextLaneNumber,
-  getSwatch,
-  logClient,
-  pluralize,
-} from "./app/util.ts";
+import { clamp, logClient } from "./app/util.ts";
 import {
   CORRUPT_WORKSPACE_NOTICE,
   findRestoredSelection,
@@ -95,18 +52,9 @@ import {
 } from "./arrangement-empty-state.ts";
 import type { CompositionPlayerHandle } from "./CompositionPlayer";
 import {
-  getClipFilmstripTiles,
-  getFilmstripDecodeSize,
-  getFilmstripTileWidthPx,
-  getSourceSpanFilmstripClip,
-} from "./clip-filmstrip.ts";
-import { isClipJumpPress } from "./clip-jump.ts";
-import {
   describeClipMediaState,
   describeMediaAvailability,
-  formatClipMediaState,
   isGeneratedClip,
-  isPlaceholderClip,
 } from "./clip-media-state";
 import { AppDialogs } from "./components/AppDialogs";
 import { AppStatusBar } from "./components/AppStatusBar";
@@ -114,38 +62,20 @@ import { ArrangementEmptyState } from "./components/ArrangementEmptyState";
 import { ContextMenu } from "./components/ContextMenu";
 import { FxPanel } from "./components/FxPanel";
 import type { ImportNoticeContent } from "./components/ImportNotice";
-import { LayerNameInput } from "./components/LayerNameInput";
-import {
-  PlayheadLine,
-  TransportPlayheadReadout,
-} from "./components/LivePlayhead";
 import type { MediaSyncPeer } from "./components/MediaSyncDialog";
-import {
-  MediaSyncSkeleton,
-  usePrefersReducedMotion,
-} from "./components/MediaSyncSkeleton";
+import { usePrefersReducedMotion } from "./components/MediaSyncSkeleton";
 import { PreviewPanel } from "./components/PreviewPanel";
-import { SourceEmptyState } from "./components/SourceEmptyState";
 import { TopBar } from "./components/TopBar";
-import { Select } from "./components/ui/select";
-import { WandIcon } from "./components/WandIcon";
-import { isContextMenuPress } from "./context-menu.ts";
-import { isRulerPanPress } from "./drag-scroll.ts";
-import { isFillClip } from "./fill-clip.ts";
-import {
-  formatCssColor,
-  formatFillPaintCss,
-  resolveFillPaint,
-} from "./fill-paint.ts";
-import { describeFxClip, isFxClip } from "./fx-clip.ts";
-import {
-  clipEffectTrackId,
-  copyClipEffects,
-  isLayerFxEnabled,
-  isLayoutEffectName,
-  previewDuplicateClipEffects,
-} from "./fx-stack";
+import { ArrangementLanes } from "./components/timeline/ArrangementLanes";
+import { MainAudioRow } from "./components/timeline/MainAudioRow";
+import { Ruler } from "./components/timeline/Ruler";
+import { SourceTracks } from "./components/timeline/SourceTracks";
+import { Timeline } from "./components/timeline/Timeline";
+import { TimelineToolbar } from "./components/timeline/TimelineToolbar";
+import { TransportBar } from "./components/timeline/TransportBar";
+import { previewDuplicateClipEffects } from "./fx-stack";
 import { useClipActions } from "./hooks/useClipActions.ts";
+import { useClipDrag } from "./hooks/useClipDrag.ts";
 import { useClipInsertion } from "./hooks/useClipInsertion.ts";
 import {
   useCollaboration,
@@ -154,12 +84,9 @@ import {
 import { useExport, useExportState } from "./hooks/useExport.ts";
 import { useFxEditing } from "./hooks/useFxEditing.ts";
 import { useFxPanelModel } from "./hooks/useFxPanelModel.ts";
+import { useLabelResize } from "./hooks/useLabelResize.ts";
 import { useLayerActions } from "./hooks/useLayerActions.ts";
-import {
-  getMainAudioSkeletonStyle,
-  useMainAudio,
-  useMainAudioDrop,
-} from "./hooks/useMainAudio.ts";
+import { useMainAudio, useMainAudioDrop } from "./hooks/useMainAudio.ts";
 import { useMediaHydration } from "./hooks/useMediaHydration.ts";
 import {
   useMediaLibrary,
@@ -178,65 +105,26 @@ import { useRulerGestures } from "./hooks/useRulerGestures.ts";
 import { useSampleProject } from "./hooks/useSampleProject.ts";
 import { useSessionIO } from "./hooks/useSessionIO.ts";
 import { useSourceTrackDrop } from "./hooks/useSourceTrackDrop.ts";
+import { useTimelineLanes } from "./hooks/useTimelineLanes.ts";
+import { useTimelineThumbnails } from "./hooks/useTimelineThumbnails.ts";
 import { useTimelineViewport } from "./hooks/useTimelineViewport.ts";
 import { useWorkspacePersistence } from "./hooks/useWorkspacePersistence.ts";
-import {
-  LANE_SELECTION_DRAG_THRESHOLD_PX,
-  moveLaneSelectionGesture,
-  releaseLaneSelectionGesture,
-  startLaneSelectionGesture,
-} from "./lane-selection-gesture.ts";
-import { MainWaveform } from "./MainWaveform";
 import type { MediaItem } from "./media";
 import { migrateMediaCache, setCachedMediaSession } from "./media-cache";
 import { useMenus } from "./menus/useMenus.ts";
-import {
-  describeMediaSync,
-  formatMediaSyncLabel,
-  getMediaSyncClassName,
-} from "./remote-media-sync.ts";
-import { selectionHint } from "./selection-hint.ts";
 import { MAX_LAYERS } from "./selection-overlaps";
 import { offlineSessionMediaIds } from "./session-media.ts";
 import { useKeyboardShortcuts } from "./shortcuts/useKeyboardShortcuts.ts";
 import { useSpacePlayback } from "./shortcuts/useSpacePlayback.ts";
-import { isSourceClipDropClick } from "./source-clip-drop.ts";
 import {
-  formatSourceTracksSummary,
   isSourceTracksSectionCollapsed,
   readSourceTracksCollapsed,
   writeSourceTracksCollapsed,
 } from "./source-tracks-section.ts";
 import { createSpaceHold } from "./space-shortcut";
-import { isTextClip } from "./text-clip.ts";
 import { loadFontFace, resolveFontFace } from "./text-fonts.ts";
-import {
-  getTextPreview,
-  isTextEffectName,
-  readTextStyle,
-  resolveTextStyle,
-} from "./text-style.ts";
-import {
-  getClipThumbnailTimeSeconds,
-  getThumbnailCacheKey,
-  type ThumbnailRequest,
-  type ThumbnailSize,
-} from "./thumbnail-cache.ts";
-import { formatMusicalPosition, formatTimecode } from "./timeline-format.ts";
-import { formatDivision } from "./timeline-grid";
-import { useThumbnailCache } from "./use-thumbnail-cache";
+import { isTextEffectName, readTextStyle } from "./text-style.ts";
 import type { WorkspaceSessionSource } from "./workspace-session.ts";
-import {
-  formatZoomFactor,
-  sliderPositionToZoom,
-  stepZoom,
-  ZOOM_DEFAULT,
-  ZOOM_MAX,
-  ZOOM_MIN,
-  ZOOM_SLIDER_STEP,
-  zoomFillFraction,
-  zoomToSliderPosition,
-} from "./zoom";
 
 function App({ boot }: { boot: WorkspaceBoot }) {
   const collaboration = useCollaborationState();
@@ -333,12 +221,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         typeof window === "undefined" ? undefined : window.localStorage,
       ),
   );
-  const [labelWidth, setLabelWidth] = useState(readLabelWidth);
-  const labelResizeRef = useRef<{
-    pointerId: number;
-    pointerStartX: number;
-    originWidth: number;
-  } | null>(null);
+  const labelResize = useLabelResize();
+  const { labelWidth } = labelResize;
   const [previewWidth, setPreviewWidth] = useState(readPreviewWidth);
   const [editorGridWidth, setEditorGridWidth] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -647,17 +531,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     }
   }, [effects]);
   const playheadSeconds = quartersToSeconds(playheadQ, bpm);
-  const {
-    mainAudio,
-    currentMainWaveform,
-    mainAudioSync,
-    mainWaveformMessage,
-    isMainAudioDropTarget,
-    setIsMainAudioDropTarget,
-    mainAudioInputRef,
-    replaceMainAudioFromFile,
-    removeMainAudio,
-  } = useMainAudio({
+  const mainAudioModel = useMainAudio({
     mainAudioId,
     mediaItemsById,
     remoteMediaProgress,
@@ -669,6 +543,14 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     cacheLocalMediaItems,
     setStatus,
   });
+  const {
+    mainAudio,
+    currentMainWaveform,
+    setIsMainAudioDropTarget,
+    mainAudioInputRef,
+    replaceMainAudioFromFile,
+    removeMainAudio,
+  } = mainAudioModel;
   const canCreateLayer = lanes.length < MAX_LAYERS;
   const timelineContentEndQ = useMemo(
     () =>
@@ -708,93 +590,16 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       ? { name: remote[0].name, color: remote[0].color }
       : undefined;
   }, [collaborationState.collaborators]);
-  const clipsByLane = useMemo(() => {
-    const next = new Map<string, ArrangementClip[]>();
-    for (const clip of timelineClips) {
-      const laneClips = next.get(clip.laneId);
-      if (laneClips) {
-        laneClips.push(clip);
-        continue;
-      }
-
-      next.set(clip.laneId, [clip]);
-    }
-    return next;
-  }, [timelineClips]);
-  const laneStatusById = useMemo(() => {
-    const next = new Map<
-      string,
-      {
-        effectCount: number;
-        fxToggle?: boolean;
-        fxClassName: string;
-        fxTitle?: string;
-        summary: string;
-      }
-    >();
-    for (const lane of lanes) {
-      const clipCount = clipsByLane.get(lane.id)?.length ?? 0;
-      // The Layout every layer has is not counted, and layer FX bypass
-      // leaves it on anyway.
-      const effectCount = effects.filter(
-        (effect) =>
-          effect.trackId === lane.id && !isLayoutEffectName(effect.effectName),
-      ).length;
-      const fxEnabled = isLayerFxEnabled(lane);
-      const summary = [
-        clipCount ? pluralize(clipCount, "clip") : "",
-        !fxEnabled
-          ? "FX off"
-          : effectCount
-            ? pluralize(effectCount, "effect")
-            : "",
-      ]
-        .filter(Boolean)
-        .join(" · ");
-      next.set(lane.id, {
-        effectCount,
-        // Without effects the badge stays inactive and cannot be toggled.
-        fxToggle: effectCount ? fxEnabled : undefined,
-        fxClassName: !effectCount
-          ? "track-label__fx--inactive"
-          : fxEnabled
-            ? ""
-            : "track-label__fx--off",
-        fxTitle: effectCount
-          ? `Turn ${lane.name} FX ${fxEnabled ? "off" : "on"}`
-          : undefined,
-        summary: summary || "Empty",
-      });
-    }
-    return next;
-  }, [clipsByLane, effects, lanes]);
-  const sourceSpansByTrack = useMemo(() => {
-    const next = new Map<string, SourceSpan[]>();
-    for (const clip of sourceSpans) {
-      const trackClips = next.get(clip.sourceTrackId);
-      if (trackClips) {
-        trackClips.push(clip);
-        continue;
-      }
-
-      next.set(clip.sourceTrackId, [clip]);
-    }
-    return next;
-  }, [sourceSpans]);
+  const { clipsByLane, laneStatusById, sourceSpansByTrack } = useTimelineLanes({
+    lanes,
+    timelineClips,
+    sourceSpans,
+    effects,
+  });
   const isSourceTracksCollapsed = isSourceTracksSectionCollapsed(
     sourceTracksCollapsedPref,
     sourceTracks.length,
   );
-  const isSourceHeaderDropTarget =
-    !sourceTracks.length || isSourceTracksCollapsed;
-  const minimumWindowQ = Math.max(snapUnit, beatUnit / 4);
-  const mainAudioSkeletonStyle = getMainAudioSkeletonStyle({
-    mainAudio,
-    bpm,
-    quarterPx,
-    visibleTimelineStartPx,
-    visibleTimelineWidthPx,
-  });
   // Every offline media the session references, in peer request order.
   // Serialized so the peer fetch effect only reruns when the list changes.
   const offlineSessionMediaIdsKey = useMemo(() => {
@@ -825,194 +630,15 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     visibleTimelineEndPx,
     visibleTimelineStartPx,
   ]);
-  const pixelRatio = window.devicePixelRatio || 1;
-  // The filmstrip tiles of each online video clip near the visible range.
-  const clipFilmstrips = useMemo(() => {
-    const filmstrips = new Map<string, Filmstrip>();
-    const secondsPerPx = quartersToSeconds(1, bpm) / quarterPx;
-    for (const clip of timelineClips) {
-      const media = clip.mediaId ? mediaItemsById.get(clip.mediaId) : undefined;
-      if (
-        isPlaceholderClip(clip) ||
-        !media?.hasVideo ||
-        !media.previewUrl ||
-        media.availability !== "ready"
-      ) {
-        continue;
-      }
-
-      const tileWidthPx = getFilmstripTileWidthPx(
-        CLIP_FILMSTRIP_HEIGHT_PX,
-        media.width,
-        media.height,
-      );
-      filmstrips.set(clip.id, {
-        media,
-        size: getFilmstripDecodeSize(
-          tileWidthPx,
-          CLIP_FILMSTRIP_HEIGHT_PX,
-          pixelRatio,
-        ),
-        tiles: getClipFilmstripTiles({
-          clip,
-          mediaDurationSeconds: media.durationSeconds,
-          clipLeftPx: clip.startQ * quarterPx,
-          clipWidthPx: getClipDurationQ(clip, bpm) * quarterPx,
-          tileWidthPx,
-          secondsPerPx,
-          range: { startPx: filmstripRangeStartPx, endPx: filmstripRangeEndPx },
-          bpm,
-        }),
-      });
-    }
-    return filmstrips;
-  }, [
+  const { clipFilmstrips, spanFilmstrips, thumbnails } = useTimelineThumbnails({
     bpm,
-    filmstripRangeEndPx,
-    filmstripRangeStartPx,
-    mediaItemsById,
-    pixelRatio,
     quarterPx,
     timelineClips,
-  ]);
-  // The filmstrip tiles of each online video source span near the visible
-  // range.
-  const spanFilmstrips = useMemo(() => {
-    const filmstrips = new Map<string, Filmstrip>();
-    const secondsPerPx = quartersToSeconds(1, bpm) / quarterPx;
-    for (const span of sourceSpans) {
-      const media = span.mediaId ? mediaItemsById.get(span.mediaId) : undefined;
-      if (
-        !media?.hasVideo ||
-        !media.previewUrl ||
-        media.availability !== "ready"
-      ) {
-        continue;
-      }
-
-      const tileWidthPx = getFilmstripTileWidthPx(
-        SOURCE_SPAN_FILMSTRIP_HEIGHT_PX,
-        media.width,
-        media.height,
-      );
-      filmstrips.set(span.id, {
-        media,
-        size: getFilmstripDecodeSize(
-          tileWidthPx,
-          SOURCE_SPAN_FILMSTRIP_HEIGHT_PX,
-          pixelRatio,
-        ),
-        tiles: getClipFilmstripTiles({
-          clip: getSourceSpanFilmstripClip(span),
-          mediaDurationSeconds: media.durationSeconds,
-          clipLeftPx: span.startQ * quarterPx,
-          clipWidthPx: getClipDurationQ(span, bpm) * quarterPx,
-          tileWidthPx,
-          secondsPerPx,
-          range: { startPx: filmstripRangeStartPx, endPx: filmstripRangeEndPx },
-          bpm,
-        }),
-      });
-    }
-    return filmstrips;
-  }, [
-    bpm,
-    filmstripRangeEndPx,
+    sourceSpans,
+    mediaItemsById,
     filmstripRangeStartPx,
-    mediaItemsById,
-    pixelRatio,
-    quarterPx,
-    sourceSpans,
-  ]);
-  // Source spans and layer clips share one thumbnail cache, so a frame both
-  // show is decoded once. Spans show the frame at their start and clips the
-  // first frame the compositor shows for them, until their own filmstrip
-  // tiles are ready. That frame is decoded at the filmstrip's tile size, so it
-  // is the same cache entry as the first tile.
-  const thumbnailRequests = useMemo(() => {
-    const requests: ThumbnailRequest<MediaItem>[] = [];
-    const addRequest = (
-      owner: string,
-      media: MediaItem | undefined,
-      size: ThumbnailSize | undefined,
-      timeSeconds: (media: MediaItem) => number,
-    ) => {
-      if (
-        !media?.hasVideo ||
-        !media.previewUrl ||
-        media.availability !== "ready"
-      ) {
-        return;
-      }
-
-      const time = timeSeconds(media);
-      requests.push({
-        key: getThumbnailCacheKey(media.id, time, size),
-        owner,
-        media,
-        sourceUrl: media.previewUrl,
-        timeSeconds: time,
-        size,
-      });
-    };
-
-    for (const span of sourceSpans) {
-      addRequest(
-        `span:${span.id}`,
-        span.mediaId ? mediaItemsById.get(span.mediaId) : undefined,
-        spanFilmstrips.get(span.id)?.size,
-        () => span.trimStartSeconds,
-      );
-    }
-    for (const clip of timelineClips) {
-      if (isPlaceholderClip(clip)) {
-        continue;
-      }
-
-      addRequest(
-        `clip:${clip.id}`,
-        clip.mediaId ? mediaItemsById.get(clip.mediaId) : undefined,
-        clipFilmstrips.get(clip.id)?.size,
-        (media) =>
-          getClipThumbnailTimeSeconds(clip, media.durationSeconds, bpm),
-      );
-    }
-    for (const [kind, filmstrips] of [
-      ["clip", clipFilmstrips],
-      ["span", spanFilmstrips],
-    ] as const) {
-      for (const [id, { media, size, tiles }] of filmstrips) {
-        for (const tile of tiles) {
-          addRequest(
-            getFilmstripTileOwner(kind, id, tile.index),
-            media,
-            size,
-            () => tile.timeSeconds,
-          );
-        }
-      }
-    }
-    return requests;
-  }, [
-    bpm,
-    clipFilmstrips,
-    mediaItemsById,
-    sourceSpans,
-    spanFilmstrips,
-    timelineClips,
-  ]);
-  const thumbnails = useThumbnailCache(thumbnailRequests, (request, error) => {
-    logClient("thumbnail:error", {
-      owner: request.owner,
-      mediaId: request.media.id,
-      message: error instanceof Error ? error.message : String(error),
-    });
+    filmstripRangeEndPx,
   });
-  const playheadTimelinePx = Math.round(playheadQ * quarterPx);
-  const isPlayheadOffscreenLeft =
-    visibleTimelineWidthPx > 0 && playheadTimelinePx < visibleTimelineStartPx;
-  const isPlayheadOffscreenRight =
-    visibleTimelineWidthPx > 0 && playheadTimelinePx > visibleTimelineEndPx;
   const setSourceTracksCollapsed = useCallback((collapsed: boolean) => {
     setSourceTracksCollapsedPref(collapsed);
     writeSourceTracksCollapsed(window.localStorage, collapsed);
@@ -1035,30 +661,16 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     adoptMediaBlob,
     setStatus,
   });
-  const {
-    sourceTrackDragTarget,
-    sourceTrackDragPreview,
-    isSourceTrackFileDragActive,
-    sourceTrackDragPreviewDetail,
-    sourceTrackDragPreviewOverflow,
-    isNewSourceTrackDropTarget,
-    clearSourceTrackDragState,
-    scheduleSourceTrackDragClear,
-    handleSourceTrackDragEvent,
-  } = useSourceTrackDrop({
+  const sourceTrackDrop = useSourceTrackDrop({
     mediaItems,
     sourceTracks,
     appShellRef,
     setIsMainAudioDropTarget,
     importMediaIntoSourceTrack,
   });
-  const {
-    handleMainAudioDragEvent,
-    handleMainAudioDragLeave,
-    handleMainAudioDrop,
-  } = useMainAudioDrop({
-    sourceTrackDragTarget,
-    clearSourceTrackDragState,
+  const mainAudioDrop = useMainAudioDrop({
+    sourceTrackDragTarget: sourceTrackDrop.sourceTrackDragTarget,
+    clearSourceTrackDragState: sourceTrackDrop.clearSourceTrackDragState,
     setIsMainAudioDropTarget,
     replaceMainAudioFromFile,
     setStatus,
@@ -1519,291 +1131,29 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     }
   }, [showArrangementEmptyState, syncTimelineViewport]);
 
-  useEffect(() => {
-    if (!dragState) {
-      return;
-    }
-
-    const onPointerMove = (event: PointerEvent) => {
-      if (event.pointerId !== dragState.pointerId) {
-        return;
-      }
-
-      const shouldSnap = snapEnabled && !event.shiftKey;
-
-      if (dragState.kind === "selection") {
-        const timelineScroll = timelineScrollRef.current;
-        if (!timelineScroll) {
-          return;
-        }
-
-        const timelineBounds = timelineScroll.getBoundingClientRect();
-        const pointerX = event.clientX - timelineBounds.left;
-        const nextQ = snapQuarterValue(
-          clamp(
-            (timelineScroll.scrollLeft - labelWidth + pointerX) / quarterPx,
-            0,
-            totalQuarters,
-          ),
-          snapUnit,
-          shouldSnap,
-        );
-        const { gesture, selection } = moveLaneSelectionGesture(
-          dragState.gesture,
-          event.clientX,
-          nextQ,
-          minimumWindowQ,
-        );
-        if (!selection) {
-          return;
-        }
-        if (gesture !== dragState.gesture) {
-          setDragState({ ...dragState, gesture });
-        }
-        setPendingSelection({
-          id: `selection-${dragState.laneId}`,
-          laneId: dragState.laneId,
-          ...selection,
-        });
-        return;
-      }
-
-      // A read-only tab never previews a move or trim. Once the pointer
-      // passes the click threshold, the drag ends and asks to take over.
-      if (isWorkspaceReadOnlyRef.current) {
-        if (
-          Math.abs(event.clientX - dragState.pointerStartX) >
-          LANE_SELECTION_DRAG_THRESHOLD_PX
-        ) {
-          if (dragState.kind === "move" && dragState.duplicateOnDrag) {
-            setSelectedClipId(dragState.sourceClipId);
-          }
-          setDragState(null);
-          refuseReadOnlyEdit();
-        }
-        return;
-      }
-
-      const deltaQuarters =
-        (event.clientX - dragState.pointerStartX) / quarterPx;
-
-      if (dragState.kind === "move") {
-        const nextStartQ = clamp(
-          snapQuarterValue(
-            dragState.originStartQ + deltaQuarters,
-            snapUnit,
-            shouldSnap,
-          ),
-          0,
-          Math.max(0, totalQuarters - dragState.originDurationQ - beatUnit),
-        );
-        const timelineScroll = timelineScrollRef.current;
-        const nextLaneId = timelineScroll
-          ? findClosestTimelineLaneId(
-              timelineScroll,
-              event.clientY,
-              dragState.originLaneId,
-            )
-          : dragState.originLaneId;
-
-        if (dragState.duplicateOnDrag) {
-          if (
-            nextLaneId === dragState.originLaneId &&
-            Math.abs(nextStartQ - dragState.originStartQ) <=
-              TIMELINE_DRAG_EPSILON
-          ) {
-            setDragPreviewClips(null);
-            return;
-          }
-
-          const sourceClip = clips.find(
-            (clip) => clip.id === dragState.sourceClipId,
-          );
-          if (!sourceClip) {
-            return;
-          }
-
-          setDragPreviewClips(
-            resolveClipOverlapPreview(
-              [
-                ...clips,
-                cloneClipAtStartQ(
-                  sourceClip,
-                  bpm,
-                  dragState.originStartQ,
-                  dragState.clipId,
-                ),
-              ],
-              dragState.clipId,
-              nextStartQ,
-              dragState.originDurationQ,
-              bpm,
-              nextLaneId,
-            ),
-          );
-          return;
-        }
-
-        setDragPreviewClips(
-          resolveClipOverlapPreview(
-            clips,
-            dragState.clipId,
-            nextStartQ,
-            dragState.originDurationQ,
-            bpm,
-            nextLaneId,
-          ),
-        );
-        return;
-      }
-
-      if (dragState.kind === "resize-start") {
-        const fixedEndQ = dragState.originStartQ + dragState.originDurationQ;
-        const nextStartQ = clamp(
-          snapQuarterValue(
-            dragState.originStartQ + deltaQuarters,
-            snapUnit,
-            shouldSnap,
-          ),
-          0,
-          fixedEndQ - minimumWindowQ,
-        );
-        const nextDurationQ = Math.max(minimumWindowQ, fixedEndQ - nextStartQ);
-
-        setDragPreviewClips(
-          resolveClipOverlapPreview(
-            clips,
-            dragState.clipId,
-            nextStartQ,
-            nextDurationQ,
-            bpm,
-          ),
-        );
-        return;
-      }
-
-      const rawEndQ =
-        dragState.originStartQ + dragState.originDurationQ + deltaQuarters;
-      const nextEndQ = snapQuarterValue(rawEndQ, snapUnit, shouldSnap);
-      const nextDurationQ = Math.max(
-        minimumWindowQ,
-        nextEndQ - dragState.originStartQ,
-      );
-
-      setDragPreviewClips(
-        resolveClipOverlapPreview(
-          clips,
-          dragState.clipId,
-          dragState.originStartQ,
-          nextDurationQ,
-          bpm,
-        ),
-      );
-    };
-
-    const onPointerUp = (event: PointerEvent) => {
-      if (event.pointerId !== dragState.pointerId) {
-        return;
-      }
-
-      // A press released before it became a drag is a click: it seeks
-      // instead of leaving a selection behind.
-      if (dragState.kind === "selection") {
-        const release = releaseLaneSelectionGesture(dragState.gesture);
-        if (release.kind === "click") {
-          setPendingSelection(null);
-          setPlayheadQ(release.playheadQ);
-          playbackOriginRef.current = release.playheadQ;
-        }
-      }
-
-      if (dragState.kind !== "selection" && dragPreviewClips) {
-        const historyLabel =
-          dragState.kind === "move"
-            ? dragState.duplicateOnDrag
-              ? "Duplicate clip"
-              : "Move clip"
-            : dragState.kind === "resize-start"
-              ? "Trim clip start"
-              : "Trim clip end";
-        commitProjectChange(historyLabel, (current) =>
-          patchProjectState(current, {
-            clips: dragPreviewClips,
-            // A clip duplicated by dragging gets a copy of the stack.
-            ...(dragState.kind === "move" && dragState.duplicateOnDrag
-              ? {
-                  effects: copyClipEffects(current.effects, [
-                    [dragState.sourceClipId, dragState.clipId],
-                  ]),
-                }
-              : {}),
-          }),
-        );
-      }
-
-      if (
-        dragState.kind === "move" &&
-        dragState.duplicateOnDrag &&
-        !dragPreviewClips
-      ) {
-        setSelectedClipId(dragState.sourceClipId);
-        // Released where it was pressed, a Ctrl/Cmd-press is a click.
-        if (
-          dragState.jumpOnClick &&
-          Math.abs(event.clientX - dragState.pointerStartX) <=
-            LANE_SELECTION_DRAG_THRESHOLD_PX
-        ) {
-          jumpToClipStart(dragState.sourceClipId);
-        }
-      }
-
-      setDragPreviewClips(null);
-      setDragState(null);
-    };
-
-    const onPointerCancel = (event: PointerEvent) => {
-      if (event.pointerId !== dragState.pointerId) {
-        return;
-      }
-
-      if (
-        dragState.kind === "move" &&
-        dragState.duplicateOnDrag &&
-        !dragPreviewClips
-      ) {
-        setSelectedClipId(dragState.sourceClipId);
-      }
-
-      setDragPreviewClips(null);
-      setDragState(null);
-    };
-
-    window.addEventListener("pointermove", onPointerMove);
-    window.addEventListener("pointerup", onPointerUp);
-    window.addEventListener("pointercancel", onPointerCancel);
-
-    return () => {
-      window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("pointerup", onPointerUp);
-      window.removeEventListener("pointercancel", onPointerCancel);
-    };
-  }, [
-    beatUnit,
-    bpm,
-    clips,
-    commitProjectChange,
-    dragPreviewClips,
+  useClipDrag({
     dragState,
-    jumpToClipStart,
-    minimumWindowQ,
+    setDragState,
+    dragPreviewClips,
+    setDragPreviewClips,
+    setPendingSelection,
+    setSelectedClipId,
+    clips,
+    bpm,
+    beatUnit,
+    snapUnit,
+    snapEnabled,
+    quarterPx,
+    totalQuarters,
+    labelWidth,
+    timelineScrollRef,
+    playbackOriginRef,
+    isWorkspaceReadOnlyRef,
     refuseReadOnlyEdit,
     setPlayheadQ,
-    snapEnabled,
-    labelWidth,
-    quarterPx,
-    snapUnit,
-    totalQuarters,
-  ]);
+    jumpToClipStart,
+    commitProjectChange,
+  });
 
   const {
     openSamplePayload,
@@ -1867,24 +1217,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setIsPlaying,
     setStatus,
   });
-
-  function selectSource(sourceTrackId: string) {
-    const match = clips.find((clip) => clip.sourceTrackId === sourceTrackId);
-    if (match) {
-      // Selecting never moves the playhead.
-      setSelectedClipId(match.id);
-    }
-  }
-
-  function commitLabelWidth(width: number) {
-    const nextWidth = clampLabelWidth(width);
-    setLabelWidth(nextWidth);
-    try {
-      window.localStorage.setItem(LABEL_WIDTH_STORAGE_KEY, String(nextWidth));
-    } catch {
-      // Storage can be unavailable (private mode, quota); resizing still works.
-    }
-  }
 
   function toggleInspectorCollapsed() {
     const nextCollapsed = !isInspectorCollapsed;
@@ -1952,78 +1284,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
-  }
-
-  function handleLabelResizePointerDown(
-    event: ReactPointerEvent<HTMLHRElement>,
-  ) {
-    if (event.button !== 0) {
-      return;
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    labelResizeRef.current = {
-      pointerId: event.pointerId,
-      pointerStartX: event.clientX,
-      originWidth: labelWidth,
-    };
-  }
-
-  function handleLabelResizePointerMove(
-    event: ReactPointerEvent<HTMLHRElement>,
-  ) {
-    const resize = labelResizeRef.current;
-    if (resize?.pointerId !== event.pointerId) {
-      return;
-    }
-
-    setLabelWidth(
-      clampLabelWidth(
-        resize.originWidth + event.clientX - resize.pointerStartX,
-      ),
-    );
-  }
-
-  function handleLabelResizePointerEnd(
-    event: ReactPointerEvent<HTMLHRElement>,
-  ) {
-    const resize = labelResizeRef.current;
-    if (resize?.pointerId !== event.pointerId) {
-      return;
-    }
-
-    labelResizeRef.current = null;
-    commitLabelWidth(
-      event.type === "pointercancel"
-        ? labelWidth
-        : resize.originWidth + event.clientX - resize.pointerStartX,
-    );
-  }
-
-  function handleLabelResizeKeyDown(event: ReactKeyboardEvent<HTMLHRElement>) {
-    let nextWidth: number;
-    switch (event.key) {
-      case "ArrowLeft":
-        nextWidth = labelWidth - LABEL_WIDTH_KEYBOARD_STEP;
-        break;
-      case "ArrowRight":
-        nextWidth = labelWidth + LABEL_WIDTH_KEYBOARD_STEP;
-        break;
-      case "Home":
-        nextWidth = LABEL_WIDTH_MIN;
-        break;
-      case "End":
-        nextWidth = LABEL_WIDTH_MAX;
-        break;
-      default:
-        return;
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
-    commitLabelWidth(nextWidth);
   }
 
   function handlePreviewResizeKeyDown(
@@ -2114,120 +1374,21 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       <main className="workspace">
         <div className="workspace__main">
           <section className="editor-panel">
-            <div className="timeline-toolbar">
-              <div className="timeline-toolbar__display">
-                <span className="status-light" />
-                <TransportPlayheadReadout
-                  signal={playheadSignal}
-                  bpm={bpm}
-                  fps={fps}
-                  signature={signature}
-                />
-              </div>
-
-              <div className="timeline-toolbar__controls">
-                <div
-                  className="segmented-control"
-                  role="tablist"
-                  aria-label="Timeline scale"
-                >
-                  <button
-                    className={timelineMode === "musical" ? "is-active" : ""}
-                    onClick={() =>
-                      commitProjectPatch("Change timeline scale", {
-                        timelineMode: "musical",
-                      })
-                    }
-                    type="button"
-                  >
-                    Tempo
-                  </button>
-                  <button
-                    className={timelineMode === "timecode" ? "is-active" : ""}
-                    onClick={() =>
-                      commitProjectPatch("Change timeline scale", {
-                        timelineMode: "timecode",
-                      })
-                    }
-                    type="button"
-                  >
-                    SMPTE
-                  </button>
-                </div>
-
-                <div
-                  className="segmented-control"
-                  role="tablist"
-                  aria-label="Snap grid"
-                >
-                  {SNAP_OPTIONS.map((option) => (
-                    <button
-                      key={option.id}
-                      className={snapMode === option.id ? "is-active" : ""}
-                      onClick={() =>
-                        commitProjectPatch("Change snap grid", {
-                          snapMode: option.id,
-                        })
-                      }
-                      type="button"
-                    >
-                      {option.id === "auto" && snapMode === "auto"
-                        ? `${option.label} · ${formatDivision(adaptiveDivision)}`
-                        : option.label}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="segmented-control">
-                  <button
-                    aria-pressed={snapEnabled}
-                    className={snapEnabled ? "is-active" : ""}
-                    onClick={() =>
-                      commitProjectPatch(
-                        snapEnabled
-                          ? "Disable beat snapping"
-                          : "Enable beat snapping",
-                        { snapEnabled: !snapEnabled },
-                      )
-                    }
-                    title="Shift while dragging a clip or trim handle to temporarily disable snapping."
-                    type="button"
-                  >
-                    {snapEnabled ? "Snap On" : "Snap Off"}
-                  </button>
-                </div>
-
-                <div className="signature-picker">
-                  <span>Time Sig</span>
-                  <Select
-                    aria-label="Time signature"
-                    onValueChange={(value) =>
-                      commitProjectPatch("Change time signature", {
-                        signatureId: value,
-                      })
-                    }
-                    options={SIGNATURE_OPTIONS}
-                    value={signatureId}
-                  />
-                </div>
-
-                <div className="layer-toolbar">
-                  <span className="layer-toolbar__count">
-                    Layers {lanes.length}/{MAX_LAYERS}
-                  </span>
-                  <button
-                    className="layer-toolbar__button"
-                    disabled={!canCreateLayer}
-                    onClick={handleCreateLayer}
-                    type="button"
-                  >
-                    {canCreateLayer
-                      ? `Create Layer ${getNextLaneNumber(lanes)}`
-                      : "Max Layers"}
-                  </button>
-                </div>
-              </div>
-            </div>
+            <TimelineToolbar
+              playheadSignal={playheadSignal}
+              bpm={bpm}
+              fps={fps}
+              signature={signature}
+              timelineMode={timelineMode}
+              snapMode={snapMode}
+              adaptiveDivision={adaptiveDivision}
+              snapEnabled={snapEnabled}
+              signatureId={signatureId}
+              lanes={lanes}
+              canCreateLayer={canCreateLayer}
+              commitProjectPatch={commitProjectPatch}
+              onCreateLayer={handleCreateLayer}
+            />
 
             <div
               ref={editorGridRef}
@@ -2236,218 +1397,60 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 ["--preview-width" as string]: `${effectivePreviewWidth}px`,
               }}
             >
-              <div
-                ref={timelineScrollRef}
-                className={`timeline-scroll ${
-                  timelineDragScroll.isGrabbing ? "is-grab-panning" : ""
-                }`}
-                {...timelineDragScroll.handlers}
-                onScroll={() => syncTimelineViewport()}
-                style={{ ["--label-width" as string]: `${labelWidth}px` }}
+              <Timeline
+                timelineScrollRef={timelineScrollRef}
+                timelineDragScroll={timelineDragScroll}
+                labelResize={labelResize}
+                playheadQ={playheadQ}
+                playheadSignal={playheadSignal}
+                quarterPx={quarterPx}
+                timelineWidth={timelineWidth}
+                visibleTimelineStartPx={visibleTimelineStartPx}
+                visibleTimelineWidthPx={visibleTimelineWidthPx}
+                visibleTimelineEndPx={visibleTimelineEndPx}
+                syncTimelineViewport={syncTimelineViewport}
+                scrollTimelineToPlayhead={scrollTimelineToPlayhead}
               >
-                <div className="timeline-jump-overlay">
-                  {isPlayheadOffscreenLeft ? (
-                    <button
-                      className="playhead-jump playhead-jump--left"
-                      onClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        scrollTimelineToPlayhead();
-                      }}
-                      type="button"
-                    >
-                      {"<<"}
-                    </button>
-                  ) : null}
-                  {isPlayheadOffscreenRight ? (
-                    <button
-                      className="playhead-jump playhead-jump--right"
-                      onClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        scrollTimelineToPlayhead();
-                      }}
-                      type="button"
-                    >
-                      {">>"}
-                    </button>
-                  ) : null}
-                </div>
-                <div
-                  className={`timeline-canvas ${labelWidth < LABEL_WIDTH_NARROW ? "timeline-canvas--narrow-labels" : ""}`}
-                  style={{
-                    width: labelWidth + timelineWidth,
-                    ["--label-width" as string]: `${labelWidth}px`,
-                  }}
-                >
-                  <div className="label-resize-rail">
-                    <hr
-                      className="label-resize-handle"
-                      aria-orientation="vertical"
-                      aria-label="Resize track labels"
-                      aria-valuenow={labelWidth}
-                      aria-valuemin={LABEL_WIDTH_MIN}
-                      aria-valuemax={LABEL_WIDTH_MAX}
-                      tabIndex={0}
-                      title="Drag to resize. Double-click to reset."
-                      onPointerDown={handleLabelResizePointerDown}
-                      onPointerMove={handleLabelResizePointerMove}
-                      onPointerUp={handleLabelResizePointerEnd}
-                      onPointerCancel={handleLabelResizePointerEnd}
-                      onDoubleClick={() =>
-                        commitLabelWidth(LABEL_WIDTH_DEFAULT)
-                      }
-                      onKeyDown={handleLabelResizeKeyDown}
-                    />
-                  </div>
-                  <PlayheadLine
-                    className="timeline-playhead"
-                    signal={playheadSignal}
-                    quarterPx={quarterPx}
-                    offsetPx={labelWidth}
-                  />
-
-                  {/* biome-ignore lint/a11y/noStaticElementInteractions: hand-grab panning is a pointer shortcut; the timeline scrolls from the keyboard and wheel as usual */}
-                  <section
-                    className={`ruler-row ${
-                      rulerDragScroll.isGrabbing ? "is-grab-panning" : ""
-                    }`}
-                    {...rulerDragScroll.handlers}
-                    onContextMenu={(event) => {
-                      // The ruler has no menu of its own, so the browser's
-                      // never shows, with or without a pan.
-                      event.preventDefault();
-                      rulerDragScroll.onContextMenu(event);
-                    }}
-                  >
-                    <div className="track-label track-label--header">
-                      <div>
-                        <span>{sessionName ?? "Session"}</span>
-                        {mediaSyncStatusLabel ? (
-                          <button
-                            aria-live="polite"
-                            className="track-label__offline track-label__offline--syncing"
-                            onClick={() => setIsMediaSyncDialogOpen(true)}
-                            title="Show media sync status"
-                            type="button"
-                          >
-                            <span
-                              aria-hidden="true"
-                              className="offline-media__spinner"
-                            />
-                            {mediaSyncStatusLabel}
-                          </button>
-                        ) : offlineCount ? (
-                          <button
-                            className="track-label__offline"
-                            onClick={() =>
-                              showsMediaSync
-                                ? setIsMediaSyncDialogOpen(true)
-                                : setIsOfflineMediaDialogOpen(true)
-                            }
-                            title="Review and locate offline media"
-                            type="button"
-                          >
-                            {relinkingMediaIds.size ? (
-                              <>
-                                <span
-                                  aria-hidden="true"
-                                  className="offline-media__spinner"
-                                />
-                                Linking{" "}
-                                {pluralize(relinkingMediaIds.size, "file")}…
-                              </>
-                            ) : (
-                              pluralize(offlineCount, "offline media file")
-                            )}
-                          </button>
-                        ) : (
-                          <small>{sessionMediaStatus}</small>
-                        )}
-                      </div>
-                    </div>
-                    <div
-                      className={`ruler-row__content ruler-row__content--interactive ${
-                        timelineDragState ? "is-dragging" : ""
-                      }`}
-                      onPointerDown={(event) => {
-                        const timelineScroll = timelineScrollRef.current;
-                        // Only the primary button scrubs; the others pan the
-                        // timeline through the ruler row.
-                        if (
-                          !timelineScroll ||
-                          event.button !== 0 ||
-                          isRulerPanPress(event, shortcutLabels.mac)
-                        ) {
-                          return;
-                        }
-
-                        event.preventDefault();
-                        if (isPlaying) {
-                          // Batched with setIsPlaying so the audio keeps
-                          // running from the clicked position.
-                          pulseTimelineAudibleScrub(
-                            TIMELINE_PLAYBACK_SCRUB_AUDIO_IDLE_MS,
-                          );
-                        } else {
-                          stopTimelineAudibleScrub();
-                        }
-                        setIsPlaying(false);
-
-                        const timelineBounds =
-                          timelineScroll.getBoundingClientRect();
-                        const pointerX = event.clientX - timelineBounds.left;
-                        const nextPlayheadQ = clamp(
-                          (timelineScroll.scrollLeft - labelWidth + pointerX) /
-                            quarterPx,
-                          0,
-                          totalQuarters,
-                        );
-
-                        setPlayheadQ(nextPlayheadQ);
-                        playbackOriginRef.current = nextPlayheadQ;
-                        setTimelineDragState({
-                          pointerId: event.pointerId,
-                          pointerStartX: event.clientX,
-                          originPlayheadQ: nextPlayheadQ,
-                          originZoom: resolvedZoom,
-                          wasPlaying: isPlaying,
-                        });
-                      }}
-                      style={gridStyle}
-                    >
-                      <PlayheadLine
-                        className="timeline-playhead-marker"
-                        signal={playheadSignal}
-                        quarterPx={quarterPx}
-                        offsetPx={-1}
-                      />
-                      {rulerBars.map((bar) => (
-                        <div
-                          key={bar.index}
-                          className="ruler-marker"
-                          style={{ left: bar.quarter * quarterPx }}
-                        >
-                          {bar.index % rulerLabelBarStep === 0 ? (
-                            <span>
-                              {timelineMode === "musical"
-                                ? `${bar.index + 1}`
-                                : formatTimecode(
-                                    quartersToSeconds(bar.quarter, bpm),
-                                    fps,
-                                  )}
-                            </span>
-                          ) : null}
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-
-                  <div
-                    ref={arrangementLanesRef}
-                    className={`arrangement-lanes ${layerReorder.listClassName}`}
-                  >
-                    {showArrangementEmptyState ? (
+                <Ruler
+                  rulerDragScroll={rulerDragScroll}
+                  sessionName={sessionName}
+                  mediaSyncStatusLabel={mediaSyncStatusLabel}
+                  offlineCount={offlineCount}
+                  showsMediaSync={showsMediaSync}
+                  relinkingMediaIds={relinkingMediaIds}
+                  sessionMediaStatus={sessionMediaStatus}
+                  setIsMediaSyncDialogOpen={setIsMediaSyncDialogOpen}
+                  setIsOfflineMediaDialogOpen={setIsOfflineMediaDialogOpen}
+                  timelineScrollRef={timelineScrollRef}
+                  shortcutLabels={shortcutLabels}
+                  timelineDragState={timelineDragState}
+                  setTimelineDragState={setTimelineDragState}
+                  isPlaying={isPlaying}
+                  setIsPlaying={setIsPlaying}
+                  pulseTimelineAudibleScrub={pulseTimelineAudibleScrub}
+                  stopTimelineAudibleScrub={stopTimelineAudibleScrub}
+                  setPlayheadQ={setPlayheadQ}
+                  playbackOriginRef={playbackOriginRef}
+                  playheadSignal={playheadSignal}
+                  labelWidth={labelWidth}
+                  quarterPx={quarterPx}
+                  totalQuarters={totalQuarters}
+                  resolvedZoom={resolvedZoom}
+                  gridStyle={gridStyle}
+                  rulerBars={rulerBars}
+                  rulerLabelBarStep={rulerLabelBarStep}
+                  timelineMode={timelineMode}
+                  bpm={bpm}
+                  fps={fps}
+                />
+                <ArrangementLanes
+                  arrangementLanesRef={arrangementLanesRef}
+                  lanes={lanes}
+                  fxLaneId={fxLaneId}
+                  laneStatusById={laneStatusById}
+                  clipsByLane={clipsByLane}
+                  emptyState={
+                    showArrangementEmptyState ? (
                       <ArrangementEmptyState
                         onDismiss={() =>
                           setArrangementEmptyStateDismissed(true)
@@ -2460,999 +1463,99 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                         }
                         visibleWidth={visibleTimelineWidthPx}
                       />
-                    ) : null}
-                    <div
-                      aria-hidden="true"
-                      className="layer-drop-indicator"
-                      ref={layerReorder.indicatorRef}
-                    />
-                    <div
-                      aria-live="polite"
-                      className="layer-reorder-status"
-                      role="status"
-                    >
-                      {layerReorder.announcement}
-                    </div>
-                    {lanes.map((lane, laneIndex) => (
-                      <section
-                        key={lane.id}
-                        className={`track-row ${lane.id === fxLaneId ? "track-row--selected" : ""} ${
-                          lane.id === layerReorder.liftedLaneId
-                            ? "track-row--lifted"
-                            : ""
-                        }`}
-                        data-layer-row-id={lane.id}
-                      >
-                        {/* biome-ignore lint/a11y/noStaticElementInteractions: clicking anywhere on the label is a mouse shortcut; the layer name button is the keyboard equivalent */}
-                        {/* biome-ignore lint/a11y/useKeyWithClickEvents: the layer name button handles the keyboard */}
-                        <div
-                          className="track-label track-label--lane"
-                          data-layer-header-id={lane.id}
-                          onContextMenu={(event) =>
-                            openLayerMenu(event, lane.id)
-                          }
-                          onClick={(event) => {
-                            if (
-                              event.target instanceof Element &&
-                              event.target.closest(
-                                ".track-label__fx, .track-label__rename",
-                              )
-                            ) {
-                              return;
-                            }
-                            selectLaneFromLabel(lane.id);
-                          }}
-                        >
-                          <button
-                            {...layerReorder.gripProps(lane, laneIndex)}
-                            aria-label={`Reorder ${lane.name}`}
-                            className="track-label__grip"
-                            tabIndex={lane.id === fxLaneId ? 0 : -1}
-                            title="Drag to reorder, or press Space to pick up"
-                            type="button"
-                          >
-                            <Bars3Icon aria-hidden="true" />
-                          </button>
-                          <div className="track-label__index">
-                            {laneIndex + 1}
-                          </div>
-                          {renamingLaneId === lane.id ? (
-                            <LayerNameInput
-                              initialName={lane.name}
-                              onCancel={() => {
-                                setRenamingLaneId(undefined);
-                                focusLaneLabel(lane.id);
-                              }}
-                              onSubmit={(name) => {
-                                commitLayerRename(lane.id, name);
-                                focusLaneLabel(lane.id);
-                              }}
-                            />
-                          ) : (
-                            <button
-                              aria-current={
-                                lane.id === fxLaneId ? "true" : undefined
-                              }
-                              className="track-label__select"
-                              data-lane-label-id={lane.id}
-                              tabIndex={lane.id === fxLaneId ? 0 : -1}
-                              type="button"
-                            >
-                              <span>{lane.name}</span>
-                              <small>
-                                {laneStatusById.get(lane.id)?.summary}
-                              </small>
-                            </button>
-                          )}
-                          <button
-                            aria-label={`${lane.name} effects`}
-                            aria-pressed={laneStatusById.get(lane.id)?.fxToggle}
-                            className={`track-label__fx ${laneStatusById.get(lane.id)?.fxClassName ?? ""}`}
-                            disabled={!laneStatusById.get(lane.id)?.effectCount}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setLayerFxEnabled(
-                                lane.id,
-                                !isLayerFxEnabled(lane),
-                              );
-                            }}
-                            title={laneStatusById.get(lane.id)?.fxTitle}
-                            type="button"
-                          >
-                            fx
-                          </button>
-                        </div>
-                        {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click is a pointer shortcut; the context-menu key and Shift+F10 open the same menu on the selected layer */}
-                        <div
-                          className="track-row__content track-row__content--arrangement"
-                          data-timeline-lane-id={lane.id}
-                          onContextMenu={(event) =>
-                            openLaneMenu(event, lane.id)
-                          }
-                          onPointerDown={(event) => {
-                            // Right-click, or Ctrl-click on macOS, opens the lane menu instead.
-                            if (
-                              event.target !== event.currentTarget ||
-                              isContextMenuPress(event, shortcutLabels.mac)
-                            ) {
-                              return;
-                            }
-
-                            event.preventDefault();
-                            setSelectedClipId(undefined);
-                            setSelectedLaneId(lane.id);
-                            setIsPlaying(false);
-                            setDragPreviewClips(null);
-
-                            const timelineScroll = timelineScrollRef.current;
-                            if (!timelineScroll) {
-                              return;
-                            }
-
-                            const timelineBounds =
-                              timelineScroll.getBoundingClientRect();
-                            const pointerX =
-                              event.clientX - timelineBounds.left;
-                            const anchorQ = snapQuarterValue(
-                              clamp(
-                                (timelineScroll.scrollLeft -
-                                  labelWidth +
-                                  pointerX) /
-                                  quarterPx,
-                                0,
-                                totalQuarters,
-                              ),
-                              snapUnit,
-                              snapEnabled && !event.shiftKey,
-                            );
-                            // The selection starts once the pointer drags
-                            // past the threshold; until then it's a click.
-                            setPendingSelection(null);
-                            setDragState({
-                              kind: "selection",
-                              pointerId: event.pointerId,
-                              laneId: lane.id,
-                              gesture: startLaneSelectionGesture(
-                                anchorQ,
-                                event.clientX,
-                              ),
-                            });
-                          }}
-                          style={gridStyle}
-                        >
-                          {pendingSelection?.laneId === lane.id
-                            ? (() => {
-                                const width =
-                                  pendingSelection.durationQ * quarterPx;
-                                const hint = selectionHint(width);
-                                return (
-                                  <div
-                                    className="timeline-selection"
-                                    style={{
-                                      left: pendingSelection.startQ * quarterPx,
-                                      width,
-                                      paddingInline: hint.paddingPx,
-                                    }}
-                                  >
-                                    {hint.label ? (
-                                      <span>{hint.label}</span>
-                                    ) : null}
-                                  </div>
-                                );
-                              })()
-                            : null}
-                          {(clipsByLane.get(lane.id) ?? []).map((clip) => {
-                            const selected = clip.id === selectedClip?.id;
-                            // Keeps the trim handles shown while the pointer
-                            // strays off the clip mid-drag.
-                            const trimming =
-                              (dragState?.kind === "resize-start" ||
-                                dragState?.kind === "resize-end") &&
-                              dragState.clipId === clip.id;
-                            const durationQ = getClipDurationQ(clip, bpm);
-                            const media = clip.mediaId
-                              ? mediaItemsById.get(clip.mediaId)
-                              : undefined;
-                            const mediaState = describeClipMediaState(
-                              clip,
-                              media?.availability,
-                            );
-                            const thumbnailUrl =
-                              media?.hasVideo && mediaState === "online"
-                                ? (thumbnails.get(
-                                    getThumbnailCacheKey(
-                                      media.id,
-                                      getClipThumbnailTimeSeconds(
-                                        clip,
-                                        media.durationSeconds,
-                                        bpm,
-                                      ),
-                                      clipFilmstrips.get(clip.id)?.size,
-                                    ),
-                                    `clip:${clip.id}`,
-                                  ) ?? media.thumbnailUrl)
-                                : undefined;
-                            const filmstrip =
-                              media?.hasVideo && mediaState === "online"
-                                ? clipFilmstrips.get(clip.id)
-                                : undefined;
-                            const mediaSync = media
-                              ? describeMediaSync(
-                                  remoteMediaProgress.get(media.id),
-                                  media.availability,
-                                )
-                              : null;
-                            // As the compositor draws it: the clip's own
-                            // Color or Text first, else its layer's.
-                            const fillBackground = isFillClip(clip)
-                              ? formatFillPaintCss(
-                                  resolveFillPaint(
-                                    timelineEffects,
-                                    clip.laneId,
-                                    clipEffectTrackId(clip.id),
-                                  ),
-                                )
-                              : undefined;
-                            const textStyle = isTextClip(clip)
-                              ? resolveTextStyle(
-                                  timelineEffects,
-                                  clip.laneId,
-                                  clipEffectTrackId(clip.id),
-                                )
-                              : undefined;
-                            const fxLabel = isFxClip(clip)
-                              ? describeFxClip(effects, clip.id)
-                              : undefined;
-                            return (
-                              // biome-ignore lint/a11y/noStaticElementInteractions: right-click is a pointer shortcut; the context-menu key and Shift+F10 open the same menu on the selected clip
-                              <div
-                                key={clip.id}
-                                className={`clip-card ${selected ? "clip-card--selected" : ""} ${trimming ? "clip-card--trimming" : ""} ${filmstrip || fillBackground ? "clip-card--filmstrip" : ""} ${fillBackground ? "clip-card--fill" : ""} ${textStyle ? "clip-card--text" : ""} ${fxLabel ? "clip-card--fx" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""}`}
-                                data-clip-id={clip.id}
-                                onContextMenu={(event) =>
-                                  openArrangementClipMenu(event, clip)
-                                }
-                                onPointerDown={(event) => {
-                                  // Right-click, or Ctrl-click on macOS, selects through the
-                                  // menu instead of starting a drag or a lane selection.
-                                  if (
-                                    isContextMenuPress(
-                                      event,
-                                      shortcutLabels.mac,
-                                    )
-                                  ) {
-                                    event.stopPropagation();
-                                  }
-                                }}
-                                style={{
-                                  left: clip.startQ * quarterPx,
-                                  width: durationQ * quarterPx,
-                                  ["--clip-accent" as string]: clip.accent,
-                                  backgroundColor: clip.tint,
-                                  borderColor: clip.accent,
-                                  opacity:
-                                    mediaState === "online" || mediaSync
-                                      ? 1
-                                      : 0.62,
-                                }}
-                              >
-                                {mediaSync ? (
-                                  <MediaSyncSkeleton
-                                    variant="clip"
-                                    view={mediaSync}
-                                  />
-                                ) : null}
-                                {fillBackground ? (
-                                  <span
-                                    aria-hidden="true"
-                                    className="clip-card__fill"
-                                    style={{ background: fillBackground }}
-                                  />
-                                ) : null}
-                                {filmstrip ? (
-                                  <span
-                                    aria-hidden="true"
-                                    className="clip-card__filmstrip"
-                                  >
-                                    {filmstrip.tiles.map((tile) => {
-                                      // A tile shows the clip's first frame
-                                      // until its own frame is decoded.
-                                      const tileUrl =
-                                        thumbnails.get(
-                                          getThumbnailCacheKey(
-                                            filmstrip.media.id,
-                                            tile.timeSeconds,
-                                            filmstrip.size,
-                                          ),
-                                          getFilmstripTileOwner(
-                                            "clip",
-                                            clip.id,
-                                            tile.index,
-                                          ),
-                                        ) ?? thumbnailUrl;
-                                      return (
-                                        <span
-                                          key={tile.index}
-                                          className="clip-card__tile"
-                                          style={{
-                                            left: tile.leftPx,
-                                            width: tile.widthPx,
-                                            backgroundImage: tileUrl
-                                              ? `url(${tileUrl})`
-                                              : undefined,
-                                          }}
-                                        />
-                                      );
-                                    })}
-                                  </span>
-                                ) : null}
-                                <button
-                                  className="clip-card__handle clip-card__handle--start"
-                                  onPointerDown={(event) => {
-                                    if (
-                                      isContextMenuPress(
-                                        event,
-                                        shortcutLabels.mac,
-                                      )
-                                    ) {
-                                      return;
-                                    }
-
-                                    event.preventDefault();
-                                    event.stopPropagation();
-                                    setPendingSelection(null);
-                                    setDragPreviewClips(null);
-                                    setSelectedClipId(clip.id);
-                                    setDragState({
-                                      kind: "resize-start",
-                                      pointerId: event.pointerId,
-                                      clipId: clip.id,
-                                      pointerStartX: event.clientX,
-                                      originStartQ: clip.startQ,
-                                      originDurationQ: durationQ,
-                                    });
-                                  }}
-                                  type="button"
-                                />
-                                <button
-                                  className="clip-card__body"
-                                  onClick={() => {
-                                    setPendingSelection(null);
-                                    // Selecting never moves the playhead.
-                                    setSelectedClipId(clip.id);
-                                  }}
-                                  // Double-clicking a text clip types on it in
-                                  // the preview.
-                                  title={`${shortcutLabels.clipJump} to jump to start`}
-                                  onDoubleClick={
-                                    textStyle
-                                      ? () => startTextEdit(clip.id)
-                                      : undefined
-                                  }
-                                  onPointerDown={(event) => {
-                                    if (
-                                      isContextMenuPress(
-                                        event,
-                                        shortcutLabels.mac,
-                                      )
-                                    ) {
-                                      return;
-                                    }
-
-                                    event.preventDefault();
-                                    event.stopPropagation();
-                                    setPendingSelection(null);
-                                    setDragPreviewClips(null);
-                                    const duplicateOnDrag =
-                                      event.ctrlKey || event.metaKey;
-                                    const dragClipId = duplicateOnDrag
-                                      ? `window-${crypto.randomUUID()}`
-                                      : clip.id;
-                                    setSelectedClipId(dragClipId);
-                                    setDragState({
-                                      kind: "move",
-                                      pointerId: event.pointerId,
-                                      clipId: dragClipId,
-                                      sourceClipId: clip.id,
-                                      pointerStartX: event.clientX,
-                                      originStartQ: clip.startQ,
-                                      originDurationQ: durationQ,
-                                      originLaneId: clip.laneId,
-                                      duplicateOnDrag,
-                                      jumpOnClick: isClipJumpPress(
-                                        event,
-                                        shortcutLabels.mac,
-                                      ),
-                                    });
-                                  }}
-                                  type="button"
-                                >
-                                  {thumbnailUrl && !filmstrip ? (
-                                    <span
-                                      aria-hidden="true"
-                                      className="clip-card__thumb"
-                                      style={{
-                                        backgroundImage: `url(${thumbnailUrl})`,
-                                      }}
-                                    />
-                                  ) : null}
-                                  {textStyle ? (
-                                    <span
-                                      aria-hidden="true"
-                                      className="clip-card__glyph"
-                                      style={{
-                                        color:
-                                          textStyle.paint.kind === "solid"
-                                            ? formatCssColor(
-                                                textStyle.paint.color,
-                                              )
-                                            : undefined,
-                                      }}
-                                    >
-                                      T
-                                    </span>
-                                  ) : null}
-                                  {fxLabel ? (
-                                    <span
-                                      aria-hidden="true"
-                                      className="clip-card__glyph clip-card__glyph--fx"
-                                    >
-                                      FX
-                                    </span>
-                                  ) : null}
-                                  <span className="clip-card__text">
-                                    <strong>
-                                      {textStyle
-                                        ? getTextPreview(textStyle) ||
-                                          clip.label
-                                        : (fxLabel ?? clip.label)}
-                                    </strong>
-                                    <span className="clip-card__meta">
-                                      {mediaSync ? (
-                                        formatMediaSyncLabel(mediaSync)
-                                      ) : (
-                                        <>
-                                          {formatMusicalPosition(
-                                            clip.startQ,
-                                            signature,
-                                          )}{" "}
-                                          /{" "}
-                                          {formatDuration(clip.durationSeconds)}
-                                          {mediaState === "online"
-                                            ? ""
-                                            : ` / ${formatClipMediaState(mediaState)}`}
-                                        </>
-                                      )}
-                                    </span>
-                                  </span>
-                                </button>
-                                <button
-                                  className="clip-card__handle clip-card__handle--end"
-                                  onPointerDown={(event) => {
-                                    if (
-                                      isContextMenuPress(
-                                        event,
-                                        shortcutLabels.mac,
-                                      )
-                                    ) {
-                                      return;
-                                    }
-
-                                    event.preventDefault();
-                                    event.stopPropagation();
-                                    setPendingSelection(null);
-                                    setDragPreviewClips(null);
-                                    setSelectedClipId(clip.id);
-                                    setDragState({
-                                      kind: "resize-end",
-                                      pointerId: event.pointerId,
-                                      clipId: clip.id,
-                                      pointerStartX: event.clientX,
-                                      originStartQ: clip.startQ,
-                                      originDurationQ: durationQ,
-                                    });
-                                  }}
-                                  type="button"
-                                />
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </section>
-                    ))}
-                  </div>
-
-                  <section
-                    aria-label="Main audio drop area"
-                    className={`track-row track-row--bus ${isMainAudioDropTarget ? "is-drop-target" : ""}`}
-                    data-main-audio-drop-target=""
-                    onContextMenu={openMainAudioMenu}
-                    onDragEnter={handleMainAudioDragEvent}
-                    onDragLeave={handleMainAudioDragLeave}
-                    onDragOver={handleMainAudioDragEvent}
-                    onDrop={handleMainAudioDrop}
-                  >
-                    <div className="track-label">
-                      <div className="track-label__index">A</div>
-                      <div>
-                        <span>Audio</span>
-                        <small>
-                          {mainAudio ? mainAudio.name : "No main audio"}
-                        </small>
-                      </div>
-                      <button
-                        aria-label={
-                          mainAudio ? "Replace main audio" : "Add main audio"
-                        }
-                        className="track-label__fx track-label__audio"
-                        onClick={() => mainAudioInputRef.current?.click()}
-                        title={
-                          mainAudio ? "Replace main audio" : "Add main audio"
-                        }
-                        type="button"
-                      >
-                        {mainAudio ? (
-                          <ArrowPathRoundedSquareIcon aria-hidden="true" />
-                        ) : (
-                          <ArrowUpTrayIcon aria-hidden="true" />
-                        )}
-                      </button>
-                      <input
-                        accept="audio/*"
-                        hidden
-                        onChange={(event) => {
-                          const file = event.target.files?.[0];
-                          event.target.value = "";
-                          if (file) {
-                            void replaceMainAudioFromFile(file);
-                          }
-                        }}
-                        ref={mainAudioInputRef}
-                        type="file"
-                      />
-                    </div>
-                    <div
-                      className={`track-row__content track-row__content--waveform ${mainAudioSync ? getMediaSyncClassName(mainAudioSync, prefersReducedMotion) : ""}`}
-                      style={gridStyle}
-                    >
-                      {mainAudioSync ? (
-                        <MediaSyncSkeleton
-                          style={mainAudioSkeletonStyle}
-                          variant="waveform"
-                          view={mainAudioSync}
-                        />
-                      ) : null}
-                      {mainWaveformMessage ? (
-                        <div
-                          className="waveform__empty"
-                          style={{ left: visibleTimelineStartPx + 16 }}
-                        >
-                          {mainWaveformMessage}
-                        </div>
-                      ) : null}
-                      {currentMainWaveform?.peaks ? (
-                        <MainWaveform
-                          bpm={bpm}
-                          peaks={currentMainWaveform.peaks}
-                          quarterPx={quarterPx}
-                          visibleStartPx={visibleTimelineStartPx}
-                          visibleWidthPx={visibleTimelineWidthPx}
-                        />
-                      ) : null}
-                    </div>
-                  </section>
-
-                  <section
-                    aria-label="Source track drop area"
-                    className={`source-header ${sourceTracks.length ? "" : "source-header--empty"} ${isSourceTracksCollapsed ? "source-header--collapsed" : ""} ${isSourceTracksCollapsed && isNewSourceTrackDropTarget ? "is-drop-target" : ""}`}
-                    data-source-track-drop-target={
-                      isSourceHeaderDropTarget ? "new-track" : undefined
-                    }
-                    onDragEnter={(event) => {
-                      if (isSourceHeaderDropTarget) {
-                        handleSourceTrackDragEvent(event, {
-                          kind: "new-track",
-                        });
-                      }
-                    }}
-                    onDragLeave={() => {
-                      if (isSourceHeaderDropTarget) {
-                        scheduleSourceTrackDragClear();
-                      }
-                    }}
-                    onDragOver={(event) => {
-                      if (isSourceHeaderDropTarget) {
-                        handleSourceTrackDragEvent(event, {
-                          kind: "new-track",
-                        });
-                      }
-                    }}
-                    onDrop={(event) => {
-                      if (!isSourceHeaderDropTarget) {
-                        return;
-                      }
-
-                      const files = getDraggedMediaFiles(event.dataTransfer);
-                      if (!files.length) {
-                        return;
-                      }
-
-                      event.preventDefault();
-                      event.stopPropagation();
-                      clearSourceTrackDragState();
-                      void importMediaIntoSourceTrack(files, {
-                        kind: "new-track",
-                      });
-                    }}
-                  >
-                    <div className="track-label track-label--header">
-                      {sourceTracks.length ? (
-                        <button
-                          aria-expanded={!isSourceTracksCollapsed}
-                          className="source-header__toggle"
-                          onClick={() =>
-                            setSourceTracksCollapsed(!isSourceTracksCollapsed)
-                          }
-                          title={
-                            isSourceTracksCollapsed
-                              ? "Show source tracks"
-                              : "Hide source tracks"
-                          }
-                          type="button"
-                        >
-                          <ChevronDownIcon aria-hidden="true" />
-                          <span className="source-header__title">
-                            <span>Source Tracks</span>
-                            <small>
-                              {pluralize(sourceTracks.length, "track")} in
-                              session
-                            </small>
-                          </span>
-                        </button>
-                      ) : (
-                        <div>
-                          <span>Source Tracks</span>
-                          <small>
-                            {pluralize(sourceTracks.length, "track")} in session
-                          </small>
-                        </div>
-                      )}
-                    </div>
-                    <div className="source-header__content">
-                      {isSourceTracksCollapsed ? (
-                        <span className="source-header__summary">
-                          {formatSourceTracksSummary(sourceTracks.length)}{" "}
-                          hidden
-                        </span>
-                      ) : null}
-                      {sourceTracks.length ? null : (
-                        <SourceEmptyState
-                          onImport={() => void handleImport()}
-                          onOpenSample={sample.handleOpenSample}
-                          onOpenSession={() => void handleOpenSession()}
-                        />
-                      )}
-                    </div>
-                  </section>
-
-                  {isSourceTracksCollapsed
-                    ? null
-                    : sourceTracks.map((track, index) => {
-                        const sourceClips =
-                          sourceSpansByTrack.get(track.id) ?? [];
-                        const swatch = getSwatch(track.colorIndex);
-                        const isDropTarget =
-                          sourceTrackDragTarget?.kind === "track" &&
-                          sourceTrackDragTarget.trackId === track.id;
-
-                        return (
-                          <section
-                            key={track.id}
-                            className="track-row track-row--source"
-                          >
-                            <button
-                              className="track-label track-label--source"
-                              onClick={() => selectSource(track.id)}
-                              type="button"
-                            >
-                              <span
-                                className="track-label__stripe"
-                                style={{ backgroundColor: swatch.accent }}
-                              />
-                              <div>
-                                <span>{track.name}</span>
-                                <small>
-                                  {track.recordingPaths.length
-                                    ? `${pluralize(track.recordingPaths.length, "file")} / key ${index + 1}`
-                                    : `Imported media / key ${index + 1}`}
-                                </small>
-                              </div>
-                            </button>
-                            <section
-                              aria-label={`Drop media into ${track.name}`}
-                              className={`track-row__content track-row__content--source ${isDropTarget ? "is-drop-target" : ""}`}
-                              data-source-track-drop-target="track"
-                              data-source-track-id={track.id}
-                              onDragEnter={(event) =>
-                                handleSourceTrackDragEvent(event, {
-                                  kind: "track",
-                                  trackId: track.id,
-                                })
-                              }
-                              onDragLeave={() => {
-                                scheduleSourceTrackDragClear();
-                              }}
-                              onDragOver={(event) =>
-                                handleSourceTrackDragEvent(event, {
-                                  kind: "track",
-                                  trackId: track.id,
-                                })
-                              }
-                              onDrop={(event) => {
-                                const files = getDraggedMediaFiles(
-                                  event.dataTransfer,
-                                );
-                                if (!files.length) {
-                                  return;
-                                }
-
-                                event.preventDefault();
-                                event.stopPropagation();
-                                clearSourceTrackDragState();
-                                void importMediaIntoSourceTrack(files, {
-                                  kind: "track",
-                                  trackId: track.id,
-                                });
-                              }}
-                              style={gridStyle}
-                            >
-                              {sourceClips.map((clip) => {
-                                const media = clip.mediaId
-                                  ? mediaItemsById.get(clip.mediaId)
-                                  : undefined;
-                                const mediaState = describeClipMediaState(
-                                  clip,
-                                  media?.availability,
-                                );
-                                const thumbnailUrl =
-                                  (media &&
-                                    thumbnails.get(
-                                      getThumbnailCacheKey(
-                                        media.id,
-                                        clip.trimStartSeconds,
-                                        spanFilmstrips.get(clip.id)?.size,
-                                      ),
-                                      `span:${clip.id}`,
-                                    )) ??
-                                  media?.thumbnailUrl;
-                                const filmstrip =
-                                  media?.hasVideo && mediaState === "online"
-                                    ? spanFilmstrips.get(clip.id)
-                                    : undefined;
-                                const mediaSync = media
-                                  ? describeMediaSync(
-                                      remoteMediaProgress.get(media.id),
-                                      media.availability,
-                                    )
-                                  : null;
-                                return (
-                                  // biome-ignore lint/a11y/noStaticElementInteractions: Ctrl/Cmd-click and right-click are mouse shortcuts; pressing a source layer's number key commits a selection from the keyboard
-                                  // biome-ignore lint/a11y/useKeyWithClickEvents: a plain click does nothing, so there is no keyboard equivalent to add
-                                  <div
-                                    key={clip.id}
-                                    className={`source-span ${filmstrip ? "source-span--filmstrip" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""} ${clipMenu?.kind === "span" && clipMenu.spanId === clip.id ? "source-span--selected" : ""}`}
-                                    onClick={(event) => {
-                                      // Ctrl-click on macOS opens the menu instead.
-                                      if (
-                                        !isSourceClipDropClick(event) ||
-                                        isContextMenuPress(
-                                          event,
-                                          shortcutLabels.mac,
-                                        )
-                                      ) {
-                                        return;
-                                      }
-
-                                      event.preventDefault();
-                                      event.stopPropagation();
-                                      addSourceSpanToArrangement(clip);
-                                    }}
-                                    onContextMenu={(event) =>
-                                      openSourceSpanMenu(event, clip)
-                                    }
-                                    title={`${shortcutLabels.sourceClipDrop} to add this clip to the arrangement`}
-                                    style={{
-                                      left: clip.startQ * quarterPx,
-                                      width:
-                                        getClipDurationQ(clip, bpm) * quarterPx,
-                                      ["--clip-accent" as string]: clip.accent,
-                                      backgroundColor: clip.tint,
-                                      borderColor: clip.accent,
-                                      opacity:
-                                        mediaState === "online" || mediaSync
-                                          ? 1
-                                          : 0.56,
-                                    }}
-                                  >
-                                    {mediaSync ? (
-                                      <MediaSyncSkeleton
-                                        variant="span"
-                                        view={mediaSync}
-                                      />
-                                    ) : filmstrip ? (
-                                      <span
-                                        aria-hidden="true"
-                                        className="source-span__filmstrip"
-                                      >
-                                        {filmstrip.tiles.map((tile) => {
-                                          // A tile shows the span's start
-                                          // frame until its own frame is
-                                          // decoded.
-                                          const tileUrl =
-                                            thumbnails.get(
-                                              getThumbnailCacheKey(
-                                                filmstrip.media.id,
-                                                tile.timeSeconds,
-                                                filmstrip.size,
-                                              ),
-                                              getFilmstripTileOwner(
-                                                "span",
-                                                clip.id,
-                                                tile.index,
-                                              ),
-                                            ) ?? thumbnailUrl;
-                                          return (
-                                            <span
-                                              key={tile.index}
-                                              className="source-span__tile"
-                                              style={{
-                                                left: tile.leftPx,
-                                                width: tile.widthPx,
-                                                backgroundImage: tileUrl
-                                                  ? `url(${tileUrl})`
-                                                  : undefined,
-                                              }}
-                                            />
-                                          );
-                                        })}
-                                      </span>
-                                    ) : (
-                                      <div
-                                        className="source-span__thumb"
-                                        style={
-                                          thumbnailUrl
-                                            ? {
-                                                backgroundImage: `url(${thumbnailUrl})`,
-                                                backgroundSize: "cover",
-                                                backgroundPosition: "center",
-                                              }
-                                            : undefined
-                                        }
-                                      />
-                                    )}
-                                    <div className="source-span__body">
-                                      <span>{clip.label}</span>
-                                      <small>
-                                        {mediaSync
-                                          ? formatMediaSyncLabel(mediaSync)
-                                          : formatClipMediaState(mediaState)}
-                                      </small>
-                                      <div
-                                        className="source-span__line"
-                                        style={{ backgroundColor: clip.accent }}
-                                      />
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                              {isDropTarget && sourceTrackDragPreview ? (
-                                <div className="source-drop-preview">
-                                  <div
-                                    className={`source-drop-preview__thumb ${
-                                      sourceTrackDragPreview.thumbnailUrl
-                                        ? "has-image"
-                                        : ""
-                                    }`}
-                                    style={
-                                      sourceTrackDragPreview.thumbnailUrl
-                                        ? {
-                                            backgroundImage: `url(${sourceTrackDragPreview.thumbnailUrl})`,
-                                          }
-                                        : undefined
-                                    }
-                                  />
-                                  <div className="source-drop-preview__body">
-                                    <strong>
-                                      {sourceTrackDragPreview.label}
-                                    </strong>
-                                    <span>{sourceTrackDragPreviewDetail}</span>
-                                  </div>
-                                  {sourceTrackDragPreviewOverflow ? (
-                                    <div className="source-drop-preview__count">
-                                      {sourceTrackDragPreviewOverflow}
-                                    </div>
-                                  ) : null}
-                                </div>
-                              ) : null}
-                            </section>
-                          </section>
-                        );
-                      })}
-                  {isSourceTrackFileDragActive && !isSourceTracksCollapsed ? (
-                    <section className="track-row track-row--source track-row--source-drop">
-                      <div className="track-label track-label--source track-label--source-drop">
-                        <span className="track-label__stripe" />
-                        <div>
-                          <span>New Source Track</span>
-                          <small>Drop here to create a new source track</small>
-                        </div>
-                      </div>
-                      <section
-                        aria-label="Drop media into a new source track"
-                        className={`track-row__content track-row__content--source track-row__content--source-drop ${isNewSourceTrackDropTarget ? "is-drop-target" : ""}`}
-                        data-source-track-drop-target="new-track"
-                        onDragEnter={(event) =>
-                          handleSourceTrackDragEvent(event, {
-                            kind: "new-track",
-                          })
-                        }
-                        onDragLeave={() => {
-                          scheduleSourceTrackDragClear();
-                        }}
-                        onDragOver={(event) =>
-                          handleSourceTrackDragEvent(event, {
-                            kind: "new-track",
-                          })
-                        }
-                        onDrop={(event) => {
-                          const files = getDraggedMediaFiles(
-                            event.dataTransfer,
-                          );
-                          if (!files.length) {
-                            return;
-                          }
-
-                          event.preventDefault();
-                          event.stopPropagation();
-                          clearSourceTrackDragState();
-                          void importMediaIntoSourceTrack(files, {
-                            kind: "new-track",
-                          });
-                        }}
-                        style={gridStyle}
-                      >
-                        {sourceTrackDragPreview ? (
-                          <div className="source-drop-preview source-drop-preview--new-track">
-                            <div
-                              className={`source-drop-preview__thumb ${
-                                sourceTrackDragPreview.thumbnailUrl
-                                  ? "has-image"
-                                  : ""
-                              }`}
-                              style={
-                                sourceTrackDragPreview.thumbnailUrl
-                                  ? {
-                                      backgroundImage: `url(${sourceTrackDragPreview.thumbnailUrl})`,
-                                    }
-                                  : undefined
-                              }
-                            />
-                            <div className="source-drop-preview__body">
-                              <strong>{sourceTrackDragPreview.label}</strong>
-                              <span>{sourceTrackDragPreviewDetail}</span>
-                            </div>
-                            {sourceTrackDragPreviewOverflow ? (
-                              <div className="source-drop-preview__count">
-                                {sourceTrackDragPreviewOverflow}
-                              </div>
-                            ) : null}
-                          </div>
-                        ) : null}
-                      </section>
-                    </section>
-                  ) : null}
-                </div>
-              </div>
+                    ) : null
+                  }
+                  header={{
+                    layerReorder,
+                    renamingLaneId,
+                    setRenamingLaneId,
+                    openLayerMenu,
+                    selectLaneFromLabel,
+                    focusLaneLabel,
+                    commitLayerRename,
+                    setLayerFxEnabled,
+                  }}
+                  row={{
+                    openLaneMenu,
+                    shortcutLabels,
+                    timelineScrollRef,
+                    labelWidth,
+                    quarterPx,
+                    totalQuarters,
+                    snapUnit,
+                    snapEnabled,
+                    gridStyle,
+                    pendingSelection,
+                    setPendingSelection,
+                    setSelectedClipId,
+                    setSelectedLaneId,
+                    setIsPlaying,
+                    setDragPreviewClips,
+                    setDragState,
+                    clipCard: {
+                      selectedClipId: selectedClip?.id,
+                      dragState,
+                      bpm,
+                      quarterPx,
+                      signature,
+                      mediaItemsById,
+                      thumbnails,
+                      clipFilmstrips,
+                      remoteMediaProgress,
+                      timelineEffects,
+                      effects,
+                      prefersReducedMotion,
+                      revealedMediaIds,
+                      shortcutLabels,
+                      openArrangementClipMenu,
+                      startTextEdit,
+                      setPendingSelection,
+                      setDragPreviewClips,
+                      setSelectedClipId,
+                      setDragState,
+                    },
+                  }}
+                />
+                <MainAudioRow
+                  audio={mainAudioModel}
+                  drop={mainAudioDrop}
+                  openMainAudioMenu={openMainAudioMenu}
+                  prefersReducedMotion={prefersReducedMotion}
+                  bpm={bpm}
+                  quarterPx={quarterPx}
+                  visibleTimelineStartPx={visibleTimelineStartPx}
+                  visibleTimelineWidthPx={visibleTimelineWidthPx}
+                  gridStyle={gridStyle}
+                />
+                <SourceTracks
+                  sourceTracks={sourceTracks}
+                  sourceSpansByTrack={sourceSpansByTrack}
+                  isSourceTracksCollapsed={isSourceTracksCollapsed}
+                  setSourceTracksCollapsed={setSourceTracksCollapsed}
+                  drop={sourceTrackDrop}
+                  importMediaIntoSourceTrack={importMediaIntoSourceTrack}
+                  clips={clips}
+                  setSelectedClipId={setSelectedClipId}
+                  onImport={() => void handleImport()}
+                  onOpenSample={sample.handleOpenSample}
+                  onOpenSession={() => void handleOpenSession()}
+                  gridStyle={gridStyle}
+                  span={{
+                    bpm,
+                    quarterPx,
+                    mediaItemsById,
+                    thumbnails,
+                    spanFilmstrips,
+                    remoteMediaProgress,
+                    prefersReducedMotion,
+                    revealedMediaIds,
+                    clipMenu,
+                    shortcutLabels,
+                    addSourceSpanToArrangement,
+                    openSourceSpanMenu,
+                  }}
+                />
+              </Timeline>
 
               <PreviewPanel
                 activatePreviewLayer={activatePreviewLayer}
@@ -3497,127 +1600,16 @@ function App({ boot }: { boot: WorkspaceBoot }) {
               />
             </div>
 
-            <div className="transport-bar">
-              <div className="zoom-control">
-                <span className="zoom-control__label">Zoom</span>
-                <button
-                  aria-label="Zoom out"
-                  className="zoom-control__button"
-                  disabled={resolvedZoom <= ZOOM_MIN}
-                  onClick={() =>
-                    setZoomValue("Zoom out", stepZoom(resolvedZoom, -1))
-                  }
-                  title="Zoom out"
-                  type="button"
-                >
-                  <MagnifyingGlassMinusIcon aria-hidden="true" />
-                </button>
-                <input
-                  aria-label="Timeline zoom"
-                  aria-valuetext={formatZoomFactor(resolvedZoom)}
-                  className="zoom-control__slider"
-                  data-zoom={resolvedZoom}
-                  max={1}
-                  min={0}
-                  onBlur={() => flushZoomDraft()}
-                  onChange={(event) =>
-                    updateZoomDraft(
-                      sliderPositionToZoom(Number(event.target.value)),
-                    )
-                  }
-                  onKeyUp={() => flushZoomDraft()}
-                  onPointerUp={() => flushZoomDraft()}
-                  step={ZOOM_SLIDER_STEP}
-                  style={{
-                    ["--zoom-fill" as string]: `${zoomFillFraction(resolvedZoom) * 100}%`,
-                  }}
-                  type="range"
-                  value={zoomToSliderPosition(resolvedZoom)}
-                />
-                <button
-                  aria-label="Zoom in"
-                  className="zoom-control__button"
-                  disabled={resolvedZoom >= ZOOM_MAX}
-                  onClick={() =>
-                    setZoomValue("Zoom in", stepZoom(resolvedZoom, 1))
-                  }
-                  title="Zoom in"
-                  type="button"
-                >
-                  <MagnifyingGlassPlusIcon aria-hidden="true" />
-                </button>
-                <button
-                  aria-label={`Zoom ${formatZoomFactor(resolvedZoom)}, reset to ${formatZoomFactor(ZOOM_DEFAULT)}`}
-                  className="zoom-control__readout"
-                  onClick={() => setZoomValue("Reset zoom", ZOOM_DEFAULT)}
-                  title="Reset zoom to 100%"
-                  type="button"
-                >
-                  {formatZoomFactor(resolvedZoom)}
-                </button>
-              </div>
-
-              <div className="transport-cluster">
-                <button
-                  aria-label="Jump back one bar"
-                  className="transport-button transport-button--skip-start"
-                  onClick={() => jumpPlayhead(-1)}
-                  title="Jump back one bar"
-                  type="button"
-                >
-                  <BackwardIcon aria-hidden="true" />
-                </button>
-                <button
-                  aria-label="Jump back half a bar"
-                  className="transport-button"
-                  onClick={() => jumpPlayhead(-0.5)}
-                  title="Jump back half a bar"
-                  type="button"
-                >
-                  <BackwardIcon aria-hidden="true" />
-                </button>
-                <button
-                  aria-label={isPlaying ? "Pause playback" : "Play timeline"}
-                  className="transport-button transport-button--primary"
-                  onClick={handleTransportToggle}
-                  title={isPlaying ? "Pause playback" : "Play timeline"}
-                  type="button"
-                >
-                  {isPlaying ? (
-                    <PauseIcon aria-hidden="true" />
-                  ) : (
-                    <PlayIcon aria-hidden="true" />
-                  )}
-                </button>
-                <button
-                  aria-label="Jump forward half a bar"
-                  className="transport-button"
-                  onClick={() => jumpPlayhead(0.5)}
-                  title="Jump forward half a bar"
-                  type="button"
-                >
-                  <ForwardIcon aria-hidden="true" />
-                </button>
-                <button
-                  aria-label="Jump forward one bar"
-                  className="transport-button transport-button--skip-end"
-                  onClick={() => jumpPlayhead(1)}
-                  title="Jump forward one bar"
-                  type="button"
-                >
-                  <ForwardIcon aria-hidden="true" />
-                </button>
-                <button
-                  aria-label="Randomize arrangement"
-                  className="transport-button transport-button--wand"
-                  onClick={handleRandomizeTimeline}
-                  title="Replace the arrangement with randomized selections"
-                  type="button"
-                >
-                  <WandIcon />
-                </button>
-              </div>
-            </div>
+            <TransportBar
+              resolvedZoom={resolvedZoom}
+              setZoomValue={setZoomValue}
+              updateZoomDraft={updateZoomDraft}
+              flushZoomDraft={flushZoomDraft}
+              isPlaying={isPlaying}
+              jumpPlayhead={jumpPlayhead}
+              onTransportToggle={handleTransportToggle}
+              onRandomize={handleRandomizeTimeline}
+            />
           </section>
 
           <FxPanel

@@ -8,7 +8,14 @@ import {
 } from "./clip-jump.ts";
 import { isContextMenuPress } from "./context-menu.ts";
 
-const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const clipCardTsx = readFileSync(
+  new URL("./components/timeline/ClipCard.tsx", import.meta.url),
+  "utf8",
+);
+const useClipDragTs = readFileSync(
+  new URL("./hooks/useClipDrag.ts", import.meta.url),
+  "utf8",
+);
 const usePlaybackTs = readFileSync(
   new URL("./hooks/usePlayback.ts", import.meta.url),
   "utf8",
@@ -86,14 +93,14 @@ describe("revealScrollLeft", () => {
 describe("arrangement clip Ctrl/Cmd-click", () => {
   it("records the jump on the press that starts a Ctrl/Cmd-drag", () => {
     assert.match(
-      appTsx,
-      /duplicateOnDrag,\s*jumpOnClick: isClipJumpPress\(\s*event,\s*shortcutLabels\.mac,\s*\),/,
+      clipCardTsx,
+      /duplicateOnDrag,\s*jumpOnClick: isClipJumpPress\(\s*event,\s*shortcutLabels\.mac,?\s*\),/,
     );
   });
 
   it("jumps only when the press is released without dragging", () => {
     assert.match(
-      appTsx,
+      useClipDragTs,
       /dragState\.duplicateOnDrag &&\s*!dragPreviewClips\s*\) \{\s*setSelectedClipId\(dragState\.sourceClipId\);[^}]*if \(\s*dragState\.jumpOnClick &&\s*Math\.abs\(event\.clientX - dragState\.pointerStartX\) <=\s*LANE_SELECTION_DRAG_THRESHOLD_PX\s*\) \{\s*jumpToClipStart\(dragState\.sourceClipId\);/,
     );
   });
@@ -113,7 +120,7 @@ describe("arrangement clip Ctrl/Cmd-click", () => {
 
   it("names the shortcut in the clip tooltip", () => {
     assert.match(
-      appTsx,
+      clipCardTsx,
       /title=\{`\$\{shortcutLabels\.clipJump\} to jump to start`\}/,
     );
   });
