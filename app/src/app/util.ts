@@ -1,4 +1,4 @@
-import { hasMediaExtension } from "../harness/media-extensions";
+import { hasMediaExtension } from "../harness/media-extensions.ts";
 import { PALETTE } from "./constants.ts";
 import type { Lane } from "./types.ts";
 

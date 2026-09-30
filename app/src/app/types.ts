@@ -1,12 +1,9 @@
 import type { ClipWarp } from "../clip-warp.ts";
-import type { MenuPoint } from "../components/ContextMenu";
-import type { ImportNoticeContent } from "../components/ImportNotice";
-import type { SessionEffect } from "../fx-stack";
+import type { MenuPoint } from "../context-menu.ts";
+import type { SessionEffect } from "../fx-stack.ts";
 import type { LaneSelectionGesture } from "../lane-selection-gesture.ts";
-import type { MediaAvailability, MediaItem, MediaKind } from "../media";
-import type { SnapMode } from "../timeline-grid";
-import type { WorkspaceLock } from "../workspace-lock.ts";
-import type { WorkspaceSession } from "../workspace-session.ts";
+import type { MediaAvailability, MediaItem, MediaKind } from "../media.ts";
+import type { SnapMode } from "../timeline-grid.ts";
 
 export type TimelineMode = "musical" | "timecode";
 
@@ -231,37 +228,4 @@ export type SessionMediaCheck = {
   hydratedFromDisk: boolean;
   /** Set when loading resolved overlapping clips. */
   overlapNote: string;
-};
-
-// What a refresh restores besides the project and its history.
-export type WorkspaceView = {
-  playheadQ: number;
-  selectedClipId?: string;
-  selectedLaneId?: string;
-  scrollLeft: number;
-  scrollTop: number;
-};
-
-export type SavedWorkspaceSession = WorkspaceSession<
-  ProjectState,
-  WorkspaceView,
-  ImportNoticeContent
->;
-
-// "owner" autosaves. "blocked" is waiting on the other-tab prompt, and
-// "read-only" and "taken-over" leave the saved session to another tab.
-// "joiner" opened an invite link and saves nothing over its own session.
-export type WorkspaceAccess =
-  | "owner"
-  | "blocked"
-  | "read-only"
-  | "taken-over"
-  | "joiner";
-
-export type WorkspaceBoot = {
-  session: SavedWorkspaceSession | null;
-  // Set when the saved session could not be read and was set aside.
-  corruptKey: string | null;
-  access: WorkspaceAccess;
-  lock: WorkspaceLock;
 };

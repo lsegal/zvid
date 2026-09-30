@@ -1,4 +1,4 @@
-import { clipEffectTrackId, type SessionEffect } from "../fx-stack";
+import { clipEffectTrackId, type SessionEffect } from "../fx-stack.ts";
 import type { ClipboardContent } from "../range-edit.ts";
 import { getClipEndQ, quartersToSeconds } from "./timeline-math.ts";
 import type { ArrangementClip } from "./types.ts";

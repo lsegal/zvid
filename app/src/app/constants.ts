@@ -1,6 +1,6 @@
-import { ensureGlobalOrder, ensureLayerLayouts } from "../fx-stack";
-import type { Palette } from "../media";
-import type { GridLineWeight, SnapMode } from "../timeline-grid";
+import { ensureGlobalOrder, ensureLayerLayouts } from "../fx-stack.ts";
+import type { Palette } from "../media.ts";
+import type { GridLineWeight, SnapMode } from "../timeline-grid.ts";
 import type { Lane, ProjectState, TimeSignature } from "./types.ts";
 
 // Media whose probed duration differs from the recorded one by more than

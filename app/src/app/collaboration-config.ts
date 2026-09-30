@@ -1,5 +1,5 @@
 import { isTauri } from "@tauri-apps/api/core";
-import type { CollaborationConnectionState } from "../collaboration";
+import type { CollaborationConnectionState } from "../collaboration.ts";
 import {
   buildDiagnosticsRows,
   type CollaborationRole,
@@ -7,14 +7,17 @@ import {
   EMPTY_COLLABORATION_DIAGNOSTICS,
   parseIceServers,
   summarizeCollaboration,
-} from "../collaboration-diagnostics";
-import { loadIceServers, resolveRelayIceServersUrl } from "../ice-servers";
+} from "../collaboration-diagnostics.ts";
+import { loadIceServers, resolveRelayIceServersUrl } from "../ice-servers.ts";
 import {
   type InviteParams,
   parseInviteParams,
   removeInvitePassword,
 } from "../share-invite.ts";
-import { PUBLIC_SIGNALING_URL, ZVID_SIGNALING_URL } from "../signaling-servers";
+import {
+  PUBLIC_SIGNALING_URL,
+  ZVID_SIGNALING_URL,
+} from "../signaling-servers.ts";
 import {
   COLLAB_STORAGE_KEY,
   JOINED_ROOM_STORAGE_KEY,
@@ -23,14 +26,14 @@ import {
 import type { CollaborationMode, CollaborationRemoteCursor } from "./types.ts";
 import { logClient, pickRandom } from "./util.ts";
 
-export const DEFAULT_SIGNALING_URLS = splitSignalingUrls(
+const DEFAULT_SIGNALING_URLS = splitSignalingUrls(
   import.meta.env.VITE_SIGNALING_URL ||
     [ZVID_SIGNALING_URL, PUBLIC_SIGNALING_URL].join(","),
 );
 
 // Earlier defaults, persisted as the user's setting; they move to the current
 // default instead of pinning the user to a single relay.
-export const LEGACY_DEFAULT_SIGNALING_URLS = [
+const LEGACY_DEFAULT_SIGNALING_URLS = [
   [ZVID_SIGNALING_URL],
   [PUBLIC_SIGNALING_URL],
 ];
@@ -38,7 +41,7 @@ export const LEGACY_DEFAULT_SIGNALING_URLS = [
 export const ICE_SERVERS = resolveIceServers();
 
 // The app worker's short-lived TURN credentials (worker/turn.ts).
-export const RELAY_ICE_SERVERS_URL = resolveRelayIceServersUrl(
+const RELAY_ICE_SERVERS_URL = resolveRelayIceServersUrl(
   import.meta.env.VITE_ICE_SERVERS_URL,
   // The Vite dev server has no Worker to answer /api/ice-servers.
   import.meta.env.DEV ? undefined : globalThis.location?.origin,
@@ -47,7 +50,7 @@ export const RELAY_ICE_SERVERS_URL = resolveRelayIceServersUrl(
 
 // Relay credentials last a day; reuse them for an hour so reconnecting or
 // renaming yourself doesn't mint new ones every time.
-export const RELAY_ICE_SERVERS_REUSE_MS = 60 * 60 * 1000;
+const RELAY_ICE_SERVERS_REUSE_MS = 60 * 60 * 1000;
 
 export const IDLE_COLLABORATION_STATE: CollaborationConnectionState = {
   connected: false,
@@ -57,7 +60,7 @@ export const IDLE_COLLABORATION_STATE: CollaborationConnectionState = {
   diagnostics: EMPTY_COLLABORATION_DIAGNOSTICS,
 };
 
-export const COLLAB_NAME_PREFIXES = [
+const COLLAB_NAME_PREFIXES = [
   "Neon",
   "Velvet",
   "Signal",
@@ -68,7 +71,7 @@ export const COLLAB_NAME_PREFIXES = [
   "Static",
 ];
 
-export const COLLAB_NAME_SUFFIXES = [
+const COLLAB_NAME_SUFFIXES = [
   "Fox",
   "Tape",
   "Wave",
@@ -79,7 +82,7 @@ export const COLLAB_NAME_SUFFIXES = [
   "Vector",
 ];
 
-export function splitSignalingUrls(value: string) {
+function splitSignalingUrls(value: string) {
   return value
     .split(/[,\n]/)
     .map((entry) => entry.trim())
@@ -91,7 +94,7 @@ export function parseSignalingUrls(value: string) {
   return urls.length ? urls : DEFAULT_SIGNALING_URLS;
 }
 
-export function migrateLegacyStoredSignaling(
+function migrateLegacyStoredSignaling(
   value: string | undefined,
   fallback: string,
 ) {
@@ -107,7 +110,7 @@ export function migrateLegacyStoredSignaling(
     : normalized;
 }
 
-export function resolveIceServers() {
+function resolveIceServers() {
   try {
     return parseIceServers(import.meta.env.VITE_ICE_SERVERS);
   } catch (error) {
@@ -144,7 +147,7 @@ export function getSessionIceServers() {
   return sessionIceServers.promise;
 }
 
-export function buildCollaboratorName() {
+function buildCollaboratorName() {
   const prefix = pickRandom(COLLAB_NAME_PREFIXES) ?? "Signal";
   const suffix = pickRandom(COLLAB_NAME_SUFFIXES) ?? "Wave";
   return `${prefix} ${suffix}`;
@@ -173,7 +176,7 @@ export function forgetJoinedRoom() {
 
 // Fills in the password of a room this tab joined before a refresh, since
 // the address bar only keeps the room and signaling servers.
-export function withRememberedPassword(invite: InviteParams): InviteParams {
+function withRememberedPassword(invite: InviteParams): InviteParams {
   if (!invite.room) {
     return invite;
   }
@@ -254,7 +257,7 @@ export function getInitialCollaborationConfig() {
   };
 }
 
-export function buildShareRoomName() {
+function buildShareRoomName() {
   return crypto.randomUUID().replaceAll("-", "").slice(0, 8);
 }
 
@@ -282,7 +285,7 @@ export function getCollaborationRole(
   return mode === "sharing" ? "host" : "guest";
 }
 
-export function summarizeCollaborationState(
+function summarizeCollaborationState(
   mode: CollaborationMode,
   state: CollaborationConnectionState,
   isStartingShare: boolean,

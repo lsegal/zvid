@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import App from "./App.tsx";
-import type { WorkspaceBoot } from "./app/types.ts";
 import { bootWorkspace } from "./app/workspace-boot.ts";
+import type { WorkspaceBoot } from "./app/workspace-types.ts";
 
 // Loads the saved session before the editor renders, so the timeline never
 // flashes empty before a restore.

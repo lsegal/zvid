@@ -1,6 +1,6 @@
 import type { ImportNoticeContent } from "../components/ImportNotice";
-import { type MediaItem, toShareableMediaItem } from "../media";
-import type { ProjectHistoryState } from "../project-history";
+import { type MediaItem, toShareableMediaItem } from "../media.ts";
+import type { ProjectHistoryState } from "../project-history.ts";
 import {
   migrateClipContentEffects,
   migrateDefaultOrder,
@@ -11,15 +11,15 @@ import { parseWorkspaceSession } from "../workspace-session.ts";
 import { getWorkspaceStore } from "../workspace-store.ts";
 import { readPageInvite } from "./collaboration-config.ts";
 import { INITIAL_PROJECT_STATE } from "./constants.ts";
+import type { ProjectState } from "./types.ts";
+import { logClient } from "./util.ts";
 import type {
-  ProjectState,
   SavedWorkspaceSession,
   WorkspaceBoot,
   WorkspaceView,
-} from "./types.ts";
-import { logClient } from "./util.ts";
+} from "./workspace-types.ts";
 
-export const PROJECT_ARRAY_FIELDS = [
+const PROJECT_ARRAY_FIELDS = [
   "mediaItems",
   "lanes",
   "sourceTracks",
@@ -28,7 +28,7 @@ export const PROJECT_ARRAY_FIELDS = [
   "effects",
 ] as const;
 
-export const PROJECT_POSITIVE_NUMBER_FIELDS = [
+const PROJECT_POSITIVE_NUMBER_FIELDS = [
   "bpm",
   "fps",
   "canvasWidth",
@@ -44,7 +44,7 @@ const restoredMediaItems = new WeakMap<object, MediaItem>();
 
 // Validates a saved snapshot, fills in fields older saves lack and drops
 // object URLs, which die with the page that made them.
-export function normalizeRestoredProjectState(value: unknown): ProjectState {
+function normalizeRestoredProjectState(value: unknown): ProjectState {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("Saved project snapshot is not an object");
   }
@@ -89,7 +89,7 @@ export function normalizeRestoredProjectState(value: unknown): ProjectState {
   return state;
 }
 
-export function normalizeRestoredView(value: unknown): WorkspaceView {
+function normalizeRestoredView(value: unknown): WorkspaceView {
   const view = (value && typeof value === "object" ? value : {}) as Record<
     string,
     unknown
@@ -155,7 +155,7 @@ export const workspaceLockEvents = {
   lost: () => {},
 };
 
-export async function loadWorkspaceBoot(): Promise<WorkspaceBoot> {
+async function loadWorkspaceBoot(): Promise<WorkspaceBoot> {
   const lock = createWorkspaceLock({
     onFlushRequest: () => workspaceLockEvents.flush(),
     onLost: () => workspaceLockEvents.lost(),

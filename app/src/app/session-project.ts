@@ -1,8 +1,12 @@
 import { createClipWarp } from "../clip-warp.ts";
 import { createFillClip } from "../fill-clip.ts";
 import { createFxClip } from "../fx-clip.ts";
-import { ensureLayerLayouts, mapEffects, pruneClipEffects } from "../fx-stack";
-import type { MediaItem } from "../media";
+import {
+  ensureLayerLayouts,
+  mapEffects,
+  pruneClipEffects,
+} from "../fx-stack.ts";
+import type { MediaItem } from "../media.ts";
 import {
   migrateClipContentEffects,
   migrateDefaultOrder,
@@ -10,8 +14,8 @@ import {
 import {
   formatOverlapNote,
   resolveSessionOverlaps,
-} from "../selection-overlaps";
-import { clipSourceFrame, type LvpSession } from "../session";
+} from "../selection-overlaps.ts";
+import { clipSourceFrame, type LvpSession } from "../session.ts";
 import {
   readSelectionSlip,
   readSessionFills,
@@ -23,7 +27,7 @@ import {
   sourceTrackColorIndex,
 } from "../source-track-color.ts";
 import { createTextClip } from "../text-clip.ts";
-import { ZOOM_MAX, ZOOM_MIN } from "../zoom";
+import { ZOOM_MAX, ZOOM_MIN } from "../zoom.ts";
 import {
   DEFAULT_LANES,
   FILL_CLIP_ACCENT,

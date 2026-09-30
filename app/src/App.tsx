@@ -137,7 +137,6 @@ import type {
   Lane,
   LocalMediaOverride,
   ProjectState,
-  SavedWorkspaceSession,
   SessionMediaCheck,
   SourceSpan,
   SourceTrack,
@@ -146,7 +145,6 @@ import type {
   TimelineDragState,
   TimelineSelection,
   TimelineViewport,
-  WorkspaceBoot,
 } from "./app/types.ts";
 import {
   basename,
@@ -172,6 +170,10 @@ import {
   readSavedWorkspaceSession,
   workspaceLockEvents,
 } from "./app/workspace-boot.ts";
+import type {
+  SavedWorkspaceSession,
+  WorkspaceBoot,
+} from "./app/workspace-types.ts";
 import {
   hasArrangementActivity,
   isArrangementEmptyStateDismissedOnOpen,

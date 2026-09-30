@@ -8,7 +8,7 @@ export function formatSessionMediaCheckStatus(check: SessionMediaCheck) {
     .join(" ");
 }
 
-export function formatSessionMediaStatus(check: SessionMediaCheck) {
+function formatSessionMediaStatus(check: SessionMediaCheck) {
   const { sessionName, restored, offline, hydratedFromDisk } = check;
   if (!restored && !offline) {
     return hydratedFromDisk

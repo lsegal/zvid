@@ -1,5 +1,5 @@
-import { isGeneratedClip } from "../clip-media-state";
-import type { MediaItem } from "../media";
+import { isGeneratedClip } from "../clip-media-state.ts";
+import type { MediaItem } from "../media.ts";
 import { resolveClipOverlaps, withWindowTiming } from "../range-edit.ts";
 import type {
   ArrangementClip,

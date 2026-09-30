@@ -1,5 +1,5 @@
 import type { FilmstripTile } from "../clip-filmstrip.ts";
-import type { MediaItem } from "../media";
+import type { MediaItem } from "../media.ts";
 import type { ThumbnailSize } from "../thumbnail-cache.ts";
 
 // The inner heights of a clip card and a source span, which filmstrip tiles
