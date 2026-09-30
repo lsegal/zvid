@@ -8,6 +8,10 @@ import {
 } from "./arrangement-empty-state.ts";
 
 const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const sessionIOTs = readFileSync(
+  new URL("./hooks/useSessionIO.ts", import.meta.url),
+  "utf8",
+);
 const componentTsx = readFileSync(
   new URL("./components/ArrangementEmptyState.tsx", import.meta.url),
   "utf8",
@@ -116,7 +120,7 @@ describe("arrangement empty state wiring", () => {
       /hasArrangementActivity\(\{\s*clipCount: clips\.length,\s*hasClipSelection: selectedClipId !== undefined,\s*hasPendingSelection: pendingSelection !== null,/,
     );
     assert.match(
-      appTsx,
+      sessionIOTs,
       /async function applyOpenedSessionPayload[\s\S]*?setArrangementEmptyStateDismissed\(\s*isArrangementEmptyStateDismissedOnOpen\(project\.arrangementClips\.length\)/,
     );
   });
