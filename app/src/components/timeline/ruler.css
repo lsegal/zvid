@@ -16,7 +16,8 @@
   top: 0;
   bottom: 0;
   width: 2px;
-  transform: translateX(-50%);
+  left: 0;
+  will-change: transform;
   background: #f6b73c;
   pointer-events: none;
   z-index: 1;
