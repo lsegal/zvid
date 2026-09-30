@@ -10,6 +10,10 @@ import {
 } from "./main-audio-drop.ts";
 
 const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const useMainAudioTs = readFileSync(
+  new URL("./hooks/useMainAudio.ts", import.meta.url),
+  "utf8",
+);
 
 const file = (name: string, type = "") => ({ name, type });
 
@@ -142,8 +146,13 @@ describe("Audio lane wiring", () => {
   });
 
   it("routes Audio lane drops through replaceMainAudioFromFile only", () => {
-    const start = appTsx.indexOf("const handleMainAudioDrop = useCallback");
-    const body = appTsx.slice(start, appTsx.indexOf("\n  );\n", start));
+    const start = useMainAudioTs.indexOf(
+      "const handleMainAudioDrop = useCallback",
+    );
+    const body = useMainAudioTs.slice(
+      start,
+      useMainAudioTs.indexOf("\n  );\n", start),
+    );
     assert.match(body, /replaceMainAudioFromFile\(file\)/);
     assert.doesNotMatch(body, /importMediaIntoSourceTrack/);
   });

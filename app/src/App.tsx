@@ -63,7 +63,6 @@ import {
   LABEL_WIDTH_MIN,
   LABEL_WIDTH_NARROW,
   LABEL_WIDTH_STORAGE_KEY,
-  LOCATE_OFFLINE_MEDIA_HINT,
   MAX_PEER_MEDIA_TRANSFERS,
   MAX_WAND_LAYERS,
   PALETTE,
@@ -75,7 +74,6 @@ import {
   PREVIEW_WIDTH_STORAGE_KEY,
   RANDOM_SELECTION_BAR_INCREMENT,
   RANDOM_SELECTION_MAX_BARS,
-  RELINK_DURATION_TOLERANCE_SECONDS,
   SIGNATURES,
   SNAP_OPTIONS,
   SOURCE_TRACK_DRAG_CLEAR_DELAY_MS,
@@ -113,7 +111,6 @@ import {
   getClipEndQ,
   getPlaybackStopQ,
   getSelectionEndQ,
-  getSourceTrackEndQ,
   getTimelineContentEndQ,
   isClipAtPlayhead,
   quartersToSeconds,
@@ -122,14 +119,12 @@ import {
   snapQuarterValue,
 } from "./app/timeline-math.ts";
 import type {
-  AdoptMediaResult,
   ArrangementClip,
   ClipMenuState,
   CollaborationMode,
   DragState,
   ExportState,
   Lane,
-  LocalMediaOverride,
   ProjectState,
   SessionMediaCheck,
   SourceSpan,
@@ -198,7 +193,6 @@ import {
   formatClipMediaState,
   isGeneratedClip,
   isPlaceholderClip,
-  usesMediaFile,
 } from "./clip-media-state";
 import {
   buildClipMenuEntries,
@@ -322,6 +316,16 @@ import {
 import { useFxEditing } from "./hooks/useFxEditing.ts";
 import { useFxPanelModel } from "./hooks/useFxPanelModel.ts";
 import {
+  getMainAudioSkeletonStyle,
+  useMainAudio,
+  useMainAudioDrop,
+} from "./hooks/useMainAudio.ts";
+import {
+  useMediaLibrary,
+  useMediaLibraryCommands,
+} from "./hooks/useMediaLibrary.ts";
+import { useMediaStatus } from "./hooks/useMediaStatus.ts";
+import {
   useProjectHistoryCommands,
   useProjectStore,
 } from "./hooks/useProjectStore.ts";
@@ -348,18 +352,10 @@ import {
   MAX_LAYERS_MESSAGE,
 } from "./layer-menu";
 import { MainWaveform } from "./MainWaveform";
-import { withMainAudio } from "./main-audio";
-import {
-  getDroppedAudioFile,
-  getMainAudioDragState,
-  isWithinMainAudioDropTarget,
-} from "./main-audio-drop";
+import { isWithinMainAudioDropTarget } from "./main-audio-drop";
 import {
   buildFallbackMediaItem,
-  inferMediaKind,
   type MediaItem,
-  type MediaProbeResult,
-  probeMediaBlob,
   toShareableMediaItem,
 } from "./media";
 import {
@@ -368,12 +364,6 @@ import {
   migrateMediaCache,
   setCachedMediaSession,
 } from "./media-cache";
-import { createMediaRelinker, type MediaRelinkCandidate } from "./media-relink";
-import {
-  listMediaSync,
-  mediaSyncLabel,
-  summarizeMediaSync,
-} from "./media-sync.ts";
 import {
   describeMediaSync,
   formatMediaSyncLabel,
@@ -428,7 +418,6 @@ import {
   resolveClipOverlaps,
   withWindowTiming,
 } from "./range-edit.ts";
-import { listOfflineMedia, matchOfflineMedia } from "./relink";
 import { selectionHint } from "./selection-hint.ts";
 import { MAX_LAYERS } from "./selection-overlaps";
 import {
@@ -455,7 +444,6 @@ import {
   dropClipOnFreeLane,
   isSourceClipDropClick,
 } from "./source-clip-drop.ts";
-import { nextSourceTrackColorIndex } from "./source-track-color.ts";
 import {
   formatSourceTracksSummary,
   isSourceTracksSectionCollapsed,
@@ -494,8 +482,6 @@ import { type DragScrollMove, useDragScroll } from "./use-drag-scroll";
 import { useLayerReorder } from "./use-layer-reorder";
 import { useThumbnailCache } from "./use-thumbnail-cache";
 import { ZVID_BUILD } from "./version";
-import { loadWaveformPeaks } from "./waveform-loader";
-import type { WaveformPeaks } from "./waveform-peaks";
 import { createWorkspaceAutosave } from "./workspace-autosave.ts";
 import {
   serializeWorkspaceSession,
@@ -653,13 +639,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     useState<SourceTrackDropTarget | null>(null);
   const [sourceTrackDragPreview, setSourceTrackDragPreview] =
     useState<SourceTrackDragPreview | null>(null);
-  const [isMainAudioDropTarget, setIsMainAudioDropTarget] = useState(false);
   const [isTimelineAudibleScrubbing, setIsTimelineAudibleScrubbing] =
     useState(false);
   const [zoomDraft, setZoomDraft] = useState<number | null>(null);
-  const [localMediaOverrides, setLocalMediaOverrides] = useState<
-    Record<string, LocalMediaOverride>
-  >({});
   const [collaborationRoom, setCollaborationRoom] = useState(
     initialCollaborationConfig.room,
   );
@@ -687,9 +669,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const [peerMediaMissIds, setPeerMediaMissIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
-  const [relinkingMediaIds, setRelinkingMediaIds] = useState<
-    ReadonlySet<string>
-  >(() => new Set());
   const [connectInviteValue, setConnectInviteValue] = useState("");
   const [isStartingConnect, setIsStartingConnect] = useState(false);
   const [hasCopiedShareInvite, setHasCopiedShareInvite] = useState(false);
@@ -728,8 +707,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     useRef<CollaborationController<ProjectState> | null>(null);
   const shareCopyResetTimeoutRef = useRef<number | null>(null);
   const zoomDraftRef = useRef<number | null>(null);
-  const localMediaOverridesRef = useRef<Record<string, LocalMediaOverride>>({});
-  const mediaObjectUrlsRef = useRef(new Map<string, string>());
   const mediaHydrationInFlightRef = useRef(new Set<string>());
   const peerMediaTransfersRef = useRef(new Map<string, AbortController>());
   const peerMediaMissesRef = useRef<{
@@ -745,20 +722,21 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const sourceTrackDragPreviewKeyRef = useRef<string>("");
   const sourceTrackDragPreviewRequestRef = useRef(0);
 
-  const mediaItems = useMemo(
-    () =>
-      projectMediaItems.map((item) => ({
-        ...item,
-        ...(localMediaOverrides[item.id] ?? {}),
-        availability:
-          localMediaOverrides[item.id]?.availability ?? item.availability,
-      })),
-    [localMediaOverrides, projectMediaItems],
-  );
-  const mediaItemsById = useMemo(
-    () => new Map(mediaItems.map((item) => [item.id, item])),
-    [mediaItems],
-  );
+  const {
+    mediaItems,
+    mediaItemsById,
+    localMediaOverridesRef,
+    setLocalMediaOverride,
+    seedLocalMediaItems,
+    adoptMediaBlob,
+    cacheLocalMediaItems,
+    handleMediaStorageCleared,
+  } = useMediaLibrary({
+    projectMediaItems,
+    projectSnapshotRef,
+    commitViewChange,
+    setStatus,
+  });
   const lanePriority = useMemo(
     () => new Map(lanes.map((lane, index) => [lane.id, index])),
     [lanes],
@@ -807,214 +785,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     zoomDraftRef.current = nextZoom;
     setZoomDraft(nextZoom);
   }, []);
-
-  const setLocalMediaOverride = useCallback(
-    (mediaId: string, patch: LocalMediaOverride) => {
-      setLocalMediaOverrides((current) => {
-        const previous = current[mediaId];
-        const nextPreviewUrl = patch.previewUrl ?? previous?.previewUrl;
-        const previousPreviewUrl = previous?.previewUrl;
-
-        if (
-          previousPreviewUrl &&
-          previousPreviewUrl !== nextPreviewUrl &&
-          mediaObjectUrlsRef.current.get(mediaId) === previousPreviewUrl
-        ) {
-          URL.revokeObjectURL(previousPreviewUrl);
-          mediaObjectUrlsRef.current.delete(mediaId);
-        }
-
-        const next = {
-          ...previous,
-          ...patch,
-        };
-        if (next.availability === "ready") {
-          delete next.lastError;
-        }
-
-        if (!next.previewUrl && !next.thumbnailUrl && !next.availability) {
-          const rest = { ...current };
-          delete rest[mediaId];
-          return rest;
-        }
-
-        return {
-          ...current,
-          [mediaId]: next,
-        };
-      });
-    },
-    [],
-  );
-
-  const seedLocalMediaItems = useCallback(
-    (items: MediaItem[]) => {
-      for (const item of items) {
-        if (item.previewUrl.startsWith("blob:")) {
-          mediaObjectUrlsRef.current.set(item.id, item.previewUrl);
-        }
-        setLocalMediaOverride(item.id, {
-          availability: item.previewUrl ? "ready" : item.availability,
-          previewUrl: item.previewUrl || undefined,
-          thumbnailUrl: item.thumbnailUrl,
-        });
-      }
-    },
-    [setLocalMediaOverride],
-  );
-
-  // Caching skips a file rather than failing when browser storage is full, so
-  // the user learns the file won't survive a refresh.
-  const reportMediaNotCached = useCallback(
-    (mediaId: string, blob: Blob, name?: string) => {
-      const displayName =
-        name ??
-        projectSnapshotRef.current.mediaItems.find(
-          (candidate) => candidate.id === mediaId,
-        )?.name ??
-        (blob instanceof File ? blob.name : mediaId);
-      logClient("media:cache:skipped", { mediaId, size: blob.size });
-      setStatus(
-        `${displayName} not cached, browser storage is full; it will need relinking after refresh.`,
-      );
-    },
-    [],
-  );
-
-  const adoptMediaBlob = useCallback(
-    async (
-      mediaId: string,
-      blob: Blob,
-      options?: { analyze?: boolean; verify?: boolean },
-    ): Promise<AdoptMediaResult> => {
-      const existing = projectSnapshotRef.current.mediaItems.find(
-        (item) => item.id === mediaId,
-      );
-
-      let warning: string | undefined;
-      if (options?.verify) {
-        const kind =
-          existing?.kind ??
-          inferMediaKind(blob instanceof File ? blob.name : "");
-        let probed: MediaProbeResult;
-        try {
-          probed = await probeMediaBlob(blob, kind);
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : String(error);
-          setLocalMediaOverride(mediaId, {
-            availability: "offline",
-            lastError: message,
-          });
-          logClient("media:adopt:verify:error", { mediaId, message });
-          throw error;
-        }
-
-        if (
-          existing &&
-          existing.durationSeconds > 0 &&
-          probed.durationSeconds > 0 &&
-          Math.abs(probed.durationSeconds - existing.durationSeconds) >
-            RELINK_DURATION_TOLERANCE_SECONDS
-        ) {
-          warning = `Duration differs from the original (${probed.durationSeconds.toFixed(1)}s vs ${existing.durationSeconds.toFixed(1)}s)`;
-          logClient("media:adopt:verify:warning", { mediaId, warning });
-        }
-      }
-
-      try {
-        const cached = await cacheMediaBlob(mediaId, blob);
-        if (cached.status === "skipped") {
-          reportMediaNotCached(mediaId, blob);
-        }
-      } catch (error) {
-        logClient("media:adopt:cache:error", {
-          mediaId,
-          message: error instanceof Error ? error.message : String(error),
-        });
-      }
-
-      const previousPreviewUrl = mediaObjectUrlsRef.current.get(mediaId);
-      const previewUrl = URL.createObjectURL(blob);
-      mediaObjectUrlsRef.current.set(mediaId, previewUrl);
-      setLocalMediaOverride(mediaId, { availability: "ready", previewUrl });
-      if (previousPreviewUrl && previousPreviewUrl !== previewUrl) {
-        URL.revokeObjectURL(previousPreviewUrl);
-      }
-
-      if (!existing || !(options?.analyze || existing.durationSeconds === 0)) {
-        return { previewUrl, warning };
-      }
-
-      try {
-        const [result] = await getHarness().analyzeMedia(
-          {
-            kind: "files",
-            files: [new File([blob], existing.name, { type: blob.type })],
-          },
-          PALETTE,
-          0,
-        );
-        if (!result) {
-          return { previewUrl, warning };
-        }
-
-        if (
-          result.previewUrl.startsWith("blob:") &&
-          result.previewUrl !== previewUrl
-        ) {
-          URL.revokeObjectURL(result.previewUrl);
-        }
-        const analyzed: MediaItem = {
-          ...result,
-          id: mediaId,
-          color: existing.color,
-          accent: existing.accent,
-          sourcePath: existing.sourcePath ?? result.sourcePath,
-          previewUrl,
-        };
-        seedLocalMediaItems([analyzed]);
-        commitViewChange("Hydrate media", (current) =>
-          patchProjectState(current, {
-            mediaItems: mergeMediaItemsById(current.mediaItems, [
-              toShareableMediaItem(analyzed),
-            ]),
-          }),
-        );
-      } catch (error) {
-        logClient("media:adopt:analyze:error", {
-          mediaId,
-          message: error instanceof Error ? error.message : String(error),
-        });
-      }
-
-      return { previewUrl, warning };
-    },
-    [
-      commitViewChange,
-      reportMediaNotCached,
-      seedLocalMediaItems,
-      setLocalMediaOverride,
-    ],
-  );
-
-  const cacheLocalMediaItems = useCallback(
-    async (items: MediaItem[]) => {
-      const harness = getHarness();
-      await Promise.allSettled(
-        items
-          .filter((item) => item.previewUrl)
-          .map(async (item) => {
-            const blob = await harness.readMediaBlob(item);
-            const cached = await cacheMediaBlob(item.id, blob);
-            if (cached.status === "skipped") {
-              reportMediaNotCached(item.id, blob, item.name);
-            }
-          }),
-      );
-    },
-    [reportMediaNotCached],
-  );
 
   const signature =
     SIGNATURES.find((candidate) => candidate.id === signatureId) ??
@@ -1432,73 +1202,29 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     }
   }, [effects]);
   const playheadSeconds = quartersToSeconds(playheadQ, bpm);
-  const mainAudio = mainAudioId ? mediaItemsById.get(mainAudioId) : undefined;
+  const {
+    mainAudio,
+    currentMainWaveform,
+    mainAudioSync,
+    mainWaveformMessage,
+    isMainAudioDropTarget,
+    setIsMainAudioDropTarget,
+    mainAudioInputRef,
+    replaceMainAudioFromFile,
+    removeMainAudio,
+  } = useMainAudio({
+    mainAudioId,
+    mediaItemsById,
+    peerMediaProgress,
+    projectMediaItems,
+    refuseReadOnlyEdit,
+    commitProjectChange,
+    commitProjectPatch,
+    seedLocalMediaItems,
+    cacheLocalMediaItems,
+    setStatus,
+  });
   const canCreateLayer = lanes.length < MAX_LAYERS;
-  // Only peaks decoded from the main audio are drawn; until they exist the
-  // lane shows why there is no waveform instead of a placeholder.
-  const mainAudioUrl =
-    mainAudio?.availability === "ready" ? mainAudio.previewUrl : "";
-  const mainWaveformKey =
-    mainAudioId && mainAudioUrl ? `${mainAudioId}\n${mainAudioUrl}` : "";
-  const [mainWaveform, setMainWaveform] = useState<{
-    key: string;
-    status: "ready" | "no-audio" | "error";
-    peaks?: WaveformPeaks;
-  } | null>(null);
-  useEffect(() => {
-    if (!mainAudioId || !mainAudioUrl) {
-      return;
-    }
-
-    const key = `${mainAudioId}\n${mainAudioUrl}`;
-    let cancelled = false;
-    loadWaveformPeaks(mainAudioId, mainAudioUrl).then(
-      (result) => {
-        if (!cancelled) {
-          setMainWaveform(
-            result.status === "ready"
-              ? { key, status: "ready", peaks: result.peaks }
-              : { key, status: "no-audio" },
-          );
-        }
-      },
-      (error: unknown) => {
-        logClient("waveform:decode:error", {
-          mediaId: mainAudioId,
-          message: error instanceof Error ? error.message : String(error),
-        });
-        if (!cancelled) {
-          setMainWaveform({ key, status: "error" });
-        }
-      },
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [mainAudioId, mainAudioUrl]);
-  const currentMainWaveform =
-    mainWaveform && mainWaveform.key === mainWaveformKey ? mainWaveform : null;
-  const mainAudioSync = mainAudio
-    ? describeMediaSync(
-        peerMediaProgress.get(mainAudio.id),
-        mainAudio.availability,
-      )
-    : null;
-  const mainWaveformMessage = !mainAudio
-    ? "No main audio track in this session"
-    : mainAudioSync
-      ? formatMediaSyncLabel(mainAudioSync, "main audio")
-      : mainAudio.availability === "offline"
-        ? "Main audio is offline"
-        : mainAudio.availability === "hydrating"
-          ? "Waiting for main audio…"
-          : !currentMainWaveform
-            ? "Analyzing main audio…"
-            : currentMainWaveform.status === "no-audio"
-              ? "No audio found in main audio file"
-              : currentMainWaveform.status === "error"
-                ? "Could not decode main audio"
-                : null;
   const timelineContentEndQ = useMemo(
     () =>
       getTimelineContentEndQ(
@@ -1522,52 +1248,24 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     barLength * quarterPx,
     RULER_LABEL_MIN_PX[timelineMode],
   );
-  // Arrangement and source-track clips both count, so sessions whose media
-  // is only used on source tracks still surface the Locate Media shortcut.
-  const offlineMedia = useMemo(
-    () => listOfflineMedia(mediaItems, [...timelineClips, ...sourceSpans]),
-    [mediaItems, sourceSpans, timelineClips],
-  );
-  // Media a peer may still send is syncing, not offline, so only files no
-  // connected peer could serve count toward the offline label. A joiner can
-  // receive the project over a peer connection before that peer's media
-  // channel opens, so any connected peer counts.
-  const { diagnostics: collaborationDiagnostics } = collaborationState;
-  const inSharedMediaSession =
-    collaborationMode !== "idle" &&
-    (collaborationState.mediaPeerCount > 0 ||
-      collaborationDiagnostics.peersConnected > 0 ||
-      collaborationDiagnostics.sameBrowserPeers > 0);
-  const mediaSyncEntries = useMemo(
-    () =>
-      listMediaSync({
-        mediaItems,
-        // Placeholder clips, such as MIDI imported from a Live set, never
-        // had media, and fill clips need none, so there is no file to
-        // report as offline.
-        arrangementClips: timelineClips.filter(usesMediaFile),
-        sourceClips: sourceSpans.filter(usesMediaFile),
-        mainAudioId,
-        progress: peerMediaProgress,
-        misses: peerMediaMissIds,
-        inSharedSession: inSharedMediaSession,
-      }),
-    [
-      inSharedMediaSession,
-      mainAudioId,
-      mediaItems,
-      peerMediaMissIds,
-      peerMediaProgress,
-      sourceSpans,
-      timelineClips,
-    ],
-  );
-  const mediaSyncSummary = useMemo(
-    () => summarizeMediaSync(mediaSyncEntries),
-    [mediaSyncEntries],
-  );
-  const mediaSyncStatusLabel = mediaSyncLabel(mediaSyncSummary);
-  const offlineCount = mediaSyncSummary.offline;
+  const {
+    offlineMedia,
+    inSharedMediaSession,
+    mediaSyncEntries,
+    mediaSyncSummary,
+    mediaSyncStatusLabel,
+    offlineCount,
+    sessionMediaStatus,
+  } = useMediaStatus({
+    mediaItems,
+    timelineClips,
+    sourceSpans,
+    mainAudioId,
+    peerMediaProgress,
+    peerMediaMissIds,
+    collaborationMode,
+    collaborationState,
+  });
   const mediaSyncPeer = useMemo<MediaSyncPeer | undefined>(() => {
     const remote = collaborationState.collaborators.filter(
       (collaborator) => !collaborator.isLocal,
@@ -1576,18 +1274,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       ? { name: remote[0].name, color: remote[0].color }
       : undefined;
   }, [collaborationState.collaborators]);
-  const sessionMediaStatus = useMemo(() => {
-    if (!mediaItems.length) {
-      return "No media";
-    }
-
-    const pendingCount = mediaItems.filter(
-      (item) => item.availability !== "ready",
-    ).length;
-    return pendingCount
-      ? `${pluralize(pendingCount, "media file")} not ready`
-      : "Media linked";
-  }, [mediaItems]);
   const clipsByLane = useMemo(() => {
     const next = new Map<string, ArrangementClip[]>();
     for (const clip of timelineClips) {
@@ -1675,14 +1361,13 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     timelineViewport.clientWidth - labelWidth,
   );
   const visibleTimelineEndPx = visibleTimelineStartPx + visibleTimelineWidthPx;
-  // The waveform skeleton spans the known duration, else the visible lane.
-  const mainAudioSkeletonStyle =
-    mainAudio?.durationSeconds && mainAudio.durationSeconds > 0
-      ? {
-          left: 0,
-          width: ((mainAudio.durationSeconds * bpm) / 60) * quarterPx,
-        }
-      : { left: visibleTimelineStartPx, width: visibleTimelineWidthPx };
+  const mainAudioSkeletonStyle = getMainAudioSkeletonStyle({
+    mainAudio,
+    bpm,
+    quarterPx,
+    visibleTimelineStartPx,
+    visibleTimelineWidthPx,
+  });
   // Every offline media the session references, in peer request order.
   // Serialized so the peer fetch effect only reruns when the list changes.
   const offlineSessionMediaIdsKey = useMemo(() => {
@@ -2100,248 +1785,34 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     writeSourceTracksCollapsed(window.localStorage, collapsed);
   }, []);
 
-  const importMediaIntoSourceTrack = useCallback(
-    async (files: File[], target: SourceTrackDropTarget) => {
-      if (refuseReadOnlyEdit()) {
-        return;
-      }
-
-      const harness = getHarness();
-
-      try {
-        setStatus(
-          `Analyzing ${pluralize(files.length, "dropped media file")}...`,
-        );
-        const analyzed = await harness.analyzeMedia(
-          {
-            kind: "files",
-            files,
-          },
-          PALETTE,
-          projectMediaItems.length,
-        );
-        const sharedAnalyzed = analyzed.map((item) =>
-          toShareableMediaItem(item),
-        );
-
-        commitProjectChange("Drop media into source tracks", (current) => {
-          const nextMediaItems = [...current.mediaItems, ...sharedAnalyzed];
-          let nextSourceTracks = current.sourceTracks;
-          let nextSourceSpans = current.sourceSpans;
-
-          let targetTrack =
-            target.kind === "track"
-              ? current.sourceTracks.find(
-                  (track) => track.id === target.trackId,
-                )
-              : undefined;
-
-          if (!targetTrack) {
-            targetTrack = {
-              id: `source-track-${crypto.randomUUID()}`,
-              name: stripFilenameExtension(analyzed[0]?.name ?? "Source Track"),
-              colorIndex: nextSourceTrackColorIndex(current.sourceTracks),
-              recordingPaths: [],
-            };
-            nextSourceTracks = [...current.sourceTracks, targetTrack];
-          }
-
-          const mediaPaths = analyzed.map(
-            (item) => item.sourcePath ?? item.name,
-          );
-          nextSourceTracks = nextSourceTracks.map((track) =>
-            track.id === targetTrack.id
-              ? {
-                  ...track,
-                  recordingPaths: [...track.recordingPaths, ...mediaPaths],
-                }
-              : track,
-          );
-
-          const swatch = getSwatch(targetTrack.colorIndex);
-          let insertQ = getSourceTrackEndQ(
-            current.sourceSpans,
-            targetTrack.id,
-            current.bpm,
-          );
-          const appendedSpans = analyzed.map<SourceSpan>((item) => {
-            const span: SourceSpan = {
-              id: `source-span-${crypto.randomUUID()}`,
-              sourceTrackId: targetTrack.id,
-              label: stripFilenameExtension(item.name),
-              mediaPath: item.sourcePath ?? item.name,
-              mediaId: item.id,
-              startQ: insertQ,
-              durationSeconds: Math.max(1, item.durationSeconds),
-              trimStartSeconds: 0,
-              tint: swatch.color,
-              accent: swatch.accent,
-            };
-            insertQ += getClipDurationQ(span, current.bpm);
-            return span;
-          });
-          nextSourceSpans = [...current.sourceSpans, ...appendedSpans];
-
-          const patch: Partial<ProjectState> = {
-            mediaItems: nextMediaItems,
-            sourceTracks: nextSourceTracks,
-            sourceSpans: nextSourceSpans,
-          };
-          if (
-            !current.sessionName &&
-            !current.mediaItems.length &&
-            !current.sourceTracks.length &&
-            !current.sourceSpans.length &&
-            !current.clips.length
-          ) {
-            const sizedMedia = analyzed.find(
-              (item) => item.width && item.height,
-            );
-            if (sizedMedia?.width && sizedMedia.height) {
-              patch.canvasWidth = Math.max(320, sizedMedia.width);
-              patch.canvasHeight = Math.max(320, sizedMedia.height);
-            }
-          }
-
-          return patchProjectState(current, patch);
-        });
-
-        seedLocalMediaItems(analyzed);
-        void cacheLocalMediaItems(analyzed);
-        // Reveal the dropped media, even when it landed on a collapsed header.
-        setSourceTracksCollapsed(false);
-        setStatus(
-          `Dropped ${pluralize(analyzed.length, "media file")} into ${
-            target.kind === "track"
-              ? "the selected source track"
-              : "a new source track"
-          }.`,
-        );
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        setStatus(`Dropped media import failed: ${message}`);
-      }
-    },
-    [
-      cacheLocalMediaItems,
-      commitProjectChange,
-      projectMediaItems.length,
-      refuseReadOnlyEdit,
-      seedLocalMediaItems,
-      setSourceTracksCollapsed,
-    ],
-  );
-
-  // Imports an audio file through the media pipeline and makes it the
-  // session's main audio. Shared by the Audio lane button and drag and drop.
-  const replaceMainAudioFromFile = useCallback(
-    async (file: File) => {
-      if (refuseReadOnlyEdit()) {
-        return;
-      }
-
-      const harness = getHarness();
-
-      try {
-        setStatus(`Analyzing ${file.name}...`);
-        const [analyzed] = await harness.analyzeMedia(
-          {
-            kind: "files",
-            files: [file],
-          },
-          PALETTE,
-          projectMediaItems.length,
-        );
-        if (!analyzed) {
-          throw new Error(`Could not read ${file.name}.`);
-        }
-        if (analyzed.kind !== "audio") {
-          throw new Error(`${file.name} is not an audio file.`);
-        }
-
-        commitProjectChange(
-          mainAudioId ? "Replace main audio" : "Add main audio",
-          (current) =>
-            patchProjectState(
-              current,
-              withMainAudio(current, toShareableMediaItem(analyzed)),
-            ),
-        );
-
-        seedLocalMediaItems([analyzed]);
-        void cacheLocalMediaItems([analyzed]);
-        setStatus(`Set main audio to ${analyzed.name}.`);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        setStatus(`Main audio import failed: ${message}`);
-      }
-    },
-    [
-      cacheLocalMediaItems,
-      commitProjectChange,
-      mainAudioId,
-      projectMediaItems.length,
-      refuseReadOnlyEdit,
-      seedLocalMediaItems,
-    ],
-  );
-
-  const mainAudioInputRef = useRef<HTMLInputElement>(null);
-
-  const handleMainAudioDragEvent = useCallback(
-    (event: ReactDragEvent<HTMLElement>) => {
-      if (!hasDraggedFileData(event.dataTransfer)) {
-        return;
-      }
-
-      // The Audio lane never hosts source tracks, so a drag over it cancels any
-      // pending source track drop.
-      if (sourceTrackDragTarget) {
-        clearSourceTrackDragState();
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-      const accepted = getMainAudioDragState(event.dataTransfer) === "accept";
-      event.dataTransfer.dropEffect = accepted ? "copy" : "none";
-      setIsMainAudioDropTarget(accepted);
-    },
-    [clearSourceTrackDragState, sourceTrackDragTarget],
-  );
-
-  const handleMainAudioDragLeave = useCallback(
-    (event: ReactDragEvent<HTMLElement>) => {
-      if (
-        event.relatedTarget instanceof Node &&
-        event.currentTarget.contains(event.relatedTarget)
-      ) {
-        return;
-      }
-
-      setIsMainAudioDropTarget(false);
-    },
-    [],
-  );
-
-  const handleMainAudioDrop = useCallback(
-    (event: ReactDragEvent<HTMLElement>) => {
-      if (!hasDraggedFileData(event.dataTransfer)) {
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-      clearSourceTrackDragState();
-      const file = getDroppedAudioFile(event.dataTransfer.files);
-      if (!file) {
-        setStatus("Only audio files can be dropped on the Audio lane.");
-        return;
-      }
-
-      void replaceMainAudioFromFile(file);
-    },
-    [clearSourceTrackDragState, replaceMainAudioFromFile],
-  );
+  const {
+    importMediaIntoSourceTrack,
+    relinkingMediaIds,
+    relinkOfflineMedia,
+    relinkOfflineMediaItem,
+  } = useMediaLibraryCommands({
+    projectMediaItems,
+    refuseReadOnlyEdit,
+    commitProjectChange,
+    seedLocalMediaItems,
+    cacheLocalMediaItems,
+    setSourceTracksCollapsed,
+    offlineMedia,
+    mediaItemsById,
+    adoptMediaBlob,
+    setStatus,
+  });
+  const {
+    handleMainAudioDragEvent,
+    handleMainAudioDragLeave,
+    handleMainAudioDrop,
+  } = useMainAudioDrop({
+    sourceTrackDragTarget,
+    clearSourceTrackDragState,
+    setIsMainAudioDropTarget,
+    replaceMainAudioFromFile,
+    setStatus,
+  });
 
   const activeShareRoom = collaborationRoom.trim();
   const isSharing = collaborationMode === "sharing";
@@ -3388,43 +2859,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setStatus("Closed the session.");
   }
 
-  useEffect(() => {
-    localMediaOverridesRef.current = localMediaOverrides;
-  }, [localMediaOverrides]);
-
-  useEffect(
-    () => () => {
-      for (const url of mediaObjectUrlsRef.current.values()) {
-        URL.revokeObjectURL(url);
-      }
-      mediaObjectUrlsRef.current.clear();
-    },
-    [],
-  );
-
-  useEffect(() => {
-    const activeIds = new Set(projectMediaItems.map((item) => item.id));
-    setLocalMediaOverrides((current) => {
-      let changed = false;
-      const next: Record<string, LocalMediaOverride> = {};
-      for (const [mediaId, override] of Object.entries(current)) {
-        if (!activeIds.has(mediaId)) {
-          const previewUrl = mediaObjectUrlsRef.current.get(mediaId);
-          if (previewUrl) {
-            URL.revokeObjectURL(previewUrl);
-            mediaObjectUrlsRef.current.delete(mediaId);
-          }
-          changed = true;
-          continue;
-        }
-
-        next[mediaId] = override;
-      }
-
-      return changed ? next : current;
-    });
-  }, [projectMediaItems]);
-
   const reportSessionMediaCheck = useCallback(() => {
     const check = sessionMediaCheckRef.current;
     if (!check || check.pendingIds.size || check.analyzingFromDisk) {
@@ -3500,40 +2934,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         });
       });
   }, []);
-
-  // Media whose cached copy the storage dialog removed while it was loaded
-  // from that copy can no longer be read, so it goes offline for relinking.
-  const handleMediaStorageCleared = useCallback(
-    (invalidatedIds: string[], clearedCount: number) => {
-      for (const mediaId of invalidatedIds) {
-        const previewUrl = mediaObjectUrlsRef.current.get(mediaId);
-        if (previewUrl) {
-          URL.revokeObjectURL(previewUrl);
-          mediaObjectUrlsRef.current.delete(mediaId);
-        }
-      }
-      if (invalidatedIds.length) {
-        setLocalMediaOverrides((current) => {
-          const next = { ...current };
-          for (const mediaId of invalidatedIds) {
-            next[mediaId] = {
-              availability: "offline",
-              lastError: "Its cached copy was cleared",
-            };
-          }
-          return next;
-        });
-      }
-      setStatus(
-        `Cleared ${pluralize(clearedCount, "cached media file")}.${
-          invalidatedIds.length
-            ? ` ${pluralize(invalidatedIds.length, "file")} in this session went offline. ${LOCATE_OFFLINE_MEDIA_HINT}`
-            : ""
-        }`,
-      );
-    },
-    [],
-  );
 
   useEffect(() => {
     // A hydration can outlive the run that started it: the effect reruns
@@ -4703,11 +4103,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     if (isInspectorCollapsed) {
       toggleInspectorCollapsed();
     }
-  }
-
-  function removeMainAudio() {
-    commitProjectPatch("Remove main audio", { mainAudioId: undefined });
-    setStatus("Removed main audio.");
   }
 
   function openSourceSpanMenu(
@@ -5920,66 +5315,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setStatus(`Media import failed: ${message}`);
-    }
-  }
-
-  // Rows show a spinner from the moment a batch starts until their own file
-  // has been verified and adopted, so progress is visible item by item.
-  function createOfflineMediaRelinker() {
-    return createMediaRelinker({
-      offlineMedia,
-      mediaItemsById,
-      adoptMediaBlob: async (mediaId, blob, options) => {
-        try {
-          return await adoptMediaBlob(mediaId, blob, options);
-        } finally {
-          updateRelinkingMediaIds([mediaId], false);
-        }
-      },
-      log: logClient,
-    });
-  }
-
-  function updateRelinkingMediaIds(ids: string[], relinking: boolean) {
-    setRelinkingMediaIds((current) => {
-      const next = new Set(current);
-      for (const id of ids) {
-        if (relinking) {
-          next.add(id);
-        } else {
-          next.delete(id);
-        }
-      }
-      return next;
-    });
-  }
-
-  async function relinkOfflineMedia(candidates: MediaRelinkCandidate[]) {
-    const { matches } = matchOfflineMedia(
-      offlineMedia.map((entry) => entry.item),
-      candidates,
-    );
-    const ids = matches.map(({ item }) => item.id);
-    updateRelinkingMediaIds(ids, true);
-    try {
-      return await createOfflineMediaRelinker().relinkMedia(candidates);
-    } finally {
-      updateRelinkingMediaIds(ids, false);
-    }
-  }
-
-  async function relinkOfflineMediaItem(
-    itemId: string,
-    candidate: MediaRelinkCandidate,
-  ) {
-    updateRelinkingMediaIds([itemId], true);
-    try {
-      return await createOfflineMediaRelinker().relinkMediaItem(
-        itemId,
-        candidate,
-      );
-    } finally {
-      updateRelinkingMediaIds([itemId], false);
     }
   }
 
