@@ -25,7 +25,15 @@ export function PlayheadLine({
     signal.subscribe,
     () => offsetPx + Math.round(signal.get() * quarterPx),
   );
-  return <div className={className} style={{ left }} />;
+  // Moved with a transform on its own layer: changing `left` every frame
+  // makes WebKit repaint the timeline under the line, which halved the frame
+  // rate of playback in Safari.
+  return (
+    <div
+      className={className}
+      style={{ transform: `translateX(${left}px) translateX(-50%)` }}
+    />
+  );
 }
 
 export function TransportPlayheadReadout({
