@@ -9,7 +9,8 @@ export type HarnessCapability =
   | "session-paths"
   | "asset-urls"
   | "native-blob-write"
-  | "render-hooks";
+  | "render-hooks"
+  | "reveal-saved-file";
 
 export type SessionSelection =
   | {
@@ -140,6 +141,9 @@ export type Harness = {
   ): Promise<SaveTarget | null>;
   saveBlob(blob: Blob, target: SaveTarget): Promise<SaveMethod>;
   exportVideo(request: ExportRequest): Promise<ExportResult>;
+  // Shows a saved file in the system file manager, selected. Present with
+  // the "reveal-saved-file" capability; see canRevealSavedFile.
+  revealSavedFile?(target: SaveTarget): Promise<void>;
 };
 
 declare global {

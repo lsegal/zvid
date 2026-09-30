@@ -182,7 +182,7 @@
   min-width: 0;
 }
 
-.export-settings select,
+.export-settings .select-trigger,
 .export-settings input,
 .export-range-field input {
   min-width: 0;
@@ -195,7 +195,7 @@
   font-size: 0.82rem;
 }
 
-.export-settings select {
+.export-settings .select-trigger {
   flex: 1 1 auto;
 }
 

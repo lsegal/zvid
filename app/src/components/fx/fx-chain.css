@@ -611,13 +611,13 @@ body.fx-chain-dragging * {
 }
 
 .fx-text textarea:focus,
-.fx-select select:focus,
+.fx-select .select-trigger:focus-visible,
 .fx-font__trigger:focus-visible {
   border-color: var(--fx-accent);
   outline: none;
 }
 
-.fx-select select,
+.fx-select .select-trigger,
 .fx-font__trigger {
   max-width: 140px;
   padding: 4px 8px;

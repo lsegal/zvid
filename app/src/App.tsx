@@ -32,7 +32,7 @@ import {
   PREVIEW_MIN_WIDTH,
   PREVIEW_RESIZE_KEY_STEP,
   PREVIEW_WIDTH_STORAGE_KEY,
-  SIGNATURES,
+  SIGNATURE_OPTIONS,
   SNAP_OPTIONS,
   TIMELINE_DRAG_EPSILON,
   TIMELINE_PLAYBACK_SCRUB_AUDIO_IDLE_MS,
@@ -128,6 +128,7 @@ import {
 import { PreviewPanel } from "./components/PreviewPanel";
 import { SourceEmptyState } from "./components/SourceEmptyState";
 import { TopBar } from "./components/TopBar";
+import { Select } from "./components/ui/select";
 import { WandIcon } from "./components/WandIcon";
 import { isContextMenuPress } from "./context-menu.ts";
 import { isRulerPanPress } from "./drag-scroll.ts";
@@ -2255,23 +2256,19 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   </button>
                 </div>
 
-                <label className="signature-picker">
+                <div className="signature-picker">
                   <span>Time Sig</span>
-                  <select
-                    value={signatureId}
-                    onChange={(event) =>
+                  <Select
+                    aria-label="Time signature"
+                    onValueChange={(value) =>
                       commitProjectPatch("Change time signature", {
-                        signatureId: event.target.value,
+                        signatureId: value,
                       })
                     }
-                  >
-                    {SIGNATURES.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.id}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    options={SIGNATURE_OPTIONS}
+                    value={signatureId}
+                  />
+                </div>
 
                 <div className="layer-toolbar">
                   <span className="layer-toolbar__count">

@@ -72,8 +72,12 @@ test("the Animation section attaches, switches modes and folds", async ({
     "aria-pressed",
     "true",
   );
-  await expect(section.getByLabel("Motion In")).toHaveValue("Ease Out");
-  await expect(section.getByLabel("Motion Out")).toHaveValue("Ease In");
+  await expect(section.getByRole("combobox", { name: "Motion In" })).toHaveText(
+    "Ease Out",
+  );
+  await expect(
+    section.getByRole("combobox", { name: "Motion Out" }),
+  ).toHaveText("Ease In");
   const timing = section.getByRole("group", { name: "Timing" });
   // Full stretches the animation over the whole clip.
   await expect(timing.getByRole("button")).toHaveText([
@@ -89,8 +93,12 @@ test("the Animation section attaches, switches modes and folds", async ({
 
   // Reactive mode swaps in its own fields.
   await mode.getByRole("button", { name: "Reactive" }).click();
-  await expect(section.getByLabel("Motion In")).toHaveCount(0);
-  await expect(section.getByLabel("Motion")).toHaveValue("Bounce");
+  await expect(
+    section.getByRole("combobox", { name: "Motion In" }),
+  ).toHaveCount(0);
+  await expect(
+    section.getByRole("combobox", { name: "Motion", exact: true }),
+  ).toHaveText("Bounce");
   await expect(section.locator(".knob__label")).toHaveText(["Reactivity"]);
   const parameters = section.getByRole("button", {
     name: "Parameters: 1 of 1",
@@ -149,8 +157,12 @@ test("Order's Animation offers only Clip mode", async ({ page }) => {
   await expect(section.getByRole("button", { name: "Reactive" })).toHaveCount(
     0,
   );
-  await expect(section.getByLabel("Motion In")).toHaveValue("Ease Out");
-  await expect(section.getByLabel("Motion Out")).toHaveValue("Ease In");
+  await expect(section.getByRole("combobox", { name: "Motion In" })).toHaveText(
+    "Ease Out",
+  );
+  await expect(
+    section.getByRole("combobox", { name: "Motion Out" }),
+  ).toHaveText("Ease In");
   await expect(section.locator(".knob__label")).toHaveCount(0);
 });
 
