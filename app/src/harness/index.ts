@@ -43,3 +43,4 @@ export type {
   SaveTarget,
   SessionSelection,
 } from "./contracts";
+export { canRevealSavedFile } from "./reveal";

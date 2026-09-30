@@ -45,12 +45,17 @@ export async function maybeCreateTauriHarness(
   base: Harness,
 ): Promise<Harness | null> {
   try {
-    const [{ convertFileSrc, invoke, isTauri }, { documentDir }, dialog] =
-      await Promise.all([
-        import("@tauri-apps/api/core"),
-        import("@tauri-apps/api/path"),
-        import("@tauri-apps/plugin-dialog"),
-      ]);
+    const [
+      { convertFileSrc, invoke, isTauri },
+      { documentDir },
+      dialog,
+      { revealItemInDir },
+    ] = await Promise.all([
+      import("@tauri-apps/api/core"),
+      import("@tauri-apps/api/path"),
+      import("@tauri-apps/plugin-dialog"),
+      import("@tauri-apps/plugin-opener"),
+    ]);
 
     if (!isTauri()) {
       return null;
@@ -128,6 +133,7 @@ export async function maybeCreateTauriHarness(
         "session-paths": true,
         "asset-urls": true,
         "native-blob-write": true,
+        "reveal-saved-file": true,
       },
       async pickSession() {
         const selected = await open({
@@ -290,6 +296,13 @@ export async function maybeCreateTauriHarness(
           bytes,
         });
         return "native-path" as const;
+      },
+      async revealSavedFile(target) {
+        if (target.kind !== "native-path") {
+          throw new Error(`Cannot reveal ${target.filename}: it has no path.`);
+        }
+
+        await revealItemInDir(target.path);
       },
       async exportVideo(request) {
         return exportVideo(
