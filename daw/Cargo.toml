@@ -23,7 +23,7 @@ zvid-vst3 = { path = "crates/zvid-vst3" }
 zvid-au = { path = "crates/zvid-au" }
 # Keep this rev identical to app/export-bridge/Cargo.toml; `cargo xtask check`
 # fails when the two drift apart.
-zvidlib = { git = "https://github.com/lsegal/zvidlib", rev = "0fc8331c987f2e4cf49f616f14e618c0e5be5956" }
+zvidlib = { git = "https://github.com/lsegal/zvidlib", rev = "e987c41237e41408fbc8ebedf6cb3d0e669d79c4" }
 dirs = "6"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

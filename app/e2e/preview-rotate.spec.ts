@@ -9,6 +9,18 @@ const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
 
 type Point = { x: number; y: number };
 
+// A new session's Order slides each layer in as its clip starts, so at the
+// playhead a clip was just placed at the layer isn't there yet. These tests
+// need it in place, so they turn that animation off.
+async function holdOrderStill(page: Page) {
+  await page
+    .getByRole("button", { name: "Turn Animation Off for Order" })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Turn Animation On for Order" }),
+  ).toHaveAttribute("aria-pressed", "false");
+}
+
 async function dropVideoIntoNewSourceTrack(page: Page) {
   const base64 = (await readFile(VIDEO)).toString("base64");
   const dataTransfer = await page.evaluateHandle((data) => {
@@ -126,6 +138,7 @@ test("the preview rotates a layer with its handle and corner zones", async ({
   page,
 }) => {
   await page.goto("/");
+  await holdOrderStill(page);
   await expect(page.locator('[data-timeline-lane-id="1"]')).toBeVisible();
   await dropVideoIntoNewSourceTrack(page);
   await page.locator(".source-span").click({ button: "right" });

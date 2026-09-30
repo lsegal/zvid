@@ -120,7 +120,11 @@ test("dragging a device title bar still reorders devices", async ({ page }) => {
 
   const title = panels.nth(1).locator(".fx-device-panel__title");
   const titleBox = await title.boundingBox();
-  const targetBox = await panels.nth(2).boundingBox();
+  // The target with its attached Animation section, when it has one.
+  const targetBox = await panels
+    .nth(2)
+    .locator("xpath=ancestor-or-self::*[@data-fx-group][1]")
+    .boundingBox();
   if (!titleBox || !targetBox) {
     throw new Error("FX devices are not visible");
   }

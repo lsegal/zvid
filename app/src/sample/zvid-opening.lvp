@@ -1431,9 +1431,6 @@
       "parameters": {
         "_HueOffset": {
           "floatValue": 0.4
-        },
-        "_Reactivity": {
-          "floatValue": 1
         }
       },
       "animation": {
@@ -1486,9 +1483,6 @@
       "parameters": {
         "_HueOffset": {
           "floatValue": 0.68
-        },
-        "_Reactivity": {
-          "floatValue": 1
         }
       },
       "animation": {
@@ -1541,9 +1535,6 @@
       "parameters": {
         "_HueOffset": {
           "floatValue": 0.12
-        },
-        "_Reactivity": {
-          "floatValue": 1
         }
       },
       "animation": {
@@ -1596,9 +1587,6 @@
       "parameters": {
         "_HueOffset": {
           "floatValue": 0.68
-        },
-        "_Reactivity": {
-          "floatValue": 1
         }
       },
       "animation": {
@@ -1651,9 +1639,6 @@
       "parameters": {
         "_HueOffset": {
           "floatValue": 0.12
-        },
-        "_Reactivity": {
-          "floatValue": 1
         }
       },
       "animation": {
@@ -1706,9 +1691,6 @@
       "parameters": {
         "_HueOffset": {
           "floatValue": 0.4
-        },
-        "_Reactivity": {
-          "floatValue": 1
         }
       },
       "animation": {
@@ -2061,9 +2043,6 @@
       "parameters": {
         "_HueOffset": {
           "floatValue": 0.4
-        },
-        "_Reactivity": {
-          "floatValue": 1
         }
       },
       "animation": {
@@ -2116,9 +2095,6 @@
       "parameters": {
         "_HueOffset": {
           "floatValue": 0.68
-        },
-        "_Reactivity": {
-          "floatValue": 1
         }
       },
       "animation": {
@@ -2171,9 +2147,6 @@
       "parameters": {
         "_HueOffset": {
           "floatValue": 0.12
-        },
-        "_Reactivity": {
-          "floatValue": 1
         }
       },
       "animation": {
@@ -2226,9 +2199,6 @@
       "parameters": {
         "_HueOffset": {
           "floatValue": 0.68
-        },
-        "_Reactivity": {
-          "floatValue": 1
         }
       },
       "animation": {
@@ -2281,9 +2251,6 @@
       "parameters": {
         "_HueOffset": {
           "floatValue": 0.12
-        },
-        "_Reactivity": {
-          "floatValue": 1
         }
       },
       "animation": {
@@ -2336,9 +2303,6 @@
       "parameters": {
         "_HueOffset": {
           "floatValue": 0.4
-        },
-        "_Reactivity": {
-          "floatValue": 1
         }
       },
       "animation": {
@@ -2892,12 +2856,6 @@
       "parameters": {
         "_NumPixels": {
           "floatValue": 0.75
-        },
-        "_LowIntensity": {
-          "floatValue": 0
-        },
-        "_HighIntensity": {
-          "floatValue": 0
         }
       }
     },

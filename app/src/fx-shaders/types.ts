@@ -11,14 +11,9 @@ export type EffectContext = {
   clipProgress: number;
   // Size in pixels of the surface the pass renders to.
   resolution: [number, number];
-  // Smoothed main-audio band energy, 0..1.
-  audioLow: number;
-  audioHigh: number;
-  // Detected main-audio onsets per band, 0..1: jumps on a hit and decays
-  // quickly between hits. Audio-reactive effects scale their reactivity by
-  // these rather than by the band energy.
-  impulseLow: number;
-  impulseHigh: number;
+  // No main-audio fields: passes never read the music. It moves an effect
+  // only through its Animation modifier's Reactive mode, which changes the
+  // parameters the pass is given (see fx-animation.ts).
   // True when the source texture is bottom row first (vUv.y = 0 is the bottom
   // of the image), as for offscreen framebuffers. Layer textures are uploaded
   // top row first, so this is false for layer stacks.

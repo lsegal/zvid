@@ -2,7 +2,7 @@ import { expect, type Page, test } from "@playwright/test";
 
 // The Animation modifier: a motion-icon toggle beside each device's power
 // button that attaches a collapsible Animation section to the device's right
-// edge.
+// edge. A newly added device has it on.
 
 async function addLayerEffect(page: Page, name: RegExp) {
   const layerHeader = page.locator('[data-layer-header-id="6"]');
@@ -27,9 +27,9 @@ test("every device but Layout has an Animation toggle beside its power button", 
 
   const pixelate = page.locator('section[aria-label="Pixelate"]');
   const toggle = pixelate.getByRole("button", {
-    name: "Turn Animation On for Pixelate",
+    name: "Turn Animation Off for Pixelate",
   });
-  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
   // A decorative motion icon, like the power button's, rather than text.
   await expect(toggle.locator('svg[aria-hidden="true"]')).toHaveCount(1);
   await expect(toggle).toHaveText("");
@@ -51,11 +51,8 @@ test("the Animation section attaches, switches modes and folds", async ({
 
   const pixelate = page.locator('section[aria-label="Pixelate"]');
   const section = page.locator('section[aria-label="Pixelate animation"]');
-  await expect(section).toHaveCount(0);
 
-  await pixelate
-    .getByRole("button", { name: "Turn Animation On for Pixelate" })
-    .click();
+  // A newly added device has it on already.
   await expect(
     pixelate.getByRole("button", { name: "Turn Animation Off for Pixelate" }),
   ).toHaveAttribute("aria-pressed", "true");
@@ -96,17 +93,17 @@ test("the Animation section attaches, switches modes and folds", async ({
   await expect(section.getByLabel("Motion")).toHaveValue("Bounce");
   await expect(section.locator(".knob__label")).toHaveText(["Reactivity"]);
   const parameters = section.getByRole("button", {
-    name: "Parameters: 1 of 3",
+    name: "Parameters: 1 of 1",
   });
   await parameters.click();
   const items = page.getByRole("menuitemcheckbox");
-  await expect(items).toHaveText(["Pixel Size", "Low", "High"]);
+  await expect(items).toHaveText(["Pixel Size"]);
   await expect(items.first()).toHaveAttribute("aria-checked", "true");
-  await items.nth(2).click();
-  await expect(items.nth(2)).toHaveAttribute("aria-checked", "true");
+  await items.first().click();
+  await expect(items.first()).toHaveAttribute("aria-checked", "false");
   await page.keyboard.press("Escape");
   await expect(
-    section.getByRole("button", { name: "Parameters: 2 of 3" }),
+    section.getByRole("button", { name: "Parameters: 0 of 1" }),
   ).toBeVisible();
 
   // It folds into a strip of its own, and stays folded.

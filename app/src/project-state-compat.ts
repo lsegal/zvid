@@ -1,4 +1,5 @@
 import { isColorEffectName } from "./fill-paint.ts";
+import { createDefaultAnimation } from "./fx-animation-defaults.ts";
 import {
   clipEffectTrackId,
   ensureGlobalOrder,
@@ -51,13 +52,82 @@ export function stripClipSelectionFlags<T extends object>(snapshot: T): T {
 
 // Sessions saved before layers could overlap had no Order effect and were
 // arranged in Vertical bands anyway. Opening one adds that Order so it looks
-// the same. A session saved since carries `orderDefaulted` and opens with its
-// Global stack as saved, so an Order the user removed stays removed.
+// the same, so it comes without animation. A session saved since carries
+// `orderDefaulted` and opens with its Global stack as saved, so an Order the
+// user removed stays removed.
 export function migrateDefaultOrder(
   effects: SessionEffect[],
   orderDefaulted: boolean | undefined,
 ) {
-  return orderDefaulted === true ? effects : ensureGlobalOrder(effects);
+  if (orderDefaulted === true) {
+    return effects;
+  }
+
+  const migrated = ensureGlobalOrder(effects);
+  return migrated === effects
+    ? effects
+    : migrated.map((effect) => {
+        if (effects.includes(effect)) {
+          return effect;
+        }
+        const { animation: _animation, ...rest } = effect;
+        return rest;
+      });
+}
+
+const COLORIZE_REACTIVITY_KEY = "_Reactivity";
+
+// Colorize used to swing its hue on audio hits by its own Reactivity knob.
+// The music moves an effect only through its Animation modifier now, so a
+// Colorize saved with Reactivity above 0 and no animation opens with Reactive
+// mode on, moving Hue Shift at that Reactivity, and keeps pulsing. The old
+// knob is dropped either way, so it is not saved again.
+export function migrateColorizeReactivity(effects: SessionEffect[]) {
+  if (
+    !effects.some(
+      (effect) =>
+        effect.effectName === "Colorize" &&
+        effect.parameters.some(
+          (parameter) => parameter.key === COLORIZE_REACTIVITY_KEY,
+        ),
+    )
+  ) {
+    return effects;
+  }
+
+  return effects.map((effect) => {
+    const old = effect.parameters.find(
+      (parameter) => parameter.key === COLORIZE_REACTIVITY_KEY,
+    );
+    if (effect.effectName !== "Colorize" || !old) {
+      return effect;
+    }
+
+    const parameters = effect.parameters.filter(
+      (parameter) => parameter !== old,
+    );
+    const reactivity = Math.min(
+      1,
+      old.numericValue ?? Number.parseFloat(old.value),
+    );
+    const defaults = createDefaultAnimation(effect.effectName);
+    if (effect.animation || !defaults || !(reactivity > 0)) {
+      return { ...effect, parameters };
+    }
+    return {
+      ...effect,
+      parameters,
+      animation: {
+        ...defaults,
+        mode: "reactive" as const,
+        reactive: {
+          ...defaults.reactive,
+          reactivity,
+          parameters: ["_HueOffset"],
+        },
+      },
+    };
+  });
 }
 
 type ContentClip = { id: string; laneId: string; kind?: string };

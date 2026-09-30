@@ -188,7 +188,7 @@ test("the FX panel shows Global, then the layer, then the selected clip", async 
   await page.getByRole("button", { name: "Add device to this clip" }).click();
   await page.getByRole("menuitem", { name: /^Transform/ }).click();
   const clipTransform = page.locator(
-    '.fx-chain [data-fx-divider="clip"] ~ section[aria-label="Transform"]',
+    `.fx-chain :is(section[data-fx-group="clip"], [data-fx-group="clip"] > section)[aria-label="Transform"]`,
   );
   await expect(clipTransform).toHaveCount(1);
 });

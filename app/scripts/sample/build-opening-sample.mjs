@@ -244,12 +244,11 @@ THREE_UPS.forEach((start, cutIndex) => {
         : { zoom: 1.2, x: 0.5 + drift, y: 0.5 },
     );
     if (REACTIVE_COLOR(start)) {
-      // The main audio's hits swing the hue (Reactivity), and Reactive
-      // animation wobbles the base hue with the music.
+      // Reactive animation swings the hue with the main audio's hits.
       addEffect(
         clipTrack(clipId),
         "Colorize",
-        { _HueOffset: 0.12 + ((cutIndex + panel) % 3) * 0.28, _Reactivity: 1 },
+        { _HueOffset: 0.12 + ((cutIndex + panel) % 3) * 0.28 },
         {
           animation: animation(
             "reactive",
@@ -331,7 +330,7 @@ for (const [start, duration, arrangement] of ARRANGEMENTS) {
 // canvas) and a Move before it sweeps the box left to right, widening it
 // and turning it from -16° to +16° over the clip.
 const REGIONS = [
-  [12, "Pixelate", { _NumPixels: 0.75, _LowIntensity: 0, _HighIntensity: 0 }],
+  [12, "Pixelate", { _NumPixels: 0.75 }],
   [15, "NegativeSplit", { _LowIntensity: 1, _HighIntensity: 1 }],
   [18, "AnalogGlitch", { _LowMod: 0.85, _HighMod: 1 }],
 ];

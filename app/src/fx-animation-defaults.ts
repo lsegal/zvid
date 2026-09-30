@@ -380,7 +380,7 @@ const NEUTRAL_VALUES: ReadonlyMap<string, AnimationNeutralValues> = new Map<
       _End_Y: { neutral: 0.5 },
     },
   ],
-  ["Colorize", { _HueOffset: { neutral: 0 }, _Reactivity: { neutral: 0 } }],
+  ["Colorize", { _HueOffset: { neutral: 0 } }],
   [
     "Pixelate",
     {

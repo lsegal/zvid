@@ -6,6 +6,18 @@ import { expect, type Page, test } from "@playwright/test";
 // its clip Transform on release.
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
 
+// A new session's Order slides each layer in as its clip starts, so at the
+// playhead a clip was just placed at the layer isn't there yet. These tests
+// need it in place, so they turn that animation off.
+async function holdOrderStill(page: Page) {
+  await page
+    .getByRole("button", { name: "Turn Animation Off for Order" })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Turn Animation On for Order" }),
+  ).toHaveAttribute("aria-pressed", "false");
+}
+
 async function dropVideoIntoNewSourceTrack(page: Page) {
   const base64 = (await readFile(VIDEO)).toString("base64");
   const dataTransfer = await page.evaluateHandle((data) => {
@@ -68,6 +80,7 @@ test("a Ctrl/Cmd-drag duplicate keeps its clip Transform during the drag", async
   page,
 }) => {
   await page.goto("/");
+  await holdOrderStill(page);
   const lanes = page.locator("[data-timeline-lane-id]");
   await expect(lanes.nth(1)).toBeVisible();
   await dropVideoIntoNewSourceTrack(page);
