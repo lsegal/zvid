@@ -527,6 +527,14 @@ locally once `pnpm --dir daw/ui build` has run; on macOS it needs `rustup
 target add aarch64-apple-darwin`, and `--installer`
 needs Inno Setup 6 on Windows (`ISCC` may name its `ISCC.exe`).
 
+The macOS bundles and installer are identified under the `cc.zvid.capture`
+namespace: `ZVID Capture.vst3` is `cc.zvid.capture.vst3` and
+`ZVID Capture.component` is `cc.zvid.capture.component` (their
+`CFBundleIdentifier`), and the `.pkg` payload and its receipt are
+`cc.zvid.capture.pkg`. Hosts key saved sessions and plugin caches on the AU
+type, subtype and manufacturer codes and the VST3 class ID, not on these
+identifiers.
+
 ### Installers
 
 - **macOS.** A `.pkg` that installs `ZVID Capture.vst3` into

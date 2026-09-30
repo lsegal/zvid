@@ -8,7 +8,7 @@ pub const MANUFACTURER: [u8; 4] = *b"ZVID";
 /// Registered component name, `"<manufacturer>: <plugin>"`.
 pub const NAME: &str = "ZVID: ZVID Capture";
 pub const DESCRIPTION: &str = "Transport-following webcam capture";
-pub const BUNDLE_ID: &str = "com.lsegal.zvid.capture.component";
+pub const BUNDLE_ID: &str = "cc.zvid.capture.component";
 /// Exported symbol named by the `factoryFunction` plist key.
 pub const FACTORY_FUNCTION: &str = "ZVIDCaptureAUFactory";
 /// Bundle executable name inside `Contents/MacOS`.
@@ -130,7 +130,7 @@ mod tests {
             "<integer>256</integer>",
             "<string>ZVIDCaptureAUFactory</string>",
             "<key>CFBundleExecutable</key>\n\t<string>ZVID Capture</string>",
-            "<key>CFBundleIdentifier</key>\n\t<string>com.lsegal.zvid.capture.component</string>",
+            "<key>CFBundleIdentifier</key>\n\t<string>cc.zvid.capture.component</string>",
         ] {
             assert!(plist.contains(expected), "missing {expected:?} in\n{plist}");
         }
