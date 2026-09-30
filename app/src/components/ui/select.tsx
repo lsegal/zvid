@@ -70,7 +70,9 @@ export function Select<T extends string>({
                 title={option.reason}
                 value={option.value}
               >
-                <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
+                <SelectPrimitive.ItemText>
+                  {option.label}
+                </SelectPrimitive.ItemText>
                 <SelectPrimitive.ItemIndicator className="select-item__check">
                   <CheckIcon aria-hidden="true" />
                 </SelectPrimitive.ItemIndicator>

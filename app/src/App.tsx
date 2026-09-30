@@ -2827,7 +2827,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   </button>
                 </div>
 
-                <label className="signature-picker">
+                <div className="signature-picker">
                   <span>Time Sig</span>
                   <Select
                     aria-label="Time signature"
@@ -2839,7 +2839,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     options={SIGNATURE_OPTIONS}
                     value={signatureId}
                   />
-                </label>
+                </div>
 
                 <div className="layer-toolbar">
                   <span className="layer-toolbar__count">

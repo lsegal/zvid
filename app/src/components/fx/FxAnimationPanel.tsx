@@ -236,7 +236,7 @@ function FxAnimationSelect<T extends string>({
   onChange: (value: T) => void;
 }) {
   return (
-    <label className="fx-select">
+    <div className="fx-select">
       <span className="fx-select__label">{label}</span>
       <Select
         aria-label={label}
@@ -245,7 +245,7 @@ function FxAnimationSelect<T extends string>({
         options={options.map((option) => ({ value: option, label: option }))}
         value={value}
       />
-    </label>
+    </div>
   );
 }
 

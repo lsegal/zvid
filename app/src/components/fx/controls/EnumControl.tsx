@@ -9,7 +9,7 @@ export function EnumControl({
   // Long option lists, such as font weights, pick from a menu instead.
   if (parameter.menu) {
     return (
-      <label className="fx-select">
+      <div className="fx-select">
         <span className="fx-select__label">{parameter.label}</span>
         <Select
           aria-label={parameter.label}
@@ -21,9 +21,9 @@ export function EnumControl({
             value: option,
             label: option,
           }))}
-          value={parameter.stringValue}
+          value={parameter.stringValue ?? ""}
         />
-      </label>
+      </div>
     );
   }
 
