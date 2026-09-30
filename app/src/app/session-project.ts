@@ -10,8 +10,8 @@ import type { MediaItem } from "../media.ts";
 import {
   migrateClipContentEffects,
   migrateColorizeReactivity,
-  migrateOrderOuterMargin,
   migrateDefaultOrder,
+  migrateOrderOuterMargin,
 } from "../project-state-compat.ts";
 import {
   formatOverlapNote,

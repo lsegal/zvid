@@ -4,7 +4,9 @@ import {
   type ArrangementClip,
   computeActiveClips,
 } from "./composition-active-clips.ts";
+import { resolveSlotBounds } from "./composition-layout.ts";
 import { resolveFillPaint } from "./fill-paint.ts";
+import { parseCompositionOrder } from "./fx/effects/order/order.ts";
 import {
   createDefaultAnimation,
   type EffectAnimation,
@@ -20,6 +22,7 @@ import {
   migrateColorizeReactivity,
   migrateDefaultOrder,
   migrateLegacyMainAudio,
+  migrateOrderOuterMargin,
   stripClipSelectionFlags,
 } from "./project-state-compat.ts";
 import { resolveTextStyle } from "./text-style.ts";
@@ -63,6 +66,75 @@ describe("stripClipSelectionFlags", () => {
   it("returns snapshots without flags unchanged", () => {
     const snapshot = { bpm: 120, clips: [{ id: "a" }] };
     assert.equal(stripClipSelectionFlags(snapshot), snapshot);
+  });
+});
+
+describe("migrateOrderOuterMargin", () => {
+  const order = (
+    parameters: SessionEffect["parameters"],
+    effectName = "Order",
+  ): SessionEffect => ({
+    id: "order",
+    trackId: GLOBAL_EFFECT_TRACK_ID,
+    effectName,
+    parameters: [
+      { key: "Arrangement", value: "Grid" },
+      { key: "Spacing", value: "24", numericValue: 24 },
+      ...parameters,
+    ],
+  });
+
+  it("opens a toggle that was On with its Margin at its Spacing", () => {
+    const [migrated] = migrateOrderOuterMargin([
+      order([{ key: "OuterMargin", value: "On" }]),
+    ]);
+    assert.deepEqual(migrated.parameters, [
+      { key: "Arrangement", value: "Grid" },
+      { key: "Spacing", value: "24", numericValue: 24 },
+      { key: "Margin", value: "24", numericValue: 24 },
+    ]);
+  });
+
+  it("renders an On session identically after migrating it", () => {
+    const saved = order([{ key: "OuterMargin", value: "On" }]);
+    const [migrated] = migrateOrderOuterMargin([saved]);
+    for (let index = 0; index < 4; index++) {
+      assert.deepEqual(
+        resolveSlotBounds(
+          index,
+          4,
+          parseCompositionOrder(migrated.parameters),
+          1280,
+          720,
+        ),
+        resolveSlotBounds(
+          index,
+          4,
+          parseCompositionOrder(saved.parameters),
+          1280,
+          720,
+        ),
+      );
+    }
+  });
+
+  it("drops a toggle that was Off, leaving Margin at 0", () => {
+    const [migrated] = migrateOrderOuterMargin([
+      order([{ key: "OuterMargin", value: "Off" }]),
+    ]);
+    assert.deepEqual(migrated.parameters, [
+      { key: "Arrangement", value: "Grid" },
+      { key: "Spacing", value: "24", numericValue: 24 },
+    ]);
+    assert.equal(parseCompositionOrder(migrated.parameters).margin, 0);
+  });
+
+  it("leaves Orders without the toggle and other effects alone", () => {
+    const effects = [
+      order([]),
+      order([{ key: "OuterMargin", value: "On" }], "Colorize"),
+    ];
+    assert.equal(migrateOrderOuterMargin(effects), effects);
   });
 });
 

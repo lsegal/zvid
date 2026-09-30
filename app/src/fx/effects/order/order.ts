@@ -170,9 +170,9 @@ export function parseCompositionOrder(
 ): CompositionOrder {
   const order = { ...DEFAULT_COMPOSITION_ORDER };
   // An unmigrated Order, such as one a peer on an older build publishes,
-  // with its toggle On and no Margin knob is inset by its spacing.
+  // with its toggle On and no Margin is inset by its spacing. A Margin of 0
+  // does not count: a tween adds one while the spacing tweens.
   let legacyOuterMargin = false;
-  let hasMargin = false;
   for (const parameter of parameters) {
     const key = parameter.key.toLowerCase().replace(/[^a-z0-9]/g, "");
     if (key === "arrangement") {
@@ -210,11 +210,10 @@ export function parseCompositionOrder(
       order.spacing = clampSpacing(numeric);
     } else if (key === "margin") {
       order.margin = clampSpacing(numeric);
-      hasMargin = true;
     }
   }
 
-  if (legacyOuterMargin && !hasMargin) {
+  if (legacyOuterMargin && !order.margin) {
     order.margin = order.spacing;
   }
   return order;

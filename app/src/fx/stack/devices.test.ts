@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { migrateColorizeReactivity } from "../../project-state-compat.ts";
+import { SPACING_MAX } from "../effects/order/order.ts";
 import { GLOBAL_EFFECT_TRACK_ID } from "./clip-stacks.ts";
 import { mapSessionEffectsToDevices } from "./devices.ts";
 import {
@@ -216,14 +217,14 @@ describe("Order devices", () => {
       "Arrangement",
       "ExcludedLayers",
       "Spacing",
-      "OuterMargin",
+      "Margin",
       "BorderColor",
     ]);
     assert.deepEqual(keys("Horizontal"), [
       "Arrangement",
       "ExcludedLayers",
       "Spacing",
-      "OuterMargin",
+      "Margin",
       "BorderColor",
     ]);
     assert.deepEqual(keys("Grid"), [
@@ -231,16 +232,36 @@ describe("Order devices", () => {
       "ExcludedLayers",
       "GridSize",
       "Spacing",
-      "OuterMargin",
+      "Margin",
       "BorderColor",
     ]);
   });
 
-  it("dims Border only while Spacing is 0", () => {
-    const border = (spacing?: number) => {
+  it("gives Margin the same range as Spacing", () => {
+    const knob = (key: string) =>
+      orderDevice("Vertical", 0)?.parameters.find(
+        (parameter) => parameter.key === key,
+      );
+    const margin = knob("Margin");
+    const spacing = knob("Spacing");
+    assert.ok(margin?.kind === "number" && spacing?.kind === "number");
+    assert.equal(margin.label, "Margin");
+    assert.equal(margin.numericValue, 0);
+    assert.equal(margin.display, spacing.display);
+    for (const field of ["min", "max", "step"] as const) {
+      assert.equal(margin[field], spacing[field], field);
+    }
+    assert.equal(margin.max, SPACING_MAX);
+  });
+
+  it("dims Border only while Spacing and Margin are 0", () => {
+    const border = (spacing?: number, margin?: number) => {
       let effects = addEffect([], GLOBAL_EFFECT_TRACK_ID, "Order", 0, "order");
       if (spacing !== undefined) {
         effects = setEffectParameter(effects, "order", "Spacing", spacing);
+      }
+      if (margin !== undefined) {
+        effects = setEffectParameter(effects, "order", "Margin", margin);
       }
       return mapSessionEffectsToDevices(effects, "6")
         .find((device) => device.id === "order")
@@ -252,6 +273,8 @@ describe("Order devices", () => {
     assert.equal(border()?.dimmed, true);
     assert.equal(border(0)?.dimmed, true);
     assert.equal(border(20)?.dimmed, undefined);
+    assert.equal(border(0, 0)?.dimmed, true);
+    assert.equal(border(0, 30)?.dimmed, undefined);
   });
 
   it("warns when a grid has fewer cells than active layers", () => {

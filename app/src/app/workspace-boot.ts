@@ -4,9 +4,9 @@ import type { ProjectHistoryState } from "../project-history.ts";
 import {
   migrateClipContentEffects,
   migrateColorizeReactivity,
-  migrateOrderOuterMargin,
   migrateDefaultOrder,
   migrateLegacyMainAudio,
+  migrateOrderOuterMargin,
 } from "../project-state-compat.ts";
 import { createWorkspaceLock } from "../workspace-lock.ts";
 import { parseWorkspaceSession } from "../workspace-session.ts";

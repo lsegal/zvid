@@ -3,6 +3,7 @@ import {
   isOrderEffectName,
   LEGACY_OUTER_MARGIN_KEY,
   MARGIN_KEY,
+  parseCompositionOrder,
 } from "./fx/effects/order/order.ts";
 import { createDefaultAnimation } from "./fx-animation-defaults.ts";
 import {
@@ -160,27 +161,19 @@ export function migrateOrderOuterMargin(effects: SessionEffect[]) {
       return effect;
     }
 
+    // Read as the compositor reads it, so it opens looking the same.
+    const { margin = 0 } = parseCompositionOrder(effect.parameters);
     const parameters = effect.parameters.filter(
-      (parameter) => parameter !== old,
+      (parameter) => parameter !== old && parameter.key !== MARGIN_KEY,
     );
-    if (
-      old.value.trim().toLowerCase() !== "on" ||
-      parameters.some((parameter) => parameter.key === MARGIN_KEY)
-    ) {
-      return { ...effect, parameters };
-    }
-    const spacing = parameters.find((parameter) => parameter.key === "Spacing");
-    const margin =
-      spacing?.numericValue ?? Number.parseFloat(spacing?.value ?? "");
-    if (!(margin > 0)) {
-      return { ...effect, parameters };
-    }
     return {
       ...effect,
-      parameters: [
-        ...parameters,
-        { key: MARGIN_KEY, value: String(margin), numericValue: margin },
-      ],
+      parameters: margin
+        ? [
+            ...parameters,
+            { key: MARGIN_KEY, value: String(margin), numericValue: margin },
+          ]
+        : parameters,
     };
   });
 }

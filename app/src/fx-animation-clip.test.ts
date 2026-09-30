@@ -260,7 +260,11 @@ describe("applyClipAnimationWeight", () => {
         },
         0.5,
       ),
-      [{ key: "Arrangement", value: "Grid" }, parameter("Spacing", 0.05)],
+      [
+        { key: "Arrangement", value: "Grid" },
+        parameter("Spacing", 0.05),
+        parameter("Margin", 0),
+      ],
     );
   });
 

@@ -218,6 +218,7 @@ describe("getAnimatableParameters", () => {
     assert.deepEqual(getAnimatableParameters("Order"), [
       { key: "GridSize", label: "Grid Size" },
       { key: "Spacing", label: "Spacing" },
+      { key: "Margin", label: "Margin" },
     ]);
     const zoom = getAnimatableParameters("ZoomAndPan").map(
       (parameter) => parameter.key,
