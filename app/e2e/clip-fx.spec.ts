@@ -121,7 +121,7 @@ function effect(
   };
 }
 
-// NegativeSplit inverts dark colours with Low and bright ones with High.
+// NegativeSplit inverts dark colors with Low and bright ones with High.
 // Red is dark and its inverse, cyan, is bright, so the three inversions
 // below only end on cyan in the order Clip, Layer, Global:
 //   clip (dark → invert): red → cyan; layer (bright → invert): cyan → red;
@@ -185,7 +185,7 @@ test("places a clip's Transform inside its layer's Transform", async ({
     ],
   );
   expectColor(insideClip, [255, 0, 0]);
-  // Scaling the moved box about the canvas centre instead would cover 0.4.
+  // Scaling the moved box about the canvas center instead would cover 0.4.
   expect(leftOfClip[0], `rgb(${leftOfClip})`).toBeLessThan(64);
   expect(background[0], `rgb(${background})`).toBeLessThan(64);
 });

@@ -85,7 +85,7 @@ export type TextProject<Clip> = {
 /**
  * Adds a text clip spanning `durationQ` quarters from `startQ` on layer
  * `laneId`, with a Text effect with its defaults ("Text" in the default
- * font, white and centred) on the clip's own stack, so the new clip shows
+ * font, white and centered) on the clip's own stack, so the new clip shows
  * straight away.
  */
 export function addTextClip<Clip>(

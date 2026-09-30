@@ -8,7 +8,7 @@ import {
 } from "./source-track-color.ts";
 
 describe("sourceTrackColorIndex", () => {
-  it("cycles the palette from its last colour, like the Layers app", () => {
+  it("cycles the palette from its last color, like the Layers app", () => {
     assert.equal(PALETTE_SIZE, 5);
     assert.deepEqual(
       Array.from({ length: 13 }, (_, index) => sourceTrackColorIndex(index)),
@@ -18,7 +18,7 @@ describe("sourceTrackColorIndex", () => {
 });
 
 describe("sessionSourceTrackColorIndex", () => {
-  it("keeps an opened session's own colours", () => {
+  it("keeps an opened session's own colors", () => {
     assert.deepEqual(
       [2, 2, -1, 7].map((colorIndex, index) =>
         sessionSourceTrackColorIndex(colorIndex, index),
@@ -27,7 +27,7 @@ describe("sessionSourceTrackColorIndex", () => {
     );
   });
 
-  it("cycles the palette for tracks without a colour", () => {
+  it("cycles the palette for tracks without a color", () => {
     assert.deepEqual(
       [undefined, undefined, 3, undefined].map((colorIndex, index) =>
         sessionSourceTrackColorIndex(colorIndex, index),
@@ -42,19 +42,19 @@ describe("nextSourceTrackColorIndex", () => {
     assert.equal(nextSourceTrackColorIndex([]), 4);
   });
 
-  it("gives the colour after the last track's", () => {
+  it("gives the color after the last track's", () => {
     const tracks = [4, 0, 1].map((colorIndex) => ({ colorIndex }));
     assert.equal(nextSourceTrackColorIndex(tracks), 2);
     assert.equal(nextSourceTrackColorIndex([{ colorIndex: 3 }]), 4);
     assert.equal(nextSourceTrackColorIndex([{ colorIndex: 4 }]), 0);
   });
 
-  it("follows an opened session's own colours", () => {
+  it("follows an opened session's own colors", () => {
     const tracks = [2, 2].map((colorIndex) => ({ colorIndex }));
     assert.equal(nextSourceTrackColorIndex(tracks), 3);
   });
 
-  it("continues by position after a track without a palette colour", () => {
+  it("continues by position after a track without a palette color", () => {
     const tracks = [-1, -1].map((colorIndex) => ({ colorIndex }));
     assert.equal(nextSourceTrackColorIndex(tracks), sourceTrackColorIndex(2));
   });

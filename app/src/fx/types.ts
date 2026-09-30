@@ -45,8 +45,8 @@ export type FxEnumParameterDefinition = {
 // and `title` its accessible name.
 export type FxFlagOption = { value: string; label: string; title: string };
 
-// String parameters with their own editors: a CSS colour (`color`) or CSS
-// linear/radial gradient (`gradient`) with a colour picker, free text
+// String parameters with their own editors: a CSS color (`color`) or CSS
+// linear/radial gradient (`gradient`) with a color picker, free text
 // (`text`) in a text area, a font (`font`) from the font list, a set of
 // toggles (`flags`) stored comma-separated, and a set of layers (`layers`)
 // stored as comma-separated layer ids.
@@ -102,7 +102,7 @@ export type FxEffectDefinition = {
   // True for an effect every visual layer is given exactly once, so no add
   // menu offers it.
   layerDefault?: boolean;
-  // Labels for the knob rows, when the knobs split evenly into labelled
+  // Labels for the knob rows, when the knobs split evenly into labeled
   // rows (a Move's Start and End) instead of filling two rows freely.
   knobRows?: readonly string[];
   // False for the placeholder returned for effect names the registry does

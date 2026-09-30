@@ -43,7 +43,7 @@ function originInCanvas(transform: LayerTransform) {
   );
 }
 
-// Turns a pointer 100px from the centre by `turnDeg`, clockwise, starting
+// Turns a pointer 100px from the center by `turnDeg`, clockwise, starting
 // from `startDeg`.
 function rotateBy(startDeg: number, turnDeg: number, snap15 = false) {
   const origin = { x: 500, y: 500 };
@@ -61,12 +61,12 @@ function rotateBy(startDeg: number, turnDeg: number, snap15 = false) {
 }
 
 describe("rotateTransform", () => {
-  it("turns the layer about its centre by the pointer's angle", () => {
+  it("turns the layer about its center by the pointer's angle", () => {
     const origin = originInCanvas(IDENTITY_TRANSFORM);
     assertClose(origin.x, 500);
     assertClose(origin.y, 500);
 
-    // From straight above the centre to straight right of it: a quarter turn
+    // From straight above the center to straight right of it: a quarter turn
     // clockwise, which brings the top-left corner to the top-right.
     const next = rotateTransform(
       IDENTITY_TRANSFORM,
@@ -82,7 +82,7 @@ describe("rotateTransform", () => {
     assertClose(corners[0].y, 0);
   });
 
-  it("pivots on an off-centre origin, which stays put", () => {
+  it("pivots on an off-center origin, which stays put", () => {
     // Origin at the box's top-left corner, with the box halved and moved
     // right 10%.
     const start = {

@@ -1,7 +1,8 @@
 import { expect, type Page, test } from "@playwright/test";
 
-// The Animation modifier: an (A) toggle beside each device's power button
-// that attaches a collapsible Animation section to the device's right edge.
+// The Animation modifier: a motion-icon toggle beside each device's power
+// button that attaches a collapsible Animation section to the device's right
+// edge.
 
 async function addLayerEffect(page: Page, name: RegExp) {
   const layerHeader = page.locator('[data-layer-header-id="6"]');
@@ -14,7 +15,7 @@ async function addLayerEffect(page: Page, name: RegExp) {
     .click();
 }
 
-test("every device but Layout has an (A) toggle beside its power button", async ({
+test("every device but Layout has an Animation toggle beside its power button", async ({
   page,
 }) => {
   await page.goto("/");
@@ -29,6 +30,9 @@ test("every device but Layout has an (A) toggle beside its power button", async 
     name: "Turn Animation On for Pixelate",
   });
   await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  // A decorative motion icon, like the power button's, rather than text.
+  await expect(toggle.locator('svg[aria-hidden="true"]')).toHaveCount(1);
+  await expect(toggle).toHaveText("");
   const power = await pixelate
     .getByRole("button", { name: "Bypass Pixelate" })
     .boundingBox();

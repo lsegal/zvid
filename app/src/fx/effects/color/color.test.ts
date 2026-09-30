@@ -23,7 +23,7 @@ function colorEffect(
 }
 
 describe("resolveFillPaint", () => {
-  it("paints neutral grey when the layer has no Color effect", () => {
+  it("paints neutral gray when the layer has no Color effect", () => {
     const paint = resolveFillPaint([], "1");
     assert.equal(paint.kind, "solid");
     assert.deepEqual(paint.kind === "solid" && paint.color, {
@@ -34,7 +34,7 @@ describe("resolveFillPaint", () => {
     });
   });
 
-  it("uses the colour in Solid mode and the gradient in Gradient mode", () => {
+  it("uses the color in Solid mode and the gradient in Gradient mode", () => {
     const values = {
       Mode: "Solid",
       Color: "rgba(255,0,0,1)",

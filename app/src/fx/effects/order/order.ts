@@ -16,7 +16,7 @@ export type CompositionOrder = {
   arrangement: Arrangement;
   // Cells per side of the grid. Only read for the Grid arrangement.
   gridSize: number;
-  // Gap between neighbouring layers, in output pixels at 1080p.
+  // Gap between neighboring layers, in output pixels at 1080p.
   spacing: number;
   // Ids of the layers the arrangement leaves out. They are drawn full-frame
   // in their z-order instead, as with no Order. Absent means none.

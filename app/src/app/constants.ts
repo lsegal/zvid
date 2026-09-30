@@ -1,5 +1,6 @@
 import { ensureGlobalOrder, ensureLayerLayouts } from "../fx-stack.ts";
 import type { Palette } from "../media.ts";
+import { DEFAULT_SESSION_SETTINGS } from "../session-settings.ts";
 import type { GridLineWeight, SnapMode } from "../timeline-grid.ts";
 import type { Lane, ProjectState, TimeSignature } from "./types.ts";
 
@@ -102,9 +103,9 @@ export const INITIAL_PROJECT_STATE: ProjectState = {
   snapMode: "auto",
   snapEnabled: true,
   bpm: 120,
-  fps: 30,
-  canvasWidth: 1080,
-  canvasHeight: 1920,
+  fps: DEFAULT_SESSION_SETTINGS.fps,
+  canvasWidth: DEFAULT_SESSION_SETTINGS.canvasWidth,
+  canvasHeight: DEFAULT_SESSION_SETTINGS.canvasHeight,
   zoom: 1,
   sessionName: null,
   mediaItems: [],
@@ -123,7 +124,7 @@ export const INITIAL_PROJECT_STATE: ProjectState = {
   clipContentEffects: true,
 };
 
-// Card colours of fill clips on layers without an accent.
+// Card colors of fill clips on layers without an accent.
 export const FILL_CLIP_TINT = "#2a2d38";
 
 export const FILL_CLIP_ACCENT = "#8d93a8";

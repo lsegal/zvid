@@ -196,7 +196,7 @@ describe("resolveLayerPlacement", () => {
                   `band ${index} pinned to its bottom`,
                 );
               } else {
-                assertClose(translate.y, frame.centerY, `band ${index} centre`);
+                assertClose(translate.y, frame.centerY, `band ${index} center`);
               }
             }
           });
@@ -323,7 +323,7 @@ describe("resolveSlotBounds", () => {
         1920,
         1080,
       );
-      assertClose(slot.centerY, 0, "centred vertically");
+      assertClose(slot.centerY, 0, "centered vertically");
       assertClose(slot.halfHeight, 1, "full height");
       assertClose(slot.halfWidth, 1 / count, "equal widths");
       assertClose(slot.centerX - slot.halfWidth, previousRight, "no gap");
@@ -577,13 +577,13 @@ describe("resolveLayerPlacement without an Order", () => {
         height: 1920,
       });
       assertClose(placement.halfExtents.y, 1, "covers the canvas height");
-      assertClose(placement.translate.x, 0, "centred sideways");
+      assertClose(placement.translate.x, 0, "centered sideways");
     }
   });
 });
 
 describe("resolveLayerPlacement with an Order", () => {
-  it("covers a Horizontal column, centring sideways overflow", () => {
+  it("covers a Horizontal column, centering sideways overflow", () => {
     const placement = resolveLayerPlacement({
       index: 1,
       count: 2,
@@ -594,7 +594,7 @@ describe("resolveLayerPlacement with an Order", () => {
       visual: visual("top"),
       order: arranged("horizontal"),
     });
-    assertClose(placement.translate.x, 0.5, "centred on its column");
+    assertClose(placement.translate.x, 0.5, "centered on its column");
     assertClose(placement.halfExtents.y, 1, "covers the column height");
     assert.ok(placement.halfExtents.x > placement.frame.halfWidth);
     assert.deepEqual(placement.scissor, {

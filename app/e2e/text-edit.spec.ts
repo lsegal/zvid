@@ -38,7 +38,7 @@ async function insertTextClip(page: Page) {
   return clip;
 }
 
-// The centre of the letterboxed video, in page coordinates.
+// The center of the letterboxed video, in page coordinates.
 async function videoCenter(page: Page) {
   return page.locator(".composition-player__canvas").evaluate((canvas) => {
     const bounds = canvas.getBoundingClientRect();
@@ -229,7 +229,7 @@ async function outlineShape(page: Page) {
   };
 }
 
-async function centreOf(page: Page, testId: string) {
+async function centerOf(page: Page, testId: string) {
   const bounds = await page.getByTestId(testId).boundingBox();
   if (!bounds) {
     throw new Error(`${testId} is not visible`);
@@ -242,6 +242,15 @@ test("the transform handles step aside while editing text", async ({
 }) => {
   await page.goto("/");
   await expect(lane(page, "1")).toBeVisible();
+  // The press points below are placed for a portrait canvas, where the text
+  // box fills the preview's height.
+  await page.keyboard.press("ControlOrMeta+,");
+  const settings = page.getByRole("dialog", { name: "Session Settings" });
+  await settings
+    .getByRole("combobox", { name: "Canvas preset" })
+    .selectOption("1080x1920");
+  await settings.getByRole("button", { name: "Apply" }).click();
+  await expect(settings).toBeHidden();
   const clip = await insertTextClip(page);
   const editor = page.getByTestId("preview-text-editor");
   const input = editor.getByRole("textbox");
@@ -282,16 +291,17 @@ test("the transform handles step aside while editing text", async ({
   // While editing, dragging from where a resize handle or a corner's rotate
   // zone would be doesn't resize or rotate the layer. The press still ends
   // the edit, and moves the layer or clears the selection as usual. The zone
-  // is beside the corner, as the text box fills the preview's height.
+  // is beside the corner, as the text box fills the portrait preview's
+  // height.
   const pressPoints: [string, () => Promise<{ x: number; y: number }>][] = [
     [
       "rotate zone",
       async () => {
-        const corner = await centreOf(page, "preview-transform-handle-se");
+        const corner = await centerOf(page, "preview-transform-handle-se");
         return { x: corner.x + 12, y: corner.y - 8 };
       },
     ],
-    ["resize handle", () => centreOf(page, "preview-transform-handle-e")],
+    ["resize handle", () => centerOf(page, "preview-transform-handle-e")],
   ];
   for (const [name, pressPoint] of pressPoints) {
     await test.step(`nothing from the ${name} while editing`, async () => {

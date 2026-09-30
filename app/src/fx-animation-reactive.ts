@@ -34,7 +34,7 @@ const ONSET_GRID_RATE = 60;
 // Absorbs rounding in times that land on a frame boundary.
 const FRAME_EPSILON = 1e-6;
 
-// The Motion curve over the envelope's normalised time `u` (0..1). Bounce is
+// The Motion curve over the envelope's normalized time `u` (0..1). Bounce is
 // a single push that settles; Wobble is a damped swing either side of zero.
 export function reactiveEnvelope(motion: ReactiveMotion, u: number) {
   if (u < 0 || u >= 1) {
@@ -58,7 +58,7 @@ export type ReactiveImpulse = {
   seed: number;
   // Hit strength the envelope runs at, 0..1.
   strength: number;
-  // Normalised time through the envelope, 0..1.
+  // Normalized time through the envelope, 0..1.
   u: number;
 };
 

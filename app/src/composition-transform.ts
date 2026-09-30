@@ -13,7 +13,7 @@ export type LayerTransform = {
   positionY: number;
   scaleX: number;
   scaleY: number;
-  // Pivot in the box: -1 is the left (top) edge, 0 the centre, 1 the right
+  // Pivot in the box: -1 is the left (top) edge, 0 the center, 1 the right
   // (bottom) edge.
   originX: number;
   originY: number;

@@ -44,7 +44,7 @@ async function rulerPoint(page: Page) {
   return { x: view.x + view.width * 0.6, y: ruler.y + ruler.height / 2 };
 }
 
-// Records whether each contextmenu event reaching the window was cancelled,
+// Records whether each contextmenu event reaching the window was canceled,
 // which is what keeps the browser's own menu closed.
 async function watchContextMenus(page: Page) {
   await page.evaluate(() => {

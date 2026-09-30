@@ -37,8 +37,8 @@ type FxAnimationPanelProps = {
 const ANIMATION_MODE_OPTIONS = ["clip", "reactive"] as const;
 const ANIMATION_MODE_LABELS = { clip: "Clip", reactive: "Reactive" } as const;
 
-// The Animation section attached to a device's right edge while its (A)
-// toggle is on. It folds into a strip of its own, like a device does.
+// The Animation section attached to a device's right edge while its
+// Animation toggle is on. It folds into a strip of its own, like a device does.
 export function FxAnimationPanel({
   device,
   animation,

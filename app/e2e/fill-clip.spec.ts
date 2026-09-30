@@ -1,7 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 
 // The selection menu's Insert Fill Clip turns the timeline selection into a
-// fill clip, painted by a Color effect that switches between a colour and a
+// fill clip, painted by a Color effect that switches between a color and a
 // gradient.
 
 function lane(page: Page, id: string) {
@@ -52,7 +52,7 @@ test("Insert Fill Clip adds a fill clip with a Solid/Gradient Color effect", asy
   await expect(fill).toHaveClass(/clip-card--selected/);
   await expect(page.locator(".timeline-selection")).toHaveCount(0);
 
-  // The layer got a Color effect in Solid mode: one colour swatch.
+  // The layer got a Color effect in Solid mode: one color swatch.
   const device = page.locator('section[aria-label="Color"]');
   await expect(device).toBeVisible();
   await expect(device.getByRole("button", { name: "Solid" })).toHaveAttribute(
@@ -66,7 +66,7 @@ test("Insert Fill Clip adds a fill clip with a Solid/Gradient Color effect", asy
     device.getByRole("button", { name: "Edit Gradient" }),
   ).toHaveCount(0);
 
-  // Gradient mode swaps the colour swatch for a gradient swatch, and the
+  // Gradient mode swaps the color swatch for a gradient swatch, and the
   // clip previews the gradient.
   await device.getByRole("button", { name: "Gradient" }).click();
   await expect(device.getByRole("button", { name: "Edit Color" })).toHaveCount(

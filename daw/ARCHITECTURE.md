@@ -312,7 +312,7 @@ Layers Record support. The contract:
 1. **Device recognition.** A track is a video track if its device chain holds
    a plugin named **"ZVID Capture"** (VST3 `Vst3PluginInfo` or AU
    `AuPluginInfo`) or **"Layers Record"**. Each known device has its own state
-   decoder and clip-matching strategy; Layers Record behaviour is unchanged.
+   decoder and clip-matching strategy; Layers Record behavior is unchanged.
 2. **Decoding.** VST3 state is the hex JSON in `<ProcessorState>`, decoded as
    `decodeLayersState` does today. AU state is the `zvid-state` key of the
    `<Buffer>` plist. The importer reads the Layers keys (`filename`,
@@ -652,7 +652,7 @@ the editor runs in any browser with no plugin, DAW or Rust harness:
 - `mock-backend.ts` is a TypeScript port of `MockBackend` (`mock.rs`) and of
   the event log and preview slot (`channels.rs`): the same canned cameras,
   including the two that fail on purpose, the same capture, take and Live
-  companion behaviour, and the same event cursors, backlog and resync.
+  companion behavior, and the same event cursors, backlog and resync.
   Preview frames are an SVG test pattern instead of JPEG.
 - `driver.ts` routes `zvid://ipc`, `zvid://ipc/events` and
   `zvid://preview` requests to it with the same long-polls and status codes

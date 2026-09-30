@@ -17,4 +17,4 @@ which permits bundling and redistribution; the license texts are in
 [`fonts/`](fonts).
 
 Keep product-specific variables (for example the `/app` lane-selection
-colours) in that product's own stylesheet.
+colors) in that product's own stylesheet.

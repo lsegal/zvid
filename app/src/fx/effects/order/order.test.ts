@@ -72,7 +72,7 @@ describe("parseCompositionOrder", () => {
     assert.deepEqual(parseCompositionOrder([]), DEFAULT_COMPOSITION_ORDER);
   });
 
-  it("reads the border colour, black when missing or unreadable", () => {
+  it("reads the border color, black when missing or unreadable", () => {
     const border = (value?: string) =>
       parseCompositionOrder([
         ...order("Grid", 2, 20).parameters,

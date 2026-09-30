@@ -19,7 +19,7 @@
   --pink: #ff6f9d;
   --blue: #7ca1ff;
   --mint: #7ee0a4;
-  /* Neutral selection ring; no accent colour, so it can't read as a clip's. */
+  /* Neutral selection ring; no accent color, so it can't read as a clip's. */
   --selection-ring: #f4f6ff;
 }
 

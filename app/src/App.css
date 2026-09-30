@@ -6,7 +6,7 @@
   --lane-selected-tint: rgba(246, 183, 60, 0.05);
   /* Arrangement lane stacking, lowest first. Clip cards are isolated at
      z-index auto, so anything positive paints over them and their handles;
-     the selected clip rises above its neighbours only. */
+     the selected clip rises above its neighbors only. */
   --z-timeline-selected-clip: 2;
   --z-timeline-selection: 3;
   --z-timeline-playhead: 4;
@@ -2042,7 +2042,7 @@ body.layer-reorder-dragging * {
   border-right: 1px solid rgba(0, 0, 0, 0.35);
 }
 
-/* A text clip's "T", in its text colour. */
+/* A text clip's "T", in its text color. */
 .clip-card__glyph {
   flex: none;
   display: grid;
@@ -2076,7 +2076,7 @@ body.layer-reorder-dragging * {
   cursor: grabbing;
 }
 
-/* A fill clip's colour or gradient, drawn behind its handles and label. */
+/* A fill clip's color or gradient, drawn behind its handles and label. */
 .clip-card__fill {
   position: absolute;
   inset: 0;
@@ -2174,7 +2174,7 @@ body.layer-reorder-dragging * {
 
 /* A neutral double ring (near-white over a dark halo) plus a lift, so the
    selection reads against every clip accent, amber included, and over busy
-   filmstrips. The clip paints over its neighbours but under the range
+   filmstrips. The clip paints over its neighbors but under the range
    selection, the playhead and the sticky track labels. Keyboard focus inside
    a clip shows the same ring. */
 .clip-card--selected,
@@ -2218,7 +2218,7 @@ body.layer-reorder-dragging * {
 }
 
 /* Spans the lanes, above the playhead line and below the sticky track labels.
-   The sticky viewport inside (sized from the scroll viewport in JS) centres
+   The sticky viewport inside (sized from the scroll viewport in JS) centers
    the call to action in the visible part of the arrangement rather than the
    full timeline canvas. */
 .arrangement-empty-state {

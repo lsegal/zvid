@@ -154,7 +154,7 @@ describe("zvid opening sample", () => {
     }
   });
 
-  it("colours the reactive passages with audio-driven Colorize", () => {
+  it("colors the reactive passages with audio-driven Colorize", () => {
     const colorized = (session.effects ?? []).filter(
       (effect) => effect.effectName === "Colorize",
     );

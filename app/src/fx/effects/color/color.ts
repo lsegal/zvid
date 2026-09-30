@@ -31,7 +31,7 @@ function readParameter(effect: FillEffect, key: string) {
 /**
  * The paint for a fill clip on layer `laneId`: the last enabled Color effect
  * on the clip's own stack (`clipTrackId`), else on that layer's own stack,
- * or a solid neutral grey when there is none.
+ * or a solid neutral gray when there is none.
  */
 export function resolveFillPaint(
   effects: readonly FillEffect[],

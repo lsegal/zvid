@@ -239,8 +239,8 @@ export function FxChain({
 
     const stack = groups[device.group];
     const index = stack.findIndex((candidate) => candidate.id === device.id);
-    const neighbour = stack[index + 1] ?? stack[index - 1];
-    requestFocus(neighbour?.id ?? `add-${device.group}`);
+    const neighbor = stack[index + 1] ?? stack[index - 1];
+    requestFocus(neighbor?.id ?? `add-${device.group}`);
     onRemove(device);
     setAnnouncement(`Removed ${device.name}`);
   }

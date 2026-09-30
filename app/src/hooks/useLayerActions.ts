@@ -152,9 +152,9 @@ export function useLayerActions({
     }
     // The layer that takes its place in the list, else the one above.
     const index = lanes.findIndex((item) => item.id === lane.id);
-    const neighbour = lanes[index + 1] ?? lanes[index - 1];
-    if (neighbour) {
-      focusLaneLabel(neighbour.id);
+    const neighbor = lanes[index + 1] ?? lanes[index - 1];
+    if (neighbor) {
+      focusLaneLabel(neighbor.id);
     }
     setStatus(`Deleted ${lane.name}.`);
   }

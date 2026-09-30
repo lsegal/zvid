@@ -17,6 +17,7 @@ import {
   usesColumnLayout,
 } from "../../fx-chain";
 import type { FxDevice } from "../../fx-stack";
+import { MotionIcon } from "../MotionIcon";
 import type { FxChainProps } from "./FxChain";
 import { FxParameterControl } from "./FxParameterControl";
 
@@ -115,7 +116,7 @@ export function FxDevicePanel({
       title={animationLabel}
       type="button"
     >
-      <span aria-hidden="true">A</span>
+      <MotionIcon />
     </button>
   ) : null;
   // While attached, the wrapper around the device and its Animation section
@@ -255,7 +256,7 @@ export function FxDevicePanel({
           ) : null}
         </div>
       ) : knobRows ? (
-        // Labelled knob rows (a Move's Start and End), each led by its label.
+        // Labeled knob rows (a Move's Start and End), each led by its label.
         <div
           className="fx-device-panel__body"
           style={{

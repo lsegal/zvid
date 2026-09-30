@@ -104,7 +104,7 @@ describe("drag scroll momentum", () => {
 
   it("decays until it stops", () => {
     let velocity = { x: 2, y: 0 };
-    let travelled = 0;
+    let traveled = 0;
     let frames = 0;
     for (;;) {
       const step = stepMomentum(velocity, 16);
@@ -112,12 +112,12 @@ describe("drag scroll momentum", () => {
         break;
       }
       assert.ok(Math.abs(step.velocity.x) < Math.abs(velocity.x));
-      travelled += step.dx;
+      traveled += step.dx;
       velocity = step.velocity;
       frames += 1;
       assert.ok(frames < 1000);
     }
-    assert.ok(travelled > 0);
+    assert.ok(traveled > 0);
     assert.equal(stepMomentum({ x: 0, y: 0 }, 16), null);
   });
 });

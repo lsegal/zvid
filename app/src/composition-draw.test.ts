@@ -45,7 +45,7 @@ type DrawCall = {
   arrayBuffer: Handle | null;
   attribute: { enabled: boolean; buffer: Handle | null; size: number } | null;
   blend: boolean;
-  // Source and destination factors for colour, then for alpha.
+  // Source and destination factors for color, then for alpha.
   blendFunc: string[] | null;
   scissorTest: boolean;
   scissor: ScissorBox | null;
@@ -80,7 +80,7 @@ function createRecordingGl() {
     uniforms: {} as Record<string, [number, number]>,
   };
   const draws: DrawCall[] = [];
-  // The framebuffer and colour of every clear.
+  // The framebuffer and color of every clear.
   const clears: Array<{ framebuffer: Handle | null; color: number[] }> = [];
   // Arguments of every texImage2D call.
   const uploads: unknown[][] = [];
@@ -873,7 +873,7 @@ describe("drawComposition text layers", () => {
     assert.equal(canvas.fills.length, 1);
     assert.equal(canvas.fills[0].text, "Hello");
     assert.match(canvas.fills[0].font, /^400 32px "Inter Variable"/);
-    // Centred: five 16px characters in the 360px slot.
+    // Centered: five 16px characters in the 360px slot.
     assert.equal(canvas.fills[0].x, (WIDTH - 80) / 2);
     assert.equal(canvas.strokes.length, 0);
   });
@@ -1273,7 +1273,7 @@ describe("drawComposition FX clips", () => {
     ]);
   });
 
-  it("fills the Global Order's area with its border colour, black by default", () => {
+  it("fills the Global Order's area with its border color, black by default", () => {
     const clearOf = (order: CompositionOrder) =>
       draw(mediaLayers([0, 1]), order).clears[0];
     assert.deepEqual(clearOf(DEFAULT_COMPOSITION_ORDER), {
@@ -1305,7 +1305,7 @@ describe("drawComposition FX clips", () => {
     assert.deepEqual(clearOf(Z_ORDER_COMPOSITION).color, [0.07, 0.08, 0.11, 1]);
   });
 
-  it("fills an FX clip Order's box with its border colour, drawn over what is beneath", () => {
+  it("fills an FX clip Order's box with its border color, drawn over what is beneath", () => {
     const fxOrder: CompositeLayer = {
       ...fxLayer(0, []),
       order: {
@@ -1316,7 +1316,7 @@ describe("drawComposition FX clips", () => {
       },
     };
     const { draws, clears, program } = draw([...mediaLayers([1, 2]), fxOrder]);
-    // The canvas, then the arrangement's box in the border colour, alpha
+    // The canvas, then the arrangement's box in the border color, alpha
     // and all.
     assert.equal(clears.length, 2);
     assert.deepEqual(clears[0].color, [0.07, 0.08, 0.11, 1]);

@@ -166,7 +166,7 @@ function isMacPlatform() {
 // selected layer's outline, resize handles and origin marker stay visible and
 // usable where they extend past the frame. Clicks pick the topmost layer under
 // the pointer; dragging moves it. The handles resize it (Shift keeps the
-// aspect ratio, Ctrl/Cmd resizes from the centre) and the origin marker moves
+// aspect ratio, Ctrl/Cmd resizes from the center) and the origin marker moves
 // its pivot. The rotation handle above the box, and the zones just outside its
 // corners, turn it about its origin (Shift snaps to 15 degrees).
 // Double-clicking a layer, or Enter on the selected one, activates it, which
@@ -296,7 +296,7 @@ export function PreviewTransformOverlay({
       : hitTestLayers(layers, point, canvas);
 
   // Recomputes a resize from the pointer and the modifiers held right now,
-  // so pressing or releasing one mid-drag switches behaviour at once.
+  // so pressing or releasing one mid-drag switches behavior at once.
   const updateResize = (pointerClient: Point, modifiers: Modifiers) => {
     const drag = dragRef.current;
     if (!drag || drag.kind !== "resize") {
@@ -687,8 +687,8 @@ export function PreviewTransformOverlay({
   };
 
   // Double-clicking the rotation handle straightens the layer. Double-clicking
-  // a moved origin marker puts the origin back at the centre; anywhere else,
-  // including a marker already at the centre, it activates the layer under the
+  // a moved origin marker puts the origin back at the center; anywhere else,
+  // including a marker already at the center, it activates the layer under the
   // pointer. The pointer is captured by the overlay while pressed, so the
   // handle and marker are found by position rather than by the event target.
   const handleDoubleClick = (event: MouseEvent<HTMLDivElement>) => {
@@ -978,7 +978,7 @@ export function PreviewTransformOverlay({
           className="preview-transform-overlay__origin"
           data-transform-origin=""
           data-testid="preview-transform-origin"
-          title="Origin. Drag to move the pivot, double-click to centre it."
+          title="Origin. Drag to move the pivot, double-click to center it."
           style={{ left: originScreen.x, top: originScreen.y }}
         />
       ) : null}
@@ -1076,7 +1076,7 @@ function isAxisAligned(parent: Matrix2D) {
   return Math.abs(parent.b) < 1e-9 && Math.abs(parent.c) < 1e-9;
 }
 
-// Resized edges snap to the canvas edges and centre lines. For a clip inside
+// Resized edges snap to the canvas edges and center lines. For a clip inside
 // a moved or scaled layer, the lines are taken into the clip's space; inside
 // a turned layer they no longer line up with its edges, so nothing snaps.
 function resolveResizeSnap(parent: Matrix2D, canvas: Size, threshold: number) {

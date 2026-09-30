@@ -414,7 +414,7 @@ export function resolveAnchorOffsetY(
 }
 
 // Band `index` of `count` in whole framebuffer pixels (origin bottom-left).
-// Edges are rounded from the same row positions for neighbouring bands, so
+// Edges are rounded from the same row positions for neighboring bands, so
 // the boxes tile the surface with no gap or overlap at any size.
 export function resolveBandScissor(
   index: number,
@@ -464,7 +464,7 @@ export function resolveSpacingPixels(
 }
 
 // Start and end, in pixels, of cell `index` of `cells` equal cells across
-// `size`, with `gap` between neighbours and none at either end. Neighbours
+// `size`, with `gap` between neighbors and none at either end. Neighbors
 // share the expressions for their edges, so with no gap one cell ends
 // exactly where the next starts.
 function resolveCellEdges(
@@ -626,7 +626,7 @@ export function resolveSlotBounds(
 
 // Slot `index` in whole framebuffer pixels (origin bottom-left). Like
 // `resolveBandScissor`, edges are rounded from the same positions for
-// neighbouring slots, so without spacing the boxes tile the surface with no
+// neighboring slots, so without spacing the boxes tile the surface with no
 // gap or overlap at any size. A moving layer (`motion`) is cropped to the
 // slot it is at, even while it slides into or out of it.
 export function resolveSlotScissor(

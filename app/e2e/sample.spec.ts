@@ -6,7 +6,7 @@ import { expect, type Page, test } from "@playwright/test";
 // sample opens, so nothing is ever left to locate.
 const SAMPLE_MEDIA = "**/samples/opening-v1/*";
 
-// Each load reads about 15 MB of media and analyses it.
+// Each load reads about 15 MB of media and analyzes it.
 test.describe.configure({ timeout: 120_000 });
 
 async function openFileMenu(page: Page) {

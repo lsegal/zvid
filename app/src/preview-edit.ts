@@ -65,7 +65,7 @@ export const PREVIEW_NUDGE_PX = 1;
 export const PREVIEW_NUDGE_LARGE_PX = 10;
 
 // Where the canvas is drawn inside the monitor: letterboxed like CSS
-// `object-fit: contain`, centred, then magnified by `zoom` about the centre.
+// `object-fit: contain`, centered, then magnified by `zoom` about the center.
 export function resolveVideoRect(monitor: Size, canvas: Size, zoom = 1): Rect {
   const canvasWidth = Math.max(1, canvas.width);
   const canvasHeight = Math.max(1, canvas.height);
@@ -473,7 +473,7 @@ export function constrainDragDelta(delta: Point, axisLock: boolean): Point {
 }
 
 // Transform positions are in canvas widths (x) and heights (y, +down) from
-// the centre, so a pixel delta divides by the canvas size: for a layer in an
+// the center, so a pixel delta divides by the canvas size: for a layer in an
 // FX clip's arrangement, the arrangement's (`PreviewEditFrame.canvas`).
 export function offsetTransformPosition(
   start: Point,

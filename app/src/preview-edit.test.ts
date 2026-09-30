@@ -85,7 +85,7 @@ describe("resolveVideoRect", () => {
     assertClose(rect.top, (800 - 225) / 2);
   });
 
-  it("magnifies about the monitor centre with zoom", () => {
+  it("magnifies about the monitor center with zoom", () => {
     const rect = resolveVideoRect(
       { width: 400, height: 400 },
       { width: 100, height: 100 },
@@ -236,7 +236,7 @@ describe("resolvePreviewLayers", () => {
       [fx, activeLayer("b", 1), activeLayer("c", 2)],
       canvas,
     );
-    // The box is the centred half-size canvas moved a quarter right:
+    // The box is the centered half-size canvas moved a quarter right:
     // x 500..1000, y 250..750, split into two columns.
     const [b, c] = layers.slice(1);
     assert.deepEqual(
@@ -268,7 +268,7 @@ describe("resolvePreviewLayers", () => {
       canvas,
     );
     const [, b, c] = layers;
-    // The grid's top row turns a quarter clockwise about the canvas centre:
+    // The grid's top row turns a quarter clockwise about the canvas center:
     // b's top-left cell lands top-right, c's top-right cell bottom-right.
     const turned = [
       [1000, 0],
@@ -633,7 +633,7 @@ describe("hitTestLayers", () => {
   const canvas = { width: 1000, height: 1000 };
 
   it("hits a layer only inside its transformed box", () => {
-    // A lone layer fills the canvas; half size about its centre is 250..750.
+    // A lone layer fills the canvas; half size about its center is 250..750.
     const layers = resolvePreviewLayers(
       [activeLayer("a", 0, { scaleX: 0.5, scaleY: 0.5 })],
       canvas,

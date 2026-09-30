@@ -16,7 +16,7 @@ type Effect = {
 };
 
 type Scenario = {
-  // Layers, from Layer 1 down: a fill colour, or `fx` for an FX clip
+  // Layers, from Layer 1 down: a fill color, or `fx` for an FX clip
   // "fx-<layer>" over 0-2 s. Fills last 0-4 s.
   layers: string[];
   effects: Effect[];
@@ -182,7 +182,7 @@ function expectColors(actual: Rgb[], expected: Rgb[]) {
   }
 }
 
-// Cell centres of a 2×2 grid, and of four Vertical bands.
+// Cell centers of a 2×2 grid, and of four Vertical bands.
 const QUADRANTS: Array<[number, number]> = [
   [0.25, 0.25],
   [0.75, 0.25],
@@ -261,7 +261,7 @@ test.describe("compositing", () => {
     });
     // Layer 1's Horizontal gives Layer 2 the first of three columns; Layer
     // 3's Grid puts Layers 4 and 5 in the top row of the whole box beneath,
-    // its empty cells in its border colour.
+    // its empty cells in its border color.
     expectColors(pixels, [RED, GREEN, BLUE, BLACK]);
   });
 
@@ -282,7 +282,7 @@ test.describe("compositing", () => {
         [0.5, 0.1],
       ],
     });
-    // Two columns inside the centred half-size box, nothing outside it but
+    // Two columns inside the centered half-size box, nothing outside it but
     // the Global Order's border.
     expectColors(pixels, [RED, BLUE, BLACK, BLACK]);
   });
@@ -343,7 +343,7 @@ test.describe("Order border", () => {
     ...(color ? [{ key: "BorderColor", value: color }] : []),
   ];
 
-  test("colours the gaps between layers black by default", async ({ page }) => {
+  test("colors the gaps between layers black by default", async ({ page }) => {
     const pixels = await render(page, {
       layers: ["#ff0000", "#0000ff"],
       effects: [],
@@ -359,7 +359,7 @@ test.describe("Order border", () => {
     expectColors(pixels, [RED, BLACK, BLUE]);
   });
 
-  test("colours the gaps and empty grid cells with a custom border", async ({
+  test("colors the gaps and empty grid cells with a custom border", async ({
     page,
   }) => {
     const pixels = await render(page, {

@@ -181,7 +181,7 @@ export function useClipInsertion({
 
   // Inserts a fill clip over `durationQ` quarters from `startQ` on layer
   // `laneId` and selects it. The clip gets its own Color effect, in the
-  // layer's accent colour or neutral grey. Returns the new clip's id.
+  // layer's accent color or neutral gray. Returns the new clip's id.
   const insertFillClip = useCallback(
     (laneId: string, startQ: number, durationQ: number) => {
       const lane = lanes.find((candidate) => candidate.id === laneId);

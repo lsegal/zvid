@@ -61,7 +61,7 @@ const MODIFIERS = [
 const STARTS: Array<[string, LayerTransform]> = [
   ["identity", transform()],
   [
-    "moved, scaled, off-centre origin",
+    "moved, scaled, off-center origin",
     transform({
       positionX: 0.1,
       positionY: -0.2,
@@ -186,7 +186,7 @@ describe("resizeTransform", () => {
     assertClose(at({ x: 1, y: 0 }, next).x, 600);
   });
 
-  it("grows symmetrically about the centre with Ctrl/Cmd", () => {
+  it("grows symmetrically about the center with Ctrl/Cmd", () => {
     const { transform: next } = resizeTransform(
       transform(),
       { x: 1, y: 0 },
@@ -201,7 +201,7 @@ describe("resizeTransform", () => {
     assertClose(at({ x: 1, y: 0 }, next).x, 600);
   });
 
-  it("uses the box centre, not the origin, for Ctrl/Cmd", () => {
+  it("uses the box center, not the origin, for Ctrl/Cmd", () => {
     const start = transform({ originX: 1, originY: 1 });
     const { transform: next } = resizeTransform(
       start,
@@ -214,7 +214,7 @@ describe("resizeTransform", () => {
     assertPointClose(at({ x: 0, y: 0 }, next), at({ x: 0, y: 0 }, start));
   });
 
-  it("scales the other axis with Shift on an edge, centred on it", () => {
+  it("scales the other axis with Shift on an edge, centered on it", () => {
     const { transform: next } = resizeTransform(
       transform(),
       { x: 1, y: 0 },
@@ -401,7 +401,7 @@ describe("moveOrigin", () => {
     assert.equal(next.originY, -1);
   });
 
-  it("resets to the centre without moving the layer", () => {
+  it("resets to the center without moving the layer", () => {
     const start = transform({
       originX: 0.7,
       originY: 0.2,
@@ -426,7 +426,7 @@ describe("moveOrigin", () => {
 });
 
 describe("snapOriginPoint", () => {
-  it("snaps to the centre, corners and edge midpoints nearby", () => {
+  it("snaps to the center, corners and edge midpoints nearby", () => {
     const start = transform({ rotationDeg: 20 });
     for (const local of [
       { x: 0, y: 0 },

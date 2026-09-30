@@ -83,8 +83,8 @@ export function createFillClip({
   };
 }
 
-// The Color effect's starting colour for a layer: its accent when it has
-// one, otherwise neutral grey.
+// The Color effect's starting color for a layer: its accent when it has
+// one, otherwise neutral gray.
 export function getDefaultFillColor(layerAccent: string | undefined) {
   const color = parseCssColor(layerAccent);
   return color ? formatCssColor(color) : NEUTRAL_FILL_COLOR;

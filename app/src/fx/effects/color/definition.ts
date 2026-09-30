@@ -13,7 +13,7 @@ export const menuOrder = 100;
 export const definition: FxEffectDefinition = {
   effectName: COLOR_EFFECT_NAME,
   displayName: "Color",
-  description: "Paints fill clips a solid colour or a gradient.",
+  description: "Paints fill clips a solid color or a gradient.",
   accent: "#ffd166",
   known: true,
   // A fill clip carries its own Color; one on the layer paints the layer's

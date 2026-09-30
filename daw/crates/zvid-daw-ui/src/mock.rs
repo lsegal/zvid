@@ -423,7 +423,7 @@ fn device_format_of(camera: &str) -> VideoFormat {
     }
 }
 
-/// A scrolling colour-bar pattern with a sweep line, as JPEG.
+/// A scrolling color-bar pattern with a sweep line, as JPEG.
 fn test_pattern(width: u32, height: u32, frame: u64, capturing: bool) -> Vec<u8> {
     const BARS: [[u8; 3]; 7] = [
         [192, 192, 192],

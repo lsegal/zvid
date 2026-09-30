@@ -79,7 +79,7 @@ describe("addTextClip", () => {
     const text = result.effects.find((effect) => effect.id === "text-effect");
     assert.equal(text?.trackId, "clip:text-a");
     assert.equal(text?.effectName, "Text");
-    // "Text" in the default font, white and centred.
+    // "Text" in the default font, white and centered.
     const style = resolveTextStyle(result.effects, "1", "clip:text-a");
     assert.equal(style.text, "Text");
     assert.equal(style.font, "Inter");

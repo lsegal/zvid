@@ -1,7 +1,7 @@
 """Renders the opening sample's clean source clips at 1920x1080, 30 fps.
 
 The motion is procedural, from the approval animatic's `render_proposal.py`
-(`art`) with its v2 colour treatment (`render_v2.py`, `source`), scaled to
+(`art`) with its v2 color treatment (`render_v2.py`, `source`), scaled to
 the final resolution. Only the clean sources are rendered here: every cut,
 arrangement, effect and title in the sample is built natively in zvid.
 
@@ -23,7 +23,7 @@ S = W / 960  # The animatic's 960x540 geometry, scaled up.
 FPS = 30
 BG = (5, 9, 18)
 
-# Name, dark and light colour of each source.
+# Name, dark and light color of each source.
 SOURCES = [
     ("orbit", (12, 61, 89), (87, 246, 206)),
     ("ribbon", (89, 23, 69), (255, 178, 95)),

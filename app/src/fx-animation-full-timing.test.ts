@@ -80,7 +80,7 @@ describe("Full clip timing", () => {
     assert.ok(spacingAt(108, 0.375, 3) < 27);
   });
 
-  it("keeps the Order's border colour while the spacing tweens", () => {
+  it("keeps the Order's border color while the spacing tweens", () => {
     const parameters = resolveClipAnimatedParameters(
       {
         effectName: "Order",

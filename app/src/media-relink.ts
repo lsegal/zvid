@@ -41,7 +41,7 @@ export function relinkCandidatesFromSelection(selection: MediaSelection) {
 
 /**
  * Asks the user for replacement media: one file, several files, or a folder.
- * Null when the picker is cancelled.
+ * Null when the picker is canceled.
  */
 export async function pickRelinkCandidates(mode: "file" | "files" | "folder") {
   const harness = getHarness();

@@ -148,7 +148,7 @@ export function useTimelineViewport({
       quarter: index * barLength,
     }));
   }, [barLength, totalQuarters]);
-  // Zoomed far out, only every 2nd, 4th, 8th... bar is labelled.
+  // Zoomed far out, only every 2nd, 4th, 8th... bar is labeled.
   const rulerLabelBarStep = getBarStep(
     barLength * quarterPx,
     RULER_LABEL_MIN_PX[timelineMode],

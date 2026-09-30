@@ -1,6 +1,6 @@
-// The paint a fill clip draws: a solid colour or a linear/radial gradient,
-// read from the Color effect on the clip or its layer. Colours and
-// gradients are stored as the CSS strings the colour picker produces, such
+// The paint a fill clip draws: a solid color or a linear/radial gradient,
+// read from the Color effect on the clip or its layer. Colors and
+// gradients are stored as the CSS strings the color picker produces, such
 // as `rgba(255,0,0,1)` or `linear-gradient(90deg, rgba(0,0,0,1) 0%, ...)`,
 // so the timeline can show them directly and the compositor parses them
 // here.
@@ -144,8 +144,8 @@ function parseAngle(text: string) {
   return side === undefined ? undefined : SIDE_ANGLES[side];
 }
 
-// A stop is a colour optionally followed by a percentage position. Stops
-// without one are spread evenly between their neighbours, as in CSS.
+// A stop is a color optionally followed by a percentage position. Stops
+// without one are spread evenly between their neighbors, as in CSS.
 function parseStops(parts: string[]) {
   const raw = parts.map((part) => {
     const match = /^(.*?)(?:\s+(-?[\d.]+)%)?$/.exec(part.trim());
@@ -244,7 +244,7 @@ function sampleStops(stops: readonly GradientStop[], t: number): Rgba {
 }
 
 /**
- * The paint's colour at pixel centre (`x`, `y`) of a `width` × `height`
+ * The paint's color at pixel center (`x`, `y`) of a `width` × `height`
  * frame, with `y` growing downwards, following CSS gradient geometry.
  */
 export function sampleFillPaint(

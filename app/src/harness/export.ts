@@ -9,6 +9,10 @@ import {
   QUALITY_HIGH,
 } from "mediabunny";
 import type {
+  EncodableVideoCodec,
+  VideoCodecSupport,
+} from "../session-settings";
+import type {
   ExportRequest,
   ExportResult,
   SaveMethod,
@@ -19,6 +23,36 @@ import {
   encodeThumbnail,
   getThumbnailFrameIndex,
 } from "./export-thumbnail";
+
+// Session Settings' codec names, as mediabunny calls them.
+const PROBED_CODECS = {
+  h264: "avc",
+  hevc: "hevc",
+  av1: "av1",
+} as const satisfies Record<EncodableVideoCodec, string>;
+
+// Which codecs this device can encode at the given size and bitrate. The
+// desktop app encodes video in its webview too, so this holds there as well.
+export async function probeVideoCodecSupport(
+  width: number,
+  height: number,
+  bitrate: number,
+): Promise<VideoCodecSupport> {
+  const entries = await Promise.all(
+    (Object.keys(PROBED_CODECS) as EncodableVideoCodec[]).map(
+      async (codec) =>
+        [
+          codec,
+          await canEncodeVideo(PROBED_CODECS[codec], {
+            width,
+            height,
+            bitrate,
+          }).catch(() => false),
+        ] as const,
+    ),
+  );
+  return Object.fromEntries(entries);
+}
 
 type NativeMux = (
   video: Uint8Array,

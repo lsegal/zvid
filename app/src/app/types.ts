@@ -3,6 +3,7 @@ import type { MenuPoint } from "../context-menu.ts";
 import type { SessionEffect } from "../fx-stack.ts";
 import type { LaneSelectionGesture } from "../lane-selection-gesture.ts";
 import type { MediaAvailability, MediaItem, MediaKind } from "../media.ts";
+import type { SessionEncoding } from "../session-settings.ts";
 import type { SnapMode } from "../timeline-grid.ts";
 
 export type TimelineMode = "musical" | "timecode";
@@ -185,6 +186,8 @@ export type ProjectState = {
   fps: number;
   canvasWidth: number;
   canvasHeight: number;
+  // The export encoding from Session Settings; unset reads as the defaults.
+  encoding?: SessionEncoding;
   zoom: number;
   sessionName: string | null;
   mediaItems: MediaItem[];

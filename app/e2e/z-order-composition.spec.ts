@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 // Without an enabled Order effect the compositor doesn't arrange the layers:
 // each one covers the whole canvas and Layer 1 is drawn last, on top. Two
-// full-frame fill layers are rendered in real WebGL and the canvas centre is
+// full-frame fill layers are rendered in real WebGL and the canvas center is
 // sampled.
 
 type Rgb = [number, number, number];
