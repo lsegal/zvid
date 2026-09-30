@@ -2,8 +2,10 @@
   position: sticky;
   top: 0;
   z-index: 8;
+  /* No backdrop-filter: the ruler holds the playhead marker, so a blur here
+     is recomputed on every playback frame, which WebKit does on the main
+     thread. At this opacity it was barely visible. */
   background: rgba(35, 37, 52, 0.94);
-  backdrop-filter: blur(12px);
 }
 
 .ruler-row__content {
