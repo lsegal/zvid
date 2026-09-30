@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { buildStatusItems } from "./status-bar/registry.ts";
 import {
-  buildStatusItems,
   formatStatusAudio,
   formatStatusPlayhead,
   type StatusItemsState,

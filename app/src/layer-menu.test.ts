@@ -2,13 +2,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { ContextMenuEntry, ContextMenuItem } from "./context-menu.ts";
 import { addableEffectsFor } from "./fx-chain.ts";
+import { layerHistoryLabels, MAX_LAYERS_MESSAGE } from "./layer-menu.ts";
+import { buildMainAudioMenuEntries } from "./menus/audio-menu.ts";
 import {
   buildLayerMenuEntries,
-  buildMainAudioMenuEntries,
   type LayerMenuActions,
-  layerHistoryLabels,
-  MAX_LAYERS_MESSAGE,
-} from "./layer-menu.ts";
+} from "./menus/layer-menu.ts";
 import { MAX_LAYERS } from "./selection-overlaps.ts";
 
 function lanes(count: number) {
