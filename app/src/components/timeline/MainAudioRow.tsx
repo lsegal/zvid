@@ -10,7 +10,7 @@ import {
 import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
 import { MainWaveform } from "../../MainWaveform";
 import type { useMenus } from "../../menus/useMenus.ts";
-import { getMediaSyncClassName } from "../../peer-media-sync.ts";
+import { getMediaSyncClassName } from "../../remote-media-sync.ts";
 import { MediaSyncSkeleton } from "../MediaSyncSkeleton";
 
 type MainAudioRowProps = {

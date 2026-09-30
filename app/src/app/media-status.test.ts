@@ -5,6 +5,7 @@ import type { MediaItem } from "../media.ts";
 import {
   describeSessionMediaStatus,
   isInSharedMediaSession,
+  listRemoteMediaMisses,
   listSessionMediaSync,
   listSessionOfflineMedia,
 } from "./media-status.ts";
@@ -128,12 +129,24 @@ describe("listSessionMediaSync", () => {
       sourceSpans: [],
       mainAudioId: undefined,
       progress: new Map(),
-      misses: new Set(),
+      misses: new Map(),
       inSharedSession: false,
     });
     assert.deepEqual(
       entries.map((entry) => [entry.id, entry.role, entry.state]),
       [["a", "arrangement", "offline"]],
+    );
+  });
+});
+
+describe("listRemoteMediaMisses", () => {
+  it("records which source failed each file", () => {
+    assert.deepEqual(
+      [...listRemoteMediaMisses(new Set(["p"]), new Set(["s"]))],
+      [
+        ["p", "peer"],
+        ["s", "url"],
+      ],
     );
   });
 });

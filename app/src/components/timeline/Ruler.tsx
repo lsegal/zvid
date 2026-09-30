@@ -18,7 +18,7 @@ type RulerProps = {
   sessionName: string | null;
   mediaSyncStatusLabel: string | null;
   offlineCount: number;
-  inSharedMediaSession: boolean;
+  showsMediaSync: boolean;
   relinkingMediaIds: ReadonlySet<string>;
   sessionMediaStatus: string;
   setIsMediaSyncDialogOpen: (open: boolean) => void;
@@ -53,7 +53,7 @@ export function Ruler({
   sessionName,
   mediaSyncStatusLabel,
   offlineCount,
-  inSharedMediaSession,
+  showsMediaSync,
   relinkingMediaIds,
   sessionMediaStatus,
   setIsMediaSyncDialogOpen,
@@ -112,7 +112,7 @@ export function Ruler({
             <button
               className="track-label__offline"
               onClick={() =>
-                inSharedMediaSession
+                showsMediaSync
                   ? setIsMediaSyncDialogOpen(true)
                   : setIsOfflineMediaDialogOpen(true)
               }

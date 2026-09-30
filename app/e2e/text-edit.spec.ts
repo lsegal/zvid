@@ -272,7 +272,22 @@ test("the transform handles step aside while editing text", async ({
       "playback",
       async () => {
         await page.getByRole("button", { name: "Play timeline" }).click();
-        await page.getByRole("button", { name: "Pause playback" }).click();
+        await expect(editor).toHaveCount(0);
+        // A slow runner can play past the clip, or to the end, before a
+        // pause lands. A click on the ruler stops playback on the clip
+        // instead, and keeps the selection.
+        const clipBox = await clip.boundingBox();
+        const ruler = await page.locator(".ruler-row__content").boundingBox();
+        if (!clipBox || !ruler) {
+          throw new Error("Text clip is not visible");
+        }
+        await page.mouse.click(
+          clipBox.x + clipBox.width / 2,
+          ruler.y + ruler.height / 2,
+        );
+        await expect(
+          page.getByRole("button", { name: "Play timeline" }),
+        ).toBeVisible();
       },
     ],
   ];

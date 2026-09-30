@@ -30,8 +30,8 @@ import {
   describeMediaSync,
   formatMediaSyncLabel,
   getMediaSyncClassName,
-  type PeerMediaProgressMap,
-} from "../../peer-media-sync.ts";
+  type RemoteMediaProgressMap,
+} from "../../remote-media-sync.ts";
 import { isTextClip } from "../../text-clip.ts";
 import { getTextPreview, resolveTextStyle } from "../../text-style.ts";
 import {
@@ -52,7 +52,7 @@ export type ClipCardContext = {
   mediaItemsById: ReadonlyMap<string, MediaItem>;
   thumbnails: ThumbnailSnapshot;
   clipFilmstrips: ReadonlyMap<string, Filmstrip>;
-  peerMediaProgress: PeerMediaProgressMap;
+  remoteMediaProgress: RemoteMediaProgressMap;
   // The stacks as drawn, with a Ctrl/Cmd-drag duplicate's copied stack.
   timelineEffects: SessionEffect[];
   effects: SessionEffect[];
@@ -84,7 +84,7 @@ export function ClipCard({
   mediaItemsById,
   thumbnails,
   clipFilmstrips,
-  peerMediaProgress,
+  remoteMediaProgress,
   timelineEffects,
   effects,
   prefersReducedMotion,
@@ -122,7 +122,7 @@ export function ClipCard({
       ? clipFilmstrips.get(clip.id)
       : undefined;
   const mediaSync = media
-    ? describeMediaSync(peerMediaProgress.get(media.id), media.availability)
+    ? describeMediaSync(remoteMediaProgress.get(media.id), media.availability)
     : null;
   // As the compositor draws it: the clip's own
   // Color or Text first, else its layer's.

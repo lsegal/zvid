@@ -16,8 +16,8 @@ import {
   describeMediaSync,
   formatMediaSyncLabel,
   getMediaSyncClassName,
-  type PeerMediaProgressMap,
-} from "../../peer-media-sync.ts";
+  type RemoteMediaProgressMap,
+} from "../../remote-media-sync.ts";
 import { isSourceClipDropClick } from "../../source-clip-drop.ts";
 import {
   getThumbnailCacheKey,
@@ -32,7 +32,7 @@ export type SourceSpanContext = {
   mediaItemsById: ReadonlyMap<string, MediaItem>;
   thumbnails: ThumbnailSnapshot;
   spanFilmstrips: ReadonlyMap<string, Filmstrip>;
-  peerMediaProgress: PeerMediaProgressMap;
+  remoteMediaProgress: RemoteMediaProgressMap;
   prefersReducedMotion: boolean;
   revealedMediaIds: ReadonlySet<string>;
   clipMenu: ClipMenuState | null;
@@ -52,7 +52,7 @@ export function SourceSpan({
   mediaItemsById,
   thumbnails,
   spanFilmstrips,
-  peerMediaProgress,
+  remoteMediaProgress,
   prefersReducedMotion,
   revealedMediaIds,
   clipMenu,
@@ -78,7 +78,7 @@ export function SourceSpan({
       ? spanFilmstrips.get(clip.id)
       : undefined;
   const mediaSync = media
-    ? describeMediaSync(peerMediaProgress.get(media.id), media.availability)
+    ? describeMediaSync(remoteMediaProgress.get(media.id), media.availability)
     : null;
 
   return (
