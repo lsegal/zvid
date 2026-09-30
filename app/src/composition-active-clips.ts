@@ -33,8 +33,10 @@
 import { type ClipWarp, warpSourceTime } from "./clip-warp.ts";
 import {
   type CompositionOrder,
-  findCompositionOrder,
+  findOrderEffect,
   isOrderEffectName,
+  parseCompositionOrder,
+  Z_ORDER_COMPOSITION,
 } from "./composition-order.ts";
 import {
   isMoveEffectName,
@@ -50,7 +52,12 @@ import {
   isColorEffectName,
   resolveFillPaint,
 } from "./fill-paint.ts";
-import { resolveAnimatedEffects } from "./fx-animation.ts";
+import {
+  type AnimationClipContext,
+  reactsToAudio,
+  resolveAnimatedEffects,
+} from "./fx-animation.ts";
+import { resolveOrderSlide } from "./fx-animation-clip.ts";
 import type { EffectAnimation } from "./fx-animation-defaults.ts";
 import type { AudioBands } from "./fx-shaders/audio-bands.ts";
 import {
@@ -173,6 +180,9 @@ export type ActiveClip = {
 };
 
 export const GROUP_TRACK_ID = "__group_main";
+
+// The frame rate of a session that doesn't say.
+export const DEFAULT_FPS = 30;
 
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.max(minimum, Math.min(maximum, value));
@@ -416,6 +426,15 @@ export function resolveVisualState(
   return state;
 }
 
+// Whether `effect` needs the main audio's bands: shader-chain effects and
+// Reactive animations follow them.
+export function effectUsesAudio(effect: SessionEffect) {
+  return (
+    effect.enabled !== false &&
+    (isChainEffectName(effect.effectName) || reactsToAudio(effect))
+  );
+}
+
 export function computeActiveClips(
   clips: ArrangementClip[],
   mediaById: Map<string, MediaItem>,
@@ -423,6 +442,8 @@ export function computeActiveClips(
   bpm: number,
   lanePriority: Map<string, number>,
   sessionEffects: SessionEffect[],
+  // The session's frame rate, which animation timings are counted in.
+  fps = DEFAULT_FPS,
   // The main audio at this frame, for effects that react to it.
   audio?: AudioBands,
 ): ActiveClip[] {
@@ -468,27 +489,17 @@ export function computeActiveClips(
         (lanePriority.get(right.clip.laneId) ?? Number.MAX_SAFE_INTEGER),
     )
     .map<ActiveClip>(({ clip, media }) => {
-      const clipElapsedSeconds = quartersToSeconds(
-        playheadQ - clip.startQ,
-        bpm,
-      );
       const laneRank = lanePriority.get(clip.laneId) ?? -1;
-      const clipProgress =
-        clip.durationSeconds > 0
-          ? clamp(clipElapsedSeconds / clip.durationSeconds, 0, 1)
-          : 0;
-      // The parameters every effect is drawn with for this clip and frame.
-      const effects = resolveAnimatedEffects(
-        sessionEffects,
-        {
-          clipId: clip.id,
-          laneId: clip.laneId,
-          progress: clipProgress,
-          elapsedSeconds: clipElapsedSeconds,
-          durationSeconds: clip.durationSeconds,
-        },
-        { playheadQ, bpm, audio },
-      );
+      const clipContext = animationClipContext(clip, playheadQ, bpm);
+      const clipProgress = clipContext.progress;
+      // The parameters every effect is drawn with for this clip and frame,
+      // so a layer or Global effect animates with each clip on its own.
+      const effects = resolveAnimatedEffects(sessionEffects, clipContext, {
+        playheadQ,
+        bpm,
+        fps,
+        audio,
+      });
       if (clip.kind === "fx") {
         // Only the FX clip's own stack adjusts what is beneath it, so an FX
         // clip without effects changes nothing.
@@ -510,7 +521,7 @@ export function computeActiveClips(
           effectChain: resolveEffectChain(effects, clipEffectTrackId(clip.id)),
           fx: true,
           ...withOrder(
-            findCompositionOrder(effects, clipEffectTrackId(clip.id)),
+            findAnimatedOrder(effects, clipEffectTrackId(clip.id), fps),
           ),
         };
       }
@@ -575,6 +586,72 @@ export function computeActiveClips(
         effectChain: resolveClipEffectChain(effects, clip),
       };
     });
+}
+
+function animationClipContext(
+  clip: ArrangementClip,
+  playheadQ: number,
+  bpm: number,
+): AnimationClipContext {
+  const elapsedSeconds = quartersToSeconds(playheadQ - clip.startQ, bpm);
+  return {
+    clipId: clip.id,
+    laneId: clip.laneId,
+    progress:
+      clip.durationSeconds > 0
+        ? clamp(elapsedSeconds / clip.durationSeconds, 0, 1)
+        : 0,
+    elapsedSeconds,
+    durationSeconds: clip.durationSeconds,
+  };
+}
+
+// The effects whole-frame work is drawn with: the Global chain (Zoom & Pan
+// among it) and the Global Order act on every layer at once, so they animate
+// with the topmost active clip, the first of `activeClips`. With no active
+// clip they are drawn as set.
+export function resolveFrameEffects<T extends SessionEffect>(
+  effects: T[],
+  activeClips: readonly Pick<ActiveClip, "clip">[],
+  playheadQ: number,
+  bpm: number,
+  fps = DEFAULT_FPS,
+): T[] {
+  const topmost = activeClips[0]?.clip;
+  return topmost
+    ? resolveAnimatedEffects(
+        effects,
+        animationClipContext(topmost, playheadQ, bpm),
+        { playheadQ, bpm, fps },
+      )
+    : effects;
+}
+
+// The arrangement the last enabled Order effect on the `trackId` stack
+// sets, with the slides its Clip-mode animation gives the layers at `fps`,
+// or undefined when the stack has none.
+export function findAnimatedOrder(
+  effects: readonly SessionEffect[],
+  trackId: string,
+  fps = DEFAULT_FPS,
+): CompositionOrder | undefined {
+  const effect = findOrderEffect(effects, trackId);
+  if (!effect) {
+    return undefined;
+  }
+  const order = parseCompositionOrder(effect.parameters);
+  const slide = resolveOrderSlide(effect.animation, fps);
+  return slide ? { ...order, slide } : order;
+}
+
+// The arrangement the compositor uses: the Global Order, animated, or the
+// z-order overlay when there is none.
+export function resolveAnimatedOrder(
+  effects: readonly SessionEffect[],
+  globalTrackId: string,
+  fps = DEFAULT_FPS,
+): CompositionOrder {
+  return findAnimatedOrder(effects, globalTrackId, fps) ?? Z_ORDER_COMPOSITION;
 }
 
 function withOrder(order: CompositionOrder | undefined) {

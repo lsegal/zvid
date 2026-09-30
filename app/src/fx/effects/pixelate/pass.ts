@@ -1,10 +1,14 @@
-import { clampUnit, type EffectPass, readEffectNumber } from "./types.ts";
+import {
+  clampUnit,
+  type EffectPass,
+  readEffectNumber,
+} from "../../../fx-shaders/types.ts";
 
 // Snaps the image to square blocks. `_NumPixels` (0..1) sets the base amount
 // on an exponential curve from 1px up to 1/8 of the short edge, and hits in the
 // low and high audio bands push it further, scaled by `_LowIntensity` and
 // `_HighIntensity`.
-export const pixelatePass: EffectPass = {
+export const pass: EffectPass = {
   effectName: "Pixelate",
   fragmentSource: `
     uniform sampler2D uTex;

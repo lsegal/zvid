@@ -2,7 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import "./text-fonts.css";
-import App from "./App.tsx";
+import AppRoot from "./AppRoot.tsx";
 import { installHarness } from "./harness";
 import { ZVID_VERSION } from "./version";
 
@@ -19,7 +19,7 @@ async function bootstrap() {
 
   createRoot(rootElement).render(
     <StrictMode>
-      <App />
+      <AppRoot />
     </StrictMode>,
   );
 }

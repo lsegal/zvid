@@ -17,6 +17,7 @@ import {
   CompositionRenderer,
   type CompositionRendererState,
 } from "./CompositionPlayer";
+import { DEFAULT_FPS } from "./composition-active-clips.ts";
 import {
   type LayoutAnchor,
   resolveSlotBounds,
@@ -228,6 +229,7 @@ function buildState(
     lanes,
     effects,
     bpm: BPM,
+    fps: DEFAULT_FPS,
     canvasWidth: CANVAS_WIDTH,
     canvasHeight: CANVAS_HEIGHT,
   };

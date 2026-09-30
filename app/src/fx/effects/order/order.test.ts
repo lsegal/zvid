@@ -13,7 +13,7 @@ import {
   toggleLayerId,
   visibleLayerCount,
   Z_ORDER_COMPOSITION,
-} from "./composition-order.ts";
+} from "./order.ts";
 
 const GLOBAL = "__group_main";
 const BLACK = { r: 0, g: 0, b: 0, a: 1 };

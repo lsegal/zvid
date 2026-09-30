@@ -3,7 +3,7 @@ import {
   type EffectParameter,
   type EffectPass,
   readEffectNumber,
-} from "./types.ts";
+} from "../../../fx-shaders/types.ts";
 
 // (zoom, x, y) framing for one end of the move, each clamped to 0..1. The .lvp
 // Y runs top-down; `bottomUp` flips it to match a bottom-up texture.
@@ -26,7 +26,7 @@ export function readZoomFraming(
 // texture. Layer textures are uploaded top row first (UNPACK_FLIP_Y off), so
 // vUv.y already runs top-down and the .lvp Y is used without flipping; the
 // group stack's offscreen scene is bottom-up, so its Y is flipped instead.
-export const zoomAndPanPass: EffectPass = {
+export const pass: EffectPass = {
   effectName: "ZoomAndPan",
   fragmentSource: `
     uniform sampler2D uTex;

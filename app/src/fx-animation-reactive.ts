@@ -22,8 +22,7 @@ export type ReactiveEffect = {
   parameters: ReactiveParameter[];
 };
 
-// Timing frames are counted at this rate so preview and export agree at any
-// frame rate.
+// Timing frames are counted at this rate when no session frame rate is given.
 export const REACTIVE_FRAME_RATE = 30;
 
 // A knob swings by at most this fraction of its range at full amplitude.
@@ -64,18 +63,18 @@ export type ReactiveImpulse = {
 };
 
 // The envelope running at `time` (seconds), or undefined when none is. Each
-// hit starts an envelope `lengthFrames` long; a hit while one is running
-// restarts it at the larger of the two strengths.
+// hit starts an envelope `lengthFrames` long at `fps`; a hit while one is
+// running restarts it at the larger of the two strengths.
 export function findReactiveImpulse(
   onsets: readonly ReactiveOnset[],
   time: number,
   lengthFrames: number,
+  fps = REACTIVE_FRAME_RATE,
 ): ReactiveImpulse | undefined {
-  if (!(lengthFrames > 0)) {
+  if (!(lengthFrames > 0) || !(fps > 0)) {
     return undefined;
   }
-  const framesBetween = (from: number, to: number) =>
-    (to - from) * REACTIVE_FRAME_RATE;
+  const framesBetween = (from: number, to: number) => (to - from) * fps;
   const isRunning = (start: number, at: number) =>
     framesBetween(start, at) < lengthFrames - FRAME_EPSILON;
 
@@ -140,6 +139,8 @@ export function reactiveOffset(effectId: string, key: string, seed: number) {
 export type ReactiveOptions = {
   // Seconds from the timeline start.
   time: number;
+  // The session's frame rate, which the Timing is counted in.
+  fps?: number;
   onsets: readonly ReactiveOnset[];
   rangeScale?: number;
 };
@@ -164,6 +165,7 @@ export function resolveReactiveParameters(
     options.onsets,
     options.time,
     getReactiveTimingFrames(effect.effectName, reactive.timing),
+    options.fps,
   );
   if (!impulse) {
     return effect.parameters;

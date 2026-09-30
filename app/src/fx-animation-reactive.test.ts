@@ -113,6 +113,20 @@ describe("findReactiveImpulse", () => {
     assert.equal(findReactiveImpulse(onsets, 1.4, 12), undefined);
   });
 
+  it("counts the timing's frames at the session frame rate", () => {
+    const onsets = [{ time: 1, strength: 1 }];
+    // 12 frames last 0.2 s at 60 fps and 0.5 s at 24 fps.
+    assert.ok(
+      Math.abs((findReactiveImpulse(onsets, 1.1, 12, 60)?.u ?? 0) - 0.5) < 1e-9,
+    );
+    assert.equal(findReactiveImpulse(onsets, 1.2, 12, 60), undefined);
+    assert.ok(
+      Math.abs((findReactiveImpulse(onsets, 1.25, 12, 24)?.u ?? 0) - 0.5) <
+        1e-9,
+    );
+    assert.equal(findReactiveImpulse(onsets, 1.25, 12, 0), undefined);
+  });
+
   it("restarts on a hit during the envelope, keeping the larger strength", () => {
     const onsets = [
       { time: 1, strength: 0.9 },
@@ -300,6 +314,7 @@ describe("resolveAnimatedEffects in Reactive mode", () => {
     const frame = {
       playheadQ: (1.2 * bpm) / 60,
       bpm,
+      fps: 30,
       audio: {
         low: 0,
         high: 0,

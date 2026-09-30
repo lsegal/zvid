@@ -6,11 +6,6 @@
 // so with an Order a transformed layer never leaves its slot. Everything here is in canvas pixels, origin
 // top-left, +y down, with positive rotation turning clockwise on screen.
 import type { FrameBounds } from "./composition-layout.ts";
-import {
-  easeMotion,
-  type MotionCurve,
-  parseMotionCurve,
-} from "./motion-easing.ts";
 
 export type LayerTransform = {
   // Offset of the box, in canvas widths (x) and heights (y, + down).
@@ -445,102 +440,7 @@ export function matrixQuadAxes(
   };
 }
 
-export const TRANSFORM_EFFECT_NAME = "Transform";
-
-export function isTransformEffectName(effectName: string) {
-  return effectName.trim().toLowerCase() === "transform";
-}
-
-type TransformParameter = {
-  key: string;
-  value: string;
-  numericValue?: number;
-};
-
-// Parameter key, the LayerTransform field it sets, and its range.
-const TRANSFORM_KEYS: Array<[string, keyof LayerTransform, number, number]> = [
-  ["positionx", "positionX", -2, 2],
-  ["positiony", "positionY", -2, 2],
-  ["scalex", "scaleX", 0.05, 8],
-  ["scaley", "scaleY", 0.05, 8],
-  ["originx", "originX", -1, 1],
-  ["originy", "originY", -1, 1],
-  ["rotation", "rotationDeg", -180, 180],
-];
-
-// Reads a Transform effect's parameters by exact key; missing or unreadable
-// values keep their identity default.
-export function parseLayerTransform(
-  parameters: TransformParameter[],
-): LayerTransform {
-  const transform = { ...IDENTITY_TRANSFORM };
-  for (const parameter of parameters) {
-    const key = parameter.key.toLowerCase().replace(/[^a-z0-9]/g, "");
-    const entry = TRANSFORM_KEYS.find(([candidate]) => candidate === key);
-    const numeric =
-      parameter.numericValue ?? Number.parseFloat(parameter.value);
-    if (!entry || !Number.isFinite(numeric)) {
-      continue;
-    }
-
-    const [, field, minimum, maximum] = entry;
-    transform[field] = Math.max(minimum, Math.min(maximum, numeric));
-  }
-
-  return transform;
-}
-
-export const MOVE_EFFECT_NAME = "Move";
-
-export function isMoveEffectName(effectName: string) {
-  return effectName.trim().toLowerCase() === "move";
-}
-
-// A Move effect: a Transform animated from `start` to `end` over each clip
-// it applies to, along its `motion` curve.
-export type LayerMove = {
-  start: LayerTransform;
-  end: LayerTransform;
-  motion: MotionCurve;
-};
-
-// Reads a Move effect's parameters: Transform's keys prefixed with "Start"
-// and "End", and its Motion curve. Missing or unreadable values keep their
-// identity default, as for Transform.
-export function parseLayerMove(parameters: TransformParameter[]): LayerMove {
-  const start: TransformParameter[] = [];
-  const end: TransformParameter[] = [];
-  let motion: string | undefined;
-  for (const parameter of parameters) {
-    const key = parameter.key.toLowerCase().replace(/[^a-z0-9]/g, "");
-    if (key === "motion") {
-      motion = parameter.value;
-    } else if (key.startsWith("start")) {
-      start.push({ ...parameter, key: key.slice("start".length) });
-    } else if (key.startsWith("end")) {
-      end.push({ ...parameter, key: key.slice("end".length) });
-    }
-  }
-
-  return {
-    start: parseLayerTransform(start),
-    end: parseLayerTransform(end),
-    motion: parseMotionCurve(motion),
-  };
-}
-
-// The Transform a Move gives at clip progress `progress` (0 at the clip's
-// start, 1 at its end): each field eased from its start to its end value,
-// exactly `start` at 0 and `end` at 1.
-export function resolveMoveTransform(
-  move: LayerMove,
-  progress: number,
-): LayerTransform {
-  const eased = easeMotion(move.motion, progress);
-  const transform = { ...IDENTITY_TRANSFORM };
-  for (const field of Object.keys(transform) as Array<keyof LayerTransform>) {
-    transform[field] =
-      (1 - eased) * move.start[field] + eased * move.end[field];
-  }
-  return transform;
-}
+// The Transform and Move effects' own parameters, kept here so existing
+// imports still resolve.
+export * from "./fx/effects/move/move.ts";
+export * from "./fx/effects/transform/transform.ts";

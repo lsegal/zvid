@@ -1,8 +1,9 @@
 // Where an effect's Animation modifier changes the parameters it is drawn
 // with. The Clip and Reactive engines plug in behind
-// `resolveAnimatedParameters` from their own modules; an effect whose mode
-// has no engine yet is drawn with its parameters as they are.
+// `resolveAnimatedParameters` from their own modules; an effect in a mode
+// without an engine is drawn with its parameters as they are.
 
+import { resolveClipAnimatedParameters } from "./fx-animation-clip.ts";
 import type { EffectAnimation } from "./fx-animation-defaults.ts";
 import {
   placeOnsets,
@@ -10,7 +11,7 @@ import {
 } from "./fx-animation-reactive.ts";
 import type { AudioBands } from "./fx-shaders/audio-bands.ts";
 
-type AnimatedParameter = {
+export type AnimatedParameter = {
   key: string;
   value: string;
   numericValue?: number;
@@ -37,26 +38,39 @@ export type AnimationClipContext = {
 export type AnimationFrameContext = {
   playheadQ: number;
   bpm: number;
+  // The session's frame rate, which animation timings are counted in.
+  fps: number;
   // The main audio at this frame, which Reactive mode follows.
   audio?: AudioBands;
 };
+
+// Whether `effect`'s animation follows the main audio.
+export function reactsToAudio(effect: Pick<AnimatableEffect, "animation">) {
+  return (
+    effect.animation?.enabled === true && effect.animation.mode === "reactive"
+  );
+}
 
 // The parameters `effect` is drawn with for the clip and frame. Returns
 // `effect.parameters` itself when its animation changes nothing, which is
 // always the case while it is off.
 export function resolveAnimatedParameters(
   effect: AnimatableEffect,
-  _clipContext: AnimationClipContext,
+  clipContext: AnimationClipContext,
   frameContext: AnimationFrameContext,
 ): AnimatedParameter[] {
   const animation = effect.animation;
-  if (animation?.enabled && animation.mode === "reactive") {
+  if (animation?.mode === "clip") {
+    return resolveClipAnimatedParameters(effect, clipContext, frameContext);
+  }
+  if (animation && reactsToAudio(effect)) {
     const time =
       frameContext.bpm > 0
         ? (frameContext.playheadQ * 60) / frameContext.bpm
         : 0;
     return resolveReactiveParameters(effect, animation.reactive, {
       time,
+      fps: frameContext.fps,
       onsets: placeOnsets(frameContext.audio?.onsets, time),
     });
   }
