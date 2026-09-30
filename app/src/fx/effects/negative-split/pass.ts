@@ -1,9 +1,13 @@
-import { clampUnit, type EffectPass, readEffectNumber } from "./types.ts";
+import {
+  clampUnit,
+  type EffectPass,
+  readEffectNumber,
+} from "../../../fx-shaders/types.ts";
 
 // Inverts the image by luminance range: `_LowIntensity` drives the dark half
 // and `_HighIntensity` the bright half, with a soft split at luma 0.5. The
 // hits in the matching audio band boost each side.
-export const negativeSplitPass: EffectPass = {
+export const pass: EffectPass = {
   effectName: "NegativeSplit",
   fragmentSource: `
     uniform sampler2D uTex;

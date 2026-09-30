@@ -1,9 +1,13 @@
-import { clampUnit, type EffectPass, readEffectNumber } from "./types.ts";
+import {
+  clampUnit,
+  type EffectPass,
+  readEffectNumber,
+} from "../../../fx-shaders/types.ts";
 
 // Rotates hue in YIQ space. `_HueOffset` (-1..1) maps to +/-360 degrees and
 // `_Reactivity` scales a hue swing driven by hits detected in the main audio
 // bands (see audio-bands.ts).
-export const colorizePass: EffectPass = {
+export const pass: EffectPass = {
   effectName: "Colorize",
   fragmentSource: `
     uniform sampler2D uTex;

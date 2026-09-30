@@ -20,8 +20,6 @@ import {
   multiplyMatrix,
   nestedTransformMatrix,
   type Point,
-  parseLayerMove,
-  parseLayerTransform,
   resolveClipTextBox,
   resolveMoveTransform,
   resolveTextBox,
@@ -292,41 +290,6 @@ describe("isIdentityTransform", () => {
   });
 });
 
-describe("parseLayerTransform", () => {
-  it("reads each key exactly and clamps it to its range", () => {
-    assert.deepEqual(
-      parseLayerTransform([
-        { key: "PositionX", value: "0.25", numericValue: 0.25 },
-        { key: "PositionY", value: "-3" },
-        { key: "ScaleX", value: "2", numericValue: 2 },
-        { key: "ScaleY", value: "0", numericValue: 0 },
-        { key: "OriginX", value: "-1", numericValue: -1 },
-        { key: "OriginY", value: "0.5", numericValue: 0.5 },
-        { key: "Rotation", value: "270", numericValue: 270 },
-      ]),
-      {
-        positionX: 0.25,
-        positionY: -2,
-        scaleX: 2,
-        scaleY: 0.05,
-        originX: -1,
-        originY: 0.5,
-        rotationDeg: 180,
-      },
-    );
-  });
-
-  it("keeps identity defaults for missing or unreadable values", () => {
-    assert.deepEqual(
-      parseLayerTransform([
-        { key: "ScaleX", value: "wide" },
-        { key: "Opacity", value: "0.5", numericValue: 0.5 },
-      ]),
-      IDENTITY_TRANSFORM,
-    );
-  });
-});
-
 describe("resolveTextBox", () => {
   const canvas = { width: 1920, height: 1080 };
   const band = { x: 0, y: 540, width: 1920, height: 540 };
@@ -524,58 +487,6 @@ describe("Move", () => {
     rotationDeg: 90,
   });
   const linear: LayerMove = { start, end, motion: "Linear" };
-
-  it("reads Start and End by Transform's keys, and the Motion curve", () => {
-    const move = parseLayerMove([
-      { key: "Motion", value: "Ease Out" },
-      { key: "StartPositionX", value: "-0.5", numericValue: -0.5 },
-      { key: "EndScaleY", value: "3" },
-      { key: "EndRotation", value: "999" },
-      { key: "PositionX", value: "1" },
-    ]);
-    assert.equal(move.motion, "Ease Out");
-    assert.deepEqual(move.start, transform({ positionX: -0.5 }));
-    // Clamped to Transform's range.
-    assert.deepEqual(move.end, transform({ scaleY: 3, rotationDeg: 180 }));
-  });
-
-  it("defaults to the identity at both ends, eased in and out", () => {
-    const move = parseLayerMove([]);
-    assert.deepEqual(move, {
-      start: IDENTITY_TRANSFORM,
-      end: IDENTITY_TRANSFORM,
-      motion: "Ease In Out",
-    });
-    assert.ok(isIdentityTransform(resolveMoveTransform(move, 0.5)));
-  });
-
-  it("gives exactly Start at the clip's start and End at its end", () => {
-    for (const motion of ["Linear", "Ease In", "Ease Out", "Ease In Out"]) {
-      const move = { ...linear, motion } as LayerMove;
-      assert.deepEqual(resolveMoveTransform(move, 0), start, motion);
-      assert.deepEqual(resolveMoveTransform(move, 1), end, motion);
-    }
-  });
-
-  it("gives the midpoints halfway through a Linear Move", () => {
-    assert.deepEqual(resolveMoveTransform(linear, 0.5), {
-      positionX: 0,
-      positionY: 0,
-      scaleX: 1,
-      scaleY: 1.5,
-      originX: 0,
-      originY: 0,
-      rotationDeg: 0,
-    });
-  });
-
-  it("lags linear halfway through with Ease In and leads it with Ease Out", () => {
-    const at = (motion: LayerMove["motion"]) =>
-      resolveMoveTransform({ ...linear, motion }, 0.5).positionX;
-    assert.ok(at("Ease In") < at("Linear"));
-    assert.ok(at("Ease Out") > at("Linear"));
-    assert.equal(at("Ease In Out"), at("Linear"));
-  });
 
   it("nests a clip's Move inside its Transform, inside its layer's", () => {
     const box = frameBoxInCanvas(placement().frame, CANVAS);

@@ -29,6 +29,11 @@ jobs:
         working-directory: app
         run: wasm-pack build export-bridge --target web --out-dir pkg
 
+      # The effect registries import src/fx/effects/index.generated.ts, which
+      # is committed; fail when it no longer matches the effect folders.
+      - name: Check generated FX index
+        run: node app/scripts/gen-fx-index.mjs --check
+
       # `pnpm lint` type-checks daw/ui too.
       - name: Install plugin UI dependencies
         run: pnpm --dir daw/ui install --frozen-lockfile

@@ -1,4 +1,8 @@
-import { clampUnit, type EffectPass, readEffectNumber } from "./types.ts";
+import {
+  clampUnit,
+  type EffectPass,
+  readEffectNumber,
+} from "../../../fx-shaders/types.ts";
 
 // Tears horizontal bands, splits the RGB channels and rolls the frame.
 // `_LowMod` and low-band hits drive tearing and roll; `_HighMod` and high-band
@@ -6,7 +10,7 @@ import { clampUnit, type EffectPass, readEffectNumber } from "./types.ts";
 // playhead time, so scrubbing to a time always gives the same frame. The
 // 24 Hz frame counter wraps so the hash stays precise at mediump. `uDown`
 // keeps the roll moving the same way on top-down and bottom-up textures.
-export const analogGlitchPass: EffectPass = {
+export const pass: EffectPass = {
   effectName: "AnalogGlitch",
   fragmentSource: `
     uniform sampler2D uTex;
