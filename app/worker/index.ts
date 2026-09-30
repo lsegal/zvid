@@ -7,8 +7,8 @@ import { handleIceServers, type TurnEnv } from "./turn.ts";
 
 type Env = TurnEnv &
   DownloadsEnv & {
-  ASSETS: Fetcher;
-};
+    ASSETS: Fetcher;
+  };
 
 type VersionInfo = {
   commit?: string;

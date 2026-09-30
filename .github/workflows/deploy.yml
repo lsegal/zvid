@@ -1,25 +1,16 @@
 name: Deploy Worker
 
-# Deploys every merge to main, and again whenever DAW bundles finishes on
-# main, so the ZVID Capture installers the app offers are from the newest
-# successful bundle run.
+# Deploys every merge to main. The ZVID Capture installers are not part of
+# the deploy: the DAW bundles workflow publishes them to the zvid-downloads R2
+# bucket, which the Worker serves at /downloads.
 on:
   push:
-    branches:
-      - main
-  workflow_run:
-    workflows:
-      - DAW bundles
-    types:
-      - completed
     branches:
       - main
   workflow_dispatch:
 
 permissions:
   contents: read
-  # Downloads the DAW bundle artifacts.
-  actions: read
 
 concurrency:
   group: deploy-worker
@@ -27,7 +18,6 @@ concurrency:
 
 jobs:
   deploy:
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -35,13 +25,10 @@ jobs:
 
       - uses: ./.github/actions/setup
 
-      # wrangler.jsonc's build command builds the app and adds the installers
-      # from the latest successful DAW bundles run on main.
+      # wrangler.jsonc's build command builds the app.
       - name: Deploy
         working-directory: app
         run: pnpm exec wrangler deploy
         env:
-          GH_TOKEN: ${{ github.token }}
-          ZVID_REQUIRE_CAPTURE_INSTALLERS: "1"
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}

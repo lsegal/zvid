@@ -73,13 +73,10 @@ export function parseRange(
 }
 
 function etagMatches(header: string | null, object: DownloadObject) {
-  return (
-    header !== null &&
-    header.split(",").some((tag) => {
-      const value = tag.trim().replace(/^W\//, "");
-      return value === "*" || value === object.httpEtag;
-    })
-  );
+  return (header ?? "").split(",").some((tag) => {
+    const value = tag.trim().replace(/^W\//, "");
+    return value === "*" || value === object.httpEtag;
+  });
 }
 
 function notFound() {

@@ -67,7 +67,10 @@ function env() {
 describe("downloadKey", () => {
   it("maps /downloads paths to bucket keys", () => {
     assert.equal(downloadKey(`/downloads/${INSTALLER}`), INSTALLER);
-    assert.equal(downloadKey("/downloads/capture/a%20b.exe"), "capture/a b.exe");
+    assert.equal(
+      downloadKey("/downloads/capture/a%20b.exe"),
+      "capture/a b.exe",
+    );
   });
 
   it("rejects paths that name no object", () => {

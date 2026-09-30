@@ -482,24 +482,25 @@ Files are never moved or collected, so each take stores its own
 ## CI builds
 
 Every push to `main` runs the **DAW bundles** workflow
-(`.github/workflows/daw-bundle.yml`), which uploads two artifacts to the
-workflow run:
+(`.github/workflows/daw-bundle.yml`), which builds two installers:
 
-- `zvid-capture-<version>-<sha>-macos-universal`: the desktop app
-  `zvid.app`, `ZVID Capture.vst3` and `ZVID Capture.component`, arm64 +
-  x86_64, the installer `zvid-capture-<version>+<sha>.pkg`, and the Live
-  companion Remote Script in `live-remote-script/ZVID_Capture`. CI checks
-  both architectures with `lipo -archs`, installs the `.pkg`, verifies the
-  installed app's and bundles' signatures and runs `auval` and pluginval
-  against the installed bundles.
-- `zvid-capture-<version>-<sha>-windows-x64`: the desktop app `zvid.exe`,
-  `ZVID Capture.vst3`, the installer `zvid-capture-<version>+<sha>-setup.exe`
-  and `live-remote-script/ZVID_Capture`. CI runs pluginval against the
-  bundle, then runs the installer silently, checks the app, its Start menu
-  shortcut and the bundle were installed, then uninstalls them.
+- `zvid-capture-macos.pkg`: `ZVID Capture.vst3` and
+  `ZVID Capture.component`, arm64 + x86_64. CI checks both architectures
+  with `lipo -archs`, installs the `.pkg`, verifies the installed bundles'
+  signatures and runs `auval` and pluginval against the installed bundles.
+- `zvid-capture-windows-setup.exe`: `ZVID Capture.vst3`. CI runs pluginval
+  against the bundle, then runs the installer silently, checks the bundle
+  was installed, then uninstalls it.
 
 Both jobs also run the [host integration tests](#host-integration-tests)
-against the release bundles.
+against the release bundles. On `main`, each then uploads its installer to
+the `zvid-downloads` R2 bucket under `capture/`, overwriting the previous
+build's, and a final job writes `capture/manifest.json` (version, commit,
+build time and each installer's size and SHA-256) once both have. The web
+app's Worker serves the bucket at `/downloads`, where **Help › Install
+Capture Plugin** links to them. The installer names carry no version; the
+version is stamped inside them and in the manifest. Pull request runs
+publish nothing.
 
 The desktop app is built first with `pnpm --dir app tauri build` (a
 universal `.app` bundle on macOS, `--no-bundle` on Windows), then each
@@ -584,14 +585,14 @@ release drops them, capture needs the helper-app path from
 
 ### Installing a CI build
 
-Open the run from the repository's **Actions › DAW bundles** page (or run
-the workflow manually for any branch), download the artifact, and unzip it;
-the artifact holds one more zip, which keeps the bundles' symlinks and
-signatures intact, so unzip that too. Then run the installer:
+Download the newest `main` build from the web app (**Help › Install Capture
+Plugin**), or from `/downloads/capture/zvid-capture-macos.pkg` and
+`/downloads/capture/zvid-capture-windows-setup.exe` on the deployed site.
+Then run the installer:
 
-- **macOS.** Open `zvid-capture-<version>+<sha>.pkg`. An unsigned build's
-  installer is blocked by Gatekeeper; Control-click it and choose *Open*.
-- **Windows.** Run `zvid-capture-<version>+<sha>-setup.exe`.
+- **macOS.** Open `zvid-capture-macos.pkg`. An unsigned build's installer is
+  blocked by Gatekeeper; Control-click it and choose *Open*.
+- **Windows.** Run `zvid-capture-windows-setup.exe`.
 
 Then rescan plugins in the host (in Live, *Settings › Plug-Ins › Rescan*).
 
