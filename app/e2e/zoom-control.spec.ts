@@ -58,11 +58,11 @@ test("the slider reaches both ends of the range", async ({ page }) => {
 
 test("the ruler labels fewer bars at 25%", async ({ page }) => {
   const labels = page.locator(".ruler-marker span");
-  const labelled = async () =>
+  const labeled = async () =>
     (await labels.allTextContents()).slice(0, 4).map(Number);
-  expect(await labelled()).toEqual([1, 2, 3, 4]);
+  expect(await labeled()).toEqual([1, 2, 3, 4]);
 
   await stepUntilDisabled(page, "Zoom out");
   // A 4/4 bar is 28px at 25%, so every 2nd bar keeps its number.
-  expect(await labelled()).toEqual([1, 3, 5, 7]);
+  expect(await labeled()).toEqual([1, 3, 5, 7]);
 });

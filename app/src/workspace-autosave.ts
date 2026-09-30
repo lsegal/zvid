@@ -1,5 +1,5 @@
 // Schedules autosaves of the current session. A change is saved about
-// `delayMs` after the last one, serialised in an idle callback so typing and
+// `delayMs` after the last one, serialized in an idle callback so typing and
 // playback stay smooth, and postponed while a drag or scrub is in progress so
 // a gesture is saved once when it ends. `flush` saves pending changes at
 // once, for `pagehide` and `visibilitychange: hidden`.
@@ -63,7 +63,7 @@ export function createWorkspaceAutosave(
   let disposed = false;
   let timer: unknown = null;
   let idlePending = false;
-  // Serialises writes so an older payload never lands after a newer one.
+  // Serializes writes so an older payload never lands after a newer one.
   let writing: Promise<void> = Promise.resolve();
 
   const clearPendingTimer = () => {

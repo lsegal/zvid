@@ -125,7 +125,7 @@ describe("Live set detection", () => {
     );
   });
 
-  it("recognises Ableton's backup copies", () => {
+  it("recognizes Ableton's backup copies", () => {
     assert.equal(isAlsBackupPath("Song Project/Backup/Song [2026].als"), true);
     assert.equal(isAlsBackupPath("Song Project\\backup\\Song.als"), true);
     assert.equal(isAlsBackupPath("Song Project/Song.als"), false);
@@ -717,7 +717,7 @@ describe("Live set media resolution", () => {
 });
 
 describe("formatAlsImportSummary", () => {
-  it("summarises imported, skipped and missing items", () => {
+  it("summarizes imported, skipped and missing items", () => {
     assert.deepEqual(
       formatAlsImportSummary({
         tracks: 3,

@@ -101,7 +101,7 @@ test("a range selection paints over the clips it overlaps", async ({
   expect(clipZ).toBe("auto");
   expect(Number(selectionZ)).toBeGreaterThan(0);
   expect(Number(selectionZ)).toBeLessThan(Number(playheadZ));
-  // The selected clip rises above its neighbours but stays under the range.
+  // The selected clip rises above its neighbors but stays under the range.
   expect(Number(otherRing.zIndex)).toBeGreaterThan(0);
   expect(Number(otherRing.zIndex)).toBeLessThan(Number(selectionZ));
 

@@ -31,7 +31,7 @@ function assertNear(actual: number[], expected: number[], tolerance = 8) {
 }
 
 describe("parseCssColor", () => {
-  it("reads hex colours with and without alpha", () => {
+  it("reads hex colors with and without alpha", () => {
     assert.deepEqual(parseCssColor("#f00"), RED);
     assert.deepEqual(parseCssColor("#0000ff"), BLUE);
     assert.deepEqual(parseCssColor("#ff000080"), {
@@ -100,7 +100,7 @@ describe("parseCssGradient", () => {
 
   it("reads side keywords", () => {
     const gradient = parseCssGradient("linear-gradient(to right, red, blue)");
-    // Named colours are not supported, so the stops fail to parse.
+    // Named colors are not supported, so the stops fail to parse.
     assert.equal(gradient, undefined);
     const sided = parseCssGradient("linear-gradient(to left, #f00, #00f)");
     assert.equal(sided?.kind === "linear" && sided.angleDeg, 270);
@@ -113,7 +113,7 @@ describe("parseCssGradient", () => {
 });
 
 describe("rasterizeFillPaint", () => {
-  it("fills every pixel with a solid colour and its opacity", () => {
+  it("fills every pixel with a solid color and its opacity", () => {
     const raster = rasterizeFillPaint(
       { kind: "solid", color: RED, opacity: 0.5 },
       4,
@@ -158,13 +158,13 @@ describe("rasterizeFillPaint", () => {
     assert.deepEqual(pixelAt(raster, 0, 30), pixelAt(raster, 19, 30));
   });
 
-  it("runs a radial gradient from the centre to the corners", () => {
+  it("runs a radial gradient from the center to the corners", () => {
     const paint: FillPaint = { kind: "radial", stops, opacity: 1 };
     const raster = rasterizeFillPaint(paint, 101, 101);
     assertNear(pixelAt(raster, 50, 50), [255, 0, 0, 255]);
     assertNear(pixelAt(raster, 0, 0), [0, 0, 255, 255]);
     assertNear(pixelAt(raster, 100, 100), [0, 0, 255, 255]);
-    // Points at the same distance from the centre match.
+    // Points at the same distance from the center match.
     assert.deepEqual(pixelAt(raster, 20, 50), pixelAt(raster, 50, 80));
   });
 });

@@ -292,10 +292,10 @@ export function useCollaboration({
       return;
     }
 
-    let cancelled = false;
+    let canceled = false;
     let controller: CollaborationController<ProjectState> | null = null;
     void getSessionIceServers().then((iceServers) => {
-      if (cancelled) {
+      if (canceled) {
         return;
       }
       setCollaborationIceServers(iceServers);
@@ -320,7 +320,7 @@ export function useCollaboration({
     });
 
     return () => {
-      cancelled = true;
+      canceled = true;
       if (controller && collaborationControllerRef.current === controller) {
         collaborationControllerRef.current = null;
       }

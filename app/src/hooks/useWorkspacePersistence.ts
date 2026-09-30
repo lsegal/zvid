@@ -130,7 +130,7 @@ export function useWorkspacePersistence({
   sessionMediaCheckRef,
   setStatus,
 }: WorkspacePersistenceInputs) {
-  // Everything a refresh brings back, read when an autosave serialises.
+  // Everything a refresh brings back, read when an autosave serializes.
   const readWorkspaceSession = (): SavedWorkspaceSession => ({
     history: {
       past: projectHistory.past,

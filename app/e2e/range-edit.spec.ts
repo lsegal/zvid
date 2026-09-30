@@ -32,7 +32,7 @@ function lane(page: Page, id: string) {
 // start and returns its box.
 async function dragSelection(target: Locator, fromX: number, toX: number) {
   const page = target.page();
-  // Centred vertically, so the timeline's sticky header row doesn't cover
+  // Centered vertically, so the timeline's sticky header row doesn't cover
   // the lane when the FX panel leaves the timeline short.
   await target.evaluate(
     (element) =>

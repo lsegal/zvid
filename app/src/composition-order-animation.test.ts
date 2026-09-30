@@ -445,7 +445,7 @@ describe("Order spacing and border tween", () => {
     assert.equal(spacing(1)[0].numericValue, 20);
   });
 
-  it("tweens the border colour from black, linearly in RGBA", () => {
+  it("tweens the border color from black, linearly in RGBA", () => {
     assert.equal(spacing(0)[1].value, "rgba(0,0,0,1)");
     assert.equal(spacing(0.5)[1].value, "rgba(128,0,50,0.75)");
     assert.equal(spacing(1)[1].value, "rgba(255,0,100,0.5)");

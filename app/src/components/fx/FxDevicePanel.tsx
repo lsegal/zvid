@@ -256,7 +256,7 @@ export function FxDevicePanel({
           ) : null}
         </div>
       ) : knobRows ? (
-        // Labelled knob rows (a Move's Start and End), each led by its label.
+        // Labeled knob rows (a Move's Start and End), each led by its label.
         <div
           className="fx-device-panel__body"
           style={{

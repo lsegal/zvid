@@ -38,7 +38,7 @@ async function insertTextClip(page: Page) {
   return clip;
 }
 
-// The centre of the letterboxed video, in page coordinates.
+// The center of the letterboxed video, in page coordinates.
 async function videoCenter(page: Page) {
   return page.locator(".composition-player__canvas").evaluate((canvas) => {
     const bounds = canvas.getBoundingClientRect();
@@ -229,7 +229,7 @@ async function outlineShape(page: Page) {
   };
 }
 
-async function centreOf(page: Page, testId: string) {
+async function centerOf(page: Page, testId: string) {
   const bounds = await page.getByTestId(testId).boundingBox();
   if (!bounds) {
     throw new Error(`${testId} is not visible`);
@@ -297,11 +297,11 @@ test("the transform handles step aside while editing text", async ({
     [
       "rotate zone",
       async () => {
-        const corner = await centreOf(page, "preview-transform-handle-se");
+        const corner = await centerOf(page, "preview-transform-handle-se");
         return { x: corner.x + 12, y: corner.y - 8 };
       },
     ],
-    ["resize handle", () => centreOf(page, "preview-transform-handle-e")],
+    ["resize handle", () => centerOf(page, "preview-transform-handle-e")],
   ];
   for (const [name, pressPoint] of pressPoints) {
     await test.step(`nothing from the ${name} while editing`, async () => {

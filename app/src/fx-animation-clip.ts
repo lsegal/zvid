@@ -122,8 +122,8 @@ function interpolateFromNeutral(
 
 const CSS_COLOR_PATTERN = /#[0-9a-f]{3,8}\b|rgba?\([^)]*\)/gi;
 
-// `value` with the alpha of every CSS colour in it scaled by `weight`, which
-// covers plain colours and each stop of a gradient.
+// `value` with the alpha of every CSS color in it scaled by `weight`, which
+// covers plain colors and each stop of a gradient.
 export function fadeCssColors(value: string, weight: number) {
   return value.replace(CSS_COLOR_PATTERN, (match) => {
     const color = parseCssColor(match);
@@ -133,7 +133,7 @@ export function fadeCssColors(value: string, weight: number) {
 
 const TEXT_COLOR_KEYS = new Set(["Color", "Gradient", "Stroke", "ShadowColor"]);
 
-// `value`, a CSS colour, blended from `from` by `weight`, linearly in RGBA.
+// `value`, a CSS color, blended from `from` by `weight`, linearly in RGBA.
 function blendCssColor(value: string, from: Rgba, weight: number) {
   const color = parseCssColor(value);
   if (!color) {
@@ -153,7 +153,7 @@ const CLIP_ANIMATIONS: ReadonlyMap<
   string,
   (parameters: AnimatedParameter[], weight: number) => AnimatedParameter[]
 > = new Map([
-  // Order's spacing grows from none, and its border colour tweens from the
+  // Order's spacing grows from none, and its border color tweens from the
   // default black. Its slots slide on their own (`resolveOrderSlide`).
   [
     ORDER_EFFECT_NAME,
@@ -168,7 +168,7 @@ const CLIP_ANIMATIONS: ReadonlyMap<
             : parameter,
       ),
   ],
-  // Text has no opacity: it fades in and out through its colours' alpha.
+  // Text has no opacity: it fades in and out through its colors' alpha.
   [
     TEXT_EFFECT_NAME,
     (parameters, weight) =>

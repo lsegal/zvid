@@ -420,7 +420,7 @@ fn keeps_the_take_orientation_when_the_camera_turns_mid_take() {
         );
 
         // Before the turn the picture fills the frame; after it, the 36x48
-        // portrait picture is centred between black bars.
+        // portrait picture is centered between black bars.
         let path = root.path_of(&recorded.filename);
         let luma_at = |sec: f64| {
             let (w, h, rgb) = poster::poster_rgb(&path, sec, 64).unwrap();
@@ -760,7 +760,7 @@ fn maps_encoder_output_to_grid_slots_and_counts_drops() {
 }
 
 #[test]
-fn converts_nv12_to_rgba_and_bgra_with_the_frames_colour() {
+fn converts_nv12_to_rgba_and_bgra_with_the_frames_color() {
     let source = frame(64, 48, 0, 0.0);
     let convert = Converter::new(source.color.bt709, source.color.full_range);
     let rgba = encoder::to_rgb32(&source, 2, 4, 60, 40, false);

@@ -68,7 +68,7 @@ export type FxDevice = {
   // True for a layer's own Layout device. Every visual layer has exactly
   // one, so it can be reset to its defaults but not removed or duplicated.
   layerDefault?: boolean;
-  // Labels for the knob rows, when the knobs split evenly into labelled
+  // Labels for the knob rows, when the knobs split evenly into labeled
   // rows, such as a Move's Start and End.
   knobRows?: readonly string[];
   // True for a device on a stack its effect isn't designed for, such as a

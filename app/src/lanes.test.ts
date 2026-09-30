@@ -180,7 +180,7 @@ describe("deleteLane", () => {
 });
 
 describe("moveLane", () => {
-  it("swaps with the neighbour and keeps ids, clips and effects", () => {
+  it("swaps with the neighbor and keeps ids, clips and effects", () => {
     const project = makeProject();
     const down = moveLane(project, "1", 1);
     assert.deepEqual(

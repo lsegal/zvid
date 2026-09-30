@@ -17,7 +17,7 @@ export { NO_FOOTAGE_TITLE } from "./entries/insert-track.ts";
 export type SelectionMenuTrack = {
   id: string;
   name: string;
-  // CSS colour of the track's swatch.
+  // CSS color of the track's swatch.
   color: string;
   // Whether the track has footage anywhere in the selected range.
   hasFootage: boolean;

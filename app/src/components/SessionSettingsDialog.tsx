@@ -156,16 +156,16 @@ function SessionSettingsForm({
     if (!canProbe) {
       return;
     }
-    let cancelled = false;
+    let canceled = false;
     probeVideoCodecSupport(canvasWidth, canvasHeight, probeBitrate * 1e6)
       .then((result) => {
-        if (!cancelled) {
+        if (!canceled) {
           setSupport(result);
         }
       })
       .catch(() => undefined);
     return () => {
-      cancelled = true;
+      canceled = true;
     };
   }, [canProbe, canvasWidth, canvasHeight, probeBitrate]);
 

@@ -79,19 +79,19 @@ test("the preview selects, outlines and drags a layer", async ({ page }) => {
   await expect(outline).toHaveCount(0);
 
   // Clicking the layer selects and outlines it.
-  const centre = {
+  const center = {
     x: video.left + video.width / 2,
     y: video.top + video.height / 2,
   };
-  await page.mouse.click(centre.x, centre.y);
+  await page.mouse.click(center.x, center.y);
   await expect(outline).toHaveCount(1);
   await expect(
     page.getByRole("region", { name: "Transform", exact: true }),
   ).toHaveCount(0);
 
   // Dragging it most of the way out of frame adds a Transform to the clip's
-  // own stack. The grab is off-centre, clear of the origin marker.
-  const grab = { x: centre.x, y: video.top + video.height * 0.25 };
+  // own stack. The grab is off-center, clear of the origin marker.
+  const grab = { x: center.x, y: video.top + video.height * 0.25 };
   await page.mouse.move(grab.x, grab.y);
   await page.mouse.down();
   await page.mouse.move(grab.x + video.width * 0.3, grab.y, { steps: 4 });
@@ -123,7 +123,7 @@ test("the preview selects, outlines and drags a layer", async ({ page }) => {
   expect(restored?.x ?? 0).toBeLessThanOrEqual(video.left + 1);
 
   // Esc in the focused preview clears the selection.
-  await page.mouse.click(centre.x, centre.y);
+  await page.mouse.click(center.x, center.y);
   await expect(outline).toHaveCount(1);
   await page.keyboard.press("Escape");
   await expect(outline).toHaveCount(0);

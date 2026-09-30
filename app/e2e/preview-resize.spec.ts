@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
 // The selected layer's resize handles and origin marker in the preview:
-// Shift keeps the aspect ratio, Ctrl/Cmd resizes from the centre, dragging
+// Shift keeps the aspect ratio, Ctrl/Cmd resizes from the center, dragging
 // the origin leaves the layer in place, and every drag is one undo step. The
 // controls sit in the unclipped overlay, so they work past the video edge.
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
@@ -47,7 +47,7 @@ async function videoRect(page: Page) {
   });
 }
 
-async function centreOf(locator: Locator) {
+async function centerOf(locator: Locator) {
   const box = await locator.boundingBox();
   if (!box) {
     throw new Error("element is not visible");
@@ -149,7 +149,7 @@ test("the selected layer shows eight handles and an origin marker", async ({
 }) => {
   const video = await selectLayer(page);
   await expect(page.locator("[data-transform-handle]")).toHaveCount(8);
-  const origin = await centreOf(page.getByTestId("preview-transform-origin"));
+  const origin = await centerOf(page.getByTestId("preview-transform-origin"));
   expectClose(origin.x, video.left + video.width / 2);
   expectClose(origin.y, video.top + video.height / 2);
   await expect(page.getByTestId("preview-transform-handle-se")).toHaveCSS(
@@ -162,12 +162,12 @@ test("the selected layer shows eight handles and an origin marker", async ({
   );
 });
 
-test("a corner drag with Shift and Ctrl/Cmd scales proportionally about the centre", async ({
+test("a corner drag with Shift and Ctrl/Cmd scales proportionally about the center", async ({
   page,
 }) => {
   const video = await selectLayer(page);
   const before = await outlineBox(page);
-  const corner = await centreOf(
+  const corner = await centerOf(
     page.getByTestId("preview-transform-handle-se"),
   );
 
@@ -185,7 +185,7 @@ test("a corner drag with Shift and Ctrl/Cmd scales proportionally about the cent
   expect(after.width).toBeLessThan(before.width * 0.9);
   // Proportional: the aspect ratio holds.
   expectClose(after.width / after.height, before.width / before.height, 0.02);
-  // From the centre: it shrank evenly on every side.
+  // From the center: it shrank evenly on every side.
   expectClose(after.x + after.width / 2, before.x + before.width / 2);
   expectClose(after.y + after.height / 2, before.y + before.height / 2);
 
@@ -200,7 +200,7 @@ test("an edge drag resizes one side and keeps the opposite edge", async ({
 }) => {
   const video = await selectLayer(page);
   const before = await outlineBox(page);
-  const edge = await centreOf(page.getByTestId("preview-transform-handle-e"));
+  const edge = await centerOf(page.getByTestId("preview-transform-handle-e"));
 
   await page.mouse.move(edge.x, edge.y);
   await page.mouse.down();
@@ -237,7 +237,7 @@ test("dragging the origin moves the pivot but not the layer", async ({
   const video = await selectLayer(page);
   const before = await outlineBox(page);
   const marker = page.getByTestId("preview-transform-origin");
-  const origin = await centreOf(marker);
+  const origin = await centerOf(marker);
 
   const target = {
     x: video.left + video.width * 0.8,
@@ -245,7 +245,7 @@ test("dragging the origin moves the pivot but not the layer", async ({
   };
   await drag(page, origin, target);
 
-  const moved = await centreOf(marker);
+  const moved = await centerOf(marker);
   expectClose(moved.x, target.x);
   expectClose(moved.y, target.y);
   const after = await outlineBox(page);
@@ -256,18 +256,18 @@ test("dragging the origin moves the pivot but not the layer", async ({
   await expectUndoLabel(page, /^Undo Move origin/);
 
   // It snaps to a corner nearby.
-  const corner = await centreOf(
+  const corner = await centerOf(
     page.getByTestId("preview-transform-handle-ne"),
   );
   await drag(page, moved, { x: corner.x - 4, y: corner.y + 3 });
-  const snapped = await centreOf(marker);
+  const snapped = await centerOf(marker);
   expectClose(snapped.x, corner.x, 1);
   expectClose(snapped.y, corner.y, 1);
 
-  // Double-clicking it puts it back in the centre, still without moving
+  // Double-clicking it puts it back in the center, still without moving
   // the layer.
   await page.mouse.dblclick(snapped.x, snapped.y);
-  const reset = await centreOf(marker);
+  const reset = await centerOf(marker);
   expectClose(reset.x, video.left + video.width / 2);
   expectClose(reset.y, video.top + video.height / 2);
   const unchanged = await outlineBox(page);
@@ -292,7 +292,7 @@ test("handles outside the video area can still be dragged", async ({
   const barY = monitor.y + monitor.height - (video.top + video.height);
   const sideways = barX >= barY;
   expect(Math.max(barX, barY)).toBeGreaterThan(16);
-  // Grab the layer away from the origin marker in its centre.
+  // Grab the layer away from the origin marker in its center.
   const grab = {
     x: video.left + video.width * 0.3,
     y: video.top + video.height * 0.3,
@@ -302,7 +302,7 @@ test("handles outside the video area can still be dragged", async ({
     y: grab.y + (sideways ? 0 : barY / 2),
   });
   const moved = await outlineBox(page);
-  const handle = await centreOf(
+  const handle = await centerOf(
     page.getByTestId(`preview-transform-handle-${sideways ? "e" : "s"}`),
   );
   if (sideways) {

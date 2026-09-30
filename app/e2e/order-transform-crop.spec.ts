@@ -1,7 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 
 // With an Order, a layer's Transform works inside the slot the Order gives
-// it and is cropped to that slot: it never spills into a neighbouring slot
+// it and is cropped to that slot: it never spills into a neighboring slot
 // or the spacing between them. Without an Order the slot is the canvas. The
 // compositor the preview and the export share is driven in real WebGL and
 // sampled.
@@ -17,7 +17,7 @@ type Effect = {
 };
 
 type Scenario = {
-  // Layers, from Layer 1 down: a fill colour, or `fx` for an FX clip
+  // Layers, from Layer 1 down: a fill color, or `fx` for an FX clip
   // "fx-<layer>". Every clip lasts 0-4 s.
   layers: string[];
   effects: Effect[];
@@ -164,7 +164,7 @@ test.describe("Order and Transform", () => {
     await page.goto("/composition-smoke.html");
   });
 
-  test("crops a moved layer to its slot, leaving its neighbour's untouched, at any output size", async ({
+  test("crops a moved layer to its slot, leaving its neighbor's untouched, at any output size", async ({
     page,
   }) => {
     // Layer 1 moves right by 40% of the canvas and Layer 2, drawn after it,

@@ -108,7 +108,7 @@ async function createSourceVideo(layer: number, orientation: Orientation) {
 }
 
 function chainEffect(trackId: string): SessionEffect {
-  // Colorize at zero hue offset is an identity pass, so colours survive the
+  // Colorize at zero hue offset is an identity pass, so colors survive the
   // chain and any change in the band comes from the compositor itself.
   return {
     id: `colorize-${trackId}`,
@@ -253,7 +253,7 @@ function slotRect(index: number, count: number, order: CompositionOrder) {
   };
 }
 
-// Which third of the source shows at the centre of a slot. The source covers
+// Which third of the source shows at the center of a slot. The source covers
 // its slot, so a source relatively taller than the slot shows only a slice,
 // placed by the anchor. Layer effects work on that slice: Zoom & Pan picks
 // its window inside what the slot shows, not inside the whole source.
@@ -290,7 +290,7 @@ function readPixel(gl: WebGLRenderingContext, x: number, yFromTop: number) {
 }
 
 // Black (nothing decoded yet, or the Order's default border) or the
-// compositor's clear colour.
+// compositor's clear color.
 function isEmpty([r, g, b]: Rgb) {
   return r + g + b < 24 || (r < 30 && g < 30 && b < 40 && b > r);
 }

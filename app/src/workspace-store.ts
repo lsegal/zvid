@@ -1,6 +1,6 @@
 // IndexedDB storage for the session that was open when the page closed, so a
 // refresh brings it back. Media blobs stay in the media cache; this store only
-// holds the serialised session (see workspace-session.ts).
+// holds the serialized session (see workspace-session.ts).
 
 const DB_NAME = "zvid-workspace";
 const DB_VERSION = 1;

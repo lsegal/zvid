@@ -296,7 +296,7 @@ describe("knobColumnCount", () => {
     ]);
   });
 
-  it("lays Move out as a Motion row, then labelled Start and End rows", () => {
+  it("lays Move out as a Motion row, then labeled Start and End rows", () => {
     const [move] = mapSessionEffectsToDevices(
       [effect("fx-move", "3", "Move")],
       "3",
@@ -332,7 +332,7 @@ describe("knobColumnCount", () => {
 });
 
 describe("splitKnobRows", () => {
-  it("splits knobs evenly into the labelled rows", () => {
+  it("splits knobs evenly into the labeled rows", () => {
     assert.deepEqual(splitKnobRows([1, 2, 3, 4], ["A", "B"]), [
       { label: "A", knobs: [1, 2] },
       { label: "B", knobs: [3, 4] },
@@ -369,7 +369,7 @@ describe("splitDeviceParameters", () => {
     );
   });
 
-  it("keeps a colour listed before the knobs with the controls", () => {
+  it("keeps a color listed before the knobs with the controls", () => {
     const [color] = mapSessionEffectsToDevices(
       [effect("fx-color", "3", "Color")],
       "3",
@@ -550,7 +550,7 @@ describe("resolveSelectedLaneId", () => {
 describe("stepSelectedLaneId", () => {
   const lanes = [{ id: "1" }, { id: "2" }, { id: "3" }];
 
-  it("moves to the neighbouring layer", () => {
+  it("moves to the neighboring layer", () => {
     assert.equal(stepSelectedLaneId(lanes, "2", -1), "1");
     assert.equal(stepSelectedLaneId(lanes, "2", 1), "3");
   });
@@ -610,7 +610,7 @@ describe("canStartFxChainPan", () => {
     );
   });
 
-  it("leaves devices, add slots and buttons to their own behaviour", () => {
+  it("leaves devices, add slots and buttons to their own behavior", () => {
     for (const name of [
       ".fx-device-panel",
       ".fx-chain__add",

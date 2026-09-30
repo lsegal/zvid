@@ -3,8 +3,8 @@
 //! | URL                             | Serves                                         |
 //! |---------------------------------|------------------------------------------------|
 //! | `zvid://app/*`                  | the embedded frontend                          |
-//! | `zvid://ipc/<command>` (POST)   | a command, modelled on Tauri `invoke`          |
-//! | `zvid://ipc/events?after=N`     | long-polled events, modelled on Tauri `emit`   |
+//! | `zvid://ipc/<command>` (POST)   | a command, modeled on Tauri `invoke`          |
+//! | `zvid://ipc/events?after=N`     | long-polled events, modeled on Tauri `emit`   |
 //! | `zvid://preview`                | the latest preview JPEG                        |
 //! | `zvid://preview/frame?after=N`  | the next preview JPEG, long-polled             |
 //! | `zvid://take/<id>`              | the take's file, with HTTP `Range` support     |

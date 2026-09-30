@@ -8,7 +8,7 @@ export const menuOrder = 50;
 export const definition: FxEffectDefinition = {
   effectName: "AnalogGlitch",
   displayName: "Analog Glitch",
-  description: "Adds analog tape jitter and colour bleed.",
+  description: "Adds analog tape jitter and color bleed.",
   accent: "#f6b73c",
   known: true,
   scopes: ALL_SCOPES,

@@ -42,7 +42,7 @@ pub struct VideoFormat {
     pub fps: [u32; 2],
 }
 
-/// The header state: grey, green, pink or amber dot.
+/// The header state: gray, green, pink or amber dot.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Phase {
@@ -207,7 +207,7 @@ impl fmt::Display for UiError {
 
 impl std::error::Error for UiError {}
 
-/// Events pushed to the frontend, modelled on Tauri `emit`.
+/// Events pushed to the frontend, modeled on Tauri `emit`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "event", content = "payload", rename_all = "camelCase")]
 pub enum UiEvent {

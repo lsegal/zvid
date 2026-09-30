@@ -237,7 +237,7 @@ export function useDeviceDrag({
       keyEvent.preventDefault();
       keyEvent.stopPropagation();
       if (dragRef.current?.active) {
-        setAnnouncement(`Cancelled moving ${device.name}`);
+        setAnnouncement(`Canceled moving ${device.name}`);
       }
       finish(false);
     };

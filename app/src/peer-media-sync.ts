@@ -124,7 +124,7 @@ export function getMediaSyncClassName(
     .join(" ");
 }
 
-// Summarises every transfer for the status bar, or null until a peer has
+// Summarizes every transfer for the status bar, or null until a peer has
 // started sending. The percent covers transfers whose size is known.
 export function formatPeerMediaSyncStatus(map: PeerMediaProgressMap) {
   let started = false;

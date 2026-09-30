@@ -183,7 +183,7 @@ describe("getAnimatableParameters", () => {
     }
   });
 
-  it("leaves out menus, colours, text and hidden parameters", () => {
+  it("leaves out menus, colors, text and hidden parameters", () => {
     assert.deepEqual(getAnimatableParameters("Order"), [
       { key: "GridSize", label: "Grid Size" },
       { key: "Spacing", label: "Spacing" },
@@ -332,7 +332,7 @@ describe("setEffectAnimation", () => {
     ]);
   });
 
-  it("is labelled for history", () => {
+  it("is labeled for history", () => {
     assert.equal(
       effectHistoryLabels.animationEnabled("NegativeSplit", true),
       "Turn Animation On for Negative Split",

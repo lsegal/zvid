@@ -147,7 +147,7 @@ describe("applyClipAnimationWeight", () => {
     );
   });
 
-  it("fades Text through the alpha of its colours and gradient", () => {
+  it("fades Text through the alpha of its colors and gradient", () => {
     const parameters = applyClipAnimationWeight(
       {
         effectName: "Text",
@@ -193,7 +193,7 @@ describe("applyClipAnimationWeight", () => {
   });
 
   it("leaves effects without neutral values alone", () => {
-    assert.deepEqual(fadeCssColors("no colour here", 0), "no colour here");
+    assert.deepEqual(fadeCssColors("no color here", 0), "no color here");
     assert.deepEqual(
       applyClipAnimationWeight(
         {

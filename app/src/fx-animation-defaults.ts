@@ -357,7 +357,7 @@ const NEUTRAL_VALUES: ReadonlyMap<string, AnimationNeutralValues> = new Map<
       ...prefixed("End", TRANSFORM_NEUTRALS),
     },
   ],
-  // A zoom of 0 is 1.00×, centred.
+  // A zoom of 0 is 1.00×, centered.
   [
     "ZoomAndPan",
     {
@@ -384,7 +384,7 @@ const NEUTRAL_VALUES: ReadonlyMap<string, AnimationNeutralValues> = new Map<
   ],
   ["AnalogGlitch", { _LowMod: { neutral: 0 }, _HighMod: { neutral: 0 } }],
   [COLOR_EFFECT_NAME, { Opacity: { neutral: 0 } }],
-  // Text has no opacity knob: Clip mode fades its colours instead.
+  // Text has no opacity knob: Clip mode fades its colors instead.
   [TEXT_EFFECT_NAME, {}],
 ]);
 

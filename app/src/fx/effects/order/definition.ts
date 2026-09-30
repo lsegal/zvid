@@ -63,7 +63,7 @@ export const definition: FxEffectDefinition = {
       key: "BorderColor",
       label: "Border",
       defaultValue: DEFAULT_BORDER_COLOR,
-      // Without spacing there are no gaps to colour.
+      // Without spacing there are no gaps to color.
       dimmedWhen: { key: "Spacing", values: ["0"] },
     },
   ],

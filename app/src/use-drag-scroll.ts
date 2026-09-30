@@ -238,7 +238,7 @@ export function useDragScroll({
   );
 
   // Keeps the middle button from starting the browser's autoscroll, which
-  // some browsers begin on mousedown even after pointerdown was cancelled.
+  // some browsers begin on mousedown even after pointerdown was canceled.
   const onMouseDown = useCallback(
     (event: ReactMouseEvent<HTMLElement>) => {
       if (event.button === 1 && canStart(event)) {

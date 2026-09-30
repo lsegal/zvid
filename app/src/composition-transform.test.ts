@@ -107,7 +107,7 @@ describe("layerBoxInCanvas", () => {
     ]);
   });
 
-  it("scales width and height independently about the centre", () => {
+  it("scales width and height independently about the center", () => {
     const corners = layerBoxInCanvas(
       placement(),
       transform({ scaleX: 0.5, scaleY: 0.25 }),
@@ -168,7 +168,7 @@ describe("layerBoxInCanvas", () => {
       x: 1080 + 540,
       y: 960 + 480,
     });
-    // The centre is half a box width left of the pivot: scaled 2× and turned
+    // The center is half a box width left of the pivot: scaled 2× and turned
     // 180°, it ends up a full box width right of it.
     assertPoint(applyMatrix(matrix, { x: 540, y: 960 }), {
       x: 1080 + 540 + 1080,
@@ -374,7 +374,7 @@ describe("clip Transform inside the layer Transform", () => {
       ],
     );
     // The other way round (the clip's Transform outside the layer's) would
-    // scale the moved box about the band's centre instead.
+    // scale the moved box about the band's center instead.
     const swapped = multiplyMatrix(
       transformMatrix(transform({ scaleX: 0.5, scaleY: 0.5 }), band, canvas),
       transformMatrix(transform({ positionX: 0.25 }), band, canvas),

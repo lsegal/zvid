@@ -1,10 +1,10 @@
 // Pure maths behind the preview's resize handles and origin marker: dragging
 // a handle rescales the layer's Transform about the opposite edge or corner
-// (or the box centre), and dragging the origin moves the pivot without moving
+// (or the box center), and dragging the origin moves the pivot without moving
 // the layer on screen.
 //
 // Box-local points use the Transform's origin units: -1 is the left (top)
-// edge, 0 the centre, 1 the right (bottom) edge. Canvas points are
+// edge, 0 the center, 1 the right (bottom) edge. Canvas points are
 // composition pixels, origin top-left, +y down.
 import {
   applyMatrix,
@@ -39,12 +39,12 @@ export const RESIZE_HANDLES: readonly ResizeHandle[] = [
 export type ResizeOptions = {
   // Shift: keep the aspect ratio.
   proportional?: boolean;
-  // Ctrl/Cmd: grow or shrink about the box centre.
+  // Ctrl/Cmd: grow or shrink about the box center.
   fromCenter?: boolean;
 };
 
 export type ResizeSnap = {
-  // Canvas x / y lines the moving edges snap to (the canvas edges and centre
+  // Canvas x / y lines the moving edges snap to (the canvas edges and center
   // lines).
   xLines: readonly number[];
   yLines: readonly number[];
@@ -78,7 +78,7 @@ export function layerPointInCanvas(
 }
 
 // The resize cursor for a handle, turned with the box: the handle's direction
-// from the centre on screen, rounded to the nearest of the four cursors.
+// from the center on screen, rounded to the nearest of the four cursors.
 export function resizeCursor(handle: ResizeHandle, rotationDeg: number) {
   const base = (Math.atan2(handle.y, handle.x) * 180) / Math.PI;
   const angle = (((base + rotationDeg) % 180) + 180) % 180;
@@ -88,7 +88,7 @@ export function resizeCursor(handle: ResizeHandle, rotationDeg: number) {
 
 // The Transform after dragging `handle` by `pointerDelta` canvas pixels from
 // where it was on `start`. The fixed point is the opposite edge or corner, or
-// the box centre with `fromCenter`, and the position moves so that point stays
+// the box center with `fromCenter`, and the position moves so that point stays
 // put on screen. Scales clamp to the Transform's limits, so dragging past the
 // fixed point stops at the smallest size instead of flipping the layer.
 export function resizeTransform(
@@ -248,7 +248,7 @@ function withScale(
   };
 }
 
-// Box-local points the origin snaps to: the centre, corners and edge
+// Box-local points the origin snaps to: the center, corners and edge
 // midpoints.
 export const ORIGIN_SNAP_POINTS: readonly Point[] = [
   { x: 0, y: 0 },
@@ -301,7 +301,7 @@ export function setOrigin(
   };
 }
 
-// Snaps a dragged origin (a canvas point) to the nearest of the box's centre,
+// Snaps a dragged origin (a canvas point) to the nearest of the box's center,
 // corners and edge midpoints within `threshold` canvas pixels.
 export function snapOriginPoint(
   point: Point,
