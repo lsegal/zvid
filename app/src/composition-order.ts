@@ -6,6 +6,7 @@
 // covers the whole canvas and they overlap by z-order, Layer 1 on top.
 
 import { parseCssColor, type Rgba } from "./fill-paint.ts";
+import type { ClipMotion } from "./fx-animation-defaults.ts";
 
 // "none" is the z-order overlay used when there is no enabled Order; it is
 // never an Order device's own setting.
@@ -23,6 +24,19 @@ export type CompositionOrder = {
   // What fills the Order's area beneath its layers, showing in the gaps
   // and empty grid cells. Black when unset.
   borderColor?: Rgba;
+  // Set when the Order animates in Clip mode: clips slide into and out of
+  // their slots as they enter and exit, and the others glide to their new
+  // slots. Absent means the layers snap into place.
+  slide?: OrderSlide;
+};
+
+// An Order's Clip-mode animation. Each slide takes `frames` frames at `fps`,
+// eased by `motionIn` as a clip enters and by `motionOut` as it exits.
+export type OrderSlide = {
+  motionIn: ClipMotion;
+  motionOut: ClipMotion;
+  frames: number;
+  fps: number;
 };
 
 export const ORDER_EFFECT_NAME = "Order";
@@ -168,18 +182,27 @@ export function parseCompositionOrder(
   return order;
 }
 
+// The last enabled Order effect on the `trackId` stack: the one that
+// arranges its layers.
+export function findOrderEffect<T extends OrderEffect>(
+  effects: readonly T[],
+  trackId: string,
+): T | undefined {
+  return effects.findLast(
+    (candidate) =>
+      candidate.trackId === trackId &&
+      candidate.enabled !== false &&
+      isOrderEffectName(candidate.effectName),
+  );
+}
+
 // The arrangement the last enabled Order effect on the `trackId` stack
 // sets, or undefined when the stack has none.
 export function findCompositionOrder(
   effects: readonly OrderEffect[],
   trackId: string,
 ): CompositionOrder | undefined {
-  const effect = effects.findLast(
-    (candidate) =>
-      candidate.trackId === trackId &&
-      candidate.enabled !== false &&
-      isOrderEffectName(candidate.effectName),
-  );
+  const effect = findOrderEffect(effects, trackId);
   return effect ? parseCompositionOrder(effect.parameters) : undefined;
 }
 

@@ -7,6 +7,7 @@ import {
   resolveLayerPlacement,
   resolveSlotBounds,
   resolveSlotScissor,
+  type SlotMotion,
 } from "./composition-layout.ts";
 import {
   BLACK_BORDER,
@@ -47,8 +48,9 @@ export type CompositeVisual = LayerVisual & {
 };
 
 export type CompositeLayer = {
-  // `laneId` is the layer the clip is on, which an Order can exclude.
-  clip: { startQ: number; laneId?: string };
+  // `laneId` is the layer the clip is on, which an Order can exclude. With
+  // `clipProgress`, `durationSeconds` times an animated Order's slides.
+  clip: { startQ: number; laneId?: string; durationSeconds?: number };
   media: { id: string; width?: number; height?: number };
   // Key of the media element in `mediaRefs` this layer draws from.
   sourceKey: string;
@@ -634,7 +636,7 @@ type StackTarget = {
 };
 
 // Draws `entry` into slot `index` of `count` of `target`, arranged by
-// `order`.
+// `order`, or where `motion` has it on its way between slots.
 function drawLayer(
   resources: WebGlResources,
   target: StackTarget,
@@ -644,6 +646,7 @@ function drawLayer(
   entry: CompositeLayer,
   index: number,
   count: number,
+  motion: SlotMotion | undefined,
 ) {
   const { gl, effectChain } = resources;
   const { width, height } = target;
@@ -656,14 +659,21 @@ function drawLayer(
   if (entry.fill || entry.text) {
     // Fills and text are drawn at their slot's own size, so they cover
     // the slot exactly in any arrangement.
-    const slot = resolveSlotScissor(index, count, order, width, height);
+    const slot = resolveSlotScissor(
+      index,
+      count,
+      order,
+      width,
+      height,
+      motion,
+    );
     sourceWidth = Math.max(1, slot.width);
     sourceHeight = Math.max(1, slot.height);
     if (entry.text) {
       // The Transforms' scale resizes the text box, which the text is laid
       // out and drawn in at full size, rather than stretching the text.
       const band = frameBoxInCanvas(
-        resolveSlotBounds(index, count, order, width, height),
+        resolveSlotBounds(index, count, order, width, height, motion),
         surface,
       );
       textBox = resolveVisualTextBox(band, surface, entry.visual);
@@ -718,6 +728,7 @@ function drawLayer(
     visual: entry.visual,
     order,
     frame: textBox && canvasBoxToFrame(textBox.box, surface),
+    motion,
   });
   const { frame, halfExtents, translate, scissor } = placement;
   let uniforms: CompositeUniforms = {
@@ -859,6 +870,7 @@ export function drawComposition(
           step.entry,
           step.slot,
           step.slotCount,
+          step.motion,
         );
       } else if (step.type === "arrange") {
         drawArrangement(step, target, depth);

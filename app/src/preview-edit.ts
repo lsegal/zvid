@@ -98,7 +98,9 @@ export function canvasToScreen(point: Point, video: Rect, canvas: Size): Point {
 }
 
 type StackableLayer = {
-  clip: { id: string; laneId: string; startQ: number };
+  clip: { id: string; laneId: string; startQ: number; durationSeconds?: number };
+  // With the clip's duration, times an animated Order's slides.
+  clipProgress?: number;
   laneRank: number;
   isInBounds: boolean;
   visual: TransformedVisual;
@@ -294,6 +296,7 @@ export function resolvePreviewLayers(
             step.order,
             space.canvas.width,
             space.canvas.height,
+            step.motion,
           ),
           arrangement,
         };

@@ -290,9 +290,9 @@ import {
 import { WandIcon } from "./components/WandIcon";
 import {
   computeActiveClips,
+  resolveAnimatedOrder,
   resolveFrameEffects,
 } from "./composition-active-clips.ts";
-import { resolveCompositionOrder } from "./composition-order.ts";
 import { isContextMenuKey, isContextMenuPress } from "./context-menu.ts";
 import { isRulerPanPress, isTimelinePanPress } from "./drag-scroll.ts";
 import { buildEditMenuEntries } from "./edit-menu.ts";
@@ -1365,9 +1365,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       activeClips.filter((entry) => entry.media.kind === "video"),
       { width: canvasWidth, height: canvasHeight },
       // Animated with the topmost clip, as the compositor draws it.
-      resolveCompositionOrder(
+      resolveAnimatedOrder(
         resolveFrameEffects(timelineEffects, activeClips, playheadQ, bpm, fps),
         GLOBAL_EFFECT_TRACK_ID,
+        fps,
       ),
     );
   }, [
