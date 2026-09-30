@@ -44,14 +44,9 @@ const isNear = (fps: number, rate: number) =>
 
 /**
  * The nearest standard rate within half a percent of `fps`, or `fps` rounded
- * to three decimals when none is that close. A `preferred` rate that close
- * wins, since a measured 29.95 cannot tell 29.97 from 30 apart.
+ * to three decimals when none is that close.
  */
-export function snapFrameRate(fps: number, preferred?: number) {
-  if (preferred && isNear(fps, preferred)) {
-    return preferred;
-  }
-
+export function snapFrameRate(fps: number) {
   const [nearest] = STANDARD_FRAME_RATES.filter((rate) =>
     isNear(fps, rate),
   ).sort((a, b) => Math.abs(fps - a) - Math.abs(fps - b));
@@ -107,13 +102,11 @@ function describeSizeCounts(
 /**
  * The canvas size and frame rate the probed videos agree on most: the most
  * common displayed size, so portrait phone video gives a portrait canvas, and
- * the most common frame rate, snapped to a standard rate or to
- * `preferredFps`, such as the rate the media's metadata names. A field no
- * probe could provide is left out, for the caller to fall back on.
+ * the most common frame rate, snapped to a standard rate. A field no probe
+ * could provide is left out, for the caller to fall back on.
  */
 export function detectSessionFormat(
   probes: readonly VideoFormatProbe[],
-  preferredFps?: number,
 ): DetectedSessionFormat {
   const sizes = probes
     .map(displayedSize)
@@ -122,7 +115,7 @@ export function detectSessionFormat(
     .map((probe) => probe.frameRate)
     .filter((rate): rate is number => !!rate && Number.isFinite(rate))
     .filter((rate) => rate > 0)
-    .map((rate) => snapFrameRate(rate, preferredFps));
+    .map((rate) => snapFrameRate(rate));
   const size = tally(sizes, formatSize);
   const rate = tally(rates, String);
   const notes =
@@ -179,9 +172,7 @@ function rescaleFrames(session: LvpSession, ratio: number): LvpSession {
         frameHiddenLoopEnd: scaleOptional(clip.frameHiddenLoopEnd),
         // Imported videos mark `captureOffset` as -1.
         captureOffset:
-          clip.captureOffset === -1
-            ? -1
-            : scaleOptional(clip.captureOffset),
+          clip.captureOffset === -1 ? -1 : scaleOptional(clip.captureOffset),
       });
     }),
     selections: session.selections?.map(scaleLayerClip),

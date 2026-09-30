@@ -416,8 +416,8 @@ export function resolveAlsMedia(
 // then sets the session's canvas size and frame rate from the probed video
 // (see `detectSessionFormat`). A recording that cannot be probed is left as it
 // is, and without any probe the set's plugin metadata, or the defaults, stay.
-// A measured rate close to the set's keeps the set's; one that differs
-// rescales every frame position, so the clips keep their times. `formatNotes` are lines for the import
+// A detected rate that differs from the set's rescales every frame position,
+// so the clips keep their times. `formatNotes` are lines for the import
 // summary, such as a note on mixed recording sizes.
 //
 // Layers lines each audio take on a `layersRecordTracks` track up with the end
@@ -441,7 +441,6 @@ export async function probeAlsRecordings(
 
   const { notes, ...detected } = detectSessionFormat(
     Array.from(probes.values()),
-    session.timeline?.fps,
   );
   const formatted = applySessionFormat(session, detected);
   const tracks = formatted.tracks?.map((track) => ({
