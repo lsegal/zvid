@@ -1,10 +1,8 @@
-import { type DownloadsEnv, downloadKey, handleDownload } from "./downloads.ts";
 import { handleIceServers, type TurnEnv } from "./turn.ts";
 
-type Env = TurnEnv &
-  DownloadsEnv & {
-    ASSETS: Fetcher;
-  };
+type Env = TurnEnv & {
+  ASSETS: Fetcher;
+};
 
 type VersionInfo = {
   commit?: string;
@@ -37,11 +35,6 @@ export default {
 
     if (url.pathname === "/api/ice-servers") {
       return handleIceServers(request, env);
-    }
-
-    const key = downloadKey(url.pathname);
-    if (key) {
-      return handleDownload(request, env, key);
     }
 
     return env.ASSETS.fetch(request);

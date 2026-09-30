@@ -11,8 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
-# Wrangler local state (e.g. the local R2 installer bucket) and secrets
-.wrangler
+# Wrangler local secrets
 .dev.vars*
 
 # Editor directories and files
