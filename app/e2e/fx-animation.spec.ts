@@ -135,3 +135,19 @@ test("the Animation section attaches, switches modes and folds", async ({
       .getByRole("button", { name: "Reactive" }),
   ).toHaveAttribute("aria-pressed", "true");
 });
+
+test("Order's Animation offers only Clip mode", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('[data-layer-header-id="1"]').click();
+
+  // A new session has a Global Order, animated.
+  const section = page.locator('section[aria-label="Order animation"]');
+  await expect(section).toBeVisible();
+  await expect(section.getByRole("group", { name: "Mode" })).toHaveCount(0);
+  await expect(section.getByRole("button", { name: "Reactive" })).toHaveCount(
+    0,
+  );
+  await expect(section.getByLabel("Motion In")).toHaveValue("Ease Out");
+  await expect(section.getByLabel("Motion Out")).toHaveValue("Ease In");
+  await expect(section.locator(".knob__label")).toHaveCount(0);
+});

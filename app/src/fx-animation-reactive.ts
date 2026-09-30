@@ -6,6 +6,7 @@ import {
   getReactiveTimingFrames,
   type ReactiveAnimation,
   type ReactiveMotion,
+  supportsAnimationMode,
 } from "./fx-animation-defaults.ts";
 import { getEffectDefinition } from "./fx-registry.ts";
 import type { AudioOnset } from "./fx-shaders/audio-bands.ts";
@@ -146,7 +147,8 @@ export type ReactiveOptions = {
 };
 
 // The parameters `effect` is drawn with at `options.time` under `reactive`.
-// Only the selected knobs move, each clamped to its limits. Returns
+// Only the selected knobs move, each clamped to its limits, and nothing moves
+// on an effect that doesn't support Reactive mode. Returns
 // `effect.parameters` itself when nothing moves.
 export function resolveReactiveParameters(
   effect: ReactiveEffect,
@@ -154,6 +156,7 @@ export function resolveReactiveParameters(
   options: ReactiveOptions,
 ): ReactiveParameter[] {
   if (
+    !supportsAnimationMode(effect.effectName, "reactive") ||
     reactive.motion === "None" ||
     !(reactive.reactivity > 0) ||
     !reactive.parameters.length
