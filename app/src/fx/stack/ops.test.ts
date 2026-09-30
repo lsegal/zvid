@@ -192,7 +192,7 @@ describe("addEffect", () => {
       { key: "ExcludedLayers", value: "" },
       { key: "GridSize", value: "2.000", numericValue: 2 },
       { key: "Spacing", value: "0.000", numericValue: 0 },
-      { key: "OuterMargin", value: "Off" },
+      { key: "Margin", value: "0.000", numericValue: 0 },
       { key: "BorderColor", value: "rgba(0,0,0,1)" },
     ]);
     assert.equal(addEffect(effects, "6", "Order"), effects);

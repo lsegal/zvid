@@ -361,11 +361,11 @@ describe("splitDeviceParameters", () => {
 
     assert.deepEqual(
       controls.map((control) => control.key),
-      ["Arrangement", "ExcludedLayers", "OuterMargin"],
+      ["Arrangement", "ExcludedLayers"],
     );
     assert.deepEqual(
       knobs.map((knob) => knob.key),
-      ["GridSize", "Spacing", "BorderColor"],
+      ["GridSize", "Spacing", "Margin", "BorderColor"],
     );
   });
 

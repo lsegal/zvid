@@ -1,28 +1,25 @@
-// Uploads the ZVID Capture plugin and zvid desktop app installers from the
-// latest successful `DAW bundles` run on main to the Worker's R2 bucket and
-// writes the manifest the app's Help → Install Capture Plugin and Help →
-// Download Desktop App dialogs read into dist/downloads.
-// wrangler.jsonc runs it after the Vite build (`pnpm run cf:prepare`), so
-// every deploy offers the newest installers main has produced.
+// Copies the ZVID Capture plugin and zvid desktop app installers from the
+// latest successful `DAW bundles` run on main into dist/downloads and writes
+// the manifest the app's Help → Install Capture Plugin and Help → Download
+// Desktop App dialogs read. wrangler.jsonc runs it after the Vite build
+// (`pnpm run cf:prepare`), so every deploy carries the newest installers main
+// has produced.
 //
-// The installers are too large for Worker static assets (25 MiB per file), so
-// they never go into dist: worker/downloads.ts serves /downloads/<installer>
-// from the bucket instead. Uploads go to the local bucket `wrangler dev` uses
-// unless ZVID_CAPTURE_INSTALLERS_REMOTE=1, as in the deploy workflow, sends
-// them to Cloudflare.
+// Worker static assets are limited to 25 MiB each. A desktop app installer
+// over that is left out, with a warning, rather than failing the deploy; the
+// plugin installers are always included.
 //
 // Artifact downloads need a GitHub token: GH_TOKEN, GITHUB_TOKEN or
 // `gh auth token`. Without one, or without artifacts, the build goes on with
 // no installers and the dialog says so, unless
 // ZVID_REQUIRE_CAPTURE_INSTALLERS=1, as in the deploy workflow, makes that an
 // error. A run without desktop app installers, like those from before the
-// desktop app had its own, only offers the plugin. Downloads are cached in
-// node_modules/.cache by artifact id, so rebuilds under `wrangler dev` don't
-// fetch them again.
+// desktop app had its own, only offers the plugin. Downloads are cached in node_modules/.cache by artifact id, so
+// rebuilds under `wrangler dev` don't fetch them again.
 
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   artifactPlatform,
@@ -50,14 +47,14 @@ const cacheDir = path.join(
 );
 const repository = process.env.GITHUB_REPOSITORY || "lsegal/zvid";
 const required = process.env.ZVID_REQUIRE_CAPTURE_INSTALLERS === "1";
-const remote = process.env.ZVID_CAPTURE_INSTALLERS_REMOTE === "1";
-// The CAPTURE_INSTALLERS bucket in wrangler.jsonc.
-const BUCKET = "zvid-downloads";
 
 type WorkflowRun = { id: number; head_sha: string; html_url: string };
 type Artifact = { id: number; name: string; expired: boolean };
 // Picks the installer out of an artifact's bundle zip entries.
 type IsInstallerEntry = (name: string, platform: CapturePlatform) => boolean;
+
+// Cloudflare's per-file limit for Worker static assets.
+const MAX_ASSET_BYTES = 25 * 1024 * 1024;
 
 function log(message: string) {
   console.log(`[capture-installers] ${message}`);
@@ -133,7 +130,7 @@ async function fetchInstaller(
       file: string;
     };
     log(`${artifact.name}: using cached ${file}`);
-    return { file, path: path.join(cached, file) };
+    return { file, contents: await readFile(path.join(cached, file)) };
   }
 
   log(`${artifact.name}: downloading`);
@@ -149,28 +146,7 @@ async function fetchInstaller(
   await mkdir(cached, { recursive: true });
   await writeFile(path.join(cached, installer.file), installer.contents);
   await writeFile(cachedInfo, JSON.stringify({ file: installer.file }));
-  return { file: installer.file, path: path.join(cached, installer.file) };
-}
-
-// Puts an installer in the bucket under the key worker/downloads.ts serves
-// `/downloads/<file>` from.
-function uploadInstaller(file: string, source: string) {
-  execFileSync(
-    process.execPath,
-    [
-      path.join(appDir, "node_modules", "wrangler", "bin", "wrangler.js"),
-      "r2",
-      "object",
-      "put",
-      `${BUCKET}/${CAPTURE_INSTALLERS_DIR}/${file}`,
-      "--file",
-      source,
-      "--content-type",
-      "application/octet-stream",
-      remote ? "--remote" : "--local",
-    ],
-    { cwd: appDir, stdio: "inherit" },
-  );
+  return installer;
 }
 
 async function main() {
@@ -204,35 +180,19 @@ async function main() {
     )
   ).json()) as { artifacts: Artifact[] };
 
-  // Fetches an installer, uploads it to the bucket and describes it, along
-  // with the file name it had in the artifact.
-  async function publish(
-    artifact: Artifact,
-    platform: CapturePlatform,
-    isInstallerEntry: IsInstallerEntry,
-  ): Promise<{ installer: CaptureInstaller; file: string }> {
-    const { file, path: source } = await fetchInstaller(
-      token,
-      artifact,
-      platform,
-      isInstallerEntry,
-    );
-    // `+` means a space in some URL decoders, so it stays out of the URL.
-    const served = file.replaceAll("+", "-");
-    uploadInstaller(served, source);
-    log(
-      `${artifact.name}: ${CAPTURE_INSTALLERS_DIR}/${served} (${remote ? "remote" : "local"} R2)`,
-    );
-    return {
-      installer: { platform, file: served, size: (await stat(source)).size },
-      file,
-    };
-  }
-
   const available = artifacts.filter((artifact) => !artifact.expired);
   await mkdir(outDir, { recursive: true });
+
+  // Writes an installer into dist/downloads and describes it.
+  async function publish(file: string, contents: Uint8Array) {
+    // `+` means a space in some URL decoders, so it stays out of the URL.
+    const served = file.replaceAll("+", "-");
+    await writeFile(path.join(outDir, served), contents);
+    log(`${CAPTURE_INSTALLERS_DIR}/${served}`);
+    return { file: served, size: contents.byteLength };
+  }
+
   const installers: CaptureInstaller[] = [];
-  const desktop: CaptureInstaller[] = [];
   let version = "";
   for (const platform of CAPTURE_PLATFORMS) {
     const artifact = available.find(
@@ -241,7 +201,8 @@ async function main() {
     if (!artifact) {
       throw new Error(`run ${run.id} has no ${platform} artifact`);
     }
-    const { installer, file } = await publish(
+    const { file, contents } = await fetchInstaller(
+      token,
       artifact,
       platform,
       isCaptureInstallerEntry,
@@ -249,22 +210,31 @@ async function main() {
     // `zvid-capture-0.1.0+bba0984.pkg` -> `0.1.0+bba0984`.
     version ||=
       /^zvid-capture-(.+?)(?:-setup)?\.(?:pkg|exe)$/.exec(file)?.[1] ?? "";
-    installers.push(installer);
+    installers.push({ platform, ...(await publish(file, contents)) });
   }
+
+  const desktop: CaptureInstaller[] = [];
   for (const platform of CAPTURE_PLATFORMS) {
     const artifact = available.find(
       (candidate) => desktopArtifactPlatform(candidate.name) === platform,
     );
-    if (artifact) {
-      const { installer } = await publish(
-        artifact,
-        platform,
-        isDesktopInstallerEntry,
-      );
-      desktop.push(installer);
-    } else {
+    if (!artifact) {
       log(`run ${run.id} has no ${platform} desktop app artifact`);
+      continue;
     }
+    const { file, contents } = await fetchInstaller(
+      token,
+      artifact,
+      platform,
+      isDesktopInstallerEntry,
+    );
+    if (contents.byteLength > MAX_ASSET_BYTES) {
+      console.warn(
+        `[capture-installers] warning: ${file} is ${contents.byteLength} bytes, over the 25 MiB Worker asset limit; leaving it out`,
+      );
+      continue;
+    }
+    desktop.push({ platform, ...(await publish(file, contents)) });
   }
 
   const manifest: CaptureInstallersManifest = {

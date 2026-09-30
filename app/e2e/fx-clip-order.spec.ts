@@ -443,7 +443,7 @@ test.describe("Order border", () => {
     ];
     const framed = (color: string) => [
       { key: "Spacing", value: "30", numericValue: 30 },
-      { key: "OuterMargin", value: "On" },
+      { key: "Margin", value: "30", numericValue: 30 },
       { key: "BorderColor", value: color },
     ];
     const global = await render(page, {
@@ -473,7 +473,7 @@ test.describe("Order border", () => {
         effect("columns", "clip:fx-1", "Order", {
           Arrangement: "Horizontal",
           Spacing: 30,
-          OuterMargin: "On",
+          Margin: 30,
           BorderColor: "rgba(255,0,255,1)",
         }),
       ],

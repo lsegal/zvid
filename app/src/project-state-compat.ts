@@ -1,4 +1,10 @@
 import { isColorEffectName } from "./fill-paint.ts";
+import {
+  isOrderEffectName,
+  LEGACY_OUTER_MARGIN_KEY,
+  MARGIN_KEY,
+  parseCompositionOrder,
+} from "./fx/effects/order/order.ts";
 import { createDefaultAnimation } from "./fx-animation-defaults.ts";
 import {
   clipEffectTrackId,
@@ -126,6 +132,48 @@ export function migrateColorizeReactivity(effects: SessionEffect[]) {
           parameters: ["_HueOffset"],
         },
       },
+    };
+  });
+}
+
+// The Order's Margin used to be an On/Off toggle that inset the
+// arrangement by its spacing. An Order saved with it On opens with its
+// Margin knob at its Spacing, so it looks the same; Off opens at 0. The old
+// toggle is dropped either way, so it is not saved again.
+export function migrateOrderOuterMargin(effects: SessionEffect[]) {
+  if (
+    !effects.some(
+      (effect) =>
+        isOrderEffectName(effect.effectName) &&
+        effect.parameters.some(
+          (parameter) => parameter.key === LEGACY_OUTER_MARGIN_KEY,
+        ),
+    )
+  ) {
+    return effects;
+  }
+
+  return effects.map((effect) => {
+    const old = effect.parameters.find(
+      (parameter) => parameter.key === LEGACY_OUTER_MARGIN_KEY,
+    );
+    if (!isOrderEffectName(effect.effectName) || !old) {
+      return effect;
+    }
+
+    // Read as the compositor reads it, so it opens looking the same.
+    const { margin = 0 } = parseCompositionOrder(effect.parameters);
+    const parameters = effect.parameters.filter(
+      (parameter) => parameter !== old && parameter.key !== MARGIN_KEY,
+    );
+    return {
+      ...effect,
+      parameters: margin
+        ? [
+            ...parameters,
+            { key: MARGIN_KEY, value: String(margin), numericValue: margin },
+          ]
+        : parameters,
     };
   });
 }
