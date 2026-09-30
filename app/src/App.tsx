@@ -12,7 +12,6 @@ import {
 } from "@heroicons/react/24/solid";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
-  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
@@ -23,7 +22,6 @@ import {
 import "./App.css";
 import { type ClipClipboard, cloneClipAtStartQ } from "./app/clip-ops.ts";
 import {
-  FX_CLIP_BARS,
   INSPECTOR_COLLAPSED_STORAGE_KEY,
   LABEL_WIDTH_DEFAULT,
   LABEL_WIDTH_KEYBOARD_STEP,
@@ -37,7 +35,6 @@ import {
   PREVIEW_WIDTH_STORAGE_KEY,
   SIGNATURES,
   SNAP_OPTIONS,
-  TEXT_CLIP_BARS,
   TIMELINE_DRAG_EPSILON,
   TIMELINE_PLAYBACK_SCRUB_AUDIO_IDLE_MS,
 } from "./app/constants.ts";
@@ -66,14 +63,12 @@ import {
   isClipAtPlayhead,
   quartersToSeconds,
   resolveClipOverlapPreview,
-  secondsToQuarters,
   snapQuarterValue,
 } from "./app/timeline-math.ts";
 import type {
   ArrangementClip,
   ClipMenuState,
   DragState,
-  Lane,
   SessionMediaCheck,
   SourceSpan,
   TimelineDragState,
@@ -84,7 +79,6 @@ import {
   getDraggedMediaFiles,
   getNextLaneNumber,
   getSwatch,
-  isEditableEventTarget,
   logClient,
   pluralize,
 } from "./app/util.ts";
@@ -119,13 +113,6 @@ import {
   isGeneratedClip,
   isPlaceholderClip,
 } from "./clip-media-state";
-import {
-  buildClipMenuEntries,
-  buildSelectionMenuEntries,
-  buildSourceSpanMenuEntries,
-  canSplitAt,
-  isInSelection,
-} from "./clip-menu.ts";
 import { ArrangementEmptyState } from "./components/ArrangementEmptyState";
 import {
   APP_BUILD_LABEL,
@@ -134,11 +121,7 @@ import {
 } from "./components/BrandMark";
 import { CaptureInstallerDialog } from "./components/CaptureInstallerDialog";
 import { CollaborationDetailCard } from "./components/CollaborationDetailCard";
-import {
-  ContextMenu,
-  type ContextMenuEntry,
-  type MenuPoint,
-} from "./components/ContextMenu";
+import { ContextMenu } from "./components/ContextMenu";
 import { DropdownMenuEntries } from "./components/DropdownMenuEntries";
 import { FxChain } from "./components/FxChain";
 import {
@@ -161,16 +144,8 @@ import {
 } from "./components/MediaSyncSkeleton";
 import { OfflineMediaDialog } from "./components/OfflineMediaDialog";
 import { PreviewTransformOverlay } from "./components/PreviewTransformOverlay";
-import {
-  ShareLinkButton,
-  ShareLinkIconButton,
-} from "./components/ShareLinkButton";
-import {
-  StatusBar,
-  type StatusItem,
-  type StatusMessage,
-} from "./components/StatusBar";
-import { StatusPlayhead } from "./components/StatusPlayhead";
+import { ShareLinkIconButton } from "./components/ShareLinkButton";
+import { StatusBar, type StatusMessage } from "./components/StatusBar";
 import {
   Dialog,
   DialogClose,
@@ -193,16 +168,14 @@ import {
   resolveAnimatedOrder,
   resolveFrameEffects,
 } from "./composition-active-clips.ts";
-import { isContextMenuKey, isContextMenuPress } from "./context-menu.ts";
+import { isContextMenuPress } from "./context-menu.ts";
 import { isRulerPanPress } from "./drag-scroll.ts";
-import { buildEditMenuEntries } from "./edit-menu.ts";
 import { isFillClip } from "./fill-clip.ts";
 import {
   formatCssColor,
   formatFillPaintCss,
   resolveFillPaint,
 } from "./fill-paint.ts";
-import { addableEffectsFor, stepSelectedLaneId } from "./fx-chain";
 import { describeFxClip, isFxClip } from "./fx-clip.ts";
 import {
   clipEffectTrackId,
@@ -252,7 +225,6 @@ import {
   releaseLaneSelectionGesture,
   startLaneSelectionGesture,
 } from "./lane-selection-gesture.ts";
-import { buildLayerMenuEntries, buildMainAudioMenuEntries } from "./layer-menu";
 import { MainWaveform } from "./MainWaveform";
 import type { MediaItem } from "./media";
 import {
@@ -261,17 +233,19 @@ import {
   migrateMediaCache,
   setCachedMediaSession,
 } from "./media-cache";
+import { useMenus } from "./menus/useMenus.ts";
 import {
   describeMediaSync,
   formatMediaSyncLabel,
   getMediaSyncClassName,
 } from "./peer-media-sync.ts";
 import { resolvePreviewLayers } from "./preview-edit.ts";
-import { sourceTrackHasFootage } from "./random-arrangement.ts";
 import { selectionHint } from "./selection-hint.ts";
 import { MAX_LAYERS } from "./selection-overlaps";
 import { offlineSessionMediaIds } from "./session-media.ts";
 import { shareLinkVisible } from "./share-link";
+import { useKeyboardShortcuts } from "./shortcuts/useKeyboardShortcuts.ts";
+import { useSpacePlayback } from "./shortcuts/useSpacePlayback.ts";
 import { isSourceClipDropClick } from "./source-clip-drop.ts";
 import {
   formatSourceTracksSummary,
@@ -279,9 +253,9 @@ import {
   readSourceTracksCollapsed,
   writeSourceTracksCollapsed,
 } from "./source-tracks-section.ts";
-import { classifySpaceTarget, createSpaceHold } from "./space-shortcut";
+import { createSpaceHold } from "./space-shortcut";
 import { statusMessageTone } from "./status-bar";
-import { buildStatusItems } from "./status-items";
+import { useStatusBarItems } from "./status-bar/useStatusBarItems.tsx";
 import { isTextClip } from "./text-clip.ts";
 import { loadFontFace, resolveFontFace } from "./text-fonts.ts";
 import {
@@ -299,7 +273,6 @@ import {
 import { formatMusicalPosition, formatTimecode } from "./timeline-format.ts";
 import { formatDivision } from "./timeline-grid";
 import { useThumbnailCache } from "./use-thumbnail-cache";
-import { ZVID_BUILD } from "./version";
 import type { WorkspaceSessionSource } from "./workspace-session.ts";
 import {
   formatZoomFactor,
@@ -1509,146 +1482,17 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setStatus,
   });
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (!pendingSelection) {
-        return;
-      }
-
-      if (isEditableEventTarget(event.target)) {
-        return;
-      }
-
-      if (event.key === "Escape") {
-        setPendingSelection(null);
-        return;
-      }
-
-      const sourceIndex = Number.parseInt(event.key, 10) - 1;
-      if (!Number.isInteger(sourceIndex) || sourceIndex < 0) {
-        return;
-      }
-
-      event.preventDefault();
-      commitPendingSelectionToSourceTrack(sourceIndex);
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [commitPendingSelectionToSourceTrack, pendingSelection]);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (isEditableEventTarget(event.target)) {
-        return;
-      }
-
-      if (!event.metaKey && !event.ctrlKey) {
-        return;
-      }
-
-      const key = event.key.toLowerCase();
-      const shouldRedo = key === "y" || (key === "z" && event.shiftKey);
-      if (shouldRedo) {
-        event.preventDefault();
-        handleRedo();
-        return;
-      }
-
-      if (key !== "z") {
-        return;
-      }
-
-      event.preventDefault();
-      handleUndo();
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [handleRedo, handleUndo]);
-
-  // Space toggles playback from anywhere except text entry and open menus or
-  // dialogs. It runs in the capture phase so a focused button, menu trigger
-  // or slider never sees the key and cannot also activate. Playback toggles
-  // on release, so holding Space to pan the timeline never starts it.
-  useEffect(() => {
-    const spaceHold = spaceHoldRef.current;
-    const setSpaceHeldClass = (held: boolean) =>
-      timelineScrollRef.current?.classList.toggle(
-        "timeline-scroll--space-held",
-        held,
-      );
-
-    const onSpaceKeyDown = (event: KeyboardEvent) => {
-      if (event.code !== "Space") {
-        return;
-      }
-
-      if (
-        event.metaKey ||
-        event.ctrlKey ||
-        event.altKey ||
-        classifySpaceTarget(event.target, document) !== "playback"
-      ) {
-        spaceHold.cancel();
-        setSpaceHeldClass(false);
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-      spaceHold.press();
-      setSpaceHeldClass(true);
-    };
-
-    // Native buttons activate on Space keyup, so swallow the matching keyup.
-    const onSpaceKeyUp = (event: KeyboardEvent) => {
-      if (event.code !== "Space" || !spaceHold.held) {
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-      setSpaceHeldClass(false);
-      if (
-        !spaceHold.release() ||
-        dragState ||
-        timelineDragState ||
-        !clips.length
-      ) {
-        return;
-      }
-
-      cancelScrubPlaybackResume();
-      if (isPlaying) {
-        setIsPlaying(false);
-        return;
-      }
-
-      startPlayback();
-    };
-
-    const onBlur = () => {
-      spaceHold.cancel();
-      setSpaceHeldClass(false);
-    };
-
-    window.addEventListener("keydown", onSpaceKeyDown, true);
-    window.addEventListener("keyup", onSpaceKeyUp, true);
-    window.addEventListener("blur", onBlur);
-    return () => {
-      window.removeEventListener("keydown", onSpaceKeyDown, true);
-      window.removeEventListener("keyup", onSpaceKeyUp, true);
-      window.removeEventListener("blur", onBlur);
-    };
-  }, [
+  useSpacePlayback({
     cancelScrubPlaybackResume,
-    clips.length,
+    clipCount: clips.length,
     dragState,
     isPlaying,
+    setIsPlaying,
+    spaceHoldRef,
     startPlayback,
     timelineDragState,
-  ]);
+    timelineScrollRef,
+  });
 
   const {
     copyArrangementClip,
@@ -1683,70 +1527,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setStatus,
     timelineClips,
   });
-
-  // The pointer position, or below the element when the context-menu key or
-  // Shift+F10 opened the menu and reported no position.
-  function getMenuAnchor(event: ReactMouseEvent<HTMLElement>): MenuPoint {
-    if (event.clientX || event.clientY) {
-      return { x: event.clientX, y: event.clientY };
-    }
-
-    const bounds = event.currentTarget.getBoundingClientRect();
-    return { x: bounds.left, y: bounds.bottom };
-  }
-
-  // Right-clicking a clip selects it (and so its layer) before the menu opens.
-  function openArrangementClipMenu(
-    event: ReactMouseEvent<HTMLElement>,
-    clip: ArrangementClip,
-  ) {
-    event.preventDefault();
-    event.stopPropagation();
-    setPendingSelection(null);
-    setSelectedClipId(clip.id);
-    setClipMenu({
-      kind: "clip",
-      clipId: clip.id,
-      anchor: getMenuAnchor(event),
-    });
-  }
-
-  // Right-clicking inside the uncommitted selection keeps it and opens the
-  // selection menu; anywhere else on the lane clears it for the lane menu.
-  function openLaneMenu(event: ReactMouseEvent<HTMLElement>, laneId: string) {
-    event.preventDefault();
-    event.stopPropagation();
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const pointerQ = (event.clientX - bounds.left) / quarterPx;
-    if (isInSelection(pendingSelection, laneId, pointerQ)) {
-      setClipMenu({ kind: "selection", anchor: getMenuAnchor(event) });
-      return;
-    }
-
-    setPendingSelection(null);
-    setSelectedClipId(undefined);
-    setSelectedLaneId(laneId);
-    setClipMenu({ kind: "lane", laneId, anchor: getMenuAnchor(event) });
-  }
-
-  // Right-clicking a layer header, or the context-menu key on it, selects
-  // the layer before the menu opens.
-  function openLayerMenu(event: ReactMouseEvent<HTMLElement>, laneId: string) {
-    event.preventDefault();
-    event.stopPropagation();
-    if (renamingLaneId === laneId) {
-      return;
-    }
-
-    selectLaneFromLabel(laneId);
-    setClipMenu({ kind: "layer", laneId, anchor: getMenuAnchor(event) });
-  }
-
-  function openMainAudioMenu(event: ReactMouseEvent<HTMLElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-    setClipMenu({ kind: "audio", anchor: getMenuAnchor(event) });
-  }
 
   // Selects `laneId` and focuses its header once it has rendered.
   function focusLaneLabel(laneId: string) {
@@ -1789,516 +1569,98 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     toggleInspectorCollapsed,
   });
 
-  function openSourceSpanMenu(
-    event: ReactMouseEvent<HTMLElement>,
-    span: SourceSpan,
-  ) {
-    event.preventDefault();
-    event.stopPropagation();
-    setClipMenu({
-      kind: "span",
-      spanId: span.id,
-      anchor: getMenuAnchor(event),
-    });
-  }
+  const {
+    openArrangementClipMenu,
+    openLaneMenu,
+    openLayerMenu,
+    openMainAudioMenu,
+    openSourceSpanMenu,
+    getClipMenuEntries,
+    getEditMenuEntries,
+  } = useMenus({
+    addLayerFx,
+    barLength,
+    bpm,
+    canRedo,
+    canUndo,
+    clipClipboardRef,
+    commitPendingSelectionToSourceTrack,
+    copyArrangementClip,
+    copySelection,
+    copySelectionRange,
+    copySourceSpan,
+    copySourceSpanToLayer,
+    cutArrangementClip,
+    cutSelection,
+    deleteArrangementClip,
+    deleteLayer,
+    deleteSelection,
+    duplicateArrangementClip,
+    duplicateLayer,
+    fxLaneId,
+    handleRedo,
+    handleUndo,
+    insertFillClip,
+    insertFxClip,
+    insertLayer,
+    insertTextClip,
+    isExporting,
+    jumpToClipStart,
+    laneStatusById,
+    lanes,
+    mainAudioId,
+    mainAudioInputRef,
+    moveLayer,
+    pasteArrangementClip,
+    pendingSelection,
+    playheadQRef,
+    quarterPx,
+    redoLabel,
+    removeMainAudio,
+    renamingLaneId,
+    selectLaneFromLabel,
+    selectedClip,
+    selectedLaneId,
+    setClipMenu,
+    setLayerFxEnabled,
+    setPendingSelection,
+    setRenamingLaneId,
+    setSelectedClipId,
+    setSelectedLaneId,
+    shortcutLabels,
+    sourceSpans,
+    sourceTracks,
+    splitArrangementClip,
+    timelineClips,
+    timelineScrollRef,
+    undoLabel,
+  });
 
-  // The context-menu key or Shift+F10 with nothing focused opens the menu on
-  // the uncommitted selection, the selected clip, or the selected layer at
-  // the playhead.
-  function openSelectionMenu() {
-    const timelineScroll = timelineScrollRef.current;
-    if (!timelineScroll) {
-      return false;
-    }
-
-    if (pendingSelection) {
-      const selection = timelineScroll.querySelector<HTMLElement>(
-        `[data-timeline-lane-id="${CSS.escape(pendingSelection.laneId)}"] .timeline-selection`,
-      );
-      if (!selection) {
-        return false;
-      }
-
-      const bounds = selection.getBoundingClientRect();
-      setClipMenu({
-        kind: "selection",
-        anchor: { x: bounds.left, y: bounds.bottom },
-      });
-      return true;
-    }
-
-    if (selectedClip) {
-      const card = timelineScroll.querySelector<HTMLElement>(
-        `[data-clip-id="${CSS.escape(selectedClip.id)}"]`,
-      );
-      if (!card) {
-        return false;
-      }
-
-      const bounds = card.getBoundingClientRect();
-      setClipMenu({
-        kind: "clip",
-        clipId: selectedClip.id,
-        anchor: { x: bounds.left, y: bounds.bottom },
-      });
-      return true;
-    }
-
-    if (!fxLaneId) {
-      return false;
-    }
-
-    const lane = timelineScroll.querySelector<HTMLElement>(
-      `[data-timeline-lane-id="${CSS.escape(fxLaneId)}"]`,
-    );
-    if (!lane) {
-      return false;
-    }
-
-    const bounds = lane.getBoundingClientRect();
-    setSelectedLaneId(fxLaneId);
-    setClipMenu({
-      kind: "lane",
-      laneId: fxLaneId,
-      anchor: {
-        x: clamp(
-          bounds.left + playheadQRef.current * quarterPx,
-          bounds.left,
-          bounds.right,
-        ),
-        y: bounds.bottom,
-      },
-    });
-    return true;
-  }
-
-  const openSelectionMenuRef = useRef(openSelectionMenu);
-  openSelectionMenuRef.current = openSelectionMenu;
-
-  // Browsers report both keys as a contextmenu event. Clips, lanes and panels
-  // with their own menu handle it first when they have focus; this takes the
-  // rest while nothing, or empty timeline space, has focus.
-  useEffect(() => {
-    let keyboardMenuAt = Number.NEGATIVE_INFINITY;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (isContextMenuKey(event)) {
-        keyboardMenuAt = event.timeStamp;
-      }
-    };
-    const onContextMenu = (event: MouseEvent) => {
-      const fromKeyboard = event.timeStamp - keyboardMenuAt < 1000;
-      keyboardMenuAt = Number.NEGATIVE_INFINITY;
-      const focused = document.activeElement;
-      if (
-        !fromKeyboard ||
-        event.defaultPrevented ||
-        (focused &&
-          focused !== document.body &&
-          !timelineScrollRef.current?.contains(focused))
-      ) {
-        return;
-      }
-
-      if (openSelectionMenuRef.current()) {
-        event.preventDefault();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown, true);
-    document.addEventListener("contextmenu", onContextMenu);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown, true);
-      document.removeEventListener("contextmenu", onContextMenu);
-    };
-  }, []);
-
-  function getClipMenuEntries(menu: ClipMenuState): ContextMenuEntry[] {
-    if (menu.kind === "audio") {
-      return getMainAudioMenuEntries();
-    }
-
-    if (menu.kind === "layer") {
-      const lane = lanes.find((item) => item.id === menu.laneId);
-      return lane ? getLayerMenuEntries(lane) : [];
-    }
-
-    if (menu.kind === "selection") {
-      return pendingSelection ? getSelectionMenuEntries(pendingSelection) : [];
-    }
-
-    if (menu.kind === "span") {
-      const span = sourceSpans.find((item) => item.id === menu.spanId);
-      if (!span) {
-        return [];
-      }
-
-      return buildSourceSpanMenuEntries({
-        lanes,
-        mac: shortcutLabels.mac,
-        copy: () => copySourceSpan(span),
-        copyToLayer: (target) => copySourceSpanToLayer(span, target),
-      });
-    }
-
-    const clip =
-      menu.kind === "clip"
-        ? timelineClips.find((item) => item.id === menu.clipId)
-        : undefined;
-    return getArrangementClipEntries(
-      clip,
-      menu.kind === "lane" ? menu.laneId : clip?.laneId,
-    );
-  }
-
-  // Insert Track commits the selection exactly like the track's number key,
-  // and Insert Fill Clip covers it with a fill clip.
-  function getSelectionMenuEntries(selection: TimelineSelection) {
-    const endQ = selection.startQ + selection.durationQ;
-    return buildSelectionMenuEntries({
-      tracks: sourceTracks.map((track) => ({
-        id: track.id,
-        name: track.name,
-        color: getSwatch(track.colorIndex).accent,
-        hasFootage: sourceTrackHasFootage(
-          sourceSpans,
-          (span) => span.startQ + getClipDurationQ(span, bpm),
-          track.id,
-          selection.startQ,
-          endQ,
-        ),
-      })),
-      disabled: isExporting,
-      clipboard: {
-        mac: shortcutLabels.mac,
-        hasContent: copySelectionRange(selection).fragments.length > 0,
-        cut: () => cutSelection(selection),
-        copy: () => copySelection(selection),
-        remove: () => deleteSelection(selection),
-      },
-      insertTrack: commitPendingSelectionToSourceTrack,
-      insertFill: () =>
-        insertFillClip(selection.laneId, selection.startQ, selection.durationQ),
-      insertText: () =>
-        insertTextClip(selection.laneId, selection.startQ, selection.durationQ),
-      insertFx: () =>
-        insertFxClip(selection.laneId, selection.startQ, selection.durationQ),
-      clear: () => setPendingSelection(null),
-    });
-  }
-
-  function getMainAudioMenuEntries() {
-    return buildMainAudioMenuEntries({
-      hasMainAudio: Boolean(mainAudioId),
-      disabled: isExporting,
-      chooseFile: () => mainAudioInputRef.current?.click(),
-      remove: removeMainAudio,
-    });
-  }
-
-  function getLayerMenuEntries(lane: Lane) {
-    const fxEnabled = isLayerFxEnabled(lane);
-    return buildLayerMenuEntries({
-      lanes,
-      laneId: lane.id,
-      fxEnabled,
-      effectCount: laneStatusById.get(lane.id)?.effectCount ?? 0,
-      effects: addableEffectsFor("layer"),
-      disabled: isExporting,
-      actions: {
-        rename: () => setRenamingLaneId(lane.id),
-        duplicate: () => duplicateLayer(lane),
-        remove: () => deleteLayer(lane),
-        toggleFx: () => setLayerFxEnabled(lane.id, !fxEnabled),
-        addFx: (effectName) => addLayerFx(lane.id, effectName),
-        insertText: () =>
-          insertTextClip(
-            lane.id,
-            playheadQRef.current,
-            TEXT_CLIP_BARS * barLength,
-          ),
-        insertFx: () =>
-          insertFxClip(lane.id, playheadQRef.current, FX_CLIP_BARS * barLength),
-        insertAbove: () => insertLayer(lane.id, "above"),
-        insertBelow: () => insertLayer(lane.id, "below"),
-        moveUp: () => moveLayer(lane, -1),
-        moveDown: () => moveLayer(lane, 1),
-      },
-    });
-  }
-
-  // The clip menu, or the empty lane space menu without a clip. Paste goes on
-  // `pasteLaneId`, or on the selected layer when it is undefined.
-  function getArrangementClipEntries(
-    clip: ArrangementClip | undefined,
-    pasteLaneId: string | undefined,
-  ): ContextMenuEntry[] {
-    const withClip = (action: (clip: ArrangementClip) => void) => () => {
-      if (clip) {
-        action(clip);
-      }
-    };
-    return buildClipMenuEntries({
-      hasClip: Boolean(clip) && !isExporting,
-      canPaste: Boolean(clipClipboardRef.current) && !isExporting,
-      canSplit: clip
-        ? canSplitAt(clip.startQ, getClipEndQ(clip, bpm), playheadQRef.current)
-        : false,
-      mac: shortcutLabels.mac,
-      actions: {
-        jumpToStart: withClip((clip) => jumpToClipStart(clip.id)),
-        cut: withClip(cutArrangementClip),
-        copy: withClip(copyArrangementClip),
-        paste: () => pasteArrangementClip(pasteLaneId),
-        duplicate: withClip(duplicateArrangementClip),
-        split: withClip(splitArrangementClip),
-        remove: withClip(deleteArrangementClip),
-      },
-    });
-  }
-
-  // Built when the Edit menu opens, so it reflects the current selection.
-  function getEditMenuEntries(): ContextMenuEntry[] {
-    const selectedLane = lanes.find((lane) => lane.id === selectedLaneId);
-    return buildEditMenuEntries(
-      [
-        {
-          type: "item",
-          id: "undo",
-          label: undoLabel ? `Undo ${undoLabel}` : "Undo",
-          shortcut: shortcutLabels.undo,
-          disabled: isExporting || !canUndo,
-          onSelect: handleUndo,
-        },
-        {
-          type: "item",
-          id: "redo",
-          label: redoLabel ? `Redo ${redoLabel}` : "Redo",
-          shortcut: shortcutLabels.redo,
-          disabled: isExporting || !canRedo,
-          onSelect: handleRedo,
-        },
-      ],
-      {
-        clip: selectedClip?.label,
-        clipEntries: getArrangementClipEntries(selectedClip, undefined),
-        selectionEntries: pendingSelection
-          ? getSelectionMenuEntries(pendingSelection)
-          : undefined,
-        layer: selectedLane
-          ? {
-              name: selectedLane.name,
-              entries: getLayerMenuEntries(selectedLane),
-            }
-          : undefined,
-        audioEntries: getMainAudioMenuEntries(),
-      },
-    );
-  }
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      // A focused control that already handled the key, such as the preview
-      // nudging a layer with the arrows, owns it.
-      if (
-        event.defaultPrevented ||
-        isEditableEventTarget(event.target) ||
-        dragState ||
-        timelineDragState
-      ) {
-        return;
-      }
-
-      const hasPrimaryModifier = event.metaKey || event.ctrlKey;
-      const hasSystemModifier = hasPrimaryModifier || event.altKey;
-      const key = event.key.toLowerCase();
-      const clipActions = clipActionsRef.current;
-      if (hasPrimaryModifier && key === "c") {
-        if (isExporting) {
-          return;
-        }
-
-        if (pendingSelection) {
-          event.preventDefault();
-          clipActions.copySelection(pendingSelection);
-          return;
-        }
-
-        if (!selectedClip) {
-          return;
-        }
-
-        event.preventDefault();
-        clipActions.copy(selectedClip);
-        return;
-      }
-
-      if (hasPrimaryModifier && key === "x") {
-        if (isExporting) {
-          return;
-        }
-
-        if (pendingSelection) {
-          event.preventDefault();
-          clipActions.cutSelection(pendingSelection);
-          return;
-        }
-
-        if (!selectedClip) {
-          return;
-        }
-
-        event.preventDefault();
-        clipActions.cut(selectedClip);
-        return;
-      }
-
-      if (hasPrimaryModifier && key === "v") {
-        if (!clipClipboardRef.current || isExporting) {
-          return;
-        }
-
-        event.preventDefault();
-        clipActions.paste();
-        return;
-      }
-
-      if (hasPrimaryModifier && key === "e") {
-        if (!selectedClip || isExporting) {
-          return;
-        }
-
-        event.preventDefault();
-        clipActions.split(selectedClip);
-        return;
-      }
-
-      if (hasPrimaryModifier && key === "d") {
-        if (!selectedClip || isExporting) {
-          return;
-        }
-
-        event.preventDefault();
-        clipActions.duplicate(selectedClip);
-        return;
-      }
-
-      if (hasSystemModifier) {
-        return;
-      }
-
-      if (event.key === "Escape") {
-        if (!selectedClip) {
-          return;
-        }
-
-        event.preventDefault();
-        setSelectedClipId(undefined);
-        return;
-      }
-
-      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-        event.preventDefault();
-        const direction = event.key === "ArrowLeft" ? -1 : 1;
-        const deltaQ = secondsToQuarters(
-          (direction * (event.shiftKey ? 5 : 1)) / fps,
-          bpm,
-        );
-        const nextPlayheadQ = clamp(
-          playheadQRef.current + deltaQ,
-          0,
-          totalQuarters,
-        );
-        setPlayheadQ(nextPlayheadQ);
-        playbackOriginRef.current = nextPlayheadQ;
-        return;
-      }
-
-      if (event.key === "Home" || event.key === "End") {
-        event.preventDefault();
-        const lastFrameQ = Math.max(
-          0,
-          timelineContentEndQ - secondsToQuarters(1 / fps, bpm),
-        );
-        const nextPlayheadQ = event.key === "Home" ? 0 : lastFrameQ;
-        setPlayheadQ(nextPlayheadQ);
-        playbackOriginRef.current = nextPlayheadQ;
-        return;
-      }
-
-      if (
-        (event.key === "ArrowUp" || event.key === "ArrowDown") &&
-        !hasSystemModifier
-      ) {
-        // Only while the timeline (or nothing) has focus and no clip is
-        // selected, so other panels keep their own arrow keys.
-        const timelineScroll = timelineScrollRef.current;
-        const activeElement = document.activeElement;
-        if (
-          selectedClip ||
-          (activeElement &&
-            activeElement !== document.body &&
-            !timelineScroll?.contains(activeElement))
-        ) {
-          return;
-        }
-
-        const nextLaneId = stepSelectedLaneId(
-          lanes,
-          fxLaneId,
-          event.key === "ArrowUp" ? -1 : 1,
-        );
-        if (!nextLaneId) {
-          return;
-        }
-
-        event.preventDefault();
-        setSelectedLaneId(nextLaneId);
-        if (activeElement?.hasAttribute("data-lane-label-id")) {
-          timelineScroll
-            ?.querySelector<HTMLElement>(
-              `[data-lane-label-id="${CSS.escape(nextLaneId)}"]`,
-            )
-            ?.focus();
-        }
-        return;
-      }
-
-      if (event.key === "Delete" || event.key === "Backspace") {
-        if (isExporting) {
-          return;
-        }
-
-        if (pendingSelection) {
-          event.preventDefault();
-          clipActions.deleteSelection(pendingSelection);
-          return;
-        }
-
-        if (!selectedClip) {
-          return;
-        }
-
-        event.preventDefault();
-        clipActions.remove(selectedClip);
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [
+  useKeyboardShortcuts({
     bpm,
     clipActionsRef,
+    clipClipboardRef,
+    commitPendingSelectionToSourceTrack,
     dragState,
     fps,
     fxLaneId,
+    handleRedo,
+    handleUndo,
     isExporting,
     lanes,
     pendingSelection,
+    playbackOriginRef,
+    playheadQRef,
     selectedClip,
+    setPendingSelection,
     setPlayheadQ,
+    setSelectedClipId,
+    setSelectedLaneId,
     timelineContentEndQ,
     timelineDragState,
+    timelineScrollRef,
     totalQuarters,
-  ]);
+  });
 
   // The empty arrangement's call to action sizes itself below the ruler.
   useEffect(() => {
@@ -2844,82 +2206,23 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     [exportStatusText, status],
   );
 
-  // Everything but the playhead is memoized off the playhead, and the playhead
-  // cell subscribes to it on its own, so playback does not re-render the bar.
-  const statusBarItems = useMemo<StatusItem[]>(
-    () =>
-      buildStatusItems({
-        version: ZVID_BUILD,
-        sessionName,
-        timelineMode,
-        // Unused: the playhead item is swapped for the live readout below.
-        playheadQ: 0,
-        bpm,
-        signature,
-        fps,
-        canvasWidth,
-        canvasHeight,
-        audio: previewMedia ?? null,
-        collaboration: {
-          mode: collaborationMode,
-          connected: collaborationState.connected,
-          peerCount: collaborationState.peerCount,
-        },
-        clipCount: timelineClips.length,
-        trackCount: lanes.length,
-        offlineCount,
-      }).flatMap((item): StatusItem[] => {
-        if (item.id === "playhead") {
-          return [
-            {
-              id: item.id,
-              label: item.label,
-              value: (
-                <StatusPlayhead
-                  bpm={bpm}
-                  fps={fps}
-                  signal={playheadSignal}
-                  signature={signature}
-                  timelineMode={timelineMode}
-                />
-              ),
-            },
-          ];
-        }
-        // The Copy share link button sits right after the share status.
-        if (
-          item.id === "collaboration" &&
-          shareLinkVisible(collaborationMode, shareUrl)
-        ) {
-          return [
-            item,
-            {
-              id: "share-link",
-              value: <ShareLinkButton key={shareUrl} url={shareUrl} />,
-            },
-          ];
-        }
-        return [item];
-      }),
-    [
-      bpm,
-      canvasHeight,
-      canvasWidth,
-      collaborationMode,
-      collaborationState.connected,
-      collaborationState.peerCount,
-      fps,
-      lanes.length,
-      offlineCount,
-      playheadSignal,
-      previewMedia,
-      sessionName,
-      shareUrl,
-      signature,
-      timelineClips.length,
-      timelineMode,
-    ],
-  );
+  const statusBarItems = useStatusBarItems({
+    bpm,
+    canvasHeight,
+    canvasWidth,
+    clipCount: timelineClips.length,
+    collaborationMode,
+    collaborationState,
+    fps,
+    offlineCount,
+    playheadSignal,
+    previewMedia,
+    sessionName,
+    shareUrl,
+    signature,
+    timelineMode,
+    trackCount: lanes.length,
+  });
 
   return (
     <div className="app-shell" ref={appShellRef}>

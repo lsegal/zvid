@@ -1,0 +1,47 @@
+import type { Dispatch, RefObject, SetStateAction } from "react";
+import type { ClipClipboard } from "../app/clip-ops.ts";
+import type {
+  ArrangementClip,
+  DragState,
+  Lane,
+  TimelineDragState,
+  TimelineSelection,
+} from "../app/types.ts";
+import type { useClipActions } from "../hooks/useClipActions.ts";
+
+// What the global keyboard shortcuts read and act on.
+export type ShortcutContext = {
+  bpm: number;
+  clipActionsRef: ReturnType<typeof useClipActions>["clipActionsRef"];
+  clipClipboardRef: RefObject<ClipClipboard | null>;
+  commitPendingSelectionToSourceTrack: (sourceIndex: number) => void;
+  dragState: DragState | null;
+  fps: number;
+  fxLaneId: string | undefined;
+  handleRedo: () => void;
+  handleUndo: () => void;
+  isExporting: boolean;
+  lanes: Lane[];
+  pendingSelection: TimelineSelection | null;
+  playbackOriginRef: RefObject<number>;
+  playheadQRef: RefObject<number>;
+  selectedClip: ArrangementClip | undefined;
+  setPendingSelection: Dispatch<SetStateAction<TimelineSelection | null>>;
+  setPlayheadQ: (playheadQ: number) => void;
+  setSelectedClipId: Dispatch<SetStateAction<string | undefined>>;
+  setSelectedLaneId: Dispatch<SetStateAction<string | undefined>>;
+  timelineContentEndQ: number;
+  timelineDragState: TimelineDragState | null;
+  timelineScrollRef: RefObject<HTMLDivElement | null>;
+  totalQuarters: number;
+};
+
+export type Shortcut = {
+  id: string;
+  // The key combinations that trigger it; see `matchesShortcutKey`.
+  keys: readonly string[];
+  // Whether it applies to this key press in this state.
+  when: (context: ShortcutContext, event: KeyboardEvent) => boolean;
+  // Acts on the key press, preventing its default when it handles it.
+  run: (context: ShortcutContext, event: KeyboardEvent) => void;
+};

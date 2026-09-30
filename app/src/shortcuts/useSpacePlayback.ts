@@ -1,0 +1,113 @@
+import { type RefObject, useEffect } from "react";
+import type { DragState, TimelineDragState } from "../app/types.ts";
+import { classifySpaceTarget, type createSpaceHold } from "../space-shortcut";
+
+export type SpacePlaybackInputs = {
+  cancelScrubPlaybackResume: () => void;
+  clipCount: number;
+  dragState: DragState | null;
+  isPlaying: boolean;
+  setIsPlaying: (isPlaying: boolean) => void;
+  spaceHoldRef: { current: ReturnType<typeof createSpaceHold> };
+  startPlayback: () => void;
+  timelineDragState: TimelineDragState | null;
+  timelineScrollRef: RefObject<HTMLDivElement | null>;
+};
+
+// Space toggles playback from anywhere except text entry and open menus or
+// dialogs. It runs in the capture phase so a focused button, menu trigger
+// or slider never sees the key and cannot also activate. Playback toggles
+// on release, so holding Space to pan the timeline never starts it.
+export function useSpacePlayback({
+  cancelScrubPlaybackResume,
+  clipCount,
+  dragState,
+  isPlaying,
+  setIsPlaying,
+  spaceHoldRef,
+  startPlayback,
+  timelineDragState,
+  timelineScrollRef,
+}: SpacePlaybackInputs) {
+  useEffect(() => {
+    const spaceHold = spaceHoldRef.current;
+    const setSpaceHeldClass = (held: boolean) =>
+      timelineScrollRef.current?.classList.toggle(
+        "timeline-scroll--space-held",
+        held,
+      );
+
+    const onSpaceKeyDown = (event: KeyboardEvent) => {
+      if (event.code !== "Space") {
+        return;
+      }
+
+      if (
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        classifySpaceTarget(event.target, document) !== "playback"
+      ) {
+        spaceHold.cancel();
+        setSpaceHeldClass(false);
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      spaceHold.press();
+      setSpaceHeldClass(true);
+    };
+
+    // Native buttons activate on Space keyup, so swallow the matching keyup.
+    const onSpaceKeyUp = (event: KeyboardEvent) => {
+      if (event.code !== "Space" || !spaceHold.held) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      setSpaceHeldClass(false);
+      if (
+        !spaceHold.release() ||
+        dragState ||
+        timelineDragState ||
+        !clipCount
+      ) {
+        return;
+      }
+
+      cancelScrubPlaybackResume();
+      if (isPlaying) {
+        setIsPlaying(false);
+        return;
+      }
+
+      startPlayback();
+    };
+
+    const onBlur = () => {
+      spaceHold.cancel();
+      setSpaceHeldClass(false);
+    };
+
+    window.addEventListener("keydown", onSpaceKeyDown, true);
+    window.addEventListener("keyup", onSpaceKeyUp, true);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onSpaceKeyDown, true);
+      window.removeEventListener("keyup", onSpaceKeyUp, true);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, [
+    cancelScrubPlaybackResume,
+    clipCount,
+    dragState,
+    isPlaying,
+    setIsPlaying,
+    spaceHoldRef,
+    startPlayback,
+    timelineDragState,
+    timelineScrollRef,
+  ]);
+}

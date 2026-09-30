@@ -8,6 +8,10 @@ import {
 } from "./space-shortcut.ts";
 
 const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const useSpacePlaybackTs = readFileSync(
+  new URL("./shortcuts/useSpacePlayback.ts", import.meta.url),
+  "utf8",
+);
 const useRulerGesturesTs = readFileSync(
   new URL("./hooks/useRulerGestures.ts", import.meta.url),
   "utf8",
@@ -117,11 +121,11 @@ describe("space shortcut target classification", () => {
   it("handles Space in the capture phase without per-control opt-outs", () => {
     assert.doesNotMatch(appTsx, /data-space-activates/);
     assert.match(
-      appTsx,
+      useSpacePlaybackTs,
       /window\.addEventListener\("keydown", onSpaceKeyDown, true\)/,
     );
     assert.match(
-      appTsx,
+      useSpacePlaybackTs,
       /window\.addEventListener\("keyup", onSpaceKeyUp, true\)/,
     );
   });
@@ -161,7 +165,7 @@ describe("space hold for hand-grab panning", () => {
   });
 
   it("toggles playback on keyup and pans on Space + left-drag", () => {
-    assert.match(appTsx, /spaceHold\.release\(\)/);
+    assert.match(useSpacePlaybackTs, /spaceHold\.release\(\)/);
     assert.match(
       useRulerGesturesTs,
       /isTimelinePanPress\(event, spaceHoldRef\.current\.held\)/,

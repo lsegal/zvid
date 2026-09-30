@@ -7,5 +7,7 @@ export const editLayerSubmenuEntry: MenuEntryProvider<EditMenuContext> = {
   id: "layer",
   order: 70,
   entries: ({ layer }) =>
-    layer ? [selectionSubmenu("layer", "Layer", layer.name, layer.entries)] : [],
+    layer
+      ? [selectionSubmenu("layer", "Layer", layer.name, layer.entries)]
+      : [],
 };

@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { ContextMenuEntry, ContextMenuItem } from "./context-menu.ts";
-import { buildClipMenuEntries, type ClipMenuActions } from "./menus/clip-menu.ts";
+import {
+  buildClipMenuEntries,
+  type ClipMenuActions,
+} from "./menus/clip-menu.ts";
 import { buildEditMenuEntries } from "./menus/edit-menu.ts";
 import { buildSelectionMenuEntries } from "./menus/selection-menu.ts";
 

@@ -9,7 +9,10 @@ import {
   sourceTrackKeyNumber,
 } from "./clip-menu.ts";
 import type { ContextMenuEntry, ContextMenuItem } from "./context-menu.ts";
-import { buildClipMenuEntries, type ClipMenuActions } from "./menus/clip-menu.ts";
+import {
+  buildClipMenuEntries,
+  type ClipMenuActions,
+} from "./menus/clip-menu.ts";
 import {
   buildSelectionMenuEntries,
   NO_FOOTAGE_TITLE,

@@ -1,0 +1,542 @@
+import {
+  type Dispatch,
+  type MouseEvent as ReactMouseEvent,
+  type RefObject,
+  type SetStateAction,
+  useEffect,
+  useRef,
+} from "react";
+import type { ClipClipboard } from "../app/clip-ops.ts";
+import { FX_CLIP_BARS, TEXT_CLIP_BARS } from "../app/constants.ts";
+import type { getShortcutLabels } from "../app/shortcut-labels.ts";
+import { getClipDurationQ, getClipEndQ } from "../app/timeline-math.ts";
+import type {
+  ArrangementClip,
+  ClipMenuState,
+  Lane,
+  SourceSpan,
+  SourceTrack,
+  TimelineSelection,
+} from "../app/types.ts";
+import { clamp, getSwatch } from "../app/util.ts";
+import { canSplitAt, isInSelection } from "../clip-menu.ts";
+import type { ContextMenuEntry, MenuPoint } from "../context-menu.ts";
+import { isContextMenuKey } from "../context-menu.ts";
+import { addableEffectsFor } from "../fx-chain";
+import { isLayerFxEnabled } from "../fx-stack";
+import type { useClipActions } from "../hooks/useClipActions.ts";
+import type { useClipInsertion } from "../hooks/useClipInsertion.ts";
+import type { useFxEditing } from "../hooks/useFxEditing.ts";
+import type { useLayerActions } from "../hooks/useLayerActions.ts";
+import type { usePlayback } from "../hooks/usePlayback.ts";
+import { sourceTrackHasFootage } from "../random-arrangement.ts";
+import { buildMainAudioMenuEntries } from "./audio-menu.ts";
+import { buildClipMenuEntries } from "./clip-menu.ts";
+import { buildEditMenuEntries } from "./edit-menu.ts";
+import { buildHistoryEntries } from "./entries/edit-history.ts";
+import { buildLayerMenuEntries } from "./layer-menu.ts";
+import { buildSelectionMenuEntries } from "./selection-menu.ts";
+import { buildSourceSpanMenuEntries } from "./source-span-menu.ts";
+
+type ClipActions = ReturnType<typeof useClipActions>;
+type ClipInsertion = ReturnType<typeof useClipInsertion>;
+type LayerActions = ReturnType<typeof useLayerActions>;
+
+export type MenusInputs = Pick<
+  ClipActions,
+  | "copyArrangementClip"
+  | "cutArrangementClip"
+  | "deleteArrangementClip"
+  | "copySelectionRange"
+  | "copySelection"
+  | "cutSelection"
+  | "deleteSelection"
+  | "pasteArrangementClip"
+  | "splitArrangementClip"
+  | "duplicateArrangementClip"
+  | "copySourceSpan"
+  | "copySourceSpanToLayer"
+> &
+  Pick<
+    ClipInsertion,
+    | "commitPendingSelectionToSourceTrack"
+    | "insertFillClip"
+    | "insertTextClip"
+    | "insertFxClip"
+  > &
+  Pick<
+    LayerActions,
+    | "duplicateLayer"
+    | "deleteLayer"
+    | "insertLayer"
+    | "moveLayer"
+    | "addLayerFx"
+  > &
+  Pick<ReturnType<typeof useFxEditing>, "setLayerFxEnabled"> &
+  Pick<ReturnType<typeof usePlayback>, "jumpToClipStart"> & {
+    barLength: number;
+    bpm: number;
+    canRedo: boolean;
+    canUndo: boolean;
+    clipClipboardRef: RefObject<ClipClipboard | null>;
+    fxLaneId: string | undefined;
+    handleRedo: () => void;
+    handleUndo: () => void;
+    isExporting: boolean;
+    laneStatusById: ReadonlyMap<string, { effectCount: number }>;
+    lanes: Lane[];
+    mainAudioId: string | undefined;
+    mainAudioInputRef: RefObject<HTMLInputElement | null>;
+    pendingSelection: TimelineSelection | null;
+    playheadQRef: RefObject<number>;
+    quarterPx: number;
+    redoLabel: string | undefined;
+    removeMainAudio: () => void;
+    renamingLaneId: string | undefined;
+    selectLaneFromLabel: (laneId: string) => void;
+    selectedClip: ArrangementClip | undefined;
+    selectedLaneId: string | undefined;
+    setClipMenu: Dispatch<SetStateAction<ClipMenuState | null>>;
+    setPendingSelection: Dispatch<SetStateAction<TimelineSelection | null>>;
+    setRenamingLaneId: Dispatch<SetStateAction<string | undefined>>;
+    setSelectedClipId: Dispatch<SetStateAction<string | undefined>>;
+    setSelectedLaneId: Dispatch<SetStateAction<string | undefined>>;
+    shortcutLabels: ReturnType<typeof getShortcutLabels>;
+    sourceSpans: SourceSpan[];
+    sourceTracks: SourceTrack[];
+    timelineClips: ArrangementClip[];
+    timelineScrollRef: RefObject<HTMLDivElement | null>;
+    undoLabel: string | undefined;
+  };
+
+// The pointer position, or below the element when the context-menu key or
+// Shift+F10 opened the menu and reported no position.
+function getMenuAnchor(event: ReactMouseEvent<HTMLElement>): MenuPoint {
+  if (event.clientX || event.clientY) {
+    return { x: event.clientX, y: event.clientY };
+  }
+
+  const bounds = event.currentTarget.getBoundingClientRect();
+  return { x: bounds.left, y: bounds.bottom };
+}
+
+// Opens the right-click menus and builds their entries, and the Edit menu's,
+// from the current selection.
+export function useMenus({
+  addLayerFx,
+  barLength,
+  bpm,
+  canRedo,
+  canUndo,
+  clipClipboardRef,
+  commitPendingSelectionToSourceTrack,
+  copyArrangementClip,
+  copySelection,
+  copySelectionRange,
+  copySourceSpan,
+  copySourceSpanToLayer,
+  cutArrangementClip,
+  cutSelection,
+  deleteArrangementClip,
+  deleteLayer,
+  deleteSelection,
+  duplicateArrangementClip,
+  duplicateLayer,
+  fxLaneId,
+  handleRedo,
+  handleUndo,
+  insertFillClip,
+  insertFxClip,
+  insertLayer,
+  insertTextClip,
+  isExporting,
+  jumpToClipStart,
+  laneStatusById,
+  lanes,
+  mainAudioId,
+  mainAudioInputRef,
+  moveLayer,
+  pasteArrangementClip,
+  pendingSelection,
+  playheadQRef,
+  quarterPx,
+  redoLabel,
+  removeMainAudio,
+  renamingLaneId,
+  selectLaneFromLabel,
+  selectedClip,
+  selectedLaneId,
+  setClipMenu,
+  setLayerFxEnabled,
+  setPendingSelection,
+  setRenamingLaneId,
+  setSelectedClipId,
+  setSelectedLaneId,
+  shortcutLabels,
+  sourceSpans,
+  sourceTracks,
+  splitArrangementClip,
+  timelineClips,
+  timelineScrollRef,
+  undoLabel,
+}: MenusInputs) {
+  // Right-clicking a clip selects it (and so its layer) before the menu opens.
+  function openArrangementClipMenu(
+    event: ReactMouseEvent<HTMLElement>,
+    clip: ArrangementClip,
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+    setPendingSelection(null);
+    setSelectedClipId(clip.id);
+    setClipMenu({
+      kind: "clip",
+      clipId: clip.id,
+      anchor: getMenuAnchor(event),
+    });
+  }
+
+  // Right-clicking inside the uncommitted selection keeps it and opens the
+  // selection menu; anywhere else on the lane clears it for the lane menu.
+  function openLaneMenu(event: ReactMouseEvent<HTMLElement>, laneId: string) {
+    event.preventDefault();
+    event.stopPropagation();
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const pointerQ = (event.clientX - bounds.left) / quarterPx;
+    if (isInSelection(pendingSelection, laneId, pointerQ)) {
+      setClipMenu({ kind: "selection", anchor: getMenuAnchor(event) });
+      return;
+    }
+
+    setPendingSelection(null);
+    setSelectedClipId(undefined);
+    setSelectedLaneId(laneId);
+    setClipMenu({ kind: "lane", laneId, anchor: getMenuAnchor(event) });
+  }
+
+  // Right-clicking a layer header, or the context-menu key on it, selects
+  // the layer before the menu opens.
+  function openLayerMenu(event: ReactMouseEvent<HTMLElement>, laneId: string) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (renamingLaneId === laneId) {
+      return;
+    }
+
+    selectLaneFromLabel(laneId);
+    setClipMenu({ kind: "layer", laneId, anchor: getMenuAnchor(event) });
+  }
+
+  function openMainAudioMenu(event: ReactMouseEvent<HTMLElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    setClipMenu({ kind: "audio", anchor: getMenuAnchor(event) });
+  }
+
+  function openSourceSpanMenu(
+    event: ReactMouseEvent<HTMLElement>,
+    span: SourceSpan,
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+    setClipMenu({
+      kind: "span",
+      spanId: span.id,
+      anchor: getMenuAnchor(event),
+    });
+  }
+
+  // The context-menu key or Shift+F10 with nothing focused opens the menu on
+  // the uncommitted selection, the selected clip, or the selected layer at
+  // the playhead.
+  function openSelectionMenu() {
+    const timelineScroll = timelineScrollRef.current;
+    if (!timelineScroll) {
+      return false;
+    }
+
+    if (pendingSelection) {
+      const selection = timelineScroll.querySelector<HTMLElement>(
+        `[data-timeline-lane-id="${CSS.escape(pendingSelection.laneId)}"] .timeline-selection`,
+      );
+      if (!selection) {
+        return false;
+      }
+
+      const bounds = selection.getBoundingClientRect();
+      setClipMenu({
+        kind: "selection",
+        anchor: { x: bounds.left, y: bounds.bottom },
+      });
+      return true;
+    }
+
+    if (selectedClip) {
+      const card = timelineScroll.querySelector<HTMLElement>(
+        `[data-clip-id="${CSS.escape(selectedClip.id)}"]`,
+      );
+      if (!card) {
+        return false;
+      }
+
+      const bounds = card.getBoundingClientRect();
+      setClipMenu({
+        kind: "clip",
+        clipId: selectedClip.id,
+        anchor: { x: bounds.left, y: bounds.bottom },
+      });
+      return true;
+    }
+
+    if (!fxLaneId) {
+      return false;
+    }
+
+    const lane = timelineScroll.querySelector<HTMLElement>(
+      `[data-timeline-lane-id="${CSS.escape(fxLaneId)}"]`,
+    );
+    if (!lane) {
+      return false;
+    }
+
+    const bounds = lane.getBoundingClientRect();
+    setSelectedLaneId(fxLaneId);
+    setClipMenu({
+      kind: "lane",
+      laneId: fxLaneId,
+      anchor: {
+        x: clamp(
+          bounds.left + playheadQRef.current * quarterPx,
+          bounds.left,
+          bounds.right,
+        ),
+        y: bounds.bottom,
+      },
+    });
+    return true;
+  }
+
+  const openSelectionMenuRef = useRef(openSelectionMenu);
+  openSelectionMenuRef.current = openSelectionMenu;
+
+  // Browsers report both keys as a contextmenu event. Clips, lanes and panels
+  // with their own menu handle it first when they have focus; this takes the
+  // rest while nothing, or empty timeline space, has focus.
+  useEffect(() => {
+    let keyboardMenuAt = Number.NEGATIVE_INFINITY;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (isContextMenuKey(event)) {
+        keyboardMenuAt = event.timeStamp;
+      }
+    };
+    const onContextMenu = (event: MouseEvent) => {
+      const fromKeyboard = event.timeStamp - keyboardMenuAt < 1000;
+      keyboardMenuAt = Number.NEGATIVE_INFINITY;
+      const focused = document.activeElement;
+      if (
+        !fromKeyboard ||
+        event.defaultPrevented ||
+        (focused &&
+          focused !== document.body &&
+          !timelineScrollRef.current?.contains(focused))
+      ) {
+        return;
+      }
+
+      if (openSelectionMenuRef.current()) {
+        event.preventDefault();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    document.addEventListener("contextmenu", onContextMenu);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown, true);
+      document.removeEventListener("contextmenu", onContextMenu);
+    };
+  }, [timelineScrollRef]);
+
+  function getClipMenuEntries(menu: ClipMenuState): ContextMenuEntry[] {
+    if (menu.kind === "audio") {
+      return getMainAudioMenuEntries();
+    }
+
+    if (menu.kind === "layer") {
+      const lane = lanes.find((item) => item.id === menu.laneId);
+      return lane ? getLayerMenuEntries(lane) : [];
+    }
+
+    if (menu.kind === "selection") {
+      return pendingSelection ? getSelectionMenuEntries(pendingSelection) : [];
+    }
+
+    if (menu.kind === "span") {
+      const span = sourceSpans.find((item) => item.id === menu.spanId);
+      if (!span) {
+        return [];
+      }
+
+      return buildSourceSpanMenuEntries({
+        lanes,
+        mac: shortcutLabels.mac,
+        copy: () => copySourceSpan(span),
+        copyToLayer: (target) => copySourceSpanToLayer(span, target),
+      });
+    }
+
+    const clip =
+      menu.kind === "clip"
+        ? timelineClips.find((item) => item.id === menu.clipId)
+        : undefined;
+    return getArrangementClipEntries(
+      clip,
+      menu.kind === "lane" ? menu.laneId : clip?.laneId,
+    );
+  }
+
+  // Insert Track commits the selection exactly like the track's number key,
+  // and Insert Fill Clip covers it with a fill clip.
+  function getSelectionMenuEntries(selection: TimelineSelection) {
+    const endQ = selection.startQ + selection.durationQ;
+    return buildSelectionMenuEntries({
+      tracks: sourceTracks.map((track) => ({
+        id: track.id,
+        name: track.name,
+        color: getSwatch(track.colorIndex).accent,
+        hasFootage: sourceTrackHasFootage(
+          sourceSpans,
+          (span) => span.startQ + getClipDurationQ(span, bpm),
+          track.id,
+          selection.startQ,
+          endQ,
+        ),
+      })),
+      disabled: isExporting,
+      clipboard: {
+        mac: shortcutLabels.mac,
+        hasContent: copySelectionRange(selection).fragments.length > 0,
+        cut: () => cutSelection(selection),
+        copy: () => copySelection(selection),
+        remove: () => deleteSelection(selection),
+      },
+      insertTrack: commitPendingSelectionToSourceTrack,
+      insertFill: () =>
+        insertFillClip(selection.laneId, selection.startQ, selection.durationQ),
+      insertText: () =>
+        insertTextClip(selection.laneId, selection.startQ, selection.durationQ),
+      insertFx: () =>
+        insertFxClip(selection.laneId, selection.startQ, selection.durationQ),
+      clear: () => setPendingSelection(null),
+    });
+  }
+
+  function getMainAudioMenuEntries() {
+    return buildMainAudioMenuEntries({
+      hasMainAudio: Boolean(mainAudioId),
+      disabled: isExporting,
+      chooseFile: () => mainAudioInputRef.current?.click(),
+      remove: removeMainAudio,
+    });
+  }
+
+  function getLayerMenuEntries(lane: Lane) {
+    const fxEnabled = isLayerFxEnabled(lane);
+    return buildLayerMenuEntries({
+      lanes,
+      laneId: lane.id,
+      fxEnabled,
+      effectCount: laneStatusById.get(lane.id)?.effectCount ?? 0,
+      effects: addableEffectsFor("layer"),
+      disabled: isExporting,
+      actions: {
+        rename: () => setRenamingLaneId(lane.id),
+        duplicate: () => duplicateLayer(lane),
+        remove: () => deleteLayer(lane),
+        toggleFx: () => setLayerFxEnabled(lane.id, !fxEnabled),
+        addFx: (effectName) => addLayerFx(lane.id, effectName),
+        insertText: () =>
+          insertTextClip(
+            lane.id,
+            playheadQRef.current,
+            TEXT_CLIP_BARS * barLength,
+          ),
+        insertFx: () =>
+          insertFxClip(lane.id, playheadQRef.current, FX_CLIP_BARS * barLength),
+        insertAbove: () => insertLayer(lane.id, "above"),
+        insertBelow: () => insertLayer(lane.id, "below"),
+        moveUp: () => moveLayer(lane, -1),
+        moveDown: () => moveLayer(lane, 1),
+      },
+    });
+  }
+
+  // The clip menu, or the empty lane space menu without a clip. Paste goes on
+  // `pasteLaneId`, or on the selected layer when it is undefined.
+  function getArrangementClipEntries(
+    clip: ArrangementClip | undefined,
+    pasteLaneId: string | undefined,
+  ): ContextMenuEntry[] {
+    const withClip = (action: (clip: ArrangementClip) => void) => () => {
+      if (clip) {
+        action(clip);
+      }
+    };
+    return buildClipMenuEntries({
+      hasClip: Boolean(clip) && !isExporting,
+      canPaste: Boolean(clipClipboardRef.current) && !isExporting,
+      canSplit: clip
+        ? canSplitAt(clip.startQ, getClipEndQ(clip, bpm), playheadQRef.current)
+        : false,
+      mac: shortcutLabels.mac,
+      actions: {
+        jumpToStart: withClip((clip) => jumpToClipStart(clip.id)),
+        cut: withClip(cutArrangementClip),
+        copy: withClip(copyArrangementClip),
+        paste: () => pasteArrangementClip(pasteLaneId),
+        duplicate: withClip(duplicateArrangementClip),
+        split: withClip(splitArrangementClip),
+        remove: withClip(deleteArrangementClip),
+      },
+    });
+  }
+
+  // Built when the Edit menu opens, so it reflects the current selection.
+  function getEditMenuEntries(): ContextMenuEntry[] {
+    const selectedLane = lanes.find((lane) => lane.id === selectedLaneId);
+    return buildEditMenuEntries(
+      buildHistoryEntries({
+        undoLabel,
+        redoLabel,
+        canUndo,
+        canRedo,
+        disabled: isExporting,
+        shortcuts: shortcutLabels,
+        undo: handleUndo,
+        redo: handleRedo,
+      }),
+      {
+        clip: selectedClip?.label,
+        clipEntries: getArrangementClipEntries(selectedClip, undefined),
+        selectionEntries: pendingSelection
+          ? getSelectionMenuEntries(pendingSelection)
+          : undefined,
+        layer: selectedLane
+          ? {
+              name: selectedLane.name,
+              entries: getLayerMenuEntries(selectedLane),
+            }
+          : undefined,
+        audioEntries: getMainAudioMenuEntries(),
+      },
+    );
+  }
+
+  return {
+    openArrangementClipMenu,
+    openLaneMenu,
+    openLayerMenu,
+    openMainAudioMenu,
+    openSourceSpanMenu,
+    getClipMenuEntries,
+    getEditMenuEntries,
+  };
+}
