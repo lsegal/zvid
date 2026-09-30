@@ -100,6 +100,7 @@ describe("animation defaults", () => {
       motionIn: "Ease Out",
       motionOut: "Ease In",
       timing: "Normal",
+      transition: "Squish",
     });
     assert.deepEqual(getAnimationDefaults("Order")?.clipFrames, {
       Slow: 7,
