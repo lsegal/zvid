@@ -131,6 +131,18 @@ While sharing or joined, click the connection status in the header for diagnosti
 
 Tabs of the same browser profile also sync through `BroadcastChannel`, which works even when signaling and WebRTC are broken, so test sharing with two different browsers or machines (the diagnostics list same-browser tabs separately). `pnpm test:web` runs a two-browser-context test against a local signaling server (`e2e/collaboration.spec.ts`).
 
+## Where code goes
+
+Keep modules small and put new code where it belongs rather than growing `App.tsx`:
+
+- React hooks go in `src/hooks`.
+- Components go in `src/components`.
+- App-shell modules (types, constants and helpers the shell shares) go in `src/app`.
+- Each effect lives in its own folder, `src/fx/effects/<name>`.
+- Menus, keyboard shortcuts and status bar items are added through their registries, not inline in the shell.
+
+`pnpm --dir app run lint` (and the root `pnpm lint`) runs `scripts/check-file-size.mjs`, which fails when a `src` file (`.ts`, `.tsx` or `.css`; tests, declarations, fixtures and generated files excluded) exceeds 800 lines. Files already over the limit are recorded in `scripts/file-size-allowlist.json` at their current size: they may shrink but never grow. When one shrinks the check prints a hint; run `node app/scripts/check-file-size.mjs --write` to ratchet the allowlist down, which also drops files that are back within the limit. Split an oversized file instead of raising its entry.
+
 ## Versioning
 
 `app/package.json` is the source of truth for the zvid version. Tauri reads it directly (`"version": "../package.json"` in `src-tauri/tauri.conf.json`), and a unit test fails if the version in `src-tauri/Cargo.toml` drifts, so bump both together.
