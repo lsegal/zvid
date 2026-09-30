@@ -1,0 +1,479 @@
+import {
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+  useCallback,
+} from "react";
+import {
+  FILL_CLIP_ACCENT,
+  FILL_CLIP_TINT,
+  MAX_WAND_LAYERS,
+  RANDOM_SELECTION_BAR_INCREMENT,
+  RANDOM_SELECTION_MAX_BARS,
+} from "../app/constants.ts";
+import { patchProjectState } from "../app/session-project.ts";
+import {
+  chooseSourceSpanForWindow,
+  getClipDurationQ,
+  getClipEndQ,
+  quartersToSeconds,
+} from "../app/timeline-math.ts";
+import type {
+  ArrangementClip,
+  Lane,
+  ProjectState,
+  SourceSpan,
+  SourceTrack,
+  TimelineSelection,
+} from "../app/types.ts";
+import { getNextLaneNumber, getSwatch, randomFloat } from "../app/util.ts";
+import {
+  applyWandArrangement,
+  createWandLanes,
+  getWandEndQ,
+} from "../arrangement-wand.ts";
+import { addFillClip, getDefaultFillColor } from "../fill-clip.ts";
+import { addFxClip } from "../fx-clip.ts";
+import { ensureLayerLayouts } from "../fx-stack";
+import { createLaneId } from "../lanes";
+import type { MediaItem } from "../media";
+import type { ProjectHistoryAction } from "../project-history";
+import { buildRandomArrangement } from "../random-arrangement.ts";
+import { MAX_LAYERS } from "../selection-overlaps";
+import { dropClipOnFreeLane } from "../source-clip-drop.ts";
+import { addTextClip } from "../text-clip.ts";
+
+export type ClipInsertionInputs = {
+  barLength: number;
+  bpm: number;
+  clips: ArrangementClip[];
+  commitProjectChange: (
+    label: string,
+    updater: (current: ProjectState) => ProjectState,
+  ) => void;
+  dispatchProject: (action: ProjectHistoryAction<ProjectState>) => void;
+  fps: number;
+  lanes: Lane[];
+  mediaItemsById: Map<string, MediaItem>;
+  pendingSelection: TimelineSelection | null;
+  playbackOriginRef: RefObject<number>;
+  projectDurationFrames: number | undefined;
+  setDragPreviewClips: Dispatch<SetStateAction<ArrangementClip[] | null>>;
+  setIsPlaying: Dispatch<SetStateAction<boolean>>;
+  setPendingSelection: Dispatch<SetStateAction<TimelineSelection | null>>;
+  setPlayheadQ: (nextQ: number) => void;
+  setSelectedClipId: Dispatch<SetStateAction<string | undefined>>;
+  setStatus: Dispatch<SetStateAction<string>>;
+  sourceSpans: SourceSpan[];
+  sourceTracks: SourceTrack[];
+};
+
+// Creates arrangement clips: windows on source clips, fill, text and FX clips,
+// whole source clips, and the wand's randomized arrangement.
+export function useClipInsertion({
+  barLength,
+  bpm,
+  clips,
+  commitProjectChange,
+  dispatchProject,
+  fps,
+  lanes,
+  mediaItemsById,
+  pendingSelection,
+  playbackOriginRef,
+  projectDurationFrames,
+  setDragPreviewClips,
+  setIsPlaying,
+  setPendingSelection,
+  setPlayheadQ,
+  setSelectedClipId,
+  setStatus,
+  sourceSpans,
+  sourceTracks,
+}: ClipInsertionInputs) {
+  const createWindowClip = useCallback(
+    (
+      selection: TimelineSelection,
+      sourceTrack: SourceTrack,
+      sourceSpan: SourceSpan,
+    ): ArrangementClip => {
+      const sourceOffsetSeconds =
+        sourceSpan.trimStartSeconds - quartersToSeconds(sourceSpan.startQ, bpm);
+      return {
+        id: `window-${crypto.randomUUID()}`,
+        sourceSpanId: sourceSpan.id,
+        sourceTrackId: sourceTrack.id,
+        laneId: selection.laneId,
+        label: sourceTrack.name,
+        mediaPath: sourceSpan.mediaPath,
+        mediaId: sourceSpan.mediaId,
+        startQ: selection.startQ,
+        durationSeconds: quartersToSeconds(selection.durationQ, bpm),
+        trimStartSeconds:
+          quartersToSeconds(selection.startQ, bpm) + sourceOffsetSeconds,
+        sourceOffsetSeconds,
+        sourceWindowStartSeconds: sourceSpan.trimStartSeconds,
+        sourceWindowEndSeconds:
+          sourceSpan.trimStartSeconds + sourceSpan.durationSeconds,
+        warp: sourceSpan.warp,
+        tint: sourceSpan.tint,
+        accent: sourceSpan.accent,
+      };
+    },
+    [bpm],
+  );
+
+  const commitPendingSelectionToSourceTrack = useCallback(
+    (sourceIndex: number) => {
+      if (!pendingSelection) {
+        return;
+      }
+
+      const sourceTrack = sourceTracks[sourceIndex];
+      if (!sourceTrack) {
+        setStatus(
+          `Source layer ${sourceIndex + 1} is not available in this session.`,
+        );
+        return;
+      }
+
+      const sourceSpan = chooseSourceSpanForWindow(
+        sourceSpans,
+        sourceTrack.id,
+        pendingSelection.startQ,
+        pendingSelection.durationQ,
+        bpm,
+      );
+      if (!sourceSpan) {
+        setStatus(
+          `Source layer ${sourceIndex + 1} has no clip near this selection yet.`,
+        );
+        return;
+      }
+
+      const clip = createWindowClip(pendingSelection, sourceTrack, sourceSpan);
+      dispatchProject({
+        type: "commit",
+        label: "Create window",
+        updater: (current) =>
+          patchProjectState(current, {
+            clips: [...current.clips, clip],
+          }),
+      });
+      setPendingSelection(null);
+      setSelectedClipId(clip.id);
+      setStatus(
+        `Committed a window on ${sourceTrack.name} with key ${sourceIndex + 1}.`,
+      );
+    },
+    [
+      bpm,
+      createWindowClip,
+      dispatchProject,
+      pendingSelection,
+      setPendingSelection,
+      setSelectedClipId,
+      setStatus,
+      sourceSpans,
+      sourceTracks,
+    ],
+  );
+
+  // Inserts a fill clip over `durationQ` quarters from `startQ` on layer
+  // `laneId` and selects it. The clip gets its own Color effect, in the
+  // layer's accent colour or neutral grey. Returns the new clip's id.
+  const insertFillClip = useCallback(
+    (laneId: string, startQ: number, durationQ: number) => {
+      const lane = lanes.find((candidate) => candidate.id === laneId);
+      if (!lane || !(durationQ > 0)) {
+        return undefined;
+      }
+
+      const accent =
+        lane.colorIndex >= 0 ? getSwatch(lane.colorIndex).accent : undefined;
+      const id = `fill-${crypto.randomUUID()}`;
+      dispatchProject({
+        type: "commit",
+        label: "Insert fill clip",
+        updater: (current) => {
+          const result = addFillClip(current, {
+            id,
+            laneId,
+            startQ,
+            durationQ,
+            bpm,
+            tint: FILL_CLIP_TINT,
+            accent: accent ?? FILL_CLIP_ACCENT,
+            color: getDefaultFillColor(accent),
+            effectId: crypto.randomUUID(),
+          });
+          return patchProjectState(current, {
+            clips: result.clips,
+            effects: result.effects,
+          });
+        },
+      });
+      setPendingSelection(null);
+      setSelectedClipId(id);
+      setStatus(`Inserted a fill on ${lane.name}.`);
+      return id;
+    },
+    [
+      bpm,
+      dispatchProject,
+      lanes,
+      setPendingSelection,
+      setSelectedClipId,
+      setStatus,
+    ],
+  );
+
+  // Inserts a text clip over `durationQ` quarters from `startQ` on layer
+  // `laneId` and selects it. The clip gets its own Text effect with its
+  // defaults. Returns the new clip's id.
+  const insertTextClip = useCallback(
+    (laneId: string, startQ: number, durationQ: number) => {
+      const lane = lanes.find((candidate) => candidate.id === laneId);
+      if (!lane || !(durationQ > 0)) {
+        return undefined;
+      }
+
+      const accent =
+        lane.colorIndex >= 0 ? getSwatch(lane.colorIndex).accent : undefined;
+      const id = `text-${crypto.randomUUID()}`;
+      dispatchProject({
+        type: "commit",
+        label: "Insert text clip",
+        updater: (current) => {
+          const result = addTextClip(current, {
+            id,
+            laneId,
+            startQ,
+            durationQ,
+            bpm,
+            tint: FILL_CLIP_TINT,
+            accent: accent ?? FILL_CLIP_ACCENT,
+            effectId: crypto.randomUUID(),
+          });
+          return patchProjectState(current, {
+            clips: result.clips,
+            effects: result.effects,
+          });
+        },
+      });
+      setPendingSelection(null);
+      setSelectedClipId(id);
+      setStatus(`Inserted text on ${lane.name}.`);
+      return id;
+    },
+    [
+      bpm,
+      dispatchProject,
+      lanes,
+      setPendingSelection,
+      setSelectedClipId,
+      setStatus,
+    ],
+  );
+
+  // Inserts an FX clip over `durationQ` quarters from `startQ` on layer
+  // `laneId` and selects it, so the FX panel's Clip section opens ready for
+  // its first effect. It starts with no effects, so it changes nothing yet.
+  // Returns the new clip's id.
+  const insertFxClip = useCallback(
+    (laneId: string, startQ: number, durationQ: number) => {
+      const lane = lanes.find((candidate) => candidate.id === laneId);
+      if (!lane || !(durationQ > 0)) {
+        return undefined;
+      }
+
+      const accent =
+        lane.colorIndex >= 0 ? getSwatch(lane.colorIndex).accent : undefined;
+      const id = `fx-${crypto.randomUUID()}`;
+      dispatchProject({
+        type: "commit",
+        label: "Insert FX clip",
+        updater: (current) =>
+          patchProjectState(current, {
+            clips: addFxClip(current, {
+              id,
+              laneId,
+              startQ,
+              durationQ,
+              bpm,
+              tint: FILL_CLIP_TINT,
+              accent: accent ?? FILL_CLIP_ACCENT,
+            }).clips,
+          }),
+      });
+      setPendingSelection(null);
+      setSelectedClipId(id);
+      setStatus(`Inserted an FX clip on ${lane.name}.`);
+      return id;
+    },
+    [
+      bpm,
+      dispatchProject,
+      lanes,
+      setPendingSelection,
+      setSelectedClipId,
+      setStatus,
+    ],
+  );
+
+  // The whole source clip as an arrangement clip at its song position.
+  function createSourceSpanClip(span: SourceSpan, laneId: string) {
+    const sourceTrack = sourceTracks.find(
+      (track) => track.id === span.sourceTrackId,
+    );
+    if (!sourceTrack) {
+      return null;
+    }
+
+    return createWindowClip(
+      {
+        id: span.id,
+        laneId,
+        startQ: span.startQ,
+        durationQ: getClipDurationQ(span, bpm),
+      },
+      sourceTrack,
+      span,
+    );
+  }
+
+  // Ctrl/Cmd-click on a source clip: drops the whole clip onto the last layer
+  // with room for it at the same song position, or onto a new layer.
+  function addSourceSpanToArrangement(sourceSpan: SourceSpan) {
+    const clip = createSourceSpanClip(sourceSpan, "");
+    if (!clip) {
+      return;
+    }
+
+    const drop = dropClipOnFreeLane(lanes, clips, clip, bpm, () => ({
+      id: createLaneId(lanes),
+      name: `Layer ${getNextLaneNumber(lanes)}`,
+      colorIndex: -1,
+    }));
+    if (!drop) {
+      setStatus(`You already have the maximum of ${MAX_LAYERS} layers.`);
+      return;
+    }
+
+    commitProjectChange("Add clip from source", (current) =>
+      patchProjectState(current, {
+        lanes: drop.lanes,
+        clips: drop.clips,
+        effects: drop.createdLane
+          ? ensureLayerLayouts(current.effects, [drop.lane.id])
+          : current.effects,
+      }),
+    );
+    setPendingSelection(null);
+    setSelectedClipId(drop.clip.id);
+    setStatus(
+      drop.createdLane
+        ? `Added ${clip.label} to a new layer, ${drop.lane.name}.`
+        : `Added ${clip.label} to ${drop.lane.name}.`,
+    );
+  }
+
+  function getRandomizationTimelineEndQ() {
+    return getWandEndQ({
+      projectDurationFrames,
+      fps,
+      bpm,
+      barLength,
+      sourceSpans,
+      isVideoSpan: (span) =>
+        Boolean(span.mediaId && mediaItemsById.get(span.mediaId)?.hasVideo),
+    });
+  }
+
+  function buildRandomizedArrangement() {
+    const wandLanes = createWandLanes(lanes, MAX_WAND_LAYERS);
+    const stepQ = barLength * RANDOM_SELECTION_BAR_INCREMENT;
+    const durationSteps = Array.from(
+      {
+        length: Math.round(
+          RANDOM_SELECTION_MAX_BARS / RANDOM_SELECTION_BAR_INCREMENT,
+        ),
+      },
+      (_, index) => (index + 1) * stepQ,
+    );
+    const sourceTracksById = new Map(
+      sourceTracks.map((sourceTrack) => [sourceTrack.id, sourceTrack]),
+    );
+    const windows = buildRandomArrangement({
+      laneIds: wandLanes.map((lane) => lane.id),
+      sourceTrackIds: sourceTracks.map((sourceTrack) => sourceTrack.id),
+      spans: sourceSpans,
+      spanEndQ: (span) => getClipEndQ(span, bpm),
+      timelineEndQ: getRandomizationTimelineEndQ(),
+      stepQ,
+      durationSteps,
+      random: randomFloat,
+    });
+
+    const randomizedClips = windows.flatMap((window, index) => {
+      const sourceTrack = sourceTracksById.get(window.span.sourceTrackId);
+      if (!sourceTrack) {
+        return [];
+      }
+
+      const clip = createWindowClip(
+        {
+          id: `selection-random-${window.laneId}-${index}`,
+          laneId: window.laneId,
+          startQ: window.startQ,
+          durationQ: window.durationQ,
+        },
+        sourceTrack,
+        window.span,
+      );
+      return [clip];
+    });
+    return { lanes: wandLanes, clips: randomizedClips };
+  }
+
+  function handleRandomizeTimeline() {
+    if (!sourceTracks.length || !sourceSpans.length) {
+      setStatus(
+        "Open a session or import source media before randomizing the arrangement.",
+      );
+      return;
+    }
+
+    const { lanes: wandLanes, clips: randomizedClips } =
+      buildRandomizedArrangement();
+    if (!randomizedClips.length) {
+      setStatus(
+        "No randomized windows could be generated from the current source timeline.",
+      );
+      return;
+    }
+
+    setIsPlaying(false);
+    setPendingSelection(null);
+    setDragPreviewClips(null);
+    commitProjectChange("Randomize arrangement", (current) =>
+      applyWandArrangement(current, wandLanes, randomizedClips),
+    );
+    setSelectedClipId(randomizedClips[0]?.id);
+    setPlayheadQ(0);
+    playbackOriginRef.current = 0;
+    setStatus(
+      `Rebuilt the arrangement with ${randomizedClips.length} randomized windows inside the source clips.`,
+    );
+  }
+
+  return {
+    commitPendingSelectionToSourceTrack,
+    insertFillClip,
+    insertTextClip,
+    insertFxClip,
+    createSourceSpanClip,
+    addSourceSpanToArrangement,
+    handleRandomizeTimeline,
+  };
+}

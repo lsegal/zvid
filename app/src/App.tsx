@@ -21,15 +21,8 @@ import {
   useState,
 } from "react";
 import "./App.css";
+import { type ClipClipboard, cloneClipAtStartQ } from "./app/clip-ops.ts";
 import {
-  type ClipClipboard,
-  cloneClipAtStartQ,
-  duplicateClip,
-  withClipStacks,
-} from "./app/clip-ops.ts";
-import {
-  FILL_CLIP_ACCENT,
-  FILL_CLIP_TINT,
   FX_CLIP_BARS,
   INSPECTOR_COLLAPSED_STORAGE_KEY,
   LABEL_WIDTH_DEFAULT,
@@ -38,13 +31,10 @@ import {
   LABEL_WIDTH_MIN,
   LABEL_WIDTH_NARROW,
   LABEL_WIDTH_STORAGE_KEY,
-  MAX_WAND_LAYERS,
   PREVIEW_DEFAULT_WIDTH,
   PREVIEW_MIN_WIDTH,
   PREVIEW_RESIZE_KEY_STEP,
   PREVIEW_WIDTH_STORAGE_KEY,
-  RANDOM_SELECTION_BAR_INCREMENT,
-  RANDOM_SELECTION_MAX_BARS,
   SIGNATURES,
   SNAP_OPTIONS,
   TEXT_CLIP_BARS,
@@ -68,12 +58,10 @@ import {
 import { patchProjectState } from "./app/session-project.ts";
 import { getShortcutLabels } from "./app/shortcut-labels.ts";
 import {
-  chooseSourceSpanForWindow,
   findClipAtPlayhead,
   findClosestTimelineLaneId,
   getClipDurationQ,
   getClipEndQ,
-  getSelectionEndQ,
   getTimelineContentEndQ,
   isClipAtPlayhead,
   quartersToSeconds,
@@ -88,7 +76,6 @@ import type {
   Lane,
   SessionMediaCheck,
   SourceSpan,
-  SourceTrack,
   TimelineDragState,
   TimelineSelection,
 } from "./app/types.ts";
@@ -100,7 +87,6 @@ import {
   isEditableEventTarget,
   logClient,
   pluralize,
-  randomFloat,
 } from "./app/util.ts";
 import {
   CORRUPT_WORKSPACE_NOTICE,
@@ -114,11 +100,6 @@ import {
   isArrangementEmptyStateDismissedOnOpen,
   shouldShowArrangementEmptyState,
 } from "./arrangement-empty-state.ts";
-import {
-  applyWandArrangement,
-  createWandLanes,
-  getWandEndQ,
-} from "./arrangement-wand.ts";
 import {
   CompositionPlayer,
   type CompositionPlayerHandle,
@@ -142,11 +123,8 @@ import {
   buildClipMenuEntries,
   buildSelectionMenuEntries,
   buildSourceSpanMenuEntries,
-  type CopyToLayerTarget,
   canSplitAt,
-  copyClipToLayer,
   isInSelection,
-  resolvePasteLaneId,
 } from "./clip-menu.ts";
 import { ArrangementEmptyState } from "./components/ArrangementEmptyState";
 import {
@@ -182,12 +160,7 @@ import {
   usePrefersReducedMotion,
 } from "./components/MediaSyncSkeleton";
 import { OfflineMediaDialog } from "./components/OfflineMediaDialog";
-import {
-  type PreviewLayerMove,
-  type PreviewLayerTransformEdit,
-  type PreviewTextEdit,
-  PreviewTransformOverlay,
-} from "./components/PreviewTransformOverlay";
+import { PreviewTransformOverlay } from "./components/PreviewTransformOverlay";
 import {
   ShareLinkButton,
   ShareLinkIconButton,
@@ -223,18 +196,17 @@ import {
 import { isContextMenuKey, isContextMenuPress } from "./context-menu.ts";
 import { isRulerPanPress } from "./drag-scroll.ts";
 import { buildEditMenuEntries } from "./edit-menu.ts";
-import { addFillClip, getDefaultFillColor, isFillClip } from "./fill-clip.ts";
+import { isFillClip } from "./fill-clip.ts";
 import {
   formatCssColor,
   formatFillPaintCss,
   resolveFillPaint,
 } from "./fill-paint.ts";
 import { addableEffectsFor, stepSelectedLaneId } from "./fx-chain";
-import { addFxClip, describeFxClip, isFxClip } from "./fx-clip.ts";
+import { describeFxClip, isFxClip } from "./fx-clip.ts";
 import {
   clipEffectTrackId,
   copyClipEffects,
-  ensureLayerLayouts,
   GLOBAL_EFFECT_TRACK_ID,
   getRenderedEffects,
   isLayerFxEnabled,
@@ -242,6 +214,8 @@ import {
   previewDuplicateClipEffects,
 } from "./fx-stack";
 import { getHarness, supportsHarnessCapability } from "./harness";
+import { useClipActions } from "./hooks/useClipActions.ts";
+import { useClipInsertion } from "./hooks/useClipInsertion.ts";
 import {
   useCollaboration,
   useCollaborationState,
@@ -249,6 +223,7 @@ import {
 import { useExport, useExportState } from "./hooks/useExport.ts";
 import { useFxEditing } from "./hooks/useFxEditing.ts";
 import { useFxPanelModel } from "./hooks/useFxPanelModel.ts";
+import { useLayerActions } from "./hooks/useLayerActions.ts";
 import {
   getMainAudioSkeletonStyle,
   useMainAudio,
@@ -261,6 +236,7 @@ import {
 import { useMediaStatus } from "./hooks/useMediaStatus.ts";
 import { usePeerMedia, usePeerMediaState } from "./hooks/usePeerMedia.ts";
 import { usePlayback } from "./hooks/usePlayback.ts";
+import { usePreviewEditing } from "./hooks/usePreviewEditing.ts";
 import {
   useProjectHistoryCommands,
   useProjectStore,
@@ -276,22 +252,7 @@ import {
   releaseLaneSelectionGesture,
   startLaneSelectionGesture,
 } from "./lane-selection-gesture.ts";
-import {
-  createLaneId,
-  deleteLane,
-  duplicateLane,
-  getNextLaneName,
-  insertLane,
-  moveLane,
-  moveLaneTo,
-  renameLane,
-} from "./lanes";
-import {
-  buildLayerMenuEntries,
-  buildMainAudioMenuEntries,
-  layerHistoryLabels,
-  MAX_LAYERS_MESSAGE,
-} from "./layer-menu";
+import { buildLayerMenuEntries, buildMainAudioMenuEntries } from "./layer-menu";
 import { MainWaveform } from "./MainWaveform";
 import type { MediaItem } from "./media";
 import {
@@ -305,49 +266,13 @@ import {
   formatMediaSyncLabel,
   getMediaSyncClassName,
 } from "./peer-media-sync.ts";
-import {
-  getPreviewEditTrackId,
-  moveHistoryLabel,
-  type PreviewEditTarget,
-  type PreviewLayer,
-  readLayerTransform,
-  readLayerTransformPosition,
-  resolvePreviewLayers,
-  setLayerTransformParameters,
-  setLayerTransformPosition,
-} from "./preview-edit.ts";
-import {
-  MOVE_ORIGIN_HISTORY_LABEL,
-  resizeHistoryLabel,
-} from "./preview-resize.ts";
-import { rotateHistoryLabel } from "./preview-rotate.ts";
-import {
-  setClipText,
-  stepClipFontSize,
-  TEXT_EDIT_HISTORY_LABEL,
-  type TextEditorKeyAction,
-  toggleClipTextStyle,
-} from "./preview-text-edit.ts";
-import {
-  buildRandomArrangement,
-  sourceTrackHasFootage,
-} from "./random-arrangement.ts";
-import {
-  copyClip,
-  copyRange,
-  pasteClipboard,
-  removeRangeFromLane,
-  resolveClipOverlaps,
-  withWindowTiming,
-} from "./range-edit.ts";
+import { resolvePreviewLayers } from "./preview-edit.ts";
+import { sourceTrackHasFootage } from "./random-arrangement.ts";
 import { selectionHint } from "./selection-hint.ts";
 import { MAX_LAYERS } from "./selection-overlaps";
 import { offlineSessionMediaIds } from "./session-media.ts";
 import { shareLinkVisible } from "./share-link";
-import {
-  dropClipOnFreeLane,
-  isSourceClipDropClick,
-} from "./source-clip-drop.ts";
+import { isSourceClipDropClick } from "./source-clip-drop.ts";
 import {
   formatSourceTracksSummary,
   isSourceTracksSectionCollapsed,
@@ -357,7 +282,7 @@ import {
 import { classifySpaceTarget, createSpaceHold } from "./space-shortcut";
 import { statusMessageTone } from "./status-bar";
 import { buildStatusItems } from "./status-items";
-import { addTextClip, isTextClip } from "./text-clip.ts";
+import { isTextClip } from "./text-clip.ts";
 import { loadFontFace, resolveFontFace } from "./text-fonts.ts";
 import {
   getTextPreview,
@@ -373,7 +298,6 @@ import {
 } from "./thumbnail-cache.ts";
 import { formatMusicalPosition, formatTimecode } from "./timeline-format.ts";
 import { formatDivision } from "./timeline-grid";
-import { useLayerReorder } from "./use-layer-reorder";
 import { useThumbnailCache } from "./use-thumbnail-cache";
 import { ZVID_BUILD } from "./version";
 import type { WorkspaceSessionSource } from "./workspace-session.ts";
@@ -738,8 +662,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setSelectedLaneId(laneId);
     setPreviewLaneId(laneId);
   };
-  const effectsRef = useRef(effects);
-  effectsRef.current = effects;
   const previewLayers = useMemo(() => {
     const activeClips = computeActiveClips(
       timelineClips,
@@ -772,224 +694,36 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     timelineClips,
     timelineEffects,
   ]);
-  const selectPreviewLayer = useCallback((layer: PreviewLayer | undefined) => {
-    setPreviewLaneId(layer?.laneId);
-    if (layer) {
-      setSelectedClipId(layer.clipId);
-      setSelectedLaneId(layer.laneId);
-    } else {
-      setSelectedClipId(undefined);
-    }
-  }, []);
-  // A preview edit goes to the selected clip's own Transform, or to the
-  // layer's when only the layer is selected; its history names either.
-  const describePreviewEditTarget = useCallback(
-    ({ laneId, clipId }: PreviewEditTarget) =>
-      (clipId !== undefined
-        ? timelineClipsRef.current.find((clip) => clip.id === clipId)?.label
-        : undefined) ??
-      lanes.find((lane) => lane.id === laneId)?.name ??
-      `Layer ${laneId}`,
-    [lanes],
-  );
-  const getPreviewLayerPosition = useCallback(
-    (target: PreviewEditTarget) =>
-      readLayerTransformPosition(
-        effectsRef.current,
-        getPreviewEditTrackId(target),
-      ),
-    [],
-  );
-  const movePreviewLayer = useCallback(
-    ({ position, mode, newEffectId, ...target }: PreviewLayerMove) =>
-      editEffects(
-        moveHistoryLabel(describePreviewEditTarget(target)),
-        (current) =>
-          setLayerTransformPosition(
-            current,
-            getPreviewEditTrackId(target),
-            position,
-            newEffectId,
-          ),
-        mode,
-      ),
-    [describePreviewEditTarget, editEffects],
-  );
-  const getPreviewLayerTransform = useCallback(
-    (target: PreviewEditTarget) =>
-      readLayerTransform(effectsRef.current, getPreviewEditTrackId(target)),
-    [],
-  );
-  const transformPreviewLayer = useCallback(
-    ({
-      kind,
-      values,
-      mode,
-      newEffectId,
-      ...target
-    }: PreviewLayerTransformEdit) => {
-      const targetName = describePreviewEditTarget(target);
-      editEffects(
-        kind === "resize"
-          ? resizeHistoryLabel(targetName)
-          : kind === "rotate"
-            ? rotateHistoryLabel(targetName)
-            : MOVE_ORIGIN_HISTORY_LABEL,
-        (current) =>
-          setLayerTransformParameters(
-            current,
-            getPreviewEditTrackId(target),
-            values,
-            newEffectId,
-          ),
-        mode,
-      );
-    },
-    [describePreviewEditTarget, editEffects],
-  );
-  // The text clip being typed on in the preview. Every keystroke is a
-  // transient edit of the clip's Text effect, so the FX panel and
-  // collaborators follow along, and leaving the editor commits the whole
-  // edit as one undo step.
-  const [textEdit, setTextEdit] = useState<{
-    clipId: string;
-    laneId: string;
-    // Id for the Text effect an edit adds when the layer has none.
-    newEffectId: string;
-  }>();
-  const textEditRef = useRef(textEdit);
-  textEditRef.current = textEdit;
-  const finishTextEdit = useCallback(() => {
-    if (!textEditRef.current) {
-      return;
-    }
-
-    textEditRef.current = undefined;
-    setTextEdit(undefined);
-    editEffects(TEXT_EDIT_HISTORY_LABEL, (current) => current);
-  }, [editEffects]);
-  const startTextEdit = useCallback(
-    (clipId: string) => {
-      const clip = timelineClipsRef.current.find(
-        (candidate) => candidate.id === clipId,
-      );
-      if (
-        !clip ||
-        !isTextClip(clip) ||
-        textEditRef.current?.clipId === clipId ||
-        isExporting ||
-        refuseReadOnlyEdit()
-      ) {
-        return;
-      }
-
-      finishTextEdit();
-      // Playback pauses while editing, with the clip under the playhead.
-      setIsPlaying(false);
-      if (!isClipAtPlayhead(clip, playheadQRef.current, bpm)) {
-        setPlayheadQ(clip.startQ);
-        playbackOriginRef.current = clip.startQ;
-      }
-      setSelectedClipId(clip.id);
-      setSelectedLaneId(clip.laneId);
-      setPreviewLaneId(clip.laneId);
-      const next = {
-        clipId: clip.id,
-        laneId: clip.laneId,
-        newEffectId: crypto.randomUUID(),
-      };
-      textEditRef.current = next;
-      setTextEdit(next);
-    },
-    [bpm, finishTextEdit, isExporting, refuseReadOnlyEdit, setPlayheadQ],
-  );
-  const activatePreviewLayer = useCallback(
-    (layer: PreviewLayer) => startTextEdit(layer.clipId),
-    [startTextEdit],
-  );
-  const changeEditedText = useCallback(
-    (text: string) => {
-      const edit = textEditRef.current;
-      if (edit) {
-        editEffects(
-          TEXT_EDIT_HISTORY_LABEL,
-          (current) =>
-            setClipText(current, edit.clipId, text, edit.newEffectId),
-          "transient",
-        );
-      }
-    },
-    [editEffects],
-  );
-  const applyTextEditAction = useCallback(
-    (action: TextEditorKeyAction) => {
-      const edit = textEditRef.current;
-      if (!edit) {
-        return;
-      }
-
-      if (action.kind === "commit") {
-        finishTextEdit();
-        return;
-      }
-
-      // Style shortcuts restyle the whole clip, within the same undo step.
-      editEffects(
-        TEXT_EDIT_HISTORY_LABEL,
-        (current) =>
-          action.kind === "style"
-            ? toggleClipTextStyle(
-                current,
-                edit.clipId,
-                action.flag,
-                edit.newEffectId,
-              )
-            : stepClipFontSize(
-                current,
-                edit.clipId,
-                action.direction,
-                edit.newEffectId,
-              ),
-        "transient",
-      );
-    },
-    [editEffects, finishTextEdit],
-  );
-  const editedTextStyle = useMemo(
-    () =>
-      textEdit
-        ? resolveTextStyle(
-            effects,
-            textEdit.laneId,
-            clipEffectTrackId(textEdit.clipId),
-          )
-        : undefined,
-    [effects, textEdit],
-  );
-  const previewTextEdit = useMemo<PreviewTextEdit | undefined>(
-    () =>
-      textEdit && editedTextStyle
-        ? {
-            clipId: textEdit.clipId,
-            style: editedTextStyle,
-            onChangeText: changeEditedText,
-            onAction: applyTextEditAction,
-          }
-        : undefined,
-    [applyTextEditAction, changeEditedText, editedTextStyle, textEdit],
-  );
-  // Starting playback, selecting another layer or clip, or the clip leaving
-  // the preview (deleted, or the playhead moved off it) finishes editing.
-  useEffect(() => {
-    if (
-      textEdit &&
-      (isPlaying ||
-        selectedClipId !== textEdit.clipId ||
-        !previewLayers.some((layer) => layer.clipId === textEdit.clipId))
-    ) {
-      finishTextEdit();
-    }
-  }, [finishTextEdit, isPlaying, previewLayers, selectedClipId, textEdit]);
+  const {
+    selectPreviewLayer,
+    getPreviewLayerPosition,
+    movePreviewLayer,
+    getPreviewLayerTransform,
+    transformPreviewLayer,
+    textEdit,
+    finishTextEdit,
+    startTextEdit,
+    activatePreviewLayer,
+    previewTextEdit,
+  } = usePreviewEditing({
+    bpm,
+    editEffects,
+    effects,
+    isExporting,
+    isPlaying,
+    lanes,
+    playbackOriginRef,
+    playheadQRef,
+    previewLayers,
+    refuseReadOnlyEdit,
+    selectedClipId,
+    setIsPlaying,
+    setPlayheadQ,
+    setPreviewLaneId,
+    setSelectedClipId,
+    setSelectedLaneId,
+    timelineClipsRef,
+  });
   const {
     fxLaneId,
     fxLane,
@@ -1477,28 +1211,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     flushZoomDraft,
   });
 
-  function handleCreateLayer() {
-    if (!canCreateLayer) {
-      setStatus(`You already have the maximum of ${MAX_LAYERS} layers.`);
-      return;
-    }
-
-    const nextLayerNumber = getNextLaneNumber(lanes);
-    const nextLane: Lane = {
-      id: createLaneId(lanes),
-      name: `Layer ${nextLayerNumber}`,
-      colorIndex: -1,
-    };
-
-    commitProjectChange("Create layer", (current) =>
-      patchProjectState(current, {
-        lanes: [...current.lanes, nextLane],
-        effects: ensureLayerLayouts(current.effects, [nextLane.id]),
-      }),
-    );
-    setStatus(`Created ${nextLane.name}.`);
-  }
-
   const {
     isTimelineAudibleScrubbing,
     startPlayback,
@@ -1533,357 +1245,35 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setStatus,
   });
 
-  const createWindowClip = useCallback(
-    (
-      selection: TimelineSelection,
-      sourceTrack: SourceTrack,
-      sourceSpan: SourceSpan,
-    ): ArrangementClip => {
-      const sourceOffsetSeconds =
-        sourceSpan.trimStartSeconds - quartersToSeconds(sourceSpan.startQ, bpm);
-      return {
-        id: `window-${crypto.randomUUID()}`,
-        sourceSpanId: sourceSpan.id,
-        sourceTrackId: sourceTrack.id,
-        laneId: selection.laneId,
-        label: sourceTrack.name,
-        mediaPath: sourceSpan.mediaPath,
-        mediaId: sourceSpan.mediaId,
-        startQ: selection.startQ,
-        durationSeconds: quartersToSeconds(selection.durationQ, bpm),
-        trimStartSeconds:
-          quartersToSeconds(selection.startQ, bpm) + sourceOffsetSeconds,
-        sourceOffsetSeconds,
-        sourceWindowStartSeconds: sourceSpan.trimStartSeconds,
-        sourceWindowEndSeconds:
-          sourceSpan.trimStartSeconds + sourceSpan.durationSeconds,
-        warp: sourceSpan.warp,
-        tint: sourceSpan.tint,
-        accent: sourceSpan.accent,
-      };
-    },
-    [bpm],
-  );
-
-  const commitPendingSelectionToSourceTrack = useCallback(
-    (sourceIndex: number) => {
-      if (!pendingSelection) {
-        return;
-      }
-
-      const sourceTrack = sourceTracks[sourceIndex];
-      if (!sourceTrack) {
-        setStatus(
-          `Source layer ${sourceIndex + 1} is not available in this session.`,
-        );
-        return;
-      }
-
-      const sourceSpan = chooseSourceSpanForWindow(
-        sourceSpans,
-        sourceTrack.id,
-        pendingSelection.startQ,
-        pendingSelection.durationQ,
-        bpm,
-      );
-      if (!sourceSpan) {
-        setStatus(
-          `Source layer ${sourceIndex + 1} has no clip near this selection yet.`,
-        );
-        return;
-      }
-
-      const clip = createWindowClip(pendingSelection, sourceTrack, sourceSpan);
-      dispatchProject({
-        type: "commit",
-        label: "Create window",
-        updater: (current) =>
-          patchProjectState(current, {
-            clips: [...current.clips, clip],
-          }),
-      });
-      setPendingSelection(null);
-      setSelectedClipId(clip.id);
-      setStatus(
-        `Committed a window on ${sourceTrack.name} with key ${sourceIndex + 1}.`,
-      );
-    },
-    [
-      bpm,
-      createWindowClip,
-      dispatchProject,
-      pendingSelection,
-      sourceSpans,
-      sourceTracks,
-    ],
-  );
-
-  // Inserts a fill clip over `durationQ` quarters from `startQ` on layer
-  // `laneId` and selects it. The clip gets its own Color effect, in the
-  // layer's accent colour or neutral grey. Returns the new clip's id.
-  const insertFillClip = useCallback(
-    (laneId: string, startQ: number, durationQ: number) => {
-      const lane = lanes.find((candidate) => candidate.id === laneId);
-      if (!lane || !(durationQ > 0)) {
-        return undefined;
-      }
-
-      const accent =
-        lane.colorIndex >= 0 ? getSwatch(lane.colorIndex).accent : undefined;
-      const id = `fill-${crypto.randomUUID()}`;
-      dispatchProject({
-        type: "commit",
-        label: "Insert fill clip",
-        updater: (current) => {
-          const result = addFillClip(current, {
-            id,
-            laneId,
-            startQ,
-            durationQ,
-            bpm,
-            tint: FILL_CLIP_TINT,
-            accent: accent ?? FILL_CLIP_ACCENT,
-            color: getDefaultFillColor(accent),
-            effectId: crypto.randomUUID(),
-          });
-          return patchProjectState(current, {
-            clips: result.clips,
-            effects: result.effects,
-          });
-        },
-      });
-      setPendingSelection(null);
-      setSelectedClipId(id);
-      setStatus(`Inserted a fill on ${lane.name}.`);
-      return id;
-    },
-    [bpm, dispatchProject, lanes],
-  );
-
-  // Inserts a text clip over `durationQ` quarters from `startQ` on layer
-  // `laneId` and selects it. The clip gets its own Text effect with its
-  // defaults. Returns the new clip's id.
-  const insertTextClip = useCallback(
-    (laneId: string, startQ: number, durationQ: number) => {
-      const lane = lanes.find((candidate) => candidate.id === laneId);
-      if (!lane || !(durationQ > 0)) {
-        return undefined;
-      }
-
-      const accent =
-        lane.colorIndex >= 0 ? getSwatch(lane.colorIndex).accent : undefined;
-      const id = `text-${crypto.randomUUID()}`;
-      dispatchProject({
-        type: "commit",
-        label: "Insert text clip",
-        updater: (current) => {
-          const result = addTextClip(current, {
-            id,
-            laneId,
-            startQ,
-            durationQ,
-            bpm,
-            tint: FILL_CLIP_TINT,
-            accent: accent ?? FILL_CLIP_ACCENT,
-            effectId: crypto.randomUUID(),
-          });
-          return patchProjectState(current, {
-            clips: result.clips,
-            effects: result.effects,
-          });
-        },
-      });
-      setPendingSelection(null);
-      setSelectedClipId(id);
-      setStatus(`Inserted text on ${lane.name}.`);
-      return id;
-    },
-    [bpm, dispatchProject, lanes],
-  );
-
-  // Inserts an FX clip over `durationQ` quarters from `startQ` on layer
-  // `laneId` and selects it, so the FX panel's Clip section opens ready for
-  // its first effect. It starts with no effects, so it changes nothing yet.
-  // Returns the new clip's id.
-  const insertFxClip = useCallback(
-    (laneId: string, startQ: number, durationQ: number) => {
-      const lane = lanes.find((candidate) => candidate.id === laneId);
-      if (!lane || !(durationQ > 0)) {
-        return undefined;
-      }
-
-      const accent =
-        lane.colorIndex >= 0 ? getSwatch(lane.colorIndex).accent : undefined;
-      const id = `fx-${crypto.randomUUID()}`;
-      dispatchProject({
-        type: "commit",
-        label: "Insert FX clip",
-        updater: (current) =>
-          patchProjectState(current, {
-            clips: addFxClip(current, {
-              id,
-              laneId,
-              startQ,
-              durationQ,
-              bpm,
-              tint: FILL_CLIP_TINT,
-              accent: accent ?? FILL_CLIP_ACCENT,
-            }).clips,
-          }),
-      });
-      setPendingSelection(null);
-      setSelectedClipId(id);
-      setStatus(`Inserted an FX clip on ${lane.name}.`);
-      return id;
-    },
-    [bpm, dispatchProject, lanes],
-  );
-
-  // The whole source clip as an arrangement clip at its song position.
-  function createSourceSpanClip(span: SourceSpan, laneId: string) {
-    const sourceTrack = sourceTracks.find(
-      (track) => track.id === span.sourceTrackId,
-    );
-    if (!sourceTrack) {
-      return null;
-    }
-
-    return createWindowClip(
-      {
-        id: span.id,
-        laneId,
-        startQ: span.startQ,
-        durationQ: getClipDurationQ(span, bpm),
-      },
-      sourceTrack,
-      span,
-    );
-  }
-
-  // Ctrl/Cmd-click on a source clip: drops the whole clip onto the last layer
-  // with room for it at the same song position, or onto a new layer.
-  function addSourceSpanToArrangement(sourceSpan: SourceSpan) {
-    const clip = createSourceSpanClip(sourceSpan, "");
-    if (!clip) {
-      return;
-    }
-
-    const drop = dropClipOnFreeLane(lanes, clips, clip, bpm, () => ({
-      id: createLaneId(lanes),
-      name: `Layer ${getNextLaneNumber(lanes)}`,
-      colorIndex: -1,
-    }));
-    if (!drop) {
-      setStatus(`You already have the maximum of ${MAX_LAYERS} layers.`);
-      return;
-    }
-
-    commitProjectChange("Add clip from source", (current) =>
-      patchProjectState(current, {
-        lanes: drop.lanes,
-        clips: drop.clips,
-        effects: drop.createdLane
-          ? ensureLayerLayouts(current.effects, [drop.lane.id])
-          : current.effects,
-      }),
-    );
-    setPendingSelection(null);
-    setSelectedClipId(drop.clip.id);
-    setStatus(
-      drop.createdLane
-        ? `Added ${clip.label} to a new layer, ${drop.lane.name}.`
-        : `Added ${clip.label} to ${drop.lane.name}.`,
-    );
-  }
-
-  function getRandomizationTimelineEndQ() {
-    return getWandEndQ({
-      projectDurationFrames,
-      fps,
-      bpm,
-      barLength,
-      sourceSpans,
-      isVideoSpan: (span) =>
-        Boolean(span.mediaId && mediaItemsById.get(span.mediaId)?.hasVideo),
-    });
-  }
-
-  function buildRandomizedArrangement() {
-    const wandLanes = createWandLanes(lanes, MAX_WAND_LAYERS);
-    const stepQ = barLength * RANDOM_SELECTION_BAR_INCREMENT;
-    const durationSteps = Array.from(
-      {
-        length: Math.round(
-          RANDOM_SELECTION_MAX_BARS / RANDOM_SELECTION_BAR_INCREMENT,
-        ),
-      },
-      (_, index) => (index + 1) * stepQ,
-    );
-    const sourceTracksById = new Map(
-      sourceTracks.map((sourceTrack) => [sourceTrack.id, sourceTrack]),
-    );
-    const windows = buildRandomArrangement({
-      laneIds: wandLanes.map((lane) => lane.id),
-      sourceTrackIds: sourceTracks.map((sourceTrack) => sourceTrack.id),
-      spans: sourceSpans,
-      spanEndQ: (span) => getClipEndQ(span, bpm),
-      timelineEndQ: getRandomizationTimelineEndQ(),
-      stepQ,
-      durationSteps,
-      random: randomFloat,
-    });
-
-    const randomizedClips = windows.flatMap((window, index) => {
-      const sourceTrack = sourceTracksById.get(window.span.sourceTrackId);
-      if (!sourceTrack) {
-        return [];
-      }
-
-      const clip = createWindowClip(
-        {
-          id: `selection-random-${window.laneId}-${index}`,
-          laneId: window.laneId,
-          startQ: window.startQ,
-          durationQ: window.durationQ,
-        },
-        sourceTrack,
-        window.span,
-      );
-      return [clip];
-    });
-    return { lanes: wandLanes, clips: randomizedClips };
-  }
-
-  function handleRandomizeTimeline() {
-    if (!sourceTracks.length || !sourceSpans.length) {
-      setStatus(
-        "Open a session or import source media before randomizing the arrangement.",
-      );
-      return;
-    }
-
-    const { lanes: wandLanes, clips: randomizedClips } =
-      buildRandomizedArrangement();
-    if (!randomizedClips.length) {
-      setStatus(
-        "No randomized windows could be generated from the current source timeline.",
-      );
-      return;
-    }
-
-    setIsPlaying(false);
-    setPendingSelection(null);
-    setDragPreviewClips(null);
-    commitProjectChange("Randomize arrangement", (current) =>
-      applyWandArrangement(current, wandLanes, randomizedClips),
-    );
-    setSelectedClipId(randomizedClips[0]?.id);
-    setPlayheadQ(0);
-    playbackOriginRef.current = 0;
-    setStatus(
-      `Rebuilt the arrangement with ${randomizedClips.length} randomized windows inside the source clips.`,
-    );
-  }
+  const {
+    commitPendingSelectionToSourceTrack,
+    insertFillClip,
+    insertTextClip,
+    insertFxClip,
+    createSourceSpanClip,
+    addSourceSpanToArrangement,
+    handleRandomizeTimeline,
+  } = useClipInsertion({
+    barLength,
+    bpm,
+    clips,
+    commitProjectChange,
+    dispatchProject,
+    fps,
+    lanes,
+    mediaItemsById,
+    pendingSelection,
+    playbackOriginRef,
+    projectDurationFrames,
+    setDragPreviewClips,
+    setIsPlaying,
+    setPendingSelection,
+    setPlayheadQ,
+    setSelectedClipId,
+    setStatus,
+    sourceSpans,
+    sourceTracks,
+  });
 
   const { handleUndo, handleRedo } = useProjectHistoryCommands({
     projectHistory,
@@ -2260,336 +1650,39 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     timelineDragState,
   ]);
 
-  // Clipboard and edit actions shared by the keyboard shortcuts and the clip
-  // menus. Each is one undo step.
-  function copyArrangementClip(clip: ArrangementClip) {
-    clipClipboardRef.current = withClipStacks(copyClip(clip, bpm), effects);
-    setStatus(`Copied ${clip.label}.`);
-  }
-
-  function removeArrangementClip(clip: ArrangementClip, label: string) {
-    const nextSelectedClipId =
-      timelineClips.find(
-        (item) => item.id !== clip.id && item.laneId === clip.laneId,
-      )?.id ?? timelineClips.find((item) => item.id !== clip.id)?.id;
-
-    dispatchProject({
-      type: "commit",
-      label,
-      updater: (current) =>
-        patchProjectState(current, {
-          clips: current.clips.filter((item) => item.id !== clip.id),
-        }),
-    });
-    setSelectedClipId(nextSelectedClipId);
-    setPendingSelection(null);
-  }
-
-  function cutArrangementClip(clip: ArrangementClip) {
-    clipClipboardRef.current = withClipStacks(copyClip(clip, bpm), effects);
-    removeArrangementClip(clip, "Cut clip");
-    setStatus(`Cut ${clip.label}.`);
-  }
-
-  function deleteArrangementClip(clip: ArrangementClip) {
-    removeArrangementClip(clip, "Delete clip");
-    setStatus(`Deleted ${clip.label}.`);
-  }
-
-  // With a selection, Cut, Copy and Delete act on its span on its layer only.
-  // The selection stays, showing what they acted on.
-  function copySelectionRange(selection: TimelineSelection) {
-    return withClipStacks(
-      copyRange(
-        timelineClips,
-        selection.laneId,
-        selection.startQ,
-        getSelectionEndQ(selection),
-        bpm,
-      ),
-      effects,
-    );
-  }
-
-  function removeSelectionRange(selection: TimelineSelection, label: string) {
-    const splitClipId = `window-${crypto.randomUUID()}`;
-    dispatchProject({
-      type: "commit",
-      label,
-      updater: (current) => {
-        const splitClipIds = [splitClipId];
-        // A clip split around the range gives its right piece a copy of
-        // its stack.
-        const copies: Array<[string, string]> = [];
-        const clips = removeRangeFromLane(
-          current.clips,
-          selection.laneId,
-          selection.startQ,
-          getSelectionEndQ(selection),
-          current.bpm,
-          (source) => {
-            const id = splitClipIds.shift() ?? `window-${crypto.randomUUID()}`;
-            copies.push([source.id, id]);
-            return id;
-          },
-        );
-        return patchProjectState(current, {
-          clips,
-          effects: copyClipEffects(current.effects, copies),
-        });
-      },
-    });
-  }
-
-  function copySelection(selection: TimelineSelection) {
-    const content = copySelectionRange(selection);
-    if (!content.fragments.length) {
-      setStatus("Nothing in the selection to copy.");
-      return;
-    }
-
-    clipClipboardRef.current = content;
-    setStatus("Copied the selection.");
-  }
-
-  function cutSelection(selection: TimelineSelection) {
-    const content = copySelectionRange(selection);
-    if (!content.fragments.length) {
-      setStatus("Nothing in the selection to cut.");
-      return;
-    }
-
-    clipClipboardRef.current = content;
-    removeSelectionRange(selection, "Cut selection");
-    setStatus("Cut the selection.");
-  }
-
-  function deleteSelection(selection: TimelineSelection) {
-    if (!copySelectionRange(selection).fragments.length) {
-      return;
-    }
-
-    removeSelectionRange(selection, "Delete selection");
-    setStatus("Deleted the selection.");
-  }
-
-  // Pastes at the playhead on `laneId`, or on the selected layer, keeping the
-  // copied pieces' spacing.
-  function pasteArrangementClip(laneId?: string) {
-    const clipboard = clipClipboardRef.current;
-    const [firstFragment] = clipboard?.fragments ?? [];
-    if (!clipboard || !firstFragment) {
-      return;
-    }
-
-    const pasteLaneId =
-      laneId ??
-      resolvePasteLaneId(
-        lanes,
-        selectedClip?.laneId,
-        selectedLaneId,
-        firstFragment.clip.laneId,
-      );
-    const pastedClipIds = clipboard.fragments.map(
-      () => `window-${crypto.randomUUID()}`,
-    );
-    const pasteQ = playheadQRef.current;
-    dispatchProject({
-      type: "commit",
-      label: "Paste clip",
-      updater: (current) => {
-        const ids = [...pastedClipIds];
-        const { clips, pasted } = pasteClipboard(
-          current.clips,
-          clipboard,
-          pasteLaneId,
-          pasteQ,
-          current.bpm,
-          () => ids.shift() ?? `window-${crypto.randomUUID()}`,
-        );
-        // Each pasted clip gets the stack its fragment was copied with.
-        return patchProjectState(current, {
-          clips,
-          effects: copyClipEffects(
-            current.effects,
-            pasted.map((clip, index) => [
-              clipboard.fragments[index].clip.id,
-              clip.id,
-            ]),
-            clipboard.effects,
-          ),
-        });
-      },
-    });
-    setSelectedClipId(pastedClipIds[0]);
-    setPendingSelection(null);
-    setStatus(
-      clipboard.fragments.length === 1
-        ? `Pasted ${firstFragment.clip.label}.`
-        : `Pasted ${clipboard.fragments.length} clips.`,
-    );
-  }
-
-  function splitArrangementClip(clip: ArrangementClip) {
-    const epsilon = 0.0001;
-    const splitQ = playheadQRef.current;
-    if (!canSplitAt(clip.startQ, getClipEndQ(clip, bpm), splitQ)) {
-      setStatus(`Move the playhead inside ${clip.label} to split it.`);
-      return;
-    }
-
-    const splitClipId = `window-${crypto.randomUUID()}`;
-    dispatchProject({
-      type: "commit",
-      label: "Split clip",
-      updater: (current) => {
-        const sourceClip = current.clips.find((item) => item.id === clip.id);
-        if (!sourceClip) {
-          return current;
-        }
-
-        const sourceClipEndQ = getClipEndQ(sourceClip, current.bpm);
-        const leftDurationQ = splitQ - sourceClip.startQ;
-        const rightDurationQ = sourceClipEndQ - splitQ;
-        if (leftDurationQ <= epsilon || rightDurationQ <= epsilon) {
-          return current;
-        }
-
-        const leftClip = withWindowTiming(
-          sourceClip,
-          sourceClip.startQ,
-          leftDurationQ,
-          current.bpm,
-        );
-        const rightClip = withWindowTiming(
-          {
-            ...sourceClip,
-            id: splitClipId,
-          },
-          splitQ,
-          rightDurationQ,
-          current.bpm,
-        );
-
-        // Both halves keep the clip's stack.
-        return patchProjectState(current, {
-          clips: current.clips.flatMap((item) =>
-            item.id === sourceClip.id ? [leftClip, rightClip] : [item],
-          ),
-          effects: copyClipEffects(current.effects, [
-            [sourceClip.id, splitClipId],
-          ]),
-        });
-      },
-    });
-    setSelectedClipId(splitClipId);
-    setPendingSelection(null);
-    setStatus(`Split ${clip.label} at the playhead.`);
-  }
-
-  function duplicateArrangementClip(clip: ArrangementClip) {
-    const duplicatedClipId = `window-${crypto.randomUUID()}`;
-    dispatchProject({
-      type: "commit",
-      label: "Duplicate clip",
-      updater: (current) => {
-        const sourceClip = current.clips.find((item) => item.id === clip.id);
-        if (!sourceClip) {
-          return current;
-        }
-
-        const duplicatedClip = duplicateClip(
-          sourceClip,
-          current.bpm,
-          duplicatedClipId,
-        );
-        return patchProjectState(current, {
-          clips: resolveClipOverlaps(
-            [...current.clips, duplicatedClip],
-            duplicatedClip,
-            current.bpm,
-          ),
-          effects: copyClipEffects(current.effects, [
-            [sourceClip.id, duplicatedClipId],
-          ]),
-        });
-      },
-    });
-    setSelectedClipId(duplicatedClipId);
-    setPendingSelection(null);
-    setStatus(`Duplicated ${clip.label}.`);
-  }
-
-  function copySourceSpan(span: SourceSpan) {
-    const clip = createSourceSpanClip(span, fxLaneId ?? "");
-    if (!clip) {
-      return;
-    }
-
-    clipClipboardRef.current = copyClip(clip, bpm);
-    setStatus(`Copied ${clip.label}.`);
-  }
-
-  function copySourceSpanToLayer(span: SourceSpan, target: CopyToLayerTarget) {
-    if (target.kind === "auto") {
-      addSourceSpanToArrangement(span);
-      return;
-    }
-
-    const clip = createSourceSpanClip(span, "");
-    if (!clip) {
-      return;
-    }
-
-    const result = copyClipToLayer(
-      target,
-      lanes,
-      clips,
-      clip,
-      () => ({
-        id: createLaneId(lanes),
-        name: `Layer ${getNextLaneNumber(lanes)}`,
-        colorIndex: -1,
-      }),
-      (nextClips, placed) => resolveClipOverlaps(nextClips, placed, bpm),
-    );
-    if (!result) {
-      setStatus(
-        target.kind === "lane"
-          ? "That layer no longer exists."
-          : `You already have the maximum of ${MAX_LAYERS} layers.`,
-      );
-      return;
-    }
-
-    commitProjectChange("Copy clip to layer", (current) =>
-      patchProjectState(current, {
-        lanes: result.lanes,
-        clips: result.clips,
-        ...(result.createdLane
-          ? { effects: ensureLayerLayouts(current.effects, [result.lane.id]) }
-          : {}),
-      }),
-    );
-    setPendingSelection(null);
-    setSelectedClipId(result.clip.id);
-    setStatus(`Copied ${clip.label} to ${result.lane.name}.`);
-  }
-
-  const clipActions = {
-    copy: copyArrangementClip,
-    cut: cutArrangementClip,
-    paste: pasteArrangementClip,
-    split: splitArrangementClip,
-    duplicate: duplicateArrangementClip,
-    remove: deleteArrangementClip,
+  const {
+    copyArrangementClip,
+    cutArrangementClip,
+    deleteArrangementClip,
+    copySelectionRange,
     copySelection,
     cutSelection,
     deleteSelection,
-  };
-  // The keyboard shortcuts read the latest actions without re-subscribing.
-  const clipActionsRef = useRef(clipActions);
-  clipActionsRef.current = clipActions;
+    pasteArrangementClip,
+    splitArrangementClip,
+    duplicateArrangementClip,
+    copySourceSpan,
+    copySourceSpanToLayer,
+    clipActionsRef,
+  } = useClipActions({
+    addSourceSpanToArrangement,
+    bpm,
+    clipClipboardRef,
+    clips,
+    commitProjectChange,
+    createSourceSpanClip,
+    dispatchProject,
+    effects,
+    fxLaneId,
+    lanes,
+    playheadQRef,
+    selectedClip,
+    selectedLaneId,
+    setPendingSelection,
+    setSelectedClipId,
+    setStatus,
+    timelineClips,
+  });
 
   // The pointer position, or below the element when the context-menu key or
   // Shift+F10 opened the menu and reported no position.
@@ -2667,131 +1760,34 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     }, 0);
   }
 
-  function insertLayer(laneId: string, where: "above" | "below") {
-    const index = lanes.findIndex((lane) => lane.id === laneId);
-    if (index < 0) {
-      return;
-    }
-    if (!canCreateLayer) {
-      setStatus(MAX_LAYERS_MESSAGE);
-      return;
-    }
-
-    const nextLane: Lane = {
-      id: createLaneId(lanes),
-      name: getNextLaneName(lanes),
-      colorIndex: -1,
-    };
-    commitProjectChange(
-      layerHistoryLabels.insert(lanes[index].name, where),
-      (current) =>
-        patchProjectState(
-          current,
-          insertLane(current, where === "above" ? index : index + 1, nextLane),
-        ),
-    );
-    focusLaneLabel(nextLane.id);
-    setStatus(`Created ${nextLane.name}.`);
-  }
-
-  function duplicateLayer(lane: Lane) {
-    if (!canCreateLayer) {
-      setStatus(MAX_LAYERS_MESSAGE);
-      return;
-    }
-
-    const newLaneId = createLaneId(lanes);
-    commitProjectChange(layerHistoryLabels.duplicate(lane.name), (current) =>
-      patchProjectState(
-        current,
-        duplicateLane(current, lane.id, newLaneId, (kind) =>
-          kind === "clip"
-            ? `window-${crypto.randomUUID()}`
-            : crypto.randomUUID(),
-        ),
-      ),
-    );
-    focusLaneLabel(newLaneId);
-    setStatus(`Duplicated ${lane.name}.`);
-  }
-
-  function deleteLayer(lane: Lane) {
-    if (lanes.length <= 1) {
-      return;
-    }
-
-    commitProjectChange(layerHistoryLabels.remove(lane.name), (current) =>
-      patchProjectState(current, deleteLane(current, lane.id)),
-    );
-    if (selectedClip?.laneId === lane.id) {
-      setSelectedClipId(undefined);
-    }
-    if (pendingSelection?.laneId === lane.id) {
-      setPendingSelection(null);
-    }
-    // The layer that takes its place in the list, else the one above.
-    const index = lanes.findIndex((item) => item.id === lane.id);
-    const neighbour = lanes[index + 1] ?? lanes[index - 1];
-    if (neighbour) {
-      focusLaneLabel(neighbour.id);
-    }
-    setStatus(`Deleted ${lane.name}.`);
-  }
-
-  function moveLayer(lane: Lane, direction: -1 | 1) {
-    commitProjectChange(
-      layerHistoryLabels.move(lane.name, direction),
-      (current) =>
-        patchProjectState(current, moveLane(current, lane.id, direction)),
-    );
-    focusLaneLabel(lane.id);
-  }
-
-  function moveLayerTo(laneId: string, targetIndex: number) {
-    const lane = lanes.find((item) => item.id === laneId);
-    if (!lane) {
-      return;
-    }
-
-    commitProjectChange(layerHistoryLabels.moveTo(lane.name), (current) =>
-      patchProjectState(current, moveLaneTo(current, laneId, targetIndex)),
-    );
-  }
-
-  // Dragging a layer header's grip, or picking it up from the keyboard.
-  const layerReorder = useLayerReorder({
+  const {
+    handleCreateLayer,
+    insertLayer,
+    duplicateLayer,
+    deleteLayer,
+    moveLayer,
+    layerReorder,
+    commitLayerRename,
+    addLayerFx,
+  } = useLayerActions({
+    addFxDevice,
+    arrangementLanesRef,
+    canCreateLayer,
+    commitProjectChange,
+    focusLaneLabel,
+    isExporting,
+    isInspectorCollapsed,
     lanes,
-    listRef: arrangementLanesRef,
-    scrollRef: timelineScrollRef,
-    getScrollTop: () =>
-      timelineScrollRef.current
-        ?.querySelector(".ruler-row")
-        ?.getBoundingClientRect().bottom,
-    disabled: isExporting,
-    onMove: moveLayerTo,
-    onSelect: selectLaneFromLabel,
+    pendingSelection,
+    selectLaneFromLabel,
+    selectedClip,
+    setPendingSelection,
+    setRenamingLaneId,
+    setSelectedClipId,
+    setStatus,
+    timelineScrollRef,
+    toggleInspectorCollapsed,
   });
-
-  function commitLayerRename(laneId: string, name: string) {
-    setRenamingLaneId(undefined);
-    const lane = lanes.find((item) => item.id === laneId);
-    if (!lane) {
-      return;
-    }
-
-    commitProjectChange(layerHistoryLabels.rename(lane.name), (current) =>
-      patchProjectState(current, renameLane(current, laneId, name)),
-    );
-  }
-
-  // Adds an effect to the layer's chain and shows it in the FX panel.
-  function addLayerFx(laneId: string, effectName: string) {
-    selectLaneFromLabel(laneId);
-    addFxDevice(laneId, effectName, crypto.randomUUID());
-    if (isInspectorCollapsed) {
-      toggleInspectorCollapsed();
-    }
-  }
 
   function openSourceSpanMenu(
     event: ReactMouseEvent<HTMLElement>,
@@ -3290,6 +2286,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [
     bpm,
+    clipActionsRef,
     dragState,
     fps,
     fxLaneId,

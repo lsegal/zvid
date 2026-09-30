@@ -9,8 +9,13 @@ const usePlaybackTs = readFileSync(
   new URL("./hooks/usePlayback.ts", import.meta.url),
   "utf8",
 );
+const usePreviewEditingTs = readFileSync(
+  new URL("./hooks/usePreviewEditing.ts", import.meta.url),
+  "utf8",
+);
 const source = `${appTsx}
-${usePlaybackTs}`;
+${usePlaybackTs}
+${usePreviewEditingTs}`;
 
 function sliceFrom(marker: string, endMarker: string): string {
   const start = source.indexOf(marker);
