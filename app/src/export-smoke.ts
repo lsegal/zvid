@@ -3,6 +3,13 @@ import { save as nativeSave } from "@tauri-apps/plugin-dialog";
 import type { SaveTarget } from "./harness/contracts";
 import { exportVideo } from "./harness/export";
 import type { MediaItem } from "./media";
+import {
+  AUDIO_BITRATES,
+  AUDIO_SAMPLE_RATES,
+  DEFAULT_SESSION_ENCODING,
+  type SessionSettings,
+  VIDEO_CODECS,
+} from "./session-settings";
 
 const canvas = document.createElement("canvas");
 canvas.width = 320;
@@ -20,6 +27,30 @@ const automationOutputDir = native
   : null;
 let videoOnlyBytes: Uint8Array | null = null;
 let videoOnlyCover: Uint8Array | undefined;
+
+// The Session Settings to export with. Query parameters override the
+// encoding defaults: codec (auto, h264, hevc, av1), mbps (a custom video
+// bitrate), audioKbps and sampleRate.
+function smokeSettings(): SessionSettings {
+  const query = new URLSearchParams(location.search);
+  const encoding = { ...DEFAULT_SESSION_ENCODING };
+  const codec = VIDEO_CODECS.find(({ value }) => value === query.get("codec"));
+  if (codec) encoding.videoCodec = codec.value;
+  const mbps = Number(query.get("mbps"));
+  if (mbps > 0) {
+    encoding.quality = "custom";
+    encoding.customBitrateMbps = mbps;
+  }
+  const audioKbps = AUDIO_BITRATES.find(
+    (value) => value === Number(query.get("audioKbps")),
+  );
+  if (audioKbps) encoding.audioBitrateKbps = audioKbps;
+  const sampleRate = AUDIO_SAMPLE_RATES.find(
+    (value) => value === Number(query.get("sampleRate")),
+  );
+  if (sampleRate) encoding.audioSampleRate = sampleRate;
+  return { canvasWidth: 320, canvasHeight: 180, fps: 24, encoding };
+}
 
 async function reportAutomationError(error: unknown) {
   if (!automationOutputDir) return;
@@ -102,12 +133,9 @@ async function run(audible: boolean) {
         filename,
         saveTarget,
         canvas,
-        canvasWidth: 320,
-        canvasHeight: 180,
+        settings: smokeSettings(),
         durationSeconds: 2,
-        frameRate: 24,
         frameCount: 48,
-        frameDuration: 1 / 24,
         bpm: 120,
         mainAudio: toneUrl
           ? ({ hasAudio: true, previewUrl: toneUrl } as MediaItem)
@@ -131,7 +159,7 @@ async function run(audible: boolean) {
         return write(blob, target);
       },
       native
-        ? async (video, audio, cover) => {
+        ? async (video, audio, audioBitrate, cover) => {
             if (!audible) videoOnlyCover = cover;
             if (automationOutputDir)
               await invoke("write_file_bytes", {
@@ -148,13 +176,14 @@ async function run(audible: boolean) {
                     )
                   : null,
                 sampleRate: audio?.sampleRate ?? 48_000,
+                bitrate: audioBitrate,
                 cover: cover ? Array.from(cover) : null,
               }),
             );
           }
         : undefined,
     );
-    status.textContent = `Saved ${filename}: ${result.bytes} bytes`;
+    status.textContent = `Saved ${filename}: ${result.bytes} bytes, ${result.summary}`;
   } catch (error) {
     status.textContent = `Error: ${error}`;
     await reportAutomationError(error);
@@ -181,6 +210,7 @@ async function testNativeAac() {
       video: Array.from(videoOnlyBytes),
       pcm: [pcm],
       sampleRate: 48_000,
+      bitrate: 192_000,
       cover: videoOnlyCover ? Array.from(videoOnlyCover) : null,
     });
     await write(
