@@ -32,7 +32,10 @@ const INSTALL_STEPS: Record<CapturePlatform, string> = {
 
 // Help → Download Desktop App: the zvid desktop app installers, separate from
 // the ZVID Capture plug-in's.
-export function DesktopAppDialog({ open, onOpenChange }: DesktopAppDialogProps) {
+export function DesktopAppDialog({
+  open,
+  onOpenChange,
+}: DesktopAppDialogProps) {
   const state = useInstallersManifest(open);
   const [platform] = useState(() => detectCapturePlatform(navigator));
 

@@ -1,4 +1,9 @@
-import type { Dispatch, RefObject, SetStateAction } from "react";
+import {
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+  useState,
+} from "react";
 import type { ProjectState } from "../app/types.ts";
 import { isPristineProjectHistory } from "../app/workspace-boot.ts";
 import type { ContextMenuEntry } from "../context-menu.ts";
@@ -13,6 +18,7 @@ import type { useSampleProject } from "../hooks/useSampleProject.ts";
 import type { useSessionIO } from "../hooks/useSessionIO.ts";
 import { shareLinkVisible } from "../share-link";
 import { APP_BUILD_LABEL, BrandMark, openBuildCommit } from "./BrandMark";
+import { DesktopAppDialog } from "./DesktopAppDialog";
 import { DropdownMenuEntries } from "./DropdownMenuEntries";
 import { MenuChevron } from "./MenuChevron";
 import { ShareLinkIconButton } from "./ShareLinkButton";
@@ -57,7 +63,6 @@ export type TopBarProps = Pick<
     renamingLaneIdRef: RefObject<string | undefined>;
     sample: Pick<ReturnType<typeof useSampleProject>, "handleOpenSample">;
     setIsCaptureInstallerDialogOpen: SetOpen;
-    setIsDesktopAppDialogOpen: SetOpen;
     setIsMediaStorageDialogOpen: SetOpen;
     setIsMediaSyncDialogOpen: SetOpen;
     setIsOfflineMediaDialogOpen: SetOpen;
@@ -88,7 +93,6 @@ export function TopBar({
   renamingLaneIdRef,
   sample,
   setIsCaptureInstallerDialogOpen,
-  setIsDesktopAppDialogOpen,
   setIsMediaStorageDialogOpen,
   setIsMediaSyncDialogOpen,
   setIsOfflineMediaDialogOpen,
@@ -108,6 +112,7 @@ export function TopBar({
     setIsShareDialogOpen,
     shareUrl,
   } = collaboration;
+  const [isDesktopAppDialogOpen, setIsDesktopAppDialogOpen] = useState(false);
 
   return (
     <header className="topbar">
@@ -335,6 +340,10 @@ export function TopBar({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        <DesktopAppDialog
+          open={isDesktopAppDialogOpen}
+          onOpenChange={setIsDesktopAppDialogOpen}
+        />
       </div>
     </header>
   );

@@ -250,7 +250,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     useState<TimelineDragState | null>(null);
   const [isCaptureInstallerDialogOpen, setIsCaptureInstallerDialogOpen] =
     useState(false);
-  const [isDesktopAppDialogOpen, setIsDesktopAppDialogOpen] = useState(false);
   const [isOfflineMediaDialogOpen, setIsOfflineMediaDialogOpen] =
     useState(false);
   const [isMediaSyncDialogOpen, setIsMediaSyncDialogOpen] = useState(false);
@@ -1363,7 +1362,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         renamingLaneIdRef={renamingLaneIdRef}
         sample={sample}
         setIsCaptureInstallerDialogOpen={setIsCaptureInstallerDialogOpen}
-        setIsDesktopAppDialogOpen={setIsDesktopAppDialogOpen}
         setIsMediaStorageDialogOpen={setIsMediaStorageDialogOpen}
         setIsMediaSyncDialogOpen={setIsMediaSyncDialogOpen}
         setIsOfflineMediaDialogOpen={setIsOfflineMediaDialogOpen}
@@ -1651,7 +1649,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         handleTakeOverWorkspace={handleTakeOverWorkspace}
         importNotice={importNotice}
         isCaptureInstallerDialogOpen={isCaptureInstallerDialogOpen}
-        isDesktopAppDialogOpen={isDesktopAppDialogOpen}
         isMediaStorageDialogOpen={isMediaStorageDialogOpen}
         isMediaSyncDialogOpen={isMediaSyncDialogOpen}
         isOfflineMediaDialogOpen={isOfflineMediaDialogOpen}
@@ -1671,7 +1668,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         retrySampleMedia={retrySampleMedia}
         setImportNotice={setImportNotice}
         setIsCaptureInstallerDialogOpen={setIsCaptureInstallerDialogOpen}
-        setIsDesktopAppDialogOpen={setIsDesktopAppDialogOpen}
         setIsMediaStorageDialogOpen={setIsMediaStorageDialogOpen}
         setIsMediaSyncDialogOpen={setIsMediaSyncDialogOpen}
         setIsOfflineMediaDialogOpen={setIsOfflineMediaDialogOpen}

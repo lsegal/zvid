@@ -21,7 +21,6 @@ import {
 } from "../session-settings.ts";
 import { CaptureInstallerDialog } from "./CaptureInstallerDialog";
 import { CollaborationDetailCard } from "./CollaborationDetailCard";
-import { DesktopAppDialog } from "./DesktopAppDialog";
 import { ExportDialog } from "./ExportDialog";
 import { ImportNotice, type ImportNoticeContent } from "./ImportNotice";
 import { MediaStorageDialog } from "./MediaStorageDialog";
@@ -80,7 +79,6 @@ export type AppDialogsProps = Pick<
     ) => void;
     importNotice: ImportNoticeContent | null;
     isCaptureInstallerDialogOpen: boolean;
-    isDesktopAppDialogOpen: boolean;
     isMediaStorageDialogOpen: boolean;
     isMediaSyncDialogOpen: boolean;
     isOfflineMediaDialogOpen: boolean;
@@ -88,7 +86,6 @@ export type AppDialogsProps = Pick<
     mediaSyncPeer: MediaSyncPeer | undefined;
     setImportNotice: Dispatch<SetStateAction<ImportNoticeContent | null>>;
     setIsCaptureInstallerDialogOpen: SetOpen;
-    setIsDesktopAppDialogOpen: SetOpen;
     setIsMediaStorageDialogOpen: SetOpen;
     setIsMediaSyncDialogOpen: SetOpen;
     setIsOfflineMediaDialogOpen: SetOpen;
@@ -96,8 +93,7 @@ export type AppDialogsProps = Pick<
   };
 
 // The app's dialogs (share, connect, diagnostics, offline media, media sync,
-// media storage, session settings, export, capture installer, desktop app
-// download and the
+// media storage, session settings, export, capture installer and the
 // workspace lock prompts), plus the workspace lock banner and the import
 // notice.
 export function AppDialogs({
@@ -111,7 +107,6 @@ export function AppDialogs({
   handleTakeOverWorkspace,
   importNotice,
   isCaptureInstallerDialogOpen,
-  isDesktopAppDialogOpen,
   isMediaStorageDialogOpen,
   isMediaSyncDialogOpen,
   isOfflineMediaDialogOpen,
@@ -131,7 +126,6 @@ export function AppDialogs({
   retrySampleMedia,
   setImportNotice,
   setIsCaptureInstallerDialogOpen,
-  setIsDesktopAppDialogOpen,
   setIsMediaStorageDialogOpen,
   setIsMediaSyncDialogOpen,
   setIsOfflineMediaDialogOpen,
@@ -160,11 +154,6 @@ export function AppDialogs({
       <CaptureInstallerDialog
         open={isCaptureInstallerDialogOpen}
         onOpenChange={setIsCaptureInstallerDialogOpen}
-      />
-
-      <DesktopAppDialog
-        open={isDesktopAppDialogOpen}
-        onOpenChange={setIsDesktopAppDialogOpen}
       />
 
       <Dialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen}>

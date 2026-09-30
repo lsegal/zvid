@@ -1,13 +1,12 @@
 name: DAW bundles
 
-# Release ZVID Capture bundles and the plugin installer for every merge to
-# main, uploaded as workflow artifacts. The zvid desktop app is not built or
-# packaged here. Pull requests that touch /daw build the same bundles and
-# installers, so a
-# broken x86_64 slice, release-only build or bundle layout fails the PR rather
-# than main; PR runs upload nothing. macOS builds are Developer ID signed and
-# notarized when the Apple secrets below are configured, and ad-hoc signed
-# otherwise.
+# Release ZVID Capture bundles and the plugin-only installer (bundle job), and
+# the zvid desktop app's own installer (desktop job), for every merge to main,
+# uploaded as separate workflow artifacts. Pull requests that touch /daw or
+# the desktop app build the same bundles and installers, so a broken x86_64
+# slice, release-only build or bundle layout fails the PR rather than main;
+# PR runs upload nothing. macOS builds are Developer ID signed and notarized
+# when the Apple secrets below are configured, and ad-hoc signed otherwise.
 on:
   push:
     branches:
@@ -19,6 +18,7 @@ on:
     # compares against.
     paths:
       - daw/**
+      - app/src-tauri/**
       - .github/workflows/daw-bundle.yml
       - .github/workflows/ci.yml
       - app/export-bridge/Cargo.toml
@@ -302,4 +302,186 @@ jobs:
         with:
           name: ${{ steps.name.outputs.name }}
           path: daw/target/dist/${{ steps.name.outputs.name }}.zip
+          if-no-files-found: error
+
+  # The zvid desktop app on its own, packaged by Tauri's bundler: a .dmg for
+  # Apple silicon Macs, and an NSIS installer on Windows, which downloads the
+  # WebView2 Runtime when Windows lacks it. Its artifacts are named
+  # `zvid-<version>-<sha>-<platform>`, beside the plugin's `zvid-capture-*`
+  # ones, and scripts/fetch-capture-installers.ts offers them as the desktop
+  # app download.
+  desktop:
+    name: desktop (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: macos-arm64
+          - os: windows-latest
+            platform: windows-x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+
+      # The frontend embeds the export bridge, which the app's build script
+      # builds for wasm32 with wasm-pack.
+      - name: Install toolchain
+        run: |
+          rustup target add wasm32-unknown-unknown
+          if [ "$RUNNER_OS" = macOS ]; then
+            rustup target add aarch64-apple-darwin
+          fi
+
+      # PR runs restore main's release cache but don't save their own. The
+      # export bridge's wasm build has its own target directory.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            app/src-tauri -> target
+            app/export-bridge -> target
+          save-if: ${{ github.event_name != 'pull_request' }}
+
+      # After rust-cache so this saves before rust-cache's post step prunes
+      # ~/.cargo/bin of anything `cargo install` didn't put there.
+      - name: Cache wasm-pack binary
+        id: wasm-pack-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/wasm-pack${{ runner.os == 'Windows' && '.exe' || '' }}
+          key: wasm-pack-bin-v1-${{ runner.os }}
+
+      - name: Install wasm-pack
+        if: steps.wasm-pack-cache.outputs.cache-hit != 'true'
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      # Tauri signs the app with the Developer ID Application certificate and
+      # notarizes it when APPLE_CERTIFICATE and APPLE_ID are in the
+      # environment, so they're only exported when the secrets are set: an
+      # empty APPLE_CERTIFICATE would fail the build.
+      - name: Build desktop app installer
+        id: build
+        env:
+          APPLICATION_P12: ${{ secrets.MACOS_DEVELOPER_ID_APPLICATION_P12 }}
+          P12_PASSWORD: ${{ secrets.MACOS_CERTIFICATES_PASSWORD }}
+          NOTARY_APPLE_ID: ${{ secrets.APPLE_ID }}
+          NOTARY_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          NOTARY_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          pnpm install --frozen-lockfile
+          active='{"bundle":{"active":true}}'
+          if [ "$RUNNER_OS" = macOS ]; then
+            if [ -n "$APPLICATION_P12" ]; then
+              export APPLE_CERTIFICATE="$APPLICATION_P12" APPLE_CERTIFICATE_PASSWORD="$P12_PASSWORD"
+              echo "signed=true" >> "$GITHUB_OUTPUT"
+              if [ -n "$NOTARY_APPLE_ID" ]; then
+                export APPLE_ID="$NOTARY_APPLE_ID" APPLE_TEAM_ID="$NOTARY_TEAM_ID" APPLE_PASSWORD="$NOTARY_PASSWORD"
+                echo "notarized=true" >> "$GITHUB_OUTPUT"
+              fi
+            else
+              echo "::notice::Apple signing secrets are not set; building an unsigned desktop app"
+            fi
+            pnpm tauri build --target aarch64-apple-darwin --bundles dmg --config "$active"
+            built=$(ls src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg)
+            extension=.dmg
+          else
+            pnpm tauri build --bundles nsis --config "$active"
+            built=$(ls src-tauri/target/release/bundle/nsis/*-setup.exe)
+            extension=-setup.exe
+          fi
+          version=$(node -p 'require("./package.json").version')
+          sha=${GITHUB_SHA::7}
+          mkdir -p target/desktop
+          installer="target/desktop/zvid-$version+$sha$extension"
+          mv "$built" "$installer"
+          ls -l "$installer"
+          echo "installer=$installer" >> "$GITHUB_OUTPUT"
+          echo "name=zvid-$version-$sha-${{ matrix.platform }}" >> "$GITHUB_OUTPUT"
+
+      # Mounts the .dmg and checks the app in it is arm64 only and, when
+      # signed, has a valid signature Gatekeeper accepts.
+      - name: Verify (macOS)
+        if: runner.os == 'macOS'
+        env:
+          INSTALLER: ${{ steps.build.outputs.installer }}
+          SIGNED: ${{ steps.build.outputs.signed }}
+          NOTARIZED: ${{ steps.build.outputs.notarized }}
+        run: |
+          mount="$RUNNER_TEMP/zvid-dmg"
+          hdiutil attach "$INSTALLER" -nobrowse -readonly -mountpoint "$mount"
+          app="$mount/zvid.app"
+          executable=$(defaults read "$app/Contents/Info.plist" CFBundleExecutable)
+          archs=$(lipo -archs "$app/Contents/MacOS/$executable")
+          echo "$executable: $archs"
+          if [ "$archs" != arm64 ]; then
+            echo "::error::the desktop app must be arm64 only, has: $archs"
+            exit 1
+          fi
+          if [ "$SIGNED" = true ]; then
+            codesign --verify --deep --strict --verbose=2 "$app"
+          fi
+          if [ "$NOTARIZED" = true ]; then
+            spctl --assess --type execute --verbose "$app"
+          fi
+          hdiutil detach "$mount"
+
+      # Runs the installer silently, checks the app was installed, then
+      # uninstalls it and checks it is gone. Tauri's NSIS installer installs
+      # per user by default, into %LOCALAPPDATA%\zvid.
+      - name: Install and uninstall (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          INSTALLER: ${{ steps.build.outputs.installer }}
+        run: |
+          $process = Start-Process (Resolve-Path $env:INSTALLER) -ArgumentList '/S' -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "setup exited with $($process.ExitCode)" }
+          $dir = Join-Path $env:LOCALAPPDATA 'zvid'
+          $app = Get-ChildItem $dir -Filter *.exe | Where-Object Name -ne 'uninstall.exe' | Select-Object -First 1
+          if (-not $app) { throw "the app was not installed into $dir" }
+          Write-Output "installed $($app.FullName)"
+          # The uninstaller relaunches itself from a temporary copy, so wait
+          # for the app to disappear rather than for the process.
+          Start-Process (Join-Path $dir 'uninstall.exe') -ArgumentList '/S' -Wait
+          for ($i = 0; $i -lt 60 -and (Test-Path $app.FullName); $i++) { Start-Sleep -Seconds 1 }
+          if (Test-Path $app.FullName) { throw "uninstalling left $($app.FullName) behind" }
+
+      # The artifact holds a zip of a folder with the installer, like the
+      # plugin's, so scripts/fetch-capture-installers.ts reads both the same
+      # way.
+      - name: Zip
+        env:
+          INSTALLER: ${{ steps.build.outputs.installer }}
+          NAME: ${{ steps.build.outputs.name }}
+        run: |
+          rm -rf target/dist && mkdir -p "target/dist/$NAME"
+          cp "$INSTALLER" "target/dist/$NAME/"
+          cd target/dist
+          if [ "$RUNNER_OS" = macOS ]; then
+            ditto -c -k --keepParent "$NAME" "$NAME.zip"
+          else
+            7z a -tzip "$NAME.zip" "$NAME"
+          fi
+
+      # PRs only check that the installers build; artifacts come from main.
+      - uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request'
+        with:
+          name: ${{ steps.build.outputs.name }}
+          path: app/target/dist/${{ steps.build.outputs.name }}.zip
           if-no-files-found: error

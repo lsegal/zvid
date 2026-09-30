@@ -41,7 +41,10 @@ describe("artifactPlatform", () => {
 
 describe("desktopArtifactPlatform", () => {
   it("maps desktop app artifact names to platforms", () => {
-    assert.equal(desktopArtifactPlatform("zvid-0.0.0-bba0984-macos-arm64"), "macos");
+    assert.equal(
+      desktopArtifactPlatform("zvid-0.0.0-bba0984-macos-arm64"),
+      "macos",
+    );
     assert.equal(
       desktopArtifactPlatform("zvid-0.0.0-bba0984-windows-x64"),
       "windows",
@@ -106,10 +109,15 @@ describe("isCaptureInstallerEntry", () => {
 describe("isDesktopInstallerEntry", () => {
   it("picks the macOS .dmg from a desktop app zip", () => {
     const dir = "zvid-0.0.0-bba0984-macos-arm64";
-    assert.ok(isDesktopInstallerEntry(`${dir}/zvid-0.0.0+bba0984.dmg`, "macos"));
+    assert.ok(
+      isDesktopInstallerEntry(`${dir}/zvid-0.0.0+bba0984.dmg`, "macos"),
+    );
     assert.ok(!isDesktopInstallerEntry(`${dir}/zvid.app/`, "macos"));
     assert.ok(
-      !isDesktopInstallerEntry(`__MACOSX/${dir}/._zvid-0.0.0+bba0984.dmg`, "macos"),
+      !isDesktopInstallerEntry(
+        `__MACOSX/${dir}/._zvid-0.0.0+bba0984.dmg`,
+        "macos",
+      ),
     );
   });
 
