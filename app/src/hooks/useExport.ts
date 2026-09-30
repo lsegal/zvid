@@ -15,6 +15,7 @@ import {
   exportSettings,
   exportTiming,
   normalizeExportFileName,
+  projectDurationAt,
   reopenExportOptions,
 } from "../export-options.ts";
 import { getHarness, type SaveTarget } from "../harness";
@@ -124,6 +125,8 @@ export type ExportDialogModel = {
   bpm: number;
   signature: MeterSignature;
   beatUnit: number;
+  // The session's length in frames at its own frame rate.
+  projectDurationFrames: number | undefined;
   startExport(): void;
   cancelExport(): void;
   close(): void;
@@ -277,6 +280,11 @@ export function useExport({
         effects,
         bpm,
         fps,
+        projectDurationFrames: projectDurationAt(
+          project.projectDurationFrames,
+          session.fps,
+          fps,
+        ),
         canvasWidth,
         canvasHeight,
         mainAudio,
@@ -380,6 +388,7 @@ export function useExport({
     bpm,
     signature,
     beatUnit,
+    projectDurationFrames: project.projectDurationFrames,
     startExport,
     cancelExport,
     close,

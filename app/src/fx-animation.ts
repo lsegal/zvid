@@ -3,7 +3,10 @@
 // `resolveAnimatedParameters` from their own modules; an effect in a mode
 // without an engine is drawn with its parameters as they are.
 
-import { resolveClipAnimatedParameters } from "./fx-animation-clip.ts";
+import {
+  resolveClipAnimatedParameters,
+  type SessionEdges,
+} from "./fx-animation-clip.ts";
 import {
   type EffectAnimation,
   supportsAnimationMode,
@@ -35,6 +38,9 @@ export type AnimationClipContext = {
   progress: number;
   elapsedSeconds: number;
   durationSeconds: number;
+  // Which of the clip's ends are on the session's, where Clip mode doesn't
+  // animate.
+  sessionEdges?: SessionEdges;
 };
 
 // The frame being drawn.

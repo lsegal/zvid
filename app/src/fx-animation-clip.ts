@@ -45,16 +45,40 @@ function easeSide(motion: ClipMotion, progress: number) {
   return motion === "None" ? 1 : easeMotion(motion, progress);
 }
 
+// Whether a clip starts on the session's first frame and ends on or past its
+// last. Those ends don't animate: the video neither opens with a tween from
+// nothing nor ends with a tween to nothing.
+export type SessionEdges = { atStart: boolean; atEnd: boolean };
+
+// The session edges of a clip starting `startSeconds` in and lasting
+// `durationSeconds`, in a session `sessionEndSeconds` long, compared in
+// whole frames at `fps` so a clip a sub-frame off still counts. The edges
+// are the session's, not an export's In/Out range, so a render is the same
+// whatever range is exported.
+export function clipSessionEdges(
+  startSeconds: number,
+  durationSeconds: number,
+  sessionEndSeconds: number,
+  fps: number,
+): SessionEdges {
+  const frame = (seconds: number) => Math.round(seconds * Math.max(1, fps));
+  return {
+    atStart: frame(startSeconds) <= 0,
+    atEnd: frame(startSeconds + durationSeconds) >= frame(sessionEndSeconds),
+  };
+}
+
 // How far the effect is animated in, 0..1, `elapsedSeconds` into a clip of
 // `durationSeconds`, when each side takes `frames` frames at `fps`. A clip
 // shorter than both sides shortens them to half its length each, so they
-// never overlap.
+// never overlap. A side on one of the session's `edges` doesn't animate.
 export function clipAnimationWeight(
   animation: Pick<ClipAnimation, "motionIn" | "motionOut">,
   frames: number,
   fps: number,
   elapsedSeconds: number,
   durationSeconds: number,
+  edges?: SessionEdges,
 ) {
   const sideSeconds = Math.min(
     fps > 0 ? Math.max(0, frames) / fps : 0,
@@ -64,8 +88,10 @@ export function clipAnimationWeight(
     return 1;
   }
 
-  const enter = clamp(elapsedSeconds / sideSeconds, 0, 1);
-  const exit = clamp((durationSeconds - elapsedSeconds) / sideSeconds, 0, 1);
+  const enter = edges?.atStart ? 1 : clamp(elapsedSeconds / sideSeconds, 0, 1);
+  const exit = edges?.atEnd
+    ? 1
+    : clamp((durationSeconds - elapsedSeconds) / sideSeconds, 0, 1);
   return Math.min(
     easeSide(animation.motionIn, enter),
     easeSide(animation.motionOut, exit),
@@ -215,6 +241,7 @@ export function resolveClipAnimatedParameters(
     frameContext.fps,
     clipContext.elapsedSeconds,
     clipContext.durationSeconds,
+    clipContext.sessionEdges,
   );
   // With Full timing an Order stays on screen for its whole clip, so its
   // border keeps its color and only the spacing tweens.
@@ -260,11 +287,13 @@ export function resolveOrderSlide(
 }
 
 // How far a clip `elapsedSeconds` into its `durationSeconds` has slid into
-// its slot: 0 outside it, 1 in place.
+// its slot: 0 outside it, 1 in place. It doesn't slide on its session
+// `edges`.
 export function orderSlideWeight(
   slide: OrderSlide,
   elapsedSeconds: number,
   durationSeconds: number,
+  edges?: SessionEdges,
 ) {
   return clipAnimationWeight(
     slide,
@@ -272,5 +301,6 @@ export function orderSlideWeight(
     slide.fps,
     elapsedSeconds,
     durationSeconds,
+    edges,
   );
 }

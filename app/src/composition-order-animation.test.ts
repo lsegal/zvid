@@ -14,6 +14,7 @@ import {
   applyClipAnimationWeight,
   orderSlideWeight,
   resolveOrderSlide,
+  type SessionEdges,
 } from "./fx-animation-clip.ts";
 import {
   createDefaultAnimation,
@@ -40,6 +41,7 @@ type Layer = {
   laneRank: number;
   clip: { startQ: number; durationSeconds: number };
   clipProgress: number;
+  sessionEdges?: SessionEdges;
 };
 
 type Rect = { left: number; right: number; top: number; bottom: number };
@@ -342,6 +344,39 @@ describe("Order Clip-mode animation", () => {
     }
   });
 
+  it("doesn't slide or re-flow for clips at frame 0", () => {
+    // Both clips start the session; Layer 2's ends mid-session.
+    const at = (seconds: number) => {
+      const layers = [layer(0, 0, 10, seconds), layer(1, 0, 4, seconds)];
+      layers[0].sessionEdges = { atStart: true, atEnd: true };
+      layers[1].sessionEdges = { atStart: true, atEnd: false };
+      return layers;
+    };
+    const steps = planLayerDraws(at(0), order("vertical"));
+    assert.ok(steps.every((step) => !("motion" in step)));
+    const placed = placeAt(at(0));
+    assertRect(placed["layer-1"].drawn, TOP_HALF, "Layer 1");
+    assertRect(placed["layer-2"].drawn, BOTTOM_HALF, "Layer 2");
+    // Layer 2 still slides out as its clip ends, and Layer 1 re-flows.
+    const exiting = placeAt(at(4 - 2 / FPS));
+    assertRect(
+      exiting["layer-1"].drawn,
+      lerpRect(FULL, TOP_HALF, easeMotion("Ease In", 2 / 5)),
+      "Layer 1 as Layer 2 exits",
+    );
+  });
+
+  it("doesn't slide a clip out on the session's last frame", () => {
+    const layers = [
+      layer(0, 0, 10, 10 - 1 / FPS),
+      layer(1, 2, 8, 10 - 1 / FPS),
+    ];
+    layers[0].sessionEdges = { atStart: true, atEnd: true };
+    layers[1].sessionEdges = { atStart: false, atEnd: true };
+    const steps = planLayerDraws(layers, order("vertical"));
+    assert.ok(steps.every((step) => !("motion" in step)));
+  });
+
   it("changes nothing with the animation off", () => {
     for (const seconds of [2, 2 + 1 / FPS, 3, 6 - 1 / FPS]) {
       const layers = [layer(0, 0, 10, seconds), layer(1, 2, 4, seconds)];
@@ -425,6 +460,15 @@ describe("resolveOrderSlide", () => {
       )?.slide,
       undefined,
     );
+  });
+
+  it("doesn't slide in at the session start or out at its end", () => {
+    const edges = { atStart: true, atEnd: true };
+    assert.equal(orderSlideWeight(SLIDE, 0, 4, edges), 1);
+    assert.equal(orderSlideWeight(SLIDE, 4, 4, edges), 1);
+    const atStart = { atStart: true, atEnd: false };
+    assert.equal(orderSlideWeight(SLIDE, 0, 4, atStart), 1);
+    assert.equal(orderSlideWeight(SLIDE, 4, 4, atStart), 0);
   });
 
   it("weights a slide by the clip's position", () => {
