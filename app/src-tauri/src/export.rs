@@ -5,12 +5,13 @@ pub async fn mux_export(
     video: Vec<u8>,
     pcm: Option<Vec<Vec<f32>>>,
     sample_rate: u32,
+    bitrate: u32,
     cover: Option<Vec<u8>>,
 ) -> Result<Vec<u8>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let mut video = video;
         normalize_video_tail_duration(&mut video)?;
-        let audio = pcm.map(|samples| encode_aac(samples, sample_rate)).transpose()?;
+        let audio = pcm.map(|samples| encode_aac(samples, sample_rate, bitrate)).transpose()?;
         tauri::async_runtime::block_on(zvid_export_bridge::mux(video, audio, cover))
             .map_err(|error| error.to_string())
     })
@@ -52,12 +53,18 @@ fn normalize_video_tail_duration(video: &mut [u8]) -> Result<(), String> {
     Ok(())
 }
 
-fn encode_aac(pcm: Vec<Vec<f32>>, sample_rate: u32) -> Result<Vec<u8>, String> {
+// The AAC bitrates Session Settings offers, in bits per second.
+const AAC_BITRATES: [u32; 4] = [128_000, 192_000, 256_000, 320_000];
+
+fn encode_aac(pcm: Vec<Vec<f32>>, sample_rate: u32, bitrate: u32) -> Result<Vec<u8>, String> {
     if !cfg!(target_os = "macos") {
         return Err("Native AAC export currently requires macOS AudioToolbox.".into());
     }
     if pcm.is_empty() || pcm.len() > 2 || ![44100, 48000].contains(&sample_rate) {
         return Err("Native AAC export requires mono/stereo PCM at 44.1 or 48 kHz.".into());
+    }
+    if !AAC_BITRATES.contains(&bitrate) {
+        return Err("Native AAC export supports 128, 192, 256 or 320 kbps.".into());
     }
     let frames = pcm[0].len();
     if frames == 0 || pcm.iter().any(|c| c.len() != frames || c.iter().any(|v| !v.is_finite())) {
@@ -89,7 +96,8 @@ fn encode_aac(pcm: Vec<Vec<f32>>, sample_rate: u32) -> Result<Vec<u8>, String> {
     let output = directory.path().join("audio.m4a");
     std::fs::write(&input, wav).map_err(|e| e.to_string())?;
     let result = std::process::Command::new("/usr/bin/afconvert")
-        .args(["-f", "m4af", "-d", "aac", "-b", "192000"])
+        .args(["-f", "m4af", "-d", "aac", "-b"])
+        .arg(bitrate.to_string())
         .arg(input).arg(&output).output().map_err(|e| e.to_string())?;
     if !result.status.success() {
         return Err(format!("AAC encoding failed: {}", String::from_utf8_lossy(&result.stderr)));
@@ -192,7 +200,7 @@ mod tests {
         let cover = std::fs::read(&cover_path).unwrap();
 
         let video = std::fs::read(&video_path).unwrap();
-        let video_only = mux_export(video.clone(), None, 48_000, Some(cover.clone()))
+        let video_only = mux_export(video.clone(), None, 48_000, 192_000, Some(cover.clone()))
             .await
             .expect("video-only export must mux");
         let video_only_path = directory.path().join("smoke-video-only.mp4");
@@ -201,7 +209,7 @@ mod tests {
         let pcm: Vec<f32> = (0..96_000)
             .map(|index| ((2.0 * std::f32::consts::PI * 440.0 * index as f32) / 48_000.0).sin() * 0.36)
             .collect();
-        let output = mux_export(video, Some(vec![pcm]), 48_000, Some(cover))
+        let output = mux_export(video, Some(vec![pcm]), 48_000, 128_000, Some(cover))
             .await
             .expect("macOS AudioToolbox fallback must mux AAC with video");
         let output_path = directory.path().join("smoke-native-aac.mp4");

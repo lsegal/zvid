@@ -1,4 +1,4 @@
-//! Container bridge for platform-encoded HEVC/AV1 and AAC tracks.
+//! Container bridge for platform-encoded H.264/HEVC/AV1 and AAC tracks.
 //! Final sample tables, payloads, gapless metadata and the cover-art
 //! thumbnail are written by zvidlib.
 use zvidlib::{
@@ -115,15 +115,20 @@ mod tests {
         Mp4DemuxerOptions, SampleDependency, VideoDimensions,
     };
 
-    /// A tiny AV1 video-only MP4 like the browser encoder's output. The
-    /// samples are filler: muxing never decodes them.
+    /// A tiny AV1 video-only MP4 like the browser encoder's output.
     fn encoder_video() -> Vec<u8> {
+        encoder_video_with(Codec::Av1, vec![0, 0, 0, 12, b'a', b'v', b'1', b'C', 0x81, 0, 0, 0])
+    }
+
+    /// A tiny video-only MP4 in `codec`. The samples are filler: muxing
+    /// never decodes them.
+    fn encoder_video_with(codec: Codec, decoder_config: Vec<u8>) -> Vec<u8> {
         block_on(async {
             let track = Mp4TrackConfig {
                 encoder: EncoderConfig {
-                    codec: Codec::Av1,
+                    codec,
                     timescale: 24,
-                    decoder_config: vec![0, 0, 0, 12, b'a', b'v', b'1', b'C', 0x81, 0, 0, 0],
+                    decoder_config,
                 },
                 format: Mp4TrackFormat::Video(VideoDimensions { width: 32, height: 18 }),
             };
@@ -167,5 +172,21 @@ mod tests {
     fn writes_no_cover_without_one() {
         let output = block_on(super::mux(encoder_video(), None, None)).unwrap();
         assert_eq!(cover_art(output), None);
+    }
+
+    #[test]
+    fn remuxes_h264_video() {
+        // An avcC box as WebCodecs writes it: High profile, one SPS and PPS.
+        let avcc = vec![
+            0, 0, 0, 27, b'a', b'v', b'c', b'C', 1, 0x64, 0, 0x28, 0xff, 0xe1, 0, 4, 0x67, 0x64,
+            0, 0x28, 1, 0, 4, 0x68, 0xee, 0x3c, 0x80,
+        ];
+        let output = block_on(super::mux(encoder_video_with(Codec::H264, avcc.clone()), None, None))
+            .unwrap();
+        let source = MemorySource::new(output);
+        let movie = block_on(Mp4Demuxer::open(&source, Mp4DemuxerOptions::default())).unwrap();
+        assert_eq!(movie.tracks.len(), 1);
+        assert_eq!(movie.tracks[0].codec, Codec::H264);
+        assert_eq!(movie.tracks[0].decoder_config, avcc);
     }
 }

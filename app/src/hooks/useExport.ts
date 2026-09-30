@@ -8,6 +8,7 @@ import {
 } from "../CompositionPlayer";
 import { getHarness, type SaveTarget } from "../harness";
 import type { MediaItem } from "../media";
+import type { SessionSettings } from "../session-settings";
 
 export type ExportStateInputs = {
   setStatus: Dispatch<SetStateAction<string>>;
@@ -77,9 +78,8 @@ export type ExportInputs = {
   effects: ProjectState["effects"];
   mainAudio: MediaItem | undefined;
   bpm: number;
-  fps: number;
-  canvasWidth: number;
-  canvasHeight: number;
+  // The canvas size, frame rate and encoding to export with.
+  settings: SessionSettings;
   sessionName: string | null;
   playheadQRef: { current: number };
   compositionPlayerRef: { current: CompositionPlayerHandle | null };
@@ -100,9 +100,7 @@ export function useExport({
   effects,
   mainAudio,
   bpm,
-  fps,
-  canvasWidth,
-  canvasHeight,
+  settings,
   sessionName,
   playheadQRef,
   compositionPlayerRef,
@@ -126,12 +124,9 @@ export function useExport({
         (clip) => quartersToSeconds(clip.startQ, bpm) + clip.durationSeconds,
       ),
     );
-    const outputFrameRate = Math.max(1, fps);
-    const outputFrameDuration = 1 / outputFrameRate;
-    const outputFrameCount = Math.max(
-      1,
-      Math.ceil(durationSeconds * outputFrameRate),
-    );
+    const exportSettings = { ...settings, fps: Math.max(1, settings.fps) };
+    const { canvasWidth, canvasHeight, fps } = exportSettings;
+    const outputFrameCount = Math.max(1, Math.ceil(durationSeconds * fps));
     const exportName = `${sanitizeFilenameSegment(sessionName ?? "zvid-session")}.mp4`;
 
     let saveTarget: SaveTarget;
@@ -166,10 +161,11 @@ export function useExport({
     );
     logClient("export:start", {
       durationSeconds,
-      frameRate: outputFrameRate,
+      frameRate: fps,
       frames: outputFrameCount,
       canvasWidth,
       canvasHeight,
+      encoding: exportSettings.encoding,
       mainAudio: mainAudio?.name,
     });
     logClient("export:phase", { phase: "preparing", frames: outputFrameCount });
@@ -194,12 +190,9 @@ export function useExport({
         filename: exportName,
         saveTarget,
         canvas: exportRenderer.canvas,
-        canvasWidth,
-        canvasHeight,
+        settings: exportSettings,
         durationSeconds,
-        frameRate: outputFrameRate,
         frameCount: outputFrameCount,
-        frameDuration: outputFrameDuration,
         bpm,
         mainAudio,
         renderFrameAt: (frameQ, frameSeconds) =>
@@ -213,8 +206,8 @@ export function useExport({
 
       setStatus(
         result.saveMethod === "download"
-          ? `Exported ${exportName} through the browser download flow.`
-          : `Saved ${exportName}.`,
+          ? `Exported ${exportName} (${result.summary}) through the browser download flow.`
+          : `Saved ${exportName} (${result.summary}).`,
       );
       setExportState({ phase: "idle", progress: null, detail: "" });
       logClient("export:complete", {
@@ -223,6 +216,7 @@ export function useExport({
         mimeType: result.mimeType,
         muxedWith: result.muxedWith,
         saveMethod: result.saveMethod,
+        encoding: result.encoding,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

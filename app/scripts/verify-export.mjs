@@ -2,13 +2,32 @@
 // Inspect files saved by the browser and Tauri export flows, not encoder input.
 import { spawnSync } from "node:child_process";
 
-const [silentPath, audiblePath] = process.argv.slice(2);
-if (!silentPath || !audiblePath) {
+// --codec=<h264|hevc|av1> and --sample-rate=<Hz> check the Session Settings
+// the export was made with; without them any exported codec and rate pass.
+const options = Object.fromEntries(
+  process.argv
+    .slice(2)
+    .filter((arg) => arg.startsWith("--"))
+    .map((arg) => arg.slice(2).split("=", 2)),
+);
+const [silentPath, audiblePath] = process.argv
+  .slice(2)
+  .filter((arg) => !arg.startsWith("--"));
+// ffprobe's names for the codecs Session Settings offers.
+const VIDEO_CODECS = { h264: "h264", hevc: "hevc", av1: "av1" };
+if (
+  !silentPath ||
+  !audiblePath ||
+  (options.codec && !VIDEO_CODECS[options.codec])
+) {
   console.error(
-    "Usage: node app/scripts/verify-export.mjs <video-only.mp4> <audible.mp4>",
+    "Usage: node app/scripts/verify-export.mjs [--codec=h264|hevc|av1] [--sample-rate=Hz] <video-only.mp4> <audible.mp4>",
   );
   process.exit(2);
 }
+const expectedCodecs = options.codec
+  ? [VIDEO_CODECS[options.codec]]
+  : Object.values(VIDEO_CODECS);
 
 function run(command, args) {
   const result = spawnSync(command, args, {
@@ -29,7 +48,7 @@ function inspect(path, expectAudio) {
       "-v",
       "error",
       "-show_entries",
-      "format=duration:stream=index,codec_name,codec_type,duration,start_time,width,height:stream_disposition=attached_pic",
+      "format=duration:stream=index,codec_name,codec_type,duration,start_time,width,height,sample_rate:stream_disposition=attached_pic",
       "-of",
       "json",
       path,
@@ -44,8 +63,10 @@ function inspect(path, expectAudio) {
       stream.codec_type === "video" && stream.disposition?.attached_pic !== 1,
   );
   const audio = probe.streams.filter((stream) => stream.codec_type === "audio");
-  if (video.length !== 1 || !["hevc", "av1"].includes(video[0].codec_name)) {
-    throw new Error(`${path}: expected one HEVC or AV1 video track`);
+  if (video.length !== 1 || !expectedCodecs.includes(video[0].codec_name)) {
+    throw new Error(
+      `${path}: expected one ${expectedCodecs.join(" or ")} video track`,
+    );
   }
   if (
     covers.length !== 1 ||
@@ -61,6 +82,15 @@ function inspect(path, expectAudio) {
   }
   if (expectAudio && audio[0].codec_name !== "aac") {
     throw new Error(`${path}: audio track is not AAC`);
+  }
+  if (
+    expectAudio &&
+    options["sample-rate"] &&
+    Number(audio[0].sample_rate) !== Number(options["sample-rate"])
+  ) {
+    throw new Error(
+      `${path}: expected ${options["sample-rate"]} Hz audio, got ${audio[0].sample_rate}`,
+    );
   }
   const duration = Number(probe.format.duration);
   if (!Number.isFinite(duration) || Math.abs(duration - 2) > 0.15) {

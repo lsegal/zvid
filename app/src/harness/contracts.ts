@@ -1,5 +1,7 @@
 import type { MediaItem, Palette } from "../media";
 import type { ServerMediaRef, SessionOpenResponse } from "../session";
+import type { SessionSettings } from "../session-settings";
+import type { ExportEncoding } from "./export-encoding";
 
 export type HarnessCapability =
   | "browser-dialogs"
@@ -83,12 +85,10 @@ export type ExportRequest = {
   filename: string;
   saveTarget: SaveTarget;
   canvas: HTMLCanvasElement;
-  canvasWidth: number;
-  canvasHeight: number;
+  // The canvas size, frame rate and encoding to export with.
+  settings: SessionSettings;
   durationSeconds: number;
-  frameRate: number;
   frameCount: number;
-  frameDuration: number;
   bpm: number;
   mainAudio?: MediaItem;
   renderFrameAt(playheadQ: number, playheadSeconds: number): Promise<void>;
@@ -98,6 +98,9 @@ export type ExportRequest = {
 };
 
 export type ExportResult = {
+  encoding: ExportEncoding;
+  // The effective settings, like "1080×1920 · 30 fps · HEVC · 12 Mbps".
+  summary: string;
   bytes: number;
   mimeType: string;
   muxedWith: string;
