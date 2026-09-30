@@ -8,6 +8,11 @@ import {
 import type { ServerMediaRef } from "../session";
 import { probeVideoInput } from "../video-format-probe";
 import type { MediaSelection } from "./contracts";
+import {
+  createFrameThumbnailer,
+  type FrameSource,
+  type ThumbnailFrameSize,
+} from "./frame-thumbnails";
 
 type WebMediaRuntime = {
   mediabunny: typeof import("mediabunny");
@@ -88,17 +93,14 @@ function drawVideoFrameCover(
   context.drawImage(video, drawX, drawY, drawWidth, drawHeight);
 }
 
-export async function generateThumbnailFromUrlAtTime(
+// Decodes a thumbnail through a detached <video>. Only a fallback for media
+// mediabunny cannot decode: Safari blocks the main thread for up to a second
+// painting such a video.
+function generateThumbnailFromVideoElement(
   url: string,
   timeSeconds: number,
-  options?: {
-    width?: number;
-    height?: number;
-  },
+  { width, height }: ThumbnailFrameSize,
 ) {
-  const width = options?.width ?? 240;
-  const height = options?.height ?? 420;
-
   return new Promise<string | undefined>((resolve) => {
     const video = document.createElement("video");
     const canvas = document.createElement("canvas");
@@ -173,6 +175,76 @@ export async function generateThumbnailFromUrlAtTime(
     video.addEventListener("seeked", handleSeeked, { once: true });
     video.addEventListener("error", handleFailure, { once: true });
     video.src = url;
+  });
+}
+
+// Opens `url` for frame decoding, or resolves null when it has no video track
+// this browser can decode.
+async function openFrameSource(url: string): Promise<FrameSource | null> {
+  const { ALL_FORMATS, BlobSource, CanvasSink, Input, UrlSource } = (
+    await loadRuntime()
+  ).mediabunny;
+  // Blob URLs cannot serve range requests, and fetching one is cheap.
+  const source = url.startsWith("blob:")
+    ? new BlobSource(await (await fetch(url)).blob())
+    : new UrlSource(url);
+  const input = new Input({ formats: ALL_FORMATS, source });
+  try {
+    const track = await input.getPrimaryVideoTrack();
+    if (!track || !(await track.canDecode())) {
+      input.dispose();
+      return null;
+    }
+    const firstTimestamp = await track.getFirstTimestamp();
+    const lastTimestamp = Math.max(
+      firstTimestamp,
+      (await track.computeDuration()) - 0.05,
+    );
+    const sinks = new Map<string, InstanceType<typeof CanvasSink>>();
+    return {
+      async frameAt(timeSeconds, { width, height }) {
+        const sizeKey = `${width}x${height}`;
+        let sink = sinks.get(sizeKey);
+        if (!sink) {
+          sink = new CanvasSink(track, { width, height, fit: "cover" });
+          sinks.set(sizeKey, sink);
+        }
+        const time = Math.min(
+          Math.max(timeSeconds, firstTimestamp),
+          lastTimestamp,
+        );
+        const frame =
+          (await sink.getCanvas(time)) ??
+          (await sink.getCanvas(firstTimestamp));
+        return frame?.canvas ?? null;
+      },
+      dispose() {
+        input.dispose();
+      },
+    };
+  } catch (error) {
+    input.dispose();
+    throw error;
+  }
+}
+
+const frameThumbnailer = createFrameThumbnailer({
+  open: openFrameSource,
+  encode: canvasToObjectUrl,
+  fallback: generateThumbnailFromVideoElement,
+});
+
+export function generateThumbnailFromUrlAtTime(
+  url: string,
+  timeSeconds: number,
+  options?: {
+    width?: number;
+    height?: number;
+  },
+) {
+  return frameThumbnailer.generate(url, timeSeconds, {
+    width: options?.width ?? 240,
+    height: options?.height ?? 420,
   });
 }
 
