@@ -173,12 +173,10 @@ jobs:
             echo "| file | size |"
             echo "|---|---|"
             if [ "$RUNNER_OS" = macOS ]; then
-              size "zvid-tauri" "$ZVID_APP/Contents/MacOS/zvid-tauri"
               size "VST3" "target/bundle/ZVID Capture.vst3/Contents/MacOS/ZVID Capture"
               size "AU" "target/bundle/ZVID Capture.component/Contents/MacOS/ZVID Capture"
               size "installer" target/installer/*.pkg
             else
-              size "zvid-tauri" "$ZVID_APP"
               size "VST3" "target/bundle/ZVID Capture.vst3/Contents/x86_64-win/ZVID Capture.vst3"
               size "installer" target/installer/*-setup.exe
             fi
