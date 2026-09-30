@@ -10,6 +10,7 @@ import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
 import type { PlayheadSignal } from "../../playhead-signal";
 import { formatTimecode } from "../../timeline-format.ts";
 import { PlayheadLine } from "../LivePlayhead";
+import "./ruler.css";
 
 type TimelineViewportModel = ReturnType<typeof useTimelineViewport>;
 

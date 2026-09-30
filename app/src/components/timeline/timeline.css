@@ -1,0 +1,132 @@
+.timeline-scroll {
+  position: relative;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(17, 19, 28, 0.32);
+  scrollbar-width: thin;
+}
+
+/* Hand-grab panning: Space shows the grab hand, and a middle- or Space-drag
+   grabs the whole timeline, overriding clip and handle cursors. */
+.timeline-scroll--space-held,
+.timeline-scroll--space-held * {
+  cursor: grab !important;
+}
+
+.timeline-scroll.is-grab-panning,
+.timeline-scroll.is-grab-panning * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+.timeline-jump-overlay {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 10;
+  height: 0;
+  pointer-events: none;
+}
+
+.timeline-canvas {
+  position: relative;
+  min-height: 100%;
+  padding-bottom: 12px;
+}
+
+.timeline-playhead {
+  position: absolute;
+  top: 59px;
+  bottom: 0;
+  width: 2px;
+  transform: translateX(-50%);
+  background: #f6b73c;
+  pointer-events: none;
+  z-index: var(--z-timeline-playhead);
+}
+
+.timeline-canvas--narrow-labels .track-label {
+  gap: 8px;
+  padding-inline: 10px;
+}
+
+.label-resize-rail {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  pointer-events: none;
+}
+
+.label-resize-handle {
+  position: sticky;
+  left: calc(var(--label-width) - 4px);
+  width: 8px;
+  height: 100%;
+  margin: 0 0 0 calc(var(--label-width) - 4px);
+  border: 0;
+  cursor: col-resize;
+  touch-action: none;
+  pointer-events: auto;
+  outline: none;
+}
+
+.label-resize-handle::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 4px;
+  border-radius: 999px;
+  transform: translateX(-50%);
+  background: transparent;
+  transition: background 120ms ease;
+}
+
+.label-resize-handle:hover::before,
+.label-resize-handle:focus-visible::before {
+  background: rgba(246, 183, 60, 0.45);
+}
+
+.label-resize-handle:active::before {
+  background: var(--amber);
+}
+
+.playhead-jump {
+  position: absolute;
+  top: 16px;
+  z-index: 9;
+  min-width: 34px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(246, 183, 60, 0.4);
+  background: rgba(246, 183, 60, 0.14);
+  color: #ffe084;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: auto;
+}
+
+.playhead-jump--left {
+  left: calc(var(--label-width) + 10px);
+}
+
+.playhead-jump--right {
+  right: 10px;
+}
+
+@media (max-width: 560px) {
+  /* size the empty-state call to action to the visible viewport, not the timeline canvas */
+  .timeline-scroll {
+    container-type: inline-size;
+  }
+}
+
+@media (max-width: 900px), (max-height: 559px) {
+  .timeline-scroll {
+    max-height: 70vh;
+  }
+}

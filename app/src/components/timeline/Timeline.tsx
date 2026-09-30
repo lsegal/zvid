@@ -9,6 +9,7 @@ import type { useLabelResize } from "../../hooks/useLabelResize.ts";
 import type { useRulerGestures } from "../../hooks/useRulerGestures.ts";
 import type { PlayheadSignal } from "../../playhead-signal";
 import { PlayheadLine } from "../LivePlayhead";
+import "./timeline.css";
 
 type TimelineProps = {
   timelineScrollRef: RefObject<HTMLDivElement | null>;

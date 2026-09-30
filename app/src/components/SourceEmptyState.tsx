@@ -1,3 +1,5 @@
+import "./source-empty-state.css";
+
 type SourceEmptyStateProps = {
   onImport: () => void;
   onOpenSession: () => void;

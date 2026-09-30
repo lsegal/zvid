@@ -18,6 +18,7 @@ import {
   zoomToSliderPosition,
 } from "../../zoom";
 import { WandIcon } from "../WandIcon";
+import "./transport-bar.css";
 
 type TransportBarProps = {
   resolvedZoom: number;

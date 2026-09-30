@@ -24,6 +24,7 @@ import {
   type ThumbnailSnapshot,
 } from "../../thumbnail-cache.ts";
 import { MediaSyncSkeleton } from "../MediaSyncSkeleton";
+import "./source-span.css";
 
 // What every source span shares.
 export type SourceSpanContext = {

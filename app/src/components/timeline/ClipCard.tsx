@@ -41,6 +41,7 @@ import {
 } from "../../thumbnail-cache.ts";
 import { formatMusicalPosition } from "../../timeline-format.ts";
 import { MediaSyncSkeleton } from "../MediaSyncSkeleton";
+import "./clip-card.css";
 
 // What every clip card in the arrangement shares.
 export type ClipCardContext = {
