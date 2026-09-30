@@ -391,7 +391,11 @@ describe("resolveSlotBounds", () => {
 
   it("leaves 200 px gaps at the widest spacing", () => {
     const order = arranged("horizontal", 200);
-    assertClose(resolveSpacingPixels(order, 1920, 1080), 200, "200 px at 1080p");
+    assertClose(
+      resolveSpacingPixels(order, 1920, 1080),
+      200,
+      "200 px at 1080p",
+    );
     const first = resolveSlotBounds(0, 3, order, 1920, 1080);
     const second = resolveSlotBounds(1, 3, order, 1920, 1080);
     assertClose(

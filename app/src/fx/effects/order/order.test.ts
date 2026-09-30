@@ -53,11 +53,11 @@ describe("parseCompositionOrder", () => {
 
   it("clamps out-of-range values and keeps defaults for unreadable ones", () => {
     assert.deepEqual(
-      parseCompositionOrder(order("Grid", 9.4, 160).parameters),
+      parseCompositionOrder(order("Grid", 9.4, 250).parameters),
       {
         arrangement: "grid",
         gridSize: 6,
-        spacing: 108,
+        spacing: 200,
         excludedLayers: [],
         borderColor: BLACK,
       },
