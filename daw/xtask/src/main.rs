@@ -2,15 +2,14 @@
 //!
 //! - `check`: fails when C/C++/Objective-C++ sources appear under `/daw`, or
 //!   when the zvidlib rev drifts from `app/export-bridge`.
-//! - `bundle [--release] [--universal] [--installer] [--app <path>]`: builds
-//!   the plugin and
+//! - `bundle [--release] [--installer] [--app <path>]`: builds the plugin and
 //!   lays it out as `target/bundle/ZVID Capture.vst3`, plus, on macOS,
 //!   `target/bundle/ZVID Capture.component`. `--release` stamps the version
-//!   with the commit and refuses to embed the placeholder UI; `--universal`
-//!   (macOS) builds arm64 and x86_64 and `lipo`s them into one binary. macOS
-//!   bundles are ad-hoc signed, or, for a release build with
-//!   `ZVID_CODESIGN_IDENTITY` set, signed with that Developer ID identity and
-//!   the hardened runtime. The Live companion Remote Script goes to
+//!   with the commit, refuses to embed the placeholder UI and, on macOS,
+//!   builds for Apple silicon (`aarch64-apple-darwin`) only, since Intel
+//!   Macs aren't supported. macOS bundles are ad-hoc signed, or, for a
+//!   release build with `ZVID_CODESIGN_IDENTITY` set, signed with that
+//!   Developer ID identity and the hardened runtime. The Live companion Remote Script goes to
 //!   `target/bundle/live-remote-script/ZVID_Capture`, and into each bundle's
 //!   `Contents/Resources/ZVID_Capture` for the editor's install button.
 //!   `--app` optionally copies the desktop app built by `tauri build`
@@ -55,8 +54,9 @@ use zvid_daw_core::{BUILD_VERSION_ENV, PLUGIN_NAME};
 /// Name of the plugin cdylib, without platform prefix or suffix.
 const LIBRARY: &str = "zvid_capture_plugin";
 const BUNDLE_IDENTIFIER: &str = "com.lsegal.zvid.capture.vst3";
-/// Targets a universal macOS build combines.
-const UNIVERSAL_TARGETS: &[&str] = &["aarch64-apple-darwin", "x86_64-apple-darwin"];
+/// Target of release macOS builds: Apple silicon only, Intel Macs aren't
+/// supported.
+const MACOS_RELEASE_TARGET: &str = "aarch64-apple-darwin";
 /// Developer ID Application identity that signs release macOS bundles.
 const CODESIGN_IDENTITY_ENV: &str = "ZVID_CODESIGN_IDENTITY";
 /// Developer ID Installer identity that signs the macOS `.pkg`.
@@ -144,7 +144,6 @@ fn main() -> ExitCode {
         Some("bundle") => {
             let flags: Vec<String> = std::env::args().skip(2).collect();
             let release = flags.iter().any(|arg| arg == "--release");
-            let universal = flags.iter().any(|arg| arg == "--universal");
             let installer = flags.iter().any(|arg| arg == "--installer");
             let app = match flags.iter().position(|arg| arg == "--app") {
                 Some(index) => match flags.get(index + 1) {
@@ -156,7 +155,7 @@ fn main() -> ExitCode {
                 },
                 None => None,
             };
-            match bundle(release, universal, installer, app.as_deref()) {
+            match bundle(release, installer, app.as_deref()) {
                 Ok(paths) => {
                     for path in paths {
                         println!("{}", path.display());
@@ -222,7 +221,7 @@ fn main() -> ExitCode {
         _ => {
             eprintln!(
                 "usage: cargo xtask check \
-                 | cargo xtask bundle [--release] [--universal] [--installer] [--app <path>] \
+                 | cargo xtask bundle [--release] [--installer] [--app <path>] \
                  | cargo xtask validate [--strictness-level <1-10>] [--skip-gui-tests] [<bundle>...] \
                  | cargo xtask install-live-script [--user-library <path>] \
                  | cargo xtask check-live [<Live.app>] \
@@ -253,7 +252,7 @@ fn target_dir(daw: &Path) -> PathBuf {
 fn host_test(flags: &[String]) -> Result<(), String> {
     let (vst3, component) = match flags {
         [] => {
-            let bundles = bundle(false, false, false, None)?;
+            let bundles = bundle(false, false, None)?;
             let extension = |ext: &str| {
                 bundles
                     .iter()
@@ -314,15 +313,7 @@ fn check(daw: &Path) -> Result<(), Vec<String>> {
 /// Builds the plugin library and writes its `.vst3` bundle and, on macOS,
 /// its `.component` bundle, copies the desktop app at `app` beside them,
 /// then, with `installer`, writes the installer for all of them.
-fn bundle(
-    release: bool,
-    universal: bool,
-    installer: bool,
-    app: Option<&Path>,
-) -> Result<Vec<PathBuf>, String> {
-    if universal && !cfg!(target_os = "macos") {
-        return Err("--universal is only supported on macOS".into());
-    }
+fn bundle(release: bool, installer: bool, app: Option<&Path>) -> Result<Vec<PathBuf>, String> {
     if installer && !release {
         return Err("--installer needs --release".into());
     }
@@ -349,26 +340,8 @@ fn bundle(
         env!("CARGO_PKG_VERSION").to_string()
     };
     let target = target_dir(&daw);
-    let library = if universal {
-        let mut slices = Vec::new();
-        for triple in UNIVERSAL_TARGETS {
-            slices.push(build_library(
-                &daw,
-                &target,
-                release,
-                Some(triple),
-                &version,
-            )?);
-        }
-        let output = target
-            .join("universal")
-            .join(profile_dir(release))
-            .join(library_name());
-        lipo(&slices, &output)?;
-        output
-    } else {
-        build_library(&daw, &target, release, None, &version)?
-    };
+    let triple = (release && cfg!(target_os = "macos")).then_some(MACOS_RELEASE_TARGET);
+    let library = build_library(&daw, &target, release, triple, &version)?;
     if release {
         let binary =
             fs::read(&library).map_err(|error| format!("{}: {error}", library.display()))?;
@@ -850,15 +823,15 @@ fn component_plist(paths: &[String]) -> String {
     )
 }
 
-/// `productbuild` distribution for the payload package: runs natively on
-/// both architectures, installs only to the system volume and needs
-/// [`MACOS_MIN_VERSION`], the plugin's minimum.
+/// `productbuild` distribution for the payload package: installs only on
+/// Apple silicon, which the arm64-only binaries need, only to the system
+/// volume, and needs [`MACOS_MIN_VERSION`], the plugin's minimum.
 fn distribution_xml(version: &str) -> String {
     format!(
         r#"<?xml version="1.0" encoding="utf-8"?>
 <installer-gui-script minSpecVersion="2">
     <title>ZVID</title>
-    <options customize="never" require-scripts="false" hostArchitectures="arm64,x86_64"/>
+    <options customize="never" require-scripts="false" hostArchitectures="arm64"/>
     <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
     <volume-check>
         <allowed-os-versions>
@@ -1233,23 +1206,6 @@ fn library_name() -> String {
         std::env::consts::DLL_PREFIX,
         std::env::consts::DLL_SUFFIX
     )
-}
-
-/// Combines single-architecture `slices` into one universal binary.
-fn lipo(slices: &[PathBuf], output: &Path) -> Result<(), String> {
-    let dir = output.parent().expect("output has a parent");
-    fs::create_dir_all(dir).map_err(|error| format!("{}: {error}", dir.display()))?;
-    let status = Command::new("lipo")
-        .arg("-create")
-        .args(slices)
-        .arg("-output")
-        .arg(output)
-        .status()
-        .map_err(|error| format!("could not run lipo: {error}"))?;
-    if !status.success() {
-        return Err(format!("combining the universal binary failed ({status})"));
-    }
-    Ok(())
 }
 
 /// The commit being built: `GITHUB_SHA` in CI, otherwise `git rev-parse
@@ -1793,7 +1749,7 @@ mod tests {
 
     #[test]
     fn installers_need_a_release_build() {
-        let error = bundle(false, false, true, None).unwrap_err();
+        let error = bundle(false, true, None).unwrap_err();
         assert!(error.contains("--release"), "{error}");
     }
 
@@ -1882,7 +1838,7 @@ mod tests {
         let xml = distribution_xml("0.1.0+c94f40e");
         assert!(xml.contains("<title>ZVID</title>"));
         assert!(xml.contains(r#"<os-version min="13.0"/>"#));
-        assert!(xml.contains(r#"hostArchitectures="arm64,x86_64""#));
+        assert!(xml.contains(r#"hostArchitectures="arm64""#));
         assert!(xml.contains(&format!(
             r#"<pkg-ref id="{PKG_IDENTIFIER}" version="0.1.0+c94f40e" onConclusion="none">zvid-capture.pkg</pkg-ref>"#
         )));

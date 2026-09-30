@@ -123,7 +123,7 @@ The workspace lives in `/daw` (scaffolded in
 | `daw/crates/zvid-au` | AUv2 plugin: the `AudioComponentFactoryFunction` entry point, property and render callbacks, and the Cocoa view factory. |
 | `daw/plugin` | The `cdylib` that ties everything together and exports the VST3 and AU entry points. Holds the plugin identity constants. |
 | `daw/live-remote-script` | The optional Live companion: a Python MIDI Remote Script (`ZVID_Capture`) that reports Live's record state and set path to plugin instances. Not part of the plugin binary. |
-| `daw/xtask` | `cargo xtask`: bundles the `cdylib` into `.vst3` and `.component` (release bundles are universal on macOS and commit-stamped; see [CI builds](#ci-builds)), runs `check` (Rust-only rule, zvidlib rev matches `app/export-bridge`), runs the host integration tests (`host-test`), and runs pluginval (`validate`; see [Testing](#testing)). |
+| `daw/xtask` | `cargo xtask`: bundles the `cdylib` into `.vst3` and `.component` (release bundles are Apple silicon only on macOS and commit-stamped; see [CI builds](#ci-builds)), runs `check` (Rust-only rule, zvidlib rev matches `app/export-bridge`), runs the host integration tests (`host-test`), and runs pluginval (`validate`; see [Testing](#testing)). |
 
 Dependencies point inward: `plugin` depends on everything; `zvid-vst3`,
 `zvid-au`, `zvid-capture` and `zvid-daw-ui` depend on `zvid-daw-core` where
@@ -450,7 +450,7 @@ Files are never moved or collected, so each take stores its own
 | | macOS | Windows |
 |---|---|---|
 | OS | 13 Ventura or later | 10 and 11 |
-| Architecture | Universal: arm64 + x86_64 | x64 |
+| Architecture | Apple silicon (arm64) only; Intel Macs aren't supported | x64 |
 | Formats | VST3 (`.vst3`) and AUv2 (`.component`) | VST3 (`.vst3`) |
 | Capture API | AVFoundation (`objc2-av-foundation`) | Media Foundation (`windows`) |
 | Webview | WKWebView | WebView2 |
@@ -485,32 +485,32 @@ Every push to `main` runs the **DAW bundles** workflow
 (`.github/workflows/daw-bundle.yml`), which uploads two artifacts to the
 workflow run:
 
-- `zvid-capture-<version>-<sha>-macos-universal`: the desktop app
-  `zvid.app`, `ZVID Capture.vst3` and `ZVID Capture.component`, arm64 +
-  x86_64, the installer `zvid-capture-<version>+<sha>.pkg`, and the Live
-  companion Remote Script in `live-remote-script/ZVID_Capture`. CI checks
-  both architectures with `lipo -archs`, installs the `.pkg`, verifies the
-  installed app's and bundles' signatures and runs `auval` and pluginval
-  against the installed bundles.
-- `zvid-capture-<version>-<sha>-windows-x64`: the desktop app `zvid.exe`,
-  `ZVID Capture.vst3`, the installer `zvid-capture-<version>+<sha>-setup.exe`
-  and `live-remote-script/ZVID_Capture`. CI runs pluginval against the
-  bundle, then runs the installer silently, checks the app, its Start menu
-  shortcut and the bundle were installed, then uninstalls them.
+- `zvid-capture-<version>-<sha>-macos-arm64`: `ZVID Capture.vst3` and
+  `ZVID Capture.component`, arm64 only, the installer
+  `zvid-capture-<version>+<sha>.pkg`, and the Live companion Remote Script
+  in `live-remote-script/ZVID_Capture`. CI checks with `lipo -archs` that
+  both binaries are arm64 with no x86_64 slice, installs the `.pkg`,
+  verifies the installed bundles' signatures and runs `auval` and pluginval
+  against them.
+- `zvid-capture-<version>-<sha>-windows-x64`: `ZVID Capture.vst3`, the
+  installer `zvid-capture-<version>+<sha>-setup.exe` and
+  `live-remote-script/ZVID_Capture`. CI runs pluginval against the bundle,
+  then runs the installer silently, checks the bundle was installed, then
+  uninstalls it.
+
+The installers are plugin only; the desktop app is not built here.
 
 Both jobs also run the [host integration tests](#host-integration-tests)
 against the release bundles.
 
-The desktop app is built first with `pnpm --dir app tauri build` (a
-universal `.app` bundle on macOS, `--no-bundle` on Windows), then each
-artifact by `cargo xtask bundle --release --installer --app <path>` (plus
-`--universal` on macOS), which signs the app like the plugin bundles on
-macOS and fails when `daw/ui/dist` is missing rather
-than embedding the placeholder UI, and stamps the bundle version
+Each artifact is built by `cargo xtask bundle --release --installer`, which
+builds the plugin for `aarch64-apple-darwin` on macOS, fails when
+`daw/ui/dist` is missing rather than embedding the placeholder UI, and
+stamps the bundle version
 (`Info.plist`, `moduleinfo.json`, the installer and the version reported to
 hosts) as `<version>+<sha>`. The same command builds identical bundles
-locally once `pnpm --dir daw/ui build` has run; `--universal` needs `rustup
-target add aarch64-apple-darwin x86_64-apple-darwin`, and `--installer`
+locally once `pnpm --dir daw/ui build` has run; on macOS it needs `rustup
+target add aarch64-apple-darwin`, and `--installer`
 needs Inno Setup 6 on Windows (`ISCC` may name its `ISCC.exe`).
 
 ### Installers
@@ -518,8 +518,10 @@ needs Inno Setup 6 on Windows (`ISCC` may name its `ISCC.exe`).
 - **macOS.** A `.pkg` that installs `zvid.app` into `/Applications`,
   `ZVID Capture.vst3` into `/Library/Audio/Plug-Ins/VST3` and `ZVID Capture.component` into
   `/Library/Audio/Plug-Ins/Components` for every user. It needs macOS 13 and
-  runs natively on both architectures. `pkgbuild --compression latest`
-  compresses its payload with pbzx (xz) rather than gzip, about 13% smaller.
+  Apple silicon: its `hostArchitectures` is `arm64`, so Installer refuses
+  Intel Macs rather than installing binaries they can't run.
+  `pkgbuild --compression latest` compresses its payload with pbzx (xz)
+  rather than gzip, about 13% smaller.
 - **Windows.** An Inno Setup installer (`installer/zvid-capture.iss`) that
   installs `zvid.exe` into `C:\Program Files\ZVID` with a Start menu
   shortcut, installs `ZVID Capture.vst3` into
@@ -722,7 +724,7 @@ The `daw` CI job runs these against the debug bundles. The DAW bundles
 workflow runs them again, on pull requests and on `main`, against the
 release bundles it builds (`cargo xtask host-test --bundles target/bundle`),
 because those differ in ways a host can notice: optimized code, the
-commit-stamped version, universal binaries on macOS, and Developer ID
+commit-stamped version, arm64-only binaries on macOS, and Developer ID
 signing with the hardened runtime when the secrets are set. Both upload
 `target/host-test` when the tests fail.
 

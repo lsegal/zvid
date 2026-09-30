@@ -15,9 +15,14 @@ export const CAPTURE_PLATFORMS: readonly CapturePlatform[] = [
 ];
 
 export const CAPTURE_PLATFORM_LABELS: Record<CapturePlatform, string> = {
-  macos: "macOS",
+  macos: "macOS (Apple Silicon)",
   windows: "Windows",
 };
+
+// Shown to macOS visitors: browsers report Intel in every Mac's user agent,
+// so an Intel Mac can't be told apart and warned more specifically.
+export const MACOS_INTEL_NOTICE =
+  "ZVID Capture needs a Mac with Apple silicon. Intel Macs aren't supported.";
 
 export type CaptureInstaller = {
   platform: CapturePlatform;
@@ -34,14 +39,18 @@ export type CaptureInstallersManifest = {
 };
 
 // The `DAW bundles` workflow names artifacts
-// `zvid-capture-<version>-<sha>-<platform>`.
+// `zvid-capture-<version>-<sha>-<platform>`. Runs before #588 built
+// `macos-universal` bundles; they're accepted until an arm64 run replaces
+// them.
 const ARTIFACT_PLATFORMS: Record<string, CapturePlatform> = {
+  "macos-arm64": "macos",
   "macos-universal": "macos",
   "windows-x64": "windows",
 };
 
 export function artifactPlatform(name: string): CapturePlatform | null {
-  const match = /^zvid-capture-.+-(macos-universal|windows-x64)$/.exec(name);
+  const match =
+    /^zvid-capture-.+-(macos-arm64|macos-universal|windows-x64)$/.exec(name);
   return match ? ARTIFACT_PLATFORMS[match[1]] : null;
 }
 
