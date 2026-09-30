@@ -161,7 +161,7 @@ export async function exportVideo(
       request.onProgress({
         phase: "rendering",
         progress: Math.round(((index + 1) / request.frameCount) * 100),
-        detail: `Rendering frame ${index + 1}/${request.frameCount}...`,
+        detail: `Rendering frame ${index + 1}/${request.frameCount} · ${summary}...`,
       });
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
