@@ -17,7 +17,19 @@ import {
 import ColorPicker from "react-best-gradient-color-picker";
 import { parseLayerIdList, toggleLayerId } from "../composition-order";
 import {
+  ANIMATION_TIMINGS,
+  CLIP_MOTIONS,
+  createDefaultAnimation,
+  describeAnimatedParameters,
+  type EffectAnimation,
+  getAnimatableParameters,
+  REACTIVE_MOTIONS,
+  REACTIVITY_STEP,
+  toggleAnimatedParameter,
+} from "../fx-animation-defaults";
+import {
   addableEffectsFor,
+  animationCollapseKey,
   canStartFxChainPan,
   describeArrangedLayers,
   describeDeviceMove,
@@ -86,6 +98,15 @@ type FxChainProps = {
   clipLayers?: readonly FxLayerOption[];
   onSetLayerFxEnabled?: (enabled: boolean) => void;
   onSetEnabled: (device: FxDevice, enabled: boolean) => void;
+  // Turns a device's Animation modifier on or off.
+  onSetAnimationEnabled?: (device: FxDevice, enabled: boolean) => void;
+  // Changes a device's animation settings. Knob drags send `transient`
+  // updates and a `commit` at the end.
+  onSetAnimation?: (
+    device: FxDevice,
+    animation: EffectAnimation,
+    mode: FxEditMode,
+  ) => void;
   onSetParameter: (
     device: FxDevice,
     key: string,
@@ -183,6 +204,8 @@ export function FxChain({
   clipLayers = NO_LAYERS,
   onSetLayerFxEnabled,
   onSetEnabled,
+  onSetAnimationEnabled,
+  onSetAnimation,
   onSetParameter,
   onMove,
   onAdd,
@@ -623,34 +646,68 @@ export function FxChain({
 
   function renderStack(group: FxDeviceGroup) {
     const stack = groups[group];
-    return stack.map((device, index) => (
-      <FxDevicePanel
-        key={device.id}
-        collapsed={collapsed.has(device.id)}
-        device={device}
-        dragging={drag?.deviceId === device.id}
-        onContextMenu={(event) =>
-          openContextMenu(event, device, index, stack.length)
-        }
-        onRemove={() => removeDevice(device)}
-        layerBypassed={device.group === "layer" && !layerFxEnabled}
-        onSetEnabled={onSetEnabled}
-        layers={device.group === "clip" ? clipLayers : layers}
-        onSetParameter={onSetParameter}
-        onStripClick={() => {
-          if (suppressClickRef.current) {
-            suppressClickRef.current = false;
-            return;
+    return stack.map((device, index) => {
+      const animation =
+        device.supportsAnimation && device.animation?.enabled
+          ? device.animation
+          : undefined;
+      const layerBypassed = device.group === "layer" && !layerFxEnabled;
+      const dragging = drag?.deviceId === device.id;
+      const panel = (
+        <FxDevicePanel
+          key={device.id}
+          attached={animation !== undefined}
+          collapsed={collapsed.has(device.id)}
+          device={device}
+          dragging={dragging}
+          onContextMenu={(event) =>
+            openContextMenu(event, device, index, stack.length)
           }
-          toggleCollapsed(device.id);
-        }}
-        onTitleKeyDown={(event) =>
-          handleTitleKeyDown(event, device, index, stack.length)
-        }
-        onTitlePointerDown={(event) => beginDrag(event, device, index)}
-        onToggleCollapsed={() => toggleCollapsed(device.id)}
-      />
-    ));
+          onRemove={() => removeDevice(device)}
+          layerBypassed={layerBypassed}
+          onSetEnabled={onSetEnabled}
+          onSetAnimationEnabled={onSetAnimationEnabled}
+          layers={device.group === "clip" ? clipLayers : layers}
+          onSetParameter={onSetParameter}
+          onStripClick={() => {
+            if (suppressClickRef.current) {
+              suppressClickRef.current = false;
+              return;
+            }
+            toggleCollapsed(device.id);
+          }}
+          onTitleKeyDown={(event) =>
+            handleTitleKeyDown(event, device, index, stack.length)
+          }
+          onTitlePointerDown={(event) => beginDrag(event, device, index)}
+          onToggleCollapsed={() => toggleCollapsed(device.id)}
+        />
+      );
+      if (!animation) {
+        return panel;
+      }
+
+      // The Animation section is attached to the device's right edge, and
+      // the pair is one panel of the stack.
+      const animationKey = animationCollapseKey(device.id);
+      return (
+        <div
+          className={`fx-device-unit${dragging ? " fx-device-unit--dragging" : ""}`}
+          data-fx-group={device.group}
+          key={device.id}
+        >
+          {panel}
+          <FxAnimationPanel
+            animation={animation}
+            bypassed={!device.enabled || layerBypassed}
+            collapsed={collapsed.has(animationKey)}
+            device={device}
+            onSetAnimation={onSetAnimation}
+            onToggleCollapsed={() => toggleCollapsed(animationKey)}
+          />
+        </div>
+      );
+    });
   }
 
   function renderAddMenu(group: FxDeviceGroup, withLabel = false) {
@@ -897,6 +954,9 @@ function AddDeviceMenu({
 
 type FxDevicePanelProps = {
   device: FxDevice;
+  // True while its Animation section is attached to its right edge; the
+  // wrapper around the pair is then the stack's panel.
+  attached?: boolean;
   collapsed: boolean;
   dragging: boolean;
   // Dims the device while its layer's FX are off; its own bypass is kept.
@@ -908,6 +968,7 @@ type FxDevicePanelProps = {
   onTitleKeyDown: (event: ReactKeyboardEvent<HTMLElement>) => void;
   onContextMenu: (event: ReactMouseEvent<HTMLElement>) => void;
   onSetEnabled: FxChainProps["onSetEnabled"];
+  onSetAnimationEnabled?: FxChainProps["onSetAnimationEnabled"];
   layers: readonly FxLayerOption[];
   onSetParameter: FxChainProps["onSetParameter"];
 };
@@ -932,6 +993,7 @@ function getTitleShortcuts(device: FxDevice) {
 
 export function FxDevicePanel({
   device,
+  attached = false,
   collapsed,
   dragging,
   layerBypassed = false,
@@ -942,6 +1004,7 @@ export function FxDevicePanel({
   onTitleKeyDown,
   onContextMenu,
   onSetEnabled,
+  onSetAnimationEnabled,
   onSetParameter,
   layers,
 }: FxDevicePanelProps) {
@@ -954,6 +1017,7 @@ export function FxDevicePanel({
     layerBypassed ? "fx-device-panel--layer-off" : "",
     dragging ? "fx-device-panel--dragging" : "",
     device.unsupported ? "fx-device-panel--unsupported" : "",
+    attached ? "fx-device-panel--attached" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -970,18 +1034,38 @@ export function FxDevicePanel({
       <PowerIcon aria-hidden="true" />
     </button>
   );
+  const animated = device.animation?.enabled === true;
+  const animationLabel = `Turn Animation ${animated ? "Off" : "On"} for ${device.name}`;
+  // Layout, and effects the app doesn't know, have no Animation modifier.
+  const animationToggle = device.supportsAnimation ? (
+    <button
+      aria-label={animationLabel}
+      aria-pressed={animated}
+      className="fx-device-panel__animate"
+      data-fx-no-drag
+      onClick={() => onSetAnimationEnabled?.(device, !animated)}
+      title={animationLabel}
+      type="button"
+    >
+      <span aria-hidden="true">A</span>
+    </button>
+  ) : null;
+  // While attached, the wrapper around the device and its Animation section
+  // is the stack's panel.
+  const groupAttribute = attached ? {} : { "data-fx-group": device.group };
 
   if (collapsed) {
     return (
       <section
         aria-label={device.name}
         className={className}
-        data-fx-group={device.group}
+        {...groupAttribute}
         onContextMenu={onContextMenu}
         onPointerDown={onTitlePointerDown}
         style={style}
       >
         {power}
+        {animationToggle}
         <button
           aria-expanded={false}
           aria-keyshortcuts={getTitleShortcuts(device)}
@@ -1013,7 +1097,7 @@ export function FxDevicePanel({
     <section
       aria-label={device.name}
       className={className}
-      data-fx-group={device.group}
+      {...groupAttribute}
       style={style}
     >
       {/* biome-ignore lint/a11y/noStaticElementInteractions: double-click and dragging are pointer shortcuts; the name button has the keyboard equivalents */}
@@ -1025,6 +1109,7 @@ export function FxDevicePanel({
         title={device.description}
       >
         {power}
+        {animationToggle}
         <button
           aria-keyshortcuts={getTitleShortcuts(device)}
           aria-label={`${device.name}, drag or press Alt+Left or Alt+Right to move`}
@@ -1158,6 +1243,279 @@ export function FxDevicePanel({
         </div>
       )}
     </section>
+  );
+}
+
+type FxAnimationPanelProps = {
+  device: FxDevice;
+  animation: EffectAnimation;
+  collapsed: boolean;
+  // Dims the section along with its bypassed device.
+  bypassed: boolean;
+  onToggleCollapsed: () => void;
+  onSetAnimation?: FxChainProps["onSetAnimation"];
+};
+
+const ANIMATION_MODE_OPTIONS = ["clip", "reactive"] as const;
+const ANIMATION_MODE_LABELS = { clip: "Clip", reactive: "Reactive" } as const;
+
+// The Animation section attached to a device's right edge while its (A)
+// toggle is on. It folds into a strip of its own, like a device does.
+export function FxAnimationPanel({
+  device,
+  animation,
+  collapsed,
+  bypassed,
+  onToggleCollapsed,
+  onSetAnimation,
+}: FxAnimationPanelProps) {
+  const style = { "--fx-accent": device.accent } as CSSProperties;
+  const label = `${device.name} animation`;
+  const className = [
+    "fx-animation-panel",
+    collapsed ? "fx-animation-panel--collapsed" : "",
+    bypassed ? "fx-animation-panel--bypassed" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  if (collapsed) {
+    return (
+      <section aria-label={label} className={className} style={style}>
+        <button
+          aria-expanded={false}
+          aria-label={`Expand ${label}`}
+          className="fx-device-panel__strip"
+          onClick={onToggleCollapsed}
+          title={`Expand ${label}`}
+          type="button"
+        >
+          <span>Animation</span>
+        </button>
+      </section>
+    );
+  }
+
+  const set = (next: EffectAnimation, mode: FxEditMode = "commit") =>
+    onSetAnimation?.(device, next, mode);
+  const setClip = (patch: Partial<EffectAnimation["clip"]>) =>
+    set({ ...animation, clip: { ...animation.clip, ...patch } });
+  const setReactive = (
+    patch: Partial<EffectAnimation["reactive"]>,
+    mode: FxEditMode = "commit",
+  ) =>
+    set({ ...animation, reactive: { ...animation.reactive, ...patch } }, mode);
+
+  return (
+    <section aria-label={label} className={className} style={style}>
+      <header className="fx-animation-panel__title">
+        <span className="fx-animation-panel__name">Animation</span>
+        <button
+          aria-expanded
+          aria-label={`Collapse ${label}`}
+          className="fx-device-panel__collapse"
+          onClick={onToggleCollapsed}
+          title={`Collapse ${label}`}
+          type="button"
+        >
+          <ChevronLeftIcon aria-hidden="true" />
+        </button>
+      </header>
+      <div className="fx-animation-panel__body">
+        <FxAnimationSegmented
+          label="Mode"
+          onChange={(mode) => set({ ...animation, mode })}
+          optionLabel={(mode) => ANIMATION_MODE_LABELS[mode]}
+          options={ANIMATION_MODE_OPTIONS}
+          value={animation.mode}
+        />
+        {animation.mode === "clip" ? (
+          <>
+            <FxAnimationSegmented
+              label="Timing"
+              onChange={(timing) => setClip({ timing })}
+              options={ANIMATION_TIMINGS}
+              value={animation.clip.timing}
+            />
+            <FxAnimationSelect
+              label="Motion In"
+              onChange={(motionIn) => setClip({ motionIn })}
+              options={CLIP_MOTIONS}
+              value={animation.clip.motionIn}
+            />
+            <FxAnimationSelect
+              label="Motion Out"
+              onChange={(motionOut) => setClip({ motionOut })}
+              options={CLIP_MOTIONS}
+              value={animation.clip.motionOut}
+            />
+          </>
+        ) : (
+          <>
+            <FxAnimationSegmented
+              label="Timing"
+              onChange={(timing) => setReactive({ timing })}
+              options={ANIMATION_TIMINGS}
+              value={animation.reactive.timing}
+            />
+            <div className="fx-animation-panel__knob">
+              <Knob
+                accent={device.accent}
+                defaultValue={
+                  createDefaultAnimation(device.effectName)?.reactive
+                    .reactivity ?? 0.5
+                }
+                format={formatReactivity}
+                label="Reactivity"
+                max={1}
+                min={0}
+                onChange={(reactivity) =>
+                  setReactive({ reactivity }, "transient")
+                }
+                onCommit={(reactivity) => setReactive({ reactivity })}
+                step={REACTIVITY_STEP}
+                value={animation.reactive.reactivity}
+              />
+            </div>
+            <FxAnimationSelect
+              label="Motion"
+              onChange={(motion) => setReactive({ motion })}
+              options={REACTIVE_MOTIONS}
+              value={animation.reactive.motion}
+            />
+            <FxAnimatedParametersControl
+              device={device}
+              onChange={(parameters) => setReactive({ parameters })}
+              selected={animation.reactive.parameters}
+            />
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function formatReactivity(value: number) {
+  return value.toFixed(1);
+}
+
+function FxAnimationSegmented<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+  optionLabel = (option) => option,
+}: {
+  label: string;
+  options: readonly T[];
+  value: T;
+  onChange: (value: T) => void;
+  optionLabel?: (option: T) => string;
+}) {
+  return (
+    <fieldset className="fx-segmented">
+      <legend>{label}</legend>
+      <div className="fx-segmented__options">
+        {options.map((option) => (
+          <button
+            aria-pressed={value === option}
+            key={option}
+            onClick={() => {
+              if (option !== value) {
+                onChange(option);
+              }
+            }}
+            type="button"
+          >
+            {optionLabel(option)}
+          </button>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+function FxAnimationSelect<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: readonly T[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <label className="fx-select">
+      <span className="fx-select__label">{label}</span>
+      <select
+        onChange={(event) => onChange(event.target.value as T)}
+        value={value}
+      >
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+// A button that opens a checkmark menu of the effect's knobs: ticked knobs
+// are the ones Reactive mode modulates. Each toggle is one undo step and
+// leaves the menu open for the next, like an Order's Layers menu.
+function FxAnimatedParametersControl({
+  device,
+  selected,
+  onChange,
+}: {
+  device: FxDevice;
+  selected: readonly string[];
+  onChange: (parameters: string[]) => void;
+}) {
+  const available = getAnimatableParameters(device.effectName);
+  const keepOpen = (event: Event) => event.preventDefault();
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          className="fx-layers__trigger fx-animation-panel__parameters"
+          disabled={!available.length}
+          type="button"
+        >
+          {describeAnimatedParameters(selected, available)}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        className="fx-layers-menu"
+        sideOffset={4}
+      >
+        {available.map((parameter) => (
+          <DropdownMenuCheckboxItem
+            checked={selected.includes(parameter.key)}
+            className="fx-layers-menu__item"
+            key={parameter.key}
+            onCheckedChange={() =>
+              onChange(
+                toggleAnimatedParameter(selected, parameter.key, available),
+              )
+            }
+            onSelect={keepOpen}
+          >
+            <span className="fx-layers-menu__check">
+              <DropdownMenuItemIndicator>
+                <CheckIcon aria-hidden="true" />
+              </DropdownMenuItemIndicator>
+            </span>
+            <span className="fx-layers-menu__name">{parameter.label}</span>
+          </DropdownMenuCheckboxItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

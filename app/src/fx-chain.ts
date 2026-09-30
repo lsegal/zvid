@@ -183,6 +183,12 @@ export function writeCollapsedDevices(
   }
 }
 
+// The collapse-state key of a device's Animation section, kept alongside the
+// devices' own.
+export function animationCollapseKey(deviceId: string) {
+  return `${deviceId}#animation`;
+}
+
 export function toggleCollapsedDevice(
   collapsed: ReadonlySet<string>,
   deviceId: string,
@@ -246,7 +252,7 @@ export function getAutoScrollDelta(
 // Everything else (gaps, padding, the Global divider and the empty space
 // after the last slot) is background that hand-grab pans the chain.
 export const FX_CHAIN_CONTROL_SELECTOR =
-  ".fx-device-panel, .fx-chain__add, .fx-chain__empty, .fx-chain__layer-off, button, input, select, textarea, a[href], [role='menu']";
+  ".fx-device-panel, .fx-animation-panel, .fx-chain__add, .fx-chain__empty, .fx-chain__layer-off, button, input, select, textarea, a[href], [role='menu']";
 
 // Whether a press starts hand-grab panning the chain: the primary button on
 // its background, or the middle button anywhere, since it operates no
