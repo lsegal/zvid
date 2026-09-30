@@ -123,6 +123,7 @@ import { CaptureInstallerDialog } from "./components/CaptureInstallerDialog";
 import { CollaborationDetailCard } from "./components/CollaborationDetailCard";
 import { ContextMenu } from "./components/ContextMenu";
 import { DropdownMenuEntries } from "./components/DropdownMenuEntries";
+import { ExportDialog } from "./components/ExportDialog";
 import { FxChain } from "./components/FxChain";
 import {
   ImportNotice,
@@ -133,7 +134,6 @@ import {
   PlayheadLine,
   TransportPlayheadReadout,
 } from "./components/LivePlayhead";
-import { ExportDialog } from "./components/ExportDialog";
 import { MediaStorageDialog } from "./components/MediaStorageDialog";
 import {
   MediaSyncDialog,

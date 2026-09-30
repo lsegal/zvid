@@ -19,9 +19,9 @@ import {
 } from "../app/timeline-math.ts";
 import { CompositionPlayer } from "../CompositionPlayer";
 import {
-  estimateExportBytes,
   type ExportOptions,
   type ExportRange,
+  estimateExportBytes,
   exportTiming,
   formatFileSize,
   formatMusicalLength,
@@ -102,8 +102,8 @@ function useRangePlayback(range: ExportRange, bpm: number) {
   const [playheadQ, setPlayheadQState] = useState(range.inQ);
   const [isPlaying, setIsPlaying] = useState(false);
   const [loop, setLoop] = useState(true);
-  // Bumped by a seek during playback so the clock restarts from there.
-  const [restart, setRestart] = useState(0);
+  // Set by a seek during playback so the clock restarts from there.
+  const seekedRef = useRef(false);
   const rangeRef = useRef(range);
   rangeRef.current = range;
   const loopRef = useRef(loop);
@@ -119,6 +119,11 @@ function useRangePlayback(range: ExportRange, bpm: number) {
     let committedAt = startedAt;
     const step = (timestamp: number) => {
       const { inQ, outQ } = rangeRef.current;
+      if (seekedRef.current) {
+        seekedRef.current = false;
+        originQ = signal.get();
+        startedAt = timestamp;
+      }
       const nextQ =
         originQ + secondsToQuarters((timestamp - startedAt) / 1000, bpm);
       if (nextQ >= outQ) {
@@ -147,14 +152,12 @@ function useRangePlayback(range: ExportRange, bpm: number) {
       window.cancelAnimationFrame(frame);
       setPlayheadQState(signal.get());
     };
-  }, [bpm, isPlaying, restart, signal]);
+  }, [bpm, isPlaying, signal]);
 
   function seek(q: number) {
     signal.set(q);
     setPlayheadQState(q);
-    if (isPlaying) {
-      setRestart((count) => count + 1);
-    }
+    seekedRef.current = isPlaying;
   }
 
   function play() {

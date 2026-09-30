@@ -4,8 +4,8 @@ import {
   createExportOptions,
   defaultExportFileName,
   defaultExportRange,
-  estimateExportBytes,
   type ExportOptions,
+  estimateExportBytes,
   exportSettings,
   exportTiming,
   formatFileSize,
@@ -116,7 +116,11 @@ describe("overrides", () => {
       inQ: 2,
       outQ: 6,
       fileName: "Short.mp4",
-      encoding: { ...session.encoding, quality: "custom", customBitrateMbps: 3 },
+      encoding: {
+        ...session.encoding,
+        quality: "custom",
+        customBitrateMbps: 3,
+      },
     });
     const reset = resetExportSettings(changed, session);
     assert.deepEqual(exportSettings(reset), session);
@@ -187,7 +191,10 @@ describe("exportTiming", () => {
 
 describe("validateExportOptions", () => {
   it("accepts the defaults", () => {
-    assert.equal(hasExportOptionsErrors(validateExportOptions(options(), BPM)), false);
+    assert.equal(
+      hasExportOptionsErrors(validateExportOptions(options(), BPM)),
+      false,
+    );
   });
 
   it("rejects an empty range, a blank file name and bad settings", () => {
@@ -215,7 +222,11 @@ describe("validateExportOptions", () => {
 describe("estimates and formatting", () => {
   it("estimates size from the video and audio bitrates", () => {
     const custom = options({
-      encoding: { ...session.encoding, quality: "custom", customBitrateMbps: 8 },
+      encoding: {
+        ...session.encoding,
+        quality: "custom",
+        customBitrateMbps: 8,
+      },
     });
     // (8 Mbps + 192 kbps) × 10 s / 8.
     assert.equal(estimateExportBytes(custom, 10, true), 10_240_000);

@@ -1,9 +1,4 @@
-import {
-  type Dispatch,
-  type SetStateAction,
-  useRef,
-  useState,
-} from "react";
+import { type Dispatch, type SetStateAction, useRef, useState } from "react";
 import { quartersToSeconds } from "../app/timeline-math.ts";
 import type { ExportState, ProjectState } from "../app/types.ts";
 import { logClient, pluralize } from "../app/util.ts";

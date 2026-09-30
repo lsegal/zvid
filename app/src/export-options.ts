@@ -168,7 +168,11 @@ export function reopenExportOptions(
   const quality = pick("quality", encoding, session.encoding);
   return {
     ...remembered,
-    canvasWidth: pick("resolution", remembered.canvasWidth, session.canvasWidth),
+    canvasWidth: pick(
+      "resolution",
+      remembered.canvasWidth,
+      session.canvasWidth,
+    ),
     canvasHeight: pick(
       "resolution",
       remembered.canvasHeight,
@@ -217,7 +221,12 @@ export function snapToFrame(q: number, fps: number, bpm: number) {
  */
 export function snapExportQ(
   q: number,
-  { beatQ, free, fps, bpm }: {
+  {
+    beatQ,
+    free,
+    fps,
+    bpm,
+  }: {
     beatQ: number;
     free: boolean;
     fps: number;
@@ -254,14 +263,14 @@ export type ExportTiming = {
 };
 
 /** Where the export starts, how long it runs, and how many frames it renders. */
-export function exportTiming(options: ExportOptions, bpm: number): ExportTiming {
+export function exportTiming(
+  options: ExportOptions,
+  bpm: number,
+): ExportTiming {
   const fps = Math.max(1, options.fps);
   const startSeconds = quartersToSeconds(Math.max(0, options.inQ), bpm);
   const endSeconds = quartersToSeconds(Math.max(0, options.outQ), bpm);
-  const frameCount = Math.max(
-    1,
-    Math.round((endSeconds - startSeconds) * fps),
-  );
+  const frameCount = Math.max(1, Math.round((endSeconds - startSeconds) * fps));
   return { startSeconds, durationSeconds: frameCount / fps, frameCount };
 }
 
@@ -340,10 +349,7 @@ export function validateExportOptions(
   bpm: number,
   support: VideoCodecSupport = {},
 ): ExportOptionsErrors {
-  const errors: ExportOptionsErrors = validateSessionSettings(
-    options,
-    support,
-  );
+  const errors: ExportOptionsErrors = validateSessionSettings(options, support);
   if (
     !Number.isFinite(options.inQ) ||
     !Number.isFinite(options.outQ) ||

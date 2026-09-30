@@ -16,10 +16,10 @@ import {
   matchCanvasPreset,
   matchFrameRate,
   type SessionEncoding,
+  VIDEO_QUALITIES,
   type VideoCodecChoice,
   type VideoCodecSupport,
   type VideoQuality,
-  VIDEO_QUALITIES,
   videoBitrateMbps,
   videoCodecOptions,
 } from "../session-settings.ts";
@@ -146,7 +146,9 @@ export function ExportSettingsForm({
             }
             step={2}
             type="number"
-            value={Number.isFinite(options.canvasWidth) ? options.canvasWidth : ""}
+            value={
+              Number.isFinite(options.canvasWidth) ? options.canvasWidth : ""
+            }
           />
           <span aria-hidden="true">×</span>
           <input
@@ -279,7 +281,9 @@ export function ExportSettingsForm({
             aria-label="Audio bitrate"
             onChange={(event) =>
               setEncoding({
-                audioBitrateKbps: Number(event.target.value) as AudioBitrateKbps,
+                audioBitrateKbps: Number(
+                  event.target.value,
+                ) as AudioBitrateKbps,
               })
             }
             value={encoding.audioBitrateKbps}
