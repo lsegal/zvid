@@ -75,10 +75,12 @@ test("the Animation section attaches, switches modes and folds", async ({
   await expect(section.getByLabel("Motion In")).toHaveValue("Ease Out");
   await expect(section.getByLabel("Motion Out")).toHaveValue("Ease In");
   const timing = section.getByRole("group", { name: "Timing" });
+  // Full stretches the animation over the whole clip.
   await expect(timing.getByRole("button")).toHaveText([
     "Slow",
     "Normal",
     "Fast",
+    "Full",
   ]);
   await expect(timing.getByRole("button", { name: "Normal" })).toHaveAttribute(
     "aria-pressed",

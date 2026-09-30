@@ -27,10 +27,16 @@ export type ReactiveMotion = (typeof REACTIVE_MOTIONS)[number];
 export const ANIMATION_TIMINGS = ["Slow", "Normal", "Fast"] as const;
 export type AnimationTiming = (typeof ANIMATION_TIMINGS)[number];
 
+// Clip mode's timings add Full, where each side takes half the clip: the
+// effect eases in until the middle of the clip and back out by its end.
+export const FULL_CLIP_TIMING = "Full";
+export const CLIP_TIMINGS = [...ANIMATION_TIMINGS, FULL_CLIP_TIMING] as const;
+export type ClipTiming = (typeof CLIP_TIMINGS)[number];
+
 export type ClipAnimation = {
   motionIn: ClipMotion;
   motionOut: ClipMotion;
-  timing: AnimationTiming;
+  timing: ClipTiming;
 };
 
 export type ReactiveAnimation = {
@@ -222,11 +228,16 @@ export function createDefaultAnimation(
   };
 }
 
-export function getClipTimingFrames(
-  effectName: string,
-  timing: AnimationTiming,
-) {
-  return getAnimationDefaults(effectName)?.clipFrames[timing];
+// Frames each side of a Clip-mode animation takes. Full is unbounded, so
+// the sides stretch to half the clip each.
+export function getClipTimingFrames(effectName: string, timing: ClipTiming) {
+  const clipFrames = getAnimationDefaults(effectName)?.clipFrames;
+  if (!clipFrames) {
+    return undefined;
+  }
+  return timing === FULL_CLIP_TIMING
+    ? Number.POSITIVE_INFINITY
+    : clipFrames[timing];
 }
 
 export function getReactiveTimingFrames(
@@ -284,7 +295,7 @@ export function normalizeEffectAnimation(
         CLIP_MOTIONS,
         fallback.clip.motionOut,
       ),
-      timing: readOption(clip.timing, ANIMATION_TIMINGS, fallback.clip.timing),
+      timing: readOption(clip.timing, CLIP_TIMINGS, fallback.clip.timing),
     },
     ...(fallback.reactive
       ? { reactive: normalizeReactive(raw.reactive, fallback.reactive) }
