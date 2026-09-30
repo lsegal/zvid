@@ -229,9 +229,10 @@ function toDevice(
   const definition = getEffectDefinition(effect.effectName);
   const group = getTrackGroup(effect.trackId);
   const scope = group === "clip" ? clipScope : group;
-  const knownKeys = new Set(
-    definition.parameters.map((parameter) => parameter.key),
-  );
+  const knownKeys = new Set([
+    ...definition.parameters.map((parameter) => parameter.key),
+    ...(definition.retiredParameters ?? []),
+  ]);
   const parameterDefinitions = [
     ...definition.parameters,
     ...effect.parameters
