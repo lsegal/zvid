@@ -25,11 +25,6 @@ import {
 import { flushSync } from "react-dom";
 import "./App.css";
 import {
-  AlsImportError,
-  formatAlsImportSummary,
-  isAlsFilename,
-} from "./als-import";
-import {
   type ClipClipboard,
   cloneClipAtStartQ,
   duplicateClip,
@@ -50,7 +45,6 @@ import {
 import {
   BASE_QUARTER_PX,
   COLLAB_STORAGE_KEY,
-  DEFAULT_LANES,
   FILL_CLIP_ACCENT,
   FILL_CLIP_TINT,
   FX_CLIP_BARS,
@@ -88,7 +82,7 @@ import {
   getFilmstripTileOwner,
   SOURCE_SPAN_FILMSTRIP_HEIGHT_PX,
 } from "./app/filmstrip.ts";
-import { formatDuration, formatSessionMediaCheckStatus } from "./app/format.ts";
+import { formatDuration } from "./app/format.ts";
 import {
   clampLabelWidth,
   getPreviewMaxWidth,
@@ -96,12 +90,7 @@ import {
   readLabelWidth,
   readPreviewWidth,
 } from "./app/layout-prefs.ts";
-import {
-  buildStandaloneProject,
-  mergeMediaItemsById,
-  patchProjectState,
-  sessionToProject,
-} from "./app/session-project.ts";
+import { patchProjectState } from "./app/session-project.ts";
 import { getShortcutLabels } from "./app/shortcut-labels.ts";
 import {
   chooseSourceSpanForWindow,
@@ -123,7 +112,6 @@ import type {
   ClipMenuState,
   CollaborationMode,
   DragState,
-  ExportState,
   Lane,
   ProjectState,
   SessionMediaCheck,
@@ -136,7 +124,6 @@ import type {
   TimelineViewport,
 } from "./app/types.ts";
 import {
-  basename,
   buildDraggedMediaKey,
   clamp,
   getDraggedMediaFiles,
@@ -148,7 +135,6 @@ import {
   pluralize,
   randomFloat,
   revokeObjectUrlIfNeeded,
-  sanitizeFilenameSegment,
   stripFilenameExtension,
 } from "./app/util.ts";
 import {
@@ -156,13 +142,8 @@ import {
   findRestoredSelection,
   formatRestoredStatus,
   isPristineProjectHistory,
-  readSavedWorkspaceSession,
-  workspaceLockEvents,
 } from "./app/workspace-boot.ts";
-import type {
-  SavedWorkspaceSession,
-  WorkspaceBoot,
-} from "./app/workspace-types.ts";
+import type { WorkspaceBoot } from "./app/workspace-types.ts";
 import {
   hasArrangementActivity,
   isArrangementEmptyStateDismissedOnOpen,
@@ -176,7 +157,6 @@ import {
 import {
   CompositionPlayer,
   type CompositionPlayerHandle,
-  CompositionRenderer,
 } from "./CompositionPlayer";
 import {
   getClipFilmstripTiles,
@@ -290,16 +270,11 @@ import {
   formatFillPaintCss,
   resolveFillPaint,
 } from "./fill-paint.ts";
-import {
-  addableEffectsFor,
-  getDefaultLaneId,
-  stepSelectedLaneId,
-} from "./fx-chain";
+import { addableEffectsFor, stepSelectedLaneId } from "./fx-chain";
 import { addFxClip, describeFxClip, isFxClip } from "./fx-clip.ts";
 import {
   clipEffectTrackId,
   copyClipEffects,
-  ensureGlobalOrder,
   ensureLayerLayouts,
   GLOBAL_EFFECT_TRACK_ID,
   getRenderedEffects,
@@ -307,12 +282,8 @@ import {
   isLayoutEffectName,
   previewDuplicateClipEffects,
 } from "./fx-stack";
-import {
-  getHarness,
-  type SaveTarget,
-  type SessionSelection,
-  supportsHarnessCapability,
-} from "./harness";
+import { getHarness, supportsHarnessCapability } from "./harness";
+import { useExport, useExportState } from "./hooks/useExport.ts";
 import { useFxEditing } from "./hooks/useFxEditing.ts";
 import { useFxPanelModel } from "./hooks/useFxPanelModel.ts";
 import {
@@ -329,6 +300,8 @@ import {
   useProjectHistoryCommands,
   useProjectStore,
 } from "./hooks/useProjectStore.ts";
+import { useSessionIO } from "./hooks/useSessionIO.ts";
+import { useWorkspacePersistence } from "./hooks/useWorkspacePersistence.ts";
 import {
   LANE_SELECTION_DRAG_THRESHOLD_PX,
   moveLaneSelectionGesture,
@@ -353,11 +326,7 @@ import {
 } from "./layer-menu";
 import { MainWaveform } from "./MainWaveform";
 import { isWithinMainAudioDropTarget } from "./main-audio-drop";
-import {
-  buildFallbackMediaItem,
-  type MediaItem,
-  toShareableMediaItem,
-} from "./media";
+import type { MediaItem } from "./media";
 import {
   cacheMediaBlob,
   getCachedMediaBlob,
@@ -401,7 +370,6 @@ import {
   type TextEditorKeyAction,
   toggleClipTextStyle,
 } from "./preview-text-edit.ts";
-import { createProjectHistoryState } from "./project-history";
 import {
   migrateLegacyMainAudio,
   stripClipSelectionFlags,
@@ -421,19 +389,9 @@ import {
 import { selectionHint } from "./selection-hint.ts";
 import { MAX_LAYERS } from "./selection-overlaps";
 import {
-  formatClipsWithoutFile,
-  normalizeLvpSession,
-  type SessionOpenResponse,
-} from "./session";
-import {
   forgetChangedMainAudioMiss,
   offlineSessionMediaIds,
 } from "./session-media.ts";
-import {
-  chooseSessionSaveTarget,
-  projectToLvpSession,
-  SESSION_FILE_EXTENSION,
-} from "./session-save.ts";
 import {
   buildPublicShareUrl,
   removeInviteParams,
@@ -482,13 +440,7 @@ import { type DragScrollMove, useDragScroll } from "./use-drag-scroll";
 import { useLayerReorder } from "./use-layer-reorder";
 import { useThumbnailCache } from "./use-thumbnail-cache";
 import { ZVID_BUILD } from "./version";
-import { createWorkspaceAutosave } from "./workspace-autosave.ts";
-import {
-  serializeWorkspaceSession,
-  toProjectHistoryState,
-  type WorkspaceSessionSource,
-} from "./workspace-session.ts";
-import { clearCurrentSession, saveCurrentSession } from "./workspace-store.ts";
+import type { WorkspaceSessionSource } from "./workspace-session.ts";
 import {
   anchoredTimelineScrollLeft,
   formatZoomFactor,
@@ -602,12 +554,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const [previewWidth, setPreviewWidth] = useState(readPreviewWidth);
   const [editorGridWidth, setEditorGridWidth] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const [exportState, setExportState] = useState<ExportState>({
-    phase: "idle",
-    progress: null,
-    detail: "",
-  });
   const [timelineViewport, setTimelineViewport] = useState<TimelineViewport>({
     scrollLeft: 0,
     clientWidth: 0,
@@ -619,6 +565,14 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       ? formatRestoredStatus(restoredSession)
       : "Open a session or import media to get started.",
   );
+  const {
+    isExporting,
+    setIsExporting,
+    setExportState,
+    updateExportState,
+    exportButtonLabel,
+    exportStatusText,
+  } = useExportState({ setStatus });
   const [peerMediaProgress, setPeerMediaProgress] =
     useState<PeerMediaProgressMap>(() => new Map());
   // Media that just finished syncing, so its clips cross-fade in.
@@ -1592,15 +1546,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     visibleTimelineWidthPx > 0 && playheadTimelinePx < visibleTimelineStartPx;
   const isPlayheadOffscreenRight =
     visibleTimelineWidthPx > 0 && playheadTimelinePx > visibleTimelineEndPx;
-  const exportButtonLabel = isExporting
-    ? exportState.progress !== null
-      ? `${exportState.progress}%`
-      : exportState.phase === "muxing"
-        ? "Muxing..."
-        : exportState.phase === "decoding-audio"
-          ? "Audio..."
-          : "Render..."
-    : "Export";
   const sourceTrackDragPreviewDetail = sourceTrackDragPreview
     ? sourceTrackDragPreview.status === "loading"
       ? "Loading clip preview..."
@@ -2578,19 +2523,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     );
   }
 
-  function updateExportState(
-    phase: ExportState["phase"],
-    detail: string,
-    progress: number | null = null,
-  ) {
-    setExportState({
-      phase,
-      detail,
-      progress,
-    });
-    setStatus(detail);
-  }
-
   const stopTimelineAudibleScrub = useCallback(() => {
     if (timelineScrubAudioTimeoutRef.current !== null) {
       window.clearTimeout(timelineScrubAudioTimeoutRef.current);
@@ -2633,258 +2565,53 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setStatus,
   });
 
-  // Everything a refresh brings back, read when an autosave serialises.
-  const readWorkspaceSession = (): SavedWorkspaceSession => ({
-    history: {
-      past: projectHistory.past,
-      present: projectHistory.present,
-      future: projectHistory.future,
-    },
-    view: {
-      playheadQ: playheadQRef.current,
-      selectedClipId,
-      selectedLaneId,
-      scrollLeft: timelineScrollRef.current?.scrollLeft ?? 0,
-      scrollTop: timelineScrollRef.current?.scrollTop ?? 0,
-    },
-    source: sessionSource,
-    // Failures are about the attempt, not the session, so they are not kept.
-    importNotice: importNotice?.tone === "error" ? null : importNotice,
-  });
-  const readWorkspaceSessionRef = useRef(readWorkspaceSession);
-  readWorkspaceSessionRef.current = readWorkspaceSession;
-  const workspaceBusyRef = useRef(false);
-  // Playback and gestures change the session many times a second; it is
-  // saved once they stop.
-  workspaceBusyRef.current = Boolean(
-    isPlaying ||
-      dragState ||
-      timelineDragState ||
-      isTimelineAudibleScrubbing ||
-      projectHistory.transientBase !== undefined,
-  );
-  const canSaveWorkspace =
-    workspaceAccess === "owner" && collaborationMode !== "connected";
-  const canSaveWorkspaceRef = useRef(canSaveWorkspace);
-  canSaveWorkspaceRef.current = canSaveWorkspace;
-  const [workspaceAutosave] = useState(() =>
-    createWorkspaceAutosave({
-      serialize: () =>
-        serializeWorkspaceSession(readWorkspaceSessionRef.current()),
-      write: (payload) => saveCurrentSession({ savedAt: Date.now(), payload }),
-      isBusy: () => workspaceBusyRef.current,
-      onError: (error) =>
-        logClient("workspace:save:error", {
-          message: error instanceof Error ? error.message : String(error),
-        }),
-    }),
-  );
-  const shouldSaveWorkspace = useCallback(
-    () => canSaveWorkspaceRef.current && !viewingSharedSessionRef.current,
-    [],
-  );
-
-  // Saves every change to the session after a short pause. A session that
-  // was closed, or never started, clears the saved record instead.
-  useEffect(() => {
-    void [
-      canSaveWorkspace,
-      playheadQ,
-      selectedClipId,
-      selectedLaneId,
-      sessionSource,
-      importNotice,
-      timelineViewport.scrollLeft,
-    ];
-    if (!shouldSaveWorkspace()) {
-      return;
-    }
-    if (isPristineProjectHistory(projectHistory)) {
-      workspaceAutosave.cancel();
-      void clearCurrentSession().catch((error: unknown) =>
-        logClient("workspace:clear:error", {
-          message: error instanceof Error ? error.message : String(error),
-        }),
-      );
-      return;
-    }
-    workspaceAutosave.markDirty();
-  }, [
-    canSaveWorkspace,
-    importNotice,
-    playheadQ,
+  const {
+    flushWorkspaceSession,
+    claimWorkspaceSession,
+    handleTakeOverWorkspace,
+    handleOpenWorkspaceReadOnly,
+    handleCloseSession,
+    reportSessionMediaCheck,
+    settleSessionMediaCheck,
+  } = useWorkspacePersistence({
+    boot,
+    restoredSession,
     projectHistory,
+    dispatchProjectHistory,
+    playheadQ,
+    playheadQRef,
+    setPlayheadQ,
+    playbackOriginRef,
     selectedClipId,
+    setSelectedClipId,
     selectedLaneId,
+    setSelectedLaneId,
+    timelineScrollRef,
+    timelineViewport,
     sessionSource,
-    shouldSaveWorkspace,
-    timelineViewport.scrollLeft,
-    workspaceAutosave,
-  ]);
-
-  const flushWorkspaceSession = useCallback(async () => {
-    if (!shouldSaveWorkspace()) {
-      return;
-    }
-    // Playback moves only the live playhead, so mark the session dirty to
-    // capture where it is now.
-    workspaceAutosave.markDirty();
-    await workspaceAutosave.flush();
-  }, [shouldSaveWorkspace, workspaceAutosave]);
-
-  useEffect(() => {
-    const flush = () => {
-      void flushWorkspaceSession();
-    };
-    const flushWhenHidden = () => {
-      if (document.visibilityState === "hidden") {
-        flush();
-      }
-    };
-    window.addEventListener("pagehide", flush);
-    document.addEventListener("visibilitychange", flushWhenHidden);
-    return () => {
-      window.removeEventListener("pagehide", flush);
-      document.removeEventListener("visibilitychange", flushWhenHidden);
-    };
-  }, [flushWorkspaceSession]);
-
-  useEffect(() => {
-    workspaceLockEvents.flush = flushWorkspaceSession;
-    workspaceLockEvents.lost = () => {
-      workspaceAutosave.cancel();
-      setWorkspaceAccess("taken-over");
-      setStatus(
-        "This session was taken over in another tab. Changes here are no longer saved.",
-      );
-    };
-    return () => {
-      workspaceLockEvents.flush = async () => {};
-      workspaceLockEvents.lost = () => {};
-    };
-  }, [flushWorkspaceSession, workspaceAutosave]);
-
-  // Puts the saved scroll position back once the timeline has laid out.
-  useLayoutEffect(() => {
-    const scroller = timelineScrollRef.current;
-    const view = restoredSession?.view;
-    if (scroller && view) {
-      scroller.scrollLeft = view.scrollLeft;
-      scroller.scrollTop = view.scrollTop;
-    }
-  }, [restoredSession]);
-
-  const applyWorkspaceSession = useCallback(
-    (session: SavedWorkspaceSession | null) => {
-      stopTimelineAudibleScrub();
-      setIsPlaying(false);
-      setDragPreviewClips(null);
-      setDragState(null);
-      setPendingSelection(null);
-      setTimelineDragState(null);
-      sessionMediaCheckRef.current = null;
-      dispatchProjectHistory({
-        type: "restore",
-        history: session
-          ? toProjectHistoryState(session.history)
-          : createProjectHistoryState(INITIAL_PROJECT_STATE),
-      });
-      const selection = findRestoredSelection(session);
-      setSelectedClipId(selection.selectedClipId);
-      setSelectedLaneId(selection.selectedLaneId);
-      setPlayheadQ(session?.view.playheadQ ?? 0);
-      playbackOriginRef.current = session?.view.playheadQ ?? 0;
-      setSessionSource(session?.source ?? { kind: "none" });
-      setImportNotice(session?.importNotice ?? null);
-      setArrangementEmptyStateDismissed(
-        session
-          ? isArrangementEmptyStateDismissedOnOpen(
-              session.history.present.clips.length,
-            )
-          : false,
-      );
-      const scroller = timelineScrollRef.current;
-      if (scroller) {
-        scroller.scrollLeft = session?.view.scrollLeft ?? 0;
-        scroller.scrollTop = session?.view.scrollTop ?? 0;
-      }
-    },
-    [setPlayheadQ, stopTimelineAudibleScrub],
-  );
-
-  // A session this tab opens or closes itself is its own again, so it is
-  // saved once this tab owns the saved session.
-  const claimWorkspaceSession = useCallback(() => {
-    viewingSharedSessionRef.current = false;
-    if (workspaceAccess === "joiner") {
-      void boot.lock.acquire().then((owner) => {
-        setWorkspaceAccess(owner ? "owner" : "read-only");
-      });
-    }
-  }, [boot.lock, workspaceAccess]);
-
-  async function handleTakeOverWorkspace() {
-    setIsTakeOverPromptOpen(false);
-    setStatus("Taking over the session from the other tab...");
-    await boot.lock.takeOver();
-    const { session, corruptKey } = await readSavedWorkspaceSession();
-    viewingSharedSessionRef.current = false;
-    applyWorkspaceSession(session);
-    if (corruptKey) {
-      setImportNotice(CORRUPT_WORKSPACE_NOTICE);
-    }
-    setWorkspaceAccess("owner");
-    setStatus(
-      session
-        ? formatRestoredStatus(session)
-        : "Took over the session from the other tab.",
-    );
-  }
-
-  function handleOpenWorkspaceReadOnly() {
-    setWorkspaceAccess("read-only");
-    setStatus(
-      "Opened read-only. The session is open in another tab, so changes here are not saved.",
-    );
-  }
-
-  function handleCloseSession() {
-    if (refuseReadOnlyEdit()) {
-      return;
-    }
-
-    workspaceAutosave.cancel();
-    claimWorkspaceSession();
-    applyWorkspaceSession(null);
-    setStatus("Closed the session.");
-  }
-
-  const reportSessionMediaCheck = useCallback(() => {
-    const check = sessionMediaCheckRef.current;
-    if (!check || check.pendingIds.size || check.analyzingFromDisk) {
-      return;
-    }
-
-    sessionMediaCheckRef.current = null;
-    setStatus(formatSessionMediaCheckStatus(check));
-  }, []);
-
-  const settleSessionMediaCheck = useCallback(
-    (mediaId: string, outcome: "restored" | "offline") => {
-      const check = sessionMediaCheckRef.current;
-      if (!check?.pendingIds.delete(mediaId)) {
-        return;
-      }
-
-      if (outcome === "restored") {
-        check.restored += 1;
-      } else {
-        check.offline += 1;
-      }
-      reportSessionMediaCheck();
-    },
-    [reportSessionMediaCheck],
-  );
+    setSessionSource,
+    importNotice,
+    setImportNotice,
+    isPlaying,
+    setIsPlaying,
+    dragState,
+    setDragState,
+    timelineDragState,
+    setTimelineDragState,
+    isTimelineAudibleScrubbing,
+    stopTimelineAudibleScrub,
+    setDragPreviewClips,
+    setPendingSelection,
+    setArrangementEmptyStateDismissed,
+    workspaceAccess,
+    setWorkspaceAccess,
+    setIsTakeOverPromptOpen,
+    refuseReadOnlyEdit,
+    collaborationMode,
+    viewingSharedSessionRef,
+    sessionMediaCheckRef,
+    setStatus,
+  });
 
   // Media an undo or redo step still uses counts as part of the session too,
   // since the history survives a refresh. Keyed by the sorted ids so the
@@ -5068,545 +4795,60 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     };
   }, [bpm, isPlaying, playheadSignal, setPlayheadQ, totalQuarters]);
 
-  async function applyOpenedSessionPayload(
-    payload: SessionOpenResponse,
-    selection: SessionSelection,
-  ) {
-    claimWorkspaceSession();
-    setSessionSource(
-      payload.alsImport
-        ? { kind: "import", name: payload.sessionName }
-        : selection.kind === "path"
-          ? { kind: "path", name: payload.sessionName, path: selection.path }
-          : { kind: selection.kind, name: payload.sessionName },
-    );
-    const existingRefs = payload.mediaRefs.filter((ref) => ref.exists);
-    const missingRefs = payload.mediaRefs.filter((ref) => !ref.exists);
-    const placeholderMedia = payload.mediaRefs.map((ref, index) =>
-      buildFallbackMediaItem(
-        ref,
-        PALETTE[index % PALETTE.length] ?? PALETTE[0],
-      ),
-    );
-    logClient("openSession:mediaRefs", {
-      total: payload.mediaRefs.length,
-      existing: existingRefs.length,
-      missing: missingRefs.length,
-    });
+  const {
+    handleImport,
+    handleOpenSession,
+    handleOpenWorkspace,
+    handleSaveSession,
+  } = useSessionIO({
+    projectHistory,
+    commitProjectChange,
+    commitViewChange,
+    sessionName,
+    mediaItems,
+    projectMediaItems,
+    playheadQRef,
+    setPlayheadQ,
+    selectedClipId,
+    setSelectedClipId,
+    setSelectedLaneId,
+    sessionSource,
+    setSessionSource,
+    setImportNotice,
+    setDragPreviewClips,
+    setPendingSelection,
+    setArrangementEmptyStateDismissed,
+    seedLocalMediaItems,
+    cacheLocalMediaItems,
+    localMediaOverridesRef,
+    sessionMediaCheckRef,
+    claimWorkspaceSession,
+    reportSessionMediaCheck,
+    refuseReadOnlyEdit,
+    setStatus,
+  });
 
-    const { session, clipsWithoutFile } = normalizeLvpSession(payload.session);
-    if (clipsWithoutFile.length) {
-      logClient("openSession:clipsWithoutFile", { clips: clipsWithoutFile });
-    }
-
-    const project = sessionToProject(session, placeholderMedia);
-    // A stale selection from the previous session would dismiss the empty
-    // arrangement's call to action as soon as it appears.
-    setSelectedClipId(undefined);
-    setArrangementEmptyStateDismissed(
-      isArrangementEmptyStateDismissedOnOpen(project.arrangementClips.length),
-    );
-    logClient("openSession:project", {
-      clips: project.arrangementClips.length,
-      lanes: project.lanes.length,
-      sourceTracks: project.sourceTracks.length,
-    });
-
-    commitProjectChange("Open session", (current) =>
-      patchProjectState(current, {
-        sessionName: payload.sessionName,
-        mediaItems: placeholderMedia.map((item) => toShareableMediaItem(item)),
-        bpm: project.bpm,
-        fps: project.fps,
-        canvasWidth: project.canvasWidth,
-        canvasHeight: project.canvasHeight,
-        timelineMode: project.displaySeconds ? "timecode" : "musical",
-        snapMode: project.snapToBeat ? "beat" : "quarter",
-        snapEnabled: project.snapToBeat,
-        zoom: project.zoom,
-        lanes: project.lanes.length ? project.lanes : DEFAULT_LANES,
-        sourceTracks: project.sourceTracks,
-        sourceSpans: project.sourceSpans,
-        clips: project.arrangementClips,
-        effects: project.effects,
-        mainAudioId: project.mainAudioMediaId,
-        projectDurationFrames: project.projectDurationFrames,
-      }),
-    );
-    setDragPreviewClips(null);
-    setPendingSelection(null);
-    const clipsWithoutFileLines = clipsWithoutFile.length
-      ? [formatClipsWithoutFile(clipsWithoutFile)]
-      : [];
-    setImportNotice(
-      payload.alsImport
-        ? {
-            tone:
-              payload.alsImport.noLayersVideo || clipsWithoutFile.length
-                ? "warning"
-                : "summary",
-            title: `Imported ${payload.sessionName}`,
-            lines: [
-              ...formatAlsImportSummary(payload.alsImport, payload.sessionName),
-              ...clipsWithoutFileLines,
-            ],
-          }
-        : clipsWithoutFile.length
-          ? {
-              tone: "warning",
-              title: `Opened ${payload.sessionName}`,
-              lines: clipsWithoutFileLines,
-            }
-          : null,
-    );
-
-    const preferredClip = project.arrangementClips.find(
-      (clip) => clip.id === project.selectedClipId,
-    );
-    setSelectedClipId(preferredClip?.id);
-    setSelectedLaneId(
-      preferredClip?.laneId ??
-        getDefaultLaneId(
-          project.lanes.length ? project.lanes : DEFAULT_LANES,
-          project.effects,
-        ),
-    );
-    setPlayheadQ(
-      secondsToQuarters(project.playPositionFrames / project.fps, project.bpm),
-    );
-    seedLocalMediaItems(
-      existingRefs.map((ref, index) => ({
-        ...buildFallbackMediaItem(
-          ref,
-          PALETTE[index % PALETTE.length] ?? PALETTE[0],
-        ),
-        previewUrl: ref.url,
-        availability: "ready",
-      })),
-    );
-
-    // Offline refs may still be restored from the media cache by the
-    // hydration effect; report the outcome once every ref has settled.
-    const pendingOfflineIds = missingRefs
-      .map((ref) => ref.id)
-      .filter((id) => !localMediaOverridesRef.current[id]?.previewUrl);
-    const mediaCheck: SessionMediaCheck = {
-      sessionName: payload.sessionName,
-      pendingIds: new Set(pendingOfflineIds),
-      restored: 0,
-      offline: 0,
-      analyzingFromDisk: existingRefs.length > 0,
-      hydratedFromDisk: existingRefs.length > 0,
-      overlapNote: project.overlapNote,
-    };
-    sessionMediaCheckRef.current = mediaCheck;
-
-    if (existingRefs.length) {
-      setStatus(
-        `Loaded ${payload.sessionName}. Hydrating ${pluralize(existingRefs.length, "media file")} in the background. ${project.overlapNote}`.trim(),
-      );
-    } else if (pendingOfflineIds.length) {
-      setStatus(
-        `Loaded ${payload.sessionName}. Checking the media cache for ${pluralize(pendingOfflineIds.length, "offline media file")}... ${project.overlapNote}`.trim(),
-      );
-    } else {
-      reportSessionMediaCheck();
-    }
-
-    if (existingRefs.length) {
-      void (async () => {
-        try {
-          const analyzedMedia = await getHarness().analyzeMedia(
-            {
-              kind: "refs",
-              refs: existingRefs,
-            },
-            PALETTE,
-            0,
-          );
-          logClient("openSession:analyzedMedia", {
-            analyzed: analyzedMedia.length,
-            degraded: 0,
-          });
-          seedLocalMediaItems(analyzedMedia);
-          void cacheLocalMediaItems(analyzedMedia);
-          commitViewChange("Hydrate session media", (current) =>
-            patchProjectState(current, {
-              mediaItems: mergeMediaItemsById(
-                current.mediaItems,
-                analyzedMedia.map((item) => toShareableMediaItem(item)),
-              ),
-            }),
-          );
-          mediaCheck.analyzingFromDisk = false;
-          reportSessionMediaCheck();
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : String(error);
-          if (sessionMediaCheckRef.current === mediaCheck) {
-            sessionMediaCheckRef.current = null;
-          }
-          setStatus(`Session media hydration failed: ${message}`);
-        }
-      })();
-    }
-  }
-
-  async function handleImport() {
-    if (refuseReadOnlyEdit()) {
-      return;
-    }
-
-    const harness = getHarness();
-    const selection = await harness.pickMedia();
-    if (!selection) {
-      return;
-    }
-
-    try {
-      const itemCount =
-        selection.kind === "files"
-          ? selection.files.length
-          : selection.refs.length;
-      setStatus(`Analyzing ${pluralize(itemCount, "imported media file")}...`);
-      const nextPaletteIndex = mediaItems.length;
-      const analyzed = await harness.analyzeMedia(
-        selection,
-        PALETTE,
-        nextPaletteIndex,
-      );
-      const sharedAnalyzed = analyzed.map((item) => toShareableMediaItem(item));
-
-      const nextMedia = [...projectMediaItems, ...sharedAnalyzed];
-      if (!sessionName) {
-        const standalone = buildStandaloneProject(nextMedia);
-        commitProjectChange("Import media", (current) =>
-          patchProjectState(current, {
-            mediaItems: nextMedia,
-            lanes: standalone.lanes,
-            effects: ensureGlobalOrder(
-              ensureLayerLayouts(
-                current.effects,
-                standalone.lanes.map((lane) => lane.id),
-              ),
-            ),
-            sourceTracks: standalone.sourceTracks,
-            sourceSpans: standalone.sourceSpans,
-            clips: standalone.arrangementClips,
-            canvasWidth: standalone.canvasWidth,
-            canvasHeight: standalone.canvasHeight,
-            projectDurationFrames: undefined,
-          }),
-        );
-        setDragPreviewClips(null);
-        setSelectedClipId(standalone.arrangementClips[0]?.id);
-        setPendingSelection(null);
-      } else {
-        commitProjectChange("Import media", (current) =>
-          patchProjectState(current, {
-            mediaItems: nextMedia,
-          }),
-        );
-      }
-
-      seedLocalMediaItems(analyzed);
-      void cacheLocalMediaItems(analyzed);
-      setStatus(`Imported ${pluralize(analyzed.length, "media file")}.`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setStatus(`Media import failed: ${message}`);
-    }
-  }
-
-  // A failed Live set import is reported in the import notice, since the
-  // status line alone is easy to miss.
-  function reportOpenFailure(
-    prefix: string,
-    selectionName: string | undefined,
-    error: unknown,
-  ) {
-    const message = error instanceof Error ? error.message : String(error);
-    // The status line only has room for the message, so log the stack to
-    // keep the failing call site visible.
-    logClient("openSession:error", {
-      prefix,
-      selectionName,
-      message,
-      stack: error instanceof Error ? error.stack : undefined,
-    });
-    setStatus(`${prefix}: ${message}`);
-    if (
-      error instanceof AlsImportError ||
-      (selectionName && isAlsFilename(selectionName))
-    ) {
-      setImportNotice({
-        tone: "error",
-        title: `Could not open ${selectionName ?? "the Live set"}`,
-        lines: [message],
-      });
-    }
-  }
-
-  async function handleOpenSession() {
-    if (refuseReadOnlyEdit()) {
-      return;
-    }
-
-    const harness = getHarness();
-    let selectionName: string | undefined;
-    try {
-      const selection = await harness.pickSession();
-      if (!selection) {
-        return;
-      }
-      selectionName =
-        selection.kind === "file"
-          ? selection.file.name
-          : selection.kind === "workspace"
-            ? selection.sessionFile.name
-            : selection.name;
-      setStatus(`Opening ${selectionName}...`);
-      const payload = await harness.openSession(selection);
-      await applyOpenedSessionPayload(payload, selection);
-    } catch (error) {
-      reportOpenFailure("Open failed", selectionName, error);
-    }
-  }
-
-  async function handleOpenWorkspace() {
-    if (refuseReadOnlyEdit()) {
-      return;
-    }
-
-    const harness = getHarness();
-    if (!harness.pickWorkspace) {
-      setStatus(
-        "Opening a workspace is not supported in this version of zvid.",
-      );
-      return;
-    }
-
-    let selectionName: string | undefined;
-    try {
-      const selection = await harness.pickWorkspace();
-      if (!selection) {
-        return;
-      }
-
-      selectionName =
-        selection.kind === "workspace"
-          ? selection.sessionFile.name
-          : selection.kind === "file"
-            ? selection.file.name
-            : selection.name;
-      setStatus(`Opening workspace ${selectionName}...`);
-      const payload = await harness.openSession(selection);
-      await applyOpenedSessionPayload(payload, selection);
-    } catch (error) {
-      reportOpenFailure("Open workspace failed", selectionName, error);
-    }
-  }
-
-  async function handleSaveSession() {
-    const harness = getHarness();
-    const session = projectToLvpSession(projectHistory.present, {
-      playheadQ: playheadQRef.current,
-      selectedClipId,
-    });
-    const blob = new Blob([`${JSON.stringify(session, null, 2)}\n`], {
-      type: "application/json",
-    });
-    const choice = chooseSessionSaveTarget(sessionSource, sessionName);
-
-    let saveTarget: SaveTarget;
-    if (choice.kind === "path" && harness.capabilities["native-blob-write"]) {
-      saveTarget = {
-        kind: "native-path",
-        filename: basename(choice.path),
-        path: choice.path,
-      };
-    } else {
-      const filename =
-        choice.kind === "path" ? basename(choice.path) : choice.filename;
-      try {
-        const nextSaveTarget = await harness.prepareSave(filename, {
-          mimeType: "application/json",
-          extensions: [SESSION_FILE_EXTENSION],
-          description: "ZVID session",
-        });
-        if (!nextSaveTarget) {
-          setStatus("Save canceled.");
-          return;
-        }
-        saveTarget = nextSaveTarget;
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") {
-          setStatus("Save canceled.");
-          return;
-        }
-        const message = error instanceof Error ? error.message : String(error);
-        setStatus(`Failed to prepare save destination: ${message}`);
-        return;
-      }
-    }
-
-    try {
-      await harness.saveBlob(blob, saveTarget);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setStatus(`Save failed: ${message}`);
-      return;
-    }
-
-    // A session saved to a new path keeps saving there.
-    if (saveTarget.kind === "native-path" && sessionSource.kind !== "path") {
-      setSessionSource({
-        kind: "path",
-        name: basename(saveTarget.path),
-        path: saveTarget.path,
-      });
-    }
-    const savedName =
-      saveTarget.kind === "native-path" ? saveTarget.path : saveTarget.filename;
-    setStatus(`Saved ${savedName}.`);
-  }
-
-  async function handleExport() {
-    if (isExporting) {
-      return;
-    }
-
-    if (!clips.length) {
-      setStatus("Open a session or import media before exporting.");
-      return;
-    }
-
-    const durationSeconds = Math.max(
-      0.01,
-      mainAudio?.durationSeconds ?? 0,
-      ...clips.map(
-        (clip) => quartersToSeconds(clip.startQ, bpm) + clip.durationSeconds,
-      ),
-    );
-    const outputFrameRate = Math.max(1, fps);
-    const outputFrameDuration = 1 / outputFrameRate;
-    const outputFrameCount = Math.max(
-      1,
-      Math.ceil(durationSeconds * outputFrameRate),
-    );
-    const exportName = `${sanitizeFilenameSegment(sessionName ?? "zvid-session")}.mp4`;
-
-    let saveTarget: SaveTarget;
-    try {
-      const nextSaveTarget = await getHarness().prepareSave(exportName, {
-        mimeType: "video/mp4",
-        extensions: [".mp4"],
-        description: "MP4 video",
-      });
-      if (!nextSaveTarget) {
-        setStatus("Export canceled before rendering.");
-        return;
-      }
-      saveTarget = nextSaveTarget;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (error instanceof DOMException && error.name === "AbortError") {
-        setStatus("Export canceled before rendering.");
-        return;
-      }
-
-      setStatus(`Failed to prepare export destination: ${message}`);
-      return;
-    }
-
-    setIsPlaying(false);
-    setIsExporting(true);
-    updateExportState(
-      "preparing",
-      `Preparing export (${pluralize(outputFrameCount, "frame")})...`,
-      null,
-    );
-    logClient("export:start", {
-      durationSeconds,
-      frameRate: outputFrameRate,
-      frames: outputFrameCount,
-      canvasWidth,
-      canvasHeight,
-      mainAudio: mainAudio?.name,
-    });
-    logClient("export:phase", { phase: "preparing", frames: outputFrameCount });
-
-    const exportRenderer = new CompositionRenderer(
-      {
-        mediaItems,
-        clips: timelineClips,
-        lanes,
-        effects,
-        bpm,
-        fps,
-        canvasWidth,
-        canvasHeight,
-        mainAudio,
-      },
-      { audioAnalysis: "offline" },
-    );
-
-    try {
-      const result = await getHarness().exportVideo({
-        filename: exportName,
-        saveTarget,
-        canvas: exportRenderer.canvas,
-        canvasWidth,
-        canvasHeight,
-        durationSeconds,
-        frameRate: outputFrameRate,
-        frameCount: outputFrameCount,
-        frameDuration: outputFrameDuration,
-        bpm,
-        mainAudio,
-        renderFrameAt: (frameQ, frameSeconds) =>
-          exportRenderer.renderFrameAt(frameQ, frameSeconds),
-        setPlayheadQ: () => {},
-        onProgress: (update) => {
-          updateExportState(update.phase, update.detail, update.progress);
-        },
-        onLog: logClient,
-      });
-
-      setStatus(
-        result.saveMethod === "download"
-          ? `Exported ${exportName} through the browser download flow.`
-          : `Saved ${exportName}.`,
-      );
-      setExportState({ phase: "idle", progress: null, detail: "" });
-      logClient("export:complete", {
-        filename: exportName,
-        bytes: result.bytes,
-        mimeType: result.mimeType,
-        muxedWith: result.muxedWith,
-        saveMethod: result.saveMethod,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setExportState({ phase: "idle", progress: null, detail: "" });
-      setStatus(`Export failed: ${message}`);
-      logClient("export:error", { message });
-    } finally {
-      setIsExporting(false);
-      setExportState({ phase: "idle", progress: null, detail: "" });
-      exportRenderer.destroy();
-      const previewPlayheadQ = playheadQRef.current;
-      try {
-        await compositionPlayerRef.current?.restorePreviewSurface(
-          previewPlayheadQ,
-          quartersToSeconds(previewPlayheadQ, bpm),
-        );
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        logClient("export:restorePreviewSurface:error", { message });
-      }
-    }
-  }
+  const { handleExport } = useExport({
+    isExporting,
+    setIsExporting,
+    setExportState,
+    updateExportState,
+    clips,
+    timelineClips,
+    mediaItems,
+    lanes,
+    effects,
+    mainAudio,
+    bpm,
+    fps,
+    canvasWidth,
+    canvasHeight,
+    sessionName,
+    playheadQRef,
+    compositionPlayerRef,
+    setIsPlaying,
+    setStatus,
+  });
 
   async function handleTransportToggle() {
     if (!clips.length) {
@@ -5928,9 +5170,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     commitPreviewWidth(nextWidth);
   }
 
-  // Export progress stays visible for the whole export.
-  const exportStatusText =
-    isExporting && exportState.detail ? exportState.detail : "";
   const statusMessage = useMemo<StatusMessage>(
     () =>
       exportStatusText
