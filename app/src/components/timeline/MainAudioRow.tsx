@@ -49,6 +49,11 @@ export function MainAudioRow({
     mainAudioInputRef,
     replaceMainAudioFromFile,
   } = audio;
+  const {
+    handleMainAudioDragEvent,
+    handleMainAudioDragLeave,
+    handleMainAudioDrop,
+  } = drop;
   const mainAudioSkeletonStyle = getMainAudioSkeletonStyle({
     mainAudio,
     bpm,
@@ -63,10 +68,10 @@ export function MainAudioRow({
       className={`track-row track-row--bus ${isMainAudioDropTarget ? "is-drop-target" : ""}`}
       data-main-audio-drop-target=""
       onContextMenu={openMainAudioMenu}
-      onDragEnter={drop.handleMainAudioDragEvent}
-      onDragLeave={drop.handleMainAudioDragLeave}
-      onDragOver={drop.handleMainAudioDragEvent}
-      onDrop={drop.handleMainAudioDrop}
+      onDragEnter={handleMainAudioDragEvent}
+      onDragLeave={handleMainAudioDragLeave}
+      onDragOver={handleMainAudioDragEvent}
+      onDrop={handleMainAudioDrop}
     >
       <div className="track-label">
         <div className="track-label__index">A</div>

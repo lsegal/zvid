@@ -14,7 +14,21 @@ import {
 } from "./peer-media-sync.ts";
 
 const appCss = readFileSync(new URL("./App.css", import.meta.url), "utf8");
-const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const clipCardTsx = readFileSync(
+  new URL("./components/timeline/ClipCard.tsx", import.meta.url),
+  "utf8",
+);
+const sourceSpanTsx = readFileSync(
+  new URL("./components/timeline/SourceSpan.tsx", import.meta.url),
+  "utf8",
+);
+const mainAudioRowTsx = readFileSync(
+  new URL("./components/timeline/MainAudioRow.tsx", import.meta.url),
+  "utf8",
+);
+const timelineRowsTsx = `${clipCardTsx}
+${sourceSpanTsx}
+${mainAudioRowTsx}`;
 const usePeerMediaTs = readFileSync(
   new URL("./hooks/usePeerMedia.ts", import.meta.url),
   "utf8",
@@ -226,17 +240,21 @@ describe("media sync rendering", () => {
   });
 
   it("draws the skeleton on clips, source spans and the Audio row", () => {
-    assert.match(appTsx, /<MediaSyncSkeleton\s+variant="clip"/);
-    assert.match(appTsx, /<MediaSyncSkeleton\s+variant="span"/);
-    assert.match(appTsx, /variant="waveform"\s+view=\{mainAudioSync\}/);
+    assert.match(clipCardTsx, /<MediaSyncSkeleton\s+variant="clip"/);
+    assert.match(sourceSpanTsx, /<MediaSyncSkeleton\s+variant="span"/);
+    assert.match(
+      mainAudioRowTsx,
+      /variant="waveform"\s+view=\{mainAudioSync\}/,
+    );
     assert.match(
       useMainAudioTs,
       /mainAudioSync\s+\? formatMediaSyncLabel\(mainAudioSync, "main audio"\)/,
     );
     assert.equal(
       (
-        appTsx.match(/getMediaSyncClassName\([^,]+, prefersReducedMotion\)/g) ??
-        []
+        timelineRowsTsx.match(
+          /getMediaSyncClassName\([^,]+, prefersReducedMotion\)/g,
+        ) ?? []
       ).length,
       3,
     );
