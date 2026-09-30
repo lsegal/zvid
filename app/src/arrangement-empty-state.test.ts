@@ -20,7 +20,10 @@ const componentTsx = readFileSync(
   new URL("./components/ArrangementEmptyState.tsx", import.meta.url),
   "utf8",
 );
-const appCss = readFileSync(new URL("./App.css", import.meta.url), "utf8");
+const componentCss = readFileSync(
+  new URL("./components/arrangement-empty-state.css", import.meta.url),
+  "utf8",
+);
 
 const noActivity = {
   clipCount: 0,
@@ -147,7 +150,9 @@ describe("arrangement empty state wiring", () => {
     assert.equal(componentTsx.match(/aria-label="Dismiss"/g)?.length, 1);
 
     const rule = [
-      ...appCss.matchAll(/\n\.arrangement-empty-state__dismiss \{([^}]*)\}/g),
+      ...componentCss.matchAll(
+        /\n\.arrangement-empty-state__dismiss \{([^}]*)\}/g,
+      ),
     ]
       .map((match) => match[1])
       .join("");
@@ -156,18 +161,18 @@ describe("arrangement empty state wiring", () => {
     assert.match(rule, /border-radius: 999px;/);
     assert.match(rule, /color: var\(--muted\);/);
     assert.match(
-      appCss,
+      componentCss,
       /\.arrangement-empty-state__dismiss:focus-visible \{[^}]*border-color: #ffe084;/,
     );
   });
 
   it("lets pointer events through to the lanes except on its buttons", () => {
     assert.match(
-      appCss,
+      componentCss,
       /\.arrangement-empty-state \{[^}]*pointer-events: none;/,
     );
     assert.match(
-      appCss,
+      componentCss,
       /\.arrangement-empty-state__generate,\s*\.arrangement-empty-state__dismiss \{[^}]*pointer-events: auto;/,
     );
   });

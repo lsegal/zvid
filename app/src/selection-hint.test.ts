@@ -16,6 +16,14 @@ const selectionOverlayTsx = readFileSync(
   "utf8",
 );
 const appCss = readFileSync(new URL("./App.css", import.meta.url), "utf8");
+const timelineCss = (name: string) =>
+  readFileSync(
+    new URL(`./components/timeline/${name}.css`, import.meta.url),
+    "utf8",
+  );
+const selectionCss = timelineCss("selection-overlay");
+const clipCardCss = timelineCss("clip-card");
+const canvasCss = timelineCss("timeline");
 
 // Smallest widths that fit each hint inside its padding and 1px borders.
 const fullMin = SELECTION_HINT_FULL_WIDTH_PX + 2 * (SELECTION_PADDING_PX + 1);
@@ -73,37 +81,41 @@ describe("selection hint", () => {
   });
 
   it("clips the selection box contents", () => {
-    const rule = appCss.match(/\.timeline-selection \{[^}]*\}/)?.[0] ?? "";
+    const rule =
+      selectionCss.match(/\.timeline-selection \{[^}]*\}/)?.[0] ?? "";
     assert.match(rule, /overflow: hidden;/);
   });
 });
 
 describe("timeline selection stacking", () => {
-  const cssRule = (className: string) =>
-    appCss.match(new RegExp(`\\n\\.${className} \\{[^}]*\\}`))?.[0] ?? "";
+  const cssRule = (css: string, className: string) =>
+    css.match(new RegExp(`(^|\\n)\\.${className} \\{[^}]*\\}`))?.[0] ?? "";
   const zToken = (name: string) =>
     Number(appCss.match(new RegExp(`--${name}: (\\d+);`))?.[1]);
 
   it("paints above the lane's clips, which render after it", () => {
-    const rule = cssRule("timeline-selection");
+    const rule = cssRule(selectionCss, "timeline-selection");
     assert.match(rule, /z-index: var\(--z-timeline-selection\);/);
     assert.ok(zToken("z-timeline-selection") > 0);
     // Clip cards are their own stacking context at z-index auto, so their
     // handles and filmstrips cannot rise above a positive z-index.
-    const clip = cssRule("clip-card");
+    const clip = cssRule(clipCardCss, "clip-card");
     assert.match(clip, /isolation: isolate;/);
     assert.doesNotMatch(clip, /z-index/);
   });
 
   it("stays below the playhead", () => {
     assert.match(
-      cssRule("timeline-playhead"),
+      cssRule(canvasCss, "timeline-playhead"),
       /z-index: var\(--z-timeline-playhead\);/,
     );
     assert.ok(zToken("z-timeline-selection") < zToken("z-timeline-playhead"));
   });
 
   it("lets clicks and drags through to the clips", () => {
-    assert.match(cssRule("timeline-selection"), /pointer-events: none;/);
+    assert.match(
+      cssRule(selectionCss, "timeline-selection"),
+      /pointer-events: none;/,
+    );
   });
 });

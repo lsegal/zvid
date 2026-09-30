@@ -10,6 +10,10 @@ const clipCardTsx = readFileSync(
   "utf8",
 );
 const appCss = readFileSync(new URL("./App.css", import.meta.url), "utf8");
+const clipCardCss = readFileSync(
+  new URL("./components/timeline/clip-card.css", import.meta.url),
+  "utf8",
+);
 const tokensCss = readFileSync(
   new URL("../../packages/tokens/tokens.css", import.meta.url),
   "utf8",
@@ -46,7 +50,7 @@ describe("selected clip ring", () => {
 
   it("rings, haloes and lifts the selected clip, and focus shares it", () => {
     const rule = ruleBody(
-      appCss,
+      clipCardCss,
       ".clip-card--selected,\n.clip-card:has(:focus-visible)",
     );
     assert.match(rule, /outline: 2px solid var\(--selection-ring\);/);
@@ -55,17 +59,17 @@ describe("selected clip ring", () => {
     assert.match(rule, /0 6px 14px rgba\(0, 0, 0, 0\.45\)/);
     assert.match(rule, /z-index: var\(--z-timeline-selected-clip\);/);
     assert.match(
-      ruleBody(appCss, ".clip-card--selected"),
+      ruleBody(clipCardCss, ".clip-card--selected"),
       /transform: translateY\(-1px\);/,
     );
     assert.match(
-      ruleBody(appCss, ".clip-card :focus-visible"),
+      ruleBody(clipCardCss, ".clip-card :focus-visible"),
       /box-shadow: none;/,
     );
   });
 
   it("leaves unselected clips without a ring", () => {
-    const base = ruleBody(appCss, ".clip-card");
+    const base = ruleBody(clipCardCss, ".clip-card");
     assert.doesNotMatch(base, /outline|box-shadow|z-index/);
   });
 
