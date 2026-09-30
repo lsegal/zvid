@@ -1,4 +1,5 @@
 import type { AlsImportSummary } from "./als-import.ts";
+import type { EffectAnimation } from "./fx-animation-defaults.ts";
 
 // Fields marked zvid-only are written by zvid and ignored by the Layers app.
 /** A zvid-only clip with no media, drawn by its main track's effects. */
@@ -80,6 +81,8 @@ export type LvpSession = {
     parameters?: Record<string, { floatValue?: number; stringValue?: string }>;
     /** zvid-only: `false` when the effect is bypassed. */
     enabled?: boolean;
+    /** zvid-only: the effect's Animation modifier settings. */
+    animation?: EffectAnimation;
   }>;
   timeline?: {
     bpm?: number;

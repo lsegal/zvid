@@ -8,6 +8,7 @@
 
 import { alsSavePath } from "./als-import.ts";
 import { type ClipWarp, warpSampleStartSeconds } from "./clip-warp.ts";
+import type { EffectAnimation } from "./fx-animation-defaults.ts";
 import { pruneExcludedLayers, renameClipEffectTracks } from "./fx-stack.ts";
 import type { LvpLayerClip, LvpSession } from "./session.ts";
 import type { WorkspaceSessionSource } from "./workspace-session.ts";
@@ -101,6 +102,7 @@ export type SaveableEffect = {
   effectName: string;
   parameters: Array<{ key: string; value: string; numericValue?: number }>;
   enabled?: boolean;
+  animation?: EffectAnimation;
 };
 
 export type SaveableProject = {
@@ -210,8 +212,9 @@ function selectionSlip(
 
 // Writes the project as a `.lvp` session that opens back into the same
 // arrangement. Selections point at their source clip by track and position,
-// the way the Layers app stores them. Fill and text clips, bypass flags and
-// slipped clips go in zvid-only fields the Layers app ignores.
+// the way the Layers app stores them. Fill and text clips, bypass flags,
+// animation settings and slipped clips go in zvid-only fields the Layers app
+// ignores.
 export function projectToLvpSession(
   project: SaveableProject,
   view: SaveableView,
@@ -338,6 +341,7 @@ export function projectToLvpSession(
       effectName: effect.effectName,
       parameters: toLvpParameters(effect.parameters),
       ...(effect.enabled === false ? { enabled: false } : {}),
+      ...(effect.animation ? { animation: effect.animation } : {}),
     })),
     timeline: {
       bpm,

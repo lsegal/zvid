@@ -15,6 +15,12 @@ import {
 } from "./composition-order.ts";
 import { isColorEffectName } from "./fill-paint.ts";
 import {
+  createDefaultAnimation,
+  type EffectAnimation,
+  normalizeEffectAnimation,
+  supportsAnimation,
+} from "./fx-animation-defaults.ts";
+import {
   type FxEffectDefinition,
   type FxEffectScope,
   type FxFlagOption,
@@ -59,6 +65,9 @@ export type SessionEffect = {
   parameters: EffectParameter[];
   // Bypass flag, saved to `.lvp` as zvid-only `enabled: false`.
   enabled: boolean;
+  // The Animation modifier's settings, once it has been turned on. Saved to
+  // `.lvp` as zvid-only `animation`.
+  animation?: EffectAnimation;
 };
 
 export type FxDeviceParameter = {
@@ -102,6 +111,11 @@ export type FxDevice = {
   accent: string;
   group: FxDeviceGroup;
   enabled: boolean;
+  // True when the effect can carry the Animation modifier (every known
+  // effect but Layout).
+  supportsAnimation: boolean;
+  // The modifier's settings, once it has been turned on.
+  animation?: EffectAnimation;
   // True for a layer's own Layout device. Every visual layer has exactly
   // one, so it can be reset to its defaults but not removed or duplicated.
   layerDefault?: boolean;
@@ -126,21 +140,30 @@ export function getTrackGroup(trackId: string): FxDeviceGroup {
 }
 
 export function mapEffects(source: LvpSession["effects"]) {
-  return (source ?? []).map<SessionEffect>((effect) => ({
-    id: effect.id,
-    trackId: effect.trackId,
-    effectName: effect.effectName,
-    parameters: Object.entries(effect.parameters ?? {}).map(([key, value]) => ({
-      key,
-      value:
-        typeof value.stringValue === "string"
-          ? value.stringValue
-          : formatStoredNumber(value.floatValue ?? 0),
-      numericValue: value.floatValue,
-    })),
-    // Sessions without the flag, including every Layers session, are on.
-    enabled: effect.enabled !== false,
-  }));
+  return (source ?? []).map<SessionEffect>((effect) => {
+    const animation = normalizeEffectAnimation(
+      effect.animation,
+      effect.effectName,
+    );
+    return {
+      id: effect.id,
+      trackId: effect.trackId,
+      effectName: effect.effectName,
+      parameters: Object.entries(effect.parameters ?? {}).map(
+        ([key, value]) => ({
+          key,
+          value:
+            typeof value.stringValue === "string"
+              ? value.stringValue
+              : formatStoredNumber(value.floatValue ?? 0),
+          numericValue: value.floatValue,
+        }),
+      ),
+      // Sessions without the flag, including every Layers session, are on.
+      enabled: effect.enabled !== false,
+      ...(animation ? { animation } : {}),
+    };
+  });
 }
 
 function formatStoredNumber(value: number) {
@@ -252,6 +275,44 @@ export function setEffectEnabled(
   return updateEffect(effects, effectId, (effect) =>
     (effect.enabled !== false) === enabled ? effect : { ...effect, enabled },
   );
+}
+
+// Turns an effect's Animation modifier on or off. Turning it on the first
+// time fills in the effect's animation defaults; turning it off keeps the
+// settings for next time. Effects without animation support are unchanged.
+export function setEffectAnimationEnabled(
+  effects: SessionEffect[],
+  effectId: string,
+  enabled: boolean,
+) {
+  return updateEffect(effects, effectId, (effect) => {
+    if (
+      !supportsAnimation(effect.effectName) ||
+      (effect.animation?.enabled ?? false) === enabled
+    ) {
+      return effect;
+    }
+
+    const current =
+      effect.animation ?? createDefaultAnimation(effect.effectName);
+    return current ? { ...effect, animation: { ...current, enabled } } : effect;
+  });
+}
+
+// Replaces an effect's animation settings, such as its mode or timing.
+// Effects without animation support, and settings that match the current
+// ones, are unchanged.
+export function setEffectAnimation(
+  effects: SessionEffect[],
+  effectId: string,
+  animation: EffectAnimation,
+) {
+  return updateEffect(effects, effectId, (effect) => {
+    const next = normalizeEffectAnimation(animation, effect.effectName);
+    return !next || JSON.stringify(next) === JSON.stringify(effect.animation)
+      ? effect
+      : { ...effect, animation: next };
+  });
 }
 
 // A layer's FX switch bypasses its whole stack at once. It lives on the
@@ -442,8 +503,22 @@ export function duplicateEffect(
     ...source,
     id,
     parameters: source.parameters.map((parameter) => ({ ...parameter })),
+    ...(source.animation
+      ? { animation: cloneAnimation(source.animation) }
+      : {}),
   };
   return [...effects.slice(0, index + 1), copy, ...effects.slice(index + 1)];
+}
+
+function cloneAnimation(animation: EffectAnimation): EffectAnimation {
+  return {
+    ...animation,
+    clip: { ...animation.clip },
+    reactive: {
+      ...animation.reactive,
+      parameters: [...animation.reactive.parameters],
+    },
+  };
 }
 
 // Puts an effect's parameters back to the registry defaults and turns it
@@ -592,6 +667,10 @@ export const effectHistoryLabels = {
     `Duplicate ${getEffectDisplayName(effectName)}`,
   enabled: (effectName: string, enabled: boolean) =>
     `${enabled ? "Enable" : "Bypass"} ${getEffectDisplayName(effectName)}`,
+  animationEnabled: (effectName: string, enabled: boolean) =>
+    `Turn Animation ${enabled ? "On" : "Off"} for ${getEffectDisplayName(effectName)}`,
+  animation: (effectName: string) =>
+    `Change ${getEffectDisplayName(effectName)} Animation`,
   layerFx: (layerName: string, enabled: boolean) =>
     `Turn FX ${enabled ? "On" : "Off"} for ${layerName}`,
 };
@@ -831,6 +910,8 @@ function toDevice(
     accent: definition.accent,
     group,
     enabled: effect.enabled !== false,
+    supportsAnimation: supportsAnimation(effect.effectName),
+    ...(effect.animation ? { animation: effect.animation } : {}),
     layerDefault: isLayerLayoutEffect(effect) || undefined,
     ...(definition.knobRows ? { knobRows: definition.knobRows } : {}),
     unsupported: !isEffectSupportedIn(effect.effectName, scope) || undefined,
@@ -949,6 +1030,13 @@ export function copyClipEffects<T extends StackEffect>(
             parameters: effect.parameters.map((parameter) => ({
               ...parameter,
             })),
+            ...("animation" in effect && effect.animation
+              ? {
+                  animation: cloneAnimation(
+                    effect.animation as EffectAnimation,
+                  ),
+                }
+              : {}),
           }) as T,
       ),
     ];
