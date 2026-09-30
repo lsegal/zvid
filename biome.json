@@ -9,7 +9,8 @@
       "!**/dist",
       "!**/.wrangler",
       "!**/target",
-      "!**/export-bridge/pkg"
+      "!**/export-bridge/pkg",
+      "!**/*.generated.ts"
     ]
   },
   "formatter": {

@@ -1,34 +1,15 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
-  type FillEffect,
   type FillPaint,
   formatFillPaintCss,
   parseCssColor,
   parseCssGradient,
   rasterizeFillPaint,
-  resolveFillPaint,
 } from "./fill-paint.ts";
 
 const RED = { r: 255, g: 0, b: 0, a: 1 };
 const BLUE = { r: 0, g: 0, b: 255, a: 1 };
-
-function colorEffect(
-  trackId: string,
-  values: Record<string, string>,
-  enabled = true,
-): FillEffect {
-  return {
-    trackId,
-    effectName: "Color",
-    enabled,
-    parameters: Object.entries(values).map(([key, value]) => ({
-      key,
-      value,
-      numericValue: key === "Opacity" ? Number(value) : undefined,
-    })),
-  };
-}
 
 // RGBA bytes of the pixel at (`x`, `y`), counted from the top left.
 function pixelAt(
@@ -128,46 +109,6 @@ describe("parseCssGradient", () => {
   it("rejects non-gradients", () => {
     assert.equal(parseCssGradient("rgba(0,0,0,1)"), undefined);
     assert.equal(parseCssGradient("conic-gradient(#f00, #00f)"), undefined);
-  });
-});
-
-describe("resolveFillPaint", () => {
-  it("paints neutral grey when the layer has no Color effect", () => {
-    const paint = resolveFillPaint([], "1");
-    assert.equal(paint.kind, "solid");
-    assert.deepEqual(paint.kind === "solid" && paint.color, {
-      r: 128,
-      g: 128,
-      b: 128,
-      a: 1,
-    });
-  });
-
-  it("uses the colour in Solid mode and the gradient in Gradient mode", () => {
-    const values = {
-      Mode: "Solid",
-      Color: "rgba(255,0,0,1)",
-      Gradient: "radial-gradient(circle, #f00 0%, #00f 100%)",
-      Opacity: "0.5",
-    };
-    const solid = resolveFillPaint([colorEffect("1", values)], "1");
-    assert.deepEqual(solid, { kind: "solid", color: RED, opacity: 0.5 });
-
-    const gradient = resolveFillPaint(
-      [colorEffect("1", { ...values, Mode: "Gradient" })],
-      "1",
-    );
-    assert.equal(gradient.kind, "radial");
-    assert.equal(gradient.opacity, 0.5);
-  });
-
-  it("reads only the layer's own enabled Color effect", () => {
-    const effects = [
-      colorEffect("2", { Mode: "Solid", Color: "#00f" }),
-      colorEffect("1", { Mode: "Solid", Color: "#00f" }, false),
-    ];
-    const paint = resolveFillPaint(effects, "1");
-    assert.equal(paint.kind === "solid" && paint.color.r, 128);
   });
 });
 

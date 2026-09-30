@@ -1,13 +1,11 @@
-import { analogGlitchPass } from "./analog-glitch.ts";
-import { colorizePass } from "./colorize.ts";
-import { negativeSplitPass } from "./negative-split.ts";
-import { pixelatePass } from "./pixelate.ts";
+// The passes live in fx/effects/<effect>/pass.ts and are collected by the
+// generated fx/effects/index.generated.ts; see fx/README.md.
+import { EFFECT_PASSES } from "../fx/effects/index.generated.ts";
 import {
   type EffectParameter,
   type EffectPass,
   normalizeEffectKey,
 } from "./types.ts";
-import { zoomAndPanPass } from "./zoom-and-pan.ts";
 
 export type ChainEffect = {
   trackId: string;
@@ -22,13 +20,7 @@ export type EffectChainStep = {
 };
 
 const effectPasses = new Map<string, EffectPass>(
-  [
-    colorizePass,
-    negativeSplitPass,
-    pixelatePass,
-    analogGlitchPass,
-    zoomAndPanPass,
-  ].map((pass) => [normalizeEffectKey(pass.effectName), pass]),
+  EFFECT_PASSES.map((pass) => [normalizeEffectKey(pass.effectName), pass]),
 );
 
 // Matches `.lvp` names case- and space-insensitively, so "NegativeSplit" and

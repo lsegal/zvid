@@ -11,7 +11,7 @@ import {
   parseFontChoice,
   queryLocalFontFamilies,
   resolveFontFace,
-} from "./text-fonts.ts";
+} from "../../../text-fonts.ts";
 import {
   formatStyleFlags,
   getTextPreview,
