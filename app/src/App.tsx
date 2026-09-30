@@ -31,25 +31,11 @@ import {
   withClipStacks,
 } from "./app/clip-ops.ts";
 import {
-  buildCollaborationViewModel,
-  forgetJoinedRoom,
-  getCollaborationRole,
-  getInitialCollaborationConfig,
-  getSessionIceServers,
-  ICE_SERVERS,
-  IDLE_COLLABORATION_STATE,
-  parseCollaborationInvite,
-  parseSignalingUrls,
-  rememberJoinedRoom,
-} from "./app/collaboration-config.ts";
-import {
   BASE_QUARTER_PX,
-  COLLAB_STORAGE_KEY,
   FILL_CLIP_ACCENT,
   FILL_CLIP_TINT,
   FX_CLIP_BARS,
   GRID_LINE_COLORS,
-  INITIAL_PROJECT_STATE,
   INSPECTOR_COLLAPSED_STORAGE_KEY,
   LABEL_WIDTH_DEFAULT,
   LABEL_WIDTH_KEYBOARD_STEP,
@@ -57,11 +43,8 @@ import {
   LABEL_WIDTH_MIN,
   LABEL_WIDTH_NARROW,
   LABEL_WIDTH_STORAGE_KEY,
-  MAX_PEER_MEDIA_TRANSFERS,
   MAX_WAND_LAYERS,
   PALETTE,
-  PEER_MEDIA_REVEAL_MS,
-  PEER_MEDIA_STATUS_INTERVAL_MS,
   PREVIEW_DEFAULT_WIDTH,
   PREVIEW_MIN_WIDTH,
   PREVIEW_RESIZE_KEY_STEP,
@@ -110,10 +93,8 @@ import {
 import type {
   ArrangementClip,
   ClipMenuState,
-  CollaborationMode,
   DragState,
   Lane,
-  ProjectState,
   SessionMediaCheck,
   SourceSpan,
   SourceTrack,
@@ -184,11 +165,6 @@ import {
   isInSelection,
   resolvePasteLaneId,
 } from "./clip-menu.ts";
-import {
-  type CollaborationConnectionState,
-  type CollaborationController,
-  createCollaborationController,
-} from "./collaboration";
 import { ArrangementEmptyState } from "./components/ArrangementEmptyState";
 import {
   APP_BUILD_LABEL,
@@ -283,6 +259,10 @@ import {
   previewDuplicateClipEffects,
 } from "./fx-stack";
 import { getHarness, supportsHarnessCapability } from "./harness";
+import {
+  useCollaboration,
+  useCollaborationState,
+} from "./hooks/useCollaboration.ts";
 import { useExport, useExportState } from "./hooks/useExport.ts";
 import { useFxEditing } from "./hooks/useFxEditing.ts";
 import { useFxPanelModel } from "./hooks/useFxPanelModel.ts";
@@ -296,6 +276,7 @@ import {
   useMediaLibraryCommands,
 } from "./hooks/useMediaLibrary.ts";
 import { useMediaStatus } from "./hooks/useMediaStatus.ts";
+import { usePeerMedia, usePeerMediaState } from "./hooks/usePeerMedia.ts";
 import {
   useProjectHistoryCommands,
   useProjectStore,
@@ -336,12 +317,7 @@ import {
 import {
   describeMediaSync,
   formatMediaSyncLabel,
-  formatPeerMediaSyncStatus,
   getMediaSyncClassName,
-  type PeerMediaProgressMap,
-  withoutPeerMediaProgress,
-  withPeerMediaProgress,
-  withQueuedPeerMedia,
 } from "./peer-media-sync.ts";
 import {
   findNextClipEdgeQ,
@@ -371,10 +347,6 @@ import {
   toggleClipTextStyle,
 } from "./preview-text-edit.ts";
 import {
-  migrateLegacyMainAudio,
-  stripClipSelectionFlags,
-} from "./project-state-compat.ts";
-import {
   buildRandomArrangement,
   sourceTrackHasFootage,
 } from "./random-arrangement.ts";
@@ -388,16 +360,8 @@ import {
 } from "./range-edit.ts";
 import { selectionHint } from "./selection-hint.ts";
 import { MAX_LAYERS } from "./selection-overlaps";
-import {
-  forgetChangedMainAudioMiss,
-  offlineSessionMediaIds,
-} from "./session-media.ts";
-import {
-  buildPublicShareUrl,
-  removeInviteParams,
-  withJoinedRoom,
-} from "./share-invite.ts";
-import { shareCopyFailedStatus, shareLinkVisible } from "./share-link";
+import { offlineSessionMediaIds } from "./session-media.ts";
+import { shareLinkVisible } from "./share-link";
 import {
   dropClipOnFreeLane,
   isSourceClipDropClick,
@@ -456,9 +420,28 @@ import {
 } from "./zoom";
 
 function App({ boot }: { boot: WorkspaceBoot }) {
-  const [initialCollaborationConfig] = useState(() =>
-    getInitialCollaborationConfig(),
-  );
+  const collaboration = useCollaborationState();
+  const {
+    collaborationMode,
+    isShareDialogOpen,
+    setIsShareDialogOpen,
+    isStartingShare,
+    isConnectDialogOpen,
+    setIsConnectDialogOpen,
+    connectInviteValue,
+    setConnectInviteValue,
+    isStartingConnect,
+    hasCopiedShareInvite,
+    shareUrl,
+    collaborationState,
+    isDiagnosticsDialogOpen,
+    setIsDiagnosticsDialogOpen,
+    shareCopyResetTimeoutRef,
+    activeShareRoom,
+    isSharing,
+    isConnectedClient,
+    collaborationView,
+  } = collaboration;
   const restoredSession = boot.session;
   const [restoredSelection] = useState(() =>
     findRestoredSelection(restoredSession),
@@ -573,12 +556,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     exportButtonLabel,
     exportStatusText,
   } = useExportState({ setStatus });
-  const [peerMediaProgress, setPeerMediaProgress] =
-    useState<PeerMediaProgressMap>(() => new Map());
-  // Media that just finished syncing, so its clips cross-fade in.
-  const [revealedMediaIds, setRevealedMediaIds] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
   const prefersReducedMotion = usePrefersReducedMotion();
   const [importNotice, setImportNotice] = useState<ImportNoticeContent | null>(
     () =>
@@ -596,22 +573,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const [isTimelineAudibleScrubbing, setIsTimelineAudibleScrubbing] =
     useState(false);
   const [zoomDraft, setZoomDraft] = useState<number | null>(null);
-  const [collaborationRoom, setCollaborationRoom] = useState(
-    initialCollaborationConfig.room,
-  );
-  const [collaborationPassword, setCollaborationPassword] = useState(
-    initialCollaborationConfig.password,
-  );
-  const [collaborationSignaling, setCollaborationSignaling] = useState(
-    initialCollaborationConfig.signaling,
-  );
-  const [collaborationName] = useState(initialCollaborationConfig.name);
-  const [collaborationMode, setCollaborationMode] = useState<CollaborationMode>(
-    initialCollaborationConfig.autoConnect ? "connected" : "idle",
-  );
-  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
-  const [isStartingShare, setIsStartingShare] = useState(false);
-  const [isConnectDialogOpen, setIsConnectDialogOpen] = useState(false);
   const [isCaptureInstallerDialogOpen, setIsCaptureInstallerDialogOpen] =
     useState(false);
   const [isOfflineMediaDialogOpen, setIsOfflineMediaDialogOpen] =
@@ -619,21 +580,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const [isMediaSyncDialogOpen, setIsMediaSyncDialogOpen] = useState(false);
   const [isMediaStorageDialogOpen, setIsMediaStorageDialogOpen] =
     useState(false);
-  // Mirrors peerMediaMissesRef.current.ids so rendering sees peer misses.
-  const [peerMediaMissIds, setPeerMediaMissIds] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
-  const [connectInviteValue, setConnectInviteValue] = useState("");
-  const [isStartingConnect, setIsStartingConnect] = useState(false);
-  const [hasCopiedShareInvite, setHasCopiedShareInvite] = useState(false);
-  const [shareUrl, setShareUrl] = useState("");
-  const [collaborationState, setCollaborationState] =
-    useState<CollaborationConnectionState>(IDLE_COLLABORATION_STATE);
-  const [collaborationIceServers, setCollaborationIceServers] =
-    useState<RTCIceServer[]>(ICE_SERVERS);
-  const [isDiagnosticsDialogOpen, setIsDiagnosticsDialogOpen] = useState(false);
   const [mediaHydrationTick, setMediaHydrationTick] = useState(0);
-  const collaborationColor = initialCollaborationConfig.color;
 
   const [sessionSource, setSessionSource] = useState<WorkspaceSessionSource>(
     () => restoredSession?.source ?? { kind: "none" },
@@ -657,20 +604,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   } | null>(null);
   const timelineScrubAudioTimeoutRef = useRef<number | null>(null);
   const clipClipboardRef = useRef<ClipClipboard | null>(null);
-  const collaborationControllerRef =
-    useRef<CollaborationController<ProjectState> | null>(null);
-  const shareCopyResetTimeoutRef = useRef<number | null>(null);
   const zoomDraftRef = useRef<number | null>(null);
   const mediaHydrationInFlightRef = useRef(new Set<string>());
-  const peerMediaTransfersRef = useRef(new Map<string, AbortController>());
-  const peerMediaMissesRef = useRef<{
-    controller: CollaborationController<ProjectState> | null;
-    mediaPeerCount: number;
-    ids: Set<string>;
-  }>({ controller: null, mediaPeerCount: 0, ids: new Set() });
-  const peerMainAudioIdRef = useRef<string | undefined>(undefined);
   const sessionMediaCheckRef = useRef<SessionMediaCheck | null>(null);
-  const lastCollaborationCursorRef = useRef("");
   const sourceTrackDragPreviewRef = useRef<SourceTrackDragPreview | null>(null);
   const sourceTrackDragHideTimeoutRef = useRef<number | null>(null);
   const sourceTrackDragPreviewKeyRef = useRef<string>("");
@@ -691,6 +627,11 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     commitViewChange,
     setStatus,
   });
+  const peerMedia = usePeerMediaState({
+    localMediaOverridesRef,
+    projectSnapshotRef,
+  });
+  const { peerMediaProgress, revealedMediaIds, peerMediaMissIds } = peerMedia;
   const lanePriority = useMemo(
     () => new Map(lanes.map((lane, index) => [lane.id, index])),
     [lanes],
@@ -1759,30 +1700,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setStatus,
   });
 
-  const activeShareRoom = collaborationRoom.trim();
-  const isSharing = collaborationMode === "sharing";
-  const isConnectedClient = collaborationMode === "connected";
-  const collaborationView = useMemo(
-    () =>
-      buildCollaborationViewModel(
-        collaborationMode,
-        collaborationState,
-        isStartingShare,
-        isStartingConnect,
-        activeShareRoom,
-        collaborationSignaling,
-        collaborationIceServers,
-      ),
-    [
-      activeShareRoom,
-      collaborationIceServers,
-      collaborationMode,
-      collaborationSignaling,
-      collaborationState,
-      isStartingConnect,
-      isStartingShare,
-    ],
-  );
   const shortcutLabels = useMemo(() => getShortcutLabels(), []);
   const previewMaxWidth = getPreviewMaxWidth(editorGridWidth);
   const effectivePreviewWidth = Math.min(previewWidth, previewMaxWidth);
@@ -1928,7 +1845,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
 
       revokeObjectUrlIfNeeded(sourceTrackDragPreviewRef.current?.thumbnailUrl);
     },
-    [],
+    [shareCopyResetTimeoutRef],
   );
 
   const syncTimelineViewport = useCallback(() => {
@@ -2741,400 +2658,45 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     settleSessionMediaCheck,
   ]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    try {
-      window.localStorage.setItem(
-        COLLAB_STORAGE_KEY,
-        JSON.stringify({
-          signaling: collaborationSignaling,
-          name: collaborationName,
-          color: collaborationColor,
-        }),
-      );
-    } catch (error) {
-      logClient("collaboration:storage:write:error", {
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }, [collaborationColor, collaborationName, collaborationSignaling]);
-
-  const applyRemoteProjectState = useCallback(
-    (remoteSnapshot: ProjectState) => {
-      const snapshot = stripClipSelectionFlags(
-        migrateLegacyMainAudio(remoteSnapshot),
-      );
-      if (
-        JSON.stringify(projectSnapshotRef.current) === JSON.stringify(snapshot)
-      ) {
-        return;
-      }
-
-      setIsPlaying(false);
-      stopTimelineAudibleScrub();
-      setDragPreviewClips(null);
-      setDragState(null);
-      setPendingSelection(null);
-      setTimelineDragState(null);
-      dispatchProjectHistory({ type: "replace", snapshot });
-    },
-    [stopTimelineAudibleScrub],
-  );
-
-  const resolvePeerMedia = useCallback(async (mediaId: string) => {
-    try {
-      const cachedBlob = await getCachedMediaBlob(mediaId);
-      if (cachedBlob) {
-        return cachedBlob;
-      }
-    } catch (error) {
-      logClient("media:peer:serve:cache:error", {
-        mediaId,
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
-
-    const previewUrl = localMediaOverridesRef.current[mediaId]?.previewUrl;
-    if (!previewUrl) {
-      return null;
-    }
-
-    const item = projectSnapshotRef.current.mediaItems.find(
-      (candidate) => candidate.id === mediaId,
-    );
-    return getHarness().readMediaBlob({
-      id: mediaId,
-      name: item?.name ?? mediaId,
-      previewUrl,
-      sourcePath: item?.sourcePath,
-    });
-  }, []);
-
-  const abortPeerMediaTransfers = useCallback(() => {
-    for (const transfer of peerMediaTransfersRef.current.values()) {
-      transfer.abort();
-    }
-  }, []);
-
-  useEffect(() => {
-    if (collaborationMode === "idle") {
-      abortPeerMediaTransfers();
-      collaborationControllerRef.current?.destroy();
-      collaborationControllerRef.current = null;
-      return;
-    }
-
-    const roomName = collaborationRoom.trim();
-    if (!roomName) {
-      abortPeerMediaTransfers();
-      collaborationControllerRef.current?.destroy();
-      collaborationControllerRef.current = null;
-      return;
-    }
-
-    let cancelled = false;
-    let controller: CollaborationController<ProjectState> | null = null;
-    void getSessionIceServers().then((iceServers) => {
-      if (cancelled) {
-        return;
-      }
-      setCollaborationIceServers(iceServers);
-      controller = createCollaborationController<ProjectState>({
-        roomName,
-        password: collaborationPassword.trim(),
-        signalingUrls: parseSignalingUrls(collaborationSignaling),
-        role: getCollaborationRole(collaborationMode),
-        iceServers,
-        log: logClient,
-        initialState: INITIAL_PROJECT_STATE,
-        bootstrapState: projectSnapshotRef.current,
-        user: {
-          name: collaborationName.trim() || initialCollaborationConfig.name,
-          color: collaborationColor,
-        },
-        onRemoteState: applyRemoteProjectState,
-        onConnectionState: setCollaborationState,
-        resolveMedia: resolvePeerMedia,
-      });
-      collaborationControllerRef.current = controller;
-    });
-
-    return () => {
-      cancelled = true;
-      if (controller && collaborationControllerRef.current === controller) {
-        collaborationControllerRef.current = null;
-      }
-      abortPeerMediaTransfers();
-      controller?.destroy();
-    };
-  }, [
-    abortPeerMediaTransfers,
-    applyRemoteProjectState,
-    collaborationColor,
-    collaborationName,
-    collaborationPassword,
-    collaborationRoom,
-    collaborationSignaling,
-    initialCollaborationConfig.name,
+  const {
+    showShareCopiedBadge,
+    handleStartShare,
+    handleStopShare,
+    handleDisconnectConnection,
+    handleConnectToShare,
+  } = useCollaboration({
+    collaboration,
+    projectState: projectHistory.present,
+    projectSnapshotRef,
+    dispatchProjectHistory,
+    setIsPlaying,
+    stopTimelineAudibleScrub,
+    setDragPreviewClips,
+    setDragState,
+    setPendingSelection,
+    setTimelineDragState,
+    appShellRef,
+    resolvePeerMedia: peerMedia.resolvePeerMedia,
+    abortPeerMediaTransfers: peerMedia.abortPeerMediaTransfers,
+    flushWorkspaceSession,
+    viewingSharedSessionRef,
+    setStatus,
+  });
+  const { retryPeerMedia } = usePeerMedia({
+    peerMedia,
     collaborationMode,
-    resolvePeerMedia,
-  ]);
-
-  // Copies peer misses into state so the media sync list can show them.
-  const syncPeerMediaMissIds = useCallback(() => {
-    const ids = peerMediaMissesRef.current.ids;
-    setPeerMediaMissIds((current) =>
-      current.size === ids.size && [...ids].every((id) => current.has(id))
-        ? current
-        : new Set(ids),
-    );
-  }, []);
-
-  const { mediaPeerCount } = collaborationState;
-  useEffect(() => {
-    // mediaHydrationTick reruns this whenever a local or peer hydration
-    // settles, so media skipped while it was in flight is picked up.
-    void mediaHydrationTick;
-    const controller = collaborationControllerRef.current;
-    if (collaborationMode === "idle" || !controller || mediaPeerCount === 0) {
-      setPeerMediaProgress((map) => withQueuedPeerMedia(map, []));
-      return;
-    }
-
-    const misses = peerMediaMissesRef.current;
-    if (
-      misses.controller !== controller ||
-      misses.mediaPeerCount !== mediaPeerCount
-    ) {
-      // A peer joined or left, so previously missing media may now be found.
-      misses.controller = controller;
-      misses.mediaPeerCount = mediaPeerCount;
-      misses.ids.clear();
-    }
-    // A main audio the host adds or replaces mid-share is requested at once.
-    forgetChangedMainAudioMiss(
-      misses.ids,
-      peerMainAudioIdRef.current,
-      mainAudioId,
-    );
-    peerMainAudioIdRef.current = mainAudioId;
-    syncPeerMediaMissIds();
-
-    const transfers = peerMediaTransfersRef.current;
-    const offlineIds = JSON.parse(offlineSessionMediaIdsKey) as string[];
-    // Media a peer may have that is waiting for a free transfer slot.
-    const queuedIds: string[] = [];
-    for (const mediaId of offlineIds) {
-      if (
-        misses.ids.has(mediaId) ||
-        mediaHydrationInFlightRef.current.has(mediaId)
-      ) {
-        continue;
-      }
-      if (transfers.size >= MAX_PEER_MEDIA_TRANSFERS) {
-        queuedIds.push(mediaId);
-        continue;
-      }
-
-      const name =
-        projectSnapshotRef.current.mediaItems.find(
-          (item) => item.id === mediaId,
-        )?.name ?? mediaId;
-      const abortController = new AbortController();
-      const recordMiss = () => {
-        // Only remember the miss if the peer set is unchanged since the request.
-        if (
-          misses.controller === controller &&
-          misses.mediaPeerCount === mediaPeerCount
-        ) {
-          misses.ids.add(mediaId);
-          syncPeerMediaMissIds();
-        }
-      };
-      transfers.set(mediaId, abortController);
-      mediaHydrationInFlightRef.current.add(mediaId);
-      setLocalMediaOverride(mediaId, { availability: "hydrating" });
-      setPeerMediaProgress((map) =>
-        withPeerMediaProgress(map, mediaId, {
-          phase: "receiving",
-          received: 0,
-          total: 0,
-        }),
-      );
-
-      void (async () => {
-        let receiving = false;
-        let progressAt = 0;
-        try {
-          const blob = await controller.requestMedia(mediaId, {
-            signal: abortController.signal,
-            onProgress(received, total) {
-              const now = performance.now();
-              if (
-                receiving &&
-                now - progressAt < PEER_MEDIA_STATUS_INTERVAL_MS
-              ) {
-                return;
-              }
-              receiving = true;
-              progressAt = now;
-              setPeerMediaProgress((map) =>
-                transfers.get(mediaId) === abortController
-                  ? withPeerMediaProgress(map, mediaId, {
-                      phase: "receiving",
-                      received,
-                      total,
-                    })
-                  : map,
-              );
-            },
-          });
-          if (!blob) {
-            recordMiss();
-            setLocalMediaOverride(mediaId, { availability: "offline" });
-            if (receiving && !abortController.signal.aborted) {
-              setStatus(`Receiving ${name} from peer was interrupted.`);
-            }
-            return;
-          }
-
-          await adoptMediaBlob(mediaId, blob);
-          setStatus(`Received ${name} from peer.`);
-          setRevealedMediaIds((ids) => new Set(ids).add(mediaId));
-          window.setTimeout(() => {
-            setRevealedMediaIds((ids) => {
-              if (!ids.has(mediaId)) {
-                return ids;
-              }
-              const next = new Set(ids);
-              next.delete(mediaId);
-              return next;
-            });
-          }, PEER_MEDIA_REVEAL_MS);
-        } catch (error) {
-          if (!abortController.signal.aborted) {
-            const message =
-              error instanceof Error ? error.message : String(error);
-            logClient("media:peer:request:error", { mediaId, message });
-            setStatus(`Failed to receive ${name} from peer: ${message}`);
-            recordMiss();
-          }
-          setLocalMediaOverride(mediaId, { availability: "offline" });
-        } finally {
-          transfers.delete(mediaId);
-          mediaHydrationInFlightRef.current.delete(mediaId);
-          setPeerMediaProgress((map) => withoutPeerMediaProgress(map, mediaId));
-          setMediaHydrationTick((tick) => tick + 1);
-        }
-      })();
-    }
-    setPeerMediaProgress((map) => withQueuedPeerMedia(map, queuedIds));
-  }, [
-    adoptMediaBlob,
-    collaborationMode,
+    collaborationControllerRef: collaboration.collaborationControllerRef,
+    mediaPeerCount: collaborationState.mediaPeerCount,
     mainAudioId,
-    mediaPeerCount,
     offlineSessionMediaIdsKey,
     mediaHydrationTick,
+    setMediaHydrationTick,
+    mediaHydrationInFlightRef,
+    projectSnapshotRef,
     setLocalMediaOverride,
-    syncPeerMediaMissIds,
-  ]);
-
-  // Forgets a peer miss so the hydration effect requests the media again.
-  const retryPeerMedia = useCallback(
-    (mediaId: string) => {
-      peerMediaMissesRef.current.ids.delete(mediaId);
-      syncPeerMediaMissIds();
-      setMediaHydrationTick((tick) => tick + 1);
-    },
-    [syncPeerMediaMissIds],
-  );
-
-  useEffect(() => {
-    const message = formatPeerMediaSyncStatus(peerMediaProgress);
-    if (message) {
-      setStatus(message);
-    }
-  }, [peerMediaProgress]);
-
-  useEffect(() => {
-    collaborationControllerRef.current?.updateUser({
-      name: collaborationName.trim() || initialCollaborationConfig.name,
-      color: collaborationColor,
-    });
-  }, [collaborationColor, collaborationName, initialCollaborationConfig.name]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const pushCursor = (cursor: { x: number; y: number } | null) => {
-      const nextKey = cursor
-        ? `${cursor.x.toFixed(3)}:${cursor.y.toFixed(3)}`
-        : "";
-      if (lastCollaborationCursorRef.current === nextKey) {
-        return;
-      }
-
-      lastCollaborationCursorRef.current = nextKey;
-      collaborationControllerRef.current?.updateCursor(cursor);
-    };
-
-    if (collaborationMode === "idle") {
-      pushCursor(null);
-      return;
-    }
-
-    const handlePointerMove = (event: PointerEvent) => {
-      const appShell = appShellRef.current;
-      if (!appShell) {
-        return;
-      }
-
-      const bounds = appShell.getBoundingClientRect();
-      if (bounds.width <= 0 || bounds.height <= 0) {
-        pushCursor(null);
-        return;
-      }
-
-      const insideBounds =
-        event.clientX >= bounds.left &&
-        event.clientX <= bounds.right &&
-        event.clientY >= bounds.top &&
-        event.clientY <= bounds.bottom;
-
-      if (!insideBounds) {
-        pushCursor(null);
-        return;
-      }
-
-      pushCursor({
-        x: (event.clientX - bounds.left) / bounds.width,
-        y: (event.clientY - bounds.top) / bounds.height,
-      });
-    };
-
-    const clearCursor = () => {
-      pushCursor(null);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("blur", clearCursor);
-
-    return () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("blur", clearCursor);
-      clearCursor();
-    };
-  }, [collaborationMode]);
-
-  useEffect(() => {
-    collaborationControllerRef.current?.pushState(projectHistory.present);
-  }, [projectHistory.present]);
+    adoptMediaBlob,
+    setStatus,
+  });
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -4879,118 +4441,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     if (match) {
       // Selecting never moves the playhead.
       setSelectedClipId(match.id);
-    }
-  }
-
-  // Shows the top bar "Copied" badge for a few seconds after a copy.
-  function showShareCopiedBadge() {
-    setHasCopiedShareInvite(true);
-    if (shareCopyResetTimeoutRef.current !== null) {
-      window.clearTimeout(shareCopyResetTimeoutRef.current);
-    }
-    shareCopyResetTimeoutRef.current = window.setTimeout(() => {
-      setHasCopiedShareInvite(false);
-    }, 4500);
-  }
-
-  async function handleStartShare() {
-    if (typeof window === "undefined" || isStartingShare) {
-      return;
-    }
-
-    const roomName = collaborationView.pendingShareRoom;
-    setIsStartingShare(true);
-    setHasCopiedShareInvite(false);
-    setShareUrl("");
-
-    try {
-      setCollaborationRoom(roomName);
-      setCollaborationMode("sharing");
-
-      const { url: inviteUrl, localOnly } = buildPublicShareUrl(
-        roomName,
-        parseSignalingUrls(collaborationSignaling),
-        collaborationPassword,
-        {
-          origin: window.location.origin,
-          pathname: window.location.pathname,
-          publicAppUrl: import.meta.env.VITE_PUBLIC_APP_URL,
-        },
-      );
-      // Kept whether or not the copy below works, so the Copy share link
-      // buttons can copy it again for the rest of the session.
-      setShareUrl(inviteUrl);
-
-      try {
-        await navigator.clipboard.writeText(inviteUrl);
-        showShareCopiedBadge();
-        setStatus(
-          localOnly
-            ? "Invite copied, but it only works on this computer or network. Share from the deployed app to invite others. Click Stop Share to disconnect."
-            : "Public sharing is live. Invite copied. Click Stop Share to disconnect.",
-        );
-      } catch (error) {
-        setStatus(shareCopyFailedStatus(error));
-      }
-
-      setIsShareDialogOpen(false);
-    } finally {
-      setIsStartingShare(false);
-    }
-  }
-
-  function handleStopShare() {
-    collaborationControllerRef.current?.destroy();
-    collaborationControllerRef.current = null;
-    setCollaborationState(IDLE_COLLABORATION_STATE);
-    setCollaborationMode("idle");
-    setShareUrl("");
-    setStatus("Public sharing stopped. Signaling socket disconnected.");
-  }
-
-  function handleDisconnectConnection() {
-    forgetJoinedRoom();
-    const href = removeInviteParams(window.location.href);
-    if (href) {
-      window.history.replaceState(window.history.state, "", href);
-    }
-    collaborationControllerRef.current?.destroy();
-    collaborationControllerRef.current = null;
-    setCollaborationState(IDLE_COLLABORATION_STATE);
-    setCollaborationMode("idle");
-    setStatus("Disconnected from the shared collaboration session.");
-  }
-
-  async function handleConnectToShare() {
-    if (isStartingConnect) {
-      return;
-    }
-
-    setIsStartingConnect(true);
-    try {
-      const invite = parseCollaborationInvite(connectInviteValue);
-      // Save this browser's own session before the shared one replaces it.
-      await flushWorkspaceSession();
-      viewingSharedSessionRef.current = true;
-      rememberJoinedRoom(invite.room, invite.password);
-      window.history.replaceState(
-        window.history.state,
-        "",
-        withJoinedRoom(window.location.href, invite.room, invite.signaling),
-      );
-      setCollaborationRoom(invite.room);
-      setCollaborationSignaling(invite.signaling);
-      setCollaborationPassword(invite.password);
-      setCollaborationMode("connected");
-      setIsConnectDialogOpen(false);
-      setConnectInviteValue("");
-      setStatus(`Connecting to collaboration room "${invite.room}".`);
-    } catch (error) {
-      setStatus(
-        `Unable to connect with that invite: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    } finally {
-      setIsStartingConnect(false);
     }
   }
 

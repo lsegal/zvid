@@ -15,6 +15,10 @@ import {
 
 const appCss = readFileSync(new URL("./App.css", import.meta.url), "utf8");
 const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const usePeerMediaTs = readFileSync(
+  new URL("./hooks/usePeerMedia.ts", import.meta.url),
+  "utf8",
+);
 const useMainAudioTs = readFileSync(
   new URL("./hooks/useMainAudio.ts", import.meta.url),
   "utf8",
@@ -201,9 +205,12 @@ describe("peer media sync status", () => {
 
 describe("media sync rendering", () => {
   it("feeds per-media progress from requestMedia and clears it when settled", () => {
-    const start = appTsx.indexOf("controller.requestMedia(mediaId");
+    const start = usePeerMediaTs.indexOf("controller.requestMedia(mediaId");
     assert.notEqual(start, -1, "missing peer media request");
-    const block = appTsx.slice(start, appTsx.indexOf("})();", start));
+    const block = usePeerMediaTs.slice(
+      start,
+      usePeerMediaTs.indexOf("})();", start),
+    );
     assert.match(block, /onProgress\(received, total\)/);
     assert.match(block, /withPeerMediaProgress\(map, mediaId/);
     assert.match(block, /PEER_MEDIA_STATUS_INTERVAL_MS/);
@@ -211,8 +218,11 @@ describe("media sync rendering", () => {
       block,
       /finally \{[\s\S]*withoutPeerMediaProgress\(map, mediaId\)/,
     );
-    assert.match(appTsx, /withQueuedPeerMedia\(map, queuedIds\)/);
-    assert.match(appTsx, /formatPeerMediaSyncStatus\(peerMediaProgress\)/);
+    assert.match(usePeerMediaTs, /withQueuedPeerMedia\(map, queuedIds\)/);
+    assert.match(
+      usePeerMediaTs,
+      /formatPeerMediaSyncStatus\(peerMediaProgress\)/,
+    );
   });
 
   it("draws the skeleton on clips, source spans and the Audio row", () => {
