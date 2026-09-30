@@ -716,9 +716,11 @@ fn run(command: &mut Command, what: &str) -> Result<(), String> {
     }
 }
 
-/// Base name of the installer for `version`, without its extension.
-fn installer_name(version: &str) -> String {
-    format!("zvid-capture-{version}")
+/// Base name of the installer for `os`, without its extension. It carries
+/// no version, so each build's installer replaces the published one under
+/// the same name; the version is stamped inside the installer instead.
+fn installer_name(os: &str) -> String {
+    format!("zvid-capture-{os}")
 }
 
 /// Builds the macOS installer package for the signed `bundles`, which
@@ -778,7 +780,7 @@ fn package_macos(
     fs::write(&distribution, distribution_xml(version))
         .map_err(|error| io(&distribution, error))?;
     fs::create_dir_all(output).map_err(|error| io(output, error))?;
-    let package = output.join(format!("{}.pkg", installer_name(version)));
+    let package = output.join(format!("{}.pkg", installer_name("macos")));
     let installer_identity = std::env::var(INSTALLER_IDENTITY_ENV)
         .ok()
         .filter(|identity| !identity.trim().is_empty());
@@ -965,7 +967,7 @@ fn package_windows(
 ) -> Result<PathBuf, String> {
     let iscc = find_iscc()
         .ok_or("Inno Setup 6 was not found; install it or set ISCC to the path of ISCC.exe")?;
-    let name = format!("{}-setup", installer_name(version));
+    let name = format!("{}-setup", installer_name("windows"));
     run(
         Command::new(&iscc)
             .args(iscc_args(version, bundle_dir, output, &name, with_app))
@@ -1798,12 +1800,18 @@ mod tests {
     }
 
     #[test]
+    fn names_installers_without_a_version() {
+        assert_eq!(installer_name("macos"), "zvid-capture-macos");
+        assert_eq!(installer_name("windows"), "zvid-capture-windows");
+    }
+
+    #[test]
     fn inno_defines_the_app_only_when_packaged() {
         let dir = Path::new("bundle");
         let out = Path::new("out");
-        let plugin_only = iscc_args("1.0.0+abc", dir, out, "zvid-capture-1.0.0-setup", false);
+        let plugin_only = iscc_args("1.0.0+abc", dir, out, "zvid-capture-windows-setup", false);
         assert!(!plugin_only.iter().any(|arg| arg.starts_with("/DAppExe=")));
-        let with_app = iscc_args("1.0.0+abc", dir, out, "zvid-capture-1.0.0-setup", true);
+        let with_app = iscc_args("1.0.0+abc", dir, out, "zvid-capture-windows-setup", true);
         assert!(with_app.contains(&format!("/DAppExe={APP_NAME}.exe")));
     }
 
@@ -1950,7 +1958,7 @@ mod tests {
             "0.1.0+c94f40e-dirty",
             Path::new("target/bundle"),
             Path::new("target/installer"),
-            "zvid-capture-0.1.0+c94f40e-dirty-setup",
+            "zvid-capture-windows-setup",
             true,
         );
         assert!(args.contains(&"/DAppVersion=0.1.0+c94f40e-dirty".into()));

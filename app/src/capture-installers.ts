@@ -1,11 +1,11 @@
-// ZVID Capture installer downloads. The Cloudflare build
-// (scripts/fetch-capture-installers.ts) copies the installers from the latest
-// successful `DAW bundles` run on main into /downloads and describes them in
-// a manifest the Help → Install Capture Plugin dialog reads.
+// ZVID Capture installer downloads. Every merge to main, the `DAW bundles`
+// workflow overwrites the installers in the zvid-downloads R2 bucket under
+// fixed names and describes them in a manifest the Help → Install Capture
+// Plugin dialog reads. The Worker serves the bucket at /downloads
+// (worker/downloads.ts).
 
-export const CAPTURE_INSTALLERS_DIR = "downloads";
-export const CAPTURE_INSTALLERS_MANIFEST = "zvid-capture.json";
-export const CAPTURE_INSTALLERS_MANIFEST_URL = `/${CAPTURE_INSTALLERS_DIR}/${CAPTURE_INSTALLERS_MANIFEST}`;
+export const CAPTURE_INSTALLERS_DIR = "downloads/capture";
+export const CAPTURE_INSTALLERS_MANIFEST_URL = `/${CAPTURE_INSTALLERS_DIR}/manifest.json`;
 
 export type CapturePlatform = "macos" | "windows";
 
@@ -21,44 +21,20 @@ export const CAPTURE_PLATFORM_LABELS: Record<CapturePlatform, string> = {
 
 export type CaptureInstaller = {
   platform: CapturePlatform;
-  // The installer's file name inside /downloads.
+  // The installer's file name inside /downloads/capture.
   file: string;
   size: number;
+  sha256: string;
 };
 
 export type CaptureInstallersManifest = {
+  // The version stamped into the installers, `<version>+<sha>`.
   version: string;
-  commit: string;
-  runUrl: string;
+  // The commit the installers were built from.
+  sha: string;
+  builtAt: string;
   installers: CaptureInstaller[];
 };
-
-// The `DAW bundles` workflow names artifacts
-// `zvid-capture-<version>-<sha>-<platform>`.
-const ARTIFACT_PLATFORMS: Record<string, CapturePlatform> = {
-  "macos-universal": "macos",
-  "windows-x64": "windows",
-};
-
-export function artifactPlatform(name: string): CapturePlatform | null {
-  const match = /^zvid-capture-.+-(macos-universal|windows-x64)$/.exec(name);
-  return match ? ARTIFACT_PLATFORMS[match[1]] : null;
-}
-
-// The installer inside a bundle zip: the .pkg on macOS, the Inno Setup
-// `-setup.exe` on Windows. macOS resource-fork entries are skipped.
-export function isCaptureInstallerEntry(
-  name: string,
-  platform: CapturePlatform,
-) {
-  if (name.endsWith("/") || name.split("/").includes("__MACOSX")) {
-    return false;
-  }
-  const lower = name.toLowerCase();
-  return platform === "macos"
-    ? lower.endsWith(".pkg")
-    : lower.endsWith("-setup.exe");
-}
 
 // The platform a browser runs on, from `navigator.userAgentData.platform`,
 // `navigator.platform` or the user agent. iPhones and iPads report Mac-like
@@ -88,16 +64,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-// Validates a fetched manifest. Deployments without installers serve the
-// SPA's index.html at the manifest URL, which is not JSON at all.
+// Validates a fetched manifest, which is missing (a 404) until the DAW
+// bundles workflow first publishes the installers.
 export function parseCaptureInstallersManifest(
   value: unknown,
 ): CaptureInstallersManifest | null {
   if (
     !isRecord(value) ||
     typeof value.version !== "string" ||
-    typeof value.commit !== "string" ||
-    typeof value.runUrl !== "string" ||
+    typeof value.sha !== "string" ||
+    typeof value.builtAt !== "string" ||
     !Array.isArray(value.installers)
   ) {
     return null;
@@ -108,13 +84,14 @@ export function parseCaptureInstallersManifest(
       CAPTURE_PLATFORMS.includes(installer.platform as CapturePlatform) &&
       typeof installer.file === "string" &&
       installer.file !== "" &&
-      typeof installer.size === "number",
+      typeof installer.size === "number" &&
+      typeof installer.sha256 === "string",
   );
   return installers.length > 0
     ? {
         version: value.version,
-        commit: value.commit,
-        runUrl: value.runUrl,
+        sha: value.sha,
+        builtAt: value.builtAt,
         installers,
       }
     : null;
