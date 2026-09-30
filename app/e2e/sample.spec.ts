@@ -19,9 +19,6 @@ function lane(page: Page, id: string) {
 }
 
 async function expectSampleOpen(page: Page) {
-  await expect(page.getByText("zvid opening sample").first()).toBeVisible({
-    timeout: 60_000,
-  });
   await expect(page.getByText("Media linked")).toBeVisible({
     timeout: 60_000,
   });
@@ -45,6 +42,9 @@ test("File → Open Sample opens the editable sample with all its media", async 
   await openFileMenu(page);
   await page.getByRole("menuitem", { name: "Open Sample" }).click();
   await expectSampleOpen(page);
+  await expect(
+    page.getByText("zvid opening sample", { exact: true }).first(),
+  ).toBeVisible();
 
   // A refresh restores the sample from the autosave and the media cache.
   await page.reload();
