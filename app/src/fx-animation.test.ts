@@ -12,10 +12,13 @@ import {
   type EffectAnimation,
   getAnimatableParameters,
   getAnimationDefaults,
+  getAnimationModes,
   getClipTimingFrames,
   getReactiveTimingFrames,
   normalizeEffectAnimation,
+  type ReactiveAnimation,
   supportsAnimation,
+  supportsAnimationMode,
   toggleAnimatedParameter,
 } from "./fx-animation-defaults.ts";
 import {
@@ -112,19 +115,36 @@ describe("animation defaults", () => {
       timing: "Normal",
     });
     assert.equal(getAnimationDefaults("Move")?.clip.motionIn, "Linear");
-    assert.equal(getAnimationDefaults("Move")?.reactive.motion, "Wobble");
+    assert.equal(getAnimationDefaults("Move")?.reactive?.motion, "Wobble");
     assert.equal(
-      getAnimationDefaults("AnalogGlitch")?.reactive.reactivity,
+      getAnimationDefaults("AnalogGlitch")?.reactive?.reactivity,
       0.6,
     );
-    assert.deepEqual(getAnimationDefaults("Transform")?.reactive.parameters, [
+    assert.deepEqual(getAnimationDefaults("Transform")?.reactive?.parameters, [
       "ScaleX",
       "ScaleY",
     ]);
-    assert.deepEqual(getAnimationDefaults("Text")?.reactive.parameters, [
+    assert.deepEqual(getAnimationDefaults("Text")?.reactive?.parameters, [
       "FontSize",
       "LetterSpacing",
     ]);
+  });
+
+  it("offers Order only Clip mode, and every other effect both", () => {
+    assert.deepEqual(getAnimationModes("Order"), ["clip"]);
+    assert.equal(supportsAnimationMode("Order", "reactive"), false);
+    assert.equal(getAnimationDefaults("Order")?.reactive, undefined);
+    assert.equal(createDefaultAnimation("Order")?.reactive, undefined);
+    for (const effectName of KNOWN_EFFECTS.filter(supportsAnimation)) {
+      if (effectName !== "Order") {
+        assert.deepEqual(
+          getAnimationModes(effectName),
+          ["clip", "reactive"],
+          effectName,
+        );
+      }
+    }
+    assert.deepEqual(getAnimationModes("Layout"), []);
   });
 
   it("modulates only knobs of the effect by default", () => {
@@ -132,8 +152,8 @@ describe("animation defaults", () => {
       const knobs = getAnimatableParameters(effectName).map(
         (parameter) => parameter.key,
       );
-      for (const key of getAnimationDefaults(effectName)?.reactive.parameters ??
-        []) {
+      for (const key of getAnimationDefaults(effectName)?.reactive
+        ?.parameters ?? []) {
         assert.ok(knobs.includes(key), `${effectName} ${key}`);
       }
     }
@@ -168,11 +188,12 @@ describe("animation defaults", () => {
   });
 
   it("hands out copies that don't share the defaults", () => {
-    const animation = createDefaultAnimation("Order");
-    animation?.reactive.parameters.push("GridSize");
-    assert.deepEqual(createDefaultAnimation("Order")?.reactive.parameters, [
-      "Spacing",
-    ]);
+    const animation = createDefaultAnimation("Transform");
+    animation?.reactive?.parameters.push("Rotation");
+    assert.deepEqual(
+      createDefaultAnimation("Transform")?.reactive?.parameters,
+      ["ScaleX", "ScaleY"],
+    );
   });
 });
 
@@ -210,7 +231,7 @@ describe("getAnimatableParameters", () => {
     assert.deepEqual(getAnimatableParameters("Color"), [
       { key: "Opacity", label: "Opacity" },
     ]);
-    assert.deepEqual(getAnimationDefaults("Color")?.reactive.parameters, [
+    assert.deepEqual(getAnimationDefaults("Color")?.reactive?.parameters, [
       "Opacity",
     ]);
   });
@@ -301,10 +322,13 @@ describe("setEffectAnimation", () => {
     const [reactive] = setEffectAnimation([effect], "transform", {
       ...animation,
       mode: "reactive",
-      reactive: { ...animation.reactive, reactivity: 0.8 },
+      reactive: {
+        ...(animation.reactive as ReactiveAnimation),
+        reactivity: 0.8,
+      },
     });
     assert.equal(reactive.animation?.mode, "reactive");
-    assert.equal(reactive.animation?.reactive.reactivity, 0.8);
+    assert.equal(reactive.animation?.reactive?.reactivity, 0.8);
     assert.deepEqual(reactive.animation?.clip, animation.clip);
   });
 
@@ -321,21 +345,39 @@ describe("setEffectAnimation", () => {
   });
 
   it("clamps and cleans the settings it is given", () => {
+    const effects = [animated(createEffect("6", "Transform", "transform"))];
+    const animation = effects[0].animation as EffectAnimation;
+    const [next] = setEffectAnimation(effects, "transform", {
+      ...animation,
+      reactive: {
+        ...(animation.reactive as ReactiveAnimation),
+        reactivity: 4,
+        parameters: ["ScaleX", "ScaleX", "Rotation"],
+      },
+    });
+    assert.equal(next.animation?.reactive?.reactivity, 1);
+    assert.deepEqual(next.animation?.reactive?.parameters, [
+      "ScaleX",
+      "Rotation",
+    ]);
+  });
+
+  it("keeps an Order in Clip mode", () => {
     const effects = [animated(createEffect("6", "Order", "order"))];
     const animation = effects[0].animation as EffectAnimation;
     const [next] = setEffectAnimation(effects, "order", {
       ...animation,
+      mode: "reactive",
       reactive: {
-        ...animation.reactive,
-        reactivity: 4,
-        parameters: ["Spacing", "Spacing", "GridSize"],
+        motion: "Bounce",
+        timing: "Normal",
+        reactivity: 1,
+        parameters: ["Spacing"],
       },
     });
-    assert.equal(next.animation?.reactive.reactivity, 1);
-    assert.deepEqual(next.animation?.reactive.parameters, [
-      "Spacing",
-      "GridSize",
-    ]);
+    assert.equal(next, effects[0]);
+    assert.equal(next.animation?.mode, "clip");
+    assert.equal(next.animation?.reactive, undefined);
   });
 
   it("is labeled for history", () => {
@@ -396,6 +438,33 @@ describe("normalizeEffectAnimation", () => {
           reactivity: 0.5,
           parameters: ["_HueOffset"],
         },
+      },
+    );
+  });
+
+  it("loads a saved Reactive Order in Clip mode and drops its Reactive settings", () => {
+    const saved = {
+      enabled: true,
+      mode: "reactive",
+      clip: { motionIn: "Linear", motionOut: "Ease In", timing: "Fast" },
+      reactive: {
+        motion: "Bounce",
+        timing: "Normal",
+        reactivity: 0.3,
+        parameters: ["Spacing"],
+      },
+    };
+    assert.deepEqual(normalizeEffectAnimation(saved, "Order"), {
+      enabled: true,
+      mode: "clip",
+      clip: { motionIn: "Linear", motionOut: "Ease In", timing: "Fast" },
+    });
+    assert.deepEqual(
+      normalizeEffectAnimation({ ...saved, enabled: false }, "Order"),
+      {
+        enabled: false,
+        mode: "clip",
+        clip: { motionIn: "Linear", motionOut: "Ease In", timing: "Fast" },
       },
     );
   });
@@ -551,14 +620,15 @@ describe("animation in a device's life", () => {
   });
 
   it("is carried by a duplicated device, as its own copy", () => {
-    const effects = [animated(createEffect("6", "Order", "order"))];
-    const duplicated = duplicateEffect(effects, "order", "copy");
+    const effects = [animated(createEffect("6", "Transform", "transform"))];
+    const duplicated = duplicateEffect(effects, "transform", "copy");
     const copy = duplicated.find((effect) => effect.id === "copy");
     assert.deepEqual(copy?.animation, effects[0].animation);
     assert.notEqual(copy?.animation, effects[0].animation);
+    assert.ok(copy?.animation?.reactive);
     assert.notEqual(
-      copy?.animation?.reactive.parameters,
-      effects[0].animation?.reactive.parameters,
+      copy.animation.reactive.parameters,
+      effects[0].animation?.reactive?.parameters,
     );
   });
 

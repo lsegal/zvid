@@ -149,7 +149,7 @@ export function FxAnimationPanel({
                 accent={device.accent}
                 defaultValue={
                   createDefaultAnimation(device.effectName)?.reactive
-                    .reactivity ?? 0.5
+                    ?.reactivity ?? 0.5
                 }
                 format={formatReactivity}
                 label="Reactivity"
