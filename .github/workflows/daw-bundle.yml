@@ -200,6 +200,32 @@ jobs:
           esac
           echo "name=zvid-capture-$version-$sha-${{ matrix.platform }}" >> "$GITHUB_OUTPUT"
 
+      # Records the shipped binary and installer sizes in the job summary, so
+      # size regressions show up on every run, PRs included.
+      - name: Report sizes
+        run: |
+          size() {
+            bytes=$(wc -c < "$2" | tr -d ' ')
+            awk -v label="$1" -v bytes="$bytes" \
+              'BEGIN { printf "| %s | %.1f MiB (%d bytes) |\n", label, bytes / 1048576, bytes }'
+          }
+          {
+            echo "### Sizes (${{ matrix.platform }})"
+            echo
+            echo "| file | size |"
+            echo "|---|---|"
+            if [ "$RUNNER_OS" = macOS ]; then
+              size "zvid-tauri" "$ZVID_APP/Contents/MacOS/zvid-tauri"
+              size "VST3" "target/bundle/ZVID Capture.vst3/Contents/MacOS/ZVID Capture"
+              size "AU" "target/bundle/ZVID Capture.component/Contents/MacOS/ZVID Capture"
+              size "installer" target/installer/*.pkg
+            else
+              size "zvid-tauri" "$ZVID_APP"
+              size "VST3" "target/bundle/ZVID Capture.vst3/Contents/x86_64-win/ZVID Capture.vst3"
+              size "installer" target/installer/*-setup.exe
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Verify universal binaries
         if: runner.os == 'macOS'
         run: |
