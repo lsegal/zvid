@@ -27,6 +27,17 @@ const playerTsx = readFileSync(
   new URL("./CompositionPlayer.tsx", import.meta.url),
   "utf8",
 );
+const livePlayheadTsx = readFileSync(
+  new URL("./components/LivePlayhead.tsx", import.meta.url),
+  "utf8",
+);
+const timelineCss = (name: string) =>
+  readFileSync(
+    new URL(`./components/timeline/${name}.css`, import.meta.url),
+    "utf8",
+  );
+const cssRule = (css: string, className: string) =>
+  css.match(new RegExp(`(^|\\n)\\.${className} \\{[^}]*\\}`))?.[0] ?? "";
 
 function playbackLoop() {
   const start = usePlaybackTs.indexOf("const step = (timestamp: number) => {");
@@ -70,5 +81,30 @@ describe("playback rendering", () => {
       playerTsx,
       /renderer\.renderPreviewFrame\(livePlayheadQ, pixelRatio\)/,
     );
+  });
+
+  // WebKit repaints on the main thread whatever a moving playhead dirties,
+  // which held Safari playback to about 30 fps (#620).
+  it("moves the playhead lines without repainting the timeline", () => {
+    const line = livePlayheadTsx.slice(
+      livePlayheadTsx.indexOf("export function PlayheadLine"),
+      livePlayheadTsx.indexOf("export function TransportPlayheadReadout"),
+    );
+    assert.match(line, /transform: `translateX\(\$\{left\}px\)/);
+    assert.doesNotMatch(line, /style=\{\{ left \}\}/);
+    for (const [sheet, className] of [
+      ["timeline", "timeline-playhead"],
+      ["ruler", "timeline-playhead-marker"],
+    ]) {
+      const rule = cssRule(timelineCss(sheet), className);
+      assert.match(rule, /will-change: transform;/, className);
+      assert.doesNotMatch(rule, /\btransform: translate/, className);
+    }
+  });
+
+  it("keeps backdrop blur off the ruler that holds the playhead marker", () => {
+    const rule = cssRule(timelineCss("ruler"), "ruler-row");
+    assert.notEqual(rule, "");
+    assert.doesNotMatch(rule, /^\s*backdrop-filter:/m);
   });
 });
