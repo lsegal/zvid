@@ -5,6 +5,7 @@ import {
   RELINK_DURATION_TOLERANCE_SECONDS,
 } from "../app/constants.ts";
 import {
+  mediaFrameRate,
   mergeMediaItemsById,
   patchProjectState,
 } from "../app/session-project.ts";
@@ -506,6 +507,10 @@ export function useMediaLibraryCommands({
             if (sizedMedia?.width && sizedMedia.height) {
               patch.canvasWidth = Math.max(320, sizedMedia.width);
               patch.canvasHeight = Math.max(320, sizedMedia.height);
+            }
+            const fps = mediaFrameRate(analyzed);
+            if (fps) {
+              patch.fps = fps;
             }
           }
 

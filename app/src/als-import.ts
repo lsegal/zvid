@@ -10,6 +10,12 @@ import {
   type RecordRoot,
 } from "./import/als/parse.ts";
 import type { LvpSession, ServerMediaRef } from "./session.ts";
+import {
+  applySessionFormat,
+  detectSessionFormat,
+  probeRefs,
+  type VideoFormatProbe,
+} from "./session-format.ts";
 
 // Opening an Ableton Live set (.als) as a zvid session. The set only names the
 // Layers recordings and audio samples it uses, so the harnesses locate those
@@ -38,9 +44,11 @@ export type AlsImportSummary = {
   missingMedia: string[];
   /** Set when the set had no Layers video, so every clip is a placeholder. */
   noLayersVideo?: boolean;
+  /** Notes on the canvas size and frame rate detected from the media. */
+  formatNotes?: string[];
 };
 
-export type RecordingProbe = {
+export type RecordingProbe = VideoFormatProbe & {
   numFrames: number;
   frameRate: number;
 };
@@ -404,8 +412,13 @@ export function resolveAlsMedia(
   };
 }
 
-// Fills each located recording's frame count and rate from the file itself.
-// A recording that cannot be probed is left as it is.
+// Fills each located recording's frame count and rate from the file itself,
+// then sets the session's canvas size and frame rate from the probed video
+// (see `detectSessionFormat`). A recording that cannot be probed is left as it
+// is, and without any probe the set's plugin metadata, or the defaults, stay.
+// A detected rate that differs from the set's rescales every frame position,
+// so the clips keep their times. `formatNotes` are lines for the import
+// summary, such as a note on mixed recording sizes.
 //
 // Layers lines each audio take on a `layersRecordTracks` track up with the end
 // of its video rather than with the recording's stored `frameStart`, so once
@@ -420,38 +433,31 @@ export async function probeAlsRecordings(
   recordingRefs: Array<Pick<ServerMediaRef, "path" | "url" | "exists">>,
   probe: (url: string) => Promise<RecordingProbe | null>,
   layersRecordTracks: readonly string[] = [],
-): Promise<LvpSession> {
-  const probes = new Map<string, RecordingProbe>();
-  await Promise.all(
-    recordingRefs.map(async (ref) => {
-      if (!ref.exists || !ref.url) {
-        return;
-      }
-
-      try {
-        const result = await probe(ref.url);
-        if (result) {
-          probes.set(ref.path, result);
-        }
-      } catch {
-        // An unreadable recording still opens; it just lacks frame metadata.
-      }
-    }),
-  );
-
+): Promise<{ session: LvpSession; formatNotes: string[] }> {
+  const probes = await probeRefs(recordingRefs, probe);
   if (!probes.size) {
-    return session;
+    return { session, formatNotes: [] };
   }
 
-  const tracks = session.tracks?.map((track) => ({
+  const { notes, ...detected } = detectSessionFormat(
+    Array.from(probes.values()),
+  );
+  const formatted = applySessionFormat(session, detected);
+  const tracks = formatted.tracks?.map((track) => ({
     ...track,
     recordings: track.recordings?.map((recording) => {
       const result = probes.get(recording.filename);
-      return result ? { ...recording, ...result } : recording;
+      return result
+        ? {
+            ...recording,
+            numFrames: result.numFrames,
+            frameRate: result.frameRate,
+          }
+        : recording;
     }),
   }));
   const endAligned = new Set(layersRecordTracks);
-  const fps = session.timeline?.fps;
+  const fps = formatted.timeline?.fps;
   // Seconds of video, by track id and recording filename.
   const videoSeconds = new Map<string, number>();
   for (const track of tracks ?? []) {
@@ -464,22 +470,38 @@ export async function probeAlsRecordings(
   }
 
   return {
-    ...session,
-    tracks,
-    clips: session.clips?.map((clip) => {
-      const seconds = videoSeconds.get(`${clip.trackId}:${clip.filePath}`);
-      const duration = clip.audioFileDuration;
-      if (
-        seconds === undefined ||
-        typeof duration !== "number" ||
-        !Number.isFinite(duration) ||
-        !fps
-      ) {
-        return clip;
-      }
-      return { ...clip, captureOffset: Math.round((seconds - duration) * fps) };
-    }),
+    session: {
+      ...formatted,
+      tracks,
+      clips: formatted.clips?.map((clip) => {
+        const seconds = videoSeconds.get(`${clip.trackId}:${clip.filePath}`);
+        const duration = clip.audioFileDuration;
+        if (
+          seconds === undefined ||
+          typeof duration !== "number" ||
+          !Number.isFinite(duration) ||
+          !fps
+        ) {
+          return clip;
+        }
+        return {
+          ...clip,
+          captureOffset: Math.round((seconds - duration) * fps),
+        };
+      }),
+    },
+    formatNotes: notes,
   };
+}
+
+// The import summary with the notes from `probeAlsRecordings` added.
+export function withFormatNotes(
+  summary: AlsImportSummary,
+  formatNotes: readonly string[],
+): AlsImportSummary {
+  return formatNotes.length
+    ? { ...summary, formatNotes: [...formatNotes] }
+    : summary;
 }
 
 function pluralize(count: number, singular: string, plural = `${singular}s`) {
@@ -506,5 +528,6 @@ export function formatAlsImportSummary(
       `${pluralize(summary.missingMedia.length, "media file")} could not be found and will open offline: ${summary.missingMedia.join(", ")}.`,
     );
   }
+  lines.push(...(summary.formatNotes ?? []));
   return lines;
 }

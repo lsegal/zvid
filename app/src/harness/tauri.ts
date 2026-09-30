@@ -8,6 +8,7 @@ import {
   isAlsSession,
   probeAlsRecordings,
   resolveAlsMedia,
+  withFormatNotes,
 } from "../als-import";
 import { siblingAudioFilename } from "../import/als/convert";
 import {
@@ -15,6 +16,7 @@ import {
   type ServerMediaRef,
   type SessionOpenResponse,
 } from "../session";
+import { detectOpenedSessionFormat } from "../session-format";
 import type { Harness } from "./contracts";
 import { exportVideo } from "./export";
 import { MEDIA_EXTENSIONS } from "./media-extensions";
@@ -97,7 +99,7 @@ export async function maybeCreateTauriHarness(
           imported,
           createAlsMediaLocator(dirs, (path) => found.has(path), recordDirOf),
         );
-      const probed = await probeAlsRecordings(
+      const { session: probed, formatNotes } = await probeAlsRecordings(
         session,
         recordingPaths.map(toMediaRef),
         probeRecordingFrames,
@@ -112,7 +114,7 @@ export async function maybeCreateTauriHarness(
             ? toMediaRef(path)
             : { ...toMediaRef(path), url: "", exists: false },
         ),
-        alsImport: summary,
+        alsImport: withFormatNotes(summary, formatNotes),
       };
     };
 
@@ -226,12 +228,18 @@ export async function maybeCreateTauriHarness(
         const payload = await invoke<SessionOpenPayload>("open_session", {
           sessionPath: selection.path,
         });
+        const mediaRefs = payload.mediaRefs.map((ref) => ({
+          ...ref,
+          url: ref.exists ? convertFileSrc(ref.path) : "",
+        }));
         return {
           ...payload,
-          mediaRefs: payload.mediaRefs.map((ref) => ({
-            ...ref,
-            url: ref.exists ? convertFileSrc(ref.path) : "",
-          })),
+          session: await detectOpenedSessionFormat(
+            payload.session,
+            mediaRefs,
+            probeRecordingFrames,
+          ),
+          mediaRefs,
         };
       },
       async analyzeMedia(selection, palettes, startIndex) {

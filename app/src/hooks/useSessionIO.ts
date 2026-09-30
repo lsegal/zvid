@@ -332,6 +332,7 @@ export function useSessionIO({
             clips: standalone.arrangementClips,
             canvasWidth: standalone.canvasWidth,
             canvasHeight: standalone.canvasHeight,
+            ...(standalone.fps && { fps: standalone.fps }),
             projectDurationFrames: undefined,
           }),
         );
