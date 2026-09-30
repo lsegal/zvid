@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import {
   ANIMATION_TIMINGS,
   CLIP_MOTIONS,
+  CLIP_TIMINGS,
   createDefaultAnimation,
   describeAnimatedParameters,
   type EffectAnimation,
@@ -122,7 +123,7 @@ export function FxAnimationPanel({
             <FxAnimationSegmented
               label="Timing"
               onChange={(timing) => setClip({ timing })}
-              options={ANIMATION_TIMINGS}
+              options={CLIP_TIMINGS}
               value={animation.clip.timing}
             />
             <FxAnimationSelect

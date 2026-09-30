@@ -52,6 +52,7 @@ import {
   readLabelWidth,
   readPreviewWidth,
 } from "./app/layout-prefs.ts";
+import { readHydratableMedia } from "./app/media-hydration.ts";
 import { patchProjectState } from "./app/session-project.ts";
 import { getShortcutLabels } from "./app/shortcut-labels.ts";
 import {
@@ -148,6 +149,7 @@ import { OfflineMediaDialog } from "./components/OfflineMediaDialog";
 import { PreviewTransformOverlay } from "./components/PreviewTransformOverlay";
 import { SessionSettingsDialog } from "./components/SessionSettingsDialog";
 import { ShareLinkIconButton } from "./components/ShareLinkButton";
+import { SourceEmptyState } from "./components/SourceEmptyState";
 import { StatusBar, type StatusMessage } from "./components/StatusBar";
 import { TempoPill } from "./components/TempoPill";
 import {
@@ -219,6 +221,7 @@ import {
   useProjectStore,
 } from "./hooks/useProjectStore.ts";
 import { useRulerGestures } from "./hooks/useRulerGestures.ts";
+import { useSampleProject } from "./hooks/useSampleProject.tsx";
 import { useSessionIO } from "./hooks/useSessionIO.ts";
 import { useSourceTrackDrop } from "./hooks/useSourceTrackDrop.ts";
 import { useTimelineViewport } from "./hooks/useTimelineViewport.ts";
@@ -233,7 +236,6 @@ import { MainWaveform } from "./MainWaveform";
 import type { MediaItem } from "./media";
 import {
   cacheMediaBlob,
-  getCachedMediaBlob,
   migrateMediaCache,
   setCachedMediaSession,
 } from "./media-cache";
@@ -1402,32 +1404,22 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       void (async () => {
         let restored = false;
         try {
-          const cachedBlob = await getCachedMediaBlob(item.id);
-          if (cachedBlob) {
-            if (isRemoved(item.id)) {
-              return;
-            }
-
-            await adoptMediaBlob(item.id, cachedBlob);
-            restored = true;
-            return;
-          }
-
-          if (!item.sourcePath && !item.previewUrl) {
+          const media = await readHydratableMedia(item);
+          if (!media) {
             if (!isRemoved(item.id)) {
               setLocalMediaOverride(item.id, { availability: "offline" });
             }
             return;
           }
-
-          const blob = await getHarness().readMediaBlob(item);
           if (isRemoved(item.id)) {
             // Keep the bytes so the next hydration pass is a cache hit.
-            await cacheMediaBlob(item.id, blob);
+            if (!media.cached) {
+              await cacheMediaBlob(item.id, media.blob);
+            }
             return;
           }
 
-          await adoptMediaBlob(item.id, blob);
+          await adoptMediaBlob(item.id, media.blob);
           restored = true;
         } catch (error) {
           logClient("media:hydrate:error", {
@@ -1965,6 +1957,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   ]);
 
   const {
+    openSamplePayload,
     handleImport,
     handleOpenSession,
     handleOpenWorkspace,
@@ -1994,6 +1987,13 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     claimWorkspaceSession,
     reportSessionMediaCheck,
     refuseReadOnlyEdit,
+    setStatus,
+  });
+  const sample = useSampleProject({
+    boot,
+    isPristine: () => isPristineProjectHistory(projectHistory),
+    refuseReadOnlyEdit,
+    openSamplePayload,
     setStatus,
   });
 
@@ -2275,6 +2275,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => void handleOpenWorkspace()}>
                 Open Workspace
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={sample.handleOpenSample}>
+                Open Sample
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => void handleImport()}>
                 Import Media
@@ -2592,6 +2595,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         relinkingIds={relinkingMediaIds}
       />
 
+      {sample.dialog}
       <MediaStorageDialog
         onCleared={handleMediaStorageCleared}
         onOpenChange={setIsMediaStorageDialogOpen}
@@ -3762,24 +3766,11 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                         </span>
                       ) : null}
                       {sourceTracks.length ? null : (
-                        <div className="source-empty-state">
-                          <span>No source media yet</span>
-                          <button
-                            className="ghost-button ghost-button--accent"
-                            onClick={() => void handleImport()}
-                            type="button"
-                          >
-                            Import Media
-                          </button>
-                          <button
-                            className="ghost-button"
-                            onClick={() => void handleOpenSession()}
-                            title="Open a .lvp session or an Ableton .als set"
-                            type="button"
-                          >
-                            Open Session
-                          </button>
-                        </div>
+                        <SourceEmptyState
+                          onImport={() => void handleImport()}
+                          onOpenSample={sample.handleOpenSample}
+                          onOpenSession={() => void handleOpenSession()}
+                        />
                       )}
                     </div>
                   </section>
