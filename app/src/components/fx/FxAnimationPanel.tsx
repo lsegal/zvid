@@ -86,9 +86,11 @@ export function FxAnimationPanel({
   const setReactive = (
     patch: Partial<NonNullable<EffectAnimation["reactive"]>>,
     mode: FxEditMode = "commit",
-  ) =>
-    reactive &&
-    set({ ...animation, reactive: { ...reactive, ...patch } }, mode);
+  ) => {
+    if (reactive) {
+      set({ ...animation, reactive: { ...reactive, ...patch } }, mode);
+    }
+  };
 
   return (
     <section aria-label={label} className={className} style={style}>
