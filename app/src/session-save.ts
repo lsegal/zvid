@@ -11,6 +11,7 @@ import { type ClipWarp, warpSampleStartSeconds } from "./clip-warp.ts";
 import type { EffectAnimation } from "./fx-animation-defaults.ts";
 import { pruneExcludedLayers, renameClipEffectTracks } from "./fx-stack.ts";
 import type { LvpLayerClip, LvpSession } from "./session.ts";
+import type { SessionEncoding } from "./session-settings.ts";
 import type { WorkspaceSessionSource } from "./workspace-session.ts";
 
 export const SESSION_FILE_EXTENSION = ".lvp";
@@ -110,6 +111,7 @@ export type SaveableProject = {
   fps: number;
   canvasWidth: number;
   canvasHeight: number;
+  encoding?: SessionEncoding;
   zoom: number;
   timelineMode: string;
   snapEnabled: boolean;
@@ -354,6 +356,7 @@ export function projectToLvpSession(
       ...(project.projectDurationFrames !== undefined
         ? { projectDuration: project.projectDurationFrames }
         : {}),
+      ...(project.encoding ? { encoding: project.encoding } : {}),
     },
     playPosition: toFrames(quartersToSeconds(view.playheadQ, bpm), fps),
     ...(mainAudio

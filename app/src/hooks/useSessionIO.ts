@@ -157,6 +157,7 @@ export function useSessionIO({
         fps: project.fps,
         canvasWidth: project.canvasWidth,
         canvasHeight: project.canvasHeight,
+        encoding: project.encoding,
         timelineMode: project.displaySeconds ? "timecode" : "musical",
         snapMode: project.snapToBeat ? "beat" : "quarter",
         snapEnabled: project.snapToBeat,

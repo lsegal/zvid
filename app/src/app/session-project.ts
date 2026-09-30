@@ -18,6 +18,10 @@ import {
 import { clipSourceFrame, type LvpSession } from "../session.ts";
 import { snapFrameRate } from "../session-format.ts";
 import {
+  MIN_CANVAS_DIMENSION,
+  readSessionEncoding,
+} from "../session-settings.ts";
+import {
   readSelectionSlip,
   readSessionFills,
   readSessionFxClips,
@@ -273,8 +277,17 @@ export function sessionToProject(
   return {
     bpm,
     fps,
-    canvasWidth: Math.max(320, session.timeline?.canvasWidth ?? 1080),
-    canvasHeight: Math.max(320, session.timeline?.canvasHeight ?? 1920),
+    canvasWidth: Math.max(
+      MIN_CANVAS_DIMENSION,
+      session.timeline?.canvasWidth ?? 1080,
+    ),
+    canvasHeight: Math.max(
+      MIN_CANVAS_DIMENSION,
+      session.timeline?.canvasHeight ?? 1920,
+    ),
+    ...(session.timeline?.encoding !== undefined
+      ? { encoding: readSessionEncoding(session.timeline.encoding) }
+      : {}),
     lanes,
     sourceTracks,
     sourceSpans,
