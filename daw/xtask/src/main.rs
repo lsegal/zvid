@@ -1574,7 +1574,8 @@ mod tests {
         let plist = fs::read_to_string(macos.join("Info.plist")).unwrap();
         assert!(plist.contains("<string>ZVID Capture</string>"));
         assert!(
-            plist.contains("<key>CFBundleIdentifier</key>\n\t<string>cc.zvid.capture.vst3</string>")
+            plist
+                .contains("<key>CFBundleIdentifier</key>\n\t<string>cc.zvid.capture.vst3</string>")
         );
         assert!(plist.contains("<key>CFBundleVersion</key>\n\t<string>0.1.0+c94f40e</string>"));
         assert!(
