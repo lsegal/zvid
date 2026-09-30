@@ -5,11 +5,11 @@
 //! - `bundle [--release] [--installer] [--app <path>]`: builds the plugin and
 //!   lays it out as `target/bundle/ZVID Capture.vst3`, plus, on macOS,
 //!   `target/bundle/ZVID Capture.component`. `--release` stamps the version
-//!   with the commit and refuses to embed the placeholder UI; on macOS it
+//!   with the commit, refuses to embed the placeholder UI and, on macOS,
 //!   builds for Apple silicon (`aarch64-apple-darwin`) only, since Intel
-//!   Macs aren't supported. macOS bundles are ad-hoc signed, or, for a release build with
-//!   `ZVID_CODESIGN_IDENTITY` set, signed with that Developer ID identity and
-//!   the hardened runtime. The Live companion Remote Script goes to
+//!   Macs aren't supported. macOS bundles are ad-hoc signed, or, for a
+//!   release build with `ZVID_CODESIGN_IDENTITY` set, signed with that
+//!   Developer ID identity and the hardened runtime. The Live companion Remote Script goes to
 //!   `target/bundle/live-remote-script/ZVID_Capture`, and into each bundle's
 //!   `Contents/Resources/ZVID_Capture` for the editor's install button.
 //!   `--app` copies the desktop app built by `tauri build` (`zvid.app` on
@@ -247,7 +247,7 @@ fn target_dir(daw: &Path) -> PathBuf {
 fn host_test(flags: &[String]) -> Result<(), String> {
     let (vst3, component) = match flags {
         [] => {
-            let bundles = bundle(false, false, false, None)?;
+            let bundles = bundle(false, false, None)?;
             let extension = |ext: &str| {
                 bundles
                     .iter()
@@ -1726,13 +1726,13 @@ mod tests {
 
     #[test]
     fn installers_need_a_release_build() {
-        let error = bundle(false, false, true, None).unwrap_err();
+        let error = bundle(false, true, None).unwrap_err();
         assert!(error.contains("--release"), "{error}");
     }
 
     #[test]
     fn installers_need_the_desktop_app() {
-        let error = bundle(true, false, true, None).unwrap_err();
+        let error = bundle(true, true, None).unwrap_err();
         assert!(error.contains("--app"), "{error}");
     }
 
