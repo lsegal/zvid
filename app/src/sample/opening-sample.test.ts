@@ -96,13 +96,14 @@ describe("zvid opening sample", () => {
     assert.notEqual(sourceAt("orbit", 3), sourceAt("orbit", 4.5));
   });
 
-  it("alternates Horizontal and Vertical Orders whose ivory spacing animates", () => {
+  it("alternates Horizontal and Vertical Orders whose ivory spacing and margin animate", () => {
     const arrangements = (session.fxClips ?? [])
       .filter((clip) => clip.mainTrackId === "order")
       .map((clip) => {
         const [order] = effectsOn(`clip:${clip.id}`);
         assert.equal(order.effectName, "Order");
         assert.equal(numberParameter(order, "Spacing"), 108);
+        assert.equal(stringParameter(order, "OuterMargin"), "On");
         assert.equal(
           stringParameter(order, "BorderColor"),
           "rgba(243,226,191,1)",

@@ -246,9 +246,8 @@ test("the transform handles step aside while editing text", async ({
   // box fills the preview's height.
   await page.keyboard.press("ControlOrMeta+,");
   const settings = page.getByRole("dialog", { name: "Session Settings" });
-  await settings
-    .getByRole("combobox", { name: "Canvas preset" })
-    .selectOption("1080x1920");
+  await settings.getByRole("combobox", { name: "Canvas preset" }).click();
+  await page.getByRole("option", { name: "1080×1920 9:16" }).click();
   await settings.getByRole("button", { name: "Apply" }).click();
   await expect(settings).toBeHidden();
   const clip = await insertTextClip(page);

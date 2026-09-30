@@ -18,6 +18,23 @@ test.beforeEach(async ({ page }) => {
   await addVideoClip(page);
 });
 
+// Picks an option from one of the dialog's dropdowns.
+async function pick(dialog: Locator, name: string, option: string) {
+  await dialog.getByRole("combobox", { name, exact: true }).click();
+  await dialog
+    .page()
+    .getByRole("option", { name: option, exact: true })
+    .click();
+}
+
+function frameRate(dialog: Locator) {
+  return dialog.getByRole("combobox", { name: "Frame rate" });
+}
+
+async function frameRateValue(dialog: Locator) {
+  return ((await frameRate(dialog).textContent()) ?? "").replace(" fps", "");
+}
+
 async function addVideoClip(page: Page) {
   const base64 = (await readFile(VIDEO)).toString("base64");
   const dataTransfer = await page.evaluateHandle((data) => {
@@ -116,17 +133,17 @@ test("Export opens the dialog pre-filled with Session Settings, and overrides le
   let dialog = await openExportDialog(page);
   await expect(dialog.getByLabel("Width")).toHaveValue(String(sessionWidth));
   await expect(dialog.getByLabel("Height")).toHaveValue(String(sessionHeight));
-  const sessionFps = await dialog.getByLabel("Frame rate").inputValue();
+  const sessionFps = await frameRateValue(dialog);
   await expect(dialog.getByLabel("File name")).toHaveValue(/\.mp4$/);
   await expect(
     dialog.getByRole("img", { name: "Changed from Session Settings" }),
   ).toHaveCount(0);
 
   // Override the size, frame rate and codec for this export.
-  await dialog.getByLabel("Resolution preset").selectOption("720p");
+  await pick(dialog, "Resolution preset", "720p 16:9");
   const otherFps = sessionFps === "60" ? "24" : "60";
-  await dialog.getByLabel("Frame rate").selectOption(otherFps);
-  await dialog.getByLabel("Video codec").selectOption("auto");
+  await pick(dialog, "Frame rate", `${otherFps} fps`);
+  await pick(dialog, "Video codec", "Auto (best available)");
   await expect(modifiedDot(dialog, "resolution")).toBeVisible();
   await expect(modifiedDot(dialog, "fps")).toBeVisible();
   await expect(resolution.locator(".status-bar__value")).toHaveText(
@@ -140,14 +157,14 @@ test("Export opens the dialog pre-filled with Session Settings, and overrides le
     sessionResolution ?? "",
   );
   dialog = await openExportDialog(page);
-  await expect(dialog.getByLabel("Frame rate")).toHaveValue(otherFps);
+  await expect(frameRate(dialog)).toHaveText(`${otherFps} fps`);
   await expect(dialog.getByLabel("Width")).toHaveValue("1280");
 
   // Reset restores the Session Settings, which never changed.
   await dialog
     .getByRole("button", { name: "Reset to session settings" })
     .click();
-  await expect(dialog.getByLabel("Frame rate")).toHaveValue(sessionFps);
+  await expect(frameRate(dialog)).toHaveText(`${sessionFps} fps`);
   await expect(dialog.getByLabel("Width")).toHaveValue(String(sessionWidth));
   await expect(dialog.getByLabel("Height")).toHaveValue(String(sessionHeight));
   await expect(
@@ -189,7 +206,7 @@ test("dragging In and Out exports only that span", async ({ page }) => {
   const frames = await frameCount(dialog);
   expect(frames).toBeLessThan(fullFrames * 0.7);
   expect(frames).toBeGreaterThan(fullFrames * 0.3);
-  const fps = Number(await dialog.getByLabel("Frame rate").inputValue());
+  const fps = Number(await frameRateValue(dialog));
 
   const download = page.waitForEvent("download", { timeout: 120_000 });
   await dialog.getByRole("button", { name: "Export", exact: true }).click();
@@ -198,6 +215,64 @@ test("dragging In and Out exports only that span", async ({ page }) => {
   expect(Math.abs(readDurationSeconds(mp4) - frames / fps)).toBeLessThan(
     1.5 / fps,
   );
+  // Browser downloads can't be revealed, so the done state only closes.
+  await expect(dialog.getByRole("button", { name: "Close" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Reveal file" })).toHaveCount(
+    0,
+  );
+});
+
+test("Reveal file shows a native export in the file manager", async ({
+  page,
+}) => {
+  // Stands in for the desktop harness: saves to a path and can reveal it.
+  // The render still runs through the web harness's download flow.
+  await page.evaluate(() => {
+    const base = window.harness;
+    if (!base) throw new Error("no harness");
+    const revealed: unknown[] = [];
+    (window as { revealed?: unknown[] }).revealed = revealed;
+    window.harness = {
+      ...base,
+      capabilities: { ...base.capabilities, "reveal-saved-file": true },
+      async prepareSave(filename) {
+        return { kind: "native-path", filename, path: `/exports/${filename}` };
+      },
+      async exportVideo(request) {
+        const result = await base.exportVideo({
+          ...request,
+          saveTarget: { kind: "download", filename: request.filename },
+        });
+        return { ...result, saveMethod: "native-path" };
+      },
+      async revealSavedFile(target) {
+        revealed.push(target);
+      },
+    };
+  });
+
+  const dialog = await openExportDialog(page);
+  await dialog.getByLabel("Width").fill("320");
+  await dialog.getByLabel("Height").fill("180");
+  await dialog.getByLabel("File name").fill("reveal.mp4");
+  await dialog.getByRole("button", { name: "Export", exact: true }).click();
+  await expect(dialog.getByRole("status")).toContainText("Saved reveal.mp4", {
+    timeout: 120_000,
+  });
+
+  await dialog.getByRole("button", { name: "Reveal file" }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(() => (window as { revealed?: unknown[] }).revealed),
+    )
+    .toEqual([
+      {
+        kind: "native-path",
+        filename: "reveal.mp4",
+        path: "/exports/reveal.mp4",
+      },
+    ]);
+  await expect(dialog.getByRole("button", { name: "Close" })).toBeVisible();
 });
 
 test("playback loops from In to Out", async ({ page }) => {
@@ -248,8 +323,8 @@ test("playback loops from In to Out", async ({ page }) => {
 test("Cancel stops an export in progress", async ({ page }) => {
   const dialog = await openExportDialog(page);
   // A large, high-frame-rate export takes long enough to cancel.
-  await dialog.getByLabel("Resolution preset").selectOption("1080p");
-  await dialog.getByLabel("Frame rate").selectOption("60");
+  await pick(dialog, "Resolution preset", "1080p 16:9");
+  await pick(dialog, "Frame rate", "60 fps");
 
   await dialog.getByRole("button", { name: "Export", exact: true }).click();
   await expect(dialog.getByRole("progressbar")).toBeVisible();

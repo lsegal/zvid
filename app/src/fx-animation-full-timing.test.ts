@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { resolveVisualState } from "./composition-active-clips.ts";
+import { resolveSlotBounds } from "./composition-layout.ts";
 import { parseCompositionOrder, SPACING_MAX } from "./composition-order.ts";
 import {
+  applyClipAnimationWeight,
   resolveClipAnimatedParameters,
   resolveOrderSlide,
 } from "./fx-animation-clip.ts";
@@ -33,15 +35,21 @@ function fullAnimation(effectName: string): EffectAnimation {
   };
 }
 
-// The spacing an Order with `spacing` and Full timing is drawn with,
-// `elapsed` seconds into a clip of `duration`.
-function spacingAt(spacing: number, elapsed: number, duration: number) {
+// The Order with `spacing` and Full timing is drawn as, `elapsed` seconds
+// into a clip of `duration`.
+function orderAt(
+  spacing: number,
+  elapsed: number,
+  duration: number,
+  outerMargin = "Off",
+) {
   const parameters = resolveClipAnimatedParameters(
     {
       effectName: "Order",
       parameters: [
         { key: "Arrangement", value: "Horizontal" },
         { key: "Spacing", value: String(spacing), numericValue: spacing },
+        { key: "OuterMargin", value: outerMargin },
       ],
       animation: fullAnimation("Order"),
     },
@@ -54,7 +62,11 @@ function spacingAt(spacing: number, elapsed: number, duration: number) {
     },
     { playheadQ: 0, bpm: 120, fps: FPS },
   );
-  return parseCompositionOrder(parameters).spacing;
+  return parseCompositionOrder(parameters);
+}
+
+function spacingAt(spacing: number, elapsed: number, duration: number) {
+  return orderAt(spacing, elapsed, duration).spacing;
 }
 
 describe("Full clip timing", () => {
@@ -68,6 +80,36 @@ describe("Full clip timing", () => {
       Number.POSITIVE_INFINITY,
     );
     assert.equal(getClipTimingFrames("Layout", "Full"), undefined);
+  });
+
+  it("opens and closes an Order's outer margin with its gaps", () => {
+    // The left edge of the first of two columns on a 1080p canvas.
+    const marginAt = (elapsed: number) => {
+      const order = orderAt(108, elapsed, 3, "On");
+      assert.equal(order.outerMargin, true);
+      const slot = resolveSlotBounds(0, 2, order, 1920, 1080);
+      return ((slot.centerX - slot.halfWidth + 1) / 2) * 1920;
+    };
+    assertClose(marginAt(0), 0);
+    assertClose(marginAt(0.75), 54);
+    assertClose(marginAt(1.5), 108);
+    assertClose(marginAt(3), 0);
+
+    // The fixed timings tween it the same way.
+    const halfway = parseCompositionOrder(
+      applyClipAnimationWeight(
+        {
+          effectName: "Order",
+          parameters: [
+            { key: "Spacing", value: "108", numericValue: 108 },
+            { key: "OuterMargin", value: "On" },
+          ],
+        },
+        0.5,
+      ),
+    );
+    assert.equal(halfway.outerMargin, true);
+    assertClose(halfway.spacing, 54);
   });
 
   it("eases Order spacing open until the middle of the clip and closed by its end", () => {

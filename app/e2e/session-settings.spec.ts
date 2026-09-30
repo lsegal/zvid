@@ -24,14 +24,12 @@ test("File ▸ Session Settings applies canvas and frame rate as one undo step",
   const settings = dialog(page);
   await expect(settings).toBeVisible();
 
-  await settings
-    .getByRole("combobox", { name: "Canvas preset" })
-    .selectOption("1080x1920");
+  await settings.getByRole("combobox", { name: "Canvas preset" }).click();
+  await page.getByRole("option", { name: "1080×1920 9:16" }).click();
   await expect(settings.getByLabel("Canvas width")).toHaveValue("1080");
   await expect(settings.getByLabel("Canvas height")).toHaveValue("1920");
-  await settings.getByRole("combobox", { name: "Frame rate" }).selectOption({
-    label: "60 fps",
-  });
+  await settings.getByRole("combobox", { name: "Frame rate" }).click();
+  await page.getByRole("option", { name: "60 fps", exact: true }).click();
   await settings.getByRole("button", { name: "Apply" }).click();
 
   await expect(settings).toBeHidden();
