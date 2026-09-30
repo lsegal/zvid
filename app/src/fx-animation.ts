@@ -4,7 +4,10 @@
 // without an engine is drawn with its parameters as they are.
 
 import { resolveClipAnimatedParameters } from "./fx-animation-clip.ts";
-import type { EffectAnimation } from "./fx-animation-defaults.ts";
+import {
+  type EffectAnimation,
+  supportsAnimationMode,
+} from "./fx-animation-defaults.ts";
 import {
   placeOnsets,
   resolveReactiveParameters,
@@ -44,10 +47,16 @@ export type AnimationFrameContext = {
   audio?: AudioBands;
 };
 
-// Whether `effect`'s animation follows the main audio.
-export function reactsToAudio(effect: Pick<AnimatableEffect, "animation">) {
+// Whether `effect`'s animation follows the main audio. Effects that don't
+// support Reactive mode never do.
+export function reactsToAudio(
+  effect: Pick<AnimatableEffect, "animation" | "effectName">,
+) {
   return (
-    effect.animation?.enabled === true && effect.animation.mode === "reactive"
+    effect.animation?.enabled === true &&
+    effect.animation.mode === "reactive" &&
+    effect.animation.reactive !== undefined &&
+    supportsAnimationMode(effect.effectName, "reactive")
   );
 }
 
@@ -63,7 +72,7 @@ export function resolveAnimatedParameters(
   if (animation?.mode === "clip") {
     return resolveClipAnimatedParameters(effect, clipContext, frameContext);
   }
-  if (animation && reactsToAudio(effect)) {
+  if (animation?.reactive && reactsToAudio(effect)) {
     const time =
       frameContext.bpm > 0
         ? (frameContext.playheadQ * 60) / frameContext.bpm

@@ -28,6 +28,7 @@ import {
   type ClipAnimation,
   type ClipMotion,
   type EffectAnimation,
+  FULL_CLIP_TIMING,
   getAnimationNeutralValues,
   getClipTimingFrames,
 } from "./fx-animation-defaults.ts";
@@ -208,16 +209,24 @@ export function resolveClipAnimatedParameters(
     return effect.parameters;
   }
 
-  return applyClipAnimationWeight(
-    effect,
-    clipAnimationWeight(
-      clip,
-      frames,
-      frameContext.fps,
-      clipContext.elapsedSeconds,
-      clipContext.durationSeconds,
-    ),
+  const weight = clipAnimationWeight(
+    clip,
+    frames,
+    frameContext.fps,
+    clipContext.elapsedSeconds,
+    clipContext.durationSeconds,
   );
+  // With Full timing an Order stays on screen for its whole clip, so its
+  // border keeps its color and only the spacing tweens.
+  if (
+    clip.timing === FULL_CLIP_TIMING &&
+    effect.effectName === ORDER_EFFECT_NAME
+  ) {
+    return weight >= 1
+      ? effect.parameters
+      : interpolateFromNeutral(effect.effectName, effect.parameters, weight);
+  }
+  return applyClipAnimationWeight(effect, weight);
 }
 
 // The slide an Order with this animation gives its layers, at `fps`, or
@@ -226,7 +235,14 @@ export function resolveOrderSlide(
   animation: EffectAnimation | undefined,
   fps: number,
 ): OrderSlide | undefined {
-  if (!animation?.enabled || animation.mode !== "clip") {
+  // With Full timing the spacing tweens across the whole clip, but the
+  // layers snap into their slots: sliding for half of every clip would hide
+  // the cuts beneath the Order.
+  if (
+    !animation?.enabled ||
+    animation.mode !== "clip" ||
+    animation.clip.timing === FULL_CLIP_TIMING
+  ) {
     return undefined;
   }
   const frames = getClipTimingFrames(ORDER_EFFECT_NAME, animation.clip.timing);

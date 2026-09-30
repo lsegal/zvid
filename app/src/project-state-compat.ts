@@ -111,7 +111,7 @@ export function migrateColorizeReactivity(effects: SessionEffect[]) {
       old.numericValue ?? Number.parseFloat(old.value),
     );
     const defaults = createDefaultAnimation(effect.effectName);
-    if (effect.animation || !defaults || !(reactivity > 0)) {
+    if (effect.animation || !defaults?.reactive || !(reactivity > 0)) {
       return { ...effect, parameters };
     }
     return {

@@ -3,10 +3,12 @@ import type { CSSProperties } from "react";
 import {
   ANIMATION_TIMINGS,
   CLIP_MOTIONS,
+  CLIP_TIMINGS,
   createDefaultAnimation,
   describeAnimatedParameters,
   type EffectAnimation,
   getAnimatableParameters,
+  getAnimationModes,
   ORDER_TRANSITIONS,
   REACTIVE_MOTIONS,
   REACTIVITY_STEP,
@@ -34,7 +36,6 @@ type FxAnimationPanelProps = {
   onSetAnimation?: FxChainProps["onSetAnimation"];
 };
 
-const ANIMATION_MODE_OPTIONS = ["clip", "reactive"] as const;
 const ANIMATION_MODE_LABELS = { clip: "Clip", reactive: "Reactive" } as const;
 
 // The Animation section attached to a device's right edge while its
@@ -78,11 +79,20 @@ export function FxAnimationPanel({
     onSetAnimation?.(device, next, mode);
   const setClip = (patch: Partial<EffectAnimation["clip"]>) =>
     set({ ...animation, clip: { ...animation.clip, ...patch } });
+  // Effects with a single mode, like Order's Clip, show no Mode choice.
+  const modes = getAnimationModes(device.effectName);
+  const reactive =
+    animation.mode === "reactive" && modes.includes("reactive")
+      ? animation.reactive
+      : undefined;
   const setReactive = (
-    patch: Partial<EffectAnimation["reactive"]>,
+    patch: Partial<NonNullable<EffectAnimation["reactive"]>>,
     mode: FxEditMode = "commit",
-  ) =>
-    set({ ...animation, reactive: { ...animation.reactive, ...patch } }, mode);
+  ) => {
+    if (reactive) {
+      set({ ...animation, reactive: { ...reactive, ...patch } }, mode);
+    }
+  };
 
   return (
     <section aria-label={label} className={className} style={style}>
@@ -100,19 +110,21 @@ export function FxAnimationPanel({
         </button>
       </header>
       <div className="fx-animation-panel__body">
-        <FxAnimationSegmented
-          label="Mode"
-          onChange={(mode) => set({ ...animation, mode })}
-          optionLabel={(mode) => ANIMATION_MODE_LABELS[mode]}
-          options={ANIMATION_MODE_OPTIONS}
-          value={animation.mode}
-        />
-        {animation.mode === "clip" ? (
+        {modes.length > 1 ? (
+          <FxAnimationSegmented
+            label="Mode"
+            onChange={(mode) => set({ ...animation, mode })}
+            optionLabel={(mode) => ANIMATION_MODE_LABELS[mode]}
+            options={modes}
+            value={animation.mode}
+          />
+        ) : null}
+        {!reactive ? (
           <>
             <FxAnimationSegmented
               label="Timing"
               onChange={(timing) => setClip({ timing })}
-              options={ANIMATION_TIMINGS}
+              options={CLIP_TIMINGS}
               value={animation.clip.timing}
             />
             {animation.clip.transition ? (
@@ -142,14 +154,14 @@ export function FxAnimationPanel({
               label="Timing"
               onChange={(timing) => setReactive({ timing })}
               options={ANIMATION_TIMINGS}
-              value={animation.reactive.timing}
+              value={reactive.timing}
             />
             <div className="fx-animation-panel__knob">
               <Knob
                 accent={device.accent}
                 defaultValue={
                   createDefaultAnimation(device.effectName)?.reactive
-                    .reactivity ?? 0.5
+                    ?.reactivity ?? 0.5
                 }
                 format={formatReactivity}
                 label="Reactivity"
@@ -160,19 +172,19 @@ export function FxAnimationPanel({
                 }
                 onCommit={(reactivity) => setReactive({ reactivity })}
                 step={REACTIVITY_STEP}
-                value={animation.reactive.reactivity}
+                value={reactive.reactivity}
               />
             </div>
             <FxAnimationSelect
               label="Motion"
               onChange={(motion) => setReactive({ motion })}
               options={REACTIVE_MOTIONS}
-              value={animation.reactive.motion}
+              value={reactive.motion}
             />
             <FxAnimatedParametersControl
               device={device}
               onChange={(parameters) => setReactive({ parameters })}
-              selected={animation.reactive.parameters}
+              selected={reactive.parameters}
             />
           </>
         )}

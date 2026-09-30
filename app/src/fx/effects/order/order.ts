@@ -51,7 +51,8 @@ export const ORDER_ARRANGEMENTS = ["Vertical", "Horizontal", "Grid"] as const;
 
 export const GRID_SIZE_MIN = 2;
 export const GRID_SIZE_MAX = 6;
-export const SPACING_MAX = 50;
+// A tenth of the 1080p canvas height.
+export const SPACING_MAX = 108;
 export const DEFAULT_BORDER_COLOR = "rgba(0,0,0,1)";
 export const BLACK_BORDER: Rgba = { r: 0, g: 0, b: 0, a: 1 };
 

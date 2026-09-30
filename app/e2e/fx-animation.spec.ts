@@ -75,10 +75,12 @@ test("the Animation section attaches, switches modes and folds", async ({
   await expect(section.getByLabel("Motion In")).toHaveValue("Ease Out");
   await expect(section.getByLabel("Motion Out")).toHaveValue("Ease In");
   const timing = section.getByRole("group", { name: "Timing" });
+  // Full stretches the animation over the whole clip.
   await expect(timing.getByRole("button")).toHaveText([
     "Slow",
     "Normal",
     "Fast",
+    "Full",
   ]);
   await expect(timing.getByRole("button", { name: "Normal" })).toHaveAttribute(
     "aria-pressed",
@@ -136,6 +138,22 @@ test("the Animation section attaches, switches modes and folds", async ({
   ).toHaveAttribute("aria-pressed", "true");
 });
 
+test("Order's Animation offers only Clip mode", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('[data-layer-header-id="1"]').click();
+
+  // A new session has a Global Order, animated.
+  const section = page.locator('section[aria-label="Order animation"]');
+  await expect(section).toBeVisible();
+  await expect(section.getByRole("group", { name: "Mode" })).toHaveCount(0);
+  await expect(section.getByRole("button", { name: "Reactive" })).toHaveCount(
+    0,
+  );
+  await expect(section.getByLabel("Motion In")).toHaveValue("Ease Out");
+  await expect(section.getByLabel("Motion Out")).toHaveValue("Ease In");
+  await expect(section.locator(".knob__label")).toHaveCount(0);
+});
+
 // Order's Clip mode also picks how clips enter and exit its arrangement:
 // Squish, for a new Order, or Push. No other device offers it.
 test("Order's Animation section picks a Transition", async ({ page }) => {
@@ -159,14 +177,6 @@ test("Order's Animation section picks a Transition", async ({ page }) => {
   await expect(
     transition.getByRole("button", { name: "Push" }),
   ).toHaveAttribute("aria-pressed", "true");
-
-  await section
-    .getByRole("group", { name: "Mode" })
-    .getByRole("button", {
-      name: "Reactive",
-    })
-    .click();
-  await expect(transition).toHaveCount(0);
 
   await addLayerEffect(page, /^Pixelate/);
   await expect(

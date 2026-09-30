@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { MOVE_EFFECT_NAME } from "./composition-transform.ts";
-import { resolveAnimatedEffects } from "./fx-animation.ts";
+import { reactsToAudio, resolveAnimatedEffects } from "./fx-animation.ts";
 import {
   createDefaultAnimation,
   getAnimatableParameters,
@@ -299,6 +299,20 @@ describe("resolveReactiveParameters", () => {
     assert.notEqual(reactiveOffset("split-1", "_HighIntensity", 20), offset);
     assert.notEqual(reactiveOffset("split-2", "_LowIntensity", 20), offset);
   });
+
+  it("never moves an Order, which doesn't support Reactive mode", () => {
+    const order = createEffect(GLOBAL_EFFECT_TRACK_ID, "Order", "order-1");
+    const settings = reactive({ parameters: ["Spacing", "GridSize"] });
+    for (let frame = 0; frame <= 40; frame++) {
+      assert.equal(
+        resolveReactiveParameters(order, settings, {
+          time: frame / REACTIVE_FRAME_RATE,
+          onsets: [{ time: 10 / REACTIVE_FRAME_RATE, strength: 1 }],
+        }),
+        order.parameters,
+      );
+    }
+  });
 });
 
 describe("resolveAnimatedEffects in Reactive mode", () => {
@@ -342,5 +356,44 @@ describe("resolveAnimatedEffects in Reactive mode", () => {
       audio: { ...frame.audio, onsets: [] },
     });
     assert.equal(quiet, effect);
+  });
+
+  it("never modulates an Order, even one set to Reactive", () => {
+    const order = createEffect(GLOBAL_EFFECT_TRACK_ID, "Order", "order-1");
+    const animation = createDefaultAnimation("Order");
+    assert.ok(animation);
+    const effect: SessionEffect = {
+      ...order,
+      animation: {
+        ...animation,
+        mode: "reactive",
+        reactive: reactive({ parameters: ["Spacing"] }),
+      },
+    };
+    assert.equal(reactsToAudio(effect), false);
+    const bpm = 120;
+    const [resolved] = resolveAnimatedEffects(
+      [effect],
+      {
+        clipId: "a",
+        laneId: "lane",
+        progress: 0.5,
+        elapsedSeconds: 1,
+        durationSeconds: 2,
+      },
+      {
+        playheadQ: (1.2 * bpm) / 60,
+        bpm,
+        fps: 30,
+        audio: {
+          low: 0,
+          high: 0,
+          impulseLow: 0,
+          impulseHigh: 0,
+          onsets: [{ secondsAgo: 0.2, strength: 1 }],
+        },
+      },
+    );
+    assert.equal(resolved, effect);
   });
 });
