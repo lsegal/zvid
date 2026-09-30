@@ -13,10 +13,11 @@
 //!   the hardened runtime. The Live companion Remote Script goes to
 //!   `target/bundle/live-remote-script/ZVID_Capture`, and into each bundle's
 //!   `Contents/Resources/ZVID_Capture` for the editor's install button.
-//!   `--app` copies the desktop app built by `tauri build` (`zvid.app` on
-//!   macOS, signed like the bundles; the `.exe` on Windows) to
-//!   `target/bundle`. `--installer` (with `--release` and `--app`) also
-//!   writes an installer for the app and the plugin to `target/installer`: a
+//!   `--app` optionally copies the desktop app built by `tauri build`
+//!   (`zvid.app` on macOS, signed like the bundles; the `.exe` on Windows) to
+//!   `target/bundle`. `--installer` (with `--release`) also writes an
+//!   installer for the plugin, and the app when `--app` is given, to
+//!   `target/installer`: a
 //!   `.pkg` on macOS, signed with `ZVID_INSTALLER_IDENTITY` and notarized and
 //!   stapled when notary credentials are set (see [`notary_args`]), or an
 //!   Inno Setup `.exe` on Windows.
@@ -62,6 +63,10 @@ const CODESIGN_IDENTITY_ENV: &str = "ZVID_CODESIGN_IDENTITY";
 const INSTALLER_IDENTITY_ENV: &str = "ZVID_INSTALLER_IDENTITY";
 /// Identifier of the macOS installer package's payload.
 const PKG_IDENTIFIER: &str = "com.lsegal.zvid.capture.pkg";
+/// Oldest macOS the installer package installs on: the plugin's minimum.
+/// `pkgbuild` also picks the strongest payload compression this version
+/// can extract.
+const MACOS_MIN_VERSION: &str = "13.0";
 /// Inno Setup script for the Windows installer, relative to `/daw`.
 const INNO_SCRIPT: &str = "installer/zvid-capture.iss";
 /// Where the installers put the app and plugin bundles on macOS, relative to
@@ -321,11 +326,6 @@ fn bundle(
     if installer && !release {
         return Err("--installer needs --release".into());
     }
-    if installer && app.is_none() {
-        return Err(
-            "--installer needs --app <path> naming the desktop app built by `tauri build`".into(),
-        );
-    }
     let app_name = app
         .map(|app| staged_app_name(app, std::env::consts::OS))
         .transpose()?;
@@ -421,7 +421,13 @@ fn bundle(
         let package = if cfg!(target_os = "macos") {
             package_macos(&target, &bundles, &output, &version)?
         } else if cfg!(target_os = "windows") {
-            package_windows(&daw, &target.join("bundle"), &output, &version)?
+            package_windows(
+                &daw,
+                &target.join("bundle"),
+                &output,
+                &version,
+                app.is_some(),
+            )?
         } else {
             return Err(format!(
                 "installers are not supported on {}",
@@ -759,6 +765,12 @@ fn package_macos(
             .arg(&components)
             .args(["--identifier", PKG_IDENTIFIER, "--version", version])
             .args(["--install-location", "/"])
+            .args([
+                "--compression",
+                "latest",
+                "--min-os-version",
+                MACOS_MIN_VERSION,
+            ])
             .arg(payload_dir.join("zvid-capture.pkg")),
         "building the installer payload",
     )?;
@@ -839,8 +851,8 @@ fn component_plist(paths: &[String]) -> String {
 }
 
 /// `productbuild` distribution for the payload package: runs natively on
-/// both architectures, installs only to the system volume and needs macOS
-/// 13, the plugin's minimum.
+/// both architectures, installs only to the system volume and needs
+/// [`MACOS_MIN_VERSION`], the plugin's minimum.
 fn distribution_xml(version: &str) -> String {
     format!(
         r#"<?xml version="1.0" encoding="utf-8"?>
@@ -850,7 +862,7 @@ fn distribution_xml(version: &str) -> String {
     <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
     <volume-check>
         <allowed-os-versions>
-            <os-version min="13.0"/>
+            <os-version min="{MACOS_MIN_VERSION}"/>
         </allowed-os-versions>
     </volume-check>
     <choices-outline>
@@ -942,39 +954,50 @@ fn notarization_accepted(report: &str) -> bool {
     compact.contains(r#""status":"Accepted""#)
 }
 
-/// Compiles the Windows installer for the app and bundles in `bundle_dir` with Inno
-/// Setup and returns its path.
+/// Compiles the Windows installer for the bundles in `bundle_dir`, and the
+/// desktop app there when `with_app`, with Inno Setup and returns its path.
 fn package_windows(
     daw: &Path,
     bundle_dir: &Path,
     output: &Path,
     version: &str,
+    with_app: bool,
 ) -> Result<PathBuf, String> {
     let iscc = find_iscc()
         .ok_or("Inno Setup 6 was not found; install it or set ISCC to the path of ISCC.exe")?;
     let name = format!("{}-setup", installer_name(version));
     run(
         Command::new(&iscc)
-            .args(iscc_args(version, bundle_dir, output, &name))
+            .args(iscc_args(version, bundle_dir, output, &name, with_app))
             .arg(daw.join(INNO_SCRIPT)),
         "building the installer",
     )?;
     Ok(output.join(format!("{name}.exe")))
 }
 
-/// Inno Setup compiler defines for `zvid-capture.iss`.
-fn iscc_args(version: &str, bundle_dir: &Path, output: &Path, name: &str) -> Vec<String> {
+/// Inno Setup compiler defines for `zvid-capture.iss`. `AppExe` is only
+/// defined when the desktop app is packaged too.
+fn iscc_args(
+    version: &str,
+    bundle_dir: &Path,
+    output: &Path,
+    name: &str,
+    with_app: bool,
+) -> Vec<String> {
     // VERSIONINFO only takes numbers, so the build metadata is dropped there.
     let numeric = version.split(['+', '-']).next().unwrap_or(version);
-    vec![
+    let mut args = vec![
         "/Q".into(),
         format!("/DAppVersion={version}"),
         format!("/DNumericVersion={numeric}"),
         format!("/DSourceDir={}", bundle_dir.display()),
         format!("/DOutputDir={}", output.display()),
         format!("/DOutputBaseFilename={name}"),
-        format!("/DAppExe={APP_NAME}.exe"),
-    ]
+    ];
+    if with_app {
+        args.push(format!("/DAppExe={APP_NAME}.exe"));
+    }
+    args
 }
 
 /// `ISCC.exe`: `ISCC` from the environment, else Inno Setup 6's default
@@ -1775,9 +1798,13 @@ mod tests {
     }
 
     #[test]
-    fn installers_need_the_desktop_app() {
-        let error = bundle(true, false, true, None).unwrap_err();
-        assert!(error.contains("--app"), "{error}");
+    fn inno_defines_the_app_only_when_packaged() {
+        let dir = Path::new("bundle");
+        let out = Path::new("out");
+        let plugin_only = iscc_args("1.0.0+abc", dir, out, "zvid-capture-1.0.0-setup", false);
+        assert!(!plugin_only.iter().any(|arg| arg.starts_with("/DAppExe=")));
+        let with_app = iscc_args("1.0.0+abc", dir, out, "zvid-capture-1.0.0-setup", true);
+        assert!(with_app.contains(&format!("/DAppExe={APP_NAME}.exe")));
     }
 
     #[test]
@@ -1924,6 +1951,7 @@ mod tests {
             Path::new("target/bundle"),
             Path::new("target/installer"),
             "zvid-capture-0.1.0+c94f40e-dirty-setup",
+            true,
         );
         assert!(args.contains(&"/DAppVersion=0.1.0+c94f40e-dirty".into()));
         assert!(args.contains(&"/DNumericVersion=0.1.0".into()));

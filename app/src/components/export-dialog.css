@@ -453,3 +453,36 @@
 .export-dialog__footer {
   margin-top: 0;
 }
+
+.export-dialog__snapshot {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.export-dialog__dismiss {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.export-dialog__dismiss:hover,
+.export-dialog__dismiss:focus-visible {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.export-dialog__dismiss svg {
+  width: 18px;
+  height: 18px;
+}

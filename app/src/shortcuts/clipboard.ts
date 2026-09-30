@@ -7,14 +7,7 @@ export const copyShortcut: Shortcut = {
   id: "clipboard.copy",
   keys: ["Mod+C"],
   when: canEditTimeline,
-  run: (
-    { clipActionsRef, isExporting, pendingSelection, selectedClip },
-    event,
-  ) => {
-    if (isExporting) {
-      return;
-    }
-
+  run: ({ clipActionsRef, pendingSelection, selectedClip }, event) => {
     const clipActions = clipActionsRef.current;
     if (pendingSelection) {
       event.preventDefault();
@@ -35,14 +28,7 @@ export const cutShortcut: Shortcut = {
   id: "clipboard.cut",
   keys: ["Mod+X"],
   when: canEditTimeline,
-  run: (
-    { clipActionsRef, isExporting, pendingSelection, selectedClip },
-    event,
-  ) => {
-    if (isExporting) {
-      return;
-    }
-
+  run: ({ clipActionsRef, pendingSelection, selectedClip }, event) => {
     const clipActions = clipActionsRef.current;
     if (pendingSelection) {
       event.preventDefault();
@@ -63,8 +49,8 @@ export const pasteShortcut: Shortcut = {
   id: "clipboard.paste",
   keys: ["Mod+V"],
   when: canEditTimeline,
-  run: ({ clipActionsRef, clipClipboardRef, isExporting }, event) => {
-    if (!clipClipboardRef.current || isExporting) {
+  run: ({ clipActionsRef, clipClipboardRef }, event) => {
+    if (!clipClipboardRef.current) {
       return;
     }
 

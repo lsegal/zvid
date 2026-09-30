@@ -92,7 +92,6 @@ function context(overrides: Partial<ShortcutContext> = {}): ShortcutContext {
     fxLaneId: undefined,
     handleRedo: record("redo"),
     handleUndo: record("undo"),
-    isExporting: false,
     lanes: [],
     pendingSelection: null,
     playbackOriginRef: { current: 0 },
@@ -228,14 +227,9 @@ describe("dispatching shortcuts", () => {
     assert.deepEqual(calls, [`copySelection(${JSON.stringify(selection)})`]);
   });
 
-  it("leaves Ctrl+C alone without anything to copy or while exporting", () => {
+  it("leaves Ctrl+C alone without anything to copy", () => {
     const idle = dispatch(press("c", { ctrlKey: true }));
-    const exporting = dispatch(press("c", { ctrlKey: true }), {
-      isExporting: true,
-      selectedClip: clip,
-    });
     assert.equal(idle.defaultPrevented, false);
-    assert.equal(exporting.defaultPrevented, false);
     assert.deepEqual(calls, []);
   });
 

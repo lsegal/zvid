@@ -163,7 +163,6 @@ export type ProjectHistoryCommandsInputs = {
   projectSnapshotRef: { current: ProjectState };
   undoLabel: string | undefined;
   redoLabel: string | undefined;
-  isExporting: boolean;
   refuseReadOnlyEdit: () => boolean;
   finishTextEdit: () => void;
   stopTimelineAudibleScrub: () => void;
@@ -184,7 +183,6 @@ export function useProjectHistoryCommands({
   projectSnapshotRef,
   undoLabel,
   redoLabel,
-  isExporting,
   refuseReadOnlyEdit,
   finishTextEdit,
   stopTimelineAudibleScrub,
@@ -196,7 +194,7 @@ export function useProjectHistoryCommands({
   setStatus,
 }: ProjectHistoryCommandsInputs) {
   const handleUndo = useCallback(() => {
-    if (!undoLabel || isExporting || refuseReadOnlyEdit()) {
+    if (!undoLabel || refuseReadOnlyEdit()) {
       return;
     }
 
@@ -213,7 +211,6 @@ export function useProjectHistoryCommands({
   }, [
     dispatchProjectHistory,
     finishTextEdit,
-    isExporting,
     refuseReadOnlyEdit,
     setDragPreviewClips,
     setDragState,
@@ -226,7 +223,7 @@ export function useProjectHistoryCommands({
   ]);
 
   const handleRedo = useCallback(() => {
-    if (!redoLabel || isExporting || refuseReadOnlyEdit()) {
+    if (!redoLabel || refuseReadOnlyEdit()) {
       return;
     }
 
@@ -243,7 +240,6 @@ export function useProjectHistoryCommands({
   }, [
     dispatchProjectHistory,
     finishTextEdit,
-    isExporting,
     redoLabel,
     refuseReadOnlyEdit,
     setDragPreviewClips,

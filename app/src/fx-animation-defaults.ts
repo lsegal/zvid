@@ -417,9 +417,9 @@ const NEUTRAL_VALUES: ReadonlyMap<string, AnimationNeutralValues> = new Map<
   string,
   AnimationNeutralValues
 >([
-  // Order's own slide is separate; this tweens the spacing, and its border
-  // with it.
-  [ORDER_EFFECT_NAME, { Spacing: { neutral: 0 } }],
+  // Order's own slide is separate; this tweens the spacing and margin, and
+  // its border with them.
+  [ORDER_EFFECT_NAME, { Spacing: { neutral: 0 }, Margin: { neutral: 0 } }],
   ["Transform", TRANSFORM_NEUTRALS],
   [
     MOVE_EFFECT_NAME,
