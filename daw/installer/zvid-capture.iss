@@ -1,10 +1,11 @@
-; Windows installer for the zvid desktop app and the ZVID Capture plugin,
-; compiled by `cargo xtask bundle --release --installer --app <exe>` with Inno
-; Setup 6, which passes the defines below. It installs the app and its
-; uninstaller into Program Files\ZVID with a Start menu shortcut, and the VST3
-; bundle into the shared VST3 folder, and installs the WebView2 Runtime the app
-; needs when it is missing (see [Code]). The AppId is the plugin-only
-; installer's, so installing over one upgrades it in place.
+; Windows installer for the ZVID Capture plugin, compiled by
+; `cargo xtask bundle --release --installer` with Inno Setup 6, which passes
+; the defines below. It installs the VST3 bundle into the shared VST3 folder
+; and its uninstaller into Program Files\ZVID. With `--app <exe>` xtask also
+; defines AppExe, and the installer then installs the zvid desktop app too,
+; with a Start menu shortcut and the WebView2 Runtime it needs when missing
+; (see [Code]). The AppId stays the same either way, so installing over an
+; older installer upgrades it in place.
 
 #ifndef AppVersion
   #error Build with `cargo xtask bundle --release --installer`
@@ -31,16 +32,21 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayName=ZVID
+#ifdef AppExe
 UninstallDisplayIcon={app}\{#AppExe}
+#endif
 
 [InstallDelete]
 ; Replace the whole bundle so files from an older layout don't linger.
 Type: filesandordirs; Name: "{commoncf64}\VST3\ZVID Capture.vst3"
 
 [Files]
+#ifdef AppExe
 Source: "{#SourceDir}\{#AppExe}"; DestDir: "{app}"; Flags: ignoreversion
+#endif
 Source: "{#SourceDir}\ZVID Capture.vst3\*"; DestDir: "{commoncf64}\VST3\ZVID Capture.vst3"; Flags: ignoreversion recursesubdirs createallsubdirs
 
+#ifdef AppExe
 [Icons]
 Name: "{autoprograms}\ZVID"; Filename: "{app}\{#AppExe}"
 
@@ -49,7 +55,12 @@ Filename: "{app}\{#AppExe}"; Description: "Launch ZVID"; Flags: nowait postinsta
 
 [Messages]
 FinishedLabel=Setup installed ZVID and the ZVID Capture plug-in. Rescan plug-ins in your host (in Live, Settings > Plug-Ins > Rescan) to load the plug-in.
+#else
+[Messages]
+FinishedLabel=Setup installed the ZVID Capture plug-in. Rescan plug-ins in your host (in Live, Settings > Plug-Ins > Rescan) to load it.
+#endif
 
+#ifdef AppExe
 [Code]
 // The desktop app is a Tauri app, which needs the Microsoft Edge WebView2
 // Runtime. Windows 11 includes it; where it is missing, as on some Windows 10
@@ -115,3 +126,4 @@ begin
   if (CurStep = ssPostInstall) and not WebView2Installed then
     InstallWebView2;
 end;
+#endif
