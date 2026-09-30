@@ -28,6 +28,7 @@ import {
   type ClipAnimation,
   type ClipMotion,
   type EffectAnimation,
+  FULL_CLIP_TIMING,
   getAnimationNeutralValues,
   getClipTimingFrames,
 } from "./fx-animation-defaults.ts";
@@ -226,7 +227,14 @@ export function resolveOrderSlide(
   animation: EffectAnimation | undefined,
   fps: number,
 ): OrderSlide | undefined {
-  if (!animation?.enabled || animation.mode !== "clip") {
+  // With Full timing the spacing tweens across the whole clip, but the
+  // layers snap into their slots: sliding for half of every clip would hide
+  // the cuts beneath the Order.
+  if (
+    !animation?.enabled ||
+    animation.mode !== "clip" ||
+    animation.clip.timing === FULL_CLIP_TIMING
+  ) {
     return undefined;
   }
   const frames = getClipTimingFrames(ORDER_EFFECT_NAME, animation.clip.timing);
