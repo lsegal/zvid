@@ -464,33 +464,45 @@ export function resolveSpacingPixels(
 }
 
 // Start and end, in pixels, of cell `index` of `cells` equal cells across
-// `size`, with `gap` between neighbors and none at either end. Neighbors
-// share the expressions for their edges, so with no gap one cell ends
-// exactly where the next starts.
+// `size`, with `gap` between neighbors and `margin` before the first and
+// after the last. Neighbors share the expressions for their edges, so with
+// no gap one cell ends exactly where the next starts.
 function resolveCellEdges(
   index: number,
   cells: number,
   size: number,
   gap: number,
+  margin = 0,
 ) {
   const normalizedCells = Math.max(1, cells);
-  // Gaps never squeeze a cell below one pixel.
+  // The margin and gaps never squeeze a cell below one pixel.
+  const clampedMargin = Math.max(
+    0,
+    Math.min(margin, (size - normalizedCells) / 2),
+  );
+  const inner = size - clampedMargin * 2;
   const clampedGap =
     normalizedCells > 1
       ? Math.max(
           0,
-          Math.min(gap, (size - normalizedCells) / (normalizedCells - 1)),
+          Math.min(gap, (inner - normalizedCells) / (normalizedCells - 1)),
         )
       : 0;
-  const available = size - clampedGap * (normalizedCells - 1);
+  const available = inner - clampedGap * (normalizedCells - 1);
   return {
-    start: (index * available) / normalizedCells + index * clampedGap,
-    end: ((index + 1) * available) / normalizedCells + index * clampedGap,
+    start:
+      clampedMargin + (index * available) / normalizedCells + index * clampedGap,
+    end:
+      clampedMargin +
+      ((index + 1) * available) / normalizedCells +
+      index * clampedGap,
   };
 }
 
 // Slot `index` in canvas pixels (origin top-left). Slots are filled row by
-// row, left to right; without an Order every slot is the whole canvas.
+// row, left to right; without an Order every slot is the whole canvas. An
+// Order with an outer margin insets them from the canvas edges by its
+// spacing as well.
 function resolveSlotRect(
   index: number,
   count: number,
@@ -504,8 +516,15 @@ function resolveSlotRect(
 
   const { columns, rows } = resolveSlotGrid(count, order);
   const gap = resolveSpacingPixels(order, width, height);
-  const x = resolveCellEdges(index % columns, columns, width, gap);
-  const y = resolveCellEdges(Math.floor(index / columns), rows, height, gap);
+  const margin = order.outerMargin ? gap : 0;
+  const x = resolveCellEdges(index % columns, columns, width, gap, margin);
+  const y = resolveCellEdges(
+    Math.floor(index / columns),
+    rows,
+    height,
+    gap,
+    margin,
+  );
   return { left: x.start, right: x.end, top: y.start, bottom: y.end };
 }
 
