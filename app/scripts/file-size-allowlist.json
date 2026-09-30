@@ -3,6 +3,6 @@
   "src/App.tsx": 4377,
   "src/components/fx/fx-chain.css": 950,
   "src/components/PreviewTransformOverlay.tsx": 1127,
-  "src/composition-draw.ts": 996,
+  "src/composition-draw.ts": 975,
   "src/CompositionPlayer.tsx": 871
 }

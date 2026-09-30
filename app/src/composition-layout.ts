@@ -572,7 +572,7 @@ function resolveMovingSlotRect(
   order: CompositionOrder,
   width: number,
   height: number,
-  motion: SlotMotion | undefined,
+  motion?: SlotMotion,
 ): SlotRect {
   if (!motion?.slots.length) {
     return resolveSlotRect(index, count, order, width, height);
@@ -725,6 +725,17 @@ export function resolveSlotScissor(
     width: Math.max(1, right - left),
     height: Math.max(1, bottom - top),
   };
+}
+
+// Whether slot `index` covers no whole pixel, rounded as its scissor is: a
+// clip squished to zero width or height, which is drawn nowhere rather
+// than into the 1 px its scissor keeps for its framed texture.
+export function isSlotScissorEmpty(
+  ...slot: Parameters<typeof resolveMovingSlotRect>
+) {
+  const { left, right, top, bottom } = resolveMovingSlotRect(...slot);
+  const round = Math.round;
+  return round(right) <= round(left) || round(bottom) <= round(top);
 }
 
 export function resolveLayerPlacement(options: {

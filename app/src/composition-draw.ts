@@ -1,4 +1,9 @@
 import {
+  borderClearColor,
+  sceneClearColor,
+} from "./composition-clear-color.ts";
+import {
+  isSlotScissorEmpty,
   type LayerDrawStep,
   type LayerPlacement,
   type LayerVisual,
@@ -10,7 +15,6 @@ import {
   type SlotMotion,
 } from "./composition-layout.ts";
 import {
-  BLACK_BORDER,
   type CompositionOrder,
   DEFAULT_COMPOSITION_ORDER,
 } from "./composition-order.ts";
@@ -70,35 +74,6 @@ export type CompositeLayer = {
   // inside the clip's box before `effectChain` runs.
   order?: CompositionOrder;
 };
-
-// What the composite shows where no layer is drawn.
-const BACKGROUND_COLOR = [0.07, 0.08, 0.11, 1] as const;
-
-type ClearColor = readonly [number, number, number, number];
-
-// An Order's border color for `gl.clearColor`, unpremultiplied.
-function borderClearColor(order: CompositionOrder): ClearColor {
-  const { r, g, b, a } = order.borderColor ?? BLACK_BORDER;
-  return [r / 255, g / 255, b / 255, Math.max(0, Math.min(1, a))];
-}
-
-// What the canvas is cleared to: the background, under the Global Order's
-// border color when there is an Order, so a translucent border shows the
-// background through it.
-function sceneClearColor(order: CompositionOrder): ClearColor {
-  if (order.arrangement === "none") {
-    return BACKGROUND_COLOR;
-  }
-
-  const border = borderClearColor(order);
-  const alpha = border[3];
-  return [
-    border[0] * alpha + BACKGROUND_COLOR[0] * (1 - alpha),
-    border[1] * alpha + BACKGROUND_COLOR[1] * (1 - alpha),
-    border[2] * alpha + BACKGROUND_COLOR[2] * (1 - alpha),
-    1,
-  ];
-}
 
 // Fill textures are drawn at most this many pixels on a side; the linear
 // filter smooths gradients when the band is larger.
@@ -646,6 +621,10 @@ function drawLayer(
 ) {
   const { gl, effectChain } = resources;
   const { width, height } = target;
+  // A clip squished to nothing shows no sliver of itself.
+  if (isSlotScissorEmpty(index, count, order, width, height, motion)) {
+    return;
+  }
   const surface = { width, height };
   const mediaElement = mediaRefs.get(entry.sourceKey);
   let sourceWidth: number;
