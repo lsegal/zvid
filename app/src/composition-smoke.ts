@@ -116,7 +116,6 @@ function chainEffect(trackId: string): SessionEffect {
     effectName: "Colorize",
     parameters: [
       { key: "_HueOffset", value: "0", numericValue: 0 },
-      { key: "_Reactivity", value: "0", numericValue: 0 },
     ],
   };
 }

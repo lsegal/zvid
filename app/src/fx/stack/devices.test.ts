@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { migrateColorizeReactivity } from "../../project-state-compat.ts";
 import { GLOBAL_EFFECT_TRACK_ID } from "./clip-stacks.ts";
 import { mapSessionEffectsToDevices } from "./devices.ts";
 import {
@@ -90,16 +91,17 @@ describe("mapSessionEffectsToDevices", () => {
     assert.equal(zoom.parameters[3].display, "1.69×");
     assert.equal(zoom.parameters[4].display, "50%");
 
-    const colorize = mapSessionEffectsToDevices(load(), "6")[1];
+    // Loading the session drops Colorize's old Reactivity knob.
+    const colorize = mapSessionEffectsToDevices(
+      migrateColorizeReactivity(load()),
+      "6",
+    )[1];
     assert.deepEqual(
       colorize.parameters.map((parameter) => [
         parameter.label,
         parameter.display,
       ]),
-      [
-        ["Hue Shift", "+90°"],
-        ["Reactivity", "40%"],
-      ],
+      [["Hue Shift", "+90°"]],
     );
   });
 

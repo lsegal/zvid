@@ -3,6 +3,7 @@ import { type MediaItem, toShareableMediaItem } from "../media.ts";
 import type { ProjectHistoryState } from "../project-history.ts";
 import {
   migrateClipContentEffects,
+  migrateColorizeReactivity,
   migrateDefaultOrder,
   migrateLegacyMainAudio,
 } from "../project-state-compat.ts";
@@ -65,7 +66,10 @@ function normalizeRestoredProjectState(value: unknown): ProjectState {
   }
   // Read from the save itself: the initial state always has the flag.
   state.effects = migrateClipContentEffects(
-    migrateDefaultOrder(state.effects, saved.orderDefaulted),
+    migrateDefaultOrder(
+      migrateColorizeReactivity(state.effects),
+      saved.orderDefaulted,
+    ),
     state.clips,
     saved.clipContentEffects,
   );
