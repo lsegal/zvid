@@ -4,7 +4,6 @@ import {
   useCallback,
   useEffect,
   useRef,
-  useState,
 } from "react";
 import {
   PEER_MEDIA_REVEAL_MS,
@@ -48,6 +47,8 @@ export type SampleMediaInputs = {
   setLocalMediaOverride: (mediaId: string, patch: LocalMediaOverride) => void;
   adoptMediaBlob: (mediaId: string, blob: Blob) => Promise<unknown>;
   setRemoteMediaProgress: Dispatch<SetStateAction<RemoteMediaProgressMap>>;
+  failedSampleMediaIds: ReadonlySet<string>;
+  setFailedSampleMediaIds: Dispatch<SetStateAction<ReadonlySet<string>>>;
   setRevealedMediaIds: Dispatch<SetStateAction<ReadonlySet<string>>>;
   settleSessionMediaCheck: (
     mediaId: string,
@@ -78,14 +79,12 @@ export function useSampleMedia({
   setLocalMediaOverride,
   adoptMediaBlob,
   setRemoteMediaProgress,
+  failedSampleMediaIds,
+  setFailedSampleMediaIds,
   setRevealedMediaIds,
   settleSessionMediaCheck,
   setStatus,
 }: SampleMediaInputs) {
-  // Media whose download failed, until retried.
-  const [failedSampleMediaIds, setFailedSampleMediaIds] = useState<
-    ReadonlySet<string>
-  >(() => new Set());
   const failedRef = useRef(failedSampleMediaIds);
   failedRef.current = failedSampleMediaIds;
   const batchesRef = useRef(new Set<SampleDownloadBatch>());
@@ -242,9 +241,7 @@ export function useSampleMedia({
             message: event.error.message,
           });
           if (isPresent(mediaId)) {
-            setFailedSampleMediaIds((current) =>
-              new Set(current).add(mediaId),
-            );
+            setFailedSampleMediaIds((current) => new Set(current).add(mediaId));
             setLocalMediaOverride(mediaId, {
               availability: "offline",
               lastError: event.error.message,
@@ -284,6 +281,7 @@ export function useSampleMedia({
     projectSnapshotRef,
     setLocalMediaOverride,
     setMediaHydrationTick,
+    setFailedSampleMediaIds,
     setRemoteMediaProgress,
     setRevealedMediaIds,
     settleSessionMediaCheck,
@@ -303,8 +301,8 @@ export function useSampleMedia({
       setLocalMediaOverride(mediaId, { lastError: undefined });
       setMediaHydrationTick((tick) => tick + 1);
     },
-    [setLocalMediaOverride, setMediaHydrationTick],
+    [setFailedSampleMediaIds, setLocalMediaOverride, setMediaHydrationTick],
   );
 
-  return { failedSampleMediaIds, retrySampleMedia };
+  return { retrySampleMedia };
 }

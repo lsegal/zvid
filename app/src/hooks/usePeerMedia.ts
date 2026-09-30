@@ -24,8 +24,8 @@ import {
   formatPeerMediaSyncStatus,
   type RemoteMediaProgressMap,
   withoutRemoteMediaProgress,
-  withRemoteMediaProgress,
   withQueuedRemoteMedia,
+  withRemoteMediaProgress,
 } from "../remote-media-sync.ts";
 import { forgetChangedMainAudioMiss } from "../session-media.ts";
 
@@ -34,8 +34,8 @@ export type PeerMediaStateInputs = {
   projectSnapshotRef: { current: ProjectState };
 };
 
-// Peer media transfer progress, the media just received from a peer, and
-// the media no peer had. Also serves this tab's media to peers and aborts
+// Remote media progress (peer transfers and sample downloads), the media
+// just received, the media no peer had and the downloads that failed. Also serves this tab's media to peers and aborts
 // transfers. App calls this before `useCollaboration`, which needs both.
 export function usePeerMediaState({
   localMediaOverridesRef,
@@ -51,6 +51,11 @@ export function usePeerMediaState({
   const [peerMediaMissIds, setPeerMediaMissIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
+  // Bundled sample media whose download failed, until the user retries it.
+  // useSampleMedia downloads it into the same progress map.
+  const [failedSampleMediaIds, setFailedSampleMediaIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
   const peerMediaTransfersRef = useRef(new Map<string, AbortController>());
   const peerMediaMissesRef = useRef<{
     controller: CollaborationController<ProjectState> | null;
@@ -104,6 +109,8 @@ export function usePeerMediaState({
     setRevealedMediaIds,
     peerMediaMissIds,
     setPeerMediaMissIds,
+    failedSampleMediaIds,
+    setFailedSampleMediaIds,
     peerMediaTransfersRef,
     peerMediaMissesRef,
     peerMainAudioIdRef,
@@ -304,12 +311,16 @@ export function usePeerMedia({
         } finally {
           transfers.delete(mediaId);
           mediaHydrationInFlightRef.current.delete(mediaId);
-          setRemoteMediaProgress((map) => withoutRemoteMediaProgress(map, mediaId));
+          setRemoteMediaProgress((map) =>
+            withoutRemoteMediaProgress(map, mediaId),
+          );
           setMediaHydrationTick((tick) => tick + 1);
         }
       })();
     }
-    setRemoteMediaProgress((map) => withQueuedRemoteMedia(map, "peer", queuedIds));
+    setRemoteMediaProgress((map) =>
+      withQueuedRemoteMedia(map, "peer", queuedIds),
+    );
   }, [
     adoptMediaBlob,
     collaborationControllerRef,

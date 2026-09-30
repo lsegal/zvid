@@ -4,8 +4,8 @@ import type { MediaAvailability, MediaItem } from "./media.ts";
 import {
   listMediaSync,
   mediaSyncLabel,
-  type RemoteMediaMisses,
   mediaSyncState,
+  type RemoteMediaMisses,
   summarizeMediaSync,
 } from "./media-sync.ts";
 import type { RemoteMediaProgress } from "./remote-media-sync.ts";
@@ -108,7 +108,15 @@ describe("listMediaSync", () => {
       sourceClips: [{ mediaId: "miss" }, { mediaId: "wait" }],
       mainAudioId: "main",
       progress: new Map([
-        ["recv", { source: "peer" as const, received: 5, total: 10, phase: "receiving" as const }],
+        [
+          "recv",
+          {
+            source: "peer" as const,
+            received: 5,
+            total: 10,
+            phase: "receiving" as const,
+          },
+        ],
       ]),
       misses: peerMiss("miss"),
       inSharedSession: true,
@@ -160,7 +168,15 @@ describe("summarizeMediaSync", () => {
         ],
         sourceClips: [],
         progress: new Map([
-          ["c", { source: "peer" as const, received: 1, total: 2, phase: "receiving" as const }],
+          [
+            "c",
+            {
+              source: "peer" as const,
+              received: 1,
+              total: 2,
+              phase: "receiving" as const,
+            },
+          ],
         ]),
         misses: none,
         inSharedSession: true,

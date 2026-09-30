@@ -3,9 +3,9 @@
 import { usesMediaFile } from "../clip-media-state.ts";
 import type { CollaborationConnectionState } from "../collaboration.ts";
 import type { MediaItem } from "../media.ts";
-import { listMediaSync } from "../media-sync.ts";
-import type { RemoteMediaProgressMap } from "../remote-media-sync.ts";
+import { listMediaSync, type RemoteMediaMisses } from "../media-sync.ts";
 import { listOfflineMedia } from "../relink.ts";
+import type { RemoteMediaProgressMap } from "../remote-media-sync.ts";
 import type {
   ArrangementClip,
   CollaborationMode,
@@ -40,13 +40,28 @@ export function isInSharedMediaSession(
   );
 }
 
+// Peer misses and failed sample downloads, by the source that failed.
+export function listRemoteMediaMisses(
+  peerMissIds: ReadonlySet<string>,
+  failedDownloadIds: ReadonlySet<string>,
+): RemoteMediaMisses {
+  const misses = new Map<string, "peer" | "url">();
+  for (const id of peerMissIds) {
+    misses.set(id, "peer");
+  }
+  for (const id of failedDownloadIds) {
+    misses.set(id, "url");
+  }
+  return misses;
+}
+
 export type SessionMediaSyncInputs = {
   mediaItems: MediaItem[];
   timelineClips: ArrangementClip[];
   sourceSpans: SourceSpan[];
   mainAudioId: string | undefined;
   progress: RemoteMediaProgressMap;
-  misses: ReadonlySet<string>;
+  misses: RemoteMediaMisses;
   inSharedSession: boolean;
 };
 

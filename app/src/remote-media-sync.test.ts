@@ -9,8 +9,8 @@ import {
   getRemoteMediaFraction,
   type RemoteMediaProgressMap,
   withoutRemoteMediaProgress,
-  withRemoteMediaProgress,
   withQueuedRemoteMedia,
+  withRemoteMediaProgress,
 } from "./remote-media-sync.ts";
 
 const appCss = readFileSync(new URL("./App.css", import.meta.url), "utf8");
@@ -28,7 +28,12 @@ const empty: RemoteMediaProgressMap = new Map();
 
 describe("peer media progress model", () => {
   it("records progress and keeps the map when nothing changed", () => {
-    const progress = { source: "peer", phase: "receiving", received: 10, total: 100 } as const;
+    const progress = {
+      source: "peer",
+      phase: "receiving",
+      received: 10,
+      total: 100,
+    } as const;
     const map = withRemoteMediaProgress(empty, "m1", progress);
     assert.notEqual(map, empty);
     assert.deepEqual(map.get("m1"), progress);
@@ -44,7 +49,8 @@ describe("peer media progress model", () => {
 
   it("drops an entry once its transfer settles", () => {
     const map = withRemoteMediaProgress(empty, "m1", {
-      source: "peer", phase: "receiving",
+      source: "peer",
+      phase: "receiving",
       received: 1,
       total: 2,
     });
@@ -55,7 +61,8 @@ describe("peer media progress model", () => {
 
   it("replaces queued entries without touching receiving ones", () => {
     let map = withRemoteMediaProgress(empty, "m1", {
-      source: "peer", phase: "receiving",
+      source: "peer",
+      phase: "receiving",
       received: 5,
       total: 10,
     });
@@ -66,7 +73,8 @@ describe("peer media progress model", () => {
 
     // Queued media that started receiving keeps its receiving entry.
     map = withRemoteMediaProgress(map, "m2", {
-      source: "peer", phase: "receiving",
+      source: "peer",
+      phase: "receiving",
       received: 0,
       total: 0,
     });
@@ -79,19 +87,39 @@ describe("peer media progress model", () => {
 
   it("reports a fraction only while receiving with a known size", () => {
     assert.equal(
-      getRemoteMediaFraction({ source: "peer", phase: "receiving", received: 25, total: 100 }),
+      getRemoteMediaFraction({
+        source: "peer",
+        phase: "receiving",
+        received: 25,
+        total: 100,
+      }),
       0.25,
     );
     assert.equal(
-      getRemoteMediaFraction({ source: "peer", phase: "receiving", received: 25, total: 0 }),
+      getRemoteMediaFraction({
+        source: "peer",
+        phase: "receiving",
+        received: 25,
+        total: 0,
+      }),
       null,
     );
     assert.equal(
-      getRemoteMediaFraction({ source: "peer", phase: "queued", received: 0, total: 100 }),
+      getRemoteMediaFraction({
+        source: "peer",
+        phase: "queued",
+        received: 0,
+        total: 100,
+      }),
       null,
     );
     assert.equal(
-      getRemoteMediaFraction({ source: "peer", phase: "receiving", received: 120, total: 100 }),
+      getRemoteMediaFraction({
+        source: "peer",
+        phase: "receiving",
+        received: 120,
+        total: 100,
+      }),
       1,
     );
   });
@@ -99,23 +127,36 @@ describe("peer media progress model", () => {
 
 describe("media sync view", () => {
   it("shows syncing media until it is ready", () => {
-    const progress = { source: "peer", phase: "receiving", received: 42, total: 100 } as const;
+    const progress = {
+      source: "peer",
+      phase: "receiving",
+      received: 42,
+      total: 100,
+    } as const;
     assert.deepEqual(describeMediaSync(progress, "hydrating"), {
-      source: "peer", phase: "receiving",
+      source: "peer",
+      phase: "receiving",
       fraction: 0.42,
     });
     assert.equal(describeMediaSync(progress, "ready"), null);
     assert.equal(describeMediaSync(undefined, "hydrating"), null);
     assert.equal(describeMediaSync(undefined, "offline"), null);
     assert.deepEqual(
-      describeMediaSync({ source: "peer", phase: "queued", received: 0, total: 0 }, "offline"),
+      describeMediaSync(
+        { source: "peer", phase: "queued", received: 0, total: 0 },
+        "offline",
+      ),
       { source: "peer", phase: "queued", fraction: null },
     );
   });
 
   it("labels progress, unknown sizes and queued media", () => {
     assert.equal(
-      formatMediaSyncLabel({ source: "peer", phase: "receiving", fraction: 0.429 }),
+      formatMediaSyncLabel({
+        source: "peer",
+        phase: "receiving",
+        fraction: 0.429,
+      }),
       "Syncing 42%",
     );
     assert.equal(
@@ -126,7 +167,11 @@ describe("media sync view", () => {
       "Syncing main audio 42%",
     );
     assert.equal(
-      formatMediaSyncLabel({ source: "peer", phase: "receiving", fraction: null }),
+      formatMediaSyncLabel({
+        source: "peer",
+        phase: "receiving",
+        fraction: null,
+      }),
       "Syncing…",
     );
     assert.equal(
@@ -134,7 +179,10 @@ describe("media sync view", () => {
       "Waiting…",
     );
     assert.equal(
-      formatMediaSyncLabel({ source: "peer", phase: "queued", fraction: null }, "main audio"),
+      formatMediaSyncLabel(
+        { source: "peer", phase: "queued", fraction: null },
+        "main audio",
+      ),
       "Waiting for main audio…",
     );
   });
@@ -159,7 +207,8 @@ describe("peer media sync status", () => {
       formatPeerMediaSyncStatus(
         withQueuedRemoteMedia(
           withRemoteMediaProgress(empty, "m1", {
-            source: "peer", phase: "receiving",
+            source: "peer",
+            phase: "receiving",
             received: 0,
             total: 0,
           }),
@@ -173,7 +222,8 @@ describe("peer media sync status", () => {
 
   it("summarizes overall progress across files", () => {
     let map = withRemoteMediaProgress(empty, "m1", {
-      source: "peer", phase: "receiving",
+      source: "peer",
+      phase: "receiving",
       received: 50,
       total: 100,
     });
@@ -183,7 +233,8 @@ describe("peer media sync status", () => {
     );
 
     map = withRemoteMediaProgress(map, "m2", {
-      source: "peer", phase: "receiving",
+      source: "peer",
+      phase: "receiving",
       received: 66,
       total: 100,
     });
@@ -196,7 +247,8 @@ describe("peer media sync status", () => {
 
   it("omits the percent when no size is known", () => {
     const map = withRemoteMediaProgress(empty, "m1", {
-      source: "peer", phase: "receiving",
+      source: "peer",
+      phase: "receiving",
       received: 4096,
       total: 0,
     });
@@ -278,7 +330,11 @@ describe("url media progress", () => {
       { source: "url", phase: "receiving", received: 42, total: 100 },
       "hydrating",
     );
-    assert.deepEqual(view, { source: "url", phase: "receiving", fraction: 0.42 });
+    assert.deepEqual(view, {
+      source: "url",
+      phase: "receiving",
+      fraction: 0.42,
+    });
     assert.equal(view && formatMediaSyncLabel(view), "Loading 42%");
     assert.equal(
       view && formatMediaSyncLabel(view, "main audio"),

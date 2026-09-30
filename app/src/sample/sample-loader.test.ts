@@ -5,8 +5,8 @@ import {
   buildSampleOpenPayload,
   downloadSampleAsset,
   loadSampleAssets,
-  SampleLoadCancelledError,
   type SampleAssetEvent,
+  SampleLoadCancelledError,
   type SampleLoadDeps,
   sha256Hex,
   shouldAutoOpenSample,
@@ -213,7 +213,10 @@ describe("loadSampleAssets", () => {
         }
       },
     });
-    assert.match(failures[0] ?? "", /one\.mp4 did not match the sample manifest/);
+    assert.match(
+      failures[0] ?? "",
+      /one\.mp4 did not match the sample manifest/,
+    );
     assert.equal(cache.has("zvid-sample:test:one"), false);
   });
 

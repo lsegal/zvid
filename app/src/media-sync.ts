@@ -1,10 +1,10 @@
 import type { MediaItem } from "./media.ts";
+import { mediaDisplayName } from "./relink.ts";
 import type {
   RemoteMediaProgress,
   RemoteMediaProgressMap,
   RemoteMediaSource,
 } from "./remote-media-sync.ts";
-import { mediaDisplayName } from "./relink.ts";
 
 /**
  * Where a session media item stands on this client:

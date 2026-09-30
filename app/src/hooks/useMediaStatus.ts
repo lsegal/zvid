@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import {
   describeSessionMediaStatus,
   isInSharedMediaSession,
+  listRemoteMediaMisses,
   listSessionMediaSync,
   listSessionOfflineMedia,
 } from "../app/media-status.ts";
@@ -22,6 +23,7 @@ export type MediaStatusInputs = {
   mainAudioId: string | undefined;
   remoteMediaProgress: RemoteMediaProgressMap;
   peerMediaMissIds: ReadonlySet<string>;
+  failedSampleMediaIds: ReadonlySet<string>;
   collaborationMode: CollaborationMode;
   collaborationState: CollaborationConnectionState;
 };
@@ -35,6 +37,7 @@ export function useMediaStatus({
   mainAudioId,
   remoteMediaProgress,
   peerMediaMissIds,
+  failedSampleMediaIds,
   collaborationMode,
   collaborationState,
 }: MediaStatusInputs) {
@@ -46,6 +49,10 @@ export function useMediaStatus({
     collaborationMode,
     collaborationState,
   );
+  const misses = useMemo(
+    () => listRemoteMediaMisses(peerMediaMissIds, failedSampleMediaIds),
+    [failedSampleMediaIds, peerMediaMissIds],
+  );
   const mediaSyncEntries = useMemo(
     () =>
       listSessionMediaSync({
@@ -54,14 +61,14 @@ export function useMediaStatus({
         sourceSpans,
         mainAudioId,
         progress: remoteMediaProgress,
-        misses: peerMediaMissIds,
+        misses,
         inSharedSession: inSharedMediaSession,
       }),
     [
       inSharedMediaSession,
       mainAudioId,
       mediaItems,
-      peerMediaMissIds,
+      misses,
       remoteMediaProgress,
       sourceSpans,
       timelineClips,
@@ -73,6 +80,11 @@ export function useMediaStatus({
   );
   const mediaSyncStatusLabel = mediaSyncLabel(mediaSyncSummary);
   const offlineCount = mediaSyncSummary.offline;
+  // The Media Sync dialog, rather than the offline media one, covers media
+  // a peer may send or a download may deliver.
+  const showsMediaSync =
+    inSharedMediaSession ||
+    mediaSyncEntries.some((entry) => entry.source === "url");
   const sessionMediaStatus = useMemo(
     () => describeSessionMediaStatus(mediaItems),
     [mediaItems],
@@ -81,6 +93,7 @@ export function useMediaStatus({
   return {
     offlineMedia,
     inSharedMediaSession,
+    showsMediaSync,
     mediaSyncEntries,
     mediaSyncSummary,
     mediaSyncStatusLabel,
