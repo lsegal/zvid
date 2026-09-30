@@ -8,13 +8,16 @@ export const menuOrder = 30;
 export const definition: FxEffectDefinition = {
   effectName: "Pixelate",
   displayName: "Pixelate",
-  description: "Reduces the layer to large pixels between two intensities.",
+  description: "Reduces the layer to large pixels.",
   accent: "#7ee0a4",
   known: true,
   scopes: ALL_SCOPES,
   parameters: [
     unitParameter("_NumPixels", "Pixel Size", 0.5),
-    unitParameter("_LowIntensity", "Low", 0),
-    unitParameter("_HighIntensity", "High", 1),
+    // Low and High only scaled the pulse audio hits used to add. The music
+    // moves Pixel Size through the Animation modifier's Reactive mode now, so
+    // they are hidden and kept only so saved values round-trip.
+    { ...unitParameter("_LowIntensity", "Low", 0), hidden: true },
+    { ...unitParameter("_HighIntensity", "High", 1), hidden: true },
   ],
 };

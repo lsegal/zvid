@@ -207,15 +207,15 @@ describe("getAnimatableParameters", () => {
   });
 
   it("labels the Parameters button with how many knobs are modulated", () => {
-    const available = getAnimatableParameters("Pixelate");
+    const available = getAnimatableParameters("NegativeSplit");
     assert.equal(
-      describeAnimatedParameters(["_NumPixels"], available),
-      "Parameters: 1 of 3",
+      describeAnimatedParameters(["_LowIntensity"], available),
+      "Parameters: 1 of 2",
     );
     // Keys the effect doesn't have as knobs don't count.
     assert.equal(
-      describeAnimatedParameters(["_NumPixels", "Gone"], available),
-      "Parameters: 1 of 3",
+      describeAnimatedParameters(["_LowIntensity", "Gone"], available),
+      "Parameters: 1 of 2",
     );
   });
 
@@ -542,5 +542,69 @@ describe("resolveAnimatedEffects", () => {
     assert.deepEqual(on[0].visual, off[0].visual);
     assert.deepEqual(on[0].effectChain, off[0].effectChain);
     assert.deepEqual(on[0].fill, off[0].fill);
+  });
+
+  // 0.1 s after a full-strength hit in both bands.
+  const hitFrame = {
+    ...frameContext,
+    audio: {
+      low: 1,
+      high: 1,
+      impulseLow: 1,
+      impulseHigh: 1,
+      onsets: [{ secondsAgo: 0.1, strength: 1 }],
+    },
+  };
+  const quietFrame = {
+    ...frameContext,
+    audio: { ...hitFrame.audio, impulseLow: 0, impulseHigh: 0, onsets: [] },
+  };
+  const audioEffects = [
+    "Colorize",
+    "Pixelate",
+    "NegativeSplit",
+    "AnalogGlitch",
+  ];
+
+  function withMode(
+    effectName: string,
+    enabled: boolean,
+    mode: EffectAnimation["mode"],
+  ) {
+    const effect = createEffect("6", effectName, effectName);
+    const animation = createDefaultAnimation(effectName);
+    assert.ok(animation);
+    return { ...effect, animation: { ...animation, enabled, mode } };
+  }
+
+  it("ignores audio hits with animation off", () => {
+    const effects = audioEffects.flatMap((effectName) => [
+      createEffect("6", effectName, `${effectName}-plain`),
+      withMode(effectName, false, "reactive"),
+    ]);
+    assert.equal(
+      resolveAnimatedEffects(effects, clipContext, hitFrame),
+      effects,
+    );
+  });
+
+  it("ignores audio hits in Clip mode", () => {
+    const effects = audioEffects.map((effectName) =>
+      withMode(effectName, true, "clip"),
+    );
+    assert.deepEqual(
+      resolveAnimatedEffects(effects, clipContext, hitFrame),
+      resolveAnimatedEffects(effects, clipContext, quietFrame),
+    );
+  });
+
+  it("moves the selected knobs on an audio hit in Reactive mode", () => {
+    for (const effectName of audioEffects) {
+      const effect = withMode(effectName, true, "reactive");
+      const [quiet] = resolveAnimatedEffects([effect], clipContext, quietFrame);
+      const [hit] = resolveAnimatedEffects([effect], clipContext, hitFrame);
+      assert.equal(quiet, effect, effectName);
+      assert.notDeepEqual(hit.parameters, effect.parameters, effectName);
+    }
   });
 });

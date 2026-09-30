@@ -585,10 +585,6 @@ function applyFxClip(
     time: frameContext.time,
     clipProgress: entry.clipProgress,
     resolution: [width, height],
-    audioLow: frameContext.audio.low,
-    audioHigh: frameContext.audio.high,
-    impulseLow: frameContext.audio.impulseLow,
-    impulseHigh: frameContext.audio.impulseHigh,
     // The scene framebuffer is rendered normally, so it is bottom-up.
     bottomUp: true,
   });
@@ -762,10 +758,6 @@ function drawLayer(
             time: frameContext.time,
             clipProgress: entry.clipProgress,
             resolution: [frameSize.width, frameSize.height],
-            audioLow: frameContext.audio.low,
-            audioHigh: frameContext.audio.high,
-            impulseLow: frameContext.audio.impulseLow,
-            impulseHigh: frameContext.audio.impulseHigh,
             // The framed layer is written top row first, like a layer texture.
             bottomUp: false,
           },
@@ -921,10 +913,6 @@ export function drawComposition(
           time: frameContext.time,
           clipProgress: entry.clipProgress,
           resolution: [size.width, size.height],
-          audioLow: frameContext.audio.low,
-          audioHigh: frameContext.audio.high,
-          impulseLow: frameContext.audio.impulseLow,
-          impulseHigh: frameContext.audio.impulseHigh,
           // The arrangement framebuffer is rendered normally, so it is
           // bottom-up.
           bottomUp: true,
@@ -998,10 +986,6 @@ export function drawComposition(
         time: frameContext.time,
         clipProgress: frameContext.groupClipProgress,
         resolution: [width, height],
-        audioLow: frameContext.audio.low,
-        audioHigh: frameContext.audio.high,
-        impulseLow: frameContext.audio.impulseLow,
-        impulseHigh: frameContext.audio.impulseHigh,
         // The scene framebuffer is rendered normally, so it is bottom-up.
         bottomUp: true,
       },

@@ -11,10 +11,6 @@ export const CONTEXT: EffectContext = {
   time: 2.5,
   clipProgress: 0.25,
   resolution: [1080, 1920],
-  audioLow: 0.4,
-  audioHigh: 0.6,
-  impulseLow: 0.7,
-  impulseHigh: 0.9,
   bottomUp: false,
 };
 

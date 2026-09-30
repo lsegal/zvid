@@ -6,12 +6,18 @@ import {
 } from "./composition-active-clips.ts";
 import { resolveFillPaint } from "./fill-paint.ts";
 import {
+  createDefaultAnimation,
+  type EffectAnimation,
+} from "./fx-animation-defaults.ts";
+import {
   addEffect,
   GLOBAL_EFFECT_TRACK_ID,
+  mapEffects,
   type SessionEffect,
 } from "./fx-stack.ts";
 import {
   migrateClipContentEffects,
+  migrateColorizeReactivity,
   migrateDefaultOrder,
   migrateLegacyMainAudio,
   stripClipSelectionFlags,
@@ -57,6 +63,77 @@ describe("stripClipSelectionFlags", () => {
   it("returns snapshots without flags unchanged", () => {
     const snapshot = { bpm: 120, clips: [{ id: "a" }] };
     assert.equal(stripClipSelectionFlags(snapshot), snapshot);
+  });
+});
+
+describe("migrateColorizeReactivity", () => {
+  function colorize(
+    reactivity: number | undefined,
+    animation?: EffectAnimation,
+  ) {
+    return mapEffects([
+      {
+        id: "colorize",
+        trackId: "6",
+        effectName: "Colorize",
+        parameters: {
+          _HueOffset: { floatValue: 0.25 },
+          ...(reactivity === undefined
+            ? {}
+            : { _Reactivity: { floatValue: reactivity } }),
+        },
+        ...(animation ? { animation } : {}),
+      },
+    ]);
+  }
+
+  it("turns an old Reactivity into Reactive animation on Hue Shift", () => {
+    const [effect] = migrateColorizeReactivity(colorize(0.4));
+    const defaults = createDefaultAnimation("Colorize");
+    assert.ok(defaults);
+    assert.deepEqual(
+      effect.parameters.map((parameter) => parameter.key),
+      ["_HueOffset"],
+    );
+    assert.deepEqual(effect.animation, {
+      ...defaults,
+      enabled: true,
+      mode: "reactive",
+      reactive: {
+        ...defaults.reactive,
+        reactivity: 0.4,
+        parameters: ["_HueOffset"],
+      },
+    });
+  });
+
+  it("drops a zero Reactivity without turning animation on", () => {
+    const [effect] = migrateColorizeReactivity(colorize(0));
+    assert.deepEqual(
+      effect.parameters.map((parameter) => parameter.key),
+      ["_HueOffset"],
+    );
+    assert.equal(effect.animation, undefined);
+  });
+
+  it("keeps animation settings a Colorize already has", () => {
+    const animation = createDefaultAnimation("Colorize");
+    assert.ok(animation);
+    const [before] = colorize(0.4, { ...animation, enabled: false });
+    const [effect] = migrateColorizeReactivity([before]);
+    assert.deepEqual(
+      effect.parameters.map((parameter) => parameter.key),
+      ["_HueOffset"],
+    );
+    assert.equal(effect.animation, before.animation);
+    assert.equal(effect.animation?.enabled, false);
+  });
+
+  it("returns sessions without an old Reactivity as they are", () => {
+    const effects = colorize(undefined);
+    assert.equal(migrateColorizeReactivity(effects), effects);
+    const migrated = migrateColorizeReactivity(colorize(0.4));
+    assert.equal(migrateColorizeReactivity(migrated), migrated);
   });
 });
 

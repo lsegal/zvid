@@ -5,23 +5,24 @@ import {
 } from "../../../fx-shaders/types.ts";
 
 // Tears horizontal bands, splits the RGB channels and rolls the frame.
-// `_LowMod` and low-band hits drive tearing and roll; `_HighMod` and high-band
-// hits drive the channel split and fine jitter. Every random value hashes the
-// playhead time, so scrubbing to a time always gives the same frame. The
-// 24 Hz frame counter wraps so the hash stays precise at mediump. `uDown`
-// keeps the roll moving the same way on top-down and bottom-up textures.
+// `_LowMod` drives tearing and roll; `_HighMod` drives the channel split and
+// fine jitter. The music moves them only through the Animation modifier's
+// Reactive mode. Every random value hashes the playhead time, so scrubbing to
+// a time always gives the same frame. The 24 Hz frame counter wraps so the
+// hash stays precise at mediump. `uDown` keeps the roll moving the same way
+// on top-down and bottom-up textures.
 export const pass: EffectPass = {
   effectName: "AnalogGlitch",
   fragmentSource: `
     uniform sampler2D uTex;
-    uniform float uTime, uDown, uLowMod, uHighMod, uImpulseLow, uImpulseHigh;
+    uniform float uTime, uDown, uLowMod, uHighMod;
     varying vec2 vUv;
 
     float h(float n) { return fract(sin(n) * 43758.5453); }
 
     void main() {
-      float lo = clamp(uLowMod + uImpulseLow * uLowMod, 0.0, 1.0);
-      float hi = clamp(uHighMod + uImpulseHigh * uHighMod, 0.0, 1.0);
+      float lo = uLowMod;
+      float hi = uHighMod;
       float t = mod(floor(uTime * 24.0), 1024.0);
       float row = floor(vUv.y * 64.0);
       float tear = step(1.0 - lo * 0.35, h(row + t * 7.13)) * (h(row * 3.7 + t) - 0.5) * 0.12 * lo;
@@ -35,14 +36,7 @@ export const pass: EffectPass = {
       gl_FragColor = vec4(vec3(r, g.g, b) * scan, g.a);
     }
   `,
-  uniforms: [
-    "uTime",
-    "uDown",
-    "uLowMod",
-    "uHighMod",
-    "uImpulseLow",
-    "uImpulseHigh",
-  ],
+  uniforms: ["uTime", "uDown", "uLowMod", "uHighMod"],
   setUniforms(gl, loc, params, ctx) {
     gl.uniform1f(loc.uTime, ctx.time);
     gl.uniform1f(loc.uDown, ctx.bottomUp ? -1 : 1);
@@ -54,7 +48,5 @@ export const pass: EffectPass = {
       loc.uHighMod,
       clampUnit(readEffectNumber(params, "_HighMod", 0)),
     );
-    gl.uniform1f(loc.uImpulseLow, ctx.impulseLow);
-    gl.uniform1f(loc.uImpulseHigh, ctx.impulseHigh);
   },
 };

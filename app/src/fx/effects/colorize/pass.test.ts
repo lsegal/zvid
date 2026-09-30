@@ -2,13 +2,15 @@
 /// <reference lib="dom" />
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { params, uniformValues } from "../../pass-test-utils.ts";
 import { pass } from "./pass.ts";
 
 describe("Colorize pass", () => {
-  it("scales the Colorize hue swing by impulse times reactivity", () => {
-    assert.match(
-      pass.fragmentSource,
-      /uReactivity \* \(uImpulseLow \* 0\.5 \+ uImpulseHigh \* 0\.5\)/,
+  it("rotates the hue by Hue Shift alone", () => {
+    assert.match(pass.fragmentSource, /float a = 6\.2831853 \* uHueOffset;/);
+    assert.deepEqual(
+      uniformValues(pass, params({ _HueOffset: 0.25, _Reactivity: 1 })),
+      { uHueOffset: [0.25] },
     );
   });
 });
