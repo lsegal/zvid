@@ -11,6 +11,7 @@ import {
   migrateClipContentEffects,
   migrateColorizeReactivity,
   migrateDefaultOrder,
+  migrateOrderOuterMargin,
 } from "../project-state-compat.ts";
 import {
   formatOverlapNote,
@@ -296,15 +297,18 @@ export function sessionToProject(
     selectedClipId,
     // Every layer gets its own Layout, taking over any global one, and an
     // older session gets its default Order and its layers' Text and Color
-    // moved onto their text and fill clips, and an old Colorize Reactivity
-    // becomes Reactive animation, as part of the load so none of it is a
+    // moved onto their text and fill clips, an old Colorize Reactivity
+    // becomes Reactive animation, and an old Order Margin toggle becomes its
+    // Margin knob, as part of the load so none of it is a
     // separate undo step. Stacks of clips that could not be loaded are
     // dropped with them.
     effects: migrateClipContentEffects(
       pruneClipEffects(
         migrateDefaultOrder(
           ensureLayerLayouts(
-            migrateColorizeReactivity(mapEffects(session.effects)),
+            migrateOrderOuterMargin(
+              migrateColorizeReactivity(mapEffects(session.effects)),
+            ),
             (lanes.length ? lanes : DEFAULT_LANES).map((lane) => lane.id),
           ),
           session.orderDefaulted,

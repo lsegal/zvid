@@ -808,6 +808,7 @@ describe("FX clips", () => {
       arrangement: "grid",
       gridSize: 3,
       spacing: 0,
+      margin: 0,
       excludedLayers: [],
       borderColor: { r: 0, g: 0, b: 0, a: 1 },
     });

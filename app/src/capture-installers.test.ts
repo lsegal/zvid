@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   CAPTURE_INSTALLERS_MANIFEST_URL,
+  CAPTURE_PLATFORM_LABELS,
   captureInstallerUrl,
   detectCapturePlatform,
   formatInstallerSize,
@@ -198,5 +199,12 @@ describe("formatInstallerSize", () => {
   it("formats bytes as megabytes", () => {
     assert.equal(formatInstallerSize(8070936), "7.7 MB");
     assert.equal(formatInstallerSize(3556059), "3.4 MB");
+  });
+});
+
+describe("CAPTURE_PLATFORM_LABELS", () => {
+  it("labels the macOS download as Apple silicon only", () => {
+    assert.equal(CAPTURE_PLATFORM_LABELS.macos, "macOS (Apple Silicon)");
+    assert.equal(CAPTURE_PLATFORM_LABELS.windows, "Windows");
   });
 });

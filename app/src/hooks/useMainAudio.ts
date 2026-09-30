@@ -224,8 +224,8 @@ export type MainAudioDropInputs = {
 };
 
 // Dropping an audio file on the Audio lane. The handlers cancel a source
-// track drop, whose state App declares after useMainAudio, so App calls this
-// hook where it used to declare them.
+// track drop, whose state useSourceTrackDrop declares after useMainAudio, so
+// useMediaImport calls this hook after it.
 export function useMainAudioDrop({
   sourceTrackDragTarget,
   clearSourceTrackDragState,

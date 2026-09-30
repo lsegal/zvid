@@ -18,6 +18,7 @@ import {
   type Arrangement,
   type CompositionOrder,
   DEFAULT_COMPOSITION_ORDER,
+  SPACING_MAX,
   Z_ORDER_COMPOSITION,
 } from "./composition-order.ts";
 
@@ -266,7 +267,7 @@ function framed(
   spacing = 0,
   gridSize = 2,
 ): CompositionOrder {
-  return { ...arranged(arrangement, spacing, gridSize), outerMargin: true };
+  return { ...arranged(arrangement, spacing, gridSize), margin: spacing };
 }
 
 // How many of `boxes` cover each pixel of a width × height surface.
@@ -469,6 +470,68 @@ describe("resolveSlotBounds", () => {
       resolveSlotBounds(1, 3, framed("grid", 0, 2), 1920, 1080),
       resolveSlotBounds(1, 3, arranged("grid", 0, 2), 1920, 1080),
     );
+  });
+
+  it("insets the slots by a margin independent of the spacing", () => {
+    const toPixels = (
+      index: number,
+      count: number,
+      order: CompositionOrder,
+    ) => {
+      const slot = resolveSlotBounds(index, count, order, 1920, 1080);
+      return {
+        left: ((slot.centerX - slot.halfWidth + 1) / 2) * 1920,
+        right: ((slot.centerX + slot.halfWidth + 1) / 2) * 1920,
+        top: ((1 - slot.centerY - slot.halfHeight) / 2) * 1080,
+        bottom: ((1 - slot.centerY + slot.halfHeight) / 2) * 1080,
+      };
+    };
+    const grid: CompositionOrder = { ...arranged("grid", 10, 2), margin: 60 };
+    const cell = (1920 - 120 - 10) / 2;
+    const row = (1080 - 120 - 10) / 2;
+    assertClose(toPixels(0, 4, grid).left, 60, "left margin");
+    assertClose(toPixels(0, 4, grid).top, 60, "top margin");
+    assertClose(toPixels(0, 4, grid).right, 60 + cell, "first cell right");
+    assertClose(toPixels(0, 4, grid).bottom, 60 + row, "first cell bottom");
+    assertClose(toPixels(1, 4, grid).left, 60 + cell + 10, "column gap");
+    assertClose(toPixels(3, 4, grid).right, 1920 - 60, "right margin");
+    assertClose(toPixels(3, 4, grid).bottom, 1080 - 60, "bottom margin");
+
+    // A margin with no spacing: the cells touch but are framed.
+    const rows: CompositionOrder = { ...arranged("vertical"), margin: 30 };
+    assertClose(toPixels(0, 2, rows).left, 30, "margin without spacing");
+    assertClose(
+      toPixels(1, 2, rows).top,
+      toPixels(0, 2, rows).bottom,
+      "no gap",
+    );
+  });
+
+  it("matches no margin with a margin of 0", () => {
+    for (const arrangement of ["vertical", "horizontal", "grid"] as const) {
+      assert.deepEqual(
+        resolveSlotBounds(
+          1,
+          3,
+          { ...arranged(arrangement, 20), margin: 0 },
+          1920,
+          1080,
+        ),
+        resolveSlotBounds(1, 3, arranged(arrangement, 20), 1920, 1080),
+      );
+    }
+  });
+
+  it("keeps cells at least 1 px with a large margin and spacing on a small output", () => {
+    const order: CompositionOrder = {
+      ...arranged("grid", SPACING_MAX, 6),
+      margin: SPACING_MAX,
+    };
+    for (let index = 0; index < 36; index++) {
+      const slot = resolveSlotBounds(index, 36, order, 64, 36);
+      assert.ok(slot.halfWidth * 64 >= 1 - 1e-9, `cell ${index} width`);
+      assert.ok(slot.halfHeight * 36 >= 1 - 1e-9, `cell ${index} height`);
+    }
   });
 
   it("frames a moving slot with the outer margin", () => {

@@ -56,8 +56,9 @@ type FxStringParameterFields = {
   defaultValue: string;
   hidden?: boolean;
   visibleWhen?: FxParameterVisibility;
-  // Dims the control, which stays editable, while it has no visible effect.
-  dimmedWhen?: FxParameterVisibility;
+  // Dims the control, which stays editable, while it has no visible effect:
+  // while the condition, or every one of a list of them, holds.
+  dimmedWhen?: FxParameterVisibility | readonly FxParameterVisibility[];
 };
 
 export type FxStringParameterDefinition =

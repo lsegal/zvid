@@ -15,9 +15,14 @@ export const CAPTURE_PLATFORMS: readonly CapturePlatform[] = [
 ];
 
 export const CAPTURE_PLATFORM_LABELS: Record<CapturePlatform, string> = {
-  macos: "macOS",
+  macos: "macOS (Apple Silicon)",
   windows: "Windows",
 };
+
+// Shown to macOS visitors: browsers report Intel in every Mac's user agent,
+// so an Intel Mac can't be told apart and warned more specifically.
+export const MACOS_INTEL_NOTICE =
+  "ZVID Capture needs a Mac with Apple silicon. Intel Macs aren't supported.";
 
 export type CaptureInstaller = {
   platform: CapturePlatform;

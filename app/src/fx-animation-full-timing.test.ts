@@ -41,7 +41,7 @@ function orderAt(
   spacing: number,
   elapsed: number,
   duration: number,
-  outerMargin = "Off",
+  margin = 0,
 ) {
   const parameters = resolveClipAnimatedParameters(
     {
@@ -49,7 +49,7 @@ function orderAt(
       parameters: [
         { key: "Arrangement", value: "Horizontal" },
         { key: "Spacing", value: String(spacing), numericValue: spacing },
-        { key: "OuterMargin", value: outerMargin },
+        { key: "Margin", value: String(margin), numericValue: margin },
       ],
       animation: fullAnimation("Order"),
     },
@@ -82,11 +82,10 @@ describe("Full clip timing", () => {
     assert.equal(getClipTimingFrames("Layout", "Full"), undefined);
   });
 
-  it("opens and closes an Order's outer margin with its gaps", () => {
+  it("opens and closes an Order's margin with its gaps", () => {
     // The left edge of the first of two columns on a 1080p canvas.
     const marginAt = (elapsed: number) => {
-      const order = orderAt(108, elapsed, 3, "On");
-      assert.equal(order.outerMargin, true);
+      const order = orderAt(10, elapsed, 3, 108);
       const slot = resolveSlotBounds(0, 2, order, 1920, 1080);
       return ((slot.centerX - slot.halfWidth + 1) / 2) * 1920;
     };
@@ -101,6 +100,22 @@ describe("Full clip timing", () => {
         {
           effectName: "Order",
           parameters: [
+            { key: "Spacing", value: "10", numericValue: 10 },
+            { key: "Margin", value: "108", numericValue: 108 },
+          ],
+        },
+        0.5,
+      ),
+    );
+    assertClose(halfway.margin ?? 0, 54);
+    assertClose(halfway.spacing, 5);
+
+    // An unmigrated Order with its toggle On tweens its spacing inset too.
+    const legacy = parseCompositionOrder(
+      applyClipAnimationWeight(
+        {
+          effectName: "Order",
+          parameters: [
             { key: "Spacing", value: "108", numericValue: 108 },
             { key: "OuterMargin", value: "On" },
           ],
@@ -108,8 +123,7 @@ describe("Full clip timing", () => {
         0.5,
       ),
     );
-    assert.equal(halfway.outerMargin, true);
-    assertClose(halfway.spacing, 54);
+    assertClose(legacy.margin ?? 0, 54);
   });
 
   it("eases Order spacing open until the middle of the clip and closed by its end", () => {

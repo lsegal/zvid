@@ -21,10 +21,11 @@ export type CompositionOrder = {
   gridSize: number;
   // Gap between neighboring layers, in output pixels at 1080p.
   spacing: number;
-  // Set when the arrangement is also inset from the Order's box by
-  // `spacing`, so the border color frames it as well as filling the gaps.
-  // Absent means the slots run to the box's edges.
-  outerMargin?: boolean;
+  // Inset of the arrangement from the Order's box, in output pixels at
+  // 1080p, so the border color frames it as well as filling the gaps.
+  // Independent of `spacing`; absent or 0 means the slots run to the box's
+  // edges.
+  margin?: number;
   // Ids of the layers the arrangement leaves out. They are drawn full-frame
   // in their z-order instead, as with no Order. Absent means none.
   excludedLayers?: readonly string[];
@@ -58,13 +59,13 @@ export const GRID_SIZE_MAX = 6;
 // Output pixels at 1080p, scaled to the output size.
 export const SPACING_MAX = 200;
 export const DEFAULT_BORDER_COLOR = "rgba(0,0,0,1)";
-export const OUTER_MARGIN_OPTIONS = ["Off", "On"] as const;
 export const BLACK_BORDER: Rgba = { r: 0, g: 0, b: 0, a: 1 };
 
 export const DEFAULT_COMPOSITION_ORDER: CompositionOrder = {
   arrangement: "vertical",
   gridSize: GRID_SIZE_MIN,
   spacing: 0,
+  margin: 0,
   excludedLayers: [],
   borderColor: BLACK_BORDER,
 };
@@ -79,6 +80,11 @@ export const Z_ORDER_COMPOSITION: CompositionOrder = {
 
 // The Order parameter that lists the ids of the layers it leaves out.
 export const EXCLUDED_LAYERS_KEY = "ExcludedLayers";
+
+// The Margin knob, and the On/Off toggle it replaced, which inset the
+// arrangement by its spacing when On.
+export const MARGIN_KEY = "Margin";
+export const LEGACY_OUTER_MARGIN_KEY = "OuterMargin";
 
 export function isOrderEffectName(effectName: string) {
   return effectName.trim().toLowerCase() === ORDER_EFFECT_NAME.toLowerCase();
@@ -152,12 +158,21 @@ export function isLayerArranged(order: CompositionOrder, layerId: string) {
   );
 }
 
+// Spacing and Margin share a range.
+function clampSpacing(value: number) {
+  return Math.max(0, Math.min(SPACING_MAX, value));
+}
+
 // Reads an Order effect's parameters by key; missing or unreadable values
 // keep their defaults.
 export function parseCompositionOrder(
   parameters: OrderParameter[],
 ): CompositionOrder {
   const order = { ...DEFAULT_COMPOSITION_ORDER };
+  // An unmigrated Order, such as one a peer on an older build publishes,
+  // with its toggle On and no Margin is inset by its spacing. A Margin of 0
+  // does not count: a tween adds one while the spacing tweens.
+  let legacyOuterMargin = false;
   for (const parameter of parameters) {
     const key = parameter.key.toLowerCase().replace(/[^a-z0-9]/g, "");
     if (key === "arrangement") {
@@ -171,7 +186,7 @@ export function parseCompositionOrder(
     }
 
     if (key === "outermargin") {
-      order.outerMargin = parameter.value.trim().toLowerCase() === "on";
+      legacyOuterMargin = parameter.value.trim().toLowerCase() === "on";
       continue;
     }
 
@@ -192,10 +207,15 @@ export function parseCompositionOrder(
         Math.min(GRID_SIZE_MAX, Math.round(numeric)),
       );
     } else if (key === "spacing") {
-      order.spacing = Math.max(0, Math.min(SPACING_MAX, numeric));
+      order.spacing = clampSpacing(numeric);
+    } else if (key === "margin") {
+      order.margin = clampSpacing(numeric);
     }
   }
 
+  if (legacyOuterMargin && !order.margin) {
+    order.margin = order.spacing;
+  }
   return order;
 }
 
