@@ -13,7 +13,7 @@ https://creativecommons.org/licenses/by/4.0/
 - Download: https://incompetech.com/music/royalty-free/mp3-royaltyfree/Decisions.mp3
 - ISRC: USUAN1100756
 
-`decisions-30s.mp3` is an excerpt of the first 30 seconds with a 0.6-second
+`decisions-30s.m4a` is an excerpt of the first 30 seconds with a 0.6-second
 fade-in and a two-second fade-out, synchronized to the sample's graphics.
 
 ## Video

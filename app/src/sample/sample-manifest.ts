@@ -33,17 +33,38 @@ export type SampleManifest = {
 
 export const SAMPLE_PATH_PREFIX = "zvid-sample://";
 
+// A harness may treat a sample path as a file path on the way in: the dev
+// server on Windows hands `zvid-sample://a/b` back as `.\zvid-sample:\a\b`.
+// So sample paths are compared from their `zvid-sample:` marker, with
+// forward slashes, runs of slashes collapsed, and case ignored.
+function canonicalSamplePath(path: string) {
+  const canonical = path
+    .trim()
+    .replace(/[\\/]+/g, "/")
+    .toLowerCase();
+  const marker = canonical.indexOf("zvid-sample:");
+  return marker > 0 ? canonical.slice(marker) : canonical;
+}
+
+const CANONICAL_PREFIX = canonicalSamplePath(SAMPLE_PATH_PREFIX);
+
 export function isSamplePath(path: string | undefined): path is string {
-  return path?.startsWith(SAMPLE_PATH_PREFIX) === true;
+  return (
+    path !== undefined && canonicalSamplePath(path).startsWith(CANONICAL_PREFIX)
+  );
 }
 
 export function findSampleAsset(
   manifest: SampleManifest,
   path: string | undefined,
 ) {
-  return isSamplePath(path)
-    ? manifest.assets.find((asset) => asset.path === path)
-    : undefined;
+  if (!isSamplePath(path)) {
+    return undefined;
+  }
+  const canonical = canonicalSamplePath(path);
+  return manifest.assets.find(
+    (asset) => canonicalSamplePath(asset.path) === canonical,
+  );
 }
 
 // `refs` with each sample asset under its stable id, whatever id the

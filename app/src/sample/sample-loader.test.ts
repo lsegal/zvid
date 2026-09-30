@@ -242,6 +242,19 @@ describe("sample media refs", () => {
       findSampleAsset(MANIFEST, "zvid-sample://test/two.mp4")?.id,
       "zvid-sample:test:two",
     );
+    // As a harness that normalizes file paths hands it back.
+    assert.equal(
+      findSampleAsset(MANIFEST, "zvid-sample:\\test\\two.mp4")?.id,
+      "zvid-sample:test:two",
+    );
+    assert.equal(
+      findSampleAsset(MANIFEST, ".\\zvid-sample:\\test\\two.mp4")?.id,
+      "zvid-sample:test:two",
+    );
+    assert.equal(
+      findSampleAsset(MANIFEST, "zvid-sample:/test/two.mp4")?.id,
+      "zvid-sample:test:two",
+    );
     assert.equal(findSampleAsset(MANIFEST, "/samples/test/two.mp4"), undefined);
     assert.equal(findSampleAsset(MANIFEST, undefined), undefined);
   });

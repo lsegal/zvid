@@ -3874,7 +3874,7 @@
   },
   "playPosition": 0,
   "playStartPosition": 0,
-  "audioFilename": "zvid-sample://opening-v1/decisions-30s.mp3",
+  "audioFilename": "zvid-sample://opening-v1/decisions-30s.m4a",
   "orderDefaulted": true,
   "clipContentEffects": true
 }

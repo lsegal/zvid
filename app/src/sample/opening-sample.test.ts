@@ -35,9 +35,9 @@ function numberParameter(
   return effect.parameters?.[key]?.floatValue;
 }
 
-// The layer clips of `kind` covering `seconds`.
-function clipsAt(
-  clips: { frameStart: number; frameEnd: number }[] | undefined,
+// The layer clips covering `seconds`.
+function clipsAt<Clip extends { frameStart: number; frameEnd: number }>(
+  clips: Clip[] | undefined,
   seconds: number,
 ) {
   const frame = seconds * FPS;

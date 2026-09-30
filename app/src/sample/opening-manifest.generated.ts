@@ -39,12 +39,12 @@ export const OPENING_SAMPLE_MANIFEST: SampleManifest = {
     },
     {
       "id": "zvid-sample:opening-v1:music",
-      "path": "zvid-sample://opening-v1/decisions-30s.mp3",
-      "url": "/samples/opening-v1/decisions-30s.mp3",
-      "name": "decisions-30s.mp3",
-      "mediaType": "audio/mpeg",
-      "bytes": 722195,
-      "sha256": "aa8417fe4e8c0b0ab1900f82870717833e78f7ed4b9ae4f91c4f174e8b3da3b3",
+      "path": "zvid-sample://opening-v1/decisions-30s.m4a",
+      "url": "/samples/opening-v1/decisions-30s.m4a",
+      "name": "decisions-30s.m4a",
+      "mediaType": "audio/mp4",
+      "bytes": 708770,
+      "sha256": "65432678b23b10f780563fca6d4ced559c47dc627802bc7eaadf3e7c9bdc73bc",
       "credit": "\"Decisions\" by Kevin MacLeod (incompetech.com), licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). First 30 seconds excerpted with a 0.6 s fade-in and 2 s fade-out, synchronized to the sample's graphics."
     }
   ]

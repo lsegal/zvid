@@ -35,7 +35,6 @@ const SOURCE_FRAMES = 16 * FPS;
 const IVORY = "rgba(243,226,191,1)";
 const INK = "rgba(12,40,56,1)";
 const LIGHT = "rgba(236,242,240,1)";
-const GLOBAL_TRACK_ID = "__group_main";
 
 // A path no disk or server resolves: the app maps it to the manifest's
 // asset, so the sample never asks to locate its media.
@@ -54,7 +53,7 @@ const SOURCES = [
   { key: "ribbon", name: "Ribbon", file: "ribbon.mp4" },
   { key: "corridor", name: "Corridor", file: "corridor.mp4" },
 ];
-const MUSIC = { key: "music", name: "Decisions", file: "decisions-30s.mp3" };
+const MUSIC = { key: "music", name: "Decisions", file: "decisions-30s.m4a" };
 
 // Layers, top first. The titles sit above the FX and Order layers, so no
 // effect or arrangement touches them.
@@ -555,7 +554,7 @@ const manifest = {
   creditsUrl: `/samples/${SAMPLE_VERSION}/CREDITS.md`,
   assets: [
     ...SOURCES.map((source) => asset(source, "video/mp4", VIDEO_CREDIT)),
-    asset(MUSIC, "audio/mpeg", MUSIC_CREDIT),
+    asset(MUSIC, "audio/mp4", MUSIC_CREDIT),
   ],
 };
 

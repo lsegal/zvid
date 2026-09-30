@@ -80,6 +80,30 @@ describe("Full clip timing", () => {
     assert.ok(spacingAt(108, 0.375, 3) < 27);
   });
 
+  it("keeps the Order's border colour while the spacing tweens", () => {
+    const parameters = resolveClipAnimatedParameters(
+      {
+        effectName: "Order",
+        parameters: [
+          { key: "Spacing", value: "108", numericValue: 108 },
+          { key: "BorderColor", value: "rgba(243,226,191,1)" },
+        ],
+        animation: fullAnimation("Order"),
+      },
+      {
+        clipId: "fx",
+        laneId: "order",
+        progress: 0.1,
+        elapsedSeconds: 0.3,
+        durationSeconds: 3,
+      },
+      { playheadQ: 0, bpm: 120, fps: FPS },
+    );
+    const order = parseCompositionOrder(parameters);
+    assert.ok(order.spacing > 0 && order.spacing < 108);
+    assert.deepEqual(order.borderColor, { r: 243, g: 226, b: 191, a: 1 });
+  });
+
   it("follows the clip's length", () => {
     assertClose(spacingAt(80, 0.75, 1.5), 80);
     assertClose(spacingAt(80, 0.375, 1.5), 40);

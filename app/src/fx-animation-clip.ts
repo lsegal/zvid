@@ -209,16 +209,24 @@ export function resolveClipAnimatedParameters(
     return effect.parameters;
   }
 
-  return applyClipAnimationWeight(
-    effect,
-    clipAnimationWeight(
-      clip,
-      frames,
-      frameContext.fps,
-      clipContext.elapsedSeconds,
-      clipContext.durationSeconds,
-    ),
+  const weight = clipAnimationWeight(
+    clip,
+    frames,
+    frameContext.fps,
+    clipContext.elapsedSeconds,
+    clipContext.durationSeconds,
   );
+  // With Full timing an Order stays on screen for its whole clip, so its
+  // border keeps its colour and only the spacing tweens.
+  if (
+    clip.timing === FULL_CLIP_TIMING &&
+    effect.effectName === ORDER_EFFECT_NAME
+  ) {
+    return weight >= 1
+      ? effect.parameters
+      : interpolateFromNeutral(effect.effectName, effect.parameters, weight);
+  }
+  return applyClipAnimationWeight(effect, weight);
 }
 
 // The slide an Order with this animation gives its layers, at `fps`, or
