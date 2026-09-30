@@ -1,10 +1,8 @@
-import {
-  type Dispatch,
-  type MouseEvent as ReactMouseEvent,
-  type RefObject,
-  type SetStateAction,
-  useEffect,
-  useRef,
+import type {
+  Dispatch,
+  MouseEvent as ReactMouseEvent,
+  RefObject,
+  SetStateAction,
 } from "react";
 import type { ClipClipboard } from "../app/clip-ops.ts";
 import { FX_CLIP_BARS, TEXT_CLIP_BARS } from "../app/constants.ts";
@@ -18,10 +16,9 @@ import type {
   SourceTrack,
   TimelineSelection,
 } from "../app/types.ts";
-import { clamp, getSwatch } from "../app/util.ts";
+import { getSwatch } from "../app/util.ts";
 import { canSplitAt, isInSelection } from "../clip-menu.ts";
 import type { ContextMenuEntry, MenuPoint } from "../context-menu.ts";
-import { isContextMenuKey } from "../context-menu.ts";
 import { addableEffectsFor } from "../fx-chain.ts";
 import { isLayerFxEnabled } from "../fx-stack.ts";
 import type { useClipActions } from "../hooks/useClipActions.ts";
@@ -37,6 +34,7 @@ import { buildHistoryEntries } from "./entries/edit-history.ts";
 import { buildLayerMenuEntries } from "./layer-menu.ts";
 import { buildSelectionMenuEntries } from "./selection-menu.ts";
 import { buildSourceSpanMenuEntries } from "./source-span-menu.ts";
+import { useKeyboardContextMenu } from "./useKeyboardContextMenu.ts";
 
 type ClipActions = ReturnType<typeof useClipActions>;
 type ClipInsertion = ReturnType<typeof useClipInsertion>;
@@ -246,114 +244,16 @@ export function useMenus({
     });
   }
 
-  // The context-menu key or Shift+F10 with nothing focused opens the menu on
-  // the uncommitted selection, the selected clip, or the selected layer at
-  // the playhead.
-  function openSelectionMenu() {
-    const timelineScroll = timelineScrollRef.current;
-    if (!timelineScroll) {
-      return false;
-    }
-
-    if (pendingSelection) {
-      const selection = timelineScroll.querySelector<HTMLElement>(
-        `[data-timeline-lane-id="${CSS.escape(pendingSelection.laneId)}"] .timeline-selection`,
-      );
-      if (!selection) {
-        return false;
-      }
-
-      const bounds = selection.getBoundingClientRect();
-      setClipMenu({
-        kind: "selection",
-        anchor: { x: bounds.left, y: bounds.bottom },
-      });
-      return true;
-    }
-
-    if (selectedClip) {
-      const card = timelineScroll.querySelector<HTMLElement>(
-        `[data-clip-id="${CSS.escape(selectedClip.id)}"]`,
-      );
-      if (!card) {
-        return false;
-      }
-
-      const bounds = card.getBoundingClientRect();
-      setClipMenu({
-        kind: "clip",
-        clipId: selectedClip.id,
-        anchor: { x: bounds.left, y: bounds.bottom },
-      });
-      return true;
-    }
-
-    if (!fxLaneId) {
-      return false;
-    }
-
-    const lane = timelineScroll.querySelector<HTMLElement>(
-      `[data-timeline-lane-id="${CSS.escape(fxLaneId)}"]`,
-    );
-    if (!lane) {
-      return false;
-    }
-
-    const bounds = lane.getBoundingClientRect();
-    setSelectedLaneId(fxLaneId);
-    setClipMenu({
-      kind: "lane",
-      laneId: fxLaneId,
-      anchor: {
-        x: clamp(
-          bounds.left + playheadQRef.current * quarterPx,
-          bounds.left,
-          bounds.right,
-        ),
-        y: bounds.bottom,
-      },
-    });
-    return true;
-  }
-
-  const openSelectionMenuRef = useRef(openSelectionMenu);
-  openSelectionMenuRef.current = openSelectionMenu;
-
-  // Browsers report both keys as a contextmenu event. Clips, lanes and panels
-  // with their own menu handle it first when they have focus; this takes the
-  // rest while nothing, or empty timeline space, has focus.
-  useEffect(() => {
-    let keyboardMenuAt = Number.NEGATIVE_INFINITY;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (isContextMenuKey(event)) {
-        keyboardMenuAt = event.timeStamp;
-      }
-    };
-    const onContextMenu = (event: MouseEvent) => {
-      const fromKeyboard = event.timeStamp - keyboardMenuAt < 1000;
-      keyboardMenuAt = Number.NEGATIVE_INFINITY;
-      const focused = document.activeElement;
-      if (
-        !fromKeyboard ||
-        event.defaultPrevented ||
-        (focused &&
-          focused !== document.body &&
-          !timelineScrollRef.current?.contains(focused))
-      ) {
-        return;
-      }
-
-      if (openSelectionMenuRef.current()) {
-        event.preventDefault();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown, true);
-    document.addEventListener("contextmenu", onContextMenu);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown, true);
-      document.removeEventListener("contextmenu", onContextMenu);
-    };
-  }, [timelineScrollRef]);
+  useKeyboardContextMenu({
+    fxLaneId,
+    pendingSelection,
+    playheadQRef,
+    quarterPx,
+    selectedClip,
+    setClipMenu,
+    setSelectedLaneId,
+    timelineScrollRef,
+  });
 
   function getClipMenuEntries(menu: ClipMenuState): ContextMenuEntry[] {
     if (menu.kind === "audio") {
