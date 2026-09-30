@@ -102,8 +102,8 @@ function interpolateFromNeutral(
       ? at(parameter.key, target)
       : parameter;
   });
-  for (const [key, { unset }] of Object.entries(neutrals)) {
-    const target = unset ?? registryDefault(effectName, key);
+  for (const key of Object.keys(neutrals)) {
+    const target = registryDefault(effectName, key);
     if (
       target !== undefined &&
       !parameters.some((parameter) => parameter.key === key)

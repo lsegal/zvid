@@ -319,14 +319,9 @@ export function toggleAnimatedParameter(
 }
 
 // Where Clip mode animates a knob from: the value at which it has no visible
-// effect, and the value it has when the effect doesn't store it. The effect
-// fades in from these on a clip's enter and back to them on its exit.
-export type AnimationNeutralValue = {
-  neutral: number;
-  // The value to animate towards when the parameter isn't stored, when it
-  // differs from the registry default (as for Color's hidden Opacity).
-  unset?: number;
-};
+// effect. The effect fades in from it on a clip's enter and back to it on
+// its exit.
+export type AnimationNeutralValue = { neutral: number };
 
 const TRANSFORM_NEUTRALS = {
   PositionX: { neutral: 0 },
@@ -388,7 +383,7 @@ const NEUTRAL_VALUES: ReadonlyMap<string, AnimationNeutralValues> = new Map<
     { _LowIntensity: { neutral: 0 }, _HighIntensity: { neutral: 0 } },
   ],
   ["AnalogGlitch", { _LowMod: { neutral: 0 }, _HighMod: { neutral: 0 } }],
-  [COLOR_EFFECT_NAME, { Opacity: { neutral: 0, unset: 1 } }],
+  [COLOR_EFFECT_NAME, { Opacity: { neutral: 0 } }],
   // Text has no opacity knob: Clip mode fades its colours instead.
   [TEXT_EFFECT_NAME, {}],
 ]);

@@ -134,7 +134,7 @@ describe("applyClipAnimationWeight", () => {
     assert.equal(applyClipAnimationWeight(effect, 1), effect.parameters);
   });
 
-  it("fades Color through its opacity, which is 1 when unset", () => {
+  it("fades Color through its opacity, which defaults to 1", () => {
     assert.deepEqual(
       applyClipAnimationWeight(
         {
