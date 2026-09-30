@@ -53,7 +53,7 @@ use zvid_daw_core::{BUILD_VERSION_ENV, PLUGIN_NAME};
 
 /// Name of the plugin cdylib, without platform prefix or suffix.
 const LIBRARY: &str = "zvid_capture_plugin";
-const BUNDLE_IDENTIFIER: &str = "com.lsegal.zvid.capture.vst3";
+const BUNDLE_IDENTIFIER: &str = "cc.zvid.capture.vst3";
 /// Target of release macOS builds: Apple silicon only, Intel Macs aren't
 /// supported.
 const MACOS_RELEASE_TARGET: &str = "aarch64-apple-darwin";
@@ -62,7 +62,7 @@ const CODESIGN_IDENTITY_ENV: &str = "ZVID_CODESIGN_IDENTITY";
 /// Developer ID Installer identity that signs the macOS `.pkg`.
 const INSTALLER_IDENTITY_ENV: &str = "ZVID_INSTALLER_IDENTITY";
 /// Identifier of the macOS installer package's payload.
-const PKG_IDENTIFIER: &str = "com.lsegal.zvid.capture.pkg";
+const PKG_IDENTIFIER: &str = "cc.zvid.capture.pkg";
 /// Oldest macOS the installer package installs on: the plugin's minimum.
 /// `pkgbuild` also picks the strongest payload compression this version
 /// can extract.
@@ -1592,7 +1592,10 @@ mod tests {
         );
         let plist = fs::read_to_string(macos.join("Info.plist")).unwrap();
         assert!(plist.contains("<string>ZVID Capture</string>"));
-        assert!(plist.contains(BUNDLE_IDENTIFIER));
+        assert!(
+            plist
+                .contains("<key>CFBundleIdentifier</key>\n\t<string>cc.zvid.capture.vst3</string>")
+        );
         assert!(plist.contains("<key>CFBundleVersion</key>\n\t<string>0.1.0+c94f40e</string>"));
         assert!(
             plist.contains(
@@ -1866,9 +1869,9 @@ mod tests {
         assert!(xml.contains("<title>ZVID</title>"));
         assert!(xml.contains(r#"<os-version min="13.0"/>"#));
         assert!(xml.contains(r#"hostArchitectures="arm64""#));
-        assert!(xml.contains(&format!(
-            r#"<pkg-ref id="{PKG_IDENTIFIER}" version="0.1.0+c94f40e" onConclusion="none">zvid-capture.pkg</pkg-ref>"#
-        )));
+        assert!(xml.contains(
+            r#"<pkg-ref id="cc.zvid.capture.pkg" version="0.1.0+c94f40e" onConclusion="none">zvid-capture.pkg</pkg-ref>"#
+        ));
         assert!(xml.contains(r#"enable_localSystem="true""#));
         assert!(xml.contains(r#"enable_currentUserHome="false""#));
     }
