@@ -12,6 +12,10 @@ import {
 import { statusMessageTone } from "./status-bar.ts";
 
 const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const useCollaborationTs = readFileSync(
+  new URL("./hooks/useCollaboration.ts", import.meta.url),
+  "utf8",
+);
 const buttonTsx = readFileSync(
   new URL("./components/ShareLinkButton.tsx", import.meta.url),
   "utf8",
@@ -90,7 +94,10 @@ describe("copying the share link", () => {
 
 describe("share link wiring", () => {
   it("keeps the URL even when the automatic copy fails", () => {
-    const start = functionBody(appTsx, "async function handleStartShare()");
+    const start = functionBody(
+      useCollaborationTs,
+      "async function handleStartShare()",
+    );
     assert.ok(
       start.indexOf("setShareUrl(inviteUrl)") <
         start.indexOf("navigator.clipboard.writeText(inviteUrl)"),
@@ -101,7 +108,7 @@ describe("share link wiring", () => {
 
   it("clears the URL on Stop Share", () => {
     assert.match(
-      functionBody(appTsx, "function handleStopShare()"),
+      functionBody(useCollaborationTs, "function handleStopShare()"),
       /setShareUrl\(""\)/,
     );
   });
@@ -146,7 +153,7 @@ describe("share link icon next to Stop Share", () => {
       /<ShareLinkIconButton\s+key=\{shareUrl\}\s+onCopied=\{showShareCopiedBadge\}\s+url=\{shareUrl\}/,
     );
     assert.match(
-      functionBody(appTsx, "function showShareCopiedBadge()"),
+      functionBody(useCollaborationTs, "function showShareCopiedBadge()"),
       /setHasCopiedShareInvite\(true\)/,
     );
     assert.match(
