@@ -24,6 +24,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
+import "./top-bar.css";
 
 type CollaborationActions = ReturnType<typeof useCollaboration>;
 type SessionIO = ReturnType<typeof useSessionIO>;

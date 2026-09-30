@@ -1,0 +1,50 @@
+.fx-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.fx-panel__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 18px;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-align: left;
+}
+
+.fx-panel__toggle:hover {
+  color: var(--ink);
+}
+
+.fx-panel__toggle svg {
+  width: 16px;
+  height: 16px;
+  transition: transform 160ms ease;
+}
+
+.fx-panel--collapsed .fx-panel__toggle {
+  border-bottom: none;
+}
+
+.fx-panel--collapsed .fx-panel__toggle svg {
+  transform: rotate(-90deg);
+}
+
+.fx-panel__body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+}
+
+.fx-panel__body[hidden] {
+  display: none;
+}

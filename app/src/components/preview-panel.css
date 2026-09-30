@@ -1,0 +1,144 @@
+.preview-resize-handle {
+  position: relative;
+  width: auto;
+  height: auto;
+  margin: 0;
+  border: 0;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+}
+
+.preview-resize-handle::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 4px;
+  border-radius: 999px;
+  transform: translateX(-50%);
+  background: transparent;
+  transition: background 120ms ease;
+}
+
+.preview-resize-handle:hover::before,
+.preview-resize-handle:focus-visible::before {
+  background: rgba(246, 183, 60, 0.45);
+}
+
+.preview-resize-handle:active::before {
+  background: var(--amber);
+}
+
+.preview-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* A slim single-line strip so the monitor below keeps nearly all the height. */
+.preview-panel__header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 26px;
+  padding: 0 4px 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(17, 19, 28, 0.4);
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.preview-panel__header strong {
+  flex: none;
+}
+
+.preview-panel__clip {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.preview-panel__mode {
+  flex: none;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(124, 161, 255, 0.4);
+  background: rgba(124, 161, 255, 0.12);
+  color: #b9cbff;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.preview-monitor {
+  position: relative;
+  min-height: 140px;
+  flex: 1;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 45%),
+    linear-gradient(180deg, #d7d0c9 0%, #847567 100%);
+  display: flex;
+  align-items: stretch;
+}
+
+.preview-placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, rgba(12, 14, 20, 0.46), rgba(255, 255, 255, 0.04));
+}
+
+.preview-placeholder__overlay {
+  position: absolute;
+  inset: auto 20px 20px;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(12, 14, 20, 0.62);
+  backdrop-filter: blur(12px);
+}
+
+.preview-placeholder__overlay strong,
+.preview-placeholder__overlay span {
+  display: block;
+}
+
+.preview-placeholder__overlay span {
+  margin-top: 8px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 900px), (max-height: 559px) {
+  .preview-resize-handle {
+    display: none;
+  }
+
+  .preview-panel {
+    min-height: 520px;
+    overflow-y: visible;
+  }
+
+  .preview-monitor {
+    flex: none;
+    height: min(70vh, 640px);
+  }
+}
