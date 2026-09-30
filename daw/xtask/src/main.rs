@@ -62,6 +62,10 @@ const CODESIGN_IDENTITY_ENV: &str = "ZVID_CODESIGN_IDENTITY";
 const INSTALLER_IDENTITY_ENV: &str = "ZVID_INSTALLER_IDENTITY";
 /// Identifier of the macOS installer package's payload.
 const PKG_IDENTIFIER: &str = "com.lsegal.zvid.capture.pkg";
+/// Oldest macOS the installer package installs on: the plugin's minimum.
+/// `pkgbuild` also picks the strongest payload compression this version
+/// can extract.
+const MACOS_MIN_VERSION: &str = "13.0";
 /// Inno Setup script for the Windows installer, relative to `/daw`.
 const INNO_SCRIPT: &str = "installer/zvid-capture.iss";
 /// Where the installers put the app and plugin bundles on macOS, relative to
@@ -759,6 +763,12 @@ fn package_macos(
             .arg(&components)
             .args(["--identifier", PKG_IDENTIFIER, "--version", version])
             .args(["--install-location", "/"])
+            .args([
+                "--compression",
+                "latest",
+                "--min-os-version",
+                MACOS_MIN_VERSION,
+            ])
             .arg(payload_dir.join("zvid-capture.pkg")),
         "building the installer payload",
     )?;
@@ -839,8 +849,8 @@ fn component_plist(paths: &[String]) -> String {
 }
 
 /// `productbuild` distribution for the payload package: runs natively on
-/// both architectures, installs only to the system volume and needs macOS
-/// 13, the plugin's minimum.
+/// both architectures, installs only to the system volume and needs
+/// [`MACOS_MIN_VERSION`], the plugin's minimum.
 fn distribution_xml(version: &str) -> String {
     format!(
         r#"<?xml version="1.0" encoding="utf-8"?>
@@ -850,7 +860,7 @@ fn distribution_xml(version: &str) -> String {
     <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
     <volume-check>
         <allowed-os-versions>
-            <os-version min="13.0"/>
+            <os-version min="{MACOS_MIN_VERSION}"/>
         </allowed-os-versions>
     </volume-check>
     <choices-outline>
