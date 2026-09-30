@@ -13,8 +13,9 @@ crate-type = ["cdylib", "rlib"]
 [workspace]
 
 [dependencies]
-# Includes zvidlib's WebCodecs and macOS AudioToolbox export adapters.
-zvidlib = { git = "https://github.com/lsegal/zvidlib", rev = "0fc8331c987f2e4cf49f616f14e618c0e5be5956" }
+# Includes zvidlib's WebCodecs and macOS AudioToolbox export adapters and
+# H.264 MP4 passthrough.
+zvidlib = { git = "https://github.com/lsegal/zvidlib", rev = "e987c41237e41408fbc8ebedf6cb3d0e669d79c4" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2.127"
