@@ -36,7 +36,8 @@ export type PeerMediaStateInputs = {
 
 // Remote media progress (peer transfers and sample downloads), the media
 // just received, the media no peer had and the downloads that failed. Also serves this tab's media to peers and aborts
-// transfers. App calls this before `useCollaboration`, which needs both.
+// transfers. useAppMedia calls this before useSessionSharing's
+// `useCollaboration`, which needs both.
 export function usePeerMediaState({
   localMediaOverridesRef,
   projectSnapshotRef,

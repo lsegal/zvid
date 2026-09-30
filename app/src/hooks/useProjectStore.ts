@@ -157,6 +157,8 @@ export function useProjectStore({
   };
 }
 
+export type ProjectStore = ReturnType<typeof useProjectStore>;
+
 export type ProjectHistoryCommandsInputs = {
   projectHistory: ProjectHistoryState<ProjectState>;
   dispatchProjectHistory: Dispatch<ProjectHistoryAction<ProjectState>>;

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   artifactPlatform,
+  CAPTURE_PLATFORM_LABELS,
   captureInstallerUrl,
   detectCapturePlatform,
   formatInstallerSize,
@@ -22,7 +23,7 @@ const IPHONE =
 describe("artifactPlatform", () => {
   it("maps DAW bundle artifact names to platforms", () => {
     assert.equal(
-      artifactPlatform("zvid-capture-0.1.0-bba0984-macos-universal"),
+      artifactPlatform("zvid-capture-0.1.0-bba0984-macos-arm64"),
       "macos",
     );
     assert.equal(
@@ -31,15 +32,26 @@ describe("artifactPlatform", () => {
     );
   });
 
+  it("still accepts universal macOS bundles from older runs", () => {
+    assert.equal(
+      artifactPlatform("zvid-capture-0.1.0-bba0984-macos-universal"),
+      "macos",
+    );
+  });
+
   it("ignores other artifacts", () => {
     assert.equal(artifactPlatform("host-test-windows-x64"), null);
     assert.equal(artifactPlatform("zvid-capture-0.1.0-bba0984-linux"), null);
+    assert.equal(
+      artifactPlatform("zvid-capture-0.1.0-bba0984-macos-x86_64"),
+      null,
+    );
   });
 });
 
 describe("isCaptureInstallerEntry", () => {
   it("picks the macOS .pkg from a bundle zip", () => {
-    const dir = "zvid-capture-0.1.0-bba0984-macos-universal";
+    const dir = "zvid-capture-0.1.0-bba0984-macos-arm64";
     assert.ok(
       isCaptureInstallerEntry(`${dir}/zvid-capture-0.1.0+bba0984.pkg`, "macos"),
     );
@@ -220,5 +232,12 @@ describe("formatInstallerSize", () => {
   it("formats bytes as megabytes", () => {
     assert.equal(formatInstallerSize(8070936), "7.7 MB");
     assert.equal(formatInstallerSize(3556059), "3.4 MB");
+  });
+});
+
+describe("CAPTURE_PLATFORM_LABELS", () => {
+  it("labels the macOS download as Apple silicon only", () => {
+    assert.equal(CAPTURE_PLATFORM_LABELS.macos, "macOS (Apple Silicon)");
+    assert.equal(CAPTURE_PLATFORM_LABELS.windows, "Windows");
   });
 });

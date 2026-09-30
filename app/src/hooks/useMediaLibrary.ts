@@ -390,8 +390,8 @@ export type MediaLibraryCommandsInputs = {
 };
 
 // Importing dropped media into source tracks and relinking offline media.
-// They use the source track and offline media state App declares after
-// useMediaLibrary, so App calls this hook where it used to declare them.
+// They use the offline media state useMediaStatus derives after
+// useMediaLibrary, so useMediaImport calls this hook after it.
 export function useMediaLibraryCommands({
   projectMediaItems,
   refuseReadOnlyEdit,

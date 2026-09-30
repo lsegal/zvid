@@ -9,6 +9,7 @@ import {
   captureInstallerUrl,
   detectCapturePlatform,
   formatInstallerSize,
+  MACOS_INTEL_NOTICE,
   parseCaptureInstallersManifest,
   pickCaptureDownloads,
 } from "../capture-installers";
@@ -148,6 +149,12 @@ export function CaptureInstallerDialog({
             Download the installer on the computer you run Live on.
           </p>
         )}
+
+        {platform === "macos" ? (
+          <p className="capture-installer__notice" role="note">
+            {MACOS_INTEL_NOTICE}
+          </p>
+        ) : null}
 
         {state.status === "unavailable" ? (
           <p className="capture-installer__notice" role="note">
