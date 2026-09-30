@@ -16,6 +16,10 @@ const useCollaborationTs = readFileSync(
   new URL("./hooks/useCollaboration.ts", import.meta.url),
   "utf8",
 );
+const useStatusBarItemsTsx = readFileSync(
+  new URL("./status-bar/useStatusBarItems.tsx", import.meta.url),
+  "utf8",
+);
 const buttonTsx = readFileSync(
   new URL("./components/ShareLinkButton.tsx", import.meta.url),
   "utf8",
@@ -114,9 +118,12 @@ describe("share link wiring", () => {
   });
 
   it("adds the button to the status bar while the link is visible", () => {
-    assert.match(appTsx, /shareLinkVisible\(collaborationMode, shareUrl\)/);
     assert.match(
-      appTsx,
+      useStatusBarItemsTsx,
+      /shareLinkVisible\(collaborationMode, shareUrl\)/,
+    );
+    assert.match(
+      useStatusBarItemsTsx,
       /<ShareLinkButton key=\{shareUrl\} url=\{shareUrl\} \/>/,
     );
   });

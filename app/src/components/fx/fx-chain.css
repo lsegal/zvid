@@ -301,17 +301,11 @@ body.fx-chain-dragging * {
 }
 
 .fx-device-panel__power svg,
+.fx-device-panel__animate svg,
 .fx-device-panel__remove svg,
 .fx-device-panel__collapse svg {
   width: 13px;
   height: 13px;
-}
-
-/* The (A) Animation toggle matches the power button beside it. */
-.fx-device-panel__animate span {
-  font-size: 0.72rem;
-  font-weight: 700;
-  line-height: 1;
 }
 
 .fx-device-panel__power[aria-pressed="true"],

@@ -1,19 +1,23 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
-  buildClipMenuEntries,
-  buildSelectionMenuEntries,
-  buildSourceSpanMenuEntries,
-  type ClipMenuActions,
   type CopyToLayerTarget,
   canSplitAt,
   copyClipToLayer,
   isInSelection,
-  NO_FOOTAGE_TITLE,
   resolvePasteLaneId,
   sourceTrackKeyNumber,
 } from "./clip-menu.ts";
 import type { ContextMenuEntry, ContextMenuItem } from "./context-menu.ts";
+import {
+  buildClipMenuEntries,
+  type ClipMenuActions,
+} from "./menus/clip-menu.ts";
+import {
+  buildSelectionMenuEntries,
+  NO_FOOTAGE_TITLE,
+} from "./menus/selection-menu.ts";
+import { buildSourceSpanMenuEntries } from "./menus/source-span-menu.ts";
 import { MAX_LAYERS } from "./selection-overlaps.ts";
 
 type Lane = { id: string; name: string };
