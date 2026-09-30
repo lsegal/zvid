@@ -16,6 +16,8 @@ Shared code sits next to `effects/`:
 - `params.ts`: parameter builders (`unitParameter`, `zoomParameter`, `transformParameter`, `moveParameters`) and display formatters (`formatPercent`, `formatPixels`, …).
 - `pass-test-utils.ts`: helpers for testing a shader pass without WebGL.
 
+`stack/` holds the FX stack model and its operations, which work on any effect.
+
 ## The generated index
 
 `scripts/gen-fx-index.mjs` scans `effects/*/definition.ts` and `effects/*/pass.ts` and writes `effects/index.generated.ts`, which imports each one in folder order. `src/fx-registry.ts` builds `FX_EFFECT_DEFINITIONS` from it, sorted by each definition's `menuOrder`, and `src/fx-shaders/registry.ts` builds its shader pass lookup from it. The rest of the app keeps importing from those two files.
