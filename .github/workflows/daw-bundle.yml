@@ -166,6 +166,30 @@ jobs:
           esac
           test -f "target/installer/${{ matrix.installer }}"
 
+      # Records the shipped binary and installer sizes in the job summary, so
+      # size regressions show up on every run, PRs included.
+      - name: Report sizes
+        run: |
+          size() {
+            bytes=$(wc -c < "$2" | tr -d ' ')
+            awk -v label="$1" -v bytes="$bytes" \
+              'BEGIN { printf "| %s | %.1f MiB (%d bytes) |\n", label, bytes / 1048576, bytes }'
+          }
+          {
+            echo "### Sizes (${{ matrix.platform }})"
+            echo
+            echo "| file | size |"
+            echo "|---|---|"
+            if [ "$RUNNER_OS" = macOS ]; then
+              size "VST3" "target/bundle/ZVID Capture.vst3/Contents/MacOS/ZVID Capture"
+              size "AU" "target/bundle/ZVID Capture.component/Contents/MacOS/ZVID Capture"
+              size "installer" target/installer/*.pkg
+            else
+              size "VST3" "target/bundle/ZVID Capture.vst3/Contents/x86_64-win/ZVID Capture.vst3"
+              size "installer" target/installer/*-setup.exe
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
       # Intel Macs aren't supported: every binary must be arm64 only, with no
       # x86_64 slice.
       - name: Verify arm64 binaries

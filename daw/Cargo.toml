@@ -59,3 +59,17 @@ opt-level = 3
 
 [profile.dev.package."*"]
 opt-level = 3
+
+# Release bundles ship to users, so trade build time for size: drop symbols
+# and link-time optimize the whole plugin in one codegen unit. Speed stays at
+# opt-level 3 for real-time capture and encoding. Panics must keep unwinding
+# so the plugin can recover from them (the AU wrapper catches them at the host
+# boundary, and worker thread panics are reported, not fatal); `abort` would
+# take the host DAW down with the plugin.
+[profile.release]
+opt-level = 3
+debug = false
+strip = "symbols"
+lto = "fat"
+codegen-units = 1
+panic = "unwind"
