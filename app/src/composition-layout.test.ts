@@ -261,6 +261,14 @@ function arranged(
   return { arrangement, gridSize, spacing };
 }
 
+function framed(
+  arrangement: Arrangement,
+  spacing = 0,
+  gridSize = 2,
+): CompositionOrder {
+  return { ...arranged(arrangement, spacing, gridSize), outerMargin: true };
+}
+
 // How many of `boxes` cover each pixel of a width × height surface.
 function coverage(boxes: ScissorBox[], width: number, height: number) {
   const counts = new Uint8Array(width * height);
@@ -389,6 +397,86 @@ describe("resolveSlotBounds", () => {
     );
   });
 
+  it("insets the slots by the spacing with an outer margin", () => {
+    const width = 1920;
+    const height = 1080;
+    const toPixels = (index: number, count: number, order: CompositionOrder) => {
+      const slot = resolveSlotBounds(index, count, order, width, height);
+      return {
+        left: ((slot.centerX - slot.halfWidth + 1) / 2) * width,
+        right: ((slot.centerX + slot.halfWidth + 1) / 2) * width,
+        top: ((1 - slot.centerY - slot.halfHeight) / 2) * height,
+        bottom: ((1 - slot.centerY + slot.halfHeight) / 2) * height,
+      };
+    };
+    const grid = framed("grid", 10, 3);
+    assertClose(toPixels(0, 9, grid).left, 10, "left margin");
+    assertClose(toPixels(0, 9, grid).top, 10, "top margin");
+    assertClose(toPixels(8, 9, grid).right, width - 10, "right margin");
+    assertClose(toPixels(8, 9, grid).bottom, height - 10, "bottom margin");
+    assertClose(
+      toPixels(1, 9, grid).left - toPixels(0, 9, grid).right,
+      10,
+      "column gap",
+    );
+    assertClose(
+      toPixels(3, 9, grid).top - toPixels(0, 9, grid).bottom,
+      10,
+      "row gap",
+    );
+    assertClose(
+      toPixels(0, 9, grid).right - toPixels(0, 9, grid).left,
+      (width - 40) / 3,
+      "equal widths",
+    );
+
+    const columns = framed("horizontal", 108);
+    assertClose(toPixels(0, 3, columns).left, 108, "Horizontal left margin");
+    assertClose(toPixels(0, 3, columns).top, 108, "Horizontal top margin");
+    assertClose(
+      toPixels(2, 3, columns).bottom,
+      height - 108,
+      "Horizontal bottom margin",
+    );
+    const rows = framed("vertical", 54);
+    assertClose(toPixels(0, 2, rows).left, 54, "Vertical left margin");
+    assertClose(toPixels(1, 2, rows).right, width - 54, "Vertical right margin");
+    assertClose(
+      toPixels(1, 2, rows).top - toPixels(0, 2, rows).bottom,
+      54,
+      "Vertical gap",
+    );
+    // A single slot is framed too.
+    assertClose(toPixels(0, 1, rows).top, 54, "single slot framed");
+  });
+
+  it("scales the outer margin with the output and closes with the spacing", () => {
+    const half = resolveSlotBounds(0, 2, framed("vertical", 20), 960, 540);
+    assertClose(
+      ((half.centerX - half.halfWidth + 1) / 2) * 960,
+      10,
+      "10 px at 540p",
+    );
+    assert.deepEqual(
+      resolveSlotBounds(1, 3, framed("grid", 0, 2), 1920, 1080),
+      resolveSlotBounds(1, 3, arranged("grid", 0, 2), 1920, 1080),
+    );
+  });
+
+  it("frames a moving slot with the outer margin", () => {
+    const order = framed("horizontal", 30);
+    const motion = {
+      slots: [
+        { slot: 0, slotCount: 1, weight: 0.5 },
+        { slot: 0, slotCount: 2, weight: 0.5 },
+      ],
+      slide: 0,
+    };
+    const slot = resolveSlotBounds(0, 2, order, 1920, 1080, motion);
+    assertClose(((slot.centerX - slot.halfWidth + 1) / 2) * 1920, 30, "left");
+    assertClose(((1 - slot.centerY - slot.halfHeight) / 2) * 1080, 30, "top");
+  });
+
   it("leaves 50 px gaps at the widest spacing", () => {
     const order = arranged("horizontal", 50);
     assertClose(resolveSpacingPixels(order, 1920, 1080), 50, "50 px at 1080p");
@@ -410,6 +498,9 @@ describe("resolveSlotBounds", () => {
       { order: arranged("grid", 50, 6), count: 36, width: 360, height: 640 },
       { order: arranged("vertical", 50), count: 40, width: 360, height: 640 },
       { order: arranged("horizontal", 50), count: 40, width: 97, height: 53 },
+      { order: framed("grid", 108, 6), count: 36, width: 97, height: 53 },
+      { order: framed("vertical", 108), count: 40, width: 360, height: 640 },
+      { order: framed("horizontal", 108), count: 1, width: 3, height: 2 },
     ];
     for (const { order, count, width, height } of cases) {
       const slots = order.arrangement === "grid" ? 36 : count;
@@ -524,6 +615,37 @@ describe("resolveSlotScissor", () => {
     assert.equal(wide[1].x + wide[1].width, 1920);
   });
 
+  it("leaves the outer margin uncovered", () => {
+    for (const order of [
+      framed("vertical", 10),
+      framed("horizontal", 10),
+      framed("grid", 10, 3),
+    ]) {
+      const width = 192;
+      const height = 108;
+      const counts = coverage(
+        slotScissors(3, order, width, height),
+        width,
+        height,
+      );
+      const name = order.arrangement;
+      // 10 px at 1080p is 1 px here.
+      for (let x = 0; x < width; x++) {
+        assert.equal(counts[x], 0, `${name} bottom row`);
+        assert.equal(counts[(height - 1) * width + x], 0, `${name} top row`);
+      }
+      for (let y = 0; y < height; y++) {
+        assert.equal(counts[y * width], 0, `${name} left column`);
+        assert.equal(counts[y * width + width - 1], 0, `${name} right column`);
+      }
+      assert.equal(counts[width + 1], 1, `${name} inside the margin`);
+    }
+    const boxes = slotScissors(2, framed("horizontal", 108), 1920, 1080);
+    assert.deepEqual(boxes[0], { x: 108, y: 108, width: 798, height: 864 });
+    assert.equal(boxes[1].x - (boxes[0].x + boxes[0].width), 108);
+    assert.equal(boxes[1].x + boxes[1].width, 1920 - 108);
+  });
+
   it("stays pixel-exact and inside the surface at the widest spacing", () => {
     const cases = [
       { count: 36, order: arranged("grid", 50, 6), width: 640, height: 360 },
@@ -531,6 +653,8 @@ describe("resolveSlotScissor", () => {
       { count: 7, order: arranged("vertical", 50), width: 361, height: 643 },
       { count: 40, order: arranged("vertical", 50), width: 360, height: 640 },
       { count: 60, order: arranged("horizontal", 50), width: 97, height: 53 },
+      { count: 36, order: framed("grid", 108, 6), width: 97, height: 53 },
+      { count: 7, order: framed("vertical", 108), width: 361, height: 643 },
     ];
     for (const { count, order, width, height } of cases) {
       const name = `${order.arrangement} ${count} at ${width}×${height}`;
