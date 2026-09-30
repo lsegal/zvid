@@ -12,7 +12,12 @@
 // clip. It depends only on the timeline position, so preview and export
 // match frame for frame.
 
-import { formatCssColor, parseCssColor } from "./fill-paint.ts";
+import {
+  BLACK_BORDER,
+  ORDER_EFFECT_NAME,
+  type OrderSlide,
+} from "./composition-order.ts";
+import { formatCssColor, parseCssColor, type Rgba } from "./fill-paint.ts";
 import type {
   AnimatableEffect,
   AnimatedParameter,
@@ -22,6 +27,7 @@ import type {
 import {
   type ClipAnimation,
   type ClipMotion,
+  type EffectAnimation,
   getAnimationNeutralValues,
   getClipTimingFrames,
 } from "./fx-animation-defaults.ts";
@@ -127,11 +133,41 @@ export function fadeCssColors(value: string, weight: number) {
 
 const TEXT_COLOR_KEYS = new Set(["Color", "Gradient", "Stroke", "ShadowColor"]);
 
+// `value`, a CSS colour, blended from `from` by `weight`, linearly in RGBA.
+function blendCssColor(value: string, from: Rgba, weight: number) {
+  const color = parseCssColor(value);
+  if (!color) {
+    return value;
+  }
+  const at = (start: number, end: number) => start + (end - start) * weight;
+  return formatCssColor({
+    r: at(from.r, color.r),
+    g: at(from.g, color.g),
+    b: at(from.b, color.b),
+    a: at(from.a, color.a),
+  });
+}
+
 // Per-effect mappings, where fading the knobs isn't what "no effect" means.
 const CLIP_ANIMATIONS: ReadonlyMap<
   string,
   (parameters: AnimatedParameter[], weight: number) => AnimatedParameter[]
 > = new Map([
+  // Order's spacing grows from none, and its border colour tweens from the
+  // default black. Its slots slide on their own (`resolveOrderSlide`).
+  [
+    ORDER_EFFECT_NAME,
+    (parameters, weight) =>
+      interpolateFromNeutral(ORDER_EFFECT_NAME, parameters, weight).map(
+        (parameter) =>
+          parameter.key === "BorderColor"
+            ? {
+                ...parameter,
+                value: blendCssColor(parameter.value, BLACK_BORDER, weight),
+              }
+            : parameter,
+      ),
+  ],
   // Text has no opacity: it fades in and out through its colours' alpha.
   [
     TEXT_EFFECT_NAME,
@@ -181,5 +217,41 @@ export function resolveClipAnimatedParameters(
       clipContext.elapsedSeconds,
       clipContext.durationSeconds,
     ),
+  );
+}
+
+// The slide an Order with this animation gives its layers, at `fps`, or
+// undefined when it isn't animating in Clip mode.
+export function resolveOrderSlide(
+  animation: EffectAnimation | undefined,
+  fps: number,
+): OrderSlide | undefined {
+  if (!animation?.enabled || animation.mode !== "clip") {
+    return undefined;
+  }
+  const frames = getClipTimingFrames(ORDER_EFFECT_NAME, animation.clip.timing);
+  return frames === undefined
+    ? undefined
+    : {
+        motionIn: animation.clip.motionIn,
+        motionOut: animation.clip.motionOut,
+        frames,
+        fps,
+      };
+}
+
+// How far a clip `elapsedSeconds` into its `durationSeconds` has slid into
+// its slot: 0 outside it, 1 in place.
+export function orderSlideWeight(
+  slide: OrderSlide,
+  elapsedSeconds: number,
+  durationSeconds: number,
+) {
+  return clipAnimationWeight(
+    slide,
+    slide.frames,
+    slide.fps,
+    elapsedSeconds,
+    durationSeconds,
   );
 }

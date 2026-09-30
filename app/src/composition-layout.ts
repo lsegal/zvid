@@ -11,6 +11,7 @@ import {
   type CompositionOrder,
   DEFAULT_COMPOSITION_ORDER,
   isLayerArranged,
+  type OrderSlide,
   visibleLayerCount,
   Z_ORDER_COMPOSITION,
 } from "./composition-order.ts";
@@ -18,6 +19,7 @@ import type {
   LayerTransform,
   TransformMotion,
 } from "./composition-transform.ts";
+import { orderSlideWeight } from "./fx-animation-clip.ts";
 
 export type LayoutAnchor = "top" | "center" | "bottom";
 
@@ -66,7 +68,20 @@ export type LayerPlacement = {
 
 type StackedLayer = {
   laneRank: number;
-  clip: { startQ: number; laneId?: string };
+  clip: { startQ: number; laneId?: string; durationSeconds?: number };
+  // How far through its clip the playhead is, 0..1. With the clip's
+  // duration it times an animated Order's slides.
+  clipProgress?: number;
+};
+
+// How an animated Order's layer sits between arrangements while clips
+// enter and exit. Its slot is the weighted sum of `slots`, each a slot
+// `slot` of `slotCount` of the Order, and it is drawn `slide` of the way
+// out of that slot towards the canvas edge it enters from, 0 in place to
+// 1 just off the canvas, cropped to the slot.
+export type SlotMotion = {
+  slots: { slot: number; slotCount: number; weight: number }[];
+  slide: number;
 };
 
 // One step of drawing the composite: a layer drawn into slot `slot` of
@@ -74,7 +89,8 @@ type StackedLayer = {
 // has been drawn so far, or an FX clip with an Order that arranges the
 // layers beneath it (`steps`) by `order` inside its own box. A layer the
 // Order leaves out is drawn with the z-order overlay, into the whole
-// canvas.
+// canvas. While an animated Order's clips enter or exit, `motion` says
+// where the layer is on its way.
 export type LayerDrawStep<T> =
   | {
       type: "layer";
@@ -82,6 +98,7 @@ export type LayerDrawStep<T> =
       slot: number;
       slotCount: number;
       order: CompositionOrder;
+      motion?: SlotMotion;
     }
   | { type: "fx"; entry: T }
   | {
@@ -133,14 +150,21 @@ export function planLayerDraws<
     order,
   );
   const stacked = ordered.slice(0, visibleLayerCount(ordered.length, order));
+  const motions = order.slide
+    ? resolveSlotMotions(stacked, order.slide)
+    : undefined;
   const draws = stacked
-    .map<LayerDrawStep<T> & { type: "layer" }>((entry, slot) => ({
-      type: "layer",
-      entry,
-      slot,
-      slotCount: stacked.length,
-      order,
-    }))
+    .map<LayerDrawStep<T> & { type: "layer" }>((entry, slot) => {
+      const motion = motions?.get(entry);
+      return {
+        type: "layer",
+        entry,
+        slot,
+        slotCount: stacked.length,
+        order,
+        ...(motion ? { motion } : {}),
+      };
+    })
     .filter((draw) => !isGoverned(draw.entry));
   const excluded = orderStackedLayers(
     layers.filter(
@@ -191,6 +215,110 @@ export function planLayerDraws<
     steps.push({ type: "fx", entry });
   }
   return steps;
+}
+
+// Transitions blended at once. Clips entering or exiting at the same moment
+// move together, so this is only reached with that many overlapping at
+// different moments; any more are drawn settled in their slots.
+const MAX_SLOT_TRANSITIONS = 6;
+
+// Weights closer than this move as one transition.
+const TRANSITION_EPSILON = 1e-6;
+
+/**
+ * Where each of `stacked`, the layers an animated Order arranges in slot
+ * order, is while clips enter and exit. Each layer's weight says how far it
+ * has slid in: 1 settled in its slot, 0 not yet in or already out, from its
+ * clip's position and the Order's timing. A layer that is entering or
+ * exiting slides between its slot and the canvas edge, and every other
+ * layer's slot is between the arrangement with it and the one without it,
+ * by the same weight. Layers moving at once blend every combination of
+ * their arrangements. Layers that are all settled have no motion.
+ */
+export function resolveSlotMotions<T extends StackedLayer>(
+  stacked: readonly T[],
+  slide: OrderSlide,
+): Map<T, SlotMotion> {
+  const weights = stacked.map((layer) => {
+    const duration = layer.clip.durationSeconds;
+    return duration === undefined || layer.clipProgress === undefined
+      ? 1
+      : orderSlideWeight(slide, layer.clipProgress * duration, duration);
+  });
+  // Moving layers, grouped by weight, so clips entering or exiting together
+  // move as one.
+  const groups: { weight: number; members: Set<number> }[] = [];
+  weights.forEach((weight, index) => {
+    if (weight >= 1) {
+      return;
+    }
+    const group = groups.find(
+      (candidate) => Math.abs(candidate.weight - weight) < TRANSITION_EPSILON,
+    );
+    if (group) {
+      group.members.add(index);
+    } else if (groups.length < MAX_SLOT_TRANSITIONS) {
+      groups.push({ weight, members: new Set([index]) });
+    }
+  });
+  const motions = new Map<T, SlotMotion>();
+  if (!groups.length) {
+    return motions;
+  }
+
+  const groupOf = (index: number) =>
+    groups.findIndex((group) => group.members.has(index));
+  // The layer's slots over every combination of the other groups being in
+  // or out, with `forced` in.
+  const blendSlots = (index: number, forced: number) => {
+    const slots = new Map<string, SlotMotion["slots"][number]>();
+    for (let mask = 0; mask < 1 << groups.length; mask++) {
+      if (forced >= 0 && !(mask & (1 << forced))) {
+        continue;
+      }
+      let weight = 1;
+      groups.forEach((group, groupIndex) => {
+        if (groupIndex !== forced) {
+          weight *= mask & (1 << groupIndex) ? group.weight : 1 - group.weight;
+        }
+      });
+      if (weight <= 0) {
+        continue;
+      }
+      const present = stacked
+        .map((_, other) => other)
+        .filter((other) => {
+          const group = groupOf(other);
+          return group < 0 || Boolean(mask & (1 << group));
+        });
+      const slot = present.indexOf(index);
+      const key = `${slot}/${present.length}`;
+      const existing = slots.get(key);
+      if (existing) {
+        existing.weight += weight;
+      } else {
+        slots.set(key, { slot, slotCount: present.length, weight });
+      }
+    }
+    return [...slots.values()];
+  };
+
+  stacked.forEach((layer, index) => {
+    const group = groupOf(index);
+    const slots = blendSlots(index, group);
+    const settled =
+      group < 0 &&
+      slots.length === 1 &&
+      slots[0].slot === index &&
+      slots[0].slotCount === stacked.length;
+    if (!settled) {
+      motions.set(layer, {
+        slots,
+        slide: group < 0 ? 0 : 1 - groups[group].weight,
+      });
+    }
+  });
+  return motions;
 }
 
 // The whole canvas as clip-space bounds: the box an FX clip adjusts before
@@ -381,16 +509,112 @@ function resolveSlotRect(
   return { left: x.start, right: x.end, top: y.start, bottom: y.end };
 }
 
+type SlotRect = ReturnType<typeof resolveSlotRect>;
+
+// Slot `index`, or the slot a moving layer is at: the weighted sum of the
+// slots it is between.
+function resolveMovingSlotRect(
+  index: number,
+  count: number,
+  order: CompositionOrder,
+  width: number,
+  height: number,
+  motion: SlotMotion | undefined,
+): SlotRect {
+  if (!motion?.slots.length) {
+    return resolveSlotRect(index, count, order, width, height);
+  }
+
+  const total = motion.slots.reduce((sum, { weight }) => sum + weight, 0) || 1;
+  return motion.slots.reduce(
+    (rect, { slot, slotCount, weight }) => {
+      const share = weight / total;
+      const next = resolveSlotRect(slot, slotCount, order, width, height);
+      return {
+        left: rect.left + next.left * share,
+        right: rect.right + next.right * share,
+        top: rect.top + next.top * share,
+        bottom: rect.bottom + next.bottom * share,
+      };
+    },
+    { left: 0, right: 0, top: 0, bottom: 0 },
+  );
+}
+
+type CanvasEdge = "left" | "right" | "top" | "bottom";
+
+// The canvas edge a layer slides into `slot` from: the left in a Vertical
+// Order, the bottom in a Horizontal one, and in a Grid its cell's nearest
+// edge, the left or right before the top or bottom when they tie.
+export function resolveSlideEdge(
+  slot: SlotRect,
+  order: CompositionOrder,
+  width: number,
+  height: number,
+): CanvasEdge {
+  if (order.arrangement === "vertical") {
+    return "left";
+  }
+  if (order.arrangement === "horizontal") {
+    return "bottom";
+  }
+
+  const distances: [CanvasEdge, number][] = [
+    ["left", slot.left],
+    ["right", width - slot.right],
+    ["top", slot.top],
+    ["bottom", height - slot.bottom],
+  ];
+  return distances.reduce((nearest, candidate) =>
+    candidate[1] < nearest[1] - TRANSITION_EPSILON ? candidate : nearest,
+  )[0];
+}
+
+// Where a layer `slide` of the way out of `slot` is drawn: moved towards
+// the edge it slides in from, just off the canvas at 1.
+function resolveSlideRect(
+  slot: SlotRect,
+  order: CompositionOrder,
+  width: number,
+  height: number,
+  slide: number,
+): SlotRect {
+  if (!(slide > 0)) {
+    return slot;
+  }
+
+  const edge = resolveSlideEdge(slot, order, width, height);
+  const dx =
+    edge === "left" ? -slot.right : edge === "right" ? width - slot.left : 0;
+  const dy =
+    edge === "top" ? -slot.bottom : edge === "bottom" ? height - slot.top : 0;
+  return {
+    left: slot.left + dx * slide,
+    right: slot.right + dx * slide,
+    top: slot.top + dy * slide,
+    bottom: slot.bottom + dy * slide,
+  };
+}
+
+// The box slot `index` draws its layer in. A moving layer (`motion`) is
+// drawn where it has got to, which a slide can take out of its slot.
 export function resolveSlotBounds(
   index: number,
   count: number,
   order: CompositionOrder,
   canvasWidth: number,
   canvasHeight: number,
+  motion?: SlotMotion,
 ): FrameBounds {
   const width = Math.max(1, canvasWidth);
   const height = Math.max(1, canvasHeight);
-  const slot = resolveSlotRect(index, count, order, width, height);
+  const slot = resolveSlideRect(
+    resolveMovingSlotRect(index, count, order, width, height, motion),
+    order,
+    width,
+    height,
+    motion?.slide ?? 0,
+  );
   return {
     centerX: (slot.left + slot.right) / width - 1,
     centerY: 1 - (slot.top + slot.bottom) / height,
@@ -403,15 +627,24 @@ export function resolveSlotBounds(
 // Slot `index` in whole framebuffer pixels (origin bottom-left). Like
 // `resolveBandScissor`, edges are rounded from the same positions for
 // neighbouring slots, so without spacing the boxes tile the surface with no
-// gap or overlap at any size.
+// gap or overlap at any size. A moving layer (`motion`) is cropped to the
+// slot it is at, even while it slides into or out of it.
 export function resolveSlotScissor(
   index: number,
   count: number,
   order: CompositionOrder,
   width: number,
   height: number,
+  motion?: SlotMotion,
 ): ScissorBox {
-  const slot = resolveSlotRect(index, count, order, width, height);
+  const slot = resolveMovingSlotRect(
+    index,
+    count,
+    order,
+    width,
+    height,
+    motion,
+  );
   const left = Math.round(slot.left);
   const right = Math.round(slot.right);
   const top = Math.round(slot.top);
@@ -437,14 +670,16 @@ export function resolveLayerPlacement(options: {
   // The box the layer fills, when it isn't its slot: a text layer's box,
   // which its Transform resizes.
   frame?: FrameBounds;
+  // Where an animated Order's layer is on its way between slots.
+  motion?: SlotMotion;
 }): LayerPlacement {
-  const { index, count, canvasWidth, canvasHeight, visual } = options;
+  const { index, count, canvasWidth, canvasHeight, visual, motion } = options;
   const order = options.order ?? DEFAULT_COMPOSITION_ORDER;
   const canvasAspect = canvasWidth / Math.max(1, canvasHeight);
   const sourceAspect = options.sourceWidth / Math.max(1, options.sourceHeight);
   const frame =
     options.frame ??
-    resolveSlotBounds(index, count, order, canvasWidth, canvasHeight);
+    resolveSlotBounds(index, count, order, canvasWidth, canvasHeight, motion);
   const cover = resolveCoverHalfExtents(frame, sourceAspect, canvasAspect);
   const layoutScale = Math.max(1, visual.scale);
   const halfExtents = { x: cover.x * layoutScale, y: cover.y * layoutScale };
@@ -461,6 +696,13 @@ export function resolveLayerPlacement(options: {
       x: frame.centerX + visual.translateX * frame.halfWidth,
       y: frame.centerY + anchorOffsetY + visual.translateY * frame.halfHeight,
     },
-    scissor: resolveSlotScissor(index, count, order, canvasWidth, canvasHeight),
+    scissor: resolveSlotScissor(
+      index,
+      count,
+      order,
+      canvasWidth,
+      canvasHeight,
+      motion,
+    ),
   };
 }

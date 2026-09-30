@@ -33,8 +33,10 @@
 import { type ClipWarp, warpSourceTime } from "./clip-warp.ts";
 import {
   type CompositionOrder,
-  findCompositionOrder,
+  findOrderEffect,
   isOrderEffectName,
+  parseCompositionOrder,
+  Z_ORDER_COMPOSITION,
 } from "./composition-order.ts";
 import {
   isMoveEffectName,
@@ -54,6 +56,7 @@ import {
   type AnimationClipContext,
   resolveAnimatedEffects,
 } from "./fx-animation.ts";
+import { resolveOrderSlide } from "./fx-animation-clip.ts";
 import type { EffectAnimation } from "./fx-animation-defaults.ts";
 import {
   type EffectChainStep,
@@ -504,7 +507,7 @@ export function computeActiveClips(
           effectChain: resolveEffectChain(effects, clipEffectTrackId(clip.id)),
           fx: true,
           ...withOrder(
-            findCompositionOrder(effects, clipEffectTrackId(clip.id)),
+            findAnimatedOrder(effects, clipEffectTrackId(clip.id), fps),
           ),
         };
       }
@@ -608,6 +611,33 @@ export function resolveFrameEffects<T extends SessionEffect>(
         { playheadQ, bpm, fps },
       )
     : effects;
+}
+
+// The arrangement the last enabled Order effect on the `trackId` stack
+// sets, with the slides its Clip-mode animation gives the layers at `fps`,
+// or undefined when the stack has none.
+export function findAnimatedOrder(
+  effects: readonly SessionEffect[],
+  trackId: string,
+  fps = DEFAULT_FPS,
+): CompositionOrder | undefined {
+  const effect = findOrderEffect(effects, trackId);
+  if (!effect) {
+    return undefined;
+  }
+  const order = parseCompositionOrder(effect.parameters);
+  const slide = resolveOrderSlide(effect.animation, fps);
+  return slide ? { ...order, slide } : order;
+}
+
+// The arrangement the compositor uses: the Global Order, animated, or the
+// z-order overlay when there is none.
+export function resolveAnimatedOrder(
+  effects: readonly SessionEffect[],
+  globalTrackId: string,
+  fps = DEFAULT_FPS,
+): CompositionOrder {
+  return findAnimatedOrder(effects, globalTrackId, fps) ?? Z_ORDER_COMPOSITION;
 }
 
 function withOrder(order: CompositionOrder | undefined) {

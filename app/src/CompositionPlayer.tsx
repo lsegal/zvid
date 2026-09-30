@@ -14,6 +14,7 @@ import {
   type Lane,
   type MediaItem,
   quartersToSeconds,
+  resolveAnimatedOrder,
   resolveFrameEffects,
   type SessionEffect,
 } from "./composition-active-clips.ts";
@@ -24,7 +25,6 @@ import {
   type FrameContext,
   type WebGlResources,
 } from "./composition-draw.ts";
-import { resolveCompositionOrder } from "./composition-order.ts";
 import { getGroupClipProgress } from "./composition-progress.ts";
 import {
   LiveAudioBands,
@@ -543,7 +543,7 @@ export class CompositionRenderer {
       this.mediaRefs,
       resolveEffectChain(effects, GROUP_TRACK_ID),
       frameContext,
-      resolveCompositionOrder(effects, GROUP_TRACK_ID),
+      resolveAnimatedOrder(effects, GROUP_TRACK_ID, this.state.fps),
     );
   }
 
