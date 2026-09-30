@@ -15,5 +15,30 @@
   },
   "formatter": {
     "indentStyle": "space"
+  },
+  "linter": {
+    "rules": {
+      "correctness": {
+        "useExhaustiveDependencies": {
+          "level": "error",
+          "options": {
+            "hooks": [
+              {
+                "name": "useProjectStore",
+                "stableResult": [
+                  "dispatchProjectHistory",
+                  "setPlayheadQState",
+                  "playheadQRef",
+                  "setWorkspaceAccess",
+                  "isWorkspaceReadOnlyRef",
+                  "setIsTakeOverPromptOpen",
+                  "projectSnapshotRef"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }
   }
 }

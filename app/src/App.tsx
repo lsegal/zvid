@@ -19,10 +19,8 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
-  useReducer,
   useRef,
   useState,
-  useSyncExternalStore,
 } from "react";
 import { flushSync } from "react-dom";
 import "./App.css";
@@ -92,11 +90,7 @@ import {
   getFilmstripTileOwner,
   SOURCE_SPAN_FILMSTRIP_HEIGHT_PX,
 } from "./app/filmstrip.ts";
-import {
-  formatDuration,
-  formatHistoryStatus,
-  formatSessionMediaCheckStatus,
-} from "./app/format.ts";
+import { formatDuration, formatSessionMediaCheckStatus } from "./app/format.ts";
 import {
   clampLabelWidth,
   getPreviewMaxWidth,
@@ -235,7 +229,7 @@ import {
   type MenuPoint,
 } from "./components/ContextMenu";
 import { DropdownMenuEntries } from "./components/DropdownMenuEntries";
-import { FxChain, type FxEditMode } from "./components/FxChain";
+import { FxChain } from "./components/FxChain";
 import {
   ImportNotice,
   type ImportNoticeContent,
@@ -302,46 +296,22 @@ import {
   formatFillPaintCss,
   resolveFillPaint,
 } from "./fill-paint.ts";
-import type { EffectAnimation } from "./fx-animation-defaults";
 import {
   addableEffectsFor,
   getDefaultLaneId,
-  getFxClipName,
-  getFxPanelTitle,
-  resolveSelectedLaneId,
   stepSelectedLaneId,
 } from "./fx-chain";
+import { addFxClip, describeFxClip, isFxClip } from "./fx-clip.ts";
 import {
-  addFxClip,
-  describeFxClip,
-  FX_CLIP_LABEL,
-  isFxClip,
-} from "./fx-clip.ts";
-import {
-  addEffect,
   clipEffectTrackId,
   copyClipEffects,
-  duplicateEffect,
-  effectHistoryLabels,
   ensureGlobalOrder,
   ensureLayerLayouts,
-  type FxDevice,
   GLOBAL_EFFECT_TRACK_ID,
-  getEffectClipId,
   getRenderedEffects,
   isLayerFxEnabled,
   isLayoutEffectName,
-  mapSessionEffectsToDevices,
-  moveEffect,
   previewDuplicateClipEffects,
-  removeEffect,
-  resetEffect,
-  type SessionEffect,
-  setEffectAnimation,
-  setEffectAnimationEnabled,
-  setEffectEnabled,
-  setEffectParameter,
-  setLaneFxEnabled,
 } from "./fx-stack";
 import {
   getHarness,
@@ -349,6 +319,12 @@ import {
   type SessionSelection,
   supportsHarnessCapability,
 } from "./harness";
+import { useFxEditing } from "./hooks/useFxEditing.ts";
+import { useFxPanelModel } from "./hooks/useFxPanelModel.ts";
+import {
+  useProjectHistoryCommands,
+  useProjectStore,
+} from "./hooks/useProjectStore.ts";
 import {
   LANE_SELECTION_DRAG_THRESHOLD_PX,
   moveLaneSelectionGesture,
@@ -409,7 +385,6 @@ import {
   withQueuedPeerMedia,
 } from "./peer-media-sync.ts";
 import {
-  createPlayheadSignal,
   findNextClipEdgeQ,
   PLAYBACK_COMMIT_INTERVAL_MS,
 } from "./playhead-signal";
@@ -436,12 +411,7 @@ import {
   type TextEditorKeyAction,
   toggleClipTextStyle,
 } from "./preview-text-edit.ts";
-import {
-  createProjectHistoryState,
-  isProjectEditAction,
-  type ProjectHistoryAction,
-  projectHistoryReducer,
-} from "./project-history";
+import { createProjectHistoryState } from "./project-history";
 import {
   migrateLegacyMainAudio,
   stripClipSelectionFlags,
@@ -496,12 +466,7 @@ import { classifySpaceTarget, createSpaceHold } from "./space-shortcut";
 import { statusMessageTone } from "./status-bar";
 import { buildStatusItems } from "./status-items";
 import { addTextClip, isTextClip } from "./text-clip.ts";
-import {
-  getMissingFonts,
-  loadFontFace,
-  resolveFontFace,
-  subscribeFonts,
-} from "./text-fonts.ts";
+import { loadFontFace, resolveFontFace } from "./text-fonts.ts";
 import {
   getTextPreview,
   isTextEffectName,
@@ -560,14 +525,32 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const [restoredSelection] = useState(() =>
     findRestoredSelection(restoredSession),
   );
-  const [projectHistory, dispatchProjectHistory] = useReducer(
-    projectHistoryReducer<ProjectState>,
-    restoredSession,
-    (session) =>
-      session
-        ? toProjectHistoryState(session.history)
-        : createProjectHistoryState(INITIAL_PROJECT_STATE),
-  );
+  const {
+    projectHistory,
+    dispatchProjectHistory,
+    dispatchProject,
+    canUndo,
+    canRedo,
+    undoLabel,
+    redoLabel,
+    initialPlayheadQ,
+    playheadQ,
+    setPlayheadQState,
+    playheadQRef,
+    playheadSignal,
+    setPlayheadQ,
+    workspaceAccess,
+    setWorkspaceAccess,
+    isWorkspaceReadOnly,
+    isWorkspaceReadOnlyRef,
+    isTakeOverPromptOpen,
+    setIsTakeOverPromptOpen,
+    refuseReadOnlyEdit,
+    projectSnapshotRef,
+    commitProjectChange,
+    commitViewChange,
+    commitProjectPatch,
+  } = useProjectStore({ access: boot.access, restoredSession });
   const {
     timelineMode,
     signatureId,
@@ -588,10 +571,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     mainAudioId,
     projectDurationFrames,
   } = projectHistory.present;
-  const canUndo = projectHistory.past.length > 0;
-  const canRedo = projectHistory.future.length > 0;
-  const undoLabel = projectHistory.past[projectHistory.past.length - 1]?.label;
-  const redoLabel = projectHistory.future[0]?.label;
 
   const [dragPreviewClips, setDragPreviewClips] = useState<
     ArrangementClip[] | null
@@ -636,10 +615,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   } | null>(null);
   const [previewWidth, setPreviewWidth] = useState(readPreviewWidth);
   const [editorGridWidth, setEditorGridWidth] = useState(0);
-  const [initialPlayheadQ] = useState(
-    () => restoredSession?.view.playheadQ ?? 0,
-  );
-  const [playheadQ, setPlayheadQState] = useState(initialPlayheadQ);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportState, setExportState] = useState<ExportState>({
@@ -727,33 +702,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const [mediaHydrationTick, setMediaHydrationTick] = useState(0);
   const collaborationColor = initialCollaborationConfig.color;
 
-  const [workspaceAccess, setWorkspaceAccess] = useState(boot.access);
-  // Edits in a tab that doesn't save the session would be lost, so a
-  // read-only tab refuses them and asks to take the session over instead.
-  const isWorkspaceReadOnly =
-    workspaceAccess === "read-only" || workspaceAccess === "taken-over";
-  const isWorkspaceReadOnlyRef = useRef(isWorkspaceReadOnly);
-  isWorkspaceReadOnlyRef.current = isWorkspaceReadOnly;
-  const [isTakeOverPromptOpen, setIsTakeOverPromptOpen] = useState(false);
-  // Returns true, and opens the Take over prompt, when this tab is read-only.
-  const refuseReadOnlyEdit = useCallback(() => {
-    if (!isWorkspaceReadOnlyRef.current) {
-      return false;
-    }
-
-    setIsTakeOverPromptOpen(true);
-    return true;
-  }, []);
-  const dispatchProject = useCallback(
-    (action: ProjectHistoryAction<ProjectState>) => {
-      if (isProjectEditAction(action) && refuseReadOnlyEdit()) {
-        return;
-      }
-
-      dispatchProjectHistory(action);
-    },
-    [refuseReadOnlyEdit],
-  );
   const [sessionSource, setSessionSource] = useState<WorkspaceSessionSource>(
     () => restoredSession?.source ?? { kind: "none" },
   );
@@ -762,20 +710,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const viewingSharedSessionRef = useRef(boot.access === "joiner");
 
   const playbackOriginRef = useRef(initialPlayheadQ);
-  const playheadQRef = useRef(initialPlayheadQ);
-  const [playheadSignal] = useState(() =>
-    createPlayheadSignal(initialPlayheadQ),
-  );
-  // Seeks move the live playhead and state together. Playback advances only
-  // the live playhead each frame and commits it to state now and then.
-  const setPlayheadQ = useCallback(
-    (nextQ: number) => {
-      playheadQRef.current = nextQ;
-      playheadSignal.set(nextQ);
-      setPlayheadQState(nextQ);
-    },
-    [playheadSignal],
-  );
   const playbackStopRef = useRef(0);
   const compositionPlayerRef = useRef<CompositionPlayerHandle | null>(null);
   const appShellRef = useRef<HTMLDivElement | null>(null);
@@ -793,7 +727,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const collaborationControllerRef =
     useRef<CollaborationController<ProjectState> | null>(null);
   const shareCopyResetTimeoutRef = useRef<number | null>(null);
-  const projectSnapshotRef = useRef(projectHistory.present);
   const zoomDraftRef = useRef<number | null>(null);
   const localMediaOverridesRef = useRef<Record<string, LocalMediaOverride>>({});
   const mediaObjectUrlsRef = useRef(new Map<string, string>());
@@ -851,153 +784,24 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   );
   const resolvedZoom = zoomDraft ?? zoom;
 
-  const commitProjectChange = useCallback(
-    (label: string, updater: (current: ProjectState) => ProjectState) => {
-      dispatchProject({ type: "commit", label, updater });
-    },
-    [dispatchProject],
-  );
-
-  // Zoom and media hydration change the project without editing it, so a
-  // read-only tab still applies them.
-  const commitViewChange = useCallback(
-    (label: string, updater: (current: ProjectState) => ProjectState) => {
-      dispatchProjectHistory({ type: "commit", label, updater });
-    },
-    [],
-  );
-
-  const commitProjectPatch = useCallback(
-    (label: string, patch: Partial<ProjectState>) => {
-      commitProjectChange(label, (current) =>
-        patchProjectState(current, patch),
-      );
-    },
-    [commitProjectChange],
-  );
-
-  // Applies an effect-stack edit. Live gestures such as slider drags send
-  // `transient` updates, and the `commit` that ends the gesture records the
-  // whole gesture as one history entry.
-  const editEffects = useCallback(
-    (
-      label: string,
-      updater: (effects: SessionEffect[]) => SessionEffect[],
-      mode: "commit" | "transient" = "commit",
-    ) => {
-      const projectUpdater = (current: ProjectState) =>
-        patchProjectState(current, { effects: updater(current.effects) });
-      dispatchProject(
-        mode === "transient"
-          ? { type: "transient", updater: projectUpdater }
-          : { type: "commit", label, updater: projectUpdater },
-      );
-    },
-    [dispatchProject],
-  );
-
-  const setLayerFxEnabled = useCallback(
-    (laneId: string, enabled: boolean) => {
-      commitProjectChange(
-        effectHistoryLabels.layerFx(
-          lanes.find((lane) => lane.id === laneId)?.name ?? `Layer ${laneId}`,
-          enabled,
-        ),
-        (current) =>
-          patchProjectState(current, {
-            lanes: setLaneFxEnabled(current.lanes, laneId, enabled),
-          }),
-      );
-    },
-    [commitProjectChange, lanes],
-  );
-
-  const setFxDeviceEnabled = useCallback(
-    (device: FxDevice, enabled: boolean) =>
-      editEffects(
-        effectHistoryLabels.enabled(device.effectName, enabled),
-        (current) => setEffectEnabled(current, device.id, enabled),
-      ),
-    [editEffects],
-  );
-
-  const setFxDeviceParameter = useCallback(
-    (device: FxDevice, key: string, value: number | string, mode: FxEditMode) =>
-      editEffects(
-        effectHistoryLabels.parameter(device.effectName, key),
-        (current) => setEffectParameter(current, device.id, key, value),
-        mode,
-      ),
-    [editEffects],
-  );
-
-  const setFxDeviceAnimationEnabled = useCallback(
-    (device: FxDevice, enabled: boolean) =>
-      editEffects(
-        effectHistoryLabels.animationEnabled(device.effectName, enabled),
-        (current) => setEffectAnimationEnabled(current, device.id, enabled),
-      ),
-    [editEffects],
-  );
-
-  const setFxDeviceAnimation = useCallback(
-    (device: FxDevice, animation: EffectAnimation, mode: FxEditMode) =>
-      editEffects(
-        effectHistoryLabels.animation(device.effectName),
-        (current) => setEffectAnimation(current, device.id, animation),
-        mode,
-      ),
-    [editEffects],
-  );
-
-  const moveFxDevice = useCallback(
-    (device: FxDevice, toIndex: number) =>
-      editEffects(effectHistoryLabels.move(device.effectName), (current) =>
-        moveEffect(current, device.id, toIndex),
-      ),
-    [editEffects],
-  );
-
-  const addFxDevice = useCallback(
-    (trackId: string, effectName: string, id: string) => {
-      // An FX clip's own stack takes the effects that work on a composite,
-      // Order among them.
-      const clipId = getEffectClipId(trackId);
-      const scope =
-        clipId !== undefined &&
-        isFxClip(timelineClipsRef.current.find((clip) => clip.id === clipId))
-          ? "fxClip"
-          : undefined;
-      editEffects(effectHistoryLabels.add(effectName), (current) =>
-        addEffect(current, trackId, effectName, undefined, id, scope),
-      );
-    },
-    [editEffects],
-  );
-
-  const removeFxDevice = useCallback(
-    (device: FxDevice) =>
-      editEffects(effectHistoryLabels.remove(device.effectName), (current) =>
-        removeEffect(current, device.id),
-      ),
-    [editEffects],
-  );
-
-  const resetFxDevice = useCallback(
-    (device: FxDevice) =>
-      editEffects(effectHistoryLabels.reset(device.effectName), (current) =>
-        resetEffect(current, device.id),
-      ),
-    [editEffects],
-  );
-
-  const duplicateFxDevice = useCallback(
-    (device: FxDevice, id: string) =>
-      editEffects(effectHistoryLabels.duplicate(device.effectName), (current) =>
-        duplicateEffect(current, device.id, id),
-      ),
-    [editEffects],
-  );
+  const {
+    editEffects,
+    setLayerFxEnabled,
+    setFxDeviceEnabled,
+    setFxDeviceParameter,
+    setFxDeviceAnimationEnabled,
+    setFxDeviceAnimation,
+    moveFxDevice,
+    addFxDevice,
+    removeFxDevice,
+    resetFxDevice,
+    duplicateFxDevice,
+  } = useFxEditing({
+    dispatchProject,
+    commitProjectChange,
+    lanes,
+    timelineClipsRef,
+  });
 
   const updateZoomDraft = useCallback((nextZoom: number | null) => {
     zoomDraftRef.current = nextZoom;
@@ -1328,11 +1132,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       setSelectedLaneId(selectedClipLaneId);
     }
   }, [selectedClipLaneId]);
-  const fxLaneId = useMemo(
-    () => resolveSelectedLaneId(lanes, effects, selectedLaneId, selectedClip),
-    [effects, selectedClip, lanes, selectedLaneId],
-  );
-  const fxLane = lanes.find((lane) => lane.id === fxLaneId);
   // The layer outlined in the preview. Selecting a clip or a layer in the
   // timeline selects it here too; Esc or a click on empty canvas clears it.
   const [previewLaneId, setPreviewLaneId] = useState<string>();
@@ -1601,71 +1400,27 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       finishTextEdit();
     }
   }, [finishTextEdit, isPlaying, previewLayers, selectedClipId, textEdit]);
-  // Audio clips have no visual effects; that only applies while one is
-  // selected, not to the layer on its own.
-  const fxKind = selectedClip?.mediaId
-    ? mediaItemsById.get(selectedClip.mediaId)?.kind
-    : undefined;
-  // Layers the compositor draws at the playhead: one per layer with an
-  // online video clip there. The Order device warns when a grid hides some.
-  const playheadVisualLaneIds = useMemo(
-    () =>
-      new Set(
-        timelineClips
-          .filter((clip) => {
-            const media = clip.mediaId
-              ? mediaItemsById.get(clip.mediaId)
-              : undefined;
-            return (
-              media?.kind === "video" &&
-              isClipAtPlayhead(clip, playheadQ, bpm) &&
-              describeMediaAvailability(media.availability) === "online"
-            );
-          })
-          .map((clip) => clip.laneId),
-      ),
-    [bpm, mediaItemsById, playheadQ, timelineClips],
-  );
-  const playheadVisualLayerIds = useMemo(
-    () => [...playheadVisualLaneIds],
-    [playheadVisualLaneIds],
-  );
-  // Of those, the layers beneath the selected FX clip, which an Order on it
-  // arranges.
-  const selectedFxClipRank = isFxClip(selectedClip)
-    ? lanePriority.get(selectedClip?.laneId ?? "")
-    : undefined;
-  const isBeneathSelectedFxClip = useCallback(
-    (laneId: string) =>
-      selectedFxClipRank !== undefined &&
-      (lanePriority.get(laneId) ?? -1) > selectedFxClipRank,
-    [lanePriority, selectedFxClipRank],
-  );
-  const fxClipLayerIds = useMemo(
-    () => playheadVisualLayerIds.filter(isBeneathSelectedFxClip),
-    [isBeneathSelectedFxClip, playheadVisualLayerIds],
-  );
-  // The layers an Order's Layers menu lists, in timeline order: every
-  // layer for the Global Order, and those beneath the FX clip for its own.
-  const orderLayerOptions = useMemo(
-    () =>
-      lanes.map((lane, index) => ({
-        id: lane.id,
-        number: index + 1,
-        name: lane.name,
-        color:
-          lane.colorIndex >= 0 ? getSwatch(lane.colorIndex).accent : undefined,
-      })),
-    [lanes],
-  );
-  const fxClipLayerOptions = useMemo(
-    () =>
-      orderLayerOptions.filter((layer) => isBeneathSelectedFxClip(layer.id)),
-    [isBeneathSelectedFxClip, orderLayerOptions],
-  );
-  // Fonts Text effects pick load up front, so one that can't be loaded is
-  // flagged on its device even before its clip is drawn.
-  const missingFonts = useSyncExternalStore(subscribeFonts, getMissingFonts);
+  const {
+    fxLaneId,
+    fxLane,
+    fxKind,
+    fxClipId,
+    fxClipScope,
+    orderLayerOptions,
+    fxClipLayerOptions,
+    fxDevices,
+    fxPanelTitle,
+  } = useFxPanelModel({
+    lanes,
+    effects,
+    selectedLaneId,
+    selectedClip,
+    mediaItemsById,
+    lanePriority,
+    timelineClips,
+    playheadQ,
+    bpm,
+  });
   useEffect(() => {
     for (const effect of effects) {
       if (effect.enabled !== false && isTextEffectName(effect.effectName)) {
@@ -1676,57 +1431,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       }
     }
   }, [effects]);
-  // The clip whose own stack the FX chain shows: only an explicitly
-  // selected clip, on the layer the chain shows.
-  const fxClip =
-    selectedClip && selectedClip.laneId === fxLaneId
-      ? {
-          id: selectedClip.id,
-          name: getFxClipName(
-            selectedClip.label,
-            isTextClip(selectedClip)
-              ? getTextPreview(
-                  resolveTextStyle(
-                    effects,
-                    selectedClip.laneId,
-                    clipEffectTrackId(selectedClip.id),
-                  ),
-                )
-              : isFxClip(selectedClip)
-                ? FX_CLIP_LABEL
-                : undefined,
-          ),
-        }
-      : undefined;
-  const fxClipId = fxClip?.id;
-  const fxClipName = fxClip?.name;
-  // An FX clip's own stack offers only effects that work on a composite.
-  const fxClipScope = isFxClip(selectedClip) ? "fxClip" : "clip";
-  const fxDevices = useMemo(
-    () =>
-      fxLaneId
-        ? mapSessionEffectsToDevices(
-            effects,
-            fxLaneId,
-            fxLane?.name,
-            playheadVisualLayerIds,
-            missingFonts,
-            fxClipId,
-            fxClipScope,
-            fxClipLayerIds,
-          )
-        : [],
-    [
-      effects,
-      fxClipId,
-      fxClipLayerIds,
-      fxClipScope,
-      fxLane?.name,
-      fxLaneId,
-      missingFonts,
-      playheadVisualLayerIds,
-    ],
-  );
   const playheadSeconds = quartersToSeconds(playheadQ, bpm);
   const mainAudio = mainAudioId ? mediaItemsById.get(mainAudioId) : undefined;
   const canCreateLayer = lanes.length < MAX_LAYERS;
@@ -3440,55 +3144,23 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     [],
   );
 
-  const handleUndo = useCallback(() => {
-    if (!undoLabel || isExporting || refuseReadOnlyEdit()) {
-      return;
-    }
-
-    // An open text edit is committed first, so undo steps over it whole.
-    finishTextEdit();
-    stopTimelineAudibleScrub();
-    setIsPlaying(false);
-    setDragPreviewClips(null);
-    setDragState(null);
-    setPendingSelection(null);
-    setTimelineDragState(null);
-    dispatchProjectHistory({ type: "undo" });
-    setStatus(formatHistoryStatus("Undid", undoLabel));
-  }, [
-    finishTextEdit,
-    isExporting,
-    refuseReadOnlyEdit,
-    stopTimelineAudibleScrub,
+  const { handleUndo, handleRedo } = useProjectHistoryCommands({
+    projectHistory,
+    dispatchProjectHistory,
+    projectSnapshotRef,
     undoLabel,
-  ]);
-
-  const handleRedo = useCallback(() => {
-    if (!redoLabel || isExporting || refuseReadOnlyEdit()) {
-      return;
-    }
-
-    // An open text edit is committed first, before redoing.
-    finishTextEdit();
-    stopTimelineAudibleScrub();
-    setIsPlaying(false);
-    setDragPreviewClips(null);
-    setDragState(null);
-    setPendingSelection(null);
-    setTimelineDragState(null);
-    dispatchProjectHistory({ type: "redo" });
-    setStatus(formatHistoryStatus("Redid", redoLabel));
-  }, [
-    finishTextEdit,
-    isExporting,
     redoLabel,
+    isExporting,
     refuseReadOnlyEdit,
+    finishTextEdit,
     stopTimelineAudibleScrub,
-  ]);
-
-  useEffect(() => {
-    projectSnapshotRef.current = projectHistory.present;
-  }, [projectHistory.present]);
+    setIsPlaying,
+    setDragPreviewClips,
+    setDragState,
+    setPendingSelection,
+    setTimelineDragState,
+    setStatus,
+  });
 
   // Everything a refresh brings back, read when an autosave serialises.
   const readWorkspaceSession = (): SavedWorkspaceSession => ({
@@ -9138,7 +8810,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
               onClick={toggleInspectorCollapsed}
               type="button"
             >
-              <span>{getFxPanelTitle(fxLane?.name, fxClipName)}</span>
+              <span>{fxPanelTitle}</span>
               <ChevronDownIcon aria-hidden="true" />
             </button>
 
