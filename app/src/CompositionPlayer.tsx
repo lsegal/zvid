@@ -14,6 +14,7 @@ import {
   type Lane,
   type MediaItem,
   quartersToSeconds,
+  resolveFrameEffects,
   type SessionEffect,
 } from "./composition-active-clips.ts";
 import {
@@ -45,6 +46,8 @@ type CompositionPlayerProps = {
   effects: SessionEffect[];
   playheadQ: number;
   bpm: number;
+  // The session's frame rate, which effect animations are timed in.
+  fps: number;
   isPlaying: boolean;
   isScrubbing: boolean;
   isAudibleScrubbing: boolean;
@@ -66,6 +69,7 @@ export type CompositionRendererState = {
   lanes: Lane[];
   effects: SessionEffect[];
   bpm: number;
+  fps: number;
   canvasWidth: number;
   canvasHeight: number;
   mainAudio?: MediaItem;
@@ -233,7 +237,7 @@ export class CompositionRenderer {
   renderPreviewFrame(playheadQ: number, pixelRatio: number) {
     this.ensureResources();
     this.activeClips = this.computeActiveClips(playheadQ);
-    this.draw(this.activeClips, pixelRatio, {
+    this.draw(this.activeClips, playheadQ, pixelRatio, {
       time: quartersToSeconds(playheadQ, this.state.bpm),
       audio:
         this.liveAudioBands?.sample(performance.now()) ?? SILENT_AUDIO_BANDS,
@@ -300,7 +304,7 @@ export class CompositionRenderer {
     }
 
     this.activeClips = nextActiveClips;
-    this.draw(nextActiveClips, pixelRatio, {
+    this.draw(nextActiveClips, playheadQ, pixelRatio, {
       time: playheadSeconds,
       audio,
       groupClipProgress: this.groupClipProgressAt(playheadQ),
@@ -426,6 +430,7 @@ export class CompositionRenderer {
       this.state.bpm,
       lanePriority,
       this.renderedEffects(),
+      this.state.fps,
     );
 
     // Clips sharing a media at this playhead draw from extra elements, made
@@ -511,6 +516,7 @@ export class CompositionRenderer {
 
   private draw(
     activeClips: ActiveClip[],
+    playheadQ: number,
     pixelRatio: number,
     frameContext: FrameContext,
   ) {
@@ -521,14 +527,23 @@ export class CompositionRenderer {
       this.state.canvasHeight,
       pixelRatio,
     );
+    // The Global chain and Order span every layer, so they animate with
+    // the topmost clip.
+    const effects = resolveFrameEffects(
+      this.state.effects,
+      activeClips,
+      playheadQ,
+      this.state.bpm,
+      this.state.fps,
+    );
     drawComposition(
       this.resources as WebGlResources,
       this.canvas,
       activeClips,
       this.mediaRefs,
-      resolveEffectChain(this.state.effects, GROUP_TRACK_ID),
+      resolveEffectChain(effects, GROUP_TRACK_ID),
       frameContext,
-      resolveCompositionOrder(this.state.effects, GROUP_TRACK_ID),
+      resolveCompositionOrder(effects, GROUP_TRACK_ID),
     );
   }
 
@@ -640,6 +655,7 @@ export const CompositionPlayer = forwardRef<
     effects,
     playheadQ,
     bpm,
+    fps,
     isPlaying,
     isScrubbing,
     isAudibleScrubbing,
@@ -664,6 +680,7 @@ export const CompositionPlayer = forwardRef<
       lanes,
       effects,
       bpm,
+      fps,
       canvasWidth,
       canvasHeight,
       mainAudio,
@@ -675,6 +692,7 @@ export const CompositionPlayer = forwardRef<
       canvasWidth,
       clips,
       effects,
+      fps,
       hiddenTextClipId,
       lanes,
       mainAudio,

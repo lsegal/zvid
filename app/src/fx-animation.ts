@@ -1,11 +1,12 @@
 // Where an effect's Animation modifier changes the parameters it is drawn
 // with. The Clip and Reactive engines plug in behind
-// `resolveAnimatedParameters` from their own modules; until then every
-// effect is drawn with its parameters as they are.
+// `resolveAnimatedParameters` from their own modules; an effect in a mode
+// without an engine is drawn with its parameters as they are.
 
+import { resolveClipAnimatedParameters } from "./fx-animation-clip.ts";
 import type { EffectAnimation } from "./fx-animation-defaults.ts";
 
-type AnimatedParameter = {
+export type AnimatedParameter = {
   key: string;
   value: string;
   numericValue?: number;
@@ -31,6 +32,8 @@ export type AnimationClipContext = {
 export type AnimationFrameContext = {
   playheadQ: number;
   bpm: number;
+  // The session's frame rate, which animation timings are counted in.
+  fps: number;
 };
 
 // The parameters `effect` is drawn with for the clip and frame. Returns
@@ -38,9 +41,12 @@ export type AnimationFrameContext = {
 // always the case while it is off.
 export function resolveAnimatedParameters(
   effect: AnimatableEffect,
-  _clipContext: AnimationClipContext,
-  _frameContext: AnimationFrameContext,
+  clipContext: AnimationClipContext,
+  frameContext: AnimationFrameContext,
 ): AnimatedParameter[] {
+  if (effect.animation?.mode === "clip") {
+    return resolveClipAnimatedParameters(effect, clipContext, frameContext);
+  }
   return effect.parameters;
 }
 

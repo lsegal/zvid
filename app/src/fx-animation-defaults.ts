@@ -317,3 +317,81 @@ export function toggleAnimatedParameter(
     return (a < 0 ? order.length : a) - (b < 0 ? order.length : b);
   });
 }
+
+// Where Clip mode animates a knob from: the value at which it has no visible
+// effect. The effect fades in from it on a clip's enter and back to it on
+// its exit.
+export type AnimationNeutralValue = { neutral: number };
+
+const TRANSFORM_NEUTRALS = {
+  PositionX: { neutral: 0 },
+  PositionY: { neutral: 0 },
+  ScaleX: { neutral: 1 },
+  ScaleY: { neutral: 1 },
+  Rotation: { neutral: 0 },
+} satisfies Record<string, AnimationNeutralValue>;
+
+function prefixed(
+  prefix: string,
+  neutrals: Record<string, AnimationNeutralValue>,
+) {
+  return Object.fromEntries(
+    Object.entries(neutrals).map(([key, value]) => [`${prefix}${key}`, value]),
+  );
+}
+
+type AnimationNeutralValues = Readonly<Record<string, AnimationNeutralValue>>;
+
+const NEUTRAL_VALUES: ReadonlyMap<string, AnimationNeutralValues> = new Map<
+  string,
+  AnimationNeutralValues
+>([
+  // Order's own slide is separate; this tweens the spacing, and its border
+  // with it.
+  [ORDER_EFFECT_NAME, { Spacing: { neutral: 0 } }],
+  ["Transform", TRANSFORM_NEUTRALS],
+  [
+    MOVE_EFFECT_NAME,
+    {
+      ...prefixed("Start", TRANSFORM_NEUTRALS),
+      ...prefixed("End", TRANSFORM_NEUTRALS),
+    },
+  ],
+  // A zoom of 0 is 1.00×, centred.
+  [
+    "ZoomAndPan",
+    {
+      _Start_Zoom: { neutral: 0 },
+      _Start_X: { neutral: 0.5 },
+      _Start_Y: { neutral: 0.5 },
+      _End_Zoom: { neutral: 0 },
+      _End_X: { neutral: 0.5 },
+      _End_Y: { neutral: 0.5 },
+    },
+  ],
+  ["Colorize", { _HueOffset: { neutral: 0 }, _Reactivity: { neutral: 0 } }],
+  [
+    "Pixelate",
+    {
+      _NumPixels: { neutral: 0 },
+      _LowIntensity: { neutral: 0 },
+      _HighIntensity: { neutral: 0 },
+    },
+  ],
+  [
+    "NegativeSplit",
+    { _LowIntensity: { neutral: 0 }, _HighIntensity: { neutral: 0 } },
+  ],
+  ["AnalogGlitch", { _LowMod: { neutral: 0 }, _HighMod: { neutral: 0 } }],
+  [COLOR_EFFECT_NAME, { Opacity: { neutral: 0 } }],
+  // Text has no opacity knob: Clip mode fades its colours instead.
+  [TEXT_EFFECT_NAME, {}],
+]);
+
+// The knobs Clip mode animates for the effect, keyed by parameter, and each
+// one's neutral value.
+export function getAnimationNeutralValues(
+  effectName: string,
+): AnimationNeutralValues {
+  return NEUTRAL_VALUES.get(effectName) ?? {};
+}

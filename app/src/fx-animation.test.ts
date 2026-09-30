@@ -489,9 +489,11 @@ describe("resolveAnimatedEffects", () => {
     elapsedSeconds: 1,
     durationSeconds: 2,
   };
-  const frameContext = { playheadQ: 4, bpm: 120 };
+  const frameContext = { playheadQ: 4, bpm: 120, fps: 30 };
 
-  it("draws every effect with its parameters as they are", () => {
+  // Clip mode animates only as a clip enters and exits (see
+  // fx-animation-clip.test.ts), so mid-clip every effect is drawn as set.
+  it("draws every effect with its parameters as they are mid-clip", () => {
     const effects = [
       animated(createEffect("6", "Pixelate", "pixelate")),
       createEffect("6", "Colorize", "colorize"),
@@ -502,7 +504,7 @@ describe("resolveAnimatedEffects", () => {
     );
   });
 
-  it("changes no rendering with animation on", () => {
+  it("changes no rendering mid-clip with animation on", () => {
     const clip: ArrangementClip = {
       id: "fill-1",
       kind: "fill",
