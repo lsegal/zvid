@@ -856,36 +856,55 @@ fn distribution_xml(version: &str) -> String {
 }
 
 /// `notarytool` credential arguments from the environment, looked up
-/// through `var`: a keychain profile in `ZVID_NOTARY_PROFILE`, or an Apple
-/// ID, team ID and app-specific password in `ZVID_NOTARY_APPLE_ID`,
-/// `ZVID_NOTARY_TEAM_ID` and `ZVID_NOTARY_PASSWORD`. `None` when none are
-/// set; an error when only some of the Apple ID ones are.
+/// through `var`: a keychain profile in `ZVID_NOTARY_PROFILE`, an App Store
+/// Connect API key's `.p8` path, key ID and issuer ID in
+/// `ZVID_NOTARY_KEY_PATH`, `ZVID_NOTARY_KEY_ID` and `ZVID_NOTARY_ISSUER`, or
+/// an Apple ID, team ID and app-specific password in `ZVID_NOTARY_APPLE_ID`,
+/// `ZVID_NOTARY_TEAM_ID` and `ZVID_NOTARY_PASSWORD`, in that order of
+/// preference. `None` when none are set; an error when only some of the API
+/// key or Apple ID ones are.
 fn notary_args(var: impl Fn(&str) -> Option<String>) -> Result<Option<Vec<String>>, String> {
     let var = |name: &str| var(name).filter(|value| !value.trim().is_empty());
     if let Some(profile) = var("ZVID_NOTARY_PROFILE") {
         return Ok(Some(vec!["--keychain-profile".into(), profile]));
     }
-    let names = [
-        ("--apple-id", "ZVID_NOTARY_APPLE_ID"),
-        ("--team-id", "ZVID_NOTARY_TEAM_ID"),
-        ("--password", "ZVID_NOTARY_PASSWORD"),
+    let credentials = [
+        (
+            "an API key",
+            [
+                ("--key", "ZVID_NOTARY_KEY_PATH"),
+                ("--key-id", "ZVID_NOTARY_KEY_ID"),
+                ("--issuer", "ZVID_NOTARY_ISSUER"),
+            ],
+        ),
+        (
+            "an Apple ID",
+            [
+                ("--apple-id", "ZVID_NOTARY_APPLE_ID"),
+                ("--team-id", "ZVID_NOTARY_TEAM_ID"),
+                ("--password", "ZVID_NOTARY_PASSWORD"),
+            ],
+        ),
     ];
-    let values: Vec<Option<String>> = names.iter().map(|(_, name)| var(name)).collect();
-    if values.iter().all(Option::is_none) {
-        return Ok(None);
+    for (kind, names) in credentials {
+        let values: Vec<Option<String>> = names.iter().map(|(_, name)| var(name)).collect();
+        if values.iter().all(Option::is_none) {
+            continue;
+        }
+        let mut args = Vec::new();
+        for ((flag, name), value) in names.iter().zip(values) {
+            let value = value.ok_or_else(|| {
+                let [first, second, third] = names.map(|(_, name)| name);
+                format!(
+                    "{name} is not set; notarizing with {kind} needs {first}, {second} and {third}"
+                )
+            })?;
+            args.push(flag.to_string());
+            args.push(value);
+        }
+        return Ok(Some(args));
     }
-    let mut args = Vec::new();
-    for ((flag, name), value) in names.iter().zip(values) {
-        let value = value.ok_or_else(|| {
-            format!(
-                "{name} is not set; notarizing with an Apple ID needs ZVID_NOTARY_APPLE_ID, \
-                 ZVID_NOTARY_TEAM_ID and ZVID_NOTARY_PASSWORD"
-            )
-        })?;
-        args.push(flag.to_string());
-        args.push(value);
-    }
-    Ok(Some(args))
+    Ok(None)
 }
 
 /// Submits `package` to Apple's notary service, waits for the verdict and
@@ -1894,6 +1913,44 @@ mod tests {
         ]))
         .unwrap_err();
         assert!(partial.starts_with("ZVID_NOTARY_TEAM_ID"), "{partial}");
+        assert_eq!(
+            notary_args(env(&[
+                ("ZVID_NOTARY_KEY_PATH", "/tmp/AuthKey.p8"),
+                ("ZVID_NOTARY_KEY_ID", "KEY1234567"),
+                ("ZVID_NOTARY_ISSUER", "69a6de70-0000-47e3-e053-5b8c7c11a4d1"),
+            ])),
+            Ok(Some(
+                [
+                    "--key",
+                    "/tmp/AuthKey.p8",
+                    "--key-id",
+                    "KEY1234567",
+                    "--issuer",
+                    "69a6de70-0000-47e3-e053-5b8c7c11a4d1"
+                ]
+                .map(String::from)
+                .to_vec()
+            ))
+        );
+        let partial = notary_args(env(&[
+            ("ZVID_NOTARY_KEY_PATH", "/tmp/AuthKey.p8"),
+            ("ZVID_NOTARY_KEY_ID", "KEY1234567"),
+        ]))
+        .unwrap_err();
+        assert!(partial.starts_with("ZVID_NOTARY_ISSUER"), "{partial}");
+        assert!(partial.contains("an API key"), "{partial}");
+        // The API key wins over an Apple ID when both are set.
+        assert_eq!(
+            notary_args(env(&[
+                ("ZVID_NOTARY_KEY_PATH", "/tmp/AuthKey.p8"),
+                ("ZVID_NOTARY_KEY_ID", "KEY1234567"),
+                ("ZVID_NOTARY_ISSUER", "issuer"),
+                ("ZVID_NOTARY_APPLE_ID", "me@example.com"),
+            ]))
+            .unwrap()
+            .unwrap()[0],
+            "--key"
+        );
     }
 
     #[test]

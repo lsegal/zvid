@@ -97,19 +97,21 @@ jobs:
           workspaces: daw -> target
           save-if: ${{ github.event_name != 'pull_request' }}
 
-      # Imports the Developer ID Application and Installer certificates into a
-      # temporary keychain and exports their identities for `cargo xtask
-      # bundle`. Without the secrets the bundles stay ad-hoc signed and the
-      # installer unsigned.
+      # Imports the Developer ID Application certificate, and the Developer
+      # ID Installer certificate when it is set, into a temporary keychain and
+      # exports their identities for `cargo xtask bundle`. Both .p12 files
+      # share APPLE_CERTIFICATE_PASSWORD. Without APPLE_CERTIFICATE the
+      # bundles stay ad-hoc signed; without APPLE_INSTALLER_CERTIFICATE the
+      # installer stays unsigned and isn't notarized.
       - name: Import signing certificates (macOS)
         id: signing
         if: runner.os == 'macOS'
         env:
-          APPLICATION_P12: ${{ secrets.MACOS_DEVELOPER_ID_APPLICATION_P12 }}
-          INSTALLER_P12: ${{ secrets.MACOS_DEVELOPER_ID_INSTALLER_P12 }}
-          P12_PASSWORD: ${{ secrets.MACOS_CERTIFICATES_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_INSTALLER_CERTIFICATE: ${{ secrets.APPLE_INSTALLER_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         run: |
-          if [ -z "$APPLICATION_P12" ] || [ -z "$INSTALLER_P12" ]; then
+          if [ -z "$APPLE_CERTIFICATE" ]; then
             echo "::notice::Apple signing secrets are not set; building ad-hoc signed bundles and an unsigned installer"
             exit 0
           fi
@@ -118,9 +120,10 @@ jobs:
           security create-keychain -p "$password" "$keychain"
           security set-keychain-settings -lut 21600 "$keychain"
           security unlock-keychain -p "$password" "$keychain"
-          for p12 in "$APPLICATION_P12" "$INSTALLER_P12"; do
+          for p12 in "$APPLE_CERTIFICATE" "$APPLE_INSTALLER_CERTIFICATE"; do
+            [ -n "$p12" ] || continue
             echo "$p12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
-            security import "$RUNNER_TEMP/certificate.p12" -k "$keychain" -P "$P12_PASSWORD" \
+            security import "$RUNNER_TEMP/certificate.p12" -k "$keychain" -P "$APPLE_CERTIFICATE_PASSWORD" \
               -T /usr/bin/codesign -T /usr/bin/productbuild -T /usr/bin/pkgbuild
           done
           rm -f "$RUNNER_TEMP/certificate.p12"
@@ -130,14 +133,23 @@ jobs:
             security find-identity -v "$keychain" | sed -n "s/.*\"\($1: .*\)\"/\1/p" | head -n 1
           }
           application=$(identity "Developer ID Application")
-          installer=$(identity "Developer ID Installer")
-          if [ -z "$application" ] || [ -z "$installer" ]; then
-            echo "::error::the certificates lack a Developer ID Application or Installer identity"
+          if [ -z "$application" ]; then
+            echo "::error::APPLE_CERTIFICATE lacks a Developer ID Application identity"
             exit 1
           fi
           echo "ZVID_CODESIGN_IDENTITY=$application" >> "$GITHUB_ENV"
-          echo "ZVID_INSTALLER_IDENTITY=$installer" >> "$GITHUB_ENV"
           echo "signed=true" >> "$GITHUB_OUTPUT"
+          if [ -z "$APPLE_INSTALLER_CERTIFICATE" ]; then
+            echo "::notice::APPLE_INSTALLER_CERTIFICATE is not set; building an unsigned, unnotarized installer"
+            exit 0
+          fi
+          installer=$(identity "Developer ID Installer")
+          if [ -z "$installer" ]; then
+            echo "::error::APPLE_INSTALLER_CERTIFICATE lacks a Developer ID Installer identity"
+            exit 1
+          fi
+          echo "ZVID_INSTALLER_IDENTITY=$installer" >> "$GITHUB_ENV"
+          echo "installer_signed=true" >> "$GITHUB_OUTPUT"
 
       - name: Install Inno Setup (Windows)
         if: runner.os == 'Windows'
@@ -146,14 +158,20 @@ jobs:
             choco install innosetup --no-progress -y
           fi
 
-      # Notarizes only when the installer is signed; without a signing
-      # identity the notary secrets are left out.
+      # Notarizes with the App Store Connect API key only when the installer
+      # is signed; without an installer identity the notary secrets are left
+      # out.
       - name: Bundle
         env:
-          ZVID_NOTARY_APPLE_ID: ${{ steps.signing.outputs.signed && secrets.APPLE_ID || '' }}
-          ZVID_NOTARY_TEAM_ID: ${{ steps.signing.outputs.signed && secrets.APPLE_TEAM_ID || '' }}
-          ZVID_NOTARY_PASSWORD: ${{ steps.signing.outputs.signed && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
-        run: cargo xtask bundle --release --installer
+          APPLE_API_KEY_P8: ${{ steps.signing.outputs.installer_signed && secrets.APPLE_API_KEY_P8 || '' }}
+          ZVID_NOTARY_KEY_ID: ${{ steps.signing.outputs.installer_signed && secrets.APPLE_API_KEY || '' }}
+          ZVID_NOTARY_ISSUER: ${{ steps.signing.outputs.installer_signed && secrets.APPLE_API_ISSUER || '' }}
+        run: |
+          if [ -n "$APPLE_API_KEY_P8" ]; then
+            export ZVID_NOTARY_KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
+            printf '%s\n' "$APPLE_API_KEY_P8" > "$ZVID_NOTARY_KEY_PATH"
+          fi
+          cargo xtask bundle --release --installer
 
       # The installer's name carries no version, so each main build replaces
       # the published one; the version is stamped into the bundles and the
@@ -215,8 +233,8 @@ jobs:
       - name: Install and validate (macOS)
         if: runner.os == 'macOS'
         env:
-          SIGNED: ${{ steps.signing.outputs.signed }}
-          NOTARIZED: ${{ steps.signing.outputs.signed && secrets.APPLE_ID != '' }}
+          SIGNED: ${{ steps.signing.outputs.installer_signed }}
+          NOTARIZED: ${{ steps.signing.outputs.installer_signed && secrets.APPLE_API_KEY != '' }}
         run: |
           pkg="target/installer/${{ matrix.installer }}"
           if [ "$SIGNED" = true ]; then
@@ -448,28 +466,38 @@ jobs:
         if: steps.wasm-pack-cache.outputs.cache-hit != 'true'
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
-      # Tauri signs the app with the Developer ID Application certificate and
-      # notarizes it when APPLE_CERTIFICATE and APPLE_ID are in the
-      # environment, so they're only exported when the secrets are set: an
-      # empty APPLE_CERTIFICATE would fail the build.
+      # Tauri signs the app with the Developer ID Application certificate
+      # when APPLE_CERTIFICATE is in the environment, and notarizes it with
+      # the App Store Connect API key when APPLE_API_KEY and
+      # APPLE_API_KEY_PATH are too. Unset secrets are removed from the
+      # environment rather than left empty: an empty APPLE_CERTIFICATE would
+      # fail the build.
       - name: Build desktop app installer
         id: build
         env:
-          APPLICATION_P12: ${{ secrets.MACOS_DEVELOPER_ID_APPLICATION_P12 }}
-          P12_PASSWORD: ${{ secrets.MACOS_CERTIFICATES_PASSWORD }}
-          NOTARY_APPLE_ID: ${{ secrets.APPLE_ID }}
-          NOTARY_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          NOTARY_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
           INSTALLER: ${{ matrix.installer }}
         run: |
           pnpm install --frozen-lockfile
           active='{"bundle":{"active":true}}'
+          apple=(APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_API_ISSUER APPLE_API_KEY)
+          if [ "$RUNNER_OS" != macOS ] || [ -z "$APPLE_CERTIFICATE" ]; then
+            unset "${apple[@]}"
+          fi
+          for name in "${apple[@]}"; do
+            [ -n "${!name}" ] || unset "$name"
+          done
           if [ "$RUNNER_OS" = macOS ]; then
-            if [ -n "$APPLICATION_P12" ]; then
-              export APPLE_CERTIFICATE="$APPLICATION_P12" APPLE_CERTIFICATE_PASSWORD="$P12_PASSWORD"
+            if [ -n "$APPLE_CERTIFICATE" ]; then
               echo "signed=true" >> "$GITHUB_OUTPUT"
-              if [ -n "$NOTARY_APPLE_ID" ]; then
-                export APPLE_ID="$NOTARY_APPLE_ID" APPLE_TEAM_ID="$NOTARY_TEAM_ID" APPLE_PASSWORD="$NOTARY_PASSWORD"
+              if [ -n "$APPLE_API_KEY" ]; then
+                export APPLE_API_KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
+                printf '%s\n' "$APPLE_API_KEY_P8" > "$APPLE_API_KEY_PATH"
                 echo "notarized=true" >> "$GITHUB_OUTPUT"
               fi
             else
