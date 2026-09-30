@@ -26,11 +26,14 @@ import {
 } from "./fx-chain.ts";
 import { FX_EFFECT_DEFINITIONS, getEffectDefinition } from "./fx-registry.ts";
 import {
+  addEffect,
   clipEffectTrackId,
   copyClipEffects,
   createEffect,
   duplicateEffect,
   effectHistoryLabels,
+  ensureGlobalOrder,
+  GLOBAL_EFFECT_TRACK_ID,
   mapEffects,
   mapSessionEffectsToDevices,
   resetEffect,
@@ -50,6 +53,12 @@ const KNOWN_EFFECTS = FX_EFFECT_DEFINITIONS.filter(
 
 function animated(effect: SessionEffect) {
   return setEffectAnimationEnabled([effect], effect.id, true)[0];
+}
+
+// An effect as saved before Animation existed: no animation at all.
+function legacy(effect: SessionEffect): SessionEffect {
+  const { animation: _animation, ...rest } = effect;
+  return rest;
 }
 
 describe("animation support", () => {
@@ -238,7 +247,7 @@ describe("getAnimatableParameters", () => {
 
 describe("setEffectAnimationEnabled", () => {
   it("applies the effect's defaults when first turned on", () => {
-    const effect = createEffect("6", "Colorize", "colorize");
+    const effect = legacy(createEffect("6", "Colorize", "colorize"));
     assert.equal(effect.animation, undefined);
     assert.deepEqual(
       animated(effect).animation,
@@ -271,10 +280,7 @@ describe("setEffectAnimationEnabled", () => {
     ];
     assert.equal(setEffectAnimationEnabled(effects, "layout", true), effects);
     assert.equal(setEffectAnimationEnabled(effects, "mystery", true), effects);
-    assert.equal(
-      setEffectAnimationEnabled(effects, "pixelate", false),
-      effects,
-    );
+    assert.equal(setEffectAnimationEnabled(effects, "pixelate", true), effects);
     assert.equal(setEffectAnimationEnabled(effects, "missing", true), effects);
   });
 
@@ -401,6 +407,122 @@ describe("normalizeEffectAnimation", () => {
       normalizeEffectAnimation(createDefaultAnimation("Order"), "Layout"),
       undefined,
     );
+  });
+});
+
+describe("animation on new devices", () => {
+  it("is on, at the effect's defaults, for every effect that supports it", () => {
+    for (const effectName of KNOWN_EFFECTS.filter(supportsAnimation)) {
+      const effect = createEffect("6", effectName, "e");
+      assert.equal(effect.animation?.enabled, true, effectName);
+      assert.equal(effect.animation?.mode, "clip", effectName);
+      assert.deepEqual(
+        effect.animation,
+        createDefaultAnimation(effectName),
+        effectName,
+      );
+    }
+  });
+
+  it("comes with a device added to a stack", () => {
+    for (const effectName of ["Colorize", "Transform", "Pixelate"]) {
+      const [effect] = addEffect([], "6", effectName, undefined, "e");
+      assert.deepEqual(
+        effect.animation,
+        createDefaultAnimation(effectName),
+        effectName,
+      );
+    }
+    const [order] = addEffect([], GLOBAL_EFFECT_TRACK_ID, "Order", 0, "o");
+    assert.deepEqual(order.animation, createDefaultAnimation("Order"));
+  });
+
+  it("comes with a new session's default Order", () => {
+    const [order] = ensureGlobalOrder([]);
+    assert.equal(order.effectName, "Order");
+    assert.deepEqual(order.animation, createDefaultAnimation("Order"));
+  });
+
+  it("is absent on Layout and effects the app doesn't know", () => {
+    assert.equal("animation" in createEffect("6", "Layout", "l"), false);
+    assert.equal("animation" in createEffect("6", "Mystery", "m"), false);
+  });
+
+  it("is turned on for a duplicate of a device saved without it", () => {
+    const effects = [legacy(createEffect("6", "Colorize", "colorize"))];
+    const duplicated = duplicateEffect(effects, "colorize", "copy");
+    const copy = duplicated.find((effect) => effect.id === "copy");
+    assert.deepEqual(copy?.animation, createDefaultAnimation("Colorize"));
+    assert.equal(duplicated[0], effects[0]);
+  });
+
+  it("stays off on a duplicate of a device saved with it off", () => {
+    const effects = setEffectAnimationEnabled(
+      [createEffect("6", "Colorize", "colorize")],
+      "colorize",
+      false,
+    );
+    const duplicated = duplicateEffect(effects, "colorize", "copy");
+    const copy = duplicated.find((effect) => effect.id === "copy");
+    assert.equal(copy?.animation?.enabled, false);
+  });
+
+  it("is turned back on, at the defaults, by a reset", () => {
+    const [changed] = setEffectAnimation(
+      setEffectAnimationEnabled(
+        [createEffect("6", "Transform", "t")],
+        "t",
+        false,
+      ),
+      "t",
+      {
+        ...(createDefaultAnimation("Transform") as EffectAnimation),
+        enabled: false,
+        mode: "reactive",
+      },
+    );
+    const [reset] = resetEffect([changed], "t");
+    assert.deepEqual(reset.animation, createDefaultAnimation("Transform"));
+    const [legacyReset] = resetEffect(
+      [legacy(createEffect("6", "Transform", "t"))],
+      "t",
+    );
+    assert.deepEqual(
+      legacyReset.animation,
+      createDefaultAnimation("Transform"),
+    );
+  });
+
+  it("leaves a reset of a device already at its defaults unchanged", () => {
+    const effects = [createEffect("6", "Transform", "t")];
+    assert.equal(resetEffect(effects, "t"), effects);
+    const layouts = [createEffect("6", "Layout", "l")];
+    assert.equal(resetEffect(layouts, "l"), layouts);
+  });
+
+  it("keeps a saved setting, and leaves a device saved without it off", () => {
+    const [off, plain] = mapEffects([
+      {
+        id: "off",
+        trackId: "6",
+        effectName: "Colorize",
+        parameters: {},
+        animation: {
+          ...(createDefaultAnimation("Colorize") as EffectAnimation),
+          enabled: false,
+        },
+      },
+      {
+        id: "plain",
+        trackId: "6",
+        effectName: "Colorize",
+        parameters: {},
+      },
+    ]);
+    assert.equal(off.animation?.enabled, false);
+    assert.equal(plain.animation, undefined);
+    const [device] = mapSessionEffectsToDevices([plain], "6", "Layer 3");
+    assert.equal(device.animation?.enabled === true, false);
   });
 });
 

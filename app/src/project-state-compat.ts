@@ -52,13 +52,27 @@ export function stripClipSelectionFlags<T extends object>(snapshot: T): T {
 
 // Sessions saved before layers could overlap had no Order effect and were
 // arranged in Vertical bands anyway. Opening one adds that Order so it looks
-// the same. A session saved since carries `orderDefaulted` and opens with its
-// Global stack as saved, so an Order the user removed stays removed.
+// the same, so it comes without animation. A session saved since carries
+// `orderDefaulted` and opens with its Global stack as saved, so an Order the
+// user removed stays removed.
 export function migrateDefaultOrder(
   effects: SessionEffect[],
   orderDefaulted: boolean | undefined,
 ) {
-  return orderDefaulted === true ? effects : ensureGlobalOrder(effects);
+  if (orderDefaulted === true) {
+    return effects;
+  }
+
+  const migrated = ensureGlobalOrder(effects);
+  return migrated === effects
+    ? effects
+    : migrated.map((effect) => {
+        if (effects.includes(effect)) {
+          return effect;
+        }
+        const { animation: _animation, ...rest } = effect;
+        return rest;
+      });
 }
 
 const COLORIZE_REACTIVITY_KEY = "_Reactivity";
