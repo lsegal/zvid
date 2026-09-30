@@ -69,7 +69,7 @@ describe("animation support", () => {
     assert.equal(createDefaultAnimation("Mystery"), undefined);
   });
 
-  it("shows the (A) toggle on every device but Layout", () => {
+  it("shows the Animation toggle on every device but Layout", () => {
     const effects = KNOWN_EFFECTS.map((effectName) =>
       createEffect("6", effectName, effectName),
     );
