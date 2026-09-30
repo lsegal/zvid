@@ -17,11 +17,7 @@ import {
   normalizeExportFileName,
   reopenExportOptions,
 } from "../export-options.ts";
-import {
-  canRevealSavedFile,
-  getHarness,
-  type SaveTarget,
-} from "../harness";
+import { canRevealSavedFile, getHarness, type SaveTarget } from "../harness";
 import type { ExportProgress } from "../harness/contracts";
 import type { MediaItem } from "../media";
 import {
@@ -376,7 +372,7 @@ export function useExport({
 
   function revealFile() {
     const harness = getHarness();
-    if (!savedTarget || !canRevealSavedFile(harness, savedTarget)) {
+    if (!canRevealSavedFile(harness, savedTarget)) {
       return;
     }
     harness.revealSavedFile?.(savedTarget).catch((error: unknown) => {

@@ -198,6 +198,64 @@ test("dragging In and Out exports only that span", async ({ page }) => {
   expect(Math.abs(readDurationSeconds(mp4) - frames / fps)).toBeLessThan(
     1.5 / fps,
   );
+  // Browser downloads can't be revealed, so the done state only closes.
+  await expect(dialog.getByRole("button", { name: "Close" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Reveal file" })).toHaveCount(
+    0,
+  );
+});
+
+test("Reveal file shows a native export in the file manager", async ({
+  page,
+}) => {
+  // Stands in for the desktop harness: saves to a path and can reveal it.
+  // The render still runs through the web harness's download flow.
+  await page.evaluate(() => {
+    const base = window.harness;
+    if (!base) throw new Error("no harness");
+    const revealed: unknown[] = [];
+    (window as { revealed?: unknown[] }).revealed = revealed;
+    window.harness = {
+      ...base,
+      capabilities: { ...base.capabilities, "reveal-saved-file": true },
+      async prepareSave(filename) {
+        return { kind: "native-path", filename, path: `/exports/${filename}` };
+      },
+      async exportVideo(request) {
+        const result = await base.exportVideo({
+          ...request,
+          saveTarget: { kind: "download", filename: request.filename },
+        });
+        return { ...result, saveMethod: "native-path" };
+      },
+      async revealSavedFile(target) {
+        revealed.push(target);
+      },
+    };
+  });
+
+  const dialog = await openExportDialog(page);
+  await dialog.getByLabel("Width").fill("320");
+  await dialog.getByLabel("Height").fill("180");
+  await dialog.getByLabel("File name").fill("reveal.mp4");
+  await dialog.getByRole("button", { name: "Export", exact: true }).click();
+  await expect(dialog.getByRole("status")).toContainText("Saved reveal.mp4", {
+    timeout: 120_000,
+  });
+
+  await dialog.getByRole("button", { name: "Reveal file" }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(() => (window as { revealed?: unknown[] }).revealed),
+    )
+    .toEqual([
+      {
+        kind: "native-path",
+        filename: "reveal.mp4",
+        path: "/exports/reveal.mp4",
+      },
+    ]);
+  await expect(dialog.getByRole("button", { name: "Close" })).toBeVisible();
 });
 
 test("playback loops from In to Out", async ({ page }) => {

@@ -31,7 +31,10 @@ describe("canRevealSavedFile", () => {
       false,
     );
     assert.equal(
-      canRevealSavedFile({ capabilities: { "reveal-saved-file": true } }, nativeTarget),
+      canRevealSavedFile(
+        { capabilities: { "reveal-saved-file": true } },
+        nativeTarget,
+      ),
       false,
     );
     assert.equal(canRevealSavedFile(undefined, nativeTarget), false);
