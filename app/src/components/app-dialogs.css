@@ -1,0 +1,115 @@
+.share-dialog__body {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.share-dialog__card {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(12, 14, 20, 0.26);
+}
+
+.share-dialog__card strong {
+  color: var(--ink);
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+
+.share-dialog__label {
+  color: var(--muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.share-dialog__note {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.share-dialog__meta {
+  color: var(--muted);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.collaboration-diagnostics {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(12, 14, 20, 0.26);
+  font-size: 0.84rem;
+}
+
+.collaboration-diagnostics__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.collaboration-diagnostics__row dt {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.collaboration-diagnostics__row dd {
+  margin: 0;
+  color: var(--ink);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.collaboration-diagnostics__row--ok dd {
+  color: #9affc0;
+}
+
+.collaboration-diagnostics__row--error dd {
+  color: #ff8fb2;
+}
+
+.connect-dialog__field {
+  display: grid;
+  gap: 8px;
+}
+
+.connect-dialog__input {
+  width: 100%;
+  resize: vertical;
+  min-height: 108px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(12, 14, 20, 0.34);
+  color: var(--ink);
+  font: inherit;
+  line-height: 1.5;
+}
+
+.connect-dialog__input::placeholder {
+  color: rgba(255, 255, 255, 0.32);
+}
+
+.workspace-lock-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 40px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 8px 8px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: rgba(33, 35, 50, 0.98);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+  color: var(--ink);
+  transform: translateX(-50%);
+}

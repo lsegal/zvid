@@ -36,6 +36,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
+import "./app-dialogs.css";
 
 type SetOpen = Dispatch<SetStateAction<boolean>>;
 type ProjectStore = ReturnType<typeof useProjectStore>;
