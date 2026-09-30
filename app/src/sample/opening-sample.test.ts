@@ -163,8 +163,8 @@ describe("zvid opening sample", () => {
     for (const effect of colorized) {
       assert.equal(effect.animation?.mode, "reactive");
       assert.equal(effect.animation?.enabled, true);
-      assert.equal(effect.animation?.reactive.reactivity, 1);
-      assert.deepEqual(effect.animation?.reactive.parameters, ["_HueOffset"]);
+      assert.equal(effect.animation?.reactive?.reactivity, 1);
+      assert.deepEqual(effect.animation?.reactive?.parameters, ["_HueOffset"]);
     }
   });
 
