@@ -21,6 +21,10 @@ export type CompositionOrder = {
   gridSize: number;
   // Gap between neighboring layers, in output pixels at 1080p.
   spacing: number;
+  // Set when the arrangement is also inset from the Order's box by
+  // `spacing`, so the border color frames it as well as filling the gaps.
+  // Absent means the slots run to the box's edges.
+  outerMargin?: boolean;
   // Ids of the layers the arrangement leaves out. They are drawn full-frame
   // in their z-order instead, as with no Order. Absent means none.
   excludedLayers?: readonly string[];
@@ -54,6 +58,7 @@ export const GRID_SIZE_MAX = 6;
 // A tenth of the 1080p canvas height.
 export const SPACING_MAX = 108;
 export const DEFAULT_BORDER_COLOR = "rgba(0,0,0,1)";
+export const OUTER_MARGIN_OPTIONS = ["Off", "On"] as const;
 export const BLACK_BORDER: Rgba = { r: 0, g: 0, b: 0, a: 1 };
 
 export const DEFAULT_COMPOSITION_ORDER: CompositionOrder = {
@@ -162,6 +167,11 @@ export function parseCompositionOrder(
     }
     if (key === "bordercolor") {
       order.borderColor = parseCssColor(parameter.value) ?? order.borderColor;
+      continue;
+    }
+
+    if (key === "outermargin") {
+      order.outerMargin = parameter.value.trim().toLowerCase() === "on";
       continue;
     }
 

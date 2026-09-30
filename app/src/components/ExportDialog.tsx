@@ -700,9 +700,24 @@ function ExportDialogBody({
             Cancel
           </button>
         ) : phase === "done" ? (
-          <button className="ghost-button" onClick={model.close} type="button">
-            Close
-          </button>
+          <>
+            {model.canReveal ? (
+              <button
+                className="ghost-button"
+                onClick={model.revealFile}
+                type="button"
+              >
+                Reveal file
+              </button>
+            ) : null}
+            <button
+              className="ghost-button"
+              onClick={model.close}
+              type="button"
+            >
+              Close
+            </button>
+          </>
         ) : (
           <>
             <button

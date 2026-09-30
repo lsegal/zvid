@@ -283,8 +283,9 @@ function layerClip(kind, id, layerId, start, duration) {
 }
 
 // Order three-ups. Each FX clip arranges the layers beneath it; Clip-mode
-// animation with Full timing eases the ivory spacing open to its setting at
-// the middle of the clip and closed again by its end.
+// animation with Full timing eases the ivory spacing, and the outer margin
+// framing the arrangement with it, open to its setting at the middle of the
+// clip and closed again by its end.
 const ARRANGEMENTS = [
   [3, 3, "Horizontal"],
   [6, 3, "Vertical"],
@@ -314,6 +315,7 @@ for (const [start, duration, arrangement] of ARRANGEMENTS) {
       ExcludedLayers: "background",
       GridSize: 2,
       Spacing: 108,
+      OuterMargin: "On",
       BorderColor: IVORY,
     },
     {

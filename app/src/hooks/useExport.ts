@@ -18,7 +18,7 @@ import {
   projectDurationAt,
   reopenExportOptions,
 } from "../export-options.ts";
-import { getHarness, type SaveTarget } from "../harness";
+import { canRevealSavedFile, getHarness, type SaveTarget } from "../harness";
 import type { ExportProgress } from "../harness/contracts";
 import type { MediaItem } from "../media";
 import {
@@ -116,6 +116,8 @@ export type ExportDialogModel = {
   progress: ExportProgress | null;
   // What the last export did, shown once it finishes or fails.
   message: string;
+  // Whether the done state offers Reveal file for the saved export.
+  canReveal: boolean;
   mediaItems: MediaItem[];
   clips: ProjectState["clips"];
   lanes: ProjectState["lanes"];
@@ -129,6 +131,7 @@ export type ExportDialogModel = {
   projectDurationFrames: number | undefined;
   startExport(): void;
   cancelExport(): void;
+  revealFile(): void;
   close(): void;
 };
 
@@ -175,6 +178,8 @@ export function useExport({
   );
   const [progress, setProgress] = useState<ExportProgress | null>(null);
   const [message, setMessage] = useState("");
+  // Where the last successful export was saved, for Reveal file.
+  const [savedTarget, setSavedTarget] = useState<SaveTarget | null>(null);
   // The options last used, kept while the app is open (not saved) so
   // reopening Export picks up where it left off.
   const rememberedRef = useRef<Remembered | null>(null);
@@ -203,6 +208,7 @@ export function useExport({
     setPhase("editing");
     setProgress(null);
     setMessage("");
+    setSavedTarget(null);
     setOpen(true);
   }
 
@@ -321,6 +327,7 @@ export function useExport({
           : `Saved ${exportName} (${result.summary}).`;
       setStatus(done);
       setMessage(done);
+      setSavedTarget(saveTarget);
       finished = true;
       logClient("export:complete", {
         filename: exportName,
@@ -367,7 +374,20 @@ export function useExport({
     }
     rememberedRef.current = { sessionName, options, session };
     setMessage("");
+    setSavedTarget(null);
     void runExport(options);
+  }
+
+  function revealFile() {
+    const harness = getHarness();
+    if (!canRevealSavedFile(harness, savedTarget)) {
+      return;
+    }
+    harness.revealSavedFile?.(savedTarget).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus(`Failed to reveal ${savedTarget.filename}: ${message}`);
+      logClient("export:reveal:error", { message });
+    });
   }
 
   const exportDialog: ExportDialogModel = {
@@ -379,6 +399,7 @@ export function useExport({
     defaultRange,
     progress,
     message,
+    canReveal: canRevealSavedFile(window.harness, savedTarget),
     mediaItems,
     clips,
     lanes,
@@ -391,6 +412,7 @@ export function useExport({
     projectDurationFrames: project.projectDurationFrames,
     startExport,
     cancelExport,
+    revealFile,
     close,
   };
 

@@ -430,6 +430,69 @@ test.describe("Order border", () => {
     expectColors(opaque, [RED, [255, 0, 255]]);
   });
 
+  test("frames the arrangement in the border color with an outer margin", async ({
+    page,
+  }) => {
+    // At 360 px a Spacing of 30 is a 10 px margin: the samples 5 px in from
+    // the edges fall in it.
+    const edges: Array<[number, number]> = [
+      [0.5, 5 / SIZE],
+      [5 / SIZE, 0.25],
+      [1 - 5 / SIZE, 0.75],
+      [0.5, 1 - 5 / SIZE],
+    ];
+    const framed = (color: string) => [
+      { key: "Spacing", value: "30", numericValue: 30 },
+      { key: "OuterMargin", value: "On" },
+      { key: "BorderColor", value: color },
+    ];
+    const global = await render(page, {
+      layers: ["#ff0000", "#0000ff"],
+      effects: [],
+      globalOrder: framed("#00ff00"),
+      playheadSeconds: 1,
+      size: SIZE,
+      samples: [...edges, [0.5, 0.25], [0.5, 0.5], [0.5, 0.75]],
+    });
+    expectColors(global, [GREEN, GREEN, GREEN, GREEN, RED, GREEN, BLUE]);
+
+    // Without the margin the layers run to the edges.
+    const unframed = await render(page, {
+      layers: ["#ff0000", "#0000ff"],
+      effects: [],
+      globalOrder: spaced("#00ff00"),
+      playheadSeconds: 1,
+      size: SIZE,
+      samples: edges,
+    });
+    expectColors(unframed, [RED, RED, BLUE, BLUE]);
+
+    const fxClip = await render(page, {
+      layers: ["fx", "#ff0000", "#0000ff"],
+      effects: [
+        effect("columns", "clip:fx-1", "Order", {
+          Arrangement: "Horizontal",
+          Spacing: 30,
+          OuterMargin: "On",
+          BorderColor: "rgba(255,0,255,1)",
+        }),
+      ],
+      playheadSeconds: 1,
+      size: SIZE,
+      samples: [...edges, [0.25, 0.5], [0.5, 0.5], [0.75, 0.5]],
+    });
+    const MAGENTA: Rgb = [255, 0, 255];
+    expectColors(fxClip, [
+      MAGENTA,
+      MAGENTA,
+      MAGENTA,
+      MAGENTA,
+      RED,
+      MAGENTA,
+      BLUE,
+    ]);
+  });
+
   test("exports the border as the preview shows it", async ({ page }) => {
     const scenario = {
       layers: ["#ff0000", "#0000ff", "#ffff00"],

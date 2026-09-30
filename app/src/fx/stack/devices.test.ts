@@ -216,12 +216,14 @@ describe("Order devices", () => {
       "Arrangement",
       "ExcludedLayers",
       "Spacing",
+      "OuterMargin",
       "BorderColor",
     ]);
     assert.deepEqual(keys("Horizontal"), [
       "Arrangement",
       "ExcludedLayers",
       "Spacing",
+      "OuterMargin",
       "BorderColor",
     ]);
     assert.deepEqual(keys("Grid"), [
@@ -229,6 +231,7 @@ describe("Order devices", () => {
       "ExcludedLayers",
       "GridSize",
       "Spacing",
+      "OuterMargin",
       "BorderColor",
     ]);
   });
