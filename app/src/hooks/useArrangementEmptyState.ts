@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
-import type { TimelineSelection } from "../app/types.ts";
+import type {
+  ArrangementClip,
+  SourceSpan,
+  TimelineSelection,
+} from "../app/types.ts";
 import type { SavedWorkspaceSession } from "../app/workspace-types.ts";
 import {
   hasArrangementActivity,
@@ -9,8 +13,8 @@ import {
 
 export type ArrangementEmptyStateInputs = {
   restoredSession: SavedWorkspaceSession | null;
-  clipCount: number;
-  sourceSpanCount: number;
+  clips: ArrangementClip[];
+  sourceSpans: SourceSpan[];
   selectedClipId: string | undefined;
   pendingSelection: TimelineSelection | null;
   syncTimelineViewport: () => void;
@@ -20,8 +24,8 @@ export type ArrangementEmptyStateInputs = {
 // selection dismisses it for the rest of the session.
 export function useArrangementEmptyState({
   restoredSession,
-  clipCount,
-  sourceSpanCount,
+  clips,
+  sourceSpans,
   selectedClipId,
   pendingSelection,
   syncTimelineViewport,
@@ -35,21 +39,21 @@ export function useArrangementEmptyState({
         : false,
     );
   const showArrangementEmptyState = shouldShowArrangementEmptyState({
-    clipCount,
-    sourceSpanCount,
+    clipCount: clips.length,
+    sourceSpanCount: sourceSpans.length,
     dismissed: arrangementEmptyStateDismissed,
   });
   useEffect(() => {
     if (
       hasArrangementActivity({
-        clipCount,
+        clipCount: clips.length,
         hasClipSelection: selectedClipId !== undefined,
         hasPendingSelection: pendingSelection !== null,
       })
     ) {
       setArrangementEmptyStateDismissed(true);
     }
-  }, [clipCount, pendingSelection, selectedClipId]);
+  }, [clips.length, pendingSelection, selectedClipId]);
 
   // The empty arrangement's call to action sizes itself below the ruler.
   useEffect(() => {

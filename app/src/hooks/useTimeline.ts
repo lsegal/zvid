@@ -87,8 +87,8 @@ export function useTimeline({
   } = viewport;
   const emptyState = useArrangementEmptyState({
     restoredSession,
-    clipCount: clips.length,
-    sourceSpanCount: sourceSpans.length,
+    clips,
+    sourceSpans,
     selectedClipId,
     pendingSelection,
     syncTimelineViewport,

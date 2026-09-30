@@ -16,8 +16,8 @@ import {
 } from "./useCollaboration.ts";
 import { usePeerMedia } from "./usePeerMedia.ts";
 import type { ProjectStore } from "./useProjectStore.ts";
-import type { useTimelineViewport } from "./useTimelineViewport.ts";
 import type { TimelineSelectionState } from "./useTimelineSelection.ts";
+import type { useTimelineViewport } from "./useTimelineViewport.ts";
 
 export type SessionSharingInputs = {
   collaboration: CollaborationStateResult;

@@ -115,6 +115,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   });
   const { quarterPx, totalQuarters, gridStyle, timelineViewport } = timeline;
   const { visibleTimelineStartPx, visibleTimelineWidthPx } = timeline;
+  const { setArrangementEmptyStateDismissed } = timeline;
   const preview = usePreview({
     project,
     selection,
@@ -211,7 +212,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setIsPlaying,
     timelineScrollRef,
     timelineViewport,
-    setArrangementEmptyStateDismissed: timeline.setArrangementEmptyStateDismissed,
+    setArrangementEmptyStateDismissed: setArrangementEmptyStateDismissed,
     collaborationMode,
     setStatus,
   });
@@ -264,9 +265,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     selection,
     media,
     workspace,
-    setArrangementEmptyStateDismissed: timeline.setArrangementEmptyStateDismissed,
+    setArrangementEmptyStateDismissed: setArrangementEmptyStateDismissed,
     setStatus,
   });
+  const { handleRandomizeTimeline } = editing;
   const { openExportDialog, exportDialog } = useExport({
     ...exportState,
     project,
@@ -366,9 +368,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                       <ArrangementEmptyState
                         disabled={isExporting}
                         onDismiss={() =>
-                          timeline.setArrangementEmptyStateDismissed(true)
+                          setArrangementEmptyStateDismissed(true)
                         }
-                        onGenerate={editing.handleRandomizeTimeline}
+                        onGenerate={handleRandomizeTimeline}
                         top={timelineViewport.lanesTop}
                         visibleHeight={
                           timelineViewport.clientHeight -
@@ -505,7 +507,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
               isExporting={isExporting}
               jumpPlayhead={playback.jumpPlayhead}
               onTransportToggle={playback.handleTransportToggle}
-              onRandomize={editing.handleRandomizeTimeline}
+              onRandomize={handleRandomizeTimeline}
             />
           </section>
 

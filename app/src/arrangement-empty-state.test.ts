@@ -8,6 +8,10 @@ import {
 } from "./arrangement-empty-state.ts";
 
 const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const useArrangementEmptyStateTs = readFileSync(
+  new URL("./hooks/useArrangementEmptyState.ts", import.meta.url),
+  "utf8",
+);
 const sessionIOTs = readFileSync(
   new URL("./hooks/useSessionIO.ts", import.meta.url),
   "utf8",
@@ -116,7 +120,7 @@ describe("arrangement empty state wiring", () => {
 
   it("dismisses on clip creation or selection and resets on session open", () => {
     assert.match(
-      appTsx,
+      useArrangementEmptyStateTs,
       /hasArrangementActivity\(\{\s*clipCount: clips\.length,\s*hasClipSelection: selectedClipId !== undefined,\s*hasPendingSelection: pendingSelection !== null,/,
     );
     assert.match(
