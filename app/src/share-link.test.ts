@@ -11,7 +11,10 @@ import {
 } from "./share-link.ts";
 import { statusMessageTone } from "./status-bar.ts";
 
-const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const topBarTsx = readFileSync(
+  new URL("./components/TopBar.tsx", import.meta.url),
+  "utf8",
+);
 const useCollaborationTs = readFileSync(
   new URL("./hooks/useCollaboration.ts", import.meta.url),
   "utf8",
@@ -143,20 +146,20 @@ describe("share link icon next to Stop Share", () => {
   );
 
   it("shows right after Stop Share only while the link is visible", () => {
-    const stopShare = appTsx.indexOf('? "Stop Share"');
-    const icon = appTsx.indexOf("<ShareLinkIconButton");
-    const badge = appTsx.indexOf('className="share-copy-badge"');
+    const stopShare = topBarTsx.indexOf('? "Stop Share"');
+    const icon = topBarTsx.indexOf("<ShareLinkIconButton");
+    const badge = topBarTsx.indexOf('className="share-copy-badge"');
     assert.ok(stopShare !== -1 && stopShare < icon, "after Stop Share");
     assert.ok(icon < badge, "before the Copied badge");
     assert.match(
-      appTsx.slice(icon - 120, icon),
+      topBarTsx.slice(icon - 120, icon),
       /shareLinkVisible\(collaborationMode, shareUrl\) \? \(\s*$/,
     );
   });
 
   it("copies the share URL and shows the Copied badge on success", () => {
     assert.match(
-      appTsx,
+      topBarTsx,
       /<ShareLinkIconButton\s+key=\{shareUrl\}\s+onCopied=\{showShareCopiedBadge\}\s+url=\{shareUrl\}/,
     );
     assert.match(
