@@ -288,7 +288,10 @@ import {
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
 import { WandIcon } from "./components/WandIcon";
-import { computeActiveClips } from "./composition-active-clips.ts";
+import {
+  computeActiveClips,
+  resolveFrameEffects,
+} from "./composition-active-clips.ts";
 import { resolveCompositionOrder } from "./composition-order.ts";
 import { isContextMenuKey, isContextMenuPress } from "./context-menu.ts";
 import { isRulerPanPress, isTimelinePanPress } from "./drag-scroll.ts";
@@ -1348,34 +1351,37 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   };
   const effectsRef = useRef(effects);
   effectsRef.current = effects;
-  const previewLayers = useMemo(
-    () =>
-      resolvePreviewLayers(
-        computeActiveClips(
-          timelineClips,
-          mediaItemsById,
-          playheadQ,
-          bpm,
-          lanePriority,
-          getRenderedEffects(timelineEffects, lanes),
-          fps,
-        ).filter((entry) => entry.media.kind === "video"),
-        { width: canvasWidth, height: canvasHeight },
-        resolveCompositionOrder(timelineEffects, GLOBAL_EFFECT_TRACK_ID),
-      ),
-    [
-      bpm,
-      canvasHeight,
-      canvasWidth,
-      fps,
-      lanePriority,
-      lanes,
+  const previewLayers = useMemo(() => {
+    const activeClips = computeActiveClips(
+      timelineClips,
       mediaItemsById,
       playheadQ,
-      timelineClips,
-      timelineEffects,
-    ],
-  );
+      bpm,
+      lanePriority,
+      getRenderedEffects(timelineEffects, lanes),
+      fps,
+    );
+    return resolvePreviewLayers(
+      activeClips.filter((entry) => entry.media.kind === "video"),
+      { width: canvasWidth, height: canvasHeight },
+      // Animated with the topmost clip, as the compositor draws it.
+      resolveCompositionOrder(
+        resolveFrameEffects(timelineEffects, activeClips, playheadQ, bpm, fps),
+        GLOBAL_EFFECT_TRACK_ID,
+      ),
+    );
+  }, [
+    bpm,
+    canvasHeight,
+    canvasWidth,
+    fps,
+    lanePriority,
+    lanes,
+    mediaItemsById,
+    playheadQ,
+    timelineClips,
+    timelineEffects,
+  ]);
   const selectPreviewLayer = useCallback((layer: PreviewLayer | undefined) => {
     setPreviewLaneId(layer?.laneId);
     if (layer) {
