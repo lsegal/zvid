@@ -1,8 +1,11 @@
 import { useState } from "react";
 import {
+  CAPTURE_INSTALLERS_DIR,
+  CAPTURE_INSTALLERS_MANIFEST_URL,
   CAPTURE_PLATFORM_LABELS,
   type CapturePlatform,
   detectCapturePlatform,
+  MACOS_INTEL_NOTICE,
 } from "../capture-installers";
 import {
   InstallerDownloadCta,
@@ -45,11 +48,9 @@ export function CaptureInstallerDialog({
   open,
   onOpenChange,
 }: CaptureInstallerDialogProps) {
-  const state = useInstallersManifest(open);
+  const state = useInstallersManifest(open, CAPTURE_INSTALLERS_MANIFEST_URL);
   const [platform] = useState(() => detectCapturePlatform(navigator));
 
-  const installers =
-    state.status === "ready" ? state.manifest.installers : null;
   const notes = platform ? INSTALL_NOTES[platform] : null;
   const platformLabel = platform
     ? CAPTURE_PLATFORM_LABELS[platform]
@@ -74,13 +75,22 @@ export function CaptureInstallerDialog({
           </p>
         )}
 
-        {state.status === "unavailable" || installers?.length === 0 ? (
+        {platform === "macos" ? (
           <p className="capture-installer__notice" role="note">
-            Installers aren't included in this build of zvid.
+            {MACOS_INTEL_NOTICE}
+          </p>
+        ) : null}
+
+        {state.status === "unavailable" ? (
+          <p className="capture-installer__notice" role="note">
+            Installers aren't available right now.
           </p>
         ) : (
           <InstallerDownloadCta
-            installers={installers}
+            dir={CAPTURE_INSTALLERS_DIR}
+            installers={
+              state.status === "ready" ? state.manifest.installers : null
+            }
             platform={platform}
             platformLabel={platformLabel}
           />

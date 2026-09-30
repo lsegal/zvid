@@ -123,7 +123,7 @@ The workspace lives in `/daw` (scaffolded in
 | `daw/crates/zvid-au` | AUv2 plugin: the `AudioComponentFactoryFunction` entry point, property and render callbacks, and the Cocoa view factory. |
 | `daw/plugin` | The `cdylib` that ties everything together and exports the VST3 and AU entry points. Holds the plugin identity constants. |
 | `daw/live-remote-script` | The optional Live companion: a Python MIDI Remote Script (`ZVID_Capture`) that reports Live's record state and set path to plugin instances. Not part of the plugin binary. |
-| `daw/xtask` | `cargo xtask`: bundles the `cdylib` into `.vst3` and `.component` (release bundles are universal on macOS and commit-stamped; see [CI builds](#ci-builds)), runs `check` (Rust-only rule, zvidlib rev matches `app/export-bridge`), runs the host integration tests (`host-test`), and runs pluginval (`validate`; see [Testing](#testing)). |
+| `daw/xtask` | `cargo xtask`: bundles the `cdylib` into `.vst3` and `.component` (release bundles are Apple silicon only on macOS and commit-stamped; see [CI builds](#ci-builds)), runs `check` (Rust-only rule, zvidlib rev matches `app/export-bridge`), runs the host integration tests (`host-test`), and runs pluginval (`validate`; see [Testing](#testing)). |
 
 Dependencies point inward: `plugin` depends on everything; `zvid-vst3`,
 `zvid-au`, `zvid-capture` and `zvid-daw-ui` depend on `zvid-daw-core` where
@@ -450,7 +450,7 @@ Files are never moved or collected, so each take stores its own
 | | macOS | Windows |
 |---|---|---|
 | OS | 13 Ventura or later | 10 and 11 |
-| Architecture | Universal: arm64 + x86_64 | x64 |
+| Architecture | Apple silicon (arm64) only; Intel Macs aren't supported | x64 |
 | Formats | VST3 (`.vst3`) and AUv2 (`.component`) | VST3 (`.vst3`) |
 | Capture API | AVFoundation (`objc2-av-foundation`) | Media Foundation (`windows`) |
 | Webview | WKWebView | WebView2 |
@@ -482,65 +482,68 @@ Files are never moved or collected, so each take stores its own
 ## CI builds
 
 Every push to `main` runs the **DAW bundles** workflow
-(`.github/workflows/daw-bundle.yml`), which uploads four artifacts to the
-workflow run. The ZVID Capture artifacts hold the plugin only; the zvid
-desktop app ships as its own artifacts and installers.
+(`.github/workflows/daw-bundle.yml`), which builds two plugin installers:
 
-- `zvid-capture-<version>-<sha>-macos-universal`: `ZVID Capture.vst3` and
-  `ZVID Capture.component`, arm64 + x86_64, the plugin installer
-  `zvid-capture-<version>+<sha>.pkg`, and the Live companion Remote Script in
-  `live-remote-script/ZVID_Capture`. CI checks both architectures with
-  `lipo -archs`, installs the `.pkg`, checks it installed no desktop app,
+- `zvid-capture-macos.pkg`: `ZVID Capture.vst3` and
+  `ZVID Capture.component`, arm64 only. CI checks with `lipo -archs` that
+  both binaries are arm64 with no x86_64 slice, installs the `.pkg`,
   verifies the installed bundles' signatures and runs `auval` and pluginval
   against them.
-- `zvid-capture-<version>-<sha>-windows-x64`: `ZVID Capture.vst3`, the
-  plugin installer `zvid-capture-<version>+<sha>-setup.exe` and
-  `live-remote-script/ZVID_Capture`. CI runs pluginval against the bundle,
-  then runs the installer silently, checks the bundle was installed and the
-  desktop app wasn't, then uninstalls it.
-- `zvid-<version>-<sha>-macos-arm64`: the desktop app installer
-  `zvid-<version>+<sha>.dmg`, Apple silicon only. CI mounts it and checks
-  the app is arm64 and, when signed, its signature.
-- `zvid-<version>-<sha>-windows-x64`: the desktop app installer
-  `zvid-<version>+<sha>-setup.exe`. CI installs it silently, checks the app
+- `zvid-capture-windows-setup.exe`: `ZVID Capture.vst3`. CI runs pluginval
+  against the bundle, then runs the installer silently, checks the bundle
   was installed, then uninstalls it.
 
-Both plugin jobs also run the [host integration tests](#host-integration-tests)
-against the release bundles.
+The plugin installers are plugin only. The zvid desktop app ships as its
+own installers, built by the workflow's `desktop` job with Tauri's bundler:
 
-Each plugin artifact is built by `cargo xtask bundle --release --installer`
-(plus `--universal` on macOS), which fails when `daw/ui/dist` is missing
-rather than embedding the placeholder UI, and stamps the bundle version
+- `zvid-macos.dmg`: `zvid.app`, arm64 only (`pnpm --dir app tauri build
+  --target aarch64-apple-darwin --bundles dmg`), signed and notarized by
+  Tauri when the Apple secrets are set. CI mounts it and checks the app is
+  arm64 and, when signed, its signature.
+- `zvid-windows-setup.exe`: Tauri's NSIS installer (`--bundles nsis`),
+  which installs the app for the current user and downloads the Microsoft
+  Edge WebView2 Runtime when Windows lacks it. CI installs it silently,
+  checks the app was installed, then uninstalls it.
+
+Both jobs also run the [host integration tests](#host-integration-tests)
+against the release bundles. On `main`, each then uploads its installer to
+the `zvid-downloads` R2 bucket under `capture/`, overwriting the previous
+build's, and a final job writes `capture/manifest.json` (version, commit,
+build time and each installer's size and SHA-256) once both have. The web
+app's Worker serves the bucket at `/downloads`, where **Help › Install
+Capture Plugin** links to them. The desktop app installers are published
+the same way under `desktop/`, with their own `desktop/manifest.json`
+(versioned from `app/package.json`), for **Help › Download Desktop App**.
+The installer names carry no version; the version is stamped inside them
+and in the manifest. Pull request runs publish nothing.
+
+Each installer is built by `cargo xtask bundle --release --installer`, which
+builds the plugin for `aarch64-apple-darwin` on macOS, fails when
+`daw/ui/dist` is missing rather than embedding the placeholder UI, and
+stamps the bundle version
 (`Info.plist`, `moduleinfo.json`, the installer and the version reported to
 hosts) as `<version>+<sha>`. The same command builds identical bundles
-locally once `pnpm --dir daw/ui build` has run; `--universal` needs `rustup
-target add aarch64-apple-darwin x86_64-apple-darwin`, and `--installer`
+locally once `pnpm --dir daw/ui build` has run; on macOS it needs `rustup
+target add aarch64-apple-darwin`, and `--installer`
 needs Inno Setup 6 on Windows (`ISCC` may name its `ISCC.exe`).
-
-The desktop app installers come from Tauri's own bundler in the workflow's
-`desktop` job: `pnpm --dir app tauri build --target aarch64-apple-darwin
---bundles dmg` on macOS, which signs and notarizes the app when the Apple
-secrets are set, and `--bundles nsis` on Windows. The version is
-`app/package.json`'s.
 
 ### Installers
 
 - **macOS.** A `.pkg` that installs `ZVID Capture.vst3` into
   `/Library/Audio/Plug-Ins/VST3` and `ZVID Capture.component` into
   `/Library/Audio/Plug-Ins/Components` for every user. It needs macOS 13 and
-  runs natively on both architectures. `pkgbuild --compression latest`
-  compresses its payload with pbzx (xz) rather than gzip, about 13% smaller.
+  Apple silicon: its `hostArchitectures` is `arm64`, so Installer refuses
+  Intel Macs rather than installing binaries they can't run.
+  `pkgbuild --compression latest` compresses its payload with pbzx (xz)
+  rather than gzip, about 13% smaller.
 - **Windows.** An Inno Setup installer (`installer/zvid-capture.iss`) that
-  installs `ZVID Capture.vst3` into `C:\Program Files\Common Files\VST3` and
-  registers its uninstaller under *Settings › Apps*. Installing over an older
-  version, including an older installer that also carried the desktop app,
-  replaces the whole bundle; a desktop app such an installer put in
+  installs `ZVID Capture.vst3` into `C:\Program Files\Common Files\VST3`
+  and registers its uninstaller under *Settings › Apps*. Installing over an
+  older version, including an older installer that also carried the desktop
+  app, replaces the whole bundle; a desktop app such an installer put in
   `C:\Program Files\ZVID` stays until it's uninstalled.
 - **Desktop app.** A `.dmg` to drag `zvid.app` into `/Applications` from on
-  macOS, and on Windows Tauri's NSIS installer, which installs the app for
-  the current user and downloads the Microsoft Edge WebView2 Runtime when
-  Windows lacks it. The site offers them under Help › Download Desktop App,
-  separately from the plugin's Help › Install Capture Plugin.
+  macOS, and Tauri's NSIS installer on Windows (see above).
 
 Neither plugin installer installs the Live companion Remote Script, which lives in each user's
 Live User Library. Instead each bundle carries a copy in
@@ -591,14 +594,14 @@ release drops them, capture needs the helper-app path from
 
 ### Installing a CI build
 
-Open the run from the repository's **Actions › DAW bundles** page (or run
-the workflow manually for any branch), download the artifact, and unzip it;
-the artifact holds one more zip, which keeps the bundles' symlinks and
-signatures intact, so unzip that too. Then run the installer:
+Download the newest `main` build from the web app (**Help › Install Capture
+Plugin**), or from `/downloads/capture/zvid-capture-macos.pkg` and
+`/downloads/capture/zvid-capture-windows-setup.exe` on the deployed site.
+Then run the installer:
 
-- **macOS.** Open `zvid-capture-<version>+<sha>.pkg`. An unsigned build's
-  installer is blocked by Gatekeeper; Control-click it and choose *Open*.
-- **Windows.** Run `zvid-capture-<version>+<sha>-setup.exe`.
+- **macOS.** Open `zvid-capture-macos.pkg`. An unsigned build's installer is
+  blocked by Gatekeeper; Control-click it and choose *Open*.
+- **Windows.** Run `zvid-capture-windows-setup.exe`.
 
 Then rescan plugins in the host (in Live, *Settings › Plug-Ins › Rescan*).
 
@@ -729,7 +732,7 @@ The `daw` CI job runs these against the debug bundles. The DAW bundles
 workflow runs them again, on pull requests and on `main`, against the
 release bundles it builds (`cargo xtask host-test --bundles target/bundle`),
 because those differ in ways a host can notice: optimized code, the
-commit-stamped version, universal binaries on macOS, and Developer ID
+commit-stamped version, arm64-only binaries on macOS, and Developer ID
 signing with the hardened runtime when the secrets are set. Both upload
 `target/host-test` when the tests fail.
 

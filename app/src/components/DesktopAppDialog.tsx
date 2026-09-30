@@ -2,6 +2,8 @@ import { useState } from "react";
 import {
   CAPTURE_PLATFORM_LABELS,
   type CapturePlatform,
+  DESKTOP_INSTALLERS_DIR,
+  DESKTOP_INSTALLERS_MANIFEST_URL,
   detectCapturePlatform,
 } from "../capture-installers";
 import {
@@ -36,10 +38,11 @@ export function DesktopAppDialog({
   open,
   onOpenChange,
 }: DesktopAppDialogProps) {
-  const state = useInstallersManifest(open);
+  const state = useInstallersManifest(open, DESKTOP_INSTALLERS_MANIFEST_URL);
   const [platform] = useState(() => detectCapturePlatform(navigator));
 
-  const installers = state.status === "ready" ? state.manifest.desktop : null;
+  const installers =
+    state.status === "ready" ? state.manifest.installers : null;
   const platformLabel = platform
     ? CAPTURE_PLATFORM_LABELS[platform]
     : "macOS or Windows";
@@ -62,12 +65,13 @@ export function DesktopAppDialog({
           </p>
         )}
 
-        {state.status === "unavailable" || installers?.length === 0 ? (
+        {state.status === "unavailable" ? (
           <p className="capture-installer__notice" role="note">
-            The desktop app isn't included in this build of zvid.
+            The desktop app installers aren't available right now.
           </p>
         ) : (
           <InstallerDownloadCta
+            dir={DESKTOP_INSTALLERS_DIR}
             installers={installers}
             platform={platform}
             platformLabel={platformLabel}

@@ -1,7 +1,6 @@
 import { ArrowDownTrayIcon } from "@heroicons/react/24/solid";
 import { useEffect, useState } from "react";
 import {
-  CAPTURE_INSTALLERS_MANIFEST_URL,
   CAPTURE_PLATFORM_LABELS,
   type CaptureInstaller,
   type CaptureInstallersManifest,
@@ -13,16 +12,18 @@ import {
 } from "../capture-installers";
 
 // The download buttons the Install Capture Plugin and Download Desktop App
-// dialogs share, and the installers manifest they both read.
+// dialogs share, and the loading of the installers manifest each reads.
 
 export type ManifestState =
   | { status: "loading" }
   | { status: "ready"; manifest: CaptureInstallersManifest }
   | { status: "unavailable" };
 
-async function loadManifest(): Promise<CaptureInstallersManifest | null> {
+async function loadManifest(
+  url: string,
+): Promise<CaptureInstallersManifest | null> {
   try {
-    const response = await fetch(CAPTURE_INSTALLERS_MANIFEST_URL, {
+    const response = await fetch(url, {
       cache: "no-cache",
     });
     return response.ok
@@ -33,8 +34,11 @@ async function loadManifest(): Promise<CaptureInstallersManifest | null> {
   }
 }
 
-// Fetches the manifest each time a dialog opens until it has one.
-export function useInstallersManifest(open: boolean): ManifestState {
+// Fetches the manifest at `url` each time a dialog opens until it has one.
+export function useInstallersManifest(
+  open: boolean,
+  url: string,
+): ManifestState {
   const [state, setState] = useState<ManifestState>({ status: "loading" });
   const isReady = state.status === "ready";
 
@@ -44,7 +48,7 @@ export function useInstallersManifest(open: boolean): ManifestState {
     }
     let isCurrent = true;
     setState({ status: "loading" });
-    void loadManifest().then((manifest) => {
+    void loadManifest(url).then((manifest) => {
       if (isCurrent) {
         setState(
           manifest ? { status: "ready", manifest } : { status: "unavailable" },
@@ -54,18 +58,24 @@ export function useInstallersManifest(open: boolean): ManifestState {
     return () => {
       isCurrent = false;
     };
-  }, [open, isReady]);
+  }, [open, isReady, url]);
 
   return state;
 }
 
 // The prominent download button for the detected platform.
-function DownloadButton({ installer }: { installer: CaptureInstaller }) {
+function DownloadButton({
+  dir,
+  installer,
+}: {
+  dir: string;
+  installer: CaptureInstaller;
+}) {
   return (
     <a
       className="capture-installer__download"
       download={installer.file}
-      href={captureInstallerUrl(installer)}
+      href={captureInstallerUrl(installer, dir)}
     >
       <ArrowDownTrayIcon aria-hidden="true" />
       <span>Download for {CAPTURE_PLATFORM_LABELS[installer.platform]}</span>
@@ -76,12 +86,18 @@ function DownloadButton({ installer }: { installer: CaptureInstaller }) {
   );
 }
 
-function AlternateLink({ installer }: { installer: CaptureInstaller }) {
+function AlternateLink({
+  dir,
+  installer,
+}: {
+  dir: string;
+  installer: CaptureInstaller;
+}) {
   return (
     <a
       className="capture-installer__link"
       download={installer.file}
-      href={captureInstallerUrl(installer)}
+      href={captureInstallerUrl(installer, dir)}
     >
       {CAPTURE_PLATFORM_LABELS[installer.platform]} (
       {formatInstallerSize(installer.size)})
@@ -91,12 +107,14 @@ function AlternateLink({ installer }: { installer: CaptureInstaller }) {
 
 // The detected platform's download button, or a disabled one while the
 // manifest loads (`installers` is null), and links to the other platforms'
-// installers.
+// installers. `dir` is the manifest's directory.
 export function InstallerDownloadCta({
+  dir,
   installers,
   platform,
   platformLabel,
 }: {
+  dir: string;
   installers: readonly CaptureInstaller[] | null;
   platform: CapturePlatform | null;
   platformLabel: string;
@@ -108,7 +126,7 @@ export function InstallerDownloadCta({
   return (
     <div className="capture-installer__cta">
       {primary ? (
-        <DownloadButton installer={primary} />
+        <DownloadButton dir={dir} installer={primary} />
       ) : platform ? (
         <button className="capture-installer__download" disabled type="button">
           <ArrowDownTrayIcon aria-hidden="true" />
@@ -123,7 +141,7 @@ export function InstallerDownloadCta({
           {alternates.map((installer, index) => (
             <span key={installer.platform}>
               {index > 0 ? " · " : null}
-              <AlternateLink installer={installer} />
+              <AlternateLink dir={dir} installer={installer} />
             </span>
           ))}
         </p>
