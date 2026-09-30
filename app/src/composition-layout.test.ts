@@ -400,7 +400,11 @@ describe("resolveSlotBounds", () => {
   it("insets the slots by the spacing with an outer margin", () => {
     const width = 1920;
     const height = 1080;
-    const toPixels = (index: number, count: number, order: CompositionOrder) => {
+    const toPixels = (
+      index: number,
+      count: number,
+      order: CompositionOrder,
+    ) => {
       const slot = resolveSlotBounds(index, count, order, width, height);
       return {
         left: ((slot.centerX - slot.halfWidth + 1) / 2) * width,
@@ -440,7 +444,11 @@ describe("resolveSlotBounds", () => {
     );
     const rows = framed("vertical", 54);
     assertClose(toPixels(0, 2, rows).left, 54, "Vertical left margin");
-    assertClose(toPixels(1, 2, rows).right, width - 54, "Vertical right margin");
+    assertClose(
+      toPixels(1, 2, rows).right,
+      width - 54,
+      "Vertical right margin",
+    );
     assertClose(
       toPixels(1, 2, rows).top - toPixels(0, 2, rows).bottom,
       54,

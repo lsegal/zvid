@@ -491,7 +491,9 @@ function resolveCellEdges(
   const available = inner - clampedGap * (normalizedCells - 1);
   return {
     start:
-      clampedMargin + (index * available) / normalizedCells + index * clampedGap,
+      clampedMargin +
+      (index * available) / normalizedCells +
+      index * clampedGap,
     end:
       clampedMargin +
       ((index + 1) * available) / normalizedCells +
