@@ -176,7 +176,7 @@ export function ExportRangeTimeline({
 
   return (
     <div
-      className="export-range"
+      className={`export-range${mainAudioPeaks ? " export-range--audio" : ""}`}
       data-export-range=""
       onLostPointerCapture={endDrag}
       onPointerCancel={endDrag}
