@@ -31,6 +31,8 @@ import {
   toShareableMediaItem,
 } from "../media";
 import type { ProjectHistoryState } from "../project-history";
+import { resolveSampleMediaRefs } from "../sample/sample-manifest.ts";
+import { SAMPLE_MANIFESTS } from "../sample/samples.ts";
 import {
   formatClipsWithoutFile,
   normalizeLvpSession,
@@ -106,12 +108,17 @@ export function useSessionIO({
   setStatus,
 }: SessionIOInputs) {
   async function applyOpenedSessionPayload(
-    payload: SessionOpenResponse,
-    selection: SessionSelection,
+    opened: SessionOpenResponse,
+    // A sample opens as an editable copy: saving it asks where to save.
+    selection: SessionSelection | { kind: "sample" },
   ) {
+    const payload = {
+      ...opened,
+      mediaRefs: resolveSampleMediaRefs(opened.mediaRefs, SAMPLE_MANIFESTS),
+    };
     claimWorkspaceSession();
     setSessionSource(
-      payload.alsImport
+      payload.alsImport || selection.kind === "sample"
         ? { kind: "import", name: payload.sessionName }
         : selection.kind === "path"
           ? { kind: "path", name: payload.sessionName, path: selection.path }
@@ -509,7 +516,13 @@ export function useSessionIO({
     setStatus(`Saved ${savedName}.`);
   }
 
+  // Opens a bundled sample whose media is already in the media cache.
+  async function openSamplePayload(payload: SessionOpenResponse) {
+    await applyOpenedSessionPayload(payload, { kind: "sample" });
+  }
+
   return {
+    openSamplePayload,
     handleImport,
     handleOpenSession,
     handleOpenWorkspace,

@@ -81,6 +81,10 @@ describe("native app CSP connect-src", () => {
     }
   });
 
+  it("allows the app's own origin, which serves the sample media", () => {
+    assert.ok(connectSources.includes("'self'"));
+  });
+
   it("still blocks arbitrary HTTP origins", () => {
     assert.equal(connectSrcAllows("https://example.com/"), false);
   });
