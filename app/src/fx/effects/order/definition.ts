@@ -7,6 +7,7 @@ import {
   GRID_SIZE_MIN,
   ORDER_ARRANGEMENTS,
   ORDER_EFFECT_NAME,
+  OUTER_MARGIN_OPTIONS,
   SPACING_MAX,
 } from "./order.ts";
 
@@ -57,6 +58,14 @@ export const definition: FxEffectDefinition = {
       defaultValue: 0,
       step: 1,
       format: formatPixels,
+    },
+    // Insets the arrangement by its spacing too, so the border frames it.
+    {
+      kind: "enum",
+      key: "OuterMargin",
+      label: "Margin",
+      options: OUTER_MARGIN_OPTIONS,
+      defaultValue: "Off",
     },
     {
       kind: "color",

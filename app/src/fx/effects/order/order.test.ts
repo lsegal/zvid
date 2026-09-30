@@ -72,6 +72,19 @@ describe("parseCompositionOrder", () => {
     assert.deepEqual(parseCompositionOrder([]), DEFAULT_COMPOSITION_ORDER);
   });
 
+  it("reads the outer margin, off when missing or unreadable", () => {
+    const margin = (value?: string) =>
+      parseCompositionOrder([
+        ...order("Grid", 2, 20).parameters,
+        ...(value === undefined ? [] : [{ key: "OuterMargin", value }]),
+      ]).outerMargin;
+    assert.equal(margin(), undefined);
+    assert.equal(margin("On"), true);
+    assert.equal(margin(" on "), true);
+    assert.equal(margin("Off"), false);
+    assert.equal(margin("Maybe"), false);
+  });
+
   it("reads the border color, black when missing or unreadable", () => {
     const border = (value?: string) =>
       parseCompositionOrder([
