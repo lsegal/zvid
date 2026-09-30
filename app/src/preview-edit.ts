@@ -49,6 +49,7 @@ import {
   addEffect,
   clipEffectTrackId,
   type SessionEffect,
+  setEffectAnimationEnabled,
   setEffectEnabled,
   setEffectParameter,
 } from "./fx-stack.ts";
@@ -555,6 +556,21 @@ function readNumericParameter(effect: SessionEffect | undefined, key: string) {
   return Number.isFinite(value) ? value : 0;
 }
 
+// Adds a Transform with the registry defaults to the end of stack
+// `trackId`. Its Animation starts off, so the layer shows where it was
+// dragged to rather than animating in to it from the clip's start.
+function addLayerTransform(
+  effects: SessionEffect[],
+  trackId: string,
+  newEffectId: string,
+) {
+  return setEffectAnimationEnabled(
+    addEffect(effects, trackId, TRANSFORM_EFFECT_NAME, undefined, newEffectId),
+    newEffectId,
+    false,
+  );
+}
+
 // Writes the Transform position on stack `trackId` (a layer's or a clip's),
 // first adding a Transform with the registry defaults (with `newEffectId`)
 // to the end of the stack if it has none. A bypassed Transform is turned back on so the move shows.
@@ -568,13 +584,7 @@ export function setLayerTransformPosition(
   let result = effects;
   let transform = findLayerTransform(result, trackId);
   if (!transform) {
-    result = addEffect(
-      result,
-      trackId,
-      TRANSFORM_EFFECT_NAME,
-      undefined,
-      newEffectId,
-    );
+    result = addLayerTransform(result, trackId, newEffectId);
     transform = findLayerTransform(result, trackId);
     if (!transform) {
       return effects;
@@ -617,13 +627,7 @@ export function setLayerTransformParameters(
   let result = effects;
   let transform = findLayerTransform(result, trackId);
   if (!transform) {
-    result = addEffect(
-      result,
-      trackId,
-      TRANSFORM_EFFECT_NAME,
-      undefined,
-      newEffectId,
-    );
+    result = addLayerTransform(result, trackId, newEffectId);
     transform = findLayerTransform(result, trackId);
     if (!transform) {
       return effects;

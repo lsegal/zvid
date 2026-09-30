@@ -8,6 +8,18 @@ import { expect, type Locator, type Page, test } from "@playwright/test";
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
 const FROM_CENTER_KEY = process.platform === "darwin" ? "Meta" : "Control";
 
+// A new session's Order slides each layer in as its clip starts, so at the
+// playhead a clip was just placed at the layer isn't there yet. These tests
+// need it in place, so they turn that animation off.
+async function holdOrderStill(page: Page) {
+  await page
+    .getByRole("button", { name: "Turn Animation Off for Order" })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Turn Animation On for Order" }),
+  ).toHaveAttribute("aria-pressed", "false");
+}
+
 async function dropVideoIntoNewSourceTrack(page: Page) {
   const base64 = (await readFile(VIDEO)).toString("base64");
   const dataTransfer = await page.evaluateHandle((data) => {
@@ -107,6 +119,7 @@ function expectClose(actual: number, expected: number, tolerance = 2) {
 
 async function selectLayer(page: Page) {
   await page.goto("/");
+  await holdOrderStill(page);
   await expect(page.locator('[data-timeline-lane-id="1"]')).toBeVisible();
   await dropVideoIntoNewSourceTrack(page);
   await page.locator(".source-span").click({ button: "right" });

@@ -6,7 +6,11 @@ import {
   type LayerTransform,
   TRANSFORM_EFFECT_NAME,
 } from "./composition-transform.ts";
-import { addEffect, type SessionEffect } from "./fx-stack.ts";
+import {
+  addEffect,
+  clipEffectTrackId,
+  type SessionEffect,
+} from "./fx-stack.ts";
 import {
   canvasToScreen,
   constrainDragDelta,
@@ -842,6 +846,21 @@ describe("setLayerTransformPosition", () => {
       y: -0.5,
     });
     assert.deepEqual(readLayerTransformPosition(next, "b"), { x: 0, y: 0 });
+  });
+
+  it("adds the Transform with its Animation off, so the move shows", () => {
+    const moved = setLayerTransformPosition(base, "a", { x: 0.2, y: 0 }, "t");
+    assert.equal(findLayerTransform(moved, "a")?.animation?.enabled, false);
+    const scaled = setLayerTransformParameters(
+      base,
+      clipEffectTrackId("c"),
+      { scaleX: 2 },
+      "t",
+    );
+    assert.equal(
+      findLayerTransform(scaled, clipEffectTrackId("c"))?.animation?.enabled,
+      false,
+    );
   });
 
   it("updates an existing Transform without adding another", () => {

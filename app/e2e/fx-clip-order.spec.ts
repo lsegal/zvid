@@ -524,7 +524,7 @@ test("an FX clip's Order lists only the layers beneath it", async ({
 
   const menuRows = page.getByRole("menu").getByRole("menuitemcheckbox");
   const clipOrder = page.locator(
-    '.fx-chain [data-fx-divider="clip"] ~ section[aria-label="Order"]',
+    `.fx-chain :is(section[data-fx-group="clip"], [data-fx-group="clip"] > section)[aria-label="Order"]`,
   );
   await clipOrder.locator(".fx-layers__trigger").click();
   await expect(menuRows).toHaveText(["3Layer 3"]);
