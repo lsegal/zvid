@@ -2,12 +2,9 @@
 /// <reference lib="dom" />
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { pass as analogGlitchPass } from "../fx/effects/analog-glitch/pass.ts";
-import { pass as colorizePass } from "../fx/effects/colorize/pass.ts";
 import { EFFECT_PASSES } from "../fx/effects/index.generated.ts";
-import { pass as negativeSplitPass } from "../fx/effects/negative-split/pass.ts";
-import { pass as pixelatePass } from "../fx/effects/pixelate/pass.ts";
-import { uniformValues } from "../fx/pass-test-utils.ts";
+import { CONTEXT, params, uniformValues } from "../fx/pass-test-utils.ts";
+import { getEffectDefinition } from "../fx-registry.ts";
 import {
   type AudioBands,
   AudioBandTracker,
@@ -19,7 +16,7 @@ import {
   isChainEffectName,
   resolveEffectChain,
 } from "./registry.ts";
-import { readEffectNumber } from "./types.ts";
+import { type EffectContext, readEffectNumber } from "./types.ts";
 
 const SAMPLE_RATE = 48000;
 
@@ -174,17 +171,40 @@ describe("effect passes", () => {
     }
   });
 
-  it("drives every audio-reactive pass from impulses, not band levels", () => {
-    for (const pass of [
-      colorizePass,
-      negativeSplitPass,
-      pixelatePass,
-      analogGlitchPass,
-    ]) {
-      const values = uniformValues(pass, []);
-      assert.deepEqual(values.uImpulseLow, [0.7], pass.effectName);
-      assert.deepEqual(values.uImpulseHigh, [0.9], pass.effectName);
-      assert.doesNotMatch(pass.fragmentSource, /uAudio/, pass.effectName);
+  // The music moves an effect only through its Animation modifier's Reactive
+  // mode, which changes the parameters a pass is given, never the pass itself.
+  it("reads no main-audio uniforms", () => {
+    for (const pass of EFFECT_PASSES) {
+      assert.doesNotMatch(pass.fragmentSource, /impulse|audio/i);
+      for (const uniform of pass.uniforms) {
+        assert.doesNotMatch(uniform, /impulse|audio/i);
+      }
+    }
+  });
+
+  it("draws the same before and after an audio hit", () => {
+    // The main audio at a hit, as the pass contexts used to carry it.
+    const hit = {
+      ...CONTEXT,
+      audioLow: 1,
+      audioHigh: 1,
+      impulseLow: 1,
+      impulseHigh: 1,
+    } as EffectContext;
+    for (const pass of EFFECT_PASSES) {
+      // Every knob at a mid value, so any audio term that scaled one shows.
+      const parameters = params(
+        Object.fromEntries(
+          getEffectDefinition(pass.effectName)
+            .parameters.filter((parameter) => parameter.kind === "number")
+            .map((parameter) => [parameter.key, 0.5]),
+        ),
+      );
+      assert.deepEqual(
+        uniformValues(pass, parameters, hit),
+        uniformValues(pass, parameters),
+        pass.effectName,
+      );
     }
   });
 });
