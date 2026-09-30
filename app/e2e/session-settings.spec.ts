@@ -37,7 +37,7 @@ test("File ▸ Session Settings applies canvas and frame rate as one undo step",
   await expect(settings).toBeHidden();
   await expect(resolutionItem(page)).toContainText("1080x1920 · 60 fps");
 
-  await page.keyboard.press("Control+z");
+  await page.keyboard.press("ControlOrMeta+z");
   await expect(resolutionItem(page)).toContainText("1920x1080 · 30 fps");
 });
 
@@ -61,6 +61,6 @@ test("the status bar resolution opens the dialog, which validates sizes", async 
 });
 
 test("Ctrl+, opens the dialog", async ({ page }) => {
-  await page.keyboard.press("Control+,");
+  await page.keyboard.press("ControlOrMeta+,");
   await expect(dialog(page)).toBeVisible();
 });

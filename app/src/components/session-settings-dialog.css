@@ -1,20 +1,38 @@
 .dialog-content.session-settings-dialog {
-  width: min(94vw, 600px);
+  width: min(94vw, 680px);
   max-height: 92vh;
   overflow-y: auto;
 }
 
 .session-settings__body {
   display: grid;
-  gap: 14px;
-  margin-top: 18px;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.session-settings__pair {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 560px) {
+  .session-settings__pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.session-settings__stack {
+  display: grid;
+  gap: 10px;
 }
 
 .session-settings__group {
   display: grid;
-  gap: 12px;
+  gap: 10px;
+  min-width: 0;
   margin: 0;
-  padding: 12px 16px 16px;
+  padding: 8px 14px 14px;
   border: 1px solid var(--line);
   border-radius: 18px;
   background: rgba(12, 14, 20, 0.26);
@@ -29,15 +47,15 @@
 
 .session-settings__field {
   display: grid;
-  gap: 6px;
+  gap: 5px;
   align-content: start;
   min-width: 0;
 }
 
 .session-settings__row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px 12px;
 }
 
 .session-settings__size {
@@ -99,6 +117,7 @@
 
 .session-settings__segmented {
   justify-self: start;
+  flex-wrap: wrap;
 }
 
 .session-settings__hint {

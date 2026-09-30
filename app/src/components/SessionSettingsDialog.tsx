@@ -196,156 +196,158 @@ function SessionSettingsForm({
       </DialogHeader>
 
       <div className="session-settings__body">
-        <fieldset className="session-settings__group">
-          <legend>Canvas</legend>
-          <Field label="Preset">
-            <select
-              aria-label="Canvas preset"
-              className="session-settings__input"
-              onChange={(event) =>
-                setDraft((current) =>
-                  applyCanvasPreset(current, event.target.value),
-                )
-              }
-              value={matchCanvasPreset(canvasWidth, canvasHeight)}
-            >
-              {CANVAS_PRESETS.map((preset) => (
-                <option key={preset.id} value={preset.id}>
-                  {preset.label}
-                </option>
-              ))}
-              <option value={CUSTOM_PRESET_ID}>Custom</option>
-            </select>
-          </Field>
-          <div className="session-settings__size">
-            <Field label="Width" error={errors.canvasWidth}>
-              <input
-                aria-invalid={!!errors.canvasWidth}
-                aria-label="Canvas width"
-                className="session-settings__input"
-                min={16}
-                onChange={(event) =>
-                  setDraft((current) =>
-                    resizeCanvas(
-                      current,
-                      "width",
-                      numberOrNaN(event.target.value),
-                      lockAspect,
-                    ),
-                  )
-                }
-                step={2}
-                type="number"
-                value={inputValue(canvasWidth)}
-              />
-            </Field>
-            <button
-              aria-label={
-                lockAspect ? "Unlock aspect ratio" : "Lock aspect ratio"
-              }
-              aria-pressed={lockAspect}
-              className={`session-settings__icon-button${
-                lockAspect ? " is-active" : ""
-              }`}
-              onClick={() => setLockAspect((locked) => !locked)}
-              title="Lock aspect ratio"
-              type="button"
-            >
-              {lockAspect ? (
-                <LockClosedIcon aria-hidden="true" />
-              ) : (
-                <LockOpenIcon aria-hidden="true" />
-              )}
-            </button>
-            <Field label="Height" error={errors.canvasHeight}>
-              <input
-                aria-invalid={!!errors.canvasHeight}
-                aria-label="Canvas height"
-                className="session-settings__input"
-                min={16}
-                onChange={(event) =>
-                  setDraft((current) =>
-                    resizeCanvas(
-                      current,
-                      "height",
-                      numberOrNaN(event.target.value),
-                      lockAspect,
-                    ),
-                  )
-                }
-                step={2}
-                type="number"
-                value={inputValue(canvasHeight)}
-              />
-            </Field>
-            <button
-              aria-label="Swap width and height"
-              className="session-settings__icon-button"
-              onClick={() => setDraft(swapCanvasOrientation)}
-              title="Swap width and height"
-              type="button"
-            >
-              <ArrowsRightLeftIcon aria-hidden="true" />
-            </button>
-          </div>
-        </fieldset>
-
-        <fieldset className="session-settings__group">
-          <legend>Timing</legend>
-          <div className="session-settings__row">
-            <Field
-              label="Frame rate"
-              error={customFps ? undefined : errors.fps}
-            >
+        <div className="session-settings__pair">
+          <fieldset className="session-settings__group">
+            <legend>Canvas</legend>
+            <Field label="Preset">
               <select
-                aria-label="Frame rate"
+                aria-label="Canvas preset"
                 className="session-settings__input"
-                onChange={(event) => {
-                  const { value } = event.target;
-                  if (value === CUSTOM_FRAME_RATE) {
-                    setCustomFps(true);
-                    return;
-                  }
-                  setCustomFps(false);
-                  setDraft((current) => ({ ...current, fps: Number(value) }));
-                }}
-                value={
-                  customFps
-                    ? CUSTOM_FRAME_RATE
-                    : String(
-                        FRAME_RATES.find(
-                          (rate) => rate.label === matchFrameRate(fps),
-                        )?.value ?? CUSTOM_FRAME_RATE,
-                      )
+                onChange={(event) =>
+                  setDraft((current) =>
+                    applyCanvasPreset(current, event.target.value),
+                  )
                 }
+                value={matchCanvasPreset(canvasWidth, canvasHeight)}
               >
-                {FRAME_RATES.map((rate) => (
-                  <option key={rate.label} value={String(rate.value)}>
-                    {rate.label} fps
+                {CANVAS_PRESETS.map((preset) => (
+                  <option key={preset.id} value={preset.id}>
+                    {preset.label}
                   </option>
                 ))}
-                <option value={CUSTOM_FRAME_RATE}>Custom…</option>
+                <option value={CUSTOM_PRESET_ID}>Custom</option>
               </select>
             </Field>
-            {customFps ? (
-              <Field label="Custom fps" error={errors.fps}>
+            <div className="session-settings__size">
+              <Field label="Width" error={errors.canvasWidth}>
                 <input
-                  aria-invalid={!!errors.fps}
-                  aria-label="Custom frame rate"
+                  aria-invalid={!!errors.canvasWidth}
+                  aria-label="Canvas width"
                   className="session-settings__input"
-                  min={0}
-                  onChange={(event) => {
-                    const next = numberOrNaN(event.target.value);
-                    setDraft((current) => ({ ...current, fps: next }));
-                  }}
-                  step="any"
+                  min={16}
+                  onChange={(event) =>
+                    setDraft((current) =>
+                      resizeCanvas(
+                        current,
+                        "width",
+                        numberOrNaN(event.target.value),
+                        lockAspect,
+                      ),
+                    )
+                  }
+                  step={2}
                   type="number"
-                  value={inputValue(fps)}
+                  value={inputValue(canvasWidth)}
                 />
               </Field>
-            ) : null}
-          </div>
-        </fieldset>
+              <button
+                aria-label={
+                  lockAspect ? "Unlock aspect ratio" : "Lock aspect ratio"
+                }
+                aria-pressed={lockAspect}
+                className={`session-settings__icon-button${
+                  lockAspect ? " is-active" : ""
+                }`}
+                onClick={() => setLockAspect((locked) => !locked)}
+                title="Lock aspect ratio"
+                type="button"
+              >
+                {lockAspect ? (
+                  <LockClosedIcon aria-hidden="true" />
+                ) : (
+                  <LockOpenIcon aria-hidden="true" />
+                )}
+              </button>
+              <Field label="Height" error={errors.canvasHeight}>
+                <input
+                  aria-invalid={!!errors.canvasHeight}
+                  aria-label="Canvas height"
+                  className="session-settings__input"
+                  min={16}
+                  onChange={(event) =>
+                    setDraft((current) =>
+                      resizeCanvas(
+                        current,
+                        "height",
+                        numberOrNaN(event.target.value),
+                        lockAspect,
+                      ),
+                    )
+                  }
+                  step={2}
+                  type="number"
+                  value={inputValue(canvasHeight)}
+                />
+              </Field>
+              <button
+                aria-label="Swap width and height"
+                className="session-settings__icon-button"
+                onClick={() => setDraft(swapCanvasOrientation)}
+                title="Swap width and height"
+                type="button"
+              >
+                <ArrowsRightLeftIcon aria-hidden="true" />
+              </button>
+            </div>
+          </fieldset>
+
+          <fieldset className="session-settings__group">
+            <legend>Timing</legend>
+            <div className="session-settings__stack">
+              <Field
+                label="Frame rate"
+                error={customFps ? undefined : errors.fps}
+              >
+                <select
+                  aria-label="Frame rate"
+                  className="session-settings__input"
+                  onChange={(event) => {
+                    const { value } = event.target;
+                    if (value === CUSTOM_FRAME_RATE) {
+                      setCustomFps(true);
+                      return;
+                    }
+                    setCustomFps(false);
+                    setDraft((current) => ({ ...current, fps: Number(value) }));
+                  }}
+                  value={
+                    customFps
+                      ? CUSTOM_FRAME_RATE
+                      : String(
+                          FRAME_RATES.find(
+                            (rate) => rate.label === matchFrameRate(fps),
+                          )?.value ?? CUSTOM_FRAME_RATE,
+                        )
+                  }
+                >
+                  {FRAME_RATES.map((rate) => (
+                    <option key={rate.label} value={String(rate.value)}>
+                      {rate.label} fps
+                    </option>
+                  ))}
+                  <option value={CUSTOM_FRAME_RATE}>Custom…</option>
+                </select>
+              </Field>
+              {customFps ? (
+                <Field label="Custom fps" error={errors.fps}>
+                  <input
+                    aria-invalid={!!errors.fps}
+                    aria-label="Custom frame rate"
+                    className="session-settings__input"
+                    min={0}
+                    onChange={(event) => {
+                      const next = numberOrNaN(event.target.value);
+                      setDraft((current) => ({ ...current, fps: next }));
+                    }}
+                    step="any"
+                    type="number"
+                    value={inputValue(fps)}
+                  />
+                </Field>
+              ) : null}
+            </div>
+          </fieldset>
+        </div>
 
         <fieldset className="session-settings__group">
           <legend>Video encoding</legend>
@@ -387,64 +389,66 @@ function SessionSettingsForm({
               <span className="session-settings__static">MP4</span>
             </Field>
           </div>
-          <Field label="Quality">
-            <div className="segmented-control session-settings__segmented">
-              {VIDEO_QUALITIES.map((quality) => (
-                <button
-                  aria-pressed={encoding.quality === quality.value}
-                  className={
-                    encoding.quality === quality.value ? "is-active" : ""
+          <div className="session-settings__row">
+            <Field label="Quality">
+              <div className="segmented-control session-settings__segmented">
+                {VIDEO_QUALITIES.map((quality) => (
+                  <button
+                    aria-pressed={encoding.quality === quality.value}
+                    className={
+                      encoding.quality === quality.value ? "is-active" : ""
+                    }
+                    key={quality.value}
+                    onClick={() =>
+                      setEncoding(
+                        quality.value === "custom"
+                          ? {
+                              quality: "custom",
+                              customBitrateMbps:
+                                encoding.customBitrateMbps ?? bitrateMbps,
+                            }
+                          : { quality: quality.value },
+                      )
+                    }
+                    type="button"
+                  >
+                    {quality.label}
+                  </button>
+                ))}
+              </div>
+            </Field>
+            <Field label="Bitrate (Mbps)" error={errors.bitrate}>
+              {encoding.quality === "custom" ? (
+                <input
+                  aria-invalid={!!errors.bitrate}
+                  aria-label="Video bitrate in Mbps"
+                  className="session-settings__input"
+                  min={0}
+                  onChange={(event) =>
+                    setEncoding({
+                      customBitrateMbps: numberOrNaN(event.target.value),
+                    })
                   }
-                  key={quality.value}
-                  onClick={() =>
-                    setEncoding(
-                      quality.value === "custom"
-                        ? {
-                            quality: "custom",
-                            customBitrateMbps:
-                              encoding.customBitrateMbps ?? bitrateMbps,
-                          }
-                        : { quality: quality.value },
-                    )
-                  }
-                  type="button"
-                >
-                  {quality.label}
-                </button>
-              ))}
-            </div>
-          </Field>
-          <Field label="Bitrate (Mbps)" error={errors.bitrate}>
-            {encoding.quality === "custom" ? (
-              <input
-                aria-invalid={!!errors.bitrate}
-                aria-label="Video bitrate in Mbps"
-                className="session-settings__input"
-                min={0}
-                onChange={(event) =>
-                  setEncoding({
-                    customBitrateMbps: numberOrNaN(event.target.value),
-                  })
-                }
-                step="any"
-                type="number"
-                value={inputValue(encoding.customBitrateMbps)}
-              />
-            ) : (
-              <span className="session-settings__static">
-                {Number.isFinite(canvasWidth) &&
-                Number.isFinite(canvasHeight) &&
-                Number.isFinite(fps)
-                  ? `≈ ${presetBitrateMbps(
-                      canvasWidth,
-                      canvasHeight,
-                      fps,
-                      encoding.quality,
-                    )} Mbps`
-                  : "—"}
-              </span>
-            )}
-          </Field>
+                  step="any"
+                  type="number"
+                  value={inputValue(encoding.customBitrateMbps)}
+                />
+              ) : (
+                <span className="session-settings__static">
+                  {Number.isFinite(canvasWidth) &&
+                  Number.isFinite(canvasHeight) &&
+                  Number.isFinite(fps)
+                    ? `≈ ${presetBitrateMbps(
+                        canvasWidth,
+                        canvasHeight,
+                        fps,
+                        encoding.quality,
+                      )} Mbps`
+                    : "—"}
+                </span>
+              )}
+            </Field>
+          </div>
         </fieldset>
 
         <fieldset className="session-settings__group">
