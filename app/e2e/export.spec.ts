@@ -112,27 +112,55 @@ function readSampleEntries(mp4: Buffer) {
   }
 }
 
-test("the web export uses the Session Settings codec, bitrate and audio", async ({
+test("the web export uses the Session Settings codec and bitrate", async ({
   page,
 }) => {
-  await page.goto(
-    "/export-smoke.html?codec=h264&mbps=2&audioKbps=128&sampleRate=44100",
-  );
+  await page.goto("/export-smoke.html?codec=h264&mbps=2");
   const download = page.waitForEvent("download", { timeout: 120_000 });
-  await page.click("#audio");
+  await page.click("#video");
   // Wait on the status so a failed export reports its error.
   await expect(page.locator("#status")).toContainText(
-    "Saved smoke-audible.mp4",
+    "Saved smoke-video-only.mp4",
     { timeout: 120_000 },
   );
   await expect(page.locator("#status")).toContainText(
     "320×180 · 24 fps · H.264 · 2 Mbps",
   );
   const mp4 = await readFile(await (await download).path());
-  expect(readSampleEntries(mp4)).toEqual([
-    { type: "avc1" },
-    { type: "mp4a", sampleRate: 44_100 },
-  ]);
+  expect(readSampleEntries(mp4)).toEqual([{ type: "avc1" }]);
+});
+
+test("the web export uses the Session Settings audio sample rate", async ({
+  page,
+}) => {
+  await page.goto("/export-smoke.html?audioKbps=128&sampleRate=44100");
+  // Chromium builds without proprietary codecs, like Playwright's on Linux,
+  // have no AAC encoder; the web export can't write audio there at all.
+  test.skip(
+    !(await page.evaluate(
+      async () =>
+        (
+          await AudioEncoder.isConfigSupported({
+            codec: "mp4a.40.2",
+            sampleRate: 44_100,
+            numberOfChannels: 1,
+            bitrate: 128_000,
+          })
+        ).supported,
+    )),
+    "This browser has no AAC encoder.",
+  );
+  const download = page.waitForEvent("download", { timeout: 120_000 });
+  await page.click("#audio");
+  await expect(page.locator("#status")).toContainText(
+    "Saved smoke-audible.mp4",
+    { timeout: 120_000 },
+  );
+  const mp4 = await readFile(await (await download).path());
+  expect(readSampleEntries(mp4)[1]).toEqual({
+    type: "mp4a",
+    sampleRate: 44_100,
+  });
 });
 
 test("an unsupported Session Settings codec fails early and suggests Auto", async ({
