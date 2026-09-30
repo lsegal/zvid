@@ -10,6 +10,7 @@ import {
   type ActiveClip,
   type ArrangementClip,
   computeActiveClips,
+  effectUsesAudio,
   GROUP_TRACK_ID,
   type Lane,
   type MediaItem,
@@ -31,10 +32,7 @@ import {
   OfflineAudioBands,
   SILENT_AUDIO_BANDS,
 } from "./fx-shaders/audio-bands.ts";
-import {
-  isChainEffectName,
-  resolveEffectChain,
-} from "./fx-shaders/registry.ts";
+import { resolveEffectChain } from "./fx-shaders/registry.ts";
 import { getRenderedEffects } from "./fx-stack.ts";
 import type { PlayheadSignal } from "./playhead-signal";
 import { loadFontFace, resolveFontFace, subscribeFonts } from "./text-fonts.ts";
@@ -236,11 +234,11 @@ export class CompositionRenderer {
 
   renderPreviewFrame(playheadQ: number, pixelRatio: number) {
     this.ensureResources();
-    this.activeClips = this.computeActiveClips(playheadQ);
+    const audio = this.liveAudioBands?.sample(performance.now());
+    this.activeClips = this.computeActiveClips(playheadQ, audio);
     this.draw(this.activeClips, playheadQ, pixelRatio, {
       time: quartersToSeconds(playheadQ, this.state.bpm),
-      audio:
-        this.liveAudioBands?.sample(performance.now()) ?? SILENT_AUDIO_BANDS,
+      audio: audio ?? SILENT_AUDIO_BANDS,
       groupClipProgress: this.groupClipProgressAt(playheadQ),
     });
   }
@@ -258,7 +256,8 @@ export class CompositionRenderer {
       pixelRatio,
     );
 
-    const nextActiveClips = this.computeActiveClips(playheadQ);
+    const audio = await this.sampleAudioBandsAt(playheadSeconds);
+    const nextActiveClips = this.computeActiveClips(playheadQ, audio);
     const pendingSeeks = new Map<string, Promise<void>>();
 
     for (const entry of nextActiveClips) {
@@ -295,8 +294,6 @@ export class CompositionRenderer {
           : undefined,
       ),
     );
-
-    const audio = await this.sampleAudioBandsAt(playheadSeconds);
 
     if (this.mainAudioElement && this.state.mainAudio?.previewUrl) {
       this.mainAudioElement.pause();
@@ -415,7 +412,7 @@ export class CompositionRenderer {
     }
   }
 
-  private computeActiveClips(playheadQ: number) {
+  private computeActiveClips(playheadQ: number, audio = SILENT_AUDIO_BANDS) {
     const mediaById = new Map(
       this.state.mediaItems.map((item) => [item.id, item]),
     );
@@ -431,6 +428,7 @@ export class CompositionRenderer {
       lanePriority,
       this.renderedEffects(),
       this.state.fps,
+      audio,
     );
 
     // Clips sharing a media at this playhead draw from extra elements, made
@@ -468,10 +466,7 @@ export class CompositionRenderer {
   }
 
   private usesAudioBands() {
-    return this.renderedEffects().some(
-      (effect) =>
-        effect.enabled !== false && isChainEffectName(effect.effectName),
-    );
+    return this.renderedEffects().some(effectUsesAudio);
   }
 
   private async sampleAudioBandsAt(playheadSeconds: number) {

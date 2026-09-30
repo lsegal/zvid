@@ -5,6 +5,11 @@
 
 import { resolveClipAnimatedParameters } from "./fx-animation-clip.ts";
 import type { EffectAnimation } from "./fx-animation-defaults.ts";
+import {
+  placeOnsets,
+  resolveReactiveParameters,
+} from "./fx-animation-reactive.ts";
+import type { AudioBands } from "./fx-shaders/audio-bands.ts";
 
 export type AnimatedParameter = {
   key: string;
@@ -13,6 +18,7 @@ export type AnimatedParameter = {
 };
 
 export type AnimatableEffect = {
+  id?: string;
   effectName: string;
   parameters: AnimatedParameter[];
   animation?: EffectAnimation;
@@ -34,7 +40,16 @@ export type AnimationFrameContext = {
   bpm: number;
   // The session's frame rate, which animation timings are counted in.
   fps: number;
+  // The main audio at this frame, which Reactive mode follows.
+  audio?: AudioBands;
 };
+
+// Whether `effect`'s animation follows the main audio.
+export function reactsToAudio(effect: Pick<AnimatableEffect, "animation">) {
+  return (
+    effect.animation?.enabled === true && effect.animation.mode === "reactive"
+  );
+}
 
 // The parameters `effect` is drawn with for the clip and frame. Returns
 // `effect.parameters` itself when its animation changes nothing, which is
@@ -44,8 +59,20 @@ export function resolveAnimatedParameters(
   clipContext: AnimationClipContext,
   frameContext: AnimationFrameContext,
 ): AnimatedParameter[] {
-  if (effect.animation?.mode === "clip") {
+  const animation = effect.animation;
+  if (animation?.mode === "clip") {
     return resolveClipAnimatedParameters(effect, clipContext, frameContext);
+  }
+  if (animation && reactsToAudio(effect)) {
+    const time =
+      frameContext.bpm > 0
+        ? (frameContext.playheadQ * 60) / frameContext.bpm
+        : 0;
+    return resolveReactiveParameters(effect, animation.reactive, {
+      time,
+      fps: frameContext.fps,
+      onsets: placeOnsets(frameContext.audio?.onsets, time),
+    });
   }
   return effect.parameters;
 }

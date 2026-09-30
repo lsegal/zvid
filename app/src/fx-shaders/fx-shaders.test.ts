@@ -246,6 +246,38 @@ describe("OfflineAudioBands", () => {
   });
 });
 
+describe("audio onsets", () => {
+  it("remembers each click for a second, at its time and strength", () => {
+    const bands = new OfflineAudioBands(clickTrack(3), SAMPLE_RATE);
+    const onsets = bands.at(2.2).onsets ?? [];
+
+    assert.equal(onsets.length, 2, JSON.stringify(onsets));
+    [0.7, 0.2].forEach((secondsAgo, index) => {
+      assert.ok(Math.abs(onsets[index].secondsAgo - secondsAgo) < 0.03);
+      assert.ok(onsets[index].strength > 0.8);
+    });
+  });
+
+  it("remembers nothing in silence", () => {
+    const bands = new OfflineAudioBands(
+      new Float32Array(2 * SAMPLE_RATE),
+      SAMPLE_RATE,
+    );
+    assert.deepEqual(bands.at(1.5).onsets, []);
+  });
+
+  it("remembers the same hits after a seek as when rendered in sequence", () => {
+    const samples = clickTrack(4);
+    const sequential = new OfflineAudioBands(samples, SAMPLE_RATE);
+    for (let time = 0; time <= 2.6; time += 1 / 30) {
+      sequential.at(time);
+    }
+    const seeked = new OfflineAudioBands(samples, SAMPLE_RATE);
+
+    assert.deepEqual(seeked.at(2.6).onsets, sequential.at(2.6).onsets);
+  });
+});
+
 describe("audio impulses", () => {
   it("fires once per click, peaks and decays to 10% within 150 ms", () => {
     const frames = readBands(clickTrack(3), 60, 0.9, 2.99);

@@ -54,10 +54,12 @@ import {
 } from "./fill-paint.ts";
 import {
   type AnimationClipContext,
+  reactsToAudio,
   resolveAnimatedEffects,
 } from "./fx-animation.ts";
 import { resolveOrderSlide } from "./fx-animation-clip.ts";
 import type { EffectAnimation } from "./fx-animation-defaults.ts";
+import type { AudioBands } from "./fx-shaders/audio-bands.ts";
 import {
   type EffectChainStep,
   isChainEffectName,
@@ -424,6 +426,15 @@ export function resolveVisualState(
   return state;
 }
 
+// Whether `effect` needs the main audio's bands: shader-chain effects and
+// Reactive animations follow them.
+export function effectUsesAudio(effect: SessionEffect) {
+  return (
+    effect.enabled !== false &&
+    (isChainEffectName(effect.effectName) || reactsToAudio(effect))
+  );
+}
+
 export function computeActiveClips(
   clips: ArrangementClip[],
   mediaById: Map<string, MediaItem>,
@@ -433,6 +444,8 @@ export function computeActiveClips(
   sessionEffects: SessionEffect[],
   // The session's frame rate, which animation timings are counted in.
   fps = DEFAULT_FPS,
+  // The main audio at this frame, for effects that react to it.
+  audio?: AudioBands,
 ): ActiveClip[] {
   const epsilon = 0.0001;
   const usedSourceKeys = new Set<string>();
@@ -485,6 +498,7 @@ export function computeActiveClips(
         playheadQ,
         bpm,
         fps,
+        audio,
       });
       if (clip.kind === "fx") {
         // Only the FX clip's own stack adjusts what is beneath it, so an FX
