@@ -11,18 +11,15 @@ import {
   PlayIcon,
 } from "@heroicons/react/24/solid";
 import {
-  type DragEvent as ReactDragEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import { flushSync } from "react-dom";
 import "./App.css";
 import {
   type ClipClipboard,
@@ -31,11 +28,9 @@ import {
   withClipStacks,
 } from "./app/clip-ops.ts";
 import {
-  BASE_QUARTER_PX,
   FILL_CLIP_ACCENT,
   FILL_CLIP_TINT,
   FX_CLIP_BARS,
-  GRID_LINE_COLORS,
   INSPECTOR_COLLAPSED_STORAGE_KEY,
   LABEL_WIDTH_DEFAULT,
   LABEL_WIDTH_KEYBOARD_STEP,
@@ -44,7 +39,6 @@ import {
   LABEL_WIDTH_NARROW,
   LABEL_WIDTH_STORAGE_KEY,
   MAX_WAND_LAYERS,
-  PALETTE,
   PREVIEW_DEFAULT_WIDTH,
   PREVIEW_MIN_WIDTH,
   PREVIEW_RESIZE_KEY_STEP,
@@ -53,11 +47,9 @@ import {
   RANDOM_SELECTION_MAX_BARS,
   SIGNATURES,
   SNAP_OPTIONS,
-  SOURCE_TRACK_DRAG_CLEAR_DELAY_MS,
   TEXT_CLIP_BARS,
   TIMELINE_DRAG_EPSILON,
   TIMELINE_PLAYBACK_SCRUB_AUDIO_IDLE_MS,
-  TIMELINE_SCRUB_AUDIO_TAIL_MS,
 } from "./app/constants.ts";
 import {
   CLIP_FILMSTRIP_HEIGHT_PX,
@@ -81,7 +73,6 @@ import {
   findClosestTimelineLaneId,
   getClipDurationQ,
   getClipEndQ,
-  getPlaybackStopQ,
   getSelectionEndQ,
   getTimelineContentEndQ,
   isClipAtPlayhead,
@@ -98,25 +89,18 @@ import type {
   SessionMediaCheck,
   SourceSpan,
   SourceTrack,
-  SourceTrackDragPreview,
-  SourceTrackDropTarget,
   TimelineDragState,
   TimelineSelection,
-  TimelineViewport,
 } from "./app/types.ts";
 import {
-  buildDraggedMediaKey,
   clamp,
   getDraggedMediaFiles,
   getNextLaneNumber,
   getSwatch,
-  hasDraggedFileData,
   isEditableEventTarget,
   logClient,
   pluralize,
   randomFloat,
-  revokeObjectUrlIfNeeded,
-  stripFilenameExtension,
 } from "./app/util.ts";
 import {
   CORRUPT_WORKSPACE_NOTICE,
@@ -142,11 +126,10 @@ import {
 import {
   getClipFilmstripTiles,
   getFilmstripDecodeSize,
-  getFilmstripRange,
   getFilmstripTileWidthPx,
   getSourceSpanFilmstripClip,
 } from "./clip-filmstrip.ts";
-import { isClipJumpPress, revealScrollLeft } from "./clip-jump.ts";
+import { isClipJumpPress } from "./clip-jump.ts";
 import {
   describeClipMediaState,
   describeMediaAvailability,
@@ -238,7 +221,7 @@ import {
   resolveFrameEffects,
 } from "./composition-active-clips.ts";
 import { isContextMenuKey, isContextMenuPress } from "./context-menu.ts";
-import { isRulerPanPress, isTimelinePanPress } from "./drag-scroll.ts";
+import { isRulerPanPress } from "./drag-scroll.ts";
 import { buildEditMenuEntries } from "./edit-menu.ts";
 import { addFillClip, getDefaultFillColor, isFillClip } from "./fill-clip.ts";
 import {
@@ -277,11 +260,15 @@ import {
 } from "./hooks/useMediaLibrary.ts";
 import { useMediaStatus } from "./hooks/useMediaStatus.ts";
 import { usePeerMedia, usePeerMediaState } from "./hooks/usePeerMedia.ts";
+import { usePlayback } from "./hooks/usePlayback.ts";
 import {
   useProjectHistoryCommands,
   useProjectStore,
 } from "./hooks/useProjectStore.ts";
+import { useRulerGestures } from "./hooks/useRulerGestures.ts";
 import { useSessionIO } from "./hooks/useSessionIO.ts";
+import { useSourceTrackDrop } from "./hooks/useSourceTrackDrop.ts";
+import { useTimelineViewport } from "./hooks/useTimelineViewport.ts";
 import { useWorkspacePersistence } from "./hooks/useWorkspacePersistence.ts";
 import {
   LANE_SELECTION_DRAG_THRESHOLD_PX,
@@ -306,7 +293,6 @@ import {
   MAX_LAYERS_MESSAGE,
 } from "./layer-menu";
 import { MainWaveform } from "./MainWaveform";
-import { isWithinMainAudioDropTarget } from "./main-audio-drop";
 import type { MediaItem } from "./media";
 import {
   cacheMediaBlob,
@@ -319,10 +305,6 @@ import {
   formatMediaSyncLabel,
   getMediaSyncClassName,
 } from "./peer-media-sync.ts";
-import {
-  findNextClipEdgeQ,
-  PLAYBACK_COMMIT_INTERVAL_MS,
-} from "./playhead-signal";
 import {
   getPreviewEditTrackId,
   moveHistoryLabel,
@@ -390,27 +372,15 @@ import {
   type ThumbnailSize,
 } from "./thumbnail-cache.ts";
 import { formatMusicalPosition, formatTimecode } from "./timeline-format.ts";
-import {
-  formatDivision,
-  type GridDivision,
-  getBarStep,
-  getGridLayers,
-  getGridUnit,
-  getSnapUnit,
-  RULER_LABEL_MIN_PX,
-  resolveAdaptiveDivision,
-} from "./timeline-grid";
-import { type DragScrollMove, useDragScroll } from "./use-drag-scroll";
+import { formatDivision } from "./timeline-grid";
 import { useLayerReorder } from "./use-layer-reorder";
 import { useThumbnailCache } from "./use-thumbnail-cache";
 import { ZVID_BUILD } from "./version";
 import type { WorkspaceSessionSource } from "./workspace-session.ts";
 import {
-  anchoredTimelineScrollLeft,
   formatZoomFactor,
   sliderPositionToZoom,
   stepZoom,
-  timelineDragZoom,
   ZOOM_DEFAULT,
   ZOOM_MAX,
   ZOOM_MIN,
@@ -537,12 +507,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const [previewWidth, setPreviewWidth] = useState(readPreviewWidth);
   const [editorGridWidth, setEditorGridWidth] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [timelineViewport, setTimelineViewport] = useState<TimelineViewport>({
-    scrollLeft: 0,
-    clientWidth: 0,
-    clientHeight: 0,
-    lanesTop: 0,
-  });
   const [status, setStatus] = useState(() =>
     restoredSession
       ? formatRestoredStatus(restoredSession)
@@ -566,13 +530,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [timelineDragState, setTimelineDragState] =
     useState<TimelineDragState | null>(null);
-  const [sourceTrackDragTarget, setSourceTrackDragTarget] =
-    useState<SourceTrackDropTarget | null>(null);
-  const [sourceTrackDragPreview, setSourceTrackDragPreview] =
-    useState<SourceTrackDragPreview | null>(null);
-  const [isTimelineAudibleScrubbing, setIsTimelineAudibleScrubbing] =
-    useState(false);
-  const [zoomDraft, setZoomDraft] = useState<number | null>(null);
   const [isCaptureInstallerDialogOpen, setIsCaptureInstallerDialogOpen] =
     useState(false);
   const [isOfflineMediaDialogOpen, setIsOfflineMediaDialogOpen] =
@@ -590,7 +547,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const viewingSharedSessionRef = useRef(boot.access === "joiner");
 
   const playbackOriginRef = useRef(initialPlayheadQ);
-  const playbackStopRef = useRef(0);
   const compositionPlayerRef = useRef<CompositionPlayerHandle | null>(null);
   const appShellRef = useRef<HTMLDivElement | null>(null);
   const timelineScrollRef = useRef<HTMLDivElement | null>(null);
@@ -602,15 +558,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     startX: number;
     startWidth: number;
   } | null>(null);
-  const timelineScrubAudioTimeoutRef = useRef<number | null>(null);
   const clipClipboardRef = useRef<ClipClipboard | null>(null);
-  const zoomDraftRef = useRef<number | null>(null);
   const mediaHydrationInFlightRef = useRef(new Set<string>());
   const sessionMediaCheckRef = useRef<SessionMediaCheck | null>(null);
-  const sourceTrackDragPreviewRef = useRef<SourceTrackDragPreview | null>(null);
-  const sourceTrackDragHideTimeoutRef = useRef<number | null>(null);
-  const sourceTrackDragPreviewKeyRef = useRef<string>("");
-  const sourceTrackDragPreviewRequestRef = useRef(0);
 
   const {
     mediaItems,
@@ -655,7 +605,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         : effects,
     [dragState, effects, isDuplicateDragging],
   );
-  const resolvedZoom = zoomDraft ?? zoom;
 
   const {
     editEffects,
@@ -676,69 +625,45 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     timelineClipsRef,
   });
 
-  const updateZoomDraft = useCallback((nextZoom: number | null) => {
-    zoomDraftRef.current = nextZoom;
-    setZoomDraft(nextZoom);
-  }, []);
-
-  const signature =
-    SIGNATURES.find((candidate) => candidate.id === signatureId) ??
-    SIGNATURES[0];
-  const beatUnit = 4 / signature.denominator;
-  const barLength = signature.numerator * beatUnit;
-  const quarterPx = BASE_QUARTER_PX * resolvedZoom;
-  // Resolved from the last division so the grid keeps it while zooming within
-  // the thresholds instead of flickering between two divisions.
-  const [lastAdaptiveDivision, setLastAdaptiveDivision] =
-    useState<GridDivision>(() => resolveAdaptiveDivision(quarterPx));
-  const adaptiveDivision = resolveAdaptiveDivision(
+  const {
+    timelineViewport,
+    resolvedZoom,
+    updateZoomDraft,
+    flushZoomDraft,
+    setZoomValue,
+    signature,
+    beatUnit,
+    barLength,
     quarterPx,
-    lastAdaptiveDivision,
-  );
-  if (adaptiveDivision !== lastAdaptiveDivision) {
-    setLastAdaptiveDivision(adaptiveDivision);
-  }
-  const snapUnit = getSnapUnit(snapMode, signature, adaptiveDivision);
-  const gridUnit = getGridUnit(snapUnit, adaptiveDivision);
-  const totalQuarters = useMemo(() => {
-    let nextTotalQuarters = barLength * 12;
-    for (const clip of timelineClips) {
-      nextTotalQuarters = Math.max(
-        nextTotalQuarters,
-        clip.startQ + getClipDurationQ(clip, bpm) + barLength,
-      );
-    }
-    for (const span of sourceSpans) {
-      nextTotalQuarters = Math.max(
-        nextTotalQuarters,
-        span.startQ + getClipDurationQ(span, bpm) + barLength,
-      );
-    }
-    if (pendingSelection) {
-      nextTotalQuarters = Math.max(
-        nextTotalQuarters,
-        getSelectionEndQ(pendingSelection) + barLength,
-      );
-    }
-
-    return nextTotalQuarters;
-  }, [barLength, bpm, pendingSelection, sourceSpans, timelineClips]);
-  const timelineWidth = totalQuarters * quarterPx;
-  const gridStyle = useMemo(() => {
-    // CSS paints the first layer on top, so the strongest lines go first.
-    const layers = getGridLayers(gridUnit, signature, quarterPx).reverse();
-    return {
-      backgroundImage: layers
-        .map(
-          (layer) =>
-            `linear-gradient(to right, ${GRID_LINE_COLORS[layer.weight]} 1px, transparent 1px)`,
-        )
-        .join(", "),
-      backgroundSize: layers
-        .map((layer) => `${layer.spacingQ * quarterPx}px 100%`)
-        .join(", "),
-    };
-  }, [gridUnit, quarterPx, signature]);
+    adaptiveDivision,
+    snapUnit,
+    totalQuarters,
+    timelineWidth,
+    gridStyle,
+    rulerBars,
+    rulerLabelBarStep,
+    visibleTimelineStartPx,
+    visibleTimelineWidthPx,
+    visibleTimelineEndPx,
+    filmstripRangeStartPx,
+    filmstripRangeEndPx,
+    syncTimelineViewport,
+    scrollTimelineToPlayhead,
+  } = useTimelineViewport({
+    zoom,
+    signatureId,
+    snapMode,
+    timelineMode,
+    bpm,
+    timelineClips,
+    sourceSpans,
+    pendingSelection,
+    labelWidth,
+    playheadQRef,
+    timelineScrollRef,
+    arrangementLanesRef,
+    commitViewChange,
+  });
   // Only a clip the user selected; rendering and edits never fall back to
   // another one.
   const selectedClip = useMemo(
@@ -1131,18 +1056,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       ),
     [barLength, bpm, mainAudio?.durationSeconds, sourceSpans, timelineClips],
   );
-  const rulerBars = useMemo(() => {
-    const barCount = Math.ceil(totalQuarters / barLength);
-    return Array.from({ length: barCount }, (_, index) => ({
-      index,
-      quarter: index * barLength,
-    }));
-  }, [barLength, totalQuarters]);
-  // Zoomed far out, only every 2nd, 4th, 8th... bar is labelled.
-  const rulerLabelBarStep = getBarStep(
-    barLength * quarterPx,
-    RULER_LABEL_MIN_PX[timelineMode],
-  );
   const {
     offlineMedia,
     inSharedMediaSession,
@@ -1242,7 +1155,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     }
     return next;
   }, [sourceSpans]);
-  const isSourceTrackFileDragActive = Boolean(sourceTrackDragTarget);
   const isSourceTracksCollapsed = isSourceTracksSectionCollapsed(
     sourceTracksCollapsedPref,
     sourceTracks.length,
@@ -1250,12 +1162,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const isSourceHeaderDropTarget =
     !sourceTracks.length || isSourceTracksCollapsed;
   const minimumWindowQ = Math.max(snapUnit, beatUnit / 4);
-  const visibleTimelineStartPx = Math.max(0, timelineViewport.scrollLeft);
-  const visibleTimelineWidthPx = Math.max(
-    0,
-    timelineViewport.clientWidth - labelWidth,
-  );
-  const visibleTimelineEndPx = visibleTimelineStartPx + visibleTimelineWidthPx;
   const mainAudioSkeletonStyle = getMainAudioSkeletonStyle({
     mainAudio,
     bpm,
@@ -1293,12 +1199,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     visibleTimelineEndPx,
     visibleTimelineStartPx,
   ]);
-  const filmstripRange = getFilmstripRange(
-    visibleTimelineStartPx,
-    visibleTimelineWidthPx,
-  );
-  const filmstripRangeStartPx = filmstripRange.startPx;
-  const filmstripRangeEndPx = filmstripRange.endPx;
   const pixelRatio = window.devicePixelRatio || 1;
   // The filmstrip tiles of each online video clip near the visible range.
   const clipFilmstrips = useMemo(() => {
@@ -1487,185 +1387,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     visibleTimelineWidthPx > 0 && playheadTimelinePx < visibleTimelineStartPx;
   const isPlayheadOffscreenRight =
     visibleTimelineWidthPx > 0 && playheadTimelinePx > visibleTimelineEndPx;
-  const sourceTrackDragPreviewDetail = sourceTrackDragPreview
-    ? sourceTrackDragPreview.status === "loading"
-      ? "Loading clip preview..."
-      : sourceTrackDragPreview.status === "error"
-        ? sourceTrackDragPreview.fileCount > 1
-          ? `${pluralize(sourceTrackDragPreview.fileCount, "file")} ready to import`
-          : "Drop to import without a preview"
-        : sourceTrackDragPreview.durationSeconds !== undefined
-          ? `${sourceTrackDragPreview.kind === "audio" ? "Audio" : "Video"} · ${formatDuration(
-              sourceTrackDragPreview.durationSeconds,
-            )}`
-          : sourceTrackDragPreview.kind === "audio"
-            ? "Audio clip"
-            : "Media clip"
-    : "";
-  const sourceTrackDragPreviewOverflow =
-    sourceTrackDragPreview && sourceTrackDragPreview.fileCount > 1
-      ? `+${sourceTrackDragPreview.fileCount - 1} more`
-      : null;
-  const isNewSourceTrackDropTarget =
-    sourceTrackDragTarget?.kind === "new-track";
-
-  const clearSourceTrackDragState = useCallback(() => {
-    if (sourceTrackDragHideTimeoutRef.current !== null) {
-      window.clearTimeout(sourceTrackDragHideTimeoutRef.current);
-      sourceTrackDragHideTimeoutRef.current = null;
-    }
-
-    sourceTrackDragPreviewKeyRef.current = "";
-    sourceTrackDragPreviewRequestRef.current += 1;
-    setSourceTrackDragTarget(null);
-    setIsMainAudioDropTarget(false);
-    setSourceTrackDragPreview((current) => {
-      revokeObjectUrlIfNeeded(current?.thumbnailUrl);
-      return null;
-    });
-  }, []);
-
-  const scheduleSourceTrackDragClear = useCallback(() => {
-    if (sourceTrackDragHideTimeoutRef.current !== null) {
-      window.clearTimeout(sourceTrackDragHideTimeoutRef.current);
-    }
-
-    sourceTrackDragHideTimeoutRef.current = window.setTimeout(() => {
-      sourceTrackDragHideTimeoutRef.current = null;
-      clearSourceTrackDragState();
-    }, SOURCE_TRACK_DRAG_CLEAR_DELAY_MS);
-  }, [clearSourceTrackDragState]);
-
-  const ensureSourceTrackDragPreview = useCallback(
-    (files: File[]) => {
-      const dragKey = buildDraggedMediaKey(files);
-      const nextLabel = stripFilenameExtension(files[0]?.name ?? "Media clip");
-
-      setSourceTrackDragPreview((current) => {
-        if (current?.dragKey === dragKey) {
-          return current;
-        }
-
-        revokeObjectUrlIfNeeded(current?.thumbnailUrl);
-        return {
-          dragKey,
-          fileCount: files.length,
-          names: files.map((file) => file.name),
-          label: nextLabel,
-          status: "loading",
-        };
-      });
-
-      if (sourceTrackDragPreviewKeyRef.current === dragKey) {
-        return;
-      }
-
-      sourceTrackDragPreviewKeyRef.current = dragKey;
-      const requestId = ++sourceTrackDragPreviewRequestRef.current;
-
-      void (async () => {
-        try {
-          const [previewItem] = await getHarness().analyzeMedia(
-            {
-              kind: "files",
-              files: [files[0]],
-            },
-            PALETTE,
-            mediaItems.length,
-          );
-          const thumbnailUrl = previewItem?.thumbnailUrl;
-
-          if (requestId !== sourceTrackDragPreviewRequestRef.current) {
-            revokeObjectUrlIfNeeded(thumbnailUrl);
-            return;
-          }
-
-          setSourceTrackDragPreview((current) => {
-            if (!current || current.dragKey !== dragKey) {
-              revokeObjectUrlIfNeeded(thumbnailUrl);
-              return current;
-            }
-
-            if (current.thumbnailUrl !== thumbnailUrl) {
-              revokeObjectUrlIfNeeded(current.thumbnailUrl);
-            }
-
-            return {
-              ...current,
-              label: stripFilenameExtension(previewItem.name),
-              status: "ready",
-              kind: previewItem.kind,
-              durationSeconds: previewItem.durationSeconds,
-              thumbnailUrl,
-            };
-          });
-        } catch (error) {
-          if (requestId !== sourceTrackDragPreviewRequestRef.current) {
-            return;
-          }
-
-          const message =
-            error instanceof Error ? error.message : String(error);
-          setSourceTrackDragPreview((current) =>
-            current?.dragKey === dragKey
-              ? {
-                  ...current,
-                  status: "error",
-                  error: message,
-                }
-              : current,
-          );
-        }
-      })();
-    },
-    [mediaItems.length],
-  );
-
-  const handleSourceTrackDragEvent = useCallback(
-    (event: ReactDragEvent<HTMLElement>, target: SourceTrackDropTarget) => {
-      const files = getDraggedMediaFiles(event.dataTransfer);
-      if (!files.length) {
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-      event.dataTransfer.dropEffect = "copy";
-
-      if (sourceTrackDragHideTimeoutRef.current !== null) {
-        window.clearTimeout(sourceTrackDragHideTimeoutRef.current);
-        sourceTrackDragHideTimeoutRef.current = null;
-      }
-
-      setSourceTrackDragTarget(target);
-      ensureSourceTrackDragPreview(files);
-    },
-    [ensureSourceTrackDragPreview],
-  );
-
-  const resolveSourceTrackDropTargetAtPoint = useCallback(
-    (clientX: number, clientY: number): SourceTrackDropTarget | null => {
-      const element = document.elementFromPoint(clientX, clientY);
-      const target = element?.closest<HTMLElement>(
-        "[data-source-track-drop-target]",
-      );
-      const targetKind = target?.dataset.sourceTrackDropTarget;
-      if (targetKind === "track" && target?.dataset.sourceTrackId) {
-        return {
-          kind: "track",
-          trackId: target.dataset.sourceTrackId,
-        };
-      }
-
-      if (targetKind === "new-track") {
-        return { kind: "new-track" };
-      }
-
-      return sourceTracks.length ? { kind: "new-track" } : null;
-    },
-    [sourceTracks.length],
-  );
-
   const setSourceTracksCollapsed = useCallback((collapsed: boolean) => {
     setSourceTracksCollapsedPref(collapsed);
     writeSourceTracksCollapsed(window.localStorage, collapsed);
@@ -1689,6 +1410,23 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setStatus,
   });
   const {
+    sourceTrackDragTarget,
+    sourceTrackDragPreview,
+    isSourceTrackFileDragActive,
+    sourceTrackDragPreviewDetail,
+    sourceTrackDragPreviewOverflow,
+    isNewSourceTrackDropTarget,
+    clearSourceTrackDragState,
+    scheduleSourceTrackDragClear,
+    handleSourceTrackDragEvent,
+  } = useSourceTrackDrop({
+    mediaItems,
+    sourceTracks,
+    appShellRef,
+    setIsMainAudioDropTarget,
+    importMediaIntoSourceTrack,
+  });
+  const {
     handleMainAudioDragEvent,
     handleMainAudioDragLeave,
     handleMainAudioDrop,
@@ -1705,10 +1443,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const effectivePreviewWidth = Math.min(previewWidth, previewMaxWidth);
 
   useEffect(() => {
-    sourceTrackDragPreviewRef.current = sourceTrackDragPreview;
-  }, [sourceTrackDragPreview]);
-
-  useEffect(() => {
     const editorGrid = editorGridRef.current;
     if (!editorGrid) {
       return;
@@ -1722,252 +1456,26 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => {
-    const appShell = appShellRef.current;
-    if (!appShell) {
-      return;
-    }
-
-    const isWithinAppShell = (clientX: number, clientY: number) => {
-      const bounds = appShell.getBoundingClientRect();
-      return (
-        clientX >= bounds.left &&
-        clientX <= bounds.right &&
-        clientY >= bounds.top &&
-        clientY <= bounds.bottom
-      );
-    };
-
-    const handleWindowDrag = (event: DragEvent) => {
-      if (
-        !hasDraggedFileData(event.dataTransfer) ||
-        isWithinMainAudioDropTarget(event.target)
-      ) {
-        return;
-      }
-
-      if (!isWithinAppShell(event.clientX, event.clientY)) {
-        scheduleSourceTrackDragClear();
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-      const target = resolveSourceTrackDropTargetAtPoint(
-        event.clientX,
-        event.clientY,
-      );
-      if (target) {
-        setSourceTrackDragTarget(target);
-      }
-
-      const files = getDraggedMediaFiles(event.dataTransfer);
-      if (files.length) {
-        ensureSourceTrackDragPreview(files);
-      }
-    };
-
-    const handleWindowDrop = (event: DragEvent) => {
-      if (
-        !hasDraggedFileData(event.dataTransfer) ||
-        isWithinMainAudioDropTarget(event.target)
-      ) {
-        return;
-      }
-
-      if (!isWithinAppShell(event.clientX, event.clientY)) {
-        clearSourceTrackDragState();
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-      const files = getDraggedMediaFiles(event.dataTransfer);
-      if (!files.length) {
-        clearSourceTrackDragState();
-        return;
-      }
-
-      const target = resolveSourceTrackDropTargetAtPoint(
-        event.clientX,
-        event.clientY,
-      ) ?? {
-        kind: "new-track" as const,
-      };
-      clearSourceTrackDragState();
-      void importMediaIntoSourceTrack(files, target);
-    };
-
-    const handleWindowDragLeave = (event: DragEvent) => {
-      if (!hasDraggedFileData(event.dataTransfer)) {
-        return;
-      }
-
-      const leavingWindow =
-        event.clientX <= 0 ||
-        event.clientY <= 0 ||
-        event.clientX >= window.innerWidth ||
-        event.clientY >= window.innerHeight;
-      if (leavingWindow) {
-        event.stopPropagation();
-        scheduleSourceTrackDragClear();
-      }
-    };
-
-    window.addEventListener("dragenter", handleWindowDrag, true);
-    window.addEventListener("dragover", handleWindowDrag, true);
-    window.addEventListener("dragleave", handleWindowDragLeave, true);
-    window.addEventListener("drop", handleWindowDrop, true);
-
-    return () => {
-      window.removeEventListener("dragenter", handleWindowDrag, true);
-      window.removeEventListener("dragover", handleWindowDrag, true);
-      window.removeEventListener("dragleave", handleWindowDragLeave, true);
-      window.removeEventListener("drop", handleWindowDrop, true);
-    };
-  }, [
-    clearSourceTrackDragState,
-    ensureSourceTrackDragPreview,
-    importMediaIntoSourceTrack,
-    resolveSourceTrackDropTargetAtPoint,
-    scheduleSourceTrackDragClear,
-  ]);
-
   useEffect(
     () => () => {
       if (shareCopyResetTimeoutRef.current !== null) {
         window.clearTimeout(shareCopyResetTimeoutRef.current);
       }
-
-      if (sourceTrackDragHideTimeoutRef.current !== null) {
-        window.clearTimeout(sourceTrackDragHideTimeoutRef.current);
-      }
-
-      revokeObjectUrlIfNeeded(sourceTrackDragPreviewRef.current?.thumbnailUrl);
     },
     [shareCopyResetTimeoutRef],
   );
 
-  const syncTimelineViewport = useCallback(() => {
-    const timelineScroll = timelineScrollRef.current;
-    if (!timelineScroll) {
-      return;
-    }
-
-    setTimelineViewport({
-      scrollLeft: timelineScroll.scrollLeft,
-      clientWidth: timelineScroll.clientWidth,
-      clientHeight: timelineScroll.clientHeight,
-      lanesTop: arrangementLanesRef.current?.offsetTop ?? 0,
-    });
-  }, []);
-
-  const flushZoomDraft = useCallback(
-    (label = "Adjust zoom") => {
-      const pendingZoom = zoomDraftRef.current;
-      updateZoomDraft(null);
-      if (pendingZoom === null || Math.abs(pendingZoom - zoom) <= 0.0001) {
-        return;
-      }
-
-      commitViewChange(label, (current) =>
-        patchProjectState(current, { zoom: pendingZoom }),
-      );
-    },
-    [commitViewChange, zoom, updateZoomDraft],
-  );
-
-  const setZoomValue = useCallback(
-    (label: string, nextZoom: number) => {
-      updateZoomDraft(null);
-      if (Math.abs(nextZoom - zoom) <= 0.0001) {
-        return;
-      }
-
-      commitViewChange(label, (current) =>
-        patchProjectState(current, { zoom: nextZoom }),
-      );
-    },
-    [commitViewChange, zoom, updateZoomDraft],
-  );
-
-  // Right-, Ctrl- (macOS) or middle-dragging the ruler pans the timeline;
-  // the left button only scrubs the playhead. A right- or Ctrl-drag also
-  // zooms when it moves up or down, around the time under the pointer.
-  const canStartRulerPan = useCallback(
-    (event: { button: number; ctrlKey: boolean }) =>
-      isRulerPanPress(event, shortcutLabels.mac),
-    [shortcutLabels.mac],
-  );
-  const rulerZoomRef = useRef<{ originZoom: number } | null>(null);
-  // The scroll a ruler zoom wants, put back once the new zoom has laid out
-  // so it isn't clamped to the old timeline width.
-  const rulerZoomScrollRef = useRef<{ zoom: number; left: number } | null>(
-    null,
-  );
-  const startRulerPan = useCallback(
-    (event: ReactPointerEvent<HTMLElement>) => {
-      rulerZoomRef.current = isContextMenuPress(event, shortcutLabels.mac)
-        ? { originZoom: resolvedZoom }
-        : null;
-    },
-    [resolvedZoom, shortcutLabels.mac],
-  );
-  const dragRuler = useCallback(
-    ({ dx, dy, clientX, startX, origin }: DragScrollMove) => {
-      const rulerZoom = rulerZoomRef.current;
-      const timelineScroll = timelineScrollRef.current;
-      if (!rulerZoom || !timelineScroll) {
-        return { left: origin.left - dx, top: origin.top };
-      }
-
-      const nextZoom = timelineDragZoom(rulerZoom.originZoom, -dy);
-      const viewLeft = timelineScroll.getBoundingClientRect().left;
-      // The time under the pointer at the press follows the pointer.
-      const anchorQ =
-        (origin.left - labelWidth + startX - viewLeft) /
-        (BASE_QUARTER_PX * rulerZoom.originZoom);
-      const left = anchoredTimelineScrollLeft({
-        anchorQ,
-        pointerX: clientX - viewLeft,
-        quarterPx: BASE_QUARTER_PX * nextZoom,
-        labelWidth,
-        totalQuarters,
-        clientWidth: timelineScroll.clientWidth,
-      });
-      rulerZoomScrollRef.current = { zoom: nextZoom, left };
-      updateZoomDraft(nextZoom);
-      return { left, top: origin.top };
-    },
-    [labelWidth, totalQuarters, updateZoomDraft],
-  );
-  const endRulerPan = useCallback(() => {
-    if (!rulerZoomRef.current) {
-      return;
-    }
-
-    rulerZoomRef.current = null;
-    rulerZoomScrollRef.current = null;
-    flushZoomDraft();
-  }, [flushZoomDraft]);
-  const rulerDragScroll = useDragScroll({
-    scrollRef: timelineScrollRef,
-    canStart: canStartRulerPan,
-    axis: "x",
-    momentum: !prefersReducedMotion,
-    onStart: startRulerPan,
-    thresholdAxis: "both",
-    onDrag: dragRuler,
-    onEnd: endRulerPan,
+  const { rulerDragScroll, timelineDragScroll } = useRulerGestures({
+    shortcutLabels,
+    resolvedZoom,
+    labelWidth,
+    totalQuarters,
+    prefersReducedMotion,
+    timelineScrollRef,
+    spaceHoldRef,
+    updateZoomDraft,
+    flushZoomDraft,
   });
-
-  useLayoutEffect(() => {
-    const timelineScroll = timelineScrollRef.current;
-    const pending = rulerZoomScrollRef.current;
-    if (timelineScroll && pending?.zoom === resolvedZoom) {
-      timelineScroll.scrollLeft = pending.left;
-    }
-  }, [resolvedZoom]);
 
   function handleCreateLayer() {
     if (!canCreateLayer) {
@@ -1991,102 +1499,39 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setStatus(`Created ${nextLane.name}.`);
   }
 
-  function scrollTimelineToPlayhead() {
-    const timelineScroll = timelineScrollRef.current;
-    if (!timelineScroll) {
-      return;
-    }
-
-    const playheadPx =
-      labelWidth + Math.round(playheadQRef.current * quarterPx);
-    const targetLeft = clamp(
-      playheadPx - timelineScroll.clientWidth / 2,
-      0,
-      Math.max(0, labelWidth + timelineWidth - timelineScroll.clientWidth),
-    );
-
-    timelineScroll.scrollTo({
-      left: targetLeft,
-      behavior: "smooth",
-    });
-  }
-
-  const startPlayback = useCallback(
-    (fromQ: number = playheadQRef.current) => {
-      const epsilon = 0.0001;
-      const stopQ = getPlaybackStopQ(
-        timelineClips,
-        projectMediaItems,
-        fromQ,
-        bpm,
-      );
-      if (stopQ <= fromQ + epsilon) {
-        setStatus("No more playable source clips after the playhead.");
-        return;
-      }
-
-      playbackOriginRef.current = fromQ;
-      playbackStopRef.current = stopQ;
-      setIsPlaying(true);
-    },
-    [bpm, projectMediaItems, timelineClips],
-  );
-
-  // An explicit transport action during a ruler scrub decides the state after
-  // release, so drop the pending resume.
-  const cancelScrubPlaybackResume = useCallback(() => {
-    setTimelineDragState((current) =>
-      current?.wasPlaying ? { ...current, wasPlaying: false } : current,
-    );
-  }, []);
-
-  // Ctrl/Cmd-click on an arrangement clip: select it and move the playhead to
-  // its start, scrolled into view. Playback carries on from there.
-  const jumpToClipStart = useCallback(
-    (clipId: string) => {
-      const clip = timelineClipsRef.current.find(
-        (candidate) => candidate.id === clipId,
-      );
-      if (!clip) {
-        return;
-      }
-
-      setPendingSelection(null);
-      setSelectedClipId(clip.id);
-      setPlayheadQ(clip.startQ);
-      playbackOriginRef.current = clip.startQ;
-      if (isPlaying) {
-        // The playback loop only restarts from the new origin when it stops
-        // first, so the pause commits before playback starts again.
-        cancelScrubPlaybackResume();
-        flushSync(() => setIsPlaying(false));
-        startPlayback(clip.startQ);
-      }
-
-      const timelineScroll = timelineScrollRef.current;
-      if (timelineScroll) {
-        const nextScrollLeft = revealScrollLeft({
-          targetPx: labelWidth + clip.startQ * quarterPx,
-          scrollLeft: timelineScroll.scrollLeft,
-          viewportWidth: timelineScroll.clientWidth,
-          labelWidth,
-          maxScrollLeft:
-            timelineScroll.scrollWidth - timelineScroll.clientWidth,
-        });
-        if (nextScrollLeft !== timelineScroll.scrollLeft) {
-          timelineScroll.scrollTo({ left: nextScrollLeft, behavior: "smooth" });
-        }
-      }
-    },
-    [
-      cancelScrubPlaybackResume,
-      isPlaying,
-      labelWidth,
-      quarterPx,
-      setPlayheadQ,
-      startPlayback,
-    ],
-  );
+  const {
+    isTimelineAudibleScrubbing,
+    startPlayback,
+    cancelScrubPlaybackResume,
+    jumpToClipStart,
+    stopTimelineAudibleScrub,
+    pulseTimelineAudibleScrub,
+    handleTransportToggle,
+    jumpPlayhead,
+  } = usePlayback({
+    playbackOriginRef,
+    clips,
+    timelineClips,
+    timelineClipsRef,
+    projectMediaItems,
+    bpm,
+    barLength,
+    quarterPx,
+    totalQuarters,
+    labelWidth,
+    timelineScrollRef,
+    isPlaying,
+    setIsPlaying,
+    timelineDragState,
+    setTimelineDragState,
+    playheadQRef,
+    playheadSignal,
+    setPlayheadQ,
+    setPlayheadQState,
+    setPendingSelection,
+    setSelectedClipId,
+    setStatus,
+  });
 
   const createWindowClip = useCallback(
     (
@@ -2439,30 +1884,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       `Rebuilt the arrangement with ${randomizedClips.length} randomized windows inside the source clips.`,
     );
   }
-
-  const stopTimelineAudibleScrub = useCallback(() => {
-    if (timelineScrubAudioTimeoutRef.current !== null) {
-      window.clearTimeout(timelineScrubAudioTimeoutRef.current);
-      timelineScrubAudioTimeoutRef.current = null;
-    }
-
-    setIsTimelineAudibleScrubbing(false);
-  }, []);
-
-  const pulseTimelineAudibleScrub = useCallback(
-    (durationMs: number = TIMELINE_SCRUB_AUDIO_TAIL_MS) => {
-      if (timelineScrubAudioTimeoutRef.current !== null) {
-        window.clearTimeout(timelineScrubAudioTimeoutRef.current);
-      }
-
-      setIsTimelineAudibleScrubbing(true);
-      timelineScrubAudioTimeoutRef.current = window.setTimeout(() => {
-        timelineScrubAudioTimeoutRef.current = null;
-        setIsTimelineAudibleScrubbing(false);
-      }, durationMs);
-    },
-    [],
-  );
 
   const { handleUndo, handleRedo } = useProjectHistoryCommands({
     projectHistory,
@@ -2838,28 +2259,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     startPlayback,
     timelineDragState,
   ]);
-
-  // Middle-drag, or Space + left-drag, pans the timeline from anywhere in it,
-  // including over clips. The press is claimed before lane, clip and ruler
-  // handlers see it, so a pan never selects, edits clips or moves the playhead.
-  const canStartTimelinePan = useCallback(
-    (event: { button: number }) =>
-      isTimelinePanPress(event, spaceHoldRef.current.held),
-    [],
-  );
-  const markSpacePanned = useCallback((event: { button: number }) => {
-    if (event.button === 0) {
-      spaceHoldRef.current.markPanned();
-    }
-  }, []);
-  const timelineDragScroll = useDragScroll({
-    scrollRef: timelineScrollRef,
-    canStart: canStartTimelinePan,
-    axis: "both",
-    momentum: !prefersReducedMotion,
-    capture: true,
-    onStart: markSpacePanned,
-  });
 
   // Clipboard and edit actions shared by the keyboard shortcuts and the clip
   // menus. Each is one undo step.
@@ -3904,30 +3303,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     totalQuarters,
   ]);
 
-  useEffect(
-    () => () => {
-      stopTimelineAudibleScrub();
-    },
-    [stopTimelineAudibleScrub],
-  );
-
-  useEffect(() => {
-    syncTimelineViewport();
-
-    const handleResize = () => syncTimelineViewport();
-    window.addEventListener("resize", handleResize);
-    // Panel and preview resizes change the timeline's size without a window
-    // resize.
-    const observer = new ResizeObserver(handleResize);
-    if (timelineScrollRef.current) {
-      observer.observe(timelineScrollRef.current);
-    }
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      observer.disconnect();
-    };
-  }, [syncTimelineViewport]);
-
   // The empty arrangement's call to action sizes itself below the ruler.
   useEffect(() => {
     if (showArrangementEmptyState) {
@@ -4221,142 +3596,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     totalQuarters,
   ]);
 
-  useEffect(() => {
-    if (!timelineDragState) {
-      return;
-    }
-
-    const onPointerMove = (event: PointerEvent) => {
-      if (event.pointerId !== timelineDragState.pointerId) {
-        return;
-      }
-
-      const timelineScroll = timelineScrollRef.current;
-      if (!timelineScroll) {
-        return;
-      }
-
-      // A left drag only scrubs; zooming is a right-drag on the ruler.
-      const nextQuarterPx = BASE_QUARTER_PX * timelineDragState.originZoom;
-      const deltaX = event.clientX - timelineDragState.pointerStartX;
-      const nextPlayheadQ = clamp(
-        timelineDragState.originPlayheadQ + deltaX / nextQuarterPx,
-        0,
-        totalQuarters,
-      );
-      const timelineBounds = timelineScroll.getBoundingClientRect();
-      const pointerX = clamp(
-        event.clientX - timelineBounds.left,
-        0,
-        timelineScroll.clientWidth,
-      );
-      const maxScrollLeft = Math.max(
-        0,
-        labelWidth + totalQuarters * nextQuarterPx - timelineScroll.clientWidth,
-      );
-
-      timelineScroll.scrollLeft = clamp(
-        labelWidth + nextPlayheadQ * nextQuarterPx - pointerX,
-        0,
-        maxScrollLeft,
-      );
-      pulseTimelineAudibleScrub(
-        timelineDragState.wasPlaying
-          ? TIMELINE_PLAYBACK_SCRUB_AUDIO_IDLE_MS
-          : TIMELINE_SCRUB_AUDIO_TAIL_MS,
-      );
-      setPlayheadQ(nextPlayheadQ);
-      playbackOriginRef.current = nextPlayheadQ;
-    };
-
-    const onPointerUp = (event: PointerEvent) => {
-      if (event.pointerId !== timelineDragState.pointerId) {
-        return;
-      }
-
-      stopTimelineAudibleScrub();
-      setTimelineDragState(null);
-      if (event.type === "pointerup" && timelineDragState.wasPlaying) {
-        // Batched with stopTimelineAudibleScrub so the player hands the audible
-        // scrub straight over to playback without pausing the media.
-        startPlayback(playbackOriginRef.current);
-      }
-    };
-
-    window.addEventListener("pointermove", onPointerMove);
-    window.addEventListener("pointerup", onPointerUp);
-    window.addEventListener("pointercancel", onPointerUp);
-
-    return () => {
-      window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("pointerup", onPointerUp);
-      window.removeEventListener("pointercancel", onPointerUp);
-    };
-  }, [
-    labelWidth,
-    pulseTimelineAudibleScrub,
-    setPlayheadQ,
-    startPlayback,
-    stopTimelineAudibleScrub,
-    timelineDragState,
-    totalQuarters,
-  ]);
-
-  useEffect(() => {
-    if (!isPlaying) {
-      return;
-    }
-
-    let animationFrame = 0;
-    const startedAt = performance.now();
-    const originQ = playbackOriginRef.current;
-    const stopQ = playbackStopRef.current || totalQuarters;
-    const findNextEdgeQ = (fromQ: number) =>
-      findNextClipEdgeQ(
-        timelineClipsRef.current.map((clip) => ({
-          startQ: clip.startQ,
-          endQ: getClipEndQ(clip, bpm),
-        })),
-        fromQ,
-      );
-    let committedAt = startedAt;
-    let nextEdgeQ = findNextEdgeQ(originQ);
-
-    const step = (timestamp: number) => {
-      const elapsed = (timestamp - startedAt) / 1000;
-      const nextQ = originQ + secondsToQuarters(elapsed, bpm);
-
-      if (nextQ >= stopQ) {
-        setPlayheadQ(stopQ);
-        playbackOriginRef.current = stopQ;
-        setIsPlaying(false);
-        return;
-      }
-
-      // Everything drawn per frame follows the signal; state only has to
-      // keep up with the clip under the playhead and other coarse readouts.
-      playheadQRef.current = nextQ;
-      playheadSignal.set(nextQ);
-      if (
-        nextQ >= nextEdgeQ ||
-        timestamp - committedAt >= PLAYBACK_COMMIT_INTERVAL_MS
-      ) {
-        setPlayheadQState(nextQ);
-        committedAt = timestamp;
-        nextEdgeQ = findNextEdgeQ(nextQ);
-      }
-      animationFrame = window.requestAnimationFrame(step);
-    };
-
-    animationFrame = window.requestAnimationFrame(step);
-    return () => {
-      window.cancelAnimationFrame(animationFrame);
-      // Leave state where playback stopped, or where a seek batched with the
-      // pause moved the live playhead.
-      setPlayheadQState(playheadQRef.current);
-    };
-  }, [bpm, isPlaying, playheadSignal, setPlayheadQ, totalQuarters]);
-
   const {
     handleImport,
     handleOpenSession,
@@ -4411,30 +3650,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setIsPlaying,
     setStatus,
   });
-
-  async function handleTransportToggle() {
-    if (!clips.length) {
-      return;
-    }
-
-    cancelScrubPlaybackResume();
-    if (isPlaying) {
-      setIsPlaying(false);
-      return;
-    }
-
-    startPlayback();
-  }
-
-  function jumpPlayhead(deltaBars: number) {
-    const next = clamp(
-      playheadQRef.current + deltaBars * barLength,
-      0,
-      totalQuarters,
-    );
-    setPlayheadQ(next);
-    playbackOriginRef.current = next;
-  }
 
   function selectSource(sourceTrackId: string) {
     const match = clips.find((clip) => clip.sourceTrackId === sourceTrackId);

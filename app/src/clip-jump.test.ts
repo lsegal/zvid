@@ -9,6 +9,10 @@ import {
 import { isContextMenuPress } from "./context-menu.ts";
 
 const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const usePlaybackTs = readFileSync(
+  new URL("./hooks/usePlayback.ts", import.meta.url),
+  "utf8",
+);
 
 const press = (
   extra: Partial<{ button: number; ctrlKey: boolean; metaKey: boolean }> = {},
@@ -95,9 +99,9 @@ describe("arrangement clip Ctrl/Cmd-click", () => {
   });
 
   it("restarts playback from the clip start while playing", () => {
-    const jump = appTsx.slice(
-      appTsx.indexOf("const jumpToClipStart = useCallback("),
-      appTsx.indexOf("const createWindowClip = useCallback("),
+    const jump = usePlaybackTs.slice(
+      usePlaybackTs.indexOf("const jumpToClipStart = useCallback("),
+      usePlaybackTs.indexOf("const stopTimelineAudibleScrub = useCallback("),
     );
     assert.match(
       jump,

@@ -12,6 +12,14 @@ import {
 } from "./drag-scroll.ts";
 
 const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const useRulerGesturesTs = readFileSync(
+  new URL("./hooks/useRulerGestures.ts", import.meta.url),
+  "utf8",
+);
+const usePlaybackTs = readFileSync(
+  new URL("./hooks/usePlayback.ts", import.meta.url),
+  "utf8",
+);
 
 describe("ruler pan presses", () => {
   it("pans on the right and middle buttons but not the left", () => {
@@ -116,7 +124,10 @@ describe("drag scroll momentum", () => {
 
 describe("timeline ruler", () => {
   it("pans through useDragScroll and never shows the browser menu", () => {
-    assert.match(appTsx, /useDragScroll\(\{\s*scrollRef: timelineScrollRef,/);
+    assert.match(
+      useRulerGesturesTs,
+      /useDragScroll\(\{\s*scrollRef: timelineScrollRef,/,
+    );
     assert.match(
       appTsx,
       /\{\.\.\.rulerDragScroll\.handlers\}\s*onContextMenu=\{\(event\) => \{[^}]*event\.preventDefault\(\);/,
@@ -132,23 +143,26 @@ describe("timeline ruler", () => {
 
   it("zooms on a right-drag and commits the zoom when it ends", () => {
     assert.match(
-      appTsx,
+      useRulerGesturesTs,
       /useDragScroll\(\{\s*scrollRef: timelineScrollRef,\s*canStart: canStartRulerPan,[^}]*thresholdAxis: "both",\s*onDrag: dragRuler,\s*onEnd: endRulerPan,/,
     );
     assert.match(
-      appTsx,
+      useRulerGesturesTs,
       /rulerZoomRef\.current = isContextMenuPress\(event, shortcutLabels\.mac\)/,
     );
     assert.match(
-      appTsx,
+      useRulerGesturesTs,
       /const endRulerPan = useCallback\(\(\) => \{[^}]*\}\s*rulerZoomRef\.current = null;\s*rulerZoomScrollRef\.current = null;\s*flushZoomDraft\(\);/,
     );
   });
 
   it("never zooms while scrubbing with the left button", () => {
-    const scrub = appTsx.slice(
-      appTsx.indexOf("if (!timelineDragState) {"),
-      appTsx.indexOf("}, [", appTsx.indexOf("if (!timelineDragState) {")),
+    const scrub = usePlaybackTs.slice(
+      usePlaybackTs.indexOf("if (!timelineDragState) {"),
+      usePlaybackTs.indexOf(
+        "}, [",
+        usePlaybackTs.indexOf("if (!timelineDragState) {"),
+      ),
     );
     assert.ok(scrub.includes("timelineDragState.originZoom"));
     assert.doesNotMatch(scrub, /updateZoomDraft|flushZoomDraft|clientY/);
@@ -158,7 +172,7 @@ describe("timeline ruler", () => {
 describe("timeline pan", () => {
   it("claims presses before lane, clip and ruler handlers see them", () => {
     assert.match(
-      appTsx,
+      useRulerGesturesTs,
       /useDragScroll\(\{\s*scrollRef: timelineScrollRef,\s*canStart: canStartTimelinePan,\s*axis: "both",[^}]*capture: true,/,
     );
     assert.match(

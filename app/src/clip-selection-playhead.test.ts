@@ -5,13 +5,19 @@ import { describe, it } from "node:test";
 // Selecting a clip only selects it: the playhead and playback origin stay put
 // whether playing or stopped. Only entering text editing moves to the clip.
 const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const usePlaybackTs = readFileSync(
+  new URL("./hooks/usePlayback.ts", import.meta.url),
+  "utf8",
+);
+const source = `${appTsx}
+${usePlaybackTs}`;
 
 function sliceFrom(marker: string, endMarker: string): string {
-  const start = appTsx.indexOf(marker);
+  const start = source.indexOf(marker);
   assert.notEqual(start, -1, `missing ${marker}`);
-  const end = appTsx.indexOf(endMarker, start + marker.length);
+  const end = source.indexOf(endMarker, start + marker.length);
   assert.notEqual(end, -1, `missing end of ${marker}`);
-  return appTsx.slice(start, end);
+  return source.slice(start, end);
 }
 
 function assertNoSeek(body: string) {
@@ -36,7 +42,7 @@ describe("clip selection keeps the playhead", () => {
   });
 
   it("no selection path seeks to a clip's start", () => {
-    const seeks = [...appTsx.matchAll(/setPlayheadQ\((\w+)\.startQ\)/g)];
+    const seeks = [...source.matchAll(/setPlayheadQ\((\w+)\.startQ\)/g)];
     // Only the text-edit entry and the explicit Ctrl/Cmd-click jump move to
     // a clip.
     assert.equal(seeks.length, 2, seeks.map((match) => match[0]).join(", "));
@@ -47,7 +53,7 @@ describe("clip selection keeps the playhead", () => {
     const jump = sliceFrom("const jumpToClipStart = useCallback(", "\n  );\n");
     const seekIndexes = seeks.map((match) => match.index);
     for (const body of [textEdit, jump]) {
-      const start = appTsx.indexOf(body);
+      const start = source.indexOf(body);
       assert.ok(
         seekIndexes.some(
           (index) => index >= start && index < start + body.length,

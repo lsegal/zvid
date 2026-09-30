@@ -10,6 +10,10 @@ import {
 } from "./main-audio-drop.ts";
 
 const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const useSourceTrackDropTs = readFileSync(
+  new URL("./hooks/useSourceTrackDrop.ts", import.meta.url),
+  "utf8",
+);
 const useMainAudioTs = readFileSync(
   new URL("./hooks/useMainAudio.ts", import.meta.url),
   "utf8",
@@ -139,7 +143,7 @@ describe("Audio lane wiring", () => {
   });
 
   it("keeps window-level drop handling off the Audio lane", () => {
-    const handlers = appTsx.match(
+    const handlers = useSourceTrackDropTs.match(
       /hasDraggedFileData\(event\.dataTransfer\) \|\|\s+isWithinMainAudioDropTarget\(event\.target\)/g,
     );
     assert.equal(handlers?.length, 2);

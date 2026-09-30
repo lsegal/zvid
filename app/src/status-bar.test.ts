@@ -10,6 +10,10 @@ import {
 
 const appCss = readFileSync(new URL("./App.css", import.meta.url), "utf8");
 const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const usePlaybackTs = readFileSync(
+  new URL("./hooks/usePlayback.ts", import.meta.url),
+  "utf8",
+);
 const statusBarTsx = readFileSync(
   new URL("./components/StatusBar.tsx", import.meta.url),
   "utf8",
@@ -76,7 +80,7 @@ describe("status bar wiring", () => {
   it("refreshes only the playhead cell during playback", () => {
     assert.match(statusBarTsx, /export const StatusBar = memo\(/);
     assert.match(statusPlayheadTsx, /useSyncExternalStore\(signal\.subscribe/);
-    assert.match(appTsx, /playheadSignal\.set\(nextQ\)/);
+    assert.match(usePlaybackTs, /playheadSignal\.set\(nextQ\)/);
   });
 });
 
