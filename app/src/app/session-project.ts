@@ -16,12 +16,17 @@ import {
   resolveSessionOverlaps,
 } from "../selection-overlaps.ts";
 import { clipSourceFrame, type LvpSession } from "../session.ts";
+import { snapFrameRate } from "../session-format.ts";
 import {
   readSelectionSlip,
   readSessionFills,
   readSessionFxClips,
   readSessionTexts,
 } from "../session-save.ts";
+import {
+  MIN_CANVAS_DIMENSION,
+  readSessionEncoding,
+} from "../session-settings.ts";
 import {
   sessionSourceTrackColorIndex,
   sourceTrackColorIndex,
@@ -272,8 +277,17 @@ export function sessionToProject(
   return {
     bpm,
     fps,
-    canvasWidth: Math.max(320, session.timeline?.canvasWidth ?? 1080),
-    canvasHeight: Math.max(320, session.timeline?.canvasHeight ?? 1920),
+    canvasWidth: Math.max(
+      MIN_CANVAS_DIMENSION,
+      session.timeline?.canvasWidth ?? 1080,
+    ),
+    canvasHeight: Math.max(
+      MIN_CANVAS_DIMENSION,
+      session.timeline?.canvasHeight ?? 1920,
+    ),
+    ...(session.timeline?.encoding !== undefined
+      ? { encoding: readSessionEncoding(session.timeline.encoding) }
+      : {}),
     lanes,
     sourceTracks,
     sourceSpans,
@@ -316,6 +330,7 @@ export function buildStandaloneProject(mediaItems: MediaItem[]) {
   const lanes = DEFAULT_LANES;
   const canvasWidth = mediaItems.find((item) => item.width)?.width ?? 1080;
   const canvasHeight = mediaItems.find((item) => item.height)?.height ?? 1920;
+  const fps = mediaFrameRate(mediaItems);
   const sourceTracks = mediaItems.map<SourceTrack>((item, index) => ({
     id: `import-track-${index}`,
     name: item.name.replace(/\.[^/.]+$/, ""),
@@ -367,5 +382,17 @@ export function buildStandaloneProject(mediaItems: MediaItem[]) {
     arrangementClips,
     canvasWidth,
     canvasHeight,
+    fps,
   };
+}
+
+/**
+ * The frame rate of the first video among `mediaItems`, snapped to a standard
+ * rate, for a session created from them. Undefined when none has one.
+ */
+export function mediaFrameRate(mediaItems: readonly MediaItem[]) {
+  const fps = mediaItems.find(
+    (item) => item.hasVideo && item.fps && Number.isFinite(item.fps),
+  )?.fps;
+  return fps && fps > 0 ? snapFrameRate(fps) : undefined;
 }

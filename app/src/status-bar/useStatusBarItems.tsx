@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { type Dispatch, type SetStateAction, useMemo } from "react";
 import { ShareLinkButton } from "../components/ShareLinkButton";
 import type { StatusItem } from "../components/StatusBar";
 import { StatusPlayhead } from "../components/StatusPlayhead";
@@ -25,6 +25,7 @@ export type StatusBarItemsInputs = {
   playheadSignal: PlayheadSignal;
   previewMedia: StatusAudioInfo | undefined;
   sessionName: string | null;
+  setIsSessionSettingsOpen: Dispatch<SetStateAction<boolean>>;
   shareUrl: string;
   signature: MeterSignature;
   timelineMode: StatusTimelineMode;
@@ -32,7 +33,8 @@ export type StatusBarItemsInputs = {
 };
 
 // The status bar items for the current app state, with the live playhead
-// readout and the Copy share link button.
+// readout, the resolution opening Session Settings and the Copy share link
+// button.
 export function useStatusBarItems({
   bpm,
   canvasHeight,
@@ -45,6 +47,7 @@ export function useStatusBarItems({
   playheadSignal,
   previewMedia,
   sessionName,
+  setIsSessionSettingsOpen,
   shareUrl,
   signature,
   timelineMode,
@@ -92,6 +95,9 @@ export function useStatusBarItems({
             },
           ];
         }
+        if (item.id === "resolution") {
+          return [{ ...item, onClick: () => setIsSessionSettingsOpen(true) }];
+        }
         // The Copy share link button sits right after the share status.
         if (
           item.id === "collaboration" &&
@@ -120,6 +126,7 @@ export function useStatusBarItems({
       playheadSignal,
       previewMedia,
       sessionName,
+      setIsSessionSettingsOpen,
       shareUrl,
       signature,
       timelineMode,

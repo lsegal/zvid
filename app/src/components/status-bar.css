@@ -1,0 +1,17 @@
+.status-bar__item--button {
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.status-bar__item--button:hover .status-bar__value,
+.status-bar__item--button:focus-visible .status-bar__value {
+  color: #ffe084;
+}
+
+.status-bar__item--button:focus-visible {
+  outline: 1px solid rgba(246, 183, 60, 0.6);
+  outline-offset: -1px;
+}

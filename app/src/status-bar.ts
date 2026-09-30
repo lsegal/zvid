@@ -6,6 +6,8 @@ export type StatusItem = {
   value: ReactNode;
   title?: string;
   align?: "start" | "end";
+  // Makes the item a button, e.g. the resolution opening Session Settings.
+  onClick?: () => void;
 };
 
 // Splits status items into the leading and trailing groups of the bar while

@@ -6,6 +6,7 @@ import {
   probeAlsRecordings,
   rankWorkspaceSessions,
   resolveAlsMedia,
+  withFormatNotes,
 } from "../als-import";
 import {
   collectSessionMediaPaths,
@@ -13,6 +14,7 @@ import {
   type ServerMediaRef,
   type SessionOpenResponse,
 } from "../session";
+import { detectOpenedSessionFormat } from "../session-format";
 import type {
   Harness,
   MediaSelection,
@@ -299,7 +301,7 @@ async function openWorkspaceAls(
       : [];
   });
   try {
-    const probed = await probeAlsRecordings(
+    const { session: probed, formatNotes } = await probeAlsRecordings(
       session,
       recordingRefs,
       probeRecordingFrames,
@@ -310,7 +312,7 @@ async function openWorkspaceAls(
       sessionPath: alsSavePath(
         `${selection.rootName}/${selection.sessionPath}`,
       ),
-      alsImport: summary,
+      alsImport: withFormatNotes(summary, formatNotes),
     };
   } finally {
     for (const ref of recordingRefs) {
@@ -320,22 +322,37 @@ async function openWorkspaceAls(
 }
 
 // Fills an imported Live set's recording metadata from the refs the server
-// located, then drops those refs so only the session's media is hydrated.
-async function finishAlsOpen(
+// located, then drops those refs so only the session's media is hydrated. A
+// session opened from an `.lvp` gets the canvas size and frame rate it lacks
+// from its media instead.
+async function finishSessionOpen(
   payload: SessionOpenResponse,
 ): Promise<SessionOpenResponse> {
   const { recordingRefs, ...rest } = payload;
+  if (!rest.alsImport) {
+    return {
+      ...rest,
+      session: await detectOpenedSessionFormat(
+        rest.session,
+        rest.mediaRefs,
+        probeRecordingFrames,
+      ),
+    };
+  }
+
   if (!recordingRefs?.length) {
     return rest;
   }
 
+  const { session, formatNotes } = await probeAlsRecordings(
+    rest.session,
+    recordingRefs,
+    probeRecordingFrames,
+  );
   return {
     ...rest,
-    session: await probeAlsRecordings(
-      rest.session,
-      recordingRefs,
-      probeRecordingFrames,
-    ),
+    session,
+    alsImport: withFormatNotes(rest.alsImport, formatNotes),
   };
 }
 
@@ -369,7 +386,7 @@ async function postSessionOpen(
     );
   }
 
-  return finishAlsOpen(payload);
+  return finishSessionOpen(payload);
 }
 
 function buildWorkspaceOpenPayload(
@@ -523,7 +540,15 @@ export function createWebHarness(): Harness {
         const session = JSON.parse(
           new TextDecoder().decode(bytes),
         ) as LvpSession;
-        return buildWorkspaceOpenPayload(session, selection);
+        const payload = buildWorkspaceOpenPayload(session, selection);
+        return {
+          ...payload,
+          session: await detectOpenedSessionFormat(
+            session,
+            payload.mediaRefs,
+            probeRecordingFrames,
+          ),
+        };
       }
 
       if (selection.kind === "path") {

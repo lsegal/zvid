@@ -142,10 +142,13 @@ import {
   MediaSyncSkeleton,
   usePrefersReducedMotion,
 } from "./components/MediaSyncSkeleton";
+import { MenuChevron } from "./components/MenuChevron";
 import { OfflineMediaDialog } from "./components/OfflineMediaDialog";
 import { PreviewTransformOverlay } from "./components/PreviewTransformOverlay";
+import { SessionSettingsDialog } from "./components/SessionSettingsDialog";
 import { ShareLinkIconButton } from "./components/ShareLinkButton";
 import { StatusBar, type StatusMessage } from "./components/StatusBar";
+import { TempoPill } from "./components/TempoPill";
 import {
   Dialog,
   DialogClose,
@@ -243,6 +246,10 @@ import { resolvePreviewLayers } from "./preview-edit.ts";
 import { selectionHint } from "./selection-hint.ts";
 import { MAX_LAYERS } from "./selection-overlaps";
 import { offlineSessionMediaIds } from "./session-media.ts";
+import {
+  applySessionSettings,
+  sessionSettingsFromProject,
+} from "./session-settings.ts";
 import { shareLinkVisible } from "./share-link";
 import { useKeyboardShortcuts } from "./shortcuts/useKeyboardShortcuts.ts";
 import { useSpacePlayback } from "./shortcuts/useSpacePlayback.ts";
@@ -434,6 +441,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const [isMediaSyncDialogOpen, setIsMediaSyncDialogOpen] = useState(false);
   const [isMediaStorageDialogOpen, setIsMediaStorageDialogOpen] =
     useState(false);
+  const [isSessionSettingsOpen, setIsSessionSettingsOpen] = useState(false);
   const [mediaHydrationTick, setMediaHydrationTick] = useState(0);
 
   const [sessionSource, setSessionSource] = useState<WorkspaceSessionSource>(
@@ -2218,6 +2226,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     playheadSignal,
     previewMedia,
     sessionName,
+    setIsSessionSettingsOpen,
     shareUrl,
     signature,
     timelineMode,
@@ -2261,14 +2270,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             <DropdownMenuTrigger asChild>
               <button className="ghost-button file-menu-button" type="button">
                 <span>File</span>
-                <span className="file-menu-button__chevron" aria-hidden="true">
-                  <svg viewBox="0 0 16 16" role="presentation">
-                    <path
-                      d="M4.47 6.22a.75.75 0 0 1 1.06.03L8 8.84l2.47-2.59a.75.75 0 1 1 1.08 1.04l-3.01 3.16a.75.75 0 0 1-1.08 0L4.44 7.29a.75.75 0 0 1 .03-1.07Z"
-                      fill="currentColor"
-                    />
-                  </svg>
-                </span>
+                <MenuChevron />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
@@ -2302,6 +2304,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 onSelect={() => setIsMediaStorageDialogOpen(true)}
               >
                 Media Storage…
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setIsSessionSettingsOpen(true)}>
+                Session Settings…
               </DropdownMenuItem>
               {inSharedMediaSession ? (
                 <DropdownMenuItem
@@ -2339,14 +2344,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             <DropdownMenuTrigger asChild>
               <button className="ghost-button file-menu-button" type="button">
                 <span>Edit</span>
-                <span className="file-menu-button__chevron" aria-hidden="true">
-                  <svg viewBox="0 0 16 16" role="presentation">
-                    <path
-                      d="M4.47 6.22a.75.75 0 0 1 1.06.03L8 8.84l2.47-2.59a.75.75 0 1 1 1.08 1.04l-3.01 3.16a.75.75 0 0 1-1.08 0L4.44 7.29a.75.75 0 0 1 .03-1.07Z"
-                      fill="currentColor"
-                    />
-                  </svg>
-                </span>
+                <MenuChevron />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
@@ -2361,37 +2359,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
               <DropdownMenuEntries entries={getEditMenuEntries()} />
             </DropdownMenuContent>
           </DropdownMenu>
-          <div className="tempo-pill">
-            <button
-              aria-label="Decrease tempo"
-              className="tempo-pill__adjust"
-              onClick={() =>
-                commitProjectChange("Adjust BPM", (current) =>
-                  patchProjectState(current, {
-                    bpm: clamp(current.bpm - 5, 60, 220),
-                  }),
-                )
-              }
-              type="button"
-            >
-              −
-            </button>
-            <span>{bpm.toFixed(0)} BPM</span>
-            <button
-              aria-label="Increase tempo"
-              className="tempo-pill__adjust"
-              onClick={() =>
-                commitProjectChange("Adjust BPM", (current) =>
-                  patchProjectState(current, {
-                    bpm: clamp(current.bpm + 5, 60, 220),
-                  }),
-                )
-              }
-              type="button"
-            >
-              +
-            </button>
-          </div>
+          <TempoPill bpm={bpm} commitProjectChange={commitProjectChange} />
         </div>
 
         <div className="topbar__group topbar__group--right">
@@ -2632,6 +2600,17 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         onCleared={handleMediaStorageCleared}
         onOpenChange={setIsMediaStorageDialogOpen}
         open={isMediaStorageDialogOpen}
+      />
+
+      <SessionSettingsDialog
+        onApply={(settings) =>
+          commitProjectChange("Session Settings", (current) =>
+            applySessionSettings(current, settings),
+          )
+        }
+        onOpenChange={setIsSessionSettingsOpen}
+        open={isSessionSettingsOpen}
+        settings={sessionSettingsFromProject(projectHistory.present)}
       />
 
       <MediaSyncDialog

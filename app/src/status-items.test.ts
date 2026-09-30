@@ -141,8 +141,8 @@ describe("buildStatusItems", () => {
       {
         id: "resolution",
         label: "Res",
-        value: "1920x1080",
-        title: "Resolution: 1920 x 1080",
+        value: "1920x1080 · 30 fps",
+        title: "Resolution: 1920 x 1080 at 30 fps",
       },
       {
         id: "audio",

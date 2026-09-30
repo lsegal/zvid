@@ -6,16 +6,31 @@ import {
   type StatusMessage,
   statusMessageClears,
 } from "../status-bar";
+import "./status-bar.css";
 
 export type { StatusItem, StatusMessage } from "../status-bar";
 
 function StatusBarItem({ item }: { item: StatusItem }) {
-  return (
-    <div className="status-bar__item" title={item.title}>
+  const content = (
+    <>
       {item.label ? (
         <span className="status-bar__label">{item.label}</span>
       ) : null}
       <span className="status-bar__value">{item.value}</span>
+    </>
+  );
+  return item.onClick ? (
+    <button
+      className="status-bar__item status-bar__item--button"
+      onClick={item.onClick}
+      title={item.title}
+      type="button"
+    >
+      {content}
+    </button>
+  ) : (
+    <div className="status-bar__item" title={item.title}>
+      {content}
     </div>
   );
 }
