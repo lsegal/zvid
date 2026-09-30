@@ -273,9 +273,12 @@ test("the transform handles step aside while editing text", async ({
       async () => {
         await page.getByRole("button", { name: "Play timeline" }).click();
         await expect(editor).toHaveCount(0);
-        // A slow runner can play past the clip, or to the end, before a
-        // pause lands. A click on the ruler stops playback on the clip
-        // instead, and keeps the selection.
+        // Where a pause lands depends on the runner's speed, and a ruler
+        // click while playing resumes playback once released. So let
+        // playback run to the end of the clip and stop, then click the ruler
+        // to move the playhead back onto the clip, which keeps the selection.
+        const play = page.getByRole("button", { name: "Play timeline" });
+        await expect(play).toBeVisible({ timeout: 15_000 });
         const clipBox = await clip.boundingBox();
         const ruler = await page.locator(".ruler-row__content").boundingBox();
         if (!clipBox || !ruler) {
@@ -285,9 +288,7 @@ test("the transform handles step aside while editing text", async ({
           clipBox.x + clipBox.width / 2,
           ruler.y + ruler.height / 2,
         );
-        await expect(
-          page.getByRole("button", { name: "Play timeline" }),
-        ).toBeVisible();
+        await expect(play).toBeVisible();
       },
     ],
   ];
