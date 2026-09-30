@@ -1,4 +1,5 @@
 import { WandIcon } from "./WandIcon";
+import "./arrangement-empty-state.css";
 
 // Floating call to action over an empty arrangement. Only the two buttons take
 // pointer events, so drag-to-create still works on the lanes underneath.

@@ -1,5 +1,6 @@
 import type { TimelineSelection } from "../../app/types.ts";
 import { selectionHint } from "../../selection-hint.ts";
+import "./selection-overlay.css";
 
 type SelectionOverlayProps = {
   selection: TimelineSelection;

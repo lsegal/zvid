@@ -15,6 +15,7 @@ import {
 } from "../../timeline-grid";
 import { TransportPlayheadReadout } from "../LivePlayhead";
 import { Select } from "../ui/select";
+import "./timeline-toolbar.css";
 
 type TimelineToolbarProps = {
   playheadSignal: PlayheadSignal;

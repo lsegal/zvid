@@ -3,6 +3,7 @@ import type { ArrangementClip, Lane } from "../../app/types.ts";
 import type { LaneStatus } from "../../hooks/useTimelineLanes.ts";
 import { LaneRow, type LaneRowContext } from "./LaneRow";
 import { LayerHeader, type LayerHeaderContext } from "./LayerHeader";
+import "./arrangement-lanes.css";
 
 type ArrangementLanesProps = {
   arrangementLanesRef: RefObject<HTMLDivElement | null>;

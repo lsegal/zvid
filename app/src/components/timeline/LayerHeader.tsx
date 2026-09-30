@@ -7,6 +7,7 @@ import type { useLayerActions } from "../../hooks/useLayerActions.ts";
 import type { LaneStatus } from "../../hooks/useTimelineLanes.ts";
 import type { useMenus } from "../../menus/useMenus.ts";
 import { LayerNameInput } from "../LayerNameInput";
+import "./layer-header.css";
 
 type LayerActions = ReturnType<typeof useLayerActions>;
 

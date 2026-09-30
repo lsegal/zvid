@@ -1,0 +1,111 @@
+.ruler-row {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  background: rgba(35, 37, 52, 0.94);
+  backdrop-filter: blur(12px);
+}
+
+.ruler-row__content {
+  height: 60px;
+  background-color: rgba(15, 16, 24, 0.3);
+}
+
+.timeline-playhead-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  transform: translateX(-50%);
+  background: #f6b73c;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.timeline-playhead-marker::before {
+  content: '';
+  position: absolute;
+  top: 28px;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  border-radius: 2px;
+  background: #f6b73c;
+}
+
+.ruler-row__content--interactive {
+  cursor: ew-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+.ruler-row__content--interactive.is-dragging,
+.ruler-row.is-grab-panning,
+.ruler-row.is-grab-panning * {
+  cursor: grabbing;
+}
+
+.ruler-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+}
+
+.ruler-marker::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 12px;
+  left: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.ruler-marker span {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.78rem;
+}
+
+.track-label__offline {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #ffe084;
+  font: inherit;
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.track-label__offline:hover,
+.track-label__offline:focus-visible {
+  color: #fff3c4;
+  text-decoration-style: solid;
+}
+
+.track-label__offline--syncing {
+  display: inline-flex;
+  align-items: center;
+  color: #cdddff;
+  font-variant-numeric: tabular-nums;
+}
+
+.track-label__offline--syncing:hover,
+.track-label__offline--syncing:focus-visible {
+  color: #e6eeff;
+}

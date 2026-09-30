@@ -1,0 +1,90 @@
+.track-label--lane {
+  cursor: pointer;
+}
+
+.track-label__select {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: inherit;
+}
+
+.track-label__select:focus-visible {
+  outline: 2px solid var(--lane-selected-accent);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.track-label__rename {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 6px;
+  border: 1px solid var(--lane-selected-accent);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.25);
+  color: inherit;
+  font: inherit;
+  outline: none;
+}
+
+/* Drag handle for reordering layers (#478): faint until the header is
+   hovered or focused, and the only part of the header that starts a drag. */
+.track-label__grip {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 28px;
+  margin-right: -8px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--muted);
+  opacity: 0.45;
+  cursor: grab;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+  transition: opacity 120ms ease, color 120ms ease;
+}
+
+.track-label__grip svg {
+  width: 16px;
+  height: 16px;
+}
+
+.track-label--lane:hover .track-label__grip,
+.track-label--lane:focus-within .track-label__grip,
+.track-label__grip[aria-pressed='true'] {
+  opacity: 1;
+}
+
+.track-label__grip:hover,
+.track-label__grip[aria-pressed='true'] {
+  color: var(--ink);
+}
+
+.track-label__grip:active,
+.track-label__grip[aria-pressed='true'] {
+  cursor: grabbing;
+}
+
+.track-label__grip:focus-visible {
+  outline: 2px solid var(--lane-selected-accent);
+  outline-offset: 1px;
+}
+
+.track-label__grip:disabled {
+  opacity: 0.2;
+  cursor: default;
+}
+
+.timeline-canvas--narrow-labels .track-label__grip {
+  margin-right: -4px;
+}

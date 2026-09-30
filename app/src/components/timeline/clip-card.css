@@ -1,0 +1,245 @@
+.clip-card {
+  position: absolute;
+  top: 14px;
+  height: 44px;
+  border-radius: 9px;
+  border: 1px solid var(--line-strong);
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) 10px;
+  grid-template-rows: minmax(0, 1fr);
+  color: var(--ink);
+  text-align: left;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.clip-card__body,
+.clip-card__handle {
+  border: none;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+/* The handles sit over the body's edges and stay hidden until the clip is
+   hovered, keyboard-focused or trimmed; selection alone shows only the
+   outline. Hidden handles keep their hit area, so an edge can still be
+   grabbed without hovering first. */
+.clip-card__handle {
+  position: relative;
+  z-index: 1;
+  grid-row: 1;
+  background: var(--clip-accent, var(--line-strong));
+  cursor: ew-resize;
+  opacity: 0;
+  transition: opacity 100ms ease;
+}
+
+.clip-card:hover .clip-card__handle,
+.clip-card:has(:focus-visible) .clip-card__handle,
+.clip-card--trimming .clip-card__handle {
+  opacity: 1;
+}
+
+/* Without hover there is no way to reveal them, so always show them. */
+@media (hover: none) {
+  .clip-card__handle {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clip-card__handle {
+    transition: none;
+  }
+}
+
+.clip-card__handle--start {
+  grid-column: 1;
+  border-radius: 8px 0 0 8px;
+}
+
+.clip-card__handle--end {
+  grid-column: 3;
+  border-radius: 0 8px 8px 0;
+}
+
+.clip-card__body {
+  grid-row: 1;
+  grid-column: 1 / -1;
+  min-width: 0;
+  display: flex;
+  text-align: left;
+  cursor: grab;
+}
+
+/* The clip's first frame. It gives way to the label on narrow clips. */
+.clip-card__thumb {
+  flex: none;
+  width: clamp(0px, calc(100% - 48px), 40px);
+  background-color: rgba(0, 0, 0, 0.35);
+  background-position: center;
+  background-size: cover;
+  border-right: 1px solid rgba(0, 0, 0, 0.35);
+}
+
+/* A text clip's "T", in its text color. */
+.clip-card__glyph {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: clamp(0px, calc(100% - 48px), 28px);
+  border-right: 1px solid rgba(0, 0, 0, 0.35);
+  background-color: rgba(0, 0, 0, 0.35);
+  color: var(--ink);
+  font-family: Georgia, serif;
+  font-size: 1rem;
+  font-weight: 700;
+  overflow: hidden;
+}
+
+.clip-card__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  /* Clears the handle columns, which overlay the body's edges. */
+  padding: 7px 20px;
+}
+
+/* The frame already clears the start handle. */
+.clip-card__thumb + .clip-card__text {
+  padding-left: 10px;
+}
+
+.clip-card__body:active {
+  cursor: grabbing;
+}
+
+/* A fill clip's color or gradient, drawn behind its handles and label. */
+.clip-card__fill {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* FX clips draw nothing themselves: a translucent, hatched body over what
+   the lane shows. */
+.clip-card--fx {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--clip-accent) 28%, transparent) 0 4px,
+    transparent 4px 10px
+  );
+  border-style: dashed;
+}
+
+.clip-card__glyph--fx {
+  color: var(--clip-accent);
+  font-family: inherit;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+}
+
+/* Frames sampled along the clip, drawn behind its handles and label. */
+.clip-card__filmstrip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.clip-card__tile {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.35);
+  background-position: center;
+  background-size: cover;
+  box-shadow: inset -1px 0 rgba(0, 0, 0, 0.35);
+}
+
+.clip-card--filmstrip .clip-card__body,
+.clip-card--filmstrip .clip-card__handle {
+  position: relative;
+}
+
+/* A scrim keeps the label readable over the frames. */
+.clip-card--filmstrip .clip-card__text {
+  background: linear-gradient(
+    90deg,
+    rgba(8, 10, 20, 0.72),
+    rgba(8, 10, 20, 0.4) 60%,
+    rgba(8, 10, 20, 0.1)
+  );
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.clip-card--filmstrip .clip-card__meta {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.clip-card__handle::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+      circle at center,
+      rgba(0, 0, 0, 0.55) 1.5px,
+      transparent 2px
+    )
+    center top / 4px 6px repeat-y;
+}
+
+.clip-card strong {
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.clip-card__meta {
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A neutral double ring (near-white over a dark halo) plus a lift, so the
+   selection reads against every clip accent, amber included, and over busy
+   filmstrips. The clip paints over its neighbors but under the range
+   selection, the playhead and the sticky track labels. Keyboard focus inside
+   a clip shows the same ring. */
+.clip-card--selected,
+.clip-card:has(:focus-visible) {
+  z-index: var(--z-timeline-selected-clip);
+  outline: 2px solid var(--selection-ring);
+  outline-offset: 1px;
+  box-shadow:
+    0 0 0 4px rgba(0, 0, 0, 0.55),
+    0 6px 14px rgba(0, 0, 0, 0.45);
+}
+
+.clip-card--selected {
+  transform: translateY(-1px);
+}
+
+/* The clip's ring replaces the global amber focus glow, which would read as
+   an amber clip. */
+.clip-card :focus-visible {
+  box-shadow: none;
+}
+
+/* The clip label stays above the skeleton. */
+.clip-card.is-syncing .clip-card__body,
+.clip-card.is-syncing .clip-card__handle {
+  position: relative;
+}

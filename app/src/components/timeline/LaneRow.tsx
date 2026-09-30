@@ -14,6 +14,7 @@ import { startLaneSelectionGesture } from "../../lane-selection-gesture.ts";
 import type { useMenus } from "../../menus/useMenus.ts";
 import { ClipCard, type ClipCardContext } from "./ClipCard";
 import { SelectionOverlay } from "./SelectionOverlay";
+import "./lane-row.css";
 
 // What every layer's lane in the arrangement shares.
 export type LaneRowContext = {

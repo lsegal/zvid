@@ -13,6 +13,7 @@ import { formatSourceTracksSummary } from "../../source-tracks-section.ts";
 import { SourceEmptyState } from "../SourceEmptyState";
 import type { SourceSpanContext } from "./SourceSpan";
 import { SourceTrackRow } from "./SourceTrackRow";
+import "./source-tracks.css";
 
 type SourceTracksProps = {
   sourceTracks: SourceTrack[];

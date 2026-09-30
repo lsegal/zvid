@@ -12,6 +12,7 @@ import { MainWaveform } from "../../MainWaveform";
 import type { useMenus } from "../../menus/useMenus.ts";
 import { getMediaSyncClassName } from "../../remote-media-sync.ts";
 import { MediaSyncSkeleton } from "../MediaSyncSkeleton";
+import "./main-audio-row.css";
 
 type MainAudioRowProps = {
   audio: ReturnType<typeof useMainAudio>;
