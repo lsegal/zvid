@@ -1,0 +1,98 @@
+/* The shared Select (components/ui/select.tsx). The trigger is a plain field
+ * that callers size and pad; the list uses the dropdown menus' dark panel. */
+
+.select-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  background: var(--bg-elevated);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.select-trigger > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select-trigger[data-disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.select-trigger__icon {
+  display: inline-flex;
+  flex: none;
+  color: var(--muted);
+}
+
+.select-trigger__icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.select-content {
+  min-width: var(--radix-select-trigger-width);
+  max-height: min(360px, var(--radix-select-content-available-height));
+  overflow: hidden;
+  padding: 6px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    radial-gradient(circle at top left, rgba(246, 183, 60, 0.14), transparent 34%),
+    linear-gradient(180deg, rgb(39, 42, 59), rgb(26, 29, 40));
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.38);
+  color: var(--ink);
+  z-index: 70;
+  animation: dropdown-slide 140ms ease;
+}
+
+.select-content__viewport {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.select-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 34px;
+  padding: 0 10px 0 12px;
+  border-radius: 10px;
+  color: var(--ink);
+  font-size: 0.84rem;
+  outline: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.select-item[data-highlighted] {
+  background: rgba(124, 161, 255, 0.14);
+  color: #f8fbff;
+}
+
+.select-item[data-state='checked'] {
+  color: var(--amber);
+}
+
+.select-item[data-disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.select-item__check {
+  display: inline-flex;
+}
+
+.select-item__check svg {
+  width: 14px;
+  height: 14px;
+}

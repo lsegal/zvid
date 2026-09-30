@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { Knob } from "../ui/Knob";
+import { Select } from "../ui/select";
 import type { FxChainProps } from "./FxChain";
 import type { FxEditMode } from "./types";
 
@@ -237,16 +238,13 @@ function FxAnimationSelect<T extends string>({
   return (
     <label className="fx-select">
       <span className="fx-select__label">{label}</span>
-      <select
-        onChange={(event) => onChange(event.target.value as T)}
+      <Select
+        aria-label={label}
+        data-fx-no-drag
+        onValueChange={onChange}
+        options={options.map((option) => ({ value: option, label: option }))}
         value={value}
-      >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
+      />
     </label>
   );
 }

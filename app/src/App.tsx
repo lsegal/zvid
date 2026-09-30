@@ -33,7 +33,7 @@ import {
   PREVIEW_MIN_WIDTH,
   PREVIEW_RESIZE_KEY_STEP,
   PREVIEW_WIDTH_STORAGE_KEY,
-  SIGNATURES,
+  SIGNATURE_OPTIONS,
   SNAP_OPTIONS,
   TIMELINE_DRAG_EPSILON,
   TIMELINE_PLAYBACK_SCRUB_AUDIO_IDLE_MS,
@@ -165,6 +165,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
+import { Select } from "./components/ui/select";
 import { WandIcon } from "./components/WandIcon";
 import {
   computeActiveClips,
@@ -2828,20 +2829,16 @@ function App({ boot }: { boot: WorkspaceBoot }) {
 
                 <label className="signature-picker">
                   <span>Time Sig</span>
-                  <select
-                    value={signatureId}
-                    onChange={(event) =>
+                  <Select
+                    aria-label="Time signature"
+                    onValueChange={(value) =>
                       commitProjectPatch("Change time signature", {
-                        signatureId: event.target.value,
+                        signatureId: value,
                       })
                     }
-                  >
-                    {SIGNATURES.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.id}
-                      </option>
-                    ))}
-                  </select>
+                    options={SIGNATURE_OPTIONS}
+                    value={signatureId}
+                  />
                 </label>
 
                 <div className="layer-toolbar">

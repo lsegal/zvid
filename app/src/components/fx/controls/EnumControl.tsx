@@ -1,3 +1,4 @@
+import { Select } from "../../ui/select";
 import type { FxParameterControlProps } from "../types";
 
 export function EnumControl({
@@ -10,19 +11,18 @@ export function EnumControl({
     return (
       <label className="fx-select">
         <span className="fx-select__label">{parameter.label}</span>
-        <select
+        <Select
+          aria-label={parameter.label}
           data-fx-no-drag
-          onChange={(event) =>
-            onSetParameter(device, parameter.key, event.target.value, "commit")
+          onValueChange={(value) =>
+            onSetParameter(device, parameter.key, value, "commit")
           }
+          options={(parameter.options ?? []).map((option) => ({
+            value: option,
+            label: option,
+          }))}
           value={parameter.stringValue}
-        >
-          {parameter.options?.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
+        />
       </label>
     );
   }

@@ -42,6 +42,20 @@ button {
   cursor: pointer;
 }
 
+/* Dropdowns use the themed Select (components/ui/select.tsx). A native one
+ * gets opaque colors: Chromium on Windows paints its option list with the
+ * select's own background, so a translucent one comes out light gray. */
+select {
+  background-color: var(--bg-elevated);
+  color: var(--ink);
+}
+
+select option,
+select optgroup {
+  background-color: var(--bg-elevated);
+  color: var(--ink);
+}
+
 button,
 input,
 select {

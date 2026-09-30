@@ -1179,7 +1179,7 @@
 }
 
 .segmented-control button,
-.signature-picker select {
+.signature-picker .select-trigger {
   border: none;
   background: transparent;
   color: var(--muted);
@@ -1220,7 +1220,7 @@
   text-transform: uppercase;
 }
 
-.signature-picker select {
+.signature-picker .select-trigger {
   padding: 0;
   color: var(--ink);
 }
