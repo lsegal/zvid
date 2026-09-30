@@ -5,9 +5,10 @@ import {
   listMediaSync,
   mediaSyncLabel,
   mediaSyncState,
+  type RemoteMediaMisses,
   summarizeMediaSync,
 } from "./media-sync.ts";
-import type { PeerMediaProgress } from "./peer-media-sync.ts";
+import type { RemoteMediaProgress } from "./remote-media-sync.ts";
 
 function media(id: string, availability: MediaAvailability): MediaItem {
   return {
@@ -24,8 +25,9 @@ function media(id: string, availability: MediaAvailability): MediaItem {
   } as MediaItem;
 }
 
-const none = new Set<string>();
-const noProgress = new Map<string, PeerMediaProgress>();
+const none: RemoteMediaMisses = new Map();
+const noProgress = new Map<string, RemoteMediaProgress>();
+const peerMiss = (id: string): RemoteMediaMisses => new Map([[id, "peer"]]);
 
 describe("mediaSyncState", () => {
   it("reports ready media as ready in and out of a share", () => {
@@ -45,7 +47,7 @@ describe("mediaSyncState", () => {
       "offline",
     );
     assert.equal(
-      mediaSyncState(media("a", "offline"), undefined, new Set(["a"]), false),
+      mediaSyncState(media("a", "offline"), undefined, peerMiss("a"), false),
       "offline",
     );
   });
@@ -65,7 +67,7 @@ describe("mediaSyncState", () => {
     assert.equal(
       mediaSyncState(
         media("a", "offline"),
-        { received: 1, total: 4, phase: "receiving" },
+        { source: "peer", received: 1, total: 4, phase: "receiving" },
         none,
         true,
       ),
@@ -75,7 +77,7 @@ describe("mediaSyncState", () => {
 
   it("reports a peer miss as unavailable", () => {
     assert.equal(
-      mediaSyncState(media("a", "offline"), undefined, new Set(["a"]), true),
+      mediaSyncState(media("a", "offline"), undefined, peerMiss("a"), true),
       "unavailable",
     );
   });
@@ -106,9 +108,17 @@ describe("listMediaSync", () => {
       sourceClips: [{ mediaId: "miss" }, { mediaId: "wait" }],
       mainAudioId: "main",
       progress: new Map([
-        ["recv", { received: 5, total: 10, phase: "receiving" as const }],
+        [
+          "recv",
+          {
+            source: "peer" as const,
+            received: 5,
+            total: 10,
+            phase: "receiving" as const,
+          },
+        ],
       ]),
-      misses: new Set(["miss"]),
+      misses: peerMiss("miss"),
       inSharedSession: true,
     });
     assert.deepEqual(
@@ -158,7 +168,15 @@ describe("summarizeMediaSync", () => {
         ],
         sourceClips: [],
         progress: new Map([
-          ["c", { received: 1, total: 2, phase: "receiving" as const }],
+          [
+            "c",
+            {
+              source: "peer" as const,
+              received: 1,
+              total: 2,
+              phase: "receiving" as const,
+            },
+          ],
         ]),
         misses: none,
         inSharedSession: true,
@@ -170,6 +188,7 @@ describe("summarizeMediaSync", () => {
       syncing: 3,
       offline: 0,
       percent: 37,
+      loading: false,
     });
     assert.equal(mediaSyncLabel(summary), "Syncing 1 of 4 media files… 37%");
   });
@@ -181,7 +200,7 @@ describe("summarizeMediaSync", () => {
         arrangementClips: [{ mediaId: "b" }],
         sourceClips: [],
         progress: noProgress,
-        misses: new Set(["b"]),
+        misses: peerMiss("b"),
         inSharedSession: true,
       }),
     );
@@ -211,8 +230,93 @@ describe("summarizeMediaSync", () => {
         syncing: 1,
         offline: 0,
         percent: 0,
+        loading: false,
       }),
       "Syncing 0 of 1 media file… 0%",
     );
+  });
+});
+
+describe("media downloaded from a URL", () => {
+  const url = (phase: "queued" | "receiving", received = 0, total = 0) =>
+    ({ source: "url", phase, received, total }) as const;
+
+  it("is queued or receiving outside a share too", () => {
+    assert.equal(
+      mediaSyncState(media("a", "offline"), url("queued"), none, false),
+      "queued",
+    );
+    assert.equal(
+      mediaSyncState(media("a", "hydrating"), url("receiving"), none, false),
+      "receiving",
+    );
+    assert.equal(
+      mediaSyncState(media("a", "ready"), url("receiving"), none, false),
+      "ready",
+    );
+  });
+
+  it("reports a failed download as unavailable, in or out of a share", () => {
+    const failed: RemoteMediaMisses = new Map([["a", "url"]]);
+    assert.equal(
+      mediaSyncState(media("a", "offline"), undefined, failed, false),
+      "unavailable",
+    );
+    assert.equal(
+      mediaSyncState(media("a", "offline"), undefined, failed, true),
+      "unavailable",
+    );
+  });
+
+  it("lists its source and says Loading while only downloads are pending", () => {
+    const entries = listMediaSync({
+      mediaItems: [
+        media("done", "ready"),
+        media("recv", "hydrating"),
+        media("wait", "offline"),
+        media("fail", "offline"),
+      ],
+      arrangementClips: [
+        { mediaId: "done" },
+        { mediaId: "recv" },
+        { mediaId: "wait" },
+        { mediaId: "fail" },
+      ],
+      sourceClips: [],
+      progress: new Map([
+        ["recv", url("receiving", 1, 2)],
+        ["wait", url("queued")],
+      ]),
+      misses: new Map([["fail", "url"]]),
+      inSharedSession: false,
+    });
+    assert.deepEqual(
+      entries.map((entry) => [entry.id, entry.state, entry.source]),
+      [
+        ["recv", "receiving", "url"],
+        ["wait", "queued", "url"],
+        ["fail", "unavailable", "url"],
+        ["done", "ready", undefined],
+      ],
+    );
+    const summary = summarizeMediaSync(entries);
+    assert.equal(summary.loading, true);
+    assert.equal(summary.offline, 1);
+    assert.equal(mediaSyncLabel(summary), "Loading 1 of 3 media files… 50%");
+  });
+
+  it("says Syncing once a peer transfer is pending too", () => {
+    const summary = summarizeMediaSync(
+      listMediaSync({
+        mediaItems: [media("s", "offline"), media("p", "offline")],
+        arrangementClips: [{ mediaId: "s" }, { mediaId: "p" }],
+        sourceClips: [],
+        progress: new Map([["s", url("queued")]]),
+        misses: none,
+        inSharedSession: true,
+      }),
+    );
+    assert.equal(summary.loading, false);
+    assert.equal(mediaSyncLabel(summary), "Syncing 0 of 2 media files… 0%");
   });
 });

@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import {
   describeSessionMediaStatus,
   isInSharedMediaSession,
+  listRemoteMediaMisses,
   listSessionMediaSync,
   listSessionOfflineMedia,
 } from "../app/media-status.ts";
@@ -13,15 +14,16 @@ import type {
 import type { CollaborationConnectionState } from "../collaboration";
 import type { MediaItem } from "../media";
 import { mediaSyncLabel, summarizeMediaSync } from "../media-sync.ts";
-import type { PeerMediaProgressMap } from "../peer-media-sync.ts";
+import type { RemoteMediaProgressMap } from "../remote-media-sync.ts";
 
 export type MediaStatusInputs = {
   mediaItems: MediaItem[];
   timelineClips: ArrangementClip[];
   sourceSpans: SourceSpan[];
   mainAudioId: string | undefined;
-  peerMediaProgress: PeerMediaProgressMap;
+  remoteMediaProgress: RemoteMediaProgressMap;
   peerMediaMissIds: ReadonlySet<string>;
+  failedSampleMediaIds: ReadonlySet<string>;
   collaborationMode: CollaborationMode;
   collaborationState: CollaborationConnectionState;
 };
@@ -33,8 +35,9 @@ export function useMediaStatus({
   timelineClips,
   sourceSpans,
   mainAudioId,
-  peerMediaProgress,
+  remoteMediaProgress,
   peerMediaMissIds,
+  failedSampleMediaIds,
   collaborationMode,
   collaborationState,
 }: MediaStatusInputs) {
@@ -46,6 +49,10 @@ export function useMediaStatus({
     collaborationMode,
     collaborationState,
   );
+  const misses = useMemo(
+    () => listRemoteMediaMisses(peerMediaMissIds, failedSampleMediaIds),
+    [failedSampleMediaIds, peerMediaMissIds],
+  );
   const mediaSyncEntries = useMemo(
     () =>
       listSessionMediaSync({
@@ -53,16 +60,16 @@ export function useMediaStatus({
         timelineClips,
         sourceSpans,
         mainAudioId,
-        progress: peerMediaProgress,
-        misses: peerMediaMissIds,
+        progress: remoteMediaProgress,
+        misses,
         inSharedSession: inSharedMediaSession,
       }),
     [
       inSharedMediaSession,
       mainAudioId,
       mediaItems,
-      peerMediaMissIds,
-      peerMediaProgress,
+      misses,
+      remoteMediaProgress,
       sourceSpans,
       timelineClips,
     ],
@@ -73,6 +80,11 @@ export function useMediaStatus({
   );
   const mediaSyncStatusLabel = mediaSyncLabel(mediaSyncSummary);
   const offlineCount = mediaSyncSummary.offline;
+  // The Media Sync dialog, rather than the offline media one, covers media
+  // a peer may send or a download may deliver.
+  const showsMediaSync =
+    inSharedMediaSession ||
+    mediaSyncEntries.some((entry) => entry.source === "url");
   const sessionMediaStatus = useMemo(
     () => describeSessionMediaStatus(mediaItems),
     [mediaItems],
@@ -81,6 +93,7 @@ export function useMediaStatus({
   return {
     offlineMedia,
     inSharedMediaSession,
+    showsMediaSync,
     mediaSyncEntries,
     mediaSyncSummary,
     mediaSyncStatusLabel,

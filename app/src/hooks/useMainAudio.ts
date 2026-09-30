@@ -16,8 +16,8 @@ import { type MediaItem, toShareableMediaItem } from "../media";
 import {
   describeMediaSync,
   formatMediaSyncLabel,
-  type PeerMediaProgressMap,
-} from "../peer-media-sync.ts";
+  type RemoteMediaProgressMap,
+} from "../remote-media-sync.ts";
 import { loadWaveformPeaks } from "../waveform-loader";
 import type { WaveformPeaks } from "../waveform-peaks";
 
@@ -26,7 +26,7 @@ type ProjectUpdater = (current: ProjectState) => ProjectState;
 export type MainAudioInputs = {
   mainAudioId: string | undefined;
   mediaItemsById: ReadonlyMap<string, MediaItem>;
-  peerMediaProgress: PeerMediaProgressMap;
+  remoteMediaProgress: RemoteMediaProgressMap;
   projectMediaItems: MediaItem[];
   refuseReadOnlyEdit: () => boolean;
   commitProjectChange: (label: string, updater: ProjectUpdater) => void;
@@ -41,7 +41,7 @@ export type MainAudioInputs = {
 export function useMainAudio({
   mainAudioId,
   mediaItemsById,
-  peerMediaProgress,
+  remoteMediaProgress,
   projectMediaItems,
   refuseReadOnlyEdit,
   commitProjectChange,
@@ -98,7 +98,7 @@ export function useMainAudio({
     mainWaveform && mainWaveform.key === mainWaveformKey ? mainWaveform : null;
   const mainAudioSync = mainAudio
     ? describeMediaSync(
-        peerMediaProgress.get(mainAudio.id),
+        remoteMediaProgress.get(mainAudio.id),
         mainAudio.availability,
       )
     : null;

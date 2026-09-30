@@ -119,15 +119,40 @@ test("dragging a device title bar still reorders devices", async ({ page }) => {
   const before = await names();
 
   const title = panels.nth(1).locator(".fx-device-panel__title");
-  const titleBox = await title.boundingBox();
   // The target with its attached Animation section, when it has one.
-  const targetBox = await panels
+  const target = panels
     .nth(2)
-    .locator("xpath=ancestor-or-self::*[@data-fx-group][1]")
-    .boundingBox();
+    .locator("xpath=ancestor-or-self::*[@data-fx-group][1]");
+
+  // The target can run past the chain's right edge. Dropping out there
+  // would auto-scroll the chain for as long as the drag lasts, so the slot
+  // it lands in would depend on timing. Scroll the target clear of the
+  // auto-scroll zone first.
+  const chainBox = await chain.boundingBox();
+  const unscrolledTargetBox = await target.boundingBox();
+  if (!chainBox || !unscrolledTargetBox) {
+    throw new Error("FX devices are not visible");
+  }
+  const autoScrollZone = 48;
+  const overflow =
+    unscrolledTargetBox.x +
+    unscrolledTargetBox.width -
+    (chainBox.x + chainBox.width - 2 * autoScrollZone);
+  if (overflow > 0) {
+    await chain.evaluate((element, left) => {
+      element.scrollLeft = left;
+    }, Math.ceil(overflow));
+  }
+
+  const titleBox = await title.boundingBox();
+  const targetBox = await target.boundingBox();
   if (!titleBox || !targetBox) {
     throw new Error("FX devices are not visible");
   }
+  expect(titleBox.x).toBeGreaterThan(chainBox.x + autoScrollZone);
+  expect(targetBox.x + targetBox.width).toBeLessThan(
+    chainBox.x + chainBox.width - autoScrollZone,
+  );
   await drag(
     page,
     { x: titleBox.x + titleBox.width / 2, y: titleBox.y + titleBox.height / 2 },

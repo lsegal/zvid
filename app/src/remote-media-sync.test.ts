@@ -6,12 +6,12 @@ import {
   formatMediaSyncLabel,
   formatPeerMediaSyncStatus,
   getMediaSyncClassName,
-  getPeerMediaFraction,
-  type PeerMediaProgressMap,
-  withoutPeerMediaProgress,
-  withPeerMediaProgress,
-  withQueuedPeerMedia,
-} from "./peer-media-sync.ts";
+  getRemoteMediaFraction,
+  type RemoteMediaProgressMap,
+  withoutRemoteMediaProgress,
+  withQueuedRemoteMedia,
+  withRemoteMediaProgress,
+} from "./remote-media-sync.ts";
 
 const appCss = readFileSync(new URL("./App.css", import.meta.url), "utf8");
 const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
@@ -24,17 +24,22 @@ const useMainAudioTs = readFileSync(
   "utf8",
 );
 
-const empty: PeerMediaProgressMap = new Map();
+const empty: RemoteMediaProgressMap = new Map();
 
 describe("peer media progress model", () => {
   it("records progress and keeps the map when nothing changed", () => {
-    const progress = { phase: "receiving", received: 10, total: 100 } as const;
-    const map = withPeerMediaProgress(empty, "m1", progress);
+    const progress = {
+      source: "peer",
+      phase: "receiving",
+      received: 10,
+      total: 100,
+    } as const;
+    const map = withRemoteMediaProgress(empty, "m1", progress);
     assert.notEqual(map, empty);
     assert.deepEqual(map.get("m1"), progress);
-    assert.equal(withPeerMediaProgress(map, "m1", { ...progress }), map);
+    assert.equal(withRemoteMediaProgress(map, "m1", { ...progress }), map);
 
-    const updated = withPeerMediaProgress(map, "m1", {
+    const updated = withRemoteMediaProgress(map, "m1", {
       ...progress,
       received: 42,
     });
@@ -43,55 +48,78 @@ describe("peer media progress model", () => {
   });
 
   it("drops an entry once its transfer settles", () => {
-    const map = withPeerMediaProgress(empty, "m1", {
+    const map = withRemoteMediaProgress(empty, "m1", {
+      source: "peer",
       phase: "receiving",
       received: 1,
       total: 2,
     });
-    const cleared = withoutPeerMediaProgress(map, "m1");
+    const cleared = withoutRemoteMediaProgress(map, "m1");
     assert.equal(cleared.has("m1"), false);
-    assert.equal(withoutPeerMediaProgress(cleared, "m1"), cleared);
+    assert.equal(withoutRemoteMediaProgress(cleared, "m1"), cleared);
   });
 
   it("replaces queued entries without touching receiving ones", () => {
-    let map = withPeerMediaProgress(empty, "m1", {
+    let map = withRemoteMediaProgress(empty, "m1", {
+      source: "peer",
       phase: "receiving",
       received: 5,
       total: 10,
     });
-    map = withQueuedPeerMedia(map, ["m2", "m3"]);
+    map = withQueuedRemoteMedia(map, "peer", ["m2", "m3"]);
     assert.deepEqual(Array.from(map.keys()).sort(), ["m1", "m2", "m3"]);
     assert.equal(map.get("m2")?.phase, "queued");
-    assert.equal(withQueuedPeerMedia(map, ["m3", "m2"]), map);
+    assert.equal(withQueuedRemoteMedia(map, "peer", ["m3", "m2"]), map);
 
     // Queued media that started receiving keeps its receiving entry.
-    map = withPeerMediaProgress(map, "m2", {
+    map = withRemoteMediaProgress(map, "m2", {
+      source: "peer",
       phase: "receiving",
       received: 0,
       total: 0,
     });
-    map = withQueuedPeerMedia(map, ["m3"]);
+    map = withQueuedRemoteMedia(map, "peer", ["m3"]);
     assert.equal(map.get("m2")?.phase, "receiving");
 
-    map = withQueuedPeerMedia(map, []);
+    map = withQueuedRemoteMedia(map, "peer", []);
     assert.deepEqual(Array.from(map.keys()).sort(), ["m1", "m2"]);
   });
 
   it("reports a fraction only while receiving with a known size", () => {
     assert.equal(
-      getPeerMediaFraction({ phase: "receiving", received: 25, total: 100 }),
+      getRemoteMediaFraction({
+        source: "peer",
+        phase: "receiving",
+        received: 25,
+        total: 100,
+      }),
       0.25,
     );
     assert.equal(
-      getPeerMediaFraction({ phase: "receiving", received: 25, total: 0 }),
+      getRemoteMediaFraction({
+        source: "peer",
+        phase: "receiving",
+        received: 25,
+        total: 0,
+      }),
       null,
     );
     assert.equal(
-      getPeerMediaFraction({ phase: "queued", received: 0, total: 100 }),
+      getRemoteMediaFraction({
+        source: "peer",
+        phase: "queued",
+        received: 0,
+        total: 100,
+      }),
       null,
     );
     assert.equal(
-      getPeerMediaFraction({ phase: "receiving", received: 120, total: 100 }),
+      getRemoteMediaFraction({
+        source: "peer",
+        phase: "receiving",
+        received: 120,
+        total: 100,
+      }),
       1,
     );
   });
@@ -99,8 +127,14 @@ describe("peer media progress model", () => {
 
 describe("media sync view", () => {
   it("shows syncing media until it is ready", () => {
-    const progress = { phase: "receiving", received: 42, total: 100 } as const;
+    const progress = {
+      source: "peer",
+      phase: "receiving",
+      received: 42,
+      total: 100,
+    } as const;
     assert.deepEqual(describeMediaSync(progress, "hydrating"), {
+      source: "peer",
       phase: "receiving",
       fraction: 0.42,
     });
@@ -108,39 +142,53 @@ describe("media sync view", () => {
     assert.equal(describeMediaSync(undefined, "hydrating"), null);
     assert.equal(describeMediaSync(undefined, "offline"), null);
     assert.deepEqual(
-      describeMediaSync({ phase: "queued", received: 0, total: 0 }, "offline"),
-      { phase: "queued", fraction: null },
+      describeMediaSync(
+        { source: "peer", phase: "queued", received: 0, total: 0 },
+        "offline",
+      ),
+      { source: "peer", phase: "queued", fraction: null },
     );
   });
 
   it("labels progress, unknown sizes and queued media", () => {
     assert.equal(
-      formatMediaSyncLabel({ phase: "receiving", fraction: 0.429 }),
+      formatMediaSyncLabel({
+        source: "peer",
+        phase: "receiving",
+        fraction: 0.429,
+      }),
       "Syncing 42%",
     );
     assert.equal(
       formatMediaSyncLabel(
-        { phase: "receiving", fraction: 0.42 },
+        { source: "peer", phase: "receiving", fraction: 0.42 },
         "main audio",
       ),
       "Syncing main audio 42%",
     );
     assert.equal(
-      formatMediaSyncLabel({ phase: "receiving", fraction: null }),
+      formatMediaSyncLabel({
+        source: "peer",
+        phase: "receiving",
+        fraction: null,
+      }),
       "Syncing…",
     );
     assert.equal(
-      formatMediaSyncLabel({ phase: "queued", fraction: null }),
+      formatMediaSyncLabel({ source: "peer", phase: "queued", fraction: null }),
       "Waiting…",
     );
     assert.equal(
-      formatMediaSyncLabel({ phase: "queued", fraction: null }, "main audio"),
+      formatMediaSyncLabel(
+        { source: "peer", phase: "queued", fraction: null },
+        "main audio",
+      ),
       "Waiting for main audio…",
     );
   });
 
   it("drops the animation class when reduced motion is preferred", () => {
-    const view = { phase: "receiving", fraction: 0.5 } as const;
+    const view = { source: "peer", phase: "receiving", fraction: 0.5 } as const;
     assert.equal(
       getMediaSyncClassName(view, false),
       "is-syncing is-syncing--receiving is-syncing--animated",
@@ -157,12 +205,14 @@ describe("peer media sync status", () => {
     assert.equal(formatPeerMediaSyncStatus(empty), null);
     assert.equal(
       formatPeerMediaSyncStatus(
-        withQueuedPeerMedia(
-          withPeerMediaProgress(empty, "m1", {
+        withQueuedRemoteMedia(
+          withRemoteMediaProgress(empty, "m1", {
+            source: "peer",
             phase: "receiving",
             received: 0,
             total: 0,
           }),
+          "peer",
           ["m2"],
         ),
       ),
@@ -171,7 +221,8 @@ describe("peer media sync status", () => {
   });
 
   it("summarizes overall progress across files", () => {
-    let map = withPeerMediaProgress(empty, "m1", {
+    let map = withRemoteMediaProgress(empty, "m1", {
+      source: "peer",
       phase: "receiving",
       received: 50,
       total: 100,
@@ -181,12 +232,13 @@ describe("peer media sync status", () => {
       "Syncing 1 file from peer… 50%",
     );
 
-    map = withPeerMediaProgress(map, "m2", {
+    map = withRemoteMediaProgress(map, "m2", {
+      source: "peer",
       phase: "receiving",
       received: 66,
       total: 100,
     });
-    map = withQueuedPeerMedia(map, ["m3"]);
+    map = withQueuedRemoteMedia(map, "peer", ["m3"]);
     assert.equal(
       formatPeerMediaSyncStatus(map),
       "Syncing 3 files from peer… 58%",
@@ -194,7 +246,8 @@ describe("peer media sync status", () => {
   });
 
   it("omits the percent when no size is known", () => {
-    const map = withPeerMediaProgress(empty, "m1", {
+    const map = withRemoteMediaProgress(empty, "m1", {
+      source: "peer",
       phase: "receiving",
       received: 4096,
       total: 0,
@@ -212,16 +265,19 @@ describe("media sync rendering", () => {
       usePeerMediaTs.indexOf("})();", start),
     );
     assert.match(block, /onProgress\(received, total\)/);
-    assert.match(block, /withPeerMediaProgress\(map, mediaId/);
+    assert.match(block, /withRemoteMediaProgress\(map, mediaId/);
     assert.match(block, /PEER_MEDIA_STATUS_INTERVAL_MS/);
     assert.match(
       block,
-      /finally \{[\s\S]*withoutPeerMediaProgress\(map, mediaId\)/,
+      /finally \{[\s\S]*withoutRemoteMediaProgress\(map, mediaId\)/,
     );
-    assert.match(usePeerMediaTs, /withQueuedPeerMedia\(map, queuedIds\)/);
     assert.match(
       usePeerMediaTs,
-      /formatPeerMediaSyncStatus\(peerMediaProgress\)/,
+      /withQueuedRemoteMedia\(map, "peer", queuedIds\)/,
+    );
+    assert.match(
+      usePeerMediaTs,
+      /formatPeerMediaSyncStatus\(remoteMediaProgress\)/,
     );
   });
 
@@ -251,6 +307,59 @@ describe("media sync rendering", () => {
     assert.match(
       appCss,
       /@media \(prefers-reduced-motion: reduce\) \{\s*\.media-sync__shimmer,/,
+    );
+  });
+});
+
+describe("url media progress", () => {
+  it("keeps each source's queued entries apart", () => {
+    let map = withQueuedRemoteMedia(empty, "url", ["s1", "s2"]);
+    map = withQueuedRemoteMedia(map, "peer", ["p1"]);
+    assert.deepEqual(Array.from(map.keys()).sort(), ["p1", "s1", "s2"]);
+    assert.equal(map.get("s1")?.source, "url");
+    assert.equal(map.get("p1")?.source, "peer");
+
+    map = withQueuedRemoteMedia(map, "peer", []);
+    assert.deepEqual(Array.from(map.keys()).sort(), ["s1", "s2"]);
+    map = withQueuedRemoteMedia(map, "url", ["s2"]);
+    assert.deepEqual(Array.from(map.keys()), ["s2"]);
+  });
+
+  it("labels downloads as loading", () => {
+    const view = describeMediaSync(
+      { source: "url", phase: "receiving", received: 42, total: 100 },
+      "hydrating",
+    );
+    assert.deepEqual(view, {
+      source: "url",
+      phase: "receiving",
+      fraction: 0.42,
+    });
+    assert.equal(view && formatMediaSyncLabel(view), "Loading 42%");
+    assert.equal(
+      view && formatMediaSyncLabel(view, "main audio"),
+      "Loading main audio 42%",
+    );
+  });
+
+  it("leaves the peer status alone", () => {
+    const map = withRemoteMediaProgress(empty, "s1", {
+      source: "url",
+      phase: "receiving",
+      received: 50,
+      total: 100,
+    });
+    assert.equal(formatPeerMediaSyncStatus(map), null);
+    assert.equal(
+      formatPeerMediaSyncStatus(
+        withRemoteMediaProgress(map, "p1", {
+          source: "peer",
+          phase: "receiving",
+          received: 25,
+          total: 100,
+        }),
+      ),
+      "Syncing 1 file from peer… 25%",
     );
   });
 });

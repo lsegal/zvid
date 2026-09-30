@@ -485,30 +485,34 @@ describe("resolveSlotBounds", () => {
     assertClose(((1 - slot.centerY - slot.halfHeight) / 2) * 1080, 30, "top");
   });
 
-  it("leaves 50 px gaps at the widest spacing", () => {
-    const order = arranged("horizontal", 50);
-    assertClose(resolveSpacingPixels(order, 1920, 1080), 50, "50 px at 1080p");
+  it("leaves 200 px gaps at the widest spacing", () => {
+    const order = arranged("horizontal", 200);
+    assertClose(
+      resolveSpacingPixels(order, 1920, 1080),
+      200,
+      "200 px at 1080p",
+    );
     const first = resolveSlotBounds(0, 3, order, 1920, 1080);
     const second = resolveSlotBounds(1, 3, order, 1920, 1080);
     assertClose(
       ((second.centerX - second.halfWidth - first.centerX - first.halfWidth) /
         2) *
         1920,
-      50,
+      200,
       "column gap",
     );
-    assertClose(first.halfWidth, (1920 - 100) / 3 / 1920, "equal widths");
+    assertClose(first.halfWidth, (1920 - 400) / 3 / 1920, "equal widths");
   });
 
   it("keeps cells positive with the widest spacing on small outputs", () => {
     const cases = [
-      { order: arranged("grid", 50, 6), count: 36, width: 640, height: 360 },
-      { order: arranged("grid", 50, 6), count: 36, width: 360, height: 640 },
-      { order: arranged("vertical", 50), count: 40, width: 360, height: 640 },
-      { order: arranged("horizontal", 50), count: 40, width: 97, height: 53 },
-      { order: framed("grid", 108, 6), count: 36, width: 97, height: 53 },
-      { order: framed("vertical", 108), count: 40, width: 360, height: 640 },
-      { order: framed("horizontal", 108), count: 1, width: 3, height: 2 },
+      { order: arranged("grid", 200, 6), count: 36, width: 640, height: 360 },
+      { order: arranged("grid", 200, 6), count: 36, width: 360, height: 640 },
+      { order: arranged("vertical", 200), count: 40, width: 360, height: 640 },
+      { order: arranged("horizontal", 200), count: 40, width: 97, height: 53 },
+      { order: framed("grid", 200, 6), count: 36, width: 97, height: 53 },
+      { order: framed("vertical", 200), count: 40, width: 360, height: 640 },
+      { order: framed("horizontal", 200), count: 1, width: 3, height: 2 },
     ];
     for (const { order, count, width, height } of cases) {
       const slots = order.arrangement === "grid" ? 36 : count;
@@ -532,6 +536,11 @@ describe("resolveSlotBounds", () => {
       resolveSpacingPixels(arranged("grid", 50, 6), 640, 360),
       50 / 3,
       "50 at 360p",
+    );
+    assertClose(
+      resolveSpacingPixels(arranged("grid", 200, 6), 640, 360),
+      200 / 3,
+      "200 at 360p",
     );
     assertClose(
       resolveSpacingPixels(arranged("vertical", 0), 1080, 1920),
@@ -618,8 +627,8 @@ describe("resolveSlotScissor", () => {
     assert.equal(boxes[1].x - (boxes[0].x + boxes[0].width), 10);
     assert.equal(boxes[1].x + boxes[1].width, 1920);
 
-    const wide = slotScissors(2, arranged("horizontal", 50), 1920, 1080);
-    assert.equal(wide[1].x - (wide[0].x + wide[0].width), 50);
+    const wide = slotScissors(2, arranged("horizontal", 200), 1920, 1080);
+    assert.equal(wide[1].x - (wide[0].x + wide[0].width), 200);
     assert.equal(wide[1].x + wide[1].width, 1920);
   });
 
@@ -656,13 +665,13 @@ describe("resolveSlotScissor", () => {
 
   it("stays pixel-exact and inside the surface at the widest spacing", () => {
     const cases = [
-      { count: 36, order: arranged("grid", 50, 6), width: 640, height: 360 },
-      { count: 36, order: arranged("grid", 50, 6), width: 97, height: 53 },
-      { count: 7, order: arranged("vertical", 50), width: 361, height: 643 },
-      { count: 40, order: arranged("vertical", 50), width: 360, height: 640 },
-      { count: 60, order: arranged("horizontal", 50), width: 97, height: 53 },
-      { count: 36, order: framed("grid", 108, 6), width: 97, height: 53 },
-      { count: 7, order: framed("vertical", 108), width: 361, height: 643 },
+      { count: 36, order: arranged("grid", 200, 6), width: 640, height: 360 },
+      { count: 36, order: arranged("grid", 200, 6), width: 97, height: 53 },
+      { count: 7, order: arranged("vertical", 200), width: 361, height: 643 },
+      { count: 40, order: arranged("vertical", 200), width: 360, height: 640 },
+      { count: 60, order: arranged("horizontal", 200), width: 97, height: 53 },
+      { count: 36, order: framed("grid", 200, 6), width: 97, height: 53 },
+      { count: 7, order: framed("vertical", 200), width: 361, height: 643 },
     ];
     for (const { count, order, width, height } of cases) {
       const name = `${order.arrangement} ${count} at ${width}×${height}`;

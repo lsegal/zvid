@@ -9,7 +9,7 @@ import type {
 } from "../hooks/useCollaboration.ts";
 import type { useMediaStatus } from "../hooks/useMediaStatus.ts";
 import type { useProjectStore } from "../hooks/useProjectStore.ts";
-import type { useSampleProject } from "../hooks/useSampleProject.tsx";
+import type { useSampleProject } from "../hooks/useSampleProject.ts";
 import type { useSessionIO } from "../hooks/useSessionIO.ts";
 import { shareLinkVisible } from "../share-link";
 import { APP_BUILD_LABEL, BrandMark, openBuildCommit } from "./BrandMark";
@@ -41,10 +41,7 @@ export type TopBarProps = Pick<
     | "handleOpenWorkspace"
     | "handleSaveSession"
   > &
-  Pick<
-    ReturnType<typeof useMediaStatus>,
-    "inSharedMediaSession" | "offlineMedia"
-  > & {
+  Pick<ReturnType<typeof useMediaStatus>, "offlineMedia" | "showsMediaSync"> & {
     bpm: number;
     collaboration: CollaborationStateResult;
     commitProjectChange: (
@@ -82,7 +79,7 @@ export function TopBar({
   handleOpenWorkspace,
   handleSaveSession,
   handleStopShare,
-  inSharedMediaSession,
+  showsMediaSync,
   isExporting,
   offlineMedia,
   openExportDialog,
@@ -159,7 +156,7 @@ export function TopBar({
             <DropdownMenuItem onSelect={() => setIsSessionSettingsOpen(true)}>
               Session Settings…
             </DropdownMenuItem>
-            {inSharedMediaSession ? (
+            {showsMediaSync ? (
               <DropdownMenuItem onSelect={() => setIsMediaSyncDialogOpen(true)}>
                 Media Sync Status…
               </DropdownMenuItem>

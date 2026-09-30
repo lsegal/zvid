@@ -51,7 +51,6 @@ import {
   readLabelWidth,
   readPreviewWidth,
 } from "./app/layout-prefs.ts";
-import { readHydratableMedia } from "./app/media-hydration.ts";
 import { patchProjectState } from "./app/session-project.ts";
 import { getShortcutLabels } from "./app/shortcut-labels.ts";
 import {
@@ -161,6 +160,7 @@ import {
   useMainAudio,
   useMainAudioDrop,
 } from "./hooks/useMainAudio.ts";
+import { useMediaHydration } from "./hooks/useMediaHydration.ts";
 import {
   useMediaLibrary,
   useMediaLibraryCommands,
@@ -175,7 +175,7 @@ import {
   useProjectStore,
 } from "./hooks/useProjectStore.ts";
 import { useRulerGestures } from "./hooks/useRulerGestures.ts";
-import { useSampleProject } from "./hooks/useSampleProject.tsx";
+import { useSampleProject } from "./hooks/useSampleProject.ts";
 import { useSessionIO } from "./hooks/useSessionIO.ts";
 import { useSourceTrackDrop } from "./hooks/useSourceTrackDrop.ts";
 import { useTimelineViewport } from "./hooks/useTimelineViewport.ts";
@@ -188,17 +188,13 @@ import {
 } from "./lane-selection-gesture.ts";
 import { MainWaveform } from "./MainWaveform";
 import type { MediaItem } from "./media";
-import {
-  cacheMediaBlob,
-  migrateMediaCache,
-  setCachedMediaSession,
-} from "./media-cache";
+import { migrateMediaCache, setCachedMediaSession } from "./media-cache";
 import { useMenus } from "./menus/useMenus.ts";
 import {
   describeMediaSync,
   formatMediaSyncLabel,
   getMediaSyncClassName,
-} from "./peer-media-sync.ts";
+} from "./remote-media-sync.ts";
 import { selectionHint } from "./selection-hint.ts";
 import { MAX_LAYERS } from "./selection-overlaps";
 import { offlineSessionMediaIds } from "./session-media.ts";
@@ -421,7 +417,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     localMediaOverridesRef,
     projectSnapshotRef,
   });
-  const { peerMediaProgress, revealedMediaIds, peerMediaMissIds } = peerMedia;
+  const { remoteMediaProgress, revealedMediaIds, peerMediaMissIds } = peerMedia;
   const lanePriority = useMemo(
     () => new Map(lanes.map((lane, index) => [lane.id, index])),
     [lanes],
@@ -666,7 +662,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   } = useMainAudio({
     mainAudioId,
     mediaItemsById,
-    peerMediaProgress,
+    remoteMediaProgress,
     projectMediaItems,
     refuseReadOnlyEdit,
     commitProjectChange,
@@ -689,7 +685,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   );
   const {
     offlineMedia,
-    inSharedMediaSession,
+    showsMediaSync,
     mediaSyncEntries,
     mediaSyncSummary,
     mediaSyncStatusLabel,
@@ -700,8 +696,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     timelineClips,
     sourceSpans,
     mainAudioId,
-    peerMediaProgress,
+    remoteMediaProgress,
     peerMediaMissIds,
+    failedSampleMediaIds: peerMedia.failedSampleMediaIds,
     collaborationMode,
     collaborationState,
   });
@@ -1287,74 +1284,19 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       });
   }, []);
 
-  useEffect(() => {
-    // A hydration can outlive the run that started it: the effect reruns
-    // whenever the media list changes (and at once under StrictMode), and
-    // the rerun skips items still in flight. So a result is only dropped when
-    // its media has left the project.
-    const isRemoved = (mediaId: string) =>
-      !projectSnapshotRef.current.mediaItems.some(
-        (candidate) => candidate.id === mediaId,
-      );
-
-    for (const item of projectMediaItems) {
-      const override = localMediaOverridesRef.current[item.id];
-      const effectivePreviewUrl = override?.previewUrl ?? item.previewUrl;
-      const effectiveAvailability = override?.availability ?? item.availability;
-      if (effectivePreviewUrl || effectiveAvailability === "ready") {
-        continue;
-      }
-
-      if (mediaHydrationInFlightRef.current.has(item.id)) {
-        continue;
-      }
-
-      mediaHydrationInFlightRef.current.add(item.id);
-      setLocalMediaOverride(item.id, {
-        availability: item.sourcePath ? "hydrating" : "offline",
-      });
-
-      void (async () => {
-        let restored = false;
-        try {
-          const media = await readHydratableMedia(item);
-          if (!media) {
-            if (!isRemoved(item.id)) {
-              setLocalMediaOverride(item.id, { availability: "offline" });
-            }
-            return;
-          }
-          if (isRemoved(item.id)) {
-            // Keep the bytes so the next hydration pass is a cache hit.
-            if (!media.cached) {
-              await cacheMediaBlob(item.id, media.blob);
-            }
-            return;
-          }
-
-          await adoptMediaBlob(item.id, media.blob);
-          restored = true;
-        } catch (error) {
-          logClient("media:hydrate:error", {
-            mediaId: item.id,
-            message: error instanceof Error ? error.message : String(error),
-          });
-          if (!isRemoved(item.id)) {
-            setLocalMediaOverride(item.id, { availability: "offline" });
-          }
-        } finally {
-          mediaHydrationInFlightRef.current.delete(item.id);
-          setMediaHydrationTick((tick) => tick + 1);
-          settleSessionMediaCheck(item.id, restored ? "restored" : "offline");
-        }
-      })();
-    }
-  }, [
-    adoptMediaBlob,
+  const { retrySampleMedia } = useMediaHydration({
     projectMediaItems,
+    localMediaOverridesRef,
+    mediaHydrationTick,
+    setMediaHydrationTick,
+    mediaHydrationInFlightRef,
+    projectSnapshotRef,
     setLocalMediaOverride,
+    adoptMediaBlob,
+    peerMedia,
     settleSessionMediaCheck,
-  ]);
+    setStatus,
+  });
 
   const {
     showShareCopiedBadge,
@@ -2154,7 +2096,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         handleOpenWorkspace={handleOpenWorkspace}
         handleSaveSession={handleSaveSession}
         handleStopShare={handleStopShare}
-        inSharedMediaSession={inSharedMediaSession}
         isExporting={isExporting}
         offlineMedia={offlineMedia}
         openExportDialog={openExportDialog}
@@ -2168,6 +2109,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         setIsSessionSettingsOpen={setIsSessionSettingsOpen}
         setStatus={setStatus}
         showShareCopiedBadge={showShareCopiedBadge}
+        showsMediaSync={showsMediaSync}
       />
 
       <main className="workspace">
@@ -2400,7 +2342,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                           <button
                             className="track-label__offline"
                             onClick={() =>
-                              inSharedMediaSession
+                              showsMediaSync
                                 ? setIsMediaSyncDialogOpen(true)
                                 : setIsOfflineMediaDialogOpen(true)
                             }
@@ -2739,7 +2681,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                                 : undefined;
                             const mediaSync = media
                               ? describeMediaSync(
-                                  peerMediaProgress.get(media.id),
+                                  remoteMediaProgress.get(media.id),
                                   media.availability,
                                 )
                               : null;
@@ -3293,7 +3235,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                                     : undefined;
                                 const mediaSync = media
                                   ? describeMediaSync(
-                                      peerMediaProgress.get(media.id),
+                                      remoteMediaProgress.get(media.id),
                                       media.availability,
                                     )
                                   : null;
@@ -3736,7 +3678,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         relinkOfflineMediaItem={relinkOfflineMediaItem}
         relinkingMediaIds={relinkingMediaIds}
         retryPeerMedia={retryPeerMedia}
-        sample={sample}
+        retrySampleMedia={retrySampleMedia}
         setImportNotice={setImportNotice}
         setIsCaptureInstallerDialogOpen={setIsCaptureInstallerDialogOpen}
         setIsMediaStorageDialogOpen={setIsMediaStorageDialogOpen}

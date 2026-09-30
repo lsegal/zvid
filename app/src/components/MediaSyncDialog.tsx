@@ -80,8 +80,9 @@ function kindIcon(entry: MediaSyncEntry) {
 
 /**
  * Lists every session media item with its live sync state and transfer
- * progress while in a shared session. It doesn't block the editor: items
- * no peer could serve can be retried or located on disk.
+ * progress, while in a shared session or while a sample's media downloads.
+ * It doesn't block the editor: items no peer could serve, or whose download
+ * failed, can be retried or located on disk.
  */
 export function MediaSyncDialog({
   open,
@@ -116,6 +117,9 @@ function MediaSyncDialogBody({
   const pending = entries.filter((entry) => entry.state !== "ready");
   const ready = entries.filter((entry) => entry.state === "ready");
   const remaining = summary.syncing + summary.offline;
+  const failedDownloads = entries.filter(
+    (entry) => entry.state === "unavailable" && entry.source === "url",
+  ).length;
 
   async function linkItem(itemId: string, candidate: MediaRelinkCandidate) {
     setPendingForcedLink(null);
@@ -165,7 +169,9 @@ function MediaSyncDialogBody({
           </strong>
           <small className="offline-media__usage">
             {ROLE_LABELS[entry.role]}
+            {entry.source === "url" ? " · from Sample" : null}
             {peer &&
+            entry.source === "peer" &&
             (entry.state === "receiving" || entry.state === "queued") ? (
               <>
                 {" · from "}
@@ -270,9 +276,11 @@ function MediaSyncDialogBody({
         <DialogTitle>Media Sync</DialogTitle>
         <DialogDescription>
           {summary.syncing
-            ? `${summary.percent}% synced · ${pluralize(remaining, "file")} remaining`
+            ? `${summary.percent}% ${summary.loading ? "loaded" : "synced"} · ${pluralize(remaining, "file")} remaining`
             : summary.offline
-              ? `${pluralize(summary.offline, "file")} no connected peer could send.`
+              ? failedDownloads === summary.offline
+                ? `${pluralize(failedDownloads, "file")} could not be downloaded.`
+                : `${pluralize(summary.offline, "file")} no connected peer could send.`
               : "All session media is ready."}
         </DialogDescription>
       </DialogHeader>

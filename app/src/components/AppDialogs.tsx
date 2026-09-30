@@ -6,6 +6,7 @@ import type {
   useCollaboration,
 } from "../hooks/useCollaboration.ts";
 import type { useExport } from "../hooks/useExport.ts";
+import type { useMediaHydration } from "../hooks/useMediaHydration.ts";
 import type {
   useMediaLibrary,
   useMediaLibraryCommands,
@@ -13,7 +14,6 @@ import type {
 import type { useMediaStatus } from "../hooks/useMediaStatus.ts";
 import type { usePeerMedia } from "../hooks/usePeerMedia.ts";
 import type { useProjectStore } from "../hooks/useProjectStore.ts";
-import type { useSampleProject } from "../hooks/useSampleProject.tsx";
 import type { useWorkspacePersistence } from "../hooks/useWorkspacePersistence.ts";
 import {
   applySessionSettings,
@@ -59,6 +59,7 @@ export type AppDialogsProps = Pick<
     "mediaSyncEntries" | "mediaSyncSummary" | "offlineMedia"
   > &
   Pick<ReturnType<typeof usePeerMedia>, "retryPeerMedia"> &
+  Pick<ReturnType<typeof useMediaHydration>, "retrySampleMedia"> &
   Pick<
     ProjectStore,
     | "isTakeOverPromptOpen"
@@ -83,7 +84,6 @@ export type AppDialogsProps = Pick<
     isOfflineMediaDialogOpen: boolean;
     isSessionSettingsOpen: boolean;
     mediaSyncPeer: MediaSyncPeer | undefined;
-    sample: Pick<ReturnType<typeof useSampleProject>, "dialog">;
     setImportNotice: Dispatch<SetStateAction<ImportNoticeContent | null>>;
     setIsCaptureInstallerDialogOpen: SetOpen;
     setIsMediaStorageDialogOpen: SetOpen;
@@ -123,7 +123,7 @@ export function AppDialogs({
   relinkOfflineMediaItem,
   relinkingMediaIds,
   retryPeerMedia,
-  sample,
+  retrySampleMedia,
   setImportNotice,
   setIsCaptureInstallerDialogOpen,
   setIsMediaStorageDialogOpen,
@@ -269,7 +269,6 @@ export function AppDialogs({
         relinkingIds={relinkingMediaIds}
       />
 
-      {sample.dialog}
       <MediaStorageDialog
         onCleared={handleMediaStorageCleared}
         onOpenChange={setIsMediaStorageDialogOpen}
@@ -296,7 +295,10 @@ export function AppDialogs({
         peer={mediaSyncPeer}
         relinkMediaItem={relinkOfflineMediaItem}
         relinkingIds={relinkingMediaIds}
-        retryMedia={retryPeerMedia}
+        retryMedia={(mediaId) => {
+          retrySampleMedia(mediaId);
+          retryPeerMedia(mediaId);
+        }}
         summary={mediaSyncSummary}
       />
 
