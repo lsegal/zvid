@@ -190,8 +190,8 @@ function SessionSettingsForm({
       <DialogHeader>
         <DialogTitle>Session Settings</DialogTitle>
         <DialogDescription>
-          The canvas, frame rate and encoding this session previews and
-          exports at.
+          The canvas, frame rate and encoding this session previews and exports
+          at.
         </DialogDescription>
       </DialogHeader>
 
@@ -293,7 +293,10 @@ function SessionSettingsForm({
         <fieldset className="session-settings__group">
           <legend>Timing</legend>
           <div className="session-settings__row">
-            <Field label="Frame rate" error={customFps ? undefined : errors.fps}>
+            <Field
+              label="Frame rate"
+              error={customFps ? undefined : errors.fps}
+            >
               <select
                 aria-label="Frame rate"
                 className="session-settings__input"
@@ -385,14 +388,10 @@ function SessionSettingsForm({
             </Field>
           </div>
           <Field label="Quality">
-            <div
-              aria-label="Video quality"
-              className="segmented-control session-settings__segmented"
-              role="radiogroup"
-            >
+            <div className="segmented-control session-settings__segmented">
               {VIDEO_QUALITIES.map((quality) => (
                 <button
-                  aria-checked={encoding.quality === quality.value}
+                  aria-pressed={encoding.quality === quality.value}
                   className={
                     encoding.quality === quality.value ? "is-active" : ""
                   }
@@ -408,7 +407,6 @@ function SessionSettingsForm({
                         : { quality: quality.value },
                     )
                   }
-                  role="radio"
                   type="button"
                 >
                   {quality.label}

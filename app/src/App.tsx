@@ -151,7 +151,6 @@ import {
   TransportPlayheadReadout,
 } from "./components/LivePlayhead";
 import { MediaStorageDialog } from "./components/MediaStorageDialog";
-import { MenuChevron } from "./components/MenuChevron";
 import {
   MediaSyncDialog,
   type MediaSyncPeer,
@@ -160,6 +159,7 @@ import {
   MediaSyncSkeleton,
   usePrefersReducedMotion,
 } from "./components/MediaSyncSkeleton";
+import { MenuChevron } from "./components/MenuChevron";
 import { OfflineMediaDialog } from "./components/OfflineMediaDialog";
 import { PreviewTransformOverlay } from "./components/PreviewTransformOverlay";
 import { SessionSettingsDialog } from "./components/SessionSettingsDialog";

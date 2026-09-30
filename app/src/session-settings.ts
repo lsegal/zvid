@@ -91,13 +91,15 @@ export const AUTO_CODEC_ORDER: readonly EncodableVideoCodec[] = [
   "h264",
 ];
 
-export const VIDEO_QUALITIES: readonly { value: VideoQuality; label: string }[] =
-  [
-    { value: "low", label: "Low" },
-    { value: "medium", label: "Medium" },
-    { value: "high", label: "High" },
-    { value: "custom", label: "Custom" },
-  ];
+export const VIDEO_QUALITIES: readonly {
+  value: VideoQuality;
+  label: string;
+}[] = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+  { value: "custom", label: "Custom" },
+];
 
 export const AUDIO_BITRATES: readonly AudioBitrateKbps[] = [128, 192, 256, 320];
 export const AUDIO_SAMPLE_RATES: readonly AudioSampleRate[] = [44100, 48000];
@@ -296,7 +298,10 @@ export function validateSessionSettings(
   ) {
     errors.bitrate = "Bitrate must be greater than 0 Mbps.";
   }
-  if (encoding.videoCodec !== "auto" && support[encoding.videoCodec] === false) {
+  if (
+    encoding.videoCodec !== "auto" &&
+    support[encoding.videoCodec] === false
+  ) {
     errors.codec = UNSUPPORTED_CODEC_REASON;
   }
   return errors;

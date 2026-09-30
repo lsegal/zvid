@@ -18,15 +18,15 @@ import {
 import { clipSourceFrame, type LvpSession } from "../session.ts";
 import { snapFrameRate } from "../session-format.ts";
 import {
-  MIN_CANVAS_DIMENSION,
-  readSessionEncoding,
-} from "../session-settings.ts";
-import {
   readSelectionSlip,
   readSessionFills,
   readSessionFxClips,
   readSessionTexts,
 } from "../session-save.ts";
+import {
+  MIN_CANVAS_DIMENSION,
+  readSessionEncoding,
+} from "../session-settings.ts";
 import {
   sessionSourceTrackColorIndex,
   sourceTrackColorIndex,
