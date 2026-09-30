@@ -15,6 +15,10 @@ import {
 
 const appCss = readFileSync(new URL("./App.css", import.meta.url), "utf8");
 const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const useMainAudioTs = readFileSync(
+  new URL("./hooks/useMainAudio.ts", import.meta.url),
+  "utf8",
+);
 
 const empty: PeerMediaProgressMap = new Map();
 
@@ -216,7 +220,7 @@ describe("media sync rendering", () => {
     assert.match(appTsx, /<MediaSyncSkeleton\s+variant="span"/);
     assert.match(appTsx, /variant="waveform"\s+view=\{mainAudioSync\}/);
     assert.match(
-      appTsx,
+      useMainAudioTs,
       /mainAudioSync\s+\? formatMediaSyncLabel\(mainAudioSync, "main audio"\)/,
     );
     assert.equal(
