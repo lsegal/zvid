@@ -188,24 +188,6 @@ jobs:
             cargo xtask bundle --release --installer --app "$ZVID_APP"
           fi
 
-      - name: TEMP measure pkg compression (#587)
-        if: runner.os == 'macOS'
-        run: |
-          sw_vers
-          man pkgbuild | col -b | grep -n -i -A8 'compression\|min-os-version' || true
-          for mode in legacy latest; do
-            for min in 11.0 12.0 13.0 14.0 15.0; do
-              out="$RUNNER_TEMP/$mode-$min.pkg"
-              pkgbuild --root target/package/root --component-plist target/package/components.plist                 --identifier probe --version 1 --install-location /                 --compression "$mode" --min-os-version "$min" "$out" > /dev/null 2>&1 || { echo "$mode $min: failed"; continue; }
-              rm -rf "$RUNNER_TEMP/x" && pkgutil --expand "$out" "$RUNNER_TEMP/x"
-              magic=$(head -c 4 "$RUNNER_TEMP/x/Payload" | xxd -p)
-              echo "$mode min=$min size=$(stat -f %z "$out") payload-magic=$magic"
-            done
-          done
-          pkgbuild --root target/package/root --component-plist target/package/components.plist             --identifier probe --version 1 --install-location / "$RUNNER_TEMP/default.pkg" > /dev/null
-          echo "default size=$(stat -f %z "$RUNNER_TEMP/default.pkg")"
-          ls -l target/installer/
-
       - name: Name the artifact
         id: name
         run: |

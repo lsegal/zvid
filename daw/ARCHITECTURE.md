@@ -518,7 +518,8 @@ needs Inno Setup 6 on Windows (`ISCC` may name its `ISCC.exe`).
 - **macOS.** A `.pkg` that installs `zvid.app` into `/Applications`,
   `ZVID Capture.vst3` into `/Library/Audio/Plug-Ins/VST3` and `ZVID Capture.component` into
   `/Library/Audio/Plug-Ins/Components` for every user. It needs macOS 13 and
-  runs natively on both architectures.
+  runs natively on both architectures. `pkgbuild --compression latest`
+  compresses its payload with pbzx (xz) rather than gzip, about 13% smaller.
 - **Windows.** An Inno Setup installer (`installer/zvid-capture.iss`) that
   installs `zvid.exe` into `C:\Program Files\ZVID` with a Start menu
   shortcut, installs `ZVID Capture.vst3` into
