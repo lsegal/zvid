@@ -91,7 +91,6 @@ export type ExportInputs = {
   // The session: its clips, layers, effects, tempo, length and Session
   // Settings.
   project: ProjectState;
-  timelineClips: ProjectState["clips"];
   mediaItems: MediaItem[];
   mainAudio: MediaItem | undefined;
   mainAudioPeaks: WaveformPeaks | undefined;
@@ -148,7 +147,6 @@ export function useExport({
   setExportState,
   updateExportState,
   project,
-  timelineClips,
   mediaItems,
   mainAudio,
   mainAudioPeaks,
@@ -274,7 +272,7 @@ export function useExport({
     const exportRenderer = new CompositionRenderer(
       {
         mediaItems,
-        clips: timelineClips,
+        clips,
         lanes,
         effects,
         bpm,
@@ -374,7 +372,7 @@ export function useExport({
     progress,
     message,
     mediaItems,
-    clips: timelineClips,
+    clips,
     lanes,
     effects,
     mainAudio,

@@ -103,15 +103,15 @@ async function frameCount(dialog: Locator) {
 test("Export opens the dialog pre-filled with Session Settings, and overrides leave them unchanged", async ({
   page,
 }) => {
+  // The status bar shows the Session Settings, like "320x320 · 15 fps".
   const resolution = page.locator(".status-bar__item", {
     has: page.locator(".status-bar__label", { hasText: "Res" }),
   });
   const sessionResolution = await resolution
     .locator(".status-bar__value")
     .textContent();
-  const [sessionWidth, sessionHeight] = (sessionResolution ?? "")
-    .split("x")
-    .map(Number);
+  const [, sessionWidth, sessionHeight] =
+    sessionResolution?.match(/(\d+)x(\d+)/)?.map(Number) ?? [];
 
   let dialog = await openExportDialog(page);
   await expect(dialog.getByLabel("Width")).toHaveValue(String(sessionWidth));

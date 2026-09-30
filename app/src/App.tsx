@@ -2003,7 +2003,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setExportState,
     updateExportState,
     project: projectHistory.present,
-    timelineClips,
     mediaItems,
     mainAudio,
     mainAudioPeaks: currentMainWaveform?.peaks,
