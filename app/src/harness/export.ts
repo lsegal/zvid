@@ -6,7 +6,6 @@ import {
   canEncodeVideo,
   Mp4OutputFormat,
   Output,
-  QUALITY_HIGH,
 } from "mediabunny";
 import type {
   EncodableVideoCodec,
@@ -18,6 +17,11 @@ import type {
   SaveMethod,
   SaveTarget,
 } from "./contracts";
+import {
+  describeExportEncoding,
+  MEDIABUNNY_VIDEO_CODECS,
+  resolveExportEncoding,
+} from "./export-encoding";
 import {
   drawThumbnail,
   encodeThumbnail,
@@ -57,6 +61,7 @@ export async function probeVideoCodecSupport(
 type NativeMux = (
   video: Uint8Array,
   audio: AudioBuffer | null,
+  audioBitrate: number,
   cover: Uint8Array | undefined,
 ) => Promise<Uint8Array>;
 
@@ -65,23 +70,18 @@ export async function exportVideo(
   save: (blob: Blob, target: SaveTarget) => Promise<SaveMethod>,
   nativeMux?: NativeMux,
 ): Promise<ExportResult> {
-  const codec = (await canEncodeVideo("hevc", {
-    width: request.canvasWidth,
-    height: request.canvasHeight,
-    bitrate: QUALITY_HIGH,
-  }))
-    ? "hevc"
-    : (await canEncodeVideo("av1", {
-          width: request.canvasWidth,
-          height: request.canvasHeight,
-          bitrate: QUALITY_HIGH,
-        }))
-      ? "av1"
-      : null;
-  if (!codec)
-    throw new Error(
-      "MP4 export requires a HEVC or AV1 encoder on this device.",
-    );
+  const { settings } = request;
+  const frameRate = settings.fps;
+  const encoding = await resolveExportEncoding(settings, (codec, config) =>
+    canEncodeVideo(MEDIABUNNY_VIDEO_CODECS[codec], config),
+  );
+  const summary = describeExportEncoding(settings, encoding);
+  request.onLog?.("export:encoding", { ...encoding, summary });
+  request.onProgress({
+    phase: "preparing",
+    progress: null,
+    detail: `Exporting ${summary}...`,
+  });
   let audio: AudioBuffer | null = null;
   if (request.mainAudio?.hasAudio) {
     request.onProgress({
@@ -92,7 +92,8 @@ export async function exportVideo(
     const response = await fetch(request.mainAudio.previewUrl);
     if (!response.ok)
       throw new Error(`Cannot read export audio (${response.status}).`);
-    const context = new AudioContext();
+    // Decoding resamples to the context's rate, the export's sample rate.
+    const context = new AudioContext({ sampleRate: encoding.audioSampleRate });
     try {
       const decoded = await context.decodeAudioData(
         await response.arrayBuffer(),
@@ -101,7 +102,7 @@ export async function exportVideo(
         numberOfChannels: decoded.numberOfChannels,
         sampleRate: decoded.sampleRate,
         length: Math.ceil(
-          (request.frameCount / request.frameRate) * decoded.sampleRate,
+          (request.frameCount / frameRate) * decoded.sampleRate,
         ),
       });
       for (let channel = 0; channel < audio.numberOfChannels; channel++) {
@@ -118,6 +119,7 @@ export async function exportVideo(
     ? await canEncodeAudio("aac", {
         sampleRate: audio.sampleRate,
         numberOfChannels: audio.numberOfChannels,
+        bitrate: encoding.audioBitrate,
       })
     : false;
   if (audio && !browserAac && !nativeMux) {
@@ -128,21 +130,21 @@ export async function exportVideo(
   const target = new BufferTarget();
   const output = new Output({ format: new Mp4OutputFormat(), target });
   const video = new CanvasSource(request.canvas, {
-    codec,
-    bitrate: QUALITY_HIGH,
+    codec: MEDIABUNNY_VIDEO_CODECS[encoding.videoCodec],
+    bitrate: encoding.videoBitrate,
     keyFrameInterval: 2,
     latencyMode: "realtime",
   });
-  output.addVideoTrack(video, { frameRate: request.frameRate });
+  output.addVideoTrack(video, { frameRate });
   const audioSource =
     audio && browserAac
-      ? new AudioBufferSource({ codec: "aac", bitrate: 192_000 })
+      ? new AudioBufferSource({
+          codec: encoding.audioCodec,
+          bitrate: encoding.audioBitrate,
+        })
       : null;
   if (audioSource) output.addAudioTrack(audioSource);
-  const thumbnailIndex = getThumbnailFrameIndex(
-    request.frameCount,
-    request.frameRate,
-  );
+  const thumbnailIndex = getThumbnailFrameIndex(request.frameCount, frameRate);
   let thumbnail: HTMLCanvasElement | null = null;
   try {
     await output.start();
@@ -151,7 +153,7 @@ export async function exportVideo(
       audioSource.close();
     }
     for (let index = 0; index < request.frameCount; index++) {
-      const seconds = index / request.frameRate;
+      const seconds = index / frameRate;
       const quarters = (seconds * request.bpm) / 60;
       await request.renderFrameAt(quarters, seconds);
       if (index === thumbnailIndex) {
@@ -161,7 +163,7 @@ export async function exportVideo(
           request.onLog?.("export:thumbnail-failed", String(error));
         }
       }
-      await video.add(seconds, 1 / request.frameRate);
+      await video.add(seconds, 1 / frameRate);
       request.setPlayheadQ(quarters);
       request.onProgress({
         phase: "rendering",
@@ -191,6 +193,7 @@ export async function exportVideo(
       bytes = await nativeMux(
         new Uint8Array(target.buffer),
         audioSource ? null : audio,
+        encoding.audioBitrate,
         cover,
       );
     } else {
@@ -202,6 +205,8 @@ export async function exportVideo(
     }
     const blob = new Blob([new Uint8Array(bytes)], { type: "video/mp4" });
     return {
+      encoding,
+      summary,
       bytes: bytes.byteLength,
       mimeType: "video/mp4",
       muxedWith: "zvidlib",
