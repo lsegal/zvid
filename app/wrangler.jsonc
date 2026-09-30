@@ -13,15 +13,6 @@
     "binding": "ASSETS",
     "not_found_handling": "single-page-application"
   },
-  // The ZVID Capture installers, served under /downloads by
-  // worker/downloads.ts. They exceed the 25 MiB static asset limit.
-  // scripts/fetch-capture-installers.ts uploads them; keep its BUCKET in sync.
-  "r2_buckets": [
-    {
-      "binding": "CAPTURE_INSTALLERS",
-      "bucket_name": "zvid-downloads"
-    }
-  ],
   // Caps TURN credential minting at /api/ice-servers per client IP
   // (worker/turn.ts). Keep `period` in sync with
   // TURN_RATE_LIMIT_PERIOD_SECONDS.

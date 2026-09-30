@@ -1,14 +1,8 @@
-// Uploads the ZVID Capture installers from the latest successful `DAW bundles`
-// run on main to the Worker's R2 bucket and writes the manifest the app's
-// Help → Install Capture Plugin dialog reads into dist/downloads.
-// wrangler.jsonc runs it after the Vite build (`pnpm run cf:prepare`), so
-// every deploy offers the newest installers main has produced.
-//
-// The installers are too large for Worker static assets (25 MiB per file), so
-// they never go into dist: worker/downloads.ts serves /downloads/<installer>
-// from the bucket instead. Uploads go to the local bucket `wrangler dev` uses
-// unless ZVID_CAPTURE_INSTALLERS_REMOTE=1, as in the deploy workflow, sends
-// them to Cloudflare.
+// Copies the ZVID Capture installers from the latest successful `DAW bundles`
+// run on main into dist/downloads and writes the manifest the app's
+// Help → Install Capture Plugin dialog reads. wrangler.jsonc runs it after the
+// Vite build (`pnpm run cf:prepare`), so every deploy carries the newest
+// installers main has produced.
 //
 // Artifact downloads need a GitHub token: GH_TOKEN, GITHUB_TOKEN or
 // `gh auth token`. Without one, or without artifacts, the build goes on with
@@ -19,7 +13,7 @@
 
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   artifactPlatform,
@@ -45,9 +39,6 @@ const cacheDir = path.join(
 );
 const repository = process.env.GITHUB_REPOSITORY || "lsegal/zvid";
 const required = process.env.ZVID_REQUIRE_CAPTURE_INSTALLERS === "1";
-const remote = process.env.ZVID_CAPTURE_INSTALLERS_REMOTE === "1";
-// The CAPTURE_INSTALLERS bucket in wrangler.jsonc.
-const BUCKET = "zvid-downloads";
 
 type WorkflowRun = { id: number; head_sha: string; html_url: string };
 type Artifact = { id: number; name: string; expired: boolean };
@@ -124,7 +115,7 @@ async function fetchInstaller(
       file: string;
     };
     log(`${artifact.name}: using cached ${file}`);
-    return { file, path: path.join(cached, file) };
+    return { file, contents: await readFile(path.join(cached, file)) };
   }
 
   log(`${artifact.name}: downloading`);
@@ -139,28 +130,7 @@ async function fetchInstaller(
   await mkdir(cached, { recursive: true });
   await writeFile(path.join(cached, installer.file), installer.contents);
   await writeFile(cachedInfo, JSON.stringify({ file: installer.file }));
-  return { file: installer.file, path: path.join(cached, installer.file) };
-}
-
-// Puts an installer in the bucket under the key worker/downloads.ts serves
-// `/downloads/<file>` from.
-function uploadInstaller(file: string, source: string) {
-  execFileSync(
-    process.execPath,
-    [
-      path.join(appDir, "node_modules", "wrangler", "bin", "wrangler.js"),
-      "r2",
-      "object",
-      "put",
-      `${BUCKET}/${CAPTURE_INSTALLERS_DIR}/${file}`,
-      "--file",
-      source,
-      "--content-type",
-      "application/octet-stream",
-      remote ? "--remote" : "--local",
-    ],
-    { cwd: appDir, stdio: "inherit" },
-  );
+  return installer;
 }
 
 async function main() {
@@ -205,25 +175,15 @@ async function main() {
     if (!artifact) {
       throw new Error(`run ${run.id} has no ${platform} artifact`);
     }
-    const { file, path: source } = await fetchInstaller(
-      token,
-      artifact,
-      platform,
-    );
+    const { file, contents } = await fetchInstaller(token, artifact, platform);
     // `zvid-capture-0.1.0+bba0984.pkg` -> `0.1.0+bba0984`.
     version ||=
       /^zvid-capture-(.+?)(?:-setup)?\.(?:pkg|exe)$/.exec(file)?.[1] ?? "";
     // `+` means a space in some URL decoders, so it stays out of the URL.
     const served = file.replaceAll("+", "-");
-    uploadInstaller(served, source);
-    installers.push({
-      platform,
-      file: served,
-      size: (await stat(source)).size,
-    });
-    log(
-      `${platform}: ${CAPTURE_INSTALLERS_DIR}/${served} (${remote ? "remote" : "local"} R2)`,
-    );
+    await writeFile(path.join(outDir, served), contents);
+    installers.push({ platform, file: served, size: contents.byteLength });
+    log(`${platform}: ${CAPTURE_INSTALLERS_DIR}/${served}`);
   }
 
   const manifest: CaptureInstallersManifest = {

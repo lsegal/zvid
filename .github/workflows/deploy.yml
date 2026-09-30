@@ -35,26 +35,13 @@ jobs:
 
       - uses: ./.github/actions/setup
 
-      # The installers are served from R2 (the CAPTURE_INSTALLERS bucket in
-      # wrangler.jsonc); create the bucket on the first deploy.
-      - name: Ensure installer bucket
-        working-directory: app
-        run: |
-          pnpm exec wrangler r2 bucket info zvid-downloads >/dev/null 2>&1 ||
-            pnpm exec wrangler r2 bucket create zvid-downloads
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-
-      # wrangler.jsonc's build command builds the app, uploads the installers
-      # from the latest successful DAW bundles run on main to R2, and fails if
-      # any dist file exceeds the 25 MiB static asset limit.
+      # wrangler.jsonc's build command builds the app and adds the installers
+      # from the latest successful DAW bundles run on main.
       - name: Deploy
         working-directory: app
         run: pnpm exec wrangler deploy
         env:
           GH_TOKEN: ${{ github.token }}
           ZVID_REQUIRE_CAPTURE_INSTALLERS: "1"
-          ZVID_CAPTURE_INSTALLERS_REMOTE: "1"
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
