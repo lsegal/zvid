@@ -82,3 +82,101 @@ test("the web export embeds a JPEG thumbnail of the output", async ({
   expect(Math.abs(green - 0x50)).toBeLessThan(16);
   expect(Math.abs(blue - 0x78)).toBeLessThan(16);
 });
+
+// The sample entry type (e.g. "avc1", "mp4a") and, for audio, the sample
+// rate of each track, from moov/trak/mdia/minf/stbl/stsd.
+function readSampleEntries(mp4: Buffer) {
+  const moov = findBox(mp4, 0, mp4.length, "moov");
+  if (!moov) throw new Error("MP4 has no moov box");
+  const entries: { type: string; sampleRate?: number }[] = [];
+  let offset = moov.start;
+  for (;;) {
+    const trak = findBox(mp4, offset, moov.end, "trak");
+    if (!trak) return entries;
+    let box = trak;
+    for (const type of ["mdia", "minf", "stbl", "stsd"]) {
+      const next = findBox(mp4, box.start, box.end, type);
+      if (!next) throw new Error(`MP4 track has no ${type} box`);
+      box = next;
+    }
+    // stsd: version and flags, entry count, then the first sample entry.
+    const entry = box.start + 8;
+    const type = mp4.toString("latin1", entry + 4, entry + 8);
+    entries.push(
+      type === "mp4a"
+        ? // AudioSampleEntry: 16.16 fixed-point rate after 24 bytes.
+          { type, sampleRate: mp4.readUInt32BE(entry + 8 + 24) >>> 16 }
+        : { type },
+    );
+    offset = trak.end;
+  }
+}
+
+test("the web export uses the Session Settings codec and bitrate", async ({
+  page,
+}) => {
+  await page.goto("/export-smoke.html?codec=h264&mbps=2");
+  const download = page.waitForEvent("download", { timeout: 120_000 });
+  await page.click("#video");
+  // Wait on the status so a failed export reports its error.
+  await expect(page.locator("#status")).toContainText(
+    "Saved smoke-video-only.mp4",
+    { timeout: 120_000 },
+  );
+  await expect(page.locator("#status")).toContainText(
+    "320×180 · 24 fps · H.264 · 2 Mbps",
+  );
+  const mp4 = await readFile(await (await download).path());
+  expect(readSampleEntries(mp4)).toEqual([{ type: "avc1" }]);
+});
+
+test("the web export uses the Session Settings audio sample rate", async ({
+  page,
+}) => {
+  await page.goto("/export-smoke.html?audioKbps=128&sampleRate=44100");
+  // Chromium builds without proprietary codecs, like Playwright's on Linux,
+  // have no AAC encoder; the web export can't write audio there at all.
+  test.skip(
+    !(await page.evaluate(
+      async () =>
+        (
+          await AudioEncoder.isConfigSupported({
+            codec: "mp4a.40.2",
+            sampleRate: 44_100,
+            numberOfChannels: 1,
+            bitrate: 128_000,
+          })
+        ).supported,
+    )),
+    "This browser has no AAC encoder.",
+  );
+  const download = page.waitForEvent("download", { timeout: 120_000 });
+  await page.click("#audio");
+  await expect(page.locator("#status")).toContainText(
+    "Saved smoke-audible.mp4",
+    { timeout: 120_000 },
+  );
+  const mp4 = await readFile(await (await download).path());
+  expect(readSampleEntries(mp4)[1]).toEqual({
+    type: "mp4a",
+    sampleRate: 44_100,
+  });
+});
+
+test("an unsupported Session Settings codec fails early and suggests Auto", async ({
+  page,
+}) => {
+  // Report no HEVC encoder, whatever the machine has.
+  await page.addInitScript(() => {
+    const isConfigSupported = VideoEncoder.isConfigSupported.bind(VideoEncoder);
+    VideoEncoder.isConfigSupported = async (config) =>
+      /^(hev|hvc)1/.test(config.codec)
+        ? { supported: false, config }
+        : isConfigSupported(config);
+  });
+  await page.goto("/export-smoke.html?codec=hevc");
+  await page.click("#video");
+  await expect(page.locator("#status")).toContainText(
+    "HEVC encoding at 320×180 is not supported on this device. Choose Auto in Session Settings",
+  );
+});

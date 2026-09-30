@@ -7,6 +7,7 @@ on:
       - app/src-tauri/**
       - app/src/export-smoke.ts
       - app/src/harness/export.ts
+      - app/src/harness/export-encoding.ts
       - app/src/harness/export-thumbnail.ts
       - app/export-bridge/**
       - app/scripts/verify-export.mjs
