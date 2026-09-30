@@ -349,8 +349,7 @@ export function resetEffect(effects: SessionEffect[], effectId: string) {
     ];
     const unchanged =
       effect.enabled !== false &&
-      JSON.stringify(defaults.animation) ===
-        JSON.stringify(effect.animation) &&
+      JSON.stringify(defaults.animation) === JSON.stringify(effect.animation) &&
       parameters.length === effect.parameters.length &&
       parameters.every((parameter) => {
         const current = effect.parameters.find(

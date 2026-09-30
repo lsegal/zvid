@@ -508,7 +508,7 @@ describe("animation on new devices", () => {
         effectName: "Colorize",
         parameters: {},
         animation: {
-          ...createDefaultAnimation("Colorize"),
+          ...(createDefaultAnimation("Colorize") as EffectAnimation),
           enabled: false,
         },
       },
