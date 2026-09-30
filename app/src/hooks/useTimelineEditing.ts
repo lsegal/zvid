@@ -98,7 +98,6 @@ export type TimelineEditingInputs = {
   clipClipboardRef: RefObject<ClipClipboard | null>;
   isPlaying: boolean;
   setIsPlaying: Dispatch<SetStateAction<boolean>>;
-  isExporting: boolean;
   setStatus: Dispatch<SetStateAction<string>>;
 };
 
@@ -126,7 +125,6 @@ export function useTimelineEditing({
   clipClipboardRef,
   isPlaying,
   setIsPlaying,
-  isExporting,
   setStatus,
 }: TimelineEditingInputs) {
   const {
@@ -289,7 +287,6 @@ export function useTimelineEditing({
     canCreateLayer,
     commitProjectChange,
     focusLaneLabel,
-    isExporting,
     isInspectorCollapsed,
     lanes,
     pendingSelection,
@@ -338,7 +335,6 @@ export function useTimelineEditing({
     insertFxClip,
     insertLayer,
     insertTextClip,
-    isExporting,
     jumpToClipStart,
     laneStatusById,
     lanes,
@@ -380,7 +376,6 @@ export function useTimelineEditing({
     fxLaneId,
     handleRedo,
     handleUndo,
-    isExporting,
     lanes,
     pendingSelection,
     playbackOriginRef,

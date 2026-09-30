@@ -498,6 +498,16 @@ async function readMediaBlob(target: { name: string; previewUrl: string }) {
   return response.blob();
 }
 
+// The browser shows its own leave-page prompt; it ignores `message`.
+function guardWindowClose() {
+  const onBeforeUnload = (event: BeforeUnloadEvent) => {
+    event.preventDefault();
+    event.returnValue = "";
+  };
+  window.addEventListener("beforeunload", onBeforeUnload);
+  return () => window.removeEventListener("beforeunload", onBeforeUnload);
+}
+
 export function createWebHarness(): Harness {
   return {
     id: "web",
@@ -518,6 +528,7 @@ export function createWebHarness(): Harness {
       return { kind: "file", file };
     },
     pickWorkspace: pickWorkspaceSession,
+    guardWindowClose,
     async pickMedia(options) {
       const files = await pickFiles({
         accept: [

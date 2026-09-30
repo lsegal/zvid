@@ -41,7 +41,7 @@ export type LayerMenuOptions = {
   fxEnabled: boolean;
   effectCount: number;
   effects: readonly FxEffectDefinition[];
-  // Everything is disabled while exporting.
+  // Disables every entry.
   disabled?: boolean;
   actions: LayerMenuActions;
 };

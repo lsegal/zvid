@@ -42,7 +42,6 @@ export type PreviewInputs = {
   mediaItemsById: Map<string, MediaItem>;
   lanePriority: Map<string, number>;
   editEffects: PreviewEditingInputs["editEffects"];
-  isExporting: boolean;
   isPlaying: boolean;
   setIsPlaying: Dispatch<SetStateAction<boolean>>;
   playbackOriginRef: RefObject<number>;
@@ -61,7 +60,6 @@ export function usePreview({
   mediaItemsById,
   lanePriority,
   editEffects,
-  isExporting,
   isPlaying,
   setIsPlaying,
   playbackOriginRef,
@@ -133,7 +131,6 @@ export function usePreview({
     bpm,
     editEffects,
     effects,
-    isExporting,
     isPlaying,
     lanes,
     playbackOriginRef,

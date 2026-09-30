@@ -74,7 +74,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       ? formatRestoredStatus(restoredSession)
       : "Open a session or import media to get started.",
   );
-  const exportState = useExportState({ setStatus });
+  const exportState = useExportState();
   const { isExporting } = exportState;
 
   const playbackOriginRef = useRef(store.initialPlayheadQ);
@@ -122,7 +122,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     mediaItemsById,
     lanePriority,
     editEffects: fxEditing.editEffects,
-    isExporting,
     isPlaying,
     setIsPlaying,
     playbackOriginRef,
@@ -192,7 +191,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   });
   const historyCommands = useProjectHistoryCommands({
     ...store,
-    isExporting,
     finishTextEdit: preview.finishTextEdit,
     stopTimelineAudibleScrub: playback.stopTimelineAudibleScrub,
     setIsPlaying,
@@ -256,7 +254,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     clipClipboardRef,
     isPlaying,
     setIsPlaying,
-    isExporting,
     setStatus,
   });
   const sessionFiles = useSessionFiles({
@@ -269,7 +266,13 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setStatus,
   });
   const { handleRandomizeTimeline } = editing;
-  const { openExportDialog, exportDialog } = useExport({
+  const {
+    openExportDialog,
+    reopenExportDialog,
+    dismissExportActivity,
+    exportDialog,
+    exportActivity,
+  } = useExport({
     ...exportState,
     project,
     mediaItems,
@@ -277,8 +280,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     mainAudioPeaks: mainAudioModel.currentMainWaveform?.peaks,
     signature: timeline.signature,
     beatUnit: timeline.beatUnit,
-    playheadQRef,
-    compositionPlayerRef,
+    isPlaying,
     setIsPlaying,
     setStatus,
   });
@@ -366,7 +368,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   emptyState={
                     timeline.showArrangementEmptyState ? (
                       <ArrangementEmptyState
-                        disabled={isExporting}
                         onDismiss={() =>
                           setArrangementEmptyStateDismissed(true)
                         }
@@ -382,7 +383,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   }
                   header={{
                     layerReorder: editing.layerReorder,
-                    isExporting,
                     renamingLaneId: selection.renamingLaneId,
                     setRenamingLaneId: selection.setRenamingLaneId,
                     openLayerMenu: editing.openLayerMenu,
@@ -436,7 +436,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   audio={mainAudioModel}
                   drop={mediaImport.mainAudioDrop}
                   openMainAudioMenu={editing.openMainAudioMenu}
-                  isExporting={isExporting}
                   prefersReducedMotion={prefersReducedMotion}
                   bpm={bpm}
                   quarterPx={quarterPx}
@@ -504,7 +503,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             <TransportBar
               {...timeline}
               isPlaying={isPlaying}
-              isExporting={isExporting}
               jumpPlayhead={playback.jumpPlayhead}
               onTransportToggle={playback.handleTransportToggle}
               onRandomize={handleRandomizeTimeline}
@@ -539,11 +537,13 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         clipCount={timelineClips.length}
         collaborationMode={collaborationMode}
         collaborationState={collaborationState}
-        exportStatusText={exportState.exportStatusText}
+        dismissExportActivity={dismissExportActivity}
+        exportActivity={exportActivity}
         fps={fps}
         offlineCount={mediaImport.offlineCount}
         playheadSignal={playheadSignal}
         previewMedia={preview.previewMedia}
+        reopenExportDialog={reopenExportDialog}
         sessionName={sessionName}
         setIsSessionSettingsOpen={dialogs.setIsSessionSettingsOpen}
         shareUrl={collaboration.shareUrl}

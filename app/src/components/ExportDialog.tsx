@@ -4,6 +4,7 @@ import {
   ForwardIcon,
   PauseIcon,
   PlayIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/solid";
 import { canEncodeVideo } from "mediabunny";
 import {
@@ -35,6 +36,7 @@ import {
   snapToFrame,
   validateExportOptions,
 } from "../export-options.ts";
+import { formatSnapshotTime } from "../export-progress.ts";
 import { MEDIABUNNY_VIDEO_CODECS } from "../harness/export-encoding.ts";
 import type { ExportDialogModel } from "../hooks/useExport.ts";
 import {
@@ -268,14 +270,13 @@ export function ExportDialog({ model }: { model: ExportDialogModel }) {
       <DialogContent
         aria-describedby="export-dialog-description"
         className="export-dialog"
-        onEscapeKeyDown={(event) => {
-          // Esc mid-export asks first rather than dropping the progress.
-          if (exporting) {
+        // Esc and, mid-export, an outside click hide the dialog; a running
+        // export keeps going in the background.
+        onInteractOutside={(event) => {
+          if (!exporting) {
             event.preventDefault();
-            setConfirmCancel(true);
           }
         }}
-        onInteractOutside={(event) => event.preventDefault()}
         onOpenAutoFocus={(event) => {
           // Focus the dialog itself, so Space, I and O work right away.
           event.preventDefault();
@@ -423,6 +424,17 @@ function ExportDialogBody({
       tabIndex={-1}
     >
       <DialogHeader>
+        <button
+          aria-label="Dismiss dialog"
+          className="export-dialog__dismiss"
+          onClick={model.close}
+          title={
+            exporting ? "Hide; the export keeps running (Esc)" : "Close (Esc)"
+          }
+          type="button"
+        >
+          <XMarkIcon aria-hidden="true" />
+        </button>
         <DialogTitle>Export</DialogTitle>
         <DialogDescription id="export-dialog-description">
           Choose the range to export and adjust the output for this export.
@@ -651,6 +663,18 @@ function ExportDialogBody({
         </div>
       ) : null}
 
+      {model.snapshotTakenAt && phase !== "editing" ? (
+        <p className="export-dialog__snapshot" data-export-snapshot="">
+          {exporting
+            ? `Exporting the version from ${formatSnapshotTime(
+                model.snapshotTakenAt,
+              )}. Edits made since don't change this export, and you can hide this dialog and keep working.`
+            : `Exported the version from ${formatSnapshotTime(
+                model.snapshotTakenAt,
+              )}.`}
+        </p>
+      ) : null}
+
       {model.message ? (
         <p
           className={`export-dialog__message${
@@ -680,7 +704,7 @@ function ExportDialogBody({
             }}
             type="button"
           >
-            Cancel export
+            Stop export
           </button>
         </div>
       ) : null}
@@ -692,13 +716,24 @@ function ExportDialogBody({
           {timing.frameCount} frames)
         </span>
         {exporting ? (
-          <button
-            className="ghost-button"
-            onClick={model.cancelExport}
-            type="button"
-          >
-            Cancel
-          </button>
+          <>
+            <button
+              className="ghost-button"
+              disabled={confirmCancel}
+              onClick={() => setConfirmCancel(true)}
+              type="button"
+            >
+              Cancel export
+            </button>
+            <button
+              className="ghost-button ghost-button--accent"
+              onClick={model.close}
+              title="Hide this dialog; the export keeps running"
+              type="button"
+            >
+              Run in background
+            </button>
+          </>
         ) : phase === "done" ? (
           <>
             {model.canReveal ? (

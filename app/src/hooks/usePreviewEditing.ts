@@ -49,7 +49,6 @@ export type PreviewEditingInputs = {
     mode?: "commit" | "transient",
   ) => void;
   effects: SessionEffect[];
-  isExporting: boolean;
   isPlaying: boolean;
   lanes: Lane[];
   playbackOriginRef: RefObject<number>;
@@ -71,7 +70,6 @@ export function usePreviewEditing({
   bpm,
   editEffects,
   effects,
-  isExporting,
   isPlaying,
   lanes,
   playbackOriginRef,
@@ -196,7 +194,6 @@ export function usePreviewEditing({
         !clip ||
         !isTextClip(clip) ||
         textEditRef.current?.clipId === clipId ||
-        isExporting ||
         refuseReadOnlyEdit()
       ) {
         return;
@@ -223,7 +220,6 @@ export function usePreviewEditing({
     [
       bpm,
       finishTextEdit,
-      isExporting,
       playbackOriginRef,
       playheadQRef,
       refuseReadOnlyEdit,

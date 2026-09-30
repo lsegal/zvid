@@ -36,6 +36,7 @@ import {
   createMediaRelinker,
   type MediaRelinkCandidate,
 } from "../media-relink";
+import { revokeObjectUrl } from "../object-url-retention.ts";
 import { matchOfflineMedia, type OfflineMediaEntry } from "../relink";
 import { nextSourceTrackColorIndex } from "../source-track-color.ts";
 
@@ -90,7 +91,7 @@ export function useMediaLibrary({
           previousPreviewUrl !== nextPreviewUrl &&
           mediaObjectUrlsRef.current.get(mediaId) === previousPreviewUrl
         ) {
-          URL.revokeObjectURL(previousPreviewUrl);
+          revokeObjectUrl(previousPreviewUrl);
           mediaObjectUrlsRef.current.delete(mediaId);
         }
 
@@ -209,7 +210,7 @@ export function useMediaLibrary({
       mediaObjectUrlsRef.current.set(mediaId, previewUrl);
       setLocalMediaOverride(mediaId, { availability: "ready", previewUrl });
       if (previousPreviewUrl && previousPreviewUrl !== previewUrl) {
-        URL.revokeObjectURL(previousPreviewUrl);
+        revokeObjectUrl(previousPreviewUrl);
       }
 
       if (!existing || !(options?.analyze || existing.durationSeconds === 0)) {
@@ -233,7 +234,7 @@ export function useMediaLibrary({
           result.previewUrl.startsWith("blob:") &&
           result.previewUrl !== previewUrl
         ) {
-          URL.revokeObjectURL(result.previewUrl);
+          revokeObjectUrl(result.previewUrl);
         }
         const analyzed: MediaItem = {
           ...result,
@@ -294,7 +295,7 @@ export function useMediaLibrary({
   useEffect(
     () => () => {
       for (const url of mediaObjectUrlsRef.current.values()) {
-        URL.revokeObjectURL(url);
+        revokeObjectUrl(url);
       }
       mediaObjectUrlsRef.current.clear();
     },
@@ -310,7 +311,7 @@ export function useMediaLibrary({
         if (!activeIds.has(mediaId)) {
           const previewUrl = mediaObjectUrlsRef.current.get(mediaId);
           if (previewUrl) {
-            URL.revokeObjectURL(previewUrl);
+            revokeObjectUrl(previewUrl);
             mediaObjectUrlsRef.current.delete(mediaId);
           }
           changed = true;
@@ -331,7 +332,7 @@ export function useMediaLibrary({
       for (const mediaId of invalidatedIds) {
         const previewUrl = mediaObjectUrlsRef.current.get(mediaId);
         if (previewUrl) {
-          URL.revokeObjectURL(previewUrl);
+          revokeObjectUrl(previewUrl);
           mediaObjectUrlsRef.current.delete(mediaId);
         }
       }
