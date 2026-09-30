@@ -8,6 +8,10 @@ import {
 } from "./space-shortcut.ts";
 
 const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const useRulerGesturesTs = readFileSync(
+  new URL("./hooks/useRulerGestures.ts", import.meta.url),
+  "utf8",
+);
 
 function element(
   tagName: string,
@@ -159,7 +163,7 @@ describe("space hold for hand-grab panning", () => {
   it("toggles playback on keyup and pans on Space + left-drag", () => {
     assert.match(appTsx, /spaceHold\.release\(\)/);
     assert.match(
-      appTsx,
+      useRulerGesturesTs,
       /isTimelinePanPress\(event, spaceHoldRef\.current\.held\)/,
     );
   });

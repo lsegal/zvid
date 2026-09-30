@@ -3,15 +3,19 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
 const appTsx = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const usePlaybackTs = readFileSync(
+  new URL("./hooks/usePlayback.ts", import.meta.url),
+  "utf8",
+);
 const playerTsx = readFileSync(
   new URL("./CompositionPlayer.tsx", import.meta.url),
   "utf8",
 );
 
 function playbackLoop() {
-  const start = appTsx.indexOf("const step = (timestamp: number) => {");
+  const start = usePlaybackTs.indexOf("const step = (timestamp: number) => {");
   assert.notEqual(start, -1, "missing playback loop");
-  return appTsx.slice(start, appTsx.indexOf("\n    };\n", start));
+  return usePlaybackTs.slice(start, usePlaybackTs.indexOf("\n    };\n", start));
 }
 
 describe("playback rendering", () => {
