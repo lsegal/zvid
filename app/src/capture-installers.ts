@@ -1,8 +1,9 @@
-// ZVID Capture installer downloads. The Cloudflare build
-// (scripts/fetch-capture-installers.ts) uploads the installers from the latest
-// successful `DAW bundles` run on main to R2, which the Worker serves under
-// /downloads (worker/downloads.ts), and describes them in a manifest the
-// Help → Install Capture Plugin dialog reads.
+// ZVID Capture plugin and zvid desktop app installer downloads. The
+// Cloudflare build (scripts/fetch-capture-installers.ts) uploads the
+// installers from the latest successful `DAW bundles` run on main to R2, which
+// the Worker serves under /downloads (worker/downloads.ts), and describes them
+// in a manifest the Help → Install Capture Plugin and Help → Download Desktop
+// App dialogs read.
 
 export const CAPTURE_INSTALLERS_DIR = "downloads";
 export const CAPTURE_INSTALLERS_MANIFEST = "zvid-capture.json";
@@ -31,7 +32,10 @@ export type CaptureInstallersManifest = {
   version: string;
   commit: string;
   runUrl: string;
+  // The ZVID Capture plugin installers.
   installers: CaptureInstaller[];
+  // The zvid desktop app installers, empty when the run built none.
+  desktop: CaptureInstaller[];
 };
 
 // The `DAW bundles` workflow names artifacts
@@ -46,6 +50,18 @@ export function artifactPlatform(name: string): CapturePlatform | null {
   return match ? ARTIFACT_PLATFORMS[match[1]] : null;
 }
 
+// The workflow names desktop app artifacts `zvid-<version>-<sha>-<platform>`.
+// The app is built for Apple silicon only on macOS.
+const DESKTOP_ARTIFACT_PLATFORMS: Record<string, CapturePlatform> = {
+  "macos-arm64": "macos",
+  "windows-x64": "windows",
+};
+
+export function desktopArtifactPlatform(name: string): CapturePlatform | null {
+  const match = /^zvid-(?!capture-).+-(macos-arm64|windows-x64)$/.exec(name);
+  return match ? DESKTOP_ARTIFACT_PLATFORMS[match[1]] : null;
+}
+
 // The installer inside a bundle zip: the .pkg on macOS, the Inno Setup
 // `-setup.exe` on Windows. macOS resource-fork entries are skipped.
 export function isCaptureInstallerEntry(
@@ -58,6 +74,21 @@ export function isCaptureInstallerEntry(
   const lower = name.toLowerCase();
   return platform === "macos"
     ? lower.endsWith(".pkg")
+    : lower.endsWith("-setup.exe");
+}
+
+// The desktop app installer inside its artifact's zip: the .dmg on macOS, the
+// NSIS `-setup.exe` on Windows.
+export function isDesktopInstallerEntry(
+  name: string,
+  platform: CapturePlatform,
+) {
+  if (name.endsWith("/") || name.split("/").includes("__MACOSX")) {
+    return false;
+  }
+  const lower = name.toLowerCase();
+  return platform === "macos"
+    ? lower.endsWith(".dmg")
     : lower.endsWith("-setup.exe");
 }
 
@@ -89,8 +120,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+function parseInstallers(value: unknown): CaptureInstaller[] {
+  return Array.isArray(value)
+    ? value.filter(
+        (installer): installer is CaptureInstaller =>
+          isRecord(installer) &&
+          CAPTURE_PLATFORMS.includes(installer.platform as CapturePlatform) &&
+          typeof installer.file === "string" &&
+          installer.file !== "" &&
+          typeof installer.size === "number",
+      )
+    : [];
+}
+
 // Validates a fetched manifest. Deployments without installers serve the
-// SPA's index.html at the manifest URL, which is not JSON at all.
+// SPA's index.html at the manifest URL, which is not JSON at all. Manifests
+// written before the desktop app had its own installer have no `desktop`.
 export function parseCaptureInstallersManifest(
   value: unknown,
 ): CaptureInstallersManifest | null {
@@ -103,20 +148,15 @@ export function parseCaptureInstallersManifest(
   ) {
     return null;
   }
-  const installers = value.installers.filter(
-    (installer): installer is CaptureInstaller =>
-      isRecord(installer) &&
-      CAPTURE_PLATFORMS.includes(installer.platform as CapturePlatform) &&
-      typeof installer.file === "string" &&
-      installer.file !== "" &&
-      typeof installer.size === "number",
-  );
-  return installers.length > 0
+  const installers = parseInstallers(value.installers);
+  const desktop = parseInstallers(value.desktop);
+  return installers.length > 0 || desktop.length > 0
     ? {
         version: value.version,
         commit: value.commit,
         runUrl: value.runUrl,
         installers,
+        desktop,
       }
     : null;
 }

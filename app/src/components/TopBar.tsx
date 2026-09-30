@@ -57,6 +57,7 @@ export type TopBarProps = Pick<
     renamingLaneIdRef: RefObject<string | undefined>;
     sample: Pick<ReturnType<typeof useSampleProject>, "handleOpenSample">;
     setIsCaptureInstallerDialogOpen: SetOpen;
+    setIsDesktopAppDialogOpen: SetOpen;
     setIsMediaStorageDialogOpen: SetOpen;
     setIsMediaSyncDialogOpen: SetOpen;
     setIsOfflineMediaDialogOpen: SetOpen;
@@ -87,6 +88,7 @@ export function TopBar({
   renamingLaneIdRef,
   sample,
   setIsCaptureInstallerDialogOpen,
+  setIsDesktopAppDialogOpen,
   setIsMediaStorageDialogOpen,
   setIsMediaSyncDialogOpen,
   setIsOfflineMediaDialogOpen,
@@ -311,11 +313,18 @@ export function TopBar({
             </DropdownMenuItem>
             {/* The desktop app has no downloads to offer. */}
             {supportsHarnessCapability("native-dialogs") ? null : (
-              <DropdownMenuItem
-                onSelect={() => setIsCaptureInstallerDialogOpen(true)}
-              >
-                Install Capture Plugin
-              </DropdownMenuItem>
+              <>
+                <DropdownMenuItem
+                  onSelect={() => setIsCaptureInstallerDialogOpen(true)}
+                >
+                  Install Capture Plugin
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => setIsDesktopAppDialogOpen(true)}
+                >
+                  Download Desktop App
+                </DropdownMenuItem>
+              </>
             )}
             <DropdownMenuSeparator />
             <DropdownMenuItem

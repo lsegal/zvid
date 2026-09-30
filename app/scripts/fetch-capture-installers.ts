@@ -1,6 +1,7 @@
-// Uploads the ZVID Capture installers from the latest successful `DAW bundles`
-// run on main to the Worker's R2 bucket and writes the manifest the app's
-// Help → Install Capture Plugin dialog reads into dist/downloads.
+// Uploads the ZVID Capture plugin and zvid desktop app installers from the
+// latest successful `DAW bundles` run on main to the Worker's R2 bucket and
+// writes the manifest the app's Help → Install Capture Plugin and Help →
+// Download Desktop App dialogs read into dist/downloads.
 // wrangler.jsonc runs it after the Vite build (`pnpm run cf:prepare`), so
 // every deploy offers the newest installers main has produced.
 //
@@ -14,8 +15,10 @@
 // `gh auth token`. Without one, or without artifacts, the build goes on with
 // no installers and the dialog says so, unless
 // ZVID_REQUIRE_CAPTURE_INSTALLERS=1, as in the deploy workflow, makes that an
-// error. Downloads are cached in node_modules/.cache by artifact id, so
-// rebuilds under `wrangler dev` don't fetch them again.
+// error. A run without desktop app installers, like those from before the
+// desktop app had its own, only offers the plugin. Downloads are cached in
+// node_modules/.cache by artifact id, so rebuilds under `wrangler dev` don't
+// fetch them again.
 
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -29,7 +32,9 @@ import {
   type CaptureInstaller,
   type CaptureInstallersManifest,
   type CapturePlatform,
+  desktopArtifactPlatform,
   isCaptureInstallerEntry,
+  isDesktopInstallerEntry,
 } from "../src/capture-installers.ts";
 import { listZipEntries, readZipEntry } from "../src/zip.ts";
 
@@ -51,6 +56,8 @@ const BUCKET = "zvid-downloads";
 
 type WorkflowRun = { id: number; head_sha: string; html_url: string };
 type Artifact = { id: number; name: string; expired: boolean };
+// Picks the installer out of an artifact's bundle zip entries.
+type IsInstallerEntry = (name: string, platform: CapturePlatform) => boolean;
 
 function log(message: string) {
   console.log(`[capture-installers] ${message}`);
@@ -93,6 +100,7 @@ async function github(token: string, url: string) {
 async function extractInstaller(
   artifactZip: Uint8Array,
   platform: CapturePlatform,
+  isInstallerEntry: IsInstallerEntry,
 ) {
   const outer = listZipEntries(artifactZip);
   const bundleEntry = outer.find((entry) => entry.name.endsWith(".zip"));
@@ -101,7 +109,7 @@ async function extractInstaller(
   }
   const bundleZip = await readZipEntry(artifactZip, bundleEntry);
   const installerEntry = listZipEntries(bundleZip).find((entry) =>
-    isCaptureInstallerEntry(entry.name, platform),
+    isInstallerEntry(entry.name, platform),
   );
   if (!installerEntry) {
     throw new Error(`${bundleEntry.name} holds no ${platform} installer`);
@@ -116,6 +124,7 @@ async function fetchInstaller(
   token: string,
   artifact: Artifact,
   platform: CapturePlatform,
+  isInstallerEntry: IsInstallerEntry,
 ) {
   const cached = path.join(cacheDir, String(artifact.id));
   const cachedInfo = path.join(cached, "installer.json");
@@ -135,6 +144,7 @@ async function fetchInstaller(
   const installer = await extractInstaller(
     new Uint8Array(await response.arrayBuffer()),
     platform,
+    isInstallerEntry,
   );
   await mkdir(cached, { recursive: true });
   await writeFile(path.join(cached, installer.file), installer.contents);
@@ -194,36 +204,67 @@ async function main() {
     )
   ).json()) as { artifacts: Artifact[] };
 
-  await mkdir(outDir, { recursive: true });
-  const installers: CaptureInstaller[] = [];
-  let version = "";
-  for (const platform of CAPTURE_PLATFORMS) {
-    const artifact = artifacts.find(
-      (candidate) =>
-        !candidate.expired && artifactPlatform(candidate.name) === platform,
-    );
-    if (!artifact) {
-      throw new Error(`run ${run.id} has no ${platform} artifact`);
-    }
+  // Fetches an installer, uploads it to the bucket and describes it, along
+  // with the file name it had in the artifact.
+  async function publish(
+    artifact: Artifact,
+    platform: CapturePlatform,
+    isInstallerEntry: IsInstallerEntry,
+  ): Promise<{ installer: CaptureInstaller; file: string }> {
     const { file, path: source } = await fetchInstaller(
       token,
       artifact,
       platform,
+      isInstallerEntry,
+    );
+    // `+` means a space in some URL decoders, so it stays out of the URL.
+    const served = file.replaceAll("+", "-");
+    uploadInstaller(served, source);
+    log(
+      `${artifact.name}: ${CAPTURE_INSTALLERS_DIR}/${served} (${remote ? "remote" : "local"} R2)`,
+    );
+    return {
+      installer: { platform, file: served, size: (await stat(source)).size },
+      file,
+    };
+  }
+
+  const available = artifacts.filter((artifact) => !artifact.expired);
+  await mkdir(outDir, { recursive: true });
+  const installers: CaptureInstaller[] = [];
+  const desktop: CaptureInstaller[] = [];
+  let version = "";
+  for (const platform of CAPTURE_PLATFORMS) {
+    const artifact = available.find(
+      (candidate) => artifactPlatform(candidate.name) === platform,
+    );
+    if (!artifact) {
+      throw new Error(`run ${run.id} has no ${platform} artifact`);
+    }
+    const { installer, file } = await publish(
+      artifact,
+      platform,
+      isCaptureInstallerEntry,
     );
     // `zvid-capture-0.1.0+bba0984.pkg` -> `0.1.0+bba0984`.
     version ||=
       /^zvid-capture-(.+?)(?:-setup)?\.(?:pkg|exe)$/.exec(file)?.[1] ?? "";
-    // `+` means a space in some URL decoders, so it stays out of the URL.
-    const served = file.replaceAll("+", "-");
-    uploadInstaller(served, source);
-    installers.push({
-      platform,
-      file: served,
-      size: (await stat(source)).size,
-    });
-    log(
-      `${platform}: ${CAPTURE_INSTALLERS_DIR}/${served} (${remote ? "remote" : "local"} R2)`,
+    installers.push(installer);
+  }
+  for (const platform of CAPTURE_PLATFORMS) {
+    const artifact = available.find(
+      (candidate) => desktopArtifactPlatform(candidate.name) === platform,
     );
+    if (artifact) {
+      const { installer } = await publish(
+        artifact,
+        platform,
+        isDesktopInstallerEntry,
+      );
+      desktop.push(installer);
+    } else {
+      log(`run ${run.id} has no ${platform} desktop app artifact`);
+    }
   }
 
   const manifest: CaptureInstallersManifest = {
@@ -231,6 +272,7 @@ async function main() {
     commit: run.head_sha,
     runUrl: run.html_url,
     installers,
+    desktop,
   };
   await writeFile(
     path.join(outDir, CAPTURE_INSTALLERS_MANIFEST),

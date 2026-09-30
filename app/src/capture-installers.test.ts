@@ -3,9 +3,11 @@ import { describe, it } from "node:test";
 import {
   artifactPlatform,
   captureInstallerUrl,
+  desktopArtifactPlatform,
   detectCapturePlatform,
   formatInstallerSize,
   isCaptureInstallerEntry,
+  isDesktopInstallerEntry,
   parseCaptureInstallersManifest,
   pickCaptureDownloads,
 } from "./capture-installers.ts";
@@ -34,6 +36,36 @@ describe("artifactPlatform", () => {
   it("ignores other artifacts", () => {
     assert.equal(artifactPlatform("host-test-windows-x64"), null);
     assert.equal(artifactPlatform("zvid-capture-0.1.0-bba0984-linux"), null);
+  });
+});
+
+describe("desktopArtifactPlatform", () => {
+  it("maps desktop app artifact names to platforms", () => {
+    assert.equal(desktopArtifactPlatform("zvid-0.0.0-bba0984-macos-arm64"), "macos");
+    assert.equal(
+      desktopArtifactPlatform("zvid-0.0.0-bba0984-windows-x64"),
+      "windows",
+    );
+  });
+
+  it("ignores plugin and other artifacts", () => {
+    assert.equal(
+      desktopArtifactPlatform("zvid-capture-0.1.0-bba0984-windows-x64"),
+      null,
+    );
+    assert.equal(
+      desktopArtifactPlatform("zvid-capture-0.1.0-bba0984-macos-arm64"),
+      null,
+    );
+    assert.equal(desktopArtifactPlatform("host-test-windows-x64"), null);
+    assert.equal(
+      desktopArtifactPlatform("zvid-0.0.0-bba0984-macos-universal"),
+      null,
+    );
+  });
+
+  it("is not mistaken for a plugin artifact", () => {
+    assert.equal(artifactPlatform("zvid-0.0.0-bba0984-windows-x64"), null);
   });
 });
 
@@ -68,6 +100,24 @@ describe("isCaptureInstallerEntry", () => {
     assert.ok(
       !isCaptureInstallerEntry("zvid-capture-0.1.0+bba0984.pkg", "windows"),
     );
+  });
+});
+
+describe("isDesktopInstallerEntry", () => {
+  it("picks the macOS .dmg from a desktop app zip", () => {
+    const dir = "zvid-0.0.0-bba0984-macos-arm64";
+    assert.ok(isDesktopInstallerEntry(`${dir}/zvid-0.0.0+bba0984.dmg`, "macos"));
+    assert.ok(!isDesktopInstallerEntry(`${dir}/zvid.app/`, "macos"));
+    assert.ok(
+      !isDesktopInstallerEntry(`__MACOSX/${dir}/._zvid-0.0.0+bba0984.dmg`, "macos"),
+    );
+  });
+
+  it("picks the Windows setup executable from a desktop app zip", () => {
+    assert.ok(
+      isDesktopInstallerEntry("zvid-0.0.0+bba0984-setup.exe", "windows"),
+    );
+    assert.ok(!isDesktopInstallerEntry("zvid-0.0.0+bba0984.dmg", "windows"));
   });
 });
 
@@ -138,8 +188,32 @@ describe("parseCaptureInstallersManifest", () => {
     ],
   };
 
+  const desktop = [
+    { platform: "macos", file: "zvid-0.0.0-bba0984.dmg", size: 21453120 },
+    {
+      platform: "windows",
+      file: "zvid-0.0.0-bba0984-setup.exe",
+      size: 9437184,
+    },
+  ];
+
   it("accepts the manifest the build writes", () => {
-    assert.deepEqual(parseCaptureInstallersManifest(manifest), manifest);
+    const written = { ...manifest, desktop };
+    assert.deepEqual(parseCaptureInstallersManifest(written), written);
+  });
+
+  it("reads manifests without desktop app installers", () => {
+    assert.deepEqual(parseCaptureInstallersManifest(manifest), {
+      ...manifest,
+      desktop: [],
+    });
+  });
+
+  it("accepts manifests with only desktop app installers", () => {
+    assert.deepEqual(
+      parseCaptureInstallersManifest({ ...manifest, installers: [], desktop }),
+      { ...manifest, installers: [], desktop },
+    );
   });
 
   it("drops malformed installers", () => {
@@ -150,8 +224,10 @@ describe("parseCaptureInstallersManifest", () => {
         { platform: "linux", file: "zvid.deb", size: 1 },
         { platform: "macos", file: "", size: 1 },
       ],
+      desktop: [...desktop, { platform: "linux", file: "zvid.deb", size: 1 }],
     });
     assert.deepEqual(parsed?.installers, manifest.installers);
+    assert.deepEqual(parsed?.desktop, desktop);
   });
 
   it("rejects manifests without installers", () => {
@@ -159,6 +235,14 @@ describe("parseCaptureInstallersManifest", () => {
     assert.equal(parseCaptureInstallersManifest("<!doctype html>"), null);
     assert.equal(
       parseCaptureInstallersManifest({ ...manifest, installers: [] }),
+      null,
+    );
+    assert.equal(
+      parseCaptureInstallersManifest({
+        ...manifest,
+        installers: [],
+        desktop: [],
+      }),
       null,
     );
     assert.equal(
