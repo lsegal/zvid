@@ -108,8 +108,8 @@ export function placeOnsets(
   time: number,
 ): ReactiveOnset[] {
   return (onsets ?? []).map((onset) => ({
-    time: Math.round((time - onset.secondsAgo) * ONSET_GRID_RATE) /
-      ONSET_GRID_RATE,
+    time:
+      Math.round((time - onset.secondsAgo) * ONSET_GRID_RATE) / ONSET_GRID_RATE,
     strength: onset.strength,
   }));
 }
@@ -132,7 +132,9 @@ function hashString(text: string) {
 // The direction and size, -1..1, a hit pushes a parameter by. The same
 // effect, parameter and hit always give the same value.
 export function reactiveOffset(effectId: string, key: string, seed: number) {
-  return (hashString(`${effectId}\u0000${key}\u0000${seed}`) / 0xffffffff) * 2 - 1;
+  return (
+    (hashString(`${effectId}\u0000${key}\u0000${seed}`) / 0xffffffff) * 2 - 1
+  );
 }
 
 export type ReactiveOptions = {

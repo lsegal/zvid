@@ -52,7 +52,9 @@ export function resolveAnimatedParameters(
   const animation = effect.animation;
   if (animation?.enabled && animation.mode === "reactive") {
     const time =
-      frameContext.bpm > 0 ? (frameContext.playheadQ * 60) / frameContext.bpm : 0;
+      frameContext.bpm > 0
+        ? (frameContext.playheadQ * 60) / frameContext.bpm
+        : 0;
     return resolveReactiveParameters(effect, animation.reactive, {
       time,
       onsets: placeOnsets(frameContext.audio?.onsets, time),

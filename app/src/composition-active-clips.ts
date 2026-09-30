@@ -51,8 +51,8 @@ import {
   resolveFillPaint,
 } from "./fill-paint.ts";
 import { resolveAnimatedEffects } from "./fx-animation.ts";
-import type { AudioBands } from "./fx-shaders/audio-bands.ts";
 import type { EffectAnimation } from "./fx-animation-defaults.ts";
+import type { AudioBands } from "./fx-shaders/audio-bands.ts";
 import {
   type EffectChainStep,
   isChainEffectName,

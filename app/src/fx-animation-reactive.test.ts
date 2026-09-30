@@ -52,7 +52,7 @@ function reactive(
   };
 }
 
-function valueOf(parameters: SessionEffect["parameters"], key: string) {
+function readValue(parameters: SessionEffect["parameters"], key: string) {
   const parameter = parameters.find((candidate) => candidate.key === key);
   return parameter?.numericValue ?? Number(parameter?.value);
 }
@@ -67,7 +67,7 @@ function trace(
 ) {
   const onsets = [{ time: 10 / REACTIVE_FRAME_RATE, strength: 1 }];
   return Array.from({ length: frames + 1 }, (_, frame) =>
-    valueOf(
+    readValue(
       resolveReactiveParameters(effect, settings, {
         time: frame / REACTIVE_FRAME_RATE,
         onsets,
@@ -168,8 +168,11 @@ describe("resolveReactiveParameters", () => {
   });
 
   it("keeps knobs within their limits", () => {
-    const values = trace(negativeSplit(1, 0), reactive(), "_LowIntensity")
-      .concat(trace(negativeSplit(1, 0), reactive(), "_HighIntensity"));
+    const values = trace(
+      negativeSplit(1, 0),
+      reactive(),
+      "_LowIntensity",
+    ).concat(trace(negativeSplit(1, 0), reactive(), "_HighIntensity"));
     assert.ok(values.every((value) => value >= 0 && value <= 1));
   });
 
@@ -316,7 +319,7 @@ describe("resolveAnimatedEffects in Reactive mode", () => {
     const [first] = resolveAnimatedEffects([effect], clip("a"), frame);
     const [second] = resolveAnimatedEffects([effect], clip("b"), frame);
     assert.notEqual(first, effect);
-    assert.notEqual(valueOf(first.parameters, "_LowIntensity"), 0.5);
+    assert.notEqual(readValue(first.parameters, "_LowIntensity"), 0.5);
     assert.deepEqual(first.parameters, second.parameters);
 
     const [quiet] = resolveAnimatedEffects([effect], clip("a"), {
