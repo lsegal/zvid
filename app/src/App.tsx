@@ -123,6 +123,7 @@ import { CaptureInstallerDialog } from "./components/CaptureInstallerDialog";
 import { CollaborationDetailCard } from "./components/CollaborationDetailCard";
 import { ContextMenu } from "./components/ContextMenu";
 import { DropdownMenuEntries } from "./components/DropdownMenuEntries";
+import { ExportDialog } from "./components/ExportDialog";
 import { FxChain } from "./components/FxChain";
 import {
   ImportNotice,
@@ -1996,20 +1997,17 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setStatus,
   });
 
-  const { handleExport } = useExport({
+  const { openExportDialog, exportDialog } = useExport({
     isExporting,
     setIsExporting,
     setExportState,
     updateExportState,
-    clips,
-    timelineClips,
+    project: projectHistory.present,
     mediaItems,
-    lanes,
-    effects,
     mainAudio,
-    bpm,
-    settings: sessionSettingsFromProject(projectHistory.present),
-    sessionName,
+    mainAudioPeaks: currentMainWaveform?.peaks,
+    signature,
+    beatUnit,
     playheadQRef,
     compositionPlayerRef,
     setIsPlaying,
@@ -2364,7 +2362,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
           <button
             className="ghost-button"
             disabled={isExporting}
-            onClick={handleExport}
+            onClick={openExportDialog}
             type="button"
           >
             {exportButtonLabel}
@@ -2610,6 +2608,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         open={isSessionSettingsOpen}
         settings={sessionSettingsFromProject(projectHistory.present)}
       />
+
+      <ExportDialog model={exportDialog} />
 
       <MediaSyncDialog
         entries={mediaSyncEntries}
