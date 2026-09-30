@@ -121,18 +121,25 @@ describe("Full clip timing", () => {
 });
 
 describe("Order spacing range", () => {
-  it("reaches a tenth of a 1080p canvas", () => {
-    assert.equal(SPACING_MAX, 108);
+  it("reaches 200 px at 1080p", () => {
+    assert.equal(SPACING_MAX, 200);
     const spacing = getEffectDefinition("Order").parameters.find(
       (parameter) => parameter.key === "Spacing",
     );
-    assert.equal(spacing?.kind === "number" ? spacing.max : undefined, 108);
+    assert.equal(spacing?.kind === "number" ? spacing.max : undefined, 200);
     assert.equal(
       parseCompositionOrder([
-        { key: "Spacing", value: "108", numericValue: 108 },
+        { key: "Spacing", value: "200", numericValue: 200 },
       ]).spacing,
-      108,
+      200,
     );
+  });
+
+  it("tweens across the whole range", () => {
+    assert.equal(spacingAt(200, 0, 3), 0);
+    assertClose(spacingAt(200, 0.75, 3), 100);
+    assertClose(spacingAt(200, 1.5, 3), 200);
+    assertClose(spacingAt(200, 3, 3), 0);
   });
 });
 

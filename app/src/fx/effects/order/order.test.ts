@@ -96,13 +96,15 @@ describe("parseCompositionOrder", () => {
     assert.deepEqual(border("tomato"), BLACK);
   });
 
-  it("keeps spacing within 0 to 108", () => {
+  it("keeps spacing within 0 to 200", () => {
     for (const [saved, expected] of [
+      [-5, 0],
       [0, 0],
       [10, 10],
       [50, 50],
       [108, 108],
-      [160, 108],
+      [200, 200],
+      [250, 200],
     ]) {
       assert.equal(
         parseCompositionOrder(order("Vertical", 2, saved).parameters).spacing,
