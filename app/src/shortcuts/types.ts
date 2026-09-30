@@ -20,7 +20,6 @@ export type ShortcutContext = {
   fxLaneId: string | undefined;
   handleRedo: () => void;
   handleUndo: () => void;
-  isExporting: boolean;
   lanes: Lane[];
   pendingSelection: TimelineSelection | null;
   playbackOriginRef: RefObject<number>;

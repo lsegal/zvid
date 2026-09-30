@@ -31,7 +31,6 @@ export type LayerActionsInputs = {
     updater: (current: ProjectState) => ProjectState,
   ) => void;
   focusLaneLabel: (laneId: string) => void;
-  isExporting: boolean;
   isInspectorCollapsed: boolean;
   lanes: Lane[];
   pendingSelection: TimelineSelection | null;
@@ -53,7 +52,6 @@ export function useLayerActions({
   canCreateLayer,
   commitProjectChange,
   focusLaneLabel,
-  isExporting,
   isInspectorCollapsed,
   lanes,
   pendingSelection,
@@ -188,7 +186,6 @@ export function useLayerActions({
       timelineScrollRef.current
         ?.querySelector(".ruler-row")
         ?.getBoundingClientRect().bottom,
-    disabled: isExporting,
     onMove: moveLayerTo,
     onSelect: selectLaneFromLabel,
   });

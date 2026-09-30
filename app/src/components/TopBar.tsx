@@ -206,10 +206,17 @@ export function TopBar({
       </div>
 
       <div className="topbar__group topbar__group--right">
+        {/* One export at a time: a running one is managed from the status
+            bar's export progress, which reopens its dialog. */}
         <button
           className="ghost-button"
           disabled={isExporting}
           onClick={openExportDialog}
+          title={
+            isExporting
+              ? "An export is running. Only one export runs at a time; click its progress in the status bar to manage it."
+              : undefined
+          }
           type="button"
         >
           {exportButtonLabel}
@@ -236,7 +243,7 @@ export function TopBar({
         )}
         <button
           className={`ghost-button share-button ${isSharing ? "is-sharing" : ""}`}
-          disabled={isExporting || isStartingShare || isConnectedClient}
+          disabled={isStartingShare || isConnectedClient}
           onClick={() => {
             if (isSharing) {
               handleStopShare();

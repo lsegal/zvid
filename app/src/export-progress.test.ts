@@ -57,7 +57,10 @@ describe("describeExportActivity", () => {
       describeExportActivity(rendering(42), 72),
       "Exporting 42% · 1:12 left",
     );
-    assert.equal(describeExportActivity(rendering(42), undefined), "Exporting 42%");
+    assert.equal(
+      describeExportActivity(rendering(42), undefined),
+      "Exporting 42%",
+    );
   });
 
   it("names the phases without a percentage", () => {

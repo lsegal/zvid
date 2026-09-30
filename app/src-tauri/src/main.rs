@@ -112,8 +112,10 @@ fn files_exist(paths: Vec<String>) -> Vec<bool> {
   paths.iter().map(|path| Path::new(path).is_file()).collect()
 }
 
+// Async so writing a large export runs off the main thread and the window
+// stays responsive meanwhile.
 #[tauri::command]
-fn write_file_bytes(path: String, bytes: Vec<u8>) -> Result<(), String> {
+async fn write_file_bytes(path: String, bytes: Vec<u8>) -> Result<(), String> {
   fs::write(&path, bytes).map_err(|error| format!("Failed to write file: {error}"))
 }
 

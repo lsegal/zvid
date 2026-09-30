@@ -32,11 +32,11 @@ import {
   toShareableMediaItem,
 } from "../media";
 import { cacheMediaBlob } from "../media-cache";
-import { revokeObjectUrl } from "../object-url-retention.ts";
 import {
   createMediaRelinker,
   type MediaRelinkCandidate,
 } from "../media-relink";
+import { revokeObjectUrl } from "../object-url-retention.ts";
 import { matchOfflineMedia, type OfflineMediaEntry } from "../relink";
 import { nextSourceTrackColorIndex } from "../source-track-color.ts";
 

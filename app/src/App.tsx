@@ -353,8 +353,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setExportState,
     updateExportState,
     exportButtonLabel,
-    exportStatusText,
-  } = useExportState({ setStatus });
+  } = useExportState();
   const prefersReducedMotion = usePrefersReducedMotion();
   const [importNotice, setImportNotice] = useState<ImportNoticeContent | null>(
     () =>
@@ -602,7 +601,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     bpm,
     editEffects,
     effects,
-    isExporting,
     isPlaying,
     lanes,
     playbackOriginRef,
@@ -1175,7 +1173,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     projectSnapshotRef,
     undoLabel,
     redoLabel,
-    isExporting,
     refuseReadOnlyEdit,
     finishTextEdit,
     stopTimelineAudibleScrub,
@@ -1411,7 +1408,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     canCreateLayer,
     commitProjectChange,
     focusLaneLabel,
-    isExporting,
     isInspectorCollapsed,
     lanes,
     pendingSelection,
@@ -1460,7 +1456,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     insertFxClip,
     insertLayer,
     insertTextClip,
-    isExporting,
     jumpToClipStart,
     laneStatusById,
     lanes,
@@ -1502,7 +1497,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     fxLaneId,
     handleRedo,
     handleUndo,
-    isExporting,
     lanes,
     pendingSelection,
     playbackOriginRef,
@@ -1852,7 +1846,13 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setStatus,
   });
 
-  const { openExportDialog, exportDialog } = useExport({
+  const {
+    openExportDialog,
+    reopenExportDialog,
+    dismissExportActivity,
+    exportDialog,
+    exportActivity,
+  } = useExport({
     isExporting,
     setIsExporting,
     setExportState,
@@ -1863,8 +1863,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     mainAudioPeaks: currentMainWaveform?.peaks,
     signature,
     beatUnit,
-    playheadQRef,
-    compositionPlayerRef,
+    isPlaying,
     setIsPlaying,
     setStatus,
   });
@@ -2450,7 +2449,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   >
                     {showArrangementEmptyState ? (
                       <ArrangementEmptyState
-                        disabled={isExporting}
                         onDismiss={() =>
                           setArrangementEmptyStateDismissed(true)
                         }
@@ -2509,7 +2507,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                             {...layerReorder.gripProps(lane, laneIndex)}
                             aria-label={`Reorder ${lane.name}`}
                             className="track-label__grip"
-                            disabled={isExporting}
                             tabIndex={lane.id === fxLaneId ? 0 : -1}
                             title="Drag to reorder, or press Space to pick up"
                             type="button"
@@ -2988,7 +2985,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                           mainAudio ? "Replace main audio" : "Add main audio"
                         }
                         className="track-label__fx track-label__audio"
-                        disabled={isExporting}
                         onClick={() => mainAudioInputRef.current?.click()}
                         title={
                           mainAudio ? "Replace main audio" : "Add main audio"
@@ -3614,7 +3610,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 <button
                   aria-label="Randomize arrangement"
                   className="transport-button transport-button--wand"
-                  disabled={isExporting}
                   onClick={handleRandomizeTimeline}
                   title="Replace the arrangement with randomized selections"
                   type="button"
@@ -3695,11 +3690,13 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         clipCount={timelineClips.length}
         collaborationMode={collaborationMode}
         collaborationState={collaborationState}
-        exportStatusText={exportStatusText}
+        dismissExportActivity={dismissExportActivity}
+        exportActivity={exportActivity}
         fps={fps}
         offlineCount={offlineCount}
         playheadSignal={playheadSignal}
         previewMedia={previewMedia}
+        reopenExportDialog={reopenExportDialog}
         sessionName={sessionName}
         setIsSessionSettingsOpen={setIsSessionSettingsOpen}
         shareUrl={shareUrl}
