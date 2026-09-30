@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 1420 --strictPort",
     "build": "wasm-pack build export-bridge --target web --out-dir pkg && tsc -b && vite build",
-    "lint": "tsc -b && pnpm --dir .. exec biome check app/src app/worker app/scripts app/e2e app/vite.config.ts app/playwright.config.ts",
+    "lint": "node scripts/check-file-size.mjs && tsc -b && pnpm --dir .. exec biome check app/src app/worker app/scripts app/e2e app/vite.config.ts app/playwright.config.ts",
     "test": "pnpm run test:unit && pnpm run build",
-    "test:unit": "node --test \"src/**/*.test.ts\"",
+    "test:unit": "node --test \"src/**/*.test.ts\" \"scripts/**/*.test.mjs\"",
     "test:web": "playwright test",
     "preview": "vite preview",
     "cf:prepare": "pnpm run build && node scripts/fetch-capture-installers.ts",
