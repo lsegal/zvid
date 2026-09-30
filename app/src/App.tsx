@@ -133,6 +133,7 @@ import {
   PlayheadLine,
   TransportPlayheadReadout,
 } from "./components/LivePlayhead";
+import { ExportDialog } from "./components/ExportDialog";
 import { MediaStorageDialog } from "./components/MediaStorageDialog";
 import {
   MediaSyncDialog,
@@ -1996,20 +1997,18 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setStatus,
   });
 
-  const { handleExport } = useExport({
+  const { openExportDialog, exportDialog } = useExport({
     isExporting,
     setIsExporting,
     setExportState,
     updateExportState,
-    clips,
+    project: projectHistory.present,
     timelineClips,
     mediaItems,
-    lanes,
-    effects,
     mainAudio,
-    bpm,
-    settings: sessionSettingsFromProject(projectHistory.present),
-    sessionName,
+    mainAudioPeaks: currentMainWaveform?.peaks,
+    signature,
+    beatUnit,
     playheadQRef,
     compositionPlayerRef,
     setIsPlaying,
@@ -2364,7 +2363,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
           <button
             className="ghost-button"
             disabled={isExporting}
-            onClick={handleExport}
+            onClick={openExportDialog}
             type="button"
           >
             {exportButtonLabel}
@@ -2610,6 +2609,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         open={isSessionSettingsOpen}
         settings={sessionSettingsFromProject(projectHistory.present)}
       />
+
+      <ExportDialog model={exportDialog} />
 
       <MediaSyncDialog
         entries={mediaSyncEntries}

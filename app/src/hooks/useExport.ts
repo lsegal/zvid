@@ -1,14 +1,36 @@
-import { type Dispatch, type SetStateAction, useState } from "react";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useRef,
+  useState,
+} from "react";
 import { quartersToSeconds } from "../app/timeline-math.ts";
 import type { ExportState, ProjectState } from "../app/types.ts";
-import { logClient, pluralize, sanitizeFilenameSegment } from "../app/util.ts";
+import { logClient, pluralize } from "../app/util.ts";
 import {
   type CompositionPlayerHandle,
   CompositionRenderer,
 } from "../CompositionPlayer";
+import {
+  createExportOptions,
+  defaultExportFileName,
+  defaultExportRange,
+  type ExportOptions,
+  type ExportRange,
+  exportSettings,
+  exportTiming,
+  normalizeExportFileName,
+  reopenExportOptions,
+} from "../export-options.ts";
 import { getHarness, type SaveTarget } from "../harness";
+import type { ExportProgress } from "../harness/contracts";
 import type { MediaItem } from "../media";
-import type { SessionSettings } from "../session-settings";
+import {
+  type SessionSettings,
+  sessionSettingsFromProject,
+} from "../session-settings";
+import type { MeterSignature } from "../timeline-format.ts";
+import type { WaveformPeaks } from "../waveform-peaks";
 
 export type ExportStateInputs = {
   setStatus: Dispatch<SetStateAction<string>>;
@@ -71,63 +93,143 @@ export type ExportInputs = {
     detail: string,
     progress?: number | null,
   ) => void;
-  clips: ProjectState["clips"];
+  // The session: its clips, layers, effects, tempo, length and Session
+  // Settings.
+  project: ProjectState;
   timelineClips: ProjectState["clips"];
   mediaItems: MediaItem[];
-  lanes: ProjectState["lanes"];
-  effects: ProjectState["effects"];
   mainAudio: MediaItem | undefined;
-  bpm: number;
-  // The canvas size, frame rate and encoding to export with.
-  settings: SessionSettings;
-  sessionName: string | null;
+  mainAudioPeaks: WaveformPeaks | undefined;
+  signature: MeterSignature;
+  beatUnit: number;
   playheadQRef: { current: number };
   compositionPlayerRef: { current: CompositionPlayerHandle | null };
   setIsPlaying: Dispatch<SetStateAction<boolean>>;
   setStatus: Dispatch<SetStateAction<string>>;
 };
 
-// Renders the arrangement to an MP4 and saves it.
+export type ExportDialogPhase = "editing" | "exporting" | "done";
+
+// What the Export dialog shows and does. See ExportDialog.
+export type ExportDialogModel = {
+  open: boolean;
+  phase: ExportDialogPhase;
+  options: ExportOptions;
+  setOptions: Dispatch<SetStateAction<ExportOptions>>;
+  session: SessionSettings;
+  defaultRange: ExportRange;
+  progress: ExportProgress | null;
+  // What the last export did, shown once it finishes or fails.
+  message: string;
+  mediaItems: MediaItem[];
+  clips: ProjectState["clips"];
+  lanes: ProjectState["lanes"];
+  effects: ProjectState["effects"];
+  mainAudio: MediaItem | undefined;
+  mainAudioPeaks: WaveformPeaks | undefined;
+  bpm: number;
+  signature: MeterSignature;
+  beatUnit: number;
+  startExport(): void;
+  cancelExport(): void;
+  close(): void;
+};
+
+type Remembered = {
+  sessionName: string | null;
+  options: ExportOptions;
+  session: SessionSettings;
+};
+
+function isAbort(error: unknown) {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
+// Export opens the Export dialog, where the In→Out range and the settings
+// are chosen; the dialog's Export renders that range to an MP4 and saves it.
 export function useExport({
   isExporting,
   setIsExporting,
   setExportState,
   updateExportState,
-  clips,
+  project,
   timelineClips,
   mediaItems,
-  lanes,
-  effects,
   mainAudio,
-  bpm,
-  settings,
-  sessionName,
+  mainAudioPeaks,
+  signature,
+  beatUnit,
   playheadQRef,
   compositionPlayerRef,
   setIsPlaying,
   setStatus,
 }: ExportInputs) {
-  async function handleExport() {
+  const { clips, lanes, effects, bpm, sessionName } = project;
+  const session = sessionSettingsFromProject(project);
+  const defaultRange = defaultExportRange({
+    clips,
+    bpm,
+    fps: session.fps,
+    projectDurationFrames: project.projectDurationFrames,
+  });
+  const [open, setOpen] = useState(false);
+  const [phase, setPhase] = useState<ExportDialogPhase>("editing");
+  const [options, setOptions] = useState<ExportOptions>(() =>
+    createExportOptions(session, defaultRange, defaultExportFileName(null)),
+  );
+  const [progress, setProgress] = useState<ExportProgress | null>(null);
+  const [message, setMessage] = useState("");
+  // The options last used, kept while the app is open (not saved) so
+  // reopening Export picks up where it left off.
+  const rememberedRef = useRef<Remembered | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  function openExportDialog() {
     if (isExporting) {
       return;
     }
-
     if (!clips.length) {
       setStatus("Open a session or import media before exporting.");
       return;
     }
-
-    const durationSeconds = Math.max(
-      0.01,
-      mainAudio?.durationSeconds ?? 0,
-      ...clips.map(
-        (clip) => quartersToSeconds(clip.startQ, bpm) + clip.durationSeconds,
-      ),
+    const remembered = rememberedRef.current;
+    setOptions(
+      remembered && remembered.sessionName === sessionName
+        ? reopenExportOptions(remembered.options, remembered.session, session)
+        : createExportOptions(
+            session,
+            defaultRange,
+            defaultExportFileName(sessionName),
+          ),
     );
-    const exportSettings = { ...settings, fps: Math.max(1, settings.fps) };
-    const { canvasWidth, canvasHeight, fps } = exportSettings;
-    const outputFrameCount = Math.max(1, Math.ceil(durationSeconds * fps));
-    const exportName = `${sanitizeFilenameSegment(sessionName ?? "zvid-session")}.mp4`;
+    // The dialog plays on its own; the editor's playback stops meanwhile.
+    setIsPlaying(false);
+    setPhase("editing");
+    setProgress(null);
+    setMessage("");
+    setOpen(true);
+  }
+
+  function close() {
+    if (abortRef.current) {
+      return;
+    }
+    rememberedRef.current = { sessionName, options, session };
+    setOpen(false);
+  }
+
+  function cancelExport() {
+    abortRef.current?.abort();
+  }
+
+  async function runExport(exportOptions: ExportOptions) {
+    const settings = exportSettings(exportOptions);
+    const { startSeconds, durationSeconds, frameCount } = exportTiming(
+      exportOptions,
+      bpm,
+    );
+    const { canvasWidth, canvasHeight, fps } = settings;
+    const exportName = normalizeExportFileName(exportOptions.fileName);
 
     let saveTarget: SaveTarget;
     try {
@@ -143,32 +245,36 @@ export function useExport({
       saveTarget = nextSaveTarget;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      if (error instanceof DOMException && error.name === "AbortError") {
+      if (isAbort(error)) {
         setStatus("Export canceled before rendering.");
         return;
       }
 
       setStatus(`Failed to prepare export destination: ${message}`);
+      setMessage(`Failed to prepare export destination: ${message}`);
       return;
     }
 
-    setIsPlaying(false);
+    const abort = new AbortController();
+    abortRef.current = abort;
+    setPhase("exporting");
     setIsExporting(true);
     updateExportState(
       "preparing",
-      `Preparing export (${pluralize(outputFrameCount, "frame")})...`,
+      `Preparing export (${pluralize(frameCount, "frame")})...`,
       null,
     );
     logClient("export:start", {
+      startSeconds,
       durationSeconds,
       frameRate: fps,
-      frames: outputFrameCount,
+      frames: frameCount,
       canvasWidth,
       canvasHeight,
-      encoding: exportSettings.encoding,
+      encoding: settings.encoding,
       mainAudio: mainAudio?.name,
     });
-    logClient("export:phase", { phase: "preparing", frames: outputFrameCount });
+    logClient("export:phase", { phase: "preparing", frames: frameCount });
 
     const exportRenderer = new CompositionRenderer(
       {
@@ -185,31 +291,36 @@ export function useExport({
       { audioAnalysis: "offline" },
     );
 
+    let finished = false;
     try {
       const result = await getHarness().exportVideo({
         filename: exportName,
         saveTarget,
         canvas: exportRenderer.canvas,
-        settings: exportSettings,
+        settings,
+        startSeconds,
         durationSeconds,
-        frameCount: outputFrameCount,
+        frameCount,
         bpm,
         mainAudio,
+        signal: abort.signal,
         renderFrameAt: (frameQ, frameSeconds) =>
           exportRenderer.renderFrameAt(frameQ, frameSeconds),
         setPlayheadQ: () => {},
         onProgress: (update) => {
+          setProgress(update);
           updateExportState(update.phase, update.detail, update.progress);
         },
         onLog: logClient,
       });
 
-      setStatus(
+      const done =
         result.saveMethod === "download"
           ? `Exported ${exportName} (${result.summary}) through the browser download flow.`
-          : `Saved ${exportName} (${result.summary}).`,
-      );
-      setExportState({ phase: "idle", progress: null, detail: "" });
+          : `Saved ${exportName} (${result.summary}).`;
+      setStatus(done);
+      setMessage(done);
+      finished = true;
       logClient("export:complete", {
         filename: exportName,
         bytes: result.bytes,
@@ -219,11 +330,20 @@ export function useExport({
         encoding: result.encoding,
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setExportState({ phase: "idle", progress: null, detail: "" });
-      setStatus(`Export failed: ${message}`);
-      logClient("export:error", { message });
+      if (isAbort(error)) {
+        setStatus("Export canceled.");
+        setMessage("Export canceled.");
+        logClient("export:canceled", {});
+      } else {
+        const message = error instanceof Error ? error.message : String(error);
+        setStatus(`Export failed: ${message}`);
+        setMessage(`Export failed: ${message}`);
+        logClient("export:error", { message });
+      }
     } finally {
+      abortRef.current = null;
+      setPhase(finished ? "done" : "editing");
+      setProgress(null);
       setIsExporting(false);
       setExportState({ phase: "idle", progress: null, detail: "" });
       exportRenderer.destroy();
@@ -240,5 +360,37 @@ export function useExport({
     }
   }
 
-  return { handleExport };
+  function startExport() {
+    if (isExporting) {
+      return;
+    }
+    rememberedRef.current = { sessionName, options, session };
+    setMessage("");
+    void runExport(options);
+  }
+
+  const exportDialog: ExportDialogModel = {
+    open,
+    phase,
+    options,
+    setOptions,
+    session,
+    defaultRange,
+    progress,
+    message,
+    mediaItems,
+    clips: timelineClips,
+    lanes,
+    effects,
+    mainAudio,
+    mainAudioPeaks,
+    bpm,
+    signature,
+    beatUnit,
+    startExport,
+    cancelExport,
+    close,
+  };
+
+  return { openExportDialog, exportDialog };
 }

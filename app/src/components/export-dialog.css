@@ -1,0 +1,461 @@
+.dialog-content.export-dialog {
+  width: min(96vw, 1120px);
+  max-height: 94vh;
+  overflow-y: auto;
+  padding: 22px 24px;
+}
+
+.export-dialog__body {
+  display: grid;
+  gap: 16px;
+  outline: none;
+}
+
+.export-dialog__main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 820px) {
+  .export-dialog__main {
+    grid-template-columns: 1fr;
+  }
+}
+
+.export-dialog__preview-column {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.export-dialog__preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: min(42vh, 380px);
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(6, 8, 12, 0.6);
+  overflow: hidden;
+}
+
+.export-dialog__preview .composition-player {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.export-dialog__preview .composition-player__canvas {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: 100%;
+  object-fit: contain;
+}
+
+.export-dialog__transport {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.export-dialog__transport .transport-button {
+  min-width: 44px;
+  height: 38px;
+  padding: 8px;
+}
+
+.export-dialog__transport .transport-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.export-dialog__step {
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.export-dialog__loop--on {
+  border-color: rgba(246, 183, 60, 0.55);
+  background: rgba(246, 183, 60, 0.16);
+  color: #ffd56a;
+}
+
+.export-dialog__readout {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.export-dialog__readout > div {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(12, 14, 20, 0.26);
+  min-width: 0;
+}
+
+.export-dialog__readout dt {
+  color: var(--muted);
+  font-size: 0.64rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.export-dialog__readout dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.export-settings {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(12, 14, 20, 0.26);
+  min-width: 0;
+}
+
+.export-settings__legend {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  float: left;
+}
+
+.export-settings__legend + * {
+  clear: both;
+}
+
+.export-settings__reset {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: #ffd56a;
+  font-size: 0.78rem;
+  letter-spacing: normal;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.export-settings__reset:hover {
+  text-decoration: underline;
+}
+
+.export-settings__reset:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+.export-settings__field {
+  display: grid;
+  gap: 5px;
+}
+
+.export-settings__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+  font-size: 0.8rem;
+}
+
+.export-settings__modified {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--amber);
+}
+
+.export-settings__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.export-settings select,
+.export-settings input,
+.export-range-field input {
+  min-width: 0;
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(6, 8, 12, 0.5);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.82rem;
+}
+
+.export-settings select {
+  flex: 1 1 auto;
+}
+
+.export-settings__number {
+  width: 76px;
+  font-variant-numeric: tabular-nums;
+}
+
+.export-settings__text {
+  width: 100%;
+}
+
+.export-settings__hint {
+  color: var(--muted);
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
+.export-settings__error {
+  color: #ff8fb2;
+  font-size: 0.76rem;
+}
+
+.export-dialog__range {
+  display: grid;
+  gap: 8px;
+}
+
+.export-dialog__range-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.export-range-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.export-range-field input {
+  width: 92px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: normal;
+}
+
+.export-dialog__range-hint {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.export-range {
+  position: relative;
+  height: 76px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(6, 8, 12, 0.5);
+  overflow: hidden;
+  cursor: text;
+  touch-action: none;
+  user-select: none;
+}
+
+.export-range__lanes {
+  position: absolute;
+  inset: 6px 0 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.export-range__lane {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 3px;
+}
+
+.export-range__clip {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 3px;
+  background-size: auto 100%;
+  background-repeat: repeat-x;
+  opacity: 0.85;
+}
+
+.export-range__waveform {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 2px;
+  height: 26px;
+}
+
+.export-range__dim {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(6, 8, 12, 0.68);
+  pointer-events: none;
+}
+
+.export-range__selection {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-top: 2px solid var(--amber);
+  border-bottom: 2px solid var(--amber);
+  pointer-events: none;
+}
+
+.export-range__playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: #ffffff;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+
+.export-range__marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 14px;
+  margin-left: -7px;
+  cursor: ew-resize;
+  outline: none;
+}
+
+.export-range__marker::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 6px;
+  width: 2px;
+  background: var(--amber);
+  content: '';
+}
+
+.export-range__marker-flag {
+  position: absolute;
+  top: 0;
+  padding: 1px 5px;
+  border-radius: 0 0 6px 6px;
+  background: var(--amber);
+  color: #1b1b24;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.export-range__marker--in .export-range__marker-flag {
+  left: 6px;
+}
+
+.export-range__marker--out .export-range__marker-flag {
+  right: 6px;
+}
+
+.export-range__marker:focus-visible::before {
+  box-shadow: 0 0 0 2px rgba(255, 213, 106, 0.6);
+}
+
+.export-dialog__progress {
+  display: grid;
+  gap: 6px;
+}
+
+.export-dialog__bar {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.export-dialog__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--amber);
+  transition: width 160ms ease;
+}
+
+.export-dialog__bar--indeterminate > span {
+  opacity: 0.5;
+  animation: export-dialog-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes export-dialog-pulse {
+  50% {
+    opacity: 0.2;
+  }
+}
+
+.export-dialog__detail,
+.export-dialog__estimate {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.export-dialog__estimate {
+  margin-right: auto;
+  align-self: center;
+}
+
+.export-dialog__message {
+  margin: 0;
+  color: #9affc0;
+  font-size: 0.84rem;
+  overflow-wrap: anywhere;
+}
+
+.export-dialog__message--error {
+  color: #ff8fb2;
+}
+
+.export-dialog__confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 143, 178, 0.4);
+  background: rgba(255, 143, 178, 0.08);
+  color: var(--ink);
+  font-size: 0.84rem;
+}
+
+.export-dialog__confirm > span {
+  margin-right: auto;
+}
+
+.export-dialog__footer {
+  margin-top: 0;
+}

@@ -63,8 +63,9 @@ export async function exportVideo(
   save: (blob: Blob, target: SaveTarget) => Promise<SaveMethod>,
   nativeMux?: NativeMux,
 ): Promise<ExportResult> {
-  const { settings } = request;
+  const { settings, signal } = request;
   const frameRate = settings.fps;
+  const startSeconds = Math.max(0, request.startSeconds ?? 0);
   const encoding = await resolveExportEncoding(settings, (codec, config) =>
     canEncodeVideo(MEDIABUNNY_VIDEO_CODECS[codec], config),
   );
@@ -98,9 +99,13 @@ export async function exportVideo(
           (request.frameCount / frameRate) * decoded.sampleRate,
         ),
       });
+      // The audio is trimmed to the exported range, like the video.
+      const startSample = Math.round(startSeconds * decoded.sampleRate);
       for (let channel = 0; channel < audio.numberOfChannels; channel++) {
         audio.copyToChannel(
-          decoded.getChannelData(channel).subarray(0, audio.length),
+          decoded
+            .getChannelData(channel)
+            .subarray(startSample, startSample + audio.length),
           channel,
         );
       }
@@ -146,9 +151,13 @@ export async function exportVideo(
       audioSource.close();
     }
     for (let index = 0; index < request.frameCount; index++) {
+      signal?.throwIfAborted();
+      // `seconds` is the frame's time in the output; it shows the session
+      // at `sessionSeconds`.
       const seconds = index / frameRate;
-      const quarters = (seconds * request.bpm) / 60;
-      await request.renderFrameAt(quarters, seconds);
+      const sessionSeconds = startSeconds + seconds;
+      const quarters = (sessionSeconds * request.bpm) / 60;
+      await request.renderFrameAt(quarters, sessionSeconds);
       if (index === thumbnailIndex) {
         try {
           thumbnail = drawThumbnail(request.canvas);
@@ -165,6 +174,7 @@ export async function exportVideo(
       });
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
+    signal?.throwIfAborted();
     video.close();
     await output.finalize();
     if (!target.buffer) throw new Error("Video encoder returned no output.");
@@ -196,6 +206,7 @@ export async function exportVideo(
       await bridge.default();
       bytes = await bridge.muxMp4(new Uint8Array(target.buffer), cover);
     }
+    signal?.throwIfAborted();
     const blob = new Blob([new Uint8Array(bytes)], { type: "video/mp4" });
     return {
       encoding,
