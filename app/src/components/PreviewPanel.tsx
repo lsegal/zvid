@@ -19,6 +19,7 @@ import type { usePreviewLayers } from "../hooks/usePreviewLayers.ts";
 import type { MediaItem } from "../media";
 import type { PlayheadSignal } from "../playhead-signal";
 import { PreviewTransformOverlay } from "./PreviewTransformOverlay";
+import "./preview-panel.css";
 
 type PreviewEditing = ReturnType<typeof usePreviewEditing>;
 

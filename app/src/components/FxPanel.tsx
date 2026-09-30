@@ -3,6 +3,7 @@ import { clipEffectTrackId, isLayerFxEnabled } from "../fx-stack";
 import type { useFxEditing } from "../hooks/useFxEditing.ts";
 import type { useFxPanelModel } from "../hooks/useFxPanelModel.ts";
 import { FxChain } from "./FxChain";
+import "./fx-panel.css";
 
 type FxPanelModel = ReturnType<typeof useFxPanelModel>;
 type FxEditing = ReturnType<typeof useFxEditing>;
