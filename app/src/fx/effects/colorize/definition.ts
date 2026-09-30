@@ -12,6 +12,10 @@ export const definition: FxEffectDefinition = {
   accent: "#ff6f9d",
   known: true,
   scopes: ALL_SCOPES,
+  // The Reactivity knob, now Reactive animation. Sessions and restored
+  // workspaces migrate it (migrateColorizeReactivity); remote snapshots are
+  // left as their peer sent them, so it is only hidden here.
+  retiredParameters: ["_Reactivity"],
   parameters: [
     {
       kind: "number",

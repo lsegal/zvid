@@ -15,6 +15,7 @@ import {
   moveExportMarker,
   normalizeExportFileName,
   parseTimecode,
+  projectDurationAt,
   reopenExportOptions,
   resetExportSettings,
   snapExportQ,
@@ -251,5 +252,17 @@ describe("estimates and formatting", () => {
 
   it("snaps positions to whole frames", () => {
     assert.ok(Math.abs(snapToFrame(0.52, 30, BPM) - 8 / 15) < 1e-9);
+  });
+});
+
+describe("projectDurationAt", () => {
+  it("counts the session's length at the export's frame rate", () => {
+    assert.equal(projectDurationAt(300, 30, 60), 600);
+    assert.equal(projectDurationAt(300, 30, 30), 300);
+    assert.equal(projectDurationAt(300, 30, 24), 240);
+  });
+
+  it("has no length when the session has none", () => {
+    assert.equal(projectDurationAt(undefined, 30, 60), undefined);
   });
 });

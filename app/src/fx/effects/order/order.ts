@@ -6,7 +6,10 @@
 // covers the whole canvas and they overlap by z-order, Layer 1 on top.
 
 import { parseCssColor, type Rgba } from "../../../fill-paint.ts";
-import type { ClipMotion } from "../../../fx-animation-defaults.ts";
+import type {
+  ClipMotion,
+  OrderTransition,
+} from "../../../fx-animation-defaults.ts";
 
 // "none" is the z-order overlay used when there is no enabled Order; it is
 // never an Order device's own setting.
@@ -18,6 +21,10 @@ export type CompositionOrder = {
   gridSize: number;
   // Gap between neighboring layers, in output pixels at 1080p.
   spacing: number;
+  // Set when the arrangement is also inset from the Order's box by
+  // `spacing`, so the border color frames it as well as filling the gaps.
+  // Absent means the slots run to the box's edges.
+  outerMargin?: boolean;
   // Ids of the layers the arrangement leaves out. They are drawn full-frame
   // in their z-order instead, as with no Order. Absent means none.
   excludedLayers?: readonly string[];
@@ -32,11 +39,14 @@ export type CompositionOrder = {
 
 // An Order's Clip-mode animation. Each slide takes `frames` frames at `fps`,
 // eased by `motionIn` as a clip enters and by `motionOut` as it exits.
+// `transition` is how the clip enters and exits: Push, when absent, slides
+// it in from a canvas edge; Squish grows it from zero width or height.
 export type OrderSlide = {
   motionIn: ClipMotion;
   motionOut: ClipMotion;
   frames: number;
   fps: number;
+  transition?: OrderTransition;
 };
 
 export const ORDER_EFFECT_NAME = "Order";
@@ -48,6 +58,7 @@ export const GRID_SIZE_MAX = 6;
 // A tenth of the 1080p canvas height.
 export const SPACING_MAX = 108;
 export const DEFAULT_BORDER_COLOR = "rgba(0,0,0,1)";
+export const OUTER_MARGIN_OPTIONS = ["Off", "On"] as const;
 export const BLACK_BORDER: Rgba = { r: 0, g: 0, b: 0, a: 1 };
 
 export const DEFAULT_COMPOSITION_ORDER: CompositionOrder = {
@@ -156,6 +167,11 @@ export function parseCompositionOrder(
     }
     if (key === "bordercolor") {
       order.borderColor = parseCssColor(parameter.value) ?? order.borderColor;
+      continue;
+    }
+
+    if (key === "outermargin") {
+      order.outerMargin = parameter.value.trim().toLowerCase() === "on";
       continue;
     }
 

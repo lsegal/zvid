@@ -103,6 +103,7 @@ describe("animation defaults", () => {
       motionIn: "Ease Out",
       motionOut: "Ease In",
       timing: "Normal",
+      transition: "Squish",
     });
     assert.deepEqual(getAnimationDefaults("Order")?.clipFrames, {
       Slow: 7,
@@ -457,14 +458,24 @@ describe("normalizeEffectAnimation", () => {
     assert.deepEqual(normalizeEffectAnimation(saved, "Order"), {
       enabled: true,
       mode: "clip",
-      clip: { motionIn: "Linear", motionOut: "Ease In", timing: "Fast" },
+      clip: {
+        motionIn: "Linear",
+        motionOut: "Ease In",
+        timing: "Fast",
+        transition: "Push",
+      },
     });
     assert.deepEqual(
       normalizeEffectAnimation({ ...saved, enabled: false }, "Order"),
       {
         enabled: false,
         mode: "clip",
-        clip: { motionIn: "Linear", motionOut: "Ease In", timing: "Fast" },
+        clip: {
+          motionIn: "Linear",
+          motionOut: "Ease In",
+          timing: "Fast",
+          transition: "Push",
+        },
       },
     );
   });

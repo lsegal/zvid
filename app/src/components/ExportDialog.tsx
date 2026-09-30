@@ -30,6 +30,7 @@ import {
   modifiedExportFields,
   moveExportMarker,
   parseTimecode,
+  projectDurationAt,
   resetExportSettings,
   snapToFrame,
   validateExportOptions,
@@ -449,6 +450,11 @@ function ExportDialogBody({
               playheadQ={playback.playheadQ}
               playheadSeconds={quartersToSeconds(playback.playheadQ, bpm)}
               playheadSignal={playback.signal}
+              projectDurationFrames={projectDurationAt(
+                model.projectDurationFrames,
+                session.fps,
+                previewFps,
+              )}
             />
           </div>
 

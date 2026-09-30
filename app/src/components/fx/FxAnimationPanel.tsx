@@ -9,6 +9,7 @@ import {
   type EffectAnimation,
   getAnimatableParameters,
   getAnimationModes,
+  ORDER_TRANSITIONS,
   REACTIVE_MOTIONS,
   REACTIVITY_STEP,
   toggleAnimatedParameter,
@@ -127,6 +128,14 @@ export function FxAnimationPanel({
               options={CLIP_TIMINGS}
               value={animation.clip.timing}
             />
+            {animation.clip.transition ? (
+              <FxAnimationSegmented
+                label="Transition"
+                onChange={(transition) => setClip({ transition })}
+                options={ORDER_TRANSITIONS}
+                value={animation.clip.transition}
+              />
+            ) : null}
             <FxAnimationSelect
               label="Motion In"
               onChange={(motionIn) => setClip({ motionIn })}

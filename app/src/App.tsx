@@ -170,11 +170,6 @@ import {
 } from "./components/ui/dropdown-menu";
 import { Select } from "./components/ui/select";
 import { WandIcon } from "./components/WandIcon";
-import {
-  computeActiveClips,
-  resolveAnimatedOrder,
-  resolveFrameEffects,
-} from "./composition-active-clips.ts";
 import { isContextMenuPress } from "./context-menu.ts";
 import { isRulerPanPress } from "./drag-scroll.ts";
 import { isFillClip } from "./fill-clip.ts";
@@ -187,8 +182,6 @@ import { describeFxClip, isFxClip } from "./fx-clip.ts";
 import {
   clipEffectTrackId,
   copyClipEffects,
-  GLOBAL_EFFECT_TRACK_ID,
-  getRenderedEffects,
   isLayerFxEnabled,
   isLayoutEffectName,
   previewDuplicateClipEffects,
@@ -217,6 +210,7 @@ import { useMediaStatus } from "./hooks/useMediaStatus.ts";
 import { usePeerMedia, usePeerMediaState } from "./hooks/usePeerMedia.ts";
 import { usePlayback } from "./hooks/usePlayback.ts";
 import { usePreviewEditing } from "./hooks/usePreviewEditing.ts";
+import { usePreviewLayers } from "./hooks/usePreviewLayers.ts";
 import {
   useProjectHistoryCommands,
   useProjectStore,
@@ -246,7 +240,6 @@ import {
   formatMediaSyncLabel,
   getMediaSyncClassName,
 } from "./peer-media-sync.ts";
-import { resolvePreviewLayers } from "./preview-edit.ts";
 import { selectionHint } from "./selection-hint.ts";
 import { MAX_LAYERS } from "./selection-overlaps";
 import { offlineSessionMediaIds } from "./session-media.ts";
@@ -647,38 +640,19 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setSelectedLaneId(laneId);
     setPreviewLaneId(laneId);
   };
-  const previewLayers = useMemo(() => {
-    const activeClips = computeActiveClips(
-      timelineClips,
-      mediaItemsById,
-      playheadQ,
-      bpm,
-      lanePriority,
-      getRenderedEffects(timelineEffects, lanes),
-      fps,
-    );
-    return resolvePreviewLayers(
-      activeClips.filter((entry) => entry.media.kind === "video"),
-      { width: canvasWidth, height: canvasHeight },
-      // Animated with the topmost clip, as the compositor draws it.
-      resolveAnimatedOrder(
-        resolveFrameEffects(timelineEffects, activeClips, playheadQ, bpm, fps),
-        GLOBAL_EFFECT_TRACK_ID,
-        fps,
-      ),
-    );
-  }, [
-    bpm,
-    canvasHeight,
-    canvasWidth,
-    fps,
-    lanePriority,
-    lanes,
+  const previewLayers = usePreviewLayers({
+    clips: timelineClips,
     mediaItemsById,
     playheadQ,
-    timelineClips,
-    timelineEffects,
-  ]);
+    bpm,
+    fps,
+    projectDurationFrames,
+    lanes,
+    lanePriority,
+    effects: timelineEffects,
+    canvasWidth,
+    canvasHeight,
+  });
   const {
     selectPreviewLayer,
     getPreviewLayerPosition,
@@ -4140,6 +4114,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     playheadQ={playheadQ}
                     playheadSeconds={playheadSeconds}
                     playheadSignal={playheadSignal}
+                    projectDurationFrames={projectDurationFrames}
                     hiddenTextClipId={textEdit?.clipId}
                   />
                   <PreviewTransformOverlay

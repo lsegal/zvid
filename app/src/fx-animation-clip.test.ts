@@ -11,7 +11,9 @@ import { resolveAnimatedParameters } from "./fx-animation.ts";
 import {
   applyClipAnimationWeight,
   clipAnimationWeight,
+  clipSessionEdges,
   fadeCssColors,
+  type SessionEdges,
 } from "./fx-animation-clip.ts";
 import {
   type ClipAnimation,
@@ -44,8 +46,21 @@ function weightAt(
   animation = EASE,
   frames = 8,
   fps = FPS,
+  edges?: SessionEdges,
 ) {
-  return clipAnimationWeight(animation, frames, fps, frame / fps, length / fps);
+  return clipAnimationWeight(
+    animation,
+    frames,
+    fps,
+    frame / fps,
+    length / fps,
+    edges,
+  );
+}
+
+// The weight `frame` frames into a 60-frame clip on the session's edges.
+function edgeWeightAt(frame: number, atStart: boolean, atEnd: boolean) {
+  return weightAt(frame, 60, EASE, 8, FPS, { atStart, atEnd });
 }
 
 describe("clipAnimationWeight", () => {
@@ -100,6 +115,63 @@ describe("clipAnimationWeight", () => {
 function parameter(key: string, value: number) {
   return { key, value: value.toFixed(3), numericValue: value };
 }
+
+describe("clipAnimationWeight on the session's edges", () => {
+  it("doesn't animate in at the session start, but still animates out", () => {
+    assert.equal(edgeWeightAt(0, true, false), 1);
+    assert.equal(edgeWeightAt(4, true, false), 1);
+    assertClose(edgeWeightAt(56, true, false), easeMotion("Ease In", 0.5));
+    assert.equal(edgeWeightAt(60, true, false), 0);
+  });
+
+  it("doesn't animate out at the session end, but still animates in", () => {
+    assert.equal(edgeWeightAt(0, false, true), 0);
+    assertClose(edgeWeightAt(4, false, true), easeMotion("Ease Out", 0.5));
+    assert.equal(edgeWeightAt(56, false, true), 1);
+    assert.equal(edgeWeightAt(60, false, true), 1);
+  });
+
+  it("never animates a clip spanning the whole session", () => {
+    for (let frame = 0; frame <= 60; frame++) {
+      assert.equal(edgeWeightAt(frame, true, true), 1);
+    }
+  });
+});
+
+describe("clipSessionEdges", () => {
+  it("finds the clip's ends on the session's", () => {
+    assert.deepEqual(clipSessionEdges(0, 2, 10, FPS), {
+      atStart: true,
+      atEnd: false,
+    });
+    assert.deepEqual(clipSessionEdges(8, 2, 10, FPS), {
+      atStart: false,
+      atEnd: true,
+    });
+    assert.deepEqual(clipSessionEdges(0, 10, 10, FPS), {
+      atStart: true,
+      atEnd: true,
+    });
+    // Past the session's end still counts as on it.
+    assert.deepEqual(clipSessionEdges(8, 5, 10, FPS), {
+      atStart: false,
+      atEnd: true,
+    });
+  });
+
+  it("compares in whole frames at the session's frame rate", () => {
+    const subFrame = 0.4 / FPS;
+    assert.deepEqual(clipSessionEdges(subFrame, 10 - 2 * subFrame, 10, FPS), {
+      atStart: true,
+      atEnd: true,
+    });
+    // One frame in is off both edges.
+    assert.deepEqual(clipSessionEdges(1 / FPS, 10 - 2 / FPS, 10, FPS), {
+      atStart: false,
+      atEnd: false,
+    });
+  });
+});
 
 describe("applyClipAnimationWeight", () => {
   it("runs each knob from its neutral value to its set value", () => {
@@ -264,11 +336,16 @@ const LANE_PRIORITY = new Map([
   ["bottom", 1],
 ]);
 
+// The session's length in frames at `FPS`, past every clip unless a test
+// says otherwise, or its last clip end for `null`.
+const SESSION_FRAMES = 600;
+
 function activeAt(
   clips: ArrangementClip[],
   effects: SessionEffect[],
   frame: number,
   fps = FPS,
+  sessionFrames: number | null = SESSION_FRAMES,
 ) {
   return computeActiveClips(
     clips,
@@ -278,6 +355,8 @@ function activeAt(
     LANE_PRIORITY,
     effects,
     fps,
+    undefined,
+    sessionFrames === null ? undefined : (sessionFrames * fps) / FPS,
   );
 }
 
@@ -286,8 +365,9 @@ function hueOffsetOf(
   effects: SessionEffect[],
   frame: number,
   clipId: string,
+  sessionFrames: number | null = SESSION_FRAMES,
 ) {
-  const entry = activeAt(clips, effects, frame).find(
+  const entry = activeAt(clips, effects, frame, FPS, sessionFrames).find(
     (candidate) => candidate.clip.id === clipId,
   );
   assert.ok(entry, `${clipId} is active at frame ${frame}`);
@@ -301,30 +381,123 @@ function hueOffsetOf(
 describe("Clip mode rendering", () => {
   it("animates a layer Colorize in and out at Normal (8 frames)", () => {
     assert.equal(getClipTimingFrames("Colorize", "Normal"), 8);
-    const clips = [fillClip("a", "top", 0, 60)];
+    const clips = [fillClip("a", "top", 30, 90)];
     const effects = [colorize("fx", "top", 0.5)];
-    assert.equal(hueOffsetOf(clips, effects, 0, "a"), 0);
+    assert.equal(hueOffsetOf(clips, effects, 30, "a"), 0);
     assertClose(
-      hueOffsetOf(clips, effects, 4, "a"),
+      hueOffsetOf(clips, effects, 34, "a"),
       0.5 * easeMotion("Ease Out", 0.5),
     );
-    assert.equal(hueOffsetOf(clips, effects, 8, "a"), 0.5);
-    assert.equal(hueOffsetOf(clips, effects, 30, "a"), 0.5);
+    assert.equal(hueOffsetOf(clips, effects, 38, "a"), 0.5);
+    assert.equal(hueOffsetOf(clips, effects, 60, "a"), 0.5);
+    assertClose(
+      hueOffsetOf(clips, effects, 89, "a"),
+      0.5 * easeMotion("Ease In", 1 / 8),
+    );
+  });
+
+  it("animates each clip on a layer on its own", () => {
+    const clips = [fillClip("a", "top", 30, 90), fillClip("b", "top", 90, 150)];
+    const effects = [colorize("fx", "top", 0.5)];
+    assert.equal(hueOffsetOf(clips, effects, 90, "b"), 0);
+    assertClose(
+      hueOffsetOf(clips, effects, 94, "b"),
+      hueOffsetOf(clips, effects, 34, "a"),
+    );
+    assert.equal(hueOffsetOf(clips, effects, 98, "b"), 0.5);
+  });
+
+  it("doesn't animate a clip in at frame 0, but still animates it out", () => {
+    const clips = [fillClip("a", "top", 0, 60)];
+    const effects = [colorize("fx", "top", 0.5)];
+    assert.equal(hueOffsetOf(clips, effects, 0, "a"), 0.5);
+    assert.equal(hueOffsetOf(clips, effects, 4, "a"), 0.5);
     assertClose(
       hueOffsetOf(clips, effects, 59, "a"),
       0.5 * easeMotion("Ease In", 1 / 8),
     );
   });
 
-  it("animates each clip on a layer on its own", () => {
-    const clips = [fillClip("a", "top", 0, 60), fillClip("b", "top", 60, 120)];
+  it("still animates a clip in from frame 1", () => {
+    const clips = [fillClip("a", "top", 1, 60)];
     const effects = [colorize("fx", "top", 0.5)];
-    assert.equal(hueOffsetOf(clips, effects, 60, "b"), 0);
+    assert.equal(hueOffsetOf(clips, effects, 1, "a"), 0);
     assertClose(
-      hueOffsetOf(clips, effects, 64, "b"),
-      hueOffsetOf(clips, effects, 4, "a"),
+      hueOffsetOf(clips, effects, 5, "a"),
+      0.5 * easeMotion("Ease Out", 0.5),
     );
-    assert.equal(hueOffsetOf(clips, effects, 68, "b"), 0.5);
+  });
+
+  it("doesn't animate a clip out on the session's last frame", () => {
+    const clips = [fillClip("a", "top", 30, 90)];
+    const effects = [colorize("fx", "top", 0.5)];
+    assert.equal(hueOffsetOf(clips, effects, 30, "a", 90), 0);
+    assert.equal(hueOffsetOf(clips, effects, 89, "a", 90), 0.5);
+    // A clip ending past the session's end holds too.
+    assert.equal(hueOffsetOf(clips, effects, 89, "a", 80), 0.5);
+    // One frame short of it still animates out.
+    assert.notEqual(hueOffsetOf(clips, effects, 89, "a", 91), 0.5);
+  });
+
+  it("ends the session with its last clip without a project length", () => {
+    const clips = [fillClip("a", "top", 30, 90), fillClip("b", "top", 0, 30)];
+    const effects = [colorize("fx", "top", 0.5)];
+    assertClose(
+      hueOffsetOf(clips, effects, 29, "b", null),
+      0.5 * easeMotion("Ease In", 1 / 8),
+    );
+    assert.equal(hueOffsetOf(clips, effects, 30, "a", null), 0);
+    assert.equal(hueOffsetOf(clips, effects, 89, "a", null), 0.5);
+  });
+
+  it("never animates a clip spanning the whole session", () => {
+    const clips = [fillClip("a", "top", 0, 60)];
+    const effects = [colorize("fx", "top", 0.5)];
+    for (let frame = 0; frame < 60; frame++) {
+      assert.equal(hueOffsetOf(clips, effects, frame, "a", 60), 0.5);
+    }
+  });
+
+  it("follows each clip's own edges on each layer and for the frame", () => {
+    const clips = [
+      fillClip("a", "top", 30, 60),
+      fillClip("b", "bottom", 30, 90),
+    ];
+    const effects = [
+      colorize("top-fx", "top", 0.5),
+      colorize("bottom-fx", "bottom", 0.5),
+      colorize("global", GROUP_TRACK_ID, 0.5),
+    ];
+    // `a` ends mid-session and animates out; `b` ends with the session.
+    const eased = 0.5 * easeMotion("Ease In", 1 / 8);
+    assertClose(hueOffsetOf(clips, effects, 59, "a", 90), eased);
+    assert.equal(hueOffsetOf(clips, effects, 59, "b", 90), 0.5);
+    // Whole-frame work follows the topmost clip's edges.
+    const frameOffset = (frame: number) =>
+      resolveEffectChain(
+        resolveFrameEffects(
+          effects,
+          activeAt(clips, effects, frame, FPS, 90),
+          frameToQ(frame),
+          BPM,
+          FPS,
+        ),
+        GROUP_TRACK_ID,
+      )[0].parameters[0].numericValue;
+    assertClose(frameOffset(59) as number, eased);
+    assert.equal(frameOffset(89), 0.5);
+  });
+
+  it("gives each active clip its session edges for Order slides", () => {
+    const clips = [
+      fillClip("a", "top", 0, 30),
+      fillClip("b", "bottom", 10, 90),
+    ];
+    const edgesOf = (clipId: string) =>
+      activeAt(clips, [], 20, FPS, 90).find((entry) => entry.clip.id === clipId)
+        ?.sessionEdges;
+    assert.deepEqual(edgesOf("a"), { atStart: true, atEnd: false });
+    assert.deepEqual(edgesOf("b"), { atStart: false, atEnd: true });
   });
 
   it("animates a Global effect per clip on each layer", () => {

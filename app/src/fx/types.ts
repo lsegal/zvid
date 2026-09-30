@@ -105,6 +105,10 @@ export type FxEffectDefinition = {
   // Labels for the knob rows, when the knobs split evenly into labeled
   // rows (a Move's Start and End) instead of filling two rows freely.
   knobRows?: readonly string[];
+  // Keys of parameters the effect no longer has. Collaboration peers on
+  // older builds still publish them, so the device does not list them as
+  // unknown raw parameters.
+  retiredParameters?: readonly string[];
   // False for the placeholder returned for effect names the registry does
   // not know; those devices show their raw parameter keys.
   known: boolean;

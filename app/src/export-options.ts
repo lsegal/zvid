@@ -204,6 +204,18 @@ export function reopenExportOptions(
 }
 
 /** The length of one frame at `fps`, in quarter notes. */
+// The session's length, `projectDurationFrames` at the session's
+// `sessionFps`, in frames at `fps`, which an export may override it with.
+export function projectDurationAt(
+  projectDurationFrames: number | undefined,
+  sessionFps: number,
+  fps: number,
+) {
+  return projectDurationFrames === undefined || !(sessionFps > 0)
+    ? projectDurationFrames
+    : (projectDurationFrames * fps) / sessionFps;
+}
+
 export function frameQuarters(fps: number, bpm: number) {
   return secondsToQuarters(1 / Math.max(1, fps), bpm);
 }

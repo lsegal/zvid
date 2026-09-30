@@ -105,6 +105,16 @@ describe("mapSessionEffectsToDevices", () => {
     );
   });
 
+  it("hides Colorize's old Reactivity knob sent by older peers", () => {
+    // Remote snapshots are applied without migrating, so a peer on an older
+    // build still sends `_Reactivity`.
+    const colorize = mapSessionEffectsToDevices(load(), "6")[1];
+    assert.deepEqual(
+      colorize.parameters.map((parameter) => parameter.label),
+      ["Hue Shift"],
+    );
+  });
+
   it("shows the Layout position as an enum", () => {
     const layout = mapSessionEffectsToDevices(load(), "6")[4];
     assert.equal(layout.parameters[0].kind, "enum");
@@ -206,12 +216,14 @@ describe("Order devices", () => {
       "Arrangement",
       "ExcludedLayers",
       "Spacing",
+      "OuterMargin",
       "BorderColor",
     ]);
     assert.deepEqual(keys("Horizontal"), [
       "Arrangement",
       "ExcludedLayers",
       "Spacing",
+      "OuterMargin",
       "BorderColor",
     ]);
     assert.deepEqual(keys("Grid"), [
@@ -219,6 +231,7 @@ describe("Order devices", () => {
       "ExcludedLayers",
       "GridSize",
       "Spacing",
+      "OuterMargin",
       "BorderColor",
     ]);
   });
