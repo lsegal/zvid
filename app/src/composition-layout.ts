@@ -487,14 +487,15 @@ export function resolveSlotGrid(count: number, order: CompositionOrder) {
   return { columns: 1, rows: normalizedCount };
 }
 
-// Order spacing is in output pixels at 1080p, so it keeps the same share of
-// the frame at any output size.
+// Order spacing and margin are in output pixels at 1080p, so they keep the
+// same share of the frame at any output size.
 export function resolveSpacingPixels(
   order: CompositionOrder,
   width: number,
   height: number,
+  value = order.spacing,
 ) {
-  return (order.spacing * Math.max(0, Math.min(width, height))) / 1080;
+  return (value * Math.max(0, Math.min(width, height))) / 1080;
 }
 
 // Start and end, in pixels, of cell `index` of `cells` equal cells across
@@ -537,8 +538,8 @@ function resolveCellEdges(
 
 // Slot `index` in canvas pixels (origin top-left). Slots are filled row by
 // row, left to right; without an Order every slot is the whole canvas. An
-// Order with an outer margin insets them from the canvas edges by its
-// spacing as well.
+// Order's margin insets them from the canvas edges, independently of the
+// spacing between them.
 function resolveSlotRect(
   index: number,
   count: number,
@@ -552,7 +553,7 @@ function resolveSlotRect(
 
   const { columns, rows } = resolveSlotGrid(count, order);
   const gap = resolveSpacingPixels(order, width, height);
-  const margin = order.outerMargin ? gap : 0;
+  const margin = resolveSpacingPixels(order, width, height, order.margin ?? 0);
   const x = resolveCellEdges(index % columns, columns, width, gap, margin);
   const y = resolveCellEdges(
     Math.floor(index / columns),

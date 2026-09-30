@@ -315,7 +315,7 @@ for (const [start, duration, arrangement] of ARRANGEMENTS) {
       ExcludedLayers: "background",
       GridSize: 2,
       Spacing: 108,
-      OuterMargin: "On",
+      Margin: 108,
       BorderColor: IVORY,
     },
     {

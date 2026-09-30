@@ -6,6 +6,7 @@ import {
   migrateColorizeReactivity,
   migrateDefaultOrder,
   migrateLegacyMainAudio,
+  migrateOrderOuterMargin,
 } from "../project-state-compat.ts";
 import { createWorkspaceLock } from "../workspace-lock.ts";
 import { parseWorkspaceSession } from "../workspace-session.ts";
@@ -67,7 +68,7 @@ function normalizeRestoredProjectState(value: unknown): ProjectState {
   // Read from the save itself: the initial state always has the flag.
   state.effects = migrateClipContentEffects(
     migrateDefaultOrder(
-      migrateColorizeReactivity(state.effects),
+      migrateOrderOuterMargin(migrateColorizeReactivity(state.effects)),
       saved.orderDefaulted,
     ),
     state.clips,

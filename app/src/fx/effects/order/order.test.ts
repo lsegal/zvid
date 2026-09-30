@@ -9,6 +9,7 @@ import {
   parseLayerIdList,
   pruneLayerIdList,
   resolveCompositionOrder,
+  SPACING_MAX,
   serializeLayerIdList,
   toggleLayerId,
   visibleLayerCount,
@@ -42,6 +43,7 @@ describe("parseCompositionOrder", () => {
       arrangement: "grid",
       gridSize: 4,
       spacing: 6,
+      margin: 0,
       excludedLayers: [],
       borderColor: BLACK,
     });
@@ -58,6 +60,7 @@ describe("parseCompositionOrder", () => {
         arrangement: "grid",
         gridSize: 6,
         spacing: 200,
+        margin: 0,
         excludedLayers: [],
         borderColor: BLACK,
       },
@@ -66,23 +69,48 @@ describe("parseCompositionOrder", () => {
       arrangement: "vertical",
       gridSize: 2,
       spacing: 0,
+      margin: 0,
       excludedLayers: [],
       borderColor: BLACK,
     });
     assert.deepEqual(parseCompositionOrder([]), DEFAULT_COMPOSITION_ORDER);
   });
 
-  it("reads the outer margin, off when missing or unreadable", () => {
-    const margin = (value?: string) =>
+  it("reads the margin, within the spacing's range, 0 when missing", () => {
+    const margin = (value?: number) =>
       parseCompositionOrder([
         ...order("Grid", 2, 20).parameters,
-        ...(value === undefined ? [] : [{ key: "OuterMargin", value }]),
-      ]).outerMargin;
-    assert.equal(margin(), undefined);
-    assert.equal(margin("On"), true);
-    assert.equal(margin(" on "), true);
-    assert.equal(margin("Off"), false);
-    assert.equal(margin("Maybe"), false);
+        ...(value === undefined
+          ? []
+          : [{ key: "Margin", value: `${value}`, numericValue: value }]),
+      ]).margin;
+    assert.equal(margin(), 0);
+    assert.equal(margin(60), 60);
+    assert.equal(margin(-5), 0);
+    assert.equal(margin(250), SPACING_MAX);
+    assert.equal(
+      parseCompositionOrder([{ key: "Margin", value: "abc" }]).margin,
+      0,
+    );
+  });
+
+  it("insets an unmigrated Order with its toggle On by its spacing", () => {
+    const margin = (
+      value: string,
+      extra: { key: string; value: string }[] = [],
+    ) =>
+      parseCompositionOrder([
+        ...order("Grid", 2, 20).parameters,
+        { key: "OuterMargin", value },
+        ...extra,
+      ]).margin;
+    assert.equal(margin("On"), 20);
+    assert.equal(margin(" on "), 20);
+    assert.equal(margin("Off"), 0);
+    assert.equal(margin("Maybe"), 0);
+    // A Margin a tween adds at 0 keeps it; a set Margin wins.
+    assert.equal(margin("On", [{ key: "Margin", value: "0" }]), 20);
+    assert.equal(margin("On", [{ key: "Margin", value: "60" }]), 60);
   });
 
   it("reads the border color, black when missing or unreadable", () => {
@@ -159,6 +187,7 @@ describe("resolveCompositionOrder", () => {
       arrangement: "grid",
       gridSize: 3,
       spacing: 2,
+      margin: 0,
       excludedLayers: [],
       borderColor: BLACK,
     });
