@@ -1,3 +1,4 @@
+import { Select } from "../../ui/select";
 import type { FxParameterControlProps } from "../types";
 
 export function EnumControl({
@@ -8,22 +9,21 @@ export function EnumControl({
   // Long option lists, such as font weights, pick from a menu instead.
   if (parameter.menu) {
     return (
-      <label className="fx-select">
+      <div className="fx-select">
         <span className="fx-select__label">{parameter.label}</span>
-        <select
+        <Select
+          aria-label={parameter.label}
           data-fx-no-drag
-          onChange={(event) =>
-            onSetParameter(device, parameter.key, event.target.value, "commit")
+          onValueChange={(value) =>
+            onSetParameter(device, parameter.key, value, "commit")
           }
-          value={parameter.stringValue}
-        >
-          {parameter.options?.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-      </label>
+          options={(parameter.options ?? []).map((option) => ({
+            value: option,
+            label: option,
+          }))}
+          value={parameter.stringValue ?? ""}
+        />
+      </div>
     );
   }
 

@@ -83,6 +83,11 @@ export const SIGNATURES: TimeSignature[] = [
   { id: "7/8", numerator: 7, denominator: 8 },
 ];
 
+export const SIGNATURE_OPTIONS = SIGNATURES.map(({ id }) => ({
+  value: id,
+  label: id,
+}));
+
 export const SNAP_OPTIONS: { id: SnapMode; label: string }[] = [
   { id: "auto", label: "Auto" },
   { id: "bar", label: "Bar" },

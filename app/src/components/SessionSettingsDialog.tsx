@@ -40,6 +40,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
+import { Select } from "./ui/select";
 import "./session-settings-dialog.css";
 
 type SessionSettingsDialogProps = {
@@ -200,23 +201,21 @@ function SessionSettingsForm({
           <fieldset className="session-settings__group">
             <legend>Canvas</legend>
             <Field label="Preset">
-              <select
+              <Select
                 aria-label="Canvas preset"
                 className="session-settings__input"
-                onChange={(event) =>
-                  setDraft((current) =>
-                    applyCanvasPreset(current, event.target.value),
-                  )
+                onValueChange={(value) =>
+                  setDraft((current) => applyCanvasPreset(current, value))
                 }
+                options={[
+                  ...CANVAS_PRESETS.map((preset) => ({
+                    value: preset.id,
+                    label: preset.label,
+                  })),
+                  { value: CUSTOM_PRESET_ID, label: "Custom" },
+                ]}
                 value={matchCanvasPreset(canvasWidth, canvasHeight)}
-              >
-                {CANVAS_PRESETS.map((preset) => (
-                  <option key={preset.id} value={preset.id}>
-                    {preset.label}
-                  </option>
-                ))}
-                <option value={CUSTOM_PRESET_ID}>Custom</option>
-              </select>
+              />
             </Field>
             <div className="session-settings__size">
               <Field label="Width" error={errors.canvasWidth}>
@@ -298,11 +297,10 @@ function SessionSettingsForm({
                 label="Frame rate"
                 error={customFps ? undefined : errors.fps}
               >
-                <select
+                <Select
                   aria-label="Frame rate"
                   className="session-settings__input"
-                  onChange={(event) => {
-                    const { value } = event.target;
+                  onValueChange={(value) => {
                     if (value === CUSTOM_FRAME_RATE) {
                       setCustomFps(true);
                       return;
@@ -319,14 +317,14 @@ function SessionSettingsForm({
                           )?.value ?? CUSTOM_FRAME_RATE,
                         )
                   }
-                >
-                  {FRAME_RATES.map((rate) => (
-                    <option key={rate.label} value={String(rate.value)}>
-                      {rate.label} fps
-                    </option>
-                  ))}
-                  <option value={CUSTOM_FRAME_RATE}>Custom…</option>
-                </select>
+                  options={[
+                    ...FRAME_RATES.map((rate) => ({
+                      value: String(rate.value),
+                      label: `${rate.label} fps`,
+                    })),
+                    { value: CUSTOM_FRAME_RATE, label: "Custom…" },
+                  ]}
+                />
               </Field>
               {customFps ? (
                 <Field label="Custom fps" error={errors.fps}>
@@ -353,30 +351,21 @@ function SessionSettingsForm({
           <legend>Video encoding</legend>
           <div className="session-settings__row">
             <Field label="Codec" error={errors.codec}>
-              <select
+              <Select
                 aria-describedby={`${id}-codec`}
                 aria-label="Video codec"
                 className="session-settings__input"
-                onChange={(event) =>
-                  setEncoding({
-                    videoCodec: event.target.value as VideoCodecChoice,
-                  })
+                onValueChange={(videoCodec: VideoCodecChoice) =>
+                  setEncoding({ videoCodec })
                 }
+                options={videoCodecOptions(support).map((option) => ({
+                  ...option,
+                  label: option.reason
+                    ? `${option.label} (${option.reason})`
+                    : option.label,
+                }))}
                 value={encoding.videoCodec}
-              >
-                {videoCodecOptions(support).map((option) => (
-                  <option
-                    disabled={option.disabled}
-                    key={option.value}
-                    title={option.reason}
-                    value={option.value}
-                  >
-                    {option.reason
-                      ? `${option.label} (${option.reason})`
-                      : option.label}
-                  </option>
-                ))}
-              </select>
+              />
               {encoding.videoCodec === "auto" ? (
                 <span className="session-settings__hint" id={`${id}-codec`}>
                   {autoCodec
@@ -458,44 +447,36 @@ function SessionSettingsForm({
               <span className="session-settings__static">AAC</span>
             </Field>
             <Field label="Bitrate">
-              <select
+              <Select
                 aria-label="Audio bitrate"
                 className="session-settings__input"
-                onChange={(event) =>
+                onValueChange={(value) =>
                   setEncoding({
-                    audioBitrateKbps: Number(
-                      event.target.value,
-                    ) as AudioBitrateKbps,
+                    audioBitrateKbps: Number(value) as AudioBitrateKbps,
                   })
                 }
-                value={encoding.audioBitrateKbps}
-              >
-                {AUDIO_BITRATES.map((kbps) => (
-                  <option key={kbps} value={kbps}>
-                    {kbps} kbps
-                  </option>
-                ))}
-              </select>
+                options={AUDIO_BITRATES.map((kbps) => ({
+                  value: String(kbps),
+                  label: `${kbps} kbps`,
+                }))}
+                value={String(encoding.audioBitrateKbps)}
+              />
             </Field>
             <Field label="Sample rate">
-              <select
+              <Select
                 aria-label="Audio sample rate"
                 className="session-settings__input"
-                onChange={(event) =>
+                onValueChange={(value) =>
                   setEncoding({
-                    audioSampleRate: Number(
-                      event.target.value,
-                    ) as AudioSampleRate,
+                    audioSampleRate: Number(value) as AudioSampleRate,
                   })
                 }
-                value={encoding.audioSampleRate}
-              >
-                {AUDIO_SAMPLE_RATES.map((rate) => (
-                  <option key={rate} value={rate}>
-                    {rate / 1000} kHz
-                  </option>
-                ))}
-              </select>
+                options={AUDIO_SAMPLE_RATES.map((rate) => ({
+                  value: String(rate),
+                  label: `${rate / 1000} kHz`,
+                }))}
+                value={String(encoding.audioSampleRate)}
+              />
             </Field>
           </div>
         </fieldset>
