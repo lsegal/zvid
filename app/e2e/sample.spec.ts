@@ -124,6 +124,29 @@ test("a failed download can be retried from the Media Sync dialog", async ({
   await expectSampleOpen(page);
 });
 
+test("reopening the sample after a failed download tries it again", async ({
+  page,
+}) => {
+  let failing = true;
+  await page.route(SAMPLE_MEDIA, (route) =>
+    failing ? route.abort("internetdisconnected") : route.continue(),
+  );
+  await page.goto("/");
+  await openFileMenu(page);
+  await page.getByRole("menuitem", { name: "Open Sample" }).click();
+  await expect(
+    page.getByRole("button", { name: /offline media files?$/ }),
+  ).toBeVisible({ timeout: 60_000 });
+
+  failing = false;
+  await openFileMenu(page);
+  await page.getByRole("menuitem", { name: "Close Session" }).click();
+  await expect(page.getByText("No source media yet")).toBeVisible();
+  await openFileMenu(page);
+  await page.getByRole("menuitem", { name: "Open Sample" }).click();
+  await expectSampleOpen(page);
+});
+
 test("closing the session stops the sample's downloads", async ({ page }) => {
   // Hold the media back so the session can be closed mid-way.
   await page.route(SAMPLE_MEDIA, () => {});

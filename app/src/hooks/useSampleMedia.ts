@@ -107,11 +107,20 @@ export function useSampleMedia({
         (candidate) => candidate.id === mediaId,
       );
 
-    // Closing or replacing the sample cancels its downloads.
+    // Closing or replacing the sample cancels its downloads, and forgets its
+    // failed ones so reopening it tries them again.
     for (const batch of batchesRef.current) {
       if (![...batch.ids].some(isPresent)) {
         batch.controller.abort();
       }
+    }
+    const presentIds = new Set(projectMediaItems.map((item) => item.id));
+    if ([...failedRef.current].some((id) => !presentIds.has(id))) {
+      const next = new Set(
+        [...failedRef.current].filter((id) => presentIds.has(id)),
+      );
+      failedRef.current = next;
+      setFailedSampleMediaIds(next);
     }
 
     const wanted: SampleAsset[] = [];
