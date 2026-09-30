@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import { findAnimatedOrder } from "./composition-active-clips.ts";
 import {
   type FrameBounds,
+  isSlotScissorEmpty,
   type LayerDrawStep,
   planLayerDraws,
   resolveLayerPlacement,
@@ -647,6 +648,67 @@ describe("Order Squish transition", () => {
       );
     });
   }
+
+  // Whether each layer's clip is drawn at all, by id.
+  const shownAt = (layers: Layer[], arrangement: CompositionOrder) =>
+    Object.fromEntries(
+      planLayerDraws(layers, arrangement).flatMap((step) =>
+        step.type === "layer"
+          ? [
+              [
+                step.entry.id,
+                !isSlotScissorEmpty(
+                  step.slot,
+                  step.slotCount,
+                  step.order,
+                  WIDTH,
+                  HEIGHT,
+                  step.motion,
+                ),
+              ],
+            ]
+          : [],
+      ),
+    );
+
+  it("draws nothing of a clip squished to zero width or height", () => {
+    for (const arrangement of ["horizontal", "vertical", "grid"] as const) {
+      for (const moving of [0, 1, 2]) {
+        for (const exit of [false, true]) {
+          const seconds = exit ? 6 : 2;
+          const layers = [0, 1, 2].map((rank) =>
+            rank === moving
+              ? layer(rank, 2, 4, seconds)
+              : layer(rank, 0, 10, seconds),
+          );
+          const label = `${arrangement} Layer ${moving + 1} ${exit ? "out" : "in"}`;
+          const shown = shownAt(layers, order(arrangement, SQUISH));
+          assert.deepEqual(
+            shown,
+            Object.fromEntries(
+              [0, 1, 2].map((rank) => [`layer-${rank + 1}`, rank !== moving]),
+            ),
+            label,
+          );
+          // A frame on, it is drawn in its sliver of the slot.
+          const later = [0, 1, 2].map((rank) =>
+            rank === moving
+              ? layer(rank, 2, 4, seconds + (exit ? -1 : 1) / FPS)
+              : layer(rank, 0, 10, seconds + (exit ? -1 : 1) / FPS),
+          );
+          assert.ok(
+            shownAt(later, order(arrangement, SQUISH))[`layer-${moving + 1}`],
+            `${label} a frame on`,
+          );
+          // Pushed rather than squished, it is still drawn, off the canvas.
+          assert.ok(
+            shownAt(layers, order(arrangement, SLIDE))[`layer-${moving + 1}`],
+            `${label} pushed`,
+          );
+        }
+      }
+    }
+  });
 
   it("grows a clip into the gap between uneven neighbors without overlap", () => {
     // Layer 2 of 4 enters between Layer 1 and Layer 3.
