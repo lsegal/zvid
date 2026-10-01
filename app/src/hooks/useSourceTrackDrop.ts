@@ -7,6 +7,7 @@ import {
 } from "react";
 import { PALETTE, SOURCE_TRACK_DRAG_CLEAR_DELAY_MS } from "../app/constants.ts";
 import { formatDuration } from "../app/format.ts";
+import { getDropStartQ } from "../app/timeline-math.ts";
 import type {
   SourceTrackDragPreview,
   SourceTrackDropTarget,
@@ -28,6 +29,11 @@ import type { MediaItem } from "../media";
 export type SourceTrackDropInputs = {
   mediaItems: MediaItem[];
   appShellRef: RefObject<HTMLDivElement | null>;
+  timelineScrollRef: RefObject<HTMLDivElement | null>;
+  labelWidth: number;
+  quarterPx: number;
+  snapUnit: number;
+  snapEnabled: boolean;
   setIsMainAudioDropTarget: (isDropTarget: boolean) => void;
   importMediaIntoSourceTrack: (
     files: File[],
@@ -36,12 +42,29 @@ export type SourceTrackDropInputs = {
   setStatus: (status: string) => void;
 };
 
+const isSameDropTarget = (
+  a: SourceTrackDropTarget | null,
+  b: SourceTrackDropTarget | null,
+) =>
+  a === b ||
+  (!!a &&
+    !!b &&
+    a.kind === b.kind &&
+    a.startQ === b.startQ &&
+    (a.kind !== "track" || (b.kind === "track" && a.trackId === b.trackId)));
+
 // Dragging media files over the source tracks: the track under the pointer,
-// the preview card of the dragged files, and importing them on drop. One
+// the snapped timeline position under it where the media will start, the
+// preview card of the dragged files, and importing them on drop. One
 // window-level listener serves every source track drop target.
 export function useSourceTrackDrop({
   mediaItems,
   appShellRef,
+  timelineScrollRef,
+  labelWidth,
+  quarterPx,
+  snapUnit,
+  snapEnabled,
   setIsMainAudioDropTarget,
   importMediaIntoSourceTrack,
   setStatus,
@@ -237,6 +260,23 @@ export function useSourceTrackDrop({
       );
     };
 
+    // The snapped timeline position under the pointer; Shift skips snapping
+    // as it does when moving a clip.
+    const getPointerDropTarget = (event: DragEvent) => {
+      const timelineScroll = timelineScrollRef.current;
+      const startQ = timelineScroll
+        ? getDropStartQ(
+            event.clientX - timelineScroll.getBoundingClientRect().left,
+            timelineScroll.scrollLeft,
+            labelWidth,
+            quarterPx,
+            snapUnit,
+            snapEnabled && !event.shiftKey,
+          )
+        : undefined;
+      return getSourceTrackDropTarget(event.target, startQ);
+    };
+
     const handleWindowDrag = (event: DragEvent) => {
       if (
         !hasDraggedFileData(event.dataTransfer) ||
@@ -254,7 +294,7 @@ export function useSourceTrackDrop({
       // let drop fire on every source track drop target.
       event.preventDefault();
       event.stopPropagation();
-      const target = getSourceTrackDropTarget(event.target);
+      const target = getPointerDropTarget(event);
       if (event.dataTransfer) {
         event.dataTransfer.dropEffect = target ? "copy" : "none";
       }
@@ -271,7 +311,9 @@ export function useSourceTrackDrop({
         return;
       }
 
-      setSourceTrackDragTarget(target);
+      setSourceTrackDragTarget((current) =>
+        isSameDropTarget(current, target) ? current : target,
+      );
       setIsSourceTrackFileDragActive(true);
       const files = getDraggedMediaFiles(event.dataTransfer);
       if (files.length) {
@@ -297,7 +339,7 @@ export function useSourceTrackDrop({
       event.preventDefault();
       event.stopPropagation();
       clearSourceTrackDragState();
-      const target = getSourceTrackDropTarget(event.target);
+      const target = getPointerDropTarget(event);
       if (!target) {
         return;
       }
@@ -345,9 +387,14 @@ export function useSourceTrackDrop({
     clearSourceTrackDragState,
     ensureSourceTrackDragPreview,
     importMediaIntoSourceTrack,
+    labelWidth,
+    quarterPx,
     scheduleSourceTrackDragClear,
     setStatus,
     showPendingSourceTrackDragPreview,
+    snapEnabled,
+    snapUnit,
+    timelineScrollRef,
   ]);
 
   useEffect(

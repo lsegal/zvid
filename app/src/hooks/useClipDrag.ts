@@ -4,6 +4,7 @@ import { TIMELINE_DRAG_EPSILON } from "../app/constants.ts";
 import { patchProjectState } from "../app/session-project.ts";
 import {
   findClosestTimelineLaneId,
+  pointerToTimelineQ,
   resolveClipOverlapPreview,
   snapQuarterValue,
 } from "../app/timeline-math.ts";
@@ -97,7 +98,12 @@ export function useClipDrag({
         const pointerX = event.clientX - timelineBounds.left;
         const nextQ = snapQuarterValue(
           clamp(
-            (timelineScroll.scrollLeft - labelWidth + pointerX) / quarterPx,
+            pointerToTimelineQ(
+              pointerX,
+              timelineScroll.scrollLeft,
+              labelWidth,
+              quarterPx,
+            ),
             0,
             totalQuarters,
           ),

@@ -9,7 +9,6 @@ import {
   mergeMediaItemsById,
   patchProjectState,
 } from "../app/session-project.ts";
-import { getClipDurationQ, getSourceTrackEndQ } from "../app/timeline-math.ts";
 import type {
   AdoptMediaResult,
   LocalMediaOverride,
@@ -38,6 +37,10 @@ import {
 } from "../media-relink";
 import { revokeObjectUrl } from "../object-url-retention.ts";
 import { matchOfflineMedia, type OfflineMediaEntry } from "../relink";
+import {
+  getDroppedSourceSpanStartQ,
+  placeDroppedSourceSpans,
+} from "../source-span-edit.ts";
 import { nextSourceTrackColorIndex } from "../source-track-color.ts";
 
 type ProjectUpdater = (current: ProjectState) => ProjectState;
@@ -435,7 +438,6 @@ export function useMediaLibraryCommands({
         commitProjectChange("Drop media into source tracks", (current) => {
           const nextMediaItems = [...current.mediaItems, ...sharedAnalyzed];
           let nextSourceTracks = current.sourceTracks;
-          let nextSourceSpans = current.sourceSpans;
 
           let targetTrack =
             target.kind === "track"
@@ -443,6 +445,12 @@ export function useMediaLibraryCommands({
                   (track) => track.id === target.trackId,
                 )
               : undefined;
+
+          const startQ = getDroppedSourceSpanStartQ(
+            target,
+            targetTrack !== undefined,
+            current.sourceTracksLocked === true,
+          );
 
           if (!targetTrack) {
             targetTrack = {
@@ -467,33 +475,31 @@ export function useMediaLibraryCommands({
           );
 
           const swatch = getSwatch(targetTrack.colorIndex);
-          let insertQ = getSourceTrackEndQ(
+          const droppedSpans = analyzed.map<SourceSpan>((item) => ({
+            id: `source-span-${crypto.randomUUID()}`,
+            sourceTrackId: targetTrack.id,
+            label: stripFilenameExtension(item.name),
+            mediaPath: item.sourcePath ?? item.name,
+            mediaId: item.id,
+            startQ: 0,
+            durationSeconds: Math.max(1, item.durationSeconds),
+            trimStartSeconds: 0,
+            tint: swatch.color,
+            accent: swatch.accent,
+          }));
+          const placed = placeDroppedSourceSpans(
             current.sourceSpans,
-            targetTrack.id,
+            current.clips,
+            droppedSpans,
+            startQ,
             current.bpm,
           );
-          const appendedSpans = analyzed.map<SourceSpan>((item) => {
-            const span: SourceSpan = {
-              id: `source-span-${crypto.randomUUID()}`,
-              sourceTrackId: targetTrack.id,
-              label: stripFilenameExtension(item.name),
-              mediaPath: item.sourcePath ?? item.name,
-              mediaId: item.id,
-              startQ: insertQ,
-              durationSeconds: Math.max(1, item.durationSeconds),
-              trimStartSeconds: 0,
-              tint: swatch.color,
-              accent: swatch.accent,
-            };
-            insertQ += getClipDurationQ(span, current.bpm);
-            return span;
-          });
-          nextSourceSpans = [...current.sourceSpans, ...appendedSpans];
 
           const patch: Partial<ProjectState> = {
             mediaItems: nextMediaItems,
             sourceTracks: nextSourceTracks,
-            sourceSpans: nextSourceSpans,
+            sourceSpans: placed.sourceSpans,
+            clips: placed.clips,
           };
           if (
             !current.sessionName &&

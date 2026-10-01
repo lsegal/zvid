@@ -15,6 +15,7 @@ import type { useSourceTrackDrop } from "../../hooks/useSourceTrackDrop.ts";
 import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
 import { SOURCE_TRACKS_LOCKED_TITLE } from "../../source-tracks-section.ts";
 import { NameInput } from "../NameInput";
+import { SourceDropPreview } from "./SourceDropPreview";
 import { SourceSpan, type SourceSpanContext } from "./SourceSpan";
 
 type SourceTrackActions = ReturnType<typeof useSourceTrackActions>;
@@ -45,7 +46,8 @@ type SourceTrackRowProps = {
 
 // A source track: its label with the reorder grip, its spans, and the
 // preview of media dragged over it to import into it. Media dropped anywhere
-// on the row, label and spans included, goes to this track. Clicking the
+// on the row, label and spans included, goes to this track, starting at the
+// timeline position under the pointer. Clicking the
 // label or empty space in the row selects the track; clicking a span selects
 // the span.
 export function SourceTrackRow({
@@ -65,12 +67,7 @@ export function SourceTrackRow({
   commitRename,
   cancelRename,
 }: SourceTrackRowProps) {
-  const {
-    sourceTrackDragTarget,
-    sourceTrackDragPreview,
-    sourceTrackDragPreviewDetail,
-    sourceTrackDragPreviewOverflow,
-  } = drop;
+  const { sourceTrackDragTarget } = drop;
   const swatch = getSwatch(track.colorIndex);
   const isDropTarget =
     sourceTrackDragTarget?.kind === "track" &&
@@ -82,6 +79,7 @@ export function SourceTrackRow({
       className={`track-row track-row--source ${selected ? "track-row--selected" : ""} ${isLifted ? "track-row--lifted" : ""}`}
       data-source-track-drop-target="track"
       data-source-track-id={track.id}
+      data-source-track-drop-at-pointer
     >
       {/* biome-ignore lint/a11y/noStaticElementInteractions: clicking anywhere on the label is a mouse shortcut; the track name button is the keyboard equivalent */}
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: the track name button handles the keyboard */}
@@ -155,30 +153,8 @@ export function SourceTrackRow({
         {spans.map((clip) => (
           <SourceSpan key={clip.id} clip={clip} {...span} />
         ))}
-        {isDropTarget && sourceTrackDragPreview ? (
-          <div className="source-drop-preview">
-            <div
-              className={`source-drop-preview__thumb ${
-                sourceTrackDragPreview.thumbnailUrl ? "has-image" : ""
-              }`}
-              style={
-                sourceTrackDragPreview.thumbnailUrl
-                  ? {
-                      backgroundImage: `url(${sourceTrackDragPreview.thumbnailUrl})`,
-                    }
-                  : undefined
-              }
-            />
-            <div className="source-drop-preview__body">
-              <strong>{sourceTrackDragPreview.label}</strong>
-              <span>{sourceTrackDragPreviewDetail}</span>
-            </div>
-            {sourceTrackDragPreviewOverflow ? (
-              <div className="source-drop-preview__count">
-                {sourceTrackDragPreviewOverflow}
-              </div>
-            ) : null}
-          </div>
+        {isDropTarget ? (
+          <SourceDropPreview drop={drop} quarterPx={span.quarterPx} />
         ) : null}
       </section>
     </section>

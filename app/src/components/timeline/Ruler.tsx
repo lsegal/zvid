@@ -1,7 +1,10 @@
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { TIMELINE_PLAYBACK_SCRUB_AUDIO_IDLE_MS } from "../../app/constants.ts";
 import type { getShortcutLabels } from "../../app/shortcut-labels.ts";
-import { quartersToSeconds } from "../../app/timeline-math.ts";
+import {
+  pointerToTimelineQ,
+  quartersToSeconds,
+} from "../../app/timeline-math.ts";
 import type { TimelineDragState, TimelineMode } from "../../app/types.ts";
 import { clamp, pluralize } from "../../app/util.ts";
 import { isRulerPanPress } from "../../drag-scroll.ts";
@@ -163,7 +166,12 @@ export function Ruler({
           const timelineBounds = timelineScroll.getBoundingClientRect();
           const pointerX = event.clientX - timelineBounds.left;
           const nextPlayheadQ = clamp(
-            (timelineScroll.scrollLeft - labelWidth + pointerX) / quarterPx,
+            pointerToTimelineQ(
+              pointerX,
+              timelineScroll.scrollLeft,
+              labelWidth,
+              quarterPx,
+            ),
             0,
             totalQuarters,
           );

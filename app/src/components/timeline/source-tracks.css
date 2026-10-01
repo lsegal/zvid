@@ -204,10 +204,26 @@
     rgba(20, 21, 32, 0.3);
 }
 
+/* Where dropped media will start; the preview card begins at it. */
+.source-drop-indicator {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 3;
+  width: 2px;
+  margin-left: -1px;
+  background: #7ca1ff;
+  box-shadow: 0 0 8px rgba(124, 161, 255, 0.6);
+  pointer-events: none;
+}
+
 .source-drop-preview {
   position: absolute;
-  inset: 10px 12px;
+  top: 10px;
+  bottom: 10px;
   z-index: 2;
+  width: 280px;
+  box-sizing: border-box;
   display: grid;
   grid-template-columns: 68px minmax(0, 1fr) auto;
   gap: 12px;

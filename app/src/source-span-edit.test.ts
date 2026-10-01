@@ -4,7 +4,9 @@ import type { ArrangementClip, SourceSpan } from "./app/types.ts";
 import { type ClipWarp, warpSourceTime } from "./clip-warp.ts";
 import {
   dragSourceSpan,
+  getDroppedSourceSpanStartQ,
   getSourceSpanMaxSeconds,
+  placeDroppedSourceSpans,
   relinkClipsToSourceSpans,
   resolveSourceSpanOverlaps,
   retimeSourceSpan,
@@ -317,5 +319,143 @@ describe("relinkClipsToSourceSpans", () => {
     assert.deepEqual(relinkClipsToSourceSpans([fill], [original], [], BPM), [
       fill,
     ]);
+  });
+});
+
+describe("getDroppedSourceSpanStartQ", () => {
+  const onTrack = { kind: "track", trackId: "t1", startQ: 6 } as const;
+
+  it("starts at the drop position", () => {
+    assert.equal(getDroppedSourceSpanStartQ(onTrack, true, false), 6);
+  });
+
+  it("goes after the last span on a locked existing track", () => {
+    assert.equal(getDroppedSourceSpanStartQ(onTrack, true, true), undefined);
+  });
+
+  it("starts at the drop position on a new track while locked", () => {
+    assert.equal(
+      getDroppedSourceSpanStartQ({ kind: "new-track", startQ: 6 }, false, true),
+      6,
+    );
+  });
+
+  it("goes after the last span without a drop position", () => {
+    assert.equal(
+      getDroppedSourceSpanStartQ({ kind: "track", trackId: "t1" }, true, false),
+      undefined,
+    );
+  });
+});
+
+describe("placeDroppedSourceSpans", () => {
+  // New spans as a drop creates them, before they are placed.
+  const dropped = (...durationsQ: number[]) =>
+    durationsQ.map((durationQ, index) =>
+      span(`new-${index}`, 0, durationQ, { trimStartSeconds: 0 }),
+    );
+
+  it("starts one file at the drop position", () => {
+    const existing = [span("a", 0, 4)];
+    const { sourceSpans } = placeDroppedSourceSpans(
+      existing,
+      [],
+      dropped(8),
+      10,
+      BPM,
+    );
+    assert.deepEqual(layout(sourceSpans), [
+      ["a", "t1", 0, 4, 10],
+      ["new-0", "t1", 10, 18, 0],
+    ]);
+  });
+
+  it("places several files back to back from the drop position", () => {
+    const { sourceSpans } = placeDroppedSourceSpans(
+      [],
+      [],
+      dropped(8, 2, 4),
+      6,
+      BPM,
+    );
+    assert.deepEqual(layout(sourceSpans), [
+      ["new-0", "t1", 6, 14, 0],
+      ["new-1", "t1", 14, 16, 0],
+      ["new-2", "t1", 16, 20, 0],
+    ]);
+  });
+
+  it("overwrites the spans it lands on like a moved span", () => {
+    const existing = [
+      span("a", 0, 8),
+      span("b", 8, 4),
+      span("c", 12, 8),
+      span("other", 4, 8, { trackId: "t2" }),
+    ];
+    const { sourceSpans } = placeDroppedSourceSpans(
+      existing,
+      [],
+      dropped(4, 4),
+      6,
+      BPM,
+    );
+    assert.deepEqual(layout(sourceSpans), [
+      ["a", "t1", 0, 6, 10],
+      ["c", "t1", 14, 20, 11],
+      ["other", "t2", 4, 12, 10],
+      ["new-0", "t1", 6, 10, 0],
+      ["new-1", "t1", 10, 14, 0],
+    ]);
+  });
+
+  it("relinks the arrangement clips on the spans it overwrites", () => {
+    const original = span("a", 0, 8);
+    const clip: ArrangementClip = {
+      id: "w",
+      sourceSpanId: "a",
+      sourceTrackId: "t1",
+      laneId: "1",
+      label: "w",
+      mediaPath: original.mediaPath,
+      mediaId: original.mediaId,
+      startQ: 0,
+      durationSeconds: 2,
+      trimStartSeconds: 10,
+      sourceOffsetSeconds: 10,
+      sourceWindowStartSeconds: 10,
+      sourceWindowEndSeconds: 14,
+      tint: original.tint,
+      accent: original.accent,
+    };
+    const { sourceSpans, clips } = placeDroppedSourceSpans(
+      [original],
+      [clip],
+      dropped(4),
+      2,
+      BPM,
+    );
+    assert.deepEqual(clips, [
+      relinkClipsToSourceSpans([clip], [original], sourceSpans, BPM)[0],
+    ]);
+    // "a" keeps its first two quarters, one second of media.
+    assert.equal(clips[0].sourceWindowEndSeconds, 11);
+  });
+
+  it("appends after the track's last span without a drop position", () => {
+    const existing = [span("a", 0, 8), span("b", 10, 2)];
+    const { sourceSpans, clips } = placeDroppedSourceSpans(
+      existing,
+      [],
+      dropped(4, 4),
+      undefined,
+      BPM,
+    );
+    assert.deepEqual(layout(sourceSpans), [
+      ["a", "t1", 0, 8, 10],
+      ["b", "t1", 10, 12, 10],
+      ["new-0", "t1", 12, 16, 0],
+      ["new-1", "t1", 16, 20, 0],
+    ]);
+    assert.deepEqual(clips, []);
   });
 });
