@@ -49,11 +49,7 @@ export function useMediaImport({
   appShellRef,
   setStatus,
 }: MediaImportInputs) {
-  const {
-    mediaItems: projectMediaItems,
-    sourceSpans,
-    mainAudioId,
-  } = project;
+  const { mediaItems: projectMediaItems, sourceSpans, mainAudioId } = project;
   const { refuseReadOnlyEdit, commitProjectChange } = store;
   const {
     mediaItems,

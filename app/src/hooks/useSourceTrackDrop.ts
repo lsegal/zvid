@@ -62,18 +62,18 @@ export function useSourceTrackDrop({
     ? sourceTrackDragPreview.status === "pending"
       ? "Drop to import"
       : sourceTrackDragPreview.status === "loading"
-      ? "Loading clip preview..."
-      : sourceTrackDragPreview.status === "error"
-        ? sourceTrackDragPreview.fileCount > 1
-          ? `${pluralize(sourceTrackDragPreview.fileCount, "file")} ready to import`
-          : "Drop to import without a preview"
-        : sourceTrackDragPreview.durationSeconds !== undefined
-          ? `${sourceTrackDragPreview.kind === "audio" ? "Audio" : "Video"} · ${formatDuration(
-              sourceTrackDragPreview.durationSeconds,
-            )}`
-          : sourceTrackDragPreview.kind === "audio"
-            ? "Audio clip"
-            : "Media clip"
+        ? "Loading clip preview..."
+        : sourceTrackDragPreview.status === "error"
+          ? sourceTrackDragPreview.fileCount > 1
+            ? `${pluralize(sourceTrackDragPreview.fileCount, "file")} ready to import`
+            : "Drop to import without a preview"
+          : sourceTrackDragPreview.durationSeconds !== undefined
+            ? `${sourceTrackDragPreview.kind === "audio" ? "Audio" : "Video"} · ${formatDuration(
+                sourceTrackDragPreview.durationSeconds,
+              )}`
+            : sourceTrackDragPreview.kind === "audio"
+              ? "Audio clip"
+              : "Media clip"
     : "";
   const sourceTrackDragPreviewOverflow =
     sourceTrackDragPreview &&
@@ -304,7 +304,9 @@ export function useSourceTrackDrop({
 
       const files = getDraggedMediaFiles(event.dataTransfer);
       if (!files.length) {
-        setStatus("Only audio and video files can be dropped on source tracks.");
+        setStatus(
+          "Only audio and video files can be dropped on source tracks.",
+        );
         return;
       }
 
