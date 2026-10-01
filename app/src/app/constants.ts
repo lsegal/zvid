@@ -127,6 +127,7 @@ export const INITIAL_PROJECT_STATE: ProjectState = {
     ),
   ),
   mainAudioId: undefined,
+  sourceTracksLocked: false,
   orderDefaulted: true,
   clipContentEffects: true,
 };

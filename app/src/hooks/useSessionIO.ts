@@ -176,6 +176,7 @@ export function useSessionIO({
         effects: project.effects,
         mainAudioId: project.mainAudioMediaId,
         projectDurationFrames: project.projectDurationFrames,
+        sourceTracksLocked: project.sourceTracksLocked,
       }),
     );
     setDragPreviewClips(null);
@@ -342,6 +343,7 @@ export function useSessionIO({
             canvasHeight: standalone.canvasHeight,
             ...(standalone.fps && { fps: standalone.fps }),
             projectDurationFrames: undefined,
+            sourceTracksLocked: false,
           }),
         );
         setDragPreviewClips(null);

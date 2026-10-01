@@ -148,6 +148,7 @@ export function useTimelineEditing({
     effects,
     mainAudioId,
     projectDurationFrames,
+    sourceTracksLocked = false,
   } = project;
   const {
     commitProjectChange,
@@ -328,12 +329,14 @@ export function useTimelineEditing({
     deleteSourceTrack,
     moveSourceTrack,
     sourceTrackReorder,
+    setSourceTracksLocked,
   } = useSourceTrackActions({
     commitProjectChange,
     selectedClip,
     setSelectedClipId,
     setStatus,
     sourceTracks,
+    sourceTracksLocked,
     timelineScrollRef,
   });
 
@@ -403,6 +406,7 @@ export function useTimelineEditing({
     shortcutLabels,
     sourceSpans,
     sourceTracks,
+    sourceTracksLocked,
     splitArrangementClip,
     timelineClips,
     timelineScrollRef,
@@ -469,6 +473,7 @@ export function useTimelineEditing({
     fps,
     snapUnit,
     snapEnabled,
+    sourceTracksLocked,
     quarterPx,
     isWorkspaceReadOnlyRef,
     refuseReadOnlyEdit,
@@ -490,6 +495,8 @@ export function useTimelineEditing({
     openSourceTrackMenu,
     sourceTracksListRef,
     sourceTrackReorder,
+    sourceTracksLocked,
+    setSourceTracksLocked,
     renamingSourceTrackId,
     commitSourceTrackRename,
     cancelSourceTrackRename,

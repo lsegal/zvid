@@ -18,6 +18,10 @@ import {
   moveSourceTrackTo,
   renameSourceTrack,
 } from "../source-track-edits.ts";
+import {
+  SOURCE_TRACKS_LOCKED_TITLE,
+  sourceTracksLockLabel,
+} from "../source-tracks-section.ts";
 import { useLayerReorder } from "../use-layer-reorder";
 
 export type SourceTrackActionsInputs = {
@@ -29,6 +33,7 @@ export type SourceTrackActionsInputs = {
   setSelectedClipId: Dispatch<SetStateAction<string | undefined>>;
   setStatus: Dispatch<SetStateAction<string>>;
   sourceTracks: SourceTrack[];
+  sourceTracksLocked: boolean;
   timelineScrollRef: RefObject<HTMLDivElement | null>;
 };
 
@@ -44,13 +49,16 @@ function focusSourceTrackLabel(trackId: string) {
 }
 
 // Renames, duplicates, deletes and moves source tracks, like useLayerActions
-// does layers, with the same history labels.
+// does layers, with the same history labels, and locks and unlocks them.
+// While they are locked, deleting and moving them does nothing; renaming and
+// duplicating still work.
 export function useSourceTrackActions({
   commitProjectChange,
   selectedClip,
   setSelectedClipId,
   setStatus,
   sourceTracks,
+  sourceTracksLocked,
   timelineScrollRef,
 }: SourceTrackActionsInputs) {
   const sourceTracksListRef = useRef<HTMLDivElement | null>(null);
@@ -76,6 +84,16 @@ export function useSourceTrackActions({
     focusSourceTrackLabel(trackId);
   }
 
+  function setSourceTracksLocked(locked: boolean) {
+    commitProjectChange(sourceTracksLockLabel(locked), (current) =>
+      patchProjectState(current, { sourceTracksLocked: locked }),
+    );
+  }
+
+  function refuseLockedEdit() {
+    setStatus(`${SOURCE_TRACKS_LOCKED_TITLE}.`);
+  }
+
   function duplicateSourceTrackAction(track: SourceTrack) {
     const newTrackId = `source-track-${crypto.randomUUID()}`;
     commitProjectChange(layerHistoryLabels.duplicate(track.name), (current) =>
@@ -94,6 +112,11 @@ export function useSourceTrackActions({
   }
 
   function deleteSourceTrackAction(track: SourceTrack) {
+    if (sourceTracksLocked) {
+      refuseLockedEdit();
+      return;
+    }
+
     commitProjectChange(layerHistoryLabels.remove(track.name), (current) =>
       patchProjectState(current, deleteSourceTrack(current, track.id)),
     );
@@ -110,6 +133,11 @@ export function useSourceTrackActions({
   }
 
   function moveSourceTrack(track: SourceTrack, direction: -1 | 1) {
+    if (sourceTracksLocked) {
+      refuseLockedEdit();
+      return;
+    }
+
     const index = sourceTracks.findIndex((item) => item.id === track.id);
     commitProjectChange(
       layerHistoryLabels.move(track.name, direction),
@@ -124,7 +152,7 @@ export function useSourceTrackActions({
 
   function moveSourceTrackToIndex(trackId: string, targetIndex: number) {
     const track = sourceTracks.find((item) => item.id === trackId);
-    if (!track) {
+    if (!track || sourceTracksLocked) {
       return;
     }
 
@@ -149,6 +177,7 @@ export function useSourceTrackActions({
     rowAttribute: "data-source-track-id",
     gripAttribute: "data-source-track-grip",
     listClass: "source-track-list",
+    disabled: sourceTracksLocked,
     onMove: moveSourceTrackToIndex,
   });
 
@@ -162,5 +191,6 @@ export function useSourceTrackActions({
     deleteSourceTrack: deleteSourceTrackAction,
     moveSourceTrack,
     sourceTrackReorder,
+    setSourceTracksLocked,
   };
 }

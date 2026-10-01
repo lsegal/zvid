@@ -236,3 +236,57 @@ describe("a start-trimmed warped source clip", () => {
     assert.equal(saved.clips?.[0].warpAnchorSeconds, undefined);
   });
 });
+
+describe("source track lock", () => {
+  const session: LvpSession = {
+    mainTracks: [{ id: "main-1", name: "Layer 1" }],
+    tracks: [{ id: "t1", name: "Cam" }],
+    clips: [
+      {
+        id: "c1",
+        trackId: "t1",
+        frameStart: 0,
+        frameCount: 60,
+        filePath: "/media/cam.mov",
+      },
+    ],
+    timeline: { bpm: 120, fps: 30 },
+  };
+
+  it("opens a session without the flag unlocked", () => {
+    assert.equal(sessionToProject(session, []).sourceTracksLocked, false);
+    assert.equal(INITIAL_PROJECT_STATE.sourceTracksLocked, false);
+  });
+
+  it("opens a locked session locked", () => {
+    assert.equal(
+      sessionToProject({ ...session, sourceTracksLocked: true }, [])
+        .sourceTracksLocked,
+      true,
+    );
+  });
+
+  it("survives a save and reopen, locked or unlocked", () => {
+    for (const locked of [true, false]) {
+      const project = sessionToProject(
+        { ...session, sourceTracksLocked: locked },
+        [],
+      );
+      const saved = projectToLvpSession(
+        {
+          ...INITIAL_PROJECT_STATE,
+          ...project,
+          clips: project.arrangementClips,
+          timelineMode: "musical",
+          snapEnabled: true,
+          mediaItems: [],
+        },
+        { playheadQ: 0 },
+      );
+      // Unlocking is written too, so it isn't lost on reopen.
+      assert.equal(saved.sourceTracksLocked, locked);
+      const reopened = JSON.parse(JSON.stringify(saved)) as LvpSession;
+      assert.equal(sessionToProject(reopened, []).sourceTracksLocked, locked);
+    }
+  });
+});

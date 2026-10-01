@@ -13,16 +13,19 @@ import { getSwatch, pluralize } from "../../app/util.ts";
 import type { useSourceTrackActions } from "../../hooks/useSourceTrackActions.ts";
 import type { useSourceTrackDrop } from "../../hooks/useSourceTrackDrop.ts";
 import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
+import { SOURCE_TRACKS_LOCKED_TITLE } from "../../source-tracks-section.ts";
 import { NameInput } from "../NameInput";
 import { SourceSpan, type SourceSpanContext } from "./SourceSpan";
 
 type SourceTrackActions = ReturnType<typeof useSourceTrackActions>;
 
-// What every source track label shares: its grip, its menu, and the name
-// field Rename… opens.
+// What every source track label shares: its grip, its menu, the name field
+// Rename… opens, and whether the source tracks are locked, which disables
+// the grip.
 export type SourceTrackLabelContext = {
   reorder: SourceTrackActions["sourceTrackReorder"];
   openMenu: (event: ReactMouseEvent<HTMLElement>, trackId: string) => void;
+  locked: boolean;
   renamingId: string | undefined;
   commitRename: SourceTrackActions["commitSourceTrackRename"];
   cancelRename: SourceTrackActions["cancelSourceTrackRename"];
@@ -57,6 +60,7 @@ export function SourceTrackRow({
   span,
   reorder,
   openMenu,
+  locked,
   renamingId,
   commitRename,
   cancelRename,
@@ -98,7 +102,12 @@ export function SourceTrackRow({
           {...reorder.gripProps(track, index)}
           aria-label={`Reorder ${track.name}`}
           className="track-label__grip"
-          title="Drag to reorder, or press Space to pick up"
+          disabled={locked}
+          title={
+            locked
+              ? SOURCE_TRACKS_LOCKED_TITLE
+              : "Drag to reorder, or press Space to pick up"
+          }
           type="button"
         >
           <Bars3Icon aria-hidden="true" />

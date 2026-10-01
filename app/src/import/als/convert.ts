@@ -240,6 +240,8 @@ export function convertAls(
     ...(options.sessionFile !== undefined && {
       sessionFile: options.sessionFile,
     }),
+    // An imported set's source tracks mirror Live's, so they start locked.
+    sourceTracksLocked: true,
   };
   const layersRecordTracks = videoTracks
     .filter((track) => captureDevice(track) === "layers-record")
