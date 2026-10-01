@@ -5,6 +5,7 @@ import {
   type MediaItem,
   type Palette,
 } from "../media";
+import { probeMediaDetails } from "../media-details.ts";
 import type { ServerMediaRef } from "../session";
 import { probeVideoInput } from "../video-format-probe";
 import type { MediaSelection } from "./contracts";
@@ -24,6 +25,9 @@ type MediaAnalysisOptions = {
   previewUrl: string;
   palette: Palette;
   sourcePath?: string;
+  // Known for a local file, so its details survive a failed analysis.
+  fileSizeBytes?: number;
+  lastModified?: number;
 };
 
 let runtimePromise: Promise<WebMediaRuntime> | null = null;
@@ -292,6 +296,8 @@ async function analyzeInputMedia(
       fps = (await videoTrack.computePacketStats(240)).averagePacketRate;
     }
 
+    const details = await probeMediaDetails(input, durationSeconds);
+
     return {
       id: options.id,
       name: options.name,
@@ -304,6 +310,9 @@ async function analyzeInputMedia(
       channels: audioTrack?.numberOfChannels,
       hasAudio: Boolean(audioTrack),
       hasVideo: Boolean(videoTrack),
+      ...details,
+      fileSizeBytes: details.fileSizeBytes ?? options.fileSizeBytes,
+      lastModified: options.lastModified,
       color: options.palette.color,
       accent: options.palette.accent,
       previewUrl: options.previewUrl,
@@ -417,6 +426,8 @@ async function createMetadataFallbackItem(
       height: metadata.height,
       hasAudio: metadata.kind === "audio",
       hasVideo: metadata.kind === "video",
+      fileSizeBytes: options.fileSizeBytes,
+      lastModified: options.lastModified,
       color: options.palette.color,
       accent: options.palette.accent,
       previewUrl: options.previewUrl,
@@ -432,6 +443,8 @@ async function createMetadataFallbackItem(
     durationSeconds: 0,
     hasAudio: guessedKind === "audio",
     hasVideo: guessedKind === "video",
+    fileSizeBytes: options.fileSizeBytes,
+    lastModified: options.lastModified,
     color: options.palette.color,
     accent: options.palette.accent,
     previewUrl: options.previewUrl,
@@ -451,6 +464,8 @@ async function analyzeLocalMediaFile(
     name: file.name,
     previewUrl,
     palette,
+    fileSizeBytes: file.size,
+    lastModified: file.lastModified,
   };
   const { ALL_FORMATS, BlobSource, Input } = runtime.mediabunny;
 

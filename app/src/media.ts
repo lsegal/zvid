@@ -21,6 +21,16 @@ export type MediaItem = {
   channels?: number;
   hasAudio: boolean;
   hasVideo: boolean;
+  // File details, undefined until read and when unknown; see media-details.
+  fileSizeBytes?: number;
+  // People-facing names, like "QuickTime / MOV", "H.264" and "AAC".
+  container?: string;
+  videoCodec?: string;
+  audioCodec?: string;
+  // Overall bits per second.
+  bitrate?: number;
+  // Epoch milliseconds the file was last modified, when known.
+  lastModified?: number;
   color: string;
   accent: string;
   previewUrl: string;
