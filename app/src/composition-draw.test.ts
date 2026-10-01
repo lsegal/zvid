@@ -55,6 +55,8 @@ type DrawCall = {
   texture: Handle | null;
   // uAxisX, uAxisY and uOffset of the composite program.
   axes: Record<string, [number, number]>;
+  // uUvScale and uUvMax: the part of the texture the composite samples.
+  uv: Record<string, [number, number]>;
 };
 
 // A WebGLRenderingContext stand-in that tracks the state drawComposition and
@@ -183,6 +185,10 @@ function createRecordingGl() {
           uAxisX: state.uniforms.uAxisX,
           uAxisY: state.uniforms.uAxisY,
           uOffset: state.uniforms.uOffset,
+        },
+        uv: {
+          uUvScale: state.uniforms.uUvScale,
+          uUvMax: state.uniforms.uUvMax,
         },
       });
     },
@@ -1402,6 +1408,55 @@ describe("drawComposition FX clips", () => {
       "ONE",
       "ONE_MINUS_SRC_ALPHA",
     ]);
+  });
+
+  it("reuses its Order's target while its box animates", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    const media = mediaLayers([1, 2]);
+    const mediaRefs = new Map<string, HTMLMediaElement>(
+      media.map((entry) => [
+        entry.sourceKey,
+        new FakeVideo(1080, 1920) as unknown as HTMLMediaElement,
+      ]),
+    );
+    const order = { ...DEFAULT_COMPOSITION_ORDER, arrangement: "grid" as const };
+    const allocated = renderStats.targetAllocations;
+    const boxes = new Set<string>();
+    // A Transform pulsing the FX clip's box between half and all of the
+    // canvas over 120 frames.
+    for (let frame = 0; frame < 120; frame++) {
+      const scale = 0.75 + 0.25 * Math.sin((frame / 120) * 2 * Math.PI);
+      const fxOrder: CompositeLayer = {
+        ...fxLayer(0, [], { ...IDENTITY_TRANSFORM, scaleX: scale, scaleY: scale }),
+        order,
+      };
+      const from = recording.draws.length;
+      drawComposition(
+        resources,
+        surface,
+        [...media, fxOrder],
+        mediaRefs,
+        [],
+        { time: frame / 30, audio: SOURCE_SILENCE, groupClipProgress: 0 },
+        Z_ORDER_COMPOSITION,
+      );
+      const drawn = recording.draws.slice(from);
+      const arranged = drawn.find((draw) => draw.framebuffer !== null);
+      assert.ok(arranged?.viewport);
+      const [, , width, height] = arranged.viewport;
+      boxes.add(`${width}x${height}`);
+      // The arranged corner is all the canvas samples of the target.
+      const last = drawn[drawn.length - 1];
+      assert.equal(last.framebuffer, null);
+      const [scaleX, scaleY] = last.uv.uUvScale;
+      assert.ok(scaleX > 0 && scaleX <= 1 && scaleY > 0 && scaleY <= 1);
+      assert.ok(last.uv.uUvMax[0] <= 1 && last.uv.uUvMax[1] <= 1);
+    }
+    // The box changed size every frame on its way up and down.
+    assert.ok(boxes.size > 40);
+    // Its target, at three quarters of the canvas and then all of it.
+    assert.ok(renderStats.targetAllocations - allocated <= 2);
   });
 
   it("is adjusted by the Global chain after it", () => {

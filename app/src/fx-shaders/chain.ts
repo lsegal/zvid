@@ -33,9 +33,9 @@ export const TARGET_SIZE_BUCKET = 64;
 // used is freed past this.
 export const MAX_POOLED_TARGETS = 8;
 
-// Arrangement targets only grow while an FX clip's box animates; one is
-// reallocated smaller once a side has needed at most half of it for this
-// many uses in a row.
+// Arrangement targets only grow while an FX clip's box animates, straight
+// to the canvas's size; one is reallocated smaller once a side has needed
+// at most half of it for this many uses in a row.
 export const ARRANGEMENT_SHRINK_USES = 120;
 
 type ArrangementTarget = {
@@ -159,6 +159,7 @@ export class EffectChainRenderer {
   private layerTargets: TargetPool<RenderTarget[]>;
   private arrangementTargets = new Map<number, ArrangementTarget>();
   private surfaceKey = "";
+  private surface: [number, number] = [0, 0];
   private readonly maxTextureSize: number;
   // Pooled targets' sides are rounded up to a multiple of this; 1 allocates
   // them at exactly each picture's size, as tests compare against.
@@ -181,6 +182,7 @@ export class EffectChainRenderer {
     const key = `${width}x${height}`;
     if (key !== this.surfaceKey) {
       this.surfaceKey = key;
+      this.surface = [width, height];
       this.releaseTargets();
     }
   }
@@ -241,11 +243,13 @@ export class EffectChainRenderer {
         bucketWidth * 2 <= target.width || bucketHeight * 2 <= target.height;
       entry.smallUses = fits && small ? entry.smallUses + 1 : 0;
       if (!fits) {
-        // Grow only, so a box growing on one side and shrinking on the
-        // other doesn't keep reallocating it.
+        // A box growing past its target is likely animating, so the target
+        // grows to the canvas at once rather than a bucket at a time, and
+        // never shrinks a side, so a box growing on one side and shrinking
+        // on the other doesn't keep reallocating it.
         allocate = [
-          Math.max(bucketWidth, target.width),
-          Math.max(bucketHeight, target.height),
+          Math.max(bucketWidth, target.width, this.surface[0]),
+          Math.max(bucketHeight, target.height, this.surface[1]),
         ];
       }
       if (!fits || entry.smallUses > ARRANGEMENT_SHRINK_USES) {

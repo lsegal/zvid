@@ -30,10 +30,22 @@ type Scenario = {
 // Renders the layers under a Global Vertical Order and returns the pixels at
 // `samples`, fractions of the canvas from its top-left corner.
 async function render(page: Page, scenario: Scenario) {
+  const [pixels] = await renderFrames(page, { ...scenario, frames: [[]] });
+  return pixels;
+}
+
+// Renders a frame for each of `frames`, with its effects added to the
+// scenario's, through one renderer, as the preview does while they animate,
+// and returns each frame's pixels at `samples`.
+async function renderFrames(
+  page: Page,
+  scenario: Scenario & { frames: Effect[][] },
+) {
   return page.evaluate(
     async ({
       layers,
       effects,
+      frames,
       playheadSeconds,
       samples,
       size = 120,
@@ -99,38 +111,47 @@ async function render(page: Page, scenario: Scenario) {
         ],
       };
 
+      const state = (frame: Effect[]) => ({
+        mediaItems: [],
+        clips,
+        lanes,
+        effects: [globalOrder, ...colors, ...effects, ...frame],
+        bpm: 120,
+        canvasWidth: size,
+        canvasHeight: size,
+      });
       const canvas = document.createElement("canvas");
-      const renderer = new CompositionRenderer(
-        {
-          mediaItems: [],
-          clips,
-          lanes,
-          effects: [globalOrder, ...colors, ...effects],
-          bpm: 120,
-          canvasWidth: size,
-          canvasHeight: size,
-        },
-        { canvas, audioAnalysis: "offline" },
-      );
+      const renderer = new CompositionRenderer(state(frames[0]), {
+        canvas,
+        audioAnalysis: "offline",
+      });
       try {
-        // 120 BPM: two quarters a second.
-        await renderer.renderFrameAt(playheadSeconds * 2, playheadSeconds);
-        const gl = canvas.getContext("webgl");
-        if (!gl) throw new Error("WebGL is unavailable.");
-        const all = new Uint8Array(size * size * 4);
-        gl.readPixels(0, 0, size, size, gl.RGBA, gl.UNSIGNED_BYTE, all);
-        return samples.map(([x, y]) => {
-          const offset =
-            ((size - 1 - Math.floor(y * size)) * size + Math.floor(x * size)) *
-            4;
-          return [all[offset], all[offset + 1], all[offset + 2]];
-        });
+        const pixels = [];
+        for (const frame of frames) {
+          renderer.update(state(frame));
+          // 120 BPM: two quarters a second.
+          await renderer.renderFrameAt(playheadSeconds * 2, playheadSeconds);
+          const gl = canvas.getContext("webgl");
+          if (!gl) throw new Error("WebGL is unavailable.");
+          const all = new Uint8Array(size * size * 4);
+          gl.readPixels(0, 0, size, size, gl.RGBA, gl.UNSIGNED_BYTE, all);
+          pixels.push(
+            samples.map(([x, y]) => {
+              const offset =
+                ((size - 1 - Math.floor(y * size)) * size +
+                  Math.floor(x * size)) *
+                4;
+              return [all[offset], all[offset + 1], all[offset + 2]];
+            }),
+          );
+        }
+        return pixels;
       } finally {
         renderer.destroy();
       }
     },
     scenario,
-  ) as Promise<Rgb[]>;
+  ) as Promise<Rgb[][]>;
 }
 
 function effect(
@@ -328,6 +349,47 @@ test.describe("compositing", () => {
     const exported = await render(page, { ...scenario, size: 360 });
     expectColors(preview, [RED, BLUE, BLACK, WHITE]);
     expectColors(exported, preview);
+  });
+
+  test("draws the same while the FX clip's box animates", async ({ page }) => {
+    const invert = effect("invert", "clip:fx-1", "NegativeSplit", {
+      _LowIntensity: 1,
+      _HighIntensity: 1,
+    });
+    // The FX clip's box growing and shrinking, as a Transform animates it,
+    // so its arrangement lands in parts of a target kept from earlier frames.
+    const frames = [0.4, 0.45, 0.6, 0.83, 1, 0.9, 0.55, 0.3].map((scale) => [
+      effect("box", "clip:fx-1", "Transform", {
+        ScaleX: scale,
+        ScaleY: scale * 0.8,
+        PositionX: 0.05,
+      }),
+    ]);
+    // Every fourth pixel.
+    const samples: Array<[number, number]> = [];
+    for (let y = 0; y < 30; y++) {
+      for (let x = 0; x < 30; x++) {
+        samples.push([(x * 4 + 0.5) / 120, (y * 4 + 0.5) / 120]);
+      }
+    }
+    for (const size of [120, 360]) {
+      const scenario = {
+        layers: ["fx", ...FOUR_FILLS],
+        effects: [invert, order("clip:fx-1", "Grid")],
+        playheadSeconds: 1,
+        samples,
+        size,
+      };
+      const animated = await renderFrames(page, { ...scenario, frames });
+      for (const [index, frame] of frames.entries()) {
+        // As a renderer drawing only that frame draws it.
+        const [alone] = await renderFrames(page, {
+          ...scenario,
+          frames: [frame],
+        });
+        expect(animated[index], `frame ${index} at ${size} px`).toEqual(alone);
+      }
+    }
   });
 });
 

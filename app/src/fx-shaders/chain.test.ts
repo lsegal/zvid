@@ -3,6 +3,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  ARRANGEMENT_SHRINK_USES,
   bucketTargetSize,
   EffectChainRenderer,
   MAX_POOLED_TARGETS,
@@ -254,5 +255,98 @@ describe("EffectChainRenderer pooled targets", () => {
     );
     assert.deepEqual(recording.draws[0].uFxUvScale, [1, 1]);
     assert.deepEqual(recording.draws[0].uFxUvMax, [1, 1]);
+  });
+});
+
+describe("EffectChainRenderer arrangement targets", () => {
+  it("allocates once while an FX clip's box animates for 120 frames", () => {
+    const recording = createCountingGl();
+    const renderer = new EffectChainRenderer(recording.gl, {} as WebGLBuffer);
+    renderer.syncSurface(1920, 1080);
+    // A box pulsing between 50% and 100% of the canvas.
+    for (let frame = 0; frame < 120; frame++) {
+      const scale = 0.75 + 0.25 * Math.sin((frame / 120) * 2 * Math.PI);
+      renderer.getArrangementTarget(
+        0,
+        Math.round(1920 * scale),
+        Math.round(1080 * scale),
+      );
+    }
+    // At three quarters of the canvas, then the canvas once it grows.
+    assert.deepEqual(recording.textureSizes, [
+      [1472, 832],
+      [1920, 1080],
+    ]);
+    assert.equal(recording.created.framebuffer, 2);
+    assert.equal(recording.liveCount("texture"), 1);
+
+    renderer.dispose();
+    assert.equal(recording.liveCount("texture"), 0);
+    assert.equal(recording.liveCount("framebuffer"), 0);
+  });
+
+  it("arranges into its corner, mapped as a pooled target is", () => {
+    const recording = createCountingGl();
+    const renderer = new EffectChainRenderer(recording.gl, {} as WebGLBuffer);
+    const arrangement = renderer.getArrangementTarget(0, 100, 50);
+    assert.deepEqual(recording.textureSizes, [[128, 64]]);
+    assert.deepEqual(arrangement.region.uvScale, [100 / 128, 50 / 64]);
+    assert.deepEqual(arrangement.region.uvMax, [99.5 / 128, 49.5 / 64]);
+  });
+
+  it("only grows, keeping the larger side of what it held", () => {
+    const recording = createCountingGl();
+    const renderer = new EffectChainRenderer(recording.gl, {} as WebGLBuffer);
+    renderer.syncSurface(200, 200);
+    renderer.getArrangementTarget(0, 300, 100);
+    renderer.getArrangementTarget(0, 100, 300);
+    renderer.getArrangementTarget(0, 300, 100);
+    renderer.getArrangementTarget(0, 100, 300);
+    // Past the canvas, the box's own buckets.
+    assert.deepEqual(recording.textureSizes, [
+      [320, 128],
+      [320, 320],
+    ]);
+    assert.equal(recording.liveCount("texture"), 1);
+  });
+
+  it("shrinks once it has needed at most half of a side for a while", () => {
+    const recording = createCountingGl();
+    const renderer = new EffectChainRenderer(recording.gl, {} as WebGLBuffer);
+    renderer.getArrangementTarget(0, 1000, 1000);
+    for (let use = 0; use < ARRANGEMENT_SHRINK_USES; use++) {
+      renderer.getArrangementTarget(0, 100, 1000);
+    }
+    assert.equal(recording.created.texture, 1);
+    renderer.getArrangementTarget(0, 100, 1000);
+    assert.deepEqual(recording.textureSizes, [
+      [1024, 1024],
+      [128, 1024],
+    ]);
+    assert.equal(recording.liveCount("texture"), 1);
+  });
+
+  it("restarts the shrink count when a use needs more than half", () => {
+    const recording = createCountingGl();
+    const renderer = new EffectChainRenderer(recording.gl, {} as WebGLBuffer);
+    renderer.getArrangementTarget(0, 1000, 1000);
+    for (let use = 0; use < ARRANGEMENT_SHRINK_USES * 3; use++) {
+      const width = use % ARRANGEMENT_SHRINK_USES === 0 ? 1000 : 100;
+      renderer.getArrangementTarget(0, width, 1000);
+    }
+    assert.equal(recording.created.texture, 1);
+  });
+
+  it("keeps one target per nesting depth", () => {
+    const recording = createCountingGl();
+    const renderer = new EffectChainRenderer(recording.gl, {} as WebGLBuffer);
+    for (let frame = 0; frame < 10; frame++) {
+      renderer.getArrangementTarget(0, 600 + frame, 400);
+      renderer.getArrangementTarget(1, 300 - frame, 200);
+    }
+    assert.deepEqual(recording.textureSizes, [
+      [640, 448],
+      [320, 256],
+    ]);
   });
 });
