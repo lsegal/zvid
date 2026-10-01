@@ -19,6 +19,7 @@ import {
   describeClipMediaState,
   formatClipMediaState,
 } from "../../clip-media-state";
+import { getClipWaveformKind } from "../../clip-waveform.ts";
 import { isContextMenuPress } from "../../context-menu.ts";
 import { useAudioClipPeaks } from "../../hooks/useAudioClipPeaks.ts";
 import type { MediaItem } from "../../media";
@@ -34,7 +35,10 @@ import {
   getThumbnailCacheKey,
   type ThumbnailSnapshot,
 } from "../../thumbnail-cache.ts";
-import { getSourceSpanWaveformRange } from "../../waveform-range.ts";
+import {
+  getSourceSpanWaveformRange,
+  getVisibleClipSlice,
+} from "../../waveform-range.ts";
 import { MediaSyncSkeleton } from "../MediaSyncSkeleton";
 import { ClipWaveform } from "./ClipWaveform";
 import "./source-span.css";
@@ -112,11 +116,25 @@ export function SourceSpan({
   const mediaSync = media
     ? describeMediaSync(remoteMediaProgress.get(media.id), media.availability)
     : null;
-  // Audio-only media draws its waveform, like the Audio lane, until its peaks
-  // turn out to be missing.
-  const audioPeaks = useAudioClipPeaks(media, mediaState);
-  const audio = !mediaSync && audioPeaks.status !== "none";
   const widthPx = getClipDurationQ(clip, bpm) * quarterPx;
+  // Audio-only media draws its waveform, like the Audio lane, until its peaks
+  // turn out to be missing. Video with audio overlays it on the frames once
+  // its peaks are ready, decoding only while the span is in view.
+  const waveformKind = getClipWaveformKind(clip, media, mediaState);
+  const inView = getVisibleClipSlice(
+    clip.startQ * quarterPx,
+    widthPx,
+    visibleTimelineStartPx,
+    visibleTimelineWidthPx,
+  );
+  const audioPeaks = useAudioClipPeaks(
+    media,
+    waveformKind === "overlay" && !inView ? "none" : waveformKind,
+  );
+  const audio =
+    !mediaSync && waveformKind === "audio" && audioPeaks.status !== "none";
+  const waveformOverlay =
+    !mediaSync && waveformKind === "overlay" && audioPeaks.status === "ready";
   // Keeps the trim handles shown while the pointer strays off the span
   // mid-drag.
   const trimming =
@@ -155,7 +173,7 @@ export function SourceSpan({
     // biome-ignore lint/a11y/noStaticElementInteractions: clicking, dragging, Ctrl/Cmd-click and right-click are pointer gestures; pressing a source layer's number key commits a selection from the keyboard
     // biome-ignore lint/a11y/useKeyWithClickEvents: selecting with a click is a mouse shortcut; the source track's name button selects its track from the keyboard
     <div
-      className={`source-span ${locked ? "source-span--locked" : ""} ${trimming ? "source-span--trimming" : ""} ${filmstrip ? "source-span--filmstrip" : ""} ${audio ? "source-span--audio" : ""} ${audio && audioPeaks.status === "loading" && !prefersReducedMotion ? "is-syncing--animated" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""} ${selected ? "source-span--selected" : ""}`}
+      className={`source-span ${locked ? "source-span--locked" : ""} ${trimming ? "source-span--trimming" : ""} ${filmstrip ? "source-span--filmstrip" : ""} ${audio ? "source-span--audio" : ""} ${waveformOverlay ? "source-span--waveform-overlay" : ""} ${audio && audioPeaks.status === "loading" && !prefersReducedMotion ? "is-syncing--animated" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""} ${selected ? "source-span--selected" : ""}`}
       data-source-span-id={clip.id}
       onClick={(event) => {
         // Ctrl-click on macOS opens the menu instead.
@@ -242,6 +260,17 @@ export function SourceSpan({
           }
         />
       )}
+      {waveformOverlay ? (
+        <ClipWaveform
+          className="source-span__waveform-overlay"
+          clipLeftPx={clip.startQ * quarterPx}
+          clipWidthPx={widthPx}
+          peaks={audioPeaks}
+          range={getSourceSpanWaveformRange(clip, bpm, quarterPx)}
+          visibleStartPx={visibleTimelineStartPx}
+          visibleWidthPx={visibleTimelineWidthPx}
+        />
+      ) : null}
       <div className="source-span__body">
         <span>{clip.label}</span>
         <small>

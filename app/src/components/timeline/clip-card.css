@@ -301,3 +301,28 @@
 .clip-card--audio .clip-card__meta {
   color: rgba(255, 255, 255, 0.8);
 }
+
+/* Video with audio draws its waveform, light and semi-transparent with a
+   soft shadow, over its frames and under its label and handles. */
+.clip-card__waveform-overlay {
+  position: absolute;
+  top: 0;
+  z-index: 1;
+  height: 100%;
+  opacity: 0.5;
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.7));
+  pointer-events: none;
+}
+
+.clip-card--waveform-overlay .clip-card__body {
+  position: relative;
+}
+
+.clip-card--waveform-overlay .clip-card__text {
+  position: relative;
+  z-index: 2;
+}
+
+.clip-card--waveform-overlay .clip-card__handle {
+  z-index: 2;
+}
