@@ -171,3 +171,40 @@ test("source clip properties edit Start, Length and Offset, clamped to the media
   await expect(page.locator(title)).toHaveText("Layer 1 Effects");
   await expect(page.locator(".source-clip-properties")).toHaveCount(0);
 });
+
+// The Clip widget's title row matches an FX device's: same height, a 1px
+// divider, and the name inset from the rounded border like the fields.
+test("the Clip widget title row matches an FX device title row", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await dropVideos(page, 1);
+  const spans = page.locator(".source-span");
+  await expect(spans).toHaveCount(1, { timeout: 30_000 });
+  await spans.first().click();
+
+  const device = page.locator(".source-clip-properties__device");
+  const clipTitle = device.locator(".fx-device-panel__title");
+  await expect(clipTitle).toBeVisible();
+  const clipHeight = (await box(clipTitle)).height;
+  const nameInset =
+    (await box(clipTitle.locator(".fx-device-panel__name"))).x -
+    (await box(device)).x;
+  expect(nameInset).toBeGreaterThanOrEqual(12);
+  expect(
+    await clipTitle.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return [style.borderBottomWidth, style.borderBottomStyle];
+    }),
+  ).toEqual(["1px", "solid"]);
+
+  await page.locator('[data-layer-header-id="1"] .track-label__select').click();
+  const layoutTitle = page
+    .locator('section[aria-label="Layout"]')
+    .first()
+    .locator(".fx-device-panel__title");
+  await expect(layoutTitle).toBeVisible();
+  expect(
+    Math.abs((await box(layoutTitle)).height - clipHeight),
+  ).toBeLessThanOrEqual(1);
+});
