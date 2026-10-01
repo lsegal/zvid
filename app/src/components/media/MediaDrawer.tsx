@@ -40,6 +40,8 @@ type MediaDrawerProps = {
   remoteMediaProgress: RemoteMediaProgressMap;
   prefersReducedMotion: boolean;
   onImport: () => void;
+  // Double-click or Enter: preview the media in the preview pane's Media tab.
+  onOpenMedia: (mediaId: string) => void;
 };
 
 function getThumbnailTime(media: MediaItem) {
@@ -83,6 +85,7 @@ export function MediaDrawer({
   remoteMediaProgress,
   prefersReducedMotion,
   onImport,
+  onOpenMedia,
 }: MediaDrawerProps) {
   const { isOpen, view, thumbnailSize, query, selectedMediaId } = drawer;
   const listboxRef = useRef<HTMLDivElement | null>(null);
@@ -144,6 +147,12 @@ export function MediaDrawer({
   }
 
   function handleListKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Enter" && selectedMediaId) {
+      event.preventDefault();
+      event.stopPropagation();
+      onOpenMedia(selectedMediaId);
+      return;
+    }
     const index = visibleItems.findIndex(
       (media) => media.id === selectedMediaId,
     );
@@ -215,6 +224,7 @@ export function MediaDrawer({
           drawer.setSelectedMediaId(media.id);
           listboxRef.current?.focus();
         }}
+        onDoubleClick={() => onOpenMedia(media.id)}
         role="option"
         title={media.name}
       >
@@ -355,6 +365,7 @@ export function MediaDrawer({
                   onKeyDown={handleListKeyDown}
                   ref={listboxRef}
                   role="listbox"
+                  data-inline-listbox
                   style={
                     {
                       "--media-tile-size": `${thumbnailSize}px`,

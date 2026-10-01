@@ -116,6 +116,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     isPlaying,
     setIsPlaying,
     mediaItemsById,
+    drawerMediaId: mediaDrawer.selectedMediaId,
   });
   const fxEditing = useFxEditing({
     dispatchProject: store.dispatchProject,
@@ -377,6 +378,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 remoteMediaProgress={media.remoteMediaProgress}
                 prefersReducedMotion={prefersReducedMotion}
                 onImport={() => void sessionFiles.handleImport()}
+                onOpenMedia={(mediaId) =>
+                  mediaPreview.loadPreviewMedia(mediaId, true)
+                }
               />
               <Timeline
                 {...timeline}

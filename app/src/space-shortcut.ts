@@ -18,8 +18,10 @@ const TEXT_INPUT_TYPES = new Set([
 ]);
 
 // Open Radix menus and dialogs, where Space should activate the focused item.
+// A listbox that is part of the page rather than a popup, like the Media
+// drawer's, opts out with `data-inline-listbox` and leaves Space to playback.
 const OVERLAY_SELECTOR =
-  '[role="menu"], [role="menubar"], [role="listbox"], [role="dialog"], [role="alertdialog"], [aria-modal="true"]';
+  '[role="menu"], [role="menubar"], [role="listbox"]:not([data-inline-listbox]), [role="dialog"], [role="alertdialog"], [aria-modal="true"]';
 
 // A layer header's or source track label's reorder grip picks up and drops
 // its row with Space, as drag handles do (#478, #654). Every other control

@@ -13,6 +13,8 @@ export type MediaPreviewInputs = {
   isPlaying: boolean;
   setIsPlaying: (isPlaying: boolean) => void;
   mediaItemsById: Map<string, MediaItem>;
+  // The media selected in the Media drawer.
+  drawerMediaId: string | undefined;
 };
 
 // The preview pane's active tab, the media loaded into the Media tab, and
@@ -22,6 +24,7 @@ export function useMediaPreview({
   isPlaying,
   setIsPlaying,
   mediaItemsById,
+  drawerMediaId,
 }: MediaPreviewInputs) {
   const [previewTab, setPreviewTab] = useState<PreviewTab>(readPreviewTab);
   const [previewMediaId, setPreviewMediaId] = useState<string>();
@@ -89,16 +92,22 @@ export function useMediaPreview({
     [dispatchPlayback, previewMediaId],
   );
 
-  // A single click in the Media drawer only replaces what the Media tab
-  // shows while that tab is open.
-  const selectDrawerMedia = useCallback(
-    (mediaId: string | undefined) => {
-      if (mediaId && stateRef.current.tab === "media") {
-        loadPreviewMedia(mediaId);
-      }
-    },
-    [loadPreviewMedia],
-  );
+  // Selecting in the Media drawer only replaces what the Media tab shows
+  // while that tab is open. Opening the tab with nothing loaded shows the
+  // drawer's selection.
+  const hasPreviewMedia = previewMediaId !== undefined;
+  const lastDrawerMediaIdRef = useRef(drawerMediaId);
+  useEffect(() => {
+    const selectionChanged = drawerMediaId !== lastDrawerMediaIdRef.current;
+    lastDrawerMediaIdRef.current = drawerMediaId;
+    if (
+      drawerMediaId &&
+      previewTab === "media" &&
+      (selectionChanged || !hasPreviewMedia)
+    ) {
+      loadPreviewMedia(drawerMediaId);
+    }
+  }, [drawerMediaId, hasPreviewMedia, loadPreviewMedia, previewTab]);
 
   const setMediaPlaying = useCallback(
     (playing: boolean) => {
@@ -123,7 +132,6 @@ export function useMediaPreview({
     setMediaPlaying,
     toggleMediaPlayback,
     loadPreviewMedia,
-    selectDrawerMedia,
   };
 }
 
