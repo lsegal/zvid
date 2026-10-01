@@ -18,7 +18,7 @@
 }
 
 .media-drawer-column.is-open .media-drawer {
-  width: var(--media-drawer-width, 300px);
+  width: var(--media-drawer-width, 320px);
   visibility: visible;
   transition: width var(--media-drawer-duration) ease;
 }
@@ -32,7 +32,7 @@
 .media-drawer__panel {
   display: flex;
   flex-direction: column;
-  width: var(--media-drawer-width, 300px);
+  width: var(--media-drawer-width, 320px);
   height: 100%;
   min-height: 0;
   background: rgba(8, 9, 15, 0.22);
@@ -162,6 +162,7 @@
 }
 
 .media-drawer__body {
+  container-type: inline-size;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -247,9 +248,9 @@
 /* List view: Name, Kind and Duration columns with Finder's blue selection. */
 .media-row {
   display: grid;
-  grid-template-columns: var(--media-list-icon-size, 24px) minmax(0, 1fr) 84px 56px;
+  grid-template-columns: var(--media-list-icon-size, 24px) minmax(0, 1fr) 76px 60px;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 4px 8px;
   border-radius: 6px;
   color: var(--ink);
@@ -293,9 +294,20 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
+  overflow: hidden;
+}
+
+/* Badges give way to the name once it is down to a few characters. */
+.media-row__name .media-badge {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .media-row__label {
+  flex: 1 1 auto;
+  min-width: 3em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -303,8 +315,21 @@
 
 .media-row__kind,
 .media-row__duration {
+  overflow: hidden;
   color: var(--muted);
+  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Like Finder, a narrow list drops the Kind column before squeezing names. */
+@container (max-width: 299px) {
+  .media-row {
+    grid-template-columns: var(--media-list-icon-size, 24px) minmax(0, 1fr) 60px;
+  }
+
+  .media-row > :nth-child(3) {
+    display: none;
+  }
 }
 
 .media-row__duration {
@@ -435,7 +460,7 @@
     position: fixed;
     inset: 0 auto 0 0;
     z-index: 60;
-    width: min(var(--media-drawer-width, 300px), 88vw);
+    width: min(var(--media-drawer-width, 320px), 88vw);
     padding: 10px;
     transform: translateX(-100%);
     transition:

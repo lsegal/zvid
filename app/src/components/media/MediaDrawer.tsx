@@ -357,6 +357,7 @@ export function MediaDrawer({
                 <div
                   aria-activedescendant={activeDescendant}
                   aria-label="Media items"
+                  data-docked-listbox=""
                   className={
                     view === "icons"
                       ? "media-drawer__grid"
@@ -365,7 +366,6 @@ export function MediaDrawer({
                   onKeyDown={handleListKeyDown}
                   ref={listboxRef}
                   role="listbox"
-                  data-inline-listbox
                   style={
                     {
                       "--media-tile-size": `${thumbnailSize}px`,

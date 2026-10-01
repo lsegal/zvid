@@ -36,8 +36,8 @@ type TimelineToolbarProps = {
   onToggleMediaDrawer: () => void;
 };
 
-// The Media drawer toggle, the playhead readout and the timeline's scale, snap, time signature and
-// layer controls above the timeline.
+// The Media drawer toggle, the playhead readout and the timeline's scale,
+// snap, time signature and layer controls above the timeline.
 export function TimelineToolbar({
   playheadSignal,
   bpm,

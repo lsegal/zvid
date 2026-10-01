@@ -163,6 +163,16 @@ test("Space and playback follow the active tab", async ({ page }) => {
   await expect(page.locator(".preview-panel__title")).toHaveText("Program");
   await previewTab(page, "Media").click();
   await expect.poll(() => mediaPaused(page)).toBe(true);
+
+  // Enter on the drawer's selection opens it in the Media tab, like a
+  // double-click.
+  await previewTab(page, "Timeline").click();
+  await mediaItem(page, "test-pattern-audio").click();
+  await page.keyboard.press("Enter");
+  await expect(previewTab(page, "Media")).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
 });
 
 test("audio-only media shows its waveform and plays", async ({ page }) => {
