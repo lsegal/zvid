@@ -77,7 +77,10 @@ export type TimelineEditingInputs = {
   >;
   playback: Pick<
     ReturnType<typeof usePlayback>,
-    "cancelScrubPlaybackResume" | "startPlayback" | "jumpToClipStart"
+    | "cancelScrubPlaybackResume"
+    | "startPlayback"
+    | "jumpToClipStart"
+    | "playableClipCount"
   >;
   historyCommands: ReturnType<typeof useProjectHistoryCommands>;
   fxEditing: Pick<
@@ -177,8 +180,12 @@ export function useTimelineEditing({
     toggleInspectorCollapsed,
     shortcutLabels,
   } = layout;
-  const { cancelScrubPlaybackResume, startPlayback, jumpToClipStart } =
-    playback;
+  const {
+    cancelScrubPlaybackResume,
+    startPlayback,
+    jumpToClipStart,
+    playableClipCount,
+  } = playback;
   const { handleUndo, handleRedo } = historyCommands;
   const { addFxDevice, setLayerFxEnabled } = fxEditing;
   const { mainAudio, mainAudioInputRef, removeMainAudio } = mainAudioModel;
@@ -228,7 +235,7 @@ export function useTimelineEditing({
 
   useSpacePlayback({
     cancelScrubPlaybackResume,
-    clipCount: clips.length,
+    clipCount: playableClipCount,
     dragState,
     isPlaying,
     setIsPlaying,

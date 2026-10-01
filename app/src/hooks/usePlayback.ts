@@ -35,6 +35,8 @@ import { scrubScrollLeft } from "../scrub-scroll.ts";
 
 export type PlaybackInputs = {
   playbackOriginRef: { current: number };
+  // What the compositor draws (see resolveRenderClips): the layer clips, or
+  // the source tracks when there are none.
   clips: ArrangementClip[];
   timelineClips: ArrangementClip[];
   timelineClipsRef: { current: ArrangementClip[] };
@@ -387,6 +389,8 @@ export function usePlayback({
   }
 
   return {
+    // How many clips playback can play; Space does nothing without any.
+    playableClipCount: clips.length,
     isTimelineAudibleScrubbing,
     startPlayback,
     cancelScrubPlaybackResume,
