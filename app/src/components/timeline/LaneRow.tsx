@@ -1,6 +1,7 @@
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import type { getShortcutLabels } from "../../app/shortcut-labels.ts";
 import {
+  getTimelinePointerX,
   pointerToTimelineQ,
   snapQuarterValue,
 } from "../../app/timeline-math.ts";
@@ -95,8 +96,7 @@ export function LaneRow({
           return;
         }
 
-        const timelineBounds = timelineScroll.getBoundingClientRect();
-        const pointerX = event.clientX - timelineBounds.left;
+        const pointerX = getTimelinePointerX(timelineScroll, event.clientX);
         const anchorQ = snapQuarterValue(
           clamp(
             pointerToTimelineQ(

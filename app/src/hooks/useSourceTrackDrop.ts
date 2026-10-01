@@ -7,7 +7,7 @@ import {
 } from "react";
 import { PALETTE, SOURCE_TRACK_DRAG_CLEAR_DELAY_MS } from "../app/constants.ts";
 import { formatDuration } from "../app/format.ts";
-import { getDropStartQ } from "../app/timeline-math.ts";
+import { getDropStartQ, getTimelinePointerX } from "../app/timeline-math.ts";
 import type {
   SourceTrackDragPreview,
   SourceTrackDropTarget,
@@ -266,7 +266,7 @@ export function useSourceTrackDrop({
       const timelineScroll = timelineScrollRef.current;
       const startQ = timelineScroll
         ? getDropStartQ(
-            event.clientX - timelineScroll.getBoundingClientRect().left,
+            getTimelinePointerX(timelineScroll, event.clientX),
             timelineScroll.scrollLeft,
             labelWidth,
             quarterPx,

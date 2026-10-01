@@ -27,10 +27,34 @@ export function snapQuarterValue(
   return Math.round(valueQ / snapUnit) * snapUnit;
 }
 
+// The track content columns' left border (`border-left` on
+// `.track-row__content` and friends in App.css). Clips, selections and the
+// ruler are positioned inside it.
+const TIMELINE_CONTENT_BORDER_PX = 1;
+
+/**
+ * The `pointerX` that `pointerToTimelineQ` and `getDropStartQ` take for a
+ * pointer at `clientX`: measured inside the timeline scroller's border and
+ * the content columns' left border, so 0 quarters lies where clips start
+ * rather than a couple of pixels left of it.
+ */
+export function getTimelinePointerX(
+  timelineScroll: Pick<Element, "getBoundingClientRect" | "clientLeft">,
+  clientX: number,
+) {
+  return (
+    clientX -
+    timelineScroll.getBoundingClientRect().left -
+    timelineScroll.clientLeft -
+    TIMELINE_CONTENT_BORDER_PX
+  );
+}
+
 /**
  * The timeline position, in quarters, under a pointer `pointerX` pixels from
- * the timeline scroller's left edge, whose sticky label column is
- * `labelWidth` wide. Unclamped: it is negative left of the timeline's start.
+ * the timeline's origin as `getTimelinePointerX` measures it, whose sticky
+ * label column is `labelWidth` wide. Unclamped: it is negative left of the
+ * timeline's start.
  */
 export function pointerToTimelineQ(
   pointerX: number,
