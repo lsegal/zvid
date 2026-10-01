@@ -1,10 +1,6 @@
-import type {
-  CompositeLayer,
-  FrameContext,
-  WebGlResources,
-} from "./composition-draw.ts";
 import {
   FILL_RASTER,
+  RasterCache,
   type RasterExtent,
   type RasterKind,
   type RasterSize,
@@ -20,13 +16,52 @@ import type { TextStyle } from "./text-style.ts";
 // filter smooths gradients when the band is larger.
 const MAX_FILL_TEXTURE_SIZE = 512;
 
-export function getOrCreateTexture(resources: WebGlResources, id: string) {
-  const existing = resources.textureMap.get(id);
+// A source's texture is deleted once this many compositions have been drawn
+// without it, so hiding a clip for a moment doesn't redraw its texture.
+export const TEXTURE_GRACE_DRAWS = 120;
+
+// While playing, a video's frame callbacks name each new frame. When they
+// have not run for this long, its time names the frame instead.
+const FRAME_CALLBACK_STALE_MS = 200;
+
+// What a video texture's storage was allocated at, and the frame it holds
+// (null when unknown, so the next draw uploads).
+type VideoUpload = { width: number; height: number; frame: string | null };
+
+// The texture each media, fill or text source is drawn from.
+export type SourceTextures = {
+  gl: WebGLRenderingContext;
+  textureMap: Map<string, WebGLTexture>;
+  readyTextureIds: Set<string>;
+  // The rasters each fill or text source has drawn, so it is only redrawn
+  // when its paint, text or size changes.
+  rasters: RasterCache;
+  // Compositions drawn, and the one each texture was last used in.
+  drawCount: number;
+  textureLastDrawn: Map<string, number>;
+  videoUploads: Map<string, VideoUpload>;
+};
+
+export function createSourceTextures(gl: WebGLRenderingContext) {
+  return {
+    gl,
+    textureMap: new Map<string, WebGLTexture>(),
+    readyTextureIds: new Set<string>(),
+    rasters: new RasterCache(),
+    drawCount: 0,
+    textureLastDrawn: new Map<string, number>(),
+    videoUploads: new Map<string, VideoUpload>(),
+  };
+}
+
+function getOrCreateTexture(textures: SourceTextures, id: string) {
+  textures.textureLastDrawn.set(id, textures.drawCount);
+  const existing = textures.textureMap.get(id);
   if (existing) {
     return existing;
   }
 
-  const { gl } = resources;
+  const { gl } = textures;
   const texture = gl.createTexture();
   if (!texture) {
     throw new Error("Failed to allocate WebGL texture.");
@@ -37,34 +72,166 @@ export function getOrCreateTexture(resources: WebGlResources, id: string) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  resources.textureMap.set(id, texture);
+  textures.textureMap.set(id, texture);
   return texture;
 }
 
-// Uploads the media element's current frame into the layer's texture.
-// Returns undefined when the element has never had a frame to show.
+// Deletes a source's texture and everything known about what it holds.
+export function releaseTexture(textures: SourceTextures, id: string) {
+  const texture = textures.textureMap.get(id);
+  if (texture) {
+    textures.gl.deleteTexture(texture);
+  }
+  textures.textureMap.delete(id);
+  textures.readyTextureIds.delete(id);
+  textures.rasters.release(id);
+  textures.textureLastDrawn.delete(id);
+  textures.videoUploads.delete(id);
+}
+
+export function releaseAllTextures(textures: SourceTextures) {
+  for (const texture of textures.textureMap.values()) {
+    textures.gl.deleteTexture(texture);
+  }
+  textures.textureMap.clear();
+  textures.readyTextureIds.clear();
+  textures.rasters.clear();
+  textures.textureLastDrawn.clear();
+  textures.videoUploads.clear();
+}
+
+// Starts drawing a composition: deletes the textures of videos no longer in
+// `mediaRefs` and of sources not drawn in the last `graceDraws` draws.
+export function beginTextureDraw(
+  textures: SourceTextures,
+  mediaRefs: Map<string, HTMLMediaElement>,
+  graceDraws = TEXTURE_GRACE_DRAWS,
+) {
+  textures.drawCount += 1;
+  for (const id of textures.videoUploads.keys()) {
+    if (!mediaRefs.has(id)) {
+      releaseTexture(textures, id);
+    }
+  }
+  for (const [id, drawn] of textures.textureLastDrawn) {
+    if (textures.drawCount - drawn > graceDraws) {
+      releaseTexture(textures, id);
+    }
+  }
+}
+
+// How many frames each video has presented, and when it last did, from its
+// frame callbacks.
+type PresentedFrames = { count: number; at: number };
+const presentedFrames = new WeakMap<HTMLVideoElement, PresentedFrames>();
+
+function watchPresentedFrames(element: HTMLVideoElement) {
+  const known = presentedFrames.get(element);
+  if (known) {
+    return known;
+  }
+  const watched: PresentedFrames = {
+    count: -1,
+    at: Number.NEGATIVE_INFINITY,
+  };
+  presentedFrames.set(element, watched);
+  if (typeof element.requestVideoFrameCallback === "function") {
+    const onFrame: VideoFrameRequestCallback = (_now, metadata) => {
+      watched.count = metadata.presentedFrames;
+      watched.at = performance.now();
+      element.requestVideoFrameCallback(onFrame);
+    };
+    element.requestVideoFrameCallback(onFrame);
+  }
+  return watched;
+}
+
+// Names the frame `element` shows. While it plays, its frame callbacks
+// count each new frame, so a draw between two frames names the same one;
+// paused, or without callbacks, its time does. The count also catches a
+// frame presented late after a seek.
+function presentedFrameId(element: HTMLVideoElement) {
+  const watched = watchPresentedFrames(element);
+  const source = element.currentSrc || element.src;
+  if (
+    !element.paused &&
+    performance.now() - watched.at < FRAME_CALLBACK_STALE_MS
+  ) {
+    return `${source}#${watched.count}`;
+  }
+  return `${source}@${element.currentTime}#${watched.count}`;
+}
+
+// Uploads the media element's current frame into the source's texture,
+// unless it already holds that frame. Storage is allocated once per video
+// size and each frame written into it. Returns undefined when the element
+// has never had a frame to show.
 export function uploadVideoTexture(
-  resources: WebGlResources,
-  entry: CompositeLayer,
+  textures: SourceTextures,
+  sourceKey: string,
+  media: { width?: number; height?: number },
   mediaElement: HTMLVideoElement,
 ) {
-  const { gl } = resources;
-  const texture = getOrCreateTexture(resources, entry.sourceKey);
+  const { gl } = textures;
+  const texture = getOrCreateTexture(textures, sourceKey);
+  let upload = textures.videoUploads.get(sourceKey);
+  if (!upload) {
+    upload = { width: 0, height: 0, frame: null };
+    textures.videoUploads.set(sourceKey, upload);
+  }
   const hasDecodedFrame =
     mediaElement.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
-    (mediaElement.videoWidth > 0 || Boolean(entry.media.width)) &&
-    (mediaElement.videoHeight > 0 || Boolean(entry.media.height));
+    (mediaElement.videoWidth > 0 || Boolean(media.width)) &&
+    (mediaElement.videoHeight > 0 || Boolean(media.height));
 
   if (hasDecodedFrame) {
-    resources.readyTextureIds.add(entry.sourceKey);
-  } else if (!resources.readyTextureIds.has(entry.sourceKey)) {
+    textures.readyTextureIds.add(sourceKey);
+  } else if (!textures.readyTextureIds.has(sourceKey)) {
     return undefined;
   }
 
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, texture);
-  if (hasDecodedFrame) {
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+  if (!hasDecodedFrame) {
+    return texture;
+  }
+
+  const frame = presentedFrameId(mediaElement);
+  const { videoWidth: width, videoHeight: height } = mediaElement;
+  if (upload.width !== width || upload.height !== height) {
+    if (width > 0 && height > 0) {
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA,
+        width,
+        height,
+        0,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        null,
+      );
+    }
+    upload.width = width;
+    upload.height = height;
+    upload.frame = null;
+  } else if (upload.frame === frame) {
+    return texture;
+  }
+
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+  if (width > 0 && height > 0) {
+    gl.texSubImage2D(
+      gl.TEXTURE_2D,
+      0,
+      0,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      mediaElement,
+    );
+  } else {
+    // Without a known size the frame sets the storage's size itself.
     gl.texImage2D(
       gl.TEXTURE_2D,
       0,
@@ -74,34 +241,37 @@ export function uploadVideoTexture(
       mediaElement,
     );
   }
+  // Mid-seek the element may still show the frame it is leaving.
+  upload.frame = mediaElement.seeking ? null : frame;
   return texture;
 }
 
-// The texture `content` is drawn into at `size`: a raster the clip already
-// drew, or a new one `draw` uploads into the bound texture. Returns
+// The texture `content` is drawn into at `size`: a raster the source
+// already drew, or a new one `draw` uploads into the bound texture. Returns
 // undefined when nothing is drawn yet; `settled` is false when a nearby
-// raster stands in for an animating clip, which a later frame draws exactly.
+// raster stands in for an animating source, which a later frame draws
+// exactly.
 function generatedTexture<T>(
-  resources: WebGlResources,
+  textures: SourceTextures,
   sourceKey: string,
   kind: RasterKind<T>,
   content: T,
   size: RasterSize,
   extent: RasterExtent,
-  frameContext: FrameContext,
+  preview: boolean,
   draw: (() => boolean) | undefined,
 ) {
-  const { gl } = resources;
-  const found = resources.rasters.lookup(
+  const { gl } = textures;
+  const found = textures.rasters.lookup(
     sourceKey,
     kind,
     content,
     size,
     extent,
-    Boolean(frameContext.preview),
+    preview,
   );
   if (found.raster) {
-    const texture = getOrCreateTexture(resources, found.raster.textureId);
+    const texture = getOrCreateTexture(textures, found.raster.textureId);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, texture);
     return { texture, settled: found.exact };
@@ -109,22 +279,22 @@ function generatedTexture<T>(
   if (!draw) {
     // It can't be drawn yet: keep showing what it last drew. It is redrawn
     // when it can be, such as when its font loads.
-    const latest = resources.rasters.latest(sourceKey);
+    const latest = textures.rasters.latest(sourceKey);
     return (
       latest && {
-        texture: getOrCreateTexture(resources, latest.textureId),
+        texture: getOrCreateTexture(textures, latest.textureId),
         settled: true,
       }
     );
   }
   const { textureId } = found;
-  const texture = getOrCreateTexture(resources, textureId);
+  const texture = getOrCreateTexture(textures, textureId);
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, texture);
   if (!draw()) {
     return undefined;
   }
-  resources.rasters.store(sourceKey, textureId, content, size);
+  textures.rasters.store(sourceKey, textureId, content, size);
   return { texture, settled: true };
 }
 
@@ -133,14 +303,14 @@ function generatedTexture<T>(
 // fill is the same at any size, so it is one pixel. Its opacity is applied
 // when it is drawn.
 export function uploadFillTexture(
-  resources: WebGlResources,
+  textures: SourceTextures,
   sourceKey: string,
   fill: FillPaint,
   bandWidth: number,
   bandHeight: number,
-  frameContext: FrameContext,
+  { preview }: { preview?: boolean },
 ) {
-  const { gl } = resources;
+  const { gl } = textures;
   const scale =
     fill.kind === "solid"
       ? 0
@@ -151,13 +321,13 @@ export function uploadFillTexture(
     scale: 1,
   };
   return generatedTexture(
-    resources,
+    textures,
     sourceKey,
     FILL_RASTER,
     fill,
     size,
     { width: bandWidth, height: bandHeight },
-    frameContext,
+    Boolean(preview),
     () => {
       renderStats.fillRasterizations++;
       const raster = rasterizeFillPaint(
@@ -204,27 +374,27 @@ export function fitTextureSize(
 // time. Until its face has loaded, the previous texture is kept, or nothing
 // is drawn, so the text never shows in a fallback font.
 export function uploadTextTexture(
-  resources: WebGlResources,
+  textures: SourceTextures,
   sourceKey: string,
   text: TextStyle,
   boxWidth: number,
   boxHeight: number,
   boxScale: number,
-  frameContext: FrameContext,
+  { preview }: { preview?: boolean },
 ) {
-  const { gl } = resources;
+  const { gl } = textures;
   const face = resolveFontFace(text.font, text.weight, text.italic);
   // A box too large for a texture is drawn smaller, laid out the same.
   const { width, height, factor } = fitTextureSize(gl, boxWidth, boxHeight);
   const scale = boxScale * factor;
   return generatedTexture(
-    resources,
+    textures,
     sourceKey,
     TEXT_RASTER,
     { style: text, face },
     { width, height, scale },
     { width: boxWidth, height: boxHeight },
-    frameContext,
+    Boolean(preview),
     isFontFaceReady(face)
       ? () => {
           renderStats.textRasterizations++;

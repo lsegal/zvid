@@ -124,12 +124,14 @@ export class RasterCache {
     }
     const capacity = preview ? PREVIEW_RASTERS_PER_CLIP : 1;
     if (rasters.length < capacity) {
-      // The first raster draws into the clip's own texture.
-      return {
-        textureId: rasters.length
-          ? `${sourceKey}#raster-${rasters.length}`
-          : sourceKey,
-      };
+      // The first raster draws into the clip's own texture, the others
+      // into the first texture of theirs no raster holds.
+      const textureIds = new Set(rasters.map((raster) => raster.textureId));
+      let textureId = sourceKey;
+      for (let slot = 1; textureIds.has(textureId); slot++) {
+        textureId = `${sourceKey}#raster-${slot}`;
+      }
+      return { textureId };
     }
     let oldest = rasters[0];
     for (const raster of rasters) {
@@ -175,6 +177,24 @@ export class RasterCache {
       }
     }
     return latest;
+  }
+
+  // Forgets the raster drawn into `textureId`, whose texture was deleted,
+  // and a clip once none of its rasters are left.
+  release(textureId: string) {
+    for (const [sourceKey, clip] of this.clips) {
+      clip.rasters = clip.rasters.filter(
+        (raster) => raster.textureId !== textureId,
+      );
+      if (!clip.rasters.length) {
+        this.clips.delete(sourceKey);
+      }
+    }
+  }
+
+  // How many clips have rasters.
+  get size() {
+    return this.clips.size;
   }
 
   clear() {

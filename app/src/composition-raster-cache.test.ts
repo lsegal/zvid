@@ -80,6 +80,28 @@ describe("RasterCache", () => {
     assert.equal(draw(cache, "a0").drawn, true);
   });
 
+  it("forgets a released texture's raster and draws into it again", () => {
+    const cache = new RasterCache();
+    for (const content of ["a0", "a3", "a6"]) {
+      draw(cache, content);
+    }
+    cache.release("clip#raster-1");
+    // a3's raster is gone, and its texture is the first free one again.
+    assert.deepEqual(draw(cache, "a3"), {
+      textureId: "clip#raster-1",
+      drawn: true,
+    });
+    assert.deepEqual(draw(cache, "a9"), {
+      textureId: "clip#raster-3",
+      drawn: true,
+    });
+    for (const textureId of ["clip", "clip#raster-1", "clip#raster-2"]) {
+      cache.release(textureId);
+    }
+    cache.release("clip#raster-3");
+    assert.equal(cache.size, 0);
+  });
+
   it("draws over rasters of content it no longer animates from", () => {
     const cache = new RasterCache();
     draw(cache, "a0");

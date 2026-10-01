@@ -18,9 +18,18 @@ import {
   type CompositionOrder,
   DEFAULT_COMPOSITION_ORDER,
 } from "./composition-order.ts";
-import { RasterCache } from "./composition-raster-cache.ts";
 import {
+  COMPOSITE_FRAGMENT_SOURCE,
+  COMPOSITE_VERTEX_SOURCE,
+  FX_MASK_FRAGMENT_SOURCE,
+  FX_MASK_VERTEX_SOURCE,
+} from "./composition-shaders.ts";
+import {
+  beginTextureDraw,
+  createSourceTextures,
   fitTextureSize,
+  releaseAllTextures,
+  type SourceTextures,
   uploadFillTexture,
   uploadTextTexture,
   uploadVideoTexture,
@@ -93,15 +102,9 @@ export type FrameContext = {
 
 export type CompositeSurface = { width: number; height: number };
 
-export type WebGlResources = {
-  gl: WebGLRenderingContext;
+export type WebGlResources = SourceTextures & {
   program: WebGLProgram;
   positionBuffer: WebGLBuffer;
-  textureMap: Map<string, WebGLTexture>;
-  readyTextureIds: Set<string>;
-  // The rasters each fill or text clip has drawn, so it is only redrawn
-  // when its paint, text or size changes.
-  rasters: RasterCache;
   effectChain: EffectChainRenderer;
   // Copies an FX clip's adjusted composite back into its box.
   fxMask: {
@@ -130,71 +133,6 @@ type CompositeUniforms = QuadAxes & {
   contrast: number;
   saturation: number;
 };
-
-const COMPOSITE_FRAGMENT_SOURCE = `
-  precision mediump float;
-
-  varying vec2 vUv;
-  uniform sampler2D uTexture;
-  uniform float uOpacity;
-  uniform float uBrightness;
-  uniform float uContrast;
-  uniform float uSaturation;
-
-  void main() {
-    vec4 color = texture2D(uTexture, vec2(vUv.x, 1.0 - vUv.y));
-    color.rgb += uBrightness;
-    color.rgb = (color.rgb - 0.5) * uContrast + 0.5;
-    float luma = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
-    color.rgb = mix(vec3(luma), color.rgb, uSaturation);
-    color.a *= uOpacity;
-    gl_FragColor = color;
-  }
-`;
-
-const COMPOSITE_VERTEX_SOURCE = `
-  attribute vec2 aPosition;
-  varying vec2 vUv;
-
-  uniform vec2 uAxisX;
-  uniform vec2 uAxisY;
-  uniform vec2 uOffset;
-
-  void main() {
-    vec2 position = aPosition.x * uAxisX + aPosition.y * uAxisY + uOffset;
-    gl_Position = vec4(position, 0.0, 1.0);
-    vUv = aPosition * 0.5 + 0.5;
-  }
-`;
-
-// Draws a quad over an FX clip's box that samples the texture at the same
-// place on the canvas, so the adjusted composite replaces the original only
-// inside the box, however the box is turned.
-const FX_MASK_VERTEX_SOURCE = `
-  attribute vec2 aPosition;
-  varying vec2 vUv;
-
-  uniform vec2 uAxisX;
-  uniform vec2 uAxisY;
-  uniform vec2 uOffset;
-
-  void main() {
-    vec2 position = aPosition.x * uAxisX + aPosition.y * uAxisY + uOffset;
-    gl_Position = vec4(position, 0.0, 1.0);
-    vUv = position * 0.5 + 0.5;
-  }
-`;
-
-const FX_MASK_FRAGMENT_SOURCE = `
-  precision mediump float;
-
-  varying vec2 vUv;
-  uniform sampler2D uTexture;
-
-  void main() {
-    gl_FragColor = texture2D(uTexture, vUv);
-  }
-`;
 
 export function ensureWebGlResources(canvas: HTMLCanvasElement) {
   const gl = canvas.getContext("webgl", {
@@ -236,12 +174,9 @@ export function createWebGlResources(
   );
 
   return {
-    gl,
+    ...createSourceTextures(gl),
     program,
     positionBuffer,
-    textureMap: new Map<string, WebGLTexture>(),
-    readyTextureIds: new Set<string>(),
-    rasters: new RasterCache(),
     effectChain: new EffectChainRenderer(gl, positionBuffer),
     fxMask: {
       program: fxMaskProgram,
@@ -267,12 +202,7 @@ export function createWebGlResources(
 export function disposeWebGlResources(resources: WebGlResources) {
   const { gl } = resources;
   resources.effectChain.dispose();
-  for (const texture of resources.textureMap.values()) {
-    gl.deleteTexture(texture);
-  }
-  resources.textureMap.clear();
-  resources.readyTextureIds.clear();
-  resources.rasters.clear();
+  releaseAllTextures(resources);
   gl.deleteBuffer(resources.positionBuffer);
   gl.deleteProgram(resources.program);
   gl.deleteProgram(resources.fxMask.program);
@@ -530,7 +460,12 @@ function drawLayer(
       return true;
     }
 
-    const uploaded = uploadVideoTexture(resources, entry, mediaElement);
+    const uploaded = uploadVideoTexture(
+      resources,
+      entry.sourceKey,
+      entry.media,
+      mediaElement,
+    );
     if (!uploaded) {
       return true;
     }
@@ -646,6 +581,7 @@ export function drawComposition(
   const startedAt = performance.now();
   const { gl, effectChain } = resources;
   const { width, height } = surface;
+  beginTextureDraw(resources, mediaRefs);
   effectChain.syncSurface(width, height);
   const groupSteps = effectChain.prepare(groupChain);
   // Each FX clip's chain, when it has one; an FX clip without effects
