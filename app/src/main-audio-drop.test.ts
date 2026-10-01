@@ -22,6 +22,13 @@ const useMainAudioTs = readFileSync(
   "utf8",
 );
 
+const tauriConf = JSON.parse(
+  readFileSync(
+    new URL("../src-tauri/tauri.conf.json", import.meta.url),
+    "utf8",
+  ),
+);
+
 const file = (name: string, type = "") => ({ name, type });
 
 describe("isAudioFile", () => {
@@ -44,6 +51,21 @@ describe("isAudioFile", () => {
 });
 
 describe("getDroppedAudioFile", () => {
+  it("validates drops by extension when the MIME type is empty", () => {
+    for (const name of [
+      "a.mp3",
+      "b.wav",
+      "c.m4a",
+      "d.flac",
+      "e.aif",
+      "f.aiff",
+    ]) {
+      const dropped = file(name);
+      assert.equal(getDroppedAudioFile([dropped]), dropped);
+    }
+    assert.equal(getDroppedAudioFile([file("clip.mov")]), undefined);
+  });
+
   it("picks the first audio file", () => {
     const wav = file("mix.wav", "audio/wav");
     assert.equal(
@@ -83,9 +105,57 @@ describe("getMainAudioDragState", () => {
       "reject",
     );
     assert.equal(
-      getMainAudioDragState({ types: ["Files"], files: [], items: [] }),
+      getMainAudioDragState({
+        types: ["Files"],
+        files: [],
+        items: [
+          { kind: "file", type: "video/mp4" },
+          { kind: "file", type: "image/png" },
+        ],
+      }),
       "reject",
     );
+  });
+
+  it("accepts file items whose MIME type is unknown", () => {
+    assert.equal(
+      getMainAudioDragState({
+        types: ["Files"],
+        files: [],
+        items: [{ kind: "file", type: "" }],
+      }),
+      "accept",
+    );
+    assert.equal(
+      getMainAudioDragState({
+        types: ["Files"],
+        files: [],
+        items: [{ kind: "file", type: "application/octet-stream" }],
+      }),
+      "accept",
+    );
+  });
+
+  it("accepts a mix of non-audio and possibly audio items", () => {
+    assert.equal(
+      getMainAudioDragState({
+        types: ["Files"],
+        files: [],
+        items: [
+          { kind: "file", type: "video/mp4" },
+          { kind: "file", type: "" },
+        ],
+      }),
+      "accept",
+    );
+  });
+
+  it("accepts file drags that expose no items", () => {
+    assert.equal(
+      getMainAudioDragState({ types: ["Files"], files: [], items: [] }),
+      "accept",
+    );
+    assert.equal(getMainAudioDragState({ types: ["Files"] }), "accept");
   });
 
   it("uses exposed files when available", () => {
@@ -127,10 +197,29 @@ describe("isWithinMainAudioDropTarget", () => {
       false,
     );
     assert.equal(isWithinMainAudioDropTarget(null), false);
+    assert.equal(
+      isWithinMainAudioDropTarget({
+        parentElement: inside,
+      } as unknown as EventTarget),
+      true,
+    );
+    assert.equal(
+      isWithinMainAudioDropTarget({
+        parentElement: null,
+      } as unknown as EventTarget),
+      false,
+    );
   });
 });
 
 describe("Audio lane wiring", () => {
+  it("lets HTML5 file drops reach the desktop app's webview", () => {
+    const mainWindow = tauriConf.app.windows.find(
+      (window: { label: string }) => window.label === "main",
+    );
+    assert.equal(mainWindow?.dragDropEnabled, false);
+  });
+
   it("marks the Audio lane as a main-audio drop target", () => {
     const lane = mainAudioRowTsx.slice(
       mainAudioRowTsx.indexOf('aria-label="Main audio drop area"'),

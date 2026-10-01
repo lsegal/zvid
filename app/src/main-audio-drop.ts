@@ -20,7 +20,10 @@ type DataTransferLike = {
   items?: ArrayLike<DataTransferItemLike> | null;
 };
 
-/** `accept`: an audio file is dragged; `reject`: files, but none are audio. */
+/**
+ * `accept`: files that may be audio are dragged; `reject`: files, but all are
+ * known not to be audio.
+ */
 export type MainAudioDragState = "accept" | "reject" | "none";
 
 export function isAudioFile(file: FileLike) {
@@ -40,9 +43,22 @@ export function getDroppedAudioFile<T extends FileLike>(
 }
 
 /**
+ * MIME types browsers report for files whose real type they could not detect.
+ * An item with one of these may still be audio, so it is never rejected.
+ */
+const UNKNOWN_MIME_TYPES = ["", "application/octet-stream"];
+
+/** Whether a dragged item's MIME type is known and clearly not audio. */
+function isKnownNonAudioType(type: string) {
+  return !UNKNOWN_MIME_TYPES.includes(type) && !type.startsWith("audio/");
+}
+
+/**
  * Classifies an in-progress drag over the Audio lane. During `dragover`
- * browsers hide file names, so this relies on the file items' MIME types and
- * only falls back to `files` when they are exposed (for example on drop).
+ * browsers hide file names and often report an empty MIME type (for example
+ * for `.flac` or `.aiff`), and Safari may expose only `types: ["Files"]`, so
+ * any file drag is accepted unless every item has a known non-audio type. The
+ * drop itself is validated with `getDroppedAudioFile`.
  */
 export function getMainAudioDragState(
   dataTransfer: DataTransferLike | null,
@@ -60,19 +76,22 @@ export function getMainAudioDragState(
     (item) => item.kind === "file",
   );
   if (fileItems.length) {
-    return fileItems.some((item) => item.type.startsWith("audio/"))
-      ? "accept"
-      : "reject";
+    return fileItems.every((item) => isKnownNonAudioType(item.type))
+      ? "reject"
+      : "accept";
   }
 
-  return Array.from(dataTransfer.types).includes("Files") ? "reject" : "none";
+  return Array.from(dataTransfer.types).includes("Files") ? "accept" : "none";
 }
 
-/** Whether a drag event target lies within the Audio lane. */
+/**
+ * Whether a drag event target lies within the Audio lane. Text nodes, which
+ * have no `closest`, are resolved through their parent element.
+ */
 export function isWithinMainAudioDropTarget(target: EventTarget | null) {
-  return Boolean(
-    target &&
-      typeof (target as Element).closest === "function" &&
-      (target as Element).closest(`[${MAIN_AUDIO_DROP_TARGET_ATTRIBUTE}]`),
-  );
+  const element =
+    target && typeof (target as Element).closest === "function"
+      ? (target as Element)
+      : ((target as Node | null)?.parentElement ?? null);
+  return Boolean(element?.closest(`[${MAIN_AUDIO_DROP_TARGET_ATTRIBUTE}]`));
 }
