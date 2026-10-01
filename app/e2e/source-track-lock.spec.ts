@@ -113,6 +113,9 @@ test("locking freezes source clips and tracks until unlocked, with undo", async 
   const width = (await span.boundingBox())?.width ?? 0;
   await dragBy(page, span.locator(".source-span__body"), width / 2);
   expect(await left(span)).toBe(startLeft);
+  // Selecting still works.
+  await span.locator(".source-span__body").click();
+  await expect(span).toHaveClass(/source-span--selected/);
 
   // Undo unlocks; redo locks again.
   await page.keyboard.press("ControlOrMeta+z");

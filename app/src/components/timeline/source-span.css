@@ -13,15 +13,27 @@
 }
 
 /* Locked source tracks' clips can't be moved or trimmed (they have no
-   handles), so they show the default cursor and lose their color. */
+   handles), so they show the default cursor and lose their color. A selected
+   one keeps its ring bright. */
 .source-span--locked {
   cursor: default;
   filter: grayscale(1) brightness(0.72);
 }
 
-/* The source clip whose right-click menu is open. */
+/* The selected source clip, or the one whose right-click menu is open: the
+   same ring and lift as a selected arrangement clip. */
 .source-span--selected {
-  box-shadow: 0 0 0 2px var(--ink);
+  z-index: var(--z-timeline-selected-clip);
+  outline: 2px solid var(--selection-ring);
+  outline-offset: 1px;
+  box-shadow:
+    0 0 0 4px rgba(0, 0, 0, 0.55),
+    0 6px 14px rgba(0, 0, 0, 0.45);
+  transform: translateY(-1px);
+}
+
+.source-span--locked.source-span--selected {
+  filter: grayscale(1);
 }
 
 .source-span__thumb {

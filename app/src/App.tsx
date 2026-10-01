@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import "./App.css";
 import type { ClipClipboard } from "./app/clip-ops.ts";
+import { selectSourceSpan } from "./app/source-selection.ts";
 import { formatRestoredStatus } from "./app/workspace-boot.ts";
 import type { WorkspaceBoot } from "./app/workspace-types.ts";
 import type { CompositionPlayerHandle } from "./CompositionPlayer";
@@ -67,6 +68,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     clips,
     sourceSpans: project.sourceSpans,
     effects,
+    sourceTracks,
   });
   const { selectedClip, timelineClips, timelineEffects } = selection;
   const { pendingSelection, setPendingSelection, dragState } = selection;
@@ -142,6 +144,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     effects,
     selectedLaneId: selection.selectedLaneId,
     selectedClip,
+    isSourceSelected: selection.sourceSelection !== undefined,
     mediaItemsById,
     lanePriority,
     timelineClips,
@@ -460,8 +463,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   sourceTracksLocked={editing.sourceTracksLocked}
                   setSourceTracksLocked={editing.setSourceTracksLocked}
                   drop={mediaImport.sourceTrackDrop}
-                  clips={clips}
-                  setSelectedClipId={setSelectedClipId}
+                  sourceSelection={selection.sourceSelection}
+                  selectSource={selection.selectSource}
                   onImport={() => void sessionFiles.handleImport()}
                   onOpenSample={sessionFiles.sample.handleOpenSample}
                   onOpenSession={() => void sessionFiles.handleOpenSession()}
@@ -487,6 +490,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     prefersReducedMotion,
                     revealedMediaIds: media.revealedMediaIds,
                     clipMenu: selection.clipMenu,
+                    sourceSelection: selection.sourceSelection,
+                    selectSourceSpan: (span) =>
+                      selection.selectSource(selectSourceSpan(span)),
                     shortcutLabels,
                     addSourceSpanToArrangement:
                       editing.addSourceSpanToArrangement,

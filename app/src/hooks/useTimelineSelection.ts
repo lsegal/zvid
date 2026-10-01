@@ -1,10 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  findRestoredSourceSelection,
+  keepSourceSelection,
+  type SourceSelection,
+  toSourceSelectionView,
+} from "../app/source-selection.ts";
 import type {
   ArrangementClip,
   ClipMenuState,
   DragState,
   SourceSpan,
   SourceSpanDragState,
+  SourceTrack,
   TimelineDragState,
   TimelineSelection,
 } from "../app/types.ts";
@@ -17,17 +24,20 @@ export type TimelineSelectionInputs = {
   clips: ArrangementClip[];
   sourceSpans: SourceSpan[];
   effects: SessionEffect[];
+  sourceTracks: SourceTrack[];
 };
 
-// The timeline's selection and gesture state: the selected clip and layer,
-// the range selection, the layer outlined in the preview, the open context
-// menu, the layer being renamed, and the clip, source clip and ruler drags
-// with the clips, source clips and effects a drag previews.
+// The timeline's selection and gesture state: the selected clip and layer
+// or, instead of them, the selected source track or clip, the range
+// selection, the layer outlined in the preview, the open context menu, the
+// layer being renamed, and the clip, source clip and ruler drags with the
+// clips, source clips and effects a drag previews.
 export function useTimelineSelection({
   restoredSession,
   clips,
   sourceSpans,
   effects,
+  sourceTracks,
 }: TimelineSelectionInputs) {
   const [restoredSelection] = useState(() =>
     findRestoredSelection(restoredSession),
@@ -48,6 +58,28 @@ export function useTimelineSelection({
   const [selectedLaneId, setSelectedLaneId] = useState<string | undefined>(
     restoredSelection.selectedLaneId,
   );
+  // A selected source track or clip. Only one thing is selected at a time:
+  // selecting a source clears the layer and clip, and the reverse.
+  const [storedSourceSelection, setSourceSelection] = useState<
+    SourceSelection | undefined
+  >(restoredSelection.sourceSelection);
+  // Deleting the selected source track drops the selection, and deleting
+  // the selected source clip leaves its track selected.
+  const sourceSelection = useMemo(
+    () =>
+      storedSourceSelection &&
+      findRestoredSourceSelection(
+        toSourceSelectionView(storedSourceSelection),
+        sourceTracks,
+        sourceSpans,
+      ),
+    [sourceSpans, sourceTracks, storedSourceSelection],
+  );
+  useEffect(() => {
+    setSourceSelection((selection) =>
+      keepSourceSelection(selection, selectedClipId, selectedLaneId),
+    );
+  }, [selectedClipId, selectedLaneId]);
   const [pendingSelection, setPendingSelection] =
     useState<TimelineSelection | null>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
@@ -112,6 +144,14 @@ export function useTimelineSelection({
     setPreviewLaneId(laneId);
   };
 
+  // Selecting a source never moves the playhead.
+  const selectSource = (selection: SourceSelection | undefined) => {
+    setSelectedClipId(undefined);
+    setSelectedLaneId(undefined);
+    setPreviewLaneId(undefined);
+    setSourceSelection(selection);
+  };
+
   // Selects `laneId` and focuses its header once it has rendered.
   function focusLaneLabel(laneId: string) {
     selectLaneFromLabel(laneId);
@@ -136,6 +176,9 @@ export function useTimelineSelection({
     renamingLaneIdRef,
     selectedLaneId,
     setSelectedLaneId,
+    sourceSelection,
+    setSourceSelection,
+    selectSource,
     pendingSelection,
     setPendingSelection,
     dragState,

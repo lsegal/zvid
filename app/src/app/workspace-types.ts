@@ -8,6 +8,9 @@ export type WorkspaceView = {
   playheadQ: number;
   selectedClipId?: string;
   selectedLaneId?: string;
+  // A selected source track or clip, kept apart from the layer and clip.
+  selectedSourceTrackId?: string;
+  selectedSourceSpanId?: string;
   scrollLeft: number;
   scrollTop: number;
 };

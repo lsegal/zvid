@@ -72,10 +72,18 @@ test("selecting a clip leaves the playhead where it was", async ({ page }) => {
   await expect(clip).toHaveClass(/clip-card--selected/);
   expect(await playheadX(page)).toBeCloseTo(parked, 0);
 
-  // Clicking the source track's label selects its clip without seeking.
-  await page.keyboard.press("Escape");
-  await expect(clip).not.toHaveClass(/clip-card--selected/);
+  // Clicking the source track's label selects the track without seeking.
   await page.locator(".track-label--source").click();
-  await expect(clip).toHaveClass(/clip-card--selected/);
+  await expect(
+    page.locator(".track-label--source .track-label__select"),
+  ).toHaveAttribute("aria-current", "true");
+  await expect(clip).not.toHaveClass(/clip-card--selected/);
+  expect(await playheadX(page)).toBeCloseTo(parked, 0);
+
+  // And so does clicking a source clip.
+  await page.locator(".source-span").click();
+  await expect(page.locator(".source-span")).toHaveClass(
+    /source-span--selected/,
+  );
   expect(await playheadX(page)).toBeCloseTo(parked, 0);
 });
