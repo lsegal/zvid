@@ -50,7 +50,7 @@
 }
 
 /* Audio-only media draws its waveform, like the Audio lane, behind a quiet
-   border that turns to the full accent border on hover. */
+   border that turns to the full accent border on hover, focus or trim. */
 .source-span--audio {
   grid-template-columns: 1fr;
   border-color: color-mix(
@@ -62,7 +62,8 @@
 }
 
 .source-span--audio:hover,
-.source-span--audio:has(:focus-visible) {
+.source-span--audio:has(:focus-visible),
+.source-span--audio.source-span--trimming {
   border-color: var(--clip-accent, var(--line-strong));
 }
 
@@ -85,10 +86,22 @@
   pointer-events: none;
 }
 
+/* The same scrim as over a filmstrip keeps the label readable over the
+   waveform. */
 .source-span--audio .source-span__body {
   position: relative;
   min-width: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(8, 10, 20, 0.72),
+    rgba(8, 10, 20, 0.4) 60%,
+    rgba(8, 10, 20, 0.1)
+  );
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.source-span--audio .source-span__body small {
+  color: rgba(255, 255, 255, 0.8);
 }
 
 /* A scrim keeps the label readable over the frames. */

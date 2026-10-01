@@ -17,9 +17,7 @@ async function dropIntoNewSourceTrack(
   const base64 = (await readFile(url)).toString("base64");
   const dataTransfer = await page.evaluateHandle(
     ({ base64, name, type }) => {
-      const bytes = Uint8Array.from(atob(base64), (char) =>
-        char.charCodeAt(0),
-      );
+      const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
       const transfer = new DataTransfer();
       transfer.items.add(new File([bytes], name, { type }));
       return transfer;

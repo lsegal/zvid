@@ -286,6 +286,18 @@
   position: relative;
 }
 
+/* The same scrim as over a filmstrip keeps the label readable over the
+   waveform. */
 .clip-card--audio .clip-card__text {
+  background: linear-gradient(
+    90deg,
+    rgba(8, 10, 20, 0.72),
+    rgba(8, 10, 20, 0.4) 60%,
+    rgba(8, 10, 20, 0.1)
+  );
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.clip-card--audio .clip-card__meta {
+  color: rgba(255, 255, 255, 0.8);
 }
