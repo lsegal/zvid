@@ -2,7 +2,9 @@ import { ChevronDownIcon } from "@heroicons/react/24/solid";
 import { clipEffectTrackId, isLayerFxEnabled } from "../fx-stack";
 import type { useFxEditing } from "../hooks/useFxEditing.ts";
 import type { useFxPanelModel } from "../hooks/useFxPanelModel.ts";
+import type { SourceClipPropertiesModel } from "../hooks/useSourceClipProperties.ts";
 import { FxChain } from "./FxChain";
+import { SourceClipProperties } from "./SourceClipProperties";
 import "./fx-panel.css";
 
 type FxPanelModel = ReturnType<typeof useFxPanelModel>;
@@ -35,10 +37,13 @@ export type FxPanelProps = Pick<
   > & {
     isInspectorCollapsed: boolean;
     toggleInspectorCollapsed: () => void;
+    // The selected source clip's properties, shown instead of the FX chain.
+    sourceClip: SourceClipPropertiesModel | null;
   };
 
 // The collapsible FX panel under the editor: its header toggle, the title
-// for the selected layer or clip, and the FX chain.
+// for the selected layer or clip, and the FX chain, or the selected source
+// clip's properties.
 export function FxPanel({
   addFxDevice,
   duplicateFxDevice,
@@ -60,6 +65,7 @@ export function FxPanel({
   setFxDeviceEnabled,
   setFxDeviceParameter,
   setLayerFxEnabled,
+  sourceClip,
   toggleInspectorCollapsed,
 }: FxPanelProps) {
   return (
@@ -73,7 +79,7 @@ export function FxPanel({
         onClick={toggleInspectorCollapsed}
         type="button"
       >
-        <span>{fxPanelTitle}</span>
+        <span>{sourceClip ? sourceClip.title : fxPanelTitle}</span>
         <ChevronDownIcon aria-hidden="true" />
       </button>
 
@@ -82,31 +88,35 @@ export function FxPanel({
         hidden={isInspectorCollapsed}
         id="fx-panel-body"
       >
-        <FxChain
-          devices={fxDevices}
-          kind={fxKind}
-          layerFxEnabled={isLayerFxEnabled(fxLane)}
-          layers={orderLayerOptions}
-          clipLayers={fxClipLayerOptions}
-          layerName={fxLane?.name}
-          layerTrackId={fxLaneId}
-          clipTrackId={fxClipId ? clipEffectTrackId(fxClipId) : undefined}
-          clipScope={fxClipScope}
-          onAdd={addFxDevice}
-          onDuplicate={duplicateFxDevice}
-          onMove={moveFxDevice}
-          onRemove={removeFxDevice}
-          onReset={resetFxDevice}
-          onSetLayerFxEnabled={(enabled) => {
-            if (fxLaneId) {
-              setLayerFxEnabled(fxLaneId, enabled);
-            }
-          }}
-          onSetEnabled={setFxDeviceEnabled}
-          onSetAnimationEnabled={setFxDeviceAnimationEnabled}
-          onSetAnimation={setFxDeviceAnimation}
-          onSetParameter={setFxDeviceParameter}
-        />
+        {sourceClip ? (
+          <SourceClipProperties model={sourceClip} />
+        ) : (
+          <FxChain
+            devices={fxDevices}
+            kind={fxKind}
+            layerFxEnabled={isLayerFxEnabled(fxLane)}
+            layers={orderLayerOptions}
+            clipLayers={fxClipLayerOptions}
+            layerName={fxLane?.name}
+            layerTrackId={fxLaneId}
+            clipTrackId={fxClipId ? clipEffectTrackId(fxClipId) : undefined}
+            clipScope={fxClipScope}
+            onAdd={addFxDevice}
+            onDuplicate={duplicateFxDevice}
+            onMove={moveFxDevice}
+            onRemove={removeFxDevice}
+            onReset={resetFxDevice}
+            onSetLayerFxEnabled={(enabled) => {
+              if (fxLaneId) {
+                setLayerFxEnabled(fxLaneId, enabled);
+              }
+            }}
+            onSetEnabled={setFxDeviceEnabled}
+            onSetAnimationEnabled={setFxDeviceAnimationEnabled}
+            onSetAnimation={setFxDeviceAnimation}
+            onSetParameter={setFxDeviceParameter}
+          />
+        )}
       </div>
     </section>
   );

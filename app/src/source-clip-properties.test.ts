@@ -112,7 +112,10 @@ describe("getKnownMediaDurationSeconds", () => {
       getKnownMediaDurationSeconds(media({ availability: "hydrating" })),
       0,
     );
-    assert.equal(getKnownMediaDurationSeconds(media({ durationSeconds: 0 })), 0);
+    assert.equal(
+      getKnownMediaDurationSeconds(media({ durationSeconds: 0 })),
+      0,
+    );
     assert.equal(getKnownMediaDurationSeconds(undefined), 0);
   });
 });
