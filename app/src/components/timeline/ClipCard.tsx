@@ -14,6 +14,7 @@ import {
   describeClipMediaState,
   formatClipMediaState,
 } from "../../clip-media-state";
+import { getClipWaveformKind } from "../../clip-waveform.ts";
 import { isContextMenuPress } from "../../context-menu.ts";
 import { isFillClip } from "../../fill-clip.ts";
 import {
@@ -41,7 +42,10 @@ import {
   type ThumbnailSnapshot,
 } from "../../thumbnail-cache.ts";
 import { formatMusicalPosition } from "../../timeline-format.ts";
-import { getClipWaveformRange } from "../../waveform-range.ts";
+import {
+  getClipWaveformRange,
+  getVisibleClipSlice,
+} from "../../waveform-range.ts";
 import { MediaSyncSkeleton } from "../MediaSyncSkeleton";
 import { ClipWaveform } from "./ClipWaveform";
 import "./clip-card.css";
@@ -133,9 +137,23 @@ export function ClipCard({
     ? describeMediaSync(remoteMediaProgress.get(media.id), media.availability)
     : null;
   // Audio-only media draws its waveform, like the Audio lane, until its peaks
-  // turn out to be missing.
-  const audioPeaks = useAudioClipPeaks(media, mediaState);
-  const audio = !mediaSync && audioPeaks.status !== "none";
+  // turn out to be missing. Video with audio overlays it on the frames once
+  // its peaks are ready, decoding only while the clip is in view.
+  const waveformKind = getClipWaveformKind(clip, media, mediaState);
+  const inView = getVisibleClipSlice(
+    clip.startQ * quarterPx,
+    durationQ * quarterPx,
+    visibleTimelineStartPx,
+    visibleTimelineWidthPx,
+  );
+  const audioPeaks = useAudioClipPeaks(
+    media,
+    waveformKind === "overlay" && !inView ? "none" : waveformKind,
+  );
+  const audio =
+    !mediaSync && waveformKind === "audio" && audioPeaks.status !== "none";
+  const waveformOverlay =
+    !mediaSync && waveformKind === "overlay" && audioPeaks.status === "ready";
   // As the compositor draws it: the clip's own
   // Color or Text first, else its layer's.
   const fillBackground = isFillClip(clip)
@@ -155,7 +173,7 @@ export function ClipCard({
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: right-click is a pointer shortcut; the context-menu key and Shift+F10 open the same menu on the selected clip
     <div
-      className={`clip-card ${selected ? "clip-card--selected" : ""} ${trimming ? "clip-card--trimming" : ""} ${filmstrip || fillBackground ? "clip-card--filmstrip" : ""} ${fillBackground ? "clip-card--fill" : ""} ${textStyle ? "clip-card--text" : ""} ${fxLabel ? "clip-card--fx" : ""} ${audio ? "clip-card--audio" : ""} ${audio && audioPeaks.status === "loading" && !prefersReducedMotion ? "is-syncing--animated" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""}`}
+      className={`clip-card ${selected ? "clip-card--selected" : ""} ${trimming ? "clip-card--trimming" : ""} ${filmstrip || fillBackground ? "clip-card--filmstrip" : ""} ${fillBackground ? "clip-card--fill" : ""} ${textStyle ? "clip-card--text" : ""} ${fxLabel ? "clip-card--fx" : ""} ${audio ? "clip-card--audio" : ""} ${waveformOverlay ? "clip-card--waveform-overlay" : ""} ${audio && audioPeaks.status === "loading" && !prefersReducedMotion ? "is-syncing--animated" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""}`}
       data-clip-id={clip.id}
       onContextMenu={(event) => openArrangementClipMenu(event, clip)}
       onPointerDown={(event) => {
@@ -221,6 +239,17 @@ export function ClipCard({
             );
           })}
         </span>
+      ) : null}
+      {waveformOverlay ? (
+        <ClipWaveform
+          className="clip-card__waveform-overlay"
+          clipLeftPx={clip.startQ * quarterPx}
+          clipWidthPx={durationQ * quarterPx}
+          peaks={audioPeaks}
+          range={getClipWaveformRange(clip, bpm, quarterPx)}
+          visibleStartPx={visibleTimelineStartPx}
+          visibleWidthPx={visibleTimelineWidthPx}
+        />
       ) : null}
       <button
         className="clip-card__handle clip-card__handle--start"
