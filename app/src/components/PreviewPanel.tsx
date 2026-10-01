@@ -56,7 +56,6 @@ export type PreviewPanelProps = Pick<
   hasOnlinePlayheadClip: boolean;
   isPlaying: boolean;
   isTimelineAudibleScrubbing: boolean;
-  lanes: Lane[];
   mainAudio: MediaItem | undefined;
   mediaItems: MediaItem[];
   playheadQ: number;
@@ -69,8 +68,12 @@ export type PreviewPanelProps = Pick<
   previewMedia: MediaItem | undefined;
   previewMediaState: ClipMediaState;
   projectDurationFrames: number | undefined;
+  // What the compositor draws: the layer clips and layers, or the source
+  // tracks rendered as layers when there are no layer clips.
+  renderClips: ArrangementClip[];
+  renderLanes: Lane[];
+  renderFromSourceTracks: boolean;
   selectedClip: ArrangementClip | undefined;
-  timelineClips: ArrangementClip[];
   timelineDragState: TimelineDragState | null;
   timelineEffects: SessionEffect[];
 };
@@ -96,7 +99,6 @@ export function PreviewPanel({
   hasOnlinePlayheadClip,
   isPlaying,
   isTimelineAudibleScrubbing,
-  lanes,
   mainAudio,
   mediaItems,
   movePreviewLayer,
@@ -111,10 +113,12 @@ export function PreviewPanel({
   previewMediaState,
   previewTextEdit,
   projectDurationFrames,
+  renderClips,
+  renderFromSourceTracks,
+  renderLanes,
   selectPreviewLayer,
   selectedClip,
   textEdit,
-  timelineClips,
   timelineDragState,
   timelineEffects,
   transformPreviewLayer,
@@ -149,20 +153,25 @@ export function PreviewPanel({
           </span>
         </div>
 
-        <div className="preview-monitor">
+        <div
+          className="preview-monitor"
+          data-render-source={
+            renderFromSourceTracks ? "source-tracks" : "layers"
+          }
+        >
           <CompositionPlayer
             ref={compositionPlayerRef}
             bpm={bpm}
             fps={fps}
             canvasHeight={canvasHeight}
             canvasWidth={canvasWidth}
-            clips={timelineClips}
+            clips={renderClips}
             effects={timelineEffects}
             isPlaying={isPlaying}
             isScrubbing={Boolean(timelineDragState)}
             isAudibleScrubbing={isTimelineAudibleScrubbing}
             isContinuousScrubbing={Boolean(timelineDragState?.wasPlaying)}
-            lanes={lanes}
+            lanes={renderLanes}
             mainAudio={mainAudio}
             mediaItems={mediaItems}
             playheadQ={playheadQ}

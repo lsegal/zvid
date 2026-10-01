@@ -120,9 +120,9 @@ test("Move lays out Motion, then labeled Start and End rows", async ({
 });
 
 // Every new session arranges its layers with a Vertical Order on the Global
-// stack. Removing it lets the layers overlap, which the Global section
-// points out.
-test("a new session has a Global Order, and removing it shows a hint", async ({
+// stack. Removing it can be undone, and leaves the Global section without
+// any note about the missing Order.
+test("a new session has a Global Order that can be removed and restored", async ({
   page,
 }) => {
   await page.goto("/");
@@ -131,18 +131,13 @@ test("a new session has a Global Order, and removing it shows a hint", async ({
   const order = page.locator('section[aria-label="Order"]');
   await expect(order).toHaveCount(1);
   await expect(order).toContainText("Vertical");
-  const hint = page.getByText(
-    "No Order: layers overlap (Layer 1 on top). Add Order to arrange them.",
-  );
-  await expect(hint).toHaveCount(0);
 
   await order.getByRole("button", { name: "Remove Order" }).click();
   await expect(order).toHaveCount(0);
-  await expect(hint).toBeVisible();
+  await expect(page.locator(".fx-chain")).not.toContainText("No Order");
 
   await page.keyboard.press("ControlOrMeta+z");
   await expect(order).toHaveCount(1);
-  await expect(hint).toHaveCount(0);
 });
 
 // The chain reads GLOBAL | LAYER, and GLOBAL | LAYER | CLIP once a clip is

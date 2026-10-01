@@ -1,7 +1,12 @@
-import type { LayerMenuContext } from "../layer-menu.ts";
 import type { MenuEntryProvider } from "../registry.ts";
 
-export const duplicateLayerEntry: MenuEntryProvider<LayerMenuContext> = {
+// Shared by the layer and source track menus.
+export const duplicateLayerEntry: MenuEntryProvider<{
+  disabled: boolean;
+  canAdd: boolean;
+  addTitle: string | undefined;
+  actions: { duplicate: () => void };
+}> = {
   id: "duplicate",
   order: 20,
   entries: ({ disabled, canAdd, addTitle, actions }) => [
