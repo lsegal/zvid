@@ -105,11 +105,12 @@
 }
 
 /* The color stripe hugs the label's left edge for the full row height, so
-   consecutive stripes meet. */
+   consecutive stripes meet. `bottom` is measured from the padding box, so
+   -1px draws the stripe over the label's bottom divider. */
 .track-label__stripe {
   position: absolute;
   top: 0;
-  bottom: 0;
+  bottom: -1px;
   left: 0;
   width: 4px;
   border-radius: 0;
