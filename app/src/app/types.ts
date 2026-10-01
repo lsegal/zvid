@@ -157,13 +157,18 @@ export type TimelineViewport = {
   lanesTop: number;
 };
 
+// `startQ` is where dropped media starts, set when it was dropped on a track
+// row at a timeline position; without it, media goes after the track's last
+// clip.
 export type SourceTrackDropTarget =
   | {
       kind: "track";
       trackId: string;
+      startQ?: number;
     }
   | {
       kind: "new-track";
+      startQ?: number;
     };
 
 export type SourceTrackDragPreview = {

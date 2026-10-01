@@ -24,7 +24,10 @@ const within = (attributes: Record<string, string> | null) =>
   ({
     closest: (selector: string) =>
       attributes && selector === "[data-source-track-drop-target]"
-        ? { getAttribute: (name: string) => attributes[name] ?? null }
+        ? {
+            getAttribute: (name: string) => attributes[name] ?? null,
+            hasAttribute: (name: string) => name in attributes,
+          }
         : null,
   }) as unknown as EventTarget;
 
@@ -143,6 +146,40 @@ describe("getSourceTrackDropTarget", () => {
     );
   });
 
+  it("carries the drop position from the track and new-track rows", () => {
+    assert.deepEqual(
+      getSourceTrackDropTarget(
+        within({
+          "data-source-track-drop-target": "track",
+          "data-source-track-id": "source-track-1",
+          "data-source-track-drop-at-pointer": "",
+        }),
+        6,
+      ),
+      { kind: "track", trackId: "source-track-1", startQ: 6 },
+    );
+    assert.deepEqual(
+      getSourceTrackDropTarget(
+        within({
+          "data-source-track-drop-target": "new-track",
+          "data-source-track-drop-at-pointer": "",
+        }),
+        0,
+      ),
+      { kind: "new-track", startQ: 0 },
+    );
+  });
+
+  it("drops no position on the header", () => {
+    assert.deepEqual(
+      getSourceTrackDropTarget(
+        within({ "data-source-track-drop-target": "new-track" }),
+        6,
+      ),
+      { kind: "new-track" },
+    );
+  });
+
   it("never falls back to a new track outside a drop target", () => {
     assert.equal(getSourceTrackDropTarget(within(null)), null);
     assert.equal(
@@ -164,6 +201,7 @@ describe("source track drop wiring", () => {
     );
     assert.match(row, /data-source-track-drop-target="track"/);
     assert.match(row, /data-source-track-id=\{track\.id\}/);
+    assert.match(row, /data-source-track-drop-at-pointer/);
   });
 
   it("makes the whole new-track row its drop target", () => {
@@ -173,5 +211,6 @@ describe("source track drop wiring", () => {
       sourceTracksTsx.indexOf("<div", start),
     );
     assert.match(row, /data-source-track-drop-target="new-track"/);
+    assert.match(row, /data-source-track-drop-at-pointer/);
   });
 });

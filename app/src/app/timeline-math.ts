@@ -27,6 +27,46 @@ export function snapQuarterValue(
   return Math.round(valueQ / snapUnit) * snapUnit;
 }
 
+/**
+ * The timeline position, in quarters, under a pointer `pointerX` pixels from
+ * the timeline scroller's left edge, whose sticky label column is
+ * `labelWidth` wide. Unclamped: it is negative left of the timeline's start.
+ */
+export function pointerToTimelineQ(
+  pointerX: number,
+  scrollLeft: number,
+  labelWidth: number,
+  quarterPx: number,
+) {
+  return (scrollLeft - labelWidth + pointerX) / quarterPx;
+}
+
+/**
+ * Where media dropped at `pointerX` starts: the position under the pointer,
+ * snapped like a clip move and never before 0. Over the label column it is 0.
+ */
+export function getDropStartQ(
+  pointerX: number,
+  scrollLeft: number,
+  labelWidth: number,
+  quarterPx: number,
+  snapUnit: number,
+  snap: boolean,
+) {
+  if (pointerX < labelWidth) {
+    return 0;
+  }
+
+  return Math.max(
+    0,
+    snapQuarterValue(
+      pointerToTimelineQ(pointerX, scrollLeft, labelWidth, quarterPx),
+      snapUnit,
+      snap,
+    ),
+  );
+}
+
 export function getClipDurationQ(
   clip: Pick<ArrangementClip | SourceSpan, "durationSeconds">,
   bpm: number,
