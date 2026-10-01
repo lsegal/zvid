@@ -7,6 +7,8 @@ import {
   pasteClipboard,
   type RangeClip,
   removeRangeFromLane,
+  resolveClipOverlaps,
+  resolveContainerOverlaps,
   sliceClipToRange,
 } from "./range-edit.ts";
 
@@ -110,6 +112,79 @@ describe("sliceClipToRange", () => {
     assert.equal(sliceClipToRange(clip("a", 0, 2), 2, 4, BPM), null);
     assert.equal(sliceClipToRange(clip("a", 4, 2), 2, 4, BPM), null);
     assert.equal(sliceClipToRange(clip("a", 8, 2), 2, 4, BPM), null);
+  });
+});
+
+describe("resolveClipOverlaps", () => {
+  const place = (clips: TestClip[], active: TestClip) =>
+    resolveClipOverlaps([...clips, active], active, BPM);
+
+  it("trims a clip over the active clip's start to its left part", () => {
+    assert.deepEqual(spans(place([clip("a", 0, 4)], clip("b", 2, 4))), [
+      ["a", "1", 0, 2, 10],
+      ["b", "1", 2, 6, 11],
+    ]);
+  });
+
+  it("trims a clip over the active clip's end to its right part, moving its source start", () => {
+    const placed = place([clip("a", 2, 4)], clip("b", 0, 4));
+    assert.deepEqual(spans(placed), [
+      ["a", "1", 4, 6, 12],
+      ["b", "1", 0, 4, 10],
+    ]);
+    assert.equal(sourceAt(placed, 5), 12.5);
+  });
+
+  it("keeps the longer side of a clip spanning the active clip", () => {
+    assert.deepEqual(spans(place([clip("a", 0, 8)], clip("b", 1, 2))), [
+      ["a", "1", 3, 8, 11.5],
+      ["b", "1", 1, 3, 10.5],
+    ]);
+  });
+
+  it("removes a clip the active clip covers", () => {
+    assert.deepEqual(spans(place([clip("a", 2, 2)], clip("b", 0, 8))), [
+      ["b", "1", 0, 8, 10],
+    ]);
+  });
+
+  it("leaves other layers and clips only touching it alone", () => {
+    const others = [clip("a", 0, 4, { laneId: "2" }), clip("c", 6, 2)];
+    assert.deepEqual(
+      spans(place(others, clip("b", 2, 4))),
+      spans([...others, clip("b", 2, 4)]),
+    );
+  });
+});
+
+describe("resolveContainerOverlaps", () => {
+  type Row = { id: string; row: string; startQ: number; durationSeconds: number };
+  const row = (id: string, rowId: string, startQ: number, durationQ: number) => ({
+    id,
+    row: rowId,
+    startQ,
+    durationSeconds: durationQ / 2,
+  });
+  const container = {
+    containerOf: (item: Row) => item.row,
+    retime: (item: Row, startQ: number, durationQ: number) => ({
+      ...item,
+      startQ,
+      durationSeconds: durationQ / 2,
+    }),
+  };
+
+  it("resolves overlaps only within the active clip's container", () => {
+    const active = row("b", "x", 2, 4);
+    assert.deepEqual(
+      resolveContainerOverlaps(
+        [row("a", "x", 0, 4), row("c", "y", 0, 8), row("d", "x", 3, 1), active],
+        active,
+        BPM,
+        container,
+      ),
+      [row("a", "x", 0, 2), row("c", "y", 0, 8), active],
+    );
   });
 });
 

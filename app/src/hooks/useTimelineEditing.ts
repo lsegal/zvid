@@ -25,6 +25,7 @@ import type {
   ProjectStore,
   useProjectHistoryCommands,
 } from "./useProjectStore.ts";
+import { useSourceSpanDrag } from "./useSourceSpanDrag.ts";
 import type { LaneStatus } from "./useTimelineLanes.ts";
 import type { TimelineSelectionState } from "./useTimelineSelection.ts";
 import type { useTimelineViewport } from "./useTimelineViewport.ts";
@@ -59,6 +60,10 @@ export type TimelineEditingInputs = {
     | "dragState"
     | "setDragState"
     | "timelineDragState"
+    | "sourceSpanDrag"
+    | "setSourceSpanDrag"
+    | "dragPreviewSourceSpans"
+    | "setDragPreviewSourceSpans"
     | "timelineClips"
     | "selectedClip"
     | "selectLaneFromLabel"
@@ -104,7 +109,7 @@ export type TimelineEditingInputs = {
 // Editing the timeline: inserting clips (useClipInsertion), clip and range
 // commands (useClipActions), layer commands (useLayerActions), the context
 // and Edit menus (useMenus), keyboard shortcuts and Space playback, and clip
-// drags (useClipDrag).
+// and source clip drags (useClipDrag, useSourceSpanDrag).
 export function useTimelineEditing({
   project,
   store,
@@ -169,6 +174,10 @@ export function useTimelineEditing({
     selectedClip,
     selectLaneFromLabel,
     focusLaneLabel,
+    sourceSpanDrag,
+    setSourceSpanDrag,
+    dragPreviewSourceSpans,
+    setDragPreviewSourceSpans,
   } = selection;
   const { barLength, beatUnit, snapUnit, quarterPx, totalQuarters } = viewport;
   const {
@@ -412,6 +421,23 @@ export function useTimelineEditing({
     refuseReadOnlyEdit,
     setPlayheadQ,
     jumpToClipStart,
+    commitProjectChange,
+  });
+
+  useSourceSpanDrag({
+    sourceSpanDrag,
+    setSourceSpanDrag,
+    dragPreviewSourceSpans,
+    setDragPreviewSourceSpans,
+    sourceSpans,
+    mediaItemsById,
+    bpm,
+    fps,
+    snapUnit,
+    snapEnabled,
+    quarterPx,
+    isWorkspaceReadOnlyRef,
+    refuseReadOnlyEdit,
     commitProjectChange,
   });
 

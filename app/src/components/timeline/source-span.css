@@ -8,6 +8,8 @@
   grid-template-columns: 42px 1fr;
   overflow: hidden;
   background: rgba(36, 38, 53, 0.92);
+  /* Dragging the span moves it in its track, as on an arrangement clip. */
+  cursor: grab;
 }
 
 /* The source clip whose right-click menu is open. */
@@ -106,4 +108,64 @@
 /* The progress bar takes the place of the span's accent line. */
 .source-span.is-syncing .source-span__line {
   visibility: hidden;
+}
+
+/* Edge handles trim the span. Like an arrangement clip's, they stay hidden
+   until the span is hovered or trimmed but keep their hit area. */
+.source-span__handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  width: 10px;
+  border: none;
+  padding: 0;
+  background: var(--clip-accent, var(--line-strong));
+  color: inherit;
+  cursor: ew-resize;
+  opacity: 0;
+  transition: opacity 100ms ease;
+}
+
+.source-span__handle--start {
+  left: 0;
+  border-radius: 9px 0 0 9px;
+}
+
+.source-span__handle--end {
+  right: 0;
+  border-radius: 0 9px 9px 0;
+}
+
+.source-span__handle::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+      circle at center,
+      rgba(0, 0, 0, 0.55) 1.5px,
+      transparent 2px
+    )
+    center top / 4px 6px repeat-y;
+}
+
+.source-span:hover .source-span__handle,
+.source-span--trimming .source-span__handle {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .source-span__handle {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .source-span__handle {
+    transition: none;
+  }
 }

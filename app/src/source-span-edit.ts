@@ -225,8 +225,10 @@ export function relinkClipsToSourceSpans(
 
     const sourceOffsetSeconds =
       replacement.trimStartSeconds - quartersToSeconds(replacement.startQ, bpm);
+    // The clip plays the replacement span's warp, or none.
+    const { warp: _warp, ...unwarped } = clip;
     return {
-      ...clip,
+      ...unwarped,
       sourceSpanId: replacement.id,
       mediaPath: replacement.mediaPath,
       mediaId: replacement.mediaId,
@@ -234,7 +236,7 @@ export function relinkClipsToSourceSpans(
         quartersToSeconds(clip.startQ, bpm) + sourceOffsetSeconds,
       sourceOffsetSeconds,
       ...getSpanSourceWindow(replacement),
-      warp: replacement.warp,
+      ...(replacement.warp ? { warp: replacement.warp } : {}),
     };
   });
 }
