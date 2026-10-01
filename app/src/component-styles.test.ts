@@ -137,6 +137,16 @@ const componentStyles = [
     ],
   },
   {
+    component: "media/MediaDrawer",
+    stylesheet: "media/media-drawer",
+    selectors: [
+      ".media-drawer",
+      ".media-drawer-resize-handle",
+      ".media-tile",
+      ".media-row",
+    ],
+  },
+  {
     component: "timeline/SourceSpan",
     stylesheet: "timeline/source-span",
     selectors: [".source-span"],

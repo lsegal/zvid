@@ -156,6 +156,11 @@
   font-size: 0.82rem;
 }
 
+/* The field's border shows focus instead. */
+.media-drawer__search input:focus-visible {
+  box-shadow: none;
+}
+
 .media-drawer__body {
   flex: 1;
   min-height: 0;
@@ -242,7 +247,7 @@
 /* List view: Name, Kind and Duration columns with Finder's blue selection. */
 .media-row {
   display: grid;
-  grid-template-columns: var(--media-list-icon-size, 24px) minmax(0, 1fr) auto 56px;
+  grid-template-columns: var(--media-list-icon-size, 24px) minmax(0, 1fr) 84px 56px;
   align-items: center;
   gap: 10px;
   padding: 4px 8px;
