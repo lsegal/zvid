@@ -100,6 +100,7 @@ export type MenusInputs = Pick<
     selectLaneFromLabel: (laneId: string) => void;
     selectedClip: ArrangementClip | undefined;
     selectedLaneId: string | undefined;
+    selectedSourceTrack: SourceTrack | undefined;
     setClipMenu: Dispatch<SetStateAction<ClipMenuState | null>>;
     setPendingSelection: Dispatch<SetStateAction<TimelineSelection | null>>;
     setRenamingLaneId: Dispatch<SetStateAction<string | undefined>>;
@@ -172,6 +173,7 @@ export function useMenus({
   selectLaneFromLabel,
   selectedClip,
   selectedLaneId,
+  selectedSourceTrack,
   setClipMenu,
   setLayerFxEnabled,
   setPendingSelection,
@@ -271,6 +273,7 @@ export function useMenus({
     playheadQRef,
     quarterPx,
     selectedClip,
+    selectedSourceTrack,
     setClipMenu,
     setSelectedLaneId,
     timelineScrollRef,

@@ -5,6 +5,11 @@ import {
   useRef,
 } from "react";
 import { patchProjectState } from "../app/session-project.ts";
+import {
+  isSourceTrackSelected,
+  type SourceSelection,
+  selectSourceTrack,
+} from "../app/source-selection.ts";
 import type {
   ArrangementClip,
   ProjectState,
@@ -25,7 +30,9 @@ export type SourceTrackActionsInputs = {
   ) => void;
   selectedClip: ArrangementClip | undefined;
   setSelectedClipId: Dispatch<SetStateAction<string | undefined>>;
+  selectSource: (selection: SourceSelection | undefined) => void;
   setStatus: Dispatch<SetStateAction<string>>;
+  sourceSelection: SourceSelection | undefined;
   sourceTracks: SourceTrack[];
   timelineScrollRef: RefObject<HTMLDivElement | null>;
 };
@@ -42,12 +49,15 @@ function focusSourceTrackLabel(trackId: string) {
 }
 
 // Duplicates, deletes and moves source tracks, like useLayerActions does
-// layers, with the same history labels.
+// layers, with the same history labels. The selection follows a selected
+// track to its duplicate, or to its neighbor when it is deleted.
 export function useSourceTrackActions({
   commitProjectChange,
   selectedClip,
   setSelectedClipId,
+  selectSource,
   setStatus,
+  sourceSelection,
   sourceTracks,
   timelineScrollRef,
 }: SourceTrackActionsInputs) {
@@ -66,6 +76,9 @@ export function useSourceTrackActions({
         ),
       ),
     );
+    if (isSourceTrackSelected(sourceSelection, track.id)) {
+      selectSource(selectSourceTrack(newTrackId));
+    }
     focusSourceTrackLabel(newTrackId);
     setStatus(`Duplicated ${track.name}.`);
   }
@@ -80,6 +93,9 @@ export function useSourceTrackActions({
     // The track that takes its place in the list, else the one above.
     const index = sourceTracks.findIndex((item) => item.id === track.id);
     const neighbor = sourceTracks[index + 1] ?? sourceTracks[index - 1];
+    if (isSourceTrackSelected(sourceSelection, track.id)) {
+      selectSource(neighbor && selectSourceTrack(neighbor.id));
+    }
     if (neighbor) {
       focusSourceTrackLabel(neighbor.id);
     }

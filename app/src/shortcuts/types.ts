@@ -4,10 +4,14 @@ import type {
   ArrangementClip,
   DragState,
   Lane,
+  SourceTrack,
   TimelineDragState,
   TimelineSelection,
 } from "../app/types.ts";
 import type { useClipActions } from "../hooks/useClipActions.ts";
+import type { useSourceTrackActions } from "../hooks/useSourceTrackActions.ts";
+
+type SourceTrackActions = ReturnType<typeof useSourceTrackActions>;
 
 // What the global keyboard shortcuts read and act on.
 export type ShortcutContext = {
@@ -15,7 +19,9 @@ export type ShortcutContext = {
   clipActionsRef: ReturnType<typeof useClipActions>["clipActionsRef"];
   clipClipboardRef: RefObject<ClipClipboard | null>;
   commitPendingSelectionToSourceTrack: (sourceIndex: number) => void;
+  deleteSourceTrack: SourceTrackActions["deleteSourceTrack"];
   dragState: DragState | null;
+  duplicateSourceTrack: SourceTrackActions["duplicateSourceTrack"];
   fps: number;
   fxLaneId: string | undefined;
   handleRedo: () => void;
@@ -25,6 +31,8 @@ export type ShortcutContext = {
   playbackOriginRef: RefObject<number>;
   playheadQRef: RefObject<number>;
   selectedClip: ArrangementClip | undefined;
+  // The selected source track, while no clip or source clip is selected.
+  selectedSourceTrack: SourceTrack | undefined;
   setPendingSelection: Dispatch<SetStateAction<TimelineSelection | null>>;
   setPlayheadQ: (playheadQ: number) => void;
   setSelectedClipId: Dispatch<SetStateAction<string | undefined>>;

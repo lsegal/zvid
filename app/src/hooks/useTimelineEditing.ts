@@ -5,6 +5,7 @@ import {
   useMemo,
 } from "react";
 import type { ClipClipboard } from "../app/clip-ops.ts";
+import { findSelectedSourceTrack } from "../app/source-selection.ts";
 import { getTimelineContentEndQ } from "../app/timeline-math.ts";
 import type { ProjectState } from "../app/types.ts";
 import type { MediaItem } from "../media";
@@ -64,6 +65,8 @@ export type TimelineEditingInputs = {
     | "selectedClip"
     | "selectLaneFromLabel"
     | "focusLaneLabel"
+    | "sourceSelection"
+    | "selectSource"
   >;
   viewport: Pick<
     ReturnType<typeof useTimelineViewport>,
@@ -174,6 +177,8 @@ export function useTimelineEditing({
     selectedClip,
     selectLaneFromLabel,
     focusLaneLabel,
+    sourceSelection,
+    selectSource,
   } = selection;
   const { barLength, beatUnit, snapUnit, quarterPx, totalQuarters } = viewport;
   const {
@@ -319,10 +324,16 @@ export function useTimelineEditing({
     commitProjectChange,
     selectedClip,
     setSelectedClipId,
+    selectSource,
     setStatus,
+    sourceSelection,
     sourceTracks,
     timelineScrollRef,
   });
+  const selectedSourceTrack = findSelectedSourceTrack(
+    sourceSelection,
+    sourceTracks,
+  );
 
   const {
     openArrangementClipMenu,
@@ -379,6 +390,7 @@ export function useTimelineEditing({
     selectLaneFromLabel,
     selectedClip,
     selectedLaneId,
+    selectedSourceTrack,
     setClipMenu,
     setLayerFxEnabled,
     setPendingSelection,
@@ -399,7 +411,9 @@ export function useTimelineEditing({
     clipActionsRef,
     clipClipboardRef,
     commitPendingSelectionToSourceTrack,
+    deleteSourceTrack,
     dragState,
+    duplicateSourceTrack,
     fps,
     fxLaneId,
     handleRedo,
@@ -409,6 +423,7 @@ export function useTimelineEditing({
     playbackOriginRef,
     playheadQRef,
     selectedClip,
+    selectedSourceTrack,
     setPendingSelection,
     setPlayheadQ,
     setSelectedClipId,

@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
-import type { ArrangementClip, TimelineSelection } from "../app/types.ts";
+import type {
+  ArrangementClip,
+  SourceTrack,
+  TimelineSelection,
+} from "../app/types.ts";
 import { matchesShortcutKey } from "./keys.ts";
 import { dispatchShortcuts, shortcuts } from "./registry.ts";
 import type { ShortcutContext } from "./types.ts";
@@ -57,6 +61,7 @@ const selection = {
   startQ: 0,
   durationQ: 4,
 } as TimelineSelection;
+const sourceTrack = { id: "source-track-1" } as SourceTrack;
 
 let calls: string[];
 
@@ -87,7 +92,9 @@ function context(overrides: Partial<ShortcutContext> = {}): ShortcutContext {
     } as unknown as ShortcutContext["clipActionsRef"],
     clipClipboardRef: { current: null },
     commitPendingSelectionToSourceTrack: record("commitToTrack"),
+    deleteSourceTrack: record("deleteSourceTrack"),
     dragState: null,
+    duplicateSourceTrack: record("duplicateSourceTrack"),
     fps: 30,
     fxLaneId: undefined,
     handleRedo: record("redo"),
@@ -97,6 +104,7 @@ function context(overrides: Partial<ShortcutContext> = {}): ShortcutContext {
     playbackOriginRef: { current: 0 },
     playheadQRef: { current: 8 },
     selectedClip: undefined,
+    selectedSourceTrack: undefined,
     setPendingSelection: record("setPendingSelection"),
     setPlayheadQ: record("setPlayheadQ"),
     setSelectedClipId: record("setSelectedClipId"),
@@ -301,5 +309,49 @@ describe("dispatching shortcuts", () => {
       `deleteSelection(${JSON.stringify(selection)})`,
       `remove(${JSON.stringify(clip)})`,
     ]);
+  });
+
+  it("deletes and duplicates the selected source track", () => {
+    dispatch(press("Delete"), { selectedSourceTrack: sourceTrack });
+    dispatch(press("Backspace"), { selectedSourceTrack: sourceTrack });
+    dispatch(press("d", { ctrlKey: true }), {
+      selectedSourceTrack: sourceTrack,
+    });
+    assert.deepEqual(calls, [
+      `deleteSourceTrack(${JSON.stringify(sourceTrack)})`,
+      `deleteSourceTrack(${JSON.stringify(sourceTrack)})`,
+      `duplicateSourceTrack(${JSON.stringify(sourceTrack)})`,
+    ]);
+  });
+
+  it("acts on the selection or selected clip before the source track", () => {
+    dispatch(press("Delete"), {
+      pendingSelection: selection,
+      selectedSourceTrack: sourceTrack,
+    });
+    dispatch(press("Delete"), {
+      selectedClip: clip,
+      selectedSourceTrack: sourceTrack,
+    });
+    dispatch(press("d", { ctrlKey: true }), {
+      selectedClip: clip,
+      selectedSourceTrack: sourceTrack,
+    });
+    assert.deepEqual(calls, [
+      `deleteSelection(${JSON.stringify(selection)})`,
+      `remove(${JSON.stringify(clip)})`,
+      `duplicate(${JSON.stringify(clip)})`,
+    ]);
+  });
+
+  it("leaves the selected source track alone while typing or dragging", () => {
+    dispatch(press("Delete", { target: new FakeInput() }), {
+      selectedSourceTrack: sourceTrack,
+    });
+    dispatch(press("Delete"), {
+      selectedSourceTrack: sourceTrack,
+      dragState: {} as ShortcutContext["dragState"],
+    });
+    assert.deepEqual(calls, []);
   });
 });
