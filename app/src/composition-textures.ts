@@ -1,3 +1,11 @@
+import {
+  FILL_RASTER,
+  RasterCache,
+  type RasterExtent,
+  type RasterKind,
+  type RasterSize,
+  TEXT_RASTER,
+} from "./composition-raster-cache.ts";
 import { type FillPaint, rasterizeFillPaint } from "./fill-paint.ts";
 import { renderStats } from "./render-stats.ts";
 import { isFontFaceReady, resolveFontFace } from "./text-fonts.ts";
@@ -25,9 +33,9 @@ export type SourceTextures = {
   gl: WebGLRenderingContext;
   textureMap: Map<string, WebGLTexture>;
   readyTextureIds: Set<string>;
-  // What each fill or text texture was last drawn with, so it is only
-  // redrawn when its paint, text or size changes.
-  generatedTextureKeys: Map<string, string>;
+  // The rasters each fill or text source has drawn, so it is only redrawn
+  // when its paint, text or size changes.
+  rasters: RasterCache;
   // Compositions drawn, and the one each texture was last used in.
   drawCount: number;
   textureLastDrawn: Map<string, number>;
@@ -39,7 +47,7 @@ export function createSourceTextures(gl: WebGLRenderingContext) {
     gl,
     textureMap: new Map<string, WebGLTexture>(),
     readyTextureIds: new Set<string>(),
-    generatedTextureKeys: new Map<string, string>(),
+    rasters: new RasterCache(),
     drawCount: 0,
     textureLastDrawn: new Map<string, number>(),
     videoUploads: new Map<string, VideoUpload>(),
@@ -76,7 +84,7 @@ export function releaseTexture(textures: SourceTextures, id: string) {
   }
   textures.textureMap.delete(id);
   textures.readyTextureIds.delete(id);
-  textures.generatedTextureKeys.delete(id);
+  textures.rasters.release(id);
   textures.textureLastDrawn.delete(id);
   textures.videoUploads.delete(id);
 }
@@ -87,7 +95,7 @@ export function releaseAllTextures(textures: SourceTextures) {
   }
   textures.textureMap.clear();
   textures.readyTextureIds.clear();
-  textures.generatedTextureKeys.clear();
+  textures.rasters.clear();
   textures.textureLastDrawn.clear();
   textures.videoUploads.clear();
 }
@@ -238,45 +246,111 @@ export function uploadVideoTexture(
   return texture;
 }
 
-// Draws a fill's paint into its texture, top row first like an uploaded
-// video frame, when the paint or the band size changed since last time.
+// The texture `content` is drawn into at `size`: a raster the source
+// already drew, or a new one `draw` uploads into the bound texture. Returns
+// undefined when nothing is drawn yet; `settled` is false when a nearby
+// raster stands in for an animating source, which a later frame draws
+// exactly.
+function generatedTexture<T>(
+  textures: SourceTextures,
+  sourceKey: string,
+  kind: RasterKind<T>,
+  content: T,
+  size: RasterSize,
+  extent: RasterExtent,
+  preview: boolean,
+  draw: (() => boolean) | undefined,
+) {
+  const { gl } = textures;
+  const found = textures.rasters.lookup(
+    sourceKey,
+    kind,
+    content,
+    size,
+    extent,
+    preview,
+  );
+  if (found.raster) {
+    const texture = getOrCreateTexture(textures, found.raster.textureId);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    return { texture, settled: found.exact };
+  }
+  if (!draw) {
+    // It can't be drawn yet: keep showing what it last drew. It is redrawn
+    // when it can be, such as when its font loads.
+    const latest = textures.rasters.latest(sourceKey);
+    return (
+      latest && {
+        texture: getOrCreateTexture(textures, latest.textureId),
+        settled: true,
+      }
+    );
+  }
+  const { textureId } = found;
+  const texture = getOrCreateTexture(textures, textureId);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  if (!draw()) {
+    return undefined;
+  }
+  textures.rasters.store(sourceKey, textureId, content, size);
+  return { texture, settled: true };
+}
+
+// Draws a fill's colors into its texture, top row first like an uploaded
+// video frame, when they or the band size changed since last time. A solid
+// fill is the same at any size, so it is one pixel. Its opacity is applied
+// when it is drawn.
 export function uploadFillTexture(
   textures: SourceTextures,
   sourceKey: string,
   fill: FillPaint,
   bandWidth: number,
   bandHeight: number,
+  { preview }: { preview?: boolean },
 ) {
   const { gl } = textures;
-  const texture = getOrCreateTexture(textures, sourceKey);
-  const scale = Math.min(
-    1,
-    MAX_FILL_TEXTURE_SIZE / Math.max(bandWidth, bandHeight, 1),
+  const scale =
+    fill.kind === "solid"
+      ? 0
+      : Math.min(1, MAX_FILL_TEXTURE_SIZE / Math.max(bandWidth, bandHeight, 1));
+  const size = {
+    width: Math.max(1, Math.round(bandWidth * scale)),
+    height: Math.max(1, Math.round(bandHeight * scale)),
+    scale: 1,
+  };
+  return generatedTexture(
+    textures,
+    sourceKey,
+    FILL_RASTER,
+    fill,
+    size,
+    { width: bandWidth, height: bandHeight },
+    Boolean(preview),
+    () => {
+      renderStats.fillRasterizations++;
+      const raster = rasterizeFillPaint(
+        { ...fill, opacity: 1 },
+        size.width,
+        size.height,
+      );
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA,
+        raster.width,
+        raster.height,
+        0,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        raster.pixels,
+      );
+      return true;
+    },
   );
-  const textureWidth = Math.max(1, Math.round(bandWidth * scale));
-  const textureHeight = Math.max(1, Math.round(bandHeight * scale));
-  const key = `${textureWidth}x${textureHeight}:${JSON.stringify(fill)}`;
-  gl.activeTexture(gl.TEXTURE0);
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-  if (textures.generatedTextureKeys.get(sourceKey) !== key) {
-    renderStats.fillRasterizations++;
-    const raster = rasterizeFillPaint(fill, textureWidth, textureHeight);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
-    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      0,
-      gl.RGBA,
-      raster.width,
-      raster.height,
-      0,
-      gl.RGBA,
-      gl.UNSIGNED_BYTE,
-      raster.pixels,
-    );
-    textures.generatedTextureKeys.set(sourceKey, key);
-  }
-  return texture;
 }
 
 // A texture size for a `width` × `height` box: whole pixels, shrunk by
@@ -306,39 +380,39 @@ export function uploadTextTexture(
   boxWidth: number,
   boxHeight: number,
   boxScale: number,
+  { preview }: { preview?: boolean },
 ) {
   const { gl } = textures;
   const face = resolveFontFace(text.font, text.weight, text.italic);
   // A box too large for a texture is drawn smaller, laid out the same.
   const { width, height, factor } = fitTextureSize(gl, boxWidth, boxHeight);
   const scale = boxScale * factor;
-  const key = `${width}x${height}@${scale}:${JSON.stringify(face)}:${JSON.stringify(text)}`;
-  const drawn = textures.generatedTextureKeys.get(sourceKey);
-  if (drawn !== key && !isFontFaceReady(face)) {
-    return drawn === undefined
-      ? undefined
-      : getOrCreateTexture(textures, sourceKey);
-  }
-
-  const texture = getOrCreateTexture(textures, sourceKey);
-  gl.activeTexture(gl.TEXTURE0);
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-  if (drawn !== key) {
-    renderStats.textRasterizations++;
-    const canvas = createTextCanvas(width, height);
-    if (!canvas || !drawText(canvas, text, face, width, height, scale)) {
-      return undefined;
-    }
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      0,
-      gl.RGBA,
-      gl.RGBA,
-      gl.UNSIGNED_BYTE,
-      canvas as TexImageSource,
-    );
-    textures.generatedTextureKeys.set(sourceKey, key);
-  }
-  return texture;
+  return generatedTexture(
+    textures,
+    sourceKey,
+    TEXT_RASTER,
+    { style: text, face },
+    { width, height, scale },
+    { width: boxWidth, height: boxHeight },
+    Boolean(preview),
+    isFontFaceReady(face)
+      ? () => {
+          renderStats.textRasterizations++;
+          const canvas = createTextCanvas(width, height);
+          if (!canvas || !drawText(canvas, text, face, width, height, scale)) {
+            return false;
+          }
+          gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+          gl.texImage2D(
+            gl.TEXTURE_2D,
+            0,
+            gl.RGBA,
+            gl.RGBA,
+            gl.UNSIGNED_BYTE,
+            canvas as TexImageSource,
+          );
+          return true;
+        }
+      : undefined,
+  );
 }

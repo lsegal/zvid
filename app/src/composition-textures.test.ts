@@ -240,7 +240,7 @@ describe("source texture lifetime", () => {
     draw(resources, []);
     assert.equal(live.size, baseline);
     assert.equal(resources.textureMap.size, 0);
-    assert.equal(resources.generatedTextureKeys.size, 0);
+    assert.equal(resources.rasters.size, 0);
     assert.equal(resources.textureLastDrawn.size, 0);
   });
 

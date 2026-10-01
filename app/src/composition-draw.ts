@@ -96,6 +96,10 @@ export type FrameContext = {
   time: number;
   audio: AudioBands;
   groupClipProgress: number;
+  // Set for preview frames during playback, which may draw an animating
+  // text or fill clip from a nearby raster rather than a new one every
+  // frame.
+  preview?: boolean;
 };
 
 export type CompositeSurface = { width: number; height: number };
@@ -302,6 +306,7 @@ function renderLayerFrame(
   placement: LayerPlacement,
   visual: CompositeVisual,
   size: { width: number; height: number },
+  opacity: number,
 ) {
   const { gl, effectChain } = resources;
   const { frame, halfExtents, translate } = placement;
@@ -319,7 +324,7 @@ function renderLayerFrame(
       ],
       (-visual.rotationDeg * Math.PI) / 180,
     ),
-    opacity: 1,
+    opacity,
     brightness: 0,
     contrast: 1,
     saturation: 1,
@@ -394,7 +399,8 @@ type StackTarget = {
 };
 
 // Draws `entry` into slot `index` of `count` of `target`, arranged by
-// `order`, or where `motion` has it on its way between slots.
+// `order`, or where `motion` has it on its way between slots. Returns false
+// when it was drawn from a nearby raster.
 function drawLayer(
   resources: WebGlResources,
   target: StackTarget,
@@ -405,18 +411,20 @@ function drawLayer(
   index: number,
   count: number,
   motion: SlotMotion | undefined,
-) {
+): boolean {
   const { gl, effectChain } = resources;
   const { width, height } = target;
   // A clip squished to nothing shows no sliver of itself.
   if (isSlotScissorEmpty(index, count, order, width, height, motion)) {
-    return;
+    return true;
   }
   const surface = { width, height };
   const mediaElement = mediaRefs.get(entry.sourceKey);
   let sourceWidth: number;
   let sourceHeight: number;
   let texture: TextureRegion;
+  let sourceOpacity = 1; // A fill's, which its texture is drawn without.
+  let settled = true;
   let textBox: { box: Box; matrix: Matrix2D } | undefined;
   if (entry.fill || entry.text) {
     // Fills and text are drawn at their slot's own size, so they cover
@@ -447,35 +455,35 @@ function drawLayer(
     const moving = sized(motion);
     const raster = motion ? sized(undefined) : moving;
     ({ width: sourceWidth, height: sourceHeight, textBox } = moving);
-    if (entry.fill) {
-      texture = wholeTexture(
-        uploadFillTexture(
+    const uploaded = entry.fill
+      ? uploadFillTexture(
           resources,
           entry.sourceKey,
           entry.fill,
           raster.width,
           raster.height,
-        ),
-      );
-    } else {
-      const uploaded = uploadTextTexture(
-        resources,
-        entry.sourceKey,
-        entry.text as TextStyle,
-        raster.width,
-        raster.height,
-        // Text sizes are given at 1080p and scale with the output's
-        // short side, in portrait as in landscape.
-        Math.min(width, height) / TEXT_REFERENCE_HEIGHT,
-      );
-      if (!uploaded) {
-        return;
-      }
-      texture = wholeTexture(uploaded);
+          frameContext,
+        )
+      : uploadTextTexture(
+          resources,
+          entry.sourceKey,
+          entry.text as TextStyle,
+          raster.width,
+          raster.height,
+          // Text sizes are given at 1080p and scale with the output's
+          // short side, in portrait as in landscape.
+          Math.min(width, height) / TEXT_REFERENCE_HEIGHT,
+          frameContext,
+        );
+    if (!uploaded) {
+      return true;
     }
+    texture = wholeTexture(uploaded.texture);
+    settled = uploaded.settled;
+    sourceOpacity = entry.fill?.opacity ?? 1;
   } else {
     if (!(mediaElement instanceof HTMLVideoElement)) {
-      return;
+      return true;
     }
 
     const uploaded = uploadVideoTexture(
@@ -485,7 +493,7 @@ function drawLayer(
       mediaElement,
     );
     if (!uploaded) {
-      return;
+      return true;
     }
     texture = wholeTexture(uploaded);
     sourceWidth = mediaElement.videoWidth || entry.media.width || width;
@@ -512,6 +520,7 @@ function drawLayer(
       (entry.visual.rotationDeg * Math.PI) / 180,
     ),
     ...colorUniforms(entry.visual),
+    opacity: entry.visual.opacity * sourceOpacity,
   };
 
   // A Transform moves the slot's content, so the layer is framed into its
@@ -531,6 +540,7 @@ function drawLayer(
       placement,
       entry.visual,
       frameSize,
+      sourceOpacity,
     );
     texture = !layerSteps.length
       ? framed
@@ -580,8 +590,10 @@ function drawLayer(
   gl.enable(gl.SCISSOR_TEST);
   gl.scissor(scissor.x, scissor.y, scissor.width, scissor.height);
   drawQuad(resources, texture, uniforms);
+  return settled;
 }
 
+// Returns false when a preview frame drew a clip from a nearby raster.
 export function drawComposition(
   resources: WebGlResources,
   surface: CompositeSurface,
@@ -590,7 +602,7 @@ export function drawComposition(
   groupChain: EffectChainStep[],
   frameContext: FrameContext,
   order: CompositionOrder = DEFAULT_COMPOSITION_ORDER,
-) {
+): boolean {
   const startedAt = performance.now();
   const { gl, effectChain } = resources;
   const { width, height } = surface;
@@ -625,6 +637,7 @@ export function drawComposition(
   gl.clearColor(...sceneClearColor(order));
   gl.clear(gl.COLOR_BUFFER_BIT);
 
+  let settled = true;
   const drawSteps = (
     steps: LayerDrawStep<CompositeLayer>[],
     target: StackTarget,
@@ -632,7 +645,7 @@ export function drawComposition(
   ) => {
     for (const step of steps) {
       if (step.type === "layer") {
-        drawLayer(
+        const drawn = drawLayer(
           resources,
           target,
           // The Order, or the z-order overlay for a layer it excludes.
@@ -644,6 +657,7 @@ export function drawComposition(
           step.slotCount,
           step.motion,
         );
+        settled = drawn && settled;
       } else if (step.type === "arrange") {
         drawArrangement(step, target, depth);
       } else if (target.texture && target.framebuffer) {
@@ -782,4 +796,5 @@ export function drawComposition(
     bindCompositeState(resources, null, width, height);
   }
   recordRenderFrame(performance.now() - startedAt);
+  return settled;
 }

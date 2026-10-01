@@ -19,6 +19,7 @@ import {
   resolveFrameEffects,
   type SessionEffect,
 } from "./composition-active-clips.ts";
+import { syncCanvasSurface } from "./composition-canvas.ts";
 import {
   disposeWebGlResources,
   drawComposition,
@@ -108,22 +109,6 @@ function clamp(value: number, minimum: number, maximum: number) {
   return Math.max(minimum, Math.min(maximum, value));
 }
 
-function syncCanvasSurface(
-  canvas: HTMLCanvasElement,
-  canvasWidth: number,
-  canvasHeight: number,
-  pixelRatio: number,
-) {
-  const nextWidth = Math.max(1, Math.floor(canvasWidth * pixelRatio));
-  const nextHeight = Math.max(1, Math.floor(canvasHeight * pixelRatio));
-  if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
-    canvas.width = nextWidth;
-    canvas.height = nextHeight;
-  }
-
-  canvas.style.aspectRatio = `${canvasWidth} / ${canvasHeight}`;
-}
-
 // "live" reads the main audio element as it plays (preview). "offline"
 // decodes the main audio and measures it at each rendered frame (export).
 export type AudioAnalysisMode = "live" | "offline";
@@ -192,7 +177,9 @@ export class CompositionRenderer {
     }
   }
 
-  renderPreviewFrame(playheadQ: number, pixelRatio: number) {
+  // While playing, animating text and fills may be drawn from a nearby
+  // raster; a paused preview, being edited, draws them exactly.
+  renderPreviewFrame(playheadQ: number, pixelRatio: number, playing = true) {
     this.ensureResources();
     const audio = this.liveAudioBands?.sample(performance.now());
     this.activeClips = this.computeActiveClips(playheadQ, audio);
@@ -200,6 +187,7 @@ export class CompositionRenderer {
       time: quartersToSeconds(playheadQ, this.state.bpm),
       audio: audio ?? SILENT_AUDIO_BANDS,
       groupClipProgress: this.groupClipProgressAt(playheadQ),
+      preview: playing,
     });
   }
 
@@ -675,6 +663,7 @@ export const CompositionPlayer = forwardRef<
       renderer.renderPreviewFrame(
         isPlayingRef.current ? playheadSignal.get() : playheadQ,
         pixelRatio,
+        isPlayingRef.current,
       );
     },
     [playheadQ, playheadSignal],

@@ -55,6 +55,7 @@ type DrawCall = {
   texture: Handle | null;
   // uAxisX, uAxisY and uOffset of the composite program.
   axes: Record<string, [number, number]>;
+  opacity: number | undefined;
 };
 
 // A WebGLRenderingContext stand-in that tracks the state drawComposition and
@@ -79,6 +80,7 @@ function createRecordingGl() {
     activeTexture: "TEXTURE0" as string | null,
     textures: new Map<string, Handle | null>(),
     uniforms: {} as Record<string, [number, number]>,
+    floats: {} as Record<string, number>,
   };
   const draws: DrawCall[] = [];
   // The framebuffer and color of every clear.
@@ -164,6 +166,9 @@ function createRecordingGl() {
     uniform2f: (location: { name: string }, x: number, y: number) => {
       state.uniforms[location.name] = [x, y];
     },
+    uniform1f: (location: { name: string }, value: number) => {
+      state.floats[location.name] = value;
+    },
     drawArrays: () => {
       draws.push({
         program: state.program,
@@ -184,6 +189,7 @@ function createRecordingGl() {
           uAxisY: state.uniforms.uAxisY,
           uOffset: state.uniforms.uOffset,
         },
+        opacity: state.floats.uOpacity,
       });
     },
   };
@@ -638,6 +644,15 @@ describe("drawComposition fill layers", () => {
     color: { r: 255, g: 0, b: 0, a: 1 },
     opacity: 1,
   };
+  const RED_TO_BLUE: FillPaint = {
+    kind: "linear",
+    angleDeg: 90,
+    stops: [
+      { offset: 0, color: { r: 255, g: 0, b: 0, a: 1 } },
+      { offset: 1, color: { r: 0, g: 0, b: 255, a: 1 } },
+    ],
+    opacity: 1,
+  };
 
   function fillLayer(fill: FillPaint, lane = 0): CompositeLayer {
     return {
@@ -683,12 +698,20 @@ describe("drawComposition fill layers", () => {
       resources.textureMap.get("fill:clip-0") as unknown as Handle,
     );
 
+    // A solid fill is the same at any size: one pixel.
+    const [upload] = recording.uploads;
+    assert.deepEqual([upload[3], upload[4]], [1, 1]);
+    assert.deepEqual(Array.from(upload.at(-1) as Uint8Array), [255, 0, 0, 255]);
+  });
+
+  it("draws a gradient at its band's aspect, at most 512 pixels on a side", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    drawFrame(recording, resources, [fillLayer(RED_TO_BLUE)]);
     const [upload] = recording.uploads;
     const pixels = upload.at(-1) as Uint8Array;
     const [width, height] = [upload[3], upload[4]] as [number, number];
     assert.equal(pixels.length, width * height * 4);
-    assert.deepEqual(Array.from(pixels.slice(0, 4)), [255, 0, 0, 255]);
-    // Drawn at the band's aspect, no larger than 512 pixels on a side.
     assert.equal(Math.max(width, height), 512);
     assert.ok(Math.abs(width / height - WIDTH / HEIGHT) < 0.01);
   });
@@ -719,7 +742,7 @@ describe("drawComposition fill layers", () => {
     drawFrame(
       recording,
       resources,
-      [fillLayer(RED_FILL, 0), fillLayer(RED_FILL, 1)],
+      [fillLayer(RED_TO_BLUE, 0), fillLayer(RED_TO_BLUE, 1)],
       undefined,
       { arrangement: "horizontal", gridSize: 2, spacing: 0 },
     );
@@ -779,6 +802,76 @@ describe("drawComposition fill layers", () => {
     assert.equal(recording.uploads.length, 2);
     const pixels = recording.uploads[1].at(-1) as Uint8Array;
     assert.deepEqual(Array.from(pixels.slice(0, 4)), [0, 0, 255, 255]);
+  });
+
+  it("applies a fill's opacity when drawing it, without redrawing its texture", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    const opacities = [1, 0.8, 0.5, 0.25];
+    const drawn = opacities.map((opacity) =>
+      drawFrame(recording, resources, [
+        fillLayer({ ...RED_TO_BLUE, opacity }),
+      ]).at(-1),
+    );
+    assert.equal(recording.uploads.length, 1);
+    const pixels = recording.uploads[0].at(-1) as Uint8Array;
+    assert.equal(pixels[3], 255);
+    assert.deepEqual(
+      drawn.map((draw) => draw?.opacity),
+      opacities,
+    );
+  });
+
+  it("applies a fill's opacity before its effects when it has some", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    const layer = fillLayer({ ...RED_FILL, opacity: 0.5 });
+    drawFrame(recording, resources, [
+      {
+        ...layer,
+        visual: { ...layer.visual, opacity: 0.8 },
+        effectChain: resolveEffectChain([colorize("lane-0")], "lane-0"),
+      },
+    ]);
+    const program = resources.program as unknown as Handle;
+    const framing = recording.draws.find(
+      (draw) => draw.program === program && draw.framebuffer !== null,
+    );
+    const onCanvas = recording.draws.find(
+      (draw) => draw.program === program && draw.framebuffer === null,
+    );
+    assert.equal(framing?.opacity, 0.5);
+    assert.equal(onCanvas?.opacity, 0.8);
+  });
+
+  it("redraws a gradient only once a preview's resize settles", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    // The band, the whole canvas here, narrows a pixel a frame, as a slot
+    // does while an Order slides it.
+    const preview = (width: number) =>
+      drawComposition(
+        resources,
+        { width, height: HEIGHT },
+        [fillLayer(RED_TO_BLUE)],
+        new Map(),
+        [],
+        {
+          time: 0,
+          audio: SILENT_AUDIO_BANDS,
+          groupClipProgress: 0,
+          preview: true,
+        },
+      );
+    const before = renderStats.fillRasterizations;
+    assert.equal(preview(WIDTH), true);
+    for (let frame = 1; frame <= 60; frame++) {
+      assert.equal(preview(WIDTH - frame), false);
+    }
+    assert.equal(renderStats.fillRasterizations - before, 1);
+    // Held at its last size, it is drawn exactly.
+    assert.equal(preview(WIDTH - 60), true);
+    assert.equal(renderStats.fillRasterizations - before, 2);
   });
 });
 
@@ -1093,6 +1186,124 @@ describe("drawComposition text layers", () => {
     );
   });
 
+  function drawPreview(
+    resources: WebGlResources,
+    clips: CompositeLayer[],
+    preview = true,
+  ) {
+    return drawComposition(
+      resources,
+      { width: WIDTH, height: HEIGHT },
+      clips,
+      new Map(),
+      [],
+      { time: 0, audio: SILENT_AUDIO_BANDS, groupClipProgress: 0, preview },
+    );
+  }
+
+  it("draws static text and fills once, without serializing them each frame", (t) => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    const red: FillPaint = {
+      kind: "linear",
+      angleDeg: 45,
+      stops: [
+        { offset: 0, color: { r: 255, g: 0, b: 0, a: 1 } },
+        { offset: 1, color: { r: 0, g: 0, b: 0, a: 1 } },
+      ],
+      opacity: 1,
+    };
+    const fill = { ...textLayer(HELLO, 0), text: undefined, fill: red };
+    // Each frame resolves its styles afresh, as computeActiveClips does.
+    const frame = () => [
+      { ...fill, sourceKey: "fill:clip-0", fill: structuredClone(red) },
+      textLayer(structuredClone(HELLO), 1),
+    ];
+    drawPreview(resources, frame());
+    const stringify = t.mock.method(JSON, "stringify");
+    for (let index = 1; index < 300; index++) {
+      assert.equal(drawPreview(resources, frame()), true);
+    }
+    assert.equal(stringify.mock.callCount(), 0);
+    assert.equal(recording.uploads.length, 2);
+  });
+
+  it("stretches a text box's raster while a preview resizes it, then redraws it", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    const frame = (scaleX: number) => [
+      transformedText(WORDS, { ...IDENTITY_TRANSFORM, scaleX }),
+    ];
+    const before = renderStats.textRasterizations;
+    assert.equal(drawPreview(resources, frame(1)), true);
+    // A Move widening the box by a third over 30 frames.
+    for (let index = 1; index <= 30; index++) {
+      assert.equal(drawPreview(resources, frame(1 + index / 90)), false);
+    }
+    assert.equal(renderStats.textRasterizations - before, 1);
+
+    // Once it holds still for a frame, it is drawn exactly, as export
+    // draws it.
+    assert.equal(drawPreview(resources, frame(4 / 3)), true);
+    assert.equal(renderStats.textRasterizations - before, 2);
+    const settled = recording.uploads.at(-1)?.at(-1) as FakeTextCanvas;
+    const exported = createRecordingGl();
+    drawPreview(createWebGlResources(exported.gl), frame(4 / 3), false);
+    const exact = exported.uploads[0].at(-1) as FakeTextCanvas;
+    assert.deepEqual(
+      [settled.width, settled.height],
+      [exact.width, exact.height],
+    );
+    assert.deepEqual(settled.fills, exact.fills);
+  });
+
+  it("draws every frame of a resize exactly for export", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    const before = renderStats.textRasterizations;
+    for (let index = 0; index <= 30; index++) {
+      drawPreview(
+        resources,
+        [
+          transformedText(WORDS, {
+            ...IDENTITY_TRANSFORM,
+            scaleX: 1 + index / 90,
+          }),
+        ],
+        false,
+      );
+    }
+    assert.equal(renderStats.textRasterizations - before, 31);
+  });
+
+  it("bounds the rasters Reactive Size and Tracking draw in a preview", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    const before = renderStats.textRasterizations;
+    let frames = 0;
+    // Ten impulses, each swinging Size and Tracking by its own amount and
+    // settling back over 12 frames, as Reactive's Bounce does.
+    for (let impulse = 0; impulse < 10; impulse++) {
+      const swing = Math.sin(impulse * 2.4);
+      for (let index = 0; index <= 12; index++) {
+        const envelope = Math.exp(-index / 3) * Math.cos(index / 2);
+        drawPreview(resources, [
+          textLayer({
+            ...HELLO,
+            fontSize: 96 + swing * 44 * envelope,
+            letterSpacing: Math.max(0, swing * 0.09 * envelope),
+          }),
+        ]);
+        frames++;
+      }
+      // Back at rest.
+      drawPreview(resources, [textLayer(HELLO)]);
+      frames++;
+    }
+    const drawn = renderStats.textRasterizations - before;
+    assert.ok(drawn <= frames / 4, `${drawn} rasters in ${frames} frames`);
+  });
+
   it("draws text and fills once while an Order squishes, and once settled", () => {
     const recording = createRecordingGl();
     const resources = createWebGlResources(recording.gl);
@@ -1154,10 +1365,11 @@ describe("drawComposition text layers", () => {
     for (let frame = 0; frame < 5; frame++) {
       drawFrame(resources, settled, order);
     }
-    // In the three slots they settle in.
+    // In the three slots they settle in. Solid fills are one pixel at any
+    // size, so only the text is drawn again.
     const after = drawn();
     assert.equal(after.text - squished.text, 1);
-    assert.equal(after.fill - squished.fill, 2);
+    assert.equal(after.fill - squished.fill, 0);
   });
 });
 
