@@ -12,7 +12,7 @@ export type MediaDrawerPrefs = {
 };
 
 export const MEDIA_DRAWER_STORAGE_KEY = "zvid-media-drawer";
-export const MEDIA_DRAWER_DEFAULT_WIDTH = 300;
+export const MEDIA_DRAWER_DEFAULT_WIDTH = 320;
 export const MEDIA_DRAWER_MIN_WIDTH = 220;
 // The widest the drawer gets before the editor has been measured.
 export const MEDIA_DRAWER_FALLBACK_MAX_WIDTH = 560;

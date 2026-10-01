@@ -98,6 +98,20 @@ describe("space shortcut target classification", () => {
     );
   });
 
+  it("leaves Space to playback while a docked listbox is on the page", () => {
+    // Matches only an unqualified listbox selector, as a docked one would.
+    const dockedListbox = {
+      querySelector: (selector: string) =>
+        selector.split(",").some((part) => part.trim() === '[role="listbox"]')
+          ? {}
+          : null,
+    };
+    assert.equal(
+      classifySpaceTarget(element("BODY"), dockedListbox),
+      "playback",
+    );
+  });
+
   it("lets a layer's or source track's reorder grip pick up and drop with Space", () => {
     assert.equal(
       classifySpaceTarget(

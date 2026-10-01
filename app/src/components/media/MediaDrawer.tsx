@@ -347,6 +347,7 @@ export function MediaDrawer({
                 <div
                   aria-activedescendant={activeDescendant}
                   aria-label="Media items"
+                  data-docked-listbox=""
                   className={
                     view === "icons"
                       ? "media-drawer__grid"
