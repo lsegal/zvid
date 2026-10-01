@@ -1042,16 +1042,6 @@
   border-radius: 3px;
 }
 
-.track-label__fx--off {
-  color: var(--muted);
-  text-decoration: line-through;
-}
-
-.track-label__fx--inactive {
-  color: var(--muted);
-  opacity: 0.45;
-}
-
 .track-row__content {
   min-height: 72px;
   border-bottom: 1px solid var(--line);

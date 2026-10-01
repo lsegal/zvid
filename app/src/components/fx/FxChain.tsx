@@ -22,6 +22,7 @@ import {
   type FxDevice,
   type FxDeviceGroup,
   GLOBAL_EFFECT_TRACK_ID,
+  isContentEffectName,
 } from "../../fx-stack";
 import { useDragScroll } from "../../use-drag-scroll";
 import { ContextMenu } from "../ContextMenu";
@@ -338,7 +339,14 @@ export function FxChain({
         device.supportsAnimation && device.animation?.enabled
           ? device.animation
           : undefined;
-      const layerBypassed = device.group === "layer" && !layerFxEnabled;
+      // The layer's FX switch turns off its own stack and the clip's, apart
+      // from the content effects that define a clip; an FX clip applies
+      // nothing.
+      const layerBypassed =
+        !layerFxEnabled &&
+        device.group !== "global" &&
+        ((device.group === "clip" && clipScope === "fxClip") ||
+          !isContentEffectName(device.effectName));
       const dragging = drag?.deviceId === device.id;
       const panel = (
         <FxDevicePanel
@@ -468,7 +476,8 @@ export function FxChain({
           {canEdit && layerEmpty ? renderAddMenu("layer", true) : null}
         </div>
       ) : null}
-      {!layerEmpty && !layerFxEnabled ? (
+      {!layerFxEnabled &&
+      (!layerEmpty || (showClip && groups.clip.length > 0)) ? (
         <div className="fx-chain__layer-off">
           <span>Layer FX off</span>
           <button onClick={() => onSetLayerFxEnabled?.(true)} type="button">

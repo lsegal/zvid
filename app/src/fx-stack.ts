@@ -22,8 +22,10 @@ export {
   ORDER_RUNS_FIRST_NOTE,
 } from "./fx/stack/devices.ts";
 export {
+  type FxClip,
   type FxLayer,
   getRenderedEffects,
+  isContentEffectName,
   isLayerFxEnabled,
   isLayoutEffectName,
   LAYOUT_EFFECT_NAME,

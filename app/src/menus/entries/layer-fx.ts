@@ -5,12 +5,12 @@ import type { MenuEntryProvider } from "../registry.ts";
 export const layerFxEntries: MenuEntryProvider<LayerMenuContext> = {
   id: "fx",
   order: 50,
-  entries: ({ fxEnabled, effectCount, effects, disabled, actions }) => [
+  entries: ({ fxEnabled, effects, disabled, actions }) => [
     {
       type: "item",
       id: "toggle-fx",
       label: fxEnabled ? "Disable FX" : "Enable FX",
-      disabled: disabled || !effectCount,
+      disabled,
       onSelect: actions.toggleFx,
     },
     {

@@ -449,7 +449,7 @@ const LAYER_MENU_FULL = [
   'duplicate: Duplicate title="You already have the maximum of 9 layers." (disabled)',
   "delete: Delete",
   "---",
-  "toggle-fx: Enable FX (disabled)",
+  "toggle-fx: Enable FX",
   "add-fx: Add FX (disabled)",
   "---",
   'insert-above: Insert layer above title="You already have the maximum of 9 layers." (disabled)',

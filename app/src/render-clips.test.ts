@@ -226,7 +226,7 @@ describe("source tracks rendered as layers", () => {
       playheadQ,
       BPM,
       priorityOf(render.lanes),
-      getRenderedEffects(effects, render.lanes),
+      getRenderedEffects(effects, render.lanes, render.clips),
     );
   }
 
