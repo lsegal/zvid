@@ -22,7 +22,9 @@ export function usePrefersReducedMotion() {
 }
 
 type MediaSyncSkeletonProps = {
-  view: MediaSyncView;
+  // Absent while something local loads, such as a clip's waveform: the
+  // shimmer alone, with no progress bar.
+  view?: MediaSyncView;
   variant: "clip" | "span" | "waveform";
   style?: CSSProperties;
 };
@@ -42,7 +44,7 @@ export function MediaSyncSkeleton({
       style={style}
     >
       <span className="media-sync__shimmer" />
-      {view.phase === "receiving" ? (
+      {view?.phase === "receiving" ? (
         <span className="media-sync__track">
           <span
             className={`media-sync__bar ${view.fraction === null ? "media-sync__bar--indeterminate" : ""}`}

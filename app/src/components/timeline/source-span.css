@@ -49,6 +49,48 @@
   box-shadow: inset -1px 0 rgba(0, 0, 0, 0.35);
 }
 
+/* Audio-only media draws its waveform, like the Audio lane, behind a quiet
+   border that turns to the full accent border on hover. */
+.source-span--audio {
+  grid-template-columns: 1fr;
+  border-color: color-mix(
+    in srgb,
+    var(--clip-accent, var(--line-strong)) 35%,
+    transparent
+  );
+  transition: border-color 100ms ease;
+}
+
+.source-span--audio:hover,
+.source-span--audio:has(:focus-visible) {
+  border-color: var(--clip-accent, var(--line-strong));
+}
+
+@media (hover: none) {
+  .source-span--audio {
+    border-color: var(--clip-accent, var(--line-strong));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .source-span--audio {
+    transition: none;
+  }
+}
+
+.source-span__waveform {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  pointer-events: none;
+}
+
+.source-span--audio .source-span__body {
+  position: relative;
+  min-width: 0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
 /* A scrim keeps the label readable over the frames. */
 .source-span--filmstrip .source-span__body {
   position: relative;

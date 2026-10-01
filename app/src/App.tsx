@@ -415,6 +415,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                       dragState,
                       bpm,
                       quarterPx,
+                      visibleTimelineStartPx,
+                      visibleTimelineWidthPx,
                       signature: timeline.signature,
                       mediaItemsById,
                       thumbnails: timeline.thumbnails,
@@ -460,6 +462,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   span={{
                     bpm,
                     quarterPx,
+                    visibleTimelineStartPx,
+                    visibleTimelineWidthPx,
                     mediaItemsById,
                     thumbnails: timeline.thumbnails,
                     spanFilmstrips: timeline.spanFilmstrips,
