@@ -89,39 +89,32 @@
   margin-right: -4px;
 }
 
-.track-label__fx {
-  flex-shrink: 0;
-  margin-left: auto;
+/* The layer's FX switch, lit while its FX are on, like a device's pressed
+   power button. */
+.track-label--lane .track-label__fx {
   padding: 1px 6px;
   border: 1px solid transparent;
   border-radius: 999px;
-  background: transparent;
   color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-size: 0.72rem;
-  cursor: pointer;
 }
 
-/* Lit while the layer's FX are on, like a device's pressed power button. */
-.track-label__fx[aria-pressed="true"] {
+.track-label--lane .track-label__fx[aria-pressed="true"] {
   border-color: var(--amber);
   background: color-mix(in srgb, var(--amber) 22%, transparent);
   color: var(--amber);
 }
 
-.track-label__fx:hover {
+.track-label--lane .track-label__fx:hover {
   border-color: var(--line);
   color: var(--ink);
 }
 
-.track-label__fx[aria-pressed="true"]:hover {
-  border-color: var(--amber);
+.track-label--lane .track-label__fx[aria-pressed="true"]:hover {
   background: color-mix(in srgb, var(--amber) 32%, transparent);
+  border-color: var(--amber);
   color: var(--amber);
 }
 
-.track-label__fx:focus-visible {
-  outline: 1px solid var(--amber);
-  outline-offset: 1px;
+.track-label--lane .track-label__fx:focus-visible {
+  border-radius: 999px;
 }

@@ -28,7 +28,10 @@ describe("layer FX bypass", () => {
 
   it("defaults layers to on", () => {
     assert.ok(LANES.every((lane) => isLayerFxEnabled(lane)));
-    assert.equal(getRenderedEffects(load(), LANES, CLIPS).length, load().length);
+    assert.equal(
+      getRenderedEffects(load(), LANES, CLIPS).length,
+      load().length,
+    );
   });
 
   it("toggles one layer and skips no-op edits", () => {

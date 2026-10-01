@@ -1020,6 +1020,28 @@
   font-family: 'IBM Plex Mono', monospace;
 }
 
+.track-label__fx {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-inline: 4px;
+  border: none;
+  background: transparent;
+  color: var(--amber);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.72rem;
+}
+
+.track-label__fx:not(:disabled) {
+  cursor: pointer;
+}
+
+.track-label__fx:focus-visible {
+  outline: 1px solid var(--amber);
+  outline-offset: 1px;
+  border-radius: 3px;
+}
+
 .track-row__content {
   min-height: 72px;
   border-bottom: 1px solid var(--line);
