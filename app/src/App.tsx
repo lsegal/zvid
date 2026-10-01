@@ -39,6 +39,7 @@ import {
 } from "./hooks/useProjectStore.ts";
 import { useSessionFiles } from "./hooks/useSessionFiles.ts";
 import { useSessionSharing } from "./hooks/useSessionSharing.ts";
+import { useSourceClipProperties } from "./hooks/useSourceClipProperties.ts";
 import { useTimeline } from "./hooks/useTimeline.ts";
 import { useTimelineEditing } from "./hooks/useTimelineEditing.ts";
 import { useTimelineSelection } from "./hooks/useTimelineSelection.ts";
@@ -150,6 +151,22 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     timelineClips,
     playheadQ,
     bpm,
+  });
+  const sourceClip = useSourceClipProperties({
+    sourceSelection: selection.sourceSelection,
+    sourceTracks,
+    sourceSpans: project.sourceSpans,
+    timelineSourceSpans: selection.timelineSourceSpans,
+    setDragPreviewSourceSpans: selection.setDragPreviewSourceSpans,
+    mediaItemsById,
+    timelineMode,
+    signatureId: project.signatureId,
+    bpm,
+    fps,
+    totalQuarters,
+    isWorkspaceReadOnlyRef: store.isWorkspaceReadOnlyRef,
+    refuseReadOnlyEdit,
+    commitProjectChange,
   });
   const mainAudioModel = useMainAudio({
     mainAudioId: project.mainAudioId,
@@ -536,7 +553,12 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             />
           </section>
 
-          <FxPanel {...fxEditing} {...fxPanel} {...layout} />
+          <FxPanel
+            {...fxEditing}
+            {...fxPanel}
+            {...layout}
+            sourceClip={sourceClip}
+          />
         </div>
       </main>
 

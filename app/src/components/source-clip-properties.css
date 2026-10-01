@@ -1,0 +1,15 @@
+/* The Source Clip Properties widget reuses the FX device frame (fx-chain.css). */
+.source-clip-properties__device .fx-device-panel__name {
+  cursor: default;
+}
+
+.source-clip-properties__fields {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 12px 12px;
+}
+
+.source-clip-properties__device .fx-device-panel__warning {
+  max-width: 324px;
+}
