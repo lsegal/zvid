@@ -487,6 +487,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     addSourceSpanToArrangement:
                       editing.addSourceSpanToArrangement,
                     openSourceSpanMenu: editing.openSourceSpanMenu,
+                    sourceSpanDrag: selection.sourceSpanDrag,
+                    setSourceSpanDrag: selection.setSourceSpanDrag,
                   }}
                 />
               </Timeline>
