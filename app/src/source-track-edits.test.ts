@@ -15,6 +15,7 @@ import {
   duplicateSourceTrack,
   moveSourceTrackTo,
   nextFreeSourceTrackColorIndex,
+  renameSourceTrack,
   type SourceTrackProject,
 } from "./source-track-edits.ts";
 
@@ -27,6 +28,7 @@ type Track = {
 type Span = {
   id: string;
   sourceTrackId: string;
+  label: string;
   mediaPath: string;
   startQ: number;
   tint: string;
@@ -37,6 +39,7 @@ type Clip = {
   sourceSpanId: string;
   sourceTrackId: string;
   laneId: string;
+  label: string;
 };
 type Project = SourceTrackProject<Track, Span, Clip>;
 
@@ -49,6 +52,7 @@ function span(id: string, sourceTrackId: string, startQ: number): Span {
   return {
     id,
     sourceTrackId,
+    label: `Track ${sourceTrackId}`,
     mediaPath: `${sourceTrackId}.mov`,
     startQ,
     tint: swatch.color,
@@ -66,11 +70,36 @@ function makeProject(): Project {
     sourceTracks: [track("a", 0), track("b", 1), track("c", 2)],
     sourceSpans: [span("a1", "a", 0), span("b1", "b", 0), span("b2", "b", 8)],
     clips: [
-      { id: "c1", sourceSpanId: "b1", sourceTrackId: "b", laneId: "1" },
-      { id: "c2", sourceSpanId: "a1", sourceTrackId: "a", laneId: "1" },
-      { id: "c3", sourceSpanId: "b2", sourceTrackId: "b", laneId: "2" },
+      {
+        id: "c1",
+        sourceSpanId: "b1",
+        sourceTrackId: "b",
+        laneId: "1",
+        label: "Track b",
+      },
+      {
+        id: "c2",
+        sourceSpanId: "a1",
+        sourceTrackId: "a",
+        laneId: "1",
+        label: "Track a",
+      },
+      // Renamed on its own.
+      {
+        id: "c3",
+        sourceSpanId: "b2",
+        sourceTrackId: "b",
+        laneId: "2",
+        label: "Opening shot",
+      },
       // A text clip has no source.
-      { id: "c4", sourceSpanId: "", sourceTrackId: "", laneId: "2" },
+      {
+        id: "c4",
+        sourceSpanId: "",
+        sourceTrackId: "",
+        laneId: "2",
+        label: "Title",
+      },
     ],
     effects,
   };
@@ -204,6 +233,42 @@ describe("moveSourceTrackTo", () => {
   });
 });
 
+describe("renameSourceTrack", () => {
+  it("renames the track, its spans and the clips still named after it", () => {
+    const project = makeProject();
+    const renamed = renameSourceTrack(project, "b", "  Wide  ");
+    assert.deepEqual(
+      renamed.sourceTracks.map((item) => item.name),
+      ["Track a", "Wide", "Track c"],
+    );
+    assert.deepEqual(
+      renamed.sourceSpans.map((item) => item.label),
+      ["Track a", "Wide", "Wide"],
+    );
+    assert.deepEqual(
+      renamed.clips.map((item) => item.label),
+      ["Wide", "Track a", "Opening shot", "Title"],
+    );
+    assert.equal(renamed.effects, project.effects);
+  });
+
+  it("allows a name another track already has", () => {
+    const renamed = renameSourceTrack(makeProject(), "b", "Track a");
+    assert.deepEqual(
+      renamed.sourceTracks.map((item) => item.name),
+      ["Track a", "Track a", "Track c"],
+    );
+  });
+
+  it("is unchanged for an empty or same name, or a missing track", () => {
+    const project = makeProject();
+    assert.equal(renameSourceTrack(project, "b", "   "), project);
+    assert.equal(renameSourceTrack(project, "b", ""), project);
+    assert.equal(renameSourceTrack(project, "b", " Track b "), project);
+    assert.equal(renameSourceTrack(project, "missing", "Wide"), project);
+  });
+});
+
 describe("source track history", () => {
   it("undoes and redoes each edit as one step", () => {
     const initial = makeProject();
@@ -214,6 +279,7 @@ describe("source track history", () => {
       ],
       ["Delete Track b", (current) => deleteSourceTrack(current, "b")],
       ["Move Track a down", (current) => moveSourceTrackTo(current, "a", 1)],
+      ["Rename Track b", (current) => renameSourceTrack(current, "b", "Wide")],
     ];
     for (const [label, updater] of edits) {
       const committed = projectHistoryReducer(

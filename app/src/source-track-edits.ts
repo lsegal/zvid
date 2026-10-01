@@ -1,7 +1,7 @@
-// Pure edits to a project's source tracks: duplicate, delete and reorder. A
-// source track owns the source spans whose `sourceTrackId` is its id, and
-// the arrangement clips cut from those spans depend on them, so deleting a
-// track takes both. Each helper returns the project itself when nothing
+// Pure edits to a project's source tracks: duplicate, delete, reorder and
+// rename. A source track owns the source spans whose `sourceTrackId` is its
+// id, and the arrangement clips cut from those spans depend on them, so
+// deleting a track takes both. Each helper returns the project itself when nothing
 // changed so history commits can skip no-op edits.
 import { getSwatch } from "./app/util.ts";
 import { pruneClipEffects, type SessionEffect } from "./fx-stack.ts";
@@ -172,4 +172,41 @@ export function moveSourceTrackTo<
   const [track] = sourceTracks.splice(index, 1);
   sourceTracks.splice(target, 0, track);
   return { ...project, sourceTracks };
+}
+
+/**
+ * Renames source track `trackId` to `name`, trimmed, along with its spans'
+ * labels and the labels of the arrangement clips cut from it that still
+ * carry the old track name; clips named on their own keep their names.
+ * Unchanged when the track is missing, the name is empty, or it is the same.
+ */
+export function renameSourceTrack<
+  Track extends SourceTrackLike,
+  Span extends SourceTrackSpan & { label: string },
+  Clip extends SourceTrackClip & { label: string },
+>(
+  project: SourceTrackProject<Track, Span, Clip>,
+  trackId: string,
+  name: string,
+): SourceTrackProject<Track, Span, Clip> {
+  const trimmed = name.trim();
+  const track = project.sourceTracks.find((item) => item.id === trackId);
+  if (!track || !trimmed || trimmed === track.name) {
+    return project;
+  }
+
+  return {
+    ...project,
+    sourceTracks: project.sourceTracks.map((item) =>
+      item.id === trackId ? { ...item, name: trimmed } : item,
+    ),
+    sourceSpans: project.sourceSpans.map((span) =>
+      span.sourceTrackId === trackId ? { ...span, label: trimmed } : span,
+    ),
+    clips: project.clips.map((clip) =>
+      clip.sourceTrackId === trackId && clip.label === track.name
+        ? { ...clip, label: trimmed }
+        : clip,
+    ),
+  };
 }

@@ -8,12 +8,19 @@ import { getSwatch, pluralize } from "../../app/util.ts";
 import type { useSourceTrackActions } from "../../hooks/useSourceTrackActions.ts";
 import type { useSourceTrackDrop } from "../../hooks/useSourceTrackDrop.ts";
 import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
+import { NameInput } from "../NameInput";
 import { SourceSpan, type SourceSpanContext } from "./SourceSpan";
 
-// What every source track label shares: its grip and its menu.
+type SourceTrackActions = ReturnType<typeof useSourceTrackActions>;
+
+// What every source track label shares: its grip, its menu, and the name
+// field Rename… opens.
 export type SourceTrackLabelContext = {
-  reorder: ReturnType<typeof useSourceTrackActions>["sourceTrackReorder"];
+  reorder: SourceTrackActions["sourceTrackReorder"];
   openMenu: (event: ReactMouseEvent<HTMLElement>, trackId: string) => void;
+  renamingId: string | undefined;
+  commitRename: SourceTrackActions["commitSourceTrackRename"];
+  cancelRename: SourceTrackActions["cancelSourceTrackRename"];
 };
 
 type SourceTrackRowProps = {
@@ -41,6 +48,9 @@ export function SourceTrackRow({
   span,
   reorder,
   openMenu,
+  renamingId,
+  commitRename,
+  cancelRename,
 }: SourceTrackRowProps) {
   const {
     sourceTrackDragTarget,
@@ -67,7 +77,7 @@ export function SourceTrackRow({
         onClick={(event) => {
           if (
             event.target instanceof Element &&
-            event.target.closest(".track-label__grip")
+            event.target.closest(".track-label__grip, .track-label__rename")
           ) {
             return;
           }
@@ -87,18 +97,27 @@ export function SourceTrackRow({
           className="track-label__stripe"
           style={{ backgroundColor: swatch.accent }}
         />
-        <button
-          className="track-label__select"
-          data-source-track-label-id={track.id}
-          type="button"
-        >
-          <span>{track.name}</span>
-          <small>
-            {track.recordingPaths.length
-              ? `${pluralize(track.recordingPaths.length, "file")} / key ${index + 1}`
-              : `Imported media / key ${index + 1}`}
-          </small>
-        </button>
+        {renamingId === track.id ? (
+          <NameInput
+            initialName={track.name}
+            label="Source track name"
+            onCancel={() => cancelRename(track.id)}
+            onSubmit={(name) => commitRename(track.id, name)}
+          />
+        ) : (
+          <button
+            className="track-label__select"
+            data-source-track-label-id={track.id}
+            type="button"
+          >
+            <span>{track.name}</span>
+            <small>
+              {track.recordingPaths.length
+                ? `${pluralize(track.recordingPaths.length, "file")} / key ${index + 1}`
+                : `Imported media / key ${index + 1}`}
+            </small>
+          </button>
+        )}
       </div>
       <section
         aria-label={`Drop media into ${track.name}`}
