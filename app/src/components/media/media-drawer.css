@@ -488,3 +488,34 @@
     display: none;
   }
 }
+
+/* The image a media item drags with: its thumbnail and name. It is only on
+   the page while the browser snapshots it, so it sits off screen. */
+.media-drag-image {
+  position: fixed;
+  top: -1000px;
+  left: -1000px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 260px;
+  padding: 5px 10px 5px 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--bg-panel);
+  color: var(--ink);
+  font-size: 0.78rem;
+  pointer-events: none;
+}
+
+.media-drag-image .media-thumb {
+  width: 64px;
+  aspect-ratio: 16 / 10;
+  border-radius: 5px;
+}
+
+.media-drag-image__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
