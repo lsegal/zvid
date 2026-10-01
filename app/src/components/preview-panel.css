@@ -60,6 +60,30 @@
   flex: none;
 }
 
+/* The Timeline | Media tabs, slimmed to fit the header strip. */
+.preview-panel__tabs {
+  flex: none;
+  gap: 2px;
+  margin-left: -6px;
+  padding: 2px;
+}
+
+.preview-panel__tabs button {
+  padding: 3px 8px;
+  font-size: 0.62rem;
+}
+
+.preview-panel__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-panel__header strong.preview-panel__title {
+  flex: 0 1 auto;
+}
+
 .preview-panel__clip {
   flex: 1;
   min-width: 0;
@@ -74,6 +98,7 @@
 
 .preview-panel__mode {
   flex: none;
+  margin-left: auto;
   padding: 3px 8px;
   border-radius: 999px;
   border: 1px solid rgba(124, 161, 255, 0.4);

@@ -1,0 +1,164 @@
+/* The Media tab covers the program monitor, which stays mounted beneath it
+   so switching back to the Timeline tab doesn't rebuild the compositor. */
+.media-preview {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #07080d;
+}
+
+.media-preview--empty {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.media-preview__picture {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Letterboxed to the monitor. */
+.media-preview__video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+.media-preview__audio {
+  position: relative;
+  width: 100%;
+  height: 60%;
+  display: grid;
+  place-items: center;
+}
+
+.media-preview__waveform {
+  position: absolute;
+  top: 0;
+  height: 100%;
+}
+
+.media-preview__glyph {
+  width: 64px;
+  height: 64px;
+  color: rgba(214, 236, 245, 0.6);
+}
+
+.media-preview__transport {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--line);
+  background: rgba(17, 19, 28, 0.92);
+}
+
+.media-preview__play {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(10, 12, 20, 0.36);
+  color: var(--ink);
+}
+
+.media-preview__play:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.media-preview__play > svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* The scrub bar's thumb is the media playhead. */
+.media-preview__scrub {
+  --scrub-track: rgba(255, 255, 255, 0.12);
+  flex: 1;
+  min-width: 40px;
+  height: 18px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  appearance: none;
+}
+
+.media-preview__scrub:focus,
+.media-preview__scrub:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.media-preview__scrub::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--amber) 0 var(--progress, 0%),
+    var(--scrub-track) var(--progress, 0%) 100%
+  );
+}
+
+.media-preview__scrub::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--scrub-track);
+}
+
+.media-preview__scrub::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--amber);
+}
+
+.media-preview__scrub::-webkit-slider-thumb {
+  width: 3px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 2px;
+  background: var(--ink);
+  appearance: none;
+}
+
+.media-preview__scrub::-moz-range-thumb {
+  width: 3px;
+  height: 14px;
+  border: 0;
+  border-radius: 2px;
+  background: var(--ink);
+}
+
+.media-preview__scrub:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px rgba(246, 183, 60, 0.45);
+}
+
+.media-preview__scrub:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 3px rgba(246, 183, 60, 0.45);
+}
+
+.media-preview__time {
+  flex: none;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

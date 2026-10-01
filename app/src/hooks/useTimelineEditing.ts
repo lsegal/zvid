@@ -21,6 +21,7 @@ import { useClipInsertion } from "./useClipInsertion.ts";
 import type { useFxEditing } from "./useFxEditing.ts";
 import { useLayerActions } from "./useLayerActions.ts";
 import type { useMainAudio } from "./useMainAudio.ts";
+import type { MediaPreviewModel } from "./useMediaPreview.ts";
 import type { usePlayback } from "./usePlayback.ts";
 import type {
   ProjectStore,
@@ -110,6 +111,7 @@ export type TimelineEditingInputs = {
   clipClipboardRef: RefObject<ClipClipboard | null>;
   isPlaying: boolean;
   setIsPlaying: Dispatch<SetStateAction<boolean>>;
+  mediaPreview: Pick<MediaPreviewModel, "previewTab" | "toggleMediaPlayback">;
   setStatus: Dispatch<SetStateAction<string>>;
 };
 
@@ -138,6 +140,7 @@ export function useTimelineEditing({
   clipClipboardRef,
   isPlaying,
   setIsPlaying,
+  mediaPreview,
   setStatus,
 }: TimelineEditingInputs) {
   const {
@@ -255,6 +258,8 @@ export function useTimelineEditing({
     clipCount: playableClipCount,
     dragState,
     isPlaying,
+    isMediaTabActive: mediaPreview.previewTab === "media",
+    toggleMediaPlayback: mediaPreview.toggleMediaPlayback,
     setIsPlaying,
     spaceHoldRef,
     startPlayback,

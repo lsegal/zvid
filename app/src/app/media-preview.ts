@@ -1,9 +1,10 @@
 // The preview pane's Timeline and Media tabs: which tab a viewer last had
 // open, the Media tab's time readout, and the rule that only one of the
 // timeline and the media preview plays at a time.
-import { secondsToQuarters } from "./timeline-math.ts";
+
 import { formatTimeValue, type TimeValueFormat } from "../time-value.ts";
 import { PREVIEW_TAB_STORAGE_KEY } from "./constants.ts";
+import { secondsToQuarters } from "./timeline-math.ts";
 
 export type PreviewTab = "timeline" | "media";
 

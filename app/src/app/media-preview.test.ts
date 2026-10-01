@@ -82,7 +82,11 @@ describe("reducePreviewPlayback", () => {
       { ...idle, tab: "media", timelinePlaying: true },
       { type: "toggle-active" },
     );
-    assert.deepEqual(onMedia, { tab: "media", timelinePlaying: false, mediaPlaying: true });
+    assert.deepEqual(onMedia, {
+      tab: "media",
+      timelinePlaying: false,
+      mediaPlaying: true,
+    });
     assert.deepEqual(
       reducePreviewPlayback(onMedia, { type: "toggle-active" }),
       { ...idle, tab: "media" },

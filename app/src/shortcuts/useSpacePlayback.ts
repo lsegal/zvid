@@ -7,6 +7,9 @@ export type SpacePlaybackInputs = {
   clipCount: number;
   dragState: DragState | null;
   isPlaying: boolean;
+  // With the preview pane's Media tab open, Space plays the media instead.
+  isMediaTabActive: boolean;
+  toggleMediaPlayback: () => void;
   setIsPlaying: (isPlaying: boolean) => void;
   spaceHoldRef: { current: ReturnType<typeof createSpaceHold> };
   startPlayback: () => void;
@@ -17,12 +20,15 @@ export type SpacePlaybackInputs = {
 // Space toggles playback from anywhere except text entry and open menus or
 // dialogs. It runs in the capture phase so a focused button, menu trigger
 // or slider never sees the key and cannot also activate. Playback toggles
-// on release, so holding Space to pan the timeline never starts it.
+// on release, so holding Space to pan the timeline never starts it. With
+// the preview pane's Media tab open, it plays the previewed media instead.
 export function useSpacePlayback({
   cancelScrubPlaybackResume,
   clipCount,
   dragState,
   isPlaying,
+  isMediaTabActive,
+  toggleMediaPlayback,
   setIsPlaying,
   spaceHoldRef,
   startPlayback,
@@ -68,12 +74,16 @@ export function useSpacePlayback({
       event.preventDefault();
       event.stopPropagation();
       setSpaceHeldClass(false);
-      if (
-        !spaceHold.release() ||
-        dragState ||
-        timelineDragState ||
-        !clipCount
-      ) {
+      if (!spaceHold.release()) {
+        return;
+      }
+
+      if (isMediaTabActive) {
+        toggleMediaPlayback();
+        return;
+      }
+
+      if (dragState || timelineDragState || !clipCount) {
         return;
       }
 
@@ -103,11 +113,13 @@ export function useSpacePlayback({
     cancelScrubPlaybackResume,
     clipCount,
     dragState,
+    isMediaTabActive,
     isPlaying,
     setIsPlaying,
     spaceHoldRef,
     startPlayback,
     timelineDragState,
     timelineScrollRef,
+    toggleMediaPlayback,
   ]);
 }

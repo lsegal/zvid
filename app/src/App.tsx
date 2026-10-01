@@ -30,6 +30,7 @@ import { useFxPanelModel } from "./hooks/useFxPanelModel.ts";
 import { useMainAudio } from "./hooks/useMainAudio.ts";
 import { useMediaCacheSession } from "./hooks/useMediaCacheSession.ts";
 import { useMediaImport } from "./hooks/useMediaImport.ts";
+import { useMediaPreview } from "./hooks/useMediaPreview.ts";
 import { usePlayback } from "./hooks/usePlayback.ts";
 import { usePreview } from "./hooks/usePreview.ts";
 import { usePreviewVolume } from "./hooks/usePreviewVolume.ts";
@@ -106,6 +107,11 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     () => new Map(lanes.map((lane, index) => [lane.id, index])),
     [lanes],
   );
+  const mediaPreview = useMediaPreview({
+    isPlaying,
+    setIsPlaying,
+    mediaItemsById,
+  });
   const fxEditing = useFxEditing({
     dispatchProject: store.dispatchProject,
     commitProjectChange,
@@ -281,6 +287,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     clipClipboardRef,
     isPlaying,
     setIsPlaying,
+    mediaPreview,
     setStatus,
   });
   const sessionFiles = useSessionFiles({
@@ -533,6 +540,14 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 isTimelineAudibleScrubbing={playback.isTimelineAudibleScrubbing}
                 mainAudio={mainAudioModel.mainAudio}
                 mediaItems={mediaItems}
+                mediaPreview={mediaPreview}
+                mediaTimeFormat={{
+                  timelineMode,
+                  bpm,
+                  fps,
+                  signature: timeline.signature,
+                }}
+                previewVolume={previewVolume.previewVolume}
                 playheadQ={playheadQ}
                 playheadSignal={playheadSignal}
                 previewLaneId={selection.previewLaneId}
