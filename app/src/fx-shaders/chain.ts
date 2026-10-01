@@ -345,9 +345,10 @@ export class EffectChainRenderer {
     height: number,
     count: number,
   ) {
-    const { maxTextureSize, sizeBucket } = this;
-    const bucketWidth = bucketTargetSize(width, maxTextureSize, sizeBucket);
-    const bucketHeight = bucketTargetSize(height, maxTextureSize, sizeBucket);
+    const bucket = (size: number) =>
+      bucketTargetSize(size, this.maxTextureSize, this.sizeBucket);
+    const bucketWidth = bucket(width);
+    const bucketHeight = bucket(height);
     return pool.get(`${bucketWidth}x${bucketHeight}`, () =>
       Array.from({ length: count }, () =>
         this.createTarget(bucketWidth, bucketHeight),
