@@ -24,6 +24,7 @@ import {
   readSessionFills,
   readSessionFxClips,
   readSessionTexts,
+  readWarpAnchorSeconds,
 } from "../session-save.ts";
 import {
   MIN_CANVAS_DIMENSION,
@@ -159,11 +160,12 @@ export function sessionToProject(
       durationSeconds: Math.max(1, clip.frameCount) / fps,
       trimStartSeconds,
       // `clipStart + frameOffset` is the content start in the warp markers'
-      // seconds, before any capture offset.
+      // seconds, before any capture offset. A start-trimmed span's warp
+      // stays anchored where it was before the trim.
       warp: createClipWarp(
         clip.warpMarkers,
         ((clip.clipStart ?? 0) + (clip.frameOffset ?? 0)) / fps,
-        trimStartSeconds,
+        readWarpAnchorSeconds(clip, trimStartSeconds),
         bpm,
       ),
       tint: swatch.color,

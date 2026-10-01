@@ -1,13 +1,19 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { warpSourceTime } from "../clip-warp.ts";
 import type { MediaItem } from "../media.ts";
+import type { LvpSession } from "../session.ts";
+import { projectToLvpSession } from "../session-save.ts";
+import { retimeSourceSpan } from "../source-span-edit.ts";
 import { DEFAULT_LANES, INITIAL_PROJECT_STATE } from "./constants.ts";
 import {
   buildStandaloneProject,
   mergeMediaItemsById,
   patchProjectState,
   pickMediaByPath,
+  sessionToProject,
 } from "./session-project.ts";
+import { quartersToSeconds } from "./timeline-math.ts";
 
 const media = (extra: Partial<MediaItem> = {}): MediaItem => ({
   id: "a",
@@ -84,5 +90,140 @@ describe("buildStandaloneProject", () => {
       ],
     );
     assert.equal(project.sourceTracks[1].name, "b");
+  });
+});
+
+describe("a start-trimmed warped source clip", () => {
+  const bpm = 120;
+  const fps = 30;
+  // Plays the source at half speed for 4 beats, then at 3/4 speed.
+  const session: LvpSession = {
+    mainTracks: [{ id: "main-1", name: "Layer 1" }],
+    tracks: [{ id: "t1", name: "Cam" }],
+    clips: [
+      {
+        id: "c1",
+        trackId: "t1",
+        frameStart: 0,
+        frameCount: 240,
+        clipStart: 30,
+        captureOffset: 12,
+        filePath: "/media/cam.mov",
+        warpMarkers: [
+          { id: "w0", clipId: "c1", beatTime: 0, secTime: 0 },
+          { id: "w1", clipId: "c1", beatTime: 4, secTime: 1 },
+          { id: "w2", clipId: "c1", beatTime: 8, secTime: 2.5 },
+        ],
+      },
+    ],
+    selections: [
+      { id: 7, trackId: "t1", mainTrackId: "main-1", frameStart: 90, frameEnd: 150 },
+    ],
+    timeline: { bpm, fps },
+  };
+
+  // The project with its span's first 2 beats (1 s) trimmed off.
+  function trimmedProject() {
+    const project = sessionToProject(session, []);
+    const [span] = project.sourceSpans;
+    const durationQ = (span.durationSeconds * bpm) / 60;
+    return {
+      ...project,
+      sourceSpans: [retimeSourceSpan(span, span.startQ + 2, durationQ - 2, bpm)],
+    };
+  }
+
+  function saveAndReopen(project: ReturnType<typeof trimmedProject>) {
+    const saved = projectToLvpSession(
+      {
+        ...project,
+        timelineMode: "musical",
+        snapEnabled: true,
+        clips: project.arrangementClips,
+        mediaItems: [],
+      },
+      { playheadQ: 0 },
+    );
+    return sessionToProject(JSON.parse(JSON.stringify(saved)), []);
+  }
+
+  // Source seconds a clip plays at each song second from `fromSeconds`.
+  function playedSeconds(
+    clip: { warp?: Parameters<typeof warpSourceTime>[0] },
+    sourceOffsetSeconds: number,
+    fromSeconds: number,
+  ) {
+    assert.ok(clip.warp);
+    const { warp } = clip;
+    return [0, 0.5, 1, 1.75, 2.5, 4].map((seconds) =>
+      warpSourceTime(warp, fromSeconds + seconds + sourceOffsetSeconds, bpm)
+        .seconds,
+    );
+  }
+
+  it("plays the same media after a save and reopen", () => {
+    const before = trimmedProject();
+    const after = saveAndReopen(before);
+    const offset = (span: (typeof before.sourceSpans)[number]) =>
+      span.trimStartSeconds - quartersToSeconds(span.startQ, bpm);
+    for (const [beforeSeconds, afterSeconds] of [
+      [
+        playedSeconds(before.sourceSpans[0], offset(before.sourceSpans[0]), 1),
+        playedSeconds(after.sourceSpans[0], offset(after.sourceSpans[0]), 1),
+      ],
+      [
+        playedSeconds(
+          before.arrangementClips[0],
+          before.arrangementClips[0].sourceOffsetSeconds ?? 0,
+          3,
+        ),
+        playedSeconds(
+          after.arrangementClips[0],
+          after.arrangementClips[0].sourceOffsetSeconds ?? 0,
+          3,
+        ),
+      ],
+    ]) {
+      afterSeconds.forEach((seconds, index) => {
+        assert.ok(
+          Math.abs(seconds - beforeSeconds[index]) < 1e-9,
+          `${seconds} != ${beforeSeconds[index]}`,
+        );
+      });
+    }
+    assert.equal(after.sourceSpans[0].trimStartSeconds, 72 / fps);
+  });
+
+  it("anchors its warp at its source start in older sessions", () => {
+    const saved = projectToLvpSession(
+      {
+        ...trimmedProject(),
+        timelineMode: "musical",
+        snapEnabled: true,
+        clips: [],
+        mediaItems: [],
+      },
+      { playheadQ: 0 },
+    );
+    const [clip] = saved.clips ?? [];
+    assert.equal(clip?.warpAnchorSeconds, 42 / fps);
+    delete clip.warpAnchorSeconds;
+    const [span] = sessionToProject(saved, []).sourceSpans;
+    assert.equal(span.warp?.anchorSeconds, span.trimStartSeconds);
+  });
+
+  it("writes no warp anchor for an untrimmed span", () => {
+    const project = sessionToProject(session, []);
+    const saved = projectToLvpSession(
+      {
+        ...project,
+        timelineMode: "musical",
+        snapEnabled: true,
+        clips: [],
+        mediaItems: [],
+      },
+      { playheadQ: 0 },
+    );
+    assert.equal(saved.clips?.[0].warpAnchorSeconds, undefined);
   });
 });
