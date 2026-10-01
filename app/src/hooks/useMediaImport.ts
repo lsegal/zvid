@@ -49,12 +49,7 @@ export function useMediaImport({
   appShellRef,
   setStatus,
 }: MediaImportInputs) {
-  const {
-    mediaItems: projectMediaItems,
-    sourceTracks,
-    sourceSpans,
-    mainAudioId,
-  } = project;
+  const { mediaItems: projectMediaItems, sourceSpans, mainAudioId } = project;
   const { refuseReadOnlyEdit, commitProjectChange } = store;
   const {
     mediaItems,
@@ -93,13 +88,13 @@ export function useMediaImport({
   });
   const sourceTrackDrop = useSourceTrackDrop({
     mediaItems,
-    sourceTracks,
     appShellRef,
     setIsMainAudioDropTarget,
     importMediaIntoSourceTrack: mediaCommands.importMediaIntoSourceTrack,
+    setStatus,
   });
   const mainAudioDrop = useMainAudioDrop({
-    sourceTrackDragTarget: sourceTrackDrop.sourceTrackDragTarget,
+    isSourceTrackFileDragActive: sourceTrackDrop.isSourceTrackFileDragActive,
     clearSourceTrackDragState: sourceTrackDrop.clearSourceTrackDragState,
     setIsMainAudioDropTarget,
     replaceMainAudioFromFile,

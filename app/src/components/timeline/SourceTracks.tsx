@@ -4,9 +4,8 @@ import type {
   ArrangementClip,
   SourceSpan as SourceSpanClip,
   SourceTrack,
-  SourceTrackDropTarget,
 } from "../../app/types.ts";
-import { getDraggedMediaFiles, pluralize } from "../../app/util.ts";
+import { pluralize } from "../../app/util.ts";
 import type { useSourceTrackDrop } from "../../hooks/useSourceTrackDrop.ts";
 import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
 import { formatSourceTracksSummary } from "../../source-tracks-section.ts";
@@ -21,10 +20,6 @@ type SourceTracksProps = {
   isSourceTracksCollapsed: boolean;
   setSourceTracksCollapsed: (collapsed: boolean) => void;
   drop: ReturnType<typeof useSourceTrackDrop>;
-  importMediaIntoSourceTrack: (
-    files: File[],
-    target: SourceTrackDropTarget,
-  ) => Promise<void>;
   clips: ArrangementClip[];
   setSelectedClipId: Dispatch<SetStateAction<string | undefined>>;
   onImport: () => void;
@@ -43,7 +38,6 @@ export function SourceTracks({
   isSourceTracksCollapsed,
   setSourceTracksCollapsed,
   drop,
-  importMediaIntoSourceTrack,
   clips,
   setSelectedClipId,
   onImport,
@@ -58,9 +52,6 @@ export function SourceTracks({
     sourceTrackDragPreviewDetail,
     sourceTrackDragPreviewOverflow,
     isNewSourceTrackDropTarget,
-    clearSourceTrackDragState,
-    scheduleSourceTrackDragClear,
-    handleSourceTrackDragEvent,
   } = drop;
   const isSourceHeaderDropTarget =
     !sourceTracks.length || isSourceTracksCollapsed;
@@ -81,42 +72,6 @@ export function SourceTracks({
         data-source-track-drop-target={
           isSourceHeaderDropTarget ? "new-track" : undefined
         }
-        onDragEnter={(event) => {
-          if (isSourceHeaderDropTarget) {
-            handleSourceTrackDragEvent(event, {
-              kind: "new-track",
-            });
-          }
-        }}
-        onDragLeave={() => {
-          if (isSourceHeaderDropTarget) {
-            scheduleSourceTrackDragClear();
-          }
-        }}
-        onDragOver={(event) => {
-          if (isSourceHeaderDropTarget) {
-            handleSourceTrackDragEvent(event, {
-              kind: "new-track",
-            });
-          }
-        }}
-        onDrop={(event) => {
-          if (!isSourceHeaderDropTarget) {
-            return;
-          }
-
-          const files = getDraggedMediaFiles(event.dataTransfer);
-          if (!files.length) {
-            return;
-          }
-
-          event.preventDefault();
-          event.stopPropagation();
-          clearSourceTrackDragState();
-          void importMediaIntoSourceTrack(files, {
-            kind: "new-track",
-          });
-        }}
       >
         <div className="track-label track-label--header">
           {sourceTracks.length ? (
@@ -173,14 +128,16 @@ export function SourceTracks({
               index={index}
               spans={sourceSpansByTrack.get(track.id) ?? []}
               drop={drop}
-              importMediaIntoSourceTrack={importMediaIntoSourceTrack}
               onSelect={selectSource}
               gridStyle={gridStyle}
               span={span}
             />
           ))}
       {isSourceTrackFileDragActive && !isSourceTracksCollapsed ? (
-        <section className="track-row track-row--source track-row--source-drop">
+        <section
+          className="track-row track-row--source track-row--source-drop"
+          data-source-track-drop-target="new-track"
+        >
           <div className="track-label track-label--source track-label--source-drop">
             <span className="track-label__stripe" />
             <div>
@@ -191,33 +148,6 @@ export function SourceTracks({
           <section
             aria-label="Drop media into a new source track"
             className={`track-row__content track-row__content--source track-row__content--source-drop ${isNewSourceTrackDropTarget ? "is-drop-target" : ""}`}
-            data-source-track-drop-target="new-track"
-            onDragEnter={(event) =>
-              handleSourceTrackDragEvent(event, {
-                kind: "new-track",
-              })
-            }
-            onDragLeave={() => {
-              scheduleSourceTrackDragClear();
-            }}
-            onDragOver={(event) =>
-              handleSourceTrackDragEvent(event, {
-                kind: "new-track",
-              })
-            }
-            onDrop={(event) => {
-              const files = getDraggedMediaFiles(event.dataTransfer);
-              if (!files.length) {
-                return;
-              }
-
-              event.preventDefault();
-              event.stopPropagation();
-              clearSourceTrackDragState();
-              void importMediaIntoSourceTrack(files, {
-                kind: "new-track",
-              });
-            }}
             style={gridStyle}
           >
             {sourceTrackDragPreview ? (

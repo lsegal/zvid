@@ -160,7 +160,8 @@ export type SourceTrackDragPreview = {
   fileCount: number;
   names: string[];
   label: string;
-  status: "loading" | "ready" | "error";
+  // `pending` while the browser hides the dragged files, until drop.
+  status: "pending" | "loading" | "ready" | "error";
   kind?: MediaKind;
   durationSeconds?: number;
   thumbnailUrl?: string;

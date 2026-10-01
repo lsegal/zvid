@@ -1,9 +1,8 @@
 import type {
   SourceSpan as SourceSpanClip,
   SourceTrack,
-  SourceTrackDropTarget,
 } from "../../app/types.ts";
-import { getDraggedMediaFiles, getSwatch, pluralize } from "../../app/util.ts";
+import { getSwatch, pluralize } from "../../app/util.ts";
 import type { useSourceTrackDrop } from "../../hooks/useSourceTrackDrop.ts";
 import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
 import { SourceSpan, type SourceSpanContext } from "./SourceSpan";
@@ -13,23 +12,19 @@ type SourceTrackRowProps = {
   index: number;
   spans: SourceSpanClip[];
   drop: ReturnType<typeof useSourceTrackDrop>;
-  importMediaIntoSourceTrack: (
-    files: File[],
-    target: SourceTrackDropTarget,
-  ) => Promise<void>;
   onSelect: (sourceTrackId: string) => void;
   gridStyle: ReturnType<typeof useTimelineViewport>["gridStyle"];
   span: SourceSpanContext;
 };
 
 // A source track: its label, its spans, and the preview of media dragged
-// over it to import into it.
+// over it to import into it. Media dropped anywhere on the row, label and
+// spans included, goes to this track.
 export function SourceTrackRow({
   track,
   index,
   spans,
   drop,
-  importMediaIntoSourceTrack,
   onSelect,
   gridStyle,
   span,
@@ -39,9 +34,6 @@ export function SourceTrackRow({
     sourceTrackDragPreview,
     sourceTrackDragPreviewDetail,
     sourceTrackDragPreviewOverflow,
-    clearSourceTrackDragState,
-    scheduleSourceTrackDragClear,
-    handleSourceTrackDragEvent,
   } = drop;
   const swatch = getSwatch(track.colorIndex);
   const isDropTarget =
@@ -49,7 +41,11 @@ export function SourceTrackRow({
     sourceTrackDragTarget.trackId === track.id;
 
   return (
-    <section className="track-row track-row--source">
+    <section
+      className="track-row track-row--source"
+      data-source-track-drop-target="track"
+      data-source-track-id={track.id}
+    >
       <button
         className="track-label track-label--source"
         onClick={() => onSelect(track.id)}
@@ -71,37 +67,6 @@ export function SourceTrackRow({
       <section
         aria-label={`Drop media into ${track.name}`}
         className={`track-row__content track-row__content--source ${isDropTarget ? "is-drop-target" : ""}`}
-        data-source-track-drop-target="track"
-        data-source-track-id={track.id}
-        onDragEnter={(event) =>
-          handleSourceTrackDragEvent(event, {
-            kind: "track",
-            trackId: track.id,
-          })
-        }
-        onDragLeave={() => {
-          scheduleSourceTrackDragClear();
-        }}
-        onDragOver={(event) =>
-          handleSourceTrackDragEvent(event, {
-            kind: "track",
-            trackId: track.id,
-          })
-        }
-        onDrop={(event) => {
-          const files = getDraggedMediaFiles(event.dataTransfer);
-          if (!files.length) {
-            return;
-          }
-
-          event.preventDefault();
-          event.stopPropagation();
-          clearSourceTrackDragState();
-          void importMediaIntoSourceTrack(files, {
-            kind: "track",
-            trackId: track.id,
-          });
-        }}
         style={gridStyle}
       >
         {spans.map((clip) => (

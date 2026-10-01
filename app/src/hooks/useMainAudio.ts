@@ -7,7 +7,7 @@ import {
 } from "react";
 import { PALETTE } from "../app/constants.ts";
 import { patchProjectState } from "../app/session-project.ts";
-import type { ProjectState, SourceTrackDropTarget } from "../app/types.ts";
+import type { ProjectState } from "../app/types.ts";
 import { hasDraggedFileData, logClient } from "../app/util.ts";
 import { getHarness } from "../harness";
 import { withMainAudio } from "../main-audio";
@@ -216,7 +216,7 @@ export function getMainAudioSkeletonStyle({
 }
 
 export type MainAudioDropInputs = {
-  sourceTrackDragTarget: SourceTrackDropTarget | null;
+  isSourceTrackFileDragActive: boolean;
   clearSourceTrackDragState: () => void;
   setIsMainAudioDropTarget: (isDropTarget: boolean) => void;
   replaceMainAudioFromFile: (file: File) => Promise<void>;
@@ -227,7 +227,7 @@ export type MainAudioDropInputs = {
 // track drop, whose state useSourceTrackDrop declares after useMainAudio, so
 // useMediaImport calls this hook after it.
 export function useMainAudioDrop({
-  sourceTrackDragTarget,
+  isSourceTrackFileDragActive,
   clearSourceTrackDragState,
   setIsMainAudioDropTarget,
   replaceMainAudioFromFile,
@@ -241,7 +241,7 @@ export function useMainAudioDrop({
 
       // The Audio lane never hosts source tracks, so a drag over it cancels any
       // pending source track drop.
-      if (sourceTrackDragTarget) {
+      if (isSourceTrackFileDragActive) {
         clearSourceTrackDragState();
       }
 
@@ -254,7 +254,7 @@ export function useMainAudioDrop({
     [
       clearSourceTrackDragState,
       setIsMainAudioDropTarget,
-      sourceTrackDragTarget,
+      isSourceTrackFileDragActive,
     ],
   );
 

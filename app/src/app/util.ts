@@ -1,6 +1,6 @@
 import { hasMediaExtension } from "../harness/media-extensions.ts";
 import { PALETTE } from "./constants.ts";
-import type { Lane } from "./types.ts";
+import type { Lane, SourceTrackDropTarget } from "./types.ts";
 
 export function clamp(value: number, minimum: number, maximum: number) {
   return Math.max(minimum, Math.min(maximum, value));
@@ -51,12 +51,88 @@ export function getDraggedMediaFiles(dataTransfer: DataTransfer | null) {
           .map((item) => item.getAsFile())
           .filter((file): file is File => Boolean(file));
 
-  return itemFiles.filter(
-    (file) =>
-      file.type.startsWith("video/") ||
-      file.type.startsWith("audio/") ||
-      hasMediaExtension(file.name),
+  return itemFiles.filter((file) => isMediaFile(file));
+}
+
+function isMediaFileType(type: string) {
+  return type.startsWith("video/") || type.startsWith("audio/");
+}
+
+export function isMediaFile(file: { name: string; type: string }) {
+  return isMediaFileType(file.type) || hasMediaExtension(file.name);
+}
+
+type DataTransferLike = {
+  types: ArrayLike<string>;
+  files?: ArrayLike<{ name: string; type: string }> | null;
+  items?: ArrayLike<{ kind: string; type: string }> | null;
+};
+
+/**
+ * `accept`: media may be dragged, with `fileCount` media files when known (0
+ * when the browser exposes no file details); `reject`: only non-media files.
+ */
+export type SourceTrackDragState =
+  | { kind: "accept"; fileCount: number }
+  | { kind: "reject" }
+  | { kind: "none" };
+
+/**
+ * Classifies an in-progress file drag over the source tracks. During
+ * `dragover` browsers hide `files`, so this relies on the file items' MIME
+ * types, accepting an empty type since the OS may not know the format; the
+ * dropped files themselves are filtered with getDraggedMediaFiles on `drop`.
+ */
+export function getSourceTrackDragState(
+  dataTransfer: DataTransferLike | null,
+): SourceTrackDragState {
+  if (!dataTransfer) {
+    return { kind: "none" };
+  }
+
+  const files = Array.from(dataTransfer.files ?? []);
+  const fileItems = Array.from(dataTransfer.items ?? []).filter(
+    (item) => item.kind === "file",
   );
+  const fileCount = files.length
+    ? files.filter((file) => isMediaFile(file)).length
+    : fileItems.filter((item) => !item.type || isMediaFileType(item.type))
+        .length;
+  if (fileCount) {
+    return { kind: "accept", fileCount };
+  }
+
+  if (files.length || fileItems.length) {
+    return { kind: "reject" };
+  }
+
+  return Array.from(dataTransfer.types).includes("Files")
+    ? { kind: "accept", fileCount: 0 }
+    : { kind: "none" };
+}
+
+/**
+ * The source track drop target containing a drag event's target: a track row
+ * (its label and clips included), the new-track drop row, or the header while
+ * it takes drops. Anywhere else is no target.
+ */
+export function getSourceTrackDropTarget(
+  target: EventTarget | null,
+): SourceTrackDropTarget | null {
+  if (!target || typeof (target as Element).closest !== "function") {
+    return null;
+  }
+
+  const element = (target as Element).closest(
+    "[data-source-track-drop-target]",
+  );
+  const kind = element?.getAttribute("data-source-track-drop-target");
+  const trackId = element?.getAttribute("data-source-track-id");
+  if (kind === "track" && trackId) {
+    return { kind: "track", trackId };
+  }
+
+  return kind === "new-track" ? { kind: "new-track" } : null;
 }
 
 export function hasDraggedFileData(dataTransfer: DataTransfer | null) {
