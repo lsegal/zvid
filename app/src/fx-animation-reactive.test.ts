@@ -12,6 +12,7 @@ import {
   findReactiveImpulse,
   placeOnsets,
   REACTIVE_FRAME_RATE,
+  type ReactiveOnset,
   reactiveEnvelope,
   reactiveOffset,
   resolveReactiveParameters,
@@ -103,6 +104,37 @@ describe("reactiveEnvelope", () => {
   });
 });
 
+// The original walk over every hit up to `time`, kept as a reference for
+// the search in `findReactiveImpulse`.
+function scanReactiveImpulse(
+  onsets: readonly ReactiveOnset[],
+  time: number,
+  lengthFrames: number,
+  fps: number,
+) {
+  const framesBetween = (from: number, to: number) => (to - from) * fps;
+  const isRunning = (start: number, at: number) =>
+    framesBetween(start, at) < lengthFrames - 1e-6;
+  let start: number | undefined;
+  let strength = 0;
+  for (const onset of onsets) {
+    if (framesBetween(time, onset.time) > 1e-6) {
+      break;
+    }
+    const running = start !== undefined && isRunning(start, onset.time);
+    strength = running ? Math.max(strength, onset.strength) : onset.strength;
+    start = onset.time;
+  }
+  if (start === undefined || !isRunning(start, time)) {
+    return undefined;
+  }
+  return {
+    seed: Math.round(start * 60),
+    strength,
+    u: Math.max(0, framesBetween(start, time)) / lengthFrames,
+  };
+}
+
 describe("findReactiveImpulse", () => {
   it("runs for the timing's frames after a hit", () => {
     const onsets = [{ time: 1, strength: 0.8 }];
@@ -144,6 +176,83 @@ describe("findReactiveImpulse", () => {
       { time: 2, strength: 0.3 },
     ];
     assert.equal(findReactiveImpulse(onsets, 2.1, 12)?.strength, 0.3);
+  });
+
+  it("matches a full scan of the hits for any time", () => {
+    let state = 628;
+    const random = () => {
+      state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+      return state / 0x100000000;
+    };
+    for (let round = 0; round < 200; round++) {
+      const onsets = Array.from({ length: Math.floor(random() * 40) }, () => ({
+        time: Math.round(random() * 600) / 60,
+        strength: random(),
+      })).sort((left, right) => left.time - right.time);
+      const lengthFrames = 1 + Math.floor(random() * 30);
+      const fps = [24, 30, 60][Math.floor(random() * 3)];
+      for (let query = 0; query < 50; query++) {
+        // Half the queries land exactly on a hit or a frame boundary.
+        const time =
+          query % 2 && onsets.length
+            ? onsets[Math.floor(random() * onsets.length)].time +
+              Math.floor(random() * (lengthFrames + 2)) / fps
+            : random() * 11 - 0.5;
+        assert.deepEqual(
+          findReactiveImpulse(onsets, time, lengthFrames, fps),
+          scanReactiveImpulse(onsets, time, lengthFrames, fps),
+          `round ${round}, time ${time}`,
+        );
+      }
+    }
+  });
+
+  it("neither sorts nor copies the hits", () => {
+    const onsets = Array.from({ length: 10_000 }, (_, index) => ({
+      time: index / 60,
+      strength: (index % 7) / 7,
+    }));
+    // node:test can't mock methods on Array.prototype, itself an array.
+    const { sort, slice } = Array.prototype;
+    const iterator = Array.prototype[Symbol.iterator];
+    const calls: string[] = [];
+    Array.prototype.sort = function (...args) {
+      calls.push("sort");
+      return sort.apply(this, args);
+    };
+    Array.prototype.slice = function (...args) {
+      calls.push("slice");
+      return slice.apply(this, args);
+    };
+    Array.prototype[Symbol.iterator] = function () {
+      calls.push("iterate");
+      return iterator.call(this);
+    };
+    try {
+      for (let query = 0; query < 1_000; query++) {
+        findReactiveImpulse(onsets, query / 6, 12);
+      }
+    } finally {
+      Object.assign(Array.prototype, { sort, slice });
+      Array.prototype[Symbol.iterator] = iterator;
+    }
+    assert.deepEqual(calls, []);
+  });
+
+  it("gets the detector's oldest-first hits in ascending time order", () => {
+    const placed = placeOnsets(
+      [
+        { secondsAgo: 0.9, strength: 0.2 },
+        { secondsAgo: 0.5, strength: 1 },
+        { secondsAgo: 0.1, strength: 0.4 },
+      ],
+      3,
+    );
+    assert.deepEqual(
+      placed.map((onset) => onset.time),
+      [2.1, 2.5, 2.9],
+    );
+    assert.equal(findReactiveImpulse(placed, 2.95, 30)?.strength, 1);
   });
 });
 

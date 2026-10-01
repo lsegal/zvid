@@ -65,7 +65,9 @@ export type ReactiveImpulse = {
 
 // The envelope running at `time` (seconds), or undefined when none is. Each
 // hit starts an envelope `lengthFrames` long at `fps`; a hit while one is
-// running restarts it at the larger of the two strengths.
+// running restarts it at the larger of the two strengths. `onsets` must be
+// in ascending time order, as `placeOnsets` gives them. Runs every frame, so
+// it searches rather than sorting or copying the hits.
 export function findReactiveImpulse(
   onsets: readonly ReactiveOnset[],
   time: number,
@@ -79,20 +81,32 @@ export function findReactiveImpulse(
   const isRunning = (start: number, at: number) =>
     framesBetween(start, at) < lengthFrames - FRAME_EPSILON;
 
-  let start: number | undefined;
-  let strength = 0;
-  const ordered = [...onsets].sort((left, right) => left.time - right.time);
-  for (const onset of ordered) {
-    if (framesBetween(time, onset.time) > FRAME_EPSILON) {
-      break;
+  // The first hit after `time`; the one before it last (re)started the
+  // envelope.
+  let low = 0;
+  let high = onsets.length;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if (framesBetween(time, onsets[middle].time) > FRAME_EPSILON) {
+      high = middle;
+    } else {
+      low = middle + 1;
     }
-    const running = start !== undefined && isRunning(start, onset.time);
-    strength = running ? Math.max(strength, onset.strength) : onset.strength;
-    start = onset.time;
   }
-
-  if (start === undefined || !isRunning(start, time)) {
+  let index = low - 1;
+  if (index < 0) {
     return undefined;
+  }
+  const start = onsets[index].time;
+  if (!isRunning(start, time)) {
+    return undefined;
+  }
+  // Each hit that landed while the previous envelope ran carried that
+  // envelope's strength forward.
+  let strength = onsets[index].strength;
+  while (index > 0 && isRunning(onsets[index - 1].time, onsets[index].time)) {
+    index--;
+    strength = Math.max(strength, onsets[index].strength);
   }
   return {
     seed: Math.round(start * ONSET_GRID_RATE),
@@ -101,8 +115,9 @@ export function findReactiveImpulse(
   };
 }
 
-// The detector's recent hits placed on the timeline at `time` (seconds).
-// Hits are snapped to the detector's grid so their seeds don't drift.
+// The detector's recent hits placed on the timeline at `time` (seconds), in
+// ascending time order. Hits are snapped to the detector's grid so their
+// seeds don't drift.
 export function placeOnsets(
   onsets: readonly AudioOnset[] | undefined,
   time: number,
