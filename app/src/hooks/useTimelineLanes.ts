@@ -9,7 +9,6 @@ import {
 
 export type LaneStatus = {
   effectCount: number;
-  fxEnabled: boolean;
   fxTitle: string;
   summary: string;
 };
@@ -65,7 +64,6 @@ export function useTimelineLanes({
         .join(" · ");
       next.set(lane.id, {
         effectCount,
-        fxEnabled,
         fxTitle: `Turn ${lane.name} FX ${fxEnabled ? "off" : "on"}`,
         summary: summary || "Empty",
       });

@@ -64,8 +64,21 @@ async function previewColor(page: Page) {
       1,
       1,
     ).data;
-    return `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+    return [pixel[0], pixel[1], pixel[2]];
   }, png.toString("base64"));
+}
+
+// How far apart two colors are, in their most different channel.
+function difference(left: number[], right: number[]) {
+  return Math.max(
+    ...left.map((value, index) => Math.abs(value - right[index])),
+  );
+}
+
+async function expectPreview(page: Page, expected: number[]) {
+  await expect
+    .poll(async () => difference(await previewColor(page), expected))
+    .toBeLessThan(8);
 }
 
 test("a layer without effects of its own has a lit FX button that turns its clips' FX off and on", async ({
@@ -78,16 +91,23 @@ test("a layer without effects of its own has a lit FX button that turns its clip
   await expect(fx).toHaveAttribute("title", "Turn Layer 1 FX off");
 
   await insertFillAtStart(page, "1");
+  // A gradient, which the clip-level effect below visibly recolors.
+  await page
+    .locator('section[aria-label="Color"]')
+    .getByRole("button", { name: "Gradient" })
+    .click();
+  await page.mouse.move(0, 0);
   const plain = await previewColor(page);
 
-  // A clip-level effect that recolors the fill.
   await page.getByRole("button", { name: "Add device to this clip" }).click();
   await page.getByRole("menuitem", { name: "Negative Split" }).click();
   const device = page.locator(
     `.fx-chain :is(section[data-fx-group="clip"], [data-fx-group="clip"] > section)[aria-label="Negative Split"]`,
   );
   await expect(device).toHaveCount(1);
-  await expect.poll(() => previewColor(page)).not.toBe(plain);
+  await expect
+    .poll(async () => difference(await previewColor(page), plain))
+    .toBeGreaterThan(64);
   const withFx = await previewColor(page);
   await expect(fx).toHaveAttribute("aria-pressed", "true");
 
@@ -96,20 +116,20 @@ test("a layer without effects of its own has a lit FX button that turns its clip
   await expect(fx).toHaveAttribute("title", "Turn Layer 1 FX on");
   await expect(header(page, "1")).toContainText("FX off");
   await expect(device).toHaveClass(/fx-device-panel--layer-off/);
-  await expect.poll(() => previewColor(page)).toBe(plain);
+  await expectPreview(page, plain);
 
   await fx.click();
   await expect(fx).toHaveAttribute("aria-pressed", "true");
   await expect(device).not.toHaveClass(/fx-device-panel--layer-off/);
-  await expect.poll(() => previewColor(page)).toBe(withFx);
+  await expectPreview(page, withFx);
 
   // Each toggle is one undo step.
   await page.keyboard.press("ControlOrMeta+z");
   await expect(fx).toHaveAttribute("aria-pressed", "false");
-  await expect.poll(() => previewColor(page)).toBe(plain);
+  await expectPreview(page, plain);
   await page.keyboard.press("ControlOrMeta+z");
   await expect(fx).toHaveAttribute("aria-pressed", "true");
-  await expect.poll(() => previewColor(page)).toBe(withFx);
+  await expectPreview(page, withFx);
 });
 
 test("every layer's FX button is enabled and lit by default", async ({
