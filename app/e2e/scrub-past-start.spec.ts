@@ -76,15 +76,13 @@ test("scrubbing left past 00:00:00 from a scrolled view only scrolls left", asyn
 }) => {
   // Scrolled by less than the label column, so a drag to the timeline's left
   // edge carries the playhead past 00:00:00.
-  const scrollLeft = await page
-    .locator(".timeline-scroll")
-    .evaluate((el) => {
-      const content = el.querySelector(".ruler-row__content") as HTMLElement;
-      const labelWidth =
-        content.getBoundingClientRect().left - el.getBoundingClientRect().left;
-      el.scrollLeft = Math.floor(labelWidth / 2);
-      return el.scrollLeft;
-    });
+  const scrollLeft = await page.locator(".timeline-scroll").evaluate((el) => {
+    const content = el.querySelector(".ruler-row__content") as HTMLElement;
+    const labelWidth =
+      content.getBoundingClientRect().left - el.getBoundingClientRect().left;
+    el.scrollLeft = Math.floor(labelWidth / 2);
+    return el.scrollLeft;
+  });
   expect(scrollLeft).toBeGreaterThan(0);
   await watchScroll(page);
   await scrubToLabels(page);
