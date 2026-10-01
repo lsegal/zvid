@@ -1,6 +1,6 @@
 import { isColorEffectName } from "../../fill-paint.ts";
 import { isTextEffectName } from "../../text-style.ts";
-import { getTrackGroup } from "./clip-stacks.ts";
+import { getEffectClipId, getTrackGroup } from "./clip-stacks.ts";
 import type { SessionEffect } from "./types.ts";
 
 // A layer's FX switch bypasses its whole stack at once. It lives on the
@@ -30,14 +30,22 @@ export function setLaneFxEnabled<T extends FxLayer>(
   return result;
 }
 
-// The effects the renderer applies: a layer whose FX are off contributes
-// nothing but its Layout anchoring, the Color its fill clips are painted
-// with and any Text a session from before clip Text still has there. Clip
-// stacks are not the layer's and stay. Returns `effects` itself when no
-// layer is bypassed.
+// The clip whose stack an effect may sit on: its layer, and whether it is an
+// FX clip.
+export type FxClip = {
+  id: string;
+  laneId: string;
+  kind?: string;
+};
+
+// The effects the renderer applies: a layer whose FX are off turns off its
+// own stack and the stacks of the clips on it, apart from the content that
+// defines a clip: Layout anchoring, the Color fill clips are painted with
+// and a text clip's Text. FX clips on it apply nothing. Returns `effects`
+// itself when no layer is bypassed.
 export function getRenderedEffects<
   T extends { trackId: string; effectName: string },
->(effects: T[], layers: FxLayer[]) {
+>(effects: T[], layers: readonly FxLayer[], clips: readonly FxClip[]) {
   const bypassed = new Set(
     layers.filter((layer) => !isLayerFxEnabled(layer)).map((layer) => layer.id),
   );
@@ -45,12 +53,49 @@ export function getRenderedEffects<
     return effects;
   }
 
-  return effects.filter(
-    (effect) =>
-      !bypassed.has(effect.trackId) ||
-      isLayoutEffectName(effect.effectName) ||
-      isColorEffectName(effect.effectName) ||
-      isTextEffectName(effect.effectName),
+  const bypassedClips = new Map(
+    clips
+      .filter((clip) => bypassed.has(clip.laneId))
+      .map((clip) => [clip.id, clip]),
+  );
+  return effects.filter((effect) => {
+    const clipId = getEffectClipId(effect.trackId);
+    const clip = clipId === undefined ? undefined : bypassedClips.get(clipId);
+    if (clip) {
+      return clip.kind !== "fx" && isContentEffectName(effect.effectName);
+    }
+
+    return (
+      !bypassed.has(effect.trackId) || isContentEffectName(effect.effectName)
+    );
+  });
+}
+
+// Whether a bypassed layer still applies an effect, because it defines what
+// a clip is rather than adjusting it.
+export function isContentEffectName(effectName: string) {
+  return (
+    isLayoutEffectName(effectName) ||
+    isColorEffectName(effectName) ||
+    isTextEffectName(effectName)
+  );
+}
+
+// Whether an effect on `trackId` is turned off by its layer's FX switch:
+// the layer's own stack or the stack of a clip on it.
+export function isStackFxBypassed(
+  trackId: string,
+  layers: readonly FxLayer[],
+  clips: readonly FxClip[],
+) {
+  const clipId = getEffectClipId(trackId);
+  const laneId =
+    clipId === undefined
+      ? trackId
+      : clips.find((clip) => clip.id === clipId)?.laneId;
+  return (
+    laneId !== undefined &&
+    !isLayerFxEnabled(layers.find((layer) => layer.id === laneId))
   );
 }
 

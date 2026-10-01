@@ -416,10 +416,14 @@ export class CompositionRenderer {
     return getGroupClipProgress(this.state.clips, playheadQ, this.state.bpm);
   }
 
-  // Effects on layers whose FX switch is off are left out, apart from their
-  // Layout anchoring.
+  // Effects a layer's FX switch turns off are left out, apart from the
+  // content that defines its clips.
   private renderedEffects() {
-    return getRenderedEffects(this.state.effects, this.state.lanes);
+    return getRenderedEffects(
+      this.state.effects,
+      this.state.lanes,
+      this.state.clips,
+    );
   }
 
   private usesAudioBands() {
