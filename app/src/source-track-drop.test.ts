@@ -159,7 +159,7 @@ describe("getSourceTrackDropTarget", () => {
 describe("source track drop wiring", () => {
   it("makes the whole track row, label included, its drop target", () => {
     const row = sourceTrackRowTsx.slice(
-      sourceTrackRowTsx.indexOf('className="track-row track-row--source"'),
+      sourceTrackRowTsx.indexOf("track-row track-row--source"),
       sourceTrackRowTsx.indexOf("<button"),
     );
     assert.match(row, /data-source-track-drop-target="track"/);

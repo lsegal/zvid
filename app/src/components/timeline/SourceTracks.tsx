@@ -125,7 +125,7 @@ export function SourceTracks({
         </div>
       </section>
 
-      {isSourceTracksCollapsed ? null : (
+      {isSourceTracksCollapsed || !sourceTracks.length ? null : (
         <div
           ref={listRef}
           className={`source-track-list ${reorder.listClassName}`}
