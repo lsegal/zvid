@@ -93,7 +93,5 @@ export function isWithinMainAudioDropTarget(target: EventTarget | null) {
     target && typeof (target as Element).closest === "function"
       ? (target as Element)
       : ((target as Node | null)?.parentElement ?? null);
-  return Boolean(
-    element?.closest(`[${MAIN_AUDIO_DROP_TARGET_ATTRIBUTE}]`),
-  );
+  return Boolean(element?.closest(`[${MAIN_AUDIO_DROP_TARGET_ATTRIBUTE}]`));
 }

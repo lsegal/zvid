@@ -52,7 +52,14 @@ describe("isAudioFile", () => {
 
 describe("getDroppedAudioFile", () => {
   it("validates drops by extension when the MIME type is empty", () => {
-    for (const name of ["a.mp3", "b.wav", "c.m4a", "d.flac", "e.aif", "f.aiff"]) {
+    for (const name of [
+      "a.mp3",
+      "b.wav",
+      "c.m4a",
+      "d.flac",
+      "e.aif",
+      "f.aiff",
+    ]) {
       const dropped = file(name);
       assert.equal(getDroppedAudioFile([dropped]), dropped);
     }
