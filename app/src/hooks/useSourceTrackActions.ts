@@ -12,14 +12,14 @@ import type {
 } from "../app/types.ts";
 import { layerHistoryLabels } from "../layer-menu";
 import {
-  SOURCE_TRACKS_LOCKED_TITLE,
-  sourceTracksLockLabel,
-} from "../source-tracks-section.ts";
-import {
   deleteSourceTrack,
   duplicateSourceTrack,
   moveSourceTrackTo,
 } from "../source-track-edits.ts";
+import {
+  SOURCE_TRACKS_LOCKED_TITLE,
+  sourceTracksLockLabel,
+} from "../source-tracks-section.ts";
 import { useLayerReorder } from "../use-layer-reorder";
 
 export type SourceTrackActionsInputs = {

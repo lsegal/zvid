@@ -13,7 +13,14 @@ export const moveLayerEntries: MenuEntryProvider<{
 }> = {
   id: "move",
   order: 110,
-  entries: ({ lanes, laneId, disabled, canMove = true, moveTitle, actions }) => [
+  entries: ({
+    lanes,
+    laneId,
+    disabled,
+    canMove = true,
+    moveTitle,
+    actions,
+  }) => [
     {
       type: "item",
       id: "move-up",

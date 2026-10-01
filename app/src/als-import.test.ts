@@ -257,6 +257,17 @@ describe("importAls", () => {
     ]);
   });
 
+  it("locks the source tracks of an imported set", async () => {
+    const imported = await importAls(
+      gzip(midiOnlySet([{ name: "1-Kit", start: 0, end: 4 }])),
+      "/sets/Song.als",
+    );
+    assert.equal(imported.sourceTracksLocked, true);
+    // Media resolution keeps the flag.
+    const { session } = resolveAlsMedia(imported, () => null);
+    assert.equal(session.sourceTracksLocked, true);
+  });
+
   it("converts dogfood3.als into the timeline of dogfood3.lvp", async () => {
     const fixture = (name: string) =>
       readFileSync(new URL(`../test/fixtures/als/${name}`, import.meta.url));

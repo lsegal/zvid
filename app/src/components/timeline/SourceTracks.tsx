@@ -94,39 +94,41 @@ export function SourceTracks({
         <div className="track-label track-label--header">
           {sourceTracks.length ? (
             <>
-            <button
-              aria-expanded={!isSourceTracksCollapsed}
-              className="source-header__toggle"
-              onClick={() => setSourceTracksCollapsed(!isSourceTracksCollapsed)}
-              title={
-                isSourceTracksCollapsed
-                  ? "Show source tracks"
-                  : "Hide source tracks"
-              }
-              type="button"
-            >
-              <ChevronDownIcon aria-hidden="true" />
-              <span className="source-header__title">
-                <span>Source Tracks</span>
-                <small>
-                  {pluralize(sourceTracks.length, "track")} in session
-                </small>
-              </span>
-            </button>
-            <button
-              aria-label={sourceTracksLockLabel(!sourceTracksLocked)}
-              aria-pressed={sourceTracksLocked}
-              className="source-header__lock"
-              onClick={() => setSourceTracksLocked(!sourceTracksLocked)}
-              title={sourceTracksLockLabel(!sourceTracksLocked)}
-              type="button"
-            >
-              {sourceTracksLocked ? (
-                <LockClosedIcon aria-hidden="true" />
-              ) : (
-                <LockOpenIcon aria-hidden="true" />
-              )}
-            </button>
+              <button
+                aria-expanded={!isSourceTracksCollapsed}
+                className="source-header__toggle"
+                onClick={() =>
+                  setSourceTracksCollapsed(!isSourceTracksCollapsed)
+                }
+                title={
+                  isSourceTracksCollapsed
+                    ? "Show source tracks"
+                    : "Hide source tracks"
+                }
+                type="button"
+              >
+                <ChevronDownIcon aria-hidden="true" />
+                <span className="source-header__title">
+                  <span>Source Tracks</span>
+                  <small>
+                    {pluralize(sourceTracks.length, "track")} in session
+                  </small>
+                </span>
+              </button>
+              <button
+                aria-label={sourceTracksLockLabel(!sourceTracksLocked)}
+                aria-pressed={sourceTracksLocked}
+                className="source-header__lock"
+                onClick={() => setSourceTracksLocked(!sourceTracksLocked)}
+                title={sourceTracksLockLabel(!sourceTracksLocked)}
+                type="button"
+              >
+                {sourceTracksLocked ? (
+                  <LockClosedIcon aria-hidden="true" />
+                ) : (
+                  <LockOpenIcon aria-hidden="true" />
+                )}
+              </button>
             </>
           ) : (
             <div>
