@@ -26,6 +26,7 @@ import type { useClipInsertion } from "../hooks/useClipInsertion.ts";
 import type { useFxEditing } from "../hooks/useFxEditing.ts";
 import type { useLayerActions } from "../hooks/useLayerActions.ts";
 import type { usePlayback } from "../hooks/usePlayback.ts";
+import type { useSourceTrackActions } from "../hooks/useSourceTrackActions.ts";
 import { sourceTrackHasFootage } from "../random-arrangement.ts";
 import { buildMainAudioMenuEntries } from "./audio-menu.ts";
 import { buildClipMenuEntries } from "./clip-menu.ts";
@@ -34,11 +35,13 @@ import { buildHistoryEntries } from "./entries/edit-history.ts";
 import { buildLayerMenuEntries } from "./layer-menu.ts";
 import { buildSelectionMenuEntries } from "./selection-menu.ts";
 import { buildSourceSpanMenuEntries } from "./source-span-menu.ts";
+import { buildSourceTrackMenuEntries } from "./source-track-menu.ts";
 import { useKeyboardContextMenu } from "./useKeyboardContextMenu.ts";
 
 type ClipActions = ReturnType<typeof useClipActions>;
 type ClipInsertion = ReturnType<typeof useClipInsertion>;
 type LayerActions = ReturnType<typeof useLayerActions>;
+type SourceTrackActions = ReturnType<typeof useSourceTrackActions>;
 
 export type MenusInputs = Pick<
   ClipActions,
@@ -69,6 +72,10 @@ export type MenusInputs = Pick<
     | "insertLayer"
     | "moveLayer"
     | "addLayerFx"
+  > &
+  Pick<
+    SourceTrackActions,
+    "duplicateSourceTrack" | "deleteSourceTrack" | "moveSourceTrack"
   > &
   Pick<ReturnType<typeof useFxEditing>, "setLayerFxEnabled"> &
   Pick<ReturnType<typeof usePlayback>, "jumpToClipStart"> & {
@@ -137,8 +144,10 @@ export function useMenus({
   deleteArrangementClip,
   deleteLayer,
   deleteSelection,
+  deleteSourceTrack,
   duplicateArrangementClip,
   duplicateLayer,
+  duplicateSourceTrack,
   fxLaneId,
   handleRedo,
   handleUndo,
@@ -152,6 +161,7 @@ export function useMenus({
   mainAudioId,
   mainAudioInputRef,
   moveLayer,
+  moveSourceTrack,
   pasteArrangementClip,
   pendingSelection,
   playheadQRef,
@@ -242,6 +252,19 @@ export function useMenus({
     });
   }
 
+  function openSourceTrackMenu(
+    event: ReactMouseEvent<HTMLElement>,
+    trackId: string,
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+    setClipMenu({
+      kind: "source-track",
+      trackId,
+      anchor: getMenuAnchor(event),
+    });
+  }
+
   useKeyboardContextMenu({
     fxLaneId,
     pendingSelection,
@@ -261,6 +284,22 @@ export function useMenus({
     if (menu.kind === "layer") {
       const lane = lanes.find((item) => item.id === menu.laneId);
       return lane ? getLayerMenuEntries(lane) : [];
+    }
+
+    if (menu.kind === "source-track") {
+      const track = sourceTracks.find((item) => item.id === menu.trackId);
+      return track
+        ? buildSourceTrackMenuEntries({
+            tracks: sourceTracks,
+            trackId: track.id,
+            actions: {
+              duplicate: () => duplicateSourceTrack(track),
+              remove: () => deleteSourceTrack(track),
+              moveUp: () => moveSourceTrack(track, -1),
+              moveDown: () => moveSourceTrack(track, 1),
+            },
+          })
+        : [];
     }
 
     if (menu.kind === "selection") {
@@ -430,6 +469,7 @@ export function useMenus({
     openLayerMenu,
     openMainAudioMenu,
     openSourceSpanMenu,
+    openSourceTrackMenu,
     getClipMenuEntries,
     getEditMenuEntries,
   };

@@ -1,4 +1,5 @@
 import { ChevronDownIcon } from "@heroicons/react/24/solid";
+import type { RefObject } from "react";
 import type { SourceSelection } from "../../app/source-selection.ts";
 import type {
   SourceSpan as SourceSpanClip,
@@ -10,7 +11,7 @@ import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
 import { formatSourceTracksSummary } from "../../source-tracks-section.ts";
 import { SourceEmptyState } from "../SourceEmptyState";
 import type { SourceSpanContext } from "./SourceSpan";
-import { SourceTrackRow } from "./SourceTrackRow";
+import { type SourceTrackLabelContext, SourceTrackRow } from "./SourceTrackRow";
 import "./source-tracks.css";
 
 type SourceTracksProps = {
@@ -26,11 +27,14 @@ type SourceTracksProps = {
   onOpenSession: () => void;
   gridStyle: ReturnType<typeof useTimelineViewport>["gridStyle"];
   span: SourceSpanContext;
+  listRef: RefObject<HTMLDivElement | null>;
+  label: SourceTrackLabelContext;
 };
 
 // The Source Tracks section: its collapsible header, which takes dropped
-// media while there are no tracks or they are hidden, the tracks, and a
-// drop row for a new track while media is dragged over them.
+// media while there are no tracks or they are hidden, the tracks with the
+// drop indicator and announcements that reordering them uses, and a drop row
+// for a new track while media is dragged over them.
 export function SourceTracks({
   sourceTracks,
   sourceSpansByTrack,
@@ -44,7 +48,10 @@ export function SourceTracks({
   onOpenSession,
   gridStyle,
   span,
+  listRef,
+  label,
 }: SourceTracksProps) {
+  const { reorder } = label;
   const {
     sourceTrackDragPreview,
     isSourceTrackFileDragActive,
@@ -110,9 +117,24 @@ export function SourceTracks({
         </div>
       </section>
 
-      {isSourceTracksCollapsed
-        ? null
-        : sourceTracks.map((track, index) => (
+      {isSourceTracksCollapsed || !sourceTracks.length ? null : (
+        <div
+          ref={listRef}
+          className={`source-track-list ${reorder.listClassName}`}
+        >
+          <div
+            aria-hidden="true"
+            className="layer-drop-indicator"
+            ref={reorder.indicatorRef}
+          />
+          <div
+            aria-live="polite"
+            className="layer-reorder-status"
+            role="status"
+          >
+            {reorder.announcement}
+          </div>
+          {sourceTracks.map((track, index) => (
             <SourceTrackRow
               key={track.id}
               track={track}
@@ -121,10 +143,14 @@ export function SourceTracks({
               drop={drop}
               sourceSelection={sourceSelection}
               selectSource={selectSource}
+              isLifted={track.id === reorder.liftedLaneId}
               gridStyle={gridStyle}
               span={span}
+              {...label}
             />
           ))}
+        </div>
+      )}
       {isSourceTrackFileDragActive && !isSourceTracksCollapsed ? (
         <section
           className="track-row track-row--source track-row--source-drop"

@@ -58,8 +58,8 @@ export function toSourceSelectionView(
   };
 }
 
-// The saved source selection, while its track still exists. A saved clip
-// that no longer exists, or moved to another track, leaves its track
+// The saved or current source selection, while its track still exists. A
+// clip that no longer exists, or moved to another track, leaves its track
 // selected.
 export function findRestoredSourceSelection(
   view: SourceSelectionView,
