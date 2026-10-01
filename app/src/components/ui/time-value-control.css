@@ -4,7 +4,7 @@
  * the app theme variables with dark fallbacks.
  */
 .time-value {
-  --time-value-accent: var(--accent, #7c8cff);
+  --time-value-accent: var(--blue, #7ca1ff);
   --time-value-ink: var(--ink, #eef2ff);
   --time-value-muted: var(--muted, #a4a9bf);
   --time-value-body: var(--bg-soft, #383b50);
