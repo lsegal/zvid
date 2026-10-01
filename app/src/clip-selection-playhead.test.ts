@@ -17,13 +17,18 @@ const clipCardTsx = readFileSync(
   new URL("./components/timeline/ClipCard.tsx", import.meta.url),
   "utf8",
 );
-const sourceTracksTsx = readFileSync(
-  new URL("./components/timeline/SourceTracks.tsx", import.meta.url),
+const useTimelineSelectionTs = readFileSync(
+  new URL("./hooks/useTimelineSelection.ts", import.meta.url),
+  "utf8",
+);
+const sourceSpanTsx = readFileSync(
+  new URL("./components/timeline/SourceSpan.tsx", import.meta.url),
   "utf8",
 );
 const source = `${appTsx}
 ${clipCardTsx}
-${sourceTracksTsx}
+${useTimelineSelectionTs}
+${sourceSpanTsx}
 ${usePlaybackTs}
 ${usePreviewEditingTs}`;
 
@@ -50,10 +55,13 @@ describe("clip selection keeps the playhead", () => {
     assertNoSeek(onClick);
   });
 
-  it("selectSource selects the source's clip without seeking", () => {
-    const body = sliceFrom("function selectSource(", "\n  }\n");
-    assert.match(body, /setSelectedClipId\(match\.id\);/);
+  it("selecting a source track or clip doesn't seek", () => {
+    const body = sliceFrom("const selectSource = (", "\n  };\n");
+    assert.match(body, /setSourceSelection\(selection\);/);
     assertNoSeek(body);
+    const onClick = sliceFrom("onClick={(event) => {", "onContextMenu=");
+    assert.match(onClick, /selectSourceSpan\(clip\);/);
+    assertNoSeek(onClick);
   });
 
   it("no selection path seeks to a clip's start", () => {

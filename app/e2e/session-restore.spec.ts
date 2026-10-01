@@ -315,3 +315,24 @@ test("a restored session keeps a removed Order, and an older one gets it", async
   await expect(order).toContainText("Vertical");
   await expect(hint).toHaveCount(0);
 });
+
+test("a refresh restores the selected source clip", async ({ page }) => {
+  await page.goto("/");
+  await expect(lane(page, "1")).toBeVisible();
+  await dropVideoIntoNewSourceTrack(page);
+  await page.locator(".source-span").click();
+  await expect(page.locator(".source-span")).toHaveClass(
+    /source-span--selected/,
+  );
+  await waitForSave(page, '"selectedSourceSpanId"');
+
+  await page.reload();
+  await expect(page.locator(".source-span")).toHaveClass(
+    /source-span--selected/,
+  );
+  await expect(page.locator(".track-label--source")).toHaveAttribute(
+    "aria-current",
+    "true",
+  );
+  await expect(page.locator(".clip-card--selected")).toHaveCount(0);
+});
