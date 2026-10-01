@@ -4,11 +4,13 @@ import {
   chooseSourceSpanForWindow,
   findClipAtPlayhead,
   getClipEndQ,
+  getDropStartQ,
   getPlaybackStopQ,
   getSelectionEndQ,
   getSourceTrackEndQ,
   getTimelineContentEndQ,
   isClipAtPlayhead,
+  pointerToTimelineQ,
   quartersToSeconds,
   secondsToQuarters,
   snapQuarterValue,
@@ -58,6 +60,47 @@ describe("snapQuarterValue", () => {
   it("rounds to the snap unit only when snapping is on", () => {
     assert.equal(snapQuarterValue(1.3, 0.5, true), 1.5);
     assert.equal(snapQuarterValue(1.3, 0.5, false), 1.3);
+  });
+});
+
+// A 200px label column, 40px per quarter.
+describe("pointerToTimelineQ", () => {
+  it("measures from the timeline's start past the label column", () => {
+    assert.equal(pointerToTimelineQ(200, 0, 200, 40), 0);
+    assert.equal(pointerToTimelineQ(360, 0, 200, 40), 4);
+  });
+
+  it("adds the horizontal scroll", () => {
+    assert.equal(pointerToTimelineQ(360, 400, 200, 40), 14);
+  });
+
+  it("scales with the zoom", () => {
+    assert.equal(pointerToTimelineQ(360, 400, 200, 80), 7);
+  });
+
+  it("is negative left of the timeline's start", () => {
+    assert.equal(pointerToTimelineQ(120, 0, 200, 40), -2);
+  });
+});
+
+describe("getDropStartQ", () => {
+  it("snaps the pointer position like a clip move", () => {
+    assert.equal(getDropStartQ(370, 0, 200, 40, 1, true), 4);
+    assert.equal(getDropStartQ(370, 0, 200, 40, 1, false), 4.25);
+  });
+
+  it("follows the scroll and zoom", () => {
+    assert.equal(getDropStartQ(370, 400, 200, 80, 0.5, true), 7);
+  });
+
+  it("never starts before 0", () => {
+    assert.equal(getDropStartQ(205, 0, 200, 40, 4, true), 0);
+    assert.equal(getDropStartQ(195, 0, 200, 40, 4, false), 0);
+  });
+
+  it("starts at 0 over the label column, whatever the scroll", () => {
+    assert.equal(getDropStartQ(120, 4000, 200, 40, 1, true), 0);
+    assert.equal(getDropStartQ(0, 4000, 200, 40, 1, false), 0);
   });
 });
 
