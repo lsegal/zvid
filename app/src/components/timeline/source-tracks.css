@@ -57,8 +57,6 @@
 
 .track-label--source {
   width: 100%;
-  border: 0;
-  border-right: 1px solid var(--line);
   cursor: pointer;
   background: #313447;
 }
