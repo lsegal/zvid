@@ -2,7 +2,7 @@
 // clips; when there are none at all, the source tracks render as if they
 // were layers instead, so a session with only source tracks still previews
 // and exports. Preview, the transform overlay and export all resolve their
-// clips here, so they always agree.
+// clips, and the effects they render with, here, so they always agree.
 import { quartersToSeconds } from "./app/timeline-math.ts";
 import type {
   ArrangementClip,
@@ -10,23 +10,33 @@ import type {
   SourceSpan,
   SourceTrack,
 } from "./app/types.ts";
+import {
+  clipEffectTrackId,
+  getEffectSourceSpanId,
+  getEffectSourceTrackId,
+} from "./fx/stack/clip-stacks.ts";
 
 // Virtual ids are namespaced so they never collide with real clips or
-// layers, and never pick up a stored layer or clip effect stack: only the
-// Global stack applies to them.
+// layers, and never pick up a stored layer or clip effect stack: besides
+// the Global stack, only their source track's and source clip's own stacks
+// apply to them (see resolveRenderEffects).
 export const SOURCE_RENDER_ID_PREFIX = "source-render:";
 
-export type RenderClipsInputs = {
+type RenderEffect = { trackId: string };
+
+export type RenderClipsInputs<Effect extends RenderEffect = RenderEffect> = {
   clips: ArrangementClip[];
   lanes: Lane[];
   sourceTracks: SourceTrack[];
   sourceSpans: SourceSpan[];
   bpm: number;
+  effects: Effect[];
 };
 
-export type RenderClips = {
+export type RenderClips<Effect extends RenderEffect = RenderEffect> = {
   clips: ArrangementClip[];
   lanes: Lane[];
+  effects: Effect[];
   // Whether the clips are the source-track fallback rather than the
   // arrangement's own.
   fromSourceTracks: boolean;
@@ -55,16 +65,18 @@ export function hasRenderableContent({
 // The clips and layers to render. With any arrangement clip, those pass
 // through unchanged. With none, each source span becomes a clip playing its
 // media at its timeline position, on one layer per source track in source
-// track order (source track 1 on top, as Layer 1 is).
-export function resolveRenderClips({
+// track order (source track 1 on top, as Layer 1 is). Their source track
+// and source clip stacks apply to them (see resolveRenderEffects).
+export function resolveRenderClips<Effect extends RenderEffect>({
   clips,
   lanes,
   sourceTracks,
   sourceSpans,
   bpm,
-}: RenderClipsInputs): RenderClips {
+  effects,
+}: RenderClipsInputs<Effect>): RenderClips<Effect> {
   if (clips.length || !sourceSpans.length) {
-    return { clips, lanes, fromSourceTracks: false };
+    return { clips, lanes, effects, fromSourceTracks: false };
   }
 
   // Spans on a track the session no longer lists still render, below the
@@ -107,5 +119,37 @@ export function resolveRenderClips({
     };
   });
 
-  return { clips: virtualClips, lanes: virtualLanes, fromSourceTracks: true };
+  return {
+    clips: virtualClips,
+    lanes: virtualLanes,
+    effects: resolveRenderEffects(effects),
+    fromSourceTracks: true,
+  };
+}
+
+// The effects source tracks render with in place of layers: each source
+// track's stack becomes its virtual layer's and each source clip's its
+// virtual clip's, so the compositor applies Global, then the track's, then
+// the clip's stack, as it does for a layer clip. Returns `effects` itself
+// when there are no source stacks.
+export function resolveRenderEffects<Effect extends RenderEffect>(
+  effects: Effect[],
+) {
+  let changed = false;
+  const resolved = effects.map((effect) => {
+    const sourceTrackId = getEffectSourceTrackId(effect.trackId);
+    const sourceSpanId = getEffectSourceSpanId(effect.trackId);
+    const trackId =
+      sourceTrackId !== undefined
+        ? sourceRenderLaneId(sourceTrackId)
+        : sourceSpanId !== undefined
+          ? clipEffectTrackId(sourceRenderClipId(sourceSpanId))
+          : undefined;
+    if (trackId === undefined) {
+      return effect;
+    }
+    changed = true;
+    return { ...effect, trackId };
+  });
+  return changed ? resolved : effects;
 }

@@ -19,12 +19,47 @@ export function getEffectClipId(trackId: string) {
     : undefined;
 }
 
+// A source track's and a source clip's own stacks are keyed by their ids in
+// namespaces of their own, so they are never taken for an arrangement layer
+// or clip. They apply where the source tracks render in place of layers.
+const SOURCE_TRACK_EFFECT_TRACK_PREFIX = "source-track:";
+const SOURCE_CLIP_EFFECT_TRACK_PREFIX = "source-clip:";
+
+export function sourceTrackEffectTrackId(sourceTrackId: string) {
+  return `${SOURCE_TRACK_EFFECT_TRACK_PREFIX}${sourceTrackId}`;
+}
+
+export function sourceClipEffectTrackId(sourceSpanId: string) {
+  return `${SOURCE_CLIP_EFFECT_TRACK_PREFIX}${sourceSpanId}`;
+}
+
+// The source track a source track stack belongs to, or undefined for any
+// other stack.
+export function getEffectSourceTrackId(trackId: string) {
+  return trackId.startsWith(SOURCE_TRACK_EFFECT_TRACK_PREFIX)
+    ? trackId.slice(SOURCE_TRACK_EFFECT_TRACK_PREFIX.length)
+    : undefined;
+}
+
+// The source clip (span) a source clip stack belongs to, or undefined for
+// any other stack.
+export function getEffectSourceSpanId(trackId: string) {
+  return trackId.startsWith(SOURCE_CLIP_EFFECT_TRACK_PREFIX)
+    ? trackId.slice(SOURCE_CLIP_EFFECT_TRACK_PREFIX.length)
+    : undefined;
+}
+
+// A source track's stack is track-level, like a layer's, and a source
+// clip's is clip-level, like a layer clip's.
 export function getTrackGroup(trackId: string): FxDeviceGroup {
   if (trackId === GLOBAL_EFFECT_TRACK_ID) {
     return "global";
   }
 
-  return getEffectClipId(trackId) === undefined ? "layer" : "clip";
+  return getEffectClipId(trackId) === undefined &&
+    getEffectSourceSpanId(trackId) === undefined
+    ? "layer"
+    : "clip";
 }
 
 export function cloneAnimation(animation: EffectAnimation): EffectAnimation {
@@ -59,10 +94,28 @@ export function copyClipEffects<T extends StackEffect>(
   source: readonly T[] = effects,
   createId: () => string = () => crypto.randomUUID(),
 ) {
+  return copyEffectStacks(
+    effects,
+    Array.from(copies, ([fromClipId, toClipId]) => [
+      clipEffectTrackId(fromClipId),
+      clipEffectTrackId(toClipId),
+    ]),
+    source,
+    createId,
+  );
+}
+
+// Gives each `[fromTrackId, toTrackId]` stack a copy of the `fromTrackId`
+// stack read from `source`, with new effect ids, in place of any it had.
+// Returns `effects` itself when no source stack has effects.
+export function copyEffectStacks<T extends StackEffect>(
+  effects: T[],
+  copies: Iterable<readonly [string, string]>,
+  source: readonly T[] = effects,
+  createId: () => string = () => crypto.randomUUID(),
+) {
   let result = effects;
-  for (const [fromClipId, toClipId] of copies) {
-    const fromTrackId = clipEffectTrackId(fromClipId);
-    const toTrackId = clipEffectTrackId(toClipId);
+  for (const [fromTrackId, toTrackId] of copies) {
     const stack = source.filter((effect) => effect.trackId === fromTrackId);
     if (!stack.length || fromTrackId === toTrackId) {
       continue;
@@ -141,5 +194,44 @@ export function renameClipEffectTracks<T extends { trackId: string }>(
     return renamed === undefined || renamed === clipId
       ? effect
       : { ...effect, trackId: clipEffectTrackId(renamed) };
+  });
+}
+
+// Drops the stacks of source tracks and source clips that are gone, so
+// deleting either deletes its effects. Returns `effects` itself when every
+// source stack still has its track or clip.
+export function pruneSourceEffects<T extends { trackId: string }>(
+  effects: T[],
+  sourceTracks: readonly { id: string }[],
+  sourceSpans: readonly { id: string }[],
+) {
+  const trackIds = new Set(sourceTracks.map((track) => track.id));
+  const spanIds = new Set(sourceSpans.map((span) => span.id));
+  const isOrphan = (effect: T) => {
+    const trackId = getEffectSourceTrackId(effect.trackId);
+    if (trackId !== undefined) {
+      return !trackIds.has(trackId);
+    }
+    const spanId = getEffectSourceSpanId(effect.trackId);
+    return spanId !== undefined && !spanIds.has(spanId);
+  };
+  return effects.some(isOrphan)
+    ? effects.filter((effect) => !isOrphan(effect))
+    : effects;
+}
+
+// The effects with each source clip stack moved to its span's new id in
+// `spanIds`, such as the ids spans are saved under. Other stacks keep their
+// track.
+export function renameSourceClipEffectTracks<T extends { trackId: string }>(
+  effects: T[],
+  spanIds: ReadonlyMap<string, string>,
+) {
+  return effects.map((effect) => {
+    const spanId = getEffectSourceSpanId(effect.trackId);
+    const renamed = spanId === undefined ? undefined : spanIds.get(spanId);
+    return renamed === undefined || renamed === spanId
+      ? effect
+      : { ...effect, trackId: sourceClipEffectTrackId(renamed) };
   });
 }

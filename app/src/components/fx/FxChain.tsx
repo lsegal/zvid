@@ -1,6 +1,7 @@
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
+  type ReactNode,
   useEffect,
   useRef,
   useState,
@@ -42,6 +43,11 @@ export type FxChainProps = {
   layerTrackId: string | undefined;
   // Name of the selected layer, such as "Layer 3"; undefined when none is.
   layerName: string | undefined;
+  // What the layer-level section is called: "Track" for a source track.
+  layerLabel?: string;
+  // Shown ahead of the chain's sections, such as the selected source
+  // clip's properties.
+  leading?: ReactNode;
   // Track id of the selected clip's own stack; undefined when no clip is
   // selected, which hides the Clip section.
   clipTrackId?: string;
@@ -100,25 +106,25 @@ function getTrackId(
   return group === "clip" ? clipTrackId : layerTrackId;
 }
 
-const SECTION_LABELS: Record<FxDeviceGroup, string> = {
-  global: "Global",
-  layer: "Layer",
-  clip: "Clip",
-};
-
 const NO_LAYERS: readonly FxLayerOption[] = [];
 
-const ADD_MENU_LABELS: Record<FxDeviceGroup, string> = {
-  global: "Add device to Global",
-  layer: "Add device to this layer",
-  clip: "Add device to this clip",
-};
+function sectionLabel(group: FxDeviceGroup, layerLabel: string) {
+  return group === "global" ? "Global" : group === "clip" ? "Clip" : layerLabel;
+}
+
+function addMenuLabel(group: FxDeviceGroup, layerLabel: string) {
+  return group === "global"
+    ? "Add device to Global"
+    : `Add device to this ${sectionLabel(group, layerLabel).toLowerCase()}`;
+}
 
 export function FxChain({
   devices,
   kind,
   layerTrackId,
   layerName,
+  layerLabel = "Layer",
+  leading,
   clipTrackId,
   clipScope = "clip",
   layerFxEnabled = true,
@@ -398,7 +404,7 @@ export function FxChain({
   }
 
   function renderAddMenu(group: FxDeviceGroup, withLabel = false) {
-    const label = ADD_MENU_LABELS[group];
+    const label = addMenuLabel(group, layerLabel);
     return (
       <AddDeviceMenu
         effects={addableEffectsFor(scopeOf(group))}
@@ -421,7 +427,7 @@ export function FxChain({
   function renderDivider(group: FxDeviceGroup) {
     return (
       <div className="fx-chain__divider" data-fx-divider={group}>
-        <span>{SECTION_LABELS[group]}</span>
+        <span>{sectionLabel(group, layerLabel)}</span>
       </div>
     );
   }
@@ -454,6 +460,7 @@ export function FxChain({
       ref={scrollRef}
       {...chainDragScroll.handlers}
     >
+      {leading}
       {showGlobal ? (
         <>
           {renderDivider("global")}

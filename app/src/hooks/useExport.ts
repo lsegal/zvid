@@ -166,7 +166,8 @@ type Remembered = {
 };
 
 // What an export of `project` renders: its layer clips and layers, or its
-// source tracks as layers when it has no layer clips.
+// source tracks as layers when it has no layer clips, and the effects they
+// render with.
 function renderClipsOf(project: ProjectState) {
   return resolveRenderClips({
     clips: project.clips,
@@ -174,6 +175,7 @@ function renderClipsOf(project: ProjectState) {
     sourceTracks: project.sourceTracks,
     sourceSpans: project.sourceSpans,
     bpm: project.bpm,
+    effects: project.effects,
   });
 }
 
@@ -370,7 +372,7 @@ export function useExport({
         mediaItems: from.mediaItems,
         clips: rendered.clips,
         lanes: rendered.lanes,
-        effects: from.project.effects,
+        effects: rendered.effects,
         bpm,
         fps,
         projectDurationFrames: projectDurationAt(
@@ -513,7 +515,7 @@ export function useExport({
     mediaItems: shown?.mediaItems ?? mediaItems,
     clips: shownRender.clips,
     lanes: shownRender.lanes,
-    effects: shownProject.effects,
+    effects: shownRender.effects,
     mainAudio: shown ? shown.mainAudio : mainAudio,
     mainAudioPeaks: shown ? shown.mainAudioPeaks : mainAudioPeaks,
     bpm: shownProject.bpm,

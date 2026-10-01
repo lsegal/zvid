@@ -100,8 +100,9 @@ export function usePreview({
         sourceTracks,
         sourceSpans,
         bpm,
+        effects: timelineEffects,
       }),
-    [bpm, lanes, sourceSpans, sourceTracks, timelineClips],
+    [bpm, lanes, sourceSpans, sourceTracks, timelineClips, timelineEffects],
   );
   const renderLanePriority = useMemo(
     () =>
@@ -146,7 +147,7 @@ export function usePreview({
     projectDurationFrames,
     lanes: render.lanes,
     lanePriority: renderLanePriority,
-    effects: timelineEffects,
+    effects: render.effects,
     canvasWidth,
     canvasHeight,
   });
@@ -192,6 +193,7 @@ export function usePreview({
     previewClip,
     renderClips: render.clips,
     renderLanes: render.lanes,
+    renderEffects: render.effects,
     renderFromSourceTracks: render.fromSourceTracks,
     previewMedia,
     previewMediaState,

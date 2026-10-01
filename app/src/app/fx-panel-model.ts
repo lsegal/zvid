@@ -3,12 +3,23 @@
 import { describeMediaAvailability } from "../clip-media-state.ts";
 import { type FxLayerOption, getFxClipName } from "../fx-chain.ts";
 import { FX_CLIP_LABEL, isFxClip } from "../fx-clip.ts";
-import { clipEffectTrackId, type SessionEffect } from "../fx-stack.ts";
+import {
+  clipEffectTrackId,
+  type SessionEffect,
+  sourceClipEffectTrackId,
+  sourceTrackEffectTrackId,
+} from "../fx-stack.ts";
 import type { MediaItem } from "../media.ts";
 import { isTextClip } from "../text-clip.ts";
 import { getTextPreview, resolveTextStyle } from "../text-style.ts";
 import { isClipAtPlayhead } from "./timeline-math.ts";
-import type { ArrangementClip, Lane } from "./types.ts";
+import type { SourceSelection } from "./source-selection.ts";
+import type {
+  ArrangementClip,
+  Lane,
+  SourceSpan,
+  SourceTrack,
+} from "./types.ts";
 import { getSwatch } from "./util.ts";
 
 // Audio clips have no visual effects; that only applies while one is
@@ -114,4 +125,33 @@ export function getFxClipScope(
   selectedClip: ArrangementClip | undefined,
 ): "fxClip" | "clip" {
   return isFxClip(selectedClip) ? "fxClip" : "clip";
+}
+
+// The stacks the FX chain shows for a source selection, in place of a
+// layer's and a layer clip's: the source track's own stack, and the
+// selected source clip's. Undefined when no source track or clip is
+// selected.
+export function getSourceFxStacks(
+  selection: SourceSelection | undefined,
+  sourceTracks: readonly Pick<SourceTrack, "id" | "name">[],
+  sourceSpans: readonly Pick<SourceSpan, "id" | "label" | "mediaId">[],
+) {
+  if (!selection) {
+    return undefined;
+  }
+
+  const track = sourceTracks.find(
+    (candidate) => candidate.id === selection.sourceTrackId,
+  );
+  const span =
+    selection.sourceSpanId === undefined
+      ? undefined
+      : sourceSpans.find((candidate) => candidate.id === selection.sourceSpanId);
+  return {
+    trackStackId: track ? sourceTrackEffectTrackId(track.id) : undefined,
+    trackName: track?.name,
+    clipStackId: span ? sourceClipEffectTrackId(span.id) : undefined,
+    clipName: span ? getFxClipName(span.label) : undefined,
+    mediaId: span?.mediaId,
+  };
 }
