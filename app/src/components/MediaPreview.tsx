@@ -18,8 +18,14 @@ import {
 } from "../clip-media-state";
 import { useAudioClipPeaks } from "../hooks/useAudioClipPeaks.ts";
 import type { MediaItem } from "../media";
+import type { MediaRangePoint } from "../media-range.ts";
 import type { TimeValueFormat } from "../time-value.ts";
 import { WaveformCanvas } from "../WaveformCanvas";
+import {
+  type MediaRangeActions,
+  MediaRangeBar,
+  MediaRangeControls,
+} from "./MediaRangeBar";
 import "./media-preview.css";
 
 type MediaPreviewProps = {
@@ -28,6 +34,8 @@ type MediaPreviewProps = {
   setPlaying: (playing: boolean) => void;
   timeFormat: TimeValueFormat;
   volume: { volume: number; muted: boolean };
+  projectFps: number;
+  mediaRange: MediaRangeActions;
 };
 
 // The Media tab's player: the selected media on its own, with a transport
@@ -38,6 +46,8 @@ export function MediaPreview({
   setPlaying,
   timeFormat,
   volume,
+  projectFps,
+  mediaRange,
 }: MediaPreviewProps) {
   if (!media) {
     return (
@@ -71,6 +81,8 @@ export function MediaPreview({
       setPlaying={setPlaying}
       timeFormat={timeFormat}
       volume={volume}
+      projectFps={projectFps}
+      mediaRange={mediaRange}
     />
   );
 }
@@ -81,6 +93,8 @@ function MediaPlayer({
   setPlaying,
   timeFormat,
   volume,
+  projectFps,
+  mediaRange,
 }: MediaPreviewProps & { media: MediaItem }) {
   const elementRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
@@ -135,10 +149,13 @@ function MediaPlayer({
       setCurrentTime(event.currentTarget.currentTime),
     onEnded: () => setPlaying(false),
   };
+  const setRangePoint = (point: MediaRangePoint, seconds: number) =>
+    mediaRange.setPoint(media.id, point, seconds);
   const progress = duration > 0 ? Math.min(1, currentTime / duration) : 0;
 
   return (
-    <div className="media-preview" data-media-kind={media.kind}>
+    // Focusable so a click on the picture scopes the I/O keys to this tab.
+    <div className="media-preview" data-media-kind={media.kind} tabIndex={-1}>
       <div className="media-preview__picture">
         {media.hasVideo ? (
           <video
@@ -176,22 +193,37 @@ function MediaPlayer({
             <PlayIcon aria-hidden="true" />
           )}
         </button>
-        <input
-          type="range"
-          className="media-preview__scrub"
-          aria-label="Media position"
-          min={0}
-          max={duration}
-          step="any"
-          value={Math.min(currentTime, duration)}
-          style={{ "--progress": `${progress * 100}%` } as CSSProperties}
-          onChange={(event) => seek(Number(event.currentTarget.value))}
-        />
+        <MediaRangeBar
+          media={media}
+          duration={duration}
+          projectFps={projectFps}
+          onSetPoint={setRangePoint}
+          onSeek={seek}
+        >
+          <input
+            type="range"
+            className="media-preview__scrub"
+            aria-label="Media position"
+            min={0}
+            max={duration}
+            step="any"
+            value={Math.min(currentTime, duration)}
+            style={{ "--progress": `${progress * 100}%` } as CSSProperties}
+            onChange={(event) => seek(Number(event.currentTarget.value))}
+          />
+        </MediaRangeBar>
         <span className="media-preview__time" data-testid="media-preview-time">
           {formatMediaTime(currentTime, timeFormat)} /{" "}
           {formatMediaTime(duration, timeFormat)}
         </span>
       </div>
+      <MediaRangeControls
+        media={media}
+        currentTime={currentTime}
+        timeFormat={timeFormat}
+        onSetPoint={setRangePoint}
+        onClear={() => mediaRange.clear(media.id)}
+      />
     </div>
   );
 }

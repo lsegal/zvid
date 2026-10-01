@@ -33,6 +33,7 @@ import { useMediaCacheSession } from "./hooks/useMediaCacheSession.ts";
 import { useMediaDrawer } from "./hooks/useMediaDrawer.ts";
 import { useMediaImport } from "./hooks/useMediaImport.ts";
 import { useMediaPreview } from "./hooks/useMediaPreview.ts";
+import { useMediaRange } from "./hooks/useMediaRange.ts";
 import { usePlayback } from "./hooks/usePlayback.ts";
 import { usePreview } from "./hooks/usePreview.ts";
 import { usePreviewVolume } from "./hooks/usePreviewVolume.ts";
@@ -118,6 +119,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     mediaItemsById,
     drawerMediaId: mediaDrawer.selectedMediaId,
   });
+  const mediaRange = useMediaRange({ commitProjectChange });
   const fxEditing = useFxEditing({
     dispatchProject: store.dispatchProject,
     commitProjectChange,
@@ -564,6 +566,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 mainAudio={mainAudioModel.mainAudio}
                 mediaItems={mediaItems}
                 mediaPreview={mediaPreview}
+                mediaRange={mediaRange}
                 mediaTimeFormat={{
                   timelineMode,
                   bpm,

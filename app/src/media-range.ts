@@ -21,7 +21,11 @@ const DEFAULT_FRAME_RATE = 30;
 // Frame-rate jitter in seconds that still counts as the same frame.
 const FRAME_EPSILON = 1e-6;
 
-function frameRate(item: MediaItem, projectFps: number) {
+// Media snaps to its own frames, or the project's when it has none (audio).
+export function mediaRangeFrameRate(
+  item: Pick<MediaItem, "fps">,
+  projectFps: number,
+) {
   if (item.fps && item.fps > 0) {
     return item.fps;
   }
@@ -127,7 +131,7 @@ export function setMediaRangePoint(
       ? { ...current, inSeconds: seconds }
       : { ...current, outSeconds: seconds },
     item.durationSeconds,
-    frameRate(item, projectFps),
+    mediaRangeFrameRate(item, projectFps),
     point,
   );
   if (!next) {

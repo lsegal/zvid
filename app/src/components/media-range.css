@@ -1,0 +1,127 @@
+/* The Media tab's scrub bar with its In/Out markers, after the export
+   dialog's range timeline. */
+.media-range {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 40px;
+}
+
+.media-range > .media-preview__scrub {
+  width: 100%;
+}
+
+.media-range__dim {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  border-radius: 2px;
+  background: rgba(6, 8, 12, 0.68);
+  pointer-events: none;
+}
+
+.media-range__marker {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 12px;
+  margin-left: -6px;
+  cursor: ew-resize;
+  outline: none;
+  touch-action: none;
+}
+
+.media-range__marker::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 5px;
+  width: 2px;
+  background: var(--amber);
+  content: '';
+  opacity: 0.45;
+}
+
+.media-range[data-has-range] .media-range__marker::before {
+  opacity: 1;
+}
+
+.media-range__flag {
+  position: absolute;
+  bottom: 100%;
+  padding: 0 4px;
+  border-radius: 4px 4px 0 0;
+  background: var(--amber);
+  color: #1b1b24;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+  text-transform: uppercase;
+  opacity: 0.45;
+}
+
+.media-range[data-has-range] .media-range__flag {
+  opacity: 1;
+}
+
+.media-range__marker--in .media-range__flag {
+  left: 5px;
+}
+
+.media-range__marker--out .media-range__flag {
+  right: 5px;
+}
+
+.media-range__marker:focus-visible::before {
+  box-shadow: 0 0 0 2px rgba(255, 213, 106, 0.6);
+}
+
+.media-range-controls {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px 6px;
+  background: rgba(17, 19, 28, 0.92);
+}
+
+.media-range-controls__button {
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(10, 12, 20, 0.36);
+  color: var(--ink);
+  font-size: 0.68rem;
+}
+
+.media-range-controls__button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.media-range-controls__button:disabled {
+  opacity: 0.45;
+}
+
+.media-range-controls__readout {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.media-range-controls__readout[data-has-range] {
+  color: var(--ink);
+}
+
+/* Focused only to scope the I/O keys; the focus is not a control. */
+.media-preview:focus {
+  outline: none;
+}
