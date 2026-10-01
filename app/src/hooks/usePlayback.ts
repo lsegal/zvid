@@ -31,6 +31,7 @@ import {
   PLAYBACK_COMMIT_INTERVAL_MS,
   type PlayheadSignal,
 } from "../playhead-signal";
+import { scrubScrollLeft } from "../scrub-scroll.ts";
 
 export type PlaybackInputs = {
   playbackOriginRef: { current: number };
@@ -215,6 +216,7 @@ export function usePlayback({
       return;
     }
 
+    let lastClientX = timelineDragState.pointerStartX;
     const onPointerMove = (event: PointerEvent) => {
       if (event.pointerId !== timelineDragState.pointerId) {
         return;
@@ -234,21 +236,21 @@ export function usePlayback({
         totalQuarters,
       );
       const timelineBounds = timelineScroll.getBoundingClientRect();
-      const pointerX = clamp(
-        event.clientX - timelineBounds.left,
-        0,
-        timelineScroll.clientWidth,
-      );
       const maxScrollLeft = Math.max(
         0,
         labelWidth + totalQuarters * nextQuarterPx - timelineScroll.clientWidth,
       );
 
-      timelineScroll.scrollLeft = clamp(
-        labelWidth + nextPlayheadQ * nextQuarterPx - pointerX,
-        0,
+      timelineScroll.scrollLeft = scrubScrollLeft({
+        playheadPx: labelWidth + nextPlayheadQ * nextQuarterPx,
+        pointerX: event.clientX - timelineBounds.left,
+        deltaX: event.clientX - lastClientX,
+        scrollLeft: timelineScroll.scrollLeft,
+        viewportWidth: timelineScroll.clientWidth,
+        labelWidth,
         maxScrollLeft,
-      );
+      });
+      lastClientX = event.clientX;
       pulseTimelineAudibleScrub(
         timelineDragState.wasPlaying
           ? TIMELINE_PLAYBACK_SCRUB_AUDIO_IDLE_MS
