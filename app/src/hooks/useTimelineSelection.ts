@@ -1,4 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  keepSourceSelection,
+  type SourceSelection,
+} from "../app/source-selection.ts";
 import type {
   ArrangementClip,
   ClipMenuState,
@@ -6,10 +10,6 @@ import type {
   TimelineDragState,
   TimelineSelection,
 } from "../app/types.ts";
-import {
-  keepSourceSelection,
-  type SourceSelection,
-} from "../app/source-selection.ts";
 import { findRestoredSelection } from "../app/workspace-boot.ts";
 import type { SavedWorkspaceSession } from "../app/workspace-types.ts";
 import { previewDuplicateClipEffects, type SessionEffect } from "../fx-stack";

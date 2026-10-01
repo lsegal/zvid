@@ -37,7 +37,9 @@ describe("source selection", () => {
   });
 
   it("selecting the track again clears the source clip", () => {
-    const selection = selectSourceTrack(selectSourceSpan(spans[0]).sourceTrackId);
+    const selection = selectSourceTrack(
+      selectSourceSpan(spans[0]).sourceTrackId,
+    );
     assert.ok(isSourceTrackSelected(selection, "track-a"));
     assert.ok(!isSourceSpanSelected(selection, "span-a"));
   });
@@ -51,7 +53,10 @@ describe("source selection", () => {
     assert.equal(keepSourceSelection(selection, "clip", undefined), undefined);
     assert.equal(keepSourceSelection(selection, undefined, "1"), undefined);
     assert.equal(keepSourceSelection(selection, "clip", "1"), undefined);
-    assert.equal(keepSourceSelection(undefined, undefined, undefined), undefined);
+    assert.equal(
+      keepSourceSelection(undefined, undefined, undefined),
+      undefined,
+    );
   });
 
   it("is nothing when cleared", () => {
