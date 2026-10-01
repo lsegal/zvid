@@ -2,6 +2,7 @@ import type { Dispatch, RefObject, SetStateAction } from "react";
 import { TIMELINE_PLAYBACK_SCRUB_AUDIO_IDLE_MS } from "../../app/constants.ts";
 import type { getShortcutLabels } from "../../app/shortcut-labels.ts";
 import {
+  getTimelinePointerX,
   pointerToTimelineQ,
   quartersToSeconds,
 } from "../../app/timeline-math.ts";
@@ -163,8 +164,7 @@ export function Ruler({
           }
           setIsPlaying(false);
 
-          const timelineBounds = timelineScroll.getBoundingClientRect();
-          const pointerX = event.clientX - timelineBounds.left;
+          const pointerX = getTimelinePointerX(timelineScroll, event.clientX);
           const nextPlayheadQ = clamp(
             pointerToTimelineQ(
               pointerX,
