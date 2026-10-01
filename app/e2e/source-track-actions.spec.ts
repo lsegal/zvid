@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
 // Duplicating, deleting and reordering source tracks like layers (#654), from
-// the label's menu and its grip.
+// the label's menu and its grip, and renaming them (#663).
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
 
 async function dropVideoIntoNewSourceTrack(page: Page) {
@@ -80,6 +80,50 @@ test.beforeEach(async ({ page }) => {
   await menuItem(page, "Layer 1").click();
   await expect(layerClips(page)).toHaveCount(1);
   await expect(names(page)).toHaveText(["test-pattern"]);
+});
+
+test("Rename… renames a source track and its clips, in one undo step", async ({
+  page,
+}) => {
+  const spanLabel = page.locator(".source-span__body > span");
+  const clipLabel = layerClips(page).locator(".clip-card__text > strong");
+  await expect(spanLabel).toHaveText("test-pattern");
+  await expect(clipLabel).toHaveText("test-pattern");
+
+  // Escape cancels and puts focus back on the label.
+  await openMenu(page, 0);
+  await menuItem(page, "Rename…").click();
+  const input = page.getByRole("textbox", { name: "Source track name" });
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue("test-pattern");
+  await input.fill("Ignored");
+  await input.press("Escape");
+  await expect(input).toHaveCount(0);
+  await expect(names(page)).toHaveText(["test-pattern"]);
+  await expect(page.locator("[data-source-track-label-id]")).toBeFocused();
+
+  // An empty name keeps the old one.
+  await openMenu(page, 0);
+  await menuItem(page, "Rename…").click();
+  await input.fill("   ");
+  await input.press("Enter");
+  await expect(names(page)).toHaveText(["test-pattern"]);
+
+  // Enter saves the trimmed name on the track, its span and its layer clip.
+  await openMenu(page, 0);
+  await menuItem(page, "Rename…").click();
+  await input.fill("  Wide shot ");
+  await input.press("Enter");
+  await expect(names(page)).toHaveText(["Wide shot"]);
+  await expect(spanLabel).toHaveText("Wide shot");
+  await expect(clipLabel).toHaveText("Wide shot");
+  await expect(page.locator("[data-source-track-label-id]")).toBeFocused();
+  await expect(grip(page, 0)).toHaveAccessibleName("Reorder Wide shot");
+
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(names(page)).toHaveText(["test-pattern"]);
+  await expect(spanLabel).toHaveText("test-pattern");
+  await expect(clipLabel).toHaveText("test-pattern");
 });
 
 test("the menu duplicates a source track below it, spans and all", async ({
