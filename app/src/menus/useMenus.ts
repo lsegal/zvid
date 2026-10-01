@@ -97,12 +97,14 @@ export type MenusInputs = Pick<
     redoLabel: string | undefined;
     removeMainAudio: () => void;
     renamingLaneId: string | undefined;
+    renamingSourceTrackId: string | undefined;
     selectLaneFromLabel: (laneId: string) => void;
     selectedClip: ArrangementClip | undefined;
     selectedLaneId: string | undefined;
     setClipMenu: Dispatch<SetStateAction<ClipMenuState | null>>;
     setPendingSelection: Dispatch<SetStateAction<TimelineSelection | null>>;
     setRenamingLaneId: Dispatch<SetStateAction<string | undefined>>;
+    setRenamingSourceTrackId: Dispatch<SetStateAction<string | undefined>>;
     setSelectedClipId: Dispatch<SetStateAction<string | undefined>>;
     setSelectedLaneId: Dispatch<SetStateAction<string | undefined>>;
     shortcutLabels: ReturnType<typeof getShortcutLabels>;
@@ -169,6 +171,7 @@ export function useMenus({
   redoLabel,
   removeMainAudio,
   renamingLaneId,
+  renamingSourceTrackId,
   selectLaneFromLabel,
   selectedClip,
   selectedLaneId,
@@ -176,6 +179,7 @@ export function useMenus({
   setLayerFxEnabled,
   setPendingSelection,
   setRenamingLaneId,
+  setRenamingSourceTrackId,
   setSelectedClipId,
   setSelectedLaneId,
   shortcutLabels,
@@ -258,6 +262,10 @@ export function useMenus({
   ) {
     event.preventDefault();
     event.stopPropagation();
+    if (renamingSourceTrackId === trackId) {
+      return;
+    }
+
     setClipMenu({
       kind: "source-track",
       trackId,
@@ -293,6 +301,7 @@ export function useMenus({
             tracks: sourceTracks,
             trackId: track.id,
             actions: {
+              rename: () => setRenamingSourceTrackId(track.id),
               duplicate: () => duplicateSourceTrack(track),
               remove: () => deleteSourceTrack(track),
               moveUp: () => moveSourceTrack(track, -1),

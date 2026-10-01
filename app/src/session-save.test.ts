@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { sessionToProject } from "./app/session-project.ts";
 import { createClipWarp } from "./clip-warp.ts";
 import type { EffectAnimation } from "./fx-animation-defaults.ts";
 import { hasGlobalOrder, mapEffects, pruneClipEffects } from "./fx-stack.ts";
@@ -14,6 +15,7 @@ import {
   readSessionTexts,
   type SaveableProject,
 } from "./session-save.ts";
+import { renameSourceTrack } from "./source-track-edits.ts";
 import {
   parseWorkspaceSession,
   serializeWorkspaceSession,
@@ -461,6 +463,50 @@ describe("projectToLvpSession", () => {
     assert.deepEqual(
       effects.map((effect) => effect.id),
       ["fx1"],
+    );
+  });
+
+  it("round-trips a renamed source track with its span and clip labels", () => {
+    const project = baseProject();
+    const { sourceTracks, sourceSpans, clips } = renameSourceTrack(
+      {
+        sourceTracks: project.sourceTracks,
+        sourceSpans: project.sourceSpans.map((span) => ({
+          ...span,
+          tint: "#000",
+          accent: "#fff",
+        })),
+        clips: project.clips.map((clip) => ({
+          ...clip,
+          sourceSpanId: "source-c1",
+          label: "Cam",
+        })),
+        effects: [],
+      },
+      "t1",
+      "Wide",
+    );
+    const session = projectToLvpSession(
+      { ...project, sourceTracks, sourceSpans, clips },
+      { playheadQ: 0 },
+    );
+    assert.deepEqual(
+      session.tracks?.map((track) => track.name),
+      ["Wide"],
+    );
+
+    const restored = sessionToProject(session, []);
+    assert.deepEqual(
+      restored.sourceTracks.map((track) => track.name),
+      ["Wide"],
+    );
+    assert.deepEqual(
+      restored.sourceSpans.map((span) => span.label),
+      ["Wide"],
+    );
+    assert.deepEqual(
+      restored.arrangementClips.map((clip) => clip.label),
+      ["Wide", "Wide"],
     );
   });
 

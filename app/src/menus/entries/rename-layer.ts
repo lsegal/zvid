@@ -1,7 +1,10 @@
-import type { LayerMenuContext } from "../layer-menu.ts";
 import type { MenuEntryProvider } from "../registry.ts";
 
-export const renameLayerEntry: MenuEntryProvider<LayerMenuContext> = {
+// Shared by the layer and source track menus.
+export const renameLayerEntry: MenuEntryProvider<{
+  disabled: boolean;
+  actions: { rename: () => void };
+}> = {
   id: "rename",
   order: 10,
   entries: ({ disabled, actions }) => [

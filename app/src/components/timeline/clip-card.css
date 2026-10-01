@@ -243,3 +243,61 @@
 .clip-card.is-syncing .clip-card__handle {
   position: relative;
 }
+
+/* Audio-only clips draw their waveform, like the Audio lane, behind a quiet
+   border; hovering, focusing or trimming shows the full accent border with
+   the handles. */
+.clip-card__waveform {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  pointer-events: none;
+}
+
+.clip-card--audio {
+  border-color: color-mix(
+    in srgb,
+    var(--clip-accent, var(--line-strong)) 35%,
+    transparent
+  );
+  transition: border-color 100ms ease;
+}
+
+.clip-card--audio:hover,
+.clip-card--audio:has(:focus-visible),
+.clip-card--audio.clip-card--trimming {
+  border-color: var(--clip-accent, var(--line-strong));
+}
+
+@media (hover: none) {
+  .clip-card--audio {
+    border-color: var(--clip-accent, var(--line-strong));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clip-card--audio {
+    transition: none;
+  }
+}
+
+.clip-card--audio .clip-card__body,
+.clip-card--audio .clip-card__handle {
+  position: relative;
+}
+
+/* The same scrim as over a filmstrip keeps the label readable over the
+   waveform. */
+.clip-card--audio .clip-card__text {
+  background: linear-gradient(
+    90deg,
+    rgba(8, 10, 20, 0.72),
+    rgba(8, 10, 20, 0.4) 60%,
+    rgba(8, 10, 20, 0.1)
+  );
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.clip-card--audio .clip-card__meta {
+  color: rgba(255, 255, 255, 0.8);
+}

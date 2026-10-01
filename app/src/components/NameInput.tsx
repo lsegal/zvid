@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 
-// Inline editor for a layer name: Enter or leaving the field saves, Escape
-// cancels.
-export function LayerNameInput({
+// Inline editor for a layer or source track name: Enter or leaving the field
+// saves, Escape cancels.
+export function NameInput({
+  label,
   initialName,
   onSubmit,
   onCancel,
 }: {
+  // The field's accessible name, such as "Layer name".
+  label: string;
   initialName: string;
   onSubmit: (name: string) => void;
   onCancel: () => void;
@@ -38,7 +41,7 @@ export function LayerNameInput({
 
   return (
     <input
-      aria-label="Layer name"
+      aria-label={label}
       className="track-label__rename"
       maxLength={64}
       onBlur={() => finish(true)}
