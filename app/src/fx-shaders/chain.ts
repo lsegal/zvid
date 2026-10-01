@@ -33,6 +33,17 @@ export const TARGET_SIZE_BUCKET = 64;
 // used is freed past this.
 export const MAX_POOLED_TARGETS = 8;
 
+// Arrangement targets only grow while an FX clip's box animates; one is
+// reallocated smaller once a side has needed at most half of it for this
+// many uses in a row.
+export const ARRANGEMENT_SHRINK_USES = 120;
+
+type ArrangementTarget = {
+  target: RenderTarget;
+  // Uses in a row that needed at most half of a side.
+  smallUses: number;
+};
+
 type CompiledPass = {
   pass: EffectPass;
   program: WebGLProgram;
@@ -136,7 +147,8 @@ class TargetPool<T> {
 // instance belongs to one WebGL context: programs compile lazily on first use
 // and render targets are reallocated whenever the canvas surface changes size.
 // Layer and ping-pong targets come from bounded pools of bucketed sizes, a
-// picture drawn into the corner of one (see `targetRegion`).
+// picture drawn into the corner of one (see `targetRegion`); arrangement
+// targets are bucketed the same way but grow in place.
 export class EffectChainRenderer {
   private readonly gl: WebGLRenderingContext;
   private readonly positionBuffer: WebGLBuffer;
@@ -145,7 +157,7 @@ export class EffectChainRenderer {
   private pingPongTargets: TargetPool<RenderTarget[]>;
   private sceneTarget: RenderTarget | null = null;
   private layerTargets: TargetPool<RenderTarget[]>;
-  private arrangementTargets = new Map<number, RenderTarget>();
+  private arrangementTargets = new Map<number, ArrangementTarget>();
   private surfaceKey = "";
   private readonly maxTextureSize: number;
   // Pooled targets' sides are rounded up to a multiple of this; 1 allocates
@@ -213,19 +225,44 @@ export class EffectChainRenderer {
     };
   }
 
-  // Surface an FX clip with an Order arranges the layers beneath it into, one
-  // per nesting `depth`, since an arrangement can hold another.
+  // Surface an FX clip with an Order arranges the layers beneath it into, in
+  // its `width` × `height` corner, one per nesting `depth`, since an
+  // arrangement can hold another. It is kept while the picture fits, so a
+  // box that animates doesn't reallocate it every frame.
   getArrangementTarget(depth: number, width: number, height: number) {
-    let target = this.arrangementTargets.get(depth);
-    if (!target || target.width !== width || target.height !== height) {
-      if (target) {
-        this.deleteTarget(target);
+    const bucketWidth = this.bucketSize(width);
+    const bucketHeight = this.bucketSize(height);
+    let entry = this.arrangementTargets.get(depth);
+    let allocate: [number, number] = [bucketWidth, bucketHeight];
+    if (entry) {
+      const { target } = entry;
+      const fits = width <= target.width && height <= target.height;
+      const small =
+        bucketWidth * 2 <= target.width || bucketHeight * 2 <= target.height;
+      entry.smallUses = fits && small ? entry.smallUses + 1 : 0;
+      if (!fits) {
+        // Grow only, so a box growing on one side and shrinking on the
+        // other doesn't keep reallocating it.
+        allocate = [
+          Math.max(bucketWidth, target.width),
+          Math.max(bucketHeight, target.height),
+        ];
       }
-      target = this.createTarget(width, height);
-      this.arrangementTargets.set(depth, target);
+      if (!fits || entry.smallUses > ARRANGEMENT_SHRINK_USES) {
+        this.deleteTarget(target);
+        entry = undefined;
+      }
+    }
+    if (!entry) {
+      entry = { target: this.createTarget(...allocate), smallUses: 0 };
+      this.arrangementTargets.set(depth, entry);
     }
 
-    return target;
+    const { target } = entry;
+    return {
+      framebuffer: target.framebuffer,
+      region: targetRegion(target, width, height),
+    };
   }
 
   // Applies `steps` to the `width` × `height` picture in `source` in order.
@@ -338,6 +375,10 @@ export class EffectChainRenderer {
     return compiled;
   }
 
+  private bucketSize(size: number) {
+    return bucketTargetSize(size, this.maxTextureSize, this.sizeBucket);
+  }
+
   // `count` targets from `pool` with room for a `width` × `height` picture.
   private getPooledTargets(
     pool: TargetPool<RenderTarget[]>,
@@ -345,10 +386,8 @@ export class EffectChainRenderer {
     height: number,
     count: number,
   ) {
-    const bucket = (size: number) =>
-      bucketTargetSize(size, this.maxTextureSize, this.sizeBucket);
-    const bucketWidth = bucket(width);
-    const bucketHeight = bucket(height);
+    const bucketWidth = this.bucketSize(width);
+    const bucketHeight = this.bucketSize(height);
     return pool.get(`${bucketWidth}x${bucketHeight}`, () =>
       Array.from({ length: count }, () =>
         this.createTarget(bucketWidth, bucketHeight),
@@ -408,7 +447,7 @@ export class EffectChainRenderer {
   private releaseTargets() {
     this.pingPongTargets.clear();
     this.layerTargets.clear();
-    for (const target of this.arrangementTargets.values()) {
+    for (const { target } of this.arrangementTargets.values()) {
       this.deleteTarget(target);
     }
     this.arrangementTargets.clear();

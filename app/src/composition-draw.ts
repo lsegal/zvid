@@ -41,7 +41,6 @@ import type { AudioBands } from "./fx-shaders/audio-bands.ts";
 import {
   EffectChainRenderer,
   type PreparedEffectStep,
-  type RenderTarget,
   type TextureRegion,
   wholeTexture,
 } from "./fx-shaders/chain.ts";
@@ -409,7 +408,7 @@ function renderLayerFrame(
 // layer's and the clip's Transforms move it.
 function applyFxClip(
   resources: WebGlResources,
-  scene: RenderTarget,
+  scene: { framebuffer: WebGLFramebuffer; region: TextureRegion },
   surface: CompositeSurface,
   entry: CompositeLayer,
   steps: PreparedEffectStep[],
@@ -417,7 +416,7 @@ function applyFxClip(
 ) {
   const { gl, effectChain, fxMask } = resources;
   const { width, height } = surface;
-  const source = wholeTexture(scene.texture);
+  const source = scene.region;
   const adjusted = effectChain.run(source, width, height, steps, {
     time: frameContext.time,
     clipProgress: entry.clipProgress,
@@ -462,12 +461,13 @@ function applyFxClip(
 }
 
 // A surface a stack of layers is drawn into: the canvas itself
-// (`framebuffer` null) or an offscreen target the FX clips can read back.
+// (`framebuffer` null) or an offscreen target the FX clips can read back,
+// drawn `width` × `height` into the corner `region` holds.
 type StackTarget = {
   framebuffer: WebGLFramebuffer | null;
   width: number;
   height: number;
-  texture?: WebGLTexture;
+  region?: TextureRegion;
 };
 
 // Draws `entry` into slot `index` of `count` of `target`, arranged by
@@ -686,11 +686,9 @@ export function drawComposition(
     groupSteps.length || fxSteps.size
       ? effectChain.getSceneTarget(width, height)
       : null;
-  const sceneTarget: StackTarget = scene ?? {
-    framebuffer: null,
-    width,
-    height,
-  };
+  const sceneTarget: StackTarget = scene
+    ? { ...scene, region: wholeTexture(scene.texture) }
+    : { framebuffer: null, width, height };
   bindCompositeState(resources, sceneTarget.framebuffer, width, height);
   // The Global Order's border fills its gaps and empty cells.
   gl.clearColor(...sceneClearColor(order));
@@ -717,14 +715,10 @@ export function drawComposition(
         );
       } else if (step.type === "arrange") {
         drawArrangement(step, target, depth);
-      } else if (target.texture && target.framebuffer) {
+      } else if (target.region && target.framebuffer) {
         applyFxClip(
           resources,
-          {
-            ...target,
-            texture: target.texture,
-            framebuffer: target.framebuffer,
-          },
+          { framebuffer: target.framebuffer, region: target.region },
           { width: target.width, height: target.height },
           step.entry,
           fxSteps.get(step.entry) ?? [],
@@ -753,11 +747,16 @@ export function drawComposition(
       entry.visual,
     );
     const size = fitTextureSize(gl, placed.box.width, placed.box.height);
-    const target = effectChain.getArrangementTarget(
+    const arrangement = effectChain.getArrangementTarget(
       depth,
       size.width,
       size.height,
     );
+    const target: StackTarget = {
+      ...arrangement,
+      width: size.width,
+      height: size.height,
+    };
     bindCompositeState(resources, target.framebuffer, size.width, size.height);
     gl.clearColor(...borderClearColor(step.order));
     gl.clear(gl.COLOR_BUFFER_BIT);
@@ -765,18 +764,17 @@ export function drawComposition(
     gl.disable(gl.SCISSOR_TEST);
 
     // The FX clip's other effects run on the arranged layers.
-    const arrangement = wholeTexture(target.texture);
     const steps = fxSteps.get(entry) ?? [];
     const arranged = steps.length
-      ? (effectChain.run(arrangement, size.width, size.height, steps, {
+      ? (effectChain.run(arrangement.region, size.width, size.height, steps, {
           time: frameContext.time,
           clipProgress: entry.clipProgress,
           resolution: [size.width, size.height],
           // The arrangement framebuffer is rendered normally, so it is
           // bottom-up.
           bottomUp: true,
-        }) ?? arrangement)
-      : arrangement;
+        }) ?? arrangement.region)
+      : arrangement.region;
     const axes = matrixQuadAxes(
       canvasBoxToFrame(placed.box, parentSurface),
       placed.matrix,
