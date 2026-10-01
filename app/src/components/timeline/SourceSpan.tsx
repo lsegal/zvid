@@ -101,10 +101,6 @@ export function SourceSpan({
   const mediaSync = media
     ? describeMediaSync(remoteMediaProgress.get(media.id), media.availability)
     : null;
-  const selected =
-    isSourceSpanSelected(sourceSelection, clip.id) ||
-    (clipMenu?.kind === "span" && clipMenu.spanId === clip.id);
-
   // Keeps the trim handles shown while the pointer strays off the span
   // mid-drag.
   const trimming =
@@ -134,9 +130,13 @@ export function SourceSpan({
     });
   }
 
+  const selected =
+    isSourceSpanSelected(sourceSelection, clip.id) ||
+    (clipMenu?.kind === "span" && clipMenu.spanId === clip.id);
+
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: dragging, Ctrl/Cmd-click and right-click are pointer gestures; pressing a source layer's number key commits a selection from the keyboard
-    // biome-ignore lint/a11y/useKeyWithClickEvents: selecting with a click is a mouse shortcut; the source track's label button selects its track from the keyboard
+    // biome-ignore lint/a11y/noStaticElementInteractions: clicking, dragging, Ctrl/Cmd-click and right-click are pointer gestures; pressing a source layer's number key commits a selection from the keyboard
+    // biome-ignore lint/a11y/useKeyWithClickEvents: selecting with a click is a mouse shortcut; the source track's name button selects its track from the keyboard
     <div
       className={`source-span ${trimming ? "source-span--trimming" : ""} ${filmstrip ? "source-span--filmstrip" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""} ${selected ? "source-span--selected" : ""}`}
       data-source-span-id={clip.id}
