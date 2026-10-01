@@ -63,9 +63,26 @@ async function dragAt(
   }
 }
 
-// The client x of timeline position `q` in `row`'s timeline.
+// The client x of timeline position `q` in `row`'s timeline, which starts
+// inside the content's left border.
 async function xOf(row: Locator, q: number, quarterPx: number) {
-  return (await box(row.locator(content))).x + q * quarterPx;
+  const origin = await row
+    .locator(content)
+    .evaluate(
+      (element) => element.getBoundingClientRect().left + element.clientLeft,
+    );
+  return origin + q * quarterPx;
+}
+
+// The client x of the left edge of the last span in `row`'s timeline.
+function lastSpanX(row: Locator) {
+  return row
+    .locator(".source-span")
+    .evaluateAll((elements) =>
+      Math.max(
+        ...elements.map((element) => element.getBoundingClientRect().left),
+      ),
+    );
 }
 
 // Where each span in `row` sits, in quarters, in timeline order.
@@ -123,11 +140,12 @@ test("media dropped on a track starts at the snapped pointer position", async ({
       [12, 8],
     ]);
 
-  // Shift skips snapping, as when moving a clip. The pointer conversion
-  // clip drags share puts 0 within a pixel of the first clip's edge.
+  // Shift skips snapping, as when moving a clip, and the clip starts right
+  // under the pointer (#696).
+  const pointerX = await xOf(row, 24.5, quarterPx);
   await dragAt(
     row.locator(content),
-    await xOf(row, 24.5, quarterPx),
+    pointerX,
     await videoTransfer(page, 1),
     ["dragenter", "dragover", "drop"],
     true,
@@ -136,8 +154,9 @@ test("media dropped on a track starts at the snapped pointer position", async ({
     timeout: 30_000,
   });
   const [, , [unsnappedQ, unsnappedDurationQ]] = await layout(row, quarterPx);
-  expect(Math.abs(unsnappedQ - 24.5)).toBeLessThan(1.5 / quarterPx);
+  expect(Math.abs(unsnappedQ - 24.5)).toBeLessThan(0.5 / quarterPx);
   expect(unsnappedDurationQ).toBe(8);
+  expect(Math.abs((await lastSpanX(row)) - pointerX)).toBeLessThan(0.5);
 });
 
 test("several files dropped on a track follow each other and overwrite the clips they land on", async ({
@@ -285,5 +304,5 @@ test("the drop preview follows the pointer and the timeline's scroll", async ({
   }, 4 * quarterPx);
   await dragAt(row.locator(content), pointerX, dataTransfer, ["dragover"]);
   await expect.poll(previewQ).toBe(24);
-  expect(Math.abs((await box(preview)).x - (pointerX - 2))).toBeLessThan(1.5);
+  expect(Math.abs((await box(preview)).x - (pointerX - 2))).toBeLessThan(0.5);
 });
