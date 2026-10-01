@@ -13,6 +13,7 @@ import {
 } from "./fill-clip.ts";
 import { resolveFillPaint } from "./fill-paint.ts";
 import {
+  clipEffectTrackId,
   mapSessionEffectsToDevices,
   type SessionEffect,
   setEffectParameter,
@@ -201,7 +202,7 @@ describe("Color effect parameters", () => {
       "Layer 1",
       [],
       undefined,
-      "fill-a",
+      clipEffectTrackId("fill-a"),
     )
       .find((device) => device.effectName === "Color")
       ?.parameters.map((parameter) => [parameter.key, parameter.kind]);
@@ -241,7 +242,7 @@ describe("Color effect parameters", () => {
       undefined,
       [],
       undefined,
-      "fill-a",
+      clipEffectTrackId("fill-a"),
     ).find((candidate) => candidate.effectName === "Color");
     const color = device?.parameters.find(
       (parameter) => parameter.key === "Color",

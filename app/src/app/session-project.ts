@@ -5,6 +5,7 @@ import {
   ensureLayerLayouts,
   mapEffects,
   pruneClipEffects,
+  pruneSourceEffects,
 } from "../fx-stack.ts";
 import type { MediaItem } from "../media.ts";
 import {
@@ -71,6 +72,19 @@ export function patchProjectState(
   if (patch.clips) {
     const effects = patch.effects ?? current.effects;
     const pruned = pruneClipEffects(effects, patch.clips);
+    if (pruned !== effects) {
+      patch = { ...patch, effects: pruned };
+    }
+  }
+  // So do source tracks and source clips, such as a span an overlap
+  // removed.
+  if (patch.sourceTracks || patch.sourceSpans) {
+    const effects = patch.effects ?? current.effects;
+    const pruned = pruneSourceEffects(
+      effects,
+      patch.sourceTracks ?? current.sourceTracks,
+      patch.sourceSpans ?? current.sourceSpans,
+    );
     if (pruned !== effects) {
       patch = { ...patch, effects: pruned };
     }
@@ -302,20 +316,24 @@ export function sessionToProject(
     // moved onto their text and fill clips, an old Colorize Reactivity
     // becomes Reactive animation, and an old Order Margin toggle becomes its
     // Margin knob, as part of the load so none of it is a
-    // separate undo step. Stacks of clips that could not be loaded are
-    // dropped with them.
+    // separate undo step. Stacks of clips, source tracks and source clips
+    // that could not be loaded are dropped with them.
     effects: migrateClipContentEffects(
-      pruneClipEffects(
-        migrateDefaultOrder(
-          ensureLayerLayouts(
-            migrateOrderOuterMargin(
-              migrateColorizeReactivity(mapEffects(session.effects)),
+      pruneSourceEffects(
+        pruneClipEffects(
+          migrateDefaultOrder(
+            ensureLayerLayouts(
+              migrateOrderOuterMargin(
+                migrateColorizeReactivity(mapEffects(session.effects)),
+              ),
+              (lanes.length ? lanes : DEFAULT_LANES).map((lane) => lane.id),
             ),
-            (lanes.length ? lanes : DEFAULT_LANES).map((lane) => lane.id),
+            session.orderDefaulted,
           ),
-          session.orderDefaulted,
+          arrangementClips,
         ),
-        arrangementClips,
+        sourceTracks,
+        sourceSpans,
       ),
       arrangementClips,
       session.clipContentEffects,

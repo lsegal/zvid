@@ -4,7 +4,14 @@
 // deleting a track takes both. Each helper returns the project itself when nothing
 // changed so history commits can skip no-op edits.
 import { getSwatch } from "./app/util.ts";
-import { pruneClipEffects, type SessionEffect } from "./fx-stack.ts";
+import {
+  copyEffectStacks,
+  pruneClipEffects,
+  pruneSourceEffects,
+  type SessionEffect,
+  sourceClipEffectTrackId,
+  sourceTrackEffectTrackId,
+} from "./fx-stack.ts";
 import { PALETTE_SIZE } from "./source-track-color.ts";
 
 export type SourceTrackLike = { id: string; name: string; colorIndex: number };
@@ -56,9 +63,10 @@ export function nextFreeSourceTrackColorIndex(
 /**
  * Adds a copy of source track `trackId` directly below it, named
  * "<name> copy" in the next free color, with copies of its spans pointing at
- * the same media. `newTrackId` is the copy's id and `createSpanId` gives each
- * copied span a fresh id. Arrangement clips are unchanged. Unchanged when the
- * track is missing.
+ * the same media, and copies of the track's and its spans' effect stacks.
+ * `newTrackId` is the copy's id and `createSpanId` gives each copied span a
+ * fresh id. Arrangement clips are unchanged. Unchanged when the track is
+ * missing.
  */
 export function duplicateSourceTrack<
   Track extends SourceTrackLike,
@@ -87,15 +95,25 @@ export function duplicateSourceTrack<
     colorIndex,
   };
   const swatch = getSwatch(colorIndex);
+  const stackCopies: [string, string][] = [
+    [sourceTrackEffectTrackId(trackId), sourceTrackEffectTrackId(newTrackId)],
+  ];
   const copiedSpans = project.sourceSpans
     .filter((span) => span.sourceTrackId === trackId)
-    .map((span) => ({
-      ...span,
-      id: createSpanId(),
-      sourceTrackId: newTrackId,
-      tint: swatch.color,
-      accent: swatch.accent,
-    }));
+    .map((span) => {
+      const copied = {
+        ...span,
+        id: createSpanId(),
+        sourceTrackId: newTrackId,
+        tint: swatch.color,
+        accent: swatch.accent,
+      };
+      stackCopies.push([
+        sourceClipEffectTrackId(span.id),
+        sourceClipEffectTrackId(copied.id),
+      ]);
+      return copied;
+    });
 
   return {
     ...project,
@@ -105,13 +123,15 @@ export function duplicateSourceTrack<
       ...project.sourceTracks.slice(index + 1),
     ],
     sourceSpans: [...project.sourceSpans, ...copiedSpans],
+    effects: copyEffectStacks(project.effects, stackCopies),
   };
 }
 
 /**
  * Removes source track `trackId` with its spans and the arrangement clips
- * cut from them, along with those clips' own effect stacks. The media stays
- * in the library. Unchanged when the track is missing.
+ * cut from them, along with the track's, its spans' and those clips' own
+ * effect stacks. The media stays in the library. Unchanged when the track is
+ * missing.
  */
 export function deleteSourceTrack<
   Track extends SourceTrackLike,
@@ -134,14 +154,22 @@ export function deleteSourceTrack<
     (clip) =>
       clip.sourceTrackId !== trackId && !removedSpanIds.has(clip.sourceSpanId),
   );
+  const sourceTracks = project.sourceTracks.filter(
+    (track) => track.id !== trackId,
+  );
+  const sourceSpans = project.sourceSpans.filter(
+    (span) => span.sourceTrackId !== trackId,
+  );
   return {
     ...project,
-    sourceTracks: project.sourceTracks.filter((track) => track.id !== trackId),
-    sourceSpans: project.sourceSpans.filter(
-      (span) => span.sourceTrackId !== trackId,
-    ),
+    sourceTracks,
+    sourceSpans,
     clips,
-    effects: pruneClipEffects(project.effects, clips),
+    effects: pruneSourceEffects(
+      pruneClipEffects(project.effects, clips),
+      sourceTracks,
+      sourceSpans,
+    ),
   };
 }
 

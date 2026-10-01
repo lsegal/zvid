@@ -7,6 +7,7 @@ import {
   usesMediaFile,
 } from "./clip-media-state.ts";
 import {
+  clipEffectTrackId,
   mapSessionEffectsToDevices,
   type SessionEffect,
   setEffectParameter,
@@ -53,7 +54,7 @@ function textDevice(effects: SessionEffect[], missing?: ReadonlySet<string>) {
     "Layer 1",
     [],
     missing,
-    "text-a",
+    clipEffectTrackId("text-a"),
   ).find((candidate) => candidate.effectName === "Text");
   assert.ok(device);
   return device;

@@ -215,7 +215,7 @@ describe("FX clip stacks", () => {
         "Layer 1",
         [],
         new Set(),
-        "fx-a",
+        clipEffectTrackId("fx-a"),
         "fxClip",
         Array.from({ length: layerCount }, (_, index) => `${index + 2}`),
       ).find((device) => device.id === "order");
@@ -247,7 +247,7 @@ describe("FX clip stacks", () => {
       "Layer 1",
       [],
       new Set(),
-      "fx-a",
+      clipEffectTrackId("fx-a"),
       "fxClip",
     );
     assert.deepEqual(

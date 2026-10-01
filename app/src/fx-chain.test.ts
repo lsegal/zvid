@@ -109,7 +109,7 @@ describe("groupChainDevices", () => {
         "Layer 3",
         [],
         new Set(),
-        "clip-a",
+        clipEffectTrackId("clip-a"),
       ),
       "video",
     );

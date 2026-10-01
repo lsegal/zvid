@@ -9,7 +9,11 @@
 import { alsSavePath } from "./als-import.ts";
 import { type ClipWarp, warpSampleStartSeconds } from "./clip-warp.ts";
 import type { EffectAnimation } from "./fx-animation-defaults.ts";
-import { pruneExcludedLayers, renameClipEffectTracks } from "./fx-stack.ts";
+import {
+  pruneExcludedLayers,
+  renameClipEffectTracks,
+  renameSourceClipEffectTracks,
+} from "./fx-stack.ts";
 import type { LvpLayerClip, LvpSession } from "./session.ts";
 import type { SessionEncoding } from "./session-settings.ts";
 import type { WorkspaceSessionSource } from "./workspace-session.ts";
@@ -345,13 +349,23 @@ export function projectToLvpSession(
     ...(fills.length ? { fills } : {}),
     ...(texts.length ? { texts } : {}),
     ...(fxClips.length ? { fxClips } : {}),
-    // An Order only keeps exclusions of layers that still exist.
-    effects: renameClipEffectTracks(
-      pruneExcludedLayers(
-        project.effects,
-        project.lanes.map((lane) => lane.id),
+    // An Order only keeps exclusions of layers that still exist. Source
+    // clips load back as `source-<clip id>`, so their own stacks are saved
+    // under that id too.
+    effects: renameSourceClipEffectTracks(
+      renameClipEffectTracks(
+        pruneExcludedLayers(
+          project.effects,
+          project.lanes.map((lane) => lane.id),
+        ),
+        savedClipIds,
       ),
-      savedClipIds,
+      new Map(
+        project.sourceSpans.map((span) => [
+          span.id,
+          `${SOURCE_SPAN_ID_PREFIX}${sourceClipId(span.id)}`,
+        ]),
+      ),
     ).map((effect) => ({
       id: effect.id,
       trackId: effect.trackId,
