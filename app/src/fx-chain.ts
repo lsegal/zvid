@@ -2,10 +2,7 @@
 // which group, how knob values are formatted, and the per-device collapse
 // state that is kept in localStorage.
 
-import {
-  parseLayerIdList,
-  serializeLayerIdList,
-} from "./composition-order.ts";
+import { parseLayerIdList, serializeLayerIdList } from "./composition-order.ts";
 import {
   FX_EFFECT_DEFINITIONS,
   type FxEffectScope,
