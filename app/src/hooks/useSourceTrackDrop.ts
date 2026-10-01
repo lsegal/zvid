@@ -1,5 +1,4 @@
 import {
-  type DragEvent as ReactDragEvent,
   type RefObject,
   useCallback,
   useEffect,
@@ -9,13 +8,14 @@ import {
 import { PALETTE, SOURCE_TRACK_DRAG_CLEAR_DELAY_MS } from "../app/constants.ts";
 import { formatDuration } from "../app/format.ts";
 import type {
-  SourceTrack,
   SourceTrackDragPreview,
   SourceTrackDropTarget,
 } from "../app/types.ts";
 import {
   buildDraggedMediaKey,
   getDraggedMediaFiles,
+  getSourceTrackDragState,
+  getSourceTrackDropTarget,
   hasDraggedFileData,
   pluralize,
   revokeObjectUrlIfNeeded,
@@ -27,24 +27,28 @@ import type { MediaItem } from "../media";
 
 export type SourceTrackDropInputs = {
   mediaItems: MediaItem[];
-  sourceTracks: SourceTrack[];
   appShellRef: RefObject<HTMLDivElement | null>;
   setIsMainAudioDropTarget: (isDropTarget: boolean) => void;
   importMediaIntoSourceTrack: (
     files: File[],
     target: SourceTrackDropTarget,
   ) => Promise<void>;
+  setStatus: (status: string) => void;
 };
 
 // Dragging media files over the source tracks: the track under the pointer,
-// the preview card of the dragged files, and importing them on drop.
+// the preview card of the dragged files, and importing them on drop. One
+// window-level listener serves every source track drop target.
 export function useSourceTrackDrop({
   mediaItems,
-  sourceTracks,
   appShellRef,
   setIsMainAudioDropTarget,
   importMediaIntoSourceTrack,
+  setStatus,
 }: SourceTrackDropInputs) {
+  // Media is dragged over the app, whether or not over a drop target.
+  const [isSourceTrackFileDragActive, setIsSourceTrackFileDragActive] =
+    useState(false);
   const [sourceTrackDragTarget, setSourceTrackDragTarget] =
     useState<SourceTrackDropTarget | null>(null);
   const [sourceTrackDragPreview, setSourceTrackDragPreview] =
@@ -54,9 +58,10 @@ export function useSourceTrackDrop({
   const sourceTrackDragPreviewKeyRef = useRef<string>("");
   const sourceTrackDragPreviewRequestRef = useRef(0);
 
-  const isSourceTrackFileDragActive = Boolean(sourceTrackDragTarget);
   const sourceTrackDragPreviewDetail = sourceTrackDragPreview
-    ? sourceTrackDragPreview.status === "loading"
+    ? sourceTrackDragPreview.status === "pending"
+      ? "Drop to import"
+      : sourceTrackDragPreview.status === "loading"
       ? "Loading clip preview..."
       : sourceTrackDragPreview.status === "error"
         ? sourceTrackDragPreview.fileCount > 1
@@ -71,7 +76,9 @@ export function useSourceTrackDrop({
             : "Media clip"
     : "";
   const sourceTrackDragPreviewOverflow =
-    sourceTrackDragPreview && sourceTrackDragPreview.fileCount > 1
+    sourceTrackDragPreview &&
+    sourceTrackDragPreview.status !== "pending" &&
+    sourceTrackDragPreview.fileCount > 1
       ? `+${sourceTrackDragPreview.fileCount - 1} more`
       : null;
   const isNewSourceTrackDropTarget =
@@ -86,6 +93,7 @@ export function useSourceTrackDrop({
     sourceTrackDragPreviewKeyRef.current = "";
     sourceTrackDragPreviewRequestRef.current += 1;
     setSourceTrackDragTarget(null);
+    setIsSourceTrackFileDragActive(false);
     setIsMainAudioDropTarget(false);
     setSourceTrackDragPreview((current) => {
       revokeObjectUrlIfNeeded(current?.thumbnailUrl);
@@ -189,50 +197,25 @@ export function useSourceTrackDrop({
     [mediaItems.length],
   );
 
-  const handleSourceTrackDragEvent = useCallback(
-    (event: ReactDragEvent<HTMLElement>, target: SourceTrackDropTarget) => {
-      const files = getDraggedMediaFiles(event.dataTransfer);
-      if (!files.length) {
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-      event.dataTransfer.dropEffect = "copy";
-
-      if (sourceTrackDragHideTimeoutRef.current !== null) {
-        window.clearTimeout(sourceTrackDragHideTimeoutRef.current);
-        sourceTrackDragHideTimeoutRef.current = null;
-      }
-
-      setSourceTrackDragTarget(target);
-      ensureSourceTrackDragPreview(files);
-    },
-    [ensureSourceTrackDragPreview],
-  );
-
-  const resolveSourceTrackDropTargetAtPoint = useCallback(
-    (clientX: number, clientY: number): SourceTrackDropTarget | null => {
-      const element = document.elementFromPoint(clientX, clientY);
-      const target = element?.closest<HTMLElement>(
-        "[data-source-track-drop-target]",
-      );
-      const targetKind = target?.dataset.sourceTrackDropTarget;
-      if (targetKind === "track" && target?.dataset.sourceTrackId) {
-        return {
-          kind: "track",
-          trackId: target.dataset.sourceTrackId,
-        };
-      }
-
-      if (targetKind === "new-track") {
-        return { kind: "new-track" };
-      }
-
-      return sourceTracks.length ? { kind: "new-track" } : null;
-    },
-    [sourceTracks.length],
-  );
+  // Most browsers hide the dragged files until drop, exposing only their
+  // count and MIME types, so the preview stays generic until then.
+  const showPendingSourceTrackDragPreview = useCallback((fileCount: number) => {
+    setSourceTrackDragPreview(
+      (current) =>
+        current ?? {
+          dragKey: "",
+          fileCount,
+          names: [],
+          label:
+            fileCount === 1
+              ? "Media file"
+              : fileCount
+                ? pluralize(fileCount, "media file")
+                : "Media files",
+          status: "pending",
+        },
+    );
+  }, []);
 
   useEffect(() => {
     sourceTrackDragPreviewRef.current = sourceTrackDragPreview;
@@ -267,19 +250,34 @@ export function useSourceTrackDrop({
         return;
       }
 
+      // Keep the browser from opening files dropped anywhere in the app, and
+      // let drop fire on every source track drop target.
       event.preventDefault();
       event.stopPropagation();
-      const target = resolveSourceTrackDropTargetAtPoint(
-        event.clientX,
-        event.clientY,
-      );
-      if (target) {
-        setSourceTrackDragTarget(target);
+      const target = getSourceTrackDropTarget(event.target);
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = target ? "copy" : "none";
       }
 
+      if (sourceTrackDragHideTimeoutRef.current !== null) {
+        window.clearTimeout(sourceTrackDragHideTimeoutRef.current);
+        sourceTrackDragHideTimeoutRef.current = null;
+      }
+
+      const dragState = getSourceTrackDragState(event.dataTransfer);
+      if (dragState.kind !== "accept") {
+        setSourceTrackDragTarget(null);
+        setIsSourceTrackFileDragActive(false);
+        return;
+      }
+
+      setSourceTrackDragTarget(target);
+      setIsSourceTrackFileDragActive(true);
       const files = getDraggedMediaFiles(event.dataTransfer);
       if (files.length) {
         ensureSourceTrackDragPreview(files);
+      } else {
+        showPendingSourceTrackDragPreview(dragState.fileCount);
       }
     };
 
@@ -298,19 +296,18 @@ export function useSourceTrackDrop({
 
       event.preventDefault();
       event.stopPropagation();
-      const files = getDraggedMediaFiles(event.dataTransfer);
-      if (!files.length) {
-        clearSourceTrackDragState();
+      clearSourceTrackDragState();
+      const target = getSourceTrackDropTarget(event.target);
+      if (!target) {
         return;
       }
 
-      const target = resolveSourceTrackDropTargetAtPoint(
-        event.clientX,
-        event.clientY,
-      ) ?? {
-        kind: "new-track" as const,
-      };
-      clearSourceTrackDragState();
+      const files = getDraggedMediaFiles(event.dataTransfer);
+      if (!files.length) {
+        setStatus("Only audio and video files can be dropped on source tracks.");
+        return;
+      }
+
       void importMediaIntoSourceTrack(files, target);
     };
 
@@ -346,8 +343,9 @@ export function useSourceTrackDrop({
     clearSourceTrackDragState,
     ensureSourceTrackDragPreview,
     importMediaIntoSourceTrack,
-    resolveSourceTrackDropTargetAtPoint,
     scheduleSourceTrackDragClear,
+    setStatus,
+    showPendingSourceTrackDragPreview,
   ]);
 
   useEffect(
@@ -369,7 +367,5 @@ export function useSourceTrackDrop({
     sourceTrackDragPreviewOverflow,
     isNewSourceTrackDropTarget,
     clearSourceTrackDragState,
-    scheduleSourceTrackDragClear,
-    handleSourceTrackDragEvent,
   };
 }

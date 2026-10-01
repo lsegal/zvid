@@ -449,9 +449,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   isSourceTracksCollapsed={layout.isSourceTracksCollapsed}
                   setSourceTracksCollapsed={layout.setSourceTracksCollapsed}
                   drop={mediaImport.sourceTrackDrop}
-                  importMediaIntoSourceTrack={
-                    mediaImport.importMediaIntoSourceTrack
-                  }
                   clips={clips}
                   setSelectedClipId={setSelectedClipId}
                   onImport={() => void sessionFiles.handleImport()}
