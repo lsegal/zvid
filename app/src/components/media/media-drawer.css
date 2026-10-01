@@ -403,6 +403,11 @@
   color: #c9d7ff;
 }
 
+.media-badge--range {
+  background: rgba(246, 183, 60, 0.2);
+  color: #ffd56a;
+}
+
 .media-badge--offline {
   background: rgba(255, 111, 157, 0.18);
   color: #ffb3cb;

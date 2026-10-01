@@ -219,6 +219,16 @@ export function MediaRangeControls({
   setPointRef.current = onSetPoint;
 
   useEffect(() => {
+    // Where the user last pointed or moved focus. Focus alone is not enough:
+    // the timeline handles its own pointer presses without taking focus, so
+    // the drawer would keep it while the user works on the timeline.
+    const inScope = (target: EventTarget | null) =>
+      target instanceof Element && !!target.closest(MEDIA_RANGE_KEY_SCOPE);
+    let active = inScope(document.activeElement);
+    const track = (event: Event) => {
+      active = inScope(event.target);
+    };
+
     function onKeyDown(event: KeyboardEvent) {
       const key = event.key.toLowerCase();
       if (
@@ -233,16 +243,22 @@ export function MediaRangeControls({
             event.target instanceof HTMLInputElement &&
             event.target.type === "range"
           )) ||
-        !(document.activeElement instanceof Element) ||
-        !document.activeElement.closest(MEDIA_RANGE_KEY_SCOPE)
+        !active ||
+        !inScope(event.target)
       ) {
         return;
       }
       event.preventDefault();
       setPointRef.current(key === "i" ? "in" : "out", timeRef.current);
     }
+    window.addEventListener("pointerdown", track, true);
+    window.addEventListener("focusin", track, true);
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", track, true);
+      window.removeEventListener("focusin", track, true);
+      window.removeEventListener("keydown", onKeyDown);
+    };
   }, []);
 
   return (

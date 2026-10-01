@@ -5,6 +5,7 @@ import {
   clearMediaRange,
   effectiveMediaRange,
   hasMediaRange,
+  mediaRangeFrameRate,
   mediaRangeOf,
   normalizeMediaRange,
   restoreMediaRanges,
@@ -133,6 +134,13 @@ describe("setMediaRangePoint", () => {
       inSeconds: 89 / FPS,
       outSeconds: 3,
     });
+  });
+
+  it("snaps to the media's nominal frame rate, not its measured one", () => {
+    const item = media({ fps: 15.0017 });
+    assert.equal(setMediaRangePoint(item, "in", 1, 30).rangeInSeconds, 1);
+    assert.equal(mediaRangeFrameRate({ fps: 29.9701 }, 30), 30000 / 1001);
+    assert.equal(mediaRangeFrameRate({ fps: 12.3456 }, 30), 12.346);
   });
 
   it("snaps to the project frame rate when the media has none", () => {

@@ -1,5 +1,6 @@
 import { normalizeMediaPath } from "./app/util.ts";
 import type { MediaItem } from "./media.ts";
+import { snapFrameRate } from "./session-format.ts";
 
 // The part of a media item to use when it goes into the timeline, in seconds
 // from the start of the file. A media item without one uses the whole file.
@@ -21,13 +22,27 @@ const DEFAULT_FRAME_RATE = 30;
 // Frame-rate jitter in seconds that still counts as the same frame.
 const FRAME_EPSILON = 1e-6;
 
+// The standard rate near `fps`, or the nearest whole rate within half a
+// percent (15 fps, which is not a standard rate), or `fps` itself.
+function nominalFrameRate(fps: number) {
+  const snapped = snapFrameRate(fps);
+  // Without a standard rate nearby, `snapFrameRate` only rounds.
+  if (snapped !== Math.round(fps * 1000) / 1000) {
+    return snapped;
+  }
+  const whole = Math.round(fps);
+  return Math.abs(fps - whole) <= whole * 0.005 ? whole : snapped;
+}
+
 // Media snaps to its own frames, or the project's when it has none (audio).
 export function mediaRangeFrameRate(
   item: Pick<MediaItem, "fps">,
   projectFps: number,
 ) {
+  // A probed rate is measured, so 29.97 can read as 29.9701; points must
+  // land on the nominal frames the readout counts.
   if (item.fps && item.fps > 0) {
-    return item.fps;
+    return nominalFrameRate(item.fps);
   }
   return projectFps > 0 ? projectFps : DEFAULT_FRAME_RATE;
 }
