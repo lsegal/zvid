@@ -3,7 +3,6 @@
 // state that is kept in localStorage.
 
 import {
-  isOrderEffectName,
   parseLayerIdList,
   serializeLayerIdList,
 } from "./composition-order.ts";
@@ -72,17 +71,6 @@ export function getFxPanelTitle(
 // of its text, so an unnamed clip still reads as one.
 export function getFxClipName(label: string, textPreview = "") {
   return label.trim() || textPreview.trim() || "Untitled";
-}
-
-export const NO_ORDER_HINT =
-  "No Order: layers overlap (Layer 1 on top). Add Order to arrange them.";
-
-// Shown in the Global section when its stack has no Order, so the layers
-// overlap instead of being arranged.
-export function resolveGlobalOrderHint(globalDevices: readonly FxDevice[]) {
-  return globalDevices.some((device) => isOrderEffectName(device.effectName))
-    ? undefined
-    : NO_ORDER_HINT;
 }
 
 // Effects the `group` add menu offers: the known ones designed for that
