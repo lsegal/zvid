@@ -1,4 +1,8 @@
+/* Equal side columns keep the transport cluster centered in the row however
+   wide the zoom and volume controls are. */
 .transport-bar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   border-bottom: none;
   border-top: 1px solid var(--line);
 }
@@ -6,6 +10,7 @@
 .zoom-control {
   display: flex;
   align-items: center;
+  justify-self: start;
   gap: 8px;
   color: var(--muted);
   min-width: 220px;
@@ -151,7 +156,26 @@
 .transport-cluster {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
+}
+
+.volume-control {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  justify-self: end;
+  gap: 8px;
+}
+
+/* The volume slider shares the zoom slider's look, filled to the volume. */
+.volume-control__slider {
+  --zoom-fill: var(--volume-fill);
+  width: 110px;
+}
+
+.volume-control--muted .volume-control__slider {
+  opacity: 0.5;
 }
 
 @media (max-width: 900px), (max-height: 559px) {
@@ -159,6 +183,7 @@
     position: sticky;
     bottom: 0;
     z-index: 20;
+    display: flex;
     flex-direction: column;
     align-items: stretch;
     border-radius: 0 0 20px 20px;
@@ -187,7 +212,12 @@
     padding: 0 4px;
   }
 
-  .transport-cluster {
+  .transport-cluster,
+  .volume-control {
     gap: 6px;
+  }
+
+  .volume-control {
+    min-width: 0;
   }
 }

@@ -5,7 +5,14 @@ import {
   MagnifyingGlassPlusIcon,
   PauseIcon,
   PlayIcon,
+  SpeakerWaveIcon,
+  SpeakerXMarkIcon,
 } from "@heroicons/react/24/solid";
+import {
+  formatPreviewVolume,
+  isPreviewSilent,
+  type PreviewVolume,
+} from "../../app/preview-volume";
 import {
   formatZoomFactor,
   sliderPositionToZoom,
@@ -29,9 +36,16 @@ type TransportBarProps = {
   jumpPlayhead: (bars: number) => void;
   onTransportToggle: () => void;
   onRandomize: () => void;
+  previewVolume: PreviewVolume;
+  setPreviewVolume: (volume: number) => void;
+  togglePreviewMute: () => void;
 };
 
-// The zoom control and the transport buttons below the timeline.
+// Slider steps of 1%.
+const VOLUME_SLIDER_STEP = 0.01;
+
+// The zoom control, the transport buttons and the preview volume below the
+// timeline, with the transport buttons centered in the row.
 export function TransportBar({
   resolvedZoom,
   setZoomValue,
@@ -41,7 +55,12 @@ export function TransportBar({
   jumpPlayhead,
   onTransportToggle,
   onRandomize,
+  previewVolume,
+  setPreviewVolume,
+  togglePreviewMute,
 }: TransportBarProps) {
+  const silent = isPreviewSilent(previewVolume);
+  const volumeText = formatPreviewVolume(previewVolume.volume);
   return (
     <div className="transport-bar">
       <div className="zoom-control">
@@ -156,6 +175,42 @@ export function TransportBar({
         >
           <WandIcon />
         </button>
+      </div>
+
+      <div
+        className={`volume-control${previewVolume.muted ? " volume-control--muted" : ""}`}
+      >
+        <button
+          aria-label={silent ? "Unmute preview" : "Mute preview"}
+          aria-pressed={silent}
+          className="zoom-control__button"
+          onClick={togglePreviewMute}
+          title={silent ? "Unmute preview" : "Mute preview"}
+          type="button"
+        >
+          {silent ? (
+            <SpeakerXMarkIcon aria-hidden="true" />
+          ) : (
+            <SpeakerWaveIcon aria-hidden="true" />
+          )}
+        </button>
+        <input
+          aria-label="Preview volume"
+          aria-valuetext={
+            previewVolume.muted ? `${volumeText}, muted` : volumeText
+          }
+          className="zoom-control__slider volume-control__slider"
+          max={1}
+          min={0}
+          onChange={(event) => setPreviewVolume(Number(event.target.value))}
+          step={VOLUME_SLIDER_STEP}
+          style={{
+            ["--volume-fill" as string]: volumeText,
+          }}
+          title={`Preview volume ${volumeText}`}
+          type="range"
+          value={previewVolume.volume}
+        />
       </div>
     </div>
   );

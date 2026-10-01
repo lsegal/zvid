@@ -323,10 +323,12 @@ export class AudioBandTracker {
 
 // Measures the main audio element as it plays through an AnalyserNode.
 // Routing an element through Web Audio is permanent, so the graph is only
-// built once effects actually need the bands.
+// built once effects actually need the bands. The preview volume is a gain
+// after the analyser, so the bands don't follow it.
 export class LiveAudioBands {
   private context: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
+  private output: GainNode | null = null;
   private source: MediaElementAudioSourceNode | null = null;
   private element: HTMLMediaElement | null = null;
   private bins = new Uint8Array(FFT_SIZE / 2);
@@ -353,13 +355,25 @@ export class LiveAudioBands {
         this.analyser.smoothingTimeConstant = 0;
         this.analyser.minDecibels = MIN_DECIBELS;
         this.analyser.maxDecibels = MAX_DECIBELS;
-        this.analyser.connect(this.context.destination);
+        this.output = this.context.createGain();
+        this.analyser.connect(this.output);
+        this.output.connect(this.context.destination);
       }
       this.source = this.context.createMediaElementSource(element);
       this.source.connect(this.analyser as AnalyserNode);
     } catch (error) {
       console.warn("Audio band analysis is unavailable.", error);
     }
+  }
+
+  // Sets the volume `element` plays at when it is routed through the
+  // analyser, returning false when it isn't.
+  setOutputGain(element: HTMLMediaElement, gain: number) {
+    if (!this.source || !this.output || element !== this.element) {
+      return false;
+    }
+    this.output.gain.value = gain;
+    return true;
   }
 
   // Browsers start an AudioContext suspended until a user gesture, and the
@@ -389,6 +403,7 @@ export class LiveAudioBands {
     this.source = null;
     this.element = null;
     this.analyser = null;
+    this.output = null;
     this.context?.close().catch(() => {});
     this.context = null;
   }

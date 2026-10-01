@@ -63,6 +63,8 @@ export const LABEL_WIDTH_STORAGE_KEY = "zvid-label-width";
 
 export const PREVIEW_WIDTH_STORAGE_KEY = "zvid-preview-width";
 
+export const PREVIEW_VOLUME_STORAGE_KEY = "zvid-preview-volume";
+
 export const PREVIEW_DEFAULT_WIDTH = 280;
 
 export const PREVIEW_MIN_WIDTH = 240;
