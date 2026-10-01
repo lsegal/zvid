@@ -87,8 +87,10 @@ test("the preview renders the source tracks until there is a layer clip", async 
   await expect(page.locator(".preview-panel__clip")).not.toHaveText(
     "No clip at playhead",
   );
-  // The source tracks aren't layers: the overlay can't edit them.
-  await expect(page.locator("[data-timeline-lane-id^='source-render:']")).toHaveCount(0);
+  // The source tracks don't show as layers in the timeline.
+  await expect(
+    page.locator("[data-timeline-lane-id^='source-render:']"),
+  ).toHaveCount(0);
 
   // Ctrl/Cmd-click on a source clip drops it on the arrangement.
   await page.locator(".source-span").click({ modifiers: ["ControlOrMeta"] });
