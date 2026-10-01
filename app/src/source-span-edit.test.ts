@@ -335,11 +335,7 @@ describe("getDroppedSourceSpanStartQ", () => {
 
   it("starts at the drop position on a new track while locked", () => {
     assert.equal(
-      getDroppedSourceSpanStartQ(
-        { kind: "new-track", startQ: 6 },
-        false,
-        true,
-      ),
+      getDroppedSourceSpanStartQ({ kind: "new-track", startQ: 6 }, false, true),
       6,
     );
   });
