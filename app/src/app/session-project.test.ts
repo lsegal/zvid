@@ -117,7 +117,13 @@ describe("a start-trimmed warped source clip", () => {
       },
     ],
     selections: [
-      { id: 7, trackId: "t1", mainTrackId: "main-1", frameStart: 90, frameEnd: 150 },
+      {
+        id: 7,
+        trackId: "t1",
+        mainTrackId: "main-1",
+        frameStart: 90,
+        frameEnd: 150,
+      },
     ],
     timeline: { bpm, fps },
   };
@@ -129,7 +135,9 @@ describe("a start-trimmed warped source clip", () => {
     const durationQ = (span.durationSeconds * bpm) / 60;
     return {
       ...project,
-      sourceSpans: [retimeSourceSpan(span, span.startQ + 2, durationQ - 2, bpm)],
+      sourceSpans: [
+        retimeSourceSpan(span, span.startQ + 2, durationQ - 2, bpm),
+      ],
     };
   }
 
@@ -155,9 +163,10 @@ describe("a start-trimmed warped source clip", () => {
   ) {
     assert.ok(clip.warp);
     const { warp } = clip;
-    return [0, 0.5, 1, 1.75, 2.5, 4].map((seconds) =>
-      warpSourceTime(warp, fromSeconds + seconds + sourceOffsetSeconds, bpm)
-        .seconds,
+    return [0, 0.5, 1, 1.75, 2.5, 4].map(
+      (seconds) =>
+        warpSourceTime(warp, fromSeconds + seconds + sourceOffsetSeconds, bpm)
+          .seconds,
     );
   }
 
