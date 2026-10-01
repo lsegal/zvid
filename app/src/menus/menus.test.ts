@@ -24,6 +24,10 @@ import {
   buildSourceSpanMenuEntries,
   sourceSpanMenuEntries,
 } from "./source-span-menu.ts";
+import {
+  buildSourceTrackMenuEntries,
+  sourceTrackMenuEntries,
+} from "./source-track-menu.ts";
 
 const noop = () => {};
 
@@ -145,6 +149,7 @@ describe("menu registry", () => {
     assertRegistry(layerMenuEntries);
     assertRegistry(mainAudioMenuEntries);
     assertRegistry(sourceSpanMenuEntries);
+    assertRegistry(sourceTrackMenuEntries);
     assertRegistry(editMenuEntries);
   });
 });
@@ -231,6 +236,47 @@ describe("menu snapshots", () => {
         }),
       ),
       LAYER_MENU_FULL,
+    );
+  });
+
+  it("source track menu", () => {
+    const tracks = [
+      { id: "track-a", name: "Cam A" },
+      { id: "track-b", name: "Cam B" },
+    ];
+    const actions = {
+      duplicate: noop,
+      remove: noop,
+      moveUp: noop,
+      moveDown: noop,
+    };
+    assert.deepEqual(
+      snapshot(
+        buildSourceTrackMenuEntries({ tracks, trackId: "track-a", actions }),
+      ),
+      SOURCE_TRACK_MENU,
+    );
+    // Unlike the last layer, the only source track can be deleted.
+    assert.deepEqual(
+      snapshot(
+        buildSourceTrackMenuEntries({
+          tracks: tracks.slice(1),
+          trackId: "track-b",
+          actions,
+        }),
+      ),
+      SOURCE_TRACK_MENU_ONLY,
+    );
+    assert.deepEqual(
+      snapshot(
+        buildSourceTrackMenuEntries({
+          tracks,
+          trackId: "track-b",
+          disabled: true,
+          actions,
+        }),
+      ),
+      SOURCE_TRACK_MENU_DISABLED,
     );
   });
 
@@ -397,6 +443,30 @@ const LAYER_MENU_FULL = [
   "---",
   "move-up: Move up (disabled)",
   "move-down: Move down",
+];
+
+const SOURCE_TRACK_MENU = [
+  "duplicate: Duplicate",
+  "delete: Delete",
+  "---",
+  "move-up: Move up (disabled)",
+  "move-down: Move down",
+];
+
+const SOURCE_TRACK_MENU_ONLY = [
+  "duplicate: Duplicate",
+  "delete: Delete",
+  "---",
+  "move-up: Move up (disabled)",
+  "move-down: Move down (disabled)",
+];
+
+const SOURCE_TRACK_MENU_DISABLED = [
+  "duplicate: Duplicate (disabled)",
+  "delete: Delete (disabled)",
+  "---",
+  "move-up: Move up (disabled)",
+  "move-down: Move down (disabled)",
 ];
 
 const AUDIO_MENUS = [

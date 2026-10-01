@@ -70,9 +70,7 @@ export function duplicateSourceTrack<
   newTrackId: string,
   createSpanId: () => string,
 ): SourceTrackProject<Track, Span, Clip> {
-  const index = project.sourceTracks.findIndex(
-    (track) => track.id === trackId,
-  );
+  const index = project.sourceTracks.findIndex((track) => track.id === trackId);
   if (index < 0) {
     return project;
   }
@@ -161,9 +159,7 @@ export function moveSourceTrackTo<
   trackId: string,
   targetIndex: number,
 ): SourceTrackProject<Track, Span, Clip> {
-  const index = project.sourceTracks.findIndex(
-    (track) => track.id === trackId,
-  );
+  const index = project.sourceTracks.findIndex((track) => track.id === trackId);
   const target = Math.max(
     0,
     Math.min(project.sourceTracks.length - 1, Math.trunc(targetIndex)),

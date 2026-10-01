@@ -457,6 +457,11 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   onOpenSample={sessionFiles.sample.handleOpenSample}
                   onOpenSession={() => void sessionFiles.handleOpenSession()}
                   gridStyle={gridStyle}
+                  listRef={editing.sourceTracksListRef}
+                  label={{
+                    reorder: editing.sourceTrackReorder,
+                    openMenu: editing.openSourceTrackMenu,
+                  }}
                   span={{
                     bpm,
                     quarterPx,

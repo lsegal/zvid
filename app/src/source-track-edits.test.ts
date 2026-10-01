@@ -122,10 +122,17 @@ describe("duplicateSourceTrack", () => {
       recordingPaths: ["b.mov"],
     });
     const swatch = getSwatch(3);
-    assert.deepEqual(result.sourceSpans.slice(3), [
-      { ...span("b1", "b", 0), id: "span-new-1", sourceTrackId: "copy" },
-      { ...span("b2", "b", 8), id: "span-new-2", sourceTrackId: "copy" },
-    ].map((copied) => ({ ...copied, tint: swatch.color, accent: swatch.accent })));
+    assert.deepEqual(
+      result.sourceSpans.slice(3),
+      [
+        { ...span("b1", "b", 0), id: "span-new-1", sourceTrackId: "copy" },
+        { ...span("b2", "b", 8), id: "span-new-2", sourceTrackId: "copy" },
+      ].map((copied) => ({
+        ...copied,
+        tint: swatch.color,
+        accent: swatch.accent,
+      })),
+    );
     // The originals keep their ids and media.
     assert.deepEqual(result.sourceSpans.slice(0, 3), project.sourceSpans);
     assert.equal(result.clips, project.clips);
@@ -178,14 +185,16 @@ describe("moveSourceTrackTo", () => {
     const down = moveSourceTrackTo(project, "a", 2);
     assert.deepEqual(ids(down.sourceTracks), ["b", "c", "a"]);
     assert.equal(down.sourceSpans, project.sourceSpans);
-    assert.deepEqual(
-      ids(moveSourceTrackTo(project, "c", 0).sourceTracks),
-      ["c", "a", "b"],
-    );
-    assert.deepEqual(
-      ids(moveSourceTrackTo(project, "b", 99).sourceTracks),
-      ["a", "c", "b"],
-    );
+    assert.deepEqual(ids(moveSourceTrackTo(project, "c", 0).sourceTracks), [
+      "c",
+      "a",
+      "b",
+    ]);
+    assert.deepEqual(ids(moveSourceTrackTo(project, "b", 99).sourceTracks), [
+      "a",
+      "c",
+      "b",
+    ]);
   });
 
   it("is unchanged in place or for a missing track", () => {
