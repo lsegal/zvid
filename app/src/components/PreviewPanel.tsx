@@ -14,10 +14,13 @@ import {
   describePreviewMediaState,
 } from "../clip-media-state";
 import type { SessionEffect } from "../fx-stack";
+import type { MediaPreviewModel } from "../hooks/useMediaPreview.ts";
 import type { usePreviewEditing } from "../hooks/usePreviewEditing.ts";
 import type { usePreviewLayers } from "../hooks/usePreviewLayers.ts";
 import type { MediaItem } from "../media";
 import type { PlayheadSignal } from "../playhead-signal";
+import type { TimeValueFormat } from "../time-value.ts";
+import { MediaPreview } from "./MediaPreview";
 import { PreviewTransformOverlay } from "./PreviewTransformOverlay";
 import "./preview-panel.css";
 
@@ -58,6 +61,8 @@ export type PreviewPanelProps = Pick<
   isTimelineAudibleScrubbing: boolean;
   mainAudio: MediaItem | undefined;
   mediaItems: MediaItem[];
+  mediaPreview: MediaPreviewModel;
+  mediaTimeFormat: TimeValueFormat;
   playheadQ: number;
   playheadSeconds: number;
   playheadSignal: PlayheadSignal;
@@ -67,6 +72,7 @@ export type PreviewPanelProps = Pick<
   previewMaxWidth: number;
   previewMedia: MediaItem | undefined;
   previewMediaState: ClipMediaState;
+  previewVolume: { volume: number; muted: boolean };
   projectDurationFrames: number | undefined;
   // What the compositor draws: the layer clips and layers, or the source
   // tracks rendered as layers when there are no layer clips.
@@ -78,9 +84,15 @@ export type PreviewPanelProps = Pick<
   timelineEffects: SessionEffect[];
 };
 
-// The Program monitor beside the timeline, with the handle that resizes it:
-// the composition player, the transform and text overlays, and the
-// placeholder shown when nothing at the playhead can be drawn.
+const PREVIEW_TABS = [
+  { tab: "timeline", label: "Timeline" },
+  { tab: "media", label: "Media" },
+] as const;
+
+// The preview pane beside the timeline, with the handle that resizes it. Its
+// Timeline tab is the Program monitor: the composition player, the transform
+// and text overlays, and the placeholder shown when nothing at the playhead
+// can be drawn. Its Media tab plays the media chosen in the Media drawer.
 export function PreviewPanel({
   activatePreviewLayer,
   bpm,
@@ -101,6 +113,8 @@ export function PreviewPanel({
   isTimelineAudibleScrubbing,
   mainAudio,
   mediaItems,
+  mediaPreview,
+  mediaTimeFormat,
   movePreviewLayer,
   playheadQ,
   playheadSeconds,
@@ -112,6 +126,7 @@ export function PreviewPanel({
   previewMedia,
   previewMediaState,
   previewTextEdit,
+  previewVolume,
   projectDurationFrames,
   renderClips,
   renderFromSourceTracks,
@@ -123,6 +138,8 @@ export function PreviewPanel({
   timelineEffects,
   transformPreviewLayer,
 }: PreviewPanelProps) {
+  const { previewTab, previewMediaItem: mediaItem } = mediaPreview;
+  const isMediaTab = previewTab === "media";
   return (
     <>
       <hr
@@ -144,17 +161,46 @@ export function PreviewPanel({
 
       <aside className="preview-panel">
         <div className="preview-panel__header">
-          <strong>Program</strong>
-          <span className="preview-panel__clip">
-            {previewClip ? previewClip.label : "No clip at playhead"}
-          </span>
+          <div
+            className="segmented-control preview-panel__tabs"
+            role="tablist"
+            aria-label="Preview"
+          >
+            {PREVIEW_TABS.map(({ tab, label }) => (
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                aria-selected={previewTab === tab}
+                className={previewTab === tab ? "is-active" : ""}
+                onClick={() => mediaPreview.selectPreviewTab(tab)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {isMediaTab ? (
+            <strong className="preview-panel__title">
+              {mediaItem?.name ?? "Media"}
+            </strong>
+          ) : (
+            <>
+              <strong className="preview-panel__title">Program</strong>
+              <span className="preview-panel__clip">
+                {previewClip ? previewClip.label : "No clip at playhead"}
+              </span>
+            </>
+          )}
           <span className="preview-panel__mode">
-            {previewMedia?.kind === "audio" ? "Audio" : "Video"}
+            {(isMediaTab ? mediaItem : previewMedia)?.kind === "audio"
+              ? "Audio"
+              : "Video"}
           </span>
         </div>
 
         <div
           className="preview-monitor"
+          data-preview-tab={previewTab}
           data-render-source={
             renderFromSourceTracks ? "source-tracks" : "layers"
           }
@@ -211,6 +257,15 @@ export function PreviewPanel({
                 </span>
               </div>
             </div>
+          ) : null}
+          {isMediaTab ? (
+            <MediaPreview
+              media={mediaItem}
+              isPlaying={mediaPreview.isMediaPlaying}
+              setPlaying={mediaPreview.setMediaPlaying}
+              timeFormat={mediaTimeFormat}
+              volume={previewVolume}
+            />
           ) : null}
         </div>
       </aside>
