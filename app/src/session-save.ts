@@ -193,8 +193,7 @@ function toLvpParameters(parameters: SaveableEffect["parameters"]) {
 // Whether a clip starting at `startQ` is inside `span`, so that opening the
 // session finds `span` for it by track and position.
 function startsInSpan(startQ: number, span: SaveableSourceSpan, bpm: number) {
-  const spanEndQ =
-    span.startQ + secondsToQuarters(span.durationSeconds, bpm);
+  const spanEndQ = span.startQ + secondsToQuarters(span.durationSeconds, bpm);
   return startQ >= span.startQ && startQ < spanEndQ;
 }
 

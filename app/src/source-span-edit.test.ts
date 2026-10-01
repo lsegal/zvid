@@ -113,7 +113,9 @@ describe("resolveSourceSpanOverlaps", () => {
 
   it("keeps the longer side of a span over both edges, as on a layer", () => {
     assert.deepEqual(
-      layout(place([span("a", 0, 8)], span("b", 1, 2, { trimStartSeconds: 30 }))),
+      layout(
+        place([span("a", 0, 8)], span("b", 1, 2, { trimStartSeconds: 30 })),
+      ),
       [
         ["a", "t1", 3, 8, 11.5],
         ["b", "t1", 1, 3, 30],
@@ -130,7 +132,10 @@ describe("resolveSourceSpanOverlaps", () => {
   it("leaves spans in other source tracks and spans only touching it alone", () => {
     const others = [span("a", 0, 8, { trackId: "t2" }), span("c", 6, 2)];
     const active = span("b", 2, 4);
-    assert.deepEqual(layout(place(others, active)), layout([...others, active]));
+    assert.deepEqual(
+      layout(place(others, active)),
+      layout([...others, active]),
+    );
   });
 });
 
@@ -309,9 +314,8 @@ describe("relinkClipsToSourceSpans", () => {
   it("leaves clips without a source span alone", () => {
     const original = span("a", 0, 8);
     const fill = { ...windowClip("f", original, 0, 2), sourceSpanId: "" };
-    assert.deepEqual(
-      relinkClipsToSourceSpans([fill], [original], [], BPM),
-      [fill],
-    );
+    assert.deepEqual(relinkClipsToSourceSpans([fill], [original], [], BPM), [
+      fill,
+    ]);
   });
 });

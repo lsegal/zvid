@@ -202,7 +202,8 @@ export function relinkClipsToSourceSpans(
     const span = spansById.get(clip.sourceSpanId);
     if (span) {
       const window = getSpanSourceWindow(span);
-      return clip.sourceWindowStartSeconds === window.sourceWindowStartSeconds &&
+      return clip.sourceWindowStartSeconds ===
+        window.sourceWindowStartSeconds &&
         clip.sourceWindowEndSeconds === window.sourceWindowEndSeconds
         ? clip
         : { ...clip, ...window };

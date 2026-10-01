@@ -158,8 +158,18 @@ describe("resolveClipOverlaps", () => {
 });
 
 describe("resolveContainerOverlaps", () => {
-  type Row = { id: string; row: string; startQ: number; durationSeconds: number };
-  const row = (id: string, rowId: string, startQ: number, durationQ: number) => ({
+  type Row = {
+    id: string;
+    row: string;
+    startQ: number;
+    durationSeconds: number;
+  };
+  const row = (
+    id: string,
+    rowId: string,
+    startQ: number,
+    durationQ: number,
+  ) => ({
     id,
     row: rowId,
     startQ,

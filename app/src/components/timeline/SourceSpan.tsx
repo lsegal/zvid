@@ -8,8 +8,8 @@ import type { getShortcutLabels } from "../../app/shortcut-labels.ts";
 import { getClipDurationQ } from "../../app/timeline-math.ts";
 import type {
   ClipMenuState,
-  SourceSpanDragState,
   SourceSpan as SourceSpanClip,
+  SourceSpanDragState,
 } from "../../app/types.ts";
 import {
   describeClipMediaState,
