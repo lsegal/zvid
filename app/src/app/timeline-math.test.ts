@@ -9,6 +9,7 @@ import {
   getSelectionEndQ,
   getSourceTrackEndQ,
   getTimelineContentEndQ,
+  getTimelinePointerX,
   isClipAtPlayhead,
   pointerToTimelineQ,
   quartersToSeconds,
@@ -60,6 +61,31 @@ describe("snapQuarterValue", () => {
   it("rounds to the snap unit only when snapping is on", () => {
     assert.equal(snapQuarterValue(1.3, 0.5, true), 1.5);
     assert.equal(snapQuarterValue(1.3, 0.5, false), 1.3);
+  });
+});
+
+// A timeline scroller at client x 50 with a 1px border.
+const timelineScroll = {
+  getBoundingClientRect: () => ({ left: 50 }) as DOMRect,
+  clientLeft: 1,
+};
+
+describe("getTimelinePointerX", () => {
+  it("measures inside the scroller's border and the content's left border", () => {
+    // The scroller's border and the content's border are 2px.
+    assert.equal(getTimelinePointerX(timelineScroll, 252), 200);
+  });
+
+  it("puts 0 quarters where clips start", () => {
+    // Clips start 2px past the scroller's edge plus the 200px label column.
+    assert.equal(
+      pointerToTimelineQ(getTimelinePointerX(timelineScroll, 252), 0, 200, 40),
+      0,
+    );
+    assert.equal(
+      pointerToTimelineQ(getTimelinePointerX(timelineScroll, 262), 0, 200, 40),
+      0.25,
+    );
   });
 });
 

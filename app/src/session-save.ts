@@ -14,6 +14,8 @@ import {
   renameClipEffectTracks,
   renameSourceClipEffectTracks,
 } from "./fx-stack.ts";
+import type { MediaItem } from "./media.ts";
+import { type SavedMediaRange, savedMediaRanges } from "./media-range.ts";
 import type { LvpLayerClip, LvpSession } from "./session.ts";
 import type { SessionEncoding } from "./session-settings.ts";
 import type { WorkspaceSessionSource } from "./workspace-session.ts";
@@ -124,7 +126,12 @@ export type SaveableProject = {
   sourceSpans: SaveableSourceSpan[];
   clips: SaveableClip[];
   effects: SaveableEffect[];
-  mediaItems: Array<{ id: string; name: string; sourcePath?: string }>;
+  mediaItems: Array<
+    Pick<
+      MediaItem,
+      "id" | "name" | "sourcePath" | "rangeInSeconds" | "rangeOutSeconds"
+    >
+  >;
   mainAudioId?: string;
   projectDurationFrames?: number;
   sourceTracksLocked?: boolean;
@@ -331,6 +338,8 @@ export function projectToLvpSession(
     ? project.mediaItems.find((item) => item.id === project.mainAudioId)
     : undefined;
 
+  const mediaRanges = savedMediaRanges(project.mediaItems);
+
   const session: LvpSession = {
     mainTracks: project.lanes.map((lane) => ({
       id: lane.id,
@@ -392,6 +401,7 @@ export function projectToLvpSession(
       ? { audioFilename: mainAudio.sourcePath ?? mainAudio.name }
       : {}),
     sourceTracksLocked: project.sourceTracksLocked === true,
+    ...(mediaRanges.length ? { mediaRanges } : {}),
     // The effects are written as they are, so a removed Order stays removed.
     orderDefaulted: true,
     // Text and Color are written on the clips that carry them.
@@ -477,6 +487,30 @@ function readLayerClips(
     });
   }
   return clips;
+}
+
+// The media In/Out points a session was saved with, skipping malformed entries.
+export function readSessionMediaRanges(session: LvpSession): SavedMediaRange[] {
+  const ranges: SavedMediaRange[] = [];
+  const entries: unknown = session.mediaRanges;
+  for (const entry of Array.isArray(entries) ? entries : []) {
+    const range = entry as Partial<SavedMediaRange> | null;
+    if (
+      !isNonEmptyString(range?.path) ||
+      !isFiniteNumber(range.inSeconds) ||
+      !isFiniteNumber(range.outSeconds) ||
+      range.inSeconds < 0 ||
+      range.outSeconds <= range.inSeconds
+    ) {
+      continue;
+    }
+    ranges.push({
+      path: range.path,
+      inSeconds: range.inSeconds,
+      outSeconds: range.outSeconds,
+    });
+  }
+  return ranges;
 }
 
 // The fill clips a session was saved with, skipping malformed entries.

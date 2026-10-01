@@ -21,6 +21,7 @@ import type { MediaItem } from "../media";
 import type { PlayheadSignal } from "../playhead-signal";
 import type { TimeValueFormat } from "../time-value.ts";
 import { MediaPreview } from "./MediaPreview";
+import type { MediaRangeActions } from "./MediaRangeBar";
 import { PreviewTransformOverlay } from "./PreviewTransformOverlay";
 import "./preview-panel.css";
 
@@ -62,6 +63,7 @@ export type PreviewPanelProps = Pick<
   mainAudio: MediaItem | undefined;
   mediaItems: MediaItem[];
   mediaPreview: MediaPreviewModel;
+  mediaRange: MediaRangeActions;
   mediaTimeFormat: TimeValueFormat;
   playheadQ: number;
   playheadSeconds: number;
@@ -115,6 +117,7 @@ export function PreviewPanel({
   mainAudio,
   mediaItems,
   mediaPreview,
+  mediaRange,
   mediaTimeFormat,
   movePreviewLayer,
   playheadQ,
@@ -266,6 +269,8 @@ export function PreviewPanel({
               setPlaying={mediaPreview.setMediaPlaying}
               timeFormat={mediaTimeFormat}
               volume={previewVolume}
+              projectFps={mediaTimeFormat.fps}
+              mediaRange={mediaRange}
             />
           ) : null}
         </div>

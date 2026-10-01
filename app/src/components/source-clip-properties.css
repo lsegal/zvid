@@ -3,6 +3,14 @@
   cursor: default;
 }
 
+/* FX device title rows get their height and the name's inset from their 24px
+   buttons; the Clip title has none, so match that height (24px row, 7px
+   padding each side, 1px divider) and inset the name like the fields below. */
+.source-clip-properties__device .fx-device-panel__title {
+  min-height: 39px;
+  padding: 7px 12px;
+}
+
 .source-clip-properties__fields {
   display: flex;
   align-items: flex-start;
