@@ -21,9 +21,10 @@ const TEXT_INPUT_TYPES = new Set([
 const OVERLAY_SELECTOR =
   '[role="menu"], [role="menubar"], [role="listbox"], [role="dialog"], [role="alertdialog"], [aria-modal="true"]';
 
-// A layer header's reorder grip picks up and drops its layer with Space, as
-// drag handles do (#478). Every other control leaves Space to playback (#167).
-const LAYER_GRIP_SELECTOR = "[data-layer-grip]";
+// A layer header's or source track label's reorder grip picks up and drops
+// its row with Space, as drag handles do (#478, #654). Every other control
+// leaves Space to playback (#167).
+const GRIP_SELECTOR = "[data-layer-grip], [data-source-track-grip]";
 
 type SpaceTarget = {
   tagName?: string;
@@ -79,7 +80,7 @@ export function classifySpaceTarget(
 
   if (
     typeof element?.closest === "function" &&
-    element.closest(LAYER_GRIP_SELECTOR)
+    element.closest(GRIP_SELECTOR)
   ) {
     return "grip";
   }

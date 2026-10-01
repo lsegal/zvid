@@ -30,6 +30,7 @@ import { canRevealSavedFile, getHarness, type SaveTarget } from "../harness";
 import type { ExportProgress } from "../harness/contracts";
 import type { MediaItem } from "../media";
 import { retainObjectUrls } from "../object-url-retention.ts";
+import { hasRenderableContent, resolveRenderClips } from "../render-clips.ts";
 import {
   type SessionSettings,
   sessionSettingsFromProject,
@@ -164,6 +165,18 @@ type Remembered = {
   session: SessionSettings;
 };
 
+// What an export of `project` renders: its layer clips and layers, or its
+// source tracks as layers when it has no layer clips.
+function renderClipsOf(project: ProjectState) {
+  return resolveRenderClips({
+    clips: project.clips,
+    lanes: project.lanes,
+    sourceTracks: project.sourceTracks,
+    sourceSpans: project.sourceSpans,
+    bpm: project.bpm,
+  });
+}
+
 function isAbort(error: unknown) {
   return error instanceof DOMException && error.name === "AbortError";
 }
@@ -203,10 +216,11 @@ export function useExport({
   setIsPlaying,
   setStatus,
 }: ExportInputs) {
-  const { clips, sessionName } = project;
+  const { sessionName } = project;
   const session = sessionSettingsFromProject(project);
+  const render = renderClipsOf(project);
   const defaultRange = defaultExportRange({
-    clips,
+    clips: render.clips,
     bpm: project.bpm,
     fps: session.fps,
     projectDurationFrames: project.projectDurationFrames,
@@ -240,7 +254,7 @@ export function useExport({
     if (isExporting) {
       return;
     }
-    if (!clips.length) {
+    if (!hasRenderableContent(project)) {
       setStatus("Open a session or import media before exporting.");
       return;
     }
@@ -350,11 +364,12 @@ export function useExport({
 
     // Its own canvas, WebGL context, media elements and audio analysis, so
     // the preview and the export never share renderer state.
+    const rendered = renderClipsOf(from.project);
     const exportRenderer = new CompositionRenderer(
       {
         mediaItems: from.mediaItems,
-        clips: from.project.clips,
-        lanes: from.project.lanes,
+        clips: rendered.clips,
+        lanes: rendered.lanes,
         effects: from.project.effects,
         bpm,
         fps,
@@ -483,6 +498,7 @@ export function useExport({
   // the session as it is now.
   const shown = phase !== "editing" && snapshot ? snapshot : null;
   const shownProject = shown?.project ?? project;
+  const shownRender = shown ? renderClipsOf(shown.project) : render;
   const exportDialog: ExportDialogModel = {
     open,
     phase,
@@ -495,8 +511,8 @@ export function useExport({
     message,
     canReveal: canRevealSavedFile(window.harness, savedTarget),
     mediaItems: shown?.mediaItems ?? mediaItems,
-    clips: shownProject.clips,
-    lanes: shownProject.lanes,
+    clips: shownRender.clips,
+    lanes: shownRender.lanes,
     effects: shownProject.effects,
     mainAudio: shown ? shown.mainAudio : mainAudio,
     mainAudioPeaks: shown ? shown.mainAudioPeaks : mainAudioPeaks,

@@ -69,14 +69,15 @@ export type ArrangementClip = {
 };
 
 // The right-click menu open on an arrangement clip, empty lane space, the
-// uncommitted selection, a source clip, a layer header or the Audio row, at
-// `anchor` in viewport coordinates.
+// uncommitted selection, a source clip, a layer header, a source track label
+// or the Audio row, at `anchor` in viewport coordinates.
 export type ClipMenuState = { anchor: MenuPoint } & (
   | { kind: "clip"; clipId: string }
   | { kind: "lane"; laneId: string }
   | { kind: "selection" }
   | { kind: "span"; spanId: string }
   | { kind: "layer"; laneId: string }
+  | { kind: "source-track"; trackId: string }
   | { kind: "audio" }
 );
 

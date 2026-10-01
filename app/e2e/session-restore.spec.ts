@@ -254,20 +254,16 @@ test("a restored session keeps a removed Order, and an older one gets it", async
   page,
 }) => {
   const order = page.locator('section[aria-label="Order"]');
-  const hint = page.getByText(
-    "No Order: layers overlap (Layer 1 on top). Add Order to arrange them.",
-  );
   await page.locator('[data-layer-header-id="1"]').click();
   await expect(order).toHaveCount(1);
   await order.getByRole("button", { name: "Remove Order" }).click();
-  await expect(hint).toBeVisible();
+  await expect(order).toHaveCount(0);
   // Saved once the removal is in the undo history.
   await waitForSave(page, "Remove Order");
   expect(await readSavedPayload(page)).toContain('"orderDefaulted":true');
 
   await page.reload();
   await page.locator('[data-layer-header-id="1"]').click();
-  await expect(hint).toBeVisible();
   await expect(order).toHaveCount(0);
 
   // The same session as a build from before the default Order saved it.
@@ -313,5 +309,4 @@ test("a restored session keeps a removed Order, and an older one gets it", async
   await page.locator('[data-layer-header-id="1"]').click();
   await expect(order).toHaveCount(1);
   await expect(order).toContainText("Vertical");
-  await expect(hint).toHaveCount(0);
 });

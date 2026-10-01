@@ -48,7 +48,9 @@ type Session = {
 };
 
 /**
- * Drag, keyboard and long-press reordering for the layer headers' grips.
+ * Drag, keyboard and long-press reordering for the layer headers' grips, or
+ * with their own `rowAttribute`, `gripAttribute` and `listClass`, the source
+ * track labels'.
  * Rows (`[data-layer-row-id]` inside `listRef`) slide imperatively while a
  * layer is lifted, so dragging never re-renders the app; `onMove` commits
  * the drop as one change. The list and lifted row take their classes from
@@ -60,6 +62,9 @@ export function useLayerReorder({
   scrollRef,
   getScrollTop,
   disabled = false,
+  rowAttribute = "data-layer-row-id",
+  gripAttribute = "data-layer-grip",
+  listClass = "arrangement-lanes",
   onMove,
   onSelect,
 }: {
@@ -69,8 +74,12 @@ export function useLayerReorder({
   // Where the visible part of the list starts, below any sticky header.
   getScrollTop?: () => number | undefined;
   disabled?: boolean;
+  // The data attributes marking each row and grip, and the list's class.
+  rowAttribute?: string;
+  gripAttribute?: string;
+  listClass?: string;
   onMove: (laneId: string, targetIndex: number) => void;
-  onSelect: (laneId: string) => void;
+  onSelect?: (laneId: string) => void;
 }) {
   const sessionRef = useRef<Session | null>(null);
   const indicatorRef = useRef<HTMLDivElement | null>(null);
@@ -88,7 +97,7 @@ export function useLayerReorder({
       return null;
     }
 
-    const rows = [...list.querySelectorAll<HTMLElement>("[data-layer-row-id]")];
+    const rows = [...list.querySelectorAll<HTMLElement>(`[${rowAttribute}]`)];
     if (rows.length !== lanes.length || !rows[fromIndex]) {
       return null;
     }
@@ -172,7 +181,7 @@ export function useLayerReorder({
     if (targetIndex !== fromIndex) {
       latest.current.onMove(lane.id, targetIndex);
     }
-    latest.current.onSelect(lane.id);
+    latest.current.onSelect?.(lane.id);
   }
 
   function retarget(session: Session, targetIndex: number) {
@@ -232,7 +241,7 @@ export function useLayerReorder({
   function activatePointer(session: Session) {
     session.active = true;
     lift(session);
-    latest.current.onSelect(session.lane.id);
+    latest.current.onSelect?.(session.lane.id);
     setAnnouncement(
       layerReorderAnnouncements.position(
         session.lane.name,
@@ -409,7 +418,7 @@ export function useLayerReorder({
       };
       sessionRef.current = next;
       lift(next);
-      latest.current.onSelect(lane.id);
+      latest.current.onSelect?.(lane.id);
       paint(next, 0);
       setAnnouncement(
         layerReorderAnnouncements.pickedUp(lane.name, index, lanes.length),
@@ -475,7 +484,7 @@ export function useLayerReorder({
     window.setTimeout(() => {
       listRef.current
         ?.querySelector<HTMLElement>(
-          `[data-layer-grip="${CSS.escape(laneId)}"]`,
+          `[${gripAttribute}="${CSS.escape(laneId)}"]`,
         )
         ?.focus();
     }, 0);
@@ -514,12 +523,12 @@ export function useLayerReorder({
   return {
     liftedLaneId: lifted?.laneId,
     listClassName: lifted
-      ? `arrangement-lanes--reordering arrangement-lanes--reordering-${lifted.mode}`
+      ? `${listClass}--reordering ${listClass}--reordering-${lifted.mode}`
       : "",
     announcement,
     indicatorRef,
     gripProps: (lane: LayerRef, index: number) => ({
-      "data-layer-grip": lane.id,
+      [gripAttribute]: lane.id,
       "aria-pressed": lifted?.laneId === lane.id,
       onBlur,
       onKeyDown: (event: ReactKeyboardEvent<HTMLElement>) =>
