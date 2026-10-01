@@ -14,6 +14,10 @@ const clipCardCss = readFileSync(
   new URL("./components/timeline/clip-card.css", import.meta.url),
   "utf8",
 );
+const sourceSpanCss = readFileSync(
+  new URL("./components/timeline/source-span.css", import.meta.url),
+  "utf8",
+);
 const tokensCss = readFileSync(
   new URL("../../packages/tokens/tokens.css", import.meta.url),
   "utf8",
@@ -66,6 +70,16 @@ describe("selected clip ring", () => {
       ruleBody(clipCardCss, ".clip-card :focus-visible"),
       /box-shadow: none;/,
     );
+  });
+
+  it("rings, haloes and lifts a selected source clip the same way", () => {
+    const rule = ruleBody(sourceSpanCss, ".source-span--selected");
+    assert.match(rule, /outline: 2px solid var\(--selection-ring\);/);
+    assert.match(rule, /outline-offset: 1px;/);
+    assert.match(rule, /0 0 0 4px rgba\(0, 0, 0, 0\.55\)/);
+    assert.match(rule, /0 6px 14px rgba\(0, 0, 0, 0\.45\)/);
+    assert.match(rule, /z-index: var\(--z-timeline-selected-clip\);/);
+    assert.match(rule, /transform: translateY\(-1px\);/);
   });
 
   it("leaves unselected clips without a ring", () => {

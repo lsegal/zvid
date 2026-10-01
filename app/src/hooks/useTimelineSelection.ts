@@ -6,6 +6,10 @@ import type {
   TimelineDragState,
   TimelineSelection,
 } from "../app/types.ts";
+import {
+  keepSourceSelection,
+  type SourceSelection,
+} from "../app/source-selection.ts";
 import { findRestoredSelection } from "../app/workspace-boot.ts";
 import type { SavedWorkspaceSession } from "../app/workspace-types.ts";
 import { previewDuplicateClipEffects, type SessionEffect } from "../fx-stack";
@@ -16,8 +20,9 @@ export type TimelineSelectionInputs = {
   effects: SessionEffect[];
 };
 
-// The timeline's selection and gesture state: the selected clip and layer,
-// the range selection, the layer outlined in the preview, the open context
+// The timeline's selection and gesture state: the selected clip and layer
+// or, instead of them, the selected source track or clip, the range
+// selection, the layer outlined in the preview, the open context
 // menu, the layer being renamed, and the clip and ruler drags with the clips
 // and effects a drag previews.
 export function useTimelineSelection({
@@ -44,6 +49,16 @@ export function useTimelineSelection({
   const [selectedLaneId, setSelectedLaneId] = useState<string | undefined>(
     restoredSelection.selectedLaneId,
   );
+  // A selected source track or clip. Only one thing is selected at a time:
+  // selecting a source clears the layer and clip, and the reverse.
+  const [sourceSelection, setSourceSelection] = useState<
+    SourceSelection | undefined
+  >(restoredSelection.sourceSelection);
+  useEffect(() => {
+    setSourceSelection((selection) =>
+      keepSourceSelection(selection, selectedClipId, selectedLaneId),
+    );
+  }, [selectedClipId, selectedLaneId]);
   const [pendingSelection, setPendingSelection] =
     useState<TimelineSelection | null>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
@@ -102,6 +117,14 @@ export function useTimelineSelection({
     setPreviewLaneId(laneId);
   };
 
+  // Selecting a source never moves the playhead.
+  const selectSource = (selection: SourceSelection | undefined) => {
+    setSelectedClipId(undefined);
+    setSelectedLaneId(undefined);
+    setPreviewLaneId(undefined);
+    setSourceSelection(selection);
+  };
+
   // Selects `laneId` and focuses its header once it has rendered.
   function focusLaneLabel(laneId: string) {
     selectLaneFromLabel(laneId);
@@ -126,6 +149,9 @@ export function useTimelineSelection({
     renamingLaneIdRef,
     selectedLaneId,
     setSelectedLaneId,
+    sourceSelection,
+    setSourceSelection,
+    selectSource,
     pendingSelection,
     setPendingSelection,
     dragState,

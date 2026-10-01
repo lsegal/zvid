@@ -88,7 +88,7 @@ export type TimelineEditingInputs = {
     ReturnType<typeof useMainAudio>,
     "mainAudio" | "mainAudioInputRef" | "removeMainAudio"
   >;
-  fxLaneId: string;
+  fxLaneId: string | undefined;
   mediaItemsById: Map<string, MediaItem>;
   laneStatusById: Map<string, LaneStatus>;
   playbackOriginRef: RefObject<number>;

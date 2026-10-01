@@ -13,6 +13,10 @@ import { parseWorkspaceSession } from "../workspace-session.ts";
 import { getWorkspaceStore } from "../workspace-store.ts";
 import { readPageInvite } from "./collaboration-config.ts";
 import { INITIAL_PROJECT_STATE } from "./constants.ts";
+import {
+  findRestoredSourceSelection,
+  type SourceSelection,
+} from "./source-selection.ts";
 import type { ProjectState } from "./types.ts";
 import { logClient } from "./util.ts";
 import type {
@@ -109,6 +113,8 @@ function normalizeRestoredView(value: unknown): WorkspaceView {
     playheadQ: finite(view.playheadQ),
     selectedClipId: text(view.selectedClipId),
     selectedLaneId: text(view.selectedLaneId),
+    selectedSourceTrackId: text(view.selectedSourceTrackId),
+    selectedSourceSpanId: text(view.selectedSourceSpanId),
     scrollLeft: finite(view.scrollLeft),
     scrollTop: finite(view.scrollTop),
   };
@@ -195,13 +201,20 @@ export function isPristineProjectHistory(
 
 export function findRestoredSelection(
   session: SavedWorkspaceSession | null,
-): Pick<WorkspaceView, "selectedClipId" | "selectedLaneId"> {
+): Pick<WorkspaceView, "selectedClipId" | "selectedLaneId"> & {
+  sourceSelection?: SourceSelection;
+} {
   if (!session) {
     return {};
   }
-  const { clips, lanes } = session.history.present;
+  const { clips, lanes, sourceTracks, sourceSpans } = session.history.present;
   const { selectedClipId, selectedLaneId } = session.view;
   return {
+    sourceSelection: findRestoredSourceSelection(
+      session.view,
+      sourceTracks,
+      sourceSpans,
+    ),
     selectedClipId: clips.some((clip) => clip.id === selectedClipId)
       ? selectedClipId
       : undefined,

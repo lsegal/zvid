@@ -57,7 +57,7 @@ export type ClipActionsInputs = {
   ) => ArrangementClip | null;
   dispatchProject: (action: ProjectHistoryAction<ProjectState>) => void;
   effects: SessionEffect[];
-  fxLaneId: string;
+  fxLaneId: string | undefined;
   lanes: Lane[];
   playheadQRef: RefObject<number>;
   selectedClip: ArrangementClip | undefined;
