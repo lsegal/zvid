@@ -1,9 +1,9 @@
 import { type CSSProperties, useLayoutEffect, useRef } from "react";
+import { getPeakRange, type WaveformPeaks } from "./waveform-peaks";
 import {
   getWaveformSourceSpan,
   type WaveformSourceRange,
 } from "./waveform-range.ts";
-import { getPeakRange, type WaveformPeaks } from "./waveform-peaks";
 
 type WaveformCanvasProps = {
   peaks: WaveformPeaks;
@@ -99,7 +99,6 @@ export function WaveformCanvas({
   return (
     <canvas
       ref={canvasRef}
-      aria-hidden="true"
       className={className}
       style={{ ...style, left: startPx, width: widthPx }}
     />

@@ -49,7 +49,8 @@ export function getClipWaveformRange(
   quarterPx: number,
 ): WaveformSourceRange {
   return {
-    startSeconds: quartersToSeconds(clip.startQ, bpm) + clip.sourceOffsetSeconds,
+    startSeconds:
+      quartersToSeconds(clip.startQ, bpm) + clip.sourceOffsetSeconds,
     secondsPerPx: 60 / (bpm * quarterPx),
     windowStartSeconds: clip.sourceWindowStartSeconds,
     windowEndSeconds: clip.sourceWindowEndSeconds,
