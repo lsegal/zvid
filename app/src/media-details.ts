@@ -100,8 +100,12 @@ export async function probeMediaDetails(
   return {
     fileSizeBytes,
     container: containerDisplayName(format.name),
-    videoCodec: videoTrack?.codec ? codecDisplayName(videoTrack.codec) : undefined,
-    audioCodec: audioTrack?.codec ? codecDisplayName(audioTrack.codec) : undefined,
+    videoCodec: videoTrack?.codec
+      ? codecDisplayName(videoTrack.codec)
+      : undefined,
+    audioCodec: audioTrack?.codec
+      ? codecDisplayName(audioTrack.codec)
+      : undefined,
     bitrate,
   };
 }

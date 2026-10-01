@@ -19,7 +19,9 @@ import {
 
 // ~320p, 3 s fixtures.
 async function probeFixture(path: string) {
-  const bytes = readFileSync(new URL(`../test/fixtures/${path}`, import.meta.url));
+  const bytes = readFileSync(
+    new URL(`../test/fixtures/${path}`, import.meta.url),
+  );
   const input = new Input({
     formats: ALL_FORMATS,
     source: new BufferSource(bytes),
@@ -74,7 +76,10 @@ describe("probeMediaDetails", () => {
 
 describe("display names", () => {
   it("names containers", () => {
-    assert.equal(containerDisplayName("QuickTime File Format"), "QuickTime / MOV");
+    assert.equal(
+      containerDisplayName("QuickTime File Format"),
+      "QuickTime / MOV",
+    );
     assert.equal(containerDisplayName("MP4"), "MP4");
     assert.equal(containerDisplayName("WAVE"), "WAV");
     assert.equal(containerDisplayName("Something New"), "Something New");
