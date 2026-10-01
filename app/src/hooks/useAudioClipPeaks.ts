@@ -1,26 +1,25 @@
 import { useEffect, useState } from "react";
 import { logClient } from "../app/util.ts";
-import type { ClipMediaState } from "../clip-media-state";
+import type { ClipWaveformKind } from "../clip-waveform.ts";
 import type { MediaItem } from "../media";
 import { loadWaveformPeaks } from "../waveform-loader";
 import type { WaveformPeaks } from "../waveform-peaks";
 
 export type AudioClipPeaks =
-  // Not an audio-only clip, or its peaks could not be decoded: the clip
-  // keeps the plain card.
+  // The clip draws no waveform, or its peaks could not be decoded: the clip
+  // keeps the plain card, or just its frames.
   | { status: "none" }
   | { status: "loading" }
   | { status: "ready"; peaks: WaveformPeaks };
 
-// The waveform peaks of a clip whose media is online and has no video. Peaks
+// The waveform peaks of a clip that draws a waveform, of either kind. Peaks
 // are decoded once per media and cached, so every clip of the same media
 // shares them.
 export function useAudioClipPeaks(
   media: MediaItem | undefined,
-  mediaState: ClipMediaState,
+  kind: ClipWaveformKind,
 ): AudioClipPeaks {
-  const mediaId =
-    media && !media.hasVideo && mediaState === "online" ? media.id : "";
+  const mediaId = media && kind !== "none" ? media.id : "";
   const url =
     mediaId && media?.availability === "ready" ? media.previewUrl : "";
   const key = mediaId && url ? `${mediaId}\n${url}` : "";
