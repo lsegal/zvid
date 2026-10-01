@@ -9,6 +9,7 @@
 import {
   chooseSourceSpanForWindow,
   getClipDurationQ,
+  getSourceTrackEndQ,
   quartersToSeconds,
   secondsToQuarters,
   snapQuarterValue,
@@ -17,6 +18,7 @@ import type {
   ArrangementClip,
   SourceSpan,
   SourceSpanDragState,
+  SourceTrackDropTarget,
 } from "./app/types.ts";
 import { warpSourceTime } from "./clip-warp.ts";
 import { resolveContainerOverlaps } from "./range-edit.ts";
@@ -163,6 +165,59 @@ export function dragSourceSpan(
     Math.max(frameQ, endQ - origin.startQ),
   );
   return { ...origin, durationSeconds: quartersToSeconds(durationQ, bpm) };
+}
+
+/**
+ * Where media dropped on `target` starts: its drop position, overwriting the
+ * spans it lands on. A locked existing track keeps its spans in place, so
+ * there it goes after the track's last span (undefined); a new track has
+ * nothing to overwrite.
+ */
+export function getDroppedSourceSpanStartQ(
+  target: SourceTrackDropTarget,
+  isExistingTrack: boolean,
+  locked: boolean,
+) {
+  return isExistingTrack && locked ? undefined : target.startQ;
+}
+
+/**
+ * Places `dropped`, new spans for one source track in drop order, back to
+ * back from `startQ`, overwriting the spans they land on in that track the
+ * way a moved span does, and relinks the arrangement clips to match. Without
+ * `startQ` they go after the track's last span instead.
+ */
+export function placeDroppedSourceSpans(
+  sourceSpans: SourceSpan[],
+  clips: ArrangementClip[],
+  dropped: SourceSpan[],
+  startQ: number | undefined,
+  bpm: number,
+) {
+  const trackId = dropped[0]?.sourceTrackId ?? "";
+  let insertQ = startQ ?? getSourceTrackEndQ(sourceSpans, trackId, bpm);
+  const placed = dropped.map((span) => {
+    const next = { ...span, startQ: insertQ };
+    insertQ += getClipDurationQ(span, bpm);
+    return next;
+  });
+
+  if (startQ === undefined) {
+    return { sourceSpans: [...sourceSpans, ...placed], clips };
+  }
+
+  let nextSourceSpans = sourceSpans;
+  for (const span of placed) {
+    nextSourceSpans = resolveSourceSpanOverlaps(
+      [...nextSourceSpans, span],
+      span,
+      bpm,
+    );
+  }
+  return {
+    sourceSpans: nextSourceSpans,
+    clips: relinkClipsToSourceSpans(clips, sourceSpans, nextSourceSpans, bpm),
+  };
 }
 
 /** The media range of `span` an arrangement clip using it may show. */

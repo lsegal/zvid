@@ -114,10 +114,13 @@ export function getSourceTrackDragState(
 /**
  * The source track drop target containing a drag event's target: a track row
  * (its label and clips included), the new-track drop row, or the header while
- * it takes drops. Anywhere else is no target.
+ * it takes drops. Anywhere else is no target. Rows marked
+ * `data-source-track-drop-at-pointer` take `startQ`, the timeline position
+ * under the pointer; the header does not.
  */
 export function getSourceTrackDropTarget(
   target: EventTarget | null,
+  startQ?: number,
 ): SourceTrackDropTarget | null {
   if (!target || typeof (target as Element).closest !== "function") {
     return null;
@@ -128,11 +131,16 @@ export function getSourceTrackDropTarget(
   );
   const kind = element?.getAttribute("data-source-track-drop-target");
   const trackId = element?.getAttribute("data-source-track-id");
+  const position =
+    startQ !== undefined &&
+    element?.hasAttribute("data-source-track-drop-at-pointer")
+      ? { startQ }
+      : {};
   if (kind === "track" && trackId) {
-    return { kind: "track", trackId };
+    return { kind: "track", trackId, ...position };
   }
 
-  return kind === "new-track" ? { kind: "new-track" } : null;
+  return kind === "new-track" ? { kind: "new-track", ...position } : null;
 }
 
 export function hasDraggedFileData(dataTransfer: DataTransfer | null) {

@@ -32,6 +32,11 @@ export type MediaImportInputs = {
   timelineClips: ArrangementClip[];
   setSourceTracksCollapsed: (collapsed: boolean) => void;
   appShellRef: RefObject<HTMLDivElement | null>;
+  // Where on the timeline media dropped on a source track starts.
+  timelineScrollRef: RefObject<HTMLDivElement | null>;
+  labelWidth: number;
+  quarterPx: number;
+  snapUnit: number;
   setStatus: Dispatch<SetStateAction<string>>;
 };
 
@@ -47,9 +52,18 @@ export function useMediaImport({
   timelineClips,
   setSourceTracksCollapsed,
   appShellRef,
+  timelineScrollRef,
+  labelWidth,
+  quarterPx,
+  snapUnit,
   setStatus,
 }: MediaImportInputs) {
-  const { mediaItems: projectMediaItems, sourceSpans, mainAudioId } = project;
+  const {
+    mediaItems: projectMediaItems,
+    sourceSpans,
+    mainAudioId,
+    snapEnabled,
+  } = project;
   const { refuseReadOnlyEdit, commitProjectChange } = store;
   const {
     mediaItems,
@@ -89,6 +103,11 @@ export function useMediaImport({
   const sourceTrackDrop = useSourceTrackDrop({
     mediaItems,
     appShellRef,
+    timelineScrollRef,
+    labelWidth,
+    quarterPx,
+    snapUnit,
+    snapEnabled,
     setIsMainAudioDropTarget,
     importMediaIntoSourceTrack: mediaCommands.importMediaIntoSourceTrack,
     setStatus,

@@ -17,6 +17,7 @@ import {
   sourceTracksLockLabel,
 } from "../../source-tracks-section.ts";
 import { SourceEmptyState } from "../SourceEmptyState";
+import { SourceDropPreview } from "./SourceDropPreview";
 import type { SourceSpanContext } from "./SourceSpan";
 import { type SourceTrackLabelContext, SourceTrackRow } from "./SourceTrackRow";
 import "./source-tracks.css";
@@ -64,13 +65,7 @@ export function SourceTracks({
   label,
 }: SourceTracksProps) {
   const { reorder } = label;
-  const {
-    sourceTrackDragPreview,
-    isSourceTrackFileDragActive,
-    sourceTrackDragPreviewDetail,
-    sourceTrackDragPreviewOverflow,
-    isNewSourceTrackDropTarget,
-  } = drop;
+  const { isSourceTrackFileDragActive, isNewSourceTrackDropTarget } = drop;
   const isSourceHeaderDropTarget =
     !sourceTracks.length || isSourceTracksCollapsed;
 
@@ -185,6 +180,7 @@ export function SourceTracks({
         <section
           className="track-row track-row--source track-row--source-drop"
           data-source-track-drop-target="new-track"
+          data-source-track-drop-at-pointer
         >
           <div className="track-label track-label--source track-label--source-drop">
             <span className="track-label__stripe" />
@@ -198,31 +194,11 @@ export function SourceTracks({
             className={`track-row__content track-row__content--source track-row__content--source-drop ${isNewSourceTrackDropTarget ? "is-drop-target" : ""}`}
             style={gridStyle}
           >
-            {sourceTrackDragPreview ? (
-              <div className="source-drop-preview source-drop-preview--new-track">
-                <div
-                  className={`source-drop-preview__thumb ${
-                    sourceTrackDragPreview.thumbnailUrl ? "has-image" : ""
-                  }`}
-                  style={
-                    sourceTrackDragPreview.thumbnailUrl
-                      ? {
-                          backgroundImage: `url(${sourceTrackDragPreview.thumbnailUrl})`,
-                        }
-                      : undefined
-                  }
-                />
-                <div className="source-drop-preview__body">
-                  <strong>{sourceTrackDragPreview.label}</strong>
-                  <span>{sourceTrackDragPreviewDetail}</span>
-                </div>
-                {sourceTrackDragPreviewOverflow ? (
-                  <div className="source-drop-preview__count">
-                    {sourceTrackDragPreviewOverflow}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
+            <SourceDropPreview
+              drop={drop}
+              quarterPx={span.quarterPx}
+              newTrack
+            />
           </section>
         </section>
       ) : null}

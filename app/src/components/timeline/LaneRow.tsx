@@ -1,6 +1,9 @@
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import type { getShortcutLabels } from "../../app/shortcut-labels.ts";
-import { snapQuarterValue } from "../../app/timeline-math.ts";
+import {
+  pointerToTimelineQ,
+  snapQuarterValue,
+} from "../../app/timeline-math.ts";
 import type {
   ArrangementClip,
   DragState,
@@ -96,7 +99,12 @@ export function LaneRow({
         const pointerX = event.clientX - timelineBounds.left;
         const anchorQ = snapQuarterValue(
           clamp(
-            (timelineScroll.scrollLeft - labelWidth + pointerX) / quarterPx,
+            pointerToTimelineQ(
+              pointerX,
+              timelineScroll.scrollLeft,
+              labelWidth,
+              quarterPx,
+            ),
             0,
             totalQuarters,
           ),

@@ -201,6 +201,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     timelineClips,
     setSourceTracksCollapsed: layout.setSourceTracksCollapsed,
     appShellRef,
+    timelineScrollRef,
+    labelWidth,
+    quarterPx,
+    snapUnit: timeline.snapUnit,
     setStatus,
   });
 
