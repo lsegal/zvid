@@ -72,6 +72,7 @@ export type PreviewPanelProps = Pick<
   // tracks rendered as layers when there are no layer clips.
   renderClips: ArrangementClip[];
   renderLanes: Lane[];
+  renderFromSourceTracks: boolean;
   selectedClip: ArrangementClip | undefined;
   timelineDragState: TimelineDragState | null;
   timelineEffects: SessionEffect[];
@@ -113,6 +114,7 @@ export function PreviewPanel({
   previewTextEdit,
   projectDurationFrames,
   renderClips,
+  renderFromSourceTracks,
   renderLanes,
   selectPreviewLayer,
   selectedClip,
@@ -151,7 +153,12 @@ export function PreviewPanel({
           </span>
         </div>
 
-        <div className="preview-monitor">
+        <div
+          className="preview-monitor"
+          data-render-source={
+            renderFromSourceTracks ? "source-tracks" : "layers"
+          }
+        >
           <CompositionPlayer
             ref={compositionPlayerRef}
             bpm={bpm}

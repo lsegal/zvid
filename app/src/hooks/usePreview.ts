@@ -192,6 +192,7 @@ export function usePreview({
     previewClip,
     renderClips: render.clips,
     renderLanes: render.lanes,
+    renderFromSourceTracks: render.fromSourceTracks,
     previewMedia,
     previewMediaState,
     hasOnlinePlayheadClip,
