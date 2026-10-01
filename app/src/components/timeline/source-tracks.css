@@ -106,11 +106,15 @@
   box-shadow: inset 0 0 0 100vmax var(--lane-selected-tint);
 }
 
+/* The color stripe hugs the label's left edge for the full row height,
+   down over the row's bottom divider, so consecutive stripes meet. */
 .track-label__stripe {
-  flex-shrink: 0;
+  position: absolute;
+  top: 0;
+  bottom: -1px;
+  left: 0;
   width: 4px;
-  align-self: stretch;
-  border-radius: 999px;
+  border-radius: 0;
 }
 
 .track-row__content--source {
