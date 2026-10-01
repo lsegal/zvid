@@ -1,7 +1,7 @@
 import { ChevronDownIcon } from "@heroicons/react/24/solid";
-import type { Dispatch, RefObject, SetStateAction } from "react";
+import type { RefObject } from "react";
+import type { SourceSelection } from "../../app/source-selection.ts";
 import type {
-  ArrangementClip,
   SourceSpan as SourceSpanClip,
   SourceTrack,
 } from "../../app/types.ts";
@@ -20,8 +20,8 @@ type SourceTracksProps = {
   isSourceTracksCollapsed: boolean;
   setSourceTracksCollapsed: (collapsed: boolean) => void;
   drop: ReturnType<typeof useSourceTrackDrop>;
-  clips: ArrangementClip[];
-  setSelectedClipId: Dispatch<SetStateAction<string | undefined>>;
+  sourceSelection: SourceSelection | undefined;
+  selectSource: (selection: SourceSelection) => void;
   onImport: () => void;
   onOpenSample: () => void;
   onOpenSession: () => void;
@@ -41,8 +41,8 @@ export function SourceTracks({
   isSourceTracksCollapsed,
   setSourceTracksCollapsed,
   drop,
-  clips,
-  setSelectedClipId,
+  sourceSelection,
+  selectSource,
   onImport,
   onOpenSample,
   onOpenSession,
@@ -61,14 +61,6 @@ export function SourceTracks({
   } = drop;
   const isSourceHeaderDropTarget =
     !sourceTracks.length || isSourceTracksCollapsed;
-
-  function selectSource(sourceTrackId: string) {
-    const match = clips.find((clip) => clip.sourceTrackId === sourceTrackId);
-    if (match) {
-      // Selecting never moves the playhead.
-      setSelectedClipId(match.id);
-    }
-  }
 
   return (
     <>
@@ -149,7 +141,8 @@ export function SourceTracks({
               index={index}
               spans={sourceSpansByTrack.get(track.id) ?? []}
               drop={drop}
-              onSelect={selectSource}
+              sourceSelection={sourceSelection}
+              selectSource={selectSource}
               isLifted={track.id === reorder.liftedLaneId}
               gridStyle={gridStyle}
               span={span}

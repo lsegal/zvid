@@ -5,6 +5,10 @@ import type {
 } from "react";
 import { type Filmstrip, getFilmstripTileOwner } from "../../app/filmstrip.ts";
 import type { getShortcutLabels } from "../../app/shortcut-labels.ts";
+import {
+  isSourceSpanSelected,
+  type SourceSelection,
+} from "../../app/source-selection.ts";
 import { getClipDurationQ } from "../../app/timeline-math.ts";
 import type {
   ClipMenuState,
@@ -48,6 +52,8 @@ export type SourceSpanContext = {
   prefersReducedMotion: boolean;
   revealedMediaIds: ReadonlySet<string>;
   clipMenu: ClipMenuState | null;
+  sourceSelection: SourceSelection | undefined;
+  selectSourceSpan: (sourceSpan: SourceSpanClip) => void;
   shortcutLabels: ReturnType<typeof getShortcutLabels>;
   addSourceSpanToArrangement: (sourceSpan: SourceSpanClip) => void;
   openSourceSpanMenu: ReturnType<typeof useMenus>["openSourceSpanMenu"];
@@ -58,8 +64,9 @@ export type SourceSpanContext = {
 type SourceSpanProps = { clip: SourceSpanClip } & SourceSpanContext;
 
 // A span of a source track's media: its filmstrip, thumbnail or waveform and
-// name. Dragging it moves it in its track and dragging an edge trims it, like
-// an arrangement clip; Ctrl/Cmd-click adds it to the arrangement.
+// name. A click selects it, dragging it moves it in its track and dragging an
+// edge trims it, like an arrangement clip; Ctrl/Cmd-click adds it to the
+// arrangement, and a right-click selects it and opens its menu.
 export function SourceSpan({
   clip,
   bpm,
@@ -73,6 +80,8 @@ export function SourceSpan({
   prefersReducedMotion,
   revealedMediaIds,
   clipMenu,
+  sourceSelection,
+  selectSourceSpan,
   shortcutLabels,
   addSourceSpanToArrangement,
   openSourceSpanMenu,
@@ -133,17 +142,24 @@ export function SourceSpan({
     });
   }
 
+  const selected =
+    isSourceSpanSelected(sourceSelection, clip.id) ||
+    (clipMenu?.kind === "span" && clipMenu.spanId === clip.id);
+
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: dragging, Ctrl/Cmd-click and right-click are pointer gestures; pressing a source layer's number key commits a selection from the keyboard
-    // biome-ignore lint/a11y/useKeyWithClickEvents: a plain click does nothing, so there is no keyboard equivalent to add
+    // biome-ignore lint/a11y/noStaticElementInteractions: clicking, dragging, Ctrl/Cmd-click and right-click are pointer gestures; pressing a source layer's number key commits a selection from the keyboard
+    // biome-ignore lint/a11y/useKeyWithClickEvents: selecting with a click is a mouse shortcut; the source track's name button selects its track from the keyboard
     <div
-      className={`source-span ${trimming ? "source-span--trimming" : ""} ${filmstrip ? "source-span--filmstrip" : ""} ${audio ? "source-span--audio" : ""} ${audio && audioPeaks.status === "loading" && !prefersReducedMotion ? "is-syncing--animated" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""} ${clipMenu?.kind === "span" && clipMenu.spanId === clip.id ? "source-span--selected" : ""}`}
+      className={`source-span ${trimming ? "source-span--trimming" : ""} ${filmstrip ? "source-span--filmstrip" : ""} ${audio ? "source-span--audio" : ""} ${audio && audioPeaks.status === "loading" && !prefersReducedMotion ? "is-syncing--animated" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""} ${selected ? "source-span--selected" : ""}`}
+      data-source-span-id={clip.id}
       onClick={(event) => {
         // Ctrl-click on macOS opens the menu instead.
-        if (
-          !isSourceClipDropClick(event) ||
-          isContextMenuPress(event, shortcutLabels.mac)
-        ) {
+        if (isContextMenuPress(event, shortcutLabels.mac)) {
+          return;
+        }
+        if (!isSourceClipDropClick(event)) {
+          // Selecting never moves the playhead.
+          selectSourceSpan(clip);
           return;
         }
 
@@ -151,7 +167,10 @@ export function SourceSpan({
         event.stopPropagation();
         addSourceSpanToArrangement(clip);
       }}
-      onContextMenu={(event) => openSourceSpanMenu(event, clip)}
+      onContextMenu={(event) => {
+        selectSourceSpan(clip);
+        openSourceSpanMenu(event, clip);
+      }}
       onPointerDown={(event) => startDrag(event, "move")}
       title={`${shortcutLabels.sourceClipDrop} to add this clip to the arrangement`}
       style={{
