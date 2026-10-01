@@ -44,7 +44,7 @@ type SourceTracksProps = {
 // which takes dropped media while there are no tracks or they are hidden, the
 // tracks with the drop indicator and announcements that reordering them uses,
 // and a drop row for a new track while media is dragged over them. Locked
-// tracks are grayed out and their clips stay put.
+// tracks are 30% less saturated and their clips stay put.
 export function SourceTracks({
   sourceTracks,
   sourceSpansByTrack,

@@ -108,11 +108,10 @@
   position: relative;
 }
 
-/* Locked source tracks are grayed out. The label keeps its opaque
+/* Locked source tracks are 30% less saturated. The label keeps its opaque
    background, since clips scroll beneath it. */
 .source-tracks--locked .track-label--source > * {
-  filter: grayscale(1);
-  opacity: 0.55;
+  filter: saturate(0.7);
 }
 
 .source-tracks--locked .track-label--source .track-label__grip:disabled {
