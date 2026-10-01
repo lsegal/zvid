@@ -43,7 +43,8 @@ test("selects source tracks and source clips instead of layers and clips", async
   await page.goto("/");
   await expect(lane(page, "1")).toBeVisible();
   await dropVideoIntoNewSourceTrack(page);
-  const label = page.locator("[data-source-track-label-id]");
+  const label = page.locator(".track-label--source");
+  const labelName = label.locator(".track-label__select");
   const span = page.locator(".source-span");
   const row = page.locator(sourceRow);
 
@@ -61,7 +62,7 @@ test("selects source tracks and source clips instead of layers and clips", async
   // The source track's label selects the track, and no layer or clip.
   await label.click();
   await expect(row).toHaveClass(/track-row--selected/);
-  await expect(label).toHaveAttribute("aria-current", "true");
+  await expect(labelName).toHaveAttribute("aria-current", "true");
   await expect(span).not.toHaveClass(/source-span--selected/);
   await expectNoLayerSelected(page);
   // The FX panel shows no layer's effects.
@@ -95,7 +96,7 @@ test("selects source tracks and source clips instead of layers and clips", async
   await expect(clip).toHaveClass(/clip-card--selected/);
   await expect(span).not.toHaveClass(/source-span--selected/);
   await expect(row).not.toHaveClass(/track-row--selected/);
-  await expect(label).not.toHaveAttribute("aria-current", "true");
+  await expect(labelName).not.toHaveAttribute("aria-current", "true");
 });
 
 test("Ctrl/Cmd-click on a source clip still adds it to the arrangement", async ({

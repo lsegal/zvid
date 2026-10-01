@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  findRestoredSourceSelection,
   keepSourceSelection,
   type SourceSelection,
+  toSourceSelectionView,
 } from "../app/source-selection.ts";
 import type {
   ArrangementClip,
   ClipMenuState,
   DragState,
+  SourceSpan,
+  SourceTrack,
   TimelineDragState,
   TimelineSelection,
 } from "../app/types.ts";
@@ -18,6 +22,8 @@ export type TimelineSelectionInputs = {
   restoredSession: SavedWorkspaceSession | null;
   clips: ArrangementClip[];
   effects: SessionEffect[];
+  sourceTracks: SourceTrack[];
+  sourceSpans: SourceSpan[];
 };
 
 // The timeline's selection and gesture state: the selected clip and layer
@@ -29,6 +35,8 @@ export function useTimelineSelection({
   restoredSession,
   clips,
   effects,
+  sourceTracks,
+  sourceSpans,
 }: TimelineSelectionInputs) {
   const [restoredSelection] = useState(() =>
     findRestoredSelection(restoredSession),
@@ -51,9 +59,21 @@ export function useTimelineSelection({
   );
   // A selected source track or clip. Only one thing is selected at a time:
   // selecting a source clears the layer and clip, and the reverse.
-  const [sourceSelection, setSourceSelection] = useState<
+  const [storedSourceSelection, setSourceSelection] = useState<
     SourceSelection | undefined
   >(restoredSelection.sourceSelection);
+  // Deleting the selected source track drops the selection, and deleting
+  // the selected source clip leaves its track selected.
+  const sourceSelection = useMemo(
+    () =>
+      storedSourceSelection &&
+      findRestoredSourceSelection(
+        toSourceSelectionView(storedSourceSelection),
+        sourceTracks,
+        sourceSpans,
+      ),
+    [sourceSpans, sourceTracks, storedSourceSelection],
+  );
   useEffect(() => {
     setSourceSelection((selection) =>
       keepSourceSelection(selection, selectedClipId, selectedLaneId),

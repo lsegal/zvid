@@ -325,9 +325,8 @@ test("a refresh restores the selected source clip", async ({ page }) => {
   await expect(page.locator(".source-span")).toHaveClass(
     /source-span--selected/,
   );
-  await expect(page.locator("[data-source-track-label-id]")).toHaveAttribute(
-    "aria-current",
-    "true",
-  );
+  await expect(
+    page.locator(".track-label--source .track-label__select"),
+  ).toHaveAttribute("aria-current", "true");
   await expect(page.locator(".clip-card--selected")).toHaveCount(0);
 });

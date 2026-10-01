@@ -65,7 +65,7 @@ export function SourceTrackRow({
 
   return (
     <section
-      className={`track-row track-row--source ${isLifted ? "track-row--lifted" : ""} ${selected ? "track-row--selected" : ""}`}
+      className={`track-row track-row--source ${selected ? "track-row--selected" : ""} ${isLifted ? "track-row--lifted" : ""}`}
       data-source-track-drop-target="track"
       data-source-track-id={track.id}
     >
@@ -111,7 +111,7 @@ export function SourceTrackRow({
           </small>
         </button>
       </div>
-      {/* biome-ignore lint/a11y/useKeyWithClickEvents: clearing the source clip selection is a mouse shortcut; the track's label button selects the track from the keyboard */}
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: clearing the source clip selection is a mouse shortcut; the track name button selects the track from the keyboard */}
       <section
         aria-label={`Drop media into ${track.name}`}
         className={`track-row__content track-row__content--source ${isDropTarget ? "is-drop-target" : ""}`}
