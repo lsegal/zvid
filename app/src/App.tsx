@@ -62,7 +62,12 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const { timelineMode, bpm, fps, canvasWidth, canvasHeight } = project;
   const { sessionName, lanes, sourceTracks, clips, effects } = project;
 
-  const selection = useTimelineSelection({ restoredSession, clips, effects });
+  const selection = useTimelineSelection({
+    restoredSession,
+    clips,
+    sourceSpans: project.sourceSpans,
+    effects,
+  });
   const { selectedClip, timelineClips, timelineEffects } = selection;
   const { pendingSelection, setPendingSelection, dragState } = selection;
   const { setSelectedClipId, setDragPreviewClips, setDragState } = selection;
@@ -476,6 +481,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     addSourceSpanToArrangement:
                       editing.addSourceSpanToArrangement,
                     openSourceSpanMenu: editing.openSourceSpanMenu,
+                    sourceSpanDrag: selection.sourceSpanDrag,
+                    setSourceSpanDrag: selection.setSourceSpanDrag,
                   }}
                 />
               </Timeline>

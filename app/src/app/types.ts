@@ -125,6 +125,16 @@ export type DragState =
       gesture: LaneSelectionGesture;
     };
 
+// A source clip pressed to move it or trim one of its edges. Nothing changes
+// until the pointer passes the click threshold, so a press released before
+// then is a click.
+export type SourceSpanDragState = {
+  kind: "move" | "resize-start" | "resize-end";
+  pointerId: number;
+  spanId: string;
+  pointerStartX: number;
+};
+
 export type TimelineDragState = {
   pointerId: number;
   pointerStartX: number;
