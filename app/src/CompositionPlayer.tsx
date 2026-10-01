@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
 } from "react";
+import { clamp } from "./app/util.ts";
 import {
   type ActiveClip,
   type ArrangementClip,
@@ -35,6 +36,12 @@ import {
 } from "./fx-shaders/audio-bands.ts";
 import { resolveEffectChain } from "./fx-shaders/registry.ts";
 import { getRenderedEffects } from "./fx-stack.ts";
+import {
+  applyPreviewVolume,
+  applyPreviewVolumes,
+  listenForVideoFrames,
+  releaseMediaElement,
+} from "./media-element.ts";
 import { seekMediaElement } from "./media-seek.ts";
 import type { PlayheadSignal } from "./playhead-signal";
 import { loadFontFace, resolveFontFace, subscribeFonts } from "./text-fonts.ts";
@@ -93,6 +100,7 @@ type CompositionPlaybackState = {
 export type CompositionPlayerHandle = {
   getCanvas(): HTMLCanvasElement | null;
   renderFrameAt(playheadQ: number, playheadSeconds: number): Promise<void>;
+  setVolume(volume: number, muted: boolean): void;
 };
 
 const MAX_DRIFT_SECONDS = 0.18;
@@ -104,10 +112,6 @@ const CONTINUOUS_SCRUB_AUDIO_DRIFT_SECONDS = 0.1;
 // them.
 const MIN_PLAYBACK_RATE = 0.0625;
 const MAX_PLAYBACK_RATE = 16;
-
-function clamp(value: number, minimum: number, maximum: number) {
-  return Math.max(minimum, Math.min(maximum, value));
-}
 
 // "live" reads the main audio element as it plays (preview). "offline"
 // decodes the main audio and measures it at each rendered frame (export).
@@ -122,12 +126,13 @@ export class CompositionRenderer {
   private mediaRefs = new Map<string, HTMLMediaElement>();
   private mediaIdBySourceKey = new Map<string, string>();
   private mainAudioElement: HTMLAudioElement | null = null;
-  private removeVideoFrameReadyListeners: Array<() => void> = [];
+  private removeVideoFrameReadyListeners: (() => void) | null = null;
   private videoFrameReadyListener: (() => void) | null = null;
   private state: CompositionRendererState;
   private activeClips: ActiveClip[] = [];
   private readonly audioAnalysis: AudioAnalysisMode;
   private liveAudioBands: LiveAudioBands | null = null;
+  private volume = { volume: 1, muted: false };
   private offlineAudioBands: {
     url: string;
     bands: Promise<OfflineAudioBands | null>;
@@ -162,19 +167,22 @@ export class CompositionRenderer {
     }
 
     for (const element of this.mediaRefs.values()) {
-      element.pause();
-      element.removeAttribute("src");
-      element.load();
+      releaseMediaElement(element);
     }
     this.mediaRefs.clear();
     this.mediaIdBySourceKey.clear();
 
     if (this.mainAudioElement) {
-      this.mainAudioElement.pause();
-      this.mainAudioElement.removeAttribute("src");
-      this.mainAudioElement.load();
+      releaseMediaElement(this.mainAudioElement);
       this.mainAudioElement = null;
     }
+  }
+
+  // The preview playback volume, which export renders never set.
+  setVolume(volume: number, muted: boolean) {
+    this.volume = { volume, muted };
+    applyPreviewVolumes(this.mediaRefs.values(), this.volume);
+    applyPreviewVolume(this.mainAudioElement, this.volume, this.liveAudioBands);
   }
 
   // While playing, animating text and fills may be drawn from a nearby
@@ -503,6 +511,8 @@ export class CompositionRenderer {
       if (element instanceof HTMLVideoElement) {
         element.muted = true;
         element.playsInline = true;
+      } else {
+        applyPreviewVolume(element, this.volume);
       }
       this.mediaRefs.set(sourceKey, element);
       this.mediaIdBySourceKey.set(sourceKey, item.id);
@@ -524,9 +534,7 @@ export class CompositionRenderer {
         continue;
       }
 
-      element.pause();
-      element.removeAttribute("src");
-      element.load();
+      releaseMediaElement(element);
       this.mediaRefs.delete(sourceKey);
       this.mediaIdBySourceKey.delete(sourceKey);
     }
@@ -548,43 +556,29 @@ export class CompositionRenderer {
         this.mainAudioElement.src = this.state.mainAudio.previewUrl;
       }
     } else if (this.mainAudioElement) {
-      this.mainAudioElement.pause();
-      this.mainAudioElement.removeAttribute("src");
-      this.mainAudioElement.load();
+      releaseMediaElement(this.mainAudioElement);
       this.mainAudioElement = null;
     }
 
+    // Routing the main audio through the analyser moves its volume there.
     this.syncLiveAudioBands();
+    this.setVolume(this.volume.volume, this.volume.muted);
     this.refreshVideoFrameReadyListeners();
   }
 
   private refreshVideoFrameReadyListeners() {
-    const scheduleDraw = this.videoFrameReadyListener;
     this.clearVideoFrameReadyListeners();
-    if (!scheduleDraw) {
-      return;
-    }
-
-    for (const element of this.mediaRefs.values()) {
-      if (!(element instanceof HTMLVideoElement)) {
-        continue;
-      }
-
-      const handleFrameReady = () => scheduleDraw();
-      element.addEventListener("seeked", handleFrameReady);
-      element.addEventListener("loadeddata", handleFrameReady);
-      this.removeVideoFrameReadyListeners.push(() => {
-        element.removeEventListener("seeked", handleFrameReady);
-        element.removeEventListener("loadeddata", handleFrameReady);
-      });
+    if (this.videoFrameReadyListener) {
+      this.removeVideoFrameReadyListeners = listenForVideoFrames(
+        this.mediaRefs.values(),
+        this.videoFrameReadyListener,
+      );
     }
   }
 
   private clearVideoFrameReadyListeners() {
-    for (const removeListener of this.removeVideoFrameReadyListeners) {
-      removeListener();
-    }
-    this.removeVideoFrameReadyListeners = [];
+    this.removeVideoFrameReadyListeners?.();
+    this.removeVideoFrameReadyListeners = null;
   }
 }
 
@@ -722,6 +716,8 @@ export const CompositionPlayer = forwardRef<
       getCanvas: () => canvasRef.current,
       renderFrameAt: (nextPlayheadQ, nextPlayheadSeconds) =>
         renderFrameAt(nextPlayheadQ, nextPlayheadSeconds, 1),
+      setVolume: (volume, muted) =>
+        rendererRef.current?.setVolume(volume, muted),
     }),
     [renderFrameAt],
   );

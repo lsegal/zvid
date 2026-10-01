@@ -31,6 +31,7 @@ import { useMediaCacheSession } from "./hooks/useMediaCacheSession.ts";
 import { useMediaImport } from "./hooks/useMediaImport.ts";
 import { usePlayback } from "./hooks/usePlayback.ts";
 import { usePreview } from "./hooks/usePreview.ts";
+import { usePreviewVolume } from "./hooks/usePreviewVolume.ts";
 import {
   useProjectHistoryCommands,
   useProjectStore,
@@ -79,6 +80,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
 
   const playbackOriginRef = useRef(store.initialPlayheadQ);
   const compositionPlayerRef = useRef<CompositionPlayerHandle | null>(null);
+  const previewVolume = usePreviewVolume(compositionPlayerRef);
   const appShellRef = useRef<HTMLDivElement | null>(null);
   const timelineScrollRef = useRef<HTMLDivElement | null>(null);
   const spaceHoldRef = useRef(createSpaceHold());
@@ -502,6 +504,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
 
             <TransportBar
               {...timeline}
+              {...previewVolume}
               isPlaying={isPlaying}
               jumpPlayhead={playback.jumpPlayhead}
               onTransportToggle={playback.handleTransportToggle}
