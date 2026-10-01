@@ -91,10 +91,11 @@ test("source clip properties edit Start, Length and Offset, clamped to the media
       [8, 16],
     ]);
 
-  // Selecting a source clip shows its properties in the current format.
+  // Selecting a source clip shows its properties in the current format,
+  // ahead of its effects.
   await spans.first().click();
-  await expect(page.locator(title)).toContainText("Source Clip Properties");
-  await expect(page.locator(".fx-chain__empty")).toHaveCount(0);
+  await expect(page.locator(title)).toHaveText(/^Clip .+ Effects (.+)$/);
+  await expect(page.locator(".source-clip-properties")).toBeVisible();
   const start = field(page, "Start");
   const length = field(page, "Length");
   const offset = field(page, "Offset");
