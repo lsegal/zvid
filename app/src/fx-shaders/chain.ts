@@ -1,3 +1,4 @@
+import { renderStats } from "../render-stats.ts";
 import {
   FULLSCREEN_VERTEX_SOURCE,
   linkProgram,
@@ -231,6 +232,7 @@ export class EffectChainRenderer {
 
   private createTarget(width: number, height: number): RenderTarget {
     const { gl } = this;
+    renderStats.targetAllocations++;
     const texture = gl.createTexture();
     const framebuffer = gl.createFramebuffer();
     if (!texture || !framebuffer) {

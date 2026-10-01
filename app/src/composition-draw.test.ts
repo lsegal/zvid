@@ -637,6 +637,15 @@ describe("drawComposition fill layers", () => {
     color: { r: 255, g: 0, b: 0, a: 1 },
     opacity: 1,
   };
+  const RED_TO_BLUE: FillPaint = {
+    kind: "linear",
+    angleDeg: 90,
+    stops: [
+      { offset: 0, color: { r: 255, g: 0, b: 0, a: 1 } },
+      { offset: 1, color: { r: 0, g: 0, b: 255, a: 1 } },
+    ],
+    opacity: 1,
+  };
 
   function fillLayer(fill: FillPaint, lane = 0): CompositeLayer {
     return {
@@ -682,12 +691,20 @@ describe("drawComposition fill layers", () => {
       resources.textureMap.get("fill:clip-0") as unknown as Handle,
     );
 
+    // A solid fill is the same at any size: one pixel.
+    const [upload] = recording.uploads;
+    assert.deepEqual([upload[3], upload[4]], [1, 1]);
+    assert.deepEqual(Array.from(upload.at(-1) as Uint8Array), [255, 0, 0, 255]);
+  });
+
+  it("draws a gradient at its band's aspect, at most 512 pixels on a side", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    drawFrame(recording, resources, [fillLayer(RED_TO_BLUE)]);
     const [upload] = recording.uploads;
     const pixels = upload.at(-1) as Uint8Array;
     const [width, height] = [upload[3], upload[4]] as [number, number];
     assert.equal(pixels.length, width * height * 4);
-    assert.deepEqual(Array.from(pixels.slice(0, 4)), [255, 0, 0, 255]);
-    // Drawn at the band's aspect, no larger than 512 pixels on a side.
     assert.equal(Math.max(width, height), 512);
     assert.ok(Math.abs(width / height - WIDTH / HEIGHT) < 0.01);
   });
@@ -718,7 +735,7 @@ describe("drawComposition fill layers", () => {
     drawFrame(
       recording,
       resources,
-      [fillLayer(RED_FILL, 0), fillLayer(RED_FILL, 1)],
+      [fillLayer(RED_TO_BLUE, 0), fillLayer(RED_TO_BLUE, 1)],
       undefined,
       { arrangement: "horizontal", gridSize: 2, spacing: 0 },
     );

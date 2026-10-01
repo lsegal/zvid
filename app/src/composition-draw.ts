@@ -19,6 +19,13 @@ import {
   DEFAULT_COMPOSITION_ORDER,
 } from "./composition-order.ts";
 import {
+  FILL_RASTER,
+  RasterCache,
+  type RasterKind,
+  type RasterSize,
+  TEXT_RASTER,
+} from "./composition-raster-cache.ts";
+import {
   type Box,
   canvasBoxToFrame,
   frameBoxInCanvas,
@@ -39,6 +46,7 @@ import {
 } from "./fx-shaders/chain.ts";
 import { linkProgram, POSITION_ATTRIBUTE_LOCATION } from "./fx-shaders/gl.ts";
 import type { EffectChainStep } from "./fx-shaders/registry.ts";
+import { recordRenderFrame, renderStats } from "./render-stats.ts";
 import { isFontFaceReady, resolveFontFace } from "./text-fonts.ts";
 import { createTextCanvas, drawText } from "./text-render.ts";
 import { TEXT_REFERENCE_HEIGHT, type TextStyle } from "./text-style.ts";
@@ -83,6 +91,9 @@ export type FrameContext = {
   time: number;
   audio: AudioBands;
   groupClipProgress: number;
+  // Set for preview frames, which may draw an animating text or fill clip
+  // from a nearby raster rather than drawing a new one every frame.
+  preview?: boolean;
 };
 
 export type CompositeSurface = { width: number; height: number };
@@ -93,9 +104,9 @@ export type WebGlResources = {
   positionBuffer: WebGLBuffer;
   textureMap: Map<string, WebGLTexture>;
   readyTextureIds: Set<string>;
-  // What each fill or text texture was last drawn with, so it is only
-  // redrawn when its paint, text or size changes.
-  generatedTextureKeys: Map<string, string>;
+  // The rasters each fill or text clip has drawn, so it is only redrawn
+  // when its paint, text or size changes.
+  rasters: RasterCache;
   effectChain: EffectChainRenderer;
   // Copies an FX clip's adjusted composite back into its box.
   fxMask: {
@@ -235,7 +246,7 @@ export function createWebGlResources(
     positionBuffer,
     textureMap: new Map<string, WebGLTexture>(),
     readyTextureIds: new Set<string>(),
-    generatedTextureKeys: new Map<string, string>(),
+    rasters: new RasterCache(),
     effectChain: new EffectChainRenderer(gl, positionBuffer),
     fxMask: {
       program: fxMaskProgram,
@@ -287,7 +298,7 @@ export function disposeWebGlResources(resources: WebGlResources) {
   }
   resources.textureMap.clear();
   resources.readyTextureIds.clear();
-  resources.generatedTextureKeys.clear();
+  resources.rasters.clear();
   gl.deleteBuffer(resources.positionBuffer);
   gl.deleteProgram(resources.program);
   gl.deleteProgram(resources.fxMask.program);
@@ -379,6 +390,7 @@ function renderLayerFrame(
   placement: LayerPlacement,
   visual: CompositeVisual,
   size: { width: number; height: number },
+  opacity: number,
 ) {
   const { gl, effectChain } = resources;
   const { frame, halfExtents, translate } = placement;
@@ -396,7 +408,7 @@ function renderLayerFrame(
       ],
       (-visual.rotationDeg * Math.PI) / 180,
     ),
-    opacity: 1,
+    opacity,
     brightness: 0,
     contrast: 1,
     saturation: 1,
@@ -440,44 +452,107 @@ function uploadVideoTexture(
   return texture;
 }
 
-// Draws a fill's paint into its texture, top row first like an uploaded
-// video frame, when the paint or the band size changed since last time.
+// The texture `content` is drawn into at `size`: a raster the clip already
+// drew, or a new one `draw` uploads into the bound texture. Returns
+// undefined when nothing is drawn yet; `settled` is false when a nearby
+// raster stands in for an animating clip, which a later frame draws exactly.
+function generatedTexture<T>(
+  resources: WebGlResources,
+  sourceKey: string,
+  kind: RasterKind<T>,
+  content: T,
+  size: RasterSize,
+  frameContext: FrameContext,
+  draw: (() => boolean) | undefined,
+) {
+  const { gl } = resources;
+  const found = resources.rasters.lookup(
+    sourceKey,
+    kind,
+    content,
+    size,
+    Boolean(frameContext.preview),
+  );
+  if (found.raster) {
+    const texture = getOrCreateTexture(resources, found.raster.textureId);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    return { texture, settled: found.exact };
+  }
+  if (!draw) {
+    // It can't be drawn yet: keep showing what it last drew. It is redrawn
+    // when it can be, such as when its font loads.
+    const latest = resources.rasters.latest(sourceKey);
+    return (
+      latest && {
+        texture: getOrCreateTexture(resources, latest.textureId),
+        settled: true,
+      }
+    );
+  }
+  const { textureId } = found;
+  const texture = getOrCreateTexture(resources, textureId);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  if (!draw()) {
+    return undefined;
+  }
+  resources.rasters.store(sourceKey, textureId, content, size);
+  return { texture, settled: true };
+}
+
+// Draws a fill's colors into its texture, top row first like an uploaded
+// video frame, when they or the band size changed since last time. A solid
+// fill is the same at any size, so it is one pixel. Its opacity is applied
+// when it is drawn.
 function uploadFillTexture(
   resources: WebGlResources,
   sourceKey: string,
   fill: FillPaint,
   bandWidth: number,
   bandHeight: number,
+  frameContext: FrameContext,
 ) {
   const { gl } = resources;
-  const texture = getOrCreateTexture(resources, sourceKey);
-  const scale = Math.min(
-    1,
-    MAX_FILL_TEXTURE_SIZE / Math.max(bandWidth, bandHeight, 1),
+  const scale =
+    fill.kind === "solid"
+      ? 0
+      : Math.min(1, MAX_FILL_TEXTURE_SIZE / Math.max(bandWidth, bandHeight, 1));
+  const size = {
+    width: Math.max(1, Math.round(bandWidth * scale)),
+    height: Math.max(1, Math.round(bandHeight * scale)),
+    scale: 1,
+  };
+  return generatedTexture(
+    resources,
+    sourceKey,
+    FILL_RASTER,
+    fill,
+    size,
+    frameContext,
+    () => {
+      renderStats.fillRasterizations++;
+      const raster = rasterizeFillPaint(
+        { ...fill, opacity: 1 },
+        size.width,
+        size.height,
+      );
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA,
+        raster.width,
+        raster.height,
+        0,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        raster.pixels,
+      );
+      return true;
+    },
   );
-  const textureWidth = Math.max(1, Math.round(bandWidth * scale));
-  const textureHeight = Math.max(1, Math.round(bandHeight * scale));
-  const key = `${textureWidth}x${textureHeight}:${JSON.stringify(fill)}`;
-  gl.activeTexture(gl.TEXTURE0);
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-  if (resources.generatedTextureKeys.get(sourceKey) !== key) {
-    const raster = rasterizeFillPaint(fill, textureWidth, textureHeight);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
-    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      0,
-      gl.RGBA,
-      raster.width,
-      raster.height,
-      0,
-      gl.RGBA,
-      gl.UNSIGNED_BYTE,
-      raster.pixels,
-    );
-    resources.generatedTextureKeys.set(sourceKey, key);
-  }
-  return texture;
 }
 
 // A texture size for a `width` × `height` box: whole pixels, shrunk by
@@ -507,40 +582,40 @@ function uploadTextTexture(
   boxWidth: number,
   boxHeight: number,
   boxScale: number,
+  frameContext: FrameContext,
 ) {
   const { gl } = resources;
   const face = resolveFontFace(text.font, text.weight, text.italic);
   // A box too large for a texture is drawn smaller, laid out the same.
   const { width, height, factor } = fitTextureSize(gl, boxWidth, boxHeight);
   const scale = boxScale * factor;
-  const key = `${width}x${height}@${scale}:${JSON.stringify(face)}:${JSON.stringify(text)}`;
-  const drawn = resources.generatedTextureKeys.get(sourceKey);
-  if (drawn !== key && !isFontFaceReady(face)) {
-    return drawn === undefined
-      ? undefined
-      : getOrCreateTexture(resources, sourceKey);
-  }
-
-  const texture = getOrCreateTexture(resources, sourceKey);
-  gl.activeTexture(gl.TEXTURE0);
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-  if (drawn !== key) {
-    const canvas = createTextCanvas(width, height);
-    if (!canvas || !drawText(canvas, text, face, width, height, scale)) {
-      return undefined;
-    }
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      0,
-      gl.RGBA,
-      gl.RGBA,
-      gl.UNSIGNED_BYTE,
-      canvas as TexImageSource,
-    );
-    resources.generatedTextureKeys.set(sourceKey, key);
-  }
-  return texture;
+  return generatedTexture(
+    resources,
+    sourceKey,
+    TEXT_RASTER,
+    { style: text, face },
+    { width, height, scale },
+    frameContext,
+    isFontFaceReady(face)
+      ? () => {
+          renderStats.textRasterizations++;
+          const canvas = createTextCanvas(width, height);
+          if (!canvas || !drawText(canvas, text, face, width, height, scale)) {
+            return false;
+          }
+          gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+          gl.texImage2D(
+            gl.TEXTURE_2D,
+            0,
+            gl.RGBA,
+            gl.RGBA,
+            gl.UNSIGNED_BYTE,
+            canvas as TexImageSource,
+          );
+          return true;
+        }
+      : undefined,
+  );
 }
 
 // Runs an FX clip's chain on the composite drawn so far, `scene`, and writes
@@ -607,7 +682,8 @@ type StackTarget = {
 };
 
 // Draws `entry` into slot `index` of `count` of `target`, arranged by
-// `order`, or where `motion` has it on its way between slots.
+// `order`, or where `motion` has it on its way between slots. Returns false
+// when an animating text or fill clip was drawn from a nearby raster.
 function drawLayer(
   resources: WebGlResources,
   target: StackTarget,
@@ -618,18 +694,21 @@ function drawLayer(
   index: number,
   count: number,
   motion: SlotMotion | undefined,
-) {
+): boolean {
   const { gl, effectChain } = resources;
   const { width, height } = target;
   // A clip squished to nothing shows no sliver of itself.
   if (isSlotScissorEmpty(index, count, order, width, height, motion)) {
-    return;
+    return true;
   }
   const surface = { width, height };
   const mediaElement = mediaRefs.get(entry.sourceKey);
   let sourceWidth: number;
   let sourceHeight: number;
   let texture: WebGLTexture;
+  // A fill's opacity, which its texture is drawn without.
+  let sourceOpacity = 1;
+  let settled = true;
   let textBox: { box: Box; matrix: Matrix2D } | undefined;
   if (entry.fill || entry.text) {
     // Fills and text are drawn at their slot's own size, so they cover
@@ -648,38 +727,40 @@ function drawLayer(
       sourceWidth *= textBox.box.width / Math.max(1e-6, band.width);
       sourceHeight *= textBox.box.height / Math.max(1e-6, band.height);
     }
-    if (entry.fill) {
-      texture = uploadFillTexture(
-        resources,
-        entry.sourceKey,
-        entry.fill,
-        sourceWidth,
-        sourceHeight,
-      );
-    } else {
-      const uploaded = uploadTextTexture(
-        resources,
-        entry.sourceKey,
-        entry.text as TextStyle,
-        sourceWidth,
-        sourceHeight,
-        // Text sizes are given at 1080p and scale with the output's
-        // short side, in portrait as in landscape.
-        Math.min(width, height) / TEXT_REFERENCE_HEIGHT,
-      );
-      if (!uploaded) {
-        return;
-      }
-      texture = uploaded;
+    const uploaded = entry.fill
+      ? uploadFillTexture(
+          resources,
+          entry.sourceKey,
+          entry.fill,
+          sourceWidth,
+          sourceHeight,
+          frameContext,
+        )
+      : uploadTextTexture(
+          resources,
+          entry.sourceKey,
+          entry.text as TextStyle,
+          sourceWidth,
+          sourceHeight,
+          // Text sizes are given at 1080p and scale with the output's
+          // short side, in portrait as in landscape.
+          Math.min(width, height) / TEXT_REFERENCE_HEIGHT,
+          frameContext,
+        );
+    if (!uploaded) {
+      return true;
     }
+    texture = uploaded.texture;
+    settled = uploaded.settled;
+    sourceOpacity = entry.fill?.opacity ?? 1;
   } else {
     if (!(mediaElement instanceof HTMLVideoElement)) {
-      return;
+      return true;
     }
 
     const uploaded = uploadVideoTexture(resources, entry, mediaElement);
     if (!uploaded) {
-      return;
+      return true;
     }
     texture = uploaded;
     sourceWidth = mediaElement.videoWidth || entry.media.width || width;
@@ -706,6 +787,7 @@ function drawLayer(
       (entry.visual.rotationDeg * Math.PI) / 180,
     ),
     ...colorUniforms(entry.visual),
+    opacity: entry.visual.opacity * sourceOpacity,
   };
 
   // A Transform moves the slot's content, so the layer is framed into its
@@ -725,6 +807,7 @@ function drawLayer(
       placement,
       entry.visual,
       frameSize,
+      sourceOpacity,
     );
     texture = !layerSteps.length
       ? framed
@@ -774,8 +857,12 @@ function drawLayer(
   gl.enable(gl.SCISSOR_TEST);
   gl.scissor(scissor.x, scissor.y, scissor.width, scissor.height);
   drawQuad(resources, texture, uniforms);
+  return settled;
 }
 
+// Draws a frame of the composition. Returns false when a preview frame drew
+// an animating text or fill clip from a nearby raster, so a paused preview
+// draws again to show it exactly.
 export function drawComposition(
   resources: WebGlResources,
   surface: CompositeSurface,
@@ -784,7 +871,8 @@ export function drawComposition(
   groupChain: EffectChainStep[],
   frameContext: FrameContext,
   order: CompositionOrder = DEFAULT_COMPOSITION_ORDER,
-) {
+): boolean {
+  const startedAt = performance.now();
   const { gl, effectChain } = resources;
   const { width, height } = surface;
   effectChain.syncSurface(width, height);
@@ -817,6 +905,7 @@ export function drawComposition(
   gl.clearColor(...sceneClearColor(order));
   gl.clear(gl.COLOR_BUFFER_BIT);
 
+  let settled = true;
   const drawSteps = (
     steps: LayerDrawStep<CompositeLayer>[],
     target: StackTarget,
@@ -824,7 +913,7 @@ export function drawComposition(
   ) => {
     for (const step of steps) {
       if (step.type === "layer") {
-        drawLayer(
+        const drawn = drawLayer(
           resources,
           target,
           // The Order, or the z-order overlay for a layer it excludes.
@@ -836,6 +925,7 @@ export function drawComposition(
           step.slotCount,
           step.motion,
         );
+        settled = drawn && settled;
       } else if (step.type === "arrange") {
         drawArrangement(step, target, depth);
       } else if (target.texture && target.framebuffer) {
@@ -972,4 +1062,6 @@ export function drawComposition(
     );
     bindCompositeState(resources, null, width, height);
   }
+  recordRenderFrame(performance.now() - startedAt);
+  return settled;
 }
