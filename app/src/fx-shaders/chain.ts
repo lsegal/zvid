@@ -29,8 +29,8 @@ vec4 fxTexture2D(sampler2D tex, vec2 uv) {
 // allocating new ones every frame.
 export const TARGET_SIZE_BUCKET = 64;
 
-// Pooled targets of different sizes kept for reuse; the least recently
-// used is freed past this.
+// Pooled sets of targets kept for reuse; the least recently used is freed
+// past this.
 export const MAX_POOLED_TARGETS = 8;
 
 type CompiledPass = {
@@ -92,43 +92,39 @@ export function bucketTargetSize(
   return Math.max(whole, Math.min(maxSize, Math.ceil(whole / bucket) * bucket));
 }
 
-// Keeps up to MAX_POOLED_TARGETS entries by key, the most recently used
-// last, and releases the least recently used one past that.
-class TargetPool<T> {
-  private entries = new Map<string, T>();
-  private readonly release: (entry: T) => void;
+// Up to MAX_POOLED_TARGETS sets of same-sized targets, the most recently
+// used last. A request reuses the smallest set with room for its picture,
+// so a slot shrinking and growing again keeps drawing into the same few
+// targets, and the least recently used set is freed past the limit.
+class TargetPool {
+  private sets: RenderTarget[][] = [];
+  private readonly release: (set: RenderTarget[]) => void;
 
-  constructor(release: (entry: T) => void) {
+  constructor(release: (set: RenderTarget[]) => void) {
     this.release = release;
   }
 
-  get size() {
-    return this.entries.size;
-  }
-
-  get(key: string, create: () => T) {
-    let entry = this.entries.get(key);
-    if (entry) {
-      this.entries.delete(key);
-    } else {
-      entry = create();
-    }
-    this.entries.set(key, entry);
-    for (const [oldest, evicted] of this.entries) {
-      if (this.entries.size <= MAX_POOLED_TARGETS) {
-        break;
+  get(fits: (target: RenderTarget) => boolean, create: () => RenderTarget[]) {
+    const area = (set: RenderTarget[]) => set[0].width * set[0].height;
+    let best = -1;
+    for (const [index, set] of this.sets.entries()) {
+      if (fits(set[0]) && (best < 0 || area(set) < area(this.sets[best]))) {
+        best = index;
       }
-      this.entries.delete(oldest);
-      this.release(evicted);
     }
-    return entry;
+    const set = best < 0 ? create() : this.sets.splice(best, 1)[0];
+    this.sets.push(set);
+    while (this.sets.length > MAX_POOLED_TARGETS) {
+      this.release(this.sets.shift() as RenderTarget[]);
+    }
+    return set;
   }
 
   clear() {
-    for (const entry of this.entries.values()) {
-      this.release(entry);
+    for (const set of this.sets) {
+      this.release(set);
     }
-    this.entries.clear();
+    this.sets = [];
   }
 }
 
@@ -142,15 +138,16 @@ export class EffectChainRenderer {
   private readonly positionBuffer: WebGLBuffer;
   // A null entry records a pass that failed to compile; it stays passthrough.
   private programs = new Map<EffectPass, CompiledPass | null>();
-  private pingPongTargets: TargetPool<RenderTarget[]>;
+  private pingPongTargets: TargetPool;
   private sceneTarget: RenderTarget | null = null;
-  private layerTargets: TargetPool<RenderTarget[]>;
+  private layerTargets: TargetPool;
   private arrangementTargets = new Map<number, RenderTarget>();
   private surfaceKey = "";
   private readonly maxTextureSize: number;
-  // Pooled targets' sides are rounded up to a multiple of this; 1 allocates
-  // them at exactly each picture's size, as tests compare against.
-  sizeBucket = TARGET_SIZE_BUCKET;
+  // Allocates pooled targets at exactly each picture's size and reuses one
+  // only for a picture of that size, as targets were before pooling, for
+  // tests to compare against.
+  exactTargets = false;
 
   constructor(gl: WebGLRenderingContext, positionBuffer: WebGLBuffer) {
     this.gl = gl;
@@ -340,19 +337,23 @@ export class EffectChainRenderer {
 
   // `count` targets from `pool` with room for a `width` × `height` picture.
   private getPooledTargets(
-    pool: TargetPool<RenderTarget[]>,
+    pool: TargetPool,
     width: number,
     height: number,
     count: number,
   ) {
-    const bucket = (size: number) =>
-      bucketTargetSize(size, this.maxTextureSize, this.sizeBucket);
-    const bucketWidth = bucket(width);
-    const bucketHeight = bucket(height);
-    return pool.get(`${bucketWidth}x${bucketHeight}`, () =>
-      Array.from({ length: count }, () =>
-        this.createTarget(bucketWidth, bucketHeight),
-      ),
+    const bucket = this.exactTargets ? 1 : TARGET_SIZE_BUCKET;
+    const bucketWidth = bucketTargetSize(width, this.maxTextureSize, bucket);
+    const bucketHeight = bucketTargetSize(height, this.maxTextureSize, bucket);
+    return pool.get(
+      (target) =>
+        this.exactTargets
+          ? target.width === width && target.height === height
+          : target.width >= width && target.height >= height,
+      () =>
+        Array.from({ length: count }, () =>
+          this.createTarget(bucketWidth, bucketHeight),
+        ),
     );
   }
 

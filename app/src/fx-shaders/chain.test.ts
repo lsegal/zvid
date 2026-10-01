@@ -209,6 +209,33 @@ describe("EffectChainRenderer pooled targets", () => {
     ]);
   });
 
+  it("draws a shrinking slot into the targets it grew into", () => {
+    const recording = createCountingGl();
+    const renderer = new EffectChainRenderer(recording.gl, {} as WebGLBuffer);
+    // Squished out and back in, three times over.
+    const size = (frame: number): [number, number] => [
+      Math.max(1, Math.abs((frame % 100) - 50) * 19),
+      1080,
+    ];
+    animate(renderer, 50, (frame) => size(frame + 50));
+    const grown = recording.created.texture;
+    animate(renderer, 300, size);
+    assert.equal(recording.created.texture, grown);
+  });
+
+  it("allocates at exactly each picture's size with exact targets", () => {
+    const recording = createCountingGl();
+    const renderer = new EffectChainRenderer(recording.gl, {} as WebGLBuffer);
+    renderer.exactTargets = true;
+    animate(renderer, 3, (frame) => [300 - frame, 200]);
+    animate(renderer, 3, (frame) => [300 - frame, 200]);
+    assert.deepEqual(recording.textureSizes, [
+      ...Array(3).fill([300, 200]),
+      ...Array(3).fill([299, 200]),
+      ...Array(3).fill([298, 200]),
+    ]);
+  });
+
   it("samples only the picture in a pooled target's corner", () => {
     const recording = createCountingGl();
     const renderer = new EffectChainRenderer(recording.gl, {} as WebGLBuffer);
