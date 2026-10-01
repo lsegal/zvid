@@ -938,7 +938,7 @@
 .editor-grid {
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 16px var(--preview-width, 280px);
+  grid-template-columns: auto minmax(0, 1fr) 16px var(--preview-width, 280px);
   gap: 16px 0;
   padding: 14px 16px;
 }

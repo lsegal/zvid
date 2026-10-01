@@ -18,8 +18,10 @@ const TEXT_INPUT_TYPES = new Set([
 ]);
 
 // Open Radix menus and dialogs, where Space should activate the focused item.
+// A listbox docked in the page, such as the Media drawer's (#681), is always
+// present and is not an overlay, so it opts out with data-docked-listbox.
 const OVERLAY_SELECTOR =
-  '[role="menu"], [role="menubar"], [role="listbox"], [role="dialog"], [role="alertdialog"], [aria-modal="true"]';
+  '[role="menu"], [role="menubar"], [role="listbox"]:not([data-docked-listbox]), [role="dialog"], [role="alertdialog"], [aria-modal="true"]';
 
 // A layer header's or source track label's reorder grip picks up and drops
 // its row with Space, as drag handles do (#478, #654). Every other control

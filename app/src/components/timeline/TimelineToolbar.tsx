@@ -14,6 +14,7 @@ import {
   type SnapMode,
 } from "../../timeline-grid";
 import { TransportPlayheadReadout } from "../LivePlayhead";
+import { MEDIA_DRAWER_ID } from "../media/MediaDrawer";
 import { Select } from "../ui/select";
 import "./timeline-toolbar.css";
 
@@ -31,10 +32,12 @@ type TimelineToolbarProps = {
   canCreateLayer: boolean;
   commitProjectPatch: (label: string, patch: Partial<ProjectState>) => void;
   onCreateLayer: () => void;
+  isMediaDrawerOpen: boolean;
+  onToggleMediaDrawer: () => void;
 };
 
-// The playhead readout and the timeline's scale, snap, time signature and
-// layer controls above the timeline.
+// The Media drawer toggle, the playhead readout and the timeline's scale,
+// snap, time signature and layer controls above the timeline.
 export function TimelineToolbar({
   playheadSignal,
   bpm,
@@ -49,10 +52,24 @@ export function TimelineToolbar({
   canCreateLayer,
   commitProjectPatch,
   onCreateLayer,
+  isMediaDrawerOpen,
+  onToggleMediaDrawer,
 }: TimelineToolbarProps) {
   return (
     <div className="timeline-toolbar">
       <div className="timeline-toolbar__display">
+        <div className="segmented-control">
+          <button
+            aria-controls={MEDIA_DRAWER_ID}
+            aria-expanded={isMediaDrawerOpen}
+            className={isMediaDrawerOpen ? "is-active" : ""}
+            onClick={onToggleMediaDrawer}
+            title={isMediaDrawerOpen ? "Hide media" : "Show media"}
+            type="button"
+          >
+            Media
+          </button>
+        </div>
         <span className="status-light" />
         <TransportPlayheadReadout
           signal={playheadSignal}

@@ -189,6 +189,7 @@ export function useAppLayout({ sourceTrackCount }: AppLayoutInputs) {
     prefersReducedMotion,
     shortcutLabels,
     editorGridRef,
+    editorGridWidth,
     previewMaxWidth,
     effectivePreviewWidth,
     commitPreviewWidth,
