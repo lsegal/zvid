@@ -83,15 +83,13 @@ export function targetRegion(
 }
 
 // A pooled target's side for a picture `size` pixels long.
-export function bucketTargetSize(size: number, maxSize: number) {
+export function bucketTargetSize(
+  size: number,
+  maxSize: number,
+  bucket = TARGET_SIZE_BUCKET,
+) {
   const whole = Math.max(1, Math.ceil(size));
-  return Math.max(
-    whole,
-    Math.min(
-      maxSize,
-      Math.ceil(whole / TARGET_SIZE_BUCKET) * TARGET_SIZE_BUCKET,
-    ),
-  );
+  return Math.max(whole, Math.min(maxSize, Math.ceil(whole / bucket) * bucket));
 }
 
 // Keeps up to MAX_POOLED_TARGETS entries by key, the most recently used
@@ -150,6 +148,9 @@ export class EffectChainRenderer {
   private arrangementTargets = new Map<number, RenderTarget>();
   private surfaceKey = "";
   private readonly maxTextureSize: number;
+  // Pooled targets' sides are rounded up to a multiple of this; 1 allocates
+  // them at exactly each picture's size, as tests compare against.
+  sizeBucket = TARGET_SIZE_BUCKET;
 
   constructor(gl: WebGLRenderingContext, positionBuffer: WebGLBuffer) {
     this.gl = gl;
@@ -344,8 +345,9 @@ export class EffectChainRenderer {
     height: number,
     count: number,
   ) {
-    const bucketWidth = bucketTargetSize(width, this.maxTextureSize);
-    const bucketHeight = bucketTargetSize(height, this.maxTextureSize);
+    const { maxTextureSize, sizeBucket } = this;
+    const bucketWidth = bucketTargetSize(width, maxTextureSize, sizeBucket);
+    const bucketHeight = bucketTargetSize(height, maxTextureSize, sizeBucket);
     return pool.get(`${bucketWidth}x${bucketHeight}`, () =>
       Array.from({ length: count }, () =>
         this.createTarget(bucketWidth, bucketHeight),

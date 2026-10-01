@@ -579,6 +579,35 @@ function resolveMovingSlotRect(
     return resolveSlotRect(index, count, order, width, height);
   }
 
+  // A moving layer's slot is asked for several times a frame (its scissor,
+  // bounds and placement), and a squishing one blends its neighbors' slots,
+  // so it is worked out once per motion, which is planned anew each frame.
+  // It depends only on the motion's own slots, not on `index` of `count`.
+  const key = `${width}x${height}`;
+  const cached = movingSlotRects.get(motion);
+  if (cached?.order === order && cached.rects.has(key)) {
+    return cached.rects.get(key) as SlotRect;
+  }
+  const rect = blendMovingSlotRect(order, width, height, motion);
+  if (cached?.order === order) {
+    cached.rects.set(key, rect);
+  } else {
+    movingSlotRects.set(motion, { order, rects: new Map([[key, rect]]) });
+  }
+  return rect;
+}
+
+const movingSlotRects = new WeakMap<
+  SlotMotion,
+  { order: CompositionOrder; rects: Map<string, SlotRect> }
+>();
+
+function blendMovingSlotRect(
+  order: CompositionOrder,
+  width: number,
+  height: number,
+  motion: SlotMotion,
+): SlotRect {
   const total = motion.slots.reduce((sum, { weight }) => sum + weight, 0) || 1;
   const squish = isSquishOrder(order) && motion.slide > 0;
   const slotRect = (slot: number, slotCount: number) =>
