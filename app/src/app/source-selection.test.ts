@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   findRestoredSourceSelection,
+  findSelectedSourceTrack,
   isSourceSpanSelected,
   isSourceTrackSelected,
   keepSourceSelection,
@@ -115,6 +116,22 @@ describe("restoring a source selection", () => {
         spans,
       ),
       { sourceTrackId: "track-a" },
+    );
+  });
+
+  it("finds the selected source track only while no source clip is selected", () => {
+    assert.equal(
+      findSelectedSourceTrack(selectSourceTrack("track-b"), tracks),
+      tracks[1],
+    );
+    assert.equal(
+      findSelectedSourceTrack(selectSourceSpan(spans[1]), tracks),
+      undefined,
+    );
+    assert.equal(findSelectedSourceTrack(undefined, tracks), undefined);
+    assert.equal(
+      findSelectedSourceTrack(selectSourceTrack("gone"), tracks),
+      undefined,
     );
   });
 });

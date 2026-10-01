@@ -82,3 +82,15 @@ export function findRestoredSourceSelection(
     ? selectSourceSpan(span)
     : selectSourceTrack(selectedSourceTrackId);
 }
+
+// The selected source track, while no source clip on it is selected: what
+// the source track keyboard shortcuts and menu act on.
+export function findSelectedSourceTrack<T extends Pick<SourceTrack, "id">>(
+  selection: SourceSelection | undefined,
+  sourceTracks: readonly T[],
+): T | undefined {
+  if (!selection || selection.sourceSpanId !== undefined) {
+    return undefined;
+  }
+  return sourceTracks.find((track) => track.id === selection.sourceTrackId);
+}
