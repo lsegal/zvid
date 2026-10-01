@@ -3,8 +3,8 @@ import { describe, it } from "node:test";
 import {
   clipEffectTrackId,
   copyClipEffects,
-  GLOBAL_EFFECT_TRACK_ID,
   copyEffectStacks,
+  GLOBAL_EFFECT_TRACK_ID,
   getEffectClipId,
   getEffectSourceSpanId,
   getEffectSourceTrackId,

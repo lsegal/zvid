@@ -168,7 +168,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   });
   const sourceClip = useSourceClipProperties({
     sourceSelection: selection.sourceSelection,
-    sourceTracks,
     sourceSpans: project.sourceSpans,
     timelineSourceSpans: selection.timelineSourceSpans,
     setDragPreviewSourceSpans: selection.setDragPreviewSourceSpans,

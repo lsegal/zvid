@@ -36,16 +36,6 @@ export const SOURCE_CLIP_HISTORY_LABELS: Record<SourceClipField, string> = {
 
 export type SourceClipLimits = Record<SourceClipField, TimeValueRange>;
 
-export function getSourceClipPanelTitle(
-  clipLabel: string,
-  trackName: string | undefined,
-) {
-  const name = clipLabel.trim() || "Untitled";
-  return trackName
-    ? `Source Clip Properties: ${name} (${trackName})`
-    : `Source Clip Properties: ${name}`;
-}
-
 /**
  * The media length the clip's fields are limited to, in seconds: 0 while the
  * media is offline, still loading or of unknown length, so the limits fall

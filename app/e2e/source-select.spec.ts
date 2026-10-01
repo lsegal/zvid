@@ -70,9 +70,9 @@ test("selects source tracks and source clips instead of layers and clips", async
     "Global",
     "Track",
   ]);
-  await expect(
-    page.getByText("Select a layer to see its effects"),
-  ).toHaveCount(0);
+  await expect(page.getByText("Select a layer to see its effects")).toHaveCount(
+    0,
+  );
 
   // A source clip selects the clip and makes its track the active one.
   await span.click();

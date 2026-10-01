@@ -7,18 +7,12 @@ import {
 import { SIGNATURES } from "../app/constants.ts";
 import { patchProjectState } from "../app/session-project.ts";
 import type { SourceSelection } from "../app/source-selection.ts";
-import type {
-  ProjectState,
-  SourceSpan,
-  SourceTrack,
-  TimelineMode,
-} from "../app/types.ts";
+import type { ProjectState, SourceSpan, TimelineMode } from "../app/types.ts";
 import type { MediaItem } from "../media";
 import {
   editSourceClipField,
   getKnownMediaDurationSeconds,
   getSourceClipLimits,
-  getSourceClipPanelTitle,
   getSourceClipValues,
   SOURCE_CLIP_HISTORY_LABELS,
   type SourceClipField,
@@ -28,7 +22,6 @@ import type { TimeValueFormat } from "../time-value.ts";
 
 export type SourceClipPropertiesInputs = {
   sourceSelection: SourceSelection | undefined;
-  sourceTracks: SourceTrack[];
   // The committed spans edits resolve against, and the spans the timeline
   // draws, which include a drag's or an edit's live preview.
   sourceSpans: SourceSpan[];
@@ -54,7 +47,6 @@ export type SourceClipPropertiesInputs = {
 // the gesture records it as one undo step.
 export function useSourceClipProperties({
   sourceSelection,
-  sourceTracks,
   sourceSpans,
   timelineSourceSpans,
   setDragPreviewSourceSpans,
@@ -149,12 +141,8 @@ export function useSourceClipProperties({
     SIGNATURES.find((candidate) => candidate.id === signatureId) ??
     SIGNATURES[0];
   const format: TimeValueFormat = { timelineMode, bpm, signature, fps };
-  const track = sourceTracks.find(
-    (candidate) => candidate.id === committedSpan.sourceTrackId,
-  );
 
   return {
-    title: getSourceClipPanelTitle(committedSpan.label, track?.name),
     clipName: committedSpan.label,
     accent: committedSpan.accent,
     format,

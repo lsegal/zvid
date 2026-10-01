@@ -12,8 +12,8 @@ import {
 import type { MediaItem } from "../media.ts";
 import { isTextClip } from "../text-clip.ts";
 import { getTextPreview, resolveTextStyle } from "../text-style.ts";
-import { isClipAtPlayhead } from "./timeline-math.ts";
 import type { SourceSelection } from "./source-selection.ts";
+import { isClipAtPlayhead } from "./timeline-math.ts";
 import type {
   ArrangementClip,
   Lane,
@@ -146,7 +146,9 @@ export function getSourceFxStacks(
   const span =
     selection.sourceSpanId === undefined
       ? undefined
-      : sourceSpans.find((candidate) => candidate.id === selection.sourceSpanId);
+      : sourceSpans.find(
+          (candidate) => candidate.id === selection.sourceSpanId,
+        );
   return {
     trackStackId: track ? sourceTrackEffectTrackId(track.id) : undefined,
     trackName: track?.name,
