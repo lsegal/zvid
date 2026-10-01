@@ -33,10 +33,14 @@ type Raster<T> = RasterSize & {
   usedAt: number;
 };
 
+// The size of the box a raster is drawn for, before it is rounded to whole
+// texture pixels.
+export type RasterExtent = { width: number; height: number };
+
 type ClipRasters = {
   rasters: Raster<unknown>[];
   // What the clip's previous frame asked for.
-  last?: RasterSize & { content: unknown };
+  last?: { extent: RasterExtent; scale: number; content: unknown };
 };
 
 // A stand-in raster is stretched by at most this much either way.
@@ -56,12 +60,14 @@ export class RasterCache {
   private uses = 0;
 
   // The raster to draw `content` at `size` from, or where to draw a new
-  // one. `preview` allows a stand-in while the clip is animating.
+  // one. `preview` allows a stand-in while the clip is animating, which it
+  // is while its content or `extent` changes from frame to frame.
   lookup<T>(
     sourceKey: string,
     kind: RasterKind<T>,
     content: T,
     size: RasterSize,
+    extent: RasterExtent,
     preview: boolean,
   ): RasterLookup<T> {
     let clip = this.clips.get(sourceKey);
@@ -70,8 +76,8 @@ export class RasterCache {
       this.clips.set(sourceKey, clip);
     }
     const rasters = clip.rasters as Raster<T>[];
-    const last = clip.last as (RasterSize & { content: T }) | undefined;
-    clip.last = { ...size, content };
+    const last = clip.last as ClipRasters["last"] & { content: T };
+    clip.last = { extent, scale: size.scale, content };
 
     const exact = rasters.find(
       (raster) => sameSize(raster, size) && kind.same(raster.content, content),
@@ -85,7 +91,12 @@ export class RasterCache {
     // animation moves.
     const animating =
       last !== undefined &&
-      !(sameSize(last, size) && kind.same(last.content, content)) &&
+      !(
+        last.extent.width === extent.width &&
+        last.extent.height === extent.height &&
+        last.scale === size.scale &&
+        kind.same(last.content, content)
+      ) &&
       kind.animates(last.content, content);
     if (preview && animating) {
       const near = rasters.find(

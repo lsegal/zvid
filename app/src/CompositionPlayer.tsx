@@ -19,6 +19,7 @@ import {
   resolveFrameEffects,
   type SessionEffect,
 } from "./composition-active-clips.ts";
+import { syncCanvasSurface } from "./composition-canvas.ts";
 import {
   disposeWebGlResources,
   drawComposition,
@@ -106,22 +107,6 @@ const MAX_PLAYBACK_RATE = 16;
 
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.max(minimum, Math.min(maximum, value));
-}
-
-function syncCanvasSurface(
-  canvas: HTMLCanvasElement,
-  canvasWidth: number,
-  canvasHeight: number,
-  pixelRatio: number,
-) {
-  const nextWidth = Math.max(1, Math.floor(canvasWidth * pixelRatio));
-  const nextHeight = Math.max(1, Math.floor(canvasHeight * pixelRatio));
-  if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
-    canvas.width = nextWidth;
-    canvas.height = nextHeight;
-  }
-
-  canvas.style.aspectRatio = `${canvasWidth} / ${canvasHeight}`;
 }
 
 // "live" reads the main audio element as it plays (preview). "offline"
