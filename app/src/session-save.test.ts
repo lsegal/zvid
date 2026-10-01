@@ -779,6 +779,69 @@ describe("clip stacks in a saved session", () => {
     assert.equal(effects[2].parameters[0]?.numericValue, 0.5);
   });
 
+  it("round-trips source track and source clip stacks", () => {
+    const project = baseProject();
+    const stackEffect = (id: string, trackId: string) => ({
+      id,
+      trackId,
+      effectName: "Pixelate",
+      parameters: [{ key: "Size", value: "0.500", numericValue: 0.5 }],
+    });
+    const session = projectToLvpSession(
+      {
+        ...project,
+        sourceSpans: [
+          ...project.sourceSpans,
+          {
+            ...project.sourceSpans[0],
+            id: "span-added",
+            startQ: 40,
+          },
+        ],
+        effects: [
+          ...project.effects,
+          stackEffect("track", "source-track:t1"),
+          stackEffect("kept-id", "source-clip:source-c1"),
+          stackEffect("new-span", "source-clip:span-added"),
+          stackEffect("gone", "source-track:gone"),
+        ],
+      },
+      { playheadQ: 0 },
+    );
+    // span-added loads back as source-span-added, so its stack is saved
+    // under that id.
+    assert.deepEqual(
+      session.effects?.map((effect) => effect.trackId),
+      [
+        "main-1",
+        "source-track:t1",
+        "source-clip:source-c1",
+        "source-clip:source-span-added",
+        "source-track:gone",
+      ],
+    );
+
+    const restored = sessionToProject(
+      JSON.parse(JSON.stringify(session)) as LvpSession,
+      [],
+    );
+    assert.deepEqual(
+      restored.sourceSpans.map((span) => span.id),
+      ["source-c1", "source-span-added"],
+    );
+    // A stack whose source track no longer exists is dropped.
+    assert.deepEqual(
+      restored.effects
+        .filter((effect) => effect.trackId.startsWith("source-"))
+        .map((effect) => [effect.id, effect.trackId]),
+      [
+        ["track", "source-track:t1"],
+        ["kept-id", "source-clip:source-c1"],
+        ["new-span", "source-clip:source-span-added"],
+      ],
+    );
+  });
+
   it("keeps a fill or text clip's stack under its own id", () => {
     const project = baseProject();
     const session = projectToLvpSession(

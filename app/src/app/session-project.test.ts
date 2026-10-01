@@ -42,6 +42,54 @@ describe("patchProjectState", () => {
     assert.notEqual(next, INITIAL_PROJECT_STATE);
     assert.equal(next.bpm, 90);
   });
+
+  it("drops the stacks of source clips and tracks a patch removes", () => {
+    const stack = (id: string, trackId: string) => ({
+      id,
+      trackId,
+      effectName: "Pixelate",
+      parameters: [],
+      enabled: true,
+    });
+    const span = {
+      sourceTrackId: "t1",
+      label: "Cam",
+      mediaPath: "cam.mov",
+      startQ: 0,
+      durationSeconds: 1,
+      trimStartSeconds: 0,
+      tint: "#000",
+      accent: "#fff",
+    };
+    const current = {
+      ...INITIAL_PROJECT_STATE,
+      sourceTracks: [
+        { id: "t1", name: "Cam", colorIndex: 0, recordingPaths: [] },
+      ],
+      sourceSpans: [
+        { ...span, id: "s1" },
+        { ...span, id: "s2" },
+      ],
+      effects: [
+        stack("track", "source-track:t1"),
+        stack("s1", "source-clip:s1"),
+        stack("s2", "source-clip:s2"),
+      ],
+    };
+    // An overlap that removes s2 takes its stack with it.
+    const trimmed = patchProjectState(current, {
+      sourceSpans: [current.sourceSpans[0]],
+    });
+    assert.deepEqual(
+      trimmed.effects.map((effect) => effect.id),
+      ["track", "s1"],
+    );
+    const emptied = patchProjectState(current, {
+      sourceTracks: [],
+      sourceSpans: [],
+    });
+    assert.deepEqual(emptied.effects, []);
+  });
 });
 
 describe("mergeMediaItemsById", () => {
