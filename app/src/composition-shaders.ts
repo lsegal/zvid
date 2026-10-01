@@ -1,4 +1,4 @@
-// The compositor's own GLSL programs.
+// Shaders the compositor draws layers and FX clip results with.
 
 export const COMPOSITE_FRAGMENT_SOURCE = `
   precision mediump float;
@@ -9,9 +9,15 @@ export const COMPOSITE_FRAGMENT_SOURCE = `
   uniform float uBrightness;
   uniform float uContrast;
   uniform float uSaturation;
+  // The part of the texture the picture fills (see TextureRegion).
+  uniform vec2 uUvScale;
+  uniform vec2 uUvMax;
 
   void main() {
-    vec4 color = texture2D(uTexture, vec2(vUv.x, 1.0 - vUv.y));
+    vec4 color = texture2D(
+      uTexture,
+      min(vec2(vUv.x, 1.0 - vUv.y) * uUvScale, uUvMax)
+    );
     color.rgb += uBrightness;
     color.rgb = (color.rgb - 0.5) * uContrast + 0.5;
     float luma = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
@@ -59,8 +65,10 @@ export const FX_MASK_FRAGMENT_SOURCE = `
 
   varying vec2 vUv;
   uniform sampler2D uTexture;
+  uniform vec2 uUvScale;
+  uniform vec2 uUvMax;
 
   void main() {
-    gl_FragColor = texture2D(uTexture, vUv);
+    gl_FragColor = texture2D(uTexture, min(vUv * uUvScale, uUvMax));
   }
 `;
