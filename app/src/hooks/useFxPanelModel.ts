@@ -19,6 +19,8 @@ export type FxPanelModelInputs = {
   effects: SessionEffect[];
   selectedLaneId: string | undefined;
   selectedClip: ArrangementClip | undefined;
+  // A source track or clip is selected instead of a layer or clip.
+  isSourceSelected: boolean;
   mediaItemsById: ReadonlyMap<string, MediaItem>;
   lanePriority: ReadonlyMap<string, number>;
   timelineClips: ArrangementClip[];
@@ -33,15 +35,20 @@ export function useFxPanelModel({
   effects,
   selectedLaneId,
   selectedClip,
+  isSourceSelected,
   mediaItemsById,
   lanePriority,
   timelineClips,
   playheadQ,
   bpm,
 }: FxPanelModelInputs) {
+  // A source selection has no layer, so the panel shows no layer's effects.
   const fxLaneId = useMemo(
-    () => resolveSelectedLaneId(lanes, effects, selectedLaneId, selectedClip),
-    [effects, selectedClip, lanes, selectedLaneId],
+    () =>
+      isSourceSelected
+        ? undefined
+        : resolveSelectedLaneId(lanes, effects, selectedLaneId, selectedClip),
+    [effects, isSourceSelected, selectedClip, lanes, selectedLaneId],
   );
   const fxLane = lanes.find((lane) => lane.id === fxLaneId);
   const fxKind = getFxKind(selectedClip, mediaItemsById);

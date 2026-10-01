@@ -1,5 +1,10 @@
 import { Bars3Icon } from "@heroicons/react/24/solid";
 import type { MouseEvent as ReactMouseEvent } from "react";
+import {
+  isSourceTrackSelected,
+  type SourceSelection,
+  selectSourceTrack,
+} from "../../app/source-selection.ts";
 import type {
   SourceSpan as SourceSpanClip,
   SourceTrack,
@@ -28,7 +33,8 @@ type SourceTrackRowProps = {
   index: number;
   spans: SourceSpanClip[];
   drop: ReturnType<typeof useSourceTrackDrop>;
-  onSelect: (sourceTrackId: string) => void;
+  sourceSelection: SourceSelection | undefined;
+  selectSource: (selection: SourceSelection) => void;
   isLifted: boolean;
   gridStyle: ReturnType<typeof useTimelineViewport>["gridStyle"];
   span: SourceSpanContext;
@@ -36,13 +42,16 @@ type SourceTrackRowProps = {
 
 // A source track: its label with the reorder grip, its spans, and the
 // preview of media dragged over it to import into it. Media dropped anywhere
-// on the row, label and spans included, goes to this track.
+// on the row, label and spans included, goes to this track. Clicking the
+// label or empty space in the row selects the track; clicking a span selects
+// the span.
 export function SourceTrackRow({
   track,
   index,
   spans,
   drop,
-  onSelect,
+  sourceSelection,
+  selectSource,
   isLifted,
   gridStyle,
   span,
@@ -62,10 +71,11 @@ export function SourceTrackRow({
   const isDropTarget =
     sourceTrackDragTarget?.kind === "track" &&
     sourceTrackDragTarget.trackId === track.id;
+  const selected = isSourceTrackSelected(sourceSelection, track.id);
 
   return (
     <section
-      className={`track-row track-row--source ${isLifted ? "track-row--lifted" : ""}`}
+      className={`track-row track-row--source ${selected ? "track-row--selected" : ""} ${isLifted ? "track-row--lifted" : ""}`}
       data-source-track-drop-target="track"
       data-source-track-id={track.id}
     >
@@ -81,7 +91,7 @@ export function SourceTrackRow({
           ) {
             return;
           }
-          onSelect(track.id);
+          selectSource(selectSourceTrack(track.id));
         }}
       >
         <button
@@ -106,6 +116,7 @@ export function SourceTrackRow({
           />
         ) : (
           <button
+            aria-current={selected ? "true" : undefined}
             className="track-label__select"
             data-source-track-label-id={track.id}
             type="button"
@@ -119,9 +130,17 @@ export function SourceTrackRow({
           </button>
         )}
       </div>
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: clearing the source clip selection is a mouse shortcut; the track name button selects the track from the keyboard */}
       <section
         aria-label={`Drop media into ${track.name}`}
         className={`track-row__content track-row__content--source ${isDropTarget ? "is-drop-target" : ""}`}
+        onClick={(event) => {
+          // Empty space clears the source clip selection, keeping its track
+          // selected.
+          if (event.target === event.currentTarget) {
+            selectSource(selectSourceTrack(track.id));
+          }
+        }}
         style={gridStyle}
       >
         {spans.map((clip) => (

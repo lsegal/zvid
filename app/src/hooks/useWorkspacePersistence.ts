@@ -9,6 +9,10 @@ import {
 } from "react";
 import { INITIAL_PROJECT_STATE } from "../app/constants.ts";
 import { formatSessionMediaCheckStatus } from "../app/format.ts";
+import {
+  type SourceSelection,
+  toSourceSelectionView,
+} from "../app/source-selection.ts";
 import type {
   ArrangementClip,
   CollaborationMode,
@@ -61,6 +65,8 @@ export type WorkspacePersistenceInputs = {
   setSelectedClipId: Dispatch<SetStateAction<string | undefined>>;
   selectedLaneId: string | undefined;
   setSelectedLaneId: Dispatch<SetStateAction<string | undefined>>;
+  sourceSelection: SourceSelection | undefined;
+  setSourceSelection: Dispatch<SetStateAction<SourceSelection | undefined>>;
   timelineScrollRef: { current: HTMLDivElement | null };
   timelineViewport: TimelineViewport;
   sessionSource: WorkspaceSessionSource;
@@ -104,6 +110,8 @@ export function useWorkspacePersistence({
   setSelectedClipId,
   selectedLaneId,
   setSelectedLaneId,
+  sourceSelection,
+  setSourceSelection,
   timelineScrollRef,
   timelineViewport,
   sessionSource,
@@ -141,6 +149,7 @@ export function useWorkspacePersistence({
       playheadQ: playheadQRef.current,
       selectedClipId,
       selectedLaneId,
+      ...toSourceSelectionView(sourceSelection),
       scrollLeft: timelineScrollRef.current?.scrollLeft ?? 0,
       scrollTop: timelineScrollRef.current?.scrollTop ?? 0,
     },
@@ -189,6 +198,7 @@ export function useWorkspacePersistence({
       playheadQ,
       selectedClipId,
       selectedLaneId,
+      sourceSelection,
       sessionSource,
       importNotice,
       timelineViewport.scrollLeft,
@@ -215,6 +225,7 @@ export function useWorkspacePersistence({
     selectedLaneId,
     sessionSource,
     shouldSaveWorkspace,
+    sourceSelection,
     timelineViewport.scrollLeft,
     workspaceAutosave,
   ]);
@@ -289,6 +300,7 @@ export function useWorkspacePersistence({
       const selection = findRestoredSelection(session);
       setSelectedClipId(selection.selectedClipId);
       setSelectedLaneId(selection.selectedLaneId);
+      setSourceSelection(selection.sourceSelection);
       setPlayheadQ(session?.view.playheadQ ?? 0);
       playbackOriginRef.current = session?.view.playheadQ ?? 0;
       setSessionSource(session?.source ?? { kind: "none" });
@@ -320,6 +332,7 @@ export function useWorkspacePersistence({
       setSelectedClipId,
       setSelectedLaneId,
       setSessionSource,
+      setSourceSelection,
       setTimelineDragState,
       stopTimelineAudibleScrub,
       timelineScrollRef,

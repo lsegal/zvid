@@ -39,6 +39,8 @@ export type WorkspaceSessionInputs = {
     | "setSelectedClipId"
     | "selectedLaneId"
     | "setSelectedLaneId"
+    | "sourceSelection"
+    | "setSourceSelection"
     | "dragState"
     | "setDragState"
     | "timelineDragState"
@@ -105,6 +107,8 @@ export function useWorkspaceSession({
     setSelectedClipId: selection.setSelectedClipId,
     selectedLaneId: selection.selectedLaneId,
     setSelectedLaneId: selection.setSelectedLaneId,
+    sourceSelection: selection.sourceSelection,
+    setSourceSelection: selection.setSourceSelection,
     timelineScrollRef,
     timelineViewport,
     sessionSource,
