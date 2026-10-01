@@ -1,4 +1,5 @@
 import { type FillPaint, rasterizeFillPaint } from "./fill-paint.ts";
+import { renderStats } from "./render-stats.ts";
 import { isFontFaceReady, resolveFontFace } from "./text-fonts.ts";
 import { createTextCanvas, drawText } from "./text-render.ts";
 import type { TextStyle } from "./text-style.ts";
@@ -258,6 +259,7 @@ export function uploadFillTexture(
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, texture);
   if (textures.generatedTextureKeys.get(sourceKey) !== key) {
+    renderStats.fillRasterizations++;
     const raster = rasterizeFillPaint(fill, textureWidth, textureHeight);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
@@ -322,6 +324,7 @@ export function uploadTextTexture(
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, texture);
   if (drawn !== key) {
+    renderStats.textRasterizations++;
     const canvas = createTextCanvas(width, height);
     if (!canvas || !drawText(canvas, text, face, width, height, scale)) {
       return undefined;

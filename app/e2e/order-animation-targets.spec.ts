@@ -1,0 +1,267 @@
+import { expect, test } from "@playwright/test";
+
+// While an animated Order moves its slots, layers with effects or
+// Transforms are framed into pooled render targets of bucketed sizes, in
+// the targets' corners, rather than into targets of each frame's exact
+// size. The compositor the preview and the export share is driven in real
+// WebGL through a Squish, once with bucketed targets and once with targets
+// allocated at exactly each picture's size, as they were before pooling,
+// and every pixel of every frame is compared. The GPU filters a texture
+// with fixed-point subtexel weights, which fall on a slightly different
+// grid in a larger texture, so a rare pixel on a steep edge may differ by
+// a few levels; nothing else may.
+
+type Comparison = {
+  frames: number;
+  // Distinct slot sizes the moving layer was framed at.
+  sizes: number;
+  maxDifference: number;
+  differingPixels: number;
+  // Pixels that are not the Order's black border, so a blank canvas can't
+  // pass.
+  coloredPixels: number;
+  targetsAllocated: number;
+};
+
+test("renders an Order Squish identically with bucketed render targets", async ({
+  page,
+}) => {
+  // Any page of the dev server can import the app's modules.
+  await page.goto("/composition-smoke.html");
+  const result = await page.evaluate(async () => {
+    // Variables keep TypeScript from resolving the dev server's paths.
+    const drawPath = "/src/composition-draw.ts";
+    const registryPath = "/src/fx-shaders/registry.ts";
+    const textStylePath = "/src/text-style.ts";
+    const fontsPath = "/src/text-fonts.ts";
+    const statsPath = "/src/render-stats.ts";
+    const layoutPath = "/src/composition-layout.ts";
+    const audioPath = "/src/fx-shaders/audio-bands.ts";
+    const { createWebGlResources, disposeWebGlResources, drawComposition } =
+      await import(/* @vite-ignore */ drawPath);
+    const { resolveEffectChain } = await import(
+      /* @vite-ignore */ registryPath
+    );
+    const { readTextStyle } = await import(/* @vite-ignore */ textStylePath);
+    const { loadFontFace, resolveFontFace } = await import(
+      /* @vite-ignore */ fontsPath
+    );
+    const { renderStats } = await import(/* @vite-ignore */ statsPath);
+    const { planLayerDraws, resolveSlotScissor } = await import(
+      /* @vite-ignore */ layoutPath
+    );
+    const { SILENT_AUDIO_BANDS } = await import(/* @vite-ignore */ audioPath);
+
+    // Sides that are not multiples of the 64 px bucket.
+    const width = 250;
+    const height = 170;
+    const frames = 24;
+    const text = { ...readTextStyle(undefined), text: "Squish" };
+    await loadFontFace(resolveFontFace(text.font, text.weight, text.italic));
+
+    const order = {
+      arrangement: "horizontal",
+      gridSize: 2,
+      spacing: 6,
+      slide: {
+        motionIn: "Ease Out",
+        motionOut: "Ease In",
+        frames,
+        fps: 30,
+        transition: "Squish",
+      },
+    };
+    const effect = (
+      trackId: string,
+      effectName: string,
+      parameters: Record<string, number>,
+    ) => ({
+      trackId,
+      effectName,
+      parameters: Object.entries(parameters).map(([key, value]) => ({
+        key,
+        value: String(value),
+        numericValue: value,
+      })),
+    });
+    const effects = [
+      effect("lane-0", "Pixelate", { _NumPixels: 0.6 }),
+      effect("lane-1", "AnalogGlitch", { _LowMod: 0.8, _HighMod: 0.9 }),
+      effect("lane-1", "Colorize", { _HueOffset: 0.3 }),
+      effect("lane-2", "Colorize", { _HueOffset: -0.4 }),
+      effect("lane-3", "ZoomAndPan", { _End_Zoom: 0.6, _End_X: 0.2 }),
+      effect("fx", "NegativeSplit", { _LowIntensity: 0.5 }),
+      effect("__group_main", "Colorize", { _HueOffset: 0.1 }),
+    ];
+    const visual = (rotationDeg = 0) => ({
+      opacity: 1,
+      scale: 1,
+      translateX: 0,
+      translateY: 0,
+      rotationDeg: 0,
+      brightness: 0,
+      contrast: 1,
+      saturation: 1,
+      layoutAnchor: "top",
+      transform: {
+        positionX: 0.05,
+        positionY: -0.03,
+        scaleX: 0.9,
+        scaleY: 1.1,
+        originX: 0,
+        originY: 0,
+        rotationDeg,
+      },
+    });
+    const gradient = (angleDeg: number) => ({
+      kind: "linear",
+      angleDeg,
+      opacity: 1,
+      stops: [
+        { offset: 0, color: { r: 255, g: 40, b: 0, a: 1 } },
+        { offset: 0.5, color: { r: 20, g: 200, b: 90, a: 1 } },
+        { offset: 1, color: { r: 30, g: 60, b: 255, a: 1 } },
+      ],
+    });
+    // Four layers of a 1 s clip, the last entering over its first 24
+    // frames, with an FX clip over them all.
+    const layers = (frame: number) => [
+      ...[
+        { fill: gradient(30) },
+        { fill: { ...gradient(120), kind: "radial" }, rotationDeg: 17 },
+        { text },
+        { fill: gradient(250), rotationDeg: -9 },
+      ].map((content, lane) => ({
+        clip: { startQ: 0, durationSeconds: 4, laneId: `${lane + 1}` },
+        media: { id: `clip-${lane}` },
+        sourceKey: `clip-${lane}`,
+        isInBounds: true,
+        laneRank: lane + 1,
+        clipProgress: lane === 3 ? frame / 30 / 4 : 0.5,
+        visual: visual(content.rotationDeg),
+        effectChain: resolveEffectChain(effects, `lane-${lane}`),
+        ...content,
+      })),
+      {
+        clip: { startQ: 0 },
+        media: { id: "fx" },
+        sourceKey: "fx",
+        isInBounds: true,
+        laneRank: 0,
+        clipProgress: 0.5,
+        visual: visual(),
+        effectChain: resolveEffectChain(effects, "fx"),
+        fx: true,
+      },
+    ];
+
+    const render = (exactTargets: boolean) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const gl = canvas.getContext("webgl", {
+        alpha: true,
+        antialias: true,
+        premultipliedAlpha: false,
+      });
+      if (!gl) throw new Error("WebGL is unavailable.");
+      const resources = createWebGlResources(gl);
+      resources.effectChain.exactTargets = exactTargets;
+      const allocated = renderStats.targetAllocations;
+      const pixels: Uint8Array[] = [];
+      try {
+        for (let frame = 0; frame <= frames; frame++) {
+          drawComposition(
+            resources,
+            { width, height },
+            layers(frame),
+            new Map(),
+            resolveEffectChain(effects, "__group_main"),
+            {
+              time: frame / 30,
+              audio: SILENT_AUDIO_BANDS,
+              groupClipProgress: 0.5,
+            },
+            order,
+          );
+          const framePixels = new Uint8Array(width * height * 4);
+          gl.readPixels(
+            0,
+            0,
+            width,
+            height,
+            gl.RGBA,
+            gl.UNSIGNED_BYTE,
+            framePixels,
+          );
+          pixels.push(framePixels);
+        }
+      } finally {
+        disposeWebGlResources(resources);
+      }
+      return {
+        pixels,
+        targetsAllocated: renderStats.targetAllocations - allocated,
+      };
+    };
+
+    const bucketed = render(false);
+    const exact = render(true);
+    let maxDifference = 0;
+    let differingPixels = 0;
+    let coloredPixels = 0;
+    for (const [frame, pixels] of bucketed.pixels.entries()) {
+      const expected = exact.pixels[frame];
+      for (let offset = 0; offset < pixels.length; offset += 4) {
+        let difference = 0;
+        for (let channel = 0; channel < 4; channel++) {
+          difference = Math.max(
+            difference,
+            Math.abs(pixels[offset + channel] - expected[offset + channel]),
+          );
+        }
+        maxDifference = Math.max(maxDifference, difference);
+        differingPixels += difference > 0 ? 1 : 0;
+        coloredPixels +=
+          pixels[offset] + pixels[offset + 1] + pixels[offset + 2] > 0 ? 1 : 0;
+      }
+    }
+    const sizes = new Set<string>();
+    for (let frame = 0; frame <= frames; frame++) {
+      const step = planLayerDraws(layers(frame), order).find(
+        (draw: { type: string; entry: { sourceKey: string } }) =>
+          draw.type === "layer" && draw.entry.sourceKey === "clip-0",
+      );
+      const scissor = resolveSlotScissor(
+        step.slot,
+        step.slotCount,
+        order,
+        width,
+        height,
+        step.motion,
+      );
+      sizes.add(`${scissor.width}x${scissor.height}`);
+    }
+    return {
+      frames: bucketed.pixels.length,
+      sizes: sizes.size,
+      maxDifference,
+      differingPixels,
+      coloredPixels,
+      targetsAllocated: bucketed.targetsAllocated,
+    } satisfies Comparison;
+  });
+
+  expect(result.frames).toBe(25);
+  // The slots did move: the first layer's changed size most frames.
+  expect(result.sizes).toBeGreaterThan(10);
+  expect(result.coloredPixels).toBeGreaterThan(result.frames * 250 * 170 * 0.5);
+  // Sampling a picture in a pooled target's corner reads the texels a
+  // target of the picture's size would hold, up to subtexel rounding.
+  expect(result.maxDifference).toBeLessThanOrEqual(8);
+  expect(result.differingPixels).toBeLessThan(
+    result.frames * 250 * 170 * 0.002,
+  );
+  // A handful of bucketed targets, rather than new ones every frame.
+  expect(result.targetsAllocated).toBeLessThan(30);
+});

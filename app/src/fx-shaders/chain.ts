@@ -1,3 +1,4 @@
+import { renderStats } from "../render-stats.ts";
 import {
   FULLSCREEN_VERTEX_SOURCE,
   linkProgram,
@@ -11,12 +12,33 @@ import type {
   EffectUniformLocations,
 } from "./types.ts";
 
-const FRAGMENT_HEADER = "precision mediump float;\n";
+// Pooled targets hold their picture in the corner at texture coordinate 0,
+// so every pass samples through `fxTexture2D`, which maps a coordinate over
+// the picture into it and clamps it to the picture's last texels, as
+// CLAMP_TO_EDGE does for a texture of exactly the picture's size.
+const FRAGMENT_HEADER = `precision mediump float;
+uniform vec2 uFxUvScale;
+uniform vec2 uFxUvMax;
+vec4 fxTexture2D(sampler2D tex, vec2 uv) {
+  return texture2D(tex, min(uv * uFxUvScale, uFxUvMax));
+}
+`;
+
+// Pooled targets are allocated with sides rounded up to a multiple of this,
+// so a slot whose size animates reuses a few targets rather than
+// allocating new ones every frame.
+export const TARGET_SIZE_BUCKET = 64;
+
+// Pooled sets of targets kept for reuse; the least recently used is freed
+// past this.
+export const MAX_POOLED_TARGETS = 8;
 
 type CompiledPass = {
   pass: EffectPass;
   program: WebGLProgram;
   texture: WebGLUniformLocation | null;
+  uvScale: WebGLUniformLocation | null;
+  uvMax: WebGLUniformLocation | null;
   locations: EffectUniformLocations;
 };
 
@@ -32,23 +54,112 @@ export type RenderTarget = {
   height: number;
 };
 
+// A texture and the part of it a picture fills: `uvScale` of it from
+// texture coordinate 0, sampled no further than `uvMax`, the centers of its
+// last texels. A whole texture has both at 1.
+export type TextureRegion = {
+  texture: WebGLTexture;
+  uvScale: [number, number];
+  uvMax: [number, number];
+};
+
+export function wholeTexture(texture: WebGLTexture): TextureRegion {
+  return { texture, uvScale: [1, 1], uvMax: [1, 1] };
+}
+
+// The `width` × `height` corner of `target`.
+export function targetRegion(
+  target: RenderTarget,
+  width: number,
+  height: number,
+): TextureRegion {
+  const axis = (used: number, size: number) =>
+    used >= size ? 1 : (used - 0.5) / size;
+  return {
+    texture: target.texture,
+    uvScale: [width / target.width, height / target.height],
+    uvMax: [axis(width, target.width), axis(height, target.height)],
+  };
+}
+
+// A pooled target's side for a picture `size` pixels long.
+export function bucketTargetSize(
+  size: number,
+  maxSize: number,
+  bucket = TARGET_SIZE_BUCKET,
+) {
+  const whole = Math.max(1, Math.ceil(size));
+  return Math.max(whole, Math.min(maxSize, Math.ceil(whole / bucket) * bucket));
+}
+
+// Up to MAX_POOLED_TARGETS sets of same-sized targets, the most recently
+// used last. A request reuses the smallest set with room for its picture,
+// so a slot shrinking and growing again keeps drawing into the same few
+// targets, and the least recently used set is freed past the limit.
+class TargetPool {
+  private sets: RenderTarget[][] = [];
+  private readonly release: (set: RenderTarget[]) => void;
+
+  constructor(release: (set: RenderTarget[]) => void) {
+    this.release = release;
+  }
+
+  get(fits: (target: RenderTarget) => boolean, create: () => RenderTarget[]) {
+    const area = (set: RenderTarget[]) => set[0].width * set[0].height;
+    let best = -1;
+    for (const [index, set] of this.sets.entries()) {
+      if (fits(set[0]) && (best < 0 || area(set) < area(this.sets[best]))) {
+        best = index;
+      }
+    }
+    const set = best < 0 ? create() : this.sets.splice(best, 1)[0];
+    this.sets.push(set);
+    while (this.sets.length > MAX_POOLED_TARGETS) {
+      this.release(this.sets.shift() as RenderTarget[]);
+    }
+    return set;
+  }
+
+  clear() {
+    for (const set of this.sets) {
+      this.release(set);
+    }
+    this.sets = [];
+  }
+}
+
 // Runs a layer's effect passes by ping-ponging between two framebuffers. One
 // instance belongs to one WebGL context: programs compile lazily on first use
 // and render targets are reallocated whenever the canvas surface changes size.
+// Layer and ping-pong targets come from bounded pools of bucketed sizes, a
+// picture drawn into the corner of one (see `targetRegion`).
 export class EffectChainRenderer {
   private readonly gl: WebGLRenderingContext;
   private readonly positionBuffer: WebGLBuffer;
   // A null entry records a pass that failed to compile; it stays passthrough.
   private programs = new Map<EffectPass, CompiledPass | null>();
-  private pingPongTargets = new Map<string, [RenderTarget, RenderTarget]>();
+  private pingPongTargets: TargetPool;
   private sceneTarget: RenderTarget | null = null;
-  private layerTargets = new Map<string, RenderTarget>();
+  private layerTargets: TargetPool;
   private arrangementTargets = new Map<number, RenderTarget>();
   private surfaceKey = "";
+  private readonly maxTextureSize: number;
+  // Allocates pooled targets at exactly each picture's size and reuses one
+  // only for a picture of that size, as targets were before pooling, for
+  // tests to compare against.
+  exactTargets = false;
 
   constructor(gl: WebGLRenderingContext, positionBuffer: WebGLBuffer) {
     this.gl = gl;
     this.positionBuffer = positionBuffer;
+    this.maxTextureSize = Number(gl.getParameter(gl.MAX_TEXTURE_SIZE)) || 4096;
+    const release = (targets: RenderTarget[]) => {
+      for (const target of targets) {
+        this.deleteTarget(target);
+      }
+    };
+    this.pingPongTargets = new TargetPool(release);
+    this.layerTargets = new TargetPool(release);
   }
 
   syncSurface(width: number, height: number) {
@@ -88,17 +199,15 @@ export class EffectChainRenderer {
     return this.sceneTarget;
   }
 
-  // Surface a layer is framed into before its own effects run. It is kept
-  // apart from the ping-pong targets so the chain can read it while writing.
+  // Surface a layer is framed into before its own effects run, in its
+  // `width` × `height` corner. It is kept apart from the ping-pong targets
+  // so the chain can read it while writing.
   getLayerTarget(width: number, height: number) {
-    const key = `${width}x${height}`;
-    let target = this.layerTargets.get(key);
-    if (!target) {
-      target = this.createTarget(width, height);
-      this.layerTargets.set(key, target);
-    }
-
-    return target;
+    const [target] = this.getPooledTargets(this.layerTargets, width, height, 1);
+    return {
+      framebuffer: target.framebuffer,
+      region: targetRegion(target, width, height),
+    };
   }
 
   // Surface an FX clip with an Order arranges the layers beneath it into, one
@@ -116,12 +225,13 @@ export class EffectChainRenderer {
     return target;
   }
 
-  // Applies `steps` to `source` in order. Returns the texture holding the
-  // result, or null when `output` is "screen" and the last pass drew straight
-  // to the default framebuffer. Leaves blending and scissoring disabled and
-  // the default framebuffer bound; callers restore their own program state.
+  // Applies `steps` to the `width` × `height` picture in `source` in order.
+  // Returns the region holding the result, or null when `output` is
+  // "screen" and the last pass drew straight to the default framebuffer.
+  // Leaves blending and scissoring disabled and the default framebuffer
+  // bound; callers restore their own program state.
   run(
-    source: WebGLTexture,
+    source: TextureRegion,
     width: number,
     height: number,
     steps: PreparedEffectStep[],
@@ -133,7 +243,12 @@ export class EffectChainRenderer {
       return source;
     }
 
-    const targets = this.getPingPongTargets(width, height);
+    const targets = this.getPooledTargets(
+      this.pingPongTargets,
+      width,
+      height,
+      2,
+    );
     gl.disable(gl.BLEND);
     gl.disable(gl.SCISSOR_TEST);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
@@ -156,8 +271,10 @@ export class EffectChainRenderer {
       gl.viewport(0, 0, width, height);
       // biome-ignore lint/correctness/useHookAtTopLevel: WebGLRenderingContext.useProgram is not a React hook.
       gl.useProgram(step.compiled.program);
-      gl.bindTexture(gl.TEXTURE_2D, input);
+      gl.bindTexture(gl.TEXTURE_2D, input.texture);
       gl.uniform1i(step.compiled.texture, 0);
+      gl.uniform2f(step.compiled.uvScale, ...input.uvScale);
+      gl.uniform2f(step.compiled.uvMax, ...input.uvMax);
       step.compiled.pass.setUniforms(
         gl,
         step.compiled.locations,
@@ -166,7 +283,7 @@ export class EffectChainRenderer {
       );
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       if (target) {
-        input = target.texture;
+        input = targetRegion(target, width, height);
       }
     }
 
@@ -195,7 +312,8 @@ export class EffectChainRenderer {
       const program = linkProgram(
         gl,
         FULLSCREEN_VERTEX_SOURCE,
-        FRAGMENT_HEADER + pass.fragmentSource,
+        FRAGMENT_HEADER +
+          pass.fragmentSource.replace(/\btexture2D\s*\(/g, "fxTexture2D("),
       );
       const locations: EffectUniformLocations = {};
       for (const name of pass.uniforms) {
@@ -205,6 +323,8 @@ export class EffectChainRenderer {
         pass,
         program,
         texture: gl.getUniformLocation(program, "uTex"),
+        uvScale: gl.getUniformLocation(program, "uFxUvScale"),
+        uvMax: gl.getUniformLocation(program, "uFxUvMax"),
         locations,
       };
     } catch (error) {
@@ -215,22 +335,31 @@ export class EffectChainRenderer {
     return compiled;
   }
 
-  private getPingPongTargets(width: number, height: number) {
-    const key = `${width}x${height}`;
-    let targets = this.pingPongTargets.get(key);
-    if (!targets) {
-      targets = [
-        this.createTarget(width, height),
-        this.createTarget(width, height),
-      ];
-      this.pingPongTargets.set(key, targets);
-    }
-
-    return targets;
+  // `count` targets from `pool` with room for a `width` × `height` picture.
+  private getPooledTargets(
+    pool: TargetPool,
+    width: number,
+    height: number,
+    count: number,
+  ) {
+    const bucket = this.exactTargets ? 1 : TARGET_SIZE_BUCKET;
+    const bucketWidth = bucketTargetSize(width, this.maxTextureSize, bucket);
+    const bucketHeight = bucketTargetSize(height, this.maxTextureSize, bucket);
+    return pool.get(
+      (target) =>
+        this.exactTargets
+          ? target.width === width && target.height === height
+          : target.width >= width && target.height >= height,
+      () =>
+        Array.from({ length: count }, () =>
+          this.createTarget(bucketWidth, bucketHeight),
+        ),
+    );
   }
 
   private createTarget(width: number, height: number): RenderTarget {
     const { gl } = this;
+    renderStats.targetAllocations++;
     const texture = gl.createTexture();
     const framebuffer = gl.createFramebuffer();
     if (!texture || !framebuffer) {
@@ -278,15 +407,7 @@ export class EffectChainRenderer {
   }
 
   private releaseTargets() {
-    for (const targets of this.pingPongTargets.values()) {
-      for (const target of targets) {
-        this.deleteTarget(target);
-      }
-    }
     this.pingPongTargets.clear();
-    for (const target of this.layerTargets.values()) {
-      this.deleteTarget(target);
-    }
     this.layerTargets.clear();
     for (const target of this.arrangementTargets.values()) {
       this.deleteTarget(target);

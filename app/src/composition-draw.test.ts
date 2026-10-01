@@ -31,6 +31,7 @@ import type { FillPaint } from "./fill-paint.ts";
 import { SILENT_AUDIO_BANDS } from "./fx-shaders/audio-bands.ts";
 import { POSITION_ATTRIBUTE_LOCATION } from "./fx-shaders/gl.ts";
 import { type ChainEffect, resolveEffectChain } from "./fx-shaders/registry.ts";
+import { renderStats } from "./render-stats.ts";
 import { readTextStyle, type TextStyle } from "./text-style.ts";
 
 const WIDTH = 360;
@@ -1090,6 +1091,73 @@ describe("drawComposition text layers", () => {
       composites[1].texture,
       resources.textureMap.get("text:clip-1") as unknown as Handle,
     );
+  });
+
+  it("draws text and fills once while an Order squishes, and once settled", () => {
+    const recording = createRecordingGl();
+    const resources = createWebGlResources(recording.gl);
+    // A one-second Squish of 10 s clips: the last of four exits over the
+    // final second while the others grow into its room.
+    const order: CompositionOrder = {
+      arrangement: "vertical",
+      gridSize: 2,
+      spacing: 0,
+      slide: {
+        motionIn: "Ease Out",
+        motionOut: "Ease In",
+        frames: 30,
+        fps: 30,
+        transition: "Squish",
+      },
+    };
+    const clip = (layer: CompositeLayer, clipProgress = 0.5) => ({
+      ...layer,
+      clip: { ...layer.clip, durationSeconds: 10 },
+      clipProgress,
+    });
+    const red: FillPaint = {
+      kind: "solid",
+      color: { r: 255, g: 0, b: 0, a: 1 },
+      opacity: 1,
+    };
+    const fill = (lane: number): CompositeLayer => ({
+      ...layers(1, [])[0],
+      media: { id: `fill:clip-${lane}` },
+      sourceKey: `fill:clip-${lane}`,
+      laneRank: lane,
+      fill: red,
+    });
+    const settled = [clip(fill(0)), clip(textLayer(HELLO, 1)), clip(fill(2))];
+    const drawn = () => ({
+      text: renderStats.textRasterizations,
+      fill: renderStats.fillRasterizations,
+    });
+    const before = drawn();
+    const scissors = new Set<string>();
+    for (let frame = 0; frame < 20; frame++) {
+      const from = recording.draws.length;
+      drawFrame(
+        resources,
+        [...settled, clip(fill(3), 0.91 + frame * 0.0045)],
+        order,
+      );
+      for (const draw of recording.draws.slice(from)) {
+        scissors.add(String(draw.scissor));
+      }
+    }
+    // The slots did move every frame.
+    assert.ok(scissors.size > 40);
+    const squished = drawn();
+    assert.equal(squished.text - before.text, 1);
+    assert.equal(squished.fill - before.fill, 3);
+
+    for (let frame = 0; frame < 5; frame++) {
+      drawFrame(resources, settled, order);
+    }
+    // In the three slots they settle in.
+    const after = drawn();
+    assert.equal(after.text - squished.text, 1);
+    assert.equal(after.fill - squished.fill, 2);
   });
 });
 
