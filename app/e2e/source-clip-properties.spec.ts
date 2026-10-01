@@ -167,9 +167,7 @@ test("source clip properties edit Start, Length and Offset, clamped to the media
   ]);
 
   // Selecting a layer brings back its effects.
-  await page
-    .locator('[data-layer-header-id="1"] .track-label__select')
-    .click();
+  await page.locator('[data-layer-header-id="1"] .track-label__select').click();
   await expect(page.locator(title)).toHaveText("Layer 1 Effects");
   await expect(page.locator(".source-clip-properties")).toHaveCount(0);
 });
