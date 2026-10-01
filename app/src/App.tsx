@@ -66,9 +66,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const selection = useTimelineSelection({
     restoredSession,
     clips,
+    sourceSpans: project.sourceSpans,
     effects,
     sourceTracks,
-    sourceSpans: project.sourceSpans,
   });
   const { selectedClip, timelineClips, timelineEffects } = selection;
   const { pendingSelection, setPendingSelection, dragState } = selection;
@@ -423,6 +423,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                       dragState,
                       bpm,
                       quarterPx,
+                      visibleTimelineStartPx,
+                      visibleTimelineWidthPx,
                       signature: timeline.signature,
                       mediaItemsById,
                       thumbnails: timeline.thumbnails,
@@ -469,10 +471,15 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   label={{
                     reorder: editing.sourceTrackReorder,
                     openMenu: editing.openSourceTrackMenu,
+                    renamingId: editing.renamingSourceTrackId,
+                    commitRename: editing.commitSourceTrackRename,
+                    cancelRename: editing.cancelSourceTrackRename,
                   }}
                   span={{
                     bpm,
                     quarterPx,
+                    visibleTimelineStartPx,
+                    visibleTimelineWidthPx,
                     mediaItemsById,
                     thumbnails: timeline.thumbnails,
                     spanFilmstrips: timeline.spanFilmstrips,
@@ -487,6 +494,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     addSourceSpanToArrangement:
                       editing.addSourceSpanToArrangement,
                     openSourceSpanMenu: editing.openSourceSpanMenu,
+                    sourceSpanDrag: selection.sourceSpanDrag,
+                    setSourceSpanDrag: selection.setSourceSpanDrag,
                   }}
                 />
               </Timeline>

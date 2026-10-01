@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { sessionToProject } from "./app/session-project.ts";
 import { createClipWarp } from "./clip-warp.ts";
 import type { EffectAnimation } from "./fx-animation-defaults.ts";
 import { hasGlobalOrder, mapEffects, pruneClipEffects } from "./fx-stack.ts";
@@ -14,6 +15,7 @@ import {
   readSessionTexts,
   type SaveableProject,
 } from "./session-save.ts";
+import { renameSourceTrack } from "./source-track-edits.ts";
 import {
   parseWorkspaceSession,
   serializeWorkspaceSession,
@@ -464,6 +466,50 @@ describe("projectToLvpSession", () => {
     );
   });
 
+  it("round-trips a renamed source track with its span and clip labels", () => {
+    const project = baseProject();
+    const { sourceTracks, sourceSpans, clips } = renameSourceTrack(
+      {
+        sourceTracks: project.sourceTracks,
+        sourceSpans: project.sourceSpans.map((span) => ({
+          ...span,
+          tint: "#000",
+          accent: "#fff",
+        })),
+        clips: project.clips.map((clip) => ({
+          ...clip,
+          sourceSpanId: "source-c1",
+          label: "Cam",
+        })),
+        effects: [],
+      },
+      "t1",
+      "Wide",
+    );
+    const session = projectToLvpSession(
+      { ...project, sourceTracks, sourceSpans, clips },
+      { playheadQ: 0 },
+    );
+    assert.deepEqual(
+      session.tracks?.map((track) => track.name),
+      ["Wide"],
+    );
+
+    const restored = sessionToProject(session, []);
+    assert.deepEqual(
+      restored.sourceTracks.map((track) => track.name),
+      ["Wide"],
+    );
+    assert.deepEqual(
+      restored.sourceSpans.map((span) => span.label),
+      ["Wide"],
+    );
+    assert.deepEqual(
+      restored.arrangementClips.map((clip) => clip.label),
+      ["Wide", "Wide"],
+    );
+  });
+
   it("round-trips a slipped clip's span and source offset", () => {
     const project = baseProject();
     // The span's offset is trimStart 1 s minus its 2 s start: -1 s.
@@ -493,6 +539,39 @@ describe("projectToLvpSession", () => {
     assert.deepEqual(readSelectionSlip(slipped), {
       sourceSpanId: "source-c1",
       sourceOffsetSeconds: 2.25,
+    });
+  });
+
+  it("keeps the span of a clip starting outside it, as after the span was trimmed", () => {
+    const project = baseProject();
+    // The span now starts at 4 s (8 quarters), after the clip's start, but
+    // the clip still plays its offset: trimStart 3 s minus 4 s, -1 s.
+    const session = projectToLvpSession(
+      {
+        ...project,
+        sourceSpans: [
+          {
+            ...project.sourceSpans[0],
+            startQ: 8,
+            durationSeconds: 8,
+            trimStartSeconds: 3,
+          },
+        ],
+        clips: [
+          {
+            ...project.clips[0],
+            sourceSpanId: "source-c1",
+            sourceOffsetSeconds: -1,
+          },
+        ],
+      },
+      { playheadQ: 0 },
+    );
+    const [selection] = session.selections ?? [];
+    assert.ok(selection);
+    assert.deepEqual(readSelectionSlip(selection), {
+      sourceSpanId: "source-c1",
+      sourceOffsetSeconds: -1,
     });
   });
 

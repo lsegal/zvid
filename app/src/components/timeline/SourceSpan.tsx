@@ -1,3 +1,8 @@
+import type {
+  Dispatch,
+  PointerEvent as ReactPointerEvent,
+  SetStateAction,
+} from "react";
 import { type Filmstrip, getFilmstripTileOwner } from "../../app/filmstrip.ts";
 import type { getShortcutLabels } from "../../app/shortcut-labels.ts";
 import {
@@ -8,12 +13,15 @@ import { getClipDurationQ } from "../../app/timeline-math.ts";
 import type {
   ClipMenuState,
   SourceSpan as SourceSpanClip,
+  SourceSpanDragState,
 } from "../../app/types.ts";
 import {
   describeClipMediaState,
   formatClipMediaState,
 } from "../../clip-media-state";
+import { getClipWaveformKind } from "../../clip-waveform.ts";
 import { isContextMenuPress } from "../../context-menu.ts";
+import { useAudioClipPeaks } from "../../hooks/useAudioClipPeaks.ts";
 import type { MediaItem } from "../../media";
 import type { useMenus } from "../../menus/useMenus.ts";
 import {
@@ -27,13 +35,20 @@ import {
   getThumbnailCacheKey,
   type ThumbnailSnapshot,
 } from "../../thumbnail-cache.ts";
+import {
+  getSourceSpanWaveformRange,
+  getVisibleClipSlice,
+} from "../../waveform-range.ts";
 import { MediaSyncSkeleton } from "../MediaSyncSkeleton";
+import { ClipWaveform } from "./ClipWaveform";
 import "./source-span.css";
 
 // What every source span shares.
 export type SourceSpanContext = {
   bpm: number;
   quarterPx: number;
+  visibleTimelineStartPx: number;
+  visibleTimelineWidthPx: number;
   mediaItemsById: ReadonlyMap<string, MediaItem>;
   thumbnails: ThumbnailSnapshot;
   spanFilmstrips: ReadonlyMap<string, Filmstrip>;
@@ -46,17 +61,22 @@ export type SourceSpanContext = {
   shortcutLabels: ReturnType<typeof getShortcutLabels>;
   addSourceSpanToArrangement: (sourceSpan: SourceSpanClip) => void;
   openSourceSpanMenu: ReturnType<typeof useMenus>["openSourceSpanMenu"];
+  sourceSpanDrag: SourceSpanDragState | null;
+  setSourceSpanDrag: Dispatch<SetStateAction<SourceSpanDragState | null>>;
 };
 
 type SourceSpanProps = { clip: SourceSpanClip } & SourceSpanContext;
 
-// A span of a source track's media: its filmstrip or thumbnail and name.
-// A click selects it, Ctrl/Cmd-click adds it to the arrangement, and a
-// right-click selects it and opens its menu.
+// A span of a source track's media: its filmstrip, thumbnail or waveform and
+// name. A click selects it, dragging it moves it in its track and dragging an
+// edge trims it, like an arrangement clip; Ctrl/Cmd-click adds it to the
+// arrangement, and a right-click selects it and opens its menu.
 export function SourceSpan({
   clip,
   bpm,
   quarterPx,
+  visibleTimelineStartPx,
+  visibleTimelineWidthPx,
   mediaItemsById,
   thumbnails,
   spanFilmstrips,
@@ -69,6 +89,8 @@ export function SourceSpan({
   shortcutLabels,
   addSourceSpanToArrangement,
   openSourceSpanMenu,
+  sourceSpanDrag,
+  setSourceSpanDrag,
 }: SourceSpanProps) {
   const media = clip.mediaId ? mediaItemsById.get(clip.mediaId) : undefined;
   const mediaState = describeClipMediaState(clip, media?.availability);
@@ -90,15 +112,63 @@ export function SourceSpan({
   const mediaSync = media
     ? describeMediaSync(remoteMediaProgress.get(media.id), media.availability)
     : null;
+  const widthPx = getClipDurationQ(clip, bpm) * quarterPx;
+  // Audio-only media draws its waveform, like the Audio lane, until its peaks
+  // turn out to be missing. Video with audio overlays it on the frames once
+  // its peaks are ready, decoding only while the span is in view.
+  const waveformKind = getClipWaveformKind(clip, media, mediaState);
+  const inView = getVisibleClipSlice(
+    clip.startQ * quarterPx,
+    widthPx,
+    visibleTimelineStartPx,
+    visibleTimelineWidthPx,
+  );
+  const audioPeaks = useAudioClipPeaks(
+    media,
+    waveformKind === "overlay" && !inView ? "none" : waveformKind,
+  );
+  const audio =
+    !mediaSync && waveformKind === "audio" && audioPeaks.status !== "none";
+  const waveformOverlay =
+    !mediaSync && waveformKind === "overlay" && audioPeaks.status === "ready";
+  // Keeps the trim handles shown while the pointer strays off the span
+  // mid-drag.
+  const trimming =
+    sourceSpanDrag?.spanId === clip.id && sourceSpanDrag.kind !== "move";
+
+  function startDrag(
+    event: ReactPointerEvent,
+    kind: SourceSpanDragState["kind"],
+  ) {
+    // Right-click and Ctrl/Cmd-click keep opening the menu and adding the
+    // span to the arrangement.
+    if (
+      event.button !== 0 ||
+      isContextMenuPress(event, shortcutLabels.mac) ||
+      isSourceClipDropClick(event)
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    setSourceSpanDrag({
+      kind,
+      pointerId: event.pointerId,
+      spanId: clip.id,
+      pointerStartX: event.clientX,
+    });
+  }
+
   const selected =
     isSourceSpanSelected(sourceSelection, clip.id) ||
     (clipMenu?.kind === "span" && clipMenu.spanId === clip.id);
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: Ctrl/Cmd-click and right-click are mouse shortcuts; pressing a source layer's number key commits a selection from the keyboard
-    // biome-ignore lint/a11y/useKeyWithClickEvents: selecting with a click is a mouse shortcut; the source track's label button selects its track from the keyboard
+    // biome-ignore lint/a11y/noStaticElementInteractions: clicking, dragging, Ctrl/Cmd-click and right-click are pointer gestures; pressing a source layer's number key commits a selection from the keyboard
+    // biome-ignore lint/a11y/useKeyWithClickEvents: selecting with a click is a mouse shortcut; the source track's name button selects its track from the keyboard
     <div
-      className={`source-span ${filmstrip ? "source-span--filmstrip" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""} ${selected ? "source-span--selected" : ""}`}
+      className={`source-span ${trimming ? "source-span--trimming" : ""} ${filmstrip ? "source-span--filmstrip" : ""} ${audio ? "source-span--audio" : ""} ${waveformOverlay ? "source-span--waveform-overlay" : ""} ${audio && audioPeaks.status === "loading" && !prefersReducedMotion ? "is-syncing--animated" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""} ${selected ? "source-span--selected" : ""}`}
       data-source-span-id={clip.id}
       onClick={(event) => {
         // Ctrl-click on macOS opens the menu instead.
@@ -119,18 +189,30 @@ export function SourceSpan({
         selectSourceSpan(clip);
         openSourceSpanMenu(event, clip);
       }}
+      onPointerDown={(event) => startDrag(event, "move")}
       title={`${shortcutLabels.sourceClipDrop} to add this clip to the arrangement`}
       style={{
         left: clip.startQ * quarterPx,
-        width: getClipDurationQ(clip, bpm) * quarterPx,
+        width: widthPx,
         ["--clip-accent" as string]: clip.accent,
         backgroundColor: clip.tint,
-        borderColor: clip.accent,
+        // The audio variant's border follows hover in CSS.
+        borderColor: audio ? undefined : clip.accent,
         opacity: mediaState === "online" || mediaSync ? 1 : 0.56,
       }}
     >
       {mediaSync ? (
         <MediaSyncSkeleton variant="span" view={mediaSync} />
+      ) : audio ? (
+        <ClipWaveform
+          className="source-span__waveform"
+          clipLeftPx={clip.startQ * quarterPx}
+          clipWidthPx={widthPx}
+          peaks={audioPeaks}
+          range={getSourceSpanWaveformRange(clip, bpm, quarterPx)}
+          visibleStartPx={visibleTimelineStartPx}
+          visibleWidthPx={visibleTimelineWidthPx}
+        />
       ) : filmstrip ? (
         <span aria-hidden="true" className="source-span__filmstrip">
           {filmstrip.tiles.map((tile) => {
@@ -173,6 +255,17 @@ export function SourceSpan({
           }
         />
       )}
+      {waveformOverlay ? (
+        <ClipWaveform
+          className="source-span__waveform-overlay"
+          clipLeftPx={clip.startQ * quarterPx}
+          clipWidthPx={widthPx}
+          peaks={audioPeaks}
+          range={getSourceSpanWaveformRange(clip, bpm, quarterPx)}
+          visibleStartPx={visibleTimelineStartPx}
+          visibleWidthPx={visibleTimelineWidthPx}
+        />
+      ) : null}
       <div className="source-span__body">
         <span>{clip.label}</span>
         <small>
@@ -185,6 +278,20 @@ export function SourceSpan({
           style={{ backgroundColor: clip.accent }}
         />
       </div>
+      <button
+        aria-label={`Trim the start of ${clip.label}`}
+        className="source-span__handle source-span__handle--start"
+        onPointerDown={(event) => startDrag(event, "resize-start")}
+        tabIndex={-1}
+        type="button"
+      />
+      <button
+        aria-label={`Trim the end of ${clip.label}`}
+        className="source-span__handle source-span__handle--end"
+        onPointerDown={(event) => startDrag(event, "resize-end")}
+        tabIndex={-1}
+        type="button"
+      />
     </div>
   );
 }

@@ -48,6 +48,12 @@ export type LvpSession = {
     }>;
     frameHiddenLoopEnd?: number;
     captureOffset?: number;
+    /**
+     * zvid-only, set on a warped clip whose start was trimmed: the linear
+     * source position, in seconds, its warp is anchored at. Without it the
+     * warp is anchored where the clip's source starts.
+     */
+    warpAnchorSeconds?: number;
     /** Seconds; the Layers app writes `"NaN"` for MIDI clips. */
     audioFileDuration?: number | "NaN";
   }>;

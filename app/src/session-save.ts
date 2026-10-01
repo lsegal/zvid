@@ -159,21 +159,26 @@ function sourceClipId(spanId: string) {
 }
 
 // Opening a session places a span's source at `clipStart + frameOffset +
-// captureOffset` and anchors its warp at `clipStart + frameOffset`, so a
-// warped span writes the anchor's source position as `clipStart` and the
-// rest as `captureOffset`.
+// captureOffset` and anchors its warp at that position, so a warped span
+// writes its warp's sample start as `clipStart` and the rest as
+// `captureOffset`. A span whose start was trimmed keeps its warp anchored
+// where it was, so the anchor goes in a zvid-only field.
 function spanSourceFrames(span: SaveableSourceSpan, fps: number) {
   const trimFrames = Math.max(0, toFrames(span.trimStartSeconds, fps));
   if (!span.warp) {
     return { clipStart: trimFrames };
   }
+  const anchor =
+    Math.abs(span.warp.anchorSeconds - trimFrames / fps) < SLIP_EPSILON_SECONDS
+      ? {}
+      : { warpAnchorSeconds: span.warp.anchorSeconds };
   const sampleStartFrames = toFrames(warpSampleStartSeconds(span.warp), fps);
   const captureOffset = trimFrames - sampleStartFrames;
   // A capture offset of -1 marks an imported video and is read as 0.
   if (captureOffset === 0 || captureOffset === -1) {
-    return { clipStart: trimFrames };
+    return { clipStart: trimFrames, ...anchor };
   }
-  return { clipStart: sampleStartFrames, captureOffset };
+  return { clipStart: sampleStartFrames, captureOffset, ...anchor };
 }
 
 function toLvpParameters(parameters: SaveableEffect["parameters"]) {
@@ -190,7 +195,15 @@ function toLvpParameters(parameters: SaveableEffect["parameters"]) {
   return result;
 }
 
-// A clip slipped off its span's source offset keeps its span and offset in
+// Whether a clip starting at `startQ` is inside `span`, so that opening the
+// session finds `span` for it by track and position.
+function startsInSpan(startQ: number, span: SaveableSourceSpan, bpm: number) {
+  const spanEndQ = span.startQ + secondsToQuarters(span.durationSeconds, bpm);
+  return startQ >= span.startQ && startQ < spanEndQ;
+}
+
+// A clip slipped off its span's source offset, or starting outside its span
+// since that span moved or was trimmed, keeps its span and offset in
 // zvid-only fields; any other clip is found by track and position on open.
 function selectionSlip(
   clip: SaveableClip,
@@ -201,8 +214,9 @@ function selectionSlip(
   if (
     !span ||
     clip.sourceOffsetSeconds === undefined ||
-    Math.abs(clip.sourceOffsetSeconds - spanSourceOffsetSeconds(span, bpm)) <
-      SLIP_EPSILON_SECONDS
+    (Math.abs(clip.sourceOffsetSeconds - spanSourceOffsetSeconds(span, bpm)) <
+      SLIP_EPSILON_SECONDS &&
+      startsInSpan(clip.startQ, span, bpm))
   ) {
     return {};
   }
@@ -377,6 +391,17 @@ function isFiniteNumber(value: unknown): value is number {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value !== "";
+}
+
+// The linear source position a warped clip's warp was saved anchored at, or
+// `sourceSeconds`, where its source starts, when it has none.
+export function readWarpAnchorSeconds(
+  clip: NonNullable<LvpSession["clips"]>[number],
+  sourceSeconds: number,
+) {
+  return isFiniteNumber(clip.warpAnchorSeconds)
+    ? clip.warpAnchorSeconds
+    : sourceSeconds;
 }
 
 export type SelectionSlip = {

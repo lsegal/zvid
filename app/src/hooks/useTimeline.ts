@@ -18,7 +18,10 @@ export type TimelineInputs = {
   store: Pick<ProjectStore, "playheadQRef" | "commitViewChange">;
   selection: Pick<
     TimelineSelectionState,
-    "timelineClips" | "pendingSelection" | "selectedClipId"
+    | "timelineClips"
+    | "timelineSourceSpans"
+    | "pendingSelection"
+    | "selectedClipId"
   >;
   layout: Pick<
     AppLayout,
@@ -58,6 +61,8 @@ export function useTimeline({
   } = project;
   const { playheadQRef, commitViewChange } = store;
   const { timelineClips, pendingSelection, selectedClipId } = selection;
+  // A source clip being dragged draws where the drop would put it.
+  const { timelineSourceSpans } = selection;
   const { labelWidth, shortcutLabels, prefersReducedMotion } = layout;
 
   const viewport = useTimelineViewport({
@@ -96,14 +101,14 @@ export function useTimeline({
   const timelineLanes = useTimelineLanes({
     lanes,
     timelineClips,
-    sourceSpans,
+    sourceSpans: timelineSourceSpans,
     effects,
   });
   const thumbnails = useTimelineThumbnails({
     bpm,
     quarterPx,
     timelineClips,
-    sourceSpans,
+    sourceSpans: timelineSourceSpans,
     mediaItemsById,
     filmstripRangeStartPx,
     filmstripRangeEndPx,

@@ -8,6 +8,8 @@
   grid-template-columns: 42px 1fr;
   overflow: hidden;
   background: rgba(36, 38, 53, 0.92);
+  /* Dragging the span moves it in its track, as on an arrangement clip. */
+  cursor: grab;
 }
 
 /* The selected source clip, or the one whose right-click menu is open: the
@@ -54,6 +56,78 @@
   background-position: center;
   background-size: cover;
   box-shadow: inset -1px 0 rgba(0, 0, 0, 0.35);
+}
+
+/* Audio-only media draws its waveform, like the Audio lane, behind a quiet
+   border that turns to the full accent border on hover, focus or trim. */
+.source-span--audio {
+  grid-template-columns: 1fr;
+  border-color: color-mix(
+    in srgb,
+    var(--clip-accent, var(--line-strong)) 35%,
+    transparent
+  );
+  transition: border-color 100ms ease;
+}
+
+.source-span--audio:hover,
+.source-span--audio:has(:focus-visible),
+.source-span--audio.source-span--trimming {
+  border-color: var(--clip-accent, var(--line-strong));
+}
+
+@media (hover: none) {
+  .source-span--audio {
+    border-color: var(--clip-accent, var(--line-strong));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .source-span--audio {
+    transition: none;
+  }
+}
+
+.source-span__waveform {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* The same scrim as over a filmstrip keeps the label readable over the
+   waveform. */
+.source-span--audio .source-span__body {
+  position: relative;
+  min-width: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(8, 10, 20, 0.72),
+    rgba(8, 10, 20, 0.4) 60%,
+    rgba(8, 10, 20, 0.1)
+  );
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.source-span--audio .source-span__body small {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Video with audio draws its waveform, light and semi-transparent with a
+   soft shadow, over its frames and under its label and handles, which follow
+   it. */
+.source-span__waveform-overlay {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  opacity: 0.5;
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.7));
+  pointer-events: none;
+}
+
+.source-span--waveform-overlay .source-span__body {
+  position: relative;
+  min-width: 0;
 }
 
 /* A scrim keeps the label readable over the frames. */
@@ -113,4 +187,64 @@
 /* The progress bar takes the place of the span's accent line. */
 .source-span.is-syncing .source-span__line {
   visibility: hidden;
+}
+
+/* Edge handles trim the span. Like an arrangement clip's, they stay hidden
+   until the span is hovered or trimmed but keep their hit area. */
+.source-span__handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  width: 10px;
+  border: none;
+  padding: 0;
+  background: var(--clip-accent, var(--line-strong));
+  color: inherit;
+  cursor: ew-resize;
+  opacity: 0;
+  transition: opacity 100ms ease;
+}
+
+.source-span__handle--start {
+  left: 0;
+  border-radius: 9px 0 0 9px;
+}
+
+.source-span__handle--end {
+  right: 0;
+  border-radius: 0 9px 9px 0;
+}
+
+.source-span__handle::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+      circle at center,
+      rgba(0, 0, 0, 0.55) 1.5px,
+      transparent 2px
+    )
+    center top / 4px 6px repeat-y;
+}
+
+.source-span:hover .source-span__handle,
+.source-span--trimming .source-span__handle {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .source-span__handle {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .source-span__handle {
+    transition: none;
+  }
 }

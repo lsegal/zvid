@@ -245,6 +245,7 @@ describe("menu snapshots", () => {
       { id: "track-b", name: "Cam B" },
     ];
     const actions = {
+      rename: noop,
       duplicate: noop,
       remove: noop,
       moveUp: noop,
@@ -446,6 +447,7 @@ const LAYER_MENU_FULL = [
 ];
 
 const SOURCE_TRACK_MENU = [
+  "rename: Rename…",
   "duplicate: Duplicate",
   "delete: Delete",
   "---",
@@ -454,6 +456,7 @@ const SOURCE_TRACK_MENU = [
 ];
 
 const SOURCE_TRACK_MENU_ONLY = [
+  "rename: Rename…",
   "duplicate: Duplicate",
   "delete: Delete",
   "---",
@@ -462,6 +465,7 @@ const SOURCE_TRACK_MENU_ONLY = [
 ];
 
 const SOURCE_TRACK_MENU_DISABLED = [
+  "rename: Rename… (disabled)",
   "duplicate: Duplicate (disabled)",
   "delete: Delete (disabled)",
   "---",

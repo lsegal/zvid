@@ -26,6 +26,7 @@ import type {
   ProjectStore,
   useProjectHistoryCommands,
 } from "./useProjectStore.ts";
+import { useSourceSpanDrag } from "./useSourceSpanDrag.ts";
 import { useSourceTrackActions } from "./useSourceTrackActions.ts";
 import type { LaneStatus } from "./useTimelineLanes.ts";
 import type { TimelineSelectionState } from "./useTimelineSelection.ts";
@@ -61,6 +62,10 @@ export type TimelineEditingInputs = {
     | "dragState"
     | "setDragState"
     | "timelineDragState"
+    | "sourceSpanDrag"
+    | "setSourceSpanDrag"
+    | "dragPreviewSourceSpans"
+    | "setDragPreviewSourceSpans"
     | "timelineClips"
     | "selectedClip"
     | "selectLaneFromLabel"
@@ -112,7 +117,7 @@ export type TimelineEditingInputs = {
 // commands (useClipActions), layer and source track commands
 // (useLayerActions, useSourceTrackActions), the context
 // and Edit menus (useMenus), keyboard shortcuts and Space playback, and clip
-// drags (useClipDrag).
+// and source clip drags (useClipDrag, useSourceSpanDrag).
 export function useTimelineEditing({
   project,
   store,
@@ -177,6 +182,10 @@ export function useTimelineEditing({
     selectedClip,
     selectLaneFromLabel,
     focusLaneLabel,
+    sourceSpanDrag,
+    setSourceSpanDrag,
+    dragPreviewSourceSpans,
+    setDragPreviewSourceSpans,
     sourceSelection,
     selectSource,
   } = selection;
@@ -316,6 +325,10 @@ export function useTimelineEditing({
 
   const {
     sourceTracksListRef,
+    renamingSourceTrackId,
+    setRenamingSourceTrackId,
+    commitSourceTrackRename,
+    cancelSourceTrackRename,
     duplicateSourceTrack,
     deleteSourceTrack,
     moveSourceTrack,
@@ -387,6 +400,7 @@ export function useTimelineEditing({
     redoLabel,
     removeMainAudio,
     renamingLaneId,
+    renamingSourceTrackId,
     selectLaneFromLabel,
     selectedClip,
     selectedLaneId,
@@ -395,6 +409,7 @@ export function useTimelineEditing({
     setLayerFxEnabled,
     setPendingSelection,
     setRenamingLaneId,
+    setRenamingSourceTrackId,
     setSelectedClipId,
     setSelectedLaneId,
     shortcutLabels,
@@ -458,6 +473,23 @@ export function useTimelineEditing({
     commitProjectChange,
   });
 
+  useSourceSpanDrag({
+    sourceSpanDrag,
+    setSourceSpanDrag,
+    dragPreviewSourceSpans,
+    setDragPreviewSourceSpans,
+    sourceSpans,
+    mediaItemsById,
+    bpm,
+    fps,
+    snapUnit,
+    snapEnabled,
+    quarterPx,
+    isWorkspaceReadOnlyRef,
+    refuseReadOnlyEdit,
+    commitProjectChange,
+  });
+
   return {
     canCreateLayer,
     addSourceSpanToArrangement,
@@ -473,6 +505,9 @@ export function useTimelineEditing({
     openSourceTrackMenu,
     sourceTracksListRef,
     sourceTrackReorder,
+    renamingSourceTrackId,
+    commitSourceTrackRename,
+    cancelSourceTrackRename,
     getClipMenuEntries,
     getEditMenuEntries,
   };
