@@ -37,7 +37,10 @@ describe("formatTimeValue", () => {
   });
 
   it("counts beats and sixteenths in the meter's beat unit", () => {
-    const sixEight = { ...musical, signature: { numerator: 6, denominator: 8 } };
+    const sixEight = {
+      ...musical,
+      signature: { numerator: 6, denominator: 8 },
+    };
     // A 6/8 bar is three quarters; a beat is an eighth.
     assert.equal(formatTimeValue(3, "position", sixEight), "2.1.1");
     assert.equal(formatTimeValue(3.5, "duration", sixEight), "1.1.0");
@@ -52,7 +55,10 @@ describe("formatTimeValue", () => {
   it("reads values a hair under a tick or frame as that tick or frame", () => {
     assert.equal(formatTimeValue(0.25 - 1e-9, "position", musical), "1.1.2");
     const oneFrame = 1 / 30 / 0.5;
-    assert.equal(formatTimeValue(oneFrame - 1e-12, "duration", timecode), "00:00:01");
+    assert.equal(
+      formatTimeValue(oneFrame - 1e-12, "duration", timecode),
+      "00:00:01",
+    );
   });
 
   it("updates with the timeline mode", () => {

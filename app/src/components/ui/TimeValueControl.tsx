@@ -226,9 +226,7 @@ export function TimeValueControl({
         disabled && "time-value--disabled",
         className,
       )}
-      style={
-        accent ? ({ "--time-value-accent": accent } as CSSProperties) : {}
-      }
+      style={accent ? ({ "--time-value-accent": accent } as CSSProperties) : {}}
     >
       <span className="time-value__label" id={labelId} title={label}>
         {label}

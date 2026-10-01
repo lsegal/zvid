@@ -190,9 +190,7 @@ export function stepTimeValue(
   const step = timeValueStep(format, coarse);
   const position = value / step;
   const base =
-    steps > 0
-      ? Math.floor(position + EPSILON)
-      : Math.ceil(position - EPSILON);
+    steps > 0 ? Math.floor(position + EPSILON) : Math.ceil(position - EPSILON);
   return clampTimeValue(clean((base + steps) * step), range);
 }
 
