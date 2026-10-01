@@ -85,8 +85,9 @@ export type FrameContext = {
   time: number;
   audio: AudioBands;
   groupClipProgress: number;
-  // Set for preview frames, which may draw an animating text or fill clip
-  // from a nearby raster rather than drawing a new one every frame.
+  // Set for preview frames during playback, which may draw an animating
+  // text or fill clip from a nearby raster rather than a new one every
+  // frame.
   preview?: boolean;
 };
 
@@ -632,8 +633,7 @@ function drawLayer(
 }
 
 // Draws a frame of the composition. Returns false when a preview frame drew
-// an animating text or fill clip from a nearby raster, so a paused preview
-// draws again to show it exactly.
+// an animating text or fill clip from a nearby raster rather than exactly.
 export function drawComposition(
   resources: WebGlResources,
   surface: CompositeSurface,

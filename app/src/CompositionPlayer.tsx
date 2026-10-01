@@ -177,17 +177,17 @@ export class CompositionRenderer {
     }
   }
 
-  // Returns false when an animating text or fill clip was drawn from a
-  // nearby raster, which drawing the same frame again shows exactly.
-  renderPreviewFrame(playheadQ: number, pixelRatio: number) {
+  // While playing, animating text and fills may be drawn from a nearby
+  // raster; a paused preview, being edited, draws them exactly.
+  renderPreviewFrame(playheadQ: number, pixelRatio: number, playing = true) {
     this.ensureResources();
     const audio = this.liveAudioBands?.sample(performance.now());
     this.activeClips = this.computeActiveClips(playheadQ, audio);
-    return this.draw(this.activeClips, playheadQ, pixelRatio, {
+    this.draw(this.activeClips, playheadQ, pixelRatio, {
       time: quartersToSeconds(playheadQ, this.state.bpm),
       audio: audio ?? SILENT_AUDIO_BANDS,
       groupClipProgress: this.groupClipProgressAt(playheadQ),
-      preview: true,
+      preview: playing,
     });
   }
 
@@ -480,7 +480,7 @@ export class CompositionRenderer {
       this.state.bpm,
       this.state.fps,
     );
-    return drawComposition(
+    drawComposition(
       this.resources as WebGlResources,
       this.canvas,
       activeClips,
@@ -660,15 +660,11 @@ export const CompositionPlayer = forwardRef<
       }
 
       // Video frames can land mid-playback, when the prop lags the playhead.
-      const settled = renderer.renderPreviewFrame(
+      renderer.renderPreviewFrame(
         isPlayingRef.current ? playheadSignal.get() : playheadQ,
         pixelRatio,
+        isPlayingRef.current,
       );
-      // A paused preview stopped mid-animation draws once more, so text
-      // and fills show exactly rather than stretched from a nearby raster.
-      if (!settled && !isPlayingRef.current) {
-        scheduleDrawRef.current(pixelRatio);
-      }
     },
     [playheadQ, playheadSignal],
   );

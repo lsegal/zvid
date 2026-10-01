@@ -5,10 +5,11 @@
 // built every frame.
 //
 // While a clip animates (its box resized by a Move, Transform or Order, or
-// its text Size and Tracking modulated by Reactive), a preview frame draws
-// from a raster close enough to stretch onto the animated box instead of
-// drawing a new one every frame. Once the clip holds still, the next frame
-// draws it exactly. Export always draws exactly.
+// its text Size and Tracking modulated by Reactive), a frame of the playing
+// preview draws from a raster close enough to stretch onto the animated box
+// instead of drawing a new one every frame. Once the clip holds still, the
+// next frame draws it exactly. A paused preview and export always draw
+// exactly.
 
 import type { FillPaint } from "./fill-paint.ts";
 import type { FontFace } from "./text-fonts.ts";

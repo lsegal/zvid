@@ -30,8 +30,8 @@ import {
 import type { FillPaint } from "./fill-paint.ts";
 import { SILENT_AUDIO_BANDS } from "./fx-shaders/audio-bands.ts";
 import { POSITION_ATTRIBUTE_LOCATION } from "./fx-shaders/gl.ts";
-import { renderStats } from "./render-stats.ts";
 import { type ChainEffect, resolveEffectChain } from "./fx-shaders/registry.ts";
+import { renderStats } from "./render-stats.ts";
 import { readTextStyle, type TextStyle } from "./text-style.ts";
 
 const WIDTH = 360;
@@ -808,11 +808,10 @@ describe("drawComposition fill layers", () => {
     const recording = createRecordingGl();
     const resources = createWebGlResources(recording.gl);
     const opacities = [1, 0.8, 0.5, 0.25];
-    const drawn = opacities.map(
-      (opacity) =>
-        drawFrame(recording, resources, [
-          fillLayer({ ...RED_TO_BLUE, opacity }),
-        ]).at(-1),
+    const drawn = opacities.map((opacity) =>
+      drawFrame(recording, resources, [
+        fillLayer({ ...RED_TO_BLUE, opacity }),
+      ]).at(-1),
     );
     assert.equal(recording.uploads.length, 1);
     const pixels = recording.uploads[0].at(-1) as Uint8Array;
@@ -1242,8 +1241,8 @@ describe("drawComposition text layers", () => {
     }
     assert.equal(renderStats.textRasterizations - before, 1);
 
-    // Once it holds still, as when a paused preview draws again, it is
-    // drawn exactly, as export draws it.
+    // Once it holds still for a frame, it is drawn exactly, as export
+    // draws it.
     assert.equal(drawPreview(resources, frame(4 / 3)), true);
     assert.equal(renderStats.textRasterizations - before, 2);
     const settled = recording.uploads.at(-1)?.at(-1) as FakeTextCanvas;
