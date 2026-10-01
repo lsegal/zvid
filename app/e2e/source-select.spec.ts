@@ -43,7 +43,7 @@ test("selects source tracks and source clips instead of layers and clips", async
   await page.goto("/");
   await expect(lane(page, "1")).toBeVisible();
   await dropVideoIntoNewSourceTrack(page);
-  const label = page.locator(".track-label__select");
+  const label = page.locator("[data-source-track-label-id]");
   const span = page.locator(".source-span");
   const row = page.locator(sourceRow);
 
