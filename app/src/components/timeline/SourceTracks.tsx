@@ -1,4 +1,8 @@
-import { ChevronDownIcon } from "@heroicons/react/24/solid";
+import {
+  ChevronDownIcon,
+  LockClosedIcon,
+  LockOpenIcon,
+} from "@heroicons/react/24/solid";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import type {
   ArrangementClip,
@@ -8,7 +12,10 @@ import type {
 import { pluralize } from "../../app/util.ts";
 import type { useSourceTrackDrop } from "../../hooks/useSourceTrackDrop.ts";
 import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
-import { formatSourceTracksSummary } from "../../source-tracks-section.ts";
+import {
+  formatSourceTracksSummary,
+  sourceTracksLockLabel,
+} from "../../source-tracks-section.ts";
 import { SourceEmptyState } from "../SourceEmptyState";
 import type { SourceSpanContext } from "./SourceSpan";
 import { type SourceTrackLabelContext, SourceTrackRow } from "./SourceTrackRow";
@@ -19,6 +26,8 @@ type SourceTracksProps = {
   sourceSpansByTrack: ReadonlyMap<string, SourceSpanClip[]>;
   isSourceTracksCollapsed: boolean;
   setSourceTracksCollapsed: (collapsed: boolean) => void;
+  sourceTracksLocked: boolean;
+  setSourceTracksLocked: (locked: boolean) => void;
   drop: ReturnType<typeof useSourceTrackDrop>;
   clips: ArrangementClip[];
   setSelectedClipId: Dispatch<SetStateAction<string | undefined>>;
@@ -31,15 +40,18 @@ type SourceTracksProps = {
   label: SourceTrackLabelContext;
 };
 
-// The Source Tracks section: its collapsible header, which takes dropped
-// media while there are no tracks or they are hidden, the tracks with the
-// drop indicator and announcements that reordering them uses, and a drop row
-// for a new track while media is dragged over them.
+// The Source Tracks section: its collapsible header with the lock toggle,
+// which takes dropped media while there are no tracks or they are hidden, the
+// tracks with the drop indicator and announcements that reordering them uses,
+// and a drop row for a new track while media is dragged over them. Locked
+// tracks are grayed out and their clips stay put.
 export function SourceTracks({
   sourceTracks,
   sourceSpansByTrack,
   isSourceTracksCollapsed,
   setSourceTracksCollapsed,
+  sourceTracksLocked,
+  setSourceTracksLocked,
   drop,
   clips,
   setSelectedClipId,
@@ -81,6 +93,7 @@ export function SourceTracks({
       >
         <div className="track-label track-label--header">
           {sourceTracks.length ? (
+            <>
             <button
               aria-expanded={!isSourceTracksCollapsed}
               className="source-header__toggle"
@@ -100,6 +113,21 @@ export function SourceTracks({
                 </small>
               </span>
             </button>
+            <button
+              aria-label={sourceTracksLockLabel(!sourceTracksLocked)}
+              aria-pressed={sourceTracksLocked}
+              className="source-header__lock"
+              onClick={() => setSourceTracksLocked(!sourceTracksLocked)}
+              title={sourceTracksLockLabel(!sourceTracksLocked)}
+              type="button"
+            >
+              {sourceTracksLocked ? (
+                <LockClosedIcon aria-hidden="true" />
+              ) : (
+                <LockOpenIcon aria-hidden="true" />
+              )}
+            </button>
+            </>
           ) : (
             <div>
               <span>Source Tracks</span>
@@ -128,7 +156,7 @@ export function SourceTracks({
       {isSourceTracksCollapsed || !sourceTracks.length ? null : (
         <div
           ref={listRef}
-          className={`source-track-list ${reorder.listClassName}`}
+          className={`source-track-list ${sourceTracksLocked ? "source-tracks--locked" : ""} ${reorder.listClassName}`}
         >
           <div
             aria-hidden="true"

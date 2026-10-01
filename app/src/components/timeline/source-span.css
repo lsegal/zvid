@@ -12,6 +12,13 @@
   cursor: grab;
 }
 
+/* Locked source tracks' clips can't be moved or trimmed (they have no
+   handles), so they show the default cursor and lose their color. */
+.source-span--locked {
+  cursor: default;
+  filter: grayscale(1) brightness(0.72);
+}
+
 /* The source clip whose right-click menu is open. */
 .source-span--selected {
   box-shadow: 0 0 0 2px var(--ink);

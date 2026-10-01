@@ -123,6 +123,7 @@ export type SaveableProject = {
   mediaItems: Array<{ id: string; name: string; sourcePath?: string }>;
   mainAudioId?: string;
   projectDurationFrames?: number;
+  sourceTracksLocked?: boolean;
 };
 
 export type SaveableView = {
@@ -376,6 +377,7 @@ export function projectToLvpSession(
     ...(mainAudio
       ? { audioFilename: mainAudio.sourcePath ?? mainAudio.name }
       : {}),
+    sourceTracksLocked: project.sourceTracksLocked === true,
     // The effects are written as they are, so a removed Order stays removed.
     orderDefaulted: true,
     // Text and Color are written on the clips that carry them.

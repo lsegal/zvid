@@ -211,6 +211,9 @@ export type ProjectState = {
   mainAudioId?: string;
   // The session length from the opened session, in frames at `fps`.
   projectDurationFrames?: number;
+  // When set, source clips can't be moved, resized or retimed and source
+  // tracks can't be deleted or reordered. Unset reads as unlocked.
+  sourceTracksLocked?: boolean;
   // Set on every state since sessions got a default Order effect. A restored
   // workspace saved without it is older and gets that Order added.
   orderDefaulted?: boolean;

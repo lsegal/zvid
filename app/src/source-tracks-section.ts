@@ -36,3 +36,12 @@ export function isSourceTracksSectionCollapsed(
 export function formatSourceTracksSummary(trackCount: number) {
   return `${trackCount} ${trackCount === 1 ? "track" : "tracks"}`;
 }
+
+// While locked, source clips can't be moved, resized or retimed and source
+// tracks can't be deleted or reordered; this says why.
+export const SOURCE_TRACKS_LOCKED_TITLE = "Source tracks are locked";
+
+// The lock button's label and the history label of switching to `locked`.
+export function sourceTracksLockLabel(locked: boolean) {
+  return locked ? "Lock source tracks" : "Unlock source tracks";
+}

@@ -8,12 +8,15 @@ import { getSwatch, pluralize } from "../../app/util.ts";
 import type { useSourceTrackActions } from "../../hooks/useSourceTrackActions.ts";
 import type { useSourceTrackDrop } from "../../hooks/useSourceTrackDrop.ts";
 import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
+import { SOURCE_TRACKS_LOCKED_TITLE } from "../../source-tracks-section.ts";
 import { SourceSpan, type SourceSpanContext } from "./SourceSpan";
 
-// What every source track label shares: its grip and its menu.
+// What every source track label shares: its grip, its menu, and whether the
+// source tracks are locked, which disables the grip.
 export type SourceTrackLabelContext = {
   reorder: ReturnType<typeof useSourceTrackActions>["sourceTrackReorder"];
   openMenu: (event: ReactMouseEvent<HTMLElement>, trackId: string) => void;
+  locked: boolean;
 };
 
 type SourceTrackRowProps = {
@@ -41,6 +44,7 @@ export function SourceTrackRow({
   span,
   reorder,
   openMenu,
+  locked,
 }: SourceTrackRowProps) {
   const {
     sourceTrackDragTarget,
@@ -78,7 +82,12 @@ export function SourceTrackRow({
           {...reorder.gripProps(track, index)}
           aria-label={`Reorder ${track.name}`}
           className="track-label__grip"
-          title="Drag to reorder, or press Space to pick up"
+          disabled={locked}
+          title={
+            locked
+              ? SOURCE_TRACKS_LOCKED_TITLE
+              : "Drag to reorder, or press Space to pick up"
+          }
           type="button"
         >
           <Bars3Icon aria-hidden="true" />

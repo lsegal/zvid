@@ -48,13 +48,16 @@ export type SourceSpanContext = {
   openSourceSpanMenu: ReturnType<typeof useMenus>["openSourceSpanMenu"];
   sourceSpanDrag: SourceSpanDragState | null;
   setSourceSpanDrag: Dispatch<SetStateAction<SourceSpanDragState | null>>;
+  // Locked source tracks' spans can't be moved or trimmed.
+  locked: boolean;
 };
 
 type SourceSpanProps = { clip: SourceSpanClip } & SourceSpanContext;
 
 // A span of a source track's media: its filmstrip or thumbnail and name.
 // Dragging it moves it in its track and dragging an edge trims it, like an
-// arrangement clip; Ctrl/Cmd-click adds it to the arrangement.
+// arrangement clip, unless the source tracks are locked; Ctrl/Cmd-click adds
+// it to the arrangement.
 export function SourceSpan({
   clip,
   bpm,
@@ -71,6 +74,7 @@ export function SourceSpan({
   openSourceSpanMenu,
   sourceSpanDrag,
   setSourceSpanDrag,
+  locked,
 }: SourceSpanProps) {
   const media = clip.mediaId ? mediaItemsById.get(clip.mediaId) : undefined;
   const mediaState = describeClipMediaState(clip, media?.availability);
@@ -104,6 +108,7 @@ export function SourceSpan({
     // Right-click and Ctrl/Cmd-click keep opening the menu and adding the
     // span to the arrangement.
     if (
+      locked ||
       event.button !== 0 ||
       isContextMenuPress(event, shortcutLabels.mac) ||
       isSourceClipDropClick(event)
@@ -125,7 +130,7 @@ export function SourceSpan({
     // biome-ignore lint/a11y/noStaticElementInteractions: dragging, Ctrl/Cmd-click and right-click are pointer gestures; pressing a source layer's number key commits a selection from the keyboard
     // biome-ignore lint/a11y/useKeyWithClickEvents: a plain click does nothing, so there is no keyboard equivalent to add
     <div
-      className={`source-span ${trimming ? "source-span--trimming" : ""} ${filmstrip ? "source-span--filmstrip" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""} ${clipMenu?.kind === "span" && clipMenu.spanId === clip.id ? "source-span--selected" : ""}`}
+      className={`source-span ${locked ? "source-span--locked" : ""} ${trimming ? "source-span--trimming" : ""} ${filmstrip ? "source-span--filmstrip" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""} ${clipMenu?.kind === "span" && clipMenu.spanId === clip.id ? "source-span--selected" : ""}`}
       onClick={(event) => {
         // Ctrl-click on macOS opens the menu instead.
         if (
@@ -207,20 +212,24 @@ export function SourceSpan({
           style={{ backgroundColor: clip.accent }}
         />
       </div>
-      <button
-        aria-label={`Trim the start of ${clip.label}`}
-        className="source-span__handle source-span__handle--start"
-        onPointerDown={(event) => startDrag(event, "resize-start")}
-        tabIndex={-1}
-        type="button"
-      />
-      <button
-        aria-label={`Trim the end of ${clip.label}`}
-        className="source-span__handle source-span__handle--end"
-        onPointerDown={(event) => startDrag(event, "resize-end")}
-        tabIndex={-1}
-        type="button"
-      />
+      {locked ? null : (
+        <>
+          <button
+            aria-label={`Trim the start of ${clip.label}`}
+            className="source-span__handle source-span__handle--start"
+            onPointerDown={(event) => startDrag(event, "resize-start")}
+            tabIndex={-1}
+            type="button"
+          />
+          <button
+            aria-label={`Trim the end of ${clip.label}`}
+            className="source-span__handle source-span__handle--end"
+            onPointerDown={(event) => startDrag(event, "resize-end")}
+            tabIndex={-1}
+            type="button"
+          />
+        </>
+      )}
     </div>
   );
 }

@@ -45,6 +45,42 @@
   text-overflow: ellipsis;
 }
 
+/* Locks the source tracks; right-aligned in the header label, apart from the
+   collapse toggle. */
+.source-header__lock {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.source-header__lock svg {
+  width: 16px;
+  height: 16px;
+}
+
+.source-header__lock:hover,
+.source-header__lock[aria-pressed='true'] {
+  color: var(--ink);
+}
+
+.source-header__lock:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.source-header__lock:focus-visible {
+  outline: 2px solid var(--lane-selected-accent);
+  outline-offset: 1px;
+}
+
 .source-header__content {
   min-height: 48px;
   display: flex;
@@ -72,6 +108,17 @@
 
 .source-track-list {
   position: relative;
+}
+
+/* Locked source tracks are grayed out. The label keeps its opaque
+   background, since clips scroll beneath it. */
+.source-tracks--locked .track-label--source > * {
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+
+.source-tracks--locked .track-label--source .track-label__grip:disabled {
+  opacity: 0.2;
 }
 
 .source-track-list--reordering .track-row {

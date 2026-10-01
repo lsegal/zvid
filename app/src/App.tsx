@@ -455,6 +455,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   sourceSpansByTrack={timeline.sourceSpansByTrack}
                   isSourceTracksCollapsed={layout.isSourceTracksCollapsed}
                   setSourceTracksCollapsed={layout.setSourceTracksCollapsed}
+                  sourceTracksLocked={editing.sourceTracksLocked}
+                  setSourceTracksLocked={editing.setSourceTracksLocked}
                   drop={mediaImport.sourceTrackDrop}
                   clips={clips}
                   setSelectedClipId={setSelectedClipId}
@@ -466,6 +468,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   label={{
                     reorder: editing.sourceTrackReorder,
                     openMenu: editing.openSourceTrackMenu,
+                    locked: editing.sourceTracksLocked,
                   }}
                   span={{
                     bpm,
@@ -483,6 +486,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     openSourceSpanMenu: editing.openSourceSpanMenu,
                     sourceSpanDrag: selection.sourceSpanDrag,
                     setSourceSpanDrag: selection.setSourceSpanDrag,
+                    locked: editing.sourceTracksLocked,
                   }}
                 />
               </Timeline>
