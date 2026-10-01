@@ -66,9 +66,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const selection = useTimelineSelection({
     restoredSession,
     clips,
+    sourceSpans: project.sourceSpans,
     effects,
     sourceTracks,
-    sourceSpans: project.sourceSpans,
   });
   const { selectedClip, timelineClips, timelineEffects } = selection;
   const { pendingSelection, setPendingSelection, dragState } = selection;
@@ -487,6 +487,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     addSourceSpanToArrangement:
                       editing.addSourceSpanToArrangement,
                     openSourceSpanMenu: editing.openSourceSpanMenu,
+                    sourceSpanDrag: selection.sourceSpanDrag,
+                    setSourceSpanDrag: selection.setSourceSpanDrag,
                   }}
                 />
               </Timeline>

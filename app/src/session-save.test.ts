@@ -496,6 +496,39 @@ describe("projectToLvpSession", () => {
     });
   });
 
+  it("keeps the span of a clip starting outside it, as after the span was trimmed", () => {
+    const project = baseProject();
+    // The span now starts at 4 s (8 quarters), after the clip's start, but
+    // the clip still plays its offset: trimStart 3 s minus 4 s, -1 s.
+    const session = projectToLvpSession(
+      {
+        ...project,
+        sourceSpans: [
+          {
+            ...project.sourceSpans[0],
+            startQ: 8,
+            durationSeconds: 8,
+            trimStartSeconds: 3,
+          },
+        ],
+        clips: [
+          {
+            ...project.clips[0],
+            sourceSpanId: "source-c1",
+            sourceOffsetSeconds: -1,
+          },
+        ],
+      },
+      { playheadQ: 0 },
+    );
+    const [selection] = session.selections ?? [];
+    assert.ok(selection);
+    assert.deepEqual(readSelectionSlip(selection), {
+      sourceSpanId: "source-c1",
+      sourceOffsetSeconds: -1,
+    });
+  });
+
   it("opens sessions without zvid-only fields as before", () => {
     const session = projectToLvpSession(baseProject(), { playheadQ: 0 });
     assert.equal(session.fills, undefined);
