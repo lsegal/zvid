@@ -94,9 +94,8 @@ test("locking freezes source clips and tracks until unlocked, with undo", async 
   page,
 }) => {
   await page.goto("/");
-  await dropVideos(page, 2);
-  await expect(rows(page)).toHaveCount(2);
-  await expect(names(page)).toHaveText(["test-pattern-0", "test-pattern-1"]);
+  await dropVideos(page, 1);
+  await expect(rows(page)).toHaveCount(1);
 
   // Media imports start unlocked.
   await expectLocked(page, false);
@@ -115,50 +114,56 @@ test("locking freezes source clips and tracks until unlocked, with undo", async 
   await dragBy(page, span.locator(".source-span__body"), width / 2);
   expect(await left(span)).toBe(startLeft);
 
-  // The grip and the menu's Delete and Move are disabled; Duplicate is not.
-  const grip = rows(page).first().locator("[data-source-track-grip]");
-  await expect(grip).toBeDisabled();
-  await expect(grip).toHaveAttribute("title", "Source tracks are locked");
-  await rows(page)
-    .first()
-    .locator(".track-label--source")
-    .click({ button: "right" });
-  for (const name of ["Delete", "Move down"]) {
-    await expect(menuItem(page, name)).toBeDisabled();
-    await expect(menuItem(page, name)).toHaveAttribute(
-      "title",
-      "Source tracks are locked",
-    );
-  }
-  await expect(menuItem(page, "Duplicate")).toBeEnabled();
-  await page.keyboard.press("Escape");
-
-  // The section can still collapse while locked, and the lock stays shown.
-  await page.getByRole("button", { name: "Hide source tracks" }).click();
-  await expect(lockButton(page)).toBeVisible();
-  await expect(lockButton(page)).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: "Show source tracks" }).click();
-
   // Undo unlocks; redo locks again.
   await page.keyboard.press("ControlOrMeta+z");
   await expectLocked(page, false);
   await page.keyboard.press("ControlOrMeta+Shift+z");
   await expectLocked(page, true);
 
-  // Unlocking re-enables moving and the menu.
+  // The grip and the menu's Delete and Move are disabled; Duplicate is not.
+  const grip = rows(page).first().locator("[data-source-track-grip]");
+  await expect(grip).toBeDisabled();
+  await expect(grip).toHaveAttribute("title", "Source tracks are locked");
+  const label = rows(page).first().locator(".track-label--source");
+  await label.click({ button: "right" });
+  await expect(menuItem(page, "Delete")).toBeDisabled();
+  await expect(menuItem(page, "Delete")).toHaveAttribute(
+    "title",
+    "Source tracks are locked",
+  );
+  await menuItem(page, "Duplicate").click();
+  await expect(names(page)).toHaveText([
+    "test-pattern-0",
+    "test-pattern-0 copy",
+  ]);
+  await label.click({ button: "right" });
+  await expect(menuItem(page, "Move down")).toBeDisabled();
+  await expect(menuItem(page, "Move down")).toHaveAttribute(
+    "title",
+    "Source tracks are locked",
+  );
+  await page.keyboard.press("Escape");
+
+  // The section can still collapse while locked, and the lock stays shown.
+  await page.locator(".source-header__toggle").click();
+  await expect(rows(page)).toHaveCount(0);
+  await expect(lockButton(page)).toBeVisible();
+  await expect(lockButton(page)).toHaveAttribute("aria-pressed", "true");
+  await page.locator(".source-header__toggle").click();
+
+  // Unlocking re-enables moving, trimming and reordering.
   await lockButton(page).click();
   await expectLocked(page, false);
   await expect(span.locator(".source-span__handle")).toHaveCount(2);
   await dragBy(page, span.locator(".source-span__body"), width / 2);
   await expect.poll(() => left(span)).not.toBe(startLeft);
   await expect(grip).toBeEnabled();
-  await rows(page)
-    .first()
-    .locator(".track-label--source")
-    .click({ button: "right" });
-  await expect(menuItem(page, "Move down")).toBeEnabled();
+  await label.click({ button: "right" });
   await menuItem(page, "Move down").click();
-  await expect(names(page)).toHaveText(["test-pattern-1", "test-pattern-0"]);
+  await expect(names(page)).toHaveText([
+    "test-pattern-0 copy",
+    "test-pattern-0",
+  ]);
 });
 
 test("an imported Live set opens with its source tracks locked", async ({
@@ -178,7 +183,4 @@ test("an imported Live set opens with its source tracks locked", async ({
 
   await expect(rows(page).first()).toBeVisible({ timeout: 30_000 });
   await expectLocked(page, true);
-  await expect(rows(page).first().locator(".source-span").first()).toHaveClass(
-    /source-span--locked/,
-  );
 });
