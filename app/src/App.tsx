@@ -62,7 +62,12 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const { timelineMode, bpm, fps, canvasWidth, canvasHeight } = project;
   const { sessionName, lanes, sourceTracks, clips, effects } = project;
 
-  const selection = useTimelineSelection({ restoredSession, clips, effects });
+  const selection = useTimelineSelection({
+    restoredSession,
+    clips,
+    sourceSpans: project.sourceSpans,
+    effects,
+  });
   const { selectedClip, timelineClips, timelineEffects } = selection;
   const { pendingSelection, setPendingSelection, dragState } = selection;
   const { setSelectedClipId, setDragPreviewClips, setDragState } = selection;
@@ -169,8 +174,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
 
   const playback = usePlayback({
     playbackOriginRef,
-    clips,
-    timelineClips,
+    clips: preview.renderClips,
+    timelineClips: preview.renderClips,
     timelineClipsRef: selection.timelineClipsRef,
     projectMediaItems: project.mediaItems,
     bpm,
@@ -459,6 +464,11 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   onOpenSample={sessionFiles.sample.handleOpenSample}
                   onOpenSession={() => void sessionFiles.handleOpenSession()}
                   gridStyle={gridStyle}
+                  listRef={editing.sourceTracksListRef}
+                  label={{
+                    reorder: editing.sourceTrackReorder,
+                    openMenu: editing.openSourceTrackMenu,
+                  }}
                   span={{
                     bpm,
                     quarterPx,
@@ -475,6 +485,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     addSourceSpanToArrangement:
                       editing.addSourceSpanToArrangement,
                     openSourceSpanMenu: editing.openSourceSpanMenu,
+                    sourceSpanDrag: selection.sourceSpanDrag,
+                    setSourceSpanDrag: selection.setSourceSpanDrag,
                   }}
                 />
               </Timeline>
@@ -489,7 +501,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 fps={fps}
                 isPlaying={isPlaying}
                 isTimelineAudibleScrubbing={playback.isTimelineAudibleScrubbing}
-                lanes={lanes}
                 mainAudio={mainAudioModel.mainAudio}
                 mediaItems={mediaItems}
                 playheadQ={playheadQ}
@@ -497,7 +508,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 previewLaneId={selection.previewLaneId}
                 projectDurationFrames={project.projectDurationFrames}
                 selectedClip={selectedClip}
-                timelineClips={timelineClips}
                 timelineDragState={selection.timelineDragState}
                 timelineEffects={timelineEffects}
               />

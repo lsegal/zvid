@@ -1,16 +1,20 @@
-import type { LayerMenuContext } from "../layer-menu.ts";
 import type { MenuEntryProvider } from "../registry.ts";
 
-// The last layer cannot be deleted.
-export const deleteLayerEntry: MenuEntryProvider<LayerMenuContext> = {
+// Shared by the layer and source track menus; the last layer cannot be
+// deleted.
+export const deleteLayerEntry: MenuEntryProvider<{
+  disabled: boolean;
+  canRemove: boolean;
+  actions: { remove: () => void };
+}> = {
   id: "delete",
   order: 30,
-  entries: ({ lanes, disabled, actions }) => [
+  entries: ({ disabled, canRemove, actions }) => [
     {
       type: "item",
       id: "delete",
       label: "Delete",
-      disabled: disabled || lanes.length <= 1,
+      disabled: disabled || !canRemove,
       onSelect: actions.remove,
     },
   ],

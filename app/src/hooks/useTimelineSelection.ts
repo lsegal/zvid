@@ -3,6 +3,8 @@ import type {
   ArrangementClip,
   ClipMenuState,
   DragState,
+  SourceSpan,
+  SourceSpanDragState,
   TimelineDragState,
   TimelineSelection,
 } from "../app/types.ts";
@@ -13,16 +15,18 @@ import { previewDuplicateClipEffects, type SessionEffect } from "../fx-stack";
 export type TimelineSelectionInputs = {
   restoredSession: SavedWorkspaceSession | null;
   clips: ArrangementClip[];
+  sourceSpans: SourceSpan[];
   effects: SessionEffect[];
 };
 
 // The timeline's selection and gesture state: the selected clip and layer,
 // the range selection, the layer outlined in the preview, the open context
-// menu, the layer being renamed, and the clip and ruler drags with the clips
-// and effects a drag previews.
+// menu, the layer being renamed, and the clip, source clip and ruler drags
+// with the clips, source clips and effects a drag previews.
 export function useTimelineSelection({
   restoredSession,
   clips,
+  sourceSpans,
   effects,
 }: TimelineSelectionInputs) {
   const [restoredSelection] = useState(() =>
@@ -49,6 +53,12 @@ export function useTimelineSelection({
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [timelineDragState, setTimelineDragState] =
     useState<TimelineDragState | null>(null);
+  const [sourceSpanDrag, setSourceSpanDrag] =
+    useState<SourceSpanDragState | null>(null);
+  const [dragPreviewSourceSpans, setDragPreviewSourceSpans] = useState<
+    SourceSpan[] | null
+  >(null);
+  const timelineSourceSpans = dragPreviewSourceSpans ?? sourceSpans;
 
   const timelineClips = dragPreviewClips ?? clips;
   const timelineClipsRef = useRef(timelineClips);
@@ -132,6 +142,11 @@ export function useTimelineSelection({
     setDragState,
     timelineDragState,
     setTimelineDragState,
+    sourceSpanDrag,
+    setSourceSpanDrag,
+    dragPreviewSourceSpans,
+    setDragPreviewSourceSpans,
+    timelineSourceSpans,
     timelineClips,
     timelineClipsRef,
     timelineEffects,

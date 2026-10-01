@@ -1,8 +1,13 @@
-import { canMoveLane } from "../../lanes.ts";
-import type { LayerMenuContext } from "../layer-menu.ts";
+import { canMoveLane, type LaneLike } from "../../lanes.ts";
 import type { MenuEntryProvider } from "../registry.ts";
 
-export const moveLayerEntries: MenuEntryProvider<LayerMenuContext> = {
+// Shared by the layer and source track menus.
+export const moveLayerEntries: MenuEntryProvider<{
+  lanes: readonly LaneLike[];
+  laneId: string;
+  disabled: boolean;
+  actions: { moveUp: () => void; moveDown: () => void };
+}> = {
   id: "move",
   order: 110,
   entries: ({ lanes, laneId, disabled, actions }) => [

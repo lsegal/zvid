@@ -25,6 +25,8 @@ import type {
   ProjectStore,
   useProjectHistoryCommands,
 } from "./useProjectStore.ts";
+import { useSourceSpanDrag } from "./useSourceSpanDrag.ts";
+import { useSourceTrackActions } from "./useSourceTrackActions.ts";
 import type { LaneStatus } from "./useTimelineLanes.ts";
 import type { TimelineSelectionState } from "./useTimelineSelection.ts";
 import type { useTimelineViewport } from "./useTimelineViewport.ts";
@@ -59,6 +61,10 @@ export type TimelineEditingInputs = {
     | "dragState"
     | "setDragState"
     | "timelineDragState"
+    | "sourceSpanDrag"
+    | "setSourceSpanDrag"
+    | "dragPreviewSourceSpans"
+    | "setDragPreviewSourceSpans"
     | "timelineClips"
     | "selectedClip"
     | "selectLaneFromLabel"
@@ -77,7 +83,10 @@ export type TimelineEditingInputs = {
   >;
   playback: Pick<
     ReturnType<typeof usePlayback>,
-    "cancelScrubPlaybackResume" | "startPlayback" | "jumpToClipStart"
+    | "cancelScrubPlaybackResume"
+    | "startPlayback"
+    | "jumpToClipStart"
+    | "playableClipCount"
   >;
   historyCommands: ReturnType<typeof useProjectHistoryCommands>;
   fxEditing: Pick<
@@ -102,9 +111,10 @@ export type TimelineEditingInputs = {
 };
 
 // Editing the timeline: inserting clips (useClipInsertion), clip and range
-// commands (useClipActions), layer commands (useLayerActions), the context
+// commands (useClipActions), layer and source track commands
+// (useLayerActions, useSourceTrackActions), the context
 // and Edit menus (useMenus), keyboard shortcuts and Space playback, and clip
-// drags (useClipDrag).
+// and source clip drags (useClipDrag, useSourceSpanDrag).
 export function useTimelineEditing({
   project,
   store,
@@ -169,6 +179,10 @@ export function useTimelineEditing({
     selectedClip,
     selectLaneFromLabel,
     focusLaneLabel,
+    sourceSpanDrag,
+    setSourceSpanDrag,
+    dragPreviewSourceSpans,
+    setDragPreviewSourceSpans,
   } = selection;
   const { barLength, beatUnit, snapUnit, quarterPx, totalQuarters } = viewport;
   const {
@@ -177,8 +191,12 @@ export function useTimelineEditing({
     toggleInspectorCollapsed,
     shortcutLabels,
   } = layout;
-  const { cancelScrubPlaybackResume, startPlayback, jumpToClipStart } =
-    playback;
+  const {
+    cancelScrubPlaybackResume,
+    startPlayback,
+    jumpToClipStart,
+    playableClipCount,
+  } = playback;
   const { handleUndo, handleRedo } = historyCommands;
   const { addFxDevice, setLayerFxEnabled } = fxEditing;
   const { mainAudio, mainAudioInputRef, removeMainAudio } = mainAudioModel;
@@ -228,7 +246,7 @@ export function useTimelineEditing({
 
   useSpacePlayback({
     cancelScrubPlaybackResume,
-    clipCount: clips.length,
+    clipCount: playableClipCount,
     dragState,
     isPlaying,
     setIsPlaying,
@@ -301,11 +319,27 @@ export function useTimelineEditing({
   });
 
   const {
+    sourceTracksListRef,
+    duplicateSourceTrack,
+    deleteSourceTrack,
+    moveSourceTrack,
+    sourceTrackReorder,
+  } = useSourceTrackActions({
+    commitProjectChange,
+    selectedClip,
+    setSelectedClipId,
+    setStatus,
+    sourceTracks,
+    timelineScrollRef,
+  });
+
+  const {
     openArrangementClipMenu,
     openLaneMenu,
     openLayerMenu,
     openMainAudioMenu,
     openSourceSpanMenu,
+    openSourceTrackMenu,
     getClipMenuEntries,
     getEditMenuEntries,
   } = useMenus({
@@ -326,8 +360,10 @@ export function useTimelineEditing({
     deleteArrangementClip,
     deleteLayer,
     deleteSelection,
+    deleteSourceTrack,
     duplicateArrangementClip,
     duplicateLayer,
+    duplicateSourceTrack,
     fxLaneId,
     handleRedo,
     handleUndo,
@@ -341,6 +377,7 @@ export function useTimelineEditing({
     mainAudioId,
     mainAudioInputRef,
     moveLayer,
+    moveSourceTrack,
     pasteArrangementClip,
     pendingSelection,
     playheadQRef,
@@ -415,6 +452,23 @@ export function useTimelineEditing({
     commitProjectChange,
   });
 
+  useSourceSpanDrag({
+    sourceSpanDrag,
+    setSourceSpanDrag,
+    dragPreviewSourceSpans,
+    setDragPreviewSourceSpans,
+    sourceSpans,
+    mediaItemsById,
+    bpm,
+    fps,
+    snapUnit,
+    snapEnabled,
+    quarterPx,
+    isWorkspaceReadOnlyRef,
+    refuseReadOnlyEdit,
+    commitProjectChange,
+  });
+
   return {
     canCreateLayer,
     addSourceSpanToArrangement,
@@ -427,6 +481,9 @@ export function useTimelineEditing({
     openLayerMenu,
     openMainAudioMenu,
     openSourceSpanMenu,
+    openSourceTrackMenu,
+    sourceTracksListRef,
+    sourceTrackReorder,
     getClipMenuEntries,
     getEditMenuEntries,
   };

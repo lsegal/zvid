@@ -40,7 +40,7 @@ function quartersToSeconds(quarters: number, bpm: number) {
   return (quarters * 60) / bpm;
 }
 
-function getClipEndQ(clip: RangeClip, bpm: number) {
+function getClipEndQ(clip: TimedClip, bpm: number) {
   return clip.startQ + (clip.durationSeconds * bpm) / 60;
 }
 
@@ -64,6 +64,21 @@ export function withWindowTiming<Clip extends RangeClip>(
   };
 }
 
+/** The timing fields overlap resolution reads, whatever holds the clip. */
+export type TimedClip = {
+  id: string;
+  startQ: number;
+  durationSeconds: number;
+};
+
+/** How overlap resolution groups and trims one kind of clip. */
+export type OverlapContainer<Clip extends TimedClip> = {
+  /** The layer, source track or other row the clip sits in. */
+  containerOf: (clip: Clip) => string;
+  /** `clip` cut down to `[startQ, startQ + durationQ)`, content in place. */
+  retime: (clip: Clip, startQ: number, durationQ: number) => Clip;
+};
+
 /**
  * Places `activeClip` and trims the clips it overlaps on its layer: each
  * keeps its longer uncovered side, and is removed when it has none.
@@ -73,14 +88,33 @@ export function resolveClipOverlaps<Clip extends RangeClip>(
   activeClip: Clip,
   bpm: number,
 ) {
+  return resolveContainerOverlaps(clips, activeClip, bpm, {
+    containerOf: (clip) => clip.laneId,
+    retime: (clip, startQ, durationQ) =>
+      withWindowTiming(clip, startQ, durationQ, bpm),
+  });
+}
+
+/**
+ * Places `activeClip` and trims the clips it overlaps in its container, the
+ * way `resolveClipOverlaps` does on a layer: each keeps its longer uncovered
+ * side, and is removed when it has none. Other containers are unchanged.
+ */
+export function resolveContainerOverlaps<Clip extends TimedClip>(
+  clips: Clip[],
+  activeClip: Clip,
+  bpm: number,
+  { containerOf, retime }: OverlapContainer<Clip>,
+) {
   const activeEndQ = getClipEndQ(activeClip, bpm);
+  const activeContainer = containerOf(activeClip);
 
   return clips.flatMap<Clip>((clip) => {
     if (clip.id === activeClip.id) {
       return [activeClip];
     }
 
-    if (clip.laneId !== activeClip.laneId) {
+    if (containerOf(clip) !== activeContainer) {
       return [clip];
     }
 
@@ -99,11 +133,11 @@ export function resolveClipOverlaps<Clip extends RangeClip>(
     }
 
     if (leftDurationQ >= rightDurationQ && leftDurationQ > EPSILON) {
-      return [withWindowTiming(clip, clip.startQ, leftDurationQ, bpm)];
+      return [retime(clip, clip.startQ, leftDurationQ)];
     }
 
     if (rightDurationQ > EPSILON) {
-      return [withWindowTiming(clip, activeEndQ, rightDurationQ, bpm)];
+      return [retime(clip, activeEndQ, rightDurationQ)];
     }
 
     return [];

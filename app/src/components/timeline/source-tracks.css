@@ -63,6 +63,37 @@
   background: #313447;
 }
 
+/* The grip reorders source tracks exactly like layers (layer-header.css,
+   arrangement-lanes.css). */
+.track-label--source:hover .track-label__grip,
+.track-label--source:focus-within .track-label__grip {
+  opacity: 1;
+}
+
+.source-track-list {
+  position: relative;
+}
+
+.source-track-list--reordering .track-row {
+  position: relative;
+  transition: transform 160ms ease;
+}
+
+.source-track-list--reordering-pointer .track-row--lifted {
+  transition: box-shadow 160ms ease;
+}
+
+.source-track-list--reordering .layer-drop-indicator:not([hidden]) {
+  display: block;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .source-track-list--reordering .track-row,
+  .source-track-list--reordering-pointer .track-row--lifted {
+    transition: none;
+  }
+}
+
 .track-label__stripe {
   flex-shrink: 0;
   width: 4px;

@@ -101,9 +101,15 @@ test("audio-only clips draw a waveform with a quiet border", async ({
   await expect(span.locator(".source-span__filmstrip")).toHaveCount(0);
   await expect.poll(() => drawnColumns(spanWaveform)).toBeGreaterThan(20);
   await page.mouse.move(5, 5);
+  const spanStart = span.locator(".source-span__handle--start");
+  const spanEnd = span.locator(".source-span__handle--end");
   await expect.poll(() => borderAlpha(span)).toBeLessThan(0.5);
+  await expectOpacity(spanStart, "0");
+  await expectOpacity(spanEnd, "0");
   await span.hover();
   await expect.poll(() => borderAlpha(span)).toBe(1);
+  await expectOpacity(spanStart, "1");
+  await expectOpacity(spanEnd, "1");
 
   // The layer clip.
   await copySpanToLayer(span, "Layer 1");

@@ -17,6 +17,7 @@ import {
   isGeneratedClip,
 } from "../clip-media-state";
 import type { MediaItem } from "../media";
+import { isSourceRenderId, resolveRenderClips } from "../render-clips.ts";
 import { loadFontFace, resolveFontFace } from "../text-fonts.ts";
 import { isTextEffectName, readTextStyle } from "../text-style.ts";
 import {
@@ -76,6 +77,8 @@ export function usePreview({
     lanes,
     effects,
     projectDurationFrames,
+    sourceTracks,
+    sourceSpans,
   } = project;
   const {
     inspectorClip,
@@ -87,9 +90,29 @@ export function usePreview({
     timelineClipsRef,
     timelineEffects,
   } = selection;
+  // What the compositor draws: the layer clips, or the source tracks when
+  // there are none (see resolveRenderClips).
+  const render = useMemo(
+    () =>
+      resolveRenderClips({
+        clips: timelineClips,
+        lanes,
+        sourceTracks,
+        sourceSpans,
+        bpm,
+      }),
+    [bpm, lanes, sourceSpans, sourceTracks, timelineClips],
+  );
+  const renderLanePriority = useMemo(
+    () =>
+      render.fromSourceTracks
+        ? new Map(render.lanes.map((lane, index) => [lane.id, index]))
+        : lanePriority,
+    [lanePriority, render],
+  );
   const playheadClip = useMemo(
-    () => findClipAtPlayhead(timelineClips, playheadQ, bpm, lanePriority),
-    [bpm, lanePriority, playheadQ, timelineClips],
+    () => findClipAtPlayhead(render.clips, playheadQ, bpm, renderLanePriority),
+    [bpm, playheadQ, render, renderLanePriority],
   );
   const previewClip = playheadClip ?? inspectorClip;
   const previewMedia = previewClip?.mediaId
@@ -102,7 +125,7 @@ export function usePreview({
   // clip on one layer only covers the preview when no layer can be drawn.
   const hasOnlinePlayheadClip = useMemo(
     () =>
-      timelineClips.some(
+      render.clips.some(
         (clip) =>
           isClipAtPlayhead(clip, playheadQ, bpm) &&
           (isGeneratedClip(clip) ||
@@ -112,21 +135,27 @@ export function usePreview({
                 : undefined,
             ) === "online"),
       ),
-    [bpm, mediaItemsById, playheadQ, timelineClips],
+    [bpm, mediaItemsById, playheadQ, render],
   );
-  const previewLayers = usePreviewLayers({
-    clips: timelineClips,
+  const renderedLayers = usePreviewLayers({
+    clips: render.clips,
     mediaItemsById,
     playheadQ,
     bpm,
     fps,
     projectDurationFrames,
-    lanes,
-    lanePriority,
+    lanes: render.lanes,
+    lanePriority: renderLanePriority,
     effects: timelineEffects,
     canvasWidth,
     canvasHeight,
   });
+  // Source tracks rendered in place of layers are render-only: the
+  // transform overlay can't select or edit them.
+  const previewLayers = useMemo(
+    () => renderedLayers.filter((layer) => !isSourceRenderId(layer.laneId)),
+    [renderedLayers],
+  );
   const previewEditing = usePreviewEditing({
     bpm,
     editEffects,
@@ -161,6 +190,9 @@ export function usePreview({
     ...previewEditing,
     previewLayers,
     previewClip,
+    renderClips: render.clips,
+    renderLanes: render.lanes,
+    renderFromSourceTracks: render.fromSourceTracks,
     previewMedia,
     previewMediaState,
     hasOnlinePlayheadClip,

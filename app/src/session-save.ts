@@ -190,7 +190,15 @@ function toLvpParameters(parameters: SaveableEffect["parameters"]) {
   return result;
 }
 
-// A clip slipped off its span's source offset keeps its span and offset in
+// Whether a clip starting at `startQ` is inside `span`, so that opening the
+// session finds `span` for it by track and position.
+function startsInSpan(startQ: number, span: SaveableSourceSpan, bpm: number) {
+  const spanEndQ = span.startQ + secondsToQuarters(span.durationSeconds, bpm);
+  return startQ >= span.startQ && startQ < spanEndQ;
+}
+
+// A clip slipped off its span's source offset, or starting outside its span
+// since that span moved or was trimmed, keeps its span and offset in
 // zvid-only fields; any other clip is found by track and position on open.
 function selectionSlip(
   clip: SaveableClip,
@@ -201,8 +209,9 @@ function selectionSlip(
   if (
     !span ||
     clip.sourceOffsetSeconds === undefined ||
-    Math.abs(clip.sourceOffsetSeconds - spanSourceOffsetSeconds(span, bpm)) <
-      SLIP_EPSILON_SECONDS
+    (Math.abs(clip.sourceOffsetSeconds - spanSourceOffsetSeconds(span, bpm)) <
+      SLIP_EPSILON_SECONDS &&
+      startsInSpan(clip.startQ, span, bpm))
   ) {
     return {};
   }

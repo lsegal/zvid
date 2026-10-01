@@ -69,14 +69,15 @@ export type ArrangementClip = {
 };
 
 // The right-click menu open on an arrangement clip, empty lane space, the
-// uncommitted selection, a source clip, a layer header or the Audio row, at
-// `anchor` in viewport coordinates.
+// uncommitted selection, a source clip, a layer header, a source track label
+// or the Audio row, at `anchor` in viewport coordinates.
 export type ClipMenuState = { anchor: MenuPoint } & (
   | { kind: "clip"; clipId: string }
   | { kind: "lane"; laneId: string }
   | { kind: "selection" }
   | { kind: "span"; spanId: string }
   | { kind: "layer"; laneId: string }
+  | { kind: "source-track"; trackId: string }
   | { kind: "audio" }
 );
 
@@ -123,6 +124,16 @@ export type DragState =
       laneId: string;
       gesture: LaneSelectionGesture;
     };
+
+// A source clip pressed to move it or trim one of its edges. Nothing changes
+// until the pointer passes the click threshold, so a press released before
+// then is a click.
+export type SourceSpanDragState = {
+  kind: "move" | "resize-start" | "resize-end";
+  pointerId: number;
+  spanId: string;
+  pointerStartX: number;
+};
 
 export type TimelineDragState = {
   pointerId: number;
