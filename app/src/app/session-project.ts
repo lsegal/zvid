@@ -326,6 +326,7 @@ export function sessionToProject(
     projectDurationFrames: session.timeline?.projectDuration,
     playPositionFrames: session.playPosition ?? 0,
     playStartPositionFrames: session.playStartPosition ?? 0,
+    sourceTracksLocked: session.sourceTracksLocked === true,
     mainAudioMediaId: session.audioFilename
       ? pickMediaByPath(mediaItems, session.audioFilename)?.id
       : undefined,

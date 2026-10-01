@@ -148,3 +148,21 @@ test("the context-menu key opens the selected source track's menu", async ({
   await menuItem(page, "Duplicate").click();
   await expect(names(page)).toHaveText(["test-pattern", "test-pattern copy"]);
 });
+
+test("while source tracks are locked, Delete does nothing and Mod+D still duplicates", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: "Lock source tracks" }).click();
+  await expect(
+    page.getByRole("button", { name: "Unlock source tracks" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await selectTrack(page, 0);
+
+  await page.keyboard.press("Delete");
+  await page.keyboard.press("Backspace");
+  await expect(names(page)).toHaveText(["test-pattern"]);
+  await expect(layerClips(page)).toHaveCount(1);
+
+  await page.keyboard.press("ControlOrMeta+d");
+  await expect(names(page)).toHaveText(["test-pattern", "test-pattern copy"]);
+});

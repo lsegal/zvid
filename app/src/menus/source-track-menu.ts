@@ -2,6 +2,7 @@
 // Rename, Duplicate, Delete and Move entries, for source tracks.
 import type { ContextMenuEntry } from "../context-menu.ts";
 import type { LaneLike } from "../lanes.ts";
+import { SOURCE_TRACKS_LOCKED_TITLE } from "../source-tracks-section.ts";
 import { deleteLayerEntry } from "./entries/delete-layer.ts";
 import { duplicateLayerEntry } from "./entries/duplicate-layer.ts";
 import { moveLayerEntries } from "./entries/move-layer.ts";
@@ -25,6 +26,8 @@ export type SourceTrackMenuOptions = {
   trackId: string;
   // Disables every entry.
   disabled?: boolean;
+  // Disables Delete and Move while the source tracks are locked.
+  locked?: boolean;
   actions: SourceTrackMenuActions;
 };
 
@@ -36,6 +39,9 @@ export type SourceTrackMenuContext = {
   canAdd: boolean;
   addTitle: string | undefined;
   canRemove: boolean;
+  removeTitle: string | undefined;
+  canMove: boolean;
+  moveTitle: string | undefined;
   actions: SourceTrackMenuActions;
 };
 
@@ -53,8 +59,10 @@ export function buildSourceTrackMenuEntries({
   tracks,
   trackId,
   disabled = false,
+  locked = false,
   actions,
 }: SourceTrackMenuOptions): ContextMenuEntry[] {
+  const lockedTitle = locked ? SOURCE_TRACKS_LOCKED_TITLE : undefined;
   return assembleMenu(sourceTrackMenuEntries, {
     lanes: tracks,
     laneId: trackId,
@@ -62,7 +70,10 @@ export function buildSourceTrackMenuEntries({
     // Source tracks have no limit, and the last one can go too.
     canAdd: true,
     addTitle: undefined,
-    canRemove: true,
+    canRemove: !locked,
+    removeTitle: lockedTitle,
+    canMove: !locked,
+    moveTitle: lockedTitle,
     actions,
   });
 }

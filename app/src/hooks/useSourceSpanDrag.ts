@@ -24,6 +24,7 @@ export type SourceSpanDragInputs = {
   fps: number;
   snapUnit: number;
   snapEnabled: boolean;
+  sourceTracksLocked: boolean;
   quarterPx: number;
   isWorkspaceReadOnlyRef: { current: boolean };
   refuseReadOnlyEdit: () => void;
@@ -48,6 +49,7 @@ export function useSourceSpanDrag({
   fps,
   snapUnit,
   snapEnabled,
+  sourceTracksLocked,
   quarterPx,
   isWorkspaceReadOnlyRef,
   refuseReadOnlyEdit,
@@ -55,6 +57,14 @@ export function useSourceSpanDrag({
 }: SourceSpanDragInputs) {
   useEffect(() => {
     if (!sourceSpanDrag) {
+      return;
+    }
+
+    // Locking the source tracks, here or by a collaborator, drops a drag in
+    // progress without changing anything.
+    if (sourceTracksLocked) {
+      setDragPreviewSourceSpans(null);
+      setSourceSpanDrag(null);
       return;
     }
 
@@ -164,5 +174,6 @@ export function useSourceSpanDrag({
     snapUnit,
     sourceSpanDrag,
     sourceSpans,
+    sourceTracksLocked,
   ]);
 }

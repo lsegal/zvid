@@ -111,6 +111,7 @@ export type MenusInputs = Pick<
     shortcutLabels: ReturnType<typeof getShortcutLabels>;
     sourceSpans: SourceSpan[];
     sourceTracks: SourceTrack[];
+    sourceTracksLocked: boolean;
     timelineClips: ArrangementClip[];
     timelineScrollRef: RefObject<HTMLDivElement | null>;
     undoLabel: string | undefined;
@@ -187,6 +188,7 @@ export function useMenus({
   shortcutLabels,
   sourceSpans,
   sourceTracks,
+  sourceTracksLocked,
   splitArrangementClip,
   timelineClips,
   timelineScrollRef,
@@ -303,6 +305,7 @@ export function useMenus({
         ? buildSourceTrackMenuEntries({
             tracks: sourceTracks,
             trackId: track.id,
+            locked: sourceTracksLocked,
             actions: {
               rename: () => setRenamingSourceTrackId(track.id),
               duplicate: () => duplicateSourceTrack(track),

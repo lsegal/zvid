@@ -279,6 +279,19 @@ describe("menu snapshots", () => {
       ),
       SOURCE_TRACK_MENU_DISABLED,
     );
+    // Locked source tracks can still be renamed and duplicated, not deleted
+    // or moved.
+    assert.deepEqual(
+      snapshot(
+        buildSourceTrackMenuEntries({
+          tracks,
+          trackId: "track-a",
+          locked: true,
+          actions,
+        }),
+      ),
+      SOURCE_TRACK_MENU_LOCKED,
+    );
   });
 
   it("audio menu", () => {
@@ -471,6 +484,15 @@ const SOURCE_TRACK_MENU_DISABLED = [
   "---",
   "move-up: Move up (disabled)",
   "move-down: Move down (disabled)",
+];
+
+const SOURCE_TRACK_MENU_LOCKED = [
+  "rename: Rename…",
+  "duplicate: Duplicate",
+  'delete: Delete title="Source tracks are locked" (disabled)',
+  "---",
+  'move-up: Move up title="Source tracks are locked" (disabled)',
+  'move-down: Move down title="Source tracks are locked" (disabled)',
 ];
 
 const AUDIO_MENUS = [
