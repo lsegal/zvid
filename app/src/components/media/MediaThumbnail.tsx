@@ -40,7 +40,13 @@ export function MediaThumbnail({
       }}
     >
       {thumbnailUrl && media.hasVideo ? (
-        <img alt="" className="media-thumb__image" src={thumbnailUrl} />
+        // The item drags the media, not the frame's image file.
+        <img
+          alt=""
+          className="media-thumb__image"
+          draggable={false}
+          src={thumbnailUrl}
+        />
       ) : (
         <Glyph aria-hidden="true" className="media-thumb__glyph" />
       )}

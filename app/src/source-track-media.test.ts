@@ -1,10 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type {
-  ArrangementClip,
-  SourceSpan,
-  SourceTrack,
-} from "./app/types.ts";
+import type { ArrangementClip, SourceSpan, SourceTrack } from "./app/types.ts";
 import type { MediaItem } from "./media.ts";
 import {
   addMediaToSourceTrack,
@@ -84,10 +80,13 @@ const layout = (spans: readonly SourceSpan[]) =>
 
 describe("getMediaClipTrim", () => {
   it("plays the In/Out range of media that has one", () => {
-    assert.deepEqual(getMediaClipTrim(media("a", 10, { inSeconds: 2, outSeconds: 5.5 })), {
-      trimStartSeconds: 2,
-      durationSeconds: 3.5,
-    });
+    assert.deepEqual(
+      getMediaClipTrim(media("a", 10, { inSeconds: 2, outSeconds: 5.5 })),
+      {
+        trimStartSeconds: 2,
+        durationSeconds: 3.5,
+      },
+    );
   });
 
   it("plays the whole file without a range", () => {

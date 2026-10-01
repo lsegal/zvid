@@ -30,8 +30,7 @@ export function endMediaDrag() {
 
 export function isMediaDrag(dataTransfer: DataTransferLike | null) {
   return (
-    !!dataTransfer &&
-    Array.from(dataTransfer.types).includes(MEDIA_DRAG_TYPE)
+    !!dataTransfer && Array.from(dataTransfer.types).includes(MEDIA_DRAG_TYPE)
   );
 }
 
@@ -57,7 +56,9 @@ export function getDraggedMediaIds(dataTransfer: DataTransferLike | null) {
   if (!isMediaDrag(dataTransfer)) {
     return [];
   }
-  return parseMediaIds(dataTransfer?.getData?.(MEDIA_DRAG_TYPE)) ?? [
-    ...activeMediaIds,
-  ];
+  return (
+    parseMediaIds(dataTransfer?.getData?.(MEDIA_DRAG_TYPE)) ?? [
+      ...activeMediaIds,
+    ]
+  );
 }

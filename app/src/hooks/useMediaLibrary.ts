@@ -502,8 +502,7 @@ export function useMediaLibraryCommands({
       }
 
       const ids = new Set(mediaIds);
-      const count = projectMediaItems.filter((item) => ids.has(item.id))
-        .length;
+      const count = projectMediaItems.filter((item) => ids.has(item.id)).length;
       if (!count) {
         setStatus("The dragged media is no longer in this session.");
         return;
@@ -522,9 +521,7 @@ export function useMediaLibraryCommands({
       setSourceTracksCollapsed(false);
       setStatus(
         `Added ${pluralize(count, "media clip")} to ${
-          target.kind === "track"
-            ? "the source track"
-            : "a new source track"
+          target.kind === "track" ? "the source track" : "a new source track"
         }.`,
       );
     },
