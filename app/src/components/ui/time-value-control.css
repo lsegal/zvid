@@ -1,0 +1,115 @@
+/*
+ * Time value field for clip properties: a typed time with an up/down drag
+ * handle. Matches the FX device knobs (see knob.css), taking its colors from
+ * the app theme variables with dark fallbacks.
+ */
+.time-value {
+  --time-value-accent: var(--accent, #7c8cff);
+  --time-value-ink: var(--ink, #eef2ff);
+  --time-value-muted: var(--muted, #a4a9bf);
+  --time-value-body: var(--bg-soft, #383b50);
+  --time-value-track: color-mix(in srgb, var(--time-value-ink) 14%, transparent);
+  --time-value-edge: var(--line-strong, rgba(255, 255, 255, 0.14));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 96px;
+  min-width: 0;
+  user-select: none;
+}
+
+.time-value__label {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--time-value-muted);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.time-value__field {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  height: 24px;
+  overflow: hidden;
+  border: 1px solid var(--time-value-edge);
+  border-radius: 6px;
+  background: var(--time-value-body);
+  outline: none;
+  transition: box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.time-value__field:focus-visible,
+.time-value--editing .time-value__field {
+  border-color: var(--time-value-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--time-value-accent) 35%, transparent);
+}
+
+.time-value__text,
+.time-value__input {
+  flex: 1;
+  min-width: 0;
+  padding: 0 4px;
+  border: 0;
+  color: var(--time-value-ink);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  line-height: 22px;
+  text-align: center;
+}
+
+.time-value__text {
+  overflow: hidden;
+  background: transparent;
+  cursor: text;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.time-value__text:hover {
+  background: var(--time-value-track);
+}
+
+.time-value__input {
+  background: transparent;
+  outline: none;
+  user-select: text;
+}
+
+.time-value__handle {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 16px;
+  border-left: 1px solid var(--time-value-edge);
+  color: var(--time-value-muted);
+  cursor: ns-resize;
+  touch-action: none;
+  transition: color 120ms ease, background 120ms ease;
+}
+
+.time-value__handle svg {
+  display: block;
+  fill: currentColor;
+}
+
+.time-value__handle:hover,
+.time-value--dragging .time-value__handle {
+  background: var(--time-value-track);
+  color: var(--time-value-accent);
+}
+
+.time-value--disabled {
+  opacity: 0.45;
+}
+
+.time-value--disabled .time-value__text,
+.time-value--disabled .time-value__handle {
+  cursor: not-allowed;
+}
