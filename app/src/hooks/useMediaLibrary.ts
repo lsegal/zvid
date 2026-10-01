@@ -31,6 +31,7 @@ import {
   toShareableMediaItem,
 } from "../media";
 import { cacheMediaBlob } from "../media-cache";
+import { hasMediaDetails } from "../media-details.ts";
 import {
   createMediaRelinker,
   type MediaRelinkCandidate,
@@ -216,7 +217,15 @@ export function useMediaLibrary({
         revokeObjectUrl(previousPreviewUrl);
       }
 
-      if (!existing || !(options?.analyze || existing.durationSeconds === 0)) {
+      // Media saved before its file details were read gets them now.
+      if (
+        !existing ||
+        !(
+          options?.analyze ||
+          existing.durationSeconds === 0 ||
+          !hasMediaDetails(existing)
+        )
+      ) {
         return { previewUrl, warning };
       }
 
@@ -245,6 +254,9 @@ export function useMediaLibrary({
           color: existing.color,
           accent: existing.accent,
           sourcePath: existing.sourcePath ?? result.sourcePath,
+          // The analyzed copy of a cached blob was modified just now.
+          lastModified:
+            blob instanceof File ? blob.lastModified : existing.lastModified,
           previewUrl,
         };
         seedLocalMediaItems([analyzed]);
