@@ -112,6 +112,11 @@ export type LvpSession = {
    * Imported Live sets start locked; without it a session opens unlocked.
    */
   sourceTracksLocked?: boolean;
+  /**
+   * zvid-only: the In and Out points set on media, by file path, in seconds
+   * from the start of the file.
+   */
+  mediaRanges?: Array<{ path: string; inSeconds: number; outSeconds: number }>;
   // Set on sessions saved since every session got a default Order effect;
   // without it the session is older and opens with one added. Anything that
   // writes a session must set it, or a removed Order comes back on open.

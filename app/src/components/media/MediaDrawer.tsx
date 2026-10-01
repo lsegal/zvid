@@ -7,6 +7,7 @@ import {
 } from "react";
 import type { MediaDrawerState } from "../../hooks/useMediaDrawer.ts";
 import type { MediaItem } from "../../media";
+import { hasMediaRange } from "../../media-range.ts";
 import {
   describeMediaSync,
   type RemoteMediaProgressMap,
@@ -189,6 +190,7 @@ export function MediaDrawer({
       media.availability,
     );
     const offline = media.availability === "offline" && !mediaSync;
+    const hasRange = hasMediaRange(media);
     const duration = formatMediaDuration(media.durationSeconds);
     const className = [
       view === "icons" ? "media-tile" : "media-row",
@@ -202,6 +204,14 @@ export function MediaDrawer({
         {isMainAudio ? (
           <span className="media-badge media-badge--audio-track">
             Audio track
+          </span>
+        ) : null}
+        {hasRange ? (
+          <span
+            className="media-badge media-badge--range"
+            title="Has In/Out points"
+          >
+            In/Out
           </span>
         ) : null}
         {offline ? (
@@ -240,7 +250,7 @@ export function MediaDrawer({
             <span className="media-tile__name">
               {middleEllipsis(media.name, nameMaxChars)}
             </span>
-            {isMainAudio || offline ? (
+            {isMainAudio || hasRange || offline ? (
               <span className="media-tile__badges">{badges}</span>
             ) : null}
           </>

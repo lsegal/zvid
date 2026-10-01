@@ -7,6 +7,7 @@ import {
   pruneClipEffects,
 } from "../fx-stack.ts";
 import type { MediaItem } from "../media.ts";
+import { keepMediaRange } from "../media-range.ts";
 import {
   migrateClipContentEffects,
   migrateColorizeReactivity,
@@ -60,7 +61,11 @@ export function mergeMediaItemsById(
   incoming: MediaItem[],
 ) {
   const incomingById = new Map(incoming.map((item) => [item.id, item]));
-  return current.map((item) => incomingById.get(item.id) ?? item);
+  // Analysis knows nothing of the In/Out points set on the media.
+  return current.map((item) => {
+    const replacement = incomingById.get(item.id);
+    return replacement ? keepMediaRange(item, replacement) : item;
+  });
 }
 
 export function patchProjectState(

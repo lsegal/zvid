@@ -37,6 +37,10 @@ export type MediaItem = {
   thumbnailUrl?: string;
   sourcePath?: string;
   availability: MediaAvailability;
+  // The In and Out points to use when the media goes into the timeline, in
+  // seconds from the start of the file. Without them it uses the whole file.
+  rangeInSeconds?: number;
+  rangeOutSeconds?: number;
   // Local-only reason the last attempt to link this media failed.
   lastError?: string;
 };
