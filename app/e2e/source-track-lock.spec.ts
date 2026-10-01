@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
 // The lock toggle on the Source Tracks header (#650): locked source tracks
-// are grayed out, their clips can't be moved or trimmed, and the tracks can't
+// are 30% less saturated (#677), their clips can't be moved or trimmed, and the tracks can't
 // be deleted or reordered. Imported Live sets open locked.
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
 const LIVE_SET = new URL(
@@ -107,6 +107,15 @@ test("locking freezes source clips and tracks until unlocked, with undo", async 
   await expect(span).toHaveClass(/source-span--locked/);
   await expect(span).toHaveCSS("cursor", "default");
   await expect(span.locator(".source-span__handle")).toHaveCount(0);
+  // Locked clips and labels are desaturated, not gray, dimmed or faded.
+  const labelName = rows(page).first().locator("[data-source-track-label-id]");
+  const stripe = rows(page).first().locator(".track-label__stripe");
+  await expect(span).toHaveCSS("filter", "saturate(0.7)");
+  await expect(span).toHaveCSS("opacity", "1");
+  for (const part of [labelName, stripe]) {
+    await expect(part).toHaveCSS("filter", "saturate(0.7)");
+    await expect(part).toHaveCSS("opacity", "1");
+  }
 
   // Dragging a locked clip changes nothing.
   const startLeft = await left(span);
@@ -116,6 +125,7 @@ test("locking freezes source clips and tracks until unlocked, with undo", async 
   // Selecting still works.
   await span.locator(".source-span__body").click();
   await expect(span).toHaveClass(/source-span--selected/);
+  await expect(span).toHaveCSS("filter", "saturate(0.7)");
 
   // Undo unlocks; redo locks again.
   await page.keyboard.press("ControlOrMeta+z");
@@ -157,6 +167,9 @@ test("locking freezes source clips and tracks until unlocked, with undo", async 
   // Unlocking re-enables moving, trimming and reordering.
   await lockButton(page).click();
   await expectLocked(page, false);
+  await expect(span).toHaveCSS("filter", "none");
+  await expect(labelName).toHaveCSS("filter", "none");
+  await expect(stripe).toHaveCSS("filter", "none");
   await expect(span.locator(".source-span__handle")).toHaveCount(2);
   await dragBy(page, span.locator(".source-span__body"), width / 2);
   await expect.poll(() => left(span)).not.toBe(startLeft);
