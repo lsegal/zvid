@@ -10,6 +10,7 @@ import { AppStatusBar } from "./components/AppStatusBar";
 import { ArrangementEmptyState } from "./components/ArrangementEmptyState";
 import { CollaborationCursors } from "./components/CollaborationCursors";
 import { FxPanel } from "./components/FxPanel";
+import { MediaDrawer } from "./components/media/MediaDrawer";
 import { PreviewPanel } from "./components/PreviewPanel";
 import { TimelineContextMenu } from "./components/TimelineContextMenu";
 import { TopBar } from "./components/TopBar";
@@ -29,6 +30,7 @@ import { useFxEditing } from "./hooks/useFxEditing.ts";
 import { useFxPanelModel } from "./hooks/useFxPanelModel.ts";
 import { useMainAudio } from "./hooks/useMainAudio.ts";
 import { useMediaCacheSession } from "./hooks/useMediaCacheSession.ts";
+import { useMediaDrawer } from "./hooks/useMediaDrawer.ts";
 import { useMediaImport } from "./hooks/useMediaImport.ts";
 import { useMediaPreview } from "./hooks/useMediaPreview.ts";
 import { usePlayback } from "./hooks/usePlayback.ts";
@@ -77,6 +79,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const { setSelectedClipId, setDragPreviewClips, setDragState } = selection;
   const layout = useAppLayout({ sourceTrackCount: sourceTracks.length });
   const { labelWidth, shortcutLabels, prefersReducedMotion } = layout;
+  const mediaDrawer = useMediaDrawer({
+    editorGridWidth: layout.editorGridWidth,
+  });
   const dialogs = useAppDialogs();
   const [isPlaying, setIsPlaying] = useState(false);
   const [status, setStatus] = useState(() =>
@@ -354,6 +359,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
               canCreateLayer={editing.canCreateLayer}
               commitProjectPatch={store.commitProjectPatch}
               onCreateLayer={editing.handleCreateLayer}
+              isMediaDrawerOpen={mediaDrawer.isOpen}
+              onToggleMediaDrawer={mediaDrawer.toggleOpen}
             />
 
             <div
@@ -363,6 +370,14 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 ["--preview-width" as string]: `${layout.effectivePreviewWidth}px`,
               }}
             >
+              <MediaDrawer
+                drawer={mediaDrawer}
+                mediaItems={mediaItems}
+                mainAudioId={project.mainAudioId}
+                remoteMediaProgress={media.remoteMediaProgress}
+                prefersReducedMotion={prefersReducedMotion}
+                onImport={() => void sessionFiles.handleImport()}
+              />
               <Timeline
                 {...timeline}
                 timelineScrollRef={timelineScrollRef}
