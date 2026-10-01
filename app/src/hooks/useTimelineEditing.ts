@@ -320,6 +320,10 @@ export function useTimelineEditing({
 
   const {
     sourceTracksListRef,
+    renamingSourceTrackId,
+    setRenamingSourceTrackId,
+    commitSourceTrackRename,
+    cancelSourceTrackRename,
     duplicateSourceTrack,
     deleteSourceTrack,
     moveSourceTrack,
@@ -385,6 +389,7 @@ export function useTimelineEditing({
     redoLabel,
     removeMainAudio,
     renamingLaneId,
+    renamingSourceTrackId,
     selectLaneFromLabel,
     selectedClip,
     selectedLaneId,
@@ -392,6 +397,7 @@ export function useTimelineEditing({
     setLayerFxEnabled,
     setPendingSelection,
     setRenamingLaneId,
+    setRenamingSourceTrackId,
     setSelectedClipId,
     setSelectedLaneId,
     shortcutLabels,
@@ -484,6 +490,9 @@ export function useTimelineEditing({
     openSourceTrackMenu,
     sourceTracksListRef,
     sourceTrackReorder,
+    renamingSourceTrackId,
+    commitSourceTrackRename,
+    cancelSourceTrackRename,
     getClipMenuEntries,
     getEditMenuEntries,
   };

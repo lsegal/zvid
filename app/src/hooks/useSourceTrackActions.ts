@@ -3,6 +3,7 @@ import {
   type RefObject,
   type SetStateAction,
   useRef,
+  useState,
 } from "react";
 import { patchProjectState } from "../app/session-project.ts";
 import type {
@@ -15,6 +16,7 @@ import {
   deleteSourceTrack,
   duplicateSourceTrack,
   moveSourceTrackTo,
+  renameSourceTrack,
 } from "../source-track-edits.ts";
 import { useLayerReorder } from "../use-layer-reorder";
 
@@ -41,8 +43,8 @@ function focusSourceTrackLabel(trackId: string) {
   }, 0);
 }
 
-// Duplicates, deletes and moves source tracks, like useLayerActions does
-// layers, with the same history labels.
+// Renames, duplicates, deletes and moves source tracks, like useLayerActions
+// does layers, with the same history labels.
 export function useSourceTrackActions({
   commitProjectChange,
   selectedClip,
@@ -52,6 +54,27 @@ export function useSourceTrackActions({
   timelineScrollRef,
 }: SourceTrackActionsInputs) {
   const sourceTracksListRef = useRef<HTMLDivElement | null>(null);
+  // The source track whose name is being edited in its label.
+  const [renamingSourceTrackId, setRenamingSourceTrackId] = useState<string>();
+
+  // Saves the name typed into the label's field, then focuses the label.
+  function commitSourceTrackRename(trackId: string, name: string) {
+    setRenamingSourceTrackId(undefined);
+    focusSourceTrackLabel(trackId);
+    const track = sourceTracks.find((item) => item.id === trackId);
+    if (!track) {
+      return;
+    }
+
+    commitProjectChange(layerHistoryLabels.rename(track.name), (current) =>
+      patchProjectState(current, renameSourceTrack(current, trackId, name)),
+    );
+  }
+
+  function cancelSourceTrackRename(trackId: string) {
+    setRenamingSourceTrackId(undefined);
+    focusSourceTrackLabel(trackId);
+  }
 
   function duplicateSourceTrackAction(track: SourceTrack) {
     const newTrackId = `source-track-${crypto.randomUUID()}`;
@@ -131,6 +154,10 @@ export function useSourceTrackActions({
 
   return {
     sourceTracksListRef,
+    renamingSourceTrackId,
+    setRenamingSourceTrackId,
+    commitSourceTrackRename,
+    cancelSourceTrackRename,
     duplicateSourceTrack: duplicateSourceTrackAction,
     deleteSourceTrack: deleteSourceTrackAction,
     moveSourceTrack,
