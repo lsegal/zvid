@@ -30,6 +30,7 @@ import {
   type MediaItem,
   toShareableMediaItem,
 } from "../media";
+import { restoreMediaRanges } from "../media-range.ts";
 import type { ProjectHistoryState } from "../project-history";
 import { resolveSampleMediaRefs } from "../sample/sample-manifest.ts";
 import { SAMPLE_MANIFESTS } from "../sample/samples.ts";
@@ -41,6 +42,7 @@ import {
 import {
   chooseSessionSaveTarget,
   projectToLvpSession,
+  readSessionMediaRanges,
   SESSION_FILE_EXTENSION,
 } from "../session-save.ts";
 import type { WorkspaceSessionSource } from "../workspace-session.ts";
@@ -126,11 +128,15 @@ export function useSessionIO({
     );
     const existingRefs = payload.mediaRefs.filter((ref) => ref.exists);
     const missingRefs = payload.mediaRefs.filter((ref) => !ref.exists);
-    const placeholderMedia = payload.mediaRefs.map((ref, index) =>
-      buildFallbackMediaItem(
-        ref,
-        PALETTE[index % PALETTE.length] ?? PALETTE[0],
+    const { session, clipsWithoutFile } = normalizeLvpSession(payload.session);
+    const placeholderMedia = restoreMediaRanges(
+      payload.mediaRefs.map((ref, index) =>
+        buildFallbackMediaItem(
+          ref,
+          PALETTE[index % PALETTE.length] ?? PALETTE[0],
+        ),
       ),
+      readSessionMediaRanges(session),
     );
     logClient("openSession:mediaRefs", {
       total: payload.mediaRefs.length,
@@ -138,7 +144,6 @@ export function useSessionIO({
       missing: missingRefs.length,
     });
 
-    const { session, clipsWithoutFile } = normalizeLvpSession(payload.session);
     if (clipsWithoutFile.length) {
       logClient("openSession:clipsWithoutFile", { clips: clipsWithoutFile });
     }

@@ -58,6 +58,16 @@ describe("mergeMediaItemsById", () => {
       ],
     );
   });
+
+  it("keeps the In/Out points of the items it replaces", () => {
+    const [merged] = mergeMediaItemsById(
+      [media({ durationSeconds: 0, rangeInSeconds: 1, rangeOutSeconds: 2 })],
+      [media({ durationSeconds: 5 })],
+    );
+    assert.equal(merged?.durationSeconds, 5);
+    assert.equal(merged?.rangeInSeconds, 1);
+    assert.equal(merged?.rangeOutSeconds, 2);
+  });
 });
 
 describe("pickMediaByPath", () => {
