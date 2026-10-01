@@ -51,6 +51,8 @@ export type LayerMenuContext = LayerMenuOptions & {
   // Whether another layer fits, and the tooltip saying why when it does not.
   canAdd: boolean;
   addTitle: string | undefined;
+  // Whether there is another layer left once this one is deleted.
+  canRemove: boolean;
 };
 
 export const layerMenuEntries: readonly MenuEntryProvider<LayerMenuContext>[] =
@@ -82,5 +84,6 @@ export function buildLayerMenuEntries({
     disabled,
     canAdd,
     addTitle: canAdd ? undefined : MAX_LAYERS_MESSAGE,
+    canRemove: options.lanes.length > 1,
   });
 }

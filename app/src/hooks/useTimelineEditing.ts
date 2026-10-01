@@ -25,6 +25,7 @@ import type {
   ProjectStore,
   useProjectHistoryCommands,
 } from "./useProjectStore.ts";
+import { useSourceTrackActions } from "./useSourceTrackActions.ts";
 import type { LaneStatus } from "./useTimelineLanes.ts";
 import type { TimelineSelectionState } from "./useTimelineSelection.ts";
 import type { useTimelineViewport } from "./useTimelineViewport.ts";
@@ -102,7 +103,8 @@ export type TimelineEditingInputs = {
 };
 
 // Editing the timeline: inserting clips (useClipInsertion), clip and range
-// commands (useClipActions), layer commands (useLayerActions), the context
+// commands (useClipActions), layer and source track commands
+// (useLayerActions, useSourceTrackActions), the context
 // and Edit menus (useMenus), keyboard shortcuts and Space playback, and clip
 // drags (useClipDrag).
 export function useTimelineEditing({
@@ -301,11 +303,27 @@ export function useTimelineEditing({
   });
 
   const {
+    sourceTracksListRef,
+    duplicateSourceTrack,
+    deleteSourceTrack,
+    moveSourceTrack,
+    sourceTrackReorder,
+  } = useSourceTrackActions({
+    commitProjectChange,
+    selectedClip,
+    setSelectedClipId,
+    setStatus,
+    sourceTracks,
+    timelineScrollRef,
+  });
+
+  const {
     openArrangementClipMenu,
     openLaneMenu,
     openLayerMenu,
     openMainAudioMenu,
     openSourceSpanMenu,
+    openSourceTrackMenu,
     getClipMenuEntries,
     getEditMenuEntries,
   } = useMenus({
@@ -326,8 +344,10 @@ export function useTimelineEditing({
     deleteArrangementClip,
     deleteLayer,
     deleteSelection,
+    deleteSourceTrack,
     duplicateArrangementClip,
     duplicateLayer,
+    duplicateSourceTrack,
     fxLaneId,
     handleRedo,
     handleUndo,
@@ -341,6 +361,7 @@ export function useTimelineEditing({
     mainAudioId,
     mainAudioInputRef,
     moveLayer,
+    moveSourceTrack,
     pasteArrangementClip,
     pendingSelection,
     playheadQRef,
@@ -427,6 +448,9 @@ export function useTimelineEditing({
     openLayerMenu,
     openMainAudioMenu,
     openSourceSpanMenu,
+    openSourceTrackMenu,
+    sourceTracksListRef,
+    sourceTrackReorder,
     getClipMenuEntries,
     getEditMenuEntries,
   };
