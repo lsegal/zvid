@@ -14,7 +14,6 @@ import {
   type FxLayerOption,
   groupChainDevices,
   readCollapsedDevices,
-  resolveGlobalOrderHint,
   toggleCollapsedDevice,
   writeCollapsedDevices,
 } from "../../fx-chain";
@@ -434,7 +433,6 @@ export function FxChain({
       ? `No effects on ${layerName}`
       : null;
   const showGlobal = groups.global.length > 0 || canEdit;
-  const globalOrderHint = resolveGlobalOrderHint(groups.global);
   const menuDevice = menu?.device;
   const menuEntries = menu
     ? getDeviceMenuEntries(menu, {
@@ -459,9 +457,6 @@ export function FxChain({
       {showGlobal ? (
         <>
           {renderDivider("global")}
-          {globalOrderHint ? (
-            <p className="fx-chain__hint">{globalOrderHint}</p>
-          ) : null}
           {renderStack("global")}
           {canEdit ? renderAddMenu("global") : null}
         </>
