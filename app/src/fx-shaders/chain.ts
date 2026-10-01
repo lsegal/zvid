@@ -247,9 +247,12 @@ export class EffectChainRenderer {
         // grows to the canvas at once rather than a bucket at a time, and
         // never shrinks a side, so a box growing on one side and shrinking
         // on the other doesn't keep reallocating it.
+        const [surfaceWidth, surfaceHeight] = this.surface.map((side) =>
+          Math.min(side, this.maxTextureSize),
+        );
         allocate = [
-          Math.max(bucketWidth, target.width, this.surface[0]),
-          Math.max(bucketHeight, target.height, this.surface[1]),
+          Math.max(bucketWidth, target.width, surfaceWidth),
+          Math.max(bucketHeight, target.height, surfaceHeight),
         ];
       }
       if (!fits || entry.smallUses > ARRANGEMENT_SHRINK_USES) {

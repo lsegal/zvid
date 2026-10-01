@@ -1420,7 +1420,10 @@ describe("drawComposition FX clips", () => {
         new FakeVideo(1080, 1920) as unknown as HTMLMediaElement,
       ]),
     );
-    const order = { ...DEFAULT_COMPOSITION_ORDER, arrangement: "grid" as const };
+    const order = {
+      ...DEFAULT_COMPOSITION_ORDER,
+      arrangement: "grid" as const,
+    };
     const allocated = renderStats.targetAllocations;
     const boxes = new Set<string>();
     // A Transform pulsing the FX clip's box between half and all of the
@@ -1428,7 +1431,11 @@ describe("drawComposition FX clips", () => {
     for (let frame = 0; frame < 120; frame++) {
       const scale = 0.75 + 0.25 * Math.sin((frame / 120) * 2 * Math.PI);
       const fxOrder: CompositeLayer = {
-        ...fxLayer(0, [], { ...IDENTITY_TRANSFORM, scaleX: scale, scaleY: scale }),
+        ...fxLayer(0, [], {
+          ...IDENTITY_TRANSFORM,
+          scaleX: scale,
+          scaleY: scale,
+        }),
         order,
       };
       const from = recording.draws.length;
