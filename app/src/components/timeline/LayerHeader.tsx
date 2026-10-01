@@ -6,7 +6,7 @@ import type { useFxEditing } from "../../hooks/useFxEditing.ts";
 import type { useLayerActions } from "../../hooks/useLayerActions.ts";
 import type { LaneStatus } from "../../hooks/useTimelineLanes.ts";
 import type { useMenus } from "../../menus/useMenus.ts";
-import { LayerNameInput } from "../LayerNameInput";
+import { NameInput } from "../NameInput";
 import "./layer-header.css";
 
 type LayerActions = ReturnType<typeof useLayerActions>;
@@ -76,8 +76,9 @@ export function LayerHeader({
       </button>
       <div className="track-label__index">{laneIndex + 1}</div>
       {renamingLaneId === lane.id ? (
-        <LayerNameInput
+        <NameInput
           initialName={lane.name}
+          label="Layer name"
           onCancel={() => {
             setRenamingLaneId(undefined);
             focusLaneLabel(lane.id);

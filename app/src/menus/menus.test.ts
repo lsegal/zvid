@@ -245,6 +245,7 @@ describe("menu snapshots", () => {
       { id: "track-b", name: "Cam B" },
     ];
     const actions = {
+      rename: noop,
       duplicate: noop,
       remove: noop,
       moveUp: noop,
@@ -278,7 +279,8 @@ describe("menu snapshots", () => {
       ),
       SOURCE_TRACK_MENU_DISABLED,
     );
-    // Locked source tracks can still be duplicated, not deleted or moved.
+    // Locked source tracks can still be renamed and duplicated, not deleted
+    // or moved.
     assert.deepEqual(
       snapshot(
         buildSourceTrackMenuEntries({
@@ -458,6 +460,7 @@ const LAYER_MENU_FULL = [
 ];
 
 const SOURCE_TRACK_MENU = [
+  "rename: Rename…",
   "duplicate: Duplicate",
   "delete: Delete",
   "---",
@@ -466,6 +469,7 @@ const SOURCE_TRACK_MENU = [
 ];
 
 const SOURCE_TRACK_MENU_ONLY = [
+  "rename: Rename…",
   "duplicate: Duplicate",
   "delete: Delete",
   "---",
@@ -474,6 +478,7 @@ const SOURCE_TRACK_MENU_ONLY = [
 ];
 
 const SOURCE_TRACK_MENU_DISABLED = [
+  "rename: Rename… (disabled)",
   "duplicate: Duplicate (disabled)",
   "delete: Delete (disabled)",
   "---",
@@ -482,6 +487,7 @@ const SOURCE_TRACK_MENU_DISABLED = [
 ];
 
 const SOURCE_TRACK_MENU_LOCKED = [
+  "rename: Rename…",
   "duplicate: Duplicate",
   'delete: Delete title="Source tracks are locked" (disabled)',
   "---",

@@ -23,6 +23,7 @@ import {
 } from "../../fill-paint.ts";
 import { describeFxClip, isFxClip } from "../../fx-clip.ts";
 import { clipEffectTrackId, type SessionEffect } from "../../fx-stack";
+import { useAudioClipPeaks } from "../../hooks/useAudioClipPeaks.ts";
 import type { usePreviewEditing } from "../../hooks/usePreviewEditing.ts";
 import type { MediaItem } from "../../media";
 import type { useMenus } from "../../menus/useMenus.ts";
@@ -40,7 +41,9 @@ import {
   type ThumbnailSnapshot,
 } from "../../thumbnail-cache.ts";
 import { formatMusicalPosition } from "../../timeline-format.ts";
+import { getClipWaveformRange } from "../../waveform-range.ts";
 import { MediaSyncSkeleton } from "../MediaSyncSkeleton";
+import { ClipWaveform } from "./ClipWaveform";
 import "./clip-card.css";
 
 // What every clip card in the arrangement shares.
@@ -49,6 +52,8 @@ export type ClipCardContext = {
   dragState: DragState | null;
   bpm: number;
   quarterPx: number;
+  visibleTimelineStartPx: number;
+  visibleTimelineWidthPx: number;
   signature: TimeSignature;
   mediaItemsById: ReadonlyMap<string, MediaItem>;
   thumbnails: ThumbnailSnapshot;
@@ -73,14 +78,16 @@ export type ClipCardContext = {
 type ClipCardProps = { clip: ArrangementClip } & ClipCardContext;
 
 // An arrangement clip: its body, which selects, moves or Ctrl/Cmd-drags a
-// duplicate, the trim handles either side, and its filmstrip, fill, text or
-// FX badge, and media sync skeleton.
+// duplicate, the trim handles either side, and its filmstrip, waveform, fill,
+// text or FX badge, and media sync skeleton.
 export function ClipCard({
   clip,
   selectedClipId,
   dragState,
   bpm,
   quarterPx,
+  visibleTimelineStartPx,
+  visibleTimelineWidthPx,
   signature,
   mediaItemsById,
   thumbnails,
@@ -125,6 +132,10 @@ export function ClipCard({
   const mediaSync = media
     ? describeMediaSync(remoteMediaProgress.get(media.id), media.availability)
     : null;
+  // Audio-only media draws its waveform, like the Audio lane, until its peaks
+  // turn out to be missing.
+  const audioPeaks = useAudioClipPeaks(media, mediaState);
+  const audio = !mediaSync && audioPeaks.status !== "none";
   // As the compositor draws it: the clip's own
   // Color or Text first, else its layer's.
   const fillBackground = isFillClip(clip)
@@ -144,7 +155,7 @@ export function ClipCard({
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: right-click is a pointer shortcut; the context-menu key and Shift+F10 open the same menu on the selected clip
     <div
-      className={`clip-card ${selected ? "clip-card--selected" : ""} ${trimming ? "clip-card--trimming" : ""} ${filmstrip || fillBackground ? "clip-card--filmstrip" : ""} ${fillBackground ? "clip-card--fill" : ""} ${textStyle ? "clip-card--text" : ""} ${fxLabel ? "clip-card--fx" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""}`}
+      className={`clip-card ${selected ? "clip-card--selected" : ""} ${trimming ? "clip-card--trimming" : ""} ${filmstrip || fillBackground ? "clip-card--filmstrip" : ""} ${fillBackground ? "clip-card--fill" : ""} ${textStyle ? "clip-card--text" : ""} ${fxLabel ? "clip-card--fx" : ""} ${audio ? "clip-card--audio" : ""} ${audio && audioPeaks.status === "loading" && !prefersReducedMotion ? "is-syncing--animated" : ""} ${mediaSync ? getMediaSyncClassName(mediaSync, prefersReducedMotion) : ""} ${media && revealedMediaIds.has(media.id) ? "is-sync-revealed" : ""}`}
       data-clip-id={clip.id}
       onContextMenu={(event) => openArrangementClipMenu(event, clip)}
       onPointerDown={(event) => {
@@ -159,11 +170,23 @@ export function ClipCard({
         width: durationQ * quarterPx,
         ["--clip-accent" as string]: clip.accent,
         backgroundColor: clip.tint,
-        borderColor: clip.accent,
+        // The audio variant's border follows hover in CSS.
+        borderColor: audio ? undefined : clip.accent,
         opacity: mediaState === "online" || mediaSync ? 1 : 0.62,
       }}
     >
       {mediaSync ? <MediaSyncSkeleton variant="clip" view={mediaSync} /> : null}
+      {audio ? (
+        <ClipWaveform
+          className="clip-card__waveform"
+          clipLeftPx={clip.startQ * quarterPx}
+          clipWidthPx={durationQ * quarterPx}
+          peaks={audioPeaks}
+          range={getClipWaveformRange(clip, bpm, quarterPx)}
+          visibleStartPx={visibleTimelineStartPx}
+          visibleWidthPx={visibleTimelineWidthPx}
+        />
+      ) : null}
       {fillBackground ? (
         <span
           aria-hidden="true"

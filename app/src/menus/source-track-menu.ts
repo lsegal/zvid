@@ -1,11 +1,12 @@
 // The right-click menu for a source track's label: the layer header's
-// Duplicate, Delete and Move entries, for source tracks.
+// Rename, Duplicate, Delete and Move entries, for source tracks.
 import type { ContextMenuEntry } from "../context-menu.ts";
 import type { LaneLike } from "../lanes.ts";
 import { SOURCE_TRACKS_LOCKED_TITLE } from "../source-tracks-section.ts";
 import { deleteLayerEntry } from "./entries/delete-layer.ts";
 import { duplicateLayerEntry } from "./entries/duplicate-layer.ts";
 import { moveLayerEntries } from "./entries/move-layer.ts";
+import { renameLayerEntry } from "./entries/rename-layer.ts";
 import {
   assembleMenu,
   type MenuEntryProvider,
@@ -13,6 +14,7 @@ import {
 } from "./registry.ts";
 
 export type SourceTrackMenuActions = {
+  rename: () => void;
   duplicate: () => void;
   remove: () => void;
   moveUp: () => void;
@@ -45,6 +47,7 @@ export type SourceTrackMenuContext = {
 
 export const sourceTrackMenuEntries: readonly MenuEntryProvider<SourceTrackMenuContext>[] =
   [
+    renameLayerEntry,
     duplicateLayerEntry,
     deleteLayerEntry,
     menuSeparator("before-move", 100),
