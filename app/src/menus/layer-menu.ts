@@ -72,7 +72,8 @@ export const layerMenuEntries: readonly MenuEntryProvider<LayerMenuContext>[] =
 
 /**
  * The menu for the header of layer `laneId`. `fxEnabled` is the layer-wide
- * FX bypass and `effectCount` its effects not counting Layout.
+ * FX bypass and `effectCount` its effects not counting Layout; the bypass
+ * toggles whether or not it has any.
  */
 export function buildLayerMenuEntries({
   disabled = false,

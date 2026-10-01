@@ -81,24 +81,6 @@ export function isContentEffectName(effectName: string) {
   );
 }
 
-// Whether an effect on `trackId` is turned off by its layer's FX switch:
-// the layer's own stack or the stack of a clip on it.
-export function isStackFxBypassed(
-  trackId: string,
-  layers: readonly FxLayer[],
-  clips: readonly FxClip[],
-) {
-  const clipId = getEffectClipId(trackId);
-  const laneId =
-    clipId === undefined
-      ? trackId
-      : clips.find((clip) => clip.id === clipId)?.laneId;
-  return (
-    laneId !== undefined &&
-    !isLayerFxEnabled(layers.find((layer) => layer.id === laneId))
-  );
-}
-
 export const LAYOUT_EFFECT_NAME = "Layout";
 
 // A Layout effect on a layer's own stack, as opposed to a legacy one on the

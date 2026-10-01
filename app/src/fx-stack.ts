@@ -26,8 +26,8 @@ export {
   type FxLayer,
   getRenderedEffects,
   isLayerFxEnabled,
+  isContentEffectName,
   isLayoutEffectName,
-  isStackFxBypassed,
   LAYOUT_EFFECT_NAME,
   setLaneFxEnabled,
 } from "./fx/stack/layer-fx.ts";

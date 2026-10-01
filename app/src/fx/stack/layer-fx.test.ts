@@ -5,13 +5,12 @@ import {
   createProjectHistoryState,
   projectHistoryReducer,
 } from "../../project-history.ts";
-import { clipEffectTrackId, GLOBAL_EFFECT_TRACK_ID } from "./clip-stacks.ts";
+import { GLOBAL_EFFECT_TRACK_ID } from "./clip-stacks.ts";
 import {
   type FxClip,
   type FxLayer,
   getRenderedEffects,
   isLayerFxEnabled,
-  isStackFxBypassed,
   setLaneFxEnabled,
 } from "./layer-fx.ts";
 import { addEffect, effectHistoryLabels, setEffectEnabled } from "./ops.ts";
@@ -113,16 +112,6 @@ describe("layer FX bypass", () => {
     assert.deepEqual(ids(rendered, "clip:other"), ["o-fx"]);
     assert.deepEqual(ids(rendered, "1"), ["zoom"]);
     assert.equal(getRenderedEffects(effects, LANES, CLIPS), effects);
-  });
-
-  it("tells which stacks a layer's FX switch turns off", () => {
-    const lanes = setLaneFxEnabled(LANES, "6", false);
-    assert.ok(isStackFxBypassed("6", lanes, CLIPS));
-    assert.ok(isStackFxBypassed(clipEffectTrackId("v"), lanes, CLIPS));
-    assert.ok(!isStackFxBypassed("1", lanes, CLIPS));
-    assert.ok(!isStackFxBypassed(clipEffectTrackId("other"), lanes, CLIPS));
-    assert.ok(!isStackFxBypassed(GLOBAL_EFFECT_TRACK_ID, lanes, CLIPS));
-    assert.ok(!isStackFxBypassed(clipEffectTrackId("v"), LANES, CLIPS));
   });
 
   it("never adds Text to a layer's own stack", () => {

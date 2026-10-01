@@ -102,9 +102,8 @@ export function LayerHeader({
       )}
       <button
         aria-label={`${lane.name} effects`}
-        aria-pressed={status?.fxToggle}
-        className={`track-label__fx ${status?.fxClassName ?? ""}`}
-        disabled={!status?.effectCount}
+        aria-pressed={isLayerFxEnabled(lane)}
+        className="track-label__fx"
         onClick={(event) => {
           event.stopPropagation();
           setLayerFxEnabled(lane.id, !isLayerFxEnabled(lane));
