@@ -73,8 +73,8 @@ test("selecting a clip leaves the playhead where it was", async ({ page }) => {
   expect(await playheadX(page)).toBeCloseTo(parked, 0);
 
   // Clicking the source track's label selects the track without seeking.
-  await page.locator(".track-label--source").click();
-  await expect(page.locator(".track-label--source")).toHaveAttribute(
+  await page.locator("[data-source-track-label-id]").click();
+  await expect(page.locator("[data-source-track-label-id]")).toHaveAttribute(
     "aria-current",
     "true",
   );
