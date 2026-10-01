@@ -181,6 +181,13 @@ export function MediaRangeBar({
             style={{ left: 0, width: percent(range.inSeconds) }}
           />
           <div
+            className="media-range__selection"
+            style={{
+              left: percent(range.inSeconds),
+              right: `calc(100% - ${percent(range.outSeconds)})`,
+            }}
+          />
+          <div
             className="media-range__dim"
             data-media-range-dim="after"
             style={{ left: percent(range.outSeconds), right: 0 }}

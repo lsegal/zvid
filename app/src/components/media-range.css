@@ -14,10 +14,21 @@
 
 .media-range__dim {
   position: absolute;
-  top: 2px;
-  bottom: 2px;
+  top: 50%;
+  height: 10px;
+  margin-top: -5px;
   border-radius: 2px;
-  background: rgba(6, 8, 12, 0.68);
+  background: rgba(6, 8, 12, 0.72);
+  pointer-events: none;
+}
+
+.media-range__selection {
+  position: absolute;
+  top: 50%;
+  height: 10px;
+  margin-top: -5px;
+  border-radius: 2px;
+  background: rgba(246, 183, 60, 0.22);
   pointer-events: none;
 }
 
@@ -66,12 +77,15 @@
   opacity: 1;
 }
 
+/* The flags point away from the range, so close points never overlap. */
 .media-range__marker--in .media-range__flag {
-  left: 5px;
+  right: 5px;
+  border-radius: 4px 0 0 4px;
 }
 
 .media-range__marker--out .media-range__flag {
-  right: 5px;
+  left: 5px;
+  border-radius: 0 4px 4px 0;
 }
 
 .media-range__marker:focus-visible::before {
@@ -108,12 +122,16 @@
 
 .media-range-controls__readout {
   display: flex;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 2px 10px;
   margin-left: auto;
   color: var(--muted);
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.68rem;
   font-variant-numeric: tabular-nums;
+}
+
+.media-range-controls__readout > span {
   white-space: nowrap;
 }
 
