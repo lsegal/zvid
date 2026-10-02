@@ -155,7 +155,10 @@ describe("Tremolo", () => {
       for (const sync of ["Off", "On"]) {
         const output = render(input, {
           stages: [
-            tremolo({ [DEPTH_KEY]: 0 }, { [SHAPE_KEY]: shape, [SYNC_KEY]: sync }),
+            tremolo(
+              { [DEPTH_KEY]: 0 },
+              { [SHAPE_KEY]: shape, [SYNC_KEY]: sync },
+            ),
           ],
         });
         assert.deepEqual(output, input);
@@ -228,7 +231,9 @@ describe("Tremolo", () => {
       const [whole] = render([level(3)], { stages });
       const [late] = render([level(1)], { stages, startSeconds: 2 });
       for (let index = 0; index < late.length; index += 41) {
-        assert.ok(Math.abs(late[index] - whole[index + 2 * SAMPLE_RATE]) < 1e-5);
+        assert.ok(
+          Math.abs(late[index] - whole[index + 2 * SAMPLE_RATE]) < 1e-5,
+        );
       }
     }
   });
@@ -298,15 +303,16 @@ describe("Tremolo", () => {
     const seconds = 2.5 + (output.length - 1) / SAMPLE_RATE;
     const expected = tremoloGain(1, Math.cos(2 * Math.PI * 0.1 * seconds));
     assert.ok(expected < 0.5);
-    assert.ok(Math.abs(output.at(-1)! - expected) < 1e-4);
+    assert.ok(Math.abs(output[output.length - 1] - expected) < 1e-4);
   });
 
   it("crossfades a live Shape, Sync or Note change instead of jumping", () => {
     const rampFrames = PARAMETER_RAMP_SECONDS * SAMPLE_RATE;
-    for (const switches of [
+    const changes: Switches[] = [
       { [SHAPE_KEY]: "Square" },
       { [SYNC_KEY]: "On", [NOTE_KEY]: "1/16" },
-    ]) {
+    ];
+    for (const switches of changes) {
       const [output] = render([level(1)], {
         stages: [tremolo({ [DEPTH_KEY]: 0.5, [RATE_KEY]: 5 })],
         change: {
