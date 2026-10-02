@@ -1,13 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
-  EQ_RANGES,
   EqFilter,
   type EqSettings,
   eqResponseDb,
   formatEqGain,
   formatFrequency,
-  readEqSettings,
 } from "./eq.ts";
 
 const RATE = 48_000;
@@ -210,23 +208,6 @@ describe("EqFilter", () => {
       output.subarray(4801),
       render(boosted, input.subarray(4801)),
     );
-  });
-});
-
-describe("readEqSettings", () => {
-  it("defaults missing values", () => {
-    assert.deepEqual(readEqSettings([]), FLAT);
-  });
-
-  it("clamps to the parameter ranges", () => {
-    const settings = readEqSettings([
-      { key: "Low Gain", value: "40" },
-      { key: "High Freq", value: "50", numericValue: 50 },
-      { key: "Mid Q", value: "nope" },
-    ]);
-    assert.equal(settings.lowGain, EQ_RANGES["Low Gain"].max);
-    assert.equal(settings.highFreq, EQ_RANGES["High Freq"].min);
-    assert.equal(settings.midQ, 1);
   });
 });
 

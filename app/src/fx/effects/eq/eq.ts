@@ -67,33 +67,6 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-type EqParameter = { key: string; value: string; numericValue?: number };
-
-function readNumber(parameters: readonly EqParameter[], key: EqParameterKey) {
-  const range = EQ_RANGES[key];
-  const stored = parameters.find((parameter) => parameter.key === key);
-  const value =
-    stored?.numericValue ??
-    (stored ? Number.parseFloat(stored.value) : Number.NaN);
-  return Number.isFinite(value)
-    ? clamp(value, range.min, range.max)
-    : range.defaultValue;
-}
-
-// The settings of one EQ from its stored parameters, clamped to range, with
-// defaults for missing or unreadable values.
-export function readEqSettings(parameters: readonly EqParameter[]): EqSettings {
-  return {
-    lowFreq: readNumber(parameters, LOW_FREQ_KEY),
-    lowGain: readNumber(parameters, LOW_GAIN_KEY),
-    midFreq: readNumber(parameters, MID_FREQ_KEY),
-    midGain: readNumber(parameters, MID_GAIN_KEY),
-    midQ: readNumber(parameters, MID_Q_KEY),
-    highFreq: readNumber(parameters, HIGH_FREQ_KEY),
-    highGain: readNumber(parameters, HIGH_GAIN_KEY),
-  };
-}
-
 // Normalized biquad coefficients (a0 = 1).
 export type BiquadCoefficients = {
   b0: number;
