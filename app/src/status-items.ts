@@ -65,7 +65,7 @@ export type StatusItemsState = StatusPlayheadState & {
 };
 
 // The playhead readout for the current ruler: `bar.beat.sixteenth` on the
-// tempo ruler, `mm:ss:ff` on the SMPTE ruler. Exported on its own so a live
+// tempo ruler, `mm:ss:ff` on the Time ruler. Exported on its own so a live
 // readout can refresh just this value from the playhead ref during playback.
 export function formatStatusPlayhead(state: StatusPlayheadState) {
   return state.timelineMode === "musical"
