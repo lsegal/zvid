@@ -204,115 +204,69 @@ const SETTING_KEYS = [
   "highGain",
 ] as const satisfies readonly (keyof EqSettings)[];
 
-const FREQUENCY_KEYS = new Set<keyof EqSettings>([
-  "lowFreq",
-  "midFreq",
-  "highFreq",
-]);
-
-// Coefficients are recomputed from the smoothed settings every block of
-// this many samples while a parameter moves.
-export const EQ_SMOOTHING_BLOCK = 16;
-// Time constant of the one-pole parameter smoothing.
-export const EQ_SMOOTHING_SECONDS = 0.02;
-
 function settingsEqual(a: EqSettings, b: EqSettings) {
   return SETTING_KEYS.every((key) => a[key] === b[key]);
 }
 
-// One EQ instance: per-channel biquad state and smoothed settings. The
-// same instance renders preview and export, so both hear the same filter.
-// Frequencies glide in the log domain and gains in dB, so a sweep sounds
-// even across the range.
-export class EqProcessor {
-  readonly sampleRate: number;
-  private current: EqSettings;
-  private target: EqSettings;
-  private coefficients: BiquadCoefficients[];
-  // [channel][band] = [z1, z2], transposed direct form II.
-  private state: Float64Array[][] = [];
-  private readonly smoothing: number;
+// Whether `settings` leave the sound unchanged: every band at 0 dB.
+export function isFlat(settings: EqSettings) {
+  return (
+    settings.lowGain === 0 && settings.midGain === 0 && settings.highGain === 0
+  );
+}
 
-  constructor(settings: EqSettings, sampleRate: number) {
-    this.sampleRate = sampleRate;
-    this.current = { ...settings };
-    this.target = { ...settings };
-    this.coefficients = eqCoefficients(settings, sampleRate);
-    this.smoothing =
-      1 - Math.exp(-EQ_SMOOTHING_BLOCK / (EQ_SMOOTHING_SECONDS * sampleRate));
+// The three bands' filter memory for each channel, run with the latest
+// settings' coefficients. Uses transposed direct form II in doubles.
+export class EqFilter {
+  private settings: EqSettings | null = null;
+  private coefficients: BiquadCoefficients[] = [];
+  // Per channel: z1 and z2 of each band in turn.
+  private readonly state: Float64Array[];
+
+  constructor(
+    readonly sampleRate: number,
+    channels: number,
+  ) {
+    this.state = Array.from({ length: channels }, () => new Float64Array(6));
   }
 
-  // Glides to `settings` from the current ones over the smoothing time.
-  setTarget(settings: EqSettings) {
-    this.target = { ...settings };
-  }
-
-  // Clears the filter memory, as after a seek.
-  reset() {
-    this.state = [];
-  }
-
-  private channelState(channel: number) {
-    let bands = this.state[channel];
-    if (!bands) {
-      bands = [new Float64Array(2), new Float64Array(2), new Float64Array(2)];
-      this.state[channel] = bands;
-    }
-    return bands;
-  }
-
-  private step() {
-    if (settingsEqual(this.current, this.target)) {
+  // Uses `settings` from the next frame processed on.
+  setSettings(settings: EqSettings) {
+    if (this.settings && settingsEqual(this.settings, settings)) {
       return;
     }
-    const next = { ...this.current };
-    let settled = true;
-    for (const key of SETTING_KEYS) {
-      const from = this.current[key];
-      const to = this.target[key];
-      if (from === to) {
-        continue;
-      }
-      let value = FREQUENCY_KEYS.has(key)
-        ? Math.exp(
-            Math.log(from) + (Math.log(to) - Math.log(from)) * this.smoothing,
-          )
-        : from + (to - from) * this.smoothing;
-      if (Math.abs(value - to) <= Math.abs(to) * 1e-6 + 1e-6) {
-        value = to;
-      } else {
-        settled = false;
-      }
-      next[key] = value;
-    }
-    this.current = settled ? { ...this.target } : next;
-    this.coefficients = eqCoefficients(this.current, this.sampleRate);
+    this.settings = { ...settings };
+    this.coefficients = eqCoefficients(settings, this.sampleRate);
   }
 
-  // Filters `channels` in place. All channels share the settings timeline.
-  process(channels: readonly Float32Array[]) {
-    const length = channels[0]?.length ?? 0;
-    for (let start = 0; start < length; start += EQ_SMOOTHING_BLOCK) {
-      this.step();
-      const end = Math.min(length, start + EQ_SMOOTHING_BLOCK);
-      for (let channel = 0; channel < channels.length; channel += 1) {
-        const samples = channels[channel];
-        const bands = this.channelState(channel);
-        for (let band = 0; band < 3; band += 1) {
+  // Filters frames `start` to `end` of `input` into `output`. A flat EQ
+  // copies them unchanged, and its memory is that of identity filters: 0.
+  process(
+    input: readonly Float32Array[],
+    output: Float32Array[],
+    start: number,
+    end: number,
+  ) {
+    const flat = !this.settings || isFlat(this.settings);
+    for (let channel = 0; channel < output.length; channel++) {
+      const from = input[channel];
+      const to = output[channel];
+      const z = this.state[channel];
+      if (flat) {
+        to.set(from.subarray(start, end), start);
+        z.fill(0);
+        continue;
+      }
+      for (let index = start; index < end; index++) {
+        let x = from[index];
+        for (let band = 0; band < 3; band++) {
           const c = this.coefficients[band];
-          const z = bands[band];
-          let z1 = z[0];
-          let z2 = z[1];
-          for (let i = start; i < end; i += 1) {
-            const x = samples[i];
-            const y = c.b0 * x + z1;
-            z1 = c.b1 * x - c.a1 * y + z2;
-            z2 = c.b2 * x - c.a2 * y;
-            samples[i] = y;
-          }
-          z[0] = z1;
-          z[1] = z2;
+          const y = c.b0 * x + z[band * 2];
+          z[band * 2] = c.b1 * x - c.a1 * y + z[band * 2 + 1];
+          z[band * 2 + 1] = c.b2 * x - c.a2 * y;
+          x = y;
         }
+        to[index] = x;
       }
     }
   }
