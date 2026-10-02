@@ -172,9 +172,7 @@ test("the preview's chain worklet renders Mono as export does", async ({
     const { CHAIN_WORKLET_URL } = await load(
       "/src/audio-mix/chain-worklet-url.ts",
     );
-    const { createChainNode, postChainMessage } = await load(
-      "/src/audio-mix/chain-node.ts",
-    );
+    const { createChainNode } = await load("/src/audio-mix/chain-node.ts");
     const { AUDIO_PROCESSORS } = await load("/src/audio-mix/processors.ts");
     const { DEFAULT_TIME_SIGNATURE } = await load(
       "/src/audio-mix/processor.ts",
@@ -182,10 +180,6 @@ test("the preview's chain worklet renders Mono as export does", async ({
 
     const sampleRate = 48_000;
     const length = sampleRate;
-    // The signal starts after a silent lead-in, on a block boundary. The
-    // render pauses halfway through it to hand the worklet its settings,
-    // since an offline render can finish before a message arrives.
-    const leadIn = 40 * BLOCK_FRAMES;
     const tempo = { bpm: 120, signature: DEFAULT_TIME_SIGNATURE };
     const settings = {
       stages: [
@@ -202,7 +196,7 @@ test("the preview's chain worklet renders Mono as export does", async ({
     };
     const left = new Float32Array(length);
     const right = new Float32Array(length);
-    for (let index = leadIn; index < length; index++) {
+    for (let index = 0; index < length; index++) {
       left[index] = 0.5 * Math.sin((2 * Math.PI * 440 * index) / sampleRate);
       right[index] = 0.3 * Math.sin((2 * Math.PI * 97 * index) / sampleRate);
     }
@@ -215,14 +209,9 @@ test("the preview's chain worklet renders Mono as export does", async ({
     buffer.copyToChannel(right, 1);
     const sourceNode = context.createBufferSource();
     sourceNode.buffer = buffer;
-    const node = createChainNode(context, 2);
+    const node = createChainNode(context, { channels: 2, settings, tempo });
     sourceNode.connect(node).connect(context.destination);
     sourceNode.start();
-    context.suspend(leadIn / 2 / sampleRate).then(async () => {
-      postChainMessage(node, { type: "configure", settings, tempo });
-      await new Promise((resolve) => setTimeout(resolve, 250));
-      await context.resume();
-    });
     const rendered = await context.startRendering();
 
     // Export's host: the chain run block by block in JS.
@@ -243,7 +232,7 @@ test("the preview's chain worklet renders Mono as export does", async ({
     let energy = 0;
     for (let channel = 0; channel < 2; channel++) {
       const actual = rendered.getChannelData(channel);
-      for (let index = leadIn; index < length; index++) {
+      for (let index = 0; index < length; index++) {
         largest = Math.max(
           largest,
           Math.abs(actual[index] - expected[channel][index]),
@@ -254,7 +243,7 @@ test("the preview's chain worklet renders Mono as export does", async ({
     // Amount 0.6 moves each side toward the other, so they differ less
     // than the input's sides do.
     let sideDifference = 0;
-    for (let index = leadIn; index < length; index++) {
+    for (let index = 0; index < length; index++) {
       sideDifference = Math.max(
         sideDifference,
         Math.abs(
