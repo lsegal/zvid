@@ -3,8 +3,8 @@ import type { MenuPoint } from "../context-menu.ts";
 import type { SessionEffect } from "../fx-stack.ts";
 import type { LaneSelectionGesture } from "../lane-selection-gesture.ts";
 import type { MediaAvailability, MediaItem, MediaKind } from "../media.ts";
-import type { SourceDropPreviewItem } from "../source-drop-preview.ts";
 import type { SessionEncoding } from "../session-settings.ts";
+import type { SourceDropPreviewItem } from "../source-drop-preview.ts";
 import type { SnapMode } from "../timeline-grid.ts";
 
 export type TimelineMode = "musical" | "timecode";

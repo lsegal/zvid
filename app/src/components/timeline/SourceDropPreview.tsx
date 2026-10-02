@@ -1,7 +1,7 @@
 import { SpeakerWaveIcon } from "@heroicons/react/24/solid";
 import { formatDuration } from "../../app/format.ts";
-import type { useSourceTrackDrop } from "../../hooks/useSourceTrackDrop.ts";
 import { useAudioClipPeaks } from "../../hooks/useAudioClipPeaks.ts";
+import type { useSourceTrackDrop } from "../../hooks/useSourceTrackDrop.ts";
 import type { MediaItem } from "../../media";
 import {
   getSourceDropPreviewLayout,
@@ -51,7 +51,11 @@ export function SourceDropPreview({
   const left = startQ * quarterPx;
   const items = sourceTrackDragPreview.items;
   const indicator = (
-    <div aria-hidden="true" className="source-drop-indicator" style={{ left }} />
+    <div
+      aria-hidden="true"
+      className="source-drop-indicator"
+      style={{ left }}
+    />
   );
 
   if (items?.length) {

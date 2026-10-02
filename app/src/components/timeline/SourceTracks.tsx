@@ -11,8 +11,8 @@ import type {
 } from "../../app/types.ts";
 import { getSwatch, pluralize } from "../../app/util.ts";
 import type { useSourceTrackDrop } from "../../hooks/useSourceTrackDrop.ts";
-import { nextSourceTrackColorIndex } from "../../source-track-color.ts";
 import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
+import { nextSourceTrackColorIndex } from "../../source-track-color.ts";
 import {
   formatSourceTracksSummary,
   sourceTracksLockLabel,
