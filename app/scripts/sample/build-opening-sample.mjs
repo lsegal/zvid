@@ -445,24 +445,35 @@ addEffect(
   transformValues("", { y: 0.35 }),
 );
 
-// 24–27 s: the wordmark returns above the alternating three-ups.
-text(
-  "text-montage-zvid",
-  "title-wordmark",
-  24,
-  3,
+// 24–27 s: the wordmark returns above the alternating three-ups, its
+// letters blooming in an ivory glow.
+addEffect(
+  text(
+    "text-montage-zvid",
+    "title-wordmark",
+    24,
+    3,
+    {
+      Text: "zvid",
+      FontWeight: "Bold",
+      FontSize: 256,
+      LetterSpacing: -0.02,
+      Shadow: "On",
+      ShadowColor: "rgba(12,40,56,0.55)",
+      ShadowBlur: 24,
+      ShadowOffsetX: 0,
+      ShadowOffsetY: 6,
+    },
+    { animation: fadeIn("Normal") },
+  ),
+  "Bloom",
+  { _Threshold: 0.6, _Intensity: 0.9, _Radius: 0.5, _Tint: IVORY },
   {
-    Text: "zvid",
-    FontWeight: "Bold",
-    FontSize: 256,
-    LetterSpacing: -0.02,
-    Shadow: "On",
-    ShadowColor: "rgba(12,40,56,0.55)",
-    ShadowBlur: 24,
-    ShadowOffsetX: 0,
-    ShadowOffsetY: 6,
+    animation: animation("clip", {
+      motionIn: "Ease Out",
+      motionOut: "Ease In",
+    }),
   },
-  { animation: fadeIn("Normal") },
 );
 
 // 27–30 s: the ivory title card.

@@ -103,11 +103,6 @@ export const pass: EffectPass = {
       clampUnit(readEffectNumber(params, "_Radius", 0.4)),
     );
     const tint = readTint(params);
-    gl.uniform3f(
-      loc.uTint,
-      tint.r / 255,
-      tint.g / 255,
-      tint.b / 255,
-    );
+    gl.uniform3f(loc.uTint, tint.r / 255, tint.g / 255, tint.b / 255);
   },
 };

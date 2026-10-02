@@ -3657,6 +3657,40 @@
     },
     {
       "id": "sample-fx-093",
+      "trackId": "clip:text-montage-zvid",
+      "effectName": "Bloom",
+      "parameters": {
+        "_Threshold": {
+          "floatValue": 0.6
+        },
+        "_Intensity": {
+          "floatValue": 0.9
+        },
+        "_Radius": {
+          "floatValue": 0.5
+        },
+        "_Tint": {
+          "stringValue": "rgba(243,226,191,1)"
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": []
+        }
+      }
+    },
+    {
+      "id": "sample-fx-094",
       "trackId": "clip:fill-title-card",
       "effectName": "Color",
       "parameters": {
@@ -3672,7 +3706,7 @@
       }
     },
     {
-      "id": "sample-fx-094",
+      "id": "sample-fx-095",
       "trackId": "clip:text-card-zvid",
       "effectName": "Text",
       "parameters": {
@@ -3742,7 +3776,7 @@
       }
     },
     {
-      "id": "sample-fx-095",
+      "id": "sample-fx-096",
       "trackId": "clip:text-card-zvid",
       "effectName": "Transform",
       "parameters": {
@@ -3770,7 +3804,7 @@
       }
     },
     {
-      "id": "sample-fx-096",
+      "id": "sample-fx-097",
       "trackId": "clip:text-card-tagline",
       "effectName": "Text",
       "parameters": {
@@ -3840,7 +3874,7 @@
       }
     },
     {
-      "id": "sample-fx-097",
+      "id": "sample-fx-098",
       "trackId": "clip:text-card-tagline",
       "effectName": "Transform",
       "parameters": {
@@ -3868,7 +3902,7 @@
       }
     },
     {
-      "id": "sample-fx-098",
+      "id": "sample-fx-099",
       "trackId": "source-clip:source-span-music",
       "effectName": "Gain",
       "parameters": {

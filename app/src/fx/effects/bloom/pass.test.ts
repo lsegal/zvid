@@ -4,8 +4,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { getAnimationDefaults } from "../../../fx-animation-defaults.ts";
 import { getEffectDefinition } from "../../../fx-registry.ts";
-import { CONTEXT, params, uniformValues } from "../../pass-test-utils.ts";
 import type { EffectParameter } from "../../../fx-shaders/types.ts";
+import { CONTEXT, params, uniformValues } from "../../pass-test-utils.ts";
 import { pass } from "./pass.ts";
 
 function withTint(parameters: EffectParameter[], value: string) {
@@ -81,7 +81,10 @@ describe("Bloom pass", () => {
   it("passes pixels through untouched when it has no glow to add", () => {
     // Intensity 0 and pixels at or below Threshold both leave no glow, and a
     // pixel with none returns its source color as is.
-    assert.match(pass.fragmentSource, /if \(over <= 0\.0\) return vec3\(0\.0\);/);
+    assert.match(
+      pass.fragmentSource,
+      /if \(over <= 0\.0\) return vec3\(0\.0\);/,
+    );
     assert.match(pass.fragmentSource, /glow \*= uTint \* uIntensity \/ total;/);
     assert.match(
       pass.fragmentSource,
@@ -99,6 +102,9 @@ describe("Bloom pass", () => {
   });
 
   it("supports the Animation modifier's Clip and Reactive modes", () => {
-    assert.deepEqual(getAnimationDefaults("Bloom")?.modes, ["clip", "reactive"]);
+    assert.deepEqual(getAnimationDefaults("Bloom")?.modes, [
+      "clip",
+      "reactive",
+    ]);
   });
 });
