@@ -3,6 +3,7 @@ import type {
   FxEffectDomain,
   FxFlagOption,
   FxNumberControl,
+  FxNumberTaper,
   FxScaleTick,
 } from "../../fx-registry.ts";
 
@@ -49,6 +50,8 @@ export type FxDeviceParameter = {
   step?: number;
   // How a number is edited, when not with a knob.
   control?: FxNumberControl;
+  // A knob's taper, when not linear.
+  taper?: FxNumberTaper;
   ticks?: readonly FxScaleTick[];
   options?: readonly string[];
   // The toggles of a `flags` parameter.

@@ -21,7 +21,18 @@ export type ChainMessage =
   // Drops the chain's state, as after a seek, so no stale tail plays.
   | { type: "reset" };
 
-export function createChainNode(context: BaseAudioContext, channels = 2) {
+// What a chain node starts with, so it never plays a block unconfigured.
+export type ChainNodeOptions = {
+  channels?: number;
+  settings: AudioChainSettings;
+  tempo: AudioTempo;
+  transport?: ChainTransport;
+};
+
+export function createChainNode(
+  context: BaseAudioContext,
+  { channels = 2, ...initial }: ChainNodeOptions,
+) {
   return new AudioWorkletNode(context, CHAIN_PROCESSOR_NAME, {
     numberOfInputs: 1,
     numberOfOutputs: 1,
@@ -31,10 +42,13 @@ export function createChainNode(context: BaseAudioContext, channels = 2) {
     channelCount: channels,
     channelCountMode: "explicit",
     channelInterpretation: "speakers",
-    processorOptions: { channels },
+    processorOptions: { channels, ...initial },
   });
 }
 
-export function postChainMessage(node: AudioWorkletNode, message: ChainMessage) {
+export function postChainMessage(
+  node: AudioWorkletNode,
+  message: ChainMessage,
+) {
   node.port.postMessage(message);
 }
