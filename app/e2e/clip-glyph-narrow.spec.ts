@@ -84,6 +84,7 @@ for (const { kind, item, glyph } of [
       throw new Error("Clip or handle is not visible");
     }
     expect(handleBox.width).toBeGreaterThan(0);
-    expect(handleBox.x).toBeCloseTo(clipBox.x, 0);
+    // Inside the clip's 1px border.
+    expect(Math.abs(handleBox.x - clipBox.x)).toBeLessThanOrEqual(1);
   });
 }
