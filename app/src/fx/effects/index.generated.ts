@@ -18,6 +18,7 @@ import { pass as negativeSplitPass } from "./negative-split/pass.ts";
 import * as order from "./order/definition.ts";
 import * as pixelate from "./pixelate/definition.ts";
 import { pass as pixelatePass } from "./pixelate/pass.ts";
+import * as stereo from "./stereo/definition.ts";
 import * as text from "./text/definition.ts";
 import * as transform from "./transform/definition.ts";
 import * as transientShaper from "./transient-shaper/definition.ts";
@@ -37,6 +38,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   negativeSplit,
   order,
   pixelate,
+  stereo,
   text,
   transform,
   transientShaper,
