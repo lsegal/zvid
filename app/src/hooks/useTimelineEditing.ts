@@ -27,6 +27,7 @@ import type {
   ProjectStore,
   useProjectHistoryCommands,
 } from "./useProjectStore.ts";
+import { useSourceClipActions } from "./useSourceClipActions.ts";
 import { useSourceSpanDrag } from "./useSourceSpanDrag.ts";
 import { useSourceTrackActions } from "./useSourceTrackActions.ts";
 import type { LaneStatus } from "./useTimelineLanes.ts";
@@ -89,6 +90,7 @@ export type TimelineEditingInputs = {
     ReturnType<typeof usePlayback>,
     | "cancelScrubPlaybackResume"
     | "startPlayback"
+    | "jumpPlayheadTo"
     | "jumpToClipStart"
     | "playableClipCount"
   >;
@@ -116,8 +118,8 @@ export type TimelineEditingInputs = {
 };
 
 // Editing the timeline: inserting clips (useClipInsertion), clip and range
-// commands (useClipActions), layer and source track commands
-// (useLayerActions, useSourceTrackActions), the context
+// commands (useClipActions, useSourceClipActions), layer and source track
+// commands (useLayerActions, useSourceTrackActions), the context
 // and Edit menus (useMenus), keyboard shortcuts and Space playback, and clip
 // and source clip drags (useClipDrag, useSourceSpanDrag).
 export function useTimelineEditing({
@@ -203,6 +205,7 @@ export function useTimelineEditing({
   const {
     cancelScrubPlaybackResume,
     startPlayback,
+    jumpPlayheadTo,
     jumpToClipStart,
     playableClipCount,
   } = playback;
@@ -301,6 +304,21 @@ export function useTimelineEditing({
     timelineClips,
   });
 
+  const { sourceClipActions, sourceClipActionsRef } = useSourceClipActions({
+    bpm,
+    clipClipboardRef,
+    commitProjectChange,
+    copySourceSpan,
+    jumpPlayheadTo,
+    playheadQRef,
+    selectSource,
+    setStatus,
+    sourceTracksLocked,
+  });
+  const selectedSourceSpan = selectedClip
+    ? undefined
+    : sourceSpans.find((span) => span.id === sourceSelection?.sourceSpanId);
+
   const {
     handleCreateLayer,
     insertLayer,
@@ -376,7 +394,6 @@ export function useTimelineEditing({
     copyArrangementClip,
     copySelection,
     copySelectionRange,
-    copySourceSpan,
     copySourceSpanToLayer,
     cutArrangementClip,
     cutSelection,
@@ -412,6 +429,7 @@ export function useTimelineEditing({
     selectLaneFromLabel,
     selectedClip,
     selectedLaneId,
+    selectedSourceSpan,
     selectedSourceTrack,
     setClipMenu,
     setLayerFxEnabled,
@@ -421,6 +439,7 @@ export function useTimelineEditing({
     setSelectedClipId,
     setSelectedLaneId,
     shortcutLabels,
+    sourceClipActions,
     sourceSpans,
     sourceTracks,
     sourceTracksLocked,
@@ -447,11 +466,13 @@ export function useTimelineEditing({
     playbackOriginRef,
     playheadQRef,
     selectedClip,
+    selectedSourceSpan,
     selectedSourceTrack,
     setPendingSelection,
     setPlayheadQ,
     setSelectedClipId,
     setSelectedLaneId,
+    sourceClipActionsRef,
     timelineContentEndQ,
     timelineDragState,
     timelineScrollRef,

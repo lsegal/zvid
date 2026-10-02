@@ -213,19 +213,78 @@ describe("buildClipMenuEntries", () => {
 });
 
 describe("buildSourceSpanMenuEntries", () => {
-  function build(lanes: Lane[]) {
+  function build(
+    lanes: Lane[],
+    { canPaste = true, canSplit = true, locked = false } = {},
+  ) {
     const targets: CopyToLayerTarget[] = [];
     let copied = 0;
     const entries = buildSourceSpanMenuEntries({
       lanes,
       mac: false,
-      copy: () => {
-        copied += 1;
+      canPaste,
+      canSplit,
+      locked,
+      actions: {
+        jumpToStart: () => {},
+        cut: () => {},
+        copy: () => {
+          copied += 1;
+        },
+        paste: () => {},
+        duplicate: () => {},
+        split: () => {},
+        remove: () => {},
       },
       copyToLayer: (target) => targets.push(target),
     });
     return { entries, targets, copied: () => copied };
   }
+
+  it("lists the layer clip items in order, then Copy to layer", () => {
+    const { entries } = build(lanesUpTo(1));
+    assert.deepEqual(
+      entries.map((entry) => (entry.type === "item" ? entry.id : "---")),
+      [
+        "jump-to-start",
+        "---",
+        "cut",
+        "copy",
+        "paste",
+        "duplicate",
+        "split",
+        "---",
+        "delete",
+        "---",
+        "copy-to-layer",
+      ],
+    );
+    // Mod+E never splits a source clip, so Split shows no hint.
+    assert.equal(find(entries, "split").label, "Split at playhead");
+    assert.equal(find(entries, "split").shortcut, undefined);
+    assert.equal(find(entries, "paste").shortcut, "Ctrl+V");
+  });
+
+  it("disables Paste and Split when they cannot apply", () => {
+    const { entries } = build(lanesUpTo(1), {
+      canPaste: false,
+      canSplit: false,
+    });
+    assert.equal(find(entries, "paste").disabled, true);
+    assert.equal(find(entries, "split").disabled, true);
+    assert.equal(find(entries, "cut").disabled, false);
+  });
+
+  it("disables the editing items on locked source tracks", () => {
+    const { entries } = build(lanesUpTo(1), { locked: true });
+    for (const id of ["cut", "paste", "duplicate", "split", "delete"]) {
+      assert.equal(find(entries, id).disabled, true, id);
+      assert.equal(find(entries, id).title, "Source tracks are locked", id);
+    }
+    for (const id of ["jump-to-start", "copy", "copy-to-layer"]) {
+      assert.ok(!find(entries, id).disabled, id);
+    }
+  });
 
   it("offers Copy and a Copy to layer submenu: Auto, every layer, New", () => {
     const { entries, copied } = build(lanesUpTo(3));

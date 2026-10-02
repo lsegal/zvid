@@ -26,6 +26,13 @@ export type ClipMenuContext = {
   canPaste: boolean;
   canSplit: boolean;
   mac: boolean;
+  // Disables Cut, Paste, Duplicate, Split and Delete with this tooltip, such
+  // as on a locked source track, where they would change its timing.
+  lockedTitle?: string;
+  // False leaves out the shortcut hint of Jump to start or Split, on a
+  // source clip, where Ctrl/Cmd-click and Mod+E do something else.
+  jumpShortcut?: boolean;
+  splitShortcut?: boolean;
   actions: ClipMenuActions;
 };
 

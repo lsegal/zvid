@@ -5,13 +5,14 @@ import type { MenuEntryProvider } from "../registry.ts";
 export const duplicateClipEntry: MenuEntryProvider<ClipMenuContext> = {
   id: "duplicate",
   order: 40,
-  entries: ({ hasClip, mac, actions }) => [
+  entries: ({ hasClip, mac, lockedTitle, actions }) => [
     {
       type: "item",
       id: "duplicate",
       label: "Duplicate",
       shortcut: formatShortcut("D", mac),
-      disabled: !hasClip,
+      disabled: !hasClip || lockedTitle !== undefined,
+      title: lockedTitle,
       onSelect: actions.duplicate,
     },
   ],

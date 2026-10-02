@@ -1,6 +1,7 @@
-// Splitting, duplicating and deleting the selected clip, or the selected
-// source track when no clip is selected. Delete removes the uncommitted
-// selection's span instead when there is one.
+// Splitting, duplicating and deleting the selected clip, else the selected
+// source clip or source track. Delete removes the uncommitted selection's
+// span instead when there is one. Splitting only ever splits a layer clip:
+// source clips split from their menu.
 import { canEditTimeline } from "./guards.ts";
 import type { Shortcut } from "./types.ts";
 
@@ -9,6 +10,7 @@ export const splitClipShortcut: Shortcut = {
   keys: ["Mod+E"],
   when: canEditTimeline,
   run: ({ clipActionsRef, selectedClip }, event) => {
+    // A selected source clip is never split from here.
     if (!selectedClip) {
       return;
     }
@@ -23,12 +25,25 @@ export const duplicateClipShortcut: Shortcut = {
   keys: ["Mod+D"],
   when: canEditTimeline,
   run: (
-    { clipActionsRef, duplicateSourceTrack, selectedClip, selectedSourceTrack },
+    {
+      clipActionsRef,
+      duplicateSourceTrack,
+      selectedClip,
+      selectedSourceSpan,
+      selectedSourceTrack,
+      sourceClipActionsRef,
+    },
     event,
   ) => {
     if (selectedClip) {
       event.preventDefault();
       clipActionsRef.current.duplicate(selectedClip);
+      return;
+    }
+
+    if (selectedSourceSpan) {
+      event.preventDefault();
+      sourceClipActionsRef.current.duplicate(selectedSourceSpan);
       return;
     }
 
@@ -51,7 +66,9 @@ export const deleteShortcut: Shortcut = {
       deleteSourceTrack,
       pendingSelection,
       selectedClip,
+      selectedSourceSpan,
       selectedSourceTrack,
+      sourceClipActionsRef,
     },
     event,
   ) => {
@@ -65,6 +82,12 @@ export const deleteShortcut: Shortcut = {
     if (selectedClip) {
       event.preventDefault();
       clipActions.remove(selectedClip);
+      return;
+    }
+
+    if (selectedSourceSpan) {
+      event.preventDefault();
+      sourceClipActionsRef.current.remove(selectedSourceSpan);
       return;
     }
 

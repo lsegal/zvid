@@ -1,7 +1,7 @@
 import { clipEffectTrackId, type SessionEffect } from "../fx-stack.ts";
 import type { ClipboardContent } from "../range-edit.ts";
 import { getClipEndQ, quartersToSeconds } from "./timeline-math.ts";
-import type { ArrangementClip } from "./types.ts";
+import type { ArrangementClip, SourceSpan } from "./types.ts";
 
 export function cloneClipAtStartQ(
   clip: ArrangementClip,
@@ -22,6 +22,9 @@ export function cloneClipAtStartQ(
 // taken when copying, so a cut clip still pastes with its effects.
 export type ClipClipboard = ClipboardContent<ArrangementClip> & {
   effects?: SessionEffect[];
+  // The source clip it was copied from, so pasting into a source track
+  // recreates it with its stack (in `effects`).
+  sourceSpan?: SourceSpan;
 };
 
 export function withClipStacks(
