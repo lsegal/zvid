@@ -6,7 +6,7 @@ import { expect, type Page, test } from "@playwright/test";
 // on the transport bar; the narrow one stacks the preview under it instead.
 
 async function timelineEdges(page: Page) {
-  return page.locator(".timeline-scroll").evaluate((node) => {
+  return page.locator(".timeline-panel").evaluate((node) => {
     const box = node.getBoundingClientRect();
     const style = getComputedStyle(node);
     const transport = document.querySelector(".transport-bar");
