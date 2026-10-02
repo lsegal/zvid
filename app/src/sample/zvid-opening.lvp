@@ -1121,6 +1121,48 @@
     },
     {
       "id": "sample-fx-011",
+      "trackId": "clip:selection-2",
+      "effectName": "DigitalGlitch",
+      "parameters": {
+        "_Amount": {
+          "floatValue": 0.25
+        },
+        "_BlockSize": {
+          "floatValue": 0.35
+        },
+        "_Displace": {
+          "floatValue": 0.4
+        },
+        "_ChannelShift": {
+          "floatValue": 0.5
+        },
+        "_ColorCrush": {
+          "floatValue": 0
+        },
+        "_Rate": {
+          "floatValue": 12
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "reactive",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Bounce",
+          "timing": "Normal",
+          "reactivity": 0.6,
+          "parameters": [
+            "_Amount"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sample-fx-012",
       "trackId": "clip:selection-3",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1145,7 +1187,7 @@
       }
     },
     {
-      "id": "sample-fx-012",
+      "id": "sample-fx-013",
       "trackId": "clip:selection-4",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1170,7 +1212,7 @@
       }
     },
     {
-      "id": "sample-fx-013",
+      "id": "sample-fx-014",
       "trackId": "clip:selection-5",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1195,7 +1237,7 @@
       }
     },
     {
-      "id": "sample-fx-014",
+      "id": "sample-fx-015",
       "trackId": "clip:selection-6",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1220,7 +1262,7 @@
       }
     },
     {
-      "id": "sample-fx-015",
+      "id": "sample-fx-016",
       "trackId": "clip:selection-7",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1245,7 +1287,7 @@
       }
     },
     {
-      "id": "sample-fx-016",
+      "id": "sample-fx-017",
       "trackId": "clip:selection-8",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1270,7 +1312,7 @@
       }
     },
     {
-      "id": "sample-fx-017",
+      "id": "sample-fx-018",
       "trackId": "clip:selection-9",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1295,7 +1337,7 @@
       }
     },
     {
-      "id": "sample-fx-018",
+      "id": "sample-fx-019",
       "trackId": "clip:selection-10",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1320,7 +1362,7 @@
       }
     },
     {
-      "id": "sample-fx-019",
+      "id": "sample-fx-020",
       "trackId": "clip:selection-11",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1345,7 +1387,7 @@
       }
     },
     {
-      "id": "sample-fx-020",
+      "id": "sample-fx-021",
       "trackId": "clip:selection-12",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1370,7 +1412,7 @@
       }
     },
     {
-      "id": "sample-fx-021",
+      "id": "sample-fx-022",
       "trackId": "clip:selection-13",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1395,7 +1437,7 @@
       }
     },
     {
-      "id": "sample-fx-022",
+      "id": "sample-fx-023",
       "trackId": "clip:selection-14",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1420,7 +1462,7 @@
       }
     },
     {
-      "id": "sample-fx-023",
+      "id": "sample-fx-024",
       "trackId": "clip:selection-15",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1445,7 +1487,7 @@
       }
     },
     {
-      "id": "sample-fx-024",
+      "id": "sample-fx-025",
       "trackId": "clip:selection-15",
       "effectName": "Colorize",
       "parameters": {
@@ -1468,37 +1510,37 @@
           "parameters": [
             "_HueOffset"
           ]
-        }
-      }
-    },
-    {
-      "id": "sample-fx-025",
-      "trackId": "clip:selection-16",
-      "effectName": "ZoomAndPan",
-      "parameters": {
-        "_Start_Zoom": {
-          "floatValue": 0
-        },
-        "_Start_X": {
-          "floatValue": 0.5
-        },
-        "_Start_Y": {
-          "floatValue": 0.5
-        },
-        "_End_Zoom": {
-          "floatValue": 0.06666666666666667
-        },
-        "_End_X": {
-          "floatValue": 0.5
-        },
-        "_End_Y": {
-          "floatValue": 0.5
         }
       }
     },
     {
       "id": "sample-fx-026",
       "trackId": "clip:selection-16",
+      "effectName": "ZoomAndPan",
+      "parameters": {
+        "_Start_Zoom": {
+          "floatValue": 0
+        },
+        "_Start_X": {
+          "floatValue": 0.5
+        },
+        "_Start_Y": {
+          "floatValue": 0.5
+        },
+        "_End_Zoom": {
+          "floatValue": 0.06666666666666667
+        },
+        "_End_X": {
+          "floatValue": 0.5
+        },
+        "_End_Y": {
+          "floatValue": 0.5
+        }
+      }
+    },
+    {
+      "id": "sample-fx-027",
+      "trackId": "clip:selection-16",
       "effectName": "Colorize",
       "parameters": {
         "_HueOffset": {
@@ -1524,7 +1566,7 @@
       }
     },
     {
-      "id": "sample-fx-027",
+      "id": "sample-fx-028",
       "trackId": "clip:selection-17",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1549,7 +1591,7 @@
       }
     },
     {
-      "id": "sample-fx-028",
+      "id": "sample-fx-029",
       "trackId": "clip:selection-17",
       "effectName": "Colorize",
       "parameters": {
@@ -1576,7 +1618,7 @@
       }
     },
     {
-      "id": "sample-fx-029",
+      "id": "sample-fx-030",
       "trackId": "clip:selection-18",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1601,7 +1643,7 @@
       }
     },
     {
-      "id": "sample-fx-030",
+      "id": "sample-fx-031",
       "trackId": "clip:selection-18",
       "effectName": "Colorize",
       "parameters": {
@@ -1628,7 +1670,7 @@
       }
     },
     {
-      "id": "sample-fx-031",
+      "id": "sample-fx-032",
       "trackId": "clip:selection-19",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1653,7 +1695,7 @@
       }
     },
     {
-      "id": "sample-fx-032",
+      "id": "sample-fx-033",
       "trackId": "clip:selection-19",
       "effectName": "Colorize",
       "parameters": {
@@ -1680,7 +1722,7 @@
       }
     },
     {
-      "id": "sample-fx-033",
+      "id": "sample-fx-034",
       "trackId": "clip:selection-20",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1705,7 +1747,7 @@
       }
     },
     {
-      "id": "sample-fx-034",
+      "id": "sample-fx-035",
       "trackId": "clip:selection-20",
       "effectName": "Colorize",
       "parameters": {
@@ -1732,7 +1774,7 @@
       }
     },
     {
-      "id": "sample-fx-035",
+      "id": "sample-fx-036",
       "trackId": "clip:selection-21",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1757,7 +1799,7 @@
       }
     },
     {
-      "id": "sample-fx-036",
+      "id": "sample-fx-037",
       "trackId": "clip:selection-22",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1782,7 +1824,7 @@
       }
     },
     {
-      "id": "sample-fx-037",
+      "id": "sample-fx-038",
       "trackId": "clip:selection-23",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1807,7 +1849,7 @@
       }
     },
     {
-      "id": "sample-fx-038",
+      "id": "sample-fx-039",
       "trackId": "clip:selection-24",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1832,7 +1874,7 @@
       }
     },
     {
-      "id": "sample-fx-039",
+      "id": "sample-fx-040",
       "trackId": "clip:selection-25",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1857,7 +1899,7 @@
       }
     },
     {
-      "id": "sample-fx-040",
+      "id": "sample-fx-041",
       "trackId": "clip:selection-26",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1882,7 +1924,7 @@
       }
     },
     {
-      "id": "sample-fx-041",
+      "id": "sample-fx-042",
       "trackId": "clip:selection-27",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1907,7 +1949,7 @@
       }
     },
     {
-      "id": "sample-fx-042",
+      "id": "sample-fx-043",
       "trackId": "clip:selection-28",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1932,7 +1974,7 @@
       }
     },
     {
-      "id": "sample-fx-043",
+      "id": "sample-fx-044",
       "trackId": "clip:selection-29",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1957,7 +1999,7 @@
       }
     },
     {
-      "id": "sample-fx-044",
+      "id": "sample-fx-045",
       "trackId": "clip:selection-30",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1982,7 +2024,7 @@
       }
     },
     {
-      "id": "sample-fx-045",
+      "id": "sample-fx-046",
       "trackId": "clip:selection-31",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -2007,7 +2049,7 @@
       }
     },
     {
-      "id": "sample-fx-046",
+      "id": "sample-fx-047",
       "trackId": "clip:selection-32",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -2032,7 +2074,7 @@
       }
     },
     {
-      "id": "sample-fx-047",
+      "id": "sample-fx-048",
       "trackId": "clip:selection-33",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -2057,7 +2099,7 @@
       }
     },
     {
-      "id": "sample-fx-048",
+      "id": "sample-fx-049",
       "trackId": "clip:selection-33",
       "effectName": "Colorize",
       "parameters": {
@@ -2080,37 +2122,37 @@
           "parameters": [
             "_HueOffset"
           ]
-        }
-      }
-    },
-    {
-      "id": "sample-fx-049",
-      "trackId": "clip:selection-34",
-      "effectName": "ZoomAndPan",
-      "parameters": {
-        "_Start_Zoom": {
-          "floatValue": 0
-        },
-        "_Start_X": {
-          "floatValue": 0.5
-        },
-        "_Start_Y": {
-          "floatValue": 0.5
-        },
-        "_End_Zoom": {
-          "floatValue": 0.06666666666666667
-        },
-        "_End_X": {
-          "floatValue": 0.5
-        },
-        "_End_Y": {
-          "floatValue": 0.5
         }
       }
     },
     {
       "id": "sample-fx-050",
       "trackId": "clip:selection-34",
+      "effectName": "ZoomAndPan",
+      "parameters": {
+        "_Start_Zoom": {
+          "floatValue": 0
+        },
+        "_Start_X": {
+          "floatValue": 0.5
+        },
+        "_Start_Y": {
+          "floatValue": 0.5
+        },
+        "_End_Zoom": {
+          "floatValue": 0.06666666666666667
+        },
+        "_End_X": {
+          "floatValue": 0.5
+        },
+        "_End_Y": {
+          "floatValue": 0.5
+        }
+      }
+    },
+    {
+      "id": "sample-fx-051",
+      "trackId": "clip:selection-34",
       "effectName": "Colorize",
       "parameters": {
         "_HueOffset": {
@@ -2136,7 +2178,7 @@
       }
     },
     {
-      "id": "sample-fx-051",
+      "id": "sample-fx-052",
       "trackId": "clip:selection-35",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -2161,7 +2203,7 @@
       }
     },
     {
-      "id": "sample-fx-052",
+      "id": "sample-fx-053",
       "trackId": "clip:selection-35",
       "effectName": "Colorize",
       "parameters": {
@@ -2188,7 +2230,7 @@
       }
     },
     {
-      "id": "sample-fx-053",
+      "id": "sample-fx-054",
       "trackId": "clip:selection-36",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -2213,7 +2255,7 @@
       }
     },
     {
-      "id": "sample-fx-054",
+      "id": "sample-fx-055",
       "trackId": "clip:selection-36",
       "effectName": "Colorize",
       "parameters": {
@@ -2240,7 +2282,7 @@
       }
     },
     {
-      "id": "sample-fx-055",
+      "id": "sample-fx-056",
       "trackId": "clip:selection-37",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -2265,7 +2307,7 @@
       }
     },
     {
-      "id": "sample-fx-056",
+      "id": "sample-fx-057",
       "trackId": "clip:selection-37",
       "effectName": "Colorize",
       "parameters": {
@@ -2292,7 +2334,7 @@
       }
     },
     {
-      "id": "sample-fx-057",
+      "id": "sample-fx-058",
       "trackId": "clip:selection-38",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -2317,7 +2359,7 @@
       }
     },
     {
-      "id": "sample-fx-058",
+      "id": "sample-fx-059",
       "trackId": "clip:selection-38",
       "effectName": "Colorize",
       "parameters": {
@@ -2344,7 +2386,7 @@
       }
     },
     {
-      "id": "sample-fx-059",
+      "id": "sample-fx-060",
       "trackId": "clip:selection-39",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -2369,7 +2411,7 @@
       }
     },
     {
-      "id": "sample-fx-060",
+      "id": "sample-fx-061",
       "trackId": "clip:selection-40",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -2394,7 +2436,7 @@
       }
     },
     {
-      "id": "sample-fx-061",
+      "id": "sample-fx-062",
       "trackId": "clip:selection-41",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -2419,7 +2461,7 @@
       }
     },
     {
-      "id": "sample-fx-062",
+      "id": "sample-fx-063",
       "trackId": "clip:selection-42",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -2444,7 +2486,7 @@
       }
     },
     {
-      "id": "sample-fx-063",
+      "id": "sample-fx-064",
       "trackId": "clip:selection-43",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -2469,7 +2511,7 @@
       }
     },
     {
-      "id": "sample-fx-064",
+      "id": "sample-fx-065",
       "trackId": "clip:selection-44",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -2494,7 +2536,7 @@
       }
     },
     {
-      "id": "sample-fx-065",
+      "id": "sample-fx-066",
       "trackId": "clip:selection-45",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -2519,7 +2561,7 @@
       }
     },
     {
-      "id": "sample-fx-066",
+      "id": "sample-fx-067",
       "trackId": "clip:order-3-0",
       "effectName": "Order",
       "parameters": {
@@ -2561,7 +2603,7 @@
       }
     },
     {
-      "id": "sample-fx-067",
+      "id": "sample-fx-068",
       "trackId": "clip:order-6-0",
       "effectName": "Order",
       "parameters": {
@@ -2603,7 +2645,7 @@
       }
     },
     {
-      "id": "sample-fx-068",
+      "id": "sample-fx-069",
       "trackId": "clip:order-9-0",
       "effectName": "Order",
       "parameters": {
@@ -2645,7 +2687,7 @@
       }
     },
     {
-      "id": "sample-fx-069",
+      "id": "sample-fx-070",
       "trackId": "clip:order-15-0",
       "effectName": "Order",
       "parameters": {
@@ -2687,7 +2729,7 @@
       }
     },
     {
-      "id": "sample-fx-070",
+      "id": "sample-fx-071",
       "trackId": "clip:order-18-0",
       "effectName": "Order",
       "parameters": {
@@ -2729,7 +2771,7 @@
       }
     },
     {
-      "id": "sample-fx-071",
+      "id": "sample-fx-072",
       "trackId": "clip:order-21-0",
       "effectName": "Order",
       "parameters": {
@@ -2771,7 +2813,7 @@
       }
     },
     {
-      "id": "sample-fx-072",
+      "id": "sample-fx-073",
       "trackId": "clip:order-22-5",
       "effectName": "Order",
       "parameters": {
@@ -2813,7 +2855,7 @@
       }
     },
     {
-      "id": "sample-fx-073",
+      "id": "sample-fx-074",
       "trackId": "clip:order-24-0",
       "effectName": "Order",
       "parameters": {
@@ -2855,7 +2897,7 @@
       }
     },
     {
-      "id": "sample-fx-074",
+      "id": "sample-fx-075",
       "trackId": "clip:order-25-5",
       "effectName": "Order",
       "parameters": {
@@ -2897,7 +2939,7 @@
       }
     },
     {
-      "id": "sample-fx-075",
+      "id": "sample-fx-076",
       "trackId": "clip:region-pixelate",
       "effectName": "Pixelate",
       "parameters": {
@@ -2907,7 +2949,7 @@
       }
     },
     {
-      "id": "sample-fx-076",
+      "id": "sample-fx-077",
       "trackId": "clip:region-pixelate",
       "effectName": "Move",
       "parameters": {
@@ -2959,7 +3001,7 @@
       }
     },
     {
-      "id": "sample-fx-077",
+      "id": "sample-fx-078",
       "trackId": "clip:region-pixelate",
       "effectName": "Transform",
       "parameters": {
@@ -2987,7 +3029,7 @@
       }
     },
     {
-      "id": "sample-fx-078",
+      "id": "sample-fx-079",
       "trackId": "clip:region-negativesplit",
       "effectName": "NegativeSplit",
       "parameters": {
@@ -3000,7 +3042,7 @@
       }
     },
     {
-      "id": "sample-fx-079",
+      "id": "sample-fx-080",
       "trackId": "clip:region-negativesplit",
       "effectName": "Move",
       "parameters": {
@@ -3052,7 +3094,7 @@
       }
     },
     {
-      "id": "sample-fx-080",
+      "id": "sample-fx-081",
       "trackId": "clip:region-negativesplit",
       "effectName": "Transform",
       "parameters": {
@@ -3080,7 +3122,7 @@
       }
     },
     {
-      "id": "sample-fx-081",
+      "id": "sample-fx-082",
       "trackId": "clip:region-analogglitch",
       "effectName": "AnalogGlitch",
       "parameters": {
@@ -3093,7 +3135,7 @@
       }
     },
     {
-      "id": "sample-fx-082",
+      "id": "sample-fx-083",
       "trackId": "clip:region-analogglitch",
       "effectName": "Move",
       "parameters": {
@@ -3145,7 +3187,7 @@
       }
     },
     {
-      "id": "sample-fx-083",
+      "id": "sample-fx-084",
       "trackId": "clip:region-analogglitch",
       "effectName": "Transform",
       "parameters": {
@@ -3173,7 +3215,7 @@
       }
     },
     {
-      "id": "sample-fx-084",
+      "id": "sample-fx-085",
       "trackId": "clip:text-open-zvid",
       "effectName": "Text",
       "parameters": {
@@ -3228,7 +3270,7 @@
       }
     },
     {
-      "id": "sample-fx-085",
+      "id": "sample-fx-086",
       "trackId": "clip:text-open-zvid",
       "effectName": "Transform",
       "parameters": {
@@ -3256,7 +3298,7 @@
       }
     },
     {
-      "id": "sample-fx-086",
+      "id": "sample-fx-087",
       "trackId": "clip:text-open-tagline",
       "effectName": "Text",
       "parameters": {
@@ -3326,7 +3368,7 @@
       }
     },
     {
-      "id": "sample-fx-087",
+      "id": "sample-fx-088",
       "trackId": "clip:text-open-tagline",
       "effectName": "Transform",
       "parameters": {
@@ -3354,7 +3396,7 @@
       }
     },
     {
-      "id": "sample-fx-088",
+      "id": "sample-fx-089",
       "trackId": "clip:text-capture",
       "effectName": "Text",
       "parameters": {
@@ -3424,7 +3466,7 @@
       }
     },
     {
-      "id": "sample-fx-089",
+      "id": "sample-fx-090",
       "trackId": "clip:text-capture",
       "effectName": "Move",
       "parameters": {
@@ -3476,7 +3518,7 @@
       }
     },
     {
-      "id": "sample-fx-090",
+      "id": "sample-fx-091",
       "trackId": "clip:text-edit",
       "effectName": "Text",
       "parameters": {
@@ -3546,7 +3588,7 @@
       }
     },
     {
-      "id": "sample-fx-091",
+      "id": "sample-fx-092",
       "trackId": "clip:text-edit",
       "effectName": "Transform",
       "parameters": {
@@ -3574,7 +3616,7 @@
       }
     },
     {
-      "id": "sample-fx-092",
+      "id": "sample-fx-093",
       "trackId": "clip:text-montage-zvid",
       "effectName": "Text",
       "parameters": {
@@ -3656,7 +3698,7 @@
       }
     },
     {
-      "id": "sample-fx-093",
+      "id": "sample-fx-094",
       "trackId": "clip:fill-title-card",
       "effectName": "Color",
       "parameters": {
@@ -3672,7 +3714,7 @@
       }
     },
     {
-      "id": "sample-fx-094",
+      "id": "sample-fx-095",
       "trackId": "clip:text-card-zvid",
       "effectName": "Text",
       "parameters": {
@@ -3742,7 +3784,7 @@
       }
     },
     {
-      "id": "sample-fx-095",
+      "id": "sample-fx-096",
       "trackId": "clip:text-card-zvid",
       "effectName": "Transform",
       "parameters": {
@@ -3770,7 +3812,7 @@
       }
     },
     {
-      "id": "sample-fx-096",
+      "id": "sample-fx-097",
       "trackId": "clip:text-card-tagline",
       "effectName": "Text",
       "parameters": {
@@ -3840,7 +3882,7 @@
       }
     },
     {
-      "id": "sample-fx-097",
+      "id": "sample-fx-098",
       "trackId": "clip:text-card-tagline",
       "effectName": "Transform",
       "parameters": {
@@ -3868,7 +3910,7 @@
       }
     },
     {
-      "id": "sample-fx-098",
+      "id": "sample-fx-099",
       "trackId": "source-clip:source-span-music",
       "effectName": "Gain",
       "parameters": {
