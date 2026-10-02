@@ -302,15 +302,29 @@ test("Insert FX Clip adds an empty FX clip that lists its effects", async ({
   // The Clip section's add menu offers only effects that work on what is
   // beneath the clip.
   await page.getByRole("button", { name: "Add device to this clip" }).click();
-  const menu = page.getByRole("menu");
-  await expect(menu.getByRole("menuitem", { name: "Colorize" })).toBeVisible();
-  await expect(menu.getByRole("menuitem", { name: "Transform" })).toBeVisible();
-  await expect(menu.getByRole("menuitem", { name: /^Order / })).toBeVisible();
-  for (const name of ["Color", "Text", "Layout"]) {
-    await expect(menu.getByRole("menuitem", { name, exact: true })).toHaveCount(
-      0,
-    );
-  }
-  await menu.getByRole("menuitem", { name: "Colorize" }).click();
+  const menu = page.getByRole("menu").first();
+  const submenu = page.getByRole("menu").last();
+  await expect(
+    menu.getByRole("menuitem", { name: "Text", exact: true }),
+  ).toHaveCount(0);
+  await menu
+    .getByRole("menuitem", { name: "Transform", exact: true })
+    .press("ArrowRight");
+  await expect(
+    submenu.getByRole("menuitem", { name: /^Transform/ }),
+  ).toBeVisible();
+  await expect(
+    submenu.getByRole("menuitem", { name: /^Order / }),
+  ).toBeVisible();
+  await expect(submenu.getByRole("menuitem", { name: /^Layout/ })).toHaveCount(
+    0,
+  );
+  await menu
+    .getByRole("menuitem", { name: "Color", exact: true })
+    .press("ArrowRight");
+  await expect(
+    submenu.getByRole("menuitem", { name: /^Color(?!ize)/ }),
+  ).toHaveCount(0);
+  await submenu.getByRole("menuitem", { name: /^Colorize/ }).click();
   await expect(clip.locator("strong")).toHaveText("FX · Colorize");
 });

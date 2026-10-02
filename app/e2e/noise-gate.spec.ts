@@ -135,8 +135,9 @@ test("Noise Gate is added from a clip's Audio menu with its defaults and gates t
   // Audio heading.
   await page
     .getByRole("menu")
-    .getByRole("menuitem", { name: /^Noise Gate/ })
-    .click();
+    .getByRole("menuitem", { name: "Dynamics" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Noise Gate/ }).click();
 
   const device = gateDevice(page);
   await expect(device).toHaveCount(1);
@@ -226,13 +227,14 @@ test("a video clip's add menu lists Noise Gate in its Audio group", async ({
   const menu = page.getByRole("menu");
   await expect(
     menu.getByRole("group", { name: "Video" }).getByRole("menuitem", {
-      name: /^Noise Gate/,
+      name: "Dynamics",
     }),
   ).toHaveCount(0);
   await menu
     .getByRole("group", { name: "Audio" })
-    .getByRole("menuitem", { name: /^Noise Gate/ })
-    .click();
+    .getByRole("menuitem", { name: "Dynamics" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Noise Gate/ }).click();
   await expect(gateDevice(page)).toHaveCount(1);
 });
 

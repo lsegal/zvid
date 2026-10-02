@@ -158,8 +158,9 @@ test("De-ess is added from a clip's Audio menu with its defaults and turns down 
   // Audio heading.
   await page
     .getByRole("menu")
-    .getByRole("menuitem", { name: /^De-ess/ })
-    .click();
+    .getByRole("menuitem", { name: "Dynamics" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^De-ess/ }).click();
 
   const device = deEssDevice(page);
   await expect(device).toHaveCount(1);
@@ -267,13 +268,14 @@ test("a video clip's add menu lists De-ess in its Audio group", async ({
   const menu = page.getByRole("menu");
   await expect(
     menu.getByRole("group", { name: "Video" }).getByRole("menuitem", {
-      name: /^De-ess/,
+      name: "Dynamics",
     }),
   ).toHaveCount(0);
   await menu
     .getByRole("group", { name: "Audio" })
-    .getByRole("menuitem", { name: /^De-ess/ })
-    .click();
+    .getByRole("menuitem", { name: "Dynamics" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^De-ess/ }).click();
   await expect(deEssDevice(page)).toHaveCount(1);
 });
 

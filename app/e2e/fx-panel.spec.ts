@@ -181,7 +181,14 @@ test("the FX panel shows Global, then the layer, then the selected clip", async 
 
   // Adding from the clip slot puts the device on the clip's stack.
   await page.getByRole("button", { name: "Add device to this clip" }).click();
-  await page.getByRole("menuitem", { name: /^Transform/ }).click();
+  await page
+    .getByRole("menuitem", { name: "Transform", exact: true })
+    .press("ArrowRight");
+  await page
+    .getByRole("menu")
+    .last()
+    .getByRole("menuitem", { name: /^Transform/ })
+    .click();
   const clipTransform = page.locator(
     `.fx-chain :is(section[data-fx-group="clip"], [data-fx-group="clip"] > section)[aria-label="Transform"]`,
   );

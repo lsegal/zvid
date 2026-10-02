@@ -135,8 +135,9 @@ test("Phaser is added from a clip's Audio menu with its defaults and notches the
   // Audio heading.
   await page
     .getByRole("menu")
-    .getByRole("menuitem", { name: /^Phaser/ })
-    .click();
+    .getByRole("menuitem", { name: "Modulation & Delay" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Phaser/ }).click();
 
   const device = phaserDevice(page);
   await expect(device).toHaveCount(1);
@@ -232,13 +233,14 @@ test("a video clip's add menu lists Phaser in its Audio group", async ({
   const menu = page.getByRole("menu");
   await expect(
     menu.getByRole("group", { name: "Video" }).getByRole("menuitem", {
-      name: /^Phaser/,
+      name: "Modulation & Delay",
     }),
   ).toHaveCount(0);
   await menu
     .getByRole("group", { name: "Audio" })
-    .getByRole("menuitem", { name: /^Phaser/ })
-    .click();
+    .getByRole("menuitem", { name: "Modulation & Delay" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Phaser/ }).click();
   await expect(phaserDevice(page)).toHaveCount(1);
 });
 

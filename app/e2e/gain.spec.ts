@@ -112,11 +112,12 @@ test("a new audio clip has a Gain with a vertical fader at 0 dB", async ({
     .first()
     .click();
   const menu = page.getByRole("menu");
-  await expect(menu.getByRole("menuitem", { name: /^Gain/ })).toBeVisible();
-  await expect(menu.getByRole("menuitem", { name: /^Pixelate/ })).toHaveCount(
-    0,
-  );
-  await menu.getByRole("menuitem", { name: /^Gain/ }).click();
+  await expect(menu.getByRole("menuitem", { name: "Stylize" })).toHaveCount(0);
+  await menu
+    .getByRole("menuitem", { name: "Volume & Stereo" })
+    .press("ArrowRight");
+  await expect(page.getByRole("menuitem", { name: /^Gain/ })).toBeVisible();
+  await page.getByRole("menuitem", { name: /^Gain/ }).click();
   await expect(page.locator(clipDevices)).toHaveCount(1);
   await expect(
     page.locator(clipDevices).getByRole("slider", { name: "Gain" }),
@@ -141,6 +142,9 @@ test("a video clip without sound gets no Gain", async ({ page }) => {
   await expect(
     page.getByRole("menu").getByRole("group", { name: "Video" }),
   ).toBeVisible();
-  await audio.getByRole("menuitem", { name: /^Gain/ }).click();
+  await audio
+    .getByRole("menuitem", { name: "Volume & Stereo" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Gain/ }).click();
   await expect(page.locator(clipDevices)).toHaveCount(1);
 });

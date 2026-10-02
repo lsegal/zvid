@@ -155,8 +155,9 @@ test("Bitcrush is added from a clip's Audio menu with its defaults and crushes t
   // Audio heading.
   await page
     .getByRole("menu")
-    .getByRole("menuitem", { name: /^Bitcrush/ })
-    .click();
+    .getByRole("menuitem", { name: "Distortion" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Bitcrush/ }).click();
 
   const device = bitcrushDevice(page);
   await expect(device).toHaveCount(1);
@@ -254,13 +255,14 @@ test("a video clip's add menu lists Bitcrush in its Audio group", async ({
   const menu = page.getByRole("menu");
   await expect(
     menu.getByRole("group", { name: "Video" }).getByRole("menuitem", {
-      name: /^Bitcrush/,
+      name: "Distortion",
     }),
   ).toHaveCount(0);
   await menu
     .getByRole("group", { name: "Audio" })
-    .getByRole("menuitem", { name: /^Bitcrush/ })
-    .click();
+    .getByRole("menuitem", { name: "Distortion" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Bitcrush/ }).click();
   await expect(bitcrushDevice(page)).toHaveCount(1);
 });
 

@@ -75,8 +75,16 @@ async function expectPreviewChange(page: Page, before: number[]) {
   return after;
 }
 
-async function addDevice(button: Locator, page: Page, name: string) {
+async function addDevice(
+  button: Locator,
+  page: Page,
+  category: string,
+  name: string,
+) {
   await button.click();
+  await page
+    .getByRole("menuitem", { name: category, exact: true })
+    .press("ArrowRight");
   await page.getByRole("menuitem", { name: new RegExp(`^${name}`) }).click();
 }
 
@@ -127,11 +135,20 @@ test("source tracks and clips have their own effects, rendered in the preview", 
     .getByRole("button", { name: "Add device to this track" })
     .first()
     .click();
-  const menu = page.getByRole("menu");
+  const menu = page.getByRole("menu").first();
+  const submenu = page.getByRole("menu").last();
   // The track's menu offers a layer's effects: Transform but not Order.
-  await expect(menu.getByRole("menuitem", { name: "Transform" })).toBeVisible();
-  await expect(menu.getByRole("menuitem", { name: /^Order/ })).toHaveCount(0);
-  await menu.getByRole("menuitem", { name: "Negative Split" }).click();
+  await menu
+    .getByRole("menuitem", { name: "Transform", exact: true })
+    .press("ArrowRight");
+  await expect(
+    submenu.getByRole("menuitem", { name: /^Transform/ }),
+  ).toBeVisible();
+  await expect(submenu.getByRole("menuitem", { name: /^Order/ })).toHaveCount(
+    0,
+  );
+  await menu.getByRole("menuitem", { name: "Stylize" }).press("ArrowRight");
+  await submenu.getByRole("menuitem", { name: "Negative Split" }).click();
   await expect(page.locator('.fx-chain [data-fx-group="layer"]')).toHaveCount(
     1,
   );
@@ -168,6 +185,7 @@ test("source tracks and clips have their own effects, rendered in the preview", 
   await addDevice(
     page.getByRole("button", { name: "Add device to this clip" }),
     page,
+    "Color",
     "Colorize",
   );
   await expect(page.locator('.fx-chain [data-fx-group="clip"]')).toHaveCount(1);

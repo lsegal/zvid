@@ -107,7 +107,8 @@ async function addReverse(page: Page) {
     .click();
   const menu = page.getByRole("menu");
   await expect(menu.getByRole("group", { name: "Video" })).toHaveCount(0);
-  await menu.getByRole("menuitem", { name: /^Reverse/ }).click();
+  await menu.getByRole("menuitem", { name: "Utility" }).press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Reverse/ }).click();
   const reverse = page.locator(`${clipDevices}[aria-label="Reverse"]`);
   await expect(reverse).toHaveCount(1);
   return reverse;
@@ -169,10 +170,10 @@ test("a video clip lists Reverse in its add menu's Audio group, and a track does
   await trackAdd.click();
   const trackMenu = page.getByRole("menu");
   await expect(
-    trackMenu.getByRole("menuitem", { name: /^Gain/ }),
+    trackMenu.getByRole("menuitem", { name: "Volume & Stereo" }),
   ).toBeVisible();
   await expect(
-    trackMenu.getByRole("menuitem", { name: /^Reverse/ }),
+    trackMenu.getByRole("menuitem", { name: "Utility" }),
   ).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(trackMenu).toHaveCount(0);
@@ -182,7 +183,8 @@ test("a video clip lists Reverse in its add menu's Audio group, and a track does
     .first()
     .click();
   const audio = page.getByRole("menu").getByRole("group", { name: "Audio" });
-  await audio.getByRole("menuitem", { name: /^Reverse/ }).click();
+  await audio.getByRole("menuitem", { name: "Utility" }).press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Reverse/ }).click();
   await expect(
     page.locator(`${clipDevices}[aria-label="Reverse"]`),
   ).toHaveCount(1);

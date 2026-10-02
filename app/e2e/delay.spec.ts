@@ -161,8 +161,9 @@ test("Delay is added to an audio clip with its defaults and changes the mix", as
     .click();
   await page
     .getByRole("menu")
-    .getByRole("menuitem", { name: /^Delay/ })
-    .click();
+    .getByRole("menuitem", { name: "Modulation & Delay" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Delay/ }).click();
   await expect(page.locator(clipDevices)).toHaveCount(2);
 
   const delay = page.locator(clipDevices).nth(1);
@@ -261,7 +262,10 @@ test("a video clip's add menu lists Delay in its Audio group", async ({
     .first()
     .click();
   const audio = page.getByRole("menu").getByRole("group", { name: "Audio" });
-  await audio.getByRole("menuitem", { name: /^Delay/ }).click();
+  await audio
+    .getByRole("menuitem", { name: "Modulation & Delay" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Delay/ }).click();
   await expect(
     page.locator(clipDevices).filter({ hasText: "Delay" }),
   ).toHaveCount(1);
