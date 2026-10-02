@@ -40,7 +40,7 @@ test.afterEach(async () => {
 async function openApp(
   browser: Browser,
   path = "/",
-  { blockableServe = false } = {},
+  { blockableServe = false, clock = false } = {},
 ) {
   const context = await browser.newContext({
     permissions: ["clipboard-read", "clipboard-write"],
@@ -58,6 +58,11 @@ async function openApp(
     );
   }, signaling.url);
   const page = await context.newPage();
+  // A fake clock lets a test skip the connection timeouts instead of
+  // waiting them out; time still runs normally until it fast-forwards.
+  if (clock) {
+    await page.clock.install();
+  }
   await page.goto(path);
   await expect(layerNames(page).first()).toBeVisible();
   return page;
@@ -206,26 +211,57 @@ function toneWav(frequency: number) {
 }
 
 function audioRow(page: Page) {
-  return page.locator("[data-main-audio-drop-target]");
+  return page.locator("[data-audio-row]");
 }
 
-async function setMainAudio(page: Page, name: string, frequency: number) {
-  await audioRow(page)
-    .locator('input[type="file"]')
-    .setInputFiles({
-      name,
-      mimeType: "audio/wav",
-      buffer: toneWav(frequency),
-    });
-  await expect(audioRow(page)).toContainText(name, { timeout: 30_000 });
-}
-
-async function expectMainAudioWaveform(page: Page, name: string) {
-  await expect(audioRow(page)).toContainText(name, { timeout: 30_000 });
-  await expect(audioRow(page).locator(".waveform__canvas")).toBeVisible({
+// Drops a tone on a new source track, which gives its clip a Gain.
+async function addToneTrack(page: Page, name: string, frequency: number) {
+  const spans = await page.locator(".source-span").count();
+  const base64 = toneWav(frequency).toString("base64");
+  const dataTransfer = await page.evaluateHandle(
+    ({ data, name }) => {
+      const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([bytes], name, { type: "audio/wav" }));
+      return transfer;
+    },
+    { data: base64, name },
+  );
+  // With a track already there, a new one comes from the new-track row that
+  // dragging over a track shows.
+  if (spans) {
+    for (const type of ["dragenter", "dragover"]) {
+      await page.dispatchEvent(
+        '[data-source-track-drop-target="track"]',
+        type,
+        {
+          dataTransfer,
+        },
+      );
+    }
+  }
+  const target = spans
+    ? ".track-row--source-drop"
+    : '[data-source-track-drop-target="new-track"]';
+  for (const type of ["dragenter", "dragover", "drop"]) {
+    await page.dispatchEvent(target, type, { dataTransfer });
+  }
+  await expect(page.locator(".source-span")).toHaveCount(spans + 1, {
     timeout: 30_000,
   });
-  await expect(audioRow(page).locator(".waveform__empty")).toHaveCount(0);
+}
+
+// The Audio row draws the resolved mix once its media has arrived.
+async function expectAudioWaveform(page: Page) {
+  await expect(audioRow(page)).toContainText(
+    /From source tracks · \d+ clips?/,
+    {
+      timeout: 30_000,
+    },
+  );
+  await expect(
+    audioRow(page).locator('[data-audio-mix="ready"] .waveform__canvas'),
+  ).toBeVisible({ timeout: 30_000 });
 }
 
 async function startSharing(page: Page) {
@@ -316,7 +352,7 @@ test("a guest in another browser context joins, syncs both ways and receives med
   await expect(diagnostics).not.toContainText("Same-browser tabs");
 });
 
-test("main audio and source-track-only media added during a share reach the guest", async ({
+test("audio and source-track-only media added during a share reach the guest", async ({
   browser,
 }) => {
   test.setTimeout(150_000);
@@ -326,9 +362,7 @@ test("main audio and source-track-only media added during a share reach the gues
   await expect(connectionStatus(guest)).toHaveText("1 peer connected", {
     timeout: 30_000,
   });
-  await expect(audioRow(guest)).toContainText(
-    "No main audio track in this session",
-  );
+  await expect(audioRow(guest)).toContainText("No audio");
 
   // Video that is only on a source track, never placed on a layer.
   await dropVideo(host, { place: false });
@@ -339,25 +373,12 @@ test("main audio and source-track-only media added during a share reach the gues
     { timeout: 30_000 },
   );
 
-  // Main audio added mid-share arrives without a reload.
-  await setMainAudio(host, "tone.wav", 440);
-  await expectMainAudioWaveform(host, "tone.wav");
-  await expectMainAudioWaveform(guest, "tone.wav");
-
-  // So does a replacement.
-  await setMainAudio(host, "tone-2.wav", 880);
-  await expectMainAudioWaveform(guest, "tone-2.wav");
+  // Audio imported into a source track mid-share reaches the guest without
+  // a reload, and its Audio row draws the mix.
+  await addToneTrack(host, "tone.wav", 440);
+  await expectAudioWaveform(host);
+  await expectAudioWaveform(guest);
   await expect(guest.locator(".track-label__offline")).toHaveCount(0);
-
-  // Removing it syncs too.
-  await audioRow(host).locator(".track-label").click({ button: "right" });
-  await host
-    .getByRole("menu", { name: "Main audio actions" })
-    .getByRole("menuitem", { name: "Remove main audio", exact: true })
-    .click();
-  await expect(audioRow(guest)).toContainText(
-    "No main audio track in this session",
-  );
 });
 
 // A host with a video it can't read, sharing, and a guest that has joined
@@ -438,31 +459,33 @@ test("outside a share, the offline label opens the offline media dialog", async 
 test("a guest with no host waits, then says the host wasn't found", async ({
   browser,
 }) => {
-  test.setTimeout(60_000);
   const guest = await openApp(
     browser,
     `/?room=nobody-home&signal=${encodeURIComponent(signaling.url)}`,
+    { clock: true },
   );
   await expect(connectionStatus(guest)).toHaveText("Waiting for host...", {
     timeout: 15_000,
   });
+  // Past the app's 20 s wait for a host (HOST_TIMEOUT_MS).
+  await guest.clock.fastForward(21_000);
   await expect(connectionStatus(guest)).toHaveText(
     "Host not found, check the invite and that the host is sharing",
-    { timeout: 30_000 },
   );
   // The guest never publishes its own project into the room.
   await expect(layerNames(guest)).toHaveText(["Layer 1", "Layer 2", "Layer 3"]);
 });
 
 test("an unreachable signaling server is reported", async ({ browser }) => {
-  test.setTimeout(60_000);
   const guest = await openApp(
     browser,
     `/?room=nowhere&signal=${encodeURIComponent("ws://127.0.0.1:9")}`,
+    { clock: true },
   );
+  // Past the app's 10 s signaling timeout (SIGNALING_TIMEOUT_MS).
+  await guest.clock.fastForward(11_000);
   await expect(connectionStatus(guest)).toHaveText(
     "Can't reach the signaling server",
-    { timeout: 20_000 },
   );
   await connectionStatus(guest).click();
   await expect(

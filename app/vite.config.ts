@@ -425,8 +425,24 @@ function versionFilePlugin(): Plugin {
   };
 }
 
-export default defineConfig({
+// `vite build --mode e2e` builds what the browser tests load, including the
+// smoke-test pages a normal build leaves out, into dist-e2e.
+const E2E_PAGES = ["index.html", "export-smoke.html", "composition-smoke.html"];
+
+export default defineConfig(({ mode }) => ({
   plugins: [react(), diskMediaPlugin(), versionFilePlugin()],
+  ...(mode === "e2e"
+    ? {
+        build: {
+          outDir: "dist-e2e",
+          rollupOptions: {
+            input: E2E_PAGES.map((page) =>
+              path.resolve(import.meta.dirname, page),
+            ),
+          },
+        },
+      }
+    : {}),
   define: {
     __APP_VERSION__: JSON.stringify(appVersion),
     __APP_COMMIT__: JSON.stringify(appCommit),
@@ -453,4 +469,4 @@ export default defineConfig({
       ignored: ["**/src-tauri/target/**", "**/export-bridge/target/**"],
     },
   },
-});
+}));

@@ -6,7 +6,7 @@ import {
   migrateClipContentEffects,
   migrateColorizeReactivity,
   migrateDefaultOrder,
-  migrateLegacyMainAudio,
+  migrateMainAudio,
   migrateOrderOuterMargin,
   stripLegacySnapMode,
 } from "../project-state-compat.ts";
@@ -62,15 +62,16 @@ function normalizeRestoredProjectState(value: unknown): ProjectState {
   }
 
   const saved = value as Partial<ProjectState>;
-  const state: ProjectState = {
+  let state: ProjectState = {
     ...INITIAL_PROJECT_STATE,
-    ...stripLegacySnapMode(migrateLegacyMainAudio(saved)),
+    ...stripLegacySnapMode(saved),
   };
   for (const field of PROJECT_ARRAY_FIELDS) {
     if (!Array.isArray(state[field])) {
       throw new Error(`Saved project snapshot has no ${field}`);
     }
   }
+  state = migrateMainAudio(state);
   // Read from the save itself: the initial state always has the flag.
   state.effects = migrateDefaultGain(
     migrateClipContentEffects(

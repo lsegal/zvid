@@ -109,6 +109,8 @@ export type LvpSession = {
   };
   playPosition?: number;
   playStartPosition?: number;
+  // A main audio file, from sessions saved before audio came only from
+  // clips. Opening one turns it into a source track; it is not written.
   audioFilename?: string;
   sessionFile?: string;
   /**
@@ -174,7 +176,8 @@ function isFilePath(value: unknown): value is string {
   return typeof value === "string" && value.trim() !== "";
 }
 
-// Every media file the session references: its clips and main audio.
+// Every media file the session references: its clips and, in an older
+// session, its main audio.
 export function collectSessionMediaPaths(session: LvpSession) {
   const mediaPaths = new Set<string>();
 

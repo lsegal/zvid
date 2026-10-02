@@ -68,7 +68,7 @@ test("Edit shows Clip and Layer only for a selection, and Audio always", async (
   }
 
   const audio = await openSubmenu(page, "Audio");
-  await expect(audio.getByRole("menuitem")).toHaveText(["Import main audio…"]);
+  await expect(audio.getByRole("menuitem")).toHaveText(["Recompute audio"]);
   await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
 

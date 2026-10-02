@@ -11,9 +11,11 @@ import {
 import type { MediaItem } from "../media.ts";
 import { keepMediaRange } from "../media-range.ts";
 import {
+  fitSourceSpansToMedia,
   migrateClipContentEffects,
   migrateColorizeReactivity,
   migrateDefaultOrder,
+  migrateMainAudio,
   migrateOrderOuterMargin,
 } from "../project-state-compat.ts";
 import {
@@ -110,6 +112,16 @@ export function patchProjectState(
     );
     if (pruned !== effects) {
       patch = { ...patch, effects: pruned };
+    }
+  }
+
+  // A clip made from an old session's main audio takes its file's length
+  // once analysis reports it.
+  if (patch.mediaItems) {
+    const sourceSpans = patch.sourceSpans ?? current.sourceSpans;
+    const fitted = fitSourceSpansToMedia(sourceSpans, patch.mediaItems);
+    if (fitted !== sourceSpans) {
+      patch = { ...patch, sourceSpans: fitted };
     }
   }
 
@@ -316,6 +328,55 @@ export function sessionToProject(
     );
   }
 
+  // Every layer gets its own Layout, taking over any global one, and an
+  // older session gets its default Order and its layers' Text and Color
+  // moved onto their text and fill clips, an old Colorize Reactivity
+  // becomes Reactive animation, an old Order Margin toggle becomes its
+  // Margin knob, and an older session's clips with sound get their Gain,
+  // as part of the load so none of it is a
+  // separate undo step. Stacks of clips, source tracks and source clips
+  // that could not be loaded are dropped with them.
+  const effects = migrateDefaultGain(
+    migrateClipContentEffects(
+      pruneSourceEffects(
+        pruneClipEffects(
+          migrateDefaultOrder(
+            ensureLayerLayouts(
+              migrateOrderOuterMargin(
+                migrateColorizeReactivity(mapEffects(session.effects)),
+              ),
+              (lanes.length ? lanes : DEFAULT_LANES).map((lane) => lane.id),
+            ),
+            session.orderDefaulted,
+          ),
+          arrangementClips,
+        ),
+        sourceTracks,
+        sourceSpans,
+      ),
+      arrangementClips,
+      session.clipContentEffects,
+    ),
+    { clips: arrangementClips, sourceSpans },
+    mediaItems,
+    session.audioGainDefaulted,
+  );
+
+  // An old session's main audio becomes a source track of its own, with
+  // its Gain.
+  const audio = migrateMainAudio(
+    {
+      mediaItems,
+      sourceTracks,
+      sourceSpans,
+      effects,
+      mainAudioId: session.audioFilename
+        ? pickMediaByPath(mediaItems, session.audioFilename)?.id
+        : undefined,
+    },
+    (session.timeline?.projectDuration ?? 0) / fps,
+  );
+
   return {
     bpm,
     fps,
@@ -331,43 +392,11 @@ export function sessionToProject(
       ? { encoding: readSessionEncoding(session.timeline.encoding) }
       : {}),
     lanes,
-    sourceTracks,
-    sourceSpans,
+    sourceTracks: audio.sourceTracks,
+    sourceSpans: audio.sourceSpans,
     arrangementClips,
     selectedClipId,
-    // Every layer gets its own Layout, taking over any global one, and an
-    // older session gets its default Order and its layers' Text and Color
-    // moved onto their text and fill clips, an old Colorize Reactivity
-    // becomes Reactive animation, an old Order Margin toggle becomes its
-    // Margin knob, and an older session's clips with sound get their Gain,
-    // as part of the load so none of it is a separate undo step. Stacks of
-    // clips, source tracks and source clips that could not be loaded are
-    // dropped with them.
-    effects: migrateDefaultGain(
-      migrateClipContentEffects(
-        pruneSourceEffects(
-          pruneClipEffects(
-            migrateDefaultOrder(
-              ensureLayerLayouts(
-                migrateOrderOuterMargin(
-                  migrateColorizeReactivity(mapEffects(session.effects)),
-                ),
-                (lanes.length ? lanes : DEFAULT_LANES).map((lane) => lane.id),
-              ),
-              session.orderDefaulted,
-            ),
-            arrangementClips,
-          ),
-          sourceTracks,
-          sourceSpans,
-        ),
-        arrangementClips,
-        session.clipContentEffects,
-      ),
-      { clips: arrangementClips, sourceSpans },
-      mediaItems,
-      session.audioGainDefaulted,
-    ),
+    effects: audio.effects,
     displaySeconds: session.timeline?.displaySeconds ?? false,
     snapToBeat: session.timeline?.snapToBeat ?? true,
     zoom: clamp(session.timeline?.zoom ?? 1, ZOOM_MIN, ZOOM_MAX),
@@ -375,9 +404,6 @@ export function sessionToProject(
     playPositionFrames: session.playPosition ?? 0,
     playStartPositionFrames: session.playStartPosition ?? 0,
     sourceTracksLocked: session.sourceTracksLocked === true,
-    mainAudioMediaId: session.audioFilename
-      ? pickMediaByPath(mediaItems, session.audioFilename)?.id
-      : undefined,
     unresolvedPaths,
     overlapNote: formatOverlapNote(overlaps),
   };

@@ -20,7 +20,6 @@ export type MediaStatusInputs = {
   mediaItems: MediaItem[];
   timelineClips: ArrangementClip[];
   sourceSpans: SourceSpan[];
-  mainAudioId: string | undefined;
   remoteMediaProgress: RemoteMediaProgressMap;
   peerMediaMissIds: ReadonlySet<string>;
   failedSampleMediaIds: ReadonlySet<string>;
@@ -34,7 +33,6 @@ export function useMediaStatus({
   mediaItems,
   timelineClips,
   sourceSpans,
-  mainAudioId,
   remoteMediaProgress,
   peerMediaMissIds,
   failedSampleMediaIds,
@@ -59,14 +57,12 @@ export function useMediaStatus({
         mediaItems,
         timelineClips,
         sourceSpans,
-        mainAudioId,
         progress: remoteMediaProgress,
         misses,
         inSharedSession: inSharedMediaSession,
       }),
     [
       inSharedMediaSession,
-      mainAudioId,
       mediaItems,
       misses,
       remoteMediaProgress,

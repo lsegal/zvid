@@ -21,7 +21,7 @@ export type MediaSyncState =
   | "unavailable"
   | "offline";
 
-export type MediaSyncRole = "arrangement" | "source" | "main-audio" | "unused";
+export type MediaSyncRole = "arrangement" | "source" | "unused";
 
 export type MediaSyncEntry = {
   id: string;
@@ -109,15 +109,14 @@ const STATE_ORDER: Record<MediaSyncState, number> = {
 };
 
 /**
- * Lists every session media item (arrangement, source tracks and main
- * audio) plus clips whose media item hasn't synced yet, ordered receiving,
- * queued, unavailable/offline, then ready.
+ * Lists every session media item (arrangement and source tracks) plus
+ * clips whose media item hasn't synced yet, ordered receiving, queued,
+ * unavailable/offline, then ready.
  */
 export function listMediaSync({
   mediaItems,
   arrangementClips,
   sourceClips,
-  mainAudioId,
   progress,
   misses,
   inSharedSession,
@@ -126,7 +125,6 @@ export function listMediaSync({
   // Placeholder clips, which never had media, should be left out.
   arrangementClips: ClipRef[];
   sourceClips: ClipRef[];
-  mainAudioId?: string;
   progress: RemoteMediaProgressMap;
   misses: RemoteMediaMisses;
   inSharedSession: boolean;
@@ -138,13 +136,11 @@ export function listMediaSync({
     sourceClips.flatMap((clip) => (clip.mediaId ? [clip.mediaId] : [])),
   );
   const roleOf = (id: string): MediaSyncRole =>
-    id === mainAudioId
-      ? "main-audio"
-      : arrangementIds.has(id)
-        ? "arrangement"
-        : sourceIds.has(id)
-          ? "source"
-          : "unused";
+    arrangementIds.has(id)
+      ? "arrangement"
+      : sourceIds.has(id)
+        ? "source"
+        : "unused";
 
   const entries: MediaSyncEntry[] = mediaItems.map((item) => {
     const itemProgress = progress.get(item.id);

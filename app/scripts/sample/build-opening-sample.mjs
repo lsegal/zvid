@@ -244,7 +244,7 @@ THREE_UPS.forEach((start, cutIndex) => {
         : { zoom: 1.2, x: 0.5 + drift, y: 0.5 },
     );
     if (REACTIVE_COLOR(start)) {
-      // Reactive animation swings the hue with the main audio's hits.
+      // Reactive animation swings the hue with the music's hits.
       addEffect(
         clipTrack(clipId),
         "Colorize",
@@ -503,6 +503,33 @@ addEffect(
   transformValues("", { y: 0.18 }),
 );
 
+// ---- music ---------------------------------------------------------------
+
+// The music is a source track of its own: one clip of the whole file from
+// time 0, sounding through a Gain at 0 dB. The layers hold only the silent
+// video sources, fills, text and FX, so the mix plays it from the source
+// tracks.
+const MUSIC_TRACK = `source-${MUSIC.key}`;
+const MUSIC_SPAN = `span-${MUSIC.key}`;
+sourceTracks.push({
+  id: MUSIC_TRACK,
+  name: "Music",
+  colorIndex: sourceTracks.length,
+  recordings: [{ filename: samplePath(MUSIC.file) }],
+});
+spans.push({
+  id: MUSIC_SPAN,
+  trackId: MUSIC_TRACK,
+  name: "Music",
+  frameStart: 0,
+  frameCount: frames(DURATION_SECONDS),
+  clipStart: 0,
+  frameOffset: 0,
+  filePath: samplePath(MUSIC.file),
+});
+// A session clip loads as source clip `source-<id>`, whose stack this is.
+addEffect(`source-clip:source-${MUSIC_SPAN}`, "Gain", { Gain: 0, Mute: 0 });
+
 // ---- session -------------------------------------------------------------
 
 const session = {
@@ -527,9 +554,10 @@ const session = {
   },
   playPosition: 0,
   playStartPosition: 0,
-  audioFilename: samplePath(MUSIC.file),
   orderDefaulted: true,
   clipContentEffects: true,
+  // Its stacks open as written: only the music's clip has a Gain.
+  audioGainDefaulted: true,
 };
 
 // ---- manifest ------------------------------------------------------------

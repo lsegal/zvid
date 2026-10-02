@@ -60,7 +60,6 @@ const STATE_LABELS: Record<MediaSyncState, string> = {
 const ROLE_LABELS: Record<MediaSyncRole, string> = {
   arrangement: "Arrangement",
   source: "Source track",
-  "main-audio": "Main audio",
   unused: "Not used by any clips",
 };
 
@@ -73,9 +72,7 @@ function fileBasename(path: string) {
 }
 
 function kindIcon(entry: MediaSyncEntry) {
-  return entry.role === "main-audio" || entry.item?.kind === "audio"
-    ? "♪"
-    : "▶";
+  return entry.item?.kind === "audio" ? "♪" : "▶";
 }
 
 /**

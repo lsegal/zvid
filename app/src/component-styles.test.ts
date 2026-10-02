@@ -135,8 +135,8 @@ const componentStyles = [
     selectors: [".timeline-selection"],
   },
   {
-    component: "timeline/MainAudioRow",
-    stylesheet: "timeline/main-audio-row",
+    component: "timeline/AudioRow",
+    stylesheet: "timeline/audio-row",
     selectors: [".track-label__audio", ".track-row--bus", ".waveform__empty"],
   },
   {

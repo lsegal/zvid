@@ -25,7 +25,7 @@ type ExportRangeTimelineProps = {
   clips: ArrangementClip[];
   lanes: Lane[];
   mediaItems: MediaItem[];
-  mainAudioPeaks: WaveformPeaks | undefined;
+  audioPeaks: WaveformPeaks | undefined;
   bpm: number;
   fps: number;
   beatQ: number;
@@ -48,7 +48,7 @@ export function ExportRangeTimeline({
   clips,
   lanes,
   mediaItems,
-  mainAudioPeaks,
+  audioPeaks,
   bpm,
   fps,
   beatQ,
@@ -176,7 +176,7 @@ export function ExportRangeTimeline({
 
   return (
     <div
-      className={`export-range${mainAudioPeaks ? " export-range--audio" : ""}`}
+      className={`export-range${audioPeaks ? " export-range--audio" : ""}`}
       data-export-range=""
       onLostPointerCapture={endDrag}
       onPointerCancel={endDrag}
@@ -213,11 +213,11 @@ export function ExportRangeTimeline({
           </div>
         ))}
       </div>
-      {mainAudioPeaks && width > 0 ? (
+      {audioPeaks && width > 0 ? (
         <div className="export-range__waveform">
           <MainWaveform
             bpm={bpm}
-            peaks={mainAudioPeaks}
+            peaks={audioPeaks}
             quarterPx={quarterPx}
             visibleStartPx={0}
             visibleWidthPx={width}

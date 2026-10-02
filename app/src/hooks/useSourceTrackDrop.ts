@@ -24,7 +24,6 @@ import {
   stripFilenameExtension,
 } from "../app/util.ts";
 import { getHarness } from "../harness";
-import { isWithinMainAudioDropTarget } from "../main-audio-drop";
 import type { MediaItem } from "../media";
 import { endMediaDrag, getDraggedMediaIds, isMediaDrag } from "../media-drag";
 import {
@@ -41,7 +40,6 @@ export type SourceTrackDropInputs = {
   quarterPx: number;
   snapUnit: number;
   snapEnabled: boolean;
-  setIsMainAudioDropTarget: (isDropTarget: boolean) => void;
   importMediaIntoSourceTrack: (
     files: File[],
     target: SourceTrackDropTarget,
@@ -87,7 +85,6 @@ export function useSourceTrackDrop({
   quarterPx,
   snapUnit,
   snapEnabled,
-  setIsMainAudioDropTarget,
   importMediaIntoSourceTrack,
   placeMediaInSourceTrack,
   setStatus,
@@ -140,12 +137,11 @@ export function useSourceTrackDrop({
     sourceTrackDragPreviewRequestRef.current += 1;
     setSourceTrackDragTarget(null);
     setIsSourceTrackFileDragActive(false);
-    setIsMainAudioDropTarget(false);
     setSourceTrackDragPreview((current) => {
       releasePreviewThumbnail(current);
       return null;
     });
-  }, [setIsMainAudioDropTarget]);
+  }, []);
 
   const scheduleSourceTrackDragClear = useCallback(() => {
     if (sourceTrackDragHideTimeoutRef.current !== null) {
@@ -354,14 +350,10 @@ export function useSourceTrackDrop({
     };
 
     // Media from the Media drawer only goes on source tracks: over the Audio
-    // lane or the layers it has no drop target.
+    // row or the layers it has no drop target.
     const handleWindowDrag = (event: DragEvent) => {
       const mediaDrag = isMediaDrag(event.dataTransfer);
-      if (
-        !mediaDrag &&
-        (!hasDraggedFileData(event.dataTransfer) ||
-          isWithinMainAudioDropTarget(event.target))
-      ) {
+      if (!mediaDrag && !hasDraggedFileData(event.dataTransfer)) {
         return;
       }
 
@@ -414,11 +406,7 @@ export function useSourceTrackDrop({
 
     const handleWindowDrop = (event: DragEvent) => {
       const mediaDrag = isMediaDrag(event.dataTransfer);
-      if (
-        !mediaDrag &&
-        (!hasDraggedFileData(event.dataTransfer) ||
-          isWithinMainAudioDropTarget(event.target))
-      ) {
+      if (!mediaDrag && !hasDraggedFileData(event.dataTransfer)) {
         return;
       }
 
