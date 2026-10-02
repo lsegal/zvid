@@ -2,7 +2,6 @@ import type { Dispatch, RefObject, SetStateAction } from "react";
 import type { ArrangementClip, ProjectState } from "../app/types.ts";
 import type { AppMedia } from "./useAppMedia.ts";
 import type { CollaborationStateResult } from "./useCollaboration.ts";
-import { type useMainAudio, useMainAudioDrop } from "./useMainAudio.ts";
 import { useMediaLibraryCommands } from "./useMediaLibrary.ts";
 import { useMediaStatus } from "./useMediaStatus.ts";
 import type { ProjectStore } from "./useProjectStore.ts";
@@ -25,10 +24,6 @@ export type MediaImportInputs = {
     CollaborationStateResult,
     "collaborationMode" | "collaborationState"
   >;
-  mainAudioModel: Pick<
-    ReturnType<typeof useMainAudio>,
-    "setIsMainAudioDropTarget" | "replaceMainAudioFromFile"
-  >;
   timelineClips: ArrangementClip[];
   setSourceTracksCollapsed: (collapsed: boolean) => void;
   appShellRef: RefObject<HTMLDivElement | null>;
@@ -42,13 +37,12 @@ export type MediaImportInputs = {
 
 // The session's offline media and sync progress (useMediaStatus), importing
 // and relinking media (useMediaLibraryCommands), and dropping files on the
-// source tracks and the Audio lane.
+// source tracks.
 export function useMediaImport({
   project,
   store,
   media,
   collaboration,
-  mainAudioModel,
   timelineClips,
   setSourceTracksCollapsed,
   appShellRef,
@@ -58,12 +52,7 @@ export function useMediaImport({
   snapUnit,
   setStatus,
 }: MediaImportInputs) {
-  const {
-    mediaItems: projectMediaItems,
-    sourceSpans,
-    mainAudioId,
-    snapEnabled,
-  } = project;
+  const { mediaItems: projectMediaItems, sourceSpans, snapEnabled } = project;
   const { refuseReadOnlyEdit, commitProjectChange } = store;
   const {
     mediaItems,
@@ -75,13 +64,11 @@ export function useMediaImport({
     adoptMediaBlob,
   } = media;
   const { collaborationMode, collaborationState } = collaboration;
-  const { setIsMainAudioDropTarget, replaceMainAudioFromFile } = mainAudioModel;
 
   const mediaStatus = useMediaStatus({
     mediaItems,
     timelineClips,
     sourceSpans,
-    mainAudioId,
     remoteMediaProgress,
     peerMediaMissIds: peerMedia.peerMediaMissIds,
     failedSampleMediaIds: peerMedia.failedSampleMediaIds,
@@ -108,18 +95,9 @@ export function useMediaImport({
     quarterPx,
     snapUnit,
     snapEnabled,
-    setIsMainAudioDropTarget,
     importMediaIntoSourceTrack: mediaCommands.importMediaIntoSourceTrack,
     placeMediaInSourceTrack: mediaCommands.placeMediaInSourceTrack,
     setStatus,
   });
-  const mainAudioDrop = useMainAudioDrop({
-    isSourceTrackFileDragActive: sourceTrackDrop.isSourceTrackFileDragActive,
-    clearSourceTrackDragState: sourceTrackDrop.clearSourceTrackDragState,
-    setIsMainAudioDropTarget,
-    replaceMainAudioFromFile,
-    setStatus,
-  });
-
-  return { ...mediaStatus, ...mediaCommands, sourceTrackDrop, mainAudioDrop };
+  return { ...mediaStatus, ...mediaCommands, sourceTrackDrop };
 }

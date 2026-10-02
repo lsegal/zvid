@@ -180,7 +180,6 @@ export function useSessionIO({
         sourceSpans: project.sourceSpans,
         clips: project.arrangementClips,
         effects: project.effects,
-        mainAudioId: project.mainAudioMediaId,
         projectDurationFrames: project.projectDurationFrames,
         sourceTracksLocked: project.sourceTracksLocked,
       }),

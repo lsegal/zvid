@@ -21,8 +21,8 @@ function secondsToQuarters(seconds: number, bpm: number) {
 
 // Where the wand stops: the session length (Live's loop end or the last clip
 // end from an import) when the session has one, otherwise the end of the
-// last video source span. Audio-only spans such as frozen tracks, and the
-// main audio, can run far past the song, so they do not count.
+// last video source span. Audio-only spans, such as frozen tracks or an old
+// session's main audio, can run far past the song, so they do not count.
 export function getWandEndQ<Span extends WandSourceSpan>(options: {
   projectDurationFrames?: number;
   fps: number;

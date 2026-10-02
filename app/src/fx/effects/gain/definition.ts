@@ -37,6 +37,7 @@ export const definition: FxEffectDefinition = {
       format: formatGainDb,
       control: "fader",
       ticks: [
+        { value: GAIN_MAX_DB, label: "+10" },
         { value: 0, label: "0" },
         { value: GAIN_MIN_DB, label: "−∞" },
       ],

@@ -4,6 +4,10 @@ import type { ClipClipboard } from "./app/clip-ops.ts";
 import { selectSourceSpan } from "./app/source-selection.ts";
 import { formatRestoredStatus } from "./app/workspace-boot.ts";
 import type { WorkspaceBoot } from "./app/workspace-types.ts";
+import {
+  getAudioMixContributions,
+  getAudioMixOrigin,
+} from "./audio-mix-clips.ts";
 import type { CompositionPlayerHandle } from "./CompositionPlayer";
 import { AppDialogs } from "./components/AppDialogs";
 import { AppStatusBar } from "./components/AppStatusBar";
@@ -15,7 +19,7 @@ import { PreviewPanel } from "./components/PreviewPanel";
 import { TimelineContextMenu } from "./components/TimelineContextMenu";
 import { TopBar } from "./components/TopBar";
 import { ArrangementLanes } from "./components/timeline/ArrangementLanes";
-import { MainAudioRow } from "./components/timeline/MainAudioRow";
+import { AudioRow } from "./components/timeline/AudioRow";
 import { Ruler } from "./components/timeline/Ruler";
 import { SourceTracks } from "./components/timeline/SourceTracks";
 import { Timeline } from "./components/timeline/Timeline";
@@ -24,11 +28,11 @@ import { TransportBar } from "./components/timeline/TransportBar";
 import { useAppDialogs } from "./hooks/useAppDialogs.ts";
 import { useAppLayout } from "./hooks/useAppLayout.ts";
 import { useAppMedia } from "./hooks/useAppMedia.ts";
+import { useAudioMix } from "./hooks/useAudioMix.ts";
 import { useCollaborationState } from "./hooks/useCollaboration.ts";
 import { useExport, useExportState } from "./hooks/useExport.ts";
 import { useFxEditing } from "./hooks/useFxEditing.ts";
 import { useFxPanelModel } from "./hooks/useFxPanelModel.ts";
-import { useMainAudio } from "./hooks/useMainAudio.ts";
 import { useMediaCacheSession } from "./hooks/useMediaCacheSession.ts";
 import { useMediaDrawer } from "./hooks/useMediaDrawer.ts";
 import { useMediaImport } from "./hooks/useMediaImport.ts";
@@ -188,24 +192,22 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     refuseReadOnlyEdit,
     commitProjectChange,
   });
-  const mainAudioModel = useMainAudio({
-    mainAudioId: project.mainAudioId,
+  // The Audio row draws the mix the preview plays.
+  const audioMixContributions = useMemo(
+    () => getAudioMixContributions(preview.audioMix),
+    [preview.audioMix],
+  );
+  const audioMix = useAudioMix({
+    origin: getAudioMixOrigin(preview.audioMix),
+    contributions: audioMixContributions,
     mediaItemsById,
-    remoteMediaProgress: media.remoteMediaProgress,
-    projectMediaItems: project.mediaItems,
-    refuseReadOnlyEdit,
-    commitProjectChange,
-    commitProjectPatch: store.commitProjectPatch,
-    seedLocalMediaItems: media.seedLocalMediaItems,
-    cacheLocalMediaItems: media.cacheLocalMediaItems,
-    setStatus,
+    refresh: preview.refreshAudioMix,
   });
   const mediaImport = useMediaImport({
     project,
     store,
     media,
     collaboration,
-    mainAudioModel,
     timelineClips,
     setSourceTracksCollapsed: layout.setSourceTracksCollapsed,
     appShellRef,
@@ -294,7 +296,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     playback,
     historyCommands,
     fxEditing,
-    mainAudioModel,
+    refreshAudio: audioMix.refresh,
     fxLaneId: fxPanel.fxLaneId,
     mediaItemsById,
     laneStatusById: timeline.laneStatusById,
@@ -328,8 +330,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     ...exportState,
     project,
     mediaItems,
-    mainAudio: mainAudioModel.mainAudio,
-    mainAudioPeaks: mainAudioModel.currentMainWaveform?.peaks,
+    audioPeaks: audioMix.peaks ?? undefined,
     signature: timeline.signature,
     beatUnit: timeline.beatUnit,
     isPlaying,
@@ -384,7 +385,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
               <MediaDrawer
                 drawer={mediaDrawer}
                 mediaItems={mediaItems}
-                mainAudioId={project.mainAudioId}
                 remoteMediaProgress={media.remoteMediaProgress}
                 prefersReducedMotion={prefersReducedMotion}
                 timeFormat={{
@@ -507,10 +507,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     },
                   }}
                 />
-                <MainAudioRow
-                  audio={mainAudioModel}
-                  drop={mediaImport.mainAudioDrop}
-                  openMainAudioMenu={editing.openMainAudioMenu}
+                <AudioRow
+                  mix={audioMix}
+                  openAudioMenu={editing.openAudioMenu}
                   prefersReducedMotion={prefersReducedMotion}
                   bpm={bpm}
                   quarterPx={quarterPx}

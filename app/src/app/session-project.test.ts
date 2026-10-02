@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { warpSourceTime } from "../clip-warp.ts";
-import { setEffectParameter } from "../fx-stack.ts";
+import { gainChainAmplitude } from "../fx/effects/gain/gain.ts";
+import { setEffectParameter, sourceClipEffectTrackId } from "../fx-stack.ts";
 import type { MediaItem } from "../media.ts";
 import type { LvpSession } from "../session.ts";
 import { projectToLvpSession } from "../session-save.ts";
@@ -15,6 +16,7 @@ import {
   sessionToProject,
 } from "./session-project.ts";
 import { quartersToSeconds } from "./timeline-math.ts";
+import type { SourceSpan } from "./types.ts";
 
 const media = (extra: Partial<MediaItem> = {}): MediaItem => ({
   id: "a",
@@ -116,6 +118,68 @@ describe("mergeMediaItemsById", () => {
     assert.equal(merged?.durationSeconds, 5);
     assert.equal(merged?.rangeInSeconds, 1);
     assert.equal(merged?.rangeOutSeconds, 2);
+  });
+});
+
+describe("a session with a main audio", () => {
+  const song = media({
+    id: "song",
+    name: "Song.wav",
+    sourcePath: "/media/Song.wav",
+    kind: "audio",
+    hasVideo: false,
+    durationSeconds: 0,
+    availability: "hydrating",
+  });
+  // Live set imports name their song the same way.
+  const session: LvpSession = {
+    timeline: { bpm: 120, fps: 30, projectDuration: 900 },
+    tracks: [],
+    clips: [],
+    audioFilename: "/media/Song.wav",
+  };
+
+  it("opens it as a source track with a clip of the file at 0 dB Gain", () => {
+    for (const audioGainDefaulted of [undefined, true]) {
+      const project = sessionToProject({ ...session, audioGainDefaulted }, [
+        song,
+      ]);
+      assert.deepEqual(
+        project.sourceTracks.map((track) => track.name),
+        ["Song"],
+      );
+      const [span] = project.sourceSpans;
+      assert.equal(project.sourceSpans.length, 1);
+      assert.equal(span.mediaId, "song");
+      assert.equal(span.startQ, 0);
+      // Until the file is read its length is the session's.
+      assert.equal(span.durationSeconds, 30);
+      const stack = project.effects.filter(
+        (effect) => effect.trackId === sourceClipEffectTrackId(span.id),
+      );
+      assert.deepEqual(
+        stack.map((effect) => effect.effectName),
+        ["Gain"],
+      );
+      assert.equal(gainChainAmplitude(stack), 1);
+      assert.equal("mainAudioMediaId" in project, false);
+    }
+  });
+
+  it("fits the clip to the file once it has been read", () => {
+    const project = sessionToProject(session, [song]);
+    const state = {
+      ...INITIAL_PROJECT_STATE,
+      mediaItems: [song],
+      sourceTracks: project.sourceTracks,
+      sourceSpans: project.sourceSpans,
+    };
+    const read = patchProjectState(state, {
+      mediaItems: [{ ...song, durationSeconds: 42, availability: "ready" }],
+    });
+    const [span] = read.sourceSpans as SourceSpan[];
+    assert.equal(span.durationSeconds, 42);
+    assert.equal(span.fitsMedia, undefined);
   });
 });
 

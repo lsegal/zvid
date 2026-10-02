@@ -14,6 +14,8 @@ async function dropFile(
   file: URL,
   name: string,
   type: string,
+  // Shown only while a drag is over it, as the new-track row is.
+  over?: string,
 ) {
   const base64 = (await readFile(file)).toString("base64");
   const dataTransfer = await page.evaluateHandle(
@@ -25,12 +27,17 @@ async function dropFile(
     },
     { data: base64, name, type },
   );
+  if (over) {
+    for (const event of ["dragenter", "dragover"]) {
+      await page.dispatchEvent(over, event, { dataTransfer });
+    }
+  }
   for (const event of ["dragenter", "dragover", "drop"]) {
     await page.dispatchEvent(target, event, { dataTransfer });
   }
 }
 
-// A video in a new source track and a WAV as the main audio.
+// A video and a WAV, each in a new source track.
 async function linkMedia(page: Page) {
   await dropFile(
     page,
@@ -42,16 +49,19 @@ async function linkMedia(page: Page) {
   await expect(page.locator(".source-span")).toHaveCount(1, {
     timeout: 30_000,
   });
+  // A second track goes on the new-track row that dragging over a track
+  // shows.
   await dropFile(
     page,
-    "[data-main-audio-drop-target]",
+    ".track-row--source-drop",
     TONE,
     "tone.wav",
     "audio/wav",
+    '[data-source-track-drop-target="track"]',
   );
-  await expect(
-    page.locator("[data-main-audio-drop-target] .track-label small"),
-  ).toHaveText("tone.wav", { timeout: 30_000 });
+  await expect(page.locator(".source-span")).toHaveCount(2, {
+    timeout: 30_000,
+  });
 }
 
 function drawer(page: Page) {
@@ -102,13 +112,12 @@ test("lists, searches, sizes and selects linked media, and remembers its state",
   await linkMedia(page);
   await toggle(page).click();
 
-  // Both media items are listed, the main audio marked as the audio track.
+  // Both media items are listed; none is marked as a main audio track.
   await expect(items(page)).toHaveCount(2);
   await expect(drawer(page)).toContainText("2 items");
   const video = items(page).filter({ hasText: "test-pattern" });
   const tone = items(page).filter({ hasText: "tone" });
-  await expect(tone).toContainText("Audio track");
-  await expect(video).not.toContainText("Audio track");
+  await expect(drawer(page)).not.toContainText("Audio track");
 
   // Search narrows the items and the count.
   const search = drawer(page).getByRole("textbox", { name: "Search media" });
@@ -268,9 +277,6 @@ test("offline media is marked", async ({ page }) => {
   await expect(offline.first()).toBeVisible();
   await expect(offline.first()).toHaveAttribute("data-availability", "offline");
   await expect(offline.first()).toHaveClass(/is-offline/);
-  await expect(drawer(page).locator(".media-badge--audio-track")).toHaveCount(
-    1,
-  );
 
   // Its details keep what was stored and show that it is offline.
   await offline.first().click();

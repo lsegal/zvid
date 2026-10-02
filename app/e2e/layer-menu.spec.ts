@@ -173,15 +173,18 @@ test("Add FX adds to the layer and the FX toggle follows it", async ({
   await expect(menuItem(page, "Enable FX")).toBeVisible();
 });
 
-test("the Audio row offers to import main audio", async ({ page }) => {
-  const audioRow = page.locator("[data-main-audio-drop-target]");
+test("the Audio row only offers to recompute the audio", async ({ page }) => {
+  const audioRow = page.locator("[data-audio-row]");
+  // It takes no files: no picker, and no import or replace button.
+  await expect(audioRow.locator('input[type="file"]')).toHaveCount(0);
+  await expect(
+    audioRow.getByRole("button", { name: /main audio/i }),
+  ).toHaveCount(0);
   await rightClick(audioRow.locator(".track-label"));
-  const menu = page.getByRole("menu", { name: "Main audio actions" });
+  const menu = page.getByRole("menu", { name: "Audio actions" });
   await expect(menu).toBeVisible();
-  await expect(menu.getByRole("menuitem")).toHaveText(["Import main audio…"]);
+  await expect(menu.getByRole("menuitem")).toHaveText(["Recompute audio"]);
 
-  const chooser = page.waitForEvent("filechooser");
-  await menuItem(page, "Import main audio…").click();
-  await chooser;
+  await menuItem(page, "Recompute audio").click();
   await expect(menu).toBeHidden();
 });

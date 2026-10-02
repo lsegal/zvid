@@ -80,7 +80,7 @@ export function useSessionSharing({
     collaborationControllerRef,
   } = collaboration;
   const { projectHistory, projectSnapshotRef, playheadQ } = store;
-  const { bpm, clips, sourceSpans, mainAudioId } = projectHistory.present;
+  const { bpm, clips, sourceSpans } = projectHistory.present;
   const { peerMedia, mediaItemsById } = media;
   const { quarterPx, visibleTimelineStartPx, visibleTimelineEndPx } = viewport;
 
@@ -103,7 +103,6 @@ export function useSessionSharing({
     return JSON.stringify(
       offlineSessionMediaIds({
         availability: (mediaId) => mediaItemsById.get(mediaId)?.availability,
-        mainAudioId,
         clips: clips.map(toRange),
         sourceSpans: sourceSpans.map(toRange),
         playheadQ,
@@ -114,7 +113,6 @@ export function useSessionSharing({
   }, [
     bpm,
     clips,
-    mainAudioId,
     mediaItemsById,
     playheadQ,
     quarterPx,
@@ -155,7 +153,6 @@ export function useSessionSharing({
     collaborationMode,
     collaborationControllerRef,
     mediaPeerCount: collaborationState.mediaPeerCount,
-    mainAudioId,
     offlineSessionMediaIdsKey,
     mediaHydrationTick: media.mediaHydrationTick,
     setMediaHydrationTick: media.setMediaHydrationTick,

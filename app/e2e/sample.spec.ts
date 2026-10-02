@@ -26,9 +26,11 @@ async function expectSampleOpen(page: Page) {
   for (const id of ["orbit", "ribbon", "corridor", "order", "fx-regions"]) {
     await expect(lane(page, id)).toHaveCount(1);
   }
-  await expect(
-    page.getByRole("region", { name: "Main audio drop area" }),
-  ).toContainText("decisions-30s.m4a");
+  // Its old main audio opens as a source track; the Audio row shows the
+  // resolved mix.
+  await expect(page.locator("[data-audio-row]")).toContainText(
+    /From (source tracks|layers) · \d+ clips?/,
+  );
   await expect(
     page.getByRole("menuitem", { name: /Locate Offline Media/ }),
   ).toHaveCount(0);
