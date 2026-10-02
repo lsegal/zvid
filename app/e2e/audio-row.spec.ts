@@ -187,7 +187,7 @@ test("a session with a main audio opens with it on a new source track, which pla
     );
 
     await page.goto("/");
-    await page.getByRole("button", { name: "File", exact: true }).click();
+    await page.getByRole("menuitem", { name: "File", exact: true }).click();
     const choosing = page.waitForEvent("filechooser");
     await page.getByRole("menuitem", { name: "Open Workspace" }).click();
     await (await choosing).setFiles(folder);
