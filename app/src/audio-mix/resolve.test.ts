@@ -250,4 +250,73 @@ describe("resolveAudioClips", () => {
       [0, 1],
     );
   });
+
+  it("chains each clip through its own stack, its track's bus and the Global master", () => {
+    const pixelate = {
+      id: "pixelate",
+      trackId: sourceTrackEffectTrackId("track-1"),
+      effectName: "Pixelate",
+      parameters: [],
+    };
+    const trackGain = gain(sourceTrackEffectTrackId("track-1"), -6);
+    const clipGain = gain(sourceClipEffectTrackId("a"), 3);
+    const masterGain = gain(GLOBAL_EFFECT_TRACK_ID, -1);
+    const mix = resolveAudioClips(
+      inputs({ effects: [pixelate, trackGain, clipGain, masterGain] }),
+    );
+    const [a, b] = mix.clips;
+    assert.equal(a.busId, "track-1");
+    assert.equal(b.busId, "track-2");
+    assert.deepEqual(
+      a.stages.map((stage) => [stage.id, stage.numbers.Gain]),
+      [[clipGain.id, 3]],
+    );
+    assert.equal(a.hasGain, true);
+    // Neither clip b's track nor its own stack has a Gain.
+    assert.equal(b.hasGain, false);
+    assert.deepEqual(
+      mix.buses.map((bus) => [bus.id, bus.stages.map((stage) => stage.id)]),
+      [
+        ["track-1", [trackGain.id]],
+        ["track-2", []],
+      ],
+    );
+    assert.deepEqual(
+      mix.master.map((stage) => stage.id),
+      [masterGain.id],
+    );
+  });
+
+  it("disables a bypassed track's bus and clip stages, which silences its clips", () => {
+    const mix = resolveAudioClips(
+      inputs({
+        sourceTracks: [{ id: "track-1", fxEnabled: false }, { id: "track-2" }],
+        effects: [
+          gain(sourceTrackEffectTrackId("track-1"), 0),
+          gain(sourceClipEffectTrackId("a"), 0),
+        ],
+      }),
+    );
+    const [a] = mix.clips;
+    assert.equal(a.hasGain, false);
+    assert.deepEqual(
+      a.stages.map((stage) => stage.enabled),
+      [false],
+    );
+    assert.deepEqual(
+      mix.buses[0].stages.map((stage) => stage.enabled),
+      [false],
+    );
+  });
+
+  it("carries the session's tempo and time signature, 4/4 by default", () => {
+    assert.deepEqual(resolveAudioClips(inputs()).signature, {
+      numerator: 4,
+      denominator: 4,
+    });
+    const threeFour = { numerator: 3, denominator: 4 };
+    const mix = resolveAudioClips(inputs({ signature: threeFour }));
+    assert.deepEqual(mix.signature, threeFour);
+    assert.equal(mix.bpm, BPM);
+  });
 });

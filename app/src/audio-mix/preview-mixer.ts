@@ -214,13 +214,14 @@ export class PreviewAudioMixer {
         : MAX_DRIFT_SECONDS;
     const now = playback.playheadSeconds;
     this.applyMode();
-    this.syncTransport(now, shouldPlay);
     // With chains, the mix comes out this late, so its media plays this far
-    // ahead of the playhead to stay with the video.
+    // ahead of the playhead to stay with the video, and the chains are told
+    // the timeline time of what they are fed, as export tells them.
     const ahead =
       this.chains && this.graph && this.timing
         ? this.timing.latencyFrames / this.graph.context.sampleRate
         : 0;
+    this.syncTransport(now + ahead, shouldPlay);
     const linger = Math.max(
       RELEASE_SECONDS,
       this.chains ? (this.timing?.tailSeconds ?? 0) : 0,
