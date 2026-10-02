@@ -135,8 +135,9 @@ test("High Pass is added from a clip's Audio menu with its defaults and cuts the
   // Audio heading.
   await page
     .getByRole("menu")
-    .getByRole("menuitem", { name: /^High Pass/ })
-    .click();
+    .getByRole("menuitem", { name: "EQ & Filter" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^High Pass/ }).click();
 
   const device = highPassDevice(page);
   await expect(device).toHaveCount(1);
@@ -236,13 +237,14 @@ test("a video clip's add menu lists High Pass in its Audio group", async ({
   const menu = page.getByRole("menu");
   await expect(
     menu.getByRole("group", { name: "Video" }).getByRole("menuitem", {
-      name: /^High Pass/,
+      name: "EQ & Filter",
     }),
   ).toHaveCount(0);
   await menu
     .getByRole("group", { name: "Audio" })
-    .getByRole("menuitem", { name: /^High Pass/ })
-    .click();
+    .getByRole("menuitem", { name: "EQ & Filter" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^High Pass/ }).click();
   await expect(highPassDevice(page)).toHaveCount(1);
 });
 

@@ -547,9 +547,9 @@ test("an FX clip's add menu offers Order", async ({ page }) => {
 
   await page.getByRole("button", { name: "Add device to this clip" }).click();
   await page
-    .getByRole("menu")
-    .getByRole("menuitem", { name: /^Order / })
-    .click();
+    .getByRole("menuitem", { name: "Transform", exact: true })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Order / }).click();
   await expect(clip.locator("strong")).toHaveText("FX · Order");
 });
 
@@ -581,9 +581,9 @@ test("an FX clip's Order lists only the layers beneath it", async ({
 
   await page.getByRole("button", { name: "Add device to this clip" }).click();
   await page
-    .getByRole("menu")
-    .getByRole("menuitem", { name: /^Order / })
-    .click();
+    .getByRole("menuitem", { name: "Transform", exact: true })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Order / }).click();
 
   const menuRows = page.getByRole("menu").getByRole("menuitemcheckbox");
   const clipOrder = page.locator(

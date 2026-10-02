@@ -12,6 +12,7 @@ export const definition: FxEffectDefinition = {
   description:
     "Moves, resizes and rotates each clip from a start to an end placement over its duration.",
   accent: "#ff7f8f",
+  category: "transform",
   known: true,
   // On a layer it runs over each of the layer's clips in turn, and on an
   // FX clip it moves the box the FX clip adjusts.

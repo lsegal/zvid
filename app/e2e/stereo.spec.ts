@@ -104,7 +104,10 @@ async function addStereo(page: Page) {
     .click();
   const menu = page.getByRole("menu");
   await expect(menu.getByRole("group", { name: "Video" })).toHaveCount(0);
-  await menu.getByRole("menuitem", { name: /^Stereo/ }).click();
+  await menu
+    .getByRole("menuitem", { name: "Volume & Stereo" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Stereo/ }).click();
   const stereo = page.locator(`${clipDevices}[aria-label="Stereo"]`);
   await expect(stereo).toHaveCount(1);
   return stereo;
@@ -155,7 +158,10 @@ test("a video clip lists Stereo in its add menu's Audio group", async ({
     .first()
     .click();
   const audio = page.getByRole("menu").getByRole("group", { name: "Audio" });
-  await audio.getByRole("menuitem", { name: /^Stereo/ }).click();
+  await audio
+    .getByRole("menuitem", { name: "Volume & Stereo" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Stereo/ }).click();
   await expect(page.locator(`${clipDevices}[aria-label="Stereo"]`)).toHaveCount(
     1,
   );

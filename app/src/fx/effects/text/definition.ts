@@ -30,6 +30,7 @@ export const definition: FxEffectDefinition = {
   displayName: "Text",
   description: "Sets the words, font and look of a text clip.",
   accent: "#e8e4ff",
+  category: "text",
   known: true,
   // Each text clip carries its own Text, so clips on one layer can say
   // different things.

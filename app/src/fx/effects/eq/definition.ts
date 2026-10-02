@@ -50,6 +50,7 @@ export const definition: FxEffectDefinition = {
   description:
     "A three-band equalizer: a low shelf, a mid peak and a high shelf.",
   accent: "#38bdf8",
+  category: "eq",
   domain: "audio",
   known: true,
   scopes: ["layer", "clip", "global"],

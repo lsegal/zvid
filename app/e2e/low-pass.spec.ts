@@ -135,8 +135,9 @@ test("Low Pass is added from a clip's Audio menu with its defaults and filters t
   // Audio heading.
   await page
     .getByRole("menu")
-    .getByRole("menuitem", { name: /^Low Pass/ })
-    .click();
+    .getByRole("menuitem", { name: "EQ & Filter" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Low Pass/ }).click();
 
   const device = lowPassDevice(page);
   await expect(device).toHaveCount(1);
@@ -238,13 +239,14 @@ test("a video clip's add menu lists Low Pass in its Audio group", async ({
   const menu = page.getByRole("menu");
   await expect(
     menu.getByRole("group", { name: "Video" }).getByRole("menuitem", {
-      name: /^Low Pass/,
+      name: "EQ & Filter",
     }),
   ).toHaveCount(0);
   await menu
     .getByRole("group", { name: "Audio" })
-    .getByRole("menuitem", { name: /^Low Pass/ })
-    .click();
+    .getByRole("menuitem", { name: "EQ & Filter" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Low Pass/ }).click();
   await expect(lowPassDevice(page)).toHaveCount(1);
 });
 

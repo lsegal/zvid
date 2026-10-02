@@ -8,6 +8,7 @@ export const definition: FxEffectDefinition = {
   displayName: "Reverse",
   description: "Plays the clip's audio backwards. Its video plays forwards.",
   accent: "#34d399",
+  category: "utility",
   domain: "audio",
   known: true,
   // Clip stacks only, source clips included: reversing a track's bus or the

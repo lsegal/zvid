@@ -9,6 +9,7 @@ import {
   dropSlotToStackIndex,
   excludeAllLayers,
   FX_COLLAPSED_STORAGE_KEY,
+  FX_EFFECT_CATEGORIES,
   getAutoScrollDelta,
   getDefaultLaneId,
   getDropSlot,
@@ -27,6 +28,7 @@ import {
   toggleCollapsedDevice,
   writeCollapsedDevices,
 } from "./fx-chain.ts";
+import { FX_EFFECT_DEFINITIONS } from "./fx-registry.ts";
 import {
   clipEffectTrackId,
   GLOBAL_EFFECT_TRACK_ID,
@@ -227,6 +229,72 @@ describe("groupAddableEffects", () => {
         (group) => group.domain,
       ),
       ["video"],
+    );
+  });
+});
+
+describe("effect categories", () => {
+  it("gives every registered effect a category the add menus list", () => {
+    const categories = FX_EFFECT_CATEGORIES.map((entry) => entry.category);
+    for (const definition of FX_EFFECT_DEFINITIONS) {
+      assert.ok(
+        categories.includes(definition.category),
+        `${definition.effectName} has no add-menu category`,
+      );
+    }
+  });
+
+  it("splits each group into its categories, in a fixed order", () => {
+    const groups = groupAddableEffects(addableEffectsFor("clip"));
+    assert.deepEqual(
+      groups.map((group) => [
+        group.label,
+        group.categories.map((category) => category.label),
+      ]),
+      [
+        ["Video", ["Transform", "Color", "Stylize", "Text"]],
+        [
+          "Audio",
+          [
+            "Volume & Stereo",
+            "EQ & Filter",
+            "Dynamics",
+            "Modulation & Delay",
+            "Distortion",
+            "Utility",
+          ],
+        ],
+      ],
+    );
+    for (const group of groups) {
+      assert.deepEqual(
+        group.categories
+          .flatMap((category) => category.effects)
+          .map((definition) => definition.effectName)
+          .toSorted(),
+        group.effects.map((definition) => definition.effectName).toSorted(),
+      );
+    }
+  });
+
+  it("keeps menu order within a category", () => {
+    const audio = groupAddableEffects(addableEffectsFor("clip")).find(
+      (group) => group.domain === "audio",
+    );
+    assert.deepEqual(
+      audio?.categories
+        .find((category) => category.category === "eq")
+        ?.effects.map((definition) => definition.effectName),
+      ["EQ", "High Pass", "Low Pass"],
+    );
+  });
+
+  it("leaves out categories with nothing addable in the scope", () => {
+    assert.deepEqual(
+      groupAddableEffects(addableEffectsFor("fxClip")).map((group) =>
+        group.categories.map((category) => category.category),
+      ),
+      [["transform", "color", "stylize"]],
     );
   });
 });

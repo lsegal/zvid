@@ -100,6 +100,7 @@ test("a layer without effects of its own has a lit FX button that turns its clip
   const plain = await previewColor(page);
 
   await page.getByRole("button", { name: "Add device to this clip" }).click();
+  await page.getByRole("menuitem", { name: "Stylize" }).press("ArrowRight");
   await page.getByRole("menuitem", { name: "Negative Split" }).click();
   const device = page.locator(
     `.fx-chain :is(section[data-fx-group="clip"], [data-fx-group="clip"] > section)[aria-label="Negative Split"]`,

@@ -19,3 +19,8 @@
   max-height: var(--radix-dropdown-menu-content-available-height);
   overflow-y: auto;
 }
+
+/* A category that opens its effects as a submenu, chevron at the right. */
+.fx-add-menu [data-radix-collection-item].fx-add-menu__category {
+  justify-content: space-between;
+}

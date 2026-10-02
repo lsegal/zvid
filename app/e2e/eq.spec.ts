@@ -133,7 +133,15 @@ test("EQ is added from a clip's Audio menu with its defaults and shapes the mix"
     .click();
   // An audio clip is offered only audio effects, so its menu needs no
   // Audio heading.
-  await page.getByRole("menu").getByRole("menuitem", { name: /^EQ/ }).click();
+  await page
+    .getByRole("menu")
+    .getByRole("menuitem", { name: "EQ & Filter" })
+    .press("ArrowRight");
+  await page
+    .getByRole("menu")
+    .last()
+    .getByRole("menuitem", { name: /^EQ/ })
+    .click();
 
   const device = eqDevice(page);
   await expect(device).toHaveCount(1);
@@ -219,11 +227,16 @@ test("a video clip's add menu lists EQ in its Audio group", async ({
   const menu = page.getByRole("menu");
   await expect(
     menu.getByRole("group", { name: "Video" }).getByRole("menuitem", {
-      name: /^EQ/,
+      name: "EQ & Filter",
     }),
   ).toHaveCount(0);
   await menu
     .getByRole("group", { name: "Audio" })
+    .getByRole("menuitem", { name: "EQ & Filter" })
+    .press("ArrowRight");
+  await page
+    .getByRole("menu")
+    .last()
     .getByRole("menuitem", { name: /^EQ/ })
     .click();
   await expect(eqDevice(page)).toHaveCount(1);

@@ -47,6 +47,7 @@ export const definition: FxEffectDefinition = {
   description:
     "Tames harsh sibilance: turns down the high band while the band around Frequency is louder than Threshold.",
   accent: "#4ade80",
+  category: "dynamics",
   domain: "audio",
   known: true,
   scopes: ["layer", "clip", "global"],

@@ -146,10 +146,11 @@ test("Chorus is added to an audio clip with its defaults and changes the mix", a
     .first()
     .click();
   const menu = page.getByRole("menu");
-  await expect(menu.getByRole("menuitem", { name: /^Pixelate/ })).toHaveCount(
-    0,
-  );
-  await menu.getByRole("menuitem", { name: /^Chorus/ }).click();
+  await expect(menu.getByRole("menuitem", { name: "Stylize" })).toHaveCount(0);
+  await menu
+    .getByRole("menuitem", { name: "Modulation & Delay" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Chorus/ }).click();
   await expect(page.locator(clipDevices)).toHaveCount(2);
 
   const chorus = page.locator(clipDevices).nth(1);
@@ -224,7 +225,10 @@ test("a video clip's add menu lists Chorus in its Audio group", async ({
     .first()
     .click();
   const audio = page.getByRole("menu").getByRole("group", { name: "Audio" });
-  await audio.getByRole("menuitem", { name: /^Chorus/ }).click();
+  await audio
+    .getByRole("menuitem", { name: "Modulation & Delay" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Chorus/ }).click();
   await expect(
     page.locator(clipDevices).filter({ hasText: "Chorus" }),
   ).toHaveCount(1);

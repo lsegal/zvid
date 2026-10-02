@@ -158,8 +158,9 @@ test("Tremolo is added to an audio clip with its defaults and changes the mix", 
     .click();
   await page
     .getByRole("menu")
-    .getByRole("menuitem", { name: /^Tremolo/ })
-    .click();
+    .getByRole("menuitem", { name: "Volume & Stereo" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Tremolo/ }).click();
   await expect(page.locator(clipDevices)).toHaveCount(2);
 
   const tremolo = page.locator(clipDevices).nth(1);
@@ -248,7 +249,10 @@ test("a video clip's add menu lists Tremolo in its Audio group", async ({
     .first()
     .click();
   const audio = page.getByRole("menu").getByRole("group", { name: "Audio" });
-  await audio.getByRole("menuitem", { name: /^Tremolo/ }).click();
+  await audio
+    .getByRole("menuitem", { name: "Volume & Stereo" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Tremolo/ }).click();
   await expect(
     page.locator(clipDevices).filter({ hasText: "Tremolo" }),
   ).toHaveCount(1);

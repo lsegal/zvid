@@ -29,6 +29,7 @@ export {
   zoomToUnit,
 } from "./fx/params.ts";
 export type {
+  FxEffectCategory,
   FxEffectDefinition,
   FxEffectDomain,
   FxEffectScope,
@@ -66,6 +67,7 @@ export function getEffectDefinition(effectName: string): FxEffectDefinition {
       displayName: effectName,
       description: "Unrecognized effect",
       accent: FALLBACK_ACCENT,
+      category: "utility",
       known: false,
       // Unrecognized effects stay wherever the session put them.
       scopes: ALL_SCOPES,

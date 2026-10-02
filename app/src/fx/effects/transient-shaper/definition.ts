@@ -23,6 +23,7 @@ export const definition: FxEffectDefinition = {
   description:
     "Boosts or softens the attack of each hit and raises or lowers its sustain, whatever the level.",
   accent: "#e879f9",
+  category: "dynamics",
   domain: "audio",
   known: true,
   scopes: ["layer", "clip", "global"],

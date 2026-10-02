@@ -47,6 +47,7 @@ export const definition: FxEffectDefinition = {
   description:
     "Lo-fi grit: reduces the sound's bit depth and holds samples to lower its sample rate.",
   accent: "#c084fc",
+  category: "distortion",
   domain: "audio",
   known: true,
   scopes: ["layer", "clip", "global"],

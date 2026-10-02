@@ -121,10 +121,14 @@ test("a source track's FX button turns its and its clips' effects off and on", a
     .getByRole("button", { name: "Add device to this track" })
     .first()
     .click();
+  await page.getByRole("menuitem", { name: "Stylize" }).press("ArrowRight");
   await page.getByRole("menuitem", { name: "Negative Split" }).click();
   await turnAnimationOff(page, "layer");
   const withTrack = await expectPreviewChange(page, plain);
   await page.getByRole("button", { name: "Add device to this clip" }).click();
+  await page
+    .getByRole("menuitem", { name: "Color", exact: true })
+    .press("ArrowRight");
   await page.getByRole("menuitem", { name: /^Colorize/ }).click();
   await turnAnimationOff(page, "clip");
   const clipDevice = page.locator('.fx-chain [data-fx-group="clip"]');

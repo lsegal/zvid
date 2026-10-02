@@ -48,8 +48,9 @@ async function addLimiter(page: Page) {
     .click();
   await page
     .getByRole("menu")
-    .getByRole("menuitem", { name: /^Limiter/ })
-    .click();
+    .getByRole("menuitem", { name: "Dynamics" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Limiter/ }).click();
   const devices = page.locator(clipDevices);
   await expect(devices).toHaveCount(2);
   await expect(devices.nth(0)).toHaveAttribute("aria-label", "Gain");
@@ -194,13 +195,14 @@ test("a video clip's add menu lists Limiter in its Audio group", async ({
   const menu = page.getByRole("menu");
   await expect(
     menu.getByRole("group", { name: "Video" }).getByRole("menuitem", {
-      name: /^Limiter/,
+      name: "Dynamics",
     }),
   ).toHaveCount(0);
   await menu
     .getByRole("group", { name: "Audio" })
-    .getByRole("menuitem", { name: /^Limiter/ })
-    .click();
+    .getByRole("menuitem", { name: "Dynamics" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Limiter/ }).click();
   await expect(page.locator(clipDevices)).toHaveCount(1);
   await expect(page.locator(clipDevices)).toHaveAttribute(
     "aria-label",

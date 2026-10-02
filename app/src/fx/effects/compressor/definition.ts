@@ -52,6 +52,7 @@ export const definition: FxEffectDefinition = {
   description:
     "Evens out the dynamics: turns down what rises above the threshold by the ratio.",
   accent: "#e879f9",
+  category: "dynamics",
   domain: "audio",
   known: true,
   // The same stacks as Gain: tracks, clips (source ones included) and
