@@ -442,6 +442,12 @@ describe("Reverb definition", () => {
         audio?.effects.some((effect) => effect.effectName === "Reverb"),
         `Reverb is missing from the ${group} menu`,
       );
+      assert.ok(
+        audio?.categories
+          .find((entry) => entry.category === "modulation")
+          ?.effects.some((effect) => effect.effectName === "Reverb"),
+        `Reverb is missing from the ${group} menu's Modulation & Delay submenu`,
+      );
     }
     assert.ok(
       addableEffectsFor("clip", "audio").some(
