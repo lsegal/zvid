@@ -285,7 +285,7 @@ describe("effect categories", () => {
       audio?.categories
         .find((category) => category.category === "eq")
         ?.effects.map((definition) => definition.effectName),
-      ["EQ", "High Pass", "Low Pass"],
+      ["EQ", "Low Cut", "High Cut"],
     );
   });
 

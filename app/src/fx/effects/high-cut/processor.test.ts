@@ -7,7 +7,7 @@ import {
   DEFAULT_TIME_SIGNATURE,
 } from "../../../audio-mix/processor.ts";
 import { processor as gain } from "../gain/processor.ts";
-import { type LowPassSlope, lowPassResponseDb } from "./low-pass.ts";
+import { type HighCutSlope, highCutResponseDb } from "./high-cut.ts";
 import { processor } from "./processor.ts";
 
 // Offline renders through AudioChain, the host the preview's worklet and
@@ -18,16 +18,16 @@ const registry = createProcessorRegistry([processor, gain]);
 
 const DEFAULTS = { Frequency: 8000, Resonance: Math.SQRT1_2 };
 
-type LowPassNumbers = Partial<typeof DEFAULTS>;
+type HighCutNumbers = Partial<typeof DEFAULTS>;
 
-function lowPass(
-  numbers: LowPassNumbers = {},
-  slope: LowPassSlope = "12 dB/oct",
+function highCut(
+  numbers: HighCutNumbers = {},
+  slope: HighCutSlope = "12 dB/oct",
   enabled = true,
 ): AudioStage {
   return {
-    id: "low-pass",
-    effectName: "Low Pass",
+    id: "high-cut",
+    effectName: "High Cut",
     enabled,
     numbers: { ...DEFAULTS, ...numbers },
     switches: { Slope: slope },
@@ -101,12 +101,12 @@ function levelDb(samples: Float32Array) {
 }
 
 function gainDb(
-  numbers: LowPassNumbers,
+  numbers: HighCutNumbers,
   frequency: number,
-  slope: LowPassSlope = "12 dB/oct",
+  slope: HighCutSlope = "12 dB/oct",
 ) {
   const input = sine(frequency);
-  return levelDb(render([lowPass(numbers, slope)], input)) - levelDb(input);
+  return levelDb(render([highCut(numbers, slope)], input)) - levelDb(input);
 }
 
 // The largest sample-to-sample change over frames `from` to `to`.
@@ -125,7 +125,7 @@ const near = (actual: number, expected: number, tolerance: number) =>
   );
 
 for (const slope of ["12 dB/oct", "24 dB/oct"] as const) {
-  describe(`Low Pass stage at ${slope}`, () => {
+  describe(`High Cut stage at ${slope}`, () => {
     const octaveDb = slope === "12 dB/oct" ? -12 : -24;
 
     it("is −3 dB (±0.5) at the cutoff with Q 0.707", () => {
@@ -145,7 +145,7 @@ for (const slope of ["12 dB/oct", "24 dB/oct"] as const) {
       for (const frequency of [500, 2000, 6000]) {
         near(
           gainDb({ Frequency: 2000, Resonance: 4 }, frequency, slope),
-          lowPassResponseDb(settings, frequency, RATE),
+          highCutResponseDb(settings, frequency, RATE),
           0.2,
         );
       }
@@ -154,11 +154,11 @@ for (const slope of ["12 dB/oct", "24 dB/oct"] as const) {
     it("darkens noise and rings out an impulse", () => {
       const input = noise();
       assert.ok(
-        levelDb(render([lowPass({ Frequency: 500 }, slope)], input)) <
+        levelDb(render([highCut({ Frequency: 500 }, slope)], input)) <
           levelDb(input) - 10,
       );
       const ring = render(
-        [lowPass({ Frequency: 500, Resonance: 18 }, slope)],
+        [highCut({ Frequency: 500, Resonance: 18 }, slope)],
         impulse(),
       );
       assert.ok(ring.every(Number.isFinite));
@@ -167,18 +167,18 @@ for (const slope of ["12 dB/oct", "24 dB/oct"] as const) {
   });
 }
 
-describe("Low Pass stage bypass", () => {
+describe("High Cut stage bypass", () => {
   it("passes audio bit-identically when bypassed", () => {
     const input = noise();
     assert.deepEqual(
-      render([lowPass({ Frequency: 200 }, "24 dB/oct", false)], input),
+      render([highCut({ Frequency: 200 }, "24 dB/oct", false)], input),
       input,
     );
   });
 
   it("passes audio bit-identically once removed", () => {
     const input = noise();
-    const output = render([lowPass({ Frequency: 200 })], input, [
+    const output = render([highCut({ Frequency: 200 })], input, [
       { frame: BLOCK_FRAMES * 10, stages: [] },
     ]);
     assert.deepEqual(
@@ -196,7 +196,7 @@ describe("Low Pass stage bypass", () => {
       numbers: { Gain: -6 },
       switches: {},
     };
-    const both = render([lowPass({ Frequency: 1000 }), half], input);
+    const both = render([highCut({ Frequency: 1000 }), half], input);
     near(
       levelDb(both) - levelDb(input),
       gainDb({ Frequency: 1000 }, 2000) - 6,
@@ -205,12 +205,12 @@ describe("Low Pass stage bypass", () => {
   });
 });
 
-describe("Low Pass stage parameter changes", () => {
+describe("High Cut stage parameter changes", () => {
   it("sweeps the cutoff without discontinuities", () => {
     const input = sine(200);
     const at = BLOCK_FRAMES * 50;
-    const output = render([lowPass({ Frequency: 20_000 })], input, [
-      { frame: at, stages: [lowPass({ Frequency: 150, Resonance: 4 })] },
+    const output = render([highCut({ Frequency: 20_000 })], input, [
+      { frame: at, stages: [highCut({ Frequency: 150, Resonance: 4 })] },
     ]);
     // A 200 Hz sine raised by at most the resonant peak moves by at most
     // this much per sample, ramp or not.
@@ -222,10 +222,10 @@ describe("Low Pass stage parameter changes", () => {
   it("ramps a jump in Resonance instead of stepping", () => {
     const input = sine(1000);
     const at = BLOCK_FRAMES * 100;
-    const output = render([lowPass({ Frequency: 1000 })], input, [
-      { frame: at, stages: [lowPass({ Frequency: 1000, Resonance: 8 })] },
+    const output = render([highCut({ Frequency: 1000 })], input, [
+      { frame: at, stages: [highCut({ Frequency: 1000, Resonance: 8 })] },
     ]);
-    const settled = render([lowPass({ Frequency: 1000, Resonance: 8 })], input);
+    const settled = render([highCut({ Frequency: 1000, Resonance: 8 })], input);
     const bound = maxStep(settled, RATE / 2, RATE - 1) * 1.05;
     assert.ok(maxStep(output, at - 64, at + RATE * 0.05) <= bound);
     near(levelDb(output), levelDb(settled), 0.05);
@@ -234,8 +234,8 @@ describe("Low Pass stage parameter changes", () => {
   it("crossfades a Slope change without a click", () => {
     const input = sine(300);
     const at = BLOCK_FRAMES * 100;
-    const output = render([lowPass({ Frequency: 2000 })], input, [
-      { frame: at, stages: [lowPass({ Frequency: 2000 }, "24 dB/oct")] },
+    const output = render([highCut({ Frequency: 2000 })], input, [
+      { frame: at, stages: [highCut({ Frequency: 2000 }, "24 dB/oct")] },
     ]);
     // Both slopes pass 300 Hz at nearly full level, so the output moves
     // no faster than the sine itself.

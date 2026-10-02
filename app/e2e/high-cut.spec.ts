@@ -3,7 +3,7 @@ import { expect, type Page, test } from "@playwright/test";
 
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
 
-// The Low Pass audio effect: added from a clip's add menu, in its Audio
+// The High Cut audio effect: added from a clip's add menu, in its Audio
 // group, with its controls at their defaults, and filtering what the
 // preview mix plays.
 test.use({ viewport: { width: 1600, height: 1200 } });
@@ -101,14 +101,14 @@ async function playFromStart(page: Page) {
   await page.getByRole("button", { name: "Play timeline" }).click();
 }
 
-const lowPassDevice = (page: Page) =>
+const highCutDevice = (page: Page) =>
   page.locator(
-    '.fx-chain .fx-device-panel[data-fx-group="clip"][aria-label="Low Pass"]',
+    '.fx-chain .fx-device-panel[data-fx-group="clip"][aria-label="High Cut"]',
   );
 
 // Types `value` into a knob's readout.
 async function setKnob(page: Page, label: string, value: string) {
-  const device = lowPassDevice(page);
+  const device = highCutDevice(page);
   await device
     .getByRole("button", { name: new RegExp(`^${label}: `) })
     .dblclick();
@@ -117,7 +117,7 @@ async function setKnob(page: Page, label: string, value: string) {
   await input.press("Enter");
 }
 
-test("Low Pass is added from a clip's Audio menu with its defaults and filters the mix", async ({
+test("High Cut is added from a clip's Audio menu with its defaults and filters the mix", async ({
   page,
 }) => {
   await probeAnalysers(page);
@@ -137,9 +137,9 @@ test("Low Pass is added from a clip's Audio menu with its defaults and filters t
     .getByRole("menu")
     .getByRole("menuitem", { name: "EQ & Filter" })
     .press("ArrowRight");
-  await page.getByRole("menuitem", { name: /^Low Pass/ }).click();
+  await page.getByRole("menuitem", { name: /^High Cut/ }).click();
 
-  const device = lowPassDevice(page);
+  const device = highCutDevice(page);
   await expect(device).toHaveCount(1);
   await expect(device.getByRole("img", { name: "Audio effect" })).toBeVisible();
   await expect(
@@ -200,13 +200,13 @@ test("Low Pass is added from a clip's Audio menu with its defaults and filters t
     .toBeLessThan(filtered * 0.5);
 
   // Bypassing it brings the tone back to its full level.
-  await device.getByRole("button", { name: "Bypass Low Pass" }).click();
+  await device.getByRole("button", { name: "Bypass High Cut" }).click();
   await expect
     .poll(() => settledLevel(page), { timeout: 15_000 })
     .toBeGreaterThan(open * 0.8);
 });
 
-test("a video clip's add menu lists Low Pass in its Audio group", async ({
+test("a video clip's add menu lists High Cut in its Audio group", async ({
   page,
 }) => {
   await page.goto("/");
@@ -246,11 +246,11 @@ test("a video clip's add menu lists Low Pass in its Audio group", async ({
     .getByRole("group", { name: "Audio" })
     .getByRole("menuitem", { name: "EQ & Filter" })
     .press("ArrowRight");
-  await page.getByRole("menuitem", { name: /^Low Pass/ }).click();
-  await expect(lowPassDevice(page)).toHaveCount(1);
+  await page.getByRole("menuitem", { name: /^High Cut/ }).click();
+  await expect(highCutDevice(page)).toHaveCount(1);
 });
 
-test("the export's offline render runs Low Pass exactly as the chain does", async ({
+test("the export's offline render runs High Cut exactly as the chain does", async ({
   page,
 }) => {
   await page.goto("/");
@@ -259,11 +259,11 @@ test("the export's offline render runs Low Pass exactly as the chain does", asyn
     const offlinePath = "/src/audio-mix/offline.ts";
     const chainPath = "/src/audio-mix/chain.ts";
     const processorsPath = "/src/audio-mix/processors.ts";
-    const lowPassPath = "/src/fx/effects/low-pass/low-pass.ts";
+    const highCutPath = "/src/fx/effects/high-cut/high-cut.ts";
     const { renderAudioMixOffline } = await import(offlinePath);
     const { AudioChain, BLOCK_FRAMES } = await import(chainPath);
     const { AUDIO_PROCESSORS } = await import(processorsPath);
-    const { lowPassResponseDb } = await import(lowPassPath);
+    const { highCutResponseDb } = await import(highCutPath);
 
     const sampleRate = 48_000;
     const length = sampleRate * 2;
@@ -294,8 +294,8 @@ test("the export's offline render runs Low Pass exactly as the chain does", asyn
     const url = URL.createObjectURL(new Blob([wav.buffer]));
 
     const stage = {
-      id: "low-pass",
-      effectName: "Low Pass",
+      id: "high-cut",
+      effectName: "High Cut",
       enabled: true,
       numbers: { Frequency: 300, Resonance: 2 },
       switches: { Slope: "24 dB/oct" },
@@ -369,7 +369,7 @@ test("the export's offline render runs Low Pass exactly as the chain does", asyn
     return {
       difference,
       gainDb: 20 * Math.log10(rms(exported) / rms(input)),
-      expectedDb: lowPassResponseDb(
+      expectedDb: highCutResponseDb(
         { frequency: 300, resonance: 2, slope: "24 dB/oct" },
         440,
         sampleRate,

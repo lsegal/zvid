@@ -17,6 +17,7 @@ import {
   migrateDefaultOrder,
   migrateMainAudio,
   migrateOrderOuterMargin,
+  migrateRenamedEffects,
 } from "../project-state-compat.ts";
 import {
   formatOverlapNote,
@@ -332,9 +333,9 @@ export function sessionToProject(
   // older session gets its default Order and its layers' Text and Color
   // moved onto their text and fill clips, an old Colorize Reactivity
   // becomes Reactive animation, an old Order Margin toggle becomes its
-  // Margin knob, and an older session's clips with sound get their Gain,
-  // as part of the load so none of it is a
-  // separate undo step. Stacks of clips, source tracks and source clips
+  // Margin knob, a renamed effect takes its new name, and an older
+  // session's clips with sound get their Gain, as part of the load so none
+  // of it is a separate undo step. Stacks of clips, source tracks and source clips
   // that could not be loaded are dropped with them.
   const effects = migrateDefaultGain(
     migrateClipContentEffects(
@@ -343,7 +344,9 @@ export function sessionToProject(
           migrateDefaultOrder(
             ensureLayerLayouts(
               migrateOrderOuterMargin(
-                migrateColorizeReactivity(mapEffects(session.effects)),
+                migrateColorizeReactivity(
+                  migrateRenamedEffects(mapEffects(session.effects)),
+                ),
               ),
               (lanes.length ? lanes : DEFAULT_LANES).map((lane) => lane.id),
             ),

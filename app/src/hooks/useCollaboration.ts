@@ -37,6 +37,7 @@ import {
 import type { ProjectHistoryAction } from "../project-history";
 import {
   migrateMainAudio,
+  migrateRenamedEffects,
   stripClipSelectionFlags,
   stripLegacySnapMode,
 } from "../project-state-compat.ts";
@@ -248,9 +249,14 @@ export function useCollaboration({
 
   const applyRemoteProjectState = useCallback(
     (remoteSnapshot: ProjectState) => {
-      const snapshot = stripLegacySnapMode(
+      const migrated = stripLegacySnapMode(
         stripClipSelectionFlags(migrateMainAudio(remoteSnapshot)),
       );
+      // A peer on an older build still sends renamed effects' old names.
+      const snapshot = {
+        ...migrated,
+        effects: migrateRenamedEffects(migrated.effects),
+      };
       if (
         JSON.stringify(projectSnapshotRef.current) === JSON.stringify(snapshot)
       ) {
