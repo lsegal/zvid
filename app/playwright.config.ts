@@ -13,11 +13,28 @@ if (!Number.isInteger(PORT) || PORT <= 0 || PORT > 65535) {
   throw new Error(`Invalid PLAYWRIGHT_PORT: ${process.env.PLAYWRIGHT_PORT}`);
 }
 
+// CI runs the suite on main only, as 16 shards on separate runners
+// (.github/workflows/ci.yml). Each runner has 4 vCPUs and each worker drives
+// a Chromium against the dev server and the wasm bridge, so CI uses two
+// workers per shard. fullyParallel lets shards split by test rather than by
+// file, so every test must be safe to run concurrently with any other.
+//
+// In CI the blob reporter writes blob-report/ for `playwright merge-reports`,
+// and the JSON reporter writes e2e-results.json for scripts/e2e-summary.mjs.
 export default defineConfig({
   testDir: "e2e",
+  fullyParallel: true,
+  workers: process.env.CI ? 2 : undefined,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? [["list"], ["github"]] : "list",
+  reporter: process.env.CI
+    ? [
+        ["list"],
+        ["github"],
+        ["blob"],
+        ["json", { outputFile: "e2e-results.json" }],
+      ]
+    : "list",
   use: {
     baseURL: `http://localhost:${PORT}/`,
     trace: "retain-on-failure",

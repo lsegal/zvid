@@ -51,37 +51,145 @@ jobs:
           pnpm --dir daw/ui run test
           pnpm --dir daw/ui run build
 
-      # Drives the editor in headless Chromium against the web driver
-      # (daw/ui/src/web), so it needs no Rust build. See ARCHITECTURE.md
-      # (Testing).
-      - name: Plugin UI browser tests
-        if: ${{ !cancelled() }}
-        run: |
-          pnpm --dir daw/ui exec playwright install --with-deps chromium
-          pnpm --dir daw/ui run test:web
+  # The browser tests are slow, so they run on pushes to main only: pull
+  # requests skip them. The app suite runs as 16 shards on separate runners,
+  # each with a time budget; e2e-report merges their reports.
+  export-bridge:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Upload plugin UI browser test output
+      - uses: ./.github/actions/setup
+
+      - name: Build export bridge
+        working-directory: app
+        run: wasm-pack build export-bridge --target web --out-dir pkg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: export-bridge-pkg
+          path: app/export-bridge/pkg
+          if-no-files-found: error
+          retention-days: 1
+
+  # Browser tests of the web harness. Each shard's test step must finish
+  # within E2E_BUDGET_SECONDS (aiming for under 60s); past it the shard
+  # fails. Rebalance the shards or split the slowest specs rather than
+  # raising the budget.
+  e2e:
+    name: e2e (${{ matrix.shard }}/16)
+    needs: export-bridge
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+    env:
+      E2E_BUDGET_SECONDS: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-playwright
+        with:
+          dir: app
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: export-bridge-pkg
+          path: app/export-bridge/pkg
+
+      - name: Browser tests
+        working-directory: app
+        run: |
+          start=$(date +%s)
+          status=0
+          pnpm exec playwright test --shard=${{ matrix.shard }}/16 || status=$?
+          elapsed=$(( $(date +%s) - start ))
+          node scripts/e2e-summary.mjs e2e-results.json ${{ matrix.shard }}/16 "$elapsed" "$E2E_BUDGET_SECONDS" >> "$GITHUB_STEP_SUMMARY" || status=1
+          exit "$status"
+
+      - name: Upload test output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-test-results-${{ matrix.shard }}
+          path: app/test-results
+          if-no-files-found: ignore
+
+      - name: Upload blob report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: blob-report-${{ matrix.shard }}
+          path: app/blob-report
+          if-no-files-found: ignore
+          retention-days: 1
+
+  # Merges the shards' blob reports into one HTML report.
+  e2e-report:
+    needs: e2e
+    if: ${{ !cancelled() && needs.e2e.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+
+      - name: Install app dependencies
+        working-directory: app
+        run: pnpm install --frozen-lockfile
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: blob-report-*
+          path: app/all-blob-reports
+          merge-multiple: true
+
+      - name: Merge reports
+        working-directory: app
+        run: pnpm exec playwright merge-reports --reporter html ./all-blob-reports
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-playwright-report
+          path: app/playwright-report
+          if-no-files-found: error
+
+  # Drives the editor in headless Chromium against the web driver
+  # (daw/ui/src/web), so it needs no Rust build. See ARCHITECTURE.md
+  # (Testing).
+  daw-ui-e2e:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-playwright
+        with:
+          dir: daw/ui
+
+      - name: Plugin UI browser tests
+        run: pnpm --dir daw/ui run test:web
+
+      - name: Upload test output
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: daw-ui-test-results
           path: daw/ui/test-results
-          if-no-files-found: ignore
-
-      # Exports a short clip through the web harness in headless Chromium and
-      # checks the MP4's cover-art thumbnail. Uses the bridge built above.
-      - name: App export browser test
-        if: ${{ !cancelled() }}
-        run: |
-          pnpm --dir app exec playwright install --with-deps chromium
-          pnpm --dir app run test:web
-
-      - name: Upload app browser test output
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-test-results
-          path: app/test-results
           if-no-files-found: ignore
 
   # Pull requests that don't touch /daw skip the `daw` job; pushes to main
