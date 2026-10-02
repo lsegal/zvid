@@ -83,6 +83,7 @@ export function useLayerActions({
         effects: ensureLayerLayouts(current.effects, [nextLane.id]),
       }),
     );
+    focusLaneLabel(nextLane.id);
     setStatus(`Created ${nextLane.name}.`);
   }
 

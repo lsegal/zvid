@@ -70,11 +70,12 @@ const componentStyles = [
   {
     component: "timeline/TimelineToolbar",
     stylesheet: "timeline/timeline-toolbar",
-    selectors: [
-      ".timeline-toolbar__display",
-      ".status-light",
-      ".layer-toolbar",
-    ],
+    selectors: [".timeline-toolbar__display", ".status-light"],
+  },
+  {
+    component: "timeline/TrackPlaceholder",
+    stylesheet: "timeline/track-placeholder",
+    selectors: [".track-placeholder", ".track-placeholder__add"],
   },
   {
     component: "timeline/TransportBar",

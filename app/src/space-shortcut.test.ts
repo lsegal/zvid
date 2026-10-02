@@ -147,6 +147,16 @@ describe("space shortcut target classification", () => {
     );
   });
 
+  it("lets the placeholder rows' add buttons activate with Space", () => {
+    assert.equal(
+      classifySpaceTarget(
+        element("BUTTON", { ancestors: ["[data-space-activates]"] }),
+        noOverlay,
+      ),
+      "button",
+    );
+  });
+
   it("still types into text fields inside a dialog", () => {
     assert.equal(
       classifySpaceTarget(

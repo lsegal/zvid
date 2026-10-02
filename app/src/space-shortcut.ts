@@ -32,6 +32,10 @@ const OVERLAY_SELECTOR = `${OPEN_OVERLAY_SELECTOR}, [role="menubar"]`;
 // leaves Space to playback (#167).
 const GRIP_SELECTOR = "[data-layer-grip], [data-source-track-grip]";
 
+// Except the placeholder rows' [ + Layer ] and [ + Track ] buttons, which
+// activate with Space like ordinary buttons (#729).
+const SPACE_ACTIVATES_SELECTOR = "[data-space-activates]";
+
 type SpaceTarget = {
   tagName?: string;
   type?: string;
@@ -43,7 +47,12 @@ type OverlayRoot = {
   querySelector: (selector: string) => unknown;
 };
 
-export type SpaceTargetKind = "text-entry" | "overlay" | "grip" | "playback";
+export type SpaceTargetKind =
+  | "text-entry"
+  | "overlay"
+  | "grip"
+  | "button"
+  | "playback";
 
 export function isTextEntryTarget(target: unknown) {
   if (!target || typeof target !== "object") {
@@ -67,7 +76,8 @@ export function isTextEntryTarget(target: unknown) {
 }
 
 // Decides what Space does for a keydown aimed at `target`: type into a text
-// field, act on an open menu or dialog, or toggle playback.
+// field, act on an open menu or dialog, move a grip, press a button that
+// opts in, or toggle playback.
 export function classifySpaceTarget(
   target: unknown,
   root?: OverlayRoot | null,
@@ -89,6 +99,13 @@ export function classifySpaceTarget(
     element.closest(GRIP_SELECTOR)
   ) {
     return "grip";
+  }
+
+  if (
+    typeof element?.closest === "function" &&
+    element.closest(SPACE_ACTIVATES_SELECTOR)
+  ) {
+    return "button";
   }
 
   if (root?.querySelector(OPEN_OVERLAY_SELECTOR)) {

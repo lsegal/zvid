@@ -206,6 +206,18 @@ test("a read-only tab refuses edits until it takes the session over", async ({
     .click();
   const prompt = second.getByRole("dialog", { name: "This tab is read-only" });
 
+  // It can't add layers or source tracks.
+  await expect(
+    second
+      .locator(".track-placeholder--layer")
+      .getByRole("button", { name: "Layer", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    second
+      .locator(".track-row--source-drop")
+      .getByRole("button", { name: "Track", exact: true }),
+  ).toBeDisabled();
+
   // An edit asks to take over instead of being made and thrown away.
   await copySpanToLayer(second, "Layer 1");
   await expect(prompt).toBeVisible();
