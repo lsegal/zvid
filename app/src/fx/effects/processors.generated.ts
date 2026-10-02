@@ -2,9 +2,11 @@
 // edit; run `pnpm --dir app run gen:fx-index` after adding an effect.
 
 import type { AudioEffectDsp } from "../../audio-mix/processor.ts";
+import { processor as eqProcessor } from "./eq/processor.ts";
 import { processor as gainProcessor } from "./gain/processor.ts";
 
 // Every audio effect folder's processor.ts, in folder order.
 export const EFFECT_AUDIO_PROCESSORS: readonly AudioEffectDsp[] = [
+  eqProcessor,
   gainProcessor,
 ];
