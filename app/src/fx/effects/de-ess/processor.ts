@@ -16,8 +16,8 @@ import {
   createEnvelopeFollower,
   DE_ESS_EFFECT_NAME,
   DE_ESS_RANGES,
-  type DeEssNumberKey,
   DETECTOR_Q,
+  type DeEssNumberKey,
   FREQUENCY_KEY,
   isListening,
   LISTEN_KEY,
@@ -88,7 +88,8 @@ export const processor: AudioEffectDsp = {
           const envelope = follower.next(level);
           if (listen) {
             for (let channel = 0; channel < output.length; channel++) {
-              output[channel][index] = detector.k * states[channel].detector.band;
+              output[channel][index] =
+                detector.k * states[channel].detector.band;
             }
             continue;
           }

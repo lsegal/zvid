@@ -384,8 +384,6 @@ describe("De-ess stage parameter changes", () => {
     ]);
     const settled = renderMono([deEss({ Threshold: -60, Amount: 24 })], input);
     const from = at + RATE * 0.1;
-    assert.ok(
-      Math.abs(db(rms(output, from) / rms(settled, from))) < 0.01,
-    );
+    assert.ok(Math.abs(db(rms(output, from) / rms(settled, from))) < 0.01);
   });
 });
