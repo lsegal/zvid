@@ -227,7 +227,7 @@
 }
 
 .media-details__preview .media-thumb {
-  width: min(100%, 220px);
+  width: min(100%, 160px);
   aspect-ratio: 16 / 9;
   margin: 0 auto 10px;
   border-radius: 8px;
@@ -253,10 +253,8 @@
 
 .media-details__row dd {
   margin: 0;
-  overflow: hidden;
   color: var(--ink);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .media-details__empty {
@@ -279,6 +277,10 @@
 
   .media-details.is-open {
     max-height: none;
+  }
+
+  .media-details__preview .media-thumb {
+    width: 100%;
   }
 }
 

@@ -59,7 +59,7 @@ export function MediaDetailsPane({
                 {getMediaDetailRows(media, durationText).map((row) => (
                   <div className="media-details__row" key={row.label}>
                     <dt>{row.label}</dt>
-                    <dd title={row.value}>{row.value}</dd>
+                    <dd>{row.value}</dd>
                   </div>
                 ))}
               </dl>
