@@ -83,8 +83,10 @@ function updateEffect(
     return effects;
   }
 
+  // An edited effect is the user's own, no longer a defaulted one.
+  const { defaulted: _defaulted, ...edited } = next;
   const result = effects.slice();
-  result[index] = next;
+  result[index] = edited;
   return result;
 }
 
@@ -209,9 +211,11 @@ export function moveEffect(
     return effects;
   }
 
+  // A moved effect is the user's own, no longer a defaulted one.
+  const { defaulted: _defaulted, ...moved } = effect;
   const reordered = stack.slice();
   reordered.splice(fromIndex, 1);
-  reordered.splice(targetIndex, 0, effect);
+  reordered.splice(targetIndex, 0, moved);
 
   // Other stacks keep their slots; this stack's slots get the new order.
   let stackIndex = 0;
@@ -326,8 +330,9 @@ export function duplicateEffect(
   const animation = source.animation
     ? cloneAnimation(source.animation)
     : createDefaultAnimation(source.effectName);
+  const { defaulted: _defaulted, ...rest } = source;
   const copy: SessionEffect = {
-    ...source,
+    ...rest,
     id,
     parameters: source.parameters.map((parameter) => ({ ...parameter })),
     ...(animation ? { animation } : {}),

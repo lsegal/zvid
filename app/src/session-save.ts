@@ -111,6 +111,7 @@ export type SaveableEffect = {
   parameters: Array<{ key: string; value: string; numericValue?: number }>;
   enabled?: boolean;
   animation?: EffectAnimation;
+  defaulted?: boolean;
 };
 
 export type SaveableProject = {
@@ -384,6 +385,7 @@ export function projectToLvpSession(
       parameters: toLvpParameters(effect.parameters),
       ...(effect.enabled === false ? { enabled: false } : {}),
       ...(effect.animation ? { animation: effect.animation } : {}),
+      ...(effect.defaulted ? { defaulted: true } : {}),
     })),
     timeline: {
       bpm,

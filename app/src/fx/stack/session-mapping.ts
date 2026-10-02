@@ -25,6 +25,7 @@ export function mapEffects(source: LvpSession["effects"]) {
       // Sessions without the flag, including every Layers session, are on.
       enabled: effect.enabled !== false,
       ...(animation ? { animation } : {}),
+      ...(effect.defaulted === true ? { defaulted: true } : {}),
     };
   });
 }

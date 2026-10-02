@@ -92,6 +92,8 @@ export type LvpSession = {
     enabled?: boolean;
     /** zvid-only: the effect's Animation modifier settings. */
     animation?: EffectAnimation;
+    /** zvid-only: `true` on a Gain added on open and not edited since. */
+    defaulted?: boolean;
   }>;
   timeline?: {
     bpm?: number;

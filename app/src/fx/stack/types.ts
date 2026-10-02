@@ -22,6 +22,9 @@ export type SessionEffect = {
   // The Animation modifier's settings, once it has been turned on. Saved to
   // `.lvp` as zvid-only `animation`.
   animation?: EffectAnimation;
+  // A Gain an older session's open added, until it is edited. Saved to
+  // `.lvp` as zvid-only `defaulted: true`.
+  defaulted?: boolean;
 };
 
 export type FxDeviceParameter = {
