@@ -68,7 +68,7 @@ describe("formatStatusPlayhead", () => {
     assert.equal(formatStatusPlayhead({ ...BASE, playheadQ: 5.25 }), "2.2.2");
   });
 
-  it("shows timecode on the SMPTE ruler", () => {
+  it("shows timecode on the Time ruler", () => {
     assert.equal(
       formatStatusPlayhead({
         ...BASE,
@@ -179,14 +179,14 @@ describe("buildStatusItems", () => {
     assert.equal(itemsById({ ...BASE, version: null }).has("version"), false);
   });
 
-  it("switches the timeline and playhead to SMPTE", () => {
+  it("switches the timeline and playhead to Time", () => {
     const items = itemsById({
       ...BASE,
       timelineMode: "timecode",
       bpm: 92.456,
       playheadQ: 0,
     });
-    assert.equal(items.get("timeline")?.label, "SMPTE");
+    assert.equal(items.get("timeline")?.label, "Time");
     assert.equal(items.get("timeline")?.value, "92.46 BPM");
     assert.equal(items.get("playhead")?.value, "00:00:00");
     assert.equal(
