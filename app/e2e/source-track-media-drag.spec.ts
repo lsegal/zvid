@@ -11,6 +11,11 @@ const tracks = '[data-source-track-drop-target="track"]';
 const content = ".track-row__content--source";
 const newTrackRow = ".track-row--source-drop";
 
+// With the Media tab open a small window leaves the timeline so little room
+// that the drop positions fall in the band where the browser scrolls the
+// timeline during a drag.
+test.use({ viewport: { width: 1600, height: 1200 } });
+
 async function dropVideoIntoNewSourceTrack(page: Page) {
   const base64 = (await readFile(VIDEO)).toString("base64");
   const dataTransfer = await page.evaluateHandle((data) => {
@@ -88,6 +93,31 @@ async function dropAt(page: Page, target: Locator, clientX: number) {
   await page.mouse.up();
 }
 
+// Moves the drag just past timeline position `q` in `row` until the row's
+// drop preview shows it there, as a person lines a drop up, then drops it.
+// Re-aiming each time keeps the drop on `q` if the timeline shifts during
+// the drag.
+async function dropAtQ(page: Page, row: Locator, q: number, quarterPx: number) {
+  const preview = row.locator(".source-drop-preview");
+  await expect
+    .poll(async () => {
+      const bounds = await box(row.locator(content));
+      await page.mouse.move(
+        (await xOf(row, q, quarterPx)) + 2,
+        bounds.y + bounds.height / 2,
+        { steps: 4 },
+      );
+      if (!(await preview.isVisible())) {
+        return undefined;
+      }
+      return Math.round(
+        ((await box(preview)).x - (await xOf(row, 0, quarterPx))) / quarterPx,
+      );
+    })
+    .toBe(q);
+  await page.mouse.up();
+}
+
 // Opens the app with the fixture in a source track and the Media drawer, and
 // sets the media's In and Out points to 1 and 2 seconds.
 async function openWithRange(page: Page) {
@@ -140,7 +170,7 @@ test("media dragged from the drawer starts at the pointer, trimmed to its In/Out
   await expect(row.locator(".source-drop-preview")).toContainText(
     "test-pattern-audio",
   );
-  await dropAt(page, row.locator(content), (await xOf(row, 12, quarterPx)) + 2);
+  await dropAtQ(page, row, 12, quarterPx);
 
   // One second of media is two quarters, from 12.
   await expect(row.locator(".source-span")).toHaveCount(2);
@@ -182,11 +212,7 @@ test("media dragged from the drawer onto the new-track row starts a track", asyn
   await newRow.evaluate((element) =>
     element.scrollIntoView({ block: "nearest" }),
   );
-  await dropAt(
-    page,
-    newRow.locator(content),
-    (await xOf(newRow, 4, quarterPx)) + 2,
-  );
+  await dropAtQ(page, newRow, 4, quarterPx);
 
   await expect(page.locator(tracks)).toHaveCount(2);
   const added = page.locator(tracks).nth(1);
