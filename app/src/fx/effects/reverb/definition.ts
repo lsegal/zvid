@@ -28,7 +28,7 @@ export const definition: FxEffectDefinition = {
   effectName: REVERB_EFFECT_NAME,
   displayName: "Reverb",
   description: "Places the sound in a room or hall that rings after it.",
-  accent: "#fda4af",
+  accent: "#cbd5e1",
   domain: "audio",
   known: true,
   scopes: ["layer", "clip", "global"],
