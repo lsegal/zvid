@@ -5,37 +5,71 @@ import type { EffectPass } from "../../fx-shaders/types.ts";
 import type { FxEffectDefinitionModule } from "../types.ts";
 import * as analogGlitch from "./analog-glitch/definition.ts";
 import { pass as analogGlitchPass } from "./analog-glitch/pass.ts";
+import * as autoPan from "./auto-pan/definition.ts";
+import * as bitcrush from "./bitcrush/definition.ts";
+import * as chorus from "./chorus/definition.ts";
 import * as color from "./color/definition.ts";
 import * as colorize from "./colorize/definition.ts";
 import { pass as colorizePass } from "./colorize/pass.ts";
+import * as compressor from "./compressor/definition.ts";
+import * as deEss from "./de-ess/definition.ts";
+import * as delay from "./delay/definition.ts";
+import * as eq from "./eq/definition.ts";
 import * as gain from "./gain/definition.ts";
+import * as highPass from "./high-pass/definition.ts";
 import * as layout from "./layout/definition.ts";
+import * as limiter from "./limiter/definition.ts";
+import * as lowPass from "./low-pass/definition.ts";
 import * as mono from "./mono/definition.ts";
 import * as move from "./move/definition.ts";
 import * as negativeSplit from "./negative-split/definition.ts";
 import { pass as negativeSplitPass } from "./negative-split/pass.ts";
+import * as noiseGate from "./noise-gate/definition.ts";
 import * as order from "./order/definition.ts";
+import * as phaser from "./phaser/definition.ts";
 import * as pixelate from "./pixelate/definition.ts";
 import { pass as pixelatePass } from "./pixelate/pass.ts";
+import * as reverse from "./reverse/definition.ts";
+import * as saturation from "./saturation/definition.ts";
+import * as stereo from "./stereo/definition.ts";
 import * as text from "./text/definition.ts";
 import * as transform from "./transform/definition.ts";
+import * as transientShaper from "./transient-shaper/definition.ts";
+import * as tremolo from "./tremolo/definition.ts";
 import * as zoomAndPan from "./zoom-and-pan/definition.ts";
 import { pass as zoomAndPanPass } from "./zoom-and-pan/pass.ts";
 
 // Every effect folder's definition.ts, in folder order.
 export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   analogGlitch,
+  autoPan,
+  bitcrush,
+  chorus,
   color,
   colorize,
+  compressor,
+  deEss,
+  delay,
+  eq,
   gain,
+  highPass,
   layout,
+  limiter,
+  lowPass,
   mono,
   move,
   negativeSplit,
+  noiseGate,
   order,
+  phaser,
   pixelate,
+  reverse,
+  saturation,
+  stereo,
   text,
   transform,
+  transientShaper,
+  tremolo,
   zoomAndPan,
 ];
 

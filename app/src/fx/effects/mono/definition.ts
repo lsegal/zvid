@@ -9,8 +9,8 @@ import {
   SOURCE_SUM,
 } from "./mono.ts";
 
-// Right after Gain in the Audio group of the add menus.
-export const menuOrder = 205;
+// Between EQ and Stereo in the Audio group of the add menus.
+export const menuOrder = 215;
 
 export const definition: FxEffectDefinition = {
   effectName: MONO_EFFECT_NAME,
