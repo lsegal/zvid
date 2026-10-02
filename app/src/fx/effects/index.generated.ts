@@ -6,6 +6,7 @@ import type { FxEffectDefinitionModule } from "../types.ts";
 import * as analogGlitch from "./analog-glitch/definition.ts";
 import { pass as analogGlitchPass } from "./analog-glitch/pass.ts";
 import * as autoPan from "./auto-pan/definition.ts";
+import * as bitcrush from "./bitcrush/definition.ts";
 import * as chorus from "./chorus/definition.ts";
 import * as color from "./color/definition.ts";
 import * as colorize from "./colorize/definition.ts";
@@ -40,6 +41,7 @@ import { pass as zoomAndPanPass } from "./zoom-and-pan/pass.ts";
 export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   analogGlitch,
   autoPan,
+  bitcrush,
   chorus,
   color,
   colorize,

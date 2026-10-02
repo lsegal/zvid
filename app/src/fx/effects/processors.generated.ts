@@ -3,6 +3,7 @@
 
 import type { AudioEffectDsp } from "../../audio-mix/processor.ts";
 import { processor as autoPanProcessor } from "./auto-pan/processor.ts";
+import { processor as bitcrushProcessor } from "./bitcrush/processor.ts";
 import { processor as chorusProcessor } from "./chorus/processor.ts";
 import { processor as compressorProcessor } from "./compressor/processor.ts";
 import { processor as deEssProcessor } from "./de-ess/processor.ts";
@@ -22,6 +23,7 @@ import { processor as tremoloProcessor } from "./tremolo/processor.ts";
 // Every audio effect folder's processor.ts, in folder order.
 export const EFFECT_AUDIO_PROCESSORS: readonly AudioEffectDsp[] = [
   autoPanProcessor,
+  bitcrushProcessor,
   chorusProcessor,
   compressorProcessor,
   deEssProcessor,
