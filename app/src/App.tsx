@@ -369,9 +369,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
               playheadSignal={playheadSignal}
               signature={timeline.signature}
               adaptiveDivision={timeline.adaptiveDivision}
-              canCreateLayer={editing.canCreateLayer}
               commitProjectPatch={store.commitProjectPatch}
-              onCreateLayer={editing.handleCreateLayer}
               isMediaDrawerOpen={mediaDrawer.isOpen}
               onToggleMediaDrawer={mediaDrawer.toggleOpen}
             />
@@ -434,6 +432,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 <ArrangementLanes
                   arrangementLanesRef={arrangementLanesRef}
                   lanes={lanes}
+                  canCreateLayer={editing.canCreateLayer}
+                  readOnly={store.isWorkspaceReadOnly}
+                  onCreateLayer={editing.handleCreateLayer}
                   fxLaneId={fxPanel.fxLaneId}
                   laneStatusById={timeline.laneStatusById}
                   clipsByLane={timeline.clipsByLane}
@@ -525,6 +526,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   sourceTracksLocked={editing.sourceTracksLocked}
                   setSourceTracksLocked={editing.setSourceTracksLocked}
                   drop={mediaImport.sourceTrackDrop}
+                  readOnly={store.isWorkspaceReadOnly}
+                  onCreateSourceTrack={editing.createEmptySourceTrack}
                   sourceSelection={selection.sourceSelection}
                   selectSource={selection.selectSource}
                   onImport={() => void sessionFiles.handleImport()}

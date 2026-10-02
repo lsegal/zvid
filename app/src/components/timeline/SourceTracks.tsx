@@ -21,6 +21,7 @@ import { SourceEmptyState } from "../SourceEmptyState";
 import { SourceDropPreview } from "./SourceDropPreview";
 import type { SourceSpanContext } from "./SourceSpan";
 import { type SourceTrackLabelContext, SourceTrackRow } from "./SourceTrackRow";
+import { TrackAddButton } from "./TrackPlaceholder";
 import "./source-tracks.css";
 
 type SourceTracksProps = {
@@ -31,6 +32,9 @@ type SourceTracksProps = {
   sourceTracksLocked: boolean;
   setSourceTracksLocked: (locked: boolean) => void;
   drop: ReturnType<typeof useSourceTrackDrop>;
+  // A read-only tab can't add tracks.
+  readOnly: boolean;
+  onCreateSourceTrack: () => void;
   sourceSelection: SourceSelection | undefined;
   selectSource: (selection: SourceSelection) => void;
   onImport: () => void;
@@ -45,7 +49,8 @@ type SourceTracksProps = {
 // The Source Tracks section: its collapsible header with the lock toggle,
 // which takes dropped media while there are no tracks or they are hidden, the
 // tracks with the drop indicator and announcements that reordering them uses,
-// and a drop row for a new track while media is dragged over them. Locked
+// and an empty placeholder row whose [ + Track ] button adds an empty track
+// and which takes media dragged onto it as a new track. Locked
 // tracks are 30% less saturated and their clips stay put.
 export function SourceTracks({
   sourceTracks,
@@ -55,6 +60,8 @@ export function SourceTracks({
   sourceTracksLocked,
   setSourceTracksLocked,
   drop,
+  readOnly,
+  onCreateSourceTrack,
   sourceSelection,
   selectSource,
   onImport,
@@ -177,18 +184,29 @@ export function SourceTracks({
           ))}
         </div>
       )}
-      {isSourceTrackFileDragActive && !isSourceTracksCollapsed ? (
+      {isSourceTracksCollapsed ? null : (
         <section
-          className="track-row track-row--source track-row--source-drop"
+          className={`track-row track-row--source track-row--source-drop track-placeholder ${isSourceTrackFileDragActive ? "track-placeholder--drag" : ""}`}
           data-source-track-drop-target="new-track"
           data-source-track-drop-at-pointer
         >
           <div className="track-label track-label--source track-label--source-drop">
-            <span className="track-label__stripe" />
-            <div>
-              <span>New Source Track</span>
-              <small>Drop here to create a new source track</small>
-            </div>
+            {isSourceTrackFileDragActive ? (
+              <>
+                <span className="track-label__stripe" />
+                <div>
+                  <span>New Source Track</span>
+                  <small>Drop here to create a new source track</small>
+                </div>
+              </>
+            ) : (
+              <TrackAddButton
+                disabled={readOnly}
+                label="Track"
+                onClick={onCreateSourceTrack}
+                title="Add an empty source track"
+              />
+            )}
           </div>
           <section
             aria-label="Drop media into a new source track"
@@ -203,7 +221,7 @@ export function SourceTracks({
             />
           </section>
         </section>
-      ) : null}
+      )}
     </>
   );
 }
