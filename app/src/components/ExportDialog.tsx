@@ -18,6 +18,7 @@ import {
   quartersToSeconds,
   secondsToQuarters,
 } from "../app/timeline-math.ts";
+import { isAudibleMix } from "../audio-mix/mix.ts";
 import { CompositionPlayer } from "../CompositionPlayer";
 import {
   type ExportOptions,
@@ -409,7 +410,7 @@ function ExportDialogBody({
   const estimate = estimateExportBytes(
     options,
     timing.durationSeconds,
-    Boolean(model.mainAudio?.hasAudio),
+    isAudibleMix(model.audioMix),
   );
   const progress = model.progress?.progress ?? null;
 
@@ -457,7 +458,7 @@ function ExportDialogBody({
               isPlaying={playback.isPlaying}
               isScrubbing={isScrubbing}
               lanes={model.lanes}
-              mainAudio={model.mainAudio}
+              audioMix={model.audioMix}
               mediaItems={model.mediaItems}
               playheadQ={playback.playheadQ}
               playheadSeconds={quartersToSeconds(playback.playheadQ, bpm)}

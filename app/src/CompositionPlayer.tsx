@@ -7,6 +7,10 @@ import {
   useRef,
 } from "react";
 import { clamp } from "./app/util.ts";
+import { audioMixEndSeconds } from "./audio-mix/mix.ts";
+import { renderAudioMixOffline } from "./audio-mix/offline.ts";
+import { PreviewAudioMixer } from "./audio-mix/preview-mixer.ts";
+import { type AudioMix, SILENT_AUDIO_MIX } from "./audio-mix/resolve.ts";
 import {
   type ActiveClip,
   type ArrangementClip,
@@ -37,8 +41,6 @@ import {
 import { resolveEffectChain } from "./fx-shaders/registry.ts";
 import { getRenderedEffects } from "./fx-stack.ts";
 import {
-  applyPreviewVolume,
-  applyPreviewVolumes,
   listenForVideoFrames,
   releaseMediaElement,
 } from "./media-element.ts";
@@ -66,7 +68,8 @@ type CompositionPlayerProps = {
   playheadSeconds: number;
   // Playback advances this every frame without re-rendering the player.
   playheadSignal: PlayheadSignal;
-  mainAudio?: MediaItem;
+  // The clips the preview hears (see resolveAudioClips).
+  audioMix?: AudioMix;
   // A text clip being typed on in the preview, whose text the on-canvas
   // editor shows instead.
   hiddenTextClipId?: string;
@@ -82,7 +85,7 @@ export type CompositionRendererState = {
   projectDurationFrames?: number;
   canvasWidth: number;
   canvasHeight: number;
-  mainAudio?: MediaItem;
+  audioMix?: AudioMix;
   // Draws this text clip with no text: it keeps its slot, and its layer's
   // effects, but its text doesn't show twice under the editor.
   hiddenTextClipId?: string;
@@ -104,17 +107,15 @@ export type CompositionPlayerHandle = {
 };
 
 const MAX_DRIFT_SECONDS = 0.18;
-const SCRUB_AUDIO_DRIFT_SECONDS = 0.035;
-// Audio keeps playing through a scrub started during playback, so it only
-// re-syncs once it falls this far behind or ahead of the playhead.
-const CONTINUOUS_SCRUB_AUDIO_DRIFT_SECONDS = 0.1;
+// Export measures audio-reactive effects on the mix at this rate.
+const OFFLINE_BANDS_SAMPLE_RATE = 48000;
 // The playback rates every browser accepts; a media element throws outside
 // them.
 const MIN_PLAYBACK_RATE = 0.0625;
 const MAX_PLAYBACK_RATE = 16;
 
-// "live" reads the main audio element as it plays (preview). "offline"
-// decodes the main audio and measures it at each rendered frame (export).
+// "live" plays the audio mix and measures it as it plays (preview).
+// "offline" renders the mix and measures it at each rendered frame (export).
 export type AudioAnalysisMode = "live" | "offline";
 
 export class CompositionRenderer {
@@ -125,16 +126,16 @@ export class CompositionRenderer {
   // each one plays.
   private mediaRefs = new Map<string, HTMLMediaElement>();
   private mediaIdBySourceKey = new Map<string, string>();
-  private mainAudioElement: HTMLAudioElement | null = null;
+  // Plays the audio mix in "live" mode.
+  private mixer: PreviewAudioMixer | null = null;
   private removeVideoFrameReadyListeners: (() => void) | null = null;
   private videoFrameReadyListener: (() => void) | null = null;
   private state: CompositionRendererState;
   private activeClips: ActiveClip[] = [];
   private readonly audioAnalysis: AudioAnalysisMode;
-  private liveAudioBands: LiveAudioBands | null = null;
-  private volume = { volume: 1, muted: false };
+  private liveAudioBands = new LiveAudioBands();
   private offlineAudioBands: {
-    url: string;
+    mix: AudioMix;
     bands: Promise<OfflineAudioBands | null>;
   } | null = null;
 
@@ -147,6 +148,9 @@ export class CompositionRenderer {
   ) {
     this.canvas = options.canvas ?? document.createElement("canvas");
     this.audioAnalysis = options.audioAnalysis ?? "live";
+    if (this.audioAnalysis === "live") {
+      this.mixer = new PreviewAudioMixer();
+    }
     this.state = state;
     this.update(state);
   }
@@ -154,12 +158,13 @@ export class CompositionRenderer {
   update(state: CompositionRendererState) {
     this.state = state;
     this.syncMediaElements();
+    this.mixer?.update(this.audioMix(), state.mediaItems);
   }
 
   destroy() {
     this.clearVideoFrameReadyListeners();
-    this.liveAudioBands?.dispose();
-    this.liveAudioBands = null;
+    this.mixer?.dispose();
+    this.mixer = null;
     this.offlineAudioBands = null;
     if (this.resources) {
       disposeWebGlResources(this.resources);
@@ -171,25 +176,18 @@ export class CompositionRenderer {
     }
     this.mediaRefs.clear();
     this.mediaIdBySourceKey.clear();
-
-    if (this.mainAudioElement) {
-      releaseMediaElement(this.mainAudioElement);
-      this.mainAudioElement = null;
-    }
   }
 
   // The preview playback volume, which export renders never set.
   setVolume(volume: number, muted: boolean) {
-    this.volume = { volume, muted };
-    applyPreviewVolumes(this.mediaRefs.values(), this.volume);
-    applyPreviewVolume(this.mainAudioElement, this.volume, this.liveAudioBands);
+    this.mixer?.setVolume({ volume, muted });
   }
 
   // While playing, animating text and fills may be drawn from a nearby
   // raster; a paused preview, being edited, draws them exactly.
   renderPreviewFrame(playheadQ: number, pixelRatio: number, playing = true) {
     this.ensureResources();
-    const audio = this.liveAudioBands?.sample(performance.now());
+    const audio = this.sampleLiveAudioBands();
     this.activeClips = this.computeActiveClips(playheadQ, audio);
     this.draw(this.activeClips, playheadQ, pixelRatio, {
       time: quartersToSeconds(playheadQ, this.state.bpm),
@@ -251,11 +249,6 @@ export class CompositionRenderer {
       ),
     );
 
-    if (this.mainAudioElement && this.state.mainAudio?.previewUrl) {
-      this.mainAudioElement.pause();
-      this.mainAudioElement.currentTime = playheadSeconds;
-    }
-
     this.activeClips = nextActiveClips;
     this.draw(nextActiveClips, playheadQ, pixelRatio, {
       time: playheadSeconds,
@@ -265,8 +258,6 @@ export class CompositionRenderer {
   }
 
   syncPlayback(playback: CompositionPlaybackState) {
-    const isContinuousScrubAudio =
-      playback.isAudibleScrubbing && playback.isContinuousScrubbing;
     const activeClipBySourceKey = new Map(
       this.computeActiveClips(playback.playheadQ).map((entry) => [
         entry.sourceKey,
@@ -304,50 +295,22 @@ export class CompositionRenderer {
 
       const drift = Math.abs(element.currentTime - activeEntry.mediaTime);
       const needsSeek =
-        isContinuousScrubAudio && item.kind !== "video"
-          ? drift > CONTINUOUS_SCRUB_AUDIO_DRIFT_SECONDS
-          : !playback.isPlaying ||
-            playback.isScrubbing ||
-            drift > MAX_DRIFT_SECONDS;
+        !playback.isPlaying ||
+        playback.isScrubbing ||
+        drift > MAX_DRIFT_SECONDS;
       if (needsSeek) {
         element.currentTime = activeEntry.mediaTime;
       }
 
-      const shouldPlay =
-        item.kind === "video"
-          ? playback.isPlaying
-          : playback.isPlaying || playback.isAudibleScrubbing;
-      if (shouldPlay) {
+      // Clip audio plays through the mixer; these elements are only drawn.
+      if (playback.isPlaying) {
         element.play().catch(() => {});
       } else if (!element.paused) {
         element.pause();
       }
     }
 
-    const audio = this.mainAudioElement;
-    if (!audio || !this.state.mainAudio?.previewUrl) {
-      return;
-    }
-
-    const shouldPlay = playback.isPlaying || playback.isAudibleScrubbing;
-    if (shouldPlay) {
-      this.liveAudioBands?.resume();
-    }
-    const driftTolerance = isContinuousScrubAudio
-      ? CONTINUOUS_SCRUB_AUDIO_DRIFT_SECONDS
-      : playback.isAudibleScrubbing
-        ? SCRUB_AUDIO_DRIFT_SECONDS
-        : MAX_DRIFT_SECONDS;
-    const drift = Math.abs(audio.currentTime - playback.playheadSeconds);
-    if (!shouldPlay || drift > driftTolerance) {
-      audio.currentTime = playback.playheadSeconds;
-    }
-
-    if (shouldPlay) {
-      audio.play().catch(() => {});
-    } else if (!audio.paused) {
-      audio.pause();
-    }
+    this.mixer?.sync(playback);
   }
 
   addVideoFrameReadyListeners(scheduleDraw: () => void) {
@@ -426,44 +389,52 @@ export class CompositionRenderer {
     return this.renderedEffects().some(effectUsesAudio);
   }
 
+  private audioMix() {
+    return this.state.audioMix ?? SILENT_AUDIO_MIX;
+  }
+
+  private sampleLiveAudioBands() {
+    return this.liveAudioBands.sample(
+      this.mixer?.analyser ?? null,
+      performance.now(),
+    );
+  }
+
   private async sampleAudioBandsAt(playheadSeconds: number) {
     if (this.audioAnalysis === "live") {
-      return (
-        this.liveAudioBands?.sample(performance.now()) ?? SILENT_AUDIO_BANDS
-      );
+      return this.sampleLiveAudioBands();
     }
 
-    const url = this.state.mainAudio?.previewUrl;
-    if (!url || !this.usesAudioBands()) {
+    const mix = this.audioMix();
+    if (!this.usesAudioBands()) {
       return SILENT_AUDIO_BANDS;
     }
 
-    if (this.offlineAudioBands?.url !== url) {
+    // A mix resolved again, after an edit, is measured again.
+    if (this.offlineAudioBands?.mix !== mix) {
+      const sampleRate = OFFLINE_BANDS_SAMPLE_RATE;
       this.offlineAudioBands = {
-        url,
-        bands: OfflineAudioBands.decode(url).catch((error) => {
-          console.warn("Export renders effects without audio bands.", error);
-          return null;
-        }),
+        mix,
+        bands: renderAudioMixOffline(mix, this.state.mediaItems, {
+          sampleRate,
+          numberOfChannels: 2,
+          startSeconds: 0,
+          length: Math.ceil(audioMixEndSeconds(mix) * sampleRate),
+        })
+          .then((channels) =>
+            channels
+              ? OfflineAudioBands.fromChannels(channels, sampleRate)
+              : null,
+          )
+          .catch((error) => {
+            console.warn("Export renders effects without audio bands.", error);
+            return null;
+          }),
       };
     }
 
     const bands = await this.offlineAudioBands.bands;
     return bands?.at(playheadSeconds) ?? SILENT_AUDIO_BANDS;
-  }
-
-  private syncLiveAudioBands() {
-    if (this.audioAnalysis !== "live") {
-      return;
-    }
-
-    if (this.mainAudioElement && this.usesAudioBands()) {
-      this.liveAudioBands ??= new LiveAudioBands();
-    }
-    // Once routed through Web Audio the element must stay attached, or it
-    // would go silent, so the analyser follows the element even after the
-    // effects that needed it are removed.
-    this.liveAudioBands?.attach(this.mainAudioElement);
   }
 
   private draw(
@@ -509,11 +480,10 @@ export class CompositionRenderer {
       element.crossOrigin = "anonymous";
       element.preload = "auto";
       if (element instanceof HTMLVideoElement) {
-        element.muted = true;
         element.playsInline = true;
-      } else {
-        applyPreviewVolume(element, this.volume);
       }
+      // Clip audio plays through the mixer instead.
+      element.muted = true;
       this.mediaRefs.set(sourceKey, element);
       this.mediaIdBySourceKey.set(sourceKey, item.id);
     }
@@ -543,26 +513,6 @@ export class CompositionRenderer {
       this.ensureMediaElement(item.id, item);
     }
 
-    if (this.state.mainAudio?.previewUrl) {
-      if (!this.mainAudioElement) {
-        this.mainAudioElement = document.createElement("audio");
-        this.mainAudioElement.crossOrigin = "anonymous";
-        this.mainAudioElement.preload = "auto";
-      }
-      if (
-        this.mainAudioElement.getAttribute("src") !==
-        this.state.mainAudio.previewUrl
-      ) {
-        this.mainAudioElement.src = this.state.mainAudio.previewUrl;
-      }
-    } else if (this.mainAudioElement) {
-      releaseMediaElement(this.mainAudioElement);
-      this.mainAudioElement = null;
-    }
-
-    // Routing the main audio through the analyser moves its volume there.
-    this.syncLiveAudioBands();
-    this.setVolume(this.volume.volume, this.volume.muted);
     this.refreshVideoFrameReadyListeners();
   }
 
@@ -603,7 +553,7 @@ export const CompositionPlayer = forwardRef<
     canvasHeight,
     playheadSeconds,
     playheadSignal,
-    mainAudio,
+    audioMix,
     hiddenTextClipId,
   },
   ref,
@@ -623,10 +573,11 @@ export const CompositionPlayer = forwardRef<
       projectDurationFrames,
       canvasWidth,
       canvasHeight,
-      mainAudio,
+      audioMix,
       hiddenTextClipId,
     }),
     [
+      audioMix,
       bpm,
       canvasHeight,
       canvasWidth,
@@ -635,7 +586,6 @@ export const CompositionPlayer = forwardRef<
       fps,
       hiddenTextClipId,
       lanes,
-      mainAudio,
       mediaItems,
       projectDurationFrames,
     ],

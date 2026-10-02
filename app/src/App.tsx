@@ -566,7 +566,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 fps={fps}
                 isPlaying={isPlaying}
                 isTimelineAudibleScrubbing={playback.isTimelineAudibleScrubbing}
-                mainAudio={mainAudioModel.mainAudio}
                 mediaItems={mediaItems}
                 mediaPreview={mediaPreview}
                 mediaRange={mediaRange}

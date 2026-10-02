@@ -17,6 +17,7 @@ import {
   isGeneratedClip,
 } from "../clip-media-state";
 import type { MediaItem } from "../media";
+import { resolveAudioClips } from "../audio-mix/resolve.ts";
 import { isSourceRenderId, resolveRenderClips } from "../render-clips.ts";
 import { loadFontFace, resolveFontFace } from "../text-fonts.ts";
 import { isTextEffectName, readTextStyle } from "../text-style.ts";
@@ -103,6 +104,28 @@ export function usePreview({
         effects: timelineEffects,
       }),
     [bpm, lanes, sourceSpans, sourceTracks, timelineClips, timelineEffects],
+  );
+  // What the preview hears, resolved apart from what it draws.
+  const audioMix = useMemo(
+    () =>
+      resolveAudioClips({
+        clips: timelineClips,
+        lanes,
+        sourceTracks,
+        sourceSpans,
+        mediaById: mediaItemsById,
+        bpm,
+        effects: timelineEffects,
+      }),
+    [
+      bpm,
+      lanes,
+      mediaItemsById,
+      sourceSpans,
+      sourceTracks,
+      timelineClips,
+      timelineEffects,
+    ],
   );
   const renderLanePriority = useMemo(
     () =>
@@ -195,6 +218,7 @@ export function usePreview({
     renderLanes: render.lanes,
     renderEffects: render.effects,
     renderFromSourceTracks: render.fromSourceTracks,
+    audioMix,
     previewMedia,
     previewMediaState,
     hasOnlinePlayheadClip,
