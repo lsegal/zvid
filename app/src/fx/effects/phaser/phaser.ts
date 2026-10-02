@@ -105,7 +105,9 @@ export function notchFrequencies(
   const t = Math.tan((Math.PI * center) / sampleRate);
   const notches: number[] = [];
   for (let k = 0; 2 * k + 1 < stages; k++) {
-    const half = Math.atan(t * Math.tan((Math.PI * (2 * k + 1)) / (2 * stages)));
+    const half = Math.atan(
+      t * Math.tan((Math.PI * (2 * k + 1)) / (2 * stages)),
+    );
     notches.push((half * sampleRate) / Math.PI);
   }
   return notches;

@@ -143,7 +143,10 @@ const near = (actual: number, expected: number, tolerance: number) =>
 describe("Phaser stage at Mix 0", () => {
   it("passes sine, noise and an impulse through unchanged", () => {
     for (const input of [sine(440), noise(), impulse()]) {
-      assert.deepEqual(render([phaser({ Mix: 0, Feedback: 90 })], input), input);
+      assert.deepEqual(
+        render([phaser({ Mix: 0, Feedback: 90 })], input),
+        input,
+      );
     }
   });
 });
@@ -201,7 +204,12 @@ describe("Phaser stage with the sweep still", () => {
         near(
           gainDb({ ...numbers, Depth: 0 }, frequency),
           phaserResponseDb(
-            { hz: 1000, stages: 4, feedback: numbers.Feedback, mix: numbers.Mix },
+            {
+              hz: 1000,
+              stages: 4,
+              feedback: numbers.Feedback,
+              mix: numbers.Mix,
+            },
             frequency,
             RATE,
           ),
@@ -247,7 +255,9 @@ describe("Phaser stage sweep", () => {
   it("does not sweep at Depth 0 and sweeps further with more Depth", () => {
     const input = sine(1000, 2);
     const swing = (depth: number) => {
-      const levels = envelope(render([phaser({ Rate: 2, Depth: depth })], input)).slice(20);
+      const levels = envelope(
+        render([phaser({ Rate: 2, Depth: depth })], input),
+      ).slice(20);
       return Math.max(...levels) - Math.min(...levels);
     };
     assert.ok(swing(0) < 0.1);

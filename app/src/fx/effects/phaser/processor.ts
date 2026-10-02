@@ -36,7 +36,10 @@ function inRange(
   return clamped;
 }
 
-function setting(numbers: Readonly<Record<string, number>>, key: PhaserNumberKey) {
+function setting(
+  numbers: Readonly<Record<string, number>>,
+  key: PhaserNumberKey,
+) {
   return numbers[key] ?? PHASER_RANGES[key].defaultValue;
 }
 
