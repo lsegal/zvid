@@ -325,11 +325,13 @@ export class AudioBandTracker {
 // the transport bar's VU meter. A mono mix reads the same on both.
 export type MasterMeterTap = { left: AnalyserNode; right: AnalyserNode };
 
-const METER_FFT_SIZE = 2048;
+// The meter reads only the samples that arrived since its last frame, so
+// each analyser keeps enough for frames up to about 340 ms apart at 48 kHz.
+const METER_FFT_SIZE = 16384;
 
 // Splits `context`'s input into one analyser per channel, upmixing mono to
 // both sides first (a splitter alone would leave the right channel silent).
-function createMeterTap(context: AudioContext) {
+export function createMeterTap(context: BaseAudioContext) {
   const input = context.createGain();
   input.channelCount = 2;
   input.channelCountMode = "explicit";
@@ -406,6 +408,11 @@ export class LiveAudioBands {
     return true;
   }
 
+  // TODO(#701): the meter should read the program mix after every clip and
+  // master Gain, before the preview volume. Until #701's clip mixer lands,
+  // the main audio element is the only signal routed through Web Audio, so
+  // this taps it; once it lands, feed the mixer's master node into
+  // createMeterTap and return that tap here.
   meterTap(): MasterMeterTap | null {
     return this.source ? (this.meter?.tap ?? null) : null;
   }
