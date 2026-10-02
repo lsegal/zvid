@@ -65,14 +65,6 @@ function memoryStorage(initial: Record<string, string> = {}) {
   };
 }
 
-// The audio effects a stack's add menu offers, in menu order: Gain first,
-// then the others, which each add themselves from their effect folders.
-function audioNames(group: "layer" | "global" | "clip") {
-  return addableEffectsFor(group)
-    .filter((definition) => definition.domain === "audio")
-    .map((definition) => definition.effectName);
-}
-
 describe("groupChainDevices", () => {
   it("lists the layer stack in order, then the Global stack", () => {
     const groups = groupChainDevices(
@@ -126,13 +118,12 @@ describe("groupChainDevices", () => {
   });
 
   it("offers only audio effects on an audio clip", () => {
-    const offered = addableEffectsFor("clip", "audio");
-    assert.ok(offered.every((definition) => definition.domain === "audio"));
+    const effects = addableEffectsFor("clip", "audio");
+    assert.ok(effects.every((definition) => definition.domain === "audio"));
     assert.deepEqual(
-      offered.map((definition) => definition.effectName),
-      audioNames("clip"),
+      effects.slice(0, 2).map((definition) => definition.effectName),
+      ["Gain", "EQ"],
     );
-    assert.equal(offered[0]?.effectName, "Gain");
   });
 
   it("lists the selected clip's own stack, apart from other clips'", () => {
@@ -220,7 +211,12 @@ describe("groupAddableEffects", () => {
             .filter((definition) => definition.domain !== "audio")
             .map((definition) => definition.effectName),
         ],
-        ["Audio", audioNames("clip")],
+        [
+          "Audio",
+          addableEffectsFor("clip")
+            .filter((definition) => definition.domain === "audio")
+            .map((definition) => definition.effectName),
+        ],
       ],
     );
   });
@@ -238,6 +234,15 @@ describe("groupAddableEffects", () => {
 describe("addableEffectsFor", () => {
   const names = (group: "layer" | "global" | "clip") =>
     addableEffectsFor(group).map((definition) => definition.effectName);
+  // Every audio effect is offered on every stack, after the video ones;
+  // each audio effect's own tests check its place among them.
+  const withAudio = (group: "layer" | "global" | "clip", video: string[]) => {
+    const audio = addableEffectsFor(group)
+      .filter((definition) => definition.domain === "audio")
+      .map((definition) => definition.effectName);
+    assert.ok(audio.includes("Gain") && audio.includes("EQ"));
+    return [...video, ...audio];
+  };
 
   it("offers only effects scoped to the Global stack in the Global menu", () => {
     assert.ok(
@@ -245,15 +250,17 @@ describe("addableEffectsFor", () => {
         definition.scopes.includes("global"),
       ),
     );
-    assert.deepEqual(names("global"), [
-      "ZoomAndPan",
-      "Colorize",
-      "Pixelate",
-      "NegativeSplit",
-      "AnalogGlitch",
-      "Order",
-      ...audioNames("global"),
-    ]);
+    assert.deepEqual(
+      names("global"),
+      withAudio("global", [
+        "ZoomAndPan",
+        "Colorize",
+        "Pixelate",
+        "NegativeSplit",
+        "AnalogGlitch",
+        "Order",
+      ]),
+    );
   });
 
   it("offers only layer-scoped effects in the layer menu", () => {
@@ -262,17 +269,19 @@ describe("addableEffectsFor", () => {
         definition.scopes.includes("layer"),
       ),
     );
-    assert.deepEqual(names("layer"), [
-      "ZoomAndPan",
-      "Colorize",
-      "Pixelate",
-      "NegativeSplit",
-      "AnalogGlitch",
-      "Transform",
-      "Move",
-      "Color",
-      ...audioNames("layer"),
-    ]);
+    assert.deepEqual(
+      names("layer"),
+      withAudio("layer", [
+        "ZoomAndPan",
+        "Colorize",
+        "Pixelate",
+        "NegativeSplit",
+        "AnalogGlitch",
+        "Transform",
+        "Move",
+        "Color",
+      ]),
+    );
   });
 
   it("never offers Layout, which every layer already has", () => {

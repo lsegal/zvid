@@ -1,3 +1,9 @@
+/* Scrolls once the effect list is taller than the room beside the button. */
+.fx-add-menu {
+  max-height: var(--radix-dropdown-menu-content-available-height);
+  overflow-y: auto;
+}
+
 /* The Video and Audio headings in an add-device menu. */
 .fx-add-menu__group {
   padding: 6px 10px 2px;

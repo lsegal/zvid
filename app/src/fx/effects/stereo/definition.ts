@@ -13,8 +13,8 @@ import {
   WIDTH_MIN,
 } from "./stereo.ts";
 
-// Lists in the Audio group, after Gain.
-export const menuOrder = 210;
+// Lists in the Audio group, after Gain and EQ.
+export const menuOrder = 220;
 
 export const definition: FxEffectDefinition = {
   effectName: STEREO_EFFECT_NAME,
