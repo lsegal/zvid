@@ -169,14 +169,14 @@ describe("buildLayerMenuEntries", () => {
     ]);
   });
 
-  it("labels the FX toggle by its state and disables it without FX", () => {
+  it("labels the FX toggle by its state and enables it without FX", () => {
     assert.equal(
       item(layerMenu({ fxEnabled: false }).entries, "toggle-fx").label,
       "Enable FX",
     );
     assert.equal(
       item(layerMenu({ effectCount: 0 }).entries, "toggle-fx").disabled,
-      true,
+      false,
     );
   });
 

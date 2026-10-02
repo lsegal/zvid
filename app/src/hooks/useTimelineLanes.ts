@@ -9,9 +9,7 @@ import {
 
 export type LaneStatus = {
   effectCount: number;
-  fxToggle?: boolean;
-  fxClassName: string;
-  fxTitle?: string;
+  fxTitle: string;
   summary: string;
 };
 
@@ -66,16 +64,7 @@ export function useTimelineLanes({
         .join(" · ");
       next.set(lane.id, {
         effectCount,
-        // Without effects the badge stays inactive and cannot be toggled.
-        fxToggle: effectCount ? fxEnabled : undefined,
-        fxClassName: !effectCount
-          ? "track-label__fx--inactive"
-          : fxEnabled
-            ? ""
-            : "track-label__fx--off",
-        fxTitle: effectCount
-          ? `Turn ${lane.name} FX ${fxEnabled ? "off" : "on"}`
-          : undefined,
+        fxTitle: `Turn ${lane.name} FX ${fxEnabled ? "off" : "on"}`,
         summary: summary || "Empty",
       });
     }

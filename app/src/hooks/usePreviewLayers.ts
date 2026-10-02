@@ -49,7 +49,7 @@ export function usePreviewLayers({
       playheadQ,
       bpm,
       lanePriority,
-      getRenderedEffects(effects, lanes),
+      getRenderedEffects(effects, lanes, clips),
       fps,
       undefined,
       projectDurationFrames,

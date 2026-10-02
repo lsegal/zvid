@@ -7,6 +7,7 @@ import {
 } from "../../project-history.ts";
 import { GLOBAL_EFFECT_TRACK_ID } from "./clip-stacks.ts";
 import {
+  type FxClip,
   type FxLayer,
   getRenderedEffects,
   isLayerFxEnabled,
@@ -17,10 +18,20 @@ import { ids, load } from "./test-fixtures.ts";
 
 describe("layer FX bypass", () => {
   const LANES: FxLayer[] = [{ id: "1" }, { id: "5" }, { id: "6" }];
+  const CLIPS: FxClip[] = [
+    { id: "v", laneId: "6" },
+    { id: "f", laneId: "6", kind: "fill" },
+    { id: "t", laneId: "6", kind: "text" },
+    { id: "a", laneId: "6", kind: "fx" },
+    { id: "other", laneId: "1" },
+  ];
 
   it("defaults layers to on", () => {
     assert.ok(LANES.every((lane) => isLayerFxEnabled(lane)));
-    assert.equal(getRenderedEffects(load(), LANES).length, load().length);
+    assert.equal(
+      getRenderedEffects(load(), LANES, CLIPS).length,
+      load().length,
+    );
   });
 
   it("toggles one layer and skips no-op edits", () => {
@@ -36,7 +47,7 @@ describe("layer FX bypass", () => {
   it("drops a bypassed layer's whole chain but keeps other stacks", () => {
     const effects = load();
     const lanes = setLaneFxEnabled(LANES, "6", false);
-    const rendered = getRenderedEffects(effects, lanes);
+    const rendered = getRenderedEffects(effects, lanes, CLIPS);
 
     assert.deepEqual(ids(rendered, "6"), []);
     assert.deepEqual(resolveEffectChain(rendered, "6"), []);
@@ -50,6 +61,7 @@ describe("layer FX bypass", () => {
     const rendered = getRenderedEffects(
       effects,
       setLaneFxEnabled(LANES, "6", false),
+      CLIPS,
     );
     assert.deepEqual(ids(rendered, "6"), ["layer-layout"]);
   });
@@ -59,6 +71,7 @@ describe("layer FX bypass", () => {
     const rendered = getRenderedEffects(
       effects,
       setLaneFxEnabled(LANES, "6", false),
+      CLIPS,
     );
     assert.deepEqual(ids(rendered, "6"), ["fill-color"]);
   });
@@ -74,8 +87,34 @@ describe("layer FX bypass", () => {
     const rendered = getRenderedEffects(
       effects,
       setLaneFxEnabled(LANES, "6", false),
+      CLIPS,
     );
     assert.deepEqual(ids(rendered, "clip:t"), ["text-style"]);
+  });
+
+  it("drops the effects of clips on a bypassed layer", () => {
+    let effects = load();
+    effects = addEffect(effects, "clip:v", "Pixelate", undefined, "v-fx");
+    effects = addEffect(effects, "clip:f", "Color", undefined, "f-color");
+    effects = addEffect(effects, "clip:f", "Colorize", undefined, "f-fx");
+    effects = addEffect(effects, "clip:a", "Pixelate", undefined, "a-fx");
+    effects = addEffect(effects, "clip:a", "Color", undefined, "a-color");
+    effects = addEffect(effects, "clip:other", "Pixelate", undefined, "o-fx");
+    assert.equal(effects.length, load().length + 6);
+    const rendered = getRenderedEffects(
+      effects,
+      setLaneFxEnabled(LANES, "6", false),
+      CLIPS,
+    );
+
+    assert.deepEqual(ids(rendered, "6"), []);
+    assert.deepEqual(ids(rendered, "clip:v"), []);
+    assert.deepEqual(ids(rendered, "clip:f"), ["f-color"]);
+    assert.deepEqual(ids(rendered, "clip:a"), []);
+    assert.deepEqual(resolveEffectChain(rendered, "clip:a"), []);
+    assert.deepEqual(ids(rendered, "clip:other"), ["o-fx"]);
+    assert.deepEqual(ids(rendered, "1"), ["zoom"]);
+    assert.equal(getRenderedEffects(effects, LANES, CLIPS), effects);
   });
 
   it("never adds Text to a layer's own stack", () => {
@@ -90,7 +129,7 @@ describe("layer FX bypass", () => {
       "6",
       true,
     );
-    const rendered = getRenderedEffects(effects, lanes);
+    const rendered = getRenderedEffects(effects, lanes, CLIPS);
     assert.equal(rendered, effects);
     assert.deepEqual(
       resolveEffectChain(rendered, "6").map((step) => step.pass.effectName),
