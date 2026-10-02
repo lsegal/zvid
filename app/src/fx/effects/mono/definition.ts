@@ -18,6 +18,7 @@ export const definition: FxEffectDefinition = {
   description:
     "Folds the sound to mono: the sum of both sides, or just the left or right.",
   accent: "#22d3ee",
+  category: "volume",
   domain: "audio",
   known: true,
   scopes: ["layer", "clip", "global"],

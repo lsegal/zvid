@@ -47,7 +47,11 @@ test("Mono adds to an audio clip with Sum at 100 %", async ({ page }) => {
     .getByRole("button", { name: "Add device to this clip" })
     .first()
     .click();
-  await page.getByRole("menu").getByRole("menuitem", { name: /^Mono/ }).click();
+  await page
+    .getByRole("menu")
+    .getByRole("menuitem", { name: "Volume & Stereo" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Mono/ }).click();
 
   const devices = page.locator(clipDevices);
   await expect(devices).toHaveCount(2);
@@ -98,13 +102,14 @@ test("a video clip's add menu lists Mono in its Audio group", async ({
   const menu = page.getByRole("menu");
   await expect(
     menu.getByRole("group", { name: "Video" }).getByRole("menuitem", {
-      name: /^Mono/,
+      name: "Volume & Stereo",
     }),
   ).toHaveCount(0);
   await menu
     .getByRole("group", { name: "Audio" })
-    .getByRole("menuitem", { name: /^Mono/ })
-    .click();
+    .getByRole("menuitem", { name: "Volume & Stereo" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Mono/ }).click();
   await expect(page.locator(clipDevices)).toHaveCount(1);
   await expect(page.locator(clipDevices)).toHaveAttribute("aria-label", "Mono");
 });

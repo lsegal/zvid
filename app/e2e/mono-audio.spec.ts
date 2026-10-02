@@ -118,7 +118,11 @@ test("Mono's Source and Amount move the preview's level", async ({ page }) => {
     .getByRole("button", { name: "Add device to this clip" })
     .first()
     .click();
-  await page.getByRole("menu").getByRole("menuitem", { name: /^Mono/ }).click();
+  await page
+    .getByRole("menu")
+    .getByRole("menuitem", { name: "Volume & Stereo" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Mono/ }).click();
   const mono = page.locator(
     '.fx-chain .fx-device-panel[data-fx-group="clip"][aria-label="Mono"]',
   );
