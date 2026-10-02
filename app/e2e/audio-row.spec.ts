@@ -127,7 +127,7 @@ test("the Audio row takes no files and starts empty", async ({ page }) => {
   await page.keyboard.press("Escape");
 });
 
-test("the Audio row is pinned to the bottom of the timeline and collapses", async ({
+test("the Audio row is pinned to the bottom of a tall timeline and collapses", async ({
   page,
 }) => {
   await page.goto("/");
@@ -152,14 +152,14 @@ test("the Audio row is pinned to the bottom of the timeline and collapses", asyn
   expect(lastRow).toBe("");
   await expect.poll(bottomGap).toBeLessThan(2);
 
-  // In a short window it stays there while the rows above scroll under it,
-  // and at the end of the scroll range the last row clears it.
-  await page.setViewportSize({ width: 1600, height: 640 });
-  await expect
-    .poll(() =>
-      timeline.evaluate((node) => node.scrollHeight > node.clientHeight),
-    )
-    .toBe(true);
+  // With more layers than fit, it stays there while the rows above scroll
+  // under it, and at the end of the scroll range the last row clears it.
+  const addLayer = page.getByRole("button", { name: "Layer", exact: true });
+  while (
+    !(await timeline.evaluate((node) => node.scrollHeight > node.clientHeight))
+  ) {
+    await addLayer.click();
+  }
   await timeline.evaluate((node) => {
     node.scrollTop = 0;
   });
@@ -174,7 +174,17 @@ test("the Audio row is pinned to the bottom of the timeline and collapses", asyn
       node.getBoundingClientRect().top,
   );
   expect(overlap).toBeLessThanOrEqual(1);
+
+  // A panel too short to keep layers in view above it doesn't pin it; it just
+  // ends the timeline.
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expect(audioRow(page)).not.toHaveClass(/track-row--bus-pinned/);
+  await timeline.evaluate((node) => {
+    node.scrollTop = 0;
+  });
+  await expect.poll(bottomGap).toBeGreaterThan(100);
   await page.setViewportSize({ width: 1600, height: 1200 });
+  await expect(audioRow(page)).toHaveClass(/track-row--bus-pinned/);
 
   // Collapsed, only a slim header with its toggle stays pinned, and the
   // preference survives a reload.

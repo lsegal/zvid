@@ -3,7 +3,9 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import {
   AUDIO_ROW_COLLAPSED_STORAGE_KEY,
+  AUDIO_ROW_PIN_MIN_PANEL_HEIGHT,
   audioRowToggleLabel,
+  isAudioRowPinned,
   readAudioRowCollapsed,
   writeAudioRowCollapsed,
 } from "./audio-row-section.ts";
@@ -70,11 +72,17 @@ describe("audio row section", () => {
     assert.doesNotMatch(timeline.slice(audio + 1), /<[A-Z]/);
   });
 
-  it("pins to the bottom of the timeline", () => {
-    const rule = audioRowCss.match(/\.track-row--bus \{[^}]*\}/)?.[0] ?? "";
-    assert.match(rule, /position: sticky;/);
-    assert.match(rule, /bottom: 0;/);
-    assert.match(rule, /background: #/, "the pinned row must be opaque");
+  it("pins to the bottom of the timeline when the panel has room", () => {
+    assert.equal(isAudioRowPinned(0), false);
+    assert.equal(isAudioRowPinned(176), false);
+    assert.equal(isAudioRowPinned(AUDIO_ROW_PIN_MIN_PANEL_HEIGHT), true);
+    assert.equal(isAudioRowPinned(800), true);
+    const pinned =
+      audioRowCss.match(/\.track-row--bus-pinned \{[^}]*\}/)?.[0] ?? "";
+    assert.match(pinned, /position: sticky;/);
+    assert.match(pinned, /bottom: 0;/);
+    const row = audioRowCss.match(/\.track-row--bus \{[^}]*\}/)?.[0] ?? "";
+    assert.match(row, /background: #/, "the pinned row must be opaque");
   });
 
   it("exposes the toggle state to assistive tech", () => {
