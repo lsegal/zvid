@@ -7,6 +7,8 @@ import * as analogGlitch from "./analog-glitch/definition.ts";
 import { pass as analogGlitchPass } from "./analog-glitch/pass.ts";
 import * as autoPan from "./auto-pan/definition.ts";
 import * as bitcrush from "./bitcrush/definition.ts";
+import * as caustics from "./caustics/definition.ts";
+import { pass as causticsPass } from "./caustics/pass.ts";
 import * as chorus from "./chorus/definition.ts";
 import * as color from "./color/definition.ts";
 import * as colorize from "./colorize/definition.ts";
@@ -44,6 +46,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   analogGlitch,
   autoPan,
   bitcrush,
+  caustics,
   chorus,
   color,
   colorize,
@@ -76,6 +79,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
 // Every effect folder's pass.ts, in folder order.
 export const EFFECT_PASSES: readonly EffectPass[] = [
   analogGlitchPass,
+  causticsPass,
   colorizePass,
   negativeSplitPass,
   pixelatePass,
