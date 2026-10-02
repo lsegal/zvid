@@ -26,11 +26,19 @@ async function probeAnalysers(page: Page) {
   });
 }
 
-// The mix's RMS level over the analyser's latest window.
+// The meter tap's analysers keep 16384 samples, about 340 ms: long enough
+// that reads 20 ms apart overlap and cover every sample between them.
+// The band analyser keeps only about 21 ms, so its reads land on or off
+// a burst depending on the runner's timing.
+const METER_FFT_SIZE = 16384;
+
+// The mix's RMS level over the meter analyser's latest window.
 function mixLevel(page: Page) {
-  return page.evaluate(() => {
+  return page.evaluate((fftSize) => {
     const probe = window as unknown as { analysers: AnalyserNode[] };
-    const analyser = probe.analysers.at(-1);
+    const analyser = probe.analysers.findLast(
+      (candidate) => candidate.fftSize === fftSize,
+    );
     if (!analyser) {
       return 0;
     }
@@ -41,11 +49,11 @@ function mixLevel(page: Page) {
       total += sample * sample;
     }
     return Math.sqrt(total / samples.length);
-  });
+  }, METER_FFT_SIZE);
 }
 
-// The mix's level averaged over two burst periods once playback is under
-// way: echoes fill the gaps between the bursts and raise the average.
+// The mix's RMS level over four whole burst periods once playback is
+// under way: echoes fill the gaps between the bursts and raise it.
 async function averageLevel(page: Page) {
   for (let bar = 0; bar < 2; bar += 1) {
     await page.getByRole("button", { name: "Jump back one bar" }).click();
@@ -54,35 +62,45 @@ async function averageLevel(page: Page) {
   await expect
     .poll(() => mixLevel(page), { timeout: 15_000 })
     .toBeGreaterThan(0.005);
-  // Read in the page, every 20 ms for a second, so a slow test runner
-  // still samples two bursts and their gaps evenly.
-  const level = await page.evaluate(async () => {
+  // Read in the page, every 20 ms for two seconds, and average the power
+  // rather than each read's RMS: the overlapping windows weigh the bursts
+  // and their gaps evenly, so the result doesn't depend on when the reads
+  // land.
+  const level = await page.evaluate(async (fftSize) => {
     const probe = window as unknown as { analysers: AnalyserNode[] };
-    const analyser = probe.analysers.at(-1);
+    const analyser = probe.analysers.findLast(
+      (candidate) => candidate.fftSize === fftSize,
+    );
     if (!analyser) {
       return 0;
     }
     const samples = new Float32Array(analyser.fftSize);
-    const reads: number[] = [];
+    let power = 0;
+    let reads = 0;
     const start = performance.now();
-    while (performance.now() - start < 1000) {
+    while (performance.now() - start < 2000) {
       analyser.getFloatTimeDomainData(samples);
       let total = 0;
       for (const sample of samples) {
         total += sample * sample;
       }
-      reads.push(Math.sqrt(total / samples.length));
+      power += total / samples.length;
+      reads += 1;
       await new Promise((resolve) => setTimeout(resolve, 20));
     }
-    return reads.reduce((total, read) => total + read, 0) / reads.length;
-  });
-  await page
-    .getByRole("button", { name: "Pause playback" })
-    .click({ timeout: 2_000 })
-    .catch(() => {});
-  await expect(
-    page.getByRole("button", { name: "Play timeline" }),
-  ).toBeVisible();
+    return Math.sqrt(power / reads);
+  }, METER_FFT_SIZE);
+  // A busy runner can take longer than one click's timeout to act on
+  // Pause, so keep pausing until the Play button is back.
+  await expect(async () => {
+    const pause = page.getByRole("button", { name: "Pause playback" });
+    if (await pause.isVisible()) {
+      await pause.click({ timeout: 2_000 });
+    }
+    await expect(
+      page.getByRole("button", { name: "Play timeline" }),
+    ).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 20_000 });
   return level;
 }
 

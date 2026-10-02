@@ -29,6 +29,7 @@ import {
   migrateDefaultOrder,
   migrateMainAudio,
   migrateOrderOuterMargin,
+  migrateRenamedEffects,
   stripClipSelectionFlags,
   stripLegacySnapMode,
 } from "./project-state-compat.ts";
@@ -349,6 +350,51 @@ describe("migrateColorizeReactivity", () => {
     assert.equal(migrateColorizeReactivity(effects), effects);
     const migrated = migrateColorizeReactivity(colorize(0.4));
     assert.equal(migrateColorizeReactivity(migrated), migrated);
+  });
+});
+
+describe("migrateRenamedEffects", () => {
+  const filters = () =>
+    mapEffects([
+      {
+        id: "low-pass",
+        trackId: "6",
+        effectName: "Low Pass",
+        enabled: false,
+        parameters: {
+          Frequency: { floatValue: 1200 },
+          Slope: { stringValue: "24 dB/oct" },
+        },
+      },
+      {
+        id: "high-pass",
+        trackId: "6",
+        effectName: "High Pass",
+        parameters: { Frequency: { floatValue: 90 } },
+      },
+      { id: "gain", trackId: "6", effectName: "Gain", parameters: {} },
+    ]);
+
+  it("opens Low Pass as High Cut and High Pass as Low Cut", () => {
+    const before = filters();
+    const after = migrateRenamedEffects(before);
+    assert.deepEqual(
+      after.map((effect) => effect.effectName),
+      ["High Cut", "Low Cut", "Gain"],
+    );
+    after.forEach((effect, index) => {
+      assert.deepEqual(
+        { ...effect, effectName: before[index].effectName },
+        before[index],
+      );
+    });
+    assert.equal(after[0].enabled, false);
+    assert.equal(after[2], before[2]);
+  });
+
+  it("returns sessions without an old name as they are", () => {
+    const migrated = migrateRenamedEffects(filters());
+    assert.equal(migrateRenamedEffects(migrated), migrated);
   });
 });
 
