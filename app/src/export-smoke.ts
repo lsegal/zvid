@@ -1,5 +1,7 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { save as nativeSave } from "@tauri-apps/plugin-dialog";
+import type { AudioMix } from "./audio-mix/resolve";
+import { gainToAmplitude } from "./fx/effects/gain/gain";
 import type { SaveTarget } from "./harness/contracts";
 import { exportVideo } from "./harness/export";
 import type { MediaItem } from "./media";
@@ -121,6 +123,32 @@ async function write(blob: Blob, target: SaveTarget) {
   return "download" as const;
 }
 
+// The tone on two clips of a mix, each at −6 dB, so the export's audio is
+// their sum: about the tone's own level.
+function toneMix(previewUrl: string) {
+  const clip = (id: string) => ({
+    id,
+    mediaId: "tone",
+    startSeconds: 0,
+    durationSeconds: 2,
+    sourceOffsetSeconds: 0,
+    sourceWindowStartSeconds: 0,
+    sourceWindowEndSeconds: 2,
+    effects: [],
+    amplitude: gainToAmplitude(-6),
+  });
+  const mix: AudioMix = {
+    clips: [clip("tone-a"), clip("tone-b")],
+    masterAmplitude: 1,
+    fromSourceTracks: true,
+    bpm: 120,
+  };
+  return {
+    mix,
+    mediaItems: [{ id: "tone", hasAudio: true, previewUrl } as MediaItem],
+  };
+}
+
 async function run(audible: boolean) {
   const filename = audible ? "smoke-audible.mp4" : "smoke-video-only.mp4";
   const saveTarget = await destination(filename);
@@ -137,9 +165,7 @@ async function run(audible: boolean) {
         durationSeconds: 2,
         frameCount: 48,
         bpm: 120,
-        mainAudio: toneUrl
-          ? ({ hasAudio: true, previewUrl: toneUrl } as MediaItem)
-          : undefined,
+        audio: toneUrl ? toneMix(toneUrl) : undefined,
         renderFrameAt: async (_quarters, seconds) => {
           const context = canvas.getContext("2d");
           if (!context) throw new Error("Canvas 2D context is unavailable.");

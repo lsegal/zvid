@@ -321,6 +321,17 @@ export class AudioBandTracker {
   }
 }
 
+// An analyser set up the way LiveAudioBands measures it, and OfflineAudioBands
+// reproduces: no temporal smoothing, the default decibel range.
+export function createBandAnalyser(context: BaseAudioContext) {
+  const analyser = context.createAnalyser();
+  analyser.fftSize = FFT_SIZE;
+  analyser.smoothingTimeConstant = 0;
+  analyser.minDecibels = MIN_DECIBELS;
+  analyser.maxDecibels = MAX_DECIBELS;
+  return analyser;
+}
+
 // The program mix's left and right channels, before the preview volume, for
 // the transport bar's VU meter. A mono mix reads the same on both.
 export type MasterMeterTap = { left: AnalyserNode; right: AnalyserNode };
@@ -345,109 +356,33 @@ export function createMeterTap(context: BaseAudioContext) {
     splitter.connect(analyser, channel);
     return analyser;
   });
-  return { input, tap: { left, right } };
+  return { input, tap: { left, right } as MasterMeterTap };
 }
 
-// Measures the main audio element as it plays through an AnalyserNode.
-// Routing an element through Web Audio is permanent, so the graph is only
-// built once effects or the VU meter actually need it. The preview volume is
-// a gain after the analyser and the meter tap, so neither follows it.
+// Measures the preview's audio mix as it plays, through the analyser the
+// mixer feeds it (see createBandAnalyser). The preview volume is a gain
+// after the analyser, so the bands don't follow it.
 export class LiveAudioBands {
-  private context: AudioContext | null = null;
-  private analyser: AnalyserNode | null = null;
-  private meter: ReturnType<typeof createMeterTap> | null = null;
-  private output: GainNode | null = null;
-  private source: MediaElementAudioSourceNode | null = null;
-  private element: HTMLMediaElement | null = null;
   private bins = new Uint8Array(FFT_SIZE / 2);
   private tracker = new AudioBandTracker();
   private lastSampleMs: number | null = null;
 
-  attach(element: HTMLMediaElement | null) {
-    if (element === this.element) {
-      return;
-    }
-
-    this.source?.disconnect();
-    this.source = null;
-    this.element = element;
-    if (!element) {
-      return;
-    }
-
-    try {
-      if (!this.context) {
-        this.context = new AudioContext();
-        this.analyser = this.context.createAnalyser();
-        this.analyser.fftSize = FFT_SIZE;
-        this.analyser.smoothingTimeConstant = 0;
-        this.analyser.minDecibels = MIN_DECIBELS;
-        this.analyser.maxDecibels = MAX_DECIBELS;
-        this.meter = createMeterTap(this.context);
-        this.output = this.context.createGain();
-        this.analyser.connect(this.output);
-        this.output.connect(this.context.destination);
-      }
-      this.source = this.context.createMediaElementSource(element);
-      this.source.connect(this.analyser as AnalyserNode);
-      if (this.meter) {
-        this.source.connect(this.meter.input);
-      }
-    } catch (error) {
-      console.warn("Audio band analysis is unavailable.", error);
-    }
-  }
-
-  // Sets the volume `element` plays at when it is routed through the
-  // analyser, returning false when it isn't.
-  setOutputGain(element: HTMLMediaElement, gain: number) {
-    if (!this.source || !this.output || element !== this.element) {
-      return false;
-    }
-    this.output.gain.value = gain;
-    return true;
-  }
-
-  // TODO(#701): the meter should read the program mix after every clip and
-  // master Gain, before the preview volume. Until #701's clip mixer lands,
-  // the main audio element is the only signal routed through Web Audio, so
-  // this taps it; once it lands, feed the mixer's master node into
-  // createMeterTap and return that tap here.
-  meterTap(): MasterMeterTap | null {
-    return this.source ? (this.meter?.tap ?? null) : null;
-  }
-
-  // Browsers start an AudioContext suspended until a user gesture, and the
-  // routed element stays silent until it resumes.
-  resume() {
-    if (this.context?.state === "suspended") {
-      this.context.resume().catch(() => {});
-    }
-  }
-
-  sample(nowMs: number): AudioBands {
+  sample(analyser: AnalyserNode | null, nowMs: number): AudioBands {
     const elapsedSeconds =
       this.lastSampleMs === null ? 0 : (nowMs - this.lastSampleMs) / 1000;
     this.lastSampleMs = nowMs;
-    if (!this.analyser || !this.context || !this.source) {
+    if (!analyser) {
       this.tracker.reset();
       return SILENT_AUDIO_BANDS;
     }
 
-    this.analyser.getByteFrequencyData(this.bins);
-    this.tracker.advance(this.bins, this.context.sampleRate, elapsedSeconds);
+    analyser.getByteFrequencyData(this.bins);
+    this.tracker.advance(
+      this.bins,
+      analyser.context.sampleRate,
+      elapsedSeconds,
+    );
     return this.tracker.bands();
-  }
-
-  dispose() {
-    this.source?.disconnect();
-    this.source = null;
-    this.element = null;
-    this.analyser = null;
-    this.meter = null;
-    this.output = null;
-    this.context?.close().catch(() => {});
-    this.context = null;
   }
 }
 
@@ -474,24 +409,16 @@ export class OfflineAudioBands {
     }
   }
 
-  static async decode(url: string) {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Cannot read audio for effects (${response.status}).`);
-    }
-
-    const context = new OfflineAudioContext(1, 1, 48000);
-    const buffer = await context.decodeAudioData(await response.arrayBuffer());
-    // Web Audio down-mixes to mono for analysis by averaging channels.
-    const mono = new Float32Array(buffer.length);
-    for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
-      const data = buffer.getChannelData(channel);
+  // Measures channels of the mix, down-mixed to mono the way Web Audio
+  // down-mixes for analysis.
+  static fromChannels(channels: readonly Float32Array[], sampleRate: number) {
+    const mono = new Float32Array(channels[0]?.length ?? 0);
+    for (const data of channels) {
       for (let index = 0; index < mono.length; index++) {
-        mono[index] += data[index] / buffer.numberOfChannels;
+        mono[index] += data[index] / channels.length;
       }
     }
-
-    return new OfflineAudioBands(mono, buffer.sampleRate);
+    return new OfflineAudioBands(mono, sampleRate);
   }
 
   at(timeSeconds: number): AudioBands {
