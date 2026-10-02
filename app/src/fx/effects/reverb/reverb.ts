@@ -100,9 +100,7 @@ export function reverbTailSeconds(
   preDelayMs: number,
   size: number,
 ) {
-  return (
-    decay + (preDelayMs + LONGEST_REFLECTION_MS * sizeScale(size)) / 1000
-  );
+  return decay + (preDelayMs + LONGEST_REFLECTION_MS * sizeScale(size)) / 1000;
 }
 
 export type ReverbBlock = {

@@ -14,10 +14,7 @@ import {
 } from "../../../audio-mix/processor.ts";
 import type { AudioMix } from "../../../audio-mix/resolve.ts";
 import { addableEffectsFor, groupAddableEffects } from "../../../fx-chain.ts";
-import {
-  gainStageAt,
-  processor as gainProcessor,
-} from "../gain/processor.ts";
+import { processor as gainProcessor, gainStageAt } from "../gain/processor.ts";
 import { definition } from "./definition.ts";
 import { processor } from "./processor.ts";
 import {
@@ -331,7 +328,10 @@ describe("Reverb tail", () => {
     assert.ok(reverbTailSeconds(10, 20, 0.5) > 10);
     assert.equal(
       processor.tailSeconds?.(
-        { numbers: { [DECAY_KEY]: 3, [PRE_DELAY_KEY]: 50, [SIZE_KEY]: 0.2 } },
+        {
+          numbers: { [DECAY_KEY]: 3, [PRE_DELAY_KEY]: 50, [SIZE_KEY]: 0.2 },
+          switches: {},
+        },
         TEMPO,
       ),
       reverbTailSeconds(3, 50, 0.2),
