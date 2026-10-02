@@ -32,7 +32,7 @@ describe("Low Pass definition", () => {
       [resonance.key, resonance.min, resonance.max],
       ["Resonance", 0.1, 18],
     );
-    assert.ok(Math.abs(resonance.defaultValue - 0.707) < 0.001);
+    assert.equal(resonance.defaultValue.toFixed(3), "0.707");
     assert.equal(resonance.format(resonance.defaultValue), "0.71");
     assert.deepEqual(slope.options, ["12 dB/oct", "24 dB/oct"]);
     assert.equal(slope.defaultValue, "12 dB/oct");

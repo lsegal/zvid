@@ -225,10 +225,7 @@ describe("Low Pass stage parameter changes", () => {
     const output = render([lowPass({ Frequency: 1000 })], input, [
       { frame: at, stages: [lowPass({ Frequency: 1000, Resonance: 8 })] },
     ]);
-    const settled = render(
-      [lowPass({ Frequency: 1000, Resonance: 8 })],
-      input,
-    );
+    const settled = render([lowPass({ Frequency: 1000, Resonance: 8 })], input);
     const bound = maxStep(settled, RATE / 2, RATE - 1) * 1.05;
     assert.ok(maxStep(output, at - 64, at + RATE * 0.05) <= bound);
     near(levelDb(output), levelDb(settled), 0.05);
