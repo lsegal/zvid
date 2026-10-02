@@ -146,9 +146,7 @@ test("a source track's FX button turns its and its clips' effects off and on", a
   await expect(fx).toHaveAttribute("title", "Turn test-pattern FX on");
   await expect(label).toContainText("FX off");
   await expect(page.locator(".fx-panel__toggle")).toHaveText(title ?? "");
-  await expect(page.locator(".fx-chain__layer-off")).toHaveText(
-    /Track FX off/,
-  );
+  await expect(page.locator(".fx-chain__layer-off")).toHaveText(/Track FX off/);
   for (const device of await devices.all()) {
     await expect(device).toHaveClass(/fx-device-panel--layer-off/);
   }
