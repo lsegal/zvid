@@ -85,7 +85,7 @@ function undoItem(page: Page) {
 }
 
 async function expectUndoDisabled(page: Page, disabled: boolean) {
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
   // Radix leaves aria-disabled off enabled items.
   const undo = expect(undoItem(page));
   await (disabled ? undo : undo.not).toHaveAttribute("aria-disabled", "true");

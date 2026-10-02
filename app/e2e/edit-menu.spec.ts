@@ -29,7 +29,7 @@ function lane(page: Page, id: string) {
 }
 
 async function openEditMenu(page: Page) {
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
   const menu = page.getByRole("menu").first();
   await expect(menu).toBeVisible();
   return menu;

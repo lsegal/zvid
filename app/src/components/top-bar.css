@@ -68,19 +68,50 @@
   text-decoration: underline;
 }
 
-.file-menu-button {
-  gap: 10px;
-  min-width: 96px;
+/* File, Edit and Help sit together like a desktop menubar. */
+.topbar__menubar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
 }
 
-.file-menu-button__chevron {
+.menubar-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+
+.menubar-item:hover,
+.menubar-item[data-state="open"] {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.menubar-item:focus-visible {
+  outline: 2px solid rgba(124, 161, 255, 0.7);
+  outline-offset: 1px;
+}
+
+.menubar-item__chevron {
   display: inline-flex;
   width: 14px;
   height: 14px;
   color: var(--muted);
 }
 
-.file-menu-button__chevron svg {
+.menubar-item__chevron svg {
   width: 14px;
   height: 14px;
 }
