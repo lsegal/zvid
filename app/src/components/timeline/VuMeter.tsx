@@ -169,7 +169,7 @@ export function VuMeter({ isPlaying, getMeterTap }: VuMeterProps) {
           type="button"
         />
       </div>
-      <span aria-live="off" className="vu-meter__readout">
+      <span aria-live="off" className="vu-meter__readout" ref={readoutRef}>
         {formatMeterDb(-Infinity)}
       </span>
     </div>

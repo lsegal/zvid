@@ -40,8 +40,14 @@ class FakeAudioContext {
     };
   }
 
+  // The last gain made is the output gain, after the VU meter's tap.
   createGain() {
+    this.gain = { gain: { value: 1 }, connect() {} };
     return this.gain;
+  }
+
+  createChannelSplitter() {
+    return { connect() {} };
   }
 
   createMediaElementSource(element: FakeElement) {
@@ -105,6 +111,17 @@ describe("preview volume on media elements", () => {
       assert.equal(context.gain.gain.value, volume.muted ? 0 : volume.volume);
       assert.deepEqual(bands.sample(0), loud);
     }
+    bands.dispose();
+  });
+
+  it("taps the mix for the VU meter once an element is attached", () => {
+    const bands = new LiveAudioBands();
+    assert.equal(bands.meterTap(), null);
+    bands.attach(element());
+    const tap = bands.meterTap();
+    assert.ok(tap?.left && tap.right && tap.left !== tap.right);
+    bands.attach(null);
+    assert.equal(bands.meterTap(), null);
     bands.dispose();
   });
 
