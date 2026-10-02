@@ -33,7 +33,11 @@ export const DEPTH_DEFAULT = 1;
 export const SHAPE_SINE = "Sine";
 export const SHAPE_TRIANGLE = "Triangle";
 export const SHAPE_SQUARE = "Square";
-export const SHAPE_OPTIONS = [SHAPE_SINE, SHAPE_TRIANGLE, SHAPE_SQUARE] as const;
+export const SHAPE_OPTIONS = [
+  SHAPE_SINE,
+  SHAPE_TRIANGLE,
+  SHAPE_SQUARE,
+] as const;
 export const SHAPE_DEFAULT = SHAPE_SINE;
 
 export type AutoPanShape = (typeof SHAPE_OPTIONS)[number];

@@ -183,7 +183,10 @@ describe("Auto Pan", () => {
       const span = (at: number) => [at - window / 2, at + window / 2] as const;
       assert.ok(rms(left, ...span(rightAt)) < 0.01, `left at ${start + 0.125}`);
       assert.ok(rms(right, ...span(rightAt)) > 0.99);
-      assert.ok(rms(right, ...span(leftAt)) < 0.01, `right at ${start + 0.375}`);
+      assert.ok(
+        rms(right, ...span(leftAt)) < 0.01,
+        `right at ${start + 0.375}`,
+      );
       assert.ok(rms(left, ...span(leftAt)) > 0.99);
       const tolerance = 0.02;
       assert.ok(
@@ -205,7 +208,8 @@ describe("Auto Pan", () => {
         stages: [autoPan({ [RATE_KEY]: 1.3 }, { [SHAPE_KEY]: shape })],
       });
       for (let at = 0; at + window <= left.length; at += window) {
-        const power = rms(left, at, at + window) ** 2 + rms(right, at, at + window) ** 2;
+        const power =
+          rms(left, at, at + window) ** 2 + rms(right, at, at + window) ** 2;
         const db = 10 * Math.log10(power / inputPower);
         assert.ok(Math.abs(db) <= 0.5, `${shape} power is ${db} dB at ${at}`);
       }
@@ -249,7 +253,9 @@ describe("Auto Pan", () => {
     for (let index = 0; index < late[0].length; index += 41) {
       for (const channel of [0, 1]) {
         assert.ok(
-          Math.abs(late[channel][index] - whole[channel][index + 2 * SAMPLE_RATE]) < 1e-6,
+          Math.abs(
+            late[channel][index] - whole[channel][index + 2 * SAMPLE_RATE],
+          ) < 1e-6,
         );
       }
     }
@@ -310,7 +316,8 @@ describe("Auto Pan", () => {
       assert.ok(maxStep(channel) <= Math.SQRT2 / rampFrames + 1e-4);
     }
     // The pan did move.
-    assert.ok(Math.abs(changed[0].at(-1)! - changed[1].at(-1)!) > 0.2);
+    const last = changed[0].length - 1;
+    assert.ok(Math.abs(changed[0][last] - changed[1][last]) > 0.2);
   });
 
   it("crossfades a live Shape or Sync change instead of jumping", () => {
@@ -410,7 +417,9 @@ describe("Auto Pan definition", () => {
 
   it("shows readable values", () => {
     const shown = definition.parameters.flatMap((parameter) =>
-      parameter.kind === "number" ? [parameter.format(parameter.defaultValue)] : [],
+      parameter.kind === "number"
+        ? [parameter.format(parameter.defaultValue)]
+        : [],
     );
     assert.deepEqual(shown, ["1.0 Hz", "100%"]);
   });
