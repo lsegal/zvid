@@ -1,5 +1,6 @@
-// Reverb as a chain stage. Every parameter is a number the chain ramps, so
-// the processor reads each one per frame.
+// Reverb as a chain stage. Decay, Damping and Mix are read per frame as the
+// chain ramps them; Pre-delay and Size as stored, since the reverb
+// crossfades its delays to them itself.
 import type { AudioEffectDsp } from "../../../audio-mix/processor.ts";
 import {
   DAMPING_KEY,
@@ -25,10 +26,10 @@ export const processor: AudioEffectDsp = {
           frames,
           sampleRate,
           decay: params.number(DECAY_KEY),
-          preDelayMs: params.number(PRE_DELAY_KEY),
-          size: params.number(SIZE_KEY),
           damping: params.number(DAMPING_KEY),
           mix: params.number(MIX_KEY),
+          preDelayMs: params.value(PRE_DELAY_KEY),
+          size: params.value(SIZE_KEY),
         });
       },
     };

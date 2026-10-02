@@ -29,6 +29,11 @@ export const DAMPING_DEFAULT = 8000;
 export const SIZE_DEFAULT = 0.5;
 export const MIX_DEFAULT = 0.25;
 
+// How long a Pre-delay or Size change crossfades from the old delays to the
+// new ones. Sweeping a delay instead would bend the pitch of everything
+// still ringing.
+export const SHAPE_FADE_SECONDS = 0.05;
+
 // The network's delay lengths at Size 0 % and 100 %, as a scale of the base
 // lengths below: a small room to a large hall.
 const SCALE_MIN = 0.25;
@@ -39,29 +44,18 @@ const SCALE_MAX = 1.5;
 const LINE_MS = [29.7, 37.1, 41.1, 43.7, 50.3, 53.9, 59.3, 63.7];
 const LINES = LINE_MS.length;
 
-// The early reflections at scale 1, after the pre-delay: [ms, gain] pairs,
-// one set per side so the reflections arrive differently in each ear.
-const REFLECTIONS: readonly (readonly [number, number])[][] = [
-  [
-    [0, 0.5],
-    [4.3, 0.45],
-    [11.7, 0.4],
-    [19.1, 0.33],
-    [27.9, 0.27],
-    [36.7, 0.2],
-    [48.3, 0.14],
-  ],
-  [
-    [0, 0.5],
-    [5.9, 0.45],
-    [13.1, 0.38],
-    [21.7, 0.32],
-    [30.1, 0.26],
-    [41.3, 0.19],
-    [52.9, 0.13],
-  ],
+// The early reflections at scale 1, after the pre-delay: their delays in
+// milliseconds and their gains, one set per side so the reflections arrive
+// differently in each ear.
+const REFLECTION_MS = [
+  [0, 4.3, 11.7, 19.1, 27.9, 36.7, 48.3],
+  [0, 5.9, 13.1, 21.7, 30.1, 41.3, 52.9],
 ];
-const LONGEST_REFLECTION_MS = 52.9;
+const REFLECTION_GAINS = [
+  [0.5, 0.45, 0.4, 0.33, 0.27, 0.2, 0.14],
+  [0.5, 0.45, 0.38, 0.32, 0.26, 0.19, 0.13],
+];
+const LONGEST_REFLECTION_MS = Math.max(...REFLECTION_MS.flat());
 
 // The input diffusers per side: Schroeder allpasses of fixed length.
 const DIFFUSER_MS = [
@@ -114,12 +108,14 @@ export function reverbTailSeconds(
 export type ReverbBlock = {
   frames: number;
   sampleRate: number;
-  // Each parameter's value at every frame.
+  // Decay, Damping and Mix at every frame, as the chain ramps them.
   decay: Float32Array;
-  preDelayMs: Float32Array;
-  size: Float32Array;
   damping: Float32Array;
   mix: Float32Array;
+  // Pre-delay and Size as stored: they move the network's delays, which
+  // the reverb crossfades rather than sweeps.
+  preDelayMs: number;
+  size: number;
 };
 
 // A ring buffer read at fractional delays.
@@ -155,8 +151,10 @@ class DelayLine {
 
 class Allpass {
   private readonly line: DelayLine;
+  private readonly frames: number;
 
-  constructor(private readonly frames: number) {
+  constructor(frames: number) {
+    this.frames = frames;
     this.line = new DelayLine(frames);
   }
 
@@ -168,6 +166,60 @@ class Allpass {
   }
 }
 
+// The delays one Pre-delay and Size setting makes.
+class Shape {
+  readonly preDelayMs: number;
+  readonly size: number;
+  // The pre-delay in frames, read after that frame's push.
+  readonly preDelay: number;
+  // Each early reflection's delay per side, in frames, pre-delay included.
+  readonly reflections: Float64Array[];
+  // Each FDN line's length in whole frames: interpolating inside the loop
+  // would low-pass every pass and shorten the decay.
+  readonly lengths = new Float64Array(LINES);
+  // Each line's gain per pass for the latest Decay.
+  readonly gains = new Float64Array(LINES);
+  private decay = Number.NaN;
+
+  constructor(preDelayMs: number, size: number, sampleRate: number) {
+    this.preDelayMs = preDelayMs;
+    this.size = size;
+    const scale = sizeScale(size);
+    // The newest sample sits one frame back after the push.
+    this.preDelay = 1 + (preDelayMs / 1000) * sampleRate;
+    this.reflections = REFLECTION_MS.map((side) =>
+      Float64Array.from(
+        side,
+        (ms) => this.preDelay + (ms / 1000) * scale * sampleRate,
+      ),
+    );
+    for (let line = 0; line < LINES; line++) {
+      this.lengths[line] = Math.max(
+        1,
+        Math.round((LINE_MS[line] / 1000) * scale * sampleRate),
+      );
+    }
+  }
+
+  updateGains(decay: number, sampleRate: number) {
+    if (decay !== this.decay) {
+      for (let line = 0; line < LINES; line++) {
+        this.gains[line] = lineGain(this.lengths[line] / sampleRate, decay);
+      }
+      this.decay = decay;
+    }
+  }
+}
+
+function reflectionSum(line: DelayLine, delays: Float64Array, side: number) {
+  const gains = REFLECTION_GAINS[side];
+  let sum = 0;
+  for (let tap = 0; tap < delays.length; tap++) {
+    sum += gains[tap] * line.read(delays[tap]);
+  }
+  return sum;
+}
+
 export class ReverbDsp {
   readonly channels: number;
   private readonly sampleRate: number;
@@ -175,16 +227,18 @@ export class ReverbDsp {
   private readonly preDelays: DelayLine[];
   private readonly diffusers: Allpass[][];
   private readonly lines: DelayLine[];
-  // Each FDN line's damping filter state.
-  private readonly lowpass = new Float64Array(LINES);
-  private readonly filtered = new Float64Array(LINES);
-  private readonly gains = new Float64Array(LINES);
-  private readonly lengths = new Float64Array(LINES);
-  // The values the gains, lengths and damping coefficient were made from.
-  private lastDecay = Number.NaN;
-  private lastScale = Number.NaN;
+  // Each FDN line's damping filter state, which is also its output.
+  private readonly damped = new Float64Array(LINES);
   private lastDamping = Number.NaN;
   private dampingCoefficient = 0;
+  // The delays in use and, while fading to it, the next; a change that
+  // arrives mid-fade waits in `pending`.
+  private shape: Shape | null = null;
+  private next: Shape | null = null;
+  private pending: Shape | null = null;
+  private fade = 0;
+  private readonly wet = [0, 0];
+  private readonly diffused = [0, 0];
 
   constructor(sampleRate: number, channels: number) {
     this.sampleRate = sampleRate;
@@ -204,24 +258,16 @@ export class ReverbDsp {
     );
   }
 
-  private updateNetwork(decay: number, scale: number, damping: number) {
-    if (decay !== this.lastDecay || scale !== this.lastScale) {
-      for (let line = 0; line < LINES; line++) {
-        const frames = Math.max(
-          1,
-          (LINE_MS[line] / 1000) * scale * this.sampleRate,
-        );
-        this.lengths[line] = frames;
-        this.gains[line] = lineGain(frames / this.sampleRate, decay);
-      }
-      this.lastDecay = decay;
-      this.lastScale = scale;
+  private retarget(preDelayMs: number, size: number) {
+    const latest = this.pending ?? this.next ?? this.shape;
+    if (latest?.preDelayMs === preDelayMs && latest.size === size) {
+      return;
     }
-    if (damping !== this.lastDamping) {
-      this.dampingCoefficient = Math.exp(
-        (-2 * Math.PI * damping) / this.sampleRate,
-      );
-      this.lastDamping = damping;
+    const shape = new Shape(preDelayMs, size, this.sampleRate);
+    if (this.shape) {
+      this.pending = shape;
+    } else {
+      this.shape = shape;
     }
   }
 
@@ -231,44 +277,63 @@ export class ReverbDsp {
     block: ReverbBlock,
   ) {
     const { frames, sampleRate } = block;
+    this.retarget(block.preDelayMs, block.size);
     const channels = this.channels;
     const right = channels > 1 ? 1 : 0;
     const lines = this.lines;
-    const lowpass = this.lowpass;
-    const gains = this.gains;
-    const lengths = this.lengths;
-    const filtered = this.filtered;
-    const diffused = [0, 0];
-    const wet = [0, 0];
+    const damped = this.damped;
+    const wet = this.wet;
+    const diffused = this.diffused;
+    const fadeStep = 1 / (SHAPE_FADE_SECONDS * sampleRate);
     for (let index = 0; index < frames; index++) {
-      const scale = sizeScale(block.size[index]);
-      this.updateNetwork(block.decay[index], scale, block.damping[index]);
-      const preDelay = (block.preDelayMs[index] / 1000) * sampleRate;
+      if (!this.next && this.pending) {
+        this.next = this.pending;
+        this.pending = null;
+        this.fade = 0;
+      }
+      const from = this.shape as Shape;
+      const to = this.next;
+      // The share of `to` this frame.
+      const fade = this.fade;
+      const decay = block.decay[index];
+      from.updateGains(decay, sampleRate);
+      to?.updateGains(decay, sampleRate);
+      const damping = block.damping[index];
+      if (damping !== this.lastDamping) {
+        this.dampingCoefficient = Math.exp(
+          (-2 * Math.PI * damping) / sampleRate,
+        );
+        this.lastDamping = damping;
+      }
+
       for (let side = 0; side < 2; side++) {
         const line = this.preDelays[side];
         line.push(input[side === 0 ? 0 : right][index]);
-        // The newest sample sits one frame back after the push.
-        let reflections = 0;
-        for (const [ms, gain] of REFLECTIONS[side]) {
-          reflections +=
-            gain * line.read(1 + preDelay + (ms / 1000) * scale * sampleRate);
+        let reflections = reflectionSum(line, from.reflections[side], side);
+        let delayed = line.read(from.preDelay);
+        if (to) {
+          const next = reflectionSum(line, to.reflections[side], side);
+          reflections += (next - reflections) * fade;
+          delayed += (line.read(to.preDelay) - delayed) * fade;
         }
         wet[side] = reflections * REFLECTION_LEVEL;
-        let signal = line.read(1 + preDelay);
         for (const diffuser of this.diffusers[side]) {
-          signal = diffuser.process(signal);
+          delayed = diffuser.process(delayed);
         }
-        diffused[side] = signal;
+        diffused[side] = delayed;
       }
 
       // Each line's output, scaled for the decay and damped.
       const coefficient = this.dampingCoefficient;
       let sum = 0;
       for (let line = 0; line < LINES; line++) {
-        const delayed = lines[line].read(lengths[line]) * gains[line];
-        lowpass[line] = delayed + coefficient * (lowpass[line] - delayed);
-        filtered[line] = lowpass[line];
-        sum += lowpass[line];
+        let delayed = lines[line].read(from.lengths[line]) * from.gains[line];
+        if (to) {
+          const next = lines[line].read(to.lengths[line]) * to.gains[line];
+          delayed += (next - delayed) * fade;
+        }
+        damped[line] = delayed + coefficient * (damped[line] - delayed);
+        sum += damped[line];
       }
       // Householder feedback, with the left side feeding the even lines and
       // the right the odd ones; the same split taps the output.
@@ -276,16 +341,25 @@ export class ReverbDsp {
       let lateLeft = 0;
       let lateRight = 0;
       for (let line = 0; line < LINES; line++) {
-        lines[line].push(filtered[line] - reflect + diffused[line & 1]);
+        lines[line].push(damped[line] - reflect + diffused[line & 1]);
         const sign = line & 2 ? -1 : 1;
         if (line & 1) {
-          lateRight += sign * filtered[line];
+          lateRight += sign * damped[line];
         } else {
-          lateLeft += sign * filtered[line];
+          lateLeft += sign * damped[line];
         }
       }
       wet[0] += lateLeft * LATE_LEVEL;
       wet[1] += lateRight * LATE_LEVEL;
+
+      if (to) {
+        this.fade += fadeStep;
+        if (this.fade >= 1) {
+          this.shape = to;
+          this.next = null;
+          this.fade = 0;
+        }
+      }
 
       const mix = block.mix[index];
       for (let channel = 0; channel < channels; channel++) {
