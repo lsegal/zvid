@@ -4,6 +4,11 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { PALETTE } from "../app/constants.ts";
 import { sessionToProject } from "../app/session-project.ts";
+import { resolveAudioClips } from "../audio-mix/resolve.ts";
+import {
+  clipEffectTrackId,
+  sourceClipEffectTrackId,
+} from "../fx/stack/clip-stacks.ts";
 import { FX_EFFECT_DEFINITIONS } from "../fx-registry.ts";
 import { buildFallbackMediaItem } from "../media.ts";
 import { collectSessionMediaPaths, type LvpSession } from "../session.ts";
@@ -16,6 +21,28 @@ const sessionText = readFileSync(
 );
 const session = JSON.parse(sessionText) as LvpSession;
 const FPS = 30;
+const MUSIC_ID = "zvid-sample:opening-v1:music";
+
+// The handler types in an MP4, such as "vide" or "soun" for its tracks.
+function mp4TrackKinds(bytes: Buffer) {
+  const kinds = new Set<string>();
+  for (
+    let at = bytes.indexOf("hdlr");
+    at >= 0;
+    at = bytes.indexOf("hdlr", at + 4)
+  ) {
+    kinds.add(bytes.subarray(at + 12, at + 16).toString("latin1"));
+  }
+  return kinds;
+}
+
+function openSample() {
+  const payload = buildSampleOpenPayload(OPENING_SAMPLE_MANIFEST, sessionText);
+  const media = payload.mediaRefs.map((ref) =>
+    buildFallbackMediaItem(ref, PALETTE[0]),
+  );
+  return { media, project: sessionToProject(payload.session, media) };
+}
 
 function effectsOn(trackId: string) {
   return (session.effects ?? []).filter((effect) => effect.trackId === trackId);
@@ -66,8 +93,7 @@ describe("zvid opening sample", () => {
     assert.equal(lastFrame, 900);
   });
 
-  // Its clips with sound get their Gain when it opens, so the audio effects
-  // aren't written into it.
+  // Gain, its one audio effect, is only on the music's clip.
   it("uses every registered video effect", () => {
     const used = new Set((session.effects ?? []).map((e) => e.effectName));
     const missing = FX_EFFECT_DEFINITIONS.filter(
@@ -201,15 +227,75 @@ describe("zvid opening sample", () => {
     }
   });
 
-  it("opens with every clip and the main audio on its stable media", () => {
-    const payload = buildSampleOpenPayload(
-      OPENING_SAMPLE_MANIFEST,
-      sessionText,
+  it("writes its music as a source track clip with Gain 0 dB", () => {
+    assert.equal(session.audioFilename, undefined);
+    assert.equal(session.audioGainDefaulted, true);
+    const musicPath = OPENING_SAMPLE_MANIFEST.assets.find(
+      (asset) => asset.id === MUSIC_ID,
+    )?.path;
+    const track = (session.tracks ?? []).find(
+      (candidate) => candidate.name === "Music",
     );
-    const media = payload.mediaRefs.map((ref) =>
-      buildFallbackMediaItem(ref, PALETTE[0]),
+    assert.ok(track);
+    assert.deepEqual(track.recordings, [{ filename: musicPath }]);
+    const spans = (session.clips ?? []).filter(
+      (span) => span.trackId === track.id,
     );
-    const project = sessionToProject(payload.session, media);
+    assert.equal(spans.length, 1);
+    assert.deepEqual(
+      {
+        filePath: spans[0].filePath,
+        frameStart: spans[0].frameStart,
+        frameCount: spans[0].frameCount,
+        clipStart: spans[0].clipStart,
+      },
+      {
+        filePath: musicPath,
+        frameStart: 0,
+        frameCount: 30 * FPS,
+        clipStart: 0,
+      },
+    );
+    const gains = (session.effects ?? []).filter(
+      (effect) => effect.effectName === "Gain",
+    );
+    assert.deepEqual(
+      gains.map((effect) => ({
+        trackId: effect.trackId,
+        gain: numberParameter(effect, "Gain"),
+        mute: numberParameter(effect, "Mute"),
+        enabled: effect.enabled !== false,
+      })),
+      [
+        {
+          // It loads as source clip `source-<id>`.
+          trackId: sourceClipEffectTrackId(`source-${spans[0].id}`),
+          gain: 0,
+          mute: 0,
+          enabled: true,
+        },
+      ],
+    );
+  });
+
+  // The mix plays the source tracks only while no layer clip has sound.
+  it("has video-only sources and an audio-only music file", () => {
+    for (const asset of OPENING_SAMPLE_MANIFEST.assets) {
+      const bytes = readFileSync(
+        new URL(`../../public${asset.url}`, import.meta.url),
+      );
+      const kinds = mp4TrackKinds(bytes);
+      const isMusic = asset.id === MUSIC_ID;
+      assert.deepEqual(
+        { sound: kinds.has("soun"), video: kinds.has("vide") },
+        { sound: isMusic, video: !isMusic },
+        asset.name,
+      );
+    }
+  });
+
+  it("opens with every clip on its stable media and the music in the mix", () => {
+    const { media, project } = openSample();
     const ids = new Set(
       OPENING_SAMPLE_MANIFEST.assets.map((asset) => asset.id),
     );
@@ -220,14 +306,62 @@ describe("zvid opening sample", () => {
     assert.equal(videoClips.length, (session.selections ?? []).length);
     for (const clip of videoClips) {
       assert.ok(ids.has(clip.mediaId ?? ""), clip.id);
+      assert.equal(
+        project.effects.some(
+          (effect) =>
+            effect.trackId === clipEffectTrackId(clip.id) &&
+            effect.effectName === "Gain",
+        ),
+        false,
+        clip.id,
+      );
     }
-    // Its old main audio becomes a source track holding the music.
-    assert.ok(
-      project.sourceSpans.some(
-        (span) => span.mediaId === "zvid-sample:opening-v1:music",
-      ),
+    assert.equal("mainAudioId" in project, false);
+    const music = project.sourceSpans.filter(
+      (span) => span.mediaId === MUSIC_ID,
+    );
+    assert.equal(music.length, 1);
+    assert.equal(music[0].startQ, 0);
+    assert.equal(music[0].durationSeconds, 30);
+    assert.equal(music[0].trimStartSeconds, 0);
+    assert.equal(
+      project.sourceTracks.find((track) => track.id === music[0].sourceTrackId)
+        ?.name,
+      "Music",
     );
     assert.equal(project.bpm, 80);
     assert.equal(project.overlapNote, "");
+
+    // Once its media is read, only the music has sound.
+    const mix = resolveAudioClips({
+      clips: project.arrangementClips,
+      lanes: project.lanes,
+      sourceTracks: project.sourceTracks,
+      sourceSpans: project.sourceSpans,
+      mediaById: new Map(
+        media.map((item) => [item.id, { hasAudio: item.id === MUSIC_ID }]),
+      ),
+      effects: project.effects,
+      bpm: project.bpm,
+    });
+    assert.equal(mix.fromSourceTracks, true);
+    assert.deepEqual(
+      mix.clips.map((clip) => ({
+        mediaId: clip.mediaId,
+        startSeconds: clip.startSeconds,
+        durationSeconds: clip.durationSeconds,
+        sourceOffsetSeconds: clip.sourceOffsetSeconds,
+        amplitude: clip.amplitude,
+      })),
+      [
+        {
+          mediaId: MUSIC_ID,
+          startSeconds: 0,
+          durationSeconds: 30,
+          sourceOffsetSeconds: 0,
+          amplitude: 1,
+        },
+      ],
+    );
   });
 });
