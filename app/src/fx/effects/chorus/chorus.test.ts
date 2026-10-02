@@ -5,6 +5,7 @@ import {
   BLOCK_FRAMES,
   PARAMETER_RAMP_SECONDS,
 } from "../../../audio-mix/chain.ts";
+import { testStage } from "../../../audio-mix/chain-test-utils.ts";
 import {
   type AudioStage,
   createProcessorRegistry,
@@ -39,11 +40,9 @@ const registry = createProcessorRegistry([processor]);
 type Numbers = Record<string, number>;
 
 function chorus(numbers: Numbers = {}, enabled = true): AudioStage {
-  return {
-    id: "chorus",
-    effectName: CHORUS_EFFECT_NAME,
-    enabled,
-    numbers: {
+  return testStage(
+    CHORUS_EFFECT_NAME,
+    {
       [RATE_KEY]: RATE_DEFAULT,
       [DEPTH_KEY]: DEPTH_DEFAULT,
       [DELAY_KEY]: DELAY_DEFAULT_MS,
@@ -52,8 +51,8 @@ function chorus(numbers: Numbers = {}, enabled = true): AudioStage {
       [MIX_KEY]: MIX_DEFAULT,
       ...numbers,
     },
-    switches: {},
-  };
+    { id: "chorus", enabled },
+  );
 }
 
 type Render = {
@@ -317,16 +316,17 @@ describe("Chorus definition", () => {
               parameter.min,
               parameter.max,
               parameter.defaultValue,
+              parameter.taper ?? "linear",
             ]
           : [parameter.key],
       ),
       [
-        ["Rate", 0.05, 5, 0.8],
-        ["Depth", 0, 1, 0.5],
-        ["Delay", 5, 30, 15],
-        ["Feedback", 0, 0.9, 0],
-        ["Spread", 0, 1, 0.5],
-        ["Mix", 0, 1, 0.5],
+        ["Rate", 0.05, 5, 0.8, "log"],
+        ["Depth", 0, 1, 0.5, "linear"],
+        ["Delay", 5, 30, 15, "linear"],
+        ["Feedback", 0, 0.9, 0, "linear"],
+        ["Spread", 0, 1, 0.5, "linear"],
+        ["Mix", 0, 1, 0.5, "linear"],
       ],
     );
   });

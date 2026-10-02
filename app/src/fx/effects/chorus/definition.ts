@@ -43,6 +43,7 @@ export const definition: FxEffectDefinition = {
       max: RATE_MAX,
       defaultValue: RATE_DEFAULT,
       step: 0.01,
+      taper: "log",
       format: formatRate,
     },
     {
