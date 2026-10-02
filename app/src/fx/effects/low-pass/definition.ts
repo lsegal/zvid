@@ -46,7 +46,7 @@ export const definition: FxEffectDefinition = {
   displayName: "Low Pass",
   description:
     "Removes high frequencies above the cutoff, at 12 or 24 dB per octave, with an optional resonant peak.",
-  accent: "#10b981",
+  accent: "#3b82f6",
   domain: "audio",
   known: true,
   scopes: ["layer", "clip", "global"],
