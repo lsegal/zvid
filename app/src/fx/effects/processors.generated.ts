@@ -7,6 +7,7 @@ import { processor as chorusProcessor } from "./chorus/processor.ts";
 import { processor as compressorProcessor } from "./compressor/processor.ts";
 import { processor as eqProcessor } from "./eq/processor.ts";
 import { processor as gainProcessor } from "./gain/processor.ts";
+import { processor as limiterProcessor } from "./limiter/processor.ts";
 import { processor as noiseGateProcessor } from "./noise-gate/processor.ts";
 import { processor as phaserProcessor } from "./phaser/processor.ts";
 import { processor as saturationProcessor } from "./saturation/processor.ts";
@@ -21,6 +22,7 @@ export const EFFECT_AUDIO_PROCESSORS: readonly AudioEffectDsp[] = [
   compressorProcessor,
   eqProcessor,
   gainProcessor,
+  limiterProcessor,
   noiseGateProcessor,
   phaserProcessor,
   saturationProcessor,
