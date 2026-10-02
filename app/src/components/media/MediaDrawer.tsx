@@ -1,12 +1,14 @@
 import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/solid";
 import {
   type CSSProperties,
+  type DragEvent as ReactDragEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   useMemo,
   useRef,
 } from "react";
 import type { MediaDrawerState } from "../../hooks/useMediaDrawer.ts";
 import type { MediaItem } from "../../media";
+import { endMediaDrag, startMediaDrag } from "../../media-drag.ts";
 import { hasMediaRange } from "../../media-range.ts";
 import {
   describeMediaSync,
@@ -60,6 +62,27 @@ function getThumbnailSize(media: MediaItem) {
 
 function getOptionId(mediaId: string) {
   return `media-drawer-item-${mediaId}`;
+}
+
+// Drags the item's thumbnail with its name, built from the thumbnail already
+// on screen so its frame shows at once.
+function setMediaDragImage(event: ReactDragEvent<HTMLElement>, name: string) {
+  const image = document.createElement("div");
+  image.className = "media-drag-image";
+  const thumbnail = event.currentTarget
+    .querySelector(".media-thumb")
+    ?.cloneNode(true) as HTMLElement | undefined;
+  if (thumbnail) {
+    thumbnail.querySelector(".media-thumb__badge")?.remove();
+    image.append(thumbnail);
+  }
+  const label = document.createElement("span");
+  label.className = "media-drag-image__name";
+  label.textContent = name;
+  image.append(label);
+  document.body.append(image);
+  event.dataTransfer.setDragImage(image, 16, 16);
+  window.setTimeout(() => image.remove(), 0);
 }
 
 // How many options share the first option's row: the grid's column count.
@@ -228,6 +251,7 @@ export function MediaDrawer({
         className={className}
         data-media-id={media.id}
         data-availability={media.availability}
+        draggable
         id={getOptionId(media.id)}
         key={media.id}
         onClick={() => {
@@ -235,6 +259,14 @@ export function MediaDrawer({
           listboxRef.current?.focus();
         }}
         onDoubleClick={() => onOpenMedia(media.id)}
+        // Dragged onto a source track it adds a clip of the media, trimmed to
+        // its In/Out points.
+        onDragEnd={endMediaDrag}
+        onDragStart={(event) => {
+          drawer.setSelectedMediaId(media.id);
+          startMediaDrag(event.dataTransfer, [media.id]);
+          setMediaDragImage(event, media.name);
+        }}
         role="option"
         title={media.name}
       >

@@ -110,6 +110,7 @@ export function useMediaImport({
     snapEnabled,
     setIsMainAudioDropTarget,
     importMediaIntoSourceTrack: mediaCommands.importMediaIntoSourceTrack,
+    placeMediaInSourceTrack: mediaCommands.placeMediaInSourceTrack,
     setStatus,
   });
   const mainAudioDrop = useMainAudioDrop({

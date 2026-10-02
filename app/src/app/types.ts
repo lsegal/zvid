@@ -182,6 +182,8 @@ export type SourceTrackDragPreview = {
   durationSeconds?: number;
   thumbnailUrl?: string;
   error?: string;
+  // Media dragged from the Media drawer; its thumbnail belongs to the media.
+  mediaIds?: string[];
 };
 
 export type CollaborationMode = "idle" | "sharing" | "connected";

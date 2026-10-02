@@ -13,15 +13,9 @@ import type {
   AdoptMediaResult,
   LocalMediaOverride,
   ProjectState,
-  SourceSpan,
   SourceTrackDropTarget,
 } from "../app/types.ts";
-import {
-  getSwatch,
-  logClient,
-  pluralize,
-  stripFilenameExtension,
-} from "../app/util.ts";
+import { logClient, pluralize } from "../app/util.ts";
 import { getHarness } from "../harness";
 import {
   inferMediaKind,
@@ -38,11 +32,7 @@ import {
 } from "../media-relink";
 import { revokeObjectUrl } from "../object-url-retention.ts";
 import { matchOfflineMedia, type OfflineMediaEntry } from "../relink";
-import {
-  getDroppedSourceSpanStartQ,
-  placeDroppedSourceSpans,
-} from "../source-span-edit.ts";
-import { nextSourceTrackColorIndex } from "../source-track-color.ts";
+import { addMediaToSourceTrack } from "../source-track-media.ts";
 
 type ProjectUpdater = (current: ProjectState) => ProjectState;
 
@@ -448,70 +438,10 @@ export function useMediaLibraryCommands({
         );
 
         commitProjectChange("Drop media into source tracks", (current) => {
-          const nextMediaItems = [...current.mediaItems, ...sharedAnalyzed];
-          let nextSourceTracks = current.sourceTracks;
-
-          let targetTrack =
-            target.kind === "track"
-              ? current.sourceTracks.find(
-                  (track) => track.id === target.trackId,
-                )
-              : undefined;
-
-          const startQ = getDroppedSourceSpanStartQ(
-            target,
-            targetTrack !== undefined,
-            current.sourceTracksLocked === true,
-          );
-
-          if (!targetTrack) {
-            targetTrack = {
-              id: `source-track-${crypto.randomUUID()}`,
-              name: stripFilenameExtension(analyzed[0]?.name ?? "Source Track"),
-              colorIndex: nextSourceTrackColorIndex(current.sourceTracks),
-              recordingPaths: [],
-            };
-            nextSourceTracks = [...current.sourceTracks, targetTrack];
-          }
-
-          const mediaPaths = analyzed.map(
-            (item) => item.sourcePath ?? item.name,
-          );
-          nextSourceTracks = nextSourceTracks.map((track) =>
-            track.id === targetTrack.id
-              ? {
-                  ...track,
-                  recordingPaths: [...track.recordingPaths, ...mediaPaths],
-                }
-              : track,
-          );
-
-          const swatch = getSwatch(targetTrack.colorIndex);
-          const droppedSpans = analyzed.map<SourceSpan>((item) => ({
-            id: `source-span-${crypto.randomUUID()}`,
-            sourceTrackId: targetTrack.id,
-            label: stripFilenameExtension(item.name),
-            mediaPath: item.sourcePath ?? item.name,
-            mediaId: item.id,
-            startQ: 0,
-            durationSeconds: Math.max(1, item.durationSeconds),
-            trimStartSeconds: 0,
-            tint: swatch.color,
-            accent: swatch.accent,
-          }));
-          const placed = placeDroppedSourceSpans(
-            current.sourceSpans,
-            current.clips,
-            droppedSpans,
-            startQ,
-            current.bpm,
-          );
-
+          const placed = addMediaToSourceTrack(current, analyzed, target);
           const patch: Partial<ProjectState> = {
-            mediaItems: nextMediaItems,
-            sourceTracks: nextSourceTracks,
-            sourceSpans: placed.sourceSpans,
-            clips: placed.clips,
+            mediaItems: [...current.mediaItems, ...sharedAnalyzed],
+            ...placed,
           };
           if (
             !current.sessionName &&
@@ -558,6 +488,47 @@ export function useMediaLibraryCommands({
       projectMediaItems.length,
       refuseReadOnlyEdit,
       seedLocalMediaItems,
+      setSourceTracksCollapsed,
+      setStatus,
+    ],
+  );
+
+  // Media dragged from the Media drawer is already in the project, so its
+  // clips reuse the media items, pre-trimmed to their In/Out points.
+  const placeMediaInSourceTrack = useCallback(
+    (mediaIds: string[], target: SourceTrackDropTarget) => {
+      if (refuseReadOnlyEdit()) {
+        return;
+      }
+
+      const ids = new Set(mediaIds);
+      const count = projectMediaItems.filter((item) => ids.has(item.id)).length;
+      if (!count) {
+        setStatus("The dragged media is no longer in this session.");
+        return;
+      }
+
+      commitProjectChange("Add media to source track", (current) => {
+        const byId = new Map(current.mediaItems.map((item) => [item.id, item]));
+        const items = mediaIds.flatMap((id) => byId.get(id) ?? []);
+        return items.length
+          ? patchProjectState(
+              current,
+              addMediaToSourceTrack(current, items, target),
+            )
+          : current;
+      });
+      setSourceTracksCollapsed(false);
+      setStatus(
+        `Added ${pluralize(count, "media clip")} to ${
+          target.kind === "track" ? "the source track" : "a new source track"
+        }.`,
+      );
+    },
+    [
+      commitProjectChange,
+      projectMediaItems,
+      refuseReadOnlyEdit,
       setSourceTracksCollapsed,
       setStatus,
     ],
@@ -625,6 +596,7 @@ export function useMediaLibraryCommands({
 
   return {
     importMediaIntoSourceTrack,
+    placeMediaInSourceTrack,
     relinkingMediaIds,
     relinkOfflineMedia,
     relinkOfflineMediaItem,

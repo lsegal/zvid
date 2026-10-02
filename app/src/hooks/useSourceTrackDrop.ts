@@ -25,6 +25,8 @@ import {
 import { getHarness } from "../harness";
 import { isWithinMainAudioDropTarget } from "../main-audio-drop";
 import type { MediaItem } from "../media";
+import { endMediaDrag, getDraggedMediaIds, isMediaDrag } from "../media-drag";
+import { effectiveMediaRange } from "../media-range.ts";
 
 export type SourceTrackDropInputs = {
   mediaItems: MediaItem[];
@@ -39,6 +41,10 @@ export type SourceTrackDropInputs = {
     files: File[],
     target: SourceTrackDropTarget,
   ) => Promise<void>;
+  placeMediaInSourceTrack: (
+    mediaIds: string[],
+    target: SourceTrackDropTarget,
+  ) => void;
   setStatus: (status: string) => void;
 };
 
@@ -53,10 +59,21 @@ const isSameDropTarget = (
     a.startQ === b.startQ &&
     (a.kind !== "track" || (b.kind === "track" && a.trackId === b.trackId)));
 
-// Dragging media files over the source tracks: the track under the pointer,
-// the snapped timeline position under it where the media will start, the
-// preview card of the dragged files, and importing them on drop. One
-// window-level listener serves every source track drop target.
+// A preview of media from the Media drawer shows the media's own thumbnail,
+// which outlives the drag.
+const releasePreviewThumbnail = (
+  preview: SourceTrackDragPreview | null | undefined,
+) => {
+  if (!preview?.mediaIds) {
+    revokeObjectUrlIfNeeded(preview?.thumbnailUrl);
+  }
+};
+
+// Dragging media files, or media from the Media drawer, over the source
+// tracks: the track under the pointer, the snapped timeline position under it
+// where the media will start, the preview card of the dragged media, and
+// importing or placing it on drop. One window-level listener serves every
+// source track drop target.
 export function useSourceTrackDrop({
   mediaItems,
   appShellRef,
@@ -67,6 +84,7 @@ export function useSourceTrackDrop({
   snapEnabled,
   setIsMainAudioDropTarget,
   importMediaIntoSourceTrack,
+  placeMediaInSourceTrack,
   setStatus,
 }: SourceTrackDropInputs) {
   // Media is dragged over the app, whether or not over a drop target.
@@ -119,7 +137,7 @@ export function useSourceTrackDrop({
     setIsSourceTrackFileDragActive(false);
     setIsMainAudioDropTarget(false);
     setSourceTrackDragPreview((current) => {
-      revokeObjectUrlIfNeeded(current?.thumbnailUrl);
+      releasePreviewThumbnail(current);
       return null;
     });
   }, [setIsMainAudioDropTarget]);
@@ -145,7 +163,7 @@ export function useSourceTrackDrop({
           return current;
         }
 
-        revokeObjectUrlIfNeeded(current?.thumbnailUrl);
+        releasePreviewThumbnail(current);
         return {
           dragKey,
           fileCount: files.length,
@@ -220,6 +238,41 @@ export function useSourceTrackDrop({
     [mediaItems.length],
   );
 
+  // Media from the Media drawer is already analyzed, so its card is ready at
+  // once, with the length its In/Out points give the clip.
+  const showMediaDragPreview = useCallback(
+    (mediaIds: string[]) => {
+      const dragKey = `media:${mediaIds.join("|")}`;
+      const items = mediaIds.flatMap(
+        (id) => mediaItems.find((item) => item.id === id) ?? [],
+      );
+      setSourceTrackDragPreview((current) => {
+        if (current?.dragKey === dragKey) {
+          return current;
+        }
+
+        releasePreviewThumbnail(current);
+        const first = items[0];
+        if (!first) {
+          return null;
+        }
+        const range = effectiveMediaRange(first);
+        return {
+          dragKey,
+          fileCount: items.length,
+          names: items.map((item) => item.name),
+          label: stripFilenameExtension(first.name),
+          status: "ready",
+          kind: first.kind,
+          durationSeconds: range.outSeconds - range.inSeconds,
+          thumbnailUrl: first.thumbnailUrl,
+          mediaIds,
+        };
+      });
+    },
+    [mediaItems],
+  );
+
   // Most browsers hide the dragged files until drop, exposing only their
   // count and MIME types, so the preview stays generic until then.
   const showPendingSourceTrackDragPreview = useCallback((fileCount: number) => {
@@ -277,10 +330,14 @@ export function useSourceTrackDrop({
       return getSourceTrackDropTarget(event.target, startQ);
     };
 
+    // Media from the Media drawer only goes on source tracks: over the Audio
+    // lane or the layers it has no drop target.
     const handleWindowDrag = (event: DragEvent) => {
+      const mediaDrag = isMediaDrag(event.dataTransfer);
       if (
-        !hasDraggedFileData(event.dataTransfer) ||
-        isWithinMainAudioDropTarget(event.target)
+        !mediaDrag &&
+        (!hasDraggedFileData(event.dataTransfer) ||
+          isWithinMainAudioDropTarget(event.target))
       ) {
         return;
       }
@@ -304,6 +361,15 @@ export function useSourceTrackDrop({
         sourceTrackDragHideTimeoutRef.current = null;
       }
 
+      if (mediaDrag) {
+        setSourceTrackDragTarget((current) =>
+          isSameDropTarget(current, target) ? current : target,
+        );
+        setIsSourceTrackFileDragActive(true);
+        showMediaDragPreview(getDraggedMediaIds(event.dataTransfer));
+        return;
+      }
+
       const dragState = getSourceTrackDragState(event.dataTransfer);
       if (dragState.kind !== "accept") {
         setSourceTrackDragTarget(null);
@@ -324,9 +390,11 @@ export function useSourceTrackDrop({
     };
 
     const handleWindowDrop = (event: DragEvent) => {
+      const mediaDrag = isMediaDrag(event.dataTransfer);
       if (
-        !hasDraggedFileData(event.dataTransfer) ||
-        isWithinMainAudioDropTarget(event.target)
+        !mediaDrag &&
+        (!hasDraggedFileData(event.dataTransfer) ||
+          isWithinMainAudioDropTarget(event.target))
       ) {
         return;
       }
@@ -344,6 +412,15 @@ export function useSourceTrackDrop({
         return;
       }
 
+      if (mediaDrag) {
+        const mediaIds = getDraggedMediaIds(event.dataTransfer);
+        endMediaDrag();
+        if (mediaIds.length) {
+          placeMediaInSourceTrack(mediaIds, target);
+        }
+        return;
+      }
+
       const files = getDraggedMediaFiles(event.dataTransfer);
       if (!files.length) {
         setStatus(
@@ -356,7 +433,10 @@ export function useSourceTrackDrop({
     };
 
     const handleWindowDragLeave = (event: DragEvent) => {
-      if (!hasDraggedFileData(event.dataTransfer)) {
+      if (
+        !hasDraggedFileData(event.dataTransfer) &&
+        !isMediaDrag(event.dataTransfer)
+      ) {
         return;
       }
 
@@ -371,16 +451,27 @@ export function useSourceTrackDrop({
       }
     };
 
+    // A Media drawer drag that ends without a drop here (Escape, or a drop
+    // outside the app) only tells its source.
+    const handleWindowDragEnd = (event: DragEvent) => {
+      if (isMediaDrag(event.dataTransfer)) {
+        endMediaDrag();
+        clearSourceTrackDragState();
+      }
+    };
+
     window.addEventListener("dragenter", handleWindowDrag, true);
     window.addEventListener("dragover", handleWindowDrag, true);
     window.addEventListener("dragleave", handleWindowDragLeave, true);
     window.addEventListener("drop", handleWindowDrop, true);
+    window.addEventListener("dragend", handleWindowDragEnd, true);
 
     return () => {
       window.removeEventListener("dragenter", handleWindowDrag, true);
       window.removeEventListener("dragover", handleWindowDrag, true);
       window.removeEventListener("dragleave", handleWindowDragLeave, true);
       window.removeEventListener("drop", handleWindowDrop, true);
+      window.removeEventListener("dragend", handleWindowDragEnd, true);
     };
   }, [
     appShellRef,
@@ -388,9 +479,11 @@ export function useSourceTrackDrop({
     ensureSourceTrackDragPreview,
     importMediaIntoSourceTrack,
     labelWidth,
+    placeMediaInSourceTrack,
     quarterPx,
     scheduleSourceTrackDragClear,
     setStatus,
+    showMediaDragPreview,
     showPendingSourceTrackDragPreview,
     snapEnabled,
     snapUnit,
@@ -403,7 +496,7 @@ export function useSourceTrackDrop({
         window.clearTimeout(sourceTrackDragHideTimeoutRef.current);
       }
 
-      revokeObjectUrlIfNeeded(sourceTrackDragPreviewRef.current?.thumbnailUrl);
+      releasePreviewThumbnail(sourceTrackDragPreviewRef.current);
     },
     [],
   );
