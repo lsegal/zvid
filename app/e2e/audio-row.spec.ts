@@ -127,79 +127,125 @@ test("the Audio row takes no files and starts empty", async ({ page }) => {
   await page.keyboard.press("Escape");
 });
 
-test("the Audio row is pinned to the bottom of a tall timeline and collapses", async ({
+// How far the Audio row's bottom edge is from the timeline panel's.
+async function bottomGap(page: Page) {
+  const [panel, row] = await Promise.all([
+    page.locator(".timeline-panel").evaluate((node) => {
+      const box = node.getBoundingClientRect();
+      return box.top + node.clientTop + node.clientHeight;
+    }),
+    audioRow(page).evaluate((node) => node.getBoundingClientRect().bottom),
+  ]);
+  return Math.abs(panel - row);
+}
+
+test("the Audio row is docked at the bottom of the timeline panel at any height", async ({
   page,
 }) => {
   await page.goto("/");
   await expect(page.locator("[data-timeline-lane-id]").first()).toBeVisible();
   const timeline = page.locator(".timeline-scroll");
-  const bottomGap = async () => {
-    const [panel, row] = await Promise.all([
-      timeline.evaluate((node) => {
-        const box = node.getBoundingClientRect();
-        return box.top + node.clientTop + node.clientHeight;
-      }),
-      audioRow(page).evaluate((node) => node.getBoundingClientRect().bottom),
-    ]);
-    return Math.abs(panel - row);
-  };
 
-  // It ends the timeline, after the source tracks, at the panel's bottom.
-  const lastRow = await page
-    .locator(".timeline-canvas > :not(.label-resize-rail, .timeline-playhead)")
+  // It is not one of the scrolling rows.
+  await expect(timeline.locator("[data-audio-row]")).toHaveCount(0);
+
+  // Few rows in a tall panel: the empty space is above it, not below.
+  await expect.poll(() => bottomGap(page)).toBeLessThan(1);
+  const rowsEnd = await page
+    .locator(".source-tracks, [data-timeline-lane-id]")
     .last()
-    .getAttribute("data-audio-row");
-  expect(lastRow).toBe("");
-  await expect.poll(bottomGap).toBeLessThan(2);
+    .evaluate((node) => node.getBoundingClientRect().bottom);
+  const rowTop = await audioRow(page).evaluate(
+    (node) => node.getBoundingClientRect().top,
+  );
+  expect(rowTop - rowsEnd).toBeGreaterThan(100);
 
-  // With more layers than fit, it stays there while the rows above scroll
-  // under it, and at the end of the scroll range the last row clears it.
+  // A short panel, under the old 320px pin threshold.
+  await page.setViewportSize({ width: 1280, height: 560 });
+  await expect
+    .poll(() => page.locator(".timeline-panel").evaluate((n) => n.clientHeight))
+    .toBeLessThan(320);
+  await expect.poll(() => bottomGap(page)).toBeLessThan(1);
+  await page.setViewportSize({ width: 1600, height: 1200 });
+
+  // More rows than fit: they scroll above it, never behind or below it.
   const addLayer = page.getByRole("button", { name: "Layer", exact: true });
   while (
     !(await timeline.evaluate((node) => node.scrollHeight > node.clientHeight))
   ) {
     await addLayer.click();
   }
-  await timeline.evaluate((node) => {
-    node.scrollTop = 0;
-  });
-  await expect.poll(bottomGap).toBeLessThan(2);
-  await timeline.evaluate((node) => {
-    node.scrollTop = node.scrollHeight;
-  });
-  await expect.poll(bottomGap).toBeLessThan(2);
-  const overlap = await audioRow(page).evaluate(
-    (node) =>
-      (node.previousElementSibling?.getBoundingClientRect().bottom ?? 0) -
-      node.getBoundingClientRect().top,
-  );
-  expect(overlap).toBeLessThanOrEqual(1);
+  for (const end of [0, 1]) {
+    await timeline.evaluate((node, end) => {
+      node.scrollTop = end * node.scrollHeight;
+    }, end);
+    await expect.poll(() => bottomGap(page)).toBeLessThan(1);
+    const [scrollBottom, top] = await Promise.all([
+      timeline.evaluate((node) => node.getBoundingClientRect().bottom),
+      audioRow(page).evaluate((node) => node.getBoundingClientRect().top),
+    ]);
+    expect(scrollBottom).toBeLessThanOrEqual(top + 1);
+  }
+});
 
-  // A panel too short to keep layers in view above it doesn't pin it; it just
-  // ends the timeline.
-  await page.setViewportSize({ width: 1280, height: 720 });
-  await expect(audioRow(page)).not.toHaveClass(/track-row--bus-pinned/);
-  await timeline.evaluate((node) => {
-    node.scrollTop = 0;
-  });
-  await expect.poll(bottomGap).toBeGreaterThan(100);
-  await page.setViewportSize({ width: 1600, height: 1200 });
-  await expect(audioRow(page)).toHaveClass(/track-row--bus-pinned/);
+test("the Audio row's badge centers its glyph like the layers' badges", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator("[data-timeline-lane-id]").first()).toBeVisible();
+  // The glyph's box against the badge's, from each center.
+  const glyphOffset = (badge: ReturnType<Page["locator"]>) =>
+    badge.evaluate((node) => {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const glyph = range.getBoundingClientRect();
+      const box = node.getBoundingClientRect();
+      return [
+        Math.round(glyph.left + glyph.width / 2 - (box.left + box.width / 2)),
+        Math.round(glyph.top + glyph.height / 2 - (box.top + box.height / 2)),
+      ];
+    });
+  const audioBadge = audioRow(page).locator(".track-label__index");
+  const layerBadge = page.locator(".track-label .track-label__index").first();
+  await expect(audioBadge).toHaveText("A");
+  const [x, y] = await glyphOffset(audioBadge);
+  expect(Math.abs(x)).toBeLessThanOrEqual(1);
+  expect([x, y]).toEqual(await glyphOffset(layerBadge));
+});
 
-  // Collapsed, only a slim header with its toggle stays pinned, and the
-  // preference survives a reload.
+test("the collapsed Audio row stays docked and still draws the waveform", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator("[data-timeline-lane-id]").first()).toBeVisible();
+  await addVideoTrack(page);
+  await expect(mixContent(page)).toHaveAttribute("data-audio-mix", "ready", {
+    timeout: 30_000,
+  });
+
   const toggle = audioRow(page).locator(".audio-row__toggle");
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(toggle).toHaveAttribute("title", "Collapse audio row");
   const expandedHeight = (await audioRow(page).boundingBox())?.height ?? 0;
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
-  await expect(audioRow(page).locator("[data-audio-mix]")).toHaveCount(0);
+  await expect(toggle).toHaveAttribute("title", "Expand audio row");
   const collapsedHeight = (await audioRow(page).boundingBox())?.height ?? 0;
   expect(collapsedHeight).toBeLessThan(expandedHeight / 2);
-  await expect.poll(bottomGap).toBeLessThan(2);
+  await expect.poll(() => bottomGap(page)).toBeLessThan(1);
 
+  // Compact, not hidden: the waveform is drawn at the slim height.
+  const canvas = mixContent(page).locator(".waveform__canvas").first();
+  await expect(canvas).toBeVisible();
+  const canvasHeight = (await canvas.boundingBox())?.height ?? 0;
+  expect(canvasHeight).toBeGreaterThan(16);
+  expect(canvasHeight).toBeLessThan(collapsedHeight);
+  await expect.poll(() => drawnLevel(page)).toBeGreaterThan(0.1);
+
+  // The preference survives a reload.
   await page.reload();
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect.poll(() => bottomGap(page)).toBeLessThan(1);
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
   await expect(mixContent(page)).toBeVisible();
@@ -227,6 +273,28 @@ test("the Audio row's playhead lines up with the timeline playhead", async ({
     });
   await expect.poll(() => left(".timeline-playhead")).toBeGreaterThan(300);
   await expect.poll(offset).toBe(0);
+
+  // Zoomed in and scrolled sideways, the Audio row follows the rows.
+  const timeline = page.locator(".timeline-scroll");
+  for (let step = 0; step < 3; step += 1) {
+    await page.getByRole("button", { name: "Zoom in" }).click();
+  }
+  await expect
+    .poll(() =>
+      timeline.evaluate((node) => node.scrollWidth - node.clientWidth),
+    )
+    .toBeGreaterThan(200);
+  await timeline.evaluate((node) => {
+    node.scrollLeft = 150;
+  });
+  await expect.poll(offset).toBe(0);
+  await timeline.evaluate((node) => {
+    node.scrollLeft = node.scrollWidth;
+  });
+  await expect.poll(offset).toBe(0);
+  await timeline.evaluate((node) => {
+    node.scrollLeft = 150;
+  });
 
   const toggle = audioRow(page).locator(".audio-row__toggle");
   await toggle.click();

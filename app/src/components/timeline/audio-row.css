@@ -20,12 +20,10 @@
   cursor: pointer;
 }
 
-/* Centered like the other rows' index badges, whatever the button around it
-   sets for text. */
+/* A span, unlike the other rows' index badges, so it needs its grid back
+   from `.track-label span` to center its glyph like theirs. */
 .audio-row__toggle > .track-label__index {
-  justify-content: center;
-  line-height: 1;
-  text-align: center;
+  display: grid;
 }
 
 .audio-row__toggle:focus-visible {
