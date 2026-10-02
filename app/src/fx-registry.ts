@@ -9,6 +9,7 @@ import { formatRawNumber } from "./fx/params.ts";
 import {
   ALL_SCOPES,
   type FxEffectDefinition,
+  type FxEffectDomain,
   type FxEffectScope,
   type FxParameterDefinition,
 } from "./fx/types.ts";
@@ -29,13 +30,16 @@ export {
 } from "./fx/params.ts";
 export type {
   FxEffectDefinition,
+  FxEffectDomain,
   FxEffectScope,
   FxEnumParameterDefinition,
   FxFlagOption,
+  FxNumberControl,
   FxNumberParameterDefinition,
   FxParameterDefinition,
   FxParameterReader,
   FxParameterVisibility,
+  FxScaleTick,
   FxStringParameterDefinition,
 } from "./fx/types.ts";
 
@@ -73,6 +77,17 @@ export function getEffectDefinition(effectName: string): FxEffectDefinition {
 // effects are supported wherever they are.
 export function isEffectSupportedIn(effectName: string, scope: FxEffectScope) {
   return getEffectDefinition(effectName).scopes.includes(scope);
+}
+
+// What the effect processes; unrecognized effects count as video.
+export function getEffectDomain(
+  definition: Pick<FxEffectDefinition, "domain">,
+): FxEffectDomain {
+  return definition.domain ?? "video";
+}
+
+export function isAudioEffectName(effectName: string) {
+  return getEffectDomain(getEffectDefinition(effectName)) === "audio";
 }
 
 export function isHiddenParameterKey(key: string) {

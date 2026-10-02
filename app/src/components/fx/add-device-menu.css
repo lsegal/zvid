@@ -1,0 +1,9 @@
+/* The Video and Audio headings in an add-device menu. */
+.fx-add-menu__group {
+  padding: 6px 10px 2px;
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}

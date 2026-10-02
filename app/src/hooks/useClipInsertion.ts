@@ -32,9 +32,10 @@ import {
   createWandLanes,
   getWandEndQ,
 } from "../arrangement-wand.ts";
+import { addDefaultGain } from "../default-gain.ts";
 import { addFillClip, getDefaultFillColor } from "../fill-clip.ts";
 import { addFxClip } from "../fx-clip.ts";
-import { ensureLayerLayouts } from "../fx-stack";
+import { ensureLayerLayouts, pruneClipEffects } from "../fx-stack";
 import { createLaneId } from "../lanes";
 import type { MediaItem } from "../media";
 import type { ProjectHistoryAction } from "../project-history";
@@ -158,6 +159,11 @@ export function useClipInsertion({
         updater: (current) =>
           patchProjectState(current, {
             clips: [...current.clips, clip],
+            effects: addDefaultGain(
+              current.effects,
+              { clips: [clip] },
+              current.mediaItems,
+            ),
           }),
       });
       setPendingSelection(null);
@@ -364,9 +370,13 @@ export function useClipInsertion({
       patchProjectState(current, {
         lanes: drop.lanes,
         clips: drop.clips,
-        effects: drop.createdLane
-          ? ensureLayerLayouts(current.effects, [drop.lane.id])
-          : current.effects,
+        effects: addDefaultGain(
+          drop.createdLane
+            ? ensureLayerLayouts(current.effects, [drop.lane.id])
+            : current.effects,
+          { clips: [drop.clip] },
+          current.mediaItems,
+        ),
       }),
     );
     setPendingSelection(null);
@@ -456,9 +466,19 @@ export function useClipInsertion({
     setIsPlaying(false);
     setPendingSelection(null);
     setDragPreviewClips(null);
-    commitProjectChange("Randomize arrangement", (current) =>
-      applyWandArrangement(current, wandLanes, randomizedClips),
-    );
+    commitProjectChange("Randomize arrangement", (current) => {
+      const next = applyWandArrangement(current, wandLanes, randomizedClips);
+      // The old clips' stacks go with them, and each window with sound gets
+      // its Gain.
+      return {
+        ...next,
+        effects: addDefaultGain(
+          pruneClipEffects(next.effects, randomizedClips),
+          { clips: randomizedClips },
+          current.mediaItems,
+        ),
+      };
+    });
     setSelectedClipId(randomizedClips[0]?.id);
     setPlayheadQ(0);
     playbackOriginRef.current = 0;

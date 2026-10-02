@@ -64,7 +64,14 @@ function project({
   clips = [] as ArrangementClip[],
   sourceTracksLocked = false,
 } = {}) {
-  return { sourceTracks, sourceSpans, clips, sourceTracksLocked, bpm: BPM };
+  return {
+    sourceTracks,
+    sourceSpans,
+    clips,
+    effects: [],
+    sourceTracksLocked,
+    bpm: BPM,
+  };
 }
 
 // [media, track, start, end, media start] for each span, in quarters and

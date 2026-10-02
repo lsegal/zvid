@@ -1,3 +1,5 @@
+import type { ContextMenuEntry } from "../../context-menu.ts";
+import { groupAddableEffects } from "../../fx-chain.ts";
 import type { LayerMenuContext } from "../layer-menu.ts";
 import type { MenuEntryProvider } from "../registry.ts";
 
@@ -18,12 +20,20 @@ export const layerFxEntries: MenuEntryProvider<LayerMenuContext> = {
       id: "add-fx",
       label: "Add FX",
       disabled: disabled || !effects.length,
-      submenu: effects.map((definition) => ({
-        type: "item",
-        id: `fx-${definition.effectName}`,
-        label: definition.displayName,
-        onSelect: () => actions.addFx(definition.effectName),
-      })),
+      // Audio effects follow the video ones, after a separator.
+      submenu: groupAddableEffects(effects).flatMap(
+        (group, index): ContextMenuEntry[] => [
+          ...(index > 0 ? [{ type: "separator" } as const] : []),
+          ...group.effects.map(
+            (definition): ContextMenuEntry => ({
+              type: "item",
+              id: `fx-${definition.effectName}`,
+              label: definition.displayName,
+              onSelect: () => actions.addFx(definition.effectName),
+            }),
+          ),
+        ],
+      ),
     },
   ],
 };

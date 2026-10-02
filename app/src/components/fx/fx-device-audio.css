@@ -1,0 +1,17 @@
+/* The badge on an audio device's title, such as Gain's, that tells it from
+   the video devices beside it in the same rack. */
+.fx-device-panel__audio {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--fx-accent) 18%, transparent);
+  color: var(--fx-accent);
+}
+
+.fx-device-panel__audio svg {
+  width: 11px;
+  height: 11px;
+}

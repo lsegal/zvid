@@ -5,9 +5,12 @@
 import { parseLayerIdList, serializeLayerIdList } from "./composition-order.ts";
 import {
   FX_EFFECT_DEFINITIONS,
+  type FxEffectDefinition,
+  type FxEffectDomain,
   type FxEffectScope,
   formatRawNumber,
   getEffectDefinition,
+  getEffectDomain,
 } from "./fx-registry.ts";
 import {
   type FxDevice,
@@ -80,6 +83,26 @@ export function addableEffectsFor(group: FxEffectScope) {
       !definition.layerDefault &&
       definition.scopes.includes(group),
   );
+}
+
+// The add menu's groups: the video effects, then the audio ones, each in
+// menu order. Empty groups are left out.
+export function groupAddableEffects(
+  definitions: readonly FxEffectDefinition[],
+): { domain: FxEffectDomain; label: string; effects: FxEffectDefinition[] }[] {
+  return (
+    [
+      { domain: "video", label: "Video" },
+      { domain: "audio", label: "Audio" },
+    ] as const
+  )
+    .map((group) => ({
+      ...group,
+      effects: definitions.filter(
+        (definition) => getEffectDomain(definition) === group.domain,
+      ),
+    }))
+    .filter((group) => group.effects.length > 0);
 }
 
 export function getParameterFormat(effectName: string, key: string) {

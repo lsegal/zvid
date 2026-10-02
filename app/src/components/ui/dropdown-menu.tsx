@@ -12,6 +12,8 @@ const DropdownMenuItem = DropdownMenuPrimitive.Item;
 const DropdownMenuCheckboxItem = DropdownMenuPrimitive.CheckboxItem;
 const DropdownMenuItemIndicator = DropdownMenuPrimitive.ItemIndicator;
 const DropdownMenuSeparator = DropdownMenuPrimitive.Separator;
+const DropdownMenuGroup = DropdownMenuPrimitive.Group;
+const DropdownMenuLabel = DropdownMenuPrimitive.Label;
 const DropdownMenuSub = DropdownMenuPrimitive.Sub;
 const DropdownMenuSubTrigger = DropdownMenuPrimitive.SubTrigger;
 
@@ -60,8 +62,10 @@ export {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuItemIndicator,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuSub,

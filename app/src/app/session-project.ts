@@ -1,4 +1,5 @@
 import { createClipWarp } from "../clip-warp.ts";
+import { migrateDefaultGain } from "../default-gain.ts";
 import { createFillClip } from "../fill-clip.ts";
 import { createFxClip } from "../fx-clip.ts";
 import {
@@ -319,29 +320,35 @@ export function sessionToProject(
     // Every layer gets its own Layout, taking over any global one, and an
     // older session gets its default Order and its layers' Text and Color
     // moved onto their text and fill clips, an old Colorize Reactivity
-    // becomes Reactive animation, and an old Order Margin toggle becomes its
-    // Margin knob, as part of the load so none of it is a
+    // becomes Reactive animation, an old Order Margin toggle becomes its
+    // Margin knob, and an older session's clips with sound get their Gain,
+    // as part of the load so none of it is a
     // separate undo step. Stacks of clips, source tracks and source clips
     // that could not be loaded are dropped with them.
-    effects: migrateClipContentEffects(
-      pruneSourceEffects(
-        pruneClipEffects(
-          migrateDefaultOrder(
-            ensureLayerLayouts(
-              migrateOrderOuterMargin(
-                migrateColorizeReactivity(mapEffects(session.effects)),
+    effects: migrateDefaultGain(
+      migrateClipContentEffects(
+        pruneSourceEffects(
+          pruneClipEffects(
+            migrateDefaultOrder(
+              ensureLayerLayouts(
+                migrateOrderOuterMargin(
+                  migrateColorizeReactivity(mapEffects(session.effects)),
+                ),
+                (lanes.length ? lanes : DEFAULT_LANES).map((lane) => lane.id),
               ),
-              (lanes.length ? lanes : DEFAULT_LANES).map((lane) => lane.id),
+              session.orderDefaulted,
             ),
-            session.orderDefaulted,
+            arrangementClips,
           ),
-          arrangementClips,
+          sourceTracks,
+          sourceSpans,
         ),
-        sourceTracks,
-        sourceSpans,
+        arrangementClips,
+        session.clipContentEffects,
       ),
-      arrangementClips,
-      session.clipContentEffects,
+      { clips: arrangementClips, sourceSpans },
+      mediaItems,
+      session.audioGainDefaulted,
     ),
     displaySeconds: session.timeline?.displaySeconds ?? false,
     snapToBeat: session.timeline?.snapToBeat ?? true,

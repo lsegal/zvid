@@ -132,6 +132,7 @@ export const INITIAL_PROJECT_STATE: ProjectState = {
   sourceTracksLocked: false,
   orderDefaulted: true,
   clipContentEffects: true,
+  audioGainDefaulted: true,
 };
 
 // Card colors of fill clips on layers without an accent.

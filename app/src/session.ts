@@ -125,6 +125,10 @@ export type LvpSession = {
   // and Color effects; without it the session is older and its layers' Text
   // and Color are moved onto those clips on open.
   clipContentEffects?: boolean;
+  // Set on sessions saved since clips needed a Gain effect to make sound;
+  // without it the session is older and its clips with sound get a 0 dB
+  // Gain on open.
+  audioGainDefaulted?: boolean;
 };
 
 export type ServerMediaRef = {

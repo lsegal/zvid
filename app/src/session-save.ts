@@ -406,6 +406,8 @@ export function projectToLvpSession(
     orderDefaulted: true,
     // Text and Color are written on the clips that carry them.
     clipContentEffects: true,
+    // Clips are written with their Gain, so a removed Gain stays removed.
+    audioGainDefaulted: true,
   };
 
   return session;
