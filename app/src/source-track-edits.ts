@@ -1,8 +1,9 @@
-// Pure edits to a project's source tracks: duplicate, delete, reorder and
-// rename. A source track owns the source spans whose `sourceTrackId` is its
+// Pure edits to a project's source tracks: add, duplicate, delete, reorder
+// and rename. A source track owns the source spans whose `sourceTrackId` is its
 // id, and the arrangement clips cut from those spans depend on them, so
 // deleting a track takes both. Each helper returns the project itself when nothing
 // changed so history commits can skip no-op edits.
+import type { ProjectState, SourceTrack } from "./app/types.ts";
 import { getSwatch } from "./app/util.ts";
 import {
   copyEffectStacks,
@@ -12,7 +13,10 @@ import {
   sourceClipEffectTrackId,
   sourceTrackEffectTrackId,
 } from "./fx-stack.ts";
-import { PALETTE_SIZE } from "./source-track-color.ts";
+import {
+  nextSourceTrackColorIndex,
+  PALETTE_SIZE,
+} from "./source-track-color.ts";
 
 export type SourceTrackLike = { id: string; name: string; colorIndex: number };
 export type SourceTrackSpan = {
@@ -237,4 +241,35 @@ export function renameSourceTrack<
         : clip,
     ),
   };
+}
+
+/**
+ * The name for a new empty source track: "Source Track N", N one more than
+ * the number of tracks, or the next number no track is already named with.
+ */
+export function getNextSourceTrackName(tracks: readonly { name: string }[]) {
+  let number = tracks.length + 1;
+  while (tracks.some((track) => track.name === `Source Track ${number}`)) {
+    number += 1;
+  }
+
+  return `Source Track ${number}`;
+}
+
+/**
+ * Adds an empty source track `trackId` named `name` after the others, in the
+ * color after the last track's, like a track media is dropped into.
+ */
+export function addEmptySourceTrack(
+  project: Pick<ProjectState, "sourceTracks">,
+  trackId: string,
+  name: string,
+): Pick<ProjectState, "sourceTracks"> {
+  const track: SourceTrack = {
+    id: trackId,
+    name,
+    colorIndex: nextSourceTrackColorIndex(project.sourceTracks),
+    recordingPaths: [],
+  };
+  return { sourceTracks: [...project.sourceTracks, track] };
 }
