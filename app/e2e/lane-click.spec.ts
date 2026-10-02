@@ -22,6 +22,10 @@ function playheadX(page: Page, id: string) {
   }, id);
 }
 
+// The docked Audio row footer (#809) leaves less room for layers to scroll
+// in; the default session's layers no longer all fit without scrolling.
+test.use({ viewport: { width: 1600, height: 1200 } });
+
 test("clicking empty lane space seeks without selecting, and dragging selects", async ({
   page,
 }) => {

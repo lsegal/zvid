@@ -70,6 +70,10 @@ async function center(locator: Locator) {
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 }
 
+// The docked Audio row footer (#809) leaves less room for rows to scroll in;
+// the default session's rows no longer all fit without scrolling.
+test.use({ viewport: { width: 1600, height: 1200 } });
+
 // One source track, "test-pattern", with a clip cut from it on Layer 1.
 test.beforeEach(async ({ page }) => {
   await page.goto("/");

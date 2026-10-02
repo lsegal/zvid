@@ -555,6 +555,10 @@ test("an FX clip's add menu offers Order", async ({ page }) => {
 
 // An Order on an FX clip only arranges the layers beneath it, so its Layers
 // menu lists only those; the Global Order's menu lists every layer.
+//
+// The docked Audio row footer (#809) leaves less room for layers to scroll
+// in; the default session's layers no longer all fit without scrolling.
+test.use({ viewport: { width: 1600, height: 1200 } });
 test("an FX clip's Order lists only the layers beneath it", async ({
   page,
 }) => {

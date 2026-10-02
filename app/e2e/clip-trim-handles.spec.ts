@@ -52,6 +52,10 @@ async function copySpanToLayer(page: Page, layer: string) {
   await page.getByRole("menuitem", { name: layer }).click();
 }
 
+// The docked Audio row footer (#809) leaves less room for layers to scroll
+// in; the default session's layers no longer all fit without scrolling.
+test.use({ viewport: { width: 1600, height: 1200 } });
+
 test("trim handles appear on hover and trim, and grab while hidden", async ({
   page,
 }) => {

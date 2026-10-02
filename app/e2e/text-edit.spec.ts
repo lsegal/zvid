@@ -4,6 +4,10 @@ import { expect, type Page, test } from "@playwright/test";
 // or a double-click on its timeline clip) types on it directly on the canvas.
 // The FX panel follows along, and leaving the editor is one undo step.
 
+// The docked Audio row footer (#809) leaves less room for layers to scroll
+// in; the default session's layers no longer all fit without scrolling.
+test.use({ viewport: { width: 1600, height: 1200 } });
+
 function lane(page: Page, id: string) {
   return page.locator(`[data-timeline-lane-id="${id}"]`);
 }

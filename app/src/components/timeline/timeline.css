@@ -17,6 +17,11 @@
   min-height: 0;
   overflow: auto;
   scrollbar-width: thin;
+  /* The sticky ruler (ruler.css) floats over whatever scrolls under it;
+     without this, scrolling a row into view (focus, selection, a drag) can
+     stop with it still covered by the ruler, which the footer move made more
+     likely by leaving the scroller less room in a short panel. */
+  scroll-padding-top: 60px;
 }
 
 .timeline-footer {
