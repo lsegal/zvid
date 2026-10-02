@@ -54,11 +54,28 @@ async function averageLevel(page: Page) {
   await expect
     .poll(() => mixLevel(page), { timeout: 15_000 })
     .toBeGreaterThan(0.005);
-  const reads: number[] = [];
-  for (let read = 0; read < 24; read += 1) {
-    reads.push(await mixLevel(page));
-    await page.waitForTimeout(37);
-  }
+  // Read in the page, every 20 ms for a second, so a slow test runner
+  // still samples five 5 Hz cycles evenly.
+  const level = await page.evaluate(async () => {
+    const probe = window as unknown as { analysers: AnalyserNode[] };
+    const analyser = probe.analysers.at(-1);
+    if (!analyser) {
+      return 0;
+    }
+    const samples = new Float32Array(analyser.fftSize);
+    const reads: number[] = [];
+    const start = performance.now();
+    while (performance.now() - start < 1000) {
+      analyser.getFloatTimeDomainData(samples);
+      let total = 0;
+      for (const sample of samples) {
+        total += sample * sample;
+      }
+      reads.push(Math.sqrt(total / samples.length));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    return reads.reduce((total, read) => total + read, 0) / reads.length;
+  });
   await page
     .getByRole("button", { name: "Pause playback" })
     .click({ timeout: 2_000 })
@@ -66,7 +83,7 @@ async function averageLevel(page: Page) {
   await expect(
     page.getByRole("button", { name: "Play timeline" }),
   ).toBeVisible();
-  return reads.reduce((total, read) => total + read, 0) / reads.length;
+  return level;
 }
 
 // A 440 Hz tone as a 16-bit mono WAV.
@@ -99,7 +116,7 @@ async function addTone(page: Page) {
     const transfer = new DataTransfer();
     transfer.items.add(new File([bytes], "tone.wav", { type: "audio/wav" }));
     return transfer;
-  }, toneWav(8));
+  }, toneWav(30));
   const target = '[data-source-track-drop-target="new-track"]';
   for (const eventType of ["dragenter", "dragover", "drop"]) {
     await page.dispatchEvent(target, eventType, { dataTransfer });
