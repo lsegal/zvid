@@ -21,7 +21,7 @@ export const definition: FxEffectDefinition = {
   displayName: "Stereo",
   description:
     "Sets the stereo width, from mono through doubled side, and the left/right balance.",
-  accent: "#2ec4a0",
+  accent: "#a78bfa",
   domain: "audio",
   known: true,
   // The same stacks as Gain: tracks, clips (source ones included) and
