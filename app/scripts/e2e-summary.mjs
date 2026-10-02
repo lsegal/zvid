@@ -2,8 +2,8 @@
 // Summarizes one CI shard of the browser tests: prints a Markdown summary of
 // the shard's failing and flaky specs (for $GITHUB_STEP_SUMMARY), and fails
 // when the shard's test step ran past its time budget, so slow growth is
-// visible. Over budget, rebalance the shards or split the slowest specs
-// rather than raising the budget.
+// visible. Over budget, refresh scripts/e2e-durations.json to rebalance the
+// shards, or split the slowest specs, rather than raising the budget.
 //
 // Usage: node app/scripts/e2e-summary.mjs <e2e-results.json> <shard label>
 //          <elapsed seconds> <budget seconds>
@@ -60,7 +60,7 @@ export function summarize(report, shard, elapsed, budget) {
   if (overBudget) {
     lines.push(
       "",
-      `**Over budget:** the test step took ${elapsed}s, over its ${budget}s budget. Rebalance the shards or split the slowest specs rather than raising the budget.`,
+      `**Over budget:** the test step took ${elapsed}s, over its ${budget}s budget. Refresh scripts/e2e-durations.json to rebalance the shards, or split the slowest specs, rather than raising the budget.`,
     );
   }
   return { markdown: `${lines.join("\n")}\n`, overBudget };
@@ -88,7 +88,7 @@ function main() {
   process.stdout.write(markdown);
   if (overBudget) {
     console.error(
-      `::error::Browser test shard ${shard} took ${elapsed}s, over its ${budget}s budget. Rebalance the shards or split the slowest specs rather than raising the budget.`,
+      `::error::Browser test shard ${shard} took ${elapsed}s, over its ${budget}s budget. Refresh scripts/e2e-durations.json to rebalance the shards, or split the slowest specs, rather than raising the budget.`,
     );
     process.exitCode = 1;
   }
