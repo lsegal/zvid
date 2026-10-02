@@ -144,3 +144,26 @@ test("Help's menu opens under its trigger and its items still work", async ({
     page.getByRole("dialog", { name: "Download the zvid desktop app" }),
   ).toBeVisible();
 });
+
+test("submenus keep their own Left/Right keys", async ({ page }) => {
+  const edit = trigger(page, "Edit");
+  await edit.click();
+  const audio = page.getByRole("menuitem", { name: /^Audio/ });
+  await audio.hover();
+  await expect(audio).toBeFocused();
+
+  // Right on a submenu trigger opens its submenu rather than Help.
+  await page.keyboard.press("ArrowRight");
+  const submenu = page.getByRole("menu").nth(1);
+  await expect(submenu).toBeVisible();
+  await expect(submenu.getByRole("menuitem").first()).toBeFocused();
+  await expect(edit).toHaveAttribute("data-state", "open");
+  await expect(trigger(page, "Help")).toHaveAttribute("data-state", "closed");
+
+  // Left inside the submenu closes it rather than switching to File.
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.getByRole("menu")).toHaveCount(1);
+  await expect(audio).toBeFocused();
+  await expect(edit).toHaveAttribute("data-state", "open");
+  await expect(trigger(page, "File")).toHaveAttribute("data-state", "closed");
+});
