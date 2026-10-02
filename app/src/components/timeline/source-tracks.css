@@ -300,6 +300,96 @@
   text-transform: uppercase;
 }
 
+/* Media from the Media drawer previews as the source clips the drop will
+   create, back to back, at the size and in the colors they will have. */
+.source-drop-preview--clips {
+  top: 12px;
+  bottom: auto;
+  height: 56px;
+  min-width: 2px;
+  display: block;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  opacity: 0.72;
+}
+
+.source-drop-clip {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  box-sizing: border-box;
+  display: flex;
+  border: 1px solid;
+  border-radius: 10px;
+  box-shadow: 0 10px 24px rgba(4, 7, 14, 0.32);
+}
+
+.source-drop-preview--new-track .source-drop-clip {
+  border-style: dashed;
+}
+
+.source-drop-clip__thumb {
+  flex: 0 1 42px;
+  min-width: 0;
+  border-radius: 9px 0 0 9px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.12), transparent),
+    repeating-linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.06) 0,
+      rgba(255, 255, 255, 0.06) 6px,
+      transparent 6px,
+      transparent 12px
+    );
+  background-position: center;
+  background-size: cover;
+}
+
+.source-drop-clip__waveform {
+  position: absolute;
+  top: 0;
+  height: 100%;
+}
+
+.source-drop-clip__glyph {
+  flex: 0 1 42px;
+  min-width: 0;
+  height: 18px;
+  align-self: center;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+/* Narrower than its label, the clip lets the label run past its end, like a
+   short clip card. */
+.source-drop-clip__body {
+  position: relative;
+  flex: 1 0 auto;
+  padding: 8px 10px;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.source-drop-clip__body span,
+.source-drop-clip__body small {
+  display: block;
+}
+
+.source-drop-clip__body span {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.source-drop-clip__body small {
+  margin-top: 4px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
 @media (max-width: 560px) {
   .source-header--empty {
     grid-template-columns: 1fr;
