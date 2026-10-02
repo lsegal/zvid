@@ -166,6 +166,8 @@ test("source clip menu copies to a chosen layer, and clip menu pastes at the pla
   );
   await page.keyboard.press("Shift+F10");
   await expect(clipMenu).toBeVisible();
+  // The menu takes focus a tick after it opens; keys before that are lost.
+  await expect(clipMenu).toBeFocused();
   await page.keyboard.press("End");
   await expect(menuItem(page, "Delete")).toHaveAttribute(
     "data-highlighted",

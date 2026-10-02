@@ -49,11 +49,11 @@ export type AnimationFrameContext = {
   bpm: number;
   // The session's frame rate, which animation timings are counted in.
   fps: number;
-  // The main audio at this frame, which Reactive mode follows.
+  // The audio mix at this frame, which Reactive mode follows.
   audio?: AudioBands;
 };
 
-// Whether `effect`'s animation follows the main audio. Effects that don't
+// Whether `effect`'s animation follows the audio mix. Effects that don't
 // support Reactive mode never do.
 export function reactsToAudio(
   effect: Pick<AnimatableEffect, "animation" | "effectName">,

@@ -104,7 +104,7 @@ test("source clip properties edit Start, Length and Offset, clamped to the media
   await expect(offset).toHaveAttribute("aria-valuetext", "0.0.0");
 
   // Switching the timeline to timecode shows the same values as timecode.
-  await page.getByRole("button", { name: "SMPTE", exact: true }).click();
+  await page.getByRole("button", { name: "Time", exact: true }).click();
   await expect(start).toHaveAttribute("aria-valuetext", "00:00:00");
   await expect(length).toHaveAttribute("aria-valuetext", "00:04:00");
   await page.getByRole("button", { name: "Tempo", exact: true }).click();

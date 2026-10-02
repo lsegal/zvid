@@ -11,6 +11,7 @@ import {
   quartersToSeconds,
 } from "../app/timeline-math.ts";
 import type { ProjectState } from "../app/types.ts";
+import { resolveAudioClips } from "../audio-mix/resolve.ts";
 import {
   describeClipMediaState,
   describeMediaAvailability,
@@ -104,6 +105,28 @@ export function usePreview({
       }),
     [bpm, lanes, sourceSpans, sourceTracks, timelineClips, timelineEffects],
   );
+  // What the preview hears, resolved apart from what it draws.
+  const audioMix = useMemo(
+    () =>
+      resolveAudioClips({
+        clips: timelineClips,
+        lanes,
+        sourceTracks,
+        sourceSpans,
+        mediaById: mediaItemsById,
+        bpm,
+        effects: timelineEffects,
+      }),
+    [
+      bpm,
+      lanes,
+      mediaItemsById,
+      sourceSpans,
+      sourceTracks,
+      timelineClips,
+      timelineEffects,
+    ],
+  );
   const renderLanePriority = useMemo(
     () =>
       render.fromSourceTracks
@@ -195,6 +218,7 @@ export function usePreview({
     renderLanes: render.lanes,
     renderEffects: render.effects,
     renderFromSourceTracks: render.fromSourceTracks,
+    audioMix,
     previewMedia,
     previewMediaState,
     hasOnlinePlayheadClip,

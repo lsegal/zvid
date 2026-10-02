@@ -1,0 +1,43 @@
+name: Set up Playwright
+description: Install pnpm, Node 22 and a package's dependencies, then Playwright's Chromium (cached by Playwright version) and its system dependencies.
+
+inputs:
+  dir:
+    description: The package directory whose Playwright runs the tests (app or daw/ui).
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v4
+      with:
+        version: 10
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: pnpm
+        cache-dependency-path: ${{ inputs.dir }}/pnpm-lock.yaml
+
+    - name: Install dependencies
+      shell: bash
+      working-directory: ${{ inputs.dir }}
+      run: pnpm install --frozen-lockfile
+
+    - name: Get Playwright version
+      id: playwright
+      shell: bash
+      working-directory: ${{ inputs.dir }}
+      run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+    - uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-chromium-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+    # Downloads Chromium only on a cache miss; the system packages are
+    # installed every time.
+    - name: Install Chromium
+      shell: bash
+      working-directory: ${{ inputs.dir }}
+      run: pnpm exec playwright install --with-deps chromium
