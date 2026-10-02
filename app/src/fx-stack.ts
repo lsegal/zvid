@@ -1,5 +1,6 @@
 // A layer's effect stack is the ordered subset of the project's `effects`
-// array that shares one `trackId` (a Layer id, a clip's `clip:<clipId>` or
+// array that shares one `trackId` (a Layer id, a clip's `clip:<clipId>`, a
+// source track's `source-track:<id>`, a source clip's `source-clip:<id>` or
 // GLOBAL_EFFECT_TRACK_ID). Array order is stack order. The helpers are pure: each returns a new
 // `effects` array, or the same array when nothing changed so history
 // commits can skip no-op edits.
@@ -10,12 +11,19 @@
 export {
   clipEffectTrackId,
   copyClipEffects,
+  copyEffectStacks,
   GLOBAL_EFFECT_TRACK_ID,
   getEffectClipId,
+  getEffectSourceSpanId,
+  getEffectSourceTrackId,
   getTrackGroup,
   previewDuplicateClipEffects,
   pruneClipEffects,
+  pruneSourceEffects,
   renameClipEffectTracks,
+  renameSourceClipEffectTracks,
+  sourceClipEffectTrackId,
+  sourceTrackEffectTrackId,
 } from "./fx/stack/clip-stacks.ts";
 export {
   mapSessionEffectsToDevices,

@@ -80,10 +80,11 @@ export type PreviewPanelProps = Pick<
   // tracks rendered as layers when there are no layer clips.
   renderClips: ArrangementClip[];
   renderLanes: Lane[];
+  // The effects the render clips draw with (see resolveRenderClips).
+  renderEffects: SessionEffect[];
   renderFromSourceTracks: boolean;
   selectedClip: ArrangementClip | undefined;
   timelineDragState: TimelineDragState | null;
-  timelineEffects: SessionEffect[];
 };
 
 const PREVIEW_TABS = [
@@ -132,13 +133,13 @@ export function PreviewPanel({
   previewVolume,
   projectDurationFrames,
   renderClips,
+  renderEffects,
   renderFromSourceTracks,
   renderLanes,
   selectPreviewLayer,
   selectedClip,
   textEdit,
   timelineDragState,
-  timelineEffects,
   transformPreviewLayer,
 }: PreviewPanelProps) {
   const { previewTab, previewMediaItem: mediaItem } = mediaPreview;
@@ -215,7 +216,7 @@ export function PreviewPanel({
             canvasHeight={canvasHeight}
             canvasWidth={canvasWidth}
             clips={renderClips}
-            effects={timelineEffects}
+            effects={renderEffects}
             isPlaying={isPlaying}
             isScrubbing={Boolean(timelineDragState)}
             isAudibleScrubbing={isTimelineAudibleScrubbing}

@@ -6,7 +6,6 @@ import {
   editSourceClipField,
   getKnownMediaDurationSeconds,
   getSourceClipLimits,
-  getSourceClipPanelTitle,
   getSourceClipValues,
 } from "./source-clip-properties.ts";
 
@@ -170,18 +169,5 @@ describe("editSourceClipField", () => {
 
     assert.equal(editSourceClipField(spans, "a", "start", 0, BPM), spans);
     assert.equal(editSourceClipField(spans, "missing", "start", 2, BPM), spans);
-  });
-});
-
-describe("getSourceClipPanelTitle", () => {
-  it("names the clip and its track", () => {
-    assert.equal(
-      getSourceClipPanelTitle("Intro", "Camera A"),
-      "Source Clip Properties: Intro (Camera A)",
-    );
-    assert.equal(
-      getSourceClipPanelTitle("  ", undefined),
-      "Source Clip Properties: Untitled",
-    );
   });
 });

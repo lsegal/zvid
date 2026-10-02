@@ -65,10 +65,14 @@ test("selects source tracks and source clips instead of layers and clips", async
   await expect(labelName).toHaveAttribute("aria-current", "true");
   await expect(span).not.toHaveClass(/source-span--selected/);
   await expectNoLayerSelected(page);
-  // The FX panel shows no layer's effects.
-  await expect(
-    page.getByText("Select a layer to see its effects"),
-  ).toBeVisible();
+  // The FX panel shows the source track's own stack, not a layer's.
+  await expect(page.locator(".fx-chain [data-fx-divider]")).toHaveText([
+    "Global",
+    "Track",
+  ]);
+  await expect(page.getByText("Select a layer to see its effects")).toHaveCount(
+    0,
+  );
 
   // A source clip selects the clip and makes its track the active one.
   await span.click();

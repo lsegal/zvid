@@ -5,6 +5,8 @@ import {
   clipEffectTrackId,
   createEffect,
   type SessionEffect,
+  sourceClipEffectTrackId,
+  sourceTrackEffectTrackId,
 } from "./fx-stack.ts";
 import {
   createProjectHistoryState,
@@ -168,6 +170,42 @@ describe("duplicateSourceTrack", () => {
     assert.equal(result.effects, project.effects);
   });
 
+  it("copies the track's and its spans' own stacks to the copies", () => {
+    const base = makeProject();
+    const project: Project = {
+      ...base,
+      effects: [
+        ...base.effects,
+        createEffect(sourceTrackEffectTrackId("b"), "Blur", "blur-b"),
+        createEffect(sourceClipEffectTrackId("b2"), "Pixelate", "pixelate-b2"),
+        createEffect(sourceTrackEffectTrackId("a"), "Blur", "blur-a"),
+      ],
+    };
+    let next = 0;
+    const result = duplicateSourceTrack(
+      project,
+      "b",
+      "copy",
+      () => `span-new-${++next}`,
+    );
+
+    // The originals keep their stacks, and the copies get their own.
+    assert.deepEqual(result.effects.slice(0, 6), project.effects);
+    const copies = result.effects.slice(6);
+    assert.deepEqual(
+      copies.map((effect) => [effect.trackId, effect.effectName]),
+      [
+        [sourceTrackEffectTrackId("copy"), "Blur"],
+        [sourceClipEffectTrackId("span-new-2"), "Pixelate"],
+      ],
+    );
+    assert.ok(
+      copies.every(
+        (effect) => !project.effects.some(({ id }) => id === effect.id),
+      ),
+    );
+  });
+
   it("is unchanged for a missing track", () => {
     const project = makeProject();
     assert.equal(
@@ -187,6 +225,25 @@ describe("deleteSourceTrack", () => {
     assert.deepEqual(ids(result.clips), ["c2", "c4"]);
     // The removed clips' own stacks go; the layer's stays.
     assert.deepEqual(ids(result.effects), ["blur-layer"]);
+  });
+
+  it("removes the track's and its spans' own stacks", () => {
+    const base = makeProject();
+    const project: Project = {
+      ...base,
+      effects: [
+        ...base.effects,
+        createEffect(sourceTrackEffectTrackId("b"), "Blur", "blur-b"),
+        createEffect(sourceClipEffectTrackId("b1"), "Blur", "blur-b1"),
+        createEffect(sourceTrackEffectTrackId("a"), "Blur", "blur-a"),
+        createEffect(sourceClipEffectTrackId("a1"), "Blur", "blur-a1"),
+      ],
+    };
+    assert.deepEqual(ids(deleteSourceTrack(project, "b").effects), [
+      "blur-layer",
+      "blur-a",
+      "blur-a1",
+    ]);
   });
 
   it("keeps the effects as they are when no clip goes", () => {

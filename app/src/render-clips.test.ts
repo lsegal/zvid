@@ -19,11 +19,17 @@ import {
 } from "./composition-layout.ts";
 import { getCompositionEndQ } from "./composition-progress.ts";
 import { resolveEffectChain } from "./fx-shaders/registry.ts";
-import { clipEffectTrackId, getRenderedEffects } from "./fx-stack.ts";
+import {
+  clipEffectTrackId,
+  getRenderedEffects,
+  sourceClipEffectTrackId,
+  sourceTrackEffectTrackId,
+} from "./fx-stack.ts";
 import {
   hasRenderableContent,
   isSourceRenderId,
   resolveRenderClips,
+  resolveRenderEffects,
   sourceRenderClipId,
   sourceRenderLaneId,
 } from "./render-clips.ts";
@@ -100,14 +106,27 @@ const LAYER_CLIP: ArrangementClip = {
   accent: "#fff",
 };
 
-function fallback(spans = SPANS, tracks = TRACKS) {
+function fallback(
+  spans = SPANS,
+  tracks = TRACKS,
+  effects: SessionEffect[] = [],
+) {
   return resolveRenderClips({
     clips: [],
     lanes: LANES,
     sourceTracks: tracks,
     sourceSpans: spans,
     bpm: BPM,
+    effects,
   });
+}
+
+function effect(
+  id: string,
+  trackId: string,
+  effectName: string,
+): SessionEffect {
+  return { id, trackId, effectName, parameters: [] };
 }
 
 function priorityOf(lanes: Lane[]) {
@@ -117,15 +136,20 @@ function priorityOf(lanes: Lane[]) {
 describe("resolveRenderClips", () => {
   it("passes the arrangement through once it has any layer clip", () => {
     const clips = [LAYER_CLIP];
+    const effects = [
+      effect("track", sourceTrackEffectTrackId("a"), "AnalogGlitch"),
+    ];
     const render = resolveRenderClips({
       clips,
       lanes: LANES,
       sourceTracks: TRACKS,
       sourceSpans: SPANS,
       bpm: BPM,
+      effects,
     });
     assert.equal(render.clips, clips);
     assert.equal(render.lanes, LANES);
+    assert.equal(render.effects, effects);
     assert.equal(render.fromSourceTracks, false);
   });
 
@@ -200,6 +224,30 @@ describe("resolveRenderClips", () => {
     );
   });
 
+  it("moves source track and clip stacks onto the virtual ids", () => {
+    const effects = [
+      effect("global", GROUP_TRACK_ID, "Pixelate"),
+      effect("track", sourceTrackEffectTrackId("a"), "AnalogGlitch"),
+      effect("span", sourceClipEffectTrackId("a-1"), "Colorize"),
+      effect("layer", "1", "Colorize"),
+    ];
+    assert.deepEqual(
+      fallback(SPANS, TRACKS, effects).effects.map((entry) => [
+        entry.id,
+        entry.trackId,
+      ]),
+      [
+        ["global", GROUP_TRACK_ID],
+        ["track", "source-render:a"],
+        ["span", clipEffectTrackId("source-render:a-1")],
+        ["layer", "1"],
+      ],
+    );
+    // Without source stacks the effects pass through as they are.
+    const plain = [effects[0], effects[3]];
+    assert.equal(resolveRenderEffects(plain), plain);
+  });
+
   it("ends the session with the last span", () => {
     // b-2 ends at quarter 16 + 2s = quarter 20.
     assert.equal(getCompositionEndQ(fallback().clips, BPM), 20);
@@ -219,14 +267,14 @@ describe("hasRenderableContent", () => {
 
 describe("source tracks rendered as layers", () => {
   function activeAt(playheadQ: number, effects: SessionEffect[] = []) {
-    const render = fallback();
+    const render = fallback(SPANS, TRACKS, effects);
     return computeActiveClips(
       render.clips,
       MEDIA,
       playheadQ,
       BPM,
       priorityOf(render.lanes),
-      getRenderedEffects(effects, render.lanes, render.clips),
+      getRenderedEffects(render.effects, render.lanes, render.clips),
     );
   }
 
@@ -260,28 +308,34 @@ describe("source tracks rendered as layers", () => {
     assert.equal(byId.get("source-render:b-1")?.mediaTime, 1.5);
   });
 
-  it("applies only the Global stack", () => {
-    function effect(
-      id: string,
-      trackId: string,
-      effectName: string,
-    ): SessionEffect {
-      return { id, trackId, effectName, parameters: [] };
-    }
-    // Stacks stored for real layers, clips and the source tracks' own ids
-    // never reach the virtual layers.
+  it("applies Global, then each source track's and source clip's stacks", () => {
+    // Stacks stored for real layers and clips, and under the source tracks'
+    // and spans' bare ids, never reach the virtual layers.
     const effects = [
       effect("global", GROUP_TRACK_ID, "Pixelate"),
       effect("layer", "1", "Colorize"),
       effect("track", "a", "Colorize"),
       effect("clip", clipEffectTrackId(LAYER_CLIP.id), "Colorize"),
       effect("span", clipEffectTrackId("a-1"), "Colorize"),
+      effect("track-a", sourceTrackEffectTrackId("a"), "AnalogGlitch"),
+      effect("clip-a-1", sourceClipEffectTrackId("a-1"), "NegativeSplit"),
+      effect("clip-b-2", sourceClipEffectTrackId("b-2"), "Colorize"),
     ];
     const active = activeAt(3, effects);
     assert.equal(active.length, 2);
-    for (const entry of active) {
-      assert.deepEqual(entry.effectChain, []);
-    }
+    const chains = new Map(
+      active.map((entry) => [
+        entry.clip.id,
+        entry.effectChain.map((step) => step.pass.effectName),
+      ]),
+    );
+    // A clip's own stack runs on its pixels before its track's, as on a
+    // layer; b-1 has no stacks of its own or on its track.
+    assert.deepEqual(chains.get("source-render:a-1"), [
+      "NegativeSplit",
+      "AnalogGlitch",
+    ]);
+    assert.deepEqual(chains.get("source-render:b-1"), []);
     const composite = resolveEffectChain(
       resolveFrameEffects(effects, active, 3, BPM),
       GROUP_TRACK_ID,

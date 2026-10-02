@@ -16,11 +16,7 @@ import {
 } from "../../fx-registry.ts";
 import { parseFontChoice } from "../../text-fonts.ts";
 import { isTextEffectName } from "../../text-style.ts";
-import {
-  clipEffectTrackId,
-  GLOBAL_EFFECT_TRACK_ID,
-  getTrackGroup,
-} from "./clip-stacks.ts";
+import { GLOBAL_EFFECT_TRACK_ID, getTrackGroup } from "./clip-stacks.ts";
 import { isLayerLayoutEffect } from "./layer-fx.ts";
 import { findParameterDefinition } from "./ops.ts";
 import type {
@@ -301,7 +297,7 @@ export const ORDER_RUNS_FIRST_NOTE =
   "Arranges the layers before the effects to its left";
 
 // Devices for a layer: the layer's own stack, then the Global stack, then
-// the selected clip's own stack (`clipId`), which is processed first.
+// the selected clip's own stack (`clipTrackId`), which is processed first.
 export function mapSessionEffectsToDevices(
   effects: SessionEffect[],
   laneId: string | undefined,
@@ -312,8 +308,9 @@ export function mapSessionEffectsToDevices(
   activeLayerIds: readonly string[] = [],
   // Fonts that could not be loaded, for the Text device's warning.
   missingFonts: ReadonlySet<string> = new Set(),
-  // The selected clip, whose own stack is listed too.
-  clipId?: string,
+  // The selected clip's own stack, such as `clipEffectTrackId(clipId)`,
+  // which is listed too.
+  clipTrackId?: string,
   // "fxClip" when the selected clip is an FX clip.
   clipScope: FxEffectScope = "clip",
   // Ids of the layers beneath the selected FX clip at the playhead, for the
@@ -326,8 +323,6 @@ export function mapSessionEffectsToDevices(
   const globalDevices = effects
     .filter((effect) => effect.trackId === GLOBAL_EFFECT_TRACK_ID)
     .map((effect) => toDevice(effect, layerName, activeLayerIds));
-  const clipTrackId =
-    clipId === undefined ? undefined : clipEffectTrackId(clipId);
   const clipDevices = effects
     .filter((effect) => effect.trackId === clipTrackId)
     .map((effect, index) => {

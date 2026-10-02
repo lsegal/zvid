@@ -9,6 +9,7 @@ import {
   getFxKind,
   getPlayheadVisualLaneIds,
   getSelectedFxClipRank,
+  getSourceFxStacks,
   isBeneathFxClipRank,
 } from "./fx-panel-model.ts";
 import type { ArrangementClip, Lane } from "./types.ts";
@@ -151,5 +152,44 @@ describe("getFxClipScope", () => {
     assert.equal(getFxClipScope(fxClip), "fxClip");
     assert.equal(getFxClipScope(clip), "clip");
     assert.equal(getFxClipScope(undefined), "clip");
+  });
+});
+
+describe("getSourceFxStacks", () => {
+  const tracks = [{ id: "t1", name: "Camera A" }];
+  const spans = [{ id: "s1", label: "  ", mediaId: "m1" }];
+
+  it("is undefined without a source selection", () => {
+    assert.equal(getSourceFxStacks(undefined, tracks, spans), undefined);
+  });
+
+  it("shows a selected source track's own stack", () => {
+    assert.deepEqual(
+      getSourceFxStacks({ sourceTrackId: "t1" }, tracks, spans),
+      {
+        trackStackId: "source-track:t1",
+        trackName: "Camera A",
+        clipStackId: undefined,
+        clipName: undefined,
+        mediaId: undefined,
+      },
+    );
+  });
+
+  it("shows a selected source clip's stack after its track's", () => {
+    assert.deepEqual(
+      getSourceFxStacks(
+        { sourceTrackId: "t1", sourceSpanId: "s1" },
+        tracks,
+        spans,
+      ),
+      {
+        trackStackId: "source-track:t1",
+        trackName: "Camera A",
+        clipStackId: "source-clip:s1",
+        clipName: "Untitled",
+        mediaId: "m1",
+      },
+    );
   });
 });

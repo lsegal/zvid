@@ -6,11 +6,22 @@ import {
   getFxKind,
   getPlayheadVisualLaneIds,
   getSelectedFxClipRank,
+  getSourceFxStacks,
   isBeneathFxClipRank,
 } from "../app/fx-panel-model.ts";
-import type { ArrangementClip, Lane } from "../app/types.ts";
+import type { SourceSelection } from "../app/source-selection.ts";
+import type {
+  ArrangementClip,
+  Lane,
+  SourceSpan,
+  SourceTrack,
+} from "../app/types.ts";
 import { getFxPanelTitle, resolveSelectedLaneId } from "../fx-chain";
-import { mapSessionEffectsToDevices, type SessionEffect } from "../fx-stack";
+import {
+  clipEffectTrackId,
+  mapSessionEffectsToDevices,
+  type SessionEffect,
+} from "../fx-stack";
 import type { MediaItem } from "../media";
 import { getMissingFonts, subscribeFonts } from "../text-fonts.ts";
 
@@ -19,8 +30,10 @@ export type FxPanelModelInputs = {
   effects: SessionEffect[];
   selectedLaneId: string | undefined;
   selectedClip: ArrangementClip | undefined;
-  // A source track or clip is selected instead of a layer or clip.
-  isSourceSelected: boolean;
+  // The source track or clip selected instead of a layer or clip.
+  sourceSelection: SourceSelection | undefined;
+  sourceTracks: SourceTrack[];
+  sourceSpans: SourceSpan[];
   mediaItemsById: ReadonlyMap<string, MediaItem>;
   lanePriority: ReadonlyMap<string, number>;
   timelineClips: ArrangementClip[];
@@ -29,29 +42,40 @@ export type FxPanelModelInputs = {
 };
 
 // The FX panel's layer, clip, devices and Order layer lists for the current
-// selection.
+// selection. A source selection shows its source track's and source clip's
+// stacks in place of a layer's and a layer clip's.
 export function useFxPanelModel({
   lanes,
   effects,
   selectedLaneId,
   selectedClip,
-  isSourceSelected,
+  sourceSelection,
+  sourceTracks,
+  sourceSpans,
   mediaItemsById,
   lanePriority,
   timelineClips,
   playheadQ,
   bpm,
 }: FxPanelModelInputs) {
+  const sourceStacks = useMemo(
+    () => getSourceFxStacks(sourceSelection, sourceTracks, sourceSpans),
+    [sourceSelection, sourceSpans, sourceTracks],
+  );
   // A source selection has no layer, so the panel shows no layer's effects.
   const fxLaneId = useMemo(
     () =>
-      isSourceSelected
+      sourceStacks
         ? undefined
         : resolveSelectedLaneId(lanes, effects, selectedLaneId, selectedClip),
-    [effects, isSourceSelected, selectedClip, lanes, selectedLaneId],
+    [effects, sourceStacks, selectedClip, lanes, selectedLaneId],
   );
   const fxLane = lanes.find((lane) => lane.id === fxLaneId);
-  const fxKind = getFxKind(selectedClip, mediaItemsById);
+  const fxKind = sourceStacks
+    ? sourceStacks.mediaId
+      ? mediaItemsById.get(sourceStacks.mediaId)?.kind
+      : undefined
+    : getFxKind(selectedClip, mediaItemsById);
   const playheadVisualLaneIds = useMemo(
     () =>
       getPlayheadVisualLaneIds(timelineClips, mediaItemsById, playheadQ, bpm),
@@ -89,34 +113,42 @@ export function useFxPanelModel({
   const missingFonts = useSyncExternalStore(subscribeFonts, getMissingFonts);
   const fxClip = getFxClip(selectedClip, fxLaneId, effects);
   const fxClipId = fxClip?.id;
-  const fxClipName = fxClip?.name;
   const fxClipScope = getFxClipScope(selectedClip);
+  // The stacks the chain's Layer (or Track) and Clip sections show.
+  const fxLayerTrackId = sourceStacks ? sourceStacks.trackStackId : fxLaneId;
+  const fxLayerName = sourceStacks ? sourceStacks.trackName : fxLane?.name;
+  const fxClipTrackId = sourceStacks
+    ? sourceStacks.clipStackId
+    : fxClipId === undefined
+      ? undefined
+      : clipEffectTrackId(fxClipId);
+  const fxClipName = sourceStacks ? sourceStacks.clipName : fxClip?.name;
   const fxDevices = useMemo(
     () =>
-      fxLaneId
+      fxLayerTrackId
         ? mapSessionEffectsToDevices(
             effects,
-            fxLaneId,
-            fxLane?.name,
+            fxLayerTrackId,
+            fxLayerName,
             playheadVisualLayerIds,
             missingFonts,
-            fxClipId,
+            fxClipTrackId,
             fxClipScope,
             fxClipLayerIds,
           )
         : [],
     [
       effects,
-      fxClipId,
       fxClipLayerIds,
       fxClipScope,
-      fxLane?.name,
-      fxLaneId,
+      fxClipTrackId,
+      fxLayerName,
+      fxLayerTrackId,
       missingFonts,
       playheadVisualLayerIds,
     ],
   );
-  const fxPanelTitle = getFxPanelTitle(fxLane?.name, fxClipName);
+  const fxPanelTitle = getFxPanelTitle(fxLayerName, fxClipName);
 
   return {
     fxLaneId,
@@ -125,6 +157,11 @@ export function useFxPanelModel({
     fxClipId,
     fxClipName,
     fxClipScope,
+    fxLayerTrackId,
+    fxLayerName,
+    // A source selection's track-level section is its source track's.
+    fxLayerLabel: sourceStacks ? "Track" : "Layer",
+    fxClipTrackId,
     orderLayerOptions,
     fxClipLayerOptions,
     missingFonts,

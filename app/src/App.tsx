@@ -159,7 +159,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     effects,
     selectedLaneId: selection.selectedLaneId,
     selectedClip,
-    isSourceSelected: selection.sourceSelection !== undefined,
+    sourceSelection: selection.sourceSelection,
+    sourceTracks,
+    sourceSpans: project.sourceSpans,
     mediaItemsById,
     lanePriority,
     timelineClips,
@@ -168,7 +170,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   });
   const sourceClip = useSourceClipProperties({
     sourceSelection: selection.sourceSelection,
-    sourceTracks,
     sourceSpans: project.sourceSpans,
     timelineSourceSpans: selection.timelineSourceSpans,
     setDragPreviewSourceSpans: selection.setDragPreviewSourceSpans,
@@ -580,7 +581,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 projectDurationFrames={project.projectDurationFrames}
                 selectedClip={selectedClip}
                 timelineDragState={selection.timelineDragState}
-                timelineEffects={timelineEffects}
               />
             </div>
 
