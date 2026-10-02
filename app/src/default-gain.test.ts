@@ -1,7 +1,19 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { addDefaultGain, migrateDefaultGain } from "./default-gain.ts";
-import type { SessionEffect } from "./fx-stack.ts";
+import {
+  addDefaultGain,
+  migrateDefaultGain,
+  pruneDefaultGain,
+} from "./default-gain.ts";
+import {
+  createEffect,
+  duplicateEffect,
+  moveEffect,
+  resetEffect,
+  type SessionEffect,
+  setEffectEnabled,
+  setEffectParameter,
+} from "./fx-stack.ts";
 import type { MediaItem } from "./media.ts";
 
 function media(
@@ -188,5 +200,90 @@ describe("migrateDefaultGain", () => {
   it("leaves a session saved since as it is", () => {
     const effects: SessionEffect[] = [];
     assert.equal(migrateDefaultGain(effects, targets, MEDIA, true), effects);
+  });
+});
+
+describe("pruneDefaultGain", () => {
+  const targets = {
+    clips: [
+      { id: "c1", mediaId: "take" },
+      { id: "v", mediaId: "silent" },
+      { id: "p", mediaId: "pending" },
+    ],
+    sourceSpans: [
+      { id: "s1", mediaId: "song" },
+      { id: "s2", mediaId: "silent" },
+    ],
+  };
+  // An older session opened before any of its media was read.
+  const UNREAD = MEDIA.map((item) => media(item.id, false, 0));
+  const migrated = () =>
+    migrateDefaultGain([], targets, UNREAD, undefined, ids());
+
+  it("marks the Gains an older session's open adds", () => {
+    const effects = migrated();
+    assert.equal(effects.length, 5);
+    assert.ok(effects.every((effect) => effect.defaulted === true));
+    assert.equal(addDefaultGain([], targets, UNREAD)[0]?.defaulted, undefined);
+  });
+
+  it("drops them from clips of media read to have no sound", () => {
+    assert.deepEqual(gainStacks(pruneDefaultGain(migrated(), targets, MEDIA)), [
+      "clip:c1",
+      "clip:p",
+      "source-clip:s1",
+    ]);
+  });
+
+  it("keeps them while the media is not read or not in the project", () => {
+    const effects = migrated();
+    assert.equal(pruneDefaultGain(effects, targets, UNREAD), effects);
+    assert.equal(pruneDefaultGain(effects, targets, []), effects);
+  });
+
+  it("keeps a Gain added by hand", () => {
+    const effects = addDefaultGain([], targets, UNREAD, ids());
+    assert.equal(pruneDefaultGain(effects, targets, MEDIA), effects);
+  });
+
+  it("keeps a Gain edited since it was added", () => {
+    const silentGain = (effects: SessionEffect[]) => {
+      const gain = effects.find((effect) => effect.trackId === "clip:v");
+      assert.ok(gain);
+      return gain.id;
+    };
+    const edits = [
+      (effects: SessionEffect[]) =>
+        setEffectParameter(effects, silentGain(effects), "Gain", -6),
+      (effects: SessionEffect[]) =>
+        setEffectEnabled(effects, silentGain(effects), false),
+      (effects: SessionEffect[]) =>
+        resetEffect(
+          setEffectParameter(effects, silentGain(effects), "Gain", -6),
+          silentGain(effects),
+        ),
+      (effects: SessionEffect[]) =>
+        moveEffect(
+          [...effects, createEffect("clip:v", "Gain", "x")],
+          silentGain(effects),
+          1,
+        ),
+    ];
+    for (const edit of edits) {
+      const edited = edit(migrated());
+      assert.ok(
+        gainStacks(pruneDefaultGain(edited, targets, MEDIA)).includes("clip:v"),
+      );
+    }
+  });
+
+  it("keeps a copy the user made of a defaulted Gain", () => {
+    const effects = migrated();
+    const original = effects.find((effect) => effect.trackId === "clip:v");
+    assert.ok(original);
+    const copied = duplicateEffect(effects, original.id, "copy");
+    const pruned = pruneDefaultGain(copied, targets, MEDIA);
+    assert.ok(pruned.some((effect) => effect.id === "copy"));
+    assert.ok(!pruned.some((effect) => effect.id === original.id));
   });
 });

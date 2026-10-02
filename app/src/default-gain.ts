@@ -1,6 +1,8 @@
 // Every clip with sound gets a Gain at 0 dB in its own stack when it is
 // made, since a clip makes sound only through Gain. Copies carry their
 // stack instead, so a copy of a clip whose Gain was removed stays silent.
+// An older session's clips get theirs on open, before their media is read,
+// and lose it again once their media turns out to have no sound.
 
 import { GAIN_EFFECT_NAME, isGainEffectName } from "./fx/effects/gain/gain.ts";
 import {
@@ -54,12 +56,14 @@ function audioStackIds(
 
 // Gives each of `targets` that may have sound a Gain at 0 dB, at the end of
 // its own stack, unless the stack already has a Gain. Returns `effects`
-// itself when none needs one.
+// itself when none needs one. `defaulted` marks the Gains so they can be
+// dropped again if their media turns out to have no sound.
 export function addDefaultGain(
   effects: SessionEffect[],
   targets: DefaultGainTargets,
   mediaItems: readonly GainMedia[],
   createId: () => string = () => crypto.randomUUID(),
+  defaulted = false,
 ) {
   const withGain = new Set(
     effects
@@ -69,7 +73,10 @@ export function addDefaultGain(
   const added = audioStackIds(targets, mediaItems)
     .filter((trackId) => !withGain.has(trackId))
     .filter((trackId, index, ids) => ids.indexOf(trackId) === index)
-    .map((trackId) => createEffect(trackId, GAIN_EFFECT_NAME, createId()));
+    .map((trackId) => ({
+      ...createEffect(trackId, GAIN_EFFECT_NAME, createId()),
+      ...(defaulted ? { defaulted } : {}),
+    }));
   return added.length ? [...effects, ...added] : effects;
 }
 
@@ -77,7 +84,8 @@ export function addDefaultGain(
 // gives each source clip and layer clip that may have sound a Gain at 0 dB,
 // so it sounds as it did. A session saved since carries
 // `audioGainDefaulted` and opens with its stacks as saved, so a Gain the
-// user removed stays removed.
+// user removed stays removed. The Gains added are marked `defaulted`, since
+// media not read yet may turn out to have no sound (pruneDefaultGain).
 export function migrateDefaultGain(
   effects: SessionEffect[],
   targets: DefaultGainTargets,
@@ -87,5 +95,40 @@ export function migrateDefaultGain(
 ) {
   return audioGainDefaulted === true
     ? effects
-    : addDefaultGain(effects, targets, mediaItems, createId);
+    : addDefaultGain(effects, targets, mediaItems, createId, true);
+}
+
+// Drops the Gains an older session's open gave to clips whose media, now
+// read, has no sound. A Gain the user has edited since, or added, is kept.
+// Returns `effects` itself when none is dropped.
+export function pruneDefaultGain(
+  effects: SessionEffect[],
+  targets: DefaultGainTargets,
+  mediaItems: readonly GainMedia[],
+) {
+  if (!effects.some((effect) => effect.defaulted)) {
+    return effects;
+  }
+  const mediaById = new Map(mediaItems.map((item) => [item.id, item]));
+  const isSilent = (mediaId: string | undefined) =>
+    mediaId !== undefined &&
+    mediaById.has(mediaId) &&
+    !mayHaveAudio(mediaId, mediaById);
+  const silentStacks = new Set([
+    ...(targets.clips ?? [])
+      .filter((clip) => isSilent(clip.mediaId))
+      .map((clip) => clipEffectTrackId(clip.id)),
+    ...(targets.sourceSpans ?? [])
+      .filter((span) => isSilent(span.mediaId))
+      .map((span) => sourceClipEffectTrackId(span.id)),
+  ]);
+  const kept = effects.filter(
+    (effect) =>
+      !(
+        effect.defaulted &&
+        isGainEffectName(effect.effectName) &&
+        silentStacks.has(effect.trackId)
+      ),
+  );
+  return kept.length === effects.length ? effects : kept;
 }
