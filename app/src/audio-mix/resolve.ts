@@ -7,15 +7,24 @@
 import { quartersToSeconds } from "../app/timeline-math.ts";
 import type { ClipWarp } from "../clip-warp.ts";
 import {
+  gainChainAmplitude,
+  masterGainAmplitude,
+} from "../fx/effects/gain/gain.ts";
+import {
   clipEffectTrackId,
   GLOBAL_EFFECT_TRACK_ID,
   sourceClipEffectTrackId,
   sourceTrackEffectTrackId,
 } from "../fx/stack/clip-stacks.ts";
+import { isAudioEffectName } from "../fx-registry.ts";
 import { sourceRenderClipId } from "../render-clips.ts";
-import { chainAmplitude, type GainEffect, isAudioEffectName } from "./gain.ts";
 
-type AudioEffect = GainEffect & { trackId: string };
+type AudioEffect = {
+  trackId: string;
+  effectName: string;
+  enabled?: boolean;
+  parameters: readonly { key: string; value: string; numericValue?: number }[];
+};
 
 type AudioLayerClip = {
   id: string;
@@ -140,7 +149,7 @@ export function resolveAudioClips<Effect extends AudioEffect>({
     return {
       ...clip,
       effects: [...global, ...own],
-      amplitude: chainAmplitude(own),
+      amplitude: gainChainAmplitude(own),
     };
   };
 
@@ -166,7 +175,7 @@ export function resolveAudioClips<Effect extends AudioEffect>({
           clipEffectTrackId(clip.id),
         ),
       ),
-      masterAmplitude: chainAmplitude(global, 1),
+      masterAmplitude: masterGainAmplitude(global),
       fromSourceTracks: false,
       bpm,
     };
@@ -194,7 +203,7 @@ export function resolveAudioClips<Effect extends AudioEffect>({
           sourceClipEffectTrackId(span.id),
         );
       }),
-    masterAmplitude: chainAmplitude(global, 1),
+    masterAmplitude: masterGainAmplitude(global),
     fromSourceTracks: true,
     bpm,
   };

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { ClipWarp } from "../clip-warp.ts";
+import { gainToAmplitude as dbToAmplitude } from "../fx/effects/gain/gain.ts";
 import { sourceClipEffectTrackId } from "../fx/stack/clip-stacks.ts";
-import { dbToAmplitude } from "./gain.ts";
 import {
   audioMixEndSeconds,
   clipMediaTimeAt,
@@ -200,7 +200,7 @@ describe("renderAudioMix", () => {
       id: `gain-${spanId}`,
       trackId: sourceClipEffectTrackId(spanId),
       effectName: "Gain",
-      parameters: [{ key: "gain", value: "-6", numericValue: -6 }],
+      parameters: [{ key: "Gain", value: "-6", numericValue: -6 }],
     });
     const resolve = (effects: ReturnType<typeof gainAt>[]) =>
       resolveAudioClips({

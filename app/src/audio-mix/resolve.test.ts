@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { gainToAmplitude as dbToAmplitude } from "../fx/effects/gain/gain.ts";
 import {
   clipEffectTrackId,
   GLOBAL_EFFECT_TRACK_ID,
@@ -7,7 +8,6 @@ import {
   sourceTrackEffectTrackId,
 } from "../fx/stack/clip-stacks.ts";
 import { sourceRenderClipId } from "../render-clips.ts";
-import { chainAmplitude, dbToAmplitude, gainAmplitude } from "./gain.ts";
 import { type AudioMixInputs, resolveAudioClips } from "./resolve.ts";
 
 // At 120 BPM one quarter is half a second.
@@ -31,9 +31,9 @@ function gain(
     effectName: "Gain",
     ...(options.enabled === false ? { enabled: false } : {}),
     parameters: [
-      { key: "gain", value: String(db), numericValue: db },
+      { key: "Gain", value: String(db), numericValue: db },
       {
-        key: "mute",
+        key: "Mute",
         value: options.mute ? "1" : "0",
         numericValue: options.mute ? 1 : 0,
       },
@@ -87,36 +87,6 @@ function inputs(overrides: Partial<AudioMixInputs> = {}): AudioMixInputs {
     ...overrides,
   };
 }
-
-describe("Gain amplitude", () => {
-  it("maps dB to amplitude, with the bottom of the range silent", () => {
-    assert.equal(dbToAmplitude(0), 1);
-    assert.ok(Math.abs(dbToAmplitude(-6) - 0.501187) < 1e-6);
-    assert.ok(Math.abs(dbToAmplitude(10) - 3.162278) < 1e-6);
-    assert.equal(dbToAmplitude(-68), 0);
-    assert.equal(dbToAmplitude(-90), 0);
-    assert.ok(dbToAmplitude(-67.9) > 0);
-  });
-
-  it("silences a muted Gain at any level", () => {
-    assert.equal(gainAmplitude(gain("x", 6, { mute: true })), 0);
-  });
-
-  it("multiplies Gains in a chain, skipping bypassed ones", () => {
-    const amplitude = chainAmplitude([
-      gain("x", -6),
-      gain("x", -6),
-      gain("x", -40, { enabled: false }),
-    ]);
-    assert.ok(Math.abs(amplitude - dbToAmplitude(-12)) < 1e-9);
-  });
-
-  it("is silent without an enabled Gain, unless a fallback is given", () => {
-    assert.equal(chainAmplitude([]), 0);
-    assert.equal(chainAmplitude([gain("x", 0, { enabled: false })]), 0);
-    assert.equal(chainAmplitude([], 1), 1);
-  });
-});
 
 describe("resolveAudioClips", () => {
   it("plays the source clips with audio when no layer clip has audio", () => {
