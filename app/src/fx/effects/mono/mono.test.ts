@@ -35,11 +35,15 @@ function signal(
   channels: readonly ((index: number) => number)[],
 ) {
   const frames = Math.round(seconds * SAMPLE_RATE);
-  return channels.map((sample) => Float32Array.from({ length: frames }, (_, i) => sample(i)));
+  return channels.map((sample) =>
+    Float32Array.from({ length: frames }, (_, i) => sample(i)),
+  );
 }
 
-const sine = (hz: number, level = 0.5, phase = 0) => (index: number) =>
-  level * Math.sin((2 * Math.PI * hz * index) / SAMPLE_RATE + phase);
+const sine =
+  (hz: number, level = 0.5, phase = 0) =>
+  (index: number) =>
+    level * Math.sin((2 * Math.PI * hz * index) / SAMPLE_RATE + phase);
 
 // Deterministic noise, so failures reproduce.
 function noise(seed: number) {
