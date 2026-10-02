@@ -3879,6 +3879,48 @@
           "floatValue": 0
         }
       }
+    },
+    {
+      "id": "sample-fx-099",
+      "trackId": "clip:selection-2",
+      "effectName": "Refraction",
+      "parameters": {
+        "_Type": {
+          "stringValue": "Water"
+        },
+        "_Amount": {
+          "floatValue": 0.45
+        },
+        "_Scale": {
+          "floatValue": 0.4
+        },
+        "_Speed": {
+          "floatValue": 0.5
+        },
+        "_Angle": {
+          "floatValue": 90
+        },
+        "_Dispersion": {
+          "floatValue": 0.2
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": [
+            "_Amount"
+          ]
+        }
+      }
     }
   ],
   "timeline": {

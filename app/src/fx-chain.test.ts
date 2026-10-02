@@ -326,6 +326,7 @@ describe("addableEffectsFor", () => {
         "Pixelate",
         "NegativeSplit",
         "AnalogGlitch",
+        "Refraction",
         "Order",
       ]),
     );
@@ -345,6 +346,7 @@ describe("addableEffectsFor", () => {
         "Pixelate",
         "NegativeSplit",
         "AnalogGlitch",
+        "Refraction",
         "Transform",
         "Move",
         "Color",

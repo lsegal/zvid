@@ -207,8 +207,9 @@ zoomAndPan(
   { zoom: 1 },
   { zoom: 1.3 },
 );
+const CAPTURE_SHOT = cut("orbit", 0, 1.5, 1.5, 2, "capture");
 zoomAndPan(
-  clipTrack(cut("orbit", 0, 1.5, 1.5, 2, "capture")),
+  clipTrack(CAPTURE_SHOT),
   { zoom: 1.25, x: 0.45 },
   { zoom: 1.05, x: 0.55 },
 );
@@ -529,6 +530,28 @@ spans.push({
 });
 // A session clip loads as source clip `source-<id>`, whose stack this is.
 addEffect(`source-clip:source-${MUSIC_SPAN}`, "Gain", { Gain: 0, Mute: 0 });
+
+// ---- late effects --------------------------------------------------------
+
+// Added after the rest so the effects above keep their ids.
+
+// The capture shot is seen through rippling water, easing in and out with
+// the clip.
+addEffect(
+  clipTrack(CAPTURE_SHOT),
+  "Refraction",
+  {
+    _Type: "Water",
+    _Amount: 0.45,
+    _Scale: 0.4,
+    _Speed: 0.5,
+    _Angle: 90,
+    _Dispersion: 0.2,
+  },
+  {
+    animation: animation("clip", {}, { parameters: ["_Amount"] }),
+  },
+);
 
 // ---- session -------------------------------------------------------------
 

@@ -131,8 +131,7 @@ export const pass: EffectPass = {
       (clampUnit(readEffectNumber(params, "_Angle", 90), 0, 180) * Math.PI) /
       180;
     const dispersion =
-      DISPERSION_SPREAD *
-      clampUnit(readEffectNumber(params, "_Dispersion", 0));
+      DISPERSION_SPREAD * clampUnit(readEffectNumber(params, "_Dispersion", 0));
     const [width, height] = ctx.resolution;
     const short = Math.max(1, Math.min(width, height));
     gl.uniform1f(loc.uType, readRefractionType(params));

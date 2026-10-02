@@ -34,10 +34,7 @@ describe("Refraction pass", () => {
   });
 
   it("uses the definition's defaults when no parameters are set", () => {
-    const defaults = definition.parameters.map((p) => [
-      p.key,
-      p.defaultValue,
-    ]);
+    const defaults = definition.parameters.map((p) => [p.key, p.defaultValue]);
     assert.deepEqual(defaults, [
       ["_Type", "Water"],
       ["_Amount", 0.3],
