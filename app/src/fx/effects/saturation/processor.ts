@@ -144,6 +144,21 @@ class SaturationChannel {
   private dcIn = 0;
   private dcOut = 0;
 
+  // Fills the histories as if the input had held at `sample` (driven to
+  // `driven`), so a fresh processor, such as the one a Type change fades
+  // to, starts from the signal rather than stepping up from silence.
+  prime(sample: number, driven: number, shape: SaturationType) {
+    const shaped = SHAPES[shape](driven);
+    this.up.fill(driven);
+    this.down.fill(shaped);
+    this.dry.fill(sample);
+    this.tapeLast = driven;
+    this.low1 = 0;
+    this.low2 = shaped;
+    this.dcIn = shaped;
+    this.dcOut = 0;
+  }
+
   // The input SATURATION_LATENCY_FRAMES frames ago, as `sample` goes in.
   delayDry(sample: number) {
     const delayed = this.dry[this.dryAt];
@@ -242,6 +257,7 @@ export const processor: AudioEffectDsp = {
       () => new SaturationChannel(),
     );
     const tone = new ToneFilter(sampleRate);
+    let primed = false;
     return {
       process(input, output, frames, params) {
         const shape = saturationType(params.switch(TYPE_KEY));
@@ -249,6 +265,13 @@ export const processor: AudioEffectDsp = {
         const toneHz = reader(params, TONE_KEY);
         const level = reader(params, OUTPUT_KEY, dbToAmplitude);
         const mix = reader(params, MIX_KEY);
+        if (!primed && frames > 0) {
+          primed = true;
+          for (let channel = 0; channel < output.length; channel++) {
+            const sample = input[channel][0];
+            states[channel].prime(sample, sample * drive(0), shape);
+          }
+        }
         for (let index = 0; index < frames; index++) {
           tone.set(toneHz(index));
           const gain = drive(index);
