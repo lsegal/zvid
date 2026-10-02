@@ -78,6 +78,7 @@ export type SaveableSourceTrack = {
   name: string;
   colorIndex: number;
   recordingPaths: string[];
+  fxEnabled?: boolean;
 };
 
 export type SaveableSourceSpan = {
@@ -351,6 +352,7 @@ export function projectToLvpSession(
       id: track.id,
       name: track.name,
       colorIndex: track.colorIndex,
+      ...(track.fxEnabled === false ? { fxEnabled: false } : {}),
       recordings: track.recordingPaths.map((filename) => ({ filename })),
     })),
     clips,

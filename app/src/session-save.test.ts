@@ -382,6 +382,36 @@ describe("projectToLvpSession", () => {
     );
   });
 
+  it("saves a source track's FX bypass, leaving the default unwritten", () => {
+    const session = projectToLvpSession(
+      {
+        ...baseProject(),
+        sourceTracks: [
+          {
+            id: "s1",
+            name: "Camera A",
+            colorIndex: 0,
+            recordingPaths: [],
+            fxEnabled: false,
+          },
+          {
+            id: "s2",
+            name: "Camera B",
+            colorIndex: 1,
+            recordingPaths: [],
+            fxEnabled: true,
+          },
+        ],
+      },
+      { playheadQ: 0 },
+    );
+    assert.deepEqual(
+      session.tracks?.map((track) => track.fxEnabled),
+      [false, undefined],
+    );
+    assert.equal("fxEnabled" in (session.tracks?.[1] ?? {}), false);
+  });
+
   it("round-trips effect animation settings", () => {
     const animation: EffectAnimation = {
       enabled: true,

@@ -19,6 +19,7 @@ import type {
 import { getFxPanelTitle, resolveSelectedLaneId } from "../fx-chain";
 import {
   clipEffectTrackId,
+  isLayerFxEnabled,
   mapSessionEffectsToDevices,
   type SessionEffect,
 } from "../fx-stack";
@@ -161,6 +162,12 @@ export function useFxPanelModel({
     fxLayerName,
     // A source selection's track-level section is its source track's.
     fxLayerLabel: sourceStacks ? "Track" : "Layer",
+    // The selected source track, whose FX switch the chain's "FX off"
+    // banner turns back on in place of a layer's.
+    fxSourceTrackId: sourceStacks?.trackId,
+    fxLayerFxEnabled: sourceStacks
+      ? sourceStacks.trackFxEnabled
+      : isLayerFxEnabled(fxLane),
     fxClipTrackId,
     orderLayerOptions,
     fxClipLayerOptions,

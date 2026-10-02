@@ -99,6 +99,11 @@ const componentStyles = [
     ],
   },
   {
+    component: "timeline/TrackFxButton",
+    stylesheet: "timeline/track-fx-button",
+    selectors: [".track-label__fx--switch"],
+  },
+  {
     component: "timeline/ArrangementLanes",
     stylesheet: "timeline/arrangement-lanes",
     selectors: [
