@@ -34,7 +34,7 @@ export function AddDeviceMenu({
   // Their categories open as submenus, unless the menu offers only one
   // category, whose effects are then listed directly.
   const groups = groupAddableEffects(effects);
-  const labelled = groups.length > 1;
+  const labeled = groups.length > 1;
   const inline =
     groups.reduce((count, group) => count + group.categories.length, 0) <= 1;
   const item = (definition: FxEffectDefinition) => (
@@ -81,12 +81,12 @@ export function AddDeviceMenu({
         {groups.map((group, index) => (
           <DropdownMenuGroup
             aria-labelledby={
-              labelled ? `${focusKey}-${group.domain}` : undefined
+              labeled ? `${focusKey}-${group.domain}` : undefined
             }
             key={group.domain}
           >
             {index > 0 ? <DropdownMenuSeparator /> : null}
-            {labelled ? (
+            {labeled ? (
               <DropdownMenuLabel
                 className="fx-add-menu__group"
                 id={`${focusKey}-${group.domain}`}

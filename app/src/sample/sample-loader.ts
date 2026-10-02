@@ -30,21 +30,21 @@ export type SampleAssetEvent =
 // Sample assets downloaded at once, like peer transfers.
 export const MAX_SAMPLE_DOWNLOADS = 2;
 
-export class SampleLoadCancelledError extends Error {
+export class SampleLoadCanceledError extends Error {
   constructor() {
-    super("Loading the sample was cancelled.");
-    this.name = "SampleLoadCancelledError";
+    super("Loading the sample was canceled.");
+    this.name = "SampleLoadCanceledError";
   }
 }
 
 function throwIfAborted(signal: AbortSignal | undefined) {
   if (signal?.aborted) {
-    throw new SampleLoadCancelledError();
+    throw new SampleLoadCanceledError();
   }
 }
 
 // Downloads `asset`, reporting bytes read so far, and checks its size and
-// hash. Throws when the download fails, is cancelled or has other bytes.
+// hash. Throws when the download fails, is canceled or has other bytes.
 export async function downloadSampleAsset(
   asset: SampleAsset,
   deps: Pick<SampleLoadDeps, "fetch" | "digest">,
@@ -117,7 +117,7 @@ async function readCachedAsset(asset: SampleAsset, deps: SampleLoadDeps) {
 // `onAsset`: cached assets are ready at once, and the rest are downloaded
 // at most `concurrency` at a time. A failed asset doesn't stop the others,
 // and assets cached before a failure or cancel stay cached, so a retry only
-// downloads the rest. Rejects with SampleLoadCancelledError when `signal`
+// downloads the rest. Rejects with SampleLoadCanceledError when `signal`
 // aborts, without reporting the assets it stopped.
 export async function loadSampleAssets(
   assets: readonly SampleAsset[],

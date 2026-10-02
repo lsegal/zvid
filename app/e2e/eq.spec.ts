@@ -176,7 +176,7 @@ test("EQ is added from a clip's Audio menu with its defaults and shapes the mix"
     )
     .toBeGreaterThan(0.02);
 
-  // A −15 dB mid band centred on the tone turns it down by about 15 dB;
+  // A −15 dB mid band centered on the tone turns it down by about 15 dB;
   // the other bands, far from 440 Hz, barely touch it.
   await setKnob(page, "Mid Freq", "440");
   await setKnob(page, "Mid Gain", "-15");
