@@ -12,9 +12,12 @@ import * as color from "./color/definition.ts";
 import * as colorize from "./colorize/definition.ts";
 import { pass as colorizePass } from "./colorize/pass.ts";
 import * as compressor from "./compressor/definition.ts";
+import * as deEss from "./de-ess/definition.ts";
 import * as eq from "./eq/definition.ts";
 import * as gain from "./gain/definition.ts";
+import * as highPass from "./high-pass/definition.ts";
 import * as layout from "./layout/definition.ts";
+import * as limiter from "./limiter/definition.ts";
 import * as move from "./move/definition.ts";
 import * as negativeSplit from "./negative-split/definition.ts";
 import { pass as negativeSplitPass } from "./negative-split/pass.ts";
@@ -23,11 +26,13 @@ import * as order from "./order/definition.ts";
 import * as phaser from "./phaser/definition.ts";
 import * as pixelate from "./pixelate/definition.ts";
 import { pass as pixelatePass } from "./pixelate/pass.ts";
+import * as reverse from "./reverse/definition.ts";
 import * as saturation from "./saturation/definition.ts";
 import * as stereo from "./stereo/definition.ts";
 import * as text from "./text/definition.ts";
 import * as transform from "./transform/definition.ts";
 import * as transientShaper from "./transient-shaper/definition.ts";
+import * as tremolo from "./tremolo/definition.ts";
 import * as zoomAndPan from "./zoom-and-pan/definition.ts";
 import { pass as zoomAndPanPass } from "./zoom-and-pan/pass.ts";
 
@@ -40,20 +45,25 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   color,
   colorize,
   compressor,
+  deEss,
   eq,
   gain,
+  highPass,
   layout,
+  limiter,
   move,
   negativeSplit,
   noiseGate,
   order,
   phaser,
   pixelate,
+  reverse,
   saturation,
   stereo,
   text,
   transform,
   transientShaper,
+  tremolo,
   zoomAndPan,
 ];
 
