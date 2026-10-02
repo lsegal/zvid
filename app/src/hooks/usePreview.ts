@@ -7,12 +7,12 @@ import {
   useMemo,
   useState,
 } from "react";
+import { signatureById } from "../app/constants.ts";
 import {
   findClipAtPlayhead,
   isClipAtPlayhead,
   quartersToSeconds,
 } from "../app/timeline-math.ts";
-import { signatureById } from "../app/constants.ts";
 import type { ProjectState } from "../app/types.ts";
 import { resolveAudioClips } from "../audio-mix/resolve.ts";
 import {

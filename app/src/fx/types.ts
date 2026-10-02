@@ -20,6 +20,10 @@ export type FxNumberParameterDefinition = {
   // How the value is edited: a knob (the default), a vertical fader, or an
   // on/off toggle for a 0..1 value stored as 0 or 1.
   control?: FxNumberControl;
+  // How a knob's travel maps to the range: evenly (the default), or by
+  // ratio for frequencies and times, so drags and steps move the value
+  // logarithmically. A log taper needs `min` above 0.
+  taper?: FxNumberTaper;
   // Scale marks beside a fader.
   ticks?: readonly FxScaleTick[];
   hidden?: boolean;
@@ -27,6 +31,8 @@ export type FxNumberParameterDefinition = {
 };
 
 export type FxNumberControl = "knob" | "fader" | "toggle";
+
+export type FxNumberTaper = "linear" | "log";
 
 export type FxScaleTick = { value: number; label: string };
 

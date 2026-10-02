@@ -8,6 +8,8 @@ import {
   useRef,
   useState,
 } from "react";
+import { taperPosition, taperValue } from "../../fx/taper.ts";
+import type { FxNumberTaper } from "../../fx/types.ts";
 import "./knob.css";
 
 export type KnobProps = {
@@ -18,6 +20,8 @@ export type KnobProps = {
   step?: number;
   /** Draw the value arc from the center of the range (e.g. hue shift). */
   bipolar?: boolean;
+  /** How the travel maps to the range; a log taper moves by ratio. */
+  taper?: FxNumberTaper;
   accent: string;
   label: string;
   format?: (value: number) => string;
@@ -86,6 +90,7 @@ export function Knob({
   defaultValue,
   step,
   bipolar = false,
+  taper = "linear",
   accent,
   label,
   format = defaultFormat,
@@ -102,6 +107,18 @@ export function Knob({
   const pageStep = step
     ? Math.max(step, Math.round(range / 10 / step) * step)
     : range / 10;
+  const positionOf = (next: number) => taperPosition(next, min, max, taper);
+  // `from` moved by `increment`, or with a log taper by `fraction` of the
+  // travel, at least a whole step.
+  const nudge = (from: number, increment: number, fraction: number) => {
+    if (taper !== "log") {
+      return from + increment;
+    }
+    const next = taperValue(positionOf(from) + fraction, min, max, taper);
+    return step && Math.abs(next - from) < step
+      ? from + Math.sign(fraction) * step
+      : next;
+  };
 
   // The live value used by gestures, so rapid events do not wait for the
   // parent to re-render with the new `value` prop.
@@ -125,6 +142,8 @@ export function Knob({
 
   const propsRef = useRef({ onChange, onCommit });
   propsRef.current = { onChange, onCommit };
+  const nudgeRef = useRef(nudge);
+  nudgeRef.current = nudge;
 
   const emit = useCallback(
     (next: number) => {
@@ -184,7 +203,12 @@ export function Knob({
       }
       event.preventDefault();
       const increment = event.shiftKey ? fineStep : coarseStep;
-      emit(currentRef.current + (delta < 0 ? increment : -increment));
+      const fraction = event.shiftKey ? 1 / 1000 : 1 / 100;
+      emit(
+        delta < 0
+          ? nudgeRef.current(currentRef.current, increment, fraction)
+          : nudgeRef.current(currentRef.current, -increment, -fraction),
+      );
       if (wheelTimerRef.current !== null) {
         window.clearTimeout(wheelTimerRef.current);
       }
@@ -205,10 +229,11 @@ export function Knob({
     flushCommit();
     event.currentTarget.focus();
     event.currentTarget.setPointerCapture(event.pointerId);
+    // Drags move along the travel, so a log taper drags by ratio.
     dragRef.current = {
       pointerId: event.pointerId,
       lastY: event.clientY,
-      raw: currentRef.current,
+      raw: positionOf(currentRef.current),
     };
     setDragging(true);
   };
@@ -219,13 +244,9 @@ export function Knob({
       return;
     }
     const pixels = event.shiftKey ? DRAG_PIXELS * FINE_FACTOR : DRAG_PIXELS;
-    drag.raw = clamp(
-      drag.raw + ((drag.lastY - event.clientY) / pixels) * range,
-      min,
-      max,
-    );
+    drag.raw = clamp(drag.raw + (drag.lastY - event.clientY) / pixels, 0, 1);
     drag.lastY = event.clientY;
-    emit(drag.raw);
+    emit(taperValue(drag.raw, min, max, taper));
   };
 
   const endDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -246,21 +267,23 @@ export function Knob({
       return;
     }
     const increment = event.shiftKey ? fineStep : coarseStep;
+    const fraction = event.shiftKey ? 1 / 1000 : 1 / 100;
+    const current = currentRef.current;
     let next: number | null = null;
     switch (event.key) {
       case "ArrowUp":
       case "ArrowRight":
-        next = currentRef.current + increment;
+        next = nudge(current, increment, fraction);
         break;
       case "ArrowDown":
       case "ArrowLeft":
-        next = currentRef.current - increment;
+        next = nudge(current, -increment, -fraction);
         break;
       case "PageUp":
-        next = currentRef.current + pageStep;
+        next = nudge(current, pageStep, 1 / 10);
         break;
       case "PageDown":
-        next = currentRef.current - pageStep;
+        next = nudge(current, -pageStep, -1 / 10);
         break;
       case "Home":
         next = min;
@@ -298,7 +321,7 @@ export function Knob({
     dialRef.current?.focus();
   };
 
-  const norm = range > 0 ? (clamp(value, min, max) - min) / range : 0;
+  const norm = positionOf(value);
   const valueAngle = START_ANGLE + norm * SWEEP_DEGREES;
   const originAngle = bipolar ? 0 : START_ANGLE;
   const arcFrom = Math.min(originAngle, valueAngle);
