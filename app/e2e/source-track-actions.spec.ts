@@ -238,18 +238,18 @@ test("a source track's grip picks it up and drops it from the keyboard", async (
   await expect(names(page)).toHaveText(["test-pattern", "test-pattern copy"]);
 
   await grip(page, 0).focus();
-  await page.keyboard.press("Space");
+  await page.keyboard.press("Enter");
   const status = page.locator(".source-track-list .layer-reorder-status");
   await expect(status).toContainText("Picked up test-pattern, position 1 of 2");
   await page.keyboard.press("ArrowDown");
   await expect(status).toHaveText("test-pattern, position 2 of 2");
-  await page.keyboard.press("Space");
+  await page.keyboard.press("Enter");
   await expect(status).toHaveText("Dropped test-pattern, position 2 of 2");
   await expect(names(page)).toHaveText(["test-pattern copy", "test-pattern"]);
 
   // Escape puts it back.
   await grip(page, 0).focus();
-  await page.keyboard.press("Space");
+  await page.keyboard.press("Enter");
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Escape");
   await expect(status).toHaveText("Canceled moving test-pattern copy");

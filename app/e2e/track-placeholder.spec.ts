@@ -76,8 +76,10 @@ test("[ + Layer ] works from the keyboard", async ({ page }) => {
   await addLayer(page).focus();
   await page.keyboard.press("Enter");
   await expect(headers(page)).toHaveCount(count + 1);
+  // Space is left to playback and does not press it (#745).
   await addLayer(page).focus();
   await page.keyboard.press("Space");
+  await page.keyboard.press("Enter");
   await expect(headers(page)).toHaveCount(count + 2);
 });
 

@@ -51,14 +51,9 @@ describe("space shortcut target classification", () => {
         `input type="${type}"`,
       );
     }
+    assert.equal(classifySpaceTarget(element("TEXTAREA")), "text-entry");
     assert.equal(
-      classifySpaceTarget(element("TEXTAREA")),
-      "text-entry",
-    );
-    assert.equal(
-      classifySpaceTarget(
-        element("DIV", { isContentEditable: true })
-      ),
+      classifySpaceTarget(element("DIV", { isContentEditable: true })),
       "text-entry",
     );
   });
@@ -149,7 +144,10 @@ describe("open popups that Space closes", () => {
       hasOpenPopup(page('[role="listbox"]:not([data-docked-listbox])')),
       true,
     );
-    assert.equal(hasOpenPopup(page("[data-radix-popper-content-wrapper]")), true);
+    assert.equal(
+      hasOpenPopup(page("[data-radix-popper-content-wrapper]")),
+      true,
+    );
   });
 
   it("ignores docked listboxes, the menubar, dialogs and an empty page", () => {
