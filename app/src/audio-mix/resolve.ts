@@ -185,7 +185,8 @@ export function resolveAudioClips<Effect extends AudioEffect>({
             durationSeconds: span.durationSeconds,
             sourceOffsetSeconds: span.trimStartSeconds - startSeconds,
             sourceWindowStartSeconds: span.trimStartSeconds,
-            sourceWindowEndSeconds: span.trimStartSeconds + span.durationSeconds,
+            sourceWindowEndSeconds:
+              span.trimStartSeconds + span.durationSeconds,
             ...(span.warp ? { warp: span.warp } : {}),
           },
           span.sourceTrackId,

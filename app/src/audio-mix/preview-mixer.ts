@@ -13,7 +13,11 @@ import { clamp } from "../app/util.ts";
 import { createBandAnalyser } from "../fx-shaders/audio-bands.ts";
 import { releaseMediaElement } from "../media-element.ts";
 import { clipMediaTimeAt, LIMITER_HEADROOM, limiterCurve } from "./mix.ts";
-import { type AudioMix, type AudioMixClip, SILENT_AUDIO_MIX } from "./resolve.ts";
+import {
+  type AudioMix,
+  type AudioMixClip,
+  SILENT_AUDIO_MIX,
+} from "./resolve.ts";
 
 export type AudioMixPlayback = {
   playheadSeconds: number;
@@ -58,7 +62,10 @@ export class PreviewAudioMixer {
   private urlById = new Map<string, string>();
   private volume: PreviewVolume = { volume: 1, muted: false };
 
-  update(mix: AudioMix, mediaItems: readonly { id: string; previewUrl: string }[]) {
+  update(
+    mix: AudioMix,
+    mediaItems: readonly { id: string; previewUrl: string }[],
+  ) {
     this.mix = mix;
     this.urlById = new Map(
       mediaItems
@@ -106,7 +113,8 @@ export class PreviewAudioMixer {
     for (const clip of this.mix.clips) {
       const start = clip.startSeconds;
       const end = clip.startSeconds + clip.durationSeconds;
-      const nearby = now >= start - PRELOAD_SECONDS && now < end + RELEASE_SECONDS;
+      const nearby =
+        now >= start - PRELOAD_SECONDS && now < end + RELEASE_SECONDS;
       if (!nearby) {
         this.release(clip.id);
         continue;

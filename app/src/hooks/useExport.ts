@@ -9,6 +9,8 @@ import {
 } from "react";
 import type { ExportState, ProjectState } from "../app/types.ts";
 import { logClient, pluralize } from "../app/util.ts";
+import { isAudibleMix } from "../audio-mix/mix.ts";
+import { type AudioMix, resolveAudioClips } from "../audio-mix/resolve.ts";
 import { CompositionRenderer } from "../CompositionPlayer";
 import {
   createExportOptions,
@@ -30,8 +32,6 @@ import { canRevealSavedFile, getHarness, type SaveTarget } from "../harness";
 import type { ExportProgress } from "../harness/contracts";
 import type { MediaItem } from "../media";
 import { retainObjectUrls } from "../object-url-retention.ts";
-import { isAudibleMix } from "../audio-mix/mix.ts";
-import { type AudioMix, resolveAudioClips } from "../audio-mix/resolve.ts";
 import { hasRenderableContent, resolveRenderClips } from "../render-clips.ts";
 import {
   type SessionSettings,

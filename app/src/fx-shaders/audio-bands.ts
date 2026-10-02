@@ -350,7 +350,11 @@ export class LiveAudioBands {
     }
 
     analyser.getByteFrequencyData(this.bins);
-    this.tracker.advance(this.bins, analyser.context.sampleRate, elapsedSeconds);
+    this.tracker.advance(
+      this.bins,
+      analyser.context.sampleRate,
+      elapsedSeconds,
+    );
     return this.tracker.bands();
   }
 }

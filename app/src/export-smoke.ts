@@ -1,9 +1,9 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { save as nativeSave } from "@tauri-apps/plugin-dialog";
+import type { AudioMix } from "./audio-mix/resolve";
 import type { SaveTarget } from "./harness/contracts";
 import { exportVideo } from "./harness/export";
 import type { MediaItem } from "./media";
-import type { AudioMix } from "./audio-mix/resolve";
 import {
   AUDIO_BITRATES,
   AUDIO_SAMPLE_RATES,

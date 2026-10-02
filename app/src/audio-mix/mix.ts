@@ -185,7 +185,9 @@ export function renderAudioMix(
 
 // Whether any clip in `mix` can make a sound.
 export function isAudibleMix(mix: AudioMix) {
-  return mix.masterAmplitude > 0 && mix.clips.some((clip) => clip.amplitude > 0);
+  return (
+    mix.masterAmplitude > 0 && mix.clips.some((clip) => clip.amplitude > 0)
+  );
 }
 
 // The timeline second the last clip in `mix` ends at.

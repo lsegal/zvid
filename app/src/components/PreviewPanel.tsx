@@ -3,9 +3,9 @@ import type {
   PointerEvent as ReactPointerEvent,
   RefObject,
 } from "react";
-import type { AudioMix } from "../audio-mix/resolve.ts";
 import { PREVIEW_DEFAULT_WIDTH, PREVIEW_MIN_WIDTH } from "../app/constants.ts";
 import type { ArrangementClip, Lane, TimelineDragState } from "../app/types.ts";
+import type { AudioMix } from "../audio-mix/resolve.ts";
 import {
   CompositionPlayer,
   type CompositionPlayerHandle,

@@ -11,13 +11,13 @@ import {
   quartersToSeconds,
 } from "../app/timeline-math.ts";
 import type { ProjectState } from "../app/types.ts";
+import { resolveAudioClips } from "../audio-mix/resolve.ts";
 import {
   describeClipMediaState,
   describeMediaAvailability,
   isGeneratedClip,
 } from "../clip-media-state";
 import type { MediaItem } from "../media";
-import { resolveAudioClips } from "../audio-mix/resolve.ts";
 import { isSourceRenderId, resolveRenderClips } from "../render-clips.ts";
 import { loadFontFace, resolveFontFace } from "../text-fonts.ts";
 import { isTextEffectName, readTextStyle } from "../text-style.ts";

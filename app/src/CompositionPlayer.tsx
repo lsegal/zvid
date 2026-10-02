@@ -40,10 +40,7 @@ import {
 } from "./fx-shaders/audio-bands.ts";
 import { resolveEffectChain } from "./fx-shaders/registry.ts";
 import { getRenderedEffects } from "./fx-stack.ts";
-import {
-  listenForVideoFrames,
-  releaseMediaElement,
-} from "./media-element.ts";
+import { listenForVideoFrames, releaseMediaElement } from "./media-element.ts";
 import { seekMediaElement } from "./media-seek.ts";
 import type { PlayheadSignal } from "./playhead-signal";
 import { loadFontFace, resolveFontFace, subscribeFonts } from "./text-fonts.ts";
