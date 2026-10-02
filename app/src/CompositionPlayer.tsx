@@ -44,7 +44,7 @@ import {
 } from "./media-element.ts";
 import { seekMediaElement } from "./media-seek.ts";
 import type { PlayheadSignal } from "./playhead-signal";
-import { loadFontFace, resolveFontFace, subscribeFonts } from "./text-fonts.ts";
+import { loadTextFaces, subscribeFonts } from "./text-fonts.ts";
 
 type CompositionPlayerProps = {
   mediaItems: MediaItem[];
@@ -101,6 +101,7 @@ export type CompositionPlayerHandle = {
   getCanvas(): HTMLCanvasElement | null;
   renderFrameAt(playheadQ: number, playheadSeconds: number): Promise<void>;
   setVolume(volume: number, muted: boolean): void;
+  getMasterMeterTap(): ReturnType<LiveAudioBands["meterTap"]>;
 };
 
 const MAX_DRIFT_SECONDS = 0.18;
@@ -185,6 +186,16 @@ export class CompositionRenderer {
     applyPreviewVolume(this.mainAudioElement, this.volume, this.liveAudioBands);
   }
 
+  // The program mix for the transport VU meter. Asking for it routes the
+  // main audio through Web Audio, as audio-reactive effects do.
+  getMasterMeterTap() {
+    if (this.audioAnalysis === "live" && !this.liveAudioBands) {
+      this.liveAudioBands = new LiveAudioBands();
+      this.update(this.state);
+    }
+    return this.liveAudioBands?.meterTap() ?? null;
+  }
+
   // While playing, animating text and fills may be drawn from a nearby
   // raster; a paused preview, being edited, draws them exactly.
   renderPreviewFrame(playheadQ: number, pixelRatio: number, playing = true) {
@@ -237,19 +248,7 @@ export class CompositionRenderer {
     }
 
     // Exported frames never draw text in a fallback font.
-    await Promise.all(
-      nextActiveClips.map((entry) =>
-        entry.text
-          ? loadFontFace(
-              resolveFontFace(
-                entry.text.font,
-                entry.text.weight,
-                entry.text.italic,
-              ),
-            )
-          : undefined,
-      ),
-    );
+    await loadTextFaces(nextActiveClips.map((entry) => entry.text));
 
     if (this.mainAudioElement && this.state.mainAudio?.previewUrl) {
       this.mainAudioElement.pause();
@@ -718,6 +717,7 @@ export const CompositionPlayer = forwardRef<
         renderFrameAt(nextPlayheadQ, nextPlayheadSeconds, 1),
       setVolume: (volume, muted) =>
         rendererRef.current?.setVolume(volume, muted),
+      getMasterMeterTap: () => rendererRef.current?.getMasterMeterTap() ?? null,
     }),
     [renderFrameAt],
   );

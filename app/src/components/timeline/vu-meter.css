@@ -1,0 +1,126 @@
+/* The transport bar's stereo VU meter. --vu-yellow, --vu-orange and --vu-zero
+   are the scale positions of -12, -3 and 0 dB, set by the component; each
+   channel row sets --vu-level and --vu-peak, from 0 to 1, every frame. */
+.vu-meter {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  margin-right: 4px;
+}
+
+.vu-meter__bars {
+  position: relative;
+  display: grid;
+  row-gap: 2px;
+  width: 140px;
+}
+
+.vu-meter__channel {
+  position: relative;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.vu-meter__fill,
+.vu-meter__zone,
+.vu-meter__peak {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.vu-meter__fill {
+  left: 0;
+  right: 0;
+  background: linear-gradient(
+    to right,
+    #3fc66b 0,
+    #3fc66b var(--vu-yellow),
+    #ead53f calc(var(--vu-yellow) + 4%),
+    #f59a35 var(--vu-orange),
+    #ef4444 var(--vu-zero),
+    #ef4444 100%
+  );
+  clip-path: inset(0 calc((1 - var(--vu-level, 0)) * 100%) 0 0);
+}
+
+/* The above-0 zone, dark until the channel clips. */
+.vu-meter__zone {
+  left: var(--vu-zero);
+  right: 0;
+  background: #4b1c20;
+}
+
+.vu-meter__channel.is-clipped .vu-meter__zone {
+  background: #ff4040;
+}
+
+/* The high-water line. */
+.vu-meter__peak {
+  left: calc(var(--vu-peak, 0) * 100% - 1px);
+  width: 2px;
+  background: #f4f6ff;
+  opacity: 0;
+}
+
+.vu-meter__channel.has-peak .vu-meter__peak {
+  opacity: 0.95;
+}
+
+.vu-meter__tick {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  z-index: 1;
+  width: 1px;
+  margin-left: -1px;
+  background: rgba(255, 255, 255, 0.16);
+  pointer-events: none;
+}
+
+/* Clicking the above-0 zone clears both channels' clip indicators. */
+.vu-meter__clip {
+  position: absolute;
+  top: -6px;
+  bottom: -6px;
+  left: var(--vu-zero);
+  right: -2px;
+  z-index: 2;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.vu-meter__clip:focus-visible {
+  outline: 2px solid rgba(246, 183, 60, 0.6);
+  outline-offset: 0;
+}
+
+.vu-meter__readout {
+  min-width: 5ch;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* The meter gives way before the volume slider as the bar narrows: the
+   readout goes first, then the meter. */
+@container transport-bar (max-width: 1120px) {
+  .vu-meter__readout {
+    display: none;
+  }
+}
+
+@container transport-bar (max-width: 1000px) {
+  .vu-meter {
+    display: none;
+  }
+}

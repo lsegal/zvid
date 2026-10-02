@@ -13,6 +13,7 @@ import {
   isPreviewSilent,
   type PreviewVolume,
 } from "../../app/preview-volume";
+import type { MasterMeterTap } from "../../fx-shaders/audio-bands";
 import {
   formatZoomFactor,
   sliderPositionToZoom,
@@ -25,6 +26,7 @@ import {
   zoomToSliderPosition,
 } from "../../zoom";
 import { WandIcon } from "../WandIcon";
+import { VuMeter } from "./VuMeter";
 import "./transport-bar.css";
 
 type TransportBarProps = {
@@ -39,13 +41,14 @@ type TransportBarProps = {
   previewVolume: PreviewVolume;
   setPreviewVolume: (volume: number) => void;
   togglePreviewMute: () => void;
+  getMeterTap: () => MasterMeterTap | null;
 };
 
 // Slider steps of 1%.
 const VOLUME_SLIDER_STEP = 0.01;
 
-// The zoom control, the transport buttons and the preview volume below the
-// timeline, with the transport buttons centered in the row.
+// The zoom control, the transport buttons, and the VU meter and preview volume
+// below the timeline, with the transport buttons centered in the row.
 export function TransportBar({
   resolvedZoom,
   setZoomValue,
@@ -58,6 +61,7 @@ export function TransportBar({
   previewVolume,
   setPreviewVolume,
   togglePreviewMute,
+  getMeterTap,
 }: TransportBarProps) {
   const silent = isPreviewSilent(previewVolume);
   const volumeText = formatPreviewVolume(previewVolume.volume);
@@ -180,6 +184,7 @@ export function TransportBar({
       <div
         className={`volume-control${previewVolume.muted ? " volume-control--muted" : ""}`}
       >
+        <VuMeter getMeterTap={getMeterTap} isPlaying={isPlaying} />
         <button
           aria-label={silent ? "Unmute preview" : "Mute preview"}
           aria-pressed={silent}

@@ -3,6 +3,8 @@
 .transport-bar {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
+  /* The VU meter hides itself as the bar narrows (see vu-meter.css). */
+  container: transport-bar / inline-size;
   border-bottom: none;
   border-top: 1px solid var(--line);
 }
