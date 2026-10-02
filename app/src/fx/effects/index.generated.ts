@@ -5,6 +5,7 @@ import type { EffectPass } from "../../fx-shaders/types.ts";
 import type { FxEffectDefinitionModule } from "../types.ts";
 import * as analogGlitch from "./analog-glitch/definition.ts";
 import { pass as analogGlitchPass } from "./analog-glitch/pass.ts";
+import * as chorus from "./chorus/definition.ts";
 import * as color from "./color/definition.ts";
 import * as colorize from "./colorize/definition.ts";
 import { pass as colorizePass } from "./colorize/pass.ts";
@@ -18,6 +19,7 @@ import * as order from "./order/definition.ts";
 import * as phaser from "./phaser/definition.ts";
 import * as pixelate from "./pixelate/definition.ts";
 import { pass as pixelatePass } from "./pixelate/pass.ts";
+import * as stereo from "./stereo/definition.ts";
 import * as text from "./text/definition.ts";
 import * as transform from "./transform/definition.ts";
 import * as zoomAndPan from "./zoom-and-pan/definition.ts";
@@ -26,6 +28,7 @@ import { pass as zoomAndPanPass } from "./zoom-and-pan/pass.ts";
 // Every effect folder's definition.ts, in folder order.
 export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   analogGlitch,
+  chorus,
   color,
   colorize,
   eq,
@@ -36,6 +39,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   order,
   phaser,
   pixelate,
+  stereo,
   text,
   transform,
   zoomAndPan,
