@@ -117,7 +117,8 @@ export const processor: AudioEffectDsp = {
             for (let channel = 0; channel < output.length; channel++) {
               const sample = tap(channel, current.lookahead, gain);
               output[channel][index] =
-                sample + (tap(channel, old.lookahead, oldGain) - sample) * weight;
+                sample +
+                (tap(channel, old.lookahead, oldGain) - sample) * weight;
             }
             fading.at++;
             if (fading.at >= fadeFrames) {
