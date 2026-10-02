@@ -127,7 +127,9 @@ describe("RmsWindow", () => {
     assert.equal(window.db(0), -Infinity);
     window.push(0, 1);
     window.push(100, 0.25);
-    assert.ok(Math.abs(window.db(100) - amplitudeToDb(Math.sqrt(0.625))) < 1e-9);
+    assert.ok(
+      Math.abs(window.db(100) - amplitudeToDb(Math.sqrt(0.625))) < 1e-9,
+    );
     // The first frame leaves the window.
     assert.ok(Math.abs(window.db(300) - amplitudeToDb(0.5)) < 1e-9);
     assert.equal(window.db(400), -Infinity);
@@ -143,8 +145,7 @@ describe("StereoMeter", () => {
     assert.equal(reading.left.peakDb, reading.left.levelDb);
     const meanSquare = (0.25 + 0.0625) / 2;
     assert.ok(
-      Math.abs(reading.averageDb - amplitudeToDb(Math.sqrt(meanSquare))) <
-        1e-6,
+      Math.abs(reading.averageDb - amplitudeToDb(Math.sqrt(meanSquare))) < 1e-6,
     );
     assert.equal(reading.left.clipped, false);
   });

@@ -376,6 +376,21 @@ export async function loadFontFace(face: FontFace) {
   notify();
 }
 
+/** Loads the face each text style draws in, as `loadFontFace` does. */
+export function loadTextFaces(
+  styles: Iterable<
+    { font: string; weight: number; italic: boolean } | undefined
+  >,
+) {
+  return Promise.all(
+    Array.from(styles, (style) =>
+      style
+        ? loadFontFace(resolveFontFace(style.font, style.weight, style.italic))
+        : undefined,
+    ),
+  );
+}
+
 export type LocalFontData = { family: string };
 
 type LocalFontWindow = Window & {

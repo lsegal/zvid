@@ -321,13 +321,39 @@ export class AudioBandTracker {
   }
 }
 
+// The program mix's left and right channels, before the preview volume, for
+// the transport bar's VU meter. A mono mix reads the same on both.
+export type MasterMeterTap = { left: AnalyserNode; right: AnalyserNode };
+
+const METER_FFT_SIZE = 2048;
+
+// Splits `context`'s input into one analyser per channel, upmixing mono to
+// both sides first (a splitter alone would leave the right channel silent).
+function createMeterTap(context: AudioContext) {
+  const input = context.createGain();
+  input.channelCount = 2;
+  input.channelCountMode = "explicit";
+  input.channelInterpretation = "speakers";
+  const splitter = context.createChannelSplitter(2);
+  input.connect(splitter);
+  const [left, right] = [0, 1].map((channel) => {
+    const analyser = context.createAnalyser();
+    analyser.fftSize = METER_FFT_SIZE;
+    analyser.smoothingTimeConstant = 0;
+    splitter.connect(analyser, channel);
+    return analyser;
+  });
+  return { input, tap: { left, right } };
+}
+
 // Measures the main audio element as it plays through an AnalyserNode.
 // Routing an element through Web Audio is permanent, so the graph is only
-// built once effects actually need the bands. The preview volume is a gain
-// after the analyser, so the bands don't follow it.
+// built once effects or the VU meter actually need it. The preview volume is
+// a gain after the analyser and the meter tap, so neither follows it.
 export class LiveAudioBands {
   private context: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
+  private meter: ReturnType<typeof createMeterTap> | null = null;
   private output: GainNode | null = null;
   private source: MediaElementAudioSourceNode | null = null;
   private element: HTMLMediaElement | null = null;
@@ -355,12 +381,16 @@ export class LiveAudioBands {
         this.analyser.smoothingTimeConstant = 0;
         this.analyser.minDecibels = MIN_DECIBELS;
         this.analyser.maxDecibels = MAX_DECIBELS;
+        this.meter = createMeterTap(this.context);
         this.output = this.context.createGain();
         this.analyser.connect(this.output);
         this.output.connect(this.context.destination);
       }
       this.source = this.context.createMediaElementSource(element);
       this.source.connect(this.analyser as AnalyserNode);
+      if (this.meter) {
+        this.source.connect(this.meter.input);
+      }
     } catch (error) {
       console.warn("Audio band analysis is unavailable.", error);
     }
@@ -374,6 +404,10 @@ export class LiveAudioBands {
     }
     this.output.gain.value = gain;
     return true;
+  }
+
+  meterTap(): MasterMeterTap | null {
+    return this.source ? (this.meter?.tap ?? null) : null;
   }
 
   // Browsers start an AudioContext suspended until a user gesture, and the
@@ -403,6 +437,7 @@ export class LiveAudioBands {
     this.source = null;
     this.element = null;
     this.analyser = null;
+    this.meter = null;
     this.output = null;
     this.context?.close().catch(() => {});
     this.context = null;
