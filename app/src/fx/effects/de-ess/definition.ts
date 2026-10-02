@@ -45,8 +45,8 @@ export const definition: FxEffectDefinition = {
   effectName: DE_ESS_EFFECT_NAME,
   displayName: "De-ess",
   description:
-    "Tames harsh sibilance: turns down the band above Frequency while it's louder than Threshold.",
-  accent: "#34d399",
+    "Tames harsh sibilance: turns down the high band while the band around Frequency is louder than Threshold.",
+  accent: "#4ade80",
   domain: "audio",
   known: true,
   scopes: ["layer", "clip", "global"],
