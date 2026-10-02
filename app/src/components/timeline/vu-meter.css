@@ -6,7 +6,6 @@
   flex: none;
   align-items: center;
   gap: 8px;
-  margin-right: 4px;
 }
 
 .vu-meter__bars {
@@ -18,7 +17,7 @@
 
 .vu-meter__channel {
   position: relative;
-  height: 4px;
+  height: 5px;
   overflow: hidden;
   border-radius: 1px;
   background: rgba(255, 255, 255, 0.08);
@@ -41,17 +40,17 @@
     #3fc66b var(--vu-yellow),
     #ead53f calc(var(--vu-yellow) + 4%),
     #f59a35 var(--vu-orange),
-    #ef4444 var(--vu-zero),
-    #ef4444 100%
+    #f59a35 100%
   );
   clip-path: inset(0 calc((1 - var(--vu-level, 0)) * 100%) 0 0);
 }
 
-/* The above-0 zone, dark until the channel clips. */
+/* The above-0 zone shows the bare track, past the 0 dB tick, and turns red
+   only once the channel clips: nothing on the meter is red short of that. */
 .vu-meter__zone {
   left: var(--vu-zero);
   right: 0;
-  background: #4b1c20;
+  background: transparent;
 }
 
 .vu-meter__channel.is-clipped .vu-meter__zone {
@@ -101,14 +100,25 @@
   outline-offset: 0;
 }
 
+/* Wide enough for "−60.0 dB" and left-aligned, so the gaps either side
+   stay the volume control's as the value changes. */
 .vu-meter__readout {
-  min-width: 5ch;
-  color: var(--muted);
+  flex: none;
+  width: 8ch;
+  color: var(--ink);
+  opacity: 0.82;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-variant-numeric: tabular-nums;
-  text-align: right;
+  line-height: 1;
+  text-align: left;
   white-space: nowrap;
+}
+
+.vu-meter__infinity {
+  font-family: 'Inter Variable', system-ui, sans-serif;
+  font-size: 1.3em;
+  line-height: 0;
 }
 
 /* The meter gives way before the volume slider as the bar narrows: the

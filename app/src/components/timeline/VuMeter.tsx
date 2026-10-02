@@ -1,4 +1,10 @@
-import { type CSSProperties, useCallback, useEffect, useRef } from "react";
+import {
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from "react";
 import {
   type ChannelReading,
   dbToPosition,
@@ -34,6 +40,24 @@ const SCALE_STYLE = {
   "--vu-orange": `${dbToPosition(-3) * 100}%`,
   "--vu-zero": `${dbToPosition(0) * 100}%`,
 } as CSSProperties;
+
+// Writes the readout's text, setting the ∞ of silence in its own span: the
+// monospace font draws it too small to read.
+function setReadout(element: HTMLElement, text: string) {
+  if (element.dataset.text === text) {
+    return;
+  }
+  element.dataset.text = text;
+  const [before, after] = text.split("∞");
+  if (after === undefined) {
+    element.textContent = text;
+    return;
+  }
+  const infinity = document.createElement("span");
+  infinity.className = "vu-meter__infinity";
+  infinity.textContent = "∞";
+  element.replaceChildren(before, infinity, after);
+}
 
 function ariaLevel(db: number) {
   return String(Math.round(Math.min(METER_MAX_DB, Math.max(METER_MIN_DB, db))));
@@ -73,7 +97,14 @@ export function VuMeter({ isPlaying, getMeterTap }: VuMeterProps) {
       }
     });
     if (readoutRef.current) {
-      readoutRef.current.textContent = formatMeterDb(reading.averageDb);
+      setReadout(readoutRef.current, formatMeterDb(reading.averageDb));
+    }
+  }, []);
+
+  // The readout's text is never rendered by React, which would overwrite it.
+  useLayoutEffect(() => {
+    if (readoutRef.current) {
+      setReadout(readoutRef.current, formatMeterDb(-Infinity));
     }
   }, []);
 
@@ -169,9 +200,7 @@ export function VuMeter({ isPlaying, getMeterTap }: VuMeterProps) {
           type="button"
         />
       </div>
-      <span aria-live="off" className="vu-meter__readout" ref={readoutRef}>
-        {formatMeterDb(-Infinity)}
-      </span>
+      <span aria-live="off" className="vu-meter__readout" ref={readoutRef} />
     </div>
   );
 }
