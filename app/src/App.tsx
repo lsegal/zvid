@@ -124,6 +124,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     dispatchProject: store.dispatchProject,
     commitProjectChange,
     lanes,
+    sourceTracks,
     timelineClipsRef: selection.timelineClipsRef,
   });
   const timeline = useTimeline({
@@ -527,6 +528,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     renamingId: editing.renamingSourceTrackId,
                     commitRename: editing.commitSourceTrackRename,
                     cancelRename: editing.cancelSourceTrackRename,
+                    setFxEnabled: fxEditing.setSourceTrackFxEnabled,
                   }}
                   span={{
                     bpm,

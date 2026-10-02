@@ -1,12 +1,12 @@
 import { Bars3Icon } from "@heroicons/react/24/solid";
 import type { Dispatch, SetStateAction } from "react";
 import type { Lane } from "../../app/types.ts";
-import { isLayerFxEnabled } from "../../fx-stack";
 import type { useFxEditing } from "../../hooks/useFxEditing.ts";
 import type { useLayerActions } from "../../hooks/useLayerActions.ts";
 import type { LaneStatus } from "../../hooks/useTimelineLanes.ts";
 import type { useMenus } from "../../menus/useMenus.ts";
 import { NameInput } from "../NameInput";
+import { TrackFxButton } from "./TrackFxButton";
 import "./layer-header.css";
 
 type LayerActions = ReturnType<typeof useLayerActions>;
@@ -100,19 +100,10 @@ export function LayerHeader({
           <small>{status?.summary}</small>
         </button>
       )}
-      <button
-        aria-label={`${lane.name} effects`}
-        aria-pressed={isLayerFxEnabled(lane)}
-        className="track-label__fx"
-        onClick={(event) => {
-          event.stopPropagation();
-          setLayerFxEnabled(lane.id, !isLayerFxEnabled(lane));
-        }}
-        title={status?.fxTitle}
-        type="button"
-      >
-        fx
-      </button>
+      <TrackFxButton
+        track={lane}
+        setFxEnabled={(enabled) => setLayerFxEnabled(lane.id, enabled)}
+      />
     </div>
   );
 }

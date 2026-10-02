@@ -348,3 +348,46 @@ describe("source track lock", () => {
     }
   });
 });
+
+describe("source track FX switch", () => {
+  const session: LvpSession = {
+    mainTracks: [{ id: "main-1", name: "Layer 1" }],
+    tracks: [
+      { id: "t1", name: "Cam A", fxEnabled: false },
+      { id: "t2", name: "Cam B" },
+    ],
+    timeline: { bpm: 120, fps: 30 },
+  };
+
+  it("opens a bypassed source track bypassed, and others on", () => {
+    const { sourceTracks } = sessionToProject(session, []);
+    assert.equal(sourceTracks[0].fxEnabled, false);
+    assert.equal("fxEnabled" in sourceTracks[1], false);
+  });
+
+  it("survives a save and reopen", () => {
+    const project = sessionToProject(session, []);
+    const saved = projectToLvpSession(
+      {
+        ...INITIAL_PROJECT_STATE,
+        ...project,
+        clips: project.arrangementClips,
+        timelineMode: "musical",
+        snapEnabled: true,
+        mediaItems: [],
+      },
+      { playheadQ: 0 },
+    );
+    const reopened = JSON.parse(JSON.stringify(saved)) as LvpSession;
+    assert.deepEqual(
+      sessionToProject(reopened, []).sourceTracks.map((track) => [
+        track.id,
+        track.fxEnabled,
+      ]),
+      [
+        ["t1", false],
+        ["t2", undefined],
+      ],
+    );
+  });
+});

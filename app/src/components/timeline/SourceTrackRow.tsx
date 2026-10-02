@@ -10,6 +10,8 @@ import type {
   SourceTrack,
 } from "../../app/types.ts";
 import { getSwatch, pluralize } from "../../app/util.ts";
+import { isLayerFxEnabled } from "../../fx-stack";
+import type { useFxEditing } from "../../hooks/useFxEditing.ts";
 import type { useSourceTrackActions } from "../../hooks/useSourceTrackActions.ts";
 import type { useSourceTrackDrop } from "../../hooks/useSourceTrackDrop.ts";
 import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
@@ -17,12 +19,13 @@ import { SOURCE_TRACKS_LOCKED_TITLE } from "../../source-tracks-section.ts";
 import { NameInput } from "../NameInput";
 import { SourceDropPreview } from "./SourceDropPreview";
 import { SourceSpan, type SourceSpanContext } from "./SourceSpan";
+import { TrackFxButton } from "./TrackFxButton";
 
 type SourceTrackActions = ReturnType<typeof useSourceTrackActions>;
 
 // What every source track label shares: its grip, its menu, the name field
-// Rename… opens, and whether the source tracks are locked, which disables
-// the grip.
+// Rename… opens, its FX switch, and whether the source tracks are locked,
+// which disables the grip but not the FX switch.
 export type SourceTrackLabelContext = {
   reorder: SourceTrackActions["sourceTrackReorder"];
   openMenu: (event: ReactMouseEvent<HTMLElement>, trackId: string) => void;
@@ -30,6 +33,7 @@ export type SourceTrackLabelContext = {
   renamingId: string | undefined;
   commitRename: SourceTrackActions["commitSourceTrackRename"];
   cancelRename: SourceTrackActions["cancelSourceTrackRename"];
+  setFxEnabled: ReturnType<typeof useFxEditing>["setSourceTrackFxEnabled"];
 };
 
 type SourceTrackRowProps = {
@@ -66,6 +70,7 @@ export function SourceTrackRow({
   renamingId,
   commitRename,
   cancelRename,
+  setFxEnabled,
 }: SourceTrackRowProps) {
   const { sourceTrackDragTarget } = drop;
   const swatch = getSwatch(track.colorIndex);
@@ -89,7 +94,9 @@ export function SourceTrackRow({
         onClick={(event) => {
           if (
             event.target instanceof Element &&
-            event.target.closest(".track-label__grip, .track-label__rename")
+            event.target.closest(
+              ".track-label__grip, .track-label__fx, .track-label__rename",
+            )
           ) {
             return;
           }
@@ -133,9 +140,14 @@ export function SourceTrackRow({
               {track.recordingPaths.length
                 ? `${pluralize(track.recordingPaths.length, "file")} / key ${index + 1}`
                 : `Imported media / key ${index + 1}`}
+              {isLayerFxEnabled(track) ? "" : " · FX off"}
             </small>
           </button>
         )}
+        <TrackFxButton
+          track={track}
+          setFxEnabled={(enabled) => setFxEnabled(track.id, enabled)}
+        />
       </div>
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: clearing the source clip selection is a mouse shortcut; the track name button selects the track from the keyboard */}
       <section

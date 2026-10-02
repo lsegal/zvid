@@ -156,6 +156,7 @@ export function sessionToProject(
       recordingPaths: (track.recordings ?? []).map(
         (recording) => recording.filename,
       ),
+      ...(track.fxEnabled === false ? { fxEnabled: false } : {}),
     }),
   );
   const nameByTrack = new Map(

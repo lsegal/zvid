@@ -27,6 +27,8 @@ export type SourceTrack = {
   name: string;
   colorIndex: number;
   recordingPaths: string[];
+  // Track-wide FX bypass, like a layer's; a missing flag means on.
+  fxEnabled?: boolean;
 };
 
 export type SourceSpan = {

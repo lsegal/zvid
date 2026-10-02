@@ -173,6 +173,20 @@ describe("resolveRenderClips", () => {
     assert.ok(render.lanes.every((lane) => lane.fxEnabled === undefined));
   });
 
+  it("carries a source track's FX switch onto its layer", () => {
+    const render = fallback(SPANS, [
+      track("b", 3),
+      { ...track("a", 5), fxEnabled: false },
+    ]);
+    assert.deepEqual(
+      render.lanes.map((lane) => [lane.id, lane.fxEnabled]),
+      [
+        ["source-render:b", undefined],
+        ["source-render:a", false],
+      ],
+    );
+  });
+
   it("turns each span into a clip playing its media at its position", () => {
     const render = fallback();
     assert.deepEqual(
@@ -343,6 +357,58 @@ describe("source tracks rendered as layers", () => {
     assert.deepEqual(
       composite.map((step) => step.pass.effectName),
       ["Pixelate"],
+    );
+  });
+
+  it("bypasses a source track's and its clips' stacks while its FX are off", () => {
+    const effects = [
+      effect("global", GROUP_TRACK_ID, "Pixelate"),
+      effect("track-a", sourceTrackEffectTrackId("a"), "AnalogGlitch"),
+      effect("track-a-layout", sourceTrackEffectTrackId("a"), "Layout"),
+      effect("clip-a-1", sourceClipEffectTrackId("a-1"), "NegativeSplit"),
+      effect("clip-a-1-color", sourceClipEffectTrackId("a-1"), "Color"),
+      effect("track-b", sourceTrackEffectTrackId("b"), "Colorize"),
+      effect("clip-b-1", sourceClipEffectTrackId("b-1"), "NegativeSplit"),
+    ];
+    const tracks = [track("b", 3), { ...track("a", 5), fxEnabled: false }];
+    const render = fallback(SPANS, tracks, effects);
+    const rendered = getRenderedEffects(
+      render.effects,
+      render.lanes,
+      render.clips,
+    );
+
+    // Source track a's FX are off: its stack and its clips' stacks only
+    // keep their content effects. Track b and the Global stack still apply.
+    assert.deepEqual(
+      rendered.map((entry) => entry.id),
+      ["global", "track-a-layout", "clip-a-1-color", "track-b", "clip-b-1"],
+    );
+    const active = computeActiveClips(
+      render.clips,
+      MEDIA,
+      3,
+      BPM,
+      priorityOf(render.lanes),
+      rendered,
+    );
+    const chains = new Map(
+      active.map((entry) => [
+        entry.clip.id,
+        entry.effectChain.map((step) => step.pass.effectName),
+      ]),
+    );
+    assert.deepEqual(chains.get("source-render:a-1"), []);
+    assert.deepEqual(chains.get("source-render:b-1"), [
+      "NegativeSplit",
+      "Colorize",
+    ]);
+
+    // Turned back on, every effect applies again as it was.
+    const restored = fallback(SPANS, TRACKS, effects);
+    assert.equal(
+      getRenderedEffects(restored.effects, restored.lanes, restored.clips),
+      restored.effects,
     );
   });
 });

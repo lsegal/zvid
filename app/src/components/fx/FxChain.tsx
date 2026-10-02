@@ -486,7 +486,7 @@ export function FxChain({
       {!layerFxEnabled &&
       (!layerEmpty || (showClip && groups.clip.length > 0)) ? (
         <div className="fx-chain__layer-off">
-          <span>Layer FX off</span>
+          <span>{layerLabel} FX off</span>
           <button onClick={() => onSetLayerFxEnabled?.(true)} type="button">
             On
           </button>
