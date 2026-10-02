@@ -127,6 +127,74 @@ test("the Audio row takes no files and starts empty", async ({ page }) => {
   await page.keyboard.press("Escape");
 });
 
+test("the Audio row is pinned to the bottom of the timeline and collapses", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator("[data-timeline-lane-id]").first()).toBeVisible();
+  const timeline = page.locator(".timeline-scroll");
+  const bottomGap = async () => {
+    const [panel, row] = await Promise.all([
+      timeline.evaluate((node) => {
+        const box = node.getBoundingClientRect();
+        return box.top + node.clientTop + node.clientHeight;
+      }),
+      audioRow(page).evaluate((node) => node.getBoundingClientRect().bottom),
+    ]);
+    return Math.abs(panel - row);
+  };
+
+  // It ends the timeline, after the source tracks, at the panel's bottom.
+  const lastRow = await page
+    .locator(".timeline-canvas > :not(.label-resize-rail, .timeline-playhead)")
+    .last()
+    .getAttribute("data-audio-row");
+  expect(lastRow).toBe("");
+  await expect.poll(bottomGap).toBeLessThan(2);
+
+  // In a short window it stays there while the rows above scroll under it,
+  // and at the end of the scroll range the last row clears it.
+  await page.setViewportSize({ width: 1600, height: 640 });
+  await expect
+    .poll(() =>
+      timeline.evaluate((node) => node.scrollHeight > node.clientHeight),
+    )
+    .toBe(true);
+  await timeline.evaluate((node) => {
+    node.scrollTop = 0;
+  });
+  await expect.poll(bottomGap).toBeLessThan(2);
+  await timeline.evaluate((node) => {
+    node.scrollTop = node.scrollHeight;
+  });
+  await expect.poll(bottomGap).toBeLessThan(2);
+  const overlap = await audioRow(page).evaluate(
+    (node) =>
+      (node.previousElementSibling?.getBoundingClientRect().bottom ?? 0) -
+      node.getBoundingClientRect().top,
+  );
+  expect(overlap).toBeLessThanOrEqual(1);
+  await page.setViewportSize({ width: 1600, height: 1200 });
+
+  // Collapsed, only a slim header with its toggle stays pinned, and the
+  // preference survives a reload.
+  const toggle = audioRow(page).locator(".audio-row__toggle");
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  const expandedHeight = (await audioRow(page).boundingBox())?.height ?? 0;
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(audioRow(page).locator("[data-audio-mix]")).toHaveCount(0);
+  const collapsedHeight = (await audioRow(page).boundingBox())?.height ?? 0;
+  expect(collapsedHeight).toBeLessThan(expandedHeight / 2);
+  await expect.poll(bottomGap).toBeLessThan(2);
+
+  await page.reload();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(mixContent(page)).toBeVisible();
+});
+
 test("a source clip with audio draws the mix, its muted Gain flattens it, and Refresh recomputes it", async ({
   page,
 }) => {
