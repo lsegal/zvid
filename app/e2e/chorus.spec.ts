@@ -247,9 +247,7 @@ test("the preview's worklet and the export's offline render play Chorus identica
     const { AudioChain, BLOCK_FRAMES } = await import(
       /* @vite-ignore */ paths.chain
     );
-    const { createChainNode, postChainMessage } = await import(
-      /* @vite-ignore */ paths.node
-    );
+    const { createChainNode } = await import(/* @vite-ignore */ paths.node);
     const { CHAIN_WORKLET_URL } = await import(/* @vite-ignore */ paths.url);
     const { AUDIO_PROCESSORS } = await import(
       /* @vite-ignore */ paths.processors
@@ -312,17 +310,14 @@ test("the preview's worklet and the export's offline render play Chorus identica
     });
     const source = context.createBufferSource();
     source.buffer = buffer;
-    const node = createChainNode(context, 2);
-    postChainMessage(node, { type: "configure", settings, tempo });
-    postChainMessage(node, {
-      type: "transport",
-      contextTime: 0,
-      timelineSeconds: startSeconds,
-      rate: 1,
+    const node = createChainNode(context, {
+      channels: 2,
+      settings,
+      tempo,
+      transport: { contextTime: 0, timelineSeconds: startSeconds, rate: 1 },
     });
     source.connect(node).connect(context.destination);
     source.start(0);
-    await new Promise((resolve) => setTimeout(resolve, 200));
     const rendered = await context.startRendering();
 
     let max = 0;
