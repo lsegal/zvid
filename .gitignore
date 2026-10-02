@@ -36,3 +36,5 @@ test-results
 playwright-report
 blob-report
 e2e-results.json
+all-tests.json
+shard-tests.txt

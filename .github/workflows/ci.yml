@@ -101,12 +101,24 @@ jobs:
           name: export-bridge-pkg
           path: app/export-bridge/pkg
 
+      # Deals the tests round-robin across the shards (scripts/e2e-shard-list.mjs)
+      # rather than with --shard, whose contiguous slices put a file of slow
+      # tests in one shard.
+      - name: List shard tests
+        working-directory: app
+        run: |
+          pnpm exec playwright test --list --reporter=json > all-tests.json
+          node scripts/e2e-shard-list.mjs all-tests.json ${{ matrix.shard }} 16 > shard-tests.txt
+          cat shard-tests.txt
+
       - name: Browser tests
         working-directory: app
+        env:
+          PLAYWRIGHT_BLOB_OUTPUT_NAME: report-${{ matrix.shard }}.zip
         run: |
           start=$(date +%s)
           status=0
-          pnpm exec playwright test --shard=${{ matrix.shard }}/16 || status=$?
+          pnpm exec playwright test --test-list shard-tests.txt --pass-with-no-tests || status=$?
           elapsed=$(( $(date +%s) - start ))
           node scripts/e2e-summary.mjs e2e-results.json ${{ matrix.shard }}/16 "$elapsed" "$E2E_BUDGET_SECONDS" >> "$GITHUB_STEP_SUMMARY" || status=1
           exit "$status"

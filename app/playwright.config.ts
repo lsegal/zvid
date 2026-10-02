@@ -16,8 +16,9 @@ if (!Number.isInteger(PORT) || PORT <= 0 || PORT > 65535) {
 // CI runs the suite on main only, as 16 shards on separate runners
 // (.github/workflows/ci.yml). Each runner has 4 vCPUs and each worker drives
 // a Chromium against the dev server and the wasm bridge, so CI uses two
-// workers per shard. fullyParallel lets shards split by test rather than by
-// file, so every test must be safe to run concurrently with any other.
+// workers per shard. The shards take tests from any file, and fullyParallel
+// spreads a file's tests over the workers, so every test must be safe to run
+// concurrently with any other.
 //
 // In CI the blob reporter writes blob-report/ for `playwright merge-reports`,
 // and the JSON reporter writes e2e-results.json for scripts/e2e-summary.mjs.
