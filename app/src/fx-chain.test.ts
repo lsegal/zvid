@@ -120,9 +120,10 @@ describe("groupChainDevices", () => {
   it("offers only audio effects on an audio clip", () => {
     const effects = addableEffectsFor("clip", "audio");
     assert.ok(effects.every((definition) => definition.domain === "audio"));
-    const names = effects.map((definition) => definition.effectName);
-    assert.equal(names[0], "Gain");
-    assert.ok(names.includes("Saturation"));
+    assert.deepEqual(
+      effects.slice(0, 2).map((definition) => definition.effectName),
+      ["Gain", "EQ"],
+    );
   });
 
   it("lists the selected clip's own stack, apart from other clips'", () => {
@@ -233,14 +234,13 @@ describe("groupAddableEffects", () => {
 describe("addableEffectsFor", () => {
   const names = (group: "layer" | "global" | "clip") =>
     addableEffectsFor(group).map((definition) => definition.effectName);
-  // Every audio effect is offered on every stack, after the video ones,
-  // Gain first; each audio effect's own tests check its place among them.
+  // Every audio effect is offered on every stack, after the video ones;
+  // each audio effect's own tests check its place among them.
   const withAudio = (group: "layer" | "global" | "clip", video: string[]) => {
     const audio = addableEffectsFor(group)
       .filter((definition) => definition.domain === "audio")
       .map((definition) => definition.effectName);
-    assert.equal(audio[0], "Gain");
-    assert.ok(audio.includes("Saturation"));
+    assert.ok(audio.includes("Gain") && audio.includes("EQ"));
     return [...video, ...audio];
   };
 

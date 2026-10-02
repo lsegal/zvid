@@ -164,8 +164,7 @@ describe("buildLayerMenuEntries", () => {
       submenu.map((entry) => (entry.type === "item" ? entry.label : "|")),
       [...names("video"), "|", ...names("audio")],
     );
-    assert.equal(names("audio")[0], "Gain");
-    assert.ok(names("audio").includes("Saturation"));
+    assert.deepEqual(names("audio").slice(0, 2), ["Gain", "EQ"]);
     const first = submenu[0];
     assert.equal(first?.type, "item");
     if (first?.type === "item") {
