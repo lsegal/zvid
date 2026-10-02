@@ -58,6 +58,22 @@ function drawer(page: Page) {
   return page.getByRole("complementary", { name: "Media" });
 }
 
+// The drawer's width once its open/close animation has finished: two reads a
+// frame apart agree.
+async function settledWidth(page: Page) {
+  let previous = -1;
+  for (;;) {
+    const width = (await drawer(page).boundingBox())?.width ?? 0;
+    if (width === previous) {
+      return width;
+    }
+    previous = width;
+    await page.evaluate(
+      () => new Promise((resolve) => requestAnimationFrame(resolve)),
+    );
+  }
+}
+
 function toggle(page: Page) {
   return page.getByRole("button", { name: "Media", exact: true });
 }
@@ -231,7 +247,7 @@ test("the resize handle widens the drawer and double-click resets it", async ({
   await toggle(page).click();
   const handle = page.getByRole("separator", { name: "Resize media drawer" });
   await expect(handle).toBeVisible();
-  const before = (await drawer(page).boundingBox())?.width ?? 0;
+  const before = await settledWidth(page);
 
   const box = await handle.boundingBox();
   if (!box) throw new Error("no handle");
