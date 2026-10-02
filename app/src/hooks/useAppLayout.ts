@@ -20,6 +20,10 @@ import {
 } from "../app/layout-prefs.ts";
 import { getShortcutLabels } from "../app/shortcut-labels.ts";
 import { clamp } from "../app/util.ts";
+import {
+  readAudioRowCollapsed,
+  writeAudioRowCollapsed,
+} from "../audio-row-section.ts";
 import { usePrefersReducedMotion } from "../components/MediaSyncSkeleton";
 import {
   isSourceTracksSectionCollapsed,
@@ -33,7 +37,7 @@ export type AppLayoutInputs = {
 };
 
 // The editor's layout preferences: the FX panel's collapsed state, the
-// source tracks section, the track label width, and the preview width with
+// source tracks section, the Audio row, the track label width, and the preview width with
 // its resize handle. Also the platform's shortcut labels and the reduced
 // motion preference.
 export function useAppLayout({ sourceTrackCount }: AppLayoutInputs) {
@@ -45,6 +49,11 @@ export function useAppLayout({ sourceTrackCount }: AppLayoutInputs) {
       readSourceTracksCollapsed(
         typeof window === "undefined" ? undefined : window.localStorage,
       ),
+  );
+  const [isAudioRowCollapsed, setAudioRowCollapsedPref] = useState(() =>
+    readAudioRowCollapsed(
+      typeof window === "undefined" ? undefined : window.localStorage,
+    ),
   );
   const labelResize = useLabelResize();
   const { labelWidth } = labelResize;
@@ -65,6 +74,10 @@ export function useAppLayout({ sourceTrackCount }: AppLayoutInputs) {
   const setSourceTracksCollapsed = useCallback((collapsed: boolean) => {
     setSourceTracksCollapsedPref(collapsed);
     writeSourceTracksCollapsed(window.localStorage, collapsed);
+  }, []);
+  const setAudioRowCollapsed = useCallback((collapsed: boolean) => {
+    setAudioRowCollapsedPref(collapsed);
+    writeAudioRowCollapsed(window.localStorage, collapsed);
   }, []);
 
   const shortcutLabels = useMemo(() => getShortcutLabels(), []);
@@ -184,6 +197,8 @@ export function useAppLayout({ sourceTrackCount }: AppLayoutInputs) {
     toggleInspectorCollapsed,
     isSourceTracksCollapsed,
     setSourceTracksCollapsed,
+    isAudioRowCollapsed,
+    setAudioRowCollapsed,
     labelResize,
     labelWidth,
     prefersReducedMotion,

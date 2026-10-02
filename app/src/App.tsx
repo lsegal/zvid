@@ -8,6 +8,7 @@ import {
   getAudioMixContributions,
   getAudioMixOrigin,
 } from "./audio-mix-clips.ts";
+import { isAudioRowPinned } from "./audio-row-section.ts";
 import type { CompositionPlayerHandle } from "./CompositionPlayer";
 import { AppDialogs } from "./components/AppDialogs";
 import { AppStatusBar } from "./components/AppStatusBar";
@@ -505,16 +506,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     },
                   }}
                 />
-                <AudioRow
-                  mix={audioMix}
-                  openAudioMenu={editing.openAudioMenu}
-                  prefersReducedMotion={prefersReducedMotion}
-                  bpm={bpm}
-                  quarterPx={quarterPx}
-                  visibleTimelineStartPx={visibleTimelineStartPx}
-                  visibleTimelineWidthPx={visibleTimelineWidthPx}
-                  gridStyle={gridStyle}
-                />
                 <SourceTracks
                   sourceTracks={sourceTracks}
                   sourceSpansByTrack={timeline.sourceSpansByTrack}
@@ -564,6 +555,20 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     setSourceSpanDrag: selection.setSourceSpanDrag,
                     locked: editing.sourceTracksLocked,
                   }}
+                />
+                <AudioRow
+                  mix={audioMix}
+                  openAudioMenu={editing.openAudioMenu}
+                  prefersReducedMotion={prefersReducedMotion}
+                  bpm={bpm}
+                  quarterPx={quarterPx}
+                  visibleTimelineStartPx={visibleTimelineStartPx}
+                  visibleTimelineWidthPx={visibleTimelineWidthPx}
+                  gridStyle={gridStyle}
+                  playheadSignal={playheadSignal}
+                  isPinned={isAudioRowPinned(timelineViewport.clientHeight)}
+                  isCollapsed={layout.isAudioRowCollapsed}
+                  setCollapsed={layout.setAudioRowCollapsed}
                 />
               </Timeline>
 

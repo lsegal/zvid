@@ -1,3 +1,109 @@
+/* The Audio row ends the timeline. Pinned (when the panel has room for it,
+   audio-row-section.ts), it sits at the bottom of the panel and the rows
+   above scroll under it. It sits there even when they are short of the
+   panel's height (the canvas is a column, timeline.css), and as the canvas's
+   last row it takes its own height in the scroll range, so the last lanes
+   and source tracks scroll clear of it. It still scrolls sideways, with its
+   label pinned to the left like every other row. It is opaque and stacks
+   above the rows' sticky labels, below the ruler's resize rail; the playhead
+   line under it is drawn again inside it. */
+.track-row--bus {
+  margin-top: auto;
+  background: #242637;
+}
+
+.track-row--bus-pinned {
+  position: sticky;
+  bottom: 0;
+  z-index: 8;
+  border-top: 1px solid var(--line-strong);
+  box-shadow: 0 -6px 14px rgba(10, 11, 18, 0.35);
+}
+
+/* Scrolling a row into view (focus, selection, a drag lining up a drop)
+   stops clear of the pinned row: its height, expanded or collapsed. */
+.timeline-scroll:has(.track-row--bus-pinned) {
+  scroll-padding-bottom: 80px;
+}
+
+.timeline-scroll:has(.track-row--bus-pinned.track-row--bus-collapsed) {
+  scroll-padding-bottom: 38px;
+}
+
+.audio-row__toggle {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.audio-row__toggle:focus-visible {
+  outline: 2px solid var(--lane-selected-accent);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.audio-row__toggle > svg {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+  transition: transform 160ms ease;
+}
+
+.audio-row__toggle:hover > svg {
+  color: var(--ink);
+}
+
+.track-row--bus-collapsed .audio-row__toggle > svg {
+  transform: rotate(-90deg);
+}
+
+.audio-row__title {
+  min-width: 0;
+}
+
+.audio-row__title > span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Collapsed: a slim header with the toggle, no waveform. */
+.track-row--bus-collapsed .track-label {
+  min-height: 0;
+  padding-block: 6px;
+}
+
+.track-row--bus-collapsed .track-label__index,
+.track-row--bus-collapsed .audio-row__title small {
+  display: none;
+}
+
+.track-row--bus-collapsed .track-row__content {
+  min-height: 0;
+}
+
+.audio-row__playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  will-change: transform;
+  background: #f6b73c;
+  pointer-events: none;
+  z-index: var(--z-timeline-playhead);
+}
+
 .track-label__audio {
   display: grid;
   place-items: center;
@@ -13,7 +119,7 @@
   opacity: 0.45;
 }
 
-.track-row--bus .track-row__content {
+.track-row--bus:not(.track-row--bus-collapsed) .track-row__content {
   min-height: 78px;
 }
 
