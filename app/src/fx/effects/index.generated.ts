@@ -17,10 +17,13 @@ import * as move from "./move/definition.ts";
 import * as negativeSplit from "./negative-split/definition.ts";
 import { pass as negativeSplitPass } from "./negative-split/pass.ts";
 import * as order from "./order/definition.ts";
+import * as phaser from "./phaser/definition.ts";
 import * as pixelate from "./pixelate/definition.ts";
 import { pass as pixelatePass } from "./pixelate/pass.ts";
+import * as stereo from "./stereo/definition.ts";
 import * as text from "./text/definition.ts";
 import * as transform from "./transform/definition.ts";
+import * as transientShaper from "./transient-shaper/definition.ts";
 import * as zoomAndPan from "./zoom-and-pan/definition.ts";
 import { pass as zoomAndPanPass } from "./zoom-and-pan/pass.ts";
 
@@ -37,9 +40,12 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   move,
   negativeSplit,
   order,
+  phaser,
   pixelate,
+  stereo,
   text,
   transform,
+  transientShaper,
   zoomAndPan,
 ];
 

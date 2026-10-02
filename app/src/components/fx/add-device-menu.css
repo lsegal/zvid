@@ -13,3 +13,9 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
+
+/* It scrolls once the effects outgrow the room beside its button. */
+.fx-add-menu {
+  max-height: var(--radix-dropdown-menu-content-available-height);
+  overflow-y: auto;
+}
