@@ -332,6 +332,31 @@ export function createBandAnalyser(context: BaseAudioContext) {
   return analyser;
 }
 
+// The program mix's left and right channels, before the preview volume, for
+// the transport bar's VU meter. A mono mix reads the same on both.
+export type MasterMeterTap = { left: AnalyserNode; right: AnalyserNode };
+
+const METER_FFT_SIZE = 2048;
+
+// Splits `context`'s input into one analyser per channel, upmixing mono to
+// both sides first (a splitter alone would leave the right channel silent).
+export function createMeterTap(context: BaseAudioContext) {
+  const input = context.createGain();
+  input.channelCount = 2;
+  input.channelCountMode = "explicit";
+  input.channelInterpretation = "speakers";
+  const splitter = context.createChannelSplitter(2);
+  input.connect(splitter);
+  const [left, right] = [0, 1].map((channel) => {
+    const analyser = context.createAnalyser();
+    analyser.fftSize = METER_FFT_SIZE;
+    analyser.smoothingTimeConstant = 0;
+    splitter.connect(analyser, channel);
+    return analyser;
+  });
+  return { input, tap: { left, right } as MasterMeterTap };
+}
+
 // Measures the preview's audio mix as it plays, through the analyser the
 // mixer feeds it (see createBandAnalyser). The preview volume is a gain
 // after the analyser, so the bands don't follow it.

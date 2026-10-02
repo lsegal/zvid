@@ -4,13 +4,18 @@
 //   element → clip GainNode → master GainNode → limiter → analyser
 //     → preview volume → speakers
 //
-// The analyser feeds audio-reactive effects (see LiveAudioBands), so they
-// follow the mix after every Gain but not the preview volume. Elements are
+// The analyser feeds audio-reactive effects (see LiveAudioBands), and the
+// limiter also feeds the transport's VU meter, so both follow the mix after
+// every Gain but not the preview volume. Elements are
 // made shortly before their clip starts and released once it has passed,
 // and follow the playhead as the compositor's video elements do.
 import type { PreviewVolume } from "../app/preview-volume.ts";
 import { clamp } from "../app/util.ts";
-import { createBandAnalyser } from "../fx-shaders/audio-bands.ts";
+import {
+  createBandAnalyser,
+  createMeterTap,
+  type MasterMeterTap,
+} from "../fx-shaders/audio-bands.ts";
 import { releaseMediaElement } from "../media-element.ts";
 import { clipMediaTimeAt, LIMITER_HEADROOM, limiterCurve } from "./mix.ts";
 import {
@@ -38,6 +43,7 @@ type MixGraph = {
   context: AudioContext;
   master: GainNode;
   analyser: AnalyserNode;
+  meter: MasterMeterTap;
   output: GainNode;
 };
 
@@ -97,6 +103,11 @@ export class PreviewAudioMixer {
   // What audio-reactive effects measure, once the mix has played.
   get analyser() {
     return this.graph?.analyser ?? null;
+  }
+
+  // What the transport's VU meter reads, once the mix has played.
+  get meterTap() {
+    return this.graph?.meter ?? null;
   }
 
   sync(playback: AudioMixPlayback) {
@@ -199,15 +210,17 @@ export class PreviewAudioMixer {
     headroom.gain.value = 1 / LIMITER_HEADROOM;
     const limiter = context.createWaveShaper();
     limiter.curve = limiterCurve();
+    const meter = createMeterTap(context);
     const analyser = createBandAnalyser(context);
     const output = context.createGain();
     output.gain.value = this.volume.muted ? 0 : this.volume.volume;
     master.connect(headroom);
     headroom.connect(limiter);
+    limiter.connect(meter.input);
     limiter.connect(analyser);
     analyser.connect(output);
     output.connect(context.destination);
-    this.graph = { context, master, analyser, output };
+    this.graph = { context, master, analyser, meter: meter.tap, output };
     return this.graph;
   }
 

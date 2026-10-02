@@ -16,16 +16,22 @@ const newTrackRow = ".track-row--source-drop";
 // timeline during a drag.
 test.use({ viewport: { width: 1600, height: 1200 } });
 
-async function dropVideoIntoNewSourceTrack(page: Page) {
-  const base64 = (await readFile(VIDEO)).toString("base64");
-  const dataTransfer = await page.evaluateHandle((data) => {
-    const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
-    const transfer = new DataTransfer();
-    transfer.items.add(
-      new File([bytes], "test-pattern-audio.webm", { type: "video/webm" }),
-    );
-    return transfer;
-  }, base64);
+async function dropVideoIntoNewSourceTrack(
+  page: Page,
+  file = VIDEO,
+  type = "video/webm",
+) {
+  const base64 = (await readFile(file)).toString("base64");
+  const name = file.pathname.split("/").pop() ?? "";
+  const dataTransfer = await page.evaluateHandle(
+    ({ data, name, type }) => {
+      const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([bytes], name, { type }));
+      return transfer;
+    },
+    { data: base64, name, type },
+  );
   const target = '[data-source-track-drop-target="new-track"]';
   for (const type of ["dragenter", "dragover", "drop"]) {
     await page.dispatchEvent(target, type, { dataTransfer });
@@ -118,9 +124,8 @@ async function dropAtQ(page: Page, row: Locator, q: number, quarterPx: number) {
   await page.mouse.up();
 }
 
-// Opens the app with the fixture in a source track and the Media drawer, and
-// sets the media's In and Out points to 1 and 2 seconds.
-async function openWithRange(page: Page) {
+// Opens the app with the fixture in a source track and the Media drawer.
+async function openWithMedia(page: Page) {
   await page.goto("/");
   await dropVideoIntoNewSourceTrack(page);
   const row = page.locator(tracks).first();
@@ -128,6 +133,13 @@ async function openWithRange(page: Page) {
   await page.getByRole("button", { name: "SMPTE", exact: true }).click();
   await page.getByRole("button", { name: "Media", exact: true }).click();
   await expect(mediaItems(page)).toHaveCount(1);
+  return { row, quarterPx };
+}
+
+// Opens the app with the fixture in a source track and the Media drawer, and
+// sets the media's In and Out points to 1 and 2 seconds.
+async function openWithRange(page: Page) {
+  const { row, quarterPx } = await openWithMedia(page);
 
   await mediaItems(page).dblclick();
   const video = page.locator(".media-preview video");
@@ -241,4 +253,83 @@ test("media dragged from the drawer onto the Audio lane or a layer does nothing"
   await expect.poll(() => layout(row, quarterPx)).toEqual([[0, 6]]);
   await expect(page.locator(tracks)).toHaveCount(1);
   await expect(page.locator(".clip-card")).toHaveCount(0);
+});
+
+// The drop preview of ranged media is the clip the drop creates (#715): as
+// wide, and showing the frame at its In point.
+test("the drop preview of media from the drawer is as long as its In/Out range", async ({
+  page,
+}) => {
+  const { row, quarterPx } = await openWithRange(page);
+
+  await startDrag(page, mediaItems(page), row.locator(content));
+  const preview = row.locator(".source-drop-preview--clips");
+  await expect(preview).toBeVisible();
+  await expect(preview).toContainText("test-pattern-audio");
+  await expect(preview).toContainText("Video · 0:01.0");
+  await expect(preview.locator(".source-drop-clip__thumb")).toHaveAttribute(
+    "data-thumbnail-key",
+    /:1\.000$/,
+  );
+  await expect(preview.locator(".source-drop-clip")).toHaveAttribute(
+    "data-in-seconds",
+    "1",
+  );
+  const previewWidth = (await box(preview)).width;
+  expect(previewWidth).toBeCloseTo(2 * quarterPx, 0);
+  await dropAtQ(page, row, 12, quarterPx);
+
+  await expect(row.locator(".source-span")).toHaveCount(2);
+  const dropped = (await box(row.locator(".source-span").nth(1))).width;
+  expect(Math.abs(previewWidth - dropped)).toBeLessThanOrEqual(1);
+});
+
+test("the drop preview of media without a range spans its whole length", async ({
+  page,
+}) => {
+  const { row, quarterPx } = await openWithMedia(page);
+  await row.locator(".track-label--source").scrollIntoViewIfNeeded();
+
+  await startDrag(page, mediaItems(page), row.locator(content));
+  const preview = row.locator(".source-drop-preview--clips");
+  await expect(preview).toBeVisible();
+  await expect(preview.locator(".source-drop-clip__thumb")).toHaveAttribute(
+    "data-thumbnail-key",
+    /:0\.000$/,
+  );
+  const previewWidth = (await box(preview)).width;
+  const full = (await box(row.locator(".source-span"))).width;
+  expect(Math.abs(previewWidth - full)).toBeLessThanOrEqual(1);
+  await dropAtQ(page, row, 8, quarterPx);
+  await expect
+    .poll(() => layout(row, quarterPx))
+    .toEqual([
+      [0, 6],
+      [8, 6],
+    ]);
+});
+
+test("the drop preview of audio-only media draws its waveform", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await dropVideoIntoNewSourceTrack(
+    page,
+    new URL("./fixtures/tone.wav", import.meta.url),
+    "audio/wav",
+  );
+  const row = page.locator(tracks).first();
+  await page.getByRole("button", { name: "Media", exact: true }).click();
+  await expect(mediaItems(page)).toHaveCount(1);
+  await row.locator(".track-label--source").scrollIntoViewIfNeeded();
+
+  await startDrag(page, mediaItems(page), row.locator(content));
+  const preview = row.locator(".source-drop-preview--clips");
+  await expect(preview.locator(".source-drop-clip--audio")).toBeVisible();
+  await expect(preview.locator(".source-drop-clip__waveform")).toBeVisible();
+  await expect(preview.locator(".source-drop-clip__thumb")).toHaveCount(0);
+  const previewWidth = (await box(preview)).width;
+  const full = (await box(row.locator(".source-span"))).width;
+  expect(Math.abs(previewWidth - full)).toBeLessThanOrEqual(1);
+  await page.mouse.up();
 });

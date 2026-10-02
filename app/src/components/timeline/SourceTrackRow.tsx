@@ -166,7 +166,7 @@ export function SourceTrackRow({
           <SourceSpan key={clip.id} clip={clip} {...span} />
         ))}
         {isDropTarget ? (
-          <SourceDropPreview drop={drop} quarterPx={span.quarterPx} />
+          <SourceDropPreview drop={drop} span={span} swatch={swatch} />
         ) : null}
       </section>
     </section>

@@ -128,33 +128,24 @@ export function usePlayback({
     );
   }, [setTimelineDragState]);
 
-  // Ctrl/Cmd-click on an arrangement clip: select it and move the playhead to
-  // its start, scrolled into view. Playback carries on from there.
-  const jumpToClipStart = useCallback(
-    (clipId: string) => {
-      const clip = timelineClipsRef.current.find(
-        (candidate) => candidate.id === clipId,
-      );
-      if (!clip) {
-        return;
-      }
-
-      setPendingSelection(null);
-      setSelectedClipId(clip.id);
-      setPlayheadQ(clip.startQ);
-      playbackOriginRef.current = clip.startQ;
+  // Moves the playhead to `startQ`, scrolled into view. Playback carries on
+  // from there.
+  const jumpPlayheadTo = useCallback(
+    (startQ: number) => {
+      setPlayheadQ(startQ);
+      playbackOriginRef.current = startQ;
       if (isPlaying) {
         // The playback loop only restarts from the new origin when it stops
         // first, so the pause commits before playback starts again.
         cancelScrubPlaybackResume();
         flushSync(() => setIsPlaying(false));
-        startPlayback(clip.startQ);
+        startPlayback(startQ);
       }
 
       const timelineScroll = timelineScrollRef.current;
       if (timelineScroll) {
         const nextScrollLeft = revealScrollLeft({
-          targetPx: labelWidth + clip.startQ * quarterPx,
+          targetPx: labelWidth + startQ * quarterPx,
           scrollLeft: timelineScroll.scrollLeft,
           viewportWidth: timelineScroll.clientWidth,
           labelWidth,
@@ -173,13 +164,28 @@ export function usePlayback({
       playbackOriginRef,
       quarterPx,
       setIsPlaying,
-      setPendingSelection,
       setPlayheadQ,
-      setSelectedClipId,
       startPlayback,
-      timelineClipsRef,
       timelineScrollRef,
     ],
+  );
+
+  // Ctrl/Cmd-click on an arrangement clip: select it and move the playhead to
+  // its start.
+  const jumpToClipStart = useCallback(
+    (clipId: string) => {
+      const clip = timelineClipsRef.current.find(
+        (candidate) => candidate.id === clipId,
+      );
+      if (!clip) {
+        return;
+      }
+
+      setPendingSelection(null);
+      setSelectedClipId(clip.id);
+      jumpPlayheadTo(clip.startQ);
+    },
+    [jumpPlayheadTo, setPendingSelection, setSelectedClipId, timelineClipsRef],
   );
 
   const stopTimelineAudibleScrub = useCallback(() => {
@@ -394,6 +400,7 @@ export function usePlayback({
     isTimelineAudibleScrubbing,
     startPlayback,
     cancelScrubPlaybackResume,
+    jumpPlayheadTo,
     jumpToClipStart,
     stopTimelineAudibleScrub,
     pulseTimelineAudibleScrub,

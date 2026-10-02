@@ -1,5 +1,5 @@
 import { createClipWarp } from "../clip-warp.ts";
-import { migrateDefaultGain } from "../default-gain.ts";
+import { migrateDefaultGain, pruneDefaultGain } from "../default-gain.ts";
 import { createFillClip } from "../fill-clip.ts";
 import { createFxClip } from "../fx-clip.ts";
 import {
@@ -90,6 +90,23 @@ export function patchProjectState(
       effects,
       patch.sourceTracks ?? current.sourceTracks,
       patch.sourceSpans ?? current.sourceSpans,
+    );
+    if (pruned !== effects) {
+      patch = { ...patch, effects: pruned };
+    }
+  }
+  // Media read since an older session opened drops the Gain the open gave
+  // its clips when it has no sound, in the same change, so it is no undo
+  // step of its own.
+  if (patch.mediaItems) {
+    const effects = patch.effects ?? current.effects;
+    const pruned = pruneDefaultGain(
+      effects,
+      {
+        clips: patch.clips ?? current.clips,
+        sourceSpans: patch.sourceSpans ?? current.sourceSpans,
+      },
+      patch.mediaItems,
     );
     if (pruned !== effects) {
       patch = { ...patch, effects: pruned };

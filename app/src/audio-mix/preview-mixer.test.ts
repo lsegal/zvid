@@ -71,6 +71,10 @@ class FakeAudioContext {
     return gain;
   }
 
+  createChannelSplitter() {
+    return node();
+  }
+
   createWaveShaper() {
     return node({ curve: null });
   }
@@ -266,6 +270,23 @@ describe("PreviewAudioMixer", () => {
     mixer.update(mix([clip({})], 0.25), media);
     assert.equal(context().gains[0].gain?.value, 0.25);
     mixer.dispose();
+  });
+
+  it("taps the mix for the VU meter beside the analyser, before the preview volume", () => {
+    const mixer = new PreviewAudioMixer();
+    mixer.update(mix([clip({})]), media);
+    const before = mixer.meterTap;
+    assert.equal(before, null);
+    mixer.sync(playing(1));
+
+    const tap = mixer.meterTap;
+    assert.ok(tap?.left && tap.right && tap.left !== tap.right);
+    // The limiter feeds both the meter's upmix and the bands' analyser.
+    const limiter = context().gains[1].connections[0];
+    assert.equal(limiter.connections.length, 2);
+    assert.ok(limiter.connections.includes(context().analyser as FakeNode));
+    mixer.dispose();
+    assert.equal(mixer.meterTap, null);
   });
 
   it("drops a clip's element when its media changes or it leaves the mix", () => {

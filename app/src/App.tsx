@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import "./App.css";
 import type { ClipClipboard } from "./app/clip-ops.ts";
 import { selectSourceSpan } from "./app/source-selection.ts";
@@ -96,6 +96,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   const playbackOriginRef = useRef(store.initialPlayheadQ);
   const compositionPlayerRef = useRef<CompositionPlayerHandle | null>(null);
   const previewVolume = usePreviewVolume(compositionPlayerRef);
+  const getMeterTap = useCallback(
+    () => compositionPlayerRef.current?.getMasterMeterTap() ?? null,
+    [],
+  );
   const appShellRef = useRef<HTMLDivElement | null>(null);
   const timelineScrollRef = useRef<HTMLDivElement | null>(null);
   const spaceHoldRef = useRef(createSpaceHold());
@@ -588,6 +592,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             <TransportBar
               {...timeline}
               {...previewVolume}
+              getMeterTap={getMeterTap}
               isPlaying={isPlaying}
               jumpPlayhead={playback.jumpPlayhead}
               onTransportToggle={playback.handleTransportToggle}

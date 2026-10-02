@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { warpSourceTime } from "../clip-warp.ts";
+import { setEffectParameter } from "../fx-stack.ts";
 import type { MediaItem } from "../media.ts";
 import type { LvpSession } from "../session.ts";
 import { projectToLvpSession } from "../session-save.ts";
@@ -434,6 +435,87 @@ describe("default Gain on open", () => {
       }),
     ]);
     assert.deepEqual(gainStacks(project), []);
+  });
+
+  describe("once the media is read", () => {
+    // A just-opened session's media, not read yet.
+    const placeholder = media({
+      id: "cam",
+      name: "cam.mov",
+      sourcePath: "/media/cam.mov",
+      durationSeconds: 0,
+      hasAudio: false,
+      availability: "hydrating",
+    });
+
+    function open(lvp: LvpSession = session) {
+      const project = sessionToProject(lvp, [placeholder]);
+      return {
+        project,
+        state: {
+          ...INITIAL_PROJECT_STATE,
+          sourceTracks: project.sourceTracks,
+          sourceSpans: project.sourceSpans,
+          clips: project.arrangementClips,
+          effects: project.effects,
+          mediaItems: [placeholder],
+        },
+      };
+    }
+
+    function read(state: ReturnType<typeof open>["state"], hasAudio: boolean) {
+      return patchProjectState(state, {
+        mediaItems: mergeMediaItemsById(state.mediaItems, [
+          media({ ...placeholder, durationSeconds: 4, hasAudio }),
+        ]),
+      });
+    }
+
+    const stacks = (state: ReturnType<typeof open>["state"]) =>
+      state.effects
+        .filter((effect) => effect.effectName === "Gain")
+        .map((effect) => effect.trackId)
+        .toSorted();
+
+    it("drops the Gains of video-only media", () => {
+      const { project, state } = open();
+      assert.equal(gainStacks(project).length, 2);
+      assert.deepEqual(stacks(read(state, false)), []);
+    });
+
+    it("keeps the Gains of media with sound", () => {
+      const { project, state } = open();
+      assert.deepEqual(stacks(read(state, true)), gainStacks(project));
+    });
+
+    it("keeps a Gain the user edited", () => {
+      const { project, state } = open();
+      const [edited] = project.effects.filter(
+        (effect) => effect.effectName === "Gain",
+      );
+      assert.ok(edited);
+      const next = read(
+        {
+          ...state,
+          effects: setEffectParameter(state.effects, edited.id, "Gain", -3),
+        },
+        false,
+      );
+      assert.deepEqual(stacks(next), [edited.trackId]);
+    });
+
+    it("keeps a Gain the user added", () => {
+      const { state } = open();
+      const added = state.effects.map(({ defaulted: _, ...effect }) => effect);
+      assert.equal(read({ ...state, effects: added }, false).effects, added);
+    });
+
+    it("drops them after a save and reopen too", () => {
+      const { project } = open();
+      const reopened = open(save(project));
+      assert.equal(gainStacks(reopened.project).length, 2);
+      assert.deepEqual(stacks(read(reopened.state, false)), []);
+    });
   });
 });
 

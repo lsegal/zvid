@@ -320,7 +320,10 @@ describe("menu snapshots", () => {
         buildSourceSpanMenuEntries({
           lanes: lanes(2),
           mac: false,
-          copy: noop,
+          canPaste: true,
+          canSplit: false,
+          locked: false,
+          actions: clipActions,
           copyToLayer: noop,
         }),
       ),
@@ -503,7 +506,16 @@ const AUDIO_MENUS = [
 ];
 
 const SOURCE_SPAN_MENU = [
+  "jump-to-start: Jump to start",
+  "---",
+  "cut: Cut [Ctrl+X]",
   "copy: Copy [Ctrl+C]",
+  "paste: Paste [Ctrl+V]",
+  "duplicate: Duplicate [Ctrl+D]",
+  "split: Split at playhead (disabled)",
+  "---",
+  "delete: Delete [Del]",
+  "---",
   "copy-to-layer: Copy to layer",
   "  auto: Auto (last free layer) [Ctrl+click]",
   "  ---",

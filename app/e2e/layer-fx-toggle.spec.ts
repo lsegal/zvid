@@ -142,3 +142,24 @@ test("every layer's FX button is enabled and lit by default", async ({
     await expect(fx).toHaveAttribute("aria-pressed", "true");
   }
 });
+
+// The FX switch is plain text (#721): amber while on, muted while off, with
+// no chip, border or background either way.
+test("a layer's FX button is plain text, amber when on and muted when off", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const fx = header(page, "1").locator(".track-label__fx");
+  await page.mouse.move(0, 0);
+  await expect(fx).toHaveAttribute("aria-pressed", "true");
+  await expect(fx).toHaveCSS("color", "rgb(246, 183, 60)");
+  await expect(fx).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(fx).toHaveCSS("border-top-width", "0px");
+
+  await fx.click();
+  await page.mouse.move(0, 0);
+  await expect(fx).toHaveAttribute("aria-pressed", "false");
+  await expect(fx).toHaveCSS("color", "rgb(164, 169, 191)");
+  await expect(fx).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(fx).toHaveCSS("border-top-width", "0px");
+});

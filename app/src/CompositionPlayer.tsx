@@ -35,6 +35,7 @@ import {
 import { getGroupClipProgress } from "./composition-progress.ts";
 import {
   LiveAudioBands,
+  type MasterMeterTap,
   OfflineAudioBands,
   SILENT_AUDIO_BANDS,
 } from "./fx-shaders/audio-bands.ts";
@@ -43,7 +44,7 @@ import { getRenderedEffects } from "./fx-stack.ts";
 import { listenForVideoFrames, releaseMediaElement } from "./media-element.ts";
 import { seekMediaElement } from "./media-seek.ts";
 import type { PlayheadSignal } from "./playhead-signal";
-import { loadFontFace, resolveFontFace, subscribeFonts } from "./text-fonts.ts";
+import { loadTextFaces, subscribeFonts } from "./text-fonts.ts";
 
 type CompositionPlayerProps = {
   mediaItems: MediaItem[];
@@ -101,6 +102,7 @@ export type CompositionPlayerHandle = {
   getCanvas(): HTMLCanvasElement | null;
   renderFrameAt(playheadQ: number, playheadSeconds: number): Promise<void>;
   setVolume(volume: number, muted: boolean): void;
+  getMasterMeterTap(): MasterMeterTap | null;
 };
 
 const MAX_DRIFT_SECONDS = 0.18;
@@ -180,6 +182,11 @@ export class CompositionRenderer {
     this.mixer?.setVolume({ volume, muted });
   }
 
+  // The program mix for the transport VU meter, before the preview volume.
+  getMasterMeterTap() {
+    return this.mixer?.meterTap ?? null;
+  }
+
   // While playing, animating text and fills may be drawn from a nearby
   // raster; a paused preview, being edited, draws them exactly.
   renderPreviewFrame(playheadQ: number, pixelRatio: number, playing = true) {
@@ -232,19 +239,7 @@ export class CompositionRenderer {
     }
 
     // Exported frames never draw text in a fallback font.
-    await Promise.all(
-      nextActiveClips.map((entry) =>
-        entry.text
-          ? loadFontFace(
-              resolveFontFace(
-                entry.text.font,
-                entry.text.weight,
-                entry.text.italic,
-              ),
-            )
-          : undefined,
-      ),
-    );
+    await loadTextFaces(nextActiveClips.map((entry) => entry.text));
 
     this.activeClips = nextActiveClips;
     this.draw(nextActiveClips, playheadQ, pixelRatio, {
@@ -665,6 +660,7 @@ export const CompositionPlayer = forwardRef<
         renderFrameAt(nextPlayheadQ, nextPlayheadSeconds, 1),
       setVolume: (volume, muted) =>
         rendererRef.current?.setVolume(volume, muted),
+      getMasterMeterTap: () => rendererRef.current?.getMasterMeterTap() ?? null,
     }),
     [renderFrameAt],
   );

@@ -81,6 +81,11 @@ const componentStyles = [
     selectors: [".zoom-control", ".transport-cluster"],
   },
   {
+    component: "timeline/VuMeter",
+    stylesheet: "timeline/vu-meter",
+    selectors: [".vu-meter", ".vu-meter__channel", ".vu-meter__readout"],
+  },
+  {
     component: "timeline/Ruler",
     stylesheet: "timeline/ruler",
     selectors: [
