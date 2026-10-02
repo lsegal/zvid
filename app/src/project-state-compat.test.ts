@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { SourceSpan, SourceTrack } from "./app/types.ts";
+import { gainChainAmplitude } from "./fx/effects/gain/gain.ts";
 import {
   type ArrangementClip,
   computeActiveClips,
@@ -17,6 +18,7 @@ import {
   GLOBAL_EFFECT_TRACK_ID,
   mapEffects,
   type SessionEffect,
+  sourceClipEffectTrackId,
 } from "./fx-stack.ts";
 import {
   fitSourceSpansToMedia,
@@ -55,10 +57,10 @@ const existingTrack = {
 describe("migrateMainAudio", () => {
   it("turns the main audio into a source track with one clip of the whole file", () => {
     const migrated = migrateMainAudio({
-      bpm: 120,
       mediaItems: [song],
       sourceTracks: [existingTrack],
       sourceSpans: [] as SourceSpan[],
+      effects: [] as SessionEffect[],
       mainAudioId: "song",
     });
 
@@ -80,6 +82,16 @@ describe("migrateMainAudio", () => {
     assert.equal(span.trimStartSeconds, 0);
     assert.equal(span.durationSeconds, 90);
     assert.equal(span.fitsMedia, undefined);
+
+    // Its clip sounds as the main audio did, through a 0 dB Gain.
+    const stack = migrated.effects.filter(
+      (effect) => effect.trackId === sourceClipEffectTrackId(span.id),
+    );
+    assert.deepEqual(
+      stack.map((effect) => effect.effectName),
+      ["Gain"],
+    );
+    assert.equal(gainChainAmplitude(stack), 1);
   });
 
   it("reads a legacy masterAudioId the same way", () => {
@@ -87,6 +99,7 @@ describe("migrateMainAudio", () => {
       mediaItems: [song],
       sourceTracks: [] as SourceTrack[],
       sourceSpans: [] as SourceSpan[],
+      effects: [] as SessionEffect[],
       masterAudioId: "song",
     });
     assert.equal("masterAudioId" in migrated, false);
@@ -101,6 +114,7 @@ describe("migrateMainAudio", () => {
       mediaItems: [song],
       sourceTracks: [] as SourceTrack[],
       sourceSpans: [] as SourceSpan[],
+      effects: [] as SessionEffect[],
     };
     assert.equal(migrateMainAudio(state), state);
   });
@@ -110,12 +124,14 @@ describe("migrateMainAudio", () => {
       mediaItems: [],
       sourceTracks: [] as SourceTrack[],
       sourceSpans: [] as SourceSpan[],
+      effects: [] as SessionEffect[],
       mainAudioId: "song",
     });
     assert.deepEqual(missing, {
       mediaItems: [],
       sourceTracks: [] as SourceTrack[],
       sourceSpans: [] as SourceSpan[],
+      effects: [] as SessionEffect[],
     });
 
     // A peer that already migrated the same snapshot made the same track.
@@ -123,6 +139,7 @@ describe("migrateMainAudio", () => {
       mediaItems: [song],
       sourceTracks: [] as SourceTrack[],
       sourceSpans: [] as SourceSpan[],
+      effects: [] as SessionEffect[],
       mainAudioId: "song",
     });
     const twice = migrateMainAudio({ ...once, mainAudioId: "song" });
@@ -140,6 +157,7 @@ describe("migrateMainAudio", () => {
         mediaItems: [unread],
         sourceTracks: [] as SourceTrack[],
         sourceSpans: [] as SourceSpan[],
+      effects: [] as SessionEffect[],
         mainAudioId: "song",
       },
       30,

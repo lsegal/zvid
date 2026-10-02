@@ -1,5 +1,6 @@
 import type { ProjectState, SourceSpan, SourceTrack } from "./app/types.ts";
 import { getSwatch, stripFilenameExtension } from "./app/util.ts";
+import { addDefaultGain } from "./default-gain.ts";
 import { isColorEffectName } from "./fill-paint.ts";
 import {
   isOrderEffectName,
@@ -20,11 +21,11 @@ import { isTextEffectName } from "./text-style.ts";
 
 type MainAudioState = Pick<
   ProjectState,
-  "mediaItems" | "sourceTracks" | "sourceSpans"
+  "mediaItems" | "sourceTracks" | "sourceSpans" | "effects"
 >;
 
-// The source track and clip a session's main audio becomes. Their ids come
-// from the media's, so peers migrating the same snapshot agree on them.
+// The source track, clip and Gain a session's main audio becomes. Their ids
+// come from the media's, so peers migrating the same snapshot agree on them.
 export function mainAudioSourceTrackId(mediaId: string) {
   return `main-audio-track-${mediaId}`;
 }
@@ -33,11 +34,15 @@ export function mainAudioSourceSpanId(mediaId: string) {
   return `main-audio-span-${mediaId}`;
 }
 
+function mainAudioGainId(mediaId: string) {
+  return `main-audio-gain-${mediaId}`;
+}
+
 // Sessions used to have one "main audio" file, saved as `mainAudioId` (or
 // `masterAudioId` on builds before that rename). Audio comes only from clips
 // now, so the main audio becomes a source track of its own, named after the
-// file, with one clip of the whole file from time 0, and the field is
-// dropped. A file whose length is not known yet, as when a session file is
+// file, with one clip of the whole file from time 0 at a 0 dB Gain, so it
+// sounds as it did, and the field is dropped. A file whose length is not known yet, as when a session file is
 // opened before its media is analyzed, gets `fallbackDurationSeconds` and is
 // marked to fit the file once its length is known.
 export function migrateMainAudio<T extends MainAudioState>(
@@ -87,6 +92,12 @@ export function migrateMainAudio<T extends MainAudioState>(
     ...state,
     sourceTracks: [...state.sourceTracks, track],
     sourceSpans: [...state.sourceSpans, span],
+    effects: addDefaultGain(
+      state.effects,
+      { sourceSpans: [span] },
+      state.mediaItems,
+      () => mainAudioGainId(media.id),
+    ),
   };
 }
 
