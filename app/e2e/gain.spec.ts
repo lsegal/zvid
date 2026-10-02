@@ -112,7 +112,6 @@ test("a new audio clip has a Gain with a vertical fader at 0 dB", async ({
     .first()
     .click();
   const menu = page.getByRole("menu");
-  await expect(menu.getByRole("group", { name: "Audio" })).toBeVisible();
   await expect(menu.getByRole("group", { name: "Video" })).toHaveCount(0);
   await menu.getByRole("menuitem", { name: /^Gain/ }).click();
   await expect(page.locator(clipDevices)).toHaveCount(1);

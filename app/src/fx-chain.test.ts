@@ -65,6 +65,14 @@ function memoryStorage(initial: Record<string, string> = {}) {
   };
 }
 
+// The audio effects a stack's add menu offers, in menu order: Gain first,
+// then the others, which each add themselves from their effect folders.
+function audioNames(group: "layer" | "global" | "clip") {
+  return addableEffectsFor(group)
+    .filter((definition) => definition.domain === "audio")
+    .map((definition) => definition.effectName);
+}
+
 describe("groupChainDevices", () => {
   it("lists the layer stack in order, then the Global stack", () => {
     const groups = groupChainDevices(
@@ -118,12 +126,13 @@ describe("groupChainDevices", () => {
   });
 
   it("offers only audio effects on an audio clip", () => {
+    const offered = addableEffectsFor("clip", "audio");
+    assert.ok(offered.every((definition) => definition.domain === "audio"));
     assert.deepEqual(
-      addableEffectsFor("clip", "audio").map(
-        (definition) => definition.effectName,
-      ),
-      ["Gain"],
+      offered.map((definition) => definition.effectName),
+      audioNames("clip"),
     );
+    assert.equal(offered[0]?.effectName, "Gain");
   });
 
   it("lists the selected clip's own stack, apart from other clips'", () => {
@@ -211,7 +220,7 @@ describe("groupAddableEffects", () => {
             .filter((definition) => definition.domain !== "audio")
             .map((definition) => definition.effectName),
         ],
-        ["Audio", ["Gain"]],
+        ["Audio", audioNames("clip")],
       ],
     );
   });
@@ -243,7 +252,7 @@ describe("addableEffectsFor", () => {
       "NegativeSplit",
       "AnalogGlitch",
       "Order",
-      "Gain",
+      ...audioNames("global"),
     ]);
   });
 
@@ -262,7 +271,7 @@ describe("addableEffectsFor", () => {
       "Transform",
       "Move",
       "Color",
-      "Gain",
+      ...audioNames("layer"),
     ]);
   });
 
