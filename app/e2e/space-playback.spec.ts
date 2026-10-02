@@ -12,12 +12,14 @@ function headers(page: Page) {
   return page.locator("[data-layer-header-id]");
 }
 
+// By label, since an open dialog hides the transport from the
+// accessibility tree.
 function playButton(page: Page) {
-  return page.getByRole("button", { name: "Play timeline" });
+  return page.locator('button[aria-label="Play timeline"]');
 }
 
 function pauseButton(page: Page) {
-  return page.getByRole("button", { name: "Pause playback" });
+  return page.locator('button[aria-label="Pause playback"]');
 }
 
 function menuItem(page: Page, name: string) {
@@ -80,7 +82,7 @@ test("Space toggles playback from buttons, sliders, grips and the menubar", asyn
 
   const snap = page
     .getByRole("tablist", { name: "Snap grid" })
-    .getByRole("tab");
+    .getByRole("button");
   const selected = await snap.evaluateAll((tabs) =>
     tabs.findIndex((tab) => tab.classList.contains("is-active")),
   );
