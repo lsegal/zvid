@@ -6,6 +6,7 @@ import type { FxEffectDefinitionModule } from "../types.ts";
 import * as analogGlitch from "./analog-glitch/definition.ts";
 import { pass as analogGlitchPass } from "./analog-glitch/pass.ts";
 import * as autoPan from "./auto-pan/definition.ts";
+import * as bitcrush from "./bitcrush/definition.ts";
 import * as chorus from "./chorus/definition.ts";
 import * as color from "./color/definition.ts";
 import * as colorize from "./colorize/definition.ts";
@@ -14,8 +15,10 @@ import * as compressor from "./compressor/definition.ts";
 import * as deEss from "./de-ess/definition.ts";
 import * as eq from "./eq/definition.ts";
 import * as gain from "./gain/definition.ts";
+import * as highPass from "./high-pass/definition.ts";
 import * as layout from "./layout/definition.ts";
 import * as limiter from "./limiter/definition.ts";
+import * as lowPass from "./low-pass/definition.ts";
 import * as move from "./move/definition.ts";
 import * as negativeSplit from "./negative-split/definition.ts";
 import { pass as negativeSplitPass } from "./negative-split/pass.ts";
@@ -25,6 +28,7 @@ import * as phaser from "./phaser/definition.ts";
 import * as pixelate from "./pixelate/definition.ts";
 import { pass as pixelatePass } from "./pixelate/pass.ts";
 import * as reverb from "./reverb/definition.ts";
+import * as reverse from "./reverse/definition.ts";
 import * as saturation from "./saturation/definition.ts";
 import * as stereo from "./stereo/definition.ts";
 import * as text from "./text/definition.ts";
@@ -38,6 +42,7 @@ import { pass as zoomAndPanPass } from "./zoom-and-pan/pass.ts";
 export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   analogGlitch,
   autoPan,
+  bitcrush,
   chorus,
   color,
   colorize,
@@ -45,8 +50,10 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   deEss,
   eq,
   gain,
+  highPass,
   layout,
   limiter,
+  lowPass,
   move,
   negativeSplit,
   noiseGate,
@@ -54,6 +61,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   phaser,
   pixelate,
   reverb,
+  reverse,
   saturation,
   stereo,
   text,

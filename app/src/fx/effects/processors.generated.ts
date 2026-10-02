@@ -3,15 +3,19 @@
 
 import type { AudioEffectDsp } from "../../audio-mix/processor.ts";
 import { processor as autoPanProcessor } from "./auto-pan/processor.ts";
+import { processor as bitcrushProcessor } from "./bitcrush/processor.ts";
 import { processor as chorusProcessor } from "./chorus/processor.ts";
 import { processor as compressorProcessor } from "./compressor/processor.ts";
 import { processor as deEssProcessor } from "./de-ess/processor.ts";
 import { processor as eqProcessor } from "./eq/processor.ts";
 import { processor as gainProcessor } from "./gain/processor.ts";
+import { processor as highPassProcessor } from "./high-pass/processor.ts";
 import { processor as limiterProcessor } from "./limiter/processor.ts";
+import { processor as lowPassProcessor } from "./low-pass/processor.ts";
 import { processor as noiseGateProcessor } from "./noise-gate/processor.ts";
 import { processor as phaserProcessor } from "./phaser/processor.ts";
 import { processor as reverbProcessor } from "./reverb/processor.ts";
+import { processor as reverseProcessor } from "./reverse/processor.ts";
 import { processor as saturationProcessor } from "./saturation/processor.ts";
 import { processor as stereoProcessor } from "./stereo/processor.ts";
 import { processor as transientShaperProcessor } from "./transient-shaper/processor.ts";
@@ -20,15 +24,19 @@ import { processor as tremoloProcessor } from "./tremolo/processor.ts";
 // Every audio effect folder's processor.ts, in folder order.
 export const EFFECT_AUDIO_PROCESSORS: readonly AudioEffectDsp[] = [
   autoPanProcessor,
+  bitcrushProcessor,
   chorusProcessor,
   compressorProcessor,
   deEssProcessor,
   eqProcessor,
   gainProcessor,
+  highPassProcessor,
   limiterProcessor,
+  lowPassProcessor,
   noiseGateProcessor,
   phaserProcessor,
   reverbProcessor,
+  reverseProcessor,
   saturationProcessor,
   stereoProcessor,
   transientShaperProcessor,
