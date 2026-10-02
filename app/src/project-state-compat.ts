@@ -2,6 +2,8 @@ import type { ProjectState, SourceSpan, SourceTrack } from "./app/types.ts";
 import { getSwatch, stripFilenameExtension } from "./app/util.ts";
 import { addDefaultGain } from "./default-gain.ts";
 import { isColorEffectName } from "./fill-paint.ts";
+import { HIGH_CUT_EFFECT_NAME } from "./fx/effects/high-cut/high-cut.ts";
+import { LOW_CUT_EFFECT_NAME } from "./fx/effects/low-cut/low-cut.ts";
 import {
   isOrderEffectName,
   LEGACY_OUTER_MARGIN_KEY,
@@ -163,6 +165,26 @@ export function stripClipSelectionFlags<T extends object>(snapshot: T): T {
       return rest;
     }),
   };
+}
+
+// Effects that have been renamed, by the name older sessions saved.
+const RENAMED_EFFECTS: ReadonlyMap<string, string> = new Map([
+  ["Low Pass", HIGH_CUT_EFFECT_NAME],
+  ["High Pass", LOW_CUT_EFFECT_NAME],
+]);
+
+// Low Pass is High Cut and High Pass is Low Cut now. A session saved with
+// an old name opens with the effect under its new one, with the same
+// parameters, so it sounds the same and is saved under the new name.
+export function migrateRenamedEffects(effects: SessionEffect[]) {
+  if (!effects.some((effect) => RENAMED_EFFECTS.has(effect.effectName))) {
+    return effects;
+  }
+
+  return effects.map((effect) => {
+    const effectName = RENAMED_EFFECTS.get(effect.effectName);
+    return effectName ? { ...effect, effectName } : effect;
+  });
 }
 
 // Sessions saved before layers could overlap had no Order effect and were

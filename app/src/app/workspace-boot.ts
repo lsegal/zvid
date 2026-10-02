@@ -8,6 +8,7 @@ import {
   migrateDefaultOrder,
   migrateMainAudio,
   migrateOrderOuterMargin,
+  migrateRenamedEffects,
   stripLegacySnapMode,
 } from "../project-state-compat.ts";
 import { createWorkspaceLock } from "../workspace-lock.ts";
@@ -76,7 +77,9 @@ function normalizeRestoredProjectState(value: unknown): ProjectState {
   state.effects = migrateDefaultGain(
     migrateClipContentEffects(
       migrateDefaultOrder(
-        migrateOrderOuterMargin(migrateColorizeReactivity(state.effects)),
+        migrateOrderOuterMargin(
+          migrateColorizeReactivity(migrateRenamedEffects(state.effects)),
+        ),
         saved.orderDefaulted,
       ),
       state.clips,

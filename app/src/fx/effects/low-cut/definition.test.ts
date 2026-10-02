@@ -4,10 +4,10 @@ import { definition as eq } from "../eq/definition.ts";
 import { definition as gain } from "../gain/definition.ts";
 import { definition } from "./definition.ts";
 
-describe("High Pass definition", () => {
+describe("Low Cut definition", () => {
   it("is an audio effect for the same stacks as Gain", () => {
     assert.equal(definition.domain, "audio");
-    assert.equal(definition.displayName, "High Pass");
+    assert.equal(definition.displayName, "Low Cut");
     assert.deepEqual(definition.scopes, gain.scopes);
     assert.notEqual(definition.accent, gain.accent);
     assert.notEqual(definition.accent, eq.accent);

@@ -1,41 +1,41 @@
-// The Low Pass effect's DSP: an RBJ cookbook low-pass biquad, cascaded for
-// 24 dB/oct, its parameter ranges and readouts. At Resonance 0.707 both
+// The Low Cut effect's DSP: an RBJ cookbook high-pass biquad, cascaded
+// for 24 dB/oct, its parameter ranges and readouts. At Resonance 0.707 both
 // slopes are Butterworth, so the cutoff is the −3 dB point either way.
 
-export const LOW_PASS_EFFECT_NAME = "Low Pass";
+export const LOW_CUT_EFFECT_NAME = "Low Cut";
 
 export const FREQUENCY_KEY = "Frequency";
 export const RESONANCE_KEY = "Resonance";
 export const SLOPE_KEY = "Slope";
 
-export type LowPassNumberKey = typeof FREQUENCY_KEY | typeof RESONANCE_KEY;
+export type LowCutNumberKey = typeof FREQUENCY_KEY | typeof RESONANCE_KEY;
 
-export const LOW_PASS_RANGES: Readonly<
-  Record<LowPassNumberKey, { min: number; max: number; defaultValue: number }>
+export const LOW_CUT_RANGES: Readonly<
+  Record<LowCutNumberKey, { min: number; max: number; defaultValue: number }>
 > = {
-  [FREQUENCY_KEY]: { min: 20, max: 20_000, defaultValue: 8000 },
+  [FREQUENCY_KEY]: { min: 20, max: 20_000, defaultValue: 80 },
   [RESONANCE_KEY]: { min: 0.1, max: 18, defaultValue: Math.SQRT1_2 },
 };
 
-export const LOW_PASS_SLOPES = ["12 dB/oct", "24 dB/oct"] as const;
-export type LowPassSlope = (typeof LOW_PASS_SLOPES)[number];
-export const DEFAULT_LOW_PASS_SLOPE: LowPassSlope = "12 dB/oct";
+export const LOW_CUT_SLOPES = ["12 dB/oct", "24 dB/oct"] as const;
+export type LowCutSlope = (typeof LOW_CUT_SLOPES)[number];
+export const DEFAULT_LOW_CUT_SLOPE: LowCutSlope = "12 dB/oct";
 
 // The stored Slope as one of the slopes; anything else is 12 dB/oct.
-export function lowPassSlope(value: string): LowPassSlope {
-  const match = LOW_PASS_SLOPES.find(
+export function lowCutSlope(value: string): LowCutSlope {
+  const match = LOW_CUT_SLOPES.find(
     (slope) => slope.toLowerCase() === value.trim().toLowerCase(),
   );
-  return match ?? DEFAULT_LOW_PASS_SLOPE;
+  return match ?? DEFAULT_LOW_CUT_SLOPE;
 }
 
-export type LowPassSettings = {
+export type LowCutSettings = {
   frequency: number;
   resonance: number;
-  slope: LowPassSlope;
+  slope: LowCutSlope;
 };
 
-// "100 Hz", "1.50 kHz", "12.0 kHz".
+// "80 Hz", "1.50 kHz", "12.0 kHz".
 export function formatFrequency(hz: number) {
   if (hz < 1000) {
     return `${Math.round(hz)} Hz`;
@@ -61,9 +61,9 @@ export type BiquadCoefficients = {
   a2: number;
 };
 
-// RBJ Audio EQ Cookbook low-pass coefficients. The frequency is kept below
+// RBJ Audio EQ Cookbook high-pass coefficients. The frequency is kept below
 // Nyquist so a 20 kHz cutoff stays stable at 44.1 kHz.
-export function lowPassCoefficients(
+export function lowCutCoefficients(
   frequency: number,
   q: number,
   sampleRate: number,
@@ -73,11 +73,11 @@ export function lowPassCoefficients(
   const cos = Math.cos(w0);
   const alpha = Math.sin(w0) / (2 * q);
   const a0 = 1 + alpha;
-  const b1 = (1 - cos) / a0;
+  const b0 = (1 + cos) / 2 / a0;
   return {
-    b0: b1 / 2,
-    b1,
-    b2: b1 / 2,
+    b0,
+    b1: -2 * b0,
+    b2: b0,
     a1: (-2 * cos) / a0,
     a2: (1 - alpha) / a0,
   };
@@ -85,17 +85,17 @@ export function lowPassCoefficients(
 
 // The pole Qs of a 4th-order Butterworth filter. The 24 dB/oct slope runs
 // the first as is and scales the second by Resonance / 0.707, so the
-// default is flat to the cutoff and higher settings peak there.
+// default is flat down to the cutoff and higher settings peak there.
 const BUTTERWORTH_4_Q1 = 0.541_196_1;
 const BUTTERWORTH_4_Q2 = 1.306_563;
 
 // The stages' coefficients for `settings`, in processing order.
-export function lowPassStages(settings: LowPassSettings, sampleRate: number) {
+export function lowCutStages(settings: LowCutSettings, sampleRate: number) {
   if (settings.slope === "24 dB/oct") {
     const scale = settings.resonance / Math.SQRT1_2;
     return [
-      lowPassCoefficients(settings.frequency, BUTTERWORTH_4_Q1, sampleRate),
-      lowPassCoefficients(
+      lowCutCoefficients(settings.frequency, BUTTERWORTH_4_Q1, sampleRate),
+      lowCutCoefficients(
         settings.frequency,
         BUTTERWORTH_4_Q2 * scale,
         sampleRate,
@@ -103,20 +103,20 @@ export function lowPassStages(settings: LowPassSettings, sampleRate: number) {
     ];
   }
   return [
-    lowPassCoefficients(settings.frequency, settings.resonance, sampleRate),
+    lowCutCoefficients(settings.frequency, settings.resonance, sampleRate),
   ];
 }
 
 // The filter's magnitude response in dB at `frequency`, for tests and
 // displays.
-export function lowPassResponseDb(
-  settings: LowPassSettings,
+export function lowCutResponseDb(
+  settings: LowCutSettings,
   frequency: number,
   sampleRate: number,
 ) {
   const w = (2 * Math.PI * frequency) / sampleRate;
   let db = 0;
-  for (const c of lowPassStages(settings, sampleRate)) {
+  for (const c of lowCutStages(settings, sampleRate)) {
     // |H(e^jw)| from the numerator and denominator at z = e^jw.
     const nRe = c.b0 + c.b1 * Math.cos(w) + c.b2 * Math.cos(2 * w);
     const nIm = -(c.b1 * Math.sin(w) + c.b2 * Math.sin(2 * w));
@@ -127,7 +127,7 @@ export function lowPassResponseDb(
   return db;
 }
 
-function settingsEqual(a: LowPassSettings, b: LowPassSettings) {
+function settingsEqual(a: LowCutSettings, b: LowCutSettings) {
   return (
     a.frequency === b.frequency &&
     a.resonance === b.resonance &&
@@ -137,12 +137,16 @@ function settingsEqual(a: LowPassSettings, b: LowPassSettings) {
 
 // Each stage's filter memory for each channel, run with the latest
 // settings' coefficients. Uses transposed direct form II in doubles.
-export class LowPassFilter {
-  private settings: LowPassSettings | null = null;
+//
+// A fresh filter starts from silence. Unlike a low-pass, which passes the
+// held level of a signal, a high-pass passes its fast movement, so from rest
+// its first output (b0 × input) already tracks content above the cutoff; a
+// filter faded in on a Slope change therefore matches the outgoing one.
+export class LowCutFilter {
+  private settings: LowCutSettings | null = null;
   private stages: BiquadCoefficients[] = [];
   // Per channel: z1 and z2 of each stage in turn.
   private readonly state: Float64Array[];
-  private primed = false;
 
   readonly sampleRate: number;
 
@@ -153,27 +157,12 @@ export class LowPassFilter {
 
   // Uses `settings` from the next frame processed on. The slope is fixed
   // for the filter's life: the host crossfades to a fresh one to change it.
-  setSettings(settings: LowPassSettings) {
+  setSettings(settings: LowCutSettings) {
     if (this.settings && settingsEqual(this.settings, settings)) {
       return;
     }
     this.settings = { ...settings };
-    this.stages = lowPassStages(settings, this.sampleRate);
-  }
-
-  // Sets every stage's memory as if the input had been holding at its
-  // first frame, so a filter faded in mid-signal (on a Slope change)
-  // doesn't step up from silence. A low-pass passes DC at unity, so each
-  // stage's output equals that held input.
-  private prime(input: readonly Float32Array[], start: number) {
-    for (let channel = 0; channel < this.state.length; channel++) {
-      const x = input[channel]?.[start] ?? 0;
-      const z = this.state[channel];
-      this.stages.forEach((c, stage) => {
-        z[stage * 2] = (1 - c.b0) * x;
-        z[stage * 2 + 1] = (c.b2 - c.a2) * x;
-      });
-    }
+    this.stages = lowCutStages(settings, this.sampleRate);
   }
 
   // Filters frames `start` to `end` of `input` into `output`.
@@ -183,10 +172,6 @@ export class LowPassFilter {
     start: number,
     end: number,
   ) {
-    if (!this.primed && end > start) {
-      this.prime(input, start);
-      this.primed = true;
-    }
     const stages = this.stages;
     for (let channel = 0; channel < output.length; channel++) {
       const from = input[channel];
