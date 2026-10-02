@@ -118,11 +118,11 @@ describe("groupChainDevices", () => {
   });
 
   it("offers only audio effects on an audio clip", () => {
+    const effects = addableEffectsFor("clip", "audio");
+    assert.ok(effects.every((definition) => definition.domain === "audio"));
     assert.deepEqual(
-      addableEffectsFor("clip", "audio").map(
-        (definition) => definition.effectName,
-      ),
-      ["Gain", "Transient Shaper"],
+      effects.slice(0, 2).map((definition) => definition.effectName),
+      ["Gain", "EQ"],
     );
   });
 
@@ -211,7 +211,12 @@ describe("groupAddableEffects", () => {
             .filter((definition) => definition.domain !== "audio")
             .map((definition) => definition.effectName),
         ],
-        ["Audio", ["Gain", "Transient Shaper"]],
+        [
+          "Audio",
+          addableEffectsFor("clip")
+            .filter((definition) => definition.domain === "audio")
+            .map((definition) => definition.effectName),
+        ],
       ],
     );
   });
@@ -229,6 +234,15 @@ describe("groupAddableEffects", () => {
 describe("addableEffectsFor", () => {
   const names = (group: "layer" | "global" | "clip") =>
     addableEffectsFor(group).map((definition) => definition.effectName);
+  // Every audio effect is offered on every stack, after the video ones;
+  // each audio effect's own tests check its place among them.
+  const withAudio = (group: "layer" | "global" | "clip", video: string[]) => {
+    const audio = addableEffectsFor(group)
+      .filter((definition) => definition.domain === "audio")
+      .map((definition) => definition.effectName);
+    assert.ok(audio.includes("Gain") && audio.includes("EQ"));
+    return [...video, ...audio];
+  };
 
   it("offers only effects scoped to the Global stack in the Global menu", () => {
     assert.ok(
@@ -236,16 +250,17 @@ describe("addableEffectsFor", () => {
         definition.scopes.includes("global"),
       ),
     );
-    assert.deepEqual(names("global"), [
-      "ZoomAndPan",
-      "Colorize",
-      "Pixelate",
-      "NegativeSplit",
-      "AnalogGlitch",
-      "Order",
-      "Gain",
-      "Transient Shaper",
-    ]);
+    assert.deepEqual(
+      names("global"),
+      withAudio("global", [
+        "ZoomAndPan",
+        "Colorize",
+        "Pixelate",
+        "NegativeSplit",
+        "AnalogGlitch",
+        "Order",
+      ]),
+    );
   });
 
   it("offers only layer-scoped effects in the layer menu", () => {
@@ -254,18 +269,19 @@ describe("addableEffectsFor", () => {
         definition.scopes.includes("layer"),
       ),
     );
-    assert.deepEqual(names("layer"), [
-      "ZoomAndPan",
-      "Colorize",
-      "Pixelate",
-      "NegativeSplit",
-      "AnalogGlitch",
-      "Transform",
-      "Move",
-      "Color",
-      "Gain",
-      "Transient Shaper",
-    ]);
+    assert.deepEqual(
+      names("layer"),
+      withAudio("layer", [
+        "ZoomAndPan",
+        "Colorize",
+        "Pixelate",
+        "NegativeSplit",
+        "AnalogGlitch",
+        "Transform",
+        "Move",
+        "Color",
+      ]),
+    );
   });
 
   it("never offers Layout, which every layer already has", () => {

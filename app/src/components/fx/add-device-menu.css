@@ -1,5 +1,4 @@
-/* It scrolls rather than running off the window once its effects outgrow
-   the space beside the button. */
+/* Scrolls once the effect list is taller than the room beside the button. */
 .fx-add-menu {
   max-height: var(--radix-dropdown-menu-content-available-height);
   overflow-y: auto;
