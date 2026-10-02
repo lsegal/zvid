@@ -336,7 +336,9 @@ export function createBandAnalyser(context: BaseAudioContext) {
 // the transport bar's VU meter. A mono mix reads the same on both.
 export type MasterMeterTap = { left: AnalyserNode; right: AnalyserNode };
 
-const METER_FFT_SIZE = 2048;
+// The meter reads only the samples that arrived since its last frame, so
+// each analyser keeps enough for frames up to about 340 ms apart at 48 kHz.
+const METER_FFT_SIZE = 16384;
 
 // Splits `context`'s input into one analyser per channel, upmixing mono to
 // both sides first (a splitter alone would leave the right channel silent).
