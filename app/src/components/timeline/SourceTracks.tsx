@@ -9,9 +9,10 @@ import type {
   SourceSpan as SourceSpanClip,
   SourceTrack,
 } from "../../app/types.ts";
-import { pluralize } from "../../app/util.ts";
+import { getSwatch, pluralize } from "../../app/util.ts";
 import type { useSourceTrackDrop } from "../../hooks/useSourceTrackDrop.ts";
 import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
+import { nextSourceTrackColorIndex } from "../../source-track-color.ts";
 import {
   formatSourceTracksSummary,
   sourceTracksLockLabel,
@@ -196,7 +197,8 @@ export function SourceTracks({
           >
             <SourceDropPreview
               drop={drop}
-              quarterPx={span.quarterPx}
+              span={span}
+              swatch={getSwatch(nextSourceTrackColorIndex(sourceTracks))}
               newTrack
             />
           </section>

@@ -4,6 +4,7 @@ import type { SessionEffect } from "../fx-stack.ts";
 import type { LaneSelectionGesture } from "../lane-selection-gesture.ts";
 import type { MediaAvailability, MediaItem, MediaKind } from "../media.ts";
 import type { SessionEncoding } from "../session-settings.ts";
+import type { SourceDropPreviewItem } from "../source-drop-preview.ts";
 import type { SnapMode } from "../timeline-grid.ts";
 
 export type TimelineMode = "musical" | "timecode";
@@ -186,6 +187,8 @@ export type SourceTrackDragPreview = {
   error?: string;
   // Media dragged from the Media drawer; its thumbnail belongs to the media.
   mediaIds?: string[];
+  // The clips dropping that media creates, trimmed to its In/Out points.
+  items?: SourceDropPreviewItem[];
 };
 
 export type CollaborationMode = "idle" | "sharing" | "connected";

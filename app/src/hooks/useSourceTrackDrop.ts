@@ -2,6 +2,7 @@ import {
   type RefObject,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -26,7 +27,11 @@ import { getHarness } from "../harness";
 import { isWithinMainAudioDropTarget } from "../main-audio-drop";
 import type { MediaItem } from "../media";
 import { endMediaDrag, getDraggedMediaIds, isMediaDrag } from "../media-drag";
-import { effectiveMediaRange } from "../media-range.ts";
+import {
+  getSourceDropPreviewItems,
+  getSourceDropPreviewThumbnailRequests,
+} from "../source-drop-preview.ts";
+import { useThumbnailCache } from "../use-thumbnail-cache";
 
 export type SourceTrackDropInputs = {
   mediaItems: MediaItem[];
@@ -256,7 +261,7 @@ export function useSourceTrackDrop({
         if (!first) {
           return null;
         }
-        const range = effectiveMediaRange(first);
+        const previewItems = getSourceDropPreviewItems(items);
         return {
           dragKey,
           fileCount: items.length,
@@ -264,9 +269,10 @@ export function useSourceTrackDrop({
           label: stripFilenameExtension(first.name),
           status: "ready",
           kind: first.kind,
-          durationSeconds: range.outSeconds - range.inSeconds,
+          durationSeconds: previewItems[0]?.durationSeconds,
           thumbnailUrl: first.thumbnailUrl,
           mediaIds,
+          items: previewItems,
         };
       });
     },
@@ -296,6 +302,23 @@ export function useSourceTrackDrop({
   useEffect(() => {
     sourceTrackDragPreviewRef.current = sourceTrackDragPreview;
   }, [sourceTrackDragPreview]);
+
+  // The In frames the preview of media from the Media drawer shows, decoded
+  // for as long as it is dragged.
+  const previewItems = sourceTrackDragPreview?.items;
+  const sourceTrackDragThumbnailRequests = useMemo(
+    () =>
+      previewItems
+        ? getSourceDropPreviewThumbnailRequests(
+            previewItems,
+            new Map(mediaItems.map((item) => [item.id, item])),
+          )
+        : [],
+    [mediaItems, previewItems],
+  );
+  const sourceTrackDragThumbnails = useThumbnailCache(
+    sourceTrackDragThumbnailRequests,
+  );
 
   useEffect(() => {
     const appShell = appShellRef.current;
@@ -507,6 +530,7 @@ export function useSourceTrackDrop({
     isSourceTrackFileDragActive,
     sourceTrackDragPreviewDetail,
     sourceTrackDragPreviewOverflow,
+    sourceTrackDragThumbnails,
     isNewSourceTrackDropTarget,
     clearSourceTrackDragState,
   };
