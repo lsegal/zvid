@@ -49,7 +49,8 @@ describe("Saturation definition", () => {
     assert.deepEqual(
       definition.parameters
         .filter(
-          (parameter) => parameter.kind === "number" && parameter.taper === "log",
+          (parameter) =>
+            parameter.kind === "number" && parameter.taper === "log",
         )
         .map((parameter) => parameter.key),
       ["Tone"],

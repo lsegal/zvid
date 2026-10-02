@@ -150,10 +150,7 @@ describe("Saturation stage harmonics", () => {
 
   it("adds odd harmonics only with Soft and Hard at 24 dB", () => {
     for (const type of ["Soft", "Hard"]) {
-      const output = render(
-        [saturation({ Drive: 24 }, type)],
-        sine(1000, 0.1),
-      );
+      const output = render([saturation({ Drive: 24 }, type)], sine(1000, 0.1));
       const [second, third, fourth, fifth] = harmonicsDb(output, 1000);
       assert.ok(third > -30 && fifth > -50, `${type}: ${third}, ${fifth}`);
       assert.ok(second < -80 && fourth < -80, `${type}: ${second}, ${fourth}`);
@@ -161,19 +158,13 @@ describe("Saturation stage harmonics", () => {
   });
 
   it("adds even harmonics with Tube at 24 dB", () => {
-    const output = render(
-      [saturation({ Drive: 24 }, "Tube")],
-      sine(1000, 0.1),
-    );
+    const output = render([saturation({ Drive: 24 }, "Tube")], sine(1000, 0.1));
     const [second, , fourth] = harmonicsDb(output, 1000);
     assert.ok(second > -25 && fourth > -50, `${second}, ${fourth}`);
   });
 
   it("adds even harmonics with Tape once driven into its curve", () => {
-    const output = render(
-      [saturation({ Drive: 24 }, "Tape")],
-      sine(1000, 0.1),
-    );
+    const output = render([saturation({ Drive: 24 }, "Tape")], sine(1000, 0.1));
     const [second] = harmonicsDb(output, 1000);
     assert.ok(second > -40, `${second}`);
   });
@@ -194,7 +185,10 @@ describe("Saturation stage harmonics", () => {
           }
           const alias =
             20 * Math.log10(amplitudeAt(output, frequency) / fundamental);
-          assert.ok(alias <= -40, `${type} ${amplitude} ${frequency}: ${alias}`);
+          assert.ok(
+            alias <= -40,
+            `${type} ${amplitude} ${frequency}: ${alias}`,
+          );
         }
       }
     }
@@ -247,10 +241,7 @@ describe("Saturation stage mix and latency", () => {
     // Clean (Hard below its knee, Tone open), so dry and wet only cancel
     // if their delays differ: off by the latency, 1 kHz would vanish.
     const input = sine(1000, 0.1);
-    const wet = render(
-      [saturation({ Drive: 0, Tone: 20_000 }, "Hard")],
-      input,
-    );
+    const wet = render([saturation({ Drive: 0, Tone: 20_000 }, "Hard")], input);
     const half = render(
       [saturation({ Drive: 0, Tone: 20_000, Mix: 0.5 }, "Hard")],
       input,
@@ -298,11 +289,7 @@ describe("Saturation stage parameter changes", () => {
   // A jump from `from` to `to` moves the output by no more per frame than
   // the steady output at either setting does, as a ramp should; an instant
   // jump would step.
-  function assertSmooth(
-    input: Float32Array,
-    from: AudioStage,
-    to: AudioStage,
-  ) {
+  function assertSmooth(input: Float32Array, from: AudioStage, to: AudioStage) {
     const output = render([from], input, [{ frame: at, stages: [to] }]);
     const bound =
       Math.max(

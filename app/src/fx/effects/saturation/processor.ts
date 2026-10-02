@@ -11,8 +11,8 @@ import type {
   AudioParameterBlock,
 } from "../../../audio-mix/processor.ts";
 import {
-  dbToAmplitude,
   DRIVE_KEY,
+  dbToAmplitude,
   MIX_KEY,
   OUTPUT_KEY,
   SATURATION_EFFECT_NAME,
@@ -65,9 +65,7 @@ function designFilter() {
   for (let n = 0; n < TAPS; n++) {
     const t = n - middle;
     const sinc =
-      t === 0
-        ? 2 * cutoff
-        : Math.sin(2 * Math.PI * cutoff * t) / (Math.PI * t);
+      t === 0 ? 2 * cutoff : Math.sin(2 * Math.PI * cutoff * t) / (Math.PI * t);
     const ratio = t / middle;
     const window =
       besselI0(KAISER_BETA * Math.sqrt(1 - ratio * ratio)) /
