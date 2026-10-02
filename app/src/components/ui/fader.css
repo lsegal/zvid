@@ -94,27 +94,27 @@
   height: var(--fader-height);
 }
 
+/* A scale mark across the track, labeled beside it. */
+.fader__mark {
+  position: absolute;
+  bottom: calc(var(--tick-position) * 100%);
+  left: 2px;
+  right: 2px;
+  height: 1px;
+  background: var(--fader-muted);
+  opacity: 0.6;
+}
+
 .fader__tick {
   position: absolute;
   bottom: calc(var(--tick-position) * 100%);
   left: 0;
-  padding-left: 6px;
   color: var(--fader-muted);
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.62rem;
   line-height: 1;
   transform: translateY(50%);
   white-space: nowrap;
-}
-
-.fader__tick::before {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  width: 4px;
-  height: 1px;
-  background: var(--fader-muted);
-  content: "";
 }
 
 .fader__value-text,

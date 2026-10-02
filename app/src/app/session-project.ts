@@ -322,9 +322,9 @@ export function sessionToProject(
     // moved onto their text and fill clips, an old Colorize Reactivity
     // becomes Reactive animation, an old Order Margin toggle becomes its
     // Margin knob, and an older session's clips with sound get their Gain,
-    // as part of the load so none of it is a
-    // separate undo step. Stacks of clips, source tracks and source clips
-    // that could not be loaded are dropped with them.
+    // as part of the load so none of it is a separate undo step. Stacks of
+    // clips, source tracks and source clips that could not be loaded are
+    // dropped with them.
     effects: migrateDefaultGain(
       migrateClipContentEffects(
         pruneSourceEffects(

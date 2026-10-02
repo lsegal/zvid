@@ -344,6 +344,16 @@ export function Fader({
           }}
         >
           <span className="fader__fill" aria-hidden="true" />
+          {ticks.map((tick) => (
+            <span
+              aria-hidden="true"
+              className="fader__mark"
+              key={tick.label}
+              style={
+                { "--tick-position": position(tick.value) } as CSSProperties
+              }
+            />
+          ))}
           <span className="fader__thumb" aria-hidden="true" />
         </div>
         <span className="fader__scale" aria-hidden="true">
