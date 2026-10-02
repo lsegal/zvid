@@ -58,7 +58,7 @@ describe("Bitcrush quantizer", () => {
     }
   });
 
-  it("blends neighbouring depths between whole Bits", () => {
+  it("blends neighboring depths between whole Bits", () => {
     const sample = 0.3;
     assert.equal(quantize(sample, 2), quantizeWhole(sample, 2));
     const halfway = quantize(sample, 1.5);

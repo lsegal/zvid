@@ -50,7 +50,7 @@ export function quantizeWhole(sample: number, bits: number) {
 }
 
 // `sample` quantized to 2^bits levels. While Bits ramps between whole
-// values, it blends the two neighbouring depths, so the output moves
+// values, it blends the two neighboring depths, so the output moves
 // smoothly instead of jumping from one set of levels to the next.
 export function quantize(sample: number, bits: number) {
   const lower = Math.floor(bits);

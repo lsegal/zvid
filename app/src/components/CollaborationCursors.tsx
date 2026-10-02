@@ -4,7 +4,7 @@ type CollaborationCursorsProps = {
   cursors: CollaborationRemoteCursor[];
 };
 
-// Collaborators' pointers over the app, each labelled with their name.
+// Collaborators' pointers over the app, each labeled with their name.
 export function CollaborationCursors({ cursors }: CollaborationCursorsProps) {
   return cursors.length ? (
     <div className="collaboration-cursor-layer" aria-hidden="true">

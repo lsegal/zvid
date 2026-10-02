@@ -178,7 +178,7 @@ test("Phaser is added from a clip's Audio menu with its defaults and notches the
     )
     .toBeGreaterThan(0.02);
 
-  // Two still stages notch at Center: centred on the tone, half wet
+  // Two still stages notch at Center: centered on the tone, half wet
   // cancels it.
   await stages.getByRole("button", { name: "2", exact: true }).click();
   await setKnob(page, "Depth", "0");

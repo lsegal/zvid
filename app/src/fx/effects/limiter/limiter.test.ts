@@ -115,7 +115,7 @@ function peak(channel: Float32Array, from = 0, to = channel.length) {
   return largest;
 }
 
-// The largest jump between neighbouring samples.
+// The largest jump between neighboring samples.
 function largestStep(channel: Float32Array, from = 1, to = channel.length) {
   let largest = 0;
   for (let index = Math.max(1, from); index < to; index++) {

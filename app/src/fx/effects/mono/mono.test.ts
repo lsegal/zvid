@@ -102,7 +102,7 @@ function assertClose(
   }
 }
 
-// The largest jump between neighbouring samples.
+// The largest jump between neighboring samples.
 function largestStep(channel: Float32Array) {
   let largest = 0;
   for (let index = 1; index < channel.length; index++) {
