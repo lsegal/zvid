@@ -106,16 +106,23 @@ describe("arrangement clip Ctrl/Cmd-click", () => {
   });
 
   it("restarts playback from the clip start while playing", () => {
+    const moveTo = usePlaybackTs.slice(
+      usePlaybackTs.indexOf("const jumpPlayheadTo = useCallback("),
+      usePlaybackTs.indexOf("const jumpToClipStart = useCallback("),
+    );
+    assert.match(
+      moveTo,
+      /setPlayheadQ\(startQ\);\s*playbackOriginRef\.current = startQ;\s*if \(isPlaying\) \{[^}]*flushSync\(\(\) => setIsPlaying\(false\)\);\s*startPlayback\(startQ\);/,
+    );
+    assert.match(moveTo, /revealScrollLeft\(/);
     const jump = usePlaybackTs.slice(
       usePlaybackTs.indexOf("const jumpToClipStart = useCallback("),
       usePlaybackTs.indexOf("const stopTimelineAudibleScrub = useCallback("),
     );
     assert.match(
       jump,
-      /setPlayheadQ\(clip\.startQ\);\s*playbackOriginRef\.current = clip\.startQ;\s*if \(isPlaying\) \{[^}]*flushSync\(\(\) => setIsPlaying\(false\)\);\s*startPlayback\(clip\.startQ\);/,
+      /setSelectedClipId\(clip\.id\);\s*jumpPlayheadTo\(clip\.startQ\);/,
     );
-    assert.match(jump, /setSelectedClipId\(clip\.id\);/);
-    assert.match(jump, /revealScrollLeft\(/);
   });
 
   it("names the shortcut in the clip tooltip", () => {

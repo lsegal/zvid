@@ -102,7 +102,7 @@ test("Delete and Backspace delete the selected source track with its layer clips
   await expect(layerClips(page)).toHaveCount(1);
 });
 
-test("Delete leaves the source track alone while a source clip on it is selected", async ({
+test("Delete removes a selected source clip, not its source track", async ({
   page,
 }) => {
   await page.locator(".source-span").click();
@@ -110,7 +110,7 @@ test("Delete leaves the source track alone while a source clip on it is selected
     /source-span--selected/,
   );
   await page.keyboard.press("Delete");
-  await page.keyboard.press("ControlOrMeta+d");
+  await expect(page.locator(".source-span")).toHaveCount(0);
   await expect(names(page)).toHaveText(["test-pattern"]);
   await expect(layerClips(page)).toHaveCount(1);
 });

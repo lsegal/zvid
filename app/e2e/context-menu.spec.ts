@@ -101,8 +101,8 @@ test("source clip menu copies to a chosen layer, and clip menu pastes at the pla
   await rightClick(page.locator(".source-span"));
   const spanMenu = page.getByRole("menu", { name: "Source clip actions" });
   await expect(spanMenu).toBeVisible();
-  await page.keyboard.press("ArrowDown");
-  await page.keyboard.press("ArrowDown");
+  // Copy to layer is the last item, after the clip items.
+  await page.keyboard.press("End");
   await expect(menuItem(page, "Copy to layer")).toHaveAttribute(
     "data-highlighted",
     "",
