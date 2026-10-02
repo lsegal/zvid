@@ -1,11 +1,16 @@
 import { PlusIcon } from "@heroicons/react/24/solid";
+import { groupAddableEffects } from "../../fx-chain";
 import type { FxEffectDefinition } from "../../fx-registry";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
+import "./add-device-menu.css";
 
 export function AddDeviceMenu({
   effects,
@@ -24,6 +29,9 @@ export function AddDeviceMenu({
   onCloseAutoFocus: (event: Event) => void;
   onOpen: () => void;
 }) {
+  // Video and audio effects each get a heading once both are offered.
+  const groups = groupAddableEffects(effects);
+  const labelled = groups.length > 1;
   return (
     <DropdownMenu
       onOpenChange={(open) => {
@@ -50,21 +58,39 @@ export function AddDeviceMenu({
         onCloseAutoFocus={onCloseAutoFocus}
         sideOffset={6}
       >
-        {effects.map((definition) => (
-          <DropdownMenuItem
-            key={definition.effectName}
-            onSelect={() => onAdd(definition.effectName)}
+        {groups.map((group, index) => (
+          <DropdownMenuGroup
+            aria-labelledby={
+              labelled ? `${focusKey}-${group.domain}` : undefined
+            }
+            key={group.domain}
           >
-            <span
-              aria-hidden="true"
-              className="fx-add-menu__swatch"
-              style={{ background: definition.accent }}
-            />
-            <span className="fx-add-menu__text">
-              <strong>{definition.displayName}</strong>
-              <span>{definition.description}</span>
-            </span>
-          </DropdownMenuItem>
+            {index > 0 ? <DropdownMenuSeparator /> : null}
+            {labelled ? (
+              <DropdownMenuLabel
+                className="fx-add-menu__group"
+                id={`${focusKey}-${group.domain}`}
+              >
+                {group.label}
+              </DropdownMenuLabel>
+            ) : null}
+            {group.effects.map((definition) => (
+              <DropdownMenuItem
+                key={definition.effectName}
+                onSelect={() => onAdd(definition.effectName)}
+              >
+                <span
+                  aria-hidden="true"
+                  className="fx-add-menu__swatch"
+                  style={{ background: definition.accent }}
+                />
+                <span className="fx-add-menu__text">
+                  <strong>{definition.displayName}</strong>
+                  <span>{definition.description}</span>
+                </span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuGroup>
         ))}
       </DropdownMenuContent>
     </DropdownMenu>

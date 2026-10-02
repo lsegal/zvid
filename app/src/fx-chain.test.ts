@@ -15,6 +15,7 @@ import {
   getFxClipName,
   getFxPanelTitle,
   getParameterFormat,
+  groupAddableEffects,
   groupChainDevices,
   isNoopDropSlot,
   knobColumnCount,
@@ -88,12 +89,41 @@ describe("groupChainDevices", () => {
     assert.deepEqual(groups, { global: [], layer: [], clip: [] });
   });
 
-  it("shows no devices for audio clips", () => {
+  it("shows only the audio devices for audio clips", () => {
     const groups = groupChainDevices(
-      mapSessionEffectsToDevices(DOGFOOD_EFFECTS, "3", "Layer 3"),
+      mapSessionEffectsToDevices(
+        [
+          ...DOGFOOD_EFFECTS,
+          effect("fx-gain", clipEffectTrackId("clip-a"), "Gain"),
+          effect("fx-pixelate", clipEffectTrackId("clip-a"), "Pixelate"),
+          effect("fx-master", GLOBAL_EFFECT_TRACK_ID, "Gain"),
+        ],
+        "3",
+        "Layer 3",
+        [],
+        new Set(),
+        clipEffectTrackId("clip-a"),
+      ),
       "audio",
     );
-    assert.deepEqual(groups, { global: [], layer: [], clip: [] });
+    assert.deepEqual(
+      Object.fromEntries(
+        Object.entries(groups).map(([group, devices]) => [
+          group,
+          devices.map((device) => device.id),
+        ]),
+      ),
+      { global: ["fx-master"], layer: [], clip: ["fx-gain"] },
+    );
+  });
+
+  it("offers only audio effects on an audio clip", () => {
+    assert.deepEqual(
+      addableEffectsFor("clip", "audio").map(
+        (definition) => definition.effectName,
+      ),
+      ["Gain"],
+    );
   });
 
   it("lists the selected clip's own stack, apart from other clips'", () => {
@@ -166,6 +196,36 @@ describe("getFxClipName", () => {
   });
 });
 
+describe("groupAddableEffects", () => {
+  it("lists the video effects, then the audio ones", () => {
+    const groups = groupAddableEffects(addableEffectsFor("clip"));
+    assert.deepEqual(
+      groups.map((group) => [
+        group.label,
+        group.effects.map((definition) => definition.effectName),
+      ]),
+      [
+        [
+          "Video",
+          addableEffectsFor("clip")
+            .filter((definition) => definition.domain !== "audio")
+            .map((definition) => definition.effectName),
+        ],
+        ["Audio", ["Gain"]],
+      ],
+    );
+  });
+
+  it("leaves out empty groups", () => {
+    assert.deepEqual(
+      groupAddableEffects(addableEffectsFor("fxClip")).map(
+        (group) => group.domain,
+      ),
+      ["video"],
+    );
+  });
+});
+
 describe("addableEffectsFor", () => {
   const names = (group: "layer" | "global" | "clip") =>
     addableEffectsFor(group).map((definition) => definition.effectName);
@@ -183,6 +243,7 @@ describe("addableEffectsFor", () => {
       "NegativeSplit",
       "AnalogGlitch",
       "Order",
+      "Gain",
     ]);
   });
 
@@ -201,6 +262,7 @@ describe("addableEffectsFor", () => {
       "Transform",
       "Move",
       "Color",
+      "Gain",
     ]);
   });
 

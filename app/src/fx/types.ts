@@ -17,9 +17,18 @@ export type FxNumberParameterDefinition = {
   defaultValue: number;
   step?: number;
   format: (value: number) => string;
+  // How the value is edited: a knob (the default), a vertical fader, or an
+  // on/off toggle for a 0..1 value stored as 0 or 1.
+  control?: FxNumberControl;
+  // Scale marks beside a fader.
+  ticks?: readonly FxScaleTick[];
   hidden?: boolean;
   visibleWhen?: FxParameterVisibility;
 };
+
+export type FxNumberControl = "knob" | "fader" | "toggle";
+
+export type FxScaleTick = { value: number; label: string };
 
 // Reads another parameter's stored value on the same effect.
 export type FxParameterReader = (key: string) => string | undefined;
@@ -91,11 +100,18 @@ export const ALL_SCOPES: readonly FxEffectScope[] = [
   "fxClip",
 ];
 
+// What an effect processes: the picture (`video`) or the sound (`audio`).
+// Both kinds share a stack and its order; video passes skip audio effects
+// and the audio engine skips video ones.
+export type FxEffectDomain = "video" | "audio";
+
 export type FxEffectDefinition = {
   effectName: string;
   displayName: string;
   description: string;
   accent: string;
+  // Unset for video effects.
+  domain?: FxEffectDomain;
   parameters: FxParameterDefinition[];
   // Stacks the add menus offer the effect on. A device loaded onto any other
   // stack still shows, flagged as not supported there.

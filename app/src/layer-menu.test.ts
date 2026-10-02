@@ -152,13 +152,19 @@ describe("buildLayerMenuEntries", () => {
     ]);
   });
 
-  it("lists every addable effect under Add FX", () => {
+  it("lists every addable effect under Add FX, audio after video", () => {
     const { calls, entries } = layerMenu();
     const submenu = item(entries, "add-fx").submenu ?? [];
+    const addable = addableEffectsFor("layer");
+    const names = (domain: "video" | "audio") =>
+      addable
+        .filter((definition) => (definition.domain ?? "video") === domain)
+        .map((definition) => definition.displayName);
     assert.deepEqual(
-      submenu.map((entry) => (entry.type === "item" ? entry.label : "")),
-      addableEffectsFor("layer").map((definition) => definition.displayName),
+      submenu.map((entry) => (entry.type === "item" ? entry.label : "|")),
+      [...names("video"), "|", ...names("audio")],
     );
+    assert.deepEqual(names("audio"), ["Gain"]);
     const first = submenu[0];
     assert.equal(first?.type, "item");
     if (first?.type === "item") {

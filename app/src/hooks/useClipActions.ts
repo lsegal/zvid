@@ -25,12 +25,14 @@ import {
   copyClipToLayer,
   resolvePasteLaneId,
 } from "../clip-menu.ts";
+import { addDefaultGain } from "../default-gain.ts";
 import {
   copyClipEffects,
   ensureLayerLayouts,
   type SessionEffect,
 } from "../fx-stack";
 import { createLaneId } from "../lanes";
+import type { MediaItem } from "../media";
 import type { ProjectHistoryAction } from "../project-history";
 import {
   copyClip,
@@ -59,6 +61,7 @@ export type ClipActionsInputs = {
   effects: SessionEffect[];
   fxLaneId: string | undefined;
   lanes: Lane[];
+  mediaItemsById: ReadonlyMap<string, MediaItem>;
   playheadQRef: RefObject<number>;
   selectedClip: ArrangementClip | undefined;
   selectedLaneId: string | undefined;
@@ -81,6 +84,7 @@ export function useClipActions({
   effects,
   fxLaneId,
   lanes,
+  mediaItemsById,
   playheadQRef,
   selectedClip,
   selectedLaneId,
@@ -355,7 +359,11 @@ export function useClipActions({
       return;
     }
 
-    clipClipboardRef.current = copyClip(clip, bpm);
+    // The copy pastes with the Gain a clip made from a source gets.
+    clipClipboardRef.current = withClipStacks(
+      copyClip(clip, bpm),
+      addDefaultGain([], { clips: [clip] }, [...mediaItemsById.values()]),
+    );
     setStatus(`Copied ${clip.label}.`);
   }
 
@@ -395,9 +403,13 @@ export function useClipActions({
       patchProjectState(current, {
         lanes: result.lanes,
         clips: result.clips,
-        ...(result.createdLane
-          ? { effects: ensureLayerLayouts(current.effects, [result.lane.id]) }
-          : {}),
+        effects: addDefaultGain(
+          result.createdLane
+            ? ensureLayerLayouts(current.effects, [result.lane.id])
+            : current.effects,
+          { clips: [result.clip] },
+          current.mediaItems,
+        ),
       }),
     );
     setPendingSelection(null);

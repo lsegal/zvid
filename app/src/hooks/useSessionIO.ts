@@ -22,6 +22,7 @@ import type {
 import { basename, logClient, pluralize } from "../app/util.ts";
 import { isArrangementEmptyStateDismissedOnOpen } from "../arrangement-empty-state.ts";
 import type { ImportNoticeContent } from "../components/ImportNotice";
+import { addDefaultGain } from "../default-gain.ts";
 import { getDefaultLaneId } from "../fx-chain";
 import { ensureGlobalOrder, ensureLayerLayouts } from "../fx-stack";
 import { getHarness, type SaveTarget, type SessionSelection } from "../harness";
@@ -335,11 +336,19 @@ export function useSessionIO({
           patchProjectState(current, {
             mediaItems: nextMedia,
             lanes: standalone.lanes,
-            effects: ensureGlobalOrder(
-              ensureLayerLayouts(
-                current.effects,
-                standalone.lanes.map((lane) => lane.id),
+            // Each clip of media with sound gets its Gain.
+            effects: addDefaultGain(
+              ensureGlobalOrder(
+                ensureLayerLayouts(
+                  current.effects,
+                  standalone.lanes.map((lane) => lane.id),
+                ),
               ),
+              {
+                clips: standalone.arrangementClips,
+                sourceSpans: standalone.sourceSpans,
+              },
+              nextMedia,
             ),
             sourceTracks: standalone.sourceTracks,
             sourceSpans: standalone.sourceSpans,

@@ -66,11 +66,15 @@ describe("zvid opening sample", () => {
     assert.equal(lastFrame, 900);
   });
 
-  it("uses every registered effect", () => {
+  // Its clips with sound get their Gain when it opens, so the audio effects
+  // aren't written into it.
+  it("uses every registered video effect", () => {
     const used = new Set((session.effects ?? []).map((e) => e.effectName));
-    const missing = FX_EFFECT_DEFINITIONS.map(
-      (definition) => definition.effectName,
-    ).filter((name) => !used.has(name));
+    const missing = FX_EFFECT_DEFINITIONS.filter(
+      (definition) => definition.domain !== "audio",
+    )
+      .map((definition) => definition.effectName)
+      .filter((name) => !used.has(name));
     assert.deepEqual(missing, []);
   });
 

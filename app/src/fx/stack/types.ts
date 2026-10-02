@@ -1,5 +1,10 @@
 import type { EffectAnimation } from "../../fx-animation-defaults.ts";
-import type { FxFlagOption } from "../../fx-registry.ts";
+import type {
+  FxEffectDomain,
+  FxFlagOption,
+  FxNumberControl,
+  FxScaleTick,
+} from "../../fx-registry.ts";
 
 export type EffectParameter = {
   key: string;
@@ -39,6 +44,9 @@ export type FxDeviceParameter = {
   max: number;
   defaultValue: number | string;
   step?: number;
+  // How a number is edited, when not with a knob.
+  control?: FxNumberControl;
+  ticks?: readonly FxScaleTick[];
   options?: readonly string[];
   // The toggles of a `flags` parameter.
   flags?: readonly FxFlagOption[];
@@ -59,9 +67,11 @@ export type FxDevice = {
   subtitle: string;
   accent: string;
   group: FxDeviceGroup;
+  // Audio devices are badged in the rack.
+  domain: FxEffectDomain;
   enabled: boolean;
   // True when the effect can carry the Animation modifier (every known
-  // effect but Layout).
+  // video effect but Layout).
   supportsAnimation: boolean;
   // The modifier's settings, once it has been turned on.
   animation?: EffectAnimation;
