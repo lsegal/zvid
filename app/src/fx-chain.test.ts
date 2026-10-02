@@ -118,11 +118,11 @@ describe("groupChainDevices", () => {
   });
 
   it("offers only audio effects on an audio clip", () => {
+    const offered = addableEffectsFor("clip", "audio");
+    assert.ok(offered.every((definition) => definition.domain === "audio"));
     assert.deepEqual(
-      addableEffectsFor("clip", "audio").map(
-        (definition) => definition.effectName,
-      ),
-      ["Gain"],
+      offered.map((definition) => definition.effectName),
+      audioEffectNames("clip"),
     );
   });
 
@@ -196,6 +196,17 @@ describe("getFxClipName", () => {
   });
 });
 
+// The audio effects a menu offers, in menu order, starting with Gain. Each
+// audio effect's own tests check that it is offered; listing them here
+// would make every new one edit this file.
+function audioEffectNames(group: "layer" | "global" | "clip") {
+  const names = addableEffectsFor(group)
+    .filter((definition) => definition.domain === "audio")
+    .map((definition) => definition.effectName);
+  assert.equal(names[0], "Gain");
+  return names;
+}
+
 describe("groupAddableEffects", () => {
   it("lists the video effects, then the audio ones", () => {
     const groups = groupAddableEffects(addableEffectsFor("clip"));
@@ -211,7 +222,7 @@ describe("groupAddableEffects", () => {
             .filter((definition) => definition.domain !== "audio")
             .map((definition) => definition.effectName),
         ],
-        ["Audio", ["Gain"]],
+        ["Audio", audioEffectNames("clip")],
       ],
     );
   });
@@ -243,7 +254,7 @@ describe("addableEffectsFor", () => {
       "NegativeSplit",
       "AnalogGlitch",
       "Order",
-      "Gain",
+      ...audioEffectNames("global"),
     ]);
   });
 
@@ -262,7 +273,7 @@ describe("addableEffectsFor", () => {
       "Transform",
       "Move",
       "Color",
-      "Gain",
+      ...audioEffectNames("layer"),
     ]);
   });
 
