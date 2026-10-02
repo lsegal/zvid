@@ -1,5 +1,4 @@
 import { ChevronDownIcon } from "@heroicons/react/24/solid";
-import { isLayerFxEnabled } from "../fx-stack";
 import type { useFxEditing } from "../hooks/useFxEditing.ts";
 import type { useFxPanelModel } from "../hooks/useFxPanelModel.ts";
 import type { SourceClipPropertiesModel } from "../hooks/useSourceClipProperties.ts";
@@ -17,12 +16,13 @@ export type FxPanelProps = Pick<
   | "fxClipTrackId"
   | "fxDevices"
   | "fxKind"
-  | "fxLane"
   | "fxLaneId"
+  | "fxLayerFxEnabled"
   | "fxLayerLabel"
   | "fxLayerName"
   | "fxLayerTrackId"
   | "fxPanelTitle"
+  | "fxSourceTrackId"
   | "orderLayerOptions"
 > &
   Pick<
@@ -37,6 +37,7 @@ export type FxPanelProps = Pick<
     | "setFxDeviceEnabled"
     | "setFxDeviceParameter"
     | "setLayerFxEnabled"
+    | "setSourceTrackFxEnabled"
   > & {
     isInspectorCollapsed: boolean;
     toggleInspectorCollapsed: () => void;
@@ -55,12 +56,13 @@ export function FxPanel({
   fxClipTrackId,
   fxDevices,
   fxKind,
-  fxLane,
   fxLaneId,
+  fxLayerFxEnabled,
   fxLayerLabel,
   fxLayerName,
   fxLayerTrackId,
   fxPanelTitle,
+  fxSourceTrackId,
   isInspectorCollapsed,
   moveFxDevice,
   orderLayerOptions,
@@ -71,6 +73,7 @@ export function FxPanel({
   setFxDeviceEnabled,
   setFxDeviceParameter,
   setLayerFxEnabled,
+  setSourceTrackFxEnabled,
   sourceClip,
   toggleInspectorCollapsed,
 }: FxPanelProps) {
@@ -100,7 +103,7 @@ export function FxPanel({
           }
           devices={fxDevices}
           kind={fxKind}
-          layerFxEnabled={isLayerFxEnabled(fxLane)}
+          layerFxEnabled={fxLayerFxEnabled}
           layers={orderLayerOptions}
           clipLayers={fxClipLayerOptions}
           layerLabel={fxLayerLabel}
@@ -114,7 +117,9 @@ export function FxPanel({
           onRemove={removeFxDevice}
           onReset={resetFxDevice}
           onSetLayerFxEnabled={(enabled) => {
-            if (fxLaneId) {
+            if (fxSourceTrackId) {
+              setSourceTrackFxEnabled(fxSourceTrackId, enabled);
+            } else if (fxLaneId) {
               setLayerFxEnabled(fxLaneId, enabled);
             }
           }}

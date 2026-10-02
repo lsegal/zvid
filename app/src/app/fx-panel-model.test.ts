@@ -167,8 +167,10 @@ describe("getSourceFxStacks", () => {
     assert.deepEqual(
       getSourceFxStacks({ sourceTrackId: "t1" }, tracks, spans),
       {
+        trackId: "t1",
         trackStackId: "source-track:t1",
         trackName: "Camera A",
+        trackFxEnabled: true,
         clipStackId: undefined,
         clipName: undefined,
         mediaId: undefined,
@@ -184,12 +186,27 @@ describe("getSourceFxStacks", () => {
         spans,
       ),
       {
+        trackId: "t1",
         trackStackId: "source-track:t1",
         trackName: "Camera A",
+        trackFxEnabled: true,
         clipStackId: "source-clip:s1",
         clipName: "Untitled",
         mediaId: "m1",
       },
+    );
+  });
+
+  it("reports the source track's FX switch for its and its clips' stacks", () => {
+    const off = [{ ...tracks[0], fxEnabled: false }];
+    assert.equal(
+      getSourceFxStacks({ sourceTrackId: "t1" }, off, spans)?.trackFxEnabled,
+      false,
+    );
+    assert.equal(
+      getSourceFxStacks({ sourceTrackId: "t1", sourceSpanId: "s1" }, off, spans)
+        ?.trackFxEnabled,
+      false,
     );
   });
 });

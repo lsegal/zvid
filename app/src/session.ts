@@ -24,6 +24,8 @@ export type LvpSession = {
     id: string;
     name: string;
     colorIndex?: number;
+    /** zvid-only: `false` when the source track's FX are bypassed. */
+    fxEnabled?: boolean;
     recordings?: Array<{
       filename: string;
       frameStart?: number;

@@ -5,6 +5,7 @@ import { type FxLayerOption, getFxClipName } from "../fx-chain.ts";
 import { FX_CLIP_LABEL, isFxClip } from "../fx-clip.ts";
 import {
   clipEffectTrackId,
+  isLayerFxEnabled,
   type SessionEffect,
   sourceClipEffectTrackId,
   sourceTrackEffectTrackId,
@@ -129,11 +130,11 @@ export function getFxClipScope(
 
 // The stacks the FX chain shows for a source selection, in place of a
 // layer's and a layer clip's: the source track's own stack, and the
-// selected source clip's. Undefined when no source track or clip is
-// selected.
+// selected source clip's, which its FX switch bypasses like a layer's.
+// Undefined when no source track or clip is selected.
 export function getSourceFxStacks(
   selection: SourceSelection | undefined,
-  sourceTracks: readonly Pick<SourceTrack, "id" | "name">[],
+  sourceTracks: readonly Pick<SourceTrack, "id" | "name" | "fxEnabled">[],
   sourceSpans: readonly Pick<SourceSpan, "id" | "label" | "mediaId">[],
 ) {
   if (!selection) {
@@ -150,8 +151,10 @@ export function getSourceFxStacks(
           (candidate) => candidate.id === selection.sourceSpanId,
         );
   return {
+    trackId: track?.id,
     trackStackId: track ? sourceTrackEffectTrackId(track.id) : undefined,
     trackName: track?.name,
+    trackFxEnabled: isLayerFxEnabled(track),
     clipStackId: span ? sourceClipEffectTrackId(span.id) : undefined,
     clipName: span ? getFxClipName(span.label) : undefined,
     mediaId: span?.mediaId,

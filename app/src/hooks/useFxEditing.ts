@@ -1,6 +1,11 @@
 import { useCallback } from "react";
 import { patchProjectState } from "../app/session-project.ts";
-import type { ArrangementClip, Lane, ProjectState } from "../app/types.ts";
+import type {
+  ArrangementClip,
+  Lane,
+  ProjectState,
+  SourceTrack,
+} from "../app/types.ts";
 import type { FxEditMode } from "../components/FxChain";
 import type { EffectAnimation } from "../fx-animation-defaults";
 import { isFxClip } from "../fx-clip.ts";
@@ -29,6 +34,7 @@ export type FxEditingInputs = {
     updater: (current: ProjectState) => ProjectState,
   ) => void;
   lanes: Lane[];
+  sourceTracks: SourceTrack[];
   timelineClipsRef: { current: ArrangementClip[] };
 };
 
@@ -37,6 +43,7 @@ export function useFxEditing({
   dispatchProject,
   commitProjectChange,
   lanes,
+  sourceTracks,
   timelineClipsRef,
 }: FxEditingInputs) {
   // Applies an effect-stack edit. Live gestures such as slider drags send
@@ -73,6 +80,29 @@ export function useFxEditing({
       );
     },
     [commitProjectChange, lanes],
+  );
+
+  // A source track's FX switch, like a layer's. It is not a source track
+  // edit the lock refuses, so it works while the source tracks are locked.
+  const setSourceTrackFxEnabled = useCallback(
+    (trackId: string, enabled: boolean) => {
+      commitProjectChange(
+        effectHistoryLabels.layerFx(
+          sourceTracks.find((track) => track.id === trackId)?.name ??
+            `Source ${trackId}`,
+          enabled,
+        ),
+        (current) =>
+          patchProjectState(current, {
+            sourceTracks: setLaneFxEnabled(
+              current.sourceTracks,
+              trackId,
+              enabled,
+            ),
+          }),
+      );
+    },
+    [commitProjectChange, sourceTracks],
   );
 
   const setFxDeviceEnabled = useCallback(
@@ -165,6 +195,7 @@ export function useFxEditing({
   return {
     editEffects,
     setLayerFxEnabled,
+    setSourceTrackFxEnabled,
     setFxDeviceEnabled,
     setFxDeviceParameter,
     setFxDeviceAnimationEnabled,

@@ -1,0 +1,30 @@
+/* A layer's or source track's FX switch, lit while its FX are on, like a
+   device's pressed power button. Doubled up to win over the shared
+   .track-label__fx rule in App.css. */
+.track-label__fx--switch.track-label__fx {
+  padding: 1px 6px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--muted);
+}
+
+.track-label__fx--switch.track-label__fx[aria-pressed="true"] {
+  border-color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 22%, transparent);
+  color: var(--amber);
+}
+
+.track-label__fx--switch.track-label__fx:hover {
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+.track-label__fx--switch.track-label__fx[aria-pressed="true"]:hover {
+  background: color-mix(in srgb, var(--amber) 32%, transparent);
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+.track-label__fx--switch.track-label__fx:focus-visible {
+  border-radius: 999px;
+}

@@ -93,6 +93,11 @@ export function resolveRenderClips<Effect extends RenderEffect>({
       id: sourceRenderLaneId(trackId),
       name: trackById.get(trackId)?.name ?? `Source ${index + 1}`,
       colorIndex: trackById.get(trackId)?.colorIndex ?? index,
+      // The source track's FX switch bypasses its virtual layer, and so its
+      // own and its clips' stacks (getRenderedEffects).
+      ...(trackById.get(trackId)?.fxEnabled === false
+        ? { fxEnabled: false }
+        : {}),
     }),
   );
 
