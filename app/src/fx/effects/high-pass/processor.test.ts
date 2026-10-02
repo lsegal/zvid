@@ -177,7 +177,11 @@ for (const slope of ["12 dB/oct", "24 dB/oct"] as const) {
 
 describe("High Pass stage resonance", () => {
   it("peaks at the cutoff above 0.707", () => {
-    near(gainDb(1000, { Frequency: 1000, Resonance: 4 }), 20 * Math.log10(4), 0.5);
+    near(
+      gainDb(1000, { Frequency: 1000, Resonance: 4 }),
+      20 * Math.log10(4),
+      0.5,
+    );
   });
 });
 
@@ -236,7 +240,7 @@ describe("High Pass stage parameter changes", () => {
     // The sine's curvature, its largest second difference, bounds that of
     // the output to within the sweep's own transient. Coefficients that
     // only followed the ramp once a block would kink it about 3× past this.
-    const curvature = (2 * Math.PI * 1000) ** 2 * 0.5 / RATE ** 2;
+    const curvature = ((2 * Math.PI * 1000) ** 2 * 0.5) / RATE ** 2;
     assert.ok(maxCurvature(output) <= curvature * 1.3);
   });
 
