@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { signatureById } from "../app/constants.ts";
 import type { ExportState, ProjectState } from "../app/types.ts";
 import { logClient, pluralize } from "../app/util.ts";
 import { isAudibleMix } from "../audio-mix/mix.ts";
@@ -193,6 +194,7 @@ function audioMixOf(project: ProjectState, mediaItems: readonly MediaItem[]) {
     sourceSpans: project.sourceSpans,
     mediaById: new Map(mediaItems.map((item) => [item.id, item])),
     bpm: project.bpm,
+    signature: signatureById(project.signatureId),
     effects: project.effects,
   });
 }

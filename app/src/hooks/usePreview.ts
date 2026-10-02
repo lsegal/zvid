@@ -12,6 +12,7 @@ import {
   isClipAtPlayhead,
   quartersToSeconds,
 } from "../app/timeline-math.ts";
+import { signatureById } from "../app/constants.ts";
 import type { ProjectState } from "../app/types.ts";
 import { resolveAudioClips } from "../audio-mix/resolve.ts";
 import {
@@ -82,6 +83,7 @@ export function usePreview({
     projectDurationFrames,
     sourceTracks,
     sourceSpans,
+    signatureId,
   } = project;
   const {
     inspectorClip,
@@ -124,6 +126,7 @@ export function usePreview({
       sourceSpans,
       mediaById: mediaItemsById,
       bpm,
+      signature: signatureById(signatureId),
       effects: timelineEffects,
     });
   }, [
@@ -131,6 +134,7 @@ export function usePreview({
     bpm,
     lanes,
     mediaItemsById,
+    signatureId,
     sourceSpans,
     sourceTracks,
     timelineClips,
