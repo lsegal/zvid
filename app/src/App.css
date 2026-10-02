@@ -781,7 +781,7 @@
 .workspace {
   flex: 1;
   min-height: 0;
-  padding: 0 16px 16px;
+  padding: 0 16px 16px 0;
 }
 
 .workspace__main {
@@ -877,7 +877,7 @@
 .fx-panel {
   background: rgba(7, 8, 14, 0.16);
   border: 1px solid var(--line);
-  border-radius: 20px;
+  border-radius: 0 20px 20px 0;
   overflow: hidden;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.24);
 }
@@ -940,7 +940,7 @@
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) 16px var(--preview-width, 280px);
   gap: 16px 0;
-  padding: 14px 16px;
+  padding: 14px 16px 0 0;
 }
 
 .ruler-row,
@@ -1282,7 +1282,7 @@
   }
 
   .workspace {
-    padding: 0 10px 10px;
+    padding: 0 10px 10px 0;
   }
 
   .workspace__main {
