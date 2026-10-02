@@ -166,18 +166,16 @@ test("a video clip lists Reverse in its add menu's Audio group, and a track does
   const trackAdd = page
     .getByRole("button", { name: "Add device to this track" })
     .first();
-  if (await trackAdd.isVisible()) {
-    await trackAdd.click();
-    const trackMenu = page.getByRole("menu");
-    await expect(
-      trackMenu.getByRole("menuitem", { name: /^Gain/ }),
-    ).toBeVisible();
-    await expect(
-      trackMenu.getByRole("menuitem", { name: /^Reverse/ }),
-    ).toHaveCount(0);
-    await page.keyboard.press("Escape");
-    await expect(trackMenu).toHaveCount(0);
-  }
+  await trackAdd.click();
+  const trackMenu = page.getByRole("menu");
+  await expect(
+    trackMenu.getByRole("menuitem", { name: /^Gain/ }),
+  ).toBeVisible();
+  await expect(
+    trackMenu.getByRole("menuitem", { name: /^Reverse/ }),
+  ).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(trackMenu).toHaveCount(0);
 
   await page
     .getByRole("button", { name: "Add device to this clip" })

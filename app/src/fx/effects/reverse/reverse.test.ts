@@ -12,10 +12,7 @@ import { AUDIO_PROCESSORS } from "../../../audio-mix/processors.ts";
 import type { AudioMix, AudioMixClip } from "../../../audio-mix/resolve.ts";
 import type { ClipWarp } from "../../../clip-warp.ts";
 import { getEffectDefinition } from "../../../fx-registry.ts";
-import {
-  gainStageAt,
-  processor as gainProcessor,
-} from "../gain/processor.ts";
+import { processor as gainProcessor, gainStageAt } from "../gain/processor.ts";
 import { processor } from "./processor.ts";
 import { REVERSE_EFFECT_NAME, reverseReadSeconds } from "./reverse.ts";
 
