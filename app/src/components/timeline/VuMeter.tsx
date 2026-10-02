@@ -12,6 +12,7 @@ import {
   METER_MAX_DB,
   METER_MIN_DB,
   METER_TICKS_DB,
+  MeterTapReader,
   StereoMeter,
   type StereoReading,
 } from "../../app/vu-meter";
@@ -41,22 +42,11 @@ const SCALE_STYLE = {
   "--vu-zero": `${dbToPosition(0) * 100}%`,
 } as CSSProperties;
 
-// Writes the readout's text, setting the ∞ of silence in its own span: the
-// monospace font draws it too small to read.
+// Writes the readout's text when it changes.
 function setReadout(element: HTMLElement, text: string) {
-  if (element.dataset.text === text) {
-    return;
-  }
-  element.dataset.text = text;
-  const [before, after] = text.split("∞");
-  if (after === undefined) {
+  if (element.textContent !== text) {
     element.textContent = text;
-    return;
   }
-  const infinity = document.createElement("span");
-  infinity.className = "vu-meter__infinity";
-  infinity.textContent = "∞";
-  element.replaceChildren(before, infinity, after);
 }
 
 function ariaLevel(db: number) {
@@ -72,6 +62,7 @@ export function VuMeter({ isPlaying, getMeterTap }: VuMeterProps) {
   const readoutRef = useRef<HTMLSpanElement | null>(null);
   const meterRef = useRef(new StereoMeter());
   const tapRef = useRef<MasterMeterTap | null>(null);
+  const readerRef = useRef(new MeterTapReader());
   const lastAriaMsRef = useRef(-Infinity);
 
   const paint = useCallback((reading: StereoReading, nowMs: number) => {
@@ -116,28 +107,15 @@ export function VuMeter({ isPlaying, getMeterTap }: VuMeterProps) {
     const reducedMotion = window.matchMedia?.(
       "(prefers-reduced-motion: reduce)",
     ).matches;
-    let buffers: [Float32Array<ArrayBuffer>, Float32Array<ArrayBuffer>] | null =
-      null;
+    const reader = readerRef.current;
     let frame = 0;
 
     const tick = (nowMs: number) => {
       // Stopped, the meter keeps reading the tap it has until it decays.
       const tap = isPlaying ? getMeterTap() : tapRef.current;
-      if (tap !== tapRef.current || (tap && !buffers)) {
-        tapRef.current = tap;
-        buffers = tap
-          ? [
-              new Float32Array(tap.left.fftSize),
-              new Float32Array(tap.right.fftSize),
-            ]
-          : null;
-      }
-      if (tap && buffers) {
-        tap.left.getFloatTimeDomainData(buffers[0]);
-        tap.right.getFloatTimeDomainData(buffers[1]);
-      }
-      const reading = meter.update(nowMs, buffers, reducedMotion);
-      if (!isPlaying && meter.isIdle(nowMs)) {
+      tapRef.current = tap;
+      const reading = meter.update(nowMs, reader.read(tap), reducedMotion);
+      if (!isPlaying && meter.isIdle()) {
         lastAriaMsRef.current = -Infinity;
         paint(reading, nowMs);
         frame = 0;
@@ -159,7 +137,7 @@ export function VuMeter({ isPlaying, getMeterTap }: VuMeterProps) {
     const meter = meterRef.current;
     meter.clearClips();
     const nowMs = performance.now();
-    paint(meter.reading(nowMs), nowMs);
+    paint(meter.reading(), nowMs);
   };
 
   return (

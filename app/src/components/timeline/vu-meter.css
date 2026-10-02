@@ -115,12 +115,6 @@
   white-space: nowrap;
 }
 
-.vu-meter__infinity {
-  font-family: 'Inter Variable', system-ui, sans-serif;
-  font-size: 1.3em;
-  line-height: 0;
-}
-
 /* The meter gives way before the volume slider as the bar narrows: the
    readout goes first, then the meter. */
 @container transport-bar (max-width: 1120px) {

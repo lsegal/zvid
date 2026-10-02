@@ -1,6 +1,13 @@
 // Levels for the transport bar's stereo VU meter, read from the program mix
 // once per animation frame. Everything here is in dBFS: 0 dB is a full-scale
 // sample, and silence is -Infinity.
+//
+// The bars show each channel's sample peak, with release and hold
+// ballistics. The readout shows the RMS of both channels (a power average)
+// over the last METER_RMS_WINDOW_MS of audio, so a sine reads 3.01 dB below
+// its peak and a square wave reads the same as its peak. Each frame measures
+// only the samples that arrived since the last one, counting every sample
+// exactly once whatever the frame rate.
 
 // The meter's scale: -60 dB at the left, 0 dB, then a short above-0 zone up
 // to +6 dB at the right.
@@ -13,8 +20,10 @@ export const METER_RELEASE_MS = 300;
 // The high-water line holds this long, then falls at METER_PEAK_FALL_DB_PER_S.
 export const METER_PEAK_HOLD_MS = 1500;
 export const METER_PEAK_FALL_DB_PER_S = 30;
-// The readout averages this much of the recent signal.
+// The readout averages this much of the most recent audio.
 export const METER_RMS_WINDOW_MS = 300;
+// The readout's text for silence, and for anything below the scale.
+export const METER_SILENT_TEXT = "-inf dB";
 
 // 20 / ln(10): an exponential decay with time constant T falls this many dB
 // per T.
@@ -34,10 +43,10 @@ export function dbToPosition(db: number) {
 }
 
 // The readout's text in dB, with a typographic minus and a plus above 0 dB.
-// Below the scale, like silence, it reads "−∞ dB", as the bars show empty.
+// Below the scale, like silence, it reads "-inf dB", as the bars show empty.
 export function formatMeterDb(db: number) {
   if (!(db > METER_MIN_DB)) {
-    return "−∞ dB";
+    return METER_SILENT_TEXT;
   }
   // Rounding first keeps a level just below 0 dB from reading "−0.0".
   const tenths = Math.round(db * 10);
@@ -48,19 +57,13 @@ export function formatMeterDb(db: number) {
   return tenths > 0 ? `+${text} dB` : `${text} dB`;
 }
 
-// The largest absolute sample, and the mean of the squared samples.
-export function measureSamples(samples: ArrayLike<number>) {
+// The largest absolute sample.
+export function samplePeak(samples: ArrayLike<number>) {
   let peak = 0;
-  let sumOfSquares = 0;
   for (let index = 0; index < samples.length; index++) {
-    const sample = samples[index];
-    peak = Math.max(peak, Math.abs(sample));
-    sumOfSquares += sample * sample;
+    peak = Math.max(peak, Math.abs(samples[index]));
   }
-  return {
-    peak,
-    meanSquare: samples.length ? sumOfSquares / samples.length : 0,
-  };
+  return peak;
 }
 
 // Anything below the scale shows as empty.
@@ -109,37 +112,123 @@ export function holdPeak(
   return { db: floorDb(Math.max(levelDb, fallen)), heldAtMs: hold.heldAtMs };
 }
 
-// The RMS level over the last METER_RMS_WINDOW_MS, from one mean square per
-// frame.
+// The RMS level of the last METER_RMS_WINDOW_MS of audio: the power
+// average of both channels, from every sample pushed into it.
 export class RmsWindow {
-  private frames: Array<{ atMs: number; meanSquare: number }> = [];
+  // Each sample frame's mean square across the channels, in a ring.
+  private squares = new Float64Array(0);
+  private next = 0;
+  private filled = 0;
+  private sum = 0;
+  // Non-zero squares in the window, so silence reads exactly -Infinity
+  // whatever rounding the running sum has gathered.
+  private nonZero = 0;
 
-  push(nowMs: number, meanSquare: number) {
-    this.frames.push({ atMs: nowMs, meanSquare });
-    this.prune(nowMs);
+  // Adds the frames in `channels`, one sample per channel per frame.
+  push(sampleRate: number, channels: readonly ArrayLike<number>[]) {
+    const size = Math.max(
+      1,
+      Math.round((sampleRate * METER_RMS_WINDOW_MS) / 1000),
+    );
+    if (size !== this.squares.length) {
+      this.squares = new Float64Array(size);
+      this.clear();
+    }
+    const frames = Math.min(...channels.map((channel) => channel.length));
+    for (let frame = 0; frame < frames; frame++) {
+      let square = 0;
+      for (const channel of channels) {
+        square += channel[frame] * channel[frame];
+      }
+      this.add(square / channels.length);
+    }
   }
 
-  db(nowMs: number) {
-    this.prune(nowMs);
-    if (!this.frames.length) {
+  db() {
+    if (!this.nonZero) {
       return -Infinity;
     }
-    let sum = 0;
-    for (const frame of this.frames) {
-      sum += frame.meanSquare;
-    }
-    return amplitudeToDb(Math.sqrt(sum / this.frames.length));
+    return amplitudeToDb(Math.sqrt(Math.max(0, this.sum) / this.filled));
   }
 
   clear() {
-    this.frames = [];
+    this.squares.fill(0);
+    this.next = 0;
+    this.filled = 0;
+    this.sum = 0;
+    this.nonZero = 0;
   }
 
-  private prune(nowMs: number) {
-    const oldest = nowMs - METER_RMS_WINDOW_MS;
-    while (this.frames.length && this.frames[0].atMs <= oldest) {
-      this.frames.shift();
+  private add(square: number) {
+    const old = this.squares[this.next];
+    this.squares[this.next] = square;
+    this.sum += square - old;
+    this.nonZero += (square > 0 ? 1 : 0) - (old > 0 ? 1 : 0);
+    this.filled = Math.min(this.filled + 1, this.squares.length);
+    this.next += 1;
+    if (this.next === this.squares.length) {
+      this.next = 0;
+      // Re-sum once per lap so the running sum doesn't drift.
+      this.sum = this.squares.reduce((total, value) => total + value, 0);
     }
+  }
+}
+
+// The samples each channel received since the last frame.
+export type MeterBlock = {
+  sampleRate: number;
+  channels: readonly [ArrayLike<number>, ArrayLike<number>];
+};
+
+// What MeterTapReader needs of an AnalyserNode.
+export type MeterAnalyser = {
+  readonly fftSize: number;
+  readonly context: {
+    readonly currentTime: number;
+    readonly sampleRate: number;
+  };
+  getFloatTimeDomainData(array: Float32Array<ArrayBuffer>): void;
+};
+
+// Reads only the samples that arrived since the last read from a pair of
+// analysers. An analyser holds its latest fftSize samples, and the audio
+// clock says how many have arrived since, so each sample is taken once.
+// Reads further apart than fftSize samples lose the oldest of them.
+export class MeterTapReader {
+  private tap: { left: MeterAnalyser; right: MeterAnalyser } | null = null;
+  private buffers: [Float32Array<ArrayBuffer>, Float32Array<ArrayBuffer>] = [
+    new Float32Array(0),
+    new Float32Array(0),
+  ];
+  private lastFrame: number | null = null;
+
+  // The samples since the last read, or null without a tap. The first read
+  // of a tap starts the count and has no samples yet.
+  read(tap: { left: MeterAnalyser; right: MeterAnalyser } | null) {
+    if (tap !== this.tap) {
+      this.tap = tap;
+      this.lastFrame = null;
+      this.buffers = tap
+        ? [
+            new Float32Array(tap.left.fftSize),
+            new Float32Array(tap.right.fftSize),
+          ]
+        : [new Float32Array(0), new Float32Array(0)];
+    }
+    if (!tap) {
+      return null;
+    }
+    const { currentTime, sampleRate } = tap.left.context;
+    const frame = Math.round(currentTime * sampleRate);
+    const arrived =
+      this.lastFrame === null ? 0 : Math.max(0, frame - this.lastFrame);
+    this.lastFrame = frame;
+    tap.left.getFloatTimeDomainData(this.buffers[0]);
+    tap.right.getFloatTimeDomainData(this.buffers[1]);
+    const channels = this.buffers.map((buffer) =>
+      buffer.subarray(buffer.length - Math.min(arrived, buffer.length)),
+    ) as [Float32Array, Float32Array];
+    return { sampleRate, channels } satisfies MeterBlock;
   }
 }
 
@@ -155,7 +244,7 @@ export type ChannelReading = {
 export type StereoReading = {
   left: ChannelReading;
   right: ChannelReading;
-  // Both channels' RMS level over the recent window.
+  // Both channels' RMS level over the last METER_RMS_WINDOW_MS of audio.
   averageDb: number;
 };
 
@@ -173,22 +262,19 @@ export class StereoMeter {
   private rms = new RmsWindow();
   private lastMs: number | null = null;
 
-  // `samples` holds each channel's latest time-domain samples, or is null
-  // when there is nothing to measure.
+  // `block` holds the samples since the last update, or is null when there
+  // is nothing to measure. The bars follow the loudest of those samples.
   update(
     nowMs: number,
-    samples: readonly [ArrayLike<number>, ArrayLike<number>] | null,
+    block: MeterBlock | null,
     reducedMotion = false,
   ): StereoReading {
     const elapsedMs = this.lastMs === null ? 0 : nowMs - this.lastMs;
     this.lastMs = nowMs;
-    let meanSquare = 0;
     this.channels = this.channels.map((channel, index) => {
-      const measured = samples
-        ? measureSamples(samples[index])
-        : { peak: 0, meanSquare: 0 };
-      meanSquare += measured.meanSquare / 2;
-      const peakDb = amplitudeToDb(measured.peak);
+      const peakDb = amplitudeToDb(
+        block ? samplePeak(block.channels[index]) : 0,
+      );
       const levelDb = releaseLevel(
         channel.levelDb,
         peakDb,
@@ -201,25 +287,27 @@ export class StereoMeter {
         clipped: channel.clipped || peakDb > 0,
       };
     });
-    if (samples) {
-      this.rms.push(nowMs, meanSquare);
+    if (block) {
+      this.rms.push(block.sampleRate, block.channels);
+    } else {
+      this.rms.clear();
     }
-    return this.reading(nowMs);
+    return this.reading();
   }
 
-  reading(nowMs: number): StereoReading {
+  reading(): StereoReading {
     const [left, right] = this.channels.map((channel) => ({
       levelDb: channel.levelDb,
       peakDb: channel.hold.db,
       clipped: channel.clipped,
     }));
-    return { left, right, averageDb: this.rms.db(nowMs) };
+    return { left, right, averageDb: this.rms.db() };
   }
 
   // Nothing left to draw: the bars, peak lines and readout are all empty.
-  isIdle(nowMs: number) {
+  isIdle() {
     return (
-      this.rms.db(nowMs) === -Infinity &&
+      this.rms.db() === -Infinity &&
       this.channels.every(
         (channel) =>
           channel.levelDb === -Infinity && channel.hold.db === -Infinity,
