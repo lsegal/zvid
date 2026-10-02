@@ -31,7 +31,7 @@ test("File ▸ Save downloads the session as an .lvp", async ({ page }) => {
   await page.goto("/");
   await dropVideoIntoNewSourceTrack(page);
 
-  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "File", exact: true }).click();
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   const download = await downloadPromise;
@@ -79,7 +79,7 @@ test("File ▸ Save keeps fill clips and layer FX bypass on reopen", async ({
   await header.click({ button: "right" });
   await page.getByRole("menuitem", { name: "Disable FX", exact: true }).click();
 
-  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "File", exact: true }).click();
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   const download = await downloadPromise;
@@ -92,7 +92,7 @@ test("File ▸ Save keeps fill clips and layer FX bypass on reopen", async ({
   ).toMatchObject({ fxEnabled: false });
   await expect(page.getByText(/^Saved .*\.lvp\.$/)).toBeVisible();
 
-  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "File", exact: true }).click();
   const chooserPromise = page.waitForEvent("filechooser");
   await page
     .getByRole("menuitem", { name: "Open Session", exact: true })

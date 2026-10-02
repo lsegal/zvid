@@ -103,13 +103,13 @@ async function drag(
 }
 
 async function expectUndoLabel(page: Page, label: RegExp) {
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
   await expect(page.getByRole("menuitem", { name: /^Undo/ })).toHaveText(label);
   await page.keyboard.press("Escape");
 }
 
 async function undo(page: Page) {
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
   await page.getByRole("menuitem", { name: /^Undo/ }).click();
 }
 

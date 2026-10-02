@@ -125,7 +125,7 @@ test("the preview selects, outlines and drags a layer", async ({ page }) => {
   );
 
   // The move, including adding the Transform, is one undo step.
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
   const undo = page.getByRole("menuitem", { name: /^Undo/ });
   await expect(undo).toHaveText(/^Undo Move test-pattern/);
   await undo.click();
@@ -157,7 +157,7 @@ test("the preview selects, outlines and drags a layer", async ({ page }) => {
   await expect(
     page.getByRole("region", { name: "Transform", exact: true }),
   ).toHaveCount(1);
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
   await expect(page.getByRole("menuitem", { name: /^Undo/ })).toHaveText(
     /^Undo Move Layer 1/,
   );
@@ -193,7 +193,7 @@ test("a clip's own Transform follows Duplicate and Paste", async ({ page }) => {
   await expect(transform).toHaveCount(1);
 
   const editMenu = async () => {
-    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
     await expect(page.getByRole("menu").first()).toBeVisible();
   };
 
