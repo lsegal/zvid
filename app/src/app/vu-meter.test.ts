@@ -45,15 +45,25 @@ describe("dbToPosition", () => {
 });
 
 describe("formatMeterDb", () => {
-  it("shows one decimal with a typographic minus", () => {
-    assert.equal(formatMeterDb(-14.24), "−14.2");
-    assert.equal(formatMeterDb(0), "0.0");
-    assert.equal(formatMeterDb(1.25), "1.3");
+  it("shows one decimal in dB with a typographic minus", () => {
+    assert.equal(formatMeterDb(-14.23), "−14.2 dB");
+    assert.equal(formatMeterDb(-14.24), "−14.2 dB");
+    assert.equal(formatMeterDb(-60), "−∞ dB");
+    assert.equal(formatMeterDb(-59.96), "−60.0 dB");
+    assert.equal(formatMeterDb(0), "0.0 dB");
+    assert.equal(formatMeterDb(-0.04), "0.0 dB");
   });
 
-  it("shows silence as minus infinity", () => {
-    assert.equal(formatMeterDb(-Infinity), "−∞");
-    assert.equal(formatMeterDb(Number.NaN), "−∞");
+  it("signs levels above 0 dB", () => {
+    assert.equal(formatMeterDb(1.25), "+1.3 dB");
+    assert.equal(formatMeterDb(0.04), "0.0 dB");
+    assert.equal(formatMeterDb(6), "+6.0 dB");
+  });
+
+  it("shows silence, and anything below the scale, as minus infinity", () => {
+    assert.equal(formatMeterDb(-Infinity), "−∞ dB");
+    assert.equal(formatMeterDb(Number.NaN), "−∞ dB");
+    assert.equal(formatMeterDb(-72.4), "−∞ dB");
   });
 });
 
