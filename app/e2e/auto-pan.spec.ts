@@ -146,10 +146,11 @@ test("Auto Pan is added to an audio clip with its defaults and pans the mix", as
     .first()
     .click();
   const menu = page.getByRole("menu");
-  await expect(menu.getByRole("menuitem", { name: /^Pixelate/ })).toHaveCount(
-    0,
-  );
-  await menu.getByRole("menuitem", { name: /^Auto Pan/ }).click();
+  await expect(menu.getByRole("menuitem", { name: "Stylize" })).toHaveCount(0);
+  await menu
+    .getByRole("menuitem", { name: "Volume & Stereo" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Auto Pan/ }).click();
   await expect(page.locator(clipDevices)).toHaveCount(2);
 
   const autoPan = page.locator(clipDevices).nth(1);
@@ -238,7 +239,10 @@ test("a video clip's add menu lists Auto Pan in its Audio group", async ({
     .first()
     .click();
   const audio = page.getByRole("menu").getByRole("group", { name: "Audio" });
-  await audio.getByRole("menuitem", { name: /^Auto Pan/ }).click();
+  await audio
+    .getByRole("menuitem", { name: "Volume & Stereo" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Auto Pan/ }).click();
   await expect(
     page.locator(clipDevices).filter({ hasText: "Auto Pan" }),
   ).toHaveCount(1);

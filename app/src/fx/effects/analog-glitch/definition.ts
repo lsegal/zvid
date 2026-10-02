@@ -10,6 +10,7 @@ export const definition: FxEffectDefinition = {
   displayName: "Analog Glitch",
   description: "Adds analog tape jitter and color bleed.",
   accent: "#f6b73c",
+  category: "stylize",
   known: true,
   scopes: ALL_SCOPES,
   parameters: [

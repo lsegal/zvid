@@ -8,7 +8,6 @@ import {
   getAudioMixContributions,
   getAudioMixOrigin,
 } from "./audio-mix-clips.ts";
-import { isAudioRowPinned } from "./audio-row-section.ts";
 import type { CompositionPlayerHandle } from "./CompositionPlayer";
 import { AppDialogs } from "./components/AppDialogs";
 import { AppStatusBar } from "./components/AppStatusBar";
@@ -404,6 +403,21 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 labelResize={layout.labelResize}
                 playheadQ={playheadQ}
                 playheadSignal={playheadSignal}
+                footer={
+                  <AudioRow
+                    mix={audioMix}
+                    openAudioMenu={editing.openAudioMenu}
+                    prefersReducedMotion={prefersReducedMotion}
+                    bpm={bpm}
+                    quarterPx={quarterPx}
+                    visibleTimelineStartPx={visibleTimelineStartPx}
+                    visibleTimelineWidthPx={visibleTimelineWidthPx}
+                    gridStyle={gridStyle}
+                    playheadSignal={playheadSignal}
+                    isCollapsed={layout.isAudioRowCollapsed}
+                    setCollapsed={layout.setAudioRowCollapsed}
+                  />
+                }
               >
                 <Ruler
                   {...timeline}
@@ -555,20 +569,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     setSourceSpanDrag: selection.setSourceSpanDrag,
                     locked: editing.sourceTracksLocked,
                   }}
-                />
-                <AudioRow
-                  mix={audioMix}
-                  openAudioMenu={editing.openAudioMenu}
-                  prefersReducedMotion={prefersReducedMotion}
-                  bpm={bpm}
-                  quarterPx={quarterPx}
-                  visibleTimelineStartPx={visibleTimelineStartPx}
-                  visibleTimelineWidthPx={visibleTimelineWidthPx}
-                  gridStyle={gridStyle}
-                  playheadSignal={playheadSignal}
-                  isPinned={isAudioRowPinned(timelineViewport.clientHeight)}
-                  isCollapsed={layout.isAudioRowCollapsed}
-                  setCollapsed={layout.setAudioRowCollapsed}
                 />
               </Timeline>
 

@@ -20,6 +20,7 @@ export const definition: FxEffectDefinition = {
   description:
     "Sets the volume in dB. The bottom of the fader, or Mute, silences it.",
   accent: "#4fd1c5",
+  category: "volume",
   domain: "audio",
   known: true,
   // Track and clip stacks, source ones included, and Global as a master

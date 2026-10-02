@@ -157,7 +157,7 @@ function decaySeconds(channel: Float32Array, belowDb: number) {
   return Number.POSITIVE_INFINITY;
 }
 
-// The largest jump between neighbouring samples.
+// The largest jump between neighboring samples.
 function largestStep(channel: Float32Array) {
   let largest = 0;
   for (let index = 1; index < channel.length; index++) {
@@ -346,7 +346,7 @@ describe("Transient Shaper through the audio chain", () => {
   });
 });
 
-// The largest change in `output`'s gain over `input` between neighbouring
+// The largest change in `output`'s gain over `input` between neighboring
 // samples within `window`, in dB.
 function largestGainStepDb(
   output: Float32Array,

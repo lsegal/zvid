@@ -4,30 +4,30 @@ import type {
   FxNumberTaper,
 } from "../../types.ts";
 import {
-  DEFAULT_HIGH_PASS_SLOPE,
+  DEFAULT_HIGH_CUT_SLOPE,
   FREQUENCY_KEY,
   formatFrequency,
   formatResonance,
-  HIGH_PASS_EFFECT_NAME,
-  HIGH_PASS_RANGES,
-  HIGH_PASS_SLOPES,
-  type HighPassNumberKey,
+  HIGH_CUT_EFFECT_NAME,
+  HIGH_CUT_RANGES,
+  HIGH_CUT_SLOPES,
+  type HighCutNumberKey,
   RESONANCE_KEY,
   SLOPE_KEY,
-} from "./high-pass.ts";
+} from "./high-cut.ts";
 
 // In the Audio group of the add menus, among the other audio effects.
-export const menuOrder = 290;
+export const menuOrder = 300;
 
 // A knob over the parameter's range. Frequency uses a log taper, so each
 // octave takes the same travel.
 function knob(
-  key: HighPassNumberKey,
+  key: HighCutNumberKey,
   step: number,
   format: (value: number) => string,
   taper: FxNumberTaper = "linear",
 ): FxNumberParameterDefinition {
-  const range = HIGH_PASS_RANGES[key];
+  const range = HIGH_CUT_RANGES[key];
   return {
     kind: "number",
     key,
@@ -42,11 +42,12 @@ function knob(
 }
 
 export const definition: FxEffectDefinition = {
-  effectName: HIGH_PASS_EFFECT_NAME,
-  displayName: "High Pass",
+  effectName: HIGH_CUT_EFFECT_NAME,
+  displayName: "High Cut",
   description:
-    "Removes low frequencies below the cutoff, at 12 or 24 dB per octave, with an optional resonant peak.",
-  accent: "#60a5fa",
+    "Removes high frequencies above the cutoff, at 12 or 24 dB per octave, with an optional resonant peak.",
+  accent: "#3b82f6",
+  category: "eq",
   domain: "audio",
   known: true,
   scopes: ["layer", "clip", "global"],
@@ -57,8 +58,8 @@ export const definition: FxEffectDefinition = {
       kind: "enum",
       key: SLOPE_KEY,
       label: SLOPE_KEY,
-      options: HIGH_PASS_SLOPES,
-      defaultValue: DEFAULT_HIGH_PASS_SLOPE,
+      options: HIGH_CUT_SLOPES,
+      defaultValue: DEFAULT_HIGH_CUT_SLOPE,
     },
   ],
 };

@@ -10,6 +10,7 @@ export const definition: FxEffectDefinition = {
   displayName: "Colorize",
   description: "Shifts the hue of the layer.",
   accent: "#ff6f9d",
+  category: "color",
   known: true,
   scopes: ALL_SCOPES,
   // The Reactivity knob, now Reactive animation. Sessions and restored

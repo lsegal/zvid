@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 
 // The Stereo audio effect: it is added from a clip's Audio add menu with
-// Width at 100% and Pan at centre, and panning a centred tone hard left
+// Width at 100% and Pan at center, and panning a centered tone hard left
 // moves it all to the left channel in the preview and the export alike.
 
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
@@ -51,7 +51,7 @@ async function settledLevel(page: Page) {
   return level;
 }
 
-// A 440 Hz tone as a 16-bit mono WAV, which the chains upmix to a centred
+// A 440 Hz tone as a 16-bit mono WAV, which the chains upmix to a centered
 // stereo source.
 function toneWav(seconds: number) {
   const sampleRate = 8000;
@@ -104,7 +104,10 @@ async function addStereo(page: Page) {
     .click();
   const menu = page.getByRole("menu");
   await expect(menu.getByRole("group", { name: "Video" })).toHaveCount(0);
-  await menu.getByRole("menuitem", { name: /^Stereo/ }).click();
+  await menu
+    .getByRole("menuitem", { name: "Volume & Stereo" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Stereo/ }).click();
   const stereo = page.locator(`${clipDevices}[aria-label="Stereo"]`);
   await expect(stereo).toHaveCount(1);
   return stereo;
@@ -155,7 +158,10 @@ test("a video clip lists Stereo in its add menu's Audio group", async ({
     .first()
     .click();
   const audio = page.getByRole("menu").getByRole("group", { name: "Audio" });
-  await audio.getByRole("menuitem", { name: /^Stereo/ }).click();
+  await audio
+    .getByRole("menuitem", { name: "Volume & Stereo" })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Stereo/ }).click();
   await expect(page.locator(`${clipDevices}[aria-label="Stereo"]`)).toHaveCount(
     1,
   );
@@ -184,12 +190,12 @@ test("Stereo adds with its defaults and pans the preview", async ({ page }) => {
   );
 
   await playFromStart(page);
-  let centred = 0;
+  let centered = 0;
   await expect
     .poll(
       async () => {
-        centred = await settledLevel(page);
-        return centred;
+        centered = await settledLevel(page);
+        return centered;
       },
       { timeout: 15_000 },
     )
@@ -205,17 +211,17 @@ test("Stereo adds with its defaults and pans the preview", async ({ page }) => {
   await expect
     .poll(
       async () => {
-        const ratio = (await settledLevel(page)) / centred;
+        const ratio = (await settledLevel(page)) / centered;
         return ratio > 0.62 && ratio < 0.8;
       },
       { timeout: 15_000 },
     )
     .toBe(true);
 
-  // Bypassing it brings the centred level back.
+  // Bypassing it brings the centered level back.
   await stereo.getByRole("button", { name: "Bypass Stereo" }).click();
   await expect
-    .poll(async () => (await settledLevel(page)) / centred, {
+    .poll(async () => (await settledLevel(page)) / centered, {
       timeout: 15_000,
     })
     .toBeGreaterThan(0.9);
@@ -257,7 +263,7 @@ test("an export with Stereo panned hard left has a silent right channel", async 
   const mp4 = await readFile(await (await download).path());
 
   // The offline render pans exactly as the preview: the tone, peak
-  // 10000 / 32767 at unity in each channel when centred, plays at √2 times
+  // 10000 / 32767 at unity in each channel when centered, plays at √2 times
   // that on the left and not at all on the right.
   const [left, right] = await page.evaluate(
     async (bytes) => {

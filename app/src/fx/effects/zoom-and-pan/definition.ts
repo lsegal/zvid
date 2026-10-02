@@ -10,6 +10,7 @@ export const definition: FxEffectDefinition = {
   displayName: "Zoom & Pan",
   description: "Zooms and pans the frame from a start to an end framing.",
   accent: "#7ca1ff",
+  category: "transform",
   known: true,
   scopes: ALL_SCOPES,
   parameters: [

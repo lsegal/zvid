@@ -7,7 +7,7 @@ import {
   DEFAULT_TIME_SIGNATURE,
 } from "../../../audio-mix/processor.ts";
 import { processor as gain } from "../gain/processor.ts";
-import { type HighPassSlope, highPassResponseDb } from "./high-pass.ts";
+import { type LowCutSlope, lowCutResponseDb } from "./low-cut.ts";
 import { processor } from "./processor.ts";
 
 // Offline renders through AudioChain, the host the preview's worklet and
@@ -16,16 +16,16 @@ const RATE = 48_000;
 const TEMPO = { bpm: 120, signature: DEFAULT_TIME_SIGNATURE };
 const registry = createProcessorRegistry([processor, gain]);
 
-type HighPassNumbers = { Frequency?: number; Resonance?: number };
+type LowCutNumbers = { Frequency?: number; Resonance?: number };
 
-function highPass(
-  numbers: HighPassNumbers = {},
-  slope: HighPassSlope = "12 dB/oct",
+function lowCut(
+  numbers: LowCutNumbers = {},
+  slope: LowCutSlope = "12 dB/oct",
   enabled = true,
 ): AudioStage {
   return {
-    id: "high-pass",
-    effectName: "High Pass",
+    id: "low-cut",
+    effectName: "Low Cut",
     enabled,
     numbers: { Frequency: 80, Resonance: Math.SQRT1_2, ...numbers },
     switches: { Slope: slope },
@@ -100,11 +100,11 @@ function levelDb(samples: Float32Array) {
 
 function gainDb(
   frequency: number,
-  numbers: HighPassNumbers = {},
-  slope: HighPassSlope = "12 dB/oct",
+  numbers: LowCutNumbers = {},
+  slope: LowCutSlope = "12 dB/oct",
 ) {
   const input = sine(frequency);
-  return levelDb(render([highPass(numbers, slope)], input)) - levelDb(input);
+  return levelDb(render([lowCut(numbers, slope)], input)) - levelDb(input);
 }
 
 // The largest sample-to-sample change from frame `from` to `to`.
@@ -137,7 +137,7 @@ const near = (actual: number, expected: number, tolerance: number) =>
 for (const slope of ["12 dB/oct", "24 dB/oct"] as const) {
   const octaveDb = slope === "12 dB/oct" ? -12 : -24;
 
-  describe(`High Pass stage at ${slope}`, () => {
+  describe(`Low Cut stage at ${slope}`, () => {
     it("is −3 dB at the default 80 Hz cutoff", () => {
       near(gainDb(80, {}, slope), -3, 0.5);
     });
@@ -161,7 +161,7 @@ for (const slope of ["12 dB/oct", "24 dB/oct"] as const) {
       for (const frequency of [100, 300, 600, 5000]) {
         near(
           gainDb(frequency, { Frequency: 300, Resonance: 4 }, slope),
-          highPassResponseDb(settings, frequency, RATE),
+          lowCutResponseDb(settings, frequency, RATE),
           0.2,
         );
       }
@@ -169,13 +169,13 @@ for (const slope of ["12 dB/oct", "24 dB/oct"] as const) {
 
     it("removes a DC offset", () => {
       const input = new Float32Array(RATE).fill(0.5);
-      const output = render([highPass({}, slope)], input);
+      const output = render([lowCut({}, slope)], input);
       assert.ok(Math.abs(output[output.length - 1]) < 1e-4);
     });
   });
 }
 
-describe("High Pass stage resonance", () => {
+describe("Low Cut stage resonance", () => {
   it("peaks at the cutoff above 0.707", () => {
     near(
       gainDb(1000, { Frequency: 1000, Resonance: 4 }),
@@ -185,11 +185,11 @@ describe("High Pass stage resonance", () => {
   });
 });
 
-describe("High Pass stage bypass", () => {
+describe("Low Cut stage bypass", () => {
   it("passes sine, noise and an impulse bit-identically when bypassed", () => {
     for (const input of [sine(40), noise(), impulse()]) {
       assert.deepEqual(
-        render([highPass({ Frequency: 2000 }, "24 dB/oct", false)], input),
+        render([lowCut({ Frequency: 2000 }, "24 dB/oct", false)], input),
         input,
       );
     }
@@ -197,7 +197,7 @@ describe("High Pass stage bypass", () => {
 
   it("passes audio bit-identically once removed", () => {
     const input = noise();
-    const output = render([highPass({ Frequency: 2000 })], input, [
+    const output = render([lowCut({ Frequency: 2000 })], input, [
       { frame: BLOCK_FRAMES * 10, stages: [] },
     ]);
     assert.deepEqual(
@@ -215,7 +215,7 @@ describe("High Pass stage bypass", () => {
       numbers: { Gain: -6 },
       switches: {},
     };
-    const both = render([highPass({ Frequency: 1000 }), half], input);
+    const both = render([lowCut({ Frequency: 1000 }), half], input);
     near(
       levelDb(both) - levelDb(input),
       gainDb(1000, { Frequency: 1000 }) - 6,
@@ -224,7 +224,7 @@ describe("High Pass stage bypass", () => {
   });
 });
 
-describe("High Pass stage parameter changes", () => {
+describe("Low Cut stage parameter changes", () => {
   // A 0.5 amplitude sine at `frequency` moves by at most this much per
   // sample when the filter's gain is at most `gain`.
   const sineBound = (frequency: number, gain = 1) =>
@@ -232,9 +232,9 @@ describe("High Pass stage parameter changes", () => {
 
   it("sweeps the frequency without discontinuities", () => {
     const input = sine(1000);
-    const output = render([highPass({ Frequency: 20 })], input, [
-      { frame: BLOCK_FRAMES * 50, stages: [highPass({ Frequency: 2000 })] },
-      { frame: BLOCK_FRAMES * 200, stages: [highPass({ Frequency: 20 })] },
+    const output = render([lowCut({ Frequency: 20 })], input, [
+      { frame: BLOCK_FRAMES * 50, stages: [lowCut({ Frequency: 2000 })] },
+      { frame: BLOCK_FRAMES * 200, stages: [lowCut({ Frequency: 20 })] },
     ]);
     assert.ok(maxStep(output) <= sineBound(1000) * 1.1);
     // The sine's curvature, its largest second difference, bounds that of
@@ -248,10 +248,10 @@ describe("High Pass stage parameter changes", () => {
     const input = sine(1000);
     const at = BLOCK_FRAMES * 100;
     const resonant = { Frequency: 1000, Resonance: 8 };
-    const output = render([highPass({ Frequency: 1000 })], input, [
-      { frame: at, stages: [highPass(resonant)] },
+    const output = render([lowCut({ Frequency: 1000 })], input, [
+      { frame: at, stages: [lowCut(resonant)] },
     ]);
-    const steady = render([highPass(resonant)], input);
+    const steady = render([lowCut(resonant)], input);
     const bound = maxStep(steady, RATE / 2, RATE - 1) * 1.05;
     assert.ok(maxStep(output, at - 64, at + RATE * 0.05) <= bound);
     near(levelDb(output), levelDb(steady), 0.05);
@@ -260,9 +260,9 @@ describe("High Pass stage parameter changes", () => {
   it("crossfades a Slope change without a click", () => {
     const input = sine(1000);
     const at = BLOCK_FRAMES * 100;
-    const output = render([highPass({}, "12 dB/oct")], input, [
-      { frame: at, stages: [highPass({}, "24 dB/oct")] },
-      { frame: at * 2, stages: [highPass({}, "12 dB/oct")] },
+    const output = render([lowCut({}, "12 dB/oct")], input, [
+      { frame: at, stages: [lowCut({}, "24 dB/oct")] },
+      { frame: at * 2, stages: [lowCut({}, "12 dB/oct")] },
     ]);
     assert.ok(maxStep(output) <= sineBound(1000) * 1.1);
   });

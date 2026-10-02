@@ -111,6 +111,20 @@ export const ALL_SCOPES: readonly FxEffectScope[] = [
 // and the audio engine skips video ones.
 export type FxEffectDomain = "video" | "audio";
 
+// The add menus' category submenus; FX_EFFECT_CATEGORIES in fx-chain.ts
+// gives their labels and order within each domain.
+export type FxEffectCategory =
+  | "transform"
+  | "color"
+  | "stylize"
+  | "text"
+  | "volume"
+  | "eq"
+  | "dynamics"
+  | "modulation"
+  | "distortion"
+  | "utility";
+
 export type FxEffectDefinition = {
   effectName: string;
   displayName: string;
@@ -118,6 +132,8 @@ export type FxEffectDefinition = {
   accent: string;
   // Unset for video effects.
   domain?: FxEffectDomain;
+  // The submenu the add menus list the effect under.
+  category: FxEffectCategory;
   parameters: FxParameterDefinition[];
   // Stacks the add menus offer the effect on. A device loaded onto any other
   // stack still shows, flagged as not supported there.

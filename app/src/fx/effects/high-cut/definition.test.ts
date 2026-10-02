@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { definition as gain } from "../gain/definition.ts";
 import { definition } from "./definition.ts";
 
-describe("Low Pass definition", () => {
+describe("High Cut definition", () => {
   it("is an audio effect for the same stacks as Gain", () => {
     assert.equal(definition.domain, "audio");
     assert.deepEqual(definition.scopes, gain.scopes);

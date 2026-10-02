@@ -125,11 +125,11 @@ describe("Stereo formatting", () => {
 });
 
 describe("Stereo pan law", () => {
-  it("is unity at centre and −3 dB per side from a hard pan", () => {
+  it("is unity at center and −3 dB per side from a hard pan", () => {
     assert.deepEqual(panAmplitudes(0), [1, 1]);
     const [hard, silent] = panAmplitudes(-100);
     assert.equal(silent, 0);
-    // A side at centre against the same side panned fully to it.
+    // A side at center against the same side panned fully to it.
     near(20 * Math.log10(1 / hard), -3.0103, 1e-4);
   });
 
@@ -142,7 +142,7 @@ describe("Stereo pan law", () => {
 });
 
 describe("Stereo processing", () => {
-  it("is the identity at 100 % width and centre pan", () => {
+  it("is the identity at 100 % width and center pan", () => {
     const input = wideInput();
     const output = render(input, [stage({})]);
     assert.deepEqual(output, input);
@@ -165,14 +165,14 @@ describe("Stereo processing", () => {
     near(rms(midOf(left, right)), rms(midOf(input[0], input[1])), 1e-6);
   });
 
-  it("leaves the right silent for a centred source panned hard left", () => {
+  it("leaves the right silent for a centered source panned hard left", () => {
     const tone = sine(220, 0.5);
     const [left, right] = render([tone, tone.slice()], [stage({ pan: -100 })]);
     assert.ok(right.every((sample) => sample === 0));
     near(rms(left) / rms(tone), Math.SQRT2, 1e-5);
   });
 
-  it("keeps a mono source centred whatever the width", () => {
+  it("keeps a mono source centered whatever the width", () => {
     const tone = sine(330, 0.5);
     for (const width of [0, 100, 200]) {
       const [left, right] = render([tone, tone.slice()], [stage({ width })]);

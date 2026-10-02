@@ -6,7 +6,7 @@ import {
   downloadSampleAsset,
   loadSampleAssets,
   type SampleAssetEvent,
-  SampleLoadCancelledError,
+  SampleLoadCanceledError,
   type SampleLoadDeps,
   sha256Hex,
   shouldAutoOpenSample,
@@ -226,10 +226,10 @@ describe("loadSampleAssets", () => {
     assert.equal(result.failed.length, 2);
   });
 
-  it("stops when cancelled, without caching or reporting the asset in flight", async () => {
+  it("stops when canceled, without caching or reporting the asset in flight", async () => {
     const controller = new AbortController();
     const { deps, cache } = harness();
-    const cancelling: SampleLoadDeps = {
+    const canceling: SampleLoadDeps = {
       ...deps,
       async fetch(url, init) {
         controller.abort();
@@ -238,11 +238,11 @@ describe("loadSampleAssets", () => {
     };
     const { events, onAsset } = recordEvents();
     await assert.rejects(
-      loadSampleAssets(MANIFEST.assets, cancelling, {
+      loadSampleAssets(MANIFEST.assets, canceling, {
         signal: controller.signal,
         onAsset,
       }),
-      SampleLoadCancelledError,
+      SampleLoadCanceledError,
     );
     assert.equal(cache.size, 0);
     assert.equal(

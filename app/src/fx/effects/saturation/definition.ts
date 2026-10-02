@@ -49,6 +49,7 @@ export const definition: FxEffectDefinition = {
   description:
     "Warm harmonic distortion: drives the sound into a Soft, Hard, Tape or Tube curve, then darkens it with Tone.",
   accent: "#fb923c",
+  category: "distortion",
   domain: "audio",
   known: true,
   scopes: ["layer", "clip", "global"],

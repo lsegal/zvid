@@ -20,7 +20,7 @@ import {
 } from "../remote-media-sync.ts";
 import {
   loadSampleAssets,
-  SampleLoadCancelledError,
+  SampleLoadCanceledError,
   type SampleLoadDeps,
   sha256Hex,
 } from "../sample/sample-loader.ts";
@@ -264,7 +264,7 @@ export function useSampleMedia({
       },
     })
       .catch((error) => {
-        if (!(error instanceof SampleLoadCancelledError)) {
+        if (!(error instanceof SampleLoadCanceledError)) {
           logClient("media:sample:load:error", {
             message: error instanceof Error ? error.message : String(error),
           });
@@ -273,7 +273,7 @@ export function useSampleMedia({
       .finally(async () => {
         await Promise.all(adopting);
         batchesRef.current.delete(batch);
-        // Media the loader stopped before it settled, when cancelled.
+        // Media the loader stopped before it settled, when canceled.
         for (const mediaId of [...ids]) {
           if (isPresent(mediaId)) {
             setLocalMediaOverride(mediaId, { availability: "offline" });

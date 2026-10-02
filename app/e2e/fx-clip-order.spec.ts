@@ -547,14 +547,18 @@ test("an FX clip's add menu offers Order", async ({ page }) => {
 
   await page.getByRole("button", { name: "Add device to this clip" }).click();
   await page
-    .getByRole("menu")
-    .getByRole("menuitem", { name: /^Order / })
-    .click();
+    .getByRole("menuitem", { name: "Transform", exact: true })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Order / }).click();
   await expect(clip.locator("strong")).toHaveText("FX · Order");
 });
 
 // An Order on an FX clip only arranges the layers beneath it, so its Layers
 // menu lists only those; the Global Order's menu lists every layer.
+//
+// The docked Audio row footer (#809) leaves less room for layers to scroll
+// in; the default session's layers no longer all fit without scrolling.
+test.use({ viewport: { width: 1600, height: 1200 } });
 test("an FX clip's Order lists only the layers beneath it", async ({
   page,
 }) => {
@@ -581,9 +585,9 @@ test("an FX clip's Order lists only the layers beneath it", async ({
 
   await page.getByRole("button", { name: "Add device to this clip" }).click();
   await page
-    .getByRole("menu")
-    .getByRole("menuitem", { name: /^Order / })
-    .click();
+    .getByRole("menuitem", { name: "Transform", exact: true })
+    .press("ArrowRight");
+  await page.getByRole("menuitem", { name: /^Order / }).click();
 
   const menuRows = page.getByRole("menu").getByRole("menuitemcheckbox");
   const clipOrder = page.locator(

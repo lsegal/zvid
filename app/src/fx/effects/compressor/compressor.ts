@@ -71,7 +71,7 @@ export function formatMs(ms: number) {
 
 // The gain computer: the output level in dB for an input level in dB.
 // Below the knee it is unchanged, above it the excess over Threshold is
-// divided by Ratio, and across the knee, Knee dB wide and centred on
+// divided by Ratio, and across the knee, Knee dB wide and centered on
 // Threshold, a quadratic joins the two.
 export function compressedLevelDb(
   levelDb: number,

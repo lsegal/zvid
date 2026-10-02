@@ -21,6 +21,7 @@ export const definition: FxEffectDefinition = {
   description:
     "Arranges the layers in stacked rows, side-by-side columns or a grid.",
   accent: "#b6e36b",
+  category: "transform",
   known: true,
   // On an FX clip it arranges the layers beneath the clip.
   scopes: ["global", "fxClip"],

@@ -15,6 +15,7 @@ export const definition: FxEffectDefinition = {
   displayName: "Color",
   description: "Paints fill clips a solid color or a gradient.",
   accent: "#ffd166",
+  category: "color",
   known: true,
   // A fill clip carries its own Color; one on the layer paints the layer's
   // fill clips that have none.
