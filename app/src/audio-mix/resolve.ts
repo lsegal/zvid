@@ -219,22 +219,22 @@ export function resolveAudioClips<Effect extends AudioEffect>({
   );
   if (layerClips.length) {
     const mixed = layerClips.map((clip) =>
-        mixClip(
-          {
-            id: clip.id,
-            mediaId: clip.mediaId as string,
-            startSeconds: quartersToSeconds(clip.startQ, bpm),
-            durationSeconds: clip.durationSeconds,
-            sourceOffsetSeconds: clip.sourceOffsetSeconds,
-            sourceWindowStartSeconds: clip.sourceWindowStartSeconds,
-            sourceWindowEndSeconds: clip.sourceWindowEndSeconds,
-            ...(clip.warp ? { warp: clip.warp } : {}),
-          },
-          clip.laneId,
-          clip.laneId,
-          clipEffectTrackId(clip.id),
-        ),
-      );
+      mixClip(
+        {
+          id: clip.id,
+          mediaId: clip.mediaId as string,
+          startSeconds: quartersToSeconds(clip.startQ, bpm),
+          durationSeconds: clip.durationSeconds,
+          sourceOffsetSeconds: clip.sourceOffsetSeconds,
+          sourceWindowStartSeconds: clip.sourceWindowStartSeconds,
+          sourceWindowEndSeconds: clip.sourceWindowEndSeconds,
+          ...(clip.warp ? { warp: clip.warp } : {}),
+        },
+        clip.laneId,
+        clip.laneId,
+        clipEffectTrackId(clip.id),
+      ),
+    );
     return {
       clips: mixed,
       buses: [...buses.values()],
@@ -247,26 +247,25 @@ export function resolveAudioClips<Effect extends AudioEffect>({
   }
 
   const mixed = sourceSpans
-      .filter((span) => hasAudio(mediaById, span.mediaId))
-      .map((span) => {
-        const startSeconds = quartersToSeconds(span.startQ, bpm);
-        return mixClip(
-          {
-            id: sourceRenderClipId(span.id),
-            mediaId: span.mediaId as string,
-            startSeconds,
-            durationSeconds: span.durationSeconds,
-            sourceOffsetSeconds: span.trimStartSeconds - startSeconds,
-            sourceWindowStartSeconds: span.trimStartSeconds,
-            sourceWindowEndSeconds:
-              span.trimStartSeconds + span.durationSeconds,
-            ...(span.warp ? { warp: span.warp } : {}),
-          },
-          span.sourceTrackId,
-          sourceTrackEffectTrackId(span.sourceTrackId),
-          sourceClipEffectTrackId(span.id),
-        );
-      });
+    .filter((span) => hasAudio(mediaById, span.mediaId))
+    .map((span) => {
+      const startSeconds = quartersToSeconds(span.startQ, bpm);
+      return mixClip(
+        {
+          id: sourceRenderClipId(span.id),
+          mediaId: span.mediaId as string,
+          startSeconds,
+          durationSeconds: span.durationSeconds,
+          sourceOffsetSeconds: span.trimStartSeconds - startSeconds,
+          sourceWindowStartSeconds: span.trimStartSeconds,
+          sourceWindowEndSeconds: span.trimStartSeconds + span.durationSeconds,
+          ...(span.warp ? { warp: span.warp } : {}),
+        },
+        span.sourceTrackId,
+        sourceTrackEffectTrackId(span.sourceTrackId),
+        sourceClipEffectTrackId(span.id),
+      );
+    });
   return {
     clips: mixed,
     buses: [...buses.values()],

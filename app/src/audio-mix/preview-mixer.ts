@@ -214,13 +214,14 @@ export class PreviewAudioMixer {
         : MAX_DRIFT_SECONDS;
     const now = playback.playheadSeconds;
     this.applyMode();
-    this.syncTransport(now, shouldPlay);
     // With chains, the mix comes out this late, so its media plays this far
-    // ahead of the playhead to stay with the video.
+    // ahead of the playhead to stay with the video, and the chains are told
+    // the timeline time of what they are fed, as export tells them.
     const ahead =
       this.chains && this.graph && this.timing
         ? this.timing.latencyFrames / this.graph.context.sampleRate
         : 0;
+    this.syncTransport(now + ahead, shouldPlay);
     const linger = Math.max(
       RELEASE_SECONDS,
       this.chains ? (this.timing?.tailSeconds ?? 0) : 0,
@@ -346,11 +347,10 @@ export class PreviewAudioMixer {
     }
     this.teardownChains();
     if (chained && this.graph) {
-      const master = createChainNode(this.graph.context);
+      const master = this.chainNode(this.graph.context, this.masterSettings());
       master.connect(this.graph.master);
       this.graph.master.gain.value = 1;
       this.chains = { master, buses: new Map() };
-      this.configureChains(this.chains);
     } else if (this.graph) {
       this.graph.master.gain.value = this.mix.masterAmplitude;
     }
@@ -442,6 +442,17 @@ export class PreviewAudioMixer {
     this.broadcast({ type: "transport", ...this.transport });
   }
 
+  // A chain node starting with `settings` at the current transport.
+  private chainNode(context: AudioContext, settings: AudioChainSettings) {
+    const node = createChainNode(context, {
+      settings,
+      tempo: audioMixTempo(this.mix),
+      ...(this.transport ? { transport: this.transport } : {}),
+    });
+    this.posted.set(node, JSON.stringify(settings));
+    return node;
+  }
+
   private configure(node: AudioWorkletNode, settings: AudioChainSettings) {
     const key = JSON.stringify(settings);
     if (this.posted.get(node) === key) {
@@ -463,17 +474,23 @@ export class PreviewAudioMixer {
     };
   }
 
+  private masterSettings(): AudioChainSettings {
+    return { stages: this.mix.master, inputGain: 1, delayFrames: 0 };
+  }
+
+  private busSettings(busId: string): AudioChainSettings {
+    const bus = this.mix.buses.find((candidate) => candidate.id === busId);
+    return { stages: bus?.stages ?? [], inputGain: 1, delayFrames: 0 };
+  }
+
+  // Configures the master and bus chains for the mix, dropping buses it no
+  // longer has.
   private configureChains(chains: ChainGraph) {
-    this.configure(chains.master, {
-      stages: this.mix.master,
-      inputGain: 1,
-      delayFrames: 0,
-    });
-    const busById = new Map(this.mix.buses.map((bus) => [bus.id, bus]));
+    this.configure(chains.master, this.masterSettings());
+    const busIds = new Set(this.mix.buses.map((bus) => bus.id));
     for (const [busId, node] of chains.buses) {
-      const bus = busById.get(busId);
-      if (bus) {
-        this.configure(node, { stages: bus.stages, inputGain: 1, delayFrames: 0 });
+      if (busIds.has(busId)) {
+        this.configure(node, this.busSettings(busId));
       } else {
         node.disconnect();
         chains.buses.delete(busId);
@@ -484,13 +501,9 @@ export class PreviewAudioMixer {
   private busNode(chains: ChainGraph, context: AudioContext, busId: string) {
     let node = chains.buses.get(busId);
     if (!node) {
-      node = createChainNode(context);
+      node = this.chainNode(context, this.busSettings(busId));
       node.connect(chains.master);
       chains.buses.set(busId, node);
-      this.configureChains(chains);
-      if (this.transport) {
-        postChainMessage(node, { type: "transport", ...this.transport });
-      }
     }
     return node;
   }
@@ -538,13 +551,9 @@ export class PreviewAudioMixer {
       const gain = context.createGain();
       let chain: AudioWorkletNode | null = null;
       if (this.chains) {
-        chain = createChainNode(context);
+        chain = this.chainNode(context, this.clipSettings(clip));
         gain.connect(chain);
         chain.connect(this.busNode(this.chains, context, clip.busId));
-        this.configure(chain, this.clipSettings(clip));
-        if (this.transport) {
-          postChainMessage(chain, { type: "transport", ...this.transport });
-        }
       } else {
         gain.gain.value = clip.amplitude;
         gain.connect(graph.master);

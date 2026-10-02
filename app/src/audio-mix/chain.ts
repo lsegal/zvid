@@ -86,7 +86,8 @@ export class Ramp {
     for (let index = 0; index < frames; index++) {
       if (this.remaining > 0) {
         this.remaining -= 1;
-        this.value = this.remaining === 0 ? this.target : this.value + this.step;
+        this.value =
+          this.remaining === 0 ? this.target : this.value + this.step;
       }
       this.buffer[index] = this.value;
     }
