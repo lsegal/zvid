@@ -20,7 +20,6 @@ type AudioRowProps = {
   visibleTimelineWidthPx: number;
   gridStyle: ReturnType<typeof useTimelineViewport>["gridStyle"];
   playheadSignal: PlayheadSignal;
-  isPinned: boolean;
   isCollapsed: boolean;
   setCollapsed: (collapsed: boolean) => void;
 };
@@ -28,9 +27,9 @@ type AudioRowProps = {
 // The Audio row: a read-only waveform of the resolved audio mix, which only
 // clips make, with a summary of where it comes from and a Refresh button.
 // It takes no files; a drop over it falls through to the timeline.
-// When the panel has room, it is pinned to the bottom of the timeline, over
-// the rows scrolling under it, so it draws its own playhead line. Collapsed,
-// it hides the waveform and only its header stays.
+// It is docked at the bottom of the timeline panel, under the rows (Timeline
+// footer), so it draws its own playhead line. Collapsed, it is a slim row
+// that still draws the waveform, scaled down.
 export function AudioRow({
   mix,
   openAudioMenu,
@@ -41,19 +40,10 @@ export function AudioRow({
   visibleTimelineWidthPx,
   gridStyle,
   playheadSignal,
-  isPinned,
   isCollapsed,
   setCollapsed,
 }: AudioRowProps) {
   const { summary, peaks, computing, durationSeconds, refresh } = mix;
-  const playhead = (
-    <PlayheadLine
-      className="audio-row__playhead"
-      signal={playheadSignal}
-      quarterPx={quarterPx}
-      offsetPx={0}
-    />
-  );
   const skeletonStyle =
     durationSeconds > 0
       ? { left: 0, width: ((durationSeconds * bpm) / 60) * quarterPx }
@@ -62,7 +52,7 @@ export function AudioRow({
   return (
     <section
       aria-label="Audio"
-      className={`track-row track-row--bus ${isPinned ? "track-row--bus-pinned" : ""} ${isCollapsed ? "track-row--bus-collapsed" : ""}`}
+      className={`track-row track-row--bus ${isCollapsed ? "track-row--bus-collapsed" : ""}`}
       data-audio-row=""
       onContextMenu={openAudioMenu}
     >
@@ -91,40 +81,41 @@ export function AudioRow({
           <ArrowPathIcon aria-hidden="true" />
         </button>
       </div>
-      {isCollapsed ? (
-        <div className="track-row__content">{playhead}</div>
-      ) : (
-        <div
-          className={`track-row__content track-row__content--waveform ${computing && !prefersReducedMotion ? "is-syncing is-syncing--animated" : ""}`}
-          data-audio-mix={computing ? "computing" : peaks ? "ready" : "empty"}
-          data-audio-mix-level={
-            peaks ? mixPeakLevel(peaks).toFixed(2) : undefined
-          }
-          style={gridStyle}
-        >
-          {computing ? (
-            <MediaSyncSkeleton style={skeletonStyle} variant="waveform" />
-          ) : null}
-          {!computing && !peaks ? (
-            <div
-              className="waveform__empty"
-              style={{ left: visibleTimelineStartPx + 16 }}
-            >
-              {summary}
-            </div>
-          ) : null}
-          {peaks ? (
-            <MainWaveform
-              bpm={bpm}
-              peaks={peaks}
-              quarterPx={quarterPx}
-              visibleStartPx={visibleTimelineStartPx}
-              visibleWidthPx={visibleTimelineWidthPx}
-            />
-          ) : null}
-          {playhead}
-        </div>
-      )}
+      <div
+        className={`track-row__content track-row__content--waveform ${computing && !prefersReducedMotion ? "is-syncing is-syncing--animated" : ""}`}
+        data-audio-mix={computing ? "computing" : peaks ? "ready" : "empty"}
+        data-audio-mix-level={
+          peaks ? mixPeakLevel(peaks).toFixed(2) : undefined
+        }
+        style={gridStyle}
+      >
+        {computing ? (
+          <MediaSyncSkeleton style={skeletonStyle} variant="waveform" />
+        ) : null}
+        {!computing && !peaks ? (
+          <div
+            className="waveform__empty"
+            style={{ left: visibleTimelineStartPx + 16 }}
+          >
+            {summary}
+          </div>
+        ) : null}
+        {peaks ? (
+          <MainWaveform
+            bpm={bpm}
+            peaks={peaks}
+            quarterPx={quarterPx}
+            visibleStartPx={visibleTimelineStartPx}
+            visibleWidthPx={visibleTimelineWidthPx}
+          />
+        ) : null}
+        <PlayheadLine
+          className="audio-row__playhead"
+          signal={playheadSignal}
+          quarterPx={quarterPx}
+          offsetPx={0}
+        />
+      </div>
     </section>
   );
 }

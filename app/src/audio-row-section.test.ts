@@ -3,9 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import {
   AUDIO_ROW_COLLAPSED_STORAGE_KEY,
-  AUDIO_ROW_PIN_MIN_PANEL_HEIGHT,
   audioRowToggleLabel,
-  isAudioRowPinned,
   readAudioRowCollapsed,
   writeAudioRowCollapsed,
 } from "./audio-row-section.ts";
@@ -56,33 +54,32 @@ describe("audio row section", () => {
   });
 
   it("labels the toggle with what it does", () => {
-    assert.equal(audioRowToggleLabel(false), "Hide audio waveform");
-    assert.equal(audioRowToggleLabel(true), "Show audio waveform");
+    assert.equal(audioRowToggleLabel(false), "Collapse audio row");
+    assert.equal(audioRowToggleLabel(true), "Expand audio row");
   });
 
-  it("ends the timeline, after the source tracks", () => {
+  it("is the timeline's docked footer, outside its scrolling rows", () => {
     const timeline = appTsx.slice(
       appTsx.indexOf("<Timeline"),
       appTsx.indexOf("</Timeline>"),
     );
+    const footer = timeline.indexOf("footer={");
     const audio = timeline.indexOf("<AudioRow");
-    assert.notEqual(audio, -1, "missing Audio row");
-    assert.ok(audio > timeline.indexOf("<ArrangementLanes"));
-    assert.ok(audio > timeline.indexOf("<SourceTracks"));
-    assert.doesNotMatch(timeline.slice(audio + 1), /<[A-Z]/);
+    assert.notEqual(footer, -1, "missing Timeline footer");
+    assert.ok(audio > footer, "the Audio row must be the footer");
+    assert.ok(audio < timeline.indexOf("<Ruler"), "and not a scrolling row");
+    assert.equal(timeline.lastIndexOf("<AudioRow"), audio);
+    // Docked at any panel height, so nothing pins it conditionally.
+    assert.doesNotMatch(audioRowTsx, /isPinned/);
+    assert.doesNotMatch(audioRowCss, /sticky|--bus-pinned|margin-top: auto/);
+    const row = audioRowCss.match(/\.track-row--bus \{[^}]*\}/)?.[0] ?? "";
+    assert.match(row, /background: #/, "the footer row must be opaque");
   });
 
-  it("pins to the bottom of the timeline when the panel has room", () => {
-    assert.equal(isAudioRowPinned(0), false);
-    assert.equal(isAudioRowPinned(176), false);
-    assert.equal(isAudioRowPinned(AUDIO_ROW_PIN_MIN_PANEL_HEIGHT), true);
-    assert.equal(isAudioRowPinned(800), true);
-    const pinned =
-      audioRowCss.match(/\.track-row--bus-pinned \{[^}]*\}/)?.[0] ?? "";
-    assert.match(pinned, /position: sticky;/);
-    assert.match(pinned, /bottom: 0;/);
-    const row = audioRowCss.match(/\.track-row--bus \{[^}]*\}/)?.[0] ?? "";
-    assert.match(row, /background: #/, "the pinned row must be opaque");
+  it("draws the waveform collapsed too", () => {
+    const body = audioRowTsx.slice(audioRowTsx.indexOf("return ("));
+    assert.doesNotMatch(body, /isCollapsed \?\s*\(/);
+    assert.match(body, /<MainWaveform/);
   });
 
   it("exposes the toggle state to assistive tech", () => {

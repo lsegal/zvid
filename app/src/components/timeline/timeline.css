@@ -1,13 +1,36 @@
-.timeline-scroll {
-  position: relative;
+/* A column: the rows, which scroll, over the docked footer (the Audio row),
+   which only follows their horizontal scroll (Timeline.tsx). */
+.timeline-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   border: 1px solid var(--line);
   /* square and borderless where the labels column meets the window edge */
   border-left: 0;
   border-radius: 0 18px 18px 0;
   background: rgba(17, 19, 28, 0.32);
+}
+
+.timeline-scroll {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
   scrollbar-width: thin;
+  /* The sticky ruler (ruler.css) floats over whatever scrolls under it;
+     without this, scrolling a row into view (focus, selection, a drag) can
+     stop with it still covered by the ruler, which the footer move made more
+     likely by leaving the scroller less room in a short panel. */
+  scroll-padding-top: 60px;
+}
+
+.timeline-footer {
+  flex: none;
+  overflow: hidden;
+  border-top: 1px solid var(--line-strong);
+  box-shadow: 0 -6px 14px rgba(10, 11, 18, 0.35);
 }
 
 /* Hand-grab panning: Space shows the grab hand, and a middle- or Space-drag
@@ -32,9 +55,8 @@
   pointer-events: none;
 }
 
-/* A column, so the Audio row ending it can push itself to the bottom of the
-   panel (audio-row.css). No bottom padding: the pinned row ends the canvas,
-   and padding would leave a gap under it at the end of the scroll range. */
+/* At least as tall as the panel, so the playhead line and drops reach the
+   footer under it. */
 .timeline-canvas {
   position: relative;
   display: flex;
@@ -133,7 +155,7 @@
 }
 
 @media (max-width: 900px), (max-height: 559px) {
-  .timeline-scroll {
+  .timeline-panel {
     max-height: 70vh;
   }
 }
