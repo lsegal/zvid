@@ -4,10 +4,7 @@
 // Sync on, the delay is a note value at the session tempo; Ping-pong sends
 // the repeats back and forth between the left and right channels.
 import type { AudioTempo } from "../../../audio-mix/processor.ts";
-import {
-  noteValueOption,
-  noteValueSeconds,
-} from "../../../audio-mix/tempo.ts";
+import { noteValueOption, noteValueSeconds } from "../../../audio-mix/tempo.ts";
 
 export const DELAY_EFFECT_NAME = "Delay";
 
@@ -179,7 +176,9 @@ export class DelayDsp {
     if (this.syncedFrames !== this.glideTarget) {
       const next = this.syncedFrames + this.glideStep;
       const passed =
-        this.glideStep > 0 ? next >= this.glideTarget : next <= this.glideTarget;
+        this.glideStep > 0
+          ? next >= this.glideTarget
+          : next <= this.glideTarget;
       this.syncedFrames = passed ? this.glideTarget : next;
     }
     return this.syncedFrames;
@@ -235,8 +234,7 @@ export class DelayDsp {
       for (let channel = 0; channel < this.channels; channel++) {
         const wet = this.read(this.lines[channel], delay);
         filters[channel] += coefficient * (wet - filters[channel]);
-        output[channel][index] =
-          input[channel][index] * (1 - mix) + wet * mix;
+        output[channel][index] = input[channel][index] * (1 - mix) + wet * mix;
       }
       if (pingPong) {
         // Both inputs go into the left line; each line's repeats go into

@@ -16,10 +16,8 @@ import {
 import type { AudioMix } from "../../../audio-mix/resolve.ts";
 import { addableEffectsFor, groupAddableEffects } from "../../../fx-chain.ts";
 import { definition as gainDefinition } from "../gain/definition.ts";
-import {
-  gainStageAt,
-  processor as gainProcessor,
-} from "../gain/processor.ts";
+import { processor as gainProcessor, gainStageAt } from "../gain/processor.ts";
+import { definition } from "./definition.ts";
 import {
   DELAY_EFFECT_NAME,
   delayTailSeconds,
@@ -33,7 +31,6 @@ import {
   SYNC_KEY,
   TIME_KEY,
 } from "./delay.ts";
-import { definition } from "./definition.ts";
 import { processor } from "./processor.ts";
 
 const SAMPLE_RATE = 8000;
