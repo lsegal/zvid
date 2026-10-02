@@ -161,7 +161,6 @@ test("Delay is added to an audio clip with its defaults and changes the mix", as
     .click();
   await page
     .getByRole("menu")
-    .getByRole("group", { name: "Audio" })
     .getByRole("menuitem", { name: /^Delay/ })
     .click();
   await expect(page.locator(clipDevices)).toHaveCount(2);
@@ -217,8 +216,8 @@ test("Delay is added to an audio clip with its defaults and changes the mix", as
   // bursts and the average level rises well above the dry level.
   await delay.getByRole("button", { name: "Enable Delay" }).click();
   await typeValue(page, "Delay", "Time", "100");
-  await typeValue(page, "Delay", "Mix", "100");
-  await typeValue(page, "Delay", "Feedback", "90");
+  await typeValue(page, "Delay", "Mix", "1");
+  await typeValue(page, "Delay", "Feedback", "0.9");
   await expect(delay.getByRole("slider", { name: "Feedback" })).toHaveAttribute(
     "aria-valuetext",
     "90%",
