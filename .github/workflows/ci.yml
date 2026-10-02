@@ -76,8 +76,8 @@ jobs:
 
   # Browser tests of the web harness. Each shard's test step must finish
   # within E2E_BUDGET_SECONDS (aiming for under 60s); past it the shard
-  # fails. Rebalance the shards or split the slowest specs rather than
-  # raising the budget.
+  # fails. Refresh the recorded durations, or speed up or split the slowest
+  # specs, rather than raising the budget.
   e2e:
     name: e2e (${{ matrix.shard }}/16)
     needs: export-bridge
@@ -101,14 +101,15 @@ jobs:
           name: export-bridge-pkg
           path: app/export-bridge/pkg
 
-      # Deals the tests round-robin across the shards (scripts/e2e-shard-list.mjs)
-      # rather than with --shard, whose contiguous slices put a file of slow
-      # tests in one shard.
+      # Deals the tests across the shards by their recorded durations
+      # (scripts/e2e-shard-list.mjs, scripts/e2e-durations.json) rather than
+      # with --shard, whose contiguous slices put a file of slow tests in one
+      # shard.
       - name: List shard tests
         working-directory: app
         run: |
           pnpm exec playwright test --list --reporter=json > all-tests.json
-          node scripts/e2e-shard-list.mjs all-tests.json ${{ matrix.shard }} 16 > shard-tests.txt
+          node scripts/e2e-shard-list.mjs all-tests.json ${{ matrix.shard }} 16 scripts/e2e-durations.json > shard-tests.txt
           cat shard-tests.txt
 
       - name: Browser tests
@@ -140,7 +141,9 @@ jobs:
           if-no-files-found: ignore
           retention-days: 1
 
-  # Merges the shards' blob reports into one HTML report.
+  # Merges the shards' blob reports into one HTML report, with the tests'
+  # durations (e2e-durations.json) to refresh scripts/e2e-durations.json
+  # from when the shards drift apart.
   e2e-report:
     needs: e2e
     if: ${{ !cancelled() && needs.e2e.result != 'skipped' }}
@@ -171,7 +174,10 @@ jobs:
 
       - name: Merge reports
         working-directory: app
-        run: pnpm exec playwright merge-reports --reporter html ./all-blob-reports
+        run: |
+          pnpm exec playwright merge-reports --reporter html ./all-blob-reports
+          PLAYWRIGHT_JSON_OUTPUT_FILE=e2e-results.json pnpm exec playwright merge-reports --reporter json ./all-blob-reports
+          node scripts/e2e-shard-list.mjs --durations e2e-results.json > playwright-report/e2e-durations.json
 
       - uses: actions/upload-artifact@v4
         with:
