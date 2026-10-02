@@ -190,7 +190,9 @@ export function SourceTracks({
           data-source-track-drop-target="new-track"
           data-source-track-drop-at-pointer
         >
-          <div className="track-label track-label--source track-label--source-drop">
+          <div
+            className={`track-label ${isSourceTrackFileDragActive ? "track-label--source track-label--source-drop" : ""}`}
+          >
             {isSourceTrackFileDragActive ? (
               <>
                 <span className="track-label__stripe" />

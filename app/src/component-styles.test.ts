@@ -69,10 +69,7 @@ const componentStyles = [
   {
     component: "timeline/TimelineToolbar",
     stylesheet: "timeline/timeline-toolbar",
-    selectors: [
-      ".timeline-toolbar__display",
-      ".status-light",
-    ],
+    selectors: [".timeline-toolbar__display", ".status-light"],
   },
   {
     component: "timeline/TrackPlaceholder",

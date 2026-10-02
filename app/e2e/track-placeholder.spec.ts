@@ -109,9 +109,7 @@ test("[ + Track ] adds an empty source track and selects it", async ({
   await addTrack(page).click();
   await expect(page.locator(tracks)).toHaveCount(2);
   await expect(page.locator(tracks).nth(1)).toContainText("Source Track 2");
-  await expect(page.locator(tracks).nth(1)).toHaveClass(
-    /track-row--selected/,
-  );
+  await expect(page.locator(tracks).nth(1)).toHaveClass(/track-row--selected/);
   await expect(page.locator(tracks).first()).not.toHaveClass(
     /track-row--selected/,
   );
