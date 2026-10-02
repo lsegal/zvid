@@ -13,10 +13,10 @@ import {
 } from "../app/constants.ts";
 import { patchProjectState } from "../app/session-project.ts";
 import {
-  chooseSourceSpanForWindow,
   getClipDurationQ,
   getClipEndQ,
   quartersToSeconds,
+  splitSelectionAcrossSourceSpans,
 } from "../app/timeline-math.ts";
 import type {
   ArrangementClip,
@@ -138,38 +138,51 @@ export function useClipInsertion({
         return;
       }
 
-      const sourceSpan = chooseSourceSpanForWindow(
+      // A selection over several source clips commits a window on each.
+      const windows = splitSelectionAcrossSourceSpans(
         sourceSpans,
         sourceTrack.id,
         pendingSelection.startQ,
         pendingSelection.durationQ,
         bpm,
       );
-      if (!sourceSpan) {
+      if (!windows.length) {
         setStatus(
           `Source layer ${sourceIndex + 1} has no clip near this selection yet.`,
         );
         return;
       }
 
-      const clip = createWindowClip(pendingSelection, sourceTrack, sourceSpan);
+      const newClips = windows.map((window) =>
+        createWindowClip(
+          {
+            ...pendingSelection,
+            startQ: window.startQ,
+            durationQ: window.durationQ,
+          },
+          sourceTrack,
+          window.span,
+        ),
+      );
       dispatchProject({
         type: "commit",
         label: "Create window",
         updater: (current) =>
           patchProjectState(current, {
-            clips: [...current.clips, clip],
+            clips: [...current.clips, ...newClips],
             effects: addDefaultGain(
               current.effects,
-              { clips: [clip] },
+              { clips: newClips },
               current.mediaItems,
             ),
           }),
       });
       setPendingSelection(null);
-      setSelectedClipId(clip.id);
+      setSelectedClipId(newClips[0]?.id);
       setStatus(
-        `Committed a window on ${sourceTrack.name} with key ${sourceIndex + 1}.`,
+        newClips.length > 1
+          ? `Committed ${newClips.length} windows on ${sourceTrack.name} with key ${sourceIndex + 1}.`
+          : `Committed a window on ${sourceTrack.name} with key ${sourceIndex + 1}.`,
       );
     },
     [
