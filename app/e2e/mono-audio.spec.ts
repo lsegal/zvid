@@ -167,18 +167,17 @@ test("the preview's chain worklet renders Mono as export does", async ({
 }) => {
   await page.goto("/");
   const result = await page.evaluate(async () => {
-    const { AudioChain, BLOCK_FRAMES } = await import(
-      "/src/audio-mix/chain.ts"
+    const load = (path: string) => import(/* @vite-ignore */ path);
+    const { AudioChain, BLOCK_FRAMES } = await load("/src/audio-mix/chain.ts");
+    const { CHAIN_WORKLET_URL } = await load(
+      "/src/audio-mix/chain-worklet-url.ts",
     );
-    const { CHAIN_WORKLET_URL } = await import(
-      "/src/audio-mix/chain-worklet-url.ts"
+    const { createChainNode, postChainMessage } = await load(
+      "/src/audio-mix/chain-node.ts",
     );
-    const { createChainNode, postChainMessage } = await import(
-      "/src/audio-mix/chain-node.ts"
-    );
-    const { AUDIO_PROCESSORS } = await import("/src/audio-mix/processors.ts");
-    const { DEFAULT_TIME_SIGNATURE } = await import(
-      "/src/audio-mix/processor.ts"
+    const { AUDIO_PROCESSORS } = await load("/src/audio-mix/processors.ts");
+    const { DEFAULT_TIME_SIGNATURE } = await load(
+      "/src/audio-mix/processor.ts",
     );
 
     const sampleRate = 48_000;
