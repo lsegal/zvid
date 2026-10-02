@@ -141,14 +141,20 @@ describe("shardTests with recorded durations", () => {
 });
 
 describe("testDurations", () => {
-  it("records each test's last attempt in seconds, by test-list line", () => {
+  it("records each test's last passing attempt in seconds, by test-list line", () => {
+    const passed = (duration) => ({ status: "passed", duration });
     const timed = structuredClone(report);
     const [a, b] = timed.suites;
-    a.specs[0].tests[0].results = [{ duration: 1234 }];
-    a.specs[1].tests[0].results = [{ duration: 9000 }, { duration: 4560 }];
-    a.suites[0].specs[0].tests[0].results = [];
-    b.specs[0].tests[0].results = [{ duration: 1000 }];
-    b.specs[1].tests[0].results = [{ duration: 2000 }];
+    a.specs[0].tests[0].results = [passed(1234)];
+    a.specs[1].tests[0].results = [
+      { status: "failed", duration: 9000 },
+      passed(4560),
+    ];
+    a.suites[0].specs[0].tests[0].results = [
+      { status: "timedOut", duration: 90000 },
+    ];
+    b.specs[0].tests[0].results = [passed(1000)];
+    b.specs[1].tests[0].results = [passed(2000)];
     assert.deepEqual(testDurations(timed), {
       "[chromium] › a.spec.ts › one": 1.2,
       "[chromium] › a.spec.ts › two": 4.6,

@@ -49,12 +49,15 @@ export function listTests(report) {
 }
 
 /** Returns the seconds each test of a Playwright JSON report took on its
- * last attempt, by test-list line, sorted by line. Identical lines run in
- * one shard, so their durations add up. */
+ * last passing attempt, by test-list line, sorted by line. A test that never
+ * passed ran into its timeout or failed early, so it is left out. Identical
+ * lines run in one shard, so their durations add up. */
 export function testDurations(report) {
   const durations = {};
   eachTest(report, (line, test) => {
-    const result = test.results?.at(-1);
+    const result = test.results?.findLast(
+      (attempt) => attempt.status === "passed",
+    );
     if (result?.duration == null) return;
     durations[line] = (durations[line] ?? 0) + result.duration / 1000;
   });
