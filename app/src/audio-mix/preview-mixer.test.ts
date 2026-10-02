@@ -446,13 +446,11 @@ describe("PreviewAudioMixer", () => {
       // Playing on as expected says nothing new.
       context().currentTime = 0.5;
       mixer.sync(playing(1.6));
-      assert.deepEqual(master.messages, []);
+      const types = () => master.messages.map((message) => message.type);
+      assert.deepEqual(types(), []);
 
       mixer.sync(playing(3));
-      assert.deepEqual(
-        master.messages.map((message) => message.type),
-        ["reset", "transport"],
-      );
+      assert.deepEqual(types(), ["reset", "transport"]);
       mixer.dispose();
     });
 

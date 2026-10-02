@@ -3,22 +3,36 @@ import { expect, type Page, test } from "@playwright/test";
 
 // The preview hears an additive mix of the contributing clips, each through
 // its own Gain: with no layer clips, every source clip with audio. A clip
-// whose Gain is muted drops out of the mix.
+// whose Gain is muted drops out of the mix. A session with only Gain plays
+// through native gains, as it did before the audio effect chain, without
+// loading the chain worklet.
 const VIDEO = new URL("./fixtures/test-pattern-audio.webm", import.meta.url);
 
 test.use({ viewport: { width: 1600, height: 1200 } });
 test.describe.configure({ timeout: 90_000 });
 
 // Records the analysers the preview's mixer makes, which measure the mix
-// after every Gain and before the preview volume.
+// after every Gain and before the preview volume, and the worklet modules
+// it loads.
 async function probeAnalysers(page: Page) {
   await page.addInitScript(() => {
     const probe = window as unknown as {
       analysers: AnalyserNode[];
       outputs: GainNode[];
+      worklets: string[];
     };
     probe.analysers = [];
     probe.outputs = [];
+    probe.worklets = [];
+    const addModule = AudioWorklet.prototype.addModule;
+    AudioWorklet.prototype.addModule = function (
+      this: AudioWorklet,
+      url: string | URL,
+      options?: WorkletOptions,
+    ) {
+      probe.worklets.push(String(url));
+      return addModule.call(this, url, options);
+    };
     const createAnalyser = AudioContext.prototype.createAnalyser;
     AudioContext.prototype.createAnalyser = function (this: AudioContext) {
       const analyser = createAnalyser.call(this);
@@ -206,6 +220,12 @@ test("two source clips play as one mix, and muting a clip's Gain drops it out", 
     )
     .toBe(true);
   await pause(page);
+
+  // Gain alone never needs the chain worklet.
+  const worklets = await page.evaluate(
+    () => (window as unknown as { worklets: string[] }).worklets,
+  );
+  expect(worklets).toEqual([]);
 });
 
 test("the preview volume turns the mix down after the analyser", async ({
