@@ -389,10 +389,17 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 mainAudioId={project.mainAudioId}
                 remoteMediaProgress={media.remoteMediaProgress}
                 prefersReducedMotion={prefersReducedMotion}
+                timeFormat={{
+                  timelineMode,
+                  bpm,
+                  fps,
+                  signature: timeline.signature,
+                }}
                 onImport={() => void sessionFiles.handleImport()}
                 onOpenMedia={(mediaId) =>
                   mediaPreview.loadPreviewMedia(mediaId, true)
                 }
+                onBackfillMediaDetails={media.backfillMediaDetails}
               />
               <Timeline
                 {...timeline}

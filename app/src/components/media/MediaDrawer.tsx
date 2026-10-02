@@ -3,11 +3,14 @@ import {
   type CSSProperties,
   type DragEvent as ReactDragEvent,
   type KeyboardEvent as ReactKeyboardEvent,
+  useEffect,
   useMemo,
   useRef,
 } from "react";
+import { formatMediaTime } from "../../app/media-preview.ts";
 import type { MediaDrawerState } from "../../hooks/useMediaDrawer.ts";
 import type { MediaItem } from "../../media";
+import { hasMediaDetails } from "../../media-details.ts";
 import { endMediaDrag, startMediaDrag } from "../../media-drag.ts";
 import { hasMediaRange } from "../../media-range.ts";
 import {
@@ -15,7 +18,9 @@ import {
   type RemoteMediaProgressMap,
 } from "../../remote-media-sync";
 import { getThumbnailCacheKey } from "../../thumbnail-cache.ts";
+import type { TimeValueFormat } from "../../time-value.ts";
 import { useThumbnailCache } from "../../use-thumbnail-cache";
+import { MediaDetailsPane } from "./MediaDetailsPane";
 import { MediaThumbnail } from "./MediaThumbnail";
 import {
   describeMediaKind,
@@ -42,9 +47,13 @@ type MediaDrawerProps = {
   mainAudioId: string | undefined;
   remoteMediaProgress: RemoteMediaProgressMap;
   prefersReducedMotion: boolean;
+  // Durations in the details pane read in the timeline's format.
+  timeFormat: TimeValueFormat;
   onImport: () => void;
   // Double-click or Enter: preview the media in the preview pane's Media tab.
   onOpenMedia: (mediaId: string) => void;
+  // The selected media can be read here but was saved without file details.
+  onBackfillMediaDetails: (mediaId: string) => void;
 };
 
 function getThumbnailTime(media: MediaItem) {
@@ -100,16 +109,19 @@ function countColumns(listbox: HTMLElement) {
 }
 
 // The Media drawer at the left of the timeline: every linked media item in a
-// Finder-like icon or list view, with search, a thumbnail size slider and
-// the item count, plus the handle that resizes it.
+// Finder-like icon or list view, with search, a thumbnail size slider, the
+// item count and the selected item's details, plus the handle that resizes
+// it.
 export function MediaDrawer({
   drawer,
   mediaItems,
   mainAudioId,
   remoteMediaProgress,
   prefersReducedMotion,
+  timeFormat,
   onImport,
   onOpenMedia,
+  onBackfillMediaDetails,
 }: MediaDrawerProps) {
   const { isOpen, view, thumbnailSize, query, selectedMediaId } = drawer;
   const listboxRef = useRef<HTMLDivElement | null>(null);
@@ -158,6 +170,24 @@ export function MediaDrawer({
         `media:${media.id}`,
       )) ||
     media.thumbnailUrl;
+
+  const selectedMedia = mediaItems.find(
+    (media) => media.id === selectedMediaId,
+  );
+  const needsDetails =
+    isOpen &&
+    !!selectedMedia &&
+    selectedMedia.availability === "ready" &&
+    !!selectedMedia.previewUrl &&
+    !hasMediaDetails(selectedMedia);
+  const selectedMediaIdToBackfill = needsDetails
+    ? selectedMedia?.id
+    : undefined;
+  useEffect(() => {
+    if (selectedMediaIdToBackfill) {
+      onBackfillMediaDetails(selectedMediaIdToBackfill);
+    }
+  }, [onBackfillMediaDetails, selectedMediaIdToBackfill]);
 
   function selectIndex(index: number) {
     const media = visibleItems[index];
@@ -370,56 +400,85 @@ export function MediaDrawer({
             ) : null}
           </div>
 
-          <div className="media-drawer__body">
-            {mediaItems.length === 0 ? (
-              <div className="media-drawer__empty">
-                <span>No media yet</span>
-                <button
-                  className="ghost-button ghost-button--accent"
-                  onClick={onImport}
-                  type="button"
-                >
-                  Import Media
-                </button>
-              </div>
-            ) : visibleItems.length === 0 ? (
-              <div className="media-drawer__empty">
-                <span>No media matches “{query.trim()}”</span>
-              </div>
-            ) : (
-              <>
-                {view === "list" ? (
-                  <div aria-hidden="true" className="media-row media-row--head">
-                    <span />
-                    <span>Name</span>
-                    <span>Kind</span>
-                    <span>Duration</span>
-                  </div>
-                ) : null}
-                <div
-                  aria-activedescendant={activeDescendant}
-                  aria-label="Media items"
-                  data-docked-listbox=""
-                  className={
-                    view === "icons"
-                      ? "media-drawer__grid"
-                      : "media-drawer__list"
-                  }
-                  onKeyDown={handleListKeyDown}
-                  ref={listboxRef}
-                  role="listbox"
-                  style={
-                    {
-                      "--media-tile-size": `${thumbnailSize}px`,
-                      "--media-list-icon-size": `${getListIconSize(thumbnailSize)}px`,
-                    } as CSSProperties
-                  }
-                  tabIndex={0}
-                >
-                  {visibleItems.map(renderItem)}
+          <div className="media-drawer__content">
+            <div className="media-drawer__body">
+              {mediaItems.length === 0 ? (
+                <div className="media-drawer__empty">
+                  <span>No media yet</span>
+                  <button
+                    className="ghost-button ghost-button--accent"
+                    onClick={onImport}
+                    type="button"
+                  >
+                    Import Media
+                  </button>
                 </div>
-              </>
-            )}
+              ) : visibleItems.length === 0 ? (
+                <div className="media-drawer__empty">
+                  <span>No media matches “{query.trim()}”</span>
+                </div>
+              ) : (
+                <>
+                  {view === "list" ? (
+                    <div
+                      aria-hidden="true"
+                      className="media-row media-row--head"
+                    >
+                      <span />
+                      <span>Name</span>
+                      <span>Kind</span>
+                      <span>Duration</span>
+                    </div>
+                  ) : null}
+                  <div
+                    aria-activedescendant={activeDescendant}
+                    aria-label="Media items"
+                    data-docked-listbox=""
+                    className={
+                      view === "icons"
+                        ? "media-drawer__grid"
+                        : "media-drawer__list"
+                    }
+                    onKeyDown={handleListKeyDown}
+                    ref={listboxRef}
+                    role="listbox"
+                    style={
+                      {
+                        "--media-tile-size": `${thumbnailSize}px`,
+                        "--media-list-icon-size": `${getListIconSize(thumbnailSize)}px`,
+                      } as CSSProperties
+                    }
+                    tabIndex={0}
+                  >
+                    {visibleItems.map(renderItem)}
+                  </div>
+                </>
+              )}
+            </div>
+            {mediaItems.length > 0 ? (
+              <MediaDetailsPane
+                durationText={
+                  selectedMedia
+                    ? formatMediaTime(selectedMedia.durationSeconds, timeFormat)
+                    : ""
+                }
+                isOpen={drawer.detailsOpen}
+                media={selectedMedia}
+                mediaSync={
+                  selectedMedia
+                    ? describeMediaSync(
+                        remoteMediaProgress.get(selectedMedia.id),
+                        selectedMedia.availability,
+                      )
+                    : null
+                }
+                onToggle={drawer.toggleDetailsOpen}
+                prefersReducedMotion={prefersReducedMotion}
+                thumbnailUrl={
+                  selectedMedia ? getThumbnailUrl(selectedMedia) : undefined
+                }
+              />
+            ) : null}
           </div>
 
           <div className="media-drawer__status">

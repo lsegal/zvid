@@ -98,9 +98,16 @@ describe("media drawer prefs", () => {
           width: 333,
           view: "list",
           thumbnailSize: 200,
+          detailsOpen: false,
         }),
       ),
-      { open: true, width: 333, view: "list", thumbnailSize: 200 },
+      {
+        open: true,
+        width: 333,
+        view: "list",
+        thumbnailSize: 200,
+        detailsOpen: false,
+      },
     );
   });
 
@@ -112,6 +119,7 @@ describe("media drawer prefs", () => {
           width: 10,
           view: "tiles",
           thumbnailSize: 9999,
+          detailsOpen: "no",
         }),
       ),
       {
@@ -119,6 +127,7 @@ describe("media drawer prefs", () => {
         width: MEDIA_DRAWER_MIN_WIDTH,
         view: "icons",
         thumbnailSize: THUMBNAIL_SIZE_MAX,
+        detailsOpen: true,
       },
     );
     assert.deepEqual(
