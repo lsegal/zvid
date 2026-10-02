@@ -249,7 +249,12 @@ describe("zvid opening sample", () => {
         frameCount: spans[0].frameCount,
         clipStart: spans[0].clipStart,
       },
-      { filePath: musicPath, frameStart: 0, frameCount: 30 * FPS, clipStart: 0 },
+      {
+        filePath: musicPath,
+        frameStart: 0,
+        frameCount: 30 * FPS,
+        clipStart: 0,
+      },
     );
     const gains = (session.effects ?? []).filter(
       (effect) => effect.effectName === "Gain",
