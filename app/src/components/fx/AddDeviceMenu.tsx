@@ -16,7 +16,6 @@ export function AddDeviceMenu({
   effects,
   focusKey,
   label,
-  withLabel,
   onAdd,
   onCloseAutoFocus,
   onOpen,
@@ -24,7 +23,6 @@ export function AddDeviceMenu({
   effects: readonly FxEffectDefinition[];
   focusKey: string;
   label: string;
-  withLabel: boolean;
   onAdd: (effectName: string) => void;
   onCloseAutoFocus: (event: Event) => void;
   onOpen: () => void;
@@ -43,13 +41,12 @@ export function AddDeviceMenu({
       <DropdownMenuTrigger asChild>
         <button
           aria-label={label}
-          className={`fx-chain__add ${withLabel ? "fx-chain__add--labeled" : ""}`}
+          className="fx-chain__add"
           data-fx-focus={focusKey}
           title={label}
           type="button"
         >
           <PlusIcon aria-hidden="true" />
-          {withLabel ? <span>Add device</span> : null}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent

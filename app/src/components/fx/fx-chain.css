@@ -76,21 +76,6 @@
   color: var(--ink);
 }
 
-.fx-chain__add--labeled {
-  display: inline-flex;
-  align-self: auto;
-  gap: 6px;
-  width: auto;
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-size: 0.82rem;
-}
-
-.fx-chain__add--labeled svg {
-  width: 14px;
-  height: 14px;
-}
-
 /* Vertical insertion line between panels while a device is dragged. */
 .fx-chain__marker {
   position: absolute;

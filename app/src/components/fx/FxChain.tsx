@@ -411,7 +411,7 @@ export function FxChain({
     });
   }
 
-  function renderAddMenu(group: FxDeviceGroup, withLabel = false) {
+  function renderAddMenu(group: FxDeviceGroup) {
     const label = addMenuLabel(group, layerLabel);
     return (
       <AddDeviceMenu
@@ -427,7 +427,6 @@ export function FxChain({
         onOpen={() => {
           menuFocusRef.current = null;
         }}
-        withLabel={withLabel}
       />
     );
   }
@@ -441,11 +440,6 @@ export function FxChain({
   }
 
   const layerEmpty = !groups.layer.length;
-  const emptyMessage = !layerName
-    ? "Select a layer to see its effects"
-    : layerEmpty
-      ? `No effects on ${layerName}`
-      : null;
   const showGlobal = groups.global.length > 0 || canEdit;
   const menuDevice = menu?.device;
   const menuEntries = menu
@@ -477,12 +471,11 @@ export function FxChain({
         </>
       ) : null}
       {layerName ? renderDivider("layer") : null}
-      {emptyMessage ? (
+      {layerName ? null : (
         <div className="fx-chain__empty">
-          <p>{emptyMessage}</p>
-          {canEdit && layerEmpty ? renderAddMenu("layer", true) : null}
+          <p>Select a layer to see its effects</p>
         </div>
-      ) : null}
+      )}
       {!layerFxEnabled &&
       (!layerEmpty || (showClip && groups.clip.length > 0)) ? (
         <div className="fx-chain__layer-off">
@@ -493,7 +486,7 @@ export function FxChain({
         </div>
       ) : null}
       {renderStack("layer")}
-      {canEdit && !layerEmpty ? renderAddMenu("layer") : null}
+      {canEdit && (layerName || !layerEmpty) ? renderAddMenu("layer") : null}
       {showClip ? (
         <>
           {renderDivider("clip")}
