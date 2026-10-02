@@ -1,0 +1,80 @@
+import type { FxEffectDefinition } from "../../types.ts";
+import {
+  CEILING_DEFAULT_DB,
+  CEILING_KEY,
+  CEILING_MAX_DB,
+  CEILING_MIN_DB,
+  formatDb,
+  formatLookaheadMs,
+  formatReleaseMs,
+  GAIN_DEFAULT_DB,
+  GAIN_KEY,
+  GAIN_MAX_DB,
+  GAIN_MIN_DB,
+  LIMITER_EFFECT_NAME,
+  LOOKAHEAD_DEFAULT_MS,
+  LOOKAHEAD_KEY,
+  LOOKAHEAD_MAX_MS,
+  LOOKAHEAD_MIN_MS,
+  RELEASE_DEFAULT_MS,
+  RELEASE_KEY,
+  RELEASE_MAX_MS,
+  RELEASE_MIN_MS,
+} from "./limiter.ts";
+
+// With the dynamics effects in the Audio group of the add menus.
+export const menuOrder = 320;
+
+export const definition: FxEffectDefinition = {
+  effectName: LIMITER_EFFECT_NAME,
+  displayName: "Limiter",
+  description:
+    "Holds every peak under the ceiling, looking ahead so none slips through.",
+  accent: "#f87171",
+  domain: "audio",
+  known: true,
+  scopes: ["layer", "clip", "global"],
+  parameters: [
+    {
+      kind: "number",
+      key: CEILING_KEY,
+      label: "Ceiling",
+      min: CEILING_MIN_DB,
+      max: CEILING_MAX_DB,
+      defaultValue: CEILING_DEFAULT_DB,
+      step: 0.1,
+      format: formatDb,
+    },
+    {
+      kind: "number",
+      key: RELEASE_KEY,
+      label: "Release",
+      min: RELEASE_MIN_MS,
+      max: RELEASE_MAX_MS,
+      defaultValue: RELEASE_DEFAULT_MS,
+      step: 0.1,
+      taper: "log",
+      format: formatReleaseMs,
+    },
+    {
+      kind: "number",
+      key: LOOKAHEAD_KEY,
+      label: "Lookahead",
+      min: LOOKAHEAD_MIN_MS,
+      max: LOOKAHEAD_MAX_MS,
+      defaultValue: LOOKAHEAD_DEFAULT_MS,
+      step: 0.1,
+      format: formatLookaheadMs,
+    },
+    {
+      kind: "number",
+      key: GAIN_KEY,
+      label: "Gain",
+      min: GAIN_MIN_DB,
+      max: GAIN_MAX_DB,
+      defaultValue: GAIN_DEFAULT_DB,
+      step: 0.1,
+      format: formatDb,
+    },
+  ],
+};
