@@ -52,6 +52,7 @@ export const definition: FxEffectDefinition = {
   description:
     "Sweeping notches from a chain of all-pass filters an LFO modulates.",
   accent: "#818cf8",
+  category: "modulation",
   domain: "audio",
   known: true,
   scopes: ["layer", "clip", "global"],

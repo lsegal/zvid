@@ -14,6 +14,7 @@ export const definition: FxEffectDefinition = {
   displayName: "Transform",
   description: "Moves, resizes and rotates the layer inside the canvas.",
   accent: "#ff9f6b",
+  category: "transform",
   known: true,
   // On a clip it places the clip inside its layer's transformed box, and
   // on an FX clip it moves the box the FX clip adjusts.

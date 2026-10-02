@@ -29,6 +29,7 @@ export const definition: FxEffectDefinition = {
   displayName: "Tremolo",
   description: "Pulses the volume up and down with an LFO.",
   accent: "#facc15",
+  category: "volume",
   domain: "audio",
   known: true,
   scopes: ["layer", "clip", "global"],

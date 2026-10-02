@@ -5,6 +5,7 @@
 import { parseLayerIdList, serializeLayerIdList } from "./composition-order.ts";
 import {
   FX_EFFECT_DEFINITIONS,
+  type FxEffectCategory,
   type FxEffectDefinition,
   type FxEffectDomain,
   type FxEffectScope,
@@ -91,23 +92,62 @@ export function addableEffectsFor(
   );
 }
 
+// The add menus' category submenus, in menu order: the video ones, then the
+// audio ones.
+export const FX_EFFECT_CATEGORIES: readonly {
+  category: FxEffectCategory;
+  label: string;
+}[] = [
+  { category: "transform", label: "Transform" },
+  { category: "color", label: "Color" },
+  { category: "stylize", label: "Stylize" },
+  { category: "text", label: "Text" },
+  { category: "volume", label: "Volume & Stereo" },
+  { category: "eq", label: "EQ & Filter" },
+  { category: "dynamics", label: "Dynamics" },
+  { category: "modulation", label: "Modulation & Delay" },
+  { category: "distortion", label: "Distortion" },
+  { category: "utility", label: "Utility" },
+];
+
+export type FxAddMenuCategory = {
+  category: FxEffectCategory;
+  label: string;
+  effects: FxEffectDefinition[];
+};
+
 // The add menu's groups: the video effects, then the audio ones, each in
-// menu order. Empty groups are left out.
+// menu order and split into categories in FX_EFFECT_CATEGORIES order. Empty
+// groups and categories are left out.
 export function groupAddableEffects(
   definitions: readonly FxEffectDefinition[],
-): { domain: FxEffectDomain; label: string; effects: FxEffectDefinition[] }[] {
+): {
+  domain: FxEffectDomain;
+  label: string;
+  effects: FxEffectDefinition[];
+  categories: FxAddMenuCategory[];
+}[] {
   return (
     [
       { domain: "video", label: "Video" },
       { domain: "audio", label: "Audio" },
     ] as const
   )
-    .map((group) => ({
-      ...group,
-      effects: definitions.filter(
+    .map((group) => {
+      const effects = definitions.filter(
         (definition) => getEffectDomain(definition) === group.domain,
-      ),
-    }))
+      );
+      return {
+        ...group,
+        effects,
+        categories: FX_EFFECT_CATEGORIES.map((entry) => ({
+          ...entry,
+          effects: effects.filter(
+            (definition) => definition.category === entry.category,
+          ),
+        })).filter((entry) => entry.effects.length > 0),
+      };
+    })
     .filter((group) => group.effects.length > 0);
 }
 

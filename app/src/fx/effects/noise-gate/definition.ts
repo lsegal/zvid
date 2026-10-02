@@ -47,6 +47,7 @@ export const definition: FxEffectDefinition = {
   displayName: "Noise Gate",
   description: "Silences the sound while it stays below a threshold.",
   accent: "#a3e635",
+  category: "dynamics",
   domain: "audio",
   known: true,
   scopes: ["layer", "clip", "global"],

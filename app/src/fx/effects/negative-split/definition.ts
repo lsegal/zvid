@@ -10,6 +10,7 @@ export const definition: FxEffectDefinition = {
   displayName: "Negative Split",
   description: "Inverts the brightness range between two intensities.",
   accent: "#c38fff",
+  category: "stylize",
   known: true,
   scopes: ALL_SCOPES,
   parameters: [

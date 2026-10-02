@@ -47,6 +47,7 @@ export const definition: FxEffectDefinition = {
   description:
     "Removes low frequencies below the cutoff, at 12 or 24 dB per octave, with an optional resonant peak.",
   accent: "#60a5fa",
+  category: "eq",
   domain: "audio",
   known: true,
   scopes: ["layer", "clip", "global"],

@@ -31,6 +31,7 @@ export const definition: FxEffectDefinition = {
   description:
     "Holds every peak under the ceiling, looking ahead so none slips through.",
   accent: "#f87171",
+  category: "dynamics",
   domain: "audio",
   known: true,
   scopes: ["layer", "clip", "global"],

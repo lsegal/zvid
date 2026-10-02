@@ -29,6 +29,7 @@ export const definition: FxEffectDefinition = {
   displayName: "Auto Pan",
   description: "Moves the sound between left and right with an LFO.",
   accent: "#f472b6",
+  category: "volume",
   domain: "audio",
   known: true,
   scopes: ["layer", "clip", "global"],

@@ -31,6 +31,7 @@ export const definition: FxEffectDefinition = {
   description:
     "Thickens the sound with a short delay whose length a slow LFO sweeps.",
   accent: "#a78bfa",
+  category: "modulation",
   domain: "audio",
   known: true,
   scopes: ["layer", "clip", "global"],

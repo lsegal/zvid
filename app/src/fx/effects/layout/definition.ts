@@ -11,6 +11,7 @@ export const definition: FxEffectDefinition = {
   displayName: "Layout",
   description: "Anchors the frame inside the canvas.",
   accent: "#5fd3e6",
+  category: "transform",
   known: true,
   scopes: ["layer"],
   layerDefault: true,
