@@ -210,13 +210,7 @@ export function useTimelineEditing({
 
   const canCreateLayer = lanes.length < MAX_LAYERS;
   const timelineContentEndQ = useMemo(
-    () =>
-      getTimelineContentEndQ(
-        timelineClips,
-        sourceSpans,
-        bpm,
-        barLength,
-      ),
+    () => getTimelineContentEndQ(timelineClips, sourceSpans, bpm, barLength),
     [barLength, bpm, sourceSpans, timelineClips],
   );
 

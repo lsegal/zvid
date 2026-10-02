@@ -72,9 +72,7 @@ function fileBasename(path: string) {
 }
 
 function kindIcon(entry: MediaSyncEntry) {
-  return entry.item?.kind === "audio"
-    ? "♪"
-    : "▶";
+  return entry.item?.kind === "audio" ? "♪" : "▶";
 }
 
 /**

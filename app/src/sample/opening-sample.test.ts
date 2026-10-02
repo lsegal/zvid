@@ -221,7 +221,12 @@ describe("zvid opening sample", () => {
     for (const clip of videoClips) {
       assert.ok(ids.has(clip.mediaId ?? ""), clip.id);
     }
-    assert.equal(project.mainAudioMediaId, "zvid-sample:opening-v1:music");
+    // Its old main audio becomes a source track holding the music.
+    assert.ok(
+      project.sourceSpans.some(
+        (span) => span.mediaId === "zvid-sample:opening-v1:music",
+      ),
+    );
     assert.equal(project.bpm, 80);
     assert.equal(project.overlapNote, "");
   });

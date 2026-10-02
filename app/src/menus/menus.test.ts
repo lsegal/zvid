@@ -3,10 +3,7 @@ import { describe, it } from "node:test";
 import type { ContextMenuEntry } from "../context-menu.ts";
 import type { FxEffectDefinition } from "../fx-registry.ts";
 import { MAX_LAYERS } from "../selection-overlaps.ts";
-import {
-  buildMainAudioMenuEntries,
-  mainAudioMenuEntries,
-} from "./audio-menu.ts";
+import { audioMenuEntries, buildAudioMenuEntries } from "./audio-menu.ts";
 import { buildClipMenuEntries, clipMenuEntries } from "./clip-menu.ts";
 import { buildEditMenuEntries, editMenuEntries } from "./edit-menu.ts";
 import { buildHistoryEntries } from "./entries/edit-history.ts";
@@ -147,7 +144,7 @@ describe("menu registry", () => {
     assertRegistry(clipMenuEntries);
     assertRegistry(selectionMenuEntries);
     assertRegistry(layerMenuEntries);
-    assertRegistry(mainAudioMenuEntries);
+    assertRegistry(audioMenuEntries);
     assertRegistry(sourceSpanMenuEntries);
     assertRegistry(sourceTrackMenuEntries);
     assertRegistry(editMenuEntries);
@@ -297,18 +294,9 @@ describe("menu snapshots", () => {
   it("audio menu", () => {
     assert.deepEqual(
       snapshot([
-        ...buildMainAudioMenuEntries({
-          hasMainAudio: false,
-          chooseFile: noop,
-          remove: noop,
-        }),
+        ...buildAudioMenuEntries({ refresh: noop }),
         { type: "separator" },
-        ...buildMainAudioMenuEntries({
-          hasMainAudio: true,
-          disabled: true,
-          chooseFile: noop,
-          remove: noop,
-        }),
+        ...buildAudioMenuEntries({ disabled: true, refresh: noop }),
       ]),
       AUDIO_MENUS,
     );
@@ -366,11 +354,7 @@ describe("menu snapshots", () => {
                 actions: layerActions,
               }),
             },
-            audioEntries: buildMainAudioMenuEntries({
-              hasMainAudio: true,
-              chooseFile: noop,
-              remove: noop,
-            }),
+            audioEntries: buildAudioMenuEntries({ refresh: noop }),
           },
         ),
       ),
@@ -499,10 +483,9 @@ const SOURCE_TRACK_MENU_LOCKED = [
 ];
 
 const AUDIO_MENUS = [
-  "import: Import main audio…",
+  "refresh: Recompute audio",
   "---",
-  "replace: Replace main audio… (disabled)",
-  "remove: Remove main audio (disabled)",
+  "refresh: Recompute audio (disabled)",
 ];
 
 const SOURCE_SPAN_MENU = [
@@ -569,6 +552,5 @@ const EDIT_MENU = [
   "  move-up: Move up",
   "  move-down: Move down",
   "audio: Audio",
-  "  replace: Replace main audio…",
-  "  remove: Remove main audio",
+  "  refresh: Recompute audio",
 ];

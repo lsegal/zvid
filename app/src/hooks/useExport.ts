@@ -94,8 +94,8 @@ export type ExportInputs = {
   // Settings.
   project: ProjectState;
   mediaItems: MediaItem[];
-  mainAudio: MediaItem | undefined;
-  mainAudioPeaks: WaveformPeaks | undefined;
+  // The Audio row's waveform of the mix, for the range strip.
+  audioPeaks: WaveformPeaks | undefined;
   signature: MeterSignature;
   beatUnit: number;
   // Whether the editor's preview is playing; the export yields more
@@ -116,8 +116,8 @@ export type ExportSnapshot = {
   session: SessionSettings;
   defaultRange: ExportRange;
   mediaItems: MediaItem[];
-  mainAudio: MediaItem | undefined;
-  mainAudioPeaks: WaveformPeaks | undefined;
+  // The Audio row's waveform of the mix, for the range strip.
+  audioPeaks: WaveformPeaks | undefined;
   signature: MeterSignature;
   beatUnit: number;
 };
@@ -149,8 +149,8 @@ export type ExportDialogModel = {
   effects: ProjectState["effects"];
   // What the dialog's preview plays and the export encodes.
   audioMix: AudioMix;
-  mainAudio: MediaItem | undefined;
-  mainAudioPeaks: WaveformPeaks | undefined;
+  // The Audio row's waveform of the mix, for the range strip.
+  audioPeaks: WaveformPeaks | undefined;
   bpm: number;
   signature: MeterSignature;
   beatUnit: number;
@@ -228,8 +228,7 @@ export function useExport({
   updateExportState,
   project,
   mediaItems,
-  mainAudio,
-  mainAudioPeaks,
+  audioPeaks,
   signature,
   beatUnit,
   isPlaying,
@@ -496,8 +495,7 @@ export function useExport({
       session,
       defaultRange,
       mediaItems,
-      mainAudio,
-      mainAudioPeaks,
+      audioPeaks,
       signature,
       beatUnit,
     });
@@ -541,8 +539,7 @@ export function useExport({
     lanes: shownRender.lanes,
     effects: shownRender.effects,
     audioMix: shownAudioMix,
-    mainAudio: shown ? shown.mainAudio : mainAudio,
-    mainAudioPeaks: shown ? shown.mainAudioPeaks : mainAudioPeaks,
+    audioPeaks: shown ? shown.audioPeaks : audioPeaks,
     bpm: shownProject.bpm,
     signature: shown?.signature ?? signature,
     beatUnit: shown?.beatUnit ?? beatUnit,

@@ -48,10 +48,7 @@ export function useAudioMix(inputs: AudioMixInputs) {
             return null;
           }
           try {
-            const result = await loadWaveformPeaks(
-              media.id,
-              media.previewUrl,
-            );
+            const result = await loadWaveformPeaks(media.id, media.previewUrl);
             return result.status === "ready"
               ? { ...contribution, peaks: result.peaks }
               : null;
@@ -65,12 +62,16 @@ export function useAudioMix(inputs: AudioMixInputs) {
         }),
       ).then((clips) => {
         if (!canceled) {
+          const loaded: MixPeaksClip[] = [];
+          for (const clip of clips) {
+            if (clip) {
+              loaded.push(clip);
+            }
+          }
           setMix({
             inputs: { contributions, mediaItemsById, origin },
             refreshCount,
-            peaks: mixWaveformPeaks(
-              clips.filter((clip): clip is MixPeaksClip => clip !== null),
-            ),
+            peaks: mixWaveformPeaks(loaded),
           });
         }
       });

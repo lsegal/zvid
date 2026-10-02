@@ -55,10 +55,7 @@ export function migrateMainAudio<T extends MainAudioState>(
     ? state.mediaItems.find((item) => item.id === mediaId)
     : undefined;
   const trackId = mediaId ? mainAudioSourceTrackId(mediaId) : "";
-  if (
-    !media ||
-    state.sourceTracks.some((track) => track.id === trackId)
-  ) {
+  if (!media || state.sourceTracks.some((track) => track.id === trackId)) {
     return state;
   }
 

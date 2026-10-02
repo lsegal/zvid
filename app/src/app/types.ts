@@ -223,7 +223,6 @@ export type ProjectState = {
   sourceSpans: SourceSpan[];
   clips: ArrangementClip[];
   effects: SessionEffect[];
-  mainAudioId?: string;
   // The session length from the opened session, in frames at `fps`.
   projectDurationFrames?: number;
   // When set, source clips can't be moved, resized or retimed and source
