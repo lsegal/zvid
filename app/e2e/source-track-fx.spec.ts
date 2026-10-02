@@ -115,7 +115,11 @@ test("source tracks and clips have their own effects, rendered in the preview", 
     `${trackName} Effects`,
   );
   await expect(page.locator(".source-clip-properties")).toHaveCount(0);
-  await expect(page.getByText(`No effects on ${trackName}`)).toBeVisible();
+  // An empty Track section shows the same compact add tile as the others.
+  await expect(page.locator(".fx-chain__empty")).toHaveCount(0);
+  await expect(
+    page.locator('.fx-chain [data-fx-focus="add-layer"]'),
+  ).toBeVisible();
 
   // An effect on the source track renders on it.
   const plain = await previewPixels(page);
