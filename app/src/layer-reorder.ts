@@ -68,7 +68,7 @@ export const layerReorderAnnouncements = {
   position: (name: string, index: number, count: number) =>
     `${name}, position ${index + 1} of ${count}`,
   pickedUp: (name: string, index: number, count: number) =>
-    `Picked up ${layerReorderAnnouncements.position(name, index, count)}. Use the up and down arrow keys to move it, Space or Enter to drop it, Escape to cancel.`,
+    `Picked up ${layerReorderAnnouncements.position(name, index, count)}. Use the up and down arrow keys to move it, Enter to drop it, Escape to cancel.`,
   dropped: (name: string, index: number, count: number) =>
     `Dropped ${layerReorderAnnouncements.position(name, index, count)}`,
   canceled: (name: string) => `Canceled moving ${name}`,

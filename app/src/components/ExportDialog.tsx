@@ -418,6 +418,7 @@ function ExportDialogBody({
     // biome-ignore lint/a11y/noStaticElementInteractions: the dialog's keyboard shortcuts.
     <div
       className="export-dialog__body"
+      data-space-playback=""
       data-playhead-q={playback.playheadQ}
       data-playing={playback.isPlaying ? "true" : "false"}
       onKeyDown={onKeyDown}

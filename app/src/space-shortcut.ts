@@ -17,24 +17,15 @@ const TEXT_INPUT_TYPES = new Set([
   "week",
 ]);
 
-// Open Radix menus and dialogs, where Space should activate the focused item.
-// A listbox docked in the page, such as the Media drawer's (#681), is always
-// present and is not an overlay, so it opts out with data-docked-listbox.
-const OPEN_OVERLAY_SELECTOR =
-  '[role="menu"], [role="listbox"]:not([data-docked-listbox]), [role="dialog"], [role="alertdialog"], [aria-modal="true"]';
+// Open menus, listboxes and popovers, which Space closes before it toggles
+// playback. A listbox docked in the page, such as the Media drawer's (#681),
+// is always present and stays open, so it opts out with data-docked-listbox.
+const OPEN_POPUP_SELECTOR =
+  '[role="menu"], [role="listbox"]:not([data-docked-listbox]), [data-radix-popper-content-wrapper]';
 
-// The top bar's menubar (#734) is always on the page, so it only claims Space
-// while one of its triggers has focus.
-const OVERLAY_SELECTOR = `${OPEN_OVERLAY_SELECTOR}, [role="menubar"]`;
-
-// A layer header's or source track label's reorder grip picks up and drops
-// its row with Space, as drag handles do (#478, #654). Every other control
-// leaves Space to playback (#167).
-const GRIP_SELECTOR = "[data-layer-grip], [data-source-track-grip]";
-
-// Except the placeholder rows' [ + Layer ] and [ + Track ] buttons, which
-// activate with Space like ordinary buttons (#729).
-const SPACE_ACTIVATES_SELECTOR = "[data-space-activates]";
+// A region that plays its own preview with Space, such as the Export
+// dialog's, handles the key itself.
+const OWN_PLAYBACK_SELECTOR = "[data-space-playback]";
 
 type SpaceTarget = {
   tagName?: string;
@@ -43,16 +34,11 @@ type SpaceTarget = {
   closest?: (selector: string) => unknown;
 };
 
-type OverlayRoot = {
+type PopupRoot = {
   querySelector: (selector: string) => unknown;
 };
 
-export type SpaceTargetKind =
-  | "text-entry"
-  | "overlay"
-  | "grip"
-  | "button"
-  | "playback";
+export type SpaceTargetKind = "text-entry" | "own-playback" | "playback";
 
 export function isTextEntryTarget(target: unknown) {
   if (!target || typeof target !== "object") {
@@ -76,12 +62,9 @@ export function isTextEntryTarget(target: unknown) {
 }
 
 // Decides what Space does for a keydown aimed at `target`: type into a text
-// field, act on an open menu or dialog, move a grip, press a button that
-// opts in, or toggle playback.
-export function classifySpaceTarget(
-  target: unknown,
-  root?: OverlayRoot | null,
-): SpaceTargetKind {
+// field, play a region's own preview, or toggle playback. Space never opens
+// menus, presses buttons or picks up grips (#745).
+export function classifySpaceTarget(target: unknown): SpaceTargetKind {
   if (isTextEntryTarget(target)) {
     return "text-entry";
   }
@@ -89,30 +72,17 @@ export function classifySpaceTarget(
   const element = target as SpaceTarget | null;
   if (
     typeof element?.closest === "function" &&
-    element.closest(OVERLAY_SELECTOR)
+    element.closest(OWN_PLAYBACK_SELECTOR)
   ) {
-    return "overlay";
-  }
-
-  if (
-    typeof element?.closest === "function" &&
-    element.closest(GRIP_SELECTOR)
-  ) {
-    return "grip";
-  }
-
-  if (
-    typeof element?.closest === "function" &&
-    element.closest(SPACE_ACTIVATES_SELECTOR)
-  ) {
-    return "button";
-  }
-
-  if (root?.querySelector(OPEN_OVERLAY_SELECTOR)) {
-    return "overlay";
+    return "own-playback";
   }
 
   return "playback";
+}
+
+// Whether a menu, listbox or popover is open, for Space to close first.
+export function hasOpenPopup(root: PopupRoot | null | undefined) {
+  return Boolean(root?.querySelector(OPEN_POPUP_SELECTOR));
 }
 
 // Tracks a held Space key so Space + left-drag can pan the timeline like a

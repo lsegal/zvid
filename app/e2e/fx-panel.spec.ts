@@ -215,9 +215,9 @@ test("the Order's Layers menu toggles layers in place", async ({ page }) => {
   await expect(rows.first()).toHaveAttribute("aria-checked", "false");
   await expect(button).toHaveText(`Layers: ${count - 1} of ${count}`);
 
-  // Space toggles the highlighted row from the keyboard.
+  // Enter toggles the highlighted row from the keyboard.
   await rows.nth(1).focus();
-  await page.keyboard.press("Space");
+  await page.keyboard.press("Enter");
   await expect(menu).toBeVisible();
   await expect(button).toHaveText(`Layers: ${count - 2} of ${count}`);
 

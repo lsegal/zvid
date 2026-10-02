@@ -175,7 +175,7 @@ test("the keyboard picks a layer up, moves it and drops it", async ({
   page,
 }) => {
   await grip(page, "6").focus();
-  await page.keyboard.press("Space");
+  await page.keyboard.press("Enter");
   await expect(status(page)).toContainText(
     "Picked up Layer 3, position 3 of 3",
   );
@@ -197,7 +197,7 @@ test("the keyboard picks a layer up, moves it and drops it", async ({
   await expect(page.locator(".fx-panel__toggle")).toHaveText("Layer 3 Effects");
 
   // Escape puts it back where it was.
-  await page.keyboard.press("Space");
+  await page.keyboard.press("Enter");
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Escape");
   await expect(status(page)).toHaveText("Canceled moving Layer 3");
