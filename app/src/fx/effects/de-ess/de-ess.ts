@@ -97,11 +97,10 @@ export class SvfCoefficients {
   a3 = 0;
   readonly k: number;
   private hz = Number.NaN;
+  private readonly sampleRate: number;
 
-  constructor(
-    private readonly sampleRate: number,
-    q: number,
-  ) {
+  constructor(sampleRate: number, q: number) {
+    this.sampleRate = sampleRate;
     this.k = 1 / q;
   }
 
