@@ -183,6 +183,10 @@ const ANIMATION_DEFAULTS: ReadonlyMap<string, FxAnimationDefaults> = new Map([
     ]),
   ],
   [
+    "Distortion",
+    defaults("Ease Out", "Ease In", [10, 6, 3], "Wobble", 0.5, ["_Amount"]),
+  ],
+  [
     COLOR_EFFECT_NAME,
     defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.3, ["Opacity"]),
   ],
@@ -454,6 +458,7 @@ const NEUTRAL_VALUES: ReadonlyMap<string, AnimationNeutralValues> = new Map<
     { _LowIntensity: { neutral: 0 }, _HighIntensity: { neutral: 0 } },
   ],
   ["AnalogGlitch", { _LowMod: { neutral: 0 }, _HighMod: { neutral: 0 } }],
+  ["Distortion", { _Amount: { neutral: 0 } }],
   [COLOR_EFFECT_NAME, { Opacity: { neutral: 0 } }],
   // Text has no opacity knob: Clip mode fades its colors instead.
   [TEXT_EFFECT_NAME, {}],
