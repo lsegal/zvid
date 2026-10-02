@@ -505,16 +505,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     },
                   }}
                 />
-                <AudioRow
-                  mix={audioMix}
-                  openAudioMenu={editing.openAudioMenu}
-                  prefersReducedMotion={prefersReducedMotion}
-                  bpm={bpm}
-                  quarterPx={quarterPx}
-                  visibleTimelineStartPx={visibleTimelineStartPx}
-                  visibleTimelineWidthPx={visibleTimelineWidthPx}
-                  gridStyle={gridStyle}
-                />
                 <SourceTracks
                   sourceTracks={sourceTracks}
                   sourceSpansByTrack={timeline.sourceSpansByTrack}
@@ -564,6 +554,19 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     setSourceSpanDrag: selection.setSourceSpanDrag,
                     locked: editing.sourceTracksLocked,
                   }}
+                />
+                <AudioRow
+                  mix={audioMix}
+                  openAudioMenu={editing.openAudioMenu}
+                  prefersReducedMotion={prefersReducedMotion}
+                  bpm={bpm}
+                  quarterPx={quarterPx}
+                  visibleTimelineStartPx={visibleTimelineStartPx}
+                  visibleTimelineWidthPx={visibleTimelineWidthPx}
+                  gridStyle={gridStyle}
+                  playheadSignal={playheadSignal}
+                  isCollapsed={layout.isAudioRowCollapsed}
+                  setCollapsed={layout.setAudioRowCollapsed}
                 />
               </Timeline>
 

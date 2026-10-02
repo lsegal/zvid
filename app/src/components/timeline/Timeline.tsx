@@ -24,7 +24,8 @@ type TimelineProps = {
   visibleTimelineEndPx: number;
   syncTimelineViewport: () => void;
   scrollTimelineToPlayhead: () => void;
-  // The ruler, layers, Audio row and source tracks, top to bottom.
+  // The ruler, layers, source tracks and Audio row, top to bottom. The Audio
+  // row comes last so it can pin to the bottom (audio-row.css).
   children: ReactNode;
 };
 
