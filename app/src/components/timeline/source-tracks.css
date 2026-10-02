@@ -331,9 +331,11 @@
   border-style: dashed;
 }
 
+/* The In frame keeps its width, up to the clip's, however long the label. */
 .source-drop-clip__thumb {
-  flex: 0 1 42px;
-  min-width: 0;
+  flex: none;
+  width: 42px;
+  max-width: 100%;
   border-radius: 9px 0 0 9px;
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.12), transparent),
@@ -355,8 +357,9 @@
 }
 
 .source-drop-clip__glyph {
-  flex: 0 1 42px;
-  min-width: 0;
+  flex: none;
+  width: 42px;
+  max-width: 100%;
   height: 18px;
   align-self: center;
   color: rgba(255, 255, 255, 0.72);
@@ -367,7 +370,10 @@
 .source-drop-clip__body {
   position: relative;
   flex: 1 0 auto;
-  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 8px 10px 9px;
   white-space: nowrap;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
@@ -378,15 +384,16 @@
 }
 
 .source-drop-clip__body span {
-  font-size: 0.78rem;
-  font-weight: 600;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .source-drop-clip__body small {
   margin-top: 4px;
   color: rgba(255, 255, 255, 0.8);
-  font-size: 0.68rem;
-  letter-spacing: 0.05em;
+  font-size: 0.64rem;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 

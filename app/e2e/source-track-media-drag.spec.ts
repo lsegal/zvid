@@ -301,10 +301,12 @@ test("the drop preview of media without a range spans its whole length", async (
   const full = (await box(row.locator(".source-span"))).width;
   expect(Math.abs(previewWidth - full)).toBeLessThanOrEqual(1);
   await dropAtQ(page, row, 8, quarterPx);
-  await expect.poll(() => layout(row, quarterPx)).toEqual([
-    [0, 6],
-    [8, 6],
-  ]);
+  await expect
+    .poll(() => layout(row, quarterPx))
+    .toEqual([
+      [0, 6],
+      [8, 6],
+    ]);
 });
 
 test("the drop preview of audio-only media draws its waveform", async ({
