@@ -4,10 +4,17 @@
 // whose media has audio sounds. So a session whose layers hold only fill or
 // text clips renders video from the layers and audio from the source
 // tracks. Preview, export and audio-reactive effects all mix these clips.
+//
+// The mix is a graph of effect chains (see chain.ts): each clip through its
+// own stack, summed into its layer's or source track's bus, which runs that
+// track's stack, then summed into the master, which runs the Global stack,
+// then the limiter. Gain is one stage among them; a clip with no enabled
+// Gain on its track's stack or its own stays silent.
 import { quartersToSeconds } from "../app/timeline-math.ts";
 import type { ClipWarp } from "../clip-warp.ts";
 import {
   gainChainAmplitude,
+  isGainEffectName,
   masterGainAmplitude,
 } from "../fx/effects/gain/gain.ts";
 import {
@@ -18,13 +25,14 @@ import {
 } from "../fx/stack/clip-stacks.ts";
 import { isAudioEffectName } from "../fx-registry.ts";
 import { sourceRenderClipId } from "../render-clips.ts";
+import {
+  type AudioStage,
+  type AudioTimeSignature,
+  DEFAULT_TIME_SIGNATURE,
+} from "./processor.ts";
+import { type AudioStageEffect, audioStageOf } from "./stages.ts";
 
-type AudioEffect = {
-  trackId: string;
-  effectName: string;
-  enabled?: boolean;
-  parameters: readonly { key: string; value: string; numericValue?: number }[];
-};
+type AudioEffect = AudioStageEffect;
 
 type AudioLayerClip = {
   id: string;
@@ -61,6 +69,8 @@ export type AudioMixInputs<Effect extends AudioEffect = AudioEffect> = {
   mediaById: ReadonlyMap<string, { hasAudio: boolean }>;
   effects: readonly Effect[];
   bpm: number;
+  // 4/4 when unset.
+  signature?: AudioTimeSignature;
 };
 
 // A clip the mix plays. Its media plays the way the clip's video does: the
@@ -82,22 +92,45 @@ export type AudioMixClip<Effect extends AudioEffect = AudioEffect> = {
   // The product of the enabled Gains on its layer's or source track's stack
   // and its own: 0 without any.
   amplitude: number;
+  // Whether its layer's or source track's stack, or its own, has an enabled
+  // Gain; without one the clip is silent.
+  hasGain: boolean;
+  // The bus it sums into: its layer's or source track's id.
+  busId: string;
+  // Its own stack's audio effects, in rack order; bypassed stacks' stages
+  // are disabled.
+  stages: AudioStage[];
+};
+
+// A layer's or source track's bus: the sum of its clips through its own
+// stack.
+export type AudioMixBus = {
+  id: string;
+  stages: AudioStage[];
 };
 
 export type AudioMix<Effect extends AudioEffect = AudioEffect> = {
   clips: AudioMixClip<Effect>[];
+  // Every bus a clip sums into.
+  buses: AudioMixBus[];
+  // The Global stack's audio effects, run on the whole mix.
+  master: AudioStage[];
   // The Global stack's Gains, applied to the whole mix: 1 without any.
   masterAmplitude: number;
   // Whether the clips come from the source tracks rather than the layers.
   fromSourceTracks: boolean;
   bpm: number;
+  signature: AudioTimeSignature;
 };
 
 export const SILENT_AUDIO_MIX: AudioMix = {
   clips: [],
+  buses: [],
+  master: [],
   masterAmplitude: 1,
   fromSourceTracks: false,
   bpm: 120,
+  signature: DEFAULT_TIME_SIGNATURE,
 };
 
 function hasAudio(
@@ -115,6 +148,7 @@ export function resolveAudioClips<Effect extends AudioEffect>({
   mediaById,
   effects,
   bpm,
+  signature = DEFAULT_TIME_SIGNATURE,
 }: AudioMixInputs<Effect>): AudioMix<Effect> {
   const audioEffects = new Map<string, Effect[]>();
   for (const effect of effects) {
@@ -136,9 +170,29 @@ export function resolveAudioClips<Effect extends AudioEffect>({
       .map((track) => track.id),
   );
 
+  const stagesOf = (stackId: string, enabled = true) =>
+    stackOf(stackId).map((effect, index) =>
+      audioStageOf(effect, `${stackId}:${index}`, enabled),
+    );
+  const buses = new Map<string, AudioMixBus>();
+  const busOf = (trackId: string, trackStackId: string) => {
+    let bus = buses.get(trackId);
+    if (!bus) {
+      bus = {
+        id: trackId,
+        stages: stagesOf(trackStackId, !bypassed.has(trackId)),
+      };
+      buses.set(trackId, bus);
+    }
+    return bus;
+  };
+
   // A clip's chain below Global: its track's stack, then its own.
   const mixClip = (
-    clip: Omit<AudioMixClip<Effect>, "effects" | "amplitude">,
+    clip: Omit<
+      AudioMixClip<Effect>,
+      "effects" | "amplitude" | "hasGain" | "busId" | "stages"
+    >,
     trackId: string,
     trackStackId: string,
     clipStackId: string,
@@ -150,61 +204,75 @@ export function resolveAudioClips<Effect extends AudioEffect>({
       ...clip,
       effects: [...global, ...own],
       amplitude: gainChainAmplitude(own),
+      hasGain: own.some(
+        (effect) =>
+          effect.enabled !== false && isGainEffectName(effect.effectName),
+      ),
+      busId: busOf(trackId, trackStackId).id,
+      stages: stagesOf(clipStackId, !bypassed.has(trackId)),
     };
   };
+  const master = stagesOf(GLOBAL_EFFECT_TRACK_ID);
 
   const layerClips = clips.filter(
     (clip) => !clip.kind && hasAudio(mediaById, clip.mediaId),
   );
   if (layerClips.length) {
-    return {
-      clips: layerClips.map((clip) =>
-        mixClip(
-          {
-            id: clip.id,
-            mediaId: clip.mediaId as string,
-            startSeconds: quartersToSeconds(clip.startQ, bpm),
-            durationSeconds: clip.durationSeconds,
-            sourceOffsetSeconds: clip.sourceOffsetSeconds,
-            sourceWindowStartSeconds: clip.sourceWindowStartSeconds,
-            sourceWindowEndSeconds: clip.sourceWindowEndSeconds,
-            ...(clip.warp ? { warp: clip.warp } : {}),
-          },
-          clip.laneId,
-          clip.laneId,
-          clipEffectTrackId(clip.id),
-        ),
+    const mixed = layerClips.map((clip) =>
+      mixClip(
+        {
+          id: clip.id,
+          mediaId: clip.mediaId as string,
+          startSeconds: quartersToSeconds(clip.startQ, bpm),
+          durationSeconds: clip.durationSeconds,
+          sourceOffsetSeconds: clip.sourceOffsetSeconds,
+          sourceWindowStartSeconds: clip.sourceWindowStartSeconds,
+          sourceWindowEndSeconds: clip.sourceWindowEndSeconds,
+          ...(clip.warp ? { warp: clip.warp } : {}),
+        },
+        clip.laneId,
+        clip.laneId,
+        clipEffectTrackId(clip.id),
       ),
+    );
+    return {
+      clips: mixed,
+      buses: [...buses.values()],
+      master,
       masterAmplitude: masterGainAmplitude(global),
       fromSourceTracks: false,
       bpm,
+      signature,
     };
   }
 
+  const mixed = sourceSpans
+    .filter((span) => hasAudio(mediaById, span.mediaId))
+    .map((span) => {
+      const startSeconds = quartersToSeconds(span.startQ, bpm);
+      return mixClip(
+        {
+          id: sourceRenderClipId(span.id),
+          mediaId: span.mediaId as string,
+          startSeconds,
+          durationSeconds: span.durationSeconds,
+          sourceOffsetSeconds: span.trimStartSeconds - startSeconds,
+          sourceWindowStartSeconds: span.trimStartSeconds,
+          sourceWindowEndSeconds: span.trimStartSeconds + span.durationSeconds,
+          ...(span.warp ? { warp: span.warp } : {}),
+        },
+        span.sourceTrackId,
+        sourceTrackEffectTrackId(span.sourceTrackId),
+        sourceClipEffectTrackId(span.id),
+      );
+    });
   return {
-    clips: sourceSpans
-      .filter((span) => hasAudio(mediaById, span.mediaId))
-      .map((span) => {
-        const startSeconds = quartersToSeconds(span.startQ, bpm);
-        return mixClip(
-          {
-            id: sourceRenderClipId(span.id),
-            mediaId: span.mediaId as string,
-            startSeconds,
-            durationSeconds: span.durationSeconds,
-            sourceOffsetSeconds: span.trimStartSeconds - startSeconds,
-            sourceWindowStartSeconds: span.trimStartSeconds,
-            sourceWindowEndSeconds:
-              span.trimStartSeconds + span.durationSeconds,
-            ...(span.warp ? { warp: span.warp } : {}),
-          },
-          span.sourceTrackId,
-          sourceTrackEffectTrackId(span.sourceTrackId),
-          sourceClipEffectTrackId(span.id),
-        );
-      }),
+    clips: mixed,
+    buses: [...buses.values()],
+    master,
     masterAmplitude: masterGainAmplitude(global),
     fromSourceTracks: true,
     bpm,
+    signature,
   };
 }

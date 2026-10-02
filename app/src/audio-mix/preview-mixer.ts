@@ -1,14 +1,24 @@
 // Plays the audio mix in the preview. Each contributing clip plays its own
-// audio element through Web Audio:
+// audio element through Web Audio. A mix of Gains alone, every session's
+// before other audio effects, plays through native gains, which reproduce
+// export exactly:
 //
 //   element → clip GainNode → master GainNode → limiter → analyser
 //     → preview volume → speakers
 //
+// A mix with any other audio effect runs its chains in the chain worklet
+// (see chain-worklet.ts), the same DSP export renders with (see mix.ts):
+//
+//   element → clip chain → track bus chain → master chain → master GainNode
+//     → limiter → analyser → preview volume → speakers
+//
 // The analyser feeds audio-reactive effects (see LiveAudioBands), and the
 // limiter also feeds the transport's VU meter, so both follow the mix after
-// every Gain but not the preview volume. Elements are
-// made shortly before their clip starts and released once it has passed,
-// and follow the playhead as the compositor's video elements do.
+// every Gain but not the preview volume. Elements are made shortly before
+// their clip starts and released once it, and its chain's tail, has passed,
+// and follow the playhead as the compositor's video elements do. A clip
+// whose source stages read its media other than forwards plays from a
+// decoded buffer instead (see preview-buffer-voice.ts).
 import type { PreviewVolume } from "../app/preview-volume.ts";
 import { clamp } from "../app/util.ts";
 import {
@@ -17,12 +27,31 @@ import {
   type MasterMeterTap,
 } from "../fx-shaders/audio-bands.ts";
 import { releaseMediaElement } from "../media-element.ts";
-import { clipMediaTimeAt, LIMITER_HEADROOM, limiterCurve } from "./mix.ts";
+import { type AudioChainSettings, PARAMETER_RAMP_SECONDS } from "./chain.ts";
+import {
+  type ChainMessage,
+  type ChainTransport,
+  createChainNode,
+  postChainMessage,
+} from "./chain-node.ts";
+import {
+  type AudioMixTiming,
+  audioMixTempo,
+  audioMixTiming,
+  clipMediaTimeAt,
+  clipReadSeconds,
+  LIMITER_HEADROOM,
+  limiterCurve,
+} from "./mix.ts";
+import { DecodedClipVoice } from "./preview-buffer-voice.ts";
+import type { AudioProcessorRegistry } from "./processor.ts";
+import { AUDIO_PROCESSORS } from "./processors.ts";
 import {
   type AudioMix,
   type AudioMixClip,
   SILENT_AUDIO_MIX,
 } from "./resolve.ts";
+import { hasProcessingStages } from "./stages.ts";
 
 export type AudioMixPlayback = {
   playheadSeconds: number;
@@ -32,11 +61,23 @@ export type AudioMixPlayback = {
   isContinuousScrubbing: boolean;
 };
 
+export type PreviewAudioMixerOptions = {
+  // The chain worklet's URL (see chain-worklet-url.ts). Without it, or
+  // where the browser has no AudioWorklet, the preview plays Gain alone.
+  workletUrl?: string;
+  registry?: AudioProcessorRegistry;
+};
+
 type Voice = {
   url: string;
-  element: HTMLAudioElement;
-  source: MediaElementAudioSourceNode;
+  // Its media element, or for a clip read other than forwards, its decoded
+  // buffer.
+  element: HTMLAudioElement | null;
+  source: MediaElementAudioSourceNode | null;
+  decoded: DecodedClipVoice | null;
   gain: GainNode;
+  // Its clip chain, when the mix runs in the worklet.
+  chain: AudioWorkletNode | null;
 };
 
 type MixGraph = {
@@ -47,26 +88,62 @@ type MixGraph = {
   output: GainNode;
 };
 
+// The worklet nodes of a mix that runs its chains.
+type ChainGraph = {
+  master: AudioWorkletNode;
+  buses: Map<string, AudioWorkletNode>;
+};
+
 const MAX_DRIFT_SECONDS = 0.18;
 const SCRUB_DRIFT_SECONDS = 0.035;
 // Audio keeps playing through a scrub started during playback, so it only
 // re-syncs once it falls this far behind or ahead of the playhead.
 const CONTINUOUS_SCRUB_DRIFT_SECONDS = 0.1;
 // A clip's element is made this long before the clip starts, so it has
-// loaded by then, and released this long after it ends.
+// loaded by then, and released this long after it ends, or after its
+// chain's tail when that is longer.
 const PRELOAD_SECONDS = 1.5;
 const RELEASE_SECONDS = 3;
 // The playback rates every browser accepts; a media element throws outside
 // them.
 const MIN_PLAYBACK_RATE = 0.0625;
 const MAX_PLAYBACK_RATE = 16;
+// A playhead this far from where the chains expect it is a seek, which
+// resets them so no stale tail plays; a smaller gap only re-anchors their
+// timeline time.
+const SEEK_SECONDS = 0.25;
+const TRANSPORT_DRIFT_SECONDS = 0.02;
+
+// Sets `param` to `value`, ramping where the browser can so a live edit
+// never clicks.
+function setSmoothly(param: AudioParam, value: number, context: AudioContext) {
+  if (typeof param.setTargetAtTime !== "function") {
+    param.value = value;
+    return;
+  }
+  param.cancelScheduledValues(context.currentTime);
+  param.setTargetAtTime(value, context.currentTime, PARAMETER_RAMP_SECONDS / 3);
+}
 
 export class PreviewAudioMixer {
   private graph: MixGraph | null = null;
+  private chains: ChainGraph | null = null;
   private voices = new Map<string, Voice>();
   private mix: AudioMix = SILENT_AUDIO_MIX;
   private urlById = new Map<string, string>();
   private volume: PreviewVolume = { volume: 1, muted: false };
+  private readonly workletUrl: string | undefined;
+  private readonly registry: AudioProcessorRegistry;
+  private worklet: "idle" | "loading" | "ready" | "failed" = "idle";
+  private timing: AudioMixTiming | null = null;
+  private transport: ChainTransport | null = null;
+  // Each chain node's settings as last posted, to skip repeats.
+  private posted = new WeakMap<AudioWorkletNode, string>();
+
+  constructor(options: PreviewAudioMixerOptions = {}) {
+    this.workletUrl = options.workletUrl;
+    this.registry = options.registry ?? AUDIO_PROCESSORS;
+  }
 
   update(
     mix: AudioMix,
@@ -78,17 +155,33 @@ export class PreviewAudioMixer {
         .filter((item) => item.previewUrl)
         .map((item) => [item.id, item.previewUrl]),
     );
+    this.timing = this.graph
+      ? audioMixTiming(mix, this.graph.context.sampleRate, this.registry)
+      : null;
+    this.applyMode();
     const clipById = new Map(mix.clips.map((clip) => [clip.id, clip]));
     for (const [clipId, voice] of this.voices) {
       const clip = clipById.get(clipId);
-      if (!clip || this.urlOf(clip) !== voice.url) {
+      if (
+        !clip ||
+        this.urlOf(clip) !== voice.url ||
+        this.needsDecoded(clip) !== Boolean(voice.decoded)
+      ) {
         this.release(clipId);
-      } else {
-        voice.gain.gain.value = clip.amplitude;
+      } else if (voice.chain) {
+        this.configure(voice.chain, this.clipSettings(clip));
+      } else if (this.graph) {
+        setSmoothly(voice.gain.gain, clip.amplitude, this.graph.context);
       }
     }
-    if (this.graph) {
-      this.graph.master.gain.value = mix.masterAmplitude;
+    if (this.chains) {
+      this.configureChains(this.chains);
+    } else if (this.graph) {
+      setSmoothly(
+        this.graph.master.gain,
+        mix.masterAmplitude,
+        this.graph.context,
+      );
     }
   }
 
@@ -120,12 +213,24 @@ export class PreviewAudioMixer {
         ? SCRUB_DRIFT_SECONDS
         : MAX_DRIFT_SECONDS;
     const now = playback.playheadSeconds;
+    this.applyMode();
+    // With chains, the mix comes out this late, so its media plays this far
+    // ahead of the playhead to stay with the video, and the chains are told
+    // the timeline time of what they are fed, as export tells them.
+    const ahead =
+      this.chains && this.graph && this.timing
+        ? this.timing.latencyFrames / this.graph.context.sampleRate
+        : 0;
+    this.syncTransport(now + ahead, shouldPlay);
+    const linger = Math.max(
+      RELEASE_SECONDS,
+      this.chains ? (this.timing?.tailSeconds ?? 0) : 0,
+    );
 
     for (const clip of this.mix.clips) {
       const start = clip.startSeconds;
       const end = clip.startSeconds + clip.durationSeconds;
-      const nearby =
-        now >= start - PRELOAD_SECONDS && now < end + RELEASE_SECONDS;
+      const nearby = now >= start - PRELOAD_SECONDS && now < end + linger;
       if (!nearby) {
         this.release(clip.id);
         continue;
@@ -137,29 +242,43 @@ export class PreviewAudioMixer {
       if (!voice) {
         continue;
       }
+      const at = now + ahead;
 
-      const at = clipMediaTimeAt(clip, now, this.mix.bpm);
-      if (!at) {
-        if (!voice.element.paused) {
-          voice.element.pause();
+      if (voice.decoded) {
+        const inside = at >= start && at < end;
+        voice.decoded.sync(
+          shouldPlay && inside ? at - start : undefined,
+          driftTolerance,
+        );
+        continue;
+      }
+      const element = voice.element as HTMLAudioElement;
+      const media = clipMediaTimeAt(clip, at, this.mix.bpm);
+      if (!media) {
+        if (!element.paused) {
+          element.pause();
         }
         // Waits at the clip's first sound, ready for it to start.
-        const first = clipMediaTimeAt(clip, Math.max(now, start), this.mix.bpm);
-        if (first && now < start) {
-          seek(voice.element, first.mediaTime, driftTolerance);
+        const first = clipMediaTimeAt(clip, Math.max(at, start), this.mix.bpm);
+        if (first && at < start) {
+          seek(element, first.mediaTime, driftTolerance);
         }
         continue;
       }
 
-      const rate = clamp(at.playbackRate, MIN_PLAYBACK_RATE, MAX_PLAYBACK_RATE);
-      if (voice.element.playbackRate !== rate) {
-        voice.element.playbackRate = rate;
+      const rate = clamp(
+        media.playbackRate,
+        MIN_PLAYBACK_RATE,
+        MAX_PLAYBACK_RATE,
+      );
+      if (element.playbackRate !== rate) {
+        element.playbackRate = rate;
       }
-      seek(voice.element, at.mediaTime, shouldPlay ? driftTolerance : 0);
+      seek(element, media.mediaTime, shouldPlay ? driftTolerance : 0);
       if (shouldPlay) {
-        voice.element.play().catch(() => {});
-      } else if (!voice.element.paused) {
-        voice.element.pause();
+        element.play().catch(() => {});
+      } else if (!element.paused) {
+        element.pause();
       }
     }
 
@@ -176,25 +295,217 @@ export class PreviewAudioMixer {
     }
   }
 
-  // Stops every clip, as when playback stops.
+  // Stops every clip, as when playback stops. Chains keep running, so
+  // their tails fade out.
   pause() {
     for (const voice of this.voices.values()) {
-      if (!voice.element.paused) {
+      if (voice.element && !voice.element.paused) {
         voice.element.pause();
       }
+      voice.decoded?.stop();
+    }
+    if (this.transport && this.graph) {
+      this.syncTransport(this.timelineNow(this.transport), false);
     }
   }
 
   dispose() {
-    for (const clipId of [...this.voices.keys()]) {
-      this.release(clipId);
-    }
+    this.teardownChains();
     this.graph?.context.close().catch(() => {});
     this.graph = null;
   }
 
   private urlOf(clip: AudioMixClip) {
     return this.urlById.get(clip.mediaId);
+  }
+
+  private needsDecoded(clip: AudioMixClip) {
+    return clipReadSeconds(clip, this.registry) !== undefined;
+  }
+
+  // Whether the mix needs its chains run, beyond Gain.
+  private mixNeedsChains() {
+    const { registry } = this;
+    return (
+      hasProcessingStages(registry, this.mix.master) ||
+      this.mix.buses.some((bus) => hasProcessingStages(registry, bus.stages)) ||
+      this.mix.clips.some((clip) => hasProcessingStages(registry, clip.stages))
+    );
+  }
+
+  // Runs the mix in the worklet when it needs chains and the worklet has
+  // loaded, else through native gains, rebuilding the voices on a change.
+  // While the worklet loads, a mix that needs it makes no voices.
+  private applyMode() {
+    const wantsChains = this.mixNeedsChains() && this.worklet !== "failed";
+    if (wantsChains && this.worklet === "idle" && this.graph) {
+      this.loadWorklet(this.graph.context);
+    }
+    const chained = wantsChains && this.worklet === "ready";
+    if (chained === Boolean(this.chains)) {
+      return;
+    }
+    this.teardownChains();
+    if (chained && this.graph) {
+      const master = this.chainNode(this.graph.context, this.masterSettings());
+      master.connect(this.graph.master);
+      this.graph.master.gain.value = 1;
+      this.chains = { master, buses: new Map() };
+    } else if (this.graph) {
+      this.graph.master.gain.value = this.mix.masterAmplitude;
+    }
+  }
+
+  private loadWorklet(context: AudioContext) {
+    if (!this.workletUrl || !context.audioWorklet) {
+      this.worklet = "failed";
+      return;
+    }
+    this.worklet = "loading";
+    context.audioWorklet.addModule(this.workletUrl).then(
+      () => {
+        this.worklet = "ready";
+        this.applyMode();
+      },
+      (error) => {
+        console.warn("The preview plays audio without its effects.", error);
+        this.worklet = "failed";
+        this.applyMode();
+      },
+    );
+  }
+
+  // Releases every voice and the chain nodes; the next sync makes the
+  // voices again.
+  private teardownChains() {
+    for (const clipId of [...this.voices.keys()]) {
+      this.release(clipId);
+    }
+    if (this.chains) {
+      for (const bus of this.chains.buses.values()) {
+        bus.disconnect();
+      }
+      this.chains.master.disconnect();
+      this.chains = null;
+    }
+    this.transport = null;
+  }
+
+  private chainNodes() {
+    const nodes: AudioWorkletNode[] = [];
+    if (this.chains) {
+      nodes.push(this.chains.master, ...this.chains.buses.values());
+    }
+    for (const voice of this.voices.values()) {
+      if (voice.chain) {
+        nodes.push(voice.chain);
+      }
+    }
+    return nodes;
+  }
+
+  private broadcast(message: ChainMessage) {
+    for (const node of this.chainNodes()) {
+      postChainMessage(node, message);
+    }
+  }
+
+  private timelineNow(transport: ChainTransport) {
+    const context = this.graph?.context;
+    return context
+      ? transport.timelineSeconds +
+          (context.currentTime - transport.contextTime) * transport.rate
+      : transport.timelineSeconds;
+  }
+
+  // Tells the chains where the timeline is when that changes: on play,
+  // pause or drift. A seek also resets them.
+  private syncTransport(now: number, playing: boolean) {
+    const context = this.graph?.context;
+    if (!this.chains || !context) {
+      return;
+    }
+    const rate = playing ? 1 : 0;
+    const previous = this.transport;
+    const gap = previous ? Math.abs(this.timelineNow(previous) - now) : 0;
+    if (previous && previous.rate === rate && gap <= TRANSPORT_DRIFT_SECONDS) {
+      return;
+    }
+    if (previous && gap > SEEK_SECONDS) {
+      this.broadcast({ type: "reset" });
+    }
+    this.transport = {
+      contextTime: context.currentTime,
+      timelineSeconds: now,
+      rate,
+    };
+    this.broadcast({ type: "transport", ...this.transport });
+  }
+
+  // A chain node starting with `settings` at the current transport.
+  private chainNode(context: AudioContext, settings: AudioChainSettings) {
+    const node = createChainNode(context, {
+      settings,
+      tempo: audioMixTempo(this.mix),
+      ...(this.transport ? { transport: this.transport } : {}),
+    });
+    this.posted.set(node, JSON.stringify(settings));
+    return node;
+  }
+
+  private configure(node: AudioWorkletNode, settings: AudioChainSettings) {
+    const key = JSON.stringify(settings);
+    if (this.posted.get(node) === key) {
+      return;
+    }
+    this.posted.set(node, key);
+    postChainMessage(node, {
+      type: "configure",
+      settings,
+      tempo: audioMixTempo(this.mix),
+    });
+  }
+
+  private clipSettings(clip: AudioMixClip): AudioChainSettings {
+    return {
+      stages: clip.stages,
+      inputGain: clip.hasGain ? 1 : 0,
+      delayFrames: this.timing?.clipDelayFrames.get(clip.id) ?? 0,
+    };
+  }
+
+  private masterSettings(): AudioChainSettings {
+    return { stages: this.mix.master, inputGain: 1, delayFrames: 0 };
+  }
+
+  private busSettings(busId: string): AudioChainSettings {
+    const bus = this.mix.buses.find((candidate) => candidate.id === busId);
+    return { stages: bus?.stages ?? [], inputGain: 1, delayFrames: 0 };
+  }
+
+  // Configures the master and bus chains for the mix, dropping buses it no
+  // longer has.
+  private configureChains(chains: ChainGraph) {
+    this.configure(chains.master, this.masterSettings());
+    const busIds = new Set(this.mix.buses.map((bus) => bus.id));
+    for (const [busId, node] of chains.buses) {
+      if (busIds.has(busId)) {
+        this.configure(node, this.busSettings(busId));
+      } else {
+        node.disconnect();
+        chains.buses.delete(busId);
+      }
+    }
+  }
+
+  private busNode(chains: ChainGraph, context: AudioContext, busId: string) {
+    let node = chains.buses.get(busId);
+    if (!node) {
+      node = this.chainNode(context, this.busSettings(busId));
+      node.connect(chains.master);
+      chains.buses.set(busId, node);
+    }
+    return node;
   }
 
   private ensureGraph() {
@@ -221,6 +532,8 @@ export class PreviewAudioMixer {
     analyser.connect(output);
     output.connect(context.destination);
     this.graph = { context, master, analyser, meter: meter.tap, output };
+    this.timing = audioMixTiming(this.mix, context.sampleRate, this.registry);
+    this.applyMode();
     return this.graph;
   }
 
@@ -231,18 +544,37 @@ export class PreviewAudioMixer {
     }
     try {
       const graph = this.ensureGraph();
-      const element = document.createElement("audio");
-      element.crossOrigin = "anonymous";
-      element.preload = "auto";
-      element.src = url;
-      // Routing through Web Audio is permanent; the element plays at full
-      // volume into its clip's gain.
-      const source = graph.context.createMediaElementSource(element);
-      const gain = graph.context.createGain();
-      gain.gain.value = clip.amplitude;
-      source.connect(gain);
-      gain.connect(graph.master);
-      const voice = { url, element, source, gain };
+      if (this.mixNeedsChains() && this.worklet === "loading") {
+        return undefined;
+      }
+      const { context } = graph;
+      const gain = context.createGain();
+      let chain: AudioWorkletNode | null = null;
+      if (this.chains) {
+        chain = this.chainNode(context, this.clipSettings(clip));
+        gain.connect(chain);
+        chain.connect(this.busNode(this.chains, context, clip.busId));
+      } else {
+        gain.gain.value = clip.amplitude;
+        gain.connect(graph.master);
+      }
+
+      let element: HTMLAudioElement | null = null;
+      let source: MediaElementAudioSourceNode | null = null;
+      let decoded: DecodedClipVoice | null = null;
+      if (this.needsDecoded(clip)) {
+        decoded = new DecodedClipVoice(context, clip, url, this.mix.bpm, gain);
+      } else {
+        element = document.createElement("audio");
+        element.crossOrigin = "anonymous";
+        element.preload = "auto";
+        element.src = url;
+        // Routing through Web Audio is permanent; the element plays at full
+        // volume into its clip's gain.
+        source = context.createMediaElementSource(element);
+        source.connect(gain);
+      }
+      const voice = { url, element, source, decoded, gain, chain };
       this.voices.set(clip.id, voice);
       return voice;
     } catch (error) {
@@ -256,9 +588,13 @@ export class PreviewAudioMixer {
     if (!voice) {
       return;
     }
-    releaseMediaElement(voice.element);
-    voice.source.disconnect();
+    if (voice.element) {
+      releaseMediaElement(voice.element);
+    }
+    voice.source?.disconnect();
+    voice.decoded?.dispose();
     voice.gain.disconnect();
+    voice.chain?.disconnect();
     this.voices.delete(clipId);
   }
 }

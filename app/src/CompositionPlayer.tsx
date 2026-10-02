@@ -7,6 +7,7 @@ import {
   useRef,
 } from "react";
 import { clamp } from "./app/util.ts";
+import { CHAIN_WORKLET_URL } from "./audio-mix/chain-worklet-url.ts";
 import { audioMixEndSeconds } from "./audio-mix/mix.ts";
 import { renderAudioMixOffline } from "./audio-mix/offline.ts";
 import { PreviewAudioMixer } from "./audio-mix/preview-mixer.ts";
@@ -148,7 +149,7 @@ export class CompositionRenderer {
     this.canvas = options.canvas ?? document.createElement("canvas");
     this.audioAnalysis = options.audioAnalysis ?? "live";
     if (this.audioAnalysis === "live") {
-      this.mixer = new PreviewAudioMixer();
+      this.mixer = new PreviewAudioMixer({ workletUrl: CHAIN_WORKLET_URL });
     }
     this.state = state;
     this.update(state);

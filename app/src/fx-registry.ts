@@ -36,6 +36,7 @@ export type {
   FxFlagOption,
   FxNumberControl,
   FxNumberParameterDefinition,
+  FxNumberTaper,
   FxParameterDefinition,
   FxParameterReader,
   FxParameterVisibility,

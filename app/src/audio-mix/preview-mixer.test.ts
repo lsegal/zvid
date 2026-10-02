@@ -1,7 +1,11 @@
 /// <reference lib="dom" />
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
+import { gainStageAt } from "../fx/effects/gain/processor.ts";
+import type { ChainMessage, ChainNodeOptions } from "./chain-node.ts";
+import { ONE_POLE, TEST_PROCESSORS, testStage } from "./chain-test-utils.ts";
 import { PreviewAudioMixer } from "./preview-mixer.ts";
+import { DEFAULT_TIME_SIGNATURE } from "./processor.ts";
 import type { AudioMix, AudioMixClip } from "./resolve.ts";
 
 class FakeElement {
@@ -52,9 +56,46 @@ function node(extra: object = {}): FakeNode {
   };
 }
 
+class FakeWorkletNode {
+  static made: FakeWorkletNode[] = [];
+  readonly options: { processorOptions: ChainNodeOptions };
+  readonly messages: ChainMessage[] = [];
+  readonly port = {
+    postMessage: (message: ChainMessage) => {
+      this.messages.push(message);
+    },
+  };
+  connections: unknown[] = [];
+
+  constructor(
+    _context: unknown,
+    _name: string,
+    options: { processorOptions: ChainNodeOptions },
+  ) {
+    this.options = options;
+    FakeWorkletNode.made.push(this);
+  }
+
+  connect(node: unknown) {
+    this.connections.push(node);
+  }
+
+  disconnect() {
+    this.connections = [];
+  }
+}
+
 class FakeAudioContext {
   static last: FakeAudioContext | null = null;
   readonly sampleRate = 48_000;
+  currentTime = 0;
+  modules: string[] = [];
+  readonly audioWorklet = {
+    addModule: (url: string) => {
+      this.modules.push(url);
+      return Promise.resolve();
+    },
+  };
   readonly destination = node();
   state = "suspended";
   gains: FakeNode[] = [];
@@ -115,13 +156,25 @@ function clip(overrides: Partial<AudioMixClip>): AudioMixClip {
     sourceWindowStartSeconds: 0,
     sourceWindowEndSeconds: 4,
     effects: [],
-    amplitude: 1,
+    hasGain: true,
+    busId: "bus",
     ...overrides,
+    amplitude: overrides.amplitude ?? 1,
+    // A Gain at its amplitude, as resolving a clip with one gives it.
+    stages: overrides.stages ?? [gainStageAt(overrides.amplitude ?? 1)],
   };
 }
 
 function mix(clips: AudioMixClip[], masterAmplitude = 1): AudioMix {
-  return { clips, masterAmplitude, fromSourceTracks: true, bpm: 120 };
+  return {
+    clips,
+    buses: [{ id: "bus", stages: [] }],
+    master: [gainStageAt(masterAmplitude)],
+    masterAmplitude,
+    fromSourceTracks: true,
+    bpm: 120,
+    signature: DEFAULT_TIME_SIGNATURE,
+  };
 }
 
 function playing(playheadSeconds: number) {
@@ -147,18 +200,23 @@ function elementOf(mediaId: string) {
 describe("PreviewAudioMixer", () => {
   const originals = {
     AudioContext: globalThis.AudioContext,
+    AudioWorkletNode: globalThis.AudioWorkletNode,
     document: globalThis.document,
   };
   beforeEach(() => {
     FakeAudioContext.last = null;
+    FakeWorkletNode.made = [];
     globalThis.AudioContext =
       FakeAudioContext as unknown as typeof AudioContext;
+    globalThis.AudioWorkletNode =
+      FakeWorkletNode as unknown as typeof AudioWorkletNode;
     globalThis.document = {
       createElement: () => new FakeElement(),
     } as unknown as Document;
   });
   afterEach(() => {
     globalThis.AudioContext = originals.AudioContext;
+    globalThis.AudioWorkletNode = originals.AudioWorkletNode;
     globalThis.document = originals.document;
   });
 
@@ -304,5 +362,107 @@ describe("PreviewAudioMixer", () => {
     mixer.update(mix([]), media);
     assert.equal(elementOf("b"), undefined);
     mixer.dispose();
+  });
+
+  describe("with audio effects beyond Gain", () => {
+    const filtered = (cutoff = 500) =>
+      mix([
+        clip({
+          amplitude: 0.5,
+          stages: [gainStageAt(0.5), testStage(ONE_POLE, { Cutoff: cutoff })],
+        }),
+      ]);
+
+    async function chainedMixer() {
+      const mixer = new PreviewAudioMixer({
+        workletUrl: "chain-worklet.js",
+        registry: TEST_PROCESSORS,
+      });
+      mixer.update(filtered(), media);
+      // The first sync loads the worklet, and plays nothing until it has.
+      mixer.sync(playing(1));
+      assert.equal(context().sources.length, 0);
+      await Promise.resolve();
+      mixer.sync(playing(1.1));
+      return mixer;
+    }
+
+    it("runs the clip, its track's bus and the master through worklet chains", async () => {
+      const mixer = await chainedMixer();
+      assert.deepEqual(context().modules, ["chain-worklet.js"]);
+      const [master, clipChain, bus] = FakeWorkletNode.made;
+      assert.ok(master && clipChain && bus);
+      // element → clip gain → clip chain → bus chain → master chain → master
+      // gain, which leaves the master's Gains to its chain.
+      const [source] = context().sources;
+      const input = source.connections[0];
+      assert.equal(input.gain?.value, 1);
+      assert.deepEqual(input.connections, [clipChain]);
+      assert.deepEqual(clipChain.connections, [bus]);
+      assert.deepEqual(bus.connections, [master]);
+      assert.deepEqual(master.connections, [context().gains[0]]);
+      assert.equal(context().gains[0].gain?.value, 1);
+      // Each node starts with its settings, so it never plays unconfigured.
+      assert.deepEqual(clipChain.options.processorOptions.settings, {
+        stages: filtered().clips[0].stages,
+        inputGain: 1,
+        delayFrames: 0,
+      });
+      assert.deepEqual(bus.options.processorOptions.settings.stages, []);
+      assert.deepEqual(
+        master.options.processorOptions.settings.stages,
+        filtered().master,
+      );
+      mixer.dispose();
+    });
+
+    it("posts an edit to the chain it changes, once", async () => {
+      const mixer = await chainedMixer();
+      const clipChain = FakeWorkletNode.made[1];
+      mixer.update(filtered(900), media);
+      mixer.update(filtered(900), media);
+      const configures = clipChain.messages.filter(
+        (message) => message.type === "configure",
+      );
+      assert.equal(configures.length, 1);
+      assert.equal(
+        configures[0].type === "configure" &&
+          configures[0].settings.stages[1].numbers.Cutoff,
+        900,
+      );
+      mixer.dispose();
+    });
+
+    it("tells the chains where the timeline is, and resets them on a seek", async () => {
+      const mixer = await chainedMixer();
+      const master = FakeWorkletNode.made[0];
+      assert.deepEqual(master.messages.at(-1), {
+        type: "transport",
+        contextTime: 0,
+        timelineSeconds: 1.1,
+        rate: 1,
+      });
+      master.messages.length = 0;
+      // Playing on as expected says nothing new.
+      context().currentTime = 0.5;
+      mixer.sync(playing(1.6));
+      const types = () => master.messages.map((message) => message.type);
+      assert.deepEqual(types(), []);
+
+      mixer.sync(playing(3));
+      assert.deepEqual(types(), ["reset", "transport"]);
+      mixer.dispose();
+    });
+
+    it("plays Gain alone through native gains without the worklet", () => {
+      const mixer = new PreviewAudioMixer({ registry: TEST_PROCESSORS });
+      mixer.update(filtered(), media);
+      mixer.sync(playing(1));
+      assert.equal(FakeWorkletNode.made.length, 0);
+      const [source] = context().sources;
+      assert.equal(source.connections[0].gain?.value, 0.5);
+      assert.deepEqual(source.connections[0].connections, [context().gains[0]]);
+      mixer.dispose();
+    });
   });
 });

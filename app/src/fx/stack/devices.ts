@@ -17,6 +17,7 @@ import {
 } from "../../fx-registry.ts";
 import { parseFontChoice } from "../../text-fonts.ts";
 import { isTextEffectName } from "../../text-style.ts";
+import { taperPosition } from "../taper.ts";
 import { GLOBAL_EFFECT_TRACK_ID, getTrackGroup } from "./clip-stacks.ts";
 import { isLayerLayoutEffect } from "./layer-fx.ts";
 import { findParameterDefinition } from "./ops.ts";
@@ -111,15 +112,16 @@ function toDeviceParameter(
   const resolved = Number.isFinite(numericValue)
     ? numericValue
     : definition.defaultValue;
-  const span = definition.max - definition.min;
   return {
     key: definition.key,
     label: definition.label,
     kind: "number",
-    value:
-      span > 0
-        ? Math.max(0, Math.min(1, (resolved - definition.min) / span))
-        : 0,
+    value: taperPosition(
+      resolved,
+      definition.min,
+      definition.max,
+      definition.taper,
+    ),
     numericValue: resolved,
     min: definition.min,
     max: definition.max,
@@ -127,6 +129,9 @@ function toDeviceParameter(
     step: definition.step,
     ...(definition.control && definition.control !== "knob"
       ? { control: definition.control }
+      : {}),
+    ...(definition.taper && definition.taper !== "linear"
+      ? { taper: definition.taper }
       : {}),
     ...(definition.ticks ? { ticks: definition.ticks } : {}),
     display: definition.format(resolved),
