@@ -48,7 +48,7 @@ export function AudioRow({
         <div className="track-label__index">A</div>
         <div>
           <span>Audio</span>
-          <small>{summary}</small>
+          <small title={summary}>{summary}</small>
         </div>
         <button
           aria-label="Recompute audio"
