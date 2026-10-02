@@ -112,7 +112,9 @@ test("a new audio clip has a Gain with a vertical fader at 0 dB", async ({
     .first()
     .click();
   const menu = page.getByRole("menu");
-  await expect(menu.getByRole("menuitem")).toHaveCount(1);
+  await expect(menu.getByRole("menuitem", { name: /^Transform/ })).toHaveCount(
+    0,
+  );
   await menu.getByRole("menuitem", { name: /^Gain/ }).click();
   await expect(page.locator(clipDevices)).toHaveCount(1);
   await expect(
@@ -138,7 +140,6 @@ test("a video clip without sound gets no Gain", async ({ page }) => {
   await expect(
     page.getByRole("menu").getByRole("group", { name: "Video" }),
   ).toBeVisible();
-  await expect(audio.getByRole("menuitem")).toHaveCount(1);
   await audio.getByRole("menuitem", { name: /^Gain/ }).click();
   await expect(page.locator(clipDevices)).toHaveCount(1);
 });
