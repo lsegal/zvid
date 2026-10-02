@@ -4,6 +4,8 @@
   overflow: auto;
   border: 1px solid var(--line);
   border-radius: 18px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
   background: rgba(17, 19, 28, 0.32);
   scrollbar-width: thin;
 }
