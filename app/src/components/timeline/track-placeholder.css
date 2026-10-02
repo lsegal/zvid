@@ -1,0 +1,49 @@
+/* The empty row that ends the layers and the source tracks: a faint,
+   dashed row the height of the rows above it, with an add button in its
+   label. Media dragged over the source tracks turns the source one into the
+   new-track drop row (source-tracks.css). */
+.track-placeholder:not(.track-placeholder--drag) .track-label {
+  background: rgba(48, 51, 70, 0.55);
+  border-bottom-style: dashed;
+}
+
+.track-placeholder:not(.track-placeholder--drag) .track-row__content {
+  border-bottom-style: dashed;
+  background-color: rgba(20, 21, 32, 0.12);
+}
+
+.track-placeholder__add {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 7px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.track-placeholder__add svg {
+  width: 14px;
+  height: 14px;
+}
+
+.track-placeholder__add:not(:disabled):hover {
+  border-style: solid;
+  color: var(--ink);
+}
+
+.track-placeholder__add:focus-visible {
+  outline: 2px solid var(--lane-selected-accent);
+  outline-offset: 1px;
+}
+
+.track-placeholder__add:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

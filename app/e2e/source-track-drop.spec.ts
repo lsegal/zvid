@@ -2,8 +2,8 @@ import { readFile } from "node:fs/promises";
 import { expect, type JSHandle, type Page, test } from "@playwright/test";
 
 // Dropping audio and video files from the OS onto the source tracks: onto a
-// track adds them to it, and onto the header or the new-track row creates a
-// track.
+// track adds them to it, and onto the header or the new-track row (the
+// [ + Track ] placeholder) creates a track.
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
 const AUDIO = new URL("./fixtures/tone.wav", import.meta.url);
 
@@ -53,6 +53,8 @@ async function drop(
 const header = '[aria-label="Source track drop area"]';
 const tracks = '[data-source-track-drop-target="track"]';
 const newTrackRow = ".track-row--source-drop";
+// The new-track row while it takes a drag, rather than showing [ + Track ].
+const newTrackDropRow = ".track-placeholder--drag";
 
 async function dropIntoNewTrack(page: Page, files: DroppedFile[]) {
   await drop(page, header, await dataTransferOf(page, files));
@@ -78,7 +80,7 @@ test("dropping on an existing track's label adds to that track", async ({
     timeout: 30_000,
   });
   await expect(page.locator(tracks)).toHaveCount(1);
-  await expect(page.locator(newTrackRow)).toHaveCount(0);
+  await expect(page.locator(newTrackDropRow)).toHaveCount(0);
 });
 
 test("dropping on a track's clips adds to that track", async ({ page }) => {
@@ -103,7 +105,7 @@ test("dropping on the new-track row creates a track", async ({ page }) => {
 
   const dataTransfer = await dataTransferOf(page, [await audio()]);
   await drag(page, tracks, dataTransfer);
-  await expect(page.locator(newTrackRow)).toBeVisible();
+  await expect(page.locator(newTrackDropRow)).toBeVisible();
   await expect(page.locator(`${tracks} .is-drop-target`)).toHaveCount(1);
   await drop(page, newTrackRow, dataTransfer);
 
@@ -111,7 +113,7 @@ test("dropping on the new-track row creates a track", async ({ page }) => {
   await expect(page.locator(".source-span")).toHaveCount(2, {
     timeout: 30_000,
   });
-  await expect(page.locator(newTrackRow)).toHaveCount(0);
+  await expect(page.locator(newTrackDropRow)).toHaveCount(0);
 });
 
 test("dropping two files imports both into one track", async ({ page }) => {

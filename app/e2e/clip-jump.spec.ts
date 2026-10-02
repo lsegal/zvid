@@ -65,6 +65,11 @@ async function clipX(page: Page, clip: Locator) {
 // A plain click on another layer, under the middle of the clip, seeks there
 // without selecting the clip.
 async function seekIntoClip(page: Page, clip: Locator, otherLane: Locator) {
+  // Back to the top, so the sticky ruler doesn't cover the lane once the
+  // timeline has scrolled down to the source clip.
+  await page.locator(".timeline-scroll").evaluate((element) => {
+    element.scrollTop = 0;
+  });
   const [clipBox, laneBox] = await Promise.all([
     clip.boundingBox(),
     otherLane.boundingBox(),

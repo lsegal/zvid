@@ -18,8 +18,10 @@ import type {
 } from "../app/types.ts";
 import { layerHistoryLabels } from "../layer-menu";
 import {
+  addEmptySourceTrack,
   deleteSourceTrack,
   duplicateSourceTrack,
+  getNextSourceTrackName,
   moveSourceTrackTo,
   renameSourceTrack,
 } from "../source-track-edits.ts";
@@ -55,10 +57,10 @@ function focusSourceTrackLabel(trackId: string) {
   }, 0);
 }
 
-// Renames, duplicates, deletes and moves source tracks, like useLayerActions
-// does layers, with the same history labels, and locks and unlocks them.
-// While they are locked, deleting and moving them does nothing; renaming and
-// duplicating still work. The selection follows a selected track to its
+// Adds empty source tracks, and renames, duplicates, deletes and moves them,
+// like useLayerActions does layers, with the same history labels, and locks
+// and unlocks them. While they are locked, deleting and moving them does
+// nothing; adding, renaming and duplicating still work. The selection follows a selected track to its
 // duplicate, or to its neighbor when it is deleted.
 export function useSourceTrackActions({
   commitProjectChange,
@@ -102,6 +104,19 @@ export function useSourceTrackActions({
 
   function refuseLockedEdit() {
     setStatus(`${SOURCE_TRACKS_LOCKED_TITLE}.`);
+  }
+
+  // Adds an empty track after the others and selects it; media imported or
+  // dropped onto it fills it later.
+  function createEmptySourceTrack() {
+    const trackId = `source-track-${crypto.randomUUID()}`;
+    const name = getNextSourceTrackName(sourceTracks);
+    commitProjectChange("Create source track", (current) =>
+      patchProjectState(current, addEmptySourceTrack(current, trackId, name)),
+    );
+    selectSource(selectSourceTrack(trackId));
+    focusSourceTrackLabel(trackId);
+    setStatus(`Created ${name}.`);
   }
 
   function duplicateSourceTrackAction(track: SourceTrack) {
@@ -203,6 +218,7 @@ export function useSourceTrackActions({
     setRenamingSourceTrackId,
     commitSourceTrackRename,
     cancelSourceTrackRename,
+    createEmptySourceTrack,
     duplicateSourceTrack: duplicateSourceTrackAction,
     deleteSourceTrack: deleteSourceTrackAction,
     moveSourceTrack,

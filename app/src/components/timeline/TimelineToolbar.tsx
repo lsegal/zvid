@@ -1,13 +1,10 @@
 import { SIGNATURE_OPTIONS } from "../../app/constants.ts";
 import type {
-  Lane,
   ProjectState,
   TimelineMode,
   TimeSignature,
 } from "../../app/types.ts";
-import { getNextLaneNumber } from "../../app/util.ts";
 import type { PlayheadSignal } from "../../playhead-signal";
-import { MAX_LAYERS } from "../../selection-overlaps";
 import { TransportPlayheadReadout } from "../LivePlayhead";
 import { MEDIA_DRAWER_ID } from "../media/MediaDrawer";
 import { TempoPill } from "../TempoPill";
@@ -22,20 +19,17 @@ type TimelineToolbarProps = {
   timelineMode: TimelineMode;
   snapEnabled: boolean;
   signatureId: string;
-  lanes: Lane[];
-  canCreateLayer: boolean;
   commitProjectChange: (
     label: string,
     updater: (current: ProjectState) => ProjectState,
   ) => void;
   commitProjectPatch: (label: string, patch: Partial<ProjectState>) => void;
-  onCreateLayer: () => void;
   isMediaDrawerOpen: boolean;
   onToggleMediaDrawer: () => void;
 };
 
 // The Media drawer toggle, the playhead readout and the timeline's scale,
-// snap, tempo, time signature and layer controls above the timeline.
+// snap, tempo and time signature controls above the timeline.
 export function TimelineToolbar({
   playheadSignal,
   bpm,
@@ -44,11 +38,8 @@ export function TimelineToolbar({
   timelineMode,
   snapEnabled,
   signatureId,
-  lanes,
-  canCreateLayer,
   commitProjectChange,
   commitProjectPatch,
-  onCreateLayer,
   isMediaDrawerOpen,
   onToggleMediaDrawer,
 }: TimelineToolbarProps) {
@@ -137,22 +128,6 @@ export function TimelineToolbar({
             options={SIGNATURE_OPTIONS}
             value={signatureId}
           />
-        </div>
-
-        <div className="layer-toolbar">
-          <span className="layer-toolbar__count">
-            Layers {lanes.length}/{MAX_LAYERS}
-          </span>
-          <button
-            className="layer-toolbar__button"
-            disabled={!canCreateLayer}
-            onClick={onCreateLayer}
-            type="button"
-          >
-            {canCreateLayer
-              ? `Create Layer ${getNextLaneNumber(lanes)}`
-              : "Max Layers"}
-          </button>
         </div>
       </div>
     </div>

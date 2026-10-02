@@ -13,8 +13,10 @@ import {
   projectHistoryReducer,
 } from "./project-history.ts";
 import {
+  addEmptySourceTrack,
   deleteSourceTrack,
   duplicateSourceTrack,
+  getNextSourceTrackName,
   moveSourceTrackTo,
   nextFreeSourceTrackColorIndex,
   renameSourceTrack,
@@ -326,6 +328,50 @@ describe("renameSourceTrack", () => {
   });
 });
 
+describe("addEmptySourceTrack", () => {
+  it("adds an empty track after the others in the next color", () => {
+    const project = makeProject();
+    const added = addEmptySourceTrack(project, "new", "Source Track 4");
+    assert.deepEqual(added.sourceTracks.at(-1), {
+      id: "new",
+      name: "Source Track 4",
+      colorIndex: 3,
+      recordingPaths: [],
+    });
+    assert.deepEqual(added.sourceTracks.slice(0, -1), project.sourceTracks);
+  });
+
+  it("starts the palette cycle for the first track", () => {
+    const added = addEmptySourceTrack(
+      { sourceTracks: [] },
+      "new",
+      "Source Track 1",
+    );
+    assert.equal(added.sourceTracks[0].colorIndex, 4);
+  });
+});
+
+describe("getNextSourceTrackName", () => {
+  it("numbers the track one past the others", () => {
+    assert.equal(getNextSourceTrackName([]), "Source Track 1");
+    assert.equal(
+      getNextSourceTrackName([{ name: "clip" }, { name: "music" }]),
+      "Source Track 3",
+    );
+  });
+
+  it("skips numbers a track is already named with", () => {
+    assert.equal(
+      getNextSourceTrackName([{ name: "Source Track 2" }, { name: "music" }]),
+      "Source Track 3",
+    );
+    assert.equal(
+      getNextSourceTrackName([{ name: "Source Track 2" }]),
+      "Source Track 3",
+    );
+  });
+});
+
 describe("source track history", () => {
   it("undoes and redoes each edit as one step", () => {
     const initial = makeProject();
@@ -337,6 +383,13 @@ describe("source track history", () => {
       ["Delete Track b", (current) => deleteSourceTrack(current, "b")],
       ["Move Track a down", (current) => moveSourceTrackTo(current, "a", 1)],
       ["Rename Track b", (current) => renameSourceTrack(current, "b", "Wide")],
+      [
+        "Create source track",
+        (current) => ({
+          ...current,
+          ...addEmptySourceTrack(current, "new", "Source Track 4"),
+        }),
+      ],
     ];
     for (const [label, updater] of edits) {
       const committed = projectHistoryReducer(

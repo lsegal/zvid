@@ -354,6 +354,7 @@ export function useTimelineEditing({
     setRenamingSourceTrackId,
     commitSourceTrackRename,
     cancelSourceTrackRename,
+    createEmptySourceTrack,
     duplicateSourceTrack,
     deleteSourceTrack,
     moveSourceTrack,
@@ -542,6 +543,7 @@ export function useTimelineEditing({
     renamingSourceTrackId,
     commitSourceTrackRename,
     cancelSourceTrackRename,
+    createEmptySourceTrack,
     getClipMenuEntries,
     getEditMenuEntries,
   };
