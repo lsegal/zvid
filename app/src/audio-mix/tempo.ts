@@ -47,15 +47,14 @@ function parseNoteValue(option: string) {
   const feel: NoteFeel =
     suffix === "D" ? "dotted" : suffix === "T" ? "triplet" : "straight";
   const base = feel === "straight" ? trimmed : trimmed.slice(0, -1);
-  const bars = /^(\d+) bars?$/.exec(base);
-  if (bars) {
-    return { bars: Number(bars[1]), quarters: 0, feel };
+  if (!NOTE_VALUES.includes(base)) {
+    return undefined;
   }
-  const fraction = /^1\/(\d+)$/.exec(base);
-  if (fraction) {
-    return { bars: 0, quarters: 4 / Number(fraction[1]), feel };
-  }
-  return undefined;
+  // "2 bars" counts bars; "1/8" divides a whole note.
+  const [count, unit] = base.split(/[ /]/).map(Number);
+  return base.includes("bar")
+    ? { bars: count, quarters: 0, feel }
+    : { bars: 0, quarters: 4 / unit, feel };
 }
 
 // Quarter notes in one bar of `signature`.
