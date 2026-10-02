@@ -13,6 +13,7 @@ import { pass as colorizePass } from "./colorize/pass.ts";
 import * as compressor from "./compressor/definition.ts";
 import * as eq from "./eq/definition.ts";
 import * as gain from "./gain/definition.ts";
+import * as highPass from "./high-pass/definition.ts";
 import * as layout from "./layout/definition.ts";
 import * as move from "./move/definition.ts";
 import * as negativeSplit from "./negative-split/definition.ts";
@@ -39,6 +40,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   compressor,
   eq,
   gain,
+  highPass,
   layout,
   move,
   negativeSplit,
