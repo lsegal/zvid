@@ -155,7 +155,10 @@ export class CompressorDsp {
           block.ratio[index],
           block.kneeDb[index],
         );
-      held = Math.max(target, this.release * held + (1 - this.release) * target);
+      held = Math.max(
+        target,
+        this.release * held + (1 - this.release) * target,
+      );
       reduction = this.attack * reduction + (1 - this.attack) * held;
 
       const mix = block.mix[index];
