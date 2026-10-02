@@ -70,11 +70,13 @@ function constant(value: number, seconds = 0.5) {
 }
 
 // Renders `input` (mono) through a chain of `stages`, applying `changes` at
-// their frames, block by block like the hosts.
+// their frames, block by block like the hosts, from timeline frame
+// `fromFrame`.
 function render(
   stages: readonly AudioStage[],
   input: Float32Array,
   changes: { frame: number; stages: readonly AudioStage[] }[] = [],
+  fromFrame = 0,
 ) {
   const chain = new AudioChain(registry, RATE, 1);
   chain.configure({ stages, inputGain: 1, delayFrames: 0 }, TEMPO);
@@ -94,7 +96,7 @@ function render(
     const frames = Math.min(BLOCK_FRAMES, input.length - start);
     const source = new Float32Array(BLOCK_FRAMES);
     source.set(input.subarray(start, start + frames));
-    chain.process([source], block, frames, start / RATE);
+    chain.process([source], block, frames, (fromFrame + start) / RATE);
     output.set(block[0].subarray(0, frames), start);
   }
   return output;
@@ -177,6 +179,29 @@ describe("Bitcrush stage quantization", () => {
           `${factor}× frame ${i}`,
         );
       }
+    }
+  });
+
+  it("holds on the timeline's Downsample grid wherever it starts", () => {
+    const input = noise();
+    const factor = 8;
+    // Starting 5 frames into a stretch, it holds the first frame until the
+    // next multiple of Downsample on the timeline, then every 8 frames.
+    const from = RATE + 5;
+    const output = render(
+      [crush({ Bits: 16, Downsample: factor })],
+      input,
+      [],
+      from,
+    );
+    for (let i = 0; i < input.length; i++) {
+      const timeline = from + i;
+      const taken = Math.max(0, timeline - (timeline % factor) - from);
+      assert.equal(
+        output[i],
+        Math.fround(quantizeWhole(input[taken], 16)),
+        `frame ${i}`,
+      );
     }
   });
 

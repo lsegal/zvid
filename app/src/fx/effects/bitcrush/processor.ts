@@ -40,9 +40,10 @@ export const processor: AudioEffectDsp = {
   createProcessor(_sampleRate, channels) {
     const dsp = new BitcrushDsp(channels);
     return {
-      process(input, output, frames, params) {
+      process(input, output, frames, params, time) {
         dsp.process(input, output, {
           frames,
+          startFrame: Math.round(time.timeSeconds * time.sampleRate),
           bits: reader(params, BITS_KEY),
           downsample: reader(params, DOWNSAMPLE_KEY),
           mix: reader(params, MIX_KEY),

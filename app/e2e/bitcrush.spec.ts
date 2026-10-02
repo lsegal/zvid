@@ -265,7 +265,7 @@ test("a video clip's add menu lists Bitcrush in its Audio group", async ({
 });
 
 // Renders a 440 Hz tone at 0.2 through Bitcrush with `numbers`, both as an
-// export does and through a lone chain.
+// export does and through a lone chain fed the clip as export reads it.
 function renderBoth(page: Page, numbers: Record<string, number>) {
   return page.evaluate(
     async ({ numbers }) => {
@@ -311,42 +311,45 @@ function renderBoth(page: Page, numbers: Record<string, number>) {
         switches: {},
       };
       const signature = { numerator: 4, denominator: 4 };
-      const mix = {
-        clips: [
-          {
-            id: "clip",
-            mediaId: "tone",
-            startSeconds: 0,
-            durationSeconds: 2,
-            sourceOffsetSeconds: 0,
-            sourceWindowStartSeconds: 0,
-            sourceWindowEndSeconds: 2,
-            effects: [],
-            amplitude: 1,
-            hasGain: true,
-            busId: "bus",
-            stages: [stage],
-          },
-        ],
-        buses: [{ id: "bus", stages: [] }],
-        master: [],
-        masterAmplitude: 1,
-        fromSourceTracks: true,
-        bpm: 120,
-        signature,
+      const exportWith = async (stages: (typeof stage)[]) => {
+        const mix = {
+          clips: [
+            {
+              id: "clip",
+              mediaId: "tone",
+              startSeconds: 0,
+              durationSeconds: 2,
+              sourceOffsetSeconds: 0,
+              sourceWindowStartSeconds: 0,
+              sourceWindowEndSeconds: 2,
+              effects: [],
+              amplitude: 1,
+              hasGain: true,
+              busId: "bus",
+              stages,
+            },
+          ],
+          buses: [{ id: "bus", stages: [] }],
+          master: [],
+          masterAmplitude: 1,
+          fromSourceTracks: true,
+          bpm: 120,
+          signature,
+        };
+        const [rendered] = await renderAudioMixOffline(
+          mix,
+          [{ id: "tone", previewUrl: url }],
+          { sampleRate, numberOfChannels: 1, startSeconds: 0, length },
+        );
+        return rendered as Float32Array;
       };
-      const [exported] = await renderAudioMixOffline(
-        mix,
-        [{ id: "tone", previewUrl: url }],
-        { sampleRate, numberOfChannels: 1, startSeconds: 0, length },
-      );
+      const exported = await exportWith([stage]);
 
-      // The same tone, decoded the same way, through a lone chain.
-      const context = new OfflineAudioContext(1, 1, sampleRate);
-      const decoded = await context.decodeAudioData(
-        await (await fetch(url)).arrayBuffer(),
-      );
-      const input = decoded.getChannelData(0);
+      // The clip as export reads it, through a lone chain. Export's reading
+      // differs from the WAV's samples by rounding error, which the crush
+      // would turn into a whole level where a sample sits on a step, so
+      // both get the same input.
+      const input = await exportWith([]);
       const chain = new AudioChain(AUDIO_PROCESSORS, sampleRate, 1);
       chain.configure(
         { stages: [stage], inputGain: 1, delayFrames: 0 },

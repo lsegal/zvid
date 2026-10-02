@@ -64,6 +64,8 @@ export function quantize(sample: number, bits: number) {
 
 export type BitcrushBlock = {
   frames: number;
+  // The timeline frame of the block's first frame.
+  startFrame: number;
   // Each number parameter's value at every frame.
   bits: (index: number) => number;
   downsample: (index: number) => number;
@@ -73,8 +75,10 @@ export type BitcrushBlock = {
 export class BitcrushDsp {
   // One held sample per channel.
   private readonly held: Float64Array;
-  // Frames since the held samples were taken; the first frame takes them.
-  private since = Number.POSITIVE_INFINITY;
+  // The Downsample-sized stretch of the timeline the held samples were
+  // taken in. The stretches count from the timeline's start, so preview and
+  // export hold the same frames wherever they start playing.
+  private stretch = Number.NaN;
 
   constructor(channels: number) {
     this.held = new Float64Array(channels);
@@ -87,13 +91,15 @@ export class BitcrushDsp {
   ) {
     for (let index = 0; index < block.frames; index++) {
       // Every channel holds on the same frames, so the stereo image holds.
-      if (this.since >= block.downsample(index)) {
-        this.since = 0;
+      const stretch = Math.floor(
+        (block.startFrame + index) / block.downsample(index),
+      );
+      if (stretch !== this.stretch) {
+        this.stretch = stretch;
         for (let channel = 0; channel < output.length; channel++) {
           this.held[channel] = input[channel][index];
         }
       }
-      this.since++;
       const bits = block.bits(index);
       const wetShare = block.mix(index);
       for (let channel = 0; channel < output.length; channel++) {
