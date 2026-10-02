@@ -223,10 +223,10 @@ export class EqFilter {
   // Per channel: z1 and z2 of each band in turn.
   private readonly state: Float64Array[];
 
-  constructor(
-    readonly sampleRate: number,
-    channels: number,
-  ) {
+  readonly sampleRate: number;
+
+  constructor(sampleRate: number, channels: number) {
+    this.sampleRate = sampleRate;
     this.state = Array.from({ length: channels }, () => new Float64Array(6));
   }
 

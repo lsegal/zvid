@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   EQ_RANGES,
-  EqProcessor,
+  EqFilter,
   type EqSettings,
   eqResponseDb,
   formatEqGain,
@@ -48,8 +48,10 @@ function impulse(length = 4096) {
 }
 
 function render(settings: EqSettings, input: Float32Array) {
-  const output = input.slice();
-  new EqProcessor(settings, RATE).process([output]);
+  const output = new Float32Array(input.length);
+  const filter = new EqFilter(RATE, 1);
+  filter.setSettings(settings);
+  filter.process([input], [output], 0, input.length);
   return output;
 }
 
@@ -149,7 +151,7 @@ describe("EQ mid peak", () => {
   });
 });
 
-describe("EQ processing", () => {
+describe("EqFilter", () => {
   it("matches its analytic response", () => {
     const settings = { ...FLAT, lowGain: -9, midGain: 4, highGain: 7 };
     for (const frequency of [60, 1000, 12_000]) {
@@ -165,45 +167,49 @@ describe("EQ processing", () => {
     const settings = { ...FLAT, midGain: 9 };
     const left = noise();
     const right = sine(300, 0.5);
-    const processor = new EqProcessor(settings, RATE);
-    const channels = [left.slice(), right.slice()];
-    processor.process(channels);
-    assert.deepEqual(channels[0], render(settings, left));
-    assert.deepEqual(channels[1], render(settings, right));
+    const filter = new EqFilter(RATE, 2);
+    filter.setSettings(settings);
+    const output = [
+      new Float32Array(left.length),
+      new Float32Array(left.length),
+    ];
+    filter.process([left, right], output, 0, left.length);
+    assert.deepEqual(output[0], render(settings, left));
+    assert.deepEqual(output[1], render(settings, right));
   });
 
   it("gives the same output whatever the block size", () => {
     const settings = { ...FLAT, lowGain: 10, midGain: -6 };
     const input = noise(0.2);
-    const whole = render(settings, input);
-    const processor = new EqProcessor(settings, RATE);
-    const blocks = input.slice();
-    for (let start = 0; start < blocks.length; start += 128) {
-      processor.process([blocks.subarray(start, start + 128)]);
+    const filter = new EqFilter(RATE, 1);
+    filter.setSettings(settings);
+    const output = new Float32Array(input.length);
+    for (let start = 0; start < input.length; start += 128) {
+      filter.process(
+        [input],
+        [output],
+        start,
+        Math.min(input.length, start + 128),
+      );
     }
-    assert.deepEqual(blocks, whole);
+    assert.deepEqual(output, render(settings, input));
   });
 
-  it("smooths a parameter jump instead of stepping", () => {
-    const input = sine(80, 1);
-    const processor = new EqProcessor(FLAT, RATE);
-    const output = input.slice();
-    const half = RATE / 2;
-    processor.process([output.subarray(0, half)]);
-    processor.setTarget({ ...FLAT, lowGain: 15 });
-    processor.process([output.subarray(half)]);
-    // A full-scale 80 Hz sine changes by at most 2πf/rate per sample; the
-    // smoothed boost may add a little to that, but never the jump of an
-    // instant +15 dB step.
-    const sineSlope = (2 * Math.PI * 80 * 0.5) / RATE;
-    let maxStep = 0;
-    for (let i = half - 64; i < half + 4 * RATE * 0.02; i += 1) {
-      maxStep = Math.max(maxStep, Math.abs(output[i + 1] - output[i]));
-    }
-    assert.ok(maxStep < sineSlope * 10 ** (15 / 20) * 1.5, `${maxStep}`);
-    // ...and it does reach the target.
-    const target = eqResponseDb({ ...FLAT, lowGain: 15 }, 80, RATE);
-    near(levelDb(output.subarray(half)), levelDb(input) + target, 0.2);
+  it("starts from silence again after a flat stretch", () => {
+    const boosted = { ...FLAT, lowGain: 12 };
+    const input = noise(0.2);
+    const filter = new EqFilter(RATE, 1);
+    const output = new Float32Array(input.length);
+    filter.setSettings(boosted);
+    filter.process([input], [output], 0, 4800);
+    filter.setSettings(FLAT);
+    filter.process([input], [output], 4800, 4801);
+    filter.setSettings(boosted);
+    filter.process([input], [output], 4801, input.length);
+    assert.deepEqual(
+      output.subarray(4801),
+      render(boosted, input.subarray(4801)),
+    );
   });
 });
 
