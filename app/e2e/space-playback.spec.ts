@@ -80,13 +80,13 @@ test("Space toggles playback from buttons, sliders, grips and the menubar", asyn
   await expectSpaceToggles(page, file);
   await expect(page.getByRole("menu")).toHaveCount(0);
 
-  const snap = page
-    .getByRole("tablist", { name: "Snap grid" })
+  const scale = page
+    .getByRole("tablist", { name: "Timeline scale" })
     .getByRole("button");
-  const selected = await snap.evaluateAll((tabs) =>
+  const selected = await scale.evaluateAll((tabs) =>
     tabs.findIndex((tab) => tab.classList.contains("is-active")),
   );
-  const other = snap.nth(selected === 0 ? 1 : 0);
+  const other = scale.nth(selected === 0 ? 1 : 0);
   await expectSpaceToggles(page, other);
   await expect(other).not.toHaveClass(/is-active/);
 
