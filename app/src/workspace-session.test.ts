@@ -12,7 +12,7 @@ import {
 } from "./workspace-session.ts";
 
 type Clip = { id: string; startQ: number; label?: string };
-type State = { name: string; bpm: number; clips: Clip[]; mainAudioId?: string };
+type State = { name: string; bpm: number; clips: Clip[]; note?: string };
 type View = { playheadQ: number; zoom?: number };
 
 const options = {
@@ -130,14 +130,14 @@ describe("workspace session serialization", () => {
       name: "Set",
       bpm: Number.NaN,
       clips: [],
-      mainAudioId: undefined,
+      note: undefined,
     });
     const restored = parseWorkspaceSession<State, View>(
       serializeWorkspaceSession(session(history)),
       options,
     );
 
-    assert.equal("mainAudioId" in restored.history.present, false);
+    assert.equal("note" in restored.history.present, false);
     assert.equal(restored.history.present.bpm, null);
   });
 

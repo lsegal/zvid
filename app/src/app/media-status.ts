@@ -59,7 +59,6 @@ export type SessionMediaSyncInputs = {
   mediaItems: MediaItem[];
   timelineClips: ArrangementClip[];
   sourceSpans: SourceSpan[];
-  mainAudioId: string | undefined;
   progress: RemoteMediaProgressMap;
   misses: RemoteMediaMisses;
   inSharedSession: boolean;
@@ -69,7 +68,6 @@ export function listSessionMediaSync({
   mediaItems,
   timelineClips,
   sourceSpans,
-  mainAudioId,
   progress,
   misses,
   inSharedSession,
@@ -81,7 +79,6 @@ export function listSessionMediaSync({
     // report as offline.
     arrangementClips: timelineClips.filter(usesMediaFile),
     sourceClips: sourceSpans.filter(usesMediaFile),
-    mainAudioId,
     progress,
     misses,
     inSharedSession,

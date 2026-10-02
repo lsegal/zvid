@@ -186,7 +186,7 @@ test("an imported Live set opens with its source tracks locked", async ({
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "File", exact: true }).click();
   const chooser = page.waitForEvent("filechooser");
   await page
     .getByRole("menuitem", { name: "Open Session", exact: true })

@@ -147,13 +147,18 @@ describe("clip extents", () => {
     );
   });
 
-  it("extends the timeline to the latest clip, span or main audio", () => {
-    assert.equal(getTimelineContentEndQ([], [], undefined, 120, 4), 4);
+  it("extends the timeline to the latest clip or span", () => {
+    assert.equal(getTimelineContentEndQ([], [], 120, 4), 4);
     assert.equal(
-      getTimelineContentEndQ([clip({ startQ: 8 })], [span()], 1, 120, 4),
+      getTimelineContentEndQ([clip({ startQ: 8 })], [span()], 120, 4),
       12,
     );
-    assert.equal(getTimelineContentEndQ([], [], 10, 120, 4), 20);
+    // An audio-only source clip, such as an old session's main audio, sets
+    // the length too.
+    assert.equal(
+      getTimelineContentEndQ([], [span({ durationSeconds: 10 })], 120, 4),
+      20,
+    );
   });
 });
 

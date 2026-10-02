@@ -128,7 +128,7 @@ async function dragAround(
 }
 
 async function expectUndo(page: Page, label: RegExp) {
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
   const undo = page.getByRole("menuitem", { name: /^Undo/ });
   await expect(undo).toHaveText(label);
   return undo;

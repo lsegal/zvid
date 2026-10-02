@@ -82,7 +82,7 @@ const layerEntries: ContextMenuEntry[] = [
 ];
 
 const audioEntries: ContextMenuEntry[] = [
-  { type: "item", id: "import", label: "Import main audio…" },
+  { type: "item", id: "refresh", label: "Recompute audio" },
 ];
 
 describe("buildEditMenuEntries", () => {

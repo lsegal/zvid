@@ -1111,7 +1111,7 @@
   animation: media-sync-indeterminate 1.3s ease-in-out infinite;
 }
 
-/* Placeholder waveform bars of a few heights across the main Audio row. */
+/* Placeholder waveform bars of a few heights across the Audio row. */
 .media-sync--waveform {
   inset: 8px auto 8px 0;
   --clip-accent: rgba(214, 236, 245, 0.82);
