@@ -2,6 +2,7 @@
 // is a switch, so the chain crossfades it; the level ramps.
 import type {
   AudioEffectDsp,
+  AudioStage,
   AudioStageSettings,
 } from "../../../audio-mix/processor.ts";
 import {
@@ -21,6 +22,19 @@ export function gainStageAmplitude(settings: AudioStageSettings) {
     settings.numbers[GAIN_KEY] ?? GAIN_DEFAULT_DB,
     settings.switches[MUTE_KEY] === MUTE_ON,
   );
+}
+
+// A Gain stage at `amplitude`, for mixes built by hand (tests, the export
+// smoke page): muted at 0.
+export function gainStageAt(amplitude: number, id = "gain"): AudioStage {
+  const mute = !(amplitude > 0);
+  return {
+    id,
+    effectName: GAIN_EFFECT_NAME,
+    enabled: true,
+    numbers: { [GAIN_KEY]: mute ? GAIN_DEFAULT_DB : 20 * Math.log10(amplitude) },
+    switches: { [MUTE_KEY]: mute ? MUTE_ON : "0" },
+  };
 }
 
 export const processor: AudioEffectDsp = {

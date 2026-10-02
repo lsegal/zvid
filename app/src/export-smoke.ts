@@ -1,7 +1,9 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { save as nativeSave } from "@tauri-apps/plugin-dialog";
+import { DEFAULT_TIME_SIGNATURE } from "./audio-mix/processor";
 import type { AudioMix } from "./audio-mix/resolve";
 import { gainToAmplitude } from "./fx/effects/gain/gain";
+import { gainStageAt } from "./fx/effects/gain/processor";
 import type { SaveTarget } from "./harness/contracts";
 import { exportVideo } from "./harness/export";
 import type { MediaItem } from "./media";
@@ -136,12 +138,18 @@ function toneMix(previewUrl: string) {
     sourceWindowEndSeconds: 2,
     effects: [],
     amplitude: gainToAmplitude(-6),
+    hasGain: true,
+    busId: "tone",
+    stages: [gainStageAt(gainToAmplitude(-6))],
   });
   const mix: AudioMix = {
     clips: [clip("tone-a"), clip("tone-b")],
+    buses: [{ id: "tone", stages: [] }],
+    master: [],
     masterAmplitude: 1,
     fromSourceTracks: true,
     bpm: 120,
+    signature: DEFAULT_TIME_SIGNATURE,
   };
   return {
     mix,

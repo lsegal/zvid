@@ -87,6 +87,14 @@ export const SIGNATURES: TimeSignature[] = [
   { id: "7/8", numerator: 7, denominator: 8 },
 ];
 
+// The signature `signatureId` names, or 4/4.
+export function signatureById(signatureId: string) {
+  return (
+    SIGNATURES.find((candidate) => candidate.id === signatureId) ??
+    SIGNATURES[0]
+  );
+}
+
 export const SIGNATURE_OPTIONS = SIGNATURES.map(({ id }) => ({
   value: id,
   label: id,
