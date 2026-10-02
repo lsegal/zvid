@@ -5,6 +5,7 @@ import type { AudioEffectDsp } from "../../audio-mix/processor.ts";
 import { processor as chorusProcessor } from "./chorus/processor.ts";
 import { processor as eqProcessor } from "./eq/processor.ts";
 import { processor as gainProcessor } from "./gain/processor.ts";
+import { processor as noiseGateProcessor } from "./noise-gate/processor.ts";
 import { processor as phaserProcessor } from "./phaser/processor.ts";
 import { processor as stereoProcessor } from "./stereo/processor.ts";
 import { processor as transientShaperProcessor } from "./transient-shaper/processor.ts";
@@ -14,6 +15,7 @@ export const EFFECT_AUDIO_PROCESSORS: readonly AudioEffectDsp[] = [
   chorusProcessor,
   eqProcessor,
   gainProcessor,
+  noiseGateProcessor,
   phaserProcessor,
   stereoProcessor,
   transientShaperProcessor,
