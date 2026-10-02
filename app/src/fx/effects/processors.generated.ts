@@ -12,6 +12,7 @@ import { processor as phaserProcessor } from "./phaser/processor.ts";
 import { processor as saturationProcessor } from "./saturation/processor.ts";
 import { processor as stereoProcessor } from "./stereo/processor.ts";
 import { processor as transientShaperProcessor } from "./transient-shaper/processor.ts";
+import { processor as tremoloProcessor } from "./tremolo/processor.ts";
 
 // Every audio effect folder's processor.ts, in folder order.
 export const EFFECT_AUDIO_PROCESSORS: readonly AudioEffectDsp[] = [
@@ -25,4 +26,5 @@ export const EFFECT_AUDIO_PROCESSORS: readonly AudioEffectDsp[] = [
   saturationProcessor,
   stereoProcessor,
   transientShaperProcessor,
+  tremoloProcessor,
 ];
