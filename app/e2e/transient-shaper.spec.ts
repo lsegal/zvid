@@ -78,7 +78,8 @@ function hitsWav(seconds: number) {
   for (let index = 0; index < frames; index++) {
     const age = (index % (sampleRate / 10)) / sampleRate;
     const sample =
-      Math.sin((2 * Math.PI * 400 * index) / sampleRate) * Math.exp(-age / 0.03);
+      Math.sin((2 * Math.PI * 400 * index) / sampleRate) *
+      Math.exp(-age / 0.03);
     const value = Math.round(sample * 10_000);
     wav.writeInt16LE(value, 44 + index * 4);
     wav.writeInt16LE(value, 46 + index * 4);
@@ -167,10 +168,7 @@ test("Transient Shaper adds to an audio clip with its defaults", async ({
   // Removing it leaves the Gain.
   await shaper.getByRole("button", { name: "Remove Transient Shaper" }).click();
   await expect(page.locator(clipDevices)).toHaveCount(1);
-  await expect(page.locator(clipDevices)).toHaveAttribute(
-    "aria-label",
-    "Gain",
-  );
+  await expect(page.locator(clipDevices)).toHaveAttribute("aria-label", "Gain");
 });
 
 test("a video clip's add menu lists Transient Shaper in its Audio group", async ({
