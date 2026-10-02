@@ -6,7 +6,9 @@ import { processor as chorusProcessor } from "./chorus/processor.ts";
 import { processor as compressorProcessor } from "./compressor/processor.ts";
 import { processor as eqProcessor } from "./eq/processor.ts";
 import { processor as gainProcessor } from "./gain/processor.ts";
+import { processor as phaserProcessor } from "./phaser/processor.ts";
 import { processor as stereoProcessor } from "./stereo/processor.ts";
+import { processor as transientShaperProcessor } from "./transient-shaper/processor.ts";
 
 // Every audio effect folder's processor.ts, in folder order.
 export const EFFECT_AUDIO_PROCESSORS: readonly AudioEffectDsp[] = [
@@ -14,5 +16,7 @@ export const EFFECT_AUDIO_PROCESSORS: readonly AudioEffectDsp[] = [
   compressorProcessor,
   eqProcessor,
   gainProcessor,
+  phaserProcessor,
   stereoProcessor,
+  transientShaperProcessor,
 ];
