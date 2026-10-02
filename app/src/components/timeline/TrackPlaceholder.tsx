@@ -9,8 +9,7 @@ type TrackAddButtonProps = {
 };
 
 // The [ + Layer ] or [ + Track ] button in a placeholder row's label, which
-// adds a row above it. Unlike most controls, Space presses it rather than
-// toggling playback.
+// adds a row above it. Enter presses it; Space toggles playback.
 export function TrackAddButton({
   label,
   title,
@@ -20,7 +19,6 @@ export function TrackAddButton({
   return (
     <button
       className="track-placeholder__add"
-      data-space-activates
       disabled={disabled}
       onClick={onClick}
       title={title}

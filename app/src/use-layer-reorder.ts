@@ -387,9 +387,9 @@ export function useLayerReorder({
     }
 
     const session = sessionRef.current;
-    const pickKey = event.key === " " || event.key === "Enter";
     if (!session || session.mode !== "keyboard") {
-      if (!pickKey || disabled || session) {
+      // Enter picks up; Space always toggles playback (#745).
+      if (event.key !== "Enter" || disabled || session) {
         return;
       }
 
@@ -440,7 +440,6 @@ export function useLayerReorder({
       case "End":
         target = session.rows.length - 1;
         break;
-      case " ":
       case "Enter":
         event.preventDefault();
         event.stopPropagation();

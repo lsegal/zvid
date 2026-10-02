@@ -1,6 +1,10 @@
 import { type RefObject, useEffect } from "react";
 import type { DragState, TimelineDragState } from "../app/types.ts";
-import { classifySpaceTarget, type createSpaceHold } from "../space-shortcut";
+import {
+  classifySpaceTarget,
+  type createSpaceHold,
+  hasOpenPopup,
+} from "../space-shortcut";
 
 export type SpacePlaybackInputs = {
   cancelScrubPlaybackResume: () => void;
@@ -17,11 +21,12 @@ export type SpacePlaybackInputs = {
   timelineScrollRef: RefObject<HTMLDivElement | null>;
 };
 
-// Space toggles playback from anywhere except text entry and open menus or
-// dialogs. It runs in the capture phase so a focused button, menu trigger
-// or slider never sees the key and cannot also activate. Playback toggles
-// on release, so holding Space to pan the timeline never starts it. With
-// the preview pane's Media tab open, it plays the previewed media instead.
+// Space toggles playback from anywhere except text entry (#745). It runs in
+// the capture phase so a focused button, menu trigger, grip or slider never
+// sees the key and cannot also activate, and it closes an open menu, listbox
+// or popover first. Playback toggles on release, so holding Space to pan the
+// timeline never starts it. With the preview pane's Media tab open, it plays
+// the previewed media instead.
 export function useSpacePlayback({
   cancelScrubPlaybackResume,
   clipCount,
@@ -52,7 +57,7 @@ export function useSpacePlayback({
         event.metaKey ||
         event.ctrlKey ||
         event.altKey ||
-        classifySpaceTarget(event.target, document) !== "playback"
+        classifySpaceTarget(event.target) !== "playback"
       ) {
         spaceHold.cancel();
         setSpaceHeldClass(false);
@@ -61,6 +66,18 @@ export function useSpacePlayback({
 
       event.preventDefault();
       event.stopPropagation();
+      if (!event.repeat && hasOpenPopup(document)) {
+        // Esc closes it the way the user would, returning focus to its
+        // trigger.
+        (document.activeElement ?? document.body).dispatchEvent(
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            cancelable: true,
+            code: "Escape",
+            key: "Escape",
+          }),
+        );
+      }
       spaceHold.press();
       setSpaceHeldClass(true);
     };

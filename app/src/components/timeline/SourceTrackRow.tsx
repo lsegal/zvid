@@ -111,7 +111,7 @@ export function SourceTrackRow({
           title={
             locked
               ? SOURCE_TRACKS_LOCKED_TITLE
-              : "Drag to reorder, or press Space to pick up"
+              : "Drag to reorder, or press Enter to pick up"
           }
           type="button"
         >

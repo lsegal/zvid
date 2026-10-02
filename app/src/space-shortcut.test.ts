@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   classifySpaceTarget,
   createSpaceHold,
+  hasOpenPopup,
   isTextEntryTarget,
 } from "./space-shortcut.ts";
 
@@ -14,6 +15,11 @@ const useSpacePlaybackTs = readFileSync(
 );
 const useRulerGesturesTs = readFileSync(
   new URL("./hooks/useRulerGestures.ts", import.meta.url),
+  "utf8",
+);
+
+const trackPlaceholderTsx = readFileSync(
+  new URL("./components/timeline/TrackPlaceholder.tsx", import.meta.url),
   "utf8",
 );
 
@@ -36,26 +42,22 @@ function element(
   };
 }
 
-const noOverlay = { querySelector: () => null };
-const openOverlay = { querySelector: () => ({}) };
-
 describe("space shortcut target classification", () => {
   it("keeps Space for text entry", () => {
     for (const type of ["text", "search", "number", "url", "email", ""]) {
       assert.equal(
-        classifySpaceTarget(element("INPUT", { type }), noOverlay),
+        classifySpaceTarget(element("INPUT", { type })),
         "text-entry",
         `input type="${type}"`,
       );
     }
     assert.equal(
-      classifySpaceTarget(element("TEXTAREA"), noOverlay),
+      classifySpaceTarget(element("TEXTAREA")),
       "text-entry",
     );
     assert.equal(
       classifySpaceTarget(
-        element("DIV", { isContentEditable: true }),
-        noOverlay,
+        element("DIV", { isContentEditable: true })
       ),
       "text-entry",
     );
@@ -64,104 +66,55 @@ describe("space shortcut target classification", () => {
   it("toggles playback from non-text controls", () => {
     for (const type of ["range", "checkbox", "radio", "button", "color"]) {
       assert.equal(
-        classifySpaceTarget(element("INPUT", { type }), noOverlay),
+        classifySpaceTarget(element("INPUT", { type })),
         "playback",
         `input type="${type}"`,
       );
       assert.equal(isTextEntryTarget(element("INPUT", { type })), false);
     }
-    assert.equal(classifySpaceTarget(element("BUTTON"), noOverlay), "playback");
-    assert.equal(classifySpaceTarget(element("SELECT"), noOverlay), "playback");
-    assert.equal(classifySpaceTarget(element("BODY"), noOverlay), "playback");
-    assert.equal(classifySpaceTarget(null, noOverlay), "playback");
+    assert.equal(classifySpaceTarget(element("BUTTON")), "playback");
+    assert.equal(classifySpaceTarget(element("SELECT")), "playback");
+    assert.equal(classifySpaceTarget(element("BODY")), "playback");
+    assert.equal(classifySpaceTarget(null), "playback");
     assert.equal(classifySpaceTarget(element("BUTTON")), "playback");
   });
 
-  it("lets open menus and dialogs handle Space", () => {
-    assert.equal(
-      classifySpaceTarget(
-        element("DIV", { ancestors: ['[role="menu"]'] }),
-        noOverlay,
-      ),
-      "overlay",
-    );
-    assert.equal(
-      classifySpaceTarget(
-        element("BUTTON", { ancestors: ['[role="dialog"]'] }),
-        noOverlay,
-      ),
-      "overlay",
-    );
-    assert.equal(
-      classifySpaceTarget(element("BUTTON"), openOverlay),
-      "overlay",
-    );
+  it("toggles playback from menus, dialogs, grips and every button", () => {
+    for (const ancestor of [
+      '[role="menu"]',
+      '[role="listbox"]',
+      '[role="dialog"]',
+      '[role="alertdialog"]',
+      '[aria-modal="true"]',
+      '[role="menubar"]',
+      "[data-layer-grip]",
+      "[data-source-track-grip]",
+      "[data-space-activates]",
+    ]) {
+      assert.equal(
+        classifySpaceTarget(element("BUTTON", { ancestors: [ancestor] })),
+        "playback",
+        ancestor,
+      );
+    }
   });
 
-  it("leaves Space to playback while a docked listbox is on the page", () => {
-    // Matches only an unqualified listbox selector, as a docked one would.
-    const dockedListbox = {
-      querySelector: (selector: string) =>
-        selector.split(",").some((part) => part.trim() === '[role="listbox"]')
-          ? {}
-          : null,
-    };
-    assert.equal(
-      classifySpaceTarget(element("BODY"), dockedListbox),
-      "playback",
-    );
-  });
-
-  it("leaves Space to playback while the top bar menubar is on the page", () => {
-    // Matches only a menubar selector, as the always-present top bar would.
-    const menubar = {
-      querySelector: (selector: string) =>
-        selector.split(",").some((part) => part.trim() === '[role="menubar"]')
-          ? {}
-          : null,
-    };
-    assert.equal(classifySpaceTarget(element("BODY"), menubar), "playback");
+  it("leaves Space to a region that plays its own preview", () => {
     assert.equal(
       classifySpaceTarget(
-        element("BUTTON", { ancestors: ['[role="menubar"]'] }),
-        noOverlay,
+        element("BUTTON", { ancestors: ["[data-space-playback]"] }),
       ),
-      "overlay",
-    );
-  });
-
-  it("lets a layer's or source track's reorder grip pick up and drop with Space", () => {
-    assert.equal(
-      classifySpaceTarget(
-        element("BUTTON", { ancestors: ["[data-layer-grip]"] }),
-        noOverlay,
-      ),
-      "grip",
-    );
-    assert.equal(
-      classifySpaceTarget(
-        element("BUTTON", { ancestors: ["[data-source-track-grip]"] }),
-        noOverlay,
-      ),
-      "grip",
-    );
-  });
-
-  it("lets the placeholder rows' add buttons activate with Space", () => {
-    assert.equal(
-      classifySpaceTarget(
-        element("BUTTON", { ancestors: ["[data-space-activates]"] }),
-        noOverlay,
-      ),
-      "button",
+      "own-playback",
     );
   });
 
   it("still types into text fields inside a dialog", () => {
     assert.equal(
       classifySpaceTarget(
-        element("INPUT", { type: "text", ancestors: ['[role="dialog"]'] }),
-        openOverlay,
+        element("INPUT", {
+          type: "text",
+          ancestors: ['[role="dialog"]', "[data-space-playback]"],
+        }),
       ),
       "text-entry",
     );
@@ -169,6 +122,7 @@ describe("space shortcut target classification", () => {
 
   it("handles Space in the capture phase without per-control opt-outs", () => {
     assert.doesNotMatch(appTsx, /data-space-activates/);
+    assert.doesNotMatch(trackPlaceholderTsx, /data-space-activates/);
     assert.match(
       useSpacePlaybackTs,
       /window\.addEventListener\("keydown", onSpaceKeyDown, true\)/,
@@ -177,6 +131,33 @@ describe("space shortcut target classification", () => {
       useSpacePlaybackTs,
       /window\.addEventListener\("keyup", onSpaceKeyUp, true\)/,
     );
+  });
+});
+
+describe("open popups that Space closes", () => {
+  // Matches when any part of the selector list is one of `present`.
+  const page = (...present: string[]) => ({
+    querySelector: (selector: string) =>
+      selector.split(",").some((part) => present.includes(part.trim()))
+        ? {}
+        : null,
+  });
+
+  it("finds open menus, listboxes and popovers", () => {
+    assert.equal(hasOpenPopup(page('[role="menu"]')), true);
+    assert.equal(
+      hasOpenPopup(page('[role="listbox"]:not([data-docked-listbox])')),
+      true,
+    );
+    assert.equal(hasOpenPopup(page("[data-radix-popper-content-wrapper]")), true);
+  });
+
+  it("ignores docked listboxes, the menubar, dialogs and an empty page", () => {
+    assert.equal(hasOpenPopup(page('[role="listbox"]')), false);
+    assert.equal(hasOpenPopup(page('[role="menubar"]')), false);
+    assert.equal(hasOpenPopup(page('[role="dialog"]')), false);
+    assert.equal(hasOpenPopup(page()), false);
+    assert.equal(hasOpenPopup(null), false);
   });
 });
 

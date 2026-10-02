@@ -69,7 +69,7 @@ export function LayerHeader({
         aria-label={`Reorder ${lane.name}`}
         className="track-label__grip"
         tabIndex={lane.id === fxLaneId ? 0 : -1}
-        title="Drag to reorder, or press Space to pick up"
+        title="Drag to reorder, or press Enter to pick up"
         type="button"
       >
         <Bars3Icon aria-hidden="true" />
