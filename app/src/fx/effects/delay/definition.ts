@@ -35,7 +35,7 @@ export const definition: FxEffectDefinition = {
   effectName: DELAY_EFFECT_NAME,
   displayName: "Delay",
   description: "Repeats the sound as fading echoes, optionally on the beat.",
-  accent: "#34d399",
+  accent: "#f9a8d4",
   domain: "audio",
   known: true,
   scopes: ["layer", "clip", "global"],

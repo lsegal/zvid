@@ -17,6 +17,7 @@ import type { AudioMix } from "../../../audio-mix/resolve.ts";
 import { addableEffectsFor, groupAddableEffects } from "../../../fx-chain.ts";
 import { definition as gainDefinition } from "../gain/definition.ts";
 import { processor as gainProcessor, gainStageAt } from "../gain/processor.ts";
+import { EFFECT_DEFINITION_MODULES } from "../index.generated.ts";
 import { definition } from "./definition.ts";
 import {
   DELAY_EFFECT_NAME,
@@ -545,7 +546,11 @@ describe("Delay definition", () => {
 
   it("has an audio accent of its own", () => {
     assert.equal(definition.domain, "audio");
-    assert.notEqual(definition.accent, gainDefinition.accent);
+    const others = EFFECT_DEFINITION_MODULES.filter(
+      (module) => module.definition.effectName !== DELAY_EFFECT_NAME,
+    ).map((module) => module.definition.accent);
+    assert.ok(others.includes(gainDefinition.accent));
+    assert.ok(!others.includes(definition.accent));
   });
 
   it("is offered in the Audio group of the clip, layer and Global menus", () => {
