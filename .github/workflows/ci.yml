@@ -1,15 +1,20 @@
 name: CI
 
 on:
+  # ready_for_review runs the browser tests; listing types replaces the
+  # defaults, so opened, synchronize and reopened are listed too.
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches:
       - main
   push:
     branches:
       - main
 
+# A ready_for_review run gets its own group so a push right after marking
+# the pull request ready can't cancel its browser tests.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.ref }}${{ github.event.action == 'ready_for_review' && '-ready' || '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -51,11 +56,12 @@ jobs:
           pnpm --dir daw/ui run test
           pnpm --dir daw/ui run build
 
-  # The browser tests are slow, so they run on pushes to main only: pull
-  # requests skip them. The app suite runs as 16 shards on separate runners,
-  # each with a time budget; e2e-report merges their reports.
+  # The browser tests are slow, so they run on pushes to main and when a
+  # pull request is marked ready for review; other pull request events skip
+  # them. The app suite runs as 16 shards on separate runners, each with a
+  # time budget; e2e-report merges their reports.
   export-bridge:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.action == 'ready_for_review')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -183,7 +189,7 @@ jobs:
   # (daw/ui/src/web), so it needs no Rust build. See ARCHITECTURE.md
   # (Testing).
   daw-ui-e2e:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.action == 'ready_for_review')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
