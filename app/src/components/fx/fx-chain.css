@@ -103,11 +103,8 @@ body.fx-chain-dragging * {
   cursor: grabbing !important;
 }
 
-/* It scrolls once the effects outgrow the room beside its button. */
 .fx-add-menu {
   max-width: 320px;
-  max-height: var(--radix-dropdown-menu-content-available-height);
-  overflow-y: auto;
 }
 
 .fx-add-menu [data-radix-collection-item] {
