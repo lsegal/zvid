@@ -2,16 +2,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   divisionQuarters,
-  formatDivision,
   GRID_COARSEST,
   GRID_FINEST,
   GRID_MAX_PX,
   GRID_MIN_PX,
-  type GridDivision,
   getBarStep,
   getGridLayers,
-  getGridUnit,
-  getSnapUnit,
   RULER_LABEL_MIN_PX,
   resolveAdaptiveDivision,
 } from "./timeline-grid.ts";
@@ -77,51 +73,21 @@ describe("resolveAdaptiveDivision", () => {
   });
 });
 
-describe("getSnapUnit", () => {
-  it("snaps to the adaptive division in auto mode", () => {
-    assert.equal(getSnapUnit("auto", FOUR_FOUR, 16), 0.25);
-    assert.equal(getSnapUnit("auto", FOUR_FOUR, 1), 4);
-  });
-
-  it("keeps the fixed modes on their unit", () => {
-    assert.equal(getSnapUnit("bar", FOUR_FOUR, 32), 4);
-    assert.equal(getSnapUnit("beat", FOUR_FOUR, 32), 1);
-    assert.equal(getSnapUnit("half", FOUR_FOUR, 32), 0.5);
-    assert.equal(getSnapUnit("quarter", FOUR_FOUR, 32), 0.25);
-    assert.equal(getSnapUnit("bar", SIX_EIGHT, 1), 3);
-    assert.equal(getSnapUnit("beat", SIX_EIGHT, 1), 0.5);
+describe("adaptive snapping", () => {
+  it("snaps to the adaptive division", () => {
+    assert.equal(divisionQuarters(16), 0.25);
+    assert.equal(divisionQuarters(1), 4);
   });
 
   it("adds finer snap points when zooming in and removes them zooming out", () => {
     const zoomedIn = resolveAdaptiveDivision(41);
     assert.equal(zoomedIn, 16);
     assert.ok(divisionQuarters(zoomedIn) * 41 > GRID_MIN_PX);
-    const inUnit = getSnapUnit("auto", FOUR_FOUR, zoomedIn);
-    assert.equal(snap(1.3, inUnit), 1.25);
+    assert.equal(snap(1.3, divisionQuarters(zoomedIn)), 1.25);
 
     const zoomedOut = resolveAdaptiveDivision(4, zoomedIn);
     assert.equal(zoomedOut, 2);
-    const outUnit = getSnapUnit("auto", FOUR_FOUR, zoomedOut);
-    assert.equal(snap(1.3, outUnit), 2);
-  });
-
-  it("snaps a fixed mode to its unit whatever the zoom", () => {
-    for (const quarterPx of [1, 12, 28, 200]) {
-      const division = resolveAdaptiveDivision(quarterPx);
-      assert.equal(snap(1.3, getSnapUnit("beat", FOUR_FOUR, division)), 1);
-    }
-  });
-});
-
-describe("getGridUnit", () => {
-  it("follows the adaptive division", () => {
-    assert.equal(getGridUnit(0.125, 16), 0.125);
-    assert.equal(getGridUnit(0.25, 16), 0.25);
-  });
-
-  it("never draws coarser than the snap unit", () => {
-    assert.equal(getGridUnit(0.25, 2), 0.25);
-    assert.equal(getGridUnit(1, 1), 1);
+    assert.equal(snap(1.3, divisionQuarters(zoomedOut)), 2);
   });
 });
 
@@ -218,12 +184,5 @@ describe("getBarStep", () => {
   it("falls back to every bar for an invalid width", () => {
     assert.equal(getBarStep(0, 40), 1);
     assert.equal(getBarStep(Number.NaN, 40), 1);
-  });
-});
-
-describe("formatDivision", () => {
-  it("formats a note value", () => {
-    const divisions: GridDivision[] = [1, 16];
-    assert.deepEqual(divisions.map(formatDivision), ["1/1", "1/16"]);
   });
 });

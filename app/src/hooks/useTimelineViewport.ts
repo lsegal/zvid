@@ -23,11 +23,10 @@ import type {
 import { clamp } from "../app/util.ts";
 import { getFilmstripRange } from "../clip-filmstrip.ts";
 import {
+  divisionQuarters,
   type GridDivision,
   getBarStep,
   getGridLayers,
-  getGridUnit,
-  getSnapUnit,
   RULER_LABEL_MIN_PX,
   resolveAdaptiveDivision,
 } from "../timeline-grid";
@@ -35,7 +34,6 @@ import {
 export type TimelineViewportInputs = {
   zoom: number;
   signatureId: ProjectState["signatureId"];
-  snapMode: ProjectState["snapMode"];
   timelineMode: ProjectState["timelineMode"];
   bpm: number;
   timelineClips: ArrangementClip[];
@@ -56,7 +54,6 @@ export type TimelineViewportInputs = {
 export function useTimelineViewport({
   zoom,
   signatureId,
-  snapMode,
   timelineMode,
   bpm,
   timelineClips,
@@ -100,8 +97,9 @@ export function useTimelineViewport({
   if (adaptiveDivision !== lastAdaptiveDivision) {
     setLastAdaptiveDivision(adaptiveDivision);
   }
-  const snapUnit = getSnapUnit(snapMode, signature, adaptiveDivision);
-  const gridUnit = getGridUnit(snapUnit, adaptiveDivision);
+  // Snapping and the grid both follow the zoom-adaptive division.
+  const snapUnit = divisionQuarters(adaptiveDivision);
+  const gridUnit = snapUnit;
   const totalQuarters = useMemo(() => {
     let nextTotalQuarters = barLength * 12;
     for (const clip of timelineClips) {
@@ -256,7 +254,6 @@ export function useTimelineViewport({
     beatUnit,
     barLength,
     quarterPx,
-    adaptiveDivision,
     snapUnit,
     totalQuarters,
     timelineWidth,

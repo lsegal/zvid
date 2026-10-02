@@ -1,8 +1,6 @@
 // Adaptive timeline grid: note-value divisions (1/1 to 1/32) that get finer
 // as the timeline zooms in and coarser as it zooms out, like a DAW grid.
 
-export type SnapMode = "auto" | "bar" | "beat" | "half" | "quarter";
-
 // The denominator of a note value: 4 is a quarter note, 16 a sixteenth.
 export type GridDivision = 1 | 2 | 4 | 8 | 16 | 32;
 
@@ -25,10 +23,6 @@ export function divisionQuarters(division: GridDivision) {
   return 4 / division;
 }
 
-export function formatDivision(division: GridDivision) {
-  return `1/${division}`;
-}
-
 // Picks the division for the zoom. Starting from the previous division gives
 // hysteresis: any division spaced between the two thresholds is kept, and one
 // step never crosses the other threshold because the band spans more than 2x.
@@ -49,35 +43,6 @@ export function resolveAdaptiveDivision(
     division /= 2;
   }
   return division as GridDivision;
-}
-
-export function getSnapUnit(
-  mode: SnapMode,
-  signature: GridSignature,
-  adaptiveDivision: GridDivision,
-) {
-  const beatUnit = 4 / signature.denominator;
-  const barLength = signature.numerator * beatUnit;
-  switch (mode) {
-    case "auto":
-      return divisionQuarters(adaptiveDivision);
-    case "bar":
-      return barLength;
-    case "beat":
-      return beatUnit;
-    case "half":
-      return beatUnit / 2;
-    case "quarter":
-      return beatUnit / 4;
-    default:
-      return beatUnit;
-  }
-}
-
-// The spacing the grid draws at: the adaptive division, but never coarser
-// than the snap unit, so every snap point stays visible.
-export function getGridUnit(snapUnit: number, adaptiveDivision: GridDivision) {
-  return Math.min(snapUnit, divisionQuarters(adaptiveDivision));
 }
 
 // The smallest power-of-two number of bars that spans at least `minPx`, so
@@ -103,7 +68,7 @@ export const RULER_LABEL_MIN_PX = { musical: 40, timecode: 80 } as const;
 // is at least as fine as a beat; bar lines always draw. Given the width of a
 // quarter, layers spaced closer than GRID_MIN_PX are dropped and bar lines
 // thin to multiples of bars. This only thins what is drawn: snapping keeps
-// the snap unit, so a fixed snap mode can snap between the drawn lines.
+// the adaptive division, so it can snap between the drawn lines.
 export function getGridLayers(
   gridUnit: number,
   signature: GridSignature,
