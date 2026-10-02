@@ -30,6 +30,7 @@ import {
   copyClipEffects,
   ensureLayerLayouts,
   type SessionEffect,
+  sourceClipEffectTrackId,
 } from "../fx-stack";
 import { createLaneId } from "../lanes";
 import type { MediaItem } from "../media";
@@ -72,7 +73,8 @@ export type ClipActionsInputs = {
 };
 
 // Copy, cut, paste, split, duplicate and delete for arrangement clips and range
-// selections, and copying source clips.
+// selections, and copying source clips (see useSourceClipActions for the
+// rest of theirs).
 export function useClipActions({
   addSourceSpanToArrangement,
   bpm,
@@ -359,11 +361,21 @@ export function useClipActions({
       return;
     }
 
-    // The copy pastes with the Gain a clip made from a source gets.
-    clipClipboardRef.current = withClipStacks(
+    // It pastes onto a layer as that clip, with the Gain a clip made from a
+    // source gets, or into a source track as the source clip with its stack.
+    const layerCopy = withClipStacks(
       copyClip(clip, bpm),
       addDefaultGain([], { clips: [clip] }, [...mediaItemsById.values()]),
     );
+    const stackId = sourceClipEffectTrackId(span.id);
+    clipClipboardRef.current = {
+      ...layerCopy,
+      sourceSpan: { ...span },
+      effects: [
+        ...(layerCopy.effects ?? []),
+        ...effects.filter((effect) => effect.trackId === stackId),
+      ],
+    };
     setStatus(`Copied ${clip.label}.`);
   }
 

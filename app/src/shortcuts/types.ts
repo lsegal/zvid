@@ -4,11 +4,13 @@ import type {
   ArrangementClip,
   DragState,
   Lane,
+  SourceSpan,
   SourceTrack,
   TimelineDragState,
   TimelineSelection,
 } from "../app/types.ts";
 import type { useClipActions } from "../hooks/useClipActions.ts";
+import type { useSourceClipActions } from "../hooks/useSourceClipActions.ts";
 import type { useSourceTrackActions } from "../hooks/useSourceTrackActions.ts";
 
 type SourceTrackActions = ReturnType<typeof useSourceTrackActions>;
@@ -31,12 +33,17 @@ export type ShortcutContext = {
   playbackOriginRef: RefObject<number>;
   playheadQRef: RefObject<number>;
   selectedClip: ArrangementClip | undefined;
+  // The selected source clip, while no clip is selected.
+  selectedSourceSpan: SourceSpan | undefined;
   // The selected source track, while no clip or source clip is selected.
   selectedSourceTrack: SourceTrack | undefined;
   setPendingSelection: Dispatch<SetStateAction<TimelineSelection | null>>;
   setPlayheadQ: (playheadQ: number) => void;
   setSelectedClipId: Dispatch<SetStateAction<string | undefined>>;
   setSelectedLaneId: Dispatch<SetStateAction<string | undefined>>;
+  sourceClipActionsRef: ReturnType<
+    typeof useSourceClipActions
+  >["sourceClipActionsRef"];
   timelineContentEndQ: number;
   timelineDragState: TimelineDragState | null;
   timelineScrollRef: RefObject<HTMLDivElement | null>;

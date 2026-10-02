@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 import type {
   ArrangementClip,
+  SourceSpan,
   SourceTrack,
   TimelineSelection,
 } from "../app/types.ts";
@@ -62,6 +63,10 @@ const selection = {
   durationQ: 4,
 } as TimelineSelection;
 const sourceTrack = { id: "source-track-1" } as SourceTrack;
+const sourceSpan = {
+  id: "source-span-1",
+  sourceTrackId: "source-track-1",
+} as SourceSpan;
 
 let calls: string[];
 
@@ -104,11 +109,23 @@ function context(overrides: Partial<ShortcutContext> = {}): ShortcutContext {
     playbackOriginRef: { current: 0 },
     playheadQRef: { current: 8 },
     selectedClip: undefined,
+    selectedSourceSpan: undefined,
     selectedSourceTrack: undefined,
     setPendingSelection: record("setPendingSelection"),
     setPlayheadQ: record("setPlayheadQ"),
     setSelectedClipId: record("setSelectedClipId"),
     setSelectedLaneId: record("setSelectedLaneId"),
+    sourceClipActionsRef: {
+      current: {
+        jumpToStart: record("source.jumpToStart"),
+        cut: record("source.cut"),
+        copy: record("source.copy"),
+        paste: record("source.paste"),
+        duplicate: record("source.duplicate"),
+        split: record("source.split"),
+        remove: record("source.remove"),
+      },
+    } as unknown as ShortcutContext["sourceClipActionsRef"],
     timelineContentEndQ: 16,
     timelineDragState: null,
     timelineScrollRef: { current: null },
@@ -341,6 +358,56 @@ describe("dispatching shortcuts", () => {
       `deleteSelection(${JSON.stringify(selection)})`,
       `remove(${JSON.stringify(clip)})`,
       `duplicate(${JSON.stringify(clip)})`,
+    ]);
+  });
+
+  it("cuts, copies, pastes, duplicates and deletes the selected source clip", () => {
+    const withSpan = { selectedSourceSpan: sourceSpan };
+    const span = JSON.stringify(sourceSpan);
+    dispatch(press("x", { ctrlKey: true }), withSpan);
+    dispatch(press("c", { ctrlKey: true }), withSpan);
+    dispatch(press("v", { ctrlKey: true }), {
+      ...withSpan,
+      clipClipboardRef: { current: { fragments: [], durationQ: 0 } },
+    });
+    dispatch(press("d", { ctrlKey: true }), withSpan);
+    dispatch(press("Delete"), withSpan);
+    assert.deepEqual(calls, [
+      `source.cut(${span})`,
+      `source.copy(${span})`,
+      `source.paste(${span})`,
+      `source.duplicate(${span})`,
+      `source.remove(${span})`,
+    ]);
+  });
+
+  it("never splits a selected source clip with Mod+E", () => {
+    const event = dispatch(press("e", { ctrlKey: true }), {
+      selectedSourceSpan: sourceSpan,
+    });
+    assert.deepEqual(calls, []);
+    assert.equal(event.defaultPrevented, false);
+  });
+
+  it("acts on the selection or selected clip before the source clip", () => {
+    const both = { selectedClip: clip, selectedSourceSpan: sourceSpan };
+    dispatch(press("c", { ctrlKey: true }), {
+      ...both,
+      pendingSelection: selection,
+    });
+    dispatch(press("x", { ctrlKey: true }), both);
+    dispatch(press("v", { ctrlKey: true }), {
+      ...both,
+      clipClipboardRef: { current: { fragments: [], durationQ: 0 } },
+    });
+    dispatch(press("d", { ctrlKey: true }), both);
+    dispatch(press("Delete"), both);
+    assert.deepEqual(calls, [
+      `copySelection(${JSON.stringify(selection)})`,
+      `cut(${JSON.stringify(clip)})`,
+      "paste",
+      `duplicate(${JSON.stringify(clip)})`,
+      `remove(${JSON.stringify(clip)})`,
     ]);
   });
 

@@ -65,7 +65,9 @@ describe("clip selection keeps the playhead", () => {
   });
 
   it("no selection path seeks to a clip's start", () => {
-    const seeks = [...source.matchAll(/setPlayheadQ\((\w+)\.startQ\)/g)];
+    const seeks = [
+      ...source.matchAll(/(?:setPlayheadQ|jumpPlayheadTo)\((\w+)\.startQ\)/g),
+    ];
     // Only the text-edit entry and the explicit Ctrl/Cmd-click jump move to
     // a clip.
     assert.equal(seeks.length, 2, seeks.map((match) => match[0]).join(", "));

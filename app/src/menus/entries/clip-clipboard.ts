@@ -6,13 +6,14 @@ import type { MenuEntryProvider } from "../registry.ts";
 export const clipClipboardEntries: MenuEntryProvider<ClipMenuContext> = {
   id: "clipboard",
   order: 30,
-  entries: ({ hasClip, canPaste, mac, actions }) => [
+  entries: ({ hasClip, canPaste, mac, lockedTitle, actions }) => [
     {
       type: "item",
       id: "cut",
       label: "Cut",
       shortcut: formatShortcut("X", mac),
-      disabled: !hasClip,
+      disabled: !hasClip || lockedTitle !== undefined,
+      title: lockedTitle,
       onSelect: actions.cut,
     },
     {
@@ -28,7 +29,8 @@ export const clipClipboardEntries: MenuEntryProvider<ClipMenuContext> = {
       id: "paste",
       label: "Paste",
       shortcut: formatShortcut("V", mac),
-      disabled: !canPaste,
+      disabled: !canPaste || lockedTitle !== undefined,
+      title: lockedTitle,
       onSelect: actions.paste,
     },
   ],

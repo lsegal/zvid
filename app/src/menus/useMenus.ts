@@ -26,8 +26,10 @@ import type { useClipInsertion } from "../hooks/useClipInsertion.ts";
 import type { useFxEditing } from "../hooks/useFxEditing.ts";
 import type { useLayerActions } from "../hooks/useLayerActions.ts";
 import type { usePlayback } from "../hooks/usePlayback.ts";
+import type { useSourceClipActions } from "../hooks/useSourceClipActions.ts";
 import type { useSourceTrackActions } from "../hooks/useSourceTrackActions.ts";
 import { sourceTrackHasFootage } from "../random-arrangement.ts";
+import { canPasteIntoSourceTrack } from "../source-clip-edits.ts";
 import { buildMainAudioMenuEntries } from "./audio-menu.ts";
 import { buildClipMenuEntries } from "./clip-menu.ts";
 import { buildEditMenuEntries } from "./edit-menu.ts";
@@ -55,9 +57,9 @@ export type MenusInputs = Pick<
   | "pasteArrangementClip"
   | "splitArrangementClip"
   | "duplicateArrangementClip"
-  | "copySourceSpan"
   | "copySourceSpanToLayer"
 > &
+  Pick<ReturnType<typeof useSourceClipActions>, "sourceClipActions"> &
   Pick<
     ClipInsertion,
     | "commitPendingSelectionToSourceTrack"
@@ -101,6 +103,8 @@ export type MenusInputs = Pick<
     selectLaneFromLabel: (laneId: string) => void;
     selectedClip: ArrangementClip | undefined;
     selectedLaneId: string | undefined;
+    // The selected source clip, while no layer clip is selected.
+    selectedSourceSpan: SourceSpan | undefined;
     selectedSourceTrack: SourceTrack | undefined;
     setClipMenu: Dispatch<SetStateAction<ClipMenuState | null>>;
     setPendingSelection: Dispatch<SetStateAction<TimelineSelection | null>>;
@@ -141,7 +145,6 @@ export function useMenus({
   copyArrangementClip,
   copySelection,
   copySelectionRange,
-  copySourceSpan,
   copySourceSpanToLayer,
   cutArrangementClip,
   cutSelection,
@@ -177,6 +180,7 @@ export function useMenus({
   selectLaneFromLabel,
   selectedClip,
   selectedLaneId,
+  selectedSourceSpan,
   selectedSourceTrack,
   setClipMenu,
   setLayerFxEnabled,
@@ -186,6 +190,7 @@ export function useMenus({
   setSelectedClipId,
   setSelectedLaneId,
   shortcutLabels,
+  sourceClipActions,
   sourceSpans,
   sourceTracks,
   sourceTracksLocked,
@@ -323,16 +328,7 @@ export function useMenus({
 
     if (menu.kind === "span") {
       const span = sourceSpans.find((item) => item.id === menu.spanId);
-      if (!span) {
-        return [];
-      }
-
-      return buildSourceSpanMenuEntries({
-        lanes,
-        mac: shortcutLabels.mac,
-        copy: () => copySourceSpan(span),
-        copyToLayer: (target) => copySourceSpanToLayer(span, target),
-      });
+      return span ? getSourceSpanMenuEntries(span) : [];
     }
 
     const clip =
@@ -343,6 +339,31 @@ export function useMenus({
       clip,
       menu.kind === "lane" ? menu.laneId : clip?.laneId,
     );
+  }
+
+  function getSourceSpanMenuEntries(span: SourceSpan) {
+    const withSpan = (action: (span: SourceSpan) => void) => () => action(span);
+    return buildSourceSpanMenuEntries({
+      lanes,
+      mac: shortcutLabels.mac,
+      canPaste: canPasteIntoSourceTrack(clipClipboardRef.current),
+      canSplit: canSplitAt(
+        span.startQ,
+        getClipEndQ(span, bpm),
+        playheadQRef.current,
+      ),
+      locked: sourceTracksLocked,
+      actions: {
+        jumpToStart: withSpan(sourceClipActions.jumpToStart),
+        cut: withSpan(sourceClipActions.cut),
+        copy: withSpan(sourceClipActions.copy),
+        paste: withSpan(sourceClipActions.paste),
+        duplicate: withSpan(sourceClipActions.duplicate),
+        split: withSpan(sourceClipActions.split),
+        remove: withSpan(sourceClipActions.remove),
+      },
+      copyToLayer: (target) => copySourceSpanToLayer(span, target),
+    });
   }
 
   // Insert Track commits the selection exactly like the track's number key,
@@ -463,7 +484,12 @@ export function useMenus({
       }),
       {
         clip: selectedClip?.label,
-        clipEntries: getArrangementClipEntries(selectedClip, undefined),
+        // A selected source clip gives Cut, Copy and Paste only: Edit has no
+        // Clip submenu for it, so its Split never splits a source clip.
+        clipEntries:
+          selectedSourceSpan && !selectedClip
+            ? getSourceSpanMenuEntries(selectedSourceSpan)
+            : getArrangementClipEntries(selectedClip, undefined),
         selectionEntries: pendingSelection
           ? getSelectionMenuEntries(pendingSelection)
           : undefined,

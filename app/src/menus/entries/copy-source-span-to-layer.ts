@@ -8,7 +8,7 @@ import type { SourceSpanMenuContext } from "../source-span-menu.ts";
 export const copySourceSpanToLayerEntry: MenuEntryProvider<SourceSpanMenuContext> =
   {
     id: "copy-to-layer",
-    order: 20,
+    order: 90,
     entries: ({ lanes, mac, copyToLayer }) => {
       const laneEntries = lanes.map<ContextMenuEntry>((lane) => ({
         type: "item",
