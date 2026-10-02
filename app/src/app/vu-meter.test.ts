@@ -27,16 +27,24 @@ const block = (left: ArrayLike<number>, right: ArrayLike<number>) =>
   ({ sampleRate: SAMPLE_RATE, channels: [left, right] }) satisfies MeterBlock;
 
 const fromDb = (db: number) => 10 ** (db / 20);
-const sine = (db: number, hz = 1000) => (frame: number) =>
-  fromDb(db) * Math.sin((2 * Math.PI * hz * frame) / SAMPLE_RATE);
-const square = (db: number, hz = 1000) => (frame: number) =>
-  Math.floor((2 * hz * frame) / SAMPLE_RATE) % 2 ? -fromDb(db) : fromDb(db);
+const sine =
+  (db: number, hz = 1000) =>
+  (frame: number) =>
+    fromDb(db) * Math.sin((2 * Math.PI * hz * frame) / SAMPLE_RATE);
+const square =
+  (db: number, hz = 1000) =>
+  (frame: number) =>
+    Math.floor((2 * hz * frame) / SAMPLE_RATE) % 2 ? -fromDb(db) : fromDb(db);
 
 // An analyser on a running audio clock that renders 128-frame quanta, as
 // Web Audio does, holding the latest fftSize samples of `signal`.
 class FakeAnalyser implements MeterAnalyser {
   readonly fftSize = 4096;
-  readonly context = { currentTime: 0, sampleRate: SAMPLE_RATE };
+  readonly context = {
+    currentTime: 0,
+    sampleRate: SAMPLE_RATE,
+    state: "running",
+  };
   private readonly signal: (frame: number) => number;
 
   constructor(signal: (frame: number) => number) {
@@ -62,7 +70,10 @@ function meterSignal(
   signal: (frame: number) => number,
   { fps = 60, durationMs = 1000 } = {},
 ) {
-  const tap = { left: new FakeAnalyser(signal), right: new FakeAnalyser(signal) };
+  const tap = {
+    left: new FakeAnalyser(signal),
+    right: new FakeAnalyser(signal),
+  };
   const reader = new MeterTapReader();
   const meter = new StereoMeter();
   let reading = meter.reading();
@@ -196,25 +207,43 @@ describe("RmsWindow", () => {
     const window = new RmsWindow();
     assert.equal(window.db(), -Infinity);
     // 100 ms of full scale on the left and silence on the right.
-    window.push(SAMPLE_RATE, [new Float32Array(4800).fill(1), new Float32Array(4800)]);
+    window.push(SAMPLE_RATE, [
+      new Float32Array(4800).fill(1),
+      new Float32Array(4800),
+    ]);
     near(window.db(), amplitudeToDb(Math.sqrt(0.5)), 1e-9);
     // Then 200 ms of a quieter level on both.
-    window.push(SAMPLE_RATE, [new Float32Array(9600).fill(0.5), new Float32Array(9600).fill(0.5)]);
+    window.push(SAMPLE_RATE, [
+      new Float32Array(9600).fill(0.5),
+      new Float32Array(9600).fill(0.5),
+    ]);
     near(window.db(), amplitudeToDb(Math.sqrt((0.5 + 2 * 0.25) / 3)), 1e-9);
     // 100 ms more pushes the first 100 ms out of the window.
-    window.push(SAMPLE_RATE, [new Float32Array(4800).fill(0.5), new Float32Array(4800).fill(0.5)]);
+    window.push(SAMPLE_RATE, [
+      new Float32Array(4800).fill(0.5),
+      new Float32Array(4800).fill(0.5),
+    ]);
     near(window.db(), amplitudeToDb(0.5), 1e-9);
     // 300 ms of silence empties it exactly.
-    window.push(SAMPLE_RATE, [new Float32Array(14400), new Float32Array(14400)]);
+    window.push(SAMPLE_RATE, [
+      new Float32Array(14400),
+      new Float32Array(14400),
+    ]);
     assert.equal(window.db(), -Infinity);
   });
 
   it("counts samples, not pushes", () => {
     const once = new RmsWindow();
     const split = new RmsWindow();
-    const samples = Float32Array.from({ length: 2000 }, (_, index) => index / 2000);
+    const samples = Float32Array.from(
+      { length: 2000 },
+      (_, index) => index / 2000,
+    );
     once.push(SAMPLE_RATE, [samples, samples]);
-    split.push(SAMPLE_RATE, [samples.subarray(0, 500), samples.subarray(0, 500)]);
+    split.push(SAMPLE_RATE, [
+      samples.subarray(0, 500),
+      samples.subarray(0, 500),
+    ]);
     split.push(SAMPLE_RATE, [samples.subarray(500), samples.subarray(500)]);
     near(split.db(), once.db(), 1e-9);
   });
@@ -246,6 +275,18 @@ describe("MeterTapReader", () => {
     reader.read(tap);
     analyser.context.currentTime = 10;
     assert.equal(reader.read(tap)?.channels[0].length, analyser.fftSize);
+  });
+
+  it("reads nothing while the audio clock is stopped", () => {
+    const analyser = new FakeAnalyser(() => 0.5);
+    const tap = { left: analyser, right: analyser };
+    const reader = new MeterTapReader();
+    reader.read(tap);
+    analyser.context.state = "suspended";
+    analyser.context.currentTime = 1;
+    assert.equal(reader.read(tap), null);
+    analyser.context.state = "running";
+    assert.equal(reader.read(tap)?.channels[0].length, 0);
   });
 
   it("reads nothing without a tap, and starts afresh on a new one", () => {
@@ -305,6 +346,16 @@ describe("StereoMeter", () => {
     assert.equal(reading.left.levelDb, -Infinity);
     assert.equal(reading.right.peakDb, -Infinity);
     assert.equal(reading.averageDb, -Infinity);
+  });
+
+  it("stays put on a frame with no new samples", () => {
+    const meter = new StereoMeter();
+    const before = meter.update(0, block(tone(0.5), tone(0.5)));
+    const empty = new Float32Array(0);
+    assert.deepEqual(meter.update(100, block(empty, empty)), before);
+    // The next samples release the bar over all the time since.
+    const after = meter.update(300, block(silence, silence));
+    near(after.left.levelDb, amplitudeToDb(0.5) - 20 / Math.LN10, 1e-9);
   });
 
   it("reads nothing without samples", () => {

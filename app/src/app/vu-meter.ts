@@ -180,12 +180,16 @@ export type MeterBlock = {
   channels: readonly [ArrayLike<number>, ArrayLike<number>];
 };
 
+// Copies of the analysers MeterTapReader makes at most per read.
+const READ_ATTEMPTS = 4;
+
 // What MeterTapReader needs of an AnalyserNode.
 export type MeterAnalyser = {
   readonly fftSize: number;
   readonly context: {
     readonly currentTime: number;
     readonly sampleRate: number;
+    readonly state?: string;
   };
   getFloatTimeDomainData(array: Float32Array<ArrayBuffer>): void;
 };
@@ -202,8 +206,9 @@ export class MeterTapReader {
   ];
   private lastFrame: number | null = null;
 
-  // The samples since the last read, or null without a tap. The first read
-  // of a tap starts the count and has no samples yet.
+  // The samples since the last read, or null without a tap or while its
+  // audio clock is stopped. The first read of a tap starts the count and
+  // has no samples yet.
   read(tap: { left: MeterAnalyser; right: MeterAnalyser } | null) {
     if (tap !== this.tap) {
       this.tap = tap;
@@ -218,17 +223,31 @@ export class MeterTapReader {
     if (!tap) {
       return null;
     }
-    const { currentTime, sampleRate } = tap.left.context;
-    const frame = Math.round(currentTime * sampleRate);
+    const { context } = tap.left;
+    if ((context.state ?? "running") !== "running") {
+      this.lastFrame = null;
+      return null;
+    }
+    // The audio thread moves the clock on while the buffers are copied; a
+    // copy is only matched to the clock when the clock held still around it.
+    let currentTime = context.currentTime;
+    for (let attempt = 0; attempt < READ_ATTEMPTS; attempt++) {
+      tap.left.getFloatTimeDomainData(this.buffers[0]);
+      tap.right.getFloatTimeDomainData(this.buffers[1]);
+      const after = context.currentTime;
+      if (after === currentTime) {
+        break;
+      }
+      currentTime = after;
+    }
+    const frame = Math.round(currentTime * context.sampleRate);
     const arrived =
       this.lastFrame === null ? 0 : Math.max(0, frame - this.lastFrame);
     this.lastFrame = frame;
-    tap.left.getFloatTimeDomainData(this.buffers[0]);
-    tap.right.getFloatTimeDomainData(this.buffers[1]);
     const channels = this.buffers.map((buffer) =>
       buffer.subarray(buffer.length - Math.min(arrived, buffer.length)),
     ) as [Float32Array, Float32Array];
-    return { sampleRate, channels } satisfies MeterBlock;
+    return { sampleRate: context.sampleRate, channels } satisfies MeterBlock;
   }
 }
 
@@ -264,11 +283,16 @@ export class StereoMeter {
 
   // `block` holds the samples since the last update, or is null when there
   // is nothing to measure. The bars follow the loudest of those samples.
+  // Audio arrives in blocks, so a frame can fall between two and have no
+  // new samples; the meter then stays as it is until the next one.
   update(
     nowMs: number,
     block: MeterBlock | null,
     reducedMotion = false,
   ): StereoReading {
+    if (block && !block.channels[0].length) {
+      return this.reading();
+    }
     const elapsedMs = this.lastMs === null ? 0 : nowMs - this.lastMs;
     this.lastMs = nowMs;
     this.channels = this.channels.map((channel, index) => {

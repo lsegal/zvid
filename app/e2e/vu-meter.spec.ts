@@ -6,7 +6,7 @@ import { expect, type Page, test } from "@playwright/test";
 // empty when playback stops.
 const AUDIO = new URL("./fixtures/tone.wav", import.meta.url);
 const LANE = "[data-main-audio-drop-target]";
-const SILENT = "−∞ dB";
+const SILENT = "-inf dB";
 
 function readout(page: Page) {
   return page.locator(".vu-meter__readout");
@@ -151,6 +151,9 @@ test("the meter reads the main audio regardless of the preview volume", async ({
   await expect.poll(() => level(page, "Left level")).toBeGreaterThan(-30);
   await expect.poll(() => level(page, "Right level")).toBeGreaterThan(-30);
   await expect.poll(() => readoutDb(page)).toBeGreaterThan(-30);
+  // The readout averages the last 300 ms of audio, which can still include
+  // the silence before the tone started.
+  await page.waitForTimeout(400);
   const audible = await readoutDb(page);
   expect(audible).toBeLessThan(0);
 
