@@ -180,9 +180,12 @@ test("a corner drag with Shift and Ctrl/Cmd scales proportionally about the cent
 }) => {
   const video = await selectLayer(page);
   const before = await outlineBox(page);
-  const corner = await centerOf(
+  const handle = await centerOf(
     page.getByTestId("preview-transform-handle-se"),
   );
+  // The layer fills the frame's height, so the handle's center sits on the
+  // monitor's clipped bottom edge; grab it a little inside the frame.
+  const corner = { x: handle.x - 3, y: handle.y - 3 };
 
   await page.keyboard.down("Shift");
   await page.keyboard.down(FROM_CENTER_KEY);
