@@ -32,7 +32,9 @@ export function gainStageAt(amplitude: number, id = "gain"): AudioStage {
     id,
     effectName: GAIN_EFFECT_NAME,
     enabled: true,
-    numbers: { [GAIN_KEY]: mute ? GAIN_DEFAULT_DB : 20 * Math.log10(amplitude) },
+    numbers: {
+      [GAIN_KEY]: mute ? GAIN_DEFAULT_DB : 20 * Math.log10(amplitude),
+    },
     switches: { [MUTE_KEY]: mute ? MUTE_ON : "0" },
   };
 }

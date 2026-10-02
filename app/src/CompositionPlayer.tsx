@@ -7,9 +7,9 @@ import {
   useRef,
 } from "react";
 import { clamp } from "./app/util.ts";
+import { CHAIN_WORKLET_URL } from "./audio-mix/chain-worklet-url.ts";
 import { audioMixEndSeconds } from "./audio-mix/mix.ts";
 import { renderAudioMixOffline } from "./audio-mix/offline.ts";
-import { CHAIN_WORKLET_URL } from "./audio-mix/chain-worklet-url.ts";
 import { PreviewAudioMixer } from "./audio-mix/preview-mixer.ts";
 import { type AudioMix, SILENT_AUDIO_MIX } from "./audio-mix/resolve.ts";
 import {

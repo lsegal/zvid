@@ -29,6 +29,10 @@ export function NumberControl(props: FxParameterControlProps) {
   return parameter.control === "fader" ? (
     <Fader {...shared} ticks={parameter.ticks} />
   ) : (
-    <Knob {...shared} bipolar={parameter.min < 0 && parameter.max > 0} />
+    <Knob
+      {...shared}
+      bipolar={parameter.min < 0 && parameter.max > 0}
+      taper={parameter.taper}
+    />
   );
 }

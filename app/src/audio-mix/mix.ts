@@ -198,7 +198,7 @@ export class ClipReader {
     for (const channel of target) {
       channel.fill(0, 0, frames);
     }
-    const { media } = this;
+    const media = this.media;
     if (!media.channels.length) {
       return;
     }
@@ -212,7 +212,10 @@ export class ClipReader {
         this.stepFrom = this.sourceTime(index);
         this.stepTo = this.sourceTime(index + this.stepLength);
       }
-      const { stepFrom, stepTo, stepLength, stepStart } = this;
+      const stepFrom = this.stepFrom;
+      const stepTo = this.stepTo;
+      const stepLength = this.stepLength;
+      const stepStart = this.stepStart;
       const mediaTime =
         stepFrom === undefined || stepTo === undefined || stepLength === 0
           ? this.sourceTime(index)
