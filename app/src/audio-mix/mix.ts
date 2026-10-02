@@ -85,10 +85,11 @@ export type AudioMixRenderOptions = {
   length: number;
 };
 
-// Warped clips look their source time up once per this many samples and
-// interpolate in between; warp maps are linear between markers, so this
-// only blurs the corner at a marker by a sample or two.
-const WARP_STEP_SAMPLES = 64;
+// Clips look their source time up once per this many samples and
+// interpolate in between. Source time is linear in timeline time, or for a
+// warped clip linear between its markers, so this only blurs the corner at
+// a warp marker by a sample or two.
+const STEP_SAMPLES = 64;
 
 function sampleAt(data: Float32Array, position: number) {
   const index = Math.floor(position);
@@ -124,28 +125,23 @@ function addClip(
 
   const sourceTime = (index: number) =>
     clipMediaTimeAt(clip, startSeconds + index / sampleRate, bpm)?.mediaTime;
-  // Warped clips: source time at the start of the current step and the
-  // next, interpolated in between.
+  // The source time at the start of each step and the next, interpolated in
+  // between. Steps that cross the clip's silent edges look up every sample.
   let stepStart = -1;
   let stepLength = 0;
   let stepFrom: number | undefined;
   let stepTo: number | undefined;
   for (let index = first; index < end; index++) {
-    let mediaTime: number | undefined;
-    if (clip.warp) {
-      if (stepStart < 0 || index - stepStart >= WARP_STEP_SAMPLES) {
-        stepStart = index;
-        stepLength = Math.min(end - 1, index + WARP_STEP_SAMPLES) - index;
-        stepFrom = sourceTime(index);
-        stepTo = sourceTime(index + stepLength);
-      }
-      mediaTime =
-        stepFrom === undefined || stepTo === undefined || stepLength === 0
-          ? sourceTime(index)
-          : stepFrom + ((stepTo - stepFrom) * (index - stepStart)) / stepLength;
-    } else {
-      mediaTime = sourceTime(index);
+    if (stepStart < 0 || index - stepStart >= STEP_SAMPLES) {
+      stepStart = index;
+      stepLength = Math.min(end - 1, index + STEP_SAMPLES) - index;
+      stepFrom = sourceTime(index);
+      stepTo = sourceTime(index + stepLength);
     }
+    const mediaTime =
+      stepFrom === undefined || stepTo === undefined || stepLength === 0
+        ? sourceTime(index)
+        : stepFrom + ((stepTo - stepFrom) * (index - stepStart)) / stepLength;
     if (mediaTime === undefined) {
       continue;
     }

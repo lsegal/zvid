@@ -1,6 +1,7 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { save as nativeSave } from "@tauri-apps/plugin-dialog";
 import type { AudioMix } from "./audio-mix/resolve";
+import { gainToAmplitude } from "./fx/effects/gain/gain";
 import type { SaveTarget } from "./harness/contracts";
 import { exportVideo } from "./harness/export";
 import type { MediaItem } from "./media";
@@ -122,22 +123,22 @@ async function write(blob: Blob, target: SaveTarget) {
   return "download" as const;
 }
 
-// The tone as the only clip of a mix, at unity gain over the whole export.
+// The tone on two clips of a mix, each at −6 dB, so the export's audio is
+// their sum: about the tone's own level.
 function toneMix(previewUrl: string) {
+  const clip = (id: string) => ({
+    id,
+    mediaId: "tone",
+    startSeconds: 0,
+    durationSeconds: 2,
+    sourceOffsetSeconds: 0,
+    sourceWindowStartSeconds: 0,
+    sourceWindowEndSeconds: 2,
+    effects: [],
+    amplitude: gainToAmplitude(-6),
+  });
   const mix: AudioMix = {
-    clips: [
-      {
-        id: "tone",
-        mediaId: "tone",
-        startSeconds: 0,
-        durationSeconds: 2,
-        sourceOffsetSeconds: 0,
-        sourceWindowStartSeconds: 0,
-        sourceWindowEndSeconds: 2,
-        effects: [],
-        amplitude: 1,
-      },
-    ],
+    clips: [clip("tone-a"), clip("tone-b")],
     masterAmplitude: 1,
     fromSourceTracks: true,
     bpm: 120,

@@ -92,10 +92,10 @@ function toneWav(seconds: number) {
 
 type DroppedFile = { name: string; type: string; base64: string };
 
-const tone = (): DroppedFile => ({
+const tone = (seconds = 3): DroppedFile => ({
   name: "tone.wav",
   type: "audio/wav",
-  base64: toneWav(3),
+  base64: toneWav(seconds),
 });
 
 // A test pattern with a loud soundtrack. Unlike an audio file, a video
@@ -202,7 +202,8 @@ test("the preview volume turns the mix down after the analyser", async ({
   await probeAnalysers(page);
   await page.goto("/");
   await expect(page.locator("[data-timeline-lane-id]").first()).toBeVisible();
-  await addSourceTrack(page, 1, tone());
+  // Long enough to keep playing through every check.
+  await addSourceTrack(page, 1, tone(30));
 
   await playFromStart(page);
   await expect
