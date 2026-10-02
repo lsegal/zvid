@@ -30,6 +30,7 @@
 /* Fixed at the drawer's full width so the content doesn't reflow as the
    drawer slides. */
 .media-drawer__panel {
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   width: var(--media-drawer-width, 320px);
@@ -161,12 +162,126 @@
   box-shadow: none;
 }
 
+/* The items over the details pane, or beside it when the drawer is wide
+   (see the container query on the panel below). */
+.media-drawer__content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .media-drawer__body {
   container-type: inline-size;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   padding: 2px 6px 8px;
+}
+
+.media-details {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  min-height: 0;
+  border-top: 1px solid var(--line);
+}
+
+.media-details.is-open {
+  max-height: 55%;
+}
+
+.media-details__toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.media-details__toggle:hover {
+  color: var(--ink);
+}
+
+.media-details__toggle svg {
+  width: 12px;
+  height: 12px;
+  transform: rotate(-90deg);
+  transition: transform 120ms ease;
+}
+
+.media-details.is-open .media-details__toggle svg {
+  transform: none;
+}
+
+.media-details__content {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 12px 10px;
+}
+
+.media-details__preview .media-thumb {
+  width: min(100%, 160px);
+  aspect-ratio: 16 / 9;
+  margin: 0 auto 10px;
+  border-radius: 8px;
+}
+
+.media-details__table {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 3px 10px;
+  margin: 0;
+  font-size: 0.74rem;
+}
+
+.media-details__row {
+  display: contents;
+}
+
+.media-details__row dt {
+  color: var(--muted);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.media-details__row dd {
+  margin: 0;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.media-details__empty {
+  margin: 4px 0 6px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  text-align: center;
+}
+
+@container (min-width: 520px) {
+  .media-drawer__content {
+    flex-direction: row;
+  }
+
+  .media-details {
+    width: 230px;
+    border-top: 0;
+    border-left: 1px solid var(--line);
+  }
+
+  .media-details.is-open {
+    max-height: none;
+  }
+
+  .media-details__preview .media-thumb {
+    width: 100%;
+  }
 }
 
 .media-drawer__empty {

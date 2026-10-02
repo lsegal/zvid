@@ -9,6 +9,8 @@ export type MediaDrawerPrefs = {
   // The slider's value: the icon view's tile width in pixels. The list view
   // derives its icon size from it, see `getListIconSize`.
   thumbnailSize: number;
+  // Whether the selected media's details pane is expanded.
+  detailsOpen: boolean;
 };
 
 export const MEDIA_DRAWER_STORAGE_KEY = "zvid-media-drawer";
@@ -30,6 +32,7 @@ export const DEFAULT_MEDIA_DRAWER_PREFS: MediaDrawerPrefs = {
   width: MEDIA_DRAWER_DEFAULT_WIDTH,
   view: "icons",
   thumbnailSize: THUMBNAIL_SIZE_DEFAULT,
+  detailsOpen: true,
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -95,6 +98,10 @@ export function parseMediaDrawerPrefs(
       Number.isFinite(value.thumbnailSize)
         ? clampThumbnailSize(value.thumbnailSize)
         : defaults.thumbnailSize,
+    detailsOpen:
+      typeof value.detailsOpen === "boolean"
+        ? value.detailsOpen
+        : defaults.detailsOpen,
   };
 }
 

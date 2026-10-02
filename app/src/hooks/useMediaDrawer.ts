@@ -34,7 +34,7 @@ export type MediaDrawerInputs = {
 };
 
 // The Media drawer's per-viewer preferences (open, width, view, thumbnail
-// size) persisted to localStorage, its resize handle, its search query and
+// size, details pane expanded) persisted to localStorage, its resize handle, its search query and
 // the selected media.
 export function useMediaDrawer({ editorGridWidth }: MediaDrawerInputs) {
   const [prefs, setPrefs] = useState<MediaDrawerPrefs>(readMediaDrawerPrefs);
@@ -75,6 +75,10 @@ export function useMediaDrawer({ editorGridWidth }: MediaDrawerInputs) {
       ...current,
       thumbnailSize: clampThumbnailSize(size),
     }));
+  }, []);
+
+  const toggleDetailsOpen = useCallback(() => {
+    setPrefs((current) => ({ ...current, detailsOpen: !current.detailsOpen }));
   }, []);
 
   function commitWidth(nextWidth: number) {
@@ -151,6 +155,8 @@ export function useMediaDrawer({ editorGridWidth }: MediaDrawerInputs) {
     setView,
     thumbnailSize: prefs.thumbnailSize,
     setThumbnailSize,
+    detailsOpen: prefs.detailsOpen,
+    toggleDetailsOpen,
     width: effectiveWidth,
     minWidth: MEDIA_DRAWER_MIN_WIDTH,
     maxWidth,
@@ -162,7 +168,7 @@ export function useMediaDrawer({ editorGridWidth }: MediaDrawerInputs) {
     handleResizeKeyDown,
     query,
     setQuery,
-    // Exposed for the file details (#682) and Media preview (#683) panels.
+    // Shown in the details pane and previewed in the Media tab.
     selectedMediaId,
     setSelectedMediaId,
   };
