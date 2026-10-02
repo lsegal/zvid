@@ -307,4 +307,51 @@ describe("Order devices", () => {
     assert.equal(layers()?.stringValue, "");
     assert.equal(layers("1,4")?.stringValue, "1,4");
   });
+
+  it("shows Gain as an audio device with a fader and a Mute toggle", () => {
+    const effects = addEffect([], "clip:c1", "Gain", undefined, "gain");
+    const [device] = mapSessionEffectsToDevices(
+      effects,
+      "1",
+      "Layer 1",
+      [],
+      new Set(),
+      "clip:c1",
+    );
+    assert.equal(device?.domain, "audio");
+    assert.equal(device?.supportsAnimation, false);
+    assert.equal(device?.unsupported, undefined);
+    assert.deepEqual(
+      device?.parameters.map((parameter) => [
+        parameter.key,
+        parameter.control,
+        parameter.numericValue,
+        parameter.display,
+      ]),
+      [
+        ["Gain", "fader", 0, "0.0 dB"],
+        ["Mute", "toggle", 0, "Off"],
+      ],
+    );
+    const muted = setEffectParameter(effects, "gain", "Gain", -68);
+    assert.equal(
+      mapSessionEffectsToDevices(
+        muted,
+        "1",
+        "Layer 1",
+        [],
+        new Set(),
+        "clip:c1",
+      )[0]?.parameters[0]?.display,
+      "Mute",
+    );
+  });
+
+  it("marks video devices as video", () => {
+    const [device] = mapSessionEffectsToDevices(
+      addEffect([], "1", "Pixelate", undefined, "p"),
+      "1",
+    );
+    assert.equal(device?.domain, "video");
+  });
 });

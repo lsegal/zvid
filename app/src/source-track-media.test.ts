@@ -227,4 +227,18 @@ describe("addMediaToSourceTrack", () => {
     );
     assert.deepEqual(layout(placed.sourceSpans), [["a", "t1", 0, 2, 1]]);
   });
+
+  it("gives each clip of media with sound a Gain, and none without", () => {
+    const placed = addMediaToSourceTrack(
+      project(),
+      [media("a", 2), { ...media("b", 2), hasAudio: false }],
+      { kind: "track", trackId: "t1", startQ: 0 },
+    );
+    const [withSound, silent] = placed.sourceSpans;
+    assert.ok(withSound && silent);
+    assert.deepEqual(
+      placed.effects.map((effect) => [effect.trackId, effect.effectName]),
+      [[`source-clip:${withSound.id}`, "Gain"]],
+    );
+  });
 });

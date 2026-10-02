@@ -348,3 +348,91 @@ describe("source track lock", () => {
     }
   });
 });
+
+describe("default Gain on open", () => {
+  const session: LvpSession = {
+    mainTracks: [{ id: "main-1", name: "Layer 1" }],
+    tracks: [{ id: "t1", name: "Cam" }],
+    clips: [
+      {
+        id: "c1",
+        trackId: "t1",
+        frameStart: 0,
+        frameCount: 60,
+        filePath: "/media/cam.mov",
+      },
+    ],
+    selections: [
+      {
+        id: 7,
+        trackId: "t1",
+        mainTrackId: "main-1",
+        frameStart: 0,
+        frameEnd: 30,
+      },
+    ],
+    fills: [{ id: "f1", mainTrackId: "main-1", frameStart: 30, frameEnd: 60 }],
+    timeline: { bpm: 120, fps: 30 },
+  };
+  const gainStacks = (project: ReturnType<typeof sessionToProject>) =>
+    project.effects
+      .filter((effect) => effect.effectName === "Gain")
+      .map((effect) => effect.trackId)
+      .toSorted();
+
+  function save(project: ReturnType<typeof sessionToProject>) {
+    return JSON.parse(
+      JSON.stringify(
+        projectToLvpSession(
+          {
+            ...project,
+            timelineMode: "musical",
+            snapEnabled: true,
+            clips: project.arrangementClips,
+            mediaItems: [],
+          },
+          { playheadQ: 0 },
+        ),
+      ),
+    ) as LvpSession;
+  }
+
+  it("gives an older session's source clips and layer clips a Gain", () => {
+    const project = sessionToProject(session, []);
+    const [span] = project.sourceSpans;
+    const media = project.arrangementClips.find((clip) => !clip.kind);
+    assert.ok(span && media);
+    assert.deepEqual(gainStacks(project), [
+      `clip:${media.id}`,
+      `source-clip:${span.id}`,
+    ]);
+  });
+
+  it("keeps a removed Gain removed once saved", () => {
+    const project = sessionToProject(session, []);
+    const saved = save({
+      ...project,
+      effects: project.effects.filter((effect) => effect.effectName !== "Gain"),
+    });
+    assert.equal(saved.audioGainDefaulted, true);
+    assert.deepEqual(gainStacks(sessionToProject(saved, [])), []);
+  });
+
+  it("keeps the Gains of a saved session without adding more", () => {
+    const project = sessionToProject(session, []);
+    const reopened = sessionToProject(save(project), []);
+    assert.equal(gainStacks(reopened).length, gainStacks(project).length);
+  });
+
+  it("gives none to clips of media known to have no sound", () => {
+    const project = sessionToProject(session, [
+      media({
+        id: "cam",
+        name: "cam.mov",
+        sourcePath: "/media/cam.mov",
+        hasAudio: false,
+      }),
+    ]);
+    assert.deepEqual(gainStacks(project), []);
+  });
+});

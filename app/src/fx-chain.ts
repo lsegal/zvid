@@ -37,19 +37,20 @@ export const FX_CHAIN_SECTIONS: readonly FxDeviceGroup[] = [
 ];
 
 // Splits the devices for the selection into the Global stack, the layer's
-// own stack and the selected clip's own stack. Audio layers show no devices.
+// own stack and the selected clip's own stack. An audio clip has no picture,
+// so it shows only the audio devices.
 export function groupChainDevices(
   devices: FxDevice[],
   kind: string | undefined,
 ): FxChainGroups {
-  if (kind === "audio") {
-    return { global: [], layer: [], clip: [] };
-  }
-
+  const shown =
+    kind === "audio"
+      ? devices.filter((device) => device.domain === "audio")
+      : devices;
   return {
-    global: devices.filter((device) => device.group === "global"),
-    layer: devices.filter((device) => device.group === "layer"),
-    clip: devices.filter((device) => device.group === "clip"),
+    global: shown.filter((device) => device.group === "global"),
+    layer: shown.filter((device) => device.group === "layer"),
+    clip: shown.filter((device) => device.group === "clip"),
   };
 }
 
@@ -75,13 +76,18 @@ export function getFxClipName(label: string, textPreview = "") {
 
 // Effects the `group` add menu offers: the known ones designed for that
 // stack, except those every layer is already given (Layout). An FX clip's
-// stack is the "fxClip" scope.
-export function addableEffectsFor(group: FxEffectScope) {
+// stack is the "fxClip" scope. An audio clip's menus offer only audio
+// effects.
+export function addableEffectsFor(
+  group: FxEffectScope,
+  kind: string | undefined = undefined,
+) {
   return FX_EFFECT_DEFINITIONS.filter(
     (definition) =>
       definition.known &&
       !definition.layerDefault &&
-      definition.scopes.includes(group),
+      definition.scopes.includes(group) &&
+      (kind !== "audio" || getEffectDomain(definition) === "audio"),
   );
 }
 
