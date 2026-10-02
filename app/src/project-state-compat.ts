@@ -1,3 +1,5 @@
+import type { ProjectState, SourceSpan, SourceTrack } from "./app/types.ts";
+import { getSwatch, stripFilenameExtension } from "./app/util.ts";
 import { isColorEffectName } from "./fill-paint.ts";
 import {
   isOrderEffectName,
@@ -12,23 +14,109 @@ import {
   getTrackGroup,
   type SessionEffect,
 } from "./fx-stack.ts";
+import type { MediaItem } from "./media.ts";
+import { nextSourceTrackColorIndex } from "./source-track-color.ts";
 import { isTextEffectName } from "./text-style.ts";
 
-// Collaboration peers on builds from before the "main audio" rename publish
-// the session's main audio as `masterAudioId`. Reading it keeps their audio
-// selection when they share a room with newer peers.
-export function migrateLegacyMainAudio<T extends object>(snapshot: T): T {
-  if (!("masterAudioId" in snapshot)) {
+type MainAudioState = Pick<
+  ProjectState,
+  "mediaItems" | "sourceTracks" | "sourceSpans"
+>;
+
+// The source track and clip a session's main audio becomes. Their ids come
+// from the media's, so peers migrating the same snapshot agree on them.
+export function mainAudioSourceTrackId(mediaId: string) {
+  return `main-audio-track-${mediaId}`;
+}
+
+export function mainAudioSourceSpanId(mediaId: string) {
+  return `main-audio-span-${mediaId}`;
+}
+
+// Sessions used to have one "main audio" file, saved as `mainAudioId` (or
+// `masterAudioId` on builds before that rename). Audio comes only from clips
+// now, so the main audio becomes a source track of its own, named after the
+// file, with one clip of the whole file from time 0, and the field is
+// dropped. A file whose length is not known yet, as when a session file is
+// opened before its media is analyzed, gets `fallbackDurationSeconds` and is
+// marked to fit the file once its length is known.
+export function migrateMainAudio<T extends MainAudioState>(
+  snapshot: T & { mainAudioId?: string; masterAudioId?: string },
+  fallbackDurationSeconds = 0,
+): T {
+  if (!("mainAudioId" in snapshot) && !("masterAudioId" in snapshot)) {
     return snapshot;
   }
-  const { masterAudioId, ...rest } = snapshot as T & {
-    mainAudioId?: string;
-    masterAudioId?: string;
+
+  const { mainAudioId, masterAudioId, ...rest } = snapshot;
+  const state = rest as unknown as T;
+  const mediaId = mainAudioId ?? masterAudioId;
+  const media = mediaId
+    ? state.mediaItems.find((item) => item.id === mediaId)
+    : undefined;
+  const trackId = mediaId ? mainAudioSourceTrackId(mediaId) : "";
+  if (
+    !media ||
+    state.sourceTracks.some((track) => track.id === trackId)
+  ) {
+    return state;
+  }
+
+  const mediaPath = media.sourcePath ?? media.name;
+  const track: SourceTrack = {
+    id: trackId,
+    name: stripFilenameExtension(media.name),
+    colorIndex: nextSourceTrackColorIndex(state.sourceTracks),
+    recordingPaths: [mediaPath],
+  };
+  const swatch = getSwatch(track.colorIndex);
+  const known = media.durationSeconds > 0;
+  const span: SourceSpan = {
+    id: mainAudioSourceSpanId(media.id),
+    sourceTrackId: track.id,
+    label: track.name,
+    mediaPath,
+    mediaId: media.id,
+    startQ: 0,
+    durationSeconds: known
+      ? media.durationSeconds
+      : Math.max(1, fallbackDurationSeconds),
+    trimStartSeconds: 0,
+    ...(known ? {} : { fitsMedia: true as const }),
+    tint: swatch.color,
+    accent: swatch.accent,
   };
   return {
-    ...rest,
-    mainAudioId: rest.mainAudioId ?? masterAudioId,
-  } as T;
+    ...state,
+    sourceTracks: [...state.sourceTracks, track],
+    sourceSpans: [...state.sourceSpans, span],
+  };
+}
+
+// Sets source clips marked to fit their media to its length, once it is
+// known.
+export function fitSourceSpansToMedia(
+  sourceSpans: SourceSpan[],
+  mediaItems: readonly MediaItem[],
+) {
+  if (!sourceSpans.some((span) => span.fitsMedia)) {
+    return sourceSpans;
+  }
+
+  let changed = false;
+  const next = sourceSpans.map((span) => {
+    const durationSeconds = span.fitsMedia
+      ? mediaItems.find((item) => item.id === span.mediaId)?.durationSeconds
+      : undefined;
+    if (!durationSeconds || !(durationSeconds > 0)) {
+      return span;
+    }
+
+    changed = true;
+    const { fitsMedia: _fitsMedia, ...rest } = span;
+    return { ...rest, durationSeconds };
+  });
+  return changed ? next : sourceSpans;
 }
 
 // Peers on builds from before selection was per-user mark clips with a

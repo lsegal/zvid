@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { type MixPeaksClip, mixWaveformPeaks } from "./audio-mix-peaks.ts";
+import {
+  describeAudioMix,
+  type MixPeaksClip,
+  mixWaveformPeaks,
+} from "./audio-mix-peaks.ts";
 import type { WaveformPeaks } from "./waveform-peaks.ts";
 
 const BPS = 10;
@@ -37,6 +41,17 @@ function approx(actual: number | undefined, expected: number) {
     `expected ${expected}, got ${actual}`,
   );
 }
+
+describe("describeAudioMix", () => {
+  it("names where the mix comes from and how many clips it has", () => {
+    assert.equal(
+      describeAudioMix("source-tracks", 3),
+      "From source tracks · 3 clips",
+    );
+    assert.equal(describeAudioMix("layers", 1), "From layers · 1 clip");
+    assert.equal(describeAudioMix("layers", 0), "No audio");
+  });
+});
 
 describe("mixWaveformPeaks", () => {
   it("returns null without clips that render audio", () => {

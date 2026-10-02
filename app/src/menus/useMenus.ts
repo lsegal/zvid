@@ -30,7 +30,7 @@ import type { useSourceClipActions } from "../hooks/useSourceClipActions.ts";
 import type { useSourceTrackActions } from "../hooks/useSourceTrackActions.ts";
 import { sourceTrackHasFootage } from "../random-arrangement.ts";
 import { canPasteIntoSourceTrack } from "../source-clip-edits.ts";
-import { buildMainAudioMenuEntries } from "./audio-menu.ts";
+import { buildAudioMenuEntries } from "./audio-menu.ts";
 import { buildClipMenuEntries } from "./clip-menu.ts";
 import { buildEditMenuEntries } from "./edit-menu.ts";
 import { buildHistoryEntries } from "./entries/edit-history.ts";
@@ -91,13 +91,11 @@ export type MenusInputs = Pick<
     handleUndo: () => void;
     laneStatusById: ReadonlyMap<string, { effectCount: number }>;
     lanes: Lane[];
-    mainAudioId: string | undefined;
-    mainAudioInputRef: RefObject<HTMLInputElement | null>;
     pendingSelection: TimelineSelection | null;
     playheadQRef: RefObject<number>;
     quarterPx: number;
     redoLabel: string | undefined;
-    removeMainAudio: () => void;
+    refreshAudio: () => void;
     renamingLaneId: string | undefined;
     renamingSourceTrackId: string | undefined;
     selectLaneFromLabel: (laneId: string) => void;
@@ -165,8 +163,6 @@ export function useMenus({
   jumpToClipStart,
   laneStatusById,
   lanes,
-  mainAudioId,
-  mainAudioInputRef,
   moveLayer,
   moveSourceTrack,
   pasteArrangementClip,
@@ -174,7 +170,7 @@ export function useMenus({
   playheadQRef,
   quarterPx,
   redoLabel,
-  removeMainAudio,
+  refreshAudio,
   renamingLaneId,
   renamingSourceTrackId,
   selectLaneFromLabel,
@@ -246,7 +242,7 @@ export function useMenus({
     setClipMenu({ kind: "layer", laneId, anchor: getMenuAnchor(event) });
   }
 
-  function openMainAudioMenu(event: ReactMouseEvent<HTMLElement>) {
+  function openAudioMenu(event: ReactMouseEvent<HTMLElement>) {
     event.preventDefault();
     event.stopPropagation();
     setClipMenu({ kind: "audio", anchor: getMenuAnchor(event) });
@@ -296,7 +292,7 @@ export function useMenus({
 
   function getClipMenuEntries(menu: ClipMenuState): ContextMenuEntry[] {
     if (menu.kind === "audio") {
-      return getMainAudioMenuEntries();
+      return getAudioMenuEntries();
     }
 
     if (menu.kind === "layer") {
@@ -401,12 +397,8 @@ export function useMenus({
     });
   }
 
-  function getMainAudioMenuEntries() {
-    return buildMainAudioMenuEntries({
-      hasMainAudio: Boolean(mainAudioId),
-      chooseFile: () => mainAudioInputRef.current?.click(),
-      remove: removeMainAudio,
-    });
+  function getAudioMenuEntries() {
+    return buildAudioMenuEntries({ refresh: refreshAudio });
   }
 
   function getLayerMenuEntries(lane: Lane) {
@@ -499,7 +491,7 @@ export function useMenus({
               entries: getLayerMenuEntries(selectedLane),
             }
           : undefined,
-        audioEntries: getMainAudioMenuEntries(),
+        audioEntries: getAudioMenuEntries(),
       },
     );
   }
@@ -508,7 +500,7 @@ export function useMenus({
     openArrangementClipMenu,
     openLaneMenu,
     openLayerMenu,
-    openMainAudioMenu,
+    openAudioMenu,
     openSourceSpanMenu,
     openSourceTrackMenu,
     getClipMenuEntries,

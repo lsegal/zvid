@@ -20,7 +20,6 @@ import { useClipDrag } from "./useClipDrag.ts";
 import { useClipInsertion } from "./useClipInsertion.ts";
 import type { useFxEditing } from "./useFxEditing.ts";
 import { useLayerActions } from "./useLayerActions.ts";
-import type { useMainAudio } from "./useMainAudio.ts";
 import type { MediaPreviewModel } from "./useMediaPreview.ts";
 import type { usePlayback } from "./usePlayback.ts";
 import type {
@@ -99,10 +98,8 @@ export type TimelineEditingInputs = {
     ReturnType<typeof useFxEditing>,
     "addFxDevice" | "setLayerFxEnabled"
   >;
-  mainAudioModel: Pick<
-    ReturnType<typeof useMainAudio>,
-    "mainAudio" | "mainAudioInputRef" | "removeMainAudio"
-  >;
+  // Re-resolves the audio mix, from the Audio row's menu.
+  refreshAudio: () => void;
   fxLaneId: string | undefined;
   mediaItemsById: Map<string, MediaItem>;
   laneStatusById: Map<string, LaneStatus>;
@@ -131,7 +128,7 @@ export function useTimelineEditing({
   playback,
   historyCommands,
   fxEditing,
-  mainAudioModel,
+  refreshAudio,
   fxLaneId,
   mediaItemsById,
   laneStatusById,
@@ -154,7 +151,6 @@ export function useTimelineEditing({
     sourceSpans,
     clips,
     effects,
-    mainAudioId,
     projectDurationFrames,
     sourceTracksLocked = false,
   } = project;
@@ -211,7 +207,6 @@ export function useTimelineEditing({
   } = playback;
   const { handleUndo, handleRedo } = historyCommands;
   const { addFxDevice, setLayerFxEnabled } = fxEditing;
-  const { mainAudio, mainAudioInputRef, removeMainAudio } = mainAudioModel;
 
   const canCreateLayer = lanes.length < MAX_LAYERS;
   const timelineContentEndQ = useMemo(
@@ -219,11 +214,10 @@ export function useTimelineEditing({
       getTimelineContentEndQ(
         timelineClips,
         sourceSpans,
-        mainAudio?.durationSeconds,
         bpm,
         barLength,
       ),
-    [barLength, bpm, mainAudio?.durationSeconds, sourceSpans, timelineClips],
+    [barLength, bpm, sourceSpans, timelineClips],
   );
 
   const {
@@ -380,7 +374,7 @@ export function useTimelineEditing({
     openArrangementClipMenu,
     openLaneMenu,
     openLayerMenu,
-    openMainAudioMenu,
+    openAudioMenu,
     openSourceSpanMenu,
     openSourceTrackMenu,
     getClipMenuEntries,
@@ -416,8 +410,6 @@ export function useTimelineEditing({
     jumpToClipStart,
     laneStatusById,
     lanes,
-    mainAudioId,
-    mainAudioInputRef,
     moveLayer,
     moveSourceTrack,
     pasteArrangementClip,
@@ -425,7 +417,7 @@ export function useTimelineEditing({
     playheadQRef,
     quarterPx,
     redoLabel,
-    removeMainAudio,
+    refreshAudio,
     renamingLaneId,
     renamingSourceTrackId,
     selectLaneFromLabel,
@@ -533,7 +525,7 @@ export function useTimelineEditing({
     openArrangementClipMenu,
     openLaneMenu,
     openLayerMenu,
-    openMainAudioMenu,
+    openAudioMenu,
     openSourceSpanMenu,
     openSourceTrackMenu,
     sourceTracksListRef,

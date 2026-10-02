@@ -1,26 +1,24 @@
 // The right-click menu for the Audio row.
 import type { ContextMenuEntry } from "../context-menu.ts";
-import { mainAudioEntries } from "./entries/main-audio.ts";
+import { audioEntries } from "./entries/audio.ts";
 import { assembleMenu, type MenuEntryProvider } from "./registry.ts";
 
-export type MainAudioMenuOptions = {
-  hasMainAudio: boolean;
+export type AudioMenuOptions = {
   disabled?: boolean;
-  chooseFile: () => void;
-  remove: () => void;
+  refresh: () => void;
 };
 
-export type MainAudioMenuContext = MainAudioMenuOptions & {
+export type AudioMenuContext = AudioMenuOptions & {
   disabled: boolean;
 };
 
-export const mainAudioMenuEntries: readonly MenuEntryProvider<MainAudioMenuContext>[] =
-  [mainAudioEntries];
+export const audioMenuEntries: readonly MenuEntryProvider<AudioMenuContext>[] =
+  [audioEntries];
 
-/** The Audio row menu: Import, or Replace and Remove once there is audio. */
-export function buildMainAudioMenuEntries({
+/** The Audio row menu: the row only shows the mix, so it only refreshes it. */
+export function buildAudioMenuEntries({
   disabled = false,
   ...options
-}: MainAudioMenuOptions): ContextMenuEntry[] {
-  return assembleMenu(mainAudioMenuEntries, { ...options, disabled });
+}: AudioMenuOptions): ContextMenuEntry[] {
+  return assembleMenu(audioMenuEntries, { ...options, disabled });
 }

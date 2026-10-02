@@ -1,6 +1,7 @@
 // The Audio row's waveform: the peaks of every clip that renders audio,
 // mapped onto song time, scaled by its Gain and summed per bucket. It draws
 // the same mix playback and export play, without decoding it again.
+import { pluralize } from "./app/util.ts";
 import {
   PEAK_BUCKETS_PER_SECOND,
   type WaveformPeaks,
@@ -17,6 +18,19 @@ export type MixPeaksClip = {
   // silent, such as outside its source window.
   sourceSecondsAt: (songSeconds: number) => number | null;
 };
+
+// Where the mix comes from: layer clips when any of them has audio, else
+// source clips.
+export type AudioMixOrigin = "layers" | "source-tracks";
+
+// The Audio row's label under "Audio".
+export function describeAudioMix(origin: AudioMixOrigin, clipCount: number) {
+  if (!clipCount) {
+    return "No audio";
+  }
+  const from = origin === "layers" ? "From layers" : "From source tracks";
+  return `${from} · ${pluralize(clipCount, "clip")}`;
+}
 
 // Min and max of a clip's source peaks over [fromSeconds, toSeconds), so a
 // clip played faster than 1× keeps its loudest samples.

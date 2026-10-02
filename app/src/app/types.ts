@@ -43,6 +43,9 @@ export type SourceSpan = {
   trimStartSeconds: number;
   // Warp markers the source follows instead of playing at 1×.
   warp?: ClipWarp;
+  // Set on a clip made from a session's old main audio before its file's
+  // length was known; it takes that length once the media reports it.
+  fitsMedia?: true;
   tint: string;
   accent: string;
 };
