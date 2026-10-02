@@ -37,11 +37,16 @@ export function quantizeWhole(sample: number, bits: number) {
   if (sample === 0) {
     return 0;
   }
+  // The levels on each side sit at (k + ½) / halfSpan for k from 0 to
+  // levels / 2 − 1; the magnitude is quantized so both sides round alike.
   const levels = 2 ** bits;
   const halfSpan = (levels - 1) / 2;
-  const step = Math.floor(sample * halfSpan);
-  const index = Math.min(levels / 2 - 1, Math.max(-levels / 2, step));
-  return (index + 0.5) / halfSpan;
+  const index = Math.min(
+    levels / 2 - 1,
+    Math.floor(Math.abs(sample) * halfSpan),
+  );
+  const magnitude = (index + 0.5) / halfSpan;
+  return sample < 0 ? -magnitude : magnitude;
 }
 
 // `sample` quantized to 2^bits levels. While Bits ramps between whole
