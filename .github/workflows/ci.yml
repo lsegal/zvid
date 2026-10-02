@@ -172,15 +172,21 @@ jobs:
         working-directory: app
         run: pnpm install --frozen-lockfile
 
-      - uses: actions/download-artifact@v4
+      # Each shard's artifact goes to its own folder rather than all being
+      # extracted into one with merge-multiple, which intermittently failed
+      # the download under v4 (#774); the report zips are then collected
+      # into one folder for merge-reports.
+      - uses: actions/download-artifact@v8
         with:
           pattern: blob-report-*
-          path: app/all-blob-reports
-          merge-multiple: true
+          path: app/blob-report-artifacts
 
       - name: Merge reports
         working-directory: app
         run: |
+          mkdir all-blob-reports
+          mv blob-report-artifacts/*/*.zip all-blob-reports/
+          ls all-blob-reports
           pnpm exec playwright merge-reports --reporter html ./all-blob-reports
           PLAYWRIGHT_JSON_OUTPUT_FILE=e2e-results.json pnpm exec playwright merge-reports --reporter json ./all-blob-reports
           node scripts/e2e-shard-list.mjs --durations e2e-results.json > playwright-report/e2e-durations.json
