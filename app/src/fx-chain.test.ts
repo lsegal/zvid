@@ -122,7 +122,7 @@ describe("groupChainDevices", () => {
       addableEffectsFor("clip", "audio").map(
         (definition) => definition.effectName,
       ),
-      ["Gain"],
+      ["Gain", "Mono"],
     );
   });
 
@@ -211,7 +211,7 @@ describe("groupAddableEffects", () => {
             .filter((definition) => definition.domain !== "audio")
             .map((definition) => definition.effectName),
         ],
-        ["Audio", ["Gain"]],
+        ["Audio", ["Gain", "Mono"]],
       ],
     );
   });
@@ -244,6 +244,7 @@ describe("addableEffectsFor", () => {
       "AnalogGlitch",
       "Order",
       "Gain",
+      "Mono",
     ]);
   });
 
@@ -263,6 +264,7 @@ describe("addableEffectsFor", () => {
       "Move",
       "Color",
       "Gain",
+      "Mono",
     ]);
   });
 
