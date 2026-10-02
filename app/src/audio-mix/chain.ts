@@ -13,14 +13,15 @@
 //   3. delays the result by its latency compensation.
 // A stage whose input has been silent for longer than its tail and latency
 // is idle: it is skipped and its processor dropped, so it starts afresh.
-import type {
-  AudioBlockTime,
-  AudioEffectDsp,
-  AudioEffectProcessor,
-  AudioParameterBlock,
-  AudioProcessorRegistry,
-  AudioStage,
-  AudioTempo,
+import {
+  type AudioBlockTime,
+  type AudioEffectDsp,
+  type AudioEffectProcessor,
+  type AudioParameterBlock,
+  type AudioProcessorRegistry,
+  type AudioStage,
+  type AudioTempo,
+  DEFAULT_TIME_SIGNATURE,
 } from "./processor.ts";
 
 // Frames per block: the Web Audio render quantum, which offline renders use
@@ -158,6 +159,8 @@ export function chainTailSeconds(
   return seconds;
 }
 
+type StageHost = { sampleRate: number; channels: number; maxFrames: number };
+
 type ProcessorSlot = {
   processor: AudioEffectProcessor;
   switches: Readonly<Record<string, string>>;
@@ -179,16 +182,14 @@ class ChainStage implements AudioParameterBlock {
   // Frames since its input last made a sound.
   private silentFrames = Number.POSITIVE_INFINITY;
   drainFrames = 0;
+  private readonly host: StageHost;
 
   constructor(
     config: AudioStage,
     dsp: AudioEffectDsp | undefined,
-    private readonly host: {
-      sampleRate: number;
-      channels: number;
-      maxFrames: number;
-    },
+    host: StageHost,
   ) {
+    this.host = host;
     this.config = config;
     this.dsp = dsp;
     this.switches = config.switches;
@@ -368,15 +369,23 @@ export class AudioChain {
   private configured = false;
   // Frames since its input last made a sound.
   private silentFrames = Number.POSITIVE_INFINITY;
-  private tempo: AudioTempo | null = null;
+  private tempo: AudioTempo = { bpm: 120, signature: DEFAULT_TIME_SIGNATURE };
   private drain = 0;
+  private readonly registry: AudioProcessorRegistry;
+  readonly sampleRate: number;
+  readonly channels: number;
+  readonly maxFrames: number;
 
   constructor(
-    private readonly registry: AudioProcessorRegistry,
-    readonly sampleRate: number,
-    readonly channels: number,
-    readonly maxFrames = BLOCK_FRAMES,
+    registry: AudioProcessorRegistry,
+    sampleRate: number,
+    channels: number,
+    maxFrames = BLOCK_FRAMES,
   ) {
+    this.registry = registry;
+    this.sampleRate = sampleRate;
+    this.channels = channels;
+    this.maxFrames = maxFrames;
     this.inputGain = new Ramp(1, maxFrames);
     this.gated = createBuffers(channels, maxFrames);
   }
@@ -481,10 +490,9 @@ export class AudioChain {
     }
 
     const time: AudioBlockTime = {
+      ...this.tempo,
       sampleRate: this.sampleRate,
       timeSeconds,
-      bpm: this.tempo?.bpm ?? 120,
-      signature: this.tempo?.signature ?? { numerator: 4, denominator: 4 },
     };
     let signal: readonly Float32Array[] = this.gated;
     for (const stage of this.stages) {

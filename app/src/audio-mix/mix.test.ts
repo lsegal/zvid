@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { ClipWarp } from "../clip-warp.ts";
 import { gainToAmplitude as dbToAmplitude } from "../fx/effects/gain/gain.ts";
+import { gainStageAt } from "../fx/effects/gain/processor.ts";
 import { sourceClipEffectTrackId } from "../fx/stack/clip-stacks.ts";
 import {
   audioMixEndSeconds,
@@ -14,6 +15,7 @@ import {
   renderAudioMix,
   softLimit,
 } from "./mix.ts";
+import { DEFAULT_TIME_SIGNATURE } from "./processor.ts";
 import {
   type AudioMix,
   type AudioMixClip,
@@ -68,13 +70,25 @@ function clip(overrides: Partial<AudioMixClip> = {}): AudioMixClip {
     sourceWindowStartSeconds: 0,
     sourceWindowEndSeconds: 3,
     effects: [],
-    amplitude: 1,
+    hasGain: true,
+    busId: "bus",
     ...overrides,
+    amplitude: overrides.amplitude ?? 1,
+    // A Gain at its amplitude, as resolving a clip with one gives it.
+    stages: overrides.stages ?? [gainStageAt(overrides.amplitude ?? 1)],
   };
 }
 
 function mix(clips: AudioMixClip[], masterAmplitude = 1): AudioMix {
-  return { clips, masterAmplitude, fromSourceTracks: true, bpm: BPM };
+  return {
+    clips,
+    buses: [{ id: "bus", stages: [] }],
+    master: [gainStageAt(masterAmplitude)],
+    masterAmplitude,
+    fromSourceTracks: true,
+    bpm: BPM,
+    signature: DEFAULT_TIME_SIGNATURE,
+  };
 }
 
 function render(
