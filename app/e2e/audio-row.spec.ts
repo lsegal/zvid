@@ -205,6 +205,35 @@ test("the Audio row is pinned to the bottom of a tall timeline and collapses", a
   await expect(mixContent(page)).toBeVisible();
 });
 
+test("the Audio row's playhead lines up with the timeline playhead", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator("[data-timeline-lane-id]").first()).toBeVisible();
+  const left = (selector: string) =>
+    page
+      .locator(selector)
+      .evaluate((node) => node.getBoundingClientRect().left);
+  const offset = async () =>
+    (await left("[data-audio-row] .audio-row__playhead")) -
+    (await left(".timeline-playhead"));
+
+  // Away from the start too, so a line clamped at the edge can't pass.
+  await page
+    .locator("[data-timeline-lane-id]")
+    .first()
+    .click({
+      position: { x: 300, y: 10 },
+    });
+  await expect.poll(() => left(".timeline-playhead")).toBeGreaterThan(300);
+  await expect.poll(offset).toBe(0);
+
+  const toggle = audioRow(page).locator(".audio-row__toggle");
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect.poll(offset).toBe(0);
+});
+
 test("a source clip with audio draws the mix, its muted Gain flattens it, and Refresh recomputes it", async ({
   page,
 }) => {
@@ -221,12 +250,34 @@ test("a source clip with audio draws the mix, its muted Gain flattens it, and Re
   ).toBeVisible();
   await expect.poll(() => drawnLevel(page)).toBeGreaterThan(0.1);
 
-  // Refresh resolves the mix again and draws it anew.
-  await audioRow(page).getByRole("button", { name: "Recompute audio" }).click();
-  await expect(mixContent(page)).toHaveAttribute("data-audio-mix", "computing");
-  await expect(mixContent(page)).toHaveAttribute("data-audio-mix", "ready", {
-    timeout: 30_000,
+  // Refresh resolves the mix again and draws it anew. The recompute can
+  // finish before an assertion polls, so record every state the mix passes
+  // through instead of trying to catch the brief "computing" one.
+  await mixContent(page).evaluate((node) => {
+    const probe = window as unknown as { leftMixStates: string[] };
+    probe.leftMixStates = [];
+    new MutationObserver((records) => {
+      for (const record of records) {
+        probe.leftMixStates.push(record.oldValue ?? "");
+      }
+    }).observe(node, {
+      attributeFilter: ["data-audio-mix"],
+      attributeOldValue: true,
+    });
   });
+  await audioRow(page).getByRole("button", { name: "Recompute audio" }).click();
+  // The mix left "ready" to compute, then left "computing" for "ready".
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          () =>
+            (window as unknown as { leftMixStates: string[] }).leftMixStates,
+        ),
+      { timeout: 30_000 },
+    )
+    .toEqual(["ready", "computing"]);
+  await expect(mixContent(page)).toHaveAttribute("data-audio-mix", "ready");
   await expect.poll(() => drawnLevel(page)).toBeGreaterThan(0.1);
 
   // Muting the clip's Gain flattens its waveform.

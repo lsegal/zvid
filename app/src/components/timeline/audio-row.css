@@ -96,7 +96,10 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 0;
+  /* Placed from inside the row content's 1px left border, which the
+     timeline's own playhead doesn't cross; step back over it so the two
+     lines meet. */
+  left: -1px;
   width: 2px;
   will-change: transform;
   background: #f6b73c;

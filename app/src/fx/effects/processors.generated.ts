@@ -13,6 +13,7 @@ import { processor as gainProcessor } from "./gain/processor.ts";
 import { processor as highPassProcessor } from "./high-pass/processor.ts";
 import { processor as limiterProcessor } from "./limiter/processor.ts";
 import { processor as lowPassProcessor } from "./low-pass/processor.ts";
+import { processor as monoProcessor } from "./mono/processor.ts";
 import { processor as noiseGateProcessor } from "./noise-gate/processor.ts";
 import { processor as phaserProcessor } from "./phaser/processor.ts";
 import { processor as reverseProcessor } from "./reverse/processor.ts";
@@ -34,6 +35,7 @@ export const EFFECT_AUDIO_PROCESSORS: readonly AudioEffectDsp[] = [
   highPassProcessor,
   limiterProcessor,
   lowPassProcessor,
+  monoProcessor,
   noiseGateProcessor,
   phaserProcessor,
   reverseProcessor,
