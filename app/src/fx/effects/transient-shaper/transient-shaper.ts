@@ -65,7 +65,11 @@ function coefficient(seconds: number, sampleRate: number) {
 
 // The shaping gain in dB for a part of the sound whose fast follower sits
 // `differenceDb` above (an attack) or below (sustain) its slow one.
-export function shapeGainDb(differenceDb: number, attack: number, sustain: number) {
+export function shapeGainDb(
+  differenceDb: number,
+  attack: number,
+  sustain: number,
+) {
   if (differenceDb > 0) {
     return attack * SHAPE_RANGE_DB * Math.min(1, differenceDb / DETECTION_DB);
   }
