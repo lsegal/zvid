@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { logClient } from "../app/util.ts";
 import {
   type AudioMixOrigin,
@@ -23,19 +23,24 @@ export type AudioMixInputs = {
   origin: AudioMixOrigin;
   contributions: readonly AudioMixContribution[];
   mediaItemsById: ReadonlyMap<string, MediaItem>;
+  // Resolves the mix again, which hands this hook new contributions.
+  refresh: () => void;
 };
 
 type MixState = {
-  inputs: AudioMixInputs;
-  refreshCount: number;
+  contributions: readonly AudioMixContribution[];
+  mediaItemsById: ReadonlyMap<string, MediaItem>;
   peaks: WaveformPeaks | null;
 };
 
 // The Audio row's read-only waveform: the peaks of the resolved mix, rebuilt
 // when its clips, their timing or their Gain change, or on Refresh.
-export function useAudioMix(inputs: AudioMixInputs) {
-  const { contributions, mediaItemsById, origin } = inputs;
-  const [refreshCount, setRefreshCount] = useState(0);
+export function useAudioMix({
+  origin,
+  contributions,
+  mediaItemsById,
+  refresh,
+}: AudioMixInputs) {
   const [mix, setMix] = useState<MixState | null>(null);
 
   useEffect(() => {
@@ -69,8 +74,8 @@ export function useAudioMix(inputs: AudioMixInputs) {
             }
           }
           setMix({
-            inputs: { contributions, mediaItemsById, origin },
-            refreshCount,
+            contributions,
+            mediaItemsById,
             peaks: mixWaveformPeaks(loaded),
           });
         }
@@ -80,17 +85,12 @@ export function useAudioMix(inputs: AudioMixInputs) {
       canceled = true;
       clearTimeout(timer);
     };
-  }, [contributions, mediaItemsById, origin, refreshCount]);
-
-  const refresh = useCallback(() => {
-    setRefreshCount((count) => count + 1);
-  }, []);
+  }, [contributions, mediaItemsById]);
 
   const current =
     mix &&
-    mix.inputs.contributions === contributions &&
-    mix.inputs.mediaItemsById === mediaItemsById &&
-    mix.refreshCount === refreshCount
+    mix.contributions === contributions &&
+    mix.mediaItemsById === mediaItemsById
       ? mix
       : null;
   return {

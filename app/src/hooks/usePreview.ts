@@ -2,8 +2,10 @@ import {
   type Dispatch,
   type RefObject,
   type SetStateAction,
+  useCallback,
   useEffect,
   useMemo,
+  useState,
 } from "react";
 import {
   findClipAtPlayhead,
@@ -106,27 +108,34 @@ export function usePreview({
     [bpm, lanes, sourceSpans, sourceTracks, timelineClips, timelineEffects],
   );
   // What the preview hears, resolved apart from what it draws.
-  const audioMix = useMemo(
-    () =>
-      resolveAudioClips({
-        clips: timelineClips,
-        lanes,
-        sourceTracks,
-        sourceSpans,
-        mediaById: mediaItemsById,
-        bpm,
-        effects: timelineEffects,
-      }),
-    [
-      bpm,
+  // Bumped by the Audio row's Refresh, which resolves the mix again so its
+  // waveform and the reactive bands are measured again, such as after media
+  // finishes relinking.
+  const [audioMixRevision, setAudioMixRevision] = useState(0);
+  const refreshAudioMix = useCallback(() => {
+    setAudioMixRevision((revision) => revision + 1);
+  }, []);
+  const audioMix = useMemo(() => {
+    void audioMixRevision;
+    return resolveAudioClips({
+      clips: timelineClips,
       lanes,
-      mediaItemsById,
-      sourceSpans,
       sourceTracks,
-      timelineClips,
-      timelineEffects,
-    ],
-  );
+      sourceSpans,
+      mediaById: mediaItemsById,
+      bpm,
+      effects: timelineEffects,
+    });
+  }, [
+    audioMixRevision,
+    bpm,
+    lanes,
+    mediaItemsById,
+    sourceSpans,
+    sourceTracks,
+    timelineClips,
+    timelineEffects,
+  ]);
   const renderLanePriority = useMemo(
     () =>
       render.fromSourceTracks
@@ -219,6 +228,7 @@ export function usePreview({
     renderEffects: render.effects,
     renderFromSourceTracks: render.fromSourceTracks,
     audioMix,
+    refreshAudioMix,
     previewMedia,
     previewMediaState,
     hasOnlinePlayheadClip,

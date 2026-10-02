@@ -201,6 +201,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     origin: getAudioMixOrigin(preview.audioMix),
     contributions: audioMixContributions,
     mediaItemsById,
+    refresh: preview.refreshAudioMix,
   });
   const mediaImport = useMediaImport({
     project,
