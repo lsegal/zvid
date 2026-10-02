@@ -55,7 +55,7 @@ jobs:
   # requests skip them. The app suite runs as 16 shards on separate runners,
   # each with a time budget; e2e-report merges their reports.
   export-bridge:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.head_ref == 'fix/issue-737-sharded-e2e' # TEMP: verify on PR
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -171,7 +171,7 @@ jobs:
   # (daw/ui/src/web), so it needs no Rust build. See ARCHITECTURE.md
   # (Testing).
   daw-ui-e2e:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.head_ref == 'fix/issue-737-sharded-e2e' # TEMP: verify on PR
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
