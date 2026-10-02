@@ -109,6 +109,8 @@ export type LvpSession = {
   };
   playPosition?: number;
   playStartPosition?: number;
+  // A main audio file, from sessions saved before audio came only from
+  // clips. Opening one turns it into a source track; it is not written.
   audioFilename?: string;
   sessionFile?: string;
   /**

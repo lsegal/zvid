@@ -101,12 +101,10 @@ describe("listMediaSync", () => {
         media("ready", "ready"),
         media("miss", "offline"),
         media("wait", "offline"),
-        media("main", "offline"),
         media("recv", "hydrating"),
       ],
       arrangementClips: [{ mediaId: "ready" }, { mediaId: "recv" }],
       sourceClips: [{ mediaId: "miss" }, { mediaId: "wait" }],
-      mainAudioId: "main",
       progress: new Map([
         [
           "recv",
@@ -126,7 +124,6 @@ describe("listMediaSync", () => {
       [
         ["recv", "receiving", "arrangement"],
         ["wait", "queued", "source"],
-        ["main", "queued", "main-audio"],
         ["miss", "unavailable", "source"],
         ["ready", "ready", "arrangement"],
       ],

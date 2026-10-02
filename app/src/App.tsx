@@ -384,7 +384,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
               <MediaDrawer
                 drawer={mediaDrawer}
                 mediaItems={mediaItems}
-                mainAudioId={project.mainAudioId}
                 remoteMediaProgress={media.remoteMediaProgress}
                 prefersReducedMotion={prefersReducedMotion}
                 timeFormat={{
