@@ -5,6 +5,7 @@ import type { AudioEffectDsp } from "../../audio-mix/processor.ts";
 import { processor as autoPanProcessor } from "./auto-pan/processor.ts";
 import { processor as chorusProcessor } from "./chorus/processor.ts";
 import { processor as compressorProcessor } from "./compressor/processor.ts";
+import { processor as delayProcessor } from "./delay/processor.ts";
 import { processor as eqProcessor } from "./eq/processor.ts";
 import { processor as gainProcessor } from "./gain/processor.ts";
 import { processor as limiterProcessor } from "./limiter/processor.ts";
@@ -20,6 +21,7 @@ export const EFFECT_AUDIO_PROCESSORS: readonly AudioEffectDsp[] = [
   autoPanProcessor,
   chorusProcessor,
   compressorProcessor,
+  delayProcessor,
   eqProcessor,
   gainProcessor,
   limiterProcessor,
