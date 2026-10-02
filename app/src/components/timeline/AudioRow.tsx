@@ -1,4 +1,5 @@
 import { ArrowPathIcon } from "@heroicons/react/24/solid";
+import { mixPeakLevel } from "../../audio-mix-peaks.ts";
 import type { useAudioMix } from "../../hooks/useAudioMix.ts";
 import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
 import { MainWaveform } from "../../MainWaveform";
@@ -62,6 +63,9 @@ export function AudioRow({
       <div
         className={`track-row__content track-row__content--waveform ${computing && !prefersReducedMotion ? "is-syncing is-syncing--animated" : ""}`}
         data-audio-mix={computing ? "computing" : peaks ? "ready" : "empty"}
+        data-audio-mix-level={
+          peaks ? mixPeakLevel(peaks).toFixed(2) : undefined
+        }
         style={gridStyle}
       >
         {computing ? (

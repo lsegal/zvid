@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { SourceSpan, SourceTrack } from "./app/types.ts";
-import { gainChainAmplitude } from "./fx/effects/gain/gain.ts";
 import {
   type ArrangementClip,
   computeActiveClips,
 } from "./composition-active-clips.ts";
 import { resolveSlotBounds } from "./composition-layout.ts";
 import { resolveFillPaint } from "./fill-paint.ts";
+import { gainChainAmplitude } from "./fx/effects/gain/gain.ts";
 import { parseCompositionOrder } from "./fx/effects/order/order.ts";
 import {
   createDefaultAnimation,
@@ -157,7 +157,7 @@ describe("migrateMainAudio", () => {
         mediaItems: [unread],
         sourceTracks: [] as SourceTrack[],
         sourceSpans: [] as SourceSpan[],
-      effects: [] as SessionEffect[],
+        effects: [] as SessionEffect[],
         mainAudioId: "song",
       },
       30,

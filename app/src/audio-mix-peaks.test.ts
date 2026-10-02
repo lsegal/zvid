@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   describeAudioMix,
   type MixPeaksClip,
+  mixPeakLevel,
   mixWaveformPeaks,
 } from "./audio-mix-peaks.ts";
 import type { WaveformPeaks } from "./waveform-peaks.ts";
@@ -132,5 +133,15 @@ describe("mixWaveformPeaks", () => {
     assert.ok(mix);
     approx(mix.max[5], 0);
     approx(mix.max[15], 1);
+  });
+});
+
+describe("mixPeakLevel", () => {
+  it("is the loudest swing either way, and 0 for a flat mix", () => {
+    const peaks = flatPeaks(0, 1);
+    assert.equal(mixPeakLevel(peaks), 0);
+    peaks.min[3] = -0.75;
+    peaks.max[4] = 0.5;
+    assert.equal(mixPeakLevel(peaks), 0.75);
   });
 });

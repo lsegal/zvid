@@ -222,7 +222,22 @@ async function addToneTrack(page: Page, name: string, frequency: number) {
     },
     { data: base64, name },
   );
-  const target = '[data-source-track-drop-target="new-track"]';
+  // With a track already there, a new one comes from the new-track row that
+  // dragging over a track shows.
+  if (spans) {
+    for (const type of ["dragenter", "dragover"]) {
+      await page.dispatchEvent(
+        '[data-source-track-drop-target="track"]',
+        type,
+        {
+          dataTransfer,
+        },
+      );
+    }
+  }
+  const target = spans
+    ? ".track-row--source-drop"
+    : '[data-source-track-drop-target="new-track"]';
   for (const type of ["dragenter", "dragover", "drop"]) {
     await page.dispatchEvent(target, type, { dataTransfer });
   }

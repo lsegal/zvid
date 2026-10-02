@@ -115,3 +115,15 @@ export function mixWaveformPeaks(
 
   return { bucketsPerSecond, durationSeconds, min, max };
 }
+
+// The loudest point of a mix, 0 when it is flat.
+export function mixPeakLevel(peaks: WaveformPeaks) {
+  let level = 0;
+  for (const value of peaks.max) {
+    level = Math.max(level, value);
+  }
+  for (const value of peaks.min) {
+    level = Math.max(level, -value);
+  }
+  return level;
+}

@@ -14,6 +14,8 @@ async function dropFile(
   file: URL,
   name: string,
   type: string,
+  // Shown only while a drag is over it, as the new-track row is.
+  over?: string,
 ) {
   const base64 = (await readFile(file)).toString("base64");
   const dataTransfer = await page.evaluateHandle(
@@ -25,6 +27,11 @@ async function dropFile(
     },
     { data: base64, name, type },
   );
+  if (over) {
+    for (const event of ["dragenter", "dragover"]) {
+      await page.dispatchEvent(over, event, { dataTransfer });
+    }
+  }
   for (const event of ["dragenter", "dragover", "drop"]) {
     await page.dispatchEvent(target, event, { dataTransfer });
   }
@@ -42,12 +49,15 @@ async function linkMedia(page: Page) {
   await expect(page.locator(".source-span")).toHaveCount(1, {
     timeout: 30_000,
   });
+  // A second track goes on the new-track row that dragging over a track
+  // shows.
   await dropFile(
     page,
-    '[data-source-track-drop-target="new-track"]',
+    ".track-row--source-drop",
     TONE,
     "tone.wav",
     "audio/wav",
+    '[data-source-track-drop-target="track"]',
   );
   await expect(page.locator(".source-span")).toHaveCount(2, {
     timeout: 30_000,
