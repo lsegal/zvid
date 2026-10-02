@@ -218,6 +218,9 @@ test("media dropped on the new-track row starts its track at the pointer", async
   );
   const newRow = page.locator(newTrackRow);
   await expect(newRow).toBeVisible();
+  await newRow.evaluate((element) =>
+    element.scrollIntoView({ block: "nearest" }),
+  );
   await dragAt(
     newRow.locator(content),
     (await xOf(newRow, 12, quarterPx)) + 2,

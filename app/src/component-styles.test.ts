@@ -72,7 +72,6 @@ const componentStyles = [
     selectors: [
       ".timeline-toolbar__display",
       ".status-light",
-      ".signature-picker",
     ],
   },
   {
