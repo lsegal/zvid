@@ -14,6 +14,7 @@ import * as compressor from "./compressor/definition.ts";
 import * as deEss from "./de-ess/definition.ts";
 import * as eq from "./eq/definition.ts";
 import * as gain from "./gain/definition.ts";
+import * as highPass from "./high-pass/definition.ts";
 import * as layout from "./layout/definition.ts";
 import * as limiter from "./limiter/definition.ts";
 import * as move from "./move/definition.ts";
@@ -44,6 +45,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   deEss,
   eq,
   gain,
+  highPass,
   layout,
   limiter,
   move,
