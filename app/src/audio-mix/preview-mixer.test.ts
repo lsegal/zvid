@@ -1,7 +1,9 @@
 /// <reference lib="dom" />
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
+import { gainStageAt } from "../fx/effects/gain/processor.ts";
 import { PreviewAudioMixer } from "./preview-mixer.ts";
+import { DEFAULT_TIME_SIGNATURE } from "./processor.ts";
 import type { AudioMix, AudioMixClip } from "./resolve.ts";
 
 class FakeElement {
@@ -115,13 +117,25 @@ function clip(overrides: Partial<AudioMixClip>): AudioMixClip {
     sourceWindowStartSeconds: 0,
     sourceWindowEndSeconds: 4,
     effects: [],
-    amplitude: 1,
+    hasGain: true,
+    busId: "bus",
     ...overrides,
+    amplitude: overrides.amplitude ?? 1,
+    // A Gain at its amplitude, as resolving a clip with one gives it.
+    stages: overrides.stages ?? [gainStageAt(overrides.amplitude ?? 1)],
   };
 }
 
 function mix(clips: AudioMixClip[], masterAmplitude = 1): AudioMix {
-  return { clips, masterAmplitude, fromSourceTracks: true, bpm: 120 };
+  return {
+    clips,
+    buses: [{ id: "bus", stages: [] }],
+    master: [gainStageAt(masterAmplitude)],
+    masterAmplitude,
+    fromSourceTracks: true,
+    bpm: 120,
+    signature: DEFAULT_TIME_SIGNATURE,
+  };
 }
 
 function playing(playheadSeconds: number) {

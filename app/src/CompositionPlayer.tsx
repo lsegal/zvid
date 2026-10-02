@@ -9,6 +9,7 @@ import {
 import { clamp } from "./app/util.ts";
 import { audioMixEndSeconds } from "./audio-mix/mix.ts";
 import { renderAudioMixOffline } from "./audio-mix/offline.ts";
+import { CHAIN_WORKLET_URL } from "./audio-mix/chain-worklet-url.ts";
 import { PreviewAudioMixer } from "./audio-mix/preview-mixer.ts";
 import { type AudioMix, SILENT_AUDIO_MIX } from "./audio-mix/resolve.ts";
 import {
@@ -148,7 +149,7 @@ export class CompositionRenderer {
     this.canvas = options.canvas ?? document.createElement("canvas");
     this.audioAnalysis = options.audioAnalysis ?? "live";
     if (this.audioAnalysis === "live") {
-      this.mixer = new PreviewAudioMixer();
+      this.mixer = new PreviewAudioMixer({ workletUrl: CHAIN_WORKLET_URL });
     }
     this.state = state;
     this.update(state);
