@@ -151,8 +151,16 @@ async function playFromStart(page: Page) {
   await page.getByRole("button", { name: "Play timeline" }).click();
 }
 
+// Stops playback, which a three-second session may already have done
+// under load.
 async function pause(page: Page) {
-  await page.getByRole("button", { name: "Pause playback" }).click();
+  await page
+    .getByRole("button", { name: "Pause playback" })
+    .click({ timeout: 2_000 })
+    .catch(() => {});
+  await expect(
+    page.getByRole("button", { name: "Play timeline" }),
+  ).toBeVisible();
 }
 
 test("two source clips play as one mix, and muting a clip's Gain drops it out", async ({
@@ -186,13 +194,17 @@ test("two source clips play as one mix, and muting a clip's Gain drops it out", 
     clipGain.getByRole("button", { name: /^Mute / }),
   ).toHaveAttribute("aria-pressed", "true");
 
+  // Both bounds hold in one read, so the drop isn't playback ending.
   await playFromStart(page);
   await expect
-    .poll(() => settledLevel(page), { timeout: 15_000 })
-    .toBeGreaterThan(0.1);
-  await expect
-    .poll(() => settledLevel(page), { timeout: 15_000 })
-    .toBeLessThan(both * 0.75);
+    .poll(
+      async () => {
+        const level = await settledLevel(page);
+        return level > 0.1 && level < both * 0.75;
+      },
+      { timeout: 15_000 },
+    )
+    .toBe(true);
   await pause(page);
 });
 
