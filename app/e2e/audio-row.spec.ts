@@ -250,12 +250,34 @@ test("a source clip with audio draws the mix, its muted Gain flattens it, and Re
   ).toBeVisible();
   await expect.poll(() => drawnLevel(page)).toBeGreaterThan(0.1);
 
-  // Refresh resolves the mix again and draws it anew.
-  await audioRow(page).getByRole("button", { name: "Recompute audio" }).click();
-  await expect(mixContent(page)).toHaveAttribute("data-audio-mix", "computing");
-  await expect(mixContent(page)).toHaveAttribute("data-audio-mix", "ready", {
-    timeout: 30_000,
+  // Refresh resolves the mix again and draws it anew. The recompute can
+  // finish before an assertion polls, so record every state the mix passes
+  // through instead of trying to catch the brief "computing" one.
+  await mixContent(page).evaluate((node) => {
+    const probe = window as unknown as { leftMixStates: string[] };
+    probe.leftMixStates = [];
+    new MutationObserver((records) => {
+      for (const record of records) {
+        probe.leftMixStates.push(record.oldValue ?? "");
+      }
+    }).observe(node, {
+      attributeFilter: ["data-audio-mix"],
+      attributeOldValue: true,
+    });
   });
+  await audioRow(page).getByRole("button", { name: "Recompute audio" }).click();
+  // The mix left "ready" to compute, then left "computing" for "ready".
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          () =>
+            (window as unknown as { leftMixStates: string[] }).leftMixStates,
+        ),
+      { timeout: 30_000 },
+    )
+    .toEqual(["ready", "computing"]);
+  await expect(mixContent(page)).toHaveAttribute("data-audio-mix", "ready");
   await expect.poll(() => drawnLevel(page)).toBeGreaterThan(0.1);
 
   // Muting the clip's Gain flattens its waveform.
