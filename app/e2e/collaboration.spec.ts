@@ -40,7 +40,7 @@ test.afterEach(async () => {
 async function openApp(
   browser: Browser,
   path = "/",
-  { blockableServe = false } = {},
+  { blockableServe = false, clock = false } = {},
 ) {
   const context = await browser.newContext({
     permissions: ["clipboard-read", "clipboard-write"],
@@ -58,6 +58,11 @@ async function openApp(
     );
   }, signaling.url);
   const page = await context.newPage();
+  // A fake clock lets a test skip the connection timeouts instead of
+  // waiting them out; time still runs normally until it fast-forwards.
+  if (clock) {
+    await page.clock.install();
+  }
   await page.goto(path);
   await expect(layerNames(page).first()).toBeVisible();
   return page;
@@ -454,31 +459,33 @@ test("outside a share, the offline label opens the offline media dialog", async 
 test("a guest with no host waits, then says the host wasn't found", async ({
   browser,
 }) => {
-  test.setTimeout(60_000);
   const guest = await openApp(
     browser,
     `/?room=nobody-home&signal=${encodeURIComponent(signaling.url)}`,
+    { clock: true },
   );
   await expect(connectionStatus(guest)).toHaveText("Waiting for host...", {
     timeout: 15_000,
   });
+  // Past the app's 20 s wait for a host (HOST_TIMEOUT_MS).
+  await guest.clock.fastForward(21_000);
   await expect(connectionStatus(guest)).toHaveText(
     "Host not found, check the invite and that the host is sharing",
-    { timeout: 30_000 },
   );
   // The guest never publishes its own project into the room.
   await expect(layerNames(guest)).toHaveText(["Layer 1", "Layer 2", "Layer 3"]);
 });
 
 test("an unreachable signaling server is reported", async ({ browser }) => {
-  test.setTimeout(60_000);
   const guest = await openApp(
     browser,
     `/?room=nowhere&signal=${encodeURIComponent("ws://127.0.0.1:9")}`,
+    { clock: true },
   );
+  // Past the app's 10 s signaling timeout (SIGNALING_TIMEOUT_MS).
+  await guest.clock.fastForward(11_000);
   await expect(connectionStatus(guest)).toHaveText(
     "Can't reach the signaling server",
-    { timeout: 20_000 },
   );
   await connectionStatus(guest).click();
   await expect(
