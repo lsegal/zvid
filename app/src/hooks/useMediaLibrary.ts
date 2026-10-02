@@ -146,6 +146,63 @@ export function useMediaLibrary({
     [projectSnapshotRef, setStatus],
   );
 
+  // Re-analyzes `blob` as `existing`, keeping its color, path and In/Out
+  // points, and commits what was read, such as file details it lacked.
+  const analyzeAdoptedMedia = useCallback(
+    async (
+      mediaId: string,
+      blob: Blob,
+      existing: MediaItem,
+      previewUrl: string,
+    ) => {
+      try {
+        const [result] = await getHarness().analyzeMedia(
+          {
+            kind: "files",
+            files: [new File([blob], existing.name, { type: blob.type })],
+          },
+          PALETTE,
+          0,
+        );
+        if (!result) {
+          return;
+        }
+
+        if (
+          result.previewUrl.startsWith("blob:") &&
+          result.previewUrl !== previewUrl
+        ) {
+          revokeObjectUrl(result.previewUrl);
+        }
+        const analyzed: MediaItem = {
+          ...result,
+          id: mediaId,
+          color: existing.color,
+          accent: existing.accent,
+          sourcePath: existing.sourcePath ?? result.sourcePath,
+          // The analyzed copy of a cached blob was modified just now.
+          lastModified:
+            blob instanceof File ? blob.lastModified : existing.lastModified,
+          previewUrl,
+        };
+        seedLocalMediaItems([analyzed]);
+        commitViewChange("Hydrate media", (current) =>
+          patchProjectState(current, {
+            mediaItems: mergeMediaItemsById(current.mediaItems, [
+              toShareableMediaItem(analyzed),
+            ]),
+          }),
+        );
+      } catch (error) {
+        logClient("media:adopt:analyze:error", {
+          mediaId,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+    [commitViewChange, seedLocalMediaItems],
+  );
+
   const adoptMediaBlob = useCallback(
     async (
       mediaId: string,
@@ -219,60 +276,47 @@ export function useMediaLibrary({
         return { previewUrl, warning };
       }
 
-      try {
-        const [result] = await getHarness().analyzeMedia(
-          {
-            kind: "files",
-            files: [new File([blob], existing.name, { type: blob.type })],
-          },
-          PALETTE,
-          0,
-        );
-        if (!result) {
-          return { previewUrl, warning };
-        }
+      await analyzeAdoptedMedia(mediaId, blob, existing, previewUrl);
+      return { previewUrl, warning };
+    },
+    [
+      analyzeAdoptedMedia,
+      projectSnapshotRef,
+      reportMediaNotCached,
+      setLocalMediaOverride,
+    ],
+  );
 
-        if (
-          result.previewUrl.startsWith("blob:") &&
-          result.previewUrl !== previewUrl
-        ) {
-          revokeObjectUrl(result.previewUrl);
-        }
-        const analyzed: MediaItem = {
-          ...result,
-          id: mediaId,
-          color: existing.color,
-          accent: existing.accent,
-          sourcePath: existing.sourcePath ?? result.sourcePath,
-          // The analyzed copy of a cached blob was modified just now.
-          lastModified:
-            blob instanceof File ? blob.lastModified : existing.lastModified,
-          previewUrl,
-        };
-        seedLocalMediaItems([analyzed]);
-        commitViewChange("Hydrate media", (current) =>
-          patchProjectState(current, {
-            mediaItems: mergeMediaItemsById(current.mediaItems, [
-              toShareableMediaItem(analyzed),
-            ]),
-          }),
-        );
+  // Reads the file details of media saved without them that this tab can
+  // read, as when the Media drawer shows it. Each item is tried once per tab.
+  const backfilledMediaIdsRef = useRef(new Set<string>());
+  const backfillMediaDetails = useCallback(
+    async (mediaId: string) => {
+      const existing = projectSnapshotRef.current.mediaItems.find(
+        (item) => item.id === mediaId,
+      );
+      const local = mediaItemsById.get(mediaId);
+      if (
+        !existing ||
+        !local?.previewUrl ||
+        local.availability !== "ready" ||
+        hasMediaDetails(existing) ||
+        backfilledMediaIdsRef.current.has(mediaId)
+      ) {
+        return;
+      }
+      backfilledMediaIdsRef.current.add(mediaId);
+      try {
+        const blob = await getHarness().readMediaBlob(local);
+        await analyzeAdoptedMedia(mediaId, blob, existing, local.previewUrl);
       } catch (error) {
-        logClient("media:adopt:analyze:error", {
+        logClient("media:details:backfill:error", {
           mediaId,
           message: error instanceof Error ? error.message : String(error),
         });
       }
-
-      return { previewUrl, warning };
     },
-    [
-      commitViewChange,
-      projectSnapshotRef,
-      reportMediaNotCached,
-      seedLocalMediaItems,
-      setLocalMediaOverride,
-    ],
+    [analyzeAdoptedMedia, mediaItemsById, projectSnapshotRef],
   );
 
   const cacheLocalMediaItems = useCallback(
@@ -372,6 +416,7 @@ export function useMediaLibrary({
     seedLocalMediaItems,
     reportMediaNotCached,
     adoptMediaBlob,
+    backfillMediaDetails,
     cacheLocalMediaItems,
     handleMediaStorageCleared,
   };

@@ -172,6 +172,58 @@ test("lists, searches, sizes and selects linked media, and remembers its state",
   ).toHaveValue("200");
 });
 
+function details(page: Page) {
+  return drawer(page).getByRole("region", { name: "Media details" });
+}
+
+// The details pane's value for a key, like "Size".
+function detail(page: Page, label: string) {
+  return details(page)
+    .locator(".media-details__row")
+    .filter({ has: page.locator("dt", { hasText: new RegExp(`^${label}$`) }) })
+    .locator("dd");
+}
+
+test("the details pane shows the selected media's file details", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await linkMedia(page);
+  await toggle(page).click();
+  await expect(details(page)).toContainText("No media selected");
+
+  // A video shows its size, container, codec, dimensions and fps.
+  await items(page).filter({ hasText: "test-pattern" }).click();
+  await expect(detail(page, "Name")).toHaveText("test-pattern.mp4");
+  await expect(detail(page, "Kind")).toHaveText(/^Video/);
+  await expect(detail(page, "Size")).toHaveText(/^[\d.]+ (B|KB|MB)$/);
+  await expect(detail(page, "Container")).toHaveText("MP4");
+  await expect(detail(page, "Video")).toHaveText(/\d+ × \d+ · [\d.]+ fps/);
+  await expect(detail(page, "Duration")).not.toHaveText("—");
+  await expect(detail(page, "Bitrate")).toHaveText(/ (kbps|Mbps)$/);
+  await expect(detail(page, "Modified")).not.toHaveText("—");
+  await expect(details(page).locator(".media-thumb")).toBeVisible();
+
+  // An audio-only item hides the video rows.
+  await items(page).filter({ hasText: "tone" }).click();
+  await expect(detail(page, "Name")).toHaveText("tone.wav");
+  await expect(detail(page, "Kind")).toHaveText("Audio");
+  await expect(detail(page, "Container")).toHaveText("WAV");
+  await expect(detail(page, "Audio")).toHaveText(/kHz/);
+  await expect(detail(page, "Video")).toHaveCount(0);
+
+  // The pane collapses, and stays collapsed across a reload.
+  const toggleDetails = details(page).getByRole("button", { name: "Details" });
+  await expect(toggleDetails).toHaveAttribute("aria-expanded", "true");
+  await toggleDetails.click();
+  await expect(toggleDetails).toHaveAttribute("aria-expanded", "false");
+  await expect(details(page).locator("dl")).toHaveCount(0);
+  await page.reload();
+  await expect(
+    details(page).getByRole("button", { name: "Details" }),
+  ).toHaveAttribute("aria-expanded", "false");
+});
+
 test("the resize handle widens the drawer and double-click resets it", async ({
   page,
 }) => {
@@ -219,6 +271,11 @@ test("offline media is marked", async ({ page }) => {
   await expect(drawer(page).locator(".media-badge--audio-track")).toHaveCount(
     1,
   );
+
+  // Its details keep what was stored and show that it is offline.
+  await offline.first().click();
+  await expect(detail(page, "Status")).toHaveText("Offline");
+  await expect(detail(page, "Name")).not.toHaveText("—");
 });
 
 test("overlays the timeline as a sheet on narrow layouts", async ({ page }) => {

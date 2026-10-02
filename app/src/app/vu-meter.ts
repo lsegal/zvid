@@ -33,13 +33,19 @@ export function dbToPosition(db: number) {
   return Math.min(1, (db - METER_MIN_DB) / (METER_MAX_DB - METER_MIN_DB));
 }
 
-// The readout's text, with a typographic minus, or "−∞" for silence.
+// The readout's text in dB, with a typographic minus and a plus above 0 dB.
+// Below the scale, like silence, it reads "−∞ dB", as the bars show empty.
 export function formatMeterDb(db: number) {
-  if (!Number.isFinite(db)) {
-    return "−∞";
+  if (!(db > METER_MIN_DB)) {
+    return "−∞ dB";
   }
-  const text = db.toFixed(1);
-  return text.startsWith("-") ? `−${text.slice(1)}` : text;
+  // Rounding first keeps a level just below 0 dB from reading "−0.0".
+  const tenths = Math.round(db * 10);
+  const text = (Math.abs(tenths) / 10).toFixed(1);
+  if (tenths < 0) {
+    return `−${text} dB`;
+  }
+  return tenths > 0 ? `+${text} dB` : `${text} dB`;
 }
 
 // The largest absolute sample, and the mean of the squared samples.
