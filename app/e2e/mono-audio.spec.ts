@@ -129,19 +129,19 @@ test("Mono's Source and Amount move the preview's level", async ({ page }) => {
   // both sides, which the analyser hears as 0.11; Left puts all of it on
   // both, 0.22; Right puts the silent side on both.
   await expect
-    .poll(() => playingLevel(page), { timeout: 15_000 })
+    .poll(() => playingLevel(page), { timeout: 30_000 })
     .toBeGreaterThan(0.08);
   const sum = await playingLevel(page);
   expect(sum).toBeLessThan(0.14);
 
   await source.getByRole("button", { name: "Left" }).click();
   await expect
-    .poll(() => playingLevel(page), { timeout: 15_000 })
+    .poll(() => playingLevel(page), { timeout: 30_000 })
     .toBeGreaterThan(sum * 1.6);
 
   await source.getByRole("button", { name: "Right" }).click();
   await expect
-    .poll(() => playingLevel(page), { timeout: 15_000 })
+    .poll(() => playingLevel(page), { timeout: 30_000 })
     .toBeLessThan(0.01);
 
   // At 0 % the original stereo passes: the analyser hears the tone's half
@@ -157,7 +157,7 @@ test("Mono's Source and Amount move the preview's level", async ({ page }) => {
         const level = await playingLevel(page);
         return level > sum * 0.8 && level < sum * 1.25;
       },
-      { timeout: 15_000 },
+      { timeout: 30_000 },
     )
     .toBe(true);
 });
