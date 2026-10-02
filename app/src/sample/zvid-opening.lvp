@@ -71,6 +71,16 @@
           "filename": "zvid-sample://opening-v1/corridor.mp4"
         }
       ]
+    },
+    {
+      "id": "source-music",
+      "name": "Music",
+      "colorIndex": 3,
+      "recordings": [
+        {
+          "filename": "zvid-sample://opening-v1/decisions-30s.m4a"
+        }
+      ]
     }
   ],
   "clips": [
@@ -523,6 +533,16 @@
       "clipStart": 90,
       "frameOffset": 0,
       "filePath": "zvid-sample://opening-v1/ribbon.mp4"
+    },
+    {
+      "id": "span-music",
+      "trackId": "source-music",
+      "name": "Music",
+      "frameStart": 0,
+      "frameCount": 900,
+      "clipStart": 0,
+      "frameOffset": 0,
+      "filePath": "zvid-sample://opening-v1/decisions-30s.m4a"
     }
   ],
   "selections": [
@@ -3846,6 +3866,19 @@
           "floatValue": 0
         }
       }
+    },
+    {
+      "id": "sample-fx-098",
+      "trackId": "source-clip:source-span-music",
+      "effectName": "Gain",
+      "parameters": {
+        "Gain": {
+          "floatValue": 0
+        },
+        "Mute": {
+          "floatValue": 0
+        }
+      }
     }
   ],
   "timeline": {
@@ -3859,7 +3892,7 @@
   },
   "playPosition": 0,
   "playStartPosition": 0,
-  "audioFilename": "zvid-sample://opening-v1/decisions-30s.m4a",
   "orderDefaulted": true,
-  "clipContentEffects": true
+  "clipContentEffects": true,
+  "audioGainDefaulted": true
 }
