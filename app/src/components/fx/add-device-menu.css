@@ -1,7 +1,5 @@
-/* An add-device menu scrolls when its effects outgrow the room beside the
-   add button. */
-.dropdown-menu-content.fx-add-menu {
-  max-width: 320px;
+/* Scrolls once the effect list is taller than the room beside the button. */
+.fx-add-menu {
   max-height: var(--radix-dropdown-menu-content-available-height);
   overflow-y: auto;
 }

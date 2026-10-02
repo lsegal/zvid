@@ -103,6 +103,10 @@ body.fx-chain-dragging * {
   cursor: grabbing !important;
 }
 
+.fx-add-menu {
+  max-width: 320px;
+}
+
 .fx-add-menu [data-radix-collection-item] {
   justify-content: flex-start;
   gap: 12px;
