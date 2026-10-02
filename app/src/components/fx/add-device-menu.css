@@ -1,3 +1,10 @@
+/* It scrolls rather than running off the window once its effects outgrow
+   the space beside the button. */
+.fx-add-menu {
+  max-height: var(--radix-dropdown-menu-content-available-height);
+  overflow-y: auto;
+}
+
 /* The Video and Audio headings in an add-device menu. */
 .fx-add-menu__group {
   padding: 6px 10px 2px;
