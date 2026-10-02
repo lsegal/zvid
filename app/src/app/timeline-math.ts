@@ -177,10 +177,11 @@ export function getSelectionEndQ(selection: TimelineSelection) {
   return selection.startQ + selection.durationQ;
 }
 
+// The session runs to the end of its last layer clip or source clip, which
+// is also where its audio, made only of clips, ends.
 export function getTimelineContentEndQ(
   clips: ArrangementClip[],
   sourceSpans: SourceSpan[],
-  mainAudioDurationSeconds: number | undefined,
   bpm: number,
   barLength: number,
 ) {
@@ -192,16 +193,8 @@ export function getTimelineContentEndQ(
     (maximum, span) => Math.max(maximum, getClipEndQ(span, bpm)),
     0,
   );
-  const audioTimelineEndQ = mainAudioDurationSeconds
-    ? secondsToQuarters(mainAudioDurationSeconds, bpm)
-    : 0;
 
-  return Math.max(
-    barLength,
-    clipTimelineEndQ,
-    sourceTimelineEndQ,
-    audioTimelineEndQ,
-  );
+  return Math.max(barLength, clipTimelineEndQ, sourceTimelineEndQ);
 }
 
 export function getSourceTrackEndQ(

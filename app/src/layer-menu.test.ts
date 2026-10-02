@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import type { ContextMenuEntry, ContextMenuItem } from "./context-menu.ts";
 import { addableEffectsFor } from "./fx-chain.ts";
 import { layerHistoryLabels, MAX_LAYERS_MESSAGE } from "./layer-menu.ts";
-import { buildMainAudioMenuEntries } from "./menus/audio-menu.ts";
+import { buildAudioMenuEntries } from "./menus/audio-menu.ts";
 import {
   buildLayerMenuEntries,
   type LayerMenuActions,
@@ -233,45 +233,21 @@ describe("layerHistoryLabels", () => {
   });
 });
 
-describe("buildMainAudioMenuEntries", () => {
-  function audioMenu(hasMainAudio: boolean, disabled = false) {
+describe("buildAudioMenuEntries", () => {
+  it("only offers Recompute audio, which refreshes the mix", () => {
     const calls: string[] = [];
-    const entries = buildMainAudioMenuEntries({
-      hasMainAudio,
-      disabled,
-      chooseFile: () => calls.push("choose"),
-      remove: () => calls.push("remove"),
+    const entries = buildAudioMenuEntries({
+      refresh: () => calls.push("refresh"),
     });
     for (const entry of entries) {
       if (entry.type === "item") {
         entry.onSelect?.();
       }
     }
-    return { calls, entries };
-  }
-
-  it("offers Import without main audio", () => {
-    const { calls, entries } = audioMenu(false);
     assert.deepEqual(
       entries.map((entry) => (entry.type === "item" ? entry.label : "")),
-      ["Import main audio…"],
+      ["Recompute audio"],
     );
-    assert.deepEqual(calls, ["choose"]);
-  });
-
-  it("offers Replace and Remove with main audio", () => {
-    const { calls, entries } = audioMenu(true);
-    assert.deepEqual(
-      entries.map((entry) => (entry.type === "item" ? entry.label : "")),
-      ["Replace main audio…", "Remove main audio"],
-    );
-    assert.deepEqual(calls, ["choose", "remove"]);
-  });
-
-  it("disables its items while exporting", () => {
-    const { entries } = audioMenu(true, true);
-    assert.ok(
-      entries.every((entry) => entry.type !== "item" || entry.disabled),
-    );
+    assert.deepEqual(calls, ["refresh"]);
   });
 });

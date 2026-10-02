@@ -15,7 +15,7 @@ const MENU_LABELS: Record<ClipMenuState["kind"], string> = {
   span: "Source clip actions",
   layer: "Layer header actions",
   "source-track": "Source track actions",
-  audio: "Main audio actions",
+  audio: "Audio actions",
 };
 
 // The open timeline context menu: a clip's, a source clip's, a layer's or

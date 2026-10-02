@@ -127,7 +127,6 @@ describe("listSessionMediaSync", () => {
         clip({ id: "real", mediaId: "a" }),
       ],
       sourceSpans: [],
-      mainAudioId: undefined,
       progress: new Map(),
       misses: new Map(),
       inSharedSession: false,

@@ -1,6 +1,6 @@
 // Picks the media a shared session still needs from peers. Every media the
-// session references counts: the main audio, arrangement clips and source
-// spans, so footage that is only on source tracks reaches joiners too.
+// session references counts: arrangement clips and source spans, so
+// footage that is only on source tracks reaches joiners too.
 
 import type { MediaAvailability } from "./media.ts";
 
@@ -12,7 +12,6 @@ export type SessionMediaRange = {
 
 export type OfflineSessionMediaOptions = {
   availability(mediaId: string): MediaAvailability | undefined;
-  mainAudioId?: string;
   clips: SessionMediaRange[];
   sourceSpans: SessionMediaRange[];
   playheadQ: number;
@@ -20,20 +19,18 @@ export type OfflineSessionMediaOptions = {
   visibleEndQ: number;
 };
 
-const MAIN_AUDIO_PRIORITY = 0;
-const PLAYHEAD_PRIORITY = 1;
-const VISIBLE_PRIORITY = 2;
-const OTHER_PRIORITY = 3;
+const PLAYHEAD_PRIORITY = 0;
+const VISIBLE_PRIORITY = 1;
+const OTHER_PRIORITY = 2;
 
 /**
  * Lists the ids of offline media the session references, in the order they
- * should be requested: the main audio first, since it drives playback and the
- * waveform, then media under the playhead, then visible media, then the rest.
+ * should be requested: media under the playhead first, then visible media,
+ * then the rest.
  * Ties keep the order the media first appears in.
  */
 export function offlineSessionMediaIds({
   availability,
-  mainAudioId,
   clips,
   sourceSpans,
   playheadQ,
@@ -51,7 +48,6 @@ export function offlineSessionMediaIds({
     }
   };
 
-  consider(mainAudioId, MAIN_AUDIO_PRIORITY);
   for (const range of [...clips, ...sourceSpans]) {
     consider(
       range.mediaId,
@@ -67,19 +63,4 @@ export function offlineSessionMediaIds({
   return Array.from(priorities)
     .sort(([, left], [, right]) => left - right)
     .map(([mediaId]) => mediaId);
-}
-
-/**
- * Forgets a remembered peer miss for the main audio when it changes, so a
- * main audio the host adds or replaces during a share is requested right away
- * even if an earlier request for that id came back empty.
- */
-export function forgetChangedMainAudioMiss(
-  misses: Set<string>,
-  previousMainAudioId: string | undefined,
-  mainAudioId: string | undefined,
-) {
-  if (mainAudioId && mainAudioId !== previousMainAudioId) {
-    misses.delete(mainAudioId);
-  }
 }

@@ -1,6 +1,7 @@
-// Real audio peaks for the main audio lane. Every decoded sample of every
-// channel is folded into fixed-duration min/max buckets so the lane can draw
-// the actual signal at any zoom level.
+// Real audio peaks of a media file, for audio clips and the Audio row's mix.
+// Every decoded sample of every channel is folded into fixed-duration
+// min/max buckets so the timeline can draw the actual signal at any zoom
+// level.
 
 export const PEAK_BUCKETS_PER_SECOND = 200;
 

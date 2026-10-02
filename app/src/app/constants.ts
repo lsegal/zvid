@@ -128,7 +128,6 @@ export const INITIAL_PROJECT_STATE: ProjectState = {
       DEFAULT_LANES.map((lane) => lane.id),
     ),
   ),
-  mainAudioId: undefined,
   sourceTracksLocked: false,
   orderDefaulted: true,
   clipContentEffects: true,

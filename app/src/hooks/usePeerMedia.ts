@@ -27,7 +27,6 @@ import {
   withQueuedRemoteMedia,
   withRemoteMediaProgress,
 } from "../remote-media-sync.ts";
-import { forgetChangedMainAudioMiss } from "../session-media.ts";
 
 export type PeerMediaStateInputs = {
   localMediaOverridesRef: { current: Record<string, LocalMediaOverride> };
@@ -63,7 +62,6 @@ export function usePeerMediaState({
     mediaPeerCount: number;
     ids: Set<string>;
   }>({ controller: null, mediaPeerCount: 0, ids: new Set() });
-  const peerMainAudioIdRef = useRef<string | undefined>(undefined);
 
   const resolvePeerMedia = useCallback(
     async (mediaId: string) => {
@@ -114,7 +112,6 @@ export function usePeerMediaState({
     setFailedSampleMediaIds,
     peerMediaTransfersRef,
     peerMediaMissesRef,
-    peerMainAudioIdRef,
     resolvePeerMedia,
     abortPeerMediaTransfers,
   };
@@ -129,7 +126,6 @@ export type PeerMediaInputs = {
     current: CollaborationController<ProjectState> | null;
   };
   mediaPeerCount: number;
-  mainAudioId: string | undefined;
   offlineSessionMediaIdsKey: string;
   mediaHydrationTick: number;
   setMediaHydrationTick: Dispatch<SetStateAction<number>>;
@@ -148,7 +144,6 @@ export function usePeerMedia({
   collaborationMode,
   collaborationControllerRef,
   mediaPeerCount,
-  mainAudioId,
   offlineSessionMediaIdsKey,
   mediaHydrationTick,
   setMediaHydrationTick,
@@ -165,7 +160,6 @@ export function usePeerMedia({
     setPeerMediaMissIds,
     peerMediaTransfersRef,
     peerMediaMissesRef,
-    peerMainAudioIdRef,
   } = peerMedia;
 
   // Copies peer misses into state so the media sync list can show them.
@@ -198,13 +192,6 @@ export function usePeerMedia({
       misses.mediaPeerCount = mediaPeerCount;
       misses.ids.clear();
     }
-    // A main audio the host adds or replaces mid-share is requested at once.
-    forgetChangedMainAudioMiss(
-      misses.ids,
-      peerMainAudioIdRef.current,
-      mainAudioId,
-    );
-    peerMainAudioIdRef.current = mainAudioId;
     syncPeerMediaMissIds();
 
     const transfers = peerMediaTransfersRef.current;
@@ -326,12 +313,10 @@ export function usePeerMedia({
     adoptMediaBlob,
     collaborationControllerRef,
     collaborationMode,
-    mainAudioId,
     mediaHydrationInFlightRef,
     mediaPeerCount,
     offlineSessionMediaIdsKey,
     mediaHydrationTick,
-    peerMainAudioIdRef,
     peerMediaMissesRef,
     peerMediaTransfersRef,
     projectSnapshotRef,

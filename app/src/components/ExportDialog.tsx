@@ -333,9 +333,9 @@ function ExportDialogBody({
   const contentEndQ = Math.max(
     model.defaultRange.outQ,
     ...model.clips.map((clip) => getClipEndQ(clip, bpm)),
-    model.mainAudio?.durationSeconds
-      ? secondsToQuarters(model.mainAudio.durationSeconds, bpm)
-      : 0,
+    ...model.audioMix.clips.map((clip) =>
+      secondsToQuarters(clip.startSeconds + clip.durationSeconds, bpm),
+    ),
   );
   const totalQ = Math.max(contentEndQ, options.outQ);
 
@@ -624,7 +624,7 @@ function ExportDialogBody({
           clips={model.clips}
           fps={options.fps}
           lanes={model.lanes}
-          mainAudioPeaks={model.mainAudioPeaks}
+          audioPeaks={model.audioPeaks}
           mediaItems={model.mediaItems}
           minimumQ={minimumQ}
           onRangeChange={(range) => (editing ? setRange(range) : undefined)}

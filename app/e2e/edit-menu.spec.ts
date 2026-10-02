@@ -29,7 +29,7 @@ function lane(page: Page, id: string) {
 }
 
 async function openEditMenu(page: Page) {
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
   const menu = page.getByRole("menu").first();
   await expect(menu).toBeVisible();
   return menu;
@@ -68,7 +68,7 @@ test("Edit shows Clip and Layer only for a selection, and Audio always", async (
   }
 
   const audio = await openSubmenu(page, "Audio");
-  await expect(audio.getByRole("menuitem")).toHaveText(["Import main audio…"]);
+  await expect(audio.getByRole("menuitem")).toHaveText(["Recompute audio"]);
   await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
 

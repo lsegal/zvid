@@ -234,18 +234,22 @@ test("media dragged from the drawer onto the new-track row starts a track", asyn
   await expect(mediaItems(page)).toHaveCount(1);
 });
 
-test("media dragged from the drawer onto the Audio lane or a layer does nothing", async ({
+test("media dragged from the drawer onto the Audio row or a layer does nothing", async ({
   page,
 }) => {
   const { row, quarterPx } = await openWithRange(page);
   const layer = page.locator('[data-timeline-lane-id="1"]');
-  const audioLane = page.locator("[data-main-audio-drop-target]");
-  await expect(audioLane).toContainText("No main audio");
+  const audioLane = page.locator("[data-audio-row]");
+  const summary = await audioLane.locator(".track-label small").textContent();
+  const spans = await page.locator(".source-span").count();
 
   await startDrag(page, mediaItems(page), row.locator(content));
   await dropAt(page, audioLane, (await box(audioLane)).x + 200);
   await expect(page.locator(".source-drop-preview")).toHaveCount(0);
-  await expect(audioLane).toContainText("No main audio");
+  await expect(page.locator(".source-span")).toHaveCount(spans);
+  await expect(audioLane.locator(".track-label small")).toHaveText(
+    summary ?? "",
+  );
 
   await startDrag(page, mediaItems(page), row.locator(content));
   await dropAt(page, layer, (await box(layer)).x + 200);

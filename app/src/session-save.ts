@@ -134,7 +134,6 @@ export type SaveableProject = {
       "id" | "name" | "sourcePath" | "rangeInSeconds" | "rangeOutSeconds"
     >
   >;
-  mainAudioId?: string;
   projectDurationFrames?: number;
   sourceTracksLocked?: boolean;
 };
@@ -336,10 +335,6 @@ export function projectToLvpSession(
   const texts = layerClips("text");
   const fxClips = layerClips("fx");
 
-  const mainAudio = project.mainAudioId
-    ? project.mediaItems.find((item) => item.id === project.mainAudioId)
-    : undefined;
-
   const mediaRanges = savedMediaRanges(project.mediaItems);
 
   const session: LvpSession = {
@@ -401,9 +396,6 @@ export function projectToLvpSession(
       ...(project.encoding ? { encoding: project.encoding } : {}),
     },
     playPosition: toFrames(quartersToSeconds(view.playheadQ, bpm), fps),
-    ...(mainAudio
-      ? { audioFilename: mainAudio.sourcePath ?? mainAudio.name }
-      : {}),
     sourceTracksLocked: project.sourceTracksLocked === true,
     ...(mediaRanges.length ? { mediaRanges } : {}),
     // The effects are written as they are, so a removed Order stays removed.

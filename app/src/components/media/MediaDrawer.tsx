@@ -44,7 +44,6 @@ const THUMBNAIL_DECODE_WIDTH = THUMBNAIL_SIZE_MAX;
 type MediaDrawerProps = {
   drawer: MediaDrawerState;
   mediaItems: MediaItem[];
-  mainAudioId: string | undefined;
   remoteMediaProgress: RemoteMediaProgressMap;
   prefersReducedMotion: boolean;
   // Durations in the details pane read in the timeline's format.
@@ -115,7 +114,6 @@ function countColumns(listbox: HTMLElement) {
 export function MediaDrawer({
   drawer,
   mediaItems,
-  mainAudioId,
   remoteMediaProgress,
   prefersReducedMotion,
   timeFormat,
@@ -237,7 +235,6 @@ export function MediaDrawer({
 
   function renderItem(media: MediaItem) {
     const selected = media.id === selectedMediaId;
-    const isMainAudio = media.id === mainAudioId;
     const mediaSync = describeMediaSync(
       remoteMediaProgress.get(media.id),
       media.availability,
@@ -254,11 +251,6 @@ export function MediaDrawer({
       .join(" ");
     const badges = (
       <>
-        {isMainAudio ? (
-          <span className="media-badge media-badge--audio-track">
-            Audio track
-          </span>
-        ) : null}
         {hasRange ? (
           <span
             className="media-badge media-badge--range"
@@ -312,7 +304,7 @@ export function MediaDrawer({
             <span className="media-tile__name">
               {middleEllipsis(media.name, nameMaxChars)}
             </span>
-            {isMainAudio || hasRange || offline ? (
+            {hasRange || offline ? (
               <span className="media-tile__badges">{badges}</span>
             ) : null}
           </>

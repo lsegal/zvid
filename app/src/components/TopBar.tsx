@@ -13,6 +13,7 @@ import type {
   useCollaboration,
 } from "../hooks/useCollaboration.ts";
 import type { useMediaStatus } from "../hooks/useMediaStatus.ts";
+import { useMenubar } from "../hooks/useMenubar.ts";
 import type { useProjectStore } from "../hooks/useProjectStore.ts";
 import type { useSampleProject } from "../hooks/useSampleProject.ts";
 import type { useSessionIO } from "../hooks/useSessionIO.ts";
@@ -35,6 +36,8 @@ import "./top-bar.css";
 type CollaborationActions = ReturnType<typeof useCollaboration>;
 type SessionIO = ReturnType<typeof useSessionIO>;
 type SetOpen = Dispatch<SetStateAction<boolean>>;
+
+const MENUS = ["file", "edit", "help"] as const;
 
 export type TopBarProps = Pick<
   CollaborationActions,
@@ -70,7 +73,7 @@ export type TopBarProps = Pick<
     setStatus: (message: string) => void;
   };
 
-// The app's top bar: the brand mark, the File, Edit and Help menus, the
+// The app's top bar: the brand mark, the File, Edit and Help menubar, the
 // tempo, and the export, collaboration status and share controls.
 export function TopBar({
   bpm,
@@ -113,103 +116,169 @@ export function TopBar({
     shareUrl,
   } = collaboration;
   const [isDesktopAppDialogOpen, setIsDesktopAppDialogOpen] = useState(false);
+  const menu = useMenubar(MENUS);
+  const fileMenu = menu("file");
+  const editMenu = menu("edit");
+  const helpMenu = menu("help");
 
   return (
     <header className="topbar">
       <div className="topbar__group">
         <BrandMark onStatus={setStatus} />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="ghost-button file-menu-button" type="button">
-              <span>File</span>
-              <MenuChevron />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuItem onSelect={() => void handleOpenSession()}>
-              Open Session
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => void handleOpenWorkspace()}>
-              Open Workspace
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={sample.handleOpenSample}>
-              Open Sample
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => void handleImport()}>
-              Import Media
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={
-                collaborationMode !== "idle" ||
-                isPristineProjectHistory(projectHistory)
-              }
-              onSelect={handleCloseSession}
-            >
-              Close Session
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={!offlineMedia.length}
-              onSelect={() => setIsOfflineMediaDialogOpen(true)}
-            >
-              {offlineMedia.length
-                ? "Locate Offline Media…"
-                : "All Media Linked"}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() => setIsMediaStorageDialogOpen(true)}
-            >
-              Media Storage…
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => setIsSessionSettingsOpen(true)}>
-              Session Settings…
-            </DropdownMenuItem>
-            {showsMediaSync ? (
-              <DropdownMenuItem onSelect={() => setIsMediaSyncDialogOpen(true)}>
-                Media Sync Status…
+        <div className="topbar__menubar" role="menubar" aria-label="Menu bar">
+          <DropdownMenu {...fileMenu.root}>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="menubar-item"
+                type="button"
+                {...fileMenu.trigger}
+              >
+                <span>File</span>
+                <MenuChevron />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" {...fileMenu.content}>
+              <DropdownMenuItem onSelect={() => void handleOpenSession()}>
+                Open Session
               </DropdownMenuItem>
-            ) : null}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onSelect={() => {
-                if (isConnectedClient) {
-                  handleDisconnectConnection();
+              <DropdownMenuItem onSelect={() => void handleOpenWorkspace()}>
+                Open Workspace
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={sample.handleOpenSample}>
+                Open Sample
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void handleImport()}>
+                Import Media
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={
+                  collaborationMode !== "idle" ||
+                  isPristineProjectHistory(projectHistory)
+                }
+                onSelect={handleCloseSession}
+              >
+                Close Session
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={!offlineMedia.length}
+                onSelect={() => setIsOfflineMediaDialogOpen(true)}
+              >
+                {offlineMedia.length
+                  ? "Locate Offline Media…"
+                  : "All Media Linked"}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => setIsMediaStorageDialogOpen(true)}
+              >
+                Media Storage…
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setIsSessionSettingsOpen(true)}>
+                Session Settings…
+              </DropdownMenuItem>
+              {showsMediaSync ? (
+                <DropdownMenuItem
+                  onSelect={() => setIsMediaSyncDialogOpen(true)}
+                >
+                  Media Sync Status…
+                </DropdownMenuItem>
+              ) : null}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={() => {
+                  if (isConnectedClient) {
+                    handleDisconnectConnection();
+                    return;
+                  }
+
+                  setIsConnectDialogOpen(true);
+                }}
+              >
+                {isConnectedClient
+                  ? "Disconnect from Share"
+                  : "Connect to Share"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={() => {
+                  void handleSaveSession();
+                }}
+              >
+                Save
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu {...editMenu.root}>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="menubar-item"
+                type="button"
+                {...editMenu.trigger}
+              >
+                <span>Edit</span>
+                <MenuChevron />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="start"
+              {...editMenu.content}
+              onCloseAutoFocus={(event) => {
+                // Leave focus on the layer name field Rename… opened.
+                if (renamingLaneIdRef.current) {
+                  event.preventDefault();
                   return;
                 }
-
-                setIsConnectDialogOpen(true);
+                editMenu.content.onCloseAutoFocus(event);
               }}
             >
-              {isConnectedClient ? "Disconnect from Share" : "Connect to Share"}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onSelect={() => {
-                void handleSaveSession();
-              }}
-            >
-              Save
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="ghost-button file-menu-button" type="button">
-              <span>Edit</span>
-              <MenuChevron />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="start"
-            onCloseAutoFocus={(event) => {
-              // Leave focus on the layer name field Rename… opened.
-              if (renamingLaneIdRef.current) {
-                event.preventDefault();
-              }
-            }}
-          >
-            <DropdownMenuEntries entries={getEditMenuEntries()} />
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <DropdownMenuEntries entries={getEditMenuEntries()} />
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu {...helpMenu.root}>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="menubar-item"
+                type="button"
+                {...helpMenu.trigger}
+              >
+                <span>Help</span>
+                <MenuChevron />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" {...helpMenu.content}>
+              <DropdownMenuItem
+                onSelect={() =>
+                  setStatus(
+                    "Use File → Open Session to open a .lvp session or an Ableton .als set, or File → Import Media to add clips.",
+                  )
+                }
+              >
+                Getting Started
+              </DropdownMenuItem>
+              {/* The desktop app has no downloads to offer. */}
+              {supportsHarnessCapability("native-dialogs") ? null : (
+                <>
+                  <DropdownMenuItem
+                    onSelect={() => setIsCaptureInstallerDialogOpen(true)}
+                  >
+                    Install Capture Plugin
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => setIsDesktopAppDialogOpen(true)}
+                  >
+                    Download Desktop App
+                  </DropdownMenuItem>
+                </>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="help-menu__build"
+                onSelect={() => void openBuildCommit().then(setStatus)}
+              >
+                {APP_BUILD_LABEL}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
         <TempoPill bpm={bpm} commitProjectChange={commitProjectChange} />
       </div>
 
@@ -300,46 +369,6 @@ export function TopBar({
             <span>Copied</span>
           </span>
         ) : null}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="ghost-button" type="button">
-              Help
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onSelect={() =>
-                setStatus(
-                  "Use File → Open Session to open a .lvp session or an Ableton .als set, or File → Import Media to add clips.",
-                )
-              }
-            >
-              Getting Started
-            </DropdownMenuItem>
-            {/* The desktop app has no downloads to offer. */}
-            {supportsHarnessCapability("native-dialogs") ? null : (
-              <>
-                <DropdownMenuItem
-                  onSelect={() => setIsCaptureInstallerDialogOpen(true)}
-                >
-                  Install Capture Plugin
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={() => setIsDesktopAppDialogOpen(true)}
-                >
-                  Download Desktop App
-                </DropdownMenuItem>
-              </>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="help-menu__build"
-              onSelect={() => void openBuildCommit().then(setStatus)}
-            >
-              {APP_BUILD_LABEL}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
         <DesktopAppDialog
           open={isDesktopAppDialogOpen}
           onOpenChange={setIsDesktopAppDialogOpen}

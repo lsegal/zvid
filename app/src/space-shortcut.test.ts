@@ -112,6 +112,24 @@ describe("space shortcut target classification", () => {
     );
   });
 
+  it("leaves Space to playback while the top bar menubar is on the page", () => {
+    // Matches only a menubar selector, as the always-present top bar would.
+    const menubar = {
+      querySelector: (selector: string) =>
+        selector.split(",").some((part) => part.trim() === '[role="menubar"]')
+          ? {}
+          : null,
+    };
+    assert.equal(classifySpaceTarget(element("BODY"), menubar), "playback");
+    assert.equal(
+      classifySpaceTarget(
+        element("BUTTON", { ancestors: ['[role="menubar"]'] }),
+        noOverlay,
+      ),
+      "overlay",
+    );
+  });
+
   it("lets a layer's or source track's reorder grip pick up and drop with Space", () => {
     assert.equal(
       classifySpaceTarget(

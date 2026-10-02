@@ -150,7 +150,6 @@ function baseProject(
       },
     ],
     mediaItems: [{ id: "m1", name: "mix.wav", sourcePath: "/media/mix.wav" }],
-    mainAudioId: "m1",
     projectDurationFrames: 900,
     ...overrides,
   };
@@ -224,7 +223,8 @@ describe("projectToLvpSession", () => {
       projectDuration: 900,
     });
     assert.equal(session.playPosition, 30);
-    assert.equal(session.audioFilename, "/media/mix.wav");
+    // Audio comes only from clips, so no main audio file is written.
+    assert.equal("audioFilename" in session, false);
   });
 
   it("does not reuse a selection id another clip keeps", () => {
