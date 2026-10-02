@@ -10,6 +10,7 @@ import * as colorize from "./colorize/definition.ts";
 import { pass as colorizePass } from "./colorize/pass.ts";
 import * as gain from "./gain/definition.ts";
 import * as layout from "./layout/definition.ts";
+import * as mono from "./mono/definition.ts";
 import * as move from "./move/definition.ts";
 import * as negativeSplit from "./negative-split/definition.ts";
 import { pass as negativeSplitPass } from "./negative-split/pass.ts";
@@ -28,6 +29,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   colorize,
   gain,
   layout,
+  mono,
   move,
   negativeSplit,
   order,
