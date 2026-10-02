@@ -19,7 +19,7 @@ test.beforeEach(async ({ page }) => {
 test("File ▸ Session Settings applies canvas and frame rate as one undo step", async ({
   page,
 }) => {
-  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "File", exact: true }).click();
   await page.getByRole("menuitem", { name: "Session Settings…" }).click();
   const settings = dialog(page);
   await expect(settings).toBeVisible();

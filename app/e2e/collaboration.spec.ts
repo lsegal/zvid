@@ -295,7 +295,7 @@ test("a guest in another browser context joins, syncs both ways and receives med
   expect(labels.filter((label) => /offline/i.test(label))).toEqual([]);
 
   // The media sync modal lists the received media as ready.
-  await guest.locator(".file-menu-button", { hasText: "File" }).click();
+  await guest.getByRole("menuitem", { name: "File", exact: true }).click();
   await guest.getByRole("menuitem", { name: "Media Sync Status…" }).click();
   const mediaSync = guest.getByRole("dialog", { name: "Media Sync" });
   await expect(mediaSync).toContainText("All session media is ready.");
@@ -421,7 +421,7 @@ test("outside a share, the offline label opens the offline media dialog", async 
   test.setTimeout(120_000);
   const { guest } = await joinHostThatCantServe(browser);
 
-  await guest.locator(".file-menu-button", { hasText: "File" }).click();
+  await guest.getByRole("menuitem", { name: "File", exact: true }).click();
   await guest
     .getByRole("menuitem", { name: "Disconnect from Share", exact: true })
     .click();

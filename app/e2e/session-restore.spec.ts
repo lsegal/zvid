@@ -74,7 +74,7 @@ async function waitForSave(page: Page, text: string) {
 }
 
 async function openFileMenu(page: Page) {
-  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "File", exact: true }).click();
   await expect(page.getByRole("menu").first()).toBeVisible();
 }
 
@@ -106,7 +106,7 @@ test("a refresh restores the session, its media and its undo history", async ({
   await page.keyboard.press("Escape");
 
   // Undo reverts the last action made before the refresh.
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
   await page.getByRole("menuitem", { name: /^Undo/ }).click();
   await expect(lane(page, "5").locator(".clip-card")).toHaveCount(0);
   await expect(lane(page, "1").locator(".clip-card")).toHaveCount(1);
@@ -215,7 +215,7 @@ test("a read-only tab refuses edits until it takes the session over", async ({
   await expect(second.locator(".clip-card")).toHaveCount(0);
 
   // So does Undo.
-  await second.getByRole("button", { name: "Edit", exact: true }).click();
+  await second.getByRole("menuitem", { name: "Edit", exact: true }).click();
   await second.getByRole("menuitem", { name: /^Undo/ }).click();
   await expect(prompt).toBeVisible();
   await prompt.getByRole("button", { name: "Stay read-only" }).click();

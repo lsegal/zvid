@@ -185,7 +185,7 @@ test("the Edit menu offers no Split for a selected source clip", async ({
   await seekInto(page, span, 0.5);
   await span.click();
   await expect(span).toHaveClass(/source-span--selected/);
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
   await expect(menuItem(page, /^Copy(?! to)/)).toBeVisible();
   await expect(menuItem(page, /^Clip:/)).toHaveCount(0);
   await expect(menuItem(page, /^Split at playhead/)).toHaveCount(0);

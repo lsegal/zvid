@@ -257,7 +257,7 @@ test("offline media is marked", async ({ page }) => {
     route.abort("internetdisconnected"),
   );
   await page.goto("/");
-  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "File", exact: true }).click();
   await page.getByRole("menuitem", { name: "Open Sample" }).click();
   await expect(
     page.getByRole("button", { name: /offline media files?$/ }),

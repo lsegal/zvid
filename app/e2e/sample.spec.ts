@@ -11,7 +11,7 @@ const SAMPLE_MEDIA = "**/samples/opening-v1/*";
 test.describe.configure({ timeout: 120_000 });
 
 async function openFileMenu(page: Page) {
-  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "File", exact: true }).click();
   await expect(page.getByRole("menu").first()).toBeVisible();
 }
 

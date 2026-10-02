@@ -14,7 +14,8 @@ const componentStyles = [
     stylesheet: "top-bar",
     selectors: [
       ".topbar",
-      ".file-menu-button",
+      ".topbar__menubar",
+      ".menubar-item",
       ".collaboration-status",
       ".share-button",
       ".share-copy-badge",
