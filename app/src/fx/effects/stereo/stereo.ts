@@ -43,7 +43,8 @@ export function sideScale(width: number) {
 // from 0 (hard left) to π/2 (hard right), so both are 1 at centre and
 // left² + right² is always 2.
 export function panAmplitudes(pan: number): [number, number] {
-  const theta = ((clamp(pan, PAN_MIN, PAN_MAX) - PAN_MIN) / 200) * (Math.PI / 2);
+  const theta =
+    ((clamp(pan, PAN_MIN, PAN_MAX) - PAN_MIN) / 200) * (Math.PI / 2);
   // Exact at the ends and the centre, where cos and sin round.
   if (theta === 0) {
     return [Math.SQRT2, 0];
