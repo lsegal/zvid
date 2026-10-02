@@ -295,6 +295,7 @@ export function useTimelineEditing({
     effects,
     fxLaneId,
     lanes,
+    mediaItemsById,
     playheadQRef,
     selectedClip,
     selectedLaneId,

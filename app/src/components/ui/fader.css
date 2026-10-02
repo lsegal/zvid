@@ -1,0 +1,159 @@
+/*
+ * Vertical fader for FX device parameters, such as Gain. Colors come from
+ * the app theme variables (with dark fallbacks), like the knob's.
+ */
+.fader {
+  --fader-ink: var(--ink, #eef2ff);
+  --fader-muted: var(--muted, #a4a9bf);
+  --fader-body: var(--bg-soft, #383b50);
+  --fader-track: color-mix(in srgb, var(--fader-ink) 14%, transparent);
+  --fader-edge: var(--line-strong, rgba(255, 255, 255, 0.14));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 72px;
+  min-width: 0;
+  user-select: none;
+}
+
+.fader__label {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--fader-muted);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.fader__body {
+  display: flex;
+  gap: 6px;
+  padding: 6px 0;
+}
+
+.fader__track {
+  position: relative;
+  width: 18px;
+  height: var(--fader-height);
+  border-radius: 9px;
+  outline: none;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+/* The groove, centered in the wider hit area. */
+.fader__track::before {
+  position: absolute;
+  inset: 0 7px;
+  border-radius: 2px;
+  background: var(--fader-track);
+  content: "";
+}
+
+.fader__track:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--fader-accent) 60%, transparent);
+}
+
+.fader__fill {
+  position: absolute;
+  right: 7px;
+  bottom: 0;
+  left: 7px;
+  height: calc(var(--fader-position) * 100%);
+  border-radius: 2px;
+  background: var(--fader-accent);
+}
+
+.fader__thumb {
+  position: absolute;
+  bottom: calc(var(--fader-position) * 100%);
+  left: 0;
+  width: 18px;
+  height: 10px;
+  border: 1px solid var(--fader-edge);
+  border-radius: 3px;
+  background: var(--fader-body);
+  box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--fader-accent) 70%, transparent);
+  transform: translateY(50%);
+  transition: background 120ms ease;
+}
+
+.fader__track:hover .fader__thumb,
+.fader--dragging .fader__thumb {
+  background: color-mix(in srgb, var(--fader-body) 88%, var(--fader-ink));
+}
+
+.fader__scale {
+  position: relative;
+  width: 22px;
+  height: var(--fader-height);
+}
+
+/* A scale mark across the track, labeled beside it. */
+.fader__mark {
+  position: absolute;
+  bottom: calc(var(--tick-position) * 100%);
+  left: 2px;
+  right: 2px;
+  height: 1px;
+  background: var(--fader-muted);
+  opacity: 0.6;
+}
+
+.fader__tick {
+  position: absolute;
+  bottom: calc(var(--tick-position) * 100%);
+  left: 0;
+  color: var(--fader-muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.62rem;
+  line-height: 1;
+  transform: translateY(50%);
+  white-space: nowrap;
+}
+
+.fader__value-text,
+.fader__input {
+  width: 64px;
+  height: 20px;
+  padding: 0 4px;
+  border-radius: 6px;
+  color: var(--fader-ink);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  line-height: 20px;
+  text-align: center;
+}
+
+.fader__value-text {
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  cursor: text;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fader__value-text:hover {
+  background: var(--fader-track);
+}
+
+.fader__input {
+  border: 1px solid var(--fader-accent);
+  background: var(--fader-body);
+  user-select: text;
+}
+
+.fader--disabled {
+  opacity: 0.45;
+}
+
+.fader--disabled .fader__track,
+.fader--disabled .fader__value-text {
+  cursor: not-allowed;
+}

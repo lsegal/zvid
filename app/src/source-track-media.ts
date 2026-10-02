@@ -5,6 +5,7 @@ import type {
   SourceTrackDropTarget,
 } from "./app/types.ts";
 import { getSwatch, stripFilenameExtension } from "./app/util.ts";
+import { addDefaultGain } from "./default-gain.ts";
 import type { MediaItem } from "./media.ts";
 import { mediaRangeOf } from "./media-range.ts";
 import {
@@ -39,7 +40,7 @@ export function getMediaClipTrim(item: MediaItem) {
 
 export type SourceTrackMediaPlacement = Pick<
   ProjectState,
-  "sourceTracks" | "sourceSpans" | "clips"
+  "sourceTracks" | "sourceSpans" | "clips" | "effects"
 >;
 
 /**
@@ -47,11 +48,17 @@ export type SourceTrackMediaPlacement = Pick<
  * new track named after the first item, pre-trimmed to its In/Out range. The
  * clips go back to back from the drop position, overwriting what they land
  * on like a moved clip; on a locked track they go after its last clip.
+ * Each clip of media with sound gets a Gain at 0 dB.
  */
 export function addMediaToSourceTrack(
   current: Pick<
     ProjectState,
-    "sourceTracks" | "sourceSpans" | "clips" | "sourceTracksLocked" | "bpm"
+    | "sourceTracks"
+    | "sourceSpans"
+    | "clips"
+    | "effects"
+    | "sourceTracksLocked"
+    | "bpm"
   >,
   items: readonly MediaItem[],
   target: SourceTrackDropTarget,
@@ -119,5 +126,10 @@ export function addMediaToSourceTrack(
     sourceTracks,
     sourceSpans: placed.sourceSpans,
     clips: placed.clips,
+    effects: addDefaultGain(
+      current.effects,
+      { sourceSpans: droppedSpans },
+      items,
+    ),
   };
 }

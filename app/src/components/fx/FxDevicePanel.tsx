@@ -1,6 +1,7 @@
 import {
   ChevronLeftIcon,
   PowerIcon,
+  SpeakerWaveIcon,
   XMarkIcon,
 } from "@heroicons/react/24/solid";
 import type {
@@ -20,6 +21,7 @@ import type { FxDevice } from "../../fx-stack";
 import { MotionIcon } from "../MotionIcon";
 import type { FxChainProps } from "./FxChain";
 import { FxParameterControl } from "./FxParameterControl";
+import "./fx-device-audio.css";
 
 type FxDevicePanelProps = {
   device: FxDevice;
@@ -119,6 +121,18 @@ export function FxDevicePanel({
       <MotionIcon />
     </button>
   ) : null;
+  // Tells audio devices, such as Gain, from the video ones beside them.
+  const audioBadge =
+    device.domain === "audio" ? (
+      <span
+        aria-label="Audio effect"
+        className="fx-device-panel__audio"
+        role="img"
+        title="Audio effect"
+      >
+        <SpeakerWaveIcon aria-hidden="true" />
+      </span>
+    ) : null;
   // While attached, the wrapper around the device and its Animation section
   // is the stack's panel.
   const groupAttribute = attached ? {} : { "data-fx-group": device.group };
@@ -148,6 +162,7 @@ export function FxDevicePanel({
         >
           <span>{device.name}</span>
         </button>
+        {audioBadge}
       </section>
     );
   }
@@ -189,6 +204,7 @@ export function FxDevicePanel({
         >
           {device.name}
         </button>
+        {audioBadge}
         {device.unsupported ? (
           <span
             className="fx-device-panel__unsupported"

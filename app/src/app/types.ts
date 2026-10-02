@@ -230,6 +230,10 @@ export type ProjectState = {
   // Color. A restored workspace saved without it is older and has its
   // layers' Text and Color moved onto those clips.
   clipContentEffects?: boolean;
+  // Set on every state since clips needed a Gain effect to make sound. A
+  // restored workspace saved without it is older and gets a 0 dB Gain on
+  // each clip that may have sound.
+  audioGainDefaulted?: boolean;
 };
 
 export type LocalMediaOverride = {

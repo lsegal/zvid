@@ -1,4 +1,5 @@
 import type { ImportNoticeContent } from "../components/ImportNotice";
+import { migrateDefaultGain } from "../default-gain.ts";
 import { type MediaItem, toShareableMediaItem } from "../media.ts";
 import type { ProjectHistoryState } from "../project-history.ts";
 import {
@@ -70,16 +71,22 @@ function normalizeRestoredProjectState(value: unknown): ProjectState {
     }
   }
   // Read from the save itself: the initial state always has the flag.
-  state.effects = migrateClipContentEffects(
-    migrateDefaultOrder(
-      migrateOrderOuterMargin(migrateColorizeReactivity(state.effects)),
-      saved.orderDefaulted,
+  state.effects = migrateDefaultGain(
+    migrateClipContentEffects(
+      migrateDefaultOrder(
+        migrateOrderOuterMargin(migrateColorizeReactivity(state.effects)),
+        saved.orderDefaulted,
+      ),
+      state.clips,
+      saved.clipContentEffects,
     ),
-    state.clips,
-    saved.clipContentEffects,
+    { clips: state.clips, sourceSpans: state.sourceSpans },
+    state.mediaItems,
+    saved.audioGainDefaulted,
   );
   state.orderDefaulted = true;
   state.clipContentEffects = true;
+  state.audioGainDefaulted = true;
   for (const field of PROJECT_POSITIVE_NUMBER_FIELDS) {
     const number = state[field];
     if (typeof number !== "number" || !Number.isFinite(number) || number <= 0) {

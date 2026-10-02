@@ -11,6 +11,7 @@ import {
   type FxParameterDefinition,
   type FxParameterVisibility,
   getEffectDefinition,
+  getEffectDomain,
   getFallbackParameterDefinition,
   isEffectSupportedIn,
 } from "../../fx-registry.ts";
@@ -124,6 +125,10 @@ function toDeviceParameter(
     max: definition.max,
     defaultValue: definition.defaultValue,
     step: definition.step,
+    ...(definition.control && definition.control !== "knob"
+      ? { control: definition.control }
+      : {}),
+    ...(definition.ticks ? { ticks: definition.ticks } : {}),
     display: definition.format(resolved),
   };
 }
@@ -231,6 +236,7 @@ function toDevice(
   const definition = getEffectDefinition(effect.effectName);
   const group = getTrackGroup(effect.trackId);
   const scope = group === "clip" ? clipScope : group;
+  const domain = getEffectDomain(definition);
   const knownKeys = new Set([
     ...definition.parameters.map((parameter) => parameter.key),
     ...(definition.retiredParameters ?? []),
@@ -263,8 +269,11 @@ function toDevice(
           : layerName,
     accent: definition.accent,
     group,
+    domain,
     enabled: effect.enabled !== false,
-    supportsAnimation: supportsAnimation(effect.effectName),
+    // Audio effects aren't animatable yet.
+    supportsAnimation:
+      domain === "video" && supportsAnimation(effect.effectName),
     ...(effect.animation ? { animation: effect.animation } : {}),
     layerDefault: isLayerLayoutEffect(effect) || undefined,
     ...(definition.knobRows ? { knobRows: definition.knobRows } : {}),

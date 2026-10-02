@@ -25,6 +25,7 @@ import {
   copyClipToLayer,
   resolvePasteLaneId,
 } from "../clip-menu.ts";
+import { addDefaultGain } from "../default-gain.ts";
 import {
   copyClipEffects,
   ensureLayerLayouts,
@@ -32,6 +33,7 @@ import {
   sourceClipEffectTrackId,
 } from "../fx-stack";
 import { createLaneId } from "../lanes";
+import type { MediaItem } from "../media";
 import type { ProjectHistoryAction } from "../project-history";
 import {
   copyClip,
@@ -60,6 +62,7 @@ export type ClipActionsInputs = {
   effects: SessionEffect[];
   fxLaneId: string | undefined;
   lanes: Lane[];
+  mediaItemsById: ReadonlyMap<string, MediaItem>;
   playheadQRef: RefObject<number>;
   selectedClip: ArrangementClip | undefined;
   selectedLaneId: string | undefined;
@@ -83,6 +86,7 @@ export function useClipActions({
   effects,
   fxLaneId,
   lanes,
+  mediaItemsById,
   playheadQRef,
   selectedClip,
   selectedLaneId,
@@ -357,13 +361,20 @@ export function useClipActions({
       return;
     }
 
-    // It pastes onto a layer as that clip, or into a source track as the
-    // source clip with its stack.
+    // It pastes onto a layer as that clip, with the Gain a clip made from a
+    // source gets, or into a source track as the source clip with its stack.
+    const layerCopy = withClipStacks(
+      copyClip(clip, bpm),
+      addDefaultGain([], { clips: [clip] }, [...mediaItemsById.values()]),
+    );
     const stackId = sourceClipEffectTrackId(span.id);
     clipClipboardRef.current = {
-      ...copyClip(clip, bpm),
+      ...layerCopy,
       sourceSpan: { ...span },
-      effects: effects.filter((effect) => effect.trackId === stackId),
+      effects: [
+        ...(layerCopy.effects ?? []),
+        ...effects.filter((effect) => effect.trackId === stackId),
+      ],
     };
     setStatus(`Copied ${clip.label}.`);
   }
@@ -404,9 +415,13 @@ export function useClipActions({
       patchProjectState(current, {
         lanes: result.lanes,
         clips: result.clips,
-        ...(result.createdLane
-          ? { effects: ensureLayerLayouts(current.effects, [result.lane.id]) }
-          : {}),
+        effects: addDefaultGain(
+          result.createdLane
+            ? ensureLayerLayouts(current.effects, [result.lane.id])
+            : current.effects,
+          { clips: [result.clip] },
+          current.mediaItems,
+        ),
       }),
     );
     setPendingSelection(null);

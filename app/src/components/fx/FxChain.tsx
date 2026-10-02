@@ -162,7 +162,7 @@ export function FxChain({
     moveDevice,
     setAnnouncement,
   });
-  const canEdit = kind !== "audio" && layerTrackId !== undefined;
+  const canEdit = layerTrackId !== undefined;
   const showClip = canEdit && clipTrackId !== undefined;
   // Dragging the chain's background, or middle-dragging anywhere in it,
   // pans it sideways.
@@ -270,7 +270,7 @@ export function FxChain({
 
   function addDevice(group: FxDeviceGroup, effectName: string) {
     const trackId = getTrackId(group, layerTrackId, clipTrackId);
-    const definition = addableEffectsFor(scopeOf(group)).find(
+    const definition = addableEffectsFor(scopeOf(group), kind).find(
       (candidate) => candidate.effectName === effectName,
     );
     if (!trackId || !definition) {
@@ -415,7 +415,7 @@ export function FxChain({
     const label = addMenuLabel(group, layerLabel);
     return (
       <AddDeviceMenu
-        effects={addableEffectsFor(scopeOf(group))}
+        effects={addableEffectsFor(scopeOf(group), kind)}
         focusKey={`add-${group}`}
         label={label}
         onAdd={(effectName) => addDevice(group, effectName)}
