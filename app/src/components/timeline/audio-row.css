@@ -1,33 +1,8 @@
-/* The Audio row ends the timeline. Pinned (when the panel has room for it,
-   audio-row-section.ts), it sits at the bottom of the panel and the rows
-   above scroll under it. It sits there even when they are short of the
-   panel's height (the canvas is a column, timeline.css), and as the canvas's
-   last row it takes its own height in the scroll range, so the last lanes
-   and source tracks scroll clear of it. It still scrolls sideways, with its
-   label pinned to the left like every other row. It is opaque and stacks
-   above the rows' sticky labels, below the ruler's resize rail; the playhead
-   line under it is drawn again inside it. */
+/* The Audio row is the timeline's docked footer (Timeline.tsx). It scrolls
+   sideways with the rows, its label pinned to the left like theirs, and
+   draws its own playhead line. */
 .track-row--bus {
-  margin-top: auto;
   background: #242637;
-}
-
-.track-row--bus-pinned {
-  position: sticky;
-  bottom: 0;
-  z-index: 8;
-  border-top: 1px solid var(--line-strong);
-  box-shadow: 0 -6px 14px rgba(10, 11, 18, 0.35);
-}
-
-/* Scrolling a row into view (focus, selection, a drag lining up a drop)
-   stops clear of the pinned row: its height, expanded or collapsed. */
-.timeline-scroll:has(.track-row--bus-pinned) {
-  scroll-padding-bottom: 80px;
-}
-
-.timeline-scroll:has(.track-row--bus-pinned.track-row--bus-collapsed) {
-  scroll-padding-bottom: 38px;
 }
 
 .audio-row__toggle {
@@ -43,6 +18,14 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+/* Centered like the other rows' index badges, whatever the button around it
+   sets for text. */
+.audio-row__toggle > .track-label__index {
+  justify-content: center;
+  line-height: 1;
+  text-align: center;
 }
 
 .audio-row__toggle:focus-visible {
@@ -77,7 +60,7 @@
   text-overflow: ellipsis;
 }
 
-/* Collapsed: a slim header with the toggle, no waveform. */
+/* Collapsed: a compact row with the toggle and a scaled-down waveform. */
 .track-row--bus-collapsed .track-label {
   min-height: 0;
   padding-block: 6px;
@@ -90,6 +73,15 @@
 
 .track-row--bus-collapsed .track-row__content {
   min-height: 0;
+}
+
+.track-row--bus-collapsed .waveform__canvas {
+  top: 6px;
+  height: calc(100% - 12px);
+}
+
+.track-row--bus-collapsed .media-sync--waveform {
+  inset-block: 6px;
 }
 
 .audio-row__playhead {

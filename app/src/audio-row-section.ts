@@ -1,7 +1,7 @@
-// The timeline's Audio row ends the timeline and is pinned to the bottom of
-// the panel when there is room for it, with a collapse toggle that hides its
-// waveform. The collapse preference is kept in local UI prefs like the Source
-// Tracks section's (source-tracks-section.ts).
+// The timeline's Audio row is docked at the bottom of the timeline panel,
+// with a toggle that collapses it to a compact row. The collapse preference
+// is kept in local UI prefs like the Source Tracks section's
+// (source-tracks-section.ts).
 
 export const AUDIO_ROW_COLLAPSED_STORAGE_KEY = "zvid-audio-row-collapsed";
 
@@ -28,15 +28,5 @@ export function writeAudioRowCollapsed(
 
 // The collapse toggle's label: what pressing it does.
 export function audioRowToggleLabel(collapsed: boolean) {
-  return collapsed ? "Show audio waveform" : "Hide audio waveform";
-}
-
-// The panel height the Audio row needs to pin itself to the bottom: room for
-// the ruler, the expanded row and a couple of layers between them. In a
-// shorter panel, pinned, it would cover most of the lanes, so there it just
-// ends the timeline and scrolls with it.
-export const AUDIO_ROW_PIN_MIN_PANEL_HEIGHT = 320;
-
-export function isAudioRowPinned(panelHeight: number) {
-  return panelHeight >= AUDIO_ROW_PIN_MIN_PANEL_HEIGHT;
+  return collapsed ? "Expand audio row" : "Collapse audio row";
 }

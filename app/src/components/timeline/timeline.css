@@ -1,11 +1,29 @@
-.timeline-scroll {
-  position: relative;
+/* A column: the rows, which scroll, over the docked footer (the Audio row),
+   which only follows their horizontal scroll (Timeline.tsx). */
+.timeline-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 18px;
   background: rgba(17, 19, 28, 0.32);
+}
+
+.timeline-scroll {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
   scrollbar-width: thin;
+}
+
+.timeline-footer {
+  flex: none;
+  overflow: hidden;
+  border-top: 1px solid var(--line-strong);
+  box-shadow: 0 -6px 14px rgba(10, 11, 18, 0.35);
 }
 
 /* Hand-grab panning: Space shows the grab hand, and a middle- or Space-drag
@@ -30,9 +48,8 @@
   pointer-events: none;
 }
 
-/* A column, so the Audio row ending it can push itself to the bottom of the
-   panel (audio-row.css). No bottom padding: the pinned row ends the canvas,
-   and padding would leave a gap under it at the end of the scroll range. */
+/* At least as tall as the panel, so the playhead line and drops reach the
+   footer under it. */
 .timeline-canvas {
   position: relative;
   display: flex;
@@ -131,7 +148,7 @@
 }
 
 @media (max-width: 900px), (max-height: 559px) {
-  .timeline-scroll {
+  .timeline-panel {
     max-height: 70vh;
   }
 }
