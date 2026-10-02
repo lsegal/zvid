@@ -140,6 +140,8 @@ test("the context-menu key opens the selected source track's menu", async ({
   );
   await page.keyboard.press("Shift+F10");
   await expect(menu).toBeVisible();
+  // The menu takes focus a tick after it opens; keys before that are lost.
+  await expect(menu).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
 
