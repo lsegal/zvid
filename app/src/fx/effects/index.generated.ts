@@ -18,6 +18,7 @@ import * as pixelate from "./pixelate/definition.ts";
 import { pass as pixelatePass } from "./pixelate/pass.ts";
 import * as text from "./text/definition.ts";
 import * as transform from "./transform/definition.ts";
+import * as transientShaper from "./transient-shaper/definition.ts";
 import * as zoomAndPan from "./zoom-and-pan/definition.ts";
 import { pass as zoomAndPanPass } from "./zoom-and-pan/pass.ts";
 
@@ -34,6 +35,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   pixelate,
   text,
   transform,
+  transientShaper,
   zoomAndPan,
 ];
 

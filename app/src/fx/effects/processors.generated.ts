@@ -3,8 +3,10 @@
 
 import type { AudioEffectDsp } from "../../audio-mix/processor.ts";
 import { processor as gainProcessor } from "./gain/processor.ts";
+import { processor as transientShaperProcessor } from "./transient-shaper/processor.ts";
 
 // Every audio effect folder's processor.ts, in folder order.
 export const EFFECT_AUDIO_PROCESSORS: readonly AudioEffectDsp[] = [
   gainProcessor,
+  transientShaperProcessor,
 ];
