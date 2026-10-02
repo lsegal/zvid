@@ -15,9 +15,9 @@ export const timelineStatusItem: StatusItemProvider = {
     return [
       {
         id: "timeline",
-        label: isMusical ? "Tempo" : "SMPTE",
+        label: isMusical ? "Tempo" : "Time",
         value: `${bpm} BPM`,
-        title: `Timeline: ${isMusical ? "Tempo" : "SMPTE"} ruler, ${bpm} BPM`,
+        title: `Timeline: ${isMusical ? "Tempo" : "Time"} ruler, ${bpm} BPM`,
       },
     ];
   },
