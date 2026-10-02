@@ -4,8 +4,11 @@ import type { CopyToLayerTarget } from "../clip-menu.ts";
 import type { ContextMenuEntry } from "../context-menu.ts";
 import type { DropLane } from "../source-clip-drop.ts";
 import { SOURCE_TRACKS_LOCKED_TITLE } from "../source-tracks-section.ts";
-import type { ClipMenuContext } from "./clip-menu.ts";
-import { type ClipMenuActions, clipMenuEntries } from "./clip-menu.ts";
+import {
+  type ClipMenuActions,
+  type ClipMenuContext,
+  clipMenuEntries,
+} from "./clip-menu.ts";
 import { copySourceSpanToLayerEntry } from "./entries/copy-source-span-to-layer.ts";
 import {
   assembleMenu,
