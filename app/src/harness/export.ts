@@ -7,6 +7,7 @@ import {
   Mp4OutputFormat,
   Output,
 } from "mediabunny";
+import { renderAudioMixOffline } from "../audio-mix/offline";
 import type {
   EncodableVideoCodec,
   VideoCodecSupport,
@@ -51,6 +52,9 @@ export async function probeVideoCodecSupport(
   return Object.fromEntries(entries);
 }
 
+// Exports mix their audio to stereo.
+const EXPORT_AUDIO_CHANNELS = 2;
+
 type NativeMux = (
   video: Uint8Array,
   audio: AudioBuffer | null,
@@ -77,40 +81,33 @@ export async function exportVideo(
     detail: `Exporting ${summary}...`,
   });
   let audio: AudioBuffer | null = null;
-  if (request.mainAudio?.hasAudio) {
+  if (request.audio) {
     request.onProgress({
       phase: "decoding-audio",
       progress: null,
       detail: "Preparing export audio...",
     });
-    const response = await fetch(request.mainAudio.previewUrl);
-    if (!response.ok)
-      throw new Error(`Cannot read export audio (${response.status}).`);
-    // Decoding resamples to the context's rate, the export's sample rate.
-    const context = new AudioContext({ sampleRate: encoding.audioSampleRate });
-    try {
-      const decoded = await context.decodeAudioData(
-        await response.arrayBuffer(),
-      );
+    // The mix covers the exported range, like the video.
+    const sampleRate = encoding.audioSampleRate;
+    const channels = await renderAudioMixOffline(
+      request.audio.mix,
+      request.audio.mediaItems,
+      {
+        sampleRate,
+        numberOfChannels: EXPORT_AUDIO_CHANNELS,
+        startSeconds,
+        length: Math.ceil((request.frameCount / frameRate) * sampleRate),
+      },
+    );
+    if (channels) {
       audio = new AudioBuffer({
-        numberOfChannels: decoded.numberOfChannels,
-        sampleRate: decoded.sampleRate,
-        length: Math.ceil(
-          (request.frameCount / frameRate) * decoded.sampleRate,
-        ),
+        numberOfChannels: channels.length,
+        sampleRate,
+        length: channels[0].length,
       });
-      // The audio is trimmed to the exported range, like the video.
-      const startSample = Math.round(startSeconds * decoded.sampleRate);
-      for (let channel = 0; channel < audio.numberOfChannels; channel++) {
-        audio.copyToChannel(
-          decoded
-            .getChannelData(channel)
-            .subarray(startSample, startSample + audio.length),
-          channel,
-        );
-      }
-    } finally {
-      await context.close();
+      channels.forEach((data, channel) => {
+        audio?.copyToChannel(data, channel);
+      });
     }
   }
   const browserAac = audio

@@ -109,8 +109,8 @@ test("double-clicking media opens it in the Media tab with its own transport", a
   await page.getByRole("button", { name: "Pause media" }).click();
   await expect.poll(() => mediaPaused(page)).toBe(true);
 
-  // Scrubbing moves the media and the readout, here in SMPTE timecode.
-  await page.getByRole("button", { name: "SMPTE" }).click();
+  // Scrubbing moves the media and the readout, here in timecode.
+  await page.getByRole("button", { name: "Time", exact: true }).click();
   await expect(time).toHaveText(/ \/ 00:03:00$/);
   await page.getByRole("slider", { name: "Media position" }).fill("2");
   await expect(time).toHaveText(/^00:02:00 \//);

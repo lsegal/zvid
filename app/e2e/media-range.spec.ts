@@ -92,7 +92,7 @@ test("In/Out points are set, dragged, undone, kept and cleared", async ({
   await page.goto("/");
   await expect(page.locator('[data-timeline-lane-id="1"]')).toBeVisible();
   await dropVideoIntoNewSourceTrack(page);
-  await page.getByRole("button", { name: "SMPTE" }).click();
+  await page.getByRole("button", { name: "Time", exact: true }).click();
   await page.getByRole("button", { name: "Media", exact: true }).click();
   await openInMediaTab(page);
 

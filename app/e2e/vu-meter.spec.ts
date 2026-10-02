@@ -1,12 +1,10 @@
-import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 
 // The transport bar's stereo VU meter, left of the preview volume, meters
-// the program mix (the main audio) before the preview volume, and decays to
-// empty when playback stops.
-const AUDIO = new URL("./fixtures/tone.wav", import.meta.url);
-const LANE = "[data-main-audio-drop-target]";
-const SILENT = "−∞ dB";
+// the program mix (the clips' audio mix) before the preview volume, and
+// decays to empty when playback stops.
+const DROP_AREA = '[aria-label="Source track drop area"]';
+const SILENT = "-inf dB";
 
 function readout(page: Page) {
   return page.locator(".vu-meter__readout");
@@ -27,41 +25,47 @@ async function readoutDb(page: Page) {
     : Number(text.replace(" dB", "").replace("−", "-"));
 }
 
-// The fixture is a three-second mono tone at about -18 dBFS.
-async function setMainAudio(page: Page) {
-  const base64 = (await readFile(AUDIO)).toString("base64");
+// A 440 Hz mono tone at about -13 dBFS RMS, long enough to keep playing
+// through every check, as a 16-bit WAV.
+function toneWav(seconds = 30) {
+  const sampleRate = 8000;
+  const frames = Math.round(seconds * sampleRate);
+  const wav = Buffer.alloc(44 + frames * 2);
+  wav.write("RIFF", 0, "ascii");
+  wav.writeUInt32LE(wav.length - 8, 4);
+  wav.write("WAVEfmt ", 8, "ascii");
+  wav.writeUInt32LE(16, 16);
+  wav.writeUInt16LE(1, 20);
+  wav.writeUInt16LE(1, 22);
+  wav.writeUInt32LE(sampleRate, 24);
+  wav.writeUInt32LE(sampleRate * 2, 28);
+  wav.writeUInt16LE(2, 32);
+  wav.writeUInt16LE(16, 34);
+  wav.write("data", 36, "ascii");
+  wav.writeUInt32LE(frames * 2, 40);
+  for (let index = 0; index < frames; index++) {
+    const sample = Math.sin((2 * Math.PI * 440 * index) / sampleRate);
+    wav.writeInt16LE(Math.round(sample * 10_000), 44 + index * 2);
+  }
+  return wav.toString("base64");
+}
+
+// Dropped on the source tracks, the tone plays as a source clip with a
+// 0 dB Gain.
+async function addSourceAudio(page: Page) {
+  const base64 = toneWav();
   const dataTransfer = await page.evaluateHandle((data) => {
     const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
     const transfer = new DataTransfer();
     transfer.items.add(new File([bytes], "tone.wav", { type: "audio/wav" }));
     return transfer;
   }, base64);
-  await page.dispatchEvent(LANE, "drop", { dataTransfer });
-  await expect(page.locator(`${LANE} .track-label small`)).toHaveText(
-    "tone.wav",
-    { timeout: 30_000 },
-  );
-}
-
-// Playback needs a clip to play, so this inserts a fill clip.
-async function addClip(page: Page) {
-  const lane = page.locator('[data-timeline-lane-id="1"]');
-  const bounds = await lane.boundingBox();
-  if (!bounds) {
-    throw new Error("Lane is not visible");
+  for (const type of ["dragenter", "dragover", "drop"]) {
+    await page.dispatchEvent(DROP_AREA, type, { dataTransfer });
   }
-  const y = bounds.y + bounds.height / 2;
-  await page.mouse.move(bounds.x + 40, y);
-  await page.mouse.down();
-  await page.mouse.move(bounds.x + 400, y);
-  await page.mouse.move(bounds.x + 800, y);
-  await page.mouse.up();
-  await page.mouse.click(bounds.x + 150, bounds.y + 20, { button: "right" });
-  await page
-    .getByRole("menu", { name: "Selection actions" })
-    .getByRole("menuitem", { name: "Insert Fill Clip" })
-    .click();
-  await expect(lane.locator(".clip-card--fill")).toHaveCount(1);
+  await expect(page.locator(".source-span")).toHaveCount(1, {
+    timeout: 30_000,
+  });
 }
 
 // Makes every analyser read a square wave above full scale while
@@ -78,6 +82,17 @@ async function allowForcedClipping(page: Page) {
       }
     };
   });
+}
+
+// The loudest of a few readings over 300 ms. Headless Chromium's media
+// playback has short dropouts, which a single reading can land in.
+async function loudest(read: () => Promise<number>) {
+  let max = -Infinity;
+  for (let index = 0; index < 6; index++) {
+    max = Math.max(max, await read());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  return max;
 }
 
 function isRed(color: string) {
@@ -138,27 +153,25 @@ test("the meter sits left of the volume control and starts empty", async ({
   await expect(readout(page)).toHaveAttribute("aria-live", "off");
 });
 
-test("the meter reads the main audio regardless of the preview volume", async ({
+test("the meter reads the audio mix regardless of the preview volume", async ({
   page,
 }) => {
   await page.goto("/");
   await expect(page.locator("[data-timeline-lane-id]").first()).toBeVisible();
-  await setMainAudio(page);
-  await addClip(page);
+  await addSourceAudio(page);
 
   await page.getByRole("button", { name: "Play timeline" }).click();
   // Both bars fill from the mono tone, and the readout shows its level.
   await expect.poll(() => level(page, "Left level")).toBeGreaterThan(-30);
   await expect.poll(() => level(page, "Right level")).toBeGreaterThan(-30);
   await expect.poll(() => readoutDb(page)).toBeGreaterThan(-30);
-  const audible = await readoutDb(page);
-  expect(audible).toBeLessThan(0);
+  expect(await readoutDb(page)).toBeLessThan(0);
 
-  // Silencing the preview leaves the program level alone.
+  // Silencing the preview leaves the program level audible on the meter.
+  // (vu-meter-calibration.spec.ts checks the levels themselves.)
   await page.getByRole("slider", { name: "Preview volume" }).fill("0");
-  await page.waitForTimeout(400);
-  expect(Math.abs((await readoutDb(page)) - audible)).toBeLessThan(1.5);
-  expect(await level(page, "Left level")).toBeGreaterThan(-30);
+  expect(await loudest(() => level(page, "Left level"))).toBeGreaterThan(-30);
+  expect(await loudest(() => readoutDb(page))).toBeGreaterThan(-30);
 
   await page.getByRole("button", { name: "Pause playback" }).click();
   await expect(readout(page)).toHaveText(SILENT, { timeout: 10_000 });
@@ -216,8 +229,7 @@ test("the meter is red only while a channel clips", async ({ page }) => {
     expect(isRed(color), color).toBe(false);
   }
 
-  await setMainAudio(page);
-  await addClip(page);
+  await addSourceAudio(page);
   await page.getByRole("button", { name: "Play timeline" }).click();
   // A loud mix short of clipping leaves the above-0 zone alone.
   await expect.poll(() => readoutDb(page)).toBeGreaterThan(-30);

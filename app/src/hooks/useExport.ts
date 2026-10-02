@@ -9,6 +9,8 @@ import {
 } from "react";
 import type { ExportState, ProjectState } from "../app/types.ts";
 import { logClient, pluralize } from "../app/util.ts";
+import { isAudibleMix } from "../audio-mix/mix.ts";
+import { type AudioMix, resolveAudioClips } from "../audio-mix/resolve.ts";
 import { CompositionRenderer } from "../CompositionPlayer";
 import {
   createExportOptions,
@@ -145,6 +147,8 @@ export type ExportDialogModel = {
   clips: ProjectState["clips"];
   lanes: ProjectState["lanes"];
   effects: ProjectState["effects"];
+  // What the dialog's preview plays and the export encodes.
+  audioMix: AudioMix;
   mainAudio: MediaItem | undefined;
   mainAudioPeaks: WaveformPeaks | undefined;
   bpm: number;
@@ -174,6 +178,20 @@ function renderClipsOf(project: ProjectState) {
     lanes: project.lanes,
     sourceTracks: project.sourceTracks,
     sourceSpans: project.sourceSpans,
+    bpm: project.bpm,
+    effects: project.effects,
+  });
+}
+
+// What an export of `project` hears: its layer clips with audio, or else its
+// source clips with audio (see resolveAudioClips).
+function audioMixOf(project: ProjectState, mediaItems: readonly MediaItem[]) {
+  return resolveAudioClips({
+    clips: project.clips,
+    lanes: project.lanes,
+    sourceTracks: project.sourceTracks,
+    sourceSpans: project.sourceSpans,
+    mediaById: new Map(mediaItems.map((item) => [item.id, item])),
     bpm: project.bpm,
     effects: project.effects,
   });
@@ -338,10 +356,10 @@ export function useExport({
     const abort = new AbortController();
     abortRef.current = abort;
     // Media replaced or removed in the editor meanwhile stays readable.
-    const releaseMedia = retainObjectUrls([
-      ...from.mediaItems.map((item) => item.previewUrl),
-      from.mainAudio?.previewUrl,
-    ]);
+    const releaseMedia = retainObjectUrls(
+      from.mediaItems.map((item) => item.previewUrl),
+    );
+    const audioMix = audioMixOf(from.project, from.mediaItems);
     let renderStartedAt: number | null = null;
     setSnapshot(from);
     setSecondsLeft(undefined);
@@ -360,7 +378,8 @@ export function useExport({
       canvasWidth,
       canvasHeight,
       encoding: settings.encoding,
-      mainAudio: from.mainAudio?.name,
+      audioClips: audioMix.clips.length,
+      audibleAudio: isAudibleMix(audioMix),
     });
     logClient("export:phase", { phase: "preparing", frames: frameCount });
 
@@ -382,7 +401,7 @@ export function useExport({
         ),
         canvasWidth,
         canvasHeight,
-        mainAudio: from.mainAudio,
+        audioMix,
       },
       { audioAnalysis: "offline" },
     );
@@ -398,7 +417,7 @@ export function useExport({
         durationSeconds,
         frameCount,
         bpm,
-        mainAudio: from.mainAudio,
+        audio: { mix: audioMix, mediaItems: from.mediaItems },
         signal: abort.signal,
         renderFrameAt: (frameQ, frameSeconds) =>
           exportRenderer.renderFrameAt(frameQ, frameSeconds),
@@ -501,6 +520,11 @@ export function useExport({
   const shown = phase !== "editing" && snapshot ? snapshot : null;
   const shownProject = shown?.project ?? project;
   const shownRender = shown ? renderClipsOf(shown.project) : render;
+  const shownMediaItems = shown?.mediaItems ?? mediaItems;
+  const shownAudioMix = useMemo(
+    () => audioMixOf(shownProject, shownMediaItems),
+    [shownMediaItems, shownProject],
+  );
   const exportDialog: ExportDialogModel = {
     open,
     phase,
@@ -512,10 +536,11 @@ export function useExport({
     snapshotTakenAt: shown?.takenAt ?? null,
     message,
     canReveal: canRevealSavedFile(window.harness, savedTarget),
-    mediaItems: shown?.mediaItems ?? mediaItems,
+    mediaItems: shownMediaItems,
     clips: shownRender.clips,
     lanes: shownRender.lanes,
     effects: shownRender.effects,
+    audioMix: shownAudioMix,
     mainAudio: shown ? shown.mainAudio : mainAudio,
     mainAudioPeaks: shown ? shown.mainAudioPeaks : mainAudioPeaks,
     bpm: shownProject.bpm,
