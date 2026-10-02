@@ -13,6 +13,7 @@ import * as colorize from "./colorize/definition.ts";
 import { pass as colorizePass } from "./colorize/pass.ts";
 import * as compressor from "./compressor/definition.ts";
 import * as deEss from "./de-ess/definition.ts";
+import * as delay from "./delay/definition.ts";
 import * as eq from "./eq/definition.ts";
 import * as gain from "./gain/definition.ts";
 import * as highPass from "./high-pass/definition.ts";
@@ -48,6 +49,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   colorize,
   compressor,
   deEss,
+  delay,
   eq,
   gain,
   highPass,

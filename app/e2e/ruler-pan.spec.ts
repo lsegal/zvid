@@ -90,6 +90,10 @@ async function expectUndoDisabled(page: Page, disabled: boolean) {
   const undo = expect(undoItem(page));
   await (disabled ? undo : undo.not).toHaveAttribute("aria-disabled", "true");
   await page.keyboard.press("Escape");
+  // An Escape right after opening can catch the menu's slide-in, which keeps
+  // it mounted, focused and dismissing outside clicks until the slide ends:
+  // the next click on Edit would close it again instead of opening it.
+  await expect(page.getByRole("menu")).toBeHidden();
 }
 
 test.beforeEach(async ({ page }) => {

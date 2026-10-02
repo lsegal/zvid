@@ -7,6 +7,7 @@ import { processor as bitcrushProcessor } from "./bitcrush/processor.ts";
 import { processor as chorusProcessor } from "./chorus/processor.ts";
 import { processor as compressorProcessor } from "./compressor/processor.ts";
 import { processor as deEssProcessor } from "./de-ess/processor.ts";
+import { processor as delayProcessor } from "./delay/processor.ts";
 import { processor as eqProcessor } from "./eq/processor.ts";
 import { processor as gainProcessor } from "./gain/processor.ts";
 import { processor as highPassProcessor } from "./high-pass/processor.ts";
@@ -28,6 +29,7 @@ export const EFFECT_AUDIO_PROCESSORS: readonly AudioEffectDsp[] = [
   chorusProcessor,
   compressorProcessor,
   deEssProcessor,
+  delayProcessor,
   eqProcessor,
   gainProcessor,
   highPassProcessor,

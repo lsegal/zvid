@@ -106,6 +106,10 @@ async function expectUndoLabel(page: Page, label: RegExp) {
   await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
   await expect(page.getByRole("menuitem", { name: /^Undo/ })).toHaveText(label);
   await page.keyboard.press("Escape");
+  // An Escape right after opening can catch the menu's slide-in, which keeps
+  // it mounted, focused and dismissing outside clicks until the slide ends:
+  // the next click on Edit would close it again instead of opening it.
+  await expect(page.getByRole("menu")).toBeHidden();
 }
 
 async function undo(page: Page) {
