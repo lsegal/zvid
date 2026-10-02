@@ -23,7 +23,7 @@ import {
 } from "./limiter.ts";
 
 // With the dynamics effects in the Audio group of the add menus.
-export const menuOrder = 330;
+export const menuOrder = 320;
 
 export const definition: FxEffectDefinition = {
   effectName: LIMITER_EFFECT_NAME,
