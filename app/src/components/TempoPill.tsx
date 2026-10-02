@@ -6,7 +6,7 @@ const BPM_STEP = 5;
 const BPM_MIN = 60;
 const BPM_MAX = 220;
 
-// The top bar's tempo readout, with buttons that step it by 5 BPM.
+// The timeline toolbar's tempo readout, with buttons that step it by 5 BPM.
 export function TempoPill({
   bpm,
   commitProjectChange,

@@ -172,7 +172,6 @@ export function useSessionIO({
         canvasHeight: project.canvasHeight,
         encoding: project.encoding,
         timelineMode: project.displaySeconds ? "timecode" : "musical",
-        snapMode: project.snapToBeat ? "beat" : "quarter",
         snapEnabled: project.snapToBeat,
         zoom: project.zoom,
         lanes: project.lanes.length ? project.lanes : DEFAULT_LANES,

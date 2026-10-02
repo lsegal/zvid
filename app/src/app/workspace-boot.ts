@@ -8,6 +8,7 @@ import {
   migrateDefaultOrder,
   migrateMainAudio,
   migrateOrderOuterMargin,
+  stripLegacySnapMode,
 } from "../project-state-compat.ts";
 import { createWorkspaceLock } from "../workspace-lock.ts";
 import { parseWorkspaceSession } from "../workspace-session.ts";
@@ -63,7 +64,7 @@ function normalizeRestoredProjectState(value: unknown): ProjectState {
   const saved = value as Partial<ProjectState>;
   let state: ProjectState = {
     ...INITIAL_PROJECT_STATE,
-    ...saved,
+    ...stripLegacySnapMode(saved),
   };
   for (const field of PROJECT_ARRAY_FIELDS) {
     if (!Array.isArray(state[field])) {

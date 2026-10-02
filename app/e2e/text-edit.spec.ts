@@ -266,7 +266,7 @@ test("the transform handles step aside while editing text", async ({
     ["Ctrl/Cmd+Enter", () => page.keyboard.press("ControlOrMeta+Enter")],
     [
       "a click outside",
-      () => page.getByRole("banner").getByText("120 BPM").click(),
+      () => page.locator(".timeline-toolbar").getByText("120 BPM").click(),
     ],
     [
       "playback",

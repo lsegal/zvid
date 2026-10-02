@@ -30,6 +30,7 @@ import {
   migrateMainAudio,
   migrateOrderOuterMargin,
   stripClipSelectionFlags,
+  stripLegacySnapMode,
 } from "./project-state-compat.ts";
 import { resolveTextStyle } from "./text-style.ts";
 
@@ -173,6 +174,19 @@ describe("migrateMainAudio", () => {
     const [fitted] = fitSourceSpansToMedia(migrated.sourceSpans, [song]);
     assert.equal(fitted.durationSeconds, 90);
     assert.equal("fitsMedia" in fitted, false);
+  });
+});
+
+describe("stripLegacySnapMode", () => {
+  it("drops a saved snapMode", () => {
+    assert.deepEqual(stripLegacySnapMode({ bpm: 120, snapMode: "beat" }), {
+      bpm: 120,
+    });
+  });
+
+  it("returns current snapshots unchanged", () => {
+    const snapshot = { bpm: 120, snapEnabled: true };
+    assert.equal(stripLegacySnapMode(snapshot), snapshot);
   });
 });
 

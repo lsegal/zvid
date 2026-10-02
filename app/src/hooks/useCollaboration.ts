@@ -38,6 +38,7 @@ import type { ProjectHistoryAction } from "../project-history";
 import {
   migrateMainAudio,
   stripClipSelectionFlags,
+  stripLegacySnapMode,
 } from "../project-state-compat.ts";
 import {
   buildPublicShareUrl,
@@ -247,8 +248,8 @@ export function useCollaboration({
 
   const applyRemoteProjectState = useCallback(
     (remoteSnapshot: ProjectState) => {
-      const snapshot = stripClipSelectionFlags(
-        migrateMainAudio(remoteSnapshot),
+      const snapshot = stripLegacySnapMode(
+        stripClipSelectionFlags(migrateMainAudio(remoteSnapshot)),
       );
       if (
         JSON.stringify(projectSnapshotRef.current) === JSON.stringify(snapshot)

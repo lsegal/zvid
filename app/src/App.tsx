@@ -347,9 +347,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         {...dialogs}
         {...sessionFiles}
         {...sharing}
-        bpm={bpm}
         collaboration={collaboration}
-        commitProjectChange={commitProjectChange}
         exportButtonLabel={exportState.exportButtonLabel}
         getEditMenuEntries={editing.getEditMenuEntries}
         handleCloseSession={workspace.handleCloseSession}
@@ -369,7 +367,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
               {...project}
               playheadSignal={playheadSignal}
               signature={timeline.signature}
-              adaptiveDivision={timeline.adaptiveDivision}
+              commitProjectChange={commitProjectChange}
               commitProjectPatch={store.commitProjectPatch}
               isMediaDrawerOpen={mediaDrawer.isOpen}
               onToggleMediaDrawer={mediaDrawer.toggleOpen}

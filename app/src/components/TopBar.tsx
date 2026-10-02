@@ -4,7 +4,6 @@ import {
   type SetStateAction,
   useState,
 } from "react";
-import type { ProjectState } from "../app/types.ts";
 import { isPristineProjectHistory } from "../app/workspace-boot.ts";
 import type { ContextMenuEntry } from "../context-menu.ts";
 import { supportsHarnessCapability } from "../harness";
@@ -23,7 +22,6 @@ import { DesktopAppDialog } from "./DesktopAppDialog";
 import { DropdownMenuEntries } from "./DropdownMenuEntries";
 import { MenuChevron } from "./MenuChevron";
 import { ShareLinkIconButton } from "./ShareLinkButton";
-import { TempoPill } from "./TempoPill";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,12 +49,7 @@ export type TopBarProps = Pick<
     | "handleSaveSession"
   > &
   Pick<ReturnType<typeof useMediaStatus>, "offlineMedia" | "showsMediaSync"> & {
-    bpm: number;
     collaboration: CollaborationStateResult;
-    commitProjectChange: (
-      label: string,
-      updater: (current: ProjectState) => ProjectState,
-    ) => void;
     exportButtonLabel: string;
     getEditMenuEntries: () => ContextMenuEntry[];
     handleCloseSession: () => void;
@@ -73,12 +66,10 @@ export type TopBarProps = Pick<
     setStatus: (message: string) => void;
   };
 
-// The app's top bar: the brand mark, the File, Edit and Help menubar, the
-// tempo, and the export, collaboration status and share controls.
+// The app's top bar: the brand mark, the File, Edit and Help menubar, and
+// the export, collaboration status and share controls.
 export function TopBar({
-  bpm,
   collaboration,
-  commitProjectChange,
   exportButtonLabel,
   getEditMenuEntries,
   handleCloseSession,
@@ -279,7 +270,6 @@ export function TopBar({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <TempoPill bpm={bpm} commitProjectChange={commitProjectChange} />
       </div>
 
       <div className="topbar__group topbar__group--right">

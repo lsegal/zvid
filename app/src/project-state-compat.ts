@@ -127,6 +127,19 @@ export function fitSourceSpansToMedia(
   return changed ? next : sourceSpans;
 }
 
+// Sessions saved before the snap grid selector was removed carry a
+// `snapMode`. Snapping now always follows the zoom-adaptive grid, so drop it
+// rather than keep writing it back out.
+export function stripLegacySnapMode<T extends object>(snapshot: T): T {
+  if (!("snapMode" in snapshot)) {
+    return snapshot;
+  }
+  const { snapMode: _snapMode, ...rest } = snapshot as T & {
+    snapMode?: unknown;
+  };
+  return rest as T;
+}
+
 // Peers on builds from before selection was per-user mark clips with a
 // `selected` flag. Selection is local, so drop it rather than let a stale
 // flag travel with the project.

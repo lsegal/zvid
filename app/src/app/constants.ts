@@ -1,7 +1,7 @@
 import { ensureGlobalOrder, ensureLayerLayouts } from "../fx-stack.ts";
 import type { Palette } from "../media.ts";
 import { DEFAULT_SESSION_SETTINGS } from "../session-settings.ts";
-import type { GridLineWeight, SnapMode } from "../timeline-grid.ts";
+import type { GridLineWeight } from "../timeline-grid.ts";
 import type { Lane, ProjectState, TimeSignature } from "./types.ts";
 
 // Media whose probed duration differs from the recorded one by more than
@@ -92,14 +92,6 @@ export const SIGNATURE_OPTIONS = SIGNATURES.map(({ id }) => ({
   label: id,
 }));
 
-export const SNAP_OPTIONS: { id: SnapMode; label: string }[] = [
-  { id: "auto", label: "Auto" },
-  { id: "bar", label: "Bar" },
-  { id: "beat", label: "Beat" },
-  { id: "half", label: "1/2" },
-  { id: "quarter", label: "1/4" },
-];
-
 export const DEFAULT_LANES: Lane[] = [
   { id: "1", name: "Layer 1", colorIndex: -1 },
   { id: "5", name: "Layer 2", colorIndex: -1 },
@@ -109,7 +101,6 @@ export const DEFAULT_LANES: Lane[] = [
 export const INITIAL_PROJECT_STATE: ProjectState = {
   timelineMode: "musical",
   signatureId: "4/4",
-  snapMode: "auto",
   snapEnabled: true,
   bpm: 120,
   fps: DEFAULT_SESSION_SETTINGS.fps,

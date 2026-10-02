@@ -51,7 +51,6 @@ export function useTimeline({
   const {
     timelineMode,
     signatureId,
-    snapMode,
     bpm,
     zoom,
     lanes,
@@ -68,7 +67,6 @@ export function useTimeline({
   const viewport = useTimelineViewport({
     zoom,
     signatureId,
-    snapMode,
     timelineMode,
     bpm,
     timelineClips,
