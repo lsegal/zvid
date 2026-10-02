@@ -59,7 +59,8 @@ The temporary Tauri config is only for this test. Remove it afterwards.
 
 `pnpm --dir app run test:web` runs the browser video-only export in headless
 Chromium and checks that the saved MP4 carries a JPEG thumbnail of the frame
-one second in. CI runs it on every pull request.
+one second in. CI runs it, with the rest of the app browser tests, on pushes
+to `main`.
 
 The `macOS AAC fallback` GitHub Actions workflow also runs this smoke page in
 Tauri on a macOS runner. It selects the video-only and native AAC paths, saves

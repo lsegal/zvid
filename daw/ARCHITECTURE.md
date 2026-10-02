@@ -712,8 +712,9 @@ UI tests use the driver rather than the Rust harness:
   revealing takes, and following Live's record buttons. Tests move the
   simulated transport and companion through `window.__ZVID_DRIVER__`.
 
-The `test` CI job runs both on Ubuntu and uploads `daw/ui/test-results`
-(Playwright traces) when the browser tests fail. To run them locally:
+The `test` CI job runs the unit tests on Ubuntu. The `daw-ui-e2e` job runs
+the browser tests on pushes to `main` only, and uploads `daw/ui/test-results`
+(Playwright traces) when they fail. To run them locally:
 
 ```sh
 pnpm --dir daw/ui install
