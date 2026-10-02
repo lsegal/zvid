@@ -10,6 +10,7 @@ import { processor as gainProcessor } from "./gain/processor.ts";
 import { processor as limiterProcessor } from "./limiter/processor.ts";
 import { processor as noiseGateProcessor } from "./noise-gate/processor.ts";
 import { processor as phaserProcessor } from "./phaser/processor.ts";
+import { processor as reverseProcessor } from "./reverse/processor.ts";
 import { processor as saturationProcessor } from "./saturation/processor.ts";
 import { processor as stereoProcessor } from "./stereo/processor.ts";
 import { processor as transientShaperProcessor } from "./transient-shaper/processor.ts";
@@ -25,6 +26,7 @@ export const EFFECT_AUDIO_PROCESSORS: readonly AudioEffectDsp[] = [
   limiterProcessor,
   noiseGateProcessor,
   phaserProcessor,
+  reverseProcessor,
   saturationProcessor,
   stereoProcessor,
   transientShaperProcessor,
