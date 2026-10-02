@@ -5,6 +5,7 @@ import type {
 } from "react";
 import { PREVIEW_DEFAULT_WIDTH, PREVIEW_MIN_WIDTH } from "../app/constants.ts";
 import type { ArrangementClip, Lane, TimelineDragState } from "../app/types.ts";
+import type { AudioMix } from "../audio-mix/resolve.ts";
 import {
   CompositionPlayer,
   type CompositionPlayerHandle,
@@ -60,7 +61,7 @@ export type PreviewPanelProps = Pick<
   hasOnlinePlayheadClip: boolean;
   isPlaying: boolean;
   isTimelineAudibleScrubbing: boolean;
-  mainAudio: MediaItem | undefined;
+  audioMix: AudioMix;
   mediaItems: MediaItem[];
   mediaPreview: MediaPreviewModel;
   mediaRange: MediaRangeActions;
@@ -114,7 +115,7 @@ export function PreviewPanel({
   hasOnlinePlayheadClip,
   isPlaying,
   isTimelineAudibleScrubbing,
-  mainAudio,
+  audioMix,
   mediaItems,
   mediaPreview,
   mediaRange,
@@ -222,7 +223,7 @@ export function PreviewPanel({
             isAudibleScrubbing={isTimelineAudibleScrubbing}
             isContinuousScrubbing={Boolean(timelineDragState?.wasPlaying)}
             lanes={renderLanes}
-            mainAudio={mainAudio}
+            audioMix={audioMix}
             mediaItems={mediaItems}
             playheadQ={playheadQ}
             playheadSeconds={playheadSeconds}

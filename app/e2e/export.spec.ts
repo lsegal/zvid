@@ -161,6 +161,29 @@ test("the web export uses the Session Settings audio sample rate", async ({
     type: "mp4a",
     sampleRate: 44_100,
   });
+
+  // The smoke page mixes its tone (peak 12000 / 32767) on two clips at
+  // −6 dB each, so the decoded audio peaks at their sum.
+  const decodedPeak = await page.evaluate(
+    async (bytes) => {
+      const context = new OfflineAudioContext(1, 1, 44_100);
+      const audio = await context.decodeAudioData(new Uint8Array(bytes).buffer);
+      const samples = audio.getChannelData(0);
+      // Skips the encoder's priming and the fade at the ends.
+      let peak = 0;
+      for (
+        let index = Math.round(audio.length * 0.25);
+        index < Math.round(audio.length * 0.75);
+        index++
+      ) {
+        peak = Math.max(peak, Math.abs(samples[index]));
+      }
+      return peak;
+    },
+    [...mp4],
+  );
+  const expectedPeak = (12_000 / 32_767) * 2 * 10 ** (-6 / 20);
+  expect(Math.abs(decodedPeak - expectedPeak)).toBeLessThan(0.03);
 });
 
 test("an unsupported Session Settings codec fails early and suggests Auto", async ({

@@ -96,7 +96,7 @@ export function TimelineToolbar({
             }
             type="button"
           >
-            SMPTE
+            Time
           </button>
         </div>
 

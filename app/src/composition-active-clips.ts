@@ -433,7 +433,7 @@ export function resolveVisualState(
   return state;
 }
 
-// Whether `effect` needs the main audio's bands: shader-chain effects and
+// Whether `effect` needs the audio mix's bands: shader-chain effects and
 // Reactive animations follow them.
 export function effectUsesAudio(effect: SessionEffect) {
   return (
@@ -451,7 +451,7 @@ export function computeActiveClips(
   sessionEffects: SessionEffect[],
   // The session's frame rate, which animation timings are counted in.
   fps = DEFAULT_FPS,
-  // The main audio at this frame, for effects that react to it.
+  // The audio mix at this frame, for effects that react to it.
   audio?: AudioBands,
   // The session's length (Live's loop end or the last clip end from an
   // import), as the wand and export use it. Without one the session ends

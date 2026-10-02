@@ -1,3 +1,4 @@
+import type { AudioMix } from "../audio-mix/resolve";
 import type { MediaItem, Palette } from "../media";
 import type { ServerMediaRef, SessionOpenResponse } from "../session";
 import type { SessionSettings } from "../session-settings";
@@ -91,10 +92,12 @@ export type ExportRequest = {
   durationSeconds: number;
   frameCount: number;
   // Where on the session timeline the export starts; the video and the
-  // main audio both begin there. Defaults to the session start.
+  // audio both begin there. Defaults to the session start.
   startSeconds?: number;
   bpm: number;
-  mainAudio?: MediaItem;
+  // The audio mix the export encodes, and the media its clips play. No
+  // audio track is written when nothing in it sounds.
+  audio?: { mix: AudioMix; mediaItems: MediaItem[] };
   // Aborting stops the export before it saves anything.
   signal?: AbortSignal;
   renderFrameAt(playheadQ: number, playheadSeconds: number): Promise<void>;

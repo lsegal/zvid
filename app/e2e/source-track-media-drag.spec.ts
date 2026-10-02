@@ -130,7 +130,7 @@ async function openWithMedia(page: Page) {
   await dropVideoIntoNewSourceTrack(page);
   const row = page.locator(tracks).first();
   const quarterPx = (await box(row.locator(".source-span"))).width / 6;
-  await page.getByRole("button", { name: "SMPTE", exact: true }).click();
+  await page.getByRole("button", { name: "Time", exact: true }).click();
   await page.getByRole("button", { name: "Media", exact: true }).click();
   await expect(mediaItems(page)).toHaveCount(1);
   return { row, quarterPx };
