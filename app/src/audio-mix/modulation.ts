@@ -15,6 +15,7 @@ import {
   DEFAULT_REACTIVE_RANGE_SCALE,
   placeOnsets,
   REACTIVE_FRAME_RATE,
+  type ReactiveOnset,
   reactiveOffset,
   reactiveSwingAt,
 } from "../fx-animation-impulse.ts";
@@ -139,6 +140,33 @@ export function modulatedValue(
   );
 }
 
+// How far Transient swings the knob `key` at timeline second `timeSeconds`
+// after `onsets`, as a fraction of its travel: Reactive's swing, with its
+// Timing counted at REACTIVE_FRAME_RATE. `seed` is the effect's id.
+export function transientSwing(
+  transient: Pick<
+    AudioStageTransient,
+    "motion" | "reactivity" | "lengthFrames"
+  >,
+  seed: string,
+  key: string,
+  onsets: readonly ReactiveOnset[],
+  timeSeconds: number,
+) {
+  const hit = reactiveSwingAt(
+    transient,
+    onsets,
+    timeSeconds,
+    transient.lengthFrames,
+    REACTIVE_FRAME_RATE,
+  );
+  return hit
+    ? reactiveOffset(seed, key, hit.seed) *
+        hit.amount *
+        DEFAULT_REACTIVE_RANGE_SCALE
+    : 0;
+}
+
 // Listens for hits on a stage's input: down-mixed to mono, measured on the
 // band tracker's 60 Hz timeline grid as the preview's analyser measures the
 // mix for Reactive.
@@ -237,21 +265,10 @@ export class StageModulator {
 
     this.listener ??= new HitListener(this.sampleRate);
     const onsets = this.listener.listen(input, frames, endSeconds);
-    const hit = reactiveSwingAt(
-      modulation,
-      onsets,
-      endSeconds,
-      modulation.lengthFrames,
-      REACTIVE_FRAME_RATE,
-    );
     for (const parameter of modulation.parameters) {
       this.swings.set(
         parameter.key,
-        hit
-          ? reactiveOffset(seed, parameter.key, hit.seed) *
-              hit.amount *
-              DEFAULT_REACTIVE_RANGE_SCALE
-          : 0,
+        transientSwing(modulation, seed, parameter.key, onsets, endSeconds),
       );
     }
     return this.swings;

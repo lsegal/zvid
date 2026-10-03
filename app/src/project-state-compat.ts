@@ -410,7 +410,9 @@ export function migrateClipContentEffects(
 // each effect's defaults where something is missing or malformed. Settings
 // on an effect that doesn't support modulation are dropped. Snapshots from
 // before Modulation have none, and load unchanged.
-export function migrateEffectModulation(effects: SessionEffect[]) {
+export function migrateEffectModulation(
+  effects: SessionEffect[],
+): SessionEffect[] {
   if (!effects.some((effect) => "modulation" in effect)) {
     return effects;
   }
