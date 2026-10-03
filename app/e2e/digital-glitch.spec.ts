@@ -103,7 +103,7 @@ test("Digital Glitch is added to a layer from Video → Stylize with its default
     .getByRole("menuitem", { name: "Stylize" })
     .press("ArrowRight");
   const submenu = page.getByRole("menu").last();
-  // Listed after Analog Glitch, among the other Stylize effects.
+  // Listed after Analog Glitch, among the Stylize effects that followed it.
   const stylize = await submenu.getByRole("menuitem").allTextContents();
   const analog = stylize.findIndex((name) => name.startsWith("Analog Glitch"));
   expect(analog).toBeGreaterThanOrEqual(0);

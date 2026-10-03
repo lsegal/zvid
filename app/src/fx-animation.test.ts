@@ -773,6 +773,7 @@ describe("resolveAnimatedEffects", () => {
     "Pixelate",
     "NegativeSplit",
     "AnalogGlitch",
+    "Refraction",
   ];
 
   function withMode(

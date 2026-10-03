@@ -3959,22 +3959,64 @@
     {
       "id": "sample-fx-101",
       "trackId": "clip:selection-1",
+      "effectName": "Refraction",
+      "parameters": {
+        "_Type": {
+          "stringValue": "Water"
+        },
+        "_Amount": {
+          "floatValue": 0.45
+        },
+        "_Scale": {
+          "floatValue": 0.4
+        },
+        "_Speed": {
+          "floatValue": 0.5
+        },
+        "_Angle": {
+          "floatValue": 90
+        },
+        "_Dispersion": {
+          "floatValue": 0.2
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": [
+            "_Amount"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sample-fx-102",
+      "trackId": "clip:selection-7",
       "effectName": "Distortion",
       "parameters": {
         "_Type": {
-          "stringValue": "Ripple"
+          "stringValue": "Twirl"
         },
         "_Edges": {
           "stringValue": "Mirror"
         },
         "_Amount": {
-          "floatValue": 0.4
+          "floatValue": 0.6
         },
         "_Size": {
-          "floatValue": 0.25
+          "floatValue": 0.6
         },
         "_Speed": {
-          "floatValue": 0.3
+          "floatValue": 0
         },
         "_CenterX": {
           "floatValue": 0.5
