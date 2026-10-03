@@ -14,6 +14,7 @@ import { AppStatusBar } from "./components/AppStatusBar";
 import { ArrangementEmptyState } from "./components/ArrangementEmptyState";
 import { CollaborationCursors } from "./components/CollaborationCursors";
 import { FxPanel } from "./components/FxPanel";
+import { ImportNotice } from "./components/ImportNotice";
 import { MediaDrawer } from "./components/media/MediaDrawer";
 import { PreviewPanel } from "./components/PreviewPanel";
 import { TimelineContextMenu } from "./components/TimelineContextMenu";
@@ -666,6 +667,12 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         setIsTakeOverPromptOpen={store.setIsTakeOverPromptOpen}
         workspaceAccess={store.workspaceAccess}
       />
+      {recording.failureNotice && (
+        <ImportNotice
+          notice={recording.failureNotice}
+          onDismiss={recording.dismissFailureNotice}
+        />
+      )}
       <AppStatusBar
         bpm={bpm}
         canvasHeight={canvasHeight}

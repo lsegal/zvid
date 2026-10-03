@@ -10,8 +10,9 @@ import { PALETTE } from "../app/constants.ts";
 import { secondsToQuarters } from "../app/timeline-math.ts";
 import type { ProjectState } from "../app/types.ts";
 import { pluralize } from "../app/util.ts";
+import type { ImportNoticeContent } from "../components/ImportNotice";
 import { getHarness } from "../harness";
-import { type MediaItem, toShareableMediaItem } from "../media";
+import type { MediaItem } from "../media";
 import { LiveTakeMonitor } from "../recording/live-take-monitor.ts";
 import { useArmedTrackIds } from "../recording/record-arm.ts";
 import { resolveTrackInputs } from "../recording/record-inputs.ts";
@@ -23,18 +24,18 @@ import {
 } from "../recording/record-transport.ts";
 import {
   addRecordedTakes,
-  type PlacedTake,
-  recordedTakeFileName,
   remuxRecording,
-  withRecordedDuration,
 } from "../recording/recorded-takes.ts";
 import {
   type FinishedTake,
   getBrowserRecordingDeps,
   type RecordingDeps,
   RecordingSession,
-  recordingExtension,
 } from "../recording/recording-session.ts";
+import {
+  type RecordedPass,
+  saveRecordedTakes,
+} from "../recording/save-recorded-takes.ts";
 
 // How often the growing clips redraw, in milliseconds.
 const LIVE_TICK_MS = 200;
@@ -74,11 +75,10 @@ export type RecordingInputs = {
   deps?: RecordingDeps | null;
 };
 
-type ActivePass = {
+type ActivePass = RecordedPass & {
   session: RecordingSession;
-  startQ: number;
-  startedAt: Date;
   monitors: LiveTakeMonitor[];
+  endedReasons: Map<string, string>;
 };
 
 // The transport's Record button: recording every armed source track from
@@ -106,6 +106,9 @@ export function useRecording({
   const [liveTakes, setLiveTakes] = useState<ReadonlyMap<string, LiveTake>>(
     () => new Map(),
   );
+  // Reports the takes the last pass couldn't keep, until dismissed.
+  const [failureNotice, setFailureNotice] =
+    useState<ImportNoticeContent | null>(null);
   const passRef = useRef<ActivePass | null>(null);
   const sourceTracksRef = useRef(sourceTracks);
   sourceTracksRef.current = sourceTracks;
@@ -119,57 +122,64 @@ export function useRecording({
 
   const saveTakes = useCallback(
     async (pass: ActivePass, finished: FinishedTake[]) => {
-      if (!finished.length) {
-        setStatus("Recording stopped before anything was captured.");
-        return;
-      }
-      setStatus(`Saving ${pluralize(finished.length, "recording")}...`);
-      try {
-        const files = await Promise.all(
-          finished.map(async (take) => {
-            const blob = await remuxRecording(take.blob);
-            return new File(
-              [blob],
-              recordedTakeFileName(
-                trackName(take.trackId),
-                pass.startedAt,
-                recordingExtension(take.mimeType),
-              ),
-              { type: take.mimeType, lastModified: Date.now() },
+      setStatus(
+        finished.length
+          ? `Saving ${pluralize(finished.length, "recording")}...`
+          : "Recording stopped before anything was captured.",
+      );
+      const { items, unanalyzed, failures } = await saveRecordedTakes(
+        pass,
+        finished,
+        {
+          trackName,
+          hasTrack: (trackId) =>
+            sourceTracksRef.current.some((track) => track.id === trackId),
+          remux: remuxRecording,
+          analyze: async (file, index) => {
+            const [item] = await getHarness().analyzeMedia(
+              { kind: "files", files: [file] },
+              PALETTE,
+              mediaItemCount + index,
             );
-          }),
-        );
-        const analyzed = await getHarness().analyzeMedia(
-          { kind: "files", files },
-          PALETTE,
-          mediaItemCount,
-        );
-        const items = analyzed.map((item, index) =>
-          withRecordedDuration(item, finished[index]?.durationSeconds ?? 0),
-        );
-        const placed: PlacedTake[] = items.flatMap((item, index) => {
-          const take = finished[index];
-          return take
-            ? [
-                {
-                  trackId: take.trackId,
-                  item: toShareableMediaItem(item),
-                  startQ: pass.startQ,
-                },
-              ]
-            : [];
-        });
-        commitProjectChange("Record", (current) =>
-          addRecordedTakes(current, placed),
-        );
+            return item;
+          },
+          createPreviewUrl: (file) => URL.createObjectURL(file),
+          palettes: PALETTE,
+          place: (placed) =>
+            commitProjectChange("Record", (current) =>
+              addRecordedTakes(current, placed),
+            ),
+        },
+      );
+      if (items.length) {
         seedLocalMediaItems(items);
         void cacheLocalMediaItems(items);
         setSourceTracksCollapsed(false);
-        setStatus(`Recorded ${pluralize(items.length, "clip")}.`);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        setStatus(`Saving the recording failed: ${message}`);
       }
+      setStatus(
+        [
+          items.length ? `Recorded ${pluralize(items.length, "clip")}.` : "",
+          unanalyzed
+            ? `${pluralize(unanalyzed, "clip")} couldn't be analyzed and will be analyzed again later.`
+            : "",
+          failures.length
+            ? `Couldn't keep ${pluralize(failures.length, "recording")}.`
+            : "",
+        ]
+          .filter(Boolean)
+          .join(" "),
+      );
+      setFailureNotice(
+        failures.length
+          ? {
+              tone: "error",
+              title: `Couldn't keep ${pluralize(failures.length, "recording")}`,
+              lines: failures.map(
+                ({ trackId, message }) => `${trackName(trackId)}: ${message}.`,
+              ),
+            }
+          : null,
+      );
     },
     [
       cacheLocalMediaItems,
@@ -189,7 +199,20 @@ export function useRecording({
     setPhase("saving");
     setLiveTakes((current) => markEnded(current, () => true));
     try {
-      await saveTakes(pass, await pass.session.stop());
+      let finished: FinishedTake[];
+      try {
+        finished = await pass.session.stop();
+      } catch (error) {
+        console.warn("[zvid] Stopping the recorders failed.", error);
+        finished = [];
+        const message = error instanceof Error ? error.message : String(error);
+        for (const trackId of pass.trackIds) {
+          if (!pass.endedReasons.has(trackId)) {
+            pass.endedReasons.set(trackId, message);
+          }
+        }
+      }
+      await saveTakes(pass, finished);
     } finally {
       for (const monitor of pass.monitors) monitor.dispose();
       setLiveTakes(new Map());
@@ -222,6 +245,7 @@ export function useRecording({
       {
         onTrackEnded: (trackId, message) => {
           setStatus(`Stopped recording ${trackName(trackId)}: ${message}.`);
+          passRef.current?.endedReasons.set(trackId, message);
           setLiveTakes((current) =>
             markEnded(current, (take) => take.trackId === trackId),
           );
@@ -257,8 +281,10 @@ export function useRecording({
     }));
     passRef.current = {
       session,
+      trackIds: takes.map((take) => take.trackId),
       startQ,
       startedAt: new Date(),
+      endedReasons: new Map(),
       monitors: takes.map((take) => take.monitor),
     };
     setLiveTakes(new Map(takes.map((take) => [take.trackId, take])));
@@ -337,6 +363,8 @@ export function useRecording({
   return {
     armedTrackIds,
     canRecord: canPressRecord(phase, armedTrackIds.size),
+    dismissFailureNotice: () => setFailureNotice(null),
+    failureNotice,
     isRecording: phase === "recording",
     isStartingRecording: phase === "starting",
     liveTakes,

@@ -234,6 +234,67 @@ test("a recorded take is saved with the session and reloads", async ({
   });
 });
 
+// Saving must never drop a take that captured something (#881).
+test("a take whose analysis fails stays on its track", async ({ page }) => {
+  await page.evaluate(() => {
+    const harness = (window as unknown as { harness: Record<string, unknown> })
+      .harness;
+    harness.analyzeMedia = async () => {
+      throw new Error("analysis failed");
+    };
+  });
+  await armFirstTrack(page);
+  await recordButton(page).click();
+  await expect(page.locator(".live-recording-clip")).toBeVisible();
+  await page.waitForTimeout(1500);
+  await page.getByRole("button", { name: "Pause playback" }).click();
+
+  const span = trackRow(page).locator(".source-span");
+  await expect(span).toHaveCount(1, { timeout: 30_000 });
+  await expect(span).toContainText("Source Track 1");
+  await expect(page.locator(".status-bar")).toContainText(
+    "Recorded 1 clip. 1 clip couldn't be analyzed",
+  );
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
+test("a take that can't be kept shows an error naming its track", async ({
+  page,
+}) => {
+  // Neither analyzing the take nor reading it as recorded works.
+  await page.evaluate(() => {
+    const harness = (window as unknown as { harness: Record<string, unknown> })
+      .harness;
+    harness.analyzeMedia = async () => {
+      throw new Error("analysis failed");
+    };
+    const createObjectURL = URL.createObjectURL.bind(URL);
+    URL.createObjectURL = (object: Blob | MediaSource) => {
+      if (object instanceof File && object.name.startsWith("Source Track")) {
+        throw new Error("the browser is out of memory");
+      }
+      return createObjectURL(object);
+    };
+  });
+  await armFirstTrack(page);
+  await recordButton(page).click();
+  await expect(page.locator(".live-recording-clip")).toBeVisible();
+  await page.waitForTimeout(1500);
+  await page.getByRole("button", { name: "Pause playback" }).click();
+
+  const alert = page.getByRole("alert");
+  await expect(alert).toContainText("Couldn't keep 1 recording", {
+    timeout: 30_000,
+  });
+  await expect(alert).toContainText(
+    "Source Track 1: the browser is out of memory.",
+  );
+  await expect(page.locator(".live-recording-clip")).toHaveCount(0);
+  await expect(trackRow(page).locator(".source-span")).toHaveCount(0);
+  await alert.getByRole("button", { name: "Dismiss" }).click();
+  await expect(alert).toHaveCount(0);
+});
+
 // The saved session payload, or null when nothing is saved.
 function readSavedPayload(page: Page) {
   return page.evaluate(
