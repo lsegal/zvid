@@ -76,6 +76,7 @@ import {
   resolveTextStyle,
   type TextStyle,
 } from "./text-style.ts";
+import type { MeterSignature } from "./timeline-format.ts";
 
 export type MediaKind = "video" | "audio";
 
@@ -457,6 +458,8 @@ export function computeActiveClips(
   // import), as the wand and export use it. Without one the session ends
   // with its last clip.
   projectDurationFrames?: number,
+  // The session's time signature, which synced LFO animations follow.
+  signature?: MeterSignature,
 ): ActiveClip[] {
   const epsilon = 0.0001;
   const usedSourceKeys = new Set<string>();
@@ -525,6 +528,7 @@ export function computeActiveClips(
         bpm,
         fps,
         audio,
+        signature,
       });
       if (clip.kind === "fx") {
         // Only the FX clip's own stack adjusts what is beneath it, so an FX
@@ -648,6 +652,7 @@ export function resolveFrameEffects<T extends SessionEffect>(
   playheadQ: number,
   bpm: number,
   fps = DEFAULT_FPS,
+  signature?: MeterSignature,
 ): T[] {
   const topmost = activeClips[0];
   return topmost
@@ -659,7 +664,7 @@ export function resolveFrameEffects<T extends SessionEffect>(
           bpm,
           topmost.sessionEdges,
         ),
-        { playheadQ, bpm, fps },
+        { playheadQ, bpm, fps, signature },
       )
     : effects;
 }

@@ -395,6 +395,7 @@ export function useExport({
         effects: rendered.effects,
         bpm,
         fps,
+        signature: signatureById(from.project.signatureId),
         projectDurationFrames: projectDurationAt(
           from.project.projectDurationFrames,
           from.session.fps,
