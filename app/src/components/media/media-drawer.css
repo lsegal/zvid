@@ -92,7 +92,17 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 4px 14px 14px;
+  padding: 10px 14px 14px;
+}
+
+/* The title with the close button at its right, where the Media tab's
+   header puts it. */
+.media-drawer__record-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-right: -4px;
 }
 
 .media-drawer__record-title {

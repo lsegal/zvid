@@ -1,4 +1,4 @@
-import { useState, useSyncExternalStore } from "react";
+import { type ReactNode, useState, useSyncExternalStore } from "react";
 import {
   buildDefaultInputOptions,
   defaultInputValue,
@@ -27,6 +27,8 @@ type RecordTabProps = {
   // nothing asks for camera or mic access.
   requested: boolean;
   onRequest: () => void;
+  // The drawer's close button, shown at the right of the title.
+  closeButton: ReactNode;
 };
 
 // The default Video and Audio inputs. Mounted only while shown, so its
@@ -93,10 +95,17 @@ function DefaultRecordInputs() {
 
 // The Media drawer's Record tab: the default camera and mic that recording
 // into a source track uses, unless the track overrides them.
-export function RecordTab({ requested, onRequest }: RecordTabProps) {
+export function RecordTab({
+  requested,
+  onRequest,
+  closeButton,
+}: RecordTabProps) {
   return (
     <div className="media-drawer__record">
-      <h2 className="media-drawer__record-title">Record</h2>
+      <div className="media-drawer__record-header">
+        <h2 className="media-drawer__record-title">Record</h2>
+        {closeButton}
+      </div>
       <p className="media-drawer__record-subtitle">
         Configure your record inputs
       </p>

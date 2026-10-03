@@ -253,3 +253,30 @@ test("the toolbar's Media | Record switch opens, switches and closes the drawer"
     "false",
   );
 });
+
+test("the Record tab puts the close button on the title row", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await openDrawer(page);
+  await segment(page, "Record").click();
+
+  const heading = drawer(page).getByRole("heading", { name: "Record" });
+  const close = drawer(page).getByRole("button", {
+    name: "Close media drawer",
+  });
+  await expect(heading).toBeVisible();
+  await expect(close).toHaveCount(1);
+  const headingBox = await heading.boundingBox();
+  const closeBox = await close.boundingBox();
+  if (!headingBox || !closeBox) {
+    throw new Error("Expected the heading and close button to be laid out");
+  }
+  // Their vertical ranges overlap: one row, with nothing above the title.
+  expect(closeBox.y).toBeLessThan(headingBox.y + headingBox.height);
+  expect(headingBox.y).toBeLessThan(closeBox.y + closeBox.height);
+  expect(closeBox.x).toBeGreaterThan(headingBox.x + headingBox.width);
+
+  await close.click();
+  await expect(drawer(page)).toBeHidden();
+});
