@@ -212,6 +212,42 @@ test("the Clip widget title row matches an FX device title row", async ({
   ).toBeLessThanOrEqual(1);
 });
 
+// The Clip widget's info icon fills most of its title slot, so its drawn
+// circle reads at least as large as the power glyph of the neighboring Order
+// device, expanded and folded.
+test("the Clip widget's info icon is as large as a device's power glyph", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await dropVideos(page, 1);
+  const spans = page.locator(".source-span");
+  await expect(spans).toHaveCount(1, { timeout: 30_000 });
+  await spans.first().click();
+
+  const device = page.locator(".source-clip-properties__device");
+  const slot = device.locator(".source-clip-properties__info");
+  const info = slot.locator("svg path");
+  const power = page
+    .locator('section[aria-label="Order"]')
+    .first()
+    .locator(".fx-device-panel__power svg path");
+  await expect(slot).toBeVisible();
+  await expect(power.first()).toBeVisible();
+  const glyph = await box(power.first());
+
+  for (const folded of [false, true]) {
+    if (folded) {
+      await device.getByRole("button", { name: "Collapse Clip" }).click();
+      await expect(device).toHaveClass(/fx-device-panel--collapsed/);
+    }
+    const drawn = await box(info.first());
+    const bounds = await box(slot);
+    expect(drawn.width).toBeGreaterThanOrEqual(glyph.width);
+    expect(drawn.height).toBeGreaterThanOrEqual(glyph.height);
+    expect(drawn.width).toBeGreaterThanOrEqual(bounds.width * 0.75);
+  }
+});
+
 // The Clip widget leads its title with an info icon and folds to a strip like
 // an FX device, by its chevron, a title double-click or the strip, and stays
 // folded across selecting other clips and reloading.
