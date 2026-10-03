@@ -59,6 +59,7 @@ export function useAppLayout({ sourceTrackCount }: AppLayoutInputs) {
   const { labelWidth } = labelResize;
   const [previewWidth, setPreviewWidth] = useState(readPreviewWidth);
   const [editorGridWidth, setEditorGridWidth] = useState(0);
+  const [mediaDrawerWidth, setMediaDrawerWidth] = useState(0);
   const prefersReducedMotion = usePrefersReducedMotion();
   const editorGridRef = useRef<HTMLDivElement | null>(null);
   const previewResizeRef = useRef<{
@@ -81,7 +82,16 @@ export function useAppLayout({ sourceTrackCount }: AppLayoutInputs) {
   }, []);
 
   const shortcutLabels = useMemo(() => getShortcutLabels(), []);
-  const previewMaxWidth = getPreviewMaxWidth(editorGridWidth);
+  // Until the grid is measured the saved width stands; after that it shrinks
+  // to fit while the saved preference stays as it was.
+  const measuredPreviewMaxWidth = getPreviewMaxWidth(
+    editorGridWidth,
+    labelWidth,
+    mediaDrawerWidth,
+  );
+  const previewMaxWidth = Number.isFinite(measuredPreviewMaxWidth)
+    ? measuredPreviewMaxWidth
+    : previewWidth;
   const effectivePreviewWidth = Math.min(previewWidth, previewMaxWidth);
 
   useEffect(() => {
@@ -90,11 +100,21 @@ export function useAppLayout({ sourceTrackCount }: AppLayoutInputs) {
       return;
     }
 
-    setEditorGridWidth(editorGrid.clientWidth);
-    const observer = new ResizeObserver(() => {
+    // The Media drawer's column (drawer plus its resize handle) is the grid's
+    // other column, and it changes width without the grid resizing.
+    const mediaDrawerColumn = editorGrid.querySelector<HTMLElement>(
+      ".media-drawer-column",
+    );
+    const measure = () => {
       setEditorGridWidth(editorGrid.clientWidth);
-    });
+      setMediaDrawerWidth(mediaDrawerColumn?.offsetWidth ?? 0);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
     observer.observe(editorGrid);
+    if (mediaDrawerColumn) {
+      observer.observe(mediaDrawerColumn);
+    }
     return () => observer.disconnect();
   }, []);
 
