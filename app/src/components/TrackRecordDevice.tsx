@@ -16,6 +16,7 @@ import {
   resolveTrackInputs,
   resolveTrackOverride,
   subscribeRecordInputs,
+  withBrowserDefaults,
   writeTrackInputOverride,
 } from "../recording/record-inputs.ts";
 import {
@@ -82,7 +83,11 @@ function TrackRecordInputs({ trackId }: { trackId: string }) {
         audio: devices.audio.map((device) => device.deviceId),
       }
     : undefined;
-  const resolved = resolveTrackInputs(trackId, available);
+  // The browser's default opens the device it names, as recording does.
+  const resolved = withBrowserDefaults(
+    resolveTrackInputs(trackId, available),
+    infos,
+  );
 
   function field(kind: RecordInputKind): RecordInputField {
     const defaultLabel = describeDefaultInput(

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  browserDefaultDeviceId,
   browserDefaultLabel,
   getRecordInputsVersion,
   listInputDevices,
@@ -10,6 +11,7 @@ import {
   readTrackInputOverride,
   resolveTrackInputs,
   resolveTrackOverride,
+  withBrowserDefaults,
   writeDefaultInput,
   writeTrackInputOverride,
 } from "./record-inputs.ts";
@@ -158,5 +160,112 @@ describe("listInputDevices", () => {
     assert.equal(browserDefaultLabel(infos, "audio"), "USB Mic");
     assert.equal(browserDefaultLabel(infos, "video"), "Camera 1");
     assert.equal(browserDefaultLabel([], "video"), undefined);
+  });
+});
+
+describe("browser default device", () => {
+  // An audio interface lists one input per channel pair, all in its group.
+  const interfaceInfos = [
+    {
+      deviceId: "default",
+      groupId: "usb",
+      kind: "audioinput",
+      label: "Default - Line 3/4 (USB Interface)",
+    },
+    {
+      deviceId: "communications",
+      groupId: "built-in",
+      kind: "audioinput",
+      label: "Communications - Built-in Mic",
+    },
+    {
+      deviceId: "built-in",
+      groupId: "built-in",
+      kind: "audioinput",
+      label: "Built-in Mic",
+    },
+    {
+      deviceId: "line-12",
+      groupId: "usb",
+      kind: "audioinput",
+      label: "Line 1/2 (USB Interface)",
+    },
+    {
+      deviceId: "line-34",
+      groupId: "usb",
+      kind: "audioinput",
+      label: "Line 3/4 (USB Interface)",
+    },
+    { deviceId: "cam-a", groupId: "cam", kind: "videoinput", label: "Cam" },
+  ] as const;
+
+  it("resolves Chromium's default alias to the device it names", () => {
+    assert.equal(browserDefaultDeviceId(interfaceInfos, "audio"), "line-34");
+  });
+
+  it("falls back to the alias's group when no device has its name", () => {
+    const infos = [
+      {
+        deviceId: "default",
+        groupId: "usb",
+        kind: "audioinput",
+        label: "Default - USB Interface",
+      },
+      { deviceId: "built-in", groupId: "built-in", kind: "audioinput" },
+      { deviceId: "line-12", groupId: "usb", kind: "audioinput" },
+    ] as const;
+    assert.equal(browserDefaultDeviceId(infos, "audio"), "line-12");
+  });
+
+  it("uses the first device listed without an alias", () => {
+    assert.equal(browserDefaultDeviceId(interfaceInfos, "video"), "cam-a");
+    assert.equal(
+      browserDefaultDeviceId(
+        [
+          { deviceId: "mic-b", kind: "audioinput", label: "Mic B" },
+          { deviceId: "mic-a", kind: "audioinput", label: "Mic A" },
+        ],
+        "audio",
+      ),
+      "mic-b",
+    );
+  });
+
+  it("follows the system default when it changes", () => {
+    const changed = interfaceInfos.map((info) =>
+      info.deviceId === "default"
+        ? { ...info, groupId: "built-in", label: "Default - Built-in Mic" }
+        : info,
+    );
+    assert.equal(browserDefaultDeviceId(changed, "audio"), "built-in");
+  });
+
+  it("is undefined until the browser lists device IDs", () => {
+    assert.equal(browserDefaultDeviceId([], "audio"), undefined);
+    assert.equal(
+      browserDefaultDeviceId(
+        [{ deviceId: "", kind: "audioinput", label: "" }],
+        "audio",
+      ),
+      undefined,
+    );
+  });
+
+  it("resolves only inputs left on the browser's default", () => {
+    assert.deepEqual(
+      withBrowserDefaults(
+        { video: undefined, audio: undefined },
+        interfaceInfos,
+      ),
+      { video: "cam-a", audio: "line-34" },
+    );
+    assert.deepEqual(
+      withBrowserDefaults({ video: null, audio: "line-12" }, interfaceInfos),
+      { video: null, audio: "line-12" },
+    );
+    assert.deepEqual(
+      withBrowserDefaults({ video: undefined, audio: undefined }, []),
+      { video: undefined, audio: undefined },
+    );
   });
 });

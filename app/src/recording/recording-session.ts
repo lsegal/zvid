@@ -2,7 +2,11 @@
 // at the same moment, each on its track's camera and microphone. A track
 // whose device fails or goes away stops on its own, keeping what it
 // recorded; the others carry on.
-import type { AvailableInputs, RecordInputs } from "./record-inputs.ts";
+import {
+  type AvailableInputs,
+  type RecordInputs,
+  withBrowserDefaults,
+} from "./record-inputs.ts";
 
 // The parts of MediaRecorder a recording uses, so tests can stand one in.
 export type MediaRecorderLike = {
@@ -16,7 +20,10 @@ export type MediaRecorderLike = {
 };
 
 export type RecordingDeps = {
-  enumerateDevices: () => Promise<Pick<MediaDeviceInfo, "deviceId" | "kind">[]>;
+  enumerateDevices: () => Promise<
+    (Pick<MediaDeviceInfo, "deviceId" | "kind"> &
+      Partial<Pick<MediaDeviceInfo, "groupId" | "label">>)[]
+  >;
   getUserMedia: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
   isTypeSupported: (mimeType: string) => boolean;
   createRecorder: (
@@ -177,9 +184,11 @@ export class RecordingSession {
     deps: RecordingDeps,
     callbacks: RecordingSessionCallbacks = {},
   ) {
+    let devices: Awaited<ReturnType<RecordingDeps["enumerateDevices"]>> = [];
     let available: AvailableInputs | undefined;
     try {
-      available = availableInputs(await deps.enumerateDevices());
+      devices = await deps.enumerateDevices();
+      available = availableInputs(devices);
     } catch {
       // Without a device list, saved devices are tried as they are.
     }
@@ -187,8 +196,10 @@ export class RecordingSession {
     const skipped: string[] = [];
     const opened = await Promise.all(
       trackIds.map(async (trackId) => {
+        // The browser's default opens on the device it names, as the
+        // preview does, rather than leaving the choice to getUserMedia.
         const constraints = getRecordMediaConstraints(
-          deps.resolveInputs(trackId, available),
+          withBrowserDefaults(deps.resolveInputs(trackId, available), devices),
         );
         if (!constraints) {
           skipped.push(trackId);

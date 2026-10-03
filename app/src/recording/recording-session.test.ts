@@ -78,17 +78,24 @@ class FakeRecorder implements MediaRecorderLike {
 
 function setup(
   inputs: Record<string, RecordInputs>,
-  options: { deny?: string[]; supported?: string[] } = {},
+  options: {
+    deny?: string[];
+    supported?: string[];
+    devices?: Awaited<ReturnType<RecordingDeps["enumerateDevices"]>>;
+  } = {},
 ) {
   const clock = { now: 1000 };
   const recorders: FakeRecorder[] = [];
   const streams = new Map<string, MediaStream & { tracks: FakeTrack[] }>();
+  const requests: MediaStreamConstraints[] = [];
   const deps: RecordingDeps = {
-    enumerateDevices: async () => [
-      { kind: "videoinput", deviceId: "cam" },
-      { kind: "audioinput", deviceId: "mic" },
-    ],
+    enumerateDevices: async () =>
+      options.devices ?? [
+        { kind: "videoinput", deviceId: "cam" },
+        { kind: "audioinput", deviceId: "mic" },
+      ],
     getUserMedia: async (constraints) => {
+      requests.push(constraints);
       const video = constraints.video as { deviceId?: { exact: string } };
       const audio = constraints.audio as { deviceId?: { exact: string } };
       const id = video?.deviceId?.exact ?? audio?.deviceId?.exact ?? "";
@@ -110,7 +117,7 @@ function setup(
       inputs[trackId] ?? { video: undefined, audio: undefined },
     now: () => clock.now,
   };
-  return { deps, clock, recorders, streams };
+  return { deps, clock, recorders, streams, requests };
 }
 
 describe("recording formats", () => {
@@ -162,6 +169,57 @@ describe("recording inputs", () => {
 });
 
 describe("RecordingSession", () => {
+  it("opens the browser's default inputs on the devices they name", async () => {
+    const { deps, requests } = setup(
+      {
+        a: { video: undefined, audio: undefined },
+        b: { video: null, audio: "line-12" },
+      },
+      {
+        devices: [
+          {
+            kind: "audioinput",
+            deviceId: "default",
+            groupId: "usb",
+            label: "Default - Line 3/4 (USB Interface)",
+          },
+          {
+            kind: "audioinput",
+            deviceId: "line-12",
+            groupId: "usb",
+            label: "Line 1/2 (USB Interface)",
+          },
+          {
+            kind: "audioinput",
+            deviceId: "line-34",
+            groupId: "usb",
+            label: "Line 3/4 (USB Interface)",
+          },
+          { kind: "videoinput", deviceId: "cam", groupId: "cam", label: "Cam" },
+        ],
+      },
+    );
+    await RecordingSession.open(["a", "b"], deps);
+    assert.deepEqual(requests, [
+      {
+        video: { deviceId: { exact: "cam" } },
+        audio: { deviceId: { exact: "line-34" } },
+      },
+      { video: false, audio: { deviceId: { exact: "line-12" } } },
+    ]);
+  });
+
+  it("leaves the default to the browser when devices can't be listed", async () => {
+    const { deps, requests } = setup({
+      a: { video: undefined, audio: undefined },
+    });
+    deps.enumerateDevices = async () => {
+      throw new Error("unavailable");
+    };
+    await RecordingSession.open(["a"], deps);
+    assert.deepEqual(requests, [{ video: true, audio: true }]);
+  });
+
   it("records every armed track from its inputs, all started together", async () => {
     const { deps, clock, recorders } = setup({
       a: { video: "cam", audio: "mic" },

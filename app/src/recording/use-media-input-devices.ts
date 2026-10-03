@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 
-type DeviceInfo = Pick<MediaDeviceInfo, "deviceId" | "kind" | "label">;
+type DeviceInfo = Pick<
+  MediaDeviceInfo,
+  "deviceId" | "groupId" | "kind" | "label"
+>;
 
 // The browser's media devices, refreshed as cameras and microphones are
 // attached or removed (webcams, virtual and continuity cameras, audio
