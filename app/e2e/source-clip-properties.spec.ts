@@ -259,3 +259,45 @@ test("the Clip widget collapses like an FX device and remembers it", async ({
   await device.locator(".fx-device-panel__name").dblclick();
   await expect(device).toHaveClass(/fx-device-panel--collapsed/);
 });
+
+// The Clip widget stacks Start, Length and Offset top to bottom, one per row,
+// and is only as wide as one field. The Media offline warning wraps inside it
+// rather than widening it.
+test("the Clip widget stacks its fields vertically", async ({ page }) => {
+  await page.goto("/");
+  await dropVideos(page, 1);
+  const spans = page.locator(".source-span");
+  await expect(spans).toHaveCount(1, { timeout: 30_000 });
+  await spans.first().click();
+
+  const device = page.locator(".source-clip-properties__device");
+  await expect(field(page, "Offset")).toBeVisible();
+  const [start, length, offset] = await Promise.all(
+    ["Start", "Length", "Offset"].map((name) => box(field(page, name))),
+  );
+  expect(length.y).toBeGreaterThanOrEqual(start.y + start.height);
+  expect(offset.y).toBeGreaterThanOrEqual(length.y + length.height);
+  expect(Math.abs(length.x - start.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(offset.x - start.x)).toBeLessThanOrEqual(1);
+  const width = (await box(device)).width;
+  expect(width).toBeLessThan(start.width * 2);
+
+  // Show the warning the widget renders for offline media.
+  await device.evaluate((element) => {
+    const warning = document.createElement("p");
+    warning.className = "fx-device-panel__warning";
+    warning.textContent =
+      "Media offline: Length and Offset can't grow past their current values.";
+    element.querySelector(".fx-device-panel__title")?.after(warning);
+  });
+  const warning = device.locator(".fx-device-panel__warning");
+  await expect(warning).toBeVisible();
+  expect((await box(device)).width).toBeCloseTo(width, 0);
+  const bounds = await box(warning);
+  const deviceBounds = await box(device);
+  expect(bounds.x).toBeGreaterThanOrEqual(deviceBounds.x);
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(
+    deviceBounds.x + deviceBounds.width,
+  );
+  expect(bounds.height).toBeGreaterThan(30);
+});

@@ -206,8 +206,8 @@ export function useRecording({
     if (!trackIds.length) return;
     const recordingDeps =
       deps === undefined
-        ? getBrowserRecordingDeps((trackId, devices) =>
-            resolveTrackInputs(trackId, devices),
+        ? getBrowserRecordingDeps((trackId, available) =>
+            resolveTrackInputs(trackId, available),
           )
         : deps;
     if (!recordingDeps) {

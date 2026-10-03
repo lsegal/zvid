@@ -1,8 +1,8 @@
 import { expect, type Page, test } from "@playwright/test";
 
 // The preview panel widens as far as the window allows: the only limit is the
-// timeline area past the layer headers, which keeps at least 50px.
-const TIMELINE_MIN_WIDTH = 50;
+// timeline area past the layer headers, which keeps at least 80px.
+const TIMELINE_MIN_WIDTH = 80;
 
 function previewHandle(page: Page) {
   return page.getByRole("separator", { name: "Resize preview panel" });
@@ -39,7 +39,7 @@ async function dragPreviewHandleLeft(page: Page, distance: number) {
   await page.mouse.up();
 }
 
-test("the preview widens until the timeline area is 50px", async ({ page }) => {
+test("the preview widens until the timeline area is 80px", async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 900 });
   await page.goto("/");
   await expect(previewHandle(page)).toBeVisible();

@@ -2,10 +2,7 @@
 // at the same moment, each on its track's camera and microphone. A track
 // whose device fails or goes away stops on its own, keeping what it
 // recorded; the others carry on.
-import {
-  getRecordMediaConstraints,
-  type ResolvedRecordInputs,
-} from "./record-inputs.ts";
+import type { AvailableInputs, RecordInputs } from "./record-inputs.ts";
 
 // The parts of MediaRecorder a recording uses, so tests can stand one in.
 export type MediaRecorderLike = {
@@ -26,12 +23,33 @@ export type RecordingDeps = {
     stream: MediaStream,
     options: { mimeType?: string },
   ) => MediaRecorderLike;
-  resolveInputs: (
-    trackId: string,
-    devices: Pick<MediaDeviceInfo, "deviceId" | "kind">[],
-  ) => ResolvedRecordInputs;
+  // Undefined `available` when the device list couldn't be read.
+  resolveInputs: (trackId: string, available?: AvailableInputs) => RecordInputs;
   now: () => number;
 };
+
+// The attached cameras and microphones, by device ID.
+export function availableInputs(
+  devices: readonly Pick<MediaDeviceInfo, "deviceId" | "kind">[],
+): AvailableInputs {
+  const ids = (kind: MediaDeviceKind) =>
+    devices
+      .filter((device) => device.kind === kind)
+      .map((device) => device.deviceId);
+  return { video: ids("videoinput"), audio: ids("audioinput") };
+}
+
+/** The `getUserMedia` constraints for `inputs`; null when both are None. */
+export function getRecordMediaConstraints(
+  inputs: RecordInputs,
+): MediaStreamConstraints | null {
+  if (inputs.video === null && inputs.audio === null) {
+    return null;
+  }
+  const constraint = (input: string | null | undefined) =>
+    input === null ? false : input ? { deviceId: { exact: input } } : true;
+  return { video: constraint(inputs.video), audio: constraint(inputs.audio) };
+}
 
 // How often recorders hand over what they captured, in milliseconds.
 const RECORDER_TIMESLICE_MS = 1000;
@@ -158,9 +176,9 @@ export class RecordingSession {
     deps: RecordingDeps,
     callbacks: RecordingSessionCallbacks = {},
   ) {
-    let devices: Pick<MediaDeviceInfo, "deviceId" | "kind">[] = [];
+    let available: AvailableInputs | undefined;
     try {
-      devices = await deps.enumerateDevices();
+      available = availableInputs(await deps.enumerateDevices());
     } catch {
       // Without a device list, saved devices are tried as they are.
     }
@@ -169,7 +187,7 @@ export class RecordingSession {
     const opened = await Promise.all(
       trackIds.map(async (trackId) => {
         const constraints = getRecordMediaConstraints(
-          deps.resolveInputs(trackId, devices),
+          deps.resolveInputs(trackId, available),
         );
         if (!constraints) {
           skipped.push(trackId);

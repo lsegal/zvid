@@ -1,18 +1,23 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
-  getRecordMediaConstraints,
-  RECORD_AUDIO_INPUT_STORAGE_KEY,
-  RECORD_VIDEO_INPUT_STORAGE_KEY,
-  readTrackRecordInputs,
+  browserDefaultLabel,
+  getRecordInputsVersion,
+  listInputDevices,
+  RECORD_INPUT_STORAGE_KEYS,
+  RECORD_TRACK_INPUTS_STORAGE_KEY,
+  readDefaultInput,
+  readTrackInputOverride,
   resolveTrackInputs,
-  writeDefaultRecordInput,
-  writeTrackRecordInputs,
+  resolveTrackOverride,
+  writeDefaultInput,
+  writeTrackInputOverride,
 } from "./record-inputs.ts";
 
 function memoryStorage() {
   const values = new Map<string, string>();
   return {
+    values,
     getItem: (key: string) => values.get(key) ?? null,
     setItem: (key: string, value: string) => {
       values.set(key, value);
@@ -20,86 +25,138 @@ function memoryStorage() {
     removeItem: (key: string) => {
       values.delete(key);
     },
-    values,
   };
 }
 
-const devices = [
-  { kind: "videoinput" as const, deviceId: "cam-1" },
-  { kind: "videoinput" as const, deviceId: "cam-2" },
-  { kind: "audioinput" as const, deviceId: "mic-1" },
-];
+const AVAILABLE = { video: ["cam-a", "cam-b"], audio: ["mic-a"] };
 
-describe("record inputs", () => {
-  it("uses the browser's default devices when nothing is saved", () => {
-    assert.deepEqual(resolveTrackInputs("track", devices, memoryStorage()), {
-      video: undefined,
+describe("default record inputs", () => {
+  it("saves a device, None, or nothing under the per-machine keys", () => {
+    const storage = memoryStorage();
+    assert.equal(readDefaultInput("video", storage), undefined);
+    writeDefaultInput("video", "cam-a", storage);
+    writeDefaultInput("audio", null, storage);
+    assert.equal(
+      storage.values.get(RECORD_INPUT_STORAGE_KEYS.video),
+      JSON.stringify("cam-a"),
+    );
+    assert.equal(storage.values.get("zvid-record-audio-input"), "null");
+    assert.equal(readDefaultInput("video", storage), "cam-a");
+    assert.equal(readDefaultInput("audio", storage), null);
+    writeDefaultInput("video", undefined, storage);
+    assert.equal(readDefaultInput("video", storage), undefined);
+  });
+
+  it("ignores unreadable saved values", () => {
+    const storage = memoryStorage();
+    storage.setItem(RECORD_INPUT_STORAGE_KEYS.video, "{not json");
+    storage.setItem(RECORD_INPUT_STORAGE_KEYS.audio, "42");
+    assert.equal(readDefaultInput("video", storage), undefined);
+    assert.equal(readDefaultInput("audio", storage), undefined);
+  });
+
+  it("tells subscribers that a choice changed", () => {
+    const before = getRecordInputsVersion();
+    writeDefaultInput("video", "cam-a", memoryStorage());
+    assert.notEqual(getRecordInputsVersion(), before);
+  });
+});
+
+describe("track input overrides", () => {
+  it("starts out using the default inputs", () => {
+    const storage = memoryStorage();
+    writeDefaultInput("video", "cam-a", storage);
+    writeDefaultInput("audio", "mic-a", storage);
+    assert.deepEqual(readTrackInputOverride("track-1", storage), {});
+    assert.deepEqual(resolveTrackInputs("track-1", AVAILABLE, storage), {
+      video: "cam-a",
+      audio: "mic-a",
+    });
+  });
+
+  it("uses the track's override in place of the default", () => {
+    const storage = memoryStorage();
+    writeDefaultInput("video", "cam-a", storage);
+    writeTrackInputOverride("track-1", "video", "cam-b", storage);
+    writeTrackInputOverride("track-1", "audio", null, storage);
+    assert.deepEqual(resolveTrackInputs("track-1", AVAILABLE, storage), {
+      video: "cam-b",
+      audio: null,
+    });
+    // Other tracks keep the defaults.
+    assert.deepEqual(resolveTrackInputs("track-2", AVAILABLE, storage), {
+      video: "cam-a",
       audio: undefined,
     });
   });
 
-  it("uses the defaults, then each track's overrides", () => {
+  it("clears an override so the track follows the default again", () => {
     const storage = memoryStorage();
-    writeDefaultRecordInput("video", "cam-1", storage);
-    writeDefaultRecordInput("audio", null, storage);
-    assert.equal(storage.values.get(RECORD_VIDEO_INPUT_STORAGE_KEY), '"cam-1"');
-    assert.equal(storage.values.get(RECORD_AUDIO_INPUT_STORAGE_KEY), "null");
-    assert.deepEqual(resolveTrackInputs("a", devices, storage), {
-      video: "cam-1",
-      audio: null,
-    });
-
-    writeTrackRecordInputs("b", { video: "cam-2", audio: "mic-1" }, storage);
-    assert.deepEqual(resolveTrackInputs("b", devices, storage), {
-      video: "cam-2",
-      audio: "mic-1",
-    });
-    // Only the kinds a track overrides differ from the defaults.
-    writeTrackRecordInputs("c", { video: null }, storage);
-    assert.deepEqual(resolveTrackInputs("c", devices, storage), {
-      video: null,
-      audio: null,
-    });
+    writeDefaultInput("video", "cam-a", storage);
+    writeTrackInputOverride("track-1", "video", "cam-b", storage);
+    writeTrackInputOverride("track-1", "video", undefined, storage);
+    assert.deepEqual(readTrackInputOverride("track-1", storage), {});
+    assert.equal(storage.values.get(RECORD_TRACK_INPUTS_STORAGE_KEY), "{}");
+    assert.equal(
+      resolveTrackInputs("track-1", AVAILABLE, storage).video,
+      "cam-a",
+    );
+    writeDefaultInput("video", "cam-b", storage);
+    assert.equal(
+      resolveTrackInputs("track-1", AVAILABLE, storage).video,
+      "cam-b",
+    );
   });
 
-  it("falls back when a saved device is no longer attached", () => {
+  it("falls back to the default, then the browser's, when a device is gone", () => {
     const storage = memoryStorage();
-    writeDefaultRecordInput("video", "cam-1", storage);
-    writeTrackRecordInputs("a", { video: "unplugged" }, storage);
-    assert.equal(resolveTrackInputs("a", devices, storage).video, "cam-1");
-    // Without the default device either, the browser picks one.
+    writeDefaultInput("video", "cam-a", storage);
+    writeDefaultInput("audio", "mic-gone", storage);
+    writeTrackInputOverride("track-1", "video", "cam-gone", storage);
+    writeTrackInputOverride("track-1", "audio", "mic-gone-too", storage);
     assert.equal(
-      resolveTrackInputs("a", devices.slice(1), storage).video,
+      resolveTrackOverride("track-1", "video", AVAILABLE, storage),
       undefined,
     );
-  });
-
-  it("removes a track's entry when its overrides are cleared", () => {
-    const storage = memoryStorage();
-    writeTrackRecordInputs("a", { audio: "mic-1" }, storage);
-    writeTrackRecordInputs("a", {}, storage);
-    assert.deepEqual(readTrackRecordInputs(storage), {});
-  });
-
-  it("ignores unreadable storage", () => {
-    const storage = memoryStorage();
-    storage.setItem(RECORD_VIDEO_INPUT_STORAGE_KEY, "{");
-    storage.setItem("zvid-record-track-inputs", "[1]");
-    assert.deepEqual(resolveTrackInputs("a", devices, storage), {
-      video: undefined,
+    assert.deepEqual(resolveTrackInputs("track-1", AVAILABLE, storage), {
+      video: "cam-a",
       audio: undefined,
     });
+    // Before the device list arrives, saved devices are trusted.
+    assert.deepEqual(resolveTrackInputs("track-1", undefined, storage), {
+      video: "cam-gone",
+      audio: "mic-gone-too",
+    });
+  });
+});
+
+describe("listInputDevices", () => {
+  const infos = [
+    { deviceId: "default", kind: "audioinput", label: "Default - USB Mic" },
+    {
+      deviceId: "communications",
+      kind: "audioinput",
+      label: "Communications - USB Mic",
+    },
+    { deviceId: "mic-a", kind: "audioinput", label: "USB Mic" },
+    { deviceId: "cam-a", kind: "videoinput", label: "" },
+    { deviceId: "cam-b", kind: "videoinput", label: "Continuity Camera" },
+    { deviceId: "out-a", kind: "audiooutput", label: "Speakers" },
+  ] as const;
+
+  it("lists each kind's devices without the browser's aliases", () => {
+    assert.deepEqual(listInputDevices(infos, "audio"), [
+      { deviceId: "mic-a", label: "USB Mic" },
+    ]);
+    assert.deepEqual(listInputDevices(infos, "video"), [
+      { deviceId: "cam-a", label: "Camera 1" },
+      { deviceId: "cam-b", label: "Continuity Camera" },
+    ]);
   });
 
-  it("builds getUserMedia constraints, or none when both are None", () => {
-    assert.deepEqual(
-      getRecordMediaConstraints({ video: "cam-1", audio: undefined }),
-      { video: { deviceId: { exact: "cam-1" } }, audio: true },
-    );
-    assert.deepEqual(
-      getRecordMediaConstraints({ video: null, audio: "mic-1" }),
-      { video: false, audio: { deviceId: { exact: "mic-1" } } },
-    );
-    assert.equal(getRecordMediaConstraints({ video: null, audio: null }), null);
+  it("names the browser's default device", () => {
+    assert.equal(browserDefaultLabel(infos, "audio"), "USB Mic");
+    assert.equal(browserDefaultLabel(infos, "video"), "Camera 1");
+    assert.equal(browserDefaultLabel([], "video"), undefined);
   });
 });

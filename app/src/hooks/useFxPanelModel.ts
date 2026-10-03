@@ -165,6 +165,11 @@ export function useFxPanelModel({
     // The selected source track, whose FX switch the chain's "FX off"
     // banner turns back on in place of a layer's.
     fxSourceTrackId: sourceStacks?.trackId,
+    // The selected source track whose Record device the Track section
+    // leads with.
+    fxRecordTrack: sourceStacks?.trackId
+      ? { trackId: sourceStacks.trackId, trackName: sourceStacks.trackName }
+      : undefined,
     fxLayerFxEnabled: sourceStacks
       ? sourceStacks.trackFxEnabled
       : isLayerFxEnabled(fxLane),

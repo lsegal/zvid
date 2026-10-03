@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { ResolvedRecordInputs } from "./record-inputs.ts";
+import type { RecordInputs } from "./record-inputs.ts";
 import {
+  availableInputs,
+  getRecordMediaConstraints,
   type MediaRecorderLike,
   pickRecorderMimeType,
   type RecordingDeps,
@@ -75,7 +77,7 @@ class FakeRecorder implements MediaRecorderLike {
 }
 
 function setup(
-  inputs: Record<string, ResolvedRecordInputs>,
+  inputs: Record<string, RecordInputs>,
   options: { deny?: string[]; supported?: string[] } = {},
 ) {
   const clock = { now: 1000 };
@@ -131,6 +133,31 @@ describe("recording formats", () => {
     assert.equal(recordingExtension("video/webm;codecs=vp9"), "webm");
     assert.equal(recordingExtension("video/mp4"), "mp4");
     assert.equal(recordingExtension("audio/mp4"), "m4a");
+  });
+});
+
+describe("recording inputs", () => {
+  it("lists attached cameras and microphones by ID", () => {
+    assert.deepEqual(
+      availableInputs([
+        { kind: "videoinput", deviceId: "cam" },
+        { kind: "audioinput", deviceId: "mic" },
+        { kind: "audiooutput", deviceId: "speaker" },
+      ]),
+      { video: ["cam"], audio: ["mic"] },
+    );
+  });
+
+  it("builds getUserMedia constraints, or none when both are None", () => {
+    assert.deepEqual(
+      getRecordMediaConstraints({ video: "cam", audio: undefined }),
+      { video: { deviceId: { exact: "cam" } }, audio: true },
+    );
+    assert.deepEqual(getRecordMediaConstraints({ video: null, audio: "mic" }), {
+      video: false,
+      audio: { deviceId: { exact: "mic" } },
+    });
+    assert.equal(getRecordMediaConstraints({ video: null, audio: null }), null);
   });
 });
 

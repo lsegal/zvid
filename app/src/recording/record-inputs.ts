@@ -1,35 +1,46 @@
-// The camera and microphone recording uses: the default inputs and each
-// source track's overrides. Device IDs belong to a machine, so they're kept
-// in this browser's localStorage rather than in the session.
+// The camera and microphone recordings capture from: the default inputs and
+// each source track's own overrides. Device IDs belong to a machine, so they
+// are kept in localStorage rather than in the session.
 
-export const RECORD_VIDEO_INPUT_STORAGE_KEY = "zvid-record-video-input";
-export const RECORD_AUDIO_INPUT_STORAGE_KEY = "zvid-record-audio-input";
-export const RECORD_TRACK_INPUTS_STORAGE_KEY = "zvid-record-track-inputs";
+export type RecordInputKind = "video" | "audio";
 
-// A device ID, or null for None.
+// A chosen input: a device ID, or null for None. Where an input may be
+// unset, undefined falls through to the next choice (the browser's default
+// device, last of all).
 export type RecordInput = string | null;
 
-// A track's saved inputs; a missing kind uses the default.
-export type RecordTrackInputs = { video?: RecordInput; audio?: RecordInput };
+export type RecordInputs = Record<RecordInputKind, RecordInput | undefined>;
 
-// What a recording opens for one kind: a device ID, the browser's default
-// device (undefined), or nothing (null).
-export type ResolvedRecordInputs = {
-  video: string | null | undefined;
-  audio: string | null | undefined;
+// A track's overrides; a missing kind uses the default input.
+export type TrackInputOverride = Partial<Record<RecordInputKind, RecordInput>>;
+
+// An input device the browser lists.
+export type InputDevice = { deviceId: string; label: string };
+
+// The device IDs the browser lists now, by kind.
+export type AvailableInputs = Record<RecordInputKind, readonly string[]>;
+
+type RecordStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+
+export const RECORD_INPUT_KINDS: readonly RecordInputKind[] = [
+  "video",
+  "audio",
+];
+
+export const RECORD_INPUT_STORAGE_KEYS: Record<RecordInputKind, string> = {
+  video: "zvid-record-video-input",
+  audio: "zvid-record-audio-input",
 };
 
-type ReadStorage = Pick<Storage, "getItem"> | undefined;
-type WriteStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+export const RECORD_TRACK_INPUTS_STORAGE_KEY = "zvid-record-track-inputs";
 
-const DEFAULT_KEYS = {
-  video: RECORD_VIDEO_INPUT_STORAGE_KEY,
-  audio: RECORD_AUDIO_INPUT_STORAGE_KEY,
-} as const;
+// Entries Chromium lists for whichever device the system routes to, in
+// addition to that device itself.
+const ALIAS_DEVICE_IDS = new Set(["default", "communications"]);
 
-function defaultStorage() {
+function getStorage(): RecordStorage | undefined {
   try {
-    return globalThis.localStorage;
+    return typeof window === "undefined" ? undefined : window.localStorage;
   } catch {
     return undefined;
   }
@@ -39,139 +50,223 @@ function parseInput(value: unknown): RecordInput | undefined {
   return value === null || typeof value === "string" ? value : undefined;
 }
 
-/** The default input of `kind`; undefined when none was saved. */
-export function readDefaultRecordInput(
-  kind: "video" | "audio",
-  storage: ReadStorage = defaultStorage(),
+const listeners = new Set<() => void>();
+let version = 0;
+
+function notify() {
+  version += 1;
+  for (const listener of listeners) {
+    listener();
+  }
+}
+
+// Calls `listener` when an input choice changes here or in another tab.
+export function subscribeRecordInputs(listener: () => void) {
+  listeners.add(listener);
+  const onStorage = (event: StorageEvent) => {
+    if (
+      event.key === null ||
+      event.key === RECORD_TRACK_INPUTS_STORAGE_KEY ||
+      Object.values(RECORD_INPUT_STORAGE_KEYS).includes(event.key)
+    ) {
+      notify();
+    }
+  };
+  if (typeof window !== "undefined") {
+    window.addEventListener("storage", onStorage);
+  }
+  return () => {
+    listeners.delete(listener);
+    if (typeof window !== "undefined") {
+      window.removeEventListener("storage", onStorage);
+    }
+  };
+}
+
+// Changes whenever an input choice does, for useSyncExternalStore.
+export function getRecordInputsVersion() {
+  return version;
+}
+
+export function readDefaultInput(
+  kind: RecordInputKind,
+  storage: Pick<Storage, "getItem"> | undefined = getStorage(),
 ): RecordInput | undefined {
   try {
-    const stored = storage?.getItem(DEFAULT_KEYS[kind]);
+    const stored = storage?.getItem(RECORD_INPUT_STORAGE_KEYS[kind]);
     return stored == null ? undefined : parseInput(JSON.parse(stored));
   } catch {
     return undefined;
   }
 }
 
-/** Saves the default input of `kind`; undefined clears it. */
-export function writeDefaultRecordInput(
-  kind: "video" | "audio",
+// Sets the default input; undefined goes back to the browser's default.
+export function writeDefaultInput(
+  kind: RecordInputKind,
   input: RecordInput | undefined,
-  storage: WriteStorage | undefined = defaultStorage(),
+  storage: RecordStorage | undefined = getStorage(),
 ) {
   try {
     if (input === undefined) {
-      storage?.removeItem(DEFAULT_KEYS[kind]);
+      storage?.removeItem(RECORD_INPUT_STORAGE_KEYS[kind]);
     } else {
-      storage?.setItem(DEFAULT_KEYS[kind], JSON.stringify(input));
+      storage?.setItem(RECORD_INPUT_STORAGE_KEYS[kind], JSON.stringify(input));
     }
   } catch {
-    // Storage can be full or blocked; recording still uses the default.
+    // Storage can be unavailable (private mode, quota); the choice is lost.
   }
+  notify();
 }
 
-/** Every track's saved overrides, keyed by source track ID. */
-export function readTrackRecordInputs(
-  storage: ReadStorage = defaultStorage(),
-): Record<string, RecordTrackInputs> {
+function readOverrides(
+  storage: Pick<Storage, "getItem"> | undefined,
+): Record<string, TrackInputOverride> {
   try {
-    const stored = JSON.parse(
-      storage?.getItem(RECORD_TRACK_INPUTS_STORAGE_KEY) ?? "null",
+    const parsed: unknown = JSON.parse(
+      storage?.getItem(RECORD_TRACK_INPUTS_STORAGE_KEY) ?? "{}",
     );
-    if (!stored || typeof stored !== "object") {
-      return {};
-    }
-    const result: Record<string, RecordTrackInputs> = {};
-    for (const [trackId, value] of Object.entries(stored)) {
-      if (!value || typeof value !== "object") {
-        continue;
-      }
-      const { video, audio } = value as Record<string, unknown>;
-      const inputs: RecordTrackInputs = {};
-      if (parseInput(video) !== undefined) inputs.video = parseInput(video);
-      if (parseInput(audio) !== undefined) inputs.audio = parseInput(audio);
-      result[trackId] = inputs;
-    }
-    return result;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, TrackInputOverride>)
+      : {};
   } catch {
     return {};
   }
 }
 
-/** Saves `trackId`'s overrides; empty overrides remove its entry. */
-export function writeTrackRecordInputs(
+export function readTrackInputOverride(
   trackId: string,
-  inputs: RecordTrackInputs,
-  storage: WriteStorage | undefined = defaultStorage(),
+  storage: Pick<Storage, "getItem"> | undefined = getStorage(),
+): TrackInputOverride {
+  const stored = readOverrides(storage)[trackId];
+  const override: TrackInputOverride = {};
+  for (const kind of RECORD_INPUT_KINDS) {
+    const input = parseInput(stored?.[kind]);
+    if (input !== undefined) {
+      override[kind] = input;
+    }
+  }
+  return override;
+}
+
+// Sets one of a track's inputs; undefined clears the override so the track
+// uses the default input again.
+export function writeTrackInputOverride(
+  trackId: string,
+  kind: RecordInputKind,
+  input: RecordInput | undefined,
+  storage: RecordStorage | undefined = getStorage(),
 ) {
-  const next = { ...readTrackRecordInputs(storage) };
-  if (inputs.video === undefined && inputs.audio === undefined) {
-    delete next[trackId];
+  const overrides = readOverrides(storage);
+  const next: TrackInputOverride = {
+    ...readTrackInputOverride(trackId, storage),
+  };
+  if (input === undefined) {
+    delete next[kind];
   } else {
-    next[trackId] = inputs;
+    next[kind] = input;
+  }
+  if (Object.keys(next).length) {
+    overrides[trackId] = next;
+  } else {
+    delete overrides[trackId];
   }
   try {
-    storage?.setItem(RECORD_TRACK_INPUTS_STORAGE_KEY, JSON.stringify(next));
+    storage?.setItem(
+      RECORD_TRACK_INPUTS_STORAGE_KEY,
+      JSON.stringify(overrides),
+    );
   } catch {
-    // Storage can be full or blocked; the override applies this session.
+    // Storage can be unavailable (private mode, quota); the choice is lost.
   }
+  notify();
 }
 
-// A saved device that isn't attached any more is skipped, like an unsaved
-// one; None always applies.
-function resolveKind(
-  kind: "video" | "audio",
-  override: RecordInput | undefined,
-  fallback: RecordInput | undefined,
-  devices: readonly Pick<MediaDeviceInfo, "deviceId" | "kind">[] | undefined,
+// A saved input still usable: None, or a device the browser still lists.
+// Without a device list yet, every saved device is trusted.
+function usable(
+  input: RecordInput | undefined,
+  available: readonly string[] | undefined,
 ) {
-  const deviceKind = kind === "video" ? "videoinput" : "audioinput";
-  const usable = (input: RecordInput | undefined) =>
-    input === null ||
-    (input !== undefined &&
-      (!devices ||
-        devices.some(
-          (device) => device.kind === deviceKind && device.deviceId === input,
-        )));
-  if (usable(override)) return override as RecordInput;
-  if (usable(fallback)) return fallback as RecordInput;
-  return undefined;
+  return (
+    input !== undefined &&
+    (input === null || !available || available.includes(input))
+  );
 }
 
-/**
- * The inputs `trackId` records from: its override, else the default, else
- * the browser's default device. `devices`, from `enumerateDevices()`, drops
- * saved devices that are no longer attached.
- */
+// The default input, or undefined for the browser's default device when
+// none is saved or the saved device is gone.
+export function resolveDefaultInput(
+  kind: RecordInputKind,
+  available?: AvailableInputs,
+  storage: Pick<Storage, "getItem"> | undefined = getStorage(),
+) {
+  const input = readDefaultInput(kind, storage);
+  return usable(input, available?.[kind]) ? input : undefined;
+}
+
+// The track's override if it is still usable, or undefined when the track
+// uses the default input.
+export function resolveTrackOverride(
+  trackId: string,
+  kind: RecordInputKind,
+  available?: AvailableInputs,
+  storage: Pick<Storage, "getItem"> | undefined = getStorage(),
+) {
+  const input = readTrackInputOverride(trackId, storage)[kind];
+  return usable(input, available?.[kind]) ? input : undefined;
+}
+
+// The inputs a track records from: its override, else the default, else
+// the browser's default device (undefined). A saved device that is no
+// longer present falls through the same way.
 export function resolveTrackInputs(
   trackId: string,
-  devices?: readonly Pick<MediaDeviceInfo, "deviceId" | "kind">[],
-  storage: ReadStorage = defaultStorage(),
-): ResolvedRecordInputs {
-  const override = readTrackRecordInputs(storage)[trackId] ?? {};
-  return {
-    video: resolveKind(
-      "video",
-      override.video,
-      readDefaultRecordInput("video", storage),
-      devices,
-    ),
-    audio: resolveKind(
-      "audio",
-      override.audio,
-      readDefaultRecordInput("audio", storage),
-      devices,
-    ),
-  };
+  available?: AvailableInputs,
+  storage: Pick<Storage, "getItem"> | undefined = getStorage(),
+): RecordInputs {
+  const inputs = {} as RecordInputs;
+  for (const kind of RECORD_INPUT_KINDS) {
+    const override = resolveTrackOverride(trackId, kind, available, storage);
+    inputs[kind] =
+      override !== undefined
+        ? override
+        : resolveDefaultInput(kind, available, storage);
+  }
+  return inputs;
 }
 
-/** The `getUserMedia` constraints for `inputs`; null when both are None. */
-export function getRecordMediaConstraints(
-  inputs: ResolvedRecordInputs,
-): MediaStreamConstraints | null {
-  if (inputs.video === null && inputs.audio === null) {
-    return null;
-  }
-  const constraint = (input: string | null | undefined) =>
-    input === null ? false : input ? { deviceId: { exact: input } } : true;
-  return { video: constraint(inputs.video), audio: constraint(inputs.audio) };
+// The cameras or microphones in an enumerateDevices() list, without
+// Chromium's "default" and "communications" aliases. Devices the page may
+// not name yet are numbered.
+export function listInputDevices(
+  infos: readonly Pick<MediaDeviceInfo, "deviceId" | "kind" | "label">[],
+  kind: RecordInputKind,
+): InputDevice[] {
+  const mediaKind = kind === "video" ? "videoinput" : "audioinput";
+  const noun = kind === "video" ? "Camera" : "Microphone";
+  return infos
+    .filter(
+      (info) =>
+        info.kind === mediaKind &&
+        info.deviceId &&
+        !ALIAS_DEVICE_IDS.has(info.deviceId),
+    )
+    .map((info, index) => ({
+      deviceId: info.deviceId,
+      label: info.label || `${noun} ${index + 1}`,
+    }));
+}
+
+// What the browser's default device is called: Chromium's "default" alias
+// names it, otherwise the first device listed is the one used.
+export function browserDefaultLabel(
+  infos: readonly Pick<MediaDeviceInfo, "deviceId" | "kind" | "label">[],
+  kind: RecordInputKind,
+) {
+  const mediaKind = kind === "video" ? "videoinput" : "audioinput";
+  const alias = infos.find(
+    (info) => info.kind === mediaKind && info.deviceId === "default",
+  );
+  const aliasLabel = alias?.label.replace(/^Default\s*-\s*/, "");
+  return aliasLabel || listInputDevices(infos, kind)[0]?.label;
 }
