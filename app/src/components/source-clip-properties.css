@@ -29,11 +29,18 @@
 
 .source-clip-properties__fields {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   padding: 10px 12px 12px;
 }
 
+/* The fields stack one per row, so the widget is only as wide as one field.
+   The Media offline warning wraps to that width instead of widening it:
+   inline-size containment keeps its text out of the panel's fitted width. */
 .source-clip-properties__device .fx-device-panel__warning {
-  max-width: 324px;
+  align-self: stretch;
+  contain: inline-size;
+  border-radius: 10px;
+  white-space: normal;
 }
