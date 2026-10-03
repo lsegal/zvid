@@ -2,9 +2,13 @@ import type { MediaItem } from "../../media";
 
 export type MediaDrawerView = "icons" | "list";
 
+// Media lists the linked media; Record sets the default record inputs.
+export type MediaDrawerTab = "media" | "record";
+
 export type MediaDrawerPrefs = {
   open: boolean;
   width: number;
+  tab: MediaDrawerTab;
   view: MediaDrawerView;
   // The slider's value: the icon view's tile width in pixels. The list view
   // derives its icon size from it, see `getListIconSize`.
@@ -30,6 +34,7 @@ export const LIST_ICON_SIZE_MAX = 48;
 export const DEFAULT_MEDIA_DRAWER_PREFS: MediaDrawerPrefs = {
   open: false,
   width: MEDIA_DRAWER_DEFAULT_WIDTH,
+  tab: "media",
   view: "icons",
   thumbnailSize: THUMBNAIL_SIZE_DEFAULT,
   detailsOpen: true,
@@ -89,6 +94,10 @@ export function parseMediaDrawerPrefs(
       typeof value.width === "number" && Number.isFinite(value.width)
         ? clampMediaDrawerWidth(value.width, Number.POSITIVE_INFINITY)
         : defaults.width,
+    tab:
+      value.tab === "media" || value.tab === "record"
+        ? value.tab
+        : defaults.tab,
     view:
       value.view === "list" || value.view === "icons"
         ? value.view

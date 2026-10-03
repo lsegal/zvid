@@ -20,6 +20,8 @@ type RecordInputPickerProps = {
   // Called once a preview stream is granted, when the browser starts
   // naming its devices.
   onStreamGranted?: () => void;
+  // Called when the user or browser refuses access to a kind of device.
+  onStreamDenied?: (kind: RecordInputKind) => void;
 };
 
 const KIND_LABELS: Record<RecordInputKind, string> = {
@@ -27,17 +29,25 @@ const KIND_LABELS: Record<RecordInputKind, string> = {
   audio: "Audio",
 };
 
+function isPermissionError(error: unknown) {
+  const name = (error as { name?: unknown } | null)?.name;
+  return name === "NotAllowedError" || name === "SecurityError";
+}
+
 // Opens the chosen device for its preview, and stops it when the choice
 // changes or the preview unmounts.
 function useInputStream(
   kind: RecordInputKind,
   deviceId: RecordInput | undefined,
   onGranted: (() => void) | undefined,
+  onDenied: ((kind: RecordInputKind) => void) | undefined,
 ) {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [failed, setFailed] = useState(false);
   const onGrantedRef = useRef(onGranted);
   onGrantedRef.current = onGranted;
+  const onDeniedRef = useRef(onDenied);
+  onDeniedRef.current = onDenied;
 
   useEffect(() => {
     setStream(null);
@@ -66,9 +76,13 @@ function useInputStream(
           setStream(granted);
           onGrantedRef.current?.();
         },
-        () => {
-          if (!canceled) {
-            setFailed(true);
+        (error: unknown) => {
+          if (canceled) {
+            return;
+          }
+          setFailed(true);
+          if (isPermissionError(error)) {
+            onDeniedRef.current?.(kind);
           }
         },
       );
@@ -86,11 +100,18 @@ function useInputStream(
 function VideoPreview({
   deviceId,
   onGranted,
+  onDenied,
 }: {
   deviceId: RecordInput | undefined;
   onGranted: (() => void) | undefined;
+  onDenied: ((kind: RecordInputKind) => void) | undefined;
 }) {
-  const { stream, failed } = useInputStream("video", deviceId, onGranted);
+  const { stream, failed } = useInputStream(
+    "video",
+    deviceId,
+    onGranted,
+    onDenied,
+  );
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -128,11 +149,18 @@ function VideoPreview({
 function AudioPreview({
   deviceId,
   onGranted,
+  onDenied,
 }: {
   deviceId: RecordInput | undefined;
   onGranted: (() => void) | undefined;
+  onDenied: ((kind: RecordInputKind) => void) | undefined;
 }) {
-  const { stream, failed } = useInputStream("audio", deviceId, onGranted);
+  const { stream, failed } = useInputStream(
+    "audio",
+    deviceId,
+    onGranted,
+    onDenied,
+  );
   const tapRef = useRef<MasterMeterTap | null>(null);
   const [metering, setMetering] = useState(false);
 
@@ -160,7 +188,13 @@ function AudioPreview({
     deviceId === null ? "No audio" : failed ? "Microphone unavailable" : null;
   return (
     <div className="record-input-picker__audio">
-      <VuMeter getMeterTap={getMeterTap} isPlaying={metering} />
+      {/* Remounted when the input stops, so None clears the meter at once
+          rather than letting it fall away. */}
+      <VuMeter
+        getMeterTap={getMeterTap}
+        isPlaying={metering}
+        key={metering ? "live" : "off"}
+      />
       {message ? (
         <span className="record-input-picker__placeholder" role="status">
           {message}
@@ -177,6 +211,7 @@ export function RecordInputPicker({
   video,
   audio,
   onStreamGranted,
+  onStreamDenied,
 }: RecordInputPickerProps) {
   const fields = { video, audio };
   return (
@@ -196,11 +231,13 @@ export function RecordInputPicker({
           {kind === "video" ? (
             <VideoPreview
               deviceId={video.deviceId}
+              onDenied={onStreamDenied}
               onGranted={onStreamGranted}
             />
           ) : (
             <AudioPreview
               deviceId={audio.deviceId}
+              onDenied={onStreamDenied}
               onGranted={onStreamGranted}
             />
           )}

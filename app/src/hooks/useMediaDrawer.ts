@@ -15,6 +15,7 @@ import {
   MEDIA_DRAWER_RESIZE_KEY_STEP,
   MEDIA_DRAWER_STORAGE_KEY,
   type MediaDrawerPrefs,
+  type MediaDrawerTab,
   type MediaDrawerView,
   parseMediaDrawerPrefs,
 } from "../components/media/media-drawer-model.ts";
@@ -33,14 +34,17 @@ export type MediaDrawerInputs = {
   editorGridWidth: number;
 };
 
-// The Media drawer's per-viewer preferences (open, width, view, thumbnail
-// size, details pane expanded) persisted to localStorage, its resize handle, its search query and
-// the selected media.
+// The Media drawer's per-viewer preferences (open, width, tab, view,
+// thumbnail size, details pane expanded) persisted to localStorage, its
+// resize handle, its search query and the selected media.
 export function useMediaDrawer({ editorGridWidth }: MediaDrawerInputs) {
   const [prefs, setPrefs] = useState<MediaDrawerPrefs>(readMediaDrawerPrefs);
   const [query, setQuery] = useState("");
   const [selectedMediaId, setSelectedMediaId] = useState<string>();
   const [isResizing, setIsResizing] = useState(false);
+  // Opening the Record tab asks for camera and mic access, so a Record tab
+  // restored on load waits until the user opens it again or picks a device.
+  const [recordRequested, setRecordRequested] = useState(false);
   const resizeRef = useRef<{
     pointerId: number;
     startX: number;
@@ -66,6 +70,12 @@ export function useMediaDrawer({ editorGridWidth }: MediaDrawerInputs) {
   }, []);
   const toggleOpen = useCallback(() => {
     setPrefs((current) => ({ ...current, open: !current.open }));
+  }, []);
+  const setTab = useCallback((tab: MediaDrawerTab) => {
+    if (tab === "record") {
+      setRecordRequested(true);
+    }
+    setPrefs((current) => ({ ...current, tab }));
   }, []);
   const setView = useCallback((view: MediaDrawerView) => {
     setPrefs((current) => ({ ...current, view }));
@@ -151,6 +161,10 @@ export function useMediaDrawer({ editorGridWidth }: MediaDrawerInputs) {
     isOpen: prefs.open,
     setOpen,
     toggleOpen,
+    tab: prefs.tab,
+    setTab,
+    recordRequested,
+    requestRecordInputs: () => setRecordRequested(true),
     view: prefs.view,
     setView,
     thumbnailSize: prefs.thumbnailSize,
