@@ -16,6 +16,12 @@ import { LiveTakeMonitor } from "../recording/live-take-monitor.ts";
 import { pruneArmedTracks, useArmedTrackIds } from "../recording/record-arm.ts";
 import { resolveTrackInputs } from "../recording/record-inputs.ts";
 import {
+  canPressRecord,
+  playbackEndsRecording,
+  pressRecord,
+  type RecordPhase,
+} from "../recording/record-transport.ts";
+import {
   addRecordedTakes,
   type PlacedTake,
   recordedTakeFileName,
@@ -96,10 +102,7 @@ export function useRecording({
   deps,
 }: RecordingInputs) {
   const armedTrackIds = useArmedTrackIds();
-  // Saving runs from the end of a pass until its takes are in the session.
-  const [phase, setPhase] = useState<
-    "idle" | "starting" | "recording" | "saving"
-  >("idle");
+  const [phase, setPhase] = useState<RecordPhase>("idle");
   const [liveTakes, setLiveTakes] = useState<ReadonlyMap<string, LiveTake>>(
     () => new Map(),
   );
@@ -265,10 +268,9 @@ export function useRecording({
     setLiveTakes(new Map(takes.map((take) => [take.trackId, take])));
     setPhase("recording");
     setSourceTracksCollapsed(false);
-    // Recording during playback keeps playing from where it is.
-    if (!isPlaying) {
-      startPlayback(startQ, { open: true });
-    }
+    // Playback starts at the playhead, or keeps playing from where it is,
+    // and runs until stopped.
+    startPlayback(startQ, { open: true });
     setStatus(
       [
         `Recording ${pluralize(session.getTakes().length, "track")}.`,
@@ -278,7 +280,6 @@ export function useRecording({
   }, [
     armedTrackIds,
     deps,
-    isPlaying,
     phase,
     playheadQRef,
     refuseReadOnlyEdit,
@@ -311,7 +312,7 @@ export function useRecording({
 
   // Stopping playback ends the recording too.
   useEffect(() => {
-    if (!isPlaying && phase === "recording") {
+    if (playbackEndsRecording(phase, isPlaying)) {
       void stopRecording();
     }
   }, [isPlaying, phase, stopRecording]);
@@ -329,17 +330,17 @@ export function useRecording({
   );
 
   const toggleRecording = useCallback(() => {
-    if (phase === "recording") {
+    const press = pressRecord(phase, armedTrackIds.size, isPlaying);
+    if (press.action === "stop") {
       void stopRecording();
-    } else {
+    } else if (press.action === "start") {
       void startRecording();
     }
-  }, [phase, startRecording, stopRecording]);
+  }, [armedTrackIds, isPlaying, phase, startRecording, stopRecording]);
 
   return {
     armedTrackIds,
-    canRecord:
-      phase === "recording" || (phase === "idle" && armedTrackIds.size > 0),
+    canRecord: canPressRecord(phase, armedTrackIds.size),
     isRecording: phase === "recording",
     isStartingRecording: phase === "starting",
     liveTakes,

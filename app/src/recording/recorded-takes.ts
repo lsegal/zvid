@@ -57,7 +57,11 @@ export function recordedTakeFileName(
 ) {
   const pad = (value: number) => String(value).padStart(2, "0");
   const stamp = `${startedAt.getFullYear()}-${pad(startedAt.getMonth() + 1)}-${pad(startedAt.getDate())} ${pad(startedAt.getHours())}.${pad(startedAt.getMinutes())}.${pad(startedAt.getSeconds())}`;
-  const name = trackName.replace(/[\\/:*?"<>|]+/g, " ").trim() || "Recording";
+  const name =
+    trackName
+      .replace(/[\\/:*?"<>|]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim() || "Recording";
   return `${name} ${stamp}.${extension}`;
 }
 

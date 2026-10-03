@@ -96,13 +96,16 @@ export function usePlayback({
   const timelineScrubAudioTimeoutRef = useRef<number | null>(null);
 
   // Playback stops after the last playable clip, or with `open`, as when
-  // recording, only when stopped.
+  // recording, only when stopped; `open` during playback lets it run on from
+  // where it is.
   const startPlayback = useCallback(
     (fromQ: number = playheadQRef.current, options?: { open?: boolean }) => {
       if (options?.open) {
-        playbackOriginRef.current = fromQ;
         playbackStopRef.current = Number.POSITIVE_INFINITY;
-        setIsPlaying(true);
+        if (!isPlaying) {
+          playbackOriginRef.current = fromQ;
+          setIsPlaying(true);
+        }
         return;
       }
       const epsilon = 0.0001;
@@ -123,6 +126,7 @@ export function usePlayback({
     },
     [
       bpm,
+      isPlaying,
       playbackOriginRef,
       playheadQRef,
       projectMediaItems,
@@ -324,7 +328,6 @@ export function usePlayback({
     let animationFrame = 0;
     const startedAt = performance.now();
     const originQ = playbackOriginRef.current;
-    const stopQ = playbackStopRef.current || totalQuartersRef.current;
     const findNextEdgeQ = (fromQ: number) =>
       findNextClipEdgeQ(
         timelineClipsRef.current.map((clip) => ({
@@ -339,6 +342,7 @@ export function usePlayback({
     const step = (timestamp: number) => {
       const elapsed = (timestamp - startedAt) / 1000;
       const nextQ = originQ + secondsToQuarters(elapsed, bpm);
+      const stopQ = playbackStopRef.current || totalQuartersRef.current;
 
       if (nextQ >= stopQ) {
         setPlayheadQ(stopQ);
