@@ -11,8 +11,16 @@
 //      enabling a stage crossfades between its dry input and its output,
 //      all over SWITCH_CROSSFADE_SECONDS;
 //   3. delays the result by its latency compensation.
+// A stage with Modulation moves its modulated knobs from their stored values
+// by the modulator's swing at the end of each block (see modulation.ts),
+// ramped over PARAMETER_RAMP_SECONDS like an edit, so they never click.
 // A stage whose input has been silent for longer than its tail and latency
 // is idle: it is skipped and its processor dropped, so it starts afresh.
+import {
+  type ModulatedParameter,
+  modulatedValue,
+  StageModulator,
+} from "./modulation.ts";
 import {
   type AudioBlockTime,
   type AudioEffectDsp,
@@ -162,6 +170,16 @@ export function chainTailSeconds(
 
 type StageHost = { sampleRate: number; channels: number; maxFrames: number };
 
+// A knob's swing away from its stored value, ramped, and the values it
+// gives over the block. A swing at rest leaves the knob at its stored value.
+type Swing = {
+  ramp: Ramp;
+  parameter: ModulatedParameter;
+  active: boolean;
+  values: Float32Array;
+  value: number;
+};
+
 type ProcessorSlot = {
   processor: AudioEffectProcessor;
   switches: Readonly<Record<string, string>>;
@@ -171,6 +189,10 @@ class ChainStage implements AudioParameterBlock {
   config: AudioStage;
   readonly dsp: AudioEffectDsp | undefined;
   private readonly ramps = new Map<string, Ramp>();
+  private readonly swings = new Map<string, Swing>();
+  private modulator: StageModulator | null = null;
+  // Swings jump to their first values after a reset, as the knobs do.
+  private swingsSettled = false;
   private readonly changingKeys = new Set<string>();
   private readonly zeros: Float32Array;
   private readonly wet: Ramp;
@@ -238,14 +260,20 @@ class ChainStage implements AudioParameterBlock {
     for (const ramp of this.ramps.values()) {
       ramp.jump(ramp.target);
     }
+    this.modulator?.reset();
+    this.swingsSettled = false;
   }
 
   number(key: string) {
-    return this.ramps.get(key)?.values ?? this.zeros;
+    const swing = this.swings.get(key);
+    return swing?.active
+      ? swing.values
+      : (this.ramps.get(key)?.values ?? this.zeros);
   }
 
   value(key: string) {
-    return this.ramps.get(key)?.value ?? 0;
+    const swing = this.swings.get(key);
+    return swing?.active ? swing.value : (this.ramps.get(key)?.value ?? 0);
   }
 
   changing(key: string) {
@@ -267,6 +295,7 @@ class ChainStage implements AudioParameterBlock {
     }
     const silent = isSilent(input, frames);
     this.silentFrames = silent ? this.silentFrames + frames : 0;
+    this.modulate(input, frames, time);
     // Advances every ramp by the block; number() then reads the block.
     this.changingKeys.clear();
     for (const [key, ramp] of this.ramps) {
@@ -275,6 +304,7 @@ class ChainStage implements AudioParameterBlock {
       }
       ramp.fill(frames);
     }
+    this.applySwings(frames);
     const wetChanging = this.wet.changing;
     const wet = this.wet.fill(frames);
 
@@ -325,6 +355,82 @@ class ChainStage implements AudioParameterBlock {
       }
     }
     return this.output;
+  }
+
+  // Aims each modulated knob's swing at the modulator's value for the end
+  // of the block. A knob no longer modulated swings back to its stored
+  // value.
+  private modulate(
+    input: readonly Float32Array[],
+    frames: number,
+    time: AudioBlockTime,
+  ) {
+    const modulation = this.config.modulation;
+    if (!modulation) {
+      this.modulator = null;
+    } else {
+      this.modulator ??= new StageModulator(this.host.sampleRate);
+    }
+    if (!modulation && !this.swings.size) {
+      return;
+    }
+    const targets = modulation
+      ? this.modulator?.advance(
+          modulation,
+          this.config.id,
+          input,
+          frames,
+          time,
+        )
+      : undefined;
+    for (const parameter of modulation?.parameters ?? []) {
+      const swing = this.swings.get(parameter.key);
+      if (swing) {
+        swing.parameter = parameter;
+      } else if (this.ramps.has(parameter.key)) {
+        this.swings.set(parameter.key, {
+          ramp: new Ramp(0, this.host.maxFrames),
+          parameter,
+          active: false,
+          values: new Float32Array(this.host.maxFrames),
+          value: 0,
+        });
+      }
+    }
+    const rampFrames = this.swingsSettled
+      ? Math.round(PARAMETER_RAMP_SECONDS * this.host.sampleRate)
+      : 0;
+    for (const [key, swing] of this.swings) {
+      swing.ramp.set(targets?.get(key) ?? 0, rampFrames);
+    }
+    this.swingsSettled = true;
+  }
+
+  // Fills each swung knob's values for the block from its stored value's
+  // ramp and its swing's. Swings that have settled back to none rest, and
+  // are dropped once their knob is no longer modulated.
+  private applySwings(frames: number) {
+    const modulated = this.config.modulation?.parameters;
+    for (const [key, swing] of this.swings) {
+      const { ramp, parameter, values } = swing;
+      const base = this.ramps.get(key);
+      swing.active = Boolean(base) && (ramp.changing || ramp.value !== 0);
+      if (!base || !swing.active) {
+        if (!modulated?.some((candidate) => candidate.key === key)) {
+          this.swings.delete(key);
+        }
+        continue;
+      }
+      if (ramp.changing) {
+        this.changingKeys.add(key);
+      }
+      const offsets = ramp.fill(frames);
+      const stored = base.values;
+      for (let index = 0; index < frames; index++) {
+        values[index] = modulatedValue(stored[index], offsets[index], parameter);
+      }
+      swing.value = values[frames - 1];
+    }
   }
 
   private run(

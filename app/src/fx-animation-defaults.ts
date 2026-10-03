@@ -297,7 +297,7 @@ export function getReactiveTimingFrames(
     DEFAULT_REACTIVE_FRAMES)[timing];
 }
 
-function readOption<T extends string>(
+export function readOption<T extends string>(
   value: unknown,
   options: readonly T[],
   fallback: T,
@@ -309,13 +309,13 @@ function readOption<T extends string>(
     : fallback;
 }
 
-function readReactivity(value: unknown, fallback: number) {
+export function readReactivity(value: unknown, fallback: number) {
   return typeof value === "number" && Number.isFinite(value)
     ? Math.max(0, Math.min(1, value))
     : fallback;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
@@ -361,7 +361,7 @@ export function normalizeEffectAnimation(
   };
 }
 
-function normalizeReactive(
+export function normalizeReactive(
   raw: unknown,
   fallback: ReactiveAnimation,
 ): ReactiveAnimation {
