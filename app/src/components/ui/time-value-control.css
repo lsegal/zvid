@@ -16,7 +16,6 @@
   gap: 4px;
   width: 96px;
   min-width: 0;
-  user-select: none;
 }
 
 .time-value__label {
@@ -79,7 +78,6 @@
 .time-value__input {
   background: transparent;
   outline: none;
-  user-select: text;
 }
 
 .time-value__handle {

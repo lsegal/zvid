@@ -14,7 +14,6 @@
   gap: 4px;
   width: 72px;
   min-width: 0;
-  user-select: none;
 }
 
 .fader__label {
@@ -146,7 +145,6 @@
 .fader__input {
   border: 1px solid var(--fader-accent);
   background: var(--fader-body);
-  user-select: text;
 }
 
 .fader--disabled {

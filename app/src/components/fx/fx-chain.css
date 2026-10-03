@@ -231,7 +231,6 @@ body.fx-chain-dragging * {
   border-bottom: 1px solid var(--line);
   cursor: grab;
   touch-action: none;
-  user-select: none;
 }
 
 .fx-device-panel__name {
@@ -745,7 +744,6 @@ body.fx-chain-dragging * {
     0 1px 3px rgba(0, 0, 0, 0.24);
   color: var(--ink);
   font-size: 0.8rem;
-  user-select: none;
 }
 
 .dropdown-menu-content.fx-layers-menu [data-radix-collection-item] {

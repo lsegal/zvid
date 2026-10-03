@@ -324,7 +324,6 @@
   padding: 5px;
   border-radius: 8px;
   cursor: default;
-  user-select: none;
 }
 
 .media-tile .media-thumb {
@@ -371,7 +370,6 @@
   color: var(--ink);
   font-size: 0.8rem;
   cursor: default;
-  user-select: none;
 }
 
 .media-row--head {

@@ -23,7 +23,6 @@
   color: var(--ink);
   font-size: 0.8rem;
   outline: none;
-  user-select: none;
 }
 
 .context-menu__item {

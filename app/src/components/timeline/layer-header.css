@@ -50,7 +50,6 @@
   cursor: grab;
   touch-action: none;
   -webkit-touch-callout: none;
-  user-select: none;
   transition: opacity 120ms ease, color 120ms ease;
 }
 
