@@ -4,10 +4,10 @@
 // at the same frame, and a synced LFO lines up with the session's bars.
 
 import {
+  LFO_MAX_PHASE,
   type LfoAnimation,
   type LfoShape,
   type LfoSyncRate,
-  LFO_MAX_PHASE,
   supportsAnimationMode,
 } from "./fx-animation-defaults.ts";
 import {
@@ -68,9 +68,7 @@ export function lfoSyncQuarters(
 ) {
   const bars = /^(\d+) Bars?$/.exec(syncRate);
   if (bars) {
-    return (
-      Number(bars[1]) * signature.numerator * (4 / signature.denominator)
-    );
+    return Number(bars[1]) * signature.numerator * (4 / signature.denominator);
   }
   const [, divisor, modifier] = /^1\/(\d+)([DT]?)$/.exec(syncRate) ?? [];
   const quarters = 4 / Number(divisor);

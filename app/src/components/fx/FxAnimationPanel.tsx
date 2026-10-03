@@ -111,7 +111,10 @@ export function FxAnimationPanel({
     animation.mode === "lfo" && modes.includes("lfo")
       ? animation.lfo
       : undefined;
-  const setLfo = (patch: Partial<LfoAnimation>, mode: FxEditMode = "commit") => {
+  const setLfo = (
+    patch: Partial<LfoAnimation>,
+    mode: FxEditMode = "commit",
+  ) => {
     if (lfo) {
       set({ ...animation, lfo: { ...lfo, ...patch } }, mode);
     }

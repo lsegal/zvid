@@ -379,7 +379,12 @@ function readOption<T extends string>(
     : fallback;
 }
 
-function readNumber(value: unknown, min: number, max: number, fallback: number) {
+function readNumber(
+  value: unknown,
+  min: number,
+  max: number,
+  fallback: number,
+) {
   return typeof value === "number" && Number.isFinite(value)
     ? Math.max(min, Math.min(max, value))
     : fallback;
@@ -391,7 +396,11 @@ function readReactivity(value: unknown, fallback: number) {
 
 function readParameters(value: unknown, fallback: readonly string[]) {
   return Array.isArray(value)
-    ? [...new Set(value.filter((key): key is string => typeof key === "string"))]
+    ? [
+        ...new Set(
+          value.filter((key): key is string => typeof key === "string"),
+        ),
+      ]
     : [...fallback];
 }
 

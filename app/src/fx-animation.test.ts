@@ -136,16 +136,19 @@ describe("animation defaults", () => {
     ]);
   });
 
-  it("offers Order only Clip mode, and every other effect both", () => {
+  it("offers Order only Clip mode, and every other effect all three", () => {
     assert.deepEqual(getAnimationModes("Order"), ["clip"]);
     assert.equal(supportsAnimationMode("Order", "reactive"), false);
+    assert.equal(supportsAnimationMode("Order", "lfo"), false);
     assert.equal(getAnimationDefaults("Order")?.reactive, undefined);
     assert.equal(createDefaultAnimation("Order")?.reactive, undefined);
+    assert.equal(getAnimationDefaults("Order")?.lfo, undefined);
+    assert.equal(createDefaultAnimation("Order")?.lfo, undefined);
     for (const effectName of KNOWN_EFFECTS.filter(supportsAnimation)) {
       if (effectName !== "Order") {
         assert.deepEqual(
           getAnimationModes(effectName),
-          ["clip", "reactive"],
+          ["clip", "reactive", "lfo"],
           effectName,
         );
       }
@@ -158,8 +161,11 @@ describe("animation defaults", () => {
       const knobs = getAnimatableParameters(effectName).map(
         (parameter) => parameter.key,
       );
-      for (const key of getAnimationDefaults(effectName)?.reactive
-        ?.parameters ?? []) {
+      const effectDefaults = getAnimationDefaults(effectName);
+      for (const key of [
+        ...(effectDefaults?.reactive?.parameters ?? []),
+        ...(effectDefaults?.lfo?.parameters ?? []),
+      ]) {
         assert.ok(knobs.includes(key), `${effectName} ${key}`);
       }
     }
@@ -190,6 +196,15 @@ describe("animation defaults", () => {
         reactivity: 0.5,
         parameters: ["_NumPixels"],
       },
+      lfo: {
+        shape: "Sine",
+        sync: true,
+        rate: 1,
+        syncRate: "1 Bar",
+        depth: 0.5,
+        phase: 0,
+        parameters: ["_NumPixels"],
+      },
     });
   });
 
@@ -200,6 +215,11 @@ describe("animation defaults", () => {
       createDefaultAnimation("Transform")?.reactive?.parameters,
       ["ScaleX", "ScaleY"],
     );
+    animation?.lfo?.parameters.push("Rotation");
+    assert.deepEqual(createDefaultAnimation("Transform")?.lfo?.parameters, [
+      "ScaleX",
+      "ScaleY",
+    ]);
   });
 });
 
@@ -445,8 +465,67 @@ describe("normalizeEffectAnimation", () => {
           reactivity: 0.5,
           parameters: ["_HueOffset"],
         },
+        lfo: createDefaultAnimation("Colorize")?.lfo,
       },
     );
+  });
+
+  it("loads saved LFO settings, clamping and filling in what is malformed", () => {
+    assert.deepEqual(
+      normalizeEffectAnimation(
+        {
+          enabled: true,
+          mode: "LFO",
+          clip: {},
+          lfo: {
+            shape: "saw down",
+            sync: "yes",
+            rate: 400,
+            syncRate: "1/8T",
+            depth: -2,
+            phase: 90,
+            parameters: ["_HueOffset", "_HueOffset", null],
+          },
+        },
+        "Colorize",
+      )?.lfo,
+      {
+        shape: "Saw Down",
+        sync: true,
+        rate: 20,
+        syncRate: "1/8T",
+        depth: 0,
+        phase: 90,
+        parameters: ["_HueOffset"],
+      },
+    );
+  });
+
+  it("loads a session saved before LFO mode with the LFO defaults", () => {
+    const saved = {
+      enabled: true,
+      mode: "reactive",
+      clip: { motionIn: "Linear", motionOut: "Ease In", timing: "Fast" },
+      reactive: {
+        motion: "Bounce",
+        timing: "Normal",
+        reactivity: 0.3,
+        parameters: ["_HueOffset"],
+      },
+    };
+    const loaded = normalizeEffectAnimation(saved, "Colorize");
+    assert.equal(loaded?.mode, "reactive");
+    assert.deepEqual(loaded?.reactive, saved.reactive);
+    assert.deepEqual(loaded?.lfo, createDefaultAnimation("Colorize")?.lfo);
+  });
+
+  it("loads a saved LFO Order in Clip mode", () => {
+    const loaded = normalizeEffectAnimation(
+      { enabled: true, mode: "lfo", clip: {}, lfo: { depth: 1 } },
+      "Order",
+    );
+    assert.equal(loaded?.mode, "clip");
+    assert.equal(loaded?.lfo, undefined);
   });
 
   it("loads a saved Reactive Order in Clip mode and drops its Reactive settings", () => {
