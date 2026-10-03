@@ -20,6 +20,8 @@ import * as deEss from "./de-ess/definition.ts";
 import * as delay from "./delay/definition.ts";
 import * as digitalGlitch from "./digital-glitch/definition.ts";
 import { pass as digitalGlitchPass } from "./digital-glitch/pass.ts";
+import * as distortion from "./distortion/definition.ts";
+import { pass as distortionPass } from "./distortion/pass.ts";
 import * as eq from "./eq/definition.ts";
 import * as gain from "./gain/definition.ts";
 import * as highCut from "./high-cut/definition.ts";
@@ -62,6 +64,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   deEss,
   delay,
   digitalGlitch,
+  distortion,
   eq,
   gain,
   highCut,
@@ -94,6 +97,7 @@ export const EFFECT_PASSES: readonly EffectPass[] = [
   causticsPass,
   colorizePass,
   digitalGlitchPass,
+  distortionPass,
   negativeSplitPass,
   pixelatePass,
   refractionPass,

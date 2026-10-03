@@ -214,6 +214,8 @@ const THREE_UPS = [
 ];
 const REACTIVE_COLOR = (start) =>
   (start >= 9 && start < 12) || (start >= 21 && start < 24);
+// Each three-up panel's clip track, keyed by layer and start.
+const threeUpShots = new Map();
 THREE_UPS.forEach((start, cutIndex) => {
   VIDEO_LAYERS.forEach((layerId, panel) => {
     const sourceIndex = (panel + cutIndex) % SOURCES.length;
@@ -227,6 +229,7 @@ THREE_UPS.forEach((start, cutIndex) => {
       inSeconds,
       `${start.toFixed(1)} s · ${tight ? "tight crop" : "wide"}`,
     );
+    threeUpShots.set(`${layerId} ${start}`, clipTrack(clipId));
     const drift = (panel - 1) * 0.08;
     zoomAndPan(
       clipTrack(clipId),
@@ -587,6 +590,22 @@ addEffect(
     _Dispersion: 0.2,
   },
   { animation: animation("clip", {}, { parameters: ["_Amount"] }) },
+);
+
+// 4.5–6 s: the middle panel of the three-up twirls in and back out.
+addEffect(
+  threeUpShots.get("ribbon 4.5"),
+  "Distortion",
+  {
+    _Type: "Twirl",
+    _Edges: "Mirror",
+    _Amount: 0.6,
+    _Size: 0.6,
+    _Speed: 0,
+    _CenterX: 0.5,
+    _CenterY: 0.5,
+  },
+  { animation: animation("clip") },
 );
 
 // ---- session -------------------------------------------------------------

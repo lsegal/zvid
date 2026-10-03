@@ -4022,6 +4022,49 @@
           ]
         }
       }
+    },
+    {
+      "id": "sample-fx-103",
+      "trackId": "clip:selection-7",
+      "effectName": "Distortion",
+      "parameters": {
+        "_Type": {
+          "stringValue": "Twirl"
+        },
+        "_Edges": {
+          "stringValue": "Mirror"
+        },
+        "_Amount": {
+          "floatValue": 0.6
+        },
+        "_Size": {
+          "floatValue": 0.6
+        },
+        "_Speed": {
+          "floatValue": 0
+        },
+        "_CenterX": {
+          "floatValue": 0.5
+        },
+        "_CenterY": {
+          "floatValue": 0.5
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": []
+        }
+      }
     }
   ],
   "timeline": {
