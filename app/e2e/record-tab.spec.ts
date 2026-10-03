@@ -36,6 +36,13 @@ function drawer(page: Page) {
   return page.getByRole("complementary", { name: "Media" });
 }
 
+// The toolbar's Media | Record switch above the timeline.
+function segment(page: Page, name: "Media" | "Record") {
+  return page
+    .getByRole("group", { name: "Media drawer" })
+    .getByRole("button", { name, exact: true });
+}
+
 async function openDrawer(page: Page) {
   await page.getByRole("button", { name: "Media", exact: true }).click();
   await expect(drawer(page)).toBeVisible();
@@ -54,12 +61,10 @@ test("the Record tab previews the default inputs and remembers them", async ({
   await countMediaRequests(page);
   await page.goto("/");
   await openDrawer(page);
-  await expect(
-    drawer(page).getByRole("tab", { name: "Media" }),
-  ).toHaveAttribute("aria-selected", "true");
+  await expect(segment(page, "Media")).toHaveAttribute("aria-expanded", "true");
   expect(await mediaRequests(page)).toBe(0);
 
-  await drawer(page).getByRole("tab", { name: "Record" }).click();
+  await segment(page, "Record").click();
   await expect(
     drawer(page).getByRole("heading", { name: "Record" }),
   ).toBeVisible();
@@ -107,9 +112,10 @@ test("the Record tab previews the default inputs and remembers them", async ({
   // Reloaded, the drawer is back on the Record tab and asks for nothing
   // until the inputs are shown; None is still picked.
   await page.reload();
-  await expect(
-    drawer(page).getByRole("tab", { name: "Record" }),
-  ).toHaveAttribute("aria-selected", "true");
+  await expect(segment(page, "Record")).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
   await drawer(page).getByRole("button", { name: "Show Inputs" }).click();
   await expect(
     drawer(page).getByRole("combobox", { name: "Video input" }),
@@ -141,7 +147,7 @@ test("a saved camera that is gone falls back to the system default", async ({
   });
   await page.goto("/");
   await openDrawer(page);
-  await drawer(page).getByRole("tab", { name: "Record" }).click();
+  await segment(page, "Record").click();
   await expect(
     drawer(page).getByRole("combobox", { name: "Video input" }),
   ).toHaveText(/^System default/);
@@ -163,7 +169,7 @@ test("denied camera access shows why and keeps None picked", async ({
   });
   await page.goto("/");
   await openDrawer(page);
-  await drawer(page).getByRole("tab", { name: "Record" }).click();
+  await segment(page, "Record").click();
   await expect(drawer(page).getByRole("alert").first()).toContainText(
     "access was denied",
   );
@@ -173,4 +179,77 @@ test("denied camera access shows why and keeps None picked", async ({
   await expect(
     drawer(page).getByRole("combobox", { name: "Audio input" }),
   ).toHaveText("None");
+});
+
+test("the toolbar's Media | Record switch opens, switches and closes the drawer", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(drawer(page)).toBeHidden();
+  await expect(segment(page, "Media")).toHaveAttribute(
+    "aria-expanded",
+    "false",
+  );
+  await expect(segment(page, "Record")).toHaveAttribute(
+    "aria-expanded",
+    "false",
+  );
+  // The drawer has no tab switch of its own.
+  await expect(page.getByRole("tab", { name: "Record" })).toHaveCount(0);
+
+  // Record opens the drawer on the Record tab and asks for the inputs.
+  await segment(page, "Record").click();
+  await expect(drawer(page)).toBeVisible();
+  await expect(
+    drawer(page).getByRole("heading", { name: "Record" }),
+  ).toBeVisible();
+  await expect(drawer(page).getByLabel("Camera preview")).toBeVisible();
+  await expect(segment(page, "Record")).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+  await expect(segment(page, "Record")).toHaveClass(/is-active/);
+  await expect(segment(page, "Media")).toHaveAttribute(
+    "aria-expanded",
+    "false",
+  );
+
+  // Media switches to the Media tab with its view switch and search.
+  await segment(page, "Media").click();
+  await expect(drawer(page)).toBeVisible();
+  await expect(drawer(page)).toContainText("No media yet");
+  await expect(
+    drawer(page).getByRole("button", { name: "List" }),
+  ).toBeVisible();
+  await expect(
+    drawer(page).getByRole("textbox", { name: "Search media" }),
+  ).toBeVisible();
+  await expect(segment(page, "Media")).toHaveAttribute("aria-expanded", "true");
+  await expect(segment(page, "Record")).toHaveAttribute(
+    "aria-expanded",
+    "false",
+  );
+
+  // Clicking the active segment closes the drawer.
+  await segment(page, "Media").click();
+  await expect(drawer(page)).toBeHidden();
+  await expect(segment(page, "Media")).toHaveAttribute(
+    "aria-expanded",
+    "false",
+  );
+
+  // Reloaded, the drawer is still open on Record, and Record closes it.
+  await segment(page, "Record").click();
+  await page.reload();
+  await expect(drawer(page)).toBeVisible();
+  await expect(segment(page, "Record")).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+  await segment(page, "Record").click();
+  await expect(drawer(page)).toBeHidden();
+  await expect(segment(page, "Record")).toHaveAttribute(
+    "aria-expanded",
+    "false",
+  );
 });

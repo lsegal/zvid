@@ -4,22 +4,21 @@
   cursor: default;
 }
 
-/* The Clip title's informational icon, sized and colored like an effect's
-   power and Animation buttons in the same slot. */
+/* The Clip title's informational icon, in the slot an effect's power button
+   takes. The solid info glyph draws its own circle, so it fills the slot
+   without the buttons' ring to read as large as their glyphs. */
 .source-clip-properties__info {
   flex: none;
   display: grid;
   place-items: center;
   width: 24px;
   height: 24px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
   color: var(--muted);
 }
 
 .source-clip-properties__info svg {
-  width: 13px;
-  height: 13px;
+  width: 100%;
+  height: 100%;
 }
 
 .fx-device-panel--collapsed .source-clip-properties__info {

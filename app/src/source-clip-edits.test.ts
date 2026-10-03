@@ -280,15 +280,33 @@ describe("pasteIntoSourceTrack", () => {
 });
 
 describe("deleteSourceSpan", () => {
-  it("removes the clip and relinks the layer clips that used it", () => {
+  it("removes the clip and relinks the layer clips still covered", () => {
     const removed = span("a", 0, 4);
     const kept = span("b", 4, 4, { trimStartSeconds: 30 });
     const patch = deleteSourceSpan(
-      project([removed, kept], { clips: [windowClip("clip", removed, 0, 2)] }),
+      project([removed, kept], { clips: [windowClip("clip", removed, 2, 4)] }),
       "a",
     );
     assert.deepEqual(timing(patch?.sourceSpans), ["b@t1:4+4q from 30s"]);
     assert.equal(patch?.clips?.[0].sourceSpanId, "b");
+  });
+
+  it("removes the layer clips left with no source clip", () => {
+    const removed = span("a", 0, 4);
+    const kept = span("b", 4, 4, { trimStartSeconds: 30 });
+    const patch = deleteSourceSpan(
+      project([removed, kept], {
+        clips: [
+          windowClip("gone", removed, 0, 2),
+          windowClip("stays", kept, 4, 2),
+        ],
+      }),
+      "a",
+    );
+    assert.deepEqual(
+      patch?.clips?.map((clip) => clip.id),
+      ["stays"],
+    );
   });
 
   it("does nothing for a missing clip", () => {

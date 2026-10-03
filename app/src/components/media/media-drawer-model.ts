@@ -72,6 +72,18 @@ export function getListIconSize(thumbnailSize: number) {
   );
 }
 
+// A click on the toolbar's Media | Record switch: the drawer's open tab closes
+// it, any other tab opens the drawer on that tab.
+export function selectMediaDrawerTab(
+  prefs: MediaDrawerPrefs,
+  tab: MediaDrawerTab,
+): MediaDrawerPrefs {
+  if (prefs.open && prefs.tab === tab) {
+    return { ...prefs, open: false };
+  }
+  return { ...prefs, open: true, tab };
+}
+
 // Reads stored prefs, falling back field by field so one bad value does not
 // reset the rest.
 export function parseMediaDrawerPrefs(
