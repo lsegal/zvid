@@ -76,7 +76,7 @@ async function typeField(page: Page, name: string, text: string) {
 
 const title = ".fx-panel__toggle";
 
-test("source clip properties edit Start, Length and Offset, clamped to the media, with undo", async ({
+test("source clip properties edit Start, Length and Offset, with undo", async ({
   page,
 }) => {
   await page.goto("/");
@@ -130,8 +130,7 @@ test("source clip properties edit Start, Length and Offset, clamped to the media
     ]);
   await expect(start).toHaveAttribute("aria-valuenow", "0");
 
-  // Length shrinks by dragging down, and dragging up stops at the media's
-  // end.
+  // Length shrinks by dragging down.
   await dragField(page, "Length", 40);
   await expect(length).toHaveAttribute("aria-valuenow", "5.5");
   await expect
@@ -145,20 +144,23 @@ test("source clip properties edit Start, Length and Offset, clamped to the media
   await expect(length).toHaveAttribute("aria-valuenow", "8");
   await page.keyboard.press("ControlOrMeta+Shift+z");
   await expect(length).toHaveAttribute("aria-valuenow", "5.5");
-  await dragField(page, "Length", -200);
-  await expect(length).toHaveAttribute("aria-valuenow", "8");
+
+  // Length runs on past the media's end, which loops it, and trims the next
+  // clip like a drag would.
+  await typeField(page, "Length", "3.0.0");
+  await expect(length).toHaveAttribute("aria-valuenow", "12");
   await expect
     .poll(() => layout(spans, quarterPx))
     .toEqual([
-      [0, 8],
-      [8, 16],
+      [0, 12],
+      [12, 16],
     ]);
-
-  // Offset can't go past the media's end either, and stops at 0 going down.
-  await dragField(page, "Length", 40);
+  await page.keyboard.press("ControlOrMeta+z");
   await expect(length).toHaveAttribute("aria-valuenow", "5.5");
+
+  // Offset stops at the media's end going up, and at 0 going down.
   await dragField(page, "Offset", -200);
-  await expect(offset).toHaveAttribute("aria-valuenow", "2.5");
+  await expect(offset).toHaveAttribute("aria-valuenow", "8");
   await dragField(page, "Offset", 400);
   await expect(offset).toHaveAttribute("aria-valuenow", "0");
   // Offset never moves the clip.
