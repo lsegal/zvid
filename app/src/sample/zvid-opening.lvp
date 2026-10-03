@@ -48,7 +48,7 @@
       "colorIndex": 0,
       "recordings": [
         {
-          "filename": "zvid-sample://opening-v1/orbit.mp4"
+          "filename": "zvid-sample://opening-v2/orbit.mp4"
         }
       ]
     },
@@ -58,7 +58,7 @@
       "colorIndex": 1,
       "recordings": [
         {
-          "filename": "zvid-sample://opening-v1/ribbon.mp4"
+          "filename": "zvid-sample://opening-v2/ribbon.mp4"
         }
       ]
     },
@@ -68,7 +68,7 @@
       "colorIndex": 2,
       "recordings": [
         {
-          "filename": "zvid-sample://opening-v1/corridor.mp4"
+          "filename": "zvid-sample://opening-v2/corridor.mp4"
         }
       ]
     },
@@ -78,7 +78,7 @@
       "colorIndex": 3,
       "recordings": [
         {
-          "filename": "zvid-sample://opening-v1/decisions-30s.m4a"
+          "filename": "zvid-sample://opening-v2/just-nasty-30s.m4a"
         }
       ]
     }
@@ -92,7 +92,7 @@
       "frameCount": 45,
       "clipStart": 15,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/corridor.mp4"
+      "filePath": "zvid-sample://opening-v2/corridor.mp4"
     },
     {
       "id": "span-02",
@@ -102,7 +102,7 @@
       "frameCount": 45,
       "clipStart": 60,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/orbit.mp4"
+      "filePath": "zvid-sample://opening-v2/orbit.mp4"
     },
     {
       "id": "span-03",
@@ -112,7 +112,7 @@
       "frameCount": 45,
       "clipStart": 12,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/orbit.mp4"
+      "filePath": "zvid-sample://opening-v2/orbit.mp4"
     },
     {
       "id": "span-04",
@@ -122,7 +122,7 @@
       "frameCount": 45,
       "clipStart": 192,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/ribbon.mp4"
+      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
     },
     {
       "id": "span-05",
@@ -132,7 +132,7 @@
       "frameCount": 45,
       "clipStart": 372,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/corridor.mp4"
+      "filePath": "zvid-sample://opening-v2/corridor.mp4"
     },
     {
       "id": "span-06",
@@ -142,7 +142,7 @@
       "frameCount": 45,
       "clipStart": 264,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/ribbon.mp4"
+      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
     },
     {
       "id": "span-07",
@@ -152,7 +152,7 @@
       "frameCount": 45,
       "clipStart": 48,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/corridor.mp4"
+      "filePath": "zvid-sample://opening-v2/corridor.mp4"
     },
     {
       "id": "span-08",
@@ -162,7 +162,7 @@
       "frameCount": 45,
       "clipStart": 228,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/orbit.mp4"
+      "filePath": "zvid-sample://opening-v2/orbit.mp4"
     },
     {
       "id": "span-09",
@@ -172,7 +172,7 @@
       "frameCount": 45,
       "clipStart": 120,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/corridor.mp4"
+      "filePath": "zvid-sample://opening-v2/corridor.mp4"
     },
     {
       "id": "span-10",
@@ -182,7 +182,7 @@
       "frameCount": 45,
       "clipStart": 300,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/orbit.mp4"
+      "filePath": "zvid-sample://opening-v2/orbit.mp4"
     },
     {
       "id": "span-11",
@@ -192,7 +192,7 @@
       "frameCount": 45,
       "clipStart": 84,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/ribbon.mp4"
+      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
     },
     {
       "id": "span-12",
@@ -202,7 +202,7 @@
       "frameCount": 45,
       "clipStart": 372,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/orbit.mp4"
+      "filePath": "zvid-sample://opening-v2/orbit.mp4"
     },
     {
       "id": "span-13",
@@ -212,7 +212,7 @@
       "frameCount": 45,
       "clipStart": 156,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/ribbon.mp4"
+      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
     },
     {
       "id": "span-14",
@@ -222,7 +222,7 @@
       "frameCount": 45,
       "clipStart": 336,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/corridor.mp4"
+      "filePath": "zvid-sample://opening-v2/corridor.mp4"
     },
     {
       "id": "span-15",
@@ -232,7 +232,7 @@
       "frameCount": 45,
       "clipStart": 228,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/ribbon.mp4"
+      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
     },
     {
       "id": "span-16",
@@ -242,7 +242,7 @@
       "frameCount": 45,
       "clipStart": 12,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/corridor.mp4"
+      "filePath": "zvid-sample://opening-v2/corridor.mp4"
     },
     {
       "id": "span-17",
@@ -252,7 +252,7 @@
       "frameCount": 45,
       "clipStart": 192,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/orbit.mp4"
+      "filePath": "zvid-sample://opening-v2/orbit.mp4"
     },
     {
       "id": "span-18",
@@ -262,7 +262,7 @@
       "frameCount": 45,
       "clipStart": 84,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/corridor.mp4"
+      "filePath": "zvid-sample://opening-v2/corridor.mp4"
     },
     {
       "id": "span-19",
@@ -272,7 +272,7 @@
       "frameCount": 45,
       "clipStart": 264,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/orbit.mp4"
+      "filePath": "zvid-sample://opening-v2/orbit.mp4"
     },
     {
       "id": "span-20",
@@ -282,7 +282,7 @@
       "frameCount": 45,
       "clipStart": 48,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/ribbon.mp4"
+      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
     },
     {
       "id": "span-21",
@@ -292,7 +292,7 @@
       "frameCount": 45,
       "clipStart": 336,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/orbit.mp4"
+      "filePath": "zvid-sample://opening-v2/orbit.mp4"
     },
     {
       "id": "span-22",
@@ -302,7 +302,7 @@
       "frameCount": 45,
       "clipStart": 120,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/ribbon.mp4"
+      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
     },
     {
       "id": "span-23",
@@ -312,7 +312,7 @@
       "frameCount": 45,
       "clipStart": 300,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/corridor.mp4"
+      "filePath": "zvid-sample://opening-v2/corridor.mp4"
     },
     {
       "id": "span-24",
@@ -322,7 +322,7 @@
       "frameCount": 45,
       "clipStart": 192,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/ribbon.mp4"
+      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
     },
     {
       "id": "span-25",
@@ -332,7 +332,7 @@
       "frameCount": 45,
       "clipStart": 372,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/corridor.mp4"
+      "filePath": "zvid-sample://opening-v2/corridor.mp4"
     },
     {
       "id": "span-26",
@@ -342,7 +342,7 @@
       "frameCount": 45,
       "clipStart": 156,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/orbit.mp4"
+      "filePath": "zvid-sample://opening-v2/orbit.mp4"
     },
     {
       "id": "span-27",
@@ -352,7 +352,7 @@
       "frameCount": 45,
       "clipStart": 48,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/corridor.mp4"
+      "filePath": "zvid-sample://opening-v2/corridor.mp4"
     },
     {
       "id": "span-28",
@@ -362,7 +362,7 @@
       "frameCount": 45,
       "clipStart": 228,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/orbit.mp4"
+      "filePath": "zvid-sample://opening-v2/orbit.mp4"
     },
     {
       "id": "span-29",
@@ -372,7 +372,7 @@
       "frameCount": 45,
       "clipStart": 12,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/ribbon.mp4"
+      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
     },
     {
       "id": "span-30",
@@ -382,7 +382,7 @@
       "frameCount": 45,
       "clipStart": 300,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/orbit.mp4"
+      "filePath": "zvid-sample://opening-v2/orbit.mp4"
     },
     {
       "id": "span-31",
@@ -392,7 +392,7 @@
       "frameCount": 45,
       "clipStart": 84,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/ribbon.mp4"
+      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
     },
     {
       "id": "span-32",
@@ -402,7 +402,7 @@
       "frameCount": 45,
       "clipStart": 264,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/corridor.mp4"
+      "filePath": "zvid-sample://opening-v2/corridor.mp4"
     },
     {
       "id": "span-33",
@@ -412,7 +412,7 @@
       "frameCount": 45,
       "clipStart": 156,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/ribbon.mp4"
+      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
     },
     {
       "id": "span-34",
@@ -422,7 +422,7 @@
       "frameCount": 45,
       "clipStart": 336,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/corridor.mp4"
+      "filePath": "zvid-sample://opening-v2/corridor.mp4"
     },
     {
       "id": "span-35",
@@ -432,7 +432,7 @@
       "frameCount": 45,
       "clipStart": 120,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/orbit.mp4"
+      "filePath": "zvid-sample://opening-v2/orbit.mp4"
     },
     {
       "id": "span-36",
@@ -442,7 +442,7 @@
       "frameCount": 45,
       "clipStart": 12,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/corridor.mp4"
+      "filePath": "zvid-sample://opening-v2/corridor.mp4"
     },
     {
       "id": "span-37",
@@ -452,7 +452,7 @@
       "frameCount": 45,
       "clipStart": 192,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/orbit.mp4"
+      "filePath": "zvid-sample://opening-v2/orbit.mp4"
     },
     {
       "id": "span-38",
@@ -462,7 +462,7 @@
       "frameCount": 45,
       "clipStart": 372,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/ribbon.mp4"
+      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
     },
     {
       "id": "span-39",
@@ -472,7 +472,7 @@
       "frameCount": 45,
       "clipStart": 264,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/orbit.mp4"
+      "filePath": "zvid-sample://opening-v2/orbit.mp4"
     },
     {
       "id": "span-40",
@@ -482,7 +482,7 @@
       "frameCount": 45,
       "clipStart": 48,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/ribbon.mp4"
+      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
     },
     {
       "id": "span-41",
@@ -492,7 +492,7 @@
       "frameCount": 45,
       "clipStart": 228,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/corridor.mp4"
+      "filePath": "zvid-sample://opening-v2/corridor.mp4"
     },
     {
       "id": "span-42",
@@ -502,7 +502,7 @@
       "frameCount": 45,
       "clipStart": 120,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/ribbon.mp4"
+      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
     },
     {
       "id": "span-43",
@@ -512,7 +512,7 @@
       "frameCount": 45,
       "clipStart": 300,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/corridor.mp4"
+      "filePath": "zvid-sample://opening-v2/corridor.mp4"
     },
     {
       "id": "span-44",
@@ -522,7 +522,7 @@
       "frameCount": 45,
       "clipStart": 84,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/orbit.mp4"
+      "filePath": "zvid-sample://opening-v2/orbit.mp4"
     },
     {
       "id": "span-45",
@@ -532,7 +532,7 @@
       "frameCount": 90,
       "clipStart": 90,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/ribbon.mp4"
+      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
     },
     {
       "id": "span-music",
@@ -542,7 +542,7 @@
       "frameCount": 900,
       "clipStart": 0,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v1/decisions-30s.m4a"
+      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
     }
   ],
   "selections": [

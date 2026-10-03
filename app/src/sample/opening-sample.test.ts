@@ -21,7 +21,7 @@ const sessionText = readFileSync(
 );
 const session = JSON.parse(sessionText) as LvpSession;
 const FPS = 30;
-const MUSIC_ID = "zvid-sample:opening-v1:music";
+const MUSIC_ID = "zvid-sample:opening-v2:music";
 
 // The handler types in an MP4, such as "vide" or "soun" for its tracks.
 function mp4TrackKinds(bytes: Buffer) {
@@ -296,6 +296,23 @@ describe("zvid opening sample", () => {
         asset.name,
       );
     }
+  });
+
+  it("credits its music in the manifest and CREDITS.md", () => {
+    const music = OPENING_SAMPLE_MANIFEST.assets.find(
+      (asset) => asset.id === MUSIC_ID,
+    );
+    assert.equal(music?.name, "just-nasty-30s.m4a");
+    assert.match(
+      music?.credit ?? "",
+      /^"Just Nasty" by Kevin MacLeod \(incompetech\.com\), licensed under CC BY 4\.0 /,
+    );
+    const credits = readFileSync(
+      new URL(`../../public${OPENING_SAMPLE_MANIFEST.creditsUrl}`, import.meta.url),
+      "utf8",
+    );
+    assert.match(credits, /^"Just Nasty" by Kevin MacLeod \(incompetech\.com\)$/m);
+    assert.match(credits, /^`just-nasty-30s\.m4a` is the excerpt/m);
   });
 
   it("opens with every clip on its stable media and the music in the mix", () => {
