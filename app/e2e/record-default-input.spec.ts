@@ -63,6 +63,13 @@ function drawer(page: Page) {
   return page.getByRole("complementary", { name: "Media" });
 }
 
+// The toolbar's Record switch, which opens the drawer on its Record tab.
+function recordSegment(page: Page) {
+  return page
+    .getByRole("group", { name: "Media drawer" })
+    .getByRole("button", { name: "Record", exact: true });
+}
+
 test("System default previews and records the device it names", async ({
   page,
 }) => {
@@ -71,8 +78,7 @@ test("System default previews and records the device it names", async ({
   await page.goto("/");
   await expect(page.locator("[data-layer-header-id]").first()).toBeVisible();
 
-  await page.getByRole("button", { name: "Media", exact: true }).click();
-  await drawer(page).getByRole("tab", { name: "Record" }).click();
+  await recordSegment(page).click();
   await expect(
     drawer(page).getByRole("combobox", { name: "Audio input" }),
   ).toHaveText(/^System default/);
@@ -93,9 +99,8 @@ test("System default previews and records the device it names", async ({
       ),
     )
     .toBeGreaterThan(-60);
-  await drawer(page)
-    .getByRole("button", { name: "Close media drawer" })
-    .click();
+  await recordSegment(page).click();
+  await expect(drawer(page)).toBeHidden();
 
   // A track left on its "Default (…)" input records from the same device.
   await page
