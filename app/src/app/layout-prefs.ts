@@ -5,9 +5,9 @@ import {
   LABEL_WIDTH_MIN,
   LABEL_WIDTH_STORAGE_KEY,
   PREVIEW_DEFAULT_WIDTH,
-  PREVIEW_MAX_WIDTH,
   PREVIEW_MIN_WIDTH,
   PREVIEW_RESERVED_WIDTH,
+  PREVIEW_TIMELINE_MIN_WIDTH,
   PREVIEW_WIDTH_STORAGE_KEY,
 } from "./constants.ts";
 import { clamp } from "./util.ts";
@@ -56,22 +56,35 @@ export function readPreviewWidth() {
     const stored = Number(
       window.localStorage.getItem(PREVIEW_WIDTH_STORAGE_KEY),
     );
-    return stored
-      ? clamp(Math.round(stored), PREVIEW_MIN_WIDTH, PREVIEW_MAX_WIDTH)
+    return Number.isFinite(stored) && stored
+      ? Math.max(Math.round(stored), PREVIEW_MIN_WIDTH)
       : PREVIEW_DEFAULT_WIDTH;
   } catch {
     return PREVIEW_DEFAULT_WIDTH;
   }
 }
 
-export function getPreviewMaxWidth(editorGridWidth: number) {
+// The widest the preview gets: everything the editor grid has left once the
+// timeline keeps its layer headers and PREVIEW_TIMELINE_MIN_WIDTH of timeline
+// area, and the Media drawer keeps its column. Never under PREVIEW_MIN_WIDTH.
+// Unmeasured (0), nothing limits it yet.
+export function getPreviewMaxWidth(
+  editorGridWidth: number,
+  labelWidth: number,
+  mediaDrawerWidth = 0,
+) {
   if (!editorGridWidth) {
-    return PREVIEW_MAX_WIDTH;
+    return Number.POSITIVE_INFINITY;
   }
 
-  return clamp(
-    editorGridWidth - PREVIEW_RESERVED_WIDTH,
+  return Math.max(
     PREVIEW_MIN_WIDTH,
-    PREVIEW_MAX_WIDTH,
+    Math.floor(
+      editorGridWidth -
+        PREVIEW_RESERVED_WIDTH -
+        mediaDrawerWidth -
+        labelWidth -
+        PREVIEW_TIMELINE_MIN_WIDTH,
+    ),
   );
 }

@@ -71,13 +71,17 @@ export const PREVIEW_DEFAULT_WIDTH = 280;
 
 export const PREVIEW_MIN_WIDTH = 240;
 
-export const PREVIEW_MAX_WIDTH = 560;
-
 export const PREVIEW_RESIZE_KEY_STEP = 16;
 
 // Horizontal space the preview panel may never take from the timeline: the
-// grid's side padding, the resize handle's column, and a usable timeline.
-export const PREVIEW_RESERVED_WIDTH = 32 + 16 + 360;
+// grid's right padding, the resize handle's column, and the timeline panel's
+// right border. The layer headers and the Media drawer are reserved too, at
+// their current widths (getPreviewMaxWidth).
+export const PREVIEW_RESERVED_WIDTH = 16 + 16 + 1;
+
+// The narrowest the timeline area, past the layer headers, gets as the
+// preview widens.
+export const PREVIEW_TIMELINE_MIN_WIDTH = 50;
 
 export const SIGNATURES: TimeSignature[] = [
   { id: "4/4", numerator: 4, denominator: 4 },
