@@ -48,6 +48,7 @@ import {
 } from "../../waveform-range.ts";
 import { MediaSyncSkeleton } from "../MediaSyncSkeleton";
 import { ClipWaveform } from "./ClipWaveform";
+import { MediaLoopMarkers } from "./MediaLoopMarkers";
 import "./clip-card.css";
 
 // What every clip card in the arrangement shares.
@@ -140,6 +141,12 @@ export function ClipCard({
   // turn out to be missing. Video with audio overlays it on the frames once
   // its peaks are ready, decoding only while the clip is in view.
   const waveformKind = getClipWaveformKind(clip, media, mediaState);
+  const waveformRange = getClipWaveformRange(
+    clip,
+    bpm,
+    quarterPx,
+    media?.durationSeconds ?? 0,
+  );
   const inView = getVisibleClipSlice(
     clip.startQ * quarterPx,
     durationQ * quarterPx,
@@ -200,7 +207,7 @@ export function ClipCard({
           clipLeftPx={clip.startQ * quarterPx}
           clipWidthPx={durationQ * quarterPx}
           peaks={audioPeaks}
-          range={getClipWaveformRange(clip, bpm, quarterPx)}
+          range={waveformRange}
           visibleStartPx={visibleTimelineStartPx}
           visibleWidthPx={visibleTimelineWidthPx}
         />
@@ -246,7 +253,16 @@ export function ClipCard({
           clipLeftPx={clip.startQ * quarterPx}
           clipWidthPx={durationQ * quarterPx}
           peaks={audioPeaks}
-          range={getClipWaveformRange(clip, bpm, quarterPx)}
+          range={waveformRange}
+          visibleStartPx={visibleTimelineStartPx}
+          visibleWidthPx={visibleTimelineWidthPx}
+        />
+      ) : null}
+      {media && !mediaSync && mediaState === "online" ? (
+        <MediaLoopMarkers
+          clipLeftPx={clip.startQ * quarterPx}
+          clipWidthPx={durationQ * quarterPx}
+          range={waveformRange}
           visibleStartPx={visibleTimelineStartPx}
           visibleWidthPx={visibleTimelineWidthPx}
         />

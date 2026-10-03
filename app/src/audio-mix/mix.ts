@@ -4,7 +4,7 @@
 // render it here from decoded samples, block by block; the preview builds
 // the same graph in Web Audio (see preview-mixer.ts), running the same
 // chains in a worklet and the same limiter curve, so the two agree.
-import { warpSourceTime } from "../clip-warp.ts";
+import { loopMediaTime, warpSourceTime } from "../clip-warp.ts";
 import {
   AudioChain,
   BLOCK_FRAMES,
@@ -60,8 +60,25 @@ export type ClipMediaTime = {
 
 // Where `clip`'s media plays at timeline second `seconds`, the way its video
 // would, or undefined when the clip is silent there: outside the clip or
-// its source window, or before the media's start.
+// its source window, or before the media's start. Past the media's end it
+// loops the media.
 export function clipMediaTimeAt(
+  clip: AudioMixClip,
+  seconds: number,
+  bpm: number,
+): ClipMediaTime | undefined {
+  const media = clipUnloopedMediaTimeAt(clip, seconds, bpm);
+  return (
+    media && {
+      ...media,
+      mediaTime: loopMediaTime(media.mediaTime, clip.mediaDurationSeconds ?? 0),
+    }
+  );
+}
+
+// clipMediaTimeAt before the media loops: past the media's end it keeps
+// counting on.
+function clipUnloopedMediaTimeAt(
   clip: AudioMixClip,
   seconds: number,
   bpm: number,
@@ -128,7 +145,9 @@ export function clipReadSeconds(
 // Clips look their source time up once per this many samples and
 // interpolate in between. Source time is linear in timeline time, or for a
 // warped clip linear between its markers, so this only blurs the corner at
-// a warp marker by a sample or two.
+// a warp marker by a sample or two. Both are taken before the media loops,
+// so a step in which it loops back to its start does not sweep back through
+// it.
 const STEP_SAMPLES = 64;
 
 function sampleAt(data: Float32Array, position: number) {
@@ -185,7 +204,7 @@ export class ClipReader {
 
   private sourceTime(frame: number) {
     const seconds = this.originSeconds + frame / this.sampleRate;
-    return clipMediaTimeAt(
+    return clipUnloopedMediaTimeAt(
       this.clip,
       this.readSeconds ? this.readSeconds(seconds) : seconds,
       this.bpm,
@@ -223,7 +242,9 @@ export class ClipReader {
       if (mediaTime === undefined) {
         continue;
       }
-      const position = mediaTime * media.sampleRate;
+      const position =
+        loopMediaTime(mediaTime, this.clip.mediaDurationSeconds ?? 0) *
+        media.sampleRate;
       for (let channel = 0; channel < target.length; channel++) {
         const data = media.channels[channel % media.channels.length];
         target[channel][index - block] = sampleAt(data, position);

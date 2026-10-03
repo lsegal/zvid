@@ -79,7 +79,7 @@ async function openWithSpans(page: Page, count: number) {
   return (await box(spans.first())).width / 8;
 }
 
-test("source clips move and trim from either edge, clamped to their media, with undo", async ({
+test("source clips move and trim from either edge, looping their media, with undo", async ({
   page,
 }) => {
   const quarterPx = await openWithSpans(page, 1);
@@ -140,8 +140,8 @@ test("source clips move and trim from either edge, clamped to their media, with 
       durationQ: 4,
     });
 
-  // Neither edge extends past the media: the start stops at its first frame
-  // and the end at its last.
+  // The start stops at the media's first frame, but the end runs on past
+  // its last, looping the media, with a marker where it loops.
   await span.hover();
   await dragBy(
     page,
@@ -155,13 +155,20 @@ test("source clips move and trim from either edge, clamped to their media, with 
       durationQ: 6,
     });
   await span.hover();
+  await expect(span.locator(".media-loop-markers__marker")).toHaveCount(0);
   await dragBy(page, span.locator(".source-span__handle--end"), 6 * quarterPx);
   await expect
     .poll(() => layout(span, quarterPx))
     .toEqual({
       startQ: 4,
-      durationQ: 8,
+      durationQ: 12,
     });
+  const marker = span.locator(".media-loop-markers__marker");
+  await expect(marker).toHaveCount(1);
+  expect(
+    Number.parseFloat(await marker.evaluate((element) => element.style.left)) /
+      quarterPx,
+  ).toBeCloseTo(8, 1);
 
   // Moving never goes before the start of the timeline.
   await dragBy(page, span.locator(".source-span__body"), -10 * quarterPx);
@@ -169,7 +176,7 @@ test("source clips move and trim from either edge, clamped to their media, with 
     .poll(() => layout(span, quarterPx))
     .toEqual({
       startQ: 0,
-      durationQ: 8,
+      durationQ: 12,
     });
 });
 

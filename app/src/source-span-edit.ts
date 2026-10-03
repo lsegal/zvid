@@ -20,7 +20,6 @@ import type {
   SourceSpanDragState,
   SourceTrackDropTarget,
 } from "./app/types.ts";
-import { warpSourceTime } from "./clip-warp.ts";
 import { resolveContainerOverlaps } from "./range-edit.ts";
 
 export type SourceSpanDragKind = SourceSpanDragState["kind"];
@@ -30,8 +29,6 @@ export type SourceSpanDragLimits = {
   fps: number;
   snapUnit: number;
   snap: boolean;
-  /** The span's media length in seconds; 0 when it is not known yet. */
-  mediaDurationSeconds: number;
 };
 
 /** `span` cut down to `[startQ, startQ + durationQ)`, its content in place. */
@@ -68,60 +65,16 @@ export function resolveSourceSpanOverlaps(
 }
 
 /**
- * The longest `span` can play, in seconds, before its media runs out:
- * infinite while the media's length is unknown. A warped span plays its
- * media at the warp's rate, so its limit is where the warp reaches the end.
- */
-export function getSourceSpanMaxSeconds(
-  span: Pick<SourceSpan, "trimStartSeconds" | "warp">,
-  mediaDurationSeconds: number,
-  bpm: number,
-) {
-  if (!(mediaDurationSeconds > 0)) {
-    return Number.POSITIVE_INFINITY;
-  }
-
-  const { warp } = span;
-  if (!warp) {
-    return Math.max(0, mediaDurationSeconds - span.trimStartSeconds);
-  }
-
-  const mediaTimeAfter = (seconds: number) =>
-    warpSourceTime(warp, span.trimStartSeconds + seconds, bpm).seconds;
-  if (mediaTimeAfter(0) >= mediaDurationSeconds) {
-    return 0;
-  }
-
-  let low = 0;
-  let high = mediaDurationSeconds;
-  while (mediaTimeAfter(high) < mediaDurationSeconds) {
-    high *= 2;
-    if (high > 1e7) {
-      return Number.POSITIVE_INFINITY;
-    }
-  }
-  // The warp map increases, so bisect for where it reaches the end.
-  for (let step = 0; step < 50; step += 1) {
-    const middle = (low + high) / 2;
-    if (mediaTimeAfter(middle) <= mediaDurationSeconds) {
-      low = middle;
-    } else {
-      high = middle;
-    }
-  }
-  return low;
-}
-
-/**
  * `origin` moved, or trimmed at one edge, by `deltaQ` quarters, snapped like
- * an arrangement clip. It never starts before 0, never plays from before its
- * media's start or past its end, and lasts at least one frame.
+ * an arrangement clip. It never starts before 0 or plays from before its
+ * media's start, and lasts at least one frame. It may run past its media's
+ * end, which loops the media.
  */
 export function dragSourceSpan(
   origin: SourceSpan,
   kind: SourceSpanDragKind,
   deltaQ: number,
-  { bpm, fps, snapUnit, snap, mediaDurationSeconds }: SourceSpanDragLimits,
+  { bpm, fps, snapUnit, snap }: SourceSpanDragLimits,
 ): SourceSpan {
   const frameQ = secondsToQuarters(1 / fps, bpm);
   const originEndQ = origin.startQ + getClipDurationQ(origin, bpm);
@@ -152,18 +105,8 @@ export function dragSourceSpan(
     return retimeSourceSpan(origin, startQ, originEndQ - startQ, bpm);
   }
 
-  const maxDurationQ = Math.max(
-    frameQ,
-    secondsToQuarters(
-      getSourceSpanMaxSeconds(origin, mediaDurationSeconds, bpm),
-      bpm,
-    ),
-  );
   const endQ = snapQuarterValue(originEndQ + deltaQ, snapUnit, snap);
-  const durationQ = Math.min(
-    maxDurationQ,
-    Math.max(frameQ, endQ - origin.startQ),
-  );
+  const durationQ = Math.max(frameQ, endQ - origin.startQ);
   return { ...origin, durationSeconds: quartersToSeconds(durationQ, bpm) };
 }
 

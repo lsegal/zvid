@@ -1,11 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { ArrangementClip, SourceSpan } from "./app/types.ts";
-import { type ClipWarp, warpSourceTime } from "./clip-warp.ts";
+import type { ClipWarp } from "./clip-warp.ts";
 import {
   dragSourceSpan,
   getDroppedSourceSpanStartQ,
-  getSourceSpanMaxSeconds,
   placeDroppedSourceSpans,
   relinkClipsToSourceSpans,
   resolveSourceSpanOverlaps,
@@ -69,7 +68,6 @@ const limits = (
   fps: FPS,
   snapUnit: 1,
   snap: true,
-  mediaDurationSeconds: 60,
   ...overrides,
 });
 
@@ -78,17 +76,6 @@ const near = (actual: number, expected: number) =>
     Math.abs(actual - expected) < 1e-9,
     `expected ${actual} to be ${expected}`,
   );
-
-// Stretches the media: beats 0-4 play 0-1 s of it, beats 4-8 play 1-5 s.
-const warp: ClipWarp = {
-  markers: [
-    { beatTime: 0, secTime: 0 },
-    { beatTime: 4, secTime: 1 },
-    { beatTime: 8, secTime: 5 },
-  ],
-  contentStartBeat: 0,
-  anchorSeconds: 0,
-};
 
 describe("retimeSourceSpan", () => {
   it("keeps the content in place when either edge moves", () => {
@@ -191,56 +178,15 @@ describe("dragSourceSpan", () => {
     );
   });
 
-  it("extends the end no further than the media's end", () => {
-    // 10 s of media from 3 s leaves 7 s: 14 quarters.
-    const extended = dragSourceSpan(
-      origin,
-      "resize-end",
-      40,
-      limits({ mediaDurationSeconds: 10 }),
-    );
-    assert.deepEqual(layout([extended]), [["a", "t1", 4, 18, 3]]);
-  });
-
-  it("extends the end freely while the media's length is unknown", () => {
-    const extended = dragSourceSpan(
-      origin,
-      "resize-end",
-      40,
-      limits({ mediaDurationSeconds: 0 }),
-    );
-    assert.equal(extended.startQ + extended.durationSeconds * 2, 52);
+  it("extends the end past the media's end, which loops it", () => {
+    const extended = dragSourceSpan(origin, "resize-end", 40, limits());
+    assert.deepEqual(layout([extended]), [["a", "t1", 4, 52, 3]]);
   });
 
   it("keeps at least a frame when the end is trimmed past the start", () => {
     const trimmed = dragSourceSpan(origin, "resize-end", -20, limits());
     assert.equal(trimmed.startQ, 4);
     near(trimmed.durationSeconds, 1 / FPS);
-  });
-});
-
-describe("getSourceSpanMaxSeconds", () => {
-  it("is the media left after the span's start", () => {
-    assert.equal(getSourceSpanMaxSeconds({ trimStartSeconds: 3 }, 10, BPM), 7);
-    assert.equal(getSourceSpanMaxSeconds({ trimStartSeconds: 12 }, 10, BPM), 0);
-  });
-
-  it("is unbounded while the media's length is unknown", () => {
-    assert.equal(
-      getSourceSpanMaxSeconds({ trimStartSeconds: 3 }, 0, BPM),
-      Number.POSITIVE_INFINITY,
-    );
-  });
-
-  it("follows a warped span's warp to the media's end", () => {
-    // Warped, 5 s of media plays over 8 beats: 4 s at 120 BPM.
-    const seconds = getSourceSpanMaxSeconds(
-      { trimStartSeconds: 0, warp },
-      5,
-      BPM,
-    );
-    near(seconds, 4);
-    near(warpSourceTime(warp, seconds, BPM).seconds, 5);
   });
 });
 

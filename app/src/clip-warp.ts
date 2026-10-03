@@ -158,3 +158,16 @@ export function warpSourceTime(
     rate: slope * beatsPerSecond,
   };
 }
+
+/**
+ * Source position `seconds` in media `mediaDurationSeconds` long, wrapped
+ * back to the media's start once it passes the end, so a clip that runs
+ * longer than its media loops it. A warped clip loops in warped source time.
+ * Positions before the end, and any while the media's length is not known
+ * (0), are unchanged.
+ */
+export function loopMediaTime(seconds: number, mediaDurationSeconds: number) {
+  return mediaDurationSeconds > 0 && seconds >= mediaDurationSeconds
+    ? seconds % mediaDurationSeconds
+    : seconds;
+}

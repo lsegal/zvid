@@ -8,10 +8,7 @@
 import { quartersToSeconds, secondsToQuarters } from "./app/timeline-math.ts";
 import type { SourceSpan } from "./app/types.ts";
 import type { MediaItem } from "./media";
-import {
-  getSourceSpanMaxSeconds,
-  resolveSourceSpanOverlaps,
-} from "./source-span-edit.ts";
+import { resolveSourceSpanOverlaps } from "./source-span-edit.ts";
 import type { TimeValueRange } from "./time-value.ts";
 
 export type SourceClipField = "start" | "length" | "offset";
@@ -37,9 +34,9 @@ export const SOURCE_CLIP_HISTORY_LABELS: Record<SourceClipField, string> = {
 export type SourceClipLimits = Record<SourceClipField, TimeValueRange>;
 
 /**
- * The media length the clip's fields are limited to, in seconds: 0 while the
- * media is offline, still loading or of unknown length, so the limits fall
- * back to the clip's current values.
+ * The media length the clip's Offset is limited to, in seconds: 0 while the
+ * media is offline, still loading or of unknown length, so the limit falls
+ * back to the clip's current value.
  */
 export function getKnownMediaDurationSeconds(media: MediaItem | undefined) {
   return media?.availability === "ready" && media.durationSeconds > 0
@@ -61,10 +58,10 @@ export function getSourceClipValues(
 
 /**
  * The range each field may take, in quarter notes. Start runs from 0 to the
- * end of the timeline. Length lasts at least one frame and Offset starts at
- * 0, and together they never play past the end of the media. While the
- * media's length is not known, Length and Offset can't grow past their
- * current values.
+ * end of the timeline. Length lasts at least one frame and may run past the
+ * end of the media, which loops it. Offset runs from 0 to the end of the
+ * media, or its current value when that is later; while the media's length
+ * is not known, it can't grow past its current value.
  */
 export function getSourceClipLimits(
   span: SourceSpan,
@@ -82,21 +79,15 @@ export function getSourceClipLimits(
 ): SourceClipLimits {
   const values = getSourceClipValues(span, bpm);
   const frameQ = secondsToQuarters(1 / fps, bpm);
-  const known = mediaDurationSeconds > 0;
-  const lengthMaxQ = known
-    ? secondsToQuarters(
-        getSourceSpanMaxSeconds(span, mediaDurationSeconds, bpm),
-        bpm,
-      )
-    : values.length;
-  const offsetMaxQ = known
-    ? secondsToQuarters(mediaDurationSeconds - span.durationSeconds, bpm)
-    : values.offset;
+  const offsetMaxQ =
+    mediaDurationSeconds > 0
+      ? Math.max(values.offset, secondsToQuarters(mediaDurationSeconds, bpm))
+      : values.offset;
 
   return {
     start: { min: 0, max: Math.max(values.start, timelineLengthQ) },
-    length: { min: frameQ, max: Math.max(frameQ, lengthMaxQ) },
-    offset: { min: 0, max: Math.max(0, offsetMaxQ) },
+    length: { min: frameQ, max: Number.POSITIVE_INFINITY },
+    offset: { min: 0, max: offsetMaxQ },
   };
 }
 

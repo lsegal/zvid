@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { createClipWarp, warpSourceTime } from "./clip-warp.ts";
+import { type ClipWarp, createClipWarp, warpSourceTime } from "./clip-warp.ts";
 import {
   getClipWaveformRange,
+  getMediaLoopMarkersPx,
   getSourceSpanWaveformRange,
   getVisibleClipSlice,
   getWaveformSourceSpan,
+  loopWaveformSourceSpan,
 } from "./waveform-range.ts";
 
 // At 120 BPM and 20 px per quarter, one pixel is 1/40 s.
@@ -144,5 +146,119 @@ describe("getVisibleClipSlice", () => {
   it("is empty for a clip off screen", () => {
     assert.equal(getVisibleClipSlice(500, 50, 0, 400), null);
     assert.equal(getVisibleClipSlice(0, 50, 100, 400), null);
+  });
+});
+
+describe("loopWaveformSourceSpan", () => {
+  it("leaves a span before the media's end, or of unknown media, alone", () => {
+    assert.deepEqual(loopWaveformSourceSpan([1, 1.5], 2), [[1, 1.5]]);
+    assert.deepEqual(loopWaveformSourceSpan([3, 3.5], 0), [[3, 3.5]]);
+  });
+
+  it("draws the media again from its start past its end", () => {
+    assert.deepEqual(loopWaveformSourceSpan([5, 5.5], 2), [[1, 1.5]]);
+  });
+
+  it("splits a span across the point where the media loops", () => {
+    assert.deepEqual(loopWaveformSourceSpan([3.5, 4.5], 2), [
+      [1.5, 2],
+      [0, 0.5],
+    ]);
+  });
+
+  it("covers the whole media for a span longer than it", () => {
+    assert.deepEqual(loopWaveformSourceSpan([1, 4], 2), [[0, 2]]);
+  });
+});
+
+describe("getMediaLoopMarkersPx", () => {
+  function assertMarkers(actual: number[], expected: number[]) {
+    assert.equal(actual.length, expected.length, `got [${actual}]`);
+    actual.forEach((value, index) => {
+      assert.ok(
+        Math.abs(value - expected[index]) < 1e-6,
+        `expected [${expected}], got [${actual}]`,
+      );
+    });
+  }
+
+  it("marks each point where the media loops back to its start", () => {
+    // 2 s of media under a 5 s span from 0.5 s: it loops at 2 s and 4 s.
+    const range = getSourceSpanWaveformRange(
+      { trimStartSeconds: 0.5, durationSeconds: 5 },
+      BPM,
+      QUARTER_PX,
+      2,
+    );
+    assertMarkers(getMediaLoopMarkersPx(range, 0, 200), [60, 140]);
+    // Only the visible pixels are marked.
+    assertMarkers(getMediaLoopMarkersPx(range, 100, 200), [140]);
+  });
+
+  it("marks a clip by its song time and source offset", () => {
+    const range = getClipWaveformRange(
+      {
+        startQ: 4,
+        sourceOffsetSeconds: -2,
+        sourceWindowStartSeconds: 0,
+        sourceWindowEndSeconds: 3,
+      },
+      BPM,
+      QUARTER_PX,
+      1.25,
+    );
+    // Plays 0-3 s of the media: loops at 1.25 s and 2.5 s.
+    assertMarkers(getMediaLoopMarkersPx(range, 0, 120), [50, 100]);
+  });
+
+  it("marks a warped clip where its warped source time loops", () => {
+    // Half speed: linear second 2 plays source second 1.
+    const warp: ClipWarp = {
+      markers: [
+        { beatTime: 0, secTime: 0 },
+        { beatTime: 4, secTime: 1 },
+      ],
+      contentStartBeat: 0,
+      anchorSeconds: 0,
+    };
+    const range = getSourceSpanWaveformRange(
+      { trimStartSeconds: 0, durationSeconds: 10, warp },
+      BPM,
+      QUARTER_PX,
+      1.5,
+    );
+    // 1.5 s of media loops at linear 3 s, 6 s and 9 s.
+    assertMarkers(getMediaLoopMarkersPx(range, 0, 400), [120, 240, 360]);
+  });
+
+  it("marks nothing for unknown media, or loops too close together", () => {
+    const span = { trimStartSeconds: 0, durationSeconds: 10 };
+    assert.deepEqual(
+      getMediaLoopMarkersPx(
+        getSourceSpanWaveformRange(span, BPM, QUARTER_PX, 0),
+        0,
+        400,
+      ),
+      [],
+    );
+    assert.deepEqual(
+      getMediaLoopMarkersPx(
+        getSourceSpanWaveformRange(span, BPM, QUARTER_PX, 0.01),
+        0,
+        400,
+      ),
+      [],
+    );
+  });
+
+  it("marks nothing at a clip's edges", () => {
+    // Exactly two loops of 2 s of media.
+    const range = getSourceSpanWaveformRange(
+      { trimStartSeconds: 2, durationSeconds: 4 },
+      BPM,
+      QUARTER_PX,
+      2,
+    );
+    assertMarkers(getMediaLoopMarkersPx(range, 0, 160), [80]);
   });
 });

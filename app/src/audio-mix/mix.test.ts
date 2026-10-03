@@ -172,6 +172,40 @@ describe("clipMediaTimeAt", () => {
     assert.ok(Math.abs(at.mediaTime - 0.5) < 1e-9);
     assert.ok(Math.abs(at.playbackRate - 0.5) < 1e-9);
   });
+
+  it("loops the media past its end", () => {
+    // 2 s of media under a 5 s clip.
+    const looping = clip({
+      durationSeconds: 5,
+      sourceWindowEndSeconds: 5,
+      mediaDurationSeconds: 2,
+    });
+    assert.equal(clipMediaTimeAt(looping, 1.5, BPM)?.mediaTime, 1.5);
+    assert.equal(clipMediaTimeAt(looping, 2, BPM)?.mediaTime, 0);
+    assert.equal(clipMediaTimeAt(looping, 4.5, BPM)?.mediaTime, 0.5);
+  });
+
+  it("loops a warped clip in warped source time", () => {
+    // Half speed: 4 s on the timeline plays 2 s of source.
+    const warp: ClipWarp = {
+      markers: [
+        { beatTime: 0, secTime: 0 },
+        { beatTime: 4, secTime: 1 },
+      ],
+      contentStartBeat: 0,
+      anchorSeconds: 0,
+    };
+    const looping = clip({
+      warp,
+      durationSeconds: 5,
+      sourceWindowEndSeconds: 5,
+      mediaDurationSeconds: 1.5,
+    });
+    const at = clipMediaTimeAt(looping, 4, BPM);
+    assert.ok(at);
+    assert.ok(Math.abs(at.mediaTime - 0.5) < 1e-9);
+    assert.ok(Math.abs(at.playbackRate - 0.5) < 1e-9);
+  });
 });
 
 describe("renderAudioMix", () => {
@@ -312,6 +346,29 @@ describe("renderAudioMix", () => {
     const [output] = render(mix([clip({ warp })]), { media: ramp(4) }, 2);
     // Half speed: 1 s on the timeline plays 0.5 s of source.
     assert.ok(Math.abs(output[SAMPLE_RATE] - 0.005) < 1e-5);
+  });
+
+  it("repeats media shorter than its clip, without silence past its end", () => {
+    // 1 s of media under a 3 s clip.
+    const [output] = render(
+      mix([
+        clip({
+          sourceWindowEndSeconds: 3,
+          mediaDurationSeconds: 1,
+        }),
+      ]),
+      { media: ramp(1) },
+    );
+    // The ramp starts over at each second.
+    assert.ok(Math.abs(output[0.5 * SAMPLE_RATE] - 0.005) < 1e-6);
+    assert.ok(Math.abs(output[1.25 * SAMPLE_RATE] - 0.0025) < 1e-6);
+    assert.ok(Math.abs(output[2.75 * SAMPLE_RATE] - 0.0075) < 1e-6);
+    // Every sample after the first plays, none sweeping back through the
+    // media where it loops.
+    for (let index = 1; index < output.length; index++) {
+      const expected = (index % SAMPLE_RATE) / SAMPLE_RATE / 100;
+      assert.ok(Math.abs(output[index] - expected) < 1e-6, `${index}`);
+    }
   });
 });
 

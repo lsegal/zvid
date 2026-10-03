@@ -63,37 +63,34 @@ describe("getSourceClipValues", () => {
 });
 
 describe("getSourceClipLimits", () => {
-  it("limits Length and Offset to the media's length", () => {
+  it("limits Offset to the media's length and lets Length run past it", () => {
     // 10 s of media is 20 quarters; the clip plays 3 s (6 q) from 2 s (4 q).
     const limits = limitsFor(span("a", 4, 6), 10);
 
     assert.deepEqual(limits.start, { min: 0, max: 64 });
-    assert.equal(limits.length.min, FRAME_Q);
-    assert.equal(limits.length.max, 16);
-    assert.deepEqual(limits.offset, { min: 0, max: 14 });
+    assert.deepEqual(limits.length, {
+      min: FRAME_Q,
+      max: Number.POSITIVE_INFINITY,
+    });
+    assert.deepEqual(limits.offset, { min: 0, max: 20 });
   });
 
   it("keeps Start's current value reachable past the timeline's end", () => {
     assert.equal(limitsFor(span("a", 80, 2), 10).start.max, 80);
   });
 
-  it("falls back to the current values while the media's length is unknown", () => {
+  it("falls back to the current Offset while the media's length is unknown", () => {
     const limits = limitsFor(span("a", 4, 6), 0);
 
-    assert.equal(limits.length.max, 6);
+    assert.equal(limits.length.max, Number.POSITIVE_INFINITY);
     assert.deepEqual(limits.offset, { min: 0, max: 4 });
   });
 
-  it("never lets a range end before it starts", () => {
-    // A clip already playing past the end of shorter media.
-    const limits = limitsFor(span("a", 0, 30, { trimStartSeconds: 4 }), 10);
+  it("keeps Offset's current value reachable past the media's end", () => {
+    // Playing from 12 s (24 q) of 10 s of media.
+    const limits = limitsFor(span("a", 0, 6, { trimStartSeconds: 12 }), 10);
 
-    assert.equal(limits.length.max, 12);
-    assert.deepEqual(limits.offset, { min: 0, max: 0 });
-    assert.equal(
-      limitsFor(span("a", 0, 6, { trimStartSeconds: 10 }), 10).length.max,
-      FRAME_Q,
-    );
+    assert.deepEqual(limits.offset, { min: 0, max: 24 });
   });
 });
 

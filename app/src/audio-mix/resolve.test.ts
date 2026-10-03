@@ -163,6 +163,31 @@ describe("resolveAudioClips", () => {
     assert.equal(layer.sourceWindowEndSeconds, 3);
   });
 
+  it("carries each clip's media length, which it loops past", () => {
+    const media = new Map([
+      ["tone", { hasAudio: true, durationSeconds: 2 }],
+      ["unknown", { hasAudio: true, durationSeconds: 0 }],
+    ]);
+    const sources = resolveAudioClips(
+      inputs({
+        mediaById: media,
+        sourceSpans: [
+          span("a", "track-1", "tone"),
+          span("b", "track-2", "unknown"),
+        ],
+      }),
+    ).clips;
+    assert.deepEqual(
+      sources.map((clip) => clip.mediaDurationSeconds),
+      [2, 0],
+    );
+
+    const [layer] = resolveAudioClips(
+      inputs({ mediaById: media, clips: [layerClip("c", "lane-1", "tone")] }),
+    ).clips;
+    assert.equal(layer.mediaDurationSeconds, 2);
+  });
+
   it("is silent without a Gain on the clip's chain", () => {
     const mix = resolveAudioClips(inputs());
     assert.deepEqual(

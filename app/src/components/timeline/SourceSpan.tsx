@@ -41,6 +41,7 @@ import {
 } from "../../waveform-range.ts";
 import { MediaSyncSkeleton } from "../MediaSyncSkeleton";
 import { ClipWaveform } from "./ClipWaveform";
+import { MediaLoopMarkers } from "./MediaLoopMarkers";
 import "./source-span.css";
 
 // What every source span shares.
@@ -117,6 +118,12 @@ export function SourceSpan({
     ? describeMediaSync(remoteMediaProgress.get(media.id), media.availability)
     : null;
   const widthPx = getClipDurationQ(clip, bpm) * quarterPx;
+  const waveformRange = getSourceSpanWaveformRange(
+    clip,
+    bpm,
+    quarterPx,
+    media?.durationSeconds ?? 0,
+  );
   // Audio-only media draws its waveform, like the Audio lane, until its peaks
   // turn out to be missing. Video with audio overlays it on the frames once
   // its peaks are ready, decoding only while the span is in view.
@@ -214,7 +221,7 @@ export function SourceSpan({
           clipLeftPx={clip.startQ * quarterPx}
           clipWidthPx={widthPx}
           peaks={audioPeaks}
-          range={getSourceSpanWaveformRange(clip, bpm, quarterPx)}
+          range={waveformRange}
           visibleStartPx={visibleTimelineStartPx}
           visibleWidthPx={visibleTimelineWidthPx}
         />
@@ -266,7 +273,16 @@ export function SourceSpan({
           clipLeftPx={clip.startQ * quarterPx}
           clipWidthPx={widthPx}
           peaks={audioPeaks}
-          range={getSourceSpanWaveformRange(clip, bpm, quarterPx)}
+          range={waveformRange}
+          visibleStartPx={visibleTimelineStartPx}
+          visibleWidthPx={visibleTimelineWidthPx}
+        />
+      ) : null}
+      {!mediaSync && mediaState === "online" ? (
+        <MediaLoopMarkers
+          clipLeftPx={clip.startQ * quarterPx}
+          clipWidthPx={widthPx}
+          range={waveformRange}
           visibleStartPx={visibleTimelineStartPx}
           visibleWidthPx={visibleTimelineWidthPx}
         />

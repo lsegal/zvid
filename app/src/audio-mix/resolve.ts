@@ -66,7 +66,12 @@ export type AudioMixInputs<Effect extends AudioEffect = AudioEffect> = {
   lanes: readonly AudioTrack[];
   sourceTracks: readonly AudioTrack[];
   sourceSpans: readonly AudioSourceSpan[];
-  mediaById: ReadonlyMap<string, { hasAudio: boolean }>;
+  // `durationSeconds` is the media's length, which its clips loop past: 0 or
+  // unset while it is not known.
+  mediaById: ReadonlyMap<
+    string,
+    { hasAudio: boolean; durationSeconds?: number }
+  >;
   effects: readonly Effect[];
   bpm: number;
   // 4/4 when unset.
@@ -86,6 +91,9 @@ export type AudioMixClip<Effect extends AudioEffect = AudioEffect> = {
   sourceWindowStartSeconds: number;
   sourceWindowEndSeconds: number;
   warp?: ClipWarp;
+  // Its media's length, which it loops past: 0 or unset while it is not
+  // known.
+  mediaDurationSeconds?: number;
   // Its audio effects, Global first, then its layer's or source track's,
   // then its own; bypassed stacks are left out.
   effects: Effect[];
@@ -138,6 +146,15 @@ function hasAudio(
   mediaId: string | undefined,
 ) {
   return mediaId !== undefined && mediaById.get(mediaId)?.hasAudio === true;
+}
+
+function mediaDurationOf(
+  mediaById: AudioMixInputs["mediaById"],
+  mediaId: string | undefined,
+) {
+  const duration =
+    mediaId === undefined ? undefined : mediaById.get(mediaId)?.durationSeconds;
+  return duration !== undefined && duration > 0 ? duration : 0;
 }
 
 export function resolveAudioClips<Effect extends AudioEffect>({
@@ -229,6 +246,7 @@ export function resolveAudioClips<Effect extends AudioEffect>({
           sourceWindowStartSeconds: clip.sourceWindowStartSeconds,
           sourceWindowEndSeconds: clip.sourceWindowEndSeconds,
           ...(clip.warp ? { warp: clip.warp } : {}),
+          mediaDurationSeconds: mediaDurationOf(mediaById, clip.mediaId),
         },
         clip.laneId,
         clip.laneId,
@@ -260,6 +278,7 @@ export function resolveAudioClips<Effect extends AudioEffect>({
           sourceWindowStartSeconds: span.trimStartSeconds,
           sourceWindowEndSeconds: span.trimStartSeconds + span.durationSeconds,
           ...(span.warp ? { warp: span.warp } : {}),
+          mediaDurationSeconds: mediaDurationOf(mediaById, span.mediaId),
         },
         span.sourceTrackId,
         sourceTrackEffectTrackId(span.sourceTrackId),

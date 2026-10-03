@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { createClipWarp, warpSourceTime } from "./clip-warp.ts";
+import { createClipWarp, loopMediaTime, warpSourceTime } from "./clip-warp.ts";
 import {
   type ArrangementClip,
   computeActiveClips,
@@ -297,5 +297,21 @@ describe("warped clip playback", () => {
     );
     assertClose(active.mediaTime, 11.3 + 6.25);
     assert.equal(active.playbackRate, 1);
+  });
+});
+
+describe("loopMediaTime", () => {
+  it("wraps source time past the media's end back to its start", () => {
+    assert.equal(loopMediaTime(1.5, 2), 1.5);
+    assert.equal(loopMediaTime(2, 2), 0);
+    assert.equal(loopMediaTime(5.5, 2), 1.5);
+  });
+
+  it("leaves source time alone while the media's length is unknown", () => {
+    assert.equal(loopMediaTime(5.5, 0), 5.5);
+  });
+
+  it("leaves source time before the media's start alone", () => {
+    assert.equal(loopMediaTime(-1, 2), -1);
   });
 });

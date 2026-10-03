@@ -6,7 +6,6 @@ import type {
   SourceSpanDragState,
 } from "../app/types.ts";
 import { LANE_SELECTION_DRAG_THRESHOLD_PX } from "../lane-selection-gesture.ts";
-import type { MediaItem } from "../media";
 import {
   dragSourceSpan,
   relinkClipsToSourceSpans,
@@ -19,7 +18,6 @@ export type SourceSpanDragInputs = {
   dragPreviewSourceSpans: SourceSpan[] | null;
   setDragPreviewSourceSpans: Dispatch<SetStateAction<SourceSpan[] | null>>;
   sourceSpans: SourceSpan[];
-  mediaItemsById: ReadonlyMap<string, MediaItem>;
   bpm: number;
   fps: number;
   snapUnit: number;
@@ -44,7 +42,6 @@ export function useSourceSpanDrag({
   dragPreviewSourceSpans,
   setDragPreviewSourceSpans,
   sourceSpans,
-  mediaItemsById,
   bpm,
   fps,
   snapUnit,
@@ -93,9 +90,6 @@ export function useSourceSpanDrag({
         return;
       }
 
-      const media = origin.mediaId
-        ? mediaItemsById.get(origin.mediaId)
-        : undefined;
       const activeSpan = dragSourceSpan(
         origin,
         sourceSpanDrag.kind,
@@ -105,7 +99,6 @@ export function useSourceSpanDrag({
           fps,
           snapUnit,
           snap: snapEnabled && !event.shiftKey,
-          mediaDurationSeconds: media?.durationSeconds ?? 0,
         },
       );
       setDragPreviewSourceSpans(
@@ -165,7 +158,6 @@ export function useSourceSpanDrag({
     dragPreviewSourceSpans,
     fps,
     isWorkspaceReadOnlyRef,
-    mediaItemsById,
     quarterPx,
     refuseReadOnlyEdit,
     setDragPreviewSourceSpans,
