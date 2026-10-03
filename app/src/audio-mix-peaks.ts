@@ -15,7 +15,8 @@ export type MixPeaksClip = {
   // Linear gain; 0 is silent.
   amplitude: number;
   // The source seconds the clip plays at a song time, or null where it is
-  // silent, such as outside its source window.
+  // silent, such as outside its source window. They only go back where the
+  // media loops back to its start.
   sourceSecondsAt: (songSeconds: number) => number | null;
 };
 
@@ -101,10 +102,15 @@ export function mixWaveformPeaks(
         continue;
       }
 
+      // A bucket in which the media loops reads on to the media's end.
       const range = readPeakRange(
         clip.peaks,
-        Math.min(sourceStart, sourceEnd ?? sourceStart),
-        Math.max(sourceStart, sourceEnd ?? sourceStart),
+        sourceStart,
+        sourceEnd === null
+          ? sourceStart
+          : sourceEnd < sourceStart
+            ? clip.peaks.durationSeconds
+            : sourceEnd,
       );
       if (range) {
         min[bucket] += range.low * clip.amplitude;

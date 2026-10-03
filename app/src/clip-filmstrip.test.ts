@@ -255,7 +255,7 @@ describe("getSourceSpanFilmstripClip", () => {
     );
   });
 
-  it("keeps samples inside the span and the media", () => {
+  it("keeps samples inside the span and repeats the media past its end", () => {
     const spanEnd = getClipFilmstripTiles({
       ...layout,
       clip: getSourceSpanFilmstripClip({
@@ -277,7 +277,7 @@ describe("getSourceSpanFilmstripClip", () => {
     });
     assert.deepEqual(
       mediaEnd.map((tile) => tile.timeSeconds),
-      [0, 8, 16, 18, 18],
+      [0, 8, 16, 6, 14],
     );
   });
 });
@@ -329,7 +329,7 @@ describe("getClipFilmstripTiles with a warp", () => {
     }
   });
 
-  it("keeps the window in linear time and the media bound in warped time", () => {
+  it("keeps the window in linear time and loops the media in warped time", () => {
     const windowEnd = getClipFilmstripTiles({
       ...layout,
       clip: { ...layout.clip, sourceWindowEndSeconds: 3 },
@@ -344,7 +344,7 @@ describe("getClipFilmstripTiles with a warp", () => {
     });
     assert.deepEqual(
       mediaEnd.map((tile) => tile.timeSeconds),
-      [0, 0.5, 1, 3, 4],
+      [0, 0.5, 1, 3, 1],
     );
   });
 

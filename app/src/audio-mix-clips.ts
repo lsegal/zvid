@@ -3,7 +3,7 @@
 // and the Global Gain.
 import type { AudioMix } from "./audio-mix/resolve.ts";
 import type { AudioMixOrigin } from "./audio-mix-peaks.ts";
-import { warpSourceTime } from "./clip-warp.ts";
+import { loopMediaTime, warpSourceTime } from "./clip-warp.ts";
 import type { AudioMixContribution } from "./hooks/useAudioMix.ts";
 
 export function getAudioMixOrigin(mix: AudioMix): AudioMixOrigin {
@@ -19,7 +19,8 @@ export function getAudioMixContributions(
     endSeconds: clip.startSeconds + Math.max(0, clip.durationSeconds),
     amplitude: clip.amplitude * mix.masterAmplitude,
     // The source time at song second `t` is `t + sourceOffsetSeconds`,
-    // inside the source window, through the clip's warp markers.
+    // inside the source window, through the clip's warp markers, looped
+    // back to the media's start past its end.
     sourceSecondsAt: (songSeconds) => {
       const linear = songSeconds + clip.sourceOffsetSeconds;
       if (
@@ -28,9 +29,10 @@ export function getAudioMixContributions(
       ) {
         return null;
       }
-      return clip.warp
-        ? warpSourceTime(clip.warp, linear, mix.bpm).seconds
-        : linear;
+      return loopMediaTime(
+        clip.warp ? warpSourceTime(clip.warp, linear, mix.bpm).seconds : linear,
+        clip.mediaDurationSeconds ?? 0,
+      );
     },
   }));
 }

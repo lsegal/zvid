@@ -2,6 +2,7 @@ import { type CSSProperties, useLayoutEffect, useRef } from "react";
 import { getPeakRange, type WaveformPeaks } from "./waveform-peaks";
 import {
   getWaveformSourceSpan,
+  loopWaveformSourceSpan,
   type WaveformSourceRange,
 } from "./waveform-range.ts";
 
@@ -17,7 +18,8 @@ type WaveformCanvasProps = {
 };
 
 // Draws the peaks of one slice of a source range: a column per device pixel,
-// filled around a center line, the way the Audio lane draws.
+// filled around a center line, the way the Audio lane draws. Past the
+// media's end it draws the media again from its start, as it loops.
 export function WaveformCanvas({
   peaks,
   range,
@@ -34,6 +36,7 @@ export function WaveformCanvas({
     windowEndSeconds,
     warp,
     bpm,
+    mediaDurationSeconds = 0,
   } = range;
 
   useLayoutEffect(() => {
@@ -71,10 +74,21 @@ export function WaveformCanvas({
         startPx + column / pixelRatio,
         startPx + (column + 1) / pixelRatio,
       );
-      const peakRange =
-        span && span[0] < peaks.durationSeconds
-          ? getPeakRange(peaks, span[0], span[1])
-          : null;
+      let peakRange: [number, number] | null = null;
+      for (const [from, to] of span
+        ? loopWaveformSourceSpan(span, mediaDurationSeconds)
+        : []) {
+        const piece =
+          from < peaks.durationSeconds ? getPeakRange(peaks, from, to) : null;
+        if (piece) {
+          peakRange = peakRange
+            ? [
+                Math.min(peakRange[0], piece[0]),
+                Math.max(peakRange[1], piece[1]),
+              ]
+            : piece;
+        }
+      }
       if (!peakRange) {
         continue;
       }
@@ -86,6 +100,7 @@ export function WaveformCanvas({
     }
   }, [
     bpm,
+    mediaDurationSeconds,
     peaks,
     secondsPerPx,
     startPx,

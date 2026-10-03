@@ -116,14 +116,17 @@ describe("getClipThumbnailTimeSeconds", () => {
     );
   });
 
-  it("stays within the window and the media", () => {
+  it("stays within the window", () => {
     assert.equal(
       getClipThumbnailTimeSeconds({ ...clip, trimStartSeconds: 12 }, 20),
       10,
     );
+  });
+
+  it("loops the media past its end", () => {
     assert.equal(
       getClipThumbnailTimeSeconds({ ...clip, trimStartSeconds: 9 }, 8),
-      8,
+      1,
     );
   });
 
@@ -363,14 +366,16 @@ describe("getClipThumbnailTimeSeconds with a warp", () => {
     );
   });
 
-  it("keeps the window in linear time and the media bound in warped time", () => {
+  it("keeps the window in linear time and loops the media in warped time", () => {
     assert.equal(
       getClipThumbnailTimeSeconds({ ...clip, trimStartSeconds: 12 }, 20, bpm),
       17,
     );
+    // Linear 5 s plays the media at 7 s, which loops 6 s of it to 1 s.
+    assert.equal(warpSourceTime(warp, 5, bpm).seconds, 7);
     assert.equal(
       getClipThumbnailTimeSeconds({ ...clip, trimStartSeconds: 5 }, 6, bpm),
-      6,
+      1,
     );
   });
 

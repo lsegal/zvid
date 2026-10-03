@@ -60,8 +60,8 @@ export function getSourceClipValues(
  * The range each field may take, in quarter notes. Start runs from 0 to the
  * end of the timeline. Length lasts at least one frame and may run past the
  * end of the media, which loops it. Offset runs from 0 to the end of the
- * media; while the media's length is not known, it can't grow past its
- * current value.
+ * media, or its current value when that is later; while the media's length
+ * is not known, it can't grow past its current value.
  */
 export function getSourceClipLimits(
   span: SourceSpan,
@@ -81,13 +81,13 @@ export function getSourceClipLimits(
   const frameQ = secondsToQuarters(1 / fps, bpm);
   const offsetMaxQ =
     mediaDurationSeconds > 0
-      ? secondsToQuarters(mediaDurationSeconds, bpm)
+      ? Math.max(values.offset, secondsToQuarters(mediaDurationSeconds, bpm))
       : values.offset;
 
   return {
     start: { min: 0, max: Math.max(values.start, timelineLengthQ) },
     length: { min: frameQ, max: Number.POSITIVE_INFINITY },
-    offset: { min: 0, max: Math.max(0, offsetMaxQ) },
+    offset: { min: 0, max: offsetMaxQ },
   };
 }
 

@@ -212,6 +212,24 @@ describe("computeActiveClips", () => {
     assert.ok(layer1.isInBounds);
   });
 
+  it("loops a clip's media past its end, staying in bounds", () => {
+    // 30 s of a clip over the 12.049 s akustichord media.
+    const looping: ArrangementClip = {
+      ...selection(96, "12", "1", 0, 900),
+      trimStartSeconds: 0,
+      sourceOffsetSeconds: 0,
+      sourceWindowStartSeconds: 0,
+      sourceWindowEndSeconds: 30,
+    };
+    const [entry] = activeAt([looping], (15 * BPM) / 60);
+
+    assert.ok(entry.isInBounds);
+    assert.ok(Math.abs(entry.mediaTime - (15 - 12.049)) < 1e-6);
+    const [secondLoop] = activeAt([looping], (27 * BPM) / 60);
+    assert.ok(secondLoop.isInBounds);
+    assert.ok(Math.abs(secondLoop.mediaTime - (27 - 2 * 12.049)) < 1e-6);
+  });
+
   it("keeps the later clip in the arrangement when starts tie", () => {
     const clips = [
       selection(96, "8", "1", 60, 120),

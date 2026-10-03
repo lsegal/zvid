@@ -136,6 +136,26 @@ describe("mixWaveformPeaks", () => {
   });
 });
 
+describe("mixWaveformPeaks with looping media", () => {
+  it("draws the media again from its start where it loops", () => {
+    // 1 s of media, loud in its first half and quiet in its second, under a
+    // 3 s clip.
+    const peaks = flatPeaks(0.2, 1);
+    peaks.min.fill(-0.8, 0, 5);
+    peaks.max.fill(0.8, 0, 5);
+    const looping: MixPeaksClip = {
+      ...clip(peaks, 0, 3, 1),
+      sourceSecondsAt: (songSeconds) => songSeconds % 1,
+    };
+    const mixed = mixWaveformPeaks([looping], BPS);
+    assert.ok(mixed);
+    for (const second of [0, 1, 2]) {
+      approx(mixed.max[second * BPS + 2], 0.8);
+      approx(mixed.max[second * BPS + 7], 0.2);
+    }
+  });
+});
+
 describe("mixPeakLevel", () => {
   it("is the loudest swing either way, and 0 for a flat mix", () => {
     const peaks = flatPeaks(0, 1);
