@@ -1,7 +1,7 @@
 // Writes the zvid opening sample: the editable session template
 // `src/sample/zvid-opening.lvp` and its asset manifest
 // `src/sample/opening-manifest.generated.ts`, hashed from the media in
-// `public/samples/opening-v1`.
+// `public/samples/opening-v2`.
 //
 //   node app/scripts/sample/build-opening-sample.mjs [--check]
 //
@@ -23,7 +23,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const APP = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const SAMPLE_VERSION = "opening-v1";
+const SAMPLE_VERSION = "opening-v2";
 const MEDIA_DIR = resolve(APP, "public/samples", SAMPLE_VERSION);
 const SESSION_FILE = resolve(APP, "src/sample/zvid-opening.lvp");
 const MANIFEST_FILE = resolve(APP, "src/sample/opening-manifest.generated.ts");
@@ -45,10 +45,10 @@ const LIGHT = "rgba(236,242,240,1)";
 const samplePath = (name) => `zvid-sample://${SAMPLE_VERSION}/${name}`;
 
 const MUSIC_CREDIT =
-  '"Decisions" by Kevin MacLeod (incompetech.com), licensed under CC BY 4.0 ' +
-  "(https://creativecommons.org/licenses/by/4.0/). First 30 seconds " +
-  "excerpted with a 0.6 s fade-in and 2 s fade-out, synchronized to the " +
-  "sample's graphics.";
+  '"Just Nasty" by Kevin MacLeod (incompetech.com), licensed under CC BY 4.0 ' +
+  "(https://creativecommons.org/licenses/by/4.0/). 2:00–2:30 excerpted " +
+  "with a 0.6 s fade-in and 2 s fade-out, synchronized to the sample's " +
+  "graphics.";
 const VIDEO_CREDIT =
   "Original procedural motion made for zvid (app/scripts/sample/render_sources.py).";
 
@@ -57,7 +57,11 @@ const SOURCES = [
   { key: "ribbon", name: "Ribbon", file: "ribbon.mp4" },
   { key: "corridor", name: "Corridor", file: "corridor.mp4" },
 ];
-const MUSIC = { key: "music", name: "Decisions", file: "decisions-30s.m4a" };
+const MUSIC = {
+  key: "music",
+  name: "Just Nasty",
+  file: "just-nasty-30s.m4a",
+};
 
 // Layers, top first. The titles sit above the FX and Order layers, so no
 // effect or arrangement touches them. The Audio layer holds only the music.
@@ -678,7 +682,7 @@ const MUSIC_SECTIONS = [
   // 21–24 s: the reactive Colorize again, gated on its hits.
   [
     "Noise Gate",
-    { Threshold: -16, Attack: 0.5, Hold: 10, Release: 40, Range: -80 },
+    { Threshold: -20, Attack: 0.5, Hold: 10, Release: 40, Range: -80 },
   ],
   ["De-ess", { Frequency: 3000, Threshold: -45, Amount: 24, Listen: "Off" }],
   // 24–27 s: the wordmark returns.

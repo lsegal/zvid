@@ -3,14 +3,14 @@ import type { SampleManifest } from "./sample-manifest.ts";
 
 export const OPENING_SAMPLE_MANIFEST: SampleManifest = {
   "id": "zvid-opening",
-  "version": "opening-v1",
+  "version": "opening-v2",
   "sessionName": "zvid opening sample",
-  "creditsUrl": "/samples/opening-v1/CREDITS.md",
+  "creditsUrl": "/samples/opening-v2/CREDITS.md",
   "assets": [
     {
-      "id": "zvid-sample:opening-v1:orbit",
-      "path": "zvid-sample://opening-v1/orbit.mp4",
-      "url": "/samples/opening-v1/orbit.mp4",
+      "id": "zvid-sample:opening-v2:orbit",
+      "path": "zvid-sample://opening-v2/orbit.mp4",
+      "url": "/samples/opening-v2/orbit.mp4",
       "name": "orbit.mp4",
       "mediaType": "video/mp4",
       "bytes": 5173618,
@@ -18,9 +18,9 @@ export const OPENING_SAMPLE_MANIFEST: SampleManifest = {
       "credit": "Original procedural motion made for zvid (app/scripts/sample/render_sources.py)."
     },
     {
-      "id": "zvid-sample:opening-v1:ribbon",
-      "path": "zvid-sample://opening-v1/ribbon.mp4",
-      "url": "/samples/opening-v1/ribbon.mp4",
+      "id": "zvid-sample:opening-v2:ribbon",
+      "path": "zvid-sample://opening-v2/ribbon.mp4",
+      "url": "/samples/opening-v2/ribbon.mp4",
       "name": "ribbon.mp4",
       "mediaType": "video/mp4",
       "bytes": 8441652,
@@ -28,9 +28,9 @@ export const OPENING_SAMPLE_MANIFEST: SampleManifest = {
       "credit": "Original procedural motion made for zvid (app/scripts/sample/render_sources.py)."
     },
     {
-      "id": "zvid-sample:opening-v1:corridor",
-      "path": "zvid-sample://opening-v1/corridor.mp4",
-      "url": "/samples/opening-v1/corridor.mp4",
+      "id": "zvid-sample:opening-v2:corridor",
+      "path": "zvid-sample://opening-v2/corridor.mp4",
+      "url": "/samples/opening-v2/corridor.mp4",
       "name": "corridor.mp4",
       "mediaType": "video/mp4",
       "bytes": 1445594,
@@ -38,14 +38,14 @@ export const OPENING_SAMPLE_MANIFEST: SampleManifest = {
       "credit": "Original procedural motion made for zvid (app/scripts/sample/render_sources.py)."
     },
     {
-      "id": "zvid-sample:opening-v1:music",
-      "path": "zvid-sample://opening-v1/decisions-30s.m4a",
-      "url": "/samples/opening-v1/decisions-30s.m4a",
-      "name": "decisions-30s.m4a",
+      "id": "zvid-sample:opening-v2:music",
+      "path": "zvid-sample://opening-v2/just-nasty-30s.m4a",
+      "url": "/samples/opening-v2/just-nasty-30s.m4a",
+      "name": "just-nasty-30s.m4a",
       "mediaType": "audio/mp4",
-      "bytes": 708770,
-      "sha256": "65432678b23b10f780563fca6d4ced559c47dc627802bc7eaadf3e7c9bdc73bc",
-      "credit": "\"Decisions\" by Kevin MacLeod (incompetech.com), licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). First 30 seconds excerpted with a 0.6 s fade-in and 2 s fade-out, synchronized to the sample's graphics."
+      "bytes": 770472,
+      "sha256": "ce23eb162c10a03586554a4dd96b475a5028670837a4f3a5547c7304eda3a0ee",
+      "credit": "\"Just Nasty\" by Kevin MacLeod (incompetech.com), licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). 2:00–2:30 excerpted with a 0.6 s fade-in and 2 s fade-out, synchronized to the sample's graphics."
     }
   ]
 };

@@ -6,7 +6,7 @@ import { expect, type Page, test } from "@playwright/test";
 // count and selection, and remembers its state per viewer.
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
 const TONE = new URL("./fixtures/tone.wav", import.meta.url);
-const SAMPLE_MEDIA = "**/samples/opening-v1/*";
+const SAMPLE_MEDIA = "**/samples/opening-v2/*";
 
 async function dropFile(
   page: Page,
