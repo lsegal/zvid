@@ -90,10 +90,11 @@ describe("Distortion definition", () => {
     }
   });
 
-  it("animates Amount in Clip and Reactive modes", () => {
+  it("animates Amount in Clip, Reactive and LFO modes", () => {
     const defaults = getAnimationDefaults("Distortion");
-    assert.deepEqual(defaults?.modes, ["clip", "reactive"]);
+    assert.deepEqual(defaults?.modes, ["clip", "reactive", "lfo"]);
     assert.deepEqual(defaults?.reactive?.parameters, ["_Amount"]);
+    assert.deepEqual(defaults?.lfo?.parameters, ["_Amount"]);
     assert.deepEqual(getAnimationNeutralValues("Distortion"), {
       _Amount: { neutral: 0 },
     });

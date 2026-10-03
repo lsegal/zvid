@@ -415,13 +415,22 @@ describe("projectToLvpSession", () => {
   it("round-trips effect animation settings", () => {
     const animation: EffectAnimation = {
       enabled: true,
-      mode: "reactive",
+      mode: "lfo",
       clip: { motionIn: "Linear", motionOut: "Ease In Out", timing: "Fast" },
       reactive: {
         motion: "Wobble",
         timing: "Slow",
         reactivity: 0.7,
         parameters: ["_LowIntensity"],
+      },
+      lfo: {
+        shape: "Triangle",
+        sync: true,
+        rate: 2.5,
+        syncRate: "1/8D",
+        depth: 0.4,
+        phase: 90,
+        parameters: ["_NumPixels"],
       },
     };
     const session = projectToLvpSession(
