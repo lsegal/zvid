@@ -324,6 +324,19 @@ export function MediaDrawer({
     );
   }
 
+  // The Media tab shows it in the header beside Icons / List, the Record tab
+  // in its title row.
+  const closeButton = (
+    <button
+      aria-label="Close media drawer"
+      className="media-drawer__close"
+      onClick={() => drawer.setOpen(false)}
+      type="button"
+    >
+      <XMarkIcon aria-hidden="true" />
+    </button>
+  );
+
   return (
     <div
       className={[
@@ -343,8 +356,8 @@ export function MediaDrawer({
         inert={!isOpen}
       >
         <div className="media-drawer__panel">
-          <div className="media-drawer__header">
-            {tab === "media" ? (
+          {tab === "media" ? (
+            <div className="media-drawer__header">
               <div className="segmented-control">
                 {(["icons", "list"] as const).map((option) => (
                   <button
@@ -358,19 +371,13 @@ export function MediaDrawer({
                   </button>
                 ))}
               </div>
-            ) : null}
-            <button
-              aria-label="Close media drawer"
-              className="media-drawer__close"
-              onClick={() => drawer.setOpen(false)}
-              type="button"
-            >
-              <XMarkIcon aria-hidden="true" />
-            </button>
-          </div>
+              {closeButton}
+            </div>
+          ) : null}
           {tab === "record" ? (
             isOpen ? (
               <RecordTab
+                closeButton={closeButton}
                 onRequest={drawer.requestRecordInputs}
                 requested={drawer.recordRequested}
               />
