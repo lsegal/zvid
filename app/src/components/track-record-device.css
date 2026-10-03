@@ -1,0 +1,61 @@
+/* The source track's Record device reuses the FX device frame (fx-chain.css). */
+.track-record-device {
+  --fx-accent: var(--pink);
+}
+
+.track-record-device .fx-device-panel__title {
+  cursor: default;
+}
+
+.track-record-device .fx-device-panel__name {
+  cursor: default;
+}
+
+.track-record-device__body {
+  padding: 10px 12px 12px;
+}
+
+/* The arm button: a record dot, lit while the track is armed. */
+.track-record-device__arm {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.track-record-device__arm--compact {
+  width: 22px;
+  height: 22px;
+}
+
+.track-record-device__arm span {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid currentColor;
+  border-radius: 999px;
+}
+
+.track-record-device__arm:hover {
+  color: var(--ink);
+}
+
+.track-record-device__arm[aria-pressed="true"] {
+  border-color: var(--fx-accent);
+  background: color-mix(in srgb, var(--fx-accent) 22%, transparent);
+  color: var(--fx-accent);
+}
+
+.track-record-device__arm[aria-pressed="true"] span {
+  background: currentColor;
+}
+
+.track-record-device__arm:focus-visible {
+  outline: 2px solid var(--fx-accent);
+  outline-offset: 2px;
+}

@@ -4,6 +4,7 @@ import type { useFxPanelModel } from "../hooks/useFxPanelModel.ts";
 import type { SourceClipPropertiesModel } from "../hooks/useSourceClipProperties.ts";
 import { FxChain } from "./FxChain";
 import { SourceClipProperties } from "./SourceClipProperties";
+import { TrackRecordDevice } from "./TrackRecordDevice";
 import "./fx-panel.css";
 
 type FxPanelModel = ReturnType<typeof useFxPanelModel>;
@@ -22,6 +23,7 @@ export type FxPanelProps = Pick<
   | "fxLayerName"
   | "fxLayerTrackId"
   | "fxPanelTitle"
+  | "fxRecordTrack"
   | "fxSourceTrackId"
   | "orderLayerOptions"
 > &
@@ -49,7 +51,8 @@ export type FxPanelProps = Pick<
 
 // The collapsible FX panel under the editor: its header toggle, the title
 // for the selected layer or clip, and the FX chain, led by the selected
-// source clip's properties when one is selected.
+// source clip's properties when one is selected. A source track's section
+// opens with its Record device.
 export function FxPanel({
   addFxDevice,
   duplicateFxDevice,
@@ -64,6 +67,7 @@ export function FxPanel({
   fxLayerName,
   fxLayerTrackId,
   fxPanelTitle,
+  fxRecordTrack,
   fxSourceTrackId,
   isInspectorCollapsed,
   moveFxDevice,
@@ -104,6 +108,15 @@ export function FxPanel({
         <FxChain
           leading={
             sourceClip ? <SourceClipProperties model={sourceClip} /> : null
+          }
+          layerLeading={
+            fxRecordTrack ? (
+              <TrackRecordDevice
+                key={fxRecordTrack.trackId}
+                trackId={fxRecordTrack.trackId}
+                trackName={fxRecordTrack.trackName}
+              />
+            ) : null
           }
           devices={fxDevices}
           kind={fxKind}

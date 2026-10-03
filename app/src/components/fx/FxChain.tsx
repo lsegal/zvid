@@ -52,6 +52,9 @@ export type FxChainProps = {
   // Shown ahead of the chain's sections, such as the selected source
   // clip's properties.
   leading?: ReactNode;
+  // Shown first in the layer-level section, ahead of its devices, such as
+  // a source track's Record device.
+  layerLeading?: ReactNode;
   // Track id of the selected clip's own stack; undefined when no clip is
   // selected, which hides the Clip section.
   clipTrackId?: string;
@@ -137,6 +140,7 @@ export function FxChain({
   layerName,
   layerLabel = "Layer",
   leading,
+  layerLeading,
   clipTrackId,
   clipScope = "clip",
   layerFxEnabled = true,
@@ -501,6 +505,7 @@ export function FxChain({
         </>
       ) : null}
       {layerName ? renderDivider("layer") : null}
+      {layerName ? layerLeading : null}
       {layerName ? null : (
         <div className="fx-chain__empty">
           <p>Select a layer to see its effects</p>
