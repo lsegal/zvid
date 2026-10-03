@@ -152,6 +152,10 @@ describe("Caustics pass", () => {
     for (const match of pass.fragmentSource.matchAll(/([\d.]+) \* t\b/g)) {
       assert.equal(Number(match[1]) % 1, 0, match[0]);
     }
+    assert.match(
+      pass.fragmentSource,
+      /float turns = \(floor\(h\.x \* 3\.0\) \+ 1\.0\) \* sign\(h\.y - 0\.5\);/,
+    );
   });
 
   it("stands the pattern the same way on a bottom-up texture", () => {

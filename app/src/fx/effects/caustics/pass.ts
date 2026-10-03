@@ -18,8 +18,9 @@ const TAU = 2 * Math.PI;
 
 function readEffectValue(params: EffectParameter[], key: string) {
   const target = normalizeEffectKey(key);
-  return params.find((candidate) => normalizeEffectKey(candidate.key) === target)
-    ?.value;
+  return params.find(
+    (candidate) => normalizeEffectKey(candidate.key) === target,
+  )?.value;
 }
 
 // The Blend option's index in CAUSTICS_BLENDS, Screen when it is unknown.
@@ -32,12 +33,13 @@ export function causticsBlendIndex(value: string | undefined) {
 
 // The light's color, 0..1 per channel, scaled by its alpha.
 export function causticsColor(value: string | undefined) {
-  const color =
-    parseCssColor(value) ?? parseCssColor(DEFAULT_CAUSTICS_COLOR);
+  const color = parseCssColor(value) ?? parseCssColor(DEFAULT_CAUSTICS_COLOR);
   if (!color) {
     return [1, 1, 1];
   }
-  return [color.r, color.g, color.b].map((channel) => (channel / 255) * color.a);
+  return [color.r, color.g, color.b].map(
+    (channel) => (channel / 255) * color.a,
+  );
 }
 
 // Where the pattern is in its loop, 0..2π. Every term of the field moves at
@@ -49,9 +51,8 @@ export function causticsPhase(time: number, speed: number) {
   return phase < 0 ? phase + TAU : phase;
 }
 
-// Underwater light caustics. The field is the zero set of a sine pattern
-// whose domain is warped by three octaves of moving sines, sharpened into
-// bright ridges. It is laid out in image space with square cells (`uRes`
+// Underwater light caustics. The field is the bright edges between the
+// cells of two layers of moving Voronoi points, bent by sines. It is laid out in image space with square cells (`uRes`
 // gives the aspect), flipped by `uDown` so it stands the same way on
 // top-down and bottom-up textures. `_Scale` sets the cell size, `_Speed`
 // how fast `uPhase` turns, and `_Warp` how far the field's gradient bends
@@ -68,25 +69,50 @@ export const pass: EffectPass = {
     uniform float uPhase, uDown, uIntensity, uScale, uWarp, uBlend;
     varying vec2 vUv;
 
+    vec2 hash2(vec2 c) {
+      return fract(sin(vec2(dot(c, vec2(127.1, 311.7)), dot(c, vec2(269.5, 183.3)))) * 43758.5453);
+    }
+
+    // F2 - F1 of one point per cell, each circling its cell a whole number
+    // of times, one to three either way, per turn of the phase.
+    float edges(vec2 p, float t) {
+      vec2 id = floor(p);
+      vec2 f = fract(p);
+      float d1 = 8.0;
+      float d2 = 8.0;
+      for (int y = -1; y <= 1; y++) {
+        for (int x = -1; x <= 1; x++) {
+          vec2 o = vec2(float(x), float(y));
+          vec2 h = hash2(id + o);
+          float turns = (floor(h.x * 3.0) + 1.0) * sign(h.y - 0.5);
+          float a = turns * t + 6.2831853 * h.y;
+          float d = length(o + 0.5 + 0.35 * vec2(cos(a), sin(a)) - f);
+          d2 = d < d1 ? d1 : min(d2, d);
+          d1 = min(d1, d);
+        }
+      }
+      return d2 - d1;
+    }
+
+    // Bright ridges along the cell edges of two drifting layers, their
+    // edges bent by sines so they curve like light through waves.
     float caustic(vec2 p) {
       float t = uPhase;
-      vec2 q = p;
-      q += vec2(sin(q.y * 0.9 + t), sin(q.x * 1.1 - t));
-      q += 0.5 * vec2(sin(q.y * 1.7 - 2.0 * t + 1.3), sin(q.x * 1.5 + 2.0 * t + 0.7));
-      q += 0.25 * vec2(sin(q.y * 2.3 + 3.0 * t + 2.1), sin(q.x * 2.9 - 3.0 * t + 4.2));
-      float w = 0.5 * (sin(q.x) + sin(q.y));
-      return pow(1.0 - abs(w), 8.0);
+      p += 0.12 * vec2(sin(p.y * 1.3 + t), sin(p.x * 1.7 - t));
+      float a = edges(p, t);
+      float b = edges(p * 1.6 + vec2(3.1, 7.7), -t);
+      return clamp(pow(max(1.0 - a * 3.0, 0.0), 4.0) + 0.6 * pow(max(1.0 - b * 3.0, 0.0), 4.0), 0.0, 1.0);
     }
 
     void main() {
       float aspect = uRes.x / max(uRes.y, 1.0);
-      float cells = mix(12.0, 1.5, uScale);
+      float cells = mix(10.0, 1.5, uScale);
       vec2 image = vec2(vUv.x * aspect, 0.5 + (vUv.y - 0.5) * uDown);
-      vec2 p = image * cells * 6.2831853;
-      float e = 0.05;
+      vec2 p = image * cells;
+      float e = 0.01;
       float f = caustic(p);
       vec2 grad = vec2(caustic(p + vec2(e, 0.0)) - f, caustic(p + vec2(0.0, e)) - f) / e;
-      vec2 offset = grad * uWarp * 0.004;
+      vec2 offset = grad * uWarp * 0.0015;
       vec4 c = texture2D(uTex, vUv + vec2(offset.x / aspect, offset.y * uDown));
       vec3 light = uColor * f;
       vec3 lit = uBlend < 0.5 ? c.rgb + light
