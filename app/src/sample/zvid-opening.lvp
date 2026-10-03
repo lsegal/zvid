@@ -3879,6 +3879,49 @@
           "floatValue": 0
         }
       }
+    },
+    {
+      "id": "sample-fx-099",
+      "trackId": "clip:selection-2",
+      "effectName": "Distortion",
+      "parameters": {
+        "_Type": {
+          "stringValue": "Ripple"
+        },
+        "_Edges": {
+          "stringValue": "Mirror"
+        },
+        "_Amount": {
+          "floatValue": 0.4
+        },
+        "_Size": {
+          "floatValue": 0.25
+        },
+        "_Speed": {
+          "floatValue": 0.3
+        },
+        "_CenterX": {
+          "floatValue": 0.5
+        },
+        "_CenterY": {
+          "floatValue": 0.5
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": []
+        }
+      }
     }
   ],
   "timeline": {

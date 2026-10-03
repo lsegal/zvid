@@ -207,8 +207,9 @@ zoomAndPan(
   { zoom: 1 },
   { zoom: 1.3 },
 );
+const CAPTURE_SHOT = cut("orbit", 0, 1.5, 1.5, 2, "capture");
 zoomAndPan(
-  clipTrack(cut("orbit", 0, 1.5, 1.5, 2, "capture")),
+  clipTrack(CAPTURE_SHOT),
   { zoom: 1.25, x: 0.45 },
   { zoom: 1.05, x: 0.55 },
 );
@@ -529,6 +530,28 @@ spans.push({
 });
 // A session clip loads as source clip `source-<id>`, whose stack this is.
 addEffect(`source-clip:source-${MUSIC_SPAN}`, "Gain", { Gain: 0, Mute: 0 });
+
+// ---- Stylize accents -----------------------------------------------------
+
+// Added last so the effects before them keep their ids.
+
+// 1.5–3 s: ripples swell through the "capture" shot and settle by its end.
+addEffect(
+  clipTrack(CAPTURE_SHOT),
+  "Distortion",
+  {
+    _Type: "Ripple",
+    _Edges: "Mirror",
+    _Amount: 0.4,
+    _Size: 0.25,
+    _Speed: 0.3,
+    _CenterX: 0.5,
+    _CenterY: 0.5,
+  },
+  {
+    animation: animation("clip"),
+  },
+);
 
 // ---- session -------------------------------------------------------------
 

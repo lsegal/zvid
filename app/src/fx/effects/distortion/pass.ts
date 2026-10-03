@@ -70,9 +70,11 @@ export const pass: EffectPass = {
         // Wave: sine offsets across the direction of travel.
         offset = vec2(-uDir.y, uDir.x) * amp * sin(dot(p, uDir) * TAU / size + uPhase);
       } else if (uType < 1.5) {
-        // Ripple: rings moving out from the center.
+        // Ripple: rings moving out from the center, faded in over the
+        // first quarter wave so the center doesn't pinch to a point.
         vec2 away = r > 0.0 ? d / r : vec2(0.0);
-        offset = away * amp * sin(r * TAU / size - uPhase);
+        float fade = min(1.0, r * 4.0 / size);
+        offset = away * amp * fade * sin(r * TAU / size - uPhase);
       } else if (uType < 2.5) {
         // Twirl: rotation that falls off to nothing at the radius.
         float fall = max(0.0, 1.0 - r / size);
