@@ -115,6 +115,7 @@ export type FinishedTake = {
   blob: Blob;
   mimeType: string;
   hasVideo: boolean;
+  hasAudio: boolean;
   durationSeconds: number;
 };
 
@@ -304,6 +305,7 @@ export class RecordingSession {
           blob: new Blob(take.chunks, { type: mimeType }),
           mimeType,
           hasVideo: take.hasVideo,
+          hasAudio: take.hasAudio,
           durationSeconds: take.endedAtSeconds ?? endedAt,
         },
       ];
