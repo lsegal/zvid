@@ -3904,6 +3904,48 @@
           "floatValue": 0
         }
       }
+    },
+    {
+      "id": "sample-fx-100",
+      "trackId": "clip:selection-2",
+      "effectName": "DigitalGlitch",
+      "parameters": {
+        "_Amount": {
+          "floatValue": 0.25
+        },
+        "_BlockSize": {
+          "floatValue": 0.35
+        },
+        "_Displace": {
+          "floatValue": 0.4
+        },
+        "_ChannelShift": {
+          "floatValue": 0.5
+        },
+        "_ColorCrush": {
+          "floatValue": 0
+        },
+        "_Rate": {
+          "floatValue": 12
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "reactive",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Bounce",
+          "timing": "Normal",
+          "reactivity": 0.6,
+          "parameters": [
+            "_Amount"
+          ]
+        }
+      }
     }
   ],
   "timeline": {

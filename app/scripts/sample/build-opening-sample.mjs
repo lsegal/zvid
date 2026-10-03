@@ -207,11 +207,8 @@ zoomAndPan(
   { zoom: 1 },
   { zoom: 1.3 },
 );
-zoomAndPan(
-  clipTrack(cut("orbit", 0, 1.5, 1.5, 2, "capture")),
-  { zoom: 1.25, x: 0.45 },
-  { zoom: 1.05, x: 0.55 },
-);
+const captureShot = clipTrack(cut("orbit", 0, 1.5, 1.5, 2, "capture"));
+zoomAndPan(captureShot, { zoom: 1.25, x: 0.45 }, { zoom: 1.05, x: 0.55 });
 
 // The three-ups: every 1.5 s each video layer cuts to a new source, in-point
 // and crop, and the sources rotate between the panels. Odd cuts crop tight.
@@ -538,6 +535,33 @@ spans.push({
 });
 // A session clip loads as source clip `source-<id>`, whose stack this is.
 addEffect(`source-clip:source-${MUSIC_SPAN}`, "Gain", { Gain: 0, Mute: 0 });
+
+// ---- added effects -------------------------------------------------------
+
+// Effects added after the sample was first laid out, last so the ids of
+// the effects above stay put.
+
+// 1.5–3 s: the music's hits break the orbit under "capture" into blocky
+// digital glitches.
+addEffect(
+  captureShot,
+  "DigitalGlitch",
+  {
+    _Amount: 0.25,
+    _BlockSize: 0.35,
+    _Displace: 0.4,
+    _ChannelShift: 0.5,
+    _ColorCrush: 0,
+    _Rate: 12,
+  },
+  {
+    animation: animation(
+      "reactive",
+      {},
+      { motion: "Bounce", reactivity: 0.6, parameters: ["_Amount"] },
+    ),
+  },
+);
 
 // ---- session -------------------------------------------------------------
 

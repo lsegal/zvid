@@ -327,6 +327,7 @@ describe("addableEffectsFor", () => {
         "NegativeSplit",
         "AnalogGlitch",
         "Caustics",
+        "DigitalGlitch",
         "Order",
       ]),
     );
@@ -347,6 +348,7 @@ describe("addableEffectsFor", () => {
         "NegativeSplit",
         "AnalogGlitch",
         "Caustics",
+        "DigitalGlitch",
         "Transform",
         "Move",
         "Color",

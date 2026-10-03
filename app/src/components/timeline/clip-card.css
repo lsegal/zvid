@@ -83,12 +83,14 @@
   border-right: 1px solid rgba(0, 0, 0, 0.35);
 }
 
-/* A text clip's "T", in its text color. */
+/* A text clip's "T", in its text color. It keeps its full width on narrow
+   clips, where the label gives way instead; a clip narrower than the glyph
+   cuts it off on the right. */
 .clip-card__glyph {
   flex: none;
   display: grid;
   place-items: center;
-  width: clamp(0px, calc(100% - 48px), 28px);
+  width: 28px;
   border-right: 1px solid rgba(0, 0, 0, 0.35);
   background-color: rgba(0, 0, 0, 0.35);
   color: var(--ink);
@@ -101,6 +103,7 @@
 .clip-card__text {
   flex: 1;
   min-width: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   justify-content: space-between;

@@ -52,9 +52,9 @@ export function causticsPhase(time: number, speed: number) {
 }
 
 // Underwater light caustics. The field is the bright edges between the
-// cells of two layers of moving Voronoi points, bent by sines. It is laid out in image space with square cells (`uRes`
-// gives the aspect), flipped by `uDown` so it stands the same way on
-// top-down and bottom-up textures. `_Scale` sets the cell size, `_Speed`
+// cells of two layers of moving Voronoi points, bent by sines. It is laid
+// out in image space with square cells (`uRes` gives the aspect), flipped by
+// `uDown` so it stands the same way on top-down and bottom-up textures. `_Scale` sets the cell size, `_Speed`
 // how fast `uPhase` turns, and `_Warp` how far the field's gradient bends
 // the image under it. `_Intensity` blends `_Color` light over the layer by
 // `_Blend`, keeping its alpha, so Intensity 0 with Warp 0 leaves it as it
