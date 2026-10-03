@@ -1,4 +1,3 @@
-import type { SelectOption } from "../components/ui/select";
 import type { InputDevice } from "./record-inputs.ts";
 import {
   TRACK_INPUT_DEFAULT,
@@ -16,7 +15,7 @@ export {
 export function buildDefaultInputOptions(
   devices: readonly InputDevice[],
   browserDefault: string | undefined,
-): SelectOption<string>[] {
+): { value: string; label: string }[] {
   return [
     {
       value: TRACK_INPUT_DEFAULT,

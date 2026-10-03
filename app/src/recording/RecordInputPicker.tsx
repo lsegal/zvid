@@ -188,7 +188,13 @@ function AudioPreview({
     deviceId === null ? "No audio" : failed ? "Microphone unavailable" : null;
   return (
     <div className="record-input-picker__audio">
-      <VuMeter getMeterTap={getMeterTap} isPlaying={metering} />
+      {/* Remounted when the input stops, so None clears the meter at once
+          rather than letting it fall away. */}
+      <VuMeter
+        getMeterTap={getMeterTap}
+        isPlaying={metering}
+        key={metering ? "live" : "off"}
+      />
       {message ? (
         <span className="record-input-picker__placeholder" role="status">
           {message}
