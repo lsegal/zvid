@@ -1,0 +1,46 @@
+/* A source track's record arm button, right of its FX switch: a red dot,
+   filled and glowing while armed, outlined and dim while not. Its padding
+   matches the FX switch's hit area; the negative margin keeps it close to
+   the switch so the pair doesn't crowd the track name. */
+.track-label__arm {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  margin-left: -10px;
+  padding: 4px 5px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.timeline-canvas--narrow-labels .track-label__arm {
+  margin-left: -6px;
+}
+
+.track-label__arm:focus-visible {
+  outline: 1px solid #ff5c5c;
+  outline-offset: 1px;
+  border-radius: 3px;
+}
+
+.track-label .track-label__arm-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 92, 92, 0.55);
+  background: transparent;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.track-label__arm:hover .track-label__arm-dot {
+  border-color: #ff5c5c;
+}
+
+.track-label__arm[aria-pressed="true"] .track-label__arm-dot {
+  border-color: #ff5c5c;
+  background: #ff5c5c;
+  box-shadow: 0 0 6px rgba(255, 92, 92, 0.75);
+}
