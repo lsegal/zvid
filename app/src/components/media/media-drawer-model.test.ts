@@ -96,6 +96,7 @@ describe("media drawer prefs", () => {
         JSON.stringify({
           open: true,
           width: 333,
+          tab: "record",
           view: "list",
           thumbnailSize: 200,
           detailsOpen: false,
@@ -104,6 +105,7 @@ describe("media drawer prefs", () => {
       {
         open: true,
         width: 333,
+        tab: "record",
         view: "list",
         thumbnailSize: 200,
         detailsOpen: false,
@@ -117,6 +119,7 @@ describe("media drawer prefs", () => {
         JSON.stringify({
           open: "yes",
           width: 10,
+          tab: "capture",
           view: "tiles",
           thumbnailSize: 9999,
           detailsOpen: "no",
@@ -125,6 +128,7 @@ describe("media drawer prefs", () => {
       {
         open: false,
         width: MEDIA_DRAWER_MIN_WIDTH,
+        tab: "media",
         view: "icons",
         thumbnailSize: THUMBNAIL_SIZE_MAX,
         detailsOpen: true,

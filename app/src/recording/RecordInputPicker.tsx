@@ -215,7 +215,13 @@ function AudioPreview({ stream }: { stream: MediaStream | null }) {
   const getMeterTap = useCallback(() => tap, [tap]);
   return (
     <div className="record-input-picker__meter" data-live={!!tap}>
-      <VuMeter getMeterTap={getMeterTap} isPlaying={!!tap} />
+      {/* Remounted when the input stops, so None clears the meter at once
+          rather than letting it fall away. */}
+      <VuMeter
+        getMeterTap={getMeterTap}
+        isPlaying={!!tap}
+        key={tap ? "live" : "off"}
+      />
     </div>
   );
 }
