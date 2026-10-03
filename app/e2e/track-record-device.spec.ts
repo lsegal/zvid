@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 
 // Selecting a source track, or one of its clips, leads the Effects pane's
 // Track section with a Record device: collapsed by default, expanded while
@@ -30,6 +30,30 @@ async function dropVideo(page: Page) {
   const target = '[aria-label="Source track drop area"]';
   for (const type of ["dragenter", "dragover", "drop"]) {
     await page.dispatchEvent(target, type, { dataTransfer });
+  }
+}
+
+// Asserts each of the parts lies within the container's content box, inside
+// its padding.
+async function expectInside(container: Locator, parts: Locator[]) {
+  const content = await container.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    const inset = (side: string) =>
+      Number.parseFloat(style.getPropertyValue(`padding-${side}`)) +
+      Number.parseFloat(style.getPropertyValue(`border-${side}-width`));
+    return {
+      left: box.left + inset("left"),
+      right: box.right - inset("right"),
+    };
+  });
+  for (const part of parts) {
+    const box = await part.evaluate((element) => {
+      const { left, right } = element.getBoundingClientRect();
+      return { left, right };
+    });
+    expect(box.left).toBeGreaterThanOrEqual(content.left - 0.5);
+    expect(box.right).toBeLessThanOrEqual(content.right + 0.5);
   }
 }
 
@@ -86,6 +110,13 @@ test("a source track's Record device folds, arms and overrides its inputs", asyn
     )
     .toBeGreaterThan(0);
   await expect(device.locator(".vu-meter")).toBeVisible();
+  // The dropdowns and the meter stay inside the device's padding, even with
+  // the fake microphone's long "Default (Fake Default Audio Input)" label.
+  await expectInside(device.locator(".track-record-device__body"), [
+    videoInput,
+    audioInput,
+    device.locator(".vu-meter"),
+  ]);
 
   // None overrides the camera for this track and turns its preview off.
   await videoInput.click();
