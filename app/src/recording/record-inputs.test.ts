@@ -11,8 +11,8 @@ import {
   readTrackInputOverride,
   resolveTrackInputs,
   resolveTrackOverride,
-  writeDefaultInput,
   withBrowserDefaults,
+  writeDefaultInput,
   writeTrackInputOverride,
 } from "./record-inputs.ts";
 
@@ -253,7 +253,10 @@ describe("browser default device", () => {
 
   it("resolves only inputs left on the browser's default", () => {
     assert.deepEqual(
-      withBrowserDefaults({ video: undefined, audio: undefined }, interfaceInfos),
+      withBrowserDefaults(
+        { video: undefined, audio: undefined },
+        interfaceInfos,
+      ),
       { video: "cam-a", audio: "line-34" },
     );
     assert.deepEqual(
