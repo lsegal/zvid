@@ -13,7 +13,7 @@ import { pluralize } from "../app/util.ts";
 import { getHarness } from "../harness";
 import { type MediaItem, toShareableMediaItem } from "../media";
 import { LiveTakeMonitor } from "../recording/live-take-monitor.ts";
-import { pruneArmedTracks, useArmedTrackIds } from "../recording/record-arm.ts";
+import { useArmedTrackIds } from "../recording/record-arm.ts";
 import { resolveTrackInputs } from "../recording/record-inputs.ts";
 import {
   canPressRecord,
@@ -109,10 +109,6 @@ export function useRecording({
   const passRef = useRef<ActivePass | null>(null);
   const sourceTracksRef = useRef(sourceTracks);
   sourceTracksRef.current = sourceTracks;
-
-  useEffect(() => {
-    pruneArmedTracks(sourceTracks.map((track) => track.id));
-  }, [sourceTracks]);
 
   const trackName = useCallback(
     (trackId: string) =>

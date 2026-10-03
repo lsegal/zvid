@@ -1,7 +1,7 @@
 /* The red of everything that shows recording is on: the Record button,
    recording clips, armed tracks and the playhead. */
 :root {
-  --record-red: #ff3b3b;
+  --record-red: #ff5c5c;
 }
 
 /* Equal side columns keep the transport cluster centered in the row however

@@ -289,31 +289,6 @@ describe("menu snapshots", () => {
       ),
       SOURCE_TRACK_MENU_LOCKED,
     );
-    // Arming for recording comes last, and reads Disarm once armed.
-    const armActions = { ...actions, toggleArmed: noop };
-    assert.deepEqual(
-      snapshot(
-        buildSourceTrackMenuEntries({
-          tracks,
-          trackId: "track-a",
-          actions: armActions,
-        }),
-      ).slice(-2),
-      ["---", "arm-recording: Arm for Recording"],
-    );
-    assert.deepEqual(
-      snapshot(
-        buildSourceTrackMenuEntries({
-          tracks,
-          trackId: "track-a",
-          armed: true,
-          locked: true,
-          disabled: true,
-          actions: armActions,
-        }),
-      ).slice(-2),
-      ["---", "arm-recording: Disarm Recording"],
-    );
   });
 
   it("audio menu", () => {

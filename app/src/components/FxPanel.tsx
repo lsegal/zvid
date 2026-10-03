@@ -1,4 +1,5 @@
 import { ChevronDownIcon } from "@heroicons/react/24/solid";
+import { SOURCE_CLIP_COLLAPSE_KEY } from "../fx-chain.ts";
 import type { useFxEditing } from "../hooks/useFxEditing.ts";
 import type { useFxPanelModel } from "../hooks/useFxPanelModel.ts";
 import type { SourceClipPropertiesModel } from "../hooks/useSourceClipProperties.ts";
@@ -102,8 +103,16 @@ export function FxPanel({
         id="fx-panel-body"
       >
         <FxChain
-          leading={
-            sourceClip ? <SourceClipProperties model={sourceClip} /> : null
+          leading={({ collapsed, toggleCollapsed }) =>
+            sourceClip ? (
+              <SourceClipProperties
+                collapsed={collapsed.has(SOURCE_CLIP_COLLAPSE_KEY)}
+                model={sourceClip}
+                onToggleCollapsed={() =>
+                  toggleCollapsed(SOURCE_CLIP_COLLAPSE_KEY)
+                }
+              />
+            ) : null
           }
           devices={fxDevices}
           kind={fxKind}

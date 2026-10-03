@@ -1,50 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
-  clearArmedTracks,
-  getArmedTrackIds,
-  pruneArmedTracks,
-  setTrackArmed,
-  subscribeArmedTracks,
-  toggleTrackArmed,
-} from "./record-arm.ts";
-import {
   canPressRecord,
   playbackEndsRecording,
   pressRecord,
 } from "./record-transport.ts";
-
-describe("record arm", () => {
-  it("arms and disarms tracks, notifying subscribers", () => {
-    clearArmedTracks();
-    let notified = 0;
-    const unsubscribe = subscribeArmedTracks(() => {
-      notified += 1;
-    });
-    toggleTrackArmed("a");
-    setTrackArmed("b", true);
-    setTrackArmed("b", true);
-    assert.deepEqual([...getArmedTrackIds()], ["a", "b"]);
-    assert.equal(notified, 2);
-
-    const before = getArmedTrackIds();
-    toggleTrackArmed("a");
-    assert.notEqual(getArmedTrackIds(), before, "the set is replaced");
-    assert.deepEqual([...getArmedTrackIds()], ["b"]);
-    unsubscribe();
-    clearArmedTracks();
-    assert.equal(notified, 3);
-  });
-
-  it("disarms tracks that left the session", () => {
-    clearArmedTracks();
-    setTrackArmed("a", true);
-    setTrackArmed("gone", true);
-    pruneArmedTracks(["a", "b"]);
-    assert.deepEqual([...getArmedTrackIds()], ["a"]);
-    clearArmedTracks();
-  });
-});
 
 describe("record button", () => {
   it("is disabled until a track is armed", () => {

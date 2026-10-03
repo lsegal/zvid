@@ -19,9 +19,6 @@ export type SourceTrackMenuActions = {
   remove: () => void;
   moveUp: () => void;
   moveDown: () => void;
-  // Arms or disarms the track for recording; without it the menu has no
-  // arm entry.
-  toggleArmed?: () => void;
 };
 
 export type SourceTrackMenuOptions = {
@@ -31,8 +28,6 @@ export type SourceTrackMenuOptions = {
   disabled?: boolean;
   // Disables Delete and Move while the source tracks are locked.
   locked?: boolean;
-  // Whether the track is armed for recording.
-  armed?: boolean;
   actions: SourceTrackMenuActions;
 };
 
@@ -47,26 +42,7 @@ export type SourceTrackMenuContext = {
   removeTitle: string | undefined;
   canMove: boolean;
   moveTitle: string | undefined;
-  armed: boolean;
   actions: SourceTrackMenuActions;
-};
-
-// Arming is this tab's UI state, so a read-only tab can arm too.
-const armRecordingEntry: MenuEntryProvider<SourceTrackMenuContext> = {
-  id: "arm-recording",
-  order: 130,
-  entries: ({ armed, actions }) =>
-    actions.toggleArmed
-      ? [
-          { type: "separator" },
-          {
-            type: "item",
-            id: "arm-recording",
-            label: armed ? "Disarm Recording" : "Arm for Recording",
-            onSelect: actions.toggleArmed,
-          },
-        ]
-      : [],
 };
 
 export const sourceTrackMenuEntries: readonly MenuEntryProvider<SourceTrackMenuContext>[] =
@@ -76,7 +52,6 @@ export const sourceTrackMenuEntries: readonly MenuEntryProvider<SourceTrackMenuC
     deleteLayerEntry,
     menuSeparator("before-move", 100),
     moveLayerEntries,
-    armRecordingEntry,
   ];
 
 /** The menu for the label of source track `trackId`. */
@@ -85,7 +60,6 @@ export function buildSourceTrackMenuEntries({
   trackId,
   disabled = false,
   locked = false,
-  armed = false,
   actions,
 }: SourceTrackMenuOptions): ContextMenuEntry[] {
   const lockedTitle = locked ? SOURCE_TRACKS_LOCKED_TITLE : undefined;
@@ -100,7 +74,6 @@ export function buildSourceTrackMenuEntries({
     removeTitle: lockedTitle,
     canMove: !locked,
     moveTitle: lockedTitle,
-    armed,
     actions,
   });
 }

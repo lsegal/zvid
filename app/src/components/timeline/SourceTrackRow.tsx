@@ -22,6 +22,7 @@ import { LiveRecordingClip } from "./LiveRecordingClip";
 import { SourceDropPreview } from "./SourceDropPreview";
 import { SourceSpan, type SourceSpanContext } from "./SourceSpan";
 import { TrackFxButton } from "./TrackFxButton";
+import { TrackRecordArmButton } from "./TrackRecordArmButton";
 
 type SourceTrackActions = ReturnType<typeof useSourceTrackActions>;
 
@@ -102,7 +103,7 @@ export function SourceTrackRow({
           if (
             event.target instanceof Element &&
             event.target.closest(
-              ".track-label__grip, .track-label__fx, .track-label__rename",
+              ".track-label__grip, .track-label__fx, .track-label__arm, .track-label__rename",
             )
           ) {
             return;
@@ -155,6 +156,7 @@ export function SourceTrackRow({
           track={track}
           setFxEnabled={(enabled) => setFxEnabled(track.id, enabled)}
         />
+        <TrackRecordArmButton track={track} />
       </div>
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: clearing the source clip selection is a mouse shortcut; the track name button selects the track from the keyboard */}
       <section

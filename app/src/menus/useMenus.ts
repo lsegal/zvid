@@ -29,7 +29,6 @@ import type { usePlayback } from "../hooks/usePlayback.ts";
 import type { useSourceClipActions } from "../hooks/useSourceClipActions.ts";
 import type { useSourceTrackActions } from "../hooks/useSourceTrackActions.ts";
 import { sourceTrackHasFootage } from "../random-arrangement.ts";
-import { isTrackArmed, toggleTrackArmed } from "../recording/record-arm.ts";
 import { canPasteIntoSourceTrack } from "../source-clip-edits.ts";
 import { buildAudioMenuEntries } from "./audio-menu.ts";
 import { buildClipMenuEntries } from "./clip-menu.ts";
@@ -308,14 +307,12 @@ export function useMenus({
             tracks: sourceTracks,
             trackId: track.id,
             locked: sourceTracksLocked,
-            armed: isTrackArmed(track.id),
             actions: {
               rename: () => setRenamingSourceTrackId(track.id),
               duplicate: () => duplicateSourceTrack(track),
               remove: () => deleteSourceTrack(track),
               moveUp: () => moveSourceTrack(track, -1),
               moveDown: () => moveSourceTrack(track, 1),
-              toggleArmed: () => toggleTrackArmed(track.id),
             },
           })
         : [];

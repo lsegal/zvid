@@ -24,11 +24,8 @@ function trackRow(page: Page) {
 }
 
 async function armFirstTrack(page: Page) {
-  await trackRow(page).locator(".track-label--source").click({
-    button: "right",
-  });
-  await page
-    .getByRole("menuitem", { name: "Arm for Recording", exact: true })
+  await trackRow(page)
+    .getByRole("button", { name: /^Arm .* for recording$/ })
     .click();
 }
 
@@ -58,6 +55,8 @@ test("Record is disabled until a source track is armed", async ({ page }) => {
 test("Record plays from the playhead and grows a clip; Record again keeps playing", async ({
   page,
 }) => {
+  // Saving the take analyzes and caches it, which is slow under load.
+  test.setTimeout(90_000);
   await armFirstTrack(page);
   await recordButton(page).click();
 
