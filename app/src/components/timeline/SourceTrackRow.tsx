@@ -12,11 +12,13 @@ import type {
 import { getSwatch, pluralize } from "../../app/util.ts";
 import { isLayerFxEnabled } from "../../fx-stack";
 import type { useFxEditing } from "../../hooks/useFxEditing.ts";
+import type { LiveTake } from "../../hooks/useRecording.ts";
 import type { useSourceTrackActions } from "../../hooks/useSourceTrackActions.ts";
 import type { useSourceTrackDrop } from "../../hooks/useSourceTrackDrop.ts";
 import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
 import { SOURCE_TRACKS_LOCKED_TITLE } from "../../source-tracks-section.ts";
 import { NameInput } from "../NameInput";
+import { LiveRecordingClip } from "./LiveRecordingClip";
 import { SourceDropPreview } from "./SourceDropPreview";
 import { SourceSpan, type SourceSpanContext } from "./SourceSpan";
 import { TrackFxButton } from "./TrackFxButton";
@@ -47,6 +49,9 @@ type SourceTrackRowProps = {
   isLifted: boolean;
   gridStyle: ReturnType<typeof useTimelineViewport>["gridStyle"];
   span: SourceSpanContext;
+  armed: boolean;
+  // The clip this track is recording into.
+  liveTake: LiveTake | undefined;
 } & SourceTrackLabelContext;
 
 // A source track: its label with the reorder grip, its spans, and the
@@ -65,6 +70,8 @@ export function SourceTrackRow({
   isLifted,
   gridStyle,
   span,
+  armed,
+  liveTake,
   reorder,
   openMenu,
   locked,
@@ -82,7 +89,7 @@ export function SourceTrackRow({
 
   return (
     <section
-      className={`track-row track-row--source ${selected ? "track-row--selected" : ""} ${isLifted ? "track-row--lifted" : ""}`}
+      className={`track-row track-row--source ${selected ? "track-row--selected" : ""} ${isLifted ? "track-row--lifted" : ""} ${armed ? "track-row--armed" : ""} ${liveTake ? "track-row--recording" : ""}`}
       data-source-track-drop-target="track"
       data-source-track-id={track.id}
       data-source-track-drop-at-pointer
@@ -167,6 +174,13 @@ export function SourceTrackRow({
         {spans.map((clip) => (
           <SourceSpan key={clip.id} clip={clip} {...span} />
         ))}
+        {liveTake ? (
+          <LiveRecordingClip
+            bpm={span.bpm}
+            quarterPx={span.quarterPx}
+            take={liveTake}
+          />
+        ) : null}
         {isDropTarget ? (
           <SourceDropPreview drop={drop} span={span} swatch={swatch} />
         ) : null}

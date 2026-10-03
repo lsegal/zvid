@@ -31,6 +31,8 @@ export type TimelineInputs = {
   timelineScrollRef: RefObject<HTMLDivElement | null>;
   arrangementLanesRef: RefObject<HTMLDivElement | null>;
   spaceHoldRef: { current: ReturnType<typeof createSpaceHold> };
+  // The end of the clips being recorded, so the timeline makes room.
+  recordingEndQ?: number;
 };
 
 // The timeline's view: its zoom, grid and scroll position
@@ -47,6 +49,7 @@ export function useTimeline({
   timelineScrollRef,
   arrangementLanesRef,
   spaceHoldRef,
+  recordingEndQ,
 }: TimelineInputs) {
   const {
     timelineMode,
@@ -72,6 +75,7 @@ export function useTimeline({
     timelineClips,
     sourceSpans,
     pendingSelection,
+    recordingEndQ,
     labelWidth,
     playheadQRef,
     timelineScrollRef,

@@ -10,6 +10,7 @@ import type {
   SourceTrack,
 } from "../../app/types.ts";
 import { getSwatch, pluralize } from "../../app/util.ts";
+import type { LiveTake } from "../../hooks/useRecording.ts";
 import type { useSourceTrackDrop } from "../../hooks/useSourceTrackDrop.ts";
 import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
 import { pruneArmedTracks } from "../../recording/record-arm.ts";
@@ -45,6 +46,9 @@ type SourceTracksProps = {
   span: SourceSpanContext;
   listRef: RefObject<HTMLDivElement | null>;
   label: SourceTrackLabelContext;
+  // The armed tracks and the clips the tracks being recorded grow.
+  armedTrackIds: ReadonlySet<string>;
+  liveTakes: ReadonlyMap<string, LiveTake>;
 };
 
 // The Source Tracks section: its collapsible header with the lock toggle,
@@ -72,6 +76,8 @@ export function SourceTracks({
   span,
   listRef,
   label,
+  armedTrackIds,
+  liveTakes,
 }: SourceTracksProps) {
   const { reorder } = label;
   const { isSourceTrackFileDragActive, isNewSourceTrackDropTarget } = drop;
@@ -186,6 +192,8 @@ export function SourceTracks({
               isLifted={track.id === reorder.liftedLaneId}
               gridStyle={gridStyle}
               span={span}
+              armed={armedTrackIds.has(track.id)}
+              liveTake={liveTakes.get(track.id)}
               {...label}
             />
           ))}

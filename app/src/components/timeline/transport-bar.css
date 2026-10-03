@@ -1,3 +1,9 @@
+/* The red of everything that shows recording is on: the Record button,
+   recording clips, armed tracks and the playhead. */
+:root {
+  --record-red: #ff5c5c;
+}
+
 /* Equal side columns keep the transport cluster centered in the row however
    wide the zoom and volume controls are. */
 .transport-bar {
@@ -221,5 +227,55 @@
 
   .volume-control {
     min-width: 0;
+  }
+}
+
+/* Record: a red dot, grayed out until a source track is armed, then solid
+   red and pulsing while recording, like a DAW's record button. */
+.transport-button--record {
+  color: var(--record-red);
+}
+
+.transport-button--record > svg {
+  width: 18px;
+  height: 18px;
+}
+
+.transport-button--record:disabled {
+  color: var(--muted);
+  opacity: 0.45;
+  cursor: default;
+  transform: none;
+}
+
+.transport-button--record:disabled:hover {
+  background: rgba(10, 12, 20, 0.36);
+  border-color: var(--line);
+}
+
+.transport-button--recording,
+.transport-button--recording:hover {
+  background: var(--record-red);
+  border-color: #ff8a8a;
+  color: #fff;
+  animation: transport-record-pulse 1s ease-in-out infinite;
+}
+
+@keyframes transport-record-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 59, 59, 0.65);
+  }
+  50% {
+    box-shadow: 0 0 0 7px rgba(255, 59, 59, 0);
+    background: #c81e1e;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .transport-button--recording,
+  .transport-button--recording:hover {
+    animation: none;
+    box-shadow: 0 0 0 3px rgba(255, 59, 59, 0.45);
   }
 }

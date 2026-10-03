@@ -89,10 +89,25 @@ export function usePlayback({
   const [isTimelineAudibleScrubbing, setIsTimelineAudibleScrubbing] =
     useState(false);
   const playbackStopRef = useRef(0);
+  // Read by the playback loop, so a timeline growing during playback (as a
+  // recording does) doesn't restart it.
+  const totalQuartersRef = useRef(totalQuarters);
+  totalQuartersRef.current = totalQuarters;
   const timelineScrubAudioTimeoutRef = useRef<number | null>(null);
 
+  // Playback stops after the last playable clip, or with `open`, as when
+  // recording, only when stopped; `open` during playback lets it run on from
+  // where it is.
   const startPlayback = useCallback(
-    (fromQ: number = playheadQRef.current) => {
+    (fromQ: number = playheadQRef.current, options?: { open?: boolean }) => {
+      if (options?.open) {
+        playbackStopRef.current = Number.POSITIVE_INFINITY;
+        if (!isPlaying) {
+          playbackOriginRef.current = fromQ;
+          setIsPlaying(true);
+        }
+        return;
+      }
       const epsilon = 0.0001;
       const stopQ = getPlaybackStopQ(
         timelineClips,
@@ -111,6 +126,7 @@ export function usePlayback({
     },
     [
       bpm,
+      isPlaying,
       playbackOriginRef,
       playheadQRef,
       projectMediaItems,
@@ -312,7 +328,6 @@ export function usePlayback({
     let animationFrame = 0;
     const startedAt = performance.now();
     const originQ = playbackOriginRef.current;
-    const stopQ = playbackStopRef.current || totalQuarters;
     const findNextEdgeQ = (fromQ: number) =>
       findNextClipEdgeQ(
         timelineClipsRef.current.map((clip) => ({
@@ -327,6 +342,7 @@ export function usePlayback({
     const step = (timestamp: number) => {
       const elapsed = (timestamp - startedAt) / 1000;
       const nextQ = originQ + secondsToQuarters(elapsed, bpm);
+      const stopQ = playbackStopRef.current || totalQuartersRef.current;
 
       if (nextQ >= stopQ) {
         setPlayheadQ(stopQ);
@@ -367,19 +383,20 @@ export function usePlayback({
     setPlayheadQ,
     setPlayheadQState,
     timelineClipsRef,
-    totalQuarters,
   ]);
 
   async function handleTransportToggle() {
+    // Playback with nothing to play, as while recording, can still stop.
+    if (isPlaying) {
+      cancelScrubPlaybackResume();
+      setIsPlaying(false);
+      return;
+    }
     if (!clips.length) {
       return;
     }
 
     cancelScrubPlaybackResume();
-    if (isPlaying) {
-      setIsPlaying(false);
-      return;
-    }
 
     startPlayback();
   }

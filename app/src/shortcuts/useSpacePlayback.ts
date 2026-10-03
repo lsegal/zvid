@@ -100,7 +100,8 @@ export function useSpacePlayback({
         return;
       }
 
-      if (dragState || timelineDragState || !clipCount) {
+      // Playback with nothing to play, as while recording, can still stop.
+      if (dragState || timelineDragState || (!clipCount && !isPlaying)) {
         return;
       }
 
