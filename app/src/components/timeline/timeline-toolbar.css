@@ -7,6 +7,12 @@
   font-size: 0.88rem;
 }
 
+/* The Media | Record switch is a fieldset; drop its default margin. */
+.timeline-toolbar__media-switch {
+  min-width: 0;
+  margin: 0;
+}
+
 .timeline-toolbar__display strong {
   color: var(--amber);
 }

@@ -56,7 +56,10 @@ export function TimelineToolbar({
     <div className="timeline-toolbar">
       <div className="timeline-toolbar__display">
         {/* A segment opens the drawer on its tab, or closes it when active. */}
-        <div aria-label="Media drawer" className="segmented-control" role="group">
+        <fieldset
+          aria-label="Media drawer"
+          className="segmented-control timeline-toolbar__media-switch"
+        >
           {MEDIA_DRAWER_SEGMENTS.map((segment) => {
             const active = isMediaDrawerOpen && mediaDrawerTab === segment.tab;
             return (
@@ -73,7 +76,7 @@ export function TimelineToolbar({
               </button>
             );
           })}
-        </div>
+        </fieldset>
         <span className="status-light" />
         <TransportPlayheadReadout
           signal={playheadSignal}
