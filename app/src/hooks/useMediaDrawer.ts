@@ -164,6 +164,7 @@ export function useMediaDrawer({ editorGridWidth }: MediaDrawerInputs) {
     tab: prefs.tab,
     setTab,
     recordRequested,
+    requestRecordInputs: () => setRecordRequested(true),
     view: prefs.view,
     setView,
     thumbnailSize: prefs.thumbnailSize,

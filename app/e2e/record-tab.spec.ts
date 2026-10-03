@@ -70,14 +70,12 @@ test("the Record tab previews the default inputs and remembers them", async ({
 
   // The camera plays in the preview and the mic moves the meter.
   const video = drawer(page).getByLabel("Camera preview");
-  await expect(video).toBeVisible();
   await expect
     .poll(() =>
       video.evaluate((element: HTMLVideoElement) => element.videoWidth),
     )
     .toBeGreaterThan(0);
-  const meter = drawer(page).locator(".record-input-picker__meter");
-  await expect(meter).toHaveAttribute("data-live", "true");
+  const meter = drawer(page).locator(".record-input-picker__audio");
   await expect
     .poll(async () =>
       Number(
@@ -91,19 +89,28 @@ test("the Record tab previews the default inputs and remembers them", async ({
 
   // Once access is granted the dropdown lists the cameras by name.
   await pick(page, "Video", "fake_device_0");
-  await expect(video).toBeVisible();
+  await expect(
+    drawer(page).getByRole("combobox", { name: "Video input" }),
+  ).toHaveText("fake_device_0");
   await pick(page, "Audio", "None");
-  await expect(meter).toHaveAttribute("data-live", "false");
+  await expect(meter.getByRole("status")).toHaveText("No audio");
   await pick(page, "Video", "None");
-  await expect(drawer(page).getByLabel("Camera preview")).toHaveCount(0);
-  await expect(drawer(page)).toContainText("No camera");
+  await expect(
+    drawer(page).locator(".record-input-picker__video").getByRole("status"),
+  ).toHaveText("No video");
+  await expect
+    .poll(() =>
+      video.evaluate((element: HTMLVideoElement) => element.srcObject),
+    )
+    .toBeNull();
 
-  // Reloaded, the drawer is back on the Record tab with None picked, and
-  // asks for nothing until the inputs are used.
+  // Reloaded, the drawer is back on the Record tab and asks for nothing
+  // until the inputs are shown; None is still picked.
   await page.reload();
   await expect(
     drawer(page).getByRole("tab", { name: "Record" }),
   ).toHaveAttribute("aria-selected", "true");
+  await drawer(page).getByRole("button", { name: "Show Inputs" }).click();
   await expect(
     drawer(page).getByRole("combobox", { name: "Video input" }),
   ).toHaveText("None");
@@ -113,14 +120,16 @@ test("the Record tab previews the default inputs and remembers them", async ({
   expect(await mediaRequests(page)).toBe(0);
 
   // Closing the drawer releases the camera.
-  await pick(page, "Video", "System default");
-  await expect(drawer(page).getByLabel("Camera preview")).toBeVisible();
+  await pick(page, "Video", "fake_device_0");
+  await expect
+    .poll(() =>
+      video.evaluate((element: HTMLVideoElement) => element.videoWidth),
+    )
+    .toBeGreaterThan(0);
   await drawer(page)
     .getByRole("button", { name: "Close media drawer" })
     .click();
-  await expect(page.locator(".record-input-picker__video video")).toHaveCount(
-    0,
-  );
+  await expect(page.locator(".record-input-picker")).toHaveCount(0);
 });
 
 test("a saved camera that is gone falls back to the system default", async ({
@@ -135,8 +144,14 @@ test("a saved camera that is gone falls back to the system default", async ({
   await drawer(page).getByRole("tab", { name: "Record" }).click();
   await expect(
     drawer(page).getByRole("combobox", { name: "Video input" }),
-  ).toHaveText("System default");
-  await expect(drawer(page).getByLabel("Camera preview")).toBeVisible();
+  ).toHaveText(/^System default/);
+  await expect
+    .poll(() =>
+      drawer(page)
+        .getByLabel("Camera preview")
+        .evaluate((element: HTMLVideoElement) => element.videoWidth),
+    )
+    .toBeGreaterThan(0);
 });
 
 test("denied camera access shows why and keeps None picked", async ({

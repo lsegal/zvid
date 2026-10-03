@@ -53,6 +53,9 @@ export type FxChainProps = {
   // clip's properties. It gets the chain's collapse state so it can fold
   // like a device and have that remembered with theirs.
   leading?: (collapse: FxCollapseState) => ReactNode;
+  // Shown first in the layer-level section, ahead of its devices, such as
+  // a source track's Record device.
+  layerLeading?: ReactNode;
   // Track id of the selected clip's own stack; undefined when no clip is
   // selected, which hides the Clip section.
   clipTrackId?: string;
@@ -143,6 +146,7 @@ export function FxChain({
   layerName,
   layerLabel = "Layer",
   leading,
+  layerLeading,
   clipTrackId,
   clipScope = "clip",
   layerFxEnabled = true,
@@ -507,6 +511,7 @@ export function FxChain({
         </>
       ) : null}
       {layerName ? renderDivider("layer") : null}
+      {layerName ? layerLeading : null}
       {layerName ? null : (
         <div className="fx-chain__empty">
           <p>Select a layer to see its effects</p>

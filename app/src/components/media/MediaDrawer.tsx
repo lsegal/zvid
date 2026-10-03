@@ -13,12 +13,6 @@ import type { MediaItem } from "../../media";
 import { hasMediaDetails } from "../../media-details.ts";
 import { endMediaDrag, startMediaDrag } from "../../media-drag.ts";
 import { hasMediaRange } from "../../media-range.ts";
-import { RecordInputPicker } from "../../recording/RecordInputPicker";
-import {
-  readDefaultRecordInputs,
-  setDefaultRecordInput,
-  useRecordInputsVersion,
-} from "../../recording/record-inputs.ts";
 import {
   describeMediaSync,
   type RemoteMediaProgressMap,
@@ -40,6 +34,7 @@ import {
   THUMBNAIL_SIZE_MAX,
   THUMBNAIL_SIZE_MIN,
 } from "./media-drawer-model.ts";
+import { RecordTab } from "./RecordTab";
 import "./media-drawer.css";
 
 export const MEDIA_DRAWER_ID = "media-drawer";
@@ -132,7 +127,6 @@ export function MediaDrawer({
   onBackfillMediaDetails,
 }: MediaDrawerProps) {
   const { isOpen, tab, view, thumbnailSize, query, selectedMediaId } = drawer;
-  useRecordInputsVersion();
   const listboxRef = useRef<HTMLDivElement | null>(null);
   const searching = query.trim() !== "";
   const visibleItems = useMemo(
@@ -396,18 +390,12 @@ export function MediaDrawer({
             </button>
           </div>
           {tab === "record" ? (
-            <div className="media-drawer__record">
-              <h2 className="media-drawer__record-title">Record</h2>
-              <p className="media-drawer__record-subtitle">
-                Configure your record inputs
-              </p>
-              <RecordInputPicker
-                active={isOpen}
-                choices={[readDefaultRecordInputs()]}
-                onChange={setDefaultRecordInput}
+            isOpen ? (
+              <RecordTab
+                onRequest={drawer.requestRecordInputs}
                 requested={drawer.recordRequested}
               />
-            </div>
+            ) : null
           ) : (
             <>
               <div className="media-drawer__search">
