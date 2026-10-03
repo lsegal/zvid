@@ -39,6 +39,8 @@ export type TimelineViewportInputs = {
   timelineClips: ArrangementClip[];
   sourceSpans: SourceSpan[];
   pendingSelection: TimelineSelection | null;
+  // The end of the clips being recorded, which aren't source spans yet.
+  recordingEndQ?: number;
   labelWidth: number;
   playheadQRef: { current: number };
   timelineScrollRef: RefObject<HTMLDivElement | null>;
@@ -59,6 +61,7 @@ export function useTimelineViewport({
   timelineClips,
   sourceSpans,
   pendingSelection,
+  recordingEndQ = 0,
   labelWidth,
   playheadQRef,
   timelineScrollRef,
@@ -120,9 +123,22 @@ export function useTimelineViewport({
         getSelectionEndQ(pendingSelection) + barLength,
       );
     }
+    if (recordingEndQ) {
+      nextTotalQuarters = Math.max(
+        nextTotalQuarters,
+        recordingEndQ + barLength,
+      );
+    }
 
     return nextTotalQuarters;
-  }, [barLength, bpm, pendingSelection, sourceSpans, timelineClips]);
+  }, [
+    barLength,
+    bpm,
+    pendingSelection,
+    recordingEndQ,
+    sourceSpans,
+    timelineClips,
+  ]);
   const timelineWidth = totalQuarters * quarterPx;
   const gridStyle = useMemo(() => {
     // CSS paints the first layer on top, so the strongest lines go first.

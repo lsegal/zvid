@@ -1,0 +1,93 @@
+/* The clip a track is recording into: a source clip with a red outline, a
+   red tint over its frames and a red REC badge. */
+.live-recording-clip {
+  position: absolute;
+  top: 12px;
+  height: 56px;
+  overflow: hidden;
+  border: 2px solid var(--record-red);
+  border-radius: 10px;
+  background: rgba(120, 18, 24, 0.75);
+  box-shadow: 0 0 10px rgba(255, 59, 59, 0.45);
+  pointer-events: none;
+  z-index: var(--z-timeline-selected-clip);
+}
+
+.live-recording-clip::after {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 40, 40, 0.22);
+  content: '';
+  pointer-events: none;
+}
+
+.live-recording-clip--ended {
+  box-shadow: none;
+  border-style: dashed;
+}
+
+.live-recording-clip__filmstrip {
+  position: absolute;
+  inset: 0;
+}
+
+.live-recording-clip__tile {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background-position: center;
+  background-size: cover;
+  box-shadow: inset -1px 0 rgba(0, 0, 0, 0.35);
+}
+
+.live-recording-clip__waveform {
+  position: absolute;
+  left: 0;
+  bottom: 2px;
+  width: 100%;
+  height: 32px;
+}
+
+.live-recording-clip__body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  white-space: nowrap;
+}
+
+.live-recording-clip__body small {
+  color: #fff;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.live-recording-clip__badge {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--record-red);
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+/* An armed source track's label gets a red edge, and a red wash while it
+   records. */
+.track-row--armed .track-label--source {
+  box-shadow: inset 3px 0 0 var(--record-red);
+}
+
+.track-row--recording .track-label--source {
+  background-color: rgba(255, 59, 59, 0.16);
+}
+
+/* The playhead turns red while recording. */
+.app-shell--recording .timeline-playhead {
+  background: var(--record-red);
+  box-shadow: 0 0 6px rgba(255, 59, 59, 0.8);
+}

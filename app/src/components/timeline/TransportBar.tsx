@@ -26,6 +26,7 @@ import {
   zoomToSliderPosition,
 } from "../../zoom";
 import { WandIcon } from "../WandIcon";
+import { RecordIcon } from "./RecordIcon";
 import { VuMeter } from "./VuMeter";
 import "./transport-bar.css";
 
@@ -42,6 +43,10 @@ type TransportBarProps = {
   setPreviewVolume: (volume: number) => void;
   togglePreviewMute: () => void;
   getMeterTap: () => MasterMeterTap | null;
+  // Record is enabled while recording or with a source track armed.
+  canRecord: boolean;
+  isRecording: boolean;
+  onRecordToggle: () => void;
 };
 
 // Slider steps of 1%.
@@ -62,6 +67,9 @@ export function TransportBar({
   setPreviewVolume,
   togglePreviewMute,
   getMeterTap,
+  canRecord,
+  isRecording,
+  onRecordToggle,
 }: TransportBarProps) {
   const silent = isPreviewSilent(previewVolume);
   const volumeText = formatPreviewVolume(previewVolume.volume);
@@ -178,6 +186,23 @@ export function TransportBar({
           type="button"
         >
           <WandIcon />
+        </button>
+        <button
+          aria-label={isRecording ? "Stop recording" : "Record armed tracks"}
+          aria-pressed={isRecording}
+          className={`transport-button transport-button--record${isRecording ? " transport-button--recording" : ""}`}
+          disabled={!canRecord}
+          onClick={onRecordToggle}
+          title={
+            isRecording
+              ? "Stop recording and keep playing"
+              : canRecord
+                ? "Record every armed source track from the playhead"
+                : "Arm a source track to record"
+          }
+          type="button"
+        >
+          <RecordIcon />
         </button>
       </div>
 

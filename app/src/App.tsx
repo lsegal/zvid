@@ -45,6 +45,7 @@ import {
   useProjectHistoryCommands,
   useProjectStore,
 } from "./hooks/useProjectStore.ts";
+import { useRecording } from "./hooks/useRecording.ts";
 import { useSessionFiles } from "./hooks/useSessionFiles.ts";
 import { useSessionSharing } from "./hooks/useSessionSharing.ts";
 import { useSourceClipProperties } from "./hooks/useSourceClipProperties.ts";
@@ -89,6 +90,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   });
   const dialogs = useAppDialogs();
   const [isPlaying, setIsPlaying] = useState(false);
+  // Where the clips being recorded end, so the timeline makes room for them.
+  const [recordingEndQ, setRecordingEndQ] = useState(0);
   const [status, setStatus] = useState(() =>
     restoredSession
       ? formatRestoredStatus(restoredSession)
@@ -145,6 +148,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     timelineScrollRef,
     arrangementLanesRef,
     spaceHoldRef,
+    recordingEndQ,
   });
   const { quarterPx, totalQuarters, gridStyle, timelineViewport } = timeline;
   const { visibleTimelineStartPx, visibleTimelineWidthPx } = timeline;
@@ -241,6 +245,21 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setPendingSelection,
     setSelectedClipId,
     setStatus,
+  });
+  const recording = useRecording({
+    sourceTracks,
+    bpm,
+    isPlaying,
+    playheadQRef,
+    startPlayback: playback.startPlayback,
+    refuseReadOnlyEdit,
+    commitProjectChange,
+    mediaItemCount: project.mediaItems.length,
+    seedLocalMediaItems: media.seedLocalMediaItems,
+    cacheLocalMediaItems: media.cacheLocalMediaItems,
+    setSourceTracksCollapsed: layout.setSourceTracksCollapsed,
+    setStatus,
+    setRecordingEndQ,
   });
   const historyCommands = useProjectHistoryCommands({
     ...store,
@@ -339,7 +358,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   });
 
   return (
-    <div className="app-shell" ref={appShellRef}>
+    <div
+      className={`app-shell${recording.isRecording ? " app-shell--recording" : ""}`}
+      ref={appShellRef}
+    >
       <CollaborationCursors
         cursors={collaboration.collaborationView.remoteCursors}
       />
@@ -537,6 +559,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   onOpenSession={() => void sessionFiles.handleOpenSession()}
                   gridStyle={gridStyle}
                   listRef={editing.sourceTracksListRef}
+                  armedTrackIds={recording.armedTrackIds}
+                  liveTakes={recording.liveTakes}
                   label={{
                     reorder: editing.sourceTrackReorder,
                     openMenu: editing.openSourceTrackMenu,
@@ -609,6 +633,9 @@ function App({ boot }: { boot: WorkspaceBoot }) {
               jumpPlayhead={playback.jumpPlayhead}
               onTransportToggle={playback.handleTransportToggle}
               onRandomize={handleRandomizeTimeline}
+              canRecord={recording.canRecord}
+              isRecording={recording.isRecording}
+              onRecordToggle={recording.toggleRecording}
             />
           </section>
 

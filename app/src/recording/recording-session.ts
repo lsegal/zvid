@@ -19,9 +19,7 @@ export type MediaRecorderLike = {
 };
 
 export type RecordingDeps = {
-  enumerateDevices: () => Promise<
-    Pick<MediaDeviceInfo, "deviceId" | "kind">[]
-  >;
+  enumerateDevices: () => Promise<Pick<MediaDeviceInfo, "deviceId" | "kind">[]>;
   getUserMedia: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
   isTypeSupported: (mimeType: string) => boolean;
   createRecorder: (
@@ -79,7 +77,8 @@ export function pickRecorderMimeType(
 
 /** The file extension for a recorder's MIME type. */
 export function recordingExtension(mimeType: string) {
-  if (/mp4/i.test(mimeType)) return mimeType.startsWith("audio") ? "m4a" : "mp4";
+  if (/mp4/i.test(mimeType))
+    return mimeType.startsWith("audio") ? "m4a" : "mp4";
   if (/ogg/i.test(mimeType)) return "ogg";
   return "webm";
 }
