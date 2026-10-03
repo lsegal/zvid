@@ -44,10 +44,11 @@ describe("Digital Glitch definition", () => {
     assert.deepEqual([rate.min, rate.max, rate.step], [1, 30, 1]);
   });
 
-  it("supports both Animation modes", () => {
+  it("supports every Animation mode", () => {
     assert.deepEqual(getAnimationDefaults("DigitalGlitch")?.modes, [
       "clip",
       "reactive",
+      "lfo",
     ]);
   });
 });

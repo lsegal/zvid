@@ -9,7 +9,7 @@ import { COLOR_EFFECT_NAME } from "./fill-paint.ts";
 import { getEffectDefinition } from "./fx-registry.ts";
 import { TEXT_EFFECT_NAME } from "./text-style.ts";
 
-export const ANIMATION_MODES = ["clip", "reactive"] as const;
+export const ANIMATION_MODES = ["clip", "reactive", "lfo"] as const;
 export type AnimationMode = (typeof ANIMATION_MODES)[number];
 
 export const CLIP_MOTIONS = [
@@ -23,6 +23,43 @@ export type ClipMotion = (typeof CLIP_MOTIONS)[number];
 
 export const REACTIVE_MOTIONS = ["None", "Bounce", "Wobble"] as const;
 export type ReactiveMotion = (typeof REACTIVE_MOTIONS)[number];
+
+export const LFO_SHAPES = [
+  "Sine",
+  "Triangle",
+  "Saw Up",
+  "Saw Down",
+  "Square",
+  "Random",
+] as const;
+export type LfoShape = (typeof LFO_SHAPES)[number];
+
+// Tempo-synced LFO rates: the length of one cycle as a note value. A dotted
+// value is half as long again; a triplet is two thirds as long.
+export const LFO_SYNC_RATES = [
+  "4 Bars",
+  "2 Bars",
+  "1 Bar",
+  "1/2",
+  "1/2D",
+  "1/2T",
+  "1/4",
+  "1/4D",
+  "1/4T",
+  "1/8",
+  "1/8D",
+  "1/8T",
+  "1/16",
+  "1/16D",
+  "1/16T",
+  "1/32",
+] as const;
+export type LfoSyncRate = (typeof LFO_SYNC_RATES)[number];
+
+// The free-running Rate's range, in Hz.
+export const LFO_MIN_RATE = 0.05;
+export const LFO_MAX_RATE = 20;
+export const LFO_MAX_PHASE = 360;
 
 export const ANIMATION_TIMINGS = ["Slow", "Normal", "Fast"] as const;
 export type AnimationTiming = (typeof ANIMATION_TIMINGS)[number];
@@ -58,14 +95,32 @@ export type ReactiveAnimation = {
   parameters: string[];
 };
 
+export type LfoAnimation = {
+  shape: LfoShape;
+  // Whether the Rate follows the session tempo (`syncRate`) or runs free
+  // (`rate`).
+  sync: boolean;
+  // Cycles per second while Sync is off.
+  rate: number;
+  // One cycle's length while Sync is on.
+  syncRate: LfoSyncRate;
+  // How far the parameters swing, 0..1.
+  depth: number;
+  // Where in its cycle the LFO starts, in degrees, 0..360.
+  phase: number;
+  // Keys of the knob parameters the LFO moves.
+  parameters: string[];
+};
+
 // Stored on an effect instance, and saved to `.lvp` as zvid-only
 // `animation`. Turning the modifier off keeps the settings for next time.
-// Effects that only support Clip mode have no `reactive` settings.
+// Effects that only support Clip mode have no `reactive` or `lfo` settings.
 export type EffectAnimation = {
   enabled: boolean;
   mode: AnimationMode;
   clip: ClipAnimation;
   reactive?: ReactiveAnimation;
+  lfo?: LfoAnimation;
 };
 
 // Frames an animation takes at each timing.
@@ -79,6 +134,8 @@ export type FxAnimationDefaults = {
   // Absent when the effect doesn't support Reactive mode.
   reactive?: Readonly<ReactiveAnimation>;
   reactiveFrames: AnimationTimingFrames;
+  // Absent when the effect doesn't support LFO mode.
+  lfo?: Readonly<LfoAnimation>;
 };
 
 export const DEFAULT_REACTIVE_FRAMES: AnimationTimingFrames = {
@@ -88,6 +145,7 @@ export const DEFAULT_REACTIVE_FRAMES: AnimationTimingFrames = {
 };
 
 export const REACTIVITY_STEP = 0.1;
+export const LFO_DEPTH_STEP = 0.1;
 
 // Defaults for an effect that only animates on its clip's enter and exit.
 function clipDefaults(
@@ -118,6 +176,16 @@ function defaults(
       motion,
       timing: "Normal",
       reactivity,
+      parameters: [...parameters],
+    },
+    // The LFO sweeps the same knobs as far as the music would push them.
+    lfo: {
+      shape: "Sine",
+      sync: true,
+      rate: 1,
+      syncRate: "1 Bar",
+      depth: reactivity,
+      phase: 0,
       parameters: [...parameters],
     },
   };
@@ -245,7 +313,8 @@ export function supportsAnimationMode(effectName: string, mode: AnimationMode) {
 
 export type AnimatableParameter = { key: string; label: string };
 
-// The parameters Reactive mode can modulate: the effect's visible knobs.
+// The parameters Reactive and LFO modes can modulate: the effect's visible
+// knobs.
 export function getAnimatableParameters(
   effectName: string,
 ): AnimatableParameter[] {
@@ -266,7 +335,7 @@ export function createDefaultAnimation(
     return undefined;
   }
 
-  const reactive = effectDefaults.reactive;
+  const { reactive, lfo } = effectDefaults;
   return {
     enabled: true,
     mode: "clip",
@@ -274,6 +343,7 @@ export function createDefaultAnimation(
     ...(reactive
       ? { reactive: { ...reactive, parameters: [...reactive.parameters] } }
       : {}),
+    ...(lfo ? { lfo: { ...lfo, parameters: [...lfo.parameters] } } : {}),
   };
 }
 
@@ -309,10 +379,29 @@ function readOption<T extends string>(
     : fallback;
 }
 
-function readReactivity(value: unknown, fallback: number) {
+function readNumber(
+  value: unknown,
+  min: number,
+  max: number,
+  fallback: number,
+) {
   return typeof value === "number" && Number.isFinite(value)
-    ? Math.max(0, Math.min(1, value))
+    ? Math.max(min, Math.min(max, value))
     : fallback;
+}
+
+function readReactivity(value: unknown, fallback: number) {
+  return readNumber(value, 0, 1, fallback);
+}
+
+function readParameters(value: unknown, fallback: readonly string[]) {
+  return Array.isArray(value)
+    ? [
+        ...new Set(
+          value.filter((key): key is string => typeof key === "string"),
+        ),
+      ]
+    : [...fallback];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -323,7 +412,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 // malformed filled in from the effect's defaults. Undefined when there is
 // none, or the effect doesn't support animation. A mode the effect doesn't
 // support, such as Reactive on an Order, loads as Clip, and its settings are
-// dropped.
+// dropped. Sessions saved before LFO mode existed load its defaults.
 export function normalizeEffectAnimation(
   raw: unknown,
   effectName: string,
@@ -358,6 +447,7 @@ export function normalizeEffectAnimation(
     ...(fallback.reactive
       ? { reactive: normalizeReactive(raw.reactive, fallback.reactive) }
       : {}),
+    ...(fallback.lfo ? { lfo: normalizeLfo(raw.lfo, fallback.lfo) } : {}),
   };
 }
 
@@ -370,20 +460,25 @@ function normalizeReactive(
     motion: readOption(reactive.motion, REACTIVE_MOTIONS, fallback.motion),
     timing: readOption(reactive.timing, ANIMATION_TIMINGS, fallback.timing),
     reactivity: readReactivity(reactive.reactivity, fallback.reactivity),
-    parameters: Array.isArray(reactive.parameters)
-      ? [
-          ...new Set(
-            reactive.parameters.filter(
-              (key): key is string => typeof key === "string",
-            ),
-          ),
-        ]
-      : fallback.parameters,
+    parameters: readParameters(reactive.parameters, fallback.parameters),
   };
 }
 
-// The Parameters button's label: how many of the effect's knobs Reactive
-// mode modulates.
+function normalizeLfo(raw: unknown, fallback: LfoAnimation): LfoAnimation {
+  const lfo = isRecord(raw) ? raw : {};
+  return {
+    shape: readOption(lfo.shape, LFO_SHAPES, fallback.shape),
+    sync: typeof lfo.sync === "boolean" ? lfo.sync : fallback.sync,
+    rate: readNumber(lfo.rate, LFO_MIN_RATE, LFO_MAX_RATE, fallback.rate),
+    syncRate: readOption(lfo.syncRate, LFO_SYNC_RATES, fallback.syncRate),
+    depth: readNumber(lfo.depth, 0, 1, fallback.depth),
+    phase: readNumber(lfo.phase, 0, LFO_MAX_PHASE, fallback.phase),
+    parameters: readParameters(lfo.parameters, fallback.parameters),
+  };
+}
+
+// The Parameters button's label: how many of the effect's knobs Reactive or
+// LFO mode modulates.
 export function describeAnimatedParameters(
   selected: readonly string[],
   available: readonly AnimatableParameter[],

@@ -67,7 +67,11 @@ test("the Animation section attaches, switches modes and folds", async ({
 
   // Clip mode, pre-filled with Pixelate's defaults.
   const mode = section.getByRole("group", { name: "Mode" });
-  await expect(mode.getByRole("button")).toHaveText(["Clip", "Reactive"]);
+  await expect(mode.getByRole("button")).toHaveText([
+    "Clip",
+    "Reactive",
+    "LFO",
+  ]);
   await expect(mode.getByRole("button", { name: "Clip" })).toHaveAttribute(
     "aria-pressed",
     "true",
@@ -144,6 +148,59 @@ test("the Animation section attaches, switches modes and folds", async ({
       .getByRole("group", { name: "Mode" })
       .getByRole("button", { name: "Reactive" }),
   ).toHaveAttribute("aria-pressed", "true");
+});
+
+// LFO mode moves the selected knobs on its own, at a Rate that follows the
+// session tempo while Sync is on, or runs free in Hz.
+test("LFO mode shows its Shape, Rate, Sync, Depth, Phase and Parameters", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await addLayerEffect(page, /^Pixelate/);
+
+  const section = page.locator('section[aria-label="Pixelate animation"]');
+  const mode = section.getByRole("group", { name: "Mode" });
+  await mode.getByRole("button", { name: "LFO" }).click();
+  await expect(mode.getByRole("button", { name: "LFO" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(
+    section.getByRole("combobox", { name: "Motion In" }),
+  ).toHaveCount(0);
+
+  await expect(section.getByRole("combobox", { name: "Shape" })).toHaveText(
+    "Sine",
+  );
+  const sync = section.getByRole("group", { name: "Sync" });
+  await expect(sync.getByRole("button", { name: "On" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(section.getByRole("combobox", { name: "Rate" })).toHaveText(
+    "1 Bar",
+  );
+  await expect(section.locator(".knob__label")).toHaveText(["Depth", "Phase"]);
+  await expect(
+    section.getByRole("button", { name: "Parameters: 1 of 1" }),
+  ).toBeVisible();
+
+  // Free-running, the Rate is a knob in Hz.
+  await sync.getByRole("button", { name: "Off" }).click();
+  await expect(section.getByRole("combobox", { name: "Rate" })).toHaveCount(0);
+  await expect(section.locator(".knob__label")).toHaveText([
+    "Rate",
+    "Depth",
+    "Phase",
+  ]);
+
+  // The settings stay put when switching away and back.
+  await mode.getByRole("button", { name: "Clip" }).click();
+  await mode.getByRole("button", { name: "LFO" }).click();
+  await expect(sync.getByRole("button", { name: "Off" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
 });
 
 test("Order's Animation offers only Clip mode", async ({ page }) => {
