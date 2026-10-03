@@ -29,6 +29,7 @@ import * as order from "./order/definition.ts";
 import * as phaser from "./phaser/definition.ts";
 import * as pixelate from "./pixelate/definition.ts";
 import { pass as pixelatePass } from "./pixelate/pass.ts";
+import * as reverb from "./reverb/definition.ts";
 import * as reverse from "./reverse/definition.ts";
 import * as saturation from "./saturation/definition.ts";
 import * as stereo from "./stereo/definition.ts";
@@ -63,6 +64,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   order,
   phaser,
   pixelate,
+  reverb,
   reverse,
   saturation,
   stereo,
