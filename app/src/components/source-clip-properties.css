@@ -1,14 +1,31 @@
 /* The Source Clip Properties widget reuses the FX device frame (fx-chain.css). */
+.source-clip-properties__device .fx-device-panel__title,
 .source-clip-properties__device .fx-device-panel__name {
   cursor: default;
 }
 
-/* FX device title rows get their height and the name's inset from their 24px
-   buttons; the Clip title has none, so match that height (24px row, 7px
-   padding each side, 1px divider) and inset the name like the fields below. */
-.source-clip-properties__device .fx-device-panel__title {
-  min-height: 39px;
-  padding: 7px 12px;
+/* The Clip title's informational icon, sized and colored like an effect's
+   power and Animation buttons in the same slot. */
+.source-clip-properties__info {
+  flex: none;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+}
+
+.source-clip-properties__info svg {
+  width: 13px;
+  height: 13px;
+}
+
+.fx-device-panel--collapsed .source-clip-properties__info {
+  width: 22px;
+  height: 22px;
 }
 
 .source-clip-properties__fields {
