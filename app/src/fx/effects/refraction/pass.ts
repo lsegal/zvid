@@ -99,7 +99,7 @@ export const pass: EffectPass = {
         return -2.0 * (fract(dot(q, uReed)) - 0.5) * uReed;
       }
       vec2 c = fract(q) - 0.5;
-      return -0.8 * c + 1.2 * sign(c) * smoothstep(0.35, 0.5, abs(c));
+      return -2.0 * c + 1.2 * sign(c) * smoothstep(0.35, 0.5, abs(c));
     }
 
     void main() {
