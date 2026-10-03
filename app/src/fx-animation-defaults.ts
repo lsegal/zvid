@@ -190,6 +190,10 @@ const ANIMATION_DEFAULTS: ReadonlyMap<string, FxAnimationDefaults> = new Map([
     ]),
   ],
   [
+    "Bloom",
+    defaults("Ease Out", "Ease In", [10, 6, 3], "Bounce", 0.5, ["_Intensity"]),
+  ],
+  [
     COLOR_EFFECT_NAME,
     defaults("Ease Out", "Ease In", [12, 8, 4], "Bounce", 0.3, ["Opacity"]),
   ],

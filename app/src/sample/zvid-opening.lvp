@@ -3921,6 +3921,40 @@
           ]
         }
       }
+    },
+    {
+      "id": "sample-fx-100",
+      "trackId": "clip:text-montage-zvid",
+      "effectName": "Bloom",
+      "parameters": {
+        "_Threshold": {
+          "floatValue": 0.6
+        },
+        "_Intensity": {
+          "floatValue": 0.9
+        },
+        "_Radius": {
+          "floatValue": 0.5
+        },
+        "_Tint": {
+          "stringValue": "rgba(243,226,191,1)"
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": []
+        }
+      }
     }
   ],
   "timeline": {
