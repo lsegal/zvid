@@ -128,9 +128,12 @@ test("a recorded take plays in the arrangement and exports", async ({
   page,
 }) => {
   test.setTimeout(180_000);
-  // Without the save picker the web harness saves through a download.
+  // Without the save picker the web harness saves through a download. The
+  // take records the camera only: Chromium builds without proprietary
+  // codecs, like Playwright's on Linux, can't export audio to MP4.
   await page.addInitScript(() => {
     delete (window as { showSaveFilePicker?: unknown }).showSaveFilePicker;
+    localStorage.setItem("zvid-record-audio-input", "null");
   });
   await page.reload();
   await page
