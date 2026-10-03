@@ -155,13 +155,17 @@ test("source tracks and clips have their own effects, rendered in the preview", 
   await turnAnimationOff(page, "layer");
   const withTrack = await expectPreviewChange(page, plain);
 
-  // A source clip shows its Clip Properties, then Global, Track and Clip.
+  // A source clip shows the track's Record device, its Clip Properties,
+  // then Global, Track and Clip.
   await page.locator(".source-span").click();
   await expect(page.locator(".fx-panel__toggle")).toHaveText(
     new RegExp(`^Clip .+ Effects \\(${trackName}\\)$`),
   );
   const chain = page.locator(".fx-chain");
   await expect(chain.locator(":scope > *").first()).toHaveClass(
+    /track-record-device/,
+  );
+  await expect(chain.locator(":scope > *").nth(1)).toHaveClass(
     /source-clip-properties/,
   );
   await expect(page.locator(dividers)).toHaveText(["Global", "Track", "Clip"]);
