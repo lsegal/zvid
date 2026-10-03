@@ -6,7 +6,10 @@ import { setEffectParameter, sourceClipEffectTrackId } from "../fx-stack.ts";
 import type { MediaItem } from "../media.ts";
 import type { LvpSession } from "../session.ts";
 import { projectToLvpSession } from "../session-save.ts";
-import { retimeSourceSpan } from "../source-span-edit.ts";
+import {
+  relinkClipsToSourceSpans,
+  retimeSourceSpan,
+} from "../source-span-edit.ts";
 import { DEFAULT_LANES, INITIAL_PROJECT_STATE } from "./constants.ts";
 import {
   buildStandaloneProject,
@@ -623,5 +626,108 @@ describe("source track FX switch", () => {
         ["t2", undefined],
       ],
     );
+  });
+});
+
+describe("layer clips after their source clip changes", () => {
+  const bpm = 120;
+  const fps = 30;
+  // One 8-quarter source clip of media from second 1, and a layer clip on
+  // its quarters 2 to 6.
+  const session: LvpSession = {
+    mainTracks: [{ id: "main-1", name: "Layer 1" }],
+    tracks: [{ id: "t1", name: "Cam" }],
+    clips: [
+      {
+        id: "c1",
+        trackId: "t1",
+        frameStart: 0,
+        frameCount: 120,
+        clipStart: 30,
+        filePath: "/media/cam.mov",
+      },
+    ],
+    selections: [
+      {
+        id: 7,
+        trackId: "t1",
+        mainTrackId: "main-1",
+        frameStart: 30,
+        frameEnd: 90,
+      },
+    ],
+    timeline: { bpm, fps },
+  };
+
+  // The opened project with its source clip changed by `edit`, and the
+  // layer clip relinked to match.
+  function editedProject(edit: (span: SourceSpan) => SourceSpan[]) {
+    const project = sessionToProject(session, []);
+    const sourceSpans = edit(project.sourceSpans[0]);
+    return {
+      ...project,
+      sourceSpans,
+      arrangementClips: relinkClipsToSourceSpans(
+        project.arrangementClips,
+        project.sourceSpans,
+        sourceSpans,
+        bpm,
+      ),
+    };
+  }
+
+  function saveAndReopen(project: ReturnType<typeof editedProject>) {
+    const saved = projectToLvpSession(
+      {
+        ...project,
+        timelineMode: "musical",
+        snapEnabled: true,
+        clips: project.arrangementClips,
+        mediaItems: [],
+      },
+      { playheadQ: 0 },
+    );
+    return sessionToProject(JSON.parse(JSON.stringify(saved)), []);
+  }
+
+  // What each layer clip plays: its position, length, media offset and
+  // the media range it may show, rounded to frames.
+  const shown = (project: ReturnType<typeof editedProject>) =>
+    project.arrangementClips.map((clip) =>
+      [
+        clip.startQ,
+        clip.durationSeconds,
+        clip.sourceOffsetSeconds,
+        clip.sourceWindowStartSeconds,
+        clip.sourceWindowEndSeconds,
+      ].map((value) => Math.round(value * fps * 1000) / 1000),
+    );
+
+  const edits: [string, (span: SourceSpan) => SourceSpan[]][] = [
+    ["moved a little", (span) => [{ ...span, startQ: 1 }]],
+    ["moved past the layer clip", (span) => [{ ...span, startQ: 12 }]],
+    ["given a new offset", (span) => [{ ...span, trimStartSeconds: 2.5 }]],
+    [
+      "start-trimmed",
+      (span) => [retimeSourceSpan(span, span.startQ + 3, 5, bpm)],
+    ],
+    ["deleted", () => []],
+  ];
+  for (const [name, edit] of edits) {
+    it(`shows the same after a save and reopen once ${name}`, () => {
+      const before = editedProject(edit);
+      assert.deepEqual(shown(saveAndReopen(before)), shown(before));
+    });
+  }
+
+  it("follows a source clip moved a little", () => {
+    const project = editedProject((span) => [{ ...span, startQ: 1 }]);
+    // Half a second later, the source clip's media plays half a second
+    // later too, and so does the layer clip's.
+    assert.equal(project.arrangementClips[0].sourceOffsetSeconds, 0.5);
+  });
+
+  it("is removed with its source clip", () => {
+    assert.deepEqual(editedProject(() => []).arrangementClips, []);
   });
 });

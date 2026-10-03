@@ -112,7 +112,8 @@ test("Delete removes a selected source clip, not its source track", async ({
   await page.keyboard.press("Delete");
   await expect(page.locator(".source-span")).toHaveCount(0);
   await expect(names(page)).toHaveText(["test-pattern"]);
-  await expect(layerClips(page)).toHaveCount(1);
+  // The layer clip made from it goes with it (#869).
+  await expect(layerClips(page)).toHaveCount(0);
 });
 
 test("a selected layer clip keeps Delete and Mod+D", async ({ page }) => {
