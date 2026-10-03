@@ -35,8 +35,8 @@ function readTint(params: EffectParameter[]) {
 // nothing), weights them by a Gaussian falloff, tints the sum by `_Tint` and
 // adds it by `_Intensity`. The spiral is rotated by a hash of the pixel's
 // position (interleaved gradient noise, which stays in range at mediump),
-// which trades banding for fine, static grain; nothing depends on
-// time, so preview and export match. The gather is symmetric, so it needs no
+// trading banding for fine, static grain. Nothing depends on time, so
+// preview and export match. The gather is symmetric, so it needs no
 // bottom-up correction. Light is weighted by each sample's alpha and the
 // glow raises alpha where it lands, so a bloomed logo glows over the layers
 // beneath it. With no glow at a pixel it is passed through untouched.
