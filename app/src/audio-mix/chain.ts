@@ -191,7 +191,8 @@ class ChainStage implements AudioParameterBlock {
   private readonly ramps = new Map<string, Ramp>();
   private readonly swings = new Map<string, Swing>();
   private modulator: StageModulator | null = null;
-  // Swings jump to their first values after a reset, as the knobs do.
+  // Swings jump to their first values in the first block after a reset,
+  // as the knobs do, and ramp from then on.
   private swingsSettled = false;
   private readonly changingKeys = new Set<string>();
   private readonly zeros: Float32Array;
@@ -365,6 +366,10 @@ class ChainStage implements AudioParameterBlock {
     frames: number,
     time: AudioBlockTime,
   ) {
+    const rampFrames = this.swingsSettled
+      ? Math.round(PARAMETER_RAMP_SECONDS * this.host.sampleRate)
+      : 0;
+    this.swingsSettled = true;
     const modulation = this.config.modulation;
     if (!modulation) {
       this.modulator = null;
@@ -391,13 +396,9 @@ class ChainStage implements AudioParameterBlock {
         });
       }
     }
-    const rampFrames = this.swingsSettled
-      ? Math.round(PARAMETER_RAMP_SECONDS * this.host.sampleRate)
-      : 0;
     for (const [key, swing] of this.swings) {
       swing.ramp.set(targets?.get(key) ?? 0, rampFrames);
     }
-    this.swingsSettled = true;
   }
 
   // Fills each swung knob's values for the block from its stored value's

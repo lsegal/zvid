@@ -294,4 +294,14 @@ describe("AudioChain modulation", () => {
     assert.ok(Math.abs(settled[settled.length - 1] - 0.5) < 1e-6);
     assert.ok(largestStep(settled) < 0.1);
   });
+
+  it("ramps into the swing when modulation is turned on during playback", () => {
+    const chain = chainOf([gainStageAt(1)]);
+    run(chain, constant(BLOCK_FRAMES, 0.5));
+    chain.configure(settings([squareGain()]), TEMPO);
+    const output = run(chain, constant(SAMPLE_RATE / 4, 0.5));
+    assert.ok(Math.abs(output[0] - 0.5) < 0.05, `${output[0]}`);
+    assert.ok(largestStep(output) < 0.1);
+    assert.ok(Math.max(...output) > 1.5);
+  });
 });
