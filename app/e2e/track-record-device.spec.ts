@@ -64,10 +64,17 @@ test("a source track's Record device folds, arms and overrides its inputs", asyn
   // previews.
   await arm.click();
   await expect(device).not.toHaveClass(/fx-device-panel--collapsed/);
-  const disarm = device.getByRole("button", {
-    name: /^Disarm .+ for recording$/,
-  });
+  const disarm = device.getByRole("button", { name: /^Disarm / });
   await expect(disarm).toHaveAttribute("aria-pressed", "true");
+  // The track handle's arm button follows, and arms the device back.
+  const handleArm = page.locator(".track-label__arm");
+  await expect(handleArm).toHaveAttribute("aria-pressed", "true");
+  await handleArm.click();
+  await expect(arm).toHaveAttribute("aria-pressed", "false");
+  await expect(device).toHaveClass(/fx-device-panel--collapsed/);
+  await handleArm.click();
+  await expect(disarm).toHaveAttribute("aria-pressed", "true");
+  await expect(device).not.toHaveClass(/fx-device-panel--collapsed/);
   const videoInput = device.getByRole("combobox", { name: "Video input" });
   const audioInput = device.getByRole("combobox", { name: "Audio input" });
   await expect(videoInput).toHaveText(/^Default \(.+\)$/);

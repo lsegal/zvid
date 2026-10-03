@@ -1,45 +1,56 @@
 import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
+import { afterEach, describe, it } from "node:test";
 import {
   disarmAllTracks,
-  getArmedTracks,
+  getArmedTrackIds,
   isTrackArmed,
+  pruneArmedTracks,
   setTrackArmed,
-  subscribeRecordArm,
+  subscribeArmedTracks,
   toggleTrackArmed,
 } from "./record-arm.ts";
 
-describe("record arm store", () => {
-  beforeEach(() => disarmAllTracks());
+afterEach(disarmAllTracks);
 
-  it("arms and disarms tracks independently", () => {
-    setTrackArmed("track-1", true);
-    toggleTrackArmed("track-2");
-    assert.equal(isTrackArmed("track-1"), true);
-    assert.equal(isTrackArmed("track-2"), true);
-    toggleTrackArmed("track-1");
-    assert.equal(isTrackArmed("track-1"), false);
-    assert.deepEqual([...getArmedTracks()], ["track-2"]);
+describe("record arm", () => {
+  it("toggles a track's armed state", () => {
+    assert.equal(isTrackArmed("a"), false);
+    toggleTrackArmed("a");
+    assert.equal(isTrackArmed("a"), true);
+    toggleTrackArmed("a");
+    assert.equal(isTrackArmed("a"), false);
   });
 
-  it("tells every arm button when a track's state changes", () => {
-    const calls: boolean[] = [];
-    const unsubscribe = subscribeRecordArm(() =>
-      calls.push(isTrackArmed("track-1")),
-    );
-    setTrackArmed("track-1", true);
-    // Setting the state it already has changes nothing.
-    setTrackArmed("track-1", true);
-    setTrackArmed("track-1", false);
+  it("arms several tracks at once", () => {
+    toggleTrackArmed("a");
+    toggleTrackArmed("b");
+    setTrackArmed("c", true);
+    assert.deepEqual([...getArmedTrackIds()], ["a", "b", "c"]);
+    setTrackArmed("b", false);
+    assert.deepEqual([...getArmedTrackIds()], ["a", "c"]);
+  });
+
+  it("disarms tracks that were removed", () => {
+    toggleTrackArmed("a");
+    toggleTrackArmed("b");
+    pruneArmedTracks(["b", "c"]);
+    assert.deepEqual([...getArmedTrackIds()], ["b"]);
+  });
+
+  it("notifies listeners only when the armed set changes", () => {
+    let calls = 0;
+    const unsubscribe = subscribeArmedTracks(() => calls++);
+    const before = getArmedTrackIds();
+    setTrackArmed("a", true);
+    assert.equal(calls, 1);
+    assert.notEqual(getArmedTrackIds(), before);
+    setTrackArmed("a", true);
+    pruneArmedTracks(["a"]);
+    assert.equal(calls, 1);
+    pruneArmedTracks([]);
+    assert.equal(calls, 2);
     unsubscribe();
-    setTrackArmed("track-1", true);
-    assert.deepEqual(calls, [true, false]);
-  });
-
-  it("replaces the snapshot on each change", () => {
-    const before = getArmedTracks();
-    setTrackArmed("track-1", true);
-    assert.notEqual(getArmedTracks(), before);
-    assert.equal(before.has("track-1"), false);
+    setTrackArmed("a", true);
+    assert.equal(calls, 2);
   });
 });

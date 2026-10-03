@@ -3,7 +3,7 @@ import {
   LockClosedIcon,
   LockOpenIcon,
 } from "@heroicons/react/24/solid";
-import type { RefObject } from "react";
+import { type RefObject, useEffect } from "react";
 import type { SourceSelection } from "../../app/source-selection.ts";
 import type {
   SourceSpan as SourceSpanClip,
@@ -12,6 +12,7 @@ import type {
 import { getSwatch, pluralize } from "../../app/util.ts";
 import type { useSourceTrackDrop } from "../../hooks/useSourceTrackDrop.ts";
 import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
+import { pruneArmedTracks } from "../../recording/record-arm.ts";
 import { nextSourceTrackColorIndex } from "../../source-track-color.ts";
 import {
   formatSourceTracksSummary,
@@ -76,6 +77,12 @@ export function SourceTracks({
   const { isSourceTrackFileDragActive, isNewSourceTrackDropTarget } = drop;
   const isSourceHeaderDropTarget =
     !sourceTracks.length || isSourceTracksCollapsed;
+
+  // A track removed any way, deleted, undone or replaced by another
+  // session, is disarmed.
+  useEffect(() => {
+    pruneArmedTracks(sourceTracks.map((track) => track.id));
+  }, [sourceTracks]);
 
   return (
     <>

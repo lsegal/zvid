@@ -4,7 +4,7 @@ import {
   type RecordInputField,
   RecordInputPicker,
 } from "../recording/RecordInputPicker";
-import { useTrackArmed } from "../recording/record-arm.ts";
+import { toggleTrackArmed, useTrackArmed } from "../recording/record-arm.ts";
 import {
   type AvailableInputs,
   browserDefaultLabel,
@@ -47,7 +47,9 @@ function ArmButton({
   onToggle: () => void;
   trackName: string;
 }) {
-  const label = `${armed ? "Disarm" : "Arm"} ${trackName} for recording`;
+  const label = armed
+    ? `Disarm ${trackName}`
+    : `Arm ${trackName} for recording`;
   return (
     <button
       aria-label={label}
@@ -117,7 +119,7 @@ export function TrackRecordDevice({
   trackId,
   trackName,
 }: TrackRecordDeviceProps) {
-  const [armed, setArmed] = useTrackArmed(trackId);
+  const armed = useTrackArmed(trackId);
   const [fold, setFold] = useState(() => initialRecordDeviceFold(armed));
   const [foldArmed, setFoldArmed] = useState(armed);
   if (armed !== foldArmed) {
@@ -125,7 +127,7 @@ export function TrackRecordDevice({
     setFold(foldOnArmChange(fold, armed));
   }
   const name = trackName ?? "this track";
-  const toggleArmed = () => setArmed(!armed);
+  const toggleArmed = () => toggleTrackArmed(trackId);
   const toggleFold = () => setFold(toggleRecordDeviceFold);
   const className = [
     "fx-device-panel",
