@@ -28,8 +28,10 @@ async function probeAnalysers(page: Page) {
   });
 }
 
-// The mix's loudest RMS level over a few reads of the latest analyser, so a
-// read between buffers doesn't count.
+// The mix's loudest RMS level over a few reads of the VU meter's analysers,
+// the longest the mixer makes (about 340 ms, one per channel), so a read
+// between buffers or between the music's hits doesn't count. The music's
+// breaks and the selections' gating effects leave short windows silent.
 async function mixLevel(page: Page) {
   let level = 0;
   for (let read = 0; read < 6; read += 1) {
@@ -37,17 +39,24 @@ async function mixLevel(page: Page) {
       level,
       await page.evaluate(() => {
         const probe = window as unknown as { analysers: AnalyserNode[] };
-        const analyser = probe.analysers.at(-1);
-        if (!analyser) {
-          return 0;
-        }
-        const samples = new Float32Array(analyser.fftSize);
-        analyser.getFloatTimeDomainData(samples);
+        const longest = Math.max(
+          0,
+          ...probe.analysers.map((analyser) => analyser.fftSize),
+        );
+        const meter = probe.analysers.filter(
+          (analyser) => analyser.fftSize === longest,
+        );
         let total = 0;
-        for (const sample of samples) {
-          total += sample * sample;
+        let count = 0;
+        for (const analyser of meter) {
+          const samples = new Float32Array(analyser.fftSize);
+          analyser.getFloatTimeDomainData(samples);
+          for (const sample of samples) {
+            total += sample * sample;
+          }
+          count += samples.length;
         }
-        return Math.sqrt(total / samples.length);
+        return count ? Math.sqrt(total / count) : 0;
       }),
     );
     await page.waitForTimeout(50);
