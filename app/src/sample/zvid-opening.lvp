@@ -94,7 +94,7 @@
       "trackId": "source-orbit",
       "name": "Orbit",
       "frameStart": 0,
-      "frameCount": 480,
+      "frameCount": 900,
       "clipStart": 0,
       "frameOffset": 0,
       "filePath": "zvid-sample://opening-v2/orbit.mp4"
@@ -104,7 +104,7 @@
       "trackId": "source-ribbon",
       "name": "Ribbon",
       "frameStart": 0,
-      "frameCount": 480,
+      "frameCount": 900,
       "clipStart": 0,
       "frameOffset": 0,
       "filePath": "zvid-sample://opening-v2/ribbon.mp4"
@@ -114,7 +114,7 @@
       "trackId": "source-corridor",
       "name": "Corridor",
       "frameStart": 0,
-      "frameCount": 480,
+      "frameCount": 900,
       "clipStart": 0,
       "frameOffset": 0,
       "filePath": "zvid-sample://opening-v2/corridor.mp4"

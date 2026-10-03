@@ -301,7 +301,7 @@ describe("zvid opening sample", () => {
     }
   });
 
-  it("holds one clip on each source track, which its cuts slip to their in-points", () => {
+  it("holds one clip on each source track, looping its media to 30 s, which its cuts slip to their in-points", () => {
     const tracks = session.tracks ?? [];
     assert.equal(tracks.length, 4);
     assert.equal((session.clips ?? []).length, tracks.length);
@@ -312,12 +312,16 @@ describe("zvid opening sample", () => {
       const [span] = spans;
       assert.equal(span.frameStart, 0, track.id);
       assert.equal(span.clipStart, 0, track.id);
+      // The clip runs the whole project, past its 16 s of media, which
+      // loops.
+      assert.equal(span.frameCount, 30 * FPS, track.id);
       assert.equal(span.filePath, track.recordings?.[0]?.filename, track.id);
 
       // Each cut names the clip and plays it from its own in-point.
       const sourceSpan = project.sourceSpans.find(
         (candidate) => candidate.sourceTrackId === track.id,
       );
+      assert.equal(sourceSpan?.durationSeconds, 30, track.id);
       for (const selection of videoSelections().filter(
         (candidate) => candidate.trackId === track.id,
       )) {
