@@ -11,6 +11,7 @@ import {
 } from "../../recording/RecordInputPicker";
 import {
   type AvailableInputs,
+  browserDefaultDeviceId,
   browserDefaultLabel,
   getRecordInputsVersion,
   listInputDevices,
@@ -62,8 +63,12 @@ function DefaultRecordInputs() {
         writeDefaultInput(kind, parseDefaultInputValue(value));
       },
       // Previews wait for the device list, so a saved device that is gone
-      // isn't opened.
-      deviceId: ready ? input : null,
+      // isn't opened, and the browser's default opens the device it names.
+      deviceId: !ready
+        ? null
+        : input === undefined
+          ? browserDefaultDeviceId(infos, kind)
+          : input,
     };
   }
 

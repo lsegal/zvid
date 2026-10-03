@@ -270,3 +270,45 @@ export function browserDefaultLabel(
   const aliasLabel = alias?.label.replace(/^Default\s*-\s*/, "");
   return aliasLabel || listInputDevices(infos, kind)[0]?.label;
 }
+
+type DefaultDeviceInfo = Pick<MediaDeviceInfo, "deviceId" | "kind"> &
+  Partial<Pick<MediaDeviceInfo, "groupId" | "label">>;
+
+// The ID of the device the browser's default input is on, so the default
+// opens the same way as choosing that device. Chromium's "default" alias is
+// matched to the device it names, then to one in its group (an audio
+// interface lists several); without an alias the first device listed is
+// the default. Undefined until the browser lists the device IDs.
+export function browserDefaultDeviceId(
+  infos: readonly DefaultDeviceInfo[],
+  kind: RecordInputKind,
+) {
+  const mediaKind = kind === "video" ? "videoinput" : "audioinput";
+  const ofKind = infos.filter((info) => info.kind === mediaKind);
+  const devices = ofKind.filter(
+    (info) => info.deviceId && !ALIAS_DEVICE_IDS.has(info.deviceId),
+  );
+  const alias = ofKind.find((info) => info.deviceId === "default");
+  const aliasLabel = alias?.label?.replace(/^Default\s*-\s*/, "");
+  const match =
+    (aliasLabel && devices.find((info) => info.label === aliasLabel)) ||
+    (alias?.groupId &&
+      devices.find((info) => info.groupId === alias.groupId)) ||
+    devices[0];
+  return match?.deviceId;
+}
+
+// The inputs to open: the browser's default device (undefined) becomes the
+// device it is on now, so it follows the system default as it changes.
+export function withBrowserDefaults(
+  inputs: RecordInputs,
+  infos: readonly DefaultDeviceInfo[],
+): RecordInputs {
+  const resolved = { ...inputs };
+  for (const kind of RECORD_INPUT_KINDS) {
+    if (resolved[kind] === undefined) {
+      resolved[kind] = browserDefaultDeviceId(infos, kind);
+    }
+  }
+  return resolved;
+}
