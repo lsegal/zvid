@@ -7,9 +7,15 @@ import type {
 import type { PlayheadSignal } from "../../playhead-signal";
 import { TransportPlayheadReadout } from "../LivePlayhead";
 import { MEDIA_DRAWER_ID } from "../media/MediaDrawer";
+import type { MediaDrawerTab } from "../media/media-drawer-model.ts";
 import { TempoPill } from "../TempoPill";
 import { Select } from "../ui/select";
 import "./timeline-toolbar.css";
+
+const MEDIA_DRAWER_SEGMENTS = [
+  { tab: "media", label: "Media", subject: "media" },
+  { tab: "record", label: "Record", subject: "record inputs" },
+] as const;
 
 type TimelineToolbarProps = {
   playheadSignal: PlayheadSignal;
@@ -25,11 +31,13 @@ type TimelineToolbarProps = {
   ) => void;
   commitProjectPatch: (label: string, patch: Partial<ProjectState>) => void;
   isMediaDrawerOpen: boolean;
-  onToggleMediaDrawer: () => void;
+  mediaDrawerTab: MediaDrawerTab;
+  onSelectMediaDrawerTab: (tab: MediaDrawerTab) => void;
 };
 
-// The Media drawer toggle, the playhead readout and the timeline's scale,
-// snap, tempo and time signature controls above the timeline.
+// The Media drawer's Media | Record switch, the playhead readout and the
+// timeline's scale, snap, tempo and time signature controls above the
+// timeline.
 export function TimelineToolbar({
   playheadSignal,
   bpm,
@@ -41,22 +49,30 @@ export function TimelineToolbar({
   commitProjectChange,
   commitProjectPatch,
   isMediaDrawerOpen,
-  onToggleMediaDrawer,
+  mediaDrawerTab,
+  onSelectMediaDrawerTab,
 }: TimelineToolbarProps) {
   return (
     <div className="timeline-toolbar">
       <div className="timeline-toolbar__display">
-        <div className="segmented-control">
-          <button
-            aria-controls={MEDIA_DRAWER_ID}
-            aria-expanded={isMediaDrawerOpen}
-            className={isMediaDrawerOpen ? "is-active" : ""}
-            onClick={onToggleMediaDrawer}
-            title={isMediaDrawerOpen ? "Hide media" : "Show media"}
-            type="button"
-          >
-            Media
-          </button>
+        {/* A segment opens the drawer on its tab, or closes it when active. */}
+        <div aria-label="Media drawer" className="segmented-control" role="group">
+          {MEDIA_DRAWER_SEGMENTS.map((segment) => {
+            const active = isMediaDrawerOpen && mediaDrawerTab === segment.tab;
+            return (
+              <button
+                aria-controls={MEDIA_DRAWER_ID}
+                aria-expanded={active}
+                className={active ? "is-active" : ""}
+                key={segment.tab}
+                onClick={() => onSelectMediaDrawerTab(segment.tab)}
+                title={`${active ? "Hide" : "Show"} ${segment.subject}`}
+                type="button"
+              >
+                {segment.label}
+              </button>
+            );
+          })}
         </div>
         <span className="status-light" />
         <TransportPlayheadReadout

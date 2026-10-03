@@ -392,7 +392,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
               commitProjectChange={commitProjectChange}
               commitProjectPatch={store.commitProjectPatch}
               isMediaDrawerOpen={mediaDrawer.isOpen}
-              onToggleMediaDrawer={mediaDrawer.toggleOpen}
+              mediaDrawerTab={mediaDrawer.tab}
+              onSelectMediaDrawerTab={mediaDrawer.selectTab}
             />
 
             <div
