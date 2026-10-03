@@ -78,6 +78,9 @@ type Voice = {
   gain: GainNode;
   // Its clip chain, when the mix runs in the worklet.
   chain: AudioWorkletNode | null;
+  // The audio clock time its element's seek during playback was made, until
+  // it lands.
+  seekStartedAt: number | null;
 };
 
 type MixGraph = {
@@ -113,6 +116,9 @@ const MAX_PLAYBACK_RATE = 16;
 // timeline time.
 const SEEK_SECONDS = 0.25;
 const TRANSPORT_DRIFT_SECONDS = 0.02;
+// The most a seek during playback aims ahead of the playhead to make up for
+// how long seeks take to land.
+const MAX_SEEK_LEAD_SECONDS = 0.5;
 
 // Sets `param` to `value`, ramping where the browser can so a live edit
 // never clicks.
@@ -139,6 +145,8 @@ export class PreviewAudioMixer {
   private transport: ChainTransport | null = null;
   // Each chain node's settings as last posted, to skip repeats.
   private posted = new WeakMap<AudioWorkletNode, string>();
+  // How long the last seek during playback took to land, by the audio clock.
+  private seekLatency = 0;
 
   constructor(options: PreviewAudioMixerOptions = {}) {
     this.workletUrl = options.workletUrl;
@@ -212,6 +220,8 @@ export class PreviewAudioMixer {
       : playback.isAudibleScrubbing
         ? SCRUB_DRIFT_SECONDS
         : MAX_DRIFT_SECONDS;
+    // Plain playback, as opposed to a scrub, lets seeks land and leads them.
+    const steady = playback.isPlaying && !playback.isScrubbing;
     const now = playback.playheadSeconds;
     this.applyMode();
     // With chains, the mix comes out this late, so its media plays this far
@@ -261,7 +271,7 @@ export class PreviewAudioMixer {
         // Waits at the clip's first sound, ready for it to start.
         const first = clipMediaTimeAt(clip, Math.max(at, start), this.mix.bpm);
         if (first && at < start) {
-          seek(element, first.mediaTime, driftTolerance);
+          this.seek(voice, element, first.mediaTime, driftTolerance, false);
         }
         continue;
       }
@@ -274,7 +284,13 @@ export class PreviewAudioMixer {
       if (element.playbackRate !== rate) {
         element.playbackRate = rate;
       }
-      seek(element, media.mediaTime, shouldPlay ? driftTolerance : 0);
+      this.seek(
+        voice,
+        element,
+        media.mediaTime,
+        shouldPlay ? driftTolerance : 0,
+        steady,
+      );
       if (shouldPlay) {
         element.play().catch(() => {});
       } else if (!element.paused) {
@@ -574,7 +590,25 @@ export class PreviewAudioMixer {
         source = context.createMediaElementSource(element);
         source.connect(gain);
       }
-      const voice = { url, element, source, decoded, gain, chain };
+      const voice: Voice = {
+        url,
+        element,
+        source,
+        decoded,
+        gain,
+        chain,
+        seekStartedAt: null,
+      };
+      element?.addEventListener("seeked", () => {
+        if (voice.seekStartedAt !== null) {
+          this.seekLatency = clamp(
+            context.currentTime - voice.seekStartedAt,
+            0,
+            MAX_SEEK_LEAD_SECONDS,
+          );
+          voice.seekStartedAt = null;
+        }
+      });
       this.voices.set(clip.id, voice);
       return voice;
     } catch (error) {
@@ -597,10 +631,32 @@ export class PreviewAudioMixer {
     voice.chain?.disconnect();
     this.voices.delete(clipId);
   }
-}
 
-function seek(element: HTMLMediaElement, mediaTime: number, tolerance: number) {
-  if (Math.abs(element.currentTime - mediaTime) > tolerance) {
-    element.currentTime = mediaTime;
+  // Seeks `voice`'s element to `mediaTime` once it drifts further than
+  // `tolerance`. In `steady` playback a seek still landing is left to land,
+  // and a new one aims as far ahead as the last one took to land, so an
+  // element that starts late, as on a slow main thread, meets the playhead
+  // rather than chasing it from behind.
+  private seek(
+    voice: Voice,
+    element: HTMLMediaElement,
+    mediaTime: number,
+    tolerance: number,
+    steady: boolean,
+  ) {
+    if (steady && element.seeking) {
+      return;
+    }
+    if (Math.abs(element.currentTime - mediaTime) <= tolerance) {
+      return;
+    }
+    const context = this.graph?.context;
+    if (!steady || !context) {
+      element.currentTime = mediaTime;
+      voice.seekStartedAt = null;
+      return;
+    }
+    element.currentTime = mediaTime + this.seekLatency * element.playbackRate;
+    voice.seekStartedAt = context.currentTime;
   }
 }
