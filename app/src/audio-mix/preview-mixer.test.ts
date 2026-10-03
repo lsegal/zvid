@@ -9,14 +9,55 @@ import { DEFAULT_TIME_SIGNATURE } from "./processor.ts";
 import type { AudioMix, AudioMixClip } from "./resolve.ts";
 
 class FakeElement {
+  // Where the test's clock is. A slow browser's seeks land `seekSeconds`
+  // after they are made, on a later `tick`; otherwise they land at once.
+  static now = 0;
+  static seekSeconds = 0;
   src = "";
   crossOrigin = "";
   preload = "";
-  currentTime = 0;
   playbackRate = 1;
   volume = 1;
   muted = false;
   paused = true;
+  seeking = false;
+  seeks = 0;
+  seeksWhileSeeking = 0;
+  private time = 0;
+  private landsAt = 0;
+  private listeners = new Map<string, Array<() => void>>();
+
+  get currentTime() {
+    return this.time;
+  }
+
+  set currentTime(value: number) {
+    this.seeks += 1;
+    if (this.seeking) {
+      this.seeksWhileSeeking += 1;
+    }
+    this.time = value;
+    this.seeking = FakeElement.seekSeconds > 0;
+    this.landsAt = FakeElement.now + FakeElement.seekSeconds;
+  }
+
+  // Plays on `seconds`, or lands a seek once it is due.
+  tick(seconds: number) {
+    if (this.seeking) {
+      if (FakeElement.now >= this.landsAt) {
+        this.seeking = false;
+        for (const listener of this.listeners.get("seeked") ?? []) {
+          listener();
+        }
+      }
+    } else if (!this.paused) {
+      this.time += seconds * this.playbackRate;
+    }
+  }
+
+  addEventListener(type: string, listener: () => void) {
+    this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
+  }
 
   play() {
     this.paused = false;
@@ -206,6 +247,8 @@ describe("PreviewAudioMixer", () => {
   beforeEach(() => {
     FakeAudioContext.last = null;
     FakeWorkletNode.made = [];
+    FakeElement.now = 0;
+    FakeElement.seekSeconds = 0;
     globalThis.AudioContext =
       FakeAudioContext as unknown as typeof AudioContext;
     globalThis.AudioWorkletNode =
@@ -361,6 +404,86 @@ describe("PreviewAudioMixer", () => {
 
     mixer.update(mix([]), media);
     assert.equal(elementOf("b"), undefined);
+    mixer.dispose();
+  });
+
+  it("lets back-to-back short clips that start late land their seeks", () => {
+    // A slow main thread syncs every 0.25 s, so each clip starts 0.2 s late,
+    // and seeks take 0.3 s to land.
+    FakeElement.seekSeconds = 0.3;
+    const length = 1.5;
+    const starts = [1, 2.5, 4, 5.5];
+    const mixer = new PreviewAudioMixer();
+    mixer.update(
+      mix(
+        starts.map((startSeconds, index) =>
+          clip({
+            id: `clip-${index}`,
+            startSeconds,
+            durationSeconds: length,
+            sourceOffsetSeconds: -startSeconds,
+            sourceWindowEndSeconds: length,
+          }),
+        ),
+      ),
+      media,
+    );
+    const step = 0.05;
+    const drifts: number[] = [];
+    for (let tick = 0; tick * step <= 7; tick += 1) {
+      const now = tick * step;
+      FakeElement.now = now;
+      if (FakeAudioContext.last) {
+        context().currentTime = now;
+      }
+      for (const { element } of FakeAudioContext.last?.sources ?? []) {
+        element.tick(step);
+      }
+      if (tick % 5 === 4) {
+        mixer.sync(playing(now));
+      }
+      // How far the playing clip is from the playhead over its last half.
+      const index = starts.findIndex(
+        (start) => now >= start + length / 2 && now < start + length,
+      );
+      const element = FakeAudioContext.last?.sources[index]?.element;
+      if (element && !element.seeking) {
+        drifts.push(Math.abs(element.currentTime - (now - starts[index])));
+      }
+    }
+
+    const elements = context().sources.map((source) => source.element);
+    assert.equal(elements.length, starts.length);
+    for (const element of elements) {
+      assert.equal(element.seeksWhileSeeking, 0);
+    }
+    // The first clip seeks twice: once from behind, and once leading by how
+    // long that took. Later clips lead from the start, so seek once each.
+    assert.deepEqual(
+      elements.map((element) => element.seeks),
+      [2, 1, 1, 1],
+    );
+    assert.ok(drifts.length > 0);
+    assert.ok(Math.max(...drifts) < 0.1, `drifts ${drifts}`);
+    mixer.dispose();
+  });
+
+  it("seeks a scrub at once, even while a seek is landing", () => {
+    FakeElement.seekSeconds = 0.3;
+    const mixer = new PreviewAudioMixer();
+    mixer.update(mix([clip({})]), media);
+    const scrubbing = (playheadSeconds: number) => ({
+      ...playing(playheadSeconds),
+      isPlaying: false,
+      isScrubbing: true,
+      isAudibleScrubbing: true,
+    });
+    mixer.sync(scrubbing(1));
+    mixer.sync(scrubbing(1.5));
+    const element = elementOf("a");
+    assert.ok(element);
+    assert.equal(element.currentTime, 1.5);
+    assert.equal(element.seeks, 2);
     mixer.dispose();
   });
 
