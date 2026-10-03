@@ -13,6 +13,12 @@ import type { MediaItem } from "../../media";
 import { hasMediaDetails } from "../../media-details.ts";
 import { endMediaDrag, startMediaDrag } from "../../media-drag.ts";
 import { hasMediaRange } from "../../media-range.ts";
+import { RecordInputPicker } from "../../recording/RecordInputPicker";
+import {
+  readDefaultRecordInputs,
+  setDefaultRecordInput,
+  useRecordInputsVersion,
+} from "../../recording/record-inputs.ts";
 import {
   describeMediaSync,
   type RemoteMediaProgressMap,
@@ -37,6 +43,10 @@ import {
 import "./media-drawer.css";
 
 export const MEDIA_DRAWER_ID = "media-drawer";
+const MEDIA_DRAWER_TABS = [
+  { tab: "media", label: "Media" },
+  { tab: "record", label: "Record" },
+] as const;
 // Frames are decoded once at the largest tile size and scaled down, so moving
 // the slider never starts a decode.
 const THUMBNAIL_DECODE_WIDTH = THUMBNAIL_SIZE_MAX;
@@ -110,7 +120,7 @@ function countColumns(listbox: HTMLElement) {
 // The Media drawer at the left of the timeline: every linked media item in a
 // Finder-like icon or list view, with search, a thumbnail size slider, the
 // item count and the selected item's details, plus the handle that resizes
-// it.
+// it. Its Record tab sets the default camera and mic to record from.
 export function MediaDrawer({
   drawer,
   mediaItems,
@@ -121,7 +131,8 @@ export function MediaDrawer({
   onOpenMedia,
   onBackfillMediaDetails,
 }: MediaDrawerProps) {
-  const { isOpen, view, thumbnailSize, query, selectedMediaId } = drawer;
+  const { isOpen, tab, view, thumbnailSize, query, selectedMediaId } = drawer;
+  useRecordInputsVersion();
   const listboxRef = useRef<HTMLDivElement | null>(null);
   const searching = query.trim() !== "";
   const visibleItems = useMemo(
@@ -342,20 +353,39 @@ export function MediaDrawer({
       >
         <div className="media-drawer__panel">
           <div className="media-drawer__header">
-            <strong className="media-drawer__title">Media</strong>
-            <div className="segmented-control">
-              {(["icons", "list"] as const).map((option) => (
+            <div
+              aria-label="Media drawer"
+              className="segmented-control media-drawer__tabs"
+              role="tablist"
+            >
+              {MEDIA_DRAWER_TABS.map((option) => (
                 <button
-                  aria-pressed={view === option}
-                  className={view === option ? "is-active" : ""}
-                  key={option}
-                  onClick={() => drawer.setView(option)}
+                  aria-selected={tab === option.tab}
+                  className={tab === option.tab ? "is-active" : ""}
+                  key={option.tab}
+                  onClick={() => drawer.setTab(option.tab)}
+                  role="tab"
                   type="button"
                 >
-                  {option === "icons" ? "Icons" : "List"}
+                  {option.label}
                 </button>
               ))}
             </div>
+            {tab === "media" ? (
+              <div className="segmented-control">
+                {(["icons", "list"] as const).map((option) => (
+                  <button
+                    aria-pressed={view === option}
+                    className={view === option ? "is-active" : ""}
+                    key={option}
+                    onClick={() => drawer.setView(option)}
+                    type="button"
+                  >
+                    {option === "icons" ? "Icons" : "List"}
+                  </button>
+                ))}
+              </div>
+            ) : null}
             <button
               aria-label="Close media drawer"
               className="media-drawer__close"
@@ -365,135 +395,155 @@ export function MediaDrawer({
               <XMarkIcon aria-hidden="true" />
             </button>
           </div>
-          <div className="media-drawer__search">
-            <MagnifyingGlassIcon aria-hidden="true" />
-            <input
-              aria-label="Search media"
-              onChange={(event) => drawer.setQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Escape" && query) {
-                  event.stopPropagation();
-                  drawer.setQuery("");
-                }
-              }}
-              placeholder="Search"
-              type="text"
-              value={query}
-            />
-            {query ? (
-              <button
-                aria-label="Clear search"
-                className="media-drawer__clear"
-                onClick={() => drawer.setQuery("")}
-                type="button"
-              >
-                <XMarkIcon aria-hidden="true" />
-              </button>
-            ) : null}
-          </div>
-
-          <div className="media-drawer__content">
-            <div className="media-drawer__body">
-              {mediaItems.length === 0 ? (
-                <div className="media-drawer__empty">
-                  <span>No media yet</span>
+          {tab === "record" ? (
+            <div className="media-drawer__record">
+              <h2 className="media-drawer__record-title">Record</h2>
+              <p className="media-drawer__record-subtitle">
+                Configure your record inputs
+              </p>
+              <RecordInputPicker
+                active={isOpen}
+                choices={[readDefaultRecordInputs()]}
+                onChange={setDefaultRecordInput}
+                requested={drawer.recordRequested}
+              />
+            </div>
+          ) : (
+            <>
+              <div className="media-drawer__search">
+                <MagnifyingGlassIcon aria-hidden="true" />
+                <input
+                  aria-label="Search media"
+                  onChange={(event) => drawer.setQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape" && query) {
+                      event.stopPropagation();
+                      drawer.setQuery("");
+                    }
+                  }}
+                  placeholder="Search"
+                  type="text"
+                  value={query}
+                />
+                {query ? (
                   <button
-                    className="ghost-button ghost-button--accent"
-                    onClick={onImport}
+                    aria-label="Clear search"
+                    className="media-drawer__clear"
+                    onClick={() => drawer.setQuery("")}
                     type="button"
                   >
-                    Import Media
+                    <XMarkIcon aria-hidden="true" />
                   </button>
-                </div>
-              ) : visibleItems.length === 0 ? (
-                <div className="media-drawer__empty">
-                  <span>No media matches “{query.trim()}”</span>
-                </div>
-              ) : (
-                <>
-                  {view === "list" ? (
-                    <div
-                      aria-hidden="true"
-                      className="media-row media-row--head"
-                    >
-                      <span />
-                      <span>Name</span>
-                      <span>Kind</span>
-                      <span>Duration</span>
-                    </div>
-                  ) : null}
-                  <div
-                    aria-activedescendant={activeDescendant}
-                    aria-label="Media items"
-                    data-docked-listbox=""
-                    className={
-                      view === "icons"
-                        ? "media-drawer__grid"
-                        : "media-drawer__list"
-                    }
-                    onKeyDown={handleListKeyDown}
-                    ref={listboxRef}
-                    role="listbox"
-                    style={
-                      {
-                        "--media-tile-size": `${thumbnailSize}px`,
-                        "--media-list-icon-size": `${getListIconSize(thumbnailSize)}px`,
-                      } as CSSProperties
-                    }
-                    tabIndex={0}
-                  >
-                    {visibleItems.map(renderItem)}
-                  </div>
-                </>
-              )}
-            </div>
-            {mediaItems.length > 0 ? (
-              <MediaDetailsPane
-                durationText={
-                  selectedMedia
-                    ? formatMediaTime(selectedMedia.durationSeconds, timeFormat)
-                    : ""
-                }
-                isOpen={drawer.detailsOpen}
-                media={selectedMedia}
-                mediaSync={
-                  selectedMedia
-                    ? describeMediaSync(
-                        remoteMediaProgress.get(selectedMedia.id),
-                        selectedMedia.availability,
-                      )
-                    : null
-                }
-                onToggle={drawer.toggleDetailsOpen}
-                prefersReducedMotion={prefersReducedMotion}
-                thumbnailUrl={
-                  selectedMedia ? getThumbnailUrl(selectedMedia) : undefined
-                }
-              />
-            ) : null}
-          </div>
+                ) : null}
+              </div>
 
-          <div className="media-drawer__status">
-            <span className="media-drawer__count" aria-live="polite">
-              {formatMediaItemCount(
-                visibleItems.length,
-                mediaItems.length,
-                searching,
-              )}
-            </span>
-            <input
-              aria-label="Thumbnail size"
-              className="media-drawer__size"
-              max={THUMBNAIL_SIZE_MAX}
-              min={THUMBNAIL_SIZE_MIN}
-              onChange={(event) =>
-                drawer.setThumbnailSize(Number(event.target.value))
-              }
-              step={8}
-              type="range"
-              value={thumbnailSize}
-            />
-          </div>
+              <div className="media-drawer__content">
+                <div className="media-drawer__body">
+                  {mediaItems.length === 0 ? (
+                    <div className="media-drawer__empty">
+                      <span>No media yet</span>
+                      <button
+                        className="ghost-button ghost-button--accent"
+                        onClick={onImport}
+                        type="button"
+                      >
+                        Import Media
+                      </button>
+                    </div>
+                  ) : visibleItems.length === 0 ? (
+                    <div className="media-drawer__empty">
+                      <span>No media matches “{query.trim()}”</span>
+                    </div>
+                  ) : (
+                    <>
+                      {view === "list" ? (
+                        <div
+                          aria-hidden="true"
+                          className="media-row media-row--head"
+                        >
+                          <span />
+                          <span>Name</span>
+                          <span>Kind</span>
+                          <span>Duration</span>
+                        </div>
+                      ) : null}
+                      <div
+                        aria-activedescendant={activeDescendant}
+                        aria-label="Media items"
+                        data-docked-listbox=""
+                        className={
+                          view === "icons"
+                            ? "media-drawer__grid"
+                            : "media-drawer__list"
+                        }
+                        onKeyDown={handleListKeyDown}
+                        ref={listboxRef}
+                        role="listbox"
+                        style={
+                          {
+                            "--media-tile-size": `${thumbnailSize}px`,
+                            "--media-list-icon-size": `${getListIconSize(thumbnailSize)}px`,
+                          } as CSSProperties
+                        }
+                        tabIndex={0}
+                      >
+                        {visibleItems.map(renderItem)}
+                      </div>
+                    </>
+                  )}
+                </div>
+                {mediaItems.length > 0 ? (
+                  <MediaDetailsPane
+                    durationText={
+                      selectedMedia
+                        ? formatMediaTime(
+                            selectedMedia.durationSeconds,
+                            timeFormat,
+                          )
+                        : ""
+                    }
+                    isOpen={drawer.detailsOpen}
+                    media={selectedMedia}
+                    mediaSync={
+                      selectedMedia
+                        ? describeMediaSync(
+                            remoteMediaProgress.get(selectedMedia.id),
+                            selectedMedia.availability,
+                          )
+                        : null
+                    }
+                    onToggle={drawer.toggleDetailsOpen}
+                    prefersReducedMotion={prefersReducedMotion}
+                    thumbnailUrl={
+                      selectedMedia ? getThumbnailUrl(selectedMedia) : undefined
+                    }
+                  />
+                ) : null}
+              </div>
+
+              <div className="media-drawer__status">
+                <span className="media-drawer__count" aria-live="polite">
+                  {formatMediaItemCount(
+                    visibleItems.length,
+                    mediaItems.length,
+                    searching,
+                  )}
+                </span>
+                <input
+                  aria-label="Thumbnail size"
+                  className="media-drawer__size"
+                  max={THUMBNAIL_SIZE_MAX}
+                  min={THUMBNAIL_SIZE_MIN}
+                  onChange={(event) =>
+                    drawer.setThumbnailSize(Number(event.target.value))
+                  }
+                  step={8}
+                  type="range"
+                  value={thumbnailSize}
+                />
+              </div>
+            </>
+          )}
         </div>
       </aside>
       <hr
