@@ -10,7 +10,6 @@
   flex: none;
   display: grid;
   place-items: center;
-  box-sizing: border-box;
   width: 24px;
   height: 24px;
   border: 1px solid var(--line);
