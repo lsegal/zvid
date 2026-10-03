@@ -98,9 +98,10 @@ test("a narrower window shrinks the preview but keeps the saved width", async ({
       Number(await previewHandle(page).getAttribute("aria-valuenow")),
     )
     .toBeLessThan(savedWidth);
-  expect(await timelineAreaWidth(page)).toBeGreaterThanOrEqual(
-    TIMELINE_MIN_WIDTH - 1,
-  );
+  // The preview may shrink over more than one layout pass.
+  await expect
+    .poll(() => timelineAreaWidth(page))
+    .toBeGreaterThanOrEqual(TIMELINE_MIN_WIDTH - 1);
   expect(
     await page.evaluate(() => localStorage.getItem("zvid-preview-width")),
   ).toBe(String(savedWidth));
