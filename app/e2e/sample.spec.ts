@@ -5,9 +5,9 @@ import { expect, type Page, test } from "@playwright/test";
 // sample opens at once and its media downloads from the app's own origin
 // into the media cache in place, through the same skeletons, status and
 // Media Sync dialog as media syncing from a peer.
-const SAMPLE_MEDIA = "**/samples/opening-v1/*";
+const SAMPLE_MEDIA = "**/samples/opening-v2/*";
 const MUSIC_TRACK = "source-music";
-const MUSIC_ID = "zvid-sample:opening-v1:music";
+const MUSIC_ID = "zvid-sample:opening-v2:music";
 
 // Each load reads about 15 MB of media and analyzes it.
 test.describe.configure({ timeout: 120_000 });
