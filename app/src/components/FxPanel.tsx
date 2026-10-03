@@ -51,9 +51,9 @@ export type FxPanelProps = Pick<
   };
 
 // The collapsible FX panel under the editor: its header toggle, the title
-// for the selected layer or clip, and the FX chain, led by the selected
-// source clip's properties when one is selected. A source track's section
-// opens with its Record device.
+// for the selected layer or clip, and the FX chain. A source track's Record
+// device leads the chain, ahead of the selected source clip's properties,
+// even though it belongs to the track.
 export function FxPanel({
   addFxDevice,
   duplicateFxDevice,
@@ -107,26 +107,26 @@ export function FxPanel({
         id="fx-panel-body"
       >
         <FxChain
-          leading={({ collapsed, toggleCollapsed }) =>
-            sourceClip ? (
-              <SourceClipProperties
-                collapsed={collapsed.has(SOURCE_CLIP_COLLAPSE_KEY)}
-                model={sourceClip}
-                onToggleCollapsed={() =>
-                  toggleCollapsed(SOURCE_CLIP_COLLAPSE_KEY)
-                }
-              />
-            ) : null
-          }
-          layerLeading={
-            fxRecordTrack ? (
-              <TrackRecordDevice
-                key={fxRecordTrack.trackId}
-                trackId={fxRecordTrack.trackId}
-                trackName={fxRecordTrack.trackName}
-              />
-            ) : null
-          }
+          leading={({ collapsed, toggleCollapsed }) => (
+            <>
+              {fxRecordTrack ? (
+                <TrackRecordDevice
+                  key={fxRecordTrack.trackId}
+                  trackId={fxRecordTrack.trackId}
+                  trackName={fxRecordTrack.trackName}
+                />
+              ) : null}
+              {sourceClip ? (
+                <SourceClipProperties
+                  collapsed={collapsed.has(SOURCE_CLIP_COLLAPSE_KEY)}
+                  model={sourceClip}
+                  onToggleCollapsed={() =>
+                    toggleCollapsed(SOURCE_CLIP_COLLAPSE_KEY)
+                  }
+                />
+              ) : null}
+            </>
+          )}
           devices={fxDevices}
           kind={fxKind}
           layerFxEnabled={fxLayerFxEnabled}
