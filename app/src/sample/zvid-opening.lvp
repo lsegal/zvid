@@ -39,6 +39,11 @@
       "id": "background",
       "name": "Background",
       "colorIndex": 7
+    },
+    {
+      "id": "audio",
+      "name": "Audio",
+      "colorIndex": 8
     }
   ],
   "tracks": [
@@ -535,12 +540,202 @@
       "filePath": "zvid-sample://opening-v2/ribbon.mp4"
     },
     {
-      "id": "span-music",
+      "id": "span-music-01",
       "trackId": "source-music",
-      "name": "Music",
+      "name": "Music · Clean",
       "frameStart": 0,
-      "frameCount": 900,
+      "frameCount": 45,
       "clipStart": 0,
+      "frameOffset": 0,
+      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
+    },
+    {
+      "id": "span-music-02",
+      "trackId": "source-music",
+      "name": "Music · Bitcrush",
+      "frameStart": 45,
+      "frameCount": 45,
+      "clipStart": 45,
+      "frameOffset": 0,
+      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
+    },
+    {
+      "id": "span-music-03",
+      "trackId": "source-music",
+      "name": "Music · Phaser",
+      "frameStart": 90,
+      "frameCount": 45,
+      "clipStart": 90,
+      "frameOffset": 0,
+      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
+    },
+    {
+      "id": "span-music-04",
+      "trackId": "source-music",
+      "name": "Music · Chorus",
+      "frameStart": 135,
+      "frameCount": 45,
+      "clipStart": 135,
+      "frameOffset": 0,
+      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
+    },
+    {
+      "id": "span-music-05",
+      "trackId": "source-music",
+      "name": "Music · Auto Pan",
+      "frameStart": 180,
+      "frameCount": 45,
+      "clipStart": 180,
+      "frameOffset": 0,
+      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
+    },
+    {
+      "id": "span-music-06",
+      "trackId": "source-music",
+      "name": "Music · Tremolo",
+      "frameStart": 225,
+      "frameCount": 45,
+      "clipStart": 225,
+      "frameOffset": 0,
+      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
+    },
+    {
+      "id": "span-music-07",
+      "trackId": "source-music",
+      "name": "Music · Transient Shaper",
+      "frameStart": 270,
+      "frameCount": 45,
+      "clipStart": 270,
+      "frameOffset": 0,
+      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
+    },
+    {
+      "id": "span-music-08",
+      "trackId": "source-music",
+      "name": "Music · Compressor",
+      "frameStart": 315,
+      "frameCount": 45,
+      "clipStart": 315,
+      "frameOffset": 0,
+      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
+    },
+    {
+      "id": "span-music-09",
+      "trackId": "source-music",
+      "name": "Music · High Cut",
+      "frameStart": 360,
+      "frameCount": 45,
+      "clipStart": 360,
+      "frameOffset": 0,
+      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
+    },
+    {
+      "id": "span-music-10",
+      "trackId": "source-music",
+      "name": "Music · Low Cut",
+      "frameStart": 405,
+      "frameCount": 45,
+      "clipStart": 405,
+      "frameOffset": 0,
+      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
+    },
+    {
+      "id": "span-music-11",
+      "trackId": "source-music",
+      "name": "Music · EQ",
+      "frameStart": 450,
+      "frameCount": 45,
+      "clipStart": 450,
+      "frameOffset": 0,
+      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
+    },
+    {
+      "id": "span-music-12",
+      "trackId": "source-music",
+      "name": "Music · Saturation",
+      "frameStart": 495,
+      "frameCount": 45,
+      "clipStart": 495,
+      "frameOffset": 0,
+      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
+    },
+    {
+      "id": "span-music-13",
+      "trackId": "source-music",
+      "name": "Music · Stereo",
+      "frameStart": 540,
+      "frameCount": 45,
+      "clipStart": 540,
+      "frameOffset": 0,
+      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
+    },
+    {
+      "id": "span-music-14",
+      "trackId": "source-music",
+      "name": "Music · Mono",
+      "frameStart": 585,
+      "frameCount": 45,
+      "clipStart": 585,
+      "frameOffset": 0,
+      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
+    },
+    {
+      "id": "span-music-15",
+      "trackId": "source-music",
+      "name": "Music · Noise Gate",
+      "frameStart": 630,
+      "frameCount": 45,
+      "clipStart": 630,
+      "frameOffset": 0,
+      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
+    },
+    {
+      "id": "span-music-16",
+      "trackId": "source-music",
+      "name": "Music · De-ess",
+      "frameStart": 675,
+      "frameCount": 45,
+      "clipStart": 675,
+      "frameOffset": 0,
+      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
+    },
+    {
+      "id": "span-music-17",
+      "trackId": "source-music",
+      "name": "Music · Reverse",
+      "frameStart": 720,
+      "frameCount": 45,
+      "clipStart": 720,
+      "frameOffset": 0,
+      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
+    },
+    {
+      "id": "span-music-18",
+      "trackId": "source-music",
+      "name": "Music · Limiter",
+      "frameStart": 765,
+      "frameCount": 45,
+      "clipStart": 765,
+      "frameOffset": 0,
+      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
+    },
+    {
+      "id": "span-music-19",
+      "trackId": "source-music",
+      "name": "Music · Delay",
+      "frameStart": 810,
+      "frameCount": 45,
+      "clipStart": 810,
+      "frameOffset": 0,
+      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
+    },
+    {
+      "id": "span-music-20",
+      "trackId": "source-music",
+      "name": "Music · Reverb",
+      "frameStart": 855,
+      "frameCount": 45,
+      "clipStart": 855,
       "frameOffset": 0,
       "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
     }
@@ -860,6 +1055,146 @@
       "mainTrackId": "ribbon",
       "frameStart": 360,
       "frameEnd": 450
+    },
+    {
+      "id": 46,
+      "trackId": "source-music",
+      "mainTrackId": "audio",
+      "frameStart": 0,
+      "frameEnd": 45
+    },
+    {
+      "id": 47,
+      "trackId": "source-music",
+      "mainTrackId": "audio",
+      "frameStart": 45,
+      "frameEnd": 90
+    },
+    {
+      "id": 48,
+      "trackId": "source-music",
+      "mainTrackId": "audio",
+      "frameStart": 90,
+      "frameEnd": 135
+    },
+    {
+      "id": 49,
+      "trackId": "source-music",
+      "mainTrackId": "audio",
+      "frameStart": 135,
+      "frameEnd": 180
+    },
+    {
+      "id": 50,
+      "trackId": "source-music",
+      "mainTrackId": "audio",
+      "frameStart": 180,
+      "frameEnd": 225
+    },
+    {
+      "id": 51,
+      "trackId": "source-music",
+      "mainTrackId": "audio",
+      "frameStart": 225,
+      "frameEnd": 270
+    },
+    {
+      "id": 52,
+      "trackId": "source-music",
+      "mainTrackId": "audio",
+      "frameStart": 270,
+      "frameEnd": 315
+    },
+    {
+      "id": 53,
+      "trackId": "source-music",
+      "mainTrackId": "audio",
+      "frameStart": 315,
+      "frameEnd": 360
+    },
+    {
+      "id": 54,
+      "trackId": "source-music",
+      "mainTrackId": "audio",
+      "frameStart": 360,
+      "frameEnd": 405
+    },
+    {
+      "id": 55,
+      "trackId": "source-music",
+      "mainTrackId": "audio",
+      "frameStart": 405,
+      "frameEnd": 450
+    },
+    {
+      "id": 56,
+      "trackId": "source-music",
+      "mainTrackId": "audio",
+      "frameStart": 450,
+      "frameEnd": 495
+    },
+    {
+      "id": 57,
+      "trackId": "source-music",
+      "mainTrackId": "audio",
+      "frameStart": 495,
+      "frameEnd": 540
+    },
+    {
+      "id": 58,
+      "trackId": "source-music",
+      "mainTrackId": "audio",
+      "frameStart": 540,
+      "frameEnd": 585
+    },
+    {
+      "id": 59,
+      "trackId": "source-music",
+      "mainTrackId": "audio",
+      "frameStart": 585,
+      "frameEnd": 630
+    },
+    {
+      "id": 60,
+      "trackId": "source-music",
+      "mainTrackId": "audio",
+      "frameStart": 630,
+      "frameEnd": 675
+    },
+    {
+      "id": 61,
+      "trackId": "source-music",
+      "mainTrackId": "audio",
+      "frameStart": 675,
+      "frameEnd": 720
+    },
+    {
+      "id": 62,
+      "trackId": "source-music",
+      "mainTrackId": "audio",
+      "frameStart": 720,
+      "frameEnd": 765
+    },
+    {
+      "id": 63,
+      "trackId": "source-music",
+      "mainTrackId": "audio",
+      "frameStart": 765,
+      "frameEnd": 810
+    },
+    {
+      "id": 64,
+      "trackId": "source-music",
+      "mainTrackId": "audio",
+      "frameStart": 810,
+      "frameEnd": 855
+    },
+    {
+      "id": 65,
+      "trackId": "source-music",
+      "mainTrackId": "audio",
+      "frameStart": 855,
+      "frameEnd": 900
     }
   ],
   "fills": [
@@ -1071,6 +1406,16 @@
     },
     {
       "id": "sample-fx-009",
+      "trackId": "audio",
+      "effectName": "Layout",
+      "parameters": {
+        "Position": {
+          "stringValue": "Center"
+        }
+      }
+    },
+    {
+      "id": "sample-fx-010",
       "trackId": "clip:selection-1",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1095,7 +1440,49 @@
       }
     },
     {
-      "id": "sample-fx-010",
+      "id": "sample-fx-011",
+      "trackId": "clip:selection-1",
+      "effectName": "Refraction",
+      "parameters": {
+        "_Type": {
+          "stringValue": "Water"
+        },
+        "_Amount": {
+          "floatValue": 0.45
+        },
+        "_Scale": {
+          "floatValue": 0.4
+        },
+        "_Speed": {
+          "floatValue": 0.5
+        },
+        "_Angle": {
+          "floatValue": 90
+        },
+        "_Dispersion": {
+          "floatValue": 0.2
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": [
+            "_Amount"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sample-fx-012",
       "trackId": "clip:selection-2",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1120,7 +1507,49 @@
       }
     },
     {
-      "id": "sample-fx-011",
+      "id": "sample-fx-013",
+      "trackId": "clip:selection-2",
+      "effectName": "DigitalGlitch",
+      "parameters": {
+        "_Amount": {
+          "floatValue": 0.25
+        },
+        "_BlockSize": {
+          "floatValue": 0.35
+        },
+        "_Displace": {
+          "floatValue": 0.4
+        },
+        "_ChannelShift": {
+          "floatValue": 0.5
+        },
+        "_ColorCrush": {
+          "floatValue": 0
+        },
+        "_Rate": {
+          "floatValue": 12
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "reactive",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Bounce",
+          "timing": "Normal",
+          "reactivity": 0.6,
+          "parameters": [
+            "_Amount"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sample-fx-014",
       "trackId": "clip:selection-3",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1145,7 +1574,53 @@
       }
     },
     {
-      "id": "sample-fx-012",
+      "id": "sample-fx-015",
+      "trackId": "clip:selection-3",
+      "effectName": "Distortion",
+      "parameters": {
+        "_Type": {
+          "stringValue": "Wave"
+        },
+        "_Edges": {
+          "stringValue": "Mirror"
+        },
+        "_Amount": {
+          "floatValue": 0.4
+        },
+        "_Size": {
+          "floatValue": 0.5
+        },
+        "_Speed": {
+          "floatValue": 0.5
+        },
+        "_Angle": {
+          "floatValue": 0
+        },
+        "_CenterX": {
+          "floatValue": 0.5
+        },
+        "_CenterY": {
+          "floatValue": 0.5
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": []
+        }
+      }
+    },
+    {
+      "id": "sample-fx-016",
       "trackId": "clip:selection-4",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1170,7 +1645,7 @@
       }
     },
     {
-      "id": "sample-fx-013",
+      "id": "sample-fx-017",
       "trackId": "clip:selection-5",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1195,7 +1670,7 @@
       }
     },
     {
-      "id": "sample-fx-014",
+      "id": "sample-fx-018",
       "trackId": "clip:selection-6",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1220,7 +1695,7 @@
       }
     },
     {
-      "id": "sample-fx-015",
+      "id": "sample-fx-019",
       "trackId": "clip:selection-7",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1245,7 +1720,53 @@
       }
     },
     {
-      "id": "sample-fx-016",
+      "id": "sample-fx-020",
+      "trackId": "clip:selection-7",
+      "effectName": "Distortion",
+      "parameters": {
+        "_Type": {
+          "stringValue": "Twirl"
+        },
+        "_Edges": {
+          "stringValue": "Mirror"
+        },
+        "_Amount": {
+          "floatValue": 0.6
+        },
+        "_Size": {
+          "floatValue": 0.6
+        },
+        "_Speed": {
+          "floatValue": 0
+        },
+        "_Angle": {
+          "floatValue": 0
+        },
+        "_CenterX": {
+          "floatValue": 0.5
+        },
+        "_CenterY": {
+          "floatValue": 0.5
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": []
+        }
+      }
+    },
+    {
+      "id": "sample-fx-021",
       "trackId": "clip:selection-8",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1270,7 +1791,7 @@
       }
     },
     {
-      "id": "sample-fx-017",
+      "id": "sample-fx-022",
       "trackId": "clip:selection-9",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1295,7 +1816,7 @@
       }
     },
     {
-      "id": "sample-fx-018",
+      "id": "sample-fx-023",
       "trackId": "clip:selection-10",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1320,7 +1841,7 @@
       }
     },
     {
-      "id": "sample-fx-019",
+      "id": "sample-fx-024",
       "trackId": "clip:selection-11",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1345,7 +1866,53 @@
       }
     },
     {
-      "id": "sample-fx-020",
+      "id": "sample-fx-025",
+      "trackId": "clip:selection-11",
+      "effectName": "Distortion",
+      "parameters": {
+        "_Type": {
+          "stringValue": "Bulge"
+        },
+        "_Edges": {
+          "stringValue": "Mirror"
+        },
+        "_Amount": {
+          "floatValue": 0.7
+        },
+        "_Size": {
+          "floatValue": 0.7
+        },
+        "_Speed": {
+          "floatValue": 0
+        },
+        "_Angle": {
+          "floatValue": 0
+        },
+        "_CenterX": {
+          "floatValue": 0.5
+        },
+        "_CenterY": {
+          "floatValue": 0.5
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": []
+        }
+      }
+    },
+    {
+      "id": "sample-fx-026",
       "trackId": "clip:selection-12",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1370,7 +1937,53 @@
       }
     },
     {
-      "id": "sample-fx-021",
+      "id": "sample-fx-027",
+      "trackId": "clip:selection-12",
+      "effectName": "Distortion",
+      "parameters": {
+        "_Type": {
+          "stringValue": "Ripple"
+        },
+        "_Edges": {
+          "stringValue": "Mirror"
+        },
+        "_Amount": {
+          "floatValue": 0.4
+        },
+        "_Size": {
+          "floatValue": 0.6
+        },
+        "_Speed": {
+          "floatValue": 0.6
+        },
+        "_Angle": {
+          "floatValue": 0
+        },
+        "_CenterX": {
+          "floatValue": 0.5
+        },
+        "_CenterY": {
+          "floatValue": 0.5
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": []
+        }
+      }
+    },
+    {
+      "id": "sample-fx-028",
       "trackId": "clip:selection-13",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1395,7 +2008,7 @@
       }
     },
     {
-      "id": "sample-fx-022",
+      "id": "sample-fx-029",
       "trackId": "clip:selection-14",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -1420,293 +2033,33 @@
       }
     },
     {
-      "id": "sample-fx-023",
-      "trackId": "clip:selection-15",
-      "effectName": "ZoomAndPan",
-      "parameters": {
-        "_Start_Zoom": {
-          "floatValue": 0
-        },
-        "_Start_X": {
-          "floatValue": 0.5
-        },
-        "_Start_Y": {
-          "floatValue": 0.5
-        },
-        "_End_Zoom": {
-          "floatValue": 0.06666666666666667
-        },
-        "_End_X": {
-          "floatValue": 0.42
-        },
-        "_End_Y": {
-          "floatValue": 0.5
-        }
-      }
-    },
-    {
-      "id": "sample-fx-024",
-      "trackId": "clip:selection-15",
-      "effectName": "Colorize",
-      "parameters": {
-        "_HueOffset": {
-          "floatValue": 0.4
-        }
-      },
-      "animation": {
-        "enabled": true,
-        "mode": "reactive",
-        "clip": {
-          "motionIn": "Ease Out",
-          "motionOut": "Ease In",
-          "timing": "Normal"
-        },
-        "reactive": {
-          "motion": "Wobble",
-          "timing": "Normal",
-          "reactivity": 1,
-          "parameters": [
-            "_HueOffset"
-          ]
-        }
-      }
-    },
-    {
-      "id": "sample-fx-025",
-      "trackId": "clip:selection-16",
-      "effectName": "ZoomAndPan",
-      "parameters": {
-        "_Start_Zoom": {
-          "floatValue": 0
-        },
-        "_Start_X": {
-          "floatValue": 0.5
-        },
-        "_Start_Y": {
-          "floatValue": 0.5
-        },
-        "_End_Zoom": {
-          "floatValue": 0.06666666666666667
-        },
-        "_End_X": {
-          "floatValue": 0.5
-        },
-        "_End_Y": {
-          "floatValue": 0.5
-        }
-      }
-    },
-    {
-      "id": "sample-fx-026",
-      "trackId": "clip:selection-16",
-      "effectName": "Colorize",
-      "parameters": {
-        "_HueOffset": {
-          "floatValue": 0.68
-        }
-      },
-      "animation": {
-        "enabled": true,
-        "mode": "reactive",
-        "clip": {
-          "motionIn": "Ease Out",
-          "motionOut": "Ease In",
-          "timing": "Normal"
-        },
-        "reactive": {
-          "motion": "Wobble",
-          "timing": "Normal",
-          "reactivity": 1,
-          "parameters": [
-            "_HueOffset"
-          ]
-        }
-      }
-    },
-    {
-      "id": "sample-fx-027",
-      "trackId": "clip:selection-17",
-      "effectName": "ZoomAndPan",
-      "parameters": {
-        "_Start_Zoom": {
-          "floatValue": 0
-        },
-        "_Start_X": {
-          "floatValue": 0.5
-        },
-        "_Start_Y": {
-          "floatValue": 0.5
-        },
-        "_End_Zoom": {
-          "floatValue": 0.06666666666666667
-        },
-        "_End_X": {
-          "floatValue": 0.58
-        },
-        "_End_Y": {
-          "floatValue": 0.5
-        }
-      }
-    },
-    {
-      "id": "sample-fx-028",
-      "trackId": "clip:selection-17",
-      "effectName": "Colorize",
-      "parameters": {
-        "_HueOffset": {
-          "floatValue": 0.12
-        }
-      },
-      "animation": {
-        "enabled": true,
-        "mode": "reactive",
-        "clip": {
-          "motionIn": "Ease Out",
-          "motionOut": "Ease In",
-          "timing": "Normal"
-        },
-        "reactive": {
-          "motion": "Wobble",
-          "timing": "Normal",
-          "reactivity": 1,
-          "parameters": [
-            "_HueOffset"
-          ]
-        }
-      }
-    },
-    {
-      "id": "sample-fx-029",
-      "trackId": "clip:selection-18",
-      "effectName": "ZoomAndPan",
-      "parameters": {
-        "_Start_Zoom": {
-          "floatValue": 0.23333333333333334
-        },
-        "_Start_X": {
-          "floatValue": 0.42
-        },
-        "_Start_Y": {
-          "floatValue": 0.42
-        },
-        "_End_Zoom": {
-          "floatValue": 0.2833333333333333
-        },
-        "_End_X": {
-          "floatValue": 0.58
-        },
-        "_End_Y": {
-          "floatValue": 0.58
-        }
-      }
-    },
-    {
       "id": "sample-fx-030",
-      "trackId": "clip:selection-18",
-      "effectName": "Colorize",
+      "trackId": "clip:selection-15",
+      "effectName": "ZoomAndPan",
       "parameters": {
-        "_HueOffset": {
-          "floatValue": 0.68
-        }
-      },
-      "animation": {
-        "enabled": true,
-        "mode": "reactive",
-        "clip": {
-          "motionIn": "Ease Out",
-          "motionOut": "Ease In",
-          "timing": "Normal"
+        "_Start_Zoom": {
+          "floatValue": 0
         },
-        "reactive": {
-          "motion": "Wobble",
-          "timing": "Normal",
-          "reactivity": 1,
-          "parameters": [
-            "_HueOffset"
-          ]
+        "_Start_X": {
+          "floatValue": 0.5
+        },
+        "_Start_Y": {
+          "floatValue": 0.5
+        },
+        "_End_Zoom": {
+          "floatValue": 0.06666666666666667
+        },
+        "_End_X": {
+          "floatValue": 0.42
+        },
+        "_End_Y": {
+          "floatValue": 0.5
         }
       }
     },
     {
       "id": "sample-fx-031",
-      "trackId": "clip:selection-19",
-      "effectName": "ZoomAndPan",
-      "parameters": {
-        "_Start_Zoom": {
-          "floatValue": 0.23333333333333334
-        },
-        "_Start_X": {
-          "floatValue": 0.5
-        },
-        "_Start_Y": {
-          "floatValue": 0.42
-        },
-        "_End_Zoom": {
-          "floatValue": 0.2833333333333333
-        },
-        "_End_X": {
-          "floatValue": 0.5
-        },
-        "_End_Y": {
-          "floatValue": 0.58
-        }
-      }
-    },
-    {
-      "id": "sample-fx-032",
-      "trackId": "clip:selection-19",
-      "effectName": "Colorize",
-      "parameters": {
-        "_HueOffset": {
-          "floatValue": 0.12
-        }
-      },
-      "animation": {
-        "enabled": true,
-        "mode": "reactive",
-        "clip": {
-          "motionIn": "Ease Out",
-          "motionOut": "Ease In",
-          "timing": "Normal"
-        },
-        "reactive": {
-          "motion": "Wobble",
-          "timing": "Normal",
-          "reactivity": 1,
-          "parameters": [
-            "_HueOffset"
-          ]
-        }
-      }
-    },
-    {
-      "id": "sample-fx-033",
-      "trackId": "clip:selection-20",
-      "effectName": "ZoomAndPan",
-      "parameters": {
-        "_Start_Zoom": {
-          "floatValue": 0.23333333333333334
-        },
-        "_Start_X": {
-          "floatValue": 0.58
-        },
-        "_Start_Y": {
-          "floatValue": 0.42
-        },
-        "_End_Zoom": {
-          "floatValue": 0.2833333333333333
-        },
-        "_End_X": {
-          "floatValue": 0.42
-        },
-        "_End_Y": {
-          "floatValue": 0.58
-        }
-      }
-    },
-    {
-      "id": "sample-fx-034",
-      "trackId": "clip:selection-20",
+      "trackId": "clip:selection-15",
       "effectName": "Colorize",
       "parameters": {
         "_HueOffset": {
@@ -1732,33 +2085,8 @@
       }
     },
     {
-      "id": "sample-fx-035",
-      "trackId": "clip:selection-21",
-      "effectName": "ZoomAndPan",
-      "parameters": {
-        "_Start_Zoom": {
-          "floatValue": 0
-        },
-        "_Start_X": {
-          "floatValue": 0.5
-        },
-        "_Start_Y": {
-          "floatValue": 0.5
-        },
-        "_End_Zoom": {
-          "floatValue": 0.06666666666666667
-        },
-        "_End_X": {
-          "floatValue": 0.42
-        },
-        "_End_Y": {
-          "floatValue": 0.5
-        }
-      }
-    },
-    {
-      "id": "sample-fx-036",
-      "trackId": "clip:selection-22",
+      "id": "sample-fx-032",
+      "trackId": "clip:selection-16",
       "effectName": "ZoomAndPan",
       "parameters": {
         "_Start_Zoom": {
@@ -1782,8 +2110,35 @@
       }
     },
     {
-      "id": "sample-fx-037",
-      "trackId": "clip:selection-23",
+      "id": "sample-fx-033",
+      "trackId": "clip:selection-16",
+      "effectName": "Colorize",
+      "parameters": {
+        "_HueOffset": {
+          "floatValue": 0.68
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "reactive",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 1,
+          "parameters": [
+            "_HueOffset"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sample-fx-034",
+      "trackId": "clip:selection-17",
       "effectName": "ZoomAndPan",
       "parameters": {
         "_Start_Zoom": {
@@ -1807,8 +2162,35 @@
       }
     },
     {
-      "id": "sample-fx-038",
-      "trackId": "clip:selection-24",
+      "id": "sample-fx-035",
+      "trackId": "clip:selection-17",
+      "effectName": "Colorize",
+      "parameters": {
+        "_HueOffset": {
+          "floatValue": 0.12
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "reactive",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 1,
+          "parameters": [
+            "_HueOffset"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sample-fx-036",
+      "trackId": "clip:selection-18",
       "effectName": "ZoomAndPan",
       "parameters": {
         "_Start_Zoom": {
@@ -1825,6 +2207,58 @@
         },
         "_End_X": {
           "floatValue": 0.58
+        },
+        "_End_Y": {
+          "floatValue": 0.58
+        }
+      }
+    },
+    {
+      "id": "sample-fx-037",
+      "trackId": "clip:selection-18",
+      "effectName": "Colorize",
+      "parameters": {
+        "_HueOffset": {
+          "floatValue": 0.68
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "reactive",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 1,
+          "parameters": [
+            "_HueOffset"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sample-fx-038",
+      "trackId": "clip:selection-19",
+      "effectName": "ZoomAndPan",
+      "parameters": {
+        "_Start_Zoom": {
+          "floatValue": 0.23333333333333334
+        },
+        "_Start_X": {
+          "floatValue": 0.5
+        },
+        "_Start_Y": {
+          "floatValue": 0.42
+        },
+        "_End_Zoom": {
+          "floatValue": 0.2833333333333333
+        },
+        "_End_X": {
+          "floatValue": 0.5
         },
         "_End_Y": {
           "floatValue": 0.58
@@ -1833,32 +2267,34 @@
     },
     {
       "id": "sample-fx-039",
-      "trackId": "clip:selection-25",
-      "effectName": "ZoomAndPan",
+      "trackId": "clip:selection-19",
+      "effectName": "Colorize",
       "parameters": {
-        "_Start_Zoom": {
-          "floatValue": 0.23333333333333334
+        "_HueOffset": {
+          "floatValue": 0.12
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "reactive",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
         },
-        "_Start_X": {
-          "floatValue": 0.5
-        },
-        "_Start_Y": {
-          "floatValue": 0.42
-        },
-        "_End_Zoom": {
-          "floatValue": 0.2833333333333333
-        },
-        "_End_X": {
-          "floatValue": 0.5
-        },
-        "_End_Y": {
-          "floatValue": 0.58
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 1,
+          "parameters": [
+            "_HueOffset"
+          ]
         }
       }
     },
     {
       "id": "sample-fx-040",
-      "trackId": "clip:selection-26",
+      "trackId": "clip:selection-20",
       "effectName": "ZoomAndPan",
       "parameters": {
         "_Start_Zoom": {
@@ -1883,182 +2319,7 @@
     },
     {
       "id": "sample-fx-041",
-      "trackId": "clip:selection-27",
-      "effectName": "ZoomAndPan",
-      "parameters": {
-        "_Start_Zoom": {
-          "floatValue": 0
-        },
-        "_Start_X": {
-          "floatValue": 0.5
-        },
-        "_Start_Y": {
-          "floatValue": 0.5
-        },
-        "_End_Zoom": {
-          "floatValue": 0.06666666666666667
-        },
-        "_End_X": {
-          "floatValue": 0.42
-        },
-        "_End_Y": {
-          "floatValue": 0.5
-        }
-      }
-    },
-    {
-      "id": "sample-fx-042",
-      "trackId": "clip:selection-28",
-      "effectName": "ZoomAndPan",
-      "parameters": {
-        "_Start_Zoom": {
-          "floatValue": 0
-        },
-        "_Start_X": {
-          "floatValue": 0.5
-        },
-        "_Start_Y": {
-          "floatValue": 0.5
-        },
-        "_End_Zoom": {
-          "floatValue": 0.06666666666666667
-        },
-        "_End_X": {
-          "floatValue": 0.5
-        },
-        "_End_Y": {
-          "floatValue": 0.5
-        }
-      }
-    },
-    {
-      "id": "sample-fx-043",
-      "trackId": "clip:selection-29",
-      "effectName": "ZoomAndPan",
-      "parameters": {
-        "_Start_Zoom": {
-          "floatValue": 0
-        },
-        "_Start_X": {
-          "floatValue": 0.5
-        },
-        "_Start_Y": {
-          "floatValue": 0.5
-        },
-        "_End_Zoom": {
-          "floatValue": 0.06666666666666667
-        },
-        "_End_X": {
-          "floatValue": 0.58
-        },
-        "_End_Y": {
-          "floatValue": 0.5
-        }
-      }
-    },
-    {
-      "id": "sample-fx-044",
-      "trackId": "clip:selection-30",
-      "effectName": "ZoomAndPan",
-      "parameters": {
-        "_Start_Zoom": {
-          "floatValue": 0.23333333333333334
-        },
-        "_Start_X": {
-          "floatValue": 0.42
-        },
-        "_Start_Y": {
-          "floatValue": 0.42
-        },
-        "_End_Zoom": {
-          "floatValue": 0.2833333333333333
-        },
-        "_End_X": {
-          "floatValue": 0.58
-        },
-        "_End_Y": {
-          "floatValue": 0.58
-        }
-      }
-    },
-    {
-      "id": "sample-fx-045",
-      "trackId": "clip:selection-31",
-      "effectName": "ZoomAndPan",
-      "parameters": {
-        "_Start_Zoom": {
-          "floatValue": 0.23333333333333334
-        },
-        "_Start_X": {
-          "floatValue": 0.5
-        },
-        "_Start_Y": {
-          "floatValue": 0.42
-        },
-        "_End_Zoom": {
-          "floatValue": 0.2833333333333333
-        },
-        "_End_X": {
-          "floatValue": 0.5
-        },
-        "_End_Y": {
-          "floatValue": 0.58
-        }
-      }
-    },
-    {
-      "id": "sample-fx-046",
-      "trackId": "clip:selection-32",
-      "effectName": "ZoomAndPan",
-      "parameters": {
-        "_Start_Zoom": {
-          "floatValue": 0.23333333333333334
-        },
-        "_Start_X": {
-          "floatValue": 0.58
-        },
-        "_Start_Y": {
-          "floatValue": 0.42
-        },
-        "_End_Zoom": {
-          "floatValue": 0.2833333333333333
-        },
-        "_End_X": {
-          "floatValue": 0.42
-        },
-        "_End_Y": {
-          "floatValue": 0.58
-        }
-      }
-    },
-    {
-      "id": "sample-fx-047",
-      "trackId": "clip:selection-33",
-      "effectName": "ZoomAndPan",
-      "parameters": {
-        "_Start_Zoom": {
-          "floatValue": 0
-        },
-        "_Start_X": {
-          "floatValue": 0.5
-        },
-        "_Start_Y": {
-          "floatValue": 0.5
-        },
-        "_End_Zoom": {
-          "floatValue": 0.06666666666666667
-        },
-        "_End_X": {
-          "floatValue": 0.42
-        },
-        "_End_Y": {
-          "floatValue": 0.5
-        }
-      }
-    },
-    {
-      "id": "sample-fx-048",
-      "trackId": "clip:selection-33",
+      "trackId": "clip:selection-20",
       "effectName": "Colorize",
       "parameters": {
         "_HueOffset": {
@@ -2084,8 +2345,33 @@
       }
     },
     {
-      "id": "sample-fx-049",
-      "trackId": "clip:selection-34",
+      "id": "sample-fx-042",
+      "trackId": "clip:selection-21",
+      "effectName": "ZoomAndPan",
+      "parameters": {
+        "_Start_Zoom": {
+          "floatValue": 0
+        },
+        "_Start_X": {
+          "floatValue": 0.5
+        },
+        "_Start_Y": {
+          "floatValue": 0.5
+        },
+        "_End_Zoom": {
+          "floatValue": 0.06666666666666667
+        },
+        "_End_X": {
+          "floatValue": 0.42
+        },
+        "_End_Y": {
+          "floatValue": 0.5
+        }
+      }
+    },
+    {
+      "id": "sample-fx-043",
+      "trackId": "clip:selection-22",
       "effectName": "ZoomAndPan",
       "parameters": {
         "_Start_Zoom": {
@@ -2109,35 +2395,8 @@
       }
     },
     {
-      "id": "sample-fx-050",
-      "trackId": "clip:selection-34",
-      "effectName": "Colorize",
-      "parameters": {
-        "_HueOffset": {
-          "floatValue": 0.68
-        }
-      },
-      "animation": {
-        "enabled": true,
-        "mode": "reactive",
-        "clip": {
-          "motionIn": "Ease Out",
-          "motionOut": "Ease In",
-          "timing": "Normal"
-        },
-        "reactive": {
-          "motion": "Wobble",
-          "timing": "Normal",
-          "reactivity": 1,
-          "parameters": [
-            "_HueOffset"
-          ]
-        }
-      }
-    },
-    {
-      "id": "sample-fx-051",
-      "trackId": "clip:selection-35",
+      "id": "sample-fx-044",
+      "trackId": "clip:selection-23",
       "effectName": "ZoomAndPan",
       "parameters": {
         "_Start_Zoom": {
@@ -2161,17 +2420,88 @@
       }
     },
     {
-      "id": "sample-fx-052",
-      "trackId": "clip:selection-35",
-      "effectName": "Colorize",
+      "id": "sample-fx-045",
+      "trackId": "clip:selection-24",
+      "effectName": "ZoomAndPan",
       "parameters": {
-        "_HueOffset": {
-          "floatValue": 0.12
+        "_Start_Zoom": {
+          "floatValue": 0.23333333333333334
+        },
+        "_Start_X": {
+          "floatValue": 0.42
+        },
+        "_Start_Y": {
+          "floatValue": 0.42
+        },
+        "_End_Zoom": {
+          "floatValue": 0.2833333333333333
+        },
+        "_End_X": {
+          "floatValue": 0.58
+        },
+        "_End_Y": {
+          "floatValue": 0.58
+        }
+      }
+    },
+    {
+      "id": "sample-fx-046",
+      "trackId": "clip:selection-25",
+      "effectName": "ZoomAndPan",
+      "parameters": {
+        "_Start_Zoom": {
+          "floatValue": 0.23333333333333334
+        },
+        "_Start_X": {
+          "floatValue": 0.5
+        },
+        "_Start_Y": {
+          "floatValue": 0.42
+        },
+        "_End_Zoom": {
+          "floatValue": 0.2833333333333333
+        },
+        "_End_X": {
+          "floatValue": 0.5
+        },
+        "_End_Y": {
+          "floatValue": 0.58
+        }
+      }
+    },
+    {
+      "id": "sample-fx-047",
+      "trackId": "clip:selection-25",
+      "effectName": "Distortion",
+      "parameters": {
+        "_Type": {
+          "stringValue": "Fisheye"
+        },
+        "_Edges": {
+          "stringValue": "Mirror"
+        },
+        "_Amount": {
+          "floatValue": 0.8
+        },
+        "_Size": {
+          "floatValue": 1
+        },
+        "_Speed": {
+          "floatValue": 0
+        },
+        "_Angle": {
+          "floatValue": 0
+        },
+        "_CenterX": {
+          "floatValue": 0.5
+        },
+        "_CenterY": {
+          "floatValue": 0.5
         }
       },
       "animation": {
         "enabled": true,
-        "mode": "reactive",
+        "mode": "clip",
         "clip": {
           "motionIn": "Ease Out",
           "motionOut": "Ease In",
@@ -2180,16 +2510,154 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 1,
-          "parameters": [
-            "_HueOffset"
-          ]
+          "reactivity": 0.5,
+          "parameters": []
+        }
+      }
+    },
+    {
+      "id": "sample-fx-048",
+      "trackId": "clip:selection-26",
+      "effectName": "ZoomAndPan",
+      "parameters": {
+        "_Start_Zoom": {
+          "floatValue": 0.23333333333333334
+        },
+        "_Start_X": {
+          "floatValue": 0.58
+        },
+        "_Start_Y": {
+          "floatValue": 0.42
+        },
+        "_End_Zoom": {
+          "floatValue": 0.2833333333333333
+        },
+        "_End_X": {
+          "floatValue": 0.42
+        },
+        "_End_Y": {
+          "floatValue": 0.58
+        }
+      }
+    },
+    {
+      "id": "sample-fx-049",
+      "trackId": "clip:selection-26",
+      "effectName": "Refraction",
+      "parameters": {
+        "_Type": {
+          "stringValue": "Frosted Glass"
+        },
+        "_Amount": {
+          "floatValue": 0.6
+        },
+        "_Scale": {
+          "floatValue": 0.5
+        },
+        "_Speed": {
+          "floatValue": 0.2
+        },
+        "_Angle": {
+          "floatValue": 90
+        },
+        "_Dispersion": {
+          "floatValue": 0.3
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": []
+        }
+      }
+    },
+    {
+      "id": "sample-fx-050",
+      "trackId": "clip:selection-27",
+      "effectName": "ZoomAndPan",
+      "parameters": {
+        "_Start_Zoom": {
+          "floatValue": 0
+        },
+        "_Start_X": {
+          "floatValue": 0.5
+        },
+        "_Start_Y": {
+          "floatValue": 0.5
+        },
+        "_End_Zoom": {
+          "floatValue": 0.06666666666666667
+        },
+        "_End_X": {
+          "floatValue": 0.42
+        },
+        "_End_Y": {
+          "floatValue": 0.5
+        }
+      }
+    },
+    {
+      "id": "sample-fx-051",
+      "trackId": "clip:selection-28",
+      "effectName": "ZoomAndPan",
+      "parameters": {
+        "_Start_Zoom": {
+          "floatValue": 0
+        },
+        "_Start_X": {
+          "floatValue": 0.5
+        },
+        "_Start_Y": {
+          "floatValue": 0.5
+        },
+        "_End_Zoom": {
+          "floatValue": 0.06666666666666667
+        },
+        "_End_X": {
+          "floatValue": 0.5
+        },
+        "_End_Y": {
+          "floatValue": 0.5
+        }
+      }
+    },
+    {
+      "id": "sample-fx-052",
+      "trackId": "clip:selection-29",
+      "effectName": "ZoomAndPan",
+      "parameters": {
+        "_Start_Zoom": {
+          "floatValue": 0
+        },
+        "_Start_X": {
+          "floatValue": 0.5
+        },
+        "_Start_Y": {
+          "floatValue": 0.5
+        },
+        "_End_Zoom": {
+          "floatValue": 0.06666666666666667
+        },
+        "_End_X": {
+          "floatValue": 0.58
+        },
+        "_End_Y": {
+          "floatValue": 0.5
         }
       }
     },
     {
       "id": "sample-fx-053",
-      "trackId": "clip:selection-36",
+      "trackId": "clip:selection-30",
       "effectName": "ZoomAndPan",
       "parameters": {
         "_Start_Zoom": {
@@ -2214,16 +2682,31 @@
     },
     {
       "id": "sample-fx-054",
-      "trackId": "clip:selection-36",
-      "effectName": "Colorize",
+      "trackId": "clip:selection-30",
+      "effectName": "Refraction",
       "parameters": {
-        "_HueOffset": {
-          "floatValue": 0.68
+        "_Type": {
+          "stringValue": "Reeded Glass"
+        },
+        "_Amount": {
+          "floatValue": 0.5
+        },
+        "_Scale": {
+          "floatValue": 0.35
+        },
+        "_Speed": {
+          "floatValue": 0.2
+        },
+        "_Angle": {
+          "floatValue": 90
+        },
+        "_Dispersion": {
+          "floatValue": 0.3
         }
       },
       "animation": {
         "enabled": true,
-        "mode": "reactive",
+        "mode": "clip",
         "clip": {
           "motionIn": "Ease Out",
           "motionOut": "Ease In",
@@ -2232,16 +2715,14 @@
         "reactive": {
           "motion": "Wobble",
           "timing": "Normal",
-          "reactivity": 1,
-          "parameters": [
-            "_HueOffset"
-          ]
+          "reactivity": 0.5,
+          "parameters": []
         }
       }
     },
     {
       "id": "sample-fx-055",
-      "trackId": "clip:selection-37",
+      "trackId": "clip:selection-31",
       "effectName": "ZoomAndPan",
       "parameters": {
         "_Start_Zoom": {
@@ -2266,34 +2747,7 @@
     },
     {
       "id": "sample-fx-056",
-      "trackId": "clip:selection-37",
-      "effectName": "Colorize",
-      "parameters": {
-        "_HueOffset": {
-          "floatValue": 0.12
-        }
-      },
-      "animation": {
-        "enabled": true,
-        "mode": "reactive",
-        "clip": {
-          "motionIn": "Ease Out",
-          "motionOut": "Ease In",
-          "timing": "Normal"
-        },
-        "reactive": {
-          "motion": "Wobble",
-          "timing": "Normal",
-          "reactivity": 1,
-          "parameters": [
-            "_HueOffset"
-          ]
-        }
-      }
-    },
-    {
-      "id": "sample-fx-057",
-      "trackId": "clip:selection-38",
+      "trackId": "clip:selection-32",
       "effectName": "ZoomAndPan",
       "parameters": {
         "_Start_Zoom": {
@@ -2317,8 +2771,33 @@
       }
     },
     {
+      "id": "sample-fx-057",
+      "trackId": "clip:selection-33",
+      "effectName": "ZoomAndPan",
+      "parameters": {
+        "_Start_Zoom": {
+          "floatValue": 0
+        },
+        "_Start_X": {
+          "floatValue": 0.5
+        },
+        "_Start_Y": {
+          "floatValue": 0.5
+        },
+        "_End_Zoom": {
+          "floatValue": 0.06666666666666667
+        },
+        "_End_X": {
+          "floatValue": 0.42
+        },
+        "_End_Y": {
+          "floatValue": 0.5
+        }
+      }
+    },
+    {
       "id": "sample-fx-058",
-      "trackId": "clip:selection-38",
+      "trackId": "clip:selection-33",
       "effectName": "Colorize",
       "parameters": {
         "_HueOffset": {
@@ -2345,7 +2824,7 @@
     },
     {
       "id": "sample-fx-059",
-      "trackId": "clip:selection-39",
+      "trackId": "clip:selection-34",
       "effectName": "ZoomAndPan",
       "parameters": {
         "_Start_Zoom": {
@@ -2361,7 +2840,7 @@
           "floatValue": 0.06666666666666667
         },
         "_End_X": {
-          "floatValue": 0.42
+          "floatValue": 0.5
         },
         "_End_Y": {
           "floatValue": 0.5
@@ -2370,32 +2849,34 @@
     },
     {
       "id": "sample-fx-060",
-      "trackId": "clip:selection-40",
-      "effectName": "ZoomAndPan",
+      "trackId": "clip:selection-34",
+      "effectName": "Colorize",
       "parameters": {
-        "_Start_Zoom": {
-          "floatValue": 0
+        "_HueOffset": {
+          "floatValue": 0.68
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "reactive",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
         },
-        "_Start_X": {
-          "floatValue": 0.5
-        },
-        "_Start_Y": {
-          "floatValue": 0.5
-        },
-        "_End_Zoom": {
-          "floatValue": 0.06666666666666667
-        },
-        "_End_X": {
-          "floatValue": 0.5
-        },
-        "_End_Y": {
-          "floatValue": 0.5
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 1,
+          "parameters": [
+            "_HueOffset"
+          ]
         }
       }
     },
     {
       "id": "sample-fx-061",
-      "trackId": "clip:selection-41",
+      "trackId": "clip:selection-35",
       "effectName": "ZoomAndPan",
       "parameters": {
         "_Start_Zoom": {
@@ -2420,6 +2901,304 @@
     },
     {
       "id": "sample-fx-062",
+      "trackId": "clip:selection-35",
+      "effectName": "Colorize",
+      "parameters": {
+        "_HueOffset": {
+          "floatValue": 0.12
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "reactive",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 1,
+          "parameters": [
+            "_HueOffset"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sample-fx-063",
+      "trackId": "clip:selection-36",
+      "effectName": "ZoomAndPan",
+      "parameters": {
+        "_Start_Zoom": {
+          "floatValue": 0.23333333333333334
+        },
+        "_Start_X": {
+          "floatValue": 0.42
+        },
+        "_Start_Y": {
+          "floatValue": 0.42
+        },
+        "_End_Zoom": {
+          "floatValue": 0.2833333333333333
+        },
+        "_End_X": {
+          "floatValue": 0.58
+        },
+        "_End_Y": {
+          "floatValue": 0.58
+        }
+      }
+    },
+    {
+      "id": "sample-fx-064",
+      "trackId": "clip:selection-36",
+      "effectName": "Colorize",
+      "parameters": {
+        "_HueOffset": {
+          "floatValue": 0.68
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "reactive",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 1,
+          "parameters": [
+            "_HueOffset"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sample-fx-065",
+      "trackId": "clip:selection-37",
+      "effectName": "ZoomAndPan",
+      "parameters": {
+        "_Start_Zoom": {
+          "floatValue": 0.23333333333333334
+        },
+        "_Start_X": {
+          "floatValue": 0.5
+        },
+        "_Start_Y": {
+          "floatValue": 0.42
+        },
+        "_End_Zoom": {
+          "floatValue": 0.2833333333333333
+        },
+        "_End_X": {
+          "floatValue": 0.5
+        },
+        "_End_Y": {
+          "floatValue": 0.58
+        }
+      }
+    },
+    {
+      "id": "sample-fx-066",
+      "trackId": "clip:selection-37",
+      "effectName": "Colorize",
+      "parameters": {
+        "_HueOffset": {
+          "floatValue": 0.12
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "reactive",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 1,
+          "parameters": [
+            "_HueOffset"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sample-fx-067",
+      "trackId": "clip:selection-38",
+      "effectName": "ZoomAndPan",
+      "parameters": {
+        "_Start_Zoom": {
+          "floatValue": 0.23333333333333334
+        },
+        "_Start_X": {
+          "floatValue": 0.58
+        },
+        "_Start_Y": {
+          "floatValue": 0.42
+        },
+        "_End_Zoom": {
+          "floatValue": 0.2833333333333333
+        },
+        "_End_X": {
+          "floatValue": 0.42
+        },
+        "_End_Y": {
+          "floatValue": 0.58
+        }
+      }
+    },
+    {
+      "id": "sample-fx-068",
+      "trackId": "clip:selection-38",
+      "effectName": "Colorize",
+      "parameters": {
+        "_HueOffset": {
+          "floatValue": 0.4
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "reactive",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 1,
+          "parameters": [
+            "_HueOffset"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sample-fx-069",
+      "trackId": "clip:selection-39",
+      "effectName": "ZoomAndPan",
+      "parameters": {
+        "_Start_Zoom": {
+          "floatValue": 0
+        },
+        "_Start_X": {
+          "floatValue": 0.5
+        },
+        "_Start_Y": {
+          "floatValue": 0.5
+        },
+        "_End_Zoom": {
+          "floatValue": 0.06666666666666667
+        },
+        "_End_X": {
+          "floatValue": 0.42
+        },
+        "_End_Y": {
+          "floatValue": 0.5
+        }
+      }
+    },
+    {
+      "id": "sample-fx-070",
+      "trackId": "clip:selection-40",
+      "effectName": "ZoomAndPan",
+      "parameters": {
+        "_Start_Zoom": {
+          "floatValue": 0
+        },
+        "_Start_X": {
+          "floatValue": 0.5
+        },
+        "_Start_Y": {
+          "floatValue": 0.5
+        },
+        "_End_Zoom": {
+          "floatValue": 0.06666666666666667
+        },
+        "_End_X": {
+          "floatValue": 0.5
+        },
+        "_End_Y": {
+          "floatValue": 0.5
+        }
+      }
+    },
+    {
+      "id": "sample-fx-071",
+      "trackId": "clip:selection-40",
+      "effectName": "Refraction",
+      "parameters": {
+        "_Type": {
+          "stringValue": "Glass Blocks"
+        },
+        "_Amount": {
+          "floatValue": 0.5
+        },
+        "_Scale": {
+          "floatValue": 0.4
+        },
+        "_Speed": {
+          "floatValue": 0.2
+        },
+        "_Angle": {
+          "floatValue": 90
+        },
+        "_Dispersion": {
+          "floatValue": 0.3
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": []
+        }
+      }
+    },
+    {
+      "id": "sample-fx-072",
+      "trackId": "clip:selection-41",
+      "effectName": "ZoomAndPan",
+      "parameters": {
+        "_Start_Zoom": {
+          "floatValue": 0
+        },
+        "_Start_X": {
+          "floatValue": 0.5
+        },
+        "_Start_Y": {
+          "floatValue": 0.5
+        },
+        "_End_Zoom": {
+          "floatValue": 0.06666666666666667
+        },
+        "_End_X": {
+          "floatValue": 0.58
+        },
+        "_End_Y": {
+          "floatValue": 0.5
+        }
+      }
+    },
+    {
+      "id": "sample-fx-073",
       "trackId": "clip:selection-42",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -2444,7 +3223,7 @@
       }
     },
     {
-      "id": "sample-fx-063",
+      "id": "sample-fx-074",
       "trackId": "clip:selection-43",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -2469,7 +3248,7 @@
       }
     },
     {
-      "id": "sample-fx-064",
+      "id": "sample-fx-075",
       "trackId": "clip:selection-44",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -2494,7 +3273,53 @@
       }
     },
     {
-      "id": "sample-fx-065",
+      "id": "sample-fx-076",
+      "trackId": "clip:selection-44",
+      "effectName": "Distortion",
+      "parameters": {
+        "_Type": {
+          "stringValue": "Turbulence"
+        },
+        "_Edges": {
+          "stringValue": "Mirror"
+        },
+        "_Amount": {
+          "floatValue": 0.4
+        },
+        "_Size": {
+          "floatValue": 0.4
+        },
+        "_Speed": {
+          "floatValue": 0.6
+        },
+        "_Angle": {
+          "floatValue": 0
+        },
+        "_CenterX": {
+          "floatValue": 0.5
+        },
+        "_CenterY": {
+          "floatValue": 0.5
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": []
+        }
+      }
+    },
+    {
+      "id": "sample-fx-077",
       "trackId": "clip:selection-45",
       "effectName": "ZoomAndPan",
       "parameters": {
@@ -2519,7 +3344,7 @@
       }
     },
     {
-      "id": "sample-fx-066",
+      "id": "sample-fx-078",
       "trackId": "clip:order-3-0",
       "effectName": "Order",
       "parameters": {
@@ -2527,7 +3352,7 @@
           "stringValue": "Horizontal"
         },
         "ExcludedLayers": {
-          "stringValue": "background"
+          "stringValue": "background,audio"
         },
         "GridSize": {
           "floatValue": 2
@@ -2561,7 +3386,7 @@
       }
     },
     {
-      "id": "sample-fx-067",
+      "id": "sample-fx-079",
       "trackId": "clip:order-6-0",
       "effectName": "Order",
       "parameters": {
@@ -2569,7 +3394,7 @@
           "stringValue": "Vertical"
         },
         "ExcludedLayers": {
-          "stringValue": "background"
+          "stringValue": "background,audio"
         },
         "GridSize": {
           "floatValue": 2
@@ -2603,7 +3428,7 @@
       }
     },
     {
-      "id": "sample-fx-068",
+      "id": "sample-fx-080",
       "trackId": "clip:order-9-0",
       "effectName": "Order",
       "parameters": {
@@ -2611,7 +3436,7 @@
           "stringValue": "Horizontal"
         },
         "ExcludedLayers": {
-          "stringValue": "background"
+          "stringValue": "background,audio"
         },
         "GridSize": {
           "floatValue": 2
@@ -2645,7 +3470,7 @@
       }
     },
     {
-      "id": "sample-fx-069",
+      "id": "sample-fx-081",
       "trackId": "clip:order-15-0",
       "effectName": "Order",
       "parameters": {
@@ -2653,7 +3478,7 @@
           "stringValue": "Horizontal"
         },
         "ExcludedLayers": {
-          "stringValue": "background"
+          "stringValue": "background,audio"
         },
         "GridSize": {
           "floatValue": 2
@@ -2687,7 +3512,7 @@
       }
     },
     {
-      "id": "sample-fx-070",
+      "id": "sample-fx-082",
       "trackId": "clip:order-18-0",
       "effectName": "Order",
       "parameters": {
@@ -2695,7 +3520,7 @@
           "stringValue": "Vertical"
         },
         "ExcludedLayers": {
-          "stringValue": "background"
+          "stringValue": "background,audio"
         },
         "GridSize": {
           "floatValue": 2
@@ -2729,7 +3554,7 @@
       }
     },
     {
-      "id": "sample-fx-071",
+      "id": "sample-fx-083",
       "trackId": "clip:order-21-0",
       "effectName": "Order",
       "parameters": {
@@ -2737,7 +3562,7 @@
           "stringValue": "Horizontal"
         },
         "ExcludedLayers": {
-          "stringValue": "background"
+          "stringValue": "background,audio"
         },
         "GridSize": {
           "floatValue": 2
@@ -2771,7 +3596,7 @@
       }
     },
     {
-      "id": "sample-fx-072",
+      "id": "sample-fx-084",
       "trackId": "clip:order-22-5",
       "effectName": "Order",
       "parameters": {
@@ -2779,7 +3604,7 @@
           "stringValue": "Vertical"
         },
         "ExcludedLayers": {
-          "stringValue": "background"
+          "stringValue": "background,audio"
         },
         "GridSize": {
           "floatValue": 2
@@ -2813,7 +3638,7 @@
       }
     },
     {
-      "id": "sample-fx-073",
+      "id": "sample-fx-085",
       "trackId": "clip:order-24-0",
       "effectName": "Order",
       "parameters": {
@@ -2821,7 +3646,7 @@
           "stringValue": "Horizontal"
         },
         "ExcludedLayers": {
-          "stringValue": "background"
+          "stringValue": "background,audio"
         },
         "GridSize": {
           "floatValue": 2
@@ -2855,7 +3680,7 @@
       }
     },
     {
-      "id": "sample-fx-074",
+      "id": "sample-fx-086",
       "trackId": "clip:order-25-5",
       "effectName": "Order",
       "parameters": {
@@ -2863,7 +3688,7 @@
           "stringValue": "Vertical"
         },
         "ExcludedLayers": {
-          "stringValue": "background"
+          "stringValue": "background,audio"
         },
         "GridSize": {
           "floatValue": 2
@@ -2897,7 +3722,7 @@
       }
     },
     {
-      "id": "sample-fx-075",
+      "id": "sample-fx-087",
       "trackId": "clip:region-pixelate",
       "effectName": "Pixelate",
       "parameters": {
@@ -2907,7 +3732,7 @@
       }
     },
     {
-      "id": "sample-fx-076",
+      "id": "sample-fx-088",
       "trackId": "clip:region-pixelate",
       "effectName": "Move",
       "parameters": {
@@ -2959,7 +3784,7 @@
       }
     },
     {
-      "id": "sample-fx-077",
+      "id": "sample-fx-089",
       "trackId": "clip:region-pixelate",
       "effectName": "Transform",
       "parameters": {
@@ -2987,7 +3812,7 @@
       }
     },
     {
-      "id": "sample-fx-078",
+      "id": "sample-fx-090",
       "trackId": "clip:region-negativesplit",
       "effectName": "NegativeSplit",
       "parameters": {
@@ -3000,7 +3825,7 @@
       }
     },
     {
-      "id": "sample-fx-079",
+      "id": "sample-fx-091",
       "trackId": "clip:region-negativesplit",
       "effectName": "Move",
       "parameters": {
@@ -3052,7 +3877,7 @@
       }
     },
     {
-      "id": "sample-fx-080",
+      "id": "sample-fx-092",
       "trackId": "clip:region-negativesplit",
       "effectName": "Transform",
       "parameters": {
@@ -3080,7 +3905,7 @@
       }
     },
     {
-      "id": "sample-fx-081",
+      "id": "sample-fx-093",
       "trackId": "clip:region-analogglitch",
       "effectName": "AnalogGlitch",
       "parameters": {
@@ -3093,7 +3918,7 @@
       }
     },
     {
-      "id": "sample-fx-082",
+      "id": "sample-fx-094",
       "trackId": "clip:region-analogglitch",
       "effectName": "Move",
       "parameters": {
@@ -3145,7 +3970,7 @@
       }
     },
     {
-      "id": "sample-fx-083",
+      "id": "sample-fx-095",
       "trackId": "clip:region-analogglitch",
       "effectName": "Transform",
       "parameters": {
@@ -3173,7 +3998,7 @@
       }
     },
     {
-      "id": "sample-fx-084",
+      "id": "sample-fx-096",
       "trackId": "clip:text-open-zvid",
       "effectName": "Text",
       "parameters": {
@@ -3228,7 +4053,7 @@
       }
     },
     {
-      "id": "sample-fx-085",
+      "id": "sample-fx-097",
       "trackId": "clip:text-open-zvid",
       "effectName": "Transform",
       "parameters": {
@@ -3256,7 +4081,7 @@
       }
     },
     {
-      "id": "sample-fx-086",
+      "id": "sample-fx-098",
       "trackId": "clip:text-open-tagline",
       "effectName": "Text",
       "parameters": {
@@ -3326,7 +4151,7 @@
       }
     },
     {
-      "id": "sample-fx-087",
+      "id": "sample-fx-099",
       "trackId": "clip:text-open-tagline",
       "effectName": "Transform",
       "parameters": {
@@ -3354,7 +4179,7 @@
       }
     },
     {
-      "id": "sample-fx-088",
+      "id": "sample-fx-100",
       "trackId": "clip:text-capture",
       "effectName": "Text",
       "parameters": {
@@ -3424,7 +4249,7 @@
       }
     },
     {
-      "id": "sample-fx-089",
+      "id": "sample-fx-101",
       "trackId": "clip:text-capture",
       "effectName": "Move",
       "parameters": {
@@ -3476,7 +4301,7 @@
       }
     },
     {
-      "id": "sample-fx-090",
+      "id": "sample-fx-102",
       "trackId": "clip:text-edit",
       "effectName": "Text",
       "parameters": {
@@ -3546,7 +4371,7 @@
       }
     },
     {
-      "id": "sample-fx-091",
+      "id": "sample-fx-103",
       "trackId": "clip:text-edit",
       "effectName": "Transform",
       "parameters": {
@@ -3574,7 +4399,7 @@
       }
     },
     {
-      "id": "sample-fx-092",
+      "id": "sample-fx-104",
       "trackId": "clip:text-montage-zvid",
       "effectName": "Text",
       "parameters": {
@@ -3656,7 +4481,41 @@
       }
     },
     {
-      "id": "sample-fx-093",
+      "id": "sample-fx-105",
+      "trackId": "clip:text-montage-zvid",
+      "effectName": "Bloom",
+      "parameters": {
+        "_Threshold": {
+          "floatValue": 0.6
+        },
+        "_Intensity": {
+          "floatValue": 0.9
+        },
+        "_Radius": {
+          "floatValue": 0.5
+        },
+        "_Tint": {
+          "stringValue": "rgba(243,226,191,1)"
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "mode": "clip",
+        "clip": {
+          "motionIn": "Ease Out",
+          "motionOut": "Ease In",
+          "timing": "Normal"
+        },
+        "reactive": {
+          "motion": "Wobble",
+          "timing": "Normal",
+          "reactivity": 0.5,
+          "parameters": []
+        }
+      }
+    },
+    {
+      "id": "sample-fx-106",
       "trackId": "clip:fill-title-card",
       "effectName": "Color",
       "parameters": {
@@ -3672,7 +4531,7 @@
       }
     },
     {
-      "id": "sample-fx-094",
+      "id": "sample-fx-107",
       "trackId": "clip:fill-title-card",
       "effectName": "Caustics",
       "parameters": {
@@ -3697,7 +4556,7 @@
       }
     },
     {
-      "id": "sample-fx-095",
+      "id": "sample-fx-108",
       "trackId": "clip:text-card-zvid",
       "effectName": "Text",
       "parameters": {
@@ -3767,7 +4626,7 @@
       }
     },
     {
-      "id": "sample-fx-096",
+      "id": "sample-fx-109",
       "trackId": "clip:text-card-zvid",
       "effectName": "Transform",
       "parameters": {
@@ -3795,7 +4654,7 @@
       }
     },
     {
-      "id": "sample-fx-097",
+      "id": "sample-fx-110",
       "trackId": "clip:text-card-tagline",
       "effectName": "Text",
       "parameters": {
@@ -3865,7 +4724,7 @@
       }
     },
     {
-      "id": "sample-fx-098",
+      "id": "sample-fx-111",
       "trackId": "clip:text-card-tagline",
       "effectName": "Transform",
       "parameters": {
@@ -3893,8 +4752,8 @@
       }
     },
     {
-      "id": "sample-fx-099",
-      "trackId": "source-clip:source-span-music",
+      "id": "sample-fx-112",
+      "trackId": "clip:selection-46",
       "effectName": "Gain",
       "parameters": {
         "Gain": {
@@ -3906,163 +4765,621 @@
       }
     },
     {
-      "id": "sample-fx-100",
-      "trackId": "clip:selection-2",
-      "effectName": "DigitalGlitch",
+      "id": "sample-fx-113",
+      "trackId": "clip:selection-47",
+      "effectName": "Gain",
       "parameters": {
-        "_Amount": {
-          "floatValue": 0.25
-        },
-        "_BlockSize": {
-          "floatValue": 0.35
-        },
-        "_Displace": {
-          "floatValue": 0.4
-        },
-        "_ChannelShift": {
-          "floatValue": 0.5
-        },
-        "_ColorCrush": {
+        "Gain": {
           "floatValue": 0
         },
-        "_Rate": {
-          "floatValue": 12
-        }
-      },
-      "animation": {
-        "enabled": true,
-        "mode": "reactive",
-        "clip": {
-          "motionIn": "Ease Out",
-          "motionOut": "Ease In",
-          "timing": "Normal"
-        },
-        "reactive": {
-          "motion": "Bounce",
-          "timing": "Normal",
-          "reactivity": 0.6,
-          "parameters": [
-            "_Amount"
-          ]
+        "Mute": {
+          "floatValue": 0
         }
       }
     },
     {
-      "id": "sample-fx-101",
-      "trackId": "clip:text-montage-zvid",
-      "effectName": "Bloom",
+      "id": "sample-fx-114",
+      "trackId": "clip:selection-47",
+      "effectName": "Bitcrush",
       "parameters": {
-        "_Threshold": {
-          "floatValue": 0.6
+        "Bits": {
+          "floatValue": 5
         },
-        "_Intensity": {
-          "floatValue": 0.9
+        "Downsample": {
+          "floatValue": 8
         },
-        "_Radius": {
-          "floatValue": 0.5
-        },
-        "_Tint": {
-          "stringValue": "rgba(243,226,191,1)"
-        }
-      },
-      "animation": {
-        "enabled": true,
-        "mode": "clip",
-        "clip": {
-          "motionIn": "Ease Out",
-          "motionOut": "Ease In",
-          "timing": "Normal"
-        },
-        "reactive": {
-          "motion": "Wobble",
-          "timing": "Normal",
-          "reactivity": 0.5,
-          "parameters": []
+        "Mix": {
+          "floatValue": 1
         }
       }
     },
     {
-      "id": "sample-fx-102",
-      "trackId": "clip:selection-1",
-      "effectName": "Refraction",
+      "id": "sample-fx-115",
+      "trackId": "clip:selection-48",
+      "effectName": "Gain",
       "parameters": {
-        "_Type": {
-          "stringValue": "Water"
+        "Gain": {
+          "floatValue": 0
         },
-        "_Amount": {
-          "floatValue": 0.45
+        "Mute": {
+          "floatValue": 0
+        }
+      }
+    },
+    {
+      "id": "sample-fx-116",
+      "trackId": "clip:selection-48",
+      "effectName": "Phaser",
+      "parameters": {
+        "Rate": {
+          "floatValue": 2
         },
-        "_Scale": {
-          "floatValue": 0.4
-        },
-        "_Speed": {
-          "floatValue": 0.5
-        },
-        "_Angle": {
+        "Depth": {
           "floatValue": 90
         },
-        "_Dispersion": {
-          "floatValue": 0.2
-        }
-      },
-      "animation": {
-        "enabled": true,
-        "mode": "clip",
-        "clip": {
-          "motionIn": "Ease Out",
-          "motionOut": "Ease In",
-          "timing": "Normal"
+        "Stages": {
+          "stringValue": "8"
         },
-        "reactive": {
-          "motion": "Wobble",
-          "timing": "Normal",
-          "reactivity": 0.5,
-          "parameters": [
-            "_Amount"
-          ]
+        "Center": {
+          "floatValue": 1000
+        },
+        "Feedback": {
+          "floatValue": 60
+        },
+        "Mix": {
+          "floatValue": 50
         }
       }
     },
     {
-      "id": "sample-fx-103",
-      "trackId": "clip:selection-7",
-      "effectName": "Distortion",
+      "id": "sample-fx-117",
+      "trackId": "clip:selection-49",
+      "effectName": "Gain",
       "parameters": {
-        "_Type": {
-          "stringValue": "Twirl"
-        },
-        "_Edges": {
-          "stringValue": "Mirror"
-        },
-        "_Amount": {
-          "floatValue": 0.6
-        },
-        "_Size": {
-          "floatValue": 0.6
-        },
-        "_Speed": {
+        "Gain": {
           "floatValue": 0
         },
-        "_CenterX": {
-          "floatValue": 0.5
-        },
-        "_CenterY": {
-          "floatValue": 0.5
+        "Mute": {
+          "floatValue": 0
         }
-      },
-      "animation": {
-        "enabled": true,
-        "mode": "clip",
-        "clip": {
-          "motionIn": "Ease Out",
-          "motionOut": "Ease In",
-          "timing": "Normal"
+      }
+    },
+    {
+      "id": "sample-fx-118",
+      "trackId": "clip:selection-49",
+      "effectName": "Chorus",
+      "parameters": {
+        "Rate": {
+          "floatValue": 1.5
         },
-        "reactive": {
-          "motion": "Wobble",
-          "timing": "Normal",
-          "reactivity": 0.5,
-          "parameters": []
+        "Depth": {
+          "floatValue": 0.8
+        },
+        "Delay": {
+          "floatValue": 20
+        },
+        "Feedback": {
+          "floatValue": 0.3
+        },
+        "Spread": {
+          "floatValue": 1
+        },
+        "Mix": {
+          "floatValue": 0.6
+        }
+      }
+    },
+    {
+      "id": "sample-fx-119",
+      "trackId": "clip:selection-50",
+      "effectName": "Gain",
+      "parameters": {
+        "Gain": {
+          "floatValue": 0
+        },
+        "Mute": {
+          "floatValue": 0
+        }
+      }
+    },
+    {
+      "id": "sample-fx-120",
+      "trackId": "clip:selection-50",
+      "effectName": "Auto Pan",
+      "parameters": {
+        "Sync": {
+          "stringValue": "On"
+        },
+        "Note": {
+          "stringValue": "1/4"
+        },
+        "Depth": {
+          "floatValue": 1
+        },
+        "Shape": {
+          "stringValue": "Sine"
+        }
+      }
+    },
+    {
+      "id": "sample-fx-121",
+      "trackId": "clip:selection-51",
+      "effectName": "Gain",
+      "parameters": {
+        "Gain": {
+          "floatValue": 0
+        },
+        "Mute": {
+          "floatValue": 0
+        }
+      }
+    },
+    {
+      "id": "sample-fx-122",
+      "trackId": "clip:selection-51",
+      "effectName": "Tremolo",
+      "parameters": {
+        "Sync": {
+          "stringValue": "On"
+        },
+        "Note": {
+          "stringValue": "1/16"
+        },
+        "Depth": {
+          "floatValue": 0.8
+        },
+        "Shape": {
+          "stringValue": "Square"
+        }
+      }
+    },
+    {
+      "id": "sample-fx-123",
+      "trackId": "clip:selection-52",
+      "effectName": "Gain",
+      "parameters": {
+        "Gain": {
+          "floatValue": 0
+        },
+        "Mute": {
+          "floatValue": 0
+        }
+      }
+    },
+    {
+      "id": "sample-fx-124",
+      "trackId": "clip:selection-52",
+      "effectName": "Transient Shaper",
+      "parameters": {
+        "Attack": {
+          "floatValue": 1
+        },
+        "Sustain": {
+          "floatValue": -0.6
+        },
+        "Output": {
+          "floatValue": -3
+        }
+      }
+    },
+    {
+      "id": "sample-fx-125",
+      "trackId": "clip:selection-53",
+      "effectName": "Gain",
+      "parameters": {
+        "Gain": {
+          "floatValue": 0
+        },
+        "Mute": {
+          "floatValue": 0
+        }
+      }
+    },
+    {
+      "id": "sample-fx-126",
+      "trackId": "clip:selection-53",
+      "effectName": "Compressor",
+      "parameters": {
+        "Threshold": {
+          "floatValue": -30
+        },
+        "Ratio": {
+          "floatValue": 8
+        },
+        "Attack": {
+          "floatValue": 1
+        },
+        "Release": {
+          "floatValue": 80
+        },
+        "Knee": {
+          "floatValue": 3
+        },
+        "Makeup": {
+          "floatValue": 12
+        },
+        "Mix": {
+          "floatValue": 1
+        }
+      }
+    },
+    {
+      "id": "sample-fx-127",
+      "trackId": "clip:selection-54",
+      "effectName": "Gain",
+      "parameters": {
+        "Gain": {
+          "floatValue": 0
+        },
+        "Mute": {
+          "floatValue": 0
+        }
+      }
+    },
+    {
+      "id": "sample-fx-128",
+      "trackId": "clip:selection-54",
+      "effectName": "High Cut",
+      "parameters": {
+        "Frequency": {
+          "floatValue": 600
+        },
+        "Resonance": {
+          "floatValue": 0.7
+        },
+        "Slope": {
+          "stringValue": "24 dB/oct"
+        }
+      }
+    },
+    {
+      "id": "sample-fx-129",
+      "trackId": "clip:selection-55",
+      "effectName": "Gain",
+      "parameters": {
+        "Gain": {
+          "floatValue": 0
+        },
+        "Mute": {
+          "floatValue": 0
+        }
+      }
+    },
+    {
+      "id": "sample-fx-130",
+      "trackId": "clip:selection-55",
+      "effectName": "Low Cut",
+      "parameters": {
+        "Frequency": {
+          "floatValue": 1000
+        },
+        "Resonance": {
+          "floatValue": 0.7
+        },
+        "Slope": {
+          "stringValue": "24 dB/oct"
+        }
+      }
+    },
+    {
+      "id": "sample-fx-131",
+      "trackId": "clip:selection-56",
+      "effectName": "Gain",
+      "parameters": {
+        "Gain": {
+          "floatValue": 0
+        },
+        "Mute": {
+          "floatValue": 0
+        }
+      }
+    },
+    {
+      "id": "sample-fx-132",
+      "trackId": "clip:selection-56",
+      "effectName": "EQ",
+      "parameters": {
+        "Low Freq": {
+          "floatValue": 300
+        },
+        "Low Gain": {
+          "floatValue": -15
+        },
+        "Mid Freq": {
+          "floatValue": 1500
+        },
+        "Mid Gain": {
+          "floatValue": 3
+        },
+        "Mid Q": {
+          "floatValue": 1
+        },
+        "High Freq": {
+          "floatValue": 4000
+        },
+        "High Gain": {
+          "floatValue": -15
+        }
+      }
+    },
+    {
+      "id": "sample-fx-133",
+      "trackId": "clip:selection-57",
+      "effectName": "Gain",
+      "parameters": {
+        "Gain": {
+          "floatValue": 0
+        },
+        "Mute": {
+          "floatValue": 0
+        }
+      }
+    },
+    {
+      "id": "sample-fx-134",
+      "trackId": "clip:selection-57",
+      "effectName": "Saturation",
+      "parameters": {
+        "Drive": {
+          "floatValue": 18
+        },
+        "Type": {
+          "stringValue": "Tape"
+        },
+        "Tone": {
+          "floatValue": 8000
+        },
+        "Output": {
+          "floatValue": -8
+        },
+        "Mix": {
+          "floatValue": 1
+        }
+      }
+    },
+    {
+      "id": "sample-fx-135",
+      "trackId": "clip:selection-58",
+      "effectName": "Gain",
+      "parameters": {
+        "Gain": {
+          "floatValue": 0
+        },
+        "Mute": {
+          "floatValue": 0
+        }
+      }
+    },
+    {
+      "id": "sample-fx-136",
+      "trackId": "clip:selection-58",
+      "effectName": "Stereo",
+      "parameters": {
+        "Width": {
+          "floatValue": 200
+        },
+        "Pan": {
+          "floatValue": 40
+        }
+      }
+    },
+    {
+      "id": "sample-fx-137",
+      "trackId": "clip:selection-59",
+      "effectName": "Gain",
+      "parameters": {
+        "Gain": {
+          "floatValue": 0
+        },
+        "Mute": {
+          "floatValue": 0
+        }
+      }
+    },
+    {
+      "id": "sample-fx-138",
+      "trackId": "clip:selection-59",
+      "effectName": "Mono",
+      "parameters": {
+        "Source": {
+          "stringValue": "Sum"
+        },
+        "Amount": {
+          "floatValue": 1
+        }
+      }
+    },
+    {
+      "id": "sample-fx-139",
+      "trackId": "clip:selection-60",
+      "effectName": "Gain",
+      "parameters": {
+        "Gain": {
+          "floatValue": 0
+        },
+        "Mute": {
+          "floatValue": 0
+        }
+      }
+    },
+    {
+      "id": "sample-fx-140",
+      "trackId": "clip:selection-60",
+      "effectName": "Noise Gate",
+      "parameters": {
+        "Threshold": {
+          "floatValue": -20
+        },
+        "Attack": {
+          "floatValue": 0.5
+        },
+        "Hold": {
+          "floatValue": 10
+        },
+        "Release": {
+          "floatValue": 40
+        },
+        "Range": {
+          "floatValue": -80
+        }
+      }
+    },
+    {
+      "id": "sample-fx-141",
+      "trackId": "clip:selection-61",
+      "effectName": "Gain",
+      "parameters": {
+        "Gain": {
+          "floatValue": 0
+        },
+        "Mute": {
+          "floatValue": 0
+        }
+      }
+    },
+    {
+      "id": "sample-fx-142",
+      "trackId": "clip:selection-61",
+      "effectName": "De-ess",
+      "parameters": {
+        "Frequency": {
+          "floatValue": 3000
+        },
+        "Threshold": {
+          "floatValue": -45
+        },
+        "Amount": {
+          "floatValue": 24
+        },
+        "Listen": {
+          "stringValue": "Off"
+        }
+      }
+    },
+    {
+      "id": "sample-fx-143",
+      "trackId": "clip:selection-62",
+      "effectName": "Gain",
+      "parameters": {
+        "Gain": {
+          "floatValue": 0
+        },
+        "Mute": {
+          "floatValue": 0
+        }
+      }
+    },
+    {
+      "id": "sample-fx-144",
+      "trackId": "clip:selection-62",
+      "effectName": "Reverse",
+      "parameters": {}
+    },
+    {
+      "id": "sample-fx-145",
+      "trackId": "clip:selection-63",
+      "effectName": "Gain",
+      "parameters": {
+        "Gain": {
+          "floatValue": 0
+        },
+        "Mute": {
+          "floatValue": 0
+        }
+      }
+    },
+    {
+      "id": "sample-fx-146",
+      "trackId": "clip:selection-63",
+      "effectName": "Limiter",
+      "parameters": {
+        "Ceiling": {
+          "floatValue": -4
+        },
+        "Release": {
+          "floatValue": 50
+        },
+        "Lookahead": {
+          "floatValue": 5
+        },
+        "Gain": {
+          "floatValue": 9
+        }
+      }
+    },
+    {
+      "id": "sample-fx-147",
+      "trackId": "clip:selection-64",
+      "effectName": "Gain",
+      "parameters": {
+        "Gain": {
+          "floatValue": 0
+        },
+        "Mute": {
+          "floatValue": 0
+        }
+      }
+    },
+    {
+      "id": "sample-fx-148",
+      "trackId": "clip:selection-64",
+      "effectName": "Delay",
+      "parameters": {
+        "Sync": {
+          "stringValue": "On"
+        },
+        "Time": {
+          "floatValue": 375
+        },
+        "Note": {
+          "stringValue": "1/8D"
+        },
+        "Feedback": {
+          "floatValue": 0.5
+        },
+        "Ping-pong": {
+          "stringValue": "On"
+        },
+        "High cut": {
+          "floatValue": 6000
+        },
+        "Mix": {
+          "floatValue": 0.45
+        }
+      }
+    },
+    {
+      "id": "sample-fx-149",
+      "trackId": "clip:selection-65",
+      "effectName": "Gain",
+      "parameters": {
+        "Gain": {
+          "floatValue": 0
+        },
+        "Mute": {
+          "floatValue": 0
+        }
+      }
+    },
+    {
+      "id": "sample-fx-150",
+      "trackId": "clip:selection-65",
+      "effectName": "Reverb",
+      "parameters": {
+        "Decay": {
+          "floatValue": 6
+        },
+        "Pre-delay": {
+          "floatValue": 30
+        },
+        "Size": {
+          "floatValue": 0.9
+        },
+        "Damping": {
+          "floatValue": 6000
+        },
+        "Mix": {
+          "floatValue": 0.5
         }
       }
     }

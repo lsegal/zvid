@@ -8,6 +8,8 @@ import { expect, type Page, test } from "@playwright/test";
 const SAMPLE_MEDIA = "**/samples/opening-v2/*";
 const MUSIC_TRACK = "source-music";
 const MUSIC_ID = "zvid-sample:opening-v2:music";
+// The Audio layer plays the music as 20 two-beat selections.
+const MUSIC_SELECTIONS = 20;
 
 // Each load reads about 15 MB of media and analyzes it.
 test.describe.configure({ timeout: 120_000 });
@@ -26,8 +28,10 @@ async function probeAnalysers(page: Page) {
   });
 }
 
-// The mix's loudest RMS level over a few reads of the latest analyser, so a
-// read between buffers doesn't count.
+// The mix's loudest RMS level over a few reads of the VU meter's analysers,
+// the longest the mixer makes (about 340 ms, one per channel), so a read
+// between buffers or between the music's hits doesn't count. The music's
+// breaks and the selections' gating effects leave short windows silent.
 async function mixLevel(page: Page) {
   let level = 0;
   for (let read = 0; read < 6; read += 1) {
@@ -35,17 +39,24 @@ async function mixLevel(page: Page) {
       level,
       await page.evaluate(() => {
         const probe = window as unknown as { analysers: AnalyserNode[] };
-        const analyser = probe.analysers.at(-1);
-        if (!analyser) {
-          return 0;
-        }
-        const samples = new Float32Array(analyser.fftSize);
-        analyser.getFloatTimeDomainData(samples);
+        const longest = Math.max(
+          0,
+          ...probe.analysers.map((analyser) => analyser.fftSize),
+        );
+        const meter = probe.analysers.filter(
+          (analyser) => analyser.fftSize === longest,
+        );
         let total = 0;
-        for (const sample of samples) {
-          total += sample * sample;
+        let count = 0;
+        for (const analyser of meter) {
+          const samples = new Float32Array(analyser.fftSize);
+          analyser.getFloatTimeDomainData(samples);
+          for (const sample of samples) {
+            total += sample * sample;
+          }
+          count += samples.length;
         }
-        return Math.sqrt(total / samples.length);
+        return count ? Math.sqrt(total / count) : 0;
       }),
     );
     await page.waitForTimeout(50);
@@ -66,16 +77,23 @@ async function expectSampleOpen(page: Page) {
   await expect(page.getByText("Media linked")).toBeVisible({
     timeout: 60_000,
   });
-  for (const id of ["orbit", "ribbon", "corridor", "order", "fx-regions"]) {
+  for (const id of [
+    "orbit",
+    "ribbon",
+    "corridor",
+    "order",
+    "fx-regions",
+    "audio",
+  ]) {
     await expect(lane(page, id)).toHaveCount(1);
   }
-  // Its music is a source track of its own; the layers are silent video,
-  // so the Audio row shows the mix of the source tracks: the music.
+  // The Audio layer plays the music from its source track as two-beat
+  // selections, so the Audio row shows the mix of the layers: the music.
   await expect(
     page.locator(`[data-source-track-label-id="${MUSIC_TRACK}"]`),
   ).toContainText("Music");
   await expect(page.locator("[data-audio-row]")).toContainText(
-    "From source tracks · 1 clip",
+    `From layers · ${MUSIC_SELECTIONS} clips`,
   );
   await expect(
     page.getByRole("menuitem", { name: /Locate Offline Media/ }),
@@ -122,104 +140,148 @@ test("the sample plays its music through the clip mix", async ({ page }) => {
   await page.getByRole("button", { name: "Pause playback" }).click();
 });
 
-// Audio-reactive effects follow hits in the mix. The music's clip plays the
-// whole file from 0 s at 0 dB, so the mix hits on the same beats the music
-// did as the session's main audio.
-test("the sample's reactive hits land on the music's beats", async ({
+// The Audio layer's selections each play the music where it is in the file,
+// each through its own audio effect. With those effects bypassed, the mix
+// hits on the same beats the music does, so the selections play it in time
+// and audio-reactive effects follow it; with them on, every selection but
+// the first, clean one sounds different.
+test("the Audio layer plays the music in time through its effects", async ({
   page,
 }) => {
   await page.goto("/");
   await expect(page.locator("[data-timeline-lane-id]").first()).toBeVisible();
-  const { mixHits, musicHits } = await page.evaluate(async (musicId) => {
-    const load = (path: string) => import(/* @vite-ignore */ path);
-    const [
-      { OPENING_SAMPLE },
-      { buildSampleOpenPayload },
-      { sessionToProject },
-      { buildFallbackMediaItem },
-      { PALETTE },
-      { resolveAudioClips },
-      { renderAudioMixOffline },
-      { audioMixEndSeconds },
-      { OfflineAudioBands },
-    ] = await Promise.all([
-      load("/src/sample/opening-sample.ts"),
-      load("/src/sample/sample-loader.ts"),
-      load("/src/app/session-project.ts"),
-      load("/src/media.ts"),
-      load("/src/app/constants.ts"),
-      load("/src/audio-mix/resolve.ts"),
-      load("/src/audio-mix/offline.ts"),
-      load("/src/audio-mix/mix.ts"),
-      load("/src/fx-shaders/audio-bands.ts"),
-    ]);
-    const sampleRate = 48_000;
-    const asset = OPENING_SAMPLE.manifest.assets.find(
-      (candidate: { id: string }) => candidate.id === musicId,
-    );
-    const payload = buildSampleOpenPayload(
-      OPENING_SAMPLE.manifest,
-      OPENING_SAMPLE.sessionText,
-    );
-    const media = payload.mediaRefs.map((ref: unknown) =>
-      buildFallbackMediaItem(ref, PALETTE[0]),
-    );
-    const project = sessionToProject(payload.session, media);
-    const mix = resolveAudioClips({
-      clips: project.arrangementClips,
-      lanes: project.lanes,
-      sourceTracks: project.sourceTracks,
-      sourceSpans: project.sourceSpans,
-      mediaById: new Map(
-        media.map((item: { id: string }) => [
-          item.id,
-          { hasAudio: item.id === musicId },
-        ]),
-      ),
-      effects: project.effects,
-      bpm: project.bpm,
-    });
-    const mixed = await renderAudioMixOffline(
-      mix,
-      [{ id: musicId, previewUrl: asset.url }],
-      {
-        sampleRate,
-        numberOfChannels: 2,
-        startSeconds: 0,
-        length: Math.ceil(audioMixEndSeconds(mix) * sampleRate),
-      },
-    );
-    const context = new OfflineAudioContext(1, 1, sampleRate);
-    const music = await context.decodeAudioData(
-      await (await fetch(asset.url)).arrayBuffer(),
-    );
-
-    // The hits the reactive effects see over the first 10 s, in seconds on
-    // the bands' 60 Hz grid.
-    const hits = (channels: Float32Array[]) => {
-      const bands = OfflineAudioBands.fromChannels(channels, sampleRate);
-      const found = new Set<number>();
-      for (let tick = 0; tick <= 600; tick += 1) {
-        for (const onset of bands.at(tick / 60).onsets ?? []) {
-          found.add(Math.round((tick / 60 - onset.secondsAgo) * 60) / 60);
-        }
-      }
-      return [...found].sort((a, b) => a - b);
-    };
-    return {
-      mixHits: mixed ? hits(mixed) : [],
-      musicHits: hits(
-        Array.from({ length: music.numberOfChannels }, (_, channel) =>
-          music.getChannelData(channel),
+  const { bypassedHits, musicHits, sectionChanges } = await page.evaluate(
+    async ({ musicId, sections }) => {
+      const load = (path: string) => import(/* @vite-ignore */ path);
+      const [
+        { OPENING_SAMPLE },
+        { buildSampleOpenPayload },
+        { sessionToProject },
+        { buildFallbackMediaItem },
+        { PALETTE },
+        { resolveAudioClips },
+        { renderAudioMixOffline },
+        { audioMixEndSeconds },
+        { OfflineAudioBands },
+        { isAudioEffectName },
+      ] = await Promise.all([
+        load("/src/sample/opening-sample.ts"),
+        load("/src/sample/sample-loader.ts"),
+        load("/src/app/session-project.ts"),
+        load("/src/media.ts"),
+        load("/src/app/constants.ts"),
+        load("/src/audio-mix/resolve.ts"),
+        load("/src/audio-mix/offline.ts"),
+        load("/src/audio-mix/mix.ts"),
+        load("/src/fx-shaders/audio-bands.ts"),
+        load("/src/fx-registry.ts"),
+      ]);
+      const sampleRate = 48_000;
+      const asset = OPENING_SAMPLE.manifest.assets.find(
+        (candidate: { id: string }) => candidate.id === musicId,
+      );
+      const payload = buildSampleOpenPayload(
+        OPENING_SAMPLE.manifest,
+        OPENING_SAMPLE.sessionText,
+      );
+      const media = payload.mediaRefs.map((ref: unknown) =>
+        buildFallbackMediaItem(ref, PALETTE[0]),
+      );
+      const project = sessionToProject(payload.session, media);
+      type Effect = { effectName: string; enabled?: boolean };
+      const render = async (effects: Effect[]) => {
+        const mix = resolveAudioClips({
+          clips: project.arrangementClips,
+          lanes: project.lanes,
+          sourceTracks: project.sourceTracks,
+          sourceSpans: project.sourceSpans,
+          mediaById: new Map(
+            media.map((item: { id: string }) => [
+              item.id,
+              { hasAudio: item.id === musicId },
+            ]),
+          ),
+          effects,
+          bpm: project.bpm,
+        });
+        return (await renderAudioMixOffline(
+          mix,
+          [{ id: musicId, previewUrl: asset.url }],
+          {
+            sampleRate,
+            numberOfChannels: 2,
+            startSeconds: 0,
+            length: Math.ceil(audioMixEndSeconds(mix) * sampleRate),
+          },
+        )) as Float32Array[] | undefined;
+      };
+      const shown = await render(project.effects);
+      const bypassed = await render(
+        project.effects.map((effect: Effect) =>
+          isAudioEffectName(effect.effectName) && effect.effectName !== "Gain"
+            ? { ...effect, enabled: false }
+            : effect,
         ),
-      ),
-    };
-  }, MUSIC_ID);
+      );
+      const context = new OfflineAudioContext(1, 1, sampleRate);
+      const music = await context.decodeAudioData(
+        await (await fetch(asset.url)).arrayBuffer(),
+      );
+
+      // The hits the reactive effects see over the first 10 s, in seconds
+      // on the bands' 60 Hz grid.
+      const hits = (channels: Float32Array[]) => {
+        const bands = OfflineAudioBands.fromChannels(channels, sampleRate);
+        const found = new Set<number>();
+        for (let tick = 0; tick <= 600; tick += 1) {
+          for (const onset of bands.at(tick / 60).onsets ?? []) {
+            found.add(Math.round((tick / 60 - onset.secondsAgo) * 60) / 60);
+          }
+        }
+        return [...found].sort((a, b) => a - b);
+      };
+      // How far each selection's effect moves its sound: the RMS of the
+      // difference over the RMS of the music it plays.
+      const sectionLength = (30 * sampleRate) / sections;
+      const sectionChanges = Array.from({ length: sections }, (_, index) => {
+        let difference = 0;
+        let level = 0;
+        for (let channel = 0; channel < 2; channel += 1) {
+          const from = shown?.[channel] ?? new Float32Array();
+          const to = bypassed?.[channel] ?? new Float32Array();
+          for (
+            let sample = index * sectionLength;
+            sample < (index + 1) * sectionLength;
+            sample += 1
+          ) {
+            difference += ((from[sample] ?? 0) - (to[sample] ?? 0)) ** 2;
+            level += (to[sample] ?? 0) ** 2;
+          }
+        }
+        return level ? Math.sqrt(difference / level) : 0;
+      });
+      return {
+        bypassedHits: bypassed ? hits(bypassed) : [],
+        musicHits: hits(
+          Array.from({ length: music.numberOfChannels }, (_, channel) =>
+            music.getChannelData(channel),
+          ),
+        ),
+        sectionChanges,
+      };
+    },
+    { musicId: MUSIC_ID, sections: MUSIC_SELECTIONS },
+  );
 
   expect(musicHits.length).toBeGreaterThan(0);
   // The first hit is on the music's first beats.
   expect(musicHits[0]).toBeLessThan(3);
-  expect(mixHits).toEqual(musicHits);
+  expect(bypassedHits).toEqual(musicHits);
+  const [clean, ...changed] = sectionChanges;
+  expect(clean).toBeLessThan(1e-4);
+  for (const change of changed) {
+    expect(change).toBeGreaterThan(0.05);
+  }
 });
 
 test("an empty start opens the sample on its own", async ({ page }) => {

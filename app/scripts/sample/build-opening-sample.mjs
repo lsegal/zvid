@@ -12,6 +12,10 @@
 // effects, animation and titles are layers, FX clips and effects in the
 // session. Times are in seconds at 30 fps; the music is 80 BPM, so a 1.5 s
 // cut is two beats.
+//
+// It is also a tour of the effects: every video effect sits on a clip of
+// its own, and the music plays from the Audio layer as two-beat selections,
+// each through a different audio effect.
 
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -60,7 +64,7 @@ const MUSIC = {
 };
 
 // Layers, top first. The titles sit above the FX and Order layers, so no
-// effect or arrangement touches them.
+// effect or arrangement touches them. The Audio layer holds only the music.
 const LAYERS = [
   { id: "title-wordmark", name: "Title · zvid" },
   { id: "title-words", name: "Title · words" },
@@ -70,6 +74,7 @@ const LAYERS = [
   { id: "ribbon", name: "Ribbon" },
   { id: "corridor", name: "Corridor" },
   { id: "background", name: "Background" },
+  { id: "audio", name: "Audio" },
 ];
 const VIDEO_LAYERS = ["orbit", "ribbon", "corridor"];
 
@@ -208,8 +213,44 @@ function cut(layerId, sourceIndex, start, duration, inSeconds, label) {
 // Opening shots, each a single full-frame source.
 const openingShot = clipTrack(cut("corridor", 2, 0, 1.5, 0.5, "opening push"));
 zoomAndPan(openingShot, { zoom: 1 }, { zoom: 1.3 });
+// The opening push is seen through rippling water, easing in and out with
+// the clip.
+addEffect(
+  openingShot,
+  "Refraction",
+  {
+    _Type: "Water",
+    _Amount: 0.45,
+    _Scale: 0.4,
+    _Speed: 0.5,
+    _Angle: 90,
+    _Dispersion: 0.2,
+  },
+  { animation: animation("clip", {}, { parameters: ["_Amount"] }) },
+);
 const captureShot = clipTrack(cut("orbit", 0, 1.5, 1.5, 2, "capture"));
 zoomAndPan(captureShot, { zoom: 1.25, x: 0.45 }, { zoom: 1.05, x: 0.55 });
+// The music's hits break the orbit under "capture" into blocky digital
+// glitches, while the music is bitcrushed beneath them.
+addEffect(
+  captureShot,
+  "DigitalGlitch",
+  {
+    _Amount: 0.25,
+    _BlockSize: 0.35,
+    _Displace: 0.4,
+    _ChannelShift: 0.5,
+    _ColorCrush: 0,
+    _Rate: 12,
+  },
+  {
+    animation: animation(
+      "reactive",
+      {},
+      { motion: "Bounce", reactivity: 0.6, parameters: ["_Amount"] },
+    ),
+  },
+);
 
 // The three-ups: every 1.5 s each video layer cuts to a new source, in-point
 // and crop, and the sources rotate between the panels. Odd cuts crop tight.
@@ -218,8 +259,49 @@ const THREE_UPS = [
 ];
 const REACTIVE_COLOR = (start) =>
   (start >= 9 && start < 12) || (start >= 21 && start < 24);
-// Each three-up panel's clip track, keyed by layer and start.
-const threeUpShots = new Map();
+// One panel of a three-up shows off a Distortion or Refraction type, each
+// easing in and back out with its clip. Keyed by layer and start; the
+// reactive Colorize passages are left to Colorize.
+const distortion = (type, parameters) => [
+  "Distortion",
+  {
+    _Type: type,
+    _Edges: "Mirror",
+    _Amount: 0.5,
+    _Size: 0.6,
+    _Speed: 0,
+    _Angle: 0,
+    _CenterX: 0.5,
+    _CenterY: 0.5,
+    ...parameters,
+  },
+];
+const refraction = (type, parameters) => [
+  "Refraction",
+  {
+    _Type: type,
+    _Amount: 0.5,
+    _Scale: 0.5,
+    _Speed: 0.2,
+    _Angle: 90,
+    _Dispersion: 0.3,
+    ...parameters,
+  },
+];
+const PANEL_EFFECTS = new Map([
+  ["orbit 3", distortion("Wave", { _Amount: 0.4, _Size: 0.5, _Speed: 0.5 })],
+  ["ribbon 4.5", distortion("Twirl", { _Amount: 0.6 })],
+  ["corridor 6", distortion("Bulge", { _Amount: 0.7, _Size: 0.7 })],
+  ["orbit 7.5", distortion("Ripple", { _Amount: 0.4, _Speed: 0.6 })],
+  ["ribbon 16.5", distortion("Fisheye", { _Amount: 0.8, _Size: 1 })],
+  ["corridor 16.5", refraction("Frosted Glass", { _Amount: 0.6 })],
+  ["orbit 19.5", refraction("Reeded Glass", { _Scale: 0.35 })],
+  ["ribbon 24", refraction("Glass Blocks", { _Scale: 0.4 })],
+  [
+    "corridor 25.5",
+    distortion("Turbulence", { _Amount: 0.4, _Size: 0.4, _Speed: 0.6 }),
+  ],
+]);
 THREE_UPS.forEach((start, cutIndex) => {
   VIDEO_LAYERS.forEach((layerId, panel) => {
     const sourceIndex = (panel + cutIndex) % SOURCES.length;
@@ -233,7 +315,6 @@ THREE_UPS.forEach((start, cutIndex) => {
       inSeconds,
       `${start.toFixed(1)} s · ${tight ? "tight crop" : "wide"}`,
     );
-    threeUpShots.set(`${layerId} ${start}`, clipTrack(clipId));
     const drift = (panel - 1) * 0.08;
     zoomAndPan(
       clipTrack(clipId),
@@ -258,6 +339,13 @@ THREE_UPS.forEach((start, cutIndex) => {
           ),
         },
       );
+    }
+    const panelEffect = PANEL_EFFECTS.get(`${layerId} ${start}`);
+    if (panelEffect) {
+      const [effectName, parameters] = panelEffect;
+      addEffect(clipTrack(clipId), effectName, parameters, {
+        animation: animation("clip"),
+      });
     }
   });
 });
@@ -312,8 +400,9 @@ for (const [start, duration, arrangement] of ARRANGEMENTS) {
     {
       Arrangement: arrangement,
       // The titles are above the Order already; the background is left out
-      // so it would fill the frame behind the arrangement.
-      ExcludedLayers: "background",
+      // so it would fill the frame behind the arrangement, and the Audio
+      // layer so its music takes no panel.
+      ExcludedLayers: "background,audio",
       GridSize: 2,
       Spacing: 108,
       Margin: 108,
@@ -465,6 +554,18 @@ const montageWordmark = text(
   },
   { animation: fadeIn("Normal") },
 );
+// Its letters bloom in an ivory glow.
+addEffect(
+  montageWordmark,
+  "Bloom",
+  { _Threshold: 0.6, _Intensity: 0.9, _Radius: 0.5, _Tint: IVORY },
+  {
+    animation: animation("clip", {
+      motionIn: "Ease Out",
+      motionOut: "Ease In",
+    }),
+  },
+);
 
 // 27–30 s: the ivory title card.
 const card = layerClip("fills", "fill-title-card", "background", 27, 3);
@@ -515,102 +616,121 @@ addEffect(
 
 // ---- music ---------------------------------------------------------------
 
-// The music is a source track of its own: one clip of the whole file from
-// time 0, sounding through a Gain at 0 dB. The layers hold only the silent
-// video sources, fills, text and FX, so the mix plays it from the source
-// tracks.
+// The music is a source track of its own, and the Audio layer plays it as
+// consecutive two-beat selections covering the whole 30 s. Each selection's
+// clip sounds through a Gain at 0 dB and one audio effect, set to be heard
+// without clipping, so the music runs on through a tour of every audio
+// effect, the first two beats clean. With the music on a layer, the mix
+// plays only the layer clips, so the source track itself stays silent.
+// Each selection's span on the source track is named after its effect.
 const MUSIC_TRACK = `source-${MUSIC.key}`;
-const MUSIC_SPAN = `span-${MUSIC.key}`;
 sourceTracks.push({
   id: MUSIC_TRACK,
   name: "Music",
   colorIndex: sourceTracks.length,
   recordings: [{ filename: samplePath(MUSIC.file) }],
 });
-spans.push({
-  id: MUSIC_SPAN,
-  trackId: MUSIC_TRACK,
-  name: "Music",
-  frameStart: 0,
-  frameCount: frames(DURATION_SECONDS),
-  clipStart: 0,
-  frameOffset: 0,
-  filePath: samplePath(MUSIC.file),
+const MUSIC_SECTIONS = [
+  // 0–1.5 s: the opening push, clean.
+  ["Clean"],
+  // 1.5–3 s: crushed under the digital glitches.
+  ["Bitcrush", { Bits: 5, Downsample: 8, Mix: 1 }],
+  // 3–9 s: the Distortion three-ups.
+  [
+    "Phaser",
+    { Rate: 2, Depth: 90, Stages: "8", Center: 1000, Feedback: 60, Mix: 50 },
+  ],
+  [
+    "Chorus",
+    { Rate: 1.5, Depth: 0.8, Delay: 20, Feedback: 0.3, Spread: 1, Mix: 0.6 },
+  ],
+  ["Auto Pan", { Sync: "On", Note: "1/4", Depth: 1, Shape: "Sine" }],
+  ["Tremolo", { Sync: "On", Note: "1/16", Depth: 0.8, Shape: "Square" }],
+  // 9–12 s: the reactive Colorize, which the sharpened hits drive harder.
+  ["Transient Shaper", { Attack: 1, Sustain: -0.6, Output: -3 }],
+  [
+    "Compressor",
+    {
+      Threshold: -30,
+      Ratio: 8,
+      Attack: 1,
+      Release: 80,
+      Knee: 3,
+      Makeup: 12,
+      Mix: 1,
+    },
+  ],
+  // 12–15 s: "edit" and the Pixelate window.
+  ["High Cut", { Frequency: 600, Resonance: 0.7, Slope: "24 dB/oct" }],
+  ["Low Cut", { Frequency: 1000, Resonance: 0.7, Slope: "24 dB/oct" }],
+  // 15–21 s: Negative Split, Analog Glitch and the glass three-ups.
+  [
+    "EQ",
+    {
+      "Low Freq": 300,
+      "Low Gain": -15,
+      "Mid Freq": 1500,
+      "Mid Gain": 3,
+      "Mid Q": 1,
+      "High Freq": 4000,
+      "High Gain": -15,
+    },
+  ],
+  ["Saturation", { Drive: 18, Type: "Tape", Tone: 8000, Output: -8, Mix: 1 }],
+  ["Stereo", { Width: 200, Pan: 40 }],
+  ["Mono", { Source: "Sum", Amount: 1 }],
+  // 21–24 s: the reactive Colorize again, gated on its hits.
+  [
+    "Noise Gate",
+    { Threshold: -20, Attack: 0.5, Hold: 10, Release: 40, Range: -80 },
+  ],
+  ["De-ess", { Frequency: 3000, Threshold: -45, Amount: 24, Listen: "Off" }],
+  // 24–27 s: the wordmark returns.
+  ["Reverse", {}],
+  ["Limiter", { Ceiling: -4, Release: 50, Lookahead: 5, Gain: 9 }],
+  // 27–30 s: echoes and a wash of reverb into the title card.
+  [
+    "Delay",
+    {
+      Sync: "On",
+      Time: 375,
+      Note: "1/8D",
+      Feedback: 0.5,
+      "Ping-pong": "On",
+      "High cut": 6000,
+      Mix: 0.45,
+    },
+  ],
+  ["Reverb", { Decay: 6, "Pre-delay": 30, Size: 0.9, Damping: 6000, Mix: 0.5 }],
+];
+const MUSIC_SECTION_SECONDS = DURATION_SECONDS / MUSIC_SECTIONS.length;
+MUSIC_SECTIONS.forEach(([name, parameters], index) => {
+  const start = index * MUSIC_SECTION_SECONDS;
+  const spanId = `span-${MUSIC.key}-${String(index + 1).padStart(2, "0")}`;
+  spans.push({
+    id: spanId,
+    trackId: MUSIC_TRACK,
+    name: `Music · ${name}`,
+    frameStart: frames(start),
+    frameCount: frames(MUSIC_SECTION_SECONDS),
+    clipStart: frames(start),
+    frameOffset: 0,
+    filePath: samplePath(MUSIC.file),
+  });
+  const id = selections.length + 1;
+  selections.push({
+    id,
+    trackId: MUSIC_TRACK,
+    mainTrackId: "audio",
+    frameStart: frames(start),
+    frameEnd: frames(start + MUSIC_SECTION_SECONDS),
+  });
+  const clip = clipTrack(`selection-${id}`);
+  addEffect(clip, "Gain", { Gain: 0, Mute: 0 });
+  if (parameters) {
+    addEffect(clip, name, parameters);
+  }
 });
-// A session clip loads as source clip `source-<id>`, whose stack this is.
-addEffect(`source-clip:source-${MUSIC_SPAN}`, "Gain", { Gain: 0, Mute: 0 });
-
-// ---- added effects -------------------------------------------------------
-
-// Effects added after the sample was first laid out, last so the ids of
-// the effects above stay put.
-
-// 1.5–3 s: the music's hits break the orbit under "capture" into blocky
-// digital glitches.
-addEffect(
-  captureShot,
-  "DigitalGlitch",
-  {
-    _Amount: 0.25,
-    _BlockSize: 0.35,
-    _Displace: 0.4,
-    _ChannelShift: 0.5,
-    _ColorCrush: 0,
-    _Rate: 12,
-  },
-  {
-    animation: animation(
-      "reactive",
-      {},
-      { motion: "Bounce", reactivity: 0.6, parameters: ["_Amount"] },
-    ),
-  },
-);
-
-// 24–27 s: the returning wordmark's letters bloom in an ivory glow.
-addEffect(
-  montageWordmark,
-  "Bloom",
-  { _Threshold: 0.6, _Intensity: 0.9, _Radius: 0.5, _Tint: IVORY },
-  {
-    animation: animation("clip", {
-      motionIn: "Ease Out",
-      motionOut: "Ease In",
-    }),
-  },
-);
-
-// 0–1.5 s: the opening push is seen through rippling water, easing in and
-// out with the clip.
-addEffect(
-  openingShot,
-  "Refraction",
-  {
-    _Type: "Water",
-    _Amount: 0.45,
-    _Scale: 0.4,
-    _Speed: 0.5,
-    _Angle: 90,
-    _Dispersion: 0.2,
-  },
-  { animation: animation("clip", {}, { parameters: ["_Amount"] }) },
-);
-
-// 4.5–6 s: the middle panel of the three-up twirls in and back out.
-addEffect(
-  threeUpShots.get("ribbon 4.5"),
-  "Distortion",
-  {
-    _Type: "Twirl",
-    _Edges: "Mirror",
-    _Amount: 0.6,
-    _Size: 0.6,
-    _Speed: 0,
-    _CenterX: 0.5,
-    _CenterY: 0.5,
-  },
-  { animation: animation("clip") },
-);
 
 // ---- session -------------------------------------------------------------
 
@@ -638,7 +758,7 @@ const session = {
   playStartPosition: 0,
   orderDefaulted: true,
   clipContentEffects: true,
-  // Its stacks open as written: only the music's clip has a Gain.
+  // Its stacks open as written: only the music's clips have a Gain.
   audioGainDefaulted: true,
 };
 
