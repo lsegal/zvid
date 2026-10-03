@@ -149,8 +149,12 @@ test("submenus keep their own Left/Right keys", async ({ page }) => {
   const edit = trigger(page, "Edit");
   await edit.click();
   const audio = page.getByRole("menuitem", { name: /^Audio/ });
-  await audio.hover();
+  // Focus Audio without the pointer: hovering a submenu trigger starts
+  // Radix's 100ms open timer, which opening with Right doesn't cancel, so it
+  // could reopen the submenu just after Left closes it and take focus.
+  await audio.focus();
   await expect(audio).toBeFocused();
+  await expect(page.getByRole("menu")).toHaveCount(1);
 
   // Right on a submenu trigger opens its submenu rather than Help.
   await page.keyboard.press("ArrowRight");
