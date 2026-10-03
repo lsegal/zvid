@@ -308,10 +308,16 @@ describe("zvid opening sample", () => {
       /^"Just Nasty" by Kevin MacLeod \(incompetech\.com\), licensed under CC BY 4\.0 /,
     );
     const credits = readFileSync(
-      new URL(`../../public${OPENING_SAMPLE_MANIFEST.creditsUrl}`, import.meta.url),
+      new URL(
+        `../../public${OPENING_SAMPLE_MANIFEST.creditsUrl}`,
+        import.meta.url,
+      ),
       "utf8",
     );
-    assert.match(credits, /^"Just Nasty" by Kevin MacLeod \(incompetech\.com\)$/m);
+    assert.match(
+      credits,
+      /^"Just Nasty" by Kevin MacLeod \(incompetech\.com\)$/m,
+    );
     assert.match(credits, /^`just-nasty-30s\.m4a` is the excerpt/m);
   });
 
