@@ -328,6 +328,7 @@ describe("addableEffectsFor", () => {
         "AnalogGlitch",
         "Distortion",
         "DigitalGlitch",
+        "Bloom",
         "Order",
       ]),
     );
@@ -349,6 +350,7 @@ describe("addableEffectsFor", () => {
         "AnalogGlitch",
         "Distortion",
         "DigitalGlitch",
+        "Bloom",
         "Transform",
         "Move",
         "Color",
