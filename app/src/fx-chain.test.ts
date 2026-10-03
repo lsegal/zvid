@@ -22,6 +22,7 @@ import {
   knobColumnCount,
   readCollapsedDevices,
   resolveSelectedLaneId,
+  SOURCE_CLIP_COLLAPSE_KEY,
   splitDeviceParameters,
   splitKnobRows,
   stepSelectedLaneId,
@@ -595,6 +596,24 @@ describe("collapsed device storage", () => {
     );
     assert.deepEqual(Array.from(toggleCollapsedDevice(collapsed, "fx-1")), []);
     assert.deepEqual(Array.from(collapsed), ["fx-1"]);
+  });
+
+  it("stores the Clip widget's fold beside the devices'", () => {
+    const storage = memoryStorage();
+    const collapsed = toggleCollapsedDevice(
+      new Set(["fx-1"]),
+      SOURCE_CLIP_COLLAPSE_KEY,
+    );
+    writeCollapsedDevices(storage, collapsed);
+    const restored = readCollapsedDevices(storage);
+    assert.ok(restored.has(SOURCE_CLIP_COLLAPSE_KEY));
+    assert.ok(restored.has("fx-1"));
+    assert.equal(
+      toggleCollapsedDevice(restored, SOURCE_CLIP_COLLAPSE_KEY).has(
+        SOURCE_CLIP_COLLAPSE_KEY,
+      ),
+      false,
+    );
   });
 });
 
