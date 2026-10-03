@@ -13,6 +13,7 @@ import {
   MEDIA_DRAWER_MIN_WIDTH,
   middleEllipsis,
   parseMediaDrawerPrefs,
+  selectMediaDrawerTab,
   THUMBNAIL_SIZE_MAX,
   THUMBNAIL_SIZE_MIN,
 } from "./media-drawer-model.ts";
@@ -151,6 +152,37 @@ describe("media drawer prefs", () => {
     assert.equal(getListIconSize(THUMBNAIL_SIZE_MIN), 16);
     assert.equal(getListIconSize(THUMBNAIL_SIZE_MAX), 48);
     assert.equal(getListIconSize(160), 32);
+  });
+});
+
+describe("media drawer tab switch", () => {
+  // Closed on the Media tab.
+  const closed = DEFAULT_MEDIA_DRAWER_PREFS;
+
+  it("opens a closed drawer on the clicked tab", () => {
+    assert.deepEqual(selectMediaDrawerTab(closed, "record"), {
+      ...closed,
+      open: true,
+      tab: "record",
+    });
+    assert.deepEqual(
+      selectMediaDrawerTab({ ...closed, tab: "record" }, "record"),
+      { ...closed, open: true, tab: "record" },
+    );
+  });
+
+  it("switches an open drawer to the other tab", () => {
+    assert.deepEqual(
+      selectMediaDrawerTab({ ...closed, open: true, tab: "record" }, "media"),
+      { ...closed, open: true, tab: "media" },
+    );
+  });
+
+  it("closes the drawer from its open tab and keeps the tab", () => {
+    assert.deepEqual(
+      selectMediaDrawerTab({ ...closed, open: true, tab: "record" }, "record"),
+      { ...closed, open: false, tab: "record" },
+    );
   });
 });
 

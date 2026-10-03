@@ -18,6 +18,7 @@ import {
   type MediaDrawerTab,
   type MediaDrawerView,
   parseMediaDrawerPrefs,
+  selectMediaDrawerTab,
 } from "../components/media/media-drawer-model.ts";
 
 function readMediaDrawerPrefs() {
@@ -68,14 +69,12 @@ export function useMediaDrawer({ editorGridWidth }: MediaDrawerInputs) {
   const setOpen = useCallback((open: boolean) => {
     setPrefs((current) => ({ ...current, open }));
   }, []);
-  const toggleOpen = useCallback(() => {
-    setPrefs((current) => ({ ...current, open: !current.open }));
-  }, []);
-  const setTab = useCallback((tab: MediaDrawerTab) => {
+  // The toolbar's Media | Record switch opens, switches or closes the drawer.
+  const selectTab = useCallback((tab: MediaDrawerTab) => {
     if (tab === "record") {
       setRecordRequested(true);
     }
-    setPrefs((current) => ({ ...current, tab }));
+    setPrefs((current) => selectMediaDrawerTab(current, tab));
   }, []);
   const setView = useCallback((view: MediaDrawerView) => {
     setPrefs((current) => ({ ...current, view }));
@@ -160,9 +159,8 @@ export function useMediaDrawer({ editorGridWidth }: MediaDrawerInputs) {
   return {
     isOpen: prefs.open,
     setOpen,
-    toggleOpen,
     tab: prefs.tab,
-    setTab,
+    selectTab,
     recordRequested,
     requestRecordInputs: () => setRecordRequested(true),
     view: prefs.view,

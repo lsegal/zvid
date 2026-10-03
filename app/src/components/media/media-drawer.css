@@ -83,13 +83,9 @@
 .media-drawer__header {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
   padding: 10px 10px 6px 14px;
-}
-
-/* The Media / Record tabs push the view toggle and close button right. */
-.media-drawer__tabs {
-  margin-right: auto;
 }
 
 .media-drawer__record {

@@ -38,10 +38,6 @@ import { RecordTab } from "./RecordTab";
 import "./media-drawer.css";
 
 export const MEDIA_DRAWER_ID = "media-drawer";
-const MEDIA_DRAWER_TABS = [
-  { tab: "media", label: "Media" },
-  { tab: "record", label: "Record" },
-] as const;
 // Frames are decoded once at the largest tile size and scaled down, so moving
 // the slider never starts a decode.
 const THUMBNAIL_DECODE_WIDTH = THUMBNAIL_SIZE_MAX;
@@ -115,7 +111,8 @@ function countColumns(listbox: HTMLElement) {
 // The Media drawer at the left of the timeline: every linked media item in a
 // Finder-like icon or list view, with search, a thumbnail size slider, the
 // item count and the selected item's details, plus the handle that resizes
-// it. Its Record tab sets the default camera and mic to record from.
+// it. Its Record tab, picked from the timeline toolbar's Media | Record
+// switch, sets the default camera and mic to record from.
 export function MediaDrawer({
   drawer,
   mediaItems,
@@ -347,24 +344,6 @@ export function MediaDrawer({
       >
         <div className="media-drawer__panel">
           <div className="media-drawer__header">
-            <div
-              aria-label="Media drawer"
-              className="segmented-control media-drawer__tabs"
-              role="tablist"
-            >
-              {MEDIA_DRAWER_TABS.map((option) => (
-                <button
-                  aria-selected={tab === option.tab}
-                  className={tab === option.tab ? "is-active" : ""}
-                  key={option.tab}
-                  onClick={() => drawer.setTab(option.tab)}
-                  role="tab"
-                  type="button"
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
             {tab === "media" ? (
               <div className="segmented-control">
                 {(["icons", "list"] as const).map((option) => (
