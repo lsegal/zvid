@@ -8,9 +8,9 @@
 // `--check` fails when either file doesn't match what would be written.
 //
 // Everything the sample shows is native zvid editing: the three sources are
-// clean clips on their own layers, cut every 1.5 s, and the arrangements,
-// effects, animation and titles are layers, FX clips and effects in the
-// session. Times are in seconds at 30 fps; the music is 80 BPM, so a 1.5 s
+// clean clips on their own layers, cut every 1.5 s from one clip per source
+// track, and the arrangements, effects, animation and titles are layers, FX
+// clips and effects in the session. Times are in seconds at 30 fps; the music is 80 BPM, so a 1.5 s
 // cut is two beats.
 //
 // It is also a tour of the effects: every video effect sits on a clip of
@@ -177,41 +177,44 @@ const sourceTracks = SOURCES.map((source, index) => ({
   colorIndex: index,
   recordings: [{ filename: samplePath(source.file) }],
 }));
-const spans = [];
+// Each source track holds one clip: the whole source from frame 0.
+const sourceSpanId = (key) => `span-${key}`;
+const spans = SOURCES.map((source) => ({
+  id: sourceSpanId(source.key),
+  trackId: `source-${source.key}`,
+  name: source.name,
+  frameStart: 0,
+  frameCount: SOURCE_FRAMES,
+  clipStart: 0,
+  frameOffset: 0,
+  filePath: samplePath(source.file),
+}));
 const selections = [];
 
 // Places `source` on `layerId` from `start` for `duration` seconds, playing
-// the source from `inSeconds`. Returns the arrangement clip's id.
-function cut(layerId, sourceIndex, start, duration, inSeconds, label) {
+// the source from `inSeconds`: the selection slips its source track's clip
+// to that in-point. Returns the arrangement clip's id.
+function cut(layerId, sourceIndex, start, duration, inSeconds) {
   const source = SOURCES[sourceIndex];
   const index = selections.length + 1;
   const inFrame = frames(inSeconds);
   if (inFrame + frames(duration) > SOURCE_FRAMES) {
     throw new Error(`Cut ${index} runs past the end of ${source.file}`);
   }
-  const spanId = `span-${String(index).padStart(2, "0")}`;
-  spans.push({
-    id: spanId,
-    trackId: `source-${source.key}`,
-    name: `${source.name} · ${label}`,
-    frameStart: frames(start),
-    frameCount: frames(duration),
-    clipStart: inFrame,
-    frameOffset: 0,
-    filePath: samplePath(source.file),
-  });
   selections.push({
     id: index,
     trackId: `source-${source.key}`,
     mainTrackId: layerId,
     frameStart: frames(start),
     frameEnd: frames(start + duration),
+    sourceClipId: sourceSpanId(source.key),
+    sourceOffsetSeconds: (inFrame - frames(start)) / FPS,
   });
   return `selection-${index}`;
 }
 
 // Opening shots, each a single full-frame source.
-const openingShot = clipTrack(cut("corridor", 2, 0, 1.5, 0.5, "opening push"));
+const openingShot = clipTrack(cut("corridor", 2, 0, 1.5, 0.5));
 zoomAndPan(openingShot, { zoom: 1 }, { zoom: 1.3 });
 // The opening push is seen through rippling water, easing in and out with
 // the clip.
@@ -228,7 +231,7 @@ addEffect(
   },
   { animation: animation("clip", {}, { parameters: ["_Amount"] }) },
 );
-const captureShot = clipTrack(cut("orbit", 0, 1.5, 1.5, 2, "capture"));
+const captureShot = clipTrack(cut("orbit", 0, 1.5, 1.5, 2));
 zoomAndPan(captureShot, { zoom: 1.25, x: 0.45 }, { zoom: 1.05, x: 0.55 });
 // The music's hits break the orbit under "capture" into blocky digital
 // glitches, while the music is bitcrushed beneath them.
@@ -307,14 +310,7 @@ THREE_UPS.forEach((start, cutIndex) => {
     const sourceIndex = (panel + cutIndex) % SOURCES.length;
     const inSeconds = 0.4 + ((cutIndex * 7 + panel * 5) % 11) * 1.2;
     const tight = cutIndex % 2 === 1;
-    const clipId = cut(
-      layerId,
-      sourceIndex,
-      start,
-      1.5,
-      inSeconds,
-      `${start.toFixed(1)} s · ${tight ? "tight crop" : "wide"}`,
-    );
+    const clipId = cut(layerId, sourceIndex, start, 1.5, inSeconds);
     const drift = (panel - 1) * 0.08;
     zoomAndPan(
       clipTrack(clipId),
@@ -352,7 +348,7 @@ THREE_UPS.forEach((start, cutIndex) => {
 
 // Full-frame ribbon under the Pixelate window.
 zoomAndPan(
-  clipTrack(cut("ribbon", 1, 12, 3, 3, "edit")),
+  clipTrack(cut("ribbon", 1, 12, 3, 3)),
   { zoom: 1.05, x: 0.42 },
   { zoom: 1.25, x: 0.58 },
 );
@@ -622,7 +618,8 @@ addEffect(
 // without clipping, so the music runs on through a tour of every audio
 // effect, the first two beats clean. With the music on a layer, the mix
 // plays only the layer clips, so the source track itself stays silent.
-// Each selection's span on the source track is named after its effect.
+// The source track holds the whole music as one clip, which each selection
+// plays where it is in the file.
 const MUSIC_TRACK = `source-${MUSIC.key}`;
 sourceTracks.push({
   id: MUSIC_TRACK,
@@ -704,19 +701,18 @@ const MUSIC_SECTIONS = [
   ["Reverb", { Decay: 6, "Pre-delay": 30, Size: 0.9, Damping: 6000, Mix: 0.5 }],
 ];
 const MUSIC_SECTION_SECONDS = DURATION_SECONDS / MUSIC_SECTIONS.length;
+spans.push({
+  id: sourceSpanId(MUSIC.key),
+  trackId: MUSIC_TRACK,
+  name: "Music",
+  frameStart: 0,
+  frameCount: frames(DURATION_SECONDS),
+  clipStart: 0,
+  frameOffset: 0,
+  filePath: samplePath(MUSIC.file),
+});
 MUSIC_SECTIONS.forEach(([name, parameters], index) => {
   const start = index * MUSIC_SECTION_SECONDS;
-  const spanId = `span-${MUSIC.key}-${String(index + 1).padStart(2, "0")}`;
-  spans.push({
-    id: spanId,
-    trackId: MUSIC_TRACK,
-    name: `Music · ${name}`,
-    frameStart: frames(start),
-    frameCount: frames(MUSIC_SECTION_SECONDS),
-    clipStart: frames(start),
-    frameOffset: 0,
-    filePath: samplePath(MUSIC.file),
-  });
   const id = selections.length + 1;
   selections.push({
     id,

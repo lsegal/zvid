@@ -90,652 +90,42 @@
   ],
   "clips": [
     {
-      "id": "span-01",
-      "trackId": "source-corridor",
-      "name": "Corridor · opening push",
+      "id": "span-orbit",
+      "trackId": "source-orbit",
+      "name": "Orbit",
       "frameStart": 0,
-      "frameCount": 45,
-      "clipStart": 15,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/corridor.mp4"
-    },
-    {
-      "id": "span-02",
-      "trackId": "source-orbit",
-      "name": "Orbit · capture",
-      "frameStart": 45,
-      "frameCount": 45,
-      "clipStart": 60,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/orbit.mp4"
-    },
-    {
-      "id": "span-03",
-      "trackId": "source-orbit",
-      "name": "Orbit · 3.0 s · wide",
-      "frameStart": 90,
-      "frameCount": 45,
-      "clipStart": 12,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/orbit.mp4"
-    },
-    {
-      "id": "span-04",
-      "trackId": "source-ribbon",
-      "name": "Ribbon · 3.0 s · wide",
-      "frameStart": 90,
-      "frameCount": 45,
-      "clipStart": 192,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
-    },
-    {
-      "id": "span-05",
-      "trackId": "source-corridor",
-      "name": "Corridor · 3.0 s · wide",
-      "frameStart": 90,
-      "frameCount": 45,
-      "clipStart": 372,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/corridor.mp4"
-    },
-    {
-      "id": "span-06",
-      "trackId": "source-ribbon",
-      "name": "Ribbon · 4.5 s · tight crop",
-      "frameStart": 135,
-      "frameCount": 45,
-      "clipStart": 264,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
-    },
-    {
-      "id": "span-07",
-      "trackId": "source-corridor",
-      "name": "Corridor · 4.5 s · tight crop",
-      "frameStart": 135,
-      "frameCount": 45,
-      "clipStart": 48,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/corridor.mp4"
-    },
-    {
-      "id": "span-08",
-      "trackId": "source-orbit",
-      "name": "Orbit · 4.5 s · tight crop",
-      "frameStart": 135,
-      "frameCount": 45,
-      "clipStart": 228,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/orbit.mp4"
-    },
-    {
-      "id": "span-09",
-      "trackId": "source-corridor",
-      "name": "Corridor · 6.0 s · wide",
-      "frameStart": 180,
-      "frameCount": 45,
-      "clipStart": 120,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/corridor.mp4"
-    },
-    {
-      "id": "span-10",
-      "trackId": "source-orbit",
-      "name": "Orbit · 6.0 s · wide",
-      "frameStart": 180,
-      "frameCount": 45,
-      "clipStart": 300,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/orbit.mp4"
-    },
-    {
-      "id": "span-11",
-      "trackId": "source-ribbon",
-      "name": "Ribbon · 6.0 s · wide",
-      "frameStart": 180,
-      "frameCount": 45,
-      "clipStart": 84,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
-    },
-    {
-      "id": "span-12",
-      "trackId": "source-orbit",
-      "name": "Orbit · 7.5 s · tight crop",
-      "frameStart": 225,
-      "frameCount": 45,
-      "clipStart": 372,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/orbit.mp4"
-    },
-    {
-      "id": "span-13",
-      "trackId": "source-ribbon",
-      "name": "Ribbon · 7.5 s · tight crop",
-      "frameStart": 225,
-      "frameCount": 45,
-      "clipStart": 156,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
-    },
-    {
-      "id": "span-14",
-      "trackId": "source-corridor",
-      "name": "Corridor · 7.5 s · tight crop",
-      "frameStart": 225,
-      "frameCount": 45,
-      "clipStart": 336,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/corridor.mp4"
-    },
-    {
-      "id": "span-15",
-      "trackId": "source-ribbon",
-      "name": "Ribbon · 9.0 s · wide",
-      "frameStart": 270,
-      "frameCount": 45,
-      "clipStart": 228,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
-    },
-    {
-      "id": "span-16",
-      "trackId": "source-corridor",
-      "name": "Corridor · 9.0 s · wide",
-      "frameStart": 270,
-      "frameCount": 45,
-      "clipStart": 12,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/corridor.mp4"
-    },
-    {
-      "id": "span-17",
-      "trackId": "source-orbit",
-      "name": "Orbit · 9.0 s · wide",
-      "frameStart": 270,
-      "frameCount": 45,
-      "clipStart": 192,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/orbit.mp4"
-    },
-    {
-      "id": "span-18",
-      "trackId": "source-corridor",
-      "name": "Corridor · 10.5 s · tight crop",
-      "frameStart": 315,
-      "frameCount": 45,
-      "clipStart": 84,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/corridor.mp4"
-    },
-    {
-      "id": "span-19",
-      "trackId": "source-orbit",
-      "name": "Orbit · 10.5 s · tight crop",
-      "frameStart": 315,
-      "frameCount": 45,
-      "clipStart": 264,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/orbit.mp4"
-    },
-    {
-      "id": "span-20",
-      "trackId": "source-ribbon",
-      "name": "Ribbon · 10.5 s · tight crop",
-      "frameStart": 315,
-      "frameCount": 45,
-      "clipStart": 48,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
-    },
-    {
-      "id": "span-21",
-      "trackId": "source-orbit",
-      "name": "Orbit · 15.0 s · wide",
-      "frameStart": 450,
-      "frameCount": 45,
-      "clipStart": 336,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/orbit.mp4"
-    },
-    {
-      "id": "span-22",
-      "trackId": "source-ribbon",
-      "name": "Ribbon · 15.0 s · wide",
-      "frameStart": 450,
-      "frameCount": 45,
-      "clipStart": 120,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
-    },
-    {
-      "id": "span-23",
-      "trackId": "source-corridor",
-      "name": "Corridor · 15.0 s · wide",
-      "frameStart": 450,
-      "frameCount": 45,
-      "clipStart": 300,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/corridor.mp4"
-    },
-    {
-      "id": "span-24",
-      "trackId": "source-ribbon",
-      "name": "Ribbon · 16.5 s · tight crop",
-      "frameStart": 495,
-      "frameCount": 45,
-      "clipStart": 192,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
-    },
-    {
-      "id": "span-25",
-      "trackId": "source-corridor",
-      "name": "Corridor · 16.5 s · tight crop",
-      "frameStart": 495,
-      "frameCount": 45,
-      "clipStart": 372,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/corridor.mp4"
-    },
-    {
-      "id": "span-26",
-      "trackId": "source-orbit",
-      "name": "Orbit · 16.5 s · tight crop",
-      "frameStart": 495,
-      "frameCount": 45,
-      "clipStart": 156,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/orbit.mp4"
-    },
-    {
-      "id": "span-27",
-      "trackId": "source-corridor",
-      "name": "Corridor · 18.0 s · wide",
-      "frameStart": 540,
-      "frameCount": 45,
-      "clipStart": 48,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/corridor.mp4"
-    },
-    {
-      "id": "span-28",
-      "trackId": "source-orbit",
-      "name": "Orbit · 18.0 s · wide",
-      "frameStart": 540,
-      "frameCount": 45,
-      "clipStart": 228,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/orbit.mp4"
-    },
-    {
-      "id": "span-29",
-      "trackId": "source-ribbon",
-      "name": "Ribbon · 18.0 s · wide",
-      "frameStart": 540,
-      "frameCount": 45,
-      "clipStart": 12,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
-    },
-    {
-      "id": "span-30",
-      "trackId": "source-orbit",
-      "name": "Orbit · 19.5 s · tight crop",
-      "frameStart": 585,
-      "frameCount": 45,
-      "clipStart": 300,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/orbit.mp4"
-    },
-    {
-      "id": "span-31",
-      "trackId": "source-ribbon",
-      "name": "Ribbon · 19.5 s · tight crop",
-      "frameStart": 585,
-      "frameCount": 45,
-      "clipStart": 84,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
-    },
-    {
-      "id": "span-32",
-      "trackId": "source-corridor",
-      "name": "Corridor · 19.5 s · tight crop",
-      "frameStart": 585,
-      "frameCount": 45,
-      "clipStart": 264,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/corridor.mp4"
-    },
-    {
-      "id": "span-33",
-      "trackId": "source-ribbon",
-      "name": "Ribbon · 21.0 s · wide",
-      "frameStart": 630,
-      "frameCount": 45,
-      "clipStart": 156,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
-    },
-    {
-      "id": "span-34",
-      "trackId": "source-corridor",
-      "name": "Corridor · 21.0 s · wide",
-      "frameStart": 630,
-      "frameCount": 45,
-      "clipStart": 336,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/corridor.mp4"
-    },
-    {
-      "id": "span-35",
-      "trackId": "source-orbit",
-      "name": "Orbit · 21.0 s · wide",
-      "frameStart": 630,
-      "frameCount": 45,
-      "clipStart": 120,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/orbit.mp4"
-    },
-    {
-      "id": "span-36",
-      "trackId": "source-corridor",
-      "name": "Corridor · 22.5 s · tight crop",
-      "frameStart": 675,
-      "frameCount": 45,
-      "clipStart": 12,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/corridor.mp4"
-    },
-    {
-      "id": "span-37",
-      "trackId": "source-orbit",
-      "name": "Orbit · 22.5 s · tight crop",
-      "frameStart": 675,
-      "frameCount": 45,
-      "clipStart": 192,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/orbit.mp4"
-    },
-    {
-      "id": "span-38",
-      "trackId": "source-ribbon",
-      "name": "Ribbon · 22.5 s · tight crop",
-      "frameStart": 675,
-      "frameCount": 45,
-      "clipStart": 372,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
-    },
-    {
-      "id": "span-39",
-      "trackId": "source-orbit",
-      "name": "Orbit · 24.0 s · wide",
-      "frameStart": 720,
-      "frameCount": 45,
-      "clipStart": 264,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/orbit.mp4"
-    },
-    {
-      "id": "span-40",
-      "trackId": "source-ribbon",
-      "name": "Ribbon · 24.0 s · wide",
-      "frameStart": 720,
-      "frameCount": 45,
-      "clipStart": 48,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
-    },
-    {
-      "id": "span-41",
-      "trackId": "source-corridor",
-      "name": "Corridor · 24.0 s · wide",
-      "frameStart": 720,
-      "frameCount": 45,
-      "clipStart": 228,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/corridor.mp4"
-    },
-    {
-      "id": "span-42",
-      "trackId": "source-ribbon",
-      "name": "Ribbon · 25.5 s · tight crop",
-      "frameStart": 765,
-      "frameCount": 45,
-      "clipStart": 120,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
-    },
-    {
-      "id": "span-43",
-      "trackId": "source-corridor",
-      "name": "Corridor · 25.5 s · tight crop",
-      "frameStart": 765,
-      "frameCount": 45,
-      "clipStart": 300,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/corridor.mp4"
-    },
-    {
-      "id": "span-44",
-      "trackId": "source-orbit",
-      "name": "Orbit · 25.5 s · tight crop",
-      "frameStart": 765,
-      "frameCount": 45,
-      "clipStart": 84,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/orbit.mp4"
-    },
-    {
-      "id": "span-45",
-      "trackId": "source-ribbon",
-      "name": "Ribbon · edit",
-      "frameStart": 360,
-      "frameCount": 90,
-      "clipStart": 90,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
-    },
-    {
-      "id": "span-music-01",
-      "trackId": "source-music",
-      "name": "Music · Clean",
-      "frameStart": 0,
-      "frameCount": 45,
+      "frameCount": 480,
       "clipStart": 0,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
+      "filePath": "zvid-sample://opening-v2/orbit.mp4"
     },
     {
-      "id": "span-music-02",
-      "trackId": "source-music",
-      "name": "Music · Bitcrush",
-      "frameStart": 45,
-      "frameCount": 45,
-      "clipStart": 45,
+      "id": "span-ribbon",
+      "trackId": "source-ribbon",
+      "name": "Ribbon",
+      "frameStart": 0,
+      "frameCount": 480,
+      "clipStart": 0,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
+      "filePath": "zvid-sample://opening-v2/ribbon.mp4"
     },
     {
-      "id": "span-music-03",
-      "trackId": "source-music",
-      "name": "Music · Phaser",
-      "frameStart": 90,
-      "frameCount": 45,
-      "clipStart": 90,
+      "id": "span-corridor",
+      "trackId": "source-corridor",
+      "name": "Corridor",
+      "frameStart": 0,
+      "frameCount": 480,
+      "clipStart": 0,
       "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
+      "filePath": "zvid-sample://opening-v2/corridor.mp4"
     },
     {
-      "id": "span-music-04",
+      "id": "span-music",
       "trackId": "source-music",
-      "name": "Music · Chorus",
-      "frameStart": 135,
-      "frameCount": 45,
-      "clipStart": 135,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
-    },
-    {
-      "id": "span-music-05",
-      "trackId": "source-music",
-      "name": "Music · Auto Pan",
-      "frameStart": 180,
-      "frameCount": 45,
-      "clipStart": 180,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
-    },
-    {
-      "id": "span-music-06",
-      "trackId": "source-music",
-      "name": "Music · Tremolo",
-      "frameStart": 225,
-      "frameCount": 45,
-      "clipStart": 225,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
-    },
-    {
-      "id": "span-music-07",
-      "trackId": "source-music",
-      "name": "Music · Transient Shaper",
-      "frameStart": 270,
-      "frameCount": 45,
-      "clipStart": 270,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
-    },
-    {
-      "id": "span-music-08",
-      "trackId": "source-music",
-      "name": "Music · Compressor",
-      "frameStart": 315,
-      "frameCount": 45,
-      "clipStart": 315,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
-    },
-    {
-      "id": "span-music-09",
-      "trackId": "source-music",
-      "name": "Music · High Cut",
-      "frameStart": 360,
-      "frameCount": 45,
-      "clipStart": 360,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
-    },
-    {
-      "id": "span-music-10",
-      "trackId": "source-music",
-      "name": "Music · Low Cut",
-      "frameStart": 405,
-      "frameCount": 45,
-      "clipStart": 405,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
-    },
-    {
-      "id": "span-music-11",
-      "trackId": "source-music",
-      "name": "Music · EQ",
-      "frameStart": 450,
-      "frameCount": 45,
-      "clipStart": 450,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
-    },
-    {
-      "id": "span-music-12",
-      "trackId": "source-music",
-      "name": "Music · Saturation",
-      "frameStart": 495,
-      "frameCount": 45,
-      "clipStart": 495,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
-    },
-    {
-      "id": "span-music-13",
-      "trackId": "source-music",
-      "name": "Music · Stereo",
-      "frameStart": 540,
-      "frameCount": 45,
-      "clipStart": 540,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
-    },
-    {
-      "id": "span-music-14",
-      "trackId": "source-music",
-      "name": "Music · Mono",
-      "frameStart": 585,
-      "frameCount": 45,
-      "clipStart": 585,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
-    },
-    {
-      "id": "span-music-15",
-      "trackId": "source-music",
-      "name": "Music · Noise Gate",
-      "frameStart": 630,
-      "frameCount": 45,
-      "clipStart": 630,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
-    },
-    {
-      "id": "span-music-16",
-      "trackId": "source-music",
-      "name": "Music · De-ess",
-      "frameStart": 675,
-      "frameCount": 45,
-      "clipStart": 675,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
-    },
-    {
-      "id": "span-music-17",
-      "trackId": "source-music",
-      "name": "Music · Reverse",
-      "frameStart": 720,
-      "frameCount": 45,
-      "clipStart": 720,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
-    },
-    {
-      "id": "span-music-18",
-      "trackId": "source-music",
-      "name": "Music · Limiter",
-      "frameStart": 765,
-      "frameCount": 45,
-      "clipStart": 765,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
-    },
-    {
-      "id": "span-music-19",
-      "trackId": "source-music",
-      "name": "Music · Delay",
-      "frameStart": 810,
-      "frameCount": 45,
-      "clipStart": 810,
-      "frameOffset": 0,
-      "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
-    },
-    {
-      "id": "span-music-20",
-      "trackId": "source-music",
-      "name": "Music · Reverb",
-      "frameStart": 855,
-      "frameCount": 45,
-      "clipStart": 855,
+      "name": "Music",
+      "frameStart": 0,
+      "frameCount": 900,
+      "clipStart": 0,
       "frameOffset": 0,
       "filePath": "zvid-sample://opening-v2/just-nasty-30s.m4a"
     }
@@ -746,315 +136,405 @@
       "trackId": "source-corridor",
       "mainTrackId": "corridor",
       "frameStart": 0,
-      "frameEnd": 45
+      "frameEnd": 45,
+      "sourceClipId": "span-corridor",
+      "sourceOffsetSeconds": 0.5
     },
     {
       "id": 2,
       "trackId": "source-orbit",
       "mainTrackId": "orbit",
       "frameStart": 45,
-      "frameEnd": 90
+      "frameEnd": 90,
+      "sourceClipId": "span-orbit",
+      "sourceOffsetSeconds": 0.5
     },
     {
       "id": 3,
       "trackId": "source-orbit",
       "mainTrackId": "orbit",
       "frameStart": 90,
-      "frameEnd": 135
+      "frameEnd": 135,
+      "sourceClipId": "span-orbit",
+      "sourceOffsetSeconds": -2.6
     },
     {
       "id": 4,
       "trackId": "source-ribbon",
       "mainTrackId": "ribbon",
       "frameStart": 90,
-      "frameEnd": 135
+      "frameEnd": 135,
+      "sourceClipId": "span-ribbon",
+      "sourceOffsetSeconds": 3.4
     },
     {
       "id": 5,
       "trackId": "source-corridor",
       "mainTrackId": "corridor",
       "frameStart": 90,
-      "frameEnd": 135
+      "frameEnd": 135,
+      "sourceClipId": "span-corridor",
+      "sourceOffsetSeconds": 9.4
     },
     {
       "id": 6,
       "trackId": "source-ribbon",
       "mainTrackId": "orbit",
       "frameStart": 135,
-      "frameEnd": 180
+      "frameEnd": 180,
+      "sourceClipId": "span-ribbon",
+      "sourceOffsetSeconds": 4.3
     },
     {
       "id": 7,
       "trackId": "source-corridor",
       "mainTrackId": "ribbon",
       "frameStart": 135,
-      "frameEnd": 180
+      "frameEnd": 180,
+      "sourceClipId": "span-corridor",
+      "sourceOffsetSeconds": -2.9
     },
     {
       "id": 8,
       "trackId": "source-orbit",
       "mainTrackId": "corridor",
       "frameStart": 135,
-      "frameEnd": 180
+      "frameEnd": 180,
+      "sourceClipId": "span-orbit",
+      "sourceOffsetSeconds": 3.1
     },
     {
       "id": 9,
       "trackId": "source-corridor",
       "mainTrackId": "orbit",
       "frameStart": 180,
-      "frameEnd": 225
+      "frameEnd": 225,
+      "sourceClipId": "span-corridor",
+      "sourceOffsetSeconds": -2
     },
     {
       "id": 10,
       "trackId": "source-orbit",
       "mainTrackId": "ribbon",
       "frameStart": 180,
-      "frameEnd": 225
+      "frameEnd": 225,
+      "sourceClipId": "span-orbit",
+      "sourceOffsetSeconds": 4
     },
     {
       "id": 11,
       "trackId": "source-ribbon",
       "mainTrackId": "corridor",
       "frameStart": 180,
-      "frameEnd": 225
+      "frameEnd": 225,
+      "sourceClipId": "span-ribbon",
+      "sourceOffsetSeconds": -3.2
     },
     {
       "id": 12,
       "trackId": "source-orbit",
       "mainTrackId": "orbit",
       "frameStart": 225,
-      "frameEnd": 270
+      "frameEnd": 270,
+      "sourceClipId": "span-orbit",
+      "sourceOffsetSeconds": 4.9
     },
     {
       "id": 13,
       "trackId": "source-ribbon",
       "mainTrackId": "ribbon",
       "frameStart": 225,
-      "frameEnd": 270
+      "frameEnd": 270,
+      "sourceClipId": "span-ribbon",
+      "sourceOffsetSeconds": -2.3
     },
     {
       "id": 14,
       "trackId": "source-corridor",
       "mainTrackId": "corridor",
       "frameStart": 225,
-      "frameEnd": 270
+      "frameEnd": 270,
+      "sourceClipId": "span-corridor",
+      "sourceOffsetSeconds": 3.7
     },
     {
       "id": 15,
       "trackId": "source-ribbon",
       "mainTrackId": "orbit",
       "frameStart": 270,
-      "frameEnd": 315
+      "frameEnd": 315,
+      "sourceClipId": "span-ribbon",
+      "sourceOffsetSeconds": -1.4
     },
     {
       "id": 16,
       "trackId": "source-corridor",
       "mainTrackId": "ribbon",
       "frameStart": 270,
-      "frameEnd": 315
+      "frameEnd": 315,
+      "sourceClipId": "span-corridor",
+      "sourceOffsetSeconds": -8.6
     },
     {
       "id": 17,
       "trackId": "source-orbit",
       "mainTrackId": "corridor",
       "frameStart": 270,
-      "frameEnd": 315
+      "frameEnd": 315,
+      "sourceClipId": "span-orbit",
+      "sourceOffsetSeconds": -2.6
     },
     {
       "id": 18,
       "trackId": "source-corridor",
       "mainTrackId": "orbit",
       "frameStart": 315,
-      "frameEnd": 360
+      "frameEnd": 360,
+      "sourceClipId": "span-corridor",
+      "sourceOffsetSeconds": -7.7
     },
     {
       "id": 19,
       "trackId": "source-orbit",
       "mainTrackId": "ribbon",
       "frameStart": 315,
-      "frameEnd": 360
+      "frameEnd": 360,
+      "sourceClipId": "span-orbit",
+      "sourceOffsetSeconds": -1.7
     },
     {
       "id": 20,
       "trackId": "source-ribbon",
       "mainTrackId": "corridor",
       "frameStart": 315,
-      "frameEnd": 360
+      "frameEnd": 360,
+      "sourceClipId": "span-ribbon",
+      "sourceOffsetSeconds": -8.9
     },
     {
       "id": 21,
       "trackId": "source-orbit",
       "mainTrackId": "orbit",
       "frameStart": 450,
-      "frameEnd": 495
+      "frameEnd": 495,
+      "sourceClipId": "span-orbit",
+      "sourceOffsetSeconds": -3.8
     },
     {
       "id": 22,
       "trackId": "source-ribbon",
       "mainTrackId": "ribbon",
       "frameStart": 450,
-      "frameEnd": 495
+      "frameEnd": 495,
+      "sourceClipId": "span-ribbon",
+      "sourceOffsetSeconds": -11
     },
     {
       "id": 23,
       "trackId": "source-corridor",
       "mainTrackId": "corridor",
       "frameStart": 450,
-      "frameEnd": 495
+      "frameEnd": 495,
+      "sourceClipId": "span-corridor",
+      "sourceOffsetSeconds": -5
     },
     {
       "id": 24,
       "trackId": "source-ribbon",
       "mainTrackId": "orbit",
       "frameStart": 495,
-      "frameEnd": 540
+      "frameEnd": 540,
+      "sourceClipId": "span-ribbon",
+      "sourceOffsetSeconds": -10.1
     },
     {
       "id": 25,
       "trackId": "source-corridor",
       "mainTrackId": "ribbon",
       "frameStart": 495,
-      "frameEnd": 540
+      "frameEnd": 540,
+      "sourceClipId": "span-corridor",
+      "sourceOffsetSeconds": -4.1
     },
     {
       "id": 26,
       "trackId": "source-orbit",
       "mainTrackId": "corridor",
       "frameStart": 495,
-      "frameEnd": 540
+      "frameEnd": 540,
+      "sourceClipId": "span-orbit",
+      "sourceOffsetSeconds": -11.3
     },
     {
       "id": 27,
       "trackId": "source-corridor",
       "mainTrackId": "orbit",
       "frameStart": 540,
-      "frameEnd": 585
+      "frameEnd": 585,
+      "sourceClipId": "span-corridor",
+      "sourceOffsetSeconds": -16.4
     },
     {
       "id": 28,
       "trackId": "source-orbit",
       "mainTrackId": "ribbon",
       "frameStart": 540,
-      "frameEnd": 585
+      "frameEnd": 585,
+      "sourceClipId": "span-orbit",
+      "sourceOffsetSeconds": -10.4
     },
     {
       "id": 29,
       "trackId": "source-ribbon",
       "mainTrackId": "corridor",
       "frameStart": 540,
-      "frameEnd": 585
+      "frameEnd": 585,
+      "sourceClipId": "span-ribbon",
+      "sourceOffsetSeconds": -17.6
     },
     {
       "id": 30,
       "trackId": "source-orbit",
       "mainTrackId": "orbit",
       "frameStart": 585,
-      "frameEnd": 630
+      "frameEnd": 630,
+      "sourceClipId": "span-orbit",
+      "sourceOffsetSeconds": -9.5
     },
     {
       "id": 31,
       "trackId": "source-ribbon",
       "mainTrackId": "ribbon",
       "frameStart": 585,
-      "frameEnd": 630
+      "frameEnd": 630,
+      "sourceClipId": "span-ribbon",
+      "sourceOffsetSeconds": -16.7
     },
     {
       "id": 32,
       "trackId": "source-corridor",
       "mainTrackId": "corridor",
       "frameStart": 585,
-      "frameEnd": 630
+      "frameEnd": 630,
+      "sourceClipId": "span-corridor",
+      "sourceOffsetSeconds": -10.7
     },
     {
       "id": 33,
       "trackId": "source-ribbon",
       "mainTrackId": "orbit",
       "frameStart": 630,
-      "frameEnd": 675
+      "frameEnd": 675,
+      "sourceClipId": "span-ribbon",
+      "sourceOffsetSeconds": -15.8
     },
     {
       "id": 34,
       "trackId": "source-corridor",
       "mainTrackId": "ribbon",
       "frameStart": 630,
-      "frameEnd": 675
+      "frameEnd": 675,
+      "sourceClipId": "span-corridor",
+      "sourceOffsetSeconds": -9.8
     },
     {
       "id": 35,
       "trackId": "source-orbit",
       "mainTrackId": "corridor",
       "frameStart": 630,
-      "frameEnd": 675
+      "frameEnd": 675,
+      "sourceClipId": "span-orbit",
+      "sourceOffsetSeconds": -17
     },
     {
       "id": 36,
       "trackId": "source-corridor",
       "mainTrackId": "orbit",
       "frameStart": 675,
-      "frameEnd": 720
+      "frameEnd": 720,
+      "sourceClipId": "span-corridor",
+      "sourceOffsetSeconds": -22.1
     },
     {
       "id": 37,
       "trackId": "source-orbit",
       "mainTrackId": "ribbon",
       "frameStart": 675,
-      "frameEnd": 720
+      "frameEnd": 720,
+      "sourceClipId": "span-orbit",
+      "sourceOffsetSeconds": -16.1
     },
     {
       "id": 38,
       "trackId": "source-ribbon",
       "mainTrackId": "corridor",
       "frameStart": 675,
-      "frameEnd": 720
+      "frameEnd": 720,
+      "sourceClipId": "span-ribbon",
+      "sourceOffsetSeconds": -10.1
     },
     {
       "id": 39,
       "trackId": "source-orbit",
       "mainTrackId": "orbit",
       "frameStart": 720,
-      "frameEnd": 765
+      "frameEnd": 765,
+      "sourceClipId": "span-orbit",
+      "sourceOffsetSeconds": -15.2
     },
     {
       "id": 40,
       "trackId": "source-ribbon",
       "mainTrackId": "ribbon",
       "frameStart": 720,
-      "frameEnd": 765
+      "frameEnd": 765,
+      "sourceClipId": "span-ribbon",
+      "sourceOffsetSeconds": -22.4
     },
     {
       "id": 41,
       "trackId": "source-corridor",
       "mainTrackId": "corridor",
       "frameStart": 720,
-      "frameEnd": 765
+      "frameEnd": 765,
+      "sourceClipId": "span-corridor",
+      "sourceOffsetSeconds": -16.4
     },
     {
       "id": 42,
       "trackId": "source-ribbon",
       "mainTrackId": "orbit",
       "frameStart": 765,
-      "frameEnd": 810
+      "frameEnd": 810,
+      "sourceClipId": "span-ribbon",
+      "sourceOffsetSeconds": -21.5
     },
     {
       "id": 43,
       "trackId": "source-corridor",
       "mainTrackId": "ribbon",
       "frameStart": 765,
-      "frameEnd": 810
+      "frameEnd": 810,
+      "sourceClipId": "span-corridor",
+      "sourceOffsetSeconds": -15.5
     },
     {
       "id": 44,
       "trackId": "source-orbit",
       "mainTrackId": "corridor",
       "frameStart": 765,
-      "frameEnd": 810
+      "frameEnd": 810,
+      "sourceClipId": "span-orbit",
+      "sourceOffsetSeconds": -22.7
     },
     {
       "id": 45,
       "trackId": "source-ribbon",
       "mainTrackId": "ribbon",
       "frameStart": 360,
-      "frameEnd": 450
+      "frameEnd": 450,
+      "sourceClipId": "span-ribbon",
+      "sourceOffsetSeconds": -9
     },
     {
       "id": 46,
