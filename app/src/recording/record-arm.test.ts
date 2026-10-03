@@ -1,28 +1,56 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { afterEach, describe, it } from "node:test";
 import {
-  getArmedTracks,
+  disarmAllTracks,
+  getArmedTrackIds,
   isTrackArmed,
   pruneArmedTracks,
   setTrackArmed,
+  subscribeArmedTracks,
   toggleTrackArmed,
 } from "./record-arm.ts";
 
+afterEach(disarmAllTracks);
+
 describe("record arm", () => {
-  it("arms, disarms and prunes source tracks", () => {
-    setTrackArmed("track-1", true);
-    toggleTrackArmed("track-2");
-    assert.equal(isTrackArmed("track-1"), true);
-    assert.equal(isTrackArmed("track-2"), true);
+  it("toggles a track's armed state", () => {
+    assert.equal(isTrackArmed("a"), false);
+    toggleTrackArmed("a");
+    assert.equal(isTrackArmed("a"), true);
+    toggleTrackArmed("a");
+    assert.equal(isTrackArmed("a"), false);
+  });
 
-    const before = getArmedTracks();
-    setTrackArmed("track-1", true);
-    assert.equal(getArmedTracks(), before, "an unchanged arm keeps its set");
+  it("arms several tracks at once", () => {
+    toggleTrackArmed("a");
+    toggleTrackArmed("b");
+    setTrackArmed("c", true);
+    assert.deepEqual([...getArmedTrackIds()], ["a", "b", "c"]);
+    setTrackArmed("b", false);
+    assert.deepEqual([...getArmedTrackIds()], ["a", "c"]);
+  });
 
-    toggleTrackArmed("track-2");
-    assert.equal(isTrackArmed("track-2"), false);
+  it("disarms tracks that were removed", () => {
+    toggleTrackArmed("a");
+    toggleTrackArmed("b");
+    pruneArmedTracks(["b", "c"]);
+    assert.deepEqual([...getArmedTrackIds()], ["b"]);
+  });
 
-    pruneArmedTracks(["track-3"]);
-    assert.equal(getArmedTracks().size, 0);
+  it("notifies listeners only when the armed set changes", () => {
+    let calls = 0;
+    const unsubscribe = subscribeArmedTracks(() => calls++);
+    const before = getArmedTrackIds();
+    setTrackArmed("a", true);
+    assert.equal(calls, 1);
+    assert.notEqual(getArmedTrackIds(), before);
+    setTrackArmed("a", true);
+    pruneArmedTracks(["a"]);
+    assert.equal(calls, 1);
+    pruneArmedTracks([]);
+    assert.equal(calls, 2);
+    unsubscribe();
+    setTrackArmed("a", true);
+    assert.equal(calls, 2);
   });
 });

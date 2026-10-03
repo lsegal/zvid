@@ -248,6 +248,10 @@ export function modulationCollapseKey(deviceId: string) {
   return `${deviceId}#modulation`;
 }
 
+// The collapse-state key of the Clip widget (the selected source clip's
+// properties) that leads the chain, kept alongside the devices' own.
+export const SOURCE_CLIP_COLLAPSE_KEY = "source-clip";
+
 export function toggleCollapsedDevice(
   collapsed: ReadonlySet<string>,
   deviceId: string,

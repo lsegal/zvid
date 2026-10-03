@@ -211,3 +211,51 @@ test("the Clip widget title row matches an FX device title row", async ({
     Math.abs((await box(layoutTitle)).height - clipHeight),
   ).toBeLessThanOrEqual(1);
 });
+
+// The Clip widget leads its title with an info icon and folds to a strip like
+// an FX device, by its chevron, a title double-click or the strip, and stays
+// folded across selecting other clips and reloading.
+test("the Clip widget collapses like an FX device and remembers it", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await dropVideos(page, 2);
+  const spans = page.locator(".source-span");
+  await expect(spans).toHaveCount(2, { timeout: 30_000 });
+  await spans.first().click();
+
+  const device = page.locator(".source-clip-properties__device");
+  await expect(
+    device.locator(".fx-device-panel__title .source-clip-properties__info svg"),
+  ).toBeVisible();
+  const collapse = device.getByRole("button", { name: "Collapse Clip" });
+  await expect(collapse).toHaveAttribute("aria-expanded", "true");
+  await collapse.click();
+
+  const strip = device.getByRole("button", { name: "Expand Clip" });
+  await expect(device).toHaveClass(/fx-device-panel--collapsed/);
+  await expect(strip).toHaveAttribute("aria-expanded", "false");
+  await expect(
+    device.locator(".source-clip-properties__info svg"),
+  ).toBeVisible();
+  await expect(field(page, "Start")).toHaveCount(0);
+
+  // Another clip's widget is folded too.
+  await spans.nth(1).click();
+  await expect(device).toHaveClass(/fx-device-panel--collapsed/);
+
+  // The fold survives a reload.
+  await page.reload();
+  await dropVideos(page, 1);
+  await expect(spans).toHaveCount(1, { timeout: 30_000 });
+  await spans.first().click();
+  await expect(device).toHaveClass(/fx-device-panel--collapsed/);
+
+  await strip.click();
+  await expect(device).not.toHaveClass(/fx-device-panel--collapsed/);
+  await expect(field(page, "Start")).toBeVisible();
+
+  // Double-clicking the title row folds it as well.
+  await device.locator(".fx-device-panel__name").dblclick();
+  await expect(device).toHaveClass(/fx-device-panel--collapsed/);
+});

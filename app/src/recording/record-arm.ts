@@ -1,26 +1,27 @@
 import { useSyncExternalStore } from "react";
 
-// Which source tracks are armed to record. Local UI state: it isn't saved to
-// the session or synced to collaborators.
-
+// Which source tracks are armed for recording: every armed track records
+// whenever recording starts. Local UI state, kept out of the session, its
+// history and collaborators.
 let armed: ReadonlySet<string> = new Set();
 const listeners = new Set<() => void>();
 
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
-}
-
-function update(next: ReadonlySet<string>) {
+function setArmed(next: ReadonlySet<string>) {
   armed = next;
   for (const listener of listeners) {
     listener();
   }
 }
 
-export function getArmedTracks() {
+export function subscribeArmedTracks(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+/** The armed source track IDs. A new set each time it changes. */
+export function getArmedTrackIds() {
   return armed;
 }
 
@@ -28,33 +29,43 @@ export function isTrackArmed(trackId: string) {
   return armed.has(trackId);
 }
 
-export function setTrackArmed(trackId: string, isArmed: boolean) {
-  if (armed.has(trackId) === isArmed) {
+export function setTrackArmed(trackId: string, value: boolean) {
+  if (armed.has(trackId) === value) {
     return;
   }
   const next = new Set(armed);
-  if (isArmed) {
+  if (value) {
     next.add(trackId);
   } else {
     next.delete(trackId);
   }
-  update(next);
+  setArmed(next);
 }
 
 export function toggleTrackArmed(trackId: string) {
   setTrackArmed(trackId, !armed.has(trackId));
 }
 
-// Disarms tracks that no longer exist, such as after one is deleted.
+// Disarms every track not in `trackIds`, so a removed track no longer
+// records.
 export function pruneArmedTracks(trackIds: Iterable<string>) {
-  const existing = new Set(trackIds);
-  const next = new Set([...armed].filter((trackId) => existing.has(trackId)));
+  const present = new Set(trackIds);
+  const next = new Set([...armed].filter((id) => present.has(id)));
   if (next.size !== armed.size) {
-    update(next);
+    setArmed(next);
   }
 }
 
-// The armed track IDs, re-rendering when they change.
-export function useArmedTracks() {
-  return useSyncExternalStore(subscribe, getArmedTracks, getArmedTracks);
+export function disarmAllTracks() {
+  if (armed.size) {
+    setArmed(new Set());
+  }
+}
+
+export function useArmedTrackIds() {
+  return useSyncExternalStore(subscribeArmedTracks, getArmedTrackIds);
+}
+
+export function useTrackArmed(trackId: string) {
+  return useSyncExternalStore(subscribeArmedTracks, () => armed.has(trackId));
 }
