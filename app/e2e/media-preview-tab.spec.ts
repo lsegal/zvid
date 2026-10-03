@@ -44,7 +44,10 @@ function mediaItem(page: Page, name: string) {
 }
 
 function previewTab(page: Page, name: "Timeline" | "Media") {
-  return page.getByRole("tab", { name, exact: true });
+  // The Media drawer has a Media tab too.
+  return page
+    .getByRole("tablist", { name: "Preview" })
+    .getByRole("tab", { name, exact: true });
 }
 
 async function openSession(page: Page, fixtures: Fixture[] = [VIDEO_FILE]) {
