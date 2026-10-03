@@ -33,8 +33,6 @@ const BPM = 80;
 const WIDTH = 1920;
 const HEIGHT = 1080;
 const DURATION_SECONDS = 30;
-// Source clips are 16 s long.
-const SOURCE_FRAMES = 16 * FPS;
 
 const IVORY = "rgba(243,226,191,1)";
 const INK = "rgba(12,40,56,1)";
@@ -177,14 +175,15 @@ const sourceTracks = SOURCES.map((source, index) => ({
   colorIndex: index,
   recordings: [{ filename: samplePath(source.file) }],
 }));
-// Each source track holds one clip: the whole source from frame 0.
+// Each source track holds one clip: the source from frame 0, looping its
+// 16 s of media across the whole project.
 const sourceSpanId = (key) => `span-${key}`;
 const spans = SOURCES.map((source) => ({
   id: sourceSpanId(source.key),
   trackId: `source-${source.key}`,
   name: source.name,
   frameStart: 0,
-  frameCount: SOURCE_FRAMES,
+  frameCount: frames(DURATION_SECONDS),
   clipStart: 0,
   frameOffset: 0,
   filePath: samplePath(source.file),
@@ -193,14 +192,12 @@ const selections = [];
 
 // Places `source` on `layerId` from `start` for `duration` seconds, playing
 // the source from `inSeconds`: the selection slips its source track's clip
-// to that in-point. Returns the arrangement clip's id.
+// to that in-point, which may fall in the clip's looped media. Returns the
+// arrangement clip's id.
 function cut(layerId, sourceIndex, start, duration, inSeconds) {
   const source = SOURCES[sourceIndex];
   const index = selections.length + 1;
   const inFrame = frames(inSeconds);
-  if (inFrame + frames(duration) > SOURCE_FRAMES) {
-    throw new Error(`Cut ${index} runs past the end of ${source.file}`);
-  }
   selections.push({
     id: index,
     trackId: `source-${source.key}`,
