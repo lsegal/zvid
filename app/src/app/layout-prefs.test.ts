@@ -41,8 +41,8 @@ describe("layout prefs", () => {
     );
   });
 
-  it("keeps the timeline area 50px past the current layer headers", () => {
-    assert.equal(PREVIEW_TIMELINE_MIN_WIDTH, 50);
+  it("keeps the timeline area 80px past the current layer headers", () => {
+    assert.equal(PREVIEW_TIMELINE_MIN_WIDTH, 80);
     for (const labelWidth of [LABEL_WIDTH_MIN, 240, LABEL_WIDTH_MAX]) {
       const gridWidth = 1400;
       const previewWidth = getPreviewMaxWidth(gridWidth, labelWidth);

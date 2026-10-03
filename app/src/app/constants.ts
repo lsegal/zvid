@@ -81,7 +81,7 @@ export const PREVIEW_RESERVED_WIDTH = 16 + 16 + 1;
 
 // The narrowest the timeline area, past the layer headers, gets as the
 // preview widens.
-export const PREVIEW_TIMELINE_MIN_WIDTH = 50;
+export const PREVIEW_TIMELINE_MIN_WIDTH = 80;
 
 export const SIGNATURES: TimeSignature[] = [
   { id: "4/4", numerator: 4, denominator: 4 },
