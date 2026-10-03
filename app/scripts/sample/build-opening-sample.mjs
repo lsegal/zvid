@@ -202,17 +202,10 @@ function cut(layerId, sourceIndex, start, duration, inSeconds, label) {
 }
 
 // Opening shots, each a single full-frame source.
-zoomAndPan(
-  clipTrack(cut("corridor", 2, 0, 1.5, 0.5, "opening push")),
-  { zoom: 1 },
-  { zoom: 1.3 },
-);
-const CAPTURE_SHOT = cut("orbit", 0, 1.5, 1.5, 2, "capture");
-zoomAndPan(
-  clipTrack(CAPTURE_SHOT),
-  { zoom: 1.25, x: 0.45 },
-  { zoom: 1.05, x: 0.55 },
-);
+const openingShot = clipTrack(cut("corridor", 2, 0, 1.5, 0.5, "opening push"));
+zoomAndPan(openingShot, { zoom: 1 }, { zoom: 1.3 });
+const captureShot = clipTrack(cut("orbit", 0, 1.5, 1.5, 2, "capture"));
+zoomAndPan(captureShot, { zoom: 1.25, x: 0.45 }, { zoom: 1.05, x: 0.55 });
 
 // The three-ups: every 1.5 s each video layer cuts to a new source, in-point
 // and crop, and the sources rotate between the panels. Odd cuts crop tight.
@@ -531,14 +524,37 @@ spans.push({
 // A session clip loads as source clip `source-<id>`, whose stack this is.
 addEffect(`source-clip:source-${MUSIC_SPAN}`, "Gain", { Gain: 0, Mute: 0 });
 
-// ---- late effects --------------------------------------------------------
+// ---- added effects -------------------------------------------------------
 
-// Added after the rest so the effects above keep their ids.
+// Effects added after the sample was first laid out, last so the ids of
+// the effects above stay put.
 
-// The capture shot is seen through rippling water, easing in and out with
-// the clip.
+// 1.5–3 s: the music's hits break the orbit under "capture" into blocky
+// digital glitches.
 addEffect(
-  clipTrack(CAPTURE_SHOT),
+  captureShot,
+  "DigitalGlitch",
+  {
+    _Amount: 0.25,
+    _BlockSize: 0.35,
+    _Displace: 0.4,
+    _ChannelShift: 0.5,
+    _ColorCrush: 0,
+    _Rate: 12,
+  },
+  {
+    animation: animation(
+      "reactive",
+      {},
+      { motion: "Bounce", reactivity: 0.6, parameters: ["_Amount"] },
+    ),
+  },
+);
+
+// 0–1.5 s: the opening push is seen through rippling water, easing in and
+// out with the clip.
+addEffect(
+  openingShot,
   "Refraction",
   {
     _Type: "Water",
@@ -548,9 +564,7 @@ addEffect(
     _Angle: 90,
     _Dispersion: 0.2,
   },
-  {
-    animation: animation("clip", {}, { parameters: ["_Amount"] }),
-  },
+  { animation: animation("clip", {}, { parameters: ["_Amount"] }) },
 );
 
 // ---- session -------------------------------------------------------------

@@ -14,6 +14,8 @@ import { pass as colorizePass } from "./colorize/pass.ts";
 import * as compressor from "./compressor/definition.ts";
 import * as deEss from "./de-ess/definition.ts";
 import * as delay from "./delay/definition.ts";
+import * as digitalGlitch from "./digital-glitch/definition.ts";
+import { pass as digitalGlitchPass } from "./digital-glitch/pass.ts";
 import * as eq from "./eq/definition.ts";
 import * as gain from "./gain/definition.ts";
 import * as highCut from "./high-cut/definition.ts";
@@ -31,6 +33,7 @@ import * as pixelate from "./pixelate/definition.ts";
 import { pass as pixelatePass } from "./pixelate/pass.ts";
 import * as refraction from "./refraction/definition.ts";
 import { pass as refractionPass } from "./refraction/pass.ts";
+import * as reverb from "./reverb/definition.ts";
 import * as reverse from "./reverse/definition.ts";
 import * as saturation from "./saturation/definition.ts";
 import * as stereo from "./stereo/definition.ts";
@@ -52,6 +55,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   compressor,
   deEss,
   delay,
+  digitalGlitch,
   eq,
   gain,
   highCut,
@@ -66,6 +70,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   phaser,
   pixelate,
   refraction,
+  reverb,
   reverse,
   saturation,
   stereo,
@@ -80,6 +85,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
 export const EFFECT_PASSES: readonly EffectPass[] = [
   analogGlitchPass,
   colorizePass,
+  digitalGlitchPass,
   negativeSplitPass,
   pixelatePass,
   refractionPass,
