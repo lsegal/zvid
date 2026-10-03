@@ -30,7 +30,7 @@ describe("text selection", () => {
     const rule = indexCss.slice(start, indexCss.indexOf("}", start));
     assert.match(rule, /textarea/);
     for (const type of ["checkbox", "radio", "range", "color", "file"]) {
-      assert.match(rule, new RegExp(`\[type='${type}'\]`));
+      assert.ok(rule.includes(`[type='${type}']`), `${type} not excluded`);
     }
     assert.match(rule, /-webkit-user-select: text;/);
     assert.match(rule, /\n {2}user-select: text;/);
