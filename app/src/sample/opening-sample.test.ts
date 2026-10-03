@@ -22,6 +22,8 @@ const sessionText = readFileSync(
 const session = JSON.parse(sessionText) as LvpSession;
 const FPS = 30;
 const MUSIC_ID = "zvid-sample:opening-v1:music";
+const AUDIO_LAYER = "audio";
+const MUSIC_TRACK = "source-music";
 
 // The handler types in an MP4, such as "vide" or "soun" for its tracks.
 function mp4TrackKinds(bytes: Buffer) {
@@ -62,6 +64,27 @@ function numberParameter(
   return effect.parameters?.[key]?.floatValue;
 }
 
+// The Audio layer's music selections, in time order.
+function musicSelections() {
+  return (session.selections ?? [])
+    .filter((selection) => selection.mainTrackId === AUDIO_LAYER)
+    .sort((left, right) => left.frameStart - right.frameStart);
+}
+
+function videoSelections() {
+  return (session.selections ?? []).filter(
+    (selection) => selection.mainTrackId !== AUDIO_LAYER,
+  );
+}
+
+// The music's span under a music selection.
+function musicSpanAt(frameStart: number) {
+  return (session.clips ?? []).find(
+    (candidate) =>
+      candidate.trackId === MUSIC_TRACK && candidate.frameStart === frameStart,
+  );
+}
+
 // The layer clips covering `seconds`.
 function clipsAt<Clip extends { frameStart: number; frameEnd: number }>(
   clips: Clip[] | undefined,
@@ -93,7 +116,6 @@ describe("zvid opening sample", () => {
     assert.equal(lastFrame, 900);
   });
 
-  // Gain, its one audio effect, is only on the music's clip.
   it("uses every registered video effect", () => {
     const used = new Set((session.effects ?? []).map((e) => e.effectName));
     const missing = FX_EFFECT_DEFINITIONS.filter(
@@ -104,13 +126,57 @@ describe("zvid opening sample", () => {
     assert.deepEqual(missing, []);
   });
 
+  // Color paints the fill clips; every other Stylize or Color effect is
+  // shown off on a clip of its own.
+  it("puts each Stylize and Color effect on a clip of its own", () => {
+    const showcased = new Set(
+      FX_EFFECT_DEFINITIONS.filter(
+        (definition) =>
+          definition.domain !== "audio" &&
+          (definition.category === "stylize" ||
+            definition.category === "color") &&
+          definition.effectName !== "Color",
+      ).map((definition) => definition.effectName),
+    );
+    const byClip = new Map<string, string[]>();
+    for (const effect of session.effects ?? []) {
+      if (
+        effect.trackId.startsWith("clip:") &&
+        showcased.has(effect.effectName)
+      ) {
+        byClip.set(effect.trackId, [
+          ...(byClip.get(effect.trackId) ?? []),
+          effect.effectName,
+        ]);
+      }
+    }
+    for (const [clip, names] of byClip) {
+      assert.equal(names.length, 1, `${clip}: ${names.join(", ")}`);
+    }
+    // Distortion and Refraction show off every one of their types.
+    const types = (effectName: string) =>
+      new Set(
+        (session.effects ?? [])
+          .filter((effect) => effect.effectName === effectName)
+          .map((effect) => stringParameter(effect, "_Type")),
+      );
+    assert.deepEqual(
+      [...types("Distortion")].sort(),
+      ["Bulge", "Fisheye", "Ripple", "Turbulence", "Twirl", "Wave"],
+    );
+    assert.deepEqual(
+      [...types("Refraction")].sort(),
+      ["Frosted Glass", "Glass Blocks", "Reeded Glass", "Water"],
+    );
+  });
+
   it("cuts three separate video layers every 1.5 s through the three-ups", () => {
     const videoLayers = new Set(
-      (session.selections ?? []).map((selection) => selection.mainTrackId),
+      videoSelections().map((selection) => selection.mainTrackId),
     );
     assert.deepEqual([...videoLayers].sort(), ["corridor", "orbit", "ribbon"]);
     for (const layer of videoLayers) {
-      const starts = (session.selections ?? [])
+      const starts = videoSelections()
         .filter((selection) => selection.mainTrackId === layer)
         .map((selection) => selection.frameStart / FPS);
       assert.ok(starts.includes(4.5), `${layer} cuts at 4.5 s`);
@@ -138,7 +204,11 @@ describe("zvid opening sample", () => {
           stringParameter(order, "BorderColor"),
           "rgba(243,226,191,1)",
         );
-        assert.equal(stringParameter(order, "ExcludedLayers"), "background");
+        // The Audio layer's music takes no panel.
+        assert.equal(
+          stringParameter(order, "ExcludedLayers"),
+          "background,audio",
+        );
         assert.equal(order.animation?.enabled, true);
         assert.equal(order.animation?.mode, "clip");
         assert.equal(order.animation?.clip.timing, "Full");
@@ -231,58 +301,87 @@ describe("zvid opening sample", () => {
     }
   });
 
-  it("writes its music as a source track clip with Gain 0 dB", () => {
+  it("plays its music from the Audio layer as two-beat selections", () => {
     assert.equal(session.audioFilename, undefined);
     assert.equal(session.audioGainDefaulted, true);
+    assert.equal(session.mainTracks?.at(-1)?.id, AUDIO_LAYER);
     const musicPath = OPENING_SAMPLE_MANIFEST.assets.find(
       (asset) => asset.id === MUSIC_ID,
     )?.path;
     const track = (session.tracks ?? []).find(
-      (candidate) => candidate.name === "Music",
+      (candidate) => candidate.id === MUSIC_TRACK,
     );
-    assert.ok(track);
-    assert.deepEqual(track.recordings, [{ filename: musicPath }]);
-    const spans = (session.clips ?? []).filter(
-      (span) => span.trackId === track.id,
-    );
-    assert.equal(spans.length, 1);
-    assert.deepEqual(
-      {
-        filePath: spans[0].filePath,
-        frameStart: spans[0].frameStart,
-        frameCount: spans[0].frameCount,
-        clipStart: spans[0].clipStart,
-      },
-      {
-        filePath: musicPath,
-        frameStart: 0,
-        frameCount: 30 * FPS,
-        clipStart: 0,
-      },
-    );
-    const gains = (session.effects ?? []).filter(
-      (effect) => effect.effectName === "Gain",
-    );
-    assert.deepEqual(
-      gains.map((effect) => ({
-        trackId: effect.trackId,
-        gain: numberParameter(effect, "Gain"),
-        mute: numberParameter(effect, "Mute"),
-        enabled: effect.enabled !== false,
-      })),
-      [
-        {
-          // It loads as source clip `source-<id>`.
-          trackId: sourceClipEffectTrackId(`source-${spans[0].id}`),
-          gain: 0,
-          mute: 0,
-          enabled: true,
-        },
-      ],
-    );
+    assert.equal(track?.name, "Music");
+    assert.deepEqual(track?.recordings, [{ filename: musicPath }]);
+
+    // Back to back from 0 to 30 s, two beats each, each playing the music
+    // where it is in the file.
+    const selections = musicSelections();
+    assert.equal(selections.length, 20);
+    let frame = 0;
+    for (const selection of selections) {
+      assert.equal(selection.trackId, MUSIC_TRACK);
+      assert.equal(selection.frameStart, frame);
+      assert.equal(selection.frameEnd - selection.frameStart, 1.5 * FPS);
+      frame = selection.frameEnd;
+      const span = musicSpanAt(selection.frameStart);
+      assert.equal(span?.filePath, musicPath);
+      assert.equal(span?.clipStart, selection.frameStart);
+      assert.equal(span?.frameCount, 1.5 * FPS);
+    }
+    assert.equal(frame, 30 * FPS);
   });
 
-  // The mix plays the source tracks only while no layer clip has sound.
+  it("gives each music selection a 0 dB Gain and an audio effect of its own", () => {
+    const audioEffectNames = new Set(
+      FX_EFFECT_DEFINITIONS.filter(
+        (definition) => definition.domain === "audio",
+      ).map((definition) => definition.effectName),
+    );
+    const shown: string[] = [];
+    for (const selection of musicSelections()) {
+      const clip = `selection-${selection.id}`;
+      const [gain, ...others] = effectsOn(clipEffectTrackId(clip));
+      assert.equal(gain.effectName, "Gain", clip);
+      assert.equal(gain.enabled !== false, true, clip);
+      assert.equal(numberParameter(gain, "Gain"), 0, clip);
+      assert.equal(numberParameter(gain, "Mute"), 0, clip);
+      assert.ok(others.length <= 1, clip);
+      for (const effect of others) {
+        assert.ok(audioEffectNames.has(effect.effectName), effect.effectName);
+        shown.push(effect.effectName);
+      }
+      // Its span on the source track is named after its effect.
+      assert.equal(
+        musicSpanAt(selection.frameStart)?.name,
+        `Music · ${others[0]?.effectName ?? "Clean"}`,
+      );
+    }
+    // The first two beats are clean, and every other audio effect has a
+    // selection of its own.
+    const [first] = musicSelections();
+    assert.equal(
+      effectsOn(clipEffectTrackId(`selection-${first.id}`)).length,
+      1,
+    );
+    assert.deepEqual(
+      [...shown].sort(),
+      [...audioEffectNames].filter((name) => name !== "Gain").sort(),
+    );
+    // Audio effects are only on the music's selections.
+    const musicClips = new Set(
+      musicSelections().map((selection) =>
+        clipEffectTrackId(`selection-${selection.id}`),
+      ),
+    );
+    for (const effect of session.effects ?? []) {
+      if (audioEffectNames.has(effect.effectName)) {
+        assert.ok(musicClips.has(effect.trackId), effect.id);
+      }
+    }
+  });
+
+  // The mix plays the layer clips with sound: the Audio layer's music.
   it("has video-only sources and an audio-only music file", () => {
     for (const asset of OPENING_SAMPLE_MANIFEST.assets) {
       const bytes = readFileSync(
@@ -298,18 +397,23 @@ describe("zvid opening sample", () => {
     }
   });
 
-  it("opens with every clip on its stable media and the music in the mix", () => {
+  it("opens with every clip on its stable media and the Audio layer in the mix", () => {
     const { media, project } = openSample();
     const ids = new Set(
       OPENING_SAMPLE_MANIFEST.assets.map((asset) => asset.id),
     );
-    const videoClips = project.arrangementClips.filter(
+    const mediaClips = project.arrangementClips.filter(
       (clip) =>
         clip.kind !== "fx" && clip.kind !== "text" && clip.kind !== "fill",
     );
-    assert.equal(videoClips.length, (session.selections ?? []).length);
-    for (const clip of videoClips) {
+    assert.equal(mediaClips.length, (session.selections ?? []).length);
+    for (const clip of mediaClips) {
       assert.ok(ids.has(clip.mediaId ?? ""), clip.id);
+    }
+    // The video clips are silent: no Gain.
+    for (const clip of mediaClips.filter(
+      (candidate) => candidate.laneId !== AUDIO_LAYER,
+    )) {
       assert.equal(
         project.effects.some(
           (effect) =>
@@ -324,15 +428,14 @@ describe("zvid opening sample", () => {
     const music = project.sourceSpans.filter(
       (span) => span.mediaId === MUSIC_ID,
     );
-    assert.equal(music.length, 1);
-    assert.equal(music[0].startQ, 0);
-    assert.equal(music[0].durationSeconds, 30);
-    assert.equal(music[0].trimStartSeconds, 0);
-    assert.equal(
-      project.sourceTracks.find((track) => track.id === music[0].sourceTrackId)
-        ?.name,
-      "Music",
-    );
+    assert.equal(music.length, 20);
+    for (const span of music) {
+      assert.equal(
+        project.sourceTracks.find((track) => track.id === span.sourceTrackId)
+          ?.name,
+        "Music",
+      );
+    }
     assert.equal(project.bpm, 80);
     assert.equal(project.overlapNote, "");
 
@@ -348,24 +451,24 @@ describe("zvid opening sample", () => {
       effects: project.effects,
       bpm: project.bpm,
     });
-    assert.equal(mix.fromSourceTracks, true);
-    assert.deepEqual(
-      mix.clips.map((clip) => ({
-        mediaId: clip.mediaId,
-        startSeconds: clip.startSeconds,
-        durationSeconds: clip.durationSeconds,
-        sourceOffsetSeconds: clip.sourceOffsetSeconds,
-        amplitude: clip.amplitude,
-      })),
-      [
-        {
-          mediaId: MUSIC_ID,
-          startSeconds: 0,
-          durationSeconds: 30,
-          sourceOffsetSeconds: 0,
-          amplitude: 1,
-        },
-      ],
+    assert.equal(mix.fromSourceTracks, false);
+    const mixed = [...mix.clips].sort(
+      (left, right) => left.startSeconds - right.startSeconds,
     );
+    assert.equal(mixed.length, 20);
+    let seconds = 0;
+    for (const clip of mixed) {
+      assert.equal(clip.mediaId, MUSIC_ID);
+      assert.equal(clip.busId, AUDIO_LAYER);
+      assert.ok(Math.abs(clip.startSeconds - seconds) < 1e-9, clip.id);
+      assert.ok(Math.abs(clip.durationSeconds - 1.5) < 1e-9, clip.id);
+      // Each plays the music where it is in the file, so it runs on
+      // unbroken.
+      assert.ok(Math.abs(clip.sourceOffsetSeconds) < 1e-9, clip.id);
+      assert.equal(clip.hasGain, true, clip.id);
+      assert.equal(clip.amplitude, 1, clip.id);
+      seconds += clip.durationSeconds;
+    }
+    assert.ok(Math.abs(seconds - 30) < 1e-9);
   });
 });
