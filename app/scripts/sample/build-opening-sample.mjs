@@ -440,7 +440,7 @@ addEffect(
 );
 
 // 24–27 s: the wordmark returns above the alternating three-ups.
-text(
+const montageWordmark = text(
   "text-montage-zvid",
   "title-wordmark",
   24,
@@ -548,6 +548,19 @@ addEffect(
       {},
       { motion: "Bounce", reactivity: 0.6, parameters: ["_Amount"] },
     ),
+  },
+);
+
+// 24–27 s: the returning wordmark's letters bloom in an ivory glow.
+addEffect(
+  montageWordmark,
+  "Bloom",
+  { _Threshold: 0.6, _Intensity: 0.9, _Radius: 0.5, _Tint: IVORY },
+  {
+    animation: animation("clip", {
+      motionIn: "Ease Out",
+      motionOut: "Ease In",
+    }),
   },
 );
 
