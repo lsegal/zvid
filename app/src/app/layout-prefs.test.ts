@@ -61,7 +61,10 @@ describe("layout prefs", () => {
   });
 
   it("falls back to the minimum on a narrow grid", () => {
-    assert.equal(getPreviewMaxWidth(100, LABEL_WIDTH_DEFAULT), PREVIEW_MIN_WIDTH);
+    assert.equal(
+      getPreviewMaxWidth(100, LABEL_WIDTH_DEFAULT),
+      PREVIEW_MIN_WIDTH,
+    );
     assert.equal(
       getPreviewMaxWidth(
         PREVIEW_RESERVED_WIDTH +
