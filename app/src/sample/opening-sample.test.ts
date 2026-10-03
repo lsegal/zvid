@@ -74,12 +74,9 @@ function videoSelections() {
   );
 }
 
-// The music's span under a music selection.
-function musicSpanAt(frameStart: number) {
-  return (session.clips ?? []).find(
-    (candidate) =>
-      candidate.trackId === MUSIC_TRACK && candidate.frameStart === frameStart,
-  );
+// The clips on a source track.
+function spansOn(trackId: string) {
+  return (session.clips ?? []).filter((clip) => clip.trackId === trackId);
 }
 
 // The layer clips covering `seconds`.
@@ -304,6 +301,47 @@ describe("zvid opening sample", () => {
     }
   });
 
+  it("holds one clip on each source track, which its cuts slip to their in-points", () => {
+    const tracks = session.tracks ?? [];
+    assert.equal(tracks.length, 4);
+    assert.equal((session.clips ?? []).length, tracks.length);
+    const { project } = openSample();
+    for (const track of tracks.filter((track) => track.id !== MUSIC_TRACK)) {
+      const spans = spansOn(track.id);
+      assert.equal(spans.length, 1, track.id);
+      const [span] = spans;
+      assert.equal(span.frameStart, 0, track.id);
+      assert.equal(span.clipStart, 0, track.id);
+      assert.equal(span.filePath, track.recordings?.[0]?.filename, track.id);
+
+      // Each cut names the clip and plays it from its own in-point.
+      const sourceSpan = project.sourceSpans.find(
+        (candidate) => candidate.sourceTrackId === track.id,
+      );
+      for (const selection of videoSelections().filter(
+        (candidate) => candidate.trackId === track.id,
+      )) {
+        assert.equal(selection.sourceClipId, span.id);
+        const clip = project.arrangementClips.find(
+          (candidate) => candidate.id === `selection-${selection.id}`,
+        );
+        assert.equal(clip?.sourceSpanId, sourceSpan?.id);
+        const inSeconds =
+          selection.frameStart / FPS + (selection.sourceOffsetSeconds ?? 0);
+        assert.ok(
+          Math.abs((clip?.trimStartSeconds ?? -1) - inSeconds) < 1e-9,
+          clip?.id,
+        );
+        assert.ok(inSeconds >= 0, clip?.id);
+        assert.ok(
+          inSeconds * FPS + selection.frameEnd - selection.frameStart <=
+            span.frameCount + 1e-6,
+          clip?.id,
+        );
+      }
+    }
+  });
+
   it("plays its music from the Audio layer as two-beat selections", () => {
     assert.equal(session.audioFilename, undefined);
     assert.equal(session.audioGainDefaulted, true);
@@ -317,6 +355,15 @@ describe("zvid opening sample", () => {
     assert.equal(track?.name, "Music");
     assert.deepEqual(track?.recordings, [{ filename: musicPath }]);
 
+    // The source track holds the whole music as one clip.
+    const spans = spansOn(MUSIC_TRACK);
+    assert.equal(spans.length, 1);
+    const [span] = spans;
+    assert.equal(span.filePath, musicPath);
+    assert.equal(span.frameStart, 0);
+    assert.equal(span.clipStart, 0);
+    assert.equal(span.frameCount, 30 * FPS);
+
     // Back to back from 0 to 30 s, two beats each, each playing the music
     // where it is in the file.
     const selections = musicSelections();
@@ -326,11 +373,8 @@ describe("zvid opening sample", () => {
       assert.equal(selection.trackId, MUSIC_TRACK);
       assert.equal(selection.frameStart, frame);
       assert.equal(selection.frameEnd - selection.frameStart, 1.5 * FPS);
+      assert.equal(selection.sourceClipId, undefined);
       frame = selection.frameEnd;
-      const span = musicSpanAt(selection.frameStart);
-      assert.equal(span?.filePath, musicPath);
-      assert.equal(span?.clipStart, selection.frameStart);
-      assert.equal(span?.frameCount, 1.5 * FPS);
     }
     assert.equal(frame, 30 * FPS);
   });
@@ -354,11 +398,6 @@ describe("zvid opening sample", () => {
         assert.ok(audioEffectNames.has(effect.effectName), effect.effectName);
         shown.push(effect.effectName);
       }
-      // Its span on the source track is named after its effect.
-      assert.equal(
-        musicSpanAt(selection.frameStart)?.name,
-        `Music · ${others[0]?.effectName ?? "Clean"}`,
-      );
     }
     // The first two beats are clean, and every other audio effect has a
     // selection of its own.
@@ -454,7 +493,7 @@ describe("zvid opening sample", () => {
     const music = project.sourceSpans.filter(
       (span) => span.mediaId === MUSIC_ID,
     );
-    assert.equal(music.length, 20);
+    assert.equal(music.length, 1);
     for (const span of music) {
       assert.equal(
         project.sourceTracks.find((track) => track.id === span.sourceTrackId)

@@ -87,6 +87,17 @@ async function expectSampleOpen(page: Page) {
   ]) {
     await expect(lane(page, id)).toHaveCount(1);
   }
+  // Each source track holds one clip, which the layers' cuts play from.
+  for (const id of [
+    "source-orbit",
+    "source-ribbon",
+    "source-corridor",
+    MUSIC_TRACK,
+  ]) {
+    await expect(
+      page.locator(`[data-source-track-id="${id}"] [data-source-span-id]`),
+    ).toHaveCount(1);
+  }
   // The Audio layer plays the music from its source track as two-beat
   // selections, so the Audio row shows the mix of the layers: the music.
   await expect(
