@@ -4783,13 +4783,13 @@
       "effectName": "Bitcrush",
       "parameters": {
         "Bits": {
-          "floatValue": 6
+          "floatValue": 5
         },
         "Downsample": {
           "floatValue": 8
         },
         "Mix": {
-          "floatValue": 0.8
+          "floatValue": 1
         }
       }
     },

@@ -5,10 +5,7 @@ import { describe, it } from "node:test";
 import { PALETTE } from "../app/constants.ts";
 import { sessionToProject } from "../app/session-project.ts";
 import { resolveAudioClips } from "../audio-mix/resolve.ts";
-import {
-  clipEffectTrackId,
-  sourceClipEffectTrackId,
-} from "../fx/stack/clip-stacks.ts";
+import { clipEffectTrackId } from "../fx/stack/clip-stacks.ts";
 import { FX_EFFECT_DEFINITIONS } from "../fx-registry.ts";
 import { buildFallbackMediaItem } from "../media.ts";
 import { collectSessionMediaPaths, type LvpSession } from "../session.ts";
@@ -160,14 +157,20 @@ describe("zvid opening sample", () => {
           .filter((effect) => effect.effectName === effectName)
           .map((effect) => stringParameter(effect, "_Type")),
       );
-    assert.deepEqual(
-      [...types("Distortion")].sort(),
-      ["Bulge", "Fisheye", "Ripple", "Turbulence", "Twirl", "Wave"],
-    );
-    assert.deepEqual(
-      [...types("Refraction")].sort(),
-      ["Frosted Glass", "Glass Blocks", "Reeded Glass", "Water"],
-    );
+    assert.deepEqual([...types("Distortion")].sort(), [
+      "Bulge",
+      "Fisheye",
+      "Ripple",
+      "Turbulence",
+      "Twirl",
+      "Wave",
+    ]);
+    assert.deepEqual([...types("Refraction")].sort(), [
+      "Frosted Glass",
+      "Glass Blocks",
+      "Reeded Glass",
+      "Water",
+    ]);
   });
 
   it("cuts three separate video layers every 1.5 s through the three-ups", () => {

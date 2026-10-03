@@ -630,7 +630,7 @@ const MUSIC_SECTIONS = [
   // 0–1.5 s: the opening push, clean.
   ["Clean"],
   // 1.5–3 s: crushed under the digital glitches.
-  ["Bitcrush", { Bits: 6, Downsample: 8, Mix: 0.8 }],
+  ["Bitcrush", { Bits: 5, Downsample: 8, Mix: 1 }],
   // 3–9 s: the Distortion three-ups.
   [
     "Phaser",
@@ -672,10 +672,7 @@ const MUSIC_SECTIONS = [
       "High Gain": -15,
     },
   ],
-  [
-    "Saturation",
-    { Drive: 18, Type: "Tape", Tone: 8000, Output: -8, Mix: 1 },
-  ],
+  ["Saturation", { Drive: 18, Type: "Tape", Tone: 8000, Output: -8, Mix: 1 }],
   ["Stereo", { Width: 200, Pan: 40 }],
   ["Mono", { Source: "Sum", Amount: 1 }],
   // 21–24 s: the reactive Colorize again, gated on its hits.
@@ -700,10 +697,7 @@ const MUSIC_SECTIONS = [
       Mix: 0.45,
     },
   ],
-  [
-    "Reverb",
-    { Decay: 6, "Pre-delay": 30, Size: 0.9, Damping: 6000, Mix: 0.5 },
-  ],
+  ["Reverb", { Decay: 6, "Pre-delay": 30, Size: 0.9, Damping: 6000, Mix: 0.5 }],
 ];
 const MUSIC_SECTION_SECONDS = DURATION_SECONDS / MUSIC_SECTIONS.length;
 MUSIC_SECTIONS.forEach(([name, parameters], index) => {
