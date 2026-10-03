@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { getReactiveTimingFrames } from "../fx-animation-defaults.ts";
+import { resolveLfoParameters } from "../fx-animation-lfo.ts";
 import { resolveReactiveParameters } from "../fx-animation-reactive.ts";
 import { BLOCK_FRAMES } from "./chain.ts";
 import {
   type AudioStageLfo,
   type AudioStageTransient,
-  lfoPeriodSeconds,
-  lfoValue,
-  lfoWaveform,
+  lfoSwing,
   modulatedValue,
   StageModulator,
   transientSwing,
@@ -24,7 +23,7 @@ function lfo(settings: Partial<AudioStageLfo> = {}): AudioStageLfo {
     shape: "Sine",
     sync: true,
     rate: 1,
-    note: "1 bar",
+    syncRate: "1 Bar",
     depth: 1,
     phase: 0,
     parameters: [{ key: "Level", min: 0, max: 1 }],
@@ -52,89 +51,90 @@ function close(actual: number, expected: number, message?: string) {
   );
 }
 
-describe("lfoWaveform", () => {
-  it("gives each shape's values at key phases", () => {
-    const at = (shape: Parameters<typeof lfoWaveform>[0]) =>
-      [0, 0.25, 0.5, 0.75].map((phase) => lfoWaveform(shape, phase));
-    const expected = {
-      Sine: [0, 1, 0, -1],
-      Triangle: [0, 1, 0, -1],
-      "Saw Up": [0, 0.5, -1, -0.5],
-      "Saw Down": [0, -0.5, 1, 0.5],
-      Square: [1, 1, -1, -1],
-    } as const;
-    for (const [shape, values] of Object.entries(expected)) {
-      at(shape as keyof typeof expected).forEach((value, index) => {
-        close(value, values[index], `${shape} at ${index / 4}`);
-      });
-    }
-  });
-
-  it("holds Random's value for the cycle", () => {
-    assert.equal(lfoWaveform("Random", 0.1, 0.4), 0.4);
-    assert.equal(lfoWaveform("Random", 0.9, 0.4), 0.4);
-  });
-});
-
-describe("lfoPeriodSeconds", () => {
-  it("syncs note values to the session tempo", () => {
-    close(lfoPeriodSeconds(lfo({ note: "1 bar" }), TEMPO) ?? 0, 2);
-    close(
-      lfoPeriodSeconds(lfo({ note: "1/4" }), { ...TEMPO, bpm: 90 }) ?? 0,
-      2 / 3,
-    );
-    close(
-      lfoPeriodSeconds(lfo({ note: "1/8T" }), { ...TEMPO, bpm: 150 }) ?? 0,
-      (0.5 * 60) / 150 / 1.5,
-    );
-    close(
-      lfoPeriodSeconds(lfo({ note: "1 bar" }), {
-        bpm: 120,
-        signature: { numerator: 3, denominator: 4 },
-      }) ?? 0,
-      1.5,
-    );
-  });
-
-  it("runs free at the rate when Sync is off", () => {
-    close(lfoPeriodSeconds(lfo({ sync: false, rate: 4 }), TEMPO) ?? 0, 0.25);
-  });
-});
-
-describe("lfoValue", () => {
-  it("lines up synced cycles with bars at any tempo", () => {
-    for (const bpm of [90, 120, 137]) {
-      const bar = (4 * 60) / bpm;
-      const tempo = { ...TEMPO, bpm };
-      const settings = lfo({ shape: "Saw Up" });
-      for (const bars of [0, 1, 3, 10]) {
-        close(lfoValue(settings, "fx", bars * bar, tempo), 0);
-        close(lfoValue(settings, "fx", (bars + 0.25) * bar, tempo), 0.5);
+describe("lfoSwing", () => {
+  it("moves a knob exactly as Animation's LFO does for the same settings", () => {
+    const shapes = [
+      "Sine",
+      "Triangle",
+      "Saw Up",
+      "Saw Down",
+      "Square",
+      "Random",
+    ] as const;
+    for (const shape of shapes) {
+      for (const sync of [true, false]) {
+        const settings = lfo({
+          shape,
+          sync,
+          rate: 3,
+          syncRate: "1/8T",
+          depth: 0.7,
+          phase: 30,
+          parameters: [{ key: "_HueOffset", min: -1, max: 1 }],
+        });
+        const animation = {
+          shape,
+          sync,
+          rate: 3,
+          syncRate: "1/8T" as const,
+          depth: 0.7,
+          phase: 30,
+          parameters: ["_HueOffset"],
+        };
+        for (let time = 0; time < 3; time += 0.071) {
+          const [expected] = resolveLfoParameters(
+            {
+              id: "fx-1",
+              effectName: "Colorize",
+              parameters: [
+                { key: "_HueOffset", value: "0.200", numericValue: 0.2 },
+              ],
+            },
+            animation,
+            { time, bpm: 137, signature: DEFAULT_TIME_SIGNATURE },
+          );
+          const swing = lfoSwing(settings, "fx-1", "_HueOffset", time, {
+            bpm: 137,
+            signature: DEFAULT_TIME_SIGNATURE,
+          });
+          close(
+            modulatedValue(0.2, swing, settings.parameters[0]),
+            expected.numericValue ?? 0.2,
+            `${shape} ${sync ? "synced" : "free"} at ${time}`,
+          );
+        }
       }
     }
   });
 
-  it("starts the cycle at the phase", () => {
-    close(lfoValue(lfo({ phase: 90 }), "fx", 0, TEMPO), 1);
-    close(lfoValue(lfo({ phase: 180 }), "fx", 0.5, TEMPO), -1);
+  it("lines up synced cycles with bars at any tempo", () => {
+    const settings = lfo({ shape: "Saw Up" });
+    for (const bpm of [90, 120, 137]) {
+      const bar = (4 * 60) / bpm;
+      const tempo = { ...TEMPO, bpm };
+      for (const bars of [0, 1, 3, 10]) {
+        close(lfoSwing(settings, "fx", "Level", bars * bar, tempo), -0.25);
+        close(lfoSwing(settings, "fx", "Level", (bars + 0.5) * bar, tempo), 0);
+      }
+    }
   });
 
-  it("draws Random from the effect, the same every time", () => {
-    const settings = lfo({ shape: "Random", note: "1/4" });
-    const cycles = [0.1, 0.6, 1.1, 1.6].map((time) =>
-      lfoValue(settings, "fx", time, TEMPO),
+  it("draws Random from the effect and knob, the same every time", () => {
+    const settings = lfo({ shape: "Random", syncRate: "1/4" });
+    const steps = [0.1, 0.6, 1.1, 1.6].map((time) =>
+      lfoSwing(settings, "fx", "Level", time, TEMPO),
     );
     assert.deepEqual(
-      cycles,
-      [0.1, 0.6, 1.1, 1.6].map((time) => lfoValue(settings, "fx", time, TEMPO)),
+      steps,
+      [0.1, 0.6, 1.1, 1.6].map((time) =>
+        lfoSwing(settings, "fx", "Level", time, TEMPO),
+      ),
     );
     // Within a quarter note it holds; the next quarter note draws again.
-    assert.equal(lfoValue(settings, "fx", 0.2, TEMPO), cycles[0]);
-    assert.notEqual(cycles[0], cycles[1]);
-    assert.notEqual(lfoValue(settings, "other", 0.1, TEMPO), cycles[0]);
-    for (const value of cycles) {
-      assert.ok(value >= -1 && value <= 1);
-    }
+    assert.equal(lfoSwing(settings, "fx", "Level", 0.2, TEMPO), steps[0]);
+    assert.notEqual(steps[0], steps[1]);
+    assert.notEqual(lfoSwing(settings, "other", "Level", 0.1, TEMPO), steps[0]);
+    assert.notEqual(lfoSwing(settings, "fx", "Mix", 0.1, TEMPO), steps[0]);
   });
 });
 
@@ -286,7 +286,7 @@ describe("StageModulator", () => {
     assert.ok(swings.every((swing) => swing === 0));
   });
 
-  it("swings every LFO knob by the waveform times Depth", () => {
+  it("swings every LFO knob", () => {
     const settings = lfo({
       depth: 0.5,
       parameters: [
@@ -303,8 +303,9 @@ describe("StageModulator", () => {
       { ...TEMPO, sampleRate: SAMPLE_RATE, timeSeconds: 0.5 },
     );
     const end = 0.5 + BLOCK_FRAMES / SAMPLE_RATE;
-    const expected = lfoValue(settings, "fx", end, TEMPO) * 0.5 * 0.25;
-    close(swings.get("Level") ?? 0, expected);
-    close(swings.get("Mix") ?? 0, expected);
+    for (const key of ["Level", "Mix"]) {
+      close(swings.get(key) ?? 0, lfoSwing(settings, "fx", key, end, TEMPO));
+    }
+    assert.notEqual(swings.get("Level"), 0);
   });
 });

@@ -1,5 +1,5 @@
 // Where an effect's Animation modifier changes the parameters it is drawn
-// with. The Clip and Reactive engines plug in behind
+// with. The Clip, Reactive and LFO engines plug in behind
 // `resolveAnimatedParameters` from their own modules; an effect in a mode
 // without an engine is drawn with its parameters as they are.
 
@@ -11,11 +11,13 @@ import {
   type EffectAnimation,
   supportsAnimationMode,
 } from "./fx-animation-defaults.ts";
+import { resolveLfoParameters } from "./fx-animation-lfo.ts";
 import {
   placeOnsets,
   resolveReactiveParameters,
 } from "./fx-animation-reactive.ts";
 import type { AudioBands } from "./fx-shaders/audio-bands.ts";
+import type { MeterSignature } from "./timeline-format.ts";
 
 export type AnimatedParameter = {
   key: string;
@@ -51,6 +53,9 @@ export type AnimationFrameContext = {
   fps: number;
   // The audio mix at this frame, which Reactive mode follows.
   audio?: AudioBands;
+  // The session's time signature, which synced LFO bars follow; 4/4 when
+  // absent.
+  signature?: MeterSignature;
 };
 
 // Whether `effect`'s animation follows the audio mix. Effects that don't
@@ -78,11 +83,16 @@ export function resolveAnimatedParameters(
   if (animation?.mode === "clip") {
     return resolveClipAnimatedParameters(effect, clipContext, frameContext);
   }
+  const time =
+    frameContext.bpm > 0 ? (frameContext.playheadQ * 60) / frameContext.bpm : 0;
+  if (animation?.mode === "lfo" && animation.lfo) {
+    return resolveLfoParameters(effect, animation.lfo, {
+      time,
+      bpm: frameContext.bpm,
+      signature: frameContext.signature,
+    });
+  }
   if (animation?.reactive && reactsToAudio(effect)) {
-    const time =
-      frameContext.bpm > 0
-        ? (frameContext.playheadQ * 60) / frameContext.bpm
-        : 0;
     return resolveReactiveParameters(effect, animation.reactive, {
       time,
       fps: frameContext.fps,

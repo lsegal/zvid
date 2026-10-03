@@ -12,6 +12,7 @@ import {
   type SessionEffect,
 } from "../fx-stack";
 import { resolvePreviewLayers } from "../preview-edit.ts";
+import type { MeterSignature } from "../timeline-format.ts";
 
 type PreviewLayersInputs = {
   clips: ArrangementClip[];
@@ -19,6 +20,7 @@ type PreviewLayersInputs = {
   playheadQ: number;
   bpm: number;
   fps: number;
+  signature: MeterSignature;
   projectDurationFrames: number | undefined;
   lanes: Lane[];
   lanePriority: Map<string, number>;
@@ -35,6 +37,7 @@ export function usePreviewLayers({
   playheadQ,
   bpm,
   fps,
+  signature,
   projectDurationFrames,
   lanes,
   lanePriority,
@@ -53,13 +56,21 @@ export function usePreviewLayers({
       fps,
       undefined,
       projectDurationFrames,
+      signature,
     );
     return resolvePreviewLayers(
       activeClips.filter((entry) => entry.media.kind === "video"),
       { width: canvasWidth, height: canvasHeight },
       // Animated with the topmost clip, as the compositor draws it.
       resolveAnimatedOrder(
-        resolveFrameEffects(effects, activeClips, playheadQ, bpm, fps),
+        resolveFrameEffects(
+          effects,
+          activeClips,
+          playheadQ,
+          bpm,
+          fps,
+          signature,
+        ),
         GLOBAL_EFFECT_TRACK_ID,
         fps,
       ),
@@ -76,5 +87,6 @@ export function usePreviewLayers({
     mediaItemsById,
     playheadQ,
     projectDurationFrames,
+    signature,
   ]);
 }

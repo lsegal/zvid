@@ -1,6 +1,5 @@
 import { ChevronLeftIcon } from "@heroicons/react/24/solid";
 import type { CSSProperties } from "react";
-import { formatDegrees, formatPercent } from "../../fx/params";
 import {
   ANIMATION_TIMINGS,
   REACTIVE_MOTIONS,
@@ -10,11 +9,6 @@ import {
   createDefaultModulation,
   type EffectModulation,
   getModulatableParameters,
-  LFO_NOTE_OPTIONS,
-  LFO_PHASE_MAX,
-  LFO_RATE_MAX,
-  LFO_RATE_MIN,
-  LFO_SHAPES,
   MODULATION_MODE_LABELS,
   MODULATION_MODES,
 } from "../../fx-modulation-defaults";
@@ -24,6 +18,7 @@ import {
   FxAnimatedParametersControl,
   FxAnimationSegmented,
   FxAnimationSelect,
+  FxLfoControls,
   formatReactivity,
 } from "./FxAnimationPanel";
 import type { FxChainProps } from "./FxChain";
@@ -39,16 +34,10 @@ type FxModulationPanelProps = {
   onSetModulation?: FxChainProps["onSetModulation"];
 };
 
-const SYNC_OPTIONS = ["Off", "On"] as const;
-
-function formatRate(hz: number) {
-  return `${hz < 1 ? hz.toFixed(2) : hz.toFixed(1)} Hz`;
-}
-
 // The Modulation section attached to an audio device's right edge while its
 // Modulation toggle is on: the audio side's Animation section, built the
 // same way. Transient moves the knobs on hits as Animation's Reactive mode
-// does; LFO moves them over time.
+// does; LFO moves them over time with Animation's LFO controls.
 export function FxModulationPanel({
   device,
   modulation,
@@ -159,78 +148,13 @@ export function FxModulationPanel({
             />
           </>
         ) : (
-          <>
-            <FxAnimationSelect
-              label="Shape"
-              onChange={(shape) => setLfo({ shape })}
-              options={LFO_SHAPES}
-              value={lfo.shape}
-            />
-            <FxAnimationSegmented
-              label="Sync"
-              onChange={(sync) => setLfo({ sync: sync === "On" })}
-              options={SYNC_OPTIONS}
-              value={lfo.sync ? "On" : "Off"}
-            />
-            {lfo.sync ? (
-              <FxAnimationSelect
-                label="Rate"
-                onChange={(note) => setLfo({ note })}
-                options={LFO_NOTE_OPTIONS}
-                value={lfo.note}
-              />
-            ) : (
-              <div className="fx-animation-panel__knob">
-                <Knob
-                  accent={device.accent}
-                  defaultValue={defaults?.lfo.rate ?? 1}
-                  format={formatRate}
-                  label="Rate"
-                  max={LFO_RATE_MAX}
-                  min={LFO_RATE_MIN}
-                  onChange={(rate) => setLfo({ rate }, "transient")}
-                  onCommit={(rate) => setLfo({ rate })}
-                  step={0.01}
-                  taper="log"
-                  value={lfo.rate}
-                />
-              </div>
-            )}
-            <div className="fx-animation-panel__knob">
-              <Knob
-                accent={device.accent}
-                defaultValue={defaults?.lfo.depth ?? 0.5}
-                format={formatPercent}
-                label="Depth"
-                max={1}
-                min={0}
-                onChange={(depth) => setLfo({ depth }, "transient")}
-                onCommit={(depth) => setLfo({ depth })}
-                step={0.01}
-                value={lfo.depth}
-              />
-            </div>
-            <div className="fx-animation-panel__knob">
-              <Knob
-                accent={device.accent}
-                defaultValue={0}
-                format={formatDegrees}
-                label="Phase"
-                max={LFO_PHASE_MAX}
-                min={0}
-                onChange={(phase) => setLfo({ phase }, "transient")}
-                onCommit={(phase) => setLfo({ phase })}
-                step={1}
-                value={lfo.phase}
-              />
-            </div>
-            <FxAnimatedParametersControl
-              available={available}
-              device={device}
-              onChange={(parameters) => setLfo({ parameters })}
-              selected={lfo.parameters}
-            />
-          </>
+          <FxLfoControls
+            available={available}
+            defaults={defaults?.lfo}
+            device={device}
+            lfo={lfo}
+            onChange={setLfo}
+          />
         )}
       </div>
     </section>

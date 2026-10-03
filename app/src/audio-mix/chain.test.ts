@@ -256,7 +256,7 @@ describe("AudioChain modulation", () => {
         shape: "Square",
         sync: false,
         rate: 2,
-        note: "1 bar",
+        syncRate: "1 Bar",
         depth: 1,
         phase: 0,
         parameters: [{ key: "Gain", min: -68, max: 10 }],

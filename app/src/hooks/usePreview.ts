@@ -180,6 +180,7 @@ export function usePreview({
     playheadQ,
     bpm,
     fps,
+    signature: signatureById(signatureId),
     projectDurationFrames,
     lanes: render.lanes,
     lanePriority: renderLanePriority,

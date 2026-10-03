@@ -214,6 +214,7 @@ export function PreviewPanel({
             ref={compositionPlayerRef}
             bpm={bpm}
             fps={fps}
+            signature={mediaTimeFormat.signature}
             canvasHeight={canvasHeight}
             canvasWidth={canvasWidth}
             clips={renderClips}

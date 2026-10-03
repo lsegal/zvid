@@ -46,6 +46,7 @@ import { listenForVideoFrames, releaseMediaElement } from "./media-element.ts";
 import { seekMediaElement } from "./media-seek.ts";
 import type { PlayheadSignal } from "./playhead-signal";
 import { loadTextFaces, subscribeFonts } from "./text-fonts.ts";
+import type { MeterSignature } from "./timeline-format.ts";
 
 type CompositionPlayerProps = {
   mediaItems: MediaItem[];
@@ -56,6 +57,8 @@ type CompositionPlayerProps = {
   bpm: number;
   // The session's frame rate, which effect animations are timed in.
   fps: number;
+  // The session's time signature, which synced LFO animations follow.
+  signature?: MeterSignature;
   // The session's length, where Clip-mode animations stop animating out.
   projectDurationFrames?: number;
   isPlaying: boolean;
@@ -81,6 +84,7 @@ export type CompositionRendererState = {
   effects: SessionEffect[];
   bpm: number;
   fps: number;
+  signature?: MeterSignature;
   projectDurationFrames?: number;
   canvasWidth: number;
   canvasHeight: number;
@@ -342,6 +346,7 @@ export class CompositionRenderer {
       this.state.fps,
       audio,
       this.state.projectDurationFrames,
+      this.state.signature,
     );
 
     // Clips sharing a media at this playhead draw from extra elements, made
@@ -451,6 +456,7 @@ export class CompositionRenderer {
       playheadQ,
       this.state.bpm,
       this.state.fps,
+      this.state.signature,
     );
     drawComposition(
       this.resources as WebGlResources,
@@ -537,6 +543,7 @@ export const CompositionPlayer = forwardRef<
     playheadQ,
     bpm,
     fps,
+    signature,
     projectDurationFrames,
     isPlaying,
     isScrubbing,
@@ -563,6 +570,7 @@ export const CompositionPlayer = forwardRef<
       effects,
       bpm,
       fps,
+      signature,
       projectDurationFrames,
       canvasWidth,
       canvasHeight,
@@ -581,6 +589,7 @@ export const CompositionPlayer = forwardRef<
       lanes,
       mediaItems,
       projectDurationFrames,
+      signature,
     ],
   );
   const rendererStateRef = useRef(rendererState);

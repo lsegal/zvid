@@ -87,11 +87,11 @@ test("an audio device's Modulation section attaches, switches modes and folds", 
     "true",
   );
   await expect(section.getByRole("combobox", { name: "Rate" })).toHaveText(
-    "1 bar",
+    "1 Bar",
   );
   await expect(section.getByRole("slider", { name: "Depth" })).toHaveAttribute(
     "aria-valuetext",
-    "30%",
+    "0.3",
   );
   await expect(section.getByRole("slider", { name: "Phase" })).toHaveAttribute(
     "aria-valuetext",
@@ -101,7 +101,7 @@ test("an audio device's Modulation section attaches, switches modes and folds", 
   await sync.getByRole("button", { name: "Off" }).click();
   await expect(section.getByRole("slider", { name: "Rate" })).toHaveAttribute(
     "aria-valuetext",
-    "1.0 Hz",
+    "1.00 Hz",
   );
 
   // It folds into a strip of its own.

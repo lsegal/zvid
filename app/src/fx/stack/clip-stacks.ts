@@ -78,6 +78,14 @@ export function cloneAnimation(animation: EffectAnimation): EffectAnimation {
           },
         }
       : {}),
+    ...(animation.lfo
+      ? {
+          lfo: {
+            ...animation.lfo,
+            parameters: [...animation.lfo.parameters],
+          },
+        }
+      : {}),
   };
 }
 

@@ -60,7 +60,7 @@ describe("normalizeEffectModulation", () => {
           enabled: true,
           mode: "LFO",
           transient: { reactivity: 4 },
-          lfo: { shape: "saw up", rate: 500, phase: -10, note: "1/7" },
+          lfo: { shape: "saw up", rate: 500, phase: -10, syncRate: "1/7" },
         },
         "Delay",
       ),

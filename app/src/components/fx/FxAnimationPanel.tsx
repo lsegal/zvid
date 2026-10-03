@@ -10,6 +10,13 @@ import {
   type EffectAnimation,
   getAnimatableParameters,
   getAnimationModes,
+  LFO_DEPTH_STEP,
+  LFO_MAX_PHASE,
+  LFO_MAX_RATE,
+  LFO_MIN_RATE,
+  LFO_SHAPES,
+  LFO_SYNC_RATES,
+  type LfoAnimation,
   ORDER_TRANSITIONS,
   REACTIVE_MOTIONS,
   REACTIVITY_STEP,
@@ -38,7 +45,13 @@ type FxAnimationPanelProps = {
   onSetAnimation?: FxChainProps["onSetAnimation"];
 };
 
-const ANIMATION_MODE_LABELS = { clip: "Clip", reactive: "Reactive" } as const;
+const ANIMATION_MODE_LABELS = {
+  clip: "Clip",
+  reactive: "Reactive",
+  lfo: "LFO",
+} as const;
+
+const LFO_SYNC_OPTIONS = ["Off", "On"] as const;
 
 // The Animation section attached to a device's right edge while its
 // Animation toggle is on. It folds into a strip of its own, like a device does.
@@ -95,6 +108,18 @@ export function FxAnimationPanel({
       set({ ...animation, reactive: { ...reactive, ...patch } }, mode);
     }
   };
+  const lfo =
+    animation.mode === "lfo" && modes.includes("lfo")
+      ? animation.lfo
+      : undefined;
+  const setLfo = (
+    patch: Partial<LfoAnimation>,
+    mode: FxEditMode = "commit",
+  ) => {
+    if (lfo) {
+      set({ ...animation, lfo: { ...lfo, ...patch } }, mode);
+    }
+  };
 
   return (
     <section aria-label={label} className={className} style={style}>
@@ -121,7 +146,9 @@ export function FxAnimationPanel({
             value={animation.mode}
           />
         ) : null}
-        {!reactive ? (
+        {lfo ? (
+          <FxLfoControls device={device} lfo={lfo} onChange={setLfo} />
+        ) : !reactive ? (
           <>
             <FxAnimationSegmented
               label="Timing"
@@ -199,6 +226,106 @@ export function formatReactivity(value: number) {
   return value.toFixed(1);
 }
 
+function formatRate(value: number) {
+  return `${value.toFixed(2)} Hz`;
+}
+
+function formatPhase(value: number) {
+  return `${Math.round(value)}°`;
+}
+
+// LFO mode's controls: Sync and Shape, the Parameters it moves, then the
+// Rate (a note value while synced, Hz while free), Depth and Phase. An audio
+// device's Modulation passes its own knobs and defaults.
+export function FxLfoControls({
+  device,
+  lfo,
+  onChange,
+  available,
+  defaults = createDefaultAnimation(device.effectName)?.lfo,
+}: {
+  device: FxDevice;
+  lfo: LfoAnimation;
+  onChange: (patch: Partial<LfoAnimation>, mode?: FxEditMode) => void;
+  available?: readonly AnimatableParameter[];
+  defaults?: LfoAnimation;
+}) {
+  return (
+    <>
+      <FxAnimationSegmented
+        label="Sync"
+        onChange={(option) => onChange({ sync: option === "On" })}
+        options={LFO_SYNC_OPTIONS}
+        value={lfo.sync ? "On" : "Off"}
+      />
+      <FxAnimationSelect
+        label="Shape"
+        onChange={(shape) => onChange({ shape })}
+        options={LFO_SHAPES}
+        value={lfo.shape}
+      />
+      <FxAnimatedParametersControl
+        available={available}
+        device={device}
+        onChange={(parameters) => onChange({ parameters })}
+        selected={lfo.parameters}
+      />
+      <div className="fx-animation-panel__knob">
+        {lfo.sync ? (
+          <FxAnimationSelect
+            label="Rate"
+            onChange={(syncRate) => onChange({ syncRate })}
+            options={LFO_SYNC_RATES}
+            value={lfo.syncRate}
+          />
+        ) : (
+          <Knob
+            accent={device.accent}
+            defaultValue={defaults?.rate ?? 1}
+            format={formatRate}
+            label="Rate"
+            max={LFO_MAX_RATE}
+            min={LFO_MIN_RATE}
+            onChange={(rate) => onChange({ rate }, "transient")}
+            onCommit={(rate) => onChange({ rate })}
+            step={0.01}
+            taper="log"
+            value={lfo.rate}
+          />
+        )}
+      </div>
+      <div className="fx-animation-panel__knob">
+        <Knob
+          accent={device.accent}
+          defaultValue={defaults?.depth ?? 0.5}
+          format={formatReactivity}
+          label="Depth"
+          max={1}
+          min={0}
+          onChange={(depth) => onChange({ depth }, "transient")}
+          onCommit={(depth) => onChange({ depth })}
+          step={LFO_DEPTH_STEP}
+          value={lfo.depth}
+        />
+      </div>
+      <div className="fx-animation-panel__knob">
+        <Knob
+          accent={device.accent}
+          defaultValue={defaults?.phase ?? 0}
+          format={formatPhase}
+          label="Phase"
+          max={LFO_MAX_PHASE}
+          min={0}
+          onChange={(phase) => onChange({ phase }, "transient")}
+          onCommit={(phase) => onChange({ phase })}
+          step={1}
+          value={lfo.phase}
+        />
+      </div>
+    </>
+  );
+}
+
 export function FxAnimationSegmented<T extends string>({
   label,
   options,
@@ -261,7 +388,7 @@ export function FxAnimationSelect<T extends string>({
 }
 
 // A button that opens a checkmark menu of the effect's knobs: ticked knobs
-// are the ones Reactive mode modulates. Each toggle is one undo step and
+// are the ones Reactive or LFO mode modulates. Each toggle is one undo step and
 // leaves the menu open for the next, like an Order's Layers menu.
 // `available` lists the knobs to offer, the effect's animatable ones unless
 // given.

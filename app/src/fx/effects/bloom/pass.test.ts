@@ -101,10 +101,11 @@ describe("Bloom pass", () => {
     );
   });
 
-  it("supports the Animation modifier's Clip and Reactive modes", () => {
+  it("supports the Animation modifier's Clip, Reactive and LFO modes", () => {
     assert.deepEqual(getAnimationDefaults("Bloom")?.modes, [
       "clip",
       "reactive",
+      "lfo",
     ]);
   });
 });

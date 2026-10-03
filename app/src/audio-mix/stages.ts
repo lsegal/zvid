@@ -108,7 +108,7 @@ function audioStageModulation(
           shape: lfo.shape,
           sync: lfo.sync,
           rate: lfo.rate,
-          note: lfo.note,
+          syncRate: lfo.syncRate,
           depth: lfo.depth,
           phase: lfo.phase,
           parameters,
