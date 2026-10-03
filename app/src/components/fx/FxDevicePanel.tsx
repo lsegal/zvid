@@ -25,8 +25,8 @@ import "./fx-device-audio.css";
 
 type FxDevicePanelProps = {
   device: FxDevice;
-  // True while its Animation section is attached to its right edge; the
-  // wrapper around the pair is then the stack's panel.
+  // True while its Animation or Modulation section is attached to its right
+  // edge; the wrapper around the pair is then the stack's panel.
   attached?: boolean;
   collapsed: boolean;
   dragging: boolean;
@@ -40,6 +40,7 @@ type FxDevicePanelProps = {
   onContextMenu: (event: ReactMouseEvent<HTMLElement>) => void;
   onSetEnabled: FxChainProps["onSetEnabled"];
   onSetAnimationEnabled?: FxChainProps["onSetAnimationEnabled"];
+  onSetModulationEnabled?: FxChainProps["onSetModulationEnabled"];
   layers: readonly FxLayerOption[];
   onSetParameter: FxChainProps["onSetParameter"];
 };
@@ -76,6 +77,7 @@ export function FxDevicePanel({
   onContextMenu,
   onSetEnabled,
   onSetAnimationEnabled,
+  onSetModulationEnabled,
   onSetParameter,
   layers,
 }: FxDevicePanelProps) {
@@ -105,17 +107,32 @@ export function FxDevicePanel({
       <PowerIcon aria-hidden="true" />
     </button>
   );
-  const animated = device.animation?.enabled === true;
-  const animationLabel = `Turn Animation ${animated ? "Off" : "On"} for ${device.name}`;
-  // Layout, and effects the app doesn't know, have no Animation modifier.
-  const animationToggle = device.supportsAnimation ? (
+  // Video effects carry Animation and audio effects Modulation. Layout,
+  // Reverse, and effects the app doesn't know, have neither.
+  const modifier = device.supportsAnimation
+    ? {
+        name: "Animation",
+        on: device.animation?.enabled === true,
+        setEnabled: onSetAnimationEnabled,
+      }
+    : device.supportsModulation
+      ? {
+          name: "Modulation",
+          on: device.modulation?.enabled === true,
+          setEnabled: onSetModulationEnabled,
+        }
+      : undefined;
+  const modifierLabel = modifier
+    ? `Turn ${modifier.name} ${modifier.on ? "Off" : "On"} for ${device.name}`
+    : "";
+  const animationToggle = modifier ? (
     <button
-      aria-label={animationLabel}
-      aria-pressed={animated}
+      aria-label={modifierLabel}
+      aria-pressed={modifier.on}
       className="fx-device-panel__animate"
       data-fx-no-drag
-      onClick={() => onSetAnimationEnabled?.(device, !animated)}
-      title={animationLabel}
+      onClick={() => modifier.setEnabled?.(device, !modifier.on)}
+      title={modifierLabel}
       type="button"
     >
       <MotionIcon />
@@ -133,8 +150,8 @@ export function FxDevicePanel({
         <SpeakerWaveIcon aria-hidden="true" />
       </span>
     ) : null;
-  // While attached, the wrapper around the device and its Animation section
-  // is the stack's panel.
+  // While attached, the wrapper around the device and its Animation or
+  // Modulation section is the stack's panel.
   const groupAttribute = attached ? {} : { "data-fx-group": device.group };
 
   if (collapsed) {

@@ -1,4 +1,8 @@
 import type { EffectAnimation } from "../../fx-animation-defaults.ts";
+import {
+  cloneModulation,
+  type EffectModulation,
+} from "../../fx-modulation-defaults.ts";
 import type { FxDeviceGroup } from "./types.ts";
 
 export const GLOBAL_EFFECT_TRACK_ID = "__group_main";
@@ -144,6 +148,13 @@ export function copyEffectStacks<T extends StackEffect>(
               ? {
                   animation: cloneAnimation(
                     effect.animation as EffectAnimation,
+                  ),
+                }
+              : {}),
+            ...("modulation" in effect && effect.modulation
+              ? {
+                  modulation: cloneModulation(
+                    effect.modulation as EffectModulation,
                   ),
                 }
               : {}),

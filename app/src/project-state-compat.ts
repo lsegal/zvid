@@ -11,6 +11,7 @@ import {
   parseCompositionOrder,
 } from "./fx/effects/order/order.ts";
 import { createDefaultAnimation } from "./fx-animation-defaults.ts";
+import { normalizeEffectModulation } from "./fx-modulation-defaults.ts";
 import {
   clipEffectTrackId,
   ensureGlobalOrder,
@@ -403,4 +404,25 @@ export function migrateClipContentEffects(
     result.push(...copied);
   }
   return result;
+}
+
+// Audio effects' Modulation as a workspace snapshot saved it, filled in from
+// each effect's defaults where something is missing or malformed. Settings
+// on an effect that doesn't support modulation are dropped. Snapshots from
+// before Modulation have none, and load unchanged.
+export function migrateEffectModulation(
+  effects: SessionEffect[],
+): SessionEffect[] {
+  if (!effects.some((effect) => "modulation" in effect)) {
+    return effects;
+  }
+
+  return effects.map((effect) => {
+    if (!("modulation" in effect)) {
+      return effect;
+    }
+    const { modulation: raw, ...rest } = effect;
+    const modulation = normalizeEffectModulation(raw, effect.effectName);
+    return modulation ? { ...rest, modulation } : rest;
+  });
 }

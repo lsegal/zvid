@@ -245,3 +245,63 @@ describe("chain timing", () => {
     );
   });
 });
+
+describe("AudioChain modulation", () => {
+  // A Gain at 0 dB whose level a 2 Hz square LFO swings up and down.
+  function squareGain(): AudioStage {
+    return {
+      ...gainStageAt(1),
+      modulation: {
+        mode: "lfo",
+        shape: "Square",
+        sync: false,
+        rate: 2,
+        syncRate: "1 Bar",
+        depth: 1,
+        phase: 0,
+        parameters: [{ key: "Gain", min: -68, max: 10 }],
+      },
+    };
+  }
+
+  function largestStep(data: Float32Array) {
+    let step = 0;
+    for (let index = 1; index < data.length; index++) {
+      step = Math.max(step, Math.abs(data[index] - data[index - 1]));
+    }
+    return step;
+  }
+
+  it("moves a modulated knob between its swings, ramped so it never clicks", () => {
+    const output = run(chainOf([squareGain()]), constant(SAMPLE_RATE, 0.5));
+    // +19.5 dB clamps to the fader's 10 dB; -19.5 dB is about a tenth.
+    const loudest = Math.max(...output);
+    const quietest = Math.min(...output);
+    assert.ok(Math.abs(loudest - 0.5 * gainToAmplitude(10)) < 1e-3);
+    assert.ok(Math.abs(quietest - 0.5 * gainToAmplitude(-19.5)) < 1e-3);
+    // A square edge jumps by more than a whole amplitude; ramped, each
+    // frame moves by a small fraction of that.
+    assert.ok(largestStep(output) < 0.1, `${largestStep(output)}`);
+  });
+
+  it("starts at the swing after a reset, then settles back once modulation is removed", () => {
+    const chain = chainOf([squareGain()]);
+    const first = run(chain, constant(BLOCK_FRAMES, 0.5));
+    assert.ok(Math.abs(first[0] - 0.5 * gainToAmplitude(10)) < 1e-6);
+
+    chain.configure(settings([gainStageAt(1)]), TEMPO);
+    const settled = run(chain, constant(SAMPLE_RATE / 4, 0.5));
+    assert.ok(Math.abs(settled[settled.length - 1] - 0.5) < 1e-6);
+    assert.ok(largestStep(settled) < 0.1);
+  });
+
+  it("ramps into the swing when modulation is turned on during playback", () => {
+    const chain = chainOf([gainStageAt(1)]);
+    run(chain, constant(BLOCK_FRAMES, 0.5));
+    chain.configure(settings([squareGain()]), TEMPO);
+    const output = run(chain, constant(SAMPLE_RATE / 4, 0.5));
+    assert.ok(Math.abs(output[0] - 0.5) < 0.05, `${output[0]}`);
+    assert.ok(largestStep(output) < 0.1);
+    assert.ok(Math.max(...output) > 1.5);
+  });
+});

@@ -9,6 +9,7 @@ import type {
 import type { FxEditMode } from "../components/FxChain";
 import type { EffectAnimation } from "../fx-animation-defaults";
 import { isFxClip } from "../fx-clip.ts";
+import type { EffectModulation } from "../fx-modulation-defaults";
 import {
   addEffect,
   duplicateEffect,
@@ -22,6 +23,8 @@ import {
   setEffectAnimation,
   setEffectAnimationEnabled,
   setEffectEnabled,
+  setEffectModulation,
+  setEffectModulationEnabled,
   setEffectParameter,
   setLaneFxEnabled,
 } from "../fx-stack";
@@ -192,6 +195,25 @@ export function useFxEditing({
     [editEffects],
   );
 
+  const setFxDeviceModulationEnabled = useCallback(
+    (device: FxDevice, enabled: boolean) =>
+      editEffects(
+        effectHistoryLabels.modulationEnabled(device.effectName, enabled),
+        (current) => setEffectModulationEnabled(current, device.id, enabled),
+      ),
+    [editEffects],
+  );
+
+  const setFxDeviceModulation = useCallback(
+    (device: FxDevice, modulation: EffectModulation, mode: FxEditMode) =>
+      editEffects(
+        effectHistoryLabels.modulation(device.effectName),
+        (current) => setEffectModulation(current, device.id, modulation),
+        mode,
+      ),
+    [editEffects],
+  );
+
   return {
     editEffects,
     setLayerFxEnabled,
@@ -200,6 +222,8 @@ export function useFxEditing({
     setFxDeviceParameter,
     setFxDeviceAnimationEnabled,
     setFxDeviceAnimation,
+    setFxDeviceModulationEnabled,
+    setFxDeviceModulation,
     moveFxDevice,
     addFxDevice,
     removeFxDevice,

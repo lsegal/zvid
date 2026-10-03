@@ -34,6 +34,8 @@ const HIGH_BAND_MAX_HZ = 10000;
 const ENVELOPE_ATTACK = 0.6;
 const ENVELOPE_RELEASE = 0.1;
 const ENVELOPE_REFERENCE_FPS = 60;
+// The grid AudioBandTracker steps on, in ticks per second.
+export const BAND_TICK_RATE = ENVELOPE_REFERENCE_FPS;
 const MAX_ENVELOPE_STEP_SECONDS = 0.25;
 // AnalyserNode defaults, reproduced offline so export matches the preview.
 const MIN_DECIBELS = -100;
@@ -386,27 +388,64 @@ export class LiveAudioBands {
   }
 }
 
+// The bins an analyser set up by createBandAnalyser reads, measured from
+// samples: what AnalyserNode.getByteFrequencyData gives with no temporal
+// smoothing.
+export class ByteSpectrum {
+  private readonly window = new Float32Array(FFT_SIZE);
+  private readonly real = new Float64Array(FFT_SIZE);
+  private readonly imaginary = new Float64Array(FFT_SIZE);
+  readonly bins = new Uint8Array(FFT_SIZE / 2);
+
+  constructor() {
+    for (let index = 0; index < FFT_SIZE; index++) {
+      const phase = (2 * Math.PI * index) / FFT_SIZE;
+      this.window[index] =
+        0.42 - 0.5 * Math.cos(phase) + 0.08 * Math.cos(2 * phase);
+    }
+  }
+
+  // The bins of the FFT_SIZE samples `sample(0)` to `sample(FFT_SIZE - 1)`,
+  // oldest first: Blackman window, FFT scaled by 1/N, then decibels mapped
+  // onto 0..255.
+  measure(sample: (index: number) => number) {
+    for (let index = 0; index < FFT_SIZE; index++) {
+      this.real[index] = sample(index) * this.window[index];
+      this.imaginary[index] = 0;
+    }
+
+    fft(this.real, this.imaginary);
+    const scale = 255 / (MAX_DECIBELS - MIN_DECIBELS);
+    for (let index = 0; index < this.bins.length; index++) {
+      const magnitude =
+        Math.hypot(this.real[index], this.imaginary[index]) / FFT_SIZE;
+      const decibels = 20 * Math.log10(magnitude);
+      const value = Math.floor(scale * (decibels - MIN_DECIBELS));
+      this.bins[index] = Number.isFinite(value)
+        ? Math.max(0, Math.min(255, value))
+        : 0;
+    }
+
+    return this.bins;
+  }
+}
+
+// The samples ByteSpectrum measures at once.
+export const SPECTRUM_SIZE = FFT_SIZE;
+
 // Reproduces the live analyser from decoded samples for offline rendering.
 // The tracker advances on a fixed 60 Hz grid, so sequential export frames
 // reuse the previous state instead of re-reading the warm-up window.
 export class OfflineAudioBands {
   private readonly samples: Float32Array;
   private readonly sampleRate: number;
-  private readonly window = new Float32Array(FFT_SIZE);
-  private readonly real = new Float64Array(FFT_SIZE);
-  private readonly imaginary = new Float64Array(FFT_SIZE);
-  private readonly bins = new Uint8Array(FFT_SIZE / 2);
+  private readonly spectrum = new ByteSpectrum();
   private tracker = new AudioBandTracker();
   private envelopeStep = -1;
 
   constructor(samples: Float32Array, sampleRate: number) {
     this.samples = samples;
     this.sampleRate = sampleRate;
-    for (let index = 0; index < FFT_SIZE; index++) {
-      const phase = (2 * Math.PI * index) / FFT_SIZE;
-      this.window[index] =
-        0.42 - 0.5 * Math.cos(phase) + 0.08 * Math.cos(2 * phase);
-    }
   }
 
   // Measures channels of the mix, down-mixed to mono the way Web Audio
@@ -449,34 +488,15 @@ export class OfflineAudioBands {
     );
   }
 
-  // Mirrors AnalyserNode.getByteFrequencyData with no temporal smoothing:
-  // Blackman window, FFT scaled by 1/N, then decibels mapped onto 0..255.
+  // The bins of the FFT_SIZE samples before `timeSeconds`.
   private measureAt(timeSeconds: number) {
-    const end = Math.floor(timeSeconds * this.sampleRate);
-    const start = end - FFT_SIZE;
-    for (let index = 0; index < FFT_SIZE; index++) {
+    const start = Math.floor(timeSeconds * this.sampleRate) - FFT_SIZE;
+    return this.spectrum.measure((index) => {
       const sampleIndex = start + index;
-      const sample =
-        sampleIndex >= 0 && sampleIndex < this.samples.length
-          ? this.samples[sampleIndex]
-          : 0;
-      this.real[index] = sample * this.window[index];
-      this.imaginary[index] = 0;
-    }
-
-    fft(this.real, this.imaginary);
-    const scale = 255 / (MAX_DECIBELS - MIN_DECIBELS);
-    for (let index = 0; index < this.bins.length; index++) {
-      const magnitude =
-        Math.hypot(this.real[index], this.imaginary[index]) / FFT_SIZE;
-      const decibels = 20 * Math.log10(magnitude);
-      const value = Math.floor(scale * (decibels - MIN_DECIBELS));
-      this.bins[index] = Number.isFinite(value)
-        ? Math.max(0, Math.min(255, value))
+      return sampleIndex >= 0 && sampleIndex < this.samples.length
+        ? this.samples[sampleIndex]
         : 0;
-    }
-
-    return this.bins;
+    });
   }
 }
 

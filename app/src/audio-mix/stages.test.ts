@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { createDefaultModulation } from "../fx-modulation-defaults.ts";
 import { TEST_PROCESSORS, testStage } from "./chain-test-utils.ts";
 import { audioStageOf, hasProcessingStages } from "./stages.ts";
 
@@ -43,6 +44,89 @@ describe("audioStageOf", () => {
   });
 });
 
+describe("audioStageOf modulation", () => {
+  const highCut = (modulation = createDefaultModulation("High Cut")) => ({
+    id: "cut",
+    trackId: "t",
+    effectName: "High Cut",
+    parameters: [],
+    modulation,
+  });
+
+  it("gives the stage its Transient settings and the knobs' ranges", () => {
+    assert.deepEqual(audioStageOf(highCut(), "a").modulation, {
+      mode: "transient",
+      motion: "Bounce",
+      reactivity: 0.5,
+      lengthFrames: 12,
+      parameters: [{ key: "Frequency", min: 20, max: 20000, taper: "log" }],
+    });
+  });
+
+  it("gives the stage its LFO settings", () => {
+    const modulation = createDefaultModulation("High Cut");
+    assert.ok(modulation);
+    const stage = audioStageOf(
+      highCut({
+        ...modulation,
+        mode: "lfo",
+        lfo: { ...modulation.lfo, shape: "Square", phase: 90 },
+      }),
+      "a",
+    );
+    assert.equal(stage.modulation?.mode, "lfo");
+    assert.equal(
+      stage.modulation?.mode === "lfo" && stage.modulation.shape,
+      "Square",
+    );
+  });
+
+  it("leaves modulation out while it is off or would move nothing", () => {
+    const modulation = createDefaultModulation("High Cut");
+    assert.ok(modulation);
+    const off = { ...modulation, enabled: false };
+    const still = {
+      ...modulation,
+      transient: { ...modulation.transient, motion: "None" as const },
+    };
+    const none = {
+      ...modulation,
+      transient: { ...modulation.transient, parameters: [] },
+    };
+    const flat = {
+      ...modulation,
+      mode: "lfo" as const,
+      lfo: { ...modulation.lfo, depth: 0 },
+    };
+    for (const settings of [off, still, none, flat]) {
+      assert.equal("modulation" in audioStageOf(highCut(settings), "a"), false);
+    }
+    const { modulation: _, ...plain } = highCut();
+    assert.equal("modulation" in audioStageOf(plain, "a"), false);
+  });
+
+  it("never modulates a toggle", () => {
+    const modulation = createDefaultModulation("Gain");
+    assert.ok(modulation);
+    const stage = audioStageOf(
+      {
+        trackId: "t",
+        effectName: "Gain",
+        parameters: [],
+        modulation: {
+          ...modulation,
+          transient: { ...modulation.transient, parameters: ["Gain", "Mute"] },
+        },
+      },
+      "a",
+    );
+    assert.deepEqual(
+      stage.modulation?.parameters.map((parameter) => parameter.key),
+      ["Gain"],
+    );
+  });
+});
+
 describe("hasProcessingStages", () => {
   it("counts only enabled stages with a processor other than Gain", () => {
     const gain = {
@@ -67,5 +151,18 @@ describe("hasProcessingStages", () => {
       hasProcessingStages(TEST_PROCESSORS, [gain, testStage("Test Echo")]),
       true,
     );
+  });
+
+  it("counts a modulated Gain, which a native gain can't play", () => {
+    const gain = audioStageOf(
+      {
+        trackId: "t",
+        effectName: "Gain",
+        parameters: [],
+        modulation: createDefaultModulation("Gain"),
+      },
+      "g",
+    );
+    assert.equal(hasProcessingStages(TEST_PROCESSORS, [gain]), true);
   });
 });

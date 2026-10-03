@@ -2,6 +2,7 @@ import { CheckIcon, ChevronLeftIcon } from "@heroicons/react/24/solid";
 import type { CSSProperties } from "react";
 import {
   ANIMATION_TIMINGS,
+  type AnimatableParameter,
   CLIP_MOTIONS,
   CLIP_TIMINGS,
   createDefaultAnimation,
@@ -221,7 +222,7 @@ export function FxAnimationPanel({
   );
 }
 
-function formatReactivity(value: number) {
+export function formatReactivity(value: number) {
   return value.toFixed(1);
 }
 
@@ -234,17 +235,21 @@ function formatPhase(value: number) {
 }
 
 // LFO mode's controls: Sync and Shape, the Parameters it moves, then the
-// Rate (a note value while synced, Hz while free), Depth and Phase.
-function FxLfoControls({
+// Rate (a note value while synced, Hz while free), Depth and Phase. An audio
+// device's Modulation passes its own knobs and defaults.
+export function FxLfoControls({
   device,
   lfo,
   onChange,
+  available,
+  defaults = createDefaultAnimation(device.effectName)?.lfo,
 }: {
   device: FxDevice;
   lfo: LfoAnimation;
   onChange: (patch: Partial<LfoAnimation>, mode?: FxEditMode) => void;
+  available?: readonly AnimatableParameter[];
+  defaults?: LfoAnimation;
 }) {
-  const defaults = createDefaultAnimation(device.effectName)?.lfo;
   return (
     <>
       <FxAnimationSegmented
@@ -260,6 +265,7 @@ function FxLfoControls({
         value={lfo.shape}
       />
       <FxAnimatedParametersControl
+        available={available}
         device={device}
         onChange={(parameters) => onChange({ parameters })}
         selected={lfo.parameters}
@@ -320,7 +326,7 @@ function FxLfoControls({
   );
 }
 
-function FxAnimationSegmented<T extends string>({
+export function FxAnimationSegmented<T extends string>({
   label,
   options,
   value,
@@ -356,7 +362,7 @@ function FxAnimationSegmented<T extends string>({
   );
 }
 
-function FxAnimationSelect<T extends string>({
+export function FxAnimationSelect<T extends string>({
   label,
   options,
   value,
@@ -384,16 +390,19 @@ function FxAnimationSelect<T extends string>({
 // A button that opens a checkmark menu of the effect's knobs: ticked knobs
 // are the ones Reactive or LFO mode modulates. Each toggle is one undo step and
 // leaves the menu open for the next, like an Order's Layers menu.
-function FxAnimatedParametersControl({
+// `available` lists the knobs to offer, the effect's animatable ones unless
+// given.
+export function FxAnimatedParametersControl({
   device,
   selected,
   onChange,
+  available = getAnimatableParameters(device.effectName),
 }: {
   device: FxDevice;
   selected: readonly string[];
   onChange: (parameters: string[]) => void;
+  available?: readonly AnimatableParameter[];
 }) {
-  const available = getAnimatableParameters(device.effectName);
   const keepOpen = (event: Event) => event.preventDefault();
 
   return (

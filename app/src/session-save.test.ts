@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import { sessionToProject } from "./app/session-project.ts";
 import { createClipWarp } from "./clip-warp.ts";
 import type { EffectAnimation } from "./fx-animation-defaults.ts";
+import type { EffectModulation } from "./fx-modulation-defaults.ts";
 import { hasGlobalOrder, mapEffects, pruneClipEffects } from "./fx-stack.ts";
 import { migrateDefaultOrder } from "./project-state-compat.ts";
 import { clipSourceFrame, type LvpSession } from "./session.ts";
@@ -461,6 +462,56 @@ describe("projectToLvpSession", () => {
     );
     assert.deepEqual(animated.animation, animation);
     assert.equal(plain.animation, undefined);
+  });
+
+  it("round-trips audio effect modulation settings", () => {
+    const modulation: EffectModulation = {
+      enabled: true,
+      mode: "lfo",
+      transient: {
+        motion: "Wobble",
+        timing: "Fast",
+        reactivity: 0.4,
+        parameters: ["Frequency"],
+      },
+      lfo: {
+        shape: "Saw Down",
+        sync: true,
+        rate: 2.5,
+        syncRate: "1/8D",
+        depth: 0.6,
+        phase: 90,
+        parameters: ["Frequency", "Resonance"],
+      },
+    };
+    const session = projectToLvpSession(
+      baseProject({
+        effects: [
+          {
+            id: "modulated",
+            trackId: "main-1",
+            effectName: "High Cut",
+            parameters: [],
+            modulation,
+          },
+          {
+            id: "plain",
+            trackId: "main-1",
+            effectName: "High Cut",
+            parameters: [],
+          },
+        ],
+      }),
+      { playheadQ: 0 },
+    );
+    assert.deepEqual(session.effects?.[0]?.modulation, modulation);
+    assert.equal("modulation" in (session.effects?.[1] ?? {}), false);
+
+    const [modulated, plain] = mapEffects(
+      JSON.parse(JSON.stringify(session)).effects,
+    );
+    assert.deepEqual(modulated.modulation, modulation);
+    assert.equal(plain.modulation, undefined);
   });
 
   it("drops an Order's exclusions of layers that no longer exist", () => {

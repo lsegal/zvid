@@ -367,7 +367,7 @@ export function getReactiveTimingFrames(
     DEFAULT_REACTIVE_FRAMES)[timing];
 }
 
-function readOption<T extends string>(
+export function readOption<T extends string>(
   value: unknown,
   options: readonly T[],
   fallback: T,
@@ -379,7 +379,7 @@ function readOption<T extends string>(
     : fallback;
 }
 
-function readNumber(
+export function readNumber(
   value: unknown,
   min: number,
   max: number,
@@ -390,11 +390,11 @@ function readNumber(
     : fallback;
 }
 
-function readReactivity(value: unknown, fallback: number) {
+export function readReactivity(value: unknown, fallback: number) {
   return readNumber(value, 0, 1, fallback);
 }
 
-function readParameters(value: unknown, fallback: readonly string[]) {
+export function readParameters(value: unknown, fallback: readonly string[]) {
   return Array.isArray(value)
     ? [
         ...new Set(
@@ -404,7 +404,7 @@ function readParameters(value: unknown, fallback: readonly string[]) {
     : [...fallback];
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
@@ -451,7 +451,7 @@ export function normalizeEffectAnimation(
   };
 }
 
-function normalizeReactive(
+export function normalizeReactive(
   raw: unknown,
   fallback: ReactiveAnimation,
 ): ReactiveAnimation {
@@ -464,7 +464,10 @@ function normalizeReactive(
   };
 }
 
-function normalizeLfo(raw: unknown, fallback: LfoAnimation): LfoAnimation {
+export function normalizeLfo(
+  raw: unknown,
+  fallback: LfoAnimation,
+): LfoAnimation {
   const lfo = isRecord(raw) ? raw : {};
   return {
     shape: readOption(lfo.shape, LFO_SHAPES, fallback.shape),

@@ -4,6 +4,7 @@
 // processor runs in the preview, inside the chain worklet (see
 // chain-worklet.ts), and in export and the offline audio bands (see mix.ts),
 // both through AudioChain (see chain.ts), so the two hear the same DSP.
+import type { AudioStageModulation } from "./modulation.ts";
 
 export type AudioTimeSignature = { numerator: number; denominator: number };
 
@@ -90,6 +91,8 @@ export type AudioStage = AudioStageSettings & {
   id: string;
   effectName: string;
   enabled: boolean;
+  // Its Modulation, while on and moving at least one knob.
+  modulation?: AudioStageModulation;
 };
 
 export type AudioProcessorRegistry = ReadonlyMap<string, AudioEffectDsp>;

@@ -72,6 +72,21 @@ function tone(frequency: number, peak: number, seconds = 2): DecodedAudio {
   return { sampleRate: SAMPLE_RATE, channels: [data] };
 }
 
+// Decaying noise bursts every quarter second, for Transient to hear.
+function hits(peak: number, seconds = 2): DecodedAudio {
+  const data = new Float32Array(Math.round(seconds * SAMPLE_RATE));
+  let seed = 7;
+  for (let at = 0.15; at < seconds; at += 0.25) {
+    const start = Math.round(at * SAMPLE_RATE);
+    for (let index = 0; index < 300 && start + index < data.length; index++) {
+      seed = (seed * 1103515245 + 12345) >>> 0;
+      data[start + index] =
+        ((seed / 0xffffffff) * 2 - 1) * peak * (1 - index / 300);
+    }
+  }
+  return { sampleRate: SAMPLE_RATE, channels: [data] };
+}
+
 function clip(id: string, stages = [gainStageAt(1)]): AudioMixClip {
   return {
     id,
@@ -242,6 +257,86 @@ describe("chain worklet", () => {
     );
     const preview = playThroughWorklet(mix, media, length);
     assert.ok(largestDifference(preview, offline) < 1e-6);
+  });
+
+  it("plays modulated stages as the offline render does", () => {
+    const cutoff = { key: "Cutoff", min: 20, max: 4000, taper: "log" as const };
+    const mix: AudioMix = {
+      clips: [
+        clip("a", [
+          {
+            ...gainStageAt(1),
+            modulation: {
+              mode: "lfo",
+              shape: "Triangle",
+              sync: true,
+              rate: 1,
+              syncRate: "1/8",
+              depth: 0.8,
+              phase: 45,
+              parameters: [{ key: "Gain", min: -68, max: 10 }],
+            },
+          },
+          {
+            ...testStage(ONE_POLE, { Cutoff: 300 }, { id: "filter" }),
+            modulation: {
+              mode: "transient",
+              motion: "Bounce",
+              reactivity: 1,
+              lengthFrames: 12,
+              parameters: [cutoff],
+            },
+          },
+        ]),
+      ],
+      buses: [{ id: "bus", stages: [] }],
+      master: [
+        {
+          ...testStage(ONE_POLE, { Cutoff: 1500 }, { id: "master-filter" }),
+          modulation: {
+            mode: "lfo",
+            shape: "Random",
+            sync: false,
+            rate: 6,
+            syncRate: "1/4",
+            depth: 1,
+            phase: 0,
+            parameters: [cutoff],
+          },
+        },
+      ],
+      masterAmplitude: 1,
+      fromSourceTracks: true,
+      bpm: 128,
+      signature: DEFAULT_TIME_SIGNATURE,
+    };
+    const media = new Map([["a", hits(0.6)]]);
+    const length = SAMPLE_RATE;
+    const [offline] = renderAudioMix(
+      mix,
+      media,
+      { sampleRate: SAMPLE_RATE, numberOfChannels: 1, startSeconds: 0, length },
+      TEST_PROCESSORS,
+    );
+    const unmodulated = renderAudioMix(
+      {
+        ...mix,
+        clips: mix.clips.map((mixClip) => ({
+          ...mixClip,
+          stages: mixClip.stages.map(({ modulation: _, ...stage }) => stage),
+        })),
+        master: mix.master.map(({ modulation: _, ...stage }) => stage),
+      },
+      media,
+      { sampleRate: SAMPLE_RATE, numberOfChannels: 1, startSeconds: 0, length },
+      TEST_PROCESSORS,
+    )[0];
+    const preview = playThroughWorklet(mix, media, length);
+    assert.ok(largestDifference(offline, unmodulated) > 0.01);
+    assert.ok(
+      largestDifference(preview, offline) < 1e-6,
+      `${largestDifference(preview, offline)}`,
+    );
   });
 
   it("drops its state on a reset", () => {

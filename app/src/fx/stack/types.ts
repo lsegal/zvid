@@ -1,4 +1,5 @@
 import type { EffectAnimation } from "../../fx-animation-defaults.ts";
+import type { EffectModulation } from "../../fx-modulation-defaults.ts";
 import type {
   FxEffectDomain,
   FxFlagOption,
@@ -23,6 +24,9 @@ export type SessionEffect = {
   // The Animation modifier's settings, once it has been turned on. Saved to
   // `.lvp` as zvid-only `animation`.
   animation?: EffectAnimation;
+  // An audio effect's Modulation modifier settings, once it has been turned
+  // on. Saved to `.lvp` as zvid-only `modulation`.
+  modulation?: EffectModulation;
   // A Gain an older session's open added, until it is edited. Saved to
   // `.lvp` as zvid-only `defaulted: true`.
   defaulted?: boolean;
@@ -81,6 +85,10 @@ export type FxDevice = {
   supportsAnimation: boolean;
   // The modifier's settings, once it has been turned on.
   animation?: EffectAnimation;
+  // True when the effect can carry the Modulation modifier, the audio
+  // side's Animation (every audio effect with knobs).
+  supportsModulation: boolean;
+  modulation?: EffectModulation;
   // True for a layer's own Layout device. Every visual layer has exactly
   // one, so it can be reset to its defaults but not removed or duplicated.
   layerDefault?: boolean;
