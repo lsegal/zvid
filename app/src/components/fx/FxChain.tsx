@@ -50,8 +50,9 @@ export type FxChainProps = {
   // What the layer-level section is called: "Track" for a source track.
   layerLabel?: string;
   // Shown ahead of the chain's sections, such as the selected source
-  // clip's properties.
-  leading?: ReactNode;
+  // clip's properties. It gets the chain's collapse state so it can fold
+  // like a device and have that remembered with theirs.
+  leading?: (collapse: FxCollapseState) => ReactNode;
   // Shown first in the layer-level section, ahead of its devices, such as
   // a source track's Record device.
   layerLeading?: ReactNode;
@@ -91,6 +92,11 @@ export type FxChainProps = {
   onRemove: (device: FxDevice) => void;
   onDuplicate: (device: FxDevice, id: string) => void;
   onReset: (device: FxDevice) => void;
+};
+
+export type FxCollapseState = {
+  collapsed: ReadonlySet<string>;
+  toggleCollapsed: (key: string) => void;
 };
 
 function getStorage() {
@@ -496,7 +502,7 @@ export function FxChain({
       ref={scrollRef}
       {...chainDragScroll.handlers}
     >
-      {leading}
+      {leading?.({ collapsed, toggleCollapsed })}
       {showGlobal ? (
         <>
           {renderDivider("global")}
