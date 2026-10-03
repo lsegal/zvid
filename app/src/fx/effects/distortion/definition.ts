@@ -28,7 +28,7 @@ export const definition: FxEffectDefinition = {
   effectName: "Distortion",
   displayName: "Distortion",
   description: "Warps the layer with waves, ripples, twirls and bulges.",
-  accent: "#5ee0e6",
+  accent: "#ff8a4c",
   category: "stylize",
   known: true,
   scopes: ALL_SCOPES,

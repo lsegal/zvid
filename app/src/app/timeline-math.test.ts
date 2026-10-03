@@ -15,6 +15,7 @@ import {
   quartersToSeconds,
   secondsToQuarters,
   snapQuarterValue,
+  splitSelectionAcrossSourceSpans,
 } from "./timeline-math.ts";
 import type { ArrangementClip, SourceSpan } from "./types.ts";
 
@@ -211,6 +212,67 @@ describe("chooseSourceSpanForWindow", () => {
     assert.equal(
       chooseSourceSpanForWindow([first], "other", 0, 1, 120),
       undefined,
+    );
+  });
+});
+
+describe("splitSelectionAcrossSourceSpans", () => {
+  // At 120 BPM each 2-second span is 4 quarters long.
+  const first = span({ id: "first", startQ: 0 });
+  const second = span({ id: "second", startQ: 4, trimStartSeconds: 5 });
+  const third = span({ id: "third", startQ: 10 });
+  const windows = (startQ: number, durationQ: number) =>
+    splitSelectionAcrossSourceSpans(
+      [third, first, second, span({ id: "other", sourceTrackId: "other" })],
+      "track",
+      startQ,
+      durationQ,
+      120,
+    ).map((window) => [window.span.id, window.startQ, window.durationQ]);
+
+  it("keeps a selection inside one source clip whole", () => {
+    assert.deepEqual(windows(1, 2), [["first", 1, 2]]);
+  });
+
+  it("keeps a selection running past one source clip whole", () => {
+    assert.deepEqual(windows(11, 6), [["third", 11, 6]]);
+  });
+
+  it("splits a selection over two adjacent source clips at their edge", () => {
+    assert.deepEqual(windows(2, 4), [
+      ["first", 2, 2],
+      ["second", 4, 2],
+    ]);
+  });
+
+  it("splits a selection over three source clips and skips the gap", () => {
+    assert.deepEqual(windows(1, 12), [
+      ["first", 1, 3],
+      ["second", 4, 4],
+      ["third", 10, 3],
+    ]);
+  });
+
+  it("starts the first window at a selection that starts in a gap", () => {
+    assert.deepEqual(windows(9, 4), [["third", 9, 4]]);
+    assert.deepEqual(windows(-2, 8), [
+      ["first", -2, 6],
+      ["second", 4, 2],
+    ]);
+    assert.deepEqual(windows(6, 6), [
+      ["second", 6, 2],
+      ["third", 10, 2],
+    ]);
+  });
+
+  it("falls back to the nearest source clip for a selection in a gap", () => {
+    assert.deepEqual(windows(9, 0.5), [["third", 9, 0.5]]);
+  });
+
+  it("returns no window on a source track with no clips", () => {
+    assert.deepEqual(
+      splitSelectionAcrossSourceSpans([first], "missing", 0, 4, 120),
+      [],
     );
   });
 });
