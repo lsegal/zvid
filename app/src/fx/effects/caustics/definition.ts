@@ -10,7 +10,7 @@ export const definition: FxEffectDefinition = {
   effectName: "Caustics",
   displayName: "Caustics",
   description: "Plays animated underwater light over the layer.",
-  accent: "#4fd6e8",
+  accent: "#3d8bff",
   category: "stylize",
   known: true,
   scopes: ALL_SCOPES,
