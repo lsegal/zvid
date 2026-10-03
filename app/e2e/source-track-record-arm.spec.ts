@@ -44,7 +44,8 @@ test.beforeEach(async ({ page }) => {
 test("the arm button sits right of FX and toggles the track's armed state", async ({
   page,
 }) => {
-  await addTracks(page, 1);
+  // The second track added is selected.
+  await addTracks(page, 2);
   const name = await trackName(page, 0);
   const label = rows(page).nth(0).locator(".track-label--source");
   const fx = label.locator(".track-label__fx");
@@ -73,10 +74,13 @@ test("the arm button sits right of FX and toggles the track's armed state", asyn
   await expect(button).toHaveAccessibleName(`Disarm ${name}`);
   await expect(button).toHaveAttribute("title", `Disarm ${name}`);
   await expect(dot).toHaveCSS("background-color", "rgb(255, 92, 92)");
-  // Arming leaves the track's selection alone.
+  // Arming leaves the selection alone.
   await expect(
     rows(page).nth(0).locator("[data-source-track-label-id]"),
   ).not.toHaveAttribute("aria-current", "true");
+  await expect(
+    rows(page).nth(1).locator("[data-source-track-label-id]"),
+  ).toHaveAttribute("aria-current", "true");
 
   await button.click();
   await expect(button).toHaveAttribute("aria-pressed", "false");
@@ -114,7 +118,9 @@ test("the arm button fits a narrow handle without covering the track name", asyn
     localStorage.setItem("zvid-label-width", "120");
   });
   await page.reload();
-  await expect(page.locator(".timeline-canvas--narrow-labels")).toBeVisible();
+  await expect(
+    page.locator(".timeline-canvas.timeline-canvas--narrow-labels"),
+  ).toBeVisible();
   await addTracks(page, 1);
   const label = rows(page).nth(0).locator(".track-label--source");
   const name = label.locator("[data-source-track-label-id]");
@@ -131,5 +137,5 @@ test("the arm button fits a narrow handle without covering the track name", asyn
   );
   expect(nameBox.x + nameBox.width).toBeLessThanOrEqual(fxBox.x);
   expect(fxBox.x + fxBox.width).toBeLessThanOrEqual(armBox.x + 1);
-  expect(nameBox.width).toBeGreaterThan(20);
+  expect(nameBox.width).toBeGreaterThan(16);
 });

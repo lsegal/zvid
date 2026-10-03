@@ -13,8 +13,11 @@
   cursor: pointer;
 }
 
+/* Narrow handles have a smaller gap; the button's own padding shrinks to
+   leave the track name as much room as it can. */
 .timeline-canvas--narrow-labels .track-label__arm {
-  margin-left: -6px;
+  margin-left: -8px;
+  padding-inline: 3px;
 }
 
 .track-label__arm:focus-visible {
