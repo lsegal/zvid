@@ -5,8 +5,11 @@
   gap: 12px;
 }
 
+/* The column is held to the field's width, so a long device name truncates
+ * in its dropdown instead of widening the field past the Record device. */
 .record-input-picker__field {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
   width: 168px;
 }
@@ -56,7 +59,9 @@
 }
 
 .record-input-picker__audio .vu-meter__bars {
-  width: 112px;
+  flex: 1;
+  min-width: 0;
+  width: auto;
 }
 
 .record-input-picker__placeholder {

@@ -651,11 +651,6 @@
   width: auto;
 }
 
-.media-drawer__record .record-input-picker__audio .vu-meter__bars {
-  flex: 1;
-  width: auto;
-}
-
 .media-drawer__record-error {
   margin: 10px 0 0;
   color: #ff8a7a;
