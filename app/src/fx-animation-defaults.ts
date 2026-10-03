@@ -183,6 +183,10 @@ const ANIMATION_DEFAULTS: ReadonlyMap<string, FxAnimationDefaults> = new Map([
     ]),
   ],
   [
+    "Refraction",
+    defaults("Ease Out", "Ease In", [10, 6, 3], "Wobble", 0.5, ["_Amount"]),
+  ],
+  [
     "DigitalGlitch",
     defaults("Ease Out", "Ease In", [10, 6, 3], "Bounce", 0.6, [
       "_Amount",
@@ -465,6 +469,8 @@ const NEUTRAL_VALUES: ReadonlyMap<string, AnimationNeutralValues> = new Map<
     { _LowIntensity: { neutral: 0 }, _HighIntensity: { neutral: 0 } },
   ],
   ["AnalogGlitch", { _LowMod: { neutral: 0 }, _HighMod: { neutral: 0 } }],
+  // Amount 0 sees straight through the surface.
+  ["Refraction", { _Amount: { neutral: 0 } }],
   // Amount 0 leaves the frame untouched.
   [
     "DigitalGlitch",

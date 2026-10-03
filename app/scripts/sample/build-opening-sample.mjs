@@ -202,11 +202,8 @@ function cut(layerId, sourceIndex, start, duration, inSeconds, label) {
 }
 
 // Opening shots, each a single full-frame source.
-zoomAndPan(
-  clipTrack(cut("corridor", 2, 0, 1.5, 0.5, "opening push")),
-  { zoom: 1 },
-  { zoom: 1.3 },
-);
+const openingShot = clipTrack(cut("corridor", 2, 0, 1.5, 0.5, "opening push"));
+zoomAndPan(openingShot, { zoom: 1 }, { zoom: 1.3 });
 const captureShot = clipTrack(cut("orbit", 0, 1.5, 1.5, 2, "capture"));
 zoomAndPan(captureShot, { zoom: 1.25, x: 0.45 }, { zoom: 1.05, x: 0.55 });
 
@@ -565,6 +562,22 @@ addEffect(
       motionOut: "Ease In",
     }),
   },
+);
+
+// 0–1.5 s: the opening push is seen through rippling water, easing in and
+// out with the clip.
+addEffect(
+  openingShot,
+  "Refraction",
+  {
+    _Type: "Water",
+    _Amount: 0.45,
+    _Scale: 0.4,
+    _Speed: 0.5,
+    _Angle: 90,
+    _Dispersion: 0.2,
+  },
+  { animation: animation("clip", {}, { parameters: ["_Amount"] }) },
 );
 
 // ---- session -------------------------------------------------------------
