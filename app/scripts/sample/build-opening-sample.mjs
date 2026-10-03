@@ -466,6 +466,15 @@ addEffect(clipTrack(card), "Color", {
   Color: IVORY,
   Opacity: 1,
 });
+// Pool light drifts over the card.
+addEffect(clipTrack(card), "Caustics", {
+  _Intensity: 0.25,
+  _Scale: 0.6,
+  _Speed: 0.25,
+  _Warp: 0,
+  _Color: "rgba(170,240,255,1)",
+  _Blend: "Multiply",
+});
 addEffect(
   text(
     "text-card-zvid",

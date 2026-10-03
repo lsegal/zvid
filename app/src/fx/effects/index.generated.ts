@@ -9,6 +9,8 @@ import * as autoPan from "./auto-pan/definition.ts";
 import * as bitcrush from "./bitcrush/definition.ts";
 import * as bloom from "./bloom/definition.ts";
 import { pass as bloomPass } from "./bloom/pass.ts";
+import * as caustics from "./caustics/definition.ts";
+import { pass as causticsPass } from "./caustics/pass.ts";
 import * as chorus from "./chorus/definition.ts";
 import * as color from "./color/definition.ts";
 import * as colorize from "./colorize/definition.ts";
@@ -52,6 +54,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   autoPan,
   bitcrush,
   bloom,
+  caustics,
   chorus,
   color,
   colorize,
@@ -88,6 +91,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
 export const EFFECT_PASSES: readonly EffectPass[] = [
   analogGlitchPass,
   bloomPass,
+  causticsPass,
   colorizePass,
   digitalGlitchPass,
   negativeSplitPass,

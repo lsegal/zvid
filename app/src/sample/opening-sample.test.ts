@@ -202,6 +202,10 @@ describe("zvid opening sample", () => {
     const [card] = clipsAt(session.fills, 28);
     assert.ok(card);
     assert.equal(card.frameEnd - card.frameStart, 90);
+    assert.deepEqual(
+      effectsOn(`clip:${card.id}`).map((effect) => effect.effectName),
+      ["Color", "Caustics"],
+    );
     const texts = clipsAt(session.texts, 28).map((clip) =>
       stringParameter(effectsOn(`clip:${clip.id}`)[0], "Text"),
     );

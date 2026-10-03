@@ -3673,6 +3673,31 @@
     },
     {
       "id": "sample-fx-094",
+      "trackId": "clip:fill-title-card",
+      "effectName": "Caustics",
+      "parameters": {
+        "_Intensity": {
+          "floatValue": 0.25
+        },
+        "_Scale": {
+          "floatValue": 0.6
+        },
+        "_Speed": {
+          "floatValue": 0.25
+        },
+        "_Warp": {
+          "floatValue": 0
+        },
+        "_Color": {
+          "stringValue": "rgba(170,240,255,1)"
+        },
+        "_Blend": {
+          "stringValue": "Multiply"
+        }
+      }
+    },
+    {
+      "id": "sample-fx-095",
       "trackId": "clip:text-card-zvid",
       "effectName": "Text",
       "parameters": {
@@ -3742,7 +3767,7 @@
       }
     },
     {
-      "id": "sample-fx-095",
+      "id": "sample-fx-096",
       "trackId": "clip:text-card-zvid",
       "effectName": "Transform",
       "parameters": {
@@ -3770,7 +3795,7 @@
       }
     },
     {
-      "id": "sample-fx-096",
+      "id": "sample-fx-097",
       "trackId": "clip:text-card-tagline",
       "effectName": "Text",
       "parameters": {
@@ -3840,7 +3865,7 @@
       }
     },
     {
-      "id": "sample-fx-097",
+      "id": "sample-fx-098",
       "trackId": "clip:text-card-tagline",
       "effectName": "Transform",
       "parameters": {
@@ -3868,7 +3893,7 @@
       }
     },
     {
-      "id": "sample-fx-098",
+      "id": "sample-fx-099",
       "trackId": "source-clip:source-span-music",
       "effectName": "Gain",
       "parameters": {
@@ -3881,7 +3906,7 @@
       }
     },
     {
-      "id": "sample-fx-099",
+      "id": "sample-fx-100",
       "trackId": "clip:selection-2",
       "effectName": "DigitalGlitch",
       "parameters": {
@@ -3923,7 +3948,7 @@
       }
     },
     {
-      "id": "sample-fx-100",
+      "id": "sample-fx-101",
       "trackId": "clip:text-montage-zvid",
       "effectName": "Bloom",
       "parameters": {
@@ -3957,7 +3982,7 @@
       }
     },
     {
-      "id": "sample-fx-101",
+      "id": "sample-fx-102",
       "trackId": "clip:selection-1",
       "effectName": "Refraction",
       "parameters": {
