@@ -4,7 +4,7 @@
 // render it here from decoded samples, block by block; the preview builds
 // the same graph in Web Audio (see preview-mixer.ts), running the same
 // chains in a worklet and the same limiter curve, so the two agree.
-import { warpSourceTime } from "../clip-warp.ts";
+import { loopMediaTime, warpSourceTime } from "../clip-warp.ts";
 import {
   AudioChain,
   BLOCK_FRAMES,
@@ -60,7 +60,8 @@ export type ClipMediaTime = {
 
 // Where `clip`'s media plays at timeline second `seconds`, the way its video
 // would, or undefined when the clip is silent there: outside the clip or
-// its source window, or before the media's start.
+// its source window, or before the media's start. Past the media's end it
+// loops the media.
 export function clipMediaTimeAt(
   clip: AudioMixClip,
   seconds: number,
@@ -83,7 +84,12 @@ export function clipMediaTimeAt(
   const { seconds: mediaTime, rate: playbackRate } = clip.warp
     ? warpSourceTime(clip.warp, linear, bpm)
     : { seconds: linear, rate: 1 };
-  return mediaTime >= 0 ? { mediaTime, playbackRate } : undefined;
+  return mediaTime >= 0
+    ? {
+        mediaTime: loopMediaTime(mediaTime, clip.mediaDurationSeconds ?? 0),
+        playbackRate,
+      }
+    : undefined;
 }
 
 export type DecodedAudio = {
@@ -128,7 +134,8 @@ export function clipReadSeconds(
 // Clips look their source time up once per this many samples and
 // interpolate in between. Source time is linear in timeline time, or for a
 // warped clip linear between its markers, so this only blurs the corner at
-// a warp marker by a sample or two.
+// a warp marker by a sample or two. A step in which the media loops back to
+// its start looks up every sample instead.
 const STEP_SAMPLES = 64;
 
 function sampleAt(data: Float32Array, position: number) {
@@ -217,7 +224,10 @@ export class ClipReader {
       const stepLength = this.stepLength;
       const stepStart = this.stepStart;
       const mediaTime =
-        stepFrom === undefined || stepTo === undefined || stepLength === 0
+        stepFrom === undefined ||
+        stepTo === undefined ||
+        stepLength === 0 ||
+        stepTo < stepFrom
           ? this.sourceTime(index)
           : stepFrom + ((stepTo - stepFrom) * (index - stepStart)) / stepLength;
       if (mediaTime === undefined) {

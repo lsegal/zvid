@@ -30,7 +30,7 @@
 //
 // Other visual parameters (opacity and the like) read Global, then Layer,
 // then Clip, so the most specific stack wins.
-import { type ClipWarp, warpSourceTime } from "./clip-warp.ts";
+import { type ClipWarp, loopMediaTime, warpSourceTime } from "./clip-warp.ts";
 import {
   type CompositionOrder,
   findOrderEffect,
@@ -590,12 +590,14 @@ export function computeActiveClips(
       }
 
       // The source window is in linear source time; the media's own bounds
-      // apply to the warped time the media is actually drawn at.
+      // apply to the warped time the media is actually drawn at, which loops
+      // back to the media's start past its end.
       const linearTime =
         quartersToSeconds(playheadQ, bpm) + clip.sourceOffsetSeconds;
-      const { seconds: mediaTime, rate: playbackRate } = clip.warp
+      const { seconds: warpedTime, rate: playbackRate } = clip.warp
         ? warpSourceTime(clip.warp, linearTime, bpm)
         : { seconds: linearTime, rate: 1 };
+      const mediaTime = loopMediaTime(warpedTime, media.durationSeconds);
       return {
         clip,
         media,
@@ -605,9 +607,7 @@ export function computeActiveClips(
         isInBounds:
           linearTime >= clip.sourceWindowStartSeconds &&
           linearTime < clip.sourceWindowEndSeconds - epsilon &&
-          (media.durationSeconds > 0
-            ? mediaTime >= 0 && mediaTime < media.durationSeconds - epsilon
-            : mediaTime >= 0),
+          mediaTime >= 0,
         laneRank,
         clipProgress,
         sessionEdges,

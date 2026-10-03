@@ -497,7 +497,6 @@ export function useTimelineEditing({
     dragPreviewSourceSpans,
     setDragPreviewSourceSpans,
     sourceSpans,
-    mediaItemsById,
     bpm,
     fps,
     snapUnit,

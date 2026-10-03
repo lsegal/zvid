@@ -21,6 +21,7 @@
 // decoded buffer instead (see preview-buffer-voice.ts).
 import type { PreviewVolume } from "../app/preview-volume.ts";
 import { clamp } from "../app/util.ts";
+import { loopMediaTime } from "../clip-warp.ts";
 import {
   createBandAnalyser,
   createMeterTap,
@@ -271,7 +272,7 @@ export class PreviewAudioMixer {
         // Waits at the clip's first sound, ready for it to start.
         const first = clipMediaTimeAt(clip, Math.max(at, start), this.mix.bpm);
         if (first && at < start) {
-          this.seek(voice, element, first.mediaTime, driftTolerance, false);
+          this.seek(voice, element, first.mediaTime, driftTolerance, false, 0);
         }
         continue;
       }
@@ -290,6 +291,7 @@ export class PreviewAudioMixer {
         media.mediaTime,
         shouldPlay ? driftTolerance : 0,
         steady,
+        clip.mediaDurationSeconds ?? 0,
       );
       if (shouldPlay) {
         element.play().catch(() => {});
@@ -636,13 +638,15 @@ export class PreviewAudioMixer {
   // `tolerance`. In `steady` playback a seek still landing is left to land,
   // and a new one aims as far ahead as the last one took to land, so an
   // element that starts late, as on a slow main thread, meets the playhead
-  // rather than chasing it from behind.
+  // rather than chasing it from behind. Aiming past the end of media
+  // `mediaDurationSeconds` long loops back to its start, as the clip does.
   private seek(
     voice: Voice,
     element: HTMLMediaElement,
     mediaTime: number,
     tolerance: number,
     steady: boolean,
+    mediaDurationSeconds: number,
   ) {
     if (steady && element.seeking) {
       return;
@@ -656,7 +660,10 @@ export class PreviewAudioMixer {
       voice.seekStartedAt = null;
       return;
     }
-    element.currentTime = mediaTime + this.seekLatency * element.playbackRate;
+    element.currentTime = loopMediaTime(
+      mediaTime + this.seekLatency * element.playbackRate,
+      mediaDurationSeconds,
+    );
     voice.seekStartedAt = context.currentTime;
   }
 }
