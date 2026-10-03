@@ -71,7 +71,6 @@
   font-size: 0.84rem;
   outline: none;
   cursor: pointer;
-  user-select: none;
 }
 
 .select-item[data-highlighted] {

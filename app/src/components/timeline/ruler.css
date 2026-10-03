@@ -40,7 +40,6 @@
 .ruler-row__content--interactive {
   cursor: ew-resize;
   touch-action: none;
-  user-select: none;
 }
 
 .ruler-row__content--interactive.is-dragging,

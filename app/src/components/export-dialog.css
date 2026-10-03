@@ -264,7 +264,6 @@
   overflow: visible;
   cursor: text;
   touch-action: none;
-  user-select: none;
 }
 
 .export-range__lanes {

@@ -32,6 +32,33 @@ body {
   background: #232535;
 }
 
+/* UI text isn't selectable; only text fields are. The field rule has zero
+ * specificity so drag-state rules (e.g. `.is-grab-panning *`) still win, and
+ * it skips inputs that aren't text so they keep their usual behavior. */
+:root {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+:where(
+    textarea,
+    input:not(
+        [type='button'],
+        [type='checkbox'],
+        [type='color'],
+        [type='file'],
+        [type='hidden'],
+        [type='image'],
+        [type='radio'],
+        [type='range'],
+        [type='reset'],
+        [type='submit']
+      )
+  ) {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 button,
 input,
 select {
