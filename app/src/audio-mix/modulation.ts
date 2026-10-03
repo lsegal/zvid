@@ -7,6 +7,9 @@
 //
 // Runs inside the chain worklet as well as offline, so it imports nothing
 // with side effects.
+
+import { taperPosition, taperValue } from "../fx/taper.ts";
+import type { FxNumberTaper } from "../fx/types.ts";
 import type { ReactiveMotion } from "../fx-animation-defaults.ts";
 import {
   DEFAULT_REACTIVE_RANGE_SCALE,
@@ -22,8 +25,6 @@ import {
   ByteSpectrum,
   SPECTRUM_SIZE,
 } from "../fx-shaders/audio-bands.ts";
-import { taperPosition, taperValue } from "../fx/taper.ts";
-import type { FxNumberTaper } from "../fx/types.ts";
 import type { AudioBlockTime, AudioTempo } from "./processor.ts";
 import { noteValueSeconds } from "./tempo.ts";
 

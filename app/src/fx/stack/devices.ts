@@ -5,6 +5,7 @@ import {
   parseCompositionOrder,
 } from "../../composition-order.ts";
 import { supportsAnimation } from "../../fx-animation-defaults.ts";
+import { supportsModulation } from "../../fx-modulation-defaults.ts";
 import {
   type FxEffectDefinition,
   type FxEffectScope,
@@ -276,10 +277,13 @@ function toDevice(
     group,
     domain,
     enabled: effect.enabled !== false,
-    // Audio effects aren't animatable yet.
+    // Audio effects carry Modulation instead of Animation.
     supportsAnimation:
       domain === "video" && supportsAnimation(effect.effectName),
     ...(effect.animation ? { animation: effect.animation } : {}),
+    supportsModulation:
+      domain === "audio" && supportsModulation(effect.effectName),
+    ...(effect.modulation ? { modulation: effect.modulation } : {}),
     layerDefault: isLayerLayoutEffect(effect) || undefined,
     ...(definition.knobRows ? { knobRows: definition.knobRows } : {}),
     unsupported: !isEffectSupportedIn(effect.effectName, scope) || undefined,

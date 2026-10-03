@@ -243,6 +243,11 @@ export function animationCollapseKey(deviceId: string) {
   return `${deviceId}#animation`;
 }
 
+// The collapse-state key of an audio device's Modulation section.
+export function modulationCollapseKey(deviceId: string) {
+  return `${deviceId}#modulation`;
+}
+
 export function toggleCollapsedDevice(
   collapsed: ReadonlySet<string>,
   deviceId: string,

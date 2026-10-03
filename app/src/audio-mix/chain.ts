@@ -375,13 +375,7 @@ class ChainStage implements AudioParameterBlock {
       return;
     }
     const targets = modulation
-      ? this.modulator?.advance(
-          modulation,
-          this.config.id,
-          input,
-          frames,
-          time,
-        )
+      ? this.modulator?.advance(modulation, this.config.id, input, frames, time)
       : undefined;
     for (const parameter of modulation?.parameters ?? []) {
       const swing = this.swings.get(parameter.key);
@@ -427,7 +421,11 @@ class ChainStage implements AudioParameterBlock {
       const offsets = ramp.fill(frames);
       const stored = base.values;
       for (let index = 0; index < frames; index++) {
-        values[index] = modulatedValue(stored[index], offsets[index], parameter);
+        values[index] = modulatedValue(
+          stored[index],
+          offsets[index],
+          parameter,
+        );
       }
       swing.value = values[frames - 1];
     }

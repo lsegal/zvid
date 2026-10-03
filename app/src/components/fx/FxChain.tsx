@@ -14,10 +14,12 @@ import {
   describeDeviceMove,
   type FxLayerOption,
   groupChainDevices,
+  modulationCollapseKey,
   readCollapsedDevices,
   toggleCollapsedDevice,
   writeCollapsedDevices,
 } from "../../fx-chain";
+import type { EffectModulation } from "../../fx-modulation-defaults";
 import type { FxEffectScope } from "../../fx-registry";
 import {
   type FxDevice,
@@ -32,6 +34,7 @@ import { AddDeviceMenu } from "./AddDeviceMenu";
 import { type DeviceMenuState, getDeviceMenuEntries } from "./device-menu";
 import { FxAnimationPanel } from "./FxAnimationPanel";
 import { FxDevicePanel } from "./FxDevicePanel";
+import { FxModulationPanel } from "./FxModulationPanel";
 import type { FxEditMode, FxSetParameter } from "./types";
 import { useDeviceDrag } from "./use-device-drag";
 import { useWheelScrollX } from "./use-wheel-scroll-x";
@@ -69,6 +72,14 @@ export type FxChainProps = {
   onSetAnimation?: (
     device: FxDevice,
     animation: EffectAnimation,
+    mode: FxEditMode,
+  ) => void;
+  // Turns an audio device's Modulation modifier on or off.
+  onSetModulationEnabled?: (device: FxDevice, enabled: boolean) => void;
+  // Changes an audio device's modulation settings, as onSetAnimation does.
+  onSetModulation?: (
+    device: FxDevice,
+    modulation: EffectModulation,
     mode: FxEditMode,
   ) => void;
   onSetParameter: FxSetParameter;
@@ -135,6 +146,8 @@ export function FxChain({
   onSetEnabled,
   onSetAnimationEnabled,
   onSetAnimation,
+  onSetModulationEnabled,
+  onSetModulation,
   onSetParameter,
   onMove,
   onAdd,
@@ -345,6 +358,10 @@ export function FxChain({
         device.supportsAnimation && device.animation?.enabled
           ? device.animation
           : undefined;
+      const modulation =
+        device.supportsModulation && device.modulation?.enabled
+          ? device.modulation
+          : undefined;
       // The layer's FX switch turns off its own stack and the clip's, apart
       // from the content effects that define a clip; an FX clip applies
       // nothing.
@@ -357,7 +374,7 @@ export function FxChain({
       const panel = (
         <FxDevicePanel
           key={device.id}
-          attached={animation !== undefined}
+          attached={animation !== undefined || modulation !== undefined}
           collapsed={collapsed.has(device.id)}
           device={device}
           dragging={dragging}
@@ -368,6 +385,7 @@ export function FxChain({
           layerBypassed={layerBypassed}
           onSetEnabled={onSetEnabled}
           onSetAnimationEnabled={onSetAnimationEnabled}
+          onSetModulationEnabled={onSetModulationEnabled}
           layers={device.group === "clip" ? clipLayers : layers}
           onSetParameter={onSetParameter}
           onStripClick={() => {
@@ -384,13 +402,14 @@ export function FxChain({
           onToggleCollapsed={() => toggleCollapsed(device.id)}
         />
       );
-      if (!animation) {
+      if (!animation && !modulation) {
         return panel;
       }
 
-      // The Animation section is attached to the device's right edge, and
-      // the pair is one panel of the stack.
+      // The Animation or Modulation section is attached to the device's
+      // right edge, and the pair is one panel of the stack.
       const animationKey = animationCollapseKey(device.id);
+      const modulationKey = modulationCollapseKey(device.id);
       return (
         <div
           className={`fx-device-unit${dragging ? " fx-device-unit--dragging" : ""}`}
@@ -398,14 +417,25 @@ export function FxChain({
           key={device.id}
         >
           {panel}
-          <FxAnimationPanel
-            animation={animation}
-            bypassed={!device.enabled || layerBypassed}
-            collapsed={collapsed.has(animationKey)}
-            device={device}
-            onSetAnimation={onSetAnimation}
-            onToggleCollapsed={() => toggleCollapsed(animationKey)}
-          />
+          {animation ? (
+            <FxAnimationPanel
+              animation={animation}
+              bypassed={!device.enabled || layerBypassed}
+              collapsed={collapsed.has(animationKey)}
+              device={device}
+              onSetAnimation={onSetAnimation}
+              onToggleCollapsed={() => toggleCollapsed(animationKey)}
+            />
+          ) : modulation ? (
+            <FxModulationPanel
+              bypassed={!device.enabled || layerBypassed}
+              collapsed={collapsed.has(modulationKey)}
+              device={device}
+              modulation={modulation}
+              onSetModulation={onSetModulation}
+              onToggleCollapsed={() => toggleCollapsed(modulationKey)}
+            />
+          ) : null}
         </div>
       );
     });

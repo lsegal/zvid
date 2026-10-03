@@ -1,5 +1,6 @@
 import type { AlsImportSummary } from "./als-import.ts";
 import type { EffectAnimation } from "./fx-animation-defaults.ts";
+import type { EffectModulation } from "./fx-modulation-defaults.ts";
 import type { SessionEncoding } from "./session-settings.ts";
 
 // Fields marked zvid-only are written by zvid and ignored by the Layers app.
@@ -92,6 +93,8 @@ export type LvpSession = {
     enabled?: boolean;
     /** zvid-only: the effect's Animation modifier settings. */
     animation?: EffectAnimation;
+    /** zvid-only: an audio effect's Modulation modifier settings. */
+    modulation?: EffectModulation;
     /** zvid-only: `true` on a Gain added on open and not edited since. */
     defaulted?: boolean;
   }>;

@@ -55,6 +55,8 @@ export {
   setEffectAnimation,
   setEffectAnimationEnabled,
   setEffectEnabled,
+  setEffectModulation,
+  setEffectModulationEnabled,
   setEffectParameter,
 } from "./fx/stack/ops.ts";
 export { mapEffects } from "./fx/stack/session-mapping.ts";

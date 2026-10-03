@@ -99,29 +99,27 @@ function defaults(
   };
 }
 
-const MODULATION_DEFAULTS: ReadonlyMap<string, FxModulationDefaults> = new Map(
-  [
-    ["Gain", defaults("Bounce", 0.3, ["Gain"])],
-    ["EQ", defaults("Bounce", 0.3, ["Mid Freq"])],
-    ["High Cut", defaults("Bounce", 0.5, ["Frequency"])],
-    ["Low Cut", defaults("Bounce", 0.5, ["Frequency"])],
-    ["Compressor", defaults("Bounce", 0.3, ["Threshold"])],
-    ["Limiter", defaults("Bounce", 0.3, ["Gain"])],
-    ["Noise Gate", defaults("Bounce", 0.3, ["Threshold"])],
-    ["De-ess", defaults("Bounce", 0.3, ["Amount"])],
-    ["Transient Shaper", defaults("Bounce", 0.3, ["Attack"])],
-    ["Saturation", defaults("Bounce", 0.4, ["Drive"])],
-    ["Bitcrush", defaults("Bounce", 0.4, ["Downsample"])],
-    ["Delay", defaults("Bounce", 0.3, ["Mix"])],
-    ["Reverb", defaults("Bounce", 0.3, ["Mix"])],
-    ["Chorus", defaults("Wobble", 0.4, ["Depth"])],
-    ["Phaser", defaults("Wobble", 0.4, ["Center"])],
-    ["Tremolo", defaults("Bounce", 0.3, ["Depth"])],
-    ["Auto Pan", defaults("Bounce", 0.3, ["Depth"])],
-    ["Stereo", defaults("Wobble", 0.4, ["Pan"])],
-    ["Mono", defaults("Bounce", 0.4, ["Amount"])],
-  ],
-);
+const MODULATION_DEFAULTS: ReadonlyMap<string, FxModulationDefaults> = new Map([
+  ["Gain", defaults("Bounce", 0.3, ["Gain"])],
+  ["EQ", defaults("Bounce", 0.3, ["Mid Freq"])],
+  ["High Cut", defaults("Bounce", 0.5, ["Frequency"])],
+  ["Low Cut", defaults("Bounce", 0.5, ["Frequency"])],
+  ["Compressor", defaults("Bounce", 0.3, ["Threshold"])],
+  ["Limiter", defaults("Bounce", 0.3, ["Gain"])],
+  ["Noise Gate", defaults("Bounce", 0.3, ["Threshold"])],
+  ["De-ess", defaults("Bounce", 0.3, ["Amount"])],
+  ["Transient Shaper", defaults("Bounce", 0.3, ["Attack"])],
+  ["Saturation", defaults("Bounce", 0.4, ["Drive"])],
+  ["Bitcrush", defaults("Bounce", 0.4, ["Downsample"])],
+  ["Delay", defaults("Bounce", 0.3, ["Mix"])],
+  ["Reverb", defaults("Bounce", 0.3, ["Mix"])],
+  ["Chorus", defaults("Wobble", 0.4, ["Depth"])],
+  ["Phaser", defaults("Wobble", 0.4, ["Center"])],
+  ["Tremolo", defaults("Bounce", 0.3, ["Depth"])],
+  ["Auto Pan", defaults("Bounce", 0.3, ["Depth"])],
+  ["Stereo", defaults("Wobble", 0.4, ["Pan"])],
+  ["Mono", defaults("Bounce", 0.4, ["Amount"])],
+]);
 
 export function supportsModulation(effectName: string) {
   return MODULATION_DEFAULTS.has(effectName);
@@ -165,7 +163,9 @@ export function createDefaultModulation(
   };
 }
 
-export function cloneModulation(modulation: EffectModulation): EffectModulation {
+export function cloneModulation(
+  modulation: EffectModulation,
+): EffectModulation {
   return {
     ...modulation,
     transient: {
@@ -181,7 +181,12 @@ export function getTransientTimingFrames(timing: AnimationTiming) {
   return DEFAULT_REACTIVE_FRAMES[timing];
 }
 
-function readNumber(value: unknown, fallback: number, min: number, max: number) {
+function readNumber(
+  value: unknown,
+  fallback: number,
+  min: number,
+  max: number,
+) {
   return typeof value === "number" && Number.isFinite(value)
     ? Math.max(min, Math.min(max, value))
     : fallback;

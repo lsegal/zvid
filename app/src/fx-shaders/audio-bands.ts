@@ -491,11 +491,10 @@ export class OfflineAudioBands {
   // The bins of the FFT_SIZE samples before `timeSeconds`.
   private measureAt(timeSeconds: number) {
     const start = Math.floor(timeSeconds * this.sampleRate) - FFT_SIZE;
-    const { samples } = this;
     return this.spectrum.measure((index) => {
       const sampleIndex = start + index;
-      return sampleIndex >= 0 && sampleIndex < samples.length
-        ? samples[sampleIndex]
+      return sampleIndex >= 0 && sampleIndex < this.samples.length
+        ? this.samples[sampleIndex]
         : 0;
     });
   }

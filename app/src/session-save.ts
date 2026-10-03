@@ -9,6 +9,7 @@
 import { alsSavePath } from "./als-import.ts";
 import { type ClipWarp, warpSampleStartSeconds } from "./clip-warp.ts";
 import type { EffectAnimation } from "./fx-animation-defaults.ts";
+import type { EffectModulation } from "./fx-modulation-defaults.ts";
 import {
   pruneExcludedLayers,
   renameClipEffectTracks,
@@ -111,6 +112,7 @@ export type SaveableEffect = {
   parameters: Array<{ key: string; value: string; numericValue?: number }>;
   enabled?: boolean;
   animation?: EffectAnimation;
+  modulation?: EffectModulation;
   defaulted?: boolean;
 };
 
@@ -380,6 +382,7 @@ export function projectToLvpSession(
       parameters: toLvpParameters(effect.parameters),
       ...(effect.enabled === false ? { enabled: false } : {}),
       ...(effect.animation ? { animation: effect.animation } : {}),
+      ...(effect.modulation ? { modulation: effect.modulation } : {}),
       ...(effect.defaulted ? { defaulted: true } : {}),
     })),
     timeline: {

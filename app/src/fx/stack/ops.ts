@@ -17,6 +17,13 @@ import {
   supportsAnimation,
 } from "../../fx-animation-defaults.ts";
 import {
+  cloneModulation,
+  createDefaultModulation,
+  type EffectModulation,
+  normalizeEffectModulation,
+  supportsModulation,
+} from "../../fx-modulation-defaults.ts";
+import {
   type FxEffectDefinition,
   type FxEffectScope,
   type FxParameterDefinition,
@@ -187,6 +194,47 @@ export function setEffectAnimation(
   });
 }
 
+// Turns an audio effect's Modulation modifier on or off. Turning it on the
+// first time fills in the effect's modulation defaults; turning it off keeps
+// the settings for next time. Effects without modulation support are
+// unchanged.
+export function setEffectModulationEnabled(
+  effects: SessionEffect[],
+  effectId: string,
+  enabled: boolean,
+) {
+  return updateEffect(effects, effectId, (effect) => {
+    if (
+      !supportsModulation(effect.effectName) ||
+      (effect.modulation?.enabled ?? false) === enabled
+    ) {
+      return effect;
+    }
+
+    const current =
+      effect.modulation ?? createDefaultModulation(effect.effectName);
+    return current
+      ? { ...effect, modulation: { ...current, enabled } }
+      : effect;
+  });
+}
+
+// Replaces an audio effect's modulation settings, such as its mode or
+// depth. Effects without modulation support, and settings that match the
+// current ones, are unchanged.
+export function setEffectModulation(
+  effects: SessionEffect[],
+  effectId: string,
+  modulation: EffectModulation,
+) {
+  return updateEffect(effects, effectId, (effect) => {
+    const next = normalizeEffectModulation(modulation, effect.effectName);
+    return !next || JSON.stringify(next) === JSON.stringify(effect.modulation)
+      ? effect
+      : { ...effect, modulation: next };
+  });
+}
+
 // Moves an effect to `toIndex` within its own stack. `toIndex` counts only
 // effects with the same `trackId` and is clamped to the stack. Passing a
 // different `toTrackId` is a cross-stack move, which is rejected.
@@ -313,8 +361,8 @@ export function removeEffect(effects: SessionEffect[], effectId: string) {
   return [...effects.slice(0, index), ...effects.slice(index + 1)];
 }
 
-// Inserts a copy of an effect, with its parameters, bypass state and
-// animation, right after the original in the same stack. A copy of an effect
+// Inserts a copy of an effect, with its parameters, bypass state, animation
+// and modulation, right after the original in the same stack. A copy of an effect
 // saved without animation gets the defaults, as a new effect would.
 export function duplicateEffect(
   effects: SessionEffect[],
@@ -336,12 +384,15 @@ export function duplicateEffect(
     id,
     parameters: source.parameters.map((parameter) => ({ ...parameter })),
     ...(animation ? { animation } : {}),
+    ...(source.modulation
+      ? { modulation: cloneModulation(source.modulation) }
+      : {}),
   };
   return [...effects.slice(0, index + 1), copy, ...effects.slice(index + 1)];
 }
 
-// Puts an effect's parameters and animation back to the defaults and turns
-// it back on. Unrecognized parameters are kept, since they have no default.
+// Puts an effect's parameters and animation back to the defaults, drops its
+// modulation, and turns it back on. Unrecognized parameters are kept, since they have no default.
 export function resetEffect(effects: SessionEffect[], effectId: string) {
   return updateEffect(effects, effectId, (effect) => {
     const defaults = createEffect(effect.trackId, effect.effectName, effect.id);
@@ -355,6 +406,7 @@ export function resetEffect(effects: SessionEffect[], effectId: string) {
     const unchanged =
       effect.enabled !== false &&
       JSON.stringify(defaults.animation) === JSON.stringify(effect.animation) &&
+      !effect.modulation &&
       parameters.length === effect.parameters.length &&
       parameters.every((parameter) => {
         const current = effect.parameters.find(
@@ -369,7 +421,7 @@ export function resetEffect(effects: SessionEffect[], effectId: string) {
       return effect;
     }
 
-    const { animation: _animation, ...rest } = effect;
+    const { animation: _animation, modulation: _modulation, ...rest } = effect;
     return {
       ...rest,
       parameters,
@@ -490,6 +542,10 @@ export const effectHistoryLabels = {
     `Turn Animation ${enabled ? "On" : "Off"} for ${getEffectDisplayName(effectName)}`,
   animation: (effectName: string) =>
     `Change ${getEffectDisplayName(effectName)} Animation`,
+  modulationEnabled: (effectName: string, enabled: boolean) =>
+    `Turn Modulation ${enabled ? "On" : "Off"} for ${getEffectDisplayName(effectName)}`,
+  modulation: (effectName: string) =>
+    `Change ${getEffectDisplayName(effectName)} Modulation`,
   layerFx: (layerName: string, enabled: boolean) =>
     `Turn FX ${enabled ? "On" : "Off"} for ${layerName}`,
 };

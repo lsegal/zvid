@@ -34,6 +34,8 @@ export type FxPanelProps = Pick<
     | "resetFxDevice"
     | "setFxDeviceAnimation"
     | "setFxDeviceAnimationEnabled"
+    | "setFxDeviceModulation"
+    | "setFxDeviceModulationEnabled"
     | "setFxDeviceEnabled"
     | "setFxDeviceParameter"
     | "setLayerFxEnabled"
@@ -70,6 +72,8 @@ export function FxPanel({
   resetFxDevice,
   setFxDeviceAnimation,
   setFxDeviceAnimationEnabled,
+  setFxDeviceModulation,
+  setFxDeviceModulationEnabled,
   setFxDeviceEnabled,
   setFxDeviceParameter,
   setLayerFxEnabled,
@@ -126,6 +130,8 @@ export function FxPanel({
           onSetEnabled={setFxDeviceEnabled}
           onSetAnimationEnabled={setFxDeviceAnimationEnabled}
           onSetAnimation={setFxDeviceAnimation}
+          onSetModulationEnabled={setFxDeviceModulationEnabled}
+          onSetModulation={setFxDeviceModulation}
           onSetParameter={setFxDeviceParameter}
         />
       </div>
