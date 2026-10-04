@@ -134,7 +134,7 @@ describe("arrangement empty state wiring", () => {
 
   it("labels the generate and dismiss buttons", () => {
     assert.match(componentTsx, /Generate a sweet timeline/);
-    assert.match(componentTsx, /<WandIcon \/>/);
+    assert.match(componentTsx, /<SparklesIcon aria-hidden="true" \/>/);
     assert.match(componentTsx, /aria-label="Dismiss"/);
   });
 

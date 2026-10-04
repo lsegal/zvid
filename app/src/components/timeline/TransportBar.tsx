@@ -5,6 +5,7 @@ import {
   MagnifyingGlassPlusIcon,
   PauseIcon,
   PlayIcon,
+  SparklesIcon,
   SpeakerWaveIcon,
   SpeakerXMarkIcon,
 } from "@heroicons/react/24/solid";
@@ -25,7 +26,6 @@ import {
   zoomFillFraction,
   zoomToSliderPosition,
 } from "../../zoom";
-import { WandIcon } from "../WandIcon";
 import { RecordIcon } from "./RecordIcon";
 import { VuMeter } from "./VuMeter";
 import "./transport-bar.css";
@@ -185,7 +185,7 @@ export function TransportBar({
           title="Replace the arrangement with randomized selections"
           type="button"
         >
-          <WandIcon />
+          <SparklesIcon aria-hidden="true" />
         </button>
         <button
           aria-label={isRecording ? "Stop recording" : "Record armed tracks"}
