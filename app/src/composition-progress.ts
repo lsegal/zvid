@@ -3,15 +3,22 @@
 // at the end of its last clip, so progress-driven effects such as Zoom & Pan
 // ease across the whole arrangement.
 
+// A piece of a layer clip (see render-clips.ts) counts as the whole clip.
 type TimedClip = {
   startQ: number;
   durationSeconds: number;
+  layerClipStartQ?: number;
+  layerClipDurationSeconds?: number;
 };
 
 export function getCompositionEndQ(clips: TimedClip[], bpm: number) {
   return clips.reduce(
     (endQ, clip) =>
-      Math.max(endQ, clip.startQ + (clip.durationSeconds * bpm) / 60),
+      Math.max(
+        endQ,
+        (clip.layerClipStartQ ?? clip.startQ) +
+          ((clip.layerClipDurationSeconds ?? clip.durationSeconds) * bpm) / 60,
+      ),
     0,
   );
 }

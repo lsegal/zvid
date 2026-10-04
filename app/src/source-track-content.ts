@@ -23,7 +23,8 @@ const PIECE_EPSILON_Q = 1e-9;
 export type TrackContentSpan = {
   id: string;
   sourceTrackId: string;
-  mediaPath: string;
+  // Only the audio mix reads spans without it.
+  mediaPath?: string;
   mediaId?: string;
   startQ: number;
   durationSeconds: number;
@@ -216,7 +217,7 @@ function showSpan<Clip extends TrackContentClip>(
   return {
     ...rest,
     sourceSpanId: span.id,
-    mediaPath: span.mediaPath,
+    mediaPath: span.mediaPath ?? clip.mediaPath,
     ...(span.mediaId !== undefined ? { mediaId: span.mediaId } : {}),
     startQ,
     durationSeconds,
