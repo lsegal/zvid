@@ -18,7 +18,6 @@ import {
   NO_FOOTAGE_TITLE,
 } from "./menus/selection-menu.ts";
 import { buildSourceSpanMenuEntries } from "./menus/source-span-menu.ts";
-import { MAX_LAYERS } from "./selection-overlaps.ts";
 
 type Lane = { id: string; name: string };
 type Clip = {
@@ -314,11 +313,11 @@ describe("buildSourceSpanMenuEntries", () => {
     ]);
   });
 
-  it("disables New layer at the layer limit", () => {
-    const { entries } = build(lanesUpTo(MAX_LAYERS));
+  it("keeps New layer enabled past nine layers", () => {
+    const { entries } = build(lanesUpTo(10));
     const submenu = find(entries, "copy-to-layer").submenu ?? [];
-    assert.equal(find(submenu, "new").disabled, true);
-    assert.equal(items(submenu).length, MAX_LAYERS + 2);
+    assert.notEqual(find(submenu, "new").disabled, true);
+    assert.equal(items(submenu).length, 12);
   });
 });
 
@@ -370,16 +369,18 @@ describe("copyClipToLayer", () => {
     assert.equal(result.clip.laneId, "new");
   });
 
-  it("adds nothing for New layer at the layer limit", () => {
+  it("adds a 10th layer for New layer", () => {
     const result = copyClipToLayer(
       { kind: "new" },
-      lanesUpTo(MAX_LAYERS),
+      lanesUpTo(9),
       [],
       clip("new-clip", "", 0, 4),
       createLane,
       trimCovered,
     );
-    assert.equal(result, null);
+    assert.ok(result);
+    assert.equal(result.lanes.length, 10);
+    assert.equal(result.clip.laneId, "new");
   });
 
   it("adds nothing when the chosen layer is gone", () => {

@@ -1,7 +1,6 @@
 // Ctrl/Cmd-clicking a source clip drops the whole clip onto the arrangement
 // at the same song position: on the last layer with room for it, or on a new
 // layer when every layer overlaps it.
-import { MAX_LAYERS } from "./selection-overlaps.ts";
 
 export type DropLane = {
   id: string;
@@ -22,8 +21,7 @@ function secondsToQuarters(seconds: number, bpm: number) {
 
 /**
  * The layer a clip spanning `[startQ, endQ)` drops onto: the last lane with
- * no clip overlapping that range, `"new"` when every lane overlaps it, or
- * `"full"` when every lane overlaps it and no more layers can be created.
+ * no clip overlapping that range, or `"new"` when every lane overlaps it.
  */
 export function pickDropLane(
   lanes: readonly DropLane[],
@@ -31,7 +29,7 @@ export function pickDropLane(
   startQ: number,
   endQ: number,
   bpm: number,
-): string | "new" | "full" {
+): string | "new" {
   for (let index = lanes.length - 1; index >= 0; index -= 1) {
     const lane = lanes[index];
     const overlaps = clips.some(
@@ -46,7 +44,7 @@ export function pickDropLane(
     }
   }
 
-  return lanes.length >= MAX_LAYERS ? "full" : "new";
+  return "new";
 }
 
 export type SourceClipDrop<Lane extends DropLane, Clip extends DropClip> = {
@@ -61,8 +59,7 @@ export type SourceClipDrop<Lane extends DropLane, Clip extends DropClip> = {
 
 /**
  * Adds `clip` on the layer `pickDropLane` chooses, creating that layer with
- * `createLane` when needed. Returns `null`, adding nothing, when the layers
- * are full.
+ * `createLane` when needed.
  */
 export function dropClipOnFreeLane<
   Lane extends DropLane,
@@ -73,13 +70,9 @@ export function dropClipOnFreeLane<
   clip: Clip,
   bpm: number,
   createLane: () => Lane,
-): SourceClipDrop<Lane, Clip> | null {
+): SourceClipDrop<Lane, Clip> {
   const endQ = clip.startQ + secondsToQuarters(clip.durationSeconds, bpm);
   const laneId = pickDropLane(lanes, clips, clip.startQ, endQ, bpm);
-  if (laneId === "full") {
-    return null;
-  }
-
   const existingLane = lanes.find((lane) => lane.id === laneId);
   const lane = existingLane ?? createLane();
   const placed = { ...clip, laneId: lane.id };

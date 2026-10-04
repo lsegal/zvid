@@ -501,7 +501,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 <ArrangementLanes
                   arrangementLanesRef={arrangementLanesRef}
                   lanes={lanes}
-                  canCreateLayer={editing.canCreateLayer}
                   readOnly={store.isWorkspaceReadOnly}
                   onCreateLayer={editing.handleCreateLayer}
                   fxLaneId={fxPanel.fxLaneId}

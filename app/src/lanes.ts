@@ -11,7 +11,6 @@ import {
   pruneMaskTargets,
   type SessionEffect,
 } from "./fx-stack.ts";
-import { MAX_LAYERS } from "./selection-overlaps.ts";
 
 export type LaneLike = { id: string; name: string };
 export type LaneClip = { id: string; laneId: string };
@@ -21,10 +20,6 @@ export type LaneProject<Lane extends LaneLike, Clip extends LaneClip> = {
   clips: Clip[];
   effects: SessionEffect[];
 };
-
-export function canAddLane(lanes: readonly LaneLike[]) {
-  return lanes.length < MAX_LAYERS;
-}
 
 // Lane ids are small integers as strings; a new one is the next unused.
 export function createLaneId(lanes: readonly LaneLike[]) {
@@ -52,17 +47,12 @@ export function getNextLaneName(lanes: readonly LaneLike[]) {
 
 /**
  * Inserts `lane` at index `at` (clamped), with its own Layout effect.
- * Unchanged at the layer limit.
  */
 export function insertLane<Lane extends LaneLike, Clip extends LaneClip>(
   project: LaneProject<Lane, Clip>,
   at: number,
   lane: Lane,
 ): LaneProject<Lane, Clip> {
-  if (!canAddLane(project.lanes)) {
-    return project;
-  }
-
   const index = Math.max(0, Math.min(project.lanes.length, Math.trunc(at)));
   return {
     ...project,
@@ -79,7 +69,7 @@ export function insertLane<Lane extends LaneLike, Clip extends LaneClip>(
  * Adds a copy of layer `laneId` directly below it, named "<name> copy",
  * with copies of its clips and effects. `newLaneId` is the copy's id and
  * `createId` gives each copied clip and effect a fresh id. Unchanged when
- * the layer is missing or at the layer limit.
+ * the layer is missing.
  */
 export function duplicateLane<Lane extends LaneLike, Clip extends LaneClip>(
   project: LaneProject<Lane, Clip>,
@@ -88,7 +78,7 @@ export function duplicateLane<Lane extends LaneLike, Clip extends LaneClip>(
   createId: (kind: "clip" | "effect") => string,
 ): LaneProject<Lane, Clip> {
   const index = project.lanes.findIndex((lane) => lane.id === laneId);
-  if (index < 0 || !canAddLane(project.lanes)) {
+  if (index < 0) {
     return project;
   }
 

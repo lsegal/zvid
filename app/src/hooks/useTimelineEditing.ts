@@ -10,7 +10,6 @@ import { getTimelineContentEndQ } from "../app/timeline-math.ts";
 import type { ProjectState } from "../app/types.ts";
 import type { MediaItem } from "../media";
 import { useMenus } from "../menus/useMenus.ts";
-import { MAX_LAYERS } from "../selection-overlaps";
 import { useKeyboardShortcuts } from "../shortcuts/useKeyboardShortcuts.ts";
 import { useSpacePlayback } from "../shortcuts/useSpacePlayback.ts";
 import type { createSpaceHold } from "../space-shortcut";
@@ -211,7 +210,6 @@ export function useTimelineEditing({
   const { handleUndo, handleRedo } = historyCommands;
   const { addFxDevice, setLayerFxEnabled } = fxEditing;
 
-  const canCreateLayer = lanes.length < MAX_LAYERS;
   const timelineContentEndQ = useMemo(
     () => getTimelineContentEndQ(timelineClips, sourceSpans, bpm, barLength),
     [barLength, bpm, sourceSpans, timelineClips],
@@ -321,7 +319,6 @@ export function useTimelineEditing({
   } = useLayerActions({
     addFxDevice,
     arrangementLanesRef,
-    canCreateLayer,
     commitProjectChange,
     focusLaneLabel,
     isInspectorCollapsed,
@@ -533,7 +530,6 @@ export function useTimelineEditing({
 
   return {
     ...rowHandlers,
-    canCreateLayer,
     handleRandomizeTimeline,
     handleCreateLayer,
     layerReorder,
