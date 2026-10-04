@@ -1,7 +1,6 @@
 import type { ImportNoticeContent } from "../components/ImportNotice";
 import { migrateDefaultGain } from "../default-gain.ts";
 import { type MediaItem, toShareableMediaItem } from "../media.ts";
-import type { ProjectHistoryState } from "../project-history.ts";
 import {
   migrateClipContentEffects,
   migrateColorizeReactivity,
@@ -202,16 +201,6 @@ let workspaceBootPromise: Promise<WorkspaceBoot> | null = null;
 export function bootWorkspace() {
   workspaceBootPromise ??= loadWorkspaceBoot();
   return workspaceBootPromise;
-}
-
-export function isPristineProjectHistory(
-  history: ProjectHistoryState<ProjectState>,
-) {
-  return (
-    history.present === INITIAL_PROJECT_STATE &&
-    !history.past.length &&
-    !history.future.length
-  );
 }
 
 export function findRestoredSelection(

@@ -32,6 +32,8 @@ export type WorkspaceSessionInputs = {
     | "setWorkspaceAccess"
     | "setIsTakeOverPromptOpen"
     | "refuseReadOnlyEdit"
+    | "hasUnsavedChanges"
+    | "setHasUnsavedChanges"
   >;
   selection: Pick<
     TimelineSelectionState,
@@ -130,6 +132,8 @@ export function useWorkspaceSession({
     setWorkspaceAccess: store.setWorkspaceAccess,
     setIsTakeOverPromptOpen: store.setIsTakeOverPromptOpen,
     refuseReadOnlyEdit: store.refuseReadOnlyEdit,
+    hasUnsavedChanges: store.hasUnsavedChanges,
+    setHasUnsavedChanges: store.setHasUnsavedChanges,
     collaborationMode,
     viewingSharedSessionRef,
     sessionMediaCheckRef,

@@ -79,6 +79,7 @@ export type SessionIOInputs = {
   claimWorkspaceSession: () => void;
   reportSessionMediaCheck: () => void;
   refuseReadOnlyEdit: () => boolean;
+  setHasUnsavedChanges: Dispatch<SetStateAction<boolean>>;
   setStatus: Dispatch<SetStateAction<string>>;
 };
 
@@ -108,6 +109,7 @@ export function useSessionIO({
   claimWorkspaceSession,
   reportSessionMediaCheck,
   refuseReadOnlyEdit,
+  setHasUnsavedChanges,
   setStatus,
 }: SessionIOInputs) {
   async function applyOpenedSessionPayload(
@@ -182,6 +184,11 @@ export function useSessionIO({
         projectDurationFrames: project.projectDurationFrames,
         sourceTracksLocked: project.sourceTracksLocked,
       }),
+    );
+    // A session opened from a file is saved as it stands. A sample or an
+    // imported Live set has never been saved as a session.
+    setHasUnsavedChanges(
+      selection.kind === "sample" || Boolean(payload.alsImport),
     );
     setDragPreviewClips(null);
     setPendingSelection(null);
@@ -467,6 +474,7 @@ export function useSessionIO({
     }
   }
 
+  // Resolves to whether the session was saved.
   async function handleSaveSession() {
     const harness = getHarness();
     const session = projectToLvpSession(projectHistory.present, {
@@ -496,17 +504,17 @@ export function useSessionIO({
         });
         if (!nextSaveTarget) {
           setStatus("Save canceled.");
-          return;
+          return false;
         }
         saveTarget = nextSaveTarget;
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
           setStatus("Save canceled.");
-          return;
+          return false;
         }
         const message = error instanceof Error ? error.message : String(error);
         setStatus(`Failed to prepare save destination: ${message}`);
-        return;
+        return false;
       }
     }
 
@@ -515,8 +523,9 @@ export function useSessionIO({
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setStatus(`Save failed: ${message}`);
-      return;
+      return false;
     }
+    setHasUnsavedChanges(false);
 
     // A session saved to a new path keeps saving there.
     if (saveTarget.kind === "native-path" && sessionSource.kind !== "path") {
@@ -529,6 +538,7 @@ export function useSessionIO({
     const savedName =
       saveTarget.kind === "native-path" ? saveTarget.path : saveTarget.filename;
     setStatus(`Saved ${savedName}.`);
+    return true;
   }
 
   // Opens a bundled sample whose media is already in the media cache.

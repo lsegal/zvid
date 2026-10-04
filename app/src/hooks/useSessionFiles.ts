@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
-import { isPristineProjectHistory } from "../app/workspace-boot.ts";
+import { isPristineProjectHistory } from "../app/new-session.ts";
 import type { WorkspaceBoot } from "../app/workspace-types.ts";
 import type { AppMedia } from "./useAppMedia.ts";
 import type { ProjectStore } from "./useProjectStore.ts";
@@ -18,6 +18,7 @@ export type SessionFilesInputs = {
     | "playheadQRef"
     | "setPlayheadQ"
     | "refuseReadOnlyEdit"
+    | "setHasUnsavedChanges"
   >;
   selection: Pick<
     TimelineSelectionState,
@@ -84,6 +85,7 @@ export function useSessionFiles({
     claimWorkspaceSession: workspace.claimWorkspaceSession,
     reportSessionMediaCheck: workspace.reportSessionMediaCheck,
     refuseReadOnlyEdit,
+    setHasUnsavedChanges: store.setHasUnsavedChanges,
     setStatus,
   });
   const sample = useSampleProject({

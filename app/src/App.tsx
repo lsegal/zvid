@@ -16,6 +16,7 @@ import { CollaborationCursors } from "./components/CollaborationCursors";
 import { FxPanel } from "./components/FxPanel";
 import { ImportNotice } from "./components/ImportNotice";
 import { MediaDrawer } from "./components/media/MediaDrawer";
+import { NewSessionDialog } from "./components/NewSessionDialog";
 import { PreviewPanel } from "./components/PreviewPanel";
 import { TimelineContextMenu } from "./components/TimelineContextMenu";
 import { TopBar } from "./components/TopBar";
@@ -39,6 +40,7 @@ import { useMediaDrawer } from "./hooks/useMediaDrawer.ts";
 import { useMediaImport } from "./hooks/useMediaImport.ts";
 import { useMediaPreview } from "./hooks/useMediaPreview.ts";
 import { useMediaRange } from "./hooks/useMediaRange.ts";
+import { useNewSession } from "./hooks/useNewSession.ts";
 import { usePlayback } from "./hooks/usePlayback.ts";
 import { usePreview } from "./hooks/usePreview.ts";
 import { usePreviewVolume } from "./hooks/usePreviewVolume.ts";
@@ -339,6 +341,14 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setArrangementEmptyStateDismissed: setArrangementEmptyStateDismissed,
     setStatus,
   });
+  const newSession = useNewSession({
+    projectHistory,
+    hasUnsavedChanges: store.hasUnsavedChanges,
+    collaborationMode,
+    refuseReadOnlyEdit,
+    handleSaveSession: sessionFiles.handleSaveSession,
+    startNewSession: workspace.startNewSession,
+  });
   const { handleRandomizeTimeline } = editing;
   const {
     openExportDialog,
@@ -370,6 +380,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         {...dialogs}
         {...sessionFiles}
         {...sharing}
+        {...newSession}
         collaboration={collaboration}
         exportButtonLabel={exportState.exportButtonLabel}
         getEditMenuEntries={editing.getEditMenuEntries}
@@ -667,6 +678,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         setIsTakeOverPromptOpen={store.setIsTakeOverPromptOpen}
         workspaceAccess={store.workspaceAccess}
       />
+      <NewSessionDialog {...newSession} />
       {recording.failureNotice && (
         <ImportNotice
           notice={recording.failureNotice}
