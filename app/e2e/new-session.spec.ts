@@ -89,6 +89,10 @@ test("File → New Session on a blank project doesn't ask", async ({ page }) => 
 test("Save in the New Session prompt saves before starting over", async ({
   page,
 }) => {
+  const downloads: string[] = [];
+  page.on("download", (download) => {
+    downloads.push(download.suggestedFilename());
+  });
   await openSample(page);
   const snap = page.getByRole("button", { name: /^Snap (On|Off)$/ });
   const snapped = await snap.getAttribute("aria-pressed");
@@ -114,4 +118,54 @@ test("Save in the New Session prompt saves before starting over", async ({
   await saved.click();
   await expect(page.locator(".clip-card").first()).toBeVisible();
   await expect(snap).toHaveAttribute("aria-pressed", edited);
+  // Saving wrote no file.
+  expect(downloads).toEqual([]);
+
+  // The reopened entry has nothing unsaved, so New Session doesn't ask.
+  await chooseNewSession(page);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expectBlankSession(page);
+});
+
+test("a failed save in the New Session prompt keeps the session", async ({
+  page,
+}) => {
+  await openSample(page);
+  // Writing a Sessions entry fails from here on.
+  await page.evaluate(() => {
+    const put = IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put = function (...args) {
+      if (this.name === "entries") {
+        throw new DOMException("The disk is full.", "QuotaExceededError");
+      }
+      return put.apply(this, args);
+    };
+  });
+
+  await chooseNewSession(page);
+  await page
+    .getByRole("dialog", { name: "Save changes to this session?" })
+    .getByRole("button", { name: "Save", exact: true })
+    .click();
+
+  await expect(page.getByText("Save failed: The disk is full.")).toBeVisible();
+  await expect(page.locator(".source-span").first()).toBeVisible();
+  await expect(page.locator(".clip-card").first()).toBeVisible();
+});
+
+test("exporting doesn't count as saving for New Session", async ({ page }) => {
+  // Exporting downloads instead of asking where to save.
+  await page.addInitScript(() => {
+    delete (window as { showSaveFilePicker?: unknown }).showSaveFilePicker;
+  });
+  await openSample(page);
+  await openFileMenu(page);
+  const downloading = page.waitForEvent("download");
+  await page.getByRole("menuitem", { name: "Export Project…" }).click();
+  expect((await downloading).suggestedFilename()).toMatch(/\.zvd$/);
+
+  await chooseNewSession(page);
+  await expect(
+    page.getByRole("dialog", { name: "Save changes to this session?" }),
+  ).toBeVisible();
 });

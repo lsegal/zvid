@@ -482,7 +482,9 @@ export function useSessionIO({
   }
 
   // Writes the project as a `.zvd` wherever the user picks, leaving the
-  // opened session's own file alone. Resolves to whether it was written.
+  // opened session's own file alone. Resolves to whether it was written. An
+  // export is a copy, not a save: only saving into Sessions clears the
+  // unsaved-changes flag.
   async function handleExportProject() {
     const harness = getHarness();
     const session = projectToLvpSession(projectHistory.present, {
@@ -525,7 +527,6 @@ export function useSessionIO({
       setStatus(`Export failed: ${message}`);
       return false;
     }
-    setHasUnsavedChanges(false);
 
     const savedName =
       saveTarget.kind === "native-path" ? saveTarget.path : saveTarget.filename;
