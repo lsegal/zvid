@@ -78,13 +78,15 @@ test("the ruler marker meets the playhead line under a header status line", asyn
 
   // Stand in for the offline/sync status, plus a second line so the label
   // cell sets the row's height.
-  await page.locator(".ruler-row .track-label--header > div").evaluate((cell) => {
-    const status = document.createElement("button");
-    status.className = "track-label__offline";
-    status.type = "button";
-    status.textContent = "2 offline media files";
-    cell.append(status, document.createElement("br"), "Syncing");
-  });
+  await page
+    .locator(".ruler-row .track-label--header > div")
+    .evaluate((cell) => {
+      const status = document.createElement("button");
+      status.className = "track-label__offline";
+      status.type = "button";
+      status.textContent = "2 offline media files";
+      cell.append(status, document.createElement("br"), "Syncing");
+    });
   const after = await page
     .locator(".ruler-row")
     .evaluate((row) => row.getBoundingClientRect().height);

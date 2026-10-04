@@ -113,9 +113,11 @@ describe("playback rendering", () => {
     const ruler = cssRule(css, "ruler-row__content");
     const diamond = cssRule(css, "timeline-playhead-marker::before");
     const timecode = cssRule(css, "ruler-marker span");
+    const canvas = cssRule(timelineCss("timeline"), "timeline-canvas");
     const px = (rule: string, property: string) =>
       Number(rule.match(new RegExp(`\\n\\s*${property}: (\\d+)px;`))?.[1]);
-    const height = px(ruler, "height");
+    assert.match(ruler, /\n\s*min-height: var\(--ruler-height\);/);
+    const height = px(canvas, "--ruler-height");
     assert.ok(height >= 36 && height <= 40, `ruler height ${height}px`);
     assert.doesNotMatch(diamond, /\n\s*top:/);
     assert.ok(px(diamond, "bottom") <= 4, "diamond sits on the bottom edge");
@@ -128,5 +130,10 @@ describe("playback rendering", () => {
       diamondTop > timecodeBottom,
       `diamond top ${diamondTop}px overlaps timecodes ending at ${timecodeBottom}px`,
     );
+  });
+
+  it("starts the playhead line where the ruler's playhead marker ends", () => {
+    const line = cssRule(timelineCss("timeline"), "timeline-playhead");
+    assert.match(line, /\n\s*top: var\(--ruler-height\);/);
   });
 });
