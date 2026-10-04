@@ -2,25 +2,49 @@
 // not edit; run `pnpm --dir app run gen:fx-index` after adding a type.
 
 import type { TransitionTypeDefinition } from "../type.ts";
+import { transitionType as burn } from "./burn.ts";
 import { transitionType as cover } from "./cover.ts";
+import { transitionType as cube } from "./cube.ts";
+import { transitionType as dipToWhite } from "./dip-to-white.ts";
 import { transitionType as dissolveNoise } from "./dissolve-noise.ts";
 import { transitionType as dissolve } from "./dissolve.ts";
 import { transitionType as fade } from "./fade.ts";
+import { transitionType as flip } from "./flip.ts";
+import { transitionType as glitch } from "./glitch.ts";
+import { transitionType as morph } from "./morph.ts";
+import { transitionType as pageCurl } from "./page-curl.ts";
+import { transitionType as pixelate } from "./pixelate.ts";
 import { transitionType as push } from "./push.ts";
 import { transitionType as reveal } from "./reveal.ts";
+import { transitionType as ripple } from "./ripple.ts";
+import { transitionType as spin } from "./spin.ts";
 import { transitionType as swipe } from "./swipe.ts";
+import { transitionType as twirl } from "./twirl.ts";
 import { transitionType as wipe } from "./wipe.ts";
+import { transitionType as zoomBlur } from "./zoom-blur.ts";
 import { transitionType as zoom } from "./zoom.ts";
 
 // Every type file in this folder, in file order.
 export const TRANSITION_TYPE_MODULES: readonly TransitionTypeDefinition[] = [
+  burn,
   cover,
+  cube,
+  dipToWhite,
   dissolveNoise,
   dissolve,
   fade,
+  flip,
+  glitch,
+  morph,
+  pageCurl,
+  pixelate,
   push,
   reveal,
+  ripple,
+  spin,
   swipe,
+  twirl,
   wipe,
+  zoomBlur,
   zoom,
 ];
