@@ -445,6 +445,15 @@ export function effectUsesAudio(effect: SessionEffect) {
   return effect.enabled !== false && reactsToAudio(effect);
 }
 
+// The analyser the preview measures the mix through: none while no effect
+// reacts to it, so a session without such effects analyzes no audio.
+export function liveBandsAnalyser<T>(
+  effects: readonly SessionEffect[],
+  analyser: T | null,
+) {
+  return effects.some(effectUsesAudio) ? analyser : null;
+}
+
 export function computeActiveClips(
   clips: ArrangementClip[],
   mediaById: Map<string, MediaItem>,

@@ -19,6 +19,7 @@ import {
   effectUsesAudio,
   GROUP_TRACK_ID,
   type Lane,
+  liveBandsAnalyser,
   type MediaItem,
   quartersToSeconds,
   resolveAnimatedOrder,
@@ -394,9 +395,8 @@ export class CompositionRenderer {
 
   // The mix is measured only while some effect reacts to it.
   private sampleLiveAudioBands(effects = this.renderedEffects()) {
-    const reacts = effects.some(effectUsesAudio);
-    const analyser = reacts ? this.mixer?.analyser : null;
-    return this.liveAudioBands.sample(analyser ?? null, performance.now());
+    const analyser = liveBandsAnalyser(effects, this.mixer?.analyser ?? null);
+    return this.liveAudioBands.sample(analyser, performance.now());
   }
 
   private async sampleAudioBandsAt(playheadSeconds: number) {
