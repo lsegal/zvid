@@ -33,4 +33,11 @@ export const pass: EffectPass = {
       clampUnit(readEffectNumber(params, "_HighIntensity", 0)),
     );
   },
+  // Neither side inverts at intensity 0.
+  isIdentity(params) {
+    return (
+      clampUnit(readEffectNumber(params, "_LowIntensity", 0)) <= 0 &&
+      clampUnit(readEffectNumber(params, "_HighIntensity", 0)) <= 0
+    );
+  },
 };

@@ -93,10 +93,12 @@ describe("playback rendering", () => {
   it("renders the preview from the live playhead while playing", () => {
     assert.match(appTsx, /playheadSignal=\{playheadSignal\}/);
     assert.match(playerTsx, /const playheadQ = playheadSignal\.get\(\);/);
+    // The same frame's active clips sync the media and draw it (#948).
     assert.match(
       playerTsx,
-      /renderer\.renderPreviewFrame\(playback\.playheadQ, pixelRatio\)/,
+      /renderer\.renderPreviewFrame\(playback\.playheadQ, pixelRatio, true, \{/,
     );
+    assert.doesNotMatch(playerTsx, /renderer\.syncPlayback\(/);
   });
 
   // A playhead commit must not restart the playback loop, which depends on

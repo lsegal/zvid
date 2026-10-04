@@ -50,4 +50,11 @@ export const pass: EffectPass = {
     );
     gl.uniform3f(loc.uEnd, ...readZoomFraming(params, "_End", ctx.bottomUp));
   },
+  // Zoom 0 at both ends is 1x throughout, wherever it is centered.
+  isIdentity(params) {
+    return (
+      readZoomFraming(params, "_Start")[0] <= 0 &&
+      readZoomFraming(params, "_End")[0] <= 0
+    );
+  },
 };

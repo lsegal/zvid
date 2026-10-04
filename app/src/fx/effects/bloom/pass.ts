@@ -258,4 +258,8 @@ export const pass: EffectPass = {
     const tint = readTint(params);
     gl.uniform3f(loc.uTint, tint.r / 255, tint.g / 255, tint.b / 255);
   },
+  // Intensity 0 adds no glow.
+  isIdentity(params) {
+    return clampUnit(readEffectNumber(params, "_Intensity", 0.6), 0, 2) <= 0;
+  },
 };

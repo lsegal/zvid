@@ -1,8 +1,11 @@
 import { renderStats } from "../render-stats.ts";
 import {
   FULLSCREEN_VERTEX_SOURCE,
-  linkProgram,
+  finishProgram,
+  isProgramReady,
+  type PendingProgram,
   POSITION_ATTRIBUTE_LOCATION,
+  startProgram,
 } from "./gl.ts";
 import type { EffectChainStep } from "./registry.ts";
 import {
@@ -34,6 +37,21 @@ vec4 fxStageTexture2D(sampler2D tex, vec2 uv) {
   return texture2D(tex, min(uv * uFxStageUvScale, uFxStageUvMax));
 }
 `;
+
+// A fragment shader body made to read the pass's input through
+// `fxTexture2D` and the pictures of the stages named `stageNames` through
+// `fxStageTexture2D`.
+function programSource(fragmentSource: string, stageNames: string[]) {
+  let source = fragmentSource;
+  for (const name of stageNames) {
+    source = source.replace(
+      new RegExp(`\\btexture2D\\s*\\(\\s*${name}\\b`, "g"),
+      `fxStageTexture2D(${name}`,
+    );
+  }
+  source = source.replace(/\btexture2D\s*\(/g, "fxTexture2D(");
+  return FRAGMENT_HEADER + (stageNames.length ? STAGE_HEADER : "") + source;
+}
 
 // Pooled targets are allocated with sides rounded up to a multiple of this,
 // so a slot whose size animates reuses a few targets rather than
@@ -150,8 +168,9 @@ class TargetPool {
 }
 
 // Runs a layer's effect passes by ping-ponging between two framebuffers. One
-// instance belongs to one WebGL context: programs compile lazily on first use
-// and render targets are reallocated whenever the canvas surface changes size.
+// instance belongs to one WebGL context: `precompile` starts every program
+// up front, any it missed compile on first use, and render targets are
+// reallocated whenever the canvas surface changes size.
 // Layer, ping-pong and stage targets come from bounded pools of bucketed
 // sizes, a picture drawn into the corner of one (see `targetRegion`). A pass
 // with stages draws them into their own targets just before it runs.
@@ -160,11 +179,24 @@ export class EffectChainRenderer {
   private readonly positionBuffer: WebGLBuffer;
   // A null entry records a pass that failed to compile; it stays passthrough.
   private programs = new Map<EffectPass, CompiledPass | null>();
+  // Programs `precompile` started whose status hasn't been checked yet.
+  private pending = new Map<EffectPass, PendingProgram[]>();
+  private readonly parallel: KHR_parallel_shader_compile | null;
   private pingPongTargets: TargetPool;
   private stageTargets: TargetPool;
   private sceneTarget: RenderTarget | null = null;
   private layerTargets: TargetPool;
-  private arrangementTargets = new Map<number, RenderTarget>();
+  // One pool per Order nesting depth, since an arrangement draws into its
+  // own target while the one it sits in is still in use.
+  private arrangementTargets = new Map<number, TargetPool>();
+  private readonly release: (targets: RenderTarget[]) => void;
+  // Handed to every pass, refilled for each run rather than allocated.
+  private readonly stepContext: EffectContext = {
+    time: 0,
+    clipProgress: 0,
+    resolution: [0, 0],
+    bottomUp: false,
+  };
   private surfaceKey = "";
   private readonly maxTextureSize: number;
   // Allocates pooled targets at exactly each picture's size and reuses one
@@ -176,14 +208,47 @@ export class EffectChainRenderer {
     this.gl = gl;
     this.positionBuffer = positionBuffer;
     this.maxTextureSize = Number(gl.getParameter(gl.MAX_TEXTURE_SIZE)) || 4096;
-    const release = (targets: RenderTarget[]) => {
+    this.parallel = gl.getExtension("KHR_parallel_shader_compile") ?? null;
+    this.release = (targets: RenderTarget[]) => {
       for (const target of targets) {
         this.deleteTarget(target);
       }
     };
-    this.pingPongTargets = new TargetPool(release);
-    this.stageTargets = new TargetPool(release);
-    this.layerTargets = new TargetPool(release);
+    this.pingPongTargets = new TargetPool(this.release);
+    this.stageTargets = new TargetPool(this.release);
+    this.layerTargets = new TargetPool(this.release);
+  }
+
+  // Hands every pass in `passes` to the driver to compile, without waiting,
+  // so an effect appearing during playback doesn't stall a frame compiling
+  // its program. Their status is checked once `settlePrecompiled` finds them
+  // done, or when the pass is first used.
+  precompile(passes: readonly EffectPass[]) {
+    for (const pass of passes) {
+      if (this.programs.has(pass) || this.pending.has(pass)) {
+        continue;
+      }
+      try {
+        this.pending.set(pass, this.startPass(pass));
+      } catch (error) {
+        this.failPass(pass, error);
+      }
+    }
+  }
+
+  // Checks the precompiled programs the driver reports finished, which never
+  // waits. Without KHR_parallel_shader_compile the driver can't be asked, so
+  // each is checked on first use instead.
+  settlePrecompiled() {
+    if (!this.parallel || !this.pending.size) {
+      return;
+    }
+    for (const [pass, pending] of this.pending) {
+      const { gl, parallel } = this;
+      if (pending.every((program) => isProgramReady(gl, parallel, program))) {
+        this.getCompiledPass(pass);
+      }
+    }
   }
 
   syncSurface(width: number, height: number) {
@@ -197,6 +262,10 @@ export class EffectChainRenderer {
   prepare(steps: EffectChainStep[]): PreparedEffectStep[] {
     const prepared: PreparedEffectStep[] = [];
     for (const step of steps) {
+      // A pass at its neutral settings changes nothing, so it costs nothing.
+      if (step.pass.isIdentity?.(step.parameters)) {
+        continue;
+      }
       const compiled = this.getCompiledPass(step.pass);
       if (compiled) {
         prepared.push({ compiled, parameters: step.parameters });
@@ -234,19 +303,20 @@ export class EffectChainRenderer {
     };
   }
 
-  // Surface an FX clip with an Order arranges the layers beneath it into, one
-  // per nesting `depth`, since an arrangement can hold another.
+  // Surface an FX clip with an Order arranges the layers beneath it into, in
+  // its `width` × `height` corner, from a pool per nesting `depth`, since an
+  // arrangement can hold another.
   getArrangementTarget(depth: number, width: number, height: number) {
-    let target = this.arrangementTargets.get(depth);
-    if (!target || target.width !== width || target.height !== height) {
-      if (target) {
-        this.deleteTarget(target);
-      }
-      target = this.createTarget(width, height);
-      this.arrangementTargets.set(depth, target);
+    let pool = this.arrangementTargets.get(depth);
+    if (!pool) {
+      pool = new TargetPool(this.release);
+      this.arrangementTargets.set(depth, pool);
     }
-
-    return target;
+    const [target] = this.getPooledTargets(pool, width, height, 1);
+    return {
+      framebuffer: target.framebuffer,
+      region: targetRegion(target, width, height),
+    };
   }
 
   // Applies `steps` to the `width` × `height` picture in `source` in order.
@@ -286,18 +356,28 @@ export class EffectChainRenderer {
       0,
     );
     gl.activeTexture(gl.TEXTURE0);
+    const stepContext = this.stepContext;
+    stepContext.time = ctx.time;
+    stepContext.clipProgress = ctx.clipProgress;
+    stepContext.resolution[0] = width;
+    stepContext.resolution[1] = height;
+    stepContext.bottomUp = ctx.bottomUp;
 
     let input = source;
     for (const [index, step] of steps.entries()) {
       const isLast = index === steps.length - 1;
       const target = isLast && output === "screen" ? null : targets[index % 2];
       const { compiled, parameters } = step;
-      const stepCtx: EffectContext = { ...ctx, resolution: [width, height] };
-      const stages = this.runStages(input, compiled, parameters, stepCtx);
+      const stages = this.runStages(input, compiled, parameters, stepContext);
       gl.bindFramebuffer(gl.FRAMEBUFFER, target?.framebuffer ?? null);
       gl.viewport(0, 0, width, height);
       this.bindProgram(compiled, input, stages);
-      compiled.pass.setUniforms(gl, compiled.locations, parameters, stepCtx);
+      compiled.pass.setUniforms(
+        gl,
+        compiled.locations,
+        parameters,
+        stepContext,
+      );
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       if (stages) {
         this.unbindStages(stages.targets.length);
@@ -322,6 +402,12 @@ export class EffectChainRenderer {
       }
     }
     this.programs.clear();
+    for (const pending of this.pending.values()) {
+      for (const program of pending) {
+        this.discardPending(program);
+      }
+    }
+    this.pending.clear();
   }
 
   // Draws `compiled`'s stages from `input` into pooled stage targets and
@@ -418,18 +504,32 @@ export class EffectChainRenderer {
     let compiled: CompiledPass | null = null;
     const programs: WebGLProgram[] = [];
     try {
+      const pending = this.pending.get(pass) ?? this.startPass(pass);
+      this.pending.delete(pass);
       const stageNames = (pass.stages ?? []).map((stage) => stage.name);
-      const stages = (pass.stages ?? []).map((stage, index) => {
-        const program = this.compileProgram(
-          stage.fragmentSource,
+      // The stages' programs, in order, then the main one.
+      const linked = pending.map((program, index) => {
+        try {
+          const linked = finishProgram(this.gl, program);
+          programs.push(linked);
+          return linked;
+        } catch (error) {
+          for (const unchecked of pending.slice(index + 1)) {
+            this.discardPending(unchecked);
+          }
+          throw error;
+        }
+      });
+      const stages = (pass.stages ?? []).map((stage, index) => ({
+        ...this.locateUniforms(
+          linked[index],
           stage.uniforms,
           stageNames.slice(0, index),
-        );
-        programs.push(program.program);
-        return { ...program, stage };
-      });
-      const main = this.compileProgram(
-        pass.fragmentSource,
+        ),
+        stage,
+      }));
+      const main = this.locateUniforms(
+        linked[stages.length],
         pass.uniforms,
         stageNames,
       );
@@ -445,28 +545,49 @@ export class EffectChainRenderer {
     return compiled;
   }
 
-  // Links a fragment shader body that reads the pass's input through `uTex`
-  // and the pictures of the stages named `stageNames` through their own
-  // samplers.
-  private compileProgram(
-    fragmentSource: string,
+  // Hands `pass`'s stages and then its main shader to the driver.
+  private startPass(pass: EffectPass) {
+    const stageNames = (pass.stages ?? []).map((stage) => stage.name);
+    const sources = [
+      ...(pass.stages ?? []).map((stage, index) =>
+        programSource(stage.fragmentSource, stageNames.slice(0, index)),
+      ),
+      programSource(pass.fragmentSource, stageNames),
+    ];
+    const started: PendingProgram[] = [];
+    try {
+      for (const source of sources) {
+        started.push(startProgram(this.gl, FULLSCREEN_VERTEX_SOURCE, source));
+      }
+    } catch (error) {
+      for (const program of started) {
+        this.discardPending(program);
+      }
+      throw error;
+    }
+    return started;
+  }
+
+  private failPass(pass: EffectPass, error: unknown) {
+    console.warn(`Effect "${pass.effectName}" failed to compile.`, error);
+    this.programs.set(pass, null);
+  }
+
+  private discardPending(pending: PendingProgram) {
+    this.gl.deleteShader(pending.vertexShader);
+    this.gl.deleteShader(pending.fragmentShader);
+    this.gl.deleteProgram(pending.program);
+  }
+
+  // The uniforms of a linked program that reads the pass's input through
+  // `uTex` and the pictures of the stages named `stageNames` through their
+  // own samplers.
+  private locateUniforms(
+    program: WebGLProgram,
     uniforms: string[],
     stageNames: string[],
   ): CompiledProgram {
     const { gl } = this;
-    let source = fragmentSource;
-    for (const name of stageNames) {
-      source = source.replace(
-        new RegExp(`\\btexture2D\\s*\\(\\s*${name}\\b`, "g"),
-        `fxStageTexture2D(${name}`,
-      );
-    }
-    source = source.replace(/\btexture2D\s*\(/g, "fxTexture2D(");
-    const program = linkProgram(
-      gl,
-      FULLSCREEN_VERTEX_SOURCE,
-      FRAGMENT_HEADER + (stageNames.length ? STAGE_HEADER : "") + source,
-    );
     const locations: EffectUniformLocations = {};
     for (const name of uniforms) {
       locations[name] = gl.getUniformLocation(program, name);
@@ -561,8 +682,8 @@ export class EffectChainRenderer {
     this.pingPongTargets.clear();
     this.stageTargets.clear();
     this.layerTargets.clear();
-    for (const target of this.arrangementTargets.values()) {
-      this.deleteTarget(target);
+    for (const pool of this.arrangementTargets.values()) {
+      pool.clear();
     }
     this.arrangementTargets.clear();
     if (this.sceneTarget) {
