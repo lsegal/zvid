@@ -48,10 +48,7 @@ export type TopBarProps = Pick<
 > &
   Pick<
     SessionIO,
-    | "handleImport"
-    | "handleOpenSession"
-    | "handleOpenWorkspace"
-    | "handleExportProject"
+    "handleImport" | "handleOpenSession" | "handleOpenWorkspace"
   > &
   Pick<ReturnType<typeof useMediaStatus>, "offlineMedia" | "showsMediaSync"> &
   Pick<
@@ -70,6 +67,7 @@ export type TopBarProps = Pick<
     setIsMediaStorageDialogOpen: SetOpen;
     setIsMediaSyncDialogOpen: SetOpen;
     setIsOfflineMediaDialogOpen: SetOpen;
+    setIsProjectExportDialogOpen: SetOpen;
     setIsSessionSettingsOpen: SetOpen;
     setStatus: (message: string) => void;
   };
@@ -86,7 +84,6 @@ export function TopBar({
   handleNewSession,
   handleOpenSession,
   handleOpenWorkspace,
-  handleExportProject,
   handleSaveToLibrary,
   handleStopShare,
   showsMediaSync,
@@ -99,6 +96,7 @@ export function TopBar({
   setIsMediaStorageDialogOpen,
   setIsMediaSyncDialogOpen,
   setIsOfflineMediaDialogOpen,
+  setIsProjectExportDialogOpen,
   setIsSessionSettingsOpen,
   setStatus,
   showShareCopiedBadge,
@@ -239,7 +237,7 @@ export function TopBar({
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => {
-                      void handleExportProject();
+                      setIsProjectExportDialogOpen(true);
                     }}
                   >
                     Project…

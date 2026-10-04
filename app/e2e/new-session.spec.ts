@@ -161,9 +161,13 @@ test("exporting doesn't count as saving for New Session", async ({ page }) => {
   });
   await openSample(page);
   await openFileMenu(page);
-  const downloading = page.waitForEvent("download");
   await page.getByRole("menuitem", { name: "Export", exact: true }).click();
   await page.getByRole("menuitem", { name: "Project…", exact: true }).click();
+  const downloading = page.waitForEvent("download");
+  await page
+    .getByRole("dialog", { name: "Export Project" })
+    .getByRole("button", { name: "Export", exact: true })
+    .click();
   expect((await downloading).suggestedFilename()).toMatch(/\.zvd$/);
 
   await chooseNewSession(page);

@@ -20,6 +20,7 @@ import { MediaDrawer } from "./components/media/MediaDrawer";
 import { SessionLibraryDialogs } from "./components/media/SessionsTab";
 import { NewSessionDialog } from "./components/NewSessionDialog";
 import { PreviewPanel } from "./components/PreviewPanel";
+import { ProjectExportDialog } from "./components/ProjectExportDialog";
 import { TimelineContextMenu } from "./components/TimelineContextMenu";
 import { TopBar } from "./components/TopBar";
 import { ArrangementLanes } from "./components/timeline/ArrangementLanes";
@@ -705,6 +706,18 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       />
       <SessionLibraryDialogs library={library} />
       <NewSessionDialog {...newSession} />
+      <ProjectExportDialog
+        initialIncludeMedia={false}
+        onCancel={() => {
+          dialogs.setIsProjectExportDialogOpen(false);
+          setStatus("Export canceled.");
+        }}
+        onExport={(options) => {
+          dialogs.setIsProjectExportDialogOpen(false);
+          void sessionFiles.handleExportProject(options);
+        }}
+        open={dialogs.isProjectExportDialogOpen}
+      />
       {recording.failureNotice && (
         <ImportNotice
           notice={recording.failureNotice}

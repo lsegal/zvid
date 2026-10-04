@@ -1,6 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
-import { writeProjectArchive } from "../src/project-archive.ts";
+import {
+  readProjectArchive,
+  writeProjectArchive,
+} from "../src/project-archive.ts";
 import type { LvpSession } from "../src/session.ts";
 
 // File ▸ Open ▸ Session… opens a `.zvd` project archive with the media bundled
@@ -27,8 +30,8 @@ async function dropVideoIntoNewSourceTrack(page: Page) {
   });
 }
 
-// A session with one clip of the test pattern, saved as `media/<name>` the
-// way an archive with media links it.
+// A session with one clip of the test pattern, exported with its media, so
+// the clip links `media/<name>` inside the archive.
 async function exportedSession(page: Page) {
   await page.addInitScript(() => {
     delete (window as { showSaveFilePicker?: unknown }).showSaveFilePicker;
@@ -36,16 +39,20 @@ async function exportedSession(page: Page) {
   await page.goto("/");
   await dropVideoIntoNewSourceTrack(page);
   await page.getByRole("menuitem", { name: "File", exact: true }).click();
-  const downloading = page.waitForEvent("download");
   await page.getByRole("menuitem", { name: "Export", exact: true }).click();
   await page.getByRole("menuitem", { name: "Project…", exact: true }).click();
-  const session = JSON.parse(
-    await readFile(await (await downloading).path(), "utf8"),
-  ) as LvpSession;
-  for (const clip of session.clips ?? []) {
-    clip.filePath = "media/test-pattern.mp4";
-  }
-  return session;
+  const dialog = page.getByRole("dialog", { name: "Export Project" });
+  await dialog
+    .getByRole("checkbox", { name: "Include media files" })
+    .setChecked(true);
+  const downloading = page.waitForEvent("download");
+  await dialog.getByRole("button", { name: "Export", exact: true }).click();
+  const bytes = await readFile(await (await downloading).path());
+  const { project: session } = await readProjectArchive(new Uint8Array(bytes));
+  expect(session.clips?.map((clip) => clip.filePath)).toEqual([
+    "media/test-pattern.mp4",
+  ]);
+  return { session, bytes };
 }
 
 // File ▸ New Session, discarding the session the archive was built from.
@@ -74,11 +81,9 @@ async function openSessionFile(page: Page, name: string, buffer: Buffer) {
   });
 }
 
-async function archive(
-  project: LvpSession,
-  media: Array<{ path: string; blob: Blob }>,
-) {
-  const blob = await writeProjectArchive({ project, media });
+// The session in an archive without its media.
+async function bareArchive(project: LvpSession) {
+  const blob = await writeProjectArchive({ project, media: [] });
   return Buffer.from(await blob.arrayBuffer());
 }
 
@@ -87,13 +92,10 @@ function mediaItems(page: Page) {
 }
 
 test("a .zvd archive opens with its bundled media online", async ({ page }) => {
-  const session = await exportedSession(page);
-  const buffer = await archive(session, [
-    { path: "media/test-pattern.mp4", blob: new Blob([await readFile(VIDEO)]) },
-  ]);
+  const { bytes } = await exportedSession(page);
   await startNewSession(page);
 
-  await openSessionFile(page, "Bundled.zvd", buffer);
+  await openSessionFile(page, "Bundled.zvd", bytes);
 
   await expect(page.getByText("Bundled.zvd").first()).toBeVisible();
   await expect(page.locator(".source-span")).toHaveCount(1, {
@@ -114,8 +116,8 @@ test("a .zvd archive opens with its bundled media online", async ({ page }) => {
 test("a .zvd archive without media opens with its media offline", async ({
   page,
 }) => {
-  const session = await exportedSession(page);
-  const buffer = await archive(session, []);
+  const { session } = await exportedSession(page);
+  const buffer = await bareArchive(session);
   await startNewSession(page);
 
   await openSessionFile(page, "Bare.zvd", buffer);
@@ -135,7 +137,7 @@ test("a .zvd archive without media opens with its media offline", async ({
 test("an old plain-JSON .zvd is rejected as not a project archive", async ({
   page,
 }) => {
-  const session = await exportedSession(page);
+  const { session } = await exportedSession(page);
   await startNewSession(page);
 
   await openSessionFile(page, "Old.zvd", Buffer.from(JSON.stringify(session)));

@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { writeProjectArchive } from "../src/project-archive.ts";
+import { readProjectArchive } from "../src/project-archive.ts";
 
 // The zvid opening sample: File → Open → Sample, and the sample opened on an
 // empty start (`?sample=1`, since automation turns it off by default). The
@@ -425,7 +425,7 @@ test("closing the session stops the sample's downloads", async ({ page }) => {
   ).toHaveCount(0);
 });
 
-test("an exported copy of the sample reopens with its media still linked", async ({
+test("an exported copy of the sample reopens with its bundled media online", async ({
   page,
 }) => {
   // Export ▸ Project… downloads instead of asking where to save.
@@ -436,11 +436,24 @@ test("an exported copy of the sample reopens with its media still linked", async
   await expectSampleOpen(page);
 
   await openFileMenu(page);
-  const downloading = page.waitForEvent("download");
   await page.getByRole("menuitem", { name: "Export", exact: true }).click();
   await page.getByRole("menuitem", { name: "Project…", exact: true }).click();
-  const saved = await (await downloading).path();
-  expect(saved).toBeTruthy();
+  const dialog = page.getByRole("dialog", { name: "Export Project" });
+  await dialog
+    .getByRole("checkbox", { name: "Include media files" })
+    .setChecked(true);
+  const downloading = page.waitForEvent("download");
+  await dialog.getByRole("button", { name: "Export", exact: true }).click();
+  const { readFile } = await import("node:fs/promises");
+  const bytes = await readFile((await (await downloading).path()) as string);
+  await expect(page.getByText(/^Exported .*\.zvd\.$/)).toBeVisible();
+
+  const archive = await readProjectArchive(new Uint8Array(bytes));
+  expect(archive.media.length).toBeGreaterThan(0);
+  const bundled = new Set(archive.media.map((entry) => entry.path));
+  for (const clip of archive.project.clips ?? []) {
+    expect(bundled.has(clip.filePath)).toBe(true);
+  }
 
   await startNewSession(page);
   await expect(page.getByText("No source media yet")).toBeVisible();
@@ -449,17 +462,13 @@ test("an exported copy of the sample reopens with its media still linked", async
   await openFileMenu(page);
   await page.getByRole("menuitem", { name: "Open", exact: true }).click();
   await page.getByRole("menuitem", { name: "Session…", exact: true }).click();
-  // Export still writes plain JSON, which a .zvd no longer opens as, so the
-  // copy is reopened from a project archive holding it.
-  const { readFileSync } = await import("node:fs");
-  const archive = await writeProjectArchive({
-    project: JSON.parse(readFileSync(saved as string, "utf8")),
-    media: [],
-  });
   await (await choosing).setFiles({
     name: "zvid opening sample.zvd",
     mimeType: "application/gzip",
-    buffer: Buffer.from(await archive.arrayBuffer()),
+    buffer: bytes,
   });
   await expectSampleOpen(page);
+  await expect(
+    page.getByRole("button", { name: /offline media files?$/ }),
+  ).toHaveCount(0);
 });

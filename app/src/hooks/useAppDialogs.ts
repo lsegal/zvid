@@ -10,6 +10,8 @@ export function useAppDialogs() {
   const [isMediaStorageDialogOpen, setIsMediaStorageDialogOpen] =
     useState(false);
   const [isSessionSettingsOpen, setIsSessionSettingsOpen] = useState(false);
+  const [isProjectExportDialogOpen, setIsProjectExportDialogOpen] =
+    useState(false);
 
   return {
     isCaptureInstallerDialogOpen,
@@ -22,6 +24,8 @@ export function useAppDialogs() {
     setIsMediaStorageDialogOpen,
     isSessionSettingsOpen,
     setIsSessionSettingsOpen,
+    isProjectExportDialogOpen,
+    setIsProjectExportDialogOpen,
   };
 }
 
