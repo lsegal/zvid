@@ -9,7 +9,12 @@
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    // Without these, Cloudflare answers navigations (a clicked installer
+    // link, a URL typed into the address bar) with the SPA's index.html
+    // before the Worker runs, so the Worker routes below would only see
+    // fetches. The Worker hands every other /api/* path back to ASSETS.
+    "run_worker_first": ["/downloads/*", "/api/*"]
   },
   // The ZVID Capture installers and their manifest, which the DAW bundles
   // workflow publishes on every merge to main; worker/downloads.ts serves
