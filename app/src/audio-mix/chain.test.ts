@@ -272,10 +272,7 @@ describe("AudioChain", () => {
 
     // The first switch change needs a second processor to crossfade to;
     // later ones reuse the one faded out.
-    chain.configure(
-      settings([{ ...stage, switches: { Mode: "b" } }]),
-      TEMPO,
-    );
+    chain.configure(settings([{ ...stage, switches: { Mode: "b" } }]), TEMPO);
     run(chain, sound);
     chain.configure(settings([stage]), TEMPO);
     run(chain, sound);
@@ -284,9 +281,8 @@ describe("AudioChain", () => {
 
   it("sounds after a reset exactly as a fresh chain does", () => {
     const stages = [testStage(ECHO), testStage(ONE_POLE, { Cutoff: 500 })];
-    const input = Float32Array.from(
-      { length: 4 * BLOCK_FRAMES },
-      (_, index) => Math.sin(index / 7),
+    const input = Float32Array.from({ length: 4 * BLOCK_FRAMES }, (_, index) =>
+      Math.sin(index / 7),
     );
     const used = chainOf(stages);
     run(used, input);
