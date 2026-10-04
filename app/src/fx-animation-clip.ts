@@ -221,7 +221,7 @@ export function resolveClipAnimatedParameters(
 
 // How a clip eases into and out of an Order's arrangement: the same both
 // ways, so leaving is entering played backwards.
-const ORDER_SLIDE_MOTION = {
+export const ORDER_SLIDE_MOTION = {
   motionIn: "Ease In Out",
   motionOut: "Ease In Out",
 } as const satisfies Pick<ClipAnimation, "motionIn" | "motionOut">;

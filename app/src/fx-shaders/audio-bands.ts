@@ -59,7 +59,7 @@ const IMPULSE_DECAY_SECONDS = 0.15;
 const OFFLINE_WARMUP_SECONDS = 1;
 // How long a hit is remembered in `AudioBands.onsets`. It stays within the
 // warm-up so seeks remember the same hits.
-const ONSET_MEMORY_SECONDS = 1;
+export const ONSET_MEMORY_SECONDS = 1;
 
 const TICK_SECONDS = 1 / ENVELOPE_REFERENCE_FPS;
 const ONSET_WINDOW_TICKS = Math.round(
