@@ -2,11 +2,16 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
 import { gainStageAt } from "../fx/effects/gain/processor.ts";
-import type { ChainMessage, ChainNodeOptions } from "./chain-node.ts";
+import type {
+  ChainMessage,
+  ChainNodeOptions,
+  ChainReport,
+} from "./chain-node.ts";
 import { ONE_POLE, TEST_PROCESSORS, testStage } from "./chain-test-utils.ts";
 import { PreviewAudioMixer } from "./preview-mixer.ts";
 import { DEFAULT_TIME_SIGNATURE } from "./processor.ts";
 import type { AudioMix, AudioMixClip } from "./resolve.ts";
+import { transientLevel, watchTransient } from "./transient-monitor.ts";
 
 class FakeElement {
   // Where the test's clock is. A slow browser's seeks land `seekSeconds`
@@ -102,6 +107,7 @@ class FakeWorkletNode {
   readonly options: { processorOptions: ChainNodeOptions };
   readonly messages: ChainMessage[] = [];
   readonly port = {
+    onmessage: null as ((event: { data: ChainReport }) => void) | null,
     postMessage: (message: ChainMessage) => {
       this.messages.push(message);
     },
@@ -575,6 +581,33 @@ describe("PreviewAudioMixer", () => {
       mixer.sync(playing(3));
       assert.deepEqual(types(), ["reset", "transport"]);
       mixer.dispose();
+    });
+
+    it("asks the chains for watched Transient levels and takes their reports", async () => {
+      const unwatchEarly = watchTransient("early");
+      const mixer = await chainedMixer();
+      const [master, clipChain] = FakeWorkletNode.made;
+      assert.deepEqual(master.options.processorOptions.watch, ["early"]);
+
+      const unwatch = watchTransient("filter");
+      assert.deepEqual(clipChain.messages.at(-1), {
+        type: "watch",
+        ids: ["early", "filter"],
+      });
+      clipChain.port.onmessage?.({
+        data: { type: "transients", levels: [["filter", 0.4]] },
+      });
+      assert.equal(transientLevel("filter"), 0.4);
+
+      unwatch();
+      unwatchEarly();
+      assert.deepEqual(master.messages.at(-1), { type: "watch", ids: [] });
+      assert.equal(transientLevel("filter"), 0);
+      mixer.dispose();
+      // A disposed mixer tells its chains nothing more.
+      const count = master.messages.length;
+      watchTransient("late")();
+      assert.equal(master.messages.length, count);
     });
 
     it("plays Gain alone through native gains without the worklet", () => {
