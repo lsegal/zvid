@@ -111,14 +111,21 @@ describe("getWandEndQ", () => {
 
 describe("createWandLanes", () => {
   it("creates Layer 1 to Layer 3 with ids no old layer uses", () => {
-    const lanes = createWandLanes(importedLanes, WAND_LAYERS);
+    const { videoLanes, lanes } = createWandLanes(importedLanes, WAND_LAYERS);
     assert.deepEqual(
-      lanes.map((lane) => lane.name),
+      videoLanes.map((lane) => lane.name),
       ["Layer 1", "Layer 2", "Layer 3"],
     );
     const oldIds = new Set(importedLanes.map((lane) => lane.id));
     assert.ok(lanes.every((lane) => !oldIds.has(lane.id)));
-    assert.equal(new Set(lanes.map((lane) => lane.id)).size, 3);
+    assert.equal(new Set(lanes.map((lane) => lane.id)).size, 4);
+  });
+
+  it("adds an Audio layer last that does not count toward the max", () => {
+    const { audioLane, lanes } = createWandLanes(importedLanes, WAND_LAYERS);
+    assert.equal(lanes.length, WAND_LAYERS + 1);
+    assert.equal(audioLane.name, "Audio");
+    assert.equal(lanes.at(-1), audioLane);
   });
 });
 
@@ -141,7 +148,9 @@ describe("the wand on an imported set", () => {
   const wandLanes = createWandLanes(importedLanes, WAND_LAYERS);
   const arrange = (seed: number) =>
     buildRandomArrangement({
-      laneIds: wandLanes.map((lane) => lane.id),
+      laneIds: wandLanes.videoLanes.map((lane) => lane.id),
+      audioLaneId: wandLanes.audioLane.id,
+      isAudioOnly: (candidate) => candidate.mediaId === "frozen.wav",
       sourceTrackIds: ["video-a", "video-b", "frozen"],
       spans: sourceSpans,
       spanEndQ: (candidate) => candidate.startQ + candidate.durationSeconds * 2,
@@ -164,12 +173,26 @@ describe("the wand on an imported set", () => {
     }
   });
 
-  it("only uses Layer 1 to Layer 3", () => {
-    const laneIds = new Set(wandLanes.map((lane) => lane.id));
+  it("only uses Layer 1 to Layer 3 for video", () => {
+    const laneIds = new Set(wandLanes.videoLanes.map((lane) => lane.id));
     for (let seed = 1; seed <= 20; seed += 1) {
       for (const window of arrange(seed)) {
-        assert.ok(laneIds.has(window.laneId));
+        if (window.span.sourceTrackId !== "frozen") {
+          assert.ok(laneIds.has(window.laneId));
+        }
       }
+    }
+  });
+
+  it("puts the frozen audio on the Audio layer as one uncut clip", () => {
+    for (let seed = 1; seed <= 20; seed += 1) {
+      const audio = arrange(seed).filter(
+        (window) => window.laneId === wandLanes.audioLane.id,
+      );
+      assert.equal(audio.length, 1);
+      assert.equal(audio[0].span.sourceTrackId, "frozen");
+      assert.equal(audio[0].startQ, 0);
+      assert.equal(audio[0].durationQ, 52);
     }
   });
 });
@@ -186,7 +209,7 @@ describe("applyWandArrangement", () => {
   };
 
   it("replaces the old layers, and undo restores them", () => {
-    const wandLanes = createWandLanes(initial.lanes, WAND_LAYERS);
+    const wandLanes = createWandLanes(initial.lanes, WAND_LAYERS).lanes;
     const wandClips = [{ id: "wand-clip", laneId: wandLanes[0].id }];
     const committed = projectHistoryReducer(
       createProjectHistoryState(initial),
@@ -200,7 +223,7 @@ describe("applyWandArrangement", () => {
 
     assert.deepEqual(
       committed.present.lanes.map((lane) => lane.name),
-      ["Layer 1", "Layer 2", "Layer 3"],
+      ["Layer 1", "Layer 2", "Layer 3", "Audio"],
     );
     assert.ok(
       committed.present.lanes.every((lane) => !lane.name.endsWith("-Audio")),

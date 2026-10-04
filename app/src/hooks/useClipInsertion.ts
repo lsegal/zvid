@@ -410,6 +410,11 @@ export function useClipInsertion({
 
   function buildRandomizedArrangement() {
     const wandLanes = createWandLanes(lanes, MAX_WAND_LAYERS);
+    // Sound with no picture, so not stills or offline media.
+    const isAudioOnly = (span: SourceSpan) => {
+      const media = span.mediaId ? mediaItemsById.get(span.mediaId) : undefined;
+      return Boolean(media?.hasAudio && !media.hasVideo);
+    };
     const stepQ = barLength * RANDOM_SELECTION_BAR_INCREMENT;
     const durationSteps = Array.from(
       {
@@ -423,7 +428,9 @@ export function useClipInsertion({
       sourceTracks.map((sourceTrack) => [sourceTrack.id, sourceTrack]),
     );
     const windows = buildRandomArrangement({
-      laneIds: wandLanes.map((lane) => lane.id),
+      laneIds: wandLanes.videoLanes.map((lane) => lane.id),
+      audioLaneId: wandLanes.audioLane.id,
+      isAudioOnly,
       sourceTrackIds: sourceTracks.map((sourceTrack) => sourceTrack.id),
       spans: sourceSpans,
       spanEndQ: (span) => getClipEndQ(span, bpm),
@@ -451,7 +458,7 @@ export function useClipInsertion({
       );
       return [clip];
     });
-    return { lanes: wandLanes, clips: randomizedClips };
+    return { lanes: wandLanes.lanes, clips: randomizedClips };
   }
 
   function handleRandomizeTimeline() {
