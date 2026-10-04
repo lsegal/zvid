@@ -31,6 +31,7 @@ import { releaseMediaElement } from "../media-element.ts";
 import { type AudioChainSettings, PARAMETER_RAMP_SECONDS } from "./chain.ts";
 import {
   type ChainMessage,
+  type ChainReport,
   type ChainTransport,
   createChainNode,
   postChainMessage,
@@ -53,6 +54,11 @@ import {
   SILENT_AUDIO_MIX,
 } from "./resolve.ts";
 import { hasProcessingStages } from "./stages.ts";
+import {
+  receiveTransientReport,
+  subscribeWatchedTransients,
+  watchedTransients,
+} from "./transient-monitor.ts";
 
 export type AudioMixPlayback = {
   playheadSeconds: number;
@@ -148,10 +154,15 @@ export class PreviewAudioMixer {
   private posted = new WeakMap<AudioWorkletNode, string>();
   // How long the last seek during playback took to land, by the audio clock.
   private seekLatency = 0;
+  // Tells the chains which stages' Transient levels to report.
+  private readonly unwatch: () => void;
 
   constructor(options: PreviewAudioMixerOptions = {}) {
     this.workletUrl = options.workletUrl;
     this.registry = options.registry ?? AUDIO_PROCESSORS;
+    this.unwatch = subscribeWatchedTransients(() => {
+      this.broadcast({ type: "watch", ids: watchedTransients() });
+    });
   }
 
   update(
@@ -328,6 +339,7 @@ export class PreviewAudioMixer {
   }
 
   dispose() {
+    this.unwatch();
     this.teardownChains();
     this.graph?.context.close().catch(() => {});
     this.graph = null;
@@ -466,7 +478,11 @@ export class PreviewAudioMixer {
       settings,
       tempo: audioMixTempo(this.mix),
       ...(this.transport ? { transport: this.transport } : {}),
+      watch: watchedTransients(),
     });
+    node.port.onmessage = (event: MessageEvent<ChainReport>) => {
+      receiveTransientReport(event.data);
+    };
     this.posted.set(node, JSON.stringify(settings));
     return node;
   }

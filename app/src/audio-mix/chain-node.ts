@@ -19,7 +19,20 @@ export type ChainMessage =
   | { type: "configure"; settings: AudioChainSettings; tempo: AudioTempo }
   | ({ type: "transport" } & ChainTransport)
   // Drops the chain's state, as after a seek, so no stale tail plays.
-  | { type: "reset" };
+  | { type: "reset" }
+  // The stages whose Transient levels the main thread wants reported.
+  | { type: "watch"; ids: readonly string[] };
+
+// What a chain node posts back: each watched Transient stage's level (see
+// StageModulator), about TRANSIENT_REPORT_RATE times a second.
+export type ChainReport = {
+  type: "transients";
+  levels: [id: string, level: number][];
+};
+
+// How often a chain node reports its watched Transient levels: about the
+// display's frame rate, for the Modulation section's graph.
+export const TRANSIENT_REPORT_RATE = 60;
 
 // What a chain node starts with, so it never plays a block unconfigured.
 export type ChainNodeOptions = {
@@ -27,6 +40,7 @@ export type ChainNodeOptions = {
   settings: AudioChainSettings;
   tempo: AudioTempo;
   transport?: ChainTransport;
+  watch?: readonly string[];
 };
 
 export function createChainNode(
