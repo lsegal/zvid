@@ -137,6 +137,21 @@ function normalizeRestoredView(value: unknown): WorkspaceView {
 
 // Reads the saved session. One that cannot be read is set aside under a
 // `corrupt-<ts>` key so the app starts clean instead of failing every load.
+// Reads a payload written by serializeWorkspaceSession, as the workspace
+// store and the Sessions library keep it. Throws when it cannot be read.
+export function parseSavedWorkspaceSession(
+  payload: string,
+): SavedWorkspaceSession {
+  return parseWorkspaceSession<
+    ProjectState,
+    WorkspaceView,
+    ImportNoticeContent
+  >(payload, {
+    normalizeState: normalizeRestoredProjectState,
+    normalizeView: normalizeRestoredView,
+  });
+}
+
 export async function readSavedWorkspaceSession(): Promise<{
   session: SavedWorkspaceSession | null;
   corruptKey: string | null;
@@ -148,14 +163,7 @@ export async function readSavedWorkspaceSession(): Promise<{
       return { session: null, corruptKey: null };
     }
     return {
-      session: parseWorkspaceSession<
-        ProjectState,
-        WorkspaceView,
-        ImportNoticeContent
-      >(record.payload, {
-        normalizeState: normalizeRestoredProjectState,
-        normalizeView: normalizeRestoredView,
-      }),
+      session: parseSavedWorkspaceSession(record.payload),
       corruptKey: null,
     };
   } catch (error) {
