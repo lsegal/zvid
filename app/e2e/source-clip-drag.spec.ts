@@ -3,7 +3,7 @@ import { expect, type Locator, type Page, test } from "@playwright/test";
 
 // Source clips move by dragging their body and trim by dragging an edge, and
 // overwrite the clips they land on in their own source track the way clips
-// do on a layer. A four-second test pattern at 120 BPM spans eight quarters.
+// do on a layer. Dragged onto another source track's row, they move there. A four-second test pattern at 120 BPM spans eight quarters.
 // Shift is held while dragging so the drags skip snapping and move by exact
 // quarters at any zoom.
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
@@ -251,4 +251,85 @@ test("a source clip dragged over another in its track trims it like a layer, and
       startQ: 8,
       durationQ: 8,
     });
+});
+
+test("a source clip dragged onto another source track moves there, overwriting what it lands on, with undo", async ({
+  page,
+}) => {
+  const quarterPx = await openWithSpans(page, 1);
+  const dataTransfer = await videoTransfer(page, 1);
+  for (const type of ["dragenter", "dragover"]) {
+    await page.dispatchEvent(tracks, type, { dataTransfer });
+  }
+  for (const type of ["dragenter", "dragover", "drop"]) {
+    await page.dispatchEvent(".track-row--source-drop", type, { dataTransfer });
+  }
+  await expect(page.locator(tracks)).toHaveCount(2, { timeout: 30_000 });
+  const first = page.locator(tracks).nth(0).locator(".source-span");
+  const second = page.locator(tracks).nth(1).locator(".source-span");
+  await expect(first).toHaveCount(1);
+  await expect(second).toHaveCount(1, { timeout: 30_000 });
+  const movingId = await first.getAttribute("data-source-span-id");
+
+  // Drag the first track's clip 4 quarters later onto the second track's
+  // row, previewing it there before the release.
+  const body = first.locator(".source-span__body");
+  await body.scrollIntoViewIfNeeded();
+  const from = await box(body);
+  const row = await box(page.locator(tracks).nth(1));
+  const x = from.x + from.width / 2;
+  const y = from.y + from.height / 2;
+  await page.keyboard.down("Shift");
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + 4 * quarterPx, row.y + row.height / 2, {
+    steps: 8,
+  });
+  await expect(second).toHaveCount(2);
+  await expect(first).toHaveCount(0);
+  await page.mouse.up();
+  await page.keyboard.up("Shift");
+
+  const moved = page
+    .locator(tracks)
+    .nth(1)
+    .locator(`[data-source-span-id="${movingId}"]`);
+  await expect(moved).toHaveCount(1);
+  await expect
+    .poll(() => layout(moved, quarterPx))
+    .toEqual({ startQ: 4, durationQ: 8 });
+  // The second track's own clip keeps what the moved one leaves uncovered.
+  const kept = second.and(
+    page.locator(`:not([data-source-span-id="${movingId}"])`),
+  );
+  await expect
+    .poll(() => layout(kept, quarterPx))
+    .toEqual({ startQ: 0, durationQ: 4 });
+
+  // One undo puts both back.
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(first).toHaveCount(1);
+  await expect(second).toHaveCount(1);
+  expect(await first.getAttribute("data-source-span-id")).toBe(movingId);
+  await expect
+    .poll(() => layout(first, quarterPx))
+    .toEqual({ startQ: 0, durationQ: 8 });
+  await expect
+    .poll(() => layout(second, quarterPx))
+    .toEqual({ startQ: 0, durationQ: 8 });
+
+  // Dropped outside the source tracks, it stays on its own track.
+  const again = await box(body);
+  await page.keyboard.down("Shift");
+  await page.mouse.move(again.x + again.width / 2, again.y + again.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(again.x + again.width / 2 + 2 * quarterPx, 2, {
+    steps: 8,
+  });
+  await page.mouse.up();
+  await page.keyboard.up("Shift");
+  await expect
+    .poll(() => layout(first, quarterPx))
+    .toEqual({ startQ: 2, durationQ: 8 });
+  await expect(second).toHaveCount(1);
 });

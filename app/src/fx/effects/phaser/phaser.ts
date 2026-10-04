@@ -4,7 +4,9 @@
 // the chain turns the phase by an odd multiple of 180° the wet signal
 // cancels the dry one, so N stages make N/2 notches. The LFO phase is the
 // timeline time times the rate, so the preview and an export sweep
-// identically.
+// identically. The stages' coefficient glides from one LFO point to the
+// next every PHASER_COEFFICIENT_FRAMES frames rather than taking a tangent
+// and two powers every frame.
 
 export const PHASER_EFFECT_NAME = "Phaser";
 
@@ -45,6 +47,12 @@ export const PHASE_RELOCK_SECONDS = 0.5;
 
 // Below this many cycles the drift back counts as done.
 const PHASE_LOCKED = 1e-9;
+
+// How often the stages' coefficient is worked out from the LFO; between
+// times it follows a parabola through the LFO halfway and at the end,
+// which a sweep of at most 10 Hz cannot tell from the curve.
+export const PHASER_COEFFICIENT_FRAMES = 16;
+const HALF_FRAMES = PHASER_COEFFICIENT_FRAMES / 2;
 
 // The lowest break frequency, so a swept stage stays well-behaved.
 const MIN_BREAK_HZ = 10;
@@ -176,6 +184,7 @@ function wrapCycles(cycles: number) {
   return cycles - Math.round(cycles);
 }
 
+// One block's settings, which each processor fills in again every block.
 export type PhaserBlock = {
   frames: number;
   // The timeline second of the block's first frame.
@@ -198,6 +207,18 @@ export class PhaserDsp {
   // Rate change; it decays back to 0 over PHASE_RELOCK_SECONDS.
   private phaseOffset = 0;
   private lastRate: number | null = null;
+  // How much of the phase offset is left after a frame, and after half
+  // and all of a coefficient step.
+  private readonly relock: number;
+  private readonly halfRelock: number;
+  private readonly stepRelock: number;
+  // The stages' coefficient this frame (NaN until the first frame), how
+  // much it moves to the next and how much that changes per frame, and how
+  // many frames remain before it is worked out again.
+  private coefficient = Number.NaN;
+  private coefficientStep = 0;
+  private coefficientCurve = 0;
+  private coefficientFrames = 0;
 
   constructor(sampleRate: number, channels: number) {
     this.sampleRate = sampleRate;
@@ -205,6 +226,88 @@ export class PhaserDsp {
       { length: channels },
       () => new Float64Array(MAX_STAGES),
     );
+    this.relock = Math.exp(-1 / (PHASE_RELOCK_SECONDS * sampleRate));
+    this.halfRelock = this.relock ** HALF_FRAMES;
+    this.stepRelock = this.relock ** PHASER_COEFFICIENT_FRAMES;
+  }
+
+  // Back to rest and in step with the timeline, as constructed.
+  reset() {
+    for (let channel = 0; channel < this.state.length; channel++) {
+      this.state[channel].fill(0);
+    }
+    this.lastStages = 0;
+    this.phaseOffset = 0;
+    this.lastRate = null;
+    this.coefficient = Number.NaN;
+    this.coefficientStep = 0;
+    this.coefficientCurve = 0;
+    this.coefficientFrames = 0;
+  }
+
+  // The coefficient `frames` on, if the frame's settings hold.
+  private coefficientAhead(
+    seconds: number,
+    rate: number,
+    center: number,
+    depth: number,
+    frames: number,
+    relock: number,
+  ) {
+    const phase =
+      phaserPhase(seconds + frames / this.sampleRate, rate) +
+      this.phaseOffset * relock;
+    return allPassCoefficient(
+      breakFrequency(center, depth, phase),
+      this.sampleRate,
+    );
+  }
+
+  // Sets the coefficient to glide from where it is through where the LFO
+  // will be HALF_FRAMES and PHASER_COEFFICIENT_FRAMES frames on, at the
+  // frame's settings. That path is exact at those points while the
+  // settings hold, and each starts from the LFO's true phase, so no error
+  // builds up.
+  private retarget(
+    seconds: number,
+    rate: number,
+    center: number,
+    depth: number,
+  ) {
+    if (Number.isNaN(this.coefficient)) {
+      this.coefficient = this.coefficientAhead(
+        seconds,
+        rate,
+        center,
+        depth,
+        0,
+        1,
+      );
+    }
+    const start = this.coefficient;
+    const middle = this.coefficientAhead(
+      seconds,
+      rate,
+      center,
+      depth,
+      HALF_FRAMES,
+      this.halfRelock,
+    );
+    const end = this.coefficientAhead(
+      seconds,
+      rate,
+      center,
+      depth,
+      PHASER_COEFFICIENT_FRAMES,
+      this.stepRelock,
+    );
+    // start + a·n + b·n² through all three, stepped by its differences.
+    const half = HALF_FRAMES;
+    const b = (end - 2 * middle + start) / (2 * half * half);
+    const a = (middle - start) / half - b * half;
+    this.coefficientStep = a + b;
+    this.coefficientCurve = 2 * b;
+    this.coefficientFrames = PHASER_COEFFICIENT_FRAMES;
   }
 
   process(
@@ -214,11 +317,11 @@ export class PhaserDsp {
   ) {
     const { frames, timeSeconds, stages } = block;
     const sampleRate = this.sampleRate;
-    const relock = Math.exp(-1 / (PHASE_RELOCK_SECONDS * sampleRate));
+    const relock = this.relock;
     if (stages !== this.lastStages) {
       // A different chain starts from rest.
-      for (const z of this.state) {
-        z.fill(0);
+      for (let channel = 0; channel < this.state.length; channel++) {
+        this.state[channel].fill(0);
       }
       this.lastStages = stages;
     }
@@ -238,13 +341,18 @@ export class PhaserDsp {
       }
       this.lastRate = rate;
 
-      const phase = phaserPhase(seconds, rate) + this.phaseOffset;
-      const c = allPassCoefficient(
-        breakFrequency(block.center[index], block.depth[index], phase),
-        sampleRate,
-      );
+      if (this.coefficientFrames === 0) {
+        this.retarget(seconds, rate, block.center[index], block.depth[index]);
+      }
+      const c = this.coefficient;
+      this.coefficient += this.coefficientStep;
+      this.coefficientStep += this.coefficientCurve;
+      this.coefficientFrames--;
       // The chain's instant gain from its input to its output.
-      const instant = c ** stages;
+      let instant = 1;
+      for (let stage = 0; stage < stages; stage++) {
+        instant *= c;
+      }
       const fb = block.feedback[index] / 100;
       const mix = block.mix[index] / 100;
       const g = wetGain(fb);

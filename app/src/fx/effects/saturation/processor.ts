@@ -11,6 +11,7 @@ import type {
   AudioParameterBlock,
 } from "../../../audio-mix/processor.ts";
 import {
+  DEFAULT_SATURATION_TYPE,
   DRIVE_KEY,
   dbToAmplitude,
   MIX_KEY,
@@ -109,19 +110,43 @@ function inRange(key: SaturationNumberKey, value: number) {
   return Math.min(range.max, Math.max(range.min, value));
 }
 
-// A parameter, through `map`, as a per-frame reader: the ramp while it
-// moves, else its settled value, mapped once.
-function reader(
-  params: AudioParameterBlock,
-  key: SaturationNumberKey,
-  map: (value: number) => number = (value) => value,
-) {
-  if (params.changing(key)) {
-    const values = params.number(key);
-    return (index: number) => map(inRange(key, values[index]));
+// A parameter as a per-frame reader: the ramp while it moves, else its
+// settled value, converted once. A dB parameter reads as an amplitude.
+// Each processor keeps one per parameter and updates it every block, so
+// reading allocates nothing.
+class ParameterReader {
+  private ramp: Float32Array | null = null;
+  private settled = 0;
+  private readonly key: SaturationNumberKey;
+  private readonly decibels: boolean;
+
+  constructor(key: SaturationNumberKey, decibels = false) {
+    this.key = key;
+    this.decibels = decibels;
   }
-  const value = map(inRange(key, params.value(key)));
-  return () => value;
+
+  update(params: AudioParameterBlock) {
+    if (params.changing(this.key)) {
+      this.ramp = params.number(this.key);
+      return;
+    }
+    this.ramp = null;
+    const value = inRange(this.key, params.value(this.key));
+    this.settled = this.decibels ? dbToAmplitude(value) : value;
+  }
+
+  at(index: number) {
+    if (!this.ramp) {
+      return this.settled;
+    }
+    const value = inRange(this.key, this.ramp[index]);
+    return this.decibels ? dbToAmplitude(value) : value;
+  }
+
+  reset() {
+    this.ramp = null;
+    this.settled = 0;
+  }
 }
 
 // One channel's filter histories and curve state.
@@ -154,6 +179,21 @@ class SaturationChannel {
     this.low1 = 0;
     this.low2 = shaped;
     this.dcIn = shaped;
+    this.dcOut = 0;
+  }
+
+  // Back to its constructed state: silent histories.
+  reset() {
+    this.up.fill(0);
+    this.upAt = 0;
+    this.down.fill(0);
+    this.downAt = 0;
+    this.dry.fill(0);
+    this.dryAt = 0;
+    this.tapeLast = 0;
+    this.low1 = 0;
+    this.low2 = 0;
+    this.dcIn = 0;
     this.dcOut = 0;
   }
 
@@ -231,6 +271,14 @@ class ToneFilter {
     this.dcPole = 1 - (2 * Math.PI * DC_BLOCK_HZ) / sampleRate;
   }
 
+  // Back to its constructed state, so the next set() recomputes.
+  reset() {
+    this.a1 = 0;
+    this.a2 = 0;
+    this.a3 = 0;
+    this.hz = Number.NaN;
+  }
+
   set(hz: number) {
     if (hz === this.hz) {
       return;
@@ -255,26 +303,38 @@ export const processor: AudioEffectDsp = {
       () => new SaturationChannel(),
     );
     const tone = new ToneFilter(sampleRate);
+    const drive = new ParameterReader(DRIVE_KEY, true);
+    const toneHz = new ParameterReader(TONE_KEY);
+    const level = new ParameterReader(OUTPUT_KEY, true);
+    const mix = new ParameterReader(MIX_KEY);
+    // saturationType trims and lowercases, so it runs only when Type
+    // changes.
+    let typeValue: string | null = null;
+    let shape: SaturationType = DEFAULT_SATURATION_TYPE;
     let primed = false;
     return {
       process(input, output, frames, params) {
-        const shape = saturationType(params.switch(TYPE_KEY));
-        const drive = reader(params, DRIVE_KEY, dbToAmplitude);
-        const toneHz = reader(params, TONE_KEY);
-        const level = reader(params, OUTPUT_KEY, dbToAmplitude);
-        const mix = reader(params, MIX_KEY);
+        const typeSwitch = params.switch(TYPE_KEY);
+        if (typeSwitch !== typeValue) {
+          typeValue = typeSwitch;
+          shape = saturationType(typeSwitch);
+        }
+        drive.update(params);
+        toneHz.update(params);
+        level.update(params);
+        mix.update(params);
         if (!primed && frames > 0) {
           primed = true;
           for (let channel = 0; channel < output.length; channel++) {
             const sample = input[channel][0];
-            states[channel].prime(sample, sample * drive(0), shape);
+            states[channel].prime(sample, sample * drive.at(0), shape);
           }
         }
         for (let index = 0; index < frames; index++) {
-          tone.set(toneHz(index));
-          const gain = drive(index);
-          const makeup = level(index);
-          const wetShare = mix(index);
+          tone.set(toneHz.at(index));
+          const gain = drive.at(index);
+          const makeup = level.at(index);
+          const wetShare = mix.at(index);
           for (let channel = 0; channel < output.length; channel++) {
             const state = states[channel];
             const sample = input[channel][index];
@@ -283,6 +343,19 @@ export const processor: AudioEffectDsp = {
             output[channel][index] = wet * wetShare + dry * (1 - wetShare);
           }
         }
+      },
+      reset() {
+        for (let channel = 0; channel < states.length; channel++) {
+          states[channel].reset();
+        }
+        tone.reset();
+        drive.reset();
+        toneHz.reset();
+        level.reset();
+        mix.reset();
+        typeValue = null;
+        shape = DEFAULT_SATURATION_TYPE;
+        primed = false;
       },
     };
   },

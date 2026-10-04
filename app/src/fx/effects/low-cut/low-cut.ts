@@ -68,19 +68,30 @@ export function lowCutCoefficients(
   q: number,
   sampleRate: number,
 ): BiquadCoefficients {
+  const out = { b0: 0, b1: 0, b2: 0, a1: 0, a2: 0 };
+  writeLowCutCoefficients(out, frequency, q, sampleRate);
+  return out;
+}
+
+// lowCutCoefficients written into `out`, so the audio thread need not
+// allocate.
+function writeLowCutCoefficients(
+  out: BiquadCoefficients,
+  frequency: number,
+  q: number,
+  sampleRate: number,
+) {
   const f = clamp(frequency, 1, sampleRate * 0.49);
   const w0 = (2 * Math.PI * f) / sampleRate;
   const cos = Math.cos(w0);
   const alpha = Math.sin(w0) / (2 * q);
   const a0 = 1 + alpha;
   const b0 = (1 + cos) / 2 / a0;
-  return {
-    b0,
-    b1: -2 * b0,
-    b2: b0,
-    a1: (-2 * cos) / a0,
-    a2: (1 - alpha) / a0,
-  };
+  out.b0 = b0;
+  out.b1 = -2 * b0;
+  out.b2 = b0;
+  out.a1 = (-2 * cos) / a0;
+  out.a2 = (1 - alpha) / a0;
 }
 
 // The pole Qs of a 4th-order Butterworth filter. The 24 dB/oct slope runs
@@ -91,20 +102,40 @@ const BUTTERWORTH_4_Q2 = 1.306_563;
 
 // The stages' coefficients for `settings`, in processing order.
 export function lowCutStages(settings: LowCutSettings, sampleRate: number) {
+  const stages = [0, 1].map(() => ({ b0: 0, b1: 0, b2: 0, a1: 0, a2: 0 }));
+  return stages.slice(0, writeLowCutStages(stages, settings, sampleRate));
+}
+
+// lowCutStages written into `out`, which has room for two stages. Returns
+// how many it uses.
+function writeLowCutStages(
+  out: readonly BiquadCoefficients[],
+  settings: LowCutSettings,
+  sampleRate: number,
+) {
   if (settings.slope === "24 dB/oct") {
     const scale = settings.resonance / Math.SQRT1_2;
-    return [
-      lowCutCoefficients(settings.frequency, BUTTERWORTH_4_Q1, sampleRate),
-      lowCutCoefficients(
-        settings.frequency,
-        BUTTERWORTH_4_Q2 * scale,
-        sampleRate,
-      ),
-    ];
+    writeLowCutCoefficients(
+      out[0],
+      settings.frequency,
+      BUTTERWORTH_4_Q1,
+      sampleRate,
+    );
+    writeLowCutCoefficients(
+      out[1],
+      settings.frequency,
+      BUTTERWORTH_4_Q2 * scale,
+      sampleRate,
+    );
+    return 2;
   }
-  return [
-    lowCutCoefficients(settings.frequency, settings.resonance, sampleRate),
-  ];
+  writeLowCutCoefficients(
+    out[0],
+    settings.frequency,
+    settings.resonance,
+    sampleRate,
+  );
+  return 1;
 }
 
 // The filter's magnitude response in dB at `frequency`, for tests and
@@ -143,8 +174,21 @@ function settingsEqual(a: LowCutSettings, b: LowCutSettings) {
 // its first output (b0 × input) already tracks content above the cutoff; a
 // filter faded in on a Slope change therefore matches the outgoing one.
 export class LowCutFilter {
-  private settings: LowCutSettings | null = null;
-  private stages: BiquadCoefficients[] = [];
+  private hasSettings = false;
+  private readonly settings: LowCutSettings = {
+    frequency: 0,
+    resonance: 0,
+    slope: DEFAULT_LOW_CUT_SLOPE,
+  };
+  // Room for both stages, rewritten in place; the first `stageCount` run.
+  private readonly stages: readonly BiquadCoefficients[] = [0, 1].map(() => ({
+    b0: 0,
+    b1: 0,
+    b2: 0,
+    a1: 0,
+    a2: 0,
+  }));
+  private stageCount = 0;
   // Per channel: z1 and z2 of each stage in turn.
   private readonly state: Float64Array[];
 
@@ -158,11 +202,23 @@ export class LowCutFilter {
   // Uses `settings` from the next frame processed on. The slope is fixed
   // for the filter's life: the host crossfades to a fresh one to change it.
   setSettings(settings: LowCutSettings) {
-    if (this.settings && settingsEqual(this.settings, settings)) {
+    if (this.hasSettings && settingsEqual(this.settings, settings)) {
       return;
     }
-    this.settings = { ...settings };
-    this.stages = lowCutStages(settings, this.sampleRate);
+    this.hasSettings = true;
+    this.settings.frequency = settings.frequency;
+    this.settings.resonance = settings.resonance;
+    this.settings.slope = settings.slope;
+    this.stageCount = writeLowCutStages(this.stages, settings, this.sampleRate);
+  }
+
+  // Back to its constructed state: no settings and silent memory.
+  reset() {
+    this.hasSettings = false;
+    this.stageCount = 0;
+    for (let channel = 0; channel < this.state.length; channel++) {
+      this.state[channel].fill(0);
+    }
   }
 
   // Filters frames `start` to `end` of `input` into `output`.
@@ -173,13 +229,14 @@ export class LowCutFilter {
     end: number,
   ) {
     const stages = this.stages;
+    const stageCount = this.stageCount;
     for (let channel = 0; channel < output.length; channel++) {
       const from = input[channel];
       const to = output[channel];
       const z = this.state[channel];
       for (let index = start; index < end; index++) {
         let x = from[index];
-        for (let stage = 0; stage < stages.length; stage++) {
+        for (let stage = 0; stage < stageCount; stage++) {
           const c = stages[stage];
           const y = c.b0 * x + z[stage * 2];
           z[stage * 2] = c.b1 * x - c.a1 * y + z[stage * 2 + 1];

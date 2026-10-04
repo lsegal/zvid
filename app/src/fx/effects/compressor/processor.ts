@@ -4,6 +4,7 @@ import type { AudioEffectDsp } from "../../../audio-mix/processor.ts";
 import {
   ATTACK_KEY,
   COMPRESSOR_EFFECT_NAME,
+  type CompressorBlock,
   CompressorDsp,
   KNEE_KEY,
   MAKEUP_KEY,
@@ -13,23 +14,38 @@ import {
   THRESHOLD_KEY,
 } from "./compressor.ts";
 
+const EMPTY = new Float32Array(0);
+
 export const processor: AudioEffectDsp = {
   effectName: COMPRESSOR_EFFECT_NAME,
   createProcessor(sampleRate) {
     const dsp = new CompressorDsp();
+    // Filled in again every block, so processing allocates nothing.
+    const block: CompressorBlock = {
+      frames: 0,
+      sampleRate,
+      thresholdDb: EMPTY,
+      ratio: EMPTY,
+      attackMs: EMPTY,
+      releaseMs: EMPTY,
+      kneeDb: EMPTY,
+      makeupDb: EMPTY,
+      mix: EMPTY,
+    };
     return {
       process(input, output, frames, params) {
-        dsp.process(input, output, {
-          frames,
-          sampleRate,
-          thresholdDb: params.number(THRESHOLD_KEY),
-          ratio: params.number(RATIO_KEY),
-          attackMs: params.number(ATTACK_KEY),
-          releaseMs: params.number(RELEASE_KEY),
-          kneeDb: params.number(KNEE_KEY),
-          makeupDb: params.number(MAKEUP_KEY),
-          mix: params.number(MIX_KEY),
-        });
+        block.frames = frames;
+        block.thresholdDb = params.number(THRESHOLD_KEY);
+        block.ratio = params.number(RATIO_KEY);
+        block.attackMs = params.number(ATTACK_KEY);
+        block.releaseMs = params.number(RELEASE_KEY);
+        block.kneeDb = params.number(KNEE_KEY);
+        block.makeupDb = params.number(MAKEUP_KEY);
+        block.mix = params.number(MIX_KEY);
+        dsp.process(input, output, block);
+      },
+      reset() {
+        dsp.reset();
       },
     };
   },

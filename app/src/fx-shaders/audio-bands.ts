@@ -353,6 +353,21 @@ export class AudioBandTracker {
       this.hits.shift();
     }
   }
+
+  // The hits `bands` gives, one at a time, for the audio thread to read
+  // without making the bands: how many there are, oldest first, and each
+  // one's seconds before the last tick and strength.
+  get hitCount() {
+    return this.hits.length;
+  }
+
+  hitSecondsAgo(index: number) {
+    return (this.tickCount - this.hits[index].tick) * TICK_SECONDS;
+  }
+
+  hitStrength(index: number) {
+    return this.hits[index].strength;
+  }
 }
 
 // An analyser set up the way LiveAudioBands measures it, and OfflineAudioBands
@@ -456,7 +471,21 @@ export class ByteSpectrum {
       this.real[index] = sample(index) * this.window[index];
       this.imaginary[index] = 0;
     }
+    return this.transform();
+  }
 
+  // The bins of the FFT_SIZE samples of the ring buffer `ring` from index
+  // `start` on, wrapping: what measure gives, without a call per sample.
+  measureRing(ring: Float32Array, start: number) {
+    const length = ring.length;
+    for (let index = 0; index < FFT_SIZE; index++) {
+      this.real[index] = ring[(start + index) % length] * this.window[index];
+      this.imaginary[index] = 0;
+    }
+    return this.transform();
+  }
+
+  private transform() {
     fft(this.real, this.imaginary);
     const scale = 255 / (MAX_DECIBELS - MIN_DECIBELS);
     for (let index = 0; index < this.bins.length; index++) {
@@ -553,8 +582,12 @@ function fft(real: Float64Array, imaginary: Float64Array) {
     }
     swap ^= bit;
     if (index < swap) {
-      [real[index], real[swap]] = [real[swap], real[index]];
-      [imaginary[index], imaginary[swap]] = [imaginary[swap], imaginary[index]];
+      const swappedReal = real[index];
+      real[index] = real[swap];
+      real[swap] = swappedReal;
+      const swappedImaginary = imaginary[index];
+      imaginary[index] = imaginary[swap];
+      imaginary[swap] = swappedImaginary;
     }
   }
 

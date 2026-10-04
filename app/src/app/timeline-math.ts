@@ -173,6 +173,40 @@ export function findClosestTimelineLaneId(
   return closestLaneId;
 }
 
+/**
+ * The source track whose row holds `clientY`, or, between rows, the closest
+ * one. Above the first row or below the last, `fallbackTrackId`: a source
+ * clip dropped outside the source tracks stays on its own track.
+ */
+export function findSourceTrackIdAt(
+  rows: readonly { id: string; top: number; bottom: number }[],
+  clientY: number,
+  fallbackTrackId: string,
+) {
+  const first = rows[0];
+  const last = rows.at(-1);
+  if (!first || !last || clientY < first.top || clientY > last.bottom) {
+    return fallbackTrackId;
+  }
+
+  let closestTrackId = fallbackTrackId;
+  let closestDistance = Number.POSITIVE_INFINITY;
+  for (const row of rows) {
+    if (clientY >= row.top && clientY <= row.bottom) {
+      return row.id;
+    }
+    const distance = Math.min(
+      Math.abs(clientY - row.top),
+      Math.abs(clientY - row.bottom),
+    );
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      closestTrackId = row.id;
+    }
+  }
+  return closestTrackId;
+}
+
 export function getSelectionEndQ(selection: TimelineSelection) {
   return selection.startQ + selection.durationQ;
 }

@@ -7,6 +7,8 @@ import {
 } from "../../../audio-mix/chain.ts";
 import { testStage } from "../../../audio-mix/chain-test-utils.ts";
 import {
+  type AudioEffectProcessor,
+  type AudioParameterBlock,
   type AudioStage,
   createProcessorRegistry,
   DEFAULT_TIME_SIGNATURE,
@@ -133,6 +135,49 @@ function maxStep(values: ArrayLike<number>, from = 1) {
     max = Math.max(max, Math.abs(values[index] - values[index - 1]));
   }
   return max;
+}
+
+// Runs `input` straight through `effect` in chain-sized blocks from
+// timeline second `fromSeconds`, with every parameter settled at `numbers`
+// and `switches`.
+function runSettled(
+  effect: AudioEffectProcessor,
+  input: Float32Array[],
+  numbers: Record<string, number>,
+  switches: Record<string, string> = {},
+  fromSeconds = 0,
+) {
+  const values = new Map<string, Float32Array>();
+  const params: AudioParameterBlock = {
+    number(key) {
+      let array = values.get(key);
+      if (!array) {
+        array = new Float32Array(BLOCK_FRAMES).fill(numbers[key] ?? 0);
+        values.set(key, array);
+      }
+      return array;
+    },
+    value: (key) => numbers[key] ?? 0,
+    changing: () => false,
+    switch: (key) => switches[key] ?? "",
+  };
+  const frames = input[0].length;
+  const output = input.map(() => new Float32Array(frames));
+  for (let at = 0; at < frames; at += BLOCK_FRAMES) {
+    const count = Math.min(BLOCK_FRAMES, frames - at);
+    effect.process(
+      input.map((channel) => channel.subarray(at, at + count)),
+      output.map((channel) => channel.subarray(at, at + count)),
+      count,
+      params,
+      {
+        ...TEMPO,
+        sampleRate: SAMPLE_RATE,
+        timeSeconds: fromSeconds + at / SAMPLE_RATE,
+      },
+    );
+  }
+  return output;
 }
 
 describe("Chorus", () => {
@@ -291,6 +336,37 @@ describe("Chorus", () => {
     const seconds = 10 + index / SAMPLE_RATE;
     const expected = DELAY_FRAMES + swing * Math.sin(2 * Math.PI * 5 * seconds);
     assert.ok(Math.abs(delay[index] - expected) < 0.05);
+  });
+});
+
+describe("Chorus reset", () => {
+  it("sounds exactly like a fresh processor after a reset", () => {
+    const numbers = {
+      [RATE_KEY]: 2,
+      [DEPTH_KEY]: 0.7,
+      [DELAY_KEY]: 12,
+      [FEEDBACK_KEY]: 0.6,
+      [SPREAD_KEY]: 0.5,
+      [MIX_KEY]: 0.5,
+    };
+    const used = processor.createProcessor(SAMPLE_RATE, 2);
+    runSettled(used, [noise(0.5, 2), noise(0.5, 3)], numbers);
+    // A live Rate change leaves the LFO's phase off the timeline's (by a
+    // fraction of a cycle, which a whole one would not).
+    runSettled(
+      used,
+      [noise(0.2, 4), noise(0.2, 5)],
+      { ...numbers, [RATE_KEY]: 4 },
+      {},
+      0.55,
+    );
+    used.reset();
+    const fresh = processor.createProcessor(SAMPLE_RATE, 2);
+    const test = [impulse(1), ramp(1)];
+    assert.deepEqual(
+      runSettled(used, test, { ...numbers, [RATE_KEY]: 4 }),
+      runSettled(fresh, test, { ...numbers, [RATE_KEY]: 4 }),
+    );
   });
 });
 

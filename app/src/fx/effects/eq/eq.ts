@@ -88,6 +88,21 @@ export function biquadCoefficients(
   q: number,
   sampleRate: number,
 ): BiquadCoefficients {
+  const out = { b0: 0, b1: 0, b2: 0, a1: 0, a2: 0 };
+  writeBiquadCoefficients(out, kind, frequency, gainDb, q, sampleRate);
+  return out;
+}
+
+// biquadCoefficients written into `out`, so the audio thread need not
+// allocate.
+export function writeBiquadCoefficients(
+  out: BiquadCoefficients,
+  kind: BiquadKind,
+  frequency: number,
+  gainDb: number,
+  q: number,
+  sampleRate: number,
+) {
   const f = clamp(frequency, 1, sampleRate * 0.49);
   const a = 10 ** (gainDb / 40);
   const w0 = (2 * Math.PI * f) / sampleRate;
@@ -118,34 +133,50 @@ export function biquadCoefficients(
     a1 = -sign * 2 * (a - 1 + sign * (a + 1) * cos);
     a2 = a + 1 + sign * (a - 1) * cos - root;
   }
-  return { b0: b0 / a0, b1: b1 / a0, b2: b2 / a0, a1: a1 / a0, a2: a2 / a0 };
+  out.b0 = b0 / a0;
+  out.b1 = b1 / a0;
+  out.b2 = b2 / a0;
+  out.a1 = a1 / a0;
+  out.a2 = a2 / a0;
 }
 
 // The three bands' coefficients for `settings`, in processing order.
 export function eqCoefficients(settings: EqSettings, sampleRate: number) {
-  return [
-    biquadCoefficients(
-      "lowshelf",
-      settings.lowFreq,
-      settings.lowGain,
-      Math.SQRT1_2,
-      sampleRate,
-    ),
-    biquadCoefficients(
-      "peaking",
-      settings.midFreq,
-      settings.midGain,
-      settings.midQ,
-      sampleRate,
-    ),
-    biquadCoefficients(
-      "highshelf",
-      settings.highFreq,
-      settings.highGain,
-      Math.SQRT1_2,
-      sampleRate,
-    ),
-  ];
+  const bands = [0, 1, 2].map(() => ({ b0: 0, b1: 0, b2: 0, a1: 0, a2: 0 }));
+  writeEqCoefficients(bands, settings, sampleRate);
+  return bands;
+}
+
+// eqCoefficients written into the three bands of `out`.
+function writeEqCoefficients(
+  out: readonly BiquadCoefficients[],
+  settings: EqSettings,
+  sampleRate: number,
+) {
+  writeBiquadCoefficients(
+    out[0],
+    "lowshelf",
+    settings.lowFreq,
+    settings.lowGain,
+    Math.SQRT1_2,
+    sampleRate,
+  );
+  writeBiquadCoefficients(
+    out[1],
+    "peaking",
+    settings.midFreq,
+    settings.midGain,
+    settings.midQ,
+    sampleRate,
+  );
+  writeBiquadCoefficients(
+    out[2],
+    "highshelf",
+    settings.highFreq,
+    settings.highGain,
+    Math.SQRT1_2,
+    sampleRate,
+  );
 }
 
 // The EQ's magnitude response in dB at `frequency`, for tests and displays.
@@ -178,7 +209,13 @@ const SETTING_KEYS = [
 ] as const satisfies readonly (keyof EqSettings)[];
 
 function settingsEqual(a: EqSettings, b: EqSettings) {
-  return SETTING_KEYS.every((key) => a[key] === b[key]);
+  for (let index = 0; index < SETTING_KEYS.length; index++) {
+    const key = SETTING_KEYS[index];
+    if (a[key] !== b[key]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 // Whether `settings` leave the sound unchanged: every band at 0 dB.
@@ -189,10 +226,23 @@ export function isFlat(settings: EqSettings) {
 }
 
 // The three bands' filter memory for each channel, run with the latest
-// settings' coefficients. Uses transposed direct form II in doubles.
+// settings' coefficients. Uses transposed direct form II in doubles. It
+// owns its settings and coefficients and rewrites them in place, so it
+// allocates nothing once constructed.
 export class EqFilter {
-  private settings: EqSettings | null = null;
-  private coefficients: BiquadCoefficients[] = [];
+  private hasSettings = false;
+  private readonly settings: EqSettings = {
+    lowFreq: 0,
+    lowGain: 0,
+    midFreq: 0,
+    midGain: 0,
+    midQ: 0,
+    highFreq: 0,
+    highGain: 0,
+  };
+  private readonly coefficients: readonly BiquadCoefficients[] = [0, 1, 2].map(
+    () => ({ b0: 0, b1: 0, b2: 0, a1: 0, a2: 0 }),
+  );
   // Per channel: z1 and z2 of each band in turn.
   private readonly state: Float64Array[];
 
@@ -203,13 +253,26 @@ export class EqFilter {
     this.state = Array.from({ length: channels }, () => new Float64Array(6));
   }
 
-  // Uses `settings` from the next frame processed on.
+  // Uses `settings` from the next frame processed on. Copies them, so the
+  // caller may reuse its object.
   setSettings(settings: EqSettings) {
-    if (this.settings && settingsEqual(this.settings, settings)) {
+    if (this.hasSettings && settingsEqual(this.settings, settings)) {
       return;
     }
-    this.settings = { ...settings };
-    this.coefficients = eqCoefficients(settings, this.sampleRate);
+    this.hasSettings = true;
+    for (let index = 0; index < SETTING_KEYS.length; index++) {
+      const key = SETTING_KEYS[index];
+      this.settings[key] = settings[key];
+    }
+    writeEqCoefficients(this.coefficients, settings, this.sampleRate);
+  }
+
+  // Back to its constructed state: no settings and silent memory.
+  reset() {
+    this.hasSettings = false;
+    for (let channel = 0; channel < this.state.length; channel++) {
+      this.state[channel].fill(0);
+    }
   }
 
   // Filters frames `start` to `end` of `input` into `output`. A flat EQ
@@ -220,13 +283,15 @@ export class EqFilter {
     start: number,
     end: number,
   ) {
-    const flat = !this.settings || isFlat(this.settings);
+    const flat = !this.hasSettings || isFlat(this.settings);
     for (let channel = 0; channel < output.length; channel++) {
       const from = input[channel];
       const to = output[channel];
       const z = this.state[channel];
       if (flat) {
-        to.set(from.subarray(start, end), start);
+        for (let index = start; index < end; index++) {
+          to[index] = from[index];
+        }
         z.fill(0);
         continue;
       }

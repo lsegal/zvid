@@ -4,7 +4,7 @@
 // note value's cycle when synced, so the preview and an export pan
 // identically. A centered (mono) sound moves between the speakers; a stereo
 // sound has its balance swept.
-import type { AudioTempo } from "../../../audio-mix/processor.ts";
+import { type AudioTempo, copyFrames } from "../../../audio-mix/processor.ts";
 import { noteValueSeconds, timelinePhase } from "../../../audio-mix/tempo.ts";
 
 export const AUTO_PAN_EFFECT_NAME = "Auto Pan";
@@ -96,9 +96,15 @@ export function autoPanLfo(
 // The left and right gains for pan position `position`, -1 (left) to 1
 // (right). The center leaves both channels at unity, and the gains' powers
 // always sum to 2, so a centered sound keeps its loudness wherever it sits.
-export function autoPanGains(position: number): [number, number] {
+// Written into `out`, which the audio thread reuses every frame.
+export function autoPanGains(
+  position: number,
+  out: [number, number] = [0, 0],
+): [number, number] {
   const angle = ((Math.max(-1, Math.min(1, position)) + 1) * Math.PI) / 4;
-  return [Math.SQRT2 * Math.cos(angle), Math.SQRT2 * Math.sin(angle)];
+  out[0] = Math.SQRT2 * Math.cos(angle);
+  out[1] = Math.SQRT2 * Math.sin(angle);
+  return out;
 }
 
 // `cycles` less its nearest whole number of cycles, in -0.5..0.5.
@@ -106,6 +112,7 @@ function wrapCycles(cycles: number) {
   return cycles - Math.round(cycles);
 }
 
+// One block's settings, which each processor fills in again every block.
 export type AutoPanBlock = {
   frames: number;
   sampleRate: number;
@@ -125,9 +132,16 @@ export class AutoPanDsp {
   // live Rate change; it decays back to 0 over PHASE_RELOCK_SECONDS.
   private phaseOffset = 0;
   private lastRate: number | null = null;
+  private readonly gains: [number, number] = [0, 0];
 
   constructor(channels: number) {
     this.channels = channels;
+  }
+
+  // Back in step with the timeline, as constructed.
+  reset() {
+    this.phaseOffset = 0;
+    this.lastRate = null;
   }
 
   // The free-running LFO's phase in cycles at timeline second `seconds`.
@@ -157,13 +171,16 @@ export class AutoPanDsp {
     // A single channel has nowhere to pan to.
     if (this.channels < 2) {
       for (let channel = 0; channel < this.channels; channel++) {
-        output[channel].set(input[channel].subarray(0, frames));
+        copyFrames(input[channel], output[channel], frames);
       }
       return;
     }
     const relock = Math.exp(-1 / (PHASE_RELOCK_SECONDS * sampleRate));
-    const [left, right] = input;
-    const [leftOut, rightOut] = output;
+    const left = input[0];
+    const right = input[1];
+    const leftOut = output[0];
+    const rightOut = output[1];
+    const gains = this.gains;
     for (let index = 0; index < frames; index++) {
       const seconds = timeSeconds + index / sampleRate;
       let cycles: number;
@@ -179,13 +196,13 @@ export class AutoPanDsp {
       const position =
         block.depth[index] *
         autoPanLfo(shape, cycles, SQUARE_EDGE_SECONDS / periodSeconds);
-      const [leftGain, rightGain] = autoPanGains(position);
-      leftOut[index] = left[index] * leftGain;
-      rightOut[index] = right[index] * rightGain;
+      autoPanGains(position, gains);
+      leftOut[index] = left[index] * gains[0];
+      rightOut[index] = right[index] * gains[1];
     }
     // Any channels past the stereo pair pass through.
     for (let channel = 2; channel < this.channels; channel++) {
-      output[channel].set(input[channel].subarray(0, frames));
+      copyFrames(input[channel], output[channel], frames);
     }
   }
 }

@@ -172,6 +172,7 @@ export const SourceSpan = memo(function SourceSpan({
       pointerId: event.pointerId,
       spanId: clip.id,
       pointerStartX: event.clientX,
+      pointerStartY: event.clientY,
     });
   }
 

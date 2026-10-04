@@ -308,4 +308,49 @@ describe("StageModulator", () => {
     }
     assert.notEqual(swings.get("Level"), 0);
   });
+
+  it("gives exactly lfoSwing for every shape, block after block", () => {
+    const parameters = [
+      { key: "Level", min: 0, max: 1 },
+      { key: "Mix", min: 0, max: 1 },
+    ];
+    for (const shape of ["Sine", "Square", "Random"] as const) {
+      for (const sync of [true, false]) {
+        const settings = lfo({ shape, sync, rate: 3, depth: 0.7, parameters });
+        const modulator = new StageModulator(SAMPLE_RATE);
+        for (let block = 0; block < 200; block++) {
+          const timeSeconds = (block * BLOCK_FRAMES) / SAMPLE_RATE;
+          const swings = modulator.advance(
+            settings,
+            "fx",
+            [new Float32Array(BLOCK_FRAMES)],
+            BLOCK_FRAMES,
+            { ...TEMPO, sampleRate: SAMPLE_RATE, timeSeconds },
+          );
+          const end = timeSeconds + BLOCK_FRAMES / SAMPLE_RATE;
+          for (const { key } of parameters) {
+            assert.equal(
+              swings.get(key),
+              lfoSwing(settings, "fx", key, end, TEMPO),
+            );
+          }
+        }
+      }
+    }
+  });
+
+  it("drops a knob no longer modulated from its swings", () => {
+    const modulator = new StageModulator(SAMPLE_RATE);
+    const time = { ...TEMPO, sampleRate: SAMPLE_RATE, timeSeconds: 0.5 };
+    const input = [new Float32Array(BLOCK_FRAMES)];
+    const both = lfo({
+      parameters: [
+        { key: "Level", min: 0, max: 1 },
+        { key: "Mix", min: 0, max: 1 },
+      ],
+    });
+    modulator.advance(both, "fx", input, BLOCK_FRAMES, time);
+    const swings = modulator.advance(lfo(), "fx", input, BLOCK_FRAMES, time);
+    assert.deepEqual([...swings.keys()], ["Level"]);
+  });
 });

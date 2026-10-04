@@ -109,13 +109,16 @@ describe("restoring a source selection", () => {
       ),
       { sourceTrackId: "track-a" },
     );
+  });
+
+  it("follows a selected source clip moved to another track", () => {
     assert.deepEqual(
       findRestoredSourceSelection(
         { selectedSourceTrackId: "track-a", selectedSourceSpanId: "span-b" },
         tracks,
         spans,
       ),
-      { sourceTrackId: "track-a" },
+      { sourceTrackId: "track-b", sourceSpanId: "span-b" },
     );
   });
 

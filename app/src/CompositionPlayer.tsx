@@ -43,6 +43,7 @@ import {
 } from "./fx-shaders/audio-bands.ts";
 import { resolveEffectChain } from "./fx-shaders/registry.ts";
 import { getRenderedEffects } from "./fx-stack.ts";
+import { usePreviewPixelRatio } from "./hooks/usePreviewPixelRatio.ts";
 import { listenForVideoFrames } from "./media-element.ts";
 import {
   cancelQueuedSeek,
@@ -565,6 +566,16 @@ export const CompositionPlayer = forwardRef<
 
   const isPlayingRef = useRef(isPlaying);
   isPlayingRef.current = isPlaying;
+  const redrawIfPaused = useCallback(() => {
+    if (!isPlayingRef.current) {
+      scheduleDrawRef.current();
+    }
+  }, []);
+  const previewPixelRatio = usePreviewPixelRatio(
+    canvasRef,
+    { width: canvasWidth, height: canvasHeight },
+    redrawIfPaused,
+  );
 
   // Reads the playhead from the signal rather than a prop, so a playhead
   // commit doesn't recreate the draw callbacks and restart the effects that
@@ -581,7 +592,7 @@ export const CompositionPlayer = forwardRef<
   );
 
   const scheduleDraw = useCallback(
-    (pixelRatio = window.devicePixelRatio || 1) => {
+    (pixelRatio = previewPixelRatio()) => {
       if (renderRequestRef.current) {
         window.cancelAnimationFrame(renderRequestRef.current);
       }
@@ -591,7 +602,7 @@ export const CompositionPlayer = forwardRef<
         drawCurrentFrame(pixelRatio);
       });
     },
-    [drawCurrentFrame],
+    [drawCurrentFrame, previewPixelRatio],
   );
   const scheduleDrawRef = useRef(scheduleDraw);
   scheduleDrawRef.current = scheduleDraw;
@@ -697,14 +708,13 @@ export const CompositionPlayer = forwardRef<
       return;
     }
 
-    const pixelRatio = window.devicePixelRatio || 1;
-
     const render = () => {
       const renderer = rendererRef.current;
       if (!canvasRef.current || !renderer) {
         return;
       }
 
+      const pixelRatio = previewPixelRatio();
       if (!isPlaying) {
         drawCurrentFrame(pixelRatio);
         return;
@@ -725,12 +735,12 @@ export const CompositionPlayer = forwardRef<
         window.cancelAnimationFrame(playbackFrameRef.current);
       }
     };
-  }, [drawCurrentFrame, isPlaying, readPlaybackState]);
+  }, [drawCurrentFrame, isPlaying, previewPixelRatio, readPlaybackState]);
 
   // While paused, seeks and drag-scrubbing move the live playhead.
   usePausedPlayheadFollow(playheadSignal, isPlaying, () => {
     rendererRef.current?.syncPlayback(readPlaybackState());
-    drawCurrentFrame(window.devicePixelRatio || 1);
+    drawCurrentFrame(previewPixelRatio());
   });
 
   useEffect(() => {
@@ -738,15 +748,7 @@ export const CompositionPlayer = forwardRef<
   }, [scheduleDraw]);
 
   // Text waits for its font, so a paused preview redraws once it loads.
-  useEffect(
-    () =>
-      subscribeFonts(() => {
-        if (!isPlayingRef.current) {
-          scheduleDrawRef.current();
-        }
-      }),
-    [],
-  );
+  useEffect(() => subscribeFonts(redrawIfPaused), [redrawIfPaused]);
 
   // The playback loop syncs every frame while playing.
   useEffect(() => {
