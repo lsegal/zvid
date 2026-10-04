@@ -11,13 +11,12 @@
 // Zoom & Pan among it, and the Global Order) follows the topmost active
 // clip. It depends only on the timeline position, so preview and export
 // match frame for frame.
+//
+// An Order doesn't animate itself: its Clip mode moves the clips beneath it
+// as they enter and leave while it is active (`resolveOrderSlide`).
 
-import {
-  BLACK_BORDER,
-  ORDER_EFFECT_NAME,
-  type OrderSlide,
-} from "./composition-order.ts";
-import { formatCssColor, parseCssColor, type Rgba } from "./fill-paint.ts";
+import { ORDER_EFFECT_NAME, type OrderSlide } from "./composition-order.ts";
+import { formatCssColor, parseCssColor } from "./fill-paint.ts";
 import type {
   AnimatableEffect,
   AnimatedParameter,
@@ -28,7 +27,6 @@ import {
   type ClipAnimation,
   type ClipMotion,
   type EffectAnimation,
-  FULL_CLIP_TIMING,
   getAnimationNeutralValues,
   getClipTimingFrames,
 } from "./fx-animation-defaults.ts";
@@ -160,41 +158,11 @@ export function fadeCssColors(value: string, weight: number) {
 
 const TEXT_COLOR_KEYS = new Set(["Color", "Gradient", "Stroke", "ShadowColor"]);
 
-// `value`, a CSS color, blended from `from` by `weight`, linearly in RGBA.
-function blendCssColor(value: string, from: Rgba, weight: number) {
-  const color = parseCssColor(value);
-  if (!color) {
-    return value;
-  }
-  const at = (start: number, end: number) => start + (end - start) * weight;
-  return formatCssColor({
-    r: at(from.r, color.r),
-    g: at(from.g, color.g),
-    b: at(from.b, color.b),
-    a: at(from.a, color.a),
-  });
-}
-
 // Per-effect mappings, where fading the knobs isn't what "no effect" means.
 const CLIP_ANIMATIONS: ReadonlyMap<
   string,
   (parameters: AnimatedParameter[], weight: number) => AnimatedParameter[]
 > = new Map([
-  // Order's spacing grows from none, and its border color tweens from the
-  // default black. Its slots slide on their own (`resolveOrderSlide`).
-  [
-    ORDER_EFFECT_NAME,
-    (parameters, weight) =>
-      interpolateFromNeutral(ORDER_EFFECT_NAME, parameters, weight).map(
-        (parameter) =>
-          parameter.key === "BorderColor"
-            ? {
-                ...parameter,
-                value: blendCssColor(parameter.value, BLACK_BORDER, weight),
-              }
-            : parameter,
-      ),
-  ],
   // Text has no opacity: it fades in and out through its colors' alpha.
   [
     TEXT_EFFECT_NAME,
@@ -231,7 +199,12 @@ export function resolveClipAnimatedParameters(
 ) {
   const clip = effect.animation?.clip;
   const frames = clip && getClipTimingFrames(effect.effectName, clip.timing);
-  if (!clip || frames === undefined) {
+  // An Order's knobs never tween: its Clip mode moves the clips beneath it.
+  if (
+    !clip ||
+    frames === undefined ||
+    effect.effectName === ORDER_EFFECT_NAME
+  ) {
     return effect.parameters;
   }
 
@@ -243,64 +216,69 @@ export function resolveClipAnimatedParameters(
     clipContext.durationSeconds,
     clipContext.sessionEdges,
   );
-  // With Full timing an Order stays on screen for its whole clip, so its
-  // border keeps its color and only the spacing tweens.
-  if (
-    clip.timing === FULL_CLIP_TIMING &&
-    effect.effectName === ORDER_EFFECT_NAME
-  ) {
-    return weight >= 1
-      ? effect.parameters
-      : interpolateFromNeutral(effect.effectName, effect.parameters, weight);
-  }
   return applyClipAnimationWeight(effect, weight);
 }
 
+// How a clip eases into and out of an Order's arrangement: the same both
+// ways, so leaving is entering played backwards.
+const ORDER_SLIDE_MOTION = {
+  motionIn: "Ease In Out",
+  motionOut: "Ease In Out",
+} as const satisfies Pick<ClipAnimation, "motionIn" | "motionOut">;
+
 // The slide an Order with this animation gives its layers, at `fps`, or
-// undefined when it isn't animating in Clip mode.
+// undefined when it isn't animating in Clip mode. `window` is the Order
+// clip's, for an FX clip's Order.
 export function resolveOrderSlide(
   animation: EffectAnimation | undefined,
   fps: number,
+  window?: OrderSlide["window"],
 ): OrderSlide | undefined {
-  // With Full timing the spacing tweens across the whole clip, but the
-  // layers snap into their slots: sliding for half of every clip would hide
-  // the cuts beneath the Order.
-  if (
-    !animation?.enabled ||
-    animation.mode !== "clip" ||
-    animation.clip.timing === FULL_CLIP_TIMING
-  ) {
+  if (!animation?.enabled || animation.mode !== "clip") {
     return undefined;
   }
   const frames = getClipTimingFrames(ORDER_EFFECT_NAME, animation.clip.timing);
-  return frames === undefined
+  return frames === undefined || !Number.isFinite(frames)
     ? undefined
     : {
-        motionIn: animation.clip.motionIn,
-        motionOut: animation.clip.motionOut,
         frames,
         fps,
         ...(animation.clip.transition
           ? { transition: animation.clip.transition }
           : {}),
+        ...(window ? { window } : {}),
       };
 }
 
 // How far a clip `elapsedSeconds` into its `durationSeconds` has slid into
 // its slot: 0 outside it, 1 in place. It doesn't slide on its session
-// `edges`.
+// `edges`, nor at an end the Order's `window` doesn't reach: a clip that
+// was there before the Order started, or stays after it ends.
 export function orderSlideWeight(
   slide: OrderSlide,
   elapsedSeconds: number,
   durationSeconds: number,
   edges?: SessionEdges,
 ) {
+  const frame = (seconds: number) =>
+    Math.round(seconds * Math.max(1, slide.fps));
+  const window = slide.window;
   return clipAnimationWeight(
-    slide,
+    ORDER_SLIDE_MOTION,
     slide.frames,
     slide.fps,
     elapsedSeconds,
     durationSeconds,
-    edges,
+    {
+      atStart:
+        Boolean(edges?.atStart) ||
+        (window !== undefined &&
+          frame(elapsedSeconds) >= frame(window.elapsedSeconds)),
+      atEnd:
+        Boolean(edges?.atEnd) ||
+        (window !== undefined &&
+          frame(durationSeconds - elapsedSeconds) >=
+            frame(window.remainingSeconds)),
+    },
   );
 }

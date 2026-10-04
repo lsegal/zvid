@@ -364,22 +364,22 @@ function layerClip(kind, id, layerId, start, duration) {
   return id;
 }
 
-// Order three-ups. Each FX clip arranges the layers beneath it; Clip-mode
-// animation with Full timing eases the ivory spacing, and the outer margin
-// framing the arrangement with it, open to its setting at the middle of the
-// clip and closed again by its end.
+// Order three-ups. Each FX clip arranges the layers beneath it with its own
+// ivory spacing and outer margin; Clip-mode animation with the Push
+// transition slides each clip into the arrangement from its slot's side as
+// it enters and back out as it leaves.
 const ARRANGEMENTS = [
-  [3, 3, "Horizontal"],
-  [6, 3, "Vertical"],
-  [9, 3, "Horizontal"],
-  [15, 3, "Horizontal"],
-  [18, 3, "Vertical"],
-  [21, 1.5, "Horizontal"],
-  [22.5, 1.5, "Vertical"],
-  [24, 1.5, "Horizontal"],
-  [25.5, 1.5, "Vertical"],
+  [3, 3, "Horizontal", 108, 108],
+  [6, 3, "Vertical", 108, 108],
+  [9, 3, "Horizontal", 108, 108],
+  [15, 3, "Horizontal", 108, 108],
+  [18, 3, "Vertical", 48, 12],
+  [21, 1.5, "Horizontal", 64, 0],
+  [22.5, 1.5, "Vertical", 50, 57],
+  [24, 1.5, "Horizontal", 0, 108],
+  [25.5, 1.5, "Vertical", 0, 108],
 ];
-for (const [start, duration, arrangement] of ARRANGEMENTS) {
+for (const [start, duration, arrangement, spacing, margin] of ARRANGEMENTS) {
   const id = layerClip(
     "fxClips",
     `order-${start.toFixed(1).replace(".", "-")}`,
@@ -397,16 +397,18 @@ for (const [start, duration, arrangement] of ARRANGEMENTS) {
       // layer so its music takes no panel.
       ExcludedLayers: "background,audio",
       GridSize: 2,
-      Spacing: 108,
-      Margin: 108,
+      Spacing: spacing,
+      Margin: margin,
       BorderColor: IVORY,
     },
     {
-      animation: animation(
-        "clip",
-        { motionIn: "Ease In Out", motionOut: "Ease In Out", timing: "Full" },
-        { motion: "Bounce", reactivity: 0.3, parameters: ["Spacing"] },
-      ),
+      // An Order eases the clips entering and leaving beneath it itself, so
+      // it has no Motion In or Out.
+      animation: {
+        enabled: true,
+        mode: "clip",
+        clip: { timing: "Normal", transition: "Push" },
+      },
     },
   );
 }

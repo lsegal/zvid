@@ -70,14 +70,17 @@ export const FULL_CLIP_TIMING = "Full";
 export const CLIP_TIMINGS = [...ANIMATION_TIMINGS, FULL_CLIP_TIMING] as const;
 export type ClipTiming = (typeof CLIP_TIMINGS)[number];
 
-// How an Order's clips enter and exit its arrangement: Push slides them in
-// from a canvas edge, Squish grows them from zero width or height.
+// How an Order's clips enter and exit its arrangement, from the side their
+// slot is on: Push slides them in from that canvas edge, or fades them in
+// between others; Squish grows them from zero width or height.
 export const ORDER_TRANSITIONS = ["Push", "Squish"] as const;
 export type OrderTransition = (typeof ORDER_TRANSITIONS)[number];
 
 // Order sessions saved before Transition existed keep sliding.
 const LEGACY_ORDER_TRANSITION: OrderTransition = "Push";
 
+// An Order's slides ease the same way whatever `motionIn` and `motionOut`
+// say, and it has no Full timing.
 export type ClipAnimation = {
   motionIn: ClipMotion;
   motionOut: ClipMotion;
@@ -349,6 +352,12 @@ export function createDefaultAnimation(
 
 // Frames each side of a Clip-mode animation takes. Full is unbounded, so
 // the sides stretch to half the clip each.
+// The Clip-mode timings `effectName` offers. An Order has no Full timing: it
+// doesn't animate itself, only the clips entering and leaving beneath it.
+export function getClipTimings(effectName: string): readonly ClipTiming[] {
+  return effectName === ORDER_EFFECT_NAME ? ANIMATION_TIMINGS : CLIP_TIMINGS;
+}
+
 export function getClipTimingFrames(effectName: string, timing: ClipTiming) {
   const clipFrames = getAnimationDefaults(effectName)?.clipFrames;
   if (!clipFrames) {
@@ -433,7 +442,11 @@ export function normalizeEffectAnimation(
         CLIP_MOTIONS,
         fallback.clip.motionOut,
       ),
-      timing: readOption(clip.timing, CLIP_TIMINGS, fallback.clip.timing),
+      timing: readOption(
+        clip.timing,
+        getClipTimings(effectName),
+        fallback.clip.timing,
+      ),
       ...(fallback.clip.transition
         ? {
             transition: readOption(
@@ -541,9 +554,6 @@ const NEUTRAL_VALUES: ReadonlyMap<string, AnimationNeutralValues> = new Map<
   string,
   AnimationNeutralValues
 >([
-  // Order's own slide is separate; this tweens the spacing and margin, and
-  // its border with them.
-  [ORDER_EFFECT_NAME, { Spacing: { neutral: 0 }, Margin: { neutral: 0 } }],
   ["Transform", TRANSFORM_NEUTRALS],
   [
     MOVE_EFFECT_NAME,
@@ -592,6 +602,8 @@ const NEUTRAL_VALUES: ReadonlyMap<string, AnimationNeutralValues> = new Map<
       _ChannelShift: { neutral: 0 },
     },
   ],
+  // Intensity 0 adds no glow.
+  ["Bloom", { _Intensity: { neutral: 0 } }],
   [COLOR_EFFECT_NAME, { Opacity: { neutral: 0 } }],
   // Text has no opacity knob: Clip mode fades its colors instead.
   [TEXT_EFFECT_NAME, {}],

@@ -13,10 +13,7 @@ import {
   QUALITY_HIGH,
   WebMOutputFormat,
 } from "mediabunny";
-import {
-  CompositionRenderer,
-  type CompositionRendererState,
-} from "./CompositionPlayer";
+import { CompositionRenderer } from "./CompositionPlayer";
 import { DEFAULT_FPS } from "./composition-active-clips.ts";
 import {
   type LayoutAnchor,
@@ -27,6 +24,7 @@ import {
   type CompositionOrder,
   DEFAULT_COMPOSITION_ORDER,
 } from "./composition-order.ts";
+import type { CompositionRendererState } from "./composition-renderer-state.ts";
 
 type MediaItem = CompositionRendererState["mediaItems"][number];
 type SessionEffect = CompositionRendererState["effects"][number];

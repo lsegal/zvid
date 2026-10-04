@@ -3,22 +3,19 @@
 // instead of sliding in from a canvas edge. The other clips re-flow to make
 // room as they do with Push, so the squished clip always fills the gap they
 // leave. Its content stays cover-fitted to the squished box, so it is
-// revealed or cropped rather than stretched. Rects are in canvas pixels
-// (origin top-left).
+// revealed or cropped rather than stretched. Push crops a clip to the same
+// gap while it slides. Rects are in canvas pixels (origin top-left).
 //
 // Horizontal and Vertical Orders squish along their axis (width or height):
 // a clip in the first slot grows from the canvas's start edge (left or top),
-// one in the last slot from its end edge (right or bottom), and one between
-// others from the point between its neighbors, which with evenly sized
-// slots is its own center. A lone clip grows from the canvas's center.
+// pushing the others towards the end, one in the last slot from its end
+// edge (right or bottom), and one between others from the point between its
+// neighbors, pushing both of them out.
 //
-// A Grid squishes along the row: a clip sharing its row grows across its
-// cell's width from the cell's left edge in the first column, its right
-// edge in the last column, or its center between them. A clip alone in its
-// row brings the row in, so it grows across its cell's height the same way
-// by row: from the top in the first row, the bottom in the last, or the
-// center between them. A clip alone in the whole grid, or in an Order
-// without an arrangement, scales in about its cell's center.
+// A Grid squishes along the axis of its cell's `SlotEntry`: from the cell's
+// left or right edge in the first or last column, else from its top or
+// bottom edge in the first or last row. An interior cell scales in about
+// its center.
 
 import type { CompositionOrder } from "./composition-order.ts";
 
@@ -28,6 +25,10 @@ export type SlotRect = {
   top: number;
   bottom: number;
 };
+
+// The side of an animated Order's arrangement a clip enters and leaves
+// from: the canvas edge on its first or last side, or between others.
+export type SlotEntry = "left" | "right" | "top" | "bottom" | "middle";
 
 // Where a squishing clip collapses to in a Horizontal or Vertical Order:
 // the `boundary`th boundary of the `slotCount` slots the others take
@@ -59,26 +60,10 @@ function resolveCollapsePoint(
   return (edges(boundary - 1).end + edges(boundary).start) / 2;
 }
 
-// Where along a cell's side of `start`..`end` it collapses to, by its
-// position among `cells`: the start in the first, the end in the last.
-function resolveCellAnchor(
-  position: number,
-  cells: number,
-  start: number,
-  end: number,
-) {
-  if (position <= 0) {
-    return start;
-  }
-  return position >= cells - 1 ? end : (start + end) / 2;
-}
-
-// The zero-width or zero-height box slot `index` of `count`, at `slot`,
-// collapses to.
+// The zero-width or zero-height box a clip at `slot` collapses to.
 function resolveCollapsedRect(
   slot: SlotRect,
-  index: number,
-  count: number,
+  entry: SlotEntry | undefined,
   collapse: SlotCollapse | undefined,
   order: CompositionOrder,
   width: number,
@@ -100,33 +85,26 @@ function resolveCollapsedRect(
     return { ...slot, top: y, bottom: y };
   }
 
+  if (entry === "left" || entry === "right") {
+    return { ...slot, left: slot[entry], right: slot[entry] };
+  }
+  if (entry === "top" || entry === "bottom") {
+    return { ...slot, top: slot[entry], bottom: slot[entry] };
+  }
   const centerX = (slot.left + slot.right) / 2;
   const centerY = (slot.top + slot.bottom) / 2;
-  if (order.arrangement !== "grid" || count <= 1) {
-    return { left: centerX, right: centerX, top: centerY, bottom: centerY };
-  }
-  const columns = Math.max(1, order.gridSize);
-  const column = index % columns;
-  const row = Math.floor(index / columns);
-  const inRow = Math.min(count - (index - column), columns);
-  if (inRow <= 1) {
-    const y = resolveCellAnchor(row, columns, slot.top, slot.bottom);
-    return { ...slot, top: y, bottom: y };
-  }
-  const x = resolveCellAnchor(column, columns, slot.left, slot.right);
-  return { ...slot, left: x, right: x };
+  return { left: centerX, right: centerX, top: centerY, bottom: centerY };
 }
 
 /**
- * Where a clip squished `open` of the way into `slot`, slot `index` of
- * `count`, is drawn and cropped: its collapsed box at 0, the whole slot at
+ * Where a clip squished `open` of the way into `slot`, entering from
+ * `entry`, is drawn and cropped: its collapsed box at 0, the whole slot at
  * 1. `slotRect` gives the arrangement's slots, for where the others' slots
  * leave the gap it collapses into.
  */
 export function resolveSquishRect(
   slot: SlotRect,
-  index: number,
-  count: number,
+  entry: SlotEntry | undefined,
   collapse: SlotCollapse | undefined,
   order: CompositionOrder,
   width: number,
@@ -136,8 +114,7 @@ export function resolveSquishRect(
 ): SlotRect {
   const collapsed = resolveCollapsedRect(
     slot,
-    index,
-    count,
+    entry,
     collapse,
     order,
     width,

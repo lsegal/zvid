@@ -2851,17 +2851,8 @@
         "enabled": true,
         "mode": "clip",
         "clip": {
-          "motionIn": "Ease In Out",
-          "motionOut": "Ease In Out",
-          "timing": "Full"
-        },
-        "reactive": {
-          "motion": "Bounce",
           "timing": "Normal",
-          "reactivity": 0.3,
-          "parameters": [
-            "Spacing"
-          ]
+          "transition": "Push"
         }
       }
     },
@@ -2893,17 +2884,8 @@
         "enabled": true,
         "mode": "clip",
         "clip": {
-          "motionIn": "Ease In Out",
-          "motionOut": "Ease In Out",
-          "timing": "Full"
-        },
-        "reactive": {
-          "motion": "Bounce",
           "timing": "Normal",
-          "reactivity": 0.3,
-          "parameters": [
-            "Spacing"
-          ]
+          "transition": "Push"
         }
       }
     },
@@ -2935,17 +2917,8 @@
         "enabled": true,
         "mode": "clip",
         "clip": {
-          "motionIn": "Ease In Out",
-          "motionOut": "Ease In Out",
-          "timing": "Full"
-        },
-        "reactive": {
-          "motion": "Bounce",
           "timing": "Normal",
-          "reactivity": 0.3,
-          "parameters": [
-            "Spacing"
-          ]
+          "transition": "Push"
         }
       }
     },
@@ -2977,17 +2950,8 @@
         "enabled": true,
         "mode": "clip",
         "clip": {
-          "motionIn": "Ease In Out",
-          "motionOut": "Ease In Out",
-          "timing": "Full"
-        },
-        "reactive": {
-          "motion": "Bounce",
           "timing": "Normal",
-          "reactivity": 0.3,
-          "parameters": [
-            "Spacing"
-          ]
+          "transition": "Push"
         }
       }
     },
@@ -3006,10 +2970,10 @@
           "floatValue": 2
         },
         "Spacing": {
-          "floatValue": 108
+          "floatValue": 48
         },
         "Margin": {
-          "floatValue": 108
+          "floatValue": 12
         },
         "BorderColor": {
           "stringValue": "rgba(243,226,191,1)"
@@ -3019,17 +2983,8 @@
         "enabled": true,
         "mode": "clip",
         "clip": {
-          "motionIn": "Ease In Out",
-          "motionOut": "Ease In Out",
-          "timing": "Full"
-        },
-        "reactive": {
-          "motion": "Bounce",
           "timing": "Normal",
-          "reactivity": 0.3,
-          "parameters": [
-            "Spacing"
-          ]
+          "transition": "Push"
         }
       }
     },
@@ -3048,10 +3003,10 @@
           "floatValue": 2
         },
         "Spacing": {
-          "floatValue": 108
+          "floatValue": 64
         },
         "Margin": {
-          "floatValue": 108
+          "floatValue": 0
         },
         "BorderColor": {
           "stringValue": "rgba(243,226,191,1)"
@@ -3061,17 +3016,8 @@
         "enabled": true,
         "mode": "clip",
         "clip": {
-          "motionIn": "Ease In Out",
-          "motionOut": "Ease In Out",
-          "timing": "Full"
-        },
-        "reactive": {
-          "motion": "Bounce",
           "timing": "Normal",
-          "reactivity": 0.3,
-          "parameters": [
-            "Spacing"
-          ]
+          "transition": "Push"
         }
       }
     },
@@ -3090,10 +3036,10 @@
           "floatValue": 2
         },
         "Spacing": {
-          "floatValue": 108
+          "floatValue": 50
         },
         "Margin": {
-          "floatValue": 108
+          "floatValue": 57
         },
         "BorderColor": {
           "stringValue": "rgba(243,226,191,1)"
@@ -3103,17 +3049,8 @@
         "enabled": true,
         "mode": "clip",
         "clip": {
-          "motionIn": "Ease In Out",
-          "motionOut": "Ease In Out",
-          "timing": "Full"
-        },
-        "reactive": {
-          "motion": "Bounce",
           "timing": "Normal",
-          "reactivity": 0.3,
-          "parameters": [
-            "Spacing"
-          ]
+          "transition": "Push"
         }
       }
     },
@@ -3132,7 +3069,7 @@
           "floatValue": 2
         },
         "Spacing": {
-          "floatValue": 108
+          "floatValue": 0
         },
         "Margin": {
           "floatValue": 108
@@ -3145,17 +3082,8 @@
         "enabled": true,
         "mode": "clip",
         "clip": {
-          "motionIn": "Ease In Out",
-          "motionOut": "Ease In Out",
-          "timing": "Full"
-        },
-        "reactive": {
-          "motion": "Bounce",
           "timing": "Normal",
-          "reactivity": 0.3,
-          "parameters": [
-            "Spacing"
-          ]
+          "transition": "Push"
         }
       }
     },
@@ -3174,7 +3102,7 @@
           "floatValue": 2
         },
         "Spacing": {
-          "floatValue": 108
+          "floatValue": 0
         },
         "Margin": {
           "floatValue": 108
@@ -3187,17 +3115,8 @@
         "enabled": true,
         "mode": "clip",
         "clip": {
-          "motionIn": "Ease In Out",
-          "motionOut": "Ease In Out",
-          "timing": "Full"
-        },
-        "reactive": {
-          "motion": "Bounce",
           "timing": "Normal",
-          "reactivity": 0.3,
-          "parameters": [
-            "Spacing"
-          ]
+          "transition": "Push"
         }
       }
     },

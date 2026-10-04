@@ -6,6 +6,7 @@ import {
   type CompositeLayer,
   createWebGlResources,
   drawComposition,
+  ensureWebGlResources,
   type WebGlResources,
 } from "./composition-draw.ts";
 import {
@@ -380,6 +381,24 @@ function assertCompositeState(
   );
   assert.equal(draw.activeTexture, "TEXTURE0", `band ${band} texture unit`);
 }
+
+describe("ensureWebGlResources", () => {
+  it("creates the context with the attributes it is given", () => {
+    const requested: unknown[] = [];
+    const canvas = {
+      getContext: (kind: string, attributes: WebGLContextAttributes) => {
+        requested.push([kind, attributes]);
+        return null;
+      },
+    } as unknown as HTMLCanvasElement;
+    const attributes = { alpha: false, antialias: false };
+    assert.throws(
+      () => ensureWebGlResources(canvas, attributes),
+      /WebGL is unavailable/,
+    );
+    assert.deepEqual(requested, [["webgl", attributes]]);
+  });
+});
 
 describe("drawComposition GL state", () => {
   const cases: Array<[string, (count: number) => ChainEffect[]]> = [
@@ -1360,13 +1379,7 @@ describe("drawComposition text layers", () => {
       arrangement: "vertical",
       gridSize: 2,
       spacing: 0,
-      slide: {
-        motionIn: "Ease Out",
-        motionOut: "Ease In",
-        frames: 30,
-        fps: 30,
-        transition: "Squish",
-      },
+      slide: { frames: 30, fps: 30, transition: "Squish" },
     };
     const clip = (layer: CompositeLayer, clipProgress = 0.5) => ({
       ...layer,

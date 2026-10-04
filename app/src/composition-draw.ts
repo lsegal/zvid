@@ -144,12 +144,11 @@ type CompositeUniforms = QuadAxes & {
   saturation: number;
 };
 
-export function ensureWebGlResources(canvas: HTMLCanvasElement) {
-  const gl = canvas.getContext("webgl", {
-    alpha: true,
-    antialias: true,
-    premultipliedAlpha: false,
-  });
+export function ensureWebGlResources(
+  canvas: HTMLCanvasElement,
+  attributes: WebGLContextAttributes,
+) {
+  const gl = canvas.getContext("webgl", attributes);
   if (!gl) {
     throw new Error("WebGL is unavailable on this device.");
   }
@@ -513,7 +512,7 @@ function drawLayer(
     frame: textBox && canvasBoxToFrame(textBox.box, surface),
     motion,
   });
-  const { frame, halfExtents, translate, scissor } = placement;
+  const { frame, halfExtents, translate, scissor, opacity } = placement;
   let uniforms = layerUniforms(
     quadAxes(
       [halfExtents.x, halfExtents.y],
@@ -521,7 +520,7 @@ function drawLayer(
       (entry.visual.rotationDeg * Math.PI) / 180,
     ),
     entry.visual,
-    entry.visual.opacity * sourceOpacity,
+    entry.visual.opacity * sourceOpacity * opacity,
   );
 
   // A Transform moves the slot's content, so the layer is framed into its
@@ -579,7 +578,7 @@ function drawLayer(
             0,
           ),
       entry.visual,
-      entry.visual.opacity,
+      entry.visual.opacity * opacity,
     );
   }
 

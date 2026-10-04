@@ -192,14 +192,12 @@ describe("zvid opening sample", () => {
     assert.notEqual(sourceAt("orbit", 3), sourceAt("orbit", 4.5));
   });
 
-  it("alternates Horizontal and Vertical Orders whose ivory spacing and margin animate", () => {
-    const arrangements = (session.fxClips ?? [])
+  it("pushes clips into Horizontal and Vertical Orders with per-clip spacing and margin", () => {
+    const orders = (session.fxClips ?? [])
       .filter((clip) => clip.mainTrackId === "order")
       .map((clip) => {
         const [order] = effectsOn(`clip:${clip.id}`);
         assert.equal(order.effectName, "Order");
-        assert.equal(numberParameter(order, "Spacing"), 108);
-        assert.equal(numberParameter(order, "Margin"), 108);
         assert.equal(
           stringParameter(order, "BorderColor"),
           "rgba(243,226,191,1)",
@@ -209,13 +207,31 @@ describe("zvid opening sample", () => {
           stringParameter(order, "ExcludedLayers"),
           "background,audio",
         );
-        assert.equal(order.animation?.enabled, true);
-        assert.equal(order.animation?.mode, "clip");
-        assert.equal(order.animation?.clip.timing, "Full");
-        return stringParameter(order, "Arrangement");
+        assert.equal(numberParameter(order, "GridSize"), 2);
+        assert.deepEqual(order.animation, {
+          enabled: true,
+          mode: "clip",
+          // An Order has no Motion In or Out.
+          clip: { timing: "Normal", transition: "Push" },
+        });
+        return [
+          clip.frameStart / FPS,
+          stringParameter(order, "Arrangement"),
+          numberParameter(order, "Spacing"),
+          numberParameter(order, "Margin"),
+        ];
       });
-    assert.ok(arrangements.filter((a) => a === "Horizontal").length >= 4);
-    assert.ok(arrangements.filter((a) => a === "Vertical").length >= 4);
+    assert.deepEqual(orders, [
+      [3, "Horizontal", 108, 108],
+      [6, "Vertical", 108, 108],
+      [9, "Horizontal", 108, 108],
+      [15, "Horizontal", 108, 108],
+      [18, "Vertical", 48, 12],
+      [21, "Horizontal", 64, 0],
+      [22.5, "Vertical", 50, 57],
+      [24, "Horizontal", 0, 108],
+      [25.5, "Vertical", 0, 108],
+    ]);
     // No Order over the full-frame shots and the title card.
     for (const seconds of [0.5, 2, 13, 28]) {
       assert.deepEqual(
