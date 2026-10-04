@@ -363,6 +363,83 @@ test("a source clip with audio draws the mix, its muted Gain flattens it, and Re
   await expect(audioRow(page)).toContainText("From source tracks · 1 clip");
 });
 
+// The pixels the Audio row's waveform canvas holds.
+function drawnPixels(page: Page) {
+  return mixContent(page)
+    .locator(".waveform__canvas")
+    .first()
+    .evaluate((canvas) => (canvas as HTMLCanvasElement).toDataURL());
+}
+
+test("the Audio row redraws when the Gain changes, a clip moves, or it collapses", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator("[data-timeline-lane-id]").first()).toBeVisible();
+  await addVideoTrack(page);
+  await expect(mixContent(page)).toHaveAttribute("data-audio-mix", "ready", {
+    timeout: 30_000,
+  });
+  await expect.poll(() => drawnLevel(page)).toBeGreaterThan(0.1);
+  const loudLevel = await drawnLevel(page);
+  const loudPixels = await drawnPixels(page);
+
+  // Turning the clip's Gain down draws it quieter.
+  const span = page.locator(".source-span").first();
+  await span.click();
+  const fader = page
+    .locator('.fx-chain .fx-device-panel[data-fx-group="clip"]')
+    .getByRole("slider", { name: "Gain" });
+  for (let step = 0; step < 12; step += 1) {
+    await fader.press("ArrowDown");
+  }
+  await expect(fader).not.toHaveAttribute("aria-valuetext", "0.0 dB");
+  await expect
+    .poll(() => drawnLevel(page), { timeout: 30_000 })
+    .toBeLessThan(loudLevel * 0.9);
+  await expect(mixContent(page)).toHaveAttribute("data-audio-mix", "ready");
+  await expect.poll(() => drawnPixels(page)).not.toBe(loudPixels);
+  const quietLevel = await drawnLevel(page);
+  const quietPixels = await drawnPixels(page);
+
+  // Moving the clip later draws it later, at the same level.
+  const body = span.locator(".source-span__body");
+  const bounds = await body.boundingBox();
+  if (!bounds) throw new Error("no source clip box");
+  const x = bounds.x + bounds.width / 2;
+  const y = bounds.y + bounds.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + 200, y, { steps: 8 });
+  await page.mouse.up();
+  await expect
+    .poll(async () => (await span.boundingBox())?.x ?? 0)
+    .toBeGreaterThan(bounds.x + 100);
+  await expect
+    .poll(() => drawnPixels(page), { timeout: 30_000 })
+    .not.toBe(quietPixels);
+  await expect(mixContent(page)).toHaveAttribute("data-audio-mix", "ready");
+  expect(await drawnLevel(page)).toBeCloseTo(quietLevel, 2);
+
+  // Collapsing redraws the canvas at its new height rather than squashing
+  // the expanded drawing.
+  const canvas = mixContent(page).locator(".waveform__canvas").first();
+  const drawnAtItsHeight = () =>
+    canvas.evaluate(
+      (node) =>
+        (node as HTMLCanvasElement).height ===
+        Math.round(node.clientHeight * (window.devicePixelRatio || 1)),
+    );
+  const expandedHeight = await canvas.evaluate(
+    (node) => (node as HTMLCanvasElement).height,
+  );
+  await audioRow(page).locator(".audio-row__toggle").click();
+  await expect.poll(drawnAtItsHeight).toBe(true);
+  expect(
+    await canvas.evaluate((node) => (node as HTMLCanvasElement).height),
+  ).toBeLessThan(expandedHeight);
+});
+
 test("a session with a main audio opens with it on a new source track, which plays", async ({
   page,
 }) => {
