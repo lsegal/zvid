@@ -1,5 +1,6 @@
-// Moving and trimming source clips (source spans), and what the arrangement
-// clips that use them show afterwards.
+// Moving and trimming source clips (source spans). Arrangement clips show a
+// window of their source track, so these edits only change what those
+// windows hold (see source-track-content.ts).
 //
 // A span plays its media from `trimStartSeconds` at `startQ`. Moving it takes
 // its content along; trimming either edge leaves the content in place, so a
@@ -20,6 +21,7 @@ import type {
   SourceTrackDropTarget,
 } from "./app/types.ts";
 import { resolveContainerOverlaps } from "./range-edit.ts";
+import { syncClipsToSourceSpans } from "./source-track-content.ts";
 
 export type SourceSpanDragKind = SourceSpanDragState["kind"];
 
@@ -126,7 +128,7 @@ export function getDroppedSourceSpanStartQ(
 /**
  * Places `dropped`, new spans for one source track in drop order, back to
  * back from `startQ`, overwriting the spans they land on in that track the
- * way a moved span does, and relinks the arrangement clips to match. Without
+ * way a moved span does, with the arrangement clips synced to match. Without
  * `startQ` they go after the track's last span instead.
  */
 export function placeDroppedSourceSpans(
@@ -145,7 +147,11 @@ export function placeDroppedSourceSpans(
   });
 
   if (startQ === undefined) {
-    return { sourceSpans: [...sourceSpans, ...placed], clips };
+    const nextSourceSpans = [...sourceSpans, ...placed];
+    return {
+      sourceSpans: nextSourceSpans,
+      clips: syncClipsToSourceSpans(clips, sourceSpans, nextSourceSpans, bpm),
+    };
   }
 
   let nextSourceSpans = sourceSpans;
@@ -158,156 +164,6 @@ export function placeDroppedSourceSpans(
   }
   return {
     sourceSpans: nextSourceSpans,
-    clips: relinkClipsToSourceSpans(clips, sourceSpans, nextSourceSpans, bpm),
+    clips: syncClipsToSourceSpans(clips, sourceSpans, nextSourceSpans, bpm),
   };
-}
-
-/** The media range of `span` an arrangement clip using it may show. */
-function getSpanSourceWindow(span: SourceSpan) {
-  return {
-    sourceWindowStartSeconds: span.trimStartSeconds,
-    sourceWindowEndSeconds: span.trimStartSeconds + span.durationSeconds,
-  };
-}
-
-// How far a clip's offset may differ from its span's and still count as on
-// it, as when saving.
-const SLIP_EPSILON_SECONDS = 1e-6;
-
-/** Media second minus song second for what `span` plays. */
-function getSpanSourceOffsetSeconds(span: SourceSpan, bpm: number) {
-  return span.trimStartSeconds - quartersToSeconds(span.startQ, bpm);
-}
-
-/**
- * The span in `sourceTrackId` that covers `[startQ, startQ + durationQ)`: the
- * one its start falls in, else the one overlapping it most. Undefined when
- * no span in the track overlaps it.
- */
-function findCoveringSourceSpan(
-  spans: readonly SourceSpan[],
-  sourceTrackId: string,
-  startQ: number,
-  durationQ: number,
-  bpm: number,
-) {
-  const endQ = startQ + durationQ;
-  let covering: SourceSpan | undefined;
-  let coveringOverlapQ = 0;
-  for (const span of spans) {
-    if (span.sourceTrackId !== sourceTrackId) {
-      continue;
-    }
-    const spanEndQ = span.startQ + getClipDurationQ(span, bpm);
-    if (startQ >= span.startQ && startQ < spanEndQ) {
-      return span;
-    }
-    const overlapQ = Math.min(endQ, spanEndQ) - Math.max(startQ, span.startQ);
-    if (overlapQ > coveringOverlapQ) {
-      covering = span;
-      coveringOverlapQ = overlapQ;
-    }
-  }
-  return covering;
-}
-
-/**
- * `clip` playing `span`'s media and warp at the span's offset plus
- * `slipSeconds`, or `clip` itself when that changes nothing.
- */
-function pointClipAtSpan(
-  clip: ArrangementClip,
-  span: SourceSpan,
-  slipSeconds: number,
-  bpm: number,
-): ArrangementClip {
-  const sourceOffsetSeconds =
-    getSpanSourceOffsetSeconds(span, bpm) + slipSeconds;
-  const trimStartSeconds =
-    quartersToSeconds(clip.startQ, bpm) + sourceOffsetSeconds;
-  const window = getSpanSourceWindow(span);
-  if (
-    clip.sourceSpanId === span.id &&
-    clip.mediaPath === span.mediaPath &&
-    clip.mediaId === span.mediaId &&
-    clip.warp === span.warp &&
-    clip.sourceOffsetSeconds === sourceOffsetSeconds &&
-    clip.trimStartSeconds === trimStartSeconds &&
-    clip.sourceWindowStartSeconds === window.sourceWindowStartSeconds &&
-    clip.sourceWindowEndSeconds === window.sourceWindowEndSeconds
-  ) {
-    return clip;
-  }
-
-  // The clip plays the span's warp, or none.
-  const { warp: _warp, mediaId: _mediaId, ...rest } = clip;
-  return {
-    ...rest,
-    sourceSpanId: span.id,
-    mediaPath: span.mediaPath,
-    ...(span.mediaId !== undefined ? { mediaId: span.mediaId } : {}),
-    trimStartSeconds,
-    sourceOffsetSeconds,
-    ...window,
-    ...(span.warp ? { warp: span.warp } : {}),
-  };
-}
-
-/**
- * The arrangement clips once the source spans changed from `previousSpans`
- * to `spans`, each showing what its source track holds in its range now,
- * matching what reopening the saved session shows. A clip's range is where
- * on its source track the content it shows sits: its own position, shifted
- * by however far it was slipped off its span's offset.
- *
- * - A clip whose span still overlaps its range keeps that span and takes its
- *   media, offset, media range and warp, so moving, trimming, offsetting or
- *   warping the span changes what the clip shows to match.
- * - A clip whose span was removed, or no longer overlaps its range, moves to
- *   the span covering its range in the same source track, keeping its slip.
- * - A clip whose span was removed with nothing left covering its range is
- *   removed, as deleting its source track does. One whose span only moved
- *   away keeps it, showing nothing where the span no longer reaches.
- */
-export function relinkClipsToSourceSpans(
-  clips: ArrangementClip[],
-  previousSpans: readonly SourceSpan[],
-  spans: SourceSpan[],
-  bpm: number,
-) {
-  const spansById = new Map(spans.map((span) => [span.id, span]));
-  const previousSpansById = new Map(
-    previousSpans.map((span) => [span.id, span]),
-  );
-
-  return clips.flatMap((clip) => {
-    const span = spansById.get(clip.sourceSpanId);
-    const previousSpan = previousSpansById.get(clip.sourceSpanId) ?? span;
-    if (!previousSpan) {
-      return [clip];
-    }
-
-    const offsetDifference =
-      clip.sourceOffsetSeconds - getSpanSourceOffsetSeconds(previousSpan, bpm);
-    // Rounding error alone is no slip.
-    const slipSeconds =
-      Math.abs(offsetDifference) < SLIP_EPSILON_SECONDS ? 0 : offsetDifference;
-    const durationQ = getClipDurationQ(clip, bpm);
-    const rangeStartQ = clip.startQ + secondsToQuarters(slipSeconds, bpm);
-    const overlapsRange = (candidate: SourceSpan) =>
-      candidate.startQ < rangeStartQ + durationQ &&
-      candidate.startQ + getClipDurationQ(candidate, bpm) > rangeStartQ;
-
-    const target =
-      span && overlapsRange(span)
-        ? span
-        : (findCoveringSourceSpan(
-            spans,
-            clip.sourceTrackId,
-            rangeStartQ,
-            durationQ,
-            bpm,
-          ) ?? span);
-    return target ? [pointClipAtSpan(clip, target, slipSeconds, bpm)] : [];
-  });
 }
