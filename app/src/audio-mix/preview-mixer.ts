@@ -12,6 +12,9 @@
 //   element → clip chain → track bus chain → master chain → master GainNode
 //     → limiter → analyser → preview volume → speakers
 //
+// There a clip whose own stack is steady Gain alone, with no latency to make
+// up, skips its chain: its GainNode applies those Gains and feeds the bus.
+//
 // The analyser feeds audio-reactive effects (see LiveAudioBands), and the
 // limiter also feeds the transport's VU meter, so both follow the mix after
 // every Gain but not the preview volume. Elements are made shortly before
@@ -53,7 +56,7 @@ import {
   type AudioMixClip,
   SILENT_AUDIO_MIX,
 } from "./resolve.ts";
-import { hasProcessingStages } from "./stages.ts";
+import { hasProcessingStages, steadyGainAmplitude } from "./stages.ts";
 import {
   receiveTransientReport,
   subscribeWatchedTransients,
@@ -83,8 +86,11 @@ type Voice = {
   source: MediaElementAudioSourceNode | null;
   decoded: DecodedClipVoice | null;
   gain: GainNode;
-  // Its clip chain, when the mix runs in the worklet.
+  // Its clip chain, when the mix runs in the worklet and its clip needs one.
   chain: AudioWorkletNode | null;
+  // The audio clock time its chain, no longer needed, has faded out and
+  // drained, when it is dropped.
+  retireAt: number | null;
   // The audio clock time its element's seek during playback was made, until
   // it lands.
   seekStartedAt: number | null;
@@ -126,6 +132,9 @@ const TRANSPORT_DRIFT_SECONDS = 0.02;
 // The most a seek during playback aims ahead of the playhead to make up for
 // how long seeks take to land.
 const MAX_SEEK_LEAD_SECONDS = 0.5;
+// How long past its tail a clip chain no longer needed waits to be dropped,
+// so its last stage crossfade and Gain ramps finish first.
+const RETIRE_MARGIN_SECONDS = 0.1;
 
 // Sets `param` to `value`, ramping where the browser can so a live edit
 // never clicks.
@@ -143,6 +152,9 @@ export class PreviewAudioMixer {
   private chains: ChainGraph | null = null;
   private voices = new Map<string, Voice>();
   private mix: AudioMix = SILENT_AUDIO_MIX;
+  // Whether the mix needs its chains run, beyond Gain, as of its last
+  // update.
+  private needsChains = false;
   private urlById = new Map<string, string>();
   private volume: PreviewVolume = { volume: 1, muted: false };
   private readonly workletUrl: string | undefined;
@@ -170,11 +182,18 @@ export class PreviewAudioMixer {
     mediaItems: readonly { id: string; previewUrl: string }[],
   ) {
     this.mix = mix;
+    this.needsChains = this.mixNeedsChains();
     this.urlById = new Map(
       mediaItems
         .filter((item) => item.previewUrl)
         .map((item) => [item.id, item.previewUrl]),
     );
+    // A chain dropped from a clip keeps sounding until the old mix's tail
+    // has passed.
+    const previousTail = this.timing
+      ? this.timing.tailSeconds +
+        this.timing.latencyFrames / (this.graph?.context.sampleRate ?? 1)
+      : 0;
     this.timing = this.graph
       ? audioMixTiming(mix, this.graph.context.sampleRate, this.registry)
       : null;
@@ -188,10 +207,26 @@ export class PreviewAudioMixer {
         this.needsDecoded(clip) !== Boolean(voice.decoded)
       ) {
         this.release(clipId);
+      } else if (!this.graph) {
+        continue;
+      } else if (!this.chains) {
+        setSmoothly(voice.gain.gain, clip.amplitude, this.graph.context);
       } else if (voice.chain) {
         this.configure(voice.chain, this.clipSettings(clip));
-      } else if (this.graph) {
-        setSmoothly(voice.gain.gain, clip.amplitude, this.graph.context);
+        voice.retireAt = this.clipNeedsChain(clip)
+          ? null
+          : (voice.retireAt ??
+            this.graph.context.currentTime +
+              previousTail +
+              RETIRE_MARGIN_SECONDS);
+      } else if (this.clipNeedsChain(clip)) {
+        this.insertChain(voice, clip, this.chains, this.graph.context);
+      } else {
+        setSmoothly(
+          voice.gain.gain,
+          this.directAmplitude(clip),
+          this.graph.context,
+        );
       }
     }
     if (this.chains) {
@@ -263,6 +298,14 @@ export class PreviewAudioMixer {
         (clip.amplitude > 0 ? this.createVoice(clip) : undefined);
       if (!voice) {
         continue;
+      }
+      if (
+        voice.retireAt !== null &&
+        this.chains &&
+        this.graph &&
+        this.graph.context.currentTime >= voice.retireAt
+      ) {
+        this.dropChain(voice, clip, this.chains, this.graph.context);
       }
       const at = now + ahead;
 
@@ -353,7 +396,7 @@ export class PreviewAudioMixer {
     return clipReadSeconds(clip, this.registry) !== undefined;
   }
 
-  // Whether the mix needs its chains run, beyond Gain.
+  // Whether the mix needs its chains run, beyond Gain; update caches it.
   private mixNeedsChains() {
     const { registry } = this;
     return (
@@ -367,7 +410,7 @@ export class PreviewAudioMixer {
   // loaded, else through native gains, rebuilding the voices on a change.
   // While the worklet loads, a mix that needs it makes no voices.
   private applyMode() {
-    const wantsChains = this.mixNeedsChains() && this.worklet !== "failed";
+    const wantsChains = this.needsChains && this.worklet !== "failed";
     if (wantsChains && this.worklet === "idle" && this.graph) {
       this.loadWorklet(this.graph.context);
     }
@@ -578,16 +621,19 @@ export class PreviewAudioMixer {
     }
     try {
       const graph = this.ensureGraph();
-      if (this.mixNeedsChains() && this.worklet === "loading") {
+      if (this.needsChains && this.worklet === "loading") {
         return undefined;
       }
       const { context } = graph;
       const gain = context.createGain();
       let chain: AudioWorkletNode | null = null;
-      if (this.chains) {
+      if (this.chains && this.clipNeedsChain(clip)) {
         chain = this.chainNode(context, this.clipSettings(clip));
         gain.connect(chain);
         chain.connect(this.busNode(this.chains, context, clip.busId));
+      } else if (this.chains) {
+        gain.gain.value = this.directAmplitude(clip);
+        gain.connect(this.busNode(this.chains, context, clip.busId));
       } else {
         gain.gain.value = clip.amplitude;
         gain.connect(graph.master);
@@ -615,6 +661,7 @@ export class PreviewAudioMixer {
         decoded,
         gain,
         chain,
+        retireAt: null,
         seekStartedAt: null,
       };
       element?.addEventListener("seeked", () => {
@@ -633,6 +680,67 @@ export class PreviewAudioMixer {
       console.warn("The preview cannot play clip audio.", error);
       return undefined;
     }
+  }
+
+  // Whether `clip` needs its own chain in a mix that runs its chains: its
+  // stack does more than steady Gain, or its path is delayed to line up
+  // with slower ones.
+  private clipNeedsChain(clip: AudioMixClip) {
+    return (
+      hasProcessingStages(this.registry, clip.stages) ||
+      this.clipSettings(clip).delayFrames > 0
+    );
+  }
+
+  // The amplitude `clip`'s chain would apply, as its GainNode does in its
+  // place; silent without a Gain on its path.
+  private directAmplitude(clip: AudioMixClip) {
+    return clip.hasGain ? steadyGainAmplitude(this.registry, clip.stages) : 0;
+  }
+
+  // Routes `voice` through a new chain for `clip`. The chain starts with
+  // the stages that do more than Gain bypassed, so it sounds as the
+  // GainNode did, then crossfades them in.
+  private insertChain(
+    voice: Voice,
+    clip: AudioMixClip,
+    chains: ChainGraph,
+    context: AudioContext,
+  ) {
+    const settings = this.clipSettings(clip);
+    const chain = this.chainNode(context, {
+      ...settings,
+      stages: settings.stages.map((stage) =>
+        hasProcessingStages(this.registry, [stage])
+          ? { ...stage, enabled: false }
+          : stage,
+      ),
+    });
+    this.configure(chain, settings);
+    voice.gain.disconnect();
+    voice.gain.gain.cancelScheduledValues?.(context.currentTime);
+    voice.gain.gain.value = 1;
+    voice.gain.connect(chain);
+    chain.connect(this.busNode(chains, context, clip.busId));
+    voice.chain = chain;
+    voice.retireAt = null;
+  }
+
+  // Routes `voice` straight to its bus once its chain, now steady Gain
+  // alone, has drained.
+  private dropChain(
+    voice: Voice,
+    clip: AudioMixClip,
+    chains: ChainGraph,
+    context: AudioContext,
+  ) {
+    voice.gain.disconnect();
+    voice.chain?.disconnect();
+    voice.chain = null;
+    voice.retireAt = null;
+    voice.gain.gain.cancelScheduledValues?.(context.currentTime);
+    voice.gain.gain.value = this.directAmplitude(clip);
+    voice.gain.connect(this.busNode(chains, context, clip.busId));
   }
 
   private release(clipId: string) {
