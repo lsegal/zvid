@@ -43,6 +43,7 @@ import {
 } from "./fx-shaders/audio-bands.ts";
 import { resolveEffectChain } from "./fx-shaders/registry.ts";
 import { getRenderedEffects } from "./fx-stack.ts";
+import { usePreviewPixelRatio } from "./hooks/usePreviewPixelRatio.ts";
 import { listenForVideoFrames, releaseMediaElement } from "./media-element.ts";
 import { needsPlaybackSeek, seekMediaElement } from "./media-seek.ts";
 import type { PlayheadSignal } from "./playhead-signal";
@@ -593,6 +594,16 @@ export const CompositionPlayer = forwardRef<
 
   const isPlayingRef = useRef(isPlaying);
   isPlayingRef.current = isPlaying;
+  const redrawIfPaused = useCallback(() => {
+    if (!isPlayingRef.current) {
+      scheduleDrawRef.current();
+    }
+  }, []);
+  const previewPixelRatio = usePreviewPixelRatio(
+    canvasRef,
+    { width: canvasWidth, height: canvasHeight },
+    redrawIfPaused,
+  );
 
   const drawCurrentFrame = useCallback(
     (pixelRatio: number) => {
@@ -612,7 +623,7 @@ export const CompositionPlayer = forwardRef<
   );
 
   const scheduleDraw = useCallback(
-    (pixelRatio = window.devicePixelRatio || 1) => {
+    (pixelRatio = previewPixelRatio()) => {
       if (renderRequestRef.current) {
         window.cancelAnimationFrame(renderRequestRef.current);
       }
@@ -622,7 +633,7 @@ export const CompositionPlayer = forwardRef<
         drawCurrentFrame(pixelRatio);
       });
     },
-    [drawCurrentFrame],
+    [drawCurrentFrame, previewPixelRatio],
   );
   const scheduleDrawRef = useRef(scheduleDraw);
   scheduleDrawRef.current = scheduleDraw;
@@ -719,14 +730,13 @@ export const CompositionPlayer = forwardRef<
       return;
     }
 
-    const pixelRatio = window.devicePixelRatio || 1;
-
     const render = () => {
       const renderer = rendererRef.current;
       if (!canvasRef.current || !renderer) {
         return;
       }
 
+      const pixelRatio = previewPixelRatio();
       if (!isPlaying) {
         drawCurrentFrame(pixelRatio);
         return;
@@ -755,22 +765,14 @@ export const CompositionPlayer = forwardRef<
         window.cancelAnimationFrame(playbackFrameRef.current);
       }
     };
-  }, [drawCurrentFrame, isPlaying, playheadSignal]);
+  }, [drawCurrentFrame, isPlaying, playheadSignal, previewPixelRatio]);
 
   useEffect(() => {
     return rendererRef.current?.addVideoFrameReadyListeners(scheduleDraw);
   }, [scheduleDraw]);
 
   // Text waits for its font, so a paused preview redraws once it loads.
-  useEffect(
-    () =>
-      subscribeFonts(() => {
-        if (!isPlayingRef.current) {
-          scheduleDrawRef.current();
-        }
-      }),
-    [],
-  );
+  useEffect(() => subscribeFonts(redrawIfPaused), [redrawIfPaused]);
 
   useEffect(() => {
     rendererRef.current?.syncPlayback({
