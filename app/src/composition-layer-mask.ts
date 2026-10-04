@@ -214,7 +214,8 @@ export function drawLayerMask<T>(
     );
   const begin = (size: Size, at: number) => {
     const drawn = effectChain.getMaskTarget(size.width, size.height, at);
-    const target = { ...size, framebuffer: drawn.framebuffer };
+    const { width, height } = size;
+    const target = { width, height, framebuffer: drawn.framebuffer };
     drawing.bind(target);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
