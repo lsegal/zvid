@@ -10,6 +10,7 @@ import {
   sampleLfoTrace,
   scrollTrace,
   TRANSIENT_TRACE_SECONDS,
+  transientTraceValue,
 } from "../../fx-modulation-trace";
 import type { FxDevice } from "../../fx-stack";
 import { usePrefersReducedMotion } from "../MediaSyncSkeleton";
@@ -131,6 +132,9 @@ export function FxModulationGraph({
   const reducedMotion = usePrefersReducedMotion();
   const onScreen = useOnScreen(canvasRef);
   const { mode, lfo } = modulation;
+  // Read each frame, so a new Motion doesn't restart the trace.
+  const motionRef = useRef(modulation.transient.motion);
+  motionRef.current = modulation.transient.motion;
   const { id, accent } = device;
   const animate = Boolean(clock?.isPlaying) && onScreen && !reducedMotion;
 
@@ -173,7 +177,11 @@ export function FxModulationGraph({
       return loop((now) => {
         steps += last === null ? 0 : ((now - last) / 1000) * perSecond;
         last = now;
-        scrollTrace(trace, steps, transientLevel(id));
+        scrollTrace(
+          trace,
+          steps,
+          transientTraceValue(motionRef.current, transientLevel(id)),
+        );
         steps -= Math.floor(steps);
         drawTrace(context, trace, accent, scale);
       });

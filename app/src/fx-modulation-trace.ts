@@ -2,7 +2,8 @@
 // LFO sampled from the waveform the audio chain follows, and Transient
 // scrolled from the levels the chain reports.
 
-import type { LfoAnimation } from "./fx-animation-defaults.ts";
+import type { LfoAnimation, ReactiveMotion } from "./fx-animation-defaults.ts";
+import { reactiveEnvelope } from "./fx-animation-impulse.ts";
 import {
   evaluateLfoCycles,
   type LfoTime,
@@ -59,6 +60,27 @@ export function sampleLfoTrace(
     into[index] = lfoWaveform(lfo.shape, cycles, seed) * depth;
   }
   return into;
+}
+
+// How far each Motion's envelope swings at most, found once by sampling.
+const envelopePeaks = new Map<ReactiveMotion, number>();
+const ENVELOPE_SAMPLES = 2000;
+
+// A Transient level (see StageModulator) as a fraction of the most its
+// Motion swings, so a full-strength hit at full Reactivity fills the trace.
+export function transientTraceValue(motion: ReactiveMotion, level: number) {
+  let peak = envelopePeaks.get(motion);
+  if (peak === undefined) {
+    peak = 0;
+    for (let index = 0; index < ENVELOPE_SAMPLES; index++) {
+      peak = Math.max(
+        peak,
+        Math.abs(reactiveEnvelope(motion, index / ENVELOPE_SAMPLES)),
+      );
+    }
+    envelopePeaks.set(motion, peak);
+  }
+  return peak > 0 ? level / peak : 0;
 }
 
 // Scrolls `trace` left by `steps` samples, filling the freed samples at its

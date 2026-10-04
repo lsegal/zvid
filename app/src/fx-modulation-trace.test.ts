@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { LfoAnimation } from "./fx-animation-defaults.ts";
+import { reactiveEnvelope } from "./fx-animation-impulse.ts";
 import { lfoWaveform } from "./fx-animation-waveform.ts";
 import {
   lfoTraceSeconds,
@@ -8,6 +9,7 @@ import {
   MIN_LFO_TRACE_SECONDS,
   sampleLfoTrace,
   scrollTrace,
+  transientTraceValue,
 } from "./fx-modulation-trace.ts";
 
 const TEMPO = { bpm: 120, signature: { numerator: 4, denominator: 4 } };
@@ -137,5 +139,21 @@ describe("scrollTrace", () => {
     assert.deepEqual([...trace], [2, 3, 4, 9]);
     scrollTrace(trace, 10, 0);
     assert.deepEqual([...trace], [0, 0, 0, 0]);
+  });
+});
+
+describe("transientTraceValue", () => {
+  it("fills the trace at the envelope's peak and scales below it", () => {
+    for (const motion of ["Bounce", "Wobble"] as const) {
+      let peak = 0;
+      for (let u = 0; u < 1; u += 0.0005) {
+        peak = Math.max(peak, Math.abs(reactiveEnvelope(motion, u)));
+      }
+      assert.ok(Math.abs(transientTraceValue(motion, peak) - 1) < 1e-3);
+      assert.ok(
+        Math.abs(transientTraceValue(motion, -peak * 0.3) + 0.3) < 1e-3,
+      );
+    }
+    assert.equal(transientTraceValue("None", 0.5), 0);
   });
 });
