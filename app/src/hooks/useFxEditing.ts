@@ -10,6 +10,7 @@ import type { FxEditMode } from "../components/FxChain";
 import type { EffectAnimation } from "../fx-animation-defaults";
 import { isFxClip } from "../fx-clip.ts";
 import type { EffectModulation } from "../fx-modulation-defaults";
+import { isShapeEffectName } from "../fx/effects/shape/shape.ts";
 import {
   addEffect,
   duplicateEffect,
@@ -28,6 +29,7 @@ import {
   setEffectParameter,
   setLaneFxEnabled,
 } from "../fx-stack";
+import { addShapeTransform } from "../preview-edit.ts";
 import type { ProjectHistoryAction } from "../project-history";
 
 export type FxEditingInputs = {
@@ -55,11 +57,16 @@ export function useFxEditing({
   const editEffects = useCallback(
     (
       label: string,
-      updater: (effects: SessionEffect[]) => SessionEffect[],
+      updater: (
+        effects: SessionEffect[],
+        project: ProjectState,
+      ) => SessionEffect[],
       mode: "commit" | "transient" = "commit",
     ) => {
       const projectUpdater = (current: ProjectState) =>
-        patchProjectState(current, { effects: updater(current.effects) });
+        patchProjectState(current, {
+          effects: updater(current.effects, current),
+        });
       dispatchProject(
         mode === "transient"
           ? { type: "transient", updater: projectUpdater }
@@ -164,9 +171,26 @@ export function useFxEditing({
         isFxClip(timelineClipsRef.current.find((clip) => clip.id === clipId))
           ? "fxClip"
           : undefined;
-      editEffects(effectHistoryLabels.add(effectName), (current) =>
-        addEffect(current, trackId, effectName, undefined, id, scope),
-      );
+      editEffects(effectHistoryLabels.add(effectName), (current, project) => {
+        const added = addEffect(
+          current,
+          trackId,
+          effectName,
+          undefined,
+          id,
+          scope,
+        );
+        // A Shape on a layer without a Transform starts as a centered
+        // square rather than stretched over the whole canvas.
+        return added !== current && isShapeEffectName(effectName)
+          ? addShapeTransform(
+              added,
+              trackId,
+              { width: project.canvasWidth, height: project.canvasHeight },
+              crypto.randomUUID(),
+            )
+          : added;
+      });
     },
     [editEffects, timelineClipsRef],
   );
