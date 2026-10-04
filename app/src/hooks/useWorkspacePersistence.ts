@@ -449,10 +449,10 @@ export function useWorkspacePersistence({
     handleTakeOverWorkspace,
     handleOpenWorkspaceReadOnly,
     handleCloseSession,
-    startNewSession,
     openWorkspaceSession,
     // The session as it would be saved now.
     readWorkspaceSession: () => readWorkspaceSessionRef.current(),
+    startNewSession,
     reportSessionMediaCheck,
     settleSessionMediaCheck,
   };

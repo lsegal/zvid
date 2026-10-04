@@ -86,22 +86,7 @@ test("File → New Session on a blank project doesn't ask", async ({ page }) => 
   await expect(page.getByText("Started a new session.")).toBeVisible();
 });
 
-function sessionEntries(page: Page) {
-  return page
-    .getByRole("complementary", { name: "Sessions" })
-    .getByRole("list", { name: "Sessions" })
-    .getByRole("button");
-}
-
-async function chooseSaveInPrompt(page: Page) {
-  await chooseNewSession(page);
-  await page
-    .getByRole("dialog", { name: "Save changes to this session?" })
-    .getByRole("button", { name: "Save", exact: true })
-    .click();
-}
-
-test("Save in the New Session prompt saves into Sessions before starting over", async ({
+test("Save in the New Session prompt saves before starting over", async ({
   page,
 }) => {
   const downloads: string[] = [];
@@ -109,21 +94,34 @@ test("Save in the New Session prompt saves into Sessions before starting over", 
     downloads.push(download.suggestedFilename());
   });
   await openSample(page);
-  await page.getByRole("button", { name: "Sessions", exact: true }).click();
-  // Opening the sample already gave it an entry; Save updates that one.
-  await expect(sessionEntries(page)).toHaveCount(1);
+  const snap = page.getByRole("button", { name: /^Snap (On|Off)$/ });
+  const snapped = await snap.getAttribute("aria-pressed");
+  const edited = snapped === "true" ? "false" : "true";
+  await snap.click();
+  await expect(snap).toHaveAttribute("aria-pressed", edited);
 
-  await chooseSaveInPrompt(page);
+  await chooseNewSession(page);
+  await page
+    .getByRole("dialog", { name: "Save changes to this session?" })
+    .getByRole("button", { name: "Save", exact: true })
+    .click();
 
   await expectBlankSession(page);
   await expect(page.getByText("Started a new session.")).toBeVisible();
-  await expect(sessionEntries(page)).toHaveCount(1);
+
+  // The edit was saved into the Sessions library.
+  await page.getByRole("button", { name: "Sessions", exact: true }).click();
+  const saved = page
+    .getByRole("list", { name: "Sessions" })
+    .getByRole("button");
+  await expect(saved).toHaveCount(1);
+  await saved.click();
+  await expect(page.locator(".clip-card").first()).toBeVisible();
+  await expect(snap).toHaveAttribute("aria-pressed", edited);
+  // Saving wrote no file.
   expect(downloads).toEqual([]);
 
-  // The entry holds the saved session, and reopens with nothing unsaved.
-  await sessionEntries(page).first().click();
-  await expect(page.locator(".source-span").first()).toBeVisible();
-  await expect(page.locator(".clip-card").first()).toBeVisible();
+  // The reopened entry has nothing unsaved, so New Session doesn't ask.
   await chooseNewSession(page);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expectBlankSession(page);
@@ -144,7 +142,11 @@ test("a failed save in the New Session prompt keeps the session", async ({
     };
   });
 
-  await chooseSaveInPrompt(page);
+  await chooseNewSession(page);
+  await page
+    .getByRole("dialog", { name: "Save changes to this session?" })
+    .getByRole("button", { name: "Save", exact: true })
+    .click();
 
   await expect(page.getByText("Save failed: The disk is full.")).toBeVisible();
   await expect(page.locator(".source-span").first()).toBeVisible();

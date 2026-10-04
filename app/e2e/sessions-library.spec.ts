@@ -158,14 +158,16 @@ test("opening an entry over unsaved changes asks first", async ({ page }) => {
   await dropVideoIntoNewSourceTrack(page);
 
   await entry(page, "First").click();
-  const prompt = page.getByRole("dialog", { name: /^Save changes to/ });
+  const prompt = page.getByRole("dialog", {
+    name: "Save changes to this session?",
+  });
   await expect(prompt).toBeVisible();
   await prompt.getByRole("button", { name: "Cancel" }).click();
   await expect(prompt).toBeHidden();
   await expect(page.getByText("Opened First.")).toHaveCount(0);
 
   await entry(page, "First").click();
-  await prompt.getByRole("button", { name: "Save and Open" }).click();
+  await prompt.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Opened First.")).toBeVisible();
   // The unsaved session was saved as its own entry first.
   await expect(entries(page)).toHaveCount(2);

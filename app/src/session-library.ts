@@ -3,8 +3,6 @@
 // workspace store, an entry holds only the serialized session (see
 // workspace-session.ts); its media stays in the media cache.
 
-import type { ProjectState } from "./app/types.ts";
-
 const DB_NAME = "zvid-session-library";
 const DB_VERSION = 1;
 const ENTRIES_STORE = "entries";
@@ -18,9 +16,6 @@ export type SessionLibraryEntry = {
   // When the entry was last saved or opened; the list is sorted by it.
   updatedAt: number;
   clipCount: number;
-  // getSessionContentHash of the saved project, to tell whether the open
-  // session has changed since.
-  contentHash: string;
   // The output of serializeWorkspaceSession, with the undo history dropped.
   payload: string;
 };
@@ -72,27 +67,6 @@ export function sortSessionLibrary<
   T extends Pick<SessionLibrarySummary, "updatedAt">,
 >(entries: readonly T[]) {
   return [...entries].sort((a, b) => b.updatedAt - a.updatedAt);
-}
-
-// The parts of a project an edit changes, compared to tell whether the open
-// session differs from its library entry. Media items are compared by id
-// only, since opening a session fills in their file details on its own.
-export function getSessionContentKey(project: ProjectState) {
-  return JSON.stringify({
-    ...project,
-    mediaItems: project.mediaItems.map((item) => item.id),
-  });
-}
-
-// A short FNV-1a hash of getSessionContentKey.
-export function getSessionContentHash(project: ProjectState) {
-  const key = getSessionContentKey(project);
-  let hash = 0x811c9dc5;
-  for (let index = 0; index < key.length; index += 1) {
-    hash ^= key.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
 const RELATIVE_UNITS = [
@@ -150,7 +124,6 @@ function normalizeEntry(raw: SessionLibraryEntry): SessionLibraryEntry {
       typeof raw.createdAt === "number" ? raw.createdAt : raw.updatedAt,
     updatedAt: raw.updatedAt,
     clipCount: typeof raw.clipCount === "number" ? raw.clipCount : 0,
-    contentHash: typeof raw.contentHash === "string" ? raw.contentHash : "",
     payload: raw.payload,
   };
 }

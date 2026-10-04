@@ -345,12 +345,13 @@ function App({ boot }: { boot: WorkspaceBoot }) {
   });
   const library = useSessionLibrary({
     projectHistory,
+    hasUnsavedChanges: store.hasUnsavedChanges,
+    setHasUnsavedChanges: store.setHasUnsavedChanges,
     sessionSource: workspace.sessionSource,
     setSessionSource: workspace.setSessionSource,
     readWorkspaceSession: workspace.readWorkspaceSession,
     openWorkspaceSession: workspace.openWorkspaceSession,
     refuseReadOnlyEdit,
-    setHasUnsavedChanges: store.setHasUnsavedChanges,
     setStatus,
   });
   const newSession = useNewSession({
@@ -692,10 +693,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         setIsTakeOverPromptOpen={store.setIsTakeOverPromptOpen}
         workspaceAccess={store.workspaceAccess}
       />
-      <SessionLibraryDialogs
-        currentName={sessionName ?? "the open session"}
-        library={library}
-      />
+      <SessionLibraryDialogs library={library} />
       <NewSessionDialog {...newSession} />
       {recording.failureNotice && (
         <ImportNotice

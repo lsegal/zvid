@@ -6,7 +6,10 @@ import {
   useRef,
   useState,
 } from "react";
-import { isPristineProjectHistory } from "../app/new-session.ts";
+import {
+  hasUnsavedSessionChanges,
+  isPristineProjectHistory,
+} from "../app/new-session.ts";
 import type { ProjectState } from "../app/types.ts";
 import { logClient } from "../app/util.ts";
 import { parseSavedWorkspaceSession } from "../app/workspace-boot.ts";
@@ -15,7 +18,6 @@ import type { ProjectHistoryState } from "../project-history";
 import {
   createSessionLibraryId,
   getDuplicateName,
-  getSessionContentHash,
   getSessionLibraryName,
   getSessionLibraryStore,
   type SessionLibraryEntry,
@@ -29,12 +31,13 @@ import {
 
 export type SessionLibraryInputs = {
   projectHistory: ProjectHistoryState<ProjectState>;
+  hasUnsavedChanges: boolean;
+  setHasUnsavedChanges: Dispatch<SetStateAction<boolean>>;
   sessionSource: WorkspaceSessionSource;
   setSessionSource: Dispatch<SetStateAction<WorkspaceSessionSource>>;
   readWorkspaceSession: () => SavedWorkspaceSession;
   openWorkspaceSession: (session: SavedWorkspaceSession) => void;
   refuseReadOnlyEdit: () => boolean;
-  setHasUnsavedChanges: Dispatch<SetStateAction<boolean>>;
   setStatus: (message: string) => void;
 };
 
@@ -55,12 +58,13 @@ function withoutLibraryId(
 // open, rename, duplicate and delete from the Sessions tab.
 export function useSessionLibrary({
   projectHistory,
+  hasUnsavedChanges,
+  setHasUnsavedChanges,
   sessionSource,
   setSessionSource,
   readWorkspaceSession,
   openWorkspaceSession,
   refuseReadOnlyEdit,
-  setHasUnsavedChanges,
   setStatus,
 }: SessionLibraryInputs) {
   const [entries, setEntries] = useState<SessionLibrarySummary[]>([]);
@@ -76,6 +80,7 @@ export function useSessionLibrary({
   const knownIdRef = useRef(libraryId);
   const latest = useRef({
     projectHistory,
+    hasUnsavedChanges,
     sessionSource,
     readWorkspaceSession,
     openWorkspaceSession,
@@ -84,6 +89,7 @@ export function useSessionLibrary({
   });
   latest.current = {
     projectHistory,
+    hasUnsavedChanges,
     sessionSource,
     readWorkspaceSession,
     openWorkspaceSession,
@@ -117,10 +123,8 @@ export function useSessionLibrary({
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
         clipCount: present.clips.length,
-        contentHash: getSessionContentHash(present),
-        // Undo history stays with the open session, not its snapshot, and
-        // the snapshot is the saved session, so it reopens with nothing
-        // unsaved.
+        // Undo history stays with the open session, not its snapshot, which
+        // opens with nothing to save.
         payload: serializeWorkspaceSession({
           ...saved,
           history: { past: [], present, future: [] },
@@ -203,26 +207,14 @@ export function useSessionLibrary({
     [refresh],
   );
 
-  // Whether the open session has changes its library entry doesn't.
-  function hasUnsavedChanges() {
-    const { projectHistory, sessionSource } = latest.current;
-    if (isPristineProjectHistory(projectHistory)) {
-      return false;
-    }
-    const entry = entries.find((item) => item.id === sessionSource.libraryId);
-    return (
-      !entry ||
-      entry.contentHash !== getSessionContentHash(projectHistory.present)
-    );
-  }
-
   // A click on an entry opens it, first asking what to do with unsaved
   // changes to the open session.
   function openEntry(summary: SessionLibrarySummary) {
     if (latest.current.refuseReadOnlyEdit()) {
       return;
     }
-    if (hasUnsavedChanges()) {
+    const { projectHistory, hasUnsavedChanges } = latest.current;
+    if (hasUnsavedSessionChanges(projectHistory, hasUnsavedChanges)) {
       setPendingOpen(summary);
       return;
     }
