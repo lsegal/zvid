@@ -3,6 +3,11 @@ import {
   sceneClearColor,
 } from "./composition-clear-color.ts";
 import {
+  bindCompositeState,
+  type CompositeUniforms,
+  drawQuad,
+} from "./composition-draw-gl.ts";
+import {
   isSlotScissorEmpty,
   type LayerDrawStep,
   type LayerPlacement,
@@ -48,8 +53,8 @@ import {
   visualTransformChain,
   visualTransformMatrix,
 } from "./composition-transform.ts";
-import type { FillPaint } from "./fill-paint.ts";
 import { drawTransition } from "./composition-transition-draw.ts";
+import type { FillPaint } from "./fill-paint.ts";
 import { EFFECT_PASSES } from "./fx/effects/index.generated.ts";
 import { TransitionRenderer } from "./fx/effects/transition/renderer.ts";
 import type { TransitionSettings } from "./fx/effects/transition/transition.ts";
@@ -63,11 +68,6 @@ import {
 import { linkProgram, POSITION_ATTRIBUTE_LOCATION } from "./fx-shaders/gl.ts";
 import type { EffectChainStep } from "./fx-shaders/registry.ts";
 import { recordRenderFrame } from "./render-stats.ts";
-import {
-  bindCompositeState,
-  type CompositeUniforms,
-  drawQuad,
-} from "./composition-draw-gl.ts";
 import { TEXT_REFERENCE_HEIGHT, type TextStyle } from "./text-style.ts";
 
 export type CompositeVisual = LayerVisual & {

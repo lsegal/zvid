@@ -1,6 +1,10 @@
 import { CheckIcon, ChevronLeftIcon } from "@heroicons/react/24/solid";
 import type { CSSProperties } from "react";
 import {
+  isTransitionEffectName,
+  TYPE_KEY,
+} from "../../fx/effects/transition/transition";
+import {
   ANIMATION_TIMINGS,
   type AnimatableParameter,
   CLIP_MOTIONS,
@@ -22,10 +26,6 @@ import {
   REACTIVITY_STEP,
   toggleAnimatedParameter,
 } from "../../fx-animation-defaults";
-import {
-  isTransitionEffectName,
-  TYPE_KEY,
-} from "../../fx/effects/transition/transition";
 import type { FxDevice } from "../../fx-stack";
 import {
   DropdownMenu,
