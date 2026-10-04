@@ -143,8 +143,9 @@ test("Bitcrush is added from a clip's Audio menu with its defaults and crushes t
   await probeAnalysers(page);
   await page.goto("/");
   await expect(page.locator("[data-timeline-lane-id]").first()).toBeVisible();
-  // Long enough to keep playing through every check.
-  await addTone(page, 30);
+  // As long as the test's timeout, so it keeps playing through every check
+  // however slowly a busy runner gets through them.
+  await addTone(page, 90);
 
   await page.locator(".source-span").click();
   await page
@@ -176,16 +177,14 @@ test("Bitcrush is added from a clip's Audio menu with its defaults and crushes t
   }
 
   await playFromStart(page);
-  let clean = { level: 0, harmonics: 0 };
   await expect
-    .poll(
-      async () => {
-        clean = await settledReading(page);
-        return clean.level;
-      },
-      { timeout: 15_000 },
-    )
+    .poll(async () => (await settledReading(page)).level, { timeout: 15_000 })
     .toBeGreaterThan(0.01);
+  // Read the clean tone again once it is playing: the reading that first
+  // heard it can hold the tone's onset, whose click spreads power above
+  // 1 kHz and would set the harmonics the crush must beat out of reach.
+  const clean = await settledReading(page);
+  expect(clean.level).toBeGreaterThan(0.01);
 
   // 1 bit turns the quiet tone into a full-scale square wave: far louder,
   // with odd harmonics carrying much of its power.
