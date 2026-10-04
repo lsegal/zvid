@@ -47,8 +47,9 @@ export function drawQuad(
   resources: WebGlResources,
   source: TextureRegion,
   values: CompositeUniforms,
+  uniforms = resources.uniforms,
 ) {
-  const { gl, uniforms } = resources;
+  const { gl } = resources;
   gl.bindTexture(gl.TEXTURE_2D, source.texture);
   gl.uniform1i(uniforms.texture, 0);
   gl.uniform2f(uniforms.uvScale, ...source.uvScale);

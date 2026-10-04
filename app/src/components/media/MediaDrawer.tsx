@@ -10,7 +10,7 @@ import {
 import { formatMediaTime } from "../../app/media-preview.ts";
 import type { MediaDrawerState } from "../../hooks/useMediaDrawer.ts";
 import type { SessionLibraryState } from "../../hooks/useSessionLibrary.ts";
-import type { MediaItem } from "../../media";
+import { isImageMedia, type MediaItem } from "../../media";
 import { hasMediaDetails } from "../../media-details.ts";
 import { endMediaDrag, startMediaDrag } from "../../media-drag.ts";
 import { hasMediaRange } from "../../media-range.ts";
@@ -164,7 +164,11 @@ export function MediaDrawer({
     [isOpen, mediaItems],
   );
   const thumbnails = useThumbnailCache(thumbnailRequests);
+  // An image is its own thumbnail.
   const getThumbnailUrl = (media: MediaItem) =>
+    (isImageMedia(media) &&
+      media.availability === "ready" &&
+      media.previewUrl) ||
     (media.hasVideo &&
       thumbnails.get(
         getThumbnailCacheKey(
@@ -205,11 +209,19 @@ export function MediaDrawer({
       ?.scrollIntoView({ block: "nearest" });
   }
 
+  // Images have nothing to play in the media preview.
+  function openMedia(mediaId: string) {
+    const media = mediaItems.find((item) => item.id === mediaId);
+    if (media && !isImageMedia(media)) {
+      onOpenMedia(mediaId);
+    }
+  }
+
   function handleListKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
     if (event.key === "Enter" && selectedMediaId) {
       event.preventDefault();
       event.stopPropagation();
-      onOpenMedia(selectedMediaId);
+      openMedia(selectedMediaId);
       return;
     }
     const index = visibleItems.findIndex(
@@ -248,7 +260,8 @@ export function MediaDrawer({
     );
     const offline = media.availability === "offline" && !mediaSync;
     const hasRange = hasMediaRange(media);
-    const duration = formatMediaDuration(media.durationSeconds);
+    const image = isImageMedia(media);
+    const duration = image ? "" : formatMediaDuration(media.durationSeconds);
     const className = [
       view === "icons" ? "media-tile" : "media-row",
       selected ? "is-selected" : "",
@@ -280,14 +293,15 @@ export function MediaDrawer({
         className={className}
         data-media-id={media.id}
         data-availability={media.availability}
-        draggable
+        // Images make no clips, so they don't drag onto source tracks.
+        draggable={!image}
         id={getOptionId(media.id)}
         key={media.id}
         onClick={() => {
           drawer.setSelectedMediaId(media.id);
           listboxRef.current?.focus();
         }}
-        onDoubleClick={() => onOpenMedia(media.id)}
+        onDoubleClick={() => openMedia(media.id)}
         // Dragged onto a source track it adds a clip of the media, trimmed to
         // its In/Out points.
         onDragEnd={endMediaDrag}
@@ -300,7 +314,7 @@ export function MediaDrawer({
         title={media.name}
       >
         <MediaThumbnail
-          badge={view === "icons" ? duration : undefined}
+          badge={view === "icons" && duration ? duration : undefined}
           media={media}
           mediaSync={mediaSync}
           prefersReducedMotion={prefersReducedMotion}

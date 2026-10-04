@@ -87,6 +87,9 @@ export type StackedLayer = {
     // Set when this is one piece of a layer clip (see render-clips.ts): the
     // whole clip's duration, which its slides are timed over.
     layerClipDurationSeconds?: number;
+    // Set when the clip's layer is hidden: it is drawn only into the mask
+    // of a layer whose Mask targets it.
+    hidden?: boolean;
   };
   // How far through its clip the playhead is, 0..1. With the clip's
   // duration it times an animated Order's slides.
@@ -182,6 +185,9 @@ export type LayerDrawStep<T> =
  * are planned as two comps, each arranged by the clip's Order or `order`,
  * in a "transition" step. A layer whose clip is in neither comp started
  * after the Transition did, so it is coming in with comp B.
+ *
+ * Clips on a hidden layer are left out, as if they weren't there: they take
+ * no slot and FX clips on it change nothing (see planHiddenLayerDraws).
  */
 export function planLayerDraws<
   T extends StackedLayer & {
@@ -190,9 +196,10 @@ export function planLayerDraws<
     transition?: TransitionComps;
   },
 >(
-  layers: readonly T[],
+  allLayers: readonly T[],
   order: CompositionOrder = DEFAULT_COMPOSITION_ORDER,
 ): LayerDrawStep<T>[] {
+  const layers = allLayers.filter((layer) => !layer.clip.hidden);
   const arranger = layers
     .filter((layer) => layer.fx && (layer.order || layer.transition))
     .reduce<T | undefined>(
@@ -282,6 +289,25 @@ export function planLayerDraws<
     steps.push({ type: "fx", entry });
   }
   return steps;
+}
+
+// The steps that would draw the clips on hidden layers among `layers`, for a
+// Mask that targets one: each covers the whole surface, as a layer the Order
+// excludes does, since a hidden layer takes no slot. FX clips draw nothing,
+// so they have none.
+export function planHiddenLayerDraws<T extends StackedLayer & { fx?: boolean }>(
+  layers: readonly T[],
+): (LayerDrawStep<T> & { type: "layer" })[] {
+  return orderStackedLayers(
+    layers.filter((layer) => layer.clip.hidden && !layer.fx),
+    Z_ORDER_COMPOSITION,
+  ).map((entry) => ({
+    type: "layer",
+    entry,
+    slot: 0,
+    slotCount: 1,
+    order: Z_ORDER_COMPOSITION,
+  }));
 }
 
 // The "transition" step of `entry`, whose comps are made of `governed`, the

@@ -8,7 +8,7 @@ import {
   pruneClipEffects,
   pruneSourceEffects,
 } from "../fx-stack.ts";
-import type { MediaItem } from "../media.ts";
+import { isImageMedia, type MediaItem } from "../media.ts";
 import { keepMediaRange } from "../media-range.ts";
 import {
   fitSourceSpansToMedia,
@@ -199,6 +199,7 @@ export function sessionToProject(
     name: track.name,
     colorIndex: track.colorIndex ?? -1,
     ...(track.fxEnabled === false ? { fxEnabled: false } : {}),
+    ...(track.hidden === true ? { hidden: true } : {}),
   }));
   const sourceTracks = (session.tracks ?? []).map<SourceTrack>(
     (track, index) => ({
@@ -209,6 +210,7 @@ export function sessionToProject(
         (recording) => recording.filename,
       ),
       ...(track.fxEnabled === false ? { fxEnabled: false } : {}),
+      ...(track.hidden === true ? { hidden: true } : {}),
     }),
   );
   const nameByTrack = new Map(
@@ -448,7 +450,9 @@ export function sessionToProject(
   };
 }
 
-export function buildStandaloneProject(mediaItems: MediaItem[]) {
+export function buildStandaloneProject(allMediaItems: MediaItem[]) {
+  // Images make no clips; they stay in the Media drawer for effects to use.
+  const mediaItems = allMediaItems.filter((item) => !isImageMedia(item));
   const lanes = DEFAULT_LANES;
   const canvasWidth = mediaItems.find((item) => item.width)?.width ?? 1080;
   const canvasHeight = mediaItems.find((item) => item.height)?.height ?? 1920;

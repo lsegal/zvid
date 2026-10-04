@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { ContextMenuEntry } from "../context-menu.ts";
 import type { FxEffectDefinition } from "../fx-registry.ts";
-import { MAX_LAYERS } from "../selection-overlaps.ts";
 import { SOURCE_TRACKS_LOCKED_TITLE } from "../source-tracks-section.ts";
 import { audioMenuEntries, buildAudioMenuEntries } from "./audio-menu.ts";
 import { buildClipMenuEntries, clipMenuEntries } from "./clip-menu.ts";
@@ -221,12 +220,12 @@ describe("menu snapshots", () => {
     );
   });
 
-  it("layer menu at the layer limit, without playhead inserts", () => {
+  it("layer menu with nine layers, without playhead inserts", () => {
     const { insertText: _, insertFx: __, ...actions } = layerActions;
     assert.deepEqual(
       snapshot(
         buildLayerMenuEntries({
-          lanes: lanes(MAX_LAYERS),
+          lanes: lanes(9),
           laneId: "lane-1",
           fxEnabled: false,
           effectCount: 0,
@@ -234,7 +233,7 @@ describe("menu snapshots", () => {
           actions,
         }),
       ),
-      LAYER_MENU_FULL,
+      LAYER_MENU_NINE,
     );
   });
 
@@ -468,16 +467,16 @@ const LAYER_MENU = [
   "move-down: Move down",
 ];
 
-const LAYER_MENU_FULL = [
+const LAYER_MENU_NINE = [
   "rename: Rename…",
-  'duplicate: Duplicate title="You already have the maximum of 9 layers." (disabled)',
+  "duplicate: Duplicate",
   "delete: Delete",
   "---",
   "toggle-fx: Enable FX",
   "add-fx: Add FX (disabled)",
   "---",
-  'insert-above: Insert layer above title="You already have the maximum of 9 layers." (disabled)',
-  'insert-below: Insert layer below title="You already have the maximum of 9 layers." (disabled)',
+  "insert-above: Insert layer above",
+  "insert-below: Insert layer below",
   "---",
   "move-up: Move up (disabled)",
   "move-down: Move down",

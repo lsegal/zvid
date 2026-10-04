@@ -7,6 +7,7 @@ import type { LaneStatus } from "../../hooks/useTimelineLanes.ts";
 import type { useMenus } from "../../menus/useMenus.ts";
 import { NameInput } from "../NameInput";
 import { TrackFxButton } from "./TrackFxButton";
+import { TrackHideButton } from "./TrackHideButton";
 import "./layer-header.css";
 
 type LayerActions = ReturnType<typeof useLayerActions>;
@@ -23,6 +24,7 @@ export type LayerHeaderContext = {
   focusLaneLabel: (laneId: string) => void;
   commitLayerRename: LayerActions["commitLayerRename"];
   setLayerFxEnabled: ReturnType<typeof useFxEditing>["setLayerFxEnabled"];
+  setLayerHidden: ReturnType<typeof useFxEditing>["setLayerHidden"];
 };
 
 type LayerHeaderProps = {
@@ -34,7 +36,7 @@ type LayerHeaderProps = {
 } & LayerHeaderContext;
 
 // A layer's header: the reorder grip, its number, its name (or the field
-// renaming it) with a summary, and the FX bypass badge. Double-clicking the
+// renaming it) with a summary, and the Hide and FX bypass switches. Double-clicking the
 // name renames the layer, like Rename… in its menu.
 export function LayerHeader({
   lane,
@@ -50,6 +52,7 @@ export function LayerHeader({
   focusLaneLabel,
   commitLayerRename,
   setLayerFxEnabled,
+  setLayerHidden,
 }: LayerHeaderProps) {
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: clicking anywhere on the label is a mouse shortcut; the layer name button is the keyboard equivalent
@@ -61,7 +64,9 @@ export function LayerHeader({
       onClick={(event) => {
         if (
           event.target instanceof Element &&
-          event.target.closest(".track-label__fx, .track-label__rename")
+          event.target.closest(
+            ".track-label__hide, .track-label__fx, .track-label__rename",
+          )
         ) {
           return;
         }
@@ -109,6 +114,10 @@ export function LayerHeader({
           <small>{status?.summary}</small>
         </button>
       )}
+      <TrackHideButton
+        track={lane}
+        setHidden={(hidden) => setLayerHidden(lane.id, hidden)}
+      />
       <TrackFxButton
         track={lane}
         setFxEnabled={(enabled) => setLayerFxEnabled(lane.id, enabled)}

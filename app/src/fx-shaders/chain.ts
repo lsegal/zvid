@@ -15,6 +15,7 @@ import {
   type EffectPass,
   type EffectStage,
   type EffectUniformLocations,
+  effectPixelScale,
   stageSize,
 } from "./types.ts";
 
@@ -193,11 +194,13 @@ export class EffectChainRenderer {
   private stageTargets: TargetPool;
   private sceneTarget: RenderTarget | null = null;
   private layerTargets: TargetPool;
+  // One pool per slot, since a mask is carried between surfaces through
+  // targets of its own and a masked Target draws its mask while the one it
+  // is drawn into is still in use.
+  private maskTargets = new Map<number, TargetPool>();
   // One pool per Order nesting depth, since an arrangement draws into its
   // own target while the one it sits in is still in use.
   private arrangementTargets = new Map<number, TargetPool>();
-  // A Transition's two comps and its result, by nesting depth and index.
-  private compTargets = new Map<number, TargetPool>();
   private readonly release: (targets: RenderTarget[]) => void;
   // Handed to every pass, refilled for each run rather than allocated.
   private readonly stepContext: EffectContext = {
@@ -205,6 +208,7 @@ export class EffectChainRenderer {
     clipProgress: 0,
     resolution: [0, 0],
     bottomUp: false,
+    pixelScale: undefined,
   };
   private surfaceKey = "";
   private readonly maxTextureSize: number;
@@ -356,14 +360,15 @@ export class EffectChainRenderer {
     };
   }
 
-  // Surface an FX clip with an Order arranges the layers beneath it into, in
-  // its `width` × `height` corner, from a pool per nesting `depth`, since an
-  // arrangement can hold another.
-  getArrangementTarget(depth: number, width: number, height: number) {
-    let pool = this.arrangementTargets.get(depth);
+  // Surface a Mask's Target layer is drawn into, in its `width` × `height`
+  // corner, for the layer it masks to read while it is drawn. It is kept
+  // apart from the layer and ping-pong targets, which drawing either layer
+  // uses, from a pool per `slot`.
+  getMaskTarget(width: number, height: number, slot = 0) {
+    let pool = this.maskTargets.get(slot);
     if (!pool) {
       pool = new TargetPool(this.release);
-      this.arrangementTargets.set(depth, pool);
+      this.maskTargets.set(slot, pool);
     }
     const [target] = this.getPooledTargets(pool, width, height, 1);
     return {
@@ -372,15 +377,14 @@ export class EffectChainRenderer {
     };
   }
 
-  // Surface a Transition draws one of its comps (`index` 0 and 1) or its
-  // result (2) into, in its `width` × `height` corner, from a pool per
-  // nesting `depth`, since a comp can hold another Transition.
-  getCompTarget(depth: number, index: number, width: number, height: number) {
-    const key = depth * 3 + index;
-    let pool = this.compTargets.get(key);
+  // Surface an FX clip with an Order arranges the layers beneath it into, in
+  // its `width` × `height` corner, from a pool per nesting `depth`, since an
+  // arrangement can hold another.
+  getArrangementTarget(depth: number, width: number, height: number) {
+    let pool = this.arrangementTargets.get(depth);
     if (!pool) {
       pool = new TargetPool(this.release);
-      this.compTargets.set(key, pool);
+      this.arrangementTargets.set(depth, pool);
     }
     const [target] = this.getPooledTargets(pool, width, height, 1);
     return {
@@ -432,6 +436,7 @@ export class EffectChainRenderer {
     stepContext.resolution[0] = width;
     stepContext.resolution[1] = height;
     stepContext.bottomUp = ctx.bottomUp;
+    stepContext.pixelScale = ctx.pixelScale;
 
     let input = source;
     for (const [index, step] of steps.entries()) {
@@ -516,6 +521,8 @@ export class EffectChainRenderer {
     const stageCtx: EffectContext = {
       ...ctx,
       resolution: [stageWidth, stageHeight],
+      pixelScale: (effectPixelScale(ctx) * stageWidth) / width,
+      stageScale: stageWidth / width,
     };
     for (const [index, stage] of compiled.stages.entries()) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, targets[index].framebuffer);
@@ -760,14 +767,14 @@ export class EffectChainRenderer {
     this.pingPongTargets.clear();
     this.stageTargets.clear();
     this.layerTargets.clear();
+    for (const pool of this.maskTargets.values()) {
+      pool.clear();
+    }
+    this.maskTargets.clear();
     for (const pool of this.arrangementTargets.values()) {
       pool.clear();
     }
     this.arrangementTargets.clear();
-    for (const pool of this.compTargets.values()) {
-      pool.clear();
-    }
-    this.compTargets.clear();
     if (this.sceneTarget) {
       this.deleteTarget(this.sceneTarget);
       this.sceneTarget = null;

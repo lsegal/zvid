@@ -2,13 +2,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { ContextMenuEntry, ContextMenuItem } from "./context-menu.ts";
 import { addableEffectsFor } from "./fx-chain.ts";
-import { layerHistoryLabels, MAX_LAYERS_MESSAGE } from "./layer-menu.ts";
+import { layerHistoryLabels } from "./layer-menu.ts";
 import { buildAudioMenuEntries } from "./menus/audio-menu.ts";
 import {
   buildLayerMenuEntries,
   type LayerMenuActions,
 } from "./menus/layer-menu.ts";
-import { MAX_LAYERS } from "./selection-overlaps.ts";
 
 function lanes(count: number) {
   return Array.from({ length: count }, (_, index) => ({
@@ -202,11 +201,11 @@ describe("buildLayerMenuEntries", () => {
     assert.equal(item(entries, "move-down").disabled, true);
   });
 
-  it("disables adding layers at the limit, saying why", () => {
-    const { entries } = layerMenu({ lanes: lanes(MAX_LAYERS) });
+  it("keeps adding layers past nine", () => {
+    const { entries } = layerMenu({ lanes: lanes(9) });
     for (const id of ["duplicate", "insert-above", "insert-below"]) {
-      assert.equal(item(entries, id).disabled, true, id);
-      assert.equal(item(entries, id).title, MAX_LAYERS_MESSAGE, id);
+      assert.equal(item(entries, id).disabled, false, id);
+      assert.equal(item(entries, id).title, undefined, id);
     }
     assert.equal(item(entries, "rename").disabled, false);
     assert.equal(item(entries, "delete").disabled, false);

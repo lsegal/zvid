@@ -1,4 +1,5 @@
 import type { AlsImportSummary } from "./als-import.ts";
+import { customShapeMediaPaths } from "./fx/effects/shape/shape.ts";
 import type { EffectAnimation } from "./fx-animation-defaults.ts";
 import type { EffectModulation } from "./fx-modulation-defaults.ts";
 import type { SessionEncoding } from "./session-settings.ts";
@@ -20,6 +21,8 @@ export type LvpSession = {
     colorIndex?: number;
     /** zvid-only: `false` when the layer's FX are bypassed. */
     fxEnabled?: boolean;
+    /** zvid-only: `true` when the layer is hidden. */
+    hidden?: boolean;
   }>;
   tracks?: Array<{
     id: string;
@@ -27,6 +30,8 @@ export type LvpSession = {
     colorIndex?: number;
     /** zvid-only: `false` when the source track's FX are bypassed. */
     fxEnabled?: boolean;
+    /** zvid-only: `true` when the source track's video is hidden. */
+    hidden?: boolean;
     recordings?: Array<{
       filename: string;
       frameStart?: number;
@@ -185,8 +190,8 @@ function isFilePath(value: unknown): value is string {
   return typeof value === "string" && value.trim() !== "";
 }
 
-// Every media file the session references: its clips and, in an older
-// session, its main audio.
+// Every media file the session references: its clips, its Custom shapes'
+// SVGs and, in an older session, its main audio.
 export function collectSessionMediaPaths(session: LvpSession) {
   const mediaPaths = new Set<string>();
 
@@ -200,7 +205,24 @@ export function collectSessionMediaPaths(session: LvpSession) {
     mediaPaths.add(session.audioFilename.trim());
   }
 
+  for (const path of collectShapeMediaPaths(session)) {
+    mediaPaths.add(path);
+  }
+
   return Array.from(mediaPaths);
+}
+
+// The SVG media the session's Custom shapes take their masks from.
+export function collectShapeMediaPaths(session: LvpSession) {
+  return customShapeMediaPaths(
+    (session.effects ?? []).map((effect) => ({
+      effectName: effect.effectName,
+      enabled: effect.enabled,
+      parameters: Object.entries(effect.parameters ?? {}).map(
+        ([key, parameter]) => ({ key, value: parameter?.stringValue ?? "" }),
+      ),
+    })),
+  );
 }
 
 // Session files are parsed JSON that the types are never checked against, so

@@ -28,6 +28,10 @@
 // inside that box first, in place of the Global Order (the nearest such FX
 // clip above a layer wins); the rest of its chain then runs on the result.
 //
+// A Mask on the clip's or its layer's stack multiplies what the clip draws
+// by the alpha its Target layer draws at each canvas pixel, or by 1 minus
+// it when Subtractive (see fx/effects/mask/mask.ts).
+//
 // Other visual parameters (opacity and the like) read Global, then Layer,
 // then Clip, so the most specific stack wins.
 import type { ClipWarp } from "./clip-warp.ts";
@@ -70,6 +74,11 @@ import {
   isColorEffectName,
   resolveFillPaint,
 } from "./fill-paint.ts";
+import {
+  findLayerMask,
+  isMaskEffectName,
+  type LayerMask,
+} from "./fx/effects/mask/mask.ts";
 import type { TransitionSettings } from "./fx/effects/transition/transition.ts";
 import {
   type AnimationClipContext,
@@ -97,7 +106,7 @@ import {
 } from "./text-style.ts";
 import type { MeterSignature } from "./timeline-format.ts";
 
-export type MediaKind = "video" | "audio";
+export type MediaKind = "video" | "audio" | "image";
 
 export type MediaItem = {
   id: string;
@@ -143,6 +152,10 @@ export type ArrangementClip = {
   // whole clip's timing, which its animations run over.
   layerClipStartQ?: number;
   layerClipDurationSeconds?: number;
+  // Set when the clip's layer is hidden (see render-clips.ts): it draws
+  // nothing and takes no Order slot, but still draws into the mask of a
+  // layer whose Mask targets its layer.
+  hidden?: boolean;
 };
 
 export type SessionEffect = {
@@ -214,6 +227,9 @@ export type ActiveClip = {
   // Set for a clip a Transition draws while it isn't under the playhead,
   // held on its last or first frame.
   held?: true;
+  // Set for clips whose layer or own stack has an enabled Mask with a
+  // Target: the layer whose drawn pixels show or hide this one.
+  mask?: LayerMask;
 };
 
 export const GROUP_TRACK_ID = "__group_main";
@@ -342,8 +358,12 @@ export function resolveVisualState(
       continue;
     }
 
-    // Order arranges every layer at once; the compositor reads it itself.
-    if (isOrderEffectName(effect.effectName)) {
+    // Order arranges every layer at once, and Mask reads another layer's
+    // pixels; the compositor reads them itself.
+    if (
+      isOrderEffectName(effect.effectName) ||
+      isMaskEffectName(effect.effectName)
+    ) {
       continue;
     }
 
@@ -575,9 +595,11 @@ export function computeActiveClips(
       };
     }
 
+    const mask = findLayerMask(effects, clip.laneId, clipTrackId);
     return {
       ...resolved,
       effectChain: resolveClipEffectChain(effects, clip),
+      ...(mask ? { mask } : {}),
       ...(clip.kind === "text"
         ? { text: resolveTextStyle(effects, clip.laneId, clipTrackId) }
         : clip.kind === "fill"

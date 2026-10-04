@@ -5,6 +5,11 @@
 // were layers instead, so a session with only source tracks still previews
 // and exports. Preview, the transform overlay and export all resolve their
 // clips, and the effects they render with, here, so they always agree.
+//
+// A hidden source track's video is drawn nowhere: neither the media clips
+// that show it nor its own spans render. A hidden layer's clips are kept,
+// marked `hidden`, so the compositor can still draw them into the mask of a
+// layer whose Mask targets that layer, but nowhere else.
 import { quartersToSeconds } from "./app/timeline-math.ts";
 import type {
   ArrangementClip,
@@ -41,6 +46,7 @@ export type RenderClipsInputs<Effect extends RenderEffect = RenderEffect> = {
 export type RenderClip = ArrangementClip & {
   layerClipStartQ?: number;
   layerClipDurationSeconds?: number;
+  hidden?: boolean;
 };
 
 export type RenderClips<Effect extends RenderEffect = RenderEffect> = {
@@ -87,11 +93,23 @@ export function resolveRenderClips<Effect extends RenderEffect>({
   bpm,
   effects,
 }: RenderClipsInputs<Effect>): RenderClips<Effect> {
+  const hiddenTrackIds = new Set(
+    sourceTracks.filter((track) => track.hidden).map((track) => track.id),
+  );
   if (clips.length) {
+    const hiddenLaneIds = new Set(
+      lanes.filter((lane) => lane.hidden).map((lane) => lane.id),
+    );
     return {
-      clips: clips.flatMap((clip) =>
-        resolveLayerClipPieces(clip, sourceSpans, bpm),
-      ),
+      clips: clips.flatMap((clip) => {
+        if (!clip.kind && hiddenTrackIds.has(clip.sourceTrackId)) {
+          return [];
+        }
+        const pieces = resolveLayerClipPieces(clip, sourceSpans, bpm);
+        return hiddenLaneIds.has(clip.laneId)
+          ? pieces.map((piece) => ({ ...piece, hidden: true }))
+          : pieces;
+      }),
       lanes,
       effects,
       fromSourceTracks: false,
@@ -100,6 +118,9 @@ export function resolveRenderClips<Effect extends RenderEffect>({
   if (!sourceSpans.length) {
     return { clips, lanes, effects, fromSourceTracks: false };
   }
+  const shownSpans = hiddenTrackIds.size
+    ? sourceSpans.filter((span) => !hiddenTrackIds.has(span.sourceTrackId))
+    : sourceSpans;
 
   // Spans on a track the session no longer lists still render, below the
   // listed tracks.
@@ -123,7 +144,7 @@ export function resolveRenderClips<Effect extends RenderEffect>({
     }),
   );
 
-  const virtualClips = sourceSpans.map((span): ArrangementClip => {
+  const virtualClips = shownSpans.map((span): ArrangementClip => {
     const sourceOffsetSeconds =
       span.trimStartSeconds - quartersToSeconds(span.startQ, bpm);
     return {

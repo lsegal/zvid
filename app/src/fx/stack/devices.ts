@@ -54,12 +54,13 @@ function toDeviceParameter(
   read: (key: string) => string | undefined,
 ): FxDeviceParameter {
   if (definition.kind !== "number" && definition.kind !== "enum") {
-    // Text, style toggles and layer lists can be empty; paint and fonts
-    // fall back to their defaults.
+    // Text, style toggles and layers can be empty; paint and fonts fall
+    // back to their defaults.
     const stringValue =
       definition.kind === "text" ||
       definition.kind === "flags" ||
-      definition.kind === "layers"
+      definition.kind === "layers" ||
+      definition.kind === "layer"
         ? (stored?.value ?? definition.defaultValue)
         : stored?.value.trim() || definition.defaultValue;
     return {

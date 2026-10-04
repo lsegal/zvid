@@ -127,6 +127,18 @@ describe("Transition definition", () => {
         "Checkerboard",
         "Split",
         "Radial Wipe",
+        "Flip",
+        "Cube",
+        "Page Curl",
+        "Twirl",
+        "Ripple",
+        "Zoom Blur",
+        "Spin",
+        "Morph",
+        "Pixelate",
+        "Glitch",
+        "Dip to White",
+        "Burn",
       ],
     );
     const type = definition.parameters.find(
@@ -145,7 +157,7 @@ describe("Transition definition", () => {
         ?.visibleWhen;
     assert.deepEqual(visibility("Direction"), {
       key: "Type",
-      values: ["Swipe", "Push", "Reveal", "Cover", "Wipe"],
+      values: ["Swipe", "Push", "Reveal", "Cover", "Wipe", "Flip", "Cube"],
     });
     assert.deepEqual(visibility("Softness"), {
       key: "Type",
@@ -162,6 +174,7 @@ describe("Transition definition", () => {
       "Barn Door",
       "Clock Wipe",
       "Radial Wipe",
+      "Burn",
     ]);
   });
 

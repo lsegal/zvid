@@ -4,7 +4,6 @@ import {
   createProjectHistoryState,
   projectHistoryReducer,
 } from "./project-history.ts";
-import { MAX_LAYERS } from "./selection-overlaps.ts";
 import {
   type DropClip,
   dropClipOnFreeLane,
@@ -52,12 +51,12 @@ describe("pickDropLane", () => {
     assert.equal(pickDropLane([], [], 0, 4, BPM), "new");
   });
 
-  it("reports full when every lane overlaps at the layer limit", () => {
-    const lanes = lanesUpTo(MAX_LAYERS);
+  it("picks a new layer past nine layers", () => {
+    const lanes = lanesUpTo(9);
     const clips = lanes.map((item) => clip(`c${item.id}`, item.id, 0, 8));
 
-    assert.equal(pickDropLane(lanes, clips, 2, 4, BPM), "full");
-    assert.equal(pickDropLane(lanes, clips, 8, 12, BPM), `${MAX_LAYERS}`);
+    assert.equal(pickDropLane(lanes, clips, 2, 4, BPM), "new");
+    assert.equal(pickDropLane(lanes, clips, 8, 12, BPM), "9");
   });
 });
 
@@ -76,7 +75,7 @@ describe("dropClipOnFreeLane", () => {
           BPM,
           () => lane(`${current.lanes.length + 1}`),
         );
-        return result ? { lanes: result.lanes, clips: result.clips } : current;
+        return { lanes: result.lanes, clips: result.clips };
       },
     });
     return history;
@@ -123,21 +122,15 @@ describe("dropClipOnFreeLane", () => {
     assert.equal(result.clip.laneId, "3");
   });
 
-  it("adds nothing at the layer limit", () => {
-    const lanes = lanesUpTo(MAX_LAYERS);
+  it("adds a 10th layer when all nine overlap", () => {
+    const lanes = lanesUpTo(9);
     const clips = lanes.map((item) => clip(`c${item.id}`, item.id, 0, 8));
-
-    assert.equal(
-      dropClipOnFreeLane(lanes, clips, clip("new", "", 2, 6), BPM, () =>
-        assert.fail("no lane should be created"),
-      ),
-      null,
-    );
-
     const state: State = { lanes, clips };
     const history = dropIntoHistory(state, clip("new", "", 2, 6));
-    assert.equal(history.present, state);
-    assert.equal(history.past.length, 0);
+
+    assert.deepEqual(history.present.lanes, lanesUpTo(10));
+    assert.equal(history.present.clips.at(-1)?.laneId, "10");
+    assert.equal(history.past.length, 1);
   });
 
   it("undoes the clip and the layer it created in one step", () => {

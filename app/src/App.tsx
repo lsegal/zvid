@@ -11,7 +11,10 @@ import { AppStatusBar } from "./components/AppStatusBar";
 import { ArrangementEmptyState } from "./components/ArrangementEmptyState";
 import { CollaborationCursors } from "./components/CollaborationCursors";
 import { FxPanel } from "./components/FxPanel";
-import { FxModulationClockContext } from "./components/fx/modulation-clock";
+import {
+  FxAnimationTimelineContext,
+  FxModulationClockContext,
+} from "./components/fx/modulation-clock";
 import { ImportNotice } from "./components/ImportNotice";
 import { MediaDrawer } from "./components/media/MediaDrawer";
 import { SessionLibraryDialogs } from "./components/media/SessionsTab";
@@ -389,6 +392,29 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     }),
     [playheadSignal, bpm, timeline.signature, isPlaying],
   );
+  const { fxLaneId, fxClipId } = fxPanel;
+  const { projectDurationFrames } = project;
+  const animationTimeline = useMemo(
+    () => ({
+      fps,
+      clips: timelineClips,
+      lanePriority,
+      laneId: fxLaneId,
+      clipId: fxClipId,
+      sessionEndSeconds:
+        projectDurationFrames && fps > 0
+          ? projectDurationFrames / fps
+          : undefined,
+    }),
+    [
+      fps,
+      timelineClips,
+      lanePriority,
+      fxLaneId,
+      fxClipId,
+      projectDurationFrames,
+    ],
+  );
 
   return (
     <div
@@ -501,7 +527,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 <ArrangementLanes
                   arrangementLanesRef={arrangementLanesRef}
                   lanes={lanes}
-                  canCreateLayer={editing.canCreateLayer}
                   readOnly={store.isWorkspaceReadOnly}
                   onCreateLayer={editing.handleCreateLayer}
                   fxLaneId={fxPanel.fxLaneId}
@@ -533,6 +558,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     focusLaneLabel: selection.focusLaneLabel,
                     commitLayerRename: editing.commitLayerRename,
                     setLayerFxEnabled: fxEditing.setLayerFxEnabled,
+                    setLayerHidden: fxEditing.setLayerHidden,
                   }}
                   row={{
                     openLaneMenu: editing.openLaneMenu,
@@ -607,6 +633,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     commitRename: editing.commitSourceTrackRename,
                     cancelRename: editing.cancelSourceTrackRename,
                     setFxEnabled: fxEditing.setSourceTrackFxEnabled,
+                    setHidden: fxEditing.setSourceTrackHidden,
                   }}
                   openLaneMenu={editing.openSourceLaneMenu}
                   span={{
@@ -677,12 +704,14 @@ function App({ boot }: { boot: WorkspaceBoot }) {
           </section>
 
           <FxModulationClockContext.Provider value={modulationClock}>
-            <FxPanel
-              {...fxEditing}
-              {...fxPanel}
-              {...layout}
-              sourceClip={sourceClip}
-            />
+            <FxAnimationTimelineContext.Provider value={animationTimeline}>
+              <FxPanel
+                {...fxEditing}
+                {...fxPanel}
+                {...layout}
+                sourceClip={sourceClip}
+              />
+            </FxAnimationTimelineContext.Provider>
           </FxModulationClockContext.Provider>
         </div>
       </main>

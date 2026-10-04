@@ -237,6 +237,30 @@ describe("buildStandaloneProject", () => {
     );
     assert.equal(project.sourceTracks[1].name, "b");
   });
+
+  it("makes no clips of images, which only feed effects", () => {
+    const project = buildStandaloneProject([
+      media({
+        id: "logo",
+        name: "logo.svg",
+        kind: "image",
+        hasAudio: false,
+        hasVideo: false,
+        width: 64,
+        height: 64,
+      }),
+      media({ id: "b", name: "b.mov", width: 640, height: 360 }),
+    ]);
+    assert.deepEqual(
+      project.sourceTracks.map((track) => track.name),
+      ["b"],
+    );
+    assert.deepEqual(
+      project.arrangementClips.map((clip) => clip.mediaId),
+      ["b"],
+    );
+    assert.equal(project.canvasWidth, 640);
+  });
 });
 
 describe("a start-trimmed warped source clip", () => {
@@ -644,6 +668,53 @@ describe("source track FX switch", () => {
       [
         ["t1", false],
         ["t2", undefined],
+      ],
+    );
+  });
+});
+
+describe("Hide switches", () => {
+  const session: LvpSession = {
+    mainTracks: [
+      { id: "main-1", name: "Layer 1", hidden: true },
+      { id: "main-2", name: "Layer 2" },
+    ],
+    tracks: [
+      { id: "t1", name: "Cam A" },
+      { id: "t2", name: "Cam B", hidden: true },
+    ],
+    timeline: { bpm: 120, fps: 30 },
+  };
+
+  it("survives a save and reopen", () => {
+    const project = sessionToProject(session, []);
+    const saved = projectToLvpSession(
+      {
+        ...INITIAL_PROJECT_STATE,
+        ...project,
+        clips: project.arrangementClips,
+        timelineMode: "musical",
+        snapEnabled: true,
+        mediaItems: [],
+      },
+      { playheadQ: 0 },
+    );
+    const reopened = sessionToProject(
+      JSON.parse(JSON.stringify(saved)) as LvpSession,
+      [],
+    );
+    assert.deepEqual(
+      reopened.lanes.map((lane) => [lane.id, lane.hidden]),
+      [
+        ["main-1", true],
+        ["main-2", undefined],
+      ],
+    );
+    assert.deepEqual(
+      reopened.sourceTracks.map((track) => [track.id, track.hidden]),
+      [
+        ["t1", undefined],
+        ["t2", true],
       ],
     );
   });

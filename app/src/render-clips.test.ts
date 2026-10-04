@@ -135,6 +135,49 @@ function priorityOf(lanes: Lane[]) {
 }
 
 describe("resolveRenderClips", () => {
+  it("marks a hidden layer's clips hidden, keeping them for its masks", () => {
+    const fill: ArrangementClip = {
+      ...LAYER_CLIP,
+      id: "fill-1",
+      kind: "fill",
+      laneId: "2",
+    };
+    const render = resolveRenderClips({
+      clips: [LAYER_CLIP, fill],
+      lanes: [
+        ...LANES,
+        { id: "2", name: "Layer 2", colorIndex: 1, hidden: true },
+      ],
+      sourceTracks: TRACKS,
+      sourceSpans: SPANS,
+      bpm: BPM,
+      effects: [],
+    });
+    assert.deepEqual(
+      render.clips.map((clip) => [clip.id, clip.hidden]),
+      [
+        ["selection-1", undefined],
+        ["fill-1", true],
+      ],
+    );
+  });
+
+  it("draws no media clip showing a hidden source track, but keeps others", () => {
+    const fill: ArrangementClip = { ...LAYER_CLIP, id: "fill-1", kind: "fill" };
+    const render = resolveRenderClips({
+      clips: [LAYER_CLIP, fill],
+      lanes: LANES,
+      sourceTracks: [track("b", 3), { ...track("a", 5), hidden: true }],
+      sourceSpans: SPANS,
+      bpm: BPM,
+      effects: [],
+    });
+    assert.deepEqual(
+      render.clips.map((clip) => clip.id),
+      ["fill-1"],
+    );
+  });
+
   it("renders the layer clips once there is any, with no source track layers", () => {
     const clips = [LAYER_CLIP];
     const effects = [
@@ -179,6 +222,24 @@ describe("resolveRenderClips", () => {
       ],
     );
     assert.ok(render.lanes.every((lane) => lane.fxEnabled === undefined));
+  });
+
+  it("leaves a hidden source track's spans out", () => {
+    const render = fallback(SPANS, [
+      { ...track("b", 3), hidden: true },
+      track("a", 5),
+    ]);
+    assert.deepEqual(
+      render.clips.map((clip) => clip.sourceSpanId),
+      ["a-1"],
+    );
+    assert.deepEqual(
+      fallback(SPANS, [
+        { ...track("b", 3), hidden: true },
+        { ...track("a", 5), hidden: true },
+      ]).clips,
+      [],
+    );
   });
 
   it("carries a source track's FX switch onto its layer", () => {

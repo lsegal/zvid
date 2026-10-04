@@ -152,6 +152,72 @@ test("the Animation section attaches, switches modes and folds", async ({
 
 // LFO mode moves the selected knobs on its own, at a Rate that follows the
 // session tempo while Sync is on, or runs free in Hz.
+test("the Animation title shows a live trace in every mode", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await addLayerEffect(page, /^Pixelate/);
+
+  const section = page.locator('section[aria-label="Pixelate animation"]');
+  const title = section.locator("header.fx-animation-panel__title");
+  const graph = title.locator(".fx-animation-graph");
+  const mode = section.getByRole("group", { name: "Mode" });
+
+  for (const name of ["Clip", "Reactive", "LFO"]) {
+    await mode.getByRole("button", { name }).click();
+    // A decorative trace the size of Modulation's, between the title and
+    // the collapse button.
+    await expect(graph).toBeVisible();
+    await expect(graph).toHaveAttribute("aria-hidden", "true");
+    const box = await graph.boundingBox();
+    expect(box && [box.width, box.height]).toEqual([56, 16]);
+    const titleName = await title
+      .locator(".fx-animation-panel__name")
+      .boundingBox();
+    const collapse = await title
+      .getByRole("button", { name: "Collapse Pixelate animation" })
+      .boundingBox();
+    expect(
+      box &&
+        titleName &&
+        collapse &&
+        box.x >= titleName.x + titleName.width &&
+        box.x + box.width <= collapse.x,
+    ).toBe(true);
+  }
+
+  // LFO draws its waveform: the trace leaves the midline.
+  await expect
+    .poll(() =>
+      graph.locator("canvas").evaluate((canvas: HTMLCanvasElement) => {
+        const context = canvas.getContext("2d");
+        const { data } = context?.getImageData(
+          0,
+          0,
+          canvas.width,
+          canvas.height,
+        ) ?? { data: [] };
+        const rows = new Set<number>();
+        for (let index = 3; index < data.length; index += 4) {
+          if (data[index] > 128) {
+            rows.add(Math.floor((index - 3) / 4 / canvas.width));
+          }
+        }
+        return rows.size;
+      }),
+    )
+    .toBeGreaterThan(4);
+
+  // The strip has no trace.
+  await title
+    .getByRole("button", { name: "Collapse Pixelate animation" })
+    .click();
+  await expect(
+    section.getByRole("button", { name: "Expand Pixelate animation" }),
+  ).toBeVisible();
+  await expect(section.locator(".fx-animation-graph")).toHaveCount(0);
+});
+
 test("LFO mode shows its Shape, Rate, Sync, Depth, Phase and Parameters", async ({
   page,
 }) => {

@@ -50,6 +50,8 @@ import {
 import { getGroupClipProgress } from "./composition-progress.ts";
 import type { CompositionRendererState } from "./composition-renderer-state.ts";
 import { findTransitionClips } from "./composition-transition.ts";
+import { loadFrameAssets, subscribeFrameAssets } from "./frame-assets.ts";
+import { recordHeardOnsets } from "./fx-animation-onsets.ts";
 import {
   LiveAudioBands,
   type MasterMeterTap,
@@ -67,7 +69,6 @@ import {
   mediaWindowAt,
 } from "./media-window.ts";
 import type { PlayheadSignal } from "./playhead-signal";
-import { loadTextFaces, subscribeFonts } from "./text-fonts.ts";
 import type { MeterSignature } from "./timeline-format.ts";
 import { usePausedPlayheadFollow } from "./use-paused-playhead-follow.ts";
 
@@ -192,7 +193,7 @@ export class CompositionRenderer {
       state.clips,
       this.renderedEffects,
     );
-    this.mixer?.update(this.audioMix(), state.mediaItems);
+    this.mixer?.update(state.audioMix ?? SILENT_AUDIO_MIX, state.mediaItems);
     this.syncMediaWindow(this.windowPlayheadQ);
   }
 
@@ -228,7 +229,7 @@ export class CompositionRenderer {
     playing = true,
     playback?: CompositionPlaybackState,
   ) {
-    const audio = this.sampleLiveAudioBands();
+    const audio = this.sampleLiveAudioBands(playing ? playheadQ : undefined);
     // The mixer syncs first, so clips it plays from video elements draw
     // from them.
     if (playback) {
@@ -285,8 +286,8 @@ export class CompositionRenderer {
       await Promise.all(pendingSeeks.values());
     }
 
-    // Exported frames never draw text in a fallback font.
-    await loadTextFaces(nextActiveClips.map((entry) => entry.text));
+    // Exact frames wait for their text fonts and Custom shape SVGs.
+    await loadFrameAssets(nextActiveClips, this.state.effects);
 
     this.activeClips = nextActiveClips;
     this.draw(nextActiveClips, playheadQ, pixelRatio, {
@@ -406,17 +407,15 @@ export class CompositionRenderer {
     return getGroupClipProgress(this.state.clips, playheadQ, this.state.bpm);
   }
 
-  private audioMix() {
-    return this.state.audioMix ?? SILENT_AUDIO_MIX;
-  }
-
-  // The mix is measured only while some effect reacts to it.
-  private sampleLiveAudioBands() {
+  // The mix is measured only while some effect reacts to it. Its hits are
+  // recorded for the Animation graph while playing at `heardAtQ`.
+  private sampleLiveAudioBands(heardAtQ?: number) {
     const analyser = liveBandsAnalyser(
       this.renderedEffects.effects,
       this.mixer?.analyser ?? null,
     );
-    return this.liveAudioBands.sample(analyser, performance.now());
+    const bands = this.liveAudioBands.sample(analyser, performance.now());
+    return recordHeardOnsets(bands, heardAtQ, this.state.bpm);
   }
 
   private async sampleAudioBandsAt(playheadSeconds: number) {
@@ -424,7 +423,7 @@ export class CompositionRenderer {
       return this.sampleLiveAudioBands();
     }
 
-    const mix = this.audioMix();
+    const mix = this.state.audioMix ?? SILENT_AUDIO_MIX;
     if (!this.renderedEffects.effects.some(effectUsesAudio)) {
       return SILENT_AUDIO_BANDS;
     }
@@ -775,8 +774,8 @@ export const CompositionPlayer = forwardRef<
     return rendererRef.current?.addVideoFrameReadyListeners(scheduleDraw);
   }, [scheduleDraw]);
 
-  // Text waits for its font, so a paused preview redraws once it loads.
-  useEffect(() => subscribeFonts(redrawIfPaused), [redrawIfPaused]);
+  // A paused preview redraws once a text font or Custom shape SVG loads.
+  useEffect(() => subscribeFrameAssets(redrawIfPaused), [redrawIfPaused]);
 
   // The playback loop syncs every frame while playing.
   useEffect(() => {

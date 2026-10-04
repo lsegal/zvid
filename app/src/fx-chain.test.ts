@@ -6,6 +6,8 @@ import {
   canStartFxChainPan,
   describeArrangedLayers,
   describeDeviceMove,
+  describeMaskTarget,
+  deviceLayerOptions,
   dropSlotToStackIndex,
   excludeAllLayers,
   FX_COLLAPSED_STORAGE_KEY,
@@ -332,6 +334,7 @@ describe("addableEffectsFor", () => {
         "Refraction",
         "DigitalGlitch",
         "Bloom",
+        "GaussianBlur",
         "Order",
       ]),
     );
@@ -356,9 +359,11 @@ describe("addableEffectsFor", () => {
         "Refraction",
         "DigitalGlitch",
         "Bloom",
+        "GaussianBlur",
         "Transform",
         "Shape",
         "Move",
+        "Mask",
         "Color",
       ]),
     );
@@ -808,6 +813,46 @@ describe("canStartFxChainPan", () => {
 
   it("ignores the secondary button so context menus still open", () => {
     assert.equal(canStartFxChainPan({ button: 2, target: target() }), false);
+  });
+});
+
+describe("Mask Target menu", () => {
+  const layers = [1, 2, 3].map((number) => ({
+    id: `${number}`,
+    number,
+    name: `Layer ${number}`,
+  }));
+  const fxClipLayers = layers.slice(2);
+  const ids = (options: readonly { id: string }[]) =>
+    options.map((option) => option.id);
+
+  it("labels the button with the Target layer's name", () => {
+    assert.equal(describeMaskTarget("2", layers), "Target: Layer 2");
+    assert.equal(describeMaskTarget("", layers), "Target: None");
+    // A deleted layer, or one the menu doesn't offer, is no Target.
+    assert.equal(describeMaskTarget("9", layers), "Target: None");
+  });
+
+  it("offers every layer but the selected one on a layer or a layer clip", () => {
+    assert.deepEqual(
+      ids(deviceLayerOptions("layer", "clip", layers, fxClipLayers, "2")),
+      ["1", "3"],
+    );
+    assert.deepEqual(
+      ids(deviceLayerOptions("clip", "clip", layers, fxClipLayers, "1")),
+      ["2", "3"],
+    );
+  });
+
+  it("keeps the Order menus' layers on the Global stack and FX clips", () => {
+    assert.deepEqual(
+      ids(deviceLayerOptions("global", "clip", layers, fxClipLayers, "2")),
+      ["1", "2", "3"],
+    );
+    assert.deepEqual(
+      ids(deviceLayerOptions("clip", "fxClip", layers, fxClipLayers, "1")),
+      ["3"],
+    );
   });
 });
 

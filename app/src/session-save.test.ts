@@ -405,6 +405,40 @@ describe("projectToLvpSession", () => {
     assert.equal("fxEnabled" in (session.tracks?.[1] ?? {}), false);
   });
 
+  it("saves the Hide switches, writing only hidden tracks", () => {
+    const project = baseProject();
+    const session = projectToLvpSession(
+      {
+        ...project,
+        lanes: [
+          { id: "main-1", name: "Layer 1", colorIndex: 2, hidden: true },
+          { id: "main-2", name: "Layer 2", colorIndex: 3, hidden: false },
+        ],
+        sourceTracks: [
+          {
+            id: "s1",
+            name: "Camera A",
+            colorIndex: 0,
+            recordingPaths: [],
+            hidden: true,
+          },
+          { id: "s2", name: "Camera B", colorIndex: 1, recordingPaths: [] },
+        ],
+      },
+      { playheadQ: 0 },
+    );
+    assert.deepEqual(
+      session.mainTracks?.map((track) => track.hidden),
+      [true, undefined],
+    );
+    assert.equal("hidden" in (session.mainTracks?.[1] ?? {}), false);
+    assert.deepEqual(
+      session.tracks?.map((track) => track.hidden),
+      [true, undefined],
+    );
+    assert.equal("hidden" in (session.tracks?.[1] ?? {}), false);
+  });
+
   it("round-trips effect animation settings", () => {
     const animation: EffectAnimation = {
       enabled: true,
