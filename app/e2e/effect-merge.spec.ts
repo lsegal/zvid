@@ -54,7 +54,14 @@ async function compare(page: Page, effects: Effect[]) {
       context.fillRect(0, 0, width, height);
       const texture = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D, texture);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, paint);
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        paint,
+      );
       for (const name of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER]) {
         gl.texParameteri(gl.TEXTURE_2D, name, gl.LINEAR);
       }

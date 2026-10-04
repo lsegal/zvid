@@ -303,10 +303,7 @@ export class EffectChainRenderer {
     while (start < steps.length) {
       let end = start + 1;
       if (canMergePass(steps[start].compiled.pass)) {
-        while (
-          end < steps.length &&
-          isPerPixelPass(steps[end].compiled.pass)
-        ) {
+        while (end < steps.length && isPerPixelPass(steps[end].compiled.pass)) {
           end++;
         }
       }
