@@ -1,10 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { resolveVisualState } from "./composition-active-clips.ts";
-import { resolveSlotBounds } from "./composition-layout.ts";
 import { parseCompositionOrder, SPACING_MAX } from "./composition-order.ts";
 import {
-  applyClipAnimationWeight,
   resolveClipAnimatedParameters,
   resolveOrderSlide,
 } from "./fx-animation-clip.ts";
@@ -13,6 +11,7 @@ import {
   createDefaultAnimation,
   type EffectAnimation,
   getClipTimingFrames,
+  getClipTimings,
   normalizeEffectAnimation,
 } from "./fx-animation-defaults.ts";
 import { getEffectDefinition } from "./fx-registry.ts";
@@ -35,144 +34,72 @@ function fullAnimation(effectName: string): EffectAnimation {
   };
 }
 
-// The Order with `spacing` and Full timing is drawn as, `elapsed` seconds
-// into a clip of `duration`.
-function orderAt(
-  spacing: number,
-  elapsed: number,
-  duration: number,
-  margin = 0,
-) {
-  const parameters = resolveClipAnimatedParameters(
+// Transform's ScaleX with Full timing, `elapsed` seconds into a clip of
+// `duration`, when it is set to `scale`.
+function scaleAt(scale: number, elapsed: number, duration: number) {
+  const [parameter] = resolveClipAnimatedParameters(
     {
-      effectName: "Order",
+      effectName: "Transform",
       parameters: [
-        { key: "Arrangement", value: "Horizontal" },
-        { key: "Spacing", value: String(spacing), numericValue: spacing },
-        { key: "Margin", value: String(margin), numericValue: margin },
+        { key: "ScaleX", value: String(scale), numericValue: scale },
       ],
-      animation: fullAnimation("Order"),
+      animation: fullAnimation("Transform"),
     },
     {
-      clipId: "fx",
-      laneId: "order",
+      clipId: "clip",
+      laneId: "layer",
       progress: elapsed / duration,
       elapsedSeconds: elapsed,
       durationSeconds: duration,
     },
     { playheadQ: 0, bpm: 120, fps: FPS },
   );
-  return parseCompositionOrder(parameters);
-}
-
-function spacingAt(spacing: number, elapsed: number, duration: number) {
-  return orderAt(spacing, elapsed, duration).spacing;
+  return parameter.numericValue ?? Number.NaN;
 }
 
 describe("Full clip timing", () => {
   it("is offered in Clip mode after the fixed timings", () => {
     assert.deepEqual(CLIP_TIMINGS, ["Slow", "Normal", "Fast", "Full"]);
+    assert.deepEqual(getClipTimings("Transform"), CLIP_TIMINGS);
   });
 
   it("stretches each side to half the clip", () => {
     assert.equal(
-      getClipTimingFrames("Order", "Full"),
+      getClipTimingFrames("Transform", "Full"),
       Number.POSITIVE_INFINITY,
     );
     assert.equal(getClipTimingFrames("Layout", "Full"), undefined);
   });
 
-  it("opens and closes an Order's margin with its gaps", () => {
-    // The left edge of the first of two columns on a 1080p canvas.
-    const marginAt = (elapsed: number) => {
-      const order = orderAt(10, elapsed, 3, 108);
-      const slot = resolveSlotBounds(0, 2, order, 1920, 1080);
-      return ((slot.centerX - slot.halfWidth + 1) / 2) * 1920;
-    };
-    assertClose(marginAt(0), 0);
-    assertClose(marginAt(0.75), 54);
-    assertClose(marginAt(1.5), 108);
-    assertClose(marginAt(3), 0);
-
-    // The fixed timings tween it the same way.
-    const halfway = parseCompositionOrder(
-      applyClipAnimationWeight(
-        {
-          effectName: "Order",
-          parameters: [
-            { key: "Spacing", value: "10", numericValue: 10 },
-            { key: "Margin", value: "108", numericValue: 108 },
-          ],
-        },
-        0.5,
-      ),
-    );
-    assertClose(halfway.margin ?? 0, 54);
-    assertClose(halfway.spacing, 5);
-
-    // An unmigrated Order with its toggle On tweens its spacing inset too.
-    const legacy = parseCompositionOrder(
-      applyClipAnimationWeight(
-        {
-          effectName: "Order",
-          parameters: [
-            { key: "Spacing", value: "108", numericValue: 108 },
-            { key: "OuterMargin", value: "On" },
-          ],
-        },
-        0.5,
-      ),
-    );
-    assertClose(legacy.margin ?? 0, 54);
-  });
-
-  it("eases Order spacing open until the middle of the clip and closed by its end", () => {
-    assert.equal(spacingAt(108, 0, 3), 0);
-    assertClose(spacingAt(108, 0.75, 3), 54);
-    assertClose(spacingAt(108, 1.5, 3), 108);
-    assertClose(spacingAt(108, 2.25, 3), 54);
-    assertClose(spacingAt(108, 3, 3), 0);
+  it("eases an effect in until the middle of the clip and out by its end", () => {
+    assert.equal(scaleAt(3, 0, 3), 1);
+    assertClose(scaleAt(3, 0.75, 3), 2);
+    assertClose(scaleAt(3, 1.5, 3), 3);
+    assertClose(scaleAt(3, 2.25, 3), 2);
+    assertClose(scaleAt(3, 3, 3), 1);
     // Eased: slow at the start, so a quarter of the way in is below half.
-    assert.ok(spacingAt(108, 0.375, 3) < 27);
-  });
-
-  it("keeps the Order's border color while the spacing tweens", () => {
-    const parameters = resolveClipAnimatedParameters(
-      {
-        effectName: "Order",
-        parameters: [
-          { key: "Spacing", value: "108", numericValue: 108 },
-          { key: "BorderColor", value: "rgba(243,226,191,1)" },
-        ],
-        animation: fullAnimation("Order"),
-      },
-      {
-        clipId: "fx",
-        laneId: "order",
-        progress: 0.1,
-        elapsedSeconds: 0.3,
-        durationSeconds: 3,
-      },
-      { playheadQ: 0, bpm: 120, fps: FPS },
-    );
-    const order = parseCompositionOrder(parameters);
-    assert.ok(order.spacing > 0 && order.spacing < 108);
-    assert.deepEqual(order.borderColor, { r: 243, g: 226, b: 191, a: 1 });
+    assert.ok(scaleAt(3, 0.375, 3) < 1.5);
   });
 
   it("follows the clip's length", () => {
-    assertClose(spacingAt(80, 0.75, 1.5), 80);
-    assertClose(spacingAt(80, 0.375, 1.5), 40);
-  });
-
-  it("snaps the Order's layers into their slots instead of sliding them", () => {
-    assert.equal(resolveOrderSlide(fullAnimation("Order"), FPS), undefined);
-    assert.ok(resolveOrderSlide(createDefaultAnimation("Order"), FPS));
+    assertClose(scaleAt(3, 0.75, 1.5), 3);
+    assertClose(scaleAt(3, 0.375, 1.5), 2);
   });
 
   it("is kept when a saved animation is read back", () => {
+    const saved = JSON.parse(JSON.stringify(fullAnimation("Transform")));
+    assert.equal(
+      normalizeEffectAnimation(saved, "Transform")?.clip.timing,
+      "Full",
+    );
+  });
+
+  it("isn't offered on an Order, which doesn't animate itself", () => {
+    assert.deepEqual(getClipTimings("Order"), ["Slow", "Normal", "Fast"]);
     const saved = JSON.parse(JSON.stringify(fullAnimation("Order")));
-    assert.equal(normalizeEffectAnimation(saved, "Order")?.clip.timing, "Full");
+    const read = normalizeEffectAnimation(saved, "Order");
+    assert.equal(read?.clip.timing, "Normal");
+    assert.ok(resolveOrderSlide(read, FPS));
   });
 });
 
@@ -189,13 +116,6 @@ describe("Order spacing range", () => {
       ]).spacing,
       200,
     );
-  });
-
-  it("tweens across the whole range", () => {
-    assert.equal(spacingAt(200, 0, 3), 0);
-    assertClose(spacingAt(200, 0.75, 3), 100);
-    assertClose(spacingAt(200, 1.5, 3), 200);
-    assertClose(spacingAt(200, 3, 3), 0);
   });
 });
 

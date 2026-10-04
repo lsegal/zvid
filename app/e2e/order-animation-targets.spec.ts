@@ -63,13 +63,7 @@ test("renders an Order Squish identically with bucketed render targets", async (
       arrangement: "horizontal",
       gridSize: 2,
       spacing: 6,
-      slide: {
-        motionIn: "Ease Out",
-        motionOut: "Ease In",
-        frames,
-        fps: 30,
-        transition: "Squish",
-      },
+      slide: { frames, fps: 30, transition: "Squish" },
     };
     const effect = (
       trackId: string,
@@ -264,4 +258,119 @@ test("renders an Order Squish identically with bucketed render targets", async (
   );
   // A handful of bucketed targets, rather than new ones every frame.
   expect(result.targetsAllocated).toBeLessThan(30);
+});
+
+// Push takes a clip in from the side of the arrangement its slot is on:
+// one entering the first column slides in from the left edge, and one
+// entering between others fades in in its slot while they make room. Drawn
+// in real WebGL, so the fade's opacity reaches the composite shader.
+test("pushes a Horizontal Order's clips in by where they enter", async ({
+  page,
+}) => {
+  await page.goto("/composition-smoke.html");
+  const result = await page.evaluate(async () => {
+    const drawPath = "/src/composition-draw.ts";
+    const audioPath = "/src/fx-shaders/audio-bands.ts";
+    const { createWebGlResources, disposeWebGlResources, drawComposition } =
+      await import(/* @vite-ignore */ drawPath);
+    const { SILENT_AUDIO_BANDS } = await import(/* @vite-ignore */ audioPath);
+
+    const width = 300;
+    const height = 100;
+    const frames = 10;
+    const order = {
+      arrangement: "horizontal",
+      gridSize: 2,
+      spacing: 0,
+      slide: { frames, fps: 30, transition: "Push" },
+    };
+    const colors = [
+      { r: 255, g: 0, b: 0, a: 1 },
+      { r: 0, g: 255, b: 0, a: 1 },
+      { r: 0, g: 0, b: 255, a: 1 },
+    ];
+    // Three solid layers of 4 s clips, `moving` entering `frame` frames in
+    // and the others halfway through theirs.
+    const layers = (moving: number, frame: number) =>
+      colors.map((color, lane) => ({
+        clip: { startQ: 0, durationSeconds: 4, laneId: `${lane + 1}` },
+        media: { id: `fill:clip-${lane}` },
+        sourceKey: `fill:clip-${lane}`,
+        isInBounds: true,
+        laneRank: lane + 1,
+        clipProgress: lane === moving ? frame / 30 / 4 : 0.5,
+        visual: {
+          opacity: 1,
+          scale: 1,
+          translateX: 0,
+          translateY: 0,
+          rotationDeg: 0,
+          brightness: 0,
+          contrast: 1,
+          saturation: 1,
+          layoutAnchor: "center",
+        },
+        effectChain: [],
+        fill: { kind: "solid", color, opacity: 1 },
+      }));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const gl = canvas.getContext("webgl", {
+      alpha: true,
+      premultipliedAlpha: false,
+    });
+    if (!gl) throw new Error("WebGL is unavailable.");
+    const resources = createWebGlResources(gl);
+    // The color at `x`, halfway down, of the frame drawn with `moving`
+    // `frame` frames into its entry.
+    const sample = (moving: number, frame: number, x: number) => {
+      drawComposition(
+        resources,
+        { width, height },
+        layers(moving, frame),
+        new Map(),
+        [],
+        { time: frame / 30, audio: SILENT_AUDIO_BANDS, groupClipProgress: 0.5 },
+        order,
+      );
+      const pixel = new Uint8Array(4);
+      gl.readPixels(x, height / 2, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+      return [...pixel];
+    };
+    try {
+      return {
+        // The middle column's center, as the green clip enters it.
+        middle: Array.from({ length: frames + 1 }, (_, frame) =>
+          sample(1, frame, width / 2),
+        ),
+        // Just inside the left edge, as the red clip enters the first
+        // column, and halfway through the columns' share it ends with.
+        first: [2, 5, frames].map((frame) => sample(0, frame, 1)),
+      };
+    } finally {
+      disposeWebGlResources(resources);
+    }
+  });
+
+  // The green clip fades in from nothing to fully opaque, never sliding:
+  // the middle of its slot grows ever greener.
+  const greens = result.middle.map(([, green]) => green);
+  expect(greens[0]).toBe(0);
+  expect(greens.at(-1)).toBe(255);
+  for (let frame = 1; frame < greens.length; frame++) {
+    expect(greens[frame]).toBeGreaterThanOrEqual(greens[frame - 1]);
+  }
+  expect(greens[5]).toBeGreaterThan(40);
+  expect(greens[5]).toBeLessThan(215);
+  // Once it is in, its neighbors stay clear of its slot's middle.
+  for (const [red, , blue] of result.middle.slice(2)) {
+    expect(red + blue).toBe(0);
+  }
+  // The red clip comes in from the left edge, so it covers the left edge
+  // from its first frame in.
+  for (const [red, green, blue] of result.first) {
+    expect([red, green, blue]).toEqual([255, 0, 0]);
+  }
 });

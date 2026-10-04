@@ -133,8 +133,16 @@ test("FX Animation motion dropdowns are themed and commit a value", async ({
   page,
 }) => {
   await page.goto("/");
-  await page.locator('[data-layer-header-id="1"]').click();
-  const section = page.locator('section[aria-label="Order animation"]');
+  // Order has no Motion In or Out, so add a device that does.
+  const layerHeader = page.locator('[data-layer-header-id="6"]');
+  await expect(layerHeader).toBeVisible();
+  await layerHeader.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Add FX", exact: true }).hover();
+  await page
+    .getByRole("menu", { name: "Add FX" })
+    .getByRole("menuitem", { name: /^Pixelate/ })
+    .click();
+  const section = page.locator('section[aria-label="Pixelate animation"]');
   await expect(section).toBeVisible();
 
   const motionIn = section.getByRole("combobox", { name: "Motion In" });

@@ -248,23 +248,14 @@ describe("applyClipAnimationWeight", () => {
     ]);
   });
 
-  it("gives Order the generic spacing tween", () => {
+  it("leaves an Order's knobs alone", () => {
+    const parameters = [
+      { key: "Arrangement", value: "Grid" },
+      parameter("Spacing", 0.1),
+    ];
     assert.deepEqual(
-      applyClipAnimationWeight(
-        {
-          effectName: "Order",
-          parameters: [
-            { key: "Arrangement", value: "Grid" },
-            parameter("Spacing", 0.1),
-          ],
-        },
-        0.5,
-      ),
-      [
-        { key: "Arrangement", value: "Grid" },
-        parameter("Spacing", 0.05),
-        parameter("Margin", 0),
-      ],
+      applyClipAnimationWeight({ effectName: "Order", parameters }, 0.5),
+      parameters,
     );
   });
 

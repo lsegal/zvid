@@ -200,7 +200,11 @@ export function resolveClipAnimatedParameters(
   const clip = effect.animation?.clip;
   const frames = clip && getClipTimingFrames(effect.effectName, clip.timing);
   // An Order's knobs never tween: its Clip mode moves the clips beneath it.
-  if (!clip || frames === undefined || effect.effectName === ORDER_EFFECT_NAME) {
+  if (
+    !clip ||
+    frames === undefined ||
+    effect.effectName === ORDER_EFFECT_NAME
+  ) {
     return effect.parameters;
   }
 

@@ -341,7 +341,11 @@ describe("Order Clip-mode animation", () => {
           );
           assertRect(
             placed["layer-2"].drawn,
-            lerpRect(span(size / 2, size), span(size / 3, (size * 2) / 3), weight),
+            lerpRect(
+              span(size / 2, size),
+              span(size / 3, (size * 2) / 3),
+              weight,
+            ),
             `Layer 2 at frame ${frame}`,
           );
         }

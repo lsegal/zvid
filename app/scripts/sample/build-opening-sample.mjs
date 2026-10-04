@@ -402,11 +402,20 @@ for (const [start, duration, arrangement] of ARRANGEMENTS) {
       BorderColor: IVORY,
     },
     {
-      animation: animation(
-        "clip",
-        { motionIn: "Ease In Out", motionOut: "Ease In Out", timing: "Full" },
-        { motion: "Bounce", reactivity: 0.3, parameters: ["Spacing"] },
-      ),
+      // An Order eases the clips entering and leaving beneath it itself, so
+      // it has no Motion In or Out.
+      animation: {
+        ...animation(
+          "clip",
+          {},
+          {
+            motion: "Bounce",
+            reactivity: 0.3,
+            parameters: ["Spacing"],
+          },
+        ),
+        clip: { timing: "Normal" },
+      },
     },
   );
 }
