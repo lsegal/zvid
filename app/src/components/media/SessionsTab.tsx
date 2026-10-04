@@ -27,6 +27,7 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { filterMediaItems } from "./media-drawer-model.ts";
+import "./sessions-tab.css";
 
 type SessionsTabProps = {
   library: SessionLibraryState;
@@ -123,6 +124,7 @@ export function SessionsTab({ library, closeButton }: SessionsTabProps) {
               void library.renameEntry(entry.id, name);
             }}
           />
+          <span className="media-row__kind">{clips}</span>
           <span className="media-row__duration">{time}</span>
         </li>
       );
@@ -211,7 +213,10 @@ export function SessionsTab({ library, closeButton }: SessionsTabProps) {
             </div>
           ) : (
             <>
-              <div aria-hidden="true" className="media-row media-row--head">
+              <div
+                aria-hidden="true"
+                className="media-row media-row--head session-row--head"
+              >
                 <span />
                 <span>Name</span>
                 <span>Clips</span>

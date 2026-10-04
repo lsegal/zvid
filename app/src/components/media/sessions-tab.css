@@ -1,0 +1,69 @@
+/* The Media drawer's Sessions tab: the Media tab's list view, one row per
+   Sessions library entry. */
+
+.media-drawer__sessions-header {
+  padding: 10px 10px 6px 14px;
+  margin-right: 0;
+}
+
+.session-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.media-row.session-row,
+.media-row--head.session-row--head {
+  grid-template-columns: var(--media-list-icon-size, 24px) minmax(0, 1fr) 52px 84px;
+}
+
+/* A narrow list drops the Clips column, as Media drops Kind. */
+@container (max-width: 299px) {
+  .media-row.session-row,
+  .media-row--head.session-row--head {
+    grid-template-columns: var(--media-list-icon-size, 24px) minmax(0, 1fr) 84px;
+  }
+}
+
+/* Rows are buttons: a click opens the session. */
+button.session-row {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.session-list > li:nth-child(even) > .session-row:not(.is-current) {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+button.session-row:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+button.session-row:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgba(124, 161, 255, 0.45);
+}
+
+.session-row.is-current {
+  background: rgba(47, 107, 217, 0.28);
+}
+
+.session-row__icon {
+  color: var(--muted);
+}
+
+.media-row__name .session-row__badge {
+  flex: none;
+  overflow: visible;
+  background: rgba(124, 161, 255, 0.2);
+  color: #b8ccff;
+}
+
+.session-row.is-renaming .track-label__rename {
+  min-width: 0;
+}
