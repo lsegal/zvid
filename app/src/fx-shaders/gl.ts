@@ -12,7 +12,16 @@ export const FULLSCREEN_VERTEX_SOURCE = `
   }
 `;
 
-export function compileShader(
+// A program whose shaders were handed to the driver and linked without
+// waiting to hear whether they compiled, so the driver can work on it in the
+// background until `finishProgram` asks.
+export type PendingProgram = {
+  program: WebGLProgram;
+  vertexShader: WebGLShader;
+  fragmentShader: WebGLShader;
+};
+
+function compileShader(
   gl: WebGLRenderingContext,
   type: number,
   source: string,
@@ -24,21 +33,14 @@ export function compileShader(
 
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    const message =
-      gl.getShaderInfoLog(shader) ?? "Unknown WebGL shader compile error.";
-    gl.deleteShader(shader);
-    throw new Error(message);
-  }
-
   return shader;
 }
 
-export function linkProgram(
+export function startProgram(
   gl: WebGLRenderingContext,
   vertexSource: string,
   fragmentSource: string,
-) {
+): PendingProgram {
   const vertexShader = compileShader(gl, gl.VERTEX_SHADER, vertexSource);
   let fragmentShader: WebGLShader;
   try {
@@ -59,16 +61,56 @@ export function linkProgram(
   gl.attachShader(program, fragmentShader);
   gl.bindAttribLocation(program, POSITION_ATTRIBUTE_LOCATION, "aPosition");
   gl.linkProgram(program);
+  return { program, vertexShader, fragmentShader };
+}
+
+// Whether the driver has finished `pending`, so `finishProgram` won't wait
+// on it. Without KHR_parallel_shader_compile there is no way to ask, and
+// this is always false.
+export function isProgramReady(
+  gl: WebGLRenderingContext,
+  parallel: KHR_parallel_shader_compile | null,
+  pending: PendingProgram,
+) {
+  return Boolean(
+    parallel &&
+      gl.getProgramParameter(pending.program, parallel.COMPLETION_STATUS_KHR),
+  );
+}
+
+// Checks how `pending` compiled and linked, waiting for the driver if it
+// hasn't finished. Returns the program, or throws with the driver's log.
+export function finishProgram(
+  gl: WebGLRenderingContext,
+  { program, vertexShader, fragmentShader }: PendingProgram,
+) {
+  const linked = gl.getProgramParameter(program, gl.LINK_STATUS);
+  let message = "";
+  if (!linked) {
+    for (const shader of [vertexShader, fragmentShader]) {
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        message =
+          gl.getShaderInfoLog(shader) ?? "Unknown WebGL shader compile error.";
+        break;
+      }
+    }
+    message ||= gl.getProgramInfoLog(program) ?? "Unknown WebGL link error.";
+  }
 
   gl.deleteShader(vertexShader);
   gl.deleteShader(fragmentShader);
-
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    const message =
-      gl.getProgramInfoLog(program) ?? "Unknown WebGL link error.";
+  if (!linked) {
     gl.deleteProgram(program);
     throw new Error(message);
   }
 
   return program;
+}
+
+export function linkProgram(
+  gl: WebGLRenderingContext,
+  vertexSource: string,
+  fragmentSource: string,
+) {
+  return finishProgram(gl, startProgram(gl, vertexSource, fragmentSource));
 }

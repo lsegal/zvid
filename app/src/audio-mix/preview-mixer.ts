@@ -1,5 +1,6 @@
 // Plays the audio mix in the preview. Each contributing clip plays its own
-// audio element through Web Audio. A mix of Gains alone, every session's
+// media element through Web Audio; a video clip's is the <video> the
+// compositor draws (see preview-player.ts). A mix of Gains alone, every session's
 // before other audio effects, plays through native gains, which reproduce
 // export exactly:
 //
@@ -27,13 +28,8 @@
 // decoded buffer instead (see preview-buffer-voice.ts).
 import type { PreviewVolume } from "../app/preview-volume.ts";
 import { clamp } from "../app/util.ts";
-import {
-  createBandAnalyser,
-  createMeterTap,
-  type MasterMeterTap,
-} from "../fx-shaders/audio-bands.ts";
 import { releaseMediaElement } from "../media-element.ts";
-import { type AudioChainSettings, PARAMETER_RAMP_SECONDS } from "./chain.ts";
+import type { AudioChainSettings } from "./chain.ts";
 import {
   type ChainMessage,
   type ChainReport,
@@ -47,12 +43,13 @@ import {
   audioMixTiming,
   clipMediaTimeAt,
   clipReadSeconds,
-  LIMITER_HEADROOM,
-  limiterCurve,
 } from "./mix.ts";
 import { DecodedClipVoice } from "./preview-buffer-voice.ts";
+import { createMixGraph, type MixGraph, setSmoothly } from "./preview-graph.ts";
 import {
   createPlayer,
+  type DrawnClip,
+  MixVideoClips,
   type Player,
   seekPlayer,
   takeReadyPlayer,
@@ -84,6 +81,8 @@ export type PreviewAudioMixerOptions = {
   // where the browser has no AudioWorklet, the preview plays Gain alone.
   workletUrl?: string;
   registry?: AudioProcessorRegistry;
+  // Called when the mixer makes or releases a <video> (see videoElements).
+  onVideoElementsChange?: () => void;
 };
 
 type Voice = {
@@ -98,14 +97,6 @@ type Voice = {
   // The audio clock time its chain, no longer needed, has faded out and
   // drained, when it is dropped.
   retireAt: number | null;
-};
-
-type MixGraph = {
-  context: AudioContext;
-  master: GainNode;
-  analyser: AnalyserNode;
-  meter: MasterMeterTap;
-  output: GainNode;
 };
 
 // The worklet nodes of a mix that runs its chains.
@@ -140,17 +131,6 @@ const TRANSPORT_DRIFT_SECONDS = 0.02;
 // so its last stage crossfade and Gain ramps finish first.
 const RETIRE_MARGIN_SECONDS = 0.1;
 
-// Sets `param` to `value`, ramping where the browser can so a live edit
-// never clicks.
-function setSmoothly(param: AudioParam, value: number, context: AudioContext) {
-  if (typeof param.setTargetAtTime !== "function") {
-    param.value = value;
-    return;
-  }
-  param.cancelScheduledValues(context.currentTime);
-  param.setTargetAtTime(value, context.currentTime, PARAMETER_RAMP_SECONDS / 3);
-}
-
 export class PreviewAudioMixer {
   private graph: MixGraph | null = null;
   private chains: ChainGraph | null = null;
@@ -160,6 +140,8 @@ export class PreviewAudioMixer {
   // update.
   private needsChains = false;
   private urlById = new Map<string, string>();
+  private readonly videoClips = new MixVideoClips();
+  private readonly onVideoElementsChange: (() => void) | undefined;
   private volume: PreviewVolume = { volume: 1, muted: false };
   private readonly workletUrl: string | undefined;
   private readonly registry: AudioProcessorRegistry;
@@ -176,6 +158,7 @@ export class PreviewAudioMixer {
   constructor(options: PreviewAudioMixerOptions = {}) {
     this.workletUrl = options.workletUrl;
     this.registry = options.registry ?? AUDIO_PROCESSORS;
+    this.onVideoElementsChange = options.onVideoElementsChange;
     this.unwatch = subscribeWatchedTransients(() => {
       this.broadcast({ type: "watch", ids: watchedTransients() });
     });
@@ -183,15 +166,13 @@ export class PreviewAudioMixer {
 
   update(
     mix: AudioMix,
-    mediaItems: readonly { id: string; previewUrl: string }[],
+    mediaItems: readonly { id: string; previewUrl: string; kind?: string }[],
   ) {
     this.mix = mix;
     this.needsChains = this.mixNeedsChains();
-    this.urlById = new Map(
-      mediaItems
-        .filter((item) => item.previewUrl)
-        .map((item) => [item.id, item.previewUrl]),
-    );
+    const playable = mediaItems.filter((item) => item.previewUrl);
+    this.urlById = new Map(playable.map((item) => [item.id, item.previewUrl]));
+    this.videoClips.update(mix.clips, playable);
     // How long the old mix keeps sounding, which a clip chain no longer
     // needed plays out.
     const previousTail = this.timing
@@ -208,6 +189,8 @@ export class PreviewAudioMixer {
       if (
         !clip ||
         this.urlOf(clip) !== voice.url ||
+        (voice.player &&
+          this.videoClips.isVideo(clip) !== voice.player.video) ||
         this.needsDecoded(clip) !== Boolean(voice.decoded)
       ) {
         this.release(clipId);
@@ -244,6 +227,29 @@ export class PreviewAudioMixer {
   // What the transport's VU meter reads, once the mix has played.
   get meterTap() {
     return this.graph?.meter ?? null;
+  }
+
+  // Whether the mix plays `drawn`'s media from a <video> it has made or
+  // will make, which the compositor draws in place of its own.
+  playsVideoOf(drawn: DrawnClip) {
+    return (
+      this.videoElementFor(drawn) !== undefined ||
+      this.videoClips
+        .placedLike(drawn)
+        .some((clip) => clip.amplitude > 0 && !this.needsDecoded(clip))
+    );
+  }
+
+  // The <video> playing `drawn`'s media for the mix, once it is made.
+  videoElementFor(drawn: DrawnClip) {
+    return this.videoClips.elementFor(drawn, (id) => this.voices.get(id));
+  }
+
+  // Every <video> the mixer has made.
+  videoElements() {
+    return [...this.voices.values()].flatMap((voice) =>
+      voice.player?.video ? [voice.player.element as HTMLVideoElement] : [],
+    );
   }
 
   sync(playback: AudioMixPlayback) {
@@ -299,7 +305,10 @@ export class PreviewAudioMixer {
       ) {
         this.dropChain(voice, clip, this.chains, this.graph.context);
       }
-      const at = now + ahead;
+      // A video clip's picture, drawn from its element, leads by as much;
+      // stopped, it shows the playhead's own frame.
+      const video = Boolean(voice.player?.video);
+      const at = now + (shouldPlay || !video ? ahead : 0);
 
       if (voice.decoded) {
         const inside = at >= start && at < end;
@@ -344,10 +353,17 @@ export class PreviewAudioMixer {
       if (element.playbackRate !== rate) {
         element.playbackRate = rate;
       }
+      // A video element stopped on the playhead first moves to the chain
+      // latency's lead, which is inside the drift tolerance.
+      const tolerance = !shouldPlay
+        ? 0
+        : video && element.paused && ahead > 0
+          ? Math.min(driftTolerance, ahead / 2)
+          : driftTolerance;
       this.seek(
         player,
         media.mediaTime,
-        shouldPlay ? driftTolerance : 0,
+        tolerance,
         steady,
         clip.mediaDurationSeconds ?? 0,
       );
@@ -595,26 +611,8 @@ export class PreviewAudioMixer {
     if (this.graph) {
       return this.graph;
     }
-    const context = new AudioContext();
-    const master = context.createGain();
-    master.gain.value = this.mix.masterAmplitude;
-    // The WaveShaper's curve spans −1..1, so the mix is scaled into it and
-    // the curve scales it back (see limiterCurve).
-    const headroom = context.createGain();
-    headroom.gain.value = 1 / LIMITER_HEADROOM;
-    const limiter = context.createWaveShaper();
-    limiter.curve = limiterCurve();
-    const meter = createMeterTap(context);
-    const analyser = createBandAnalyser(context);
-    const output = context.createGain();
-    output.gain.value = this.volume.muted ? 0 : this.volume.volume;
-    master.connect(headroom);
-    headroom.connect(limiter);
-    limiter.connect(meter.input);
-    limiter.connect(analyser);
-    analyser.connect(output);
-    output.connect(context.destination);
-    this.graph = { context, master, analyser, meter: meter.tap, output };
+    this.graph = createMixGraph(this.mix.masterAmplitude, this.volume);
+    const { context } = this.graph;
     this.timing = audioMixTiming(this.mix, context.sampleRate, this.registry);
     this.applyMode();
     return this.graph;
@@ -662,12 +660,16 @@ export class PreviewAudioMixer {
           gain,
         );
       } else {
-        voice.player = createPlayer(context, url, (seconds) => {
+        const video = this.videoClips.isVideo(clip);
+        voice.player = createPlayer(context, url, video, (seconds) => {
           this.seekLatency = seconds;
         });
         voice.player.source.connect(gain);
       }
       this.voices.set(clip.id, voice);
+      if (voice.player?.video) {
+        this.onVideoElementsChange?.();
+      }
       return voice;
     } catch (error) {
       console.warn("The preview cannot play clip audio.", error);
@@ -790,5 +792,8 @@ export class PreviewAudioMixer {
     voice.gain.disconnect();
     voice.chain?.disconnect();
     this.voices.delete(clipId);
+    if (voice.player?.video) {
+      this.onVideoElementsChange?.();
+    }
   }
 }
