@@ -8,6 +8,7 @@ import {
 import type {
   ArrangementClip,
   ClipMenuState,
+  SourceSpan,
   SourceTrack,
   TimelineSelection,
 } from "../app/types.ts";
@@ -20,6 +21,7 @@ export type KeyboardContextMenuInputs = {
   playheadQRef: RefObject<number>;
   quarterPx: number;
   selectedClip: ArrangementClip | undefined;
+  selectedSourceSpan: SourceSpan | undefined;
   selectedSourceTrack: SourceTrack | undefined;
   setClipMenu: Dispatch<SetStateAction<ClipMenuState | null>>;
   setSelectedLaneId: Dispatch<SetStateAction<string | undefined>>;
@@ -34,14 +36,28 @@ export function useKeyboardContextMenu({
   playheadQRef,
   quarterPx,
   selectedClip,
+  selectedSourceSpan,
   selectedSourceTrack,
   setClipMenu,
   setSelectedLaneId,
   timelineScrollRef,
 }: KeyboardContextMenuInputs) {
   // The context-menu key or Shift+F10 with nothing focused opens the menu on
-  // the uncommitted selection, the selected clip, the selected source track,
-  // or the selected layer at the playhead.
+  // the uncommitted selection, the selected clip, the selected source clip's
+  // track at the playhead, the selected source track, or the selected layer
+  // at the playhead.
+  // Below the playhead within `bounds`, a timeline row's.
+  function atPlayhead(bounds: DOMRect) {
+    return {
+      x: clamp(
+        bounds.left + playheadQRef.current * quarterPx,
+        bounds.left,
+        bounds.right,
+      ),
+      y: bounds.bottom,
+    };
+  }
+
   function openSelectionMenu() {
     const timelineScroll = timelineScrollRef.current;
     if (!timelineScroll) {
@@ -81,6 +97,22 @@ export function useKeyboardContextMenu({
       return true;
     }
 
+    if (selectedSourceSpan) {
+      const row = timelineScroll.querySelector<HTMLElement>(
+        `[data-source-track-id="${CSS.escape(selectedSourceSpan.sourceTrackId)}"] .track-row__content--source`,
+      );
+      if (!row) {
+        return false;
+      }
+
+      setClipMenu({
+        kind: "source-lane",
+        trackId: selectedSourceSpan.sourceTrackId,
+        anchor: atPlayhead(row.getBoundingClientRect()),
+      });
+      return true;
+    }
+
     if (selectedSourceTrack) {
       const label = timelineScroll.querySelector<HTMLElement>(
         `[data-source-track-id="${CSS.escape(selectedSourceTrack.id)}"] .track-label--source`,
@@ -114,14 +146,7 @@ export function useKeyboardContextMenu({
     setClipMenu({
       kind: "lane",
       laneId: fxLaneId,
-      anchor: {
-        x: clamp(
-          bounds.left + playheadQRef.current * quarterPx,
-          bounds.left,
-          bounds.right,
-        ),
-        y: bounds.bottom,
-      },
+      anchor: atPlayhead(bounds),
     });
     return true;
   }

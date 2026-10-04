@@ -86,6 +86,7 @@ export type ClipMenuState = { anchor: MenuPoint } & (
   | { kind: "span"; spanId: string }
   | { kind: "layer"; laneId: string }
   | { kind: "source-track"; trackId: string }
+  | { kind: "source-lane"; trackId: string }
   | { kind: "audio" }
 );
 

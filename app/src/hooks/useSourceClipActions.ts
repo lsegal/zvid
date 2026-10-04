@@ -106,8 +106,8 @@ export function useSourceClipActions({
     }
   }
 
-  // Pastes into the clip's source track at the playhead.
-  function paste(span: SourceSpan) {
+  // Pastes into source track `trackId` at the playhead.
+  function pasteInto(trackId: string) {
     const clipboard = clipClipboardRef.current;
     if (!canPasteIntoSourceTrack(clipboard)) {
       setStatus("Only media clips can be pasted into a source track.");
@@ -123,7 +123,7 @@ export function useSourceClipActions({
       return pasteIntoSourceTrack(
         current,
         clipboard,
-        span.sourceTrackId,
+        trackId,
         pasteQ,
         () => ids.shift() ?? newSourceSpanId(),
       );
@@ -133,13 +133,18 @@ export function useSourceClipActions({
     }
 
     selectSource(
-      selectSourceSpan({ id: pastedIds[0], sourceTrackId: span.sourceTrackId }),
+      selectSourceSpan({ id: pastedIds[0], sourceTrackId: trackId }),
     );
     setStatus(
       pastedIds.length === 1
         ? "Pasted into the source track."
         : `Pasted ${pastedIds.length} source clips.`,
     );
+  }
+
+  // Pastes into the clip's source track at the playhead.
+  function paste(span: SourceSpan) {
+    pasteInto(span.sourceTrackId);
   }
 
   function duplicate(span: SourceSpan) {
@@ -177,6 +182,7 @@ export function useSourceClipActions({
     cut,
     copy: copySourceSpan,
     paste,
+    pasteInto,
     duplicate,
     split,
     remove,
