@@ -67,11 +67,12 @@ export class MediaElementPool {
     let element = this.elements.get(sourceKey);
     const created = !element;
     if (!element) {
-      element = document.createElement("video");
-      element.crossOrigin = "anonymous";
-      element.playsInline = true;
-      element.muted = true;
-      element.preload = preload;
+      const video = document.createElement("video");
+      video.crossOrigin = "anonymous";
+      video.playsInline = true;
+      video.muted = true;
+      video.preload = preload;
+      element = video;
       this.elements.set(sourceKey, element);
       this.mediaIdBySourceKey.set(sourceKey, item.id);
     } else if (preload === "auto" && element.preload !== "auto") {
