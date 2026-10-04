@@ -196,13 +196,15 @@ export function useWorkspacePersistence({
     [viewingSharedSessionRef],
   );
 
+  // Playback only moves the playhead, and is saved where it stops.
+  const restingPlayheadQ = isPlaying ? undefined : playheadQ;
   // Saves every change to the session after a short pause. A session that
   // was closed, or never started, clears the saved record instead.
   useEffect(() => {
     void [
       canSaveWorkspace,
       hasUnsavedChanges,
-      playheadQ,
+      restingPlayheadQ,
       selectedClipId,
       selectedLaneId,
       sourceSelection,
@@ -227,8 +229,8 @@ export function useWorkspacePersistence({
     canSaveWorkspace,
     hasUnsavedChanges,
     importNotice,
-    playheadQ,
     projectHistory,
+    restingPlayheadQ,
     selectedClipId,
     selectedLaneId,
     sessionSource,

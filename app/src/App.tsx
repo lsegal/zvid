@@ -451,7 +451,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                 {...timeline}
                 timelineScrollRef={timelineScrollRef}
                 labelResize={layout.labelResize}
-                playheadQ={playheadQ}
                 playheadSignal={playheadSignal}
                 footer={
                   <AudioRow
