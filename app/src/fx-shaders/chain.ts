@@ -15,6 +15,7 @@ import {
   type EffectPass,
   type EffectStage,
   type EffectUniformLocations,
+  effectPixelScale,
   stageSize,
 } from "./types.ts";
 
@@ -207,6 +208,7 @@ export class EffectChainRenderer {
     clipProgress: 0,
     resolution: [0, 0],
     bottomUp: false,
+    pixelScale: undefined,
   };
   private surfaceKey = "";
   private readonly maxTextureSize: number;
@@ -434,6 +436,7 @@ export class EffectChainRenderer {
     stepContext.resolution[0] = width;
     stepContext.resolution[1] = height;
     stepContext.bottomUp = ctx.bottomUp;
+    stepContext.pixelScale = ctx.pixelScale;
 
     let input = source;
     for (const [index, step] of steps.entries()) {
@@ -518,6 +521,8 @@ export class EffectChainRenderer {
     const stageCtx: EffectContext = {
       ...ctx,
       resolution: [stageWidth, stageHeight],
+      pixelScale: (effectPixelScale(ctx) * stageWidth) / width,
+      stageScale: stageWidth / width,
     };
     for (const [index, stage] of compiled.stages.entries()) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, targets[index].framebuffer);

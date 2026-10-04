@@ -334,6 +334,7 @@ describe("addableEffectsFor", () => {
         "Refraction",
         "DigitalGlitch",
         "Bloom",
+        "GaussianBlur",
         "Order",
       ]),
     );
@@ -358,6 +359,7 @@ describe("addableEffectsFor", () => {
         "Refraction",
         "DigitalGlitch",
         "Bloom",
+        "GaussianBlur",
         "Transform",
         "Shape",
         "Move",

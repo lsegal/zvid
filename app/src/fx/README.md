@@ -33,6 +33,7 @@ The index is committed, so a fresh checkout type-checks without running anything
    - `menuOrder`: a number that places the effect in the add menus, lowest first. The built-in effects use multiples of 10, so a new one can go between any two.
 2. If the effect draws with a shader, create `effects/<effect>/pass.ts` exporting `pass`, an `EffectPass` whose `effectName` matches the definition's.
    A pass that needs an intermediate picture, such as a blur to build a glow from, can declare `stages`: shaders the chain draws first, each at `stageScale` of the picture's size, which the stages after them and the main shader read through samplers named after them. Bloom (`effects/bloom/pass.ts`) blurs at a fraction of the frame this way.
+   A distance in output pixels at 1080p, like Gaussian Blur's Radius, should be multiplied by `effectPixelScale(ctx)` (`src/fx-shaders/types.ts`), which converts it into pixels of the picture the pass or stage draws, so it looks the same on a layer, on Global, in the preview and in export at any output size.
    If it is an audio effect (`domain: "audio"`), create `effects/<effect>/processor.ts` exporting `processor`, an `AudioEffectDsp` (`src/audio-mix/processor.ts`) whose `effectName` matches the definition's. See [Audio processors](#audio-processors).
 3. Put the effect's parsing and its tests in the same folder.
 4. Run `pnpm --dir app run gen:fx-index`, or any of `dev`, `build`, `lint` or `test:unit`, and commit the updated `effects/index.generated.ts`.
