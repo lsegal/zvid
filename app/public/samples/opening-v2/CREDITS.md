@@ -25,9 +25,13 @@ arrangement, effect and title in the sample is built in zvid itself.
 
 ## Icon
 
-`video-camera.svg` is the "video-camera" icon (24×24, solid) from Heroicons by
-Tailwind Labs, unchanged. The sample masks the 1.5-second shot with it.
-Licensed under the MIT License, Copyright (c) Tailwind Labs, Inc.
+`movie-camera.svg` is a "Movie camera" illustration combined from the "Film
+projector" and "Film spool" icons by Delapouite from game-icons.net: the
+projector's body, lens and tripod, with its two plain reels replaced by the
+spool's spoked reel (without its trailing film) and the black background
+square removed. The sample masks the 1.5-second shot with it.
+Licensed under Creative Commons: By Attribution 3.0 License
+https://creativecommons.org/licenses/by/3.0/
 
-- Source: https://github.com/tailwindlabs/heroicons/blob/master/optimized/24/solid/video-camera.svg
-- License: https://github.com/tailwindlabs/heroicons/blob/master/LICENSE
+- Source: https://game-icons.net/1x1/delapouite/film-projector.html
+- Source: https://game-icons.net/1x1/delapouite/film-spool.html
