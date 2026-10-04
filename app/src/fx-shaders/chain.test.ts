@@ -2,6 +2,7 @@
 /// <reference lib="dom" />
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { EFFECT_PASSES } from "../fx/effects/index.generated.ts";
 import {
   bucketTargetSize,
   EffectChainRenderer,
@@ -89,21 +90,28 @@ const CONTEXT = {
   bottomUp: false,
 };
 
-function colorizeChain(renderer: EffectChainRenderer) {
+function prepareEffects(
+  renderer: EffectChainRenderer,
+  effects: Array<[string, Record<string, number>]>,
+) {
   return renderer.prepare(
     resolveEffectChain(
-      [
-        {
-          trackId: "lane",
-          effectName: "Colorize",
-          parameters: [
-            { key: "_HueOffset", value: "0.25", numericValue: 0.25 },
-          ],
-        },
-      ],
+      effects.map(([effectName, values]) => ({
+        trackId: "lane",
+        effectName,
+        parameters: Object.entries(values).map(([key, value]) => ({
+          key,
+          value: String(value),
+          numericValue: value,
+        })),
+      })),
       "lane",
     ),
   );
+}
+
+function colorizeChain(renderer: EffectChainRenderer) {
+  return prepareEffects(renderer, [["Colorize", { _HueOffset: 0.25 }]]);
 }
 
 describe("bucketTargetSize", () => {
@@ -281,5 +289,127 @@ describe("EffectChainRenderer pooled targets", () => {
     );
     assert.deepEqual(recording.draws[0].uFxUvScale, [1, 1]);
     assert.deepEqual(recording.draws[0].uFxUvMax, [1, 1]);
+  });
+});
+
+describe("EffectChainRenderer neutral effects", () => {
+  it("prepares no step for an effect at its neutral settings", () => {
+    const recording = createCountingGl();
+    const renderer = new EffectChainRenderer(recording.gl, {} as WebGLBuffer);
+    const steps = prepareEffects(renderer, [
+      ["Bloom", { _Intensity: 0 }],
+      ["Caustics", { _Intensity: 0, _Warp: 0 }],
+      ["Refraction", { _Amount: 0 }],
+      ["Distortion", { _Amount: 0 }],
+      ["Colorize", { _HueOffset: 0 }],
+      ["NegativeSplit", { _LowIntensity: 0, _HighIntensity: 0 }],
+      ["Pixelate", { _NumPixels: 0 }],
+      ["DigitalGlitch", { _Amount: 0 }],
+      ["AnalogGlitch", { _LowMod: 0, _HighMod: 0 }],
+      ["ZoomAndPan", { _Start_Zoom: 0, _End_Zoom: 0, _End_X: 0.2 }],
+    ]);
+    assert.deepEqual(steps, []);
+    // Nothing is compiled for them either.
+    assert.deepEqual(recording.shaderSources, []);
+  });
+
+  it("keeps the steps that change the picture, in order", () => {
+    const renderer = new EffectChainRenderer(
+      createCountingGl().gl,
+      {} as WebGLBuffer,
+    );
+    const steps = prepareEffects(renderer, [
+      ["Caustics", { _Intensity: 0, _Warp: 0.2 }],
+      ["Bloom", { _Intensity: 0 }],
+      ["Pixelate", { _NumPixels: 0.5 }],
+    ]);
+    assert.deepEqual(
+      steps.map((step) => step.compiled.pass.effectName),
+      ["Caustics", "Pixelate"],
+    );
+  });
+});
+
+describe("EffectChainRenderer precompile", () => {
+  it("compiles every pass up front and none on first use", () => {
+    const recording = createCountingGl();
+    const renderer = new EffectChainRenderer(recording.gl, {} as WebGLBuffer);
+    renderer.precompile(EFFECT_PASSES);
+    // A vertex and a fragment shader per pass.
+    assert.equal(recording.shaderSources.length, EFFECT_PASSES.length * 2);
+    renderer.precompile(EFFECT_PASSES);
+    renderer.settlePrecompiled();
+    const steps = colorizeChain(renderer);
+    assert.equal(steps.length, 1);
+    assert.equal(recording.shaderSources.length, EFFECT_PASSES.length * 2);
+  });
+
+  it("checks finished programs early when the driver can say", () => {
+    const recording = createCountingGl();
+    const checked: string[] = [];
+    const gl = new Proxy(recording.gl, {
+      get(target, property) {
+        if (property === "getExtension") {
+          return () => ({ COMPLETION_STATUS_KHR: "COMPLETION_STATUS_KHR" });
+        }
+        if (property === "getProgramParameter") {
+          return (_program: unknown, name: string) => {
+            checked.push(name);
+            return true;
+          };
+        }
+        return Reflect.get(target, property);
+      },
+    });
+    const renderer = new EffectChainRenderer(gl, {} as WebGLBuffer);
+    renderer.precompile(EFFECT_PASSES);
+    assert.deepEqual(checked, []);
+    renderer.settlePrecompiled();
+    assert.equal(
+      checked.filter((name) => name === "LINK_STATUS").length,
+      EFFECT_PASSES.length,
+    );
+    checked.length = 0;
+    renderer.settlePrecompiled();
+    colorizeChain(renderer);
+    assert.deepEqual(checked, []);
+  });
+});
+
+describe("EffectChainRenderer Order targets", () => {
+  it("reuses a depth's target across sizes in the same bucket", () => {
+    const recording = createCountingGl();
+    const renderer = new EffectChainRenderer(recording.gl, {} as WebGLBuffer);
+    renderer.syncSurface(1920, 1080);
+    // An Order whose Transform scale animates a pixel or two a frame.
+    const targets = new Set(
+      [1000, 1001, 1003, 1020].map(
+        (width) => renderer.getArrangementTarget(0, width, 500).framebuffer,
+      ),
+    );
+    assert.equal(targets.size, 1);
+    assert.deepEqual(recording.textureSizes, [[1024, 512]]);
+    const region = renderer.getArrangementTarget(0, 1000, 500).region;
+    assert.deepEqual(region.uvScale, [1000 / 1024, 500 / 512]);
+  });
+
+  it("gives a nested arrangement its own target", () => {
+    const renderer = new EffectChainRenderer(
+      createCountingGl().gl,
+      {} as WebGLBuffer,
+    );
+    const outer = renderer.getArrangementTarget(0, 640, 360);
+    const inner = renderer.getArrangementTarget(1, 320, 180);
+    assert.notEqual(outer.framebuffer, inner.framebuffer);
+  });
+
+  it("frees its Order targets when the surface changes size", () => {
+    const recording = createCountingGl();
+    const renderer = new EffectChainRenderer(recording.gl, {} as WebGLBuffer);
+    renderer.syncSurface(1920, 1080);
+    renderer.getArrangementTarget(0, 640, 360);
+    renderer.syncSurface(1280, 720);
+    assert.equal(recording.liveCount("texture"), 0);
+    assert.equal(recording.liveCount("framebuffer"), 0);
   });
 });

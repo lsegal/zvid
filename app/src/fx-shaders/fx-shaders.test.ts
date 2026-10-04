@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { EFFECT_PASSES } from "../fx/effects/index.generated.ts";
 import { CONTEXT, params, uniformValues } from "../fx/pass-test-utils.ts";
+import { applyClipAnimationWeight } from "../fx-animation-clip.ts";
+import { getAnimationNeutralValues } from "../fx-animation-defaults.ts";
 import { getEffectDefinition } from "../fx-registry.ts";
 import {
   type AudioBands,
@@ -207,6 +209,29 @@ describe("effect passes", () => {
       );
     }
   });
+
+  // Clip mode at weight 0 runs every knob back to its neutral value, which
+  // must cost no pass.
+  it("changes nothing at Clip animation weight 0, and something at 0.5", () => {
+    for (const pass of EFFECT_PASSES) {
+      const parameters = params(
+        Object.fromEntries(
+          getEffectDefinition(pass.effectName)
+            .parameters.filter((parameter) => parameter.kind === "number")
+            .map((parameter) => [parameter.key, 0.5]),
+        ),
+      );
+      assert.equal(pass.isIdentity?.(parameters), false, pass.effectName);
+      if (!Object.keys(getAnimationNeutralValues(pass.effectName)).length) {
+        continue;
+      }
+      const neutral = applyClipAnimationWeight(
+        { effectName: pass.effectName, parameters },
+        0,
+      );
+      assert.equal(pass.isIdentity?.(neutral), true, pass.effectName);
+    }
+  });
 });
 
 describe("readEffectNumber", () => {
@@ -219,6 +244,24 @@ describe("readEffectNumber", () => {
     assert.equal(readEffectNumber(params, "_HueOffset", 0), 0.25);
     assert.equal(readEffectNumber(params, "_Reactivity", 0), 0.5);
     assert.equal(readEffectNumber(params, "_Missing", 0.7), 0.7);
+  });
+
+  it("matches keys case- and punctuation-insensitively, first match first", () => {
+    const params = [
+      { key: "hue offset", value: "0.1" },
+      { key: "_HueOffset", value: "0.2" },
+    ];
+
+    assert.equal(readEffectNumber(params, "_HueOffset", 0), 0.1);
+    assert.equal(readEffectNumber(params, "HUE-OFFSET", 0), 0.1);
+  });
+
+  it("reads an edited parameter list afresh", () => {
+    const before = [{ key: "_Amount", value: "0.1" }];
+    const after = [{ key: "_Amount", value: "0.9" }];
+
+    assert.equal(readEffectNumber(before, "_Amount", 0), 0.1);
+    assert.equal(readEffectNumber(after, "_Amount", 0), 0.9);
   });
 });
 

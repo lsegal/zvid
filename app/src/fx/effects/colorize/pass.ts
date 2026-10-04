@@ -33,8 +33,6 @@ export const pass: EffectPass = {
   },
   // No hue offset leaves the colors as they are.
   isIdentity(params) {
-    return (
-      clampUnit(readEffectNumber(params, "_HueOffset", 0), -1, 1) === 0
-    );
+    return clampUnit(readEffectNumber(params, "_HueOffset", 0), -1, 1) === 0;
   },
 };

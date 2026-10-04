@@ -32,8 +32,6 @@ export const pass: EffectPass = {
   },
   // At 0 every block is one pixel.
   isIdentity(params) {
-    return (
-      clampUnit(readEffectNumber(params, "_NumPixels", 0)) <= 0
-    );
+    return clampUnit(readEffectNumber(params, "_NumPixels", 0)) <= 0;
   },
 };

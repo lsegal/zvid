@@ -159,8 +159,6 @@ export const pass: EffectPass = {
   },
   // Amount 0 sees straight through the surface.
   isIdentity(params) {
-    return (
-      clampUnit(readEffectNumber(params, "_Amount", 0.3)) <= 0
-    );
+    return clampUnit(readEffectNumber(params, "_Amount", 0.3)) <= 0;
   },
 };

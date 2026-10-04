@@ -107,8 +107,6 @@ export const pass: EffectPass = {
   },
   // Intensity 0 adds no glow.
   isIdentity(params) {
-    return (
-      clampUnit(readEffectNumber(params, "_Intensity", 0.6), 0, 2) <= 0
-    );
+    return clampUnit(readEffectNumber(params, "_Intensity", 0.6), 0, 2) <= 0;
   },
 };
