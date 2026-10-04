@@ -13,7 +13,9 @@ test.beforeEach(async ({ page }) => {
 test("double-clicking or dragging across UI text selects nothing", async ({
   page,
 }) => {
-  const label = page.getByText("Layer 1", { exact: true }).first();
+  // A layer's number, since double-clicking its name renames it (#940).
+  const label = page.locator('[data-layer-header-id="1"] .track-label__index');
+  await expect(label).toHaveText("1");
   await label.dblclick();
   expect(await selectedText(page)).toBe("");
 
