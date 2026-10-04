@@ -7,6 +7,7 @@ import {
   POSITION_ATTRIBUTE_LOCATION,
   startProgram,
 } from "./gl.ts";
+import { canMergePass, isPerPixelPass, MergedPrograms } from "./merge.ts";
 import type { EffectChainStep } from "./registry.ts";
 import {
   type EffectContext,
@@ -76,14 +77,19 @@ type CompiledProgram = {
 
 type CompiledStage = CompiledProgram & { stage: EffectStage };
 
-type CompiledPass = CompiledProgram & {
+export type CompiledPass = CompiledProgram & {
   pass: EffectPass;
   stages: CompiledStage[];
+  // For passes merged into one program (see merge.ts), each pass and its
+  // uniforms in that program, in order.
+  parts?: Array<{ pass: EffectPass; locations: EffectUniformLocations }>;
 };
 
 export type PreparedEffectStep = {
   compiled: CompiledPass;
   parameters: EffectParameter[];
+  // For a merged step, the parameters of each of its passes.
+  partParameters?: EffectParameter[][];
 };
 
 export type RenderTarget = {
@@ -182,6 +188,7 @@ export class EffectChainRenderer {
   // Programs `precompile` started whose status hasn't been checked yet.
   private pending = new Map<EffectPass, PendingProgram[]>();
   private readonly parallel: KHR_parallel_shader_compile | null;
+  private readonly merged: MergedPrograms;
   private pingPongTargets: TargetPool;
   private stageTargets: TargetPool;
   private sceneTarget: RenderTarget | null = null;
@@ -203,6 +210,10 @@ export class EffectChainRenderer {
   // only for a picture of that size, as targets were before pooling, for
   // tests to compare against.
   exactTargets = false;
+  // Draws a pass and the per-pixel passes straight after it in one program
+  // once it has compiled; off draws every pass on its own, for tests to
+  // compare against.
+  mergePasses = true;
 
   constructor(gl: WebGLRenderingContext, positionBuffer: WebGLBuffer) {
     this.gl = gl;
@@ -217,6 +228,12 @@ export class EffectChainRenderer {
     this.pingPongTargets = new TargetPool(this.release);
     this.stageTargets = new TargetPool(this.release);
     this.layerTargets = new TargetPool(this.release);
+    this.merged = new MergedPrograms(
+      gl,
+      this.parallel,
+      (source) => programSource(source, []),
+      (program) => this.locateUniforms(program, [], []),
+    );
   }
 
   // Hands every pass in `passes` to the driver to compile, without waiting,
@@ -272,7 +289,41 @@ export class EffectChainRenderer {
       }
     }
 
-    return prepared;
+    return this.mergePasses ? this.mergeSteps(prepared) : prepared;
+  }
+
+  // `steps` with each pass and the per-pixel passes straight after it
+  // drawn as one, where their merged program is ready.
+  private mergeSteps(steps: PreparedEffectStep[]) {
+    if (steps.length < 2) {
+      return steps;
+    }
+    const merged: PreparedEffectStep[] = [];
+    let start = 0;
+    while (start < steps.length) {
+      let end = start + 1;
+      if (canMergePass(steps[start].compiled.pass)) {
+        while (end < steps.length && isPerPixelPass(steps[end].compiled.pass)) {
+          end++;
+        }
+      }
+      const run = steps.slice(start, end);
+      const compiled =
+        run.length > 1
+          ? this.merged.get(run.map((step) => step.compiled.pass))
+          : null;
+      if (compiled) {
+        merged.push({
+          compiled,
+          parameters: run[0].parameters,
+          partParameters: run.map((step) => step.parameters),
+        });
+      } else {
+        merged.push(...run);
+      }
+      start = end;
+    }
+    return merged;
   }
 
   // Offscreen surface the whole composition renders into when the group stack
@@ -372,12 +423,19 @@ export class EffectChainRenderer {
       gl.bindFramebuffer(gl.FRAMEBUFFER, target?.framebuffer ?? null);
       gl.viewport(0, 0, width, height);
       this.bindProgram(compiled, input, stages);
-      compiled.pass.setUniforms(
-        gl,
-        compiled.locations,
-        parameters,
-        stepContext,
-      );
+      if (compiled.parts) {
+        for (const [part, { pass, locations }] of compiled.parts.entries()) {
+          const partParameters = step.partParameters?.[part] ?? parameters;
+          pass.setUniforms(gl, locations, partParameters, stepContext);
+        }
+      } else {
+        compiled.pass.setUniforms(
+          gl,
+          compiled.locations,
+          parameters,
+          stepContext,
+        );
+      }
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       if (stages) {
         this.unbindStages(stages.targets.length);
@@ -408,6 +466,7 @@ export class EffectChainRenderer {
       }
     }
     this.pending.clear();
+    this.merged.dispose();
   }
 
   // Draws `compiled`'s stages from `input` into pooled stage targets and
