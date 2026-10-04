@@ -3,6 +3,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type RefObject,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -519,21 +520,28 @@ export function useLayerReorder({
     [],
   );
 
-  return {
-    liftedLaneId: lifted?.laneId,
-    listClassName: lifted
-      ? `${listClass}--reordering ${listClass}--reordering-${lifted.mode}`
-      : "",
-    announcement,
-    indicatorRef,
-    gripProps: (lane: LayerRef, index: number) => ({
-      [gripAttribute]: lane.id,
-      "aria-pressed": lifted?.laneId === lane.id,
-      onBlur,
-      onKeyDown: (event: ReactKeyboardEvent<HTMLElement>) =>
-        onKeyDown(event, lane, index),
-      onPointerDown: (event: ReactPointerEvent<HTMLElement>) =>
-        onPointerDown(event, lane, index),
+  // Memoized, with the grip handlers calling this render's, so the rows
+  // that take it only re-render when a lift starts or ends.
+  const handlersRef = useRef({ onBlur, onKeyDown, onPointerDown });
+  handlersRef.current = { onBlur, onKeyDown, onPointerDown };
+  return useMemo(
+    () => ({
+      liftedLaneId: lifted?.laneId,
+      listClassName: lifted
+        ? `${listClass}--reordering ${listClass}--reordering-${lifted.mode}`
+        : "",
+      announcement,
+      indicatorRef,
+      gripProps: (lane: LayerRef, index: number) => ({
+        [gripAttribute]: lane.id,
+        "aria-pressed": lifted?.laneId === lane.id,
+        onBlur: () => handlersRef.current.onBlur(),
+        onKeyDown: (event: ReactKeyboardEvent<HTMLElement>) =>
+          handlersRef.current.onKeyDown(event, lane, index),
+        onPointerDown: (event: ReactPointerEvent<HTMLElement>) =>
+          handlersRef.current.onPointerDown(event, lane, index),
+      }),
     }),
-  };
+    [announcement, gripAttribute, lifted, listClass],
+  );
 }

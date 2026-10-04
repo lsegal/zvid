@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import "./App.css";
 import type { ClipClipboard } from "./app/clip-ops.ts";
 import { selectSourceSpan } from "./app/source-selection.ts";
+import type { SourceSpan } from "./app/types.ts";
 import { formatRestoredStatus } from "./app/workspace-boot.ts";
 import type { WorkspaceBoot } from "./app/workspace-types.ts";
 import type { CompositionPlayerHandle } from "./CompositionPlayer";
@@ -373,6 +374,11 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setIsPlaying,
     setStatus,
   });
+  const { selectSource } = selection;
+  const selectSourceSpanClip = useCallback(
+    (span: SourceSpan) => selectSource(selectSourceSpan(span)),
+    [selectSource],
+  );
   const modulationClock = useMemo(
     () => ({
       signal: playheadSignal,
@@ -615,8 +621,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     revealedMediaIds: media.revealedMediaIds,
                     clipMenu: selection.clipMenu,
                     sourceSelection: selection.sourceSelection,
-                    selectSourceSpan: (span) =>
-                      selection.selectSource(selectSourceSpan(span)),
+                    selectSourceSpan: selectSourceSpanClip,
                     shortcutLabels,
                     addSourceSpanToArrangement:
                       editing.addSourceSpanToArrangement,

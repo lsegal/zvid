@@ -512,14 +512,28 @@ export function useSourceTrackDrop({
     [],
   );
 
-  return {
-    sourceTrackDragTarget,
-    sourceTrackDragPreview,
-    isSourceTrackFileDragActive,
-    sourceTrackDragPreviewDetail,
-    sourceTrackDragPreviewOverflow,
-    sourceTrackDragThumbnails,
-    isNewSourceTrackDropTarget,
-    clearSourceTrackDragState,
-  };
+  // Memoized so the source track rows that take it don't re-render with
+  // the app.
+  return useMemo(
+    () => ({
+      sourceTrackDragTarget,
+      sourceTrackDragPreview,
+      isSourceTrackFileDragActive,
+      sourceTrackDragPreviewDetail,
+      sourceTrackDragPreviewOverflow,
+      sourceTrackDragThumbnails,
+      isNewSourceTrackDropTarget,
+      clearSourceTrackDragState,
+    }),
+    [
+      clearSourceTrackDragState,
+      isNewSourceTrackDropTarget,
+      isSourceTrackFileDragActive,
+      sourceTrackDragPreview,
+      sourceTrackDragPreviewDetail,
+      sourceTrackDragPreviewOverflow,
+      sourceTrackDragTarget,
+      sourceTrackDragThumbnails,
+    ],
+  );
 }
