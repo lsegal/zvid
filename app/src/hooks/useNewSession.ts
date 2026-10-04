@@ -18,9 +18,8 @@ export type NewSessionInputs = {
 };
 
 // File → New Session and ⌘N / Ctrl+N in the desktop app: replaces the
-// session with a blank one, first asking to save any unsaved changes. Like
-// Close Session, it is off while collaborating, so a host can't wipe the
-// peers' project.
+// session with a blank one, first asking to save any unsaved changes. It is
+// off while collaborating, so a host can't wipe the peers' project.
 export function useNewSession({
   projectHistory,
   hasUnsavedChanges,

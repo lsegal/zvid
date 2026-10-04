@@ -387,8 +387,8 @@ export function useWorkspacePersistence({
     );
   }
 
-  // Replaces the session with a blank one: File → Close Session, and File →
-  // New Session once any unsaved changes are dealt with.
+  // Replaces the session with a blank one: File → New Session once any
+  // unsaved changes are dealt with.
   function resetSession(status: string) {
     if (refuseReadOnlyEdit()) {
       return;
@@ -398,10 +398,6 @@ export function useWorkspacePersistence({
     claimWorkspaceSession();
     applyWorkspaceSession(null);
     setStatus(status);
-  }
-
-  function handleCloseSession() {
-    resetSession("Closed the session.");
   }
 
   function startNewSession() {
@@ -448,7 +444,6 @@ export function useWorkspacePersistence({
     claimWorkspaceSession,
     handleTakeOverWorkspace,
     handleOpenWorkspaceReadOnly,
-    handleCloseSession,
     openWorkspaceSession,
     // The session as it would be saved now.
     readWorkspaceSession: () => readWorkspaceSessionRef.current(),

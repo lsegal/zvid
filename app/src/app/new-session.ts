@@ -14,7 +14,7 @@ import type { ProjectState } from "./types.ts";
 export const NEW_SESSION_SHORTCUT = "Mod+N";
 
 // The default layers and timeline settings, no source tracks, and no undo
-// history. File → Close Session resets to the same project.
+// history.
 export function createNewSessionHistory(): ProjectHistoryState<ProjectState> {
   return createProjectHistoryState(INITIAL_PROJECT_STATE);
 }
