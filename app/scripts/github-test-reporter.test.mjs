@@ -47,14 +47,31 @@ describe("createCollector", () => {
       fail("keeps the end", 2, 5, wrapped("1 !== 2")),
       start("passes", 2, 9),
       pass("passes", 2),
-      fail("trim", 1, 4, wrapped("1 subtest failed", "subtestsFailed"), "suite"),
-      fail("Clip", 0, 3, wrapped("1 subtest failed", "subtestsFailed"), "suite"),
+      fail(
+        "trim",
+        1,
+        4,
+        wrapped("1 subtest failed", "subtestsFailed"),
+        "suite",
+      ),
+      fail(
+        "Clip",
+        0,
+        3,
+        wrapped("1 subtest failed", "subtestsFailed"),
+        "suite",
+      ),
       start("top level", 0, 12),
       fail("top level", 0, 12, wrapped("boom")),
     ]);
     assert.equal(tests, 3);
     assert.deepEqual(failures, [
-      { name: "Clip › trim › keeps the end", file, line: 5, message: "1 !== 2" },
+      {
+        name: "Clip › trim › keeps the end",
+        file,
+        line: 5,
+        message: "1 !== 2",
+      },
       { name: "top level", file, line: 12, message: "boom" },
     ]);
   });
