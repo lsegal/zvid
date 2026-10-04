@@ -592,6 +592,8 @@ const NEUTRAL_VALUES: ReadonlyMap<string, AnimationNeutralValues> = new Map<
       _ChannelShift: { neutral: 0 },
     },
   ],
+  // Intensity 0 adds no glow.
+  ["Bloom", { _Intensity: { neutral: 0 } }],
   [COLOR_EFFECT_NAME, { Opacity: { neutral: 0 } }],
   // Text has no opacity knob: Clip mode fades its colors instead.
   [TEXT_EFFECT_NAME, {}],
