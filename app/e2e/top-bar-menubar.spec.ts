@@ -171,3 +171,41 @@ test("submenus keep their own Left/Right keys", async ({ page }) => {
   await expect(edit).toHaveAttribute("data-state", "open");
   await expect(trigger(page, "File")).toHaveAttribute("data-state", "closed");
 });
+
+// Radix keeps a closed menu mounted until an animation it never saw start
+// ends, so the slide-in applies only while a menu is open. A menu closed
+// before its slide-in starts must unmount at once, rather than linger and
+// catch clicks meant for the timeline under it (#1001).
+test("a menu closed as it opens leaves nothing behind", async ({ page }) => {
+  const lingered = await trigger(page, "Edit").evaluate(async (edit) => {
+    const tick = () =>
+      new Promise((resolve) => {
+        const channel = new MessageChannel();
+        channel.port1.onmessage = resolve;
+        channel.port2.postMessage(undefined);
+      });
+    const press = () =>
+      edit.dispatchEvent(
+        new PointerEvent("pointerdown", {
+          bubbles: true,
+          pointerType: "mouse",
+        }),
+      );
+    press();
+    // Wait without yielding a frame, so the animation has not started yet.
+    let content: Element | null = null;
+    for (let i = 0; i < 100 && !content; i++) {
+      await tick();
+      const candidate = document.querySelector(".dropdown-menu-content");
+      if (candidate && getComputedStyle(candidate).animationName !== "none") {
+        content = candidate;
+      }
+    }
+    if (!content) throw new Error("the Edit menu never started animating");
+    press();
+    await tick();
+    return content.isConnected;
+  });
+  expect(lingered).toBe(false);
+  await expect(trigger(page, "Edit")).toHaveAttribute("data-state", "closed");
+});
