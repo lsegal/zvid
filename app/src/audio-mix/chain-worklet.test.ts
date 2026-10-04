@@ -3,7 +3,12 @@ import { before, describe, it } from "node:test";
 import { gainToAmplitude } from "../fx/effects/gain/gain.ts";
 import { gainStageAt } from "../fx/effects/gain/processor.ts";
 import { BLOCK_FRAMES, createBuffers } from "./chain.ts";
-import type { ChainMessage, ChainNodeOptions } from "./chain-node.ts";
+import {
+  type ChainMessage,
+  type ChainNodeOptions,
+  type ChainReport,
+  TRANSIENT_REPORT_RATE,
+} from "./chain-node.ts";
 import {
   CLIP,
   CLOCK,
@@ -47,7 +52,13 @@ before(async () => {
   scope.sampleRate = SAMPLE_RATE;
   scope.currentTime = 0;
   scope.AudioWorkletProcessor = class {
-    port = { onmessage: null, postMessage() {} };
+    posted: unknown[] = [];
+    port = {
+      onmessage: null,
+      postMessage: (message: unknown) => {
+        this.posted.push(message);
+      },
+    };
   };
   scope.registerProcessor = () => {};
   const worklet = await import("./chain-worklet.ts");
@@ -61,6 +72,10 @@ function send(processor: WorkletProcessor, message: ChainMessage) {
       onmessage: (event: { data: ChainMessage }) => void;
     }
   ).onmessage({ data: message });
+}
+
+function posted(processor: WorkletProcessor) {
+  return (processor as unknown as { posted: ChainReport[] }).posted;
 }
 
 function tone(frequency: number, peak: number, seconds = 2): DecodedAudio {
@@ -357,5 +372,80 @@ describe("chain worklet", () => {
     send(processor, { type: "reset" });
     processor.process([[new Float32Array(BLOCK_FRAMES)]], [out]);
     assert.equal(out[0][0], 0);
+  });
+
+  it("reports watched Transient levels, about TRANSIENT_REPORT_RATE times a second", () => {
+    const transient = {
+      mode: "transient" as const,
+      motion: "Bounce" as const,
+      reactivity: 1,
+      lengthFrames: 12,
+      parameters: [{ key: "Cutoff", min: 20, max: 4000 }],
+    };
+    const make = (watch?: string[]) =>
+      createProcessor({
+        channels: 1,
+        settings: {
+          stages: [
+            {
+              ...testStage(ONE_POLE, { Cutoff: 300 }, { id: "filter" }),
+              modulation: transient,
+            },
+            {
+              ...testStage(ONE_POLE, { Cutoff: 900 }, { id: "other" }),
+              modulation: transient,
+            },
+            testStage(ONE_POLE, { Cutoff: 600 }, { id: "plain" }),
+          ],
+          inputGain: 1,
+          delayFrames: 0,
+        },
+        tempo: { bpm: 120, signature: DEFAULT_TIME_SIGNATURE },
+        transport: { contextTime: 0, timelineSeconds: 0, rate: 1 },
+        ...(watch ? { watch } : {}),
+      });
+    const play = (processor: WorkletProcessor, seconds: number) => {
+      const [data] = hits(0.6, seconds).channels;
+      const out = [new Float32Array(BLOCK_FRAMES)];
+      for (let block = 0; block + BLOCK_FRAMES <= data.length; ) {
+        scope.currentTime = block / SAMPLE_RATE;
+        processor.process(
+          [[data.subarray(block, block + BLOCK_FRAMES)]],
+          [out],
+        );
+        block += BLOCK_FRAMES;
+      }
+    };
+
+    // Nothing is reported until a stage is watched.
+    const unwatched = make();
+    play(unwatched, 1);
+    assert.deepEqual(posted(unwatched), []);
+
+    const processor = make(["filter", "plain"]);
+    play(processor, 2);
+    const reports = posted(processor);
+    assert.ok(
+      reports.length >= TRANSIENT_REPORT_RATE * 2 - 2 &&
+        reports.length <= TRANSIENT_REPORT_RATE * 2,
+      `${reports.length} reports`,
+    );
+    // Only the watched stage Transient modulates is reported.
+    for (const report of reports) {
+      assert.equal(report.type, "transients");
+      assert.deepEqual(
+        report.levels.map(([id]) => id),
+        ["filter"],
+      );
+    }
+    const levels = reports.map((report) => report.levels[0][1]);
+    assert.ok(Math.max(...levels) > 0.1, `${Math.max(...levels)}`);
+    assert.ok(levels.some((level) => level === 0));
+
+    // Unwatching stops the reports.
+    send(processor, { type: "watch", ids: [] });
+    reports.length = 0;
+    play(processor, 0.5);
+    assert.deepEqual(reports, []);
   });
 });

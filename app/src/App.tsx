@@ -14,6 +14,7 @@ import { AppStatusBar } from "./components/AppStatusBar";
 import { ArrangementEmptyState } from "./components/ArrangementEmptyState";
 import { CollaborationCursors } from "./components/CollaborationCursors";
 import { FxPanel } from "./components/FxPanel";
+import { FxModulationClockContext } from "./components/fx/modulation-clock";
 import { ImportNotice } from "./components/ImportNotice";
 import { MediaDrawer } from "./components/media/MediaDrawer";
 import { SessionLibraryDialogs } from "./components/media/SessionsTab";
@@ -380,6 +381,15 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setIsPlaying,
     setStatus,
   });
+  const modulationClock = useMemo(
+    () => ({
+      signal: playheadSignal,
+      bpm,
+      signature: timeline.signature,
+      isPlaying,
+    }),
+    [playheadSignal, bpm, timeline.signature, isPlaying],
+  );
 
   return (
     <div
@@ -665,12 +675,14 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             />
           </section>
 
-          <FxPanel
-            {...fxEditing}
-            {...fxPanel}
-            {...layout}
-            sourceClip={sourceClip}
-          />
+          <FxModulationClockContext.Provider value={modulationClock}>
+            <FxPanel
+              {...fxEditing}
+              {...fxPanel}
+              {...layout}
+              sourceClip={sourceClip}
+            />
+          </FxModulationClockContext.Provider>
         </div>
       </main>
 

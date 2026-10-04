@@ -1,0 +1,15 @@
+/* The Modulation section's heart-monitor trace, beside its title. A fixed
+ * size, so the title row keeps its height. */
+.fx-modulation-graph {
+  display: block;
+  flex: none;
+  width: 56px;
+  height: 16px;
+  pointer-events: none;
+}
+
+.fx-modulation-graph canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}

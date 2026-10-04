@@ -22,6 +22,7 @@ import {
   formatReactivity,
 } from "./FxAnimationPanel";
 import type { FxChainProps } from "./FxChain";
+import { FxModulationGraph } from "./FxModulationGraph";
 import type { FxEditMode } from "./types";
 
 type FxModulationPanelProps = {
@@ -91,6 +92,7 @@ export function FxModulationPanel({
     <section aria-label={label} className={className} style={style}>
       <header className="fx-animation-panel__title">
         <span className="fx-animation-panel__name">Modulation</span>
+        <FxModulationGraph device={device} modulation={modulation} />
         <button
           aria-expanded
           aria-label={`Collapse ${label}`}

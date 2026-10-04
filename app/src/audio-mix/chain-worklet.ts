@@ -9,7 +9,9 @@ import {
   CHAIN_PROCESSOR_NAME,
   type ChainMessage,
   type ChainNodeOptions,
+  type ChainReport,
   type ChainTransport,
+  TRANSIENT_REPORT_RATE,
 } from "./chain-node.ts";
 import type { AudioProcessorRegistry } from "./processor.ts";
 import { AUDIO_PROCESSORS } from "./processors.ts";
@@ -38,6 +40,9 @@ export function chainWorkletProcessor(registry: AudioProcessorRegistry) {
       timelineSeconds: 0,
       rate: 0,
     };
+    private watched = new Set<string>();
+    // Frames played since the last Transient report.
+    private unreported = 0;
 
     constructor({ processorOptions }: ProcessorOptions) {
       super();
@@ -48,6 +53,7 @@ export function chainWorkletProcessor(registry: AudioProcessorRegistry) {
       if (processorOptions) {
         this.chain.configure(processorOptions.settings, processorOptions.tempo);
         this.transport = processorOptions.transport ?? this.transport;
+        this.watched = new Set(processorOptions.watch);
       }
       this.port.onmessage = (event: MessageEvent<ChainMessage>) => {
         this.receive(event.data);
@@ -69,6 +75,33 @@ export function chainWorkletProcessor(registry: AudioProcessorRegistry) {
         case "reset":
           this.chain.reset();
           break;
+        case "watch":
+          this.watched = new Set(message.ids);
+          break;
+      }
+    }
+
+    // Posts the watched stages' Transient levels once enough frames have
+    // played since the last report.
+    report(frames: number) {
+      if (!this.watched.size) {
+        return;
+      }
+      this.unreported += frames;
+      const interval = sampleRate / TRANSIENT_REPORT_RATE;
+      if (this.unreported < interval) {
+        return;
+      }
+      this.unreported %= interval;
+      const levels: ChainReport["levels"] = [];
+      this.chain.forEachTransient((id, level) => {
+        if (this.watched.has(id)) {
+          levels.push([id, level]);
+        }
+      });
+      if (levels.length) {
+        const report: ChainReport = { type: "transients", levels };
+        this.port.postMessage(report);
       }
     }
 
@@ -90,6 +123,7 @@ export function chainWorkletProcessor(registry: AudioProcessorRegistry) {
         frames,
         timelineSeconds + (currentTime - contextTime) * rate,
       );
+      this.report(frames);
       return true;
     }
   };
