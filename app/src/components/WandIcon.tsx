@@ -1,10 +1,21 @@
+// Stroked like the Heroicons outline set so the shaft keeps an even,
+// anti-aliased weight at 18-20px: a diagonal shaft ending in a star, plus two
+// sparkles of distinct sizes.
 export function WandIcon() {
   return (
-    <svg aria-hidden="true" viewBox="0 0 24 24">
-      <path
-        d="M4.75 18.19 2.5 20.44l1.06 1.06 2.25-2.25 1.13 1.13L20.5 6.81l-3.19-3.19L3.63 17.06l1.12 1.13Zm13.62-13.06 1.06 1.06-1.31 1.31-1.06-1.06 1.31-1.31ZM12 3.25l.52 1.98 1.98.52-1.98.52L12 8.25l-.52-1.98-1.98-.52 1.98-.52L12 3.25Zm6.75 6.5.39 1.46 1.46.39-1.46.39-.39 1.46-.39-1.46-1.46-.39 1.46-.39.39-1.46Zm-9 6 .39 1.46 1.46.39-1.46.39-.39 1.46-.39-1.46-1.46-.39 1.46-.39.39-1.46Z"
-        fill="currentColor"
-      />
+    <svg
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      viewBox="0 0 24 24"
+    >
+      <path d="M4 20 13 11" />
+      <path d="M16 4 17.2 6.8 20 8l-2.8 1.2L16 12l-1.2-2.8L12 8l2.8-1.2L16 4Z" />
+      <path d="M6.5 3.5v4M4.5 5.5h4" />
+      <path d="M19.5 14.5v3M18 16h3" />
     </svg>
   );
 }
