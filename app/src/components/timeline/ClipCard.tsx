@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
-import { type Filmstrip, getFilmstripTileOwner } from "../../app/filmstrip.ts";
+import { type Filmstrip, getClipPieceKey } from "../../app/filmstrip.ts";
 import { formatDuration } from "../../app/format.ts";
 import type { getShortcutLabels } from "../../app/shortcut-labels.ts";
 import { getClipDurationQ } from "../../app/timeline-math.ts";
@@ -42,13 +42,9 @@ import {
   type ThumbnailSnapshot,
 } from "../../thumbnail-cache.ts";
 import { formatMusicalPosition } from "../../timeline-format.ts";
-import {
-  getClipWaveformRange,
-  getVisibleClipSlice,
-} from "../../waveform-range.ts";
+import { getVisibleClipSlice } from "../../waveform-range.ts";
 import { MediaSyncSkeleton } from "../MediaSyncSkeleton";
-import { ClipWaveform } from "./ClipWaveform";
-import { MediaLoopMarkers } from "./MediaLoopMarkers";
+import { ClipPieceMedia } from "./ClipPieceMedia";
 import "./clip-card.css";
 
 // What every clip card in the arrangement shares.
@@ -62,6 +58,10 @@ export type ClipCardContext = {
   signature: TimeSignature;
   mediaItemsById: ReadonlyMap<string, MediaItem>;
   thumbnails: ThumbnailSnapshot;
+  // Each media clip's pieces, one per source clip in its source track
+  // window (see source-track-content.ts), and their filmstrips by
+  // getClipPieceKey.
+  clipPieces: ReadonlyMap<string, ArrangementClip[]>;
   clipFilmstrips: ReadonlyMap<string, Filmstrip>;
   remoteMediaProgress: RemoteMediaProgressMap;
   // The stacks as drawn, with a Ctrl/Cmd-drag duplicate's copied stack.
@@ -83,8 +83,10 @@ export type ClipCardContext = {
 type ClipCardProps = { clip: ArrangementClip } & ClipCardContext;
 
 // An arrangement clip: its body, which selects, moves or Ctrl/Cmd-drags a
-// duplicate, the trim handles either side, and its filmstrip, waveform, fill,
-// text or FX badge, and media sync skeleton.
+// duplicate, the trim handles either side, and its fill, text or FX badge,
+// media sync skeleton, and the filmstrip and waveform of each piece of its
+// source track window, with nothing over the parts that hold no source
+// clip.
 export function ClipCard({
   clip,
   selectedClipId,
@@ -96,6 +98,7 @@ export function ClipCard({
   signature,
   mediaItemsById,
   thumbnails,
+  clipPieces,
   clipFilmstrips,
   remoteMediaProgress,
   timelineEffects,
@@ -119,36 +122,49 @@ export function ClipCard({
   const trimmingStart = trimming && dragState?.kind === "resize-start";
   const trimmingEnd = trimming && dragState?.kind === "resize-end";
   const durationQ = getClipDurationQ(clip, bpm);
+  // The clip's media fields describe its first source clip, which the card
+  // reports the state of.
   const media = clip.mediaId ? mediaItemsById.get(clip.mediaId) : undefined;
   const mediaState = describeClipMediaState(clip, media?.availability);
+  const pieces = clipPieces.get(clip.id) ?? [];
+  // The first frame it shows, when it starts with one and has no filmstrip.
+  const firstPiece = pieces[0];
+  const firstPieceMedia = firstPiece?.mediaId
+    ? mediaItemsById.get(firstPiece.mediaId)
+    : undefined;
   const thumbnailUrl =
-    media?.hasVideo && mediaState === "online"
+    firstPiece &&
+    firstPiece.startQ === clip.startQ &&
+    firstPieceMedia?.hasVideo &&
+    describeClipMediaState(firstPiece, firstPieceMedia.availability) ===
+      "online"
       ? (thumbnails.get(
           getThumbnailCacheKey(
-            media.id,
-            getClipThumbnailTimeSeconds(clip, media.durationSeconds, bpm),
-            clipFilmstrips.get(clip.id)?.size,
+            firstPieceMedia.id,
+            getClipThumbnailTimeSeconds(
+              firstPiece,
+              firstPieceMedia.durationSeconds,
+              bpm,
+            ),
+            clipFilmstrips.get(getClipPieceKey(clip.id, 0))?.size,
           ),
-          `clip:${clip.id}`,
-        ) ?? media.thumbnailUrl)
+          `clip:${getClipPieceKey(clip.id, 0)}`,
+        ) ?? firstPieceMedia.thumbnailUrl)
       : undefined;
-  const filmstrip =
-    media?.hasVideo && mediaState === "online"
-      ? clipFilmstrips.get(clip.id)
-      : undefined;
+  const filmstrip = pieces.some((_, index) =>
+    clipFilmstrips.has(getClipPieceKey(clip.id, index)),
+  );
   const mediaSync = media
     ? describeMediaSync(remoteMediaProgress.get(media.id), media.availability)
     : null;
   // Audio-only media draws its waveform, like the Audio lane, until its peaks
   // turn out to be missing. Video with audio overlays it on the frames once
-  // its peaks are ready, decoding only while the clip is in view.
-  const waveformKind = getClipWaveformKind(clip, media, mediaState);
-  const waveformRange = getClipWaveformRange(
-    clip,
-    bpm,
-    quarterPx,
-    media?.durationSeconds ?? 0,
-  );
+  // its peaks are ready, decoding only while the clip is in view. Each piece
+  // draws its own (ClipPieceMedia); the card takes its look from its first
+  // source clip's.
+  const waveformKind = pieces.length
+    ? getClipWaveformKind(clip, media, mediaState)
+    : "none";
   const inView = getVisibleClipSlice(
     clip.startQ * quarterPx,
     durationQ * quarterPx,
@@ -203,17 +219,6 @@ export function ClipCard({
       }}
     >
       {mediaSync ? <MediaSyncSkeleton variant="clip" view={mediaSync} /> : null}
-      {audio ? (
-        <ClipWaveform
-          className="clip-card__waveform"
-          clipLeftPx={clip.startQ * quarterPx}
-          clipWidthPx={durationQ * quarterPx}
-          peaks={audioPeaks}
-          range={waveformRange}
-          visibleStartPx={visibleTimelineStartPx}
-          visibleWidthPx={visibleTimelineWidthPx}
-        />
-      ) : null}
       {fillBackground ? (
         <span
           aria-hidden="true"
@@ -221,54 +226,22 @@ export function ClipCard({
           style={{ background: fillBackground }}
         />
       ) : null}
-      {filmstrip ? (
-        <span aria-hidden="true" className="clip-card__filmstrip">
-          {filmstrip.tiles.map((tile) => {
-            // A tile shows the clip's first frame
-            // until its own frame is decoded.
-            const tileUrl =
-              thumbnails.get(
-                getThumbnailCacheKey(
-                  filmstrip.media.id,
-                  tile.timeSeconds,
-                  filmstrip.size,
-                ),
-                getFilmstripTileOwner("clip", clip.id, tile.index),
-              ) ?? thumbnailUrl;
-            return (
-              <span
-                key={tile.index}
-                className="clip-card__tile"
-                style={{
-                  left: tile.leftPx,
-                  width: tile.widthPx,
-                  backgroundImage: tileUrl ? `url(${tileUrl})` : undefined,
-                }}
-              />
-            );
-          })}
-        </span>
-      ) : null}
-      {waveformOverlay ? (
-        <ClipWaveform
-          className="clip-card__waveform-overlay"
-          clipLeftPx={clip.startQ * quarterPx}
-          clipWidthPx={durationQ * quarterPx}
-          peaks={audioPeaks}
-          range={waveformRange}
-          visibleStartPx={visibleTimelineStartPx}
-          visibleWidthPx={visibleTimelineWidthPx}
+      {pieces.map((piece, index) => (
+        <ClipPieceMedia
+          key={getClipPieceKey(clip.id, index)}
+          piece={piece}
+          pieceKey={getClipPieceKey(clip.id, index)}
+          clipStartQ={clip.startQ}
+          bpm={bpm}
+          quarterPx={quarterPx}
+          visibleTimelineStartPx={visibleTimelineStartPx}
+          visibleTimelineWidthPx={visibleTimelineWidthPx}
+          mediaItemsById={mediaItemsById}
+          thumbnails={thumbnails}
+          clipFilmstrips={clipFilmstrips}
+          remoteMediaProgress={remoteMediaProgress}
         />
-      ) : null}
-      {media && !mediaSync && mediaState === "online" ? (
-        <MediaLoopMarkers
-          clipLeftPx={clip.startQ * quarterPx}
-          clipWidthPx={durationQ * quarterPx}
-          range={waveformRange}
-          visibleStartPx={visibleTimelineStartPx}
-          visibleWidthPx={visibleTimelineWidthPx}
-        />
-      ) : null}
+      ))}
       <button
         className={`clip-card__handle clip-card__handle--start${trimmingStart ? " clip-card__handle--trimming" : ""}`}
         onPointerDown={(event) => {

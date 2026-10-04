@@ -57,6 +57,7 @@ import {
   type AnimationClipContext,
   reactsToAudio,
   resolveAnimatedEffects,
+  withPlacedOnsets,
 } from "./fx-animation.ts";
 import {
   clipSessionEdges,
@@ -120,6 +121,10 @@ export type ArrangementClip = {
   warp?: ClipWarp;
   tint: string;
   accent: string;
+  // Set when this is one piece of a layer clip (see render-clips.ts): the
+  // whole clip's timing, which its animations run over.
+  layerClipStartQ?: number;
+  layerClipDurationSeconds?: number;
 };
 
 export type SessionEffect = {
@@ -434,13 +439,19 @@ export function resolveVisualState(
   return state;
 }
 
-// Whether `effect` needs the audio mix's bands: shader-chain effects and
-// Reactive animations follow them.
+// Whether `effect` needs the audio mix's bands. Only Reactive animations
+// follow them; shader passes never read the mix (see EffectContext).
 export function effectUsesAudio(effect: SessionEffect) {
-  return (
-    effect.enabled !== false &&
-    (isChainEffectName(effect.effectName) || reactsToAudio(effect))
-  );
+  return effect.enabled !== false && reactsToAudio(effect);
+}
+
+// The analyser the preview measures the mix through: none while no effect
+// reacts to it, so a session without such effects analyzes no audio.
+export function liveBandsAnalyser<T>(
+  effects: readonly SessionEffect[],
+  analyser: T | null,
+) {
+  return effects.some(effectUsesAudio) ? analyser : null;
 }
 
 export function computeActiveClips(
@@ -500,6 +511,14 @@ export function computeActiveClips(
     }
   }
 
+  // Shared by every clip, so the frame's hits are placed once.
+  const frameContext = withPlacedOnsets({
+    playheadQ,
+    bpm,
+    fps,
+    audio,
+    signature,
+  });
   return [...topClipByLane.values()]
     .sort(
       (left, right) =>
@@ -508,9 +527,10 @@ export function computeActiveClips(
     )
     .map<ActiveClip>(({ clip, media }) => {
       const laneRank = lanePriority.get(clip.laneId) ?? -1;
+      const timing = getAnimationTiming(clip);
       const sessionEdges = clipSessionEdges(
-        quartersToSeconds(clip.startQ, bpm),
-        clip.durationSeconds,
+        quartersToSeconds(timing.startQ, bpm),
+        timing.durationSeconds,
         sessionEndSeconds,
         fps,
       );
@@ -523,13 +543,11 @@ export function computeActiveClips(
       const clipProgress = clipContext.progress;
       // The parameters every effect is drawn with for this clip and frame,
       // so a layer or Global effect animates with each clip on its own.
-      const effects = resolveAnimatedEffects(sessionEffects, clipContext, {
-        playheadQ,
-        bpm,
-        fps,
-        audio,
-        signature,
-      });
+      const effects = resolveAnimatedEffects(
+        sessionEffects,
+        clipContext,
+        frameContext,
+      );
       if (clip.kind === "fx") {
         // Only the FX clip's own stack adjusts what is beneath it, so an FX
         // clip without effects changes nothing.
@@ -621,22 +639,38 @@ export function computeActiveClips(
     });
 }
 
+// When `clip` starts and how long it lasts as its animations see it: a
+// piece of a layer clip animates over the whole clip.
+function getAnimationTiming(
+  clip: Pick<
+    ArrangementClip,
+    | "startQ"
+    | "durationSeconds"
+    | "layerClipStartQ"
+    | "layerClipDurationSeconds"
+  >,
+) {
+  return {
+    startQ: clip.layerClipStartQ ?? clip.startQ,
+    durationSeconds: clip.layerClipDurationSeconds ?? clip.durationSeconds,
+  };
+}
+
 function animationClipContext(
   clip: ArrangementClip,
   playheadQ: number,
   bpm: number,
   sessionEdges?: SessionEdges,
 ): AnimationClipContext {
-  const elapsedSeconds = quartersToSeconds(playheadQ - clip.startQ, bpm);
+  const { startQ, durationSeconds } = getAnimationTiming(clip);
+  const elapsedSeconds = quartersToSeconds(playheadQ - startQ, bpm);
   return {
     clipId: clip.id,
     laneId: clip.laneId,
     progress:
-      clip.durationSeconds > 0
-        ? clamp(elapsedSeconds / clip.durationSeconds, 0, 1)
-        : 0,
+      durationSeconds > 0 ? clamp(elapsedSeconds / durationSeconds, 0, 1) : 0,
     elapsedSeconds,
-    durationSeconds: clip.durationSeconds,
+    durationSeconds,
     sessionEdges,
   };
 }

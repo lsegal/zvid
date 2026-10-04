@@ -1,5 +1,7 @@
 // What the compositor renders. Normally that is the arrangement's layer
-// clips; when there are none at all, the source tracks render as if they
+// clips, each media clip as the pieces of its source track window that hold
+// a source clip, so the parts over nothing draw nothing; when there are none
+// at all, the source tracks render as if they
 // were layers instead, so a session with only source tracks still previews
 // and exports. Preview, the transform overlay and export all resolve their
 // clips, and the effects they render with, here, so they always agree.
@@ -15,6 +17,7 @@ import {
   getEffectSourceSpanId,
   getEffectSourceTrackId,
 } from "./fx/stack/clip-stacks.ts";
+import { getClipPieceClips } from "./source-track-content.ts";
 
 // Virtual ids are namespaced so they never collide with real clips or
 // layers, and never pick up a stored layer or clip effect stack: besides
@@ -33,8 +36,15 @@ export type RenderClipsInputs<Effect extends RenderEffect = RenderEffect> = {
   effects: Effect[];
 };
 
+// A clip as the compositor draws it. A piece of a media layer clip keeps
+// the whole clip's timing for its animations.
+export type RenderClip = ArrangementClip & {
+  layerClipStartQ?: number;
+  layerClipDurationSeconds?: number;
+};
+
 export type RenderClips<Effect extends RenderEffect = RenderEffect> = {
-  clips: ArrangementClip[];
+  clips: RenderClip[];
   lanes: Lane[];
   effects: Effect[];
   // Whether the clips are the source-track fallback rather than the
@@ -62,8 +72,10 @@ export function hasRenderableContent({
   return clips.length > 0 || sourceSpans.length > 0;
 }
 
-// The clips and layers to render. With any arrangement clip, those pass
-// through unchanged. With none, each source span becomes a clip playing its
+// The clips and layers to render. With any arrangement clip, those render
+// on their own layers: fill, text and FX clips as they are, and each media
+// clip as one clip per source clip in its window (getClipPieceClips), each
+// animating over the whole clip. With none, each source span becomes a clip playing its
 // media at its timeline position, on one layer per source track in source
 // track order (source track 1 on top, as Layer 1 is). Their source track
 // and source clip stacks apply to them (see resolveRenderEffects).
@@ -75,7 +87,17 @@ export function resolveRenderClips<Effect extends RenderEffect>({
   bpm,
   effects,
 }: RenderClipsInputs<Effect>): RenderClips<Effect> {
-  if (clips.length || !sourceSpans.length) {
+  if (clips.length) {
+    return {
+      clips: clips.flatMap((clip) =>
+        resolveLayerClipPieces(clip, sourceSpans, bpm),
+      ),
+      lanes,
+      effects,
+      fromSourceTracks: false,
+    };
+  }
+  if (!sourceSpans.length) {
     return { clips, lanes, effects, fromSourceTracks: false };
   }
 
@@ -130,6 +152,23 @@ export function resolveRenderClips<Effect extends RenderEffect>({
     effects: resolveRenderEffects(effects),
     fromSourceTracks: true,
   };
+}
+
+// `clip` as the clips it renders as: itself, or the pieces of a media
+// clip's source track window, each keeping the clip's timing.
+function resolveLayerClipPieces(
+  clip: ArrangementClip,
+  sourceSpans: SourceSpan[],
+  bpm: number,
+): RenderClip[] {
+  if (clip.kind) {
+    return [clip];
+  }
+  return getClipPieceClips(clip, sourceSpans, bpm).map((piece) => ({
+    ...piece,
+    layerClipStartQ: clip.startQ,
+    layerClipDurationSeconds: clip.durationSeconds,
+  }));
 }
 
 // The effects source tracks render with in place of layers: each source

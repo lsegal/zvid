@@ -1,5 +1,7 @@
 const MEDIA_SEEK_TOLERANCE_SECONDS = 0.001;
 const MEDIA_SEEK_TIMEOUT_MS = 4000;
+// How far playing media may drift from its clip's time before it is seeked.
+const MAX_PLAYBACK_DRIFT_SECONDS = 0.18;
 // HTMLMediaElement.HAVE_CURRENT_DATA, which Node (the unit tests) lacks.
 const HAVE_CURRENT_DATA = 2;
 
@@ -49,4 +51,20 @@ export function seekMediaElement(
       settle();
     }
   });
+}
+
+// Whether media `driftSeconds` away from the time its clip shows is seeked
+// there: paused or scrubbing, unless it is there already, as media an edit
+// didn't move is when a paused preview syncs after it; playing, only once
+// it drifts too far.
+export function needsPlaybackSeek(
+  driftSeconds: number,
+  { isPlaying, isScrubbing }: { isPlaying: boolean; isScrubbing: boolean },
+) {
+  if (driftSeconds <= MEDIA_SEEK_TOLERANCE_SECONDS) {
+    return false;
+  }
+  return isPlaying && !isScrubbing
+    ? driftSeconds > MAX_PLAYBACK_DRIFT_SECONDS
+    : true;
 }

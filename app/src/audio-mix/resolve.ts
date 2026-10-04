@@ -26,6 +26,11 @@ import {
 import { isAudioEffectName } from "../fx-registry.ts";
 import { sourceRenderClipId } from "../render-clips.ts";
 import {
+  getClipPieceClips,
+  type TrackContentClip,
+  type TrackContentSpan,
+} from "../source-track-content.ts";
+import {
   type AudioStage,
   type AudioTimeSignature,
   DEFAULT_TIME_SIGNATURE,
@@ -34,28 +39,14 @@ import { type AudioStageEffect, audioStageOf } from "./stages.ts";
 
 type AudioEffect = AudioStageEffect;
 
-type AudioLayerClip = {
+// A media layer clip plays its source track window piece by piece (see
+// source-track-content.ts).
+type AudioLayerClip = TrackContentClip & {
   id: string;
-  kind?: string;
   laneId: string;
-  mediaId?: string;
-  startQ: number;
-  durationSeconds: number;
-  sourceOffsetSeconds: number;
-  sourceWindowStartSeconds: number;
-  sourceWindowEndSeconds: number;
-  warp?: ClipWarp;
 };
 
-type AudioSourceSpan = {
-  id: string;
-  sourceTrackId: string;
-  mediaId?: string;
-  startQ: number;
-  durationSeconds: number;
-  trimStartSeconds: number;
-  warp?: ClipWarp;
-};
+type AudioSourceSpan = TrackContentSpan;
 
 // A layer or source track whose FX switch is off bypasses its own stack and
 // its clips' stacks, Gain included.
@@ -82,7 +73,8 @@ export type AudioMixInputs<Effect extends AudioEffect = AudioEffect> = {
 // source time at timeline second `t` is `t + sourceOffsetSeconds`, inside
 // the source window, through the clip's warp markers when it has them.
 export type AudioMixClip<Effect extends AudioEffect = AudioEffect> = {
-  // The layer clip's id, or the source clip's render id.
+  // The layer clip's id, with `#<n>` for its later pieces, or the source
+  // clip's render id.
   id: string;
   mediaId: string;
   startSeconds: number;
@@ -231,14 +223,21 @@ export function resolveAudioClips<Effect extends AudioEffect>({
   };
   const master = stagesOf(GLOBAL_EFFECT_TRACK_ID);
 
-  const layerClips = clips.filter(
-    (clip) => !clip.kind && hasAudio(mediaById, clip.mediaId),
+  // Each piece of a media layer clip's source track window that has audio.
+  const layerClips = clips.flatMap((clip) =>
+    clip.kind
+      ? []
+      : getClipPieceClips(clip, sourceSpans, bpm).flatMap((piece, index) =>
+          hasAudio(mediaById, piece.mediaId)
+            ? [{ ...piece, pieceId: index ? `${clip.id}#${index}` : clip.id }]
+            : [],
+        ),
   );
   if (layerClips.length) {
     const mixed = layerClips.map((clip) =>
       mixClip(
         {
-          id: clip.id,
+          id: clip.pieceId,
           mediaId: clip.mediaId as string,
           startSeconds: quartersToSeconds(clip.startQ, bpm),
           durationSeconds: clip.durationSeconds,

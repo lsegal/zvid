@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import type { ContextMenuEntry } from "../context-menu.ts";
 import type { FxEffectDefinition } from "../fx-registry.ts";
 import { MAX_LAYERS } from "../selection-overlaps.ts";
+import { SOURCE_TRACKS_LOCKED_TITLE } from "../source-tracks-section.ts";
 import { audioMenuEntries, buildAudioMenuEntries } from "./audio-menu.ts";
 import { buildClipMenuEntries, clipMenuEntries } from "./clip-menu.ts";
 import { buildEditMenuEntries, editMenuEntries } from "./edit-menu.ts";
@@ -17,6 +18,7 @@ import {
   buildSelectionMenuEntries,
   selectionMenuEntries,
 } from "./selection-menu.ts";
+import { buildSourceLaneMenuEntries } from "./source-lane-menu.ts";
 import {
   buildSourceSpanMenuEntries,
   sourceSpanMenuEntries,
@@ -319,6 +321,41 @@ describe("menu snapshots", () => {
     );
   });
 
+  it("source lane menu", () => {
+    const options = {
+      canSplit: true,
+      mac: false,
+      actions: clipActions,
+    };
+    assert.deepEqual(
+      snapshot([
+        // Without a selected source clip, only Paste.
+        ...buildSourceLaneMenuEntries({
+          ...options,
+          hasClip: false,
+          canPaste: true,
+          locked: false,
+        }),
+        { type: "separator" },
+        // Layer content on the clipboard grays out Paste.
+        ...buildSourceLaneMenuEntries({
+          ...options,
+          hasClip: true,
+          canPaste: false,
+          locked: false,
+        }),
+        { type: "separator" },
+        ...buildSourceLaneMenuEntries({
+          ...options,
+          hasClip: true,
+          canPaste: true,
+          locked: true,
+        }),
+      ]),
+      SOURCE_LANE_MENUS,
+    );
+  });
+
   it("edit menu", () => {
     assert.deepEqual(
       snapshot(
@@ -486,6 +523,38 @@ const AUDIO_MENUS = [
   "refresh: Recompute audio",
   "---",
   "refresh: Recompute audio (disabled)",
+];
+
+const SOURCE_LANE_MENUS = [
+  "jump-to-start: Jump to start (disabled)",
+  "---",
+  "cut: Cut [Ctrl+X] (disabled)",
+  "copy: Copy [Ctrl+C] (disabled)",
+  "paste: Paste [Ctrl+V]",
+  "duplicate: Duplicate [Ctrl+D] (disabled)",
+  "split: Split at playhead (disabled)",
+  "---",
+  "delete: Delete [Del] (disabled)",
+  "---",
+  "jump-to-start: Jump to start",
+  "---",
+  "cut: Cut [Ctrl+X]",
+  "copy: Copy [Ctrl+C]",
+  "paste: Paste [Ctrl+V] (disabled)",
+  "duplicate: Duplicate [Ctrl+D]",
+  "split: Split at playhead",
+  "---",
+  "delete: Delete [Del]",
+  "---",
+  "jump-to-start: Jump to start",
+  "---",
+  `cut: Cut [Ctrl+X] title="${SOURCE_TRACKS_LOCKED_TITLE}" (disabled)`,
+  "copy: Copy [Ctrl+C]",
+  `paste: Paste [Ctrl+V] title="${SOURCE_TRACKS_LOCKED_TITLE}" (disabled)`,
+  `duplicate: Duplicate [Ctrl+D] title="${SOURCE_TRACKS_LOCKED_TITLE}" (disabled)`,
+  `split: Split at playhead title="${SOURCE_TRACKS_LOCKED_TITLE}" (disabled)`,
+  "---",
+  `delete: Delete [Del] title="${SOURCE_TRACKS_LOCKED_TITLE}" (disabled)`,
 ];
 
 const SOURCE_SPAN_MENU = [

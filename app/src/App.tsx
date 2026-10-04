@@ -521,6 +521,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     layerReorder: editing.layerReorder,
                     renamingLaneId: selection.renamingLaneId,
                     setRenamingLaneId: selection.setRenamingLaneId,
+                    readOnly: store.isWorkspaceReadOnly,
                     openLayerMenu: editing.openLayerMenu,
                     selectLaneFromLabel: selection.selectLaneFromLabel,
                     focusLaneLabel: selection.focusLaneLabel,
@@ -554,6 +555,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                       signature: timeline.signature,
                       mediaItemsById,
                       thumbnails: timeline.thumbnails,
+                      clipPieces: timeline.clipPieces,
                       clipFilmstrips: timeline.clipFilmstrips,
                       remoteMediaProgress: media.remoteMediaProgress,
                       timelineEffects,
@@ -594,10 +596,13 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     openMenu: editing.openSourceTrackMenu,
                     locked: editing.sourceTracksLocked,
                     renamingId: editing.renamingSourceTrackId,
+                    startRename: editing.setRenamingSourceTrackId,
+                    readOnly: store.isWorkspaceReadOnly,
                     commitRename: editing.commitSourceTrackRename,
                     cancelRename: editing.cancelSourceTrackRename,
                     setFxEnabled: fxEditing.setSourceTrackFxEnabled,
                   }}
+                  openLaneMenu={editing.openSourceLaneMenu}
                   span={{
                     bpm,
                     quarterPx,

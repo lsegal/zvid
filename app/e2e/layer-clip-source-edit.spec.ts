@@ -1,10 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
-// A layer clip made from a source track selection shows what that track
-// holds in its range now: moving the source clip away leaves it showing
-// nothing, rather than the frames it was made with, and deleting the source
-// clip removes it, with undo (#869). A four-second test pattern at 120 BPM
+// A layer clip made from a source track selection shows a window of that
+// track, not the source clip it was made from: trimming or moving the
+// source clip away leaves the clip in place showing nothing there, rather
+// than the frames it was made with, and deleting the source clip leaves the
+// layer clip in place too (#932). A four-second test pattern at 120 BPM
 // spans eight quarters.
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
 
@@ -121,7 +122,28 @@ async function dragBy(page: Page, handle: Locator, deltaPx: number) {
   await page.keyboard.up("Shift");
 }
 
-test("a layer clip follows its source clip being moved and is removed with it", async ({
+// Where on the timeline `bounds` starts and ends.
+function reach(bounds: { x: number; width: number }) {
+  return [bounds.x, bounds.x + bounds.width];
+}
+
+// The fraction of `clip`'s width each of its parts that show a source
+// clip covers, as [from, to] pairs rounded to tenths.
+async function pieceRanges(clip: Locator) {
+  const clipBox = await box(clip);
+  const ranges: number[][] = [];
+  for (const piece of await clip.locator(".clip-card__piece").all()) {
+    const pieceBox = await box(piece);
+    ranges.push(
+      [pieceBox.x - clipBox.x, pieceBox.x + pieceBox.width - clipBox.x].map(
+        (px) => Math.round((px / clipBox.width) * 10) / 10,
+      ),
+    );
+  }
+  return ranges;
+}
+
+test("a layer clip keeps its window as its source clip is trimmed, moved and deleted", async ({
   page,
 }) => {
   await page.goto("/");
@@ -155,12 +177,13 @@ test("a layer clip follows its source clip being moved and is removed with it", 
   await page.keyboard.press("1");
   const clip = layer.locator(".clip-card");
   await expect(clip).toHaveCount(1);
-
-  // The playhead in the middle of the clip, showing the source's second 2.
   const clipBox = await box(clip);
+  await expect.poll(() => pieceRanges(clip)).toEqual([[0, 1]]);
+
+  // The playhead at quarter 5, in the clip's second half.
   const ruler = await box(page.locator(".ruler-row"));
   await page.mouse.click(
-    clipBox.x + clipBox.width / 2,
+    clipBox.x + (clipBox.width * 3) / 4,
     ruler.y + ruler.height / 2,
   );
   await expect(page.locator(".preview-placeholder")).toHaveCount(0, {
@@ -168,29 +191,50 @@ test("a layer clip follows its source clip being moved and is removed with it", 
   });
   const before = await settledPreview(page);
 
-  // Moving the source clip six quarters later leaves nothing on its track
-  // under the layer clip, which now shows nothing either.
+  // Trimming the source clip to quarters 0 to 4 leaves the layer clip over
+  // 2 to 6, showing the source on its first half and nothing on its second.
+  await dragBy(page, span.locator(".source-span__handle--end"), -4 * quarterPx);
+  await expect
+    .poll(async () => (await box(span)).width)
+    .toBeCloseTo(4 * quarterPx, 0);
+  await expect(clip).toHaveCount(1);
+  expect(reach(await box(clip))).toEqual(reach(clipBox));
+  await expect.poll(() => pieceRanges(clip)).toEqual([[0, 0.5]]);
+  await expectPreviewChange(page, before);
+
+  // Undo fills it again.
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect.poll(() => pieceRanges(clip)).toEqual([[0, 1]]);
+  await expectPreview(page, before);
+
+  // Moving the source clip six quarters later leaves nothing under the
+  // layer clip; moving it back fills it again, with no relinking.
   await dragBy(page, span.locator(".source-span__body"), 6 * quarterPx);
   await expect
     .poll(async () => (await box(span)).x - spanBox.x)
     .toBeCloseTo(6 * quarterPx, 0);
   await expect(clip).toHaveCount(1);
+  await expect.poll(() => pieceRanges(clip)).toEqual([]);
   await expectPreviewChange(page, before);
-
-  // Undo puts the source clip and what the layer clip shows back.
-  await page.keyboard.press("ControlOrMeta+z");
+  await dragBy(page, span.locator(".source-span__body"), -6 * quarterPx);
   await expect
     .poll(async () => (await box(span)).x - spanBox.x)
     .toBeCloseTo(0, 0);
+  await expect.poll(() => pieceRanges(clip)).toEqual([[0, 1]]);
   await expectPreview(page, before);
 
-  // Deleting the source clip removes the layer clip made from it; undo
-  // brings both back.
+  // Deleting the source clip leaves the layer clip in place, showing
+  // nothing; undo brings the source clip back and fills it again.
   await span.locator(".source-span__body").click();
   await page.keyboard.press("Delete");
   await expect(span).toHaveCount(0);
-  await expect(clip).toHaveCount(0);
+  await expect(clip).toHaveCount(1);
+  expect(reach(await box(clip))).toEqual(reach(clipBox));
+  await expect.poll(() => pieceRanges(clip)).toEqual([]);
+  await expectPreviewChange(page, before);
   await page.keyboard.press("ControlOrMeta+z");
   await expect(span).toHaveCount(1);
   await expect(clip).toHaveCount(1);
+  await expect.poll(() => pieceRanges(clip)).toEqual([[0, 1]]);
+  await expectPreview(page, before);
 });

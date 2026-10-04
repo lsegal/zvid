@@ -34,12 +34,15 @@ export type SourceTrackLabelContext = {
   openMenu: (event: ReactMouseEvent<HTMLElement>, trackId: string) => void;
   locked: boolean;
   renamingId: string | undefined;
+  startRename: (trackId: string) => void;
+  // A read-only tab ignores a double-click on the name instead of renaming.
+  readOnly: boolean;
   commitRename: SourceTrackActions["commitSourceTrackRename"];
   cancelRename: SourceTrackActions["cancelSourceTrackRename"];
   setFxEnabled: ReturnType<typeof useFxEditing>["setSourceTrackFxEnabled"];
 };
 
-type SourceTrackRowProps = {
+export type SourceTrackRowProps = {
   track: SourceTrack;
   index: number;
   spans: SourceSpanClip[];
@@ -52,6 +55,8 @@ type SourceTrackRowProps = {
   armed: boolean;
   // The clip this track is recording into.
   liveTake: LiveTake | undefined;
+  // Opens the menu for empty space in the track's timeline row.
+  openLaneMenu: (event: ReactMouseEvent<HTMLElement>, trackId: string) => void;
 } & SourceTrackLabelContext;
 
 // A source track: its label with the reorder grip, its spans, and the
@@ -59,7 +64,9 @@ type SourceTrackRowProps = {
 // on the row, label and spans included, goes to this track, starting at the
 // timeline position under the pointer. Clicking the
 // label or empty space in the row selects the track; clicking a span selects
-// the span.
+// the span. Right-clicking empty space opens the layer lane menu's entries
+// for the track. Double-clicking the track name renames it, like Rename… in
+// its menu.
 export function SourceTrackRow({
   track,
   index,
@@ -72,10 +79,13 @@ export function SourceTrackRow({
   span,
   armed,
   liveTake,
+  openLaneMenu,
   reorder,
   openMenu,
   locked,
   renamingId,
+  startRename,
+  readOnly,
   commitRename,
   cancelRename,
   setFxEnabled,
@@ -141,6 +151,11 @@ export function SourceTrackRow({
             aria-current={selected ? "true" : undefined}
             className="track-label__select"
             data-source-track-label-id={track.id}
+            onDoubleClick={() => {
+              if (!readOnly) {
+                startRename(track.id);
+              }
+            }}
             type="button"
           >
             <span>{track.name}</span>
@@ -169,6 +184,7 @@ export function SourceTrackRow({
             selectSource(selectSourceTrack(track.id));
           }
         }}
+        onContextMenu={(event) => openLaneMenu(event, track.id)}
         style={gridStyle}
       >
         {spans.map((clip) => (

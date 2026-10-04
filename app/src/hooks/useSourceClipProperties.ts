@@ -17,7 +17,7 @@ import {
   SOURCE_CLIP_HISTORY_LABELS,
   type SourceClipField,
 } from "../source-clip-properties.ts";
-import { relinkClipsToSourceSpans } from "../source-span-edit.ts";
+import { syncClipsToSourceSpans } from "../source-track-content.ts";
 import type { TimeValueFormat } from "../time-value.ts";
 import { useMediaDurationSeconds } from "./useMediaDurationSeconds.ts";
 
@@ -114,7 +114,7 @@ export function useSourceClipProperties({
           ? current
           : patchProjectState(current, {
               sourceSpans: spans,
-              clips: relinkClipsToSourceSpans(
+              clips: syncClipsToSourceSpans(
                 current.clips,
                 current.sourceSpans,
                 spans,

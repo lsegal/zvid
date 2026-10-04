@@ -19,6 +19,7 @@ import {
   effectUsesAudio,
   GROUP_TRACK_ID,
   type Lane,
+  liveBandsAnalyser,
   type MediaItem,
   quartersToSeconds,
   resolveAnimatedOrder,
@@ -43,7 +44,7 @@ import {
 import { resolveEffectChain } from "./fx-shaders/registry.ts";
 import { getRenderedEffects } from "./fx-stack.ts";
 import { listenForVideoFrames, releaseMediaElement } from "./media-element.ts";
-import { seekMediaElement } from "./media-seek.ts";
+import { needsPlaybackSeek, seekMediaElement } from "./media-seek.ts";
 import type { PlayheadSignal } from "./playhead-signal";
 import { loadTextFaces, subscribeFonts } from "./text-fonts.ts";
 import type { MeterSignature } from "./timeline-format.ts";
@@ -110,7 +111,6 @@ export type CompositionPlayerHandle = {
   getMasterMeterTap(): MasterMeterTap | null;
 };
 
-const MAX_DRIFT_SECONDS = 0.18;
 // Export measures audio-reactive effects on the mix at this rate.
 const OFFLINE_BANDS_SAMPLE_RATE = 48000;
 // The playback rates every browser accepts; a media element throws outside
@@ -196,11 +196,12 @@ export class CompositionRenderer {
   // raster; a paused preview, being edited, draws them exactly.
   renderPreviewFrame(playheadQ: number, pixelRatio: number, playing = true) {
     this.ensureResources();
-    const audio = this.sampleLiveAudioBands();
-    this.activeClips = this.computeActiveClips(playheadQ, audio);
+    const effects = this.renderedEffects();
+    const audio = this.sampleLiveAudioBands(effects);
+    this.activeClips = this.computeActiveClips(playheadQ, audio, effects);
     this.draw(this.activeClips, playheadQ, pixelRatio, {
       time: quartersToSeconds(playheadQ, this.state.bpm),
-      audio: audio ?? SILENT_AUDIO_BANDS,
+      audio,
       groupClipProgress: this.groupClipProgressAt(playheadQ),
       preview: playing,
     });
@@ -291,11 +292,7 @@ export class CompositionRenderer {
       }
 
       const drift = Math.abs(element.currentTime - activeEntry.mediaTime);
-      const needsSeek =
-        !playback.isPlaying ||
-        playback.isScrubbing ||
-        drift > MAX_DRIFT_SECONDS;
-      if (needsSeek) {
+      if (needsPlaybackSeek(drift, playback)) {
         element.currentTime = activeEntry.mediaTime;
       }
 
@@ -328,7 +325,11 @@ export class CompositionRenderer {
     }
   }
 
-  private computeActiveClips(playheadQ: number, audio = SILENT_AUDIO_BANDS) {
+  private computeActiveClips(
+    playheadQ: number,
+    audio = SILENT_AUDIO_BANDS,
+    effects = this.renderedEffects(),
+  ) {
     const mediaById = new Map(
       this.state.mediaItems.map((item) => [item.id, item]),
     );
@@ -342,7 +343,7 @@ export class CompositionRenderer {
       playheadQ,
       this.state.bpm,
       lanePriority,
-      this.renderedEffects(),
+      effects,
       this.state.fps,
       audio,
       this.state.projectDurationFrames,
@@ -383,19 +384,14 @@ export class CompositionRenderer {
     return getRenderedEffects(effects, lanes, clips);
   }
 
-  private usesAudioBands() {
-    return this.renderedEffects().some(effectUsesAudio);
-  }
-
   private audioMix() {
     return this.state.audioMix ?? SILENT_AUDIO_MIX;
   }
 
-  private sampleLiveAudioBands() {
-    return this.liveAudioBands.sample(
-      this.mixer?.analyser ?? null,
-      performance.now(),
-    );
+  // The mix is measured only while some effect reacts to it.
+  private sampleLiveAudioBands(effects = this.renderedEffects()) {
+    const analyser = liveBandsAnalyser(effects, this.mixer?.analyser ?? null);
+    return this.liveAudioBands.sample(analyser, performance.now());
   }
 
   private async sampleAudioBandsAt(playheadSeconds: number) {
@@ -404,7 +400,7 @@ export class CompositionRenderer {
     }
 
     const mix = this.audioMix();
-    if (!this.usesAudioBands()) {
+    if (!this.renderedEffects().some(effectUsesAudio)) {
       return SILENT_AUDIO_BANDS;
     }
 
@@ -630,16 +626,16 @@ export const CompositionPlayer = forwardRef<
   );
   const scheduleDrawRef = useRef(scheduleDraw);
   scheduleDrawRef.current = scheduleDraw;
-  const scrubStateRef = useRef({
-    isScrubbing,
-    isAudibleScrubbing,
-    isContinuousScrubbing,
-  });
-  scrubStateRef.current = {
+  const playbackState: CompositionPlaybackState = {
+    playheadQ,
+    playheadSeconds,
+    isPlaying,
     isScrubbing,
     isAudibleScrubbing,
     isContinuousScrubbing,
   };
+  const playbackStateRef = useRef(playbackState);
+  playbackStateRef.current = playbackState;
 
   const renderFrameAt = useCallback(
     async (
@@ -701,7 +697,10 @@ export const CompositionPlayer = forwardRef<
     rendererRef.current?.update(rendererState);
     // A paused preview only redraws on request, so edits such as effect or
     // layer FX bypasses would otherwise not show until the playhead moves.
+    // Edits such as one to a layer clip's source clip also move its media's
+    // time at the playhead, so seek there too; the new frame redraws again.
     if (!isPlayingRef.current) {
+      rendererRef.current?.syncPlayback(playbackStateRef.current);
       scheduleDrawRef.current();
     }
   }, [rendererState]);
@@ -737,7 +736,7 @@ export const CompositionPlayer = forwardRef<
       // follow the live playhead and keep the media in sync with it here.
       const livePlayheadQ = playheadSignal.get();
       renderer.syncPlayback({
-        ...scrubStateRef.current,
+        ...playbackStateRef.current,
         playheadQ: livePlayheadQ,
         playheadSeconds: quartersToSeconds(
           livePlayheadQ,

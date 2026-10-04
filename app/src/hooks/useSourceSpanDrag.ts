@@ -8,9 +8,9 @@ import type {
 import { LANE_SELECTION_DRAG_THRESHOLD_PX } from "../lane-selection-gesture.ts";
 import {
   dragSourceSpan,
-  relinkClipsToSourceSpans,
   resolveSourceSpanOverlaps,
 } from "../source-span-edit.ts";
+import { syncClipsToSourceSpans } from "../source-track-content.ts";
 
 export type SourceSpanDragInputs = {
   sourceSpanDrag: SourceSpanDragState | null;
@@ -120,7 +120,7 @@ export function useSourceSpanDrag({
           (current) =>
             patchProjectState(current, {
               sourceSpans: spans,
-              clips: relinkClipsToSourceSpans(
+              clips: syncClipsToSourceSpans(
                 current.clips,
                 current.sourceSpans,
                 spans,

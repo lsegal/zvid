@@ -77,7 +77,14 @@ export type LayerPlacement = {
 
 export type StackedLayer = {
   laneRank: number;
-  clip: { startQ: number; laneId?: string; durationSeconds?: number };
+  clip: {
+    startQ: number;
+    laneId?: string;
+    durationSeconds?: number;
+    // Set when this is one piece of a layer clip (see render-clips.ts): the
+    // whole clip's duration, which its slides are timed over.
+    layerClipDurationSeconds?: number;
+  };
   // How far through its clip the playhead is, 0..1. With the clip's
   // duration it times an animated Order's slides.
   clipProgress?: number;

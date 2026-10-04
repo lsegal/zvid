@@ -7,6 +7,10 @@ import type {
 import { type ClipClipboard, canPasteOntoLayer } from "../app/clip-ops.ts";
 import { FX_CLIP_BARS, TEXT_CLIP_BARS } from "../app/constants.ts";
 import type { getShortcutLabels } from "../app/shortcut-labels.ts";
+import {
+  type SourceSelection,
+  selectSourceTrack,
+} from "../app/source-selection.ts";
 import { getClipDurationQ, getClipEndQ } from "../app/timeline-math.ts";
 import type {
   ArrangementClip,
@@ -36,6 +40,7 @@ import { buildEditMenuEntries } from "./edit-menu.ts";
 import { buildHistoryEntries } from "./entries/edit-history.ts";
 import { buildLayerMenuEntries } from "./layer-menu.ts";
 import { buildSelectionMenuEntries } from "./selection-menu.ts";
+import { buildSourceLaneMenuEntries } from "./source-lane-menu.ts";
 import { buildSourceSpanMenuEntries } from "./source-span-menu.ts";
 import { buildSourceTrackMenuEntries } from "./source-track-menu.ts";
 import { useKeyboardContextMenu } from "./useKeyboardContextMenu.ts";
@@ -98,6 +103,7 @@ export type MenusInputs = Pick<
     refreshAudio: () => void;
     renamingLaneId: string | undefined;
     renamingSourceTrackId: string | undefined;
+    selectSource: (selection: SourceSelection) => void;
     selectLaneFromLabel: (laneId: string) => void;
     selectedClip: ArrangementClip | undefined;
     selectedLaneId: string | undefined;
@@ -174,6 +180,7 @@ export function useMenus({
   renamingLaneId,
   renamingSourceTrackId,
   selectLaneFromLabel,
+  selectSource,
   selectedClip,
   selectedLaneId,
   selectedSourceSpan,
@@ -261,6 +268,26 @@ export function useMenus({
     });
   }
 
+  // Right-clicking empty space in a source track's row keeps its selected
+  // source clip, for the entries that act on one, and otherwise selects the
+  // track.
+  function openSourceLaneMenu(
+    event: ReactMouseEvent<HTMLElement>,
+    trackId: string,
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+    setPendingSelection(null);
+    if (selectedSourceSpan?.sourceTrackId !== trackId) {
+      selectSource(selectSourceTrack(trackId));
+    }
+    setClipMenu({
+      kind: "source-lane",
+      trackId,
+      anchor: getMenuAnchor(event),
+    });
+  }
+
   function openSourceTrackMenu(
     event: ReactMouseEvent<HTMLElement>,
     trackId: string,
@@ -284,6 +311,7 @@ export function useMenus({
     playheadQRef,
     quarterPx,
     selectedClip,
+    selectedSourceSpan,
     selectedSourceTrack,
     setClipMenu,
     setSelectedLaneId,
@@ -327,6 +355,12 @@ export function useMenus({
       return span ? getSourceSpanMenuEntries(span) : [];
     }
 
+    if (menu.kind === "source-lane") {
+      return sourceTracks.some((track) => track.id === menu.trackId)
+        ? getSourceLaneMenuEntries(menu.trackId)
+        : [];
+    }
+
     const clip =
       menu.kind === "clip"
         ? timelineClips.find((item) => item.id === menu.clipId)
@@ -359,6 +393,38 @@ export function useMenus({
         remove: withSpan(sourceClipActions.remove),
       },
       copyToLayer: (target) => copySourceSpanToLayer(span, target),
+    });
+  }
+
+  // Paste goes into the track; the other entries act on its selected source
+  // clip.
+  function getSourceLaneMenuEntries(trackId: string) {
+    const span =
+      selectedSourceSpan?.sourceTrackId === trackId
+        ? selectedSourceSpan
+        : undefined;
+    const withSpan = (action: (span: SourceSpan) => void) => () => {
+      if (span) {
+        action(span);
+      }
+    };
+    return buildSourceLaneMenuEntries({
+      hasClip: Boolean(span),
+      canPaste: canPasteIntoSourceTrack(clipClipboardRef.current),
+      canSplit: span
+        ? canSplitAt(span.startQ, getClipEndQ(span, bpm), playheadQRef.current)
+        : false,
+      mac: shortcutLabels.mac,
+      locked: sourceTracksLocked,
+      actions: {
+        jumpToStart: withSpan(sourceClipActions.jumpToStart),
+        cut: withSpan(sourceClipActions.cut),
+        copy: withSpan(sourceClipActions.copy),
+        paste: () => sourceClipActions.paste({ sourceTrackId: trackId }),
+        duplicate: withSpan(sourceClipActions.duplicate),
+        split: withSpan(sourceClipActions.split),
+        remove: withSpan(sourceClipActions.remove),
+      },
     });
   }
 
@@ -514,6 +580,7 @@ export function useMenus({
     openLayerMenu,
     openAudioMenu,
     openSourceSpanMenu,
+    openSourceLaneMenu,
     openSourceTrackMenu,
     getClipMenuEntries,
     getEditMenuEntries,

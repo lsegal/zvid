@@ -248,6 +248,42 @@ test("the Clip widget's info icon is as large as a device's power glyph", async 
   }
 });
 
+// Waits until the autosave has written a session that mentions `text`.
+async function waitForSavedSession(page: Page, text: string) {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          (text) =>
+            new Promise<boolean>((resolve, reject) => {
+              const request = indexedDB.open("zvid-workspace");
+              request.onerror = () => reject(request.error);
+              request.onsuccess = () => {
+                const database = request.result;
+                if (!database.objectStoreNames.contains("sessions")) {
+                  database.close();
+                  resolve(false);
+                  return;
+                }
+                const get = database
+                  .transaction("sessions", "readonly")
+                  .objectStore("sessions")
+                  .get("current");
+                get.onerror = () => reject(get.error);
+                get.onsuccess = () => {
+                  database.close();
+                  const saved = get.result as { payload?: string } | undefined;
+                  resolve(saved?.payload?.includes(text) ?? false);
+                };
+              };
+            }),
+          text,
+        ),
+      { timeout: 10_000 },
+    )
+    .toBe(true);
+}
+
 // The Clip widget leads its title with an info icon and folds to a strip like
 // an FX device, by its chevron, a title double-click or the strip, and stays
 // folded across selecting other clips and reloading.
@@ -280,10 +316,11 @@ test("the Clip widget collapses like an FX device and remembers it", async ({
   await spans.nth(1).click();
   await expect(device).toHaveClass(/fx-device-panel--collapsed/);
 
-  // The fold survives a reload.
+  // The fold survives a reload. The refresh restores the saved session, so
+  // wait for it to hold both clips and check those rather than dropping more.
+  await waitForSavedSession(page, "test-pattern-1.mp4");
   await page.reload();
-  await dropVideos(page, 1);
-  await expect(spans).toHaveCount(1, { timeout: 30_000 });
+  await expect(spans).toHaveCount(2, { timeout: 30_000 });
   await spans.first().click();
   await expect(device).toHaveClass(/fx-device-panel--collapsed/);
 

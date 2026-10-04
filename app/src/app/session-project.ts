@@ -26,7 +26,7 @@ import {
 import { clipSourceFrame, type LvpSession } from "../session.ts";
 import { snapFrameRate } from "../session-format.ts";
 import {
-  readSelectionSlip,
+  readSelectionTrackOffset,
   readSessionFills,
   readSessionFxClips,
   readSessionTexts,
@@ -40,6 +40,10 @@ import {
   sessionSourceTrackColorIndex,
   sourceTrackColorIndex,
 } from "../source-track-color.ts";
+import {
+  getSourceTrackPieces,
+  getSpanSourceOffsetSeconds,
+} from "../source-track-content.ts";
 import { createTextClip } from "../text-clip.ts";
 import { ZOOM_MAX, ZOOM_MIN } from "../zoom.ts";
 import {
@@ -245,66 +249,81 @@ export function sessionToProject(
   // The clip the session was saved with selected, if it could be placed.
   let selectedClipId: string | undefined;
 
+  // A selection shows its source track from its own position plus its
+  // offset, whatever source clips are there. Its media fields describe the
+  // first (see source-track-content.ts); one over nothing keeps its place.
   for (const selection of session.selections ?? []) {
     const selectionStartQ = secondsToQuarters(selection.frameStart / fps, bpm);
     const selectionDurationQ = secondsToQuarters(
       Math.max(1, selection.frameEnd - selection.frameStart) / fps,
       bpm,
     );
-    // A slipped selection names its span and offset; any other plays the
-    // span it falls in, at that span's offset.
-    const slip = readSelectionSlip(selection);
-    const slipSpan = slip
-      ? sourceSpans.find((span) => span.id === slip.sourceSpanId)
-      : undefined;
-    const sourceSpan =
-      slipSpan ??
-      chooseSourceSpanForWindow(
-        sourceSpans,
-        selection.trackId,
-        selectionStartQ,
-        selectionDurationQ,
-        bpm,
-      );
-    if (!sourceSpan) {
-      continue;
-    }
-
-    const sourceOffsetSeconds =
-      slip && slipSpan
-        ? slip.sourceOffsetSeconds
-        : sourceSpan.trimStartSeconds -
-          quartersToSeconds(sourceSpan.startQ, bpm);
     const startSeconds = selection.frameStart / fps;
     const durationSeconds =
       Math.max(1, selection.frameEnd - selection.frameStart) / fps;
+    const trackOffsetSeconds = readSelectionTrackOffset(
+      selection,
+      sourceSpans,
+      bpm,
+    );
+    const sourceSpan =
+      getSourceTrackPieces(
+        {
+          sourceTrackId: selection.trackId,
+          startQ: selectionStartQ,
+          durationSeconds,
+        },
+        trackOffsetSeconds,
+        sourceSpans,
+        bpm,
+      )[0]?.span ??
+      chooseSourceSpanForWindow(
+        sourceSpans,
+        selection.trackId,
+        selectionStartQ + secondsToQuarters(trackOffsetSeconds, bpm),
+        selectionDurationQ,
+        bpm,
+      );
+    const spanOffsetSeconds = sourceSpan
+      ? getSpanSourceOffsetSeconds(sourceSpan, bpm)
+      : 0;
+    const sourceOffsetSeconds = trackOffsetSeconds + spanOffsetSeconds;
+    const swatch = getSwatch(
+      sourceTracks.find((track) => track.id === selection.trackId)
+        ?.colorIndex ?? 0,
+    );
 
     if (selection.selected && selectedClipId === undefined) {
       selectedClipId = `selection-${selection.id}`;
     }
     arrangementClips.push({
       id: `selection-${selection.id}`,
-      sourceSpanId: sourceSpan.id,
+      sourceSpanId: sourceSpan?.id ?? "",
       sourceTrackId: selection.trackId,
       laneId: selection.mainTrackId,
-      label: nameByTrack.get(selection.trackId) ?? sourceSpan.label,
-      mediaPath: sourceSpan.mediaPath,
-      mediaId: sourceSpan.mediaId,
+      label:
+        nameByTrack.get(selection.trackId) ??
+        sourceSpan?.label ??
+        `Track ${selection.trackId}`,
+      mediaPath: sourceSpan?.mediaPath ?? "",
+      mediaId: sourceSpan?.mediaId,
       startQ: selectionStartQ,
       durationSeconds,
       trimStartSeconds: startSeconds + sourceOffsetSeconds,
       sourceOffsetSeconds,
-      sourceWindowStartSeconds: sourceSpan.trimStartSeconds,
-      sourceWindowEndSeconds:
-        sourceSpan.trimStartSeconds + sourceSpan.durationSeconds,
-      warp: sourceSpan.warp,
-      tint: sourceSpan.tint,
-      accent: sourceSpan.accent,
+      sourceSpanOffsetSeconds: spanOffsetSeconds,
+      sourceWindowStartSeconds: sourceSpan?.trimStartSeconds ?? 0,
+      sourceWindowEndSeconds: sourceSpan
+        ? sourceSpan.trimStartSeconds + sourceSpan.durationSeconds
+        : 0,
+      warp: sourceSpan?.warp,
+      tint: sourceSpan?.tint ?? swatch.color,
+      accent: sourceSpan?.accent ?? swatch.accent,
     });
   }
 
   const unresolvedPaths = arrangementClips
-    .filter((clip) => !clip.mediaId)
+    .filter((clip) => !clip.mediaId && clip.mediaPath)
     .map((clip) => basename(clip.mediaPath));
 
   const layerClips = [

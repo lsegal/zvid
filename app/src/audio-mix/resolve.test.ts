@@ -50,15 +50,37 @@ function layerClip(
 ) {
   return {
     id,
+    sourceSpanId: `layer-span-${id}`,
+    sourceTrackId: `layer-track-${id}`,
     laneId,
+    mediaPath: `${mediaId}.wav`,
     mediaId,
     startQ,
     durationSeconds: 2,
+    trimStartSeconds: 1,
     sourceOffsetSeconds: 1 - startQ / 2,
     sourceWindowStartSeconds: 1,
     sourceWindowEndSeconds: 3,
     ...(kind ? { kind } : {}),
   };
+}
+
+// The source clip a media layer clip shows: on a source track of its own,
+// exactly under it, so the clip plays all of it.
+function layerSpan(clip: AudioMixInputs["clips"][number]) {
+  return clip.kind || !clip.mediaId
+    ? []
+    : [
+        {
+          id: clip.sourceSpanId,
+          sourceTrackId: clip.sourceTrackId,
+          mediaPath: clip.mediaPath,
+          mediaId: clip.mediaId,
+          startQ: clip.startQ,
+          durationSeconds: clip.durationSeconds,
+          trimStartSeconds: clip.trimStartSeconds,
+        },
+      ];
 }
 
 function span(id: string, sourceTrackId: string, mediaId: string, startQ = 0) {
@@ -72,8 +94,10 @@ function span(id: string, sourceTrackId: string, mediaId: string, startQ = 0) {
   };
 }
 
+// The session with `overrides`, and a source clip under each media layer
+// clip.
 function inputs(overrides: Partial<AudioMixInputs> = {}): AudioMixInputs {
-  return {
+  const base: AudioMixInputs = {
     clips: [],
     lanes: [{ id: "lane-1" }, { id: "lane-2" }],
     sourceTracks: [{ id: "track-1" }, { id: "track-2" }],
@@ -85,6 +109,10 @@ function inputs(overrides: Partial<AudioMixInputs> = {}): AudioMixInputs {
     effects: [],
     bpm: BPM,
     ...overrides,
+  };
+  return {
+    ...base,
+    sourceSpans: [...base.sourceSpans, ...base.clips.flatMap(layerSpan)],
   };
 }
 
