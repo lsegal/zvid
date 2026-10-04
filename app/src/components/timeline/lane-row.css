@@ -1,3 +1,11 @@
+:root {
+  /* A layer lane is a clip with this much space above and below it; track
+     labels, clips and the selection box all size from these. */
+  --lane-clip-height: 44px;
+  --lane-clip-inset: 11px;
+  --lane-height: calc(var(--lane-clip-height) + 2 * var(--lane-clip-inset));
+}
+
 .track-row__content--arrangement {
   cursor: crosshair;
 }

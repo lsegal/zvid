@@ -965,8 +965,8 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  min-height: 72px;
-  padding: 14px 16px;
+  min-height: var(--lane-height);
+  padding: var(--lane-clip-inset) 16px;
   background: #303346;
   border-right: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
@@ -1043,7 +1043,7 @@
 }
 
 .track-row__content {
-  min-height: 72px;
+  min-height: var(--lane-height);
   border-bottom: 1px solid var(--line);
   background-color: rgba(20, 21, 32, 0.3);
 }
