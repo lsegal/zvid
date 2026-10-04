@@ -499,7 +499,7 @@ for (const [start, type] of [
 // layer, kept square on the 16:9 canvas, that grows from a small icon until
 // the camera's body covers the frame. The body sits left of the icon's
 // center, so the icon drifts right as it grows to keep the body centered.
-const ICON_SIZE = 5;
+const ICON_SIZE = 6;
 const ICON_BODY_OFFSET = (12 - 8.625) / 24;
 const icon = layerClip("fills", "fill-camera-icon", "icon-mask", 1.5, 1.5);
 addEffect(clipTrack(icon), "Color", {
