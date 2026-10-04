@@ -457,64 +457,70 @@ async function addLayerFx(page: Page, laneId: string, name: RegExp) {
     .click();
 }
 
-test("a hidden Mask Target keeps its box in the preview, and dragging it moves the mask (#1030)", async ({
-  page,
-}) => {
-  // A new session's Order slides each layer in as its clip starts; hold it
-  // still so the layers are in place at the playhead.
-  await page
-    .getByRole("button", { name: "Turn Animation Off for Order" })
-    .click();
-  await insertFillAtStart(page, "1");
-  await insertFillAtStart(page, "2");
-  // Layer 2 is a Shape, a centered square, hidden; Layer 1 cuts it out.
-  await addLayerFx(page, "2", /^Shape/);
-  await header(page, "2").locator(".track-label__hide").click();
-  await expect(header(page, "2")).toContainText("Hidden");
-  await addLayerFx(page, "1", /^Mask/);
-  const mask = page.locator('section[aria-label="Mask"]');
-  await mask.getByRole("button", { name: "Target" }).click();
-  await page.getByRole("menuitemcheckbox", { name: /Layer 2/ }).click();
-  await mask.getByRole("button", { name: "Subtractive" }).click();
+// Tall enough to show Layer 2 below Layer 1 in the timeline.
+test.describe(() => {
+  test.use({ viewport: { width: 1280, height: 1100 } });
 
-  const video = await videoRect(page);
-  const at = (x: number, y: number) => ({
-    x: video.left + video.width * x,
-    y: video.top + video.height * y,
+  test("a hidden Mask Target keeps its box in the preview, and dragging it moves the mask (#1030)", async ({
+    page,
+  }) => {
+    // A new session's Order slides each layer in as its clip starts; hold it
+    // still so the layers are in place at the playhead.
+    await page
+      .getByRole("button", { name: "Turn Animation Off for Order" })
+      .click();
+    await insertFillAtStart(page, "5");
+    await insertFillAtStart(page, "1");
+    // Layer 2 (lane 5) is a Shape, a centered square, hidden; Layer 1 cuts it out.
+    await addLayerFx(page, "5", /^Shape/);
+    await header(page, "5").locator(".track-label__hide").click();
+    await expect(header(page, "5")).toContainText("Hidden");
+    await addLayerFx(page, "1", /^Mask/);
+    const mask = page.locator('section[aria-label="Mask"]');
+    await mask.getByRole("button", { name: "Target" }).click();
+    await page.getByRole("menuitemcheckbox", { name: /Layer 2/ }).click();
+    await mask.getByRole("button", { name: "Subtractive" }).click();
+
+    const video = await videoRect(page);
+    const at = (x: number, y: number) => ({
+      x: video.left + video.width * x,
+      y: video.top + video.height * y,
+    });
+    const sample = async (x: number, y: number) => {
+      const point = at(x, y);
+      return colorAt(page, point.x, point.y);
+    };
+    await page.mouse.move(0, 0);
+    // The square cuts a hole in Layer 1, but draws nothing there itself.
+    // The samples keep clear of the origin marker at the box's center.
+    await expect
+      .poll(async () =>
+        difference(await sample(0.42, 0.55), await sample(0.85, 0.55)),
+      )
+      .toBeGreaterThan(32);
+    const filled = await sample(0.85, 0.55);
+    const hole = await sample(0.42, 0.55);
+
+    // Selecting the hidden layer's clip outlines its box.
+    const outline = page.getByTestId("preview-transform-outline");
+    await lane(page, "5").locator(".clip-card--fill").click();
+    await expect(outline).toHaveCount(1);
+
+    // Dragging it, clear of the origin marker, moves the hole.
+    const grab = at(0.5, 0.35);
+    await page.mouse.move(grab.x, grab.y);
+    await page.mouse.down();
+    await page.mouse.move(grab.x + video.width * 0.15, grab.y, { steps: 4 });
+    await page.mouse.move(grab.x + video.width * 0.3, grab.y, { steps: 4 });
+    await page.mouse.up();
+    await expect(
+      page.getByRole("region", { name: "Transform", exact: true }),
+    ).toHaveCount(2);
+    await page.mouse.move(0, 0);
+    await expect
+      .poll(async () => difference(await sample(0.42, 0.55), filled))
+      .toBeLessThan(8);
+    // The moved square still draws nothing.
+    expect(difference(await sample(0.75, 0.6), hole)).toBeLessThan(8);
   });
-  const sample = async (x: number, y: number) => {
-    const point = at(x, y);
-    return colorAt(page, point.x, point.y);
-  };
-  await page.mouse.move(0, 0);
-  // The square cuts a hole in Layer 1, but draws nothing there itself.
-  await expect
-    .poll(async () => difference(await sample(0.5, 0.5), BACKGROUND))
-    .toBeLessThan(8);
-  const filled = await sample(0.85, 0.5);
-  expect(difference(filled, BACKGROUND)).toBeGreaterThan(32);
-
-  // Selecting the hidden layer's clip outlines its box.
-  const outline = page.getByTestId("preview-transform-outline");
-  await lane(page, "2").locator(".clip-card--fill").click();
-  await expect(outline).toHaveCount(1);
-
-  // Dragging it, clear of the origin marker, moves the hole.
-  const grab = at(0.5, 0.35);
-  await page.mouse.move(grab.x, grab.y);
-  await page.mouse.down();
-  await page.mouse.move(grab.x + video.width * 0.15, grab.y, { steps: 4 });
-  await page.mouse.move(grab.x + video.width * 0.3, grab.y, { steps: 4 });
-  await page.mouse.up();
-  await expect(
-    page.getByRole("region", { name: "Transform", exact: true }),
-  ).toHaveCount(2);
-  await page.mouse.move(0, 0);
-  await expect
-    .poll(async () => difference(await sample(0.5, 0.5), filled))
-    .toBeLessThan(8);
-  // The moved square still draws nothing.
-  await expect
-    .poll(async () => difference(await sample(0.8, 0.5), BACKGROUND))
-    .toBeLessThan(8);
 });
