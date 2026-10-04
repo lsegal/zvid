@@ -46,6 +46,16 @@ export const OPENING_SAMPLE_MANIFEST: SampleManifest = {
       "bytes": 770472,
       "sha256": "ce23eb162c10a03586554a4dd96b475a5028670837a4f3a5547c7304eda3a0ee",
       "credit": "\"Just Nasty\" by Kevin MacLeod (incompetech.com), licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). 2:00–2:30 excerpted with a 0.6 s fade-in and 2 s fade-out, synchronized to the sample's graphics."
+    },
+    {
+      "id": "zvid-sample:opening-v2:bolt",
+      "path": "zvid-sample://opening-v2/bolt.svg",
+      "url": "/samples/opening-v2/bolt.svg",
+      "name": "bolt.svg",
+      "mediaType": "image/svg+xml",
+      "bytes": 367,
+      "sha256": "a24685e1bb9a4a777099f27a0bfab9d04f42471a5274282229515e91966ff1a3",
+      "credit": "\"bolt\" from Heroicons by Tailwind Labs (https://heroicons.com), MIT License."
     }
   ]
 };
