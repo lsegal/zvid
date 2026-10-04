@@ -649,7 +649,6 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                   signature: timeline.signature,
                 }}
                 previewVolume={previewVolume.previewVolume}
-                playheadQ={playheadQ}
                 playheadSignal={playheadSignal}
                 previewLaneId={selection.previewLaneId}
                 projectDurationFrames={project.projectDurationFrames}

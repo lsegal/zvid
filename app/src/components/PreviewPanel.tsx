@@ -66,8 +66,6 @@ export type PreviewPanelProps = Pick<
   mediaPreview: MediaPreviewModel;
   mediaRange: MediaRangeActions;
   mediaTimeFormat: TimeValueFormat;
-  playheadQ: number;
-  playheadSeconds: number;
   playheadSignal: PlayheadSignal;
   previewClip: ArrangementClip | undefined;
   previewLaneId: string | undefined;
@@ -121,8 +119,6 @@ export function PreviewPanel({
   mediaRange,
   mediaTimeFormat,
   movePreviewLayer,
-  playheadQ,
-  playheadSeconds,
   playheadSignal,
   previewClip,
   previewLaneId,
@@ -226,8 +222,6 @@ export function PreviewPanel({
             lanes={renderLanes}
             audioMix={audioMix}
             mediaItems={mediaItems}
-            playheadQ={playheadQ}
-            playheadSeconds={playheadSeconds}
             playheadSignal={playheadSignal}
             projectDurationFrames={projectDurationFrames}
             hiddenTextClipId={textEdit?.clipId}

@@ -54,7 +54,6 @@ type CompositionPlayerProps = {
   clips: ArrangementClip[];
   lanes: Lane[];
   effects: SessionEffect[];
-  playheadQ: number;
   bpm: number;
   // The session's frame rate, which effect animations are timed in.
   fps: number;
@@ -68,8 +67,9 @@ type CompositionPlayerProps = {
   isContinuousScrubbing: boolean;
   canvasWidth: number;
   canvasHeight: number;
-  playheadSeconds: number;
-  // Playback advances this every frame without re-rendering the player.
+  // The playhead the player draws and plays from. Playback and drag-scrubbing
+  // move it every frame without re-rendering the player; seeks move it with
+  // the playhead state.
   playheadSignal: PlayheadSignal;
   // The clips the preview hears (see resolveAudioClips).
   audioMix?: AudioMix;
@@ -536,7 +536,6 @@ export const CompositionPlayer = forwardRef<
     clips,
     lanes,
     effects,
-    playheadQ,
     bpm,
     fps,
     signature,
@@ -547,7 +546,6 @@ export const CompositionPlayer = forwardRef<
     isContinuousScrubbing,
     canvasWidth,
     canvasHeight,
-    playheadSeconds,
     playheadSignal,
     audioMix,
     hiddenTextClipId,
@@ -594,21 +592,18 @@ export const CompositionPlayer = forwardRef<
   const isPlayingRef = useRef(isPlaying);
   isPlayingRef.current = isPlaying;
 
+  // Reads the playhead from the signal rather than a prop, so a playhead
+  // commit doesn't recreate the draw callbacks and restart the effects that
+  // depend on them, such as the playback loop.
   const drawCurrentFrame = useCallback(
     (pixelRatio: number) => {
-      const renderer = rendererRef.current;
-      if (!renderer) {
-        return;
-      }
-
-      // Video frames can land mid-playback, when the prop lags the playhead.
-      renderer.renderPreviewFrame(
-        isPlayingRef.current ? playheadSignal.get() : playheadQ,
+      rendererRef.current?.renderPreviewFrame(
+        playheadSignal.get(),
         pixelRatio,
         isPlayingRef.current,
       );
     },
-    [playheadQ, playheadSignal],
+    [playheadSignal],
   );
 
   const scheduleDraw = useCallback(
@@ -626,16 +621,29 @@ export const CompositionPlayer = forwardRef<
   );
   const scheduleDrawRef = useRef(scheduleDraw);
   scheduleDrawRef.current = scheduleDraw;
-  const playbackState: CompositionPlaybackState = {
-    playheadQ,
-    playheadSeconds,
+  const playbackFlagsRef = useRef({
+    isPlaying,
+    isScrubbing,
+    isAudibleScrubbing,
+    isContinuousScrubbing,
+  });
+  playbackFlagsRef.current = {
     isPlaying,
     isScrubbing,
     isAudibleScrubbing,
     isContinuousScrubbing,
   };
-  const playbackStateRef = useRef(playbackState);
-  playbackStateRef.current = playbackState;
+  const readPlaybackState = useCallback((): CompositionPlaybackState => {
+    const playheadQ = playheadSignal.get();
+    return {
+      ...playbackFlagsRef.current,
+      playheadQ,
+      playheadSeconds: quartersToSeconds(
+        playheadQ,
+        rendererStateRef.current.bpm,
+      ),
+    };
+  }, [playheadSignal]);
 
   const renderFrameAt = useCallback(
     async (
@@ -700,10 +708,10 @@ export const CompositionPlayer = forwardRef<
     // Edits such as one to a layer clip's source clip also move its media's
     // time at the playhead, so seek there too; the new frame redraws again.
     if (!isPlayingRef.current) {
-      rendererRef.current?.syncPlayback(playbackStateRef.current);
+      rendererRef.current?.syncPlayback(readPlaybackState());
       scheduleDrawRef.current();
     }
-  }, [rendererState]);
+  }, [readPlaybackState, rendererState]);
 
   useEffect(() => {
     if (isPlaying) {
@@ -732,19 +740,11 @@ export const CompositionPlayer = forwardRef<
         return;
       }
 
-      // The playhead prop only catches up now and then during playback, so
-      // follow the live playhead and keep the media in sync with it here.
-      const livePlayheadQ = playheadSignal.get();
-      renderer.syncPlayback({
-        ...playbackStateRef.current,
-        playheadQ: livePlayheadQ,
-        playheadSeconds: quartersToSeconds(
-          livePlayheadQ,
-          rendererStateRef.current.bpm,
-        ),
-        isPlaying,
-      });
-      renderer.renderPreviewFrame(livePlayheadQ, pixelRatio);
+      // Playback only moves the live playhead, so keep the media in sync
+      // with it here.
+      const playback = readPlaybackState();
+      renderer.syncPlayback({ ...playback, isPlaying });
+      renderer.renderPreviewFrame(playback.playheadQ, pixelRatio);
       playbackFrameRef.current = window.requestAnimationFrame(render);
     };
 
@@ -755,7 +755,32 @@ export const CompositionPlayer = forwardRef<
         window.cancelAnimationFrame(playbackFrameRef.current);
       }
     };
-  }, [drawCurrentFrame, isPlaying, playheadSignal]);
+  }, [drawCurrentFrame, isPlaying, readPlaybackState]);
+
+  // While paused, seeks and drag-scrubbing move the live playhead; follow it
+  // once a frame, seeking the media there and drawing it.
+  useEffect(() => {
+    if (isPlaying) {
+      return;
+    }
+
+    let frame = 0;
+    const unsubscribe = playheadSignal.subscribe(() => {
+      if (frame) {
+        return;
+      }
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        rendererRef.current?.syncPlayback(readPlaybackState());
+        drawCurrentFrame(window.devicePixelRatio || 1);
+      });
+    });
+
+    return () => {
+      unsubscribe();
+      window.cancelAnimationFrame(frame);
+    };
+  }, [drawCurrentFrame, isPlaying, playheadSignal, readPlaybackState]);
 
   useEffect(() => {
     return rendererRef.current?.addVideoFrameReadyListeners(scheduleDraw);
@@ -772,22 +797,18 @@ export const CompositionPlayer = forwardRef<
     [],
   );
 
+  // The playback loop syncs every frame while playing.
   useEffect(() => {
-    rendererRef.current?.syncPlayback({
-      playheadQ,
-      playheadSeconds,
-      isPlaying,
-      isScrubbing,
-      isAudibleScrubbing,
-      isContinuousScrubbing,
-    });
+    void [isAudibleScrubbing, isContinuousScrubbing, isScrubbing];
+    if (!isPlaying) {
+      rendererRef.current?.syncPlayback(readPlaybackState());
+    }
   }, [
     isAudibleScrubbing,
     isContinuousScrubbing,
     isPlaying,
     isScrubbing,
-    playheadQ,
-    playheadSeconds,
+    readPlaybackState,
   ]);
 
   return (
