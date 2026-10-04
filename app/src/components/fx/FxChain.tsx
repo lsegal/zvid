@@ -188,8 +188,20 @@ export function FxChain({
   const layerOptions = useMemo(
     () => ({
       global: layers,
-      layer: deviceLayerOptions("layer", clipScope, layers, clipLayers, layerTrackId),
-      clip: deviceLayerOptions("clip", clipScope, layers, clipLayers, layerTrackId),
+      layer: deviceLayerOptions(
+        "layer",
+        clipScope,
+        layers,
+        clipLayers,
+        layerTrackId,
+      ),
+      clip: deviceLayerOptions(
+        "clip",
+        clipScope,
+        layers,
+        clipLayers,
+        layerTrackId,
+      ),
     }),
     [clipLayers, clipScope, layerTrackId, layers],
   );

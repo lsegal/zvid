@@ -53,11 +53,6 @@ import {
   parseCompositionOrder,
   Z_ORDER_COMPOSITION,
 } from "./composition-order.ts";
-import {
-  findLayerMask,
-  isMaskEffectName,
-  type LayerMask,
-} from "./fx/effects/mask/mask.ts";
 import { getCompositionEndQ } from "./composition-progress.ts";
 import {
   isMoveEffectName,
@@ -73,6 +68,11 @@ import {
   isColorEffectName,
   resolveFillPaint,
 } from "./fill-paint.ts";
+import {
+  findLayerMask,
+  isMaskEffectName,
+  type LayerMask,
+} from "./fx/effects/mask/mask.ts";
 import {
   type AnimationClipContext,
   reactsToAudio,
