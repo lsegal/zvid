@@ -599,6 +599,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     cancelRename: editing.cancelSourceTrackRename,
                     setFxEnabled: fxEditing.setSourceTrackFxEnabled,
                   }}
+                  openLaneMenu={editing.openSourceLaneMenu}
                   span={{
                     bpm,
                     quarterPx,

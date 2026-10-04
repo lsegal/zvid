@@ -22,7 +22,11 @@ import {
 import { SourceEmptyState } from "../SourceEmptyState";
 import { SourceDropPreview } from "./SourceDropPreview";
 import type { SourceSpanContext } from "./SourceSpan";
-import { type SourceTrackLabelContext, SourceTrackRow } from "./SourceTrackRow";
+import {
+  type SourceTrackLabelContext,
+  SourceTrackRow,
+  type SourceTrackRowProps,
+} from "./SourceTrackRow";
 import { TrackAddButton } from "./TrackPlaceholder";
 import "./source-tracks.css";
 
@@ -46,6 +50,7 @@ type SourceTracksProps = {
   span: SourceSpanContext;
   listRef: RefObject<HTMLDivElement | null>;
   label: SourceTrackLabelContext;
+  openLaneMenu: SourceTrackRowProps["openLaneMenu"];
   // The armed tracks and the clips the tracks being recorded grow.
   armedTrackIds: ReadonlySet<string>;
   liveTakes: ReadonlyMap<string, LiveTake>;
@@ -76,6 +81,7 @@ export function SourceTracks({
   span,
   listRef,
   label,
+  openLaneMenu,
   armedTrackIds,
   liveTakes,
 }: SourceTracksProps) {
@@ -194,6 +200,7 @@ export function SourceTracks({
               span={span}
               armed={armedTrackIds.has(track.id)}
               liveTake={liveTakes.get(track.id)}
+              openLaneMenu={openLaneMenu}
               {...label}
             />
           ))}
