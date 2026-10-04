@@ -146,6 +146,7 @@ export function LaneRow({
               pointerId: event.pointerId,
               edit,
               pointerStartX: event.clientX,
+              pointerStartY: event.clientY,
               origin: pendingSelection,
               dragging: false,
             });

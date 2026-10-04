@@ -86,7 +86,14 @@ describe("editing a drawn selection", () => {
 
   it("moves the whole range, snapping its start", () => {
     assert.deepEqual(
-      editSelectionRange(origin, "move", 2.4, snapToBeat, MINIMUM_Q, SONG_END_Q),
+      editSelectionRange(
+        origin,
+        "move",
+        2.4,
+        snapToBeat,
+        MINIMUM_Q,
+        SONG_END_Q,
+      ),
       { startQ: 6, durationQ: 4 },
     );
     assert.deepEqual(
@@ -97,11 +104,25 @@ describe("editing a drawn selection", () => {
 
   it("clamps a move to the song start and end", () => {
     assert.deepEqual(
-      editSelectionRange(origin, "move", -10, snapToBeat, MINIMUM_Q, SONG_END_Q),
+      editSelectionRange(
+        origin,
+        "move",
+        -10,
+        snapToBeat,
+        MINIMUM_Q,
+        SONG_END_Q,
+      ),
       { startQ: 0, durationQ: 4 },
     );
     assert.deepEqual(
-      editSelectionRange(origin, "move", 100, snapToBeat, MINIMUM_Q, SONG_END_Q),
+      editSelectionRange(
+        origin,
+        "move",
+        100,
+        snapToBeat,
+        MINIMUM_Q,
+        SONG_END_Q,
+      ),
       { startQ: 60, durationQ: 4 },
     );
   });

@@ -133,12 +133,15 @@ export function useClipDrag({
       }
 
       // A drawn selection follows the pointer once it passes the click
-      // threshold; until then the press is a click that keeps it.
+      // threshold, across or, to change layers, down; until then the press
+      // is a click that keeps it.
       if (dragState.kind === "selection-edit") {
         const dragging =
           dragState.dragging ||
-          Math.abs(event.clientX - dragState.pointerStartX) >
-            LANE_SELECTION_DRAG_THRESHOLD_PX;
+          Math.max(
+            Math.abs(event.clientX - dragState.pointerStartX),
+            Math.abs(event.clientY - dragState.pointerStartY),
+          ) > LANE_SELECTION_DRAG_THRESHOLD_PX;
         if (!dragging) {
           return;
         }

@@ -24,7 +24,6 @@ export function SelectionOverlay({
   const width = selection.durationQ * quarterPx;
   const hint = selectionHint(width);
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: dragging is a pointer shortcut; the selection menu and the 1-9 keys act on it from the keyboard
     <div
       className="timeline-selection"
       onPointerDown={(event) => onEditPress(event, "move")}

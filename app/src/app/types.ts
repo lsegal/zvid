@@ -140,6 +140,7 @@ export type DragState =
       pointerId: number;
       edit: SelectionEditKind;
       pointerStartX: number;
+      pointerStartY: number;
       origin: TimelineSelection;
       dragging: boolean;
     };

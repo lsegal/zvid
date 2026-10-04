@@ -112,10 +112,15 @@ describe("timeline selection stacking", () => {
     assert.ok(zToken("z-timeline-selection") < zToken("z-timeline-playhead"));
   });
 
-  it("lets clicks and drags through to the clips", () => {
+  // Presses inside the selection move or resize it (#918), so they no
+  // longer pass through to the clips under it.
+  it("takes the presses inside it", () => {
+    const rule = cssRule(selectionCss, "timeline-selection");
+    assert.doesNotMatch(rule, /pointer-events: none;/);
+    assert.match(rule, /cursor: grab;/);
     assert.match(
-      cssRule(selectionCss, "timeline-selection"),
-      /pointer-events: none;/,
+      cssRule(selectionCss, "timeline-selection__handle"),
+      /cursor: ew-resize;/,
     );
   });
 });
