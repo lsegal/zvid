@@ -7,6 +7,7 @@
 // where in its media the clip plays from, so it never moves another clip.
 import { quartersToSeconds, secondsToQuarters } from "./app/timeline-math.ts";
 import type { SourceSpan } from "./app/types.ts";
+import { describeClipMediaState } from "./clip-media-state.ts";
 import type { MediaItem } from "./media";
 import { resolveSourceSpanOverlaps } from "./source-span-edit.ts";
 import type { TimeValueRange } from "./time-value.ts";
@@ -32,6 +33,17 @@ export const SOURCE_CLIP_HISTORY_LABELS: Record<SourceClipField, string> = {
 };
 
 export type SourceClipLimits = Record<SourceClipField, TimeValueRange>;
+
+/**
+ * Whether the clip's media is offline, as its card on the timeline shows it.
+ * Media that is still loading, or online but of unknown length, is not.
+ */
+export function isSourceClipMediaOffline(
+  span: SourceSpan,
+  media: MediaItem | undefined,
+) {
+  return describeClipMediaState(span, media?.availability) === "offline";
+}
 
 /**
  * The media length the clip's Offset is limited to, in seconds: 0 while the

@@ -7,6 +7,7 @@ import {
   getKnownMediaDurationSeconds,
   getSourceClipLimits,
   getSourceClipValues,
+  isSourceClipMediaOffline,
 } from "./source-clip-properties.ts";
 
 // At 120 BPM a quarter lasts half a second, and at 30 fps a frame lasts
@@ -113,6 +114,45 @@ describe("getKnownMediaDurationSeconds", () => {
       0,
     );
     assert.equal(getKnownMediaDurationSeconds(undefined), 0);
+  });
+});
+
+describe("isSourceClipMediaOffline", () => {
+  it("is false for ready media, even before its length is known", () => {
+    assert.equal(isSourceClipMediaOffline(span("a", 0, 4), media()), false);
+    assert.equal(
+      isSourceClipMediaOffline(
+        span("a", 0, 4),
+        media({ durationSeconds: 0 }),
+      ),
+      false,
+    );
+  });
+
+  it("is false while the media is still loading", () => {
+    assert.equal(
+      isSourceClipMediaOffline(
+        span("a", 0, 4),
+        media({ availability: "hydrating" }),
+      ),
+      false,
+    );
+  });
+
+  it("is true for offline or missing media", () => {
+    assert.equal(
+      isSourceClipMediaOffline(
+        span("a", 0, 4),
+        media({ availability: "offline" }),
+      ),
+      true,
+    );
+    assert.equal(isSourceClipMediaOffline(span("a", 0, 4), undefined), true);
+  });
+
+  it("is false for a placeholder clip with no media file", () => {
+    const placeholder = { ...span("a", 0, 4), mediaId: undefined, mediaPath: "" };
+    assert.equal(isSourceClipMediaOffline(placeholder, undefined), false);
   });
 });
 

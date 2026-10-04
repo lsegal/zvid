@@ -137,6 +137,36 @@ export function probeMediaBlob(
   });
 }
 
+// Reads the length of playable media from its URL, resolving 0 when it can't
+// be read or isn't finite.
+export function probeMediaUrlDuration(
+  url: string,
+  kind: MediaKind,
+): Promise<number> {
+  return new Promise((resolve) => {
+    const element = document.createElement(kind);
+    const settle = (durationSeconds: number) => {
+      window.clearTimeout(timeoutId);
+      element.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      element.removeEventListener("error", handleError);
+      element.removeAttribute("src");
+      element.load();
+      resolve(durationSeconds);
+    };
+    const handleLoadedMetadata = () =>
+      settle(
+        Number.isFinite(element.duration) ? Math.max(0, element.duration) : 0,
+      );
+    const handleError = () => settle(0);
+    const timeoutId = window.setTimeout(handleError, MEDIA_PROBE_TIMEOUT_MS);
+
+    element.preload = "metadata";
+    element.addEventListener("loadedmetadata", handleLoadedMetadata);
+    element.addEventListener("error", handleError);
+    element.src = url;
+  });
+}
+
 export function createMediaId(file: File) {
   return `${file.name}:${file.size}:${file.lastModified}`;
 }
