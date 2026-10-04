@@ -11,7 +11,11 @@ import "./shape-control.css";
 // The shape drawn black on white, as the mask it makes.
 function ShapePreview({ shape }: { shape: ShapeDefinition }) {
   return (
-    <svg aria-hidden="true" className="fx-shape__preview" viewBox="-8 -8 116 116">
+    <svg
+      aria-hidden="true"
+      className="fx-shape__preview"
+      viewBox="-8 -8 116 116"
+    >
       <rect fill="#fff" height="116" width="116" x="-8" y="-8" />
       <path d={shape.previewPath} fill="#000" />
     </svg>

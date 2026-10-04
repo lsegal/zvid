@@ -45,6 +45,7 @@ import {
   type TransformMotion,
   visualTransformMatrix,
 } from "./composition-transform.ts";
+import { defaultShapeScale } from "./fx/effects/shape/shape.ts";
 import {
   addEffect,
   clipEffectTrackId,
@@ -53,7 +54,6 @@ import {
   setEffectEnabled,
   setEffectParameter,
 } from "./fx-stack.ts";
-import { defaultShapeScale } from "./fx/effects/shape/shape.ts";
 
 export type Size = { width: number; height: number };
 

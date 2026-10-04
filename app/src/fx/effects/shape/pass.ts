@@ -59,6 +59,8 @@ export const pass: EffectPass = {
   },
   // A Rectangle fills the whole box, so it leaves the layer as it is.
   isIdentity(params) {
-    return findShape(findEffectParameter(params, SHAPE_KEY)?.value) === rectangle;
+    return (
+      findShape(findEffectParameter(params, SHAPE_KEY)?.value) === rectangle
+    );
   },
 };

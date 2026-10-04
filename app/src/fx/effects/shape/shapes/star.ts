@@ -12,10 +12,7 @@ const K1Y = -Math.sin((36 * Math.PI) / 180);
 
 // Box coordinates (0..1, y down) to star coordinates (y up).
 function toStar(x: number, y: number): [number, number] {
-  return [
-    (x * 2 - 1) * HALF_WIDTH,
-    1 - (y * (1 + BOTTOM)),
-  ];
+  return [(x * 2 - 1) * HALF_WIDTH, 1 - y * (1 + BOTTOM)];
 }
 
 // Inigo Quilez's signed distance to a five-pointed star.

@@ -7,10 +7,10 @@ import type {
   SourceTrack,
 } from "../app/types.ts";
 import type { FxEditMode } from "../components/FxChain";
+import { isShapeEffectName } from "../fx/effects/shape/shape.ts";
 import type { EffectAnimation } from "../fx-animation-defaults";
 import { isFxClip } from "../fx-clip.ts";
 import type { EffectModulation } from "../fx-modulation-defaults";
-import { isShapeEffectName } from "../fx/effects/shape/shape.ts";
 import {
   addEffect,
   duplicateEffect,

@@ -225,10 +225,11 @@ describe("effect passes", () => {
             .map((parameter) => [parameter.key, 0.5]),
         ),
       );
-      assert.equal(pass.isIdentity?.(parameters), false, pass.effectName);
+      // Effects without Animation, such as Shape, have no Clip weight.
       if (!supportsAnimation(pass.effectName)) {
         continue;
       }
+      assert.equal(pass.isIdentity?.(parameters), false, pass.effectName);
       assert.notDeepEqual(
         getAnimationNeutralValues(pass.effectName),
         {},

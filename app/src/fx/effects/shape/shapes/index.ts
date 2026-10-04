@@ -8,7 +8,12 @@ import type { ShapeDefinition } from "./types.ts";
 
 export type { ShapeDefinition } from "./types.ts";
 
-export const SHAPES: readonly ShapeDefinition[] = [rectangle, oval, star, arrow];
+export const SHAPES: readonly ShapeDefinition[] = [
+  rectangle,
+  oval,
+  star,
+  arrow,
+];
 
 export const DEFAULT_SHAPE = rectangle;
 
@@ -17,8 +22,7 @@ export const DEFAULT_SHAPE = rectangle;
 export function findShape(name: string | undefined) {
   const wanted = name?.trim().toLowerCase();
   return (
-    SHAPES.find((shape) => shape.name.toLowerCase() === wanted) ??
-    DEFAULT_SHAPE
+    SHAPES.find((shape) => shape.name.toLowerCase() === wanted) ?? DEFAULT_SHAPE
   );
 }
 
