@@ -2,15 +2,20 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { ArrangementClip, SourceSpan } from "./app/types.ts";
 import type { ClipWarp } from "./clip-warp.ts";
+import { sourceClipEffectTrackId } from "./fx/stack/clip-stacks.ts";
 import {
   dragSourceSpan,
+  dragSourceSpanInSpans,
   getDroppedSourceSpanStartQ,
   placeDroppedSourceSpans,
   resolveSourceSpanOverlaps,
   retimeSourceSpan,
   type SourceSpanDragLimits,
 } from "./source-span-edit.ts";
-import { getClipSourcePieces } from "./source-track-content.ts";
+import {
+  getClipSourcePieces,
+  syncClipsToSourceSpans,
+} from "./source-track-content.ts";
 
 // At 120 BPM a quarter lasts half a second, and at 30 fps a frame lasts
 // 1/15 of a quarter.
@@ -187,6 +192,134 @@ describe("dragSourceSpan", () => {
     const trimmed = dragSourceSpan(origin, "resize-end", -20, limits());
     assert.equal(trimmed.startQ, 4);
     near(trimmed.durationSeconds, 1 / FPS);
+  });
+});
+
+describe("dragSourceSpanInSpans", () => {
+  const moving = span("m", 0, 4, { trimStartSeconds: 30 });
+  const spans = [
+    moving,
+    span("a", 8, 4),
+    span("b", 2, 8, { trackId: "t2", trimStartSeconds: 50 }),
+  ];
+
+  it("moves a span onto another track, overwriting what it lands on there", () => {
+    assert.deepEqual(
+      layout(dragSourceSpanInSpans(spans, moving, "move", 4, "t2", limits())),
+      [
+        ["m", "t2", 4, 8, 30],
+        ["a", "t1", 8, 12, 10],
+        ["b", "t2", 2, 4, 50],
+      ],
+    );
+  });
+
+  it("removes a span it covers on the other track", () => {
+    const covered = [moving, span("c", 1, 2, { trackId: "t2" })];
+    assert.deepEqual(
+      layout(dragSourceSpanInSpans(covered, moving, "move", 0, "t2", limits())),
+      [["m", "t2", 0, 4, 30]],
+    );
+  });
+
+  it("keeps a move on its own track the same as before", () => {
+    assert.deepEqual(
+      layout(dragSourceSpanInSpans(spans, moving, "move", 6, "t1", limits())),
+      [
+        ["m", "t1", 6, 10, 30],
+        ["a", "t1", 10, 12, 11],
+        ["b", "t2", 2, 10, 50],
+      ],
+    );
+  });
+
+  it("keeps a trimmed span on its own track", () => {
+    assert.deepEqual(
+      layout(
+        dragSourceSpanInSpans(spans, moving, "resize-end", 2, "t2", limits()),
+      ),
+      [
+        ["m", "t1", 0, 6, 30],
+        ["a", "t1", 8, 12, 10],
+        ["b", "t2", 2, 10, 50],
+      ],
+    );
+  });
+
+  it("keeps the span's id, and with it its effects stack", () => {
+    const moved = dragSourceSpanInSpans(
+      spans,
+      moving,
+      "move",
+      4,
+      "t2",
+      limits(),
+    ).find((item) => item.sourceTrackId === "t2" && item.startQ === 4);
+    assert.equal(moved?.id, "m");
+    assert.equal(
+      sourceClipEffectTrackId(moved.id),
+      sourceClipEffectTrackId(moving.id),
+    );
+  });
+
+  it("leaves the layer clips on either track in place", () => {
+    const window = (
+      id: string,
+      sourceTrackId: string,
+      over: SourceSpan,
+    ): ArrangementClip => ({
+      id,
+      sourceSpanId: over.id,
+      sourceTrackId,
+      laneId: "1",
+      label: id,
+      mediaPath: over.mediaPath,
+      mediaId: over.mediaId,
+      startQ: 0,
+      durationSeconds: 6,
+      trimStartSeconds: over.trimStartSeconds,
+      sourceOffsetSeconds: over.trimStartSeconds,
+      sourceSpanOffsetSeconds: over.trimStartSeconds,
+      sourceWindowStartSeconds: 0,
+      sourceWindowEndSeconds: 6,
+      tint: over.tint,
+      accent: over.accent,
+    });
+    const clips = [window("w1", "t1", moving), window("w2", "t2", spans[2])];
+    const next = dragSourceSpanInSpans(
+      spans,
+      moving,
+      "move",
+      4,
+      "t2",
+      limits(),
+    );
+    const synced = syncClipsToSourceSpans(clips, spans, next, BPM);
+    assert.deepEqual(
+      synced.map((item) => [
+        item.id,
+        item.sourceTrackId,
+        item.laneId,
+        item.startQ,
+        item.durationSeconds,
+      ]),
+      [
+        ["w1", "t1", "1", 0, 6],
+        ["w2", "t2", "1", 0, 6],
+      ],
+    );
+    // Over the moved span's new range, the t2 window now shows it.
+    assert.deepEqual(
+      getClipSourcePieces(synced[1], next, BPM).map((piece) => [
+        piece.span.id,
+        piece.startQ,
+        piece.endQ,
+      ]),
+      [
+        ["b", 2, 4],
+        ["m", 4, 8],
+      ],
+    );
   });
 });
 

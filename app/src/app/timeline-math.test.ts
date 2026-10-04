@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   chooseSourceSpanForWindow,
   findClipAtPlayhead,
+  findSourceTrackIdAt,
   getClipEndQ,
   getDropStartQ,
   getPlaybackStopQ,
@@ -212,5 +213,29 @@ describe("chooseSourceSpanForWindow", () => {
       chooseSourceSpanForWindow([first], "other", 0, 1, 120),
       undefined,
     );
+  });
+});
+
+describe("findSourceTrackIdAt", () => {
+  // Two rows with a 2px gap between them.
+  const rows = [
+    { id: "a", top: 100, bottom: 140 },
+    { id: "b", top: 142, bottom: 182 },
+  ];
+
+  it("picks the row under the pointer", () => {
+    assert.equal(findSourceTrackIdAt(rows, 120, "a"), "a");
+    assert.equal(findSourceTrackIdAt(rows, 160, "a"), "b");
+  });
+
+  it("picks the closest row between rows", () => {
+    assert.equal(findSourceTrackIdAt(rows, 141.5, "a"), "b");
+    assert.equal(findSourceTrackIdAt(rows, 140.5, "b"), "a");
+  });
+
+  it("keeps the fallback outside the rows", () => {
+    assert.equal(findSourceTrackIdAt(rows, 50, "b"), "b");
+    assert.equal(findSourceTrackIdAt(rows, 300, "a"), "a");
+    assert.equal(findSourceTrackIdAt([], 120, "a"), "a");
   });
 });
