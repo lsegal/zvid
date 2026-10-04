@@ -18,6 +18,7 @@ import type {
 import { clamp } from "../app/util.ts";
 import { copyClipEffects } from "../fx-stack";
 import {
+  editTimelineSelection,
   LANE_SELECTION_DRAG_THRESHOLD_PX,
   moveLaneSelectionGesture,
   releaseLaneSelectionGesture,
@@ -50,8 +51,9 @@ export type ClipDragInputs = {
   ) => void;
 };
 
-// Follows the pointer through a lane selection, clip move or duplicate, or
-// trim started in the timeline, previewing it until the release commits it.
+// Follows the pointer through a lane selection, a move or resize of a drawn
+// selection, or a clip move, duplicate or trim started in the timeline,
+// previewing it until the release commits it.
 export function useClipDrag({
   dragState,
   setDragState,
@@ -127,6 +129,40 @@ export function useClipDrag({
           laneId: dragState.laneId,
           ...selection,
         });
+        return;
+      }
+
+      // A drawn selection follows the pointer once it passes the click
+      // threshold; until then the press is a click that keeps it.
+      if (dragState.kind === "selection-edit") {
+        const dragging =
+          dragState.dragging ||
+          Math.abs(event.clientX - dragState.pointerStartX) >
+            LANE_SELECTION_DRAG_THRESHOLD_PX;
+        if (!dragging) {
+          return;
+        }
+        if (!dragState.dragging) {
+          setDragState({ ...dragState, dragging });
+        }
+        const timelineScroll = timelineScrollRef.current;
+        setPendingSelection(
+          editTimelineSelection(
+            dragState.origin,
+            dragState.edit,
+            (event.clientX - dragState.pointerStartX) / quarterPx,
+            timelineScroll
+              ? findClosestTimelineLaneId(
+                  timelineScroll,
+                  event.clientY,
+                  dragState.origin.laneId,
+                )
+              : dragState.origin.laneId,
+            (valueQ) => snapQuarterValue(valueQ, snapUnit, shouldSnap),
+            minimumWindowQ,
+            totalQuarters,
+          ),
+        );
         return;
       }
 
@@ -279,7 +315,11 @@ export function useClipDrag({
         }
       }
 
-      if (dragState.kind !== "selection" && dragPreviewClips) {
+      if (
+        dragState.kind !== "selection" &&
+        dragState.kind !== "selection-edit" &&
+        dragPreviewClips
+      ) {
         const historyLabel =
           dragState.kind === "move"
             ? dragState.duplicateOnDrag

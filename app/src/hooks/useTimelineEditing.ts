@@ -26,6 +26,7 @@ import type {
   ProjectStore,
   useProjectHistoryCommands,
 } from "./useProjectStore.ts";
+import { useSelectionOutsidePress } from "./useSelectionOutsidePress.ts";
 import { useSourceClipActions } from "./useSourceClipActions.ts";
 import { useSourceSpanDrag } from "./useSourceSpanDrag.ts";
 import { useSourceTrackActions } from "./useSourceTrackActions.ts";
@@ -490,6 +491,12 @@ export function useTimelineEditing({
     jumpToClipStart,
     commitProjectChange,
   });
+
+  useSelectionOutsidePress(
+    pendingSelection !== null,
+    setPendingSelection,
+    timelineScrollRef,
+  );
 
   useSourceSpanDrag({
     sourceSpanDrag,

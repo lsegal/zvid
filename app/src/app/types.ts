@@ -1,7 +1,10 @@
 import type { ClipWarp } from "../clip-warp.ts";
 import type { MenuPoint } from "../context-menu.ts";
 import type { SessionEffect } from "../fx-stack.ts";
-import type { LaneSelectionGesture } from "../lane-selection-gesture.ts";
+import type {
+  LaneSelectionGesture,
+  SelectionEditKind,
+} from "../lane-selection-gesture.ts";
 import type { MediaAvailability, MediaItem, MediaKind } from "../media.ts";
 import type { SessionEncoding } from "../session-settings.ts";
 import type { SourceDropPreviewItem } from "../source-drop-preview.ts";
@@ -128,6 +131,17 @@ export type DragState =
       pointerId: number;
       laneId: string;
       gesture: LaneSelectionGesture;
+    }
+  // A drawn selection's body or edge pressed to move or resize it. Nothing
+  // changes until the pointer passes the click threshold, so a press
+  // released before then is a click that keeps the selection.
+  | {
+      kind: "selection-edit";
+      pointerId: number;
+      edit: SelectionEditKind;
+      pointerStartX: number;
+      origin: TimelineSelection;
+      dragging: boolean;
     };
 
 // A source clip pressed to move it or trim one of its edges. Nothing changes
