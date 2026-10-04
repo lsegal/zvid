@@ -26,11 +26,11 @@ async function probeAnalysers(page: Page) {
   });
 }
 
-// The meter tap's analysers keep 16384 samples, about 340 ms: long enough
-// that reads 20 ms apart overlap and cover every sample between them.
-// The band analyser keeps only about 21 ms, so its reads land on or off
-// a burst depending on the runner's timing.
-const METER_FFT_SIZE = 16384;
+// The meter tap's analysers keep 4096 samples, about 85 ms at 48 kHz: long
+// enough that reads 20 ms apart overlap and cover every sample between
+// them. The band analyser keeps only about 21 ms, so its reads land on or
+// off a burst depending on the runner's timing.
+const METER_FFT_SIZE = 4096;
 
 // The mix's RMS level over the meter analyser's latest window.
 function mixLevel(page: Page) {
