@@ -406,3 +406,121 @@ async function addSourceVideo(page: Page) {
     timeout: 30_000,
   });
 }
+
+// The page color at a point, read from a one-pixel screenshot.
+async function colorAt(page: Page, x: number, y: number) {
+  const png = await page.screenshot({
+    clip: { x, y, width: 1, height: 1 },
+    animations: "disabled",
+  });
+  return page.evaluate(async (data) => {
+    const image = new Image();
+    image.src = `data:image/png;base64,${data}`;
+    await image.decode();
+    const canvas = document.createElement("canvas");
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("No 2D context");
+    context.drawImage(image, 0, 0);
+    const pixel = context.getImageData(0, 0, 1, 1).data;
+    return [pixel[0], pixel[1], pixel[2]];
+  }, png.toString("base64"));
+}
+
+// The letterboxed video inside the monitor, in page coordinates.
+async function videoRect(page: Page) {
+  return page.locator(".composition-player__canvas").evaluate((canvas) => {
+    const bounds = canvas.getBoundingClientRect();
+    const element = canvas as HTMLCanvasElement;
+    const fit = Math.min(
+      bounds.width / element.width,
+      bounds.height / element.height,
+    );
+    const width = element.width * fit;
+    const height = element.height * fit;
+    return {
+      left: bounds.left + (bounds.width - width) / 2,
+      top: bounds.top + (bounds.height - height) / 2,
+      width,
+      height,
+    };
+  });
+}
+
+async function addLayerFx(page: Page, laneId: string, name: RegExp) {
+  await header(page, laneId).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Add FX", exact: true }).hover();
+  await page
+    .getByRole("menu", { name: "Add FX" })
+    .getByRole("menuitem", { name })
+    .click();
+}
+
+// Tall enough to show Layer 2 below Layer 1 in the timeline.
+test.describe(() => {
+  test.use({ viewport: { width: 1280, height: 1100 } });
+
+  test("a hidden Mask Target keeps its box in the preview, and dragging it moves the mask (#1030)", async ({
+    page,
+  }) => {
+    // A new session's Order slides each layer in as its clip starts; hold it
+    // still so the layers are in place at the playhead.
+    await page
+      .getByRole("button", { name: "Turn Animation Off for Order" })
+      .click();
+    await insertFillAtStart(page, "5");
+    await insertFillAtStart(page, "1");
+    // Layer 2 (lane 5) is a Shape, a centered square, hidden; Layer 1 cuts it out.
+    await addLayerFx(page, "5", /^Shape/);
+    await header(page, "5").locator(".track-label__hide").click();
+    await expect(header(page, "5")).toContainText("Hidden");
+    await addLayerFx(page, "1", /^Mask/);
+    const mask = page.locator('section[aria-label="Mask"]');
+    await mask.getByRole("button", { name: "Target" }).click();
+    await page.getByRole("menuitemcheckbox", { name: /Layer 2/ }).click();
+    await mask.getByRole("button", { name: "Subtractive" }).click();
+
+    const video = await videoRect(page);
+    const at = (x: number, y: number) => ({
+      x: video.left + video.width * x,
+      y: video.top + video.height * y,
+    });
+    const sample = async (x: number, y: number) => {
+      const point = at(x, y);
+      return colorAt(page, point.x, point.y);
+    };
+    await page.mouse.move(0, 0);
+    // The square cuts a hole in Layer 1, but draws nothing there itself.
+    // The samples keep clear of the origin marker at the box's center.
+    await expect
+      .poll(async () =>
+        difference(await sample(0.42, 0.55), await sample(0.85, 0.55)),
+      )
+      .toBeGreaterThan(32);
+    const filled = await sample(0.85, 0.55);
+    const hole = await sample(0.42, 0.55);
+
+    // Selecting the hidden layer's clip outlines its box.
+    const outline = page.getByTestId("preview-transform-outline");
+    await lane(page, "5").locator(".clip-card--fill").click();
+    await expect(outline).toHaveCount(1);
+
+    // Dragging it, clear of the origin marker, moves the hole.
+    const grab = at(0.5, 0.35);
+    await page.mouse.move(grab.x, grab.y);
+    await page.mouse.down();
+    await page.mouse.move(grab.x + video.width * 0.15, grab.y, { steps: 4 });
+    await page.mouse.move(grab.x + video.width * 0.3, grab.y, { steps: 4 });
+    await page.mouse.up();
+    await expect(
+      page.getByRole("region", { name: "Transform", exact: true }),
+    ).toHaveCount(2);
+    await page.mouse.move(0, 0);
+    await expect
+      .poll(async () => difference(await sample(0.42, 0.55), filled))
+      .toBeLessThan(8);
+    // The moved square still draws nothing.
+    expect(difference(await sample(0.75, 0.6), hole)).toBeLessThan(8);
+  });
+});

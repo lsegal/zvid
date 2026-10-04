@@ -13,6 +13,7 @@ import {
   type FrameBounds,
   type LayerDrawStep,
   orderStackedLayers,
+  planHiddenLayerDraws,
   planLayerDraws,
   resolveCanvasBounds,
   resolveSlotBounds,
@@ -250,18 +251,18 @@ export function matrixRotationDeg(parent: Matrix2D) {
 // them. They, and the FX clips beneath it, are measured on that box's own
 // surface, which its Transforms move, resize and turn.
 // Layers an Order excludes cover its whole box, in z-order with the layers
-// it arranges. Hidden layers are left out.
+// it arranges. Hidden layers draw only into a Mask, over the whole canvas,
+// so their boxes cover it too: they come first, beneath even the FX clips,
+// so a click only picks one where nothing else is, but once selected they
+// can be moved, resized and turned like any other layer.
 export function resolvePreviewLayers(
   activeClips: readonly StackableLayer[],
   canvas: Size,
   order: CompositionOrder = DEFAULT_COMPOSITION_ORDER,
 ): PreviewLayer[] {
-  // Hidden layers draw nothing, so there is nothing to pick.
-  const inBounds = activeClips.filter(
-    (entry) => entry.isInBounds && !entry.clip.hidden,
-  );
+  const inBounds = activeClips.filter((entry) => entry.isInBounds);
   const fxLayers = orderStackedLayers(
-    inBounds.filter((entry) => entry.fx),
+    inBounds.filter((entry) => entry.fx && !entry.clip.hidden),
     order,
   );
   type Placed = {
@@ -318,6 +319,11 @@ export function resolvePreviewLayers(
   collect(planLayerDraws(inBounds, order), undefined, order);
 
   return [
+    ...planHiddenLayerDraws(inBounds).map(({ entry }) => ({
+      entry,
+      frame: resolveCanvasBounds(canvas.width, canvas.height),
+      arrangement: undefined,
+    })),
     ...fxLayers.map(
       (entry) =>
         fxPlaced.get(entry) ?? {

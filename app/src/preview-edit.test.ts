@@ -194,6 +194,37 @@ describe("resolvePreviewLayers", () => {
     ]);
   });
 
+  it("keeps a hidden layer's box over the whole canvas, beneath the rest", () => {
+    const hide = <T extends ReturnType<typeof activeLayer>>(layer: T) => ({
+      ...layer,
+      clip: { ...layer.clip, hidden: true },
+    });
+    const layers = resolvePreviewLayers(
+      [
+        activeLayer("b", 1),
+        { ...activeLayer("fx", 2), fx: true },
+        hide(activeLayer("mask", 0)),
+        hide({ ...activeLayer("hidden-fx", 3), fx: true }),
+      ],
+      canvas,
+    );
+    // A hidden FX clip changes nothing, so it has no box. The hidden layer
+    // comes first, so a click only picks it where nothing else is.
+    assert.deepEqual(
+      layers.map((layer) => layer.laneId),
+      ["mask", "fx", "b"],
+    );
+    const whole = [
+      { x: 0, y: 0 },
+      { x: 1000, y: 0 },
+      { x: 1000, y: 1000 },
+      { x: 0, y: 1000 },
+    ];
+    assert.deepEqual(layers[0].corners, whole);
+    // It takes no band: the visible layer still has the whole canvas.
+    assert.deepEqual(layers[2].corners, whole);
+  });
+
   it("places the layers beneath an FX clip with an Order by its Order", () => {
     const fx = {
       ...activeLayer("fx", 1),
