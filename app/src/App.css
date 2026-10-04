@@ -4,6 +4,11 @@
   --lane-selected-accent: var(--amber);
   --lane-selected-label: #3a3d53;
   --lane-selected-tint: rgba(246, 183, 60, 0.05);
+  /* A layer lane is a clip with this much space above and below it; track
+     labels, clips and the selection box all size from these. */
+  --lane-clip-height: 44px;
+  --lane-clip-inset: 11px;
+  --lane-height: calc(var(--lane-clip-height) + 2 * var(--lane-clip-inset));
   /* Arrangement lane stacking, lowest first, over clip cards isolated at
      z-index auto; the source header row hides the playhead, under labels. */
   --z-timeline-selected-clip: 2;
@@ -965,8 +970,8 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  min-height: 72px;
-  padding: 14px 16px;
+  min-height: var(--lane-height);
+  padding: var(--lane-clip-inset) 16px;
   background: #303346;
   border-right: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
@@ -1043,7 +1048,7 @@
 }
 
 .track-row__content {
-  min-height: 72px;
+  min-height: var(--lane-height);
   border-bottom: 1px solid var(--line);
   background-color: rgba(20, 21, 32, 0.3);
 }
