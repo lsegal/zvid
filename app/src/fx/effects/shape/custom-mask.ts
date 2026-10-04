@@ -2,7 +2,6 @@
 // stretched over its box, and its opaque area drawn into a mask texture at
 // the size of the box it masks, so it stays crisp when scaled.
 
-import { basename, normalizeMediaPath } from "../../../app/util.ts";
 import { isImageMedia, type MediaItem } from "../../../media.ts";
 import { alphaToMask, stretchSvgSource } from "./custom-svg.ts";
 
@@ -67,6 +66,16 @@ export function setShapeImageMedia(items: readonly MediaItem[]) {
     imageMedia = next;
     notify();
   }
+}
+
+// As app/util's, which this can't import: the effect registry loads this,
+// and app/util's constants load the registry.
+function normalizeMediaPath(value: string) {
+  return value.replaceAll("/", "\\").toLowerCase();
+}
+
+function basename(value: string) {
+  return value.split(/[/\\]/).pop() ?? value;
 }
 
 // The path a Custom shape stores for `item`, as a clip stores its media's.

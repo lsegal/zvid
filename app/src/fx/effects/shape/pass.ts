@@ -9,19 +9,17 @@ import { findShape, SHAPES, shapeIndex } from "./shapes/index.ts";
 import { rectangle } from "./shapes/rectangle.ts";
 
 // Custom masks go on the top texture units, past those the chain binds its
-// stage pictures to. Each mask sampler in a program, merged from several
-// passes or not, gets a unit of its own.
+// stage pictures to. Each mask sampler gets the next of them in turn, so the
+// samplers of one program, merged from up to four Shapes, never share one.
 const MASK_UNITS = [7, 6, 5, 4];
 const maskUnits = new WeakMap<WebGLUniformLocation, number>();
-const programMaskCounts = new WeakMap<WebGLProgram, number>();
+let nextMaskUnit = 0;
 
-function maskUnit(gl: WebGLRenderingContext, location: WebGLUniformLocation) {
+function maskUnit(location: WebGLUniformLocation) {
   let unit = maskUnits.get(location);
   if (unit === undefined) {
-    const program = gl.getParameter(gl.CURRENT_PROGRAM) as WebGLProgram;
-    const count = programMaskCounts.get(program) ?? 0;
-    programMaskCounts.set(program, count + 1);
-    unit = MASK_UNITS[count] ?? -1;
+    unit = MASK_UNITS[nextMaskUnit];
+    nextMaskUnit = (nextMaskUnit + 1) % MASK_UNITS.length;
     maskUnits.set(location, unit);
   }
   return unit;
@@ -83,7 +81,7 @@ export const pass: EffectPass = {
     gl.uniform1f(loc.uFlip, ctx.bottomUp ? 1 : 0);
     // A Custom shape's SVG is drawn at the box's own size.
     const value = findEffectParameter(params, SHAPE_KEY)?.value;
-    const unit = loc.uMask ? maskUnit(gl, loc.uMask) : -1;
+    const unit = loc.uMask ? maskUnit(loc.uMask) : -1;
     const masked =
       findShape(value) === custom &&
       unit >= 0 &&

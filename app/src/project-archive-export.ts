@@ -1,12 +1,17 @@
 import { pickMediaByPath } from "./app/session-project.ts";
 import { basename, normalizeMediaPath } from "./app/util.ts";
+import { isShapeEffectName, SHAPE_KEY } from "./fx/effects/shape/shape.ts";
+import {
+  customShapeMediaPath,
+  customShapeValue,
+} from "./fx/effects/shape/shapes/custom.ts";
 import type { MediaItem } from "./media.ts";
 import {
   PROJECT_ARCHIVE_MEDIA_DIR,
   type ProjectArchiveMediaInput,
   writeProjectArchive,
 } from "./project-archive.ts";
-import type { LvpSession } from "./session.ts";
+import { collectShapeMediaPaths, type LvpSession } from "./session.ts";
 
 // File ▸ Export ▸ Project…: the `.zvd` archive written from a session. With
 // media included, each file the session links goes in once under `media/`,
@@ -20,7 +25,8 @@ function isLinkedPath(value: unknown): value is string {
 }
 
 // Every media path the session links: its clips, its source tracks'
-// recordings and, in an older session, its main audio. Spellings of one
+// recordings, its Custom shapes' SVGs and, in an older session, its main
+// audio. Spellings of one
 // path that differ only in case or separator count once.
 export function collectLinkedMediaPaths(session: LvpSession) {
   const paths = new Map<string, string>();
@@ -34,6 +40,7 @@ export function collectLinkedMediaPaths(session: LvpSession) {
   for (const track of session.tracks ?? []) {
     for (const recording of track.recordings ?? []) add(recording.filename);
   }
+  for (const path of collectShapeMediaPaths(session)) add(path);
   add(session.audioFilename);
   return Array.from(paths.values());
 }
@@ -98,6 +105,27 @@ export function rewriteSessionMediaPaths(
   }
   if (session.audioFilename !== undefined) {
     rewritten.audioFilename = rewrite(session.audioFilename);
+  }
+  if (session.effects) {
+    // A Custom shape names its SVG in its Shape parameter.
+    rewritten.effects = session.effects.map((effect) => {
+      const shape = effect.parameters?.[SHAPE_KEY];
+      const path = isShapeEffectName(effect.effectName)
+        ? customShapeMediaPath(shape?.stringValue)
+        : undefined;
+      return path
+        ? {
+            ...effect,
+            parameters: {
+              ...effect.parameters,
+              [SHAPE_KEY]: {
+                ...shape,
+                stringValue: customShapeValue(rewrite(path)),
+              },
+            },
+          }
+        : effect;
+    });
   }
   if (session.mediaRanges) {
     rewritten.mediaRanges = session.mediaRanges.map((range) => ({
