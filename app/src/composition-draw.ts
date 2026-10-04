@@ -18,6 +18,7 @@ import {
   type LayerDrawStep,
   type LayerPlacement,
   type LayerVisual,
+  planHiddenLayerDraws,
   planLayerDraws,
   resolveLayerPlacement,
   resolveSlotBounds,
@@ -83,7 +84,12 @@ export type CompositeVisual = LayerVisual & {
 export type CompositeLayer = {
   // `laneId` is the layer the clip is on, which an Order can exclude. With
   // `clipProgress`, `durationSeconds` times an animated Order's slides.
-  clip: { startQ: number; laneId?: string; durationSeconds?: number };
+  clip: {
+    startQ: number;
+    laneId?: string;
+    durationSeconds?: number;
+    hidden?: boolean;
+  };
   media: { id: string; width?: number; height?: number };
   // Key of the media element in `mediaRefs` this layer draws from.
   sourceKey: string;
@@ -585,6 +591,25 @@ export function drawComposition(
   gl.clearColor(...sceneClearColor(order));
   gl.clear(gl.COLOR_BUFFER_BIT);
 
+  // FX clips and the layers the Order excludes take no slot, and a Grid has
+  // one cell per arranged layer, so arranged layers past the last cell are
+  // not drawn. Clips on hidden layers are drawn only into the masks that
+  // target them.
+  drawnLayers.length = 0;
+  for (const entry of activeClips) {
+    if (
+      entry.fx
+        ? fxSteps.has(entry) || (entry.isInBounds && entry.order !== undefined)
+        : entry.isInBounds &&
+          (entry.fill ||
+            entry.text ||
+            mediaRefs.get(entry.sourceKey) instanceof HTMLVideoElement)
+    ) {
+      drawnLayers.push(entry);
+    }
+  }
+  const hiddenSteps = planHiddenLayerDraws(drawnLayers);
+
   let settled = true;
   const drawSteps = (
     steps: LayerDrawStep<CompositeLayer>[],
@@ -597,7 +622,11 @@ export function drawComposition(
         const drawnMask = mask
           ? drawLayerMask(
               resources,
-              findMaskTargetSteps(steps, step.entry, mask),
+              findMaskTargetSteps(
+                hiddenSteps.length ? [...steps, ...hiddenSteps] : steps,
+                step.entry,
+                mask,
+              ),
               mask,
               target,
               (maskTarget) =>
@@ -723,22 +752,6 @@ export function drawComposition(
     });
   };
 
-  // FX clips and the layers the Order excludes take no slot, and a Grid has
-  // one cell per arranged layer, so arranged layers past the last cell are
-  // not drawn.
-  drawnLayers.length = 0;
-  for (const entry of activeClips) {
-    if (
-      entry.fx
-        ? fxSteps.has(entry) || (entry.isInBounds && entry.order !== undefined)
-        : entry.isInBounds &&
-          (entry.fill ||
-            entry.text ||
-            mediaRefs.get(entry.sourceKey) instanceof HTMLVideoElement)
-    ) {
-      drawnLayers.push(entry);
-    }
-  }
   drawSteps(planLayerDraws(drawnLayers, order), sceneTarget, 0);
 
   gl.disable(gl.SCISSOR_TEST);

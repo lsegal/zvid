@@ -51,6 +51,7 @@ export type SaveableLane = {
   name: string;
   colorIndex: number;
   fxEnabled?: boolean;
+  hidden?: boolean;
 };
 
 export type SaveableSourceTrack = {
@@ -59,6 +60,7 @@ export type SaveableSourceTrack = {
   colorIndex: number;
   recordingPaths: string[];
   fxEnabled?: boolean;
+  hidden?: boolean;
 };
 
 export type SaveableSourceSpan = {
@@ -314,12 +316,14 @@ export function projectToLvpSession(
       name: lane.name,
       colorIndex: lane.colorIndex,
       ...(lane.fxEnabled === false ? { fxEnabled: false } : {}),
+      ...(lane.hidden ? { hidden: true } : {}),
     })),
     tracks: project.sourceTracks.map((track) => ({
       id: track.id,
       name: track.name,
       colorIndex: track.colorIndex,
       ...(track.fxEnabled === false ? { fxEnabled: false } : {}),
+      ...(track.hidden ? { hidden: true } : {}),
       recordings: track.recordingPaths.map((filename) => ({ filename })),
     })),
     clips,

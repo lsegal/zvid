@@ -23,6 +23,9 @@ export type Lane = {
   colorIndex: number;
   // Layer-wide FX bypass; a missing flag means on.
   fxEnabled?: boolean;
+  // Set when the layer is hidden: it draws nothing and takes no Order slot,
+  // but can still be a Mask's Target. A missing flag means shown.
+  hidden?: boolean;
 };
 
 export type SourceTrack = {
@@ -32,6 +35,9 @@ export type SourceTrack = {
   recordingPaths: string[];
   // Track-wide FX bypass, like a layer's; a missing flag means on.
   fxEnabled?: boolean;
+  // Set when the track's video is hidden wherever its clips appear. Its
+  // audio still plays.
+  hidden?: boolean;
 };
 
 export type SourceSpan = {

@@ -17,19 +17,21 @@ import type { useSourceTrackActions } from "../../hooks/useSourceTrackActions.ts
 import type { useSourceTrackDrop } from "../../hooks/useSourceTrackDrop.ts";
 import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
 import { SOURCE_TRACKS_LOCKED_TITLE } from "../../source-tracks-section.ts";
+import { isTrackHidden } from "../../track-visibility.ts";
 import { NameInput } from "../NameInput";
 import { LiveRecordingClip } from "./LiveRecordingClip";
 import { arePropsEqualWithContexts } from "./memo-props.ts";
 import { SourceDropPreview } from "./SourceDropPreview";
 import { SourceSpan, type SourceSpanContext } from "./SourceSpan";
 import { TrackFxButton } from "./TrackFxButton";
+import { TrackHideButton } from "./TrackHideButton";
 import { TrackRecordArmButton } from "./TrackRecordArmButton";
 
 type SourceTrackActions = ReturnType<typeof useSourceTrackActions>;
 
 // What every source track label shares: its grip, its menu, the name field
-// Rename… opens, its FX switch, and whether the source tracks are locked,
-// which disables the grip but not the FX switch.
+// Rename… opens, its Hide and FX switches, and whether the source tracks are
+// locked, which disables the grip but not the switches.
 export type SourceTrackLabelContext = {
   reorder: SourceTrackActions["sourceTrackReorder"];
   openMenu: (event: ReactMouseEvent<HTMLElement>, trackId: string) => void;
@@ -41,6 +43,7 @@ export type SourceTrackLabelContext = {
   commitRename: SourceTrackActions["commitSourceTrackRename"];
   cancelRename: SourceTrackActions["cancelSourceTrackRename"];
   setFxEnabled: ReturnType<typeof useFxEditing>["setSourceTrackFxEnabled"];
+  setHidden: ReturnType<typeof useFxEditing>["setSourceTrackHidden"];
 };
 
 export type SourceTrackRowProps = {
@@ -90,6 +93,7 @@ export const SourceTrackRow = memo(function SourceTrackRow({
   commitRename,
   cancelRename,
   setFxEnabled,
+  setHidden,
 }: SourceTrackRowProps) {
   const { sourceTrackDragTarget } = drop;
   const swatch = getSwatch(track.colorIndex);
@@ -114,7 +118,7 @@ export const SourceTrackRow = memo(function SourceTrackRow({
           if (
             event.target instanceof Element &&
             event.target.closest(
-              ".track-label__grip, .track-label__fx, .track-label__arm, .track-label__rename",
+              ".track-label__grip, .track-label__hide, .track-label__fx, .track-label__arm, .track-label__rename",
             )
           ) {
             return;
@@ -164,10 +168,15 @@ export const SourceTrackRow = memo(function SourceTrackRow({
               {track.recordingPaths.length
                 ? `${pluralize(track.recordingPaths.length, "file")} / key ${index + 1}`
                 : `Imported media / key ${index + 1}`}
+              {isTrackHidden(track) ? " · Hidden" : ""}
               {isLayerFxEnabled(track) ? "" : " · FX off"}
             </small>
           </button>
         )}
+        <TrackHideButton
+          track={track}
+          setHidden={(hidden) => setHidden(track.id, hidden)}
+        />
         <TrackFxButton
           track={track}
           setFxEnabled={(enabled) => setFxEnabled(track.id, enabled)}

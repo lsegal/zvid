@@ -6,6 +6,7 @@ import {
   isLayoutEffectName,
   type SessionEffect,
 } from "../fx-stack";
+import { isTrackHidden } from "../track-visibility.ts";
 
 export type LaneStatus = {
   effectCount: number;
@@ -53,6 +54,7 @@ export function useTimelineLanes({
       const fxEnabled = isLayerFxEnabled(lane);
       const summary = [
         clipCount ? pluralize(clipCount, "clip") : "",
+        isTrackHidden(lane) ? "Hidden" : "",
         !fxEnabled
           ? "FX off"
           : effectCount

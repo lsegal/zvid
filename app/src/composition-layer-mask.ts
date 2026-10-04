@@ -2,7 +2,8 @@
 // are drawn again, as they are on the surface both draw on, into a mask
 // target cleared to transparent, and the masked layer's quad is drawn with
 // its alpha multiplied by the alpha there at each pixel (by 1 minus it when
-// Subtractive). The Target still draws as usual on its own.
+// Subtractive). The Target still draws as usual on its own, unless its layer
+// is hidden, in which case it draws only into the masks that target it.
 
 import type { LayerDrawStep } from "./composition-layout.ts";
 import {

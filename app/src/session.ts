@@ -21,6 +21,8 @@ export type LvpSession = {
     colorIndex?: number;
     /** zvid-only: `false` when the layer's FX are bypassed. */
     fxEnabled?: boolean;
+    /** zvid-only: `true` when the layer is hidden. */
+    hidden?: boolean;
   }>;
   tracks?: Array<{
     id: string;
@@ -28,6 +30,8 @@ export type LvpSession = {
     colorIndex?: number;
     /** zvid-only: `false` when the source track's FX are bypassed. */
     fxEnabled?: boolean;
+    /** zvid-only: `true` when the source track's video is hidden. */
+    hidden?: boolean;
     recordings?: Array<{
       filename: string;
       frameStart?: number;

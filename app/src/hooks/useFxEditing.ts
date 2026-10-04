@@ -31,6 +31,10 @@ import {
 } from "../fx-stack";
 import { addShapeTransform } from "../preview-edit.ts";
 import type { ProjectHistoryAction } from "../project-history";
+import {
+  setTrackHidden,
+  trackHiddenHistoryLabel,
+} from "../track-visibility.ts";
 
 export type FxEditingInputs = {
   dispatchProject: (action: ProjectHistoryAction<ProjectState>) => void;
@@ -109,6 +113,41 @@ export function useFxEditing({
               trackId,
               enabled,
             ),
+          }),
+      );
+    },
+    [commitProjectChange, sourceTracks],
+  );
+
+  // A layer's or source track's Hide switch, which, like the FX switch,
+  // works while the source tracks are locked.
+  const setLayerHidden = useCallback(
+    (laneId: string, hidden: boolean) => {
+      commitProjectChange(
+        trackHiddenHistoryLabel(
+          lanes.find((lane) => lane.id === laneId)?.name ?? `Layer ${laneId}`,
+          hidden,
+        ),
+        (current) =>
+          patchProjectState(current, {
+            lanes: setTrackHidden(current.lanes, laneId, hidden),
+          }),
+      );
+    },
+    [commitProjectChange, lanes],
+  );
+
+  const setSourceTrackHidden = useCallback(
+    (trackId: string, hidden: boolean) => {
+      commitProjectChange(
+        trackHiddenHistoryLabel(
+          sourceTracks.find((track) => track.id === trackId)?.name ??
+            `Source ${trackId}`,
+          hidden,
+        ),
+        (current) =>
+          patchProjectState(current, {
+            sourceTracks: setTrackHidden(current.sourceTracks, trackId, hidden),
           }),
       );
     },
@@ -245,6 +284,8 @@ export function useFxEditing({
     editEffects,
     setLayerFxEnabled,
     setSourceTrackFxEnabled,
+    setLayerHidden,
+    setSourceTrackHidden,
     setFxDeviceEnabled,
     setFxDeviceParameter,
     setFxDeviceAnimationEnabled,

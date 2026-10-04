@@ -199,6 +199,7 @@ export function sessionToProject(
     name: track.name,
     colorIndex: track.colorIndex ?? -1,
     ...(track.fxEnabled === false ? { fxEnabled: false } : {}),
+    ...(track.hidden === true ? { hidden: true } : {}),
   }));
   const sourceTracks = (session.tracks ?? []).map<SourceTrack>(
     (track, index) => ({
@@ -209,6 +210,7 @@ export function sessionToProject(
         (recording) => recording.filename,
       ),
       ...(track.fxEnabled === false ? { fxEnabled: false } : {}),
+      ...(track.hidden === true ? { hidden: true } : {}),
     }),
   );
   const nameByTrack = new Map(
