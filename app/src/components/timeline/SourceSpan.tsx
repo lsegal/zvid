@@ -1,7 +1,8 @@
-import type {
-  Dispatch,
-  PointerEvent as ReactPointerEvent,
-  SetStateAction,
+import {
+  type Dispatch,
+  memo,
+  type PointerEvent as ReactPointerEvent,
+  type SetStateAction,
 } from "react";
 import { type Filmstrip, getFilmstripTileOwner } from "../../app/filmstrip.ts";
 import type { getShortcutLabels } from "../../app/shortcut-labels.ts";
@@ -75,7 +76,7 @@ type SourceSpanProps = { clip: SourceSpanClip } & SourceSpanContext;
 // edge trims it, like an arrangement clip, unless the source tracks are
 // locked; Ctrl/Cmd-click adds it to the arrangement, and a right-click
 // selects it and opens its menu.
-export function SourceSpan({
+export const SourceSpan = memo(function SourceSpan({
   clip,
   bpm,
   quarterPx,
@@ -321,4 +322,4 @@ export function SourceSpan({
       )}
     </div>
   );
-}
+});

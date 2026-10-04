@@ -48,6 +48,7 @@ import { needsPlaybackSeek, seekMediaElement } from "./media-seek.ts";
 import type { PlayheadSignal } from "./playhead-signal";
 import { loadTextFaces, subscribeFonts } from "./text-fonts.ts";
 import type { MeterSignature } from "./timeline-format.ts";
+import { usePausedPlayheadFollow } from "./use-paused-playhead-follow.ts";
 
 type CompositionPlayerProps = {
   mediaItems: MediaItem[];
@@ -621,18 +622,14 @@ export const CompositionPlayer = forwardRef<
   );
   const scheduleDrawRef = useRef(scheduleDraw);
   scheduleDrawRef.current = scheduleDraw;
-  const playbackFlagsRef = useRef({
-    isPlaying,
-    isScrubbing,
-    isAudibleScrubbing,
-    isContinuousScrubbing,
-  });
-  playbackFlagsRef.current = {
+  const playbackFlags = {
     isPlaying,
     isScrubbing,
     isAudibleScrubbing,
     isContinuousScrubbing,
   };
+  const playbackFlagsRef = useRef(playbackFlags);
+  playbackFlagsRef.current = playbackFlags;
   const readPlaybackState = useCallback((): CompositionPlaybackState => {
     const playheadQ = playheadSignal.get();
     return {
@@ -757,30 +754,11 @@ export const CompositionPlayer = forwardRef<
     };
   }, [drawCurrentFrame, isPlaying, readPlaybackState]);
 
-  // While paused, seeks and drag-scrubbing move the live playhead; follow it
-  // once a frame, seeking the media there and drawing it.
-  useEffect(() => {
-    if (isPlaying) {
-      return;
-    }
-
-    let frame = 0;
-    const unsubscribe = playheadSignal.subscribe(() => {
-      if (frame) {
-        return;
-      }
-      frame = window.requestAnimationFrame(() => {
-        frame = 0;
-        rendererRef.current?.syncPlayback(readPlaybackState());
-        drawCurrentFrame(window.devicePixelRatio || 1);
-      });
-    });
-
-    return () => {
-      unsubscribe();
-      window.cancelAnimationFrame(frame);
-    };
-  }, [drawCurrentFrame, isPlaying, playheadSignal, readPlaybackState]);
+  // While paused, seeks and drag-scrubbing move the live playhead.
+  usePausedPlayheadFollow(playheadSignal, isPlaying, () => {
+    rendererRef.current?.syncPlayback(readPlaybackState());
+    drawCurrentFrame(window.devicePixelRatio || 1);
+  });
 
   useEffect(() => {
     return rendererRef.current?.addVideoFrameReadyListeners(scheduleDraw);

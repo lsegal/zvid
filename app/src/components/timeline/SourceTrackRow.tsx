@@ -1,5 +1,5 @@
 import { Bars3Icon } from "@heroicons/react/24/solid";
-import type { MouseEvent as ReactMouseEvent } from "react";
+import { memo, type MouseEvent as ReactMouseEvent } from "react";
 import {
   isSourceTrackSelected,
   type SourceSelection,
@@ -19,6 +19,7 @@ import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
 import { SOURCE_TRACKS_LOCKED_TITLE } from "../../source-tracks-section.ts";
 import { NameInput } from "../NameInput";
 import { LiveRecordingClip } from "./LiveRecordingClip";
+import { arePropsEqualWithContexts } from "./memo-props.ts";
 import { SourceDropPreview } from "./SourceDropPreview";
 import { SourceSpan, type SourceSpanContext } from "./SourceSpan";
 import { TrackFxButton } from "./TrackFxButton";
@@ -67,7 +68,7 @@ export type SourceTrackRowProps = {
 // the span. Right-clicking empty space opens the layer lane menu's entries
 // for the track. Double-clicking the track name renames it, like Rename… in
 // its menu.
-export function SourceTrackRow({
+export const SourceTrackRow = memo(function SourceTrackRow({
   track,
   index,
   spans,
@@ -203,4 +204,4 @@ export function SourceTrackRow({
       </section>
     </section>
   );
-}
+}, arePropsEqualWithContexts<SourceTrackRowProps>("span"));
