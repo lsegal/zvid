@@ -214,12 +214,17 @@ test("Order's Animation offers only Clip mode", async ({ page }) => {
   await expect(section.getByRole("button", { name: "Reactive" })).toHaveCount(
     0,
   );
-  await expect(section.getByRole("combobox", { name: "Motion In" })).toHaveText(
-    "Ease Out",
-  );
+  // It moves the clips entering and leaving beneath it, eased its own way,
+  // so it has no Motion In or Out, and no Full timing.
+  await expect(
+    section.getByRole("combobox", { name: "Motion In" }),
+  ).toHaveCount(0);
   await expect(
     section.getByRole("combobox", { name: "Motion Out" }),
-  ).toHaveText("Ease In");
+  ).toHaveCount(0);
+  await expect(
+    section.getByRole("group", { name: "Timing" }).getByRole("button"),
+  ).toHaveText(["Slow", "Normal", "Fast"]);
   await expect(section.locator(".knob__label")).toHaveCount(0);
 });
 

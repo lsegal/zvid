@@ -45,6 +45,7 @@ import {
   type CompositionOrder,
   findOrderEffect,
   isOrderEffectName,
+  type OrderSlide,
   parseCompositionOrder,
   Z_ORDER_COMPOSITION,
 } from "./composition-order.ts";
@@ -541,7 +542,13 @@ export function computeActiveClips(
         ...resolved,
         effectChain: resolveEffectChain(effects, clipTrackId),
         fx: true,
-        ...withOrder(findAnimatedOrder(effects, clipTrackId, fps)),
+        ...withOrder(
+          findAnimatedOrder(effects, clipTrackId, fps, {
+            elapsedSeconds: clipContext.elapsedSeconds,
+            remainingSeconds:
+              clipContext.durationSeconds - clipContext.elapsedSeconds,
+          }),
+        ),
       };
     }
 
@@ -623,18 +630,20 @@ export function resolveFrameEffects<T extends SessionEffect>(
 
 // The arrangement the last enabled Order effect on the `trackId` stack
 // sets, with the slides its Clip-mode animation gives the layers at `fps`,
-// or undefined when the stack has none.
+// or undefined when the stack has none. `window` is the FX clip's the Order
+// is on: its clips only slide while it is active.
 export function findAnimatedOrder(
   effects: readonly SessionEffect[],
   trackId: string,
   fps = DEFAULT_FPS,
+  window?: OrderSlide["window"],
 ): CompositionOrder | undefined {
   const effect = findOrderEffect(effects, trackId);
   if (!effect) {
     return undefined;
   }
   const order = parseCompositionOrder(effect.parameters);
-  const slide = resolveOrderSlide(effect.animation, fps);
+  const slide = resolveOrderSlide(effect.animation, fps, window);
   return slide ? { ...order, slide } : order;
 }
 

@@ -192,7 +192,7 @@ describe("zvid opening sample", () => {
     assert.notEqual(sourceAt("orbit", 3), sourceAt("orbit", 4.5));
   });
 
-  it("alternates Horizontal and Vertical Orders whose ivory spacing and margin animate", () => {
+  it("alternates Horizontal and Vertical Orders with ivory spacing and margin", () => {
     const arrangements = (session.fxClips ?? [])
       .filter((clip) => clip.mainTrackId === "order")
       .map((clip) => {
@@ -211,7 +211,9 @@ describe("zvid opening sample", () => {
         );
         assert.equal(order.animation?.enabled, true);
         assert.equal(order.animation?.mode, "clip");
-        assert.equal(order.animation?.clip.timing, "Full");
+        assert.equal(order.animation?.clip.timing, "Normal");
+        // An Order has no Motion In or Out.
+        assert.equal("motionIn" in (order.animation?.clip ?? {}), false);
         return stringParameter(order, "Arrangement");
       });
     assert.ok(arrangements.filter((a) => a === "Horizontal").length >= 4);

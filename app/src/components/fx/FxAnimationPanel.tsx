@@ -4,12 +4,12 @@ import {
   ANIMATION_TIMINGS,
   type AnimatableParameter,
   CLIP_MOTIONS,
-  CLIP_TIMINGS,
   createDefaultAnimation,
   describeAnimatedParameters,
   type EffectAnimation,
   getAnimatableParameters,
   getAnimationModes,
+  getClipTimings,
   LFO_DEPTH_STEP,
   LFO_MAX_PHASE,
   LFO_MAX_RATE,
@@ -153,9 +153,11 @@ export function FxAnimationPanel({
             <FxAnimationSegmented
               label="Timing"
               onChange={(timing) => setClip({ timing })}
-              options={CLIP_TIMINGS}
+              options={getClipTimings(device.effectName)}
               value={animation.clip.timing}
             />
+            {/* An Order eases its clips' slides itself, so it has a
+                Transition instead of Motion In and Out. */}
             {animation.clip.transition ? (
               <FxAnimationSegmented
                 label="Transition"
@@ -163,19 +165,22 @@ export function FxAnimationPanel({
                 options={ORDER_TRANSITIONS}
                 value={animation.clip.transition}
               />
-            ) : null}
-            <FxAnimationSelect
-              label="Motion In"
-              onChange={(motionIn) => setClip({ motionIn })}
-              options={CLIP_MOTIONS}
-              value={animation.clip.motionIn}
-            />
-            <FxAnimationSelect
-              label="Motion Out"
-              onChange={(motionOut) => setClip({ motionOut })}
-              options={CLIP_MOTIONS}
-              value={animation.clip.motionOut}
-            />
+            ) : (
+              <>
+                <FxAnimationSelect
+                  label="Motion In"
+                  onChange={(motionIn) => setClip({ motionIn })}
+                  options={CLIP_MOTIONS}
+                  value={animation.clip.motionIn}
+                />
+                <FxAnimationSelect
+                  label="Motion Out"
+                  onChange={(motionOut) => setClip({ motionOut })}
+                  options={CLIP_MOTIONS}
+                  value={animation.clip.motionOut}
+                />
+              </>
+            )}
           </>
         ) : (
           <>

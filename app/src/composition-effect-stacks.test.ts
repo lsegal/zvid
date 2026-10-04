@@ -152,13 +152,14 @@ function resolve(playheadQ: number, effects = EFFECTS) {
 function resolveWithAllEffects(entry: ActiveClip, playheadQ: number) {
   const { clip } = entry;
   const clipTrackId = clipEffectTrackId(clip.id);
+  const elapsedSeconds = quartersToSeconds(playheadQ - clip.startQ, BPM);
   const effects = resolveAnimatedEffects(
     EFFECTS,
     {
       clipId: clip.id,
       laneId: clip.laneId,
       progress: entry.clipProgress,
-      elapsedSeconds: quartersToSeconds(playheadQ - clip.startQ, BPM),
+      elapsedSeconds,
       durationSeconds: clip.durationSeconds,
       sessionEdges: entry.sessionEdges,
     },
@@ -171,7 +172,10 @@ function resolveWithAllEffects(entry: ActiveClip, playheadQ: number) {
     entry.clipProgress,
   );
   if (clip.kind === "fx") {
-    const order = findAnimatedOrder(effects, clipTrackId, FPS);
+    const order = findAnimatedOrder(effects, clipTrackId, FPS, {
+      elapsedSeconds,
+      remainingSeconds: clip.durationSeconds - elapsedSeconds,
+    });
     return {
       visual,
       effectChain: resolveEffectChain(effects, clipTrackId),

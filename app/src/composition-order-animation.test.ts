@@ -8,12 +8,13 @@ import {
   planLayerDraws,
   resolveLayerPlacement,
   resolveSlotBounds,
+  resolveSlotOpacity,
   resolveSlotScissor,
 } from "./composition-layout.ts";
 import type { CompositionOrder, OrderSlide } from "./composition-order.ts";
 import {
-  applyClipAnimationWeight,
   orderSlideWeight,
+  resolveClipAnimatedParameters,
   resolveOrderSlide,
   type SessionEdges,
 } from "./fx-animation-clip.ts";
@@ -27,15 +28,15 @@ import { easeMotion } from "./motion-easing.ts";
 const WIDTH = 1080;
 const HEIGHT = 1920;
 const FPS = 30;
-// Order's Normal timing, with its default Ease Out in and Ease In out,
-// pushed in.
-const SLIDE: OrderSlide = {
-  motionIn: "Ease Out",
-  motionOut: "Ease In",
-  frames: 5,
-  fps: FPS,
-  transition: "Push",
-};
+// Order's Normal timing, pushed in.
+const SLIDE: OrderSlide = { frames: 5, fps: FPS, transition: "Push" };
+
+// How far a clip `progress` of the way through its slide has slid in, or
+// how far one with `progress` of its slide left still is: an Order's slides
+// always ease in and out.
+function ease(progress: number) {
+  return easeMotion("Ease In Out", progress);
+}
 
 type Layer = {
   id: string;
@@ -73,10 +74,11 @@ function layer(
 function order(
   arrangement: CompositionOrder["arrangement"],
   slide: OrderSlide | null = SLIDE,
+  gridSize = 2,
 ): CompositionOrder {
   return {
     arrangement,
-    gridSize: 2,
+    gridSize,
     spacing: 0,
     ...(slide ? { slide } : {}),
   };
@@ -91,7 +93,7 @@ function toRect(bounds: FrameBounds): Rect {
   };
 }
 
-type Placed = { id: string; drawn: Rect; cropped: Rect };
+type Placed = { id: string; drawn: Rect; cropped: Rect; opacity: number };
 
 // Where each layer is drawn, and the box it is cropped to, in canvas
 // pixels (origin top-left).
@@ -127,6 +129,7 @@ function place(steps: LayerDrawStep<Layer>[]): Placed[] {
           top: HEIGHT - scissor.y - scissor.height,
           bottom: HEIGHT - scissor.y,
         },
+        opacity: resolveSlotOpacity(step.order, step.motion),
       },
     ];
   });
@@ -154,6 +157,16 @@ function lerpRect(from: Rect, to: Rect, weight: number): Rect {
   };
 }
 
+// `rect` in whole pixels, as a layer is cropped.
+function roundRect(rect: Rect): Rect {
+  return {
+    left: Math.round(rect.left),
+    right: Math.round(rect.right),
+    top: Math.round(rect.top),
+    bottom: Math.round(rect.bottom),
+  };
+}
+
 function assertRect(actual: Rect, expected: Rect, message: string) {
   for (const key of ["left", "right", "top", "bottom"] as const) {
     assert.ok(
@@ -178,10 +191,10 @@ function twoLayersAt(seconds: number) {
 }
 
 describe("Order Clip-mode animation", () => {
-  it("slides an entering clip in from the left while Layer 1 shrinks to its half", () => {
+  it("slides a clip entering the last slot in from the bottom while Layer 1 shrinks to its half", () => {
     for (let frame = 0; frame <= 5; frame++) {
       const placed = twoLayersAt(2 + frame / FPS);
-      const weight = easeMotion("Ease Out", frame / 5);
+      const weight = ease(frame / 5);
       assertRect(
         placed["layer-1"].drawn,
         lerpRect(FULL, TOP_HALF, weight),
@@ -191,17 +204,20 @@ describe("Order Clip-mode animation", () => {
         placed["layer-2"].drawn,
         {
           ...BOTTOM_HALF,
-          left: -WIDTH * (1 - weight),
-          right: WIDTH * weight,
+          top: HEIGHT / 2 + (HEIGHT / 2) * (1 - weight),
+          bottom: HEIGHT + (HEIGHT / 2) * (1 - weight),
         },
         `Layer 2 at frame ${frame}`,
       );
-      // It is cropped to its slot all the way in.
-      assertRect(
-        placed["layer-2"].cropped,
-        BOTTOM_HALF,
-        `Layer 2's crop at frame ${frame}`,
-      );
+      assert.equal(placed["layer-2"].opacity, 1);
+      if (frame > 0) {
+        // It is cropped to the gap Layer 1 leaves it all the way in.
+        assertRect(
+          placed["layer-2"].cropped,
+          roundRect({ ...BOTTOM_HALF, top: HEIGHT - (HEIGHT / 2) * weight }),
+          `Layer 2's crop at frame ${frame}`,
+        );
+      }
     }
   });
 
@@ -233,16 +249,10 @@ describe("Order Clip-mode animation", () => {
     assert.ok(steps.every((step) => !("motion" in step)));
   });
 
-  it("mirrors the enter when a clip exits", () => {
-    const mirrored = { ...SLIDE, motionOut: SLIDE.motionIn };
+  it("plays the enter backwards when a clip exits", () => {
     for (let frame = 0; frame <= 5; frame++) {
-      const at = (seconds: number) =>
-        placeAt(
-          [layer(0, 0, 10, seconds), layer(1, 2, 4, seconds)],
-          order("vertical", mirrored),
-        );
-      const entering = at(2 + frame / FPS);
-      const exiting = at(6 - frame / FPS);
+      const entering = twoLayersAt(2 + frame / FPS);
+      const exiting = twoLayersAt(6 - frame / FPS);
       for (const id of ["layer-1", "layer-2"]) {
         assertRect(
           exiting[id].drawn,
@@ -256,78 +266,181 @@ describe("Order Clip-mode animation", () => {
         );
       }
     }
-    // With the default Ease In out, the exit follows Ease In.
-    const exiting = twoLayersAt(6 - 2 / FPS);
-    assertRect(
-      exiting["layer-1"].drawn,
-      lerpRect(FULL, TOP_HALF, easeMotion("Ease In", 2 / 5)),
-      "Layer 1 as Layer 2 exits",
-    );
   });
 
-  it("slides into a Horizontal column from the bottom", () => {
-    const placed = placeAt(
-      [layer(0, 0, 10, 2 + 2 / FPS), layer(1, 2, 4, 2 + 2 / FPS)],
-      order("horizontal"),
-    );
-    const weight = easeMotion("Ease Out", 2 / 5);
-    const column = { left: WIDTH / 2, right: WIDTH, top: 0, bottom: HEIGHT };
-    assertRect(
-      placed["layer-2"].drawn,
-      {
-        ...column,
-        top: HEIGHT * (1 - weight),
-        bottom: HEIGHT * (2 - weight),
-      },
-      "Layer 2",
-    );
-    assertRect(placed["layer-2"].cropped, column, "Layer 2's crop");
-    assertRect(
-      placed["layer-1"].drawn,
-      lerpRect(FULL, { ...column, left: 0, right: WIDTH / 2 }, weight),
-      "Layer 1",
-    );
-  });
-
-  it("slides into a Grid cell from its nearest canvas edge", () => {
-    const seconds = 2 + 1 / FPS;
-    const weight = easeMotion("Ease Out", 1 / 5);
-    const placed = placeAt(
-      [
-        layer(0, 0, 10, seconds),
-        layer(1, 2, 4, seconds),
-        layer(2, 0, 10, seconds),
-        layer(3, 0, 10, seconds),
-      ],
-      order("grid"),
-    );
-    // Layer 2 enters the top-right cell, from the right.
-    const cell = { left: WIDTH / 2, right: WIDTH, top: 0, bottom: HEIGHT / 2 };
-    assertRect(
-      placed["layer-2"].drawn,
-      {
-        ...cell,
-        left: WIDTH / 2 + (WIDTH / 2) * (1 - weight),
-        right: WIDTH + (WIDTH / 2) * (1 - weight),
-      },
-      "Layer 2",
-    );
-    assertRect(placed["layer-2"].cropped, cell, "Layer 2's crop");
-    // Layer 3 glides from the top-right cell to the bottom-left one.
-    assertRect(
-      placed["layer-3"].drawn,
-      lerpRect(
-        cell,
-        { left: 0, right: WIDTH / 2, top: HEIGHT / 2, bottom: HEIGHT },
-        weight,
+  // Clips on layers 1 to 3 that play throughout, but for `moving`, which
+  // enters at 2 s (or exits at 6 s) `frame` frames into its slide.
+  const threeAt = (
+    arrangement: CompositionOrder,
+    moving: number,
+    frame: number,
+    exit = false,
+  ) => {
+    const seconds = exit ? 6 - frame / FPS : 2 + frame / FPS;
+    return placeAt(
+      [0, 1, 2].map((rank) =>
+        rank === moving
+          ? layer(rank, 2, 4, seconds)
+          : layer(rank, 0, 10, seconds),
       ),
-      "Layer 3",
+      arrangement,
     );
+  };
+
+  for (const arrangement of ["horizontal", "vertical"] as const) {
+    const size = arrangement === "horizontal" ? WIDTH : HEIGHT;
+    const [start, end] =
+      arrangement === "horizontal" ? ["left", "right"] : ["top", "bottom"];
+    const span = (from: number, to: number): Rect =>
+      arrangement === "horizontal"
+        ? { left: from, right: to, top: 0, bottom: HEIGHT }
+        : { left: 0, right: WIDTH, top: from, bottom: to };
+
+    for (const exit of [false, true]) {
+      const verb = exit ? "exits" : "enters";
+      const toward = exit ? "out to" : "in from";
+
+      it(`slides a ${arrangement} Order's first clip ${toward} the ${start} edge as it ${verb}, pushing the others`, () => {
+        for (let frame = 1; frame <= 5; frame++) {
+          const weight = ease(frame / 5);
+          const placed = threeAt(order(arrangement), 0, frame, exit);
+          const off = (size / 3) * (1 - weight);
+          assertRect(
+            placed["layer-1"].drawn,
+            span(-off, size / 3 - off),
+            `Layer 1 at frame ${frame}`,
+          );
+          assertRect(
+            placed["layer-1"].cropped,
+            roundRect(span(0, (size / 3) * weight)),
+            `Layer 1's crop at frame ${frame}`,
+          );
+          assertRect(
+            placed["layer-2"].drawn,
+            lerpRect(span(0, size / 2), span(size / 3, (size * 2) / 3), weight),
+            `Layer 2 at frame ${frame}`,
+          );
+          assert.equal(placed["layer-1"].opacity, 1);
+        }
+      });
+
+      it(`slides a ${arrangement} Order's last clip ${toward} the ${end} edge as it ${verb}`, () => {
+        for (let frame = 1; frame <= 5; frame++) {
+          const weight = ease(frame / 5);
+          const placed = threeAt(order(arrangement), 2, frame, exit);
+          const off = (size / 3) * (1 - weight);
+          assertRect(
+            placed["layer-3"].drawn,
+            span((size * 2) / 3 + off, size + off),
+            `Layer 3 at frame ${frame}`,
+          );
+          assertRect(
+            placed["layer-3"].cropped,
+            roundRect(span(size - (size / 3) * weight, size)),
+            `Layer 3's crop at frame ${frame}`,
+          );
+          assertRect(
+            placed["layer-2"].drawn,
+            lerpRect(
+              span(size / 2, size),
+              span(size / 3, (size * 2) / 3),
+              weight,
+            ),
+            `Layer 2 at frame ${frame}`,
+          );
+        }
+      });
+
+      it(`fades a ${arrangement} Order's middle clip ${exit ? "out" : "in"} in its slot as it ${verb}, its neighbors ${exit ? "closing in" : "pushed apart"}`, () => {
+        for (let frame = 1; frame <= 5; frame++) {
+          const weight = ease(frame / 5);
+          const placed = threeAt(order(arrangement), 1, frame, exit);
+          const gap = span(
+            size / 2 - (size / 6) * weight,
+            size / 2 + (size / 6) * weight,
+          );
+          assertRect(
+            placed["layer-2"].drawn,
+            span(size / 3, (size * 2) / 3),
+            `Layer 2 at frame ${frame}`,
+          );
+          assertRect(
+            placed["layer-2"].cropped,
+            roundRect(gap),
+            `Layer 2's crop at frame ${frame}`,
+          );
+          assert.ok(
+            Math.abs(placed["layer-2"].opacity - weight) < 1e-9,
+            `Layer 2's opacity at frame ${frame}`,
+          );
+          assertRect(
+            placed["layer-1"].drawn,
+            span(0, gap[start as keyof Rect]),
+            `Layer 1 at frame ${frame}`,
+          );
+          assertRect(
+            placed["layer-3"].drawn,
+            span(gap[end as keyof Rect], size),
+            `Layer 3 at frame ${frame}`,
+          );
+        }
+      });
+    }
+  }
+
+  // Nine clips filling a 3×3 Grid, but for `moving`, which enters at 2 s,
+  // two frames into its slide.
+  const gridAt = (moving: number) => {
+    const seconds = 2 + 2 / FPS;
+    return placeAt(
+      Array.from({ length: 9 }, (_, rank) =>
+        rank === moving
+          ? layer(rank, 2, 4, seconds)
+          : layer(rank, 0, 10, seconds),
+      ),
+      order("grid", SLIDE, 3),
+    )[`layer-${moving + 1}`];
+  };
+  const cell = (index: number): Rect => ({
+    left: ((index % 3) * WIDTH) / 3,
+    right: (((index % 3) + 1) * WIDTH) / 3,
+    top: (Math.floor(index / 3) * HEIGHT) / 3,
+    bottom: ((Math.floor(index / 3) + 1) * HEIGHT) / 3,
+  });
+  const shift = (rect: Rect, dx: number, dy: number): Rect => ({
+    left: rect.left + dx,
+    right: rect.right + dx,
+    top: rect.top + dy,
+    bottom: rect.bottom + dy,
+  });
+
+  it("slides a Grid clip in from its column's edge, else its row's", () => {
+    const off = 1 - ease(2 / 5);
+    // The first and last columns slide in from the left and right.
+    assertRect(gridAt(0).drawn, shift(cell(0), (-WIDTH / 3) * off, 0), "left");
+    assertRect(gridAt(6).drawn, shift(cell(6), (-WIDTH / 3) * off, 0), "left");
+    assertRect(gridAt(2).drawn, shift(cell(2), (WIDTH / 3) * off, 0), "right");
+    // The middle column slides in from the top or bottom row's edge.
+    assertRect(gridAt(1).drawn, shift(cell(1), 0, (-HEIGHT / 3) * off), "top");
+    assertRect(
+      gridAt(7).drawn,
+      shift(cell(7), 0, (HEIGHT / 3) * off),
+      "bottom",
+    );
+    for (const index of [0, 1, 2, 6, 7]) {
+      assert.equal(gridAt(index).opacity, 1);
+    }
+  });
+
+  it("fades a clip into an interior Grid cell", () => {
+    const placed = gridAt(4);
+    assertRect(placed.drawn, cell(4), "drawn");
+    assert.ok(Math.abs(placed.opacity - ease(2 / 5)) < 1e-9);
   });
 
   it("moves clips that enter together as one", () => {
     const seconds = 2 + 3 / FPS;
-    const weight = easeMotion("Ease Out", 3 / 5);
+    const weight = ease(3 / 5);
     const placed = placeAt([
       layer(0, 0, 10, seconds),
       layer(1, 2, 4, seconds),
@@ -338,9 +451,10 @@ describe("Order Clip-mode animation", () => {
       lerpRect(FULL, { ...FULL, bottom: HEIGHT / 3 }, weight),
       "Layer 1",
     );
+    // Both enter from the bottom, into the gap Layer 1 leaves them.
     assertRect(
       placed["layer-3"].cropped,
-      { ...FULL, top: (HEIGHT * 2) / 3 },
+      roundRect({ ...FULL, top: HEIGHT - (HEIGHT / 3) * weight }),
       "Layer 3's crop",
     );
   });
@@ -383,7 +497,7 @@ describe("Order Clip-mode animation", () => {
     const exiting = placeAt(at(4 - 2 / FPS));
     assertRect(
       exiting["layer-1"].drawn,
-      lerpRect(FULL, TOP_HALF, easeMotion("Ease In", 2 / 5)),
+      lerpRect(FULL, TOP_HALF, ease(2 / 5)),
       "Layer 1 as Layer 2 exits",
     );
   });
@@ -437,15 +551,32 @@ describe("resolveOrderSlide", () => {
       const base = animation();
       assert.deepEqual(
         resolveOrderSlide({ ...base, clip: { ...base.clip, timing } }, 24),
-        {
-          motionIn: "Ease Out",
-          motionOut: "Ease In",
-          frames,
-          fps: 24,
-          transition: "Squish",
-        },
+        { frames, fps: 24, transition: "Squish" },
       );
     }
+  });
+
+  it("ignores Motion In and Out, which an Order no longer has", () => {
+    const base = animation();
+    for (const motion of ["None", "Linear", "Ease In"] as const) {
+      const saved = {
+        ...base,
+        clip: { ...base.clip, motionIn: motion, motionOut: motion },
+      };
+      assert.deepEqual(
+        resolveOrderSlide(saved, FPS),
+        resolveOrderSlide(base, FPS),
+      );
+    }
+  });
+
+  it("has no Full timing", () => {
+    const base = animation();
+    const saved = { ...base, clip: { ...base.clip, timing: "Full" } };
+    assert.equal(
+      normalizeEffectAnimation(saved, "Order")?.clip.timing,
+      base.clip.timing,
+    );
   });
 
   it("has no slide unless the animation is on in Clip mode", () => {
@@ -498,48 +629,87 @@ describe("resolveOrderSlide", () => {
     assert.equal(orderSlideWeight(SLIDE, 5 / FPS, 4), 1);
     assert.equal(orderSlideWeight(SLIDE, 2, 4), 1);
     assert.equal(orderSlideWeight(SLIDE, 4, 4), 0);
-    assert.equal(
-      orderSlideWeight(SLIDE, 2 / FPS, 4),
-      easeMotion("Ease Out", 2 / 5),
+    assert.equal(orderSlideWeight(SLIDE, 2 / FPS, 4), ease(2 / 5));
+  });
+
+  it("only slides at the ends of a clip the Order's clip is active for", () => {
+    const within = (elapsedSeconds: number, remainingSeconds: number) => ({
+      ...SLIDE,
+      window: { elapsedSeconds, remainingSeconds },
+    });
+    // A clip that started with the Order, or before it, doesn't slide in.
+    assert.equal(orderSlideWeight(within(0, 4), 0, 8), 1);
+    assert.equal(orderSlideWeight(within(1 / FPS, 4), 2 / FPS, 8), 1);
+    // A clip that ends with the Order, or after it, doesn't slide out.
+    assert.equal(orderSlideWeight(within(4, 1 / FPS), 4 - 1 / FPS, 4), 1);
+    assert.equal(orderSlideWeight(within(4, 1 / FPS), 4 - 2 / FPS, 4), 1);
+    // A clip that starts and ends while the Order is active slides both
+    // ways.
+    assert.equal(orderSlideWeight(within(1, 4), 0, 1), 0);
+    assert.equal(orderSlideWeight(within(1, 4), 2 / FPS, 1), ease(2 / 5));
+    assert.ok(
+      Math.abs(orderSlideWeight(within(1, 4), 1 - 2 / FPS, 1) - ease(2 / 5)) <
+        1e-9,
+    );
+  });
+
+  it("gives an FX clip's Order the clip's window", () => {
+    const window = { elapsedSeconds: 1, remainingSeconds: 2 };
+    const effects = [
+      {
+        id: "order",
+        trackId: "fx",
+        effectName: "Order",
+        parameters: [],
+        animation: animation(),
+      },
+    ];
+    assert.deepEqual(
+      findAnimatedOrder(effects, "fx", FPS, window)?.slide?.window,
+      window,
     );
   });
 });
 
-describe("Order spacing and border tween", () => {
-  const spacing = (weight: number) =>
-    applyClipAnimationWeight(
-      {
-        effectName: "Order",
-        parameters: [
-          { key: "Spacing", value: "20", numericValue: 20 },
-          { key: "BorderColor", value: "rgba(255,0,100,0.5)" },
-        ],
-      },
-      weight,
-    );
-
-  it("tweens Spacing from 0 to its value", () => {
-    assert.equal(spacing(0)[0].numericValue, 0);
-    assert.equal(spacing(0.25)[0].numericValue, 5);
-    assert.equal(spacing(1)[0].numericValue, 20);
-  });
-
-  it("tweens the border color from black, linearly in RGBA", () => {
-    assert.equal(spacing(0)[1].value, "rgba(0,0,0,1)");
-    assert.equal(spacing(0.5)[1].value, "rgba(128,0,50,0.75)");
-    assert.equal(spacing(1)[1].value, "rgba(255,0,100,0.5)");
+describe("Order's own clip", () => {
+  it("doesn't tween its spacing, margin or border at its start or end", () => {
+    const parameters = [
+      { key: "Spacing", value: "20", numericValue: 20 },
+      { key: "Margin", value: "10", numericValue: 10 },
+      { key: "BorderColor", value: "rgba(255,0,100,0.5)" },
+    ];
+    const effect = {
+      id: "order",
+      trackId: "fx",
+      effectName: "Order",
+      parameters,
+      animation: createDefaultAnimation("Order") as EffectAnimation,
+    };
+    effect.animation.enabled = true;
+    for (const elapsedSeconds of [0, 1 / FPS, 2, 4 - 1 / FPS, 4]) {
+      assert.equal(
+        resolveClipAnimatedParameters(
+          effect,
+          {
+            clipId: "clip",
+            laneId: "lane",
+            progress: elapsedSeconds / 4,
+            elapsedSeconds,
+            durationSeconds: 4,
+          },
+          { playheadQ: 0, bpm: 120, fps: FPS },
+        ),
+        parameters,
+        `at ${elapsedSeconds} s`,
+      );
+    }
   });
 });
 
 describe("Order Squish transition", () => {
-  // Linear, 4 frames, so a slide is `t` of the way in 4t frames in.
-  const SQUISH: OrderSlide = {
-    motionIn: "Linear",
-    motionOut: "Linear",
-    frames: 4,
-    fps: FPS,
-    transition: "Squish",
-  };
+  // 4 frames, so a slide is `ease(t)` of the way in 4t frames in, which is
+  // `t` at each of `T`.
+  const SQUISH: OrderSlide = { frames: 4, fps: FPS, transition: "Squish" };
   const T = [0, 0.5, 1];
   // Clips on layers 1 to 3 that play throughout, but for `moving`, which
   // enters at 2 s (or exits at 6 s), `t` of the way in.
@@ -721,9 +891,10 @@ describe("Order Squish transition", () => {
             shownAt(later, order(arrangement, SQUISH))[`layer-${moving + 1}`],
             `${label} a frame on`,
           );
-          // Pushed rather than squished, it is still drawn, off the canvas.
-          assert.ok(
-            shownAt(layers, order(arrangement, SLIDE))[`layer-${moving + 1}`],
+          // Pushed rather than squished, it is cropped to the same gap.
+          assert.deepEqual(
+            shownAt(layers, order(arrangement, SLIDE)),
+            shown,
             `${label} pushed`,
           );
         }
@@ -750,7 +921,7 @@ describe("Order Squish transition", () => {
     );
   });
 
-  it("squishes a Grid clip across its row, or its row's height when alone in it", () => {
+  it("squishes a Grid clip from its column's edge, else its row's", () => {
     const seconds = 2 + 2 / FPS;
     const grid = (entering: number, count: number) =>
       placeAt(
@@ -773,11 +944,11 @@ describe("Order Squish transition", () => {
       { left: 0, right: WIDTH / 4, top: 0, bottom: HEIGHT / 2 },
       "Layer 1 beside Layer 2",
     );
-    // Layer 3, alone in the bottom row, brings it in from the bottom.
+    // Layer 3 enters the bottom-left cell from its left edge.
     assertRect(
       grid(2, 3)["layer-3"].drawn,
-      { left: 0, right: WIDTH / 2, top: (HEIGHT * 3) / 4, bottom: HEIGHT },
-      "Layer 3 alone in its row",
+      { left: 0, right: WIDTH / 4, top: HEIGHT / 2, bottom: HEIGHT },
+      "Layer 3 in the first column",
     );
     // A clip alone in the grid scales in about its cell's center.
     assertRect(

@@ -2851,9 +2851,7 @@
         "enabled": true,
         "mode": "clip",
         "clip": {
-          "motionIn": "Ease In Out",
-          "motionOut": "Ease In Out",
-          "timing": "Full"
+          "timing": "Normal"
         },
         "reactive": {
           "motion": "Bounce",
@@ -2893,9 +2891,7 @@
         "enabled": true,
         "mode": "clip",
         "clip": {
-          "motionIn": "Ease In Out",
-          "motionOut": "Ease In Out",
-          "timing": "Full"
+          "timing": "Normal"
         },
         "reactive": {
           "motion": "Bounce",
@@ -2935,9 +2931,7 @@
         "enabled": true,
         "mode": "clip",
         "clip": {
-          "motionIn": "Ease In Out",
-          "motionOut": "Ease In Out",
-          "timing": "Full"
+          "timing": "Normal"
         },
         "reactive": {
           "motion": "Bounce",
@@ -2977,9 +2971,7 @@
         "enabled": true,
         "mode": "clip",
         "clip": {
-          "motionIn": "Ease In Out",
-          "motionOut": "Ease In Out",
-          "timing": "Full"
+          "timing": "Normal"
         },
         "reactive": {
           "motion": "Bounce",
@@ -3019,9 +3011,7 @@
         "enabled": true,
         "mode": "clip",
         "clip": {
-          "motionIn": "Ease In Out",
-          "motionOut": "Ease In Out",
-          "timing": "Full"
+          "timing": "Normal"
         },
         "reactive": {
           "motion": "Bounce",
@@ -3061,9 +3051,7 @@
         "enabled": true,
         "mode": "clip",
         "clip": {
-          "motionIn": "Ease In Out",
-          "motionOut": "Ease In Out",
-          "timing": "Full"
+          "timing": "Normal"
         },
         "reactive": {
           "motion": "Bounce",
@@ -3103,9 +3091,7 @@
         "enabled": true,
         "mode": "clip",
         "clip": {
-          "motionIn": "Ease In Out",
-          "motionOut": "Ease In Out",
-          "timing": "Full"
+          "timing": "Normal"
         },
         "reactive": {
           "motion": "Bounce",
@@ -3145,9 +3131,7 @@
         "enabled": true,
         "mode": "clip",
         "clip": {
-          "motionIn": "Ease In Out",
-          "motionOut": "Ease In Out",
-          "timing": "Full"
+          "timing": "Normal"
         },
         "reactive": {
           "motion": "Bounce",
@@ -3187,9 +3171,7 @@
         "enabled": true,
         "mode": "clip",
         "clip": {
-          "motionIn": "Ease In Out",
-          "motionOut": "Ease In Out",
-          "timing": "Full"
+          "timing": "Normal"
         },
         "reactive": {
           "motion": "Bounce",
