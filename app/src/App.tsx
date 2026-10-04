@@ -563,6 +563,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                       signature: timeline.signature,
                       mediaItemsById,
                       thumbnails: timeline.thumbnails,
+                      clipPieces: timeline.clipPieces,
                       clipFilmstrips: timeline.clipFilmstrips,
                       remoteMediaProgress: media.remoteMediaProgress,
                       timelineEffects,

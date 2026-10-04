@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import {
   CLIP_FILMSTRIP_HEIGHT_PX,
   type Filmstrip,
+  getClipPieceKey,
   getFilmstripTileOwner,
   SOURCE_SPAN_FILMSTRIP_HEIGHT_PX,
 } from "../app/filmstrip.ts";
@@ -16,6 +17,7 @@ import {
 } from "../clip-filmstrip.ts";
 import { isPlaceholderClip } from "../clip-media-state";
 import type { MediaItem } from "../media";
+import { getClipPieceClips } from "../source-track-content.ts";
 import {
   getClipThumbnailTimeSeconds,
   getThumbnailCacheKey,
@@ -35,6 +37,8 @@ export type TimelineThumbnailsInputs = {
 };
 
 // The filmstrips and thumbnails the timeline's clips and source spans show.
+// A media clip shows its source track window piece by piece (see
+// source-track-content.ts), so its pieces get theirs, by getClipPieceKey.
 export function useTimelineThumbnails({
   bpm,
   quarterPx,
@@ -45,11 +49,35 @@ export function useTimelineThumbnails({
   filmstripRangeEndPx,
 }: TimelineThumbnailsInputs) {
   const pixelRatio = window.devicePixelRatio || 1;
-  // The filmstrip tiles of each online video clip near the visible range.
+  // Each media clip's pieces, as its source clips stand now, a dragged one
+  // included.
+  const clipPieces = useMemo(
+    () =>
+      new Map(
+        timelineClips.flatMap((clip) =>
+          clip.kind
+            ? []
+            : [[clip.id, getClipPieceClips(clip, sourceSpans, bpm)] as const],
+        ),
+      ),
+    [bpm, sourceSpans, timelineClips],
+  );
+  // Every clip piece, by its key.
+  const pieces = useMemo(
+    () =>
+      [...clipPieces].flatMap(([clipId, clipPieceClips]) =>
+        clipPieceClips.map(
+          (clip, index) => [getClipPieceKey(clipId, index), clip] as const,
+        ),
+      ),
+    [clipPieces],
+  );
+  // The filmstrip tiles of each online video clip piece near the visible
+  // range.
   const clipFilmstrips = useMemo(() => {
     const filmstrips = new Map<string, Filmstrip>();
     const secondsPerPx = quartersToSeconds(1, bpm) / quarterPx;
-    for (const clip of timelineClips) {
+    for (const [pieceKey, clip] of pieces) {
       const media = clip.mediaId ? mediaItemsById.get(clip.mediaId) : undefined;
       if (
         isPlaceholderClip(clip) ||
@@ -65,7 +93,7 @@ export function useTimelineThumbnails({
         media.width,
         media.height,
       );
-      filmstrips.set(clip.id, {
+      filmstrips.set(pieceKey, {
         media,
         size: getFilmstripDecodeSize(
           tileWidthPx,
@@ -90,9 +118,9 @@ export function useTimelineThumbnails({
     filmstripRangeEndPx,
     filmstripRangeStartPx,
     mediaItemsById,
+    pieces,
     pixelRatio,
     quarterPx,
-    timelineClips,
   ]);
   // The filmstrip tiles of each online video source span near the visible
   // range.
@@ -183,15 +211,15 @@ export function useTimelineThumbnails({
         () => span.trimStartSeconds,
       );
     }
-    for (const clip of timelineClips) {
+    for (const [pieceKey, clip] of pieces) {
       if (isPlaceholderClip(clip)) {
         continue;
       }
 
       addRequest(
-        `clip:${clip.id}`,
+        `clip:${pieceKey}`,
         clip.mediaId ? mediaItemsById.get(clip.mediaId) : undefined,
-        clipFilmstrips.get(clip.id)?.size,
+        clipFilmstrips.get(pieceKey)?.size,
         (media) =>
           getClipThumbnailTimeSeconds(clip, media.durationSeconds, bpm),
       );
@@ -216,9 +244,9 @@ export function useTimelineThumbnails({
     bpm,
     clipFilmstrips,
     mediaItemsById,
+    pieces,
     sourceSpans,
     spanFilmstrips,
-    timelineClips,
   ]);
   const thumbnails = useThumbnailCache(thumbnailRequests, (request, error) => {
     logClient("thumbnail:error", {
@@ -228,5 +256,5 @@ export function useTimelineThumbnails({
     });
   });
 
-  return { clipFilmstrips, spanFilmstrips, thumbnails };
+  return { clipPieces, clipFilmstrips, spanFilmstrips, thumbnails };
 }
