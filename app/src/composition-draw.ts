@@ -79,6 +79,7 @@ import {
 } from "./fx-shaders/chain.ts";
 import { linkProgram } from "./fx-shaders/gl.ts";
 import type { EffectChainStep } from "./fx-shaders/registry.ts";
+import { REFERENCE_OUTPUT_SIDE } from "./fx-shaders/types.ts";
 import { recordRenderFrame } from "./render-stats.ts";
 import { TEXT_REFERENCE_HEIGHT, type TextStyle } from "./text-style.ts";
 
@@ -432,9 +433,8 @@ function drawLayer(
   const layerSteps = effectChain.prepare(entry.effectChain);
   if (layerSteps.length || transformed) {
     // Text is framed at its box's size, so its effects see it unstretched.
-    const frameSize = textBox
-      ? fitTextureSize(gl, sourceWidth, sourceHeight)
-      : scissor;
+    const fitted = textBox && fitTextureSize(gl, sourceWidth, sourceHeight);
+    const frameSize = fitted || scissor;
     const framed = renderLayerFrame(
       resources,
       texture,
@@ -454,6 +454,11 @@ function drawLayer(
             time: frameContext.time,
             clipProgress: entry.clipProgress,
             resolution: [frameSize.width, frameSize.height],
+            // The frame is in output pixels, unless a text box is scaled
+            // down to fit a texture.
+            pixelScale:
+              ((fitted ? fitted.factor : 1) * Math.min(width, height)) /
+              REFERENCE_OUTPUT_SIDE,
             // The framed layer is written top row first, like a layer texture.
             bottomUp: false,
           },

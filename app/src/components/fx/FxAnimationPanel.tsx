@@ -36,6 +36,7 @@ import {
 } from "../ui/dropdown-menu";
 import { Knob } from "../ui/Knob";
 import { Select } from "../ui/select";
+import { FxAnimationGraph } from "./FxAnimationGraph";
 import type { FxChainProps } from "./FxChain";
 import type { FxEditMode, FxSetParameter } from "./types";
 
@@ -136,6 +137,7 @@ export function FxAnimationPanel({
     <section aria-label={label} className={className} style={style}>
       <header className="fx-animation-panel__title">
         <span className="fx-animation-panel__name">Animation</span>
+        <FxAnimationGraph animation={animation} device={device} />
         <button
           aria-expanded
           aria-label={`Collapse ${label}`}

@@ -15,6 +15,7 @@ import {
   type EffectPass,
   type EffectStage,
   type EffectUniformLocations,
+  effectPixelScale,
   stageSize,
 } from "./types.ts";
 
@@ -200,8 +201,6 @@ export class EffectChainRenderer {
   // One pool per Order nesting depth, since an arrangement draws into its
   // own target while the one it sits in is still in use.
   private arrangementTargets = new Map<number, TargetPool>();
-  // A Transition's two comps and its result, by nesting depth and index.
-  private compTargets = new Map<number, TargetPool>();
   private readonly release: (targets: RenderTarget[]) => void;
   // Handed to every pass, refilled for each run rather than allocated.
   private readonly stepContext: EffectContext = {
@@ -209,6 +208,7 @@ export class EffectChainRenderer {
     clipProgress: 0,
     resolution: [0, 0],
     bottomUp: false,
+    pixelScale: undefined,
   };
   private surfaceKey = "";
   private readonly maxTextureSize: number;
@@ -381,26 +381,10 @@ export class EffectChainRenderer {
   // its `width` × `height` corner, from a pool per nesting `depth`, since an
   // arrangement can hold another.
   getArrangementTarget(depth: number, width: number, height: number) {
-    return this.keyedTarget(this.arrangementTargets, depth, width, height);
-  }
-
-  // Surface a Transition draws a comp (`index` 0, 1) or its blend (2) into,
-  // as above, pooled per nesting `depth`: a comp can hold a Transition.
-  getCompTarget(depth: number, index: number, width: number, height: number) {
-    return this.keyedTarget(this.compTargets, depth * 3 + index, width, height);
-  }
-
-  // A target from the pool `key` of `pools`, made the first time it is used.
-  private keyedTarget(
-    pools: Map<number, TargetPool>,
-    key: number,
-    width: number,
-    height: number,
-  ) {
-    let pool = pools.get(key);
+    let pool = this.arrangementTargets.get(depth);
     if (!pool) {
       pool = new TargetPool(this.release);
-      pools.set(key, pool);
+      this.arrangementTargets.set(depth, pool);
     }
     const [target] = this.getPooledTargets(pool, width, height, 1);
     return {
@@ -452,6 +436,7 @@ export class EffectChainRenderer {
     stepContext.resolution[0] = width;
     stepContext.resolution[1] = height;
     stepContext.bottomUp = ctx.bottomUp;
+    stepContext.pixelScale = ctx.pixelScale;
 
     let input = source;
     for (const [index, step] of steps.entries()) {
@@ -536,6 +521,8 @@ export class EffectChainRenderer {
     const stageCtx: EffectContext = {
       ...ctx,
       resolution: [stageWidth, stageHeight],
+      pixelScale: (effectPixelScale(ctx) * stageWidth) / width,
+      stageScale: stageWidth / width,
     };
     for (const [index, stage] of compiled.stages.entries()) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, targets[index].framebuffer);
@@ -788,10 +775,6 @@ export class EffectChainRenderer {
       pool.clear();
     }
     this.arrangementTargets.clear();
-    for (const pool of this.compTargets.values()) {
-      pool.clear();
-    }
-    this.compTargets.clear();
     if (this.sceneTarget) {
       this.deleteTarget(this.sceneTarget);
       this.sceneTarget = null;

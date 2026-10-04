@@ -4,9 +4,6 @@ import type { LvpSession } from "./session.ts";
 // that overlap on the same main track. Clips placed later win an overlap, the
 // same rule the editor applies when a clip is moved onto another.
 
-/** The most layers a session can have. */
-export const MAX_LAYERS = 9;
-
 export type LvpSelection = NonNullable<LvpSession["selections"]>[number];
 
 export interface SelectionOverlapResult {

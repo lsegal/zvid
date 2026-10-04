@@ -18,14 +18,12 @@ import {
   moveLaneTo,
   renameLane,
 } from "../lanes";
-import { layerHistoryLabels, MAX_LAYERS_MESSAGE } from "../layer-menu";
-import { MAX_LAYERS } from "../selection-overlaps";
+import { layerHistoryLabels } from "../layer-menu";
 import { useLayerReorder } from "../use-layer-reorder";
 
 export type LayerActionsInputs = {
   addFxDevice: (trackId: string, effectName: string, id: string) => void;
   arrangementLanesRef: RefObject<HTMLDivElement | null>;
-  canCreateLayer: boolean;
   commitProjectChange: (
     label: string,
     updater: (current: ProjectState) => ProjectState,
@@ -49,7 +47,6 @@ export type LayerActionsInputs = {
 export function useLayerActions({
   addFxDevice,
   arrangementLanesRef,
-  canCreateLayer,
   commitProjectChange,
   focusLaneLabel,
   isInspectorCollapsed,
@@ -65,11 +62,6 @@ export function useLayerActions({
   toggleInspectorCollapsed,
 }: LayerActionsInputs) {
   function handleCreateLayer() {
-    if (!canCreateLayer) {
-      setStatus(`You already have the maximum of ${MAX_LAYERS} layers.`);
-      return;
-    }
-
     const nextLayerNumber = getNextLaneNumber(lanes);
     const nextLane: Lane = {
       id: createLaneId(lanes),
@@ -92,11 +84,6 @@ export function useLayerActions({
     if (index < 0) {
       return;
     }
-    if (!canCreateLayer) {
-      setStatus(MAX_LAYERS_MESSAGE);
-      return;
-    }
-
     const nextLane: Lane = {
       id: createLaneId(lanes),
       name: getNextLaneName(lanes),
@@ -115,11 +102,6 @@ export function useLayerActions({
   }
 
   function duplicateLayer(lane: Lane) {
-    if (!canCreateLayer) {
-      setStatus(MAX_LAYERS_MESSAGE);
-      return;
-    }
-
     const newLaneId = createLaneId(lanes);
     commitProjectChange(layerHistoryLabels.duplicate(lane.name), (current) =>
       patchProjectState(

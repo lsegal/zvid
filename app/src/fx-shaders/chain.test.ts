@@ -12,7 +12,7 @@ import {
   wholeTexture,
 } from "./chain.ts";
 import { resolveEffectChain } from "./registry.ts";
-import type { EffectPass } from "./types.ts";
+import type { EffectContext, EffectPass } from "./types.ts";
 
 type Handle = { kind: string; id: number };
 
@@ -433,14 +433,15 @@ describe("EffectChainRenderer stages", () => {
     const stage = (name: string, source: string) => ({
       name,
       fragmentSource: source,
-      uniforms: ["uSize"],
+      uniforms: ["uSize", "uScale"],
       setUniforms(
         gl: WebGLRenderingContext,
         loc: Record<string, WebGLUniformLocation | null>,
         _params: unknown,
-        ctx: { resolution: [number, number] },
+        ctx: EffectContext,
       ) {
         gl.uniform2f(loc.uSize, ...ctx.resolution);
+        gl.uniform2f(loc.uScale, ctx.pixelScale ?? -1, ctx.stageScale ?? -1);
       },
     });
     return {
@@ -508,6 +509,33 @@ describe("EffectChainRenderer stages", () => {
     renderer.dispose();
     assert.equal(recording.liveCount("texture"), 0);
     assert.equal(recording.liveCount("framebuffer"), 0);
+  });
+
+  it("gives the stages their scale and the output's pixels in theirs", () => {
+    const recording = createCountingGl();
+    const renderer = new EffectChainRenderer(recording.gl, {} as WebGLBuffer);
+    const steps = renderer.prepare([
+      { pass: stagedPass(0.25), parameters: [] },
+    ]);
+    const layer = renderer.getLayerTarget(200, 100);
+    // A picture filling a 200×100 output: its shorter side over 1080.
+    renderer.run(layer.region, 200, 100, steps, {
+      ...CONTEXT,
+      resolution: [200, 100],
+    });
+    assert.deepEqual(recording.draws[0].uScale, [
+      ((100 / 1080) * 50) / 200,
+      0.25,
+    ]);
+    // A picture given its own scale, such as a layer in a slot of a larger
+    // output.
+    const drawn = recording.draws.length;
+    renderer.run(layer.region, 200, 100, steps, {
+      ...CONTEXT,
+      resolution: [200, 100],
+      pixelScale: 2,
+    });
+    assert.deepEqual(recording.draws[drawn].uScale, [0.5, 0.25]);
   });
 
   it("skips the stages at a scale of 0", () => {

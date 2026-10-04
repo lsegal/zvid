@@ -1,8 +1,7 @@
 // The right-click menu for a layer header.
 import type { ContextMenuEntry } from "../context-menu.ts";
 import type { FxEffectDefinition } from "../fx-registry.ts";
-import { canAddLane, type LaneLike } from "../lanes.ts";
-import { MAX_LAYERS_MESSAGE } from "../layer-menu.ts";
+import type { LaneLike } from "../lanes.ts";
 import { deleteLayerEntry } from "./entries/delete-layer.ts";
 import { duplicateLayerEntry } from "./entries/duplicate-layer.ts";
 import { insertLayerEntries } from "./entries/insert-layer.ts";
@@ -48,9 +47,6 @@ export type LayerMenuOptions = {
 
 export type LayerMenuContext = LayerMenuOptions & {
   disabled: boolean;
-  // Whether another layer fits, and the tooltip saying why when it does not.
-  canAdd: boolean;
-  addTitle: string | undefined;
   // Whether there is another layer left once this one is deleted.
   canRemove: boolean;
 };
@@ -79,12 +75,9 @@ export function buildLayerMenuEntries({
   disabled = false,
   ...options
 }: LayerMenuOptions): ContextMenuEntry[] {
-  const canAdd = canAddLane(options.lanes);
   return assembleMenu(layerMenuEntries, {
     ...options,
     disabled,
-    canAdd,
-    addTitle: canAdd ? undefined : MAX_LAYERS_MESSAGE,
     canRemove: options.lanes.length > 1,
   });
 }

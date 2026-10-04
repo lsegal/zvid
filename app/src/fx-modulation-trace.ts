@@ -50,7 +50,7 @@ export function sampleLfoTrace(
   seed: string,
   count: number,
   seconds: number,
-  into = new Float32Array(count),
+  into: Float32Array = new Float32Array(count),
 ) {
   const depth = Math.max(0, Math.min(1, lfo.depth));
   const step = count > 1 ? seconds / (count - 1) : 0;
