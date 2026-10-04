@@ -1,7 +1,6 @@
 import type { ReactNode, RefObject } from "react";
 import type { ArrangementClip, Lane } from "../../app/types.ts";
 import type { LaneStatus } from "../../hooks/useTimelineLanes.ts";
-import { MAX_LAYERS_MESSAGE } from "../../layer-menu";
 import { LaneRow, type LaneRowContext } from "./LaneRow";
 import { LayerHeader, type LayerHeaderContext } from "./LayerHeader";
 import { TrackAddButton } from "./TrackPlaceholder";
@@ -21,7 +20,6 @@ type ArrangementLanesProps = {
   emptyState: ReactNode;
   header: LayerHeaderContext;
   row: LaneRowContext;
-  canCreateLayer: boolean;
   // A read-only tab can't add layers.
   readOnly: boolean;
   onCreateLayer: () => void;
@@ -39,7 +37,6 @@ export function ArrangementLanes({
   emptyState,
   header,
   row,
-  canCreateLayer,
   readOnly,
   onCreateLayer,
 }: ArrangementLanesProps) {
@@ -83,10 +80,10 @@ export function ArrangementLanes({
       <section className="track-row track-placeholder track-placeholder--layer">
         <div className="track-label">
           <TrackAddButton
-            disabled={readOnly || !canCreateLayer}
+            disabled={readOnly}
             label="Layer"
             onClick={onCreateLayer}
-            title={canCreateLayer ? "Add a layer" : MAX_LAYERS_MESSAGE}
+            title="Add a layer"
           />
         </div>
         <div className="track-row__content" />

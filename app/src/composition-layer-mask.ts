@@ -1,15 +1,19 @@
 // How the compositor draws a layer a Mask masks: its Target layer's clips
-// are drawn again, as they are on the surface both draw on, into a mask
-// target cleared to transparent, and the masked layer's quad is drawn with
-// its alpha multiplied by the alpha there at each pixel (by 1 minus it when
-// Subtractive). The Target still draws as usual on its own, unless its layer
-// is hidden, in which case it draws only into the masks that target it.
+// are drawn again, where they end up on the surface the masked layer is
+// drawn on, into a mask target cleared to transparent, and the masked
+// layer's quad is drawn with its alpha multiplied by the alpha there at each
+// pixel (by 1 minus it when Subtractive). The Target still draws as usual on
+// its own. A masked Target is drawn with its own mask, except inside a
+// cycle (A masks B and B masks A), where the layer that closes it is drawn
+// unmasked. A Target on a hidden layer is drawn only into the masks that
+// target it, over the whole canvas, since it takes no slot.
 
 import type { LayerDrawStep } from "./composition-layout.ts";
 import {
   COMPOSITE_VERTEX_SOURCE,
   MASKED_COMPOSITE_FRAGMENT_SOURCE,
 } from "./composition-shaders.ts";
+import type { QuadAxes } from "./composition-transform.ts";
 import type { LayerMask, MaskMode } from "./fx/effects/mask/mask.ts";
 import type { EffectChainRenderer, TextureRegion } from "./fx-shaders/chain.ts";
 import { linkProgram } from "./fx-shaders/gl.ts";
@@ -81,23 +85,24 @@ export function createMaskedComposite(
 // picture the size of the surface the layer is drawn on.
 export type DrawnMask = { region: TextureRegion; mode: MaskMode };
 
-type MaskSurface = {
-  framebuffer: WebGLFramebuffer | null;
-  width: number;
-  height: number;
-};
+type Size = { width: number; height: number };
+
+export type MaskSurface = Size & { framebuffer: WebGLFramebuffer | null };
 
 type MaskableLayer = { fx?: boolean; clip: { laneId?: string } };
 
+type LayerStep<T> = LayerDrawStep<T> & { type: "layer" };
+type ArrangeStep<T> = LayerDrawStep<T> & { type: "arrange" };
+
 // The steps among `steps` that draw Mask `entry`'s Target layer: the clips
-// on it drawn on the same surface as `entry`, in their draw order.
+// on it drawn on that surface, in their draw order.
 export function findMaskTargetSteps<T extends MaskableLayer>(
   steps: readonly LayerDrawStep<T>[],
   entry: T,
   mask: LayerMask,
 ) {
   return steps.filter(
-    (step): step is LayerDrawStep<T> & { type: "layer" } =>
+    (step): step is LayerStep<T> =>
       step.type === "layer" &&
       step.entry !== entry &&
       !step.entry.fx &&
@@ -105,33 +110,164 @@ export function findMaskTargetSteps<T extends MaskableLayer>(
   );
 }
 
-// Draws `targetSteps`, a Mask's Target's clips, into a mask target the size
-// of `surface` with `drawStep`, after `bind` binds the composite state for
-// it. Returns null when the Target draws nothing, as when it has no active
+// A surface is the canvas, or reached from it through the FX clips with an
+// Order in a path, outermost first, each arranging the layers beneath it.
+export type MaskTargetGroup<T> = {
+  path: ArrangeStep<T>[];
+  steps: LayerStep<T>[];
+};
+
+// Where a masked layer is drawn and where its Target's clips are, on any
+// surface: an FX clip's Order can draw one inside its arrangement and the
+// other outside it.
+export type MaskTargets<T> = {
+  maskedPath: ArrangeStep<T>[];
+  groups: MaskTargetGroup<T>[];
+};
+
+// Finds Mask `mask` of the layer `masked` draws among all of `root`, the
+// steps that draw the canvas, and its Target's clips, grouped by surface.
+export function findMaskTargets<T extends MaskableLayer>(
+  root: readonly LayerDrawStep<T>[],
+  masked: LayerStep<T>,
+  mask: LayerMask,
+): MaskTargets<T> {
+  const found: MaskTargets<T> = { maskedPath: [], groups: [] };
+  const visit = (
+    steps: readonly LayerDrawStep<T>[],
+    path: ArrangeStep<T>[],
+  ) => {
+    const targetSteps = findMaskTargetSteps(steps, masked.entry, mask);
+    if (targetSteps.length) {
+      found.groups.push({ path, steps: targetSteps });
+    }
+    for (const step of steps) {
+      if (step === masked) {
+        found.maskedPath = path;
+      } else if (step.type === "arrange") {
+        visit(step.steps, [...path, step]);
+      }
+    }
+  };
+  visit(root, []);
+  return found;
+}
+
+// The axes that draw a parent surface's bottom-up picture into the
+// arrangement `axes` draw on it, undoing them: a point the arrangement
+// draws at a place on the parent samples the parent's picture there.
+export function inverseArrangementAxes(axes: QuadAxes): QuadAxes {
+  // `axes` draw a bottom-up picture flipped, so its own clip space maps to
+  // the parent's by the columns axisX and -axisY.
+  const [a, c] = axes.axisX;
+  const [b, d] = [-axes.axisY[0], -axes.axisY[1]];
+  const determinant = a * d - b * c || 1e-12;
+  const inverse = [d, -c, -b, a].map((value) => value / determinant);
+  const [ox, oy] = axes.offset;
+  return {
+    axisX: [inverse[0], inverse[1]],
+    axisY: [-inverse[2], -inverse[3]],
+    offset: [
+      -(inverse[0] * ox + inverse[2] * oy),
+      -(inverse[1] * ox + inverse[3] * oy),
+    ],
+  };
+}
+
+// How the compositor draws a mask: `placeArrangement` gives the size of an
+// FX clip's arrangement on a parent surface and the axes that draw it
+// there, `drawStep` draws a Target clip, masked in turn from `slot` on, and
+// `drawHop` draws a picture with axes onto a surface; both bind it first.
+export type MaskDrawing<T> = {
+  gl: WebGLRenderingContext;
+  effectChain: EffectChainRenderer;
+  bind: (target: MaskSurface) => void;
+  placeArrangement: (
+    step: ArrangeStep<T>,
+    parent: Size,
+  ) => { size: Size; axes: QuadAxes };
+  drawStep: (target: MaskSurface, step: LayerStep<T>, slot: number) => void;
+  drawHop: (target: MaskSurface, source: TextureRegion, axes: QuadAxes) => void;
+};
+
+// Draws Mask `mask`'s Target clips in `targets` into a mask target the size
+// of the masked layer's surface, from mask target `slot` on, each where it
+// ends up on that surface: drawn on its own surface and carried out of
+// the arrangements it is in and into the ones the masked layer is in.
+// Returns null when the Target draws nothing, as when it has no active
 // clip, which leaves an Additive mask nothing to show and a Subtractive one
 // nothing to hide.
-export function drawLayerMask<S>(
-  resources: { gl: WebGLRenderingContext; effectChain: EffectChainRenderer },
-  targetSteps: readonly S[],
+export function drawLayerMask<T>(
+  drawing: MaskDrawing<T>,
+  targets: MaskTargets<T>,
   mask: LayerMask,
-  surface: MaskSurface,
-  bind: (target: MaskSurface) => void,
-  drawStep: (target: MaskSurface, step: S) => void,
+  canvas: Size,
+  slot = 0,
 ): DrawnMask | null {
-  if (!targetSteps.length) {
+  if (!targets.groups.length) {
     return null;
   }
-  const { gl, effectChain } = resources;
-  const drawn = effectChain.getMaskTarget(surface.width, surface.height);
-  const target = { ...surface, framebuffer: drawn.framebuffer };
-  bind(target);
-  gl.clearColor(0, 0, 0, 0);
-  gl.clear(gl.COLOR_BUFFER_BIT);
-  for (const step of targetSteps) {
-    drawStep(target, step);
+  const { gl, effectChain } = drawing;
+  const sizeOf = (path: ArrangeStep<T>[]) =>
+    path.reduce(
+      (parent, step) => drawing.placeArrangement(step, parent).size,
+      canvas,
+    );
+  const begin = (size: Size, at: number) => {
+    const drawn = effectChain.getMaskTarget(size.width, size.height, at);
+    const { width, height } = size;
+    const target = { width, height, framebuffer: drawn.framebuffer };
+    drawing.bind(target);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    return { target, region: drawn.region };
+  };
+  const { maskedPath } = targets;
+  const result = begin(sizeOf(maskedPath), slot);
+  for (const group of targets.groups) {
+    const { path } = group;
+    let shared = 0;
+    while (
+      shared < path.length &&
+      shared < maskedPath.length &&
+      path[shared] === maskedPath[shared]
+    ) {
+      shared++;
+    }
+    // Out of the Target's arrangements, then into the masked layer's.
+    const hops: Array<{ size: Size; axes: QuadAxes }> = [];
+    for (let index = path.length - 1; index >= shared; index--) {
+      const parent = sizeOf(path.slice(0, index));
+      const placed = drawing.placeArrangement(path[index], parent);
+      hops.push({ size: parent, axes: placed.axes });
+    }
+    for (let index = shared; index < maskedPath.length; index++) {
+      const placed = drawing.placeArrangement(
+        maskedPath[index],
+        sizeOf(maskedPath.slice(0, index)),
+      );
+      hops.push({
+        size: placed.size,
+        axes: inverseArrangementAxes(placed.axes),
+      });
+    }
+    // Two more targets carry it between surfaces; masks the Target's clips
+    // draw with use those after them.
+    let current = hops.length ? begin(sizeOf(path), slot + 1) : result;
+    for (const step of group.steps) {
+      drawing.drawStep(current.target, step, slot + 3);
+    }
+    hops.forEach((hop, index) => {
+      const last = index === hops.length - 1;
+      const next = last
+        ? result
+        : begin(hop.size, slot + 1 + ((index + 1) % 2));
+      drawing.drawHop(next.target, current.region, hop.axes);
+      current = next;
+    });
   }
   gl.disable(gl.SCISSOR_TEST);
-  return { region: drawn.region, mode: mask.mode };
+  return { region: result.region, mode: mask.mode };
 }
 
 // Draws a layer's quad with `draw`, given the masked shader's uniforms, with

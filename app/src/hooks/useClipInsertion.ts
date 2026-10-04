@@ -41,7 +41,6 @@ import type { MediaItem } from "../media";
 import type { ProjectHistoryAction } from "../project-history";
 import { buildRandomArrangement } from "../random-arrangement.ts";
 import { placeClips } from "../range-edit.ts";
-import { MAX_LAYERS } from "../selection-overlaps";
 import { dropClipOnFreeLane } from "../source-clip-drop.ts";
 import { syncClipsToSourceSpans } from "../source-track-content.ts";
 import { addTextClip } from "../text-clip.ts";
@@ -375,11 +374,6 @@ export function useClipInsertion({
       name: `Layer ${getNextLaneNumber(lanes)}`,
       colorIndex: -1,
     }));
-    if (!drop) {
-      setStatus(`You already have the maximum of ${MAX_LAYERS} layers.`);
-      return;
-    }
-
     commitProjectChange("Add clip from source", (current) =>
       patchProjectState(current, {
         lanes: drop.lanes,

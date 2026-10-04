@@ -47,7 +47,6 @@ import {
   resolveClipOverlaps,
   withWindowTiming,
 } from "../range-edit.ts";
-import { MAX_LAYERS } from "../selection-overlaps";
 
 export type ClipActionsInputs = {
   addSourceSpanToArrangement: (sourceSpan: SourceSpan) => void;
@@ -397,11 +396,7 @@ export function useClipActions({
       (nextClips, placed) => resolveClipOverlaps(nextClips, placed, bpm),
     );
     if (!result) {
-      setStatus(
-        target.kind === "lane"
-          ? "That layer no longer exists."
-          : `You already have the maximum of ${MAX_LAYERS} layers.`,
-      );
+      setStatus("That layer no longer exists.");
       return;
     }
 

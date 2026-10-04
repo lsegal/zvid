@@ -1,8 +1,5 @@
-// The history labels of the layer actions and the layer limit message. The
-// layer header menu itself is built in menus/layer-menu.ts.
-import { MAX_LAYERS } from "./selection-overlaps.ts";
-
-export const MAX_LAYERS_MESSAGE = `You already have the maximum of ${MAX_LAYERS} layers.`;
+// The history labels of the layer actions. The layer header menu itself is
+// built in menus/layer-menu.ts.
 
 // History labels name the layer as the header shows it before the change.
 export const layerHistoryLabels = {

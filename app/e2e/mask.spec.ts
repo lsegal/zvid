@@ -16,8 +16,13 @@ type Effect = {
   parameters: Array<{ key: string; value: string; numericValue?: number }>;
 };
 
-// A layer's one clip, 0-4 s: a fill of a color, a text clip, or none.
-type LayerContent = { fill: string } | { text: string; color: string } | null;
+// A layer's one clip, 0-4 s: a fill of a color, a text clip, an FX clip, or
+// none.
+type LayerContent =
+  | { fill: string }
+  | { text: string; color: string }
+  | "fx"
+  | null;
 
 type Scenario = {
   // Layers, from Layer 1 down.
@@ -46,7 +51,7 @@ async function render(page: Page, scenario: Scenario) {
       const clips = layers.flatMap((layer, index) => {
         if (!layer) return [];
         const laneId = `${index + 1}`;
-        const kind = "fill" in layer ? "fill" : "text";
+        const kind = layer === "fx" ? "fx" : "fill" in layer ? "fill" : "text";
         return [
           {
             id: `${kind}-${laneId}`,
@@ -68,7 +73,7 @@ async function render(page: Page, scenario: Scenario) {
         ];
       });
       const content = layers.flatMap((layer, index) => {
-        if (!layer) return [];
+        if (!layer || layer === "fx") return [];
         const trackId = `${index + 1}`;
         return [
           "fill" in layer
@@ -149,7 +154,24 @@ function mask(trackId: string, target: string, mode: string): Effect {
   };
 }
 
+// An Order on the FX clip on Layer `laneId`, arranging the layers beneath
+// it.
+function order(laneId: string): Effect {
+  return {
+    id: `order-${laneId}`,
+    trackId: `clip:fx-${laneId}`,
+    effectName: "Order",
+    enabled: true,
+    parameters: [
+      { key: "Arrangement", value: "Vertical" },
+      { key: "GridSize", value: "2", numericValue: 2 },
+      { key: "Spacing", value: "0", numericValue: 0 },
+    ],
+  };
+}
+
 const RED: Rgb = [255, 0, 0];
+const GREEN: Rgb = [0, 255, 0];
 const BLUE: Rgb = [0, 0, 255];
 // What the composite shows where no layer is drawn.
 const BACKGROUND: Rgb = [18, 20, 28];
@@ -240,6 +262,104 @@ test("a Target with no active clip hides an Additive layer and leaves a Subtract
     }),
     [RED],
   );
+});
+
+// An FX clip's Order draws the layers beneath it into its own box, so a
+// Mask and its Target can be drawn on different surfaces: the Target's
+// pixels are taken from where they end up on the canvas.
+test.describe("a Target across an FX clip's Order", () => {
+  // Layer 2 is an FX clip arranging Layers 3 and 4 in Vertical bands, Layer
+  // 3 in the top one.
+  const TOP: [number, number] = [0.5, 0.25];
+  const BOTTOM: [number, number] = [0.5, 0.75];
+
+  test("masks a layer above the arrangement by a Target inside it", async ({
+    page,
+  }) => {
+    expectColors(
+      await render(page, {
+        layers: [
+          { fill: "rgba(255,0,0,1)" },
+          "fx",
+          { fill: "rgba(0,0,255,1)" },
+          { fill: "rgba(0,255,0,1)" },
+        ],
+        effects: [order("2"), mask("1", "3", "Additive")],
+        samples: [TOP, BOTTOM],
+      }),
+      // The red fill shows only over Layer 3's band.
+      [RED, GREEN],
+    );
+  });
+
+  test("masks a layer inside the arrangement by a Target above it", async ({
+    page,
+  }) => {
+    // Layer 1, a half-transparent blue "I", is drawn on the canvas over the
+    // arrangement, where Layer 3, a red fill in the top band, is cut by its
+    // letter. Where it is cut, only the letter's blue shows over the
+    // Order's black border.
+    const layers: LayerContent[] = [
+      { text: "I", color: "rgba(0,0,255,0.5)" },
+      "fx",
+      { fill: "rgba(255,0,0,1)" },
+      { fill: "rgba(0,255,0,1)" },
+    ];
+    // In the top band, where the letter's stem begins and left of it.
+    const samples: Array<[number, number]> = [
+      [0.5, 0.35],
+      [0.12, 0.35],
+    ];
+    const [cut, outside] = await render(page, {
+      layers,
+      effects: [order("2"), mask("3", "1", "Subtractive")],
+      samples,
+    });
+    const [unmasked] = await render(page, {
+      layers,
+      effects: [order("2")],
+      samples,
+    });
+    expectColors([outside], [RED]);
+    // Unmasked, the letter's blue shows the red beneath it.
+    expect(unmasked[0] - cut[0]).toBeGreaterThan(48);
+  });
+});
+
+// A masked Target contributes its masked pixels to the layer it masks.
+test.describe("chained masks", () => {
+  // Layer 1 is a red fill masked by Layer 2, a blue "I" that Layer 3, a
+  // green fill, cuts away.
+  test("masks by a Target's masked pixels", async ({ page }) => {
+    const layers: LayerContent[] = [
+      { fill: "rgba(255,0,0,1)" },
+      { text: "I", color: "rgba(0,0,255,1)" },
+      { fill: "rgba(0,255,0,1)" },
+    ];
+    expectColors(
+      await render(page, {
+        layers,
+        effects: [mask("1", "2", "Additive"), mask("2", "3", "Subtractive")],
+        samples: [IN_LETTER, OUTSIDE_LETTER],
+      }),
+      // Layer 2 is cut away entirely by Layer 3's fill, so Layer 1 shows
+      // nowhere and Layer 3's green shows through.
+      [GREEN, GREEN],
+    );
+  });
+
+  test("draws a cycle of masks without recursing forever", async ({ page }) => {
+    // Each layer closing the cycle is drawn unmasked, so each is masked by
+    // the other's own pixels.
+    expectColors(
+      await render(page, {
+        layers: LAYERS,
+        effects: [mask("1", "2", "Additive"), mask("2", "1", "Additive")],
+        samples: [IN_LETTER, OUTSIDE_LETTER],
+      }),
+      [RED, BACKGROUND],
+    );
+  });
 });
 
 // The Target menu offers every other layer, one at a time, and never the
