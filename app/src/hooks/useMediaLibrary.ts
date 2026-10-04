@@ -5,8 +5,8 @@ import {
   RELINK_DURATION_TOLERANCE_SECONDS,
 } from "../app/constants.ts";
 import {
+  hydrateProjectMedia,
   mediaFrameRate,
-  mergeMediaItemsById,
   patchProjectState,
 } from "../app/session-project.ts";
 import type {
@@ -187,11 +187,7 @@ export function useMediaLibrary({
         };
         seedLocalMediaItems([analyzed]);
         commitViewChange("Hydrate media", (current) =>
-          patchProjectState(current, {
-            mediaItems: mergeMediaItemsById(current.mediaItems, [
-              toShareableMediaItem(analyzed),
-            ]),
-          }),
+          hydrateProjectMedia(current, [toShareableMediaItem(analyzed)]),
         );
       } catch (error) {
         logClient("media:adopt:analyze:error", {

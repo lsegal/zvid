@@ -7,7 +7,7 @@ import {
 import { DEFAULT_LANES, PALETTE } from "../app/constants.ts";
 import {
   buildStandaloneProject,
-  mergeMediaItemsById,
+  hydrateProjectMedia,
   patchProjectState,
   sessionToProject,
 } from "../app/session-project.ts";
@@ -288,12 +288,10 @@ export function useSessionIO({
           seedLocalMediaItems(analyzedMedia);
           void cacheLocalMediaItems(analyzedMedia);
           commitViewChange("Hydrate session media", (current) =>
-            patchProjectState(current, {
-              mediaItems: mergeMediaItemsById(
-                current.mediaItems,
-                analyzedMedia.map((item) => toShareableMediaItem(item)),
-              ),
-            }),
+            hydrateProjectMedia(
+              current,
+              analyzedMedia.map((item) => toShareableMediaItem(item)),
+            ),
           );
           mediaCheck.analyzingFromDisk = false;
           reportSessionMediaCheck();
