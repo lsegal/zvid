@@ -386,9 +386,8 @@ test("a session with a main audio opens with it on a new source track, which pla
     await page.goto("/");
     await page.getByRole("menuitem", { name: "File", exact: true }).click();
     const choosingSession = page.waitForEvent("filechooser");
-    await page
-      .getByRole("menuitem", { name: "Open Session", exact: true })
-      .click();
+    await page.getByRole("menuitem", { name: "Open", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Session…", exact: true }).click();
     await (await choosingSession).setFiles(join(folder, "Old Song.lvp"));
 
     // A lone session file carries no media, so locate the main audio.

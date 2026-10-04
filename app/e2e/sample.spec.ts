@@ -1,6 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
+import { readProjectArchive } from "../src/project-archive.ts";
 
-// The zvid opening sample: File → Open Sample, and the sample opened on an
+// The zvid opening sample: File → Open → Sample, and the sample opened on an
 // empty start (`?sample=1`, since automation turns it off by default). The
 // sample opens at once and its media downloads from the app's own origin
 // into the media cache in place, through the same skeletons, status and
@@ -73,6 +74,19 @@ function lane(page: Page, id: string) {
   return page.locator(`[data-timeline-lane-id="${id}"]`);
 }
 
+// File ▸ New Session, discarding any unsaved changes.
+async function startNewSession(page: Page) {
+  await page.getByRole("menuitem", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "New Session" }).click();
+  const prompt = page.getByRole("dialog", {
+    name: "Save changes to this session?",
+  });
+  await expect(prompt.or(page.getByText("No source media yet"))).toBeVisible();
+  if (await prompt.isVisible()) {
+    await prompt.getByRole("button", { name: "Don't Save" }).click();
+  }
+}
+
 async function expectSampleOpen(page: Page) {
   await expect(page.getByText("Media linked")).toBeVisible({
     timeout: 60_000,
@@ -111,14 +125,15 @@ async function expectSampleOpen(page: Page) {
   ).toHaveCount(0);
 }
 
-test("File → Open Sample opens the editable sample with all its media", async ({
+test("File → Open → Sample opens the editable sample with all its media", async ({
   page,
 }) => {
   await page.goto("/");
   await expect(page.getByText("No source media yet")).toBeVisible();
 
   await openFileMenu(page);
-  await page.getByRole("menuitem", { name: "Open Sample" }).click();
+  await page.getByRole("menuitem", { name: "Open", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Sample", exact: true }).click();
   await expectSampleOpen(page);
   await expect(
     page.getByText("zvid opening sample", { exact: true }).first(),
@@ -315,7 +330,8 @@ test("the sample opens at once and loads its media in place", async ({
   });
   await page.goto("/");
   await openFileMenu(page);
-  await page.getByRole("menuitem", { name: "Open Sample" }).click();
+  await page.getByRole("menuitem", { name: "Open", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Sample", exact: true }).click();
 
   for (const id of ["orbit", "ribbon", "corridor"]) {
     await expect(lane(page, id)).toHaveCount(1);
@@ -349,7 +365,8 @@ test("a failed download can be retried from the Media Sync dialog", async ({
   );
   await page.goto("/");
   await openFileMenu(page);
-  await page.getByRole("menuitem", { name: "Open Sample" }).click();
+  await page.getByRole("menuitem", { name: "Open", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Sample", exact: true }).click();
 
   // The session is open; its media is what failed.
   await expect(lane(page, "orbit")).toHaveCount(1);
@@ -376,17 +393,18 @@ test("reopening the sample after a failed download tries it again", async ({
   );
   await page.goto("/");
   await openFileMenu(page);
-  await page.getByRole("menuitem", { name: "Open Sample" }).click();
+  await page.getByRole("menuitem", { name: "Open", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Sample", exact: true }).click();
   await expect(
     page.getByRole("button", { name: /offline media files?$/ }),
   ).toBeVisible({ timeout: 60_000 });
 
   failing = false;
-  await openFileMenu(page);
-  await page.getByRole("menuitem", { name: "Close Session" }).click();
+  await startNewSession(page);
   await expect(page.getByText("No source media yet")).toBeVisible();
   await openFileMenu(page);
-  await page.getByRole("menuitem", { name: "Open Sample" }).click();
+  await page.getByRole("menuitem", { name: "Open", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Sample", exact: true }).click();
   await expectSampleOpen(page);
 });
 
@@ -395,11 +413,11 @@ test("closing the session stops the sample's downloads", async ({ page }) => {
   await page.route(SAMPLE_MEDIA, () => {});
   await page.goto("/");
   await openFileMenu(page);
-  await page.getByRole("menuitem", { name: "Open Sample" }).click();
+  await page.getByRole("menuitem", { name: "Open", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Sample", exact: true }).click();
   await expect(lane(page, "orbit")).toHaveCount(1);
 
-  await openFileMenu(page);
-  await page.getByRole("menuitem", { name: "Close Session" }).click();
+  await startNewSession(page);
   await expect(page.getByText("No source media yet")).toBeVisible();
   await expect(lane(page, "orbit")).toHaveCount(0);
   await expect(
@@ -407,10 +425,10 @@ test("closing the session stops the sample's downloads", async ({ page }) => {
   ).toHaveCount(0);
 });
 
-test("an exported copy of the sample reopens with its media still linked", async ({
+test("an exported copy of the sample reopens with its bundled media online", async ({
   page,
 }) => {
-  // Export Project… downloads instead of asking where to save.
+  // Export ▸ Project… downloads instead of asking where to save.
   await page.addInitScript(() => {
     delete (window as { showSaveFilePicker?: unknown }).showSaveFilePicker;
   });
@@ -418,24 +436,39 @@ test("an exported copy of the sample reopens with its media still linked", async
   await expectSampleOpen(page);
 
   await openFileMenu(page);
+  await page.getByRole("menuitem", { name: "Export", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Project…", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Export Project" });
+  await dialog
+    .getByRole("checkbox", { name: "Include media files" })
+    .setChecked(true);
   const downloading = page.waitForEvent("download");
-  await page
-    .getByRole("menuitem", { name: "Export Project…", exact: true })
-    .click();
-  const saved = await (await downloading).path();
-  expect(saved).toBeTruthy();
+  await dialog.getByRole("button", { name: "Export", exact: true }).click();
+  const { readFile } = await import("node:fs/promises");
+  const bytes = await readFile((await (await downloading).path()) as string);
+  await expect(page.getByText(/^Exported .*\.zvd\.$/)).toBeVisible();
 
-  await openFileMenu(page);
-  await page.getByRole("menuitem", { name: "Close Session" }).click();
+  const archive = await readProjectArchive(new Uint8Array(bytes));
+  expect(archive.media.length).toBeGreaterThan(0);
+  const bundled = new Set(archive.media.map((entry) => entry.path));
+  for (const clip of archive.project.clips ?? []) {
+    expect(bundled.has(clip.filePath)).toBe(true);
+  }
+
+  await startNewSession(page);
   await expect(page.getByText("No source media yet")).toBeVisible();
 
   const choosing = page.waitForEvent("filechooser");
   await openFileMenu(page);
-  await page.getByRole("menuitem", { name: "Open Session" }).click();
+  await page.getByRole("menuitem", { name: "Open", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Session…", exact: true }).click();
   await (await choosing).setFiles({
     name: "zvid opening sample.zvd",
-    mimeType: "application/json",
-    buffer: (await import("node:fs")).readFileSync(saved as string),
+    mimeType: "application/gzip",
+    buffer: bytes,
   });
   await expectSampleOpen(page);
+  await expect(
+    page.getByRole("button", { name: /offline media files?$/ }),
+  ).toHaveCount(0);
 });

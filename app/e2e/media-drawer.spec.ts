@@ -283,7 +283,8 @@ test("offline media is marked", async ({ page }) => {
   );
   await page.goto("/");
   await page.getByRole("menuitem", { name: "File", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Open Sample" }).click();
+  await page.getByRole("menuitem", { name: "Open", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Sample", exact: true }).click();
   await expect(
     page.getByRole("button", { name: /offline media files?$/ }),
   ).toBeVisible({ timeout: 60_000 });

@@ -40,6 +40,7 @@ import { createLaneId } from "../lanes";
 import type { MediaItem } from "../media";
 import type { ProjectHistoryAction } from "../project-history";
 import { buildRandomArrangement } from "../random-arrangement.ts";
+import { placeClips } from "../range-edit.ts";
 import { MAX_LAYERS } from "../selection-overlaps";
 import { dropClipOnFreeLane } from "../source-clip-drop.ts";
 import { addTextClip } from "../text-clip.ts";
@@ -169,7 +170,9 @@ export function useClipInsertion({
         label: "Create window",
         updater: (current) =>
           patchProjectState(current, {
-            clips: [...current.clips, ...newClips],
+            // Each window overwrites what it covers on the layer, as a
+            // pasted clip does.
+            clips: placeClips(current.clips, newClips, current.bpm),
             effects: addDefaultGain(
               current.effects,
               { clips: newClips },

@@ -57,6 +57,13 @@ test("an audio device's Modulation section attaches, switches modes and folds", 
     device && attached && Math.abs(attached.x - (device.x + device.width)) <= 2,
   ).toBe(true);
 
+  // A decorative trace of the modulation sits in the title row.
+  const graph = section.locator("header .fx-modulation-graph");
+  await expect(graph).toBeVisible();
+  await expect(graph).toHaveAttribute("aria-hidden", "true");
+  const graphBox = await graph.boundingBox();
+  expect(graphBox && [graphBox.width, graphBox.height]).toEqual([56, 16]);
+
   // Transient, with Reactive's controls and Gain's defaults.
   const mode = section.getByRole("group", { name: "Mode" });
   await expect(mode.getByRole("button")).toHaveText(["Transient", "LFO"]);
@@ -111,6 +118,8 @@ test("an audio device's Modulation section attaches, switches modes and folds", 
   await expect(
     section.getByRole("button", { name: "Expand Gain modulation" }),
   ).toBeVisible();
+  // The strip has no trace.
+  await expect(section.locator(".fx-modulation-graph")).toHaveCount(0);
   await section.getByRole("button", { name: "Expand Gain modulation" }).click();
 
   // Turned off, the section goes and the settings stay for next time.

@@ -6,11 +6,10 @@ import {
   withFormatNotes,
 } from "../als-import";
 import {
-  collectSessionMediaPaths,
-  type LvpSession,
-  type ServerMediaRef,
-  type SessionOpenResponse,
-} from "../session";
+  isProjectArchiveFilename,
+  openProjectArchive,
+} from "../project-archive-open";
+import type { LvpSession, SessionOpenResponse } from "../session";
 import { detectOpenedSessionFormat } from "../session-format";
 import type {
   Harness,
@@ -22,6 +21,7 @@ import type {
 } from "./contracts";
 import { exportVideo } from "./export";
 import { hasMediaExtension, MEDIA_EXTENSIONS } from "./media-extensions";
+import { buildFileOpenPayload } from "./open-payload";
 import {
   analyzeMediaSelection,
   generateThumbnailFromUrlAtTime,
@@ -117,18 +117,6 @@ async function pickMediaFolder(): Promise<MediaSelection | null> {
   return { kind: "files", files };
 }
 
-function basename(rawPath: string) {
-  return rawPath.split(/[/\\]/).filter(Boolean).pop() ?? rawPath;
-}
-
-function createPathId(rawPath: string) {
-  let hash = 0;
-  for (let index = 0; index < rawPath.length; index += 1) {
-    hash = (hash * 31 + rawPath.charCodeAt(index)) >>> 0;
-  }
-  return `${hash.toString(16)}-${basename(rawPath)}`;
-}
-
 // Fills an imported Live set's recording metadata from the refs the server
 // located, then drops those refs so only the session's media is hydrated. A
 // session opened from an `.lvp` gets the canvas size and frame rate it lacks
@@ -195,24 +183,6 @@ async function postSessionOpen(
   }
 
   return finishSessionOpen(payload);
-}
-
-function buildFileOpenPayload(
-  session: LvpSession,
-  sessionName: string,
-): SessionOpenResponse {
-  // A lone session file carries no media, so every reference opens as missing.
-  const mediaRefs = collectSessionMediaPaths(session).map<ServerMediaRef>(
-    (rawPath) => ({
-      id: createPathId(rawPath),
-      path: rawPath,
-      name: basename(rawPath),
-      url: "",
-      exists: false,
-    }),
-  );
-
-  return { session, sessionName, mediaRefs };
 }
 
 async function prepareSave(
@@ -327,6 +297,14 @@ export function createWebHarness(): Harness {
       }
 
       const bytes = new Uint8Array(await selection.file.arrayBuffer());
+      // The dev server reads only JSON and Live sets, so an archive is
+      // unpacked here.
+      if (isProjectArchiveFilename(selection.file.name)) {
+        return finishSessionOpen(
+          await openProjectArchive(bytes, selection.file.name),
+        );
+      }
+
       const isAls = isAlsSession(bytes, selection.file.name);
 
       // The deployed Worker has no session endpoints, so only the dev server

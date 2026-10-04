@@ -48,7 +48,8 @@ type LaneRowProps = {
 } & LaneRowContext;
 
 // A layer's lane: its clips and range selection. Pressing empty lane space
-// selects the layer and starts a range selection, or seeks on a click.
+// selects the layer and starts a range selection, or seeks on a click;
+// pressing the selection moves or resizes it.
 export function LaneRow({
   lane,
   clips,
@@ -124,7 +125,33 @@ export function LaneRow({
       style={gridStyle}
     >
       {pendingSelection?.laneId === lane.id ? (
-        <SelectionOverlay selection={pendingSelection} quarterPx={quarterPx} />
+        <SelectionOverlay
+          selection={pendingSelection}
+          quarterPx={quarterPx}
+          onEditPress={(event, edit) => {
+            // Right-click opens the selection menu through the lane, and
+            // the other buttons pan the timeline.
+            if (
+              event.button !== 0 ||
+              isContextMenuPress(event, shortcutLabels.mac)
+            ) {
+              return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+            setIsPlaying(false);
+            setDragState({
+              kind: "selection-edit",
+              pointerId: event.pointerId,
+              edit,
+              pointerStartX: event.clientX,
+              pointerStartY: event.clientY,
+              origin: pendingSelection,
+              dragging: false,
+            });
+          }}
+        />
       ) : null}
       {clips.map((clip) => (
         <ClipCard key={clip.id} clip={clip} {...clipCard} />

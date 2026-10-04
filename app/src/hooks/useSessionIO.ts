@@ -5,6 +5,7 @@ import {
   isAlsFilename,
 } from "../als-import";
 import { DEFAULT_LANES, PALETTE } from "../app/constants.ts";
+import { readHydratableMedia } from "../app/media-hydration.ts";
 import {
   buildStandaloneProject,
   hydrateProjectMedia,
@@ -19,9 +20,10 @@ import type {
   SessionMediaCheck,
   TimelineSelection,
 } from "../app/types.ts";
-import { logClient, pluralize } from "../app/util.ts";
+import { basename, logClient, pluralize } from "../app/util.ts";
 import { isArrangementEmptyStateDismissedOnOpen } from "../arrangement-empty-state.ts";
 import type { ImportNoticeContent } from "../components/ImportNotice";
+import type { ProjectExportOptions } from "../components/ProjectExportDialog";
 import { addDefaultGain } from "../default-gain.ts";
 import { getDefaultLaneId } from "../fx-chain";
 import { ensureGlobalOrder, ensureLayerLayouts } from "../fx-stack";
@@ -32,6 +34,10 @@ import {
   toShareableMediaItem,
 } from "../media";
 import { restoreMediaRanges } from "../media-range.ts";
+import {
+  buildProjectArchive,
+  PROJECT_ARCHIVE_MIME_TYPE,
+} from "../project-archive-export.ts";
 import type { ProjectHistoryState } from "../project-history";
 import { resolveSampleMediaRefs } from "../sample/sample-manifest.ts";
 import { SAMPLE_MANIFESTS } from "../sample/samples.ts";
@@ -443,26 +449,25 @@ export function useSessionIO({
     }
   }
 
-  // Writes the project as a `.zvd` wherever the user picks, leaving the
-  // opened session's own file alone. Resolves to whether it was written. An
-  // export is a copy, not a save: only saving into Sessions clears the
-  // unsaved-changes flag.
-  async function handleExportProject() {
+  // Writes the project as a `.zvd` archive wherever the user picks, leaving
+  // the opened session's own file alone, with its linked media bundled when
+  // asked. Resolves to whether it was written. An export is a copy, not a
+  // save: only saving into Sessions clears the unsaved-changes flag.
+  async function handleExportProject({ includeMedia }: ProjectExportOptions) {
     const harness = getHarness();
     const session = projectToLvpSession(projectHistory.present, {
       playheadQ: playheadQRef.current,
       selectedClipId,
     });
-    const blob = new Blob([`${JSON.stringify(session, null, 2)}\n`], {
-      type: "application/json",
-    });
 
+    // Asked first, while the Export click still counts as a user gesture
+    // for the save picker.
     let saveTarget: SaveTarget;
     try {
       const nextSaveTarget = await harness.prepareSave(
         projectExportFilename(sessionSource, sessionName),
         {
-          mimeType: "application/json",
+          mimeType: PROJECT_ARCHIVE_MIME_TYPE,
           extensions: [PROJECT_FILE_EXTENSION],
           description: "ZVID project",
         },
@@ -482,17 +487,30 @@ export function useSessionIO({
       return false;
     }
 
+    const savedName =
+      saveTarget.kind === "native-path" ? saveTarget.path : saveTarget.filename;
+    let skipped: string[];
     try {
-      await harness.saveBlob(blob, saveTarget);
+      setStatus(`Exporting ${savedName}...`);
+      const archive = await buildProjectArchive({
+        session,
+        includeMedia,
+        mediaItems,
+        readMedia: async (item) => (await readHydratableMedia(item))?.blob,
+      });
+      skipped = archive.skipped;
+      await harness.saveBlob(archive.blob, saveTarget);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setStatus(`Export failed: ${message}`);
       return false;
     }
 
-    const savedName =
-      saveTarget.kind === "native-path" ? saveTarget.path : saveTarget.filename;
-    setStatus(`Exported ${savedName}.`);
+    setStatus(
+      skipped.length
+        ? `Exported ${savedName} without ${pluralize(skipped.length, "offline media file")}: ${skipped.map((path) => basename(path)).join(", ")}.`
+        : `Exported ${savedName}.`,
+    );
     return true;
   }
 

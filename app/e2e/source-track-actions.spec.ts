@@ -212,6 +212,11 @@ test("dragging a source track's grip reorders it, in one undo step", async ({
   await expect(names(page)).toHaveText(["test-pattern", "test-pattern copy"]);
   await expect(grip(page, 1)).toHaveAccessibleName("Reorder test-pattern copy");
 
+  // Scrolled to the end, so the grip is clear of the bottom edge, where a
+  // drag scrolls the timeline under the pointer.
+  await page.locator(".timeline-scroll").evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
   const from = await center(grip(page, 1));
   const to = await center(label(page, 0));
   await page.mouse.move(from.x, from.y);

@@ -14,11 +14,13 @@ import { AppStatusBar } from "./components/AppStatusBar";
 import { ArrangementEmptyState } from "./components/ArrangementEmptyState";
 import { CollaborationCursors } from "./components/CollaborationCursors";
 import { FxPanel } from "./components/FxPanel";
+import { FxModulationClockContext } from "./components/fx/modulation-clock";
 import { ImportNotice } from "./components/ImportNotice";
 import { MediaDrawer } from "./components/media/MediaDrawer";
 import { SessionLibraryDialogs } from "./components/media/SessionsTab";
 import { NewSessionDialog } from "./components/NewSessionDialog";
 import { PreviewPanel } from "./components/PreviewPanel";
+import { ProjectExportDialog } from "./components/ProjectExportDialog";
 import { TimelineContextMenu } from "./components/TimelineContextMenu";
 import { TopBar } from "./components/TopBar";
 import { ArrangementLanes } from "./components/timeline/ArrangementLanes";
@@ -380,6 +382,15 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setIsPlaying,
     setStatus,
   });
+  const modulationClock = useMemo(
+    () => ({
+      signal: playheadSignal,
+      bpm,
+      signature: timeline.signature,
+      isPlaying,
+    }),
+    [playheadSignal, bpm, timeline.signature, isPlaying],
+  );
 
   return (
     <div
@@ -397,12 +408,10 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         collaboration={collaboration}
         exportButtonLabel={exportState.exportButtonLabel}
         getEditMenuEntries={editing.getEditMenuEntries}
-        handleCloseSession={workspace.handleCloseSession}
         handleSaveToLibrary={library.saveToLibrary}
         isExporting={isExporting}
         offlineMedia={mediaImport.offlineMedia}
         openExportDialog={openExportDialog}
-        projectHistory={projectHistory}
         renamingLaneIdRef={selection.renamingLaneIdRef}
         setStatus={setStatus}
         showsMediaSync={mediaImport.showsMediaSync}
@@ -667,12 +676,14 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             />
           </section>
 
-          <FxPanel
-            {...fxEditing}
-            {...fxPanel}
-            {...layout}
-            sourceClip={sourceClip}
-          />
+          <FxModulationClockContext.Provider value={modulationClock}>
+            <FxPanel
+              {...fxEditing}
+              {...fxPanel}
+              {...layout}
+              sourceClip={sourceClip}
+            />
+          </FxModulationClockContext.Provider>
         </div>
       </main>
 
@@ -695,6 +706,18 @@ function App({ boot }: { boot: WorkspaceBoot }) {
       />
       <SessionLibraryDialogs library={library} />
       <NewSessionDialog {...newSession} />
+      <ProjectExportDialog
+        initialIncludeMedia={false}
+        onCancel={() => {
+          dialogs.setIsProjectExportDialogOpen(false);
+          setStatus("Export canceled.");
+        }}
+        onExport={(options) => {
+          dialogs.setIsProjectExportDialogOpen(false);
+          void sessionFiles.handleExportProject(options);
+        }}
+        open={dialogs.isProjectExportDialogOpen}
+      />
       {recording.failureNotice && (
         <ImportNotice
           notice={recording.failureNotice}

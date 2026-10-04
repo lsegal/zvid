@@ -11,14 +11,15 @@ import type { ProjectState, SourceSpan, TimelineMode } from "../app/types.ts";
 import type { MediaItem } from "../media";
 import {
   editSourceClipField,
-  getKnownMediaDurationSeconds,
   getSourceClipLimits,
   getSourceClipValues,
+  isSourceClipMediaOffline,
   SOURCE_CLIP_HISTORY_LABELS,
   type SourceClipField,
 } from "../source-clip-properties.ts";
 import { relinkClipsToSourceSpans } from "../source-span-edit.ts";
 import type { TimeValueFormat } from "../time-value.ts";
+import { useMediaDurationSeconds } from "./useMediaDurationSeconds.ts";
 
 export type SourceClipPropertiesInputs = {
   sourceSelection: SourceSelection | undefined;
@@ -67,7 +68,7 @@ export function useSourceClipProperties({
   const media = committedSpan?.mediaId
     ? mediaItemsById.get(committedSpan.mediaId)
     : undefined;
-  const mediaDurationSeconds = getKnownMediaDurationSeconds(media);
+  const mediaDurationSeconds = useMediaDurationSeconds(media);
 
   const limits = useMemo(
     () =>
@@ -148,9 +149,10 @@ export function useSourceClipProperties({
     format,
     values: getSourceClipValues(shownSpan, bpm),
     limits,
-    // Offline, still loading or of unknown length: the limits fall back to
-    // the clip's current values.
-    mediaOffline: mediaDurationSeconds === 0,
+    // Offline as the clip's card shows it. Media that is still loading or of
+    // unknown length is not offline, though its limits still fall back to the
+    // clip's current values until its length is known.
+    mediaOffline: isSourceClipMediaOffline(committedSpan, media),
     setField,
   };
 }

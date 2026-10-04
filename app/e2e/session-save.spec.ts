@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
+import { readProjectArchive } from "../src/project-archive.ts";
 
-// File ▸ Export Project… in the browser build prompts for a location, which is
+// File ▸ Export ▸ Project… in the browser build prompts for a location, which is
 // a download where the save picker is missing.
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
 
@@ -24,7 +25,35 @@ async function dropVideoIntoNewSourceTrack(page: Page) {
   });
 }
 
-test("File ▸ Export Project… downloads the session as a .zvd", async ({
+// Opens File ▸ Export ▸ Project…'s dialog.
+async function openProjectExportDialog(page: Page) {
+  await page.getByRole("menuitem", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Export", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Project…", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Export Project" });
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+// Runs File ▸ Export ▸ Project… through its dialog and reads the downloaded
+// archive.
+async function exportProject(page: Page, { includeMedia = false } = {}) {
+  const dialog = await openProjectExportDialog(page);
+  await dialog
+    .getByRole("checkbox", { name: "Include media files" })
+    .setChecked(includeMedia);
+  const downloadPromise = page.waitForEvent("download");
+  await dialog.getByRole("button", { name: "Export", exact: true }).click();
+  const download = await downloadPromise;
+  const bytes = await readFile(await download.path());
+  return {
+    download,
+    bytes,
+    archive: await readProjectArchive(new Uint8Array(bytes)),
+  };
+}
+
+test("File ▸ Export ▸ Project… downloads the session as a .zvd archive", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -33,23 +62,53 @@ test("File ▸ Export Project… downloads the session as a .zvd", async ({
   await page.goto("/");
   await dropVideoIntoNewSourceTrack(page);
 
-  await page.getByRole("menuitem", { name: "File", exact: true }).click();
-  const downloadPromise = page.waitForEvent("download");
-  await page
-    .getByRole("menuitem", { name: "Export Project…", exact: true })
-    .click();
-  const download = await downloadPromise;
+  const { download, bytes, archive } = await exportProject(page);
 
   expect(download.suggestedFilename()).toMatch(/\.zvd$/);
-  const path = await download.path();
-  const session = JSON.parse(await readFile(path, "utf8"));
+  // gzip magic
+  expect([...bytes.subarray(0, 2)]).toEqual([0x1f, 0x8b]);
+  expect(archive.media).toEqual([]);
+  const session = archive.project;
   expect(session.tracks).toHaveLength(1);
   expect(session.clips).toHaveLength(1);
-  expect(session.clips[0].filePath).toContain("test-pattern.mp4");
+  expect(session.clips?.[0]?.filePath).toContain("test-pattern.mp4");
+  expect(session.clips?.[0]?.filePath).not.toMatch(/^media\//);
   await expect(page.getByText(/^Exported .*\.zvd\.$/)).toBeVisible();
 });
 
-test("File ▸ Export Project… keeps fill clips and layer FX bypass on reopen", async ({
+test("File ▸ Export ▸ Project… bundles the project's media when asked", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    delete (window as { showSaveFilePicker?: unknown }).showSaveFilePicker;
+  });
+  await page.goto("/");
+  await dropVideoIntoNewSourceTrack(page);
+
+  const { archive } = await exportProject(page, { includeMedia: true });
+
+  expect(archive.media.map((entry) => entry.path)).toEqual([
+    "media/test-pattern.mp4",
+  ]);
+  expect(archive.media[0]?.file.size).toBe((await readFile(VIDEO)).length);
+  expect(archive.project.clips?.[0]?.filePath).toBe("media/test-pattern.mp4");
+  await expect(page.getByText(/^Exported .*\.zvd\.$/)).toBeVisible();
+});
+
+test("File ▸ Export ▸ Project… Cancel exports nothing", async ({ page }) => {
+  await page.goto("/");
+  let downloads = 0;
+  page.on("download", () => {
+    downloads += 1;
+  });
+  const dialog = await openProjectExportDialog(page);
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByText("Export canceled.")).toBeVisible();
+  expect(downloads).toBe(0);
+});
+
+test("File ▸ Export ▸ Project… keeps fill clips and layer FX bypass on reopen", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -83,31 +142,24 @@ test("File ▸ Export Project… keeps fill clips and layer FX bypass on reopen"
   await header.click({ button: "right" });
   await page.getByRole("menuitem", { name: "Disable FX", exact: true }).click();
 
-  await page.getByRole("menuitem", { name: "File", exact: true }).click();
-  const downloadPromise = page.waitForEvent("download");
-  await page
-    .getByRole("menuitem", { name: "Export Project…", exact: true })
-    .click();
-  const download = await downloadPromise;
-  const saved = await readFile(await download.path(), "utf8");
-  const session = JSON.parse(saved);
+  const { bytes, archive } = await exportProject(page);
+  const session = archive.project;
   expect(session.fills).toHaveLength(1);
-  expect(session.fills[0].mainTrackId).toBe("1");
+  expect(session.fills?.[0]?.mainTrackId).toBe("1");
   expect(
-    session.mainTracks.find((track: { id: string }) => track.id === "1"),
+    session.mainTracks?.find((track: { id: string }) => track.id === "1"),
   ).toMatchObject({ fxEnabled: false });
   await expect(page.getByText(/^Exported .*\.zvd\.$/)).toBeVisible();
 
   await page.getByRole("menuitem", { name: "File", exact: true }).click();
   const chooserPromise = page.waitForEvent("filechooser");
-  await page
-    .getByRole("menuitem", { name: "Open Session", exact: true })
-    .click();
+  await page.getByRole("menuitem", { name: "Open", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Session…", exact: true }).click();
   const chooser = await chooserPromise;
   await chooser.setFiles({
     name: "saved.zvd",
-    mimeType: "application/json",
-    buffer: Buffer.from(saved),
+    mimeType: "application/gzip",
+    buffer: bytes,
   });
 
   await expect(page.getByText("saved.zvd").first()).toBeVisible();

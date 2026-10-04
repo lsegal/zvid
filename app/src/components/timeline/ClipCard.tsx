@@ -111,11 +111,13 @@ export function ClipCard({
   setDragState,
 }: ClipCardProps) {
   const selected = clip.id === selectedClipId;
-  // Keeps the trim handles shown while the pointer
-  // strays off the clip mid-drag.
+  // Keeps the trimmed edge's handle shown while the pointer
+  // strays off it mid-drag.
   const trimming =
     (dragState?.kind === "resize-start" || dragState?.kind === "resize-end") &&
     dragState.clipId === clip.id;
+  const trimmingStart = trimming && dragState?.kind === "resize-start";
+  const trimmingEnd = trimming && dragState?.kind === "resize-end";
   const durationQ = getClipDurationQ(clip, bpm);
   const media = clip.mediaId ? mediaItemsById.get(clip.mediaId) : undefined;
   const mediaState = describeClipMediaState(clip, media?.availability);
@@ -268,7 +270,7 @@ export function ClipCard({
         />
       ) : null}
       <button
-        className="clip-card__handle clip-card__handle--start"
+        className={`clip-card__handle clip-card__handle--start${trimmingStart ? " clip-card__handle--trimming" : ""}`}
         onPointerDown={(event) => {
           if (isContextMenuPress(event, shortcutLabels.mac)) {
             return;
@@ -383,7 +385,7 @@ export function ClipCard({
         </span>
       </button>
       <button
-        className="clip-card__handle clip-card__handle--end"
+        className={`clip-card__handle clip-card__handle--end${trimmingEnd ? " clip-card__handle--trimming" : ""}`}
         onPointerDown={(event) => {
           if (isContextMenuPress(event, shortcutLabels.mac)) {
             return;

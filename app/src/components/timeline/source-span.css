@@ -197,8 +197,8 @@
   visibility: hidden;
 }
 
-/* Edge handles trim the span. Like an arrangement clip's, they stay hidden
-   until the span is hovered or trimmed but keep their hit area. */
+/* Edge handles trim the span. Like an arrangement clip's, each stays hidden
+   until it is hovered or trimmed but keeps its hit area. */
 .source-span__handle {
   position: absolute;
   top: 0;
@@ -240,8 +240,8 @@
     center top / 4px 6px repeat-y;
 }
 
-.source-span:hover .source-span__handle,
-.source-span--trimming .source-span__handle {
+.source-span__handle:hover,
+.source-span__handle--trimming {
   opacity: 1;
 }
 

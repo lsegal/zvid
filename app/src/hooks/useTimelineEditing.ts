@@ -26,9 +26,11 @@ import type {
   ProjectStore,
   useProjectHistoryCommands,
 } from "./useProjectStore.ts";
+import { useSelectionOutsidePress } from "./useSelectionOutsidePress.ts";
 import { useSourceClipActions } from "./useSourceClipActions.ts";
 import { useSourceSpanDrag } from "./useSourceSpanDrag.ts";
 import { useSourceTrackActions } from "./useSourceTrackActions.ts";
+import { useTimelineFocusRelease } from "./useTimelineFocusRelease.ts";
 import type { LaneStatus } from "./useTimelineLanes.ts";
 import type { TimelineSelectionState } from "./useTimelineSelection.ts";
 import type { useTimelineViewport } from "./useTimelineViewport.ts";
@@ -490,6 +492,13 @@ export function useTimelineEditing({
     jumpToClipStart,
     commitProjectChange,
   });
+
+  useSelectionOutsidePress(
+    pendingSelection !== null,
+    setPendingSelection,
+    timelineScrollRef,
+  );
+  useTimelineFocusRelease();
 
   useSourceSpanDrag({
     sourceSpanDrag,

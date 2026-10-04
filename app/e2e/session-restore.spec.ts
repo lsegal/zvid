@@ -35,6 +35,19 @@ async function copySpanToLayer(page: Page, layer: string) {
 }
 
 // The saved session payload, or null when nothing is saved.
+// File ▸ New Session, discarding any unsaved changes.
+async function startNewSession(page: Page) {
+  await page.getByRole("menuitem", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "New Session" }).click();
+  const prompt = page.getByRole("dialog", {
+    name: "Save changes to this session?",
+  });
+  await expect(prompt.or(page.getByText("No source media yet"))).toBeVisible();
+  if (await prompt.isVisible()) {
+    await prompt.getByRole("button", { name: "Don't Save" }).click();
+  }
+}
+
 function readSavedPayload(page: Page) {
   return page.evaluate(
     () =>
@@ -112,12 +125,11 @@ test("a refresh restores the session, its media and its undo history", async ({
   await expect(lane(page, "1").locator(".clip-card")).toHaveCount(1);
 });
 
-test("File ▸ Close Session clears the saved session", async ({ page }) => {
+test("File ▸ New Session clears the saved session", async ({ page }) => {
   await dropVideoIntoNewSourceTrack(page);
   await waitForSave(page, "test-pattern.mp4");
 
-  await openFileMenu(page);
-  await page.getByRole("menuitem", { name: "Close Session" }).click();
+  await startNewSession(page);
   await expect(page.locator(".source-span")).toHaveCount(0);
   await expect.poll(() => readSavedPayload(page)).toBeNull();
 

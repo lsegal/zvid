@@ -51,6 +51,19 @@ async function saveNewSession(page: Page) {
   await expect(entries(page)).toHaveCount(1);
 }
 
+// File ▸ New Session, discarding any unsaved changes.
+async function startNewSession(page: Page) {
+  await page.getByRole("menuitem", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: "New Session" }).click();
+  const prompt = page.getByRole("dialog", {
+    name: "Save changes to this session?",
+  });
+  await expect(prompt.or(page.getByText("No source media yet"))).toBeVisible();
+  if (await prompt.isVisible()) {
+    await prompt.getByRole("button", { name: "Don't Save" }).click();
+  }
+}
+
 async function openEntryMenu(page: Page, name: string, item: string) {
   await entry(page, name).click({ button: "right" });
   await page.getByRole("menuitem", { name: item, exact: true }).click();
@@ -83,7 +96,7 @@ test("the Sessions tab sits left of Media and switches the drawer", async ({
   await expect(drawer(page)).toBeHidden();
 });
 
-test("a saved session survives Close and reloads and reopens", async ({
+test("a saved session survives New Session and reloads and reopens", async ({
   page,
 }) => {
   await saveNewSession(page);
@@ -92,8 +105,7 @@ test("a saved session survives Close and reloads and reopens", async ({
   // Dropped media lands in a source track, not the arrangement.
   await expect(saved).toContainText("0 clips");
 
-  await page.getByRole("menuitem", { name: "File", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Close Session" }).click();
+  await startNewSession(page);
   await expect(page.locator(".source-span")).toHaveCount(0);
   await expect(saved).not.toHaveAttribute("aria-current", "true");
 
@@ -153,8 +165,7 @@ test("opening an entry over unsaved changes asks first", async ({ page }) => {
   const name = drawer(page).getByRole("textbox", { name: "Session name" });
   await name.fill("First");
   await name.press("Enter");
-  await page.getByRole("menuitem", { name: "File", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Close Session" }).click();
+  await startNewSession(page);
   await dropVideoIntoNewSourceTrack(page);
 
   await entry(page, "First").click();
@@ -181,9 +192,8 @@ test("opening a session file adds it to Sessions", async ({ page }) => {
 
   await page.getByRole("menuitem", { name: "File", exact: true }).click();
   const chooserPromise = page.waitForEvent("filechooser");
-  await page
-    .getByRole("menuitem", { name: "Open Session", exact: true })
-    .click();
+  await page.getByRole("menuitem", { name: "Open", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Session…", exact: true }).click();
   const chooser = await chooserPromise;
   await chooser.setFiles({
     name: "Opened Set.lvp",

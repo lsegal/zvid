@@ -2,9 +2,9 @@ import { readFile } from "node:fs/promises";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
 // The timeline range selection renders before a lane's clips but paints over
-// them, so a range on a layer that already has clips stays visible, while
-// clicks still reach the clips underneath. A four-second test pattern at 120
-// BPM spans eight quarters.
+// them, so a range on a layer that already has clips stays visible. Clicks
+// inside it keep it; the clips take clicks outside it. A four-second test
+// pattern at 120 BPM spans eight quarters.
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
 
 async function dropVideoIntoNewSourceTrack(page: Page) {
@@ -105,11 +105,21 @@ test("a range selection paints over the clips it overlaps", async ({
   expect(Number(otherRing.zIndex)).toBeGreaterThan(0);
   expect(Number(otherRing.zIndex)).toBeLessThan(Number(selectionZ));
 
-  // The clip under the selection still takes the click.
+  // A click inside the selection keeps it rather than reaching the clip
+  // under it (#918).
   await page.mouse.click(
     (selectionBox.x + clipBox.x + clipBox.width) / 2,
     clipBox.y + clipBox.height / 2,
   );
+  await expect(selection).toHaveCount(1);
+  await expect(clip).not.toHaveClass(/clip-card--selected/);
+
+  // The part of the clip outside it takes the click and clears it.
+  await page.mouse.click(
+    (clipBox.x + selectionBox.x) / 2,
+    clipBox.y + clipBox.height / 2,
+  );
+  await expect(selection).toHaveCount(0);
   await expect(clip).toHaveClass(/clip-card--selected/);
   await expect(other).not.toHaveClass(/clip-card--selected/);
   expect((await ringOf(clip)).outline).toBe(RING);

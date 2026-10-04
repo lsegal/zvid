@@ -1,10 +1,11 @@
 /* Drawn over the lane's clips (it renders before them) so the range stays
-   visible on busy filmstrips, but under the playhead. */
+   visible on busy filmstrips, but under the playhead. It takes the presses
+   inside it: its body drags to move it and its edge handles resize it. */
 .timeline-selection {
   position: absolute;
   z-index: var(--z-timeline-selection);
-  top: 12px;
-  height: 48px;
+  top: calc(var(--lane-clip-inset) - 2px);
+  height: calc(var(--lane-clip-height) + 4px);
   border-radius: 10px;
   border: 1px dashed rgba(124, 161, 255, 0.85);
   background:
@@ -26,7 +27,45 @@
      (selection-hint.ts). */
   padding: 0 14px;
   overflow: hidden;
-  pointer-events: none;
+  cursor: grab;
+  touch-action: none;
+}
+
+.timeline-selection:active {
+  cursor: grabbing;
+}
+
+.timeline-selection__handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: ew-resize;
+}
+
+.timeline-selection__handle--start {
+  left: 0;
+}
+
+.timeline-selection__handle--end {
+  right: 0;
+}
+
+/* The grip: a short bar centered on the edge. */
+.timeline-selection__handle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3px;
+  height: 18px;
+  border-radius: 2px;
+  background: rgba(217, 227, 255, 0.85);
+  box-shadow: 0 0 0 1px rgba(10, 11, 20, 0.45);
+  transform: translate(-50%, -50%);
 }
 
 .timeline-selection span {
