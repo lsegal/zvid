@@ -13,6 +13,7 @@ import {
   type SourceClipProject,
   splitSourceSpan,
 } from "./source-clip-edits.ts";
+import { getClipSourcePieces } from "./source-track-content.ts";
 
 // At 120 BPM a quarter lasts half a second.
 const BPM = 120;
@@ -129,7 +130,7 @@ describe("splitSourceSpan", () => {
     assert.notEqual(patch?.effects?.[1].id, "e1");
   });
 
-  it("moves the layer clips that start in the new piece to it", () => {
+  it("keeps the layer clips showing the same content from the two pieces", () => {
     const source = span("a", 0, 8);
     const patch = splitSourceSpan(
       project([source], {
@@ -225,6 +226,76 @@ describe("pasteIntoSourceTrack", () => {
     );
   });
 
+  it("pastes into empty space at the copy's length, leaving the rest", () => {
+    const patch = pasteIntoSourceTrack(
+      project([span("a", 0, 4), span("b", 12, 4, { trimStartSeconds: 30 })]),
+      sourceClipboard(span("copied", 0, 4, { trimStartSeconds: 20 })),
+      "t1",
+      6,
+      ids("pasted"),
+    );
+    assert.deepEqual(timing(patch?.sourceSpans), [
+      "a@t1:0+4q from 10s",
+      "b@t1:12+4q from 30s",
+      "pasted@t1:6+4q from 20s",
+    ]);
+  });
+
+  it("trims the spans it partly covers, keeping their content in place", () => {
+    const patch = pasteIntoSourceTrack(
+      project([span("a", 0, 4), span("b", 6, 4, { trimStartSeconds: 30 })]),
+      sourceClipboard(span("copied", 0, 4, { trimStartSeconds: 20 })),
+      "t1",
+      3,
+      ids("pasted"),
+    );
+    assert.deepEqual(timing(patch?.sourceSpans), [
+      "a@t1:0+3q from 10s",
+      "b@t1:7+3q from 30.5s",
+      "pasted@t1:3+4q from 20s",
+    ]);
+  });
+
+  it("replaces a span it fully covers, never moving layer clips", () => {
+    const covered = span("b", 2, 2, { trimStartSeconds: 30 });
+    const layerClip = windowClip("clip", covered, 2, 2);
+    const patch = pasteIntoSourceTrack(
+      project(
+        [span("a", 0, 2), covered, span("c", 4, 4, { trimStartSeconds: 40 })],
+        {
+          clips: [layerClip],
+        },
+      ),
+      sourceClipboard(span("copied", 0, 4, { trimStartSeconds: 20 })),
+      "t1",
+      1,
+      ids("pasted"),
+    );
+    assert.deepEqual(timing(patch?.sourceSpans), [
+      "a@t1:0+1q from 10s",
+      "c@t1:5+3q from 40.5s",
+      "pasted@t1:1+4q from 20s",
+    ]);
+    // The layer clip stays where it was, now showing the pasted clip there.
+    const [clip] = patch?.clips ?? [];
+    assert.equal(clip.startQ, layerClip.startQ);
+    assert.equal(clip.durationSeconds, layerClip.durationSeconds);
+    assert.equal(clip.sourceSpanId, "pasted");
+    assert.equal(clip.trimStartSeconds, 20.5);
+  });
+
+  it("pastes a split piece of a clip with only that piece's media", () => {
+    const piece = span("piece", 4, 2, { trimStartSeconds: 12 });
+    const patch = pasteIntoSourceTrack(
+      project([]),
+      sourceClipboard(piece),
+      "t1",
+      10,
+      ids("pasted"),
+    );
+    assert.deepEqual(timing(patch?.sourceSpans), ["pasted@t1:10+2q from 12s"]);
+  });
+
   it("takes the target track's color and lists its media there", () => {
     const patch = pasteIntoSourceTrack(
       project([]),
@@ -243,13 +314,14 @@ describe("pasteIntoSourceTrack", () => {
   });
 
   it("pastes a media layer clip's shown media as a source clip", () => {
-    const source = span("a", 0, 8);
-    // Starts a quarter before its source window, which shows nothing.
-    const clip = windowClip("clip", source, 0, 4, {
-      sourceWindowStartSeconds: 10.5,
-    });
+    // The clip starts a quarter before its track's source clip, and shows
+    // nothing there.
+    const source = span("a", 1, 8, { trimStartSeconds: 10.5 });
+    const clip = windowClip("clip", source, 0, 4);
     const patch = pasteIntoSourceTrack(
-      project([], { effects: [effect("e1", clipEffectTrackId("clip"))] }),
+      project([source], {
+        effects: [effect("e1", clipEffectTrackId("clip"))],
+      }),
       {
         fragments: [{ clip, offsetQ: 0 }],
         durationQ: 4,
@@ -259,7 +331,10 @@ describe("pasteIntoSourceTrack", () => {
       8,
       ids("pasted"),
     );
-    assert.deepEqual(timing(patch?.sourceSpans), ["pasted@t2:9+3q from 10.5s"]);
+    assert.deepEqual(timing(patch?.sourceSpans), [
+      "a@t1:1+8q from 10.5s",
+      "pasted@t2:9+3q from 10.5s",
+    ]);
     assert.ok(
       patch?.effects?.some(
         (item) => item.trackId === sourceClipEffectTrackId("pasted"),
@@ -280,32 +355,52 @@ describe("pasteIntoSourceTrack", () => {
 });
 
 describe("deleteSourceSpan", () => {
-  it("removes the clip and relinks the layer clips still covered", () => {
+  it("keeps a layer clip in place, showing what is left in its window", () => {
     const removed = span("a", 0, 4);
     const kept = span("b", 4, 4, { trimStartSeconds: 30 });
+    const clip = windowClip("clip", removed, 2, 4);
     const patch = deleteSourceSpan(
-      project([removed, kept], { clips: [windowClip("clip", removed, 2, 4)] }),
+      project([removed, kept], { clips: [clip] }),
       "a",
     );
     assert.deepEqual(timing(patch?.sourceSpans), ["b@t1:4+4q from 30s"]);
-    assert.equal(patch?.clips?.[0].sourceSpanId, "b");
+    const [after] = patch?.clips ?? [];
+    assert.deepEqual(
+      [after.id, after.startQ, after.durationSeconds],
+      ["clip", 2, 2],
+    );
+    assert.deepEqual(
+      getClipSourcePieces(after, patch?.sourceSpans ?? [], BPM).map((piece) => [
+        piece.span.id,
+        piece.startQ,
+        piece.endQ,
+      ]),
+      [["b", 4, 6]],
+    );
   });
 
-  it("removes the layer clips left with no source clip", () => {
+  it("keeps the layer clips left with no source clip, showing nothing", () => {
     const removed = span("a", 0, 4);
     const kept = span("b", 4, 4, { trimStartSeconds: 30 });
     const patch = deleteSourceSpan(
       project([removed, kept], {
         clips: [
-          windowClip("gone", removed, 0, 2),
+          windowClip("empty", removed, 0, 2),
           windowClip("stays", kept, 4, 2),
         ],
       }),
       "a",
     );
     assert.deepEqual(
-      patch?.clips?.map((clip) => clip.id),
-      ["stays"],
+      patch?.clips?.map((clip) => [
+        clip.id,
+        clip.startQ,
+        getClipSourcePieces(clip, patch?.sourceSpans ?? [], BPM).length,
+      ]),
+      [
+        ["empty", 0, 0],
+        ["stays", 4, 1],
+      ],
     );
   });
 

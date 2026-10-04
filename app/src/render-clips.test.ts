@@ -98,10 +98,11 @@ const LAYER_CLIP: ArrangementClip = {
   mediaId: "media-a",
   startQ: 0,
   durationSeconds: 2,
-  trimStartSeconds: 0,
-  sourceOffsetSeconds: 0,
-  sourceWindowStartSeconds: 0,
-  sourceWindowEndSeconds: 2,
+  trimStartSeconds: 2,
+  sourceOffsetSeconds: 2,
+  sourceSpanOffsetSeconds: 2,
+  sourceWindowStartSeconds: 2,
+  sourceWindowEndSeconds: 6,
   tint: "#000",
   accent: "#fff",
 };
@@ -134,7 +135,7 @@ function priorityOf(lanes: Lane[]) {
 }
 
 describe("resolveRenderClips", () => {
-  it("passes the arrangement through once it has any layer clip", () => {
+  it("renders the layer clips once there is any, with no source track layers", () => {
     const clips = [LAYER_CLIP];
     const effects = [
       effect("track", sourceTrackEffectTrackId("a"), "AnalogGlitch"),
@@ -147,7 +148,14 @@ describe("resolveRenderClips", () => {
       bpm: BPM,
       effects,
     });
-    assert.equal(render.clips, clips);
+    // The clip shows source clip "a-1" on its whole length.
+    assert.deepEqual(render.clips, [
+      {
+        ...LAYER_CLIP,
+        layerClipStartQ: 0,
+        layerClipDurationSeconds: 2,
+      },
+    ]);
     assert.equal(render.lanes, LANES);
     assert.equal(render.effects, effects);
     assert.equal(render.fromSourceTracks, false);

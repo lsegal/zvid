@@ -42,7 +42,7 @@ export type SourceTrackLabelContext = {
   setFxEnabled: ReturnType<typeof useFxEditing>["setSourceTrackFxEnabled"];
 };
 
-type SourceTrackRowProps = {
+export type SourceTrackRowProps = {
   track: SourceTrack;
   index: number;
   spans: SourceSpanClip[];
@@ -55,6 +55,8 @@ type SourceTrackRowProps = {
   armed: boolean;
   // The clip this track is recording into.
   liveTake: LiveTake | undefined;
+  // Opens the menu for empty space in the track's timeline row.
+  openLaneMenu: (event: ReactMouseEvent<HTMLElement>, trackId: string) => void;
 } & SourceTrackLabelContext;
 
 // A source track: its label with the reorder grip, its spans, and the
@@ -62,8 +64,9 @@ type SourceTrackRowProps = {
 // on the row, label and spans included, goes to this track, starting at the
 // timeline position under the pointer. Clicking the
 // label or empty space in the row selects the track; clicking a span selects
-// the span. Double-clicking the track name renames it, like Rename… in its
-// menu.
+// the span. Right-clicking empty space opens the layer lane menu's entries
+// for the track. Double-clicking the track name renames it, like Rename… in
+// its menu.
 export function SourceTrackRow({
   track,
   index,
@@ -76,6 +79,7 @@ export function SourceTrackRow({
   span,
   armed,
   liveTake,
+  openLaneMenu,
   reorder,
   openMenu,
   locked,
@@ -180,6 +184,7 @@ export function SourceTrackRow({
             selectSource(selectSourceTrack(track.id));
           }
         }}
+        onContextMenu={(event) => openLaneMenu(event, track.id)}
         style={gridStyle}
       >
         {spans.map((clip) => (

@@ -1,19 +1,20 @@
+import type { ProjectArchiveMedia } from "../project-archive.ts";
 import {
   collectSessionMediaPaths,
   type LvpSession,
   type ServerMediaRef,
   type SessionOpenResponse,
 } from "../session.ts";
-import type { SessionSelection, WorkspaceFileRef } from "./contracts.ts";
 
-// Resolving a session's media paths against the files it was opened with: a
-// workspace folder's files, or the media bundled in a project archive.
+// Building the payload a session opens with: its media references resolved
+// against the media bundled in a project archive, or left offline for a lone
+// session file.
 
 export function basename(rawPath: string) {
   return rawPath.split(/[/\\]/).filter(Boolean).pop() ?? rawPath;
 }
 
-export function normalizeWorkspacePath(rawPath: string) {
+function normalizeMediaPath(rawPath: string) {
   return rawPath
     .trim()
     .replace(/\\/g, "/")
@@ -31,44 +32,30 @@ export function createPathId(rawPath: string) {
   return `${hash.toString(16)}-${basename(rawPath)}`;
 }
 
-export function createWorkspaceResolver(
-  rootName: string,
-  files: WorkspaceFileRef[],
-) {
-  const byPath = new Map<string, WorkspaceFileRef>();
-  const byBasename = new Map<string, WorkspaceFileRef | null>();
+// Resolves a session's media path to a bundled file by its full path, or by
+// its name when exactly one bundled file has that name.
+function createArchiveMediaResolver(media: ProjectArchiveMedia[]) {
+  const byPath = new Map<string, ProjectArchiveMedia>();
+  const byBasename = new Map<string, ProjectArchiveMedia | null>();
 
-  for (const entry of files) {
-    byPath.set(normalizeWorkspacePath(entry.path), entry);
+  for (const entry of media) {
+    byPath.set(normalizeMediaPath(entry.path), entry);
     const name = basename(entry.path).toLowerCase();
     byBasename.set(name, byBasename.has(name) ? null : entry);
   }
 
-  return (rawPath: string) => {
-    const normalized = normalizeWorkspacePath(rawPath);
-    const rootIndex = normalized.lastIndexOf(`/${rootName.toLowerCase()}/`);
-    const rootedPath =
-      rootIndex >= 0
-        ? normalized.slice(rootIndex + rootName.length + 2)
-        : normalized;
-
-    return (
-      byPath.get(normalized) ??
-      byPath.get(rootedPath) ??
-      byBasename.get(basename(rawPath).toLowerCase()) ??
-      null
-    );
-  };
+  return (rawPath: string) =>
+    byPath.get(normalizeMediaPath(rawPath)) ??
+    byBasename.get(basename(rawPath).toLowerCase()) ??
+    null;
 }
 
-export function buildWorkspaceOpenPayload(
+export function buildArchiveOpenPayload(
   session: LvpSession,
-  selection: Extract<SessionSelection, { kind: "workspace" }>,
+  sessionName: string,
+  media: ProjectArchiveMedia[],
 ): SessionOpenResponse {
-  const resolveFile = createWorkspaceResolver(
-    selection.rootName,
-    selection.files,
-  );
+  const resolveFile = createArchiveMediaResolver(media);
   const mediaRefs = collectSessionMediaPaths(session).map<ServerMediaRef>(
     (rawPath) => {
       const entry = resolveFile(rawPath);
@@ -82,12 +69,7 @@ export function buildWorkspaceOpenPayload(
     },
   );
 
-  return {
-    session,
-    sessionName: selection.sessionFile.name,
-    sessionPath: `${selection.rootName}/${selection.sessionPath}`,
-    mediaRefs,
-  };
+  return { session, sessionName, mediaRefs };
 }
 
 export function buildFileOpenPayload(

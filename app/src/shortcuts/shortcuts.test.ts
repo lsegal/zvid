@@ -375,9 +375,35 @@ describe("dispatching shortcuts", () => {
     assert.deepEqual(calls, [
       `source.cut(${span})`,
       `source.copy(${span})`,
-      `source.paste(${span})`,
+      `source.paste(${JSON.stringify({ sourceTrackId: sourceSpan.sourceTrackId })})`,
       `source.duplicate(${span})`,
       `source.remove(${span})`,
+    ]);
+  });
+
+  it("pastes into the selected source clip's or source track's track", () => {
+    const clipboard = {
+      clipClipboardRef: { current: { fragments: [], durationQ: 0 } },
+    };
+    dispatch(press("v", { ctrlKey: true }), {
+      ...clipboard,
+      selectedSourceSpan: sourceSpan,
+    });
+    dispatch(press("v", { ctrlKey: true }), {
+      ...clipboard,
+      selectedSourceTrack: sourceTrack,
+    });
+    // A selected clip still takes the paste.
+    dispatch(press("v", { ctrlKey: true }), {
+      ...clipboard,
+      selectedClip: clip,
+      selectedSourceTrack: sourceTrack,
+    });
+    const target = JSON.stringify({ sourceTrackId: sourceTrack.id });
+    assert.deepEqual(calls, [
+      `source.paste(${target})`,
+      `source.paste(${target})`,
+      "paste",
     ]);
   });
 

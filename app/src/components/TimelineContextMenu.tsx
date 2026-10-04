@@ -15,11 +15,12 @@ const MENU_LABELS: Record<ClipMenuState["kind"], string> = {
   span: "Source clip actions",
   layer: "Layer header actions",
   "source-track": "Source track actions",
+  "source-lane": "Source track timeline actions",
   audio: "Audio actions",
 };
 
 // The open timeline context menu: a clip's, a source clip's, a layer's or
-// its header's, a source track's, the range selection's, or the main
+// its header's, a source track's or its timeline space's, the range selection's, or the main
 // audio's.
 export function TimelineContextMenu({
   clipMenu,

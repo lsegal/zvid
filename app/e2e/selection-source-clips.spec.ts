@@ -1,8 +1,9 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
 // Committing a selection that covers several clips on a source track makes
-// a layer clip for each of them, split at their edges, so every covered
-// clip draws its waveform and plays in the mix, not only the first (#817).
+// one layer clip for the selection, which draws each covered clip's
+// waveform and plays each of them in the mix, not only the first (#817,
+// #932).
 
 test.use({ viewport: { width: 1600, height: 1200 } });
 test.describe.configure({ timeout: 90_000 });
@@ -149,7 +150,7 @@ async function levelsWhilePlaying(page: Page, ranges: number[][]) {
   return sampling;
 }
 
-test("a selection over three source clips commits a clip on each", async ({
+test("a selection over three source clips commits one clip showing each", async ({
   page,
 }) => {
   await probeAnalysers(page);
@@ -196,11 +197,16 @@ test("a selection over three source clips commits a clip on each", async ({
   }
   await page.keyboard.press("1");
 
-  // One clip per source clip, split at the source clip edges, together
-  // covering the whole selection.
+  // One clip over the whole selection, drawing one part per source clip,
+  // split at the source clip edges.
   const clips = layer.locator(".clip-card");
-  await expect(clips).toHaveCount(3);
-  const clipEdges = await edges(clips);
+  await expect(clips).toHaveCount(1);
+  const [clipEdge] = await edges(clips);
+  expect(Math.abs(clipEdge[0] - selected.x)).toBeLessThan(2);
+  expect(Math.abs(clipEdge[1] - (selected.x + selected.width))).toBeLessThan(2);
+  const pieces = clips.locator(".clip-card__piece");
+  await expect(pieces).toHaveCount(3);
+  const clipEdges = await edges(pieces);
   expect(Math.abs(clipEdges[0][0] - selected.x)).toBeLessThan(2);
   expect(Math.abs(clipEdges[0][1] - spans[0][1])).toBeLessThan(2);
   expect(Math.abs(clipEdges[1][0] - spans[1][0])).toBeLessThan(2);
@@ -210,9 +216,9 @@ test("a selection over three source clips commits a clip on each", async ({
     Math.abs(clipEdges[2][1] - (selected.x + selected.width)),
   ).toBeLessThan(2);
 
-  // Each draws its waveform across its whole width.
+  // Each part draws its waveform across its whole width.
   for (let index = 0; index < 3; index += 1) {
-    const waveform = clips.nth(index).locator("canvas.clip-card__waveform");
+    const waveform = pieces.nth(index).locator("canvas.clip-card__waveform");
     await expect(waveform).toHaveCount(1);
     await expect
       .poll(async () => {

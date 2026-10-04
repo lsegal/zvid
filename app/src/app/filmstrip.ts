@@ -22,3 +22,10 @@ export function getFilmstripTileOwner(
 ) {
   return `${kind}:${id}:tile:${index}`;
 }
+
+// The key of piece `index` of a layer clip's source track window (see
+// source-track-content.ts) among the clip filmstrips and thumbnails. The
+// first piece goes by the clip's own id.
+export function getClipPieceKey(clipId: string, index: number) {
+  return index ? `${clipId}#${index}` : clipId;
+}

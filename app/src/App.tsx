@@ -4,10 +4,6 @@ import type { ClipClipboard } from "./app/clip-ops.ts";
 import { selectSourceSpan } from "./app/source-selection.ts";
 import { formatRestoredStatus } from "./app/workspace-boot.ts";
 import type { WorkspaceBoot } from "./app/workspace-types.ts";
-import {
-  getAudioMixContributions,
-  getAudioMixOrigin,
-} from "./audio-mix-clips.ts";
 import type { CompositionPlayerHandle } from "./CompositionPlayer";
 import { AppDialogs } from "./components/AppDialogs";
 import { AppStatusBar } from "./components/AppStatusBar";
@@ -204,13 +200,8 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     commitProjectChange,
   });
   // The Audio row draws the mix the preview plays.
-  const audioMixContributions = useMemo(
-    () => getAudioMixContributions(preview.audioMix),
-    [preview.audioMix],
-  );
   const audioMix = useAudioMix({
-    origin: getAudioMixOrigin(preview.audioMix),
-    contributions: audioMixContributions,
+    mix: preview.audioMix,
     mediaItemsById,
     refresh: preview.refreshAudioMix,
   });
@@ -564,6 +555,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                       signature: timeline.signature,
                       mediaItemsById,
                       thumbnails: timeline.thumbnails,
+                      clipPieces: timeline.clipPieces,
                       clipFilmstrips: timeline.clipFilmstrips,
                       remoteMediaProgress: media.remoteMediaProgress,
                       timelineEffects,
@@ -610,6 +602,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
                     cancelRename: editing.cancelSourceTrackRename,
                     setFxEnabled: fxEditing.setSourceTrackFxEnabled,
                   }}
+                  openLaneMenu={editing.openSourceLaneMenu}
                   span={{
                     bpm,
                     quarterPx,

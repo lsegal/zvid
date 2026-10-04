@@ -68,9 +68,15 @@ export type LvpSession = {
     frameEnd: number;
     selected?: boolean;
     /**
-     * zvid-only, set on a slipped selection: the clip its source comes from
-     * and its source position minus its song position, in seconds. Without
-     * them the selection plays the clip it falls in, at that clip's offset.
+     * zvid-only, set on a slipped selection: its source track position minus
+     * its song position, in seconds. Without it the selection shows its
+     * track at its own position.
+     */
+    sourceTrackOffsetSeconds?: number;
+    /**
+     * zvid-only, written by older builds on a slipped selection: the clip
+     * its source came from and its source position minus its song position,
+     * in seconds. Read only when `sourceTrackOffsetSeconds` is missing.
      */
     sourceClipId?: string;
     sourceOffsetSeconds?: number;

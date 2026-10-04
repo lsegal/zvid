@@ -71,6 +71,12 @@ export type ArrangementClip = {
   sourceOffsetSeconds: number;
   sourceWindowStartSeconds: number;
   sourceWindowEndSeconds: number;
+  // A media clip shows a window of its source track, not a source clip: the
+  // track `sourceOffsetSeconds - sourceSpanOffsetSeconds` seconds after its
+  // own position. Its media fields describe the first source clip in that
+  // window (see source-track-content.ts). Clips from before this field
+  // measure their offset against the span `sourceSpanId` names.
+  sourceSpanOffsetSeconds?: number;
   warp?: ClipWarp;
   tint: string;
   accent: string;
@@ -86,6 +92,7 @@ export type ClipMenuState = { anchor: MenuPoint } & (
   | { kind: "span"; spanId: string }
   | { kind: "layer"; laneId: string }
   | { kind: "source-track"; trackId: string }
+  | { kind: "source-lane"; trackId: string }
   | { kind: "audio" }
 );
 

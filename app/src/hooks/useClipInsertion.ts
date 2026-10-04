@@ -13,10 +13,10 @@ import {
 } from "../app/constants.ts";
 import { patchProjectState } from "../app/session-project.ts";
 import {
+  chooseSourceSpanForWindow,
   getClipDurationQ,
   getClipEndQ,
   quartersToSeconds,
-  splitSelectionAcrossSourceSpans,
 } from "../app/timeline-math.ts";
 import type {
   ArrangementClip,
@@ -43,6 +43,7 @@ import { buildRandomArrangement } from "../random-arrangement.ts";
 import { placeClips } from "../range-edit.ts";
 import { MAX_LAYERS } from "../selection-overlaps";
 import { dropClipOnFreeLane } from "../source-clip-drop.ts";
+import { syncClipsToSourceSpans } from "../source-track-content.ts";
 import { addTextClip } from "../text-clip.ts";
 
 export type ClipInsertionInputs = {
@@ -93,6 +94,9 @@ export function useClipInsertion({
   sourceSpans,
   sourceTracks,
 }: ClipInsertionInputs) {
+  // A window on `sourceTrack` over the selection's time, showing whatever
+  // the track holds there. `sourceSpan`, a source clip of the track, is the
+  // first it shows (see source-track-content.ts).
   const createWindowClip = useCallback(
     (
       selection: TimelineSelection,
@@ -101,7 +105,7 @@ export function useClipInsertion({
     ): ArrangementClip => {
       const sourceOffsetSeconds =
         sourceSpan.trimStartSeconds - quartersToSeconds(sourceSpan.startQ, bpm);
-      return {
+      const clip: ArrangementClip = {
         id: `window-${crypto.randomUUID()}`,
         sourceSpanId: sourceSpan.id,
         sourceTrackId: sourceTrack.id,
@@ -114,6 +118,7 @@ export function useClipInsertion({
         trimStartSeconds:
           quartersToSeconds(selection.startQ, bpm) + sourceOffsetSeconds,
         sourceOffsetSeconds,
+        sourceSpanOffsetSeconds: sourceOffsetSeconds,
         sourceWindowStartSeconds: sourceSpan.trimStartSeconds,
         sourceWindowEndSeconds:
           sourceSpan.trimStartSeconds + sourceSpan.durationSeconds,
@@ -121,8 +126,10 @@ export function useClipInsertion({
         tint: sourceSpan.tint,
         accent: sourceSpan.accent,
       };
+      // Its media fields describe the first source clip it shows.
+      return syncClipsToSourceSpans([clip], sourceSpans, sourceSpans, bpm)[0];
     },
-    [bpm],
+    [bpm, sourceSpans],
   );
 
   const commitPendingSelectionToSourceTrack = useCallback(
@@ -139,39 +146,32 @@ export function useClipInsertion({
         return;
       }
 
-      // A selection over several source clips commits a window on each.
-      const windows = splitSelectionAcrossSourceSpans(
+      // One window over the whole selection, however many source clips
+      // it spans; it shows each of them in turn.
+      const sourceSpan = chooseSourceSpanForWindow(
         sourceSpans,
         sourceTrack.id,
         pendingSelection.startQ,
         pendingSelection.durationQ,
         bpm,
       );
-      if (!windows.length) {
+      if (!sourceSpan) {
         setStatus(
           `Source layer ${sourceIndex + 1} has no clip near this selection yet.`,
         );
         return;
       }
 
-      const newClips = windows.map((window) =>
-        createWindowClip(
-          {
-            ...pendingSelection,
-            startQ: window.startQ,
-            durationQ: window.durationQ,
-          },
-          sourceTrack,
-          window.span,
-        ),
-      );
+      const newClips = [
+        createWindowClip(pendingSelection, sourceTrack, sourceSpan),
+      ];
       dispatchProject({
         type: "commit",
         label: "Create window",
         updater: (current) =>
           patchProjectState(current, {
-            // Each window overwrites what it covers on the layer, as a
-            // pasted clip does.
+            // The window overwrites what it covers on the layer, as a pasted
+            // clip does.
             clips: placeClips(current.clips, newClips, current.bpm),
             effects: addDefaultGain(
               current.effects,
@@ -183,9 +183,7 @@ export function useClipInsertion({
       setPendingSelection(null);
       setSelectedClipId(newClips[0]?.id);
       setStatus(
-        newClips.length > 1
-          ? `Committed ${newClips.length} windows on ${sourceTrack.name} with key ${sourceIndex + 1}.`
-          : `Committed a window on ${sourceTrack.name} with key ${sourceIndex + 1}.`,
+        `Committed a window on ${sourceTrack.name} with key ${sourceIndex + 1}.`,
       );
     },
     [
