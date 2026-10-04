@@ -1,3 +1,5 @@
+import { clamp } from "./app/util.ts";
+
 const MEDIA_SEEK_TOLERANCE_SECONDS = 0.001;
 const MEDIA_SEEK_TIMEOUT_MS = 4000;
 // How far playing media may drift from its clip's time before it is seeked.
@@ -67,4 +69,49 @@ export function needsPlaybackSeek(
   return isPlaying && !isScrubbing
     ? driftSeconds > MAX_PLAYBACK_DRIFT_SECONDS
     : true;
+}
+
+// The playback rates every browser accepts; a media element throws outside
+// them.
+const MIN_PLAYBACK_RATE = 0.0625;
+const MAX_PLAYBACK_RATE = 16;
+
+// Plays, pauses and seeks `element` to follow the clip it is drawn for at
+// the playhead, if any.
+export function syncPlaybackElement(
+  element: HTMLMediaElement,
+  entry:
+    | { mediaTime: number; playbackRate: number; isInBounds: boolean }
+    | undefined,
+  playback: { isPlaying: boolean; isScrubbing: boolean },
+) {
+  if (!entry?.isInBounds) {
+    if (!element.paused) {
+      element.pause();
+    }
+    return;
+  }
+
+  // A warped clip changes speed between its warp markers; the drift
+  // check below re-seeks it at each marker.
+  const playbackRate = clamp(
+    entry.playbackRate,
+    MIN_PLAYBACK_RATE,
+    MAX_PLAYBACK_RATE,
+  );
+  if (element.playbackRate !== playbackRate) {
+    element.playbackRate = playbackRate;
+  }
+
+  const drift = Math.abs(element.currentTime - entry.mediaTime);
+  if (needsPlaybackSeek(drift, playback)) {
+    element.currentTime = entry.mediaTime;
+  }
+
+  // Clip audio plays through the mixer; these elements are only drawn.
+  if (playback.isPlaying) {
+    element.play().catch(() => {});
+  } else if (!element.paused) {
+    element.pause();
+  }
 }

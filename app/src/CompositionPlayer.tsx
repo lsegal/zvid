@@ -6,7 +6,6 @@ import {
   useMemo,
   useRef,
 } from "react";
-import { clamp } from "./app/util.ts";
 import { CHAIN_WORKLET_URL } from "./audio-mix/chain-worklet-url.ts";
 import { audioMixEndSeconds } from "./audio-mix/mix.ts";
 import { renderAudioMixOffline } from "./audio-mix/offline.ts";
@@ -28,12 +27,22 @@ import {
 } from "./composition-active-clips.ts";
 import { syncCanvasSurface } from "./composition-canvas.ts";
 import {
+  type ActiveClipTiming,
+  computeActiveClipTimings,
+  isGeneratedClip,
+} from "./composition-clip-timing.ts";
+import {
   disposeWebGlResources,
   drawComposition,
   ensureWebGlResources,
   type FrameContext,
   type WebGlResources,
 } from "./composition-draw.ts";
+import {
+  type EffectIndex,
+  indexEffects,
+  stackEffects,
+} from "./composition-effect-index.ts";
 import { getGroupClipProgress } from "./composition-progress.ts";
 import {
   LiveAudioBands,
@@ -44,7 +53,7 @@ import {
 import { resolveEffectChain } from "./fx-shaders/registry.ts";
 import { getRenderedEffects } from "./fx-stack.ts";
 import { listenForVideoFrames, releaseMediaElement } from "./media-element.ts";
-import { needsPlaybackSeek, seekMediaElement } from "./media-seek.ts";
+import { seekMediaElement, syncPlaybackElement } from "./media-seek.ts";
 import type { PlayheadSignal } from "./playhead-signal";
 import { loadTextFaces, subscribeFonts } from "./text-fonts.ts";
 import type { MeterSignature } from "./timeline-format.ts";
@@ -113,10 +122,6 @@ export type CompositionPlayerHandle = {
 
 // Export measures audio-reactive effects on the mix at this rate.
 const OFFLINE_BANDS_SAMPLE_RATE = 48000;
-// The playback rates every browser accepts; a media element throws outside
-// them.
-const MIN_PLAYBACK_RATE = 0.0625;
-const MAX_PLAYBACK_RATE = 16;
 
 // "live" plays the audio mix and measures it as it plays (preview).
 // "offline" renders the mix and measures it at each rendered frame (export).
@@ -136,6 +141,12 @@ export class CompositionRenderer {
   private videoFrameReadyListener: (() => void) | null = null;
   private state: CompositionRendererState;
   private activeClips: ActiveClip[] = [];
+  // Derived from the state once per change rather than at every frame.
+  private mediaById = new Map<string, MediaItem>();
+  private lanePriority = new Map<string, number>();
+  // Effects on layers whose FX switch is off are left out, clips included.
+  private renderedEffects: EffectIndex<SessionEffect> = indexEffects([]);
+  private sessionEffectIndex: EffectIndex<SessionEffect> = indexEffects([]);
   private readonly audioAnalysis: AudioAnalysisMode;
   private liveAudioBands = new LiveAudioBands();
   private offlineAudioBands: {
@@ -161,6 +172,14 @@ export class CompositionRenderer {
 
   update(state: CompositionRendererState) {
     this.state = state;
+    this.mediaById = new Map(state.mediaItems.map((item) => [item.id, item]));
+    this.lanePriority = new Map(
+      state.lanes.map((lane, index) => [lane.id, index]),
+    );
+    this.renderedEffects = indexEffects(
+      getRenderedEffects(state.effects, state.lanes, state.clips),
+    );
+    this.sessionEffectIndex = indexEffects(state.effects);
     this.syncMediaElements();
     this.mixer?.update(this.audioMix(), state.mediaItems);
   }
@@ -193,12 +212,20 @@ export class CompositionRenderer {
   }
 
   // While playing, animating text and fills may be drawn from a nearby
-  // raster; a paused preview, being edited, draws them exactly.
-  renderPreviewFrame(playheadQ: number, pixelRatio: number, playing = true) {
-    this.ensureResources();
-    const effects = this.renderedEffects();
-    const audio = this.sampleLiveAudioBands(effects);
-    this.activeClips = this.computeActiveClips(playheadQ, audio, effects);
+  // raster; a paused preview, being edited, draws them exactly. Given a
+  // `playback` state, the media is synced to it from the same active clips,
+  // so a playback frame resolves them once.
+  renderPreviewFrame(
+    playheadQ: number,
+    pixelRatio: number,
+    playing = true,
+    playback?: CompositionPlaybackState,
+  ) {
+    const audio = this.sampleLiveAudioBands();
+    this.activeClips = this.computeActiveClips(playheadQ, audio);
+    if (playback) {
+      this.syncMedia(this.activeClips, playback);
+    }
     this.draw(this.activeClips, playheadQ, pixelRatio, {
       time: quartersToSeconds(playheadQ, this.state.bpm),
       audio,
@@ -255,53 +282,39 @@ export class CompositionRenderer {
     });
   }
 
+  // Media sync needs only the clips' timing, not their effects.
   syncPlayback(playback: CompositionPlaybackState) {
-    const activeClipBySourceKey = new Map(
-      this.computeActiveClips(playback.playheadQ).map((entry) => [
-        entry.sourceKey,
-        entry,
-      ]),
+    const timings = computeActiveClipTimings(
+      this.state.clips,
+      this.mediaById,
+      playback.playheadQ,
+      this.state.bpm,
+      this.lanePriority,
     );
-    const mediaById = new Map(
-      this.state.mediaItems.map((item) => [item.id, item]),
-    );
+    this.ensureClipElements(timings);
+    this.syncMedia(timings, playback);
+  }
 
+  private syncMedia(
+    timings: readonly ActiveClipTiming[],
+    playback: CompositionPlaybackState,
+  ) {
+    const activeClipBySourceKey = new Map(
+      timings.map((entry) => [entry.sourceKey, entry]),
+    );
     for (const [sourceKey, element] of this.mediaRefs) {
-      const item = mediaById.get(this.mediaIdBySourceKey.get(sourceKey) ?? "");
+      const item = this.mediaById.get(
+        this.mediaIdBySourceKey.get(sourceKey) ?? "",
+      );
       if (!item) {
         continue;
       }
 
-      const activeEntry = activeClipBySourceKey.get(sourceKey);
-      if (!activeEntry?.isInBounds) {
-        if (!element.paused) {
-          element.pause();
-        }
-        continue;
-      }
-
-      // A warped clip changes speed between its warp markers; the drift
-      // check below re-seeks it at each marker.
-      const playbackRate = clamp(
-        activeEntry.playbackRate,
-        MIN_PLAYBACK_RATE,
-        MAX_PLAYBACK_RATE,
+      syncPlaybackElement(
+        element,
+        activeClipBySourceKey.get(sourceKey),
+        playback,
       );
-      if (element.playbackRate !== playbackRate) {
-        element.playbackRate = playbackRate;
-      }
-
-      const drift = Math.abs(element.currentTime - activeEntry.mediaTime);
-      if (needsPlaybackSeek(drift, playback)) {
-        element.currentTime = activeEntry.mediaTime;
-      }
-
-      // Clip audio plays through the mixer; these elements are only drawn.
-      if (playback.isPlaying) {
-        element.play().catch(() => {});
-      } else if (!element.paused) {
-        element.pause();
-      }
     }
 
     this.mixer?.sync(playback);
@@ -325,42 +338,36 @@ export class CompositionRenderer {
     }
   }
 
-  private computeActiveClips(
-    playheadQ: number,
-    audio = SILENT_AUDIO_BANDS,
-    effects = this.renderedEffects(),
-  ) {
-    const mediaById = new Map(
-      this.state.mediaItems.map((item) => [item.id, item]),
-    );
-    const lanePriority = new Map(
-      this.state.lanes.map((lane, index) => [lane.id, index]),
-    );
-
+  private computeActiveClips(playheadQ: number, audio = SILENT_AUDIO_BANDS) {
     const activeClips = computeActiveClips(
       this.state.clips,
-      mediaById,
+      this.mediaById,
       playheadQ,
       this.state.bpm,
-      lanePriority,
-      effects,
+      this.lanePriority,
+      this.renderedEffects,
       this.state.fps,
       audio,
       this.state.projectDurationFrames,
       this.state.signature,
     );
 
-    // Clips sharing a media at this playhead draw from extra elements, made
-    // the first time they are needed. Fill, text and FX clips draw no media.
-    let addedElement = false;
     for (const entry of activeClips) {
       if (entry.text && entry.clip.id === this.state.hiddenTextClipId) {
         entry.text = { ...entry.text, text: "" };
       }
+    }
+    this.ensureClipElements(activeClips);
+    return activeClips;
+  }
+
+  // Clips sharing a media at this playhead draw from extra elements, made
+  // the first time they are needed. Fill, text and FX clips draw no media.
+  private ensureClipElements(timings: readonly ActiveClipTiming[]) {
+    let addedElement = false;
+    for (const entry of timings) {
       if (
-        !entry.fill &&
-        !entry.text &&
-        !entry.fx &&
+        !isGeneratedClip(entry.clip) &&
         !this.mediaRefs.has(entry.sourceKey)
       ) {
         this.ensureMediaElement(entry.sourceKey, entry.media);
@@ -370,18 +377,10 @@ export class CompositionRenderer {
     if (addedElement) {
       this.refreshVideoFrameReadyListeners();
     }
-
-    return activeClips;
   }
 
   private groupClipProgressAt(playheadQ: number) {
     return getGroupClipProgress(this.state.clips, playheadQ, this.state.bpm);
-  }
-
-  // Effects on layers whose FX switch is off are left out, clips included.
-  private renderedEffects() {
-    const { effects, lanes, clips } = this.state;
-    return getRenderedEffects(effects, lanes, clips);
   }
 
   private audioMix() {
@@ -389,8 +388,11 @@ export class CompositionRenderer {
   }
 
   // The mix is measured only while some effect reacts to it.
-  private sampleLiveAudioBands(effects = this.renderedEffects()) {
-    const analyser = liveBandsAnalyser(effects, this.mixer?.analyser ?? null);
+  private sampleLiveAudioBands() {
+    const analyser = liveBandsAnalyser(
+      this.renderedEffects.effects,
+      this.mixer?.analyser ?? null,
+    );
     return this.liveAudioBands.sample(analyser, performance.now());
   }
 
@@ -400,7 +402,7 @@ export class CompositionRenderer {
     }
 
     const mix = this.audioMix();
-    if (!this.renderedEffects().some(effectUsesAudio)) {
+    if (!this.renderedEffects.effects.some(effectUsesAudio)) {
       return SILENT_AUDIO_BANDS;
     }
 
@@ -445,9 +447,9 @@ export class CompositionRenderer {
       pixelRatio,
     );
     // The Global chain and Order span every layer, so they animate with
-    // the topmost clip.
+    // the topmost clip. Only the Global stack is drawn from these.
     const effects = resolveFrameEffects(
-      this.state.effects,
+      stackEffects(this.sessionEffectIndex, GROUP_TRACK_ID),
       activeClips,
       playheadQ,
       this.state.bpm,
@@ -489,11 +491,10 @@ export class CompositionRenderer {
   }
 
   private syncMediaElements() {
-    const mediaById = new Map(
-      this.state.mediaItems.map((item) => [item.id, item]),
-    );
     for (const [sourceKey, element] of this.mediaRefs) {
-      const item = mediaById.get(this.mediaIdBySourceKey.get(sourceKey) ?? "");
+      const item = this.mediaById.get(
+        this.mediaIdBySourceKey.get(sourceKey) ?? "",
+      );
       if (item) {
         this.ensureMediaElement(sourceKey, item);
         continue;
@@ -735,7 +736,7 @@ export const CompositionPlayer = forwardRef<
       // The playhead prop only catches up now and then during playback, so
       // follow the live playhead and keep the media in sync with it here.
       const livePlayheadQ = playheadSignal.get();
-      renderer.syncPlayback({
+      renderer.renderPreviewFrame(livePlayheadQ, pixelRatio, true, {
         ...playbackStateRef.current,
         playheadQ: livePlayheadQ,
         playheadSeconds: quartersToSeconds(
@@ -744,7 +745,6 @@ export const CompositionPlayer = forwardRef<
         ),
         isPlaying,
       });
-      renderer.renderPreviewFrame(livePlayheadQ, pixelRatio);
       playbackFrameRef.current = window.requestAnimationFrame(render);
     };
 
