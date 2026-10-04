@@ -90,8 +90,6 @@ async function seekInto(page: Page, span: Locator, fraction: number) {
   await page.locator(".timeline-scroll").evaluate((element) => {
     element.scrollLeft = 0;
   });
-  // The lane clicked to seek may have been scrolled out of view.
-  await lane(page, "6").scrollIntoViewIfNeeded();
   const [spanBox, laneBox] = await Promise.all([
     span.boundingBox(),
     lane(page, "6").boundingBox(),
