@@ -79,7 +79,8 @@ export function shapeGainDb(
 // The two envelope followers, fed one detector sample at a time (the
 // loudest channel's magnitude, so every channel gets the same gain and the
 // stereo image holds). `next` returns the fast follower's level above the
-// slow one's, in dB.
+// slow one's, in dB; `follow` only advances them, for when that difference
+// isn't needed, and `difference` reads it afterwards.
 export function createEnvelopeDetector(sampleRate: number) {
   const fastAttack = coefficient(FAST_ATTACK_SECONDS, sampleRate);
   const fastRelease = coefficient(FAST_RELEASE_SECONDS, sampleRate);
@@ -87,14 +88,24 @@ export function createEnvelopeDetector(sampleRate: number) {
   const slowRelease = coefficient(SLOW_RELEASE_SECONDS, sampleRate);
   let fast = FLOOR;
   let slow = FLOOR;
+  const follow = (level: number) => {
+    const input = Math.max(level, FLOOR);
+    const fastPole = input > fast ? fastAttack : fastRelease;
+    fast = input + fastPole * (fast - input);
+    const slowPole = input > slow ? slowAttack : slowRelease;
+    slow = input + slowPole * (slow - input);
+  };
+  const difference = () => 20 * Math.log10(fast / slow);
   return {
+    follow,
+    difference,
     next(level: number) {
-      const input = Math.max(level, FLOOR);
-      const fastPole = input > fast ? fastAttack : fastRelease;
-      fast = input + fastPole * (fast - input);
-      const slowPole = input > slow ? slowAttack : slowRelease;
-      slow = input + slowPole * (slow - input);
-      return 20 * Math.log10(fast / slow);
+      follow(level);
+      return difference();
+    },
+    reset() {
+      fast = FLOOR;
+      slow = FLOOR;
     },
   };
 }

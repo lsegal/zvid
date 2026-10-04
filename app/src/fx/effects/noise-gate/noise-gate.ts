@@ -68,6 +68,32 @@ export type NoiseGateBlock = {
   range: Float32Array;
 };
 
+// Power within this ratio of a threshold's is too close to call without
+// the level's log; beyond it, comparing powers decides exactly as
+// comparing dB would.
+const POWER_MARGIN = 1e-6;
+
+// A dB threshold as the powers just above and below it, so a level can be
+// checked against it without a log per frame.
+class PowerThreshold {
+  db = Number.NaN;
+  above = Number.NaN;
+  below = Number.NaN;
+
+  set(db: number) {
+    this.db = db;
+    const power = 10 ** (db / 10);
+    this.above = power * (1 + POWER_MARGIN);
+    this.below = power * (1 - POWER_MARGIN);
+  }
+
+  reset() {
+    this.db = Number.NaN;
+    this.above = Number.NaN;
+    this.below = Number.NaN;
+  }
+}
+
 export class NoiseGateDsp {
   readonly sampleRate: number;
   private readonly detectorPole: number;
@@ -80,10 +106,32 @@ export class NoiseGateDsp {
   // 0 closed (gain at Range) to 1 open (unity), ramped over Attack and
   // Release.
   private openness = 0;
+  // Threshold and the close threshold as powers, set once Threshold holds
+  // for a second frame; while it ramps every frame takes the log instead.
+  private lastThreshold = Number.NaN;
+  private readonly openAt = new PowerThreshold();
+  private readonly closeAt = new PowerThreshold();
+  // The last gain below unity and its exponent, since a closed gate's
+  // repeats.
+  private gainDb = Number.NaN;
+  private gain = 0;
 
   constructor(sampleRate: number) {
     this.sampleRate = sampleRate;
     this.detectorPole = Math.exp(-1 / (DETECTOR_SECONDS * sampleRate));
+  }
+
+  // Back to its constructed state.
+  reset() {
+    this.power = POWER_FLOOR;
+    this.open = false;
+    this.belowFrames = 0;
+    this.openness = 0;
+    this.lastThreshold = Number.NaN;
+    this.openAt.reset();
+    this.closeAt.reset();
+    this.gainDb = Number.NaN;
+    this.gain = 0;
   }
 
   process(
@@ -99,14 +147,29 @@ export class NoiseGateDsp {
         square = Math.max(square, sample * sample);
       }
       this.power = square + this.detectorPole * (this.power - square);
-      const levelDb = 10 * Math.log10(Math.max(this.power, POWER_FLOOR));
+      const power = Math.max(this.power, POWER_FLOOR);
 
       const threshold = block.threshold[index];
-      if (levelDb >= threshold) {
+      if (threshold === this.lastThreshold && this.openAt.db !== threshold) {
+        this.openAt.set(threshold);
+        this.closeAt.set(threshold - HYSTERESIS_DB);
+      }
+      this.lastThreshold = threshold;
+      let levelDb = Number.NaN;
+      let reaches: boolean;
+      if (this.openAt.db === threshold && power >= this.openAt.above) {
+        reaches = true;
+      } else if (this.openAt.db === threshold && power <= this.openAt.below) {
+        reaches = false;
+      } else {
+        levelDb = 10 * Math.log10(power);
+        reaches = levelDb >= threshold;
+      }
+      if (reaches) {
         this.open = true;
         this.belowFrames = 0;
       } else if (this.open) {
-        if (levelDb >= threshold - HYSTERESIS_DB) {
+        if (this.withinHysteresis(power, levelDb, threshold)) {
           this.belowFrames = 0;
         } else if (++this.belowFrames > block.hold[index] * framesPerMs) {
           this.open = false;
@@ -124,13 +187,34 @@ export class NoiseGateDsp {
           this.openness - 1 / (block.release[index] * framesPerMs),
         );
       }
-      const gain =
-        this.openness >= 1
-          ? 1
-          : dbToAmplitude((1 - this.openness) * block.range[index]);
+      let gain = 1;
+      if (this.openness < 1) {
+        const gainDb = (1 - this.openness) * block.range[index];
+        if (gainDb !== this.gainDb) {
+          this.gainDb = gainDb;
+          this.gain = dbToAmplitude(gainDb);
+        }
+        gain = this.gain;
+      }
       for (let channel = 0; channel < output.length; channel++) {
         output[channel][index] = input[channel][index] * gain;
       }
     }
+  }
+
+  // Whether an open gate's level is still within HYSTERESIS_DB of
+  // `threshold`. `levelDb` is NaN when the frame skipped its log.
+  private withinHysteresis(power: number, levelDb: number, threshold: number) {
+    const closeDb = threshold - HYSTERESIS_DB;
+    if (this.openAt.db === threshold) {
+      if (power >= this.closeAt.above) {
+        return true;
+      }
+      if (power <= this.closeAt.below) {
+        return false;
+      }
+    }
+    const db = Number.isNaN(levelDb) ? 10 * Math.log10(power) : levelDb;
+    return db >= closeDb;
   }
 }

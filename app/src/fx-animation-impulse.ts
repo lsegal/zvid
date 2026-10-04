@@ -105,7 +105,12 @@ function framesBetween(from: number, to: number, fps: number) {
 }
 
 // Whether an envelope that started at `start` still runs at `at`.
-function isRunning(start: number, at: number, fps: number, lengthFrames: number) {
+function isRunning(
+  start: number,
+  at: number,
+  fps: number,
+  lengthFrames: number,
+) {
   return framesBetween(start, at, fps) < lengthFrames - FRAME_EPSILON;
 }
 

@@ -68,19 +68,30 @@ export function highCutCoefficients(
   q: number,
   sampleRate: number,
 ): BiquadCoefficients {
+  const out = { b0: 0, b1: 0, b2: 0, a1: 0, a2: 0 };
+  writeHighCutCoefficients(out, frequency, q, sampleRate);
+  return out;
+}
+
+// highCutCoefficients written into `out`, so the audio thread need not
+// allocate.
+function writeHighCutCoefficients(
+  out: BiquadCoefficients,
+  frequency: number,
+  q: number,
+  sampleRate: number,
+) {
   const f = clamp(frequency, 1, sampleRate * 0.49);
   const w0 = (2 * Math.PI * f) / sampleRate;
   const cos = Math.cos(w0);
   const alpha = Math.sin(w0) / (2 * q);
   const a0 = 1 + alpha;
   const b1 = (1 - cos) / a0;
-  return {
-    b0: b1 / 2,
-    b1,
-    b2: b1 / 2,
-    a1: (-2 * cos) / a0,
-    a2: (1 - alpha) / a0,
-  };
+  out.b0 = b1 / 2;
+  out.b1 = b1;
+  out.b2 = b1 / 2;
+  out.a1 = (-2 * cos) / a0;
+  out.a2 = (1 - alpha) / a0;
 }
 
 // The pole Qs of a 4th-order Butterworth filter. The 24 dB/oct slope runs
@@ -91,20 +102,40 @@ const BUTTERWORTH_4_Q2 = 1.306_563;
 
 // The stages' coefficients for `settings`, in processing order.
 export function highCutStages(settings: HighCutSettings, sampleRate: number) {
+  const stages = [0, 1].map(() => ({ b0: 0, b1: 0, b2: 0, a1: 0, a2: 0 }));
+  return stages.slice(0, writeHighCutStages(stages, settings, sampleRate));
+}
+
+// highCutStages written into `out`, which has room for two stages. Returns
+// how many it uses.
+function writeHighCutStages(
+  out: readonly BiquadCoefficients[],
+  settings: HighCutSettings,
+  sampleRate: number,
+) {
   if (settings.slope === "24 dB/oct") {
     const scale = settings.resonance / Math.SQRT1_2;
-    return [
-      highCutCoefficients(settings.frequency, BUTTERWORTH_4_Q1, sampleRate),
-      highCutCoefficients(
-        settings.frequency,
-        BUTTERWORTH_4_Q2 * scale,
-        sampleRate,
-      ),
-    ];
+    writeHighCutCoefficients(
+      out[0],
+      settings.frequency,
+      BUTTERWORTH_4_Q1,
+      sampleRate,
+    );
+    writeHighCutCoefficients(
+      out[1],
+      settings.frequency,
+      BUTTERWORTH_4_Q2 * scale,
+      sampleRate,
+    );
+    return 2;
   }
-  return [
-    highCutCoefficients(settings.frequency, settings.resonance, sampleRate),
-  ];
+  writeHighCutCoefficients(
+    out[0],
+    settings.frequency,
+    settings.resonance,
+    sampleRate,
+  );
+  return 1;
 }
 
 // The filter's magnitude response in dB at `frequency`, for tests and
@@ -138,8 +169,21 @@ function settingsEqual(a: HighCutSettings, b: HighCutSettings) {
 // Each stage's filter memory for each channel, run with the latest
 // settings' coefficients. Uses transposed direct form II in doubles.
 export class HighCutFilter {
-  private settings: HighCutSettings | null = null;
-  private stages: BiquadCoefficients[] = [];
+  private hasSettings = false;
+  private readonly settings: HighCutSettings = {
+    frequency: 0,
+    resonance: 0,
+    slope: DEFAULT_HIGH_CUT_SLOPE,
+  };
+  // Room for both stages, rewritten in place; the first `stageCount` run.
+  private readonly stages: readonly BiquadCoefficients[] = [0, 1].map(() => ({
+    b0: 0,
+    b1: 0,
+    b2: 0,
+    a1: 0,
+    a2: 0,
+  }));
+  private stageCount = 0;
   // Per channel: z1 and z2 of each stage in turn.
   private readonly state: Float64Array[];
   private primed = false;
@@ -154,11 +198,28 @@ export class HighCutFilter {
   // Uses `settings` from the next frame processed on. The slope is fixed
   // for the filter's life: the host crossfades to a fresh one to change it.
   setSettings(settings: HighCutSettings) {
-    if (this.settings && settingsEqual(this.settings, settings)) {
+    if (this.hasSettings && settingsEqual(this.settings, settings)) {
       return;
     }
-    this.settings = { ...settings };
-    this.stages = highCutStages(settings, this.sampleRate);
+    this.hasSettings = true;
+    this.settings.frequency = settings.frequency;
+    this.settings.resonance = settings.resonance;
+    this.settings.slope = settings.slope;
+    this.stageCount = writeHighCutStages(
+      this.stages,
+      settings,
+      this.sampleRate,
+    );
+  }
+
+  // Back to its constructed state: no settings and silent memory.
+  reset() {
+    this.hasSettings = false;
+    this.stageCount = 0;
+    for (let channel = 0; channel < this.state.length; channel++) {
+      this.state[channel].fill(0);
+    }
+    this.primed = false;
   }
 
   // Sets every stage's memory as if the input had been holding at its
@@ -169,10 +230,11 @@ export class HighCutFilter {
     for (let channel = 0; channel < this.state.length; channel++) {
       const x = input[channel]?.[start] ?? 0;
       const z = this.state[channel];
-      this.stages.forEach((c, stage) => {
+      for (let stage = 0; stage < this.stageCount; stage++) {
+        const c = this.stages[stage];
         z[stage * 2] = (1 - c.b0) * x;
         z[stage * 2 + 1] = (c.b2 - c.a2) * x;
-      });
+      }
     }
   }
 
@@ -188,13 +250,14 @@ export class HighCutFilter {
       this.primed = true;
     }
     const stages = this.stages;
+    const stageCount = this.stageCount;
     for (let channel = 0; channel < output.length; channel++) {
       const from = input[channel];
       const to = output[channel];
       const z = this.state[channel];
       for (let index = start; index < end; index++) {
         let x = from[index];
-        for (let stage = 0; stage < stages.length; stage++) {
+        for (let stage = 0; stage < stageCount; stage++) {
           const c = stages[stage];
           const y = c.b0 * x + z[stage * 2];
           z[stage * 2] = c.b1 * x - c.a1 * y + z[stage * 2 + 1];

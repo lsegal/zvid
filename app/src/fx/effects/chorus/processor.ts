@@ -3,6 +3,7 @@
 import type { AudioEffectDsp } from "../../../audio-mix/processor.ts";
 import {
   CHORUS_EFFECT_NAME,
+  type ChorusBlock,
   ChorusDsp,
   chorusTailSeconds,
   DELAY_DEFAULT_MS,
@@ -16,23 +17,38 @@ import {
   SPREAD_KEY,
 } from "./chorus.ts";
 
+const EMPTY = new Float32Array(0);
+
 export const processor: AudioEffectDsp = {
   effectName: CHORUS_EFFECT_NAME,
   createProcessor(sampleRate, channels) {
     const dsp = new ChorusDsp(sampleRate, channels);
+    // Filled in again every block, so processing allocates nothing.
+    const block: ChorusBlock = {
+      frames: 0,
+      sampleRate,
+      timeSeconds: 0,
+      rate: EMPTY,
+      depth: EMPTY,
+      delayMs: EMPTY,
+      feedback: EMPTY,
+      spread: EMPTY,
+      mix: EMPTY,
+    };
     return {
       process(input, output, frames, params, time) {
-        dsp.process(input, output, {
-          frames,
-          sampleRate,
-          timeSeconds: time.timeSeconds,
-          rate: params.number(RATE_KEY),
-          depth: params.number(DEPTH_KEY),
-          delayMs: params.number(DELAY_KEY),
-          feedback: params.number(FEEDBACK_KEY),
-          spread: params.number(SPREAD_KEY),
-          mix: params.number(MIX_KEY),
-        });
+        block.frames = frames;
+        block.timeSeconds = time.timeSeconds;
+        block.rate = params.number(RATE_KEY);
+        block.depth = params.number(DEPTH_KEY);
+        block.delayMs = params.number(DELAY_KEY);
+        block.feedback = params.number(FEEDBACK_KEY);
+        block.spread = params.number(SPREAD_KEY);
+        block.mix = params.number(MIX_KEY);
+        dsp.process(input, output, block);
+      },
+      reset() {
+        dsp.reset();
       },
     };
   },

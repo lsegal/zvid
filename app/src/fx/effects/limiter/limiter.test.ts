@@ -7,6 +7,8 @@ import {
   PARAMETER_RAMP_SECONDS,
 } from "../../../audio-mix/chain.ts";
 import {
+  type AudioEffectProcessor,
+  type AudioParameterBlock,
   type AudioStage,
   createProcessorRegistry,
   DEFAULT_TIME_SIGNATURE,
@@ -127,6 +129,49 @@ function largestStep(channel: Float32Array, from = 1, to = channel.length) {
 // Float32 rounding of the output samples.
 const EPSILON = 1e-6;
 
+// Runs `input` straight through `effect` in chain-sized blocks from
+// timeline second `fromSeconds`, with every parameter settled at `numbers`
+// and `switches`.
+function runSettled(
+  effect: AudioEffectProcessor,
+  input: Float32Array[],
+  numbers: Record<string, number>,
+  switches: Record<string, string> = {},
+  fromSeconds = 0,
+) {
+  const values = new Map<string, Float32Array>();
+  const params: AudioParameterBlock = {
+    number(key) {
+      let array = values.get(key);
+      if (!array) {
+        array = new Float32Array(BLOCK_FRAMES).fill(numbers[key] ?? 0);
+        values.set(key, array);
+      }
+      return array;
+    },
+    value: (key) => numbers[key] ?? 0,
+    changing: () => false,
+    switch: (key) => switches[key] ?? "",
+  };
+  const frames = input[0].length;
+  const output = input.map(() => new Float32Array(frames));
+  for (let at = 0; at < frames; at += BLOCK_FRAMES) {
+    const count = Math.min(BLOCK_FRAMES, frames - at);
+    effect.process(
+      input.map((channel) => channel.subarray(at, at + count)),
+      output.map((channel) => channel.subarray(at, at + count)),
+      count,
+      params,
+      {
+        ...TEMPO,
+        sampleRate: SAMPLE_RATE,
+        timeSeconds: fromSeconds + at / SAMPLE_RATE,
+      },
+    );
+  }
+  return output;
+}
+
 describe("Limiter readouts", () => {
   it("formats its decibels and times", () => {
     assert.equal(formatDb(-1), "−1.0 dB");
@@ -168,6 +213,41 @@ describe("LimiterGain", () => {
     for (let frame = 201; frame <= 200 + lookahead; frame++) {
       assert.ok(values[frame - 1] - values[frame] < 0.5 / 100);
     }
+  });
+});
+
+describe("Limiter reset", () => {
+  const numbers = { Ceiling: -3, Release: 30, Lookahead: 5, Gain: 12 };
+
+  it("restarts a gain computer exactly as new at another lookahead", () => {
+    const reused = new LimiterGain(480, 480);
+    const input = noise(3);
+    for (let frame = 0; frame < 2000; frame++) {
+      reused.next(frame, Math.min(1, 0.2 / Math.abs(input())), 0.99);
+    }
+    reused.reset(100);
+    const fresh = new LimiterGain(100);
+    for (let frame = 0; frame < 2000; frame++) {
+      const required = Math.min(1, 0.2 / Math.abs(input()));
+      assert.equal(
+        reused.next(frame, required, 0.99),
+        fresh.next(frame, required, 0.99),
+      );
+    }
+  });
+
+  it("sounds exactly like a fresh processor after a reset", () => {
+    const used = processor.createProcessor(SAMPLE_RATE, 2);
+    runSettled(used, signal(0.3, noise(2)), numbers);
+    // A Lookahead change, reset while it still fades.
+    runSettled(used, signal(0.01, noise(3)), { ...numbers, Lookahead: 2 });
+    used.reset();
+    const fresh = processor.createProcessor(SAMPLE_RATE, 2);
+    const test = signal(0.5, sine(440));
+    assert.deepEqual(
+      runSettled(used, test, numbers),
+      runSettled(fresh, test, numbers),
+    );
   });
 });
 

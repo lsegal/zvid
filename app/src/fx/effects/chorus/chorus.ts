@@ -82,6 +82,7 @@ function wrapCycles(cycles: number) {
   return cycles - Math.round(cycles);
 }
 
+// One block's settings, which each processor fills in again every block.
 export type ChorusBlock = {
   frames: number;
   sampleRate: number;
@@ -117,6 +118,16 @@ export class ChorusDsp {
     }
     this.mask = size - 1;
     this.lines = Array.from({ length: channels }, () => new Float32Array(size));
+  }
+
+  // Back to silence and in step with the timeline, as constructed.
+  reset() {
+    for (let channel = 0; channel < this.channels; channel++) {
+      this.lines[channel].fill(0);
+    }
+    this.write = 0;
+    this.phaseOffset = 0;
+    this.lastRate = null;
   }
 
   process(

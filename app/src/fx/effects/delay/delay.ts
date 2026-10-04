@@ -61,9 +61,17 @@ export const SYNC_GLIDE_SECONDS = 0.015;
 // The repeats count as gone once they fall 90 dB below the input.
 const FEEDBACK_SILENCE = Math.log(10 ** (-90 / 20));
 
-// The delay line holds at least this long, and grows for a longer synced
-// note (one bar at a slow tempo).
-const INITIAL_LINE_SECONDS = TIME_MAX_MS / 1000;
+// The longest synced note: one bar of 5/4, the longest signature, at
+// 60 BPM, the slowest tempo the session offers.
+export const LONGEST_SYNCED_SECONDS = 5;
+
+// The delay line holds the longest free-running Time or synced note, so it
+// never grows in the audio thread. A slower tempo (from an import) still
+// grows it.
+const INITIAL_LINE_SECONDS = Math.max(
+  TIME_MAX_MS / 1000,
+  LONGEST_SYNCED_SECONDS,
+);
 
 export function formatTimeMs(ms: number) {
   return ms < 100 ? `${ms.toFixed(1)} ms` : `${Math.round(ms)} ms`;
@@ -109,6 +117,7 @@ function lowPassCoefficient(cutoff: number, sampleRate: number) {
   return 1 - Math.exp((-2 * Math.PI * cutoff) / sampleRate);
 }
 
+// One block's settings, which each processor fills in again every block.
 export type DelayBlock = {
   frames: number;
   sampleRate: number;
@@ -144,7 +153,24 @@ export class DelayDsp {
     this.filters = new Float64Array(channels);
   }
 
-  // Grows the lines to hold `frames` of delay, keeping what they hold.
+  // Back to silence, as constructed. Lines grown for a slow tempo keep
+  // their size: the delay never reaches past what it has written, so a
+  // longer line sounds the same.
+  reset() {
+    for (let channel = 0; channel < this.channels; channel++) {
+      this.lines[channel].fill(0);
+    }
+    this.write = 0;
+    this.filters.fill(0);
+    this.coefficient = 0;
+    this.lastCutoff = Number.NaN;
+    this.syncedFrames = null;
+    this.glideStep = 0;
+    this.glideTarget = 0;
+  }
+
+  // Grows the lines to hold `frames` of delay, keeping what they hold. Only
+  // a tempo slower than LONGEST_SYNCED_SECONDS allows needs this.
   private reserve(frames: number) {
     const size = lineSize(frames);
     if (size <= this.lines[0].length) {
@@ -239,10 +265,10 @@ export class DelayDsp {
       if (pingPong) {
         // Both inputs go into the left line; each line's repeats go into
         // the other, so they alternate left, right, left…
-        const [left, right] = this.lines;
-        left[write] =
+        const lines = this.lines;
+        lines[0][write] =
           (input[0][index] + input[1][index]) / 2 + filters[1] * feedback;
-        right[write] = filters[0] * feedback;
+        lines[1][write] = filters[0] * feedback;
         for (let channel = 2; channel < this.channels; channel++) {
           this.lines[channel][write] =
             input[channel][index] + filters[channel] * feedback;

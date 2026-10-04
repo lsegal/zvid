@@ -7,6 +7,8 @@ import {
 } from "../../../audio-mix/chain.ts";
 import { testStage } from "../../../audio-mix/chain-test-utils.ts";
 import {
+  type AudioEffectProcessor,
+  type AudioParameterBlock,
   type AudioStage,
   createProcessorRegistry,
   DEFAULT_TIME_SIGNATURE,
@@ -22,6 +24,8 @@ import {
   MIX_KEY,
   RATIO_KEY,
   RELEASE_KEY,
+  SILENCE_DB,
+  smoothingCoefficient,
   THRESHOLD_KEY,
 } from "./compressor.ts";
 import { definition } from "./definition.ts";
@@ -165,6 +169,49 @@ const near = (actual: number, expected: number, tolerance: number) =>
   );
 
 const SETTLED = 0.5 * SAMPLE_RATE;
+
+// Runs `input` straight through `effect` in chain-sized blocks from
+// timeline second `fromSeconds`, with every parameter settled at `numbers`
+// and `switches`.
+function runSettled(
+  effect: AudioEffectProcessor,
+  input: Float32Array[],
+  numbers: Record<string, number>,
+  switches: Record<string, string> = {},
+  fromSeconds = 0,
+) {
+  const values = new Map<string, Float32Array>();
+  const params: AudioParameterBlock = {
+    number(key) {
+      let array = values.get(key);
+      if (!array) {
+        array = new Float32Array(BLOCK_FRAMES).fill(numbers[key] ?? 0);
+        values.set(key, array);
+      }
+      return array;
+    },
+    value: (key) => numbers[key] ?? 0,
+    changing: () => false,
+    switch: (key) => switches[key] ?? "",
+  };
+  const frames = input[0].length;
+  const output = input.map(() => new Float32Array(frames));
+  for (let at = 0; at < frames; at += BLOCK_FRAMES) {
+    const count = Math.min(BLOCK_FRAMES, frames - at);
+    effect.process(
+      input.map((channel) => channel.subarray(at, at + count)),
+      output.map((channel) => channel.subarray(at, at + count)),
+      count,
+      params,
+      {
+        ...TEMPO,
+        sampleRate: SAMPLE_RATE,
+        timeSeconds: fromSeconds + at / SAMPLE_RATE,
+      },
+    );
+  }
+  return output;
+}
 
 describe("compressedLevelDb", () => {
   it("leaves levels below the knee and divides the excess above it", () => {
@@ -329,6 +376,72 @@ describe("Compressor", () => {
       natural + (amplitude * Math.log(10) * 36 * 0.95) / 20 / rampFrames;
     assert.ok(maxStep(output) <= bound, `${maxStep(output)} > ${bound}`);
     near(peakDb(output, 0.75 * SAMPLE_RATE), -36 + 30 / 20, 0.1);
+  });
+});
+
+describe("Compressor processing", () => {
+  const numbers = {
+    [THRESHOLD_KEY]: -20,
+    [RATIO_KEY]: 6,
+    [ATTACK_KEY]: 2,
+    [RELEASE_KEY]: 40,
+    [KNEE_KEY]: 6,
+    [MAKEUP_KEY]: 6,
+    [MIX_KEY]: 0.7,
+  };
+
+  // The compressor as it was before it skipped any math: a log and a 10^x
+  // every frame.
+  function reference(input: Float32Array) {
+    const attack = smoothingCoefficient(numbers[ATTACK_KEY], SAMPLE_RATE);
+    const release = smoothingCoefficient(numbers[RELEASE_KEY], SAMPLE_RATE);
+    const mix = Math.fround(numbers[MIX_KEY]);
+    const output = new Float32Array(input.length);
+    let held = 0;
+    let reduction = 0;
+    for (let index = 0; index < input.length; index++) {
+      const peak = Math.abs(input[index]);
+      const levelDb = peak > 0 ? 20 * Math.log10(peak) : SILENCE_DB;
+      const target =
+        levelDb -
+        compressedLevelDb(
+          levelDb,
+          numbers[THRESHOLD_KEY],
+          numbers[RATIO_KEY],
+          numbers[KNEE_KEY],
+        );
+      held = Math.max(target, release * held + (1 - release) * target);
+      reduction = attack * reduction + (1 - attack) * held;
+      const wet = 10 ** ((numbers[MAKEUP_KEY] - reduction) / 20) * mix;
+      output[index] = input[index] * (1 - mix) + input[index] * wet;
+    }
+    return output;
+  }
+
+  it("matches computing the gain in full every frame", () => {
+    // Loud, then quiet for long enough that the reduction settles to none.
+    const input = tone(4, -6, 0.5, -40);
+    const [output] = runSettled(
+      processor.createProcessor(SAMPLE_RATE, 1),
+      [input],
+      numbers,
+    );
+    const expected = reference(input);
+    for (let index = 0; index < input.length; index++) {
+      assert.ok(Math.abs(output[index] - expected[index]) <= 1e-6, `${index}`);
+    }
+  });
+
+  it("sounds exactly like a fresh processor after a reset", () => {
+    const used = processor.createProcessor(SAMPLE_RATE, 2);
+    runSettled(used, [noise(0.3, 2), noise(0.3, 3)], numbers);
+    used.reset();
+    const fresh = processor.createProcessor(SAMPLE_RATE, 2);
+    const test = [tone(0.5, -6, 0.25, -30), tone(0.5, -12)];
+    assert.deepEqual(
+      runSettled(used, test, numbers),
+      runSettled(fresh, test, numbers),
+    );
   });
 });
 

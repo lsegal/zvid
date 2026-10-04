@@ -1,7 +1,10 @@
 // Phaser as a chain stage. Its knobs are numbers the chain ramps, so the
 // processor reads each one per frame; Stages is a switch the chain
 // crossfades.
-import type { AudioEffectDsp } from "../../../audio-mix/processor.ts";
+import type {
+  AudioEffectDsp,
+  AudioParameterBlock,
+} from "../../../audio-mix/processor.ts";
 import {
   CENTER_KEY,
   DEPTH_KEY,
@@ -9,6 +12,7 @@ import {
   MIX_KEY,
   PHASER_EFFECT_NAME,
   PHASER_RANGES,
+  type PhaserBlock,
   PhaserDsp,
   type PhaserNumberKey,
   phaserTailSeconds,
@@ -36,6 +40,21 @@ function inRange(
   return clamped;
 }
 
+// The parameter's values this block clamped into `scratch`, or into a new
+// array the first time or should the block size change.
+function clampInto(
+  key: PhaserNumberKey,
+  params: AudioParameterBlock,
+  scratch: Float32Array,
+) {
+  const values = params.number(key);
+  const clamped =
+    scratch.length === values.length
+      ? scratch
+      : new Float32Array(values.length);
+  return inRange(key, values, clamped);
+}
+
 function setting(
   numbers: Readonly<Record<string, number>>,
   key: PhaserNumberKey,
@@ -43,34 +62,44 @@ function setting(
   return numbers[key] ?? PHASER_RANGES[key].defaultValue;
 }
 
+const EMPTY = new Float32Array(0);
+
 export const processor: AudioEffectDsp = {
   effectName: PHASER_EFFECT_NAME,
   createProcessor(sampleRate, channels) {
     const dsp = new PhaserDsp(sampleRate, channels);
-    // Reused for each block's clamped values, so processing allocates
-    // nothing.
-    const scratch = new Map<PhaserNumberKey, Float32Array>();
+    // Filled in again every block, so processing allocates nothing.
+    const block: PhaserBlock = {
+      frames: 0,
+      timeSeconds: 0,
+      stages: stageCount(undefined),
+      rate: EMPTY,
+      depth: EMPTY,
+      center: EMPTY,
+      feedback: EMPTY,
+      mix: EMPTY,
+    };
+    // The Stages text last read, so it is parsed again only on a change.
+    let stages: string | undefined;
     return {
       process(input, output, frames, params, time) {
-        const read = (key: PhaserNumberKey) => {
-          const values = params.number(key);
-          let clamped = scratch.get(key);
-          if (clamped?.length !== values.length) {
-            clamped = new Float32Array(values.length);
-            scratch.set(key, clamped);
-          }
-          return inRange(key, values, clamped);
-        };
-        dsp.process(input, output, {
-          frames,
-          timeSeconds: time.timeSeconds,
-          stages: stageCount(params.switch(STAGES_KEY)),
-          rate: read(RATE_KEY),
-          depth: read(DEPTH_KEY),
-          center: read(CENTER_KEY),
-          feedback: read(FEEDBACK_KEY),
-          mix: read(MIX_KEY),
-        });
+        const nextStages = params.switch(STAGES_KEY);
+        if (nextStages !== stages) {
+          stages = nextStages;
+          block.stages = stageCount(stages);
+        }
+        block.frames = frames;
+        block.timeSeconds = time.timeSeconds;
+        // Each block's clamped values overwrite the last block's.
+        block.rate = clampInto(RATE_KEY, params, block.rate);
+        block.depth = clampInto(DEPTH_KEY, params, block.depth);
+        block.center = clampInto(CENTER_KEY, params, block.center);
+        block.feedback = clampInto(FEEDBACK_KEY, params, block.feedback);
+        block.mix = clampInto(MIX_KEY, params, block.mix);
+        dsp.process(input, output, block);
+      },
+      reset() {
+        dsp.reset();
       },
     };
   },
