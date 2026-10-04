@@ -285,6 +285,14 @@ class ChainStage implements AudioParameterBlock {
     return this.switches[key] ?? "";
   }
 
+  // Transient's level at the end of the last block (see StageModulator), or
+  // undefined when Transient doesn't modulate the stage.
+  get transientLevel() {
+    return this.config.modulation?.mode === "transient"
+      ? (this.modulator?.level ?? 0)
+      : undefined;
+  }
+
   // Processes `input` into this stage's output buffers and returns them.
   process(
     input: readonly Float32Array[],
@@ -475,6 +483,8 @@ export class AudioChain {
   private configured = false;
   // Frames since its input last made a sound.
   private silentFrames = Number.POSITIVE_INFINITY;
+  // Whether the last block was skipped as idle.
+  private idle = false;
   private tempo: AudioTempo = { bpm: 120, signature: DEFAULT_TIME_SIGNATURE };
   private drain = 0;
   private readonly registry: AudioProcessorRegistry;
@@ -551,6 +561,17 @@ export class AudioChain {
     return this.drain;
   }
 
+  // Calls `visit` with the id of each stage Transient modulates and its
+  // level at the end of the last block, 0 while the chain idles.
+  forEachTransient(visit: (id: string, level: number) => void) {
+    for (const stage of this.stages) {
+      const level = stage.transientLevel;
+      if (level !== undefined) {
+        visit(stage.config.id, this.idle ? 0 : level);
+      }
+    }
+  }
+
   // Drops every processor's state and the delay line, as after a seek.
   reset() {
     for (const stage of this.stages) {
@@ -574,7 +595,8 @@ export class AudioChain {
   ) {
     const silentInput = isSilent(input, frames);
     this.silentFrames = silentInput ? this.silentFrames + frames : 0;
-    if (silentInput && this.silentFrames - frames >= this.drain) {
+    this.idle = silentInput && this.silentFrames - frames >= this.drain;
+    if (this.idle) {
       // Idle: nothing left ringing, so nothing to run.
       this.inputGain.fill(frames);
       clear(output, frames);
