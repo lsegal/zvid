@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { definition } from "./definition.ts";
 import { parseTransitionSettings } from "./transition.ts";
 
 function settings(values: Record<string, string>) {
@@ -40,5 +41,28 @@ describe("Transition shape options", () => {
     assert.equal(settings({ Count: "5.6" }).count, 6);
     assert.equal(settings({ Count: "0" }).count, 2);
     assert.equal(settings({ Count: "500" }).count, 32);
+  });
+});
+
+describe("Transition shape option controls", () => {
+  const visibility = (key: string) =>
+    definition.parameters.find((parameter) => parameter.key === key)
+      ?.visibleWhen?.values;
+
+  it("shows each option only for the types that use it", () => {
+    assert.deepEqual(visibility("Iris"), [
+      "Iris",
+      "Iris (Box)",
+      "Diamond",
+      "Star",
+      "Heart",
+    ]);
+    assert.deepEqual(visibility("Orientation"), [
+      "Blinds",
+      "Barn Door",
+      "Split",
+    ]);
+    assert.deepEqual(visibility("Count"), ["Blinds", "Checkerboard"]);
+    assert.deepEqual(visibility("Origin"), ["Radial Wipe"]);
   });
 });
