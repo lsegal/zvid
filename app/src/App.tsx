@@ -17,6 +17,7 @@ import { FxPanel } from "./components/FxPanel";
 import { ImportNotice } from "./components/ImportNotice";
 import { MediaDrawer } from "./components/media/MediaDrawer";
 import { SessionLibraryDialogs } from "./components/media/SessionsTab";
+import { NewSessionDialog } from "./components/NewSessionDialog";
 import { PreviewPanel } from "./components/PreviewPanel";
 import { TimelineContextMenu } from "./components/TimelineContextMenu";
 import { TopBar } from "./components/TopBar";
@@ -40,6 +41,7 @@ import { useMediaDrawer } from "./hooks/useMediaDrawer.ts";
 import { useMediaImport } from "./hooks/useMediaImport.ts";
 import { useMediaPreview } from "./hooks/useMediaPreview.ts";
 import { useMediaRange } from "./hooks/useMediaRange.ts";
+import { useNewSession } from "./hooks/useNewSession.ts";
 import { usePlayback } from "./hooks/usePlayback.ts";
 import { usePreview } from "./hooks/usePreview.ts";
 import { usePreviewVolume } from "./hooks/usePreviewVolume.ts";
@@ -350,6 +352,15 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     refuseReadOnlyEdit,
     setStatus,
   });
+  const newSession = useNewSession({
+    projectHistory,
+    hasUnsavedChanges: store.hasUnsavedChanges,
+    collaborationMode,
+    refuseReadOnlyEdit,
+    // Saving into the Sessions library replaces this once it exists (#888).
+    saveSession: sessionFiles.handleExportProject,
+    startNewSession: workspace.startNewSession,
+  });
   const { handleRandomizeTimeline } = editing;
   const {
     openExportDialog,
@@ -381,6 +392,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         {...dialogs}
         {...sessionFiles}
         {...sharing}
+        {...newSession}
         collaboration={collaboration}
         exportButtonLabel={exportState.exportButtonLabel}
         getEditMenuEntries={editing.getEditMenuEntries}
@@ -684,6 +696,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         currentName={sessionName ?? "the open session"}
         library={library}
       />
+      <NewSessionDialog {...newSession} />
       {recording.failureNotice && (
         <ImportNotice
           notice={recording.failureNotice}

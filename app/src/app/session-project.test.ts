@@ -13,6 +13,7 @@ import {
 import { DEFAULT_LANES, INITIAL_PROJECT_STATE } from "./constants.ts";
 import {
   buildStandaloneProject,
+  hydrateProjectMedia,
   mergeMediaItemsById,
   patchProjectState,
   pickMediaByPath,
@@ -121,6 +122,24 @@ describe("mergeMediaItemsById", () => {
     assert.equal(merged?.durationSeconds, 5);
     assert.equal(merged?.rangeInSeconds, 1);
     assert.equal(merged?.rangeOutSeconds, 2);
+  });
+});
+
+describe("hydrateProjectMedia", () => {
+  it("commits what was read about the project's media", () => {
+    const project = patchProjectState(INITIAL_PROJECT_STATE, {
+      mediaItems: [media({ durationSeconds: 0 })],
+    });
+    const next = hydrateProjectMedia(project, [media({ durationSeconds: 5 })]);
+    assert.notEqual(next, project);
+    assert.equal(next.mediaItems[0]?.durationSeconds, 5);
+  });
+
+  // Media still being read when the session was replaced, such as by File →
+  // New Session, must not add an undo step to the new session.
+  it("leaves a project without that media unchanged", () => {
+    const project = INITIAL_PROJECT_STATE;
+    assert.equal(hydrateProjectMedia(project, [media()]), project);
   });
 });
 

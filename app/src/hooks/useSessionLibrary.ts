@@ -6,12 +6,10 @@ import {
   useRef,
   useState,
 } from "react";
+import { isPristineProjectHistory } from "../app/new-session.ts";
 import type { ProjectState } from "../app/types.ts";
 import { logClient } from "../app/util.ts";
-import {
-  isPristineProjectHistory,
-  parseSavedWorkspaceSession,
-} from "../app/workspace-boot.ts";
+import { parseSavedWorkspaceSession } from "../app/workspace-boot.ts";
 import type { SavedWorkspaceSession } from "../app/workspace-types.ts";
 import type { ProjectHistoryState } from "../project-history";
 import {

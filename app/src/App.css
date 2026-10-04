@@ -954,7 +954,7 @@
 .track-row__content,
 .source-header__content {
   position: relative;
-  min-height: 60px;
+  min-height: 40px;
   border-left: 1px solid var(--line);
 }
 
@@ -1001,8 +1001,8 @@
 }
 
 .track-label--header {
-  min-height: 60px;
-  padding-block: 10px;
+  min-height: 40px;
+  padding-block: 4px;
   background: #2d3044;
   z-index: 7;
 }

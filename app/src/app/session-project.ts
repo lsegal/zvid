@@ -73,6 +73,23 @@ export function mergeMediaItemsById(
   });
 }
 
+// Commits what analysis read about media the project holds. Media the
+// project no longer holds, such as after the session was replaced while it
+// was being read, changes nothing, so it leaves no undo step behind.
+export function hydrateProjectMedia(
+  current: ProjectState,
+  incoming: MediaItem[],
+) {
+  const known = new Set(current.mediaItems.map((item) => item.id));
+  if (!incoming.some((item) => known.has(item.id))) {
+    return current;
+  }
+
+  return patchProjectState(current, {
+    mediaItems: mergeMediaItemsById(current.mediaItems, incoming),
+  });
+}
+
 export function patchProjectState(
   current: ProjectState,
   patch: Partial<ProjectState>,

@@ -68,6 +68,12 @@ export function useProjectStore({
   const isWorkspaceReadOnlyRef = useRef(isWorkspaceReadOnly);
   isWorkspaceReadOnlyRef.current = isWorkspaceReadOnly;
   const [isTakeOverPromptOpen, setIsTakeOverPromptOpen] = useState(false);
+  // Whether the project has edits that were never saved. Every edit sets
+  // it; saving, opening or starting a session clears it. A refresh keeps it,
+  // and a session saved before it was kept counts as unsaved.
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(
+    () => restoredSession?.view.hasUnsavedChanges ?? Boolean(restoredSession),
+  );
   // Returns true, and opens the Take over prompt, when this tab is read-only.
   const refuseReadOnlyEdit = useCallback(() => {
     if (!isWorkspaceReadOnlyRef.current) {
@@ -79,8 +85,11 @@ export function useProjectStore({
   }, []);
   const dispatchProject = useCallback(
     (action: ProjectHistoryAction<ProjectState>) => {
-      if (isProjectEditAction(action) && refuseReadOnlyEdit()) {
-        return;
+      if (isProjectEditAction(action)) {
+        if (refuseReadOnlyEdit()) {
+          return;
+        }
+        setHasUnsavedChanges(true);
       }
 
       dispatchProjectHistory(action);
@@ -149,6 +158,8 @@ export function useProjectStore({
     isWorkspaceReadOnlyRef,
     isTakeOverPromptOpen,
     setIsTakeOverPromptOpen,
+    hasUnsavedChanges,
+    setHasUnsavedChanges,
     refuseReadOnlyEdit,
     projectSnapshotRef,
     commitProjectChange,
@@ -166,6 +177,7 @@ export type ProjectHistoryCommandsInputs = {
   undoLabel: string | undefined;
   redoLabel: string | undefined;
   refuseReadOnlyEdit: () => boolean;
+  setHasUnsavedChanges: Dispatch<SetStateAction<boolean>>;
   finishTextEdit: () => void;
   stopTimelineAudibleScrub: () => void;
   setIsPlaying: Dispatch<SetStateAction<boolean>>;
@@ -186,6 +198,7 @@ export function useProjectHistoryCommands({
   undoLabel,
   redoLabel,
   refuseReadOnlyEdit,
+  setHasUnsavedChanges,
   finishTextEdit,
   stopTimelineAudibleScrub,
   setIsPlaying,
@@ -209,6 +222,7 @@ export function useProjectHistoryCommands({
     setPendingSelection(null);
     setTimelineDragState(null);
     dispatchProjectHistory({ type: "undo" });
+    setHasUnsavedChanges(true);
     setStatus(formatHistoryStatus("Undid", undoLabel));
   }, [
     dispatchProjectHistory,
@@ -216,6 +230,7 @@ export function useProjectHistoryCommands({
     refuseReadOnlyEdit,
     setDragPreviewClips,
     setDragState,
+    setHasUnsavedChanges,
     setIsPlaying,
     setPendingSelection,
     setStatus,
@@ -238,6 +253,7 @@ export function useProjectHistoryCommands({
     setPendingSelection(null);
     setTimelineDragState(null);
     dispatchProjectHistory({ type: "redo" });
+    setHasUnsavedChanges(true);
     setStatus(formatHistoryStatus("Redid", redoLabel));
   }, [
     dispatchProjectHistory,
@@ -246,6 +262,7 @@ export function useProjectHistoryCommands({
     refuseReadOnlyEdit,
     setDragPreviewClips,
     setDragState,
+    setHasUnsavedChanges,
     setIsPlaying,
     setPendingSelection,
     setStatus,
