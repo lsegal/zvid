@@ -19,6 +19,7 @@ import {
   effectUsesAudio,
   GROUP_TRACK_ID,
   type Lane,
+  liveBandsAnalyser,
   type MediaItem,
   quartersToSeconds,
   resolveAnimatedOrder,
@@ -195,11 +196,12 @@ export class CompositionRenderer {
   // raster; a paused preview, being edited, draws them exactly.
   renderPreviewFrame(playheadQ: number, pixelRatio: number, playing = true) {
     this.ensureResources();
-    const audio = this.sampleLiveAudioBands();
-    this.activeClips = this.computeActiveClips(playheadQ, audio);
+    const effects = this.renderedEffects();
+    const audio = this.sampleLiveAudioBands(effects);
+    this.activeClips = this.computeActiveClips(playheadQ, audio, effects);
     this.draw(this.activeClips, playheadQ, pixelRatio, {
       time: quartersToSeconds(playheadQ, this.state.bpm),
-      audio: audio ?? SILENT_AUDIO_BANDS,
+      audio,
       groupClipProgress: this.groupClipProgressAt(playheadQ),
       preview: playing,
     });
@@ -323,7 +325,11 @@ export class CompositionRenderer {
     }
   }
 
-  private computeActiveClips(playheadQ: number, audio = SILENT_AUDIO_BANDS) {
+  private computeActiveClips(
+    playheadQ: number,
+    audio = SILENT_AUDIO_BANDS,
+    effects = this.renderedEffects(),
+  ) {
     const mediaById = new Map(
       this.state.mediaItems.map((item) => [item.id, item]),
     );
@@ -337,7 +343,7 @@ export class CompositionRenderer {
       playheadQ,
       this.state.bpm,
       lanePriority,
-      this.renderedEffects(),
+      effects,
       this.state.fps,
       audio,
       this.state.projectDurationFrames,
@@ -378,19 +384,14 @@ export class CompositionRenderer {
     return getRenderedEffects(effects, lanes, clips);
   }
 
-  private usesAudioBands() {
-    return this.renderedEffects().some(effectUsesAudio);
-  }
-
   private audioMix() {
     return this.state.audioMix ?? SILENT_AUDIO_MIX;
   }
 
-  private sampleLiveAudioBands() {
-    return this.liveAudioBands.sample(
-      this.mixer?.analyser ?? null,
-      performance.now(),
-    );
+  // The mix is measured only while some effect reacts to it.
+  private sampleLiveAudioBands(effects = this.renderedEffects()) {
+    const analyser = liveBandsAnalyser(effects, this.mixer?.analyser ?? null);
+    return this.liveAudioBands.sample(analyser, performance.now());
   }
 
   private async sampleAudioBandsAt(playheadSeconds: number) {
@@ -399,7 +400,7 @@ export class CompositionRenderer {
     }
 
     const mix = this.audioMix();
-    if (!this.usesAudioBands()) {
+    if (!this.renderedEffects().some(effectUsesAudio)) {
       return SILENT_AUDIO_BANDS;
     }
 
