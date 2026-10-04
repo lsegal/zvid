@@ -188,8 +188,8 @@ export class PreviewAudioMixer {
         .filter((item) => item.previewUrl)
         .map((item) => [item.id, item.previewUrl]),
     );
-    // A chain dropped from a clip keeps sounding until the old mix's tail
-    // has passed.
+    // How long the old mix keeps sounding, which a clip chain no longer
+    // needed plays out.
     const previousTail = this.timing
       ? this.timing.tailSeconds +
         this.timing.latencyFrames / (this.graph?.context.sampleRate ?? 1)
@@ -207,26 +207,10 @@ export class PreviewAudioMixer {
         this.needsDecoded(clip) !== Boolean(voice.decoded)
       ) {
         this.release(clipId);
-      } else if (!this.graph) {
-        continue;
-      } else if (!this.chains) {
+      } else if (this.graph && this.chains) {
+        this.retune(voice, clip, this.chains, this.graph.context, previousTail);
+      } else if (this.graph) {
         setSmoothly(voice.gain.gain, clip.amplitude, this.graph.context);
-      } else if (voice.chain) {
-        this.configure(voice.chain, this.clipSettings(clip));
-        voice.retireAt = this.clipNeedsChain(clip)
-          ? null
-          : (voice.retireAt ??
-            this.graph.context.currentTime +
-              previousTail +
-              RETIRE_MARGIN_SECONDS);
-      } else if (this.clipNeedsChain(clip)) {
-        this.insertChain(voice, clip, this.chains, this.graph.context);
-      } else {
-        setSmoothly(
-          voice.gain.gain,
-          this.directAmplitude(clip),
-          this.graph.context,
-        );
       }
     }
     if (this.chains) {
@@ -696,6 +680,29 @@ export class PreviewAudioMixer {
   // place; silent without a Gain on its path.
   private directAmplitude(clip: AudioMixClip) {
     return clip.hasGain ? steadyGainAmplitude(this.registry, clip.stages) : 0;
+  }
+
+  // Applies `clip`'s edit to its voice in a mix that runs its chains: a
+  // chain it no longer needs is dropped once the old mix's tail, `tail`
+  // seconds, has passed.
+  private retune(
+    voice: Voice,
+    clip: AudioMixClip,
+    chains: ChainGraph,
+    context: AudioContext,
+    tail: number,
+  ) {
+    if (voice.chain) {
+      this.configure(voice.chain, this.clipSettings(clip));
+      voice.retireAt = this.clipNeedsChain(clip)
+        ? null
+        : (voice.retireAt ??
+          context.currentTime + tail + RETIRE_MARGIN_SECONDS);
+    } else if (this.clipNeedsChain(clip)) {
+      this.insertChain(voice, clip, chains, context);
+    } else {
+      setSmoothly(voice.gain.gain, this.directAmplitude(clip), context);
+    }
   }
 
   // Routes `voice` through a new chain for `clip`. The chain starts with
