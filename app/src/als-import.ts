@@ -81,14 +81,18 @@ export function isAlsBackupPath(rawPath: string) {
   return isAlsFilename(rawPath) && segments.at(-2)?.toLowerCase() === "backup";
 }
 
-// Session files a workspace can open, best first: `.lvp` sessions, then Live
-// sets (ignoring Ableton's backups), then bare JSON.
+// Session files a workspace can open, best first: `.zvd` and `.lvp` sessions,
+// then Live sets (ignoring Ableton's backups), then bare JSON.
 export function rankWorkspaceSessions<T extends { path: string }>(files: T[]) {
-  const byExtension = (extension: string) =>
-    files.filter((entry) => entry.path.toLowerCase().endsWith(extension));
-  const lvp = byExtension(".lvp");
-  if (lvp.length) {
-    return lvp;
+  const byExtension = (...extensions: string[]) =>
+    files.filter((entry) =>
+      extensions.some((extension) =>
+        entry.path.toLowerCase().endsWith(extension),
+      ),
+    );
+  const sessions = byExtension(".zvd", ".lvp");
+  if (sessions.length) {
+    return sessions;
   }
 
   const als = byExtension(".als").filter(

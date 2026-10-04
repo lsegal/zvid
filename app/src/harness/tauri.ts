@@ -142,7 +142,7 @@ export async function maybeCreateTauriHarness(
           filters: [
             {
               name: "Session or Ableton Live Set",
-              extensions: ["lvp", "als", "json"],
+              extensions: ["zvd", "lvp", "als", "json"],
             },
           ],
         });

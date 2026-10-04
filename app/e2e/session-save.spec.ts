@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 
-// File ▸ Save in the browser build: a session with no writable path prompts
-// for a location, which is a download where the save picker is missing.
+// File ▸ Export Project… in the browser build prompts for a location, which is
+// a download where the save picker is missing.
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
 
 async function dropVideoIntoNewSourceTrack(page: Page) {
@@ -24,7 +24,9 @@ async function dropVideoIntoNewSourceTrack(page: Page) {
   });
 }
 
-test("File ▸ Save downloads the session as an .lvp", async ({ page }) => {
+test("File ▸ Export Project… downloads the session as a .zvd", async ({
+  page,
+}) => {
   await page.addInitScript(() => {
     delete (window as { showSaveFilePicker?: unknown }).showSaveFilePicker;
   });
@@ -33,19 +35,21 @@ test("File ▸ Save downloads the session as an .lvp", async ({ page }) => {
 
   await page.getByRole("menuitem", { name: "File", exact: true }).click();
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
+  await page
+    .getByRole("menuitem", { name: "Export Project…", exact: true })
+    .click();
   const download = await downloadPromise;
 
-  expect(download.suggestedFilename()).toMatch(/\.lvp$/);
+  expect(download.suggestedFilename()).toMatch(/\.zvd$/);
   const path = await download.path();
   const session = JSON.parse(await readFile(path, "utf8"));
   expect(session.tracks).toHaveLength(1);
   expect(session.clips).toHaveLength(1);
   expect(session.clips[0].filePath).toContain("test-pattern.mp4");
-  await expect(page.getByText(/^Saved .*\.lvp\.$/)).toBeVisible();
+  await expect(page.getByText(/^Exported .*\.zvd\.$/)).toBeVisible();
 });
 
-test("File ▸ Save keeps fill clips and layer FX bypass on reopen", async ({
+test("File ▸ Export Project… keeps fill clips and layer FX bypass on reopen", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -81,7 +85,9 @@ test("File ▸ Save keeps fill clips and layer FX bypass on reopen", async ({
 
   await page.getByRole("menuitem", { name: "File", exact: true }).click();
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
+  await page
+    .getByRole("menuitem", { name: "Export Project…", exact: true })
+    .click();
   const download = await downloadPromise;
   const saved = await readFile(await download.path(), "utf8");
   const session = JSON.parse(saved);
@@ -90,7 +96,7 @@ test("File ▸ Save keeps fill clips and layer FX bypass on reopen", async ({
   expect(
     session.mainTracks.find((track: { id: string }) => track.id === "1"),
   ).toMatchObject({ fxEnabled: false });
-  await expect(page.getByText(/^Saved .*\.lvp\.$/)).toBeVisible();
+  await expect(page.getByText(/^Exported .*\.zvd\.$/)).toBeVisible();
 
   await page.getByRole("menuitem", { name: "File", exact: true }).click();
   const chooserPromise = page.waitForEvent("filechooser");
@@ -99,12 +105,12 @@ test("File ▸ Save keeps fill clips and layer FX bypass on reopen", async ({
     .click();
   const chooser = await chooserPromise;
   await chooser.setFiles({
-    name: "saved.lvp",
+    name: "saved.zvd",
     mimeType: "application/json",
     buffer: Buffer.from(saved),
   });
 
-  await expect(page.getByText("saved.lvp").first()).toBeVisible();
+  await expect(page.getByText("saved.zvd").first()).toBeVisible();
   await expect(lane.locator(".clip-card--fill")).toHaveCount(1);
   await header.click({ button: "right" });
   await expect(
