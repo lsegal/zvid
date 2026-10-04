@@ -23,8 +23,8 @@ const effectPasses = new Map<string, EffectPass>(
   EFFECT_PASSES.map((pass) => [normalizeEffectKey(pass.effectName), pass]),
 );
 
-// Matches `.lvp` names case- and space-insensitively, so "NegativeSplit" and
-// "Negative Split" resolve to the same pass.
+// Matches saved effect names case- and space-insensitively, so
+// "NegativeSplit" and "Negative Split" resolve to the same pass.
 export function getEffectPass(effectName: string) {
   return effectPasses.get(normalizeEffectKey(effectName));
 }

@@ -1,5 +1,5 @@
 import { isGzipBytes } from "./als-import.ts";
-import type { LvpSession } from "./session.ts";
+import type { ProjectSession } from "./session.ts";
 
 // The `.zvd` project archive: a gzip-compressed tar (ustar) stream holding the
 // session as `project.json` and the media it links to under `media/`. Names
@@ -12,7 +12,7 @@ export const PROJECT_ARCHIVE_MEDIA_DIR = "media/";
 export type ProjectArchiveMediaInput = { path: string; blob: Blob };
 export type ProjectArchiveMedia = { path: string; file: File };
 export type ProjectArchive = {
-  project: LvpSession;
+  project: ProjectSession;
   media: ProjectArchiveMedia[];
 };
 
@@ -156,7 +156,7 @@ export async function writeProjectArchive({
   project,
   media,
 }: {
-  project: LvpSession;
+  project: ProjectSession;
   media: ProjectArchiveMediaInput[];
 }): Promise<Blob> {
   const entries: ArchiveEntry[] = [
@@ -405,7 +405,7 @@ export async function readProjectArchive(
     );
   }
   const reader = new ChunkReader(gunzip(input));
-  let project: LvpSession | undefined;
+  let project: ProjectSession | undefined;
   const media: ProjectArchiveMedia[] = [];
   try {
     const wanted = (path: string) =>
@@ -427,7 +427,7 @@ export async function readProjectArchive(
             "Project archive project.json is not a session object",
           );
         }
-        project = parsed as LvpSession;
+        project = parsed as ProjectSession;
       } else {
         const file = new File(entry.parts, basename(entry.path));
         media.push({ path: entry.path, file });

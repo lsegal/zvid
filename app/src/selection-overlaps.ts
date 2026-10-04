@@ -1,17 +1,17 @@
-import type { LvpSession } from "./session.ts";
+import type { ProjectSession } from "./session.ts";
 
 // A layer shows one clip at a time, so a session never holds two selections
 // that overlap on the same main track. Clips placed later win an overlap, the
 // same rule the editor applies when a clip is moved onto another.
 
-export type LvpSelection = NonNullable<LvpSession["selections"]>[number];
+export type ProjectSelection = NonNullable<ProjectSession["selections"]>[number];
 
 export interface SelectionOverlapResult {
-  selections: LvpSelection[];
+  selections: ProjectSelection[];
   /** Selections that were shortened, as they were before trimming. */
-  trimmed: LvpSelection[];
+  trimmed: ProjectSelection[];
   /** Selections that were covered entirely and removed. */
-  dropped: LvpSelection[];
+  dropped: ProjectSelection[];
 }
 
 /**
@@ -20,17 +20,17 @@ export interface SelectionOverlapResult {
  * keeps its longer uncovered side, and is removed when it has none.
  */
 export function resolveSelectionOverlaps(
-  selections: readonly LvpSelection[],
+  selections: readonly ProjectSelection[],
 ): SelectionOverlapResult {
-  let resolved: LvpSelection[] = [];
+  let resolved: ProjectSelection[] = [];
   for (const active of selections) {
     resolved = resolved.flatMap((selection) => trimAround(selection, active));
     resolved.push(active);
   }
 
   const byId = new Map(resolved.map((selection) => [selection.id, selection]));
-  const trimmed: LvpSelection[] = [];
-  const dropped: LvpSelection[] = [];
+  const trimmed: ProjectSelection[] = [];
+  const dropped: ProjectSelection[] = [];
   for (const selection of selections) {
     const result = byId.get(selection.id);
     if (!result) dropped.push(selection);
@@ -40,9 +40,9 @@ export function resolveSelectionOverlaps(
 }
 
 function trimAround(
-  selection: LvpSelection,
-  active: LvpSelection,
-): LvpSelection[] {
+  selection: ProjectSelection,
+  active: ProjectSelection,
+): ProjectSelection[] {
   if (selection.mainTrackId !== active.mainTrackId) return [selection];
 
   const overlapStart = Math.max(selection.frameStart, active.frameStart);
@@ -58,7 +58,7 @@ function trimAround(
 }
 
 /** Resolves a loaded session's overlapping selections, if it has any. */
-export function resolveSessionOverlaps(session: LvpSession) {
+export function resolveSessionOverlaps(session: ProjectSession) {
   const { selections, trimmed, dropped } = resolveSelectionOverlaps(
     session.selections ?? [],
   );

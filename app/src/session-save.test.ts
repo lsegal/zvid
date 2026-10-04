@@ -6,10 +6,10 @@ import type { EffectAnimation } from "./fx-animation-defaults.ts";
 import type { EffectModulation } from "./fx-modulation-defaults.ts";
 import { hasGlobalOrder, mapEffects, pruneClipEffects } from "./fx-stack.ts";
 import { migrateDefaultOrder } from "./project-state-compat.ts";
-import { clipSourceFrame, type LvpSession } from "./session.ts";
+import { clipSourceFrame, type ProjectSession } from "./session.ts";
 import {
   projectExportFilename,
-  projectToLvpSession,
+  projectToSession,
   readSelectionSlip,
   readSelectionTrackOffset,
   readSessionFills,
@@ -148,9 +148,9 @@ function baseProject(
   };
 }
 
-describe("projectToLvpSession", () => {
+describe("projectToSession", () => {
   it("writes tracks, clips, selections, effects and timeline", () => {
-    const session = projectToLvpSession(baseProject(), {
+    const session = projectToSession(baseProject(), {
       playheadQ: 2,
       selectedClipId: "clip-added",
     });
@@ -221,7 +221,7 @@ describe("projectToLvpSession", () => {
   });
 
   it("does not reuse a selection id another clip keeps", () => {
-    const session = projectToLvpSession(
+    const session = projectToSession(
       baseProject({
         clips: [
           {
@@ -250,7 +250,7 @@ describe("projectToLvpSession", () => {
 
   it("keeps fill clips out of selections and reads them back", () => {
     const project = baseProject();
-    const session = projectToLvpSession(
+    const session = projectToSession(
       {
         ...project,
         clips: [
@@ -291,7 +291,7 @@ describe("projectToLvpSession", () => {
 
   it("keeps FX clips out of selections and reads them back with their stack", () => {
     const project = baseProject();
-    const session = projectToLvpSession(
+    const session = projectToSession(
       {
         ...project,
         clips: [
@@ -329,7 +329,7 @@ describe("projectToLvpSession", () => {
         selected: true,
       },
     ]);
-    const reopened = JSON.parse(JSON.stringify(session)) as LvpSession;
+    const reopened = JSON.parse(JSON.stringify(session)) as ProjectSession;
     assert.deepEqual(readSessionFxClips(reopened, 120, 30), [
       {
         id: "fx-1",
@@ -349,7 +349,7 @@ describe("projectToLvpSession", () => {
 
   it("round-trips effect and layer FX bypass", () => {
     const project = baseProject();
-    const session = projectToLvpSession(
+    const session = projectToSession(
       {
         ...project,
         lanes: [
@@ -376,7 +376,7 @@ describe("projectToLvpSession", () => {
   });
 
   it("saves a source track's FX bypass, leaving the default unwritten", () => {
-    const session = projectToLvpSession(
+    const session = projectToSession(
       {
         ...baseProject(),
         sourceTracks: [
@@ -407,7 +407,7 @@ describe("projectToLvpSession", () => {
 
   it("saves the Hide switches, writing only hidden tracks", () => {
     const project = baseProject();
-    const session = projectToLvpSession(
+    const session = projectToSession(
       {
         ...project,
         lanes: [
@@ -460,7 +460,7 @@ describe("projectToLvpSession", () => {
         parameters: ["_NumPixels"],
       },
     };
-    const session = projectToLvpSession(
+    const session = projectToSession(
       baseProject({
         effects: [
           {
@@ -497,7 +497,7 @@ describe("projectToLvpSession", () => {
       clip: { motionIn: "Ease In", motionOut: "Linear", timing: "Full" },
     };
     const project = baseProject();
-    const session = projectToLvpSession(
+    const session = projectToSession(
       {
         ...project,
         clips: [
@@ -527,7 +527,7 @@ describe("projectToLvpSession", () => {
       },
       { playheadQ: 0 },
     );
-    const reopened = JSON.parse(JSON.stringify(session)) as LvpSession;
+    const reopened = JSON.parse(JSON.stringify(session)) as ProjectSession;
     assert.deepEqual(
       readSessionFxClips(reopened, 120, 30).map((clip) => clip.id),
       ["fx-transition"],
@@ -566,7 +566,7 @@ describe("projectToLvpSession", () => {
         parameters: ["Frequency", "Resonance"],
       },
     };
-    const session = projectToLvpSession(
+    const session = projectToSession(
       baseProject({
         effects: [
           {
@@ -598,7 +598,7 @@ describe("projectToLvpSession", () => {
 
   it("drops an Order's exclusions of layers that no longer exist", () => {
     const project = baseProject();
-    const session = projectToLvpSession(
+    const session = projectToSession(
       {
         ...project,
         effects: [
@@ -623,7 +623,7 @@ describe("projectToLvpSession", () => {
   });
 
   it("keeps a removed Order removed when reopened", () => {
-    const session = projectToLvpSession(baseProject(), { playheadQ: 0 });
+    const session = projectToSession(baseProject(), { playheadQ: 0 });
     assert.equal(session.orderDefaulted, true);
 
     const reopened = JSON.parse(JSON.stringify(session)) as typeof session;
@@ -658,7 +658,7 @@ describe("projectToLvpSession", () => {
       "t1",
       "Wide",
     );
-    const session = projectToLvpSession(
+    const session = projectToSession(
       { ...project, sourceTracks, sourceSpans, clips },
       { playheadQ: 0 },
     );
@@ -685,7 +685,7 @@ describe("projectToLvpSession", () => {
   it("round-trips a slipped clip's source track offset", () => {
     const project = baseProject();
     // The span's offset is trimStart 1 s minus its 2 s start: -1 s.
-    const session = projectToLvpSession(
+    const session = projectToSession(
       {
         ...project,
         clips: [
@@ -720,7 +720,7 @@ describe("projectToLvpSession", () => {
     // The span now starts at 4 s (8 quarters), after the clip's start. The
     // clip was made when the span played at the same offset, -1 s, so it
     // still shows the track at its own position, where nothing is now.
-    const session = projectToLvpSession(
+    const session = projectToSession(
       {
         ...project,
         sourceSpans: [
@@ -750,7 +750,7 @@ describe("projectToLvpSession", () => {
 
   it("reads an older build's slip against the source clip it names", () => {
     const project = baseProject();
-    const session = projectToLvpSession(project, { playheadQ: 0 });
+    const session = projectToSession(project, { playheadQ: 0 });
     const spans = sessionToProject(session, []).sourceSpans;
     // Saved against c1, whose offset is -1 s, with a 2.25 s offset.
     const [selection] = session.selections ?? [];
@@ -764,7 +764,7 @@ describe("projectToLvpSession", () => {
   });
 
   it("opens sessions without zvid-only fields as before", () => {
-    const session = projectToLvpSession(baseProject(), { playheadQ: 0 });
+    const session = projectToSession(baseProject(), { playheadQ: 0 });
     assert.equal(session.fills, undefined);
     assert.equal(session.texts, undefined);
     assert.equal(session.fxClips, undefined);
@@ -807,7 +807,7 @@ describe("projectToLvpSession", () => {
       ["ok"],
     );
     assert.deepEqual(
-      readSessionTexts({ texts: "nope" } as unknown as LvpSession, 120, 30),
+      readSessionTexts({ texts: "nope" } as unknown as ProjectSession, 120, 30),
       [],
     );
     assert.equal(
@@ -826,7 +826,7 @@ describe("projectToLvpSession", () => {
 
   it("keeps text clips out of selections and reads them back", () => {
     const project = baseProject();
-    const session = projectToLvpSession(
+    const session = projectToSession(
       {
         ...project,
         clips: [
@@ -884,7 +884,7 @@ describe("projectToLvpSession", () => {
     const warp = createClipWarp(markers, 30 / fps, trimStartSeconds, bpm);
     assert.ok(warp);
 
-    const session = projectToLvpSession(
+    const session = projectToSession(
       baseProject({
         sourceSpans: [
           {
@@ -925,7 +925,7 @@ describe("projectToLvpSession", () => {
 describe("clip stacks in a saved session", () => {
   it("round-trips a Shape's shape by name", () => {
     const project = baseProject();
-    const session = projectToLvpSession(
+    const session = projectToSession(
       {
         ...project,
         effects: [
@@ -942,7 +942,7 @@ describe("clip stacks in a saved session", () => {
     assert.deepEqual(session.effects?.[0]?.parameters, {
       Shape: { stringValue: "Star" },
     });
-    const reopened = JSON.parse(JSON.stringify(session)) as LvpSession;
+    const reopened = JSON.parse(JSON.stringify(session)) as ProjectSession;
     assert.deepEqual(mapEffects(reopened.effects)[0]?.parameters, [
       { key: "Shape", value: "Star", numericValue: undefined },
     ]);
@@ -956,7 +956,7 @@ describe("clip stacks in a saved session", () => {
       effectName: "Transform",
       parameters: [{ key: "ScaleX", value: "0.500", numericValue: 0.5 }],
     });
-    const session = projectToLvpSession(
+    const session = projectToSession(
       {
         ...project,
         effects: [
@@ -973,7 +973,7 @@ describe("clip stacks in a saved session", () => {
       ["main-1", "clip:selection-7", "clip:selection-0"],
     );
 
-    const reopened = JSON.parse(JSON.stringify(session)) as LvpSession;
+    const reopened = JSON.parse(JSON.stringify(session)) as ProjectSession;
     const loadedClipIds = (reopened.selections ?? []).map((selection) => ({
       id: `selection-${selection.id}`,
     }));
@@ -1000,7 +1000,7 @@ describe("clip stacks in a saved session", () => {
       effectName: "Pixelate",
       parameters: [{ key: "Size", value: "0.500", numericValue: 0.5 }],
     });
-    const session = projectToLvpSession(
+    const session = projectToSession(
       {
         ...project,
         sourceSpans: [
@@ -1035,7 +1035,7 @@ describe("clip stacks in a saved session", () => {
     );
 
     const restored = sessionToProject(
-      JSON.parse(JSON.stringify(session)) as LvpSession,
+      JSON.parse(JSON.stringify(session)) as ProjectSession,
       [],
     );
     assert.deepEqual(
@@ -1057,7 +1057,7 @@ describe("clip stacks in a saved session", () => {
 
   it("keeps a fill or text clip's stack under its own id", () => {
     const project = baseProject();
-    const session = projectToLvpSession(
+    const session = projectToSession(
       {
         ...project,
         clips: [

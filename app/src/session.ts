@@ -6,7 +6,7 @@ import type { SessionEncoding } from "./session-settings.ts";
 
 // Fields marked zvid-only are written by zvid and ignored by the Layers app.
 /** A zvid-only clip with no media, drawn by its main track's effects. */
-export type LvpLayerClip = {
+export type ProjectLayerClip = {
   id: string;
   mainTrackId: string;
   frameStart: number;
@@ -14,7 +14,7 @@ export type LvpLayerClip = {
   selected?: boolean;
 };
 
-export type LvpSession = {
+export type ProjectSession = {
   mainTracks?: Array<{
     id: string;
     name: string;
@@ -87,14 +87,14 @@ export type LvpSession = {
     sourceOffsetSeconds?: number;
   }>;
   /** zvid-only: fill clips, painted by their main track's Color effect. */
-  fills?: LvpLayerClip[];
+  fills?: ProjectLayerClip[];
   /** zvid-only: text clips, styled by their main track's Text effect. */
-  texts?: LvpLayerClip[];
+  texts?: ProjectLayerClip[];
   /**
    * zvid-only: FX clips, whose own effect stack adjusts everything beneath
    * them.
    */
-  fxClips?: LvpLayerClip[];
+  fxClips?: ProjectLayerClip[];
   effects?: Array<{
     id: string;
     trackId: string;
@@ -162,7 +162,7 @@ export type ServerMediaRef = {
 export type SessionOpenResponse = {
   sessionName: string;
   sessionPath?: string;
-  session: LvpSession;
+  session: ProjectSession;
   mediaRefs: ServerMediaRef[];
   // Present when the session was imported from an Ableton Live set.
   alsImport?: AlsImportSummary;
@@ -176,7 +176,7 @@ export type SessionOpenResponse = {
  * -1, which is treated as 0.
  */
 export function clipSourceFrame(
-  clip: NonNullable<LvpSession["clips"]>[number],
+  clip: NonNullable<ProjectSession["clips"]>[number],
 ) {
   const captureOffset =
     clip.captureOffset === -1 ? 0 : (clip.captureOffset ?? 0);
@@ -192,7 +192,7 @@ function isFilePath(value: unknown): value is string {
 
 // Every media file the session references: its clips, its Custom shapes'
 // SVGs and, in an older session, its main audio.
-export function collectSessionMediaPaths(session: LvpSession) {
+export function collectSessionMediaPaths(session: ProjectSession) {
   const mediaPaths = new Set<string>();
 
   for (const clip of session.clips ?? []) {
@@ -213,7 +213,7 @@ export function collectSessionMediaPaths(session: LvpSession) {
 }
 
 // The SVG media the session's Custom shapes take their masks from.
-export function collectShapeMediaPaths(session: LvpSession) {
+export function collectShapeMediaPaths(session: ProjectSession) {
   return customShapeMediaPaths(
     (session.effects ?? []).map((effect) => ({
       effectName: effect.effectName,
@@ -229,7 +229,7 @@ export function collectShapeMediaPaths(session: LvpSession) {
 // a clip can arrive without a `filePath`. Such a clip opens as a placeholder
 // with no media, like an imported clip whose path is `""`, and is named in
 // `clipsWithoutFile` so the open can report it instead of failing.
-export function normalizeLvpSession(session: LvpSession) {
+export function normalizeSession(session: ProjectSession) {
   const clipsWithoutFile: string[] = [];
   const clips = session.clips?.map((clip) => {
     if (typeof clip.filePath === "string") {
@@ -253,7 +253,7 @@ export function normalizeLvpSession(session: LvpSession) {
         }
       : track,
   );
-  const normalized: LvpSession = { ...session, clips, tracks };
+  const normalized: ProjectSession = { ...session, clips, tracks };
   if (clips === undefined) delete normalized.clips;
   if (tracks === undefined) delete normalized.tracks;
   if (

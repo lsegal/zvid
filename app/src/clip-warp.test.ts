@@ -6,7 +6,7 @@ import {
   computeActiveClips,
   type MediaItem,
 } from "./composition-active-clips.ts";
-import { clipSourceFrame, type LvpSession } from "./session.ts";
+import { clipSourceFrame, type ProjectSession } from "./session.ts";
 
 const BPM = 120;
 
@@ -205,7 +205,7 @@ describe("warped clip playback", () => {
   // warp position of the clip start at 30 fps.
   const FPS = 30;
   const SONG_BPM = 72;
-  const session: NonNullable<LvpSession["clips"]>[number] = {
+  const session: NonNullable<ProjectSession["clips"]>[number] = {
     id: "1-1",
     trackId: "1",
     filePath: "video.mov",

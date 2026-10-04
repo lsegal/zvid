@@ -8,15 +8,15 @@ import { resolveAudioClips } from "../audio-mix/resolve.ts";
 import { clipEffectTrackId } from "../fx/stack/clip-stacks.ts";
 import { FX_EFFECT_DEFINITIONS } from "../fx-registry.ts";
 import { buildFallbackMediaItem } from "../media.ts";
-import { collectSessionMediaPaths, type LvpSession } from "../session.ts";
+import { collectSessionMediaPaths, type ProjectSession } from "../session.ts";
 import { OPENING_SAMPLE_MANIFEST } from "./opening-manifest.generated.ts";
 import { buildSampleOpenPayload } from "./sample-loader.ts";
 
 const sessionText = readFileSync(
-  new URL("./zvid-opening.lvp", import.meta.url),
+  new URL("./zvid-opening.project.json", import.meta.url),
   "utf8",
 );
-const session = JSON.parse(sessionText) as LvpSession;
+const session = JSON.parse(sessionText) as ProjectSession;
 const FPS = 30;
 const MUSIC_ID = "zvid-sample:opening-v2:music";
 const AUDIO_LAYER = "audio";

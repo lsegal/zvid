@@ -9,7 +9,7 @@ import {
   isProjectArchiveFilename,
   openProjectArchive,
 } from "../project-archive-open";
-import type { LvpSession, SessionOpenResponse } from "../session";
+import type { ProjectSession, SessionOpenResponse } from "../session";
 import { detectOpenedSessionFormat } from "../session-format";
 import type {
   Harness,
@@ -321,7 +321,7 @@ export function createWebHarness(): Harness {
 
         const session = JSON.parse(
           new TextDecoder().decode(bytes),
-        ) as LvpSession;
+        ) as ProjectSession;
         return buildFileOpenPayload(session, selection.file.name);
       }
 

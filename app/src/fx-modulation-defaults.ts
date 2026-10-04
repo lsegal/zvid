@@ -31,7 +31,7 @@ export type TransientModulation = ReactiveAnimation;
 // LFO's settings are Animation's LFO mode's.
 export type LfoModulation = LfoAnimation;
 
-// Stored on an audio effect instance, and saved to `.lvp` as zvid-only
+// Stored on an audio effect instance, and saved in `project.json` as zvid-only
 // `modulation`. Turning the modifier off keeps the settings for next time.
 export type EffectModulation = {
   enabled: boolean;

@@ -89,7 +89,7 @@ for (const [name, withAudio] of [
   const audio = withAudio ? resolve(workspace, "main-tone.wav") : undefined;
   if (audio) copyFileSync(audioPath, audio);
   writeFileSync(
-    resolve(workspace, `${name}.lvp`),
+    resolve(workspace, "project.json"),
     `${JSON.stringify(session(video, audio), null, 2)}\n`,
   );
 }

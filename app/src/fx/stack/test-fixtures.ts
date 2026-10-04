@@ -1,4 +1,4 @@
-import type { LvpSession } from "../../session.ts";
+import type { ProjectSession } from "../../session.ts";
 import { GLOBAL_EFFECT_TRACK_ID } from "./clip-stacks.ts";
 import { mapEffects } from "./session-mapping.ts";
 import type { SessionEffect } from "./types.ts";
@@ -6,7 +6,7 @@ import type { SessionEffect } from "./types.ts";
 // The effect stacks of the dogfood3.lvp session: Layer 3 ("6") has four
 // devices, and Layout sits on the global stack, as sessions from before
 // Layout was per layer did.
-export const DOGFOOD_EFFECTS: LvpSession["effects"] = [
+export const DOGFOOD_EFFECTS: ProjectSession["effects"] = [
   {
     id: "zoom",
     trackId: "1",

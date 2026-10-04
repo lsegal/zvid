@@ -19,7 +19,7 @@ import {
 import { resolveAppCommit } from "./src/build-info.ts";
 import { collectShapeMediaPaths } from "./src/session.ts";
 
-type LvpSession = Parameters<typeof collectShapeMediaPaths>[0] & {
+type ProjectSession = Parameters<typeof collectShapeMediaPaths>[0] & {
   clips?: Array<{ filePath: string }>;
   audioFilename?: string;
 };
@@ -33,7 +33,7 @@ type RegisteredMedia = {
 };
 
 type SessionOpenPayload = {
-  session: LvpSession;
+  session: ProjectSession;
   sessionName: string;
   mediaRefs: RegisteredMedia[];
   sessionPath?: string;
@@ -81,7 +81,7 @@ function normalizeMediaPath(filePath: string) {
   return path.normalize(filePath.trim());
 }
 
-function collectSessionMedia(session: LvpSession) {
+function collectSessionMedia(session: ProjectSession) {
   const mediaPaths = new Set<string>();
 
   for (const clip of session.clips ?? []) {
@@ -136,7 +136,7 @@ function isFile(filePath: string) {
 }
 
 // Imports a Live set and locates its recordings on disk. An imported set is
-// never written back, so the payload's session path is the sibling `.lvp`.
+// never written back, so the payload's session path is the sibling `.zvd`.
 async function buildAlsOpenPayload(
   bytes: Uint8Array,
   options: { sessionName: string; sessionPath?: string },
@@ -173,7 +173,7 @@ function writeError(response: Parameters<typeof writeJson>[0], error: unknown) {
 }
 
 function buildSessionOpenPayload(
-  session: LvpSession,
+  session: ProjectSession,
   options: { sessionName: string; sessionPath?: string },
 ): SessionOpenPayload {
   return {
@@ -263,7 +263,7 @@ function diskMediaPlugin(): Plugin {
 
             const session = JSON.parse(
               new TextDecoder().decode(bytes),
-            ) as LvpSession;
+            ) as ProjectSession;
             writeJson(response, 200, buildSessionOpenPayload(session, options));
           } catch (error) {
             writeError(response, error);
@@ -283,7 +283,7 @@ function diskMediaPlugin(): Plugin {
             };
             const sessionContents = body.sessionContents?.trim();
             console.info("[zvid] /api/session/open-file", {
-              sessionName: body.sessionName?.trim() || "Session.lvp",
+              sessionName: body.sessionName?.trim() || "Session.zvd",
               hasContents: Boolean(sessionContents || body.sessionBase64),
               contentLength:
                 sessionContents?.length ?? body.sessionBase64?.length ?? 0,
@@ -309,12 +309,12 @@ function diskMediaPlugin(): Plugin {
               return;
             }
 
-            const session = JSON.parse(sessionContents) as LvpSession;
+            const session = JSON.parse(sessionContents) as ProjectSession;
             writeJson(
               response,
               200,
               buildSessionOpenPayload(session, {
-                sessionName: body.sessionName?.trim() || "Session.lvp",
+                sessionName: body.sessionName?.trim() || "Session.zvd",
               }),
             );
           } catch (error) {

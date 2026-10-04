@@ -5,7 +5,7 @@ import {
   readEffectNumber,
 } from "../../../fx-shaders/types.ts";
 
-// (zoom, x, y) framing for one end of the move, each clamped to 0..1. The .lvp
+// (zoom, x, y) framing for one end of the move, each clamped to 0..1. The saved
 // Y runs top-down; `bottomUp` flips it to match a bottom-up texture.
 export function readZoomFraming(
   params: EffectParameter[],
@@ -24,7 +24,7 @@ export function readZoomFraming(
 // maps to 1x..4x; X and Y 0..1 place the window inside the frame, with 0 the
 // left/top edge and 1 the right/bottom edge, so it never samples outside the
 // texture. Layer textures are uploaded top row first (UNPACK_FLIP_Y off), so
-// vUv.y already runs top-down and the .lvp Y is used without flipping; the
+// vUv.y already runs top-down and the saved Y is used without flipping; the
 // group stack's offscreen scene is bottom-up, so its Y is flipped instead.
 export const pass: EffectPass = {
   effectName: "ZoomAndPan",

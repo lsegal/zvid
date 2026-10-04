@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   formatOverlapNote,
-  type LvpSelection,
+  type ProjectSelection,
   resolveSelectionOverlaps,
   resolveSessionOverlaps,
 } from "./selection-overlaps.ts";
@@ -12,7 +12,7 @@ const selection = (
   frameStart: number,
   frameEnd: number,
   mainTrackId = "1",
-): LvpSelection => ({
+): ProjectSelection => ({
   id,
   trackId: `t${id}`,
   mainTrackId,
@@ -21,7 +21,7 @@ const selection = (
   selected: false,
 });
 
-const spans = (selections: LvpSelection[]) =>
+const spans = (selections: ProjectSelection[]) =>
   selections.map(({ id, mainTrackId, frameStart, frameEnd }) => [
     id,
     mainTrackId,

@@ -1,4 +1,4 @@
-import type { LvpSession } from "./session.ts";
+import type { ProjectSession } from "./session.ts";
 
 // A session's canvas size and frame rate, detected from the video it is
 // created from. Imports and opens use it to match the session to its media,
@@ -132,7 +132,7 @@ export function detectSessionFormat(
 }
 
 // Frame positions a session stores, which all count frames at its rate.
-function rescaleFrames(session: LvpSession, ratio: number): LvpSession {
+function rescaleFrames(session: ProjectSession, ratio: number): ProjectSession {
   const scale = (frames: number) => Math.round(frames * ratio);
   const scaleOptional = (frames: number | undefined) =>
     frames === undefined ? undefined : scale(frames);
@@ -196,9 +196,9 @@ function rescaleFrames(session: LvpSession, ratio: number): LvpSession {
  * rescaled to the new rate so everything keeps its time.
  */
 export function applySessionFormat(
-  session: LvpSession,
+  session: ProjectSession,
   detected: Omit<DetectedSessionFormat, "notes">,
-): LvpSession {
+): ProjectSession {
   const fps = session.timeline?.fps;
   const rescaled =
     detected.fps && fps && Math.abs(detected.fps - fps) > 1e-9
@@ -225,9 +225,9 @@ export function applySessionFormat(
  * to one.
  */
 export function fillMissingSessionFormat(
-  session: LvpSession,
+  session: ProjectSession,
   detected: Omit<DetectedSessionFormat, "notes">,
-): LvpSession {
+): ProjectSession {
   const timeline = session.timeline ?? {};
   const hasCanvas = !!timeline.canvasWidth && !!timeline.canvasHeight;
   const fps = timeline.fps || detected.fps;
@@ -244,7 +244,7 @@ export function fillMissingSessionFormat(
 }
 
 /** Whether an opened session lacks a canvas size or frame rate of its own. */
-export function lacksSessionFormat(session: LvpSession) {
+export function lacksSessionFormat(session: ProjectSession) {
   const timeline = session.timeline;
   return !timeline?.fps || !timeline.canvasWidth || !timeline.canvasHeight;
 }
@@ -285,7 +285,7 @@ export async function probeRefs<T>(
  * and nothing is probed.
  */
 export async function detectOpenedSessionFormat(
-  session: LvpSession,
+  session: ProjectSession,
   mediaRefs: readonly ProbeRef[],
   probe: (url: string) => Promise<VideoFormatProbe | null>,
 ) {

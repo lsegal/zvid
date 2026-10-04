@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { before, describe, it } from "node:test";
-import type { LvpSession } from "../../session.ts";
+import type { ProjectSession } from "../../session.ts";
 import {
   type AlsImportResult,
   convertAls,
@@ -20,7 +20,7 @@ import { parseAls } from "./parse.ts";
 const fixture = (name: string) =>
   readFileSync(new URL(`../../../test/fixtures/als/${name}`, import.meta.url));
 
-type LvpClip = NonNullable<LvpSession["clips"]>[number];
+type SessionClip = NonNullable<ProjectSession["clips"]>[number];
 
 // The Layers app wrote float32 values, e.g. 0.014833333 for 0.0148333332327.
 function assertClose(actual: unknown, expected: unknown, message: string) {
@@ -36,7 +36,7 @@ const basename = (path: string) => path.split(/[\\/]/).at(-1);
 describe("convertAls with dogfood3.als against dogfood3.lvp", () => {
   const golden = JSON.parse(fixture("dogfood3.lvp").toString("utf8"));
   let result: AlsImportResult;
-  let session: LvpSession;
+  let session: ProjectSession;
   before(async () => {
     result = convertAls(
       await parseAls(new Uint8Array(fixture("dogfood3.als"))),
@@ -53,14 +53,14 @@ describe("convertAls with dogfood3.als against dogfood3.lvp", () => {
     assert.ok(found, `missing clip ${id}`);
     return found;
   };
-  const goldenClip = (id: string): LvpClip =>
-    golden.clips.find((candidate: LvpClip) => candidate.id === id);
+  const goldenClip = (id: string): SessionClip =>
+    golden.clips.find((candidate: SessionClip) => candidate.id === id);
 
   it("keeps the golden video tracks, with Layers recordings", () => {
     // Like the Layers app, it drops 4-Audio, which has no video.
     assert.deepEqual(
       session.tracks,
-      golden.tracks.map((track: NonNullable<LvpSession["tracks"]>[number]) => ({
+      golden.tracks.map((track: NonNullable<ProjectSession["tracks"]>[number]) => ({
         id: track.id,
         name: track.name,
         colorIndex: track.colorIndex,
@@ -868,7 +868,7 @@ describe("convertAls with ZVID Capture fixtures", () => {
   const load = async (name: string) =>
     convertAls(await parseAls(new Uint8Array(fixture(name))));
   // The file frame each clip starts at.
-  const fileFrame = (clip: LvpClip) =>
+  const fileFrame = (clip: SessionClip) =>
     (clip.clipStart ?? 0) + (clip.captureOffset ?? 0);
   const placed = (result: AlsImportResult) =>
     result.session.clips?.map((clip) => [

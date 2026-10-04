@@ -11,7 +11,7 @@ import {
   type ProjectArchiveMediaInput,
   writeProjectArchive,
 } from "./project-archive.ts";
-import { collectShapeMediaPaths, type LvpSession } from "./session.ts";
+import { collectShapeMediaPaths, type ProjectSession } from "./session.ts";
 
 // File ▸ Export ▸ Project…: the `.zvd` archive written from a session. With
 // media included, each file the session links goes in once under `media/`,
@@ -28,7 +28,7 @@ function isLinkedPath(value: unknown): value is string {
 // recordings, its Custom shapes' SVGs and, in an older session, its main
 // audio. Spellings of one
 // path that differ only in case or separator count once.
-export function collectLinkedMediaPaths(session: LvpSession) {
+export function collectLinkedMediaPaths(session: ProjectSession) {
   const paths = new Map<string, string>();
   const add = (value: unknown) => {
     if (!isLinkedPath(value)) return;
@@ -76,14 +76,14 @@ export function assignArchiveMediaPaths(paths: string[]) {
 // normalizeMediaPath) swapped for its archive entry. Paths without one are
 // left as they are.
 export function rewriteSessionMediaPaths(
-  session: LvpSession,
+  session: ProjectSession,
   archivePaths: Map<string, string>,
-): LvpSession {
+): ProjectSession {
   const rewrite = <T>(value: T): T =>
     isLinkedPath(value)
       ? ((archivePaths.get(normalizeMediaPath(value.trim())) ?? value) as T)
       : value;
-  const rewritten: LvpSession = { ...session };
+  const rewritten: ProjectSession = { ...session };
   if (session.clips) {
     rewritten.clips = session.clips.map((clip) => ({
       ...clip,
@@ -151,7 +151,7 @@ export async function buildProjectArchive({
   mediaItems,
   readMedia,
 }: {
-  session: LvpSession;
+  session: ProjectSession;
   includeMedia: boolean;
   mediaItems: MediaItem[];
   readMedia: (item: MediaItem) => Promise<Blob | undefined>;

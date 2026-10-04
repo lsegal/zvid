@@ -5,8 +5,8 @@ import {
   clipSourceFrame,
   collectSessionMediaPaths,
   formatClipsWithoutFile,
-  type LvpSession,
-  normalizeLvpSession,
+  type ProjectSession,
+  normalizeSession,
 } from "./session.ts";
 
 // A clip as a session file may hold it: parsed JSON, so `filePath` can be
@@ -19,12 +19,12 @@ function clip(id: string, filePath: unknown, name?: string) {
     frameStart: 0,
     frameCount: 30,
     filePath,
-  } as unknown as NonNullable<LvpSession["clips"]>[number];
+  } as unknown as NonNullable<ProjectSession["clips"]>[number];
 }
 
-describe("normalizeLvpSession", () => {
+describe("normalizeSession", () => {
   it("turns a clip without a filePath into a reported placeholder", () => {
-    const { session, clipsWithoutFile } = normalizeLvpSession({
+    const { session, clipsWithoutFile } = normalizeSession({
       clips: [
         clip("a", "C:\\media\\a.mov"),
         clip("b", undefined, "Bass"),
@@ -44,7 +44,7 @@ describe("normalizeLvpSession", () => {
   });
 
   it("drops non-string recording filenames and main audio", () => {
-    const { session } = normalizeLvpSession({
+    const { session } = normalizeSession({
       tracks: [
         {
           id: "1",
@@ -71,8 +71,8 @@ describe("normalizeLvpSession", () => {
         new URL("../test/fixtures/als/dogfood3.lvp", import.meta.url),
         "utf8",
       ),
-    ) as LvpSession;
-    const { session, clipsWithoutFile } = normalizeLvpSession(fixture);
+    ) as ProjectSession;
+    const { session, clipsWithoutFile } = normalizeSession(fixture);
 
     assert.deepEqual(session, fixture);
     assert.deepEqual(clipsWithoutFile, []);
@@ -83,13 +83,13 @@ describe("collectSessionMediaPaths", () => {
   it("skips clips whose filePath is missing or not a string", () => {
     const session = {
       clips: [clip("a", "a.mov"), clip("b", undefined), clip("c", 7)],
-    } as LvpSession;
+    } as ProjectSession;
 
     assert.deepEqual(collectSessionMediaPaths(session), ["a.mov"]);
   });
 
   it("includes the SVGs Custom shapes take their masks from", () => {
-    const session: LvpSession = {
+    const session: ProjectSession = {
       clips: [clip("a", "a.mov")],
       effects: [
         {
@@ -131,7 +131,7 @@ describe("clipSourceFrame", () => {
   // Shaped like the Layers app's reference export at 72 BPM and 30 fps,
   // where a clip's file frame is clipStart + frameOffset + captureOffset.
   const referenceClip = (
-    fields: Partial<NonNullable<LvpSession["clips"]>[number]>,
+    fields: Partial<NonNullable<ProjectSession["clips"]>[number]>,
   ) => ({ ...clip("a", "take.mp4"), frameOffset: 0, ...fields });
 
   it("adds the capture offset to the content start", () => {

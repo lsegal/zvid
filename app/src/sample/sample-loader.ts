@@ -5,7 +5,7 @@
 // hash. Cached assets are reused without a download, so a warm cache opens
 // offline; an evicted asset is downloaded again the next time it is needed.
 
-import type { LvpSession, SessionOpenResponse } from "../session.ts";
+import type { ProjectSession, SessionOpenResponse } from "../session.ts";
 import type { SampleAsset, SampleManifest } from "./sample-manifest.ts";
 
 export type SampleLoadDeps = {
@@ -193,7 +193,7 @@ export function buildSampleOpenPayload(
   manifest: SampleManifest,
   sessionText: string,
 ): SessionOpenResponse {
-  const session = JSON.parse(sessionText) as LvpSession;
+  const session = JSON.parse(sessionText) as ProjectSession;
   return {
     sessionName: manifest.sessionName,
     session,

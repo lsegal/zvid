@@ -19,16 +19,16 @@ export type SessionEffect = {
   trackId: string;
   effectName: string;
   parameters: EffectParameter[];
-  // Bypass flag, saved to `.lvp` as zvid-only `enabled: false`.
+  // Bypass flag, saved in `project.json` as zvid-only `enabled: false`.
   enabled: boolean;
-  // The Animation modifier's settings, once it has been turned on. Saved to
-  // `.lvp` as zvid-only `animation`.
+  // The Animation modifier's settings, once it has been turned on. Saved in
+  // `project.json` as zvid-only `animation`.
   animation?: EffectAnimation;
   // An audio effect's Modulation modifier settings, once it has been turned
-  // on. Saved to `.lvp` as zvid-only `modulation`.
+  // on. Saved in `project.json` as zvid-only `modulation`.
   modulation?: EffectModulation;
-  // A Gain an older session's open added, until it is edited. Saved to
-  // `.lvp` as zvid-only `defaulted: true`.
+  // A Gain an older session's open added, until it is edited. Saved in
+  // `project.json` as zvid-only `defaulted: true`.
   defaulted?: boolean;
 };
 

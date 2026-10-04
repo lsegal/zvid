@@ -5,7 +5,7 @@ import {
   isProjectArchiveFilename,
   openProjectArchive,
 } from "./project-archive-open.ts";
-import type { LvpSession } from "./session.ts";
+import type { ProjectSession } from "./session.ts";
 
 const SESSION = {
   mainTracks: [{ id: "1", name: "Layer 1" }],
@@ -15,10 +15,10 @@ const SESSION = {
     { id: "b", filePath: "media/other.mov" },
   ],
   audioFilename: "media/Song.wav",
-} as unknown as LvpSession;
+} as unknown as ProjectSession;
 
 async function archiveBytes(
-  project: LvpSession,
+  project: ProjectSession,
   media: Array<{ path: string; blob: Blob }> = [],
 ) {
   const blob = await writeProjectArchive({ project, media });

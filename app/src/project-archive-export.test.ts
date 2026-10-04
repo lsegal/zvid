@@ -8,13 +8,13 @@ import {
   collectLinkedMediaPaths,
   rewriteSessionMediaPaths,
 } from "./project-archive-export.ts";
-import type { LvpSession } from "./session.ts";
+import type { ProjectSession } from "./session.ts";
 
 function clip(id: string, filePath: string) {
   return { id, trackId: "track-1", frameStart: 0, frameCount: 30, filePath };
 }
 
-const SESSION: LvpSession = {
+const SESSION: ProjectSession = {
   tracks: [
     {
       id: "track-1",

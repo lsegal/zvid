@@ -1,6 +1,6 @@
 # Effects
 
-Every effect that a `.lvp` session can reference by `effectName` has its own folder under `effects/`:
+Every effect that a session can reference by `effectName` has its own folder under `effects/`:
 
 ```text
 effects/<effect>/
@@ -29,7 +29,7 @@ The index is committed, so a fresh checkout type-checks without running anything
 ## Adding an effect
 
 1. Create `effects/<effect>/definition.ts`, with a kebab-case folder name. It must export:
-   - `definition`: the `FxEffectDefinition`, whose `effectName` matches the name `.lvp` sessions use;
+   - `definition`: the `FxEffectDefinition`, whose `effectName` matches the name sessions use;
    - `menuOrder`: a number that places the effect in the add menus, lowest first. The built-in effects use multiples of 10, so a new one can go between any two.
 2. If the effect draws with a shader, create `effects/<effect>/pass.ts` exporting `pass`, an `EffectPass` whose `effectName` matches the definition's.
    A pass that needs an intermediate picture, such as a blur to build a glow from, can declare `stages`: shaders the chain draws first, each at `stageScale` of the picture's size, which the stages after them and the main shader read through samplers named after them. Bloom (`effects/bloom/pass.ts`) blurs at a fraction of the frame this way.

@@ -2,7 +2,7 @@ import { inferMediaKind, withMediaType } from "../media.ts";
 import type { ProjectArchiveMedia } from "../project-archive.ts";
 import {
   collectSessionMediaPaths,
-  type LvpSession,
+  type ProjectSession,
   type ServerMediaRef,
   type SessionOpenResponse,
 } from "../session.ts";
@@ -52,7 +52,7 @@ function createArchiveMediaResolver(media: ProjectArchiveMedia[]) {
 }
 
 export function buildArchiveOpenPayload(
-  session: LvpSession,
+  session: ProjectSession,
   sessionName: string,
   media: ProjectArchiveMedia[],
 ): SessionOpenResponse {
@@ -78,7 +78,7 @@ export function buildArchiveOpenPayload(
 }
 
 export function buildFileOpenPayload(
-  session: LvpSession,
+  session: ProjectSession,
   sessionName: string,
 ): SessionOpenResponse {
   // A lone session file carries no media, so every reference opens as missing.
