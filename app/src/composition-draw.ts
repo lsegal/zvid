@@ -2,15 +2,16 @@ import {
   borderClearColor,
   sceneClearColor,
 } from "./composition-clear-color.ts";
-import { applyFxClip } from "./composition-fx-clip.ts";
+import { applyFxClip, placeArrangement } from "./composition-fx-clip.ts";
 import {
   type CompositeUniformLocations,
   createMaskedComposite,
   type DrawnMask,
   drawLayerMask,
   drawMaskedQuad,
-  findMaskTargetSteps,
+  findMaskTargets,
   locateCompositeUniforms,
+  type MaskDrawing,
   type MaskedComposite,
 } from "./composition-layer-mask.ts";
 import {
@@ -585,7 +586,109 @@ export function drawComposition(
   gl.clearColor(...sceneClearColor(order));
   gl.clear(gl.COLOR_BUFFER_BIT);
 
+  // FX clips and the layers the Order excludes take no slot, and a Grid has
+  // one cell per arranged layer, so arranged layers past the last cell are
+  // not drawn.
+  drawnLayers.length = 0;
+  for (const entry of activeClips) {
+    if (
+      entry.fx
+        ? fxSteps.has(entry) || (entry.isInBounds && entry.order !== undefined)
+        : entry.isInBounds &&
+          (entry.fill ||
+            entry.text ||
+            mediaRefs.get(entry.sourceKey) instanceof HTMLVideoElement)
+    ) {
+      drawnLayers.push(entry);
+    }
+  }
+  // Draws a picture onto `target` with `axes`, unadjusted.
+  const drawPicture = (
+    target: { framebuffer: WebGLFramebuffer | null } & CompositeSurface,
+    source: TextureRegion,
+    axes: QuadAxes,
+  ) => {
+    bindCompositeState(
+      resources,
+      target.framebuffer,
+      target.width,
+      target.height,
+    );
+    drawQuad(resources, source, {
+      ...axes,
+      opacity: 1,
+      brightness: 0,
+      contrast: 1,
+      saturation: 1,
+    });
+  };
   let settled = true;
+  const planned = planLayerDraws(drawnLayers, order);
+  // The layers whose masks are being drawn, so a cycle of masks ends.
+  const masking = new Set<CompositeLayer>();
+  // A layer step's mask from mask target `slot` on: undefined when it has
+  // none, or when it closes a cycle of masks, and null when its Target
+  // draws nothing.
+  const maskFor = (
+    step: LayerDrawStep<CompositeLayer> & { type: "layer" },
+    slot: number,
+  ) => {
+    const { mask } = step.entry;
+    if (!mask || masking.has(step.entry)) {
+      return undefined;
+    }
+    masking.add(step.entry);
+    const drawn = drawLayerMask(
+      maskDrawing,
+      findMaskTargets(planned, step, mask),
+      mask,
+      surface,
+      slot,
+    );
+    masking.delete(step.entry);
+    return drawn;
+  };
+  // Draws a layer step on `target`, masked from mask target `slot` on.
+  const drawLayerStep = (
+    step: LayerDrawStep<CompositeLayer> & { type: "layer" },
+    target: StackTarget,
+    slot: number,
+  ) => {
+    const drawnMask = maskFor(step, slot);
+    // With nothing drawn on its Target, an Additive mask shows nothing.
+    if (drawnMask === null && step.entry.mask?.mode === "additive") {
+      return;
+    }
+    const drawn = drawLayer(
+      resources,
+      target,
+      // The Order, or the z-order overlay for a layer it excludes.
+      step.order,
+      mediaRefs,
+      frameContext,
+      step.entry,
+      step.slot,
+      step.slotCount,
+      step.motion,
+      drawnMask ?? undefined,
+    );
+    settled = drawn && settled;
+  };
+  const maskDrawing: MaskDrawing<CompositeLayer> = {
+    gl,
+    effectChain,
+    bind: (target) =>
+      bindCompositeState(
+        resources,
+        target.framebuffer,
+        target.width,
+        target.height,
+      ),
+    placeArrangement: (step, parent) =>
+      placeArrangement(gl, step.entry, parent),
+    drawStep: (target, step, slot) => drawLayerStep(step, target, slot),
+    drawHop: (target, source, axes) => drawPicture(target, source, axes),
+  };
   const drawSteps = (
     steps: LayerDrawStep<CompositeLayer>[],
     target: StackTarget,
@@ -593,54 +696,7 @@ export function drawComposition(
   ) => {
     for (const step of steps) {
       if (step.type === "layer") {
-        const { mask } = step.entry;
-        const drawnMask = mask
-          ? drawLayerMask(
-              resources,
-              findMaskTargetSteps(steps, step.entry, mask),
-              mask,
-              target,
-              (maskTarget) =>
-                bindCompositeState(
-                  resources,
-                  maskTarget.framebuffer,
-                  maskTarget.width,
-                  maskTarget.height,
-                ),
-              (maskTarget, targetStep) => {
-                const done = drawLayer(
-                  resources,
-                  maskTarget,
-                  targetStep.order,
-                  mediaRefs,
-                  frameContext,
-                  targetStep.entry,
-                  targetStep.slot,
-                  targetStep.slotCount,
-                  targetStep.motion,
-                );
-                settled = done && settled;
-              },
-            )
-          : undefined;
-        // With nothing drawn on its Target, an Additive mask shows nothing.
-        if (drawnMask === null && mask?.mode === "additive") {
-          continue;
-        }
-        const drawn = drawLayer(
-          resources,
-          target,
-          // The Order, or the z-order overlay for a layer it excludes.
-          step.order,
-          mediaRefs,
-          frameContext,
-          step.entry,
-          step.slot,
-          step.slotCount,
-          step.motion,
-          drawnMask ?? undefined,
-        );
-        settled = drawn && settled;
+        drawLayerStep(step, target, 0);
       } else if (step.type === "arrange") {
         drawArrangement(step, target, depth);
       } else if (target.region && target.framebuffer) {
@@ -666,15 +722,7 @@ export function drawComposition(
     depth: number,
   ) => {
     const { entry } = step;
-    const parentSurface = { width: parent.width, height: parent.height };
-    // The box takes the Transforms' scale, so the layers are arranged in a
-    // smaller or larger box rather than squeezed or stretched.
-    const placed = resolveVisualTextBox(
-      { x: 0, y: 0, width: parent.width, height: parent.height },
-      parentSurface,
-      entry.visual,
-    );
-    const size = fitTextureSize(gl, placed.box.width, placed.box.height);
+    const { size, axes } = placeArrangement(gl, entry, parent);
     const target = effectChain.getArrangementTarget(
       depth,
       size.width,
@@ -699,47 +747,10 @@ export function drawComposition(
           bottomUp: true,
         }) ?? arrangement)
       : arrangement;
-    const axes = matrixQuadAxes(
-      canvasBoxToFrame(placed.box, parentSurface),
-      placed.matrix,
-      parentSurface,
-    );
-    bindCompositeState(
-      resources,
-      parent.framebuffer,
-      parent.width,
-      parent.height,
-    );
-    drawQuad(resources, arranged, {
-      // The arrangement is bottom-up, unlike the top-row-first layer
-      // textures the composite shader expects, so it is drawn flipped.
-      axisX: axes.axisX,
-      axisY: [-axes.axisY[0], -axes.axisY[1]],
-      offset: axes.offset,
-      opacity: 1,
-      brightness: 0,
-      contrast: 1,
-      saturation: 1,
-    });
+    drawPicture(parent, arranged, axes);
   };
 
-  // FX clips and the layers the Order excludes take no slot, and a Grid has
-  // one cell per arranged layer, so arranged layers past the last cell are
-  // not drawn.
-  drawnLayers.length = 0;
-  for (const entry of activeClips) {
-    if (
-      entry.fx
-        ? fxSteps.has(entry) || (entry.isInBounds && entry.order !== undefined)
-        : entry.isInBounds &&
-          (entry.fill ||
-            entry.text ||
-            mediaRefs.get(entry.sourceKey) instanceof HTMLVideoElement)
-    ) {
-      drawnLayers.push(entry);
-    }
-  }
-  drawSteps(planLayerDraws(drawnLayers, order), sceneTarget, 0);
+  drawSteps(planned, sceneTarget, 0);
 
   gl.disable(gl.SCISSOR_TEST);
   if (scene && !groupSteps.length) {
