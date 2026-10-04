@@ -1,6 +1,7 @@
 // The shapes the Shape effect offers, in the picker's order. A new shape
 // adds its file here and nowhere else.
 import { arrow } from "./arrow.ts";
+import { custom } from "./custom.ts";
 import { oval } from "./oval.ts";
 import { rectangle } from "./rectangle.ts";
 import { star } from "./star.ts";
@@ -13,6 +14,7 @@ export const SHAPES: readonly ShapeDefinition[] = [
   oval,
   star,
   arrow,
+  custom,
 ];
 
 export const DEFAULT_SHAPE = rectangle;
@@ -20,7 +22,8 @@ export const DEFAULT_SHAPE = rectangle;
 // The shape named `name`, case-insensitively; the default for a name no
 // shape has, such as one a newer build saved.
 export function findShape(name: string | undefined) {
-  const wanted = name?.trim().toLowerCase();
+  // A Custom value carries its media after a colon.
+  const wanted = name?.split(":")[0].trim().toLowerCase();
   return (
     SHAPES.find((shape) => shape.name.toLowerCase() === wanted) ?? DEFAULT_SHAPE
   );

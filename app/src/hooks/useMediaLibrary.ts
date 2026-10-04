@@ -16,6 +16,7 @@ import type {
   SourceTrackDropTarget,
 } from "../app/types.ts";
 import { logClient, pluralize } from "../app/util.ts";
+import { setShapeImageMedia } from "../fx/effects/shape/custom-mask.ts";
 import { getHarness } from "../harness";
 import {
   inferMediaKind,
@@ -73,6 +74,8 @@ export function useMediaLibrary({
     () => new Map(mediaItems.map((item) => [item.id, item])),
     [mediaItems],
   );
+  // Shape ▸ Custom draws its masks from the session's SVG media.
+  useEffect(() => setShapeImageMedia(mediaItems), [mediaItems]);
 
   const setLocalMediaOverride = useCallback(
     (mediaId: string, patch: LocalMediaOverride) => {
