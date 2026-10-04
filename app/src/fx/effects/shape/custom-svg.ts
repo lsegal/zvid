@@ -23,7 +23,8 @@ function setAttribute(tag: string, name: string, value: string) {
 /**
  * `source` with its root `<svg>` set to stretch its viewBox over any box it
  * is drawn into, as the built-in shapes stretch over the layer's box. An
- * SVG sized only by width and height gets a viewBox of that size. Undefined
+ * SVG sized only by width and height gets a viewBox of that size, and one
+ * sized only by its viewBox gets that width and height. Undefined
  * when `source` has no `<svg>` element.
  */
 export function stretchSvgSource(source: string) {
@@ -32,11 +33,23 @@ export function stretchSvgSource(source: string) {
     return undefined;
   }
   let tag = match[0];
-  if (!/\sviewBox\s*=/i.test(tag)) {
-    const width = readLength(tag, "width");
-    const height = readLength(tag, "height");
+  const width = readLength(tag, "width");
+  const height = readLength(tag, "height");
+  const viewBox = /\sviewBox\s*=\s*["']([^"']*)["']/i.exec(tag)?.[1];
+  if (!viewBox) {
     if (width && height) {
       tag = setAttribute(tag, "viewBox", `0 0 ${width} ${height}`);
+    }
+  } else if (!width || !height) {
+    // Browsers only decode an SVG image with a size of its own, so one
+    // sized by its viewBox alone gets the viewBox's.
+    const [, , boxWidth, boxHeight] = viewBox
+      .trim()
+      .split(/[\s,]+/)
+      .map(Number);
+    if (boxWidth > 0 && boxHeight > 0) {
+      tag = setAttribute(tag, "width", String(boxWidth));
+      tag = setAttribute(tag, "height", String(boxHeight));
     }
   }
   tag = setAttribute(tag, "preserveAspectRatio", "none");

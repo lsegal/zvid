@@ -8,7 +8,7 @@ describe("stretchSvgSource", () => {
       stretchSvgSource(
         '<svg viewBox="0 0 10 20"><path d="M0 0H10V20Z"/></svg>',
       ),
-      '<svg viewBox="0 0 10 20" preserveAspectRatio="none"><path d="M0 0H10V20Z"/></svg>',
+      '<svg viewBox="0 0 10 20" width="10" height="20" preserveAspectRatio="none"><path d="M0 0H10V20Z"/></svg>',
     );
   });
 
@@ -17,7 +17,7 @@ describe("stretchSvgSource", () => {
       stretchSvgSource(
         "<svg viewBox='0 0 4 4' preserveAspectRatio='xMidYMid slice'/>",
       ),
-      `<svg viewBox='0 0 4 4' preserveAspectRatio="none"/>`,
+      `<svg viewBox='0 0 4 4' preserveAspectRatio="none" width="4" height="4"/>`,
     );
   });
 

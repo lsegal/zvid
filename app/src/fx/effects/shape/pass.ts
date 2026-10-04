@@ -63,8 +63,10 @@ export const pass: EffectPass = {
         shapeAt(p + vec2(pixel.x, 0.0)) - d,
         shapeAt(p + vec2(0.0, pixel.y)) - d
       );
+      // The chain scales texture2D lookups to its pooled input's corner;
+      // the mask is a texture of its own size, so it is read unscaled.
       float coverage = uCustom > 0.5
-        ? texture2D(uMask, p).a
+        ? texture2DProj(uMask, vec3(p, 1.0)).a
         : clamp(0.5 - d / max(length(slope), 1e-6), 0.0, 1.0);
       vec4 c = texture2D(uTex, vUv);
       gl_FragColor = vec4(c.rgb, c.a * coverage);

@@ -37,7 +37,12 @@ describe("Shape pass", () => {
   });
 
   it("samples a Custom shape's mask alpha at the shape's own position", () => {
-    assert.match(pass.fragmentSource, /texture2D\(uMask, p\)\.a/);
+    // Unscaled: the chain rewrites only texture2D calls to its input's
+    // corner of a pooled target.
+    assert.match(
+      pass.fragmentSource,
+      /texture2DProj\(uMask, vec3\(p, 1\.0\)\)\.a/,
+    );
   });
 
   it("skips a Rectangle, which leaves the layer as it is", () => {

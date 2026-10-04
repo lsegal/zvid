@@ -20,6 +20,7 @@ import { setShapeImageMedia } from "../fx/effects/shape/custom-mask.ts";
 import { getHarness } from "../harness";
 import {
   inferMediaKind,
+  isImageMedia,
   type MediaItem,
   type MediaProbeResult,
   probeMediaBlob,
@@ -486,6 +487,8 @@ export function useMediaLibraryCommands({
         const sharedAnalyzed = analyzed.map((item) =>
           toShareableMediaItem(item),
         );
+        // Images go to the Media drawer only; they make no clips.
+        const clipMedia = analyzed.filter((item) => !isImageMedia(item));
 
         commitProjectChange("Drop media into source tracks", (current) => {
           const placed = addMediaToSourceTrack(current, analyzed, target);
@@ -500,14 +503,14 @@ export function useMediaLibraryCommands({
             !current.sourceSpans.length &&
             !current.clips.length
           ) {
-            const sizedMedia = analyzed.find(
+            const sizedMedia = clipMedia.find(
               (item) => item.width && item.height,
             );
             if (sizedMedia?.width && sizedMedia.height) {
               patch.canvasWidth = Math.max(320, sizedMedia.width);
               patch.canvasHeight = Math.max(320, sizedMedia.height);
             }
-            const fps = mediaFrameRate(analyzed);
+            const fps = mediaFrameRate(clipMedia);
             if (fps) {
               patch.fps = fps;
             }
@@ -518,10 +521,16 @@ export function useMediaLibraryCommands({
 
         seedLocalMediaItems(analyzed);
         void cacheLocalMediaItems(analyzed);
+        if (!clipMedia.length) {
+          setStatus(
+            `Imported ${pluralize(analyzed.length, "image")} for Shape ▸ Custom.`,
+          );
+          return;
+        }
         // Reveal the dropped media, even when it landed on a collapsed header.
         setSourceTracksCollapsed(false);
         setStatus(
-          `Dropped ${pluralize(analyzed.length, "media file")} into ${
+          `Dropped ${pluralize(clipMedia.length, "media file")} into ${
             target.kind === "track"
               ? "the selected source track"
               : "a new source track"
