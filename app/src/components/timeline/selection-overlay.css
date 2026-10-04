@@ -3,8 +3,8 @@
 .timeline-selection {
   position: absolute;
   z-index: var(--z-timeline-selection);
-  top: 12px;
-  height: 48px;
+  top: calc(var(--lane-clip-inset) - 2px);
+  height: calc(var(--lane-clip-height) + 4px);
   border-radius: 10px;
   border: 1px dashed rgba(124, 161, 255, 0.85);
   background:
