@@ -13,7 +13,8 @@
      label cell makes it taller, so the playhead marker always reaches the
      row's bottom edge, where the layers' playhead line takes over. */
   min-height: var(--ruler-height);
-  background-color: rgba(15, 16, 24, 0.3);
+  /* Lighter than the lanes so the ruler reads as the playhead scrub area. */
+  background-color: var(--bg-soft);
 }
 
 .timeline-playhead-marker {
@@ -67,7 +68,7 @@
   bottom: 12px;
   left: 0;
   width: 1px;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .ruler-marker span {
