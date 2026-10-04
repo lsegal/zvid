@@ -1,23 +1,23 @@
 {
   "mainTracks": [
     {
+      "id": "transitions",
+      "name": "Transitions",
+      "colorIndex": 0
+    },
+    {
       "id": "title-wordmark",
       "name": "Title · zvid",
-      "colorIndex": 0
+      "colorIndex": 1
     },
     {
       "id": "title-words",
       "name": "Title · words",
-      "colorIndex": 1
+      "colorIndex": 2
     },
     {
       "id": "fx-regions",
       "name": "FX regions (Transform + Move)",
-      "colorIndex": 2
-    },
-    {
-      "id": "transitions",
-      "name": "Transitions",
       "colorIndex": 3
     },
     {
@@ -847,7 +847,7 @@
   "effects": [
     {
       "id": "sample-fx-001",
-      "trackId": "title-wordmark",
+      "trackId": "transitions",
       "effectName": "Layout",
       "parameters": {
         "Position": {
@@ -857,7 +857,7 @@
     },
     {
       "id": "sample-fx-002",
-      "trackId": "title-words",
+      "trackId": "title-wordmark",
       "effectName": "Layout",
       "parameters": {
         "Position": {
@@ -867,7 +867,7 @@
     },
     {
       "id": "sample-fx-003",
-      "trackId": "fx-regions",
+      "trackId": "title-words",
       "effectName": "Layout",
       "parameters": {
         "Position": {
@@ -877,7 +877,7 @@
     },
     {
       "id": "sample-fx-004",
-      "trackId": "transitions",
+      "trackId": "fx-regions",
       "effectName": "Layout",
       "parameters": {
         "Position": {
@@ -3235,10 +3235,7 @@
       "effectName": "Transition",
       "parameters": {
         "Type": {
-          "stringValue": "Push"
-        },
-        "Direction": {
-          "stringValue": "Left"
+          "stringValue": "Glitch"
         },
         "Softness": {
           "floatValue": 0
@@ -3260,7 +3257,7 @@
       "effectName": "Transition",
       "parameters": {
         "Type": {
-          "stringValue": "Clock Wipe"
+          "stringValue": "Ripple"
         },
         "Softness": {
           "floatValue": 0

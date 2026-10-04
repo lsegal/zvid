@@ -135,6 +135,11 @@ async function expectSampleOpen(page: Page) {
   ]) {
     await expect(lane(page, id)).toHaveCount(1);
   }
+  // The Transitions layer is layer 1, above every other layer.
+  await expect(page.locator("[data-timeline-lane-id]").first()).toHaveAttribute(
+    "data-timeline-lane-id",
+    "transitions",
+  );
   // The hidden mask layer holds the movie camera's reveal and hold.
   for (const id of ["fill-camera-reveal", "fill-camera-hold"]) {
     await expect(
