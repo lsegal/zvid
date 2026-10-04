@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 
 // Layer lanes leave 11px above and below their 44px clips (#917), and the
@@ -6,6 +7,26 @@ import { expect, type Page, test } from "@playwright/test";
 const LANE_HEIGHT = 66;
 const CLIP_INSET = 11;
 const CLIP_HEIGHT = 44;
+const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
+
+async function dropVideoIntoNewSourceTrack(page: Page) {
+  const base64 = (await readFile(VIDEO)).toString("base64");
+  const dataTransfer = await page.evaluateHandle((data) => {
+    const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
+    const transfer = new DataTransfer();
+    transfer.items.add(
+      new File([bytes], "test-pattern.mp4", { type: "video/mp4" }),
+    );
+    return transfer;
+  }, base64);
+  const target = '[data-source-track-drop-target="new-track"]';
+  for (const type of ["dragenter", "dragover", "drop"]) {
+    await page.dispatchEvent(target, type, { dataTransfer });
+  }
+  await expect(page.locator(".source-span")).toHaveCount(1, {
+    timeout: 30_000,
+  });
+}
 
 function lane(page: Page, id: string) {
   return page.locator(`[data-timeline-lane-id="${id}"]`);
@@ -25,11 +46,13 @@ test("layer lanes are compact, with clips, labels and selections aligned", async
   page,
 }) => {
   await page.goto("/");
-  const clipLane = page
-    .locator("[data-timeline-lane-id]")
-    .filter({ has: page.locator(".clip-card") })
-    .first();
-  await expect(clipLane).toBeVisible();
+  await expect(lane(page, "1")).toBeVisible();
+  await dropVideoIntoNewSourceTrack(page);
+  await page.locator(".source-span").click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Copy to layer" }).hover();
+  await page.getByRole("menuitem", { name: "Layer 1" }).click();
+  const clipLane = lane(page, "1");
+  await expect(clipLane.locator(".clip-card")).toHaveCount(1);
 
   const laneBox = await clipLane.boundingBox();
   const clipBox = await clipLane.locator(".clip-card").first().boundingBox();
@@ -43,7 +66,12 @@ test("layer lanes are compact, with clips, labels and selections aligned", async
   // The lane's bottom border sits inside its border box.
   expect(laneBox.height).toBe(LANE_HEIGHT);
   expect(clipBox.height).toBe(CLIP_HEIGHT);
-  expect(clipBox.y - laneBox.y).toBe(CLIP_INSET);
+  // Its layout offset, since a selected clip is lifted 1px by a transform.
+  expect(
+    await clipLane
+      .locator(".clip-card")
+      .evaluate((clip) => (clip as HTMLElement).offsetTop),
+  ).toBe(CLIP_INSET);
   expect(labelBox.y).toBe(laneBox.y);
   expect(labelBox.height).toBe(laneBox.height);
 
