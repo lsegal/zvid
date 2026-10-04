@@ -225,6 +225,76 @@ describe("pasteIntoSourceTrack", () => {
     );
   });
 
+  it("pastes into empty space at the copy's length, leaving the rest", () => {
+    const patch = pasteIntoSourceTrack(
+      project([span("a", 0, 4), span("b", 12, 4, { trimStartSeconds: 30 })]),
+      sourceClipboard(span("copied", 0, 4, { trimStartSeconds: 20 })),
+      "t1",
+      6,
+      ids("pasted"),
+    );
+    assert.deepEqual(timing(patch?.sourceSpans), [
+      "a@t1:0+4q from 10s",
+      "b@t1:12+4q from 30s",
+      "pasted@t1:6+4q from 20s",
+    ]);
+  });
+
+  it("trims the spans it partly covers, keeping their content in place", () => {
+    const patch = pasteIntoSourceTrack(
+      project([span("a", 0, 4), span("b", 6, 4, { trimStartSeconds: 30 })]),
+      sourceClipboard(span("copied", 0, 4, { trimStartSeconds: 20 })),
+      "t1",
+      3,
+      ids("pasted"),
+    );
+    assert.deepEqual(timing(patch?.sourceSpans), [
+      "a@t1:0+3q from 10s",
+      "b@t1:7+3q from 30.5s",
+      "pasted@t1:3+4q from 20s",
+    ]);
+  });
+
+  it("replaces a span it fully covers, never moving layer clips", () => {
+    const covered = span("b", 2, 2, { trimStartSeconds: 30 });
+    const layerClip = windowClip("clip", covered, 2, 2);
+    const patch = pasteIntoSourceTrack(
+      project(
+        [span("a", 0, 2), covered, span("c", 4, 4, { trimStartSeconds: 40 })],
+        {
+          clips: [layerClip],
+        },
+      ),
+      sourceClipboard(span("copied", 0, 4, { trimStartSeconds: 20 })),
+      "t1",
+      1,
+      ids("pasted"),
+    );
+    assert.deepEqual(timing(patch?.sourceSpans), [
+      "a@t1:0+1q from 10s",
+      "c@t1:5+3q from 40.5s",
+      "pasted@t1:1+4q from 20s",
+    ]);
+    // The layer clip stays where it was, now showing the pasted clip there.
+    const [clip] = patch?.clips ?? [];
+    assert.equal(clip.startQ, layerClip.startQ);
+    assert.equal(clip.durationSeconds, layerClip.durationSeconds);
+    assert.equal(clip.sourceSpanId, "pasted");
+    assert.equal(clip.trimStartSeconds, 20.5);
+  });
+
+  it("pastes a split piece of a clip with only that piece's media", () => {
+    const piece = span("piece", 4, 2, { trimStartSeconds: 12 });
+    const patch = pasteIntoSourceTrack(
+      project([]),
+      sourceClipboard(piece),
+      "t1",
+      10,
+      ids("pasted"),
+    );
+    assert.deepEqual(timing(patch?.sourceSpans), ["pasted@t1:10+2q from 12s"]);
+  });
+
   it("takes the target track's color and lists its media there", () => {
     const patch = pasteIntoSourceTrack(
       project([]),

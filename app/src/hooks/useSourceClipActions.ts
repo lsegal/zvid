@@ -106,31 +106,30 @@ export function useSourceClipActions({
     }
   }
 
-  // Pastes into the clip's source track at the playhead.
-  function paste(span: SourceSpan) {
+  // Pastes into `target`'s source track at `pasteQ`, the playhead unless
+  // given, as layer paste does on a layer: the copy at its own length,
+  // overwriting what it covers there, selected afterwards.
+  function paste(
+    target: Pick<SourceSpan, "sourceTrackId">,
+    pasteQ = playheadQRef.current,
+  ) {
     const clipboard = clipClipboardRef.current;
     if (!canPasteIntoSourceTrack(clipboard)) {
       setStatus("Only source clips can be pasted into a source track.");
       return;
     }
 
+    const { sourceTrackId } = target;
     const id = newSourceSpanId();
-    const pasteQ = playheadQRef.current;
     const pasted = commitEdit("Paste source clip", (current) =>
-      pasteIntoSourceTrack(
-        current,
-        clipboard,
-        span.sourceTrackId,
-        pasteQ,
-        () => id,
-      ),
+      pasteIntoSourceTrack(current, clipboard, sourceTrackId, pasteQ, () => id),
     );
     if (!pasted) {
       return;
     }
 
-    selectSource(selectSourceSpan({ id, sourceTrackId: span.sourceTrackId }));
-    setStatus("Pasted into the source track.");
+    selectSource(selectSourceSpan({ id, sourceTrackId }));
+    setStatus(`Pasted ${clipboard.sourceSpan.label}.`);
   }
 
   function duplicate(span: SourceSpan) {

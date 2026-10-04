@@ -1,6 +1,15 @@
 // The Audio row's waveform: the peaks of every clip that renders audio,
 // mapped onto song time, scaled by its Gain and summed per bucket. It draws
 // the same mix playback and export play, without decoding it again.
+//
+// It is rebuilt whenever what it draws changes (see audioMixPeaksKey): an
+// edit to a clip with audio, its source track, its Gain, its media, or the
+// tempo, undo and redo included. It models level only through the
+// enabled Gains' stored settings, Mute included, and a stack whose FX switch
+// is off. Other audio effects (Compressor, EQ, Distortion, Limiter and so
+// on), the Gains' Modulation and Animation, and panning are not drawn: the
+// waveform shows the clips' media at their Gain, so changing those settings
+// leaves it as it is.
 import { pluralize } from "./app/util.ts";
 import {
   PEAK_BUCKETS_PER_SECOND,

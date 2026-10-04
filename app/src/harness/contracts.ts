@@ -19,22 +19,10 @@ export type SessionSelection =
       file: File;
     }
   | {
-      kind: "workspace";
-      rootName: string;
-      sessionPath: string;
-      sessionFile: File;
-      files: WorkspaceFileRef[];
-    }
-  | {
       kind: "path";
       path: string;
       name: string;
     };
-
-export type WorkspaceFileRef = {
-  path: string;
-  file: File;
-};
 
 export type MediaSelection =
   | {
@@ -124,7 +112,6 @@ export type Harness = {
   label: string;
   capabilities: Partial<Record<HarnessCapability, boolean>>;
   pickSession(): Promise<SessionSelection | null>;
-  pickWorkspace?(): Promise<SessionSelection | null>;
   pickMedia(options?: { multiple?: boolean }): Promise<MediaSelection | null>;
   pickMediaFolder?(): Promise<MediaSelection | null>;
   openSession(selection: SessionSelection): Promise<SessionOpenResponse>;

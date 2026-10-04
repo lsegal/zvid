@@ -432,10 +432,12 @@ export function useMenus({
   }
 
   // The clip menu, or the empty lane space menu without a clip. Paste goes on
-  // `pasteLaneId`, or on the selected layer when it is undefined.
+  // `pasteLaneId`, or on the selected layer when it is undefined, or into
+  // source track `pasteSourceTrackId` at the playhead when that is given.
   function getArrangementClipEntries(
     clip: ArrangementClip | undefined,
     pasteLaneId: string | undefined,
+    pasteSourceTrackId?: string,
   ): ContextMenuEntry[] {
     const withClip = (action: (clip: ArrangementClip) => void) => () => {
       if (clip) {
@@ -444,7 +446,9 @@ export function useMenus({
     };
     return buildClipMenuEntries({
       hasClip: Boolean(clip),
-      canPaste: canPasteOntoLayer(clipClipboardRef.current),
+      canPaste: pasteSourceTrackId
+        ? canPasteIntoSourceTrack(clipClipboardRef.current)
+        : canPasteOntoLayer(clipClipboardRef.current),
       canSplit: clip
         ? canSplitAt(clip.startQ, getClipEndQ(clip, bpm), playheadQRef.current)
         : false,
@@ -453,7 +457,10 @@ export function useMenus({
         jumpToStart: withClip((clip) => jumpToClipStart(clip.id)),
         cut: withClip(cutArrangementClip),
         copy: withClip(copyArrangementClip),
-        paste: () => pasteArrangementClip(pasteLaneId),
+        paste: () =>
+          pasteSourceTrackId
+            ? sourceClipActions.paste({ sourceTrackId: pasteSourceTrackId })
+            : pasteArrangementClip(pasteLaneId),
         duplicate: withClip(duplicateArrangementClip),
         split: withClip(splitArrangementClip),
         remove: withClip(deleteArrangementClip),
@@ -477,11 +484,16 @@ export function useMenus({
       {
         clip: selectedClip?.label,
         // A selected source clip gives Cut, Copy and Paste only: Edit has no
-        // Clip submenu for it, so its Split never splits a source clip.
+        // Clip submenu for it, so its Split never splits a source clip. With
+        // a source track selected, Paste goes into it.
         clipEntries:
           selectedSourceSpan && !selectedClip
             ? getSourceSpanMenuEntries(selectedSourceSpan)
-            : getArrangementClipEntries(selectedClip, undefined),
+            : getArrangementClipEntries(
+                selectedClip,
+                undefined,
+                selectedClip ? undefined : selectedSourceTrack?.id,
+              ),
         selectionEntries: pendingSelection
           ? getSelectionMenuEntries(pendingSelection)
           : undefined,

@@ -19,7 +19,6 @@ export const WORKSPACE_HISTORY_MAX_BYTES = 20 * 1024 * 1024;
 export type WorkspaceSessionSource = (
   | { kind: "none" }
   | { kind: "file"; name: string }
-  | { kind: "workspace"; name: string }
   | { kind: "path"; name: string; path: string }
   | { kind: "import"; name: string }
 ) & {
@@ -237,9 +236,12 @@ function parseSource(value: unknown): WorkspaceSessionSource {
     typeof source.libraryId === "string" ? { libraryId: source.libraryId } : {};
   switch (source.kind) {
     case "file":
-    case "workspace":
     case "import":
       return { kind: source.kind, name, ...library };
+    // Sessions opened with the removed Open Workspace menu item restore as
+    // browser file sessions.
+    case "workspace":
+      return { kind: "file", name, ...library };
     case "path":
       return typeof source.path === "string"
         ? { kind: "path", name, path: source.path, ...library }

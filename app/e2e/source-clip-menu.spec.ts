@@ -310,6 +310,57 @@ test("Cut removes it, and Paste puts it back into the source track", async ({
   expect((await layout(page))[0].left).toBeCloseTo(left, 0);
 });
 
+test("Mod+V pastes a copied source clip at the playhead, undone in one step", async ({
+  page,
+}) => {
+  const span = spans(page).first();
+  const [{ left, width }] = await layout(page);
+  await span.click();
+  await page.keyboard.press("ControlOrMeta+c");
+
+  // Past the clip, into empty space; seeking leaves the clip selected.
+  await seekInto(page, span, 1.5);
+  await span.click();
+  await page.keyboard.press("ControlOrMeta+v");
+  await expect(spans(page)).toHaveCount(2);
+  const [kept, pasted] = await layout(page);
+  expect(kept).toEqual({ left, width });
+  expect(pasted.left).toBeCloseTo(left + width * 1.5, -1);
+  expect(pasted.width).toBeCloseTo(width, 0);
+  await expect(spans(page).last()).toHaveClass(/source-span--selected/);
+  await expect(page.locator(".clip-card")).toHaveCount(0);
+
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(spans(page)).toHaveCount(1);
+  expect(await layout(page)).toEqual([{ left, width }]);
+});
+
+test("after Cut, Mod+V and Edit > Paste go back into the source track", async ({
+  page,
+}) => {
+  const [{ left, width }] = await layout(page);
+  await spans(page).first().click();
+  await page.keyboard.press("ControlOrMeta+x");
+  await expect(spans(page)).toHaveCount(0);
+
+  // The source track stays selected, so the paste lands there, not on a
+  // layer.
+  await page.keyboard.press("ControlOrMeta+v");
+  await expect(spans(page)).toHaveCount(1);
+  expect(await layout(page)).toEqual([{ left, width }]);
+  await expect(spans(page).first()).toHaveClass(/source-span--selected/);
+  await expect(page.locator(".clip-card")).toHaveCount(0);
+
+  await spans(page).first().click();
+  await page.keyboard.press("ControlOrMeta+x");
+  await expect(spans(page)).toHaveCount(0);
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+  await menuItem(page, /^Paste/).click();
+  await expect(spans(page)).toHaveCount(1);
+  expect(await layout(page)).toEqual([{ left, width }]);
+  await expect(page.locator(".clip-card")).toHaveCount(0);
+});
+
 test("locked source tracks disable the editing items", async ({ page }) => {
   await page.locator(".source-header__lock").click();
   await openMenu(page, spans(page).first());
