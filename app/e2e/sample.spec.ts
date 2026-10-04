@@ -15,54 +15,86 @@ const MUSIC_SELECTIONS = 20;
 // Each load reads about 15 MB of media and analyzes it.
 test.describe.configure({ timeout: 120_000 });
 
-// Records the analysers the preview's mixer makes, which hear the mix.
-async function probeAnalysers(page: Page) {
+// Records the loudest RMS level the preview's mix reaches, over windows of
+// about 340 ms (16384 frames at 48 kHz), as a VU meter would read it. A
+// worklet on the audio thread hears every sample the mixer sends its
+// analysers, so a busy page whose reads would come seconds apart and catch
+// only the music's breaks or the selections' gated gaps still sees its
+// hits.
+async function probeMixLevel(page: Page) {
   await page.addInitScript(() => {
-    const probe = window as unknown as { analysers: AnalyserNode[] };
-    probe.analysers = [];
-    const createAnalyser = AudioContext.prototype.createAnalyser;
-    AudioContext.prototype.createAnalyser = function (this: AudioContext) {
-      const analyser = createAnalyser.call(this);
-      probe.analysers.push(analyser);
-      return analyser;
+    const probe = window as unknown as { mixPeak: number };
+    probe.mixPeak = 0;
+    const processor = `registerProcessor("mix-level-tap", class extends AudioWorkletProcessor {
+      total = 0;
+      frames = 0;
+      peak = 0;
+      process([input]) {
+        const frames = input[0]?.length ?? 128;
+        for (const channel of input) {
+          for (const sample of channel) this.total += (sample * sample) / input.length;
+        }
+        this.frames += frames;
+        if (this.frames >= 16384) {
+          const level = Math.sqrt(this.total / this.frames);
+          if (level > this.peak) {
+            this.peak = level;
+            this.port.postMessage(level);
+          }
+          this.total = 0;
+          this.frames = 0;
+        }
+        return true;
+      }
+    });`;
+    const moduleUrl = URL.createObjectURL(
+      new Blob([processor], { type: "text/javascript" }),
+    );
+    const taps = new WeakMap<BaseAudioContext, Promise<AudioWorkletNode>>();
+    const tapOf = (context: BaseAudioContext) => {
+      let tap = taps.get(context);
+      if (!tap) {
+        tap = context.audioWorklet.addModule(moduleUrl).then(() => {
+          const node = new AudioWorkletNode(context, "mix-level-tap", {
+            numberOfOutputs: 0,
+          });
+          node.port.onmessage = ({ data }) => {
+            probe.mixPeak = Math.max(probe.mixPeak, data);
+          };
+          return node;
+        });
+        taps.set(context, tap);
+      }
+      return tap;
     };
+    // Whatever the mixer feeds an analyser feeds the tap too.
+    const connect = AudioNode.prototype.connect as (
+      this: AudioNode,
+      destination: AudioNode,
+      output?: number,
+    ) => AudioNode;
+    AudioNode.prototype.connect = function (
+      this: AudioNode,
+      destination: AudioNode,
+      output?: number,
+    ) {
+      if (
+        destination instanceof AnalyserNode &&
+        this.context instanceof AudioContext
+      ) {
+        void tapOf(this.context).then((tap) =>
+          connect.call(this, tap, output ?? 0),
+        );
+      }
+      return connect.call(this, destination, output);
+    } as typeof AudioNode.prototype.connect;
   });
 }
 
-// The mix's loudest RMS level over a few reads of the VU meter's analysers,
-// the longest the mixer makes (about 340 ms, one per channel), so a read
-// between buffers or between the music's hits doesn't count. The music's
-// breaks and the selections' gating effects leave short windows silent.
-async function mixLevel(page: Page) {
-  let level = 0;
-  for (let read = 0; read < 6; read += 1) {
-    level = Math.max(
-      level,
-      await page.evaluate(() => {
-        const probe = window as unknown as { analysers: AnalyserNode[] };
-        const longest = Math.max(
-          0,
-          ...probe.analysers.map((analyser) => analyser.fftSize),
-        );
-        const meter = probe.analysers.filter(
-          (analyser) => analyser.fftSize === longest,
-        );
-        let total = 0;
-        let count = 0;
-        for (const analyser of meter) {
-          const samples = new Float32Array(analyser.fftSize);
-          analyser.getFloatTimeDomainData(samples);
-          for (const sample of samples) {
-            total += sample * sample;
-          }
-          count += samples.length;
-        }
-        return count ? Math.sqrt(total / count) : 0;
-      }),
-    );
-    await page.waitForTimeout(50);
-  }
-  return level;
+function mixPeak(page: Page) {
+  return page.evaluate(
+    () => (window as unknown as { mixPeak: number }).mixPeak,
+  );
 }
 
 async function openFileMenu(page: Page) {
@@ -145,7 +177,7 @@ test("File → Open → Sample opens the editable sample with all its media", as
 });
 
 test("the sample plays its music through the clip mix", async ({ page }) => {
-  await probeAnalysers(page);
+  await probeMixLevel(page);
   await page.goto("/?sample=1");
   await expectSampleOpen(page);
 
@@ -161,7 +193,7 @@ test("the sample plays its music through the clip mix", async ({ page }) => {
   // The mix is audible once playback is past the music's 0.6 s fade-in.
   await page.getByRole("button", { name: "Play timeline" }).click();
   await expect
-    .poll(() => mixLevel(page), { timeout: 20_000 })
+    .poll(() => mixPeak(page), { timeout: 20_000 })
     .toBeGreaterThan(0.02);
   await page.getByRole("button", { name: "Pause playback" }).click();
 });
