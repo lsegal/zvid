@@ -434,50 +434,12 @@ export function useSessionIO({
         return;
       }
       selectionName =
-        selection.kind === "file"
-          ? selection.file.name
-          : selection.kind === "workspace"
-            ? selection.sessionFile.name
-            : selection.name;
+        selection.kind === "file" ? selection.file.name : selection.name;
       setStatus(`Opening ${selectionName}...`);
       const payload = await harness.openSession(selection);
       await applyOpenedSessionPayload(payload, selection);
     } catch (error) {
       reportOpenFailure("Open failed", selectionName, error);
-    }
-  }
-
-  async function handleOpenWorkspace() {
-    if (refuseReadOnlyEdit()) {
-      return;
-    }
-
-    const harness = getHarness();
-    if (!harness.pickWorkspace) {
-      setStatus(
-        "Opening a workspace is not supported in this version of zvid.",
-      );
-      return;
-    }
-
-    let selectionName: string | undefined;
-    try {
-      const selection = await harness.pickWorkspace();
-      if (!selection) {
-        return;
-      }
-
-      selectionName =
-        selection.kind === "workspace"
-          ? selection.sessionFile.name
-          : selection.kind === "file"
-            ? selection.file.name
-            : selection.name;
-      setStatus(`Opening workspace ${selectionName}...`);
-      const payload = await harness.openSession(selection);
-      await applyOpenedSessionPayload(payload, selection);
-    } catch (error) {
-      reportOpenFailure("Open workspace failed", selectionName, error);
     }
   }
 
@@ -547,7 +509,6 @@ export function useSessionIO({
     openSamplePayload,
     handleImport,
     handleOpenSession,
-    handleOpenWorkspace,
     handleExportProject,
   };
 }

@@ -221,6 +221,27 @@ describe("workspace session serialization", () => {
     }
   });
 
+  it("restores a session opened from a workspace folder as a file session", () => {
+    const payload = JSON.parse(
+      serializeWorkspaceSession(session(buildHistory(0))),
+    );
+    payload.source = {
+      kind: "workspace",
+      name: "session.lvp",
+      libraryId: "session-4",
+    };
+    const restored = parseWorkspaceSession<State, View>(
+      JSON.stringify(payload),
+      options,
+    );
+
+    assert.deepEqual(restored.source, {
+      kind: "file",
+      name: "session.lvp",
+      libraryId: "session-4",
+    });
+  });
+
   it("falls back to no source for an unknown source kind", () => {
     const payload = JSON.parse(
       serializeWorkspaceSession(session(buildHistory(0))),

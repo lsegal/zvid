@@ -385,9 +385,22 @@ test("a session with a main audio opens with it on a new source track, which pla
 
     await page.goto("/");
     await page.getByRole("menuitem", { name: "File", exact: true }).click();
-    const choosing = page.waitForEvent("filechooser");
-    await page.getByRole("menuitem", { name: "Open Workspace" }).click();
-    await (await choosing).setFiles(folder);
+    const choosingSession = page.waitForEvent("filechooser");
+    await page
+      .getByRole("menuitem", { name: "Open Session", exact: true })
+      .click();
+    await (await choosingSession).setFiles(join(folder, "Old Song.lvp"));
+
+    // A lone session file carries no media, so locate the main audio.
+    await page.locator(".track-label__offline").click();
+    const offlineMedia = page.getByRole("dialog", { name: "Offline Media" });
+    const choosingMedia = page.waitForEvent("filechooser");
+    await offlineMedia.getByRole("button", { name: "Locate Files…" }).click();
+    await (await choosingMedia).setFiles(join(folder, "Song.wav"));
+    await expect(page.locator(".track-label__offline")).toHaveCount(0, {
+      timeout: 30_000,
+    });
+    await page.keyboard.press("Escape");
 
     // The main audio is now a source track named after its file, with one
     // clip, and the Audio row draws it.

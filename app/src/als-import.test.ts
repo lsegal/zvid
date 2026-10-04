@@ -14,11 +14,9 @@ import {
   formatAlsImportSummary,
   type ImportedAlsSession,
   importAls,
-  isAlsBackupPath,
   isAlsSession,
   isGzipBytes,
   probeAlsRecordings,
-  rankWorkspaceSessions,
   resolveAlsMedia,
 } from "./als-import.ts";
 import type { LvpSession } from "./session.ts";
@@ -125,55 +123,12 @@ describe("Live set detection", () => {
     );
   });
 
-  it("recognizes Ableton's backup copies", () => {
-    assert.equal(isAlsBackupPath("Song Project/Backup/Song [2026].als"), true);
-    assert.equal(isAlsBackupPath("Song Project\\backup\\Song.als"), true);
-    assert.equal(isAlsBackupPath("Song Project/Song.als"), false);
-    assert.equal(isAlsBackupPath("Backup/notes.lvp"), false);
-  });
-
   it("saves an imported set as the sibling .lvp", () => {
     assert.equal(
       alsSavePath("/sets/Song Project/Song.als"),
       "/sets/Song Project/Song.lvp",
     );
     assert.equal(alsSavePath("C:\\Sets\\Song.ALS"), "C:\\Sets\\Song.lvp");
-  });
-});
-
-describe("rankWorkspaceSessions", () => {
-  const entry = (path: string) => ({ path });
-
-  it("prefers .lvp sessions over Live sets and JSON", () => {
-    const ranked = rankWorkspaceSessions(
-      ["a.json", "Song Project/Song.als", "dogfood3.lvp"].map(entry),
-    );
-    assert.deepEqual(ranked, [entry("dogfood3.lvp")]);
-  });
-
-  it("offers .zvd and .lvp sessions alike, ahead of Live sets and JSON", () => {
-    const ranked = rankWorkspaceSessions(
-      ["a.json", "Song.als", "old.lvp", "new.zvd", "NEW2.ZVD"].map(entry),
-    );
-    assert.deepEqual(ranked, ["old.lvp", "new.zvd", "NEW2.ZVD"].map(entry));
-  });
-
-  it("falls back to Live sets, ignoring Ableton backups", () => {
-    const ranked = rankWorkspaceSessions(
-      [
-        "data.json",
-        "Song Project/Backup/Song [2026-09-24 101500].als",
-        "Song Project/Song.als",
-      ].map(entry),
-    );
-    assert.deepEqual(ranked, [entry("Song Project/Song.als")]);
-  });
-
-  it("falls back to JSON when only backups exist", () => {
-    const ranked = rankWorkspaceSessions(
-      ["Backup/Song.als", "session.json"].map(entry),
-    );
-    assert.deepEqual(ranked, [entry("session.json")]);
   });
 });
 

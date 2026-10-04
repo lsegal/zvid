@@ -46,10 +46,7 @@ export type TopBarProps = Pick<
 > &
   Pick<
     SessionIO,
-    | "handleImport"
-    | "handleOpenSession"
-    | "handleOpenWorkspace"
-    | "handleExportProject"
+    "handleImport" | "handleOpenSession" | "handleExportProject"
   > &
   Pick<ReturnType<typeof useMediaStatus>, "offlineMedia" | "showsMediaSync"> &
   Pick<
@@ -86,7 +83,6 @@ export function TopBar({
   handleImport,
   handleNewSession,
   handleOpenSession,
-  handleOpenWorkspace,
   handleExportProject,
   handleSaveToLibrary,
   handleStopShare,
@@ -155,9 +151,6 @@ export function TopBar({
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => void handleOpenSession()}>
                 Open Session
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void handleOpenWorkspace()}>
-                Open Workspace
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={sample.handleOpenSample}>
                 Open Sample
