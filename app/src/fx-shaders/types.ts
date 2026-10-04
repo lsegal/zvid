@@ -18,7 +18,25 @@ export type EffectContext = {
   // of the image), as for offscreen framebuffers. Layer textures are uploaded
   // top row first, so this is false for layer stacks.
   bottomUp: boolean;
+  // Pixels of `resolution` per output pixel at 1080p: the output's shorter
+  // side over 1080 for a picture drawn in output pixels. Distances in output
+  // pixels at 1080p, like Order's Spacing, scale by it, so they look the
+  // same in the preview and in export at any output size. Unset, the
+  // picture is taken to fill the output (see `effectPixelScale`).
+  pixelScale?: number;
+  // Set for a stage (see EffectStage): its size over the picture's.
+  stageScale?: number;
 };
+
+export const REFERENCE_OUTPUT_SIDE = 1080;
+
+// `ctx.pixelScale`, or the scale of a picture that fills the output.
+export function effectPixelScale(ctx: EffectContext) {
+  return (
+    ctx.pixelScale ??
+    Math.min(ctx.resolution[0], ctx.resolution[1]) / REFERENCE_OUTPUT_SIDE
+  );
+}
 
 export type EffectUniformLocations = Record<
   string,
@@ -35,7 +53,8 @@ export type EffectStage = {
   // earlier stages' samplers, all at `vUv`.
   fragmentSource: string;
   uniforms: string[];
-  // `ctx.resolution` is the stage's own size.
+  // `ctx.resolution` is the stage's own size, and `ctx.pixelScale` is
+  // scaled to match it.
   setUniforms(
     gl: WebGLRenderingContext,
     loc: EffectUniformLocations,

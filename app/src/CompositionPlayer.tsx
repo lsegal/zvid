@@ -49,7 +49,9 @@ import {
 } from "./composition-effect-index.ts";
 import { getGroupClipProgress } from "./composition-progress.ts";
 import type { CompositionRendererState } from "./composition-renderer-state.ts";
+import { findTransitionClips } from "./composition-transition.ts";
 import { loadFrameAssets, subscribeFrameAssets } from "./frame-assets.ts";
+import { recordHeardOnsets } from "./fx-animation-onsets.ts";
 import {
   LiveAudioBands,
   type MasterMeterTap,
@@ -144,6 +146,8 @@ export class CompositionRenderer {
   // Effects on layers whose FX switch is off are left out, clips included.
   private renderedEffects: EffectIndex<SessionEffect> = indexEffects([]);
   private sessionEffectIndex: EffectIndex<SessionEffect> = indexEffects([]);
+  // FX clips with a Transition, which draw clips beyond their ends.
+  private transitionClips: ArrangementClip[] = [];
   private readonly audioAnalysis: AudioAnalysisMode;
   private readonly contextAttributes: WebGLContextAttributes;
   private liveAudioBands = new LiveAudioBands();
@@ -185,7 +189,11 @@ export class CompositionRenderer {
       getRenderedEffects(state.effects, state.lanes, state.clips),
     );
     this.sessionEffectIndex = indexEffects(state.effects);
-    this.mixer?.update(this.audioMix(), state.mediaItems);
+    this.transitionClips = findTransitionClips(
+      state.clips,
+      this.renderedEffects,
+    );
+    this.mixer?.update(state.audioMix ?? SILENT_AUDIO_MIX, state.mediaItems);
     this.syncMediaWindow(this.windowPlayheadQ);
   }
 
@@ -221,7 +229,7 @@ export class CompositionRenderer {
     playing = true,
     playback?: CompositionPlaybackState,
   ) {
-    const audio = this.sampleLiveAudioBands();
+    const audio = this.sampleLiveAudioBands(playing ? playheadQ : undefined);
     // The mixer syncs first, so clips it plays from video elements draw
     // from them.
     if (playback) {
@@ -291,13 +299,7 @@ export class CompositionRenderer {
 
   // Media sync needs only the clips' timing, not their effects.
   syncPlayback(playback: CompositionPlaybackState) {
-    const timings = computeActiveClipTimings(
-      this.state.clips,
-      this.mediaById,
-      playback.playheadQ,
-      this.state.bpm,
-      this.lanePriority,
-    );
+    const timings = this.timingsAt(playback.playheadQ);
     this.mixer?.sync(playback);
     this.ensureClipElements(timings);
     this.syncMedia(timings, playback);
@@ -312,13 +314,14 @@ export class CompositionRenderer {
     );
     this.syncMediaWindow(playback.playheadQ);
     for (const [sourceKey, element] of this.media.elements) {
-      // An element whose clip draws the mixer's instead waits, paused.
+      // One whose clip draws the mixer's, or a Transition holds, is paused.
+      const entry = this.sharedElements.has(sourceKey)
+        ? undefined
+        : activeClipBySourceKey.get(sourceKey);
       syncPlaybackElement(
         element,
-        this.sharedElements.has(sourceKey)
-          ? undefined
-          : activeClipBySourceKey.get(sourceKey),
-        playback,
+        entry,
+        entry?.held ? { ...playback, isPlaying: false } : playback,
       );
     }
   }
@@ -385,9 +388,10 @@ export class CompositionRenderer {
       if (isGeneratedClip(entry.clip) || entry.media.kind !== "video") {
         continue;
       }
-      const shared = share
-        ? this.mixer?.videoElementFor(drawnClipOf(entry.clip, this.state.bpm))
-        : undefined;
+      const shared =
+        share && !entry.held
+          ? this.mixer?.videoElementFor(drawnClipOf(entry.clip, this.state.bpm))
+          : undefined;
       if (shared) {
         this.sharedElements.set(entry.sourceKey, shared);
       } else if (this.media.ensure(entry.sourceKey, entry.media, "auto")) {
@@ -403,17 +407,15 @@ export class CompositionRenderer {
     return getGroupClipProgress(this.state.clips, playheadQ, this.state.bpm);
   }
 
-  private audioMix() {
-    return this.state.audioMix ?? SILENT_AUDIO_MIX;
-  }
-
-  // The mix is measured only while some effect reacts to it.
-  private sampleLiveAudioBands() {
+  // The mix is measured only while some effect reacts to it. Its hits are
+  // recorded for the Animation graph while playing at `heardAtQ`.
+  private sampleLiveAudioBands(heardAtQ?: number) {
     const analyser = liveBandsAnalyser(
       this.renderedEffects.effects,
       this.mixer?.analyser ?? null,
     );
-    return this.liveAudioBands.sample(analyser, performance.now());
+    const bands = this.liveAudioBands.sample(analyser, performance.now());
+    return recordHeardOnsets(bands, heardAtQ, this.state.bpm);
   }
 
   private async sampleAudioBandsAt(playheadSeconds: number) {
@@ -421,7 +423,7 @@ export class CompositionRenderer {
       return this.sampleLiveAudioBands();
     }
 
-    const mix = this.audioMix();
+    const mix = this.state.audioMix ?? SILENT_AUDIO_MIX;
     if (!this.renderedEffects.effects.some(effectUsesAudio)) {
       return SILENT_AUDIO_BANDS;
     }
@@ -487,6 +489,18 @@ export class CompositionRenderer {
     );
   }
 
+  // The clips drawn at `playheadQ` and the media time of each.
+  private timingsAt(playheadQ: number) {
+    return computeActiveClipTimings(
+      this.state.clips,
+      this.mediaById,
+      playheadQ,
+      this.state.bpm,
+      this.lanePriority,
+      this.transitionClips,
+    );
+  }
+
   // Keeps video elements only for the media near `playheadQ`.
   private syncMediaWindow(playheadQ: number) {
     this.windowPlayheadQ = playheadQ;
@@ -497,6 +511,7 @@ export class CompositionRenderer {
       quartersToSeconds(playheadQ, bpm),
       bpm,
       (clip) => Boolean(this.mixer?.playsVideoOf(drawnClipOf(clip, bpm))),
+      this.transitionClips.length ? this.timingsAt(playheadQ) : [],
     );
     if (this.media.sync(window, this.mediaById)) {
       this.refreshVideoFrameReadyListeners();
@@ -646,38 +661,22 @@ export const CompositionPlayer = forwardRef<
     };
   }, [playheadSignal]);
 
-  const renderFrameAt = useCallback(
-    async (
-      nextPlayheadQ: number,
-      nextPlayheadSeconds: number,
-      pixelRatio: number,
-    ) => {
-      const canvas = canvasRef.current;
-      const renderer = rendererRef.current;
-      if (!canvas || !renderer) {
-        return;
-      }
-
-      await renderer.renderFrameAt(
-        nextPlayheadQ,
-        nextPlayheadSeconds,
-        pixelRatio,
-      );
-    },
-    [],
-  );
-
   useImperativeHandle(
     ref,
     () => ({
       getCanvas: () => canvasRef.current,
-      renderFrameAt: (nextPlayheadQ, nextPlayheadSeconds) =>
-        renderFrameAt(nextPlayheadQ, nextPlayheadSeconds, 1),
+      renderFrameAt: async (nextPlayheadQ, nextPlayheadSeconds) => {
+        await rendererRef.current?.renderFrameAt(
+          nextPlayheadQ,
+          nextPlayheadSeconds,
+          1,
+        );
+      },
       setVolume: (volume, muted) =>
         rendererRef.current?.setVolume(volume, muted),
       getMasterMeterTap: () => rendererRef.current?.getMasterMeterTap() ?? null,
     }),
-    [renderFrameAt],
+    [],
   );
 
   useEffect(() => {

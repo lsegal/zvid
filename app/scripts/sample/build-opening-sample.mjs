@@ -67,6 +67,7 @@ const LAYERS = [
   { id: "title-wordmark", name: "Title · zvid" },
   { id: "title-words", name: "Title · words" },
   { id: "fx-regions", name: "FX regions (Transform + Move)" },
+  { id: "transitions", name: "Transitions" },
   { id: "order", name: "Order three-ups" },
   { id: "orbit", name: "Orbit" },
   { id: "ribbon", name: "Ribbon" },
@@ -291,6 +292,8 @@ const refraction = (type, parameters) => [
   },
 ];
 const PANEL_EFFECTS = new Map([
+  // A focus pull: the panel blurs in and out of focus over its cut.
+  ["corridor 3", ["GaussianBlur", { _Radius: 24 }]],
   ["orbit 3", distortion("Wave", { _Amount: 0.4, _Size: 0.5, _Speed: 0.5 })],
   ["ribbon 4.5", distortion("Twirl", { _Amount: 0.6 })],
   ["corridor 6", distortion("Bulge", { _Amount: 0.7, _Size: 0.7 })],
@@ -436,6 +439,28 @@ for (const [start, duration, arrangement, spacing, margin] of ARRANGEMENTS) {
     },
   );
 }
+
+// A Transition across the cut at 12 s pushes the last Horizontal three-up
+// off as one picture, and the full-frame shot after it in.
+const transition = layerClip(
+  "fxClips",
+  "transition-12-0",
+  "transitions",
+  11.5,
+  1,
+);
+addEffect(
+  clipTrack(transition),
+  "Transition",
+  { Type: "Push", Direction: "Left", Softness: 0.2 },
+  {
+    animation: {
+      enabled: true,
+      mode: "clip",
+      clip: { motionIn: "Ease In", motionOut: "Ease Out", timing: "Full" },
+    },
+  },
+);
 
 // Localized FX: each FX clip's Transform sizes its box (30% × 56% of the
 // canvas) and a Move before it sweeps the box left to right, widening it

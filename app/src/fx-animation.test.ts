@@ -143,7 +143,7 @@ describe("animation defaults", () => {
     ]);
   });
 
-  it("offers Order only Clip mode, and every other effect all three", () => {
+  it("offers Order and Transition only Clip mode, and every other effect all three", () => {
     assert.deepEqual(getAnimationModes("Order"), ["clip"]);
     assert.equal(supportsAnimationMode("Order", "reactive"), false);
     assert.equal(supportsAnimationMode("Order", "lfo"), false);
@@ -151,8 +151,10 @@ describe("animation defaults", () => {
     assert.equal(createDefaultAnimation("Order")?.reactive, undefined);
     assert.equal(getAnimationDefaults("Order")?.lfo, undefined);
     assert.equal(createDefaultAnimation("Order")?.lfo, undefined);
+    // A Transition's Clip mode times its blend; it has no other mode.
+    assert.deepEqual(getAnimationModes("Transition"), ["clip"]);
     for (const effectName of KNOWN_EFFECTS.filter(supportsAnimation)) {
-      if (effectName !== "Order") {
+      if (effectName !== "Order" && effectName !== "Transition") {
         assert.deepEqual(
           getAnimationModes(effectName),
           ["clip", "reactive", "lfo"],

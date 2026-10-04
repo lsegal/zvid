@@ -490,6 +490,62 @@ describe("projectToLvpSession", () => {
     assert.equal(plain.animation, undefined);
   });
 
+  it("round-trips an FX clip's Transition with its timing", () => {
+    const animation: EffectAnimation = {
+      enabled: true,
+      mode: "clip",
+      clip: { motionIn: "Ease In", motionOut: "Linear", timing: "Full" },
+    };
+    const project = baseProject();
+    const session = projectToLvpSession(
+      {
+        ...project,
+        clips: [
+          ...project.clips,
+          {
+            id: "fx-transition",
+            kind: "fx",
+            sourceTrackId: "",
+            laneId: "main-1",
+            startQ: 4,
+            durationSeconds: 1,
+          },
+        ],
+        effects: [
+          {
+            id: "transition",
+            trackId: "clip:fx-transition",
+            effectName: "Transition",
+            parameters: [
+              { key: "Type", value: "Wipe" },
+              { key: "Direction", value: "Up" },
+              { key: "Softness", value: "0.400", numericValue: 0.4 },
+            ],
+            animation,
+          },
+        ],
+      },
+      { playheadQ: 0 },
+    );
+    const reopened = JSON.parse(JSON.stringify(session)) as LvpSession;
+    assert.deepEqual(
+      readSessionFxClips(reopened, 120, 30).map((clip) => clip.id),
+      ["fx-transition"],
+    );
+    const [transition] = mapEffects(reopened.effects);
+    assert.equal(transition.trackId, "clip:fx-transition");
+    assert.equal(transition.effectName, "Transition");
+    assert.deepEqual(
+      transition.parameters.map(({ key, value }) => [key, value]),
+      [
+        ["Type", "Wipe"],
+        ["Direction", "Up"],
+        ["Softness", "0.400"],
+      ],
+    );
+    assert.deepEqual(transition.animation, animation);
+  });
+
   it("round-trips audio effect modulation settings", () => {
     const modulation: EffectModulation = {
       enabled: true,

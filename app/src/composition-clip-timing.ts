@@ -17,17 +17,49 @@ export type ActiveClipTiming = Pick<
   | "playbackRate"
   | "isInBounds"
   | "laneRank"
+  | "held"
 >;
 
 const EPSILON = 0.0001;
+// A clip held on its last frame is drawn this long before its end, well
+// inside its source window.
+const HOLD_END_SECONDS = 0.001;
 
 export function quartersToSeconds(quarters: number, bpm: number) {
   return (quarters * 60) / bpm;
 }
 
 // At most one clip per lane under the playhead whose media is online, in
-// lane order.
+// lane order. While one of `transitions`, FX clips with a Transition, is
+// under the playhead, the clips it blends between that aren't are drawn
+// too, after the others: held on their last frame once they have ended, or
+// their first before they start (see transitionHolds).
 export function computeActiveClipTimings(
+  clips: ArrangementClip[],
+  mediaById: Map<string, MediaItem>,
+  playheadQ: number,
+  bpm: number,
+  lanePriority: Map<string, number>,
+  transitions: readonly ArrangementClip[] = [],
+): ActiveClipTiming[] {
+  const live = liveClipTimings(clips, mediaById, playheadQ, bpm, lanePriority);
+  return transitions.length
+    ? [
+        ...live,
+        ...transitionHolds(
+          clips,
+          mediaById,
+          playheadQ,
+          bpm,
+          lanePriority,
+          transitions,
+          live,
+        ),
+      ]
+    : live;
+}
+
+function liveClipTimings(
   clips: ArrangementClip[],
   mediaById: Map<string, MediaItem>,
   playheadQ: number,
@@ -110,6 +142,122 @@ export function computeActiveClipTimings(
         laneRank,
       };
     });
+}
+
+function clipEndQ(clip: ArrangementClip, bpm: number) {
+  return clip.startQ + (clip.durationSeconds * bpm) / 60;
+}
+
+// The clips a Transition FX clip blends between: those drawn on the layers
+// beneath it at its start (comp A, `outgoing`) and just before its end
+// (comp B, `incoming`). They depend only on the arrangement, so they are
+// worked out once per arrangement and Transition.
+export function transitionCompTimings(
+  clips: ArrangementClip[],
+  mediaById: Map<string, MediaItem>,
+  transition: ArrangementClip,
+  bpm: number,
+  lanePriority: Map<string, number>,
+) {
+  const cached = transitionCompsCache.get(transition);
+  if (
+    cached?.clips === clips &&
+    cached.mediaById === mediaById &&
+    cached.bpm === bpm &&
+    cached.lanePriority === lanePriority
+  ) {
+    return cached.comps;
+  }
+
+  const rank = lanePriority.get(transition.laneId) ?? -1;
+  const beneathAt = (playheadQ: number) =>
+    liveClipTimings(clips, mediaById, playheadQ, bpm, lanePriority).filter(
+      (timing) => timing.laneRank > rank,
+    );
+  const comps = {
+    outgoing: beneathAt(transition.startQ),
+    incoming: beneathAt(clipEndQ(transition, bpm) - EPSILON * 2),
+  };
+  transitionCompsCache.set(transition, {
+    clips,
+    mediaById,
+    bpm,
+    lanePriority,
+    comps,
+  });
+  return comps;
+}
+
+const transitionCompsCache = new WeakMap<
+  ArrangementClip,
+  {
+    clips: ArrangementClip[];
+    mediaById: Map<string, MediaItem>;
+    bpm: number;
+    lanePriority: Map<string, number>;
+    comps: { outgoing: ActiveClipTiming[]; incoming: ActiveClipTiming[] };
+  }
+>();
+
+// The clips the `transitions` under the playhead blend between that aren't
+// `live`: each held on the frame nearest the playhead, its last once it has
+// ended and its first before it starts, from a media element of its own.
+function transitionHolds(
+  clips: ArrangementClip[],
+  mediaById: Map<string, MediaItem>,
+  playheadQ: number,
+  bpm: number,
+  lanePriority: Map<string, number>,
+  transitions: readonly ArrangementClip[],
+  live: readonly ActiveClipTiming[],
+) {
+  const drawn = new Set(live.map((timing) => timing.clip.id));
+  const holds: ActiveClipTiming[] = [];
+  for (const transition of transitions) {
+    if (
+      playheadQ < transition.startQ - EPSILON ||
+      playheadQ >= clipEndQ(transition, bpm) - EPSILON
+    ) {
+      continue;
+    }
+    const { outgoing, incoming } = transitionCompTimings(
+      clips,
+      mediaById,
+      transition,
+      bpm,
+      lanePriority,
+    );
+    for (const { clip } of [...outgoing, ...incoming]) {
+      if (drawn.has(clip.id)) {
+        continue;
+      }
+      drawn.add(clip.id);
+      const heldQ = Math.max(
+        clip.startQ,
+        Math.min(
+          playheadQ,
+          clipEndQ(clip, bpm) - (HOLD_END_SECONDS * bpm) / 60,
+        ),
+      );
+      const [timing] = liveClipTimings(
+        [clip],
+        mediaById,
+        heldQ,
+        bpm,
+        lanePriority,
+      );
+      if (timing) {
+        holds.push({
+          ...timing,
+          sourceKey: isGeneratedClip(clip)
+            ? timing.sourceKey
+            : `${timing.media.id}@held/${clip.id}`,
+          held: true,
+        });
+      }
+    }
+  }
+  return holds;
 }
 
 // Fill and text clips draw what their layer's effects describe rather than

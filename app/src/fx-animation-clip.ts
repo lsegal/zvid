@@ -17,6 +17,7 @@
 
 import { ORDER_EFFECT_NAME, type OrderSlide } from "./composition-order.ts";
 import { formatCssColor, parseCssColor } from "./fill-paint.ts";
+import { TRANSITION_EFFECT_NAME } from "./fx/effects/transition/transition.ts";
 import type {
   AnimatableEffect,
   AnimatedParameter,
@@ -200,10 +201,12 @@ export function resolveClipAnimatedParameters(
   const clip = effect.animation?.clip;
   const frames = clip && getClipTimingFrames(effect.effectName, clip.timing);
   // An Order's knobs never tween: its Clip mode moves the clips beneath it.
+  // A Transition's Clip mode times its blend (see composition-transition.ts).
   if (
     !clip ||
     frames === undefined ||
-    effect.effectName === ORDER_EFFECT_NAME
+    effect.effectName === ORDER_EFFECT_NAME ||
+    effect.effectName === TRANSITION_EFFECT_NAME
   ) {
     return effect.parameters;
   }
@@ -221,7 +224,7 @@ export function resolveClipAnimatedParameters(
 
 // How a clip eases into and out of an Order's arrangement: the same both
 // ways, so leaving is entering played backwards.
-const ORDER_SLIDE_MOTION = {
+export const ORDER_SLIDE_MOTION = {
   motionIn: "Ease In Out",
   motionOut: "Ease In Out",
 } as const satisfies Pick<ClipAnimation, "motionIn" | "motionOut">;

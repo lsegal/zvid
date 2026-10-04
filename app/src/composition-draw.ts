@@ -2,6 +2,11 @@ import {
   borderClearColor,
   sceneClearColor,
 } from "./composition-clear-color.ts";
+import {
+  bindCompositeState,
+  type CompositeUniforms,
+  drawQuad,
+} from "./composition-draw-gl.ts";
 import { applyFxClip, placeArrangement } from "./composition-fx-clip.ts";
 import {
   type CompositeUniformLocations,
@@ -25,6 +30,7 @@ import {
   resolveSlotBounds,
   resolveSlotScissor,
   type SlotMotion,
+  type TransitionComps,
 } from "./composition-layout.ts";
 import {
   type CompositionOrder,
@@ -59,9 +65,12 @@ import {
   visualTransformChain,
   visualTransformMatrix,
 } from "./composition-transform.ts";
+import { drawTransition } from "./composition-transition-draw.ts";
 import type { FillPaint } from "./fill-paint.ts";
 import { EFFECT_PASSES } from "./fx/effects/index.generated.ts";
 import type { LayerMask } from "./fx/effects/mask/mask.ts";
+import { TransitionRenderer } from "./fx/effects/transition/renderer.ts";
+import type { TransitionSettings } from "./fx/effects/transition/transition.ts";
 import type { AudioBands } from "./fx-shaders/audio-bands.ts";
 import {
   EffectChainRenderer,
@@ -71,6 +80,7 @@ import {
 } from "./fx-shaders/chain.ts";
 import { linkProgram } from "./fx-shaders/gl.ts";
 import type { EffectChainStep } from "./fx-shaders/registry.ts";
+import { REFERENCE_OUTPUT_SIDE } from "./fx-shaders/types.ts";
 import { recordRenderFrame } from "./render-stats.ts";
 import { TEXT_REFERENCE_HEIGHT, type TextStyle } from "./text-style.ts";
 
@@ -85,7 +95,12 @@ export type CompositeVisual = LayerVisual & {
 export type CompositeLayer = {
   // `laneId` is the layer the clip is on, which an Order can exclude. With
   // `clipProgress`, `durationSeconds` times an animated Order's slides.
-  clip: { startQ: number; laneId?: string; durationSeconds?: number };
+  clip: {
+    id?: string;
+    startQ: number;
+    laneId?: string;
+    durationSeconds?: number;
+  };
   media: { id: string; width?: number; height?: number };
   // Key of the media element in `mediaRefs` this layer draws from.
   sourceKey: string;
@@ -106,6 +121,11 @@ export type CompositeLayer = {
   order?: CompositionOrder;
   // Set for clips masked by another layer's drawn pixels.
   mask?: LayerMask;
+  // Set for FX clips with a Transition, which blends from the comp of the
+  // layers beneath them at their start to the one at their end.
+  transition?: TransitionSettings & TransitionComps;
+  // Set for clips drawn only for a Transition, held on a frame.
+  held?: boolean;
 };
 
 export type FrameContext = {
@@ -124,6 +144,7 @@ export type WebGlResources = SourceTextures & {
   program: WebGLProgram;
   positionBuffer: WebGLBuffer;
   effectChain: EffectChainRenderer;
+  transitions: TransitionRenderer;
   // A frame's FX clip chains and the layers it draws, reused each frame.
   fxSteps: Map<CompositeLayer, PreparedEffectStep[]>;
   drawnLayers: CompositeLayer[];
@@ -140,13 +161,6 @@ export type WebGlResources = SourceTextures & {
   uniforms: CompositeUniformLocations;
   // The layer shader for a layer a Mask masks by its Target's drawn alpha.
   masked: MaskedComposite;
-};
-
-type CompositeUniforms = QuadAxes & {
-  opacity: number;
-  brightness: number;
-  contrast: number;
-  saturation: number;
 };
 
 export function ensureWebGlResources(
@@ -194,6 +208,7 @@ export function createWebGlResources(
     program,
     positionBuffer,
     effectChain,
+    transitions: new TransitionRenderer(gl, positionBuffer),
     fxSteps: new Map<CompositeLayer, PreparedEffectStep[]>(),
     drawnLayers: [] as CompositeLayer[],
     fxMask: {
@@ -213,64 +228,12 @@ export function createWebGlResources(
 export function disposeWebGlResources(resources: WebGlResources) {
   const { gl } = resources;
   resources.effectChain.dispose();
+  resources.transitions.dispose();
   releaseAllTextures(resources);
   gl.deleteBuffer(resources.positionBuffer);
   gl.deleteProgram(resources.program);
   gl.deleteProgram(resources.fxMask.program);
   gl.deleteProgram(resources.masked.program);
-}
-
-// Restores everything the composite draw depends on. The effect chain and
-// render-target setup rebind the program, array buffer, attribute pointer,
-// blending, viewport and texture unit, so this runs before every draw
-// instead of relying on state left over from initialization. Scissoring is
-// left off; each layer draw scissors to its own slot.
-function bindCompositeState(
-  resources: WebGlResources,
-  framebuffer: WebGLFramebuffer | null,
-  width: number,
-  height: number,
-) {
-  const { gl, uniforms } = resources;
-  gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-  gl.viewport(0, 0, width, height);
-  // biome-ignore lint/correctness/useHookAtTopLevel: WebGLRenderingContext.useProgram is not a React hook.
-  gl.useProgram(resources.program);
-  gl.bindBuffer(gl.ARRAY_BUFFER, resources.positionBuffer);
-  gl.enableVertexAttribArray(uniforms.position);
-  gl.vertexAttribPointer(uniforms.position, 2, gl.FLOAT, false, 0, 0);
-  gl.enable(gl.BLEND);
-  // Alpha accumulates as "over" too, so a translucent layer on an opaque
-  // border leaves it opaque when an FX clip's arrangement is drawn out.
-  gl.blendFuncSeparate(
-    gl.SRC_ALPHA,
-    gl.ONE_MINUS_SRC_ALPHA,
-    gl.ONE,
-    gl.ONE_MINUS_SRC_ALPHA,
-  );
-  gl.disable(gl.SCISSOR_TEST);
-  gl.activeTexture(gl.TEXTURE0);
-}
-
-function drawQuad(
-  resources: WebGlResources,
-  source: TextureRegion,
-  values: CompositeUniforms,
-  uniforms = resources.uniforms,
-) {
-  const { gl } = resources;
-  gl.bindTexture(gl.TEXTURE_2D, source.texture);
-  gl.uniform1i(uniforms.texture, 0);
-  gl.uniform2f(uniforms.uvScale, ...source.uvScale);
-  gl.uniform2f(uniforms.uvMax, ...source.uvMax);
-  gl.uniform2f(uniforms.axisX, ...values.axisX);
-  gl.uniform2f(uniforms.axisY, ...values.axisY);
-  gl.uniform2f(uniforms.offset, ...values.offset);
-  gl.uniform1f(uniforms.opacity, values.opacity);
-  gl.uniform1f(uniforms.brightness, values.brightness);
-  gl.uniform1f(uniforms.contrast, values.contrast);
-  gl.uniform1f(uniforms.saturation, values.saturation);
-  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }
 
 // A layer's uniforms: `axes` with its color adjustments at `opacity`, built
@@ -471,9 +434,8 @@ function drawLayer(
   const layerSteps = effectChain.prepare(entry.effectChain);
   if (layerSteps.length || transformed) {
     // Text is framed at its box's size, so its effects see it unstretched.
-    const frameSize = textBox
-      ? fitTextureSize(gl, sourceWidth, sourceHeight)
-      : scissor;
+    const fitted = textBox && fitTextureSize(gl, sourceWidth, sourceHeight);
+    const frameSize = fitted || scissor;
     const framed = renderLayerFrame(
       resources,
       texture,
@@ -493,6 +455,11 @@ function drawLayer(
             time: frameContext.time,
             clipProgress: entry.clipProgress,
             resolution: [frameSize.width, frameSize.height],
+            // The frame is in output pixels, unless a text box is scaled
+            // down to fit a texture.
+            pixelScale:
+              ((fitted ? fitted.factor : 1) * Math.min(width, height)) /
+              REFERENCE_OUTPUT_SIDE,
             // The framed layer is written top row first, like a layer texture.
             bottomUp: false,
           },
@@ -595,7 +562,9 @@ export function drawComposition(
   for (const entry of activeClips) {
     if (
       entry.fx
-        ? fxSteps.has(entry) || (entry.isInBounds && entry.order !== undefined)
+        ? fxSteps.has(entry) ||
+          (entry.isInBounds &&
+            (entry.order !== undefined || entry.transition !== undefined))
         : entry.isInBounds &&
           (entry.fill ||
             entry.text ||
@@ -703,6 +672,16 @@ export function drawComposition(
     for (const step of steps) {
       if (step.type === "layer") {
         drawLayerStep(step, target, 0);
+      } else if (step.type === "transition") {
+        drawTransition(
+          resources,
+          step,
+          target,
+          depth,
+          drawSteps,
+          fxSteps.get(step.entry) ?? [],
+          frameContext,
+        );
       } else if (step.type === "arrange") {
         drawArrangement(step, target, depth);
       } else if (target.region && target.framebuffer) {

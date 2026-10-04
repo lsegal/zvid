@@ -1,6 +1,10 @@
 import { CheckIcon, ChevronLeftIcon } from "@heroicons/react/24/solid";
 import type { CSSProperties } from "react";
 import {
+  isTransitionEffectName,
+  TYPE_KEY,
+} from "../../fx/effects/transition/transition";
+import {
   ANIMATION_TIMINGS,
   type AnimatableParameter,
   CLIP_MOTIONS,
@@ -32,8 +36,9 @@ import {
 } from "../ui/dropdown-menu";
 import { Knob } from "../ui/Knob";
 import { Select } from "../ui/select";
+import { FxAnimationGraph } from "./FxAnimationGraph";
 import type { FxChainProps } from "./FxChain";
-import type { FxEditMode } from "./types";
+import type { FxEditMode, FxSetParameter } from "./types";
 
 type FxAnimationPanelProps = {
   device: FxDevice;
@@ -43,6 +48,9 @@ type FxAnimationPanelProps = {
   bypassed: boolean;
   onToggleCollapsed: () => void;
   onSetAnimation?: FxChainProps["onSetAnimation"];
+  // Sets a Transition's Type, which its Animation section shows with the
+  // timing it blends over.
+  onSetParameter?: FxSetParameter;
 };
 
 const ANIMATION_MODE_LABELS = {
@@ -62,6 +70,7 @@ export function FxAnimationPanel({
   bypassed,
   onToggleCollapsed,
   onSetAnimation,
+  onSetParameter,
 }: FxAnimationPanelProps) {
   const style = { "--fx-accent": device.accent } as CSSProperties;
   const label = `${device.name} animation`;
@@ -94,6 +103,9 @@ export function FxAnimationPanel({
     onSetAnimation?.(device, next, mode);
   const setClip = (patch: Partial<EffectAnimation["clip"]>) =>
     set({ ...animation, clip: { ...animation.clip, ...patch } });
+  const transitionType = isTransitionEffectName(device.effectName)
+    ? device.parameters.find((parameter) => parameter.key === TYPE_KEY)
+    : undefined;
   // Effects with a single mode, like Order's Clip, show no Mode choice.
   const modes = getAnimationModes(device.effectName);
   const reactive =
@@ -125,6 +137,7 @@ export function FxAnimationPanel({
     <section aria-label={label} className={className} style={style}>
       <header className="fx-animation-panel__title">
         <span className="fx-animation-panel__name">Animation</span>
+        <FxAnimationGraph animation={animation} device={device} />
         <button
           aria-expanded
           aria-label={`Collapse ${label}`}
@@ -181,6 +194,16 @@ export function FxAnimationPanel({
                 />
               </>
             )}
+            {transitionType?.options ? (
+              <FxAnimationSelect
+                label="Type"
+                onChange={(type) =>
+                  onSetParameter?.(device, TYPE_KEY, type, "commit")
+                }
+                options={transitionType.options}
+                value={transitionType.stringValue ?? transitionType.display}
+              />
+            ) : null}
           </>
         ) : (
           <>

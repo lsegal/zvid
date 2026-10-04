@@ -24,6 +24,8 @@ import * as distortion from "./distortion/definition.ts";
 import { pass as distortionPass } from "./distortion/pass.ts";
 import * as eq from "./eq/definition.ts";
 import * as gain from "./gain/definition.ts";
+import * as gaussianBlur from "./gaussian-blur/definition.ts";
+import { pass as gaussianBlurPass } from "./gaussian-blur/pass.ts";
 import * as highCut from "./high-cut/definition.ts";
 import * as layout from "./layout/definition.ts";
 import * as limiter from "./limiter/definition.ts";
@@ -49,6 +51,7 @@ import * as stereo from "./stereo/definition.ts";
 import * as text from "./text/definition.ts";
 import * as transform from "./transform/definition.ts";
 import * as transientShaper from "./transient-shaper/definition.ts";
+import * as transition from "./transition/definition.ts";
 import * as tremolo from "./tremolo/definition.ts";
 import * as zoomAndPan from "./zoom-and-pan/definition.ts";
 import { pass as zoomAndPanPass } from "./zoom-and-pan/pass.ts";
@@ -70,6 +73,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   distortion,
   eq,
   gain,
+  gaussianBlur,
   highCut,
   layout,
   limiter,
@@ -91,6 +95,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   text,
   transform,
   transientShaper,
+  transition,
   tremolo,
   zoomAndPan,
 ];
@@ -103,6 +108,7 @@ export const EFFECT_PASSES: readonly EffectPass[] = [
   colorizePass,
   digitalGlitchPass,
   distortionPass,
+  gaussianBlurPass,
   negativeSplitPass,
   pixelatePass,
   refractionPass,
