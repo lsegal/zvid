@@ -77,6 +77,10 @@
 }
 
 /* The session name and media status share the short ruler header cell. */
+.ruler-row .track-label--header {
+  line-height: 1.25;
+}
+
 .ruler-row .track-label--header > div > span {
   font-size: 0.86rem;
 }
@@ -111,8 +115,10 @@
   text-decoration-style: solid;
 }
 
+/* Block-level, so the header line's text strut doesn't make the short
+   header cell taller than the ruler. */
 .track-label__offline--syncing {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   color: #cdddff;
   font-variant-numeric: tabular-nums;

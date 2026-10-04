@@ -1003,7 +1003,6 @@
 .track-label--header {
   min-height: 40px;
   padding-block: 4px;
-  line-height: 1.25;
   background: #2d3044;
   z-index: 7;
 }
