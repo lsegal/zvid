@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { clipEffectTrackId, type SessionEffect } from "../fx-stack.ts";
 import {
+  canPasteOntoLayer,
+  clipClipboardKind,
   cloneClipAtStartQ,
   duplicateClip,
   withClipStacks,
@@ -51,5 +53,36 @@ describe("withClipStacks", () => {
       [own, other],
     );
     assert.deepEqual(content.effects, [own]);
+  });
+});
+
+describe("clip clipboard kinds", () => {
+  const layerCopy = { fragments: [{ clip, offsetQ: 0 }], durationQ: 4 };
+  const sourceCopy = {
+    fragments: [],
+    durationQ: 4,
+    sourceSpan: {
+      id: "span",
+      sourceTrackId: "track",
+      label: "Span",
+      mediaPath: "clip.mp4",
+      startQ: 0,
+      durationSeconds: 2,
+      trimStartSeconds: 3,
+      tint: "#000",
+      accent: "#fff",
+    },
+  };
+
+  it("records whether content came from a layer or a source clip", () => {
+    assert.equal(clipClipboardKind(layerCopy), "layer");
+    assert.equal(clipClipboardKind(sourceCopy), "source");
+  });
+
+  it("pastes only layer clips onto a layer", () => {
+    assert.equal(canPasteOntoLayer(layerCopy), true);
+    assert.equal(canPasteOntoLayer(sourceCopy), false);
+    assert.equal(canPasteOntoLayer({ fragments: [], durationQ: 0 }), false);
+    assert.equal(canPasteOntoLayer(null), false);
   });
 });

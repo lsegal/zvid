@@ -8,10 +8,7 @@ import { getClipEndQ } from "./app/timeline-math.ts";
 import type { ProjectState, SourceSpan } from "./app/types.ts";
 import { getSwatch } from "./app/util.ts";
 import { canSplitAt } from "./clip-menu.ts";
-import {
-  copyEffectStacks,
-  sourceClipEffectTrackId,
-} from "./fx-stack.ts";
+import { copyEffectStacks, sourceClipEffectTrackId } from "./fx-stack.ts";
 import {
   relinkClipsToSourceSpans,
   resolveSourceSpanOverlaps,
@@ -87,7 +84,10 @@ export function pasteIntoSourceTrack(
   const swatch = getSwatch(track.colorIndex);
   const id = createId();
   const copies: Array<[string, string]> = [
-    [sourceClipEffectTrackId(clipboard.sourceSpan.id), sourceClipEffectTrackId(id)],
+    [
+      sourceClipEffectTrackId(clipboard.sourceSpan.id),
+      sourceClipEffectTrackId(id),
+    ],
   ];
   const spans: SourceSpan[] = [
     {

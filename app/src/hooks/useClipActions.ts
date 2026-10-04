@@ -38,7 +38,6 @@ import {
   sourceClipEffectTrackId,
 } from "../fx-stack";
 import { createLaneId } from "../lanes";
-import type { MediaItem } from "../media";
 import type { ProjectHistoryAction } from "../project-history";
 import {
   copyClip,
@@ -66,7 +65,6 @@ export type ClipActionsInputs = {
   dispatchProject: (action: ProjectHistoryAction<ProjectState>) => void;
   effects: SessionEffect[];
   lanes: Lane[];
-  mediaItemsById: ReadonlyMap<string, MediaItem>;
   playheadQRef: RefObject<number>;
   selectedClip: ArrangementClip | undefined;
   selectedLaneId: string | undefined;
@@ -89,7 +87,6 @@ export function useClipActions({
   dispatchProject,
   effects,
   lanes,
-  mediaItemsById,
   playheadQRef,
   selectedClip,
   selectedLaneId,
