@@ -27,7 +27,10 @@ describe("shouldReleaseFocus", () => {
   });
 
   it("ignores presses outside the timeline", () => {
-    assert.equal(shouldReleaseFocus(pressTarget(false), focused(), body), false);
+    assert.equal(
+      shouldReleaseFocus(pressTarget(false), focused(), body),
+      false,
+    );
   });
 
   it("does nothing when nothing has the focus", () => {

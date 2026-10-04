@@ -143,33 +143,26 @@ test("shortcuts work after loading the app", async ({ page }) => {
   await expect(clip).not.toHaveClass(/clip-card--selected/);
 });
 
-test("a press on a lane or the ruler takes the focus off a text field", async ({
+// A press on lane space would deselect the clip and close its Text field,
+// so the ruler, which keeps the clip selected, presses outside it.
+test("a press on the ruler takes the focus off a text field", async ({
   page,
 }) => {
   const clip = await insertTextClip(page);
   const text = textField(page);
-
-  // A press on lane space.
   await text.fill("Title");
   await expect(text).toBeFocused();
-  const layer3 = await boxOf(lane(page, "6"));
-  await page.mouse.click(layer3.x + 500, layer3.y + 20);
-  await expect(text).not.toBeFocused();
-  await expectTransportShortcuts(page);
-  await expect(clip.locator("strong")).toHaveText("Title");
 
-  // A press on the ruler.
-  await clip.click();
-  await text.fill("Again");
-  await expect(text).toBeFocused();
   const ruler = await boxOf(page.locator(".ruler-row"));
   await page.mouse.click(ruler.x + 400, ruler.y + ruler.height / 2);
   await expect(text).not.toBeFocused();
   await expect(clip).toHaveClass(/clip-card--selected/);
+  await expectTransportShortcuts(page);
+  await expect(text).toHaveValue("Title");
+  await expect(clip.locator("strong")).toHaveText("Title");
+
   await page.keyboard.press("Escape");
   await expect(clip).not.toHaveClass(/clip-card--selected/);
-  await expectTransportShortcuts(page);
-  await expect(clip.locator("strong")).toHaveText("Again");
 });
 
 test("a press on a lane takes the focus off the zoom slider", async ({
@@ -188,19 +181,17 @@ test("a press on a lane takes the focus off the zoom slider", async ({
   await expect(zoom).toHaveValue(zoomValue);
 });
 
-test("a number key commits a selection drawn after editing a text field", async ({
+test("a number key commits a selection drawn with the zoom slider focused", async ({
   page,
 }) => {
   await dropVideoIntoNewSourceTrack(page);
-  await insertTextClip(page);
-  const text = textField(page);
-  await text.fill("Title");
-  await expect(text).toBeFocused();
+  const zoom = page.getByRole("slider", { name: "Timeline zoom" });
+  await zoom.focus();
+  await expect(zoom).toBeFocused();
 
   const selection = await drawSelection(lane(page, "5"), 40, 200);
-  await expect(text).not.toBeFocused();
+  await expect(zoom).not.toBeFocused();
   await page.keyboard.press("1");
   await expect(selection).toHaveCount(0);
   await expect(lane(page, "5").locator(".clip-card")).toHaveCount(1);
-  await expect(text).toHaveValue("Title");
 });
