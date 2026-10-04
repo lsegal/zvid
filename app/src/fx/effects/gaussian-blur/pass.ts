@@ -12,40 +12,47 @@ import {
 export const GAUSSIAN_BLUR_MAX_RADIUS = 100;
 export const GAUSSIAN_BLUR_DEFAULT_RADIUS = 20;
 
-// Taps on each side of a pixel in each direction of the blur, so the blur
-// reaches GAUSSIAN_BLUR_TAPS stage texels where the stage scale allows.
-export const GAUSSIAN_BLUR_TAPS = 32;
+// The most taps on each side of a pixel in each direction of the blur, a
+// stage texel apart, read in pairs.
+export const GAUSSIAN_BLUR_TAPS = 64;
+
+// The reach in stage texels the stages are scaled to keep the blur within,
+// well inside GAUSSIAN_BLUR_TAPS even once the stage can't shrink further.
+const STAGE_REACH = 32;
 
 // The range of the stages' scale: the picture's own size for a blur
-// reaching under GAUSSIAN_BLUR_TAPS pixels, and no coarser than a quarter
-// of it, which the source stage's four reads still cover every pixel of.
+// reaching under STAGE_REACH pixels, and no coarser than a quarter of it,
+// which the source stage's four reads still cover every pixel of.
 const FINEST_STAGE = 1;
 const COARSEST_STAGE = 1 / 4;
 
-// The Gaussian falloff across the blur's reach, `r` from 0 to 1: a standard
-// deviation of a third of the Radius, so it fades out by the reach.
-function falloff(r: number) {
-  return Math.exp(-4.5 * r * r);
-}
+// The blur's standard deviation as a share of its reach, so it has faded
+// out by the reach.
+const SIGMA = 1 / 3;
 
-// The blur's weights and offsets, one direction at a time. Each pair of
-// neighboring taps reads as one bilinear sample between them, weighted by
-// their sum, so a side of GAUSSIAN_BLUR_TAPS taps takes half as many reads.
-function blurTaps() {
-  const weights = Array.from({ length: GAUSSIAN_BLUR_TAPS + 1 }, (_, tap) =>
-    falloff(tap / GAUSSIAN_BLUR_TAPS),
-  );
-  const total = weights[0] + 2 * weights.slice(1).reduce((a, b) => a + b, 0);
-  const taps = [{ offset: 0, weight: weights[0] / total }];
-  for (let tap = 1; tap < GAUSSIAN_BLUR_TAPS; tap += 2) {
-    const weight = weights[tap] + weights[tap + 1];
-    const offset = (tap * weights[tap] + (tap + 1) * weights[tap + 1]) / weight;
-    taps.push({ offset, weight: weight / total });
+// The blur's reads along one direction, reaching `reach` taps: offsets in
+// taps from the pixel, and normalized weights. Each pair of neighboring taps
+// reads as one bilinear sample between them, weighted by their sum. The
+// stage shaders compute the same in GLSL; this mirrors them for the tests.
+export function blurReads(reach: number) {
+  const sigma = Math.max(reach * SIGMA, 1e-3);
+  const falloff = (tap: number) => Math.exp((-0.5 * tap * tap) / sigma ** 2);
+  const reads = [{ offset: 0, weight: 1 }];
+  for (let pair = 0; pair < GAUSSIAN_BLUR_TAPS / 2; pair++) {
+    const near = 2 * pair + 1;
+    const weight = falloff(near) + falloff(near + 1);
+    if (near > reach + 1 || !(weight > 0)) {
+      break;
+    }
+    reads.push({ offset: near + falloff(near + 1) / weight, weight });
   }
-  return taps;
+  const total =
+    1 + 2 * reads.slice(1).reduce((sum, { weight }) => sum + weight, 0);
+  return reads.map(({ offset, weight }) => ({
+    offset,
+    weight: weight / total,
+  }));
 }
-
-export const GAUSSIAN_BLUR_WEIGHTS = blurTaps();
 
 function readRadius(params: EffectParameter[]) {
   return clampUnit(
@@ -61,30 +68,38 @@ function reachPixels(params: EffectParameter[], ctx: EffectContext) {
 }
 
 // One direction of the blur: the premultiplied `source` read at the taps
-// along `uTap`, the distance between neighboring taps in texture
-// coordinates.
+// `uTap` apart in texture coordinates, out to `uReach` taps.
 function blurSource(source: string) {
-  const reads = GAUSSIAN_BLUR_WEIGHTS.map(({ offset, weight }) =>
-    offset === 0
-      ? `      sum += ${weight.toFixed(6)} * texture2D(${source}, vUv);`
-      : `      sum += ${weight.toFixed(6)} * (texture2D(${source}, vUv + ${offset.toFixed(6)} * uTap) + texture2D(${source}, vUv - ${offset.toFixed(6)} * uTap));`,
-  );
   return `
     uniform sampler2D ${source};
     uniform vec2 uTap;
+    uniform float uReach, uSigma;
     varying vec2 vUv;
 
     void main() {
-      vec4 sum = vec4(0.0);
-${reads.join("\n")}
-      gl_FragColor = sum;
+      vec4 sum = texture2D(${source}, vUv);
+      float total = 1.0;
+      float k = -0.5 / (uSigma * uSigma);
+      for (int pair = 0; pair < ${GAUSSIAN_BLUR_TAPS / 2}; pair++) {
+        float near = float(2 * pair + 1);
+        float nearWeight = exp(k * near * near);
+        float farWeight = exp(k * (near + 1.0) * (near + 1.0));
+        float weight = nearWeight + farWeight;
+        if (near > uReach + 1.0 || weight <= 0.0) break;
+        vec2 offset = (near + farWeight / weight) * uTap;
+        sum += weight * (texture2D(${source}, vUv + offset)
+          + texture2D(${source}, vUv - offset));
+        total += 2.0 * weight;
+      }
+      gl_FragColor = sum / total;
     }
   `;
 }
 
-// Sets `uTap` to the distance between taps that spreads the blur over its
-// reach along `axis`, in texture coordinates of a stage.
-function setTap(
+// Sets `uTap`, `uReach` and `uSigma` to spread the blur over its reach
+// along `axis` of a stage: taps a texel apart, or further where the reach
+// is longer than GAUSSIAN_BLUR_TAPS texels.
+function setTaps(
   gl: WebGLRenderingContext,
   loc: EffectUniformLocations,
   params: EffectParameter[],
@@ -92,12 +107,15 @@ function setTap(
   axis: 0 | 1,
 ) {
   // `ctx.pixelScale` is the stage's, so this is the reach in its texels.
-  const tap = reachPixels(params, ctx) / GAUSSIAN_BLUR_TAPS;
+  const reach = reachPixels(params, ctx);
+  const tap = Math.max(1, reach / GAUSSIAN_BLUR_TAPS);
   gl.uniform2f(
     loc.uTap,
     axis === 0 ? tap / ctx.resolution[0] : 0,
     axis === 1 ? tap / ctx.resolution[1] : 0,
   );
+  gl.uniform1f(loc.uReach, reach / tap);
+  gl.uniform1f(loc.uSigma, Math.max((reach / tap) * SIGMA, 1e-3));
 }
 
 // How far from a stage texel's center, in picture pixels, the source
@@ -114,9 +132,10 @@ export function sourceReadOffset(scale: number) {
 // pixels at 1080p scaled to the output size, one direction at a time. The
 // picture is premultiplied by its alpha first, so transparent areas don't
 // darken the edges they meet, and every read is clamped to the picture's
-// edges rather than wrapping. The stages are scaled so the reach spans
-// about GAUSSIAN_BLUR_TAPS of their texels, which keeps the taps a texel or
-// so apart at any Radius. Nothing depends on time, so preview and export
+// edges rather than wrapping. The stages are scaled so a long reach spans
+// about STAGE_REACH of their texels, and the taps sit a texel apart, so a
+// pair of them reads as one bilinear sample exactly and the falloff stays
+// smooth at any Radius. Nothing depends on time, so preview and export
 // match.
 export const pass: EffectPass = {
   effectName: "GaussianBlur",
@@ -156,17 +175,17 @@ export const pass: EffectPass = {
     {
       name: "uBlurAcross",
       fragmentSource: blurSource("uBlurSource"),
-      uniforms: ["uTap"],
+      uniforms: ["uTap", "uReach", "uSigma"],
       setUniforms(gl, loc, params, ctx) {
-        setTap(gl, loc, params, ctx, 0);
+        setTaps(gl, loc, params, ctx, 0);
       },
     },
     {
       name: "uBlurDown",
       fragmentSource: blurSource("uBlurAcross"),
-      uniforms: ["uTap"],
+      uniforms: ["uTap", "uReach", "uSigma"],
       setUniforms(gl, loc, params, ctx) {
-        setTap(gl, loc, params, ctx, 1);
+        setTaps(gl, loc, params, ctx, 1);
       },
     },
   ],
@@ -175,11 +194,7 @@ export const pass: EffectPass = {
     if (!(reach > 0)) {
       return 0;
     }
-    return clampUnit(
-      GAUSSIAN_BLUR_TAPS / reach,
-      COARSEST_STAGE,
-      FINEST_STAGE,
-    );
+    return clampUnit(STAGE_REACH / reach, COARSEST_STAGE, FINEST_STAGE);
   },
   fragmentSource: `
     uniform sampler2D uTex;

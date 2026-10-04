@@ -1,7 +1,10 @@
 import { formatPixels } from "../../params.ts";
 import type { FxEffectDefinition } from "../../types.ts";
 import { ALL_SCOPES } from "../../types.ts";
-import { GAUSSIAN_BLUR_DEFAULT_RADIUS, GAUSSIAN_BLUR_MAX_RADIUS } from "./pass.ts";
+import {
+  GAUSSIAN_BLUR_DEFAULT_RADIUS,
+  GAUSSIAN_BLUR_MAX_RADIUS,
+} from "./pass.ts";
 
 // Where the effect sits in the add menus, lowest first: beside Bloom.
 export const menuOrder = 56;

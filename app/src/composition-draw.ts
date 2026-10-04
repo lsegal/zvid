@@ -68,8 +68,8 @@ import {
   wholeTexture,
 } from "./fx-shaders/chain.ts";
 import { linkProgram } from "./fx-shaders/gl.ts";
-import { REFERENCE_OUTPUT_SIDE } from "./fx-shaders/types.ts";
 import type { EffectChainStep } from "./fx-shaders/registry.ts";
+import { REFERENCE_OUTPUT_SIDE } from "./fx-shaders/types.ts";
 import { recordRenderFrame } from "./render-stats.ts";
 import { TEXT_REFERENCE_HEIGHT, type TextStyle } from "./text-style.ts";
 
