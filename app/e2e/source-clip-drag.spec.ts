@@ -290,8 +290,11 @@ test("a source clip dragged onto another source track moves there, overwriting w
   await page.mouse.up();
   await page.keyboard.up("Shift");
 
-  const moved = page.locator(`${tracks} [data-source-span-id="${movingId}"]`);
-  await expect(page.locator(tracks).nth(1).locator(moved)).toHaveCount(1);
+  const moved = page
+    .locator(tracks)
+    .nth(1)
+    .locator(`[data-source-span-id="${movingId}"]`);
+  await expect(moved).toHaveCount(1);
   await expect
     .poll(() => layout(moved, quarterPx))
     .toEqual({ startQ: 4, durationQ: 8 });
