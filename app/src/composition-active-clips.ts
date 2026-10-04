@@ -57,6 +57,7 @@ import {
   type AnimationClipContext,
   reactsToAudio,
   resolveAnimatedEffects,
+  withPlacedOnsets,
 } from "./fx-animation.ts";
 import {
   clipSessionEdges,
@@ -438,13 +439,10 @@ export function resolveVisualState(
   return state;
 }
 
-// Whether `effect` needs the audio mix's bands: shader-chain effects and
-// Reactive animations follow them.
+// Whether `effect` needs the audio mix's bands. Only Reactive animations
+// follow them; shader passes never read the mix (see EffectContext).
 export function effectUsesAudio(effect: SessionEffect) {
-  return (
-    effect.enabled !== false &&
-    (isChainEffectName(effect.effectName) || reactsToAudio(effect))
-  );
+  return effect.enabled !== false && reactsToAudio(effect);
 }
 
 export function computeActiveClips(
@@ -504,6 +502,14 @@ export function computeActiveClips(
     }
   }
 
+  // Shared by every clip, so the frame's hits are placed once.
+  const frameContext = withPlacedOnsets({
+    playheadQ,
+    bpm,
+    fps,
+    audio,
+    signature,
+  });
   return [...topClipByLane.values()]
     .sort(
       (left, right) =>
@@ -528,13 +534,11 @@ export function computeActiveClips(
       const clipProgress = clipContext.progress;
       // The parameters every effect is drawn with for this clip and frame,
       // so a layer or Global effect animates with each clip on its own.
-      const effects = resolveAnimatedEffects(sessionEffects, clipContext, {
-        playheadQ,
-        bpm,
-        fps,
-        audio,
-        signature,
-      });
+      const effects = resolveAnimatedEffects(
+        sessionEffects,
+        clipContext,
+        frameContext,
+      );
       if (clip.kind === "fx") {
         // Only the FX clip's own stack adjusts what is beneath it, so an FX
         // clip without effects changes nothing.
