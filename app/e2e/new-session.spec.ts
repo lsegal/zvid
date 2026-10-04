@@ -89,20 +89,29 @@ test("File → New Session on a blank project doesn't ask", async ({ page }) => 
 test("Save in the New Session prompt saves before starting over", async ({
   page,
 }) => {
-  // Saving downloads instead of asking where to save.
-  await page.addInitScript(() => {
-    delete (window as { showSaveFilePicker?: unknown }).showSaveFilePicker;
-  });
   await openSample(page);
+  const snap = page.getByRole("button", { name: /^Snap (On|Off)$/ });
+  const snapped = await snap.getAttribute("aria-pressed");
+  const edited = snapped === "true" ? "false" : "true";
+  await snap.click();
+  await expect(snap).toHaveAttribute("aria-pressed", edited);
 
   await chooseNewSession(page);
-  const downloading = page.waitForEvent("download");
   await page
     .getByRole("dialog", { name: "Save changes to this session?" })
     .getByRole("button", { name: "Save", exact: true })
     .click();
-  expect((await downloading).suggestedFilename()).toMatch(/\.zvd$/);
 
   await expectBlankSession(page);
   await expect(page.getByText("Started a new session.")).toBeVisible();
+
+  // The edit was saved into the Sessions library.
+  await page.getByRole("button", { name: "Sessions", exact: true }).click();
+  const saved = page
+    .getByRole("list", { name: "Sessions" })
+    .getByRole("button");
+  await expect(saved).toHaveCount(1);
+  await saved.click();
+  await expect(page.locator(".clip-card").first()).toBeVisible();
+  await expect(snap).toHaveAttribute("aria-pressed", edited);
 });

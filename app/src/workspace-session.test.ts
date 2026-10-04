@@ -206,6 +206,21 @@ describe("workspace session serialization", () => {
     );
   });
 
+  it("keeps the Sessions library entry a source belongs to", () => {
+    const sources = [
+      { kind: "file", name: "Set.lvp", libraryId: "session-1" },
+      { kind: "path", name: "Set.lvp", path: "/a/Set.lvp", libraryId: "s-2" },
+      { kind: "none", libraryId: "session-3" },
+    ] as const;
+    for (const source of sources) {
+      const restored = parseWorkspaceSession<State, View>(
+        serializeWorkspaceSession({ ...session(buildHistory(0)), source }),
+        options,
+      );
+      assert.deepEqual(restored.source, source);
+    }
+  });
+
   it("falls back to no source for an unknown source kind", () => {
     const payload = JSON.parse(
       serializeWorkspaceSession(session(buildHistory(0))),

@@ -16,6 +16,7 @@ import { CollaborationCursors } from "./components/CollaborationCursors";
 import { FxPanel } from "./components/FxPanel";
 import { ImportNotice } from "./components/ImportNotice";
 import { MediaDrawer } from "./components/media/MediaDrawer";
+import { SessionLibraryDialogs } from "./components/media/SessionsTab";
 import { NewSessionDialog } from "./components/NewSessionDialog";
 import { PreviewPanel } from "./components/PreviewPanel";
 import { TimelineContextMenu } from "./components/TimelineContextMenu";
@@ -50,6 +51,7 @@ import {
 } from "./hooks/useProjectStore.ts";
 import { useRecording } from "./hooks/useRecording.ts";
 import { useSessionFiles } from "./hooks/useSessionFiles.ts";
+import { useSessionLibrary } from "./hooks/useSessionLibrary.ts";
 import { useSessionSharing } from "./hooks/useSessionSharing.ts";
 import { useSourceClipProperties } from "./hooks/useSourceClipProperties.ts";
 import { useTimeline } from "./hooks/useTimeline.ts";
@@ -341,13 +343,23 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     setArrangementEmptyStateDismissed: setArrangementEmptyStateDismissed,
     setStatus,
   });
+  const library = useSessionLibrary({
+    projectHistory,
+    hasUnsavedChanges: store.hasUnsavedChanges,
+    setHasUnsavedChanges: store.setHasUnsavedChanges,
+    sessionSource: workspace.sessionSource,
+    setSessionSource: workspace.setSessionSource,
+    readWorkspaceSession: workspace.readWorkspaceSession,
+    openWorkspaceSession: workspace.openWorkspaceSession,
+    refuseReadOnlyEdit,
+    setStatus,
+  });
   const newSession = useNewSession({
     projectHistory,
     hasUnsavedChanges: store.hasUnsavedChanges,
     collaborationMode,
     refuseReadOnlyEdit,
-    // Saving into the Sessions library replaces this once it exists (#888).
-    saveSession: sessionFiles.handleExportProject,
+    saveSession: library.saveToLibrary,
     startNewSession: workspace.startNewSession,
   });
   const { handleRandomizeTimeline } = editing;
@@ -386,6 +398,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         exportButtonLabel={exportState.exportButtonLabel}
         getEditMenuEntries={editing.getEditMenuEntries}
         handleCloseSession={workspace.handleCloseSession}
+        handleSaveToLibrary={library.saveToLibrary}
         isExporting={isExporting}
         offlineMedia={mediaImport.offlineMedia}
         openExportDialog={openExportDialog}
@@ -418,6 +431,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
             >
               <MediaDrawer
                 drawer={mediaDrawer}
+                library={library}
                 mediaItems={mediaItems}
                 remoteMediaProgress={media.remoteMediaProgress}
                 prefersReducedMotion={prefersReducedMotion}
@@ -679,6 +693,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
         setIsTakeOverPromptOpen={store.setIsTakeOverPromptOpen}
         workspaceAccess={store.workspaceAccess}
       />
+      <SessionLibraryDialogs library={library} />
       <NewSessionDialog {...newSession} />
       {recording.failureNotice && (
         <ImportNotice

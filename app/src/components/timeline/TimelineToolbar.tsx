@@ -13,6 +13,7 @@ import { Select } from "../ui/select";
 import "./timeline-toolbar.css";
 
 const MEDIA_DRAWER_SEGMENTS = [
+  { tab: "sessions", label: "Sessions", subject: "sessions" },
   { tab: "media", label: "Media", subject: "media" },
   { tab: "record", label: "Record", subject: "record inputs" },
 ] as const;
@@ -35,7 +36,7 @@ type TimelineToolbarProps = {
   onSelectMediaDrawerTab: (tab: MediaDrawerTab) => void;
 };
 
-// The Media drawer's Media | Record switch, the playhead readout and the
+// The Media drawer's Sessions | Media | Record switch, the playhead readout and the
 // timeline's scale, snap, tempo and time signature controls above the
 // timeline.
 export function TimelineToolbar({

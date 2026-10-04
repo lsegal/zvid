@@ -142,6 +142,13 @@ describe("media drawer prefs", () => {
     assert.deepEqual(parseMediaDrawerPrefs("[]"), DEFAULT_MEDIA_DRAWER_PREFS);
   });
 
+  it("reads the Sessions tab", () => {
+    assert.equal(
+      parseMediaDrawerPrefs(JSON.stringify({ tab: "sessions" })).tab,
+      "sessions",
+    );
+  });
+
   it("caps the width at a share of the editor", () => {
     assert.equal(getMediaDrawerMaxWidth(0), MEDIA_DRAWER_FALLBACK_MAX_WIDTH);
     assert.equal(getMediaDrawerMaxWidth(1000), 450);
@@ -176,6 +183,21 @@ describe("media drawer tab switch", () => {
       selectMediaDrawerTab({ ...closed, open: true, tab: "record" }, "media"),
       { ...closed, open: true, tab: "media" },
     );
+  });
+
+  it("switches between the Sessions and Media tabs", () => {
+    const sessions = selectMediaDrawerTab(closed, "sessions");
+    assert.deepEqual(sessions, { ...closed, open: true, tab: "sessions" });
+    assert.deepEqual(selectMediaDrawerTab(sessions, "media"), {
+      ...closed,
+      open: true,
+      tab: "media",
+    });
+    assert.deepEqual(selectMediaDrawerTab(sessions, "sessions"), {
+      ...closed,
+      open: false,
+      tab: "sessions",
+    });
   });
 
   it("closes the drawer from its open tab and keeps the tab", () => {

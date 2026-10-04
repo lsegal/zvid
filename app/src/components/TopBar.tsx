@@ -60,6 +60,7 @@ export type TopBarProps = Pick<
     exportButtonLabel: string;
     getEditMenuEntries: () => ContextMenuEntry[];
     handleCloseSession: () => void;
+    handleSaveToLibrary: () => Promise<boolean>;
     isExporting: boolean;
     openExportDialog: () => void;
     projectHistory: ReturnType<typeof useProjectStore>["projectHistory"];
@@ -87,6 +88,7 @@ export function TopBar({
   handleOpenSession,
   handleOpenWorkspace,
   handleExportProject,
+  handleSaveToLibrary,
   handleStopShare,
   showsMediaSync,
   isExporting,
@@ -116,6 +118,7 @@ export function TopBar({
     shareUrl,
   } = collaboration;
   const [isDesktopAppDialogOpen, setIsDesktopAppDialogOpen] = useState(false);
+  const [saveShortcut] = useState(() => getShortcutLabels().save);
   const menu = useMenubar(MENUS);
   const fileMenu = menu("file");
   const editMenu = menu("edit");
@@ -210,6 +213,14 @@ export function TopBar({
                   : "Connect to Share"}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={() => {
+                  void handleSaveToLibrary();
+                }}
+              >
+                Save
+                <DropdownMenuShortcut>{saveShortcut}</DropdownMenuShortcut>
+              </DropdownMenuItem>
               <DropdownMenuItem
                 onSelect={() => {
                   void handleExportProject();

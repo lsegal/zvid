@@ -16,12 +16,16 @@ import type {
 export const WORKSPACE_HISTORY_MAX_ENTRIES = 100;
 export const WORKSPACE_HISTORY_MAX_BYTES = 20 * 1024 * 1024;
 
-export type WorkspaceSessionSource =
+export type WorkspaceSessionSource = (
   | { kind: "none" }
   | { kind: "file"; name: string }
   | { kind: "workspace"; name: string }
   | { kind: "path"; name: string; path: string }
-  | { kind: "import"; name: string };
+  | { kind: "import"; name: string }
+) & {
+  // The Sessions library entry the session was opened from or saved to.
+  libraryId?: string;
+};
 
 export type WorkspaceSession<State, View, Notice = unknown> = {
   history: {
@@ -229,17 +233,19 @@ function parseSource(value: unknown): WorkspaceSessionSource {
   }
   const source = value as Record<string, unknown>;
   const name = typeof source.name === "string" ? source.name : "";
+  const library =
+    typeof source.libraryId === "string" ? { libraryId: source.libraryId } : {};
   switch (source.kind) {
     case "file":
     case "workspace":
     case "import":
-      return { kind: source.kind, name };
+      return { kind: source.kind, name, ...library };
     case "path":
       return typeof source.path === "string"
-        ? { kind: "path", name, path: source.path }
-        : { kind: "none" };
+        ? { kind: "path", name, path: source.path, ...library }
+        : { kind: "none", ...library };
     default:
-      return { kind: "none" };
+      return { kind: "none", ...library };
   }
 }
 
