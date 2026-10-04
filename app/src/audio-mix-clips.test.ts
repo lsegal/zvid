@@ -114,9 +114,10 @@ describe("the Audio row's waveform", () => {
   });
 
   it("follows a clip moved along the timeline", () => {
-    assert.deepEqual(loudSeconds(drawn(inputs(withSpan({ startQ: 4 })))), [
-      2, 3,
-    ]);
+    assert.deepEqual(
+      loudSeconds(drawn(inputs(withSpan({ startQ: 4 })))),
+      [2, 3],
+    );
   });
 
   it("follows a clip trimmed at its start", () => {
