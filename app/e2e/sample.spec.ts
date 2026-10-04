@@ -410,7 +410,7 @@ test("closing the session stops the sample's downloads", async ({ page }) => {
 test("a saved copy of the sample reopens with its media still linked", async ({
   page,
 }) => {
-  // Save downloads instead of asking where to save.
+  // Export Project… downloads instead of asking where to save.
   await page.addInitScript(() => {
     delete (window as { showSaveFilePicker?: unknown }).showSaveFilePicker;
   });
@@ -419,7 +419,9 @@ test("a saved copy of the sample reopens with its media still linked", async ({
 
   await openFileMenu(page);
   const downloading = page.waitForEvent("download");
-  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
+  await page
+    .getByRole("menuitem", { name: "Export Project…", exact: true })
+    .click();
   const saved = await (await downloading).path();
   expect(saved).toBeTruthy();
 

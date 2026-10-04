@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 
-// File ▸ Save in the browser build: a session with no writable path prompts
+// File ▸ Export Project… in the browser build: a session with no writable path prompts
 // for a location, which is a download where the save picker is missing.
 const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
 
@@ -24,7 +24,9 @@ async function dropVideoIntoNewSourceTrack(page: Page) {
   });
 }
 
-test("File ▸ Save downloads the session as an .lvp", async ({ page }) => {
+test("File ▸ Export Project… downloads the session as an .lvp", async ({
+  page,
+}) => {
   await page.addInitScript(() => {
     delete (window as { showSaveFilePicker?: unknown }).showSaveFilePicker;
   });
@@ -33,7 +35,9 @@ test("File ▸ Save downloads the session as an .lvp", async ({ page }) => {
 
   await page.getByRole("menuitem", { name: "File", exact: true }).click();
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
+  await page
+    .getByRole("menuitem", { name: "Export Project…", exact: true })
+    .click();
   const download = await downloadPromise;
 
   expect(download.suggestedFilename()).toMatch(/\.lvp$/);
@@ -45,7 +49,7 @@ test("File ▸ Save downloads the session as an .lvp", async ({ page }) => {
   await expect(page.getByText(/^Saved .*\.lvp\.$/)).toBeVisible();
 });
 
-test("File ▸ Save keeps fill clips and layer FX bypass on reopen", async ({
+test("File ▸ Export Project… keeps fill clips and layer FX bypass on reopen", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -81,7 +85,9 @@ test("File ▸ Save keeps fill clips and layer FX bypass on reopen", async ({
 
   await page.getByRole("menuitem", { name: "File", exact: true }).click();
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
+  await page
+    .getByRole("menuitem", { name: "Export Project…", exact: true })
+    .click();
   const download = await downloadPromise;
   const saved = await readFile(await download.path(), "utf8");
   const session = JSON.parse(saved);
