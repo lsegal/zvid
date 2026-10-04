@@ -66,15 +66,17 @@ const MUSIC = {
 };
 const ICON = { key: "movie-camera", file: "movie-camera.svg" };
 
-// Layers, top first. The titles sit above the FX and Order layers, so no
-// effect or arrangement touches them. The hidden icon layer is never drawn
-// itself: it is the Mask Target that cuts the 1.5 s shot to a camera. The
-// Audio layer holds only the music.
+// Layers, top first. The Transitions layer is layer 1, so each transition
+// renders above every other layer, titles and FX regions included. The
+// titles sit above the other FX and Order layers, so no other effect or
+// arrangement touches them. The hidden icon layer is never drawn itself: it
+// is the Mask Target that cuts the 1.5 s shot to a camera. The Audio layer
+// holds only the music.
 const LAYERS = [
+  { id: "transitions", name: "Transitions" },
   { id: "title-wordmark", name: "Title · zvid" },
   { id: "title-words", name: "Title · words" },
   { id: "fx-regions", name: "FX regions (Transform + Move)" },
-  { id: "transitions", name: "Transitions" },
   { id: "icon-mask", name: "Mask · movie camera", hidden: true },
   { id: "order", name: "Order three-ups" },
   { id: "orbit", name: "Orbit" },
@@ -447,8 +449,8 @@ for (const [start, duration, arrangement, spacing, margin] of ARRANGEMENTS) {
   );
 }
 
-// A Transition across the cut at 12 s pushes the last Horizontal three-up
-// off as one picture, and the full-frame shot after it in.
+// A Transition across the cut at bar 5 (12 s) glitches the last Horizontal
+// three-up into the full-frame shot after it, as one picture.
 const transition = layerClip(
   "fxClips",
   "transition-12-0",
@@ -459,7 +461,7 @@ const transition = layerClip(
 addEffect(
   clipTrack(transition),
   "Transition",
-  { Type: "Push", Direction: "Left", Softness: 0 },
+  { Type: "Glitch", Softness: 0 },
   {
     animation: {
       enabled: true,
@@ -469,11 +471,11 @@ addEffect(
   },
 );
 
-// Transitions across the cuts at bar 6 (15 s) and bar 7 (18 s): a Clock
-// Wipe sweeps the ribbon shot round into the next three-up, and that three-up
-// dissolves into the Vertical one after it.
+// Transitions across the cuts at bar 6 (15 s) and bar 7 (18 s): the ribbon
+// shot ripples into the next three-up, and that three-up dissolves into the
+// Vertical one after it.
 for (const [start, type] of [
-  [15, "Clock Wipe"],
+  [15, "Ripple"],
   [18, "Dissolve"],
 ]) {
   const id = layerClip(

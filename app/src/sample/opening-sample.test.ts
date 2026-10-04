@@ -270,12 +270,12 @@ describe("zvid opening sample", () => {
     }
   });
 
-  it("transitions across the cuts at 12 s, bar 6 and bar 7", () => {
+  it("transitions across the cuts at bars 5, 6 and 7", () => {
     const transitions = (session.fxClips ?? []).filter(
       (clip) => clip.mainTrackId === "transitions",
     );
-    // A Push at 12 s, a Clock Wipe at bar 6 (15 s) and a Dissolve at bar 7
-    // (18 s), each centered on its cut.
+    // A Glitch at bar 5 (12 s), a Ripple at bar 6 (15 s) and a Dissolve at
+    // bar 7 (18 s), each centered on its cut.
     assert.deepEqual(
       transitions.map((clip) => {
         const [effect] = effectsOn(`clip:${clip.id}`);
@@ -289,14 +289,18 @@ describe("zvid opening sample", () => {
       }),
       // Every transition is hard-edged.
       [
-        [11.5, 12.5, "Transition", "Push", 0],
-        [14.5, 15.5, "Transition", "Clock Wipe", 0],
+        [11.5, 12.5, "Transition", "Glitch", 0],
+        [14.5, 15.5, "Transition", "Ripple", 0],
         [17.5, 18.5, "Transition", "Dissolve", 0],
       ],
     );
-    // Above the Order, so the arranged three-up is one comp.
+    // Layer 1, so every transition renders above the titles and the other
+    // FX layers, and the arranged three-up below it is one comp.
     const layerIds = (session.mainTracks ?? []).map((layer) => layer.id);
-    assert.ok(layerIds.indexOf("transitions") < layerIds.indexOf("order"));
+    assert.equal(layerIds[0], "transitions");
+    // The Glitch carries no Push-only Direction.
+    const [glitch] = effectsOn(`clip:${transitions[0].id}`);
+    assert.equal(glitch.parameters?.Direction, undefined);
   });
 
   it("opens the 1.5 s orbit shot out of a movie camera on a hidden layer", () => {
