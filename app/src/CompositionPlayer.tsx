@@ -28,6 +28,10 @@ import {
 } from "./composition-active-clips.ts";
 import { syncCanvasSurface } from "./composition-canvas.ts";
 import {
+  EXPORT_CONTEXT_ATTRIBUTES,
+  PREVIEW_CONTEXT_ATTRIBUTES,
+} from "./composition-context.ts";
+import {
   disposeWebGlResources,
   drawComposition,
   ensureWebGlResources,
@@ -144,6 +148,7 @@ export class CompositionRenderer {
   private state: CompositionRendererState;
   private activeClips: ActiveClip[] = [];
   private readonly audioAnalysis: AudioAnalysisMode;
+  private readonly contextAttributes: WebGLContextAttributes;
   private liveAudioBands = new LiveAudioBands();
   private offlineAudioBands: {
     mix: AudioMix;
@@ -155,10 +160,14 @@ export class CompositionRenderer {
     options: {
       canvas?: HTMLCanvasElement;
       audioAnalysis?: AudioAnalysisMode;
+      // The preview passes its own; export keeps the default.
+      contextAttributes?: WebGLContextAttributes;
     } = {},
   ) {
     this.canvas = options.canvas ?? document.createElement("canvas");
     this.audioAnalysis = options.audioAnalysis ?? "live";
+    this.contextAttributes =
+      options.contextAttributes ?? EXPORT_CONTEXT_ATTRIBUTES;
     if (this.audioAnalysis === "live") {
       this.mixer = new PreviewAudioMixer({ workletUrl: CHAIN_WORKLET_URL });
     }
@@ -325,7 +334,10 @@ export class CompositionRenderer {
 
   private ensureResources() {
     if (!this.resources) {
-      this.resources = ensureWebGlResources(this.canvas);
+      this.resources = ensureWebGlResources(
+        this.canvas,
+        this.contextAttributes,
+      );
     }
   }
 
@@ -663,6 +675,7 @@ export const CompositionPlayer = forwardRef<
 
     rendererRef.current = new CompositionRenderer(rendererStateRef.current, {
       canvas,
+      contextAttributes: PREVIEW_CONTEXT_ATTRIBUTES,
     });
 
     return () => {
