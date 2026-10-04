@@ -120,6 +120,10 @@ export type ArrangementClip = {
   warp?: ClipWarp;
   tint: string;
   accent: string;
+  // Set when this is one piece of a layer clip (see render-clips.ts): the
+  // whole clip's timing, which its animations run over.
+  layerClipStartQ?: number;
+  layerClipDurationSeconds?: number;
 };
 
 export type SessionEffect = {
@@ -508,9 +512,10 @@ export function computeActiveClips(
     )
     .map<ActiveClip>(({ clip, media }) => {
       const laneRank = lanePriority.get(clip.laneId) ?? -1;
+      const timing = getAnimationTiming(clip);
       const sessionEdges = clipSessionEdges(
-        quartersToSeconds(clip.startQ, bpm),
-        clip.durationSeconds,
+        quartersToSeconds(timing.startQ, bpm),
+        timing.durationSeconds,
         sessionEndSeconds,
         fps,
       );
@@ -621,22 +626,38 @@ export function computeActiveClips(
     });
 }
 
+// When `clip` starts and how long it lasts as its animations see it: a
+// piece of a layer clip animates over the whole clip.
+function getAnimationTiming(
+  clip: Pick<
+    ArrangementClip,
+    | "startQ"
+    | "durationSeconds"
+    | "layerClipStartQ"
+    | "layerClipDurationSeconds"
+  >,
+) {
+  return {
+    startQ: clip.layerClipStartQ ?? clip.startQ,
+    durationSeconds: clip.layerClipDurationSeconds ?? clip.durationSeconds,
+  };
+}
+
 function animationClipContext(
   clip: ArrangementClip,
   playheadQ: number,
   bpm: number,
   sessionEdges?: SessionEdges,
 ): AnimationClipContext {
-  const elapsedSeconds = quartersToSeconds(playheadQ - clip.startQ, bpm);
+  const { startQ, durationSeconds } = getAnimationTiming(clip);
+  const elapsedSeconds = quartersToSeconds(playheadQ - startQ, bpm);
   return {
     clipId: clip.id,
     laneId: clip.laneId,
     progress:
-      clip.durationSeconds > 0
-        ? clamp(elapsedSeconds / clip.durationSeconds, 0, 1)
-        : 0,
+      durationSeconds > 0 ? clamp(elapsedSeconds / durationSeconds, 0, 1) : 0,
     elapsedSeconds,
-    durationSeconds: clip.durationSeconds,
+    durationSeconds,
     sessionEdges,
   };
 }

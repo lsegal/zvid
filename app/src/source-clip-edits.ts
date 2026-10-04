@@ -1,8 +1,9 @@
 // Pasting, duplicating, splitting and deleting source clips (source spans)
 // from their right-click menu and the keyboard shortcuts. Each returns the
 // project patch for one undo step. Pieces placed onto other spans in the same
-// source track overwrite them as a moved span does, and the arrangement
-// clips that use the spans are relinked to match.
+// source track overwrite them as a moved span does. Arrangement clips keep
+// their windows on their source tracks and show whatever those now hold
+// (see source-track-content.ts).
 import type { ClipClipboard } from "./app/clip-ops.ts";
 import { getClipEndQ, secondsToQuarters } from "./app/timeline-math.ts";
 import type { ProjectState, SourceSpan } from "./app/types.ts";
@@ -14,10 +15,13 @@ import {
   sourceClipEffectTrackId,
 } from "./fx-stack.ts";
 import {
-  relinkClipsToSourceSpans,
   resolveSourceSpanOverlaps,
   retimeSourceSpan,
 } from "./source-span-edit.ts";
+import {
+  getClipPieceClips,
+  syncClipsToSourceSpans,
+} from "./source-track-content.ts";
 
 export type SourceClipProject = Pick<
   ProjectState,
@@ -47,7 +51,7 @@ export function canPasteIntoSourceTrack(
 }
 
 // `spans` placed in order, each overwriting what it lands on in its track,
-// with the arrangement clips relinked and each `[from, to]` stack copied
+// with the arrangement clips synced and each `[from, to]` stack copied
 // from `stackSource`.
 function placeSourceSpans(
   current: SourceClipProject,
@@ -66,7 +70,7 @@ function placeSourceSpans(
   }
   return {
     sourceSpans: nextSpans,
-    clips: relinkClipsToSourceSpans(
+    clips: syncClipsToSourceSpans(
       current.clips,
       current.sourceSpans,
       nextSpans,
@@ -113,38 +117,50 @@ export function pasteIntoSourceTrack(
       accent: swatch.accent,
     });
   } else {
-    for (const { clip, offsetQ } of clipboard.fragments) {
-      // Only the part of the clip that shows media becomes the source clip.
-      const startSeconds = Math.max(
-        clip.trimStartSeconds,
-        clip.sourceWindowStartSeconds,
-      );
-      const endSeconds = Math.min(
-        clip.trimStartSeconds + clip.durationSeconds,
-        clip.sourceWindowEndSeconds,
-      );
-      if (endSeconds <= startSeconds) {
-        continue;
-      }
+    for (const { clip: fragment, offsetQ } of clipboard.fragments) {
+      // Each part of the clip that shows a source clip becomes one, and of
+      // that only what shows media.
+      for (const clip of getClipPieceClips(
+        fragment,
+        current.sourceSpans,
+        bpm,
+      )) {
+        const startSeconds = Math.max(
+          clip.trimStartSeconds,
+          clip.sourceWindowStartSeconds,
+        );
+        const endSeconds = Math.min(
+          clip.trimStartSeconds + clip.durationSeconds,
+          clip.sourceWindowEndSeconds,
+        );
+        if (endSeconds <= startSeconds) {
+          continue;
+        }
 
-      const id = createId();
-      copies.push([clipEffectTrackId(clip.id), sourceClipEffectTrackId(id)]);
-      spans.push({
-        id,
-        sourceTrackId: trackId,
-        label: clip.label,
-        mediaPath: clip.mediaPath,
-        ...(clip.mediaId ? { mediaId: clip.mediaId } : {}),
-        startQ:
-          pasteQ +
-          offsetQ +
-          secondsToQuarters(startSeconds - clip.trimStartSeconds, bpm),
-        durationSeconds: endSeconds - startSeconds,
-        trimStartSeconds: startSeconds,
-        ...(clip.warp ? { warp: clip.warp } : {}),
-        tint: swatch.color,
-        accent: swatch.accent,
-      });
+        const id = createId();
+        copies.push([
+          clipEffectTrackId(fragment.id),
+          sourceClipEffectTrackId(id),
+        ]);
+        spans.push({
+          id,
+          sourceTrackId: trackId,
+          label: clip.label,
+          mediaPath: clip.mediaPath,
+          ...(clip.mediaId ? { mediaId: clip.mediaId } : {}),
+          startQ:
+            pasteQ +
+            offsetQ +
+            clip.startQ -
+            fragment.startQ +
+            secondsToQuarters(startSeconds - clip.trimStartSeconds, bpm),
+          durationSeconds: endSeconds - startSeconds,
+          trimStartSeconds: startSeconds,
+          ...(clip.warp ? { warp: clip.warp } : {}),
+          tint: swatch.color,
+          accent: swatch.accent,
+        });
+      }
     }
   }
   if (!spans.length) {
@@ -203,7 +219,7 @@ export function duplicateSourceSpan(
 /**
  * Source clip `spanId` split at `splitQ` into itself and a new clip `id`
  * that plays on from where it stops, with a copy of its stack. Arrangement
- * clips that start playing its media in the new piece move to it. Undefined
+ * clips keep showing the same content, now from the two pieces. Undefined
  * unless `splitQ` is inside the clip.
  */
 export function splitSourceSpan(
@@ -228,16 +244,10 @@ export function splitSourceSpan(
   const sourceSpans = current.sourceSpans.flatMap((item) =>
     item.id === spanId ? [left, right] : [item],
   );
-  const clips = current.clips.map((clip) =>
-    clip.sourceSpanId === spanId &&
-    clip.trimStartSeconds >= right.trimStartSeconds - 1e-6
-      ? { ...clip, sourceSpanId: id }
-      : clip,
-  );
   return {
     sourceSpans,
-    clips: relinkClipsToSourceSpans(
-      clips,
+    clips: syncClipsToSourceSpans(
+      current.clips,
       current.sourceSpans,
       sourceSpans,
       bpm,
@@ -249,8 +259,8 @@ export function splitSourceSpan(
 }
 
 /**
- * Source clip `spanId` removed. Arrangement clips that used it are relinked
- * as when an overlap removes a span.
+ * Source clip `spanId` removed. Arrangement clips stay where they are; the
+ * parts of them it filled show nothing until something fills them again.
  */
 export function deleteSourceSpan(
   current: SourceClipProject,
@@ -263,7 +273,7 @@ export function deleteSourceSpan(
   const sourceSpans = current.sourceSpans.filter((item) => item.id !== spanId);
   return {
     sourceSpans,
-    clips: relinkClipsToSourceSpans(
+    clips: syncClipsToSourceSpans(
       current.clips,
       current.sourceSpans,
       sourceSpans,

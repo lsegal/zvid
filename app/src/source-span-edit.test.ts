@@ -6,11 +6,11 @@ import {
   dragSourceSpan,
   getDroppedSourceSpanStartQ,
   placeDroppedSourceSpans,
-  relinkClipsToSourceSpans,
   resolveSourceSpanOverlaps,
   retimeSourceSpan,
   type SourceSpanDragLimits,
 } from "./source-span-edit.ts";
+import { getClipSourcePieces } from "./source-track-content.ts";
 
 // At 120 BPM a quarter lasts half a second, and at 30 fps a frame lasts
 // 1/15 of a quarter.
@@ -190,260 +190,6 @@ describe("dragSourceSpan", () => {
   });
 });
 
-describe("relinkClipsToSourceSpans", () => {
-  // A window on `source` from `startQ` for `durationQ` quarters, as
-  // committing a selection creates it.
-  function windowClip(
-    id: string,
-    source: SourceSpan,
-    startQ: number,
-    durationQ: number,
-  ): ArrangementClip {
-    const sourceOffsetSeconds = source.trimStartSeconds - source.startQ / 2;
-    return {
-      id,
-      sourceSpanId: source.id,
-      sourceTrackId: source.sourceTrackId,
-      laneId: "1",
-      label: id,
-      mediaPath: source.mediaPath,
-      mediaId: source.mediaId,
-      startQ,
-      durationSeconds: durationQ / 2,
-      trimStartSeconds: startQ / 2 + sourceOffsetSeconds,
-      sourceOffsetSeconds,
-      sourceWindowStartSeconds: source.trimStartSeconds,
-      sourceWindowEndSeconds: source.trimStartSeconds + source.durationSeconds,
-      tint: source.tint,
-      accent: source.accent,
-    };
-  }
-
-  // The media second `clip` plays at song position `q`.
-  const clipMediaAt = (clip: ArrangementClip, q: number) =>
-    q / 2 + clip.sourceOffsetSeconds;
-
-  const warp = (anchorSeconds: number): ClipWarp => ({
-    markers: [
-      { beatTime: 0, secTime: 0 },
-      { beatTime: 4, secTime: 3 },
-    ],
-    contentStartBeat: 0,
-    anchorSeconds,
-  });
-
-  it("shows a moved span's content at the clip's position", () => {
-    const original = span("a", 0, 8);
-    const clip = windowClip("w", original, 2, 4);
-    const moved = { ...original, startQ: 1 };
-    const [relinked] = relinkClipsToSourceSpans(
-      [clip],
-      [original],
-      [moved],
-      BPM,
-    );
-    assert.equal(relinked.sourceSpanId, "a");
-    near(clipMediaAt(relinked, 2), mediaAt(moved, 2));
-    near(relinked.trimStartSeconds, mediaAt(moved, 2));
-    assert.equal(relinked.sourceWindowStartSeconds, 10);
-    assert.equal(relinked.sourceWindowEndSeconds, 14);
-  });
-
-  it("keeps a span moved away from the clip, showing nothing there", () => {
-    const original = span("a", 0, 8);
-    const clip = windowClip("w", original, 2, 4);
-    const moved = { ...original, startQ: 20 };
-    const [relinked] = relinkClipsToSourceSpans(
-      [clip],
-      [original],
-      [moved],
-      BPM,
-    );
-    assert.equal(relinked.sourceSpanId, "a");
-    near(clipMediaAt(relinked, 2), mediaAt(moved, 2));
-  });
-
-  it("moves a clip to the span that now covers it when its own moved away", () => {
-    const original = span("a", 0, 8);
-    const other = span("b", 20, 8, { trimStartSeconds: 40, mediaId: "m2" });
-    const clip = windowClip("w", original, 2, 4);
-    const movedOther = { ...other, startQ: 0 };
-    const movedOriginal = { ...original, startQ: 20 };
-    const [relinked] = relinkClipsToSourceSpans(
-      [clip],
-      [original, other],
-      [movedOriginal, movedOther],
-      BPM,
-    );
-    assert.deepEqual(relinked, windowClip("w", movedOther, 2, 4));
-  });
-
-  it("follows an edit to the span's source offset", () => {
-    const original = span("a", 0, 8);
-    const clip = windowClip("w", original, 2, 4);
-    const offset = { ...original, trimStartSeconds: 13 };
-    const [relinked] = relinkClipsToSourceSpans(
-      [clip],
-      [original],
-      [offset],
-      BPM,
-    );
-    assert.deepEqual(relinked, windowClip("w", offset, 2, 4));
-    near(clipMediaAt(relinked, 2), 14);
-  });
-
-  it("keeps showing the same content when the span's start is trimmed", () => {
-    const original = span("a", 0, 8);
-    const clip = windowClip("w", original, 2, 4);
-    const trimmed = retimeSourceSpan(original, 4, 4, BPM);
-    const [relinked] = relinkClipsToSourceSpans(
-      [clip],
-      [original],
-      [trimmed],
-      BPM,
-    );
-    assert.deepEqual(relinked, {
-      ...clip,
-      sourceWindowStartSeconds: 12,
-      sourceWindowEndSeconds: 14,
-    });
-  });
-
-  it("takes the span's new warp, or drops it with the span's", () => {
-    const warped = span("a", 0, 8, { warp: warp(10) });
-    const clip = windowClip("w", warped, 2, 4);
-    const rewarped = { ...warped, warp: warp(12) };
-    const [relinked] = relinkClipsToSourceSpans(
-      [{ ...clip, warp: warped.warp }],
-      [warped],
-      [rewarped],
-      BPM,
-    );
-    assert.equal(relinked.warp, rewarped.warp);
-
-    const { warp: _warp, ...unwarped } = rewarped;
-    const [cleared] = relinkClipsToSourceSpans(
-      [relinked],
-      [rewarped],
-      [unwarped],
-      BPM,
-    );
-    assert.equal("warp" in cleared, false);
-  });
-
-  it("takes the span's new media", () => {
-    const original = span("a", 0, 8);
-    const clip = windowClip("w", original, 2, 4);
-    const relinkedMedia = { ...original, mediaPath: "m2.mp4", mediaId: "m2" };
-    const [relinked] = relinkClipsToSourceSpans(
-      [clip],
-      [original],
-      [relinkedMedia],
-      BPM,
-    );
-    assert.equal(relinked.mediaPath, "m2.mp4");
-    assert.equal(relinked.mediaId, "m2");
-  });
-
-  it("keeps a slipped clip's slip when its span moves", () => {
-    const original = span("a", 0, 8);
-    // Shows the content a quarter after its position.
-    const base = windowClip("w", original, 2, 2);
-    const clip = {
-      ...base,
-      sourceOffsetSeconds: base.sourceOffsetSeconds + 0.5,
-      trimStartSeconds: base.trimStartSeconds + 0.5,
-    };
-    const moved = { ...original, startQ: 1 };
-    const [relinked] = relinkClipsToSourceSpans(
-      [clip],
-      [original],
-      [moved],
-      BPM,
-    );
-    near(clipMediaAt(relinked, 2), mediaAt(moved, 3));
-  });
-
-  it("returns an unchanged clip as is", () => {
-    const original = span("a", 0, 8);
-    const clip = windowClip("w", original, 2, 4);
-    const [relinked] = relinkClipsToSourceSpans(
-      [clip],
-      [original],
-      [{ ...original }],
-      BPM,
-    );
-    assert.equal(relinked, clip);
-  });
-
-  it("moves a clip on a removed span to the span chosen for its position", () => {
-    const removed = span("a", 0, 4);
-    const kept = span("b", 0, 8, { trimStartSeconds: 40, mediaId: "m2" });
-    const clip = windowClip("w", removed, 2, 2);
-    const [relinked] = relinkClipsToSourceSpans(
-      [clip],
-      [removed, kept],
-      [kept],
-      BPM,
-    );
-    assert.deepEqual(relinked, windowClip("w", kept, 2, 2));
-  });
-
-  it("removes a clip whose span was removed with nothing covering it", () => {
-    const removed = span("a", 0, 4);
-    const elsewhere = span("b", 8, 4);
-    const otherTrack = span("c", 0, 8, { trackId: "t2" });
-    const clip = windowClip("w", removed, 1, 2);
-    assert.deepEqual(
-      relinkClipsToSourceSpans(
-        [clip],
-        [removed, elsewhere, otherTrack],
-        [elsewhere, otherTrack],
-        BPM,
-      ),
-      [],
-    );
-  });
-
-  it("keeps the clips on both halves of a split span showing the same media", () => {
-    const original = span("a", 0, 8);
-    const left = retimeSourceSpan(original, 0, 4, BPM);
-    const right = retimeSourceSpan({ ...original, id: "b" }, 4, 4, BPM);
-    const clips = [
-      windowClip("l", original, 1, 2),
-      { ...windowClip("r", original, 5, 2), sourceSpanId: "b" },
-    ];
-    const relinked = relinkClipsToSourceSpans(
-      clips,
-      [original],
-      [left, right],
-      BPM,
-    );
-    assert.deepEqual(
-      relinked.map((clip) => [
-        clip.id,
-        clip.sourceSpanId,
-        clip.sourceWindowStartSeconds,
-        clip.sourceWindowEndSeconds,
-      ]),
-      [
-        ["l", "a", 10, 12],
-        ["r", "b", 12, 14],
-      ],
-    );
-    near(clipMediaAt(relinked[0], 1), mediaAt(original, 1));
-    near(clipMediaAt(relinked[1], 5), mediaAt(original, 5));
-  });
-
-  it("leaves clips without a source span alone", () => {
-    const original = span("a", 0, 8);
-    const fill = { ...windowClip("f", original, 0, 2), sourceSpanId: "" };
-    assert.deepEqual(relinkClipsToSourceSpans([fill], [original], [], BPM), [
-      fill,
-    ]);
-  });
-});
-
 describe("getDroppedSourceSpanStartQ", () => {
   const onTrack = { kind: "track", trackId: "t1", startQ: 6 } as const;
 
@@ -530,7 +276,7 @@ describe("placeDroppedSourceSpans", () => {
     ]);
   });
 
-  it("relinks the arrangement clips on the spans it overwrites", () => {
+  it("keeps the arrangement clips on the spans it overwrites in place", () => {
     const original = span("a", 0, 8);
     const clip: ArrangementClip = {
       id: "w",
@@ -541,9 +287,10 @@ describe("placeDroppedSourceSpans", () => {
       mediaPath: original.mediaPath,
       mediaId: original.mediaId,
       startQ: 0,
-      durationSeconds: 2,
+      durationSeconds: 4,
       trimStartSeconds: 10,
       sourceOffsetSeconds: 10,
+      sourceSpanOffsetSeconds: 10,
       sourceWindowStartSeconds: 10,
       sourceWindowEndSeconds: 14,
       tint: original.tint,
@@ -556,11 +303,23 @@ describe("placeDroppedSourceSpans", () => {
       2,
       BPM,
     );
-    assert.deepEqual(clips, [
-      relinkClipsToSourceSpans([clip], [original], sourceSpans, BPM)[0],
-    ]);
-    // "a" keeps its first two quarters, one second of media.
-    assert.equal(clips[0].sourceWindowEndSeconds, 11);
+    assert.deepEqual(
+      clips.map((item) => [item.id, item.startQ, item.durationSeconds]),
+      [["w", 0, 4]],
+    );
+    // "a" keeps its first two quarters, the longer side, then the dropped
+    // file plays and the rest of the window is empty.
+    assert.deepEqual(
+      getClipSourcePieces(clips[0], sourceSpans, BPM).map((piece) => [
+        piece.span.id,
+        piece.startQ,
+        piece.endQ,
+      ]),
+      [
+        ["a", 0, 2],
+        ["new-0", 2, 6],
+      ],
+    );
   });
 
   it("appends after the track's last span without a drop position", () => {

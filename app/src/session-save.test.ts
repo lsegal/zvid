@@ -11,6 +11,7 @@ import {
   projectExportFilename,
   projectToLvpSession,
   readSelectionSlip,
+  readSelectionTrackOffset,
   readSessionFills,
   readSessionFxClips,
   readSessionTexts,
@@ -591,7 +592,7 @@ describe("projectToLvpSession", () => {
     );
   });
 
-  it("round-trips a slipped clip's span and source offset", () => {
+  it("round-trips a slipped clip's source track offset", () => {
     const project = baseProject();
     // The span's offset is trimStart 1 s minus its 2 s start: -1 s.
     const session = projectToLvpSession(
@@ -614,19 +615,21 @@ describe("projectToLvpSession", () => {
     );
     const [unslipped, slipped] = session.selections ?? [];
     assert.ok(unslipped && slipped);
-    assert.equal("sourceClipId" in unslipped, false);
-    assert.equal(readSelectionSlip(unslipped), undefined);
-    assert.equal(slipped.sourceClipId, "c1");
-    assert.deepEqual(readSelectionSlip(slipped), {
-      sourceSpanId: "source-c1",
-      sourceOffsetSeconds: 2.25,
-    });
+    assert.equal("sourceTrackOffsetSeconds" in unslipped, false);
+    assert.equal("sourceClipId" in slipped, false);
+    // It shows its source track 3.25 s after its own position.
+    assert.equal(slipped.sourceTrackOffsetSeconds, 3.25);
+
+    const spans = sessionToProject(session, []).sourceSpans;
+    assert.equal(readSelectionTrackOffset(unslipped, spans, 120), 0);
+    assert.equal(readSelectionTrackOffset(slipped, spans, 120), 3.25);
   });
 
-  it("keeps the span of a clip starting outside it, as after the span was trimmed", () => {
+  it("keeps a clip's window once its source clip was trimmed away from its start", () => {
     const project = baseProject();
-    // The span now starts at 4 s (8 quarters), after the clip's start, but
-    // the clip still plays its offset: trimStart 3 s minus 4 s, -1 s.
+    // The span now starts at 4 s (8 quarters), after the clip's start. The
+    // clip was made when the span played at the same offset, -1 s, so it
+    // still shows the track at its own position, where nothing is now.
     const session = projectToLvpSession(
       {
         ...project,
@@ -643,6 +646,7 @@ describe("projectToLvpSession", () => {
             ...project.clips[0],
             sourceSpanId: "source-c1",
             sourceOffsetSeconds: -1,
+            sourceSpanOffsetSeconds: -1,
           },
         ],
       },
@@ -650,10 +654,23 @@ describe("projectToLvpSession", () => {
     );
     const [selection] = session.selections ?? [];
     assert.ok(selection);
-    assert.deepEqual(readSelectionSlip(selection), {
-      sourceSpanId: "source-c1",
-      sourceOffsetSeconds: -1,
-    });
+    assert.equal("sourceTrackOffsetSeconds" in selection, false);
+    assert.equal(readSelectionTrackOffset(selection, [], 120), 0);
+  });
+
+  it("reads an older build's slip against the source clip it names", () => {
+    const project = baseProject();
+    const session = projectToLvpSession(project, { playheadQ: 0 });
+    const spans = sessionToProject(session, []).sourceSpans;
+    // Saved against c1, whose offset is -1 s, with a 2.25 s offset.
+    const [selection] = session.selections ?? [];
+    assert.ok(selection);
+    const older = {
+      ...selection,
+      sourceClipId: "c1",
+      sourceOffsetSeconds: 2.25,
+    };
+    assert.equal(readSelectionTrackOffset(older, spans, 120), 3.25);
   });
 
   it("opens sessions without zvid-only fields as before", () => {

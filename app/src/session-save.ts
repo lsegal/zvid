@@ -15,6 +15,10 @@ import type { MediaItem } from "./media.ts";
 import { type SavedMediaRange, savedMediaRanges } from "./media-range.ts";
 import type { LvpLayerClip, LvpSession } from "./session.ts";
 import type { SessionEncoding } from "./session-settings.ts";
+import {
+  getClipTrackOffsetSeconds,
+  type TrackContentSpan,
+} from "./source-track-content.ts";
 import type { WorkspaceSessionSource } from "./workspace-session.ts";
 
 export const PROJECT_FILE_EXTENSION = ".zvd";
@@ -75,8 +79,11 @@ export type SaveableClip = {
   laneId: string;
   startQ: number;
   durationSeconds: number;
-  // Source position minus song position, in seconds.
+  // Source position minus song position, in seconds, measured against the
+  // source clip offset `sourceSpanOffsetSeconds` (see
+  // source-track-content.ts).
   sourceOffsetSeconds?: number;
+  sourceSpanOffsetSeconds?: number;
 };
 
 export type SaveableEffect = {
@@ -121,7 +128,7 @@ export type SaveableView = {
 
 const SOURCE_SPAN_ID_PREFIX = "source-";
 const SELECTION_ID_PATTERN = /^selection-(\d+)$/;
-// Offsets closer than this to their span's are not slipped.
+// Warp anchors closer than this to their span's start are not saved.
 const SLIP_EPSILON_SECONDS = 1e-6;
 
 function toFrames(seconds: number, fps: number) {
@@ -130,11 +137,6 @@ function toFrames(seconds: number, fps: number) {
 
 function quartersToSeconds(quarters: number, bpm: number) {
   return (quarters * 60) / bpm;
-}
-
-// The source offset a clip gets from span `span` when it is opened.
-function spanSourceOffsetSeconds(span: SaveableSourceSpan, bpm: number) {
-  return span.trimStartSeconds - quartersToSeconds(span.startQ, bpm);
 }
 
 function secondsToQuarters(seconds: number, bpm: number) {
@@ -184,40 +186,32 @@ function toLvpParameters(parameters: SaveableEffect["parameters"]) {
   return result;
 }
 
-// Whether a clip starting at `startQ` is inside `span`, so that opening the
-// session finds `span` for it by track and position.
-function startsInSpan(startQ: number, span: SaveableSourceSpan, bpm: number) {
-  const spanEndQ = span.startQ + secondsToQuarters(span.durationSeconds, bpm);
-  return startQ >= span.startQ && startQ < spanEndQ;
-}
-
-// A clip slipped off its span's source offset, or starting outside its span
-// since that span moved or was trimmed, keeps its span and offset in
-// zvid-only fields; any other clip is found by track and position on open.
-function selectionSlip(
+// A clip that shows its source track at another time than its own keeps
+// that offset in a zvid-only field; any other shows the track at its own
+// position on open.
+function selectionTrackOffset(
   clip: SaveableClip,
   spans: SaveableSourceSpan[],
   bpm: number,
 ) {
-  const span = spans.find((candidate) => candidate.id === clip.sourceSpanId);
-  if (
-    !span ||
-    clip.sourceOffsetSeconds === undefined ||
-    (Math.abs(clip.sourceOffsetSeconds - spanSourceOffsetSeconds(span, bpm)) <
-      SLIP_EPSILON_SECONDS &&
-      startsInSpan(clip.startQ, span, bpm))
-  ) {
+  if (clip.sourceOffsetSeconds === undefined) {
     return {};
   }
-  return {
-    sourceClipId: sourceClipId(span.id),
-    sourceOffsetSeconds: clip.sourceOffsetSeconds,
-  };
+  const sourceTrackOffsetSeconds = getClipTrackOffsetSeconds(
+    {
+      sourceSpanId: clip.sourceSpanId ?? "",
+      sourceOffsetSeconds: clip.sourceOffsetSeconds,
+      sourceSpanOffsetSeconds: clip.sourceSpanOffsetSeconds,
+    },
+    spans,
+    bpm,
+  );
+  return sourceTrackOffsetSeconds === 0 ? {} : { sourceTrackOffsetSeconds };
 }
 
 // Writes the project as a `.lvp` session that opens back into the same
-// arrangement. Selections point at their source clip by track and position,
-// the way the Layers app stores them. Fill and text clips, bypass flags,
+// arrangement. Selections point at their source track by track and
+// position, the way the Layers app stores them. Fill and text clips, bypass flags,
 // animation settings and slipped clips go in zvid-only fields the Layers app
 // ignores.
 export function projectToLvpSession(
@@ -290,7 +284,7 @@ export function projectToLvpSession(
       frameStart,
       frameEnd: frameStart + Math.max(1, toFrames(clip.durationSeconds, fps)),
       ...(clip.id === view.selectedClipId ? { selected: true } : {}),
-      ...selectionSlip(clip, project.sourceSpans, bpm),
+      ...selectionTrackOffset(clip, project.sourceSpans, bpm),
     };
   });
   const layerClips = (kind: "fill" | "text" | "fx") =>
@@ -403,6 +397,27 @@ export function readWarpAnchorSeconds(
   return isFiniteNumber(clip.warpAnchorSeconds)
     ? clip.warpAnchorSeconds
     : sourceSeconds;
+}
+
+// Source track position minus song position, in seconds, for what
+// `selection` shows: as saved, or from the slip older builds saved against
+// one of `sourceSpans`, else 0. Malformed fields read as no offset.
+export function readSelectionTrackOffset(
+  selection: NonNullable<LvpSession["selections"]>[number],
+  sourceSpans: readonly TrackContentSpan[],
+  bpm: number,
+) {
+  if (isFiniteNumber(selection.sourceTrackOffsetSeconds)) {
+    return selection.sourceTrackOffsetSeconds;
+  }
+  const slip = readSelectionSlip(selection);
+  return slip
+    ? getClipTrackOffsetSeconds(
+        { ...slip, sourceSpanOffsetSeconds: undefined },
+        sourceSpans,
+        bpm,
+      )
+    : 0;
 }
 
 export type SelectionSlip = {

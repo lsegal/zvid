@@ -146,6 +146,18 @@
   letter-spacing: 0.04em;
 }
 
+/* The part of a clip that shows one source clip. It draws that source
+   clip's frames, waveform and loop markers; parts over no source clip draw
+   none. It sets no z-index, so what it draws layers with the card's own
+   label and handles. */
+.clip-card__piece {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 /* Frames sampled along the clip, drawn behind its handles and label. */
 .clip-card__filmstrip {
   position: absolute;
