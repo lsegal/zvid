@@ -6,7 +6,9 @@
 // its content along; trimming either edge leaves the content in place, so a
 // start trim moves `startQ` and `trimStartSeconds` together. Spans moved or
 // trimmed onto others in the same source track overwrite them the way clips
-// do on a layer.
+// do on a layer, and a span moved onto another source track overwrites what
+// it lands on there. A span keeps its id, and with it its effects stack,
+// whichever track it moves to.
 import {
   getClipDurationQ,
   getSourceTrackEndQ,
@@ -109,6 +111,25 @@ export function dragSourceSpan(
   const endQ = snapQuarterValue(originEndQ + deltaQ, snapUnit, snap);
   const durationQ = Math.max(frameQ, endQ - origin.startQ);
   return { ...origin, durationSeconds: quartersToSeconds(durationQ, bpm) };
+}
+
+/**
+ * The spans once `origin` is moved or trimmed by `deltaQ` quarters, as
+ * `dragSourceSpan` does, with the spans it lands on overwritten. A move
+ * also takes it to `sourceTrackId`; a trim keeps it on its own track.
+ */
+export function dragSourceSpanInSpans(
+  spans: SourceSpan[],
+  origin: SourceSpan,
+  kind: SourceSpanDragKind,
+  deltaQ: number,
+  sourceTrackId: string,
+  limits: SourceSpanDragLimits,
+) {
+  const dragged = dragSourceSpan(origin, kind, deltaQ, limits);
+  const activeSpan =
+    kind === "move" ? { ...dragged, sourceTrackId } : dragged;
+  return resolveSourceSpanOverlaps(spans, activeSpan, limits.bpm);
 }
 
 /**

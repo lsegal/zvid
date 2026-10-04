@@ -73,10 +73,9 @@ export function findRestoredSourceSelection(
   ) {
     return undefined;
   }
+  // A selected clip moved to another track stays selected there.
   const span = sourceSpans.find(
-    (candidate) =>
-      candidate.id === selectedSourceSpanId &&
-      candidate.sourceTrackId === selectedSourceTrackId,
+    (candidate) => candidate.id === selectedSourceSpanId,
   );
   return span
     ? selectSourceSpan(span)
