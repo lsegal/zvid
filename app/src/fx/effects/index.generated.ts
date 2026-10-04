@@ -48,6 +48,7 @@ import * as stereo from "./stereo/definition.ts";
 import * as text from "./text/definition.ts";
 import * as transform from "./transform/definition.ts";
 import * as transientShaper from "./transient-shaper/definition.ts";
+import * as transition from "./transition/definition.ts";
 import * as tremolo from "./tremolo/definition.ts";
 import * as zoomAndPan from "./zoom-and-pan/definition.ts";
 import { pass as zoomAndPanPass } from "./zoom-and-pan/pass.ts";
@@ -89,6 +90,7 @@ export const EFFECT_DEFINITION_MODULES: readonly FxEffectDefinitionModule[] = [
   text,
   transform,
   transientShaper,
+  transition,
   tremolo,
   zoomAndPan,
 ];
