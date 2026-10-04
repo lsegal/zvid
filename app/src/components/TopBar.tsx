@@ -4,8 +4,8 @@ import {
   type SetStateAction,
   useState,
 } from "react";
+import { isPristineProjectHistory } from "../app/new-session.ts";
 import { getShortcutLabels } from "../app/shortcut-labels.ts";
-import { isPristineProjectHistory } from "../app/workspace-boot.ts";
 import type { ContextMenuEntry } from "../context-menu.ts";
 import { supportsHarnessCapability } from "../harness";
 import type {
@@ -14,6 +14,7 @@ import type {
 } from "../hooks/useCollaboration.ts";
 import type { useMediaStatus } from "../hooks/useMediaStatus.ts";
 import { useMenubar } from "../hooks/useMenubar.ts";
+import type { useNewSession } from "../hooks/useNewSession.ts";
 import type { useProjectStore } from "../hooks/useProjectStore.ts";
 import type { useSampleProject } from "../hooks/useSampleProject.ts";
 import type { useSessionIO } from "../hooks/useSessionIO.ts";
@@ -48,9 +49,13 @@ export type TopBarProps = Pick<
     | "handleImport"
     | "handleOpenSession"
     | "handleOpenWorkspace"
-    | "handleSaveSession"
+    | "handleExportProject"
   > &
-  Pick<ReturnType<typeof useMediaStatus>, "offlineMedia" | "showsMediaSync"> & {
+  Pick<ReturnType<typeof useMediaStatus>, "offlineMedia" | "showsMediaSync"> &
+  Pick<
+    ReturnType<typeof useNewSession>,
+    "canStartNewSession" | "handleNewSession"
+  > & {
     collaboration: CollaborationStateResult;
     exportButtonLabel: string;
     getEditMenuEntries: () => ContextMenuEntry[];
@@ -72,15 +77,17 @@ export type TopBarProps = Pick<
 // The app's top bar: the brand mark, the File, Edit and Help menubar, and
 // the export, collaboration status and share controls.
 export function TopBar({
+  canStartNewSession,
   collaboration,
   exportButtonLabel,
   getEditMenuEntries,
   handleCloseSession,
   handleDisconnectConnection,
   handleImport,
+  handleNewSession,
   handleOpenSession,
   handleOpenWorkspace,
-  handleSaveSession,
+  handleExportProject,
   handleSaveToLibrary,
   handleStopShare,
   showsMediaSync,
@@ -134,6 +141,18 @@ export function TopBar({
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" {...fileMenu.content}>
+              <DropdownMenuItem
+                disabled={!canStartNewSession}
+                onSelect={handleNewSession}
+              >
+                <span>New Session</span>
+                {/* Browsers keep the shortcut for a new window. */}
+                {supportsHarnessCapability("native-dialogs") ? (
+                  <DropdownMenuShortcut>
+                    {getShortcutLabels().newSession}
+                  </DropdownMenuShortcut>
+                ) : null}
+              </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => void handleOpenSession()}>
                 Open Session
               </DropdownMenuItem>
@@ -204,7 +223,7 @@ export function TopBar({
               </DropdownMenuItem>
               <DropdownMenuItem
                 onSelect={() => {
-                  void handleSaveSession();
+                  void handleExportProject();
                 }}
               >
                 Export Project…
@@ -252,7 +271,7 @@ export function TopBar({
               <DropdownMenuItem
                 onSelect={() =>
                   setStatus(
-                    "Use File → Open Session to open a .lvp session or an Ableton .als set, or File → Import Media to add clips.",
+                    "Use File → Open Session to open a .zvd or .lvp session or an Ableton .als set, or File → Import Media to add clips.",
                   )
                 }
               >

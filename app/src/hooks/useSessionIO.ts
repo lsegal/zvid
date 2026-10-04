@@ -7,7 +7,7 @@ import {
 import { DEFAULT_LANES, PALETTE } from "../app/constants.ts";
 import {
   buildStandaloneProject,
-  mergeMediaItemsById,
+  hydrateProjectMedia,
   patchProjectState,
   sessionToProject,
 } from "../app/session-project.ts";
@@ -19,7 +19,7 @@ import type {
   SessionMediaCheck,
   TimelineSelection,
 } from "../app/types.ts";
-import { basename, logClient, pluralize } from "../app/util.ts";
+import { logClient, pluralize } from "../app/util.ts";
 import { isArrangementEmptyStateDismissedOnOpen } from "../arrangement-empty-state.ts";
 import type { ImportNoticeContent } from "../components/ImportNotice";
 import { addDefaultGain } from "../default-gain.ts";
@@ -42,10 +42,10 @@ import {
 } from "../session";
 import { createSessionLibraryId } from "../session-library.ts";
 import {
-  chooseSessionSaveTarget,
+  PROJECT_FILE_EXTENSION,
+  projectExportFilename,
   projectToLvpSession,
   readSessionMediaRanges,
-  SESSION_FILE_EXTENSION,
 } from "../session-save.ts";
 import type { WorkspaceSessionSource } from "../workspace-session.ts";
 
@@ -80,6 +80,7 @@ export type SessionIOInputs = {
   claimWorkspaceSession: () => void;
   reportSessionMediaCheck: () => void;
   refuseReadOnlyEdit: () => boolean;
+  setHasUnsavedChanges: Dispatch<SetStateAction<boolean>>;
   setStatus: Dispatch<SetStateAction<string>>;
 };
 
@@ -109,6 +110,7 @@ export function useSessionIO({
   claimWorkspaceSession,
   reportSessionMediaCheck,
   refuseReadOnlyEdit,
+  setHasUnsavedChanges,
   setStatus,
 }: SessionIOInputs) {
   async function applyOpenedSessionPayload(
@@ -191,6 +193,11 @@ export function useSessionIO({
         projectDurationFrames: project.projectDurationFrames,
         sourceTracksLocked: project.sourceTracksLocked,
       }),
+    );
+    // A session opened from a file is saved as it stands. A sample or an
+    // imported Live set has never been saved as a session.
+    setHasUnsavedChanges(
+      selection.kind === "sample" || Boolean(payload.alsImport),
     );
     setDragPreviewClips(null);
     setPendingSelection(null);
@@ -290,12 +297,10 @@ export function useSessionIO({
           seedLocalMediaItems(analyzedMedia);
           void cacheLocalMediaItems(analyzedMedia);
           commitViewChange("Hydrate session media", (current) =>
-            patchProjectState(current, {
-              mediaItems: mergeMediaItemsById(
-                current.mediaItems,
-                analyzedMedia.map((item) => toShareableMediaItem(item)),
-              ),
-            }),
+            hydrateProjectMedia(
+              current,
+              analyzedMedia.map((item) => toShareableMediaItem(item)),
+            ),
           );
           mediaCheck.analyzingFromDisk = false;
           reportSessionMediaCheck();
@@ -476,8 +481,9 @@ export function useSessionIO({
     }
   }
 
-  // File › Export Project…: writes the session to a file.
-  async function handleSaveSession() {
+  // Writes the project as a `.zvd` wherever the user picks, leaving the
+  // opened session's own file alone. Resolves to whether it was written.
+  async function handleExportProject() {
     const harness = getHarness();
     const session = projectToLvpSession(projectHistory.present, {
       playheadQ: playheadQRef.current,
@@ -486,60 +492,45 @@ export function useSessionIO({
     const blob = new Blob([`${JSON.stringify(session, null, 2)}\n`], {
       type: "application/json",
     });
-    const choice = chooseSessionSaveTarget(sessionSource, sessionName);
 
     let saveTarget: SaveTarget;
-    if (choice.kind === "path" && harness.capabilities["native-blob-write"]) {
-      saveTarget = {
-        kind: "native-path",
-        filename: basename(choice.path),
-        path: choice.path,
-      };
-    } else {
-      const filename =
-        choice.kind === "path" ? basename(choice.path) : choice.filename;
-      try {
-        const nextSaveTarget = await harness.prepareSave(filename, {
+    try {
+      const nextSaveTarget = await harness.prepareSave(
+        projectExportFilename(sessionSource, sessionName),
+        {
           mimeType: "application/json",
-          extensions: [SESSION_FILE_EXTENSION],
-          description: "ZVID session",
-        });
-        if (!nextSaveTarget) {
-          setStatus("Save canceled.");
-          return;
-        }
-        saveTarget = nextSaveTarget;
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") {
-          setStatus("Save canceled.");
-          return;
-        }
-        const message = error instanceof Error ? error.message : String(error);
-        setStatus(`Failed to prepare save destination: ${message}`);
-        return;
+          extensions: [PROJECT_FILE_EXTENSION],
+          description: "ZVID project",
+        },
+      );
+      if (!nextSaveTarget) {
+        setStatus("Export canceled.");
+        return false;
       }
+      saveTarget = nextSaveTarget;
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        setStatus("Export canceled.");
+        return false;
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus(`Failed to prepare export destination: ${message}`);
+      return false;
     }
 
     try {
       await harness.saveBlob(blob, saveTarget);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      setStatus(`Save failed: ${message}`);
-      return;
+      setStatus(`Export failed: ${message}`);
+      return false;
     }
+    setHasUnsavedChanges(false);
 
-    // A session saved to a new path keeps saving there.
-    if (saveTarget.kind === "native-path" && sessionSource.kind !== "path") {
-      setSessionSource({
-        kind: "path",
-        name: basename(saveTarget.path),
-        path: saveTarget.path,
-        libraryId: sessionSource.libraryId,
-      });
-    }
     const savedName =
       saveTarget.kind === "native-path" ? saveTarget.path : saveTarget.filename;
-    setStatus(`Saved ${savedName}.`);
+    setStatus(`Exported ${savedName}.`);
+    return true;
   }
 
   // Opens a bundled sample whose media is already in the media cache. The
@@ -556,6 +547,6 @@ export function useSessionIO({
     handleImport,
     handleOpenSession,
     handleOpenWorkspace,
-    handleSaveSession,
+    handleExportProject,
   };
 }

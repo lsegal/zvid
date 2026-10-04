@@ -6,18 +6,18 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  hasUnsavedSessionChanges,
+  isPristineProjectHistory,
+} from "../app/new-session.ts";
 import type { ProjectState } from "../app/types.ts";
 import { logClient } from "../app/util.ts";
-import {
-  isPristineProjectHistory,
-  parseSavedWorkspaceSession,
-} from "../app/workspace-boot.ts";
+import { parseSavedWorkspaceSession } from "../app/workspace-boot.ts";
 import type { SavedWorkspaceSession } from "../app/workspace-types.ts";
 import type { ProjectHistoryState } from "../project-history";
 import {
   createSessionLibraryId,
   getDuplicateName,
-  getSessionContentHash,
   getSessionLibraryName,
   getSessionLibraryStore,
   type SessionLibraryEntry,
@@ -31,6 +31,8 @@ import {
 
 export type SessionLibraryInputs = {
   projectHistory: ProjectHistoryState<ProjectState>;
+  hasUnsavedChanges: boolean;
+  setHasUnsavedChanges: Dispatch<SetStateAction<boolean>>;
   sessionSource: WorkspaceSessionSource;
   setSessionSource: Dispatch<SetStateAction<WorkspaceSessionSource>>;
   readWorkspaceSession: () => SavedWorkspaceSession;
@@ -56,6 +58,8 @@ function withoutLibraryId(
 // open, rename, duplicate and delete from the Sessions tab.
 export function useSessionLibrary({
   projectHistory,
+  hasUnsavedChanges,
+  setHasUnsavedChanges,
   sessionSource,
   setSessionSource,
   readWorkspaceSession,
@@ -76,6 +80,7 @@ export function useSessionLibrary({
   const knownIdRef = useRef(libraryId);
   const latest = useRef({
     projectHistory,
+    hasUnsavedChanges,
     sessionSource,
     readWorkspaceSession,
     openWorkspaceSession,
@@ -84,6 +89,7 @@ export function useSessionLibrary({
   });
   latest.current = {
     projectHistory,
+    hasUnsavedChanges,
     sessionSource,
     readWorkspaceSession,
     openWorkspaceSession,
@@ -117,11 +123,12 @@ export function useSessionLibrary({
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
         clipCount: present.clips.length,
-        contentHash: getSessionContentHash(present),
-        // Undo history stays with the open session, not its snapshot.
+        // Undo history stays with the open session, not its snapshot, which
+        // opens with nothing to save.
         payload: serializeWorkspaceSession({
           ...saved,
           history: { past: [], present, future: [] },
+          view: { ...saved.view, hasUnsavedChanges: false },
           source: withoutLibraryId(saved.source),
         }),
       };
@@ -163,6 +170,7 @@ export function useSessionLibrary({
       const entry = await writeEntry(id);
       knownIdRef.current = id;
       setSessionSource((current) => ({ ...current, libraryId: id }));
+      setHasUnsavedChanges(false);
       setStatus(`Saved ${entry.name} to Sessions.`);
       await refresh();
       return true;
@@ -170,7 +178,7 @@ export function useSessionLibrary({
       setStatus(`Save failed: ${describeError(error)}`);
       return false;
     }
-  }, [refresh, setSessionSource, writeEntry]);
+  }, [refresh, setHasUnsavedChanges, setSessionSource, writeEntry]);
 
   const openNow = useCallback(
     async (summary: SessionLibrarySummary) => {
@@ -199,26 +207,14 @@ export function useSessionLibrary({
     [refresh],
   );
 
-  // Whether the open session has changes its library entry doesn't.
-  function hasUnsavedChanges() {
-    const { projectHistory, sessionSource } = latest.current;
-    if (isPristineProjectHistory(projectHistory)) {
-      return false;
-    }
-    const entry = entries.find((item) => item.id === sessionSource.libraryId);
-    return (
-      !entry ||
-      entry.contentHash !== getSessionContentHash(projectHistory.present)
-    );
-  }
-
   // A click on an entry opens it, first asking what to do with unsaved
   // changes to the open session.
   function openEntry(summary: SessionLibrarySummary) {
     if (latest.current.refuseReadOnlyEdit()) {
       return;
     }
-    if (hasUnsavedChanges()) {
+    const { projectHistory, hasUnsavedChanges } = latest.current;
+    if (hasUnsavedSessionChanges(projectHistory, hasUnsavedChanges)) {
       setPendingOpen(summary);
       return;
     }

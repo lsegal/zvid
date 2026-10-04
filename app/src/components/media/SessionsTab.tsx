@@ -253,10 +253,8 @@ export function SessionsTab({ library, closeButton }: SessionsTabProps) {
 // deleting one.
 export function SessionLibraryDialogs({
   library,
-  currentName,
 }: {
   library: SessionLibraryState;
-  currentName: string;
 }) {
   const { pendingOpen, pendingDelete } = library;
   return (
@@ -269,10 +267,10 @@ export function SessionLibraryDialogs({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Save changes to {currentName}?</DialogTitle>
+            <DialogTitle>Save changes to this session?</DialogTitle>
             <DialogDescription>
-              Opening {pendingOpen?.name ?? "this session"} replaces the open
-              session. Changes that aren't saved to Sessions will be lost.
+              Opening {pendingOpen?.name ?? "another session"} replaces this
+              one. Changes that aren't saved will be lost.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -286,14 +284,14 @@ export function SessionLibraryDialogs({
               onClick={() => void library.resolvePendingOpen("discard")}
               type="button"
             >
-              Don’t Save
+              Don't Save
             </button>
             <button
               className="ghost-button ghost-button--accent"
               onClick={() => void library.resolvePendingOpen("save")}
               type="button"
             >
-              Save and Open
+              Save
             </button>
           </DialogFooter>
         </DialogContent>

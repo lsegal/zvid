@@ -1,14 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { IDBFactory } from "fake-indexeddb";
-import { INITIAL_PROJECT_STATE } from "./app/constants.ts";
-import type { ProjectState } from "./app/types.ts";
 import {
   createSessionLibraryStore,
   formatSessionTime,
   getDuplicateName,
-  getSessionContentHash,
-  getSessionContentKey,
   getSessionLibraryName,
   type SessionLibraryEntry,
   sortSessionLibrary,
@@ -24,7 +20,6 @@ function entry(
     createdAt: 1,
     updatedAt: 1,
     clipCount: 0,
-    contentHash: "",
     payload: `payload-${id}`,
     ...overrides,
   };
@@ -129,44 +124,6 @@ describe("session library names", () => {
       ]).map((item) => item.id),
       ["new", "mid", "old"],
     );
-  });
-});
-
-describe("session content key", () => {
-  const media = {
-    id: "m1",
-    name: "clip.mp4",
-  } as ProjectState["mediaItems"][number];
-
-  it("ignores media details filled in after opening", () => {
-    const opened: ProjectState = {
-      ...INITIAL_PROJECT_STATE,
-      mediaItems: [media],
-    };
-    const hydrated: ProjectState = {
-      ...opened,
-      mediaItems: [{ ...media, durationSeconds: 12 }],
-    };
-
-    assert.equal(getSessionContentKey(opened), getSessionContentKey(hydrated));
-    assert.equal(
-      getSessionContentHash(opened),
-      getSessionContentHash(hydrated),
-    );
-  });
-
-  it("changes with an edit", () => {
-    const edited: ProjectState = { ...INITIAL_PROJECT_STATE, bpm: 99 };
-
-    assert.notEqual(
-      getSessionContentKey(INITIAL_PROJECT_STATE),
-      getSessionContentKey(edited),
-    );
-    assert.notEqual(
-      getSessionContentHash(INITIAL_PROJECT_STATE),
-      getSessionContentHash(edited),
-    );
-    assert.match(getSessionContentHash(edited), /^[0-9a-f]{8}$/);
   });
 });
 
