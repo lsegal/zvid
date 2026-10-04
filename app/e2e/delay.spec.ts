@@ -12,25 +12,46 @@ const VIDEO = new URL("./fixtures/test-pattern.mp4", import.meta.url);
 
 const clipDevices = '.fx-chain .fx-device-panel[data-fx-group="clip"]';
 
-// Records the analysers the preview's mixer makes, which measure the mix.
-async function probeAnalysers(page: Page) {
-  await page.addInitScript(() => {
-    const probe = window as unknown as { analysers: AnalyserNode[] };
-    probe.analysers = [];
-    const createAnalyser = AudioContext.prototype.createAnalyser;
-    AudioContext.prototype.createAnalyser = function (this: AudioContext) {
-      const analyser = createAnalyser.call(this);
-      probe.analysers.push(analyser);
-      return analyser;
-    };
-  });
-}
+// The meter tap's analysers are made to keep 16384 samples, about 340 ms:
+// long enough that reads 20 ms apart overlap and cover every sample between
+// them, even when a busy runner delays some reads. The band analyser keeps
+// only about 21 ms, so its reads land on or off a burst depending on the
+// runner's timing.
+const METER_FFT_SIZE = 16384;
+const BAND_FFT_SIZE = 1024;
 
-// The meter tap's analysers keep 4096 samples, about 85 ms at 48 kHz: long
-// enough that reads 20 ms apart overlap and cover every sample between
-// them. The band analyser keeps only about 21 ms, so its reads land on or
-// off a burst depending on the runner's timing.
-const METER_FFT_SIZE = 4096;
+// Records the analysers the preview's mixer makes, which measure the mix,
+// and widens the meter's (anything larger than the band analyser) to
+// METER_FFT_SIZE. The meter sizes its reads from its analysers, so it reads
+// them the same way.
+async function probeAnalysers(page: Page) {
+  await page.addInitScript(
+    ([meterSize, bandSize]) => {
+      const probe = window as unknown as { analysers: AnalyserNode[] };
+      probe.analysers = [];
+      const fftSize = Object.getOwnPropertyDescriptor(
+        AnalyserNode.prototype,
+        "fftSize",
+      );
+      const createAnalyser = AudioContext.prototype.createAnalyser;
+      AudioContext.prototype.createAnalyser = function (this: AudioContext) {
+        const analyser = createAnalyser.call(this);
+        Object.defineProperty(analyser, "fftSize", {
+          configurable: true,
+          get() {
+            return fftSize?.get?.call(this);
+          },
+          set(size: number) {
+            fftSize?.set?.call(this, size > bandSize ? meterSize : size);
+          },
+        });
+        probe.analysers.push(analyser);
+        return analyser;
+      };
+    },
+    [METER_FFT_SIZE, BAND_FFT_SIZE],
+  );
+}
 
 // The mix's RMS level over the meter analyser's latest window.
 function mixLevel(page: Page) {
