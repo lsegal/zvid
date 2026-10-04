@@ -793,6 +793,14 @@ describe("PreviewAudioMixer", () => {
         false,
       );
 
+      // Turned down once its element is made, it keeps playing from it.
+      mixer.sync(playing(1));
+      mixer.update(
+        mix([clip({ id: "loud", mediaId: "v", amplitude: 0 })]),
+        videoMedia,
+      );
+      assert.equal(mixer.playsVideoOf(drawn("v")), true);
+
       // A silent clip makes no element, and a reversed one plays a decoded
       // buffer, so the compositor keeps its own.
       mixer.update(mix([clip({ mediaId: "v", amplitude: 0 })]), videoMedia);

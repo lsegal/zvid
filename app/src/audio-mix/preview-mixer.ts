@@ -214,7 +214,7 @@ export class PreviewAudioMixer {
       if (
         !clip ||
         this.urlOf(clip) !== voice.url ||
-        this.isVideo(clip) !== Boolean(voice.player?.video) ||
+        (voice.player && this.isVideo(clip) !== voice.player.video) ||
         this.needsDecoded(clip) !== Boolean(voice.decoded)
       ) {
         this.release(clipId);
@@ -253,9 +253,13 @@ export class PreviewAudioMixer {
     return this.graph?.meter ?? null;
   }
 
-  // Whether the mix plays `drawn`'s media from a <video> it makes, which
-  // the compositor draws in place of its own (see videoElementFor).
+  // Whether the mix plays `drawn`'s media from a <video> it has made or
+  // will make, which the compositor draws in place of its own (see
+  // videoElementFor).
   playsVideoOf(drawn: DrawnClip) {
+    if (this.videoElementFor(drawn)) {
+      return true;
+    }
     return Boolean(
       drawn.mediaId &&
         this.videoMediaIds.has(drawn.mediaId) &&
