@@ -124,7 +124,7 @@
   z-index: 60;
 }
 
-.dropdown-menu-content[data-side='bottom'] {
+.dropdown-menu-content[data-side='bottom'][data-state='open'] {
   animation: dropdown-slide 140ms ease;
 }
 

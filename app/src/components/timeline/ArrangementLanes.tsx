@@ -7,6 +7,9 @@ import { LayerHeader, type LayerHeaderContext } from "./LayerHeader";
 import { TrackAddButton } from "./TrackPlaceholder";
 import "./arrangement-lanes.css";
 
+// A lane with no clips, shared so its memoized row doesn't re-render.
+const NO_CLIPS: ArrangementClip[] = [];
+
 type ArrangementLanesProps = {
   arrangementLanesRef: RefObject<HTMLDivElement | null>;
   lanes: Lane[];
@@ -72,7 +75,7 @@ export function ArrangementLanes({
           />
           <LaneRow
             lane={lane}
-            clips={clipsByLane.get(lane.id) ?? []}
+            clips={clipsByLane.get(lane.id) ?? NO_CLIPS}
             {...row}
           />
         </section>

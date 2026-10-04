@@ -30,6 +30,9 @@ import {
 import { TrackAddButton } from "./TrackPlaceholder";
 import "./source-tracks.css";
 
+// A track with no spans, shared so its memoized row doesn't re-render.
+const NO_SPANS: SourceSpanClip[] = [];
+
 type SourceTracksProps = {
   sourceTracks: SourceTrack[];
   sourceSpansByTrack: ReadonlyMap<string, SourceSpanClip[]>;
@@ -191,7 +194,7 @@ export function SourceTracks({
               key={track.id}
               track={track}
               index={index}
-              spans={sourceSpansByTrack.get(track.id) ?? []}
+              spans={sourceSpansByTrack.get(track.id) ?? NO_SPANS}
               drop={drop}
               sourceSelection={sourceSelection}
               selectSource={selectSource}

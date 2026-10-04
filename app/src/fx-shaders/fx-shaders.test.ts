@@ -5,7 +5,10 @@ import { describe, it } from "node:test";
 import { EFFECT_PASSES } from "../fx/effects/index.generated.ts";
 import { CONTEXT, params, uniformValues } from "../fx/pass-test-utils.ts";
 import { applyClipAnimationWeight } from "../fx-animation-clip.ts";
-import { getAnimationNeutralValues } from "../fx-animation-defaults.ts";
+import {
+  getAnimationNeutralValues,
+  supportsAnimation,
+} from "../fx-animation-defaults.ts";
 import { getEffectDefinition } from "../fx-registry.ts";
 import {
   type AudioBands,
@@ -222,10 +225,16 @@ describe("effect passes", () => {
             .map((parameter) => [parameter.key, 0.5]),
         ),
       );
-      assert.equal(pass.isIdentity?.(parameters), false, pass.effectName);
-      if (!Object.keys(getAnimationNeutralValues(pass.effectName)).length) {
+      // Effects without Animation, such as Shape, have no Clip weight.
+      if (!supportsAnimation(pass.effectName)) {
         continue;
       }
+      assert.equal(pass.isIdentity?.(parameters), false, pass.effectName);
+      assert.notDeepEqual(
+        getAnimationNeutralValues(pass.effectName),
+        {},
+        pass.effectName,
+      );
       const neutral = applyClipAnimationWeight(
         { effectName: pass.effectName, parameters },
         0,

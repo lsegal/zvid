@@ -8,11 +8,7 @@ import {
   useState,
 } from "react";
 import { signatureById } from "../app/constants.ts";
-import {
-  findClipAtPlayhead,
-  isClipAtPlayhead,
-  quartersToSeconds,
-} from "../app/timeline-math.ts";
+import { findClipAtPlayhead, isClipAtPlayhead } from "../app/timeline-math.ts";
 import type { ProjectState } from "../app/types.ts";
 import { resolveAudioClips } from "../audio-mix/resolve.ts";
 import {
@@ -222,7 +218,6 @@ export function usePreview({
       }
     }
   }, [effects]);
-  const playheadSeconds = quartersToSeconds(playheadQ, bpm);
 
   return {
     ...previewEditing,
@@ -237,6 +232,5 @@ export function usePreview({
     previewMedia,
     previewMediaState,
     hasOnlinePlayheadClip,
-    playheadSeconds,
   };
 }

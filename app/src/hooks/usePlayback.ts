@@ -94,6 +94,10 @@ export function usePlayback({
   const totalQuartersRef = useRef(totalQuarters);
   totalQuartersRef.current = totalQuarters;
   const timelineScrubAudioTimeoutRef = useRef<number | null>(null);
+  // The clips the compositor draws, whose edges the playback loop commits
+  // the playhead at.
+  const renderClipsRef = useRef(timelineClips);
+  renderClipsRef.current = timelineClips;
 
   // Playback stops after the last playable clip, or with `open`, as when
   // recording, only when stopped; `open` during playback lets it run on from
@@ -241,6 +245,7 @@ export function usePlayback({
     }
 
     let lastClientX = timelineDragState.pointerStartX;
+    let committedAt = performance.now();
     const onPointerMove = (event: PointerEvent) => {
       if (event.pointerId !== timelineDragState.pointerId) {
         return;
@@ -280,8 +285,15 @@ export function usePlayback({
           ? TIMELINE_PLAYBACK_SCRUB_AUDIO_IDLE_MS
           : TIMELINE_SCRUB_AUDIO_TAIL_MS,
       );
-      setPlayheadQ(nextPlayheadQ);
+      // Scrubbing moves the live playhead, which the preview and readouts
+      // follow, and commits it to state only now and then.
+      playheadQRef.current = nextPlayheadQ;
+      playheadSignal.set(nextPlayheadQ);
       playbackOriginRef.current = nextPlayheadQ;
+      if (performance.now() - committedAt >= PLAYBACK_COMMIT_INTERVAL_MS) {
+        setPlayheadQState(nextPlayheadQ);
+        committedAt = performance.now();
+      }
     };
 
     const onPointerUp = (event: PointerEvent) => {
@@ -306,12 +318,15 @@ export function usePlayback({
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerUp);
+      setPlayheadQState(playheadQRef.current);
     };
   }, [
     labelWidth,
     playbackOriginRef,
+    playheadQRef,
+    playheadSignal,
     pulseTimelineAudibleScrub,
-    setPlayheadQ,
+    setPlayheadQState,
     setTimelineDragState,
     startPlayback,
     stopTimelineAudibleScrub,
@@ -330,13 +345,12 @@ export function usePlayback({
     const originQ = playbackOriginRef.current;
     const findNextEdgeQ = (fromQ: number) =>
       findNextClipEdgeQ(
-        timelineClipsRef.current.map((clip) => ({
+        renderClipsRef.current.map((clip) => ({
           startQ: clip.startQ,
           endQ: getClipEndQ(clip, bpm),
         })),
         fromQ,
       );
-    let committedAt = startedAt;
     let nextEdgeQ = findNextEdgeQ(originQ);
 
     const step = (timestamp: number) => {
@@ -352,15 +366,12 @@ export function usePlayback({
       }
 
       // Everything drawn per frame follows the signal; state only has to
-      // keep up with the clip under the playhead and other coarse readouts.
+      // keep up with the clips under the playhead, so it is committed only
+      // when they change, at a clip edge.
       playheadQRef.current = nextQ;
       playheadSignal.set(nextQ);
-      if (
-        nextQ >= nextEdgeQ ||
-        timestamp - committedAt >= PLAYBACK_COMMIT_INTERVAL_MS
-      ) {
+      if (nextQ >= nextEdgeQ) {
         setPlayheadQState(nextQ);
-        committedAt = timestamp;
         nextEdgeQ = findNextEdgeQ(nextQ);
       }
       animationFrame = window.requestAnimationFrame(step);
@@ -382,7 +393,6 @@ export function usePlayback({
     setIsPlaying,
     setPlayheadQ,
     setPlayheadQState,
-    timelineClipsRef,
   ]);
 
   async function handleTransportToggle() {

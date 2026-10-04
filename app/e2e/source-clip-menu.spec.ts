@@ -97,7 +97,13 @@ async function seekInto(page: Page, span: Locator, fraction: number) {
   if (!spanBox || !laneBox) {
     throw new Error("timeline is not visible");
   }
-  await page.mouse.click(spanBox.x + spanBox.width * fraction, laneBox.y + 20);
+  const x = spanBox.x + spanBox.width * fraction;
+  await page.mouse.click(x, laneBox.y + 20);
+  // Anything left over the lane, such as a closing menu, would take the
+  // click instead, so make sure the playhead landed there (#1001).
+  await expect
+    .poll(async () => Math.abs((await playheadX(page)) - (x - laneBox.x)))
+    .toBeLessThan(3);
 }
 
 test.use({ viewport: { width: 1600, height: 1200 } });

@@ -14,6 +14,7 @@ import { MAX_LAYERS } from "../selection-overlaps";
 import { useKeyboardShortcuts } from "../shortcuts/useKeyboardShortcuts.ts";
 import { useSpacePlayback } from "../shortcuts/useSpacePlayback.ts";
 import type { createSpaceHold } from "../space-shortcut";
+import { useStableHandlers } from "../use-stable-handlers.ts";
 import type { AppLayout } from "./useAppLayout.ts";
 import { useClipActions } from "./useClipActions.ts";
 import { useClipDrag } from "./useClipDrag.ts";
@@ -517,28 +518,34 @@ export function useTimelineEditing({
     commitProjectChange,
   });
 
-  return {
-    canCreateLayer,
+  // What the memoized timeline rows take, kept stable so they don't
+  // re-render with the app.
+  const rowHandlers = useStableHandlers({
     addSourceSpanToArrangement,
+    openArrangementClipMenu,
+    openLaneMenu,
+    openSourceSpanMenu,
+    openSourceLaneMenu,
+    openSourceTrackMenu,
+    commitSourceTrackRename,
+    cancelSourceTrackRename,
+  });
+
+  return {
+    ...rowHandlers,
+    canCreateLayer,
     handleRandomizeTimeline,
     handleCreateLayer,
     layerReorder,
     commitLayerRename,
-    openArrangementClipMenu,
-    openLaneMenu,
     openLayerMenu,
     openAudioMenu,
-    openSourceSpanMenu,
-    openSourceLaneMenu,
-    openSourceTrackMenu,
     sourceTracksListRef,
     sourceTrackReorder,
     sourceTracksLocked,
     setSourceTracksLocked,
     renamingSourceTrackId,
     setRenamingSourceTrackId,
-    commitSourceTrackRename,
-    cancelSourceTrackRename,
     createEmptySourceTrack,
     getClipMenuEntries,
     getEditMenuEntries,
