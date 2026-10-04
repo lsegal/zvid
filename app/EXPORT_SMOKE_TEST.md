@@ -116,7 +116,7 @@ browser's save picker may appear instead of a download.
 In Windows Tauri, run the normal `tauri dev` application with the editor page.
 Use **File → Import Media** to select `video-only/moving-video.mp4` in a blank
 editor, then export the arranged video-only session. Reload the editor and use
-**File → Open Session** to select `with-audio/with-audio.lvp`. Wait for local
+**File → Open → Session…** to select `with-audio/with-audio.lvp`. Wait for local
 media hydration, confirm the arrangement clip and `MAIN-TONE.WAV` on the
 Audio lane, then export through the native save dialog. On another supported
 Tauri platform, use the same steps. To check session-file hydration without

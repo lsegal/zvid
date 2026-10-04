@@ -436,7 +436,7 @@ test("Retry in the media sync modal requests unavailable media again", async ({
   await expect(offlineLabel(guest)).toHaveCount(0);
 });
 
-test("New Session and Close Session are off while sharing", async ({
+test("New Session is off while sharing", async ({
   browser,
 }) => {
   const host = await openApp(browser);
@@ -445,11 +445,9 @@ test("New Session and Close Session are off while sharing", async ({
 
   // Starting over would wipe the peers' project too.
   await host.getByRole("menuitem", { name: "File", exact: true }).click();
-  for (const name of ["New Session", "Close Session"]) {
-    await expect(
-      host.getByRole("menuitem", { name, exact: true }),
-    ).toHaveAttribute("aria-disabled", "true");
-  }
+  await expect(
+    host.getByRole("menuitem", { name: "New Session", exact: true }),
+  ).toHaveAttribute("aria-disabled", "true");
 });
 
 test("outside a share, the offline label opens the offline media dialog", async ({
