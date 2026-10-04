@@ -16,10 +16,10 @@ type Effect = {
   parameters: Array<{ key: string; value: string; numericValue?: number }>;
 };
 
-// A layer's one clip, 0-4 s: a fill of a color, a text clip, an FX clip, or
-// none.
+// A layer's one clip, 0-4 s: a fill of a color or gradient, on a hidden
+// layer when `hidden`, a text clip, an FX clip, or none.
 type LayerContent =
-  | { fill: string }
+  | { fill: string; hidden?: boolean }
   | { text: string; color: string }
   | "fx"
   | null;
@@ -69,6 +69,9 @@ async function render(page: Page, scenario: Scenario) {
             sourceWindowEndSeconds: 4,
             tint: "#000",
             accent: "#fff",
+            ...(layer !== "fx" && "hidden" in layer && layer.hidden
+              ? { hidden: true }
+              : {}),
           },
         ];
       });
@@ -83,8 +86,12 @@ async function render(page: Page, scenario: Scenario) {
                 effectName: "Color",
                 enabled: true,
                 parameters: [
-                  { key: "Mode", value: "Solid" },
-                  { key: "Color", value: layer.fill },
+                  layer.fill.includes("gradient")
+                    ? { key: "Mode", value: "Gradient" }
+                    : { key: "Mode", value: "Solid" },
+                  layer.fill.includes("gradient")
+                    ? { key: "Gradient", value: layer.fill }
+                    : { key: "Color", value: layer.fill },
                   { key: "Opacity", value: "1", numericValue: 1 },
                 ],
               }
@@ -359,6 +366,79 @@ test.describe("chained masks", () => {
       }),
       [RED, BACKGROUND],
     );
+  });
+});
+
+// On an FX clip, a Mask limits where the clip's effects apply: a Pixelate
+// FX clip masked by an Oval pixelates only inside it (Additive), or only
+// outside it (Subtractive).
+test.describe("a Mask on an FX clip", () => {
+  // Layer 1 is the FX clip, Layer 2 a hidden fill shaped to an oval
+  // spanning the canvas, and Layer 3 a black-to-white gradient across it.
+  const layers: LayerContent[] = [
+    "fx",
+    { fill: "rgba(255,255,255,1)", hidden: true },
+    {
+      fill: "linear-gradient(90deg, rgba(0,0,0,1) 0%, rgba(255,255,255,1) 100%)",
+    },
+  ];
+  const effects: Effect[] = [
+    {
+      id: "shape-2",
+      trackId: "2",
+      effectName: "Shape",
+      enabled: true,
+      parameters: [{ key: "Shape", value: "Oval" }],
+    },
+    {
+      id: "pixelate-1",
+      trackId: "clip:fx-1",
+      effectName: "Pixelate",
+      enabled: true,
+      // Blocks an eighth of the canvas across: 15 px.
+      parameters: [{ key: "_NumPixels", value: "1", numericValue: 1 }],
+    },
+  ];
+  // Two points 11 px apart in one block, in the middle of the oval and in
+  // its top-left corner, outside it. Unpixelated, the gradient differs
+  // between them; pixelated, they are the same block.
+  const samples: Array<[number, number]> = [
+    [61.5 / SIZE, 0.5],
+    [72.5 / SIZE, 0.5],
+    [1.5 / SIZE, 0.05],
+    [12.5 / SIZE, 0.05],
+  ];
+  // Whether the middle and the corner are pixelated.
+  async function pixelated(page: Page, mode?: string) {
+    const [a, b, c, d] = await render(page, {
+      layers,
+      effects: mode ? [...effects, mask("clip:fx-1", "2", mode)] : effects,
+      samples,
+    });
+    const flat = (left: Rgb, right: Rgb) => Math.abs(left[0] - right[0]) <= 2;
+    // Unpixelated, the gradient rises about 2 levels a pixel.
+    for (const [left, right] of [
+      [a, b],
+      [c, d],
+    ]) {
+      expect(
+        flat(left, right) || right[0] - left[0] > 12,
+        `${left} ${right}`,
+      ).toBe(true);
+    }
+    return [flat(a, b), flat(c, d)];
+  }
+
+  test("pixelates everywhere without a Mask", async ({ page }) => {
+    expect(await pixelated(page)).toEqual([true, true]);
+  });
+
+  test("pixelates only inside an Additive Target", async ({ page }) => {
+    expect(await pixelated(page, "Additive")).toEqual([true, false]);
+  });
+
+  test("pixelates only outside a Subtractive Target", async ({ page }) => {
+    expect(await pixelated(page, "Subtractive")).toEqual([false, true]);
   });
 });
 

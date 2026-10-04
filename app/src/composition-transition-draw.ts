@@ -81,15 +81,16 @@ export function drawTransition(
 
   // The FX clip's other effects run on the blend.
   const mask = drawMask();
-  const blended = fxSteps.length && mask !== false
-    ? (effectChain.run(blend.region, width, height, fxSteps, {
-        time: frameContext.time,
-        clipProgress: entry.clipProgress,
-        resolution: [width, height],
-        // The blend is rendered normally, so it is bottom-up.
-        bottomUp: true,
-      }) ?? blend.region)
-    : blend.region;
+  const blended =
+    fxSteps.length && mask !== false
+      ? (effectChain.run(blend.region, width, height, fxSteps, {
+          time: frameContext.time,
+          clipProgress: entry.clipProgress,
+          resolution: [width, height],
+          // The blend is rendered normally, so it is bottom-up.
+          bottomUp: true,
+        }) ?? blend.region)
+      : blend.region;
   bindCompositeState(resources, parent.framebuffer, width, height);
   // The blend is premultiplied, and transparent where a type moved both
   // comps away.

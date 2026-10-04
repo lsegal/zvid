@@ -303,7 +303,7 @@ describe("effect categories", () => {
 });
 
 describe("addableEffectsFor", () => {
-  const names = (group: "layer" | "global" | "clip") =>
+  const names = (group: "layer" | "global" | "clip" | "fxClip") =>
     addableEffectsFor(group).map((definition) => definition.effectName);
   // Every audio effect is offered on every stack, after the video ones;
   // each audio effect's own tests check its place among them.
@@ -395,6 +395,13 @@ describe("addableEffectsFor", () => {
     assert.ok(names("clip").includes("Text"));
     assert.ok(!names("layer").includes("Text"));
     assert.ok(!names("global").includes("Text"));
+  });
+
+  it("offers Mask on layers, clips and FX clips", () => {
+    assert.ok(names("layer").includes("Mask"));
+    assert.ok(names("clip").includes("Mask"));
+    assert.ok(names("fxClip").includes("Mask"));
+    assert.ok(!names("global").includes("Mask"));
   });
 
   it("offers Order on the Global stack only", () => {

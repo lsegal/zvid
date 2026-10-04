@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   findLayerMask,
   maskCoverage,
+  maskedFxBlend,
   parseLayerMask,
   pruneMaskTargets,
 } from "./mask.ts";
@@ -97,6 +98,27 @@ describe("maskCoverage", () => {
   it("clamps the target's alpha", () => {
     assert.equal(maskCoverage(2, "additive"), 1);
     assert.equal(maskCoverage(-1, "subtractive"), 1);
+  });
+});
+
+describe("maskedFxBlend", () => {
+  it("applies an FX clip's effects only where an Additive target draws", () => {
+    assert.equal(maskedFxBlend(0.2, 1, 1, "additive"), 1);
+    assert.equal(maskedFxBlend(0.2, 1, 0, "additive"), 0.2);
+    assert.ok(Math.abs(maskedFxBlend(0.2, 1, 0.5, "additive") - 0.6) < 1e-9);
+  });
+
+  it("applies them everywhere but where a Subtractive target draws", () => {
+    assert.equal(maskedFxBlend(0.2, 1, 1, "subtractive"), 0.2);
+    assert.equal(maskedFxBlend(0.2, 1, 0, "subtractive"), 1);
+    assert.ok(
+      Math.abs(maskedFxBlend(0.2, 1, 0.25, "subtractive") - 0.8) < 1e-9,
+    );
+  });
+
+  it("applies nothing when Additive and everything when Subtractive with no target drawing", () => {
+    assert.equal(maskedFxBlend(0.2, 1, null, "additive"), 0.2);
+    assert.equal(maskedFxBlend(0.2, 1, null, "subtractive"), 1);
   });
 });
 

@@ -18,6 +18,11 @@ import {
   withLayerMask,
 } from "./composition-layer-mask.ts";
 import { resolveCanvasBounds } from "./composition-layout.ts";
+import {
+  FX_MASK_FRAGMENT_SOURCE,
+  FX_MASK_VERTEX_SOURCE,
+  MASKED_FX_MASK_FRAGMENT_SOURCE,
+} from "./composition-shaders.ts";
 import { fitTextureSize } from "./composition-textures.ts";
 import {
   canvasBoxToFrame,
@@ -29,11 +34,6 @@ import {
   visualTransformChain,
   visualTransformMatrix,
 } from "./composition-transform.ts";
-import {
-  FX_MASK_FRAGMENT_SOURCE,
-  FX_MASK_VERTEX_SOURCE,
-  MASKED_FX_MASK_FRAGMENT_SOURCE,
-} from "./composition-shaders.ts";
 import type { PreparedEffectStep, TextureRegion } from "./fx-shaders/chain.ts";
 import { linkProgram, POSITION_ATTRIBUTE_LOCATION } from "./fx-shaders/gl.ts";
 

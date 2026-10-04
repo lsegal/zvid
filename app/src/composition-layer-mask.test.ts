@@ -216,6 +216,43 @@ describe("findMaskTargets", () => {
     );
   });
 
+  it("finds an FX clip's hidden Target on the canvas", () => {
+    const layers = [
+      layer("t", "4", 3, false, true),
+      layer("fx", "1", 0, true),
+      layer("beneath", "3", 2),
+    ];
+    const steps = planLayerDraws<Layer>(layers, Z_ORDER_COMPOSITION);
+    const fx = steps.find((step) => step.type === "fx") as LayerDrawStep<Layer>;
+    const found = findMaskTargets(
+      [...steps, ...planHiddenLayerDraws<Layer>(layers)],
+      fx,
+      additive,
+    );
+    assert.deepEqual(pathIds(found.maskedPath), []);
+    assert.deepEqual(
+      found.groups.map((group) => [pathIds(group.path), ids(group.steps)]),
+      [[[], ["t"]]],
+    );
+  });
+
+  it("finds an Ordered FX clip's Target inside its own arrangement", () => {
+    const steps = planLayerDraws<Layer>(
+      [arranger("fx", "2", 1), layer("t", "4", 3)],
+      Z_ORDER_COMPOSITION,
+    );
+    const fx = steps.find(
+      (step) => step.type === "arrange",
+    ) as LayerDrawStep<Layer>;
+    const found = findMaskTargets(steps, fx, additive);
+    // Drawn on the canvas, where its arrangement is drawn out to.
+    assert.deepEqual(pathIds(found.maskedPath), []);
+    assert.deepEqual(
+      found.groups.map((group) => [pathIds(group.path), ids(group.steps)]),
+      [[["fx"], ["t"]]],
+    );
+  });
+
   it("finds nothing when the target has no active clip anywhere", () => {
     const masked = layer("masked", "3", 2);
     const steps = planLayerDraws<Layer>(
