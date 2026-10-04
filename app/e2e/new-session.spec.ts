@@ -50,9 +50,10 @@ test("File → New Session asks to save, then opens a blank project", async ({
   await expect(page.getByText("Started a new session.")).toBeVisible();
   // The new session has no undo history.
   await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
-  await expect(
-    page.getByRole("menuitem", { name: /^Undo/ }),
-  ).toHaveAttribute("aria-disabled", "true");
+  await expect(page.getByRole("menuitem", { name: /^Undo/ })).toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
   await page.keyboard.press("Escape");
 
   // The blank session is what a refresh restores.
@@ -60,9 +61,7 @@ test("File → New Session asks to save, then opens a blank project", async ({
   await expectBlankSession(page);
 });
 
-test("canceling the New Session prompt keeps the session", async ({
-  page,
-}) => {
+test("canceling the New Session prompt keeps the session", async ({ page }) => {
   await openSample(page);
 
   await chooseNewSession(page);

@@ -84,7 +84,10 @@ describe("hasUnsavedSessionChanges", () => {
   });
 
   it("is false for a blank session, which has nothing to lose", () => {
-    assert.equal(hasUnsavedSessionChanges(createNewSessionHistory(), true), false);
+    assert.equal(
+      hasUnsavedSessionChanges(createNewSessionHistory(), true),
+      false,
+    );
   });
 });
 
