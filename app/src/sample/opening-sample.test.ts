@@ -299,7 +299,7 @@ describe("zvid opening sample", () => {
     assert.ok(layerIds.indexOf("transitions") < layerIds.indexOf("order"));
   });
 
-  it("opens the 1.5 s orbit shot out of a camera icon on a hidden layer", () => {
+  it("opens the 1.5 s orbit shot out of a movie camera on a hidden layer", () => {
     const iconLayer = session.mainTracks?.find(
       (layer) => layer.id === "icon-mask",
     );
@@ -311,30 +311,52 @@ describe("zvid opening sample", () => {
         .map((layer) => layer.id),
       ["icon-mask"],
     );
+    // A one-beat reveal, then a one-beat hold, so the mask has a Target for
+    // the whole shot. A beat is 22.5 frames, so the cut rounds to frame 68.
     const icons = (session.fills ?? []).filter(
       (clip) => clip.mainTrackId === "icon-mask",
     );
     assert.deepEqual(
-      icons.map((clip) => [clip.frameStart / FPS, clip.frameEnd / FPS]),
-      [[1.5, 3]],
+      icons.map((clip) => [clip.id, clip.frameStart, clip.frameEnd]),
+      [
+        ["fill-camera-reveal", 45, 68],
+        ["fill-camera-hold", 68, 90],
+      ],
     );
-    const iconEffects = effectsOn(`clip:${icons[0].id}`);
+    const [revealEffects, holdEffects] = icons.map((clip) =>
+      effectsOn(`clip:${clip.id}`),
+    );
     assert.deepEqual(
-      iconEffects.map((effect) => effect.effectName),
+      revealEffects.map((effect) => effect.effectName),
       ["Color", "Shape", "Move"],
     );
+    assert.deepEqual(
+      holdEffects.map((effect) => effect.effectName),
+      ["Color", "Shape", "Transform"],
+    );
     const camera = OPENING_SAMPLE_MANIFEST.assets.find(
-      (asset) => asset.name === "video-camera.svg",
+      (asset) => asset.name === "movie-camera.svg",
     );
     assert.equal(camera?.mediaType, "image/svg+xml");
-    assert.equal(
-      stringParameter(iconEffects[1], "Shape"),
-      `Custom:${camera?.path}`,
-    );
+    for (const effects of [revealEffects, holdEffects]) {
+      assert.equal(
+        stringParameter(effects[1], "Shape"),
+        `Custom:${camera?.path}`,
+      );
+    }
+    // The reveal pops open fast, and the hold stays where it ends.
+    const move = revealEffects[2];
+    const hold = holdEffects[2];
+    assert.equal(stringParameter(move, "Motion"), "Ease Out");
+    for (const key of ["PositionX", "PositionY", "ScaleX", "ScaleY"]) {
+      assert.equal(
+        numberParameter(hold, key),
+        numberParameter(move, `End${key}`),
+      );
+    }
     // The icon grows from small, square on the 16:9 canvas, until the
-    // camera's body (x 1.5–15.75, y 4.5–19.5 of its 24-unit box, centered
-    // by the Move's X) covers the whole frame.
-    const move = iconEffects[2];
+    // camera's body (x 99–337, y 211.727–321.729 of its 512-unit box,
+    // centered by the Move's X and Y) covers the whole frame.
     for (const end of ["Start", "End"]) {
       assert.equal(
         Math.round(
@@ -347,15 +369,22 @@ describe("zvid opening sample", () => {
     assert.ok((numberParameter(move, "StartScaleY") ?? 1) < 0.5);
     const box = (numberParameter(move, "EndScaleY") ?? 0) * 1080;
     const centerX = 960 + (numberParameter(move, "EndPositionX") ?? 0) * 1920;
-    const unit = box / 24;
-    const bodyLeft = centerX - box / 2 + 1.5 * unit;
-    const bodyRight = centerX - box / 2 + 15.75 * unit;
-    const bodyTop = 540 - box / 2 + 4.5 * unit;
-    const bodyBottom = 540 - box / 2 + 19.5 * unit;
-    // Inset by the body's 3-unit corner radius, so the corners are covered
-    // too.
-    assert.ok(bodyLeft + 3 * unit < 0 && bodyRight - 3 * unit > 1920);
-    assert.ok(bodyTop + 3 * unit < 0 && bodyBottom - 3 * unit > 1080);
+    const centerY = 540 + (numberParameter(move, "EndPositionY") ?? 0) * 1080;
+    const unit = box / 512;
+    const bodyLeft = centerX - box / 2 + 99 * unit;
+    const bodyRight = centerX - box / 2 + 337 * unit;
+    const bodyTop = centerY - box / 2 + 211.727 * unit;
+    const bodyBottom = centerY - box / 2 + 321.729 * unit;
+    assert.ok(bodyLeft < 0 && bodyRight > 1920);
+    assert.ok(bodyTop < 0 && bodyBottom > 1080);
+    // The art is the detailed illustration, not a single silhouette: its
+    // reels are cut through by spokes and hubs.
+    const art = readFileSync(
+      new URL(`../../public${camera?.url}`, import.meta.url),
+      "utf8",
+    );
+    assert.ok((art.match(/M/g) ?? []).length > 10);
+    assert.doesNotMatch(art, /M0 0h512v512H0z/);
 
     // The full-frame orbit shot under "capture", with no three-up, is
     // masked by it; the title above it is not.
@@ -631,9 +660,12 @@ describe("zvid opening sample", () => {
 
   it("credits its icon in the manifest and CREDITS.md", () => {
     const camera = OPENING_SAMPLE_MANIFEST.assets.find(
-      (asset) => asset.name === "video-camera.svg",
+      (asset) => asset.name === "movie-camera.svg",
     );
-    assert.match(camera?.credit ?? "", /Heroicons by Tailwind Labs.*MIT/);
+    assert.match(
+      camera?.credit ?? "",
+      /Delapouite.*game-icons\.net.*CC BY 3\.0/,
+    );
     const credits = readFileSync(
       new URL(
         `../../public${OPENING_SAMPLE_MANIFEST.creditsUrl}`,
@@ -641,8 +673,11 @@ describe("zvid opening sample", () => {
       ),
       "utf8",
     );
-    assert.match(credits, /^`video-camera\.svg` is the "video-camera" icon/m);
-    assert.match(credits, /MIT License/);
+    assert.match(
+      credits,
+      /^`movie-camera\.svg` is a "Movie camera" illustration/m,
+    );
+    assert.match(credits, /By Attribution 3\.0 License/);
   });
 
   it("opens with every clip on its stable media and the Audio layer in the mix", () => {

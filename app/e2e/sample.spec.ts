@@ -135,6 +135,12 @@ async function expectSampleOpen(page: Page) {
   ]) {
     await expect(lane(page, id)).toHaveCount(1);
   }
+  // The hidden mask layer holds the movie camera's reveal and hold.
+  for (const id of ["fill-camera-reveal", "fill-camera-hold"]) {
+    await expect(
+      lane(page, "icon-mask").locator(`[data-clip-id="${id}"]`),
+    ).toHaveCount(1);
+  }
   // Each source track holds one clip, which the layers' cuts play from.
   for (const id of [
     "source-orbit",
