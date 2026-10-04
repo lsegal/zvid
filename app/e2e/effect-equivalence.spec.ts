@@ -7,9 +7,6 @@ import { expect, type Page, test } from "@playwright/test";
 
 type Parameter = { key: string; value: string; numericValue?: number };
 
-const WIDTH = 320;
-const HEIGHT = 180;
-
 // Bright bars on dark, with colored stripes between, so there are hard
 // edges for Bloom to glow from and for the refractions to bend.
 const BARS =
@@ -23,7 +20,7 @@ function numbers(values: Record<string, number>): Parameter[] {
   }));
 }
 
-// Renders a WIDTH×HEIGHT frame at `seconds` of one BARS fill clip on Layer
+// Renders a `width`×`height` frame at `seconds` of one BARS fill clip on Layer
 // 1 with `effectName` of `parameters` on the layer, first with the current
 // pass and then with the reference pass, and returns how far apart they
 // are: the mean and the 99th percentile of each pixel's largest channel
@@ -33,10 +30,18 @@ async function compare(
   folder: string,
   effectName: string,
   parameters: Parameter[],
-  seconds = 1,
+  { seconds = 1, width = 320, height = 180 } = {},
 ) {
   return page.evaluate(
-    async ({ folder, effectName, parameters, seconds, paint, width, height }) => {
+    async ({
+      folder,
+      effectName,
+      parameters,
+      seconds,
+      paint,
+      width,
+      height,
+    }) => {
       // Variables keep TypeScript from resolving the dev server's paths.
       const playerPath = "/src/CompositionPlayer.tsx";
       const passPath = `/src/fx/effects/${folder}/pass.ts`;
@@ -45,9 +50,7 @@ async function compare(
         /* @vite-ignore */ playerPath
       );
       const { pass } = await import(/* @vite-ignore */ passPath);
-      const { referencePass } = await import(
-        /* @vite-ignore */ referencePath
-      );
+      const { referencePass } = await import(/* @vite-ignore */ referencePath);
 
       async function render() {
         const canvas = document.createElement("canvas");
@@ -105,15 +108,7 @@ async function compare(
           const gl = canvas.getContext("webgl");
           if (!gl) throw new Error("WebGL is unavailable.");
           const pixels = new Uint8Array(width * height * 4);
-          gl.readPixels(
-            0,
-            0,
-            width,
-            height,
-            gl.RGBA,
-            gl.UNSIGNED_BYTE,
-            pixels,
-          );
+          gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
           return pixels;
         } finally {
           renderer.destroy();
@@ -154,10 +149,18 @@ async function compare(
       parameters,
       seconds,
       paint: BARS,
-      width: WIDTH,
-      height: HEIGHT,
+      width,
+      height,
     },
   );
+}
+
+// The frames match to within a level or so on average. BARS's hard edges
+// let a shift of a fraction of a pixel change a pixel beside one a lot, so
+// the 99th percentile allows more.
+function expectSameLook({ mean, p99 }: { mean: number; p99: number }) {
+  expect(mean).toBeLessThan(1.5);
+  expect(p99).toBeLessThan(32);
 }
 
 test.describe("Cheaper effect passes look the same", () => {
@@ -182,10 +185,11 @@ test.describe("Cheaper effect passes look the same", () => {
         "bloom",
         "Bloom",
         tint ? [...parameters, { key: "_Tint", value: tint }] : parameters,
+        // Large enough that the glow reaches past BLOOM_TAPS pixels, where
+        // the pass blurs at a fraction of the frame's size.
+        { width: 960, height: 540 },
       );
-      console.log(`Bloom ${label}`, result);
-      expect(result.mean).toBeLessThan(2);
-      expect(result.p99).toBeLessThan(16);
+      expectSameLook(result);
     });
   }
 
@@ -200,11 +204,9 @@ test.describe("Cheaper effect passes look the same", () => {
         "caustics",
         "Caustics",
         numbers({ _Speed: 0.3, _Intensity: 0.5, _Scale: 0.5, ...values }),
-        1.7,
+        { seconds: 1.7 },
       );
-      console.log(`Caustics ${label}`, result);
-      expect(result.mean).toBeLessThan(2);
-      expect(result.p99).toBeLessThan(16);
+      expectSameLook(result);
     });
   }
 
@@ -222,11 +224,9 @@ test.describe("Cheaper effect passes look the same", () => {
             { key: "_Type", value: type },
             ...numbers({ _Amount: 0.3, _Scale: 0.5, _Speed: 0.6, ...values }),
           ],
-          2.3,
+          { seconds: 2.3 },
         );
-        console.log(`Refraction ${type} ${label}`, result);
-        expect(result.mean).toBeLessThan(2);
-        expect(result.p99).toBeLessThan(16);
+        expectSameLook(result);
       });
     }
   }
