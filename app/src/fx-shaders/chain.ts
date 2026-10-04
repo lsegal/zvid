@@ -193,6 +193,7 @@ export class EffectChainRenderer {
   private stageTargets: TargetPool;
   private sceneTarget: RenderTarget | null = null;
   private layerTargets: TargetPool;
+  private maskTargets: TargetPool;
   // One pool per Order nesting depth, since an arrangement draws into its
   // own target while the one it sits in is still in use.
   private arrangementTargets = new Map<number, TargetPool>();
@@ -228,6 +229,7 @@ export class EffectChainRenderer {
     this.pingPongTargets = new TargetPool(this.release);
     this.stageTargets = new TargetPool(this.release);
     this.layerTargets = new TargetPool(this.release);
+    this.maskTargets = new TargetPool(this.release);
     this.merged = new MergedPrograms(
       gl,
       this.parallel,
@@ -348,6 +350,18 @@ export class EffectChainRenderer {
   // so the chain can read it while writing.
   getLayerTarget(width: number, height: number) {
     const [target] = this.getPooledTargets(this.layerTargets, width, height, 1);
+    return {
+      framebuffer: target.framebuffer,
+      region: targetRegion(target, width, height),
+    };
+  }
+
+  // Surface a Mask's Target layer is drawn into, in its `width` × `height`
+  // corner, for the layer it masks to read while it is drawn. It is kept
+  // apart from the layer and ping-pong targets, which drawing either layer
+  // uses.
+  getMaskTarget(width: number, height: number) {
+    const [target] = this.getPooledTargets(this.maskTargets, width, height, 1);
     return {
       framebuffer: target.framebuffer,
       region: targetRegion(target, width, height),
@@ -741,6 +755,7 @@ export class EffectChainRenderer {
     this.pingPongTargets.clear();
     this.stageTargets.clear();
     this.layerTargets.clear();
+    this.maskTargets.clear();
     for (const pool of this.arrangementTargets.values()) {
       pool.clear();
     }

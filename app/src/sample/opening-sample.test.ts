@@ -290,8 +290,12 @@ describe("zvid opening sample", () => {
     assert.equal(card.frameEnd - card.frameStart, 90);
     assert.deepEqual(
       effectsOn(`clip:${card.id}`).map((effect) => effect.effectName),
-      ["Color", "Caustics"],
+      ["Color", "Caustics", "Mask"],
     );
+    // The wordmark is knocked out of the card.
+    const mask = effectsOn(`clip:${card.id}`)[2];
+    assert.equal(stringParameter(mask, "Target"), "title-wordmark");
+    assert.equal(stringParameter(mask, "Mode"), "Subtractive");
     const texts = clipsAt(session.texts, 28).map((clip) =>
       stringParameter(effectsOn(`clip:${clip.id}`)[0], "Text"),
     );

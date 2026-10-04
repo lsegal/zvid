@@ -8,6 +8,7 @@
 // The stack lives in `fx/stack/`, one module per concern; this module
 // re-exports it so callers keep one import path.
 
+export { pruneMaskTargets } from "./fx/effects/mask/mask.ts";
 export {
   clipEffectTrackId,
   copyClipEffects,

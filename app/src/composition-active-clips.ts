@@ -28,6 +28,10 @@
 // inside that box first, in place of the Global Order (the nearest such FX
 // clip above a layer wins); the rest of its chain then runs on the result.
 //
+// A Mask on the clip's or its layer's stack multiplies what the clip draws
+// by the alpha its Target layer draws at each canvas pixel, or by 1 minus
+// it when Subtractive (see fx/effects/mask/mask.ts).
+//
 // Other visual parameters (opacity and the like) read Global, then Layer,
 // then Clip, so the most specific stack wins.
 import type { ClipWarp } from "./clip-warp.ts";
@@ -64,6 +68,11 @@ import {
   isColorEffectName,
   resolveFillPaint,
 } from "./fill-paint.ts";
+import {
+  findLayerMask,
+  isMaskEffectName,
+  type LayerMask,
+} from "./fx/effects/mask/mask.ts";
 import {
   type AnimationClipContext,
   reactsToAudio,
@@ -201,6 +210,9 @@ export type ActiveClip = {
   // Set for FX clips with an enabled Order, which arranges the layers
   // beneath them.
   order?: CompositionOrder;
+  // Set for clips whose layer or own stack has an enabled Mask with a
+  // Target: the layer whose drawn pixels show or hide this one.
+  mask?: LayerMask;
 };
 
 export const GROUP_TRACK_ID = "__group_main";
@@ -329,8 +341,12 @@ export function resolveVisualState(
       continue;
     }
 
-    // Order arranges every layer at once; the compositor reads it itself.
-    if (isOrderEffectName(effect.effectName)) {
+    // Order arranges every layer at once, and Mask reads another layer's
+    // pixels; the compositor reads them itself.
+    if (
+      isOrderEffectName(effect.effectName) ||
+      isMaskEffectName(effect.effectName)
+    ) {
       continue;
     }
 
@@ -552,9 +568,11 @@ export function computeActiveClips(
       };
     }
 
+    const mask = findLayerMask(effects, clip.laneId, clipTrackId);
     return {
       ...resolved,
       effectChain: resolveClipEffectChain(effects, clip),
+      ...(mask ? { mask } : {}),
       ...(clip.kind === "text"
         ? { text: resolveTextStyle(effects, clip.laneId, clipTrackId) }
         : clip.kind === "fill"

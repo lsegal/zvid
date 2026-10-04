@@ -422,3 +422,33 @@ export function describeArrangedLayers(
 export function excludeAllLayers(layers: readonly FxLayerOption[]) {
   return serializeLayerIdList(layers.map((layer) => layer.id));
 }
+
+// A Mask's Target button label: the layer it names among `layers`, or None
+// when it names none of them, such as a layer that no longer exists.
+export function describeMaskTarget(
+  targetLayerId: string | undefined,
+  layers: readonly FxLayerOption[],
+) {
+  const target = layers.find((layer) => layer.id === targetLayerId?.trim());
+  return target ? `Target: ${target.name}` : "Target: None";
+}
+
+// The layers a device's layer menus list, by the stack it is on: every
+// layer on the Global stack, those beneath an FX clip on its stack, and
+// every layer but the selected one, `layerId`, on a layer's or a layer
+// clip's, since a layer can't mask itself.
+export function deviceLayerOptions(
+  group: "global" | "layer" | "clip",
+  clipScope: string,
+  layers: readonly FxLayerOption[],
+  clipLayers: readonly FxLayerOption[],
+  layerId: string | undefined,
+) {
+  if (group === "global") {
+    return layers;
+  }
+  if (group === "clip" && clipScope === "fxClip") {
+    return clipLayers;
+  }
+  return layers.filter((layer) => layer.id !== layerId);
+}

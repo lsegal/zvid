@@ -168,6 +168,30 @@ describe("deleteLane", () => {
     assert.ok(next.effects.some((effect) => effect.id === "blur-1"));
   });
 
+  it("clears the Target of Masks the layer was the Target of", () => {
+    const project = makeProject();
+    const masks = [
+      { ...createEffect("1", "Mask", "mask-2"), parameters: [] },
+      { ...createEffect("3", "Mask", "mask-1"), parameters: [] },
+    ].map((effect, index) => ({
+      ...effect,
+      parameters: [
+        { key: "Target", value: index === 0 ? "2" : "1" },
+        { key: "Mode", value: "Subtractive" },
+      ],
+    }));
+    const next = deleteLane(
+      { ...project, effects: [...project.effects, ...masks] },
+      "2",
+    );
+    const target = (id: string) =>
+      next.effects
+        .find((effect) => effect.id === id)
+        ?.parameters.find((parameter) => parameter.key === "Target")?.value;
+    assert.equal(target("mask-2"), "");
+    assert.equal(target("mask-1"), "1");
+  });
+
   it("keeps the only layer", () => {
     const project = { ...makeProject(), lanes: [lane("1")] };
     assert.equal(deleteLane(project, "1"), project);

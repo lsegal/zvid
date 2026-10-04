@@ -2,13 +2,23 @@ import {
   borderClearColor,
   sceneClearColor,
 } from "./composition-clear-color.ts";
+import { applyFxClip } from "./composition-fx-clip.ts";
+import {
+  type CompositeUniformLocations,
+  createMaskedComposite,
+  type DrawnMask,
+  drawLayerMask,
+  drawMaskedQuad,
+  findMaskTargetSteps,
+  locateCompositeUniforms,
+  type MaskedComposite,
+} from "./composition-layer-mask.ts";
 import {
   isSlotScissorEmpty,
   type LayerDrawStep,
   type LayerPlacement,
   type LayerVisual,
   planLayerDraws,
-  resolveCanvasBounds,
   resolveLayerPlacement,
   resolveSlotBounds,
   resolveSlotScissor,
@@ -49,6 +59,7 @@ import {
 } from "./composition-transform.ts";
 import type { FillPaint } from "./fill-paint.ts";
 import { EFFECT_PASSES } from "./fx/effects/index.generated.ts";
+import type { LayerMask } from "./fx/effects/mask/mask.ts";
 import type { AudioBands } from "./fx-shaders/audio-bands.ts";
 import {
   EffectChainRenderer,
@@ -56,7 +67,7 @@ import {
   type TextureRegion,
   wholeTexture,
 } from "./fx-shaders/chain.ts";
-import { linkProgram, POSITION_ATTRIBUTE_LOCATION } from "./fx-shaders/gl.ts";
+import { linkProgram } from "./fx-shaders/gl.ts";
 import type { EffectChainStep } from "./fx-shaders/registry.ts";
 import { recordRenderFrame } from "./render-stats.ts";
 import { TEXT_REFERENCE_HEIGHT, type TextStyle } from "./text-style.ts";
@@ -91,6 +102,8 @@ export type CompositeLayer = {
   // Set for FX clips with an Order, which arranges the layers beneath them
   // inside the clip's box before `effectChain` runs.
   order?: CompositionOrder;
+  // Set for clips masked by another layer's drawn pixels.
+  mask?: LayerMask;
 };
 
 export type FrameContext = {
@@ -122,19 +135,9 @@ export type WebGlResources = SourceTextures & {
     uvScale: WebGLUniformLocation | null;
     uvMax: WebGLUniformLocation | null;
   };
-  uniforms: {
-    position: number;
-    texture: WebGLUniformLocation | null;
-    axisX: WebGLUniformLocation | null;
-    axisY: WebGLUniformLocation | null;
-    offset: WebGLUniformLocation | null;
-    opacity: WebGLUniformLocation | null;
-    brightness: WebGLUniformLocation | null;
-    contrast: WebGLUniformLocation | null;
-    saturation: WebGLUniformLocation | null;
-    uvScale: WebGLUniformLocation | null;
-    uvMax: WebGLUniformLocation | null;
-  };
+  uniforms: CompositeUniformLocations;
+  // The layer shader for a layer a Mask masks by its Target's drawn alpha.
+  masked: MaskedComposite;
 };
 
 type CompositeUniforms = QuadAxes & {
@@ -200,19 +203,8 @@ export function createWebGlResources(
       uvScale: gl.getUniformLocation(fxMaskProgram, "uUvScale"),
       uvMax: gl.getUniformLocation(fxMaskProgram, "uUvMax"),
     },
-    uniforms: {
-      position: gl.getAttribLocation(program, "aPosition"),
-      texture: gl.getUniformLocation(program, "uTexture"),
-      axisX: gl.getUniformLocation(program, "uAxisX"),
-      axisY: gl.getUniformLocation(program, "uAxisY"),
-      offset: gl.getUniformLocation(program, "uOffset"),
-      opacity: gl.getUniformLocation(program, "uOpacity"),
-      brightness: gl.getUniformLocation(program, "uBrightness"),
-      contrast: gl.getUniformLocation(program, "uContrast"),
-      saturation: gl.getUniformLocation(program, "uSaturation"),
-      uvScale: gl.getUniformLocation(program, "uUvScale"),
-      uvMax: gl.getUniformLocation(program, "uUvMax"),
-    },
+    uniforms: locateCompositeUniforms(gl, program),
+    masked: createMaskedComposite(gl),
   };
 }
 
@@ -223,6 +215,7 @@ export function disposeWebGlResources(resources: WebGlResources) {
   gl.deleteBuffer(resources.positionBuffer);
   gl.deleteProgram(resources.program);
   gl.deleteProgram(resources.fxMask.program);
+  gl.deleteProgram(resources.masked.program);
 }
 
 // Restores everything the composite draw depends on. The effect chain and
@@ -261,8 +254,9 @@ function drawQuad(
   resources: WebGlResources,
   source: TextureRegion,
   values: CompositeUniforms,
+  uniforms = resources.uniforms,
 ) {
-  const { gl, uniforms } = resources;
+  const { gl } = resources;
   gl.bindTexture(gl.TEXTURE_2D, source.texture);
   gl.uniform1i(uniforms.texture, 0);
   gl.uniform2f(uniforms.uvScale, ...source.uvScale);
@@ -332,63 +326,6 @@ function renderLayerFrame(
   return target.region;
 }
 
-// Runs an FX clip's chain on the composite drawn so far, `scene`, and writes
-// the result back over the clip's box: the whole canvas, or where the
-// layer's and the clip's Transforms move it.
-function applyFxClip(
-  resources: WebGlResources,
-  scene: { framebuffer: WebGLFramebuffer; region: TextureRegion },
-  surface: CompositeSurface,
-  entry: CompositeLayer,
-  steps: PreparedEffectStep[],
-  frameContext: FrameContext,
-) {
-  const { gl, effectChain, fxMask } = resources;
-  const { width, height } = surface;
-  const source = scene.region;
-  const adjusted = effectChain.run(source, width, height, steps, {
-    time: frameContext.time,
-    clipProgress: entry.clipProgress,
-    resolution: [width, height],
-    // The scene framebuffer is rendered normally, so it is bottom-up.
-    bottomUp: true,
-  });
-  if (!adjusted || adjusted === source) {
-    return;
-  }
-
-  const frame = resolveCanvasBounds(width, height);
-  const axes: QuadAxes = isIdentityChain(visualTransformChain(entry.visual))
-    ? { axisX: [1, 0], axisY: [0, 1], offset: [0, 0] }
-    : matrixQuadAxes(
-        frame,
-        visualTransformMatrix(
-          frameBoxInCanvas(frame, surface),
-          surface,
-          entry.visual,
-        ),
-        surface,
-      );
-  gl.bindFramebuffer(gl.FRAMEBUFFER, scene.framebuffer);
-  gl.viewport(0, 0, width, height);
-  // biome-ignore lint/correctness/useHookAtTopLevel: WebGLRenderingContext.useProgram is not a React hook.
-  gl.useProgram(fxMask.program);
-  gl.bindBuffer(gl.ARRAY_BUFFER, resources.positionBuffer);
-  gl.enableVertexAttribArray(POSITION_ATTRIBUTE_LOCATION);
-  gl.vertexAttribPointer(POSITION_ATTRIBUTE_LOCATION, 2, gl.FLOAT, false, 0, 0);
-  gl.disable(gl.BLEND);
-  gl.disable(gl.SCISSOR_TEST);
-  gl.activeTexture(gl.TEXTURE0);
-  gl.bindTexture(gl.TEXTURE_2D, adjusted.texture);
-  gl.uniform1i(fxMask.texture, 0);
-  gl.uniform2f(fxMask.uvScale, ...adjusted.uvScale);
-  gl.uniform2f(fxMask.uvMax, ...adjusted.uvMax);
-  gl.uniform2f(fxMask.axisX, ...axes.axisX);
-  gl.uniform2f(fxMask.axisY, ...axes.axisY);
-  gl.uniform2f(fxMask.offset, ...axes.offset);
-  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-}
-
 // A surface a stack of layers is drawn into: the canvas itself
 // (`framebuffer` null) or an offscreen target the FX clips can read back.
 type StackTarget = {
@@ -399,8 +336,8 @@ type StackTarget = {
 };
 
 // Draws `entry` into slot `index` of `count` of `target`, arranged by
-// `order`, or where `motion` has it on its way between slots. Returns false
-// when it was drawn from a nearby raster.
+// `order`, or where `motion` has it on its way between slots, masked by
+// `mask` when given. Returns false when it was drawn from a nearby raster.
 function drawLayer(
   resources: WebGlResources,
   target: StackTarget,
@@ -411,6 +348,7 @@ function drawLayer(
   index: number,
   count: number,
   motion: SlotMotion | undefined,
+  mask?: DrawnMask,
 ): boolean {
   const { gl, effectChain } = resources;
   const { width, height } = target;
@@ -590,7 +528,13 @@ function drawLayer(
   // box of the FX clip arranging it.
   gl.enable(gl.SCISSOR_TEST);
   gl.scissor(scissor.x, scissor.y, scissor.width, scissor.height);
-  drawQuad(resources, texture, uniforms);
+  if (mask) {
+    drawMaskedQuad(gl, resources.masked, mask, width, height, (located) =>
+      drawQuad(resources, texture, uniforms, located),
+    );
+  } else {
+    drawQuad(resources, texture, uniforms);
+  }
   return settled;
 }
 
@@ -649,6 +593,40 @@ export function drawComposition(
   ) => {
     for (const step of steps) {
       if (step.type === "layer") {
+        const { mask } = step.entry;
+        const drawnMask = mask
+          ? drawLayerMask(
+              resources,
+              findMaskTargetSteps(steps, step.entry, mask),
+              mask,
+              target,
+              (maskTarget) =>
+                bindCompositeState(
+                  resources,
+                  maskTarget.framebuffer,
+                  maskTarget.width,
+                  maskTarget.height,
+                ),
+              (maskTarget, targetStep) => {
+                const done = drawLayer(
+                  resources,
+                  maskTarget,
+                  targetStep.order,
+                  mediaRefs,
+                  frameContext,
+                  targetStep.entry,
+                  targetStep.slot,
+                  targetStep.slotCount,
+                  targetStep.motion,
+                );
+                settled = done && settled;
+              },
+            )
+          : undefined;
+        // With nothing drawn on its Target, an Additive mask shows nothing.
+        if (drawnMask === null && mask?.mode === "additive") {
+          continue;
+        }
         const drawn = drawLayer(
           resources,
           target,
@@ -660,6 +638,7 @@ export function drawComposition(
           step.slot,
           step.slotCount,
           step.motion,
+          drawnMask ?? undefined,
         );
         settled = drawn && settled;
       } else if (step.type === "arrange") {

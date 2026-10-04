@@ -584,6 +584,12 @@ addEffect(clipTrack(card), "Caustics", {
   _Color: "rgba(170,240,255,1)",
   _Blend: "Multiply",
 });
+// The wordmark is knocked out of the card, so its letters fade in from the
+// dark beneath it rather than over the ivory.
+addEffect(clipTrack(card), "Mask", {
+  Target: "title-wordmark",
+  Mode: "Subtractive",
+});
 addEffect(
   text(
     "text-card-zvid",
