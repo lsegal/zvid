@@ -50,7 +50,9 @@ const MUSIC_CREDIT =
 const VIDEO_CREDIT =
   "Original procedural motion made for zvid (app/scripts/sample/render_sources.py).";
 const ICON_CREDIT =
-  '"video-camera" from Heroicons by Tailwind Labs (https://heroicons.com), MIT License.';
+  '"Movie camera" combined from "Film projector" and "Film spool" by Delapouite ' +
+  "(https://game-icons.net), licensed under CC BY 3.0 " +
+  "(https://creativecommons.org/licenses/by/3.0/).";
 
 const SOURCES = [
   { key: "orbit", name: "Orbit", file: "orbit.mp4" },
@@ -62,7 +64,7 @@ const MUSIC = {
   name: "Just Nasty",
   file: "just-nasty-30s.m4a",
 };
-const ICON = { key: "video-camera", file: "video-camera.svg" };
+const ICON = { key: "movie-camera", file: "movie-camera.svg" };
 
 // Layers, top first. The titles sit above the FX and Order layers, so no
 // effect or arrangement touches them. The hidden icon layer is never drawn
@@ -73,7 +75,7 @@ const LAYERS = [
   { id: "title-words", name: "Title · words" },
   { id: "fx-regions", name: "FX regions (Transform + Move)" },
   { id: "transitions", name: "Transitions" },
-  { id: "icon-mask", name: "Mask · camera icon", hidden: true },
+  { id: "icon-mask", name: "Mask · movie camera", hidden: true },
   { id: "order", name: "Order three-ups" },
   { id: "orbit", name: "Orbit" },
   { id: "ribbon", name: "Ribbon" },
@@ -260,7 +262,7 @@ addEffect(
     ),
   },
 );
-// The orbit opens out of the camera icon on the hidden layer.
+// The orbit opens out of the movie camera on the hidden layer.
 addEffect(captureShot, "Mask", { Target: "icon-mask", Mode: "Additive" });
 
 // The three-ups: every 1.5 s each video layer cuts to a new source, in-point
@@ -495,33 +497,44 @@ for (const [start, type] of [
   );
 }
 
-// The camera icon the 1.5 s shot is masked by: a Custom Shape on the hidden
-// layer, kept square on the 16:9 canvas, that grows from a small icon until
-// the camera's body covers the frame. The body sits left of the icon's
-// center, so the icon drifts right as it grows to keep the body centered.
+// The movie camera the 1.5 s shot is masked by: a Custom Shape on the hidden
+// layer, kept square on the 16:9 canvas. In one beat it pops open from a
+// small icon until the camera's body covers the frame, then holds there for
+// the next beat on a second clip, as a Move spans its whole clip. The body
+// (x 99–337, y 211.727–321.729 of the art's 512-unit box) sits left of and
+// below the box's center, so the icon drifts to keep the body centered.
 const ICON_SIZE = 6;
-const ICON_BODY_OFFSET = (12 - 8.625) / 24;
-const icon = layerClip("fills", "fill-camera-icon", "icon-mask", 1.5, 1.5);
-addEffect(clipTrack(icon), "Color", {
-  Mode: "Solid",
-  Color: LIGHT,
-  Opacity: 1,
-});
-addEffect(clipTrack(icon), "Shape", {
-  Shape: `Custom:${samplePath(ICON.file)}`,
-});
-addEffect(clipTrack(icon), "Move", {
-  Motion: "Ease In",
-  ...transformValues("Start", {
-    scaleX: (0.3 * HEIGHT) / WIDTH,
-    scaleY: 0.3,
-  }),
-  ...transformValues("End", {
-    x: (ICON_BODY_OFFSET * ICON_SIZE * HEIGHT) / WIDTH,
-    scaleX: (ICON_SIZE * HEIGHT) / WIDTH,
-    scaleY: ICON_SIZE,
-  }),
-});
+const ICON_BODY_OFFSET_X = (256 - (99 + 337) / 2) / 512;
+const ICON_BODY_OFFSET_Y = (256 - (211.727 + 321.729) / 2) / 512;
+const ICON_FULL = {
+  x: (ICON_BODY_OFFSET_X * ICON_SIZE * HEIGHT) / WIDTH,
+  y: ICON_BODY_OFFSET_Y * ICON_SIZE,
+  scaleX: (ICON_SIZE * HEIGHT) / WIDTH,
+  scaleY: ICON_SIZE,
+};
+function iconClip(id, start) {
+  layerClip("fills", id, "icon-mask", start, 0.75);
+  addEffect(clipTrack(id), "Color", {
+    Mode: "Solid",
+    Color: LIGHT,
+    Opacity: 1,
+  });
+  addEffect(clipTrack(id), "Shape", {
+    Shape: `Custom:${samplePath(ICON.file)}`,
+  });
+  return id;
+}
+move(
+  clipTrack(iconClip("fill-camera-reveal", 1.5)),
+  "Ease Out",
+  { scaleX: (0.3 * HEIGHT) / WIDTH, scaleY: 0.3 },
+  ICON_FULL,
+);
+addEffect(
+  clipTrack(iconClip("fill-camera-hold", 2.25)),
+  "Transform",
+  transformValues("", ICON_FULL),
+);
 
 // Localized FX: each FX clip's Transform sizes its box (30% × 56% of the
 // canvas) and a Move before it sweeps the box left to right, widening it

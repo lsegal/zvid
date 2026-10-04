@@ -22,7 +22,7 @@
     },
     {
       "id": "icon-mask",
-      "name": "Mask · camera icon",
+      "name": "Mask · movie camera",
       "colorIndex": 4,
       "hidden": true
     },
@@ -690,9 +690,15 @@
   ],
   "fills": [
     {
-      "id": "fill-camera-icon",
+      "id": "fill-camera-reveal",
       "mainTrackId": "icon-mask",
       "frameStart": 45,
+      "frameEnd": 68
+    },
+    {
+      "id": "fill-camera-hold",
+      "mainTrackId": "icon-mask",
+      "frameStart": 68,
       "frameEnd": 90
     },
     {
@@ -3294,7 +3300,7 @@
     },
     {
       "id": "sample-fx-095",
-      "trackId": "clip:fill-camera-icon",
+      "trackId": "clip:fill-camera-reveal",
       "effectName": "Color",
       "parameters": {
         "Mode": {
@@ -3310,21 +3316,21 @@
     },
     {
       "id": "sample-fx-096",
-      "trackId": "clip:fill-camera-icon",
+      "trackId": "clip:fill-camera-reveal",
       "effectName": "Shape",
       "parameters": {
         "Shape": {
-          "stringValue": "Custom:zvid-sample://opening-v2/video-camera.svg"
+          "stringValue": "Custom:zvid-sample://opening-v2/movie-camera.svg"
         }
       }
     },
     {
       "id": "sample-fx-097",
-      "trackId": "clip:fill-camera-icon",
+      "trackId": "clip:fill-camera-reveal",
       "effectName": "Move",
       "parameters": {
         "Motion": {
-          "stringValue": "Ease In"
+          "stringValue": "Ease Out"
         },
         "StartPositionX": {
           "floatValue": 0
@@ -3348,10 +3354,10 @@
           "floatValue": 0
         },
         "EndPositionX": {
-          "floatValue": 0.474609375
+          "floatValue": 0.25048828125
         },
         "EndPositionY": {
-          "floatValue": 0
+          "floatValue": -0.1257187500000001
         },
         "EndScaleX": {
           "floatValue": 3.375
@@ -3372,82 +3378,46 @@
     },
     {
       "id": "sample-fx-098",
-      "trackId": "clip:region-pixelate",
-      "effectName": "Pixelate",
+      "trackId": "clip:fill-camera-hold",
+      "effectName": "Color",
       "parameters": {
-        "_NumPixels": {
-          "floatValue": 0.75
+        "Mode": {
+          "stringValue": "Solid"
+        },
+        "Color": {
+          "stringValue": "rgba(236,242,240,1)"
+        },
+        "Opacity": {
+          "floatValue": 1
         }
       }
     },
     {
       "id": "sample-fx-099",
-      "trackId": "clip:region-pixelate",
-      "effectName": "Move",
+      "trackId": "clip:fill-camera-hold",
+      "effectName": "Shape",
       "parameters": {
-        "Motion": {
-          "stringValue": "Ease In Out"
-        },
-        "StartPositionX": {
-          "floatValue": -0.22
-        },
-        "StartPositionY": {
-          "floatValue": 0.03
-        },
-        "StartScaleX": {
-          "floatValue": 0.93
-        },
-        "StartScaleY": {
-          "floatValue": 1
-        },
-        "StartOriginX": {
-          "floatValue": 0
-        },
-        "StartOriginY": {
-          "floatValue": 0
-        },
-        "StartRotation": {
-          "floatValue": -16
-        },
-        "EndPositionX": {
-          "floatValue": 0.22
-        },
-        "EndPositionY": {
-          "floatValue": -0.03
-        },
-        "EndScaleX": {
-          "floatValue": 1.3
-        },
-        "EndScaleY": {
-          "floatValue": 1
-        },
-        "EndOriginX": {
-          "floatValue": 0
-        },
-        "EndOriginY": {
-          "floatValue": 0
-        },
-        "EndRotation": {
-          "floatValue": 16
+        "Shape": {
+          "stringValue": "Custom:zvid-sample://opening-v2/movie-camera.svg"
         }
       }
     },
     {
       "id": "sample-fx-100",
-      "trackId": "clip:region-pixelate",
+      "trackId": "clip:fill-camera-hold",
       "effectName": "Transform",
       "parameters": {
         "PositionX": {
-          "floatValue": 0
+          "floatValue": 0.25048828125
         },
         "PositionY": {
-          "floatValue": 0
+          "floatValue": -0.1257187500000001
         },
         "ScaleX": {
-          "floatValue": 0.3
+          "floatValue": 3.375
         },
         "ScaleY": {
-          "floatValue": 0.56
+          "floatValue": 6
         },
         "OriginX": {
           "floatValue": 0
@@ -3462,20 +3432,17 @@
     },
     {
       "id": "sample-fx-101",
-      "trackId": "clip:region-negativesplit",
-      "effectName": "NegativeSplit",
+      "trackId": "clip:region-pixelate",
+      "effectName": "Pixelate",
       "parameters": {
-        "_LowIntensity": {
-          "floatValue": 1
-        },
-        "_HighIntensity": {
-          "floatValue": 1
+        "_NumPixels": {
+          "floatValue": 0.75
         }
       }
     },
     {
       "id": "sample-fx-102",
-      "trackId": "clip:region-negativesplit",
+      "trackId": "clip:region-pixelate",
       "effectName": "Move",
       "parameters": {
         "Motion": {
@@ -3527,7 +3494,7 @@
     },
     {
       "id": "sample-fx-103",
-      "trackId": "clip:region-negativesplit",
+      "trackId": "clip:region-pixelate",
       "effectName": "Transform",
       "parameters": {
         "PositionX": {
@@ -3555,20 +3522,20 @@
     },
     {
       "id": "sample-fx-104",
-      "trackId": "clip:region-analogglitch",
-      "effectName": "AnalogGlitch",
+      "trackId": "clip:region-negativesplit",
+      "effectName": "NegativeSplit",
       "parameters": {
-        "_LowMod": {
-          "floatValue": 0.85
+        "_LowIntensity": {
+          "floatValue": 1
         },
-        "_HighMod": {
+        "_HighIntensity": {
           "floatValue": 1
         }
       }
     },
     {
       "id": "sample-fx-105",
-      "trackId": "clip:region-analogglitch",
+      "trackId": "clip:region-negativesplit",
       "effectName": "Move",
       "parameters": {
         "Motion": {
@@ -3620,7 +3587,7 @@
     },
     {
       "id": "sample-fx-106",
-      "trackId": "clip:region-analogglitch",
+      "trackId": "clip:region-negativesplit",
       "effectName": "Transform",
       "parameters": {
         "PositionX": {
@@ -3648,6 +3615,99 @@
     },
     {
       "id": "sample-fx-107",
+      "trackId": "clip:region-analogglitch",
+      "effectName": "AnalogGlitch",
+      "parameters": {
+        "_LowMod": {
+          "floatValue": 0.85
+        },
+        "_HighMod": {
+          "floatValue": 1
+        }
+      }
+    },
+    {
+      "id": "sample-fx-108",
+      "trackId": "clip:region-analogglitch",
+      "effectName": "Move",
+      "parameters": {
+        "Motion": {
+          "stringValue": "Ease In Out"
+        },
+        "StartPositionX": {
+          "floatValue": -0.22
+        },
+        "StartPositionY": {
+          "floatValue": 0.03
+        },
+        "StartScaleX": {
+          "floatValue": 0.93
+        },
+        "StartScaleY": {
+          "floatValue": 1
+        },
+        "StartOriginX": {
+          "floatValue": 0
+        },
+        "StartOriginY": {
+          "floatValue": 0
+        },
+        "StartRotation": {
+          "floatValue": -16
+        },
+        "EndPositionX": {
+          "floatValue": 0.22
+        },
+        "EndPositionY": {
+          "floatValue": -0.03
+        },
+        "EndScaleX": {
+          "floatValue": 1.3
+        },
+        "EndScaleY": {
+          "floatValue": 1
+        },
+        "EndOriginX": {
+          "floatValue": 0
+        },
+        "EndOriginY": {
+          "floatValue": 0
+        },
+        "EndRotation": {
+          "floatValue": 16
+        }
+      }
+    },
+    {
+      "id": "sample-fx-109",
+      "trackId": "clip:region-analogglitch",
+      "effectName": "Transform",
+      "parameters": {
+        "PositionX": {
+          "floatValue": 0
+        },
+        "PositionY": {
+          "floatValue": 0
+        },
+        "ScaleX": {
+          "floatValue": 0.3
+        },
+        "ScaleY": {
+          "floatValue": 0.56
+        },
+        "OriginX": {
+          "floatValue": 0
+        },
+        "OriginY": {
+          "floatValue": 0
+        },
+        "Rotation": {
+          "floatValue": 0
+        }
+      }
+    },
+    {
+      "id": "sample-fx-110",
       "trackId": "clip:text-open-zvid",
       "effectName": "Text",
       "parameters": {
@@ -3702,7 +3762,7 @@
       }
     },
     {
-      "id": "sample-fx-108",
+      "id": "sample-fx-111",
       "trackId": "clip:text-open-zvid",
       "effectName": "Transform",
       "parameters": {
@@ -3730,7 +3790,7 @@
       }
     },
     {
-      "id": "sample-fx-109",
+      "id": "sample-fx-112",
       "trackId": "clip:text-open-tagline",
       "effectName": "Text",
       "parameters": {
@@ -3800,7 +3860,7 @@
       }
     },
     {
-      "id": "sample-fx-110",
+      "id": "sample-fx-113",
       "trackId": "clip:text-open-tagline",
       "effectName": "Transform",
       "parameters": {
@@ -3828,7 +3888,7 @@
       }
     },
     {
-      "id": "sample-fx-111",
+      "id": "sample-fx-114",
       "trackId": "clip:text-capture",
       "effectName": "Text",
       "parameters": {
@@ -3898,7 +3958,7 @@
       }
     },
     {
-      "id": "sample-fx-112",
+      "id": "sample-fx-115",
       "trackId": "clip:text-capture",
       "effectName": "Move",
       "parameters": {
@@ -3950,7 +4010,7 @@
       }
     },
     {
-      "id": "sample-fx-113",
+      "id": "sample-fx-116",
       "trackId": "clip:text-edit",
       "effectName": "Text",
       "parameters": {
@@ -4020,7 +4080,7 @@
       }
     },
     {
-      "id": "sample-fx-114",
+      "id": "sample-fx-117",
       "trackId": "clip:text-edit",
       "effectName": "Transform",
       "parameters": {
@@ -4048,7 +4108,7 @@
       }
     },
     {
-      "id": "sample-fx-115",
+      "id": "sample-fx-118",
       "trackId": "clip:text-montage-zvid",
       "effectName": "Text",
       "parameters": {
@@ -4130,7 +4190,7 @@
       }
     },
     {
-      "id": "sample-fx-116",
+      "id": "sample-fx-119",
       "trackId": "clip:text-montage-zvid",
       "effectName": "Bloom",
       "parameters": {
@@ -4164,7 +4224,7 @@
       }
     },
     {
-      "id": "sample-fx-117",
+      "id": "sample-fx-120",
       "trackId": "clip:fill-title-card",
       "effectName": "Color",
       "parameters": {
@@ -4180,7 +4240,7 @@
       }
     },
     {
-      "id": "sample-fx-118",
+      "id": "sample-fx-121",
       "trackId": "clip:fill-title-card",
       "effectName": "Caustics",
       "parameters": {
@@ -4205,7 +4265,7 @@
       }
     },
     {
-      "id": "sample-fx-119",
+      "id": "sample-fx-122",
       "trackId": "clip:fill-title-card",
       "effectName": "Mask",
       "parameters": {
@@ -4218,7 +4278,7 @@
       }
     },
     {
-      "id": "sample-fx-120",
+      "id": "sample-fx-123",
       "trackId": "clip:text-card-zvid",
       "effectName": "Text",
       "parameters": {
@@ -4288,7 +4348,7 @@
       }
     },
     {
-      "id": "sample-fx-121",
+      "id": "sample-fx-124",
       "trackId": "clip:text-card-zvid",
       "effectName": "Transform",
       "parameters": {
@@ -4316,7 +4376,7 @@
       }
     },
     {
-      "id": "sample-fx-122",
+      "id": "sample-fx-125",
       "trackId": "clip:text-card-tagline",
       "effectName": "Text",
       "parameters": {
@@ -4386,7 +4446,7 @@
       }
     },
     {
-      "id": "sample-fx-123",
+      "id": "sample-fx-126",
       "trackId": "clip:text-card-tagline",
       "effectName": "Transform",
       "parameters": {
@@ -4414,7 +4474,7 @@
       }
     },
     {
-      "id": "sample-fx-124",
+      "id": "sample-fx-127",
       "trackId": "clip:selection-46",
       "effectName": "Gain",
       "parameters": {
@@ -4427,7 +4487,7 @@
       }
     },
     {
-      "id": "sample-fx-125",
+      "id": "sample-fx-128",
       "trackId": "clip:selection-47",
       "effectName": "Gain",
       "parameters": {
@@ -4440,7 +4500,7 @@
       }
     },
     {
-      "id": "sample-fx-126",
+      "id": "sample-fx-129",
       "trackId": "clip:selection-47",
       "effectName": "Bitcrush",
       "parameters": {
@@ -4456,7 +4516,7 @@
       }
     },
     {
-      "id": "sample-fx-127",
+      "id": "sample-fx-130",
       "trackId": "clip:selection-48",
       "effectName": "Gain",
       "parameters": {
@@ -4469,7 +4529,7 @@
       }
     },
     {
-      "id": "sample-fx-128",
+      "id": "sample-fx-131",
       "trackId": "clip:selection-48",
       "effectName": "Phaser",
       "parameters": {
@@ -4494,7 +4554,7 @@
       }
     },
     {
-      "id": "sample-fx-129",
+      "id": "sample-fx-132",
       "trackId": "clip:selection-49",
       "effectName": "Gain",
       "parameters": {
@@ -4507,7 +4567,7 @@
       }
     },
     {
-      "id": "sample-fx-130",
+      "id": "sample-fx-133",
       "trackId": "clip:selection-49",
       "effectName": "Chorus",
       "parameters": {
@@ -4532,7 +4592,7 @@
       }
     },
     {
-      "id": "sample-fx-131",
+      "id": "sample-fx-134",
       "trackId": "clip:selection-50",
       "effectName": "Gain",
       "parameters": {
@@ -4545,7 +4605,7 @@
       }
     },
     {
-      "id": "sample-fx-132",
+      "id": "sample-fx-135",
       "trackId": "clip:selection-50",
       "effectName": "Auto Pan",
       "parameters": {
@@ -4564,7 +4624,7 @@
       }
     },
     {
-      "id": "sample-fx-133",
+      "id": "sample-fx-136",
       "trackId": "clip:selection-51",
       "effectName": "Gain",
       "parameters": {
@@ -4577,7 +4637,7 @@
       }
     },
     {
-      "id": "sample-fx-134",
+      "id": "sample-fx-137",
       "trackId": "clip:selection-51",
       "effectName": "Tremolo",
       "parameters": {
@@ -4596,7 +4656,7 @@
       }
     },
     {
-      "id": "sample-fx-135",
+      "id": "sample-fx-138",
       "trackId": "clip:selection-52",
       "effectName": "Gain",
       "parameters": {
@@ -4609,7 +4669,7 @@
       }
     },
     {
-      "id": "sample-fx-136",
+      "id": "sample-fx-139",
       "trackId": "clip:selection-52",
       "effectName": "Transient Shaper",
       "parameters": {
@@ -4625,7 +4685,7 @@
       }
     },
     {
-      "id": "sample-fx-137",
+      "id": "sample-fx-140",
       "trackId": "clip:selection-53",
       "effectName": "Gain",
       "parameters": {
@@ -4638,7 +4698,7 @@
       }
     },
     {
-      "id": "sample-fx-138",
+      "id": "sample-fx-141",
       "trackId": "clip:selection-53",
       "effectName": "Compressor",
       "parameters": {
@@ -4666,7 +4726,7 @@
       }
     },
     {
-      "id": "sample-fx-139",
+      "id": "sample-fx-142",
       "trackId": "clip:selection-54",
       "effectName": "Gain",
       "parameters": {
@@ -4679,7 +4739,7 @@
       }
     },
     {
-      "id": "sample-fx-140",
+      "id": "sample-fx-143",
       "trackId": "clip:selection-54",
       "effectName": "High Cut",
       "parameters": {
@@ -4695,7 +4755,7 @@
       }
     },
     {
-      "id": "sample-fx-141",
+      "id": "sample-fx-144",
       "trackId": "clip:selection-55",
       "effectName": "Gain",
       "parameters": {
@@ -4708,7 +4768,7 @@
       }
     },
     {
-      "id": "sample-fx-142",
+      "id": "sample-fx-145",
       "trackId": "clip:selection-55",
       "effectName": "Low Cut",
       "parameters": {
@@ -4724,7 +4784,7 @@
       }
     },
     {
-      "id": "sample-fx-143",
+      "id": "sample-fx-146",
       "trackId": "clip:selection-56",
       "effectName": "Gain",
       "parameters": {
@@ -4737,7 +4797,7 @@
       }
     },
     {
-      "id": "sample-fx-144",
+      "id": "sample-fx-147",
       "trackId": "clip:selection-56",
       "effectName": "EQ",
       "parameters": {
@@ -4765,7 +4825,7 @@
       }
     },
     {
-      "id": "sample-fx-145",
+      "id": "sample-fx-148",
       "trackId": "clip:selection-57",
       "effectName": "Gain",
       "parameters": {
@@ -4778,7 +4838,7 @@
       }
     },
     {
-      "id": "sample-fx-146",
+      "id": "sample-fx-149",
       "trackId": "clip:selection-57",
       "effectName": "Saturation",
       "parameters": {
@@ -4800,7 +4860,7 @@
       }
     },
     {
-      "id": "sample-fx-147",
+      "id": "sample-fx-150",
       "trackId": "clip:selection-58",
       "effectName": "Gain",
       "parameters": {
@@ -4813,7 +4873,7 @@
       }
     },
     {
-      "id": "sample-fx-148",
+      "id": "sample-fx-151",
       "trackId": "clip:selection-58",
       "effectName": "Stereo",
       "parameters": {
@@ -4826,7 +4886,7 @@
       }
     },
     {
-      "id": "sample-fx-149",
+      "id": "sample-fx-152",
       "trackId": "clip:selection-59",
       "effectName": "Gain",
       "parameters": {
@@ -4839,7 +4899,7 @@
       }
     },
     {
-      "id": "sample-fx-150",
+      "id": "sample-fx-153",
       "trackId": "clip:selection-59",
       "effectName": "Mono",
       "parameters": {
@@ -4852,7 +4912,7 @@
       }
     },
     {
-      "id": "sample-fx-151",
+      "id": "sample-fx-154",
       "trackId": "clip:selection-60",
       "effectName": "Gain",
       "parameters": {
@@ -4865,7 +4925,7 @@
       }
     },
     {
-      "id": "sample-fx-152",
+      "id": "sample-fx-155",
       "trackId": "clip:selection-60",
       "effectName": "Noise Gate",
       "parameters": {
@@ -4887,7 +4947,7 @@
       }
     },
     {
-      "id": "sample-fx-153",
+      "id": "sample-fx-156",
       "trackId": "clip:selection-61",
       "effectName": "Gain",
       "parameters": {
@@ -4900,7 +4960,7 @@
       }
     },
     {
-      "id": "sample-fx-154",
+      "id": "sample-fx-157",
       "trackId": "clip:selection-61",
       "effectName": "De-ess",
       "parameters": {
@@ -4919,7 +4979,7 @@
       }
     },
     {
-      "id": "sample-fx-155",
+      "id": "sample-fx-158",
       "trackId": "clip:selection-62",
       "effectName": "Gain",
       "parameters": {
@@ -4932,13 +4992,13 @@
       }
     },
     {
-      "id": "sample-fx-156",
+      "id": "sample-fx-159",
       "trackId": "clip:selection-62",
       "effectName": "Reverse",
       "parameters": {}
     },
     {
-      "id": "sample-fx-157",
+      "id": "sample-fx-160",
       "trackId": "clip:selection-63",
       "effectName": "Gain",
       "parameters": {
@@ -4951,7 +5011,7 @@
       }
     },
     {
-      "id": "sample-fx-158",
+      "id": "sample-fx-161",
       "trackId": "clip:selection-63",
       "effectName": "Limiter",
       "parameters": {
@@ -4970,7 +5030,7 @@
       }
     },
     {
-      "id": "sample-fx-159",
+      "id": "sample-fx-162",
       "trackId": "clip:selection-64",
       "effectName": "Gain",
       "parameters": {
@@ -4983,7 +5043,7 @@
       }
     },
     {
-      "id": "sample-fx-160",
+      "id": "sample-fx-163",
       "trackId": "clip:selection-64",
       "effectName": "Delay",
       "parameters": {
@@ -5011,7 +5071,7 @@
       }
     },
     {
-      "id": "sample-fx-161",
+      "id": "sample-fx-164",
       "trackId": "clip:selection-65",
       "effectName": "Gain",
       "parameters": {
@@ -5024,7 +5084,7 @@
       }
     },
     {
-      "id": "sample-fx-162",
+      "id": "sample-fx-165",
       "trackId": "clip:selection-65",
       "effectName": "Reverb",
       "parameters": {
