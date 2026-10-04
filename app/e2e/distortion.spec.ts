@@ -165,8 +165,9 @@ test("Distortion is added to a layer from Video → Stylize with its defaults an
 type Render = { rgba: Buffer; width: number };
 
 // Renders a 320 × 180 synthetic frame through Distortion with each set of
-// `values` on the effect chain the preview uses. Returns the source frame
-// first, then each run's RGBA pixels, bottom row first.
+// `values` on the effect chain the preview uses. The shader always runs,
+// even where the chain would skip it as changing nothing. Returns the
+// source frame first, then each run's RGBA pixels, bottom row first.
 async function renderDistortion(
   page: Page,
   runs: { values: Record<string, string | number>; time?: number }[],
@@ -176,7 +177,8 @@ async function renderDistortion(
     const chainPath = "/src/fx-shaders/chain.ts";
     const passPath = "/src/fx/effects/distortion/pass.ts";
     const { EffectChainRenderer, wholeTexture } = await import(chainPath);
-    const { pass } = await import(passPath);
+    const { pass: distortion } = await import(passPath);
+    const pass = { ...distortion, isIdentity: undefined };
 
     const width = 320;
     const height = 180;
