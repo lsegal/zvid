@@ -51,8 +51,24 @@ describe("playback rendering", () => {
     const frame = loop.slice(loop.lastIndexOf("return;\n      }"));
     assert.match(frame, /playheadSignal\.set\(nextQ\)/);
     assert.doesNotMatch(frame, /\bsetPlayheadQ\(nextQ\)/);
-    assert.match(frame, /PLAYBACK_COMMIT_INTERVAL_MS/);
-    assert.match(frame, /nextQ >= nextEdgeQ/);
+    // State is committed only when the clips under the playhead change.
+    assert.match(
+      frame,
+      /if \(nextQ >= nextEdgeQ\) \{\s+setPlayheadQState\(nextQ\);/,
+    );
+    assert.doesNotMatch(frame, /PLAYBACK_COMMIT_INTERVAL_MS/);
+    assert.match(usePlaybackTs, /renderClipsRef\.current\.map\(/);
+  });
+
+  it("moves only the live playhead on each drag-scrub pointer move", () => {
+    const start = usePlaybackTs.indexOf("const onPointerMove = ");
+    const move = usePlaybackTs.slice(
+      start,
+      usePlaybackTs.indexOf("\n    };\n", start),
+    );
+    assert.match(move, /playheadSignal\.set\(nextPlayheadQ\)/);
+    assert.doesNotMatch(move, /\bsetPlayheadQ\(/);
+    assert.match(move, /PLAYBACK_COMMIT_INTERVAL_MS/);
   });
 
   it("draws per-frame readouts from the playhead signal", () => {
@@ -76,11 +92,27 @@ describe("playback rendering", () => {
 
   it("renders the preview from the live playhead while playing", () => {
     assert.match(appTsx, /playheadSignal=\{playheadSignal\}/);
-    assert.match(playerTsx, /const livePlayheadQ = playheadSignal\.get\(\);/);
+    assert.match(playerTsx, /const playheadQ = playheadSignal\.get\(\);/);
     assert.match(
       playerTsx,
-      /renderer\.renderPreviewFrame\(livePlayheadQ, pixelRatio\)/,
+      /renderer\.renderPreviewFrame\(playback\.playheadQ, pixelRatio\)/,
     );
+  });
+
+  // A playhead commit must not restart the playback loop, which depends on
+  // the draw callback, or re-add the frame-ready listeners (#947).
+  it("keeps the player's draw callback independent of playhead commits", () => {
+    const draw = playerTsx.slice(
+      playerTsx.indexOf("const drawCurrentFrame = useCallback("),
+      playerTsx.indexOf("const scheduleDraw = useCallback("),
+    );
+    assert.match(draw, /playheadSignal\.get\(\)/);
+    assert.match(draw, /\[playheadSignal\],\n {2}\);/);
+    const props = playerTsx.slice(
+      playerTsx.indexOf("type CompositionPlayerProps = {"),
+      playerTsx.indexOf("export type CompositionRendererState"),
+    );
+    assert.doesNotMatch(props, /\bplayheadQ: number;/);
   });
 
   // WebKit repaints on the main thread whatever a moving playhead dirties,
