@@ -1,4 +1,9 @@
-import type { Dispatch, RefObject, SetStateAction } from "react";
+import {
+  type Dispatch,
+  memo,
+  type RefObject,
+  type SetStateAction,
+} from "react";
 import type { getShortcutLabels } from "../../app/shortcut-labels.ts";
 import {
   getTimelinePointerX,
@@ -17,6 +22,7 @@ import type { useTimelineViewport } from "../../hooks/useTimelineViewport.ts";
 import { startLaneSelectionGesture } from "../../lane-selection-gesture.ts";
 import type { useMenus } from "../../menus/useMenus.ts";
 import { ClipCard, type ClipCardContext } from "./ClipCard";
+import { arePropsEqualWithContexts } from "./memo-props.ts";
 import { SelectionOverlay } from "./SelectionOverlay";
 import "./lane-row.css";
 
@@ -50,7 +56,7 @@ type LaneRowProps = {
 // A layer's lane: its clips and range selection. Pressing empty lane space
 // selects the layer and starts a range selection, or seeks on a click;
 // pressing the selection moves or resizes it.
-export function LaneRow({
+export const LaneRow = memo(function LaneRow({
   lane,
   clips,
   openLaneMenu,
@@ -158,4 +164,4 @@ export function LaneRow({
       ))}
     </div>
   );
-}
+}, arePropsEqualWithContexts<LaneRowProps>("clipCard"));

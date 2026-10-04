@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   findRestoredSourceSelection,
   keepSourceSelection,
@@ -145,12 +145,12 @@ export function useTimelineSelection({
   };
 
   // Selecting a source never moves the playhead.
-  const selectSource = (selection: SourceSelection | undefined) => {
+  const selectSource = useCallback((selection: SourceSelection | undefined) => {
     setSelectedClipId(undefined);
     setSelectedLaneId(undefined);
     setPreviewLaneId(undefined);
     setSourceSelection(selection);
-  };
+  }, []);
 
   // Selects `laneId` and focuses its header once it has rendered.
   function focusLaneLabel(laneId: string) {

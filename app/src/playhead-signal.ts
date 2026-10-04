@@ -30,9 +30,10 @@ export function createPlayheadSignal(initialQ = 0): PlayheadSignal {
   };
 }
 
-// Playback moves the signal every frame but commits the playhead to React state
-// only this often, or sooner when it crosses a clip edge, so the whole app does
-// not re-render on every frame.
+// Drag-scrubbing and the export dialog's playback move the signal every frame
+// but commit the playhead to React state only this often, so the whole app
+// does not re-render on every frame. The editor's playback commits only at
+// clip edges.
 export const PLAYBACK_COMMIT_INTERVAL_MS = 250;
 
 export type ClipSpanQ = { startQ: number; endQ: number };

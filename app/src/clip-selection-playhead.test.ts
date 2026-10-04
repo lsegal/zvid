@@ -56,7 +56,7 @@ describe("clip selection keeps the playhead", () => {
   });
 
   it("selecting a source track or clip doesn't seek", () => {
-    const body = sliceFrom("const selectSource = (", "\n  };\n");
+    const body = sliceFrom("const selectSource = useCallback(", "\n  );\n");
     assert.match(body, /setSourceSelection\(selection\);/);
     assertNoSeek(body);
     const onClick = sliceFrom("onClick={(event) => {", "onContextMenu=");

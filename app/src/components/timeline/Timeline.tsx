@@ -4,6 +4,7 @@ import {
   useEffect,
   useLayoutEffect,
   useRef,
+  useSyncExternalStore,
 } from "react";
 import {
   LABEL_WIDTH_DEFAULT,
@@ -21,7 +22,6 @@ type TimelineProps = {
   timelineScrollRef: RefObject<HTMLDivElement | null>;
   timelineDragScroll: ReturnType<typeof useRulerGestures>["timelineDragScroll"];
   labelResize: ReturnType<typeof useLabelResize>;
-  playheadQ: number;
   playheadSignal: PlayheadSignal;
   quarterPx: number;
   timelineWidth: number;
@@ -45,7 +45,6 @@ export function Timeline({
   timelineScrollRef,
   timelineDragScroll,
   labelResize,
-  playheadQ,
   playheadSignal,
   quarterPx,
   timelineWidth,
@@ -59,11 +58,6 @@ export function Timeline({
 }: TimelineProps) {
   const { labelWidth } = labelResize;
   const footerRef = useRef<HTMLDivElement>(null);
-  const playheadTimelinePx = Math.round(playheadQ * quarterPx);
-  const isPlayheadOffscreenLeft =
-    visibleTimelineWidthPx > 0 && playheadTimelinePx < visibleTimelineStartPx;
-  const isPlayheadOffscreenRight =
-    visibleTimelineWidthPx > 0 && playheadTimelinePx > visibleTimelineEndPx;
 
   // The footer can't be scrolled by hand (it would leave the rows behind):
   // it takes the rows' horizontal scroll, and a gutter as wide as their
@@ -80,7 +74,23 @@ export function Timeline({
     );
     footer.scrollLeft = scroll.scrollLeft;
   };
-  useLayoutEffect(syncFooterScroll);
+  const syncFooterScrollRef = useRef(syncFooterScroll);
+  syncFooterScrollRef.current = syncFooterScroll;
+  // Besides on scroll, the footer follows the rows when they resize, which
+  // can show or hide their scrollbar, and when their width changes.
+  useLayoutEffect(() => {
+    void [labelWidth, timelineWidth];
+    syncFooterScrollRef.current();
+  }, [labelWidth, timelineWidth]);
+  useEffect(() => {
+    const scroll = timelineScrollRef.current;
+    if (!scroll) {
+      return;
+    }
+    const observer = new ResizeObserver(() => syncFooterScrollRef.current());
+    observer.observe(scroll);
+    return () => observer.disconnect();
+  }, [timelineScrollRef]);
 
   // A wheel over the footer scrolls the rows sideways, which scrolls it too.
   useEffect(() => {
@@ -120,32 +130,14 @@ export function Timeline({
         }}
       >
         <div className="timeline-jump-overlay">
-          {isPlayheadOffscreenLeft ? (
-            <button
-              className="playhead-jump playhead-jump--left"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                scrollTimelineToPlayhead();
-              }}
-              type="button"
-            >
-              {"<<"}
-            </button>
-          ) : null}
-          {isPlayheadOffscreenRight ? (
-            <button
-              className="playhead-jump playhead-jump--right"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                scrollTimelineToPlayhead();
-              }}
-              type="button"
-            >
-              {">>"}
-            </button>
-          ) : null}
+          <PlayheadJumpButton
+            playheadSignal={playheadSignal}
+            quarterPx={quarterPx}
+            visibleTimelineStartPx={visibleTimelineStartPx}
+            visibleTimelineWidthPx={visibleTimelineWidthPx}
+            visibleTimelineEndPx={visibleTimelineEndPx}
+            scrollTimelineToPlayhead={scrollTimelineToPlayhead}
+          />
         </div>
         <div
           className={`timeline-canvas ${labelWidth < LABEL_WIDTH_NARROW ? "timeline-canvas--narrow-labels" : ""}`}
@@ -195,5 +187,51 @@ export function Timeline({
         </div>
       </div>
     </div>
+  );
+}
+
+// The button that brings an off-screen playhead into view, on the side it
+// is off. It follows the playhead signal, so it only re-renders when the
+// playhead crosses an edge of the view.
+function PlayheadJumpButton({
+  playheadSignal,
+  quarterPx,
+  visibleTimelineStartPx,
+  visibleTimelineWidthPx,
+  visibleTimelineEndPx,
+  scrollTimelineToPlayhead,
+}: {
+  playheadSignal: PlayheadSignal;
+  quarterPx: number;
+  visibleTimelineStartPx: number;
+  visibleTimelineWidthPx: number;
+  visibleTimelineEndPx: number;
+  scrollTimelineToPlayhead: () => void;
+}) {
+  const side = useSyncExternalStore(playheadSignal.subscribe, () => {
+    const playheadTimelinePx = Math.round(playheadSignal.get() * quarterPx);
+    if (visibleTimelineWidthPx <= 0) {
+      return null;
+    }
+    if (playheadTimelinePx < visibleTimelineStartPx) {
+      return "left";
+    }
+    return playheadTimelinePx > visibleTimelineEndPx ? "right" : null;
+  });
+  if (!side) {
+    return null;
+  }
+  return (
+    <button
+      className={`playhead-jump playhead-jump--${side}`}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        scrollTimelineToPlayhead();
+      }}
+      type="button"
+    >
+      {side === "left" ? "<<" : ">>"}
+    </button>
   );
 }

@@ -461,8 +461,6 @@ function ExportDialogBody({
               lanes={model.lanes}
               audioMix={model.audioMix}
               mediaItems={model.mediaItems}
-              playheadQ={playback.playheadQ}
-              playheadSeconds={quartersToSeconds(playback.playheadQ, bpm)}
               playheadSignal={playback.signal}
               projectDurationFrames={projectDurationAt(
                 model.projectDurationFrames,

@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from "react";
+import { type Dispatch, memo, type SetStateAction } from "react";
 import { type Filmstrip, getClipPieceKey } from "../../app/filmstrip.ts";
 import { formatDuration } from "../../app/format.ts";
 import type { getShortcutLabels } from "../../app/shortcut-labels.ts";
@@ -87,7 +87,7 @@ type ClipCardProps = { clip: ArrangementClip } & ClipCardContext;
 // media sync skeleton, and the filmstrip and waveform of each piece of its
 // source track window, with nothing over the parts that hold no source
 // clip.
-export function ClipCard({
+export const ClipCard = memo(function ClipCard({
   clip,
   selectedClipId,
   dragState,
@@ -382,4 +382,4 @@ export function ClipCard({
       />
     </div>
   );
-}
+});
