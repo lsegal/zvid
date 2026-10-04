@@ -49,7 +49,7 @@ export type TopBarProps = Pick<
     | "handleImport"
     | "handleOpenSession"
     | "handleOpenWorkspace"
-    | "handleSaveSession"
+    | "handleExportProject"
   > &
   Pick<ReturnType<typeof useMediaStatus>, "offlineMedia" | "showsMediaSync"> &
   Pick<
@@ -86,7 +86,7 @@ export function TopBar({
   handleNewSession,
   handleOpenSession,
   handleOpenWorkspace,
-  handleSaveSession,
+  handleExportProject,
   handleStopShare,
   showsMediaSync,
   isExporting,
@@ -212,10 +212,10 @@ export function TopBar({
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onSelect={() => {
-                  void handleSaveSession();
+                  void handleExportProject();
                 }}
               >
-                Save
+                Export Project…
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -260,7 +260,7 @@ export function TopBar({
               <DropdownMenuItem
                 onSelect={() =>
                   setStatus(
-                    "Use File → Open Session to open a .lvp session or an Ableton .als set, or File → Import Media to add clips.",
+                    "Use File → Open Session to open a .zvd or .lvp session or an Ableton .als set, or File → Import Media to add clips.",
                   )
                 }
               >

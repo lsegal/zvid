@@ -107,4 +107,26 @@ describe("playback rendering", () => {
     assert.notEqual(rule, "");
     assert.doesNotMatch(rule, /^\s*backdrop-filter:/m);
   });
+
+  it("anchors the playhead diamond below the timecodes of a short ruler", () => {
+    const css = timelineCss("ruler");
+    const ruler = cssRule(css, "ruler-row__content");
+    const diamond = cssRule(css, "timeline-playhead-marker::before");
+    const timecode = cssRule(css, "ruler-marker span");
+    const px = (rule: string, property: string) =>
+      Number(rule.match(new RegExp(`\\n\\s*${property}: (\\d+)px;`))?.[1]);
+    const height = px(ruler, "height");
+    assert.ok(height >= 36 && height <= 40, `ruler height ${height}px`);
+    assert.doesNotMatch(diamond, /\n\s*top:/);
+    assert.ok(px(diamond, "bottom") <= 4, "diamond sits on the bottom edge");
+    // The diamond's rotated extent reaches size * sqrt(2) above its base.
+    const diamondTop =
+      height - px(diamond, "bottom") - px(diamond, "height") * Math.SQRT2;
+    // Timecodes are 0.78rem: one 16px * 0.78 * 1.4 line below their top.
+    const timecodeBottom = px(timecode, "top") + 16 * 0.78 * 1.4;
+    assert.ok(
+      diamondTop > timecodeBottom,
+      `diamond top ${diamondTop}px overlaps timecodes ending at ${timecodeBottom}px`,
+    );
+  });
 });

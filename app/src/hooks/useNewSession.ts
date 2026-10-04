@@ -12,7 +12,8 @@ export type NewSessionInputs = {
   hasUnsavedChanges: boolean;
   collaborationMode: CollaborationMode;
   refuseReadOnlyEdit: () => boolean;
-  handleSaveSession: () => Promise<boolean>;
+  // Resolves to whether the session was saved.
+  saveSession: () => Promise<boolean>;
   startNewSession: () => void;
 };
 
@@ -25,7 +26,7 @@ export function useNewSession({
   hasUnsavedChanges,
   collaborationMode,
   refuseReadOnlyEdit,
-  handleSaveSession,
+  saveSession,
   startNewSession,
 }: NewSessionInputs) {
   const [isNewSessionPromptOpen, setIsNewSessionPromptOpen] = useState(false);
@@ -47,7 +48,7 @@ export function useNewSession({
   // A canceled or failed save keeps the session open.
   async function saveAndStartNewSession() {
     setIsNewSessionPromptOpen(false);
-    if (await handleSaveSession()) {
+    if (await saveSession()) {
       startNewSession();
     }
   }

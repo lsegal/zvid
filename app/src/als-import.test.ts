@@ -151,6 +151,13 @@ describe("rankWorkspaceSessions", () => {
     assert.deepEqual(ranked, [entry("dogfood3.lvp")]);
   });
 
+  it("offers .zvd and .lvp sessions alike, ahead of Live sets and JSON", () => {
+    const ranked = rankWorkspaceSessions(
+      ["a.json", "Song.als", "old.lvp", "new.zvd", "NEW2.ZVD"].map(entry),
+    );
+    assert.deepEqual(ranked, ["old.lvp", "new.zvd", "NEW2.ZVD"].map(entry));
+  });
+
   it("falls back to Live sets, ignoring Ableton backups", () => {
     const ranked = rankWorkspaceSessions(
       [

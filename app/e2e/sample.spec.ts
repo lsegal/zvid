@@ -407,10 +407,10 @@ test("closing the session stops the sample's downloads", async ({ page }) => {
   ).toHaveCount(0);
 });
 
-test("a saved copy of the sample reopens with its media still linked", async ({
+test("an exported copy of the sample reopens with its media still linked", async ({
   page,
 }) => {
-  // Save downloads instead of asking where to save.
+  // Export Project… downloads instead of asking where to save.
   await page.addInitScript(() => {
     delete (window as { showSaveFilePicker?: unknown }).showSaveFilePicker;
   });
@@ -419,7 +419,9 @@ test("a saved copy of the sample reopens with its media still linked", async ({
 
   await openFileMenu(page);
   const downloading = page.waitForEvent("download");
-  await page.getByRole("menuitem", { name: "Save", exact: true }).click();
+  await page
+    .getByRole("menuitem", { name: "Export Project…", exact: true })
+    .click();
   const saved = await (await downloading).path();
   expect(saved).toBeTruthy();
 
@@ -431,7 +433,7 @@ test("a saved copy of the sample reopens with its media still linked", async ({
   await openFileMenu(page);
   await page.getByRole("menuitem", { name: "Open Session" }).click();
   await (await choosing).setFiles({
-    name: "zvid opening sample.lvp",
+    name: "zvid opening sample.zvd",
     mimeType: "application/json",
     buffer: (await import("node:fs")).readFileSync(saved as string),
   });
