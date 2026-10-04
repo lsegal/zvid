@@ -36,7 +36,9 @@ export const LIVE_PEAK_INTERVAL_SECONDS = PEAK_INTERVAL_SECONDS;
 
 // The parts of ImageCapture a monitor uses; Chromium has it.
 type ImageCaptureLike = { grabFrame(): Promise<ImageBitmap> };
-type ImageCaptureConstructor = new (track: MediaStreamTrack) => ImageCaptureLike;
+type ImageCaptureConstructor = new (
+  track: MediaStreamTrack,
+) => ImageCaptureLike;
 
 // Scales `source` down to a filmstrip frame.
 async function shrinkFrame(

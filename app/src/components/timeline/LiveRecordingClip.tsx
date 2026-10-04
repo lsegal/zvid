@@ -67,7 +67,8 @@ export function LiveRecordingClip({
     const filmstripContext = filmstrip?.getContext("2d");
     if (filmstrip && filmstripContext) {
       if (filmstrip.width !== sliceWidthPx) filmstrip.width = sliceWidthPx;
-      if (filmstrip.height !== TILE_HEIGHT_PX) filmstrip.height = TILE_HEIGHT_PX;
+      if (filmstrip.height !== TILE_HEIGHT_PX)
+        filmstrip.height = TILE_HEIGHT_PX;
       painter.paintFilmstrip(filmstripContext, view, {
         frames: monitor.frames,
         tileWidthPx,
@@ -108,7 +109,6 @@ export function LiveRecordingClip({
     >
       {take.hasVideo && sliceWidthPx ? (
         <canvas
-          aria-hidden="true"
           className="live-recording-clip__filmstrip"
           ref={filmstripRef}
           style={canvasStyle}
@@ -116,7 +116,6 @@ export function LiveRecordingClip({
       ) : null}
       {take.hasAudio && sliceWidthPx ? (
         <canvas
-          aria-hidden="true"
           className="live-recording-clip__waveform"
           ref={waveformRef}
           style={canvasStyle}

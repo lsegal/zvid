@@ -122,7 +122,9 @@ export class SharedMediaStreams {
 
   private register(key: string, kind: MediaKind, stream: MediaStream) {
     const track =
-      kind === "video" ? stream.getVideoTracks()[0] : stream.getAudioTracks()[0];
+      kind === "video"
+        ? stream.getVideoTracks()[0]
+        : stream.getAudioTracks()[0];
     if (!track) return undefined;
     const entry: Entry = { track, keys: new Set([key]), users: 0 };
     this.entries.set(key, entry);

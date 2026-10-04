@@ -2,7 +2,10 @@
 // of the clip on screen, and only what changed since the last draw: columns
 // and tiles whose peaks and frames are all in are left alone as the clip
 // grows.
-import { type LiveFrame, liveFrameAt } from "../../recording/live-take-monitor.ts";
+import {
+  type LiveFrame,
+  liveFrameAt,
+} from "../../recording/live-take-monitor.ts";
 
 // The parts of a 2D context the drawing uses, so tests can stand one in.
 export type DrawContext = Pick<
@@ -89,7 +92,12 @@ export class LiveClipPainter {
   // What each canvas already shows, so a new canvas is drawn whole.
   private readonly layers = new WeakMap<DrawContext, LayerState>();
 
-  private layer(context: DrawContext, key: string, width: number, height: number) {
+  private layer(
+    context: DrawContext,
+    key: string,
+    width: number,
+    height: number,
+  ) {
     let state = this.layers.get(context);
     if (!state) {
       state = { key: "", drawnPx: 0 };
