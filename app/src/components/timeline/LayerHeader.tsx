@@ -16,6 +16,8 @@ export type LayerHeaderContext = {
   layerReorder: LayerActions["layerReorder"];
   renamingLaneId: string | undefined;
   setRenamingLaneId: Dispatch<SetStateAction<string | undefined>>;
+  // A read-only tab ignores a double-click on the name instead of renaming.
+  readOnly: boolean;
   openLayerMenu: ReturnType<typeof useMenus>["openLayerMenu"];
   selectLaneFromLabel: (laneId: string) => void;
   focusLaneLabel: (laneId: string) => void;
@@ -32,7 +34,8 @@ type LayerHeaderProps = {
 } & LayerHeaderContext;
 
 // A layer's header: the reorder grip, its number, its name (or the field
-// renaming it) with a summary, and the FX bypass badge.
+// renaming it) with a summary, and the FX bypass badge. Double-clicking the
+// name renames the layer, like Rename… in its menu.
 export function LayerHeader({
   lane,
   laneIndex,
@@ -41,6 +44,7 @@ export function LayerHeader({
   layerReorder,
   renamingLaneId,
   setRenamingLaneId,
+  readOnly,
   openLayerMenu,
   selectLaneFromLabel,
   focusLaneLabel,
@@ -93,6 +97,11 @@ export function LayerHeader({
           aria-current={lane.id === fxLaneId ? "true" : undefined}
           className="track-label__select"
           data-lane-label-id={lane.id}
+          onDoubleClick={() => {
+            if (!readOnly) {
+              setRenamingLaneId(lane.id);
+            }
+          }}
           tabIndex={lane.id === fxLaneId ? 0 : -1}
           type="button"
         >

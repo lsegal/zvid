@@ -25,7 +25,9 @@ export function resolveSlotMotions<T extends StackedLayer>(
   slide: OrderSlide,
 ): Map<T, SlotMotion> {
   const weights = stacked.map((layer) => {
-    const duration = layer.clip.durationSeconds;
+    // A piece of a layer clip slides in and out with the whole clip.
+    const duration =
+      layer.clip.layerClipDurationSeconds ?? layer.clip.durationSeconds;
     return duration === undefined || layer.clipProgress === undefined
       ? 1
       : orderSlideWeight(

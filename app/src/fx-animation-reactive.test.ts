@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import {
+  effectUsesAudio,
+  liveBandsAnalyser,
+} from "./composition-active-clips.ts";
 import { MOVE_EFFECT_NAME } from "./composition-transform.ts";
-import { reactsToAudio, resolveAnimatedEffects } from "./fx-animation.ts";
+import {
+  reactsToAudio,
+  resolveAnimatedEffects,
+  withPlacedOnsets,
+} from "./fx-animation.ts";
 import {
   createDefaultAnimation,
   getAnimatableParameters,
@@ -467,6 +475,40 @@ describe("resolveAnimatedEffects in Reactive mode", () => {
     assert.equal(quiet, effect);
   });
 
+  it("places a frame's hits once, moving the knobs just the same", () => {
+    const animation = createDefaultAnimation("NegativeSplit");
+    assert.ok(animation);
+    const effect: SessionEffect = {
+      ...negativeSplit(),
+      animation: { ...animation, mode: "reactive", reactive: reactive() },
+    };
+    const bpm = 120;
+    const onsets = [
+      { secondsAgo: 0.5, strength: 0.4 },
+      { secondsAgo: 0.2, strength: 1 },
+    ];
+    const frame = {
+      playheadQ: (1.2 * bpm) / 60,
+      bpm,
+      fps: 30,
+      audio: { low: 0, high: 0, impulseLow: 0, impulseHigh: 0, onsets },
+    };
+    const clip = {
+      clipId: "a",
+      laneId: "lane",
+      progress: 0.5,
+      elapsedSeconds: 1,
+      durationSeconds: 2,
+    };
+
+    const placed = withPlacedOnsets(frame);
+    assert.deepEqual(placed.placedOnsets, placeOnsets(onsets, 1.2));
+    assert.deepEqual(
+      resolveAnimatedEffects([effect], clip, placed),
+      resolveAnimatedEffects([effect], clip, frame),
+    );
+  });
+
   it("never modulates an Order, even one set to Reactive", () => {
     const order = createEffect(GLOBAL_EFFECT_TRACK_ID, "Order", "order-1");
     const animation = createDefaultAnimation("Order");
@@ -504,5 +546,49 @@ describe("resolveAnimatedEffects in Reactive mode", () => {
       },
     );
     assert.equal(resolved, effect);
+  });
+});
+
+describe("live audio analysis", () => {
+  const analyser = { name: "analyser" };
+
+  it("measures nothing for a session without audio-reactive effects", () => {
+    const animation = createDefaultAnimation("NegativeSplit");
+    assert.ok(animation);
+    const clipAnimated: SessionEffect = {
+      ...negativeSplit(),
+      animation: { ...animation, enabled: true, mode: "clip" },
+    };
+
+    assert.equal(effectUsesAudio(negativeSplit()), false);
+    assert.equal(effectUsesAudio(clipAnimated), false);
+    assert.equal(
+      liveBandsAnalyser([negativeSplit(), clipAnimated], analyser),
+      null,
+    );
+    assert.equal(liveBandsAnalyser([], analyser), null);
+  });
+
+  it("measures the mix while an enabled effect reacts to it", () => {
+    const animation = createDefaultAnimation("NegativeSplit");
+    assert.ok(animation);
+    const reacting: SessionEffect = {
+      ...negativeSplit(),
+      animation: {
+        ...animation,
+        enabled: true,
+        mode: "reactive",
+        reactive: reactive(),
+      },
+    };
+
+    assert.equal(
+      liveBandsAnalyser([negativeSplit(), reacting], analyser),
+      analyser,
+    );
+    assert.equal(
+      liveBandsAnalyser([{ ...reacting, enabled: false }], analyser),
+      null,
+    );
   });
 });

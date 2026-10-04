@@ -14,6 +14,7 @@ import {
 import { resolveLfoParameters } from "./fx-animation-lfo.ts";
 import {
   placeOnsets,
+  type ReactiveOnset,
   resolveReactiveParameters,
 } from "./fx-animation-reactive.ts";
 import type { AudioBands } from "./fx-shaders/audio-bands.ts";
@@ -53,6 +54,9 @@ export type AnimationFrameContext = {
   fps: number;
   // The audio mix at this frame, which Reactive mode follows.
   audio?: AudioBands;
+  // `audio`'s hits placed on the timeline (see withPlacedOnsets), so a frame
+  // places them once rather than once per effect and clip.
+  placedOnsets?: readonly ReactiveOnset[];
   // The session's time signature, which synced LFO bars follow; 4/4 when
   // absent.
   signature?: MeterSignature;
@@ -71,6 +75,27 @@ export function reactsToAudio(
   );
 }
 
+// The frame's playhead in seconds.
+function frameTime(frameContext: AnimationFrameContext) {
+  return frameContext.bpm > 0
+    ? (frameContext.playheadQ * 60) / frameContext.bpm
+    : 0;
+}
+
+// `frameContext` with its audio hits placed on the timeline, for a frame
+// whose effects are resolved for many clips.
+export function withPlacedOnsets(
+  frameContext: AnimationFrameContext,
+): AnimationFrameContext {
+  return {
+    ...frameContext,
+    placedOnsets: placeOnsets(
+      frameContext.audio?.onsets,
+      frameTime(frameContext),
+    ),
+  };
+}
+
 // The parameters `effect` is drawn with for the clip and frame. Returns
 // `effect.parameters` itself when its animation changes nothing, which is
 // always the case while it is off.
@@ -83,8 +108,7 @@ export function resolveAnimatedParameters(
   if (animation?.mode === "clip") {
     return resolveClipAnimatedParameters(effect, clipContext, frameContext);
   }
-  const time =
-    frameContext.bpm > 0 ? (frameContext.playheadQ * 60) / frameContext.bpm : 0;
+  const time = frameTime(frameContext);
   if (animation?.mode === "lfo" && animation.lfo) {
     return resolveLfoParameters(effect, animation.lfo, {
       time,
@@ -96,7 +120,9 @@ export function resolveAnimatedParameters(
     return resolveReactiveParameters(effect, animation.reactive, {
       time,
       fps: frameContext.fps,
-      onsets: placeOnsets(frameContext.audio?.onsets, time),
+      onsets:
+        frameContext.placedOnsets ??
+        placeOnsets(frameContext.audio?.onsets, time),
     });
   }
   return effect.parameters;

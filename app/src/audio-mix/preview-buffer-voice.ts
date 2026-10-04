@@ -2,37 +2,29 @@
 // AudioSourceStage), which a media element cannot: the preview decodes its
 // media, renders the clip's span through the same ClipReader export reads
 // it with, and plays that buffer from the clip's position under the
-// playhead.
-import { BLOCK_FRAMES, createBuffers } from "./chain.ts";
-import { ClipReader, type DecodedAudio } from "./mix.ts";
+// playhead. Spans and decoded media are cached across voices, and rendered
+// off the main thread (see clip-audio-cache.ts).
+import { sharedClipAudioCache } from "./clip-audio-cache.ts";
+import type { DecodedAudio } from "./mix.ts";
 import type { AudioMixClip } from "./resolve.ts";
 
-// The clip's span read as export reads it, starting at its start.
-export function renderClipSpan(
-  clip: AudioMixClip,
-  media: DecodedAudio,
-  bpm: number,
-  sampleRate: number,
-  channels: number,
-) {
-  const length = Math.max(1, Math.ceil(clip.durationSeconds * sampleRate));
-  const reader = new ClipReader(
-    clip,
-    media,
-    bpm,
-    sampleRate,
-    clip.startSeconds,
-  );
-  const span = createBuffers(channels, length);
-  const block = createBuffers(channels, BLOCK_FRAMES);
-  for (let start = 0; start < length; start += BLOCK_FRAMES) {
-    const frames = Math.min(BLOCK_FRAMES, length - start);
-    reader.read(block, start, frames);
-    for (let channel = 0; channel < channels; channel++) {
-      span[channel].set(block[channel].subarray(0, frames), start);
-    }
+// The media at `url`, decoded at `context`'s rate into arrays of its own, so
+// they can move to the clip span worker.
+export async function decodeClipMedia(
+  context: BaseAudioContext,
+  url: string,
+): Promise<DecodedAudio> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Cannot read clip audio (${response.status}).`);
   }
-  return span;
+  const decoded = await context.decodeAudioData(await response.arrayBuffer());
+  return {
+    sampleRate: decoded.sampleRate,
+    channels: Array.from({ length: decoded.numberOfChannels }, (_, index) =>
+      decoded.getChannelData(index).slice(),
+    ),
+  };
 }
 
 export class DecodedClipVoice {
@@ -59,34 +51,18 @@ export class DecodedClipVoice {
 
   private async load(clip: AudioMixClip, url: string, bpm: number) {
     try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Cannot read clip audio (${response.status}).`);
-      }
-      const decoded = await this.context.decodeAudioData(
-        await response.arrayBuffer(),
+      const { context } = this;
+      const span = await sharedClipAudioCache().span(
+        { clip, url, bpm, sampleRate: context.sampleRate },
+        (mediaUrl) => decodeClipMedia(context, mediaUrl),
       );
       if (this.disposed) {
         return;
       }
-      const media = {
-        sampleRate: decoded.sampleRate,
-        channels: Array.from({ length: decoded.numberOfChannels }, (_, index) =>
-          decoded.getChannelData(index),
-        ),
-      };
-      const channels = Math.max(1, decoded.numberOfChannels);
-      const span = renderClipSpan(
-        clip,
-        media,
-        bpm,
-        this.context.sampleRate,
-        channels,
-      );
-      const buffer = this.context.createBuffer(
-        channels,
+      const buffer = context.createBuffer(
+        span.length,
         span[0].length,
-        this.context.sampleRate,
+        context.sampleRate,
       );
       span.forEach((data, channel) => {
         buffer.copyToChannel(data, channel);

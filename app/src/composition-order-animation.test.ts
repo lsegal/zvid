@@ -40,7 +40,11 @@ const SLIDE: OrderSlide = {
 type Layer = {
   id: string;
   laneRank: number;
-  clip: { startQ: number; durationSeconds: number };
+  clip: {
+    startQ: number;
+    durationSeconds: number;
+    layerClipDurationSeconds?: number;
+  };
   clipProgress: number;
   sessionEdges?: SessionEdges;
 };
@@ -210,6 +214,23 @@ describe("Order Clip-mode animation", () => {
     const placed = twoLayersAt(2.5);
     assertRect(placed["layer-1"].drawn, TOP_HALF, "Layer 1");
     assertRect(placed["layer-2"].drawn, BOTTOM_HALF, "Layer 2");
+  });
+
+  it("slides a piece of a layer clip in and out with the whole clip", () => {
+    // Layer 2's clip plays from 2 s to 6 s, but its source track holds
+    // something only until 3 s, so it draws as one piece from 2 s to 3 s.
+    // Its progress is through the whole clip, as computeActiveClips gives
+    // it, so six frames in it has finished sliding in (#936).
+    const seconds = 2 + 6 / FPS;
+    const piece: Layer = {
+      ...layer(1, 2, 4, seconds),
+      clip: { startQ: 2, durationSeconds: 1, layerClipDurationSeconds: 4 },
+    };
+    const steps = planLayerDraws(
+      [layer(0, 0, 10, seconds), piece],
+      order("vertical"),
+    );
+    assert.ok(steps.every((step) => !("motion" in step)));
   });
 
   it("mirrors the enter when a clip exits", () => {

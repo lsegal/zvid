@@ -21,8 +21,12 @@ import { transientLevel, watchTransient } from "./transient-monitor.ts";
 class FakeElement {
   // Where the test's clock is. A slow browser's seeks land `seekSeconds`
   // after they are made, on a later `tick`; otherwise they land at once.
+  // It also loads an element `loadSeconds` after making it, and plays
+  // nothing until then.
   static now = 0;
   static seekSeconds = 0;
+  static loadSeconds = 0;
+  private readonly loadsAt = FakeElement.now + FakeElement.loadSeconds;
   src = "";
   crossOrigin = "";
   preload = "";
@@ -36,6 +40,10 @@ class FakeElement {
   private time = 0;
   private landsAt = 0;
   private listeners = new Map<string, Array<() => void>>();
+
+  get readyState() {
+    return FakeElement.now >= this.loadsAt ? 4 : 0;
+  }
 
   get currentTime() {
     return this.time;
@@ -60,7 +68,7 @@ class FakeElement {
           listener();
         }
       }
-    } else if (!this.paused) {
+    } else if (!this.paused && this.readyState > 0) {
       this.time += seconds * this.playbackRate;
     }
   }
@@ -260,6 +268,7 @@ describe("PreviewAudioMixer", () => {
     FakeWorkletNode.made = [];
     FakeElement.now = 0;
     FakeElement.seekSeconds = 0;
+    FakeElement.loadSeconds = 0;
     globalThis.AudioContext =
       FakeAudioContext as unknown as typeof AudioContext;
     globalThis.AudioWorkletNode =
@@ -476,6 +485,79 @@ describe("PreviewAudioMixer", () => {
     );
     assert.ok(drifts.length > 0);
     assert.ok(Math.max(...drifts) < 0.1, `drifts ${drifts}`);
+    mixer.dispose();
+  });
+
+  it("plays back-to-back short clips of the same media with the loaded element of the clip before", () => {
+    // A starved main thread syncs every 0.25 s, seeks take 0.3 s to land,
+    // and a new element takes longer to load than a clip lasts. The clips
+    // play on through the music, each through its own gain.
+    FakeElement.seekSeconds = 0.3;
+    FakeElement.loadSeconds = 2;
+    const length = 1.5;
+    const starts = [1, 2.5, 4, 5.5, 7];
+    const amplitudes = [0.5, 0.25, 0.75, 0.125, 0.625];
+    const mixer = new PreviewAudioMixer();
+    mixer.update(
+      mix(
+        starts.map((startSeconds, index) =>
+          clip({
+            id: `clip-${index}`,
+            amplitude: amplitudes[index],
+            startSeconds,
+            durationSeconds: length,
+            sourceWindowStartSeconds: startSeconds,
+            sourceWindowEndSeconds: startSeconds + length,
+          }),
+        ),
+      ),
+      media,
+    );
+    const step = 0.05;
+    let heard = 0;
+    let silent: number[] = [];
+    for (let tick = 0; tick * step <= 8.5; tick += 1) {
+      const now = tick * step;
+      FakeElement.now = now;
+      if (FakeAudioContext.last) {
+        context().currentTime = now;
+      }
+      for (const { element } of FakeAudioContext.last?.sources ?? []) {
+        element.tick(step);
+      }
+      if (tick % 5 === 4) {
+        mixer.sync(playing(now));
+      }
+      // Every clip after the first, which has nothing loaded to take over,
+      // is heard through its own gain from its first sync on.
+      const index = starts.findIndex(
+        (start) => now >= start + 0.25 && now < start + length,
+      );
+      if (index < 1) {
+        continue;
+      }
+      const audible = context().sources.some(
+        ({ element, connections }) =>
+          element.readyState > 0 &&
+          !element.paused &&
+          !element.seeking &&
+          Math.abs(element.currentTime - now) < 0.2 &&
+          connections[0]?.gain?.value === amplitudes[index],
+      );
+      if (audible) {
+        heard += 1;
+      } else {
+        silent = [...silent, now];
+      }
+    }
+    assert.deepEqual(silent, []);
+    assert.ok(heard > 0);
+    // The clip before's element plays straight on, without a seek.
+    const seeks = context().sources.map(({ element }) => element.seeks);
+    assert.ok(
+      seeks.slice(1).every((count) => count <= 1),
+      `seeks ${seeks}`,
+    );
     mixer.dispose();
   });
 
