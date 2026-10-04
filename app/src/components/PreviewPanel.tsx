@@ -17,7 +17,7 @@ import {
 import type { SessionEffect } from "../fx-stack";
 import type { MediaPreviewModel } from "../hooks/useMediaPreview.ts";
 import type { usePreviewEditing } from "../hooks/usePreviewEditing.ts";
-import type { usePreviewLayers } from "../hooks/usePreviewLayers.ts";
+import type { usePreview } from "../hooks/usePreview.ts";
 import type { MediaItem } from "../media";
 import type { PlayheadSignal } from "../playhead-signal";
 import type { TimeValueFormat } from "../time-value.ts";
@@ -69,7 +69,10 @@ export type PreviewPanelProps = Pick<
   playheadSignal: PlayheadSignal;
   previewClip: ArrangementClip | undefined;
   previewLaneId: string | undefined;
-  previewLayers: ReturnType<typeof usePreviewLayers>;
+  previewLayers: ReturnType<typeof usePreview>["previewLayers"];
+  resolvePreviewLayersAt: ReturnType<
+    typeof usePreview
+  >["resolvePreviewLayersAt"];
   previewMaxWidth: number;
   previewMedia: MediaItem | undefined;
   previewMediaState: ClipMediaState;
@@ -133,6 +136,7 @@ export function PreviewPanel({
   renderEffects,
   renderFromSourceTracks,
   renderLanes,
+  resolvePreviewLayersAt,
   selectPreviewLayer,
   selectedClip,
   textEdit,
@@ -229,6 +233,8 @@ export function PreviewPanel({
           <PreviewTransformOverlay
             canvas={{ width: canvasWidth, height: canvasHeight }}
             layers={previewLayers}
+            resolveLayersAt={resolvePreviewLayersAt}
+            playheadSignal={playheadSignal}
             selectedLaneId={previewLaneId}
             selectedClipId={selectedClip?.id}
             textEdit={previewTextEdit}

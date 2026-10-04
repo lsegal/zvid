@@ -55,6 +55,8 @@ import {
   resolveTextEditorPlacement,
   type TextEditorKeyAction,
 } from "../preview-text-edit.ts";
+import { useLivePreviewLayers } from "../hooks/useLivePreviewLayers.ts";
+import type { PlayheadSignal } from "../playhead-signal";
 import type { TextStyle } from "../text-style.ts";
 import { didPressEndTextEdit, PreviewTextEditor } from "./PreviewTextEditor";
 import "./preview-transform-overlay.css";
@@ -177,7 +179,9 @@ function isMacPlatform() {
 // to the layer's Transform.
 export function PreviewTransformOverlay({
   canvas,
-  layers,
+  layers: committedLayers,
+  resolveLayersAt,
+  playheadSignal,
   selectedLaneId,
   selectedClipId,
   textEdit,
@@ -189,7 +193,12 @@ export function PreviewTransformOverlay({
   onActivate,
 }: {
   canvas: Size;
+  // The layers at the committed playhead.
   layers: readonly PreviewLayer[];
+  // The layers at any playhead, so the selected one's box follows the live
+  // playhead (`playheadSignal`) between commits.
+  resolveLayersAt: (playheadQ: number) => readonly PreviewLayer[];
+  playheadSignal: PlayheadSignal;
   selectedLaneId: string | undefined;
   // The selected clip, whose own Transform the edits go to; undefined when
   // only a layer is selected.
@@ -202,6 +211,12 @@ export function PreviewTransformOverlay({
   onTransform: (edit: PreviewLayerTransformEdit) => void;
   onActivate?: (layer: PreviewLayer) => void;
 }) {
+  const layers = useLivePreviewLayers({
+    layers: committedLayers,
+    resolveLayersAt,
+    playheadSignal,
+    selectedLaneId,
+  });
   const rootRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const [monitor, setMonitor] = useState<Size>({ width: 0, height: 0 });
