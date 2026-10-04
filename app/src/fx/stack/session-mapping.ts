@@ -1,9 +1,9 @@
 import { normalizeEffectAnimation } from "../../fx-animation-defaults.ts";
 import { normalizeEffectModulation } from "../../fx-modulation-defaults.ts";
-import type { LvpSession } from "../../session.ts";
+import type { ProjectSession } from "../../session.ts";
 import type { SessionEffect } from "./types.ts";
 
-export function mapEffects(source: LvpSession["effects"]) {
+export function mapEffects(source: ProjectSession["effects"]) {
   return (source ?? []).map<SessionEffect>((effect) => {
     const animation = normalizeEffectAnimation(
       effect.animation,

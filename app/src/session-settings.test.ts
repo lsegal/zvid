@@ -7,7 +7,7 @@ import {
   createProjectHistoryState,
   projectHistoryReducer,
 } from "./project-history.ts";
-import { projectToLvpSession } from "./session-save.ts";
+import { projectToSession } from "./session-save.ts";
 import {
   applyCanvasPreset,
   applySessionSettings,
@@ -308,7 +308,7 @@ describe("session settings save and load", () => {
       encoding,
     });
     const saved = JSON.parse(
-      JSON.stringify(projectToLvpSession(project, { playheadQ: 0 })),
+      JSON.stringify(projectToSession(project, { playheadQ: 0 })),
     );
     const loaded = sessionToProject(saved, []);
     assert.equal(loaded.canvasWidth, 1280);
@@ -318,7 +318,7 @@ describe("session settings save and load", () => {
   });
 
   it("writes no encoding for a session that never set one", () => {
-    const saved = projectToLvpSession(INITIAL_PROJECT_STATE, { playheadQ: 0 });
+    const saved = projectToSession(INITIAL_PROJECT_STATE, { playheadQ: 0 });
     assert.equal(saved.timeline?.encoding, undefined);
     assert.equal(sessionToProject(saved, []).encoding, undefined);
   });
@@ -330,7 +330,7 @@ describe("session settings save and load", () => {
       canvasHeight: 240,
     });
     const loaded = sessionToProject(
-      projectToLvpSession(project, { playheadQ: 0 }),
+      projectToSession(project, { playheadQ: 0 }),
       [],
     );
     assert.equal(loaded.canvasWidth, 240);

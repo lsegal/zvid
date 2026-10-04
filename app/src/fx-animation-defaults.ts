@@ -119,7 +119,7 @@ export type LfoAnimation = {
   parameters: string[];
 };
 
-// Stored on an effect instance, and saved to `.lvp` as zvid-only
+// Stored on an effect instance, and saved in `project.json` as zvid-only
 // `animation`. Turning the modifier off keeps the settings for next time.
 // Effects that only support Clip mode have no `reactive` or `lfo` settings.
 export type EffectAnimation = {

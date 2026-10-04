@@ -1,5 +1,5 @@
 // Writes the zvid opening sample: the editable session template
-// `src/sample/zvid-opening.lvp` and its asset manifest
+// `src/sample/zvid-opening.project.json` and its asset manifest
 // `src/sample/opening-manifest.generated.ts`, hashed from the media in
 // `public/samples/opening-v2`.
 //
@@ -25,7 +25,7 @@ import { fileURLToPath } from "node:url";
 const APP = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const SAMPLE_VERSION = "opening-v2";
 const MEDIA_DIR = resolve(APP, "public/samples", SAMPLE_VERSION);
-const SESSION_FILE = resolve(APP, "src/sample/zvid-opening.lvp");
+const SESSION_FILE = resolve(APP, "src/sample/zvid-opening.project.json");
 const MANIFEST_FILE = resolve(APP, "src/sample/opening-manifest.generated.ts");
 
 const FPS = 30;

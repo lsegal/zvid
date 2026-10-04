@@ -23,7 +23,7 @@ import {
   formatOverlapNote,
   resolveSessionOverlaps,
 } from "../selection-overlaps.ts";
-import { clipSourceFrame, type LvpSession } from "../session.ts";
+import { clipSourceFrame, type ProjectSession } from "../session.ts";
 import { snapFrameRate } from "../session-format.ts";
 import {
   readSelectionTrackOffset,
@@ -187,7 +187,7 @@ export function pickMediaByPath(
 }
 
 export function sessionToProject(
-  loadedSession: LvpSession,
+  loadedSession: ProjectSession,
   mediaItems: MediaItem[],
 ) {
   // Stacked clips on one layer would hide all but the top one.

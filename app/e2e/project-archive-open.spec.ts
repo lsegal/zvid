@@ -4,7 +4,7 @@ import {
   readProjectArchive,
   writeProjectArchive,
 } from "../src/project-archive.ts";
-import type { LvpSession } from "../src/session.ts";
+import type { ProjectSession } from "../src/session.ts";
 
 // File ▸ Open ▸ Session… opens a `.zvd` project archive with the media bundled
 // under its `media/` folder, so a project exported with its media opens with
@@ -82,7 +82,7 @@ async function openSessionFile(page: Page, name: string, buffer: Buffer) {
 }
 
 // The session in an archive without its media.
-async function bareArchive(project: LvpSession) {
+async function bareArchive(project: ProjectSession) {
   const blob = await writeProjectArchive({ project, media: [] });
   return Buffer.from(await blob.arrayBuffer());
 }

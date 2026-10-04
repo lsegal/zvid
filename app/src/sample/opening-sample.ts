@@ -4,7 +4,7 @@
 // media cache opens it offline.
 
 import { OPENING_SAMPLE_MANIFEST } from "./opening-manifest.generated.ts";
-import openingSessionText from "./zvid-opening.lvp?raw";
+import openingSessionText from "./zvid-opening.project.json?raw";
 
 export const OPENING_SAMPLE = {
   manifest: OPENING_SAMPLE_MANIFEST,

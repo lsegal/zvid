@@ -19,7 +19,7 @@ import {
   probeAlsRecordings,
   resolveAlsMedia,
 } from "./als-import.ts";
-import type { LvpSession } from "./session.ts";
+import type { ProjectSession } from "./session.ts";
 
 function gzip(text: string) {
   return new Uint8Array(gzipSync(Buffer.from(text, "utf8")));
@@ -123,12 +123,12 @@ describe("Live set detection", () => {
     );
   });
 
-  it("saves an imported set as the sibling .lvp", () => {
+  it("saves an imported set as the sibling .zvd", () => {
     assert.equal(
       alsSavePath("/sets/Song Project/Song.als"),
-      "/sets/Song Project/Song.lvp",
+      "/sets/Song Project/Song.zvd",
     );
-    assert.equal(alsSavePath("C:\\Sets\\Song.ALS"), "C:\\Sets\\Song.lvp");
+    assert.equal(alsSavePath("C:\\Sets\\Song.ALS"), "C:\\Sets\\Song.zvd");
   });
 });
 
@@ -373,7 +373,7 @@ describe("alsMainAudioPath", () => {
 
     assert.equal(
       alsSavePath(alsPath),
-      "C:\\Music\\dogfood3 Project\\dogfood3.lvp",
+      "C:\\Music\\dogfood3 Project\\dogfood3.zvd",
     );
     assert.deepEqual(summary, {
       tracks: 3,
@@ -560,7 +560,7 @@ describe("Live set media resolution", () => {
     // track 8, two audio clips play different samples of one recording and a
     // MIDI clip plays it too. Track 9 is a Layers Record track whose video
     // cannot be read.
-    const endAlignSession = (): LvpSession => {
+    const endAlignSession = (): ProjectSession => {
       const clip = (
         id: string,
         trackId: string,
@@ -609,7 +609,7 @@ describe("Live set media resolution", () => {
       { path: "/rec/bass.mp4", url: "blob:bass", exists: true },
       { path: "/rec/take.mp4", url: "blob:take", exists: true },
     ];
-    const offsets = (session: LvpSession) =>
+    const offsets = (session: ProjectSession) =>
       session.clips?.map((clip) => [clip.id, clip.captureOffset]);
 
     it("lines each audio clip's take up with the end of its probed video", async () => {
@@ -644,7 +644,7 @@ describe("Live set media resolution", () => {
     it("measures a video at its own frame rate", async () => {
       // 845 frames at 29.916666 fps is 28.245 s: 3.547 s longer than the
       // 24.699 s sample, or 106 frames at 30 fps (not 845 - 741 = 104).
-      const session: LvpSession = {
+      const session: ProjectSession = {
         tracks: [
           {
             id: "16",

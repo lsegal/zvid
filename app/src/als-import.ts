@@ -9,7 +9,7 @@ import {
   parseAlsXml,
   type RecordRoot,
 } from "./import/als/parse.ts";
-import type { LvpSession, ServerMediaRef } from "./session.ts";
+import type { ProjectSession, ServerMediaRef } from "./session.ts";
 import {
   applySessionFormat,
   detectSessionFormat,
@@ -33,7 +33,7 @@ export type AlsImportReport = {
   layersRecordTracks?: string[];
 };
 
-export type ImportedAlsSession = LvpSession & {
+export type ImportedAlsSession = ProjectSession & {
   importReport?: AlsImportReport;
 };
 
@@ -75,9 +75,9 @@ export function isAlsSession(bytes: Uint8Array, name: string) {
   return isGzipBytes(bytes) || isAlsFilename(name);
 }
 
-// An imported set is never written back: saves target the sibling `.lvp`.
+// An imported set is never written back: saves target the sibling `.zvd` project.
 export function alsSavePath(alsPath: string) {
-  return alsPath.replace(/\.als$/i, ".lvp");
+  return alsPath.replace(/\.als$/i, ".zvd");
 }
 
 export async function readAlsXml(bytes: Uint8Array, name = "This file") {
@@ -281,7 +281,7 @@ function isAbsolutePath(rawPath: string) {
 // Every file a set's media could be at, for harnesses that check existence in
 // one batch.
 export function alsMediaCandidatePaths(
-  session: LvpSession,
+  session: ProjectSession,
   dirs: string[],
   recordDirOf?: (name: string) => string | undefined,
 ) {
@@ -322,7 +322,7 @@ export function createAlsMediaLocator(
   };
 }
 
-function collectAlsMediaNames(session: LvpSession) {
+function collectAlsMediaNames(session: ProjectSession) {
   const names = new Set<string>();
   for (const track of session.tracks ?? []) {
     for (const recording of track.recordings ?? []) {
@@ -361,7 +361,7 @@ export function resolveAlsMedia(
   }
 
   const resolve = (name: string) => resolved.get(name.trim()) ?? name;
-  const resolvedSession: LvpSession = {
+  const resolvedSession: ProjectSession = {
     ...session,
     tracks: session.tracks?.map((track) => ({
       ...track,
@@ -407,11 +407,11 @@ export function resolveAlsMedia(
 // one recording get different offsets. MIDI clips have no sample and ZVID
 // Capture takes are aligned by the plugin's own clock, so both keep theirs.
 export async function probeAlsRecordings(
-  session: LvpSession,
+  session: ProjectSession,
   recordingRefs: Array<Pick<ServerMediaRef, "path" | "url" | "exists">>,
   probe: (url: string) => Promise<RecordingProbe | null>,
   layersRecordTracks: readonly string[] = [],
-): Promise<{ session: LvpSession; formatNotes: string[] }> {
+): Promise<{ session: ProjectSession; formatNotes: string[] }> {
   const probes = await probeRefs(recordingRefs, probe);
   if (!probes.size) {
     return { session, formatNotes: [] };

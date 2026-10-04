@@ -8,9 +8,9 @@ import {
   readProjectArchive,
   writeProjectArchive,
 } from "./project-archive.ts";
-import type { LvpSession } from "./session.ts";
+import type { ProjectSession } from "./session.ts";
 
-const SESSION: LvpSession = {
+const SESSION: ProjectSession = {
   mainTracks: [{ id: "main-1", name: "Main" }],
   tracks: [{ id: "track-1", name: "Cam 1" }],
 };

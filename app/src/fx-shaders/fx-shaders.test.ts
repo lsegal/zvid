@@ -245,7 +245,7 @@ describe("effect passes", () => {
 });
 
 describe("readEffectNumber", () => {
-  it("reads numeric values by raw .lvp key", () => {
+  it("reads numeric values by raw session key", () => {
     const params = [
       { key: "_HueOffset", value: "0.250", numericValue: 0.25 },
       { key: "_Reactivity", value: "0.5" },

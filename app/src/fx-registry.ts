@@ -1,4 +1,4 @@
-// Definitions for the effects that `.lvp` sessions reference by `effectName`.
+// Definitions for the effects that sessions reference by `effectName`.
 // Each definition gives the device a friendly name and describes its raw
 // parameters (label, range, default and display format) in stack UI order.
 // The definitions live in fx/effects/<effect>/definition.ts and are collected

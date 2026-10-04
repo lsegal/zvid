@@ -13,7 +13,7 @@ import {
   setMediaRangePoint,
   updateMediaItem,
 } from "./media-range.ts";
-import type { LvpSession } from "./session.ts";
+import type { ProjectSession } from "./session.ts";
 import { readSessionMediaRanges } from "./session-save.ts";
 
 const FPS = 30;
@@ -201,7 +201,7 @@ describe("saving media ranges", () => {
     ];
     const session = JSON.parse(
       JSON.stringify({ mediaRanges: savedMediaRanges(saved) }),
-    ) as LvpSession;
+    ) as ProjectSession;
     assert.deepEqual(session.mediaRanges, [
       { path: "/media/take.mp4", inSeconds: 1, outSeconds: 2 },
     ]);
@@ -229,7 +229,7 @@ describe("saving media ranges", () => {
         { path: "/media/take.mp4", inSeconds: "0", outSeconds: 1 },
         null,
       ],
-    } as unknown as LvpSession;
+    } as unknown as ProjectSession;
     assert.deepEqual(readSessionMediaRanges(session), []);
   });
 });

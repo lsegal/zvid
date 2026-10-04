@@ -14,7 +14,7 @@ import {
 } from "./fx-stack.ts";
 import type { MediaItem } from "./media.ts";
 import { type SavedMediaRange, savedMediaRanges } from "./media-range.ts";
-import type { LvpLayerClip, LvpSession } from "./session.ts";
+import type { ProjectLayerClip, ProjectSession } from "./session.ts";
 import type { SessionEncoding } from "./session-settings.ts";
 import {
   getClipTrackOffsetSeconds,
@@ -175,9 +175,9 @@ function spanSourceFrames(span: SaveableSourceSpan, fps: number) {
   return { clipStart: sampleStartFrames, captureOffset, ...anchor };
 }
 
-function toLvpParameters(parameters: SaveableEffect["parameters"]) {
+function toSessionParameters(parameters: SaveableEffect["parameters"]) {
   const result: NonNullable<
-    NonNullable<LvpSession["effects"]>[number]["parameters"]
+    NonNullable<ProjectSession["effects"]>[number]["parameters"]
   > = {};
   for (const parameter of parameters) {
     result[parameter.key] =
@@ -212,19 +212,19 @@ function selectionTrackOffset(
   return sourceTrackOffsetSeconds === 0 ? {} : { sourceTrackOffsetSeconds };
 }
 
-// Writes the project as a `.lvp` session that opens back into the same
+// Writes the project as the `project.json` session that opens back into the same
 // arrangement. Selections point at their source track by track and
 // position, the way the Layers app stores them. Fill and text clips, bypass flags,
 // animation settings and slipped clips go in zvid-only fields the Layers app
 // ignores.
-export function projectToLvpSession(
+export function projectToSession(
   project: SaveableProject,
   view: SaveableView,
-): LvpSession {
+): ProjectSession {
   const { bpm, fps } = project;
 
   const clips = project.sourceSpans.map<
-    NonNullable<LvpSession["clips"]>[number]
+    NonNullable<ProjectSession["clips"]>[number]
   >((span) => {
     const clipId = sourceClipId(span.id);
     return {
@@ -275,7 +275,7 @@ export function projectToLvpSession(
   // saved under that id too.
   const savedClipIds = new Map<string, string>();
   const selections = mediaClips.map<
-    NonNullable<LvpSession["selections"]>[number]
+    NonNullable<ProjectSession["selections"]>[number]
   >((clip) => {
     const frameStart = toFrames(quartersToSeconds(clip.startQ, bpm), fps);
     const id = allocateSelectionId(clip.id);
@@ -293,7 +293,7 @@ export function projectToLvpSession(
   const layerClips = (kind: "fill" | "text" | "fx") =>
     project.clips
       .filter((clip) => clip.kind === kind)
-      .map<LvpLayerClip>((clip) => {
+      .map<ProjectLayerClip>((clip) => {
         const frameStart = toFrames(quartersToSeconds(clip.startQ, bpm), fps);
         return {
           id: clip.id,
@@ -310,7 +310,7 @@ export function projectToLvpSession(
 
   const mediaRanges = savedMediaRanges(project.mediaItems);
 
-  const session: LvpSession = {
+  const session: ProjectSession = {
     mainTracks: project.lanes.map((lane) => ({
       id: lane.id,
       name: lane.name,
@@ -356,7 +356,7 @@ export function projectToLvpSession(
       id: effect.id,
       trackId: effect.trackId,
       effectName: effect.effectName,
-      parameters: toLvpParameters(effect.parameters),
+      parameters: toSessionParameters(effect.parameters),
       ...(effect.enabled === false ? { enabled: false } : {}),
       ...(effect.animation ? { animation: effect.animation } : {}),
       ...(effect.modulation ? { modulation: effect.modulation } : {}),
@@ -400,7 +400,7 @@ function isNonEmptyString(value: unknown): value is string {
 // The linear source position a warped clip's warp was saved anchored at, or
 // `sourceSeconds`, where its source starts, when it has none.
 export function readWarpAnchorSeconds(
-  clip: NonNullable<LvpSession["clips"]>[number],
+  clip: NonNullable<ProjectSession["clips"]>[number],
   sourceSeconds: number,
 ) {
   return isFiniteNumber(clip.warpAnchorSeconds)
@@ -412,7 +412,7 @@ export function readWarpAnchorSeconds(
 // `selection` shows: as saved, or from the slip older builds saved against
 // one of `sourceSpans`, else 0. Malformed fields read as no offset.
 export function readSelectionTrackOffset(
-  selection: NonNullable<LvpSession["selections"]>[number],
+  selection: NonNullable<ProjectSession["selections"]>[number],
   sourceSpans: readonly TrackContentSpan[],
   bpm: number,
 ) {
@@ -438,7 +438,7 @@ export type SelectionSlip = {
 // undefined for a selection that plays the span it falls in. Session files
 // are unchecked JSON, so malformed fields read as no slip.
 export function readSelectionSlip(
-  selection: NonNullable<LvpSession["selections"]>[number],
+  selection: NonNullable<ProjectSession["selections"]>[number],
 ): SelectionSlip | undefined {
   const { sourceClipId: clipId, sourceOffsetSeconds } = selection;
   if (!isNonEmptyString(clipId) || !isFiniteNumber(sourceOffsetSeconds)) {
@@ -465,7 +465,7 @@ function readLayerClips(
 ): SessionLayerClip[] {
   const clips: SessionLayerClip[] = [];
   for (const entry of Array.isArray(entries) ? entries : []) {
-    const clip = entry as Partial<LvpLayerClip> | null;
+    const clip = entry as Partial<ProjectLayerClip> | null;
     if (
       !isNonEmptyString(clip?.id) ||
       !isNonEmptyString(clip.mainTrackId) ||
@@ -489,7 +489,9 @@ function readLayerClips(
 }
 
 // The media In/Out points a session was saved with, skipping malformed entries.
-export function readSessionMediaRanges(session: LvpSession): SavedMediaRange[] {
+export function readSessionMediaRanges(
+  session: ProjectSession,
+): SavedMediaRange[] {
   const ranges: SavedMediaRange[] = [];
   const entries: unknown = session.mediaRanges;
   for (const entry of Array.isArray(entries) ? entries : []) {
@@ -514,7 +516,7 @@ export function readSessionMediaRanges(session: LvpSession): SavedMediaRange[] {
 
 // The fill clips a session was saved with, skipping malformed entries.
 export function readSessionFills(
-  session: LvpSession,
+  session: ProjectSession,
   bpm: number,
   fps: number,
 ): SessionLayerClip[] {
@@ -523,7 +525,7 @@ export function readSessionFills(
 
 // The text clips a session was saved with, skipping malformed entries.
 export function readSessionTexts(
-  session: LvpSession,
+  session: ProjectSession,
   bpm: number,
   fps: number,
 ): SessionLayerClip[] {
@@ -532,7 +534,7 @@ export function readSessionTexts(
 
 // The FX clips a session was saved with, skipping malformed entries.
 export function readSessionFxClips(
-  session: LvpSession,
+  session: ProjectSession,
   bpm: number,
   fps: number,
 ): SessionLayerClip[] {

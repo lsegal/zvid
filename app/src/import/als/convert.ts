@@ -1,12 +1,13 @@
-// Converts a parsed Ableton Live set into an `LvpSession`, the session shape
-// the Layers app saved as `.lvp`. Arrangement clips are unrolled into one LVP
-// clip per played segment and placed on the video frame grid. Clips on a track
-// with a Layers Record or ZVID Capture device play one of its recordings (see
-// `TAKE_MATCHERS`), and audio clips whose sample is a video file play that
-// file as imported video. Both are video clips. A set with video keeps only
-// the tracks that have a video clip, as the Layers app did. In a set without
-// any, every audio and MIDI track is kept: audio clips play their sample, and
-// MIDI clips are media-less placeholders that video can be linked to.
+// Converts a parsed Ableton Live set into a `ProjectSession`, the session shape
+// a project saves as `project.json`. Arrangement clips are unrolled into one
+// session clip per played segment and placed on the video frame grid. Clips on
+// a track with a Layers Record or ZVID Capture device play one of its
+// recordings (see `TAKE_MATCHERS`), and audio clips whose sample is a video
+// file play that file as imported video. Both are video clips. A set with
+// video keeps only the tracks that have a video clip, as the Layers app did. In
+// a set without any, every audio and MIDI track is kept: audio clips play their
+// sample, and MIDI clips are media-less placeholders that video can be linked
+// to.
 //
 // Everything is derived from the `.als` alone. `mainTracks` and `selections`
 // are Layers-app data with no counterpart in Live, so the import opens with an
@@ -15,7 +16,7 @@
 // of scope. Media probing (`numFrames`, `frameRate`) and resolving recording
 // files on disk happen elsewhere.
 
-import type { LvpSession } from "../../session.ts";
+import type { ProjectSession } from "../../session.ts";
 import { sourceTrackColorIndex } from "../../source-track-color.ts";
 import type {
   AlsClip,
@@ -38,7 +39,7 @@ import {
   type WarpMap,
 } from "./time.ts";
 
-type LvpClip = NonNullable<LvpSession["clips"]>[number];
+type SessionClip = NonNullable<ProjectSession["clips"]>[number];
 
 export type AlsSkipReason =
   /** The clip is deactivated in Live. */
@@ -53,7 +54,7 @@ export type AlsSkipReason =
 export interface AlsSkippedClip {
   trackId: string;
   trackName: string;
-  /** LVP clip id, including a `~n` suffix for an unrolled loop segment. */
+  /** Session clip id, including a `~n` suffix for an unrolled loop segment. */
   clipId: string;
   clipName: string;
   reason: AlsSkipReason;
@@ -81,7 +82,7 @@ export interface AlsImportOptions {
 }
 
 export interface AlsImportResult {
-  session: LvpSession;
+  session: ProjectSession;
   summary: AlsImportSummary;
 }
 
@@ -132,8 +133,8 @@ export function convertAls(
   );
 
   const skipped: AlsSkippedClip[] = [];
-  const allClips: LvpClip[] = [];
-  const videoClips: LvpClip[] = [];
+  const allClips: SessionClip[] = [];
+  const videoClips: SessionClip[] = [];
   const importedVideos = new Map<AlsTrack, Set<string>>();
   for (const track of importedTracks) {
     const trackTakes = track.isVideoTrack ? trackRecordings(track) : [];
@@ -144,7 +145,10 @@ export function convertAls(
         ? matchTake(trackTakes, clip, content, tempoMap)
         : undefined;
       const importedVideo = !track.isVideoTrack && isVideoSample(clip);
-      const skip = (reason: AlsSkipReason, clipId = lvpClipId(track, clip)) =>
+      const skip = (
+        reason: AlsSkipReason,
+        clipId = sessionClipId(track, clip),
+      ) =>
         skipped.push({
           trackId: String(track.id),
           trackName: track.name,
@@ -205,7 +209,7 @@ export function convertAls(
     ? beatsToFrames(transport.currentTime, tempoMap, fps)
     : 0;
 
-  const session: LvpSession = {
+  const session: ProjectSession = {
     mainTracks: [{ id: "1", name: "Layer 1", colorIndex: -1 }],
     tracks: sourceTracks.map((track, index) => ({
       id: String(track.id),
@@ -378,12 +382,12 @@ function isVideoSample(clip: AlsClip) {
   return clip.kind === "audio" && VIDEO_EXTENSIONS.test(samplePath(clip));
 }
 
-function lvpClipId(track: AlsTrack, clip: AlsClip) {
+function sessionClipId(track: AlsTrack, clip: AlsClip) {
   return `${track.id}-${clip.id}`;
 }
 
 /**
- * One LVP clip per unrolled segment of `clip`, including segments shorter
+ * One session clip per unrolled segment of `clip`, including segments shorter
  * than a frame, which the caller drops.
  *
  * Every clip follows the Layers convention: its video file frame is
@@ -416,7 +420,7 @@ function convertClip(
   importedVideo: boolean,
   tempoMap: TempoMap,
   fps: number,
-): LvpClip[] {
+): SessionClip[] {
   const isAudio = clip.kind === "audio";
   const { unrolled, warpMap, recordedAt } = content;
   const take =
@@ -440,7 +444,7 @@ function convertClip(
   const duration = clip.sample
     ? clip.sample.defaultDuration / clip.sample.defaultSampleRate
     : Number.NaN;
-  const baseId = lvpClipId(track, clip);
+  const baseId = sessionClipId(track, clip);
   const filePath = recording?.filename ?? (isAudio ? samplePath(clip) : "");
 
   return unrolled.segments.map((segment, index) => {

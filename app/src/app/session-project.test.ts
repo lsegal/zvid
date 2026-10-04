@@ -4,8 +4,8 @@ import { warpSourceTime } from "../clip-warp.ts";
 import { gainChainAmplitude } from "../fx/effects/gain/gain.ts";
 import { setEffectParameter, sourceClipEffectTrackId } from "../fx-stack.ts";
 import type { MediaItem } from "../media.ts";
-import type { LvpSession } from "../session.ts";
-import { projectToLvpSession } from "../session-save.ts";
+import type { ProjectSession } from "../session.ts";
+import { projectToSession } from "../session-save.ts";
 import { retimeSourceSpan } from "../source-span-edit.ts";
 import {
   getClipPieceClips,
@@ -155,7 +155,7 @@ describe("a session with a main audio", () => {
     availability: "hydrating",
   });
   // Live set imports name their song the same way.
-  const session: LvpSession = {
+  const session: ProjectSession = {
     timeline: { bpm: 120, fps: 30, projectDuration: 900 },
     tracks: [],
     clips: [],
@@ -267,7 +267,7 @@ describe("a start-trimmed warped source clip", () => {
   const bpm = 120;
   const fps = 30;
   // Plays the source at half speed for 4 beats, then at 3/4 speed.
-  const session: LvpSession = {
+  const session: ProjectSession = {
     mainTracks: [{ id: "main-1", name: "Layer 1" }],
     tracks: [{ id: "t1", name: "Cam" }],
     clips: [
@@ -312,7 +312,7 @@ describe("a start-trimmed warped source clip", () => {
   }
 
   function saveAndReopen(project: ReturnType<typeof trimmedProject>) {
-    const saved = projectToLvpSession(
+    const saved = projectToSession(
       {
         ...project,
         timelineMode: "musical",
@@ -374,7 +374,7 @@ describe("a start-trimmed warped source clip", () => {
   });
 
   it("anchors its warp at its source start in older sessions", () => {
-    const saved = projectToLvpSession(
+    const saved = projectToSession(
       {
         ...trimmedProject(),
         timelineMode: "musical",
@@ -393,7 +393,7 @@ describe("a start-trimmed warped source clip", () => {
 
   it("writes no warp anchor for an untrimmed span", () => {
     const project = sessionToProject(session, []);
-    const saved = projectToLvpSession(
+    const saved = projectToSession(
       {
         ...project,
         timelineMode: "musical",
@@ -408,7 +408,7 @@ describe("a start-trimmed warped source clip", () => {
 });
 
 describe("source track lock", () => {
-  const session: LvpSession = {
+  const session: ProjectSession = {
     mainTracks: [{ id: "main-1", name: "Layer 1" }],
     tracks: [{ id: "t1", name: "Cam" }],
     clips: [
@@ -442,7 +442,7 @@ describe("source track lock", () => {
         { ...session, sourceTracksLocked: locked },
         [],
       );
-      const saved = projectToLvpSession(
+      const saved = projectToSession(
         {
           ...INITIAL_PROJECT_STATE,
           ...project,
@@ -455,14 +455,14 @@ describe("source track lock", () => {
       );
       // Unlocking is written too, so it isn't lost on reopen.
       assert.equal(saved.sourceTracksLocked, locked);
-      const reopened = JSON.parse(JSON.stringify(saved)) as LvpSession;
+      const reopened = JSON.parse(JSON.stringify(saved)) as ProjectSession;
       assert.equal(sessionToProject(reopened, []).sourceTracksLocked, locked);
     }
   });
 });
 
 describe("default Gain on open", () => {
-  const session: LvpSession = {
+  const session: ProjectSession = {
     mainTracks: [{ id: "main-1", name: "Layer 1" }],
     tracks: [{ id: "t1", name: "Cam" }],
     clips: [
@@ -495,7 +495,7 @@ describe("default Gain on open", () => {
   function save(project: ReturnType<typeof sessionToProject>) {
     return JSON.parse(
       JSON.stringify(
-        projectToLvpSession(
+        projectToSession(
           {
             ...project,
             timelineMode: "musical",
@@ -506,7 +506,7 @@ describe("default Gain on open", () => {
           { playheadQ: 0 },
         ),
       ),
-    ) as LvpSession;
+    ) as ProjectSession;
   }
 
   it("gives an older session's source clips and layer clips a Gain", () => {
@@ -559,8 +559,8 @@ describe("default Gain on open", () => {
       availability: "hydrating",
     });
 
-    function open(lvp: LvpSession = session) {
-      const project = sessionToProject(lvp, [placeholder]);
+    function open(source: ProjectSession = session) {
+      const project = sessionToProject(source, [placeholder]);
       return {
         project,
         state: {
@@ -631,7 +631,7 @@ describe("default Gain on open", () => {
 });
 
 describe("source track FX switch", () => {
-  const session: LvpSession = {
+  const session: ProjectSession = {
     mainTracks: [{ id: "main-1", name: "Layer 1" }],
     tracks: [
       { id: "t1", name: "Cam A", fxEnabled: false },
@@ -648,7 +648,7 @@ describe("source track FX switch", () => {
 
   it("survives a save and reopen", () => {
     const project = sessionToProject(session, []);
-    const saved = projectToLvpSession(
+    const saved = projectToSession(
       {
         ...INITIAL_PROJECT_STATE,
         ...project,
@@ -659,7 +659,7 @@ describe("source track FX switch", () => {
       },
       { playheadQ: 0 },
     );
-    const reopened = JSON.parse(JSON.stringify(saved)) as LvpSession;
+    const reopened = JSON.parse(JSON.stringify(saved)) as ProjectSession;
     assert.deepEqual(
       sessionToProject(reopened, []).sourceTracks.map((track) => [
         track.id,
@@ -674,7 +674,7 @@ describe("source track FX switch", () => {
 });
 
 describe("Hide switches", () => {
-  const session: LvpSession = {
+  const session: ProjectSession = {
     mainTracks: [
       { id: "main-1", name: "Layer 1", hidden: true },
       { id: "main-2", name: "Layer 2" },
@@ -688,7 +688,7 @@ describe("Hide switches", () => {
 
   it("survives a save and reopen", () => {
     const project = sessionToProject(session, []);
-    const saved = projectToLvpSession(
+    const saved = projectToSession(
       {
         ...INITIAL_PROJECT_STATE,
         ...project,
@@ -700,7 +700,7 @@ describe("Hide switches", () => {
       { playheadQ: 0 },
     );
     const reopened = sessionToProject(
-      JSON.parse(JSON.stringify(saved)) as LvpSession,
+      JSON.parse(JSON.stringify(saved)) as ProjectSession,
       [],
     );
     assert.deepEqual(
@@ -725,7 +725,7 @@ describe("layer clips after their source clip changes", () => {
   const fps = 30;
   // One 8-quarter source clip of media from second 1, and a layer clip on
   // its quarters 2 to 6.
-  const session: LvpSession = {
+  const session: ProjectSession = {
     mainTracks: [{ id: "main-1", name: "Layer 1" }],
     tracks: [{ id: "t1", name: "Cam" }],
     clips: [
@@ -768,7 +768,7 @@ describe("layer clips after their source clip changes", () => {
   }
 
   function saveAndReopen(project: ReturnType<typeof editedProject>) {
-    const saved = projectToLvpSession(
+    const saved = projectToSession(
       {
         ...project,
         timelineMode: "musical",
@@ -838,7 +838,7 @@ describe("layer clips after their source clip changes", () => {
   it("opens an older session's slipped clip showing the same media", () => {
     // Saved by an older build against source clip c1, slipped a quarter:
     // it shows the media half a second later than the clip's position.
-    const slipped: LvpSession = {
+    const slipped: ProjectSession = {
       ...session,
       selections: [
         {

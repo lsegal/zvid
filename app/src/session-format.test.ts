@@ -10,7 +10,7 @@ import {
 } from "./als-import.ts";
 import { mediaFrameRate } from "./app/session-project.ts";
 import type { MediaItem } from "./media.ts";
-import type { LvpSession } from "./session.ts";
+import type { ProjectSession } from "./session.ts";
 import {
   applySessionFormat,
   detectOpenedSessionFormat,
@@ -148,7 +148,7 @@ describe("detectSessionFormat", () => {
 
 describe("applySessionFormat", () => {
   it("rescales frame positions to a new rate", () => {
-    const session: LvpSession = {
+    const session: ProjectSession = {
       tracks: [
         {
           id: "1",
@@ -195,7 +195,7 @@ describe("applySessionFormat", () => {
   });
 
   it("leaves frame positions alone at the same rate", () => {
-    const session: LvpSession = {
+    const session: ProjectSession = {
       clips: [
         { id: "1", trackId: "1", frameStart: 7, frameCount: 9, filePath: "" },
       ],
@@ -219,7 +219,7 @@ describe("probeAlsRecordings format detection", () => {
   // Each recording is its own file, playing the named fixture.
   const recordingsOf = (fixtures: string[]) =>
     fixtures.map((fixture, index) => `/rec/${index}/${fixture}`);
-  const importedSet = (filenames: string[]): LvpSession => ({
+  const importedSet = (filenames: string[]): ProjectSession => ({
     tracks: filenames.map((filename, index) => ({
       id: String(index + 1),
       name: `Cam ${index + 1}`,
@@ -311,7 +311,7 @@ describe("detectOpenedSessionFormat", () => {
   ];
 
   it("keeps an .lvp session's saved canvas and rate", async () => {
-    const session: LvpSession = {
+    const session: ProjectSession = {
       timeline: { fps: 25, canvasWidth: 1920, canvasHeight: 1080 },
     };
     let probed = false;
@@ -324,7 +324,7 @@ describe("detectOpenedSessionFormat", () => {
   });
 
   it("detects them for an .lvp session without them", async () => {
-    const session: LvpSession = {
+    const session: ProjectSession = {
       clips: [
         { id: "1", trackId: "1", frameStart: 9, frameCount: 9, filePath: "" },
       ],

@@ -44,14 +44,14 @@ import { resolveSampleMediaRefs } from "../sample/sample-manifest.ts";
 import { SAMPLE_MANIFESTS } from "../sample/samples.ts";
 import {
   formatClipsWithoutFile,
-  normalizeLvpSession,
+  normalizeSession,
   type SessionOpenResponse,
 } from "../session";
 import { createSessionLibraryId } from "../session-library.ts";
 import {
   PROJECT_FILE_EXTENSION,
   projectExportFilename,
-  projectToLvpSession,
+  projectToSession,
   readSessionMediaRanges,
 } from "../session-save.ts";
 import type { WorkspaceSessionSource } from "../workspace-session.ts";
@@ -147,7 +147,7 @@ export function useSessionIO({
     );
     const existingRefs = payload.mediaRefs.filter((ref) => ref.exists);
     const missingRefs = payload.mediaRefs.filter((ref) => !ref.exists);
-    const { session, clipsWithoutFile } = normalizeLvpSession(payload.session);
+    const { session, clipsWithoutFile } = normalizeSession(payload.session);
     const placeholderMedia = restoreMediaRanges(
       payload.mediaRefs.map((ref, index) =>
         buildFallbackMediaItem(
@@ -457,7 +457,7 @@ export function useSessionIO({
   // save: only saving into Sessions clears the unsaved-changes flag.
   async function handleExportProject({ includeMedia }: ProjectExportOptions) {
     const harness = getHarness();
-    const session = projectToLvpSession(projectHistory.present, {
+    const session = projectToSession(projectHistory.present, {
       playheadQ: playheadQRef.current,
       selectedClipId,
     });

@@ -128,7 +128,7 @@ export async function maybeCreateTauriHarness(
     };
 
     // Opens a project archive with its bundled media. Media it doesn't
-    // bundle is looked up on disk, as an `.lvp`'s is.
+    // bundle is looked up on disk, as a bare session's is.
     const openArchiveSession = async (
       bytes: Uint8Array,
       sessionPath: string,
