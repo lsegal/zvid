@@ -1,4 +1,4 @@
-import { STAR, irisGlsl, renderIris } from "../shapes.ts";
+import { irisGlsl, renderIris, STAR } from "../shapes.ts";
 import type { TransitionTypeDefinition } from "../type.ts";
 
 // As Iris, with a five-pointed star, one point up.

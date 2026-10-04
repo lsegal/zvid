@@ -2,12 +2,7 @@
 // the sweep of an edge across a coordinate. Each helper has a GLSL twin
 // that the types splice into their `glsl` bodies, so the two stay in step.
 
-import {
-  mixRgba,
-  type Rgba,
-  type TransitionInput,
-  type Vec2,
-} from "./type.ts";
+import { mixRgba, type Rgba, type TransitionInput, type Vec2 } from "./type.ts";
 
 export function smoothstep(edge0: number, edge1: number, x: number) {
   const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
@@ -73,10 +68,9 @@ export function renderIris(
   const half = halfExtent(resolution);
   const reach = Math.hypot(half[0], half[1]) / shape.minRadius + width;
   const size = (irisIn ? 1 - p : p) * reach;
-  const inside = 1 - smoothstep(size - width, size, shape.gauge(centered(uv, resolution)));
-  return irisIn
-    ? mixRgba(b(uv), a(uv), inside)
-    : mixRgba(a(uv), b(uv), inside);
+  const inside =
+    1 - smoothstep(size - width, size, shape.gauge(centered(uv, resolution)));
+  return irisIn ? mixRgba(b(uv), a(uv), inside) : mixRgba(a(uv), b(uv), inside);
 }
 
 export function irisGlsl(shape: IrisShape) {
@@ -135,7 +129,9 @@ const STAR_EDGE_DISTANCE = STAR_NORMAL[0];
 
 function starAngle(angle: number) {
   const offset = angle + STAR_HALF;
-  return Math.abs(offset - STAR_SECTOR * Math.floor(offset / STAR_SECTOR) - STAR_HALF);
+  return Math.abs(
+    offset - STAR_SECTOR * Math.floor(offset / STAR_SECTOR) - STAR_HALF,
+  );
 }
 
 export const STAR: IrisShape = {
