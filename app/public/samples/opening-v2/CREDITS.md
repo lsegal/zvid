@@ -25,9 +25,9 @@ arrangement, effect and title in the sample is built in zvid itself.
 
 ## Icon
 
-`bolt.svg` is the "bolt" icon (24×24, solid) from Heroicons by Tailwind Labs,
-unchanged. The sample masks the 12-second shot with it.
+`video-camera.svg` is the "video-camera" icon (24×24, solid) from Heroicons by
+Tailwind Labs, unchanged. The sample masks the 1.5-second shot with it.
 Licensed under the MIT License, Copyright (c) Tailwind Labs, Inc.
 
-- Source: https://github.com/tailwindlabs/heroicons/blob/master/optimized/24/solid/bolt.svg
+- Source: https://github.com/tailwindlabs/heroicons/blob/master/optimized/24/solid/video-camera.svg
 - License: https://github.com/tailwindlabs/heroicons/blob/master/LICENSE
