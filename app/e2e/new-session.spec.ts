@@ -86,23 +86,84 @@ test("File → New Session on a blank project doesn't ask", async ({ page }) => 
   await expect(page.getByText("Started a new session.")).toBeVisible();
 });
 
-test("Save in the New Session prompt saves before starting over", async ({
-  page,
-}) => {
-  // Saving downloads instead of asking where to save.
-  await page.addInitScript(() => {
-    delete (window as { showSaveFilePicker?: unknown }).showSaveFilePicker;
-  });
-  await openSample(page);
+function sessionEntries(page: Page) {
+  return page
+    .getByRole("complementary", { name: "Sessions" })
+    .getByRole("list", { name: "Sessions" })
+    .getByRole("button");
+}
 
+async function chooseSaveInPrompt(page: Page) {
   await chooseNewSession(page);
-  const downloading = page.waitForEvent("download");
   await page
     .getByRole("dialog", { name: "Save changes to this session?" })
     .getByRole("button", { name: "Save", exact: true })
     .click();
-  expect((await downloading).suggestedFilename()).toMatch(/\.zvd$/);
+}
+
+test("Save in the New Session prompt saves into Sessions before starting over", async ({
+  page,
+}) => {
+  const downloads: string[] = [];
+  page.on("download", (download) => {
+    downloads.push(download.suggestedFilename());
+  });
+  await openSample(page);
+  await page.getByRole("button", { name: "Sessions", exact: true }).click();
+  // Opening the sample already gave it an entry; Save updates that one.
+  await expect(sessionEntries(page)).toHaveCount(1);
+
+  await chooseSaveInPrompt(page);
 
   await expectBlankSession(page);
   await expect(page.getByText("Started a new session.")).toBeVisible();
+  await expect(sessionEntries(page)).toHaveCount(1);
+  expect(downloads).toEqual([]);
+
+  // The entry holds the saved session, and reopens with nothing unsaved.
+  await sessionEntries(page).first().click();
+  await expect(page.locator(".source-span").first()).toBeVisible();
+  await expect(page.locator(".clip-card").first()).toBeVisible();
+  await chooseNewSession(page);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expectBlankSession(page);
+});
+
+test("a failed save in the New Session prompt keeps the session", async ({
+  page,
+}) => {
+  await openSample(page);
+  // Writing a Sessions entry fails from here on.
+  await page.evaluate(() => {
+    const put = IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put = function (...args) {
+      if (this.name === "entries") {
+        throw new DOMException("The disk is full.", "QuotaExceededError");
+      }
+      return put.apply(this, args);
+    };
+  });
+
+  await chooseSaveInPrompt(page);
+
+  await expect(page.getByText("Save failed: The disk is full.")).toBeVisible();
+  await expect(page.locator(".source-span").first()).toBeVisible();
+  await expect(page.locator(".clip-card").first()).toBeVisible();
+});
+
+test("exporting doesn't count as saving for New Session", async ({ page }) => {
+  // Exporting downloads instead of asking where to save.
+  await page.addInitScript(() => {
+    delete (window as { showSaveFilePicker?: unknown }).showSaveFilePicker;
+  });
+  await openSample(page);
+  await openFileMenu(page);
+  const downloading = page.waitForEvent("download");
+  await page.getByRole("menuitem", { name: "Export Project…" }).click();
+  expect((await downloading).suggestedFilename()).toMatch(/\.zvd$/);
+
+  await chooseNewSession(page);
+  await expect(
+    page.getByRole("dialog", { name: "Save changes to this session?" }),
+  ).toBeVisible();
 });

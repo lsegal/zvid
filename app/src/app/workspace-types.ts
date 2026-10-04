@@ -13,7 +13,7 @@ export type WorkspaceView = {
   selectedSourceSpanId?: string;
   scrollLeft: number;
   scrollTop: number;
-  // Whether the project has edits that were never saved to a session file.
+  // Whether the project has edits that were never saved into Sessions.
   hasUnsavedChanges?: boolean;
 };
 

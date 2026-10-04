@@ -350,6 +350,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     readWorkspaceSession: workspace.readWorkspaceSession,
     openWorkspaceSession: workspace.openWorkspaceSession,
     refuseReadOnlyEdit,
+    setHasUnsavedChanges: store.setHasUnsavedChanges,
     setStatus,
   });
   const newSession = useNewSession({
@@ -357,8 +358,7 @@ function App({ boot }: { boot: WorkspaceBoot }) {
     hasUnsavedChanges: store.hasUnsavedChanges,
     collaborationMode,
     refuseReadOnlyEdit,
-    // Saving into the Sessions library replaces this once it exists (#888).
-    saveSession: sessionFiles.handleExportProject,
+    saveSession: library.saveToLibrary,
     startNewSession: workspace.startNewSession,
   });
   const { handleRandomizeTimeline } = editing;

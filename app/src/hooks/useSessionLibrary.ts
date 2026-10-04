@@ -34,6 +34,7 @@ export type SessionLibraryInputs = {
   readWorkspaceSession: () => SavedWorkspaceSession;
   openWorkspaceSession: (session: SavedWorkspaceSession) => void;
   refuseReadOnlyEdit: () => boolean;
+  setHasUnsavedChanges: Dispatch<SetStateAction<boolean>>;
   setStatus: (message: string) => void;
 };
 
@@ -59,6 +60,7 @@ export function useSessionLibrary({
   readWorkspaceSession,
   openWorkspaceSession,
   refuseReadOnlyEdit,
+  setHasUnsavedChanges,
   setStatus,
 }: SessionLibraryInputs) {
   const [entries, setEntries] = useState<SessionLibrarySummary[]>([]);
@@ -116,10 +118,13 @@ export function useSessionLibrary({
         updatedAt: now,
         clipCount: present.clips.length,
         contentHash: getSessionContentHash(present),
-        // Undo history stays with the open session, not its snapshot.
+        // Undo history stays with the open session, not its snapshot, and
+        // the snapshot is the saved session, so it reopens with nothing
+        // unsaved.
         payload: serializeWorkspaceSession({
           ...saved,
           history: { past: [], present, future: [] },
+          view: { ...saved.view, hasUnsavedChanges: false },
           source: withoutLibraryId(saved.source),
         }),
       };
@@ -161,6 +166,7 @@ export function useSessionLibrary({
       const entry = await writeEntry(id);
       knownIdRef.current = id;
       setSessionSource((current) => ({ ...current, libraryId: id }));
+      setHasUnsavedChanges(false);
       setStatus(`Saved ${entry.name} to Sessions.`);
       await refresh();
       return true;
@@ -168,7 +174,7 @@ export function useSessionLibrary({
       setStatus(`Save failed: ${describeError(error)}`);
       return false;
     }
-  }, [refresh, setSessionSource, writeEntry]);
+  }, [refresh, setHasUnsavedChanges, setSessionSource, writeEntry]);
 
   const openNow = useCallback(
     async (summary: SessionLibrarySummary) => {
