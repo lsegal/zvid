@@ -3,6 +3,8 @@ import { VuMeter } from "../components/timeline/VuMeter";
 import { Select, type SelectOption } from "../components/ui/select";
 import { createMeterTap, type MasterMeterTap } from "../fx-shaders/audio-bands";
 import type { RecordInput, RecordInputKind } from "./record-inputs.ts";
+import { analysisAudioContext } from "./shared-audio-context.ts";
+import { sharedMediaStreams } from "./shared-media-streams.ts";
 import "./record-input-picker.css";
 
 export type RecordInputField = {
@@ -34,8 +36,9 @@ function isPermissionError(error: unknown) {
   return name === "NotAllowedError" || name === "SecurityError";
 }
 
-// Opens the chosen device for its preview, and stops it when the choice
-// changes or the preview unmounts.
+// Opens the chosen device for its preview, and releases it when the choice
+// changes or the preview unmounts. The device is shared with any other
+// preview or recording of it.
 function useInputStream(
   kind: RecordInputKind,
   deviceId: RecordInput | undefined,
@@ -60,16 +63,12 @@ function useInputStream(
     let opened: MediaStream | null = null;
     const constraint =
       deviceId === undefined ? true : { deviceId: { exact: deviceId } };
-    navigator.mediaDevices
-      .getUserMedia(
-        kind === "video" ? { video: constraint } : { audio: constraint },
-      )
+    sharedMediaStreams
+      .acquire(kind === "video" ? { video: constraint } : { audio: constraint })
       .then(
         (granted) => {
           if (canceled) {
-            for (const track of granted.getTracks()) {
-              track.stop();
-            }
+            sharedMediaStreams.release(granted);
             return;
           }
           opened = granted;
@@ -88,9 +87,7 @@ function useInputStream(
       );
     return () => {
       canceled = true;
-      for (const track of opened?.getTracks() ?? []) {
-        track.stop();
-      }
+      if (opened) sharedMediaStreams.release(opened);
     };
   }, [deviceId, kind]);
 
@@ -165,21 +162,23 @@ function AudioPreview({
   const [metering, setMetering] = useState(false);
 
   // The meter reads the microphone through analysers that output nowhere,
-  // so the input is never played back.
+  // so the input is never played back, in the context every input analyser
+  // shares.
   useEffect(() => {
     if (!stream) {
       return;
     }
-    const context = new AudioContext();
+    const context = analysisAudioContext.acquire();
     const { input, tap } = createMeterTap(context);
-    context.createMediaStreamSource(stream).connect(input);
-    void context.resume().catch(() => {});
+    const source = context.createMediaStreamSource(stream);
+    source.connect(input);
     tapRef.current = tap;
     setMetering(true);
     return () => {
       tapRef.current = null;
       setMetering(false);
-      void context.close().catch(() => {});
+      source.disconnect();
+      analysisAudioContext.release();
     };
   }, [stream]);
 

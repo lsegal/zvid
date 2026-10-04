@@ -103,6 +103,7 @@ test("System default previews and records the device it names", async ({
   await expect(drawer(page)).toBeHidden();
 
   // A track left on its "Default (…)" input records from the same device.
+  const before = (await audioRequests(page)).length;
   await page
     .locator(".track-row--source-drop")
     .getByRole("button", { name: "Track", exact: true })
@@ -112,13 +113,17 @@ test("System default previews and records the device it names", async ({
     .first()
     .getByRole("button", { name: /^Arm .* for recording$/ })
     .click();
-  const before = (await audioRequests(page)).length;
   const record = page.locator(".transport-button--record");
   await record.click();
   await expect(page.locator(".live-recording-clip")).toBeVisible();
-  const recording = (await audioRequests(page)).slice(before);
-  expect(recording.length).toBeGreaterThan(0);
-  expect(recording.every((request) => request === microphone)).toBe(true);
+  // The track's Record device previews the input it records from, and the
+  // recording shares that capture (#955), so the microphone last opened, by
+  // the preview or the recording, was asked for by its ID. Camera-only
+  // requests don't name one.
+  const recording = (await audioRequests(page))
+    .slice(before)
+    .filter((request) => request !== undefined);
+  expect(recording.at(-1)).toBe(microphone);
 
   await page.waitForTimeout(1000);
   await record.click();

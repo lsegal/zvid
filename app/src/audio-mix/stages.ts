@@ -3,6 +3,7 @@
 // toggle or other string parameter as a switch, and its Modulation while
 // it is on.
 import { isGainEffectName } from "../fx/effects/gain/gain.ts";
+import { gainStageAmplitude } from "../fx/effects/gain/processor.ts";
 import {
   type EffectModulation,
   getModulatableParameters,
@@ -140,4 +141,24 @@ export function hasProcessingStages(
       (!isGainEffectName(stage.effectName) || stage.modulation !== undefined) &&
       registry.has(stage.effectName),
   );
+}
+
+// The amplitude `stages`' steady Gains apply, as a chain runs them: the
+// enabled ones with a registered processor multiply, and without one they
+// pass at unity.
+export function steadyGainAmplitude(
+  registry: AudioProcessorRegistry,
+  stages: readonly AudioStage[],
+) {
+  let amplitude = 1;
+  for (const stage of stages) {
+    if (
+      stage.enabled &&
+      isGainEffectName(stage.effectName) &&
+      registry.has(stage.effectName)
+    ) {
+      amplitude *= gainStageAmplitude(stage);
+    }
+  }
+  return amplitude;
 }

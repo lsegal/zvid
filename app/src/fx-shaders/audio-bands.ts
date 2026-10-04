@@ -371,8 +371,16 @@ export function createBandAnalyser(context: BaseAudioContext) {
 export type MasterMeterTap = { left: AnalyserNode; right: AnalyserNode };
 
 // The meter reads only the samples that arrived since its last frame, so
-// each analyser keeps enough for frames up to about 340 ms apart at 48 kHz.
-const METER_FFT_SIZE = 16384;
+// each analyser keeps enough for frames this far apart: well past a 30 fps
+// frame, as each frame copies the whole analyser.
+const METER_MAX_FRAME_GAP_SECONDS = 0.08;
+
+// The smallest analyser size, a power of two, holding a frame gap's worth
+// of samples at `sampleRate`: 4096 at 44.1 or 48 kHz.
+export function meterFftSize(sampleRate: number) {
+  const samples = sampleRate * METER_MAX_FRAME_GAP_SECONDS;
+  return Math.min(32768, Math.max(32, 2 ** Math.ceil(Math.log2(samples))));
+}
 
 // Splits `context`'s input into one analyser per channel, upmixing mono to
 // both sides first (a splitter alone would leave the right channel silent).
@@ -383,9 +391,10 @@ export function createMeterTap(context: BaseAudioContext) {
   input.channelInterpretation = "speakers";
   const splitter = context.createChannelSplitter(2);
   input.connect(splitter);
+  const fftSize = meterFftSize(context.sampleRate);
   const [left, right] = [0, 1].map((channel) => {
     const analyser = context.createAnalyser();
-    analyser.fftSize = METER_FFT_SIZE;
+    analyser.fftSize = fftSize;
     analyser.smoothingTimeConstant = 0;
     splitter.connect(analyser, channel);
     return analyser;
