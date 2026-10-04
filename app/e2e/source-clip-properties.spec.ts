@@ -337,3 +337,128 @@ test("the Clip widget stacks its fields vertically", async ({ page }) => {
   );
   expect(bounds.height).toBeGreaterThan(30);
 });
+
+// Sets the saved session's media length to `durationSeconds`; 0 is a session
+// saved before its media's length was read.
+async function rewriteSavedMedia(page: Page, durationSeconds: number) {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          (durationSeconds) =>
+            new Promise<boolean>((resolve, reject) => {
+              const request = indexedDB.open("zvid-workspace");
+              request.onerror = () => reject(request.error);
+              request.onsuccess = () => {
+                const database = request.result;
+                if (!database.objectStoreNames.contains("sessions")) {
+                  database.close();
+                  resolve(false);
+                  return;
+                }
+                const store = database
+                  .transaction("sessions", "readwrite")
+                  .objectStore("sessions");
+                const get = store.get("current");
+                get.onerror = () => reject(get.error);
+                get.onsuccess = () => {
+                  const saved = get.result as { payload?: string } | undefined;
+                  if (!saved?.payload?.includes("test-pattern-0.mp4")) {
+                    database.close();
+                    resolve(false);
+                    return;
+                  }
+                  let rewritten = false;
+                  const visit = (value: unknown) => {
+                    if (!value || typeof value !== "object") {
+                      return;
+                    }
+                    const record = value as Record<string, unknown>;
+                    if ("availability" in record && "durationSeconds" in record) {
+                      record.durationSeconds = durationSeconds;
+                      rewritten = true;
+                    }
+                    for (const child of Object.values(record)) {
+                      visit(child);
+                    }
+                  };
+                  const payload = JSON.parse(saved.payload);
+                  visit(payload);
+                  const put = store.put({
+                    ...saved,
+                    payload: JSON.stringify(payload),
+                  });
+                  put.onerror = () => reject(put.error);
+                  put.onsuccess = () => {
+                    database.close();
+                    resolve(rewritten);
+                  };
+                };
+              };
+            }),
+          durationSeconds,
+        ),
+      { timeout: 10_000 },
+    )
+    .toBe(true);
+}
+
+const offlineWarning = ".source-clip-properties .fx-device-panel__warning";
+
+// Media that plays but has no length recorded, as in a session saved before
+// its files were read, is online: the Clip widget shows no Media offline
+// warning, and Offset grows to the media's end once its length is read.
+test("the Clip widget treats online media of unknown length as online", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await dropVideos(page, 1);
+  const spans = page.locator(".source-span");
+  await expect(spans).toHaveCount(1, { timeout: 30_000 });
+  await rewriteSavedMedia(page, 0);
+
+  await page.reload();
+  await expect(spans).toHaveCount(1, { timeout: 30_000 });
+  await expect(spans.first()).toContainText(/online/i, { timeout: 30_000 });
+  await spans.first().click();
+  await expect(field(page, "Offset")).toBeVisible();
+  await expect(page.locator(offlineWarning)).toHaveCount(0);
+
+  const offset = field(page, "Offset");
+  await expect(async () => {
+    await dragField(page, "Offset", -200);
+    await expect(offset).toHaveAttribute("aria-valuenow", "8", {
+      timeout: 1_000,
+    });
+  }).toPass({ timeout: 15_000 });
+  await expect(page.locator(offlineWarning)).toHaveCount(0);
+});
+
+// Media whose file is gone is offline: the Clip widget says so, and Offset
+// can't grow past its current value.
+test("the Clip widget warns when the media is offline", async ({ page }) => {
+  await page.goto("/");
+  await dropVideos(page, 1);
+  const spans = page.locator(".source-span");
+  await expect(spans).toHaveCount(1, { timeout: 30_000 });
+  await rewriteSavedMedia(page, 4);
+  // Drop the cached media, so the reload can't restore the file.
+  await page.evaluate(async () => {
+    const root = await navigator.storage.getDirectory();
+    for await (const name of (
+      root as unknown as { keys(): AsyncIterable<string> }
+    ).keys()) {
+      await root.removeEntry(name, { recursive: true });
+    }
+  });
+
+  await page.reload();
+  await expect(spans).toHaveCount(1, { timeout: 30_000 });
+  await expect(spans.first()).toContainText(/offline/i, { timeout: 30_000 });
+  await spans.first().click();
+  await expect(page.locator(offlineWarning)).toHaveText(
+    "Media offline: Length and Offset can't grow past their current values.",
+  );
+  await dragField(page, "Offset", -200);
+  await expect(field(page, "Offset")).toHaveAttribute("aria-valuenow", "0");
+});
