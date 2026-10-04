@@ -11,6 +11,8 @@ export const MEDIA_EXTENSIONS = [
   "flac",
   "aif",
   "aiff",
+  // Images, used by effects such as Shape ▸ Custom rather than as clips.
+  "svg",
 ];
 
 export function hasMediaExtension(name: string) {

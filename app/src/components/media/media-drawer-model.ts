@@ -175,6 +175,9 @@ export function getTileNameMaxChars(tileWidth: number) {
 export function describeMediaKind(
   item: Pick<MediaItem, "hasAudio" | "hasVideo" | "kind">,
 ) {
+  if (item.kind === "image") {
+    return "Image";
+  }
   const hasVideo = item.hasVideo || item.kind === "video";
   if (hasVideo && item.hasAudio) {
     return "Video + Audio";

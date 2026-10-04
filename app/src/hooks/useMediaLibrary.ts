@@ -23,6 +23,7 @@ import {
   type MediaProbeResult,
   probeMediaBlob,
   toShareableMediaItem,
+  withMediaType,
 } from "../media";
 import { cacheMediaBlob } from "../media-cache";
 import { hasMediaDetails } from "../media-details.ts";
@@ -202,11 +203,16 @@ export function useMediaLibrary({
   const adoptMediaBlob = useCallback(
     async (
       mediaId: string,
-      blob: Blob,
+      adoptedBlob: Blob,
       options?: { analyze?: boolean; verify?: boolean },
     ): Promise<AdoptMediaResult> => {
       const existing = projectSnapshotRef.current.mediaItems.find(
         (item) => item.id === mediaId,
+      );
+      const blob = withMediaType(
+        adoptedBlob,
+        existing?.kind ??
+          inferMediaKind(adoptedBlob instanceof File ? adoptedBlob.name : ""),
       );
 
       let warning: string | undefined;

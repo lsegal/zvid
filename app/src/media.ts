@@ -1,6 +1,8 @@
 import type { ServerMediaRef } from "./session";
 
-export type MediaKind = "video" | "audio";
+// Images (SVG) have no timeline clips; they only feed effects such as
+// Shape ▸ Custom.
+export type MediaKind = "video" | "audio" | "image";
 
 export type Palette = {
   color: string;
@@ -78,6 +80,13 @@ export function probeMediaBlob(
     return Promise.reject(new Error("File is empty"));
   }
 
+  if (kind === "image") {
+    const url = URL.createObjectURL(blob);
+    return probeImageUrl(url)
+      .then((size) => ({ durationSeconds: 0, ...size }))
+      .finally(() => URL.revokeObjectURL(url));
+  }
+
   return new Promise((resolve, reject) => {
     const element = document.createElement(kind);
     const url = URL.createObjectURL(blob);
@@ -137,12 +146,38 @@ export function probeMediaBlob(
   });
 }
 
+// Loads an image to confirm the browser can decode it, resolving with its
+// natural size, which for an SVG comes from its width/height or viewBox.
+export function probeImageUrl(
+  url: string,
+): Promise<{ width?: number; height?: number }> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const timeoutId = window.setTimeout(
+      () => reject(new Error("Timed out loading media")),
+      MEDIA_PROBE_TIMEOUT_MS,
+    );
+    image.onload = () => {
+      window.clearTimeout(timeoutId);
+      resolve({
+        width: image.naturalWidth || undefined,
+        height: image.naturalHeight || undefined,
+      });
+    };
+    image.onerror = () => {
+      window.clearTimeout(timeoutId);
+      reject(new Error("Not an image or unsupported format"));
+    };
+    image.src = url;
+  });
+}
+
 // Reads the length of playable media from its URL, resolving 0 when it can't
 // be read. A stream whose header has no length, like a recorded WebM, reports
 // an infinite one until it is seeked to its end.
 export function probeMediaUrlDuration(
   url: string,
-  kind: MediaKind,
+  kind: "video" | "audio",
 ): Promise<number> {
   return new Promise((resolve) => {
     const element = document.createElement(kind);
@@ -173,6 +208,20 @@ export function probeMediaUrlDuration(
   });
 }
 
+export const SVG_MIME_TYPE = "image/svg+xml";
+
+// Browsers only render an SVG served with its MIME type, which blobs read
+// back from the media cache or a project archive lack.
+export function withMediaType(blob: Blob, kind: MediaKind): Blob {
+  return kind === "image" && blob.type !== SVG_MIME_TYPE
+    ? new Blob([blob], { type: SVG_MIME_TYPE })
+    : blob;
+}
+
+export function isImageMedia(item: Pick<MediaItem, "kind">) {
+  return item.kind === "image";
+}
+
 export function createMediaId(file: File) {
   return `${file.name}:${file.size}:${file.lastModified}`;
 }
@@ -189,6 +238,8 @@ export function inferMediaKind(name: string): MediaKind {
     case ".aif":
     case ".aiff":
       return "audio";
+    case ".svg":
+      return "image";
     default:
       return "video";
   }
