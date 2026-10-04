@@ -127,8 +127,7 @@ export function dragSourceSpanInSpans(
   limits: SourceSpanDragLimits,
 ) {
   const dragged = dragSourceSpan(origin, kind, deltaQ, limits);
-  const activeSpan =
-    kind === "move" ? { ...dragged, sourceTrackId } : dragged;
+  const activeSpan = kind === "move" ? { ...dragged, sourceTrackId } : dragged;
   return resolveSourceSpanOverlaps(spans, activeSpan, limits.bpm);
 }
 

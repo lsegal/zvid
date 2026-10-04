@@ -1,11 +1,11 @@
 import { type Dispatch, type SetStateAction, useEffect } from "react";
 import { patchProjectState } from "../app/session-project.ts";
+import { findSourceTrackIdAt } from "../app/timeline-math.ts";
 import type {
   ProjectState,
   SourceSpan,
   SourceSpanDragState,
 } from "../app/types.ts";
-import { findSourceTrackIdAt } from "../app/timeline-math.ts";
 import { LANE_SELECTION_DRAG_THRESHOLD_PX } from "../lane-selection-gesture.ts";
 import { dragSourceSpanInSpans } from "../source-span-edit.ts";
 import { syncClipsToSourceSpans } from "../source-track-content.ts";
