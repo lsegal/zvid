@@ -185,6 +185,58 @@ test("Space types a space in a layer rename field and the text clip editor", asy
   await expect(playButton(page)).toBeVisible();
 });
 
+test("Space toggles playback after a timeline press leaves a text field", async ({
+  page,
+}) => {
+  // Lane, clip and ruler presses prevent their default, which used to leave
+  // focus in the text clip's FX Text box so Space kept typing there (#924).
+  const clip = lane(page, "1").locator(".clip-card--text");
+  const text = page.locator(".fx-text").getByRole("textbox");
+  const laneBounds = await lane(page, "1").boundingBox();
+  const rulerBounds = await page.locator(".ruler-row__content").boundingBox();
+  if (!laneBounds || !rulerBounds) {
+    throw new Error("Timeline is not visible");
+  }
+  const presses: [string, () => Promise<void>][] = [
+    ["clip", () => clip.locator(".clip-card__body").click()],
+    [
+      "lane",
+      () =>
+        page.mouse.click(
+          laneBounds.x + 20,
+          laneBounds.y + laneBounds.height / 2,
+        ),
+    ],
+    [
+      "ruler",
+      () =>
+        page.mouse.click(
+          laneBounds.x + 60,
+          rulerBounds.y + rulerBounds.height / 2,
+        ),
+    ],
+  ];
+
+  for (const [name, press] of presses) {
+    await clip.locator(".clip-card__body").click();
+    await text.fill(`Hello ${name}`);
+    await expect(text).toBeFocused();
+    await press();
+    await expect
+      .poll(() => page.evaluate(() => document.activeElement?.tagName))
+      .not.toBe("TEXTAREA");
+    await expect(playButton(page)).toBeVisible();
+    await page.keyboard.press("Space");
+    await expect(pauseButton(page)).toBeVisible();
+    await page.keyboard.press("Space");
+    await expect(playButton(page)).toBeVisible();
+  }
+
+  // Leaving the field committed what was typed, without a stray space.
+  await clip.locator(".clip-card__body").click();
+  await expect(text).toHaveValue("Hello ruler");
+});
+
 test("Enter picks up a grip and presses [ + Layer ]", async ({ page }) => {
   const grip = page.locator("[data-layer-grip]").first();
   await grip.focus();

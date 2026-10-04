@@ -4,6 +4,7 @@ import {
   classifySpaceTarget,
   type createSpaceHold,
   hasOpenPopup,
+  isTextEntryTarget,
 } from "../space-shortcut";
 
 export type SpacePlaybackInputs = {
@@ -140,4 +141,29 @@ export function useSpacePlayback({
     timelineScrollRef,
     toggleMediaPlayback,
   ]);
+
+  // Lane, clip and ruler presses prevent their default, so a text field
+  // focused before them, such as a text clip's FX Text box, kept focus and
+  // took every later Space as typing (#924). A press in the timeline outside
+  // the field leaves it, as a press anywhere else would.
+  useEffect(() => {
+    const onPointerDown = (event: PointerEvent) => {
+      const active = document.activeElement;
+      const target = event.target;
+      if (
+        active instanceof HTMLElement &&
+        isTextEntryTarget(active) &&
+        target instanceof Element &&
+        !active.contains(target) &&
+        target.closest(".timeline-panel")
+      ) {
+        active.blur();
+      }
+    };
+
+    window.addEventListener("pointerdown", onPointerDown, true);
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown, true);
+    };
+  }, []);
 }
